@@ -44,11 +44,11 @@ TEST(IRTEST, TestBuilder) {
     std::vector<int64_t> tileShape = { 128, 128 };
 
     auto inputTensor  = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
-    inputTensor->Attributes()["io"] = "in";
+    ASSERT_TRUE(inputTensor->SetAttr("io", std::string("in")));
     auto scale1       = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
-    scale1->Attributes()["io"] = "in";
+    ASSERT_TRUE(scale1->SetAttr("io", std::string("in")));
     auto result = std::make_shared<TileValue>(tileShape, DataType::FP32, "output");
-    result->Attributes()["io"] = "out";
+    ASSERT_TRUE(result->SetAttr("io", std::string("out")));
 
     sig.arguments = { inputTensor, scale1, result };
 
@@ -85,9 +85,12 @@ TEST(IRTEST, TestBuilder) {
     ASSERT_EQ(ctx.activeOpStmt, nullptr);
 
     // ===== Program attributes =====
-    module->Attributes()["arch"] = "\"PTOv2\"";
-    module->Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
-    module->Attributes()["enable_debug"] = "true";
+    ASSERT_TRUE(module->SetAttr("arch", std::string("\"PTOv2\"")));
+    ASSERT_TRUE(module->SetAttr("tile_default", std::string("{ M=16, N=16, K=16 }")));
+    ASSERT_TRUE(module->SetAttr("enable_debug", std::string("true")));
+
+    // negative case: unregistered key should be rejected
+    EXPECT_FALSE(module->SetAttr("non_registered_key", std::string("value")));
 
     std::cout << *module << std::endl;
 }
@@ -109,18 +112,18 @@ TEST(IRTEST, TestControlFlow) {
     std::vector<int64_t> tileShape = { 128, 128 };
 
     auto inputX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputX");
-    inputX->Attributes()["io"] = "in";
+    ASSERT_TRUE(inputX->SetAttr("io", std::string("in")));
     auto inputY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "inputY");
-    inputY->Attributes()["io"] = "in";
+    ASSERT_TRUE(inputY->SetAttr("io", std::string("in")));
     auto scale1 = std::make_shared<ScalarValue>(DataType::FP32, "scale1", ScalarValueKind::Symbolic);
-    scale1->Attributes()["io"] = "in";
+    ASSERT_TRUE(scale1->SetAttr("io", std::string("in")));
     auto scale2 = std::make_shared<ScalarValue>(DataType::FP32, "scale2", ScalarValueKind::Symbolic);
-    scale2->Attributes()["io"] = "in";
+    ASSERT_TRUE(scale2->SetAttr("io", std::string("in")));
 
     auto resultX = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputX");
-    resultX->Attributes()["io"] = "out";
+    ASSERT_TRUE(resultX->SetAttr("io", std::string("out")));
     auto resultY = std::make_shared<TensorValue>(tensorShape, DataType::FP32, "outputY");
-    resultY->Attributes()["io"] = "out";
+    ASSERT_TRUE(resultY->SetAttr("io", std::string("out")));
 
     sig.arguments = { inputX, inputY, scale1, scale2, resultX, resultY };
 
@@ -140,7 +143,7 @@ TEST(IRTEST, TestControlFlow) {
     auto fs = builder.CreateForStmt(ctx, i, constant0, batch, constant1);
 
     // test for attribute
-    fs->Attributes()["unroll"] = "4";
+    fs->SetAttr("unroll", 4);
 
     builder.EnterForBody(ctx, fs);
 
