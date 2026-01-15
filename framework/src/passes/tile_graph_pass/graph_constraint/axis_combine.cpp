@@ -16,6 +16,7 @@
 #include "axis_combine.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/reschedule_utils.h"
 
 #define MODULE_NAME "AxisCombine"
 
@@ -60,7 +61,7 @@ Status GetPaddingValue(const LogicalTensorPtr &tensor, int64_t &padValue) {
     return SUCCESS;
 }
 
-Status AlignBroadCastOpInputs([[maybe_unused]]Function &function, Operation &op) {
+Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, Operation &op) {
     auto inputTensor = op.GetIOperands();
     auto inTensor0 = inputTensor[0];
     auto inTensor1 = inputTensor[1];
@@ -76,12 +77,27 @@ Status AlignBroadCastOpInputs([[maybe_unused]]Function &function, Operation &op)
                 if (GetPaddingValue(srcTensor, padValue) != SUCCESS) {
                     return FAILED;
                 }
+<<<<<<< HEAD
                 if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
                     return FAILED;
                 }
+=======
+                if (!enableBrcb_) {
+                    padValue = inputTensor[idx ^ 1]->GetShape().back();
+                }
+                AlignedIfNeed(alignedShape.back(), padValue);
+>>>>>>> b2e4915 (fix(pass): Fix unalign combine axis bugs)
                 auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
                 alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
+                if (!enableBrcb_) {
+                    brcb.SetOpCode(Opcode::OP_EXPAND);
+                    if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
+                        brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", inputTensor[idx ^ 1]->GetDynValidShape());
+                    } else {
+                        brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", SymbolicScalar::FromConcrete(inputTensor[idx ^ 1]->GetShape()));
+                    }
+                }
                 brcb.UpdateSubgraphID(op.GetSubgraphID());
                 srcTensor->RemoveConsumer(op);
                 op.ReplaceIOperand(idx, alignedTensor);
@@ -111,6 +127,7 @@ Status AxisCombine::RunOnFunction(Function &function) {
         APASS_LOG_INFO_F(Elements::Operation, "AxisCombine is skipped.");
         return SUCCESS;
     }
+    enableBrcb_ = RescheduleUtils::EnableCombineAxis(function);
     if (Process(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "AxisCombine process failed.");
         return FAILED;

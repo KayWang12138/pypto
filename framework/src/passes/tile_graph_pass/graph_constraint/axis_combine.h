@@ -36,6 +36,9 @@ public:
 
     Status RunOnFunction(Function &function) override;
     Status Process(Function &function);
+private:
+    Status AlignBroadCastOpInputs(Function &function, Operation &op);
+    bool enableBrcb_{true};
 };
 }
 #endif // AXIS_COMBINE_H
