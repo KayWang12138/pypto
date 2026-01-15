@@ -47,7 +47,7 @@ def hc_split_sinkhorn(comb_flag: pypto.Tensor, hc_eps) \
     elif tile_t <= 64:
         pypto.set_vec_tile_shapes(4, 16, 32)
     else:
-        pypto.set_vec_tile_shapes(128, 16, 32)
+        pypto.set_vec_tile_shapes(16, 16, 32)
 
     row_max = pypto.amax(comb_flag, -1, True)   # (tile_t, 4, 1)
     comb_flag = pypto.exp(comb_flag - row_max)    # (tile_t, 4, 4)
@@ -113,8 +113,8 @@ def hc_split_sinkhorn_2(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.
         "vec_nbuffer_mode": 1,
     },
     runtime_options={
-        "stitch_function_inner_memory": 128,
-        "stitch_function_outcast_memory": 128,
+        "stitch_function_inner_memory": 2048,
+        "stitch_function_outcast_memory": 2048,
         "device_sched_mode": 0,
         # for acl graph
         "stitch_cfgcache_size": 2500000
@@ -161,7 +161,7 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
             tile_shape_2 = 32
         else:
             tile_shapes_1 = [16, 512]
-            tile_shape_2 = 128
+            tile_shape_2 = 16
 
         pypto.set_vec_tile_shapes(tile_shapes_1[0], tile_shapes_1[1])
 
