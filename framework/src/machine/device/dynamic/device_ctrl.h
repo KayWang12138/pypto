@@ -166,28 +166,18 @@ class DeviceCtrlMachine {
                 devCtrlFlowCache->isRelocDataDev = true;
                 devCtrlFlowCache->TaskAddrRelocProgramAndCtrlCache(0, 0, reinterpret_cast<uint64_t>(devProg),
                                                                 reinterpret_cast<uint64_t>(devCtrlFlowCache));
-                DEV_INFO("ControlFlowCache: 2");
                 devCtrlFlowCache->RuntimeAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
-                DEV_INFO("ControlFlowCache: 3");
             }
 
             devCtrlFlowCache->IncastOutcastAddrRestore();
-            DEV_INFO("ControlFlowCache: 4");
             devCtrlFlowCache->IncastOutcastAddrReloc(0, devArgs->contextWorkspaceAddr, devArgs);
-            DEV_INFO("ControlFlowCache: 5");
             if (devCtrlFlowCache->workspaceAddr != devArgs->contextWorkspaceAddr) {
-                DEV_INFO("ControlFlowCache: 6");
                 devCtrlFlowCache->workspaceAddr = devArgs->contextWorkspaceAddr;
                 devCtrlFlowCache->TaskAddrRestoreWorkspace();
-                DEV_INFO("ControlFlowCache: 7");
                 devCtrlFlowCache->TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
-                DEV_INFO("ControlFlowCache: 8");
             }
-            DEV_INFO("ControlFlowCache: 9");
             devProg->ResetRerun();
         }
-
-        DEV_INFO("ControlFlowCache: 10");
     }
 
     int InitDyn(DeviceKernelArgs *kargs) {

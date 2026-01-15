@@ -20,6 +20,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/host/perf_analysis.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -109,6 +110,10 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     [[maybe_unused]] const std::vector<DeviceTensorData> &inputs, [[maybe_unused]] const std::vector<DeviceTensorData> &outputs,
     [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData,
     [[maybe_unused]] py::int_ devCtrlCache) {
+
+    HOST_PERF_TRACE_START();
+    HOST_PERF_EVT_BEGIN(EventPhase::RunDevice);
+
 #ifdef BUILD_WITH_CANN
     auto opAddr = static_cast<uintptr_t>(pythonOperatorPython);
     if (opAddr == 0) {
@@ -156,6 +161,8 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
         return "device run failed";
     }
 #endif
+
+    HOST_PERF_EVT_END(EventPhase::RunDevice);
     return "";
 }
 
@@ -200,13 +207,15 @@ uintptr_t OperatorBegin() {
 std::string OperatorEnd(uintptr_t opAddr) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     ExportedOperatorEnd(op);
-
     return "";
 }
 
 int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
         const std::vector<DeviceTensorData> &outputList) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
+
+    HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
+
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
@@ -231,6 +240,7 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
         return ctrlCache == nullptr ? 0 : reinterpret_cast<int64_t>(ctrlCache);
     }
 
+    HOST_PERF_EVT_END(EventPhase::BuildCtrlFlowCache);
     return 0;
 }
 
