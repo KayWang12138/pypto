@@ -221,7 +221,7 @@ const T& Config::Get(ConfigKey key) const {
 // Helper function to compute hash for config key name (outside namespace for macro use)
 // This ensures the same name always generates the same enum value
 constexpr size_t ComputeConfigKeyHashImpl(const char* str, size_t initHashValue = 5381) {
-    sizt_t hash = initHashValue;
+    size_t hash = initHashValue;
     for(size_t i = 0; str[i] != '\0'; i++) {
         hash = hash * 33 + (unsigned char)str[i];
     }
