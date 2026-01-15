@@ -22,156 +22,150 @@
 #include "ir/opcode.h"
 #include "ir/program.h"
 
+#include <memory>
+
 using namespace pto;
 
 // ===== Verifier Class Tests =====
 
-TEST(IRVerifierTest, TestVerifySSASingleInput_ValidProgram) {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder;
-    IRBuilderContext ctx;
+class IRVerifierTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        module_ = std::make_shared<ProgramModule>("main");
+        builder_ = std::make_unique<IRBuilder>();
+        ctx_ = std::make_unique<IRBuilderContext>();
+    }
 
+    void TearDown() override {
+        ctx_.reset();
+        builder_.reset();
+        module_.reset();
+    }
+
+    FunctionPtr CreateTestFunction(const FunctionSignature &sig, const std::string &name = "test_func") {
+        auto func = builder_->CreateFunction(name, FunctionKind::Block, sig);
+        module_->AddFunction(func);
+        builder_->EnterFunctionBody(*ctx_, func);
+        return func;
+    }
+
+    void FinishFunction() {
+        builder_->CreateReturn(*ctx_, {});
+        ctx_->PopScope();
+    }
+
+    ProgramModulePtr module_;
+    std::unique_ptr<IRBuilder> builder_;
+    std::unique_ptr<IRBuilderContext> ctx_;
+};
+
+TEST_F(IRVerifierTest, TestVerifySSASingleInput_ValidProgram) {
     FunctionSignature sig;
     std::vector<int64_t> tileShape = {128, 64};
     auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
     sig.arguments = {inputTile};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
-    module->AddFunction(func);
-    builder.EnterFunctionBody(ctx, func);
+    CreateTestFunction(sig);
 
     // Create a simple operation: output = input (using unary op as identity)
-    auto outputTile = builder.CreateTile(ctx, tileShape, DataType::FP32, "output");
-    auto unaryOp = builder.CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
-    builder.Emit(ctx, unaryOp);
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    auto unaryOp = builder_->CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
+    builder_->Emit(*ctx_, unaryOp);
 
-    builder.CreateReturn(ctx, {});
-    ctx.PopScope();
+    FinishFunction();
 
-    VerifyResult result = VerifySSA(module);
+    VerifyResult result = VerifySSA(module_);
     EXPECT_TRUE(result.passed) << "Valid program should pass SSA verification";
 }
 
-TEST(IRVerifierTest, TestVerifySSASingleInput_InvalidProgram_MultipleDefinitions) {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder;
-    IRBuilderContext ctx;
-
+TEST_F(IRVerifierTest, TestVerifySSASingleInput_InvalidProgram_MultipleDefinitions) {
     FunctionSignature sig;
     std::vector<int64_t> tileShape = {128, 64};
     auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
     sig.arguments = {inputTile};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
-    module->AddFunction(func);
-    builder.EnterFunctionBody(ctx, func);
+    CreateTestFunction(sig);
 
     // Create a TileValue that will be used as output multiple times (violates SSA)
-    auto outputTile = builder.CreateTile(ctx, tileShape, DataType::FP32, "output");
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
     
     // First definition: output = neg(input)
-    auto op1 = builder.CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
-    builder.Emit(ctx, op1);
+    auto op1 = builder_->CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
+    builder_->Emit(*ctx_, op1);
 
     // Second definition: output = abs(input) - violates SSA (same TileValue defined twice)
-    auto op2 = builder.CreateUnaryOp(Opcode::OP_ABS, inputTile, outputTile);
-    builder.Emit(ctx, op2);
+    auto op2 = builder_->CreateUnaryOp(Opcode::OP_ABS, inputTile, outputTile);
+    builder_->Emit(*ctx_, op2);
 
-    builder.CreateReturn(ctx, {});
-    ctx.PopScope();
+    FinishFunction();
 
-    VerifyResult result = VerifySSA(module);
+    VerifyResult result = VerifySSA(module_);
     EXPECT_FALSE(result.passed) << "Program with multiple definitions of same TileValue should fail";
     EXPECT_FALSE(result.errorMsg.empty());
 }
 
-TEST(IRVerifierTest, TestVerifyOpShape_ValidUnaryOp) {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder;
-    IRBuilderContext ctx;
-
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidUnaryOp) {
     FunctionSignature sig;
     std::vector<int64_t> tileShape = {128, 64};
     auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
     sig.arguments = {inputTile};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
-    module->AddFunction(func);
-    builder.EnterFunctionBody(ctx, func);
+    CreateTestFunction(sig);
 
     // UnaryOp with matching shapes
-    auto outputTile = builder.CreateTile(ctx, tileShape, DataType::FP32, "output");
-    auto unaryOp = builder.CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
-    builder.Emit(ctx, unaryOp);
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    auto unaryOp = builder_->CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
+    builder_->Emit(*ctx_, unaryOp);
 
-    builder.CreateReturn(ctx, {});
-    ctx.PopScope();
+    FinishFunction();
 
-    VerifyResult result = VerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module_);
     EXPECT_TRUE(result.passed) << "Valid UnaryOp should pass shape verification";
 }
 
-TEST(IRVerifierTest, TestVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder;
-    IRBuilderContext ctx;
-
+TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
     FunctionSignature sig;
     std::vector<int64_t> inputShape = {128, 64};
     std::vector<int64_t> outputShape = {64, 128}; // Different shape
     auto inputTile = std::make_shared<TileValue>(inputShape, DataType::FP32, "input");
     sig.arguments = {inputTile};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
-    module->AddFunction(func);
-    builder.EnterFunctionBody(ctx, func);
+    CreateTestFunction(sig);
 
     // UnaryOp with mismatched shapes
-    auto outputTile = builder.CreateTile(ctx, outputShape, DataType::FP32, "output");
-    auto unaryOp = builder.CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
-    builder.Emit(ctx, unaryOp);
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    auto unaryOp = builder_->CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
+    builder_->Emit(*ctx_, unaryOp);
 
-    builder.CreateReturn(ctx, {});
-    ctx.PopScope();
+    FinishFunction();
 
-    VerifyResult result = VerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module_);
     EXPECT_FALSE(result.passed) << "UnaryOp with mismatched shapes should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("UnaryOp"), std::string::npos);
 }
 
-TEST(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_MatchingShapes) {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder;
-    IRBuilderContext ctx;
-
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_MatchingShapes) {
     FunctionSignature sig;
     std::vector<int64_t> tileShape = {128, 64};
     auto input1 = std::make_shared<TileValue>(tileShape, DataType::FP32, "input1");
     auto input2 = std::make_shared<TileValue>(tileShape, DataType::FP32, "input2");
     sig.arguments = {input1, input2};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
-    module->AddFunction(func);
-    builder.EnterFunctionBody(ctx, func);
+    CreateTestFunction(sig);
 
     // BinaryOp with all matching shapes
-    auto outputTile = builder.CreateTile(ctx, tileShape, DataType::FP32, "output");
-    auto binaryOp = builder.CreateBinaryOp(Opcode::OP_ADD, input1, input2, outputTile);
-    builder.Emit(ctx, binaryOp);
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    auto binaryOp = builder_->CreateBinaryOp(Opcode::OP_ADD, input1, input2, outputTile);
+    builder_->Emit(*ctx_, binaryOp);
 
-    builder.CreateReturn(ctx, {});
-    ctx.PopScope();
+    FinishFunction();
 
-    VerifyResult result = VerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module_);
     EXPECT_TRUE(result.passed) << "BinaryOp with matching shapes should pass";
 }
 
-TEST(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_Broadcast) {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder;
-    IRBuilderContext ctx;
-
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_Broadcast) {
     FunctionSignature sig;
     std::vector<int64_t> lhsShape = {1, 64}; // Broadcastable shape
     std::vector<int64_t> rhsShape = {128, 64};
@@ -180,27 +174,20 @@ TEST(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_Broadcast) {
     auto input2 = std::make_shared<TileValue>(rhsShape, DataType::FP32, "input2");
     sig.arguments = {input1, input2};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
-    module->AddFunction(func);
-    builder.EnterFunctionBody(ctx, func);
+    CreateTestFunction(sig);
 
     // BinaryOp with broadcastable shape (one input has dimension 1)
-    auto outputTile = builder.CreateTile(ctx, outputShape, DataType::FP32, "output");
-    auto binaryOp = builder.CreateBinaryOp(Opcode::OP_ADD, input1, input2, outputTile);
-    builder.Emit(ctx, binaryOp);
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    auto binaryOp = builder_->CreateBinaryOp(Opcode::OP_ADD, input1, input2, outputTile);
+    builder_->Emit(*ctx_, binaryOp);
 
-    builder.CreateReturn(ctx, {});
-    ctx.PopScope();
+    FinishFunction();
 
-    VerifyResult result = VerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module_);
     EXPECT_TRUE(result.passed) << "BinaryOp with broadcastable shape should pass";
 }
 
-TEST(IRVerifierTest, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder;
-    IRBuilderContext ctx;
-
+TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
     FunctionSignature sig;
     std::vector<int64_t> lhsShape = {128, 32}; // Incompatible
     std::vector<int64_t> rhsShape = {128, 64};
@@ -209,56 +196,42 @@ TEST(IRVerifierTest, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
     auto input2 = std::make_shared<TileValue>(rhsShape, DataType::FP32, "input2");
     sig.arguments = {input1, input2};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
-    module->AddFunction(func);
-    builder.EnterFunctionBody(ctx, func);
+    CreateTestFunction(sig);
 
     // BinaryOp with incompatible shapes
-    auto outputTile = builder.CreateTile(ctx, outputShape, DataType::FP32, "output");
-    auto binaryOp = builder.CreateBinaryOp(Opcode::OP_ADD, input1, input2, outputTile);
-    builder.Emit(ctx, binaryOp);
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    auto binaryOp = builder_->CreateBinaryOp(Opcode::OP_ADD, input1, input2, outputTile);
+    builder_->Emit(*ctx_, binaryOp);
 
-    builder.CreateReturn(ctx, {});
-    ctx.PopScope();
+    FinishFunction();
 
-    VerifyResult result = VerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module_);
     EXPECT_FALSE(result.passed) << "BinaryOp with incompatible shapes should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("BinaryOp"), std::string::npos);
 }
 
-TEST(IRVerifierTest, TestVerifyOpShape_ValidBinaryScalarMixOp) {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder;
-    IRBuilderContext ctx;
-
+TEST_F(IRVerifierTest, TestVerifyOpShape_ValidBinaryScalarMixOp) {
     FunctionSignature sig;
     std::vector<int64_t> tileShape = {128, 64};
     auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
     auto scalar = std::make_shared<ScalarValue>(DataType::FP32, "scale", ScalarValueKind::Symbolic);
     sig.arguments = {inputTile, scalar};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
-    module->AddFunction(func);
-    builder.EnterFunctionBody(ctx, func);
+    CreateTestFunction(sig);
 
     // BinaryScalarMixOp with matching shapes
-    auto outputTile = builder.CreateTile(ctx, tileShape, DataType::FP32, "output");
-    auto binaryScalarMixOp = builder.CreateBinaryScalarMixOp(Opcode::OP_MULS, inputTile, scalar, outputTile);
-    builder.Emit(ctx, binaryScalarMixOp);
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    auto binaryScalarMixOp = builder_->CreateBinaryScalarMixOp(Opcode::OP_MULS, inputTile, scalar, outputTile);
+    builder_->Emit(*ctx_, binaryScalarMixOp);
 
-    builder.CreateReturn(ctx, {});
-    ctx.PopScope();
+    FinishFunction();
 
-    VerifyResult result = VerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module_);
     EXPECT_TRUE(result.passed) << "Valid BinaryScalarMixOp should pass shape verification";
 }
 
-TEST(IRVerifierTest, TestVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder;
-    IRBuilderContext ctx;
-
+TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
     FunctionSignature sig;
     std::vector<int64_t> inputShape = {128, 64};
     std::vector<int64_t> outputShape = {64, 128}; // Different shape
@@ -266,55 +239,45 @@ TEST(IRVerifierTest, TestVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes
     auto scalar = std::make_shared<ScalarValue>(DataType::FP32, "scale", ScalarValueKind::Symbolic);
     sig.arguments = {inputTile, scalar};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
-    module->AddFunction(func);
-    builder.EnterFunctionBody(ctx, func);
+    CreateTestFunction(sig);
 
     // BinaryScalarMixOp with mismatched shapes
-    auto outputTile = builder.CreateTile(ctx, outputShape, DataType::FP32, "output");
-    auto binaryScalarMixOp = builder.CreateBinaryScalarMixOp(Opcode::OP_MULS, inputTile, scalar, outputTile);
-    builder.Emit(ctx, binaryScalarMixOp);
+    auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
+    auto binaryScalarMixOp = builder_->CreateBinaryScalarMixOp(Opcode::OP_MULS, inputTile, scalar, outputTile);
+    builder_->Emit(*ctx_, binaryScalarMixOp);
 
-    builder.CreateReturn(ctx, {});
-    ctx.PopScope();
+    FinishFunction();
 
-    VerifyResult result = VerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module_);
     EXPECT_FALSE(result.passed) << "BinaryScalarMixOp with mismatched shapes should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("BinaryScalarMixOp"), std::string::npos);
 }
 
-TEST(IRVerifierTest, TestVerifyOpShape_MixedOperations) {
-    auto module = std::make_shared<ProgramModule>("main");
-    IRBuilder builder;
-    IRBuilderContext ctx;
-
+TEST_F(IRVerifierTest, TestVerifyOpShape_MixedOperations) {
     FunctionSignature sig;
     std::vector<int64_t> tileShape = {128, 64};
     auto inputTile = std::make_shared<TileValue>(tileShape, DataType::FP32, "input");
     sig.arguments = {inputTile};
 
-    auto func = builder.CreateFunction("test_func", FunctionKind::Block, sig);
-    module->AddFunction(func);
-    builder.EnterFunctionBody(ctx, func);
+    CreateTestFunction(sig);
 
     // Mix of valid operations
-    auto temp1 = builder.CreateTile(ctx, tileShape, DataType::FP32, "temp1");
-    auto unaryOp = builder.CreateUnaryOp(Opcode::OP_NEG, inputTile, temp1);
-    builder.Emit(ctx, unaryOp);
+    auto temp1 = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "temp1");
+    auto unaryOp = builder_->CreateUnaryOp(Opcode::OP_NEG, inputTile, temp1);
+    builder_->Emit(*ctx_, unaryOp);
 
-    auto temp2 = builder.CreateTile(ctx, tileShape, DataType::FP32, "temp2");
-    auto binaryOp = builder.CreateBinaryOp(Opcode::OP_ADD, temp1, temp1, temp2);
-    builder.Emit(ctx, binaryOp);
+    auto temp2 = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "temp2");
+    auto binaryOp = builder_->CreateBinaryOp(Opcode::OP_ADD, temp1, temp1, temp2);
+    builder_->Emit(*ctx_, binaryOp);
 
-    auto scalar = builder.CreateConst(ctx, 2.0, "scale");
-    auto outputTile = builder.CreateTile(ctx, tileShape, DataType::FP32, "output");
-    auto binaryScalarMixOp = builder.CreateBinaryScalarMixOp(Opcode::OP_MULS, temp2, scalar, outputTile);
-    builder.Emit(ctx, binaryScalarMixOp);
+    auto scalar = builder_->CreateConst(*ctx_, 2.0, "scale");
+    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    auto binaryScalarMixOp = builder_->CreateBinaryScalarMixOp(Opcode::OP_MULS, temp2, scalar, outputTile);
+    builder_->Emit(*ctx_, binaryScalarMixOp);
 
-    builder.CreateReturn(ctx, {});
-    ctx.PopScope();
+    FinishFunction();
 
-    VerifyResult result = VerifyOpShape(module);
+    VerifyResult result = VerifyOpShape(module_);
     EXPECT_TRUE(result.passed) << "Program with valid mixed operations should pass";
 }

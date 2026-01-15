@@ -35,9 +35,9 @@ void TileValueSSAVisitor::VisitImplOp(OperationPtr &op) {
 
 // ---- Concrete ops (auto-generated from *.def) ----
 #define DEFOP(name, inherit, opcode, ...)                             \
-    void TileValueSSAVisitor::VisitImplOp(name##Ptr &op) {               \
+    void TileValueSSAVisitor::VisitImplOp(name##Ptr &op) {            \
         OperationPtr opPtr = std::static_pointer_cast<Operation>(op); \
-        VisitImplOp(opPtr);                                              \
+        VisitImplOp(opPtr);                                           \
     }
 #include "ir/operation.def"
 #include "ir/tile_graph.def"
