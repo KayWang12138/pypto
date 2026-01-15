@@ -32,6 +32,7 @@
 #include "passes/pass_utils/pass_utils.h"
 
 #include "ir/program.h"
+
 namespace npu::tile_fwk {
 constexpr int FUNCTION_MAX_INCASTS = 10000;
 

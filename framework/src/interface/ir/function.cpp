@@ -131,7 +131,8 @@ std::ostream& operator<<(std::ostream& os, const Function& func) {
 
 uint64_t Function::ComputeHash() {
     // wait for IRVisitor to implement
-    return 0;
+    
+    return 111;
 }
 
 bool Function::isFromInCast(const ValuePtr &value) const {
