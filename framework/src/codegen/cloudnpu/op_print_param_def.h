@@ -62,9 +62,9 @@ struct PrintIndexAddParam {
 struct PrintIndexPutParam {
     const std::string &dVar;
     const std::string &s1Var;
-    std::vector<std::string> &s2Var;
-    std::vector<int64_t> &gmShape;
-    std::vector<int64_t> &src1RawShape;
+    const std::vector<std::string> &s2Var;
+    const std::vector<int64_t> &gmShape;
+    const std::vector<int64_t> &src1RawShape;
     const std::vector<std::string> &dataTypeExpr;
     const bool accumulate;
 };

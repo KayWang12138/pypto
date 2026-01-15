@@ -647,11 +647,11 @@ std::string CodeGenOpCloudNPU::PrintIndexPutDynamicUnaligned(const PrintIndexPut
     // template param
     std::vector<std::string> paramList;
     paramList.insert(paramList.end(), {dataTypeExpr[ID1], dataTypeExpr[ID3]});
-    paramList.push_back(std::to_string(dstRank));
+    paramList.emplace_back(std::to_string(dstRank));
     for (int i = 1; i < SHAPE_DIM4; i++) {
-        paramList.push_back(std::to_string(s1rs[i]));
+        paramList.emplace_back(std::to_string(s1rs[i]));
     }
-    paramList.push_back(std::to_string(accumulate));
+    paramList.emplace_back(std::to_string(accumulate));
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
     // function actual params
@@ -661,10 +661,10 @@ std::string CodeGenOpCloudNPU::PrintIndexPutDynamicUnaligned(const PrintIndexPut
     paramList.insert(paramList.end(), {dst, src1});
     for (size_t i = 0; i < src2Var.size(); i++) {
         std::string src2Temp = "(__ubuf__ " + dataTypeExpr[ID3] + "*)" + src2Var[i];
-        paramList.push_back(src2Temp);
+        paramList.emplace_back(src2Temp);
     }
     auto validShape = dynamicValidShape[ID2]; // src1
-    paramList.push_back(SymbolicExpressionTable::BuildExpression(validShape[0]));
+    paramList.emplace_back(SymbolicExpressionTable::BuildExpression(validShape[0]));
     paramList.insert(paramList.end(), paramPack.begin(), paramPack.end());
 
     std::string tileOpCallParam = JoinString(paramList, CONN_COMMA);
@@ -689,16 +689,15 @@ std::string CodeGenOpCloudNPU::GenIndexPutOp() const {
     std::vector<std::string> s2Var;
     for (int i = 0; i < indicesSize; i++) {
         std::string s2VarTemp = sm->QueryVarNameByTensorMagic(operandWithMagic[ID3 + i]);
-        s2Var.push_back(s2VarTemp);
+        s2Var.emplace_back(s2VarTemp);
     }
     std::vector gmShape = this->rawShape[ID0];
     std::vector src1RawShape = this->rawShape[ID2];
 
-    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-    std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
-    std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
-    std::string src2DtypeStr = DataType2CCEStr(operandDtype[ID3]);
-    const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src0DtypeStr, src1DtypeStr, src2DtypeStr};
+    std::vector<std::string> dataTypeExpr;
+    for (int i = 0; i < ID4; i++) {
+        dataTypeExpr.emplace_back(DataType2CCEStr(operandDtype[i]));
+    }
 
     std::map<unsigned, std::reference_wrapper<std::string>> vars;
     vars.insert({ID1, s1Var});
