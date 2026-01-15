@@ -615,16 +615,7 @@ Status OptimizeSort::ExecuteOp() {
     return SUCCESS;
 }
 
-Status OptimizeSort::SortOps() {
-    APASS_LOG_INFO_F(Elements::Operation, "====>start SortOps");
-    Init(operations);
-    if (CheckAllocOp(operations) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocOp failed!");
-        return FAILED;
-    }
-    if (operations.empty()) {
-        return SUCCESS;
-    }
+void OptimizeSort::AllocAhead() {
     std::vector<Operation*> allocOps;
     std::vector<Operation*> normalOps;
     for (auto& op : operations) {
@@ -639,6 +630,19 @@ Status OptimizeSort::SortOps() {
     newOperations.swap(allocOps);
     newOperations.insert(newOperations.end(), normalOps.begin(), normalOps.end());
     operations = newOperations;
+}
+
+Status OptimizeSort::SortOps() {
+    APASS_LOG_INFO_F(Elements::Operation, "====>start SortOps");
+    Init(operations);
+    if (CheckAllocOp(operations) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocOp failed!");
+        return FAILED;
+    }
+    if (operations.empty()) {
+        return SUCCESS;
+    }
+    AllocAhead();
     std::string sortMethodStr;
     std::string funcName = function_.GetMagicName();
 
