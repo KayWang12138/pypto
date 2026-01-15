@@ -24,7 +24,7 @@ set_operation_config(*, force_combine_axis: Optional[bool] = None,
 | 参数名               | 输入/输出 | 说明                                                                 |
 |----------------------|-----------|----------------------------------------------------------------------|
 | combine_axis         | 输入      | **含义**：在代码生成阶段进行合轴优化。 <br> **说明**：例如 Reduce 输出为 (32, 1) 这类场景，为实现数据连续搬运，将其合轴为 (1, 32)，以支撑后续 ElementWise 算子随路 Broadcast 计算的优化。 <br> **类型**：bool <br> **取值范围**：{True, False} <br> **默认值**：False |
-| force_combine_axis   | 输入      | **含义**：同combine_axis，不推荐使用。 |
+| force_combine_axis   | 输入      | **含义**：同combine_axis。 <br> **说明**：合轴早期版本，有很多功能约束，后续会逐步下线，请保持默认值。 <br> **类型**：bool <br> **取值范围**：{True, False} <br> **默认值**：False |
 
 ## 返回值说明
 
