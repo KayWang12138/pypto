@@ -11,6 +11,7 @@
 """构建总入口.
 """
 import abc
+import ast
 import argparse
 import dataclasses
 import json
@@ -30,6 +31,18 @@ from typing import Optional, List, Dict, Tuple, Any
 from importlib import metadata
 from packaging import requirements
 
+
+def parse_int_or_expr(value):
+    """
+    Parse intergers or bitshifts expressions like '1<<24'.
+    Uses ast.literal_eval for safety.
+    """
+    try:
+        return ast.literal_eval(value)
+    except Exception:
+        raise argparse.ArgumentTypeError(
+            f"Invalide expression: {value}"
+        )
 
 if str(Path(Path(__file__).parent, "tools")) not in sys.path:
     sys.path.append(str(Path(Path(__file__).parent, "tools")))
@@ -136,7 +149,19 @@ class FeatureParam(CMakeParam):
         parser.add_argument("-b", "--backend", nargs="?", type=str, default="npu",
                             choices=["npu", "cost_model"],
                             help="backend, such as npu/cost_model etc.")
-        parser.add_argument("--tracr", action="store_true", help="Enable TraCR insturentation") # TraCR: Internal Profiler
+        
+        ### TraCR: Internal Profiler
+        parser.add_argument("--tracr", action="store_true", help="Enable TraCR insturentation")
+
+        # Optional TraCR buffer method
+        parser.add_argument("--tracr-policy", choices=["periodic", "ignore_if_full"], 
+                            default=None, 
+                            help="TraCR buffer methods (default: abort if buffer is full)")
+
+        # Optional TraCR buffer capacity per thread
+        parser.add_argument("--tracr-capacity", type=parse_int_or_expr, 
+                            default=None, help="TraCR buffer capacity per thread (default: 1<<20 traces)")
+        ###
 
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         cmd = ""
@@ -171,7 +196,9 @@ class BuildParam(CMakeParam):
         self.gcov = args.gcov
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
         self.compile_dependency_check = args.compile_dependency_check
-        self.tracr = args.tracr
+        self.tracr          = args.tracr
+        self.tracr_policy   = args.tracr_policy
+        self.tracr_capacity = args.tracr_capacity
 
     def __str__(self):
         desc = f"\nBuild"
@@ -250,9 +277,21 @@ class BuildParam(CMakeParam):
         cmd += self._cfg_require(opt="ENABLE_UBSAN", ctr=self.ubsan)
         cmd += self._cfg_require(opt="ENABLE_GCOV", ctr=self.gcov)
 
-        # TraCR Instrumentation (for the cpp Frontend?)
+        ### TraCR Instrumentation (for the cpp Frontend?)
         logging.info("CMake TraCR enabled in get_cfg_cmd? %d", self.tracr)
         cmd += self._cfg_require(opt="BUILD_TRACR", ctr=self.tracr)
+
+        if self.tracr_policy == "ignore_if_full":
+            assert(self.tracr, "Warning tracr has not been enabled.")
+            cmd += " -DTRACR_POLICY=TRACR_POLICY_STOP_IF_FULL"
+        elif self.tracr_policy == "periodic":
+            assert(self.tracr, "Warning tracr has not been enabled.")
+            cmd += " -DTRACR_POLICY=TRACR_POLICY_PERIODIC"
+
+        if self.tracr_capacity is not None:
+            cmd += f" -DTRACR_CAPACITY={self.tracr_capacity}"
+
+        ###
 
         def _check_clang_toolchain(_opt: str, _b: str) -> Tuple[bool, str]:
             _p = Path(self.clang_install_path, _b)
@@ -942,14 +981,6 @@ class BuildCtrl(CMakeParam):
         cmd += self.feature.get_cfg_cmd()
         cmd += self.build.get_cfg_cmd()
         cmd += self.tests.get_cfg_cmd()
-
-        # TraCR Instrumentation (for the cpp Frontend?)
-        # logging.info("CMake TraCR enabled? %d", self.feature.tracr)
-
-        # if self.feature.tracr:
-        #     cmd += " -DBUILD_TRACR=ON"
-        # else:
-        #     cmd += " -DBUILD_TRACR=OFF"
 
         # 执行
         update_env = self.get_cfg_update_env()

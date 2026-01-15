@@ -86,9 +86,11 @@ include(cmake/third_party/googletest/googletest.cmake)
 
 set(BUILD_TRACR OFF CACHE BOOL "Enable TraCR")
 
-if (BUILD_TRACR)
-    include(cmake/third_party/tracr/tracr.cmake)
-endif()
+# if (BUILD_TRACR)
+#     include(cmake/third_party/tracr/tracr.cmake)
+# endif()
+
+include(cmake/third_party/tracr/tracr.cmake)
 
 ########################################################################################################################
 # 编译流程
@@ -118,6 +120,13 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             tile_fwk_simulation
             tile_fwk_simulation_ca
     )
+
+    ### Including TraCR
+    foreach(tgt IN LISTS InstallTargets)
+        tracr_enable(${tgt})
+    endforeach()
+    ###
+
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")
         install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${PyPTO_WhlName}/lib")
