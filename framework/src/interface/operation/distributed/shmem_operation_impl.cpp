@@ -440,12 +440,12 @@ void OneShotAllReduce(const Tensor &predToken, const Tensor &in, const char *gro
     if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
         shmemDataType = DT_FP32;
     }
-    AllReduceValidate(predToken, in, shmemData, group, out);
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
         CreateShmemSignal(group, shmemData, shmemSignal);
     }
+    AllReduceValidate(predToken, in, shmemData, group, out);
     LOOP("OneShotAllReduce", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, worldSize, 1)) {
         auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
         auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0, 0});
@@ -492,12 +492,12 @@ void TwoShotAllReduce(const Tensor &predToken, const Tensor &in, const char *gro
     if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
         shmemDataType = DT_FP32;
     }
-    AllReduceValidate(predToken, in, shmemData, group, out);
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
         CreateShmemSignal(group, shmemData, shmemSignal);
     }
+    AllReduceValidate(predToken, in, shmemData, group, out);
     int32_t hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
     LOOP("TwoShotAllReduce", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, worldSize, 1)) {

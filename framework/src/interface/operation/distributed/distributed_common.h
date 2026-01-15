@@ -152,7 +152,7 @@ inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResu
 }
 
 inline void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
-    const Shape &shape, Tensor &shmemTensor, uint64_t memType)
+    const Shape &shape, Tensor &shmemTensor, uint64_t memType = 0)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
