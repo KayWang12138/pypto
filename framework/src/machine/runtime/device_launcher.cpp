@@ -17,6 +17,7 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
+#include "machine/host/perf_analysis.h"
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
@@ -101,12 +102,9 @@ int DeviceLauncher::SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuSt
     return 0;
 }
 
-int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream) {
+int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream, bool isCapture) {
     aclmdlRI rtModel = nullptr;
-    bool isCapture = false;
-    if (GetStreamCaptureInfo(aicoreStream, rtModel, isCapture) < 0) {
-        return -1;
-    }
+
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         if (isCapture) {
             ALOG_WARN("The swimlane function is not currently supported in CaptureMode. The contents of tilefwk_L1_prof_data may be empty.");
@@ -129,20 +127,30 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
         DevControlFlowCache* inputDevCtrlCache, const DeviceLauncherConfig &config) {
     bool isCapture = false;
-    ALOG_INFO_F("start Kernel Launch.");
-    if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
-        DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
+    ALOG_INFO_F("Kernel Launch");
+
+    HOST_PERF_TRACE(TracePhase::RunDeviceInit);
+
+    if (cachedOperator == nullptr) { // st scene
+        if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
+            DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
+        }
     }
+
     /* 1.Add stream to capture model*/
     int rc = SetCaptureStream(aicoreStream, aicpuStream, isCapture);
     if (rc < 0) {
         return rc;
     }
+
     /* 2. Change capture mode to relaxed*/
     if (isCapture) {
         ChangeCaptureMode();
     }
     DeviceRunner::Get().SetCaptureFlag(isCapture);
+
+    HOST_PERF_TRACE(TracePhase::RunDeviceSetCapture);
+
     DeviceRunner::Get().GetHostProfInstance().SetProfFunction(function);
     rc = aclInit(nullptr);
     if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
@@ -159,21 +167,34 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
+
+    HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
+
     DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
         inputDevCtrlCache, config, cachedOperator);
+
+    HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
+
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
     DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList,
         function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
-    rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))));
+
+    HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
+
+    rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))),
+            cachedOperator == nullptr ? nullptr : &(function->GetDyndevAttribute()->kernelBinary));
     if (rc < 0) {
         ALOG_ERROR_F("Register kernel bin failed.");
         return rc;
     }
+
+    HOST_PERF_TRACE(TracePhase::RunDevRegistKernelBin);
+
     rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
     if (rc < 0) {
         return rc;
     }
-    rc = RunWithProfile(aicoreStream, aicpuStream);
+    rc = RunWithProfile(aicoreStream, aicpuStream, isCapture);
     if (rc < 0) {
         return rc;
     }
@@ -181,6 +202,8 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
     }
     ALOG_INFO_F("finish Kernel Launch.");
+
+    HOST_PERF_TRACE(TracePhase::RunDevRunProfile);
     return rc;
 }
 
