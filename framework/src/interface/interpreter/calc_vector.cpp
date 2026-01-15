@@ -202,7 +202,25 @@ void ExecuteOpExpand(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_EXPAND, Opcode::OP_EXPAND, ExecuteOpExpand);
 
-void ExecuteOpTransposeMoveOut(ExecuteOperationContext *ctx) {
+void ExecuteOpTransposeMoveIn(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto iop = ctx->ioperandDataViewList->at(0);
+
+    std::vector<int64_t> axises = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
+    auto iopCopy = iop;
+    if (std::dynamic_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute())) {
+        auto copyinAttr = std::dynamic_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute());
+        std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyinAttr->GetShape());
+        std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyinAttr->GetFromOffset());
+        iopCopy = iop->View(shape, fromOffset);
+    }
+    calc::Transpose(oop, iopCopy, axises[0], axises[1]);
+}
+REGISTER_CALC_OP(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, ExecuteOpTransposeMoveIn);
+
+void ExecuteOpTransposeMove(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -218,7 +236,8 @@ void ExecuteOpTransposeMoveOut(ExecuteOperationContext *ctx) {
     }
     calc::Transpose(oopCopy, iop, axises[0], axises[1]);
 }
-REGISTER_CALC_OP(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, ExecuteOpTransposeMoveOut);
+REGISTER_CALC_OP(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, ExecuteOpTransposeMove);
+REGISTER_CALC_OP(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, ExecuteOpTransposeMove);
 
 void ExecuteOpTranspose(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
