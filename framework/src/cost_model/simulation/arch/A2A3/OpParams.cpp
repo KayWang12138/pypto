@@ -22,11 +22,7 @@ namespace CostModel {
 
 using npu::tile_fwk::Opcode;
 
-// ============================================================================
-// Implementation of Calculators
-// ============================================================================
-
-// Pre-defined Strategy: Constant Latency
+// Constant
 class Constant : public LatencyCalculator {
     int latency_;
 public:
@@ -36,13 +32,12 @@ public:
     }
 };
 
-// Pre-defined Strategy: Linear function of Total Elements (Shape)
-// y = k * shape_elements + b
-class LinearShape : public LatencyCalculator {
+// y = k * elements + b
+class LinearSize : public LatencyCalculator {
     float k_;
     float b_;
 public:
-    LinearShape(float k, float b) : k_(k), b_(b) {}
+    LinearSize(float k, float b) : k_(k), b_(b) {}
     int Calculate(const npu::tile_fwk::Operation* op) const override {
         const npu::tile_fwk::Shape* shapePtr = nullptr;
         // Prioritize Input Shape
@@ -60,13 +55,12 @@ public:
     }
 };
 
-// Pre-defined Strategy: Linear function of Data Size (Bytes)
-// y = k * size_bytes + b
-class LinearSize : public LatencyCalculator {
+// y = k * size_in_bytes + b
+class LinearBytes : public LatencyCalculator {
     float k_;
     float b_;
 public:
-    LinearSize(float k, float b) : k_(k), b_(b) {}
+    LinearBytes(float k, float b) : k_(k), b_(b) {}
     int Calculate(const npu::tile_fwk::Operation* op) const override {
         int dataSize = 0;
         // Prioritize Input Shape
@@ -79,14 +73,13 @@ public:
     }
 };
 
-// Pre-defined Strategy: Linear function of Aligned Data Size
 // size = m * ceil(n * sizeof(dtype)/256)
 // latency = k * size + b
-class LinearSizeAligned : public LatencyCalculator {
+class LinearBytesAligned : public LatencyCalculator {
     float k_;
     float b_;
 public:
-    LinearSizeAligned(float k, float b) : k_(k), b_(b) {}
+    LinearBytesAligned(float k, float b) : k_(k), b_(b) {}
     int Calculate(const npu::tile_fwk::Operation* op) const override {
         const npu::tile_fwk::Shape* shapePtr = nullptr;
         DataType dtype = DataType::DT_BOTTOM;
@@ -119,9 +112,6 @@ public:
     }
 };
 
-// Pre-defined Strategy: Linear function of Reduction Output Elements
-// Proportional to the accumulated shape excluding the summation axis
-// Equivalent to Output Shape Elements
 // y = k * output_elements + b
 class LinearReduce : public LatencyCalculator {
     float k_;
@@ -142,8 +132,34 @@ public:
     }
 };
 
-// Pre-defined Strategy: Linear function of Matmul (m*k*n)
-// Compute volume = sqrt(elementsA * elementsB * elementsC) which equals m*k*n
+// y = k * reduce_elements + b
+class LinearReduceLine : public LatencyCalculator {
+    float k_;
+    float b_;
+public:
+    LinearReduceLine(float k, float b) : k_(k), b_(b) {}
+    int Calculate(const npu::tile_fwk::Operation* op) const override {
+        int64_t inputElements = 1;
+        if (op->GetInputOperandSize() > 0 && op->GetInputOperand(0)) {
+            const auto& shape = op->GetInputOperand(0)->GetShape();
+            if (!shape.empty()) {
+                inputElements = std::accumulate(shape.begin(), shape.end(), 1LL, std::multiplies<int64_t>());
+            }
+        }
+
+        int64_t outputElements = 1;
+        if (op->GetOutputOperandSize() > 0 && op->GetOutputOperand(0)) {
+            const auto& shape = op->GetOutputOperand(0)->GetShape();
+            if (!shape.empty()) {
+                outputElements = std::accumulate(shape.begin(), shape.end(), 1LL, std::multiplies<int64_t>());
+            }
+        }
+
+        double elements = (outputElements != 0) ? (static_cast<double>(inputElements) / outputElements) : 0.0;
+        return static_cast<int>(std::ceil(elements * k_ + b_));
+    }
+};
+
 // y = k * volume + b
 class LinearMatmul : public LatencyCalculator {
 public:
@@ -198,36 +214,70 @@ public:
 };
 
 // ============================================================================
-// Registration
+// Operation Latency Registration
 // ============================================================================
 
 // Default
 OP_LATENCY_REGISTER_DEFAULT(Constant(1));
 
 // Binary
-OP_LATENCY_REGISTER(Opcode::OP_ADD, LinearSizeAligned(1.99f, 26.6f));
-OP_LATENCY_REGISTER(Opcode::OP_SUB, LinearSizeAligned(1.99f, 26.6f));
-OP_LATENCY_REGISTER(Opcode::OP_MUL, LinearSizeAligned(1.98f, 33.15f));
-OP_LATENCY_REGISTER(Opcode::OP_DIV, LinearShape(0.0625f, 28.0f));
+OP_LATENCY_REGISTER(Opcode::OP_ADD, LinearBytesAligned(1.99f, 26.6f));
+OP_LATENCY_REGISTER(Opcode::OP_SUB, LinearBytesAligned(1.99f, 26.6f));
+OP_LATENCY_REGISTER(Opcode::OP_MUL, LinearBytesAligned(1.98f, 33.15f));
+OP_LATENCY_REGISTER(Opcode::OP_DIV, LinearSize(0.0625f, 28.0f));
+OP_LATENCY_REGISTER(Opcode::OP_MAXIMUM, LinearBytesAligned(2.0f, 19.0f));
+OP_LATENCY_REGISTER(Opcode::OP_MINIMUM, LinearBytesAligned(2.0f, 19.0f));
+
+OP_LATENCY_REGISTER(Opcode::OP_PAIRMAX, LinearBytesAligned(2.0f, 19.0f));
+OP_LATENCY_REGISTER(Opcode::OP_PAIRSUM, LinearBytesAligned(1.99f, 26.6f));
 
 // Unary
-OP_LATENCY_REGISTER(Opcode::OP_ADDS, LinearSize(0.0041325f, 21.0f));
-OP_LATENCY_REGISTER(Opcode::OP_MULS, LinearSize(0.0041425f, 21.2f));
-OP_LATENCY_REGISTER(Opcode::OP_EXP,  LinearShape(0.03125f, 27.0f));
-OP_LATENCY_REGISTER(Opcode::OP_SQRT, LinearShape(0.03125f, 28.0f));
+OP_LATENCY_REGISTER(Opcode::OP_ADDS, LinearBytes(0.0041325f, 21.0f));
+OP_LATENCY_REGISTER(Opcode::OP_MULS, LinearBytes(0.0041425f, 21.2f));
+OP_LATENCY_REGISTER(Opcode::OP_EXP,  LinearSize(0.03125f, 27.0f));
+OP_LATENCY_REGISTER(Opcode::OP_SQRT, LinearSize(0.03125f, 28.0f));
+OP_LATENCY_REGISTER(Opcode::OP_TRANSPOSE_VNCHWCONV, LinearBytes(0.0435f, 8.7f));
+
+OP_LATENCY_REGISTER(Opcode::OP_SUBS, LinearBytes(0.0041325f, 21.0f));
+OP_LATENCY_REGISTER(Opcode::OP_DIVS, LinearBytes(0.0041325f, 21.0f));
+OP_LATENCY_REGISTER(Opcode::OP_ABS, LinearBytes(0.0041325f, 21.0f));
+OP_LATENCY_REGISTER(Opcode::OP_LN, LinearSize(0.03125f, 27.0f));
+OP_LATENCY_REGISTER(Opcode::OP_CAST, LinearBytesAligned(1.99f, 26.6f));
 
 // Reduce
 OP_LATENCY_REGISTER(Opcode::OP_ROWSUM_SINGLE, LinearReduce(7.0f, 36.0f));
 OP_LATENCY_REGISTER(Opcode::OP_ROWMAX_SINGLE, LinearReduce(7.0f, 24.0f));
 OP_LATENCY_REGISTER(Opcode::OP_ROWMIN_SINGLE, LinearReduce(7.0f, 24.0f));
+OP_LATENCY_REGISTER(Opcode::OP_ROWSUMLINE, LinearReduceLine(7.0f, 0.0f));
+OP_LATENCY_REGISTER(Opcode::OP_ROWMAXLINE, LinearReduceLine(23.0f, 0.0f));
+OP_LATENCY_REGISTER(Opcode::OP_ROWMINLINE, LinearReduceLine(23.0f, 0.0f));
 
 // Matmul
 OP_LATENCY_REGISTER(Opcode::OP_A_MUL_B, LinearMatmul());
+OP_LATENCY_REGISTER(Opcode::OP_A_MULACC_B, LinearMatmul());
 
 // MTE
-OP_LATENCY_REGISTER(Opcode::OP_COPY_IN, LinearSize(0.009475f, 233.4f));
-OP_LATENCY_REGISTER(Opcode::OP_COPY_OUT, LinearSize(0.009475f, 233.4f));
-OP_LATENCY_REGISTER(Opcode::OP_L1_COPY_IN, LinearSize(0.0067f, 764.86f));
-OP_LATENCY_REGISTER(Opcode::OP_L0C_COPY_OUT, LinearSize(0.009125f, 247.8f));
+OP_LATENCY_REGISTER(Opcode::OP_COPY_IN, LinearBytes(0.009475f, 233.4f));
+OP_LATENCY_REGISTER(Opcode::OP_COPY_OUT, LinearBytes(0.009475f, 233.4f));
+OP_LATENCY_REGISTER(Opcode::OP_L1_COPY_IN, LinearBytes(0.0067f, 764.86f));
+OP_LATENCY_REGISTER(Opcode::OP_L0C_COPY_OUT, LinearBytes(0.009125f, 247.8f));
+
+OP_LATENCY_REGISTER(Opcode::OP_TRANSPOSE_MOVEIN, LinearBytes(0.009475f, 233.4f));
+OP_LATENCY_REGISTER(Opcode::OP_TRANSPOSE_MOVEOUT, LinearBytes(0.009475f, 233.4f));
+
+// Tensor Creation
+OP_LATENCY_REGISTER(Opcode::OP_VEC_DUP, LinearBytes(0.00390625f, 15.0f));
+OP_LATENCY_REGISTER(Opcode::OP_RANGE, LinearSize(0.328f, 126.0f));
+
+// MTE / Data Movement
+OP_LATENCY_REGISTER(Opcode::OP_L1_TO_BT, LinearBytes(0.0067f, 764.86f));
+OP_LATENCY_REGISTER(Opcode::OP_L1_TO_L0A, LinearBytes(0.0067f, 764.86f));
+OP_LATENCY_REGISTER(Opcode::OP_L1_TO_L0B, LinearBytes(0.0067f, 764.86f));
+OP_LATENCY_REGISTER(Opcode::OP_GATHER_ELEMENT, LinearBytes(0.01f, 100.0f));
+OP_LATENCY_REGISTER(Opcode::OP_SCATTER_ELEMENT, LinearBytes(0.01f, 100.0f));
+OP_LATENCY_REGISTER(Opcode::OP_TRANSPOSE_MOVEOUT, LinearBytes(0.01f, 100.0f));
+
+OP_LATENCY_REGISTER(Opcode::OP_RESHAPE, Constant(10));
+OP_LATENCY_REGISTER(Opcode::OP_EXPAND, LinearBytes(0.005f, 20.0f));
 
 } // namespace CostModel
