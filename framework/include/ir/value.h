@@ -131,16 +131,29 @@ private:
 using ScalarValuePtr = std::shared_ptr<ScalarValue>;
 
 enum class MemSpaceKind {
-    UNKNOWN,
-    DDR,
-    L2,
-    UB,
-    L1,
-    L0A,
-    L0B,
-    L0C,
-    REG,
-    SHMEM,
+    UB = 0,
+    L1 = 1,
+    L0A = 2,
+    L0B = 3,
+    L0C = 4,
+    FIX = 5,
+    FIX_QUANT_PRE = 6,
+    FIX_RELU_PRE = 7,
+    FIX_RELU_POST = 8,
+    FIX_QUANT_POST = 9,
+    FIX_ELT_ANTIQ = 10,
+    FIX_MTE2_ANTIQ = 11,
+    BT = 12,
+    L2 = 13,
+    L3 = 14,
+    DEVICE_DDR = 15,
+    HOST1 = 16,
+    FAR1 = 17,
+    FAR2 = 18,
+    WORKSPACE = 19,
+    VECTOR_REG = 20,
+    SHMEM = 21,
+    UNKNOWN
 };
 
 class Memory : public Object {

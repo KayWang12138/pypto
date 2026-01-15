@@ -384,13 +384,13 @@ TEST(IRTEST, TestTypeCompleteProgram) {
     // 输入：直接使用 Tile 和 Scalar，不使用 Tensor
     // 输入 Tile: tile<[16, 32], fp32>
     auto inputTile = std::make_shared<TileValue>(std::vector<int64_t>{16, 32}, DataType::FP32, "input_tile");
-    inputTile->Attributes()["io"] = "in";
+    inputTile->SetAttr("io", std::string("in"));
     // 输入 Scalar: scalar<fp32>
     auto scale = std::make_shared<ScalarValue>(DataType::FP32, "scale", ScalarValueKind::Symbolic);
-    scale->Attributes()["io"] = "in";
+    scale->SetAttr("io", std::string("in"));
     // 输出：Tile tile<[16, 32], fp32>
     auto result = std::make_shared<TileValue>(std::vector<int64_t>{16, 32}, DataType::FP32, "output_tile");
-    result->Attributes()["io"] = "out";
+    result->SetAttr("io", std::string("out"));
 
     sig.arguments = { inputTile, scale, result };
     sig.results.push_back(std::make_shared<ScalarValue>(DataType::FP64));
@@ -471,10 +471,10 @@ TEST(IRTEST, TestTypeCompleteProgram) {
     ASSERT_EQ(func->GetOutcastIndex(result), 2);
 
     // 设置模块属性
-    module->Attributes()["arch"] = "\"PTOv2\"";
-    module->Attributes()["tile_default"] = "{ M=16, N=16, K=16 }";
-    module->Attributes()["enable_debug"] = "true";
-    module->Attributes()["test_type"] = "\"tile_scalar_only\"";
+    ASSERT_TRUE(module->SetAttr("arch", std::string("\"PTOv2\"")));
+    ASSERT_TRUE(module->SetAttr("tile_default", std::string("{ M=16, N=16, K=16 }")));
+    ASSERT_TRUE(module->SetAttr("enable_debug", std::string("true")));
+    ASSERT_TRUE(module->SetAttr("test_type", std::string("\"tile_scalar_only\"")));
 
     // 打印完整的 IR
     std::cout << "========== Complete Type Test Program IR (Tile & Scalar Only) ==========" << std::endl;
