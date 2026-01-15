@@ -53,12 +53,6 @@ static const char* toString(FunctionKind kind) {
     return "unknown";
 }
 
-static void PrintAttributes(std::ostream& os, const AttributeMap& attrs, const std::string& prefix) {
-    for (const auto& kv : attrs) {
-        os << prefix << kv.first << " = " << kv.second << "\n";
-    }
-}
-
 void Function::Print(std::ostream& os, int indent) const {
     // Print indentation for the function header.
     for (int i = 0; i < indent; ++i) {
@@ -116,7 +110,10 @@ void Function::Print(std::ostream& os, int indent) const {
         attrPrefix += "  ";
     }
     attrPrefix += "func.attr ";
-    PrintAttributes(os, attributes_, attrPrefix);
+    auto attrKeys = GetSetAttrKeys();
+    for (const auto& key : attrKeys) {
+        os << attrPrefix << key << " = " << GetAttr(key) << "\n";
+    }
 
     // Optionally print a comment giving the function kind.
     for (int i = 0; i < indent; ++i) {

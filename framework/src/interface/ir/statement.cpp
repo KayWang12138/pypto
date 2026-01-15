@@ -197,16 +197,17 @@ void ForStatement::Print(std::ostream& os, int indent) const {
     }
 
     // Print attributes if present.
-    if (!Attributes().empty()) {
+    auto attrKeys = GetSetAttrKeys();
+    if (!attrKeys.empty()) {
         os << "\n";
         PrintIndent(os, indent + 2);
         os << "attributes {";
         bool first = true;
-        for (const auto& kv : Attributes()) {
+        for (const auto& key : attrKeys) {
             if (!first) {
                 os << ", ";
             }
-            os << kv.first << " = " << kv.second;
+            os << key << " = " << GetAttr(key);
             first = false;
         }
         os << "}";
