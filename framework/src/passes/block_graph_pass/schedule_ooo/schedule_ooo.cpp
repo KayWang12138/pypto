@@ -135,6 +135,33 @@ Status OoOSchedule::SortAndLatencyEstimate(std::vector<Operation*> &opList, std:
     return SUCCESS;
 }
 
+Status OoOSchedule::RecordLastUseMemory(Function &function) {
+    APASS_LOG_INFO_F(Elements::Function, "===> Start RecordLastUseMemory.");
+    for (auto &program : function.rootFunc_->programs_) {
+        auto opList = program.second->Operations(false).DuplicatedOpList();
+        for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+            Operation *op = opList[opIdx];
+            for (size_t inputIdx = 0; inputIdx < op->GetIOperands().size(); inputIdx++) {
+                auto opInputPair = std::make_pair(op, inputIdx);
+                lastUseMap_[op->GetIOperands()[inputIdx]->GetMagic()] = opInputPair;
+            }
+        }
+        std::unordered_map<Operation*, std::vector<size_t>> opInputIdxMap;
+        for (auto &entry : lastUseMap_) {
+            auto opInputPair = entry.second;
+            auto op = opInputPair.first;
+            auto idx = opInputPair.second;
+            opInputIdxMap[op].push_back(idx);
+        }
+        for (auto &entry : opInputIdxMap) {
+            auto op = entry.first;
+            op->SetAttribute(OpAttributeKey::inputLastUse, opInputIdxMap[op]);
+        }
+        APASS_LOG_INFO_F(Elements::Function, "===> Start RecordLastUseMemory.");
+        return SUCCESS;
+    }
+}
+
 Status OoOSchedule::RunOnFunction(Function &function) {
     combineAxis = function.paramConfigs_.combineAxis;
     forceCombineAxis = function.paramConfigs_.forceCombineAxis;
@@ -170,6 +197,10 @@ Status OoOSchedule::RunOnFunction(Function &function) {
             return FAILED;
         }
         programRef.second = program.second;
+    }
+    if (RecordLastUseMemory(function) == FAILED) {
+        APASS_LOG_ERROR_F(Elements::Function, "Run RecordLastUseMemory Failed.");
+        return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Operation, "=============== END 2CoreSplit ===============");
     return SUCCESS;

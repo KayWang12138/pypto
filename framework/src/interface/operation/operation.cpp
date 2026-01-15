@@ -73,6 +73,7 @@ const std::string OpAttributeKey::loopGroup = "LOOP_GROUP";
 const std::string OpAttributeKey::loopAxes = "LOOP_AXES";
 const std::string OpAttributeKey::loopGroupStart = "LOOP_GROUP_START";
 const std::string OpAttributeKey::loopGroupEnd = "LOOP_GROUP_END";
+const std::string OpAttributeKey::inputLastUse = "input_last_use";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
