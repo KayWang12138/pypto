@@ -80,7 +80,6 @@ void TileOpShapeVisitor::VisitImplOp(OperationPtr &op) {
     if (!op)
         return;
 
-    // Check Matmul operations first
     if (auto matmulLoad = std::dynamic_pointer_cast<MatmulLoadOp>(op)) {
         CheckMatmulLoadOpShape(matmulLoad);
     }
