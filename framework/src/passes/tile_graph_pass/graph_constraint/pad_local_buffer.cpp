@@ -477,6 +477,9 @@ inline bool IsCopyIn(Operation& op) {
 
 int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, LogicalTensorPtr &inTensor, size_t blockPadding) {
     int dimSize = inTensor->GetShape().size();
+    if (blockPadding == 0) {
+        return -1;
+    }
     if (inTensor->shape.back() != 1) {
         return (dimSize - 1);
     }
