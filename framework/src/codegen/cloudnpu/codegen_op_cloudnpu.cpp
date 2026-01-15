@@ -640,4 +640,18 @@ std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     return "";
 }
 
+std::string CodeGenOpCloudNPU::GetLastUse() const{
+    if(!opAttrs.count(OpAttributeKey::lastUse)){
+        return "";
+    }
+    std::vector<int> val;
+    GetAttr(OpAttributeKey::lastUse, val);
+    int valSize = val.size();
+    ASSERT(valSize != 0) << "GetLastUse error!!!";
+    std::ostringstream oss;
+    oss << "LastUse" << valSize << "Dim";
+    oss << WrapParamByAngleBrackets(val);
+    return oss.str();
+}
+
 } // namespace npu::tile_fwk

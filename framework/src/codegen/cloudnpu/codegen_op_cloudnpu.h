@@ -179,6 +179,8 @@ private:
     template <typename T>
     bool GetAttr(const std::string &key, T &value) const;
 
+    std::string GetLastUse() const;
+
     TileTensor BuildTileTensor(int paramIdx, const std::string &usingType);
     void UpdateTileTensorShapeAndStride(int paramIdx, TileTensor &tileTensor, bool isSpillToGm);
     std::vector<std::string> BuildStride(const std::vector<int64_t> &input);
