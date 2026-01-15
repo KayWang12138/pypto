@@ -614,6 +614,9 @@ TEST_F(GraphTest, TestTranspose_MLA_3D_2_reshape) {
             output1 = Transpose(input, {0, 1}); // [8, 32, 128] --> [32, 8, 128]
             TileShape::Current().SetVecTile(NUM_8, NUM_8, NUM_128);
             output2 = Reshape(output1, resShape); // [32, 8, 128] --> [32, 1024]
-        }
+            }
+        Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_MLA_3D_2");
+        func->DumpJsonFile("/home/w00951930/open_pypto/pypto/gR3B.json");
+
     }
 }

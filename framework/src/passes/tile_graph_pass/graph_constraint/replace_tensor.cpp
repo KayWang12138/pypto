@@ -223,11 +223,8 @@ void ReplaceTensor::UniteTensor(Function &function, UnionFind &uf) {
     }
 }
 
-Status ReplaceTensor::FindBaseTensor(Function &function, LogicalTensorPtr &baseTensor, LogicalTensors &group) {
-    std::unordered_set<LogicalTensorPtr> groupTensor;
-    LogicalTensors orderGroup;
+Status ReplaceTensor::FindBaseTensor(Function &function, std::unordered_map<LogicalTensorPtr, int> &tensorToOrderIndex, LogicalTensors &group, LogicalTensorPtr &baseTensor) {
     for (const auto &curTensor : group) {
-        groupTensor.insert(curTensor);
         if (function.IsFromInCast(curTensor) || function.IsFromOutCast(curTensor)) {
             if (baseTensor == nullptr) {
                 baseTensor = curTensor;
@@ -244,31 +241,20 @@ Status ReplaceTensor::FindBaseTensor(Function &function, LogicalTensorPtr &baseT
             }
         }
     }
-    for (auto &op : function.Operations()) {
-        for (auto &ioperand : op.GetIOperands()) {
-            if (groupTensor.erase(ioperand)) {
-                orderGroup.push_back(ioperand);
-            }
-        }
-        for (auto &ooperand : op.GetOOperands()) {
-            if (groupTensor.erase(ooperand)) {
-                orderGroup.push_back(ooperand);
-            }
-        }
-        if (groupTensor.empty()) {
-            break;
-        }
-    }
     if (baseTensor == nullptr) {
-        baseTensor = orderGroup.front();
+        baseTensor = group.front();
         int64_t baseShape = abs(baseTensor->tensor->GetRawDataSize());
-        for (auto &curTensor : orderGroup) {
+        for (auto &curTensor : group) {
             int64_t curShape = abs(curTensor->tensor->GetRawDataSize());
             if (curShape > baseShape) {
                 APASS_LOG_INFO_F(Elements::Tensor, "Replace curTensor %d size %d to baseTensor %d size %d.",
                                 curTensor->GetMagic(), curShape, baseTensor->GetMagic(), baseShape);
                 baseTensor = curTensor;
                 baseShape = curShape;
+            } else if (curShape == baseShape && tensorToOrderIndex[curTensor] < tensorToOrderIndex[baseTensor]) {
+                APASS_LOG_INFO_F(Elements::Tensor, "Replace curTensor %d idx %d to baseTensor %d idx %d.",
+                                curTensor->GetMagic(), tensorToOrderIndex[curTensor], baseTensor->GetMagic(), tensorToOrderIndex[baseTensor]);
+                baseTensor = curTensor;
             }
         }
     }
@@ -377,12 +363,6 @@ Status ReplaceTensor::ForwardAssemble(Operation *op, LogicalTensorPtr &rootTenso
             return SUCCESS;
         }
         assembleOut->tensor = assembleIn->tensor;
-        for (auto prodOp : assembleOut->GetProducers()) {
-            if (prodOp->GetOpMagic() != op->GetOpMagic()) {
-                backRoots.push(assembleOut);
-                return SUCCESS;
-            }
-        }
         return SUCCESS;
     } else {
         backRoots.push(assembleOut);
@@ -480,9 +460,9 @@ Status ReplaceTensor::BackwardAssemble(Operation *op, LogicalTensorPtr &rootTens
     }
     op->GetIOperands()[0]->tensor = rootTensor->tensor;
 
-    if (op->GetIOperands()[0]->GetConsumers().size() > 1) {
-        forRoots.push(op->GetIOperands()[0]);
-    }
+    // if (op->GetIOperands()[0]->GetConsumers().size() > 1) {
+    //     forRoots.push(op->GetIOperands()[0]);
+    // }
     return SUCCESS;
 }
 
@@ -712,27 +692,143 @@ Status ReplaceTensor::ProcessHubOp(Function &function) {
     return SUCCESS;
 }
 
-Status ReplaceTensor::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start ReplaceTensor.");
-    LogicalTensors rec;
+std::unordered_map<LogicalTensorPtr, int> ReplaceTensor::BuildTensorOrderIndexMap(Function &function) {
+    std::unordered_map<LogicalTensorPtr, int> tensorToOrderIndex;
+    int index = 0;
     for (const auto &op : function.Operations()) {
         for (const auto &inTensor : op.GetIOperands()) {
-            rec.emplace_back(inTensor);
+            if (!tensorToOrderIndex.count(inTensor)) {
+                tensorToOrderIndex[inTensor] = index++;
+            }
         }
         for (const auto &outTensor : op.GetOOperands()) {
-            rec.emplace_back(outTensor);
+            if (!tensorToOrderIndex.count(outTensor)) {
+                tensorToOrderIndex[outTensor] = index++;
+            }
         }
     }
-    UnionFind uf(rec);
+    return tensorToOrderIndex;
+}
+
+
+void AddCopyUBOp(Function &function, Operation &cons, LogicalTensorPtr &input) {
+    auto copyShape = input->GetShape();
+    std::vector<int64_t> offset00(copyShape.size(), 0);
+
+    auto rawTensorCopyOutOut = std::make_shared<RawTensor>(input->Datatype(), copyShape);
+    auto logicalCopyOutOut = std::make_shared<LogicalTensor>(function, rawTensorCopyOutOut, offset00, copyShape);
+    logicalCopyOutOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {input}, {logicalCopyOutOut});
+    copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        input->GetMemoryTypeOriginal(),
+        OpImmediate::Specified(offset00),
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyShape)
+    ));
+    copyOutOp.UpdateSubgraphID(cons.GetSubgraphID());
+
+    auto rawTensorCopyInOut = std::make_shared<RawTensor>(input->Datatype(), copyShape);
+    auto logicalCopyInOut = std::make_shared<LogicalTensor>(function, rawTensorCopyInOut, offset00, copyShape);
+    logicalCopyInOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {logicalCopyOutOut}, {logicalCopyInOut});
+    copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified(offset00),
+        input->GetMemoryTypeOriginal(),
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyShape)
+    ));
+    copyInOp.UpdateSubgraphID(cons.GetSubgraphID());
+
+    cons.ReplaceInput(logicalCopyInOut, input);
+}
+
+void AddCopyDDROp(Function &function, Operation &cons, LogicalTensorPtr &input) {
+    auto copyShape = input->GetShape();
+    std::vector<int64_t> offset00(copyShape.size(), 0);
+    input->RemoveConsumer(cons);
+
+    auto rawTensorCopyInOut = std::make_shared<RawTensor>(input->Datatype(), copyShape);
+    auto logicalCopyInOut = std::make_shared<LogicalTensor>(function, rawTensorCopyInOut, offset00, copyShape);
+    logicalCopyInOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto rawTensorCopyOutOut = std::make_shared<RawTensor>(input->Datatype(), copyShape);
+    auto logicalCopyOutOut = std::make_shared<LogicalTensor>(function, rawTensorCopyOutOut, offset00, copyShape);
+    logicalCopyOutOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+
+    cons.ReplaceInput(logicalCopyOutOut, input);
+
+    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {input}, {logicalCopyInOut});
+    copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        OpImmediate::Specified(input->GetOffset()),
+        MemoryType::MEM_UB,
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyShape)
+    ));
+    copyInOp.UpdateSubgraphID(cons.GetSubgraphID());
+    
+    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {logicalCopyInOut}, {logicalCopyOutOut});
+    copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+        MemoryType::MEM_UB,
+        OpImmediate::Specified(offset00),
+        OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyShape)
+    ));
+    copyOutOp.UpdateSubgraphID(cons.GetSubgraphID());
+}
+
+void AddCopyOp(Function &function, Operation &cons, LogicalTensorPtr &input) {
+    if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+        AddCopyUBOp(function, cons, input);
+    } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+        AddCopyDDROp(function, cons, input);
+    }
+}
+
+void AddCopyOpV2(Function &function, const std::unordered_set<int> &needAddCopyAssOp) {
+    auto opsBeforeAdd = function.Operations();
+    for (const auto &conMagic : needAddCopyAssOp) {
+        for (auto &con : opsBeforeAdd) {
+            if (con.GetOpMagic() == conMagic) {
+                AddCopyOp(function, con, con.GetIOperands()[0]);
+            }
+        }
+    }
+}
+
+void InsertAssembleCopy(Function &function) {
+    auto opsBeforeAdd = function.Operations();
+    std::unordered_set<int> visitedAssOp;
+    std::unordered_set<int> needAddCopyAssOp;
+    for (auto &op : opsBeforeAdd) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && visitedAssOp.count(op.GetOpMagic())) {
+            visitedAssOp.insert(op.GetOpMagic());
+            auto assIn = op.GetIOperands()[0];
+            auto consumers1 = assIn->GetConsumers();
+            for (auto &cons : consumers1) {
+                if (cons->GetOpMagic() != op.GetOpMagic() && cons->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    //deleted AddCopyOp(function, cons, assIn);
+                    visitedAssOp.insert(cons->GetOpMagic());
+                    //new 记录需要更新的Assemble
+                    needAddCopyAssOp.insert(cons->GetOpMagic());
+                }
+            }
+        }
+    }
+    AddCopyOpV2(function, needAddCopyAssOp);
+}
+
+Status ReplaceTensor::RunOnFunction(Function &function) {
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start ReplaceTensor.");
+    InsertAssembleCopy(function);
+    auto tensorToOrderIndex = BuildTensorOrderIndexMap(function);
+    UnionFind uf(tensorToOrderIndex);
     UniteTensor(function, uf);
     std::vector<LogicalTensors> tensorGroups = uf.GetGroups();
-    LogicalTensorPtr baseTensor;
     for (auto &group : tensorGroups) {
-        baseTensor = nullptr;
+        LogicalTensorPtr baseTensor = nullptr;
         if (group.size() == 1) {
             continue;
         }
-        if (FindBaseTensor(function, baseTensor, group) == FAILED || baseTensor == nullptr) {
+        if (FindBaseTensor(function, tensorToOrderIndex, group, baseTensor) == FAILED || baseTensor == nullptr) {
             return FAILED;
         }
         backRoots.push(baseTensor);
@@ -749,6 +845,10 @@ Status ReplaceTensor::RunOnFunction(Function &function) {
     if (ProcessHubOp(function) == FAILED) {
         return FAILED;
     }
+    if (MarkTensorAsPartialMem(function) == FAILED) {
+        return FAILED;
+    }
+    // function.DumpJsonFile("/home/w00951930/open_pypto/pypto/gR3A.json");
     APASS_LOG_INFO_F(Elements::Operation, "===> End ReplaceTensor.");
     return SUCCESS;
 }
@@ -846,6 +946,21 @@ Status ReplaceTensor::BackUpdateAssemble(Operation *op) {
     assAttr->SetToOffset(assOffset, assAttr->GetToDynOffset());
     TensorOffset newOffset(assOffset, assDynOffset);
     assembleIn->UpdateOffset(newOffset);
+    return SUCCESS;
+}
+
+Status ReplaceTensor::MarkTensorAsPartialMem(Function &func) {
+    for (auto &op : func.Operations()) {
+        if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
+            continue;
+        }
+        auto iOperand = op.GetInputOperand(0);
+        auto oOperand = op.GetOutputOperand(0);
+        if (iOperand->GetRawTensor() != oOperand->GetRawTensor()) {
+            continue;
+        }
+        iOperand->SetAttr("isPartialMem", true);
+    }
     return SUCCESS;
 }
 } // namespace tile_fwk
