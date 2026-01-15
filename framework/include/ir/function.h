@@ -109,6 +109,11 @@ public:
     // get index of out cast
     int GetOutcastIndex(const ValuePtr &value) const;
 
+    // Get Incasts
+    const std::vector<ValuePtr> GetIncasts() const;
+    // Get Outcasts
+    const std::vector<ValuePtr> GetOutcasts() const;
+
     // Pretty-print a standalone function in PTO-IR-like syntax.
     void Print(std::ostream& os, int indent = 0) const;
 

@@ -40,6 +40,18 @@ std::string GetMemSpaceKindName(MemSpaceKind kind) {
     }
 }
 
+    
+namespace {
+struct ValueAttrRegistrar {
+    ValueAttrRegistrar() {
+        RegisterAttrKey<ScalarValue>("io");
+        RegisterAttrKey<TileValue>("io");
+        RegisterAttrKey<TensorValue>("io");
+    }
+};
+static ValueAttrRegistrar g_valueAttrRegistrar;
+} // namespace
+
 // ========== Value System Implementation ==========
 
 int64_t ScalarValue::GetInt64Value() const {
