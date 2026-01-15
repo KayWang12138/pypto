@@ -40,5 +40,6 @@ struct CoreConfig : public Config {
     bool bufferBackPressure = true;
     uint64_t logLabelMode = 1;
     bool enableTileOpFlow = false;
+    uint64_t scalarOverhead = 2000;
 };
 }

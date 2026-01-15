@@ -39,6 +39,7 @@ CoreConfig::CoreConfig()
         {"bufferBackPressure", [&](string v){ bufferBackPressure = ParseBoolean(v); }},
         {"logLabelMode", [&](string v){ logLabelMode = ParseInteger(v); }},
         {"enableTileOpFlow", [&](string v){ enableTileOpFlow = ParseBoolean(v); }},
+        {"scalarOverhead", [&](string v){ scalarOverhead = ParseInteger(v); }},
     };
 
     Config::recorder = {
@@ -59,6 +60,7 @@ CoreConfig::CoreConfig()
         {"bufferBackPressure", [&](){ return "bufferBackPressure = " + ParameterToStr(bufferBackPressure); }},
         {"logLabelMode", [&](){ return "logLabelMode = " + ParameterToStr(logLabelMode); }},
         {"enableTileOpFlow", [&](){ return "enableTileOpFlow = " + ParameterToStr(enableTileOpFlow); }},
+        {"scalarOverhead", [&](){ return "scalarOverhead = " + ParameterToStr(scalarOverhead); }},
     };
 }
 }
