@@ -48,7 +48,7 @@ function(tracr_enable target)
         #     target_compile_definitions(${target} PRIVATE TRACR_POLICY_PERIODIC)
         # endif()
 
-        # Flag to enable TraCR debugging prints (Not yet working!)
+        # Flag to enable TraCR debugging prints (TODO: Not yet working!)
         # if (TRACR_DEBUG)
         #     target_compile_definitions(${target} PRIVATE ENABLE_TRACR_DEBUG)
         # endif()
