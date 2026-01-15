@@ -58,6 +58,7 @@ public:
     static void ClearOutputConsProd(Operation &op, Function *funcPtr, std::unordered_set<LogicalTensorPtr> outcastSet);
     static void FindOtherGraphOp(Operation *op, Function *funcPtr, std::unordered_set<Operation*> &otherGraphOp);
     static void PrintColorNode(Function &func);
+    static bool EnableCombineAxis(Function &func);
 };
 }  // namespace npu::tile_fwk
 #endif

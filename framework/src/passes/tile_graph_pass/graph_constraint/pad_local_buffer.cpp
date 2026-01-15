@@ -15,6 +15,7 @@
 
 #include "pad_local_buffer.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/reschedule_utils.h"
 
 #define MODULE_NAME "PadLocalBuffer"
 
@@ -404,7 +405,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
             if (in->tensor->GetRawDataSize() == 0) {
                 continue;
             }
-            if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+            if (enableBrcb_) {
                 PadVectorForAxisCombine(op, in, visitedRaw);
             } else {
                 bool noPadding = false;
@@ -546,7 +547,8 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
 }
 
 Status PadLocalBuffer::RunOnFunction(Function &function) {
-    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+    enableBrcb_ = ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false) && RescheduleUtils::EnableCombineAxis(function);
+    if (enableBrcb_) {
         DoPadding(function);
         return SUCCESS;
     }

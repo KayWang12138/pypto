@@ -983,6 +983,37 @@ TEST_F(TestPadLocalBuffer, axiscombine) {
     EXPECT_EQ(cnt, K_1);
 }
 
+TEST_F(TestPadLocalBuffer, axiscombineDisable) {
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, MemoryType::MEM_UB, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,2}, MemoryType::MEM_UB, "gm"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"gm"}, {"t2"}, "copyin", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t1","t2"}, {"t3"}, "add", true), true);
+    auto *rootFuncPtr = graph.GetFunction();
+    config::SetOperationConfig(KEY_COMBINE_AXIS, true);
+    AxisCombine pass;
+    EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*rootFuncPtr);
+    // ================== Verify Pass Effect ==================
+    auto updatedOps = rootFuncPtr->Operations();
+    int64_t cnt = 0;
+    for (const auto &op : updatedOps) {
+        if (op.GetOpcode() == Opcode::OP_EXPAND) {
+            ++cnt;
+        }
+        for (auto &inTensor : op.GetIOperands()) {
+            if (inTensor->Symbol() == "t2") {
+                targetShape = {4, 8};
+                EXPECT_EQ(inTensor->GetRawTensor()->GetRawShape(), targetShape);
+            }
+        }
+    }
+    EXPECT_EQ(cnt, K_1);
+}
+
 TEST_F(TestPadLocalBuffer, axiscombine2) {
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {32,4,1}, MemoryType::MEM_UB, "t1"), true);
