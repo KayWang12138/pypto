@@ -373,7 +373,7 @@ private:
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
         std::tie(inputList, outputList) = BuildInputOutputFromHost(MemoryHelper(isTest), inputTensors, outputTensors);
-        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, disableL2List, isGETensorList);
+        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, disableL2List, isGETensorList, nullptr);
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
         return;
