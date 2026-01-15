@@ -89,6 +89,12 @@ def gather_in_ub(param: Tensor, indices: Tensor, block_table: Tensor,
     return pypto_impl.gather_in_ub(param, indices, block_table, block_size, axis)
 
 
+@op_wrapper
+def matmul_atomic_add(tensor_a: Tensor, tensor_b: Tensor, tensor_gm: Tensor, out_dtype, a_trans: bool = False,
+                      b_trans: bool = False, c_matrix_nz: bool = False) -> Tensor:
+    return pypto_impl.MatmulAtomicAdd(out_dtype, tensor_a, tensor_b, tensor_gm, a_trans, b_trans, c_matrix_nz)
+
+
 def set_operation_config(*, force_combine_axis: Optional[bool] = None,
                          combine_axis: Optional[bool] = None):
 
