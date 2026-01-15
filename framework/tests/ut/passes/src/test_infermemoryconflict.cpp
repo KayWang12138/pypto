@@ -183,7 +183,7 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation2) {
     auto view_Attr1 = std::make_shared<ViewOpAttribute>(offset1);
     view_op1.SetOpAttribute(view_Attr1);
 
-    auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {Tensor1}, {Tensor2});
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {Tensor1}, {Tensor2});
     
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {Tensor2}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
@@ -430,7 +430,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation2) {
 
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {T1}, {T2});
     
-    auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T2}, {T3});
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T2}, {T3});
     
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T3}, {output});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
@@ -645,7 +645,7 @@ TEST_F(InferMemoryConflictTest, TestBothPropagation2) {
     auto view_Attr1 = std::make_shared<ViewOpAttribute>(offset1);
     view_op1.SetOpAttribute(view_Attr1);
 
-    auto &reshape_op = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
     
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
