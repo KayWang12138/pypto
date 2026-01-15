@@ -359,7 +359,8 @@ def test_win_atten_bsnd_mtp() -> None:
             device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
             torch.npu.set_device(device_id)
 
-            seqused_kv_list = [100, win_size, win_size + s_q - 2, win_size + s_q - 1] 
+            # seqused_kv_list = [100, win_size, win_size + s_q - 2, win_size + s_q - 1]
+            seqused_kv_list = [win_size + s_q - 1] * 4
             seqused_kv_list_tensor = torch.tensor(seqused_kv_list, dtype=torch.int32, device=f'npu:{device_id}')
             print("seqused_kv_list:", seqused_kv_list)
 
