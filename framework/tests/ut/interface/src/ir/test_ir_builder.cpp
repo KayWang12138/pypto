@@ -227,8 +227,13 @@ std::shared_ptr<Function> TestBlockFunction(
     FunctionSignature sig = FunctionSignature(inputArgs, outputArgs);
     sig.results.push_back(std::make_shared<ScalarValue>(DataType::INT32));
 
-    auto func = builder.CreateFunction("test_all_ops", FunctionKind::ControlFlow, sig);
+    auto func = builder.CreateFunction("test_all_ops", FunctionKind::Block, sig);
     builder.EnterFunctionBody(ctx, func);
+    // STUB LeafFuncAttribute
+    auto blockFunc = std::dynamic_pointer_cast<pto::BlockFunction>(func);
+    auto leafFuncAttr = std::make_shared<npu::tile_fwk::LeafFuncAttribute>();
+    leafFuncAttr->coreType = CoreType::AIV;
+    blockFunc->SetLeafFuncAttribute(leafFuncAttr);
 
     // tensorAdd = add(input[0], input[1])
     auto tileAdd = builder.CreateTile(ctx, inputArgs[0]->GetShape(), DataType::FP32, "tensorAdd");

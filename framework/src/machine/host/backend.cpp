@@ -355,7 +355,6 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
         ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
         for (auto &outcastSlots : ioslot.outcastSlot) {
-            ALOG_ERROR_F("outcastSlots size is %zu for function %s", outcastSlots.size(), devTile->GetMagicName().c_str());
             ASSERT(!outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
             bool outcastSlotFound = false;
             for (auto &outcastSlot : outcastSlots) {
@@ -703,8 +702,18 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
     for (auto &[hash, leaf] : irLeafDict) {
         encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
         attr->devLeafIndex2Hash[leafIndex] = hash;
-        attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB); // TODO 补充leafFunctionAttribute
-        attr->cceCodeInfo[leafIndex].psgId = leaf->GetID();
+        auto blockLeaf = std::dynamic_pointer_cast<pto::BlockFunction>(leaf);
+        if (blockLeaf == nullptr) {
+            ALOG_ERROR_F("block leaf is nullptr, func name %s", leaf->GetName().c_str());
+            continue;
+        }
+        auto leafAttr = blockLeaf->GetLeafFuncAttribute();
+        if (leafAttr == nullptr) {
+            ALOG_ERROR_F("LeafFuncAttribute is nullptr, func name %s", leaf->GetName().c_str());
+            continue;
+        }
+        attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(leafAttr->coreType);
+        attr->cceCodeInfo[leafIndex].psgId = blockLeaf->GetID();
         attr->cceCodeInfo[leafIndex].funcHash = hash;
         leafIndex++;
     }
@@ -890,6 +899,7 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         ALOG_WARN_F("Arm64 target tool is not found.");
         attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
     }
+
     AlignUpTo(attr->devControlFlowBinary, 0x8, 0);
     std::map<uint64_t, Function *> leafDict;
     std::map<uint64_t, std::shared_ptr<pto::Function>> irLeafDict;
@@ -929,7 +939,6 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     ConstructCodeInfo(encodeDevAscendFunctionParam, leafDict, irLeafDict, attr);
 
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
-
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
         int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
@@ -943,7 +952,6 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
 
     attr->kernelBinary = LoadFile(kernelPath);
     ALOG_DEBUG_F("KernelBinary size[%zu].", attr->kernelBinary.size());
-
     attr->devEncodeList.resize(attr->funcGroup.devRootList.size());
     for (auto &devRoot : attr->funcGroup.devRootList) {
         int devRootKey = attr->funcGroup.devRootList.GetIndex(devRoot);
