@@ -125,6 +125,7 @@ def gen_data_for_compute(params, is_quant: bool):
     dtype = params.get("dtype")
     s2 = params.get("s2")
     act_seq_len = params.get("act_seq")
+    act_seg_len_query = params.get("act_seq_query")
     block_size = params.get("block_size")
     block_num = params.get("block_num")
     selected_count = params.get("selected_count")
@@ -141,6 +142,7 @@ def gen_data_for_compute(params, is_quant: bool):
     _, block_table_list = gen_block_table(b, block_size, s2, act_seq_len)
     block_table = torch.tensor(block_table_list, dtype=torch.int32)
     act_seq = torch.tensor(act_seq_len, dtype=torch.int32)
+    act_seq_query = torch.tensor(act_seg_len_query, dtype=torch.int32)
 
     # 初始化输出张量
     topk_res = torch.ones([b, s1, n2, selected_count], dtype=torch.int32)
@@ -174,6 +176,7 @@ def gen_data_for_compute(params, is_quant: bool):
 
     input_data_map["weights"] = weights
     input_data_map["act_seq"] = act_seq
+    input_data_map["act_seq_query"] = act_seq_query
     input_data_map["block_table"] = block_table
     input_data_map["selected_count"] = selected_count
     input_data_map["topk_res"] = topk_res
@@ -330,6 +333,7 @@ def lightning_indexer(case_name: str) -> bool:
     if case_name == "LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2":
         b, s1 = 4, 2  # batch size和query序列长度
         act_seq = [64 * 1024] * b  # 每个样本的实际序列长度
+        act_seq_query = [s1] * b
     else:
         logging.error("Fail to gen golden for Case(%s)", case_name)
         return False
@@ -350,6 +354,7 @@ def lightning_indexer(case_name: str) -> bool:
         "dtype": dtype,
         "s2": s2,
         "act_seq": act_seq,
+        "act_seq_query": act_seq_query,
         "block_size": block_size,
         "block_num": block_num,
         "max_block_num": max_block_num,
@@ -381,6 +386,9 @@ def lightning_indexer(case_name: str) -> bool:
     block_table_npu = input_data_map["block_table"].npu()
     block_table_pto = pypto.from_torch(block_table_npu, dynamic_axis=[0, 1], name="block_table")
 
+    act_seq_query_npu = input_data_map["act_seq_query"].npu()
+    act_seq_query_pto = pypto.from_torch(act_seq_query_npu, dynamic_axis=[0], name="act_seq_query")
+
     # 初始化输出张量    
     topk_res = torch.zeros([b * s1, 1, selected_count], dtype=torch.int32)
     topk_res_npu = topk_res.npu()
@@ -393,8 +401,9 @@ def lightning_indexer(case_name: str) -> bool:
     configs = LightningIndexerConfigs()
 
     # 执行核心计算
-    lightning_indexer_decode(idx_query_pto, idx_query_scale_pto, idx_key_cache_pto, idx_key_scale_pto, idx_weight_pto,
-                             act_seq_key_pto, block_table_pto, topk_res_pto, unroll_list, configs, selected_count)
+    lightning_indexer_decode(
+        idx_query_pto, idx_query_scale_pto, idx_key_cache_pto, idx_key_scale_pto, idx_weight_pto, act_seq_key_pto,
+        block_table_pto, act_seq_query_pto, topk_res_pto, unroll_list, configs, selected_count)
 
     # 设备同步
     torch_npu.npu.synchronize()
