@@ -277,12 +277,13 @@ Parameters:
       TESTS_TYPE                    : [Required] 测试类型, 支持 [utest, stest]
       TESTS_GROUP                   : [Optional] 测试分组
       CHANGED_FILE                  : [Optional] 修改文件
+      TARGET_FILE                   : [Optional] 对应测试可执行文件路径(用于从二进制中解析耗时信息)
 ]]
 function(PTO_Fwk_GTest_GetGTestFilterStr GTEST_FILTER_STR)
     cmake_parse_arguments(
             ARG
             ""
-            "CLASSIFY;TESTS_TYPE;TESTS_GROUP;CHANGED_FILE"
+            "CLASSIFY;TESTS_TYPE;TESTS_GROUP;CHANGED_FILE;TARGET_FILE"
             ""
             ""
             ${ARGN}
@@ -295,6 +296,9 @@ function(PTO_Fwk_GTest_GetGTestFilterStr GTEST_FILTER_STR)
     endif ()
     if (ARG_CHANGED_FILE AND NOT "${ARG_CHANGED_FILE}" STREQUAL "ON")
         list(APPEND _Args "-c=${ARG_CHANGED_FILE}")
+    endif ()
+    if (ARG_TARGET_FILE AND NOT "${ARG_TARGET_FILE}" STREQUAL "ON")
+        list(APPEND _Args "-b=${ARG_TARGET_FILE}")
     endif ()
     execute_process(
             COMMAND ${Python3_EXECUTABLE} ${_Py} ${_Args}

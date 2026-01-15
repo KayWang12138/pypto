@@ -61,6 +61,7 @@ function(PTO_Fwk_STest_GetGTestFilterList GTEST_FILTER_LIST)
             TESTS_TYPE      stest
             TESTS_GROUP     ${ENABLE_STEST_GROUP}
             CHANGED_FILE    ${ENABLE_TESTS_EXECUTE_CHANGED_FILE}
+            TARGET_FILE     $<TARGET_FILE:tile_fwk_stest>
     )
     string(REPLACE ":" ";" GTestFilterList "${GTestFilterStr}")
     list(LENGTH GTestFilterList YamlGTestFilterListLen)

@@ -16,6 +16,7 @@ import argparse
 import dataclasses
 import fnmatch
 import logging
+import subprocess
 import sys
 from pathlib import Path
 from typing import List, Any, Optional, Dict, Tuple
@@ -65,6 +66,7 @@ class Analysis:
         self.type: str = str(args.type[0]).lower()
         self.group: List[str] = args.group.split(",") if args.group else []
         self.file: Optional[Path] = Path(args.file[0]).resolve() if args.file and args.file[0] else None
+        self.binary: Optional[Path] = Path(args.binary).resolve() if getattr(args, "binary", None) else None
         # 内部对象转化
         self.modules: Dict[str, Module] = self._init_get_models()
         self.changed: List[Path] = self._init_get_changed()
@@ -90,6 +92,8 @@ class Analysis:
                             help="Specific tests group, multiple group are separated by ','")
         parser.add_argument("-c", "--changed_files", nargs=1, type=Path, required=False, dest="file",
                             help="Specific changed_files.txt")
+        parser.add_argument("-b", "--binary", nargs="?", type=str, required=False, default=None,
+                            help="Specific gtest binary for getting meta info (cost, etc).")
         parser.add_argument("-d", "--debug", action="store_true", default=False,
                             help="Enable debug mode")
         args = parser.parse_args()
@@ -111,6 +115,9 @@ class Analysis:
 
     def analysis(self) -> str:
         cases = self._analysis_cases()
+        # 对于 stest 场景，若配置了 binary，则尝试基于二进制的 meta 信息对用例按耗时重排
+        if self.type == "stest" and self.binary:
+            cases = self._reorder_cases_with_binary_meta(cases)
         cases_str = ",".join(cases) if cases else ""
         return cases_str
 
@@ -178,6 +185,75 @@ class Analysis:
             if module_cases is not None:
                 cases.extend(module_cases)
         return cases
+
+    @staticmethod
+    def _get_test_costs(binary: Path) -> Dict[str, float]:
+        """
+        获取所有带耗时信息的测试用例(通过自定义参数--gtest_list_tests_with_meta)
+        返回格式: { "TestSuite.TestName": cost_seconds, ... }
+        """
+        cost_map: Dict[str, float] = {}
+        try:
+            result = subprocess.run(
+                [str(binary), "--gtest_list_tests_with_meta"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=60,
+            )
+        except (subprocess.SubprocessError, FileNotFoundError) as e:
+            logging.error("Failed to run binary(%s) to get meta info: %s", binary, e)
+            return cost_map
+
+        # 仅解析 stdout，格式: TestSuite.TestName|cost_seconds
+        import re
+
+        pattern = re.compile(r"^([\w\.]+)\|(\d+\.?\d*)$", re.MULTILINE)
+        matches = pattern.findall(result.stdout)
+        for test_name, cost_str in matches:
+            try:
+                cost_map[test_name.strip()] = float(cost_str.strip())
+            except ValueError:
+                continue
+
+        logging.debug("GetTestCosts: %d entries from %s", len(cost_map), binary)
+        return cost_map
+
+    def _reorder_cases_with_binary_meta(self, cases: List[str]) -> List[str]:
+        """
+        基于 binary meta 信息(耗时)对 stest 用例进行重排：
+          - 有耗时信息的用例排前面，按耗时降序
+          - 无耗时信息的用例排后面，保持原有顺序
+        """
+        if not cases or not self.binary:
+            return cases
+
+        cost_map = self._get_test_costs(self.binary)
+        if not cost_map:
+            # 未获取到耗时信息，保持原序
+            logging.debug("No cost meta found for %s, keep original cases order", self.binary)
+            return cases
+
+        cost_cases: List[str] = []
+        no_cost_cases: List[str] = []
+        for cs in cases:
+            if cs in cost_map:
+                cost_cases.append(cs)
+            else:
+                no_cost_cases.append(cs)
+
+        # 有耗时信息的用例按耗时降序重排
+        cost_cases_sorted = sorted(cost_cases, key=lambda x: cost_map[x], reverse=True)
+
+        logging.info(
+            "STest(meta): Found %d tests with cost info, %d tests without.",
+            len(cost_cases_sorted),
+            len(no_cost_cases),
+        )
+        if cost_cases_sorted:
+            logging.info("STest(meta): First few cost-aware tests(desc): %s", cost_cases_sorted[:5])
+
+        return cost_cases_sorted + no_cost_cases
 
 
 if __name__ == "__main__":
