@@ -1036,24 +1036,13 @@ def test_matmul_load_store_operations():
 
 
 def test_scatter_operations():
-    module = ir.module("test_scatter")
     builder = ir.IrBuilder()
     ctx = ir.IrBuilderContext()
 
-    tile_shape, batch, constant128, tensor_shape = _get_common_test_shape()
-    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
-    indices_tensor = ir.Tensor(tensor_shape, ir.DataType.int32, "indices", ir.Format.ND)
-    updates_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "updates", ir.Format.ND)
-    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
+    tile_shape, _, _, _ = _get_common_test_shape()
 
     sig = ir.FunctionSignature()
-    sig.arguments = [input_tensor, indices_tensor, updates_tensor]
-    sig.returns = [output_tensor]
-
     func = builder.create_function("test_scatter", ir.FunctionKind.DataFlow, sig)
-    module.add_function(func)
-    module.entry = func
-
     builder.enter_function(ctx, func)
 
     input_tile = builder.create_tile(ctx, tile_shape, ir.DataType.float, "input_tile")
@@ -1062,13 +1051,11 @@ def test_scatter_operations():
     output_tile = builder.create_tile(ctx, tile_shape, ir.DataType.float, "output_tile")
     scatter_scalar = builder.create_const(ctx, 0, "scatter")
 
-    # Test scatter elements op: OP_SCATTER_ELEMENT
     op_scatter_elements = builder.create_scatter_elements_op(
         ir.Opcode.OP_SCATTER_ELEMENT, input_tile, indices_tile, scatter_scalar, output_tile
     )
     builder.emit(ctx, op_scatter_elements)
 
-    # Test scatter op: OP_SCATTER
     op_scatter = builder.create_scatter_op(
         ir.Opcode.OP_SCATTER, input_tile, indices_tile, updates_tile, output_tile
     )

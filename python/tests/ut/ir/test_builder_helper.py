@@ -490,22 +490,10 @@ def test_gather_operations():
 
 
 def test_scatter_operations():
-    module = ir.module("test_scatter")
     block = BlockBuilderHelper()
-
-    tile_shape, batch, constant128, tensor_shape = _get_common_test_shape()
-    input_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "input", ir.Format.ND)
-    indices_tensor = ir.Tensor(tensor_shape, ir.DataType.int32, "indices", ir.Format.ND)
-    updates_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "updates", ir.Format.ND)
-    output_tensor = ir.Tensor(tensor_shape, ir.DataType.float, "output", ir.Format.ND)
-
+    tile_shape, _, _, _ = _get_common_test_shape()
     sig = ir.FunctionSignature()
-    sig.arguments = [input_tensor, indices_tensor, updates_tensor]
-    sig.returns = [output_tensor]
-
     func = block.create_function("test_scatter", ir.FunctionKind.DataFlow, sig)
-    module.add_function(func)
-    module.entry = func
 
     with block.function_scope(func):
         input_tile = block.tile(tile_shape, ir.DataType.float, "input_tile")
@@ -513,13 +501,8 @@ def test_scatter_operations():
         updates_tile = block.tile(tile_shape, ir.DataType.float, "updates_tile")
         output_tile = block.tile(tile_shape, ir.DataType.float, "output_tile")
         scatter_scalar = block.const(0, "scatter")
-
-        # Test scatter elements op: OP_SCATTER_ELEMENT
         block.scatter_elements(input_tile, indices_tile, scatter_scalar, output_tile)
-
-        # Test scatter op: OP_SCATTER
         block.scatter(input_tile, indices_tile, updates_tile, output_tile)
-
         block.create_return([output_tile])
 
 
