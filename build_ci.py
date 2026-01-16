@@ -300,7 +300,7 @@ class TestsExecuteParam(CMakeParam):
 
     def __init__(self, args):
         self.changed_file = None if not args.changed_files else Path(args.changed_files).resolve()
-        self.auto_execute = args.disable_auto_execute
+        self.auto_execute = True
         self.auto_execute_parallel = self.auto_execute and self.ci_model
 
     @property
