@@ -128,12 +128,12 @@ void GegisterAllOps()
 template <typename T>
 std::vector<T> GetOpMetaData(const std::string &op)
 {
-    #ifdef TEST_CASE_DIR
+#ifdef TEST_CASE_DIR
     std::filesystem::path caseFile = std::filesystem::path(TEST_CASE_DIR) / (op + "_st_test_cases.json");
-    #else
+#else
     std::filesystem::path caseFile = "../../../framework/tests/st/distributed/ops/test_case/" 
                        + op + "_st_test_cases.json";
-    #endif
+#endif
     
     if (!std::filesystem::exists(caseFile)) {
         ALOG_ERROR_F("File not found: %s, absolute path: %s", caseFile.string().c_str(),
