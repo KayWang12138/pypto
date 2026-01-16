@@ -136,11 +136,11 @@ static std::string CreateLogTopFolder() {
     if (envDir != nullptr) {
         std::string envStr(envDir);
         if (!envStr.empty()) {
-            folderPath = std::move(envStr);
+            folderPath = std::move(envStr) ;
         }
-    } else {
-        folderPath = folderPath + "/" + "output_" + timestamp.str() + "_" + std::to_string(getpid());
     }
+    folderPath = folderPath + "/" + "output_" + timestamp.str() + "_" + std::to_string(getpid());
+
     res = CreateDir(folderPath);
     ASSERT(res) << "Failed to create directory: " << folderPath;
     config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, RealPath(folderPath));

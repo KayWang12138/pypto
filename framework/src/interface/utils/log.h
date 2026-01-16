@@ -98,6 +98,10 @@ public:
         return *this;
     }
 
+    ~FileLogger() {
+        ofs.flush();
+    }
+
 private:
     FileLogger(const FileLogger &) = delete;
     FileLogger &operator=(const FileLogger &) = delete;
