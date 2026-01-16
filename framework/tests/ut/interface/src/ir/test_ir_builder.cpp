@@ -143,7 +143,7 @@ TEST(IRTEST, TestControlFlow) {
     auto fs = builder.CreateForStmt(ctx, i, constant0, batch, constant1);
 
     // test for attribute
-    fs->SetAttr("unroll", 4);
+    fs->SetAttr("unroll", int64_t(4));
 
     builder.EnterForBody(ctx, fs);
 

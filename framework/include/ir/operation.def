@@ -97,6 +97,14 @@ DEFOP(
         OP_SCALAR_CALL_1,
         OP_SCALAR_CALL_1_RETVOID
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Scalar, Arg0),
     OUTPUT(Scalar, Output),
     ATTR(std::string, Name, "")
@@ -108,6 +116,14 @@ DEFOP(
     OPCODE(
         OP_SCALAR_CALL_2,
         OP_SCALAR_CALL_2_RETVOID
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Scalar, Arg0),
     INPUT(Scalar, Arg1),
@@ -121,6 +137,14 @@ DEFOP(
     OPCODE(
         OP_SCALAR_CALL_3,
         OP_SCALAR_CALL_3_RETVOID
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Scalar, Arg0),
     INPUT(Scalar, Arg1),
@@ -136,6 +160,14 @@ DEFOP(
         OP_SCALAR_CALL_4,
         OP_SCALAR_CALL_4_RETVOID
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Scalar, Arg0),
     INPUT(Scalar, Arg1),
     INPUT(Scalar, Arg2),
@@ -150,6 +182,14 @@ DEFOP(
     OPCODE(
         OP_SCALAR_CALL_5,
         OP_SCALAR_CALL_5_RETVOID
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Scalar, Arg0),
     INPUT(Scalar, Arg1),

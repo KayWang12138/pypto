@@ -26,7 +26,6 @@
 
 namespace pto {
 
-using AttributeValue = std::variant<std::string, int64_t, bool>;
 class AttributeKeyValue {
 public:
     explicit AttributeKeyValue(const std::string &name, const std::string &value) : name_(name), value_(value) {}

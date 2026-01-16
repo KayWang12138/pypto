@@ -30,8 +30,8 @@ DEFOP(
     PROPERTY(
         INPUTS_MEM(UB),
         OUTPUTS_MEM(UB),
-        PIPE_S,
-        PIPE_S,
+        PIPE_V,
+        PIPE_V,
         AIV,
         ELMWISE
     ),
@@ -46,6 +46,14 @@ DEFOP(
     OPCODE(
         OP_LOGICALNOT
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     OUTPUT(Tile, TempTensor)
@@ -56,6 +64,14 @@ DEFOP(
     INHERIT(ExpandTileBaseOp),
     OPCODE(
  	    OP_EXPAND
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
@@ -69,6 +85,14 @@ DEFOP(
         OP_TRANSPOSE_MOVEIN,
         OP_TRANSPOSE_MOVEOUT
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     ATTR(int, Axis0, -1),
@@ -81,6 +105,14 @@ DEFOP(
     OPCODE(
         OP_TRANSPOSE_VNCHWCONV
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     ATTR(bool, ExcludeBufferReuse, false)
@@ -91,6 +123,14 @@ DEFOP(
     INHERIT(OnehotTileBaseOp),
     OPCODE(
  	    OP_ONEHOT
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
@@ -103,6 +143,14 @@ DEFOP(
     OPCODE(
         OP_CAST
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     ATTR(int, Mode, static_cast<int>(CastMode::CAST_NONE))
@@ -113,6 +161,14 @@ DEFOP(
     INHERIT(RangeTileBaseOp),
     OPCODE(
         OP_RANGE
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Scalar, START),
     INPUT(Scalar, STEP),
@@ -126,6 +182,14 @@ DEFOP(
     INHERIT(CumSumTileBaseOp),
     OPCODE(
         OP_CUM_SUM
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
@@ -151,6 +215,14 @@ DEFOP(
         OP_S_MIN,
         OP_PAD
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
     OUTPUT(Tile, Output),
@@ -166,7 +238,7 @@ DEFOP(
     ),
     PROPERTY(
         INPUTS_MEM(UB, UB),
-        OUTPUTS_MEM(UB),
+        OUTPUTS_MEM(UB, UB),
         PIPE_S,
         PIPE_S,
         AIV,
@@ -186,6 +258,14 @@ DEFOP(
     OPCODE(
         OP_SCATTER_ELEMENT
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Src0),
     INPUT(Tile, Src1),
     INPUT(Scalar, scatter),
@@ -200,6 +280,14 @@ DEFOP(
     INHERIT(ScatterTileBaseOp),
     OPCODE(
         OP_SCATTER
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Src0),
     INPUT(Tile, Src1),
@@ -397,6 +485,14 @@ DEFOP(
     OPCODE(
         OP_VEC_DUP
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Scalar, Value),
     OUTPUT(Tile, Output)
 )
@@ -406,6 +502,14 @@ DEFOP(
     INHERIT(PowTileBaseOp),
     OPCODE(
         OP_POW
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Lhs),
     INPUT(Scalar, Rhs),
@@ -417,6 +521,14 @@ DEFOP(
     INHERIT(GatherTileBaseOp),
     OPCODE(
         OP_GATHER
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
@@ -430,6 +542,14 @@ DEFOP(
     OPCODE(
         OP_GATHER_FROM_UB,
         OP_GATHER_ELEMENT
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
@@ -448,6 +568,14 @@ DEFOP(
         OP_PAIRMIN,
         OP_PAIRSUM
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
     OUTPUT(Tile, Output),
@@ -461,6 +589,14 @@ DEFOP(
     INHERIT(BroadcastTileBaseOp),
     OPCODE(
         OP_FUSED_OP
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
@@ -477,6 +613,14 @@ DEFOP(
         OP_ROWSUM_SINGLE,
         OP_ROWSUMLINE
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     OUTPUT(Tile, TempTensor),
@@ -491,6 +635,14 @@ DEFOP(
         OP_ROWMAXLINE,
         OP_ROWMINLINE
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     ATTR(int, Axis, -1)
@@ -502,6 +654,14 @@ DEFOP(
     OPCODE(
  	    OP_CONVERT
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output)
 )
@@ -512,6 +672,14 @@ DEFOP(
     OPCODE(
  	    OP_COPY_IN,
  	    OP_COPY_OUT
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
@@ -527,6 +695,14 @@ DEFOP(
     OPCODE(
  	    OP_DUPLICATE
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     ATTR(bool, ExcludeBufferReuse, false)
@@ -537,6 +713,14 @@ DEFOP(
     INHERIT(LoadTileOp),
     OPCODE(
  	    OP_LOAD
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Lhs),
     INPUT(Tile, Rhs),
@@ -549,6 +733,14 @@ DEFOP(
  	OPCODE(
  	    OP_GATHER_IN_UB
  	),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input1),
     INPUT(Tile, Input2),
     INPUT(Tile, Input3),
@@ -562,6 +754,14 @@ DEFOP(
  	OPCODE(
  	    OP_GATHER_IN_L1
  	),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input1),
     INPUT(Tile, Input2),
     INPUT(Tile, Input3),
@@ -577,6 +777,14 @@ DEFOP(
  	    OP_VLD,
  	    OP_VST
     ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output)
 )
@@ -586,6 +794,14 @@ DEFOP(
     INHERIT(IndexOutCastTileOp),
     OPCODE(
         OP_INDEX_OUTCAST
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Src),
     INPUT(Tile, Index),
@@ -603,6 +819,14 @@ DEFOP(
     OPCODE(
         OP_INDEX_ADD
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input1),
     INPUT(Tile, Input2),
     INPUT(Tile, Input3),
@@ -616,6 +840,14 @@ DEFOP(
     INHERIT(TopKTileOp),
     OPCODE(
         OP_TOPK
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output1),
@@ -631,6 +863,14 @@ DEFOP(
  	OPCODE(
  	    OP_BITSORT
  	),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     ATTR(int, Axis, 1),
@@ -644,6 +884,14 @@ DEFOP(
  	OPCODE(
  	    OP_MRGSORT
  	),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
     ATTR(int, Axis, 1),
@@ -657,6 +905,14 @@ DEFOP(
  	OPCODE(
  	    OP_ARGSORT
  	),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output)
 )
@@ -667,6 +923,14 @@ DEFOP(
  	OPCODE(
  	    OP_EXTRACT
  	),
+    PROPERTY(
+        INPUTS_MEM(UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input),
     OUTPUT(Tile, Output),
  	ATTR(int, ExtractMaskMode, 0),
@@ -680,6 +944,14 @@ DEFOP(
  	OPCODE(
  	    OP_TILEDMRGSORT
  	),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB, UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input1),
     INPUT(Tile, Input2),
     INPUT(Tile, Input3),
@@ -696,6 +968,14 @@ DEFOP(
  	OPCODE(
  	    OP_WHERE_TT
  	),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Condition),
     INPUT(Tile, Input),
     INPUT(Tile, Other),
@@ -708,6 +988,14 @@ DEFOP(
     INHERIT(WhereTSTileOp),
     OPCODE(
         OP_WHERE_TS
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Condition),
     INPUT(Tile, Input),
@@ -722,6 +1010,14 @@ DEFOP(
     OPCODE(
         OP_WHERE_ST
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Condition),
     INPUT(Scalar, Input),
     INPUT(Tile, Other),
@@ -735,6 +1031,14 @@ DEFOP(
     OPCODE(
         OP_WHERE_SS
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB, UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Condition),
     INPUT(Scalar, Input),
     INPUT(Scalar, Other),
@@ -747,6 +1051,14 @@ DEFOP(
     INHERIT(CompareTileBaseOp),
     OPCODE(
         OP_CMP
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Input1),
     INPUT(Tile, Input2),
@@ -762,6 +1074,14 @@ DEFOP(
     OPCODE(
         OP_CMPS
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB, UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tile, Input1),
     INPUT(Scalar, Input2),
     OUTPUT(Tile, Output),
@@ -776,6 +1096,14 @@ DEFOP(
     OPCODE(
         OP_UB_COPY_IN
     ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
+    ),
     INPUT(Tensor, Src),
     INPUT(ScalarList, Offset),
     OUTPUT(Tile, Dst)
@@ -786,6 +1114,14 @@ DEFOP(
     INHERIT(DataCopyOutTileBaseOp),
     OPCODE(
         OP_UB_COPY_OUT
+    ),
+    PROPERTY(
+        INPUTS_MEM(UB, UB),
+        OUTPUTS_MEM(UB),
+        PIPE_S,
+        PIPE_S,
+        AIV,
+        ELMWISE
     ),
     INPUT(Tile, Src),
     INPUT(ScalarList, Offset),
