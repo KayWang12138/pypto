@@ -1281,29 +1281,8 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
     return newShape;
 }
 
-static bool ReshapeNeedCopy(const Tensor &operand) {
-    if (operand.GetShape() != operand.GetStorage()->tensor->rawshape) {
-        return true;
-    }
-    if (operand.GetStorage()->GetProducers().empty()) {
-        return false;
-    }
-
-    auto op = *operand.GetStorage()->GetProducers().begin();
-    while (op->GetOpcode() == Opcode::OP_VIEW) {
-        if (op->GetInputOperand(0)->GetShape() != op->GetOutputOperand(0)->GetShape()) {
-            return true;
-        }
-        if (op->GetInputOperand(0) != nullptr && !op->GetInputOperand(0)->GetProducers().empty()) {
-            op = *op->GetInputOperand(0)->GetProducers().begin();
-        } else {
-            break;
-        }
-    }
-    return false;
-}
-
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace, const void *lr) {
+    std::cout << "Reshape:1282" << std::endl;
     DECLARE_TRACERX(lr);
     ASSERT(!inplace) << "The 'inplace' parameter muster be false !!!";
     if (operand.GetShape() == dstshape) {
@@ -1314,27 +1293,24 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
         validShapeDefault = SymbolicScalar::FromConcrete(dstshape);
     }
     auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
-    if (ReshapeNeedCopy(operand)) {
-        Tensor result(operand.GetStorage()->Datatype(), newShape, "", operand.Format());
-        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
-            result.GetStorage(), validShapeDefault);
-        return result;
-    } else {
-        Tensor result(operand.GetStorage()->Datatype(), newShape, "", operand.Format());
-        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShapeDefault);
-        return result;
-    }
+    Tensor result(operand.GetStorage()->Datatype(), newShape, "", operand.Format());
+    CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShapeDefault);
+    return result;
 }
 
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace) {
+    std::cout << "Reshape:1299" << std::endl;
     return Reshape(operand, dstshape, validShape, inplace, __builtin_return_address(0));
 }
 
 Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape, const std::initializer_list<SymbolicScalar> &validShape, const bool inplace) {
+    std::cout << "Reshape:1304" << std::endl;
+    std::cout << "Reshape: inplace " << inplace << std::endl;
     return Reshape(operand, std::vector<int64_t>(dstshape), std::vector<SymbolicScalar>(validShape), inplace, __builtin_return_address(0));
 }
 
-Tensor Reshape( const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace) {
+Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace) {
+    std::cout << "Reshape:1310" << std::endl;
     ASSERT(inplace) << "The 'inplace' parameter muster be true !!!";
     Tensor dst(operand.GetStorage()->Datatype(), dstShape, "", operand.Format());
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
