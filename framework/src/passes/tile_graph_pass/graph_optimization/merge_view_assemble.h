@@ -104,6 +104,7 @@ private:
     std::unordered_set<int32_t> assembleWithoutAssembleConsumer_;
     std::vector<ViewOp> viewOpToAppend_;
     std::vector<AssembleOp> assembleOpToAppend_;
+    std::queue<Operation*> que;
 };
 } // using namespace npu::tile_fwk
 #endif // PASS_MERGE_VIEW_ASSEMBLE_H_
