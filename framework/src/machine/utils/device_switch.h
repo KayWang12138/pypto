@@ -21,7 +21,7 @@ namespace npu::tile_fwk {
 
 // using pmu
 
-#define PMU_COLLECT 0
+#define PMU_COLLECT 1
 
 #if PMU_COLLECT
 #define PERF_PMU_TEST_SWITCH 1

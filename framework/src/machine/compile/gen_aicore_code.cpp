@@ -30,7 +30,7 @@ const std::string kAicoreSrcCode = R"!!!(
 
 // device switch head file begin
 namespace npu::tile_fwk {
-#define PERF_PMU_TEST_SWITCH 0
+#define PERF_PMU_TEST_SWITCH 1
 
 #define DEBUG_SWITCH 0
 
@@ -42,7 +42,7 @@ namespace npu::tile_fwk {
    AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
    MAX_DFX_TASK_NUM_PER_CORE tasks, with excess tasks being discarded.
 */
-#define PROF_DFX_HOST_PREPARE_MEMORY_MODE 1
+#define PROF_DFX_HOST_PREPARE_MEMORY_MODE 0
 }
 // device switch head file end
 
