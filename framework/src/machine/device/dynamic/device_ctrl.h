@@ -147,6 +147,10 @@ class DeviceCtrlMachine {
                 devProg->controlFlowCache.TaskAddrRestoreWorkspace();
                 devProg->controlFlowCache.TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
             }
+            if (devProg->controlFlowCache.hcclContextAddr != devArgs->hcclContextAddr) {
+                devProg->controlFlowCache.hcclContextAddr = devArgs->hcclContextAddr;
+                devProg->controlFlowCache.TaskAddrRestoreHcclContext(devArgs->hcclContextAddr);
+            }
             devProg->ResetRerun();
         }
     }
