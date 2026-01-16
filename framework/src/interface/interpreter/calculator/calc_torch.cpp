@@ -201,8 +201,32 @@ static void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
 }
 
 static void Sub(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
     auto tout = From(out);
-    torch::sub_out(tout, From(self), From(other));
+    
+    std::vector<int64_t> shape_self = tself.sizes().vec();
+    std::vector<int64_t> shape_other = tother.sizes().vec();
+
+    if (shape_self.size() == 2 && shape_other.size() == 2 &&
+        shape_self[0] == shape_other[0] && 
+        shape_self[1] != shape_other[1]) {
+        
+        if (shape_other[1] == 8) {
+            int64_t cols_self = shape_self[1];
+            int64_t cols_other = shape_other[1];
+            int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
+            auto tother_expanded = tother.repeat({1, repeat_times});
+            auto tother_final = tother_expanded.index(
+                {torch::indexing::Slice(), 
+                 torch::indexing::Slice(0, cols_self)});
+            torch::sub_out(tout, tself, tother_final);
+        } else {
+            torch::sub_out(tout, tself, tother);
+        }
+    } else {
+        torch::sub_out(tout, tself, tother);
+    }
 }
 
 static void Mul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
@@ -928,38 +952,17 @@ static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
 }
 
 static void Brcb(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
-    auto tout = From(out);
     auto tself = From(self);
+    auto tout = From(out);
     
-    int64_t ndim = tself.dim();
+    std::vector<int64_t> input_shape = tself.sizes().vec();
+    std::vector<int64_t> output_shape = tout.sizes().vec();
     
-    if (ndim < 2) {
-        tout.copy_(tself.expand_as(tout));
-        return;
-    }
-    
-    int64_t col_dim = ndim - 1;
-    int64_t row_dim = ndim - 2; 
-    
-    int64_t out_rows = tout.size(row_dim);
-    int64_t out_cols = tout.size(col_dim);
-    int64_t self_rows = tself.size(row_dim);
-    int64_t self_cols = tself.size(col_dim);
-    
-    if (self_cols != 1) {
-        tout.copy_(tself.expand_as(tout));
-        return;
-    }
-    
-    if (out_rows != self_rows) {
-        tout.copy_(tself.expand_as(tout));
-        return;
-    }
-    
-    std::vector<int64_t> repeat_counts(ndim, 1);
-    repeat_counts[col_dim] = out_cols; 
-    
-    tout.copy_(tself.repeat(repeat_counts));
+    int64_t M = input_shape[0];
+    int64_t N = output_shape[1]; 
+    auto first_col = tself.index({torch::indexing::Slice(), 0}); 
+    auto expanded = first_col.unsqueeze(1).expand({M, N}); 
+    tout.copy_(expanded);
 }
 
 static struct CalcOps calcOps = {
