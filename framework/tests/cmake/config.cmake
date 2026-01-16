@@ -26,9 +26,7 @@ endif ()
 list(GET PTO_Fwk_StestExecuteDeviceIdList 0 TileFwkStestExecuteDeviceIdPref)
 
 if (ENABLE_STEST_DISTRIBUTED)
-    # 查找mpirun程序
-    find_program(MPIRUN_EXECUTABLE)
-    # 检查是否找到mpirun
+    find_program(MPIRUN_EXECUTABLE NAMES mpirun mpiexec)
     if (NOT MPIRUN_EXECUTABLE)
         message(FATAL_ERROR "mpirun not found! Distributed tests require MPI runtime.\n")
     else ()

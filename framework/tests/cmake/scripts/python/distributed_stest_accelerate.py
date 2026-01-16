@@ -25,6 +25,11 @@ class DistributedSTestAccelerate(STestAccelerate):
     继承自STestAccelerate, 使用父类的device_list参数, 按照rank_size进行设备分组.
     """
 
+    def __init__(self, args, params: List[STestAccelerate.ExecParam], cntr_name: str = "DeviceGroup"):
+        super().__init__(args, params, cntr_name)
+        # 只在多卡模式下需要提取golden路径
+        self.golden_path = self._extract_golden_path_from_envs(args.envs)
+
     @property
     def mark(self) -> str:
         return "Distributed-STest"
@@ -130,6 +135,16 @@ class DistributedSTestAccelerate(STestAccelerate):
         else:
             raise ValueError("No custom config found, run distribute case failed")
 
+    def _extract_golden_path_from_envs(self, envs: Dict[str, str]) -> str:
+        """从环境变量中提取golden路径 - 多卡模式专用"""
+        golden_path = envs.get('TILE_FWK_STEST_GOLDEN_PATH')
+        
+        if not golden_path:
+            golden_path = os.environ.get('TILE_FWK_STEST_GOLDEN_PATH')
+        if not golden_path:
+            logging.error("TILE_FWK_STEST_GOLDEN_PATH not found in environment, using default path")
+        return golden_path
+
     def _run_multi_device_case(self, ctx: STestAccelerate.CaseContext, device_group: List[int], rank_size: int):
         """执行多卡分布式测试用例
         
@@ -140,6 +155,7 @@ class DistributedSTestAccelerate(STestAccelerate):
         """
         # 准备环境变量
         env_vars = os.environ.copy()
+        env_vars['TILE_FWK_STEST_GOLDEN_PATH'] = self.golden_path
         if ctx.exec_param.get_envs():
             env_vars.update(ctx.exec_param.get_envs())
         
