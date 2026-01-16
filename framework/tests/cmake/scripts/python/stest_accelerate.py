@@ -73,16 +73,11 @@ class STestAccelerate(GTestAccelerate):
 
         if args.device is not None:
             # 去重并过滤空值
-            device_list = [int(d) for d in list(set(args.device))
-                          if d is not None and str(d) != ""]
+            device_list = [int(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
 
         logging.debug("Initialized device list: %s", device_list)
         return device_list
-    
-    def _execute_case(self, ctx: GTestAccelerate.CaseContext, param: GTestAccelerate.ExecParam, gtest_filter: str):
-        """单卡模式执行 - 重写父类方法"""
-        # 单卡直接执行，使用父类默认实现
-        return self.exe.run(gtest_filter=gtest_filter, envs=param.get_envs())
+
 
 if __name__ == "__main__":
     logging.basicConfig(
