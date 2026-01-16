@@ -1,0 +1,175 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file tune_tileopseq_for_vf.cpp
+ * \brief
+ */
+
+#include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
+#include "passes/block_graph_pass/insert_sync.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "TuneTileOpSeqForVF"
+
+namespace npu {
+namespace tile_fwk {
+void TuneTileOpSeqForVF::ChangeOpSeq(std::vector<Operation *> &opList, PipeSync &ps, bool isAIV1) {
+    AIVCore coreType;
+    if (!isAIV1) {
+        coreType = AIVCore::AIV0;
+    } else {
+        coreType = AIVCore::AIV1;
+    }
+
+    std::vector<size_t> pipeVIdx;
+    mergedOps.clear();
+    for (size_t i = 0; i < opList.size(); i++) {
+        auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList[i]->GetOpcode());
+        ps.AdjustOpCfg(opcfg, *opList[i]);
+        if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList[i]->GetAIVCore() == coreType) {
+            pipeVIdx.emplace_back(i);
+        }
+    }
+
+    if (pipeVIdx.size() <= 1) {
+        return;
+    }
+
+    for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
+        size_t left = pipeVIdx[idx];
+        size_t right = pipeVIdx[idx + 1];
+        APASS_LOG_DEBUG_F(Elements::Operation, "Try to merge %d %s and %d %s", opList[left]->GetOpMagic(), opList[left]->GetOpcodeStr().c_str(),
+            opList[right]->GetOpMagic(), opList[right]->GetOpcodeStr().c_str());
+        bool canMerge = true;
+        // 先看vecTileop0是否已经在mergedOps中
+        int groupNum = -1;
+        for (size_t i = 0; i < mergedOps.size(); i++) {
+            for (size_t j = 0; j < mergedOps[i].size(); j++) {
+                if (mergedOps[i][j] == opList[left]) {
+                    groupNum = i;
+                    break;
+                }
+            }
+        }
+        std::unordered_set<Operation *> moveFrontOp;
+        for (size_t k = left + 1; k < right; k++) {
+            // 如果该op和vecTileop0和vecTileop1都存在依赖关系，则不能融合
+            if (ps.HasDataDependency(*opList[left], *opList[k], left, k) && ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
+                canMerge = false;
+                break;
+            }
+            // vecTileop0 op(set) vecTileop1(wait) 这种情况下两个vecTileop中间的op需要前移
+            if (ps.HasDataDependency(*opList[k], *opList[right], k, right)) {
+                // 需要进一步判断和vecTileop0 group中的op是否有依赖关系
+                if (groupNum == -1) {
+                    moveFrontOp.insert(opList[k]);
+                } else {
+                    size_t tempIdx = left;
+                    for (auto &groupOp : mergedOps[groupNum]) {
+                        if (ps.HasDataDependency(*groupOp, *opList[k], --tempIdx, k)) {
+                            canMerge = false;
+                            break;
+                        }
+                    }
+                    if (canMerge) {
+                        moveFrontOp.insert(opList[k]);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        if (!canMerge) {
+            continue;
+        }
+        // 可以融合
+        // 将vecTileop0和vecTileop1添加到mergedOps中
+        APASS_LOG_DEBUG_F(Elements::Operation, "Need merge.");
+        if (groupNum == -1) {
+            // 将vecTileop0和vecTileop1添加到mergedOps中
+            std::vector<Operation *> newOp = {opList[left], opList[right]};
+            mergedOps.emplace_back(newOp);
+            groupNum = mergedOps.size() - 1;
+        } else {
+            mergedOps[groupNum].emplace_back(opList[right]);
+        }
+        std::vector<Operation *> moveLeft;
+        std::vector<Operation *> moveRight;
+        for (size_t k = left + 1; k < right; k++) {
+            if (moveFrontOp.count(opList[k])) {
+                moveLeft.emplace_back(opList[k]);
+            } else {
+                moveRight.emplace_back(opList[k]);
+            }
+        }
+        // 删除left和right中间的op
+        std::vector<size_t> toMoveIdx;
+        for (size_t k = left + 1; k < right; k++) {
+            toMoveIdx.emplace_back(k);
+        }
+        for (auto it = toMoveIdx.rbegin(); it != toMoveIdx.rend(); it++) {
+            opList.erase(opList.begin() + *it);
+        }
+        // 在vecTileop1的右侧将moveRight的op插入
+        auto insertPosR = opList.begin() + left + 2;
+        opList.insert(insertPosR, moveRight.begin(), moveRight.end());
+        // 在vecTileop0 group的左侧将moveLeft的op插入
+        auto insertPosL = opList.begin() + left - mergedOps[groupNum].size() + 1;
+        opList.insert(insertPosL, moveLeft.begin(), moveLeft.end());
+
+        // 由于移动，pipeVop的idx会发生变化，需要重新更新pipeVIdx
+        pipeVIdx.clear();
+        for (size_t i = 0; i < opList.size(); i++) {
+            auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList[i]->GetOpcode());
+            ps.AdjustOpCfg(opcfg, *opList[i]);
+            if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList[i]->GetAIVCore() == coreType) {
+                pipeVIdx.emplace_back(i);
+            }
+        }
+    }
+}
+
+Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
+    size_t funcId = 0;
+    for (auto &program : function.rootFunc_->programs_) {
+        std::vector<Operation *> opList(program.second->Operations(false).DuplicatedOpList());
+        PipeSync ps;
+        APASS_LOG_DEBUG_F(Elements::Function, "=======================function %d ======================", funcId);
+        for (const auto &op : opList) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "Input Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            ps.BuildTensorRangeMap(op);
+            auto opcfg = OpcodeManager::Inst().GetTileOpCfg(op->GetOpcode());
+            if (opcfg.pipeIdStart_ != PipeType::PIPE_V) {
+                continue;
+            }
+            // 假定：pipe_V的op的AIV类型只能是AIV0或AIV1
+            if (op->GetAIVCore() != AIVCore::AIV0 && op->GetAIVCore() != AIVCore::AIV1) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Pipe_V op %d %s AIV type is neither AIV0 nor AIV1, RunOnFunction failed.", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+                return FAILED;
+            }
+        }
+        // AIV0和AIV1各调整一次
+        ChangeOpSeq(opList, ps, false);
+        ChangeOpSeq(opList, ps, true);
+        // 将调整后的oplist刷新到function中去
+        program.second->ScheduleBy(opList, true);
+        APASS_LOG_DEBUG_F(Elements::Function, "---------------------------------------------------");
+        for (const auto &op : opList) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "Output Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
+        }
+        funcId++;
+
+        // TODO 增加拓扑逻辑校验
+    }
+    return SUCCESS;
+}
+} // namespace tile_fwk
+} // namespace npu
