@@ -123,19 +123,7 @@ Status SubgraphToFunction::RunOnFunction(Function &function) {
         return FAILED;
     }
     // 只在静态流程中构建图
-    if (function.GetFunctionType() == FunctionType::STATIC) {
-        // 1. Construct in-graph & out-graph
-        if (staticProcessor_.BuildGraph(function) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Failed to build graph from input function.");
-            return FAILED;
-        }
-        // reconnect in-graph and out-graph by Incast and Outcast
-        RecordIncastOutcast(function);
-        SetupStaticProcessor();
-    } else {
-        // reconnect in-graph and out-graph by Incast and Outcast
-        RecordIncastOutcast(function);
-    }
+    RecordIncastOutcast(function);
     // Construct function.subFunctionInvokeMap
     ConstructParamMap(function);
     // Determine the isomorphism of subgraphs and record ProgramInfoMap
