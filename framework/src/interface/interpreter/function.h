@@ -26,7 +26,6 @@ namespace npu::tile_fwk {
 struct FunctionIODataPair {
     std::vector<std::shared_ptr<LogicalTensorData>> incastDataViewList;
     std::vector<std::shared_ptr<LogicalTensorData>> outcastDataViewList;
-    std::shared_ptr<FunctionIODataPair> rootInoutDataPair;
 
     FunctionIODataPair() {}
     FunctionIODataPair(std::vector<std::shared_ptr<LogicalTensorData>> incastDataViewList_,
@@ -459,11 +458,10 @@ struct FunctionInterpreter {
         return AllocateDataView(frame, tensor, tensor->GetRawTensor()->GetDataType(), inplaceTensor);
     }
 
-    void ExecuteOpCallLeaf(ExecuteOperationContext *ctx, std::shared_ptr<FunctionIODataPair> &rootInoutDataPair) {
+    void ExecuteOpCallLeaf(ExecuteOperationContext *ctx) {
         Function *callee = GetCallee(ctx->op);
         auto inoutDataPair =
             std::make_shared<FunctionIODataPair>(*ctx->ioperandDataViewList, *ctx->ooperandInplaceDataViewList);
-        inoutDataPair->rootInoutDataPair = rootInoutDataPair;
         ExecuteFunctionFrame(callee, ctx->op, inoutDataPair);
     }
 
@@ -497,8 +495,7 @@ struct FunctionInterpreter {
 
     void ExecuteInplaceOperation(FunctionFrame &frame, Operation &op, int oOperandIdx,
         const std::vector<std::shared_ptr<LogicalTensorData>> &iOpDataList,
-        std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList,
-        std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
+        std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList) {
         auto oop = op.GetOOperands()[oOperandIdx];
         auto index = GetInplaceIndex(&op, oOperandIdx);
         ASSERT(index != -1);
@@ -546,7 +543,7 @@ struct FunctionInterpreter {
         for (size_t i = 0; i < op->GetOOperands().size(); i++) {
             auto oop = op->GetOOperands()[i];
             if (auto index = GetInplaceIndex(op, i); index != -1) {
-                ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList, inoutDataPair);
+                ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
             } else {
                 if (isConsumerAccMatmul(op)) {
                     auto dtype = oop->GetRawTensor()->GetDataType();
@@ -564,7 +561,7 @@ struct FunctionInterpreter {
         ExecuteOperationContext ctx = {&frame, {}, op, &iOpDataList, {}, &oOpDataList};
 
         if (op->GetOpcode() == Opcode::OP_CALL) {
-            ExecuteOpCallLeaf(&ctx, inoutDataPair);
+            ExecuteOpCallLeaf(&ctx);
         } else {
             TimeStamp ts;
             operationInterpreter->ExecuteOperation(&ctx);
