@@ -633,19 +633,6 @@ class JitCallableWrapper:
         """
         _cost_model_run_once_data_from_host(in_tensors, out_tensors)
 
-    def _set_runtime_debug_mode(self) -> None:
-        """Enable runtime debug mode and profiling if configured.
-
-        Checks debug options for runtime_debug_mode flag and enables profiling
-        if debug mode is active. This allows collecting performance metrics and
-        detailed execution traces during kernel execution.
-        """
-        if self._debug_options is None:
-            self._debug_options = {}
-        if self._debug_options.get(
-            "runtime_debug_mode", 0
-        ) or pypto.get_debug_options().get("runtime_debug_mode", 0):
-            pypto.set_option("profile_enable", True)
 
     def _dispatch_with_run_mode(
         self,
@@ -673,7 +660,6 @@ class JitCallableWrapper:
         RuntimeError
             If NPU mode is selected but CANN environment is not configured.
         """
-        self._set_runtime_debug_mode()
         cann_is_configed = bool(os.environ.get("ASCEND_HOME_PATH"))
         run_mode = pypto.get_runtime_options().get("run_mode", 0)
         if run_mode == 0:  # NPU mode

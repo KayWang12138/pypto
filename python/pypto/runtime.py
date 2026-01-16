@@ -114,6 +114,7 @@ class _JIT:
                  pass_options=None, runtime_options=None, verify_options=None, debug_options=None):
         self.dyn_func = dyn_func
         self._is_compiled: bool = False
+        self._output_path = ""
         self._handler = None
         self._handler_cache = {}
         self.codegen_options = codegen_options
@@ -147,6 +148,7 @@ class _JIT:
         _pto_verify_datas.reset()
 
         self._handler = handler
+        self._output_path = pypto_impl.LogTopFolder()
         self._is_compiled = True
 
     def run(self, in_tensor_data, out_tensor_data, device):
@@ -182,15 +184,8 @@ class _JIT:
         _cost_model_run_once_data_from_host(in_tensor_data, out_tensor_data)
         return
 
-    def set_runtime_debug_mode(self):
-        if self.debug_options is None:
-            self.debug_options = {}
-        if self.debug_options.get("runtime_debug_mode") == 1 \
-             or pypto.get_debug_options().get("runtime_debug_mode") == 1:
-            pypto.set_option("profile_enable", True)
 
     def dispatch_with_run_mode(self, in_tensor_data, out_tensor_data, device):
-        self.set_runtime_debug_mode()
         cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
         run_mode = pypto.get_runtime_options().get('run_mode', 0)
         if run_mode == 0:
@@ -243,7 +238,7 @@ class _JIT:
                 self._handler_cache[input_hash] = self._handler
                 pypto_impl.BuildCache(self._handler, in_out_tensors_data, [])
             else:
-                pypto_impl.ResetLog()
+                pypto_impl.ResetLog(self._output_path)
                 self._handler = self._handler_cache.get(input_hash)
             # dispatch run mode based on ASCEND_HOME_PATH or run_mode
             '''

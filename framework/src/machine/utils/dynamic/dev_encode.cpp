@@ -12,7 +12,7 @@
  * \file dev_encode.cpp
  * \brief
  */
-
+#include "tilefwk/platform.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 
@@ -599,8 +599,10 @@ void DevAscendFunction::InitOperation(
     }
 }
 
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
 void DevAscendFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<Operation *> &callList, bool fillContent) {
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+        return;
+    }
     opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
     opWrapTaskNumList_.HostInitDataSizeOffset(initOffset, callList.size());
 
@@ -620,7 +622,6 @@ void DevAscendFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<
         }
     }
 }
-#endif
 
 void DevAscendFunction::InitIncastOutcast(
         uintdevptr_t &initOffset,
@@ -1620,9 +1621,7 @@ struct EncodeDevAscendFunctionInfo {
                 initOffset, expressionTable, callList, tensorList, rawTensorList,
                 callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList,
                 noPredOpList, noSuccOpList, copyOutResolveSuccIndexListDict, fillContent);
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
         devFunc->InitWrapInfo(initOffset, callList, fillContent);
-#endif
         devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, param, rawName, fillContent);
     }
 };
@@ -1717,10 +1716,8 @@ void DevAscendProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vect
             cceCodeList[index].coreType = cceInfo[index].coreType;
             cceCodeList[index].psgId = cceInfo[index].psgId;
             cceCodeList[index].funcHash = cceInfo[index].funcHash;
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
             cceCodeList[index].wrapVecId = cceInfo[index].wrapVecId;
             cceCodeList[index].mixResourceType = cceInfo[index].mixResourceType;
-#endif
             auto dataLen = cceInfo[index].aicpuLeafCode.size();
             aicpuLeafCodeList[index].aicpuLeafCode.HostAssignRangeOffsetSize(aicpuLeafCodeDataList, offset, dataLen);
             (void)memcpy_s(aicpuLeafCodeList[index].aicpuLeafCode.Data(), sizeof(int32_t) * dataLen,
@@ -2092,17 +2089,19 @@ static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevAscendFunction *func
 };
 
 static int ParseUnrollTimes(const std::string &rawName) {
-    static const std::string UNROLL_MARK = "_Unroll";
-
-    auto unrollPos = rawName.rfind(UNROLL_MARK);
-    if (unrollPos == std::string::npos) {
-        return 1;
+    const static std::string UNROLL_MARKS[2] = {"_LoopUnroll", "_Unroll"};
+    int unrollTimes = 1;
+    for (auto& unrollMask : UNROLL_MARKS) {
+        auto unrollPos = rawName.rfind(unrollMask);
+        if (unrollPos == std::string::npos) {
+            continue;
+        }
+        std::string suffix = rawName.substr(unrollPos + unrollMask.length());
+        if (std::isdigit(suffix.front())) {
+            unrollTimes *= std::stoi(suffix);
+        }
     }
-    std::string suffix = rawName.substr(unrollPos + UNROLL_MARK.length());
-    if (!std::isdigit(suffix.front())) {
-        return 1;
-    }
-    return std::stoi(suffix);
+    return unrollTimes;
 }
 
 static uint64_t CalcUnrolledRootBudget(uint64_t budget, int unrollTimes, int configMultiplier) {
@@ -2263,10 +2262,8 @@ static uint64_t CalcGeneralMetadataWorkspace(DevAscendProgram *devProg) {
         1,// VecStitchList
         1,// DynDevTask
         READY_QUEUE_SIZE, //ReadyQue
-        #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
         1,
         1,
-        #endif
     };
     workspace.CalculateSlabCapacityPerType(slabSize, slabCapacity,
     ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));

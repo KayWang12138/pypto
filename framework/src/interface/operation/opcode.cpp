@@ -335,9 +335,10 @@ void OpcodeManager::RegisterVector() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tscatter", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
-    RegisterInfo(Opcode::OP_INDEX_PUT, OpCoreType::AIV, "INDEX_PUT", {MemoryType::MEM_UB, MemoryType::MEM_UB},
-        {MemoryType::MEM_UB}, {"TileOp::Tindexput", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, {"axis"},
-        TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_INDEX_PUT, OpCoreType::ANY, "INDEX_PUT",
+ 	    {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+ 	    {MemoryType::MEM_DEVICE_DDR}, {"TileOp::TIndexPut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT,
+        {OpAttributeKey::accumulate, OpAttributeKey::indicesSize});
     RegisterInfo(Opcode::OP_SCATTER_UPDATE, OpCoreType::ANY, "SCATTER_UPDATE", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {}, OpCalcType::OTHER);
     RegisterInfo(Opcode::OP_SCATTER_SCALAR, OpCoreType::ANY, "SCATTER_SCALAR", {MemoryType::MEM_UB, MemoryType::MEM_UB},
@@ -670,7 +671,7 @@ void OpcodeManager::RegisterCommon() {
         {OP_ATTR_PREFIX + "atomic_add", OpAttributeKey::inputCombineAxis, OpAttributeKey::excludeBufferReuse});
     RegisterInfo(Opcode::OP_CALL, OpCoreType::ANY, "CALL", {}, {}, {}, OpCalcType::SYS);
     RegisterInfo(Opcode::OP_PRINT, OpCoreType::ANY, "OP_DUMP", {}, {}, {}, OpCalcType::SYS, {});
-    RegisterInfo(Opcode::OP_CALL_NOT_EXPAND, OpCoreType::ANY, "CALL_NOT_EXPAND", {}, {}, {}, OpCalcType::SYS);
+    RegisterInfo(Opcode::OP_BLOCK_CALL, OpCoreType::ANY, "BLOCK_CALL", {}, {}, {}, OpCalcType::SYS);
     RegisterInfo(Opcode::OP_FUSED_OP, OpCoreType::AIV, "FUSED_OP", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::fusedOP", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST);
     RegisterInfo(Opcode::OP_VLD, OpCoreType::ANY, "VLD", {}, {}, {}, OpCalcType::MOVE_IN);
@@ -798,5 +799,6 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
  	{           Opcode::OP_L1_TO_BT,       "TExtract"},
  	{         Opcode::OP_L1_COPY_IN,          "TLoad"},
  	{       Opcode::OP_L0C_COPY_OUT,         "TStore"},  
+    {               Opcode::OP_BRCB,          "Tbrcb"},
 };
 } // namespace npu::tile_fwk

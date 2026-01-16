@@ -13,9 +13,8 @@
  * \brief
  */
 
-#include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
-
+#include "test_cost_macro.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "operator/models/deepseek/deepseek_mla.h"
@@ -855,7 +854,7 @@ TEST_F(FunctionTest, TestBMMtest) {
     Tensor c;
     TileShape::Current().SetCubeTile({std::min(128, 1), std::min(128, 1)}, {128, 128}, {64, 64});
     FUNCTION("BMM") {
-        c = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP16, a, b);
+        c = npu::tile_fwk::Matrix::BatchMatmul(DT_FP16, a, b, false, false);
     }
 
     ALOG_INFO(Program::GetInstance().Dump());
@@ -870,7 +869,7 @@ TEST_F(FunctionTest, TestBMMtest2) {
     Tensor c;
     TileShape::Current().SetCubeTile({std::min(128, 1), std::min(128, 1)}, {128, 128}, {64, 64});
     FUNCTION("BMM") {
-        c = npu::tile_fwk::Matrix::BatchMatmul<false, true>(DT_FP16, a, b);
+        c = npu::tile_fwk::Matrix::BatchMatmul(DT_FP16, a, b, false, true);
     }
 
     ALOG_INFO(Program::GetInstance().Dump());
@@ -1124,7 +1123,7 @@ TEST_F(FunctionTest, TestPad) {
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, Test_quantMM) {
+TEST_F_WITH_COST(FunctionTest, Test_quantMM, 95) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     std::vector<int64_t> vecTileShape  = {32, 512};

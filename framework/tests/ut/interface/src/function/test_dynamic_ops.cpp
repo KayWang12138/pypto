@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include <gtest/gtest.h>
+#include "test_cost_macro.h"
 #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/interpreter/calc.h"
@@ -257,7 +257,7 @@ TEST_F(DynamicOpsTest, OpsElementWise) {
     }
 }
 
-TEST_F(DynamicOpsTest, Cube) {
+TEST_F_WITH_COST(DynamicOpsTest, Cube, 98) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
 
@@ -408,7 +408,7 @@ TEST_F(DynamicOpsTest, MatmulAcc) {
             (void)i;
             auto v0 = View(t0, {64, 64}, {64, 64});
             auto v1 = View(t1, {64, 64}, {64, 64});
-            auto m0 = Matrix::Matmul<false, true>(DT_FP32, v0, v1);
+            auto m0 = Matrix::Matmul(DT_FP32, v0, v1, false, true);
             out = Add(m0, t2);
         }
     }
@@ -464,7 +464,7 @@ static void TestMatmul(DataType inType, DataType outType) {
     FUNCTION("main", {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            out = Matrix::Matmul<false, false>(outType, t0, t1);
+            out = Matrix::Matmul(outType, t0, t1, false, false);
         }
     }
 }
