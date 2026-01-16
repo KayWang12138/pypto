@@ -80,9 +80,6 @@ def gen_hc_pre_data(t = 16):
     hc_scale = torch.empty((3,), dtype=torch.float32).uniform_(-1, 1)
     hc_base = torch.empty((mix_hc, ), dtype=torch.float32).uniform_(-1, 1)
     res, post, comb, mm_res = gen_hc_pre(x, hc_fn, hc_scale, hc_base)
-    # print("res", res.shape, res)
-    # print("post", post.shape, post)
-    # print("comb", comb.shape, comb)
     return x, hc_fn, hc_scale, hc_base, res, post, comb, mm_res
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
@@ -102,6 +99,8 @@ def hc_pre(x, hc_fn, hc_scale, hc_base):
 
 class HC_PRE(torch.nn.Module):
     def forward(self, x, hc_fn, hc_scale, hc_base):
+        #### add some op here
+        # x = torch.add(x, 0)
         return torch.ops.pypto.hc_pre(x, hc_fn, hc_scale, hc_base)
 
 def test_hc_pre_inmodel(t = 16):
@@ -123,8 +122,9 @@ def test_hc_pre_inmodel(t = 16):
     compiler_config.mode = "reduce-overhead"
     npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
     model = torch.compile(HC_PRE(), dynamic=False, fullgraph=True, backend=npu_backend)
-    y, post, comb = model(x, hc_fn, hc_scale, hc_base)
-    pypto.runtime._device_synchronize()
+    for _ in range(1):
+        y, post, comb = model(x, hc_fn, hc_scale, hc_base)
+        pypto.runtime._device_synchronize()
 
     ### compare
     compare(y.cpu(), y_gd, "y", atol=0.0001, rtol=0.0078125)
