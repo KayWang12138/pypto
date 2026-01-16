@@ -27,6 +27,7 @@ enum class UnaryOpType {
     EXP,
     RSQRT,
     SQRT,
+    CEIL,
     RECIPROCAL,
     DUPLICATE,
     ABS,
