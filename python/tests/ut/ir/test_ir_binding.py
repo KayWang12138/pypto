@@ -136,7 +136,7 @@ def test_control_flow():
     fs = builder.create_for(ctx, i, constant0, batch, constant1)
 
     # Test for attribute
-    fs.properties()["unroll"] = "4"
+    fs.set_attr("unroll", 4)
 
     builder.enter_for(ctx, fs)
 
