@@ -918,7 +918,7 @@ private:
     inline int32_t ResolveByRegVal(CoreType type, int coreIdx) {
         int32_t ret = DEVICE_MACHINE_OK;
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreIdx);
-        uint32_t aicpuCallCode = finTaskRegVal >> 32;
+        [[maybe_unused]] uint32_t aicpuCallCode = finTaskRegVal >> 32;
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
         DEV_VERBOSE_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate: %u.", coreIdx, finTaskId, finTaskState);
@@ -1332,7 +1332,7 @@ private:
         if constexpr (IsDeviceMode()) {
             aicoreHal_.MapRegistersForAllCores(aicNum_);
             aicoreProf_.ProfInit(reinterpret_cast<int64_t *>(deviceArgs->corePmuRegAddr),
-               reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr),  deviceArgs->toSubMachineConfig.profConfig);
+               reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr),  deviceArgs->toSubMachineConfig.profConfig, deviceArgs->archInfo);
         } else {
             aicoreHal_.SetTaskTimeCost([this](uint64_t coreIdx, uint64_t taskId, uint64_t time)
                 {return GetCostModelTaskTime(coreIdx, taskId, time); });
