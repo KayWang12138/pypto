@@ -174,6 +174,10 @@ inline void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logica
 inline void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
     GetCalcOps()->CumSum(out, in, axis);
 }
+inline void IndexPut(LogicalTensorDataPtr out, LogicalTensorDataPtr self, std::vector<LogicalTensorDataPtr> indices,
+    LogicalTensorDataPtr values, bool accumulate = false) {
+    GetCalcOps()->IndexPut(out, self, indices, values, accumulate);
+}
 inline void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Reshape(out, self);
 }
@@ -194,9 +198,6 @@ inline void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans
 inline void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
     int axis = -2, std::string cacheMode = "BSND", int blockSize = 1) {
     GetCalcOps()->ScatterUpdate(out, self, index, axis, cacheMode, blockSize);
-}
-inline void LogicalView(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Offset offset) {
-    GetCalcOps()->LogicalView(out, self, offset);
 }
 inline void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src,
     int axis, int reduce) {
