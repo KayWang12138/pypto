@@ -373,7 +373,7 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
             shmemSignal,
             topK);
 
-        SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
+        SymbolicScalar thisRank = GetHcclRankId(group);
         auto shmemDataThisRank = View(shmemData, {1, 1, shmemDataRow, hiddenSize},
             std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
         auto shmemSignalThisRank = View(shmemSignal, {1, batchSize, shmemSignalCol},
