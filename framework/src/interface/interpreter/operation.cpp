@@ -19,6 +19,58 @@
 
 namespace npu::tile_fwk {
 
+static std::string DumpShapeVec(const std::vector<int64_t> &shape) {
+    std::stringstream ss;
+    ss << "[";
+    for (size_t i = 0; i < shape.size(); ++i) {
+        if (i != 0) {
+            ss << ", ";
+        }
+        ss << shape[i];
+    }
+    ss << "]";
+    return ss.str();
+}
+
+static std::string DumpSymbolicVec(const std::vector<SymbolicScalar> &symbols) {
+    std::stringstream ss;
+    ss << "[";
+    for (size_t i = 0; i < symbols.size(); ++i) {
+        if (i != 0) {
+            ss << ", ";
+        }
+        ss << symbols[i].Dump();
+    }
+    ss << "]";
+    return ss.str();
+}
+
+static void LogTensorList(const char *role, Operation *op,
+    const std::vector<std::shared_ptr<LogicalTensor>> &tensors) {
+    for (size_t i = 0; i < tensors.size(); ++i) {
+        auto tensor = tensors[i];
+        if (tensor == nullptr) {
+            continue;
+        }
+        auto shapeStr = DumpShapeVec(tensor->shape);
+        auto offsetStr = DumpShapeVec(tensor->offset);
+        auto dynValidShapeStr = DumpSymbolicVec(tensor->GetDynValidShape());
+        auto dynOffsetStr = DumpSymbolicVec(tensor->GetDynOffset());
+        ALOG_ERROR_F(
+            "ExecuteOperation error: op %s (magic=%d) %s[%zu] tensorMagic=%d, "
+            "shape=%s, offset=%s, dynValidShape=%s, dynOffset=%s",
+            op->GetOpcodeStr().c_str(),
+            op->GetOpMagic(),
+            role,
+            i,
+            tensor->magic,
+            shapeStr.c_str(),
+            offsetStr.c_str(),
+            dynValidShapeStr.c_str(),
+            dynOffsetStr.c_str());
+    }
+}
+
 static int64_t GetAsParameterCoaIndex(const RawSymbolicScalarPtr &value) {
     if (value->IsExpressionCall("RUNTIME_COA_GET_PARAM_OFFSET")) {
         auto &operands = value->GetExpressionOperandList();
@@ -66,62 +118,11 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
     try {
         OperationInterpreter::CallOperationInterpreterFunc(&ctxValid);
     } catch (std::exception &e) {
-        // 打印当前 op 输出相关的动态信息，便于排查执行错误
         auto *op = ctx->op;
-        auto *func = ctx->frame->func;
         if (op != nullptr) {
-            auto &oTensors = op->GetOOperands();
-            for (size_t i = 0; i < oTensors.size(); ++i) {
-                auto tensor = oTensors[i];
-                if (tensor == nullptr) {
-                    continue;
-                }
-                // 静态 shape
-                const auto &shape = tensor->shape;
-                std::stringstream shapeSs;
-                shapeSs << "[";
-                for (size_t k = 0; k < shape.size(); ++k) {
-                    if (k != 0) {
-                        shapeSs << ", ";
-                    }
-                    shapeSs << shape[k];
-                }
-                shapeSs << "]";
-
-                // 动态 valid shape / offset（符号表达形式）
-                const auto &dynValidShape = tensor->GetDynValidShape();
-                const auto &dynOffset = tensor->GetDynOffset();
-                std::stringstream dynValidShapeSs;
-                dynValidShapeSs << "[";
-                for (size_t k = 0; k < dynValidShape.size(); ++k) {
-                    if (k != 0) {
-                        dynValidShapeSs << ", ";
-                    }
-                    dynValidShapeSs << dynValidShape[k].Dump();
-                }
-                dynValidShapeSs << "]";
-
-                std::stringstream dynOffsetSs;
-                dynOffsetSs << "[";
-                for (size_t k = 0; k < dynOffset.size(); ++k) {
-                    if (k != 0) {
-                        dynOffsetSs << ", ";
-                    }
-                    dynOffsetSs << dynOffset[k].Dump();
-                }
-                dynOffsetSs << "]";
-
-                ALOG_ERROR_F(
-                    "ExecuteOperation error: op %s (magic=%d) output[%zu] tensorMagic=%d, "
-                    "shape=%s, dynValidShape=%s, dynOffset=%s",
-                    op->GetOpcodeStr().c_str(),
-                    op->GetOpMagic(),
-                    i,
-                    tensor->magic,
-                    shapeSs.str().c_str(),
-                    dynValidShapeSs.str().c_str(),
-                    dynOffsetSs.str().c_str());
-            }
+            // 打印当前 op 输入 / 输出的动态信息，便于排查执行错误
+            LogTensorList("input", op, op->GetIOperands());
+            LogTensorList("output", op, op->GetOOperands());
         }
         auto func = ctx->frame->func;
         func->DumpFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + ".tifwkgr");
