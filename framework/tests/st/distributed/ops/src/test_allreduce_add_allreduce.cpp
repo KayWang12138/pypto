@@ -124,7 +124,7 @@ void FuncAllReduceAddAllReduce(const Tensor& in, Tensor& out, const OpTestParam&
 }
 
 template<typename T>
-void TestShmemAllReduceAddAllReduce(OpTestParam &testParam)
+void TestAllReduceAddAllReduce(OpTestParam &testParam)
 {
     constexpr size_t paramsSize = 3;
     auto [row, col, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
@@ -151,9 +151,9 @@ void TestShmemAllReduceAddAllReduce(OpTestParam &testParam)
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/out_rank_", outSize, output->GetDevPtr(), testParam));
 }
 
-template void TestShmemAllReduceAddAllReduce<int32_t>(OpTestParam& testParam);
-template void TestShmemAllReduceAddAllReduce<float>(OpTestParam& testParam);
-template void TestShmemAllReduceAddAllReduce<float16>(OpTestParam& testParam);
-template void TestShmemAllReduceAddAllReduce<bfloat16>(OpTestParam& testParam);
+template void TestAllReduceAddAllReduce<int32_t>(OpTestParam& testParam);
+template void TestAllReduceAddAllReduce<float>(OpTestParam& testParam);
+template void TestAllReduceAddAllReduce<float16>(OpTestParam& testParam);
+template void TestAllReduceAddAllReduce<bfloat16>(OpTestParam& testParam);
 
 } // namespace npu::tile_fwk::Distributed

@@ -29,20 +29,20 @@ template<typename T>
 void TestMoeDistributedCombine(OpTestParam &testParam);
 void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
 template<typename T>
-void TestDynAllGather(OpTestParam &testParam);
+void TestAllGather(OpTestParam &testParam);
 template<typename T>
-void TestDynAllGatherParaWithShmem(OpTestParam &testParam);
+void TestAllGatherParaWithShmem(OpTestParam &testParam);
 template<typename T>
-void TestShmemReduceScatter(OpTestParam &testParam);
+void TestReduceScatter(OpTestParam &testParam);
 template<typename T>
-void TestShmemReduceScatterParaWithShmem(OpTestParam &testParam);
+void TestReduceScatterParaWithShmem(OpTestParam &testParam);
 template<typename T>
-void TestShmemAllReduce(OpTestParam &testParam);
+void TestAllReduce(OpTestParam &testParam);
 template<typename T>
-void TestShmemAllReduceParaWithShmem(OpTestParam &testParam);
+void TestAllReduceParaWithShmem(OpTestParam &testParam);
 void TestShmemMoeDispatch(OpTestParam &testParam);
 template<typename T>
-void TestShmemAllReduceAddAllReduce(OpTestParam &testParam);
+void TestAllReduceAddAllReduce(OpTestParam &testParam);
 } // namespace Distributed
 } // namespace npu::tile_fwk
 
