@@ -13,11 +13,11 @@
  * \brief
  */
 
-#include <tracr/tracr.hpp>
+// #include <tracr/tracr.hpp>
 
 #include "aicore_manager.h"
 
-std::atomic<uint32_t> tracr_finalize{npu::tile_fwk::dynamic::MAX_SCHEDULE_AICPU_NUM-1};
+// std::atomic<uint32_t> tracr_finalize{npu::tile_fwk::dynamic::MAX_SCHEDULE_AICPU_NUM-1};
 
 namespace npu::tile_fwk {
 void SdmaPrefetch(DeviceTask *devTask) {
@@ -85,17 +85,18 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
 int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *taskCtrl) {
     
     /* TraCR Instrumentation */
-    if (threadIdx == 0) {
-        DEV_INFO("[TraCR] TraCR enabled? %d", INSTRUMENTATION_ACTIVE);
+    // if (threadIdx == 0) {
+    //     DEV_INFO("[TraCR] TraCR enabled? %d", INSTRUMENTATION_ACTIVE);
 
-        INSTRUMENTATION_START("/tmp/");
+    //     INSTRUMENTATION_START("/tmp/");
 
-        INSTRUMENTATION_MARK_ADD(MARK_COLOR_GREEN, "Running a Task");
-    } else {
-        while (INSTRUMENTATION_IS_PROC_READY() == false) {}
+    //     uint16_t tmp = INSTRUMENTATION_MARK_ADD(MARK_COLOR_GREEN, "Running a Task");
+    //     (void)tmp;
+    // } else {
+    //     while (INSTRUMENTATION_IS_PROC_READY() == false) {}
 
-        INSTRUMENTATION_THREAD_INIT();
-    }
+    //     INSTRUMENTATION_THREAD_INIT();
+    // }
     
     Init(threadIdx, deviceArgs);
 
@@ -121,13 +122,33 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
 
     /* TraCR Instrumentation */
-    if (threadIdx == 0) {
-        INSTRUMENTATION_END();
-    } else {
-        --tracr_finalize;
+//     if (threadIdx == 0) {
+//         while (tracr_finalize.load() != 0) {}
 
-        INSTRUMENTATION_THREAD_FINALIZE();
-    }
+//         for(int i = 0; i < 4; ++i) {
+//             INSTRUMENTATION_MARK_SET(0, 0, 0);
+//         }
+
+//         DEV_ERROR("Begin dump TraCR trace.");
+
+// #ifdef ENABLE_TRACR
+//         DEV_ERROR("JSON: %s\n", INSTRUMENTATION_GET_JSON_STR().c_str());
+
+//         DEV_ERROR("BTS: %s\n", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
+// #endif
+
+//         DEV_ERROR("Finish dump TraCR trace.");
+
+//         INSTRUMENTATION_END();
+//     } else {
+//         --tracr_finalize;
+
+// #ifdef ENABLE_TRACR
+//         DEV_ERROR("BTS: %s\n", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
+// #endif
+
+//         INSTRUMENTATION_THREAD_FINALIZE();
+//     }
 
     return ret;
 }
