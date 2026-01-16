@@ -355,7 +355,6 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
         ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
         for (auto &outcastSlots : ioslot.outcastSlot) {
-            ALOG_ERROR_F("outcastSlots size is %zu for function %s", outcastSlots.size(), devTile->GetMagicName().c_str());
             ASSERT(!outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
             bool outcastSlotFound = false;
             for (auto &outcastSlot : outcastSlots) {
@@ -695,10 +694,8 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
       attr->cceCodeInfo[leafIndex].psgId = leaf->GetProgramId();
       attr->cceCodeInfo[leafIndex].funcHash = hash;
       attr->cceCodeInfo[leafIndex].aicpuLeafCode = leafFuncAttr->aicpuLeafCode;
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
       attr->cceCodeInfo[leafIndex].wrapVecId = static_cast<int32_t>(leafFuncAttr->aivCore);
       attr->cceCodeInfo[leafIndex].mixResourceType = static_cast<uint32_t>(leafFuncAttr->mixResourceType);
-#endif
       leafIndex++;
     }
 
@@ -814,7 +811,7 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
 
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[maybe_unused]] const std::string &ccePath,
                                   std::string &kernelPath) {
-    PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph");
+    ASSERT((PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
 
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(attr != nullptr)<<"DyndevFunctionAttribute is nullptr\n";

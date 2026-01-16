@@ -18,11 +18,6 @@
 
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
-#ifndef TILEOP_TILE_OPERATOR_INDEX_OUTCAST__H
-#define TILEOP_TILE_OPERATOR_INDEX_OUTCAST__H
-
-#include "utils/layout.h"
-#include "utils/tile_tensor.h"
 
 template <unsigned cacheMode, unsigned blockSize, typename T0, typename T1, typename T2>
 TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
