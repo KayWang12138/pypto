@@ -66,6 +66,63 @@ void OperationInterpreter::ExecuteOperation(ExecuteOperationContext *ctx) {
     try {
         OperationInterpreter::CallOperationInterpreterFunc(&ctxValid);
     } catch (std::exception &e) {
+        // 打印当前 op 输出相关的动态信息，便于排查执行错误
+        auto *op = ctx->op;
+        auto *func = ctx->frame->func;
+        if (op != nullptr) {
+            auto &oTensors = op->GetOOperands();
+            for (size_t i = 0; i < oTensors.size(); ++i) {
+                auto tensor = oTensors[i];
+                if (tensor == nullptr) {
+                    continue;
+                }
+                // 静态 shape
+                const auto &shape = tensor->shape;
+                std::stringstream shapeSs;
+                shapeSs << "[";
+                for (size_t k = 0; k < shape.size(); ++k) {
+                    if (k != 0) {
+                        shapeSs << ", ";
+                    }
+                    shapeSs << shape[k];
+                }
+                shapeSs << "]";
+
+                // 动态 valid shape / offset（符号表达形式）
+                const auto &dynValidShape = tensor->GetDynValidShape();
+                const auto &dynOffset = tensor->GetDynOffset();
+                std::stringstream dynValidShapeSs;
+                dynValidShapeSs << "[";
+                for (size_t k = 0; k < dynValidShape.size(); ++k) {
+                    if (k != 0) {
+                        dynValidShapeSs << ", ";
+                    }
+                    dynValidShapeSs << dynValidShape[k].Dump();
+                }
+                dynValidShapeSs << "]";
+
+                std::stringstream dynOffsetSs;
+                dynOffsetSs << "[";
+                for (size_t k = 0; k < dynOffset.size(); ++k) {
+                    if (k != 0) {
+                        dynOffsetSs << ", ";
+                    }
+                    dynOffsetSs << dynOffset[k].Dump();
+                }
+                dynOffsetSs << "]";
+
+                ALOG_ERROR_F(
+                    "ExecuteOperation error: op %s (magic=%d) output[%zu] tensorMagic=%d, "
+                    "shape=%s, dynValidShape=%s, dynOffset=%s",
+                    op->GetOpcodeStr().c_str(),
+                    op->GetOpMagic(),
+                    i,
+                    tensor->magic,
+                    shapeSs.str().c_str(),
+                    dynValidShapeSs.str().c_str(),
+                    dynOffsetSs.str().c_str());
+            }
+        }
         auto func = ctx->frame->func;
         func->DumpFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + ".tifwkgr");
         throw std::runtime_error(ctx->Dump() + e.what());
