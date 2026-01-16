@@ -77,26 +77,111 @@ std::string TensorSlot::Dump() const {
 
 std::unordered_set<TensorSlot> TensorSlotScope::LookupIncastReadFrom(const std::shared_ptr<LogicalTensor> &tensor) const {
     std::unordered_set<TensorSlot> tensorSlot;
+    TensorSlotManager *slotManager = Program::GetInstance().GetTensorSlotManager().get();
+    bool hasShmemMatch = false;
+    for (auto &[slot, access] : accessRecord) {
+        if (access.GetFirstReadTensor() && access.GetFirstReadTensor()->tensor == tensor->tensor &&
+            slotManager->shmemTensorSlotSet.count(slot)) {
+            hasShmemMatch = true;
+            break;
+        }
+    }
+    std::unordered_set<TensorSlot> rawMatchSlots;
+    std::unordered_set<TensorSlot> shapeMatchSlots;
     for (auto &[slot, access] : accessRecord) {
         /* Match by raw tensor */
         if (access.GetFirstReadTensor() && access.GetFirstReadTensor()->tensor == tensor->tensor) {
-            tensorSlot.insert(slot);
+            bool isShmemSlot = slotManager->shmemTensorSlotSet.count(slot);
+            if (hasShmemMatch && !isShmemSlot) {
+                continue;
+            }
+            if (!slotManager->liveSlotSet.count(slot) && !isShmemSlot) {
+                continue;
+            }
+            rawMatchSlots.insert(slot);
+            if (access.GetFirstReadTensor()->Datatype() == tensor->Datatype() &&
+                access.GetFirstReadTensor()->GetShape() == tensor->GetShape()) {
+                shapeMatchSlots.insert(slot);
+            }
         }
     }
+    if (!shapeMatchSlots.empty()) {
+        return shapeMatchSlots;
+    }
+    tensorSlot = std::move(rawMatchSlots);
     return tensorSlot;
 }
 
 std::unordered_set<TensorSlot> TensorSlotScope::LookupOutcastWriteTo(const std::shared_ptr<LogicalTensor> &tensor) const {
     std::unordered_set<TensorSlot> tensorSlot;
+    TensorSlotManager *slotManager = Program::GetInstance().GetTensorSlotManager().get();
+    bool hasShmemMatch = false;
+    for (auto &[slot, access] : accessRecord) {
+        if (access.GetLastWriteTensor() && access.GetLastWriteTensor()->tensor == tensor->tensor &&
+            slotManager->shmemTensorSlotSet.count(slot)) {
+            hasShmemMatch = true;
+            break;
+        }
+    }
+
+    ALOG_DEBUG("[LookupOutcastWriteTo] Called with tensor: shape.size=" + std::to_string(tensor->GetShape().size()) +
+        " dtype=" + std::to_string(static_cast<int>(tensor->Datatype())) +
+        " rawTensor=" + std::to_string(reinterpret_cast<uintptr_t>(tensor->tensor.get())) +
+        " accessRecord.size=" + std::to_string(accessRecord.size()));
+
     for (auto &[slot, access] : accessRecord) {
         /* Match by raw tensor */
         if (access.GetLastWriteTensor() && access.GetLastWriteTensor()->tensor == tensor->tensor) {
-            if (!Program::GetInstance().GetTensorSlotManager()->liveSlotSet.count(slot)) {
+            bool isShmemSlot = slotManager->shmemTensorSlotSet.count(slot);
+            if (hasShmemMatch && !isShmemSlot) {
+                continue;
+            }
+            if (!slotManager->liveSlotSet.count(slot) && !isShmemSlot) {
+                ALOG_DEBUG("[LookupOutcastWriteTo] Slot matched but not in liveSlotSet");
                 continue;
             }
             tensorSlot.insert(slot);
+            ALOG_DEBUG("[LookupOutcastWriteTo] Primary match found: slot=" +
+                std::to_string(slotManager->slotIndexDict.count(slot) ? slotManager->slotIndexDict[slot] : -1));
         }
     }
+
+    if (tensorSlot.empty()) {
+        size_t shmemSlotsInAccessRecord = 0;
+        for (auto &[slot, access] : accessRecord) {
+            if (slotManager->shmemTensorSlotSet.count(slot)) {
+                shmemSlotsInAccessRecord++;
+            }
+        }
+        ALOG_DEBUG("[LookupOutcastWriteTo] No primary match. Debug info: "
+            "shmemTensorSlotSet.size=" + std::to_string(slotManager->shmemTensorSlotSet.size()) +
+            " shmemSlotsInAccessRecord=" + std::to_string(shmemSlotsInAccessRecord));
+
+        for (auto &[slot, access] : accessRecord) {
+            if (!slotManager->shmemTensorSlotSet.count(slot)) {
+                continue;
+            }
+            if (!slotManager->liveSlotSet.count(slot)) {
+                ALOG_DEBUG("[LookupOutcastWriteTo] SHMEM slot not in liveSlotSet: slot=" +
+                    std::to_string(slotManager->slotIndexDict.count(slot) ? slotManager->slotIndexDict[slot] : -1));
+            }
+            auto lastWrite = access.GetLastWriteTensor();
+            if (lastWrite) {
+                ALOG_DEBUG("[LookupOutcastWriteTo] Checking SHMEM slot: lastWrite.shape.size=" +
+                    std::to_string(lastWrite->GetShape().size()) +
+                    " lastWrite.dtype=" + std::to_string(static_cast<int>(lastWrite->Datatype())) +
+                    " lastWrite.rawTensor=" + std::to_string(reinterpret_cast<uintptr_t>(lastWrite->tensor.get())));
+                if (lastWrite->Datatype() == tensor->Datatype() &&
+                    lastWrite->GetShape() == tensor->GetShape()) {
+                    tensorSlot.insert(slot);
+                    ALOG_DEBUG("[LookupOutcastWriteTo] SHMEM tensor slot matched by shape/datatype: slot=" +
+                        std::to_string(slotManager->slotIndexDict[slot]));
+                }
+            }
+        }
+    }
+
+    ALOG_DEBUG("[LookupOutcastWriteTo] Returning " + std::to_string(tensorSlot.size()) + " slots");
     return tensorSlot;
 }
 
@@ -132,6 +217,11 @@ void TensorSlotScope::BuildSlotSet() {
     if (accessRecord.size() == 0) {
         return;
     }
+    TensorSlotManager *slotManager = Program::GetInstance().GetTensorSlotManager().get();
+    ALOG_DEBUG("[BuildSlotSet] Function: " + tensorFunc->GetMagicName() +
+        " incast.size=" + std::to_string(tensorFunc->GetIncast().size()) +
+        " outcast.size=" + std::to_string(tensorFunc->GetOutcast().size()));
+
     for (size_t idx = 0; idx < tensorFunc->GetIncast().size(); idx++) {
         auto &i = tensorFunc->GetIncast()[idx];
         ASSERT(incastToInArgumentDict.count(i));
@@ -145,10 +235,20 @@ void TensorSlotScope::BuildSlotSet() {
         auto oarg = outcastToOutArgumentDict[o];
         auto slot = LookupOutcastWriteTo(oarg);
         outcastWriteSlotSet.push_back(slot);
+        bool isShmem = false;
+        if (!slot.empty()) {
+            isShmem = slotManager->shmemTensorSlotSet.count(*slot.begin()) > 0;
+        }
+        ALOG_DEBUG("[BuildSlotSet] Outcast " + std::to_string(idx) +
+            ": found " + std::to_string(slot.size()) + " slots" +
+            " isShmem=" + std::to_string(isShmem ? 1 : 0));
     }
 }
 
 void TensorSlotScope::BuildIncastOutcastSlot(const std::unordered_map<TensorSlot, int> &slotIndexDict) {
+    ALOG_DEBUG("[BuildIncastOutcastSlot] Function: " + tensorFunc->GetMagicName() +
+        " outcastWriteSlotSet.size=" + std::to_string(outcastWriteSlotSet.size()));
+
     ioslot.incastSlot.resize(tensorFunc->GetIncast().size());
     for (size_t idx = 0; idx < tensorFunc->GetIncast().size(); idx++) {
         for (auto &h : incastReadSlotSet[idx]) {
@@ -162,7 +262,10 @@ void TensorSlotScope::BuildIncastOutcastSlot(const std::unordered_map<TensorSlot
     for (size_t idx = 0; idx < tensorFunc->GetOutcast().size(); idx++) {
         for (auto &h : outcastWriteSlotSet[idx]) {
             ASSERT(slotIndexDict.count(h) != 0);
-            ioslot.outcastSlot[idx].push_back(slotIndexDict.find(h)->second);
+            int slotIdx = slotIndexDict.find(h)->second;
+            ioslot.outcastSlot[idx].push_back(slotIdx);
+            ALOG_DEBUG("[BuildIncastOutcastSlot] Outcast " + std::to_string(idx) +
+                " -> slot index " + std::to_string(slotIdx));
         }
         std::sort(ioslot.outcastSlot[idx].begin(), ioslot.outcastSlot[idx].end());
 

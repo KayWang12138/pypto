@@ -84,13 +84,14 @@ void MoeDistributedCombineValidateAssistInfoForCombine(const Tensor& assistInfoF
         << "\"assistInfoForCombine\" only supports ND, but got NZ";
 }
 
-void MoeDistributedCombineValidateRecvCounts(const Tensor& recvCounts)
+void MoeDistributedCombineValidateRecvCounts(const Tensor& recvCounts, int32_t batchSize)
 {
     ASSERT(recvCounts.GetShape().size() == 1) << "The dim of \"recvCounts\" only supports 1, but got "
         << recvCounts.GetShape().size();
 
     int32_t recvCountsSize = recvCounts.GetShape(0);
-    ASSERT(recvCountsSize == 1) << "The size of \"recvCounts\" must be 1, but recvCountsSize=" << recvCountsSize;
+    ASSERT(recvCountsSize == batchSize) << "The size of \"recvCounts\" must be " << batchSize
+        << ", but recvCountsSize=" << recvCountsSize;
 
     ASSERT(recvCounts.GetDataType() == DT_INT32) << "The data type of \"recvCounts\" only supports DT_INT32, but got "
         << DataType2String(recvCounts.GetDataType());
@@ -227,12 +228,13 @@ void TiledMoeDistributedCombineReceive(
 {
     (void)op;
 
-    ASSERT(iOperand.size() == 4UL) << "TiledMoeDistributedCombineReceive iOperand size is not equal to 4";
+    ASSERT(iOperand.size() == 5UL) << "TiledMoeDistributedCombineReceive iOperand size is not equal to 5";
     ASSERT(oOperand.size() == 1UL) << "TiledMoeDistributedCombineReceive oOperand size is not equal to 1";
     auto predToken = iOperand[0];
     auto expertScales = iOperand[1];
-    auto shmemDataThisRank = iOperand[2];
-    auto shmemSignalThisRank = iOperand[3];
+    auto recvCounts = iOperand[2];
+    auto shmemDataThisRank = iOperand[3];
+    auto shmemSignalThisRank = iOperand[4];
     auto out = oOperand[0];
     int64_t topK = expertScales->shape[1];
     int64_t hiddenSize = out->shape[1];
@@ -259,7 +261,7 @@ void TiledMoeDistributedCombineReceive(
             auto outBuffer = std::make_shared<LogicalTensor>(function, out->Datatype(), Shape{hiddenSize});
 
             auto& tileOp = function.AddOperation(Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
-                {predToken, expertScales, shmemDataTile, shmemSignalThisRank},
+                {predToken, expertScales, recvCounts, shmemDataTile, shmemSignalThisRank},
                 {outTile, mulFp32Buffer, sumFp32Buffer, outBuffer});
 
             distOpAttr.paddedColShape = paddedColShape;
@@ -312,6 +314,7 @@ Tensor MoeDistributedCombineSend(
 Tensor MoeDistributedCombineReceive(
     const Tensor& predToken,
     const Tensor& expertScales,
+    const Tensor& recvCounts,
     const Tensor& shmemData,
     const Tensor& shmemSignal)
 {
@@ -321,7 +324,8 @@ Tensor MoeDistributedCombineReceive(
     auto out = std::make_shared<LogicalTensor>(function, shmemData.GetDataType(), Shape{batchSize, hiddenSize});
     function.AddOperation(
         Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
-        {predToken.GetStorage(), expertScales.GetStorage(), shmemData.GetStorage(), shmemSignal.GetStorage()},
+        {predToken.GetStorage(), expertScales.GetStorage(), recvCounts.GetStorage(), shmemData.GetStorage(),
+            shmemSignal.GetStorage()},
         {out});
     return out;
 }
@@ -333,18 +337,18 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
     (void)sharedExpertNum;
     (void)sharedExpertRankNum;
 
+    int32_t batchSize = expertScales.GetShape(0);
+    int32_t topK = expertScales.GetShape(1);
+    int32_t hiddenSize = expandX.GetShape(1);
+
     MoeDistributedCombineValidateExpandX(expandX, expertScales, epWorldSize, moeExpertNum);
     MoeDistributedCombineValidateAssistInfoForCombine(assistInfoForCombine, expandX);
-    MoeDistributedCombineValidateRecvCounts(recvCounts);
+    MoeDistributedCombineValidateRecvCounts(recvCounts, batchSize);
     MoeDistributedCombineValidateExpertScales(expertScales);
     MoeDistributedCombineValidateOut(out, expertScales, expandX);
     MoeDistributedCombineValidateGroup(group);
     MoeDistributedCombineValidateMoeEpWorldSize(epWorldSize);
     MoeDistributedCombineValidateMoeExpertNum(moeExpertNum);
-
-    int32_t batchSize = expertScales.GetShape(0);
-    int32_t topK = expertScales.GetShape(1);
-    int32_t hiddenSize = expandX.GetShape(1);
 
     int32_t shmemDataRow = topK * batchSize;
     Shape shmemDataShape = {1, shmemDataRow, hiddenSize};
@@ -357,7 +361,7 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         CreateShmemTensor(shmemData, epWorldSize, hcclGroupIndex, expandX.GetDataType(), shmemDataShape);
-        CreateShmemTensor(shmemSignal, epWorldSize, hcclGroupIndex, DT_INT32, shmemSignalShape);
+        CreateShmemTensor(shmemSignal, epWorldSize, hcclGroupIndex, DT_INT32, shmemSignalShape, 1);
     }
     LOOP("MoeDistributedCombine", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
@@ -380,7 +384,7 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
             std::vector<SymbolicScalar>{thisRank, 0, 0});
         TileShape::Current().SetDistTile(
             {batchSize / AIV_NUM, AIV_NUM, batchSize % AIV_NUM}, {hiddenSize, 1, 0}, {0, 0, 0});
-        out = MoeDistributedCombineReceive(sendOut, expertScales, shmemDataThisRank, shmemSignalThisRank);
+        out = MoeDistributedCombineReceive(sendOut, expertScales, recvCounts, shmemDataThisRank, shmemSignalThisRank);
     }
 }
 }   // namespace npu::tile_fwk::Distributed

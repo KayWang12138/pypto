@@ -27,6 +27,17 @@
 #include "interface/utils/log.h"
 
 namespace npu::tile_fwk::Distributed {
+namespace {
+bool ShouldUseLocalPredToken(const Tensor &predToken)
+{
+    auto storage = predToken.GetStorage(false);
+    if (!storage) {
+        return true;
+    }
+    return storage->GetProducers().empty();
+}
+} // namespace
+
 std::pair<int32_t, int32_t> GetRankSizeAndTileCount()
 {
     const TileShape& tileShape = TileShape::Current();
@@ -371,12 +382,19 @@ void ReduceScatter(const Tensor &predToken, const Tensor& in, const char* group,
         CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
         CreateShmemSignal(group, shmemData, shmemSignal);
     }
+    bool useLocalPred = ShouldUseLocalPredToken(predToken);
     LOOP("RS", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, worldSize, 1)) {
         auto shmemDataTile = View(shmemData, {1, 1, rowOut, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
         auto shmemSignalTile =
             View(shmemSignal, {1, 1, 1, rowOut, col}, std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0, 0});
         auto inTile = View(in, {rowOut, col}, std::vector<SymbolicScalar>{dynRankId * rowOut, 0});
-        auto dummy = ShmemPut(inTile, shmemDataTile, predToken, AtomicType::ADD);
+        Tensor localPred;
+        const Tensor *predPtr = &predToken;
+        if (useLocalPred) {
+            localPred = Tensor(DT_INT32, Shape{1, 1});
+            predPtr = &localPred;
+        }
+        auto dummy = ShmemPut(inTile, shmemDataTile, *predPtr, AtomicType::ADD);
         auto dummySignal = ShmemSignal(dummy, shmemSignalTile, AtomicType::ADD);
 
         IF (dynRankId == thisRank) {
@@ -408,10 +426,17 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const Tensor& s
     AllReduceValidate(predToken, in, shmemData, group, out);
     int32_t hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
+    bool useLocalPred = ShouldUseLocalPredToken(predToken);
     LOOP("OneShotAllReduce", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, worldSize, 1)) {
         auto shmemDataTile = View(shmemData, {1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{dynRankId, 0, 0, 0});
         auto shmemSignalTile = View(shmemSignal, {1, 1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0, 0});
-        auto dummy = ShmemPut(in, shmemDataTile, predToken, AtomicType::ADD);
+        Tensor localPred;
+        const Tensor *predPtr = &predToken;
+        if (useLocalPred) {
+            localPred = Tensor(DT_INT32, Shape{1, 1});
+            predPtr = &localPred;
+        }
+        auto dummy = ShmemPut(in, shmemDataTile, *predPtr, AtomicType::ADD);
         auto dummySignal = ShmemSignal(dummy, shmemSignalTile, AtomicType::ADD);
         IF (thisRank == dynRankId) {
             auto dummyLocal = WaitUntil(dummySignal, shmemSignalTile, worldSize);
@@ -430,11 +455,18 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const Tensor& s
     AllReduceValidate(predToken, in, shmemData, group, out);
     int32_t hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
+    bool useLocalPred = ShouldUseLocalPredToken(predToken);
     LOOP("TwoShotAllReduce", FunctionType::DYNAMIC_LOOP, dynRankId, LoopRange(0, worldSize, 1)) {
         auto shmemDataTile = View(shmemData, {1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
         auto shmemSignalTile = View(shmemSignal, {worldSize, 1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{0, dynRankId, dynRankId, 0, 0});
         auto inTile = View(in, {rowPerRank, col}, std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
-        auto dummy = ShmemPut(inTile, shmemDataTile, predToken, AtomicType::ADD);
+        Tensor localPred;
+        const Tensor *predPtr = &predToken;
+        if (useLocalPred) {
+            localPred = Tensor(DT_INT32, Shape{1, 1});
+            predPtr = &localPred;
+        }
+        auto dummy = ShmemPut(inTile, shmemDataTile, *predPtr, AtomicType::ADD);
         auto dummySignal = ShmemSignal(dummy, shmemSignalTile, AtomicType::ADD);
         auto waitSignalTile = View(shmemSignal, {1, 1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{thisRank, dynRankId, dynRankId, 0, 0});
         auto dummyLocal = WaitUntil(dummySignal, waitSignalTile, worldSize);

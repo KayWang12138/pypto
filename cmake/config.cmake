@@ -74,6 +74,22 @@ endif ()
 message(STATUS "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
 message(STATUS "BUILD_WITH_CANN=${BUILD_WITH_CANN}")
 
+# 获取 SHMEM 路径
+set(SHMEM_HOME_PATH)
+set(BUILD_WITH_CANN_SHMEM OFF)
+if (SHMEM_HOME_PATH)
+    get_filename_component(SHMEM_HOME_PATH "${SHMEM_HOME_PATH}" REALPATH)
+elseif (DEFINED ENV{SHMEM_HOME_PATH})
+    get_filename_component(SHMEM_HOME_PATH "$ENV{SHMEM_HOME_PATH}" REALPATH)
+elseif (EXISTS "/usr/local/Ascend/shmem/1.0.0/shmem")
+    set(SHMEM_HOME_PATH "/usr/local/Ascend/shmem/1.0.0/shmem")
+endif ()
+if (SHMEM_HOME_PATH AND EXISTS "${SHMEM_HOME_PATH}/include/shmem.h")
+    set(BUILD_WITH_CANN_SHMEM ON)
+endif ()
+message(STATUS "SHMEM_HOME_PATH=${SHMEM_HOME_PATH}")
+message(STATUS "BUILD_WITH_CANN_SHMEM=${BUILD_WITH_CANN_SHMEM}")
+
 
 # 获取 3rd Path
 if (PYPTO_THIRD_PARTY_PATH)

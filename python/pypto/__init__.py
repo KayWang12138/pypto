@@ -44,6 +44,28 @@ def _load_shared_libs():
 
     _load_shared_lib(_desc=["libc_sec.so", not use_cann, ])
 
+    shmem_home = os.environ.get("SHMEM_HOME_PATH")
+    candidates = []
+    if shmem_home:
+        home_path = Path(shmem_home)
+        if home_path.name == "shmem":
+            candidates.append(home_path)
+        else:
+            candidates.append(home_path)
+            candidates.append(home_path / "shmem")
+    else:
+        candidates.append(Path("/usr/local/Ascend/shmem/1.0.0/shmem"))
+        candidates.append(Path("/usr/local/Ascend/shmem/1.0.0"))
+    for candidate in candidates:
+        shmem_lib = candidate / "lib" / "libshmem.so"
+        if shmem_lib.exists():
+            os.environ["SHMEM_HOME_PATH"] = str(candidate)
+            os.environ["LD_LIBRARY_PATH"] = (
+                f"{shmem_lib.parent}:{os.environ.get('LD_LIBRARY_PATH', '')}"
+            )
+            ctypes.CDLL(str(shmem_lib), mode=ctypes.RTLD_GLOBAL)
+            break
+
     # name, load
     desc_lst: List[List[Any]] = [
         ["libtile_fwk_simulation_platform.so", True, ],
@@ -62,6 +84,7 @@ def _load_shared_libs():
 _load_shared_libs()
 
 from . import experimental
+from . import distributed
 
 from .config import *  # noqa
 from ._controller import *  # noqa

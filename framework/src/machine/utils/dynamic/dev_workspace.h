@@ -242,6 +242,10 @@ private:
                 "Root [%s] Incast %zu has no fromSlotList.", devRootSrc->GetRawName(), i);
 
             int slotIndex = devRootSrc->At(devRootSrc->GetIncast(i).fromSlotList, 0);
+            if (slotList[slotIndex].rtOutcastIter == ITEM_POOL_INVALID_INDEX) {
+                DEV_ERROR("AssignIncastAddresses: root=%s incast=%zu slot=%d fromSlotList.size=%zu",
+                    devRootSrc->GetRawName(), i, slotIndex, devRootSrc->GetIncast(i).fromSlotList.size());
+            }
             DEV_ASSERT_MSG(slotList[slotIndex].rtOutcastIter != ITEM_POOL_INVALID_INDEX,
                 "Root incast read from empty address.");
             auto &incastDesc = devRootDup.GetIncastAddress(i);
@@ -255,12 +259,18 @@ private:
     void AssignOutcastAddresses(DevAscendFunctionDupped devRootDup, DeviceExecuteSlot *slotList) {
         DevAscendFunction *devRootSrc = devRootDup.GetSource();
         uintdevptr_t outcastBaseAddr = devRootDup.RuntimeOutcastBase();
+        DEV_DEBUG("[AssignOutcastAddresses] Function %s outcast.size=%zu",
+            devRootSrc->GetRawName(), devRootSrc->GetOutcastSize());
         for (size_t i = 0; i < devRootSrc->GetOutcastSize(); ++i) {
             int outputSlotIndex = -1;
             int assembleSlotIndex = -1;
             auto &toSlotList = devRootSrc->GetOutcast(i).toSlotList;
+            DEV_DEBUG("[AssignOutcastAddresses] Outcast %zu: toSlotList.size=%zu exprListIndex=%d",
+                i, toSlotList.size(), devRootSrc->GetOutcast(i).exprListIndex);
+            // Update slots so subsequent incasts can find the address
             for (size_t k = 0; k < toSlotList.size(); ++k) {
                 auto idx = devRootSrc->At(toSlotList, k);
+                DEV_DEBUG("[AssignOutcastAddresses] Outcast %zu slot[%zu]=%d", i, k, idx);
                 if (slotList[idx].IsOutputAddress()) {
                     outputSlotIndex = idx;
                 } else if (slotList[idx].IsAssembleAddress()) {
@@ -292,8 +302,23 @@ private:
                 /* something like an expression address, probably shmem */
                 uint64_t *exprTbl = devRootDup.GetExpressionAddr();
                 uint64_t addr = exprTbl[devRootSrc->GetOutcast(i).exprListIndex];
+                int firstSlot = toSlotList.size() > 0 ? devRootSrc->At(toSlotList, 0) : -1;
+                DEV_ERROR("AssignOutcastAddresses: root=%s outcast=%zu exprListIndex=%d toSlotList.size=%zu firstSlot=%d",
+                    devRootSrc->GetRawName(), i, devRootSrc->GetOutcast(i).exprListIndex, toSlotList.size(), firstSlot);
+                DEV_ERROR("[AssignOutcastAddresses] SHMEM outcast %zu: exprListIndex=%d addr=0x%lx toSlotList.size=%zu",
+                    i, devRootSrc->GetOutcast(i).exprListIndex, addr, toSlotList.size());
                 outcastDesc = AddressDescriptor::MakeFromRtOutcast(
                     MakeRuntimeOutcastTensor(addr, RuntimeTensorMemProperty::EXTERNAL));
+                for (size_t k = 0; k < toSlotList.size(); ++k) {
+                    auto idx = devRootSrc->At(toSlotList, k);
+                    DEV_DEBUG("[AssignOutcastAddresses] SHMEM outcast %zu updating slot %d (was %ld)",
+                        i, idx, (long)slotList[idx].rtOutcastIter);
+                    if (slotList[idx].rtOutcastIter == ITEM_POOL_INVALID_INDEX) {
+                        RuntimeOutcastTensorAssign(slotList[idx].rtOutcastIter, outcastDesc.GetRtOutcastIter());
+                        DEV_DEBUG("[AssignOutcastAddresses] SHMEM outcast %zu slot %d updated to %ld",
+                            i, idx, (long)slotList[idx].rtOutcastIter);
+                    }
+                }
             } else if (rawTensor->linkedIncastId != -1) {
                 /* reshape inplace or something */
                 auto &incastDesc = devRootDup.GetIncastAddress(rawTensor->linkedIncastId);

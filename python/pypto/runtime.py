@@ -111,7 +111,8 @@ def _compute_tensor_hash(tensors, tensor_data):
 
 class _JIT:
     def __init__(self, dyn_func, codegen_options=None, host_options=None,
-                 pass_options=None, runtime_options=None, verify_options=None, debug_options=None):
+                 pass_options=None, runtime_options=None, verify_options=None, debug_options=None,
+                 distributed_options=None):
         self.dyn_func = dyn_func
         self._is_compiled: bool = False
         self._output_path = ""
@@ -123,6 +124,7 @@ class _JIT:
         self.runtime_options = runtime_options
         self.verify_options = verify_options
         self.debug_options = debug_options
+        self.distributed_options = distributed_options
 
     def compile(self, *args, **kwargs):
         pypto_impl.DeviceInit()
@@ -276,6 +278,9 @@ class _JIT:
         if isinstance(self.debug_options, dict):
             pypto.set_debug_options(**self.debug_options)
 
+        if isinstance(self.distributed_options, dict):
+            pypto.set_distributed_options(**self.distributed_options)
+
     def _hit_cache(self, input_hash):
         if self._handler is None or len(self._handler_cache) == 0:
             return False
@@ -295,7 +300,8 @@ def jit(
         pass_options=None,
         runtime_options=None,
         verify_options=None,
-        debug_options=None
+        debug_options=None,
+        distributed_options=None
 ):
     ...
 
@@ -307,7 +313,8 @@ def jit(dyn_func=None,
         pass_options=None,
         runtime_options=None,
         verify_options=None,
-        debug_options=None):
+        debug_options=None,
+        distributed_options=None):
 
     def decorator(func):
         return _JIT(func,
@@ -316,7 +323,8 @@ def jit(dyn_func=None,
                    pass_options=pass_options,
                    runtime_options=runtime_options,
                    verify_options=verify_options,
-                   debug_options=debug_options)
+                   debug_options=debug_options,
+                   distributed_options=distributed_options)
 
     if dyn_func is not None:
         return _JIT(dyn_func)

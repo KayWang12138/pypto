@@ -268,7 +268,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForMoeDistributedCombineSen
 std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForMoeDistributedCombineReceive() const
 {
     std::ostringstream oss;
-    int32_t shmemDataIndex = 6;
+    int32_t shmemDataIndex = 7;
     int32_t shmemDataDim = 4;
     DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     oss << ", " << GenOffsets(shmemDataIndex, shmemDataDim) << ", " << distOpAttr.rowOffset;

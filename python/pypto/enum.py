@@ -54,3 +54,10 @@ DT_UINT64 = pypto_impl.DataType.DT_UINT64
 DT_BOOL = pypto_impl.DataType.DT_BOOL
 DT_DOUBLE = pypto_impl.DataType.DT_DOUBLE
 DT_BOTTOM = pypto_impl.DataType.DT_BOTTOM
+
+# Distributed enums
+AtomicType = pypto_impl.AtomicType
+DistReduceType = pypto_impl.DistReduceType
+
+AtomicType.__repr__ = _enum_repr
+DistReduceType.__repr__ = _enum_repr

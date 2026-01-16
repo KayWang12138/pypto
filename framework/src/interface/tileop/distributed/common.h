@@ -38,6 +38,14 @@ constexpr uint16_t VECTOR_INSTRUCTION_BYTE_SIZE = 256;
 #define GM_ADDR __gm__ uint8_t *
 #define UB_ADDR __ubuf__ uint8_t *
 
+#ifndef __TILE_FWK_HOST__
+__attribute__((always_inline)) __aicore__ inline __gm__ void *tilefwk_shmem_ptr(__gm__ void *ptr, int pe) {
+    (void)pe;
+    return ptr;
+}
+#define shmem_ptr tilefwk_shmem_ptr
+#endif
+
 struct DataCopyParams {
     uint8_t sid;
     uint16_t nBurst;
@@ -175,11 +183,24 @@ TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, ui
     auto groupIndex = GetVirtaulAddrGroupIndex((uint64_t)vAddr);
     auto offset = GetVirtaulAddrOffset((uint64_t)vAddr);
     auto memType = GetVirtaulAddrMemType((uint64_t)vAddr);
+#ifdef __TILE_FWK_HOST__
     if (memType == 0) {
         return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsIn[dstRankId] + offset);
-    } else {
-        return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsExp[dstRankId] + offset);
     }
+    return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsExp[dstRankId] + offset);
+#else
+    auto winContext = (__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex];
+    if (winContext->padding[0] == TileOp::HCCL_CONTEXT_MAGIC) {
+        if (memType == 0) {
+            return (__gm__ T*)(winContext->windowsIn[dstRankId] + offset);
+        }
+        return (__gm__ T*)(winContext->windowsExp[dstRankId] + offset);
+    }
+    if (memType == 0) {
+        return (__gm__ T*)shmem_ptr((__gm__ uint8_t *)(hcclContext[groupIndex]) + offset, dstRankId);
+    }
+    return (__gm__ T*)shmem_ptr((__gm__ uint8_t *)(hcclContext[groupIndex]) + (1UL << 29) + offset, dstRankId);
+#endif
 }
 
 /* UB 清 0 */

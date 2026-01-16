@@ -33,6 +33,11 @@ __all__ = [
     "get_cube_tile_shapes",
     "set_matrix_size",
 
+    "set_dist_tile_shapes",
+    "get_dist_tile_shapes",
+    "set_dist_rank_id",
+    "get_dist_rank_id",
+
     "function",
     "loop",
     "loop_unroll",
@@ -188,6 +193,26 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]
 
 def set_matrix_size(size: List[int]):
     pypto_impl.SetScope({"matrix_size": size})
+
+
+def set_dist_tile_shapes(row: List[int], col: List[int], rank: List[int]):
+    """Set distributed tile shapes."""
+    pypto_impl.SetDistTile(row, col, rank)
+
+
+def get_dist_tile_shapes() -> Tuple[List[int], List[int], List[int]]:
+    """Get distributed tile shapes."""
+    return pypto_impl.GetDistTile()
+
+
+def set_dist_rank_id(rank_id: int):
+    """Set the distributed rank ID."""
+    pypto_impl.SetDistRankId(rank_id)
+
+
+def get_dist_rank_id() -> int:
+    """Get the distributed rank ID."""
+    return pypto_impl.GetDistRankId()
 
 
 def set_build_static(static: bool):

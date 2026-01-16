@@ -15,14 +15,1037 @@
 
 #include "pybind_common.h"
 
+#include <climits>
+#include <cstdarg>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <dlfcn.h>
+#include <iostream>
+#include <initializer_list>
+#include <memory>
+#include <mutex>
+#include <sys/stat.h>
+#include <string>
+#include <thread>
+#include <chrono>
+#include <unordered_map>
 #include <utility>
 #include <vector>
+#include "tilefwk/tile_shape.h"
 #include "interface/interpreter/raw_tensor_data.h"
+#include "interface/inner/config.h"
+#include "interface/tileop/distributed/hccl_context.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#ifdef BUILD_WITH_CANN
+#include "hccl/hccl.h"
+#include "hccl/hccl_types.h"
+#include "acl/acl.h"
+#include "runtime/rt.h"
+extern "C" HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm *commHandle);
+#endif
+#ifdef BUILD_WITH_CANN_SHMEM
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
+#include "shmem.h"
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+#endif
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
+
+namespace {
+#ifdef BUILD_WITH_CANN
+#pragma pack(push, 8)
+struct Mc2ServerCfg {
+    uint32_t version = 0;
+    uint8_t debugMode = 0;
+    uint8_t sendArgIndex = 0;
+    uint8_t recvArgIndex = 0;
+    uint8_t commOutArgIndex = 0;
+    uint8_t reserved[8] = {};
+};
+#pragma pack(pop)
+
+#pragma pack(push, 8)
+struct Mc2HcommCfg {
+    uint8_t skipLocalRankCopy = 0;
+    uint8_t skipBufferWindowCopy = 0;
+    uint8_t stepSize = 0;
+    char reserved[13] = {};
+    char groupName[128] = {};
+    char algConfig[128] = {};
+    uint32_t opType = 0;
+    uint32_t reduceType = 0;
+};
+#pragma pack(pop)
+
+struct Mc2CommConfig {
+    uint32_t version;
+    uint32_t hcommCnt;
+    struct Mc2ServerCfg serverCfg;
+    struct Mc2HcommCfg hcommCfg;
+};
+
+constexpr uint32_t INIT_TILING_VERSION = 100U;
+constexpr uint32_t MAX_CC_TILING_NUM = 8U;
+
+#pragma pack(push, 8)
+struct Mc2InitTilingInner {
+    uint32_t version;
+    uint32_t mc2HcommCnt;
+    uint32_t offset[MAX_CC_TILING_NUM];
+    uint8_t debugMode;
+    uint8_t preparePosition;
+    uint16_t queueNum;
+    uint16_t commBlockNum;
+    uint8_t devType;
+    char reserved[17];
+};
+#pragma pack(pop)
+
+constexpr uint32_t GROUP_NAME_SIZE = 128U;
+constexpr uint32_t ALG_CONFIG_SIZE = 128U;
+
+struct Mc2cCTilingInner {
+    uint8_t skipLocalRankCopy;
+    uint8_t skipBufferWindowCopy;
+    uint8_t stepSize;
+    uint8_t version;
+    char reserved[9];
+    uint8_t commEngine;
+    uint8_t srcDataType;
+    uint8_t dstDataType;
+    char groupName[GROUP_NAME_SIZE];
+    char algConfig[ALG_CONFIG_SIZE];
+    uint32_t opType;
+    uint32_t reduceType;
+};
+
+struct Mc2CommConfigV2 {
+    Mc2InitTilingInner init;
+    Mc2cCTilingInner inner;
+};
+
+extern "C" int HcclAllocComResourceByTiling(void* comm, void *stream, void *mc2Tiling, void **commContext);
+
+int32_t MakeMc2TilingStruct(Mc2CommConfig &commConfig, const std::string &groupName)
+{
+    commConfig = {};
+    constexpr uint32_t version = 2;
+    constexpr uint32_t hcommCnt = 1;
+    constexpr uint32_t opTypeAllToAll = 6; // numeric representation of AlltoAll
+    const char *algConfig = "AllGather=level0:ring";
+    constexpr uint32_t arraySize = 128;
+
+    commConfig.version = version;
+    commConfig.hcommCnt = hcommCnt;
+    commConfig.hcommCfg.skipLocalRankCopy = 0;
+    commConfig.hcommCfg.skipBufferWindowCopy = 0;
+    commConfig.hcommCfg.stepSize = 0;
+    commConfig.hcommCfg.opType = opTypeAllToAll;
+
+    std::strncpy(commConfig.hcommCfg.groupName, groupName.c_str(), arraySize - 1);
+    commConfig.hcommCfg.groupName[arraySize - 1] = '\0';
+
+    std::strncpy(commConfig.hcommCfg.algConfig, algConfig, arraySize - 1);
+    commConfig.hcommCfg.algConfig[arraySize - 1] = '\0';
+
+    return 0;
+}
+
+int32_t MakeMc2TilingStructV2(Mc2CommConfigV2 &commConfig, const std::string &groupName)
+{
+    commConfig = {};
+    const char *algConfig = "BatchWrite=level0:fullmesh";
+    commConfig.init.version = INIT_TILING_VERSION;
+    commConfig.init.mc2HcommCnt = 1;
+    commConfig.init.queueNum = 0;
+    commConfig.init.commBlockNum = 48U;
+    commConfig.init.devType = 4U;
+    commConfig.inner.skipLocalRankCopy = 0;
+    commConfig.inner.skipBufferWindowCopy = 0;
+    commConfig.inner.stepSize = 0;
+    commConfig.inner.opType = 18U;
+    commConfig.inner.version = 1;
+    commConfig.init.offset[0] = static_cast<uint32_t>(
+        reinterpret_cast<uint64_t>(&commConfig.inner) - reinterpret_cast<uint64_t>(&commConfig.init));
+    std::strncpy(commConfig.inner.groupName, groupName.c_str(), GROUP_NAME_SIZE - 1);
+    commConfig.inner.groupName[GROUP_NAME_SIZE - 1] = '\0';
+    std::strncpy(commConfig.inner.algConfig, algConfig, ALG_CONFIG_SIZE - 1);
+    commConfig.inner.algConfig[ALG_CONFIG_SIZE - 1] = '\0';
+    return 0;
+}
+
+std::mutex g_ctxMutex;
+std::unordered_map<uint64_t, uint64_t> g_hcclContextCache;
+
+#ifdef BUILD_WITH_CANN_SHMEM
+bool IsShmemGroupName(const std::string &groupName)
+{
+    return groupName.find("shmem_group") != std::string::npos;
+}
+#endif
+
+#if defined(__GNUC__)
+__attribute__((format(printf, 1, 2)))
+#endif
+void ShmemLog(const char *format, ...)
+{
+    FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
+    if (commLog == nullptr) {
+        return;
+    }
+    va_list args;
+    va_start(args, format);
+    vfprintf(commLog, format, args);
+    va_end(args);
+    fclose(commLog);
+}
+
+#ifdef BUILD_WITH_CANN
+void *GetHcclLibHandle()
+{
+    static void *handle = []() {
+        void *lib = dlopen("libhccl.so", RTLD_LAZY | RTLD_NOLOAD);
+        if (lib == nullptr) {
+            lib = dlopen("libhccl.so", RTLD_LAZY | RTLD_GLOBAL);
+        }
+        return lib;
+    }();
+    return handle;
+}
+
+template <typename Fn>
+Fn LoadHcclFunc(const char *name)
+{
+    auto handle = GetHcclLibHandle();
+    if (handle == nullptr) {
+        return nullptr;
+    }
+    return reinterpret_cast<Fn>(dlsym(handle, name));
+}
+#endif
+
+#ifdef BUILD_WITH_CANN_SHMEM
+constexpr uint64_t SHMEM_ALLOC_SIZE = 1UL << 30;
+constexpr uint64_t SHMEM_HALF_SIZE = 1UL << 29;
+constexpr uint64_t SHMEM_LOCAL_MEM_SIZE = 1UL << 31;
+constexpr uint64_t SHMEM_HANDLE_PTR_MIN = 1UL << 20;
+constexpr const char *DEFAULT_SHMEM_UID_PATH = "/tmp/pypto_shmem_uid";
+constexpr const char *DEFAULT_SHMEM_HOME = "/usr/local/Ascend/shmem/1.0.0/shmem";
+
+bool PathExists(const std::string &path)
+{
+    struct stat st {};
+    return stat(path.c_str(), &st) == 0;
+}
+
+void EnsureShmemBootstrapPath()
+{
+    const char *home = std::getenv("SHMEM_HOME_PATH");
+    std::string base = (home && home[0] != '\0') ? home : DEFAULT_SHMEM_HOME;
+    std::string libPath = base + "/lib";
+    if (!PathExists(libPath)) {
+        std::string candidate = base + "/shmem/lib";
+        if (PathExists(candidate)) {
+            libPath = candidate;
+        }
+    }
+    const char *ld = std::getenv("LD_LIBRARY_PATH");
+    if (ld != nullptr && std::strstr(ld, libPath.c_str()) != nullptr) {
+        return;
+    }
+    std::string newLd = libPath;
+    if (ld != nullptr && ld[0] != '\0') {
+        newLd.append(":").append(ld);
+    }
+    (void)setenv("LD_LIBRARY_PATH", newLd.c_str(), 1);
+}
+
+int64_t ReadEnvAny(const std::initializer_list<const char *> &names);
+int GetWorldSizeFromEnv();
+std::string GetShmemSessionIdFromEnv(const char *addrName, const char *portName, int portOffset);
+std::string StripShmemIpPortScheme(const std::string &value);
+
+void EnsureShmemBootstrapSession()
+{
+    if (std::getenv("ACLSHMEM_UID_SESSION_ID") != nullptr || std::getenv("ACLSHMEM_UID_SOCK_IFNAME") != nullptr) {
+        return;
+    }
+    int world = GetWorldSizeFromEnv();
+    if (world <= 0) {
+        return;
+    }
+    std::string sessionId;
+    const char *ipPortEnv = std::getenv("PYPTO_SHMEM_IP_PORT");
+    if (ipPortEnv == nullptr || ipPortEnv[0] == '\0') {
+        ipPortEnv = std::getenv("ACLSHMEM_IP_PORT");
+    }
+    if (ipPortEnv != nullptr && ipPortEnv[0] != '\0') {
+        sessionId = StripShmemIpPortScheme(ipPortEnv);
+    }
+    if (sessionId.empty()) {
+        int localWorld = ReadEnvAny({"LOCAL_WORLD_SIZE", "OMPI_COMM_WORLD_LOCAL_SIZE", "MPI_LOCALNRANKS"});
+        if (localWorld > 0 && localWorld == world) {
+            sessionId = "127.0.0.1:19777";
+        }
+    }
+    if (sessionId.empty()) {
+        sessionId = GetShmemSessionIdFromEnv("ACLSHMEM_MASTER_ADDR", "ACLSHMEM_MASTER_PORT", 0);
+    }
+    if (sessionId.empty()) {
+        sessionId = GetShmemSessionIdFromEnv("MASTER_ADDR", "MASTER_PORT", 11);
+    }
+    if (!sessionId.empty()) {
+        (void)setenv("ACLSHMEM_UID_SESSION_ID", sessionId.c_str(), 0);
+    }
+}
+
+std::string NormalizeShmemIpPort(const char *value)
+{
+    if (value == nullptr || value[0] == '\0') {
+        return {};
+    }
+    std::string ipPort(value);
+    if (ipPort.rfind("tcp://", 0) != 0 && ipPort.rfind("tcp6://", 0) != 0) {
+        ipPort.insert(0, "tcp://");
+    }
+    return ipPort;
+}
+
+std::string StripShmemIpPortScheme(const std::string &value)
+{
+    if (value.rfind("tcp://", 0) == 0) {
+        return value.substr(6);
+    }
+    if (value.rfind("tcp6://", 0) == 0) {
+        return value.substr(7);
+    }
+    return value;
+}
+
+std::string FormatShmemIpPort(const std::string &address, int port)
+{
+    if (address.find(':') != std::string::npos && address.find(']') == std::string::npos) {
+        return "tcp6://[" + address + "]:" + std::to_string(port);
+    }
+    return "tcp://" + address + ":" + std::to_string(port);
+}
+
+std::string FormatShmemSessionId(const std::string &address, int port)
+{
+    if (address.find(':') != std::string::npos && address.find(']') == std::string::npos) {
+        return "[" + address + "]:" + std::to_string(port);
+    }
+    return address + ":" + std::to_string(port);
+}
+
+std::string GetShmemIpPortFromEnv(const char *addrName, const char *portName, int portOffset)
+{
+    const char *addr = std::getenv(addrName);
+    const char *port = std::getenv(portName);
+    if (addr == nullptr || port == nullptr || addr[0] == '\0' || port[0] == '\0') {
+        return {};
+    }
+    char *end = nullptr;
+    long portVal = std::strtol(port, &end, 10);
+    if (end == port || (end != nullptr && *end != '\0') || portVal <= 0 || portVal > INT_MAX - portOffset) {
+        return {};
+    }
+    portVal += portOffset;
+    if (portVal <= 0 || portVal > UINT16_MAX) {
+        return {};
+    }
+    return FormatShmemIpPort(addr, static_cast<int>(portVal));
+}
+
+std::string GetShmemSessionIdFromEnv(const char *addrName, const char *portName, int portOffset)
+{
+    const char *addr = std::getenv(addrName);
+    const char *port = std::getenv(portName);
+    if (addr == nullptr || port == nullptr || addr[0] == '\0' || port[0] == '\0') {
+        return {};
+    }
+    char *end = nullptr;
+    long portVal = std::strtol(port, &end, 10);
+    if (end == port || (end != nullptr && *end != '\0') || portVal <= 0 || portVal > INT_MAX - portOffset) {
+        return {};
+    }
+    portVal += portOffset;
+    if (portVal <= 0 || portVal > UINT16_MAX) {
+        return {};
+    }
+    return FormatShmemSessionId(addr, static_cast<int>(portVal));
+}
+
+std::string GetDefaultShmemIpPort(int world)
+{
+    const char *env = std::getenv("PYPTO_SHMEM_IP_PORT");
+    if (env == nullptr || env[0] == '\0') {
+        env = std::getenv("ACLSHMEM_IP_PORT");
+    }
+    std::string fromEnv = NormalizeShmemIpPort(env);
+    if (!fromEnv.empty()) {
+        return fromEnv;
+    }
+    int localWorld = ReadEnvAny({"LOCAL_WORLD_SIZE", "OMPI_COMM_WORLD_LOCAL_SIZE", "MPI_LOCALNRANKS"});
+    if (localWorld > 0 && localWorld == world) {
+        return "tcp://127.0.0.1:19777";
+    }
+    std::string fromMaster = GetShmemIpPortFromEnv("ACLSHMEM_MASTER_ADDR", "ACLSHMEM_MASTER_PORT", 0);
+    if (!fromMaster.empty()) {
+        return fromMaster;
+    }
+    fromMaster = GetShmemIpPortFromEnv("MASTER_ADDR", "MASTER_PORT", 11);
+    if (!fromMaster.empty()) {
+        return fromMaster;
+    }
+    return {};
+}
+
+bool LoadOrCreateShmemUniqueId(int rank, shmem_uniqueid_t &uid)
+{
+    const char *uidPath = std::getenv("SHMEM_UID_PATH");
+    if (uidPath == nullptr || uidPath[0] == '\0') {
+        uidPath = DEFAULT_SHMEM_UID_PATH;
+    }
+    if (rank == 0) {
+        int getRet = aclshmemx_get_uniqueid(&uid);
+        if (getRet != ACLSHMEM_SUCCESS) {
+            ShmemLog("[pypto] shmem_get_uniqueid failed ret=%d\n", getRet);
+            return false;
+        }
+        FILE *file = fopen(uidPath, "wb");
+        if (file == nullptr) {
+            ShmemLog("[pypto] shmem uid write failed path=%s\n", uidPath);
+            return false;
+        }
+        size_t wrote = fwrite(&uid, 1, sizeof(uid), file);
+        fclose(file);
+        if (wrote != sizeof(uid)) {
+            ShmemLog("[pypto] shmem uid write size mismatch wrote=%zu\n", wrote);
+            return false;
+        }
+        return true;
+    }
+
+    for (int attempt = 0; attempt < 200; ++attempt) {
+        FILE *file = fopen(uidPath, "rb");
+        if (file != nullptr) {
+            size_t read = fread(&uid, 1, sizeof(uid), file);
+            fclose(file);
+            if (read == sizeof(uid)) {
+                return true;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    ShmemLog("[pypto] shmem uid read timeout path=%s\n", uidPath);
+    return false;
+}
+
+int64_t ReadEnvInt(const char *name)
+{
+    if (name == nullptr) {
+        return -1;
+    }
+    const char *value = std::getenv(name);
+    if (value == nullptr || value[0] == '\0') {
+        return -1;
+    }
+    char *end = nullptr;
+    long parsed = std::strtol(value, &end, 10);
+    if (end == value || (end != nullptr && *end != '\0')) {
+        return -1;
+    }
+    return static_cast<int64_t>(parsed);
+}
+
+int64_t ReadEnvAny(const std::initializer_list<const char *> &names)
+{
+    for (const char *name : names) {
+        int64_t value = ReadEnvInt(name);
+        if (value >= 0) {
+            return value;
+        }
+    }
+    return -1;
+}
+
+int GetRankFromEnv(uint64_t fallbackHandle)
+{
+    int64_t rank = ReadEnvAny({"RANK", "RANK_ID", "OMPI_COMM_WORLD_RANK", "PMI_RANK", "SLURM_PROCID", "LOCAL_RANK"});
+    if (rank < 0) {
+        int64_t tileRank = TileShape::Current().GetDistRankId();
+        if (tileRank >= 0 && tileRank < INT16_MAX) {
+            rank = tileRank;
+        }
+    }
+    if (rank < 0 && fallbackHandle < SHMEM_HANDLE_PTR_MIN) {
+        rank = static_cast<int64_t>(fallbackHandle);
+    }
+    return static_cast<int>(rank);
+}
+
+int GetWorldSizeFromEnv()
+{
+    int64_t world = ReadEnvAny({"WORLD_SIZE", "RANK_SIZE", "HCCL_WORLD_SIZE", "OMPI_COMM_WORLD_SIZE",
+        "PMI_SIZE", "SLURM_NTASKS"});
+    if (world <= 0) {
+        const auto &rankTile = TileShape::Current().GetDistTileRank();
+        if (rankTile[1] > 0) {
+            world = rankTile[1];
+        }
+    }
+    return static_cast<int>(world);
+}
+
+uint64_t AllocShmemContextLocked(uint64_t hcclHandle)
+{
+    EnsureShmemBootstrapPath();
+    EnsureShmemBootstrapSession();
+    int initStatus = shmem_init_status();
+    if (initStatus != ACLSHMEM_STATUS_IS_INITIALIZED) {
+        int rank = GetRankFromEnv(hcclHandle);
+        int world = GetWorldSizeFromEnv();
+        if (rank < 0 || world <= 0) {
+            ShmemLog("[pypto] shmem init skipped: rank=%d world=%d handle=%lu\n", rank, world, hcclHandle);
+            return 0;
+        }
+        bool inited = false;
+        shmem_uniqueid_t uid{};
+        if (LoadOrCreateShmemUniqueId(rank, uid)) {
+            shmem_init_attr_t attributes{};
+            int setRet = shmem_set_attr_uniqueid_args(rank, world, SHMEM_LOCAL_MEM_SIZE, &uid, &attributes);
+            if (setRet != ACLSHMEM_SUCCESS) {
+                ShmemLog("[pypto] shmem_set_attr_uniqueid_args failed ret=%d\n", setRet);
+            } else {
+                int initRet = shmem_init_attr(ACLSHMEMX_INIT_WITH_UNIQUEID, &attributes);
+                if (initRet == ACLSHMEM_SUCCESS) {
+                    inited = true;
+                } else {
+                    ShmemLog("[pypto] shmem_init_attr uniqueid failed ret=%d\n", initRet);
+                }
+            }
+        }
+        if (!inited) {
+            std::string ipPort = GetDefaultShmemIpPort(world);
+            if (ipPort.empty()) {
+                ShmemLog("[pypto] shmem default init skipped: ip_port missing\n");
+                return 0;
+            }
+            shmem_init_attr_t attributes{};
+            shmem_uniqueid_t defaultUid{};
+            defaultUid.version = ACLSHMEM_UNIQUEID_VERSION;
+            int setRet = shmem_set_attr_uniqueid_args(rank, world, SHMEM_LOCAL_MEM_SIZE, &defaultUid, &attributes);
+            if (setRet != ACLSHMEM_SUCCESS) {
+                ShmemLog("[pypto] shmem_set_attr_uniqueid_args default failed ret=%d\n", setRet);
+                return 0;
+            }
+            std::strncpy(attributes.ip_port, ipPort.c_str(), sizeof(attributes.ip_port) - 1);
+            attributes.ip_port[sizeof(attributes.ip_port) - 1] = '\0';
+            attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_MTE;
+            attributes.option_attr.sockFd = -1;
+            int initRet = shmem_init_attr(ACLSHMEMX_INIT_WITH_DEFAULT, &attributes);
+            if (initRet != ACLSHMEM_SUCCESS) {
+                ShmemLog("[pypto] shmem_init_attr default failed ret=%d\n", initRet);
+                return 0;
+            }
+        }
+    }
+
+    int rank = shmem_my_pe();
+    int world = shmem_n_pes();
+    if (rank < 0 || world <= 0) {
+        int envRank = GetRankFromEnv(hcclHandle);
+        int envWorld = GetWorldSizeFromEnv();
+        if (rank < 0) {
+            rank = envRank;
+        }
+        if (world <= 0) {
+            world = envWorld;
+        }
+    }
+    if (rank < 0 || world <= 0 || world > static_cast<int>(TileOp::AICPU_MAX_RANK_NUM_V1)) {
+        ShmemLog("[pypto] shmem rank/world invalid: rank=%d world=%d\n", rank, world);
+        return 0;
+    }
+
+    uint64_t baseAddr = 0;
+    if (hcclHandle >= SHMEM_HANDLE_PTR_MIN) {
+        baseAddr = hcclHandle;
+    } else {
+        void *shmemPtr = shmem_malloc(SHMEM_ALLOC_SIZE);
+        if (shmemPtr == nullptr) {
+            ShmemLog("[pypto] shmem_malloc failed size=%lu\n", SHMEM_ALLOC_SIZE);
+            return 0;
+        }
+        aclshmem_barrier_all();
+        baseAddr = reinterpret_cast<uint64_t>(shmemPtr);
+    }
+
+    TileOp::HcclCombinOpParam hostParam{};
+    hostParam.rankId = static_cast<uint32_t>(rank);
+    hostParam.rankNum = static_cast<uint32_t>(world);
+    hostParam.winSize = SHMEM_HALF_SIZE;
+    hostParam.winExpSize = SHMEM_HALF_SIZE;
+    hostParam.padding[0] = TileOp::HCCL_CONTEXT_MAGIC;
+    for (int pe = 0; pe < world; ++pe) {
+        void *winIn = shmem_ptr(reinterpret_cast<void *>(baseAddr), pe);
+        void *winExp = shmem_ptr(reinterpret_cast<void *>(baseAddr + SHMEM_HALF_SIZE), pe);
+        if (winIn == nullptr || winExp == nullptr) {
+            ShmemLog("[pypto] shmem_ptr failed for pe=%d base=0x%lx\n", pe, baseAddr);
+            return 0;
+        }
+        hostParam.windowsIn[pe] = reinterpret_cast<uint64_t>(winIn);
+        hostParam.windowsOut[pe] = reinterpret_cast<uint64_t>(winIn);
+        hostParam.windowsExp[pe] = reinterpret_cast<uint64_t>(winExp);
+    }
+
+    void *commContext = nullptr;
+    auto mallocRet = rtMalloc(&commContext, sizeof(hostParam), RT_MEMORY_HBM, 0);
+    if (mallocRet != RT_ERROR_NONE || commContext == nullptr) {
+        ShmemLog("[pypto] rtMalloc hcclContext failed ret=%d\n", mallocRet);
+        return 0;
+    }
+    auto memcpyRet = rtMemcpy(commContext, sizeof(hostParam), &hostParam, sizeof(hostParam), RT_MEMCPY_HOST_TO_DEVICE);
+    if (memcpyRet != RT_ERROR_NONE) {
+        ShmemLog("[pypto] rtMemcpy hcclContext failed ret=%d\n", memcpyRet);
+        (void)rtFree(commContext);
+        return 0;
+    }
+    uint64_t contextVal = reinterpret_cast<uint64_t>(commContext);
+    g_hcclContextCache[hcclHandle] = contextVal;
+    ShmemLog("[pypto] shmemContext rank=%d world=%d base=0x%lx ctx=0x%lx\n", rank, world, baseAddr, contextVal);
+    return contextVal;
+}
+#endif
+
+#ifdef BUILD_WITH_CANN
+uint64_t BuildHcclCombinContextFromOpRes(void *commContext)
+{
+    if (commContext == nullptr) {
+        return 0;
+    }
+    bool debugHccl = (std::getenv("PYPTO_HCCL_DEBUG") != nullptr);
+    auto opRes = std::make_unique<TileOp::HcclOpResParam>();
+    auto memcpyRet = rtMemcpy(opRes.get(), sizeof(*opRes), commContext, sizeof(*opRes), RT_MEMCPY_DEVICE_TO_HOST);
+    if (memcpyRet != RT_ERROR_NONE) {
+        ShmemLog("[pypto] rtMemcpy HcclOpResParam failed ret=%d\n", memcpyRet);
+        return 0;
+    }
+    if (opRes->rankSize == 0 || opRes->rankSize > TileOp::AICPU_MAX_RANK_NUM_V1) {
+        ShmemLog("[pypto] HcclOpResParam rankSize invalid: %u\n", opRes->rankSize);
+        return 0;
+    }
+    TileOp::HcclCombinOpParam hostParam{};
+    hostParam.rankId = opRes->localUsrRankId;
+    hostParam.rankNum = opRes->rankSize;
+    hostParam.winSize = opRes->winSize;
+    hostParam.winExpSize = opRes->winExpSize;
+    hostParam.padding[0] = TileOp::HCCL_CONTEXT_MAGIC;
+    std::vector<uint8_t> filled(static_cast<size_t>(hostParam.rankNum), 0U);
+    if (debugHccl) {
+        ShmemLog("[pypto] opRes rankId=%u rankNum=%u winSize=%lu winExpSize=%lu localIn=0x%lx localOut=0x%lx localExp=0x%lx\n",
+            opRes->localUsrRankId, opRes->rankSize, opRes->winSize, opRes->winExpSize,
+            opRes->localWindowsIn, opRes->localWindowsOut, opRes->localWindowsExp);
+        ShmemLog("[pypto] opRes remoteResNum=%u\n", opRes->remoteResNum);
+    }
+    for (uint32_t rank = 0; rank < hostParam.rankNum; ++rank) {
+        if (rank == hostParam.rankId) {
+            hostParam.windowsIn[rank] = opRes->localWindowsIn;
+            hostParam.windowsOut[rank] = opRes->localWindowsOut;
+            hostParam.windowsExp[rank] = opRes->localWindowsExp;
+            filled[rank] = 1U;
+            continue;
+        }
+    }
+    auto applyRel = [&](const TileOp::HcclRankRelationResV2 &rel, uint32_t srcIdx) {
+        if (rel.remoteUsrRankId >= hostParam.rankNum) {
+            if (debugHccl) {
+                ShmemLog("[pypto] opRes rel idx=%u remoteUsrRankId=%u out of range\n", srcIdx, rel.remoteUsrRankId);
+            }
+            return;
+        }
+        if (rel.remoteUsrRankId == hostParam.rankId) {
+            return;
+        }
+        if (filled[rel.remoteUsrRankId] != 0U) {
+            return;
+        }
+        hostParam.windowsIn[rel.remoteUsrRankId] = rel.windowsIn;
+        hostParam.windowsOut[rel.remoteUsrRankId] = rel.windowsOut;
+        hostParam.windowsExp[rel.remoteUsrRankId] = rel.windowsExp;
+        filled[rel.remoteUsrRankId] = 1U;
+        if (debugHccl) {
+            ShmemLog("[pypto] opRes rel idx=%u rank=%u winIn=0x%lx winOut=0x%lx winExp=0x%lx\n",
+                srcIdx, rel.remoteUsrRankId, rel.windowsIn, rel.windowsOut, rel.windowsExp);
+        }
+    };
+    uint32_t maxRemoteRes = opRes->remoteResNum;
+    if (maxRemoteRes > TileOp::AICPU_MAX_RANK_NUM) {
+        maxRemoteRes = TileOp::AICPU_MAX_RANK_NUM;
+    }
+    for (uint32_t idx = 0; idx < maxRemoteRes; ++idx) {
+        uint64_t remotePtr = opRes->remoteRes[idx].nextDevicePtr;
+        if (debugHccl) {
+            ShmemLog("[pypto] opRes remote idx=%u hostPtr=0x%lx devPtr=0x%lx\n",
+                idx, opRes->remoteRes[idx].nextHostPtr, opRes->remoteRes[idx].nextDevicePtr);
+        }
+        if (remotePtr == 0) {
+            continue;
+        }
+        TileOp::HcclRankRelationResV2 rel{};
+        auto relRet = rtMemcpy(&rel, sizeof(rel), reinterpret_cast<void *>(remotePtr),
+            sizeof(rel), RT_MEMCPY_DEVICE_TO_HOST);
+        if (relRet != RT_ERROR_NONE) {
+            ShmemLog("[pypto] rtMemcpy HcclRankRelationResV2 failed idx=%u ret=%d\n", idx, relRet);
+            continue;
+        }
+        applyRel(rel, idx);
+    }
+    for (uint32_t rank = 0; rank < hostParam.rankNum; ++rank) {
+        if (rank == hostParam.rankId || filled[rank] != 0U) {
+            continue;
+        }
+        uint64_t remotePtr = opRes->remoteRes[rank].nextDevicePtr;
+        if (debugHccl) {
+            ShmemLog("[pypto] opRes remote rank=%u ptr=0x%lx\n", rank, remotePtr);
+        }
+        if (remotePtr == 0) {
+            continue;
+        }
+        TileOp::HcclRankRelationResV2 rel{};
+        auto relRet = rtMemcpy(&rel, sizeof(rel), reinterpret_cast<void *>(remotePtr),
+            sizeof(rel), RT_MEMCPY_DEVICE_TO_HOST);
+        if (relRet != RT_ERROR_NONE) {
+            ShmemLog("[pypto] rtMemcpy HcclRankRelationResV2 failed rank=%u ret=%d\n", rank, relRet);
+            continue;
+        }
+        applyRel(rel, rank);
+    }
+    if (debugHccl) {
+        for (uint32_t rank = 0; rank < hostParam.rankNum; ++rank) {
+            if (rank == hostParam.rankId || filled[rank] != 0U) {
+                continue;
+            }
+            ShmemLog("[pypto] opRes missing rank=%u windows\n", rank);
+        }
+    }
+
+    void *newContext = nullptr;
+    auto mallocRet = rtMalloc(&newContext, sizeof(hostParam), RT_MEMORY_HBM, 0);
+    if (mallocRet != RT_ERROR_NONE || newContext == nullptr) {
+        ShmemLog("[pypto] rtMalloc HcclCombinOpParam failed ret=%d\n", mallocRet);
+        return 0;
+    }
+    auto copyRet = rtMemcpy(newContext, sizeof(hostParam), &hostParam, sizeof(hostParam), RT_MEMCPY_HOST_TO_DEVICE);
+    if (copyRet != RT_ERROR_NONE) {
+        ShmemLog("[pypto] rtMemcpy HcclCombinOpParam failed ret=%d\n", copyRet);
+        (void)rtFree(newContext);
+        return 0;
+    }
+    return reinterpret_cast<uint64_t>(newContext);
+}
+#endif
+
+uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, void *aicoreStream)
+{
+    bool debugHccl = (std::getenv("PYPTO_HCCL_DEBUG") != nullptr);
+    auto logAttempt = [&](const char *tag, int retVal, void *ctx, uint32_t mode) {
+        if (!debugHccl) {
+            return;
+        }
+        FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
+        if (commLog != nullptr) {
+            fprintf(commLog, "[pypto] %s ret=%d ctx=%p mode=%u group=%s\n",
+                tag, retVal, ctx, mode, groupName.c_str());
+            fclose(commLog);
+        }
+    };
+    if (groupName.empty()) {
+        return 0;
+    }
+    std::lock_guard<std::mutex> lock(g_ctxMutex);
+    auto it = g_hcclContextCache.find(hcclHandle);
+    if (it != g_hcclContextCache.end()) {
+        return it->second;
+    }
+#ifdef BUILD_WITH_CANN
+    auto aclRet = aclInit(nullptr);
+    if (debugHccl && aclRet != ACL_SUCCESS && aclRet != ACL_ERROR_REPEAT_INITIALIZE) {
+        FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
+        if (commLog != nullptr) {
+            fprintf(commLog, "[pypto] aclInit failed ret=%d\n", static_cast<int>(aclRet));
+            fclose(commLog);
+        }
+    }
+#endif
+#ifdef BUILD_WITH_CANN_SHMEM
+    if (IsShmemGroupName(groupName)) {
+        return AllocShmemContextLocked(hcclHandle);
+    }
+#endif
+    if (hcclHandle == 0) {
+        if (debugHccl) {
+            FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
+            if (commLog != nullptr) {
+                fprintf(commLog, "[pypto] hcclHandle=0 for group=%s\n", groupName.c_str());
+                fclose(commLog);
+            }
+        }
+        return 0;
+    }
+    HcclComm commHandle = reinterpret_cast<HcclComm>(hcclHandle);
+#ifdef BUILD_WITH_CANN
+    auto readEnvInt = [](const char *name) -> int {
+        if (name == nullptr) {
+            return -1;
+        }
+        const char *value = std::getenv(name);
+        if (value == nullptr || value[0] == '\0') {
+            return -1;
+        }
+        char *end = nullptr;
+        long parsed = std::strtol(value, &end, 10);
+        if (end == value || (end != nullptr && *end != '\0')) {
+            return -1;
+        }
+        return static_cast<int>(parsed);
+    };
+    auto readEnvAny = [&](const std::initializer_list<const char *> &names) -> int {
+        for (const char *name : names) {
+            int value = readEnvInt(name);
+            if (value > 0) {
+                return value;
+            }
+        }
+        return -1;
+    };
+    auto createGroup = LoadHcclFunc<HcclResult (*)(const char *, uint32_t, uint32_t *)>("HcomCreateGroup");
+    if (createGroup != nullptr) {
+        int world = readEnvAny({"WORLD_SIZE", "RANK_SIZE", "HCCL_WORLD_SIZE", "OMPI_COMM_WORLD_SIZE",
+            "PMI_SIZE", "SLURM_NTASKS"});
+        if (world <= 0) {
+            const auto &rankTile = TileShape::Current().GetDistTileRank();
+            if (rankTile[1] > 0) {
+                world = static_cast<int>(rankTile[1]);
+            }
+        }
+        if (world > 0) {
+            std::vector<uint32_t> ranks(static_cast<size_t>(world));
+            for (int i = 0; i < world; ++i) {
+                ranks[static_cast<size_t>(i)] = static_cast<uint32_t>(i);
+            }
+            auto retCreate = createGroup(groupName.c_str(), static_cast<uint32_t>(world), ranks.data());
+            logAttempt("HcomCreateGroup", static_cast<int>(retCreate), nullptr, 0);
+        }
+    }
+    HcclComm hcomHandle = nullptr;
+    HcclResult hcomRet = HcomGetCommHandleByGroup(groupName.c_str(), &hcomHandle);
+    if (hcomRet == HCCL_SUCCESS && hcomHandle != nullptr) {
+        commHandle = hcomHandle;
+    } else if (debugHccl) {
+        FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
+        if (commLog != nullptr) {
+            fprintf(commLog, "[pypto] HcomGetCommHandleByGroup failed group=%s ret=%d handle=0x%lx\n",
+                groupName.c_str(), static_cast<int>(hcomRet), reinterpret_cast<uint64_t>(hcomHandle));
+            fclose(commLog);
+        }
+    }
+#endif
+    void *commContext = nullptr;
+    int ret = -1;
+    Mc2CommConfigV2 commConfigV2 = {};
+    if (MakeMc2TilingStructV2(commConfigV2, groupName) == 0) {
+        ret = HcclAllocComResourceByTiling(reinterpret_cast<void *>(commHandle),
+            aicoreStream, &commConfigV2, &commContext);
+        logAttempt("HcclAllocComResourceByTiling(v2)", ret, commContext, 0);
+    }
+    if (ret != 0 || commContext == nullptr) {
+        commContext = nullptr;
+        Mc2CommConfig commConfig = {};
+        if (MakeMc2TilingStruct(commConfig, groupName) == 0) {
+            ret = HcclAllocComResourceByTiling(reinterpret_cast<void *>(commHandle),
+                aicoreStream, &commConfig, &commContext);
+            logAttempt("HcclAllocComResourceByTiling(v1)", ret, commContext, 0);
+        }
+    }
+    if (ret != 0 || commContext == nullptr) {
+        commContext = nullptr;
+        Mc2CommConfig commConfigRetry = {};
+        if (MakeMc2TilingStruct(commConfigRetry, groupName) == 0) {
+            ret = HcclAllocComResourceByTiling(reinterpret_cast<void *>(commHandle), nullptr,
+                &commConfigRetry, &commContext);
+            logAttempt("HcclAllocComResourceByTiling(v1,null)", ret, commContext, 0);
+        }
+        if (ret != 0 || commContext == nullptr) {
+            commContext = nullptr;
+            Mc2CommConfigV2 commConfigV2Retry = {};
+            if (MakeMc2TilingStructV2(commConfigV2Retry, groupName) == 0) {
+                ret = HcclAllocComResourceByTiling(reinterpret_cast<void *>(commHandle), nullptr,
+                    &commConfigV2Retry, &commContext);
+                logAttempt("HcclAllocComResourceByTiling(v2,null)", ret, commContext, 0);
+            }
+        }
+    }
+    if (ret != 0 || commContext == nullptr) {
+        using AllocResFn = HcclResult (*)(HcclComm, uint32_t, void **);
+        auto allocRes = LoadHcclFunc<AllocResFn>("HcclAllocComResource");
+        if (allocRes != nullptr) {
+            for (uint32_t mode : {0U, 1U}) {
+                commContext = nullptr;
+                auto allocRet = allocRes(commHandle, mode, &commContext);
+                logAttempt("HcclAllocComResource", static_cast<int>(allocRet), commContext, mode);
+                if (allocRet == HCCL_SUCCESS && commContext != nullptr) {
+                    ret = 0;
+                    break;
+                }
+            }
+        }
+    }
+    if (ret != 0 || commContext == nullptr) {
+        using CreateResFn = HcclResult (*)(const char *, uint32_t, void **);
+        auto createRes = LoadHcclFunc<CreateResFn>("HcclCreateComResource");
+        if (createRes != nullptr) {
+            for (uint32_t mode : {0U, 1U}) {
+                commContext = nullptr;
+                auto createRet = createRes(groupName.c_str(), mode, &commContext);
+                logAttempt("HcclCreateComResource", static_cast<int>(createRet), commContext, mode);
+                if (createRet == HCCL_SUCCESS && commContext != nullptr) {
+                    ret = 0;
+                    break;
+                }
+            }
+        }
+    }
+    if (ret != 0 || commContext == nullptr) {
+        using HcomCreateResFn = HcclResult (*)(HcclComm, uint32_t, bool, void **, bool);
+        auto hcomCreate = LoadHcclFunc<HcomCreateResFn>("HcomCreateComResourceByComm");
+        if (hcomCreate != nullptr) {
+            for (uint32_t mode : {0U, 1U}) {
+                commContext = nullptr;
+                auto createRet = hcomCreate(commHandle, mode, false, &commContext, true);
+                logAttempt("HcomCreateComResourceByComm", static_cast<int>(createRet), commContext, mode);
+                if (createRet == HCCL_SUCCESS && commContext != nullptr) {
+                    ret = 0;
+                    break;
+                }
+            }
+        }
+    }
+    if ((ret != 0 || commContext == nullptr) && debugHccl) {
+        FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
+        if (commLog != nullptr) {
+            fprintf(commLog, "[pypto] HcclAllocComResourceByTiling failed group=%s ret=%d ctx=%p\n",
+                groupName.c_str(), ret, commContext);
+            fclose(commLog);
+        }
+    }
+#ifdef BUILD_WITH_CANN_SHMEM
+    if (ret != 0 || commContext == nullptr) {
+        uint64_t shmemContext = AllocShmemContextLocked(hcclHandle);
+        if (shmemContext != 0) {
+            return shmemContext;
+        }
+    }
+#endif
+    if (ret != 0 || commContext == nullptr) {
+        void *fallbackContext = reinterpret_cast<void *>(commHandle);
+        if (fallbackContext == nullptr) {
+            return 0;
+        }
+        uint64_t contextVal = 0;
+        TileOp::HcclCombinOpParam probe{};
+        auto probeRet = rtMemcpy(&probe, sizeof(probe), fallbackContext, sizeof(probe), RT_MEMCPY_DEVICE_TO_HOST);
+        bool looksCombin = (probeRet == RT_ERROR_NONE && probe.padding[0] == TileOp::HCCL_CONTEXT_MAGIC &&
+            probe.rankNum > 0 && probe.rankNum <= TileOp::AICPU_MAX_RANK_NUM_V1 && probe.rankId < probe.rankNum);
+        if (looksCombin) {
+            contextVal = reinterpret_cast<uint64_t>(fallbackContext);
+        } else {
+            uint64_t converted = BuildHcclCombinContextFromOpRes(fallbackContext);
+            if (converted != 0) {
+                contextVal = converted;
+            }
+        }
+        if (contextVal != 0) {
+            g_hcclContextCache[hcclHandle] = contextVal;
+            return contextVal;
+        }
+        return 0;
+    }
+    if (ret == 0 && commContext != nullptr) {
+        uint64_t contextVal = reinterpret_cast<uint64_t>(commContext);
+        TileOp::HcclCombinOpParam probe{};
+        auto probeRet = rtMemcpy(&probe, sizeof(probe), commContext, sizeof(probe), RT_MEMCPY_DEVICE_TO_HOST);
+        bool looksCombin = (probeRet == RT_ERROR_NONE && probe.padding[0] == TileOp::HCCL_CONTEXT_MAGIC &&
+            probe.rankNum > 0 && probe.rankNum <= TileOp::AICPU_MAX_RANK_NUM_V1 && probe.rankId < probe.rankNum);
+        if (!looksCombin) {
+            uint64_t converted = BuildHcclCombinContextFromOpRes(commContext);
+            if (converted != 0) {
+                contextVal = converted;
+            } else {
+                ShmemLog("[pypto] Hccl context conversion failed, using original context\n");
+            }
+        }
+        g_hcclContextCache[hcclHandle] = contextVal;
+        static bool logged = false;
+        if (!logged) {
+            FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
+            if (commLog != nullptr) {
+                fprintf(commLog, "[pypto] hcclContext=0x%lx\n", contextVal);
+                fclose(commLog);
+            }
+            TileOp::HcclCombinOpParam hostParam{};
+            auto memcpyRet = rtMemcpy(&hostParam, sizeof(hostParam), reinterpret_cast<void *>(contextVal),
+                sizeof(hostParam), RT_MEMCPY_DEVICE_TO_HOST);
+            if (memcpyRet == RT_ERROR_NONE) {
+                FILE *ctxLog = fopen("/tmp/pypto_commgroup.log", "a");
+                if (ctxLog != nullptr) {
+                    fprintf(ctxLog, "[pypto] hcclContext rankId=%u rankNum=%u winSize=%lu winExpSize=%lu\n",
+                        hostParam.rankId, hostParam.rankNum, hostParam.winSize, hostParam.winExpSize);
+                    fclose(ctxLog);
+                }
+            } else {
+                FILE *errLog = fopen("/tmp/pypto_commgroup.log", "a");
+                if (errLog != nullptr) {
+                    fprintf(errLog, "[pypto] hcclContext rtMemcpy failed ret=%d\n", memcpyRet);
+                    fclose(errLog);
+                }
+            }
+            logged = true;
+        }
+        if (debugHccl) {
+            TileOp::HcclCombinOpParam debugParam{};
+            auto debugRet = rtMemcpy(&debugParam, sizeof(debugParam), reinterpret_cast<void *>(contextVal),
+                sizeof(debugParam), RT_MEMCPY_DEVICE_TO_HOST);
+            if (debugRet == RT_ERROR_NONE) {
+                fprintf(stderr,
+                    "[pypto] hcclHandle=0x%lx ctx=0x%lx rankId=%u rankNum=%u winSize=%lu winExpSize=%lu padding0=0x%x\n",
+                    hcclHandle, contextVal, debugParam.rankId, debugParam.rankNum, debugParam.winSize,
+                    debugParam.winExpSize, debugParam.padding[0]);
+                for (uint32_t rank = 0; rank < debugParam.rankNum; ++rank) {
+                    fprintf(stderr, "[pypto] hcclContext rank=%u winIn=0x%lx winOut=0x%lx winExp=0x%lx\n",
+                        rank, debugParam.windowsIn[rank], debugParam.windowsOut[rank], debugParam.windowsExp[rank]);
+                }
+            } else {
+                fprintf(stderr, "[pypto] hcclHandle=0x%lx ctx=0x%lx rtMemcpy failed ret=%d\n",
+                    hcclHandle, contextVal, debugRet);
+            }
+        }
+        return contextVal;
+    }
+    return 0;
+}
+#endif
+} // namespace
 
 namespace pypto {
 
@@ -66,6 +1089,14 @@ std::string DeviceRunOnceDataFromHost(
     auto attr = func->GetDyndevAttribute();
     if (attr == nullptr) {
         return "Invalid function format";
+    }
+    FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
+    if (commLog != nullptr) {
+        fprintf(commLog, "[pypto] commGroupNames size=%zu\n", attr->commGroupNames.size());
+        for (const auto &name : attr->commGroupNames) {
+            fprintf(commLog, "[pypto] commGroupName: %s\n", name.c_str());
+        }
+        fclose(commLog);
     }
 
     auto inputSize = attr->startArgsInputLogicalTensorList.size();
@@ -124,6 +1155,17 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     if (attr == nullptr) {
         return "Invalid function format";
     }
+    bool debugHccl = (std::getenv("PYPTO_HCCL_DEBUG") != nullptr);
+    if (debugHccl) {
+        FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
+        if (commLog != nullptr) {
+            fprintf(commLog, "[pypto] device commGroupNames size=%zu\n", attr->commGroupNames.size());
+            for (const auto &name : attr->commGroupNames) {
+                fprintf(commLog, "[pypto] device commGroupName: %s\n", name.c_str());
+            }
+            fclose(commLog);
+        }
+    }
 
     auto inputSize = attr->startArgsInputLogicalTensorList.size();
     auto outputSize = attr->startArgsOutputLogicalTensorList.size();
@@ -147,9 +1189,55 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     auto aicoreStream = incomingStream;
     auto aicpuStream = DeviceGetAicpuStream();
     auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
+    auto launcherConfig = DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr);
+    std::vector<int64_t> hcclHandles;
+    std::vector<std::string> hcclGroupNames;
+    bool hasHandles = config::experimental::GetOption("distributed.hccl_handle", hcclHandles);
+    bool hasNames = config::experimental::GetOption("distributed.hccl_group_name", hcclGroupNames);
+    if (debugHccl) {
+        FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
+        if (commLog != nullptr) {
+            fprintf(commLog,
+                "[pypto] device options hasHandles=%d hasNames=%d handles=%zu names=%zu\n",
+                static_cast<int>(hasHandles), static_cast<int>(hasNames),
+                hcclHandles.size(), hcclGroupNames.size());
+            fclose(commLog);
+        }
+    }
+    if (!attr->commGroupNames.empty() && hasHandles && hasNames && !hcclHandles.empty()) {
+        if (hcclHandles.size() != hcclGroupNames.size()) {
+            return "hccl handle and group name size mismatch";
+        }
+        std::unordered_map<std::string, uint64_t> nameToHandle;
+        nameToHandle.reserve(hcclHandles.size());
+        for (size_t i = 0; i < hcclHandles.size(); ++i) {
+            nameToHandle[hcclGroupNames[i]] = static_cast<uint64_t>(hcclHandles[i]);
+        }
+        std::vector<uint64_t> hcclContext;
+        hcclContext.reserve(attr->commGroupNames.size());
+        for (const auto &groupName : attr->commGroupNames) {
+            uint64_t handle = 0;
+            auto it = nameToHandle.find(groupName);
+            if (it != nameToHandle.end()) {
+                handle = it->second;
+            }
+            hcclContext.push_back(AllocHcclContext(handle, groupName, reinterpret_cast<void *>(aicoreStream)));
+        }
+        bool valid = !hcclContext.empty();
+        for (auto ctx : hcclContext) {
+            if (ctx == 0) {
+                valid = false;
+                break;
+            }
+        }
+        if (!valid) {
+            return "hccl context init failed";
+        }
+        launcherConfig.hcclContext = hcclContext;
+    }
     int rc =
         ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false,
-            DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
+            launcherConfig);
     if (rc < 0) {
         return "device run failed";
     }
@@ -180,6 +1268,64 @@ std::string OperatorDeviceSynchronize(py::int_ incomingStreamPython) {
     }
     return "";
 }
+
+#ifdef BUILD_WITH_CANN
+py::bytes HcclGetRootInfoBytes()
+{
+    using GetRootInfoFn = HcclResult (*)(HcclRootInfo *);
+    auto func = LoadHcclFunc<GetRootInfoFn>("HcclGetRootInfo");
+    if (func == nullptr) {
+        throw std::runtime_error("HcclGetRootInfo symbol not found");
+    }
+    HcclRootInfo rootInfo{};
+    auto ret = func(&rootInfo);
+    if (ret != HCCL_SUCCESS) {
+        throw std::runtime_error("HcclGetRootInfo failed");
+    }
+    return py::bytes(reinterpret_cast<const char *>(&rootInfo), sizeof(rootInfo));
+}
+
+uint64_t HcclCommInitRootInfoBytes(const py::bytes &rootInfoBytes, int rank, int world)
+{
+    using CommInitFn = HcclResult (*)(uint32_t, const HcclRootInfo *, uint32_t, HcclComm *);
+    auto func = LoadHcclFunc<CommInitFn>("HcclCommInitRootInfo");
+    if (func == nullptr) {
+        throw std::runtime_error("HcclCommInitRootInfo symbol not found");
+    }
+    std::string data = rootInfoBytes;
+    if (data.size() != sizeof(HcclRootInfo)) {
+        throw std::runtime_error("HcclRootInfo size mismatch");
+    }
+    HcclRootInfo rootInfo{};
+    std::memcpy(&rootInfo, data.data(), sizeof(rootInfo));
+    HcclComm comm = nullptr;
+    auto ret = func(static_cast<uint32_t>(world), &rootInfo, static_cast<uint32_t>(rank), &comm);
+    if (ret != HCCL_SUCCESS || comm == nullptr) {
+        throw std::runtime_error("HcclCommInitRootInfo failed");
+    }
+    return reinterpret_cast<uint64_t>(comm);
+}
+
+std::string HcclGetCommNameFromHandle(uint64_t handle)
+{
+    using GetCommNameFn = HcclResult (*)(HcclComm, char *);
+    auto func = LoadHcclFunc<GetCommNameFn>("HcclGetCommName");
+    if (func == nullptr) {
+        throw std::runtime_error("HcclGetCommName symbol not found");
+    }
+    char name[COMM_NAME_MAX_LENGTH] = {};
+    auto ret = func(reinterpret_cast<HcclComm>(handle), name);
+    if (ret != HCCL_SUCCESS) {
+        throw std::runtime_error("HcclGetCommName failed");
+    }
+    return std::string(name);
+}
+
+uint32_t GetHcclRootInfoSize()
+{
+    return HCCL_ROOT_INFO_BYTES;
+}
+#endif
 
 void DeviceInit() {
     DeviceLauncherInit();
@@ -229,6 +1375,12 @@ void BindRuntime(py::module &m) {
     m.def("SetVerifyData", &SetVerifyData);
     m.def("BuildCache", BuildCache);
     m.def("CopyToHost", &CopyToHost);
+#ifdef BUILD_WITH_CANN
+    m.def("GetHcclRootInfoSize", &GetHcclRootInfoSize);
+    m.def("HcclGetRootInfo", &HcclGetRootInfoBytes);
+    m.def("HcclCommInitRootInfo", &HcclCommInitRootInfoBytes);
+    m.def("HcclGetCommName", &HcclGetCommNameFromHandle);
+#endif
 
     py::class_<DeviceTensorData>(m, "DeviceTensorData")
         .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),
