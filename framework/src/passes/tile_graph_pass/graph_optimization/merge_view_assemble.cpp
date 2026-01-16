@@ -52,7 +52,14 @@ Status MergeViewAssemble::Initialize() {
 }
 
 Status MergeViewAssemble::ProcessOperations(Function &function) {
-    for (auto &op : function.Operations()) {
+    for (const auto &incast : function.GetIncast()) {
+         for (auto &consumer : incast->GetConsumers()) {
+            que.push(consumer); 
+        }
+    }
+    while(!que.empty()){
+        Operation& op = *que.front();
+        que.pop();
         if (visitedOp_.count(op.GetOpMagic()) != 0) {
             continue;
         }
@@ -60,6 +67,11 @@ Status MergeViewAssemble::ProcessOperations(Function &function) {
             ProcessViewOperations(function, op);
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
             ProcessAssembleOperations(function, op);
+        }else{
+            auto consumers = function.FindConsumers(op);
+            for(auto& consumer: consumers){
+                que.push(consumer);
+            }
         }
     }
     Status status = AppendMergedViewOperations(function);
@@ -164,6 +176,11 @@ Status MergeViewAssemble::MergeViewChain(
     }
 
     // 3. 处理链尾情况
+    if (chainEnd) {
+        for (auto &consumer : consumers) {
+            que.push(consumer);
+        }
+    }
     if (chainEnd && chain.size() > 1) {
         return ProcessChainEnd(function, chain);
     }
@@ -274,7 +291,7 @@ Status MergeViewAssemble::ProcessChainEnd(
     }
     // 记录合并操作
     RecordMergedViewOperation(endOp, startTensor, endTensor, newOffset, newDynOffset, newDynValidShape);
-
+    auto consumers = function.FindConsumers(*endOp); 
     // 清理链尾
     endOp->oOperand.clear();
     function.GetTensorMap().Erase(endTensor);
@@ -392,6 +409,7 @@ Status MergeViewAssemble::ProcessAssembleConsumers(
             APASS_LOG_ERROR_F(Elements::Operation, "Null consumer operation found.");
             return FAILED;
         }
+        que.push(op);
         if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
             hasAssembleConsumer = true;
             Status status = MergeAssembleChain(function, *op, chain);
