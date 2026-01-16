@@ -51,7 +51,7 @@ void ValidateGroup(const char* group)
         << groupLen;
 }
 
-void ValidateTilingSize(const VecTile &vecTile, const Tensor& in)
+void ValidateTilingSize(const VecTile &vecTile, const Tensor& in, int32_t worldSize)
 {
     int32_t expectedTileSize = in.GetShape().size();
     ASSERT(expectedTileSize == static_cast<int32_t>(vecTile.size())) <<
@@ -66,6 +66,12 @@ void ValidateTilingSize(const VecTile &vecTile, const Tensor& in)
         }
         return true;
     }()) << "Invalid vecTile set: tile size must be <= input shape for each dimension";
+    int32_t tileRowShape = vecTile[0];
+    int32_t tileColShape = vecTile[1];
+    int32_t tileRowNum = in.GetShape(0) / tileRowShape + (in.GetShape(0) % tileRowShape == 0 ? 0 : 1);
+    int32_t tileColNum = in.GetShape(1) / tileColShape + (in.GetShape(1) % tileColShape == 0 ? 0 : 1);
+    ASSERT(tileRowNum * tileColNum <= MAX_TILE_NUM / worldSize) <<
+        "TotalTileNum is invalid, totalTileNum shoule be less than " << MAX_TILE_NUM / worldSize << ", but got " << tileRowNum * tileColNum;
 }
 
 void ValidateParams(const Tensor &predToken, const Tensor &in, const Tensor &out, Shape shmemDataShape, DataType shmemDataType,
