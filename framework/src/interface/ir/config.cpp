@@ -19,44 +19,37 @@
 
 namespace pto {
 
+// Static member definition for ConfigKey
+std::map<ConfigKey, std::any> ConfigKey::defaultValues_;
+
 ConfigRegistry& ConfigRegistry::GetInstance() {
     static ConfigRegistry instance;
     return instance;
 }
 
-size_t ConfigRegistry::ComputeKeyHash(const std::string& keyName) {
-    return ComputeConfigKeyHashImpl(keyName.c_str());
+
+bool ConfigRegistry::IsRegistered(const ConfigKey& key) const {
+    return registeredKeys_.find(key) != registeredKeys_.end();
 }
 
-bool ConfigRegistry::IsRegistered(ConfigKey key) const {
-    return registeredConfigs_.find(key) != registeredConfigs_.end();
-}
-
-std::string ConfigRegistry::GetKeyName(ConfigKey key) const {
-    auto it = keyNames_.find(key);
-    if (it == keyNames_.end()) {
-        throw std::runtime_error("Config key not found");
-    }
-    return it->second;
-}
-
-ConfigKey ConfigRegistry::GetKeyByName(const std::string& name) const {
-    auto it = nameToKey_.find(name);
-    if (it == nameToKey_.end()) {
-        throw std::runtime_error("Config key name '" + name + "' not found. Make sure to register it first using REGISTER_CONFIG macro.");
-    }
-    return it->second;
-}
-
-std::type_index ConfigRegistry::GetTypeIndex(ConfigKey key) const {
+std::type_index ConfigRegistry::GetTypeIndex(const ConfigKey& key) const {
     auto it = registeredConfigs_.find(key);
     if (it == registeredConfigs_.end()) {
-        throw std::runtime_error("Config key not found");
+        throw std::runtime_error("Config key '" + key.Get() + "' not found. Make sure to register it first using REGISTER_CONFIG macro.");
     }
     return it->second;
 }
 
-bool Config::Has(ConfigKey key) const {
+std::vector<ConfigKey> ConfigRegistry::GetAllRegisteredKeys() const {
+    std::vector<ConfigKey> keys;
+    keys.reserve(registeredKeys_.size());
+    for (const auto& key : registeredKeys_) {
+        keys.push_back(key);
+    }
+    return keys;
+}
+
+bool Config::Has(const ConfigKey& key) const {
     if (!initialized_) {
         return false;
     }
