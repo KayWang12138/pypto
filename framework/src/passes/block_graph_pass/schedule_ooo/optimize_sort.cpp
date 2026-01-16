@@ -515,7 +515,7 @@ Status OptimizeSort::RetireOpBuffer(std::map<MemoryType, int64_t> &curMemoryMap,
         }
         if (bufRefCount[memId] == 0) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Start to free memory:");
-            if (ModifyBuffer(curMemoryMap, tensor->GetMemoryTypeOriginal(), ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), false) != SUCCESS) {
+            if (ModifyBuffer(curMemoryMap, tensor->GetMemoryTypeOriginal(), ShapeCeilAlign(tensor->tensor->rawshape, tensor->Datatype()), false) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor[%d] failed.", memId);
                 return FAILED;
             }
@@ -579,7 +579,7 @@ Status OptimizeSort::OpListExecute(std::vector<Operation*> &curOpList,
                 return SUCCESS;
             }
             auto tensor = op->GetOutputOperand(0);
-            if (ModifyBuffer(curMemoryMap, tensor->GetMemoryTypeOriginal(), ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), true) != SUCCESS) {
+            if (ModifyBuffer(curMemoryMap, tensor->GetMemoryTypeOriginal(), ShapeCeilAlign(tensor->tensor->rawshape, tensor->Datatype()), true) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Allocate tensor[%u] failed.", tensor->GetMagic());
                 return FAILED;
             }
