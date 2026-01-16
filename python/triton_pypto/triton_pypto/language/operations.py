@@ -29,19 +29,15 @@ class Context:
     dynamic = False
 
 
-def common_broadcast(a: TensorWrapper, b: TensorWrapper, keep_scalar=False) -> Tuple[TensorWrapper, TensorWrapper]:
-    a_shape = np.array(object=getattr(a, "shape", [1]), dtype=np.int32)
-    b_shape = np.array(object=getattr(b, "shape", [1]), dtype=np.int32)
+def common_broadcast(a: Union[TensorWrapper, Real], b: Union[TensorWrapper, Real],
+                     keep_scalar: bool = False) -> Tuple[Union[TensorWrapper, Real], Union[TensorWrapper, Real]]:
+    if keep_scalar and (not isinstance(a, TensorWrapper) or not isinstance(b, TensorWrapper)):
+        return a, b
+    a_shape = np.array(a.shape, dtype=np.int32)
+    b_shape = np.array(b.shape, dtype=np.int32)
     if np.array_equal(a_shape, b_shape):
         pypto_wrap.auto_vec_tile(a_shape, a.dtype)
         return a, b
-    if keep_scalar:
-        if a_shape.prod() == 1:
-            pypto_wrap.auto_vec_tile(b_shape, b.dtype)
-            return a, b
-        if b_shape.prod() == 1:
-            pypto_wrap.auto_vec_tile(a_shape, a.dtype)
-            return a, b
     # Prepend ones if needed
     if a_shape.size != b_shape.size:
         common_size = builtins.max(a_shape.size, b_shape.size)
@@ -53,22 +49,30 @@ def common_broadcast(a: TensorWrapper, b: TensorWrapper, keep_scalar=False) -> T
             b_shape = np.insert(b_shape, 0, [1] * (common_size - b_shape.size))
             pypto_wrap.auto_vec_tile(b_shape, b.dtype)
             b = TensorWrapper(pypto_wrap.reshape(b, b_shape.tolist()))
+    a_nonones = a_shape != 1
+    b_nonones = b_shape != 1
     # Differ only with ones -> pypto.reshape
-    if np.array_equal(a_shape != 1, b_shape != 1):
+    if np.array_equal(a_nonones, b_nonones):
         a.auto_vec_tile()
         b = TensorWrapper(pypto_wrap.reshape(b, a.shape))
         return a, b
     # Broadcastable into each other -> pypto.expand_clone
-    if np.any((a_shape != 1) & (b_shape != 1) & (a_shape != b_shape)):
+    if np.any(a_nonones & b_nonones & (a_shape != b_shape)):
         raise RuntimeError(f"Unable to common broadcast {a!r} to {b!r}")
-    common_shape = np.where(a_shape != 1, a_shape, b_shape)
+    common_shape = np.where(a_nonones, a_shape, b_shape)
     common_type = dtypes.common_type(a.dtype, b.dtype)
     pypto_wrap.auto_vec_tile(common_shape, common_type)
-    if not np.array_equal(a_shape, common_shape):
-        a = TensorWrapper(pypto_wrap.expand_clone(a, common_shape.tolist()))
-    if not np.array_equal(b_shape, common_shape):
-        b = TensorWrapper(pypto_wrap.expand_clone(b, common_shape.tolist()))
-    return a, b
+
+    def expand_stepwise(tensor: TensorWrapper, shape: np.ndarray) -> TensorWrapper:
+        prev_shape = shape.copy()
+        shape_it = np.nditer([shape, common_shape], flags=["f_index"])
+        for dim, target_dim in shape_it:
+            if dim != target_dim:
+                prev_shape[shape_it.index] = target_dim
+                tensor = TensorWrapper(pypto_wrap.expand_clone(tensor, prev_shape.tolist()))
+        return tensor
+
+    return expand_stepwise(a, a_shape), expand_stepwise(b, b_shape)
 
 
 def pad_shape(shape: List[int], required_rank: int) -> List[int]:
