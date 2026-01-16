@@ -625,19 +625,7 @@ struct FunctionInterpreter {
             if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                 continue;
             ExecuteHandleOperationBegin(&op);
-            try {
-                ExecuteOperation(*frame, &op, inoutDataPair);
-            } catch (std::exception &e) {
-                // 如果在pass模式下，打印错误信息但不中断执行，继续下一个pass
-                if (frame->passIndex >= 0) {
-                    ALOG_ERROR_F("ExecuteOperation failed in pass mode (passIndex: %d): %s", frame->passIndex, e.what());
-                    // 重新抛出异常，让上层知道pass失败，但PassManager会继续执行下一个pass
-                    throw;
-                } else {
-                    // 非pass模式，正常抛出异常
-                    throw;
-                }
-            }
+            ExecuteOperation(*frame, &op, inoutDataPair);
             ExecuteHandleOperationEnd();
         }
         ExecuteHandleFunctionEnd();
@@ -1041,22 +1029,13 @@ public:
 
         DumpBegin();
         TimeStamp ts;
-        try {
-            std::shared_ptr<FunctionCaptureExecution> unitCapture = ExecuteUnit(func, capture);
-            DumpEnd();
-            TimeStamp ts1;
-            DumpPassTensorDiff(unitCapture, capture);
-            dumpTensorUsage += ts1.Duration();
-            totalTimeUsage += ts.Duration();
-            return unitCapture;
-        } catch (std::exception &e) {
-            // 在pass模式下，打印错误信息但不中断执行，让PassManager继续执行下一个pass
-            ALOG_ERROR_F("RunForPass failed for function %s in pass (passIndex: %d): %s", 
-                         funcKey.c_str(), passIndex, e.what());
-            DumpEnd();
-            // 重新抛出异常，让上层知道pass失败，但PassManager会继续执行下一个pass
-            throw;
-        }
+        std::shared_ptr<FunctionCaptureExecution> unitCapture = ExecuteUnit(func, capture);
+        DumpEnd();
+        TimeStamp ts1;
+        DumpPassTensorDiff(unitCapture, capture);
+        dumpTensorUsage += ts1.Duration();
+        totalTimeUsage += ts.Duration();
+        return unitCapture;
     }
 
     std::shared_ptr<FunctionCaptureExecution> RunForExecuteGraph(
