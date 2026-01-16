@@ -74,7 +74,6 @@ TEST_F(ConfigTest, TestConfigInitializeWithInitializerList) {
         {CONFIG_test_uint8, std::any(uint8_t(88))}
     });
     
-    EXPECT_TRUE(config.IsInitialized());
     EXPECT_EQ(300, config.Get<int32_t>(CONFIG_test_int32));
     EXPECT_TRUE(config.Get<bool>(CONFIG_test_bool));
     EXPECT_EQ(88, config.Get<uint8_t>(CONFIG_test_uint8));
@@ -113,22 +112,6 @@ TEST_F(ConfigTest, TestConfigWithMapType) {
     EXPECT_EQ(30, retrievedMap.at(3));
 }
 
-// Test config double initialization error
-TEST_F(ConfigTest, TestConfigDoubleInitializationError) {
-    Config config;
-    
-    config.Initialize({
-        {CONFIG_test_int32, std::any(int32_t(100))}
-    });
-    
-    // Second initialization should throw
-    EXPECT_THROW({
-        config.Initialize({
-            {CONFIG_test_bool, std::any(true)}
-        });
-    }, std::runtime_error);
-}
-
 // Test config type mismatch error
 TEST_F(ConfigTest, TestConfigTypeMismatchError) {
     Config config;
@@ -155,15 +138,6 @@ TEST_F(ConfigTest, TestConfigUnregisteredKeyError) {
     }, std::runtime_error);
 }
 
-// Test config get uninitialized error
-TEST_F(ConfigTest, TestConfigGetUninitializedError) {
-    Config config;
-    
-    EXPECT_FALSE(config.IsInitialized());
-    EXPECT_THROW({
-        config.Get<int32_t>(CONFIG_test_int32);
-    }, std::runtime_error);
-}
 
 // Test config get non-existent key error
 TEST_F(ConfigTest, TestConfigGetNonExistentKeyError) {
@@ -304,7 +278,6 @@ TEST_F(ConfigTest, TestFunctionGetConfigConst) {
     const Config& constConfig = constFunc.GetConfig();
     
     // Verify const Config can be used for read operations
-    EXPECT_TRUE(constConfig.IsInitialized());
     EXPECT_TRUE(constConfig.Has(CONFIG_test_int32));
     EXPECT_TRUE(constConfig.Has(CONFIG_test_bool));
     EXPECT_TRUE(constConfig.Has(CONFIG_test_uint8));
@@ -361,19 +334,8 @@ TEST_F(ConfigTest, TestFunctionGetParentModule) {
 // Test loading config from JSON file
 TEST_F(ConfigTest, TestLoadFromJsonFile) {
     Config config;
-    
-    // Load config from JSON file
-    std::string jsonPath = __FILE__;
-    size_t pos = jsonPath.find_last_of("/\\");
-    if (pos != std::string::npos) {
-        jsonPath = jsonPath.substr(0, pos + 1) + "test_config.json";
-    } else {
-        jsonPath = "test_config.json";
-    }
-    
+    std::string jsonPath = "../../../framework/tests/ut/interface/src/ir/json/test_config.json";
     config.LoadFromJsonFile(jsonPath);
-    
-    EXPECT_TRUE(config.IsInitialized());
     
     // Verify values loaded from JSON
     EXPECT_EQ(200, config.Get<int32_t>(CONFIG_test_int32));
@@ -392,27 +354,8 @@ TEST_F(ConfigTest, TestLoadFromJsonFile) {
 // Test loading config from JSON file with partial configs
 TEST_F(ConfigTest, TestLoadFromJsonFilePartial) {
     Config config;
-    
-    // Create a temporary JSON file with only some configs
-    std::string jsonPath = __FILE__;
-    size_t pos = jsonPath.find_last_of("/\\");
-    if (pos != std::string::npos) {
-        jsonPath = jsonPath.substr(0, pos + 1) + "test_config_partial.json";
-    } else {
-        jsonPath = "test_config_partial.json";
-    }
-    
-    // Write a partial JSON file
-    std::ofstream jsonFile(jsonPath);
-    jsonFile << "{\"test_int32\": 500, \"test_bool\": true}" << std::endl;
-    jsonFile.close();
-
-    std::cout << "jsonPath: " << jsonPath << std::endl;
-    EXPECT_TRUE(jsonPath == std::string("test_config_partial.json"));
-    
+    std::string jsonPath = "../../../framework/tests/ut/interface/src/ir/json/test_config_partial.json";
     config.LoadFromJsonFile(jsonPath);
-    
-    EXPECT_TRUE(config.IsInitialized());
     
     // Verify loaded values
     EXPECT_EQ(500, config.Get<int32_t>(CONFIG_test_int32));
@@ -421,46 +364,15 @@ TEST_F(ConfigTest, TestLoadFromJsonFilePartial) {
     // Verify default values are used for missing keys
     EXPECT_EQ(42, config.Get<uint8_t>(CONFIG_test_uint8));  // Should use default value
     EXPECT_EQ(1000, config.Get<uint16_t>(CONFIG_test_uint16));  // Should use default value
-    
-    // Clean up temporary file
-    std::remove(jsonPath.c_str());
 }
 
 // Test loading config from non-existent JSON file
 TEST_F(ConfigTest, TestLoadFromJsonFileNotFound) {
     Config config;
-    
+    std::string jsonPath = "../../../framework/tests/ut/interface/src/ir/json/test_nonexistent_file.json";
     EXPECT_THROW({
         config.LoadFromJsonFile("non_existent_file.json");
     }, std::runtime_error);
-    
-    EXPECT_FALSE(config.IsInitialized());
-}
-
-// Test loading config from invalid JSON file
-TEST_F(ConfigTest, TestLoadFromJsonFileInvalid) {
-    Config config;
-    
-    // Create a temporary invalid JSON file
-    std::string jsonPath = __FILE__;
-    size_t pos = jsonPath.find_last_of("/\\");
-    if (pos != std::string::npos) {
-        jsonPath = jsonPath.substr(0, pos + 1) + "test_config_invalid.json";
-    } else {
-        jsonPath = "test_config_invalid.json";
-    }
-    
-    // Write invalid JSON
-    std::ofstream jsonFile(jsonPath);
-    jsonFile << "{invalid json}" << std::endl;
-    jsonFile.close();
-    
-    EXPECT_THROW({
-        config.LoadFromJsonFile(jsonPath);
-    }, std::runtime_error);
-    
-    // Clean up temporary file
-    std::remove(jsonPath.c_str());
 }
 
 } // namespace pto

@@ -156,6 +156,9 @@ public:
     // Check if a config key exists
     bool Has(const ConfigKey& key) const;
 
+    // Check if config is empty (has no entries)
+    bool IsEmpty() const { return configs_.empty(); }
+
 private:
     std::map<ConfigKey, std::any> configs_;
 };
