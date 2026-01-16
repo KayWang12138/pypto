@@ -104,31 +104,37 @@ TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     }
 }
 
+#define OP_TILE_OP_ADD TAdd
 template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TAdd(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::ADD, operand>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_SUB TSub
 template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TSub(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::SUB, operand>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_MUL TMul
 template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMul(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MUL, operand>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_DIV TDiv
 template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TDiv(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::DIV, operand>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_MAX TMax
 template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMax(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MAX, operand>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_MIN TMin
 template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MIN, operand>(dst, src0, src1);

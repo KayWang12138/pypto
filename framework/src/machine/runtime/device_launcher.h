@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #define SRC_MACHINE_DEVICE_LAUNCHER_H
 
 #include <cstdint>
+#include <cinttypes>
 
 #include "machine/runtime/device_launcher_binding.h"
 #include "interface/configs/config_manager.h"
@@ -31,6 +32,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
+#include "machine/runtime/distributed_context.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -135,24 +137,27 @@ public:
     }
 
     // Prepare device program scheduling and memory budget related args (keeps <= 50 lines)
-    static void PrepareDevProgArgs(DevAscendProgram *devProg, const DeviceLauncherConfig &config) {
+    static void PrepareDevProgArgs(DevAscendProgram *devProg, DeviceLauncherConfig &config) {
+        ASSERT(config.blockdim != 0) << "Invalid blockdim: " << config.blockdim << ", must not be zero";
+
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
-        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, config.aicpuNum);
-        devProg->devArgs.nrAicpu = config.aicpuNum;
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
 
-        int minCpuNum = devProg->devArgs.scheCpuNum + 1;
-        int effectiveAicpuNum = (config.aicpuNum < minCpuNum || config.aicpuNum > DEVICE_MAX_AICPU_NUM) ? (minCpuNum + 1) : config.aicpuNum;
-        devProg->devArgs.nrAicpu = effectiveAicpuNum;
-        ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, effectiveAicpuNum);
+        int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum);
+        config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
+        devProg->devArgs.nrAicpu = config.aicpuNum;
+        ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
+        devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
+        devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
 
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
-        if (config.dynWorkspaceSize) {
-            ALOG_ERROR("[Deprecated] User provided dynamic workspace: %zu", config.dynWorkspaceSize);
+        if (config.dynWorkspaceSize != 0) {
+            ALOG_ERROR_F("[Deprecated] User provided dynamic workspace: %" PRId64, config.dynWorkspaceSize);
             devProg->memBudget.tensor.maxDynamicAssembleOutcastMem = std::max(
                 static_cast<int64_t>(devProg->memBudget.tensor.maxDynamicAssembleOutcastMem),
                 AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT));
@@ -163,6 +168,7 @@ public:
             devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
             devProg->memBudget.aicoreSpilled, devProg->memBudget.debug.dumpTensor);
         ALOG_INFO_F("Tensor:rootInner=%lu, devTaskInnerOutCasts=%lu, slotted=%lux%lu(slots).",
+            devProg->memBudget.tensor.rootInner,
             devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts, devProg->memBudget.tensor.MaxOutcastMem(),
             devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
     }
@@ -173,13 +179,6 @@ public:
             const std::vector<uint8_t> &devProgData, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
-        ASSERT(devProg->commGroupNum == config.hcclContext.size()) << "commGroupNum mismatch. commGroupNum = " <<
-               devProg->commGroupNum << ", hcclContext size = " << config.hcclContext.size();
-        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) << "commGroupNum exceeds array size. commGroupNum = "
-               << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
-        for (size_t i = 0; i < devProg->commGroupNum; i++) {
-            devProg->hcclContext[i] = config.hcclContext[i];
-        }
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t *)config.workspaceAddr;
         } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
@@ -206,11 +205,45 @@ public:
         kArgs.toSubMachineConfig.isGETensorList = config.isGETensorList ? 1 : 0;
     }
 
+    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        ASSERT(devProg->commGroupNum == hcclContext.size()) 
+            << "commGroupNum mismatch. commGroupNum = " 
+            <<devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
+        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) 
+            << "commGroupNum exceeds array size. commGroupNum = "
+            << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
+        for (size_t i = 0; i < devProg->commGroupNum; i++) {
+            devProg->hcclContext[i] = hcclContext[i];
+        }
+    }
+
+     static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames,
+        const std::vector<uint8_t> &devProgData) {
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        if (devProg->hcclContext[0] != 0) {
+            return;
+        }
+        auto hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
+        PrepareHcclContext(hcclContext, devProgData);
+    }
+
+    static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
+        const std::vector<uint8_t> &devProgData) {
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+        if (devProg->hcclContext[0] != 0) {
+            return;
+        }
+ 	    auto hcclContext = DistributedContext::GetHcclContext(groupNames);
+        PrepareHcclContext(hcclContext, devProgData);
+    }
+
     template<typename DeviceMemoryTy>
     static void DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
-        const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+            const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+        auto &mutableConfig = const_cast<DeviceLauncherConfig &>(config);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        PrepareDevProgArgs(devProg, config);
+        PrepareDevProgArgs(devProg, mutableConfig);
         // Fill all metadata and kernel args
         FillKernelMeta(devMem, kArgs, devProg, devProgData, config, cachedOperator);
     }
