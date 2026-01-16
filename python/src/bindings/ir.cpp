@@ -84,14 +84,14 @@ static void IrBindEnum(py::module &m) {
         .value("Tile", ValueKind::Tile);
 
     py::enum_<MemSpaceKind>(m, "MemSpaceKind")
-        .value("DDR", MemSpaceKind::DDR)
+        .value("DEVICE_DDR", MemSpaceKind::DEVICE_DDR)
         .value("L2", MemSpaceKind::L2)
         .value("UB", MemSpaceKind::UB)
         .value("L1", MemSpaceKind::L1)
         .value("L0A", MemSpaceKind::L0A)
         .value("L0B", MemSpaceKind::L0B)
         .value("L0C", MemSpaceKind::L0C)
-        .value("REG", MemSpaceKind::REG)
+        .value("VECTOR_REG", MemSpaceKind::VECTOR_REG)
         .value("SHMEM", MemSpaceKind::SHMEM);
 
     py::enum_<Format>(m, "Format").value("ND", Format::ND).value("NZ", Format::NZ);
@@ -129,7 +129,43 @@ static void IrBindObjClass(py::module &m) {
         .def_property_readonly("id", &Object::GetID)
         .def_property_readonly("name", &Object::GetName)
         .def_property_readonly("type", &Object::GetObjectType)
-        .def("properties", py::overload_cast<>(&Object::Attributes, py::const_));
+        .def("properties", &Object::GetSetAttrKeys)
+        .def("set_attr", [](Object &self, const std::string &key, py::object value) {
+            // Try to determine the Python type and call the appropriate C++ SetAttr
+            if (py::isinstance<py::str>(value)) {
+                return self.SetAttr<std::string>(key, py::cast<std::string>(value));
+            } else if (py::isinstance<py::bool_>(value)) {
+                return self.SetAttr<bool>(key, py::cast<bool>(value));
+            } else if (py::isinstance<py::int_>(value)) {
+                return self.SetAttr<int64_t>(key, py::cast<int64_t>(value));
+            } else if (py::isinstance<py::float_>(value)) {
+                return self.SetAttr<double>(key, py::cast<double>(value));
+            } else {
+                throw py::type_error("Unsupported attribute type. Must be str, bool, int, or float.");
+            }
+        }, py::arg("key"), py::arg("value"),
+           "Set an attribute on the object. Supported types: str, bool, int, float.")
+        .def("get_attr", [](const Object &self, const std::string &key) -> py::object {
+            // Get the raw AttributeValue and convert to Python object
+            AttributeValue attr = self.GetAttr(key);
+
+            // Use std::visit to handle the variant
+            return std::visit([](auto&& arg) -> py::object {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, std::string>) {
+                    return py::cast(arg);
+                } else if constexpr (std::is_same_v<T, int64_t>) {
+                    return py::cast(arg);
+                } else if constexpr (std::is_same_v<T, double>) {
+                    return py::cast(arg);
+                } else if constexpr (std::is_same_v<T, bool>) {
+                    return py::cast(arg);
+                } else {
+                    return py::none();
+                }
+            }, attr);
+        }, py::arg("key"),
+           "Get an attribute value from the object. Returns None if attribute is not set.")
 }
 
 static void IrBindValue(py::module &m) {
