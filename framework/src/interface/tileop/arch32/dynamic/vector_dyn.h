@@ -927,17 +927,24 @@ TILEOP void DynTduplicate_(__ubuf__ T *dst, T value, unsigned T0, unsigned T1, u
 // dim4
 template <typename T, unsigned Ds0, unsigned Ds1, unsigned Ds2>
 TILEOP void DynTduplicate_(__ubuf__ T *dst, T value, unsigned T0, unsigned T1, unsigned T2, unsigned T3) {
-    unsigned dstStartOffset = 0;
-    for (unsigned i = 0; i < T0; i++) {
-        for (unsigned j = 0; j < T1; j++) {
-            if constexpr ((Ds2 * sizeof(T)) % BLOCK_SIZE == 0) {
-                DynTduplicate_<T, Ds2>(dst + dstStartOffset, value, T2, T3);
-            } else {
-                DynTduplicate_<T, Ds2>(dst, value, T2, T3, dstStartOffset);
+    if constexpr ((Ds2 * sizeof(T)) % BLOCK_SIZE == 0) {
+        for (unsigned i = 0; i < T0; i++) {
+            __ubuf__ T *dst_ = dst;
+            for (unsigned j = 0; j < T1; j++) {
+                DynTduplicate_<T, Ds2>(dst_, value, T2, T3);
+                dst_ += Ds1 * Ds2;
             }
-            dstStartOffset += Ds1 * Ds2;
+            dst += Ds0 * Ds1 * Ds2;
         }
-        dstStartOffset += (Ds0 - T1) * Ds1 * Ds2;
+    } else {
+        unsigned dstStartOffset = 0;
+        for (unsigned i = 0; i < T0; i++) {
+            for (unsigned j = 0; j < T1; j++) {
+                DynTduplicate_<T, Ds2>(dst, value, T2, T3, dstStartOffset);
+                dstStartOffset += Ds1 * Ds2;
+            }
+            dstStartOffset += (Ds0 - T1) * Ds1 * Ds2;
+        }
     }
 }
 
