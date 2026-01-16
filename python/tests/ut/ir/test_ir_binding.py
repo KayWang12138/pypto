@@ -77,14 +77,14 @@ def test_enum():
             ("Tile", ir.ValueKind.Tile),
         ],
         "MemSpaceKind": [
-            ("DDR", ir.MemSpaceKind.DDR),
+            ("DEVICE_DDR", ir.MemSpaceKind.DEVICE_DDR),
             ("L2", ir.MemSpaceKind.L2),
             ("UB", ir.MemSpaceKind.UB),
             ("L1", ir.MemSpaceKind.L1),
             ("L0A", ir.MemSpaceKind.L0A),
             ("L0B", ir.MemSpaceKind.L0B),
             ("L0C", ir.MemSpaceKind.L0C),
-            ("REG", ir.MemSpaceKind.REG),
+            ("VECTOR_REG", ir.MemSpaceKind.VECTOR_REG),
             ("SHMEM", ir.MemSpaceKind.SHMEM),
         ],
         "Format": [
