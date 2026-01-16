@@ -73,8 +73,7 @@ class STestAccelerate(GTestAccelerate):
 
         if args.device is not None:
             # 去重并过滤空值
-            device_list = [int(d) for d in list(set(args.device))
-                          if d is not None and str(d) != ""]
+            device_list = [int(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
 
         logging.debug("Initialized device list: %s", device_list)
         return device_list
