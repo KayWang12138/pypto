@@ -25,10 +25,27 @@
 #include "codegen/codegen.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
+#include "interface/operation/distributed/distributed_common.h"
 
 namespace npu::tile_fwk::Distributed {
 
 class TestDistributedShmemImpl : public ::testing::Test {
+private:
+    void CreateShmemTensors(const char* group, uint32_t worldSize, 
+                          const Tensor& in, const Shape& shmemDataShape,
+                          Tensor& shmemData, Tensor& shmemSignal) {
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(group, shmemData, shmemSignal);
+        }
+    }
+
 public:
     static void SetUpTestCase() {}
 
@@ -54,7 +71,7 @@ std::string GetFunctionRawName(const std::string& functionName)
     return functionRawName;
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemAllGather)
+TEST_F(TestDistributedShmemImpl, TestAllGather)
 {
     const char *group = "hcom123";
     uint32_t worldSize = 4;
@@ -73,7 +90,30 @@ TEST_F(TestDistributedShmemImpl, TestShmemAllGather)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemReduceScatter)
+
+TEST_F(TestDistributedShmemImpl, TestAllGatherParaWithShmem)
+{
+    const char *group = "hcom123";
+    uint32_t worldSize = 4;
+    Tensor in(DT_FP16, {16, 32}, "in");
+    Tensor out(DT_FP16, {64, 32}, "out");
+    Shape shmemDataShape{worldSize, 16, 32};
+    FUNCTION("ALLGATHER", {in}, {out}) {
+        TileShape::Current().SetVecTile({16, 32});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        AllGather(in, in, group, shmemData, shmemSignal, out);
+    }
+
+    std::string functionRawName = GetFunctionRawName("CreateShmemTensor");
+    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestDistributedShmemImpl, TestReduceScatter)
 {
     const char *group = "hcom123";
 
@@ -93,7 +133,32 @@ TEST_F(TestDistributedShmemImpl, TestShmemReduceScatter)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestTwoShotShmemAllReduce)
+TEST_F(TestDistributedShmemImpl, TestReduceScatterParaWithShmem)
+{
+    const char *group = "hcom123";
+
+    uint32_t worldSize = 4;
+    Tensor in(DT_FP16, {64, 256}, "in");
+    Tensor out(DT_FP16, {16, 256}, "out");
+    DataType shmemDataType = in.GetDataType();
+    shmemDataType = (shmemDataType == DT_BF16) || (shmemDataType == DT_FP16) ? DT_FP32 : shmemDataType;
+    Shape shmemDataShape = {1, 64 / 4, 256};
+    FUNCTION("REDUCESCATTER", {in}, {out}) {
+        TileShape::Current().SetVecTile({64, 256});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        ReduceScatter(in, in, group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
+    }
+
+    std::string functionRawName = GetFunctionRawName("CreateShmemTensor");
+    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduce)
 {
     const char *group = "hcom123";
 
@@ -113,7 +178,29 @@ TEST_F(TestDistributedShmemImpl, TestTwoShotShmemAllReduce)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestOneShotShmemAllReduce)
+TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduceParaWithShmem)
+{
+    const char *group = "hcom123";
+    uint32_t worldSize = 4;
+    Tensor in(DT_FP16, {64, 256}, "in");
+    Tensor out(DT_FP16, {64, 256}, "out");
+    Shape shmemDataShape = {worldSize, 64 / 4, 256};
+    FUNCTION("ALLREDUCE", {in}, {out}) {
+        TileShape::Current().SetVecTile({64, 256});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        TwoShotAllReduce(in, in, group, shmemData, shmemSignal, out);
+    }
+
+    std::string functionRawName = GetFunctionRawName("CreateShmemTensor");
+    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
 {
     const char *group = "hcom123";
 
@@ -127,6 +214,29 @@ TEST_F(TestDistributedShmemImpl, TestOneShotShmemAllReduce)
     }
 
     std::string functionRawName = GetFunctionRawName("OneShotAllReduce");
+    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestDistributedShmemImpl, TestOneShotAllReduceParaWithShmem)
+{
+    const char *group = "hcom123";
+
+    uint32_t worldSize = 4;
+    Tensor in(DT_FP16, {64, 256}, "in");
+    Tensor out(DT_FP16, {64, 256}, "out");
+     Shape shmemDataShape = {1, 64, 256};
+    FUNCTION("ALLREDUCE", {in}, {out}) {
+        TileShape::Current().SetVecTile({64, 256});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        OneShotAllReduce(in, in, group, shmemData, shmemSignal, out);
+    }
+
+    std::string functionRawName = GetFunctionRawName("CreateShmemTensor");
     auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);

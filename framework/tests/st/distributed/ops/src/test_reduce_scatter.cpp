@@ -24,9 +24,8 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 template<typename T>
-void TestShmemReduceScatter(OpTestParam &testParam)
+void TestReduceScatter(OpTestParam &testParam)
 {
-    ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
     constexpr size_t paramsSize = 5;
     auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     int rowOut = row / testParam.rankSize;
@@ -59,9 +58,8 @@ void TestShmemReduceScatter(OpTestParam &testParam)
 }
 
 template<typename T>
-void TestShmemReduceScatterParaWithShmem(OpTestParam &testParam)
+void TestReduceScatterParaWithShmem(OpTestParam &testParam)
 {
-    ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
     constexpr size_t paramsSize = 5;
     auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
@@ -83,8 +81,8 @@ void TestShmemReduceScatterParaWithShmem(OpTestParam &testParam)
         Tensor shmemSignal;
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, unused, LoopRange(1)) {
             (void)unused;
-            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
             CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
         }
         TileShape::Current().SetVecTile({tileRow, tileCol});
         ReduceScatter(in, in, testParam.group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
@@ -96,13 +94,13 @@ void TestShmemReduceScatterParaWithShmem(OpTestParam &testParam)
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
 }
 
-template void TestShmemReduceScatter<int32_t>(OpTestParam &testParam);
-template void TestShmemReduceScatter<float>(OpTestParam &testParam);
-template void TestShmemReduceScatter<float16>(OpTestParam &testParam);
-template void TestShmemReduceScatter<bfloat16>(OpTestParam &testParam);
-template void TestShmemReduceScatterParaWithShmem<int32_t>(OpTestParam &testParam);
-template void TestShmemReduceScatterParaWithShmem<float>(OpTestParam &testParam);
-template void TestShmemReduceScatterParaWithShmem<float16>(OpTestParam &testParam);
-template void TestShmemReduceScatterParaWithShmem<bfloat16>(OpTestParam &testParam);
+template void TestReduceScatter<int32_t>(OpTestParam &testParam);
+template void TestReduceScatter<float>(OpTestParam &testParam);
+template void TestReduceScatter<float16>(OpTestParam &testParam);
+template void TestReduceScatter<bfloat16>(OpTestParam &testParam);
+template void TestReduceScatterParaWithShmem<int32_t>(OpTestParam &testParam);
+template void TestReduceScatterParaWithShmem<float>(OpTestParam &testParam);
+template void TestReduceScatterParaWithShmem<float16>(OpTestParam &testParam);
+template void TestReduceScatterParaWithShmem<bfloat16>(OpTestParam &testParam);
 } // namespace Distributed
 } // namespace npu::tile_fwk

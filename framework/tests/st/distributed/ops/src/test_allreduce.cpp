@@ -24,9 +24,8 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 template<typename T>
-void TestShmemAllReduce(OpTestParam &testParam)
+void TestAllReduce(OpTestParam &testParam)
 {
-    ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
     constexpr size_t paramsSize = 6;
     auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
@@ -63,9 +62,8 @@ void TestShmemAllReduce(OpTestParam &testParam)
 }
 
 template<typename T>
-void TestShmemAllReduceParaWithShmem(OpTestParam &testParam)
+void TestAllReduceParaWithShmem(OpTestParam &testParam)
 {
-    ASSERT(testParam.rankSize > 0) << "worldSize should be more than 0.";
     constexpr size_t paramsSize = 6;
     auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
@@ -111,13 +109,13 @@ void TestShmemAllReduceParaWithShmem(OpTestParam &testParam)
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", row * col, output->GetDevPtr(), testParam));
 }
 
-template void TestShmemAllReduce<int32_t>(OpTestParam &testParam);
-template void TestShmemAllReduce<float>(OpTestParam &testParam);
-template void TestShmemAllReduce<float16>(OpTestParam &testParam);
-template void TestShmemAllReduce<bfloat16>(OpTestParam &testParam);
-template void TestShmemAllReduceParaWithShmem<int32_t>(OpTestParam &testParam);
-template void TestShmemAllReduceParaWithShmem<float>(OpTestParam &testParam);
-template void TestShmemAllReduceParaWithShmem<float16>(OpTestParam &testParam);
-template void TestShmemAllReduceParaWithShmem<bfloat16>(OpTestParam &testParam);
+template void TestAllReduce<int32_t>(OpTestParam &testParam);
+template void TestAllReduce<float>(OpTestParam &testParam);
+template void TestAllReduce<float16>(OpTestParam &testParam);
+template void TestAllReduce<bfloat16>(OpTestParam &testParam);
+template void TestAllReduceParaWithShmem<int32_t>(OpTestParam &testParam);
+template void TestAllReduceParaWithShmem<float>(OpTestParam &testParam);
+template void TestAllReduceParaWithShmem<float16>(OpTestParam &testParam);
+template void TestAllReduceParaWithShmem<bfloat16>(OpTestParam &testParam);
 } // namespace Distributed 
 } // namespace npu::tile_fwk
