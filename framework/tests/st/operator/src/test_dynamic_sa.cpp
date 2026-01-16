@@ -22,6 +22,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/nsa/slc_attn.h"
 #include "test_dev_func_runner.h"
+#include "test_cost_macro.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -143,7 +144,7 @@ TEST_F(DynamicSATest, slc_attn_fp16) { // 测试项：fp16, flash小块
     TestSa<npu::tile_fwk::float16>(tileConfig, config);
 }
 
-TEST_F(DynamicSATest, slc_attn_mtp_s1_2_fp16) { // 测试项：fp16, s1=2, g切分, flash大块
+TEST_F_WITH_COST(DynamicSATest, slc_attn_mtp_s1_2_fp16, 5) { // 测试项：fp16, s1=2, g切分, flash大块
     SaTileShapeConfig tileConfig;
     const int gTile = 64; // for gLoop split
     const int sTile = 512; // for s2Loop split

@@ -56,11 +56,15 @@ endfunction()
 
 function(PTO_Fwk_STest_GetGTestFilterList GTEST_FILTER_LIST)
     get_filename_component(_ClsFile "${PTO_FWK_SRC_ROOT}/framework/tests/st/configs" REALPATH)
+    # ST二进制文件路径
+    set(_BinaryPath "${CMAKE_BINARY_DIR}/output/bin/${PTO_Fwk_STestNamePrefix}")
+
     PTO_Fwk_GTest_GetGTestFilterStr(GTestFilterStr
             CLASSIFY        ${_ClsFile}
             TESTS_TYPE      stest
             TESTS_GROUP     ${ENABLE_STEST_GROUP}
             CHANGED_FILE    ${ENABLE_TESTS_EXECUTE_CHANGED_FILE}
+            BINARY          ${_BinaryPath}
     )
     string(REPLACE ":" ";" GTestFilterList "${GTestFilterStr}")
     list(LENGTH GTestFilterList YamlGTestFilterListLen)
