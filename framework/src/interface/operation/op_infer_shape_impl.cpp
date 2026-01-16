@@ -36,7 +36,12 @@ void ElewiseInferFunc(Operation* op,
         }
         auto shape = op->GetIOperands()[i]->GetShape();
         for (size_t dimIdx = 0; dimIdx < shape.size() && dimIdx < shapeDimNum; ++dimIdx) {
-            dimShape[dimIdx][i] = shape[dimIdx];
+            if (dimIdx == shape.size() - 1 && iOperand->GetProducers().size() == 1 &&
+                (*iOperand->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB) {
+                dimShape[dimIdx][i] = 1;
+            } else {
+                dimShape[dimIdx][i] = shape[dimIdx];
+            }
         }
     }
     std::vector<SymbolicScalar> inputValidShape;
