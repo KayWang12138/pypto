@@ -136,6 +136,52 @@ Status OoOSchedule::SortAndLatencyEstimate(std::vector<Operation*> &opList, std:
     return SUCCESS;
 }
 
+Status OoOSchedule::RecordLastUseMemory(Function &function) {
+    APASS_LOG_INFO_F(Elements::Function, "===> Start RecordLastUseMemory.");
+    for (auto &program : function.rootFunc_->programs_) {
+        auto opList = program.second->Operations(false).DuplicatedOpList();
+        for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
+            Operation *op = opList[opIdx];
+            for (size_t inputIdx = 0; inputIdx < op->GetIOperands().size(); inputIdx++) {
+                auto inTensor = op->GetInputOperand(inputIdx);
+                lastUseMap_[inTensor] = op;
+            }
+        }
+    }
+    std::unordered_map<Operation*, std::vector<int>> opInpuIdxMap;
+    for (auto &entry : lastUseMap_) {
+        auto lastUseOp = entry.second;
+        auto lastUseTensor = entry.first;
+        if (opInpuIdxMap.find(lastUseOp) == opInpuIdxMap.end()) {
+            int tensorSize = lastUseOp->GetIOperands().size() + lastUseOp->GetOOperands().size();
+            std::vector<int> tensorIdxVec(tensorSize, false);
+            int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + lastUseOp->GetOOperands().size();
+            tensorIdxVec[inputIdx] = true;
+            opInpuIdxMap[lastUseOp] = tensorIdxVec;
+        } else {
+            int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + op->GetOOperands().size();
+            opInpuIdxMap[lastUseOp][inputIdx] = true;
+        }
+        for (auto &prodOp : lastUseTensor->GetProducers()) {
+            if (opInpuIdxMap.find(prodOp) == opInpuIdxMap.end()) {
+                int tensorSize = prodOp->GetIOperands().size() + prodOp->GetOOperands().size();
+                std::vector<int> tensorIdxVec(tensorSize, false);
+                int outputIdx = prodOp->GetOOperandIndex(lastUseTensor);
+                tensorIdxVec[outputIdx] = true;
+            } else {
+                int outputIdx = prodOp->GetOOperandIndex(lastUseTensor);
+                opInpuIdxMap[prodOp][outputIdx] = true;
+            }
+        }
+    }
+    for (auto &entry : opInpuIdxMap) {
+        auto op = entry.first;
+        op->SetAttribute(OpAttributeKey::lastUse, opInputIdxMap[op]);
+    }
+    APASS_LOG_INFO_F(Elements::Function, "===> Start RecordLastUseMemory.");
+    return SUCCESS;
+}
+
 Status OoOSchedule::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "=============== START 2CoreSplit ===============");
     int maxWorkeSpaceSize = 0;
@@ -169,6 +215,10 @@ Status OoOSchedule::RunOnFunction(Function &function) {
             return FAILED;
         }
         programRef.second = program.second;
+    }
+    if (RecordLastUseMemory(function) == FAILED) {
+        APASS_LOG_ERROR_F(Elements::Function, "Run RecordLastUseMemory Failed.");
+        return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Operation, "=============== END 2CoreSplit ===============");
     return SUCCESS;
