@@ -235,7 +235,7 @@ def lightning_indexer_vec(query, key, act_seq_len_query, act_seq_len_query, weig
                     reduce_cache = pypto.tensor([g_red_cnt, s2_base_size], dtype = pypto.DT_INT32, "reduce_cache")
 
                     for outer_g_idx in pypto.loop(0, outer_g, 1, name = "INDEX_LOOP_VEC_G", idx_name = "outterGIdx"):
-                        proc_g_num = group_inner if outer_g_idx = outer_g - 1 else g_size - outer_g_idx * group_inner
+                        proc_g_num = group_inner if outer_g_idx == outer_g - 1 else g_size - outer_g_idx * group_inner
 
                         # TODO:GM load to UB
                         weights_in_ub = pypto.gm_load_to_ub(weights, [1, 1, proc_g_num, 1], [b_idx, cu_s1_idx, outer_g_idx * group_inner, 0])
@@ -277,7 +277,7 @@ def lightning_indexer_vec(query, key, act_seq_len_query, act_seq_len_query, weig
 
                     # 索引填充-1
                     if cu_s2_len_vec_align != cu_s2_len:
-                        pypto.duplicate(sort_indices_ub, -1. [cu_s2_len_vec_align]. [0])
+                        pypto.duplicate(sort_indices_ub, -1, [cu_s2_len_vec_align]. [0])
                     
                     # 索引赋值
                     # TODO: global_topk_indices赋值，从cu_base_s2_idx开始的cu_s2_len个索引
@@ -337,13 +337,13 @@ def lightning_indexer_main(query, key, act_seq_len_query, act_seq_len_query, wei
         n2_idx = bn2_idx % k_head_num
         act_s1_size = act_seq_len_query[b_idx]
         act_s2_size = act_seq_len_key[b_idx]
-        if act_s1_size == 0 or act_s2_size ==0;
+        if act_s1_size == 0 or act_s2_size ==0:
             continue
         gs1_split_num = ceil_div(act_s1_size * g_size, m_base_size)
 
         outpuit_s1 = pypto.tensor([act_s1_size * g_size, act_s2_size * VALUE_AND_INDEX_NUM], dtype = pypto.DT_INT32, "output_s1")
 
-        for gs1_idx in pypto,loop(0, gs1_split_num, 1, name ="INDEX_LOOP_GS1", idx_name = "gs1Idx"):
+        for gs1_idx in pypto.loop(0, gs1_split_num, 1, name ="INDEX_LOOP_GS1", idx_name = "gs1Idx"):
             if atten_mask_flag:
                 s2_block_num = get_s2_base_block_num(gs1_idx, act_s1_size, act_s2_size, s1_base_size, s2_single_size)
             else:
