@@ -586,7 +586,7 @@ inline bool SuperNodeGraphBuilder::AssembleToCopyoutScene(Operation *op)
 inline void UpdateScopeId(std::vector<Operation*> &opList) {
     for (size_t i = 0; i < opList.size(); i++) {
         int targetScope = opList[i]->GetScopeId();
-        if (targetScope == -1) {
+        if (targetScope == DEFAULT_SCOPE_ID) {
             continue;
         }
         for (auto &consumer : opList[i]->ConsumerOps()) {
