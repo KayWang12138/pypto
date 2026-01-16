@@ -33,14 +33,14 @@ if (BUILD_WITH_CANN)
     )
 
     # stub runtime
-    add_library(runtime SHARED src/runtime_stubs.cpp)
-    target_link_libraries(runtime
+    add_library(runtime_stubs SHARED src/runtime_stubs.cpp)
+    target_link_libraries(runtime_stubs
             PRIVATE
                 intf_pub_cxx17
                 tile_fwk_intf_pub
                 c_sec
     )
-    target_include_directories(runtime
+    target_include_directories(runtime_stubs
             PRIVATE  # 使用 CANN 场景依赖
                 $<BUILD_INTERFACE:$<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
             PRIVATE  # 使用 CANN 整包
@@ -54,14 +54,14 @@ if (BUILD_WITH_CANN)
     )
 
     # stub profiling
-    add_library(profapi SHARED src/host_prof_stubs.cpp)
-    target_link_libraries(profapi
+    add_library(profapi_host SHARED src/host_prof_stubs.cpp)
+    target_link_libraries(profapi_host
             PRIVATE
                 intf_pub_cxx17
                 tile_fwk_intf_pub
                 c_sec
     )
-    target_include_directories(profapi
+    target_include_directories(profapi_host
             PUBLIC  # 使用 CANN 场景依赖
                 $<BUILD_INTERFACE:$<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>>
             PUBLIC  # 使用 CANN 整包
