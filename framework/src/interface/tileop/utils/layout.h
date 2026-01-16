@@ -34,7 +34,8 @@ template <typename... Shapes>
 using Shape = Std::tuple<Shapes...>;
 
 template <typename... LastUses>
-using LastUse = Std::tuple<LastUses...>
+using LastUse = Std::tuple<LastUses...>;
+
 template <typename... Strides>
 using Stride = Std::tuple<Strides...>;
 
@@ -358,19 +359,19 @@ using DynLayout4Dim = TileOp::Layout<Shape4Dim, Stride4Dim, TileOp::TileShape<si
 using DynLayout5Dim = TileOp::Layout<Shape5Dim, Stride5Dim, TileOp::TileShape<size_t, size_t, size_t, size_t, size_t>>;
 
  // common lastuse
-template <size_t TileW>
+template <size_t TileW = 0>
 using LastUse1Dim = TileOp::LastUse<Std::Int<TileW>>;
 
-template <size_t TileH, size_t TileW>
+template <size_t TileH = 0, size_t TileW = 0>
 using LastUse2Dim = TileOp::LastUse<Std::Int<TileH>, Std::Int<TileW>>;
 
-template <size_t TileD, size_t TileH, size_t TileW>
+template <size_t TileD = 0, size_t TileH = 0, size_t TileW = 0>
 using LastUse3Dim = TileOp::LastUse<Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>;
 
-template <size_t TileN, size_t TileD, size_t TileH, size_t TileW>
+template <size_t TileN = 0, size_t TileD = 0, size_t TileH = 0, size_t TileW = 0>
 using LastUse4Dim = TileOp::LastUse<Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>;
 
-template <size_t TileS, size_t TileN, size_t TileD, size_t TileH, size_t TileW>
+template <size_t TileS = 0, size_t TileN = 0, size_t TileD = 0, size_t TileH = 0, size_t TileW = 0>
 using LastUse5Dim = TileOp::LastUse<Std::Int<TileS>, Std::Int<TileN>, Std::Int<TileD>, Std::Int<TileH>, Std::Int<TileW>>;
 
 // common Local layouts
