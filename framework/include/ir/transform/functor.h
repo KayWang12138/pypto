@@ -234,7 +234,7 @@ RetTy OperationFunctor<RetTy, Args...>::VisitOp(OperationPtr &op, Args... args) 
             throw std::runtime_error("Opcode/type mismatch in OperationFunctor::VisitOp"); \
         }                                                                                  \
         OPCLASS##Ptr typed = casted;                                                       \
-        return VisitImplOp(typed, std::forward<Args>(args)...);                               \
+        return VisitImplOp(typed, std::forward<Args>(args)...);                            \
     }
 
 #define DEFOP(OPCLASS, inherit, opcode_token, ...) PTO_DEFOP_SWITCH(OPCLASS, opcode_token, PTO_OP_CASE)
