@@ -152,7 +152,7 @@ void CeilOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     [[maybe_unused]] const Operation &op) {
     UnaryOperationOperandCheck(iOperand, oOperand);
-    return TiledUnaryOperation<UnaryOpType::RCEIL>(function, tileShape, iOperand[0], oOperand[0]);
+    return TiledUnaryOperation<UnaryOpType::CEIL>(function, tileShape, iOperand[0], oOperand[0]);
 }
 
 void SqrtOperationTileFunc(Function &function, const TileShape &tileShape,

@@ -19,6 +19,8 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
+#include <cmath>
+
 template <UnaryOp op, typename T0, typename T1>
 TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
     if constexpr (op == UnaryOp::EXP) {
@@ -141,13 +143,14 @@ TILEOP void TAbs(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::ABS>(dst, src);
 }
 
+template <typename Ttemp, typename T0, typename T1>
 TILEOP void CeilComputeImpl(T0 dst, T1 src) {
-    auto srcfloatTile = PtoTile<float>().Tile();
-    if constexpr (IsSameType<T1, float>::value) {
+    auto srcfloatTile = PtoTile<Ttemp>().Tile();
+    if constexpr (TileOp::IsSameType<T1, float>::value) {
         pto::TASSIGN(srcfloatTile, (uint64_t)src.GetAddr());
-    } else if constexpr (IsSameType<T1, half>::value || IsSameType<T1, bfloat16_t>::value) {
+    } else if constexpr (TileOp::IsSameType<T1, half>::value || TileOp::IsSameType<T1, bfloat16_t>::value) {
         pto::TCVT(srcfloatTile, src, pto::RoundMode::CAST_NONE);
-    } else if constexpr (IsSameType<T1, int16_t>::value || IsSameType<T1, int32_t>::value) {
+    } else if constexpr (TileOp::IsSameType<T1, int16_t>::value || TileOp::IsSameType<T1, int32_t>::value) {
         pto::TCVT(srcfloatTile, src, pto::RoundMode::CAST_RINT);
     }
 
@@ -161,20 +164,20 @@ TILEOP void CeilComputeImpl(T0 dst, T1 src) {
     pipe_barrier(PIPE_V);
 #endif
 
-    if constexpr (IsSameType<T1, float>::value) {
+    if constexpr (TileOp::IsSameType<T1, float>::value) {
         pto::TASSIGN(dst, (uint64_t)srcfloatTile.GetAddr());
     } else {
 #ifdef __DAV_V220
         pipe_barrier(PIPE_V);
 #endif
-        if constexpr (IsSameType<T1, half>::value) {
+        if constexpr (TileOp::IsSameType<T1, half>::value) {
             pto::TCVT(dst, srcfloatTile, pto::RoundMode::CAST_NONE);
         } else {
             pto::TCVT(dst, srcfloatTile, pto::RoundMode::CAST_RINT);
         }
     }
 }
-
+#define OP_TILE_OP_CEIL TCEIL
 template <typename T0, typename T1>
 TILEOP void TCeil(T0 dst, T1 src) {
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
@@ -183,7 +186,7 @@ TILEOP void TCeil(T0 dst, T1 src) {
         auto srcTile = PtoTile<T1>().Tile();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
-        CeilComputeImpl(dstTile, srcTile);
+        CeilComputeImpl<float>(dstTile, srcTile);
         return;
     }
 
@@ -212,7 +215,7 @@ TILEOP void TCeil(T0 dst, T1 src) {
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + offset * dstTypeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                CeilComputeImpl(dstTile, srcTile);
+                CeilComputeImpl<float>(dstTile, srcTile);
             }
         }
     }
