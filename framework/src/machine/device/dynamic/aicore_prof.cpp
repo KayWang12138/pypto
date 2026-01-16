@@ -95,7 +95,7 @@ AiCoreProfLevel AiCoreProf::CreateProfLevel(ProfConfig profConfig) {
     return PROF_LEVEL_OFF;
 }
 
-void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig) {
+void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig, ArchInfo archInfo) {
     DEV_DEBUG("Begin Prof init");
     coreNum_ = hostAicoreMng_.GetAllAiCoreNum();
     profLevel_ = CreateProfLevel(profConfig);
@@ -104,7 +104,7 @@ void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int
         profLevel_ = PROF_LEVEL_FUNC_LOG;
         ProfInitLog();
         #if PMU_COLLECT
-            ProfInitPmu(regAddrs, pmuEventAddrs);
+            ProfInitPmu(regAddrs, pmuEventAddrs, archInfo);
             profLevel_ = PROF_LEVEL_FUNC_LOG_PMU;
         #endif
     } else {
@@ -256,7 +256,7 @@ inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat *taskS
     }
 }
 
-inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs) {
+inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs, ArchInfo archInfo) {
     pmuMsgSize_ = sizeof(PyPtoMsprofAdditionalInfo);
     pmuHeadSize_ = sizeof(MsprofAicpuPyPtoPmuHead);
     pmuDataSize_ = sizeof(MsprofAicpuPyPtoPmuData);
@@ -285,6 +285,7 @@ inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs) {
     pmuCnt9Plain_.resize(coreNum_, nullptr);
     regAddrs_ = regAddrs;
     pmuEventAddrs_ = pmuEventAddrs;
+    archInfo_ = archInfo;
     if (archInfo_ == ArchInfo::DAV_2201) {
         DEV_INFO("0: %x, 1: %x, 2: %x, 3: %x, 4: %x, 5: %x, 6: %x, 7: %x.",
             (uint32_t)pmuEventAddrs_[0], (uint32_t)pmuEventAddrs_[1], (uint32_t)pmuEventAddrs_[2],

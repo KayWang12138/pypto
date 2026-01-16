@@ -244,7 +244,7 @@ public:
     explicit AiCoreProf(AiCoreManager &aicoreMng) : hostAicoreMng_(aicoreMng) {}
     ~AiCoreProf() {}
 
-    void ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig);
+    void ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig, ArchInfo archInfo);
     void ProfStart();
     void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
     void ProfGetSwitch(int64_t &flag) const;
@@ -265,7 +265,7 @@ private:
     inline void ProfInitLog();
     inline void ProfStopLog();
     inline void ProfGetLog(int32_t coreIdx, const struct TaskStat *taskStat);
-    inline void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs);
+    inline void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs, ArchInfo archInfo);
     inline void ReadPmuCounters(const int32_t coreIdx) const;
     inline void SetPmuEvents(void *mapBase, const int32_t coreIdx) const;
     inline void ProfStartPmu();
