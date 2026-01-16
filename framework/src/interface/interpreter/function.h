@@ -488,30 +488,6 @@ struct FunctionInterpreter {
         return -1;
     }
 
-    void UpdateOutcastDataViewList(FunctionFrame &frame, 
-        const std::shared_ptr<LogicalTensor> &oop,
-        const std::shared_ptr<LogicalTensor> &iop,
-        std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
-        auto it = std::find(frame.func->outCasts_.begin(), frame.func->outCasts_.end(), oop);
-        if (it == frame.func->outCasts_.end()) {
-            return;
-        }
-        ASSERT(frame.tensorDataViewDict.count(oop) != 0);
-        auto oopDataView = frame.tensorDataViewDict[oop]; 
-        ASSERT(frame.tensorDataViewDict.count(iop) != 0);
-        auto newPtr = frame.tensorDataViewDict[iop]; 
-        auto targetPair = inoutDataPair->rootInoutDataPair ? inoutDataPair->rootInoutDataPair : inoutDataPair;
-        bool updated = false;
-        for (auto& ptr : targetPair->outcastDataViewList) {
-            if (ptr.get() == oopDataView.get()) {
-                ptr = newPtr;
-                updated = true;
-                break;
-            }
-        }      
-        ASSERT(updated); 
-    }
-
     bool IsViewInplace(const std::shared_ptr<LogicalTensor> &iOp, const std::shared_ptr<LogicalTensor> &oOp) {
         if (iOp->GetRawTensor()->GetRawMagic() == oOp->GetRawTensor()->GetRawMagic()) {
             return true;
@@ -544,7 +520,6 @@ struct FunctionInterpreter {
             oOpDataList.emplace_back(ret);
         } else {
             oOpDataList.emplace_back(AllocateDataView(frame, oop, iop));
-            UpdateOutcastDataViewList(frame, oop, iop, inoutDataPair);
         }
     }
 
@@ -650,7 +625,19 @@ struct FunctionInterpreter {
             if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                 continue;
             ExecuteHandleOperationBegin(&op);
-            ExecuteOperation(*frame, &op, inoutDataPair);
+            try {
+                ExecuteOperation(*frame, &op, inoutDataPair);
+            } catch (std::exception &e) {
+                // 如果在pass模式下，打印错误信息但不中断执行，继续下一个pass
+                if (frame->passIndex >= 0) {
+                    ALOG_ERROR_F("ExecuteOperation failed in pass mode (passIndex: %d): %s", frame->passIndex, e.what());
+                    // 重新抛出异常，让上层知道pass失败，但PassManager会继续执行下一个pass
+                    throw;
+                } else {
+                    // 非pass模式，正常抛出异常
+                    throw;
+                }
+            }
             ExecuteHandleOperationEnd();
         }
         ExecuteHandleFunctionEnd();
@@ -1054,13 +1041,22 @@ public:
 
         DumpBegin();
         TimeStamp ts;
-        std::shared_ptr<FunctionCaptureExecution> unitCapture = ExecuteUnit(func, capture);
-        DumpEnd();
-        TimeStamp ts1;
-        DumpPassTensorDiff(unitCapture, capture);
-        dumpTensorUsage += ts1.Duration();
-        totalTimeUsage += ts.Duration();
-        return unitCapture;
+        try {
+            std::shared_ptr<FunctionCaptureExecution> unitCapture = ExecuteUnit(func, capture);
+            DumpEnd();
+            TimeStamp ts1;
+            DumpPassTensorDiff(unitCapture, capture);
+            dumpTensorUsage += ts1.Duration();
+            totalTimeUsage += ts.Duration();
+            return unitCapture;
+        } catch (std::exception &e) {
+            // 在pass模式下，打印错误信息但不中断执行，让PassManager继续执行下一个pass
+            ALOG_ERROR_F("RunForPass failed for function %s in pass (passIndex: %d): %s", 
+                         funcKey.c_str(), passIndex, e.what());
+            DumpEnd();
+            // 重新抛出异常，让上层知道pass失败，但PassManager会继续执行下一个pass
+            throw;
+        }
     }
 
     std::shared_ptr<FunctionCaptureExecution> RunForExecuteGraph(
