@@ -293,15 +293,14 @@ def convert_pypto_to_torch_type(pypto_type):
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
 pyptolib.define("mla_prolog(Tensor token_x, Tensor wq_a, Tensor wq_b, Tensor wkv, Tensor rope_cos, Tensor rope_sin, \
-    Tensor gamma_cq, Tensor gamma_ckv, Tensor wq_a_scale, Tensor wq_b_scale, Tensor w_kv_scale) -> (Tensor, Tensor, Tensor, Tensor)")
+    Tensor gamma_cq, Tensor gamma_ckv, Tensor wq_a_scale, Tensor wq_b_scale, Tensor w_kv_scale) -> (Tensor, Tensor, Tensor)")
 
 @torch.library.impl(pyptolib, "mla_prolog", "Meta")
 def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale):
     q_out = torch.empty([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
     kv_out = torch.empty([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
     qr_out = torch.empty([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=token_x.device)
-    qr_scale_out = torch.empty([token_x.size(0), 1], dtype=torch.float32, device=token_x.device)
-    return q_out, kv_out, qr_out, qr_scale_out
+    return q_out, kv_out, qr_out
 
 
 @torch.library.impl(pyptolib, "mla_prolog", "NPU")
@@ -369,14 +368,13 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
     model = torch.compile(MLA_MODEL(), dynamic=False, fullgraph=True, backend=npu_backend)
     
-    output_q_data, output_kv_data, output_qr_data, output_qr_scale_data = model(*inputs)
+    output_q_data, output_kv_data, output_qr_data = model(*inputs)
     pypto.runtime._device_synchronize()
 
     # golden data 
     golden1 = golden_tensors["q_golden"].reshape(q_out_shape)
     golden2 = golden_tensors["kv_golden"].reshape(kv_out_shape)
     golden3 = golden_tensors["qr_golden"].reshape(qr_out_shape)
-    golden4 = golden_tensors["qr_scale_golden"].reshape(qr_scale_out_shape)
     
     # compare
     print("q ================")
@@ -385,8 +383,6 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     compare(output_kv_data.cpu(), golden2.cpu(), "kvOut", 0.0001, 0.0078125, 0.005)
     print("qr ================")
     compare(output_qr_data.cpu(), golden3.cpu(), "qrOut", 1, 0, 0)
-    print("qr_scale ================")
-    compare(output_qr_scale_data.cpu(), golden4.cpu(), "qrScaleOut", 0.000025, 0.005, 0.005)
     print("=========== pass ==========")
 
 def test_t4_pa_nd_bf16():
@@ -421,6 +417,24 @@ def test_t16_pa_nd_bf16():
     is_quant = True
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
     mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
+
+
+def test_t512_pa_nd_bf16():
+    prep_env()
+    params = {
+        't': 512,
+        'num_heads': 64,
+        'h': 4096,
+        'q_lora_rank': 1024,
+        'head_dim': 512,
+        'qk_rope_head_dim': 64,
+    }
+    dtype = pypto.DataType.DT_BF16
+    is_nz = False
+    is_quant = True
+    input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
+    mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
+
 
 if __name__ == "__main__":
     logging.basicConfig(
