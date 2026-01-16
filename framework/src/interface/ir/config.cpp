@@ -48,9 +48,6 @@ std::vector<ConfigKey> ConfigRegistry::GetAllRegisteredKeys() const {
 }
 
 bool Config::Has(const ConfigKey& key) const {
-    if (!initialized_) {
-        return false;
-    }
     return configs_.find(key) != configs_.end();
 }
 
@@ -81,10 +78,6 @@ std::string ConfigKey::FromRawName(const std::string& keyName) {
 
 // Implementation for Config::Initialize
 void Config::Initialize(std::initializer_list<std::pair<ConfigKey, std::any>> configs) {
-    if (initialized_) {
-        throw std::runtime_error("Config is already initialized");
-    }
-
     auto& registry = ConfigRegistry::GetInstance();
 
     // Validate all provided configs and store them
@@ -102,8 +95,6 @@ void Config::Initialize(std::initializer_list<std::pair<ConfigKey, std::any>> co
 
         configs_[key] = value;
     }
-
-    initialized_ = true;
 }
 
 namespace {
@@ -193,19 +184,16 @@ void Config::LoadFromJsonFile(const std::string& filePath) {
         }
     }
 
-    if (!initialized_) {
-        std::vector<ConfigKey> allRegisteredKeys = registry.GetAllRegisteredKeys();
-        for (ConfigKey key : allRegisteredKeys) {
-            if (configs_.find(key) == configs_.end()) {
-                try {
-                    std::any defaultValue = registry.GetDefaultValueAny(key);
-                    configs_[key] = defaultValue;
-                } catch (const std::runtime_error&) {
-                    // If no default value exists, skip this key
-                }
+    std::vector<ConfigKey> allRegisteredKeys = registry.GetAllRegisteredKeys();
+    for (ConfigKey key : allRegisteredKeys) {
+        if (configs_.find(key) == configs_.end()) {
+            try {
+                std::any defaultValue = registry.GetDefaultValueAny(key);
+                configs_[key] = defaultValue;
+            } catch (const std::runtime_error&) {
+                // If no default value exists, skip this key
             }
         }
-        initialized_ = true;
     }
 }
 

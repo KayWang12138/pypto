@@ -132,10 +132,10 @@ private:
 // Configuration container class using type erasure
 class Config {
 public:
-    Config() : initialized_(false) {}
+    Config() = default;
     ~Config() = default;
 
-    // Initialize config with initializer list, can only be called once
+    // Initialize config with initializer list
     // Usage: config.Initialize({{CONFIG_KEY1, std::any(value1)}, {CONFIG_KEY2, std::any(value2)}})
     // Note: Values must be wrapped in std::any, type checking happens during initialization
     void Initialize(std::initializer_list<std::pair<ConfigKey, std::any>> configs);
@@ -144,7 +144,7 @@ public:
     template<typename T>
     const T& Get(const ConfigKey& key) const;
 
-    // Set/Update config value by key with template type, throws if not initialized or type mismatch
+    // Set/Update config value by key with template type, throws if type mismatch
     template<typename T>
     void Set(const ConfigKey& key, const T& value);
 
@@ -156,12 +156,8 @@ public:
     // Check if a config key exists
     bool Has(const ConfigKey& key) const;
 
-    // Check if config is initialized
-    bool IsInitialized() const { return initialized_; }
-
 private:
     std::map<ConfigKey, std::any> configs_;
-    bool initialized_;
 };
 
 
@@ -205,10 +201,6 @@ ConfigKey ConfigRegistry::Register(const std::string& keyName, const T& defaultV
 // Template implementation for Config::Get
 template<typename T>
 const T& Config::Get(const ConfigKey& key) const {
-    if (!initialized_) {
-        throw std::runtime_error("Config is not initialized");
-    }
-
     auto it = configs_.find(key);
     if (it == configs_.end()) {
         throw std::runtime_error("Config key '" + key.Get() + "' not found in config");
@@ -228,10 +220,6 @@ const T& Config::Get(const ConfigKey& key) const {
 // Template implementation for Config::Set
 template<typename T>
 void Config::Set(const ConfigKey& key, const T& value) {
-    if (!initialized_) {
-        throw std::runtime_error("Config is not initialized");
-    }
-
     auto& registry = ConfigRegistry::GetInstance();
 
     // Check if key is registered

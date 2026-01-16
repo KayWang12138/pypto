@@ -407,6 +407,7 @@ TEST_F(ConfigTest, TestLoadFromJsonFilePartial) {
     jsonFile << "{\"test_int32\": 500, \"test_bool\": true}" << std::endl;
     jsonFile.close();
 
+    std::cout << "jsonPath: " << jsonPath << std::endl;
     EXPECT_TRUE(jsonPath == std::string("test_config_partial.json"));
     
     config.LoadFromJsonFile(jsonPath);
