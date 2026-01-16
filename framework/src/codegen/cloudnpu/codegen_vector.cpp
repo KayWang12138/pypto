@@ -721,11 +721,14 @@ std::string CodeGenOpCloudNPU::PrintRangeTileTensor(std::string startVal, std::s
     return oss.str();
 }
 
+
+
+
 std::string CodeGenOpCloudNPU::GenRangeOp() const {
     auto start = opAttrs.at(OP_ATTR_PREFIX + "START");
     auto step = opAttrs.at(OP_ATTR_PREFIX + "STEP");
     std::string startVal, stepVal, tileIdxExpr;
-    ASSERT(start.HasValue() && step.HasValue()) << "GenRangeOp failed ";
+    ASSERT(start.HasValue() && step.HasValue()) << "GenRangeOp   failed ";
 
     switch (operandDtype[ID0]) {
         case DataType::DT_FP32:
