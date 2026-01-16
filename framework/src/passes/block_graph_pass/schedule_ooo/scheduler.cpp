@@ -1024,7 +1024,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
     PrintOpList(operations);
     if (Init(operations) != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
-        return FAILED; 
+        return FAILED;
     }
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) { 
