@@ -19,16 +19,26 @@ from typing import List, Any, Optional, Dict
 from stest_accelerate import STestAccelerate
 from accelerate.gtest_accelerate import GTestAccelerate
 
+
 class DistributedSTestAccelerate(STestAccelerate):
     """分布式STest执行加速
 
     支持多卡并行执行 通过设备分组实现分布式测试.
     继承自STestAccelerate, 使用父类的device_list参数, 按照rank_size进行设备分组.
     """
+    
+    def __init__(self, args, params: List[GTestAccelerate.ExecParam], cntr_name: str = "DeviceGroup"):
+        # 先调用父类初始化
+        super().__init__(args, params, cntr_name)
+        
+        # 只在多卡模式下需要提取golden路径
+        self.golden_path = self._extract_golden_path_from_envs(args.envs)
+
 
     @property
     def mark(self) -> str:
         return "Distributed-STest"
+
 
     @staticmethod
     def reg_args(parser: argparse.ArgumentParser):
@@ -38,6 +48,7 @@ class DistributedSTestAccelerate(STestAccelerate):
         STestAccelerate.reg_args(parser)
         parser.add_argument("--rank_size", type=int, required=True,
                             help="Number of devices per test group")
+
 
     @staticmethod
     def main() -> bool:
@@ -80,52 +91,8 @@ class DistributedSTestAccelerate(STestAccelerate):
         ctrl = DistributedSTestAccelerate(args=args, params=params, cntr_name="DeviceGroup")
         ctrl.process()
         return ctrl.post()
-
-    @staticmethod
-    def _group_devices_by_rank_size(devices: List[int], rank_size: int) -> List[List[int]]:
-        """按照rank_size对设备进行顺序分组
-
-        :param devices: 设备列表（从父类继承）
-        :param rank_size: 每组设备数量
-        :return: 设备分组列表
-        """
-        if len(devices) < rank_size:
-            raise ValueError(f"Available devices ({len(devices)}) are less than required rank_size ({rank_size})")
-
-        # 顺序分组策略
-        device_groups = []
-        sorted_devices = sorted(devices)
-
-        for i in range(0, len(sorted_devices), rank_size):
-            group = sorted_devices[i:i + rank_size]
-            if len(group) == rank_size:  # 只保留完整的分组
-                device_groups.append(group)
-
-        return device_groups
-
-    @staticmethod
-    def set_distributed_device_envs(p: Any) -> Optional[Dict[str, str]]:
-        """设置分布式设备环境变量
-
-        多卡用例通过TILE_FWK_DEVICE_ID_LIST环境变量指定使用的设备组
-        """
-        custom_data = p.custom
-        device_group = custom_data["device_group"]
-
-        # 将设备列表转换为逗号分隔的字符串
-        device_list_str = ",".join(str(device_id) for device_id in device_group)
-
-        return {
-            "TILE_FWK_DEVICE_ID_LIST": device_list_str,  # 多卡设备列表
-        }
-
-    def __init__(self, args, params: List[GTestAccelerate.ExecParam], cntr_name: str = "DeviceGroup"):
-        # 先调用父类初始化
-        super().__init__(args, params, cntr_name)
-        
-        # 只在多卡模式下需要提取golden路径
-        self.golden_path = self._extract_golden_path_from_envs(args.envs)
     
+
     def _extract_golden_path_from_envs(self, envs: Dict[str, str]) -> str:
         """从环境变量中提取golden路径 - 多卡模式专用"""
         golden_path = envs.get('TILE_FWK_STEST_GOLDEN_PATH')
@@ -140,12 +107,12 @@ class DistributedSTestAccelerate(STestAccelerate):
         logging.info("Distributed mode using golden path: %s", golden_path)
         return golden_path
 
+
     def _execute_case(self, ctx: GTestAccelerate.CaseContext, param: GTestAccelerate.ExecParam, gtest_filter: str):
         """多卡模式执行 - 重写父类方法"""
         # 安全检查：确保custom参数存在
         if not hasattr(param, 'custom') or param.custom is None:
-            logging.error("No custom config found, run distribute case failed")
-            return super()._execute_case(ctx, param, gtest_filter)
+            logging.error("No custom config, distribute case case need rank_size para, run case failed")
         
         # 获取执行模式配置
         rank_size = param.custom.get("rank_size", 1)
@@ -210,6 +177,46 @@ class DistributedSTestAccelerate(STestAccelerate):
             # 执行异常处理
             logging.error("MPI execution failed for %s: %s", ctx.gtest_filter, str(e))
             raise
+
+
+    @staticmethod
+    def _group_devices_by_rank_size(devices: List[int], rank_size: int) -> List[List[int]]:
+        """按照rank_size对设备进行顺序分组
+
+        :param devices: 设备列表（从父类继承）
+        :param rank_size: 每组设备数量
+        :return: 设备分组列表
+        """
+        if len(devices) < rank_size:
+            raise ValueError(f"Available devices ({len(devices)}) are less than required rank_size ({rank_size})")
+
+        # 顺序分组策略
+        device_groups = []
+        sorted_devices = sorted(devices)
+
+        for i in range(0, len(sorted_devices), rank_size):
+            group = sorted_devices[i:i + rank_size]
+            if len(group) == rank_size:  # 只保留完整的分组
+                device_groups.append(group)
+
+        return device_groups
+
+    @staticmethod
+    def set_distributed_device_envs(p: Any) -> Optional[Dict[str, str]]:
+        """设置分布式设备环境变量
+
+        多卡用例通过TILE_FWK_DEVICE_ID_LIST环境变量指定使用的设备组
+        """
+        custom_data = p.custom
+        device_group = custom_data["device_group"]
+
+        # 将设备列表转换为逗号分隔的字符串
+        device_list_str = ",".join(str(device_id) for device_id in device_group)
+
+        return {
+            "TILE_FWK_DEVICE_ID_LIST": device_list_str,  # 多卡设备列表
+        }
+
 
 if __name__ == "__main__":
     logging.basicConfig(
