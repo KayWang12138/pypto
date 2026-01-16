@@ -84,7 +84,7 @@ const Config& ProgramModule::GetConfig() const {
 }
 
 bool ProgramModule::HasConfig() const {
-    return config_.IsInitialized();
+    return !config_.IsEmpty();
 }
 
 } // namespace pto

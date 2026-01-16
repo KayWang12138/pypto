@@ -1,0 +1,12 @@
+{
+  "test_int32": 200,
+  "test_bool": false,
+  "test_uint8": 88,
+  "test_uint16": 2000,
+  "test_float32": 200.5,
+  "test_map": {
+    "1": 10,
+    "2": 20,
+    "3": 30
+  }
+}
