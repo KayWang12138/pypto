@@ -129,7 +129,7 @@ Shape GetCopyBufferShape(DataType nonShmemDtype, DataType shmemDtype, Shape tile
 LogicalTensorPtr CreateAdaptiveUbTensor(Function& function, const Shape& shape, DataType ubType, DataType castType)
 {
     Shape ubShape;
-    int64_t ubLen = AlignUp(shape[0] * shape[1] * BytesOf(ubType), UB_ALIGIN_SIZE) / BytesOf(ubType);
+    int64_t ubLen = shape[0] * AlignUp(shape[1] * BytesOf(ubType), UB_ALIGIN_SIZE) / BytesOf(ubType);
     if (!shouldConvertDtype(ubType, castType)) {
         ubShape = {ubLen * 2};
     } else {
@@ -250,6 +250,8 @@ void TiledShmemSignal(Function& function, const TileShape& tileShape,
             {dummyOutTile, ubTensor});
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        distOpAttr.tileRowShape = tileShape.GetVecTile()[0];
+        distOpAttr.tileColShape = tileShape.GetVecTile()[1];
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::dontTouch, true);
         tileIndex++;
@@ -289,13 +291,15 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
             shmemOffset[shmemDim] = input.tileInfo.offset[dim];
             ASSERT(shmemShape[shmemDim] != 0) << "shmem view shape should not be 0";
         }
-        auto shmSignalTile = shmemSignal->View(function, shmemShape, shmemOffset);
+    auto shmSignalTile = shmemSignal->View(function, shmemShape, shmemOffset);
         auto dummyInTile = GetDummyTile(dummyIn, tileIndex, tileRowNum, tileColNum, function);
         auto dummyTile = GetDummyTile(dummy, tileIndex, tileRowNum, tileColNum, function);
         auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {dummyInTile, shmSignalTile},
             {dummyTile});
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        distOpAttr.aicpuOpParams.push_back(tileIndex);
+        distOpAttr.aicpuOpParams.push_back(tileRowNum * tileColNum);
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     });
 }
