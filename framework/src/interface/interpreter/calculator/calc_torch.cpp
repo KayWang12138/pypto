@@ -880,12 +880,12 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
     return flag;
 }
 
-static void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, int axis,
-    LogicalTensorDataPtr dst,  std::string cacheMode, int blockSize) {
+static void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, LogicalTensorDataPtr dst, int axis,
+   std::string cacheMode, int blockSize) {
     (void)axis;
     (void)cacheMode;
 
-    auto inplace = 
+    auto inplace = From(dst);
     auto ret = From(out);
     ret.copy_(inplace);
     auto src = From(self);
