@@ -27,6 +27,7 @@ namespace npu::tile_fwk::dynamic {
 #define ADDRESS_CACHE_KIND_WORKSPACE         0
 #define ADDRESS_CACHE_KIND_INPUT             1
 #define ADDRESS_CACHE_KIND_OUTPUT            2
+#define ADDRESS_CACHE_KIND_COMM              3
 #define INVALID_STITCH_IDX      (static_cast<uint32_t>(-1))
 
 constexpr size_t READY_QUEUE_SIZE = 3UL;
@@ -187,6 +188,7 @@ struct DevProgramControlFlowCache {
     DevRelocVector<uint8_t> cacheData;
 
     uint64_t workspaceAddr;
+    uint64_t* hcclContextAddr{nullptr};
 
     bool inline IsRecording() const {
         if (IsDeviceMode()) {
@@ -485,11 +487,14 @@ struct DevProgramControlFlowCache {
     static void RelocDescToCache(
             AddressDescriptor &desc,
             const RelocRange &relocWorkspace,
-            std::unordered_map<uint64_t, AddressDescriptor> &cacheInputOutputDict) {
+            std::unordered_map<uint64_t, AddressDescriptor> &cacheInputOutputDict,
+            bool isCommKind = false) {
         AddressDescriptor resultDesc;
         uint64_t addr = desc.GetAddressValue();
         if (cacheInputOutputDict.count(addr)) {
             resultDesc = cacheInputOutputDict[addr];
+        } else if (isCommKind) {
+            resultDesc = AddressDescriptor::MakeCache(ADDRESS_CACHE_KIND_COMM, addr);
         } else {
             relocWorkspace.Reloc(addr);
             resultDesc = AddressDescriptor::MakeCache(ADDRESS_CACHE_KIND_WORKSPACE, addr);
@@ -512,6 +517,9 @@ struct DevProgramControlFlowCache {
                 break;
             case ADDRESS_CACHE_KIND_OUTPUT:
                 resultAddr = devStartArgs->GetOutputTensor(desc.cacheValue).address;
+                break;
+            case ADDRESS_CACHE_KIND_COMM:
+                resultAddr = desc.cacheValue;
                 break;
             default:
                 DEV_ERROR("[RelocDescFromCache] Invalid kind: %lu\n", (unsigned long)desc.cacheKind);
@@ -645,6 +653,17 @@ struct DevProgramControlFlowCache {
         }
     }
 
+    void TaskAddrRestoreHcclContext(uint64_t* restoreHcclContextAddr) {
+        for (size_t i = 0; i < deviceTaskCount; i++) {
+            DynDeviceTaskBase *dynTaskBase = deviceTaskCacheList[i].dynTaskBase;
+            DynFuncHeader *dynFuncDataList = dynTaskBase->GetDynFuncDataList();
+            for (size_t dupIndex = 0; dupIndex < dynFuncDataList->Size(); ++dupIndex) {
+                DynFuncData *dynData = &dynFuncDataList->At(dupIndex);
+                (void)memcpy_s(dynData->hcclContext, sizeof(dynData->hcclContext), restoreHcclContextAddr, sizeof(dynData->hcclContext));
+            }
+        }
+    }
+
     void IncastOutcastAddrReloc(
             uint64_t srcWorkspace, uint64_t dstWorkspace,
             DevStartArgsBase *devStartArgs) {
@@ -674,7 +693,8 @@ struct DevProgramControlFlowCache {
                     }
                     for (uint64_t i = 0; i < duppedData->GetOutcastSize(); i++) {
                         AddressDescriptor *addr = reinterpret_cast<AddressDescriptor *>(dynDataBackup->rawTensorAddrBackup + duppedData->GetIncastSize() + i);
-                        RelocDescToCache(*addr, relocWorkspace, cacheInputOutputDict);
+                        bool isCommKind = (duppedData->GetSource()->GetOutcast(i).exprListIndex != -1);
+                        RelocDescToCache(*addr, relocWorkspace, cacheInputOutputDict, isCommKind);
                     }
                 } else {
                     // Device: addr uses actual
