@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -24,10 +24,6 @@ class DistributedSTestAccelerate(STestAccelerate):
     支持多卡并行执行 通过设备分组实现分布式测试.
     继承自STestAccelerate, 使用父类的device_list参数, 按照rank_size进行设备分组.
     """
-    
-    def __init__(self, args, params: List[STestAccelerate.ExecParam], cntr_name: str = "DeviceGroup"):
-        # 先调用父类初始化
-        super().__init__(args, params, cntr_name)
 
     @property
     def mark(self) -> str:
@@ -81,6 +77,22 @@ class DistributedSTestAccelerate(STestAccelerate):
         return ctrl.post()
 
     @staticmethod
+    def set_distributed_device_envs(p: Any) -> Optional[Dict[str, str]]:
+        """设置分布式设备环境变量
+
+        多卡用例通过TILE_FWK_DEVICE_ID_LIST环境变量指定使用的设备组
+        """
+        custom_data = p.custom
+        device_group = custom_data["device_group"]
+
+        # 将设备列表转换为逗号分隔的字符串
+        device_list_str = ",".join(str(device_id) for device_id in device_group)
+
+        return {
+            "TILE_FWK_DEVICE_ID_LIST": device_list_str,  # 多卡设备列表
+        }
+    
+    @staticmethod
     def _group_devices_by_rank_size(devices: List[int], rank_size: int) -> List[List[int]]:
         """按照rank_size对设备进行顺序分组
 
@@ -101,22 +113,6 @@ class DistributedSTestAccelerate(STestAccelerate):
                 device_groups.append(group)
 
         return device_groups
-
-    @staticmethod
-    def set_distributed_device_envs(p: Any) -> Optional[Dict[str, str]]:
-        """设置分布式设备环境变量
-
-        多卡用例通过TILE_FWK_DEVICE_ID_LIST环境变量指定使用的设备组
-        """
-        custom_data = p.custom
-        device_group = custom_data["device_group"]
-
-        # 将设备列表转换为逗号分隔的字符串
-        device_list_str = ",".join(str(device_id) for device_id in device_group)
-
-        return {
-            "TILE_FWK_DEVICE_ID_LIST": device_list_str,  # 多卡设备列表
-        }
 
     def _execute_case(self, ctx: STestAccelerate.CaseContext, param: STestAccelerate.ExecParam, gtest_filter: str):
         """多卡模式执行 - 重写父类方法"""
@@ -144,7 +140,6 @@ class DistributedSTestAccelerate(STestAccelerate):
         """
         # 准备环境变量
         env_vars = os.environ.copy()
-        env_vars['TILE_FWK_STEST_GOLDEN_PATH'] = self.golden_path
         if ctx.exec_param.get_envs():
             env_vars.update(ctx.exec_param.get_envs())
         
@@ -165,6 +160,7 @@ class DistributedSTestAccelerate(STestAccelerate):
                 capture_output=True,
                 text=True
             )
+
             class Result:
                 def __init__(self, returncode, stdout, stderr):
                     self.returncode = returncode

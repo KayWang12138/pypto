@@ -25,21 +25,16 @@ else ()
 endif ()
 list(GET PTO_Fwk_StestExecuteDeviceIdList 0 TileFwkStestExecuteDeviceIdPref)
 
-if(ENABLE_STEST_DISTRIBUTED)
+if (ENABLE_STEST_DISTRIBUTED)
     # 查找mpirun程序
-    find_program(MPIRUN_EXECUTABLE 
-        NAMES mpirun mpiexec orterun
-        DOC "MPI launcher executable for distributed tests"
-    )
+    find_program(MPIRUN_EXECUTABLE)
     # 检查是否找到mpirun
-    if(NOT MPIRUN_EXECUTABLE)
-        message(FATAL_ERROR 
-            "mpirun not found! Distributed tests require MPI runtime.\n"
-            "Please install one of the following:\n")
-    else()
+    if (NOT MPIRUN_EXECUTABLE)
+        message(FATAL_ERROR "mpirun not found! Distributed tests require MPI runtime.\n")
+    else ()
         message(STATUS "Found mpirun: ${MPIRUN_EXECUTABLE}")
-    endif()
-endif()
+    endif ()
+endif ()
 
 # 预定义路径
 if (ENABLE_STEST_GOLDEN_PATH)
