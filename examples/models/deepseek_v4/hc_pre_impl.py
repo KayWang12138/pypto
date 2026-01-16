@@ -42,7 +42,7 @@ def hc_split_sinkhorn(comb_flag: pypto.Tensor, hc_eps) \
     sinkhorn_iters = 20
     tile_t, _, _= comb_flag.shape # (tile_t, 4, 4)
 
-    if tile_t <= 20:
+    if tile_t <= 32:
         pypto.set_vec_tile_shapes(1, 16, 32)
     elif tile_t <= 64:
         pypto.set_vec_tile_shapes(4, 16, 32)
@@ -125,13 +125,14 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
 ):
     # pypto.set_debug_options(runtime_debug_mode=1)
     # pypto.set_debug_options(runtime_debug_mode=2)   ## for acl graph
-    # pypto.experimental.set_operation_config(combine_axis=True)
+    pypto.experimental.set_operation_config(combine_axis=True)
 
     t = x.shape[0]
     hc = x.shape[1]
     d = x.shape[2]
     mix_hc = (2 + hc) * hc
     hc_eps = 1e-6
+    split_k = False
 
     ### check shape
     assert hc == 4, f"hc is {hc}, expected 4"
@@ -144,17 +145,17 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
 
     for _ in pypto.loop(1):
         x_2d = pypto.reshape(x, [t, hc*d], inplace=True)
-        hc_base= pypto.reshape(hc_base_, [1, mix_hc], inplace=True)
         hc_scale= pypto.reshape(hc_scale_, [3, 1], inplace=True)
     for t_idx, unrollLength in pypto.loop_unroll(0, t, 1, name="t_loop", idx_name="t_idx", unroll_list=unroll_list):
         tile_t = unrollLength
         pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128])
         tile_shapes_1 = [16, 512]
         tile_shape_2 = 64
-        if tile_t <= 16:
-            tile_shapes_1 = [1, 4*1024]
+        if tile_t <= 32:
+            split_k = True
+            tile_shapes_1 = [1, 16*1024]
             tile_shape_2 = 1
-            # pypto.set_cube_tile_shapes([16, 16], [1024, 2*1024], [128, 128], set_l1_tile = True, enable_split_k = True)
+            # pypto.set_cube_tile_shapes([16, 16], [1024, 2*1024], [128, 128], enable_multi_data_load = True, enable_split_k = True)
             pypto.set_cube_tile_shapes([16, 16], [1024, 1024], [128, 128])
         elif tile_t <= 64:
             tile_shapes_1 = [8, 1024]
@@ -166,11 +167,26 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
         pypto.set_vec_tile_shapes(tile_shapes_1[0], tile_shapes_1[1])
 
         x_view = pypto.view(x_2d, [tile_t, hc*d], [t_idx, 0])
+        hc_base = pypto.reshape(hc_base_, [1, mix_hc])
+
+        pypto.set_pass_options(sg_set_scope = 1)
         x_fp32 = pypto.cast(x_view, pypto.DT_FP32)
         rms_res = rms_norm_denom(x_fp32)    ## (t, hc*d) -> (t, 1)
+        pypto.set_pass_options(sg_set_scope = -1)
 
         pypto.set_vec_tile_shapes(tile_shape_2, 32)
-        mm_res = pypto.matmul(x_view, hc_fn, pypto.DT_FP32, b_trans=True)   # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
+        if (not split_k):
+            mm_res = pypto.matmul(x_view, hc_fn, pypto.DT_FP32, b_trans=True)   # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
+        else:
+            tile_k = 4*1024
+            for k_idx in range(hc*d // tile_k):
+                x_view_k = pypto.view(x_view, [tile_t, tile_k], [0, k_idx * tile_k])
+                hc_fn_k = pypto.view(hc_fn, [mix_hc, tile_k], [0, k_idx * tile_k])
+                mm_res_k = pypto.matmul(x_view_k, hc_fn_k, pypto.DT_FP32, b_trans=True)
+                if k_idx == 0:
+                    mm_res = mm_res_k
+                else:
+                    mm_res = mm_res + mm_res_k
 
         rms_res = mm_res / rms_res  ## t, mix_hc
         hc_scale_hc = hc_scale.expand_clone([3, hc])
