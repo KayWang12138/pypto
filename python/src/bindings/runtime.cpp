@@ -274,6 +274,19 @@ int GetWorldSizeFromEnv();
 std::string GetShmemSessionIdFromEnv(const char *addrName, const char *portName, int portOffset);
 std::string StripShmemIpPortScheme(const std::string &value);
 
+int GetDefaultShmemPortOffset(int world)
+{
+    int offset = 11;
+    if (world > 0) {
+        int extra = world * 2;
+        if (extra > 1000) {
+            extra %= 1000;
+        }
+        offset += extra;
+    }
+    return offset;
+}
+
 void EnsureShmemBootstrapSession()
 {
     if (std::getenv("ACLSHMEM_UID_SESSION_ID") != nullptr || std::getenv("ACLSHMEM_UID_SOCK_IFNAME") != nullptr) {
@@ -292,16 +305,34 @@ void EnsureShmemBootstrapSession()
         sessionId = StripShmemIpPortScheme(ipPortEnv);
     }
     if (sessionId.empty()) {
+        sessionId = GetShmemSessionIdFromEnv("ACLSHMEM_MASTER_ADDR", "ACLSHMEM_MASTER_PORT", 0);
+    }
+    if (sessionId.empty()) {
+        int offset = GetDefaultShmemPortOffset(world);
+        sessionId = GetShmemSessionIdFromEnv("MASTER_ADDR", "MASTER_PORT", offset);
+    }
+    if (sessionId.empty()) {
         int localWorld = ReadEnvAny({"LOCAL_WORLD_SIZE", "OMPI_COMM_WORLD_LOCAL_SIZE", "MPI_LOCALNRANKS"});
         if (localWorld > 0 && localWorld == world) {
             sessionId = "127.0.0.1:19777";
         }
     }
-    if (sessionId.empty()) {
-        sessionId = GetShmemSessionIdFromEnv("ACLSHMEM_MASTER_ADDR", "ACLSHMEM_MASTER_PORT", 0);
-    }
-    if (sessionId.empty()) {
-        sessionId = GetShmemSessionIdFromEnv("MASTER_ADDR", "MASTER_PORT", 11);
+    if (!sessionId.empty()) {
+        const char *uidPathEnv = std::getenv("SHMEM_UID_PATH");
+        if (uidPathEnv == nullptr || uidPathEnv[0] == '\0') {
+            std::string sanitized;
+            sanitized.reserve(sessionId.size());
+            for (char c : sessionId) {
+                if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') ||
+                    (c >= 'a' && c <= 'z') || c == '.' || c == '-') {
+                    sanitized.push_back(c);
+                } else {
+                    sanitized.push_back('_');
+                }
+            }
+            std::string uidPath = std::string(DEFAULT_SHMEM_UID_PATH) + "_" + sanitized;
+            (void)setenv("SHMEM_UID_PATH", uidPath.c_str(), 0);
+        }
     }
     if (!sessionId.empty()) {
         (void)setenv("ACLSHMEM_UID_SESSION_ID", sessionId.c_str(), 0);
@@ -395,17 +426,18 @@ std::string GetDefaultShmemIpPort(int world)
     if (!fromEnv.empty()) {
         return fromEnv;
     }
-    int localWorld = ReadEnvAny({"LOCAL_WORLD_SIZE", "OMPI_COMM_WORLD_LOCAL_SIZE", "MPI_LOCALNRANKS"});
-    if (localWorld > 0 && localWorld == world) {
-        return "tcp://127.0.0.1:19777";
-    }
     std::string fromMaster = GetShmemIpPortFromEnv("ACLSHMEM_MASTER_ADDR", "ACLSHMEM_MASTER_PORT", 0);
     if (!fromMaster.empty()) {
         return fromMaster;
     }
-    fromMaster = GetShmemIpPortFromEnv("MASTER_ADDR", "MASTER_PORT", 11);
+    int offset = GetDefaultShmemPortOffset(world);
+    fromMaster = GetShmemIpPortFromEnv("MASTER_ADDR", "MASTER_PORT", offset);
     if (!fromMaster.empty()) {
         return fromMaster;
+    }
+    int localWorld = ReadEnvAny({"LOCAL_WORLD_SIZE", "OMPI_COMM_WORLD_LOCAL_SIZE", "MPI_LOCALNRANKS"});
+    if (localWorld > 0 && localWorld == world) {
+        return "tcp://127.0.0.1:19777";
     }
     return {};
 }
