@@ -160,7 +160,7 @@ Shape GetCopyBufferShape(DataType nonShmemDtype, DataType shmemDtype, Shape tile
 LogicalTensorPtr CreateAdaptiveUbTensor(Function& function, const Shape& shape, DataType ubType, DataType castType)
 {
     Shape ubShape;
-    int64_t ubLen = AlignUp(shape[0] * shape[1] * BytesOf(ubType), UB_ALIGIN_SIZE) / BytesOf(ubType);
+    int64_t ubLen = shape[0] * AlignUp(shape[1] * BytesOf(ubType), UB_ALIGIN_SIZE) / BytesOf(ubType);
     if (!shouldConvertDtype(ubType, castType)) {
         ubShape = {ubLen * 2};
     } else {
@@ -263,6 +263,8 @@ void TiledShmemSignal(Function& function, const TileShape& tileShape,
 
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        distOpAttr.tileRowShape = tileShape.GetVecTile()[0];
+        distOpAttr.tileColShape = tileShape.GetVecTile()[1];
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
         tileOp.SetAttr(OpAttributeKey::dontTouch, true);
     });
@@ -277,6 +279,13 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
     auto dummyIn = iOperand[0];
     auto shmemSignal = iOperand[1];
     auto dummy = oOperand[0];
+
+    int32_t totalRowShape = shmemSignal->shape[shmemSignal->shape.size() - 2];
+    int32_t totalColShape = shmemSignal->shape[shmemSignal->shape.size() - 1];
+    int32_t tileRowShape = tileShape.GetVecTile()[0];
+    int32_t tileColShape = tileShape.GetVecTile()[1];
+    int32_t tileRowNum = totalRowShape / tileRowShape + (totalRowShape % tileRowShape == 0 ? 0 : 1);
+    int32_t tileColNum = totalColShape / tileColShape + (totalColShape % tileColShape == 0 ? 0 : 1);
 
     DummyTileFunc dummyInTileFunc = GetDummyTileFunc(dummyIn, shmemSignal, tileShape.GetVecTile(), function);
     DummyTileFunc dummyTileFunc = GetDummyTileFunc(dummy, shmemSignal, tileShape.GetVecTile(), function);
@@ -293,6 +302,8 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
 
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+        distOpAttr.aicpuOpParams.push_back(tileIndex);
+        distOpAttr.aicpuOpParams.push_back(tileRowNum * tileColNum);
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     });
 }
