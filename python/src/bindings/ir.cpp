@@ -129,30 +129,38 @@ static void IrBindObjClass(py::module &m) {
         .def_property_readonly("id", &Object::GetID)
         .def_property_readonly("name", &Object::GetName)
         .def_property_readonly("type", &Object::GetObjectType)
-        .def("properties", &Object::GetSetAttrKeys)
         .def("set_attr", [](Object &self, const std::string &key, py::object value) {
             // Try to determine the Python type and call the appropriate C++ SetAttr
-            if (py::isinstance<py::str>(value)) {
-                return self.SetAttr<std::string>(key, py::cast<std::string>(value));
-            } else if (py::isinstance<py::bool_>(value)) {
+            if (py::isinstance<py::bool_>(value)) {
                 return self.SetAttr<bool>(key, py::cast<bool>(value));
             } else if (py::isinstance<py::int_>(value)) {
                 return self.SetAttr<int64_t>(key, py::cast<int64_t>(value));
             } else if (py::isinstance<py::float_>(value)) {
                 return self.SetAttr<double>(key, py::cast<double>(value));
+            } else if (py::isinstance<py::str>(value)) {
+                return self.SetAttr<std::string>(key, py::cast<std::string>(value));
             } else {
                 throw py::type_error("Unsupported attribute type. Must be str, bool, int, or float.");
             }
         }, py::arg("key"), py::arg("value"),
            "Set an attribute on the object. Supported types: str, bool, int, float.")
         .def("get_attr", [](const Object &self, const std::string &key) -> py::object {
+            // Check if attribute exists first
+            if (!self.HasAttr(key)) {
+                return py::none();
+            }
+
             // Get the raw AttributeValue and convert to Python object
             AttributeValue attr = self.GetAttr(key);
 
             // Use std::visit to handle the variant
-            return std::visit([](auto&& arg) -> py::object {
+            return std::visit([&key](auto&& arg) -> py::object {
                 using T = std::decay_t<decltype(arg)>;
                 if constexpr (std::is_same_v<T, std::string>) {
+                    // Check for the special "undefined" marker
+                    if (arg == "undefined") {
+                        return py::none();
+                    }
                     return py::cast(arg);
                 } else if constexpr (std::is_same_v<T, int64_t>) {
                     return py::cast(arg);
@@ -166,6 +174,12 @@ static void IrBindObjClass(py::module &m) {
             }, attr);
         }, py::arg("key"),
            "Get an attribute value from the object. Returns None if attribute is not set.")
+        .def("has_attr", &Object::HasAttr, py::arg("key"),
+             "Check if an attribute is set on the object.")
+        .def("unset_attr", &Object::UnsetAttr, py::arg("key"),
+             "Remove an attribute from the object.")
+        .def("can_set_attr", &Object::CanSetAttr, py::arg("key"),
+             "Check if an attribute key can be set on this object type.");
 }
 
 static void IrBindValue(py::module &m) {
