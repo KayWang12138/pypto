@@ -530,7 +530,7 @@ struct FunctionInterpreter {
         return false;
     }
 
-    void ExecuteOperation(FunctionFrame &frame, Operation *op, std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
+    void ExecuteOperation(FunctionFrame &frame, Operation *op) {
         auto iOpDataList = frame.GetDataViewList(op->GetIOperands());
         for (size_t index = 0; index < iOpDataList.size(); index++) {
             if (iOpDataList[index] == nullptr) {
@@ -622,7 +622,7 @@ struct FunctionInterpreter {
             if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                 continue;
             ExecuteHandleOperationBegin(&op);
-            ExecuteOperation(*frame, &op, inoutDataPair);
+            ExecuteOperation(*frame, &op);
             ExecuteHandleOperationEnd();
         }
         ExecuteHandleFunctionEnd();
