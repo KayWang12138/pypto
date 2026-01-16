@@ -28,16 +28,10 @@ Status MergeViewAssemble::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Function, "MergeViewAssemble initialization failed.");
         return status;
     }
-    status = ProcessViewOperations(function);
+    status = ProcessOperations(function);
     if (status != SUCCESS)
     {
-        APASS_LOG_ERROR_F(Elements::Function, "Processing view operations failed.");
-        return status;
-    }
-    status = ProcessAssembleOperations(function);
-    if (status != SUCCESS)
-    {
-        APASS_LOG_ERROR_F(Elements::Function, "Processing assemble operations failed.");
+        APASS_LOG_ERROR_F(Elements::Function, "Processing operations failed.");
         return status;
     }
     status = CleanUp(function);
@@ -57,36 +51,50 @@ Status MergeViewAssemble::Initialize() {
     return SUCCESS;
 }
 
-Status MergeViewAssemble::ProcessViewOperations(Function &function) {
+Status MergeViewAssemble::ProcessOperations(Function &function) {
     for (auto &op : function.Operations()) {
+        if (visitedOp_.count(op.GetOpMagic()) != 0) {
+            continue;
+        }
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            std::vector<Operation *> chain;
-            if (visitedOp_.count(op.opmagic) == 0) {
-                Status status = MergeViewChain(function, op, chain);
-                if (status != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "MergeViewChain failed for operation %d.%s", op.opmagic,
-                        GetFormatBacktrace(op).c_str());
-                    return status;
-                }
-            }
+            ProcessViewOperations(function, op);
+        } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            ProcessAssembleOperations(function, op);
         }
     }
-    return AppendMergedViewOperations(function);
+    Status status = AppendMergedViewOperations(function);
+    if (status != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "AppendMergedViewOperations phase failed.");
+        return status;
+    }
+    status = AppendMergedAssembleOperations(function);
+    if (status != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "AppendMergedViewOperations phase failed.");
+        return status;
+    }
+    return SUCCESS;
 }
 
-Status MergeViewAssemble::ProcessAssembleOperations(Function &function) {
-    for (auto &op : function.Operations()) {
-        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && visitedOp_.count(op.GetOpMagic()) == 0) {
-            std::vector<Operation *> chain;
-            Status status = MergeAssembleChain(function, op, chain);
-            if (status != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "MergeAssembleChain failed for operation %d.%s", op.GetOpMagic(),
-                    GetFormatBacktrace(op).c_str());
-                return status;
-            }
-        }
+Status MergeViewAssemble::ProcessViewOperations(Function &function, Operation &op) {
+    std::vector<Operation *> chain;
+    Status status = MergeViewChain(function, op, chain);
+    if (status != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "MergeViewChain failed for operation %d.%s", op.opmagic,
+            GetFormatBacktrace(op).c_str());
+        return status;
     }
-    return AppendMergedAssembleOperations(function);
+    return SUCCESS;
+}
+
+Status MergeViewAssemble::ProcessAssembleOperations(Function &function, Operation &op) {
+    std::vector<Operation *> chain;
+    Status status = MergeAssembleChain(function, op, chain);
+    if (status != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "MergeAssembleChain failed for operation %d.%s", op.GetOpMagic(),
+            GetFormatBacktrace(op).c_str());
+        return status;
+    }
+    return SUCCESS;
 }
 
 Status MergeViewAssemble::AppendMergedViewOperations(Function &function) {
