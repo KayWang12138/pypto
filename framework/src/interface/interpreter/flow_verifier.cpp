@@ -255,26 +255,31 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         float eps = static_cast<float>(1e-3);
         capture = captureList[captureIndex];
 
+        std::shared_ptr<FunctionCaptureExecution> captureExecution = nullptr;
         try {
-            auto captureExecution = functionInterpreter_->RunForPass(key, func, capture);
-            auto goldenDataViewList = capture->golden->outcastDataViewList;
-            auto executeDataViewList = captureExecution->golden->outcastDataViewList;
-            /* record it */
-            lastCaptureExecution_[func][captureIndex] = captureExecution;
-
-            std::string tensorName = "tensor~" + func->GetMagicName() + "~" + passIdentifier +
-                        "~" + functionInterpreter_->GetLoopSymbolString();
-
-            auto res = VerifyResult(key, tensorName, goldenDataViewList, executeDataViewList, eps);
-            if (!res) {
-                checkResult = false;
-            }
+            captureExecution = functionInterpreter_->RunForPass(key, func, capture);
         } catch (std::exception &e) {
             // 在pass验证模式下，打印错误信息但不中断执行，继续下一个capture的验证
             ALOG_ERROR_F("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s", 
                          func->GetMagicName().c_str(), passIdentifier.c_str(), passIndex, captureIndex, e.what());
+            // 标记验证失败，但不中断执行，继续下一个capture的验证
+            checkResult = false;
             // 不中断执行，继续下一个capture的验证
             continue;
+        }
+
+        // 如果RunForPass成功，继续执行验证和输出
+        auto goldenDataViewList = capture->golden->outcastDataViewList;
+        auto executeDataViewList = captureExecution->golden->outcastDataViewList;
+        /* record it */
+        lastCaptureExecution_[func][captureIndex] = captureExecution;
+
+        std::string tensorName = "tensor~" + func->GetMagicName() + "~" + passIdentifier +
+                    "~" + functionInterpreter_->GetLoopSymbolString();
+
+        auto res = VerifyResult(key, tensorName, goldenDataViewList, executeDataViewList, eps);
+        if (!res) {
+            checkResult = false;
         }
     }
     functionInterpreter_->DumpReset();
