@@ -98,6 +98,13 @@ public:
         return *this;
     }
 
+    ~FileLogger() {
+        if (ofs.is_open()) {
+            ofs.flush();
+            ofs.close();
+        }
+    }
+
 private:
     FileLogger(const FileLogger &) = delete;
     FileLogger &operator=(const FileLogger &) = delete;
