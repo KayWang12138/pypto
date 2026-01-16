@@ -300,8 +300,7 @@ def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv
     q_out = torch.empty([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
     kv_out = torch.empty([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
     qr_out = torch.empty([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=token_x.device)
-    qr_scale_out = torch.empty([token_x.size(0), 1], dtype=torch.float32, device=token_x.device)
-    return q_out, kv_out, qr_out, qr_scale_out
+    return q_out, kv_out, qr_out
 
 
 @torch.library.impl(pyptolib, "mla_prolog", "NPU")
