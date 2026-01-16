@@ -20,9 +20,9 @@
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "interface/tensor/symbolic_scalar.h"
 
 using namespace npu::tile_fwk;
-
 class DynamicOpsTest : public testing::Test {
 public:
     void SetUp() override {
@@ -488,3 +488,35 @@ TEST_F(DynamicOpsTest, MatmulBF16FP32) {
 TEST_F(DynamicOpsTest, MatmulFP32FP32) {
     TestMatmul(DT_FP32, DT_FP32);
 }
+
+TEST_F(DynamicOpsTest, UnsqueezeWithValidShape) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+    int s = 32;
+    Tensor t0(DT_FP32, {s, s}, "t0");
+    Tensor out(DT_FP32, {1, s, s}, "out");
+
+    std::vector<SymbolicScalar> validShape = {SymbolicScalar(16), SymbolicScalar(16)};
+    t0.GetStorage()->UpdateDynValidShape(validShape);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(t0, 1.0),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateConstantTensor<float>(out, 1.0),
+    });
+
+    FUNCTION("main", {t0}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            // Unsqueeze should propagate validShape: [16, 16] -> [1, 16, 16]
+            auto t0_unsqueeze = Unsqueeze(t0, 0);
+            out = t0_unsqueeze;
+        }
+    }
+}
+
