@@ -22,6 +22,10 @@
 #include "interface/program/program.h"
 #include "passes/pass_check/generate_move_op_checker.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
+#include "passes/pass_log/pass_log.h"
+#include "passes/tile_graph_pass/graph_optimization/split_k.h"
+
+#define MODULE_NAME "GenerateMoveOp"
 
 namespace npu::tile_fwk {
 constexpr int64_t INNER_PAD_VALUE = 32;
@@ -184,6 +188,18 @@ void GenerateMoveOp::CreateMoveOpForAssemble(Operation &op) const {
         OpImmediate::Specified(op.iOperand.front()->shape),
         OpImmediate::Specified(op.oOperand.front()->tensor->GetDynRawShape()),
         OpImmediate::Specified(op.iOperand.front()->GetDynValidShape())));
+    //当OP_COPY_OUT前的矩阵乘有ACC_A_MUL_B标签时，OP_COPY_OUT也打上此标签使能随路加
+    auto producerOps = op.ProducerOps();
+    if (producerOps.size() != 1) {
+        return;
+    }
+    auto producerOp = *producerOps.begin();
+    if ((OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::MATMUL) &&
+        producerOp->HasAttribute(ACC_A_MUL_B) && producerOp->GetIntAttribute(ACC_A_MUL_B) == 1) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "%s[%d] set attribute %s to 1 since producerOp %s[%d] enables atomic_add",
+            op.GetOpcodeStr().c_str(), op.GetOpMagic(), ACC_A_MUL_B.c_str(), producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic());
+        op.SetAttribute(ACC_A_MUL_B, 1);
+    }
 }
 
 Status GenerateMoveOp::CreateMoveOpForConvert(Function &function, Operation &op) const {
