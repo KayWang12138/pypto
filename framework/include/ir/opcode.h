@@ -84,4 +84,8 @@ struct OpClassInfo {
     OpCalcType calcType_;
 };
 
+class Operation;
+
+OpClassInfo GetOpClassInfo(std::shared_ptr<Operation> op);
+
 } // namespace pto
