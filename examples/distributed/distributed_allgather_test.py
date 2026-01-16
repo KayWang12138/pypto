@@ -5,8 +5,16 @@ import torch
 import pypto
 import torch.distributed as dist
 import torch.multiprocessing as mp
+from typing import List, Dict
+
+hccl_comm = 0
+hccl_comm_name = ""
+hccl_comm_dict: Dict[str, int] = {}
+
+distributed_options = {"hccl_handle": [], "hccl_group_name": []}
 
 def setup_distributed(rank, world_size):
+    global hccl_comm, hccl_comm_name, distributed_options, hccl_comm_dict
     os.environ['MASTER_ADDR'] = '127.0.0.1'
     os.environ['MASTER_PORT'] = '29500'
     dist.init_process_group(backend="hccl", rank=rank, world_size=world_size)
@@ -14,29 +22,32 @@ def setup_distributed(rank, world_size):
 
     pg = dist.group.WORLD
     hccl_comm, hccl_comm_name = pypto.distributed.init_hccl_comm_from_torch_pg(pg)
+
+    distributed_options["hccl_handle"].append(hccl_comm)
+    distributed_options["hccl_group_name"].append(hccl_comm_name)
+    hccl_comm_dict[hccl_comm_name] = hccl_comm
+
     print(f"[Rank {rank}] hccl_handle: {hccl_comm}, hccl_group_name: {hccl_comm_name}")
 
-    distributed_options = {"hccl_handle": [hccl_comm], "hccl_group_name": [hccl_comm_name]}
-    return hccl_comm_name, distributed_options
+    return hccl_comm, hccl_comm_name
+
+@pypto.jit
+def all_gather_kernel(input_tensor: pypto.Tensor, dummy_tensor: pypto.Tensor, result_holder: pypto.Tensor, group_name: str, world_size: int) -> None:
+    global distributed_options
+    h, w = input_tensor.shape
+    tileNum1 = 8
+    tileNum2 = 8
+    pypto.set_distributed_options(hccl_handle=distributed_options["hccl_handle"], hccl_group_name=distributed_options["hccl_group_name"])
+
+    pypto.set_vec_tile_shapes(h, w)
+    pypto.set_dist_tile_shapes([h // tileNum1, tileNum1, h % tileNum1], [w // tileNum2, tileNum2, w % tileNum2], [1, world_size, 0])
+
+    pypto.distributed.shmem_all_gather(input_tensor, dummy_tensor, group_name, result_holder)
 
 
 def run_all_gather_test(rank, world_size):
 
-    hccl_comm_name, distributed_options = setup_distributed(rank, world_size)
-
-    @pypto.jit(distributed_options=distributed_options)
-    def all_gather_kernel(input_tensor: pypto.Tensor, dummy_tensor: pypto.Tensor,
-                          result_holder: pypto.Tensor, group_name: str, world_size: int) -> None:
-        h, w = input_tensor.shape
-        tileNum1 = 8
-        tileNum2 = 8
-
-        pypto.set_vec_tile_shapes(h, w)
-        pypto.set_dist_tile_shapes([h // tileNum1, tileNum1, h % tileNum1],
-                                   [w // tileNum2, tileNum2, w % tileNum2],
-                                   [1, world_size, 0])
-
-        pypto.distributed.shmem_all_gather(input_tensor, dummy_tensor, group_name, result_holder)
+    hccl_comm, hccl_comm_name = setup_distributed(rank, world_size)
 
     M, N = 512, 1024
     input_shape = (M, N)

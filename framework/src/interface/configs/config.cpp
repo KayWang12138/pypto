@@ -33,6 +33,65 @@ using ValueType = std::variant<bool, int64_t, std::string, std::vector<int64_t>,
 
 using MapType = std::map<int64_t, int64_t>;
 
+static std::map<std::string, ValueType> g_passConfig = {
+    {SG_PARALLEL_NUM, 20L},
+    {SG_PG_UPPER_BOUND, 10000L},
+    {SG_PG_LOWER_BOUND, 512L},
+    {CUBE_L1_REUSE_MODE, 0L},
+    {CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{}},
+    {CUBE_NBUFFER_MODE, 0L},
+    {CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{}},
+    {MG_COPYIN_UPPER_BOUND, 1024 * 1024L},
+    {OOO_PRESCHEDULE_METHOD, std::string("PriorDFS")}, // bugs in gcc 9.4
+    {VEC_NBUFFER_MODE, 1L},
+    {VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{}},
+    {MG_VEC_PARALLEL_LB, 48L},
+    {SG_CUBE_PARALLEL_NUM, 24L},
+    {PG_SKIP_PARTITION, false},
+    {COPYOUT_RESOLVE_COALESCING, 0L},
+    {SG_SET_SCOPE, -1L}
+};
+
+static std::map<std::string, ValueType> g_runtimeConfig = {
+    {DEVICE_SCHED_MODE, 0L},
+    {STITCH_FUNCTION_INNER_MEMORY, 10L},
+    {STITCH_FUNCTION_OUTCAST_MEMORY, 50L},
+    {STITCH_FUNCTION_NUM_INITIAL, 30L},
+    {STITCH_FUNCTION_NUM_STEP, 30L}, // Increasing loop number
+    {STITCH_CFGCACHE_SIZE, 0L},
+    {STITCH_FUNCTION_SIZE, 20000L},
+    {CFG_RUN_MODE, CFG_RUN_MODE_NPU}
+};
+
+static std::map<std::string, ValueType> g_hostConfig = {
+    {ONLY_CODEGEN, false},
+};
+
+static std::map<std::string, ValueType> g_codegenConfig = {
+    {  SUPPORT_DYNAMIC_ALIGNED, false},
+};
+
+static std::map<std::string, ValueType> g_verifyConfig = {
+    {KEY_ENABLE_PASS_VERIFY, false},
+    {KEY_PASS_VERIFY_SAVE_TENSOR, false},
+    {KEY_PASS_VERIFY_SAVE_TENSOR_DIR, std::string("")},
+    {KEY_PASS_VERIFY_FILTER, std::vector<std::string>()},
+};
+
+static std::map<std::string, ValueType> g_debugConfig = {
+    {CFG_COMPILE_DBEUG_MODE, CFG_DEBUG_NONE},
+    {CFG_RUNTIME_DBEUG_MODE, CFG_DEBUG_NONE},
+};
+
+static std::map<std::string, ValueType> g_distributedConfig = {
+    {"hccl_handle", std::vector<int64_t>()},
+    {"hccl_group_name", std::vector<std::string>()},
+};
+
+static std::map<std::string, ValueType> g_globalConfig = {
+    {COST_MODEL_ENABLE, false},
+};
+
 struct RunDataDir {
     std::string path;
     std::string dName;
@@ -59,6 +118,11 @@ struct ConfigStorage {
         printOption.precision = 4; // 4 float precision
         printOption.threshold = 1000; // 1000 default threshold
         printOption.linewidth = 80; // 80 max line width
+
+        for (auto &[key, val] : g_globalConfig) {
+            options[key] = val;
+        }
+
         Reset();
     }
 
@@ -66,6 +130,27 @@ struct ConfigStorage {
         funcType = FunctionType::DYNAMIC;
         semanticLabel = nullptr;
         rundataDir.Reset();
+        for (auto &[key, val] : g_passConfig) {
+            options["pass." + key] = val;
+        }
+        for (auto &[key, val] : g_runtimeConfig) {
+            options["runtime." + key] = val;
+        }
+        for (auto &[key, val] : g_hostConfig) {
+            options["host." + key] = val;
+        }
+        for (auto &[key, val] : g_codegenConfig) {
+            options["codegen." + key] = val;
+        }
+        for (auto &[key, val] : g_verifyConfig) {
+            options["verify." + key] = val;
+        }
+        for (auto &[key, val] : g_debugConfig) {
+            options["debug." + key] = val;
+        }
+        for (auto &[key, val] : g_distributedConfig) {
+            options["distributed." + key] = val;
+        }
     }
 
     FunctionType funcType;
@@ -100,7 +185,9 @@ std::shared_ptr<SemanticLabel> GetSemanticLabel() {
     return g_config.semanticLabel;
 }
 
-
+bool HasOption(const std::string &key) {
+    return g_config.options.find(StringUtils::ToLower(key)) != g_config.options.end();
+}
 
 inline void OptionToOss(std::ostringstream &oss, const std::string &key, const ValueType &value) {
     if (std::holds_alternative<bool>(value)) {
@@ -201,7 +288,6 @@ DEFINE_GET_OPTION(std::vector<std::string>)
 DEFINE_GET_OPTION(MapType)
 #undef DEFINE_GET_OPTION
 
-
 constexpr int LIMIT_DIR_NUM_BEFORE_CREATE = 127;
 constexpr const char *PREFIX_RUNDATA = "rundata_";
 constexpr const char *ENV_VAR_PYPTO_HOME = "PYPTO_HOME";
@@ -230,7 +316,6 @@ void SetRunDataOption(const std::string &key, const std::string &value) {
     auto filename = g_config.rundataDir.montage() + "/rundata.json";
     SaveFileSafe(filename, reinterpret_cast<uint8_t*>(dumpValue.data()), dumpValue.size());
 }
-
 
 void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth) {
     g_config.printOption.edgeItems = edgeItems;
@@ -281,9 +366,15 @@ PrintOptions &GetPrintOptions() {
 }
 
 void Reset() {
+    g_rwlock.lock();
+    g_config.Reset();
     ConfigManagerNg::CurrentScope()->Clear();
-    std::unique_lock lock(g_rwlock);
     g_config.options.clear();
+    g_rwlock.unlock();
+}
+
+std::unordered_map<std::string, ValueType> GetOptions(){
+    return g_config.options;
 }
 
 std::shared_ptr<ConfigScope> Duplicate() {
