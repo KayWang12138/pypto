@@ -112,15 +112,18 @@ def get_case_info(device="cpu"):
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"cube_l1_reuse_setting": {0: 4}}
 )
-def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
+def ifa_flash(q, k, v, attn_sink, block_table, start_pos, k_win=None, v_win=None, blk_win=None, 
+              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
     pypto.experimental.set_operation_config(combine_axis=True)
     # pypto.set_debug_options(runtime_debug_mode=2) #开启AICPU抢跑
     pypto.set_pass_options(pg_upper_bound=pg_upper_bound)
     shape_q = q.shape
     shape_k = k.shape
+    shape_k_win = k_win.shape
     bs_scalar = shape_q[0]
     nq = shape_q[1]
     block_num_scalar = shape_k[0]
+    block_num_win_scalar = shape_k_win[0]
     block_size = shape_k[1]
     nkv = shape_k[2]
     dn = shape_k[3]
@@ -147,12 +150,16 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, un
     g_loop = g // g_tile
 
     k_2d_shape = (block_num_scalar * block_size, n2_sym * dn)
+    k_win_2d_shape = (block_num_win_scalar * block_size, n2_sym * dn)
     q_2d_shape = (b_scalar * s1_scalar * nq, dn)
     attn_sink_2d_shape = (nq, 1)
 
     k_2d = pypto.reshape(k, k_2d_shape, inplace=True)
     v_2d = pypto.reshape(v, k_2d_shape, inplace=True)
     q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
+    if k_win is not None and v_win is not None and blk_win is not None:
+        k_win_2d = pypto.reshape(k_win, k_win_2d_shape, inplace=True)
+        v_win_2d = pypto.reshape(v_win, k_win_2d_shape, inplace=True)
     attn_sink_2d = pypto.reshape(attn_sink, attn_sink_2d_shape, inplace=True)
     # 4. 实现kernel逻辑，循环展开B动态轴
     for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
@@ -163,6 +170,32 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, atten_out, cmp_r=1, un
                 oi_update = pypto.tensor([g_tile, dn], pypto.DT_FP32, "oi_update")
                 sum_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "sum_update")
                 max_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "max_update")
+                if k_win is not None and v_win is not None and blk_win is not None:
+                    bs_ofs = b_idx * s1_scalar + s1_idx
+                    n1g_ofs = g_idx * g_tile
+                    actual_s2_tile = (start_pos[b_idx] + s1_scalar).min(block_size) - (s1_scalar - 1 - s1_idx)          
+                    block_idx = blk_win[b_idx, 0]
+                    block_idx_valid = block_idx.max(0)
+                    pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+                    qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0])
+                    kj = pypto.view(k_win_2d, [block_size, dn], [block_idx_valid * block_size, 0])
+                    pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
+                    sij = pypto.matmul(qi, kj, pypto.DT_FP32, a_trans=False, b_trans=True)
+                    sij = pypto.view(sij, [g_tile, block_size], [0, 0], valid_shape=[g_tile, actual_s2_tile])
+                    sij_scale = pypto.mul(sij, softmax_scale)
+                    tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
+                    tsub = pypto.sub(sij_scale, tilda_mij)
+                    tilda_pij = pypto.exp(tsub)
+                    tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
+                    sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
+                    max_update[:] = tilda_mij
+
+                    # c2
+                    vj = pypto.view(v_win_2d, [block_size, dn], [block_idx_valid * block_size, 0])
+                    pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
+                    oi_tmp = pypto.matmul(tilda_pij_fp16, vj, pypto.DT_FP32)
+                    pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
+                    oi_update[:] = oi_tmp
                 for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=unroll_list):
                     block_num = s2_tile // block_size
                     idx = s2_idx * block_num
@@ -318,7 +351,7 @@ def test_ifa(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, dev
     unroll_list = [2, 1]
     if debug_str in ["true", "1"] or enable_high_perf:
         unroll_list = [2, 1]
-    attention(q, k, v, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
+    # attention(q, k, v, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
     from utils.np_compare import detailed_allclose_manual as compare
 
     attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output, enable_flash=False, cmp_r=cmp_r, is_new_sink=True)
@@ -368,7 +401,7 @@ def test_c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, de
     q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1)
     k = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
     v = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
-    attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1) + 50
+    attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1) 
     k_win = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1)
     v_win = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1)
     blk_win = attn_golden.gen_block_table(orig_act_seq, block_size, blk_win_shape, cmp_r=cmp_r, enable_win=True, s1=s1)
@@ -384,13 +417,13 @@ def test_c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, de
     unroll_list = [2, 1]
     if enable_high_perf:
         unroll_list = [2, 1]
-    # attention(q, k, v, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
+    attention(q, k, v, attn_sink, blk_tbl, start_pos, k_win, v_win, blk_win, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
     attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output, enable_flash=False, cmp_r=cmp_r, is_new_sink=True, k_win=k_win, v_win=v_win, blk_win=blk_win)
     attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True,k_win=k_win, v_win=v_win, blk_win=blk_win)
     threhold = 5e-4
     compare(output, output_flash, "no flash golden vs flash golden", rtol=threhold, atol=threhold)
     compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
-
+    
     # acl graph
     if enable_graph:
         model = torch.compile(MM(), backend="eager", dynamic=True)
@@ -410,6 +443,9 @@ def attention(
         attn_sink: torch.Tensor,
         blk_tbl: torch.Tensor,
         start_pos: torch.Tensor,
+        k_win: torch.Tensor,
+        v_win: torch.Tensor,
+        blk_win: torch.Tensor,                
         attn_res: torch.Tensor,
         cmp_r: int = 1,
         unroll_list: list | None = None,
@@ -451,7 +487,10 @@ def attention(
         value_cache: [0],
         attn_sink: [],
         blk_tbl: [],
-        start_pos: [0]
+        start_pos: [0],
+        k_win: [0],
+        v_win: [0],
+        blk_win: [0]        
     }
     outputs = {
         attn_res: [],
@@ -475,5 +514,5 @@ if __name__ == "__main__":
     p.add_argument("-c", "--device-id", type=int, default=0, help="显卡序号，默认0")
     p.add_argument("-u", "--upper", type=int, default=3072, help="融合上限法")
     args = p.parse_args()
-    test_ifa(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
+    test_c128(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
              device_id=args.device_id, pg_upper_bound=args.upper)

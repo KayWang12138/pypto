@@ -245,19 +245,19 @@ def ifa_flash_torch(q, k, v, attn_sink, block_table, start_pos, out, cmp_r=1, is
                     k_win_2d = k_win.reshape(-1, d)
                     v_win_2d = v_win.reshape(-1, d)
                     cur_seq_win = min(block_size, original_actual_seqs[b_idx]) - (s1 - 1 - s1_idx)
-                    k_win, v_win = get_block_kv(k_win_2d, v_win_2d, blk_win, b_idx, 0, block_size, cur_seq_win)
-                    mm1 = matmul_proxy(qi, k_win.t())
+                    k_win_tmp, v_win_tmp = get_block_kv(k_win_2d, v_win_2d, blk_win, b_idx, 0, block_size, cur_seq_win)
+                    mm1 = matmul_proxy(qi, k_win_tmp.t())
                     muls_res = mm1 * (d**-0.5)
                     tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)
                     tsub = muls_res - tilda_mij
                     tilda_pij = torch.exp(tsub)
                     tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
-                    oi_tmp = matmul_proxy(tilda_pij.to(dtype), v_win)
+                    oi_tmp = matmul_proxy(tilda_pij.to(dtype), v_win_tmp)
                     oi_upd = oi_tmp
                     li_upd = tilda_lij.squeeze(-1)
                     mi_upd = tilda_mij.squeeze(-1)
                     if s2_loop == 0:
-                         flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=False)
+                         flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=is_new_sink)
                 for s2_idx in range(s2_loop):
                     kj, vj = get_block_kv(k_2d, v_2d, block_table, b_idx, s2_idx, block_size, cur_seq)
                     mm1 = matmul_proxy(qi, kj.t())
