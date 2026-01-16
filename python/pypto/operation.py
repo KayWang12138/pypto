@@ -335,3 +335,65 @@ def view(
         return pypto_impl.View(input, shape, offsets)
     else:
         return pypto_impl.View(input, shape, to_syms(valid_shape), to_syms(offsets))
+
+@op_wrapper
+def create_shmem_data(
+                     group: str, 
+                     world_size: int, 
+                     dtype: DataType, 
+                     shape: List[int], 
+                     shmem_tensor: Tensor, 
+                     mem_type: int
+) -> None:
+    return pypto_impl.CreateShmemData(group, world_size, dtype, shape, shmem_tensor, mem_type)
+
+def create_shmem_signal(
+                       group: str, 
+                       shmem_data: Tensor, 
+                       shmem_signal: Tensor
+) -> None:
+    return pypto_impl.CreateShmemSignal(group, shmem_data, shmem_signal)
+
+def shmem_put(
+             input: Tensor, 
+             shmem_data_tile: Tensor, 
+             pred_token: Tensor, 
+             atomic_type: AtomicType
+) -> Tensor:
+    return pypto_impl.ShmemPut(input, shmem_data_tile, pred_token, atomic_type)
+
+def shmem_get(
+             dummy: Tensor, 
+             shmem_data_tile: Tensor, 
+             non_shmem_dtype: DataType.DT_BOTTOM, 
+             atomic_type: AtomicType = AtomicType.SET
+) -> Tensor:
+    return pypto_impl.ShmemGet(dummy, shmem_data_tile, non_shmem_dtype, atomic_type)
+
+def shmem_get_gm2ub(
+                  dummy: Tensor, 
+                  shmem_data_tile: Tensor, 
+                  non_shmem_dtype: DataType.DT_BOTTOM, 
+                  atomic_type: AtomicType = AtomicType.SET
+) -> Tensor: 
+    return pypto_impl.ShmemGetGm2Ub(dummy, shmem_data_tile, non_shmem_dtype, atomic_type)
+
+def shmem_signal(
+                dummy: Tensor, 
+                shmem_signal_tile: Tensor, 
+                atomic_type: AtomicType
+) -> Tensor:
+    return pypto_impl.ShmemSignal(dummy, shmem_signal_tile, atomic_type)
+
+def wait_until(
+              dummyIn: Tensor, 
+              shmem_signal_tile: Tensor, 
+              expected_sum: int, 
+              reset_signal: bool = False
+) -> Tensor:
+    return pypto_impl.WaitUntil(dummyIn, shmem_signal_tile, expected_sum, reset_signal)
+
+def get_hccl_rank_id(
+                    group: str
+) -> SymbolicScalar:
+    return pypto_impl.GetHcclRankId(group)

@@ -20,11 +20,12 @@
 #include "tilefwk/symbolic_distributed.h"
 
 namespace npu::tile_fwk {
-SymbolicScalar GetHcclRankId(int32_t groupIndex) {
+SymbolicScalar GetHcclRankId(std::string group) {
+    int32_t hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     std::string name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetHcclRankId);
     name = AddRuntimePrefix(name);
     SymbolicScalar getHcclRankId(name);
-    return getHcclRankId(groupIndex);
+    return getHcclRankId(hcclGroupIndex);
 }
 
 SymbolicScalar BindTensor(uint64_t groupIndex, uint64_t memType, uint64_t size) {

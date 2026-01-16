@@ -553,5 +553,65 @@ void bind_operation(py::module &m) {
         "TopKExtract(x, k:int, is_index:bool=False) -> y\n"
         "Extracts the top-k values (or indices if is_index=True)."
     );
+
+    m.def(
+        "CreateShmemData", [](const char *group, int64_t worldSize, DataType dataType, const Shape &shape,
+                               Tensor &shmemTensor, uint64_t memType = 0) {
+            return npu::tile_fwk::Distributed::CreateShmemData(group, worldSize, dataType, shape, shmemTensor, memType);
+        },
+        py::arg("group"), py::arg("worldSize"), py::arg("dataType"), py::arg("shape"), py::arg("shmemTensor"),
+        py::arg("memType") = 0, "Create shmem data.");
+    
+     m.def(
+        "CreateShmemSignal", [](const char *group, Tensor &shmemData, Tensor &shmemSignal) {
+            return npu::tile_fwk::Distributed::CreateShmemSignal(group, shmemData, shmemSignal);
+        },
+        py::arg("group"), py::arg("shmemData"), py::arg("shmemSignal"), "Create shmem signal data.");
+
+    m.def(
+        "ShmemPut",
+        [](const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
+            npu::tile_fwk::Distributed::AtomicType atomicType = npu::tile_fwk::Distributed::AtomicType::SET) {
+            return npu::tile_fwk::Distributed::ShmemPut(in, shmemDataTile, barrierDummy, atomicType);
+        },
+        py::arg("in"), py::arg("shmemDataTile"), py::arg("barrierDummy"),
+        py::arg("atomicType") = npu::tile_fwk::Distributed::AtomicType::SET, "Put gm data to shmem.");
+
+    m.def(
+        "ShmemGet",
+        [](const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
+            npu::tile_fwk::Distributed::AtomicType atomicType = npu::tile_fwk::Distributed::AtomicType::SET) {
+            return npu::tile_fwk::Distributed::ShmemGet(dummy, shmemDataTile, nonShmemDataType, atomicType);
+        },
+        py::arg("dummy"), py::arg("shmemDataTile"), py::arg("nonShmemDataType") = DataType::DT_BOTTOM,
+        py::arg("atomicType") = npu::tile_fwk::Distributed::AtomicType::SET, "Get shmem data to gm.");
+
+    m.def(
+        "ShmemGetGm2Ub",
+        [](const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
+            npu::tile_fwk::Distributed::AtomicType atomicType = npu::tile_fwk::Distributed::AtomicType::SET) {
+            return npu::tile_fwk::Distributed::ShmemGetGm2Ub(dummy, shmemDataTile, nonShmemDataType, atomicType);
+        },
+        py::arg("dummy"), py::arg("shmemDataTile"), py::arg("nonShmemDataType") = DataType::DT_BOTTOM,
+        py::arg("atomicType") = npu::tile_fwk::Distributed::AtomicType::SET, "Get shmem data to ub.");
+    
+    m.def(
+        "ShmemSignal",
+        [](const Tensor &dummy, const Tensor &shmemSignalTile, AtomicType atomicType) {
+            return npu::tile_fwk::Distributed::ShmemSignal(dummy, shmemSignalTile, atomicType);
+        },
+        py::arg("dummy"), py::arg("shmemSignalTile"), py::arg("atomicType"), "Set shmem signal data.");
+
+    m.def(
+        "WaitUntil",
+        [](const Tensor &dummyIn, const Tensor &shmemSignalTile, int32_t expectedSum, bool resetSignal = false) {
+            return npu::tile_fwk::Distributed::WaitUntil(dummyIn, shmemSignalTile, expectedSum, resetSignal);
+        },
+        py::arg("dummyIn"), py::arg("shmemSignalTile"), py::arg("expectedSum"), py::arg("resetSignal") = false,
+        "Wait signal data.");
+
+    m.def(
+        "GetHcclRankId", [](std::string group) { return npu::tile_fwk::GetHcclRankId(group); }, py::arg("group"),
+        "Get local rank id by groupname.");
 }
 } // namespace pypto
