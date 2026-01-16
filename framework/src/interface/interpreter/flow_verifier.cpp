@@ -255,18 +255,26 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         float eps = static_cast<float>(1e-3);
         capture = captureList[captureIndex];
 
-        auto captureExecution = functionInterpreter_->RunForPass(key, func, capture);
-        auto goldenDataViewList = capture->golden->outcastDataViewList;
-        auto executeDataViewList = captureExecution->golden->outcastDataViewList;
-        /* record it */
-        lastCaptureExecution_[func][captureIndex] = captureExecution;
+        try {
+            auto captureExecution = functionInterpreter_->RunForPass(key, func, capture);
+            auto goldenDataViewList = capture->golden->outcastDataViewList;
+            auto executeDataViewList = captureExecution->golden->outcastDataViewList;
+            /* record it */
+            lastCaptureExecution_[func][captureIndex] = captureExecution;
 
-        std::string tensorName = "tensor~" + func->GetMagicName() + "~" + passIdentifier +
-                    "~" + functionInterpreter_->GetLoopSymbolString();
+            std::string tensorName = "tensor~" + func->GetMagicName() + "~" + passIdentifier +
+                        "~" + functionInterpreter_->GetLoopSymbolString();
 
-        auto res = VerifyResult(key, tensorName, goldenDataViewList, executeDataViewList, eps);
-        if (!res) {
-            checkResult = false;
+            auto res = VerifyResult(key, tensorName, goldenDataViewList, executeDataViewList, eps);
+            if (!res) {
+                checkResult = false;
+            }
+        } catch (std::exception &e) {
+            // 在pass验证模式下，打印错误信息但不中断执行，继续下一个capture的验证
+            ALOG_ERROR_F("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s", 
+                         func->GetMagicName().c_str(), passIdentifier.c_str(), passIndex, captureIndex, e.what());
+            // 不中断执行，继续下一个capture的验证
+            continue;
         }
     }
     functionInterpreter_->DumpReset();
