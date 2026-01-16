@@ -21,6 +21,14 @@
 #include "tilefwk/aicore_data.h"
 #include "tileop/distributed/hccl_context.h"
 
+#ifndef __TILE_FWK_HOST__
+INLINE __gm__ void *tilefwk_shmem_ptr(__gm__ void *ptr, int pe) {
+    (void)pe;
+    return ptr;
+}
+#define shmem_ptr tilefwk_shmem_ptr
+#endif
+
 #define CACHELINE_SIZE_FOR_B32 128
 #define CACHELINE_SIZE_FOR_B64 64
 #define DEFAULT_TOTAL_BLOCK_NUM 75
@@ -253,7 +261,15 @@ int64_t RuntimeGetViewValidShapeDim(int64_t validshape, int64_t viewOffset, int6
 
 INLINE uint64_t GetShmemTensorAddr(CoreFuncParam *ctx, int idx, int groupIndex, uint64_t offset) {
     auto dstRankId = GetCoa(ctx, idx + 1);
+#ifdef __TILE_FWK_HOST__
     return ((__gm__ TileOp::HcclCombinOpParam *)ctx->funcData->hcclContext[groupIndex])->windowsIn[dstRankId] + offset;
+#else
+    auto winContext = (__gm__ TileOp::HcclCombinOpParam *)ctx->funcData->hcclContext[groupIndex];
+    if (winContext->padding[0] != TileOp::HCCL_CONTEXT_MAGIC) {
+        return (uint64_t)shmem_ptr((__gm__ uint8_t *)(ctx->funcData->hcclContext[groupIndex]) + offset, dstRankId);
+    }
+    return winContext->windowsIn[dstRankId] + offset;
+#endif
 }
 
 #define RUNTIME_GetViewValidShapeDim(validShape, viewOffset, viewShape) RuntimeGetViewValidShapeDim(validShape, viewOffset, viewShape)

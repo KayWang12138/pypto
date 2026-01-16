@@ -92,6 +92,32 @@ void bind_controller_set_tile(py::module &m) {
         auto cubeTile = TileShape::Current().GetCubeTile();
         return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.enableMultiDataLoad, cubeTile.enableSplitK);
     });
+
+    m.def("SetDistTile", [](const std::vector<int> &row, const std::vector<int> &col, const std::vector<int> &rank) {
+        std::array<int, MAX_DIST_DIM_SIZE> rowArr = {0};
+        std::array<int, MAX_DIST_DIM_SIZE> colArr = {0};
+        std::array<int, MAX_DIST_DIM_SIZE> rankArr = {0};
+        std::copy(row.begin(), row.end(), rowArr.begin());
+        std::copy(col.begin(), col.end(), colArr.begin());
+        std::copy(rank.begin(), rank.end(), rankArr.begin());
+        TileShape::Current().SetDistTile(rowArr, colArr, rankArr);
+    }, py::arg("row"), py::arg("col"), py::arg("rank"));
+
+    m.def("GetDistTile", []() {
+        auto distTile = TileShape::Current().GetDistTile();
+        std::vector<int> row(distTile.row.begin(), distTile.row.end());
+        std::vector<int> col(distTile.col.begin(), distTile.col.end());
+        std::vector<int> rank(distTile.rank.begin(), distTile.rank.end());
+        return std::tuple(row, col, rank);
+    });
+
+    m.def("SetDistRankId", [](int64_t rankId) {
+        TileShape::Current().SetDistRankId(rankId);
+    }, py::arg("rank_id"));
+
+    m.def("GetDistRankId", []() {
+        return TileShape::Current().GetDistRankId();
+    });
 }
 
 void bind_controller_function(py::module &m) {

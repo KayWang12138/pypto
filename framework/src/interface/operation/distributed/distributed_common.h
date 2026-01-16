@@ -153,4 +153,18 @@ inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResu
 } // namespace Distributed
 } // namespace npu::tile_fwk
 
+namespace npu::tile_fwk::Distributed {
+Tensor ShmemPut(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
+    AtomicType atomicType);
+Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int tileCount,
+    AtomicType atomicType);
+Tensor ShmemSignal(const Tensor &dummy, const Tensor &shmemSignalTile, AtomicType atomicType);
+Tensor ShmemGet(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType,
+    AtomicType atomicType);
+Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType,
+    AtomicType atomicType);
+Tensor WaitUntil(const Tensor &dummyIn, const Tensor &shmemSignalTile, int32_t expectedSum, bool resetSignal);
+void ShmemReduce(const Tensor &in, const Tensor &shmData, const Tensor &dummy, const Tensor &out);
+} // namespace npu::tile_fwk::Distributed
+
 #endif

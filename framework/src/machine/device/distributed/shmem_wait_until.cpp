@@ -53,11 +53,18 @@ uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankI
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
     uint64_t memType = npu::tile_fwk::Distributed::GetVirtaulAddrMemType(addr);
     auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContextAddr_[groupIndex]);
+#ifndef __TILE_FWK_HOST__
+    if (hcclOpParam->padding[0] != TileOp::HCCL_CONTEXT_MAGIC) {
+        if (memType == 0) {
+            return (uint64_t)shmem_ptr((__gm__ uint8_t*)(hcclContextAddr_[groupIndex]) + offset, dstRankId);
+        }
+        return (uint64_t)shmem_ptr((__gm__ uint8_t*)(hcclContextAddr_[groupIndex]) + (1UL << 29) + offset, dstRankId);
+    }
+#endif
     if (memType == 0) {
         return hcclOpParam->windowsIn[dstRankId] + offset;
-    } else {
-        return hcclOpParam->windowsExp[dstRankId] + offset;
     }
+    return hcclOpParam->windowsExp[dstRankId] + offset;
 }
 
 TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) {
@@ -78,7 +85,10 @@ TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::d
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
     info.resetSignal = aicpuCode[paramInfo_.attrIndex + 2];
     auto desc = &funcData.rawTensorDesc[info.rawIndex];
-    info.rawAddr = ShmemWaitUntil::GetRawAddr(funcData.rawTensorAddr[desc->offsetOrIndex], dstRankId);
+    uint64_t rawTensorAddr = funcData.rawTensorAddr[desc->offsetOrIndex];
+    DEV_ERROR("ShmemWaitUntil::GetTensorInfo rawIndex=%lu location=%u offsetOrIndex=%u rawTensorAddr=0x%lx",
+        static_cast<unsigned long>(info.rawIndex), desc->location, desc->offsetOrIndex, rawTensorAddr);
+    info.rawAddr = ShmemWaitUntil::GetRawAddr(rawTensorAddr, dstRankId);
     return info;
 }
 } // namespace npu::tile_fwk::Distributed

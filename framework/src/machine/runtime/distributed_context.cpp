@@ -58,6 +58,46 @@ struct Mc2CommConfig {
     struct Mc2HcommCfg hcommCfg;
 };
 
+constexpr uint32_t INIT_TILING_VERSION = 100U;
+constexpr uint32_t MAX_CC_TILING_NUM = 8U;
+
+#pragma pack(push, 8)
+struct Mc2InitTilingInner {
+    uint32_t version;
+    uint32_t mc2HcommCnt;
+    uint32_t offset[MAX_CC_TILING_NUM];
+    uint8_t debugMode;
+    uint8_t preparePosition;
+    uint16_t queueNum;
+    uint16_t commBlockNum;
+    uint8_t devType;
+    char reserved[17];
+};
+#pragma pack(pop)
+
+constexpr uint32_t GROUP_NAME_SIZE = 128U;
+constexpr uint32_t ALG_CONFIG_SIZE = 128U;
+
+struct Mc2cCTilingInner {
+    uint8_t skipLocalRankCopy;
+    uint8_t skipBufferWindowCopy;
+    uint8_t stepSize;
+    uint8_t version;
+    char reserved[9];
+    uint8_t commEngine;
+    uint8_t srcDataType;
+    uint8_t dstDataType;
+    char groupName[GROUP_NAME_SIZE];
+    char algConfig[ALG_CONFIG_SIZE];
+    uint32_t opType;
+    uint32_t reduceType;
+};
+
+struct Mc2CommConfigV2 {
+    Mc2InitTilingInner init;
+    Mc2cCTilingInner inner;
+};
+
 template<typename Mc2CommConfig>
 class TilingStructBase {
 public:
@@ -96,6 +136,36 @@ public:
         return 0;
     }
 };
+
+class TilingStructV2 : public TilingStructBase<Mc2CommConfigV2> {
+public:
+    TilingStructV2() {}
+    ~TilingStructV2() {}
+    int32_t MakeMc2TilingStruct(const std::string& groupName) override
+    {
+        (void)memset_s(&Mc2CommConfig_, sizeof(Mc2CommConfig_), 0, sizeof(Mc2CommConfig_));
+        const char *algConfig = "BatchWrite=level0:fullmesh";
+        Mc2CommConfig_.init.version = INIT_TILING_VERSION;
+        Mc2CommConfig_.init.mc2HcommCnt = 1;
+        Mc2CommConfig_.init.queueNum = 0;
+        Mc2CommConfig_.init.commBlockNum = 48U;
+        Mc2CommConfig_.init.devType = 4U;
+        Mc2CommConfig_.inner.skipLocalRankCopy = 0;
+        Mc2CommConfig_.inner.skipBufferWindowCopy = 0;
+        Mc2CommConfig_.inner.stepSize = 0;
+        Mc2CommConfig_.inner.opType = 18U;
+        Mc2CommConfig_.inner.version = 1;
+        Mc2CommConfig_.init.offset[0] = static_cast<uint32_t>(
+            reinterpret_cast<uint64_t>(&Mc2CommConfig_.inner) - reinterpret_cast<uint64_t>(&Mc2CommConfig_.init));
+        if (strcpy_s(Mc2CommConfig_.inner.groupName, sizeof(Mc2CommConfig_.inner.groupName), groupName.c_str()) != EOK) {
+            return -1;
+        }
+        if (strcpy_s(Mc2CommConfig_.inner.algConfig, sizeof(Mc2CommConfig_.inner.algConfig), algConfig) != EOK) {
+            return -1;
+        }
+        return 0;
+    }
+};
 }
 
 namespace npu::tile_fwk::dynamic {
@@ -105,8 +175,8 @@ std::vector<uint64_t> DistributedContext::GetHcclContextToHost(const std::vector
     std::vector<uint64_t> host_context;
     ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
     for (size_t groupIndex = 0; groupIndex < groupNames.size(); groupIndex++) {
-        (void)rtMemcpy(&g_hostAddr[groupIndex], sizeof(g_hostAddr[groupIndex]), (uint8_t *)devAddrs[0], sizeof(g_hostAddr[groupIndex]),
-            RT_MEMCPY_DEVICE_TO_HOST);
+        (void)rtMemcpy(&g_hostAddr[groupIndex], sizeof(g_hostAddr[groupIndex]),
+            (uint8_t *)devAddrs[groupIndex], sizeof(g_hostAddr[groupIndex]), RT_MEMCPY_DEVICE_TO_HOST);
         host_context.push_back((uint64_t)(&g_hostAddr[groupIndex]));
     }
     return host_context;
@@ -119,6 +189,7 @@ std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::
 {
 #ifdef BUILD_WITH_CANN
     std::shared_ptr<TilingStruct> tilingStruct = std::make_shared<TilingStruct>();
+    std::shared_ptr<TilingStructV2> tilingStructV2 = std::make_shared<TilingStructV2>();
     std::vector<uint64_t> hcclContext(groupNames.size(), 0);
     ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
     for (size_t groupIndex = 0; groupIndex < groupNames.size(); ++groupIndex) {
@@ -130,11 +201,26 @@ std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::
         HcclComm commHandle = nullptr;
         HcclResult ret = HcomGetCommHandleByGroup(groupName.c_str(), &commHandle);
         ASSERT(ret == 0);
-        bool makeTilingSuccess = tilingStruct->MakeMc2TilingStruct(groupName);
-        ASSERT(makeTilingSuccess == 0);
-        ret = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(), &(tilingStruct->Mc2CommConfig_),
-            reinterpret_cast<void **>(&hcclContext[groupIndex]));
-        ASSERT((ret == 0) && (hcclContext[groupIndex] != 0UL));
+        void *commContext = nullptr;
+        HcclResult retV1 = HCCL_E_INTERNAL;
+        HcclResult retV2 = HCCL_E_INTERNAL;
+        if (tilingStruct->MakeMc2TilingStruct(groupName) == 0) {
+            retV1 = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(),
+                &(tilingStruct->Mc2CommConfig_), &commContext);
+        }
+        if ((retV1 != 0) || (commContext == nullptr)) {
+            commContext = nullptr;
+            if (tilingStructV2->MakeMc2TilingStruct(groupName) == 0) {
+                retV2 = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(),
+                    &(tilingStructV2->Mc2CommConfig_), &commContext);
+            }
+        }
+        if ((retV1 != 0) && (retV2 != 0)) {
+            ALOG_ERROR_F("HcclAllocComResourceByTiling failed: groupName=%s retV1=%d retV2=%d",
+                groupName.c_str(), retV1, retV2);
+        }
+        ASSERT(commContext != nullptr);
+        hcclContext[groupIndex] = reinterpret_cast<uint64_t>(commContext);
         ALOG_INFO_F("groupIndex=%u, groupName=%s, hcclContext=%lu", groupIndex, groupName.c_str(),
             hcclContext[groupIndex]);
         g_context[groupName] = hcclContext[groupIndex];

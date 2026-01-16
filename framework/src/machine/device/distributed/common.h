@@ -20,6 +20,14 @@
 #include "tilefwk/aicore_data.h"
 #include "machine/utils/dynamic/dev_encode_types.h"
 
+#ifndef __TILE_FWK_HOST__
+__attribute__((always_inline)) __aicore__ inline __gm__ void *tilefwk_shmem_ptr(__gm__ void *ptr, int pe) {
+    (void)pe;
+    return ptr;
+}
+#define shmem_ptr tilefwk_shmem_ptr
+#endif
+
 namespace npu::tile_fwk::dynamic {
     class AiCoreManager;
 }

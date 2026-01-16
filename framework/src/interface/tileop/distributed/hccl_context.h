@@ -214,6 +214,8 @@ struct HcclCombinOpParam {
     uint64_t ibverbsData = 0; // TransportDeviceNormalIbverbsData数组的首地址
     uint64_t ibverbsDataSize = 0; // TransportDeviceNormalIbverbsData数组的字节长度
 };
+
+constexpr uint8_t HCCL_CONTEXT_MAGIC = 0xA5;
 } // namespace TileOp
 
 #endif

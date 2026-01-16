@@ -532,7 +532,7 @@ void MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tens
         (void) index;
         TileShape::Current().SetDistTile(
             {batchSize, 1, 0},
-            {topK/2, 2, 0},
+            {topK, 1, 0},
             {moeConfig.rankNum, 1, 0});
         Tensor syncTensor = SendToRoutingExpert(shmemData, tokenTensor, tokenExpertTable, group, moeConfig);
         TileShape::Current().SetDistTile(

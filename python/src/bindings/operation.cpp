@@ -16,6 +16,8 @@
 #include "pybind_common.h"
 
 #include <vector>
+#include "interface/operation/distributed/distributed_common.h"
+#include "tilefwk/comm_group_recorder.h"
 
 using namespace npu::tile_fwk;
 
@@ -505,5 +507,147 @@ void bind_operation(py::module &m) {
         "TopKExtract(x, k:int, is_index:bool=False) -> y\n"
         "Extracts the top-k values (or indices if is_index=True)."
     );
+
+    py::class_<Distributed::MoeConfig>(m, "MoeConfig")
+        .def(py::init<>())
+        .def_readwrite("routedExpertNum", &Distributed::MoeConfig::routedExpertNum)
+        .def_readwrite("expertNumPerRank", &Distributed::MoeConfig::expertNumPerRank)
+        .def_readwrite("rankNum", &Distributed::MoeConfig::rankNum);
+
+    m.def("CreateShmemTensor",
+        [](int32_t rankSize, const std::string &group, DataType dataType, const std::vector<int64_t>& shape, uint64_t memType) {
+            Tensor shmemTensor;
+            Distributed::CreateShmemData(group.c_str(), rankSize, dataType, shape, shmemTensor, memType);
+            return shmemTensor;
+        },
+        py::arg("rankSize"), py::arg("group"), py::arg("dataType"), py::arg("shape"), py::arg("memType") = 0,
+        "Create a shared memory tensor.");
+
+    m.def("ShmemBarrier",
+        [](const Tensor &predToken, Tensor &shmemSignal, const std::string &group, Tensor &out) {
+            const TileShape& tileShape = TileShape::Current();
+            auto rankShape = tileShape.GetDistTileRank();
+            uint32_t worldSize = rankShape[0] * rankShape[1] + rankShape[2];
+            Distributed::ShmemBarrier(predToken, shmemSignal, group.c_str(), worldSize, out);
+        },
+        py::arg("predToken"), py::arg("shmemSignal"), py::arg("group"), py::arg("out"),
+        "Distributed shared memory barrier.");
+
+    m.def("ShmemSet",
+        [](const Tensor &predToken, const Tensor &shmemTensor) {
+            return Distributed::ShmemDataSet(predToken, shmemTensor);
+        },
+        py::arg("predToken"), py::arg("shmemTensor"),
+        "Set shared memory data.");
+
+    m.def("ShmemAllGather",
+        [](const Tensor &in, const Tensor &barrierDummy, const std::string &group, Tensor &out) {
+            const TileShape& tileShape = TileShape::Current();
+            auto rankShape = tileShape.GetDistTileRank();
+            uint32_t worldSize = rankShape[0] * rankShape[1] + rankShape[2];
+            Distributed::AllGather(barrierDummy, in, group.c_str(), worldSize, out);
+        },
+        py::arg("in"), py::arg("barrierDummy"), py::arg("group"), py::arg("out"),
+        "Distributed AllGather operation.");
+
+    m.def("OneShotShmemAllReduce",
+        [](const Tensor &in, const std::string &group, Tensor &out) {
+            const TileShape& tileShape = TileShape::Current();
+            auto rankShape = tileShape.GetDistTileRank();
+            uint32_t worldSize = rankShape[0] * rankShape[1] + rankShape[2];
+            auto dummyTensor = Tensor(DT_INT32, Shape{1, 1});
+            Distributed::OneShotAllReduce(dummyTensor, in, group.c_str(), worldSize, out);
+        },
+        py::arg("in"), py::arg("group"), py::arg("out"),
+        "One-shot AllReduce operation.");
+
+    m.def("TwoShotShmemAllReduce",
+        [](const Tensor &in, const std::string &group, Tensor &out) {
+            const TileShape& tileShape = TileShape::Current();
+            auto rankShape = tileShape.GetDistTileRank();
+            uint32_t worldSize = rankShape[0] * rankShape[1] + rankShape[2];
+            auto dummyTensor = Tensor(DT_INT32, Shape{1, 1});
+            Distributed::TwoShotAllReduce(dummyTensor, in, group.c_str(), worldSize, out);
+        },
+        py::arg("in"), py::arg("group"), py::arg("out"),
+        "Two-shot AllReduce operation.");
+
+    m.def("ShmemReduceScatter",
+        [](const Tensor &in, const std::string &group, Distributed::DistReduceType reduceType, Tensor &out) {
+            const TileShape& tileShape = TileShape::Current();
+            auto rankShape = tileShape.GetDistTileRank();
+            uint32_t worldSize = rankShape[0] * rankShape[1] + rankShape[2];
+            auto dummyTensor = Tensor(DT_INT32, Shape{1, 1});
+            Distributed::ReduceScatter(dummyTensor, in, group.c_str(), worldSize, reduceType, out);
+        },
+        py::arg("in"), py::arg("group"), py::arg("reduceType"), py::arg("out"),
+        "ReduceScatter operation.");
+
+    m.def("MoeDispatch",
+        [](const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tensor &expandX, Tensor &validCnt, Tensor &combineInfo, const std::string &group, const Distributed::MoeConfig &moeConfig) {
+            Distributed::MoeDispatch(tokenTensor, tokenExpertTable, expandX, validCnt, combineInfo, group.c_str(), moeConfig);
+        },
+        py::arg("tokenTensor"), py::arg("tokenExpertTable"), py::arg("expandX"), py::arg("validCnt"), py::arg("combineInfo"), py::arg("group"), py::arg("moeConfig"),
+        "MoE dispatch operation.");
+
+    m.def("ShmemMoeCombine",
+        [](const Tensor &in, const Tensor &combineInfo, const Tensor &recvCounts, const Tensor &scale,
+            const std::string &group, int32_t rankSize, int32_t totalExpertNum, Tensor &out) {
+            Distributed::MoeDistributedCombine(in, combineInfo, recvCounts, scale, group.c_str(), rankSize, totalExpertNum, 0, 0, out);
+        },
+        py::arg("in"), py::arg("combineInfo"), py::arg("recvCounts"), py::arg("scale"),
+        py::arg("group"), py::arg("rankSize"), py::arg("totalExpertNum"), py::arg("out"),
+        "MoE combine operation.");
+
+    m.def("ShmemPut",
+        [](const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int tileCount, Distributed::AtomicType atomicType) {
+            (void)tileCount;
+            return Distributed::ShmemPut(in, shmemDataTile, barrierDummy, atomicType);
+        },
+        py::arg("in"), py::arg("shmemDataTile"), py::arg("barrierDummy"), py::arg("tileCount"), py::arg("atomicType") = Distributed::AtomicType::SET,
+        "ShmemPut operation.");
+
+    m.def("ShmemPutUb2Gm",
+        [](const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int tileCount, Distributed::AtomicType atomicType) {
+            return Distributed::ShmemPutUb2Gm(in, shmemDataTile, barrierDummy, tileCount, atomicType);
+        },
+        py::arg("in"), py::arg("shmemDataTile"), py::arg("barrierDummy"), py::arg("tileCount"), py::arg("atomicType") = Distributed::AtomicType::SET,
+        "ShmemPutUb2Gm operation.");
+
+    m.def("ShmemGet",
+        [](const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType, Distributed::AtomicType atomicType) {
+            return Distributed::ShmemGet(dummy, shmemDataTile, nonShmemDataType, atomicType);
+        },
+        py::arg("dummy"), py::arg("shmemDataTile"), py::arg("nonShmemDataType"), py::arg("atomicType") = Distributed::AtomicType::SET,
+        "ShmemGet operation.");
+
+    m.def("ShmemGetGm2Ub",
+        [](const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType, Distributed::AtomicType atomicType) {
+            return Distributed::ShmemGetGm2Ub(dummy, shmemDataTile, nonShmemDataType, atomicType);
+        },
+        py::arg("dummy"), py::arg("shmemDataTile"), py::arg("nonShmemDataType"), py::arg("atomicType") = Distributed::AtomicType::SET,
+        "ShmemGetGm2Ub operation.");
+
+    m.def("ShmemReduce",
+        [](const Tensor &in, const Tensor &shmData, const Tensor &dummy, const Tensor &out) {
+            Distributed::ShmemReduce(in, shmData, dummy, out);
+        },
+        py::arg("in"), py::arg("shmData"), py::arg("dummy"), py::arg("out"),
+        "ShmemReduce operation.");
+
+    m.def("ShmemSignal",
+        [](const Tensor &dummy, const Tensor &shmemSignalTile, Distributed::AtomicType atomicType) {
+            return Distributed::ShmemSignal(dummy, shmemSignalTile, atomicType);
+        },
+        py::arg("dummy"), py::arg("shmemSignalTile"), py::arg("atomicType") = Distributed::AtomicType::SET,
+        "ShmemSignal operation.");
+
+    m.def("WaitUntil",
+        [](const Tensor &dummyIn, const Tensor &shmemSignalTile, int32_t tileCount, int32_t expectedSum, bool resetSignal) {
+            (void)tileCount;
+            return Distributed::WaitUntil(dummyIn, shmemSignalTile, expectedSum, resetSignal);
+        },
+        py::arg("dummyIn"), py::arg("shmemSignalTile"), py::arg("tileCount"), py::arg("expectedSum"), py::arg("resetSignal") = false,
+        "WaitUntil operation.");
 }
 } // namespace pypto

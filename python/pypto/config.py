@@ -319,6 +319,64 @@ def get_debug_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]
     return scope.get_debug_options()
 
 
+def set_distributed_options(*,
+        hccl_handle: Optional[List[int]] = None,
+        hccl_group_name: Optional[List[str]] = None
+) -> None:
+    """
+    Set distributed options for HCCL communication.
+
+    Parameters
+    ---------
+    hccl_handle : List[int]
+        List of HCCL communication handles.
+
+    hccl_group_name : List[str]
+        List of HCCL communication group names.
+    """
+    global _distributed_options
+    if hccl_handle is not None:
+        handles = [int(h) for h in hccl_handle]
+        _distributed_options["hccl_handle"] = handles
+        set_option("distributed.hccl_handle", handles)
+    if hccl_group_name is not None:
+        names = list(hccl_group_name)
+        _distributed_options["hccl_group_name"] = names
+        set_option("distributed.hccl_group_name", names)
+        try:
+            import torch
+            import torch.distributed as dist
+            if dist.is_initialized():
+                pg = dist.group.WORLD
+                backend = pg._get_backend(torch.device("npu"))
+                if hasattr(backend, "_set_hccl_comm_name"):
+                    for name in names:
+                        if "shmem_group" not in name:
+                            backend._set_hccl_comm_name(name)
+        except Exception:
+            pass
+
+
+def get_distributed_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
+    """
+    Get distributed options.
+
+    Returns
+    -------
+    Dict[str, Union[str, int, List[int], Dict[int, int]]]
+        All distributed options
+    """
+    global _distributed_options
+    return _distributed_options.copy()
+
+
+# Global storage for distributed options (not tied to scope system)
+_distributed_options: Dict[str, Union[List[int], List[str]]] = {
+    "hccl_handle": [],
+    "hccl_group_name": []
+}
+
+
 def set_semantic_label(label: str) -> None:
     """
     Set the semantic label object.

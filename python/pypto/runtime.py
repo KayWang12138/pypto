@@ -136,7 +136,7 @@ class _ControlflowShape:
 class _JIT:
     def __init__(self, dyn_func, codegen_options=None, host_options=None,
                  pass_options=None, runtime_options=None, verify_options=None,
-                 debug_options=None, infer_controlflow_shape=None):
+                 debug_options=None, infer_controlflow_shape=None, distributed_options=None):
         self.dyn_func = dyn_func
         self.codegen_options = codegen_options
         self.host_options = host_options
@@ -145,6 +145,7 @@ class _JIT:
         self.verify_options = verify_options
         self.debug_options = debug_options
         self.infer_controlflow_shape = infer_controlflow_shape
+        self.distributed_options = distributed_options
         self.kernel_cache = {}
         self.controlflow_cache = {}
 
@@ -314,6 +315,8 @@ class _JIT:
         if isinstance(self.debug_options, dict):
             pypto.set_debug_options(**self.debug_options)
 
+        if isinstance(self.distributed_options, dict):
+            pypto.set_distributed_options(**self.distributed_options)
 
 @overload
 def jit(dyn_func=None):
@@ -329,7 +332,8 @@ def jit(
         runtime_options=None,
         verify_options=None,
         debug_options=None,
-        infer_controlflow_shape=None
+        infer_controlflow_shape=None,
+        distributed_options=None
 ):
     ...
 
@@ -342,7 +346,8 @@ def jit(dyn_func=None,
         runtime_options=None,
         verify_options=None,
         debug_options=None,
-        infer_controlflow_shape=None):
+        infer_controlflow_shape=None,
+        distributed_options=None):
 
     def decorator(func):
         return _JIT(func,
@@ -352,7 +357,8 @@ def jit(dyn_func=None,
                     runtime_options=runtime_options,
                     verify_options=verify_options,
                     debug_options=debug_options,
-                    infer_controlflow_shape=infer_controlflow_shape)
+                    infer_controlflow_shape=infer_controlflow_shape,
+                    distributed_options=distributed_options)
 
     if dyn_func is not None:
         return _JIT(dyn_func)

@@ -178,6 +178,11 @@ public:
     }
 
     inline int32_t PrepareTask(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) {
+        const size_t codeSize = aicpuCode.size();
+        DEV_ERROR("ShmemWaitUntil::PrepareTask aicpuCode.size=%u", static_cast<unsigned>(codeSize));
+        for (size_t i = 0; i < codeSize; ++i) {
+            DEV_ERROR("ShmemWaitUntil::PrepareTask aicpuCode[%u]=%d", static_cast<unsigned>(i), aicpuCode[i]);
+        }
         paramInfo_ = DecodeAicpuCode(aicpuCode);
         TensorInfo info = ShmemWaitUntil::GetTensorInfo(taskId, aicpuCode);
         const int32_t expectedSum = info.expectedSum;
@@ -189,9 +194,12 @@ public:
         int32_t totalTileNum = ((paramInfo_.rawShapeRow - 1) / paramInfo_.tileShapeRow + 1) * ((paramInfo_.rawShapeCol - 1) / paramInfo_.tileShapeCol + 1);
 
         // info.offset[1]代表src的rankId=offset[1]的shmemSignal版图, info.offset[2]代表srcRankId, info.offset[3]代表row offset, info.offset[4]代表col offset
-        DEV_DEBUG("ShmemWaitUntil::EnqueueOp offset1=%u, offset2=%u, offset3=%u,  offset4=%u, shape3=%u, shape4=%u, rawShape3=%u, rawShape4=%u, tileIndex=%d, totalTileNum=%d", 
-            info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL],
-            paramInfo_.tileShapeRow, paramInfo_.tileShapeCol, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, tileIndex, totalTileNum);
+        DEV_ERROR("ShmemWaitUntil::EnqueueOp rawAddr=0x%lx stride=%d rawRankShape=%u rawShapeRow=%u rawShapeCol=%u tileShapeRow=%u tileShapeCol=%u",
+            info.rawAddr, stride, paramInfo_.rawRankShape, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol,
+            paramInfo_.tileShapeRow, paramInfo_.tileShapeCol);
+        DEV_ERROR("ShmemWaitUntil::EnqueueOp offset0=%u offset1=%u offset2=%u offset3=%u offset4=%u tileIndex=%d totalTileNum=%d",
+            info.offset[0], info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL],
+            tileIndex, totalTileNum);
 
         int32_t* addr = reinterpret_cast<int32_t*>(info.rawAddr) + info.offset[SRC_SHMEM_SIGNAL_ID] * paramInfo_.rawRankShape * totalTileNum * stride +
             (info.offset[SRC_RANK_ID] * totalTileNum + tileIndex) * stride;
