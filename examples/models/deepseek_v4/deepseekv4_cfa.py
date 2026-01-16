@@ -86,7 +86,7 @@ class AttentionConfig:
 def get_case_info(device="cpu"):
     b = 4
     s1 = 1
-    s2 = 128 * 1024
+    s2 = 64 * 1024
     q_d = 512
     nq = 64
     nkv = 1
@@ -106,11 +106,13 @@ def get_case_info(device="cpu"):
 @pypto.jit(
     runtime_options={"stitch_function_num_initial": 128,
                      "stitch_function_outcast_memory": 1024,
-                     "stitch_function_inner_memory": 1024},
+                     "stitch_function_inner_memory": 1024,
+                     "device_sched_mode": 1},
     host_options={"only_codegen": True},
     debug_options={"runtime_debug_mode": 1},
+    
     # 当子图大小达到上界不允许与其他子图合并
-    pass_options={"cube_l1_reuse_setting": {0: 4}}
+    pass_options={"cube_l1_reuse_setting": {0: 4, 2:4}}
 )
 def ifa_flash(q, k, v, attn_sink, block_table, start_pos, k_win=None, v_win=None, blk_win=None, 
               atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
@@ -512,7 +514,7 @@ if __name__ == "__main__":
     p.add_argument("-p", "--high-perf", action="store_true", help="启用高性能模式")
     p.add_argument("-g", "--enable-graph", action="store_true", help="启用高性能模式")
     p.add_argument("-c", "--device-id", type=int, default=0, help="显卡序号，默认0")
-    p.add_argument("-u", "--upper", type=int, default=3072, help="融合上限法")
+    p.add_argument("-u", "--upper", type=int, default=6000, help="融合上限法")
     args = p.parse_args()
     test_c128(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
              device_id=args.device_id, pg_upper_bound=args.upper)
