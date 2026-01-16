@@ -25,8 +25,6 @@
 #include "machine/utils/device_log.h"
 #include "device_utils.h"
 
-// #include <tracr/tracr.hpp>
-
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
@@ -249,33 +247,6 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
             g_machine_mgr.machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
         }
         DEV_ERROR("Finish dump machine perf trace.");
-#endif
-
-#ifdef ENABLE_TRACR
-
-    DEV_ERROR("[TraCR] TraCR enabled? %d", INSTRUMENTATION_ACTIVE);
-
-    INSTRUMENTATION_START("/tmp/");
-
-    DEV_ERROR("[TraCR] TraCR started.");
-
-    uint16_t channelidx = INSTRUMENTATION_MARK_ADD(MARK_COLOR_GREEN, "Running a Task");
-
-    for(int i = 0; i < 4; ++i) {
-        INSTRUMENTATION_MARK_SET(channelidx, 0, 0);
-    }
-
-    DEV_ERROR("Begin dump TraCR trace.");
-
-    DEV_ERROR("JSON: %s\n", INSTRUMENTATION_GET_JSON_STR().c_str());
-
-    DEV_ERROR("BTS: %s\n", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
-
-    DEV_ERROR("Finish dump TraCR trace.");
-
-    INSTRUMENTATION_END();
-
-    DEV_ERROR("[TraCR] finalized.");
 #endif
         return DEVICE_MACHINE_OK;
     }
