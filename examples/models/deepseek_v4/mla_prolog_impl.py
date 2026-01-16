@@ -12,12 +12,12 @@
 """
 from dataclasses import dataclass
 import math
+from typing import List, Tuple
 import torch
 from torch._dynamo import allow_in_graph
 from torch._subclasses.fake_tensor import FakeTensor
 import torch_npu
 import pypto
-from typing import List
 
 
 """
@@ -40,10 +40,6 @@ Main Functions:
 Example:
     See testdsv32_mla_prolog_quant.py for usage examples.
 """
-from dataclasses import dataclass
-from typing import List, Tuple
-import pypto
-
 
 SHAPE_DIM_2 = 2
 SHAPE_DIM_3 = 3
