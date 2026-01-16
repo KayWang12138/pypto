@@ -17,233 +17,209 @@
 
 #include <map>
 #include <string>
+#include <vector>
+#include <set>
 #include <stdexcept>
 #include <typeindex>
 #include <typeinfo>
 #include <any>
+#include <nlohmann/json.hpp>
 
 namespace pto {
 
-// Configuration key enumeration
-enum class ConfigKey : int {
-    CONFIG_INVALID = 0,
-    // Enum values are generated automatically by REGISTER_CONFIG macro
-};
+// Maximum length for normalized config name
+constexpr size_t MAX_CONFIG_NAME_LENGTH = 256;
 
-// Forward declaration
-class ConfigRegistry;
-
-// Configuration registry singleton for managing config item definitions
-class ConfigRegistry {
+class ConfigKey {
 public:
-    static ConfigRegistry& GetInstance();
+    explicit ConfigKey(const std::string &key) { key_ = FromRawName(key); }
+    explicit ConfigKey(const char *key) { key_ = FromRawName(key ? key : "CONFIG_INVALID_KEY"); }
+    const std::string &Get() const { return key_; }
 
-    // Register a config item with template type and return its generated enum key
-    template<typename T>
-    ConfigKey Register(const std::string& keyName, const T& defaultValue, ConfigKey key = ConfigKey::CONFIG_INVALID);
+    // Comparison operators for use in std::set and std::map
+    bool operator<(const ConfigKey &other) const { return key_ < other.key_; }
 
-    // Check if a config key is registered
-    bool IsRegistered(ConfigKey key) const;
+    bool operator==(const ConfigKey &other) const { return key_ == other.key_; }
 
-    // Get the string name of a config key
-    std::string GetKeyName(ConfigKey key) const;
-
-    // Get the config key by string name
-    ConfigKey GetKeyByName(const std::string& name) const;
-
-    // Get the type index for a registered key
-    std::type_index GetTypeIndex(ConfigKey key) const;
+    bool operator!=(const ConfigKey &other) const { return key_ != other.key_; }
 
 private:
-    ConfigRegistry() = default;
-    ~ConfigRegistry() = default;
-    ConfigRegistry(const ConfigRegistry&) = delete;
-    ConfigRegistry& operator=(const ConfigRegistry&) = delete;
+    static std::string FromRawName(const std::string &keyName);
 
+    std::string key_;
+};
+
+class ConfigRegistry {
+public:
+    static ConfigRegistry &GetInstance();
+
+    template <typename T>
+    ConfigKey Register(const std::string &keyName, const T &defaultValue);
+
+    bool IsRegistered(const ConfigKey &key) const;
+
+    std::string GetKeyName(const ConfigKey &key) const { return key.Get(); }
+
+    ConfigKey GetKeyByName(const std::string &name) const { return ConfigKey(name); }
+
+    std::type_index GetTypeIndex(const ConfigKey &key) const;
+
+    template <typename T>
+    const T &GetDefaultValue(const ConfigKey &key) const {
+        if (!IsRegistered(key)) {
+            throw std::runtime_error("Config key '" + key.Get() + "' is not registered");
+        }
+        auto it = defaultValues_.find(key);
+        if (it == defaultValues_.end()) {
+            throw std::runtime_error("Config key '" + key.Get() + "' has no default value");
+        }
+
+        std::type_index expectedType = std::type_index(typeid(T));
+        std::type_index actualType = std::type_index(it->second.type());
+        if (actualType != expectedType) {
+            throw std::runtime_error("Config key '" + key.Get() + "' default value type mismatch. Expected: " +
+                                     expectedType.name() + ", Got: " + actualType.name());
+        }
+
+        return std::any_cast<const T &>(it->second);
+    }
+
+    // Get the default value as std::any for a registered key
+    std::any GetDefaultValueAny(const ConfigKey &key) const {
+        if (!IsRegistered(key)) {
+            throw std::runtime_error("Config key '" + key.Get() + "' is not registered");
+        }
+        auto it = defaultValues_.find(key);
+        if (it == defaultValues_.end()) {
+            throw std::runtime_error("Config key '" + key.Get() + "' has no default value");
+        }
+        return it->second;
+    }
+
+    // Set default value for a key
+    void SetDefaultValue(const ConfigKey &key, const std::any &value) { defaultValues_[key] = value; }
+
+    // Check if a key has a default value
+    bool HasDefaultValue(const ConfigKey &key) const { return defaultValues_.find(key) != defaultValues_.end(); }
+
+    // Get all registered config keys
+    std::vector<ConfigKey> GetAllRegisteredKeys() const;
+
+private:
+    ConfigRegistry() {}
+    ~ConfigRegistry() = default;
+    ConfigRegistry(const ConfigRegistry &) = delete;
+    ConfigRegistry &operator=(const ConfigRegistry &) = delete;
+
+    std::set<ConfigKey> registeredKeys_;
     std::map<ConfigKey, std::type_index> registeredConfigs_;
-    std::map<ConfigKey, std::string> keyNames_;
-    std::map<std::string, ConfigKey> nameToKey_;
-    int nextKeyValue_ = static_cast<int>(ConfigKey::CONFIG_INVALID) + 1;
-    
-    // Helper to compute hash for key name (same algorithm as macro)
-    static size_t ComputeKeyHash(const std::string& keyName);
+    std::map<ConfigKey, std::any> defaultValues_;
 };
 
 // Configuration container class using type erasure
 class Config {
 public:
-    Config() : initialized_(false) {}
+    Config();
     ~Config() = default;
 
-    // Initialize config with initializer list, can only be called once
-    // Usage: config.Initialize({{CONFIG_KEY1, std::any(value1)}, {CONFIG_KEY2, std::any(value2)}})
-    // Note: Values must be wrapped in std::any, type checking happens during initialization
     void Initialize(std::initializer_list<std::pair<ConfigKey, std::any>> configs);
 
-    // Get config value by key with template type, throws if not found or type mismatch
-    template<typename T>
-    const T& Get(ConfigKey key) const;
+    template <typename T>
+    const T &Get(const ConfigKey &key) const;
 
-    // Check if a config key exists
-    bool Has(ConfigKey key) const;
+    template <typename T>
+    void Set(const ConfigKey &key, const T &value);
 
-    // Check if config is initialized
-    bool IsInitialized() const { return initialized_; }
+    void SetDefault(const ConfigKey &key);
+
+    void LoadFromJsonFile(const std::string &filePath);
+
+    bool Has(const ConfigKey &key) const;
+
+    bool IsEmpty() const { return configs_.empty(); }
 
 private:
+    // Helper function to convert JSON value to std::any based on type
+    static std::any ConvertJsonValue(const nlohmann::json &j, const std::type_index &expectedType);
+
     std::map<ConfigKey, std::any> configs_;
-    bool initialized_;
 };
 
-// Helper function to convert key name to enum constant name
-inline std::string ToEnumName(const std::string& keyName) {
-    std::string result = "CONFIG_";
-    for (char c : keyName) {
-        if (c >= 'a' && c <= 'z') {
-            result += static_cast<char>(c - 'a' + 'A');
-        } else if (c >= 'A' && c <= 'Z') {
-            result += c;
-        } else if (c >= '0' && c <= '9') {
-            result += c;
-        } else {
-            // Convert underscore and other characters to underscore
-            result += '_';
-        }
-    }
-    return result;
-}
-
-
-// Helper function to create a config map entry
-// Usage: MakeConfigEntry(CONFIG_KEY, value)
-template<typename T>
-inline std::pair<ConfigKey, std::any> MakeConfigEntry(ConfigKey key, const T& value) {
+template <typename T>
+inline std::pair<ConfigKey, std::any> MakeConfigEntry(ConfigKey key, const T &value) {
     return std::make_pair(key, std::any(value));
 }
 
-// Template implementation for ConfigRegistry::Register
-template<typename T>
-ConfigKey ConfigRegistry::Register(const std::string& keyName, const T& /* defaultValue */, ConfigKey key) {
-    // If key is not provided, compute it from name hash
-    if (key == ConfigKey::CONFIG_INVALID) {
-        key = static_cast<ConfigKey>(ComputeKeyHash(keyName));
-    }
+template <typename T>
+ConfigKey ConfigRegistry::Register(const std::string &keyName, const T &defaultValue) {
+    ConfigKey key(keyName);
 
-    // Check if already registered by name
-    auto nameIt = nameToKey_.find(keyName);
-    if (nameIt != nameToKey_.end()) {
-        // Already registered, verify type matches and key matches
-        ConfigKey existingKey = nameIt->second;
-        if (existingKey != key) {
-            throw std::runtime_error("Config key '" + keyName + 
-                "' is already registered with a different enum value");
+    if (registeredKeys_.find(key) != registeredKeys_.end()) {
+        auto configIt = registeredConfigs_.find(key);
+        if (configIt != registeredConfigs_.end()) {
+            std::type_index expectedType = std::type_index(typeid(T));
+            if (configIt->second != expectedType) {
+                throw std::runtime_error("Config key '" + keyName + "' is already registered with a different type");
+            }
         }
-        std::type_index expectedType = std::type_index(typeid(T));
-        auto configIt = registeredConfigs_.find(existingKey);
-        if (configIt != registeredConfigs_.end() && configIt->second != expectedType) {
-            throw std::runtime_error("Config key '" + keyName + 
-                "' is already registered with a different type");
-        }
-        return existingKey;
+        defaultValues_[key] = std::any(defaultValue);
+        return key;
     }
 
-    // Check if key is already used by a different name
-    auto keyIt = keyNames_.find(key);
-    if (keyIt != keyNames_.end()) {
-        throw std::runtime_error("Config enum value is already used by key '" + 
-            keyIt->second + "', cannot register '" + keyName + "'");
-    }
-
-    // Register the config
+    registeredKeys_.insert(key);
     registeredConfigs_.emplace(key, std::type_index(typeid(T)));
-    keyNames_.emplace(key, keyName);
-    nameToKey_.emplace(keyName, key);
+    defaultValues_[key] = std::any(defaultValue);
 
     return key;
 }
 
-// Implementation for Config::Initialize with initializer list
-inline void Config::Initialize(std::initializer_list<std::pair<ConfigKey, std::any>> configs) {
-    if (initialized_) {
-        throw std::runtime_error("Config is already initialized");
-    }
-
-    auto& registry = ConfigRegistry::GetInstance();
-
-    // Validate all configs are registered and types match
-    for (const auto& [key, value] : configs) {
-        if (!registry.IsRegistered(key)) {
-            std::string keyName = registry.GetKeyName(key);
-            throw std::runtime_error("Config key '" + keyName + "' is not registered");
-        }
-
-        std::type_index expectedType = registry.GetTypeIndex(key);
-        std::type_index actualType = std::type_index(value.type());
-        if (expectedType != actualType) {
-            std::string keyName = registry.GetKeyName(key);
-            throw std::runtime_error("Config key '" + keyName + "' type mismatch. Expected: " + 
-                expectedType.name() + ", Got: " + actualType.name());
-        }
-    }
-
-    // Store all values
-    configs_ = std::map<ConfigKey, std::any>(configs.begin(), configs.end());
-    initialized_ = true;
-}
-
-// Template implementation for Config::Get
-template<typename T>
-const T& Config::Get(ConfigKey key) const {
-    if (!initialized_) {
-        throw std::runtime_error("Config is not initialized");
-    }
-
+template <typename T>
+const T &Config::Get(const ConfigKey &key) const {
     auto it = configs_.find(key);
     if (it == configs_.end()) {
-        auto& registry = ConfigRegistry::GetInstance();
-        std::string keyName = registry.GetKeyName(key);
-        throw std::runtime_error("Config key '" + keyName + "' not found in config");
+        throw std::runtime_error("Config key '" + key.Get() + "' not found in config");
     }
 
-    // Verify type matches
     std::type_index expectedType = std::type_index(typeid(T));
     std::type_index actualType = std::type_index(it->second.type());
     if (actualType != expectedType) {
-        auto& registry = ConfigRegistry::GetInstance();
-        std::string keyName = registry.GetKeyName(key);
-        throw std::runtime_error("Config key '" + keyName + "' type mismatch. Expected: " + 
-            expectedType.name() + ", Got: " + actualType.name());
+        throw std::runtime_error("Config key '" + key.Get() + "' type mismatch. Expected: " + expectedType.name() +
+                                 ", Got: " + actualType.name());
     }
 
-    return std::any_cast<const T&>(it->second);
+    return std::any_cast<const T &>(it->second);
 }
 
-// Helper function to compute hash for config key name (outside namespace for macro use)
-// This ensures the same name always generates the same enum value
-constexpr size_t ComputeConfigKeyHashImpl(const char* str, size_t initHashValue = 5381) {
-    size_t hash = initHashValue;
-    for(size_t i = 0; str[i] != '\0'; i++) {
-        hash = hash * 33 + (unsigned char)str[i];
+template <typename T>
+void Config::Set(const ConfigKey &key, const T &value) {
+    auto &registry = ConfigRegistry::GetInstance();
+
+    if (!registry.IsRegistered(key)) {
+        throw std::runtime_error("Config key '" + key.Get() + "' is not registered");
     }
-    // CONFIG_INVALID is 0, so if the hash value we calculate is 0, we will replace it with the initial value.
-    return hash != 0 ? hash : initHashValue;
+
+    std::type_index expectedType = registry.GetTypeIndex(key);
+    std::type_index actualType = std::type_index(typeid(T));
+    if (actualType != expectedType) {
+        throw std::runtime_error("Config key '" + key.Get() + "' type mismatch. Expected: " + expectedType.name() +
+                                 ", Got: " + actualType.name());
+    }
+
+    configs_[key] = std::any(value);
 }
 
 } // namespace pto
 
-// Macro to register a config item
-// Usage: REGISTER_CONFIG(max_iterations, 100)
-// This will generate CONFIG_max_iterations that can be used directly as enum value
-#define REGISTER_CONFIG(keyName, defaultValue) \
-    namespace { \
-        struct ConfigRegistrar_##keyName { \
-            ConfigRegistrar_##keyName() { \
-                auto& registry = pto::ConfigRegistry::GetInstance(); \
-                registry.Register(#keyName, defaultValue, static_cast<pto::ConfigKey>(pto::ComputeConfigKeyHashImpl(#keyName))); \
-            } \
-        }; \
-        ConfigRegistrar_##keyName g_configRegistrar_##keyName; \
-    } \
-    namespace pto { \
-        inline const ConfigKey CONFIG_##keyName = static_cast<ConfigKey>(ComputeConfigKeyHashImpl(#keyName)); \
+#define REGISTER_CONFIG(keyName, defaultValue)                   \
+    namespace {                                                  \
+    struct ConfigRegistrar_##keyName {                           \
+        ConfigRegistrar_##keyName() {                            \
+            auto &registry = pto::ConfigRegistry::GetInstance(); \
+            registry.Register(#keyName, defaultValue);           \
+        }                                                        \
+    };                                                           \
+    ConfigRegistrar_##keyName g_configRegistrar_##keyName;       \
+    }                                                            \
+    namespace pto {                                              \
+    inline const ConfigKey CONFIG_##keyName(#keyName);           \
     }
