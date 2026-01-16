@@ -20,6 +20,7 @@
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/tile_shape.h"
 #include "tilefwk/tilefwk_op.h"
+#include "test_cost_macro.h"
 
 using namespace tile_fwk::test_operation;
 namespace {
@@ -142,7 +143,7 @@ void TestInnerView() {
 }
 
 // 测试核内view
-TEST_F(ViewTest, test_inner_view_fp32) {
+TEST_F_WITH_COST(ViewTest, test_inner_view_fp32, 10) {
     TestInnerView<float>();
 }
 

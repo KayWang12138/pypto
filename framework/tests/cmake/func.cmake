@@ -283,7 +283,7 @@ function(PTO_Fwk_GTest_GetGTestFilterStr GTEST_FILTER_STR)
     cmake_parse_arguments(
             ARG
             ""
-            "CLASSIFY;TESTS_TYPE;TESTS_GROUP;CHANGED_FILE;TARGET_FILE"
+            "CLASSIFY;TESTS_TYPE;TESTS_GROUP;CHANGED_FILE;BINARY"
             ""
             ""
             ${ARGN}
@@ -297,8 +297,9 @@ function(PTO_Fwk_GTest_GetGTestFilterStr GTEST_FILTER_STR)
     if (ARG_CHANGED_FILE AND NOT "${ARG_CHANGED_FILE}" STREQUAL "ON")
         list(APPEND _Args "-c=${ARG_CHANGED_FILE}")
     endif ()
-    if (ARG_TARGET_FILE AND NOT "${ARG_TARGET_FILE}" STREQUAL "ON")
-        list(APPEND _Args "-b=${ARG_TARGET_FILE}")
+    message(STATUS "BINARY: ${ARG_BINARY}")
+    if (ARG_BINARY AND NOT "${ARG_BINARY}" STREQUAL "ON")
+        list(APPEND _Args "-b=${ARG_BINARY}")
     endif ()
     execute_process(
             COMMAND ${Python3_EXECUTABLE} ${_Py} ${_Args}

@@ -116,7 +116,10 @@ class Analysis:
     def analysis(self) -> str:
         cases = self._analysis_cases()
         # 对于 stest 场景，若配置了 binary，则尝试基于二进制的 meta 信息对用例按耗时重排
-        if self.type == "stest" and self.binary:
+        if not self.binary:
+            logging.warning("STest: No binary specified, skip test cases reorder by meta info.")
+        else:
+            logging.info("STest: Reorder test cases by binary meta info from %s",)
             cases = self._reorder_cases_with_binary_meta(cases)
         cases_str = ",".join(cases) if cases else ""
         return cases_str
@@ -199,7 +202,6 @@ class Analysis:
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
-                timeout=60,
             )
         except (subprocess.SubprocessError, FileNotFoundError) as e:
             logging.error("Failed to run binary(%s) to get meta info: %s", binary, e)
