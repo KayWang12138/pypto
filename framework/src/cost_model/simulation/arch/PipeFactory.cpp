@@ -22,6 +22,8 @@
 #include "PipeSimulatorFast.h"
 #include "cost_model/simulation/arch/A2A3/L2CacheImplA2A3.h"
 #include "cost_model/simulation/arch/A2A3/PostSimulatorA2A3.h"
+#include "cost_model/simulation/arch/A5/L2CacheImplA5.h"
+#include "cost_model/simulation/arch/A5/PostSimulatorA5.h"
 
 namespace CostModel
 {
@@ -51,6 +53,17 @@ namespace CostModel
                 return CreatePipeSimulatorFast<PostSimulatorA2A3>();
             } else {
                 return CreatePipeSimulator("SimulatorA2A3");
+            }
+        } else {
+            throw std::invalid_argument("unknown arch type " + archType);
+        }
+
+        if (archType == "A5") {
+            if (accLevel == 1) {
+                return CreatePipeSimulatorFast<PostSimulatorA5>();
+            }
+            else {
+                return CreatePipeSimulator("SimulatorA5");
             }
         } else {
             throw std::invalid_argument("unknown arch type " + archType);

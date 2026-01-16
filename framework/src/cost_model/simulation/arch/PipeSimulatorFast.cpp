@@ -27,6 +27,7 @@
 namespace CostModel
 {
     template class PipeSimulatorFast<PostSimulatorA2A3>;
+    template class PipeSimulatorFast<PostSimulatorA5>;
     static const std::unordered_map<std::string, std::unordered_map<DataType, int>> INHERENT_LATENCY_IN_OP{
         // Vector
         {"UB_ADD",
