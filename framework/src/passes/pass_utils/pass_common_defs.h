@@ -44,6 +44,16 @@ struct CopyInOutOp {
     LogicalTensorPtr input;
     LogicalTensorPtr output;
 };
+
+class ReshapeOp {
+    public:
+        ReshapeOp(LogicalTensorPtr aInput, LogicalTensorPtr aOutput, const Operation *opPtr = nullptr)
+            : input(aInput), output(aOutput), originOpPtr(opPtr) {}
+        LogicalTensorPtr input;
+        LogicalTensorPtr output;
+        const Operation *originOpPtr; //指向被拆分之前的op_reshape，用于获取可能需要继承的属性
+        std::vector<std::vector<SymbolicScalar>> dynValidShapes;
+};
 }  // namespace tile_fwk
 }  // namespace npu
 

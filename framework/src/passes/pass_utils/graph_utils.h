@@ -97,7 +97,7 @@ public:
      *                    If outDynShape is empty, uses CallInferShapeFunc to calculate the DynValidShape.
      * @return the operation to be added
      */
-    static Operation &AddReshapeOperation(Function &function, LogicalTensorPtr iOperand, const LogicalTensorPtr &oOperand, const Operation *originOp, const std::vector<SymbolicScalar> &outDynShape = {});
+    static Operation &AddReshapeOperation(Function &function, const LogicalTensorPtr iOperand, const LogicalTensorPtr &oOperand, const ReshapeOp &reshapeOp, const std::vector<SymbolicScalar> &outDynShape = {});
     /**
      * @brief Add a copyin operation.
      *        Update the CopyOpAttribute of the copyin operation by the CopyInOutOp object.

@@ -108,6 +108,8 @@ Status SplitReshape::Init() {
     reshapes.clear();
     redundantViewops.clear();
     reshapeRawOutputs.clear();
+    reshapeOpPtrs.clear();
+    assembleOpPtrs.clear();
     return SUCCESS;
 }
 
@@ -1161,7 +1163,7 @@ Status SplitReshape::AddOperation(Function &function) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Get reshape dynamic shape for AddOperation failed.");
             return FAILED;
         }
-        auto &newReshape = GraphUtils::AddReshapeOperation(function, b.second->input, b.second->output, b.second->originOpPtr, dynValidShape);
+        auto &newReshape = GraphUtils::AddReshapeOperation(function, b.second->input, b.second->output, *b.second, dynValidShape);
         APASS_LOG_INFO_F(Elements::Operation, "ADD OP_RESHAPE, magic %d, IOperand tensor magic %d OOperand tensor magic %d, dynValidShape %s.", newReshape.opmagic,
             b.second->input->GetMagic(), b.second->output->GetMagic(), GetStr(b.second->output->GetDynValidShape()).c_str());
     }
