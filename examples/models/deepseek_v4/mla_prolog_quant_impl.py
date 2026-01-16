@@ -113,7 +113,7 @@ class MlaPrologV4Configs:
 
 
 def check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
-                                    wq_a_scale, wq_b_scale, w_kv_scale, output_q_data, output_kv_data, output_qr_data, output_qr_scale_data):
+                                    wq_a_scale, wq_b_scale, w_kv_scale, output_q_data, output_kv_data, output_qr_data):
     assert token_x.size(1) == 4096 and token_x.dim() == 2, f"expected token_x dim num 2, token_x axis1 4096"
     assert wq_a.dim() == 2 and wq_a.size(0) == 4096 and wq_a.size(1) == 1024, f"expected wq_a dim num 2 residual axis0 4096, wq_a axis1 1024"
     assert wq_b.dim() == 2 and wq_b.size(0) == 1024 and wq_b.size(1) == 32768, f"expected wq_b dim num 2, wq_b axis0 1024, wq_b axis1 32768"
@@ -129,8 +129,7 @@ def check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin,
     assert output_q_data.dim() == 3 and output_q_data.size(1) == 64 and output_q_data.size(2) == 512, f"expected output_q_data dim num 3, output_q_data axis1 64, output_q_data axis2 512"
     assert output_kv_data.dim() == 2 and output_kv_data.size(1) == 512, f"expected output_kv_data dim num 2, output_kv_data axis1 512"
     assert output_qr_data.dim() == 2 and output_qr_data.size(1) == 1024, f"expected output_qr_data dim num 2, output_qr_data axis1 4096"
-    assert output_qr_scale_data.dim() == 2 and output_qr_scale_data.size(1) == 1, f"expected output_qr_scale_data dim num 2, output_qr_scale_data axis1 1"
-    
+  
     assert token_x.dtype == torch.bfloat16, f"token_x.dtype is {token_x.dtype}, expected torch.bfloat16"
     assert wq_a.dtype == torch.int8, f"wq_a.dtype is {wq_a.dtype}, expected torch.int8"
     assert wq_b.dtype == torch.int8,  f"wq_b.dtype is {wq_b.dtype}, expected torch.int8"
@@ -145,7 +144,6 @@ def check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin,
     assert output_q_data.dtype == torch.bfloat16, f"output_q_data.dtype is {output_q_data.dtype}, expected torch.bfloat16"
     assert output_kv_data.dtype == torch.bfloat16, f"output_kv_data.dtype is {output_kv_data.dtype}, expected torch.bfloat16"
     assert output_qr_data.dtype == torch.int8, f"output_qr_data.dtype is {output_qr_data.dtype}, expected torch.int8"
-    assert output_qr_scale_data.dtype == torch.float32, f"output_qr_scale_data.dtype is {output_qr_scale_data.dtype}, expected torch.float32"
 
 
 def quant(
@@ -378,7 +376,7 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
     return x_embed_cast
 
 
-def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, qr_scale_out, attrs, configs):
+def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs):
     t = x.shape[0]
     h = x.shape[1]
     q_lora_rank = rmsnorm_gamma_cq.shape[0]
@@ -413,7 +411,6 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         qr_cast = pypto.cast(qr, pypto.DataType.DT_BF16)
         qr_quant, qr_scale = quant(qr_cast)
         pypto.assemble(qr_quant, [tIdx, 0], qr_out)
-        pypto.assemble(qr_scale, [tIdx, 0], qr_scale_out)
 
         pypto.set_semantic_label("wqb-linear")
         pypto.set_cube_tile_shapes([tile_bs, tile_bs], [256, 256], [256, 256], True)
@@ -450,24 +447,24 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
 
 
 @pypto.jit(runtime_options={"stitch_cfgcache_size": 300000})
-def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, qr_scale_out, attrs, configs):
+def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs):
     pypto.experimental.set_option_config(combine_axis=1)
     pypto.set_pass_options(vec_nbuffer_mode=1, cube_nbuffer_mode=1)
-    mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, qr_scale_out, attrs, configs)
+    mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs)
 
 @allow_in_graph
 def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, wkv_scale):
     output_q_data = torch.zeros([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
     output_kv_data = torch.zeros([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
     output_qr_data = torch.zeros([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=f'{token_x.device}')
-    output_qr_scale_data = torch.zeros([token_x.size(0), 1], dtype=torch.float32, device=f'{token_x.device}')
+
     check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, wkv_scale, 
-                                    output_q_data, output_kv_data, output_qr_data, output_qr_scale_data)
+                                    output_q_data, output_kv_data, output_qr_data)
     if not isinstance(token_x, FakeTensor):
         out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
         out_kv = pypto.from_torch(output_kv_data, dynamic_axis=[0], name="output_kv")
         out_qr = pypto.from_torch(output_qr_data, dynamic_axis=[0], name="output_qr")
-        out_qr_scale = pypto.from_torch(output_qr_scale_data, dynamic_axis=[0], name="output_qr")
+        out_qr_scale = pypto.from_torch(dynamic_axis=[0], name="output_qr")
 
     token_x_data = pypto.from_torch(token_x, dynamic_axis=[0], name="token_x")
     wq_a_data = pypto.from_torch(wq_a, name="wq_a")
@@ -494,4 +491,4 @@ def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gam
                                 vec_nbuffer_mode=1)
     mla_prolog_v4(*input_data, *output_data, attrs, configs)
 
-    return output_q_data, output_kv_data, output_qr_data, output_qr_scale_data
+    return output_q_data, output_kv_data, output_qr_data
