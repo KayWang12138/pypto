@@ -2,7 +2,7 @@
 
 ## 前提条件
 
-**环境准备**：编译安装PyPTO项目前，请先参考[环境准备](prepare_environment.md)完成基础环境搭建。
+编译安装PyPTO项目前，请先参考[环境准备](prepare_environment.md)完成基础环境搭建。
 
 ## 通过PyPI安装
  
@@ -18,7 +18,7 @@ python3 -m pip install pypto
 ### 环境自检
 
 如果您的开发环境可以正常访问[cann-src-third-party](https://gitcode.com/cann-src-third-party)，PyPTO编译所需的第三方开源软件将在编译过程中自动下载及编译。
-如果无法访问，请参考[环境准备](prepare_environment.md)中“准备第三方开源软件源码包”的相关章节完成源码包准备，并在编译前设置如下环境变量:
+如果无法访问，请参考[环境准备](prepare_environment.md)中“准备第三方开源软件源码包”的相关章节完成源码包准备，并在编译前设置如下环境变量：
 
 ```bash
 export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
@@ -26,7 +26,7 @@ export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
 
 ### 常规安装
 
-此方式适用于生产环境或代码稳定后使用。编译安装后，对Python源码的修改不会体现到已安装的'pypto'包中。对应命令如下:
+此方式适用于生产环境或代码稳定后使用。编译安装后，对Python源码的修改不会体现到已安装的'pypto'包中。对应命令如下：
 
 ```bash
 # (可选)若开发环境无法访问cann-src-third-party，需设置
@@ -36,7 +36,7 @@ export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
 python3 -m pip install . --verbose
 ```
 
-**参数说明**:
+**参数说明**：
  `--verbose`：输出安装流程的基础详细信息(如下载的包版本、安装路径、依赖解析结果等)。
 
 **高级配置**：
@@ -71,7 +71,7 @@ python3 -m pip install . --verbose
 
 ### 可编辑安装
 
-此方式适用于开发调试阶段。该模式会在`site-packages`目录中创建指向本地源码的软链接，对Python源码的修改会即时生效，无需重新安装。对应命令如下:
+此方式适用于开发调试阶段。该模式会在`site-packages`目录中创建指向本地源码的软链接，对Python源码的修改会即时生效，无需重新安装。对应命令如下：
 
 ```bash
 # (可选)设置PYPTO_THIRD_PARTY_PATH，若开发环境无法访问cann-src-third-party
@@ -81,7 +81,7 @@ export PYPTO_THIRD_PARTY_PATH=<path-to-thirdparty>
 python3 -m pip install -e . --verbose
 ```
 
-**参数说明**:
+**参数说明**：
 - `-e`：即`--editable`的简写形式，标识采用可编辑安装模式；
 - `--verbose`：会输出安装流程的基础详细信息(如下载的包版本，安装路径，依赖解析结果等)；
 

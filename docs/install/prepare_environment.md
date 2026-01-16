@@ -5,11 +5,14 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 | 环境类型 | 硬件要求                   | 运行模式                                     |
 |:-----|:-----------------------|:-----------------------------------------|
 | 真实环境 | 配备CPU及NPU硬件 | 支持在NPU上执行计算，也可以通过CPU仿真获取预估性能 |
-| 仿真环境 | 仅有 CPU 硬件              | 仅支持通过CPU仿真获取预估性能                       |
+| 仿真环境 | 仅有CPU硬件              | 仅支持通过CPU仿真获取预估性能                       |
 
 **说明:**
-- NPU:指昇腾AI处理器（目前支持A2/A3）
-- 支持的系统:PyPTO支持在OpenEuler、Ubuntu等主流Linux发行版上编译和运行
+- NPU：指昇腾AI处理器，目前仅支持如下产品型号：
+
+    - Atlas A3 训练系列产品/Atlas A3 推理系列产品
+    - Atlas A2 训练系列产品/Atlas A2 推理系列产品
+- 支持的系统：PyPTO支持在OpenEuler、Ubuntu等主流Linux发行版上编译和运行
 
 ## 前提条件
 
@@ -18,24 +21,24 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 1. **安装Python依赖**
 
     - Python：版本 >= 3.9
-    - PyTorch及Ascend Extension for PyTorch
-        - 请根据实际环境的Python版本单独安装，参考[Ascend Extension for PyTorch安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/720/configandinstg/instg/insg_0001.html)
-        - **重要**：需确保`PyTorch`、`Ascend Extension for PyTorch` 与`PyPTO`三者的Python版本一致
-        - **仿真环境说明**：在仿真环境中可跳过`Ascend Extension for PyTorch`的安装，但仍需安装`PyTorch`
+    - PyTorch及Ascend Extension for PyTorch：
+        - 请根据实际环境的Python版本单独安装，参考[Ascend Extension for PyTorch安装说明](https://www.hiascend.com/document/detail/zh/Pytorch/720/configandinstg/instg/insg_0001.html)。
+        - **重要**：需确保`PyTorch`、`Ascend Extension for PyTorch` 与`PyPTO`三者的Python版本一致。
+        - **仿真环境说明**：在仿真环境中可跳过`Ascend Extension for PyTorch`的安装，但仍需安装`PyTorch`。
 
 2. **安装编译依赖**
 
     若不需要编译PyPTO，可跳过本步骤。
 
-    **安装编译工具:**
+    **安装编译工具：**
 
     - cmake >= 3.16.3
     - make
     - gcc >= 7.3.1
 
-    **安装Python依赖包:**
+    **安装Python依赖包：**
 
-    依赖的pip包及对应版本在`python/requirements.txt`中描述，可以使用如下命令完成安装:
+    依赖的pip包及对应版本在`python/requirements.txt`中描述，可以使用如下命令完成安装：
 
     ```bash
     # 进入pypto项目源码根目录
@@ -48,7 +51,7 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
     **准备第三方开源软件源码包**
 
     PyPTO编译过程依赖以下第三方开源软件源码包，若您的环境可正常访问[cann-src-third-party](https://gitcode.com/cann-src-third-party)，
-    这些软件的源码包会在编译时自动下载和编译，否则请手动准备:
+    这些软件的源码包会在编译时自动下载和编译，否则请手动准备：
 
     | 软件包                 | 版本      | 下载地址                                                                                                                    |
     |:--------------------|:--------|:------------------------------------------------------------------------------------------------------------------------|
@@ -81,7 +84,9 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 ## 软件包安装
 
 若仅在**仿真环境**中编译和运行PyPTO，可跳过本节。
-在**真实环境**中编译运行PyPTO并使用其在NPU上执行计算的能力时，必须安装如下软件包:
+在**真实环境**中编译运行PyPTO并使用其在NPU上执行计算的能力时，必须安装如下软件包：
+
+### 手动安装
 
 1. **安装驱动与固件**
 
@@ -104,13 +109,13 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
     ./Ascend-cann-toolkit_8.5.0_linux-${arch}.run --install --force --install-path=${install_path}
     ```
 
-    **参数说明**:
+    **参数说明**：
     - \$\{arch\}：表示CPU架构，如aarch64、x86_64。
     - \$\{install\_path\}：表示指定安装路径，默认安装在`/usr/local/Ascend`目录。
 
 3. **安装CANN ops包**
 
-    根据实际环境和硬件类型(支持A2/A3)，下载对应的安装包，下载链接如下:
+    根据实际环境和硬件类型(支持A2/A3)，下载对应的安装包，下载链接如下：
     - A2、x86：[CANN_A2-OPS-8.5.0.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run)
     - A2、aarch64：[CANN_A2-OPS-8.5.0.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/aarch64/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run)
     - A3、x86：[CANN_A3-OPS-8.5.0.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-A3-ops_8.5.0_linux-x86_64.run)
@@ -129,7 +134,7 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 4. **获取pto-isa源码**
 
     > 方法一：安装CANN pto-isa包
-    > 根据实际环境下载对应的安装包，下载链接如下(如果浏览器不支持自动下载，请选择右键，"链接另存为..."):
+    > 根据实际环境下载对应的安装包，下载链接如下(如果浏览器不支持自动下载，请选择右键，"链接另存为...")：
     > - x86：[cann-pto-isa_8.5.0_linux-x86_64.run](http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/202601/20260112/ubuntu_x86/cann-pto-isa_8.5.0_linux-x86_64.run)
     > - aarch64：[cann-pto-isa_8.5.0_linux-aarch64.run](http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/202601/20260112/ubuntu_aarch64/cann-pto-isa_8.5.0_linux-aarch64.run)
     > ```
@@ -165,7 +170,7 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
     source ${install_path}/cann/set_env.sh
     ```
 
-### 安装脚本
+### 使用安装脚本
 
 上述流程2 ~ 4中，toolkit包、ops包、PTO-inst包的下载与安装可通过项目tools目录下prepare_env.sh一键执行，命令如下，若遇到不支持系统，请参考该文件自行适配
 ```
