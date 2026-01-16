@@ -181,7 +181,7 @@ const Config& Function::GetConfig() const {
 }
 
 bool Function::HasConfig() const {
-    return config_.IsInitialized();
+    return !config_.IsEmpty();
 }
 
 void Function::SetParentModule(std::shared_ptr<ProgramModule> module) {
