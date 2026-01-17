@@ -1,0 +1,4 @@
+case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape
+BitwiseNot_test_1,"[32, 32]",int16,ND,"[0, 32]","[32, 32]",int16,ND,"[16, 16]","[16, 16]"
+BitwiseNot_test_2,"[150, 120, 2]",int16,ND,"[-32768, 32767]","[150, 120, 2]",int16,ND,"[75, 60, 2]","[75, 60, 2]"
+BitwiseNot_test_3,"[32, 16, 2]",bool,ND,"[0, 1]","[32, 16, 2]",bool,ND,"[16, 8, 2]","[16, 8, 2]"
