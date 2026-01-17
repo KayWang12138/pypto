@@ -33,23 +33,6 @@ struct BitwiseOrOpMetaData {
     nlohmann::json test_data_;
 };
 
-// 辅助函数：创建视图
-static Tensor CreateViewForDim(const Tensor& input, const std::vector<int64_t>& baseViewShape,
-                               const std::vector<SymbolicScalar>& baseFullSize,
-                               const std::vector<SymbolicScalar>& baseFullOffset,
-                               int broadcastDim) {
-    std::vector<int64_t> viewShape = baseViewShape;
-    std::vector<SymbolicScalar> fullSize = baseFullSize;
-    std::vector<SymbolicScalar> fullOffset = baseFullOffset;
-    
-    if (broadcastDim >= 0 && input.GetShape()[broadcastDim] == 1) {
-        viewShape[broadcastDim] = 1;
-        fullSize[broadcastDim] = 1;
-        fullOffset[broadcastDim] = 0;
-    }
-    return View(input, viewShape, fullSize, fullOffset);
-}
-
 static void BitwiseOrOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
 
@@ -57,17 +40,27 @@ static void BitwiseOrOperationExeFunc2Dims(
         auto args = static_cast<const BitwiseOrOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
+        const int broadcastFlag = 1;
 
-        // 检查不同维度并找出广播维度
-        int diffCount = 0, broadcastDim = -1;
-        for (int dim = 0; dim < 2; ++dim) {
-            int s0 = inputs[0].GetShape()[dim], s1 = inputs[1].GetShape()[dim];
-            if (s0 != s1) { diffCount++; if (s0 == 1 || s1 == 1) broadcastDim = dim; }
+        SymbolicScalar firstDim, secondDim;
+
+        bool input0_no_broadcast = (inputs[0].GetShape()[0] != broadcastFlag) && 
+                                   (inputs[0].GetShape()[1] != broadcastFlag);
+        bool input1_no_broadcast = (inputs[1].GetShape()[0] != broadcastFlag) && 
+                                   (inputs[1].GetShape()[1] != broadcastFlag);
+
+        if (input0_no_broadcast) {
+            firstDim = inputs[0].GetShape()[0];
+            secondDim = inputs[0].GetShape()[1];
         }
-        if (diffCount > 1) std::cout << "Multiple different dimensions detected" << std::endl;
-        
-        SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
-        SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
+        else if (input1_no_broadcast) {
+            firstDim = inputs[1].GetShape()[0];
+            secondDim = inputs[1].GetShape()[1];
+        }
+        else {
+            firstDim = inputs[0].GetShape()[0];
+            secondDim = inputs[0].GetShape()[1];
+        }
 
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
@@ -79,24 +72,40 @@ static void BitwiseOrOperationExeFunc2Dims(
                 auto fullOffset0 = bIdx * firstViewShape;
                 auto fullOffset1 = sIdx * secondViewShape;
 
-                std::vector<int64_t> baseView = {firstViewShape, secondViewShape};
-                std::vector<SymbolicScalar> baseSize = {fullSize0, fullSize1};
-                std::vector<SymbolicScalar> baseOffset = {fullOffset0, fullOffset1};
-                
                 Tensor tileTensor0, tileTensor1;
-                if (diffCount == 1 && broadcastDim != -1) {
-                    tileTensor0 = CreateViewForDim(inputs[0], baseView, baseSize, baseOffset, 
-                                                  inputs[0].GetShape()[broadcastDim] == 1 ? broadcastDim : -1);
-                    tileTensor1 = CreateViewForDim(inputs[1], baseView, baseSize, baseOffset, 
-                                                  inputs[1].GetShape()[broadcastDim] == 1 ? broadcastDim : -1);
+
+                bool input0_bcast_dim0 = (inputs[0].GetShape()[0] == broadcastFlag);
+                bool input0_bcast_dim1 = (inputs[0].GetShape()[1] == broadcastFlag);
+                bool input1_bcast_dim0 = (inputs[1].GetShape()[0] == broadcastFlag);
+                bool input1_bcast_dim1 = (inputs[1].GetShape()[1] == broadcastFlag);
+
+                // 构造 input0 的 tile
+                if (input0_bcast_dim0 && !input0_bcast_dim1) {
+                    tileTensor0 = View(inputs[0], {1, secondViewShape},
+                                       {1, fullSize1}, {0, fullOffset1});
+                } else if (!input0_bcast_dim0 && input0_bcast_dim1) {
+                    tileTensor0 = View(inputs[0], {firstViewShape, 1},
+                                       {fullSize0, 1}, {fullOffset0, 0});
+                } else {// no broadcast or both non-broadcast (treat as full)    
+                    tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+                                       {fullSize0, fullSize1}, {fullOffset0, fullOffset1});
+                }
+
+                // 构造 input1 的 tile
+                if (input1_bcast_dim0 && !input1_bcast_dim1) {
+                    tileTensor1 = View(inputs[1], {1, secondViewShape},
+                                       {1, fullSize1}, {0, fullOffset1});
+                } else if (!input1_bcast_dim0 && input1_bcast_dim1) {
+                    tileTensor1 = View(inputs[1], {firstViewShape, 1},
+                                       {fullSize0, 1}, {fullOffset0, 0});
                 } else {
-                    tileTensor0 = View(inputs[0], baseView, baseSize, baseOffset);
-                    tileTensor1 = View(inputs[1], baseView, baseSize, baseOffset);
+                    tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                                       {fullSize0, fullSize1}, {fullOffset0, fullOffset1});
                 }
 
                 TileShape::Current().SetVecTile(args->tileShape_);
                 auto res = BitwiseOr(tileTensor0, tileTensor1);
-                Assemble(res, {fullOffset0, fullOffset1}, outputs[0]);
+                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }
@@ -110,17 +119,32 @@ static void BitwiseOrOperationExeFunc3Dims(
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
+        const int broadcastFlag = 1;
 
-        int diffCount = 0, broadcastDim = -1;
-        for (int dim = 0; dim < 3; ++dim) {
-            int s0 = inputs[0].GetShape()[dim], s1 = inputs[1].GetShape()[dim];
-            if (s0 != s1) { diffCount++; if (s0 == 1 || s1 == 1) broadcastDim = dim; }
+        SymbolicScalar firstDim, secondDim, thirdDim;
+
+        bool input0_no_broadcast = (inputs[0].GetShape()[0] != broadcastFlag) &&
+                                   (inputs[0].GetShape()[1] != broadcastFlag) &&
+                                   (inputs[0].GetShape()[2] != broadcastFlag);
+        bool input1_no_broadcast = (inputs[1].GetShape()[0] != broadcastFlag) &&
+                                   (inputs[1].GetShape()[1] != broadcastFlag) &&
+                                   (inputs[1].GetShape()[2] != broadcastFlag);
+
+        if (input0_no_broadcast) {
+            firstDim = inputs[0].GetShape()[0];
+            secondDim = inputs[0].GetShape()[1];
+            thirdDim = inputs[0].GetShape()[2];
         }
-        if (diffCount > 1) std::cout << "Multiple different dimensions detected" << std::endl;
-        
-        SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
-        SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
-        SymbolicScalar thirdDim = std::max(inputs[0].GetShape()[2], inputs[1].GetShape()[2]);
+        else if (input1_no_broadcast) {
+            firstDim = inputs[1].GetShape()[0];
+            secondDim = inputs[1].GetShape()[1];
+            thirdDim = inputs[1].GetShape()[2];
+        }
+        else {
+            firstDim = inputs[0].GetShape()[0];
+            secondDim = inputs[0].GetShape()[1];
+            thirdDim = inputs[0].GetShape()[2];
+        }
 
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
@@ -136,24 +160,56 @@ static void BitwiseOrOperationExeFunc3Dims(
                     auto fullOffset1 = sIdx * secondViewShape;
                     auto fullOffset2 = nIdx * thirdViewShape;
 
-                    std::vector<int64_t> baseView = {firstViewShape, secondViewShape, thirdViewShape};
-                    std::vector<SymbolicScalar> baseSize = {fullSize0, fullSize1, fullSize2};
-                    std::vector<SymbolicScalar> baseOffset = {fullOffset0, fullOffset1, fullOffset2};
-                    
+                    // 判断每个输入在各维度是否广播
+                    bool i0_b0 = (inputs[0].GetShape()[0] == broadcastFlag);
+                    bool i0_b1 = (inputs[0].GetShape()[1] == broadcastFlag);
+                    bool i0_b2 = (inputs[0].GetShape()[2] == broadcastFlag);
+
+                    bool i1_b0 = (inputs[1].GetShape()[0] == broadcastFlag);
+                    bool i1_b1 = (inputs[1].GetShape()[1] == broadcastFlag);
+                    bool i1_b2 = (inputs[1].GetShape()[2] == broadcastFlag);
+
                     Tensor tileTensor0, tileTensor1;
-                    if (diffCount == 1 && broadcastDim != -1) {
-                        tileTensor0 = CreateViewForDim(inputs[0], baseView, baseSize, baseOffset,
-                                                      inputs[0].GetShape()[broadcastDim] == 1 ? broadcastDim : -1);
-                        tileTensor1 = CreateViewForDim(inputs[1], baseView, baseSize, baseOffset,
-                                                      inputs[1].GetShape()[broadcastDim] == 1 ? broadcastDim : -1);
+                    // 构造 input0 的 tile
+                    if (i0_b0 && !i0_b1 && !i0_b2) { // 广播 dim0
+                        tileTensor0 = View(inputs[0], {1, secondViewShape, thirdViewShape},
+                                           {1, fullSize1, fullSize2},
+                                           {0, fullOffset1, fullOffset2});
+                    } else if (!i0_b0 && i0_b1 && !i0_b2) { // 广播 dim1
+                        tileTensor0 = View(inputs[0], {firstViewShape, 1, thirdViewShape},
+                                           {fullSize0, 1, fullSize2},
+                                           {fullOffset0, 0, fullOffset2});
+                    } else if (!i0_b0 && !i0_b1 && i0_b2) { // 广播 dim2
+                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, 1},
+                                           {fullSize0, fullSize1, 1},
+                                           {fullOffset0, fullOffset1, 0});
+                    } else { // 无广播，或多个维度为1（按全尺寸处理）
+                        tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape},
+                                           {fullSize0, fullSize1, fullSize2},
+                                           {fullOffset0, fullOffset1, fullOffset2});
+                    }
+                    // 构造 input1 的 tile
+                    if (i1_b0 && !i1_b1 && !i1_b2) {
+                        tileTensor1 = View(inputs[1], {1, secondViewShape, thirdViewShape},
+                                           {1, fullSize1, fullSize2},
+                                           {0, fullOffset1, fullOffset2});
+                    } else if (!i1_b0 && i1_b1 && !i1_b2) {
+                        tileTensor1 = View(inputs[1], {firstViewShape, 1, thirdViewShape},
+                                           {fullSize0, 1, fullSize2},
+                                           {fullOffset0, 0, fullOffset2});
+                    } else if (!i1_b0 && !i1_b1 && i1_b2) {
+                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, 1},
+                                           {fullSize0, fullSize1, 1},
+                                           {fullOffset0, fullOffset1, 0});
                     } else {
-                        tileTensor0 = View(inputs[0], baseView, baseSize, baseOffset);
-                        tileTensor1 = View(inputs[1], baseView, baseSize, baseOffset);
+                        tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape},
+                                           {fullSize0, fullSize1, fullSize2},
+                                           {fullOffset0, fullOffset1, fullOffset2});
                     }
 
                     TileShape::Current().SetVecTile(args->tileShape_);
                     auto res = BitwiseOr(tileTensor0, tileTensor1);
-                    Assemble(res, {fullOffset0, fullOffset1, fullOffset2}, outputs[0]);
+                    Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
         }
@@ -168,18 +224,36 @@ static void BitwiseOrOperationExeFunc4Dims(
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
         const int fourthViewShape = args->viewShape_[3];
+        const int broadcastFlag = 1;
 
-        int diffCount = 0, broadcastDim = -1;
-        for (int dim = 0; dim < 4; ++dim) {
-            int s0 = inputs[0].GetShape()[dim], s1 = inputs[1].GetShape()[dim];
-            if (s0 != s1) { diffCount++; if (s0 == 1 || s1 == 1) broadcastDim = dim; }
+        SymbolicScalar firstDim, secondDim, thirdDim, fourthDim;
+
+        // 检查哪个输入在所有四个维度上都不广播
+        bool input0_no_broadcast =
+            (inputs[0].GetShape()[0] != broadcastFlag) && (inputs[0].GetShape()[1] != broadcastFlag) &&
+            (inputs[0].GetShape()[2] != broadcastFlag) && (inputs[0].GetShape()[3] != broadcastFlag);
+        bool input1_no_broadcast = 
+            (inputs[1].GetShape()[0] != broadcastFlag) && (inputs[1].GetShape()[1] != broadcastFlag) &&
+            (inputs[1].GetShape()[2] != broadcastFlag) && (inputs[1].GetShape()[3] != broadcastFlag);
+
+        if (input0_no_broadcast) {
+            firstDim = inputs[0].GetShape()[0];
+            secondDim = inputs[0].GetShape()[1];
+            thirdDim = inputs[0].GetShape()[2];
+            fourthDim = inputs[0].GetShape()[3];
         }
-        if (diffCount > 1) std::cout << "Multiple different dimensions detected" << std::endl;
-        
-        SymbolicScalar firstDim = std::max(inputs[0].GetShape()[0], inputs[1].GetShape()[0]);
-        SymbolicScalar secondDim = std::max(inputs[0].GetShape()[1], inputs[1].GetShape()[1]);
-        SymbolicScalar thirdDim = std::max(inputs[0].GetShape()[2], inputs[1].GetShape()[2]);
-        SymbolicScalar fourthDim = std::max(inputs[0].GetShape()[3], inputs[1].GetShape()[3]);
+        else if (input1_no_broadcast) {
+            firstDim = inputs[1].GetShape()[0];
+            secondDim = inputs[1].GetShape()[1];
+            thirdDim = inputs[1].GetShape()[2];
+            fourthDim = inputs[1].GetShape()[3];
+        }
+        else { // fallback: use inputs[0] (as original)
+            firstDim = inputs[0].GetShape()[0];
+            secondDim = inputs[0].GetShape()[1];
+            thirdDim = inputs[0].GetShape()[2];
+            fourthDim = inputs[0].GetShape()[3];
+        }
 
         const int bloop = CeilDiv(firstDim, firstViewShape);
         const int sloop = CeilDiv(secondDim, secondViewShape);
@@ -199,24 +273,76 @@ static void BitwiseOrOperationExeFunc4Dims(
                         auto fullOffset2 = mIdx * thirdViewShape;
                         auto fullOffset3 = nIdx * fourthViewShape;
 
-                        std::vector<int64_t> baseView = {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape};
-                        std::vector<SymbolicScalar> baseSize = {fullSize0, fullSize1, fullSize2, fullSize3};
-                        std::vector<SymbolicScalar> baseOffset = {fullOffset0, fullOffset1, fullOffset2, fullOffset3};
-                        
+                        // 判断每个输入在各维度是否为广播（shape == 1）
+                        bool i0_b0 = (inputs[0].GetShape()[0] == broadcastFlag);
+                        bool i0_b1 = (inputs[0].GetShape()[1] == broadcastFlag);
+                        bool i0_b2 = (inputs[0].GetShape()[2] == broadcastFlag);
+                        bool i0_b3 = (inputs[0].GetShape()[3] == broadcastFlag);
+
+                        bool i1_b0 = (inputs[1].GetShape()[0] == broadcastFlag);
+                        bool i1_b1 = (inputs[1].GetShape()[1] == broadcastFlag);
+                        bool i1_b2 = (inputs[1].GetShape()[2] == broadcastFlag);
+                        bool i1_b3 = (inputs[1].GetShape()[3] == broadcastFlag);
+
                         Tensor tileTensor0, tileTensor1;
-                        if (diffCount == 1 && broadcastDim != -1) {
-                            tileTensor0 = CreateViewForDim(inputs[0], baseView, baseSize, baseOffset,
-                                                          inputs[0].GetShape()[broadcastDim] == 1 ? broadcastDim : -1);
-                            tileTensor1 = CreateViewForDim(inputs[1], baseView, baseSize, baseOffset,
-                                                          inputs[1].GetShape()[broadcastDim] == 1 ? broadcastDim : -1);
-                        } else {
-                            tileTensor0 = View(inputs[0], baseView, baseSize, baseOffset);
-                            tileTensor1 = View(inputs[1], baseView, baseSize, baseOffset);
+                        // === 构造 input0 的 tile ===
+                        if (i0_b0 && !i0_b1 && !i0_b2 && !i0_b3) {
+                            tileTensor0 = View(inputs[0], {1, secondViewShape, thirdViewShape, fourthViewShape},
+                                               {1, fullSize1, fullSize2, fullSize3},
+                                               {0, fullOffset1, fullOffset2, fullOffset3});
+                        }
+                        else if (!i0_b0 && i0_b1 && !i0_b2 && !i0_b3) {
+                            tileTensor0 = View(inputs[0], {firstViewShape, 1, thirdViewShape, fourthViewShape},
+                                               {fullSize0, 1, fullSize2, fullSize3},
+                                               {fullOffset0, 0, fullOffset2, fullOffset3});
+                        }
+                        else if (!i0_b0 && !i0_b1 && i0_b2 && !i0_b3) {
+                            tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, 1, fourthViewShape},
+                                               {fullSize0, fullSize1, 1, fullSize3},
+                                               {fullOffset0, fullOffset1, 0, fullOffset3});
+                        }
+                        else if (!i0_b0 && !i0_b1 && !i0_b2 && i0_b3) {
+                            tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, 1},
+                                               {fullSize0, fullSize1, fullSize2, 1},
+                                               {fullOffset0, fullOffset1, fullOffset2, 0});
+                        }
+                        else {// 默认：无广播 或 多维广播（按全尺寸处理）
+                            tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                               {fullSize0, fullSize1, fullSize2, fullSize3},
+                                               {fullOffset0, fullOffset1, fullOffset2, fullOffset3});
+                        }
+                        // === 构造 input1 的 tile ===
+                        if (i1_b0 && !i1_b1 && !i1_b2 && !i1_b3) {
+                            tileTensor1 = View(inputs[1], {1, secondViewShape, thirdViewShape, fourthViewShape},
+                                               {1, fullSize1, fullSize2, fullSize3},
+                                               {0, fullOffset1, fullOffset2, fullOffset3});
+                        }
+                        else if (!i1_b0 && i1_b1 && !i1_b2 && !i1_b3) {
+                            tileTensor1 = View(inputs[1], {firstViewShape, 1, thirdViewShape, fourthViewShape},
+                                               {fullSize0, 1, fullSize2, fullSize3},
+                                               {fullOffset0, 0, fullOffset2, fullOffset3});
+                        }
+                        else if (!i1_b0 && !i1_b1 && i1_b2 && !i1_b3) {
+                            tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, 1, fourthViewShape},
+                                               {fullSize0, fullSize1, 1, fullSize3},
+                                               {fullOffset0, fullOffset1, 0, fullOffset3});
+                        }
+                        else if (!i1_b0 && !i1_b1 && !i1_b2 && i1_b3) {
+                            tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, 1},
+                                               {fullSize0, fullSize1, fullSize2, 1},
+                                               {fullOffset0, fullOffset1, fullOffset2, 0});
+                        }
+                        else {
+                            tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape, thirdViewShape, fourthViewShape},
+                                               {fullSize0, fullSize1, fullSize2, fullSize3},
+                                               {fullOffset0, fullOffset1, fullOffset2, fullOffset3});
                         }
 
                         TileShape::Current().SetVecTile(args->tileShape_);
                         auto res = BitwiseOr(tileTensor0, tileTensor1);
-                        Assemble(res, {fullOffset0, fullOffset1, fullOffset2, fullOffset3}, outputs[0]);
+                        Assemble(res,
+                            {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape, nIdx * fourthViewShape},
+                            outputs[0]);
                     }
                 }
             }
