@@ -96,9 +96,9 @@ class AttentionConfig:
 
 
 def get_qwen_common_config(device="cpu"):
-    b = 8
+    b = 1
     s1 = 1
-    s2 = 16384
+    s2 = 512
     q_d = 128
     nq = 12
     nkv = 1
@@ -452,7 +452,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
     return ifa_func_kernel
 
 def IFA(atten_cfg):
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 1)
     torch_dtype = torch.float16
     torch.npu.set_device(int(device_id))
     b = atten_cfg.b
@@ -531,7 +531,7 @@ def IFA(atten_cfg):
 @pytest.mark.skip(reason="large test case")
 def test_ifa():
     # 1. 设置参数
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 1)
     device = f'npu:{device_id}'
     atten_cfg, _ = get_qwen_common_config(device=device)
 
