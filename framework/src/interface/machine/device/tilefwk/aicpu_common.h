@@ -201,7 +201,7 @@ enum AicorePerfTrace {
 
 struct Metrics {
   int64_t isMetricStop;
-  int64_t taskCount; 
+  int64_t taskCount{0}; 
   int64_t perfTrace[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
   uint32_t perfTraceDevTaskId[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
   uint32_t perfTraceCnt[PERF_TRACE_CORE_MAX];

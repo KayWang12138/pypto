@@ -146,14 +146,14 @@ void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
     rtMemcpy(reinterpret_cast<void *>(devArgs_), sizeof(DeviceArgs), &args, sizeof(DeviceArgs),
         RT_MEMCPY_HOST_TO_DEVICE);
 
-    for (uint64_t i = 0; i < args.nrAic + args.nrAiv; i++) {
+    for (uint64_t i = 0; i < args.nrAic + args.nrAiv + args.nrAicpu; i++) {
         perfData_.push_back(DevAlloc(MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
     }
 }
 
 void DeviceRunner::ResetPerData() {
     auto size = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
-    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv + args_.nrAicpu; i++) {
         int rc = rtMemset(perfData_[i], size, 0, size);
         if (rc != 0) {
             ALOG_WARN_F("CoreId %lu, rtMemSet failed, rc: %d", i, rc);
@@ -208,7 +208,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     blockDim_ = dynamic::GetCfgBlockdim();
     args.nrValidAic = blockDim_;
     args.nrAicpu = aicpuNum_;
-    int nrCore = regs.size();
+    int nrCore = regs.size() + args.nrAicpu;
     args.sharedBuffer = reinterpret_cast<uint64_t>(DevAlloc(nrCore * SHARED_BUFFER_SIZE));
     args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
@@ -330,7 +330,7 @@ int DeviceRunner::LaunchAiCpu(
 }
 
 void DeviceRunner::AllocDfxMetricMemory() {
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + args_.nrAicpu; i++) {
         KernelArgs kernelArgs;
         memset_s(&kernelArgs, sizeof(kernelArgs), 0, sizeof(kernelArgs));
         kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] =
@@ -363,7 +363,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
     AllocDfxMetricMemory();
 #else
-    int size = (args_.nrAic + args_.nrAiv) * SHARED_BUFFER_SIZE;
+    int size = (args_.nrAic + args_.nrAiv + args_.nrAicpu) * SHARED_BUFFER_SIZE;
     rtMemset(reinterpret_cast<void *>(args_.sharedBuffer), size, 0, size);
 #endif
 
@@ -450,6 +450,39 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
         if (!tasksArr.empty()) {
             root_taskStats.push_back(coreObj);
         }
+    }
+    for (uint32_t i = 75; i < 75 + args_.nrAicpu; i++) {
+        void* devPtr = perfData_[i];
+        size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
+        std::vector<uint8_t> hostBuffer(dataSize);
+        rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
+        Metrics *metric = reinterpret_cast<Metrics*>(hostBuffer.data());
+        if (metric->taskCount > MAX_DFX_TASK_NUM_PER_CORE) {metric->taskCount = MAX_DFX_TASK_NUM_PER_CORE;} // Limit to the maximum value 
+        printf("metric 的地址: %p, 址: %p\n", devPtr, metric); 
+        TaskStat* taskStats = metric->tasks;
+        size_t numTasks = metric->taskCount;
+        json coreObj;
+        coreObj["blockIdx"] = i;
+        coreObj["coreType"] = "Aicpu";
+        json tasksArr = json::array();
+        for (size_t j = 0; j < numTasks; ++j) {
+            if (taskStats[j].execEnd != 0) {
+                json taskObj;
+                taskObj["seqNo"] = taskStats[j].seqNo;
+                taskObj["subGraphId"] = taskStats[j].subGraphId;
+                taskObj["taskId"] = taskStats[j].taskId;
+                taskObj["execStart"] = taskStats[j].execStart;
+                taskObj["execEnd"] = taskStats[j].execEnd;
+                tasksArr.push_back(taskObj);
+            }
+            
+        }
+        coreObj["tasks"] = tasksArr;
+        if (!tasksArr.empty()) {
+            root_taskStats.push_back(coreObj);
+        }
+         std::string jsonString = coreObj.dump();
+        ALOG_ERROR_F("============%s", jsonString.c_str());
     }
     std::string jsonFilePath = config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
     std::ofstream jsonFile(jsonFilePath);
@@ -575,7 +608,7 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArg
 }
 
 int DeviceRunner::RunPrepare() {
-   for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+   for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + args_.nrAicpu; i++) {
         rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
             sizeof(uint64_t),
             reinterpret_cast<uint8_t *>(&perfData_[i]),
