@@ -1281,8 +1281,8 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
     return newShape;
 }
 
-Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace, const void *lr) {
-    std::cout << "Reshape:1282" << std::endl;
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape,
+    const std::vector<SymbolicScalar> &validShape, const bool inplace, const void *lr) {
     DECLARE_TRACERX(lr);
     ASSERT(!inplace) << "The 'inplace' parameter muster be false !!!";
     if (operand.GetShape() == dstshape) {
@@ -1298,19 +1298,17 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
     return result;
 }
 
-Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace) {
-    std::cout << "Reshape:1299" << std::endl;
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape,
+    const std::vector<SymbolicScalar> &validShape, const bool inplace) {
     return Reshape(operand, dstshape, validShape, inplace, __builtin_return_address(0));
 }
 
-Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape, const std::initializer_list<SymbolicScalar> &validShape, const bool inplace) {
-    std::cout << "Reshape:1304" << std::endl;
-    std::cout << "Reshape: inplace " << inplace << std::endl;
+Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dstshape,
+    const std::initializer_list<SymbolicScalar> &validShape, const bool inplace) {
     return Reshape(operand, std::vector<int64_t>(dstshape), std::vector<SymbolicScalar>(validShape), inplace, __builtin_return_address(0));
 }
 
 Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace) {
-    std::cout << "Reshape:1310" << std::endl;
     ASSERT(inplace) << "The 'inplace' parameter muster be true !!!";
     Tensor dst(operand.GetStorage()->Datatype(), dstShape, "", operand.Format());
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
