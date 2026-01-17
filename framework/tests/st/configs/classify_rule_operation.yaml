@@ -191,6 +191,13 @@ stest:
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/20
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/21
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
+      - TestBitwiseAnd/BitwiseAndOperationTest.TestBitwiseAnd/1
+      - TestBitwiseOr/BitwiseOrOperationTest.TestBitwiseOr/1
+      - TestBitwiseXor/BitwiseXorOperationTest.TestBitwiseXor/1
+      - TestBitwiseAnds/BitwiseAndsOperationTest.TestBitwiseAnds/2
+      - TestBitwiseOrs/BitwiseOrsOperationTest.TestBitwiseOrs/2
+      - TestBitwiseXors/BitwiseXorsOperationTest.TestBitwiseXors/2
+      - TestBitwiseNot/BitwiseNotOperationTest.TestBitwiseNot/2
       # - GatherInL1Test.gather_in_a_unalign
       # - GatherInL1Test.gather_in_bt_with_valid_shape
       - GatherInUBTest.gather_in_a_
