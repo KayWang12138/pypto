@@ -345,7 +345,7 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
     compress_kv_npu = compress_kv.npu()
     cmp_kv_pto = pypto.from_torch(compress_kv_npu, dynamic_axis=[0], name="kv")
     origin_kv_npu = origin_kv.npu()
-    ori_kv_pto = pypto.from_torch(origin_kv_npu, , dynamic_axis=[0], name="origin_kv")
+    ori_kv_pto = pypto.from_torch(origin_kv_npu, dynamic_axis=[0], name="origin_kv")
     origin_block_table_npu = origin_block_table.npu()
     ori_block_table_pto = pypto.from_torch(origin_block_table_npu, dynamic_axis=[0], name="origin_block_table")
     topk_indices_npu = topk_indices.npu()
@@ -438,7 +438,7 @@ def do_test_sfa_entry(case_name: str, is_p: bool,  is_acl_graph: bool = False):
         return False
     bn1n2s1, is_kn_quant, actual_seq, cmp_ratio = case_config
 
-    input_params, input_data, atten_out = gen_gather_select_attention_golden(
+    input_params, input_data, atten_out = gen_compress_sparse_attention_golden(
         torch.bfloat16, bn1n2s1, actual_seq, cmp_ratio
     )
     

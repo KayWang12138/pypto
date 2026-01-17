@@ -194,6 +194,7 @@ def npu_compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_b
     if isinstance(query_npu, FakeTensor):
         return query_npu
     
+    # 确定值先写死，确定整网接口有哪些传参后修改acl graph接口
     nq = 64
     n_kv = 1
     softmax_scale = 512 ** -0.5
