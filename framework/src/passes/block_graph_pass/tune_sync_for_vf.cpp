@@ -70,7 +70,8 @@ void TuneSyncForVF::GenPipeOpMap(Function *subGraphFunc) {
     }
 }
 
-size_t TuneSyncForVF::MoveOpsForMerge(size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum) {
+size_t TuneSyncForVF::MoveOpsForMerge(size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum,
+    std::vector<Operation *> &setFlagList, std::vector<Operation *> &waitFlagList) {
     // 将setwaitflag删掉
     std::vector<size_t> setWaitIdx;
     for (size_t k = vecTileOp0Idx + 1; k < vecTileOp1Idx; k++) {
@@ -158,7 +159,8 @@ Status TuneSyncForVF::UpdateSetPipeTime(Function *subGraphFunc, std::vector<Oper
     return SUCCESS;
 }
 
-Status TuneSyncForVF::UpdateWaitPipeTime(Function *subGraphFunc, std::vector<Operation *> &waitFlagList, const int &curVFStartTime, int &maxMoveBackDist) {
+Status TuneSyncForVF::UpdateWaitPipeTime(Function *subGraphFunc, std::vector<Operation *> &waitFlagList,
+    const int &curVFStartTime, int &maxMoveBackDist) {
     for (auto &waitFlag : waitFlagList) {
         bool findFlag = false;
         auto pipeX = waitFlag->syncQueue_.pipeId_;
@@ -184,6 +186,7 @@ Status TuneSyncForVF::UpdateWaitPipeTime(Function *subGraphFunc, std::vector<Ope
 Status TuneSyncForVF::MoveBackPipeVOps(int groupNum, const int &maxMoveBackDist) {
     auto &firstOp = mergedOps[groupNum][0];
     bool findFlag = false;
+    auto &pipeVops = pipeOpMap[PipeType::PIPE_V];
     for (size_t k = 0; k < pipeVops.size(); k++) {
         if (pipeVops[k]->GetOpMagic() == firstOp->GetOpMagic()) {
             findFlag = true;
@@ -205,7 +208,7 @@ Status TuneSyncForVF::MoveBackPipeVOps(int groupNum, const int &maxMoveBackDist)
 Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
         std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum) {
     // 改变opList执行顺序
-    size_t mergedSize = MoveOpsForMerge(vecTileOp0Idx, vecTileOp1Idx, groupNum);
+    size_t mergedSize = MoveOpsForMerge(vecTileOp0Idx, vecTileOp1Idx, groupNum, setFlagList, waitFlagList);
 
     // 更新各pipe上op的时间戳
     // pipe_v
