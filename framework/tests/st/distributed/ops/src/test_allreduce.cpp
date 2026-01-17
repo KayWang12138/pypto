@@ -45,35 +45,8 @@ void TestAllReduce(OpTestParam &testParam)
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(out),
     });
-    FUNCTION("ALLREDUCE", {in}, {out}) {
-        TileShape::Current().SetVecTile({tileRow, tileCol});
-        if (useTwoShot) {
-            TwoShotAllReduce(in, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
-        } else {
-            OneShotAllReduce(in, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
-        }
-    }
-    DeviceLauncherConfig config;
-    config.runModel = false;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-
-    auto output = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, output->GetDevPtr(), testParam));
-}
-
-template<typename T>
-void TestAllReduceParaWithShmem(OpTestParam &testParam)
-{
-    constexpr size_t paramsSize = 6;
-    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
-    DataType dType = GetDataTypeNum(typeNum);
-    Shape shape{row, col};
-    Tensor in(dType, shape, "in");
-    std::vector<T> inPtr = ReadToVector<T>(
-        GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
     int32_t rowPerRank = row;
     Shape shmemDataShape = {1, rowPerRank, col};
-    Tensor out(dType, shape, "out");
     if (useTwoShot) {
         ASSERT(row % testParam.rankSize == 0) << "Two_Shot_AllReduce constraint: row must be divisible by worldSize";
         rowPerRank /= testParam.rankSize;
@@ -98,24 +71,12 @@ void TestAllReduceParaWithShmem(OpTestParam &testParam)
             OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
         }
     }
-    
-    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<T>(in, inPtr)});
-    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
-    DeviceLauncherConfig config;
-    config.runModel = false;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-
-    auto output = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", row * col, output->GetDevPtr(), testParam));
+    RunTestVerification(dtype, outSize, testParam);
 }
 
 template void TestAllReduce<int32_t>(OpTestParam &testParam);
 template void TestAllReduce<float>(OpTestParam &testParam);
 template void TestAllReduce<float16>(OpTestParam &testParam);
 template void TestAllReduce<bfloat16>(OpTestParam &testParam);
-template void TestAllReduceParaWithShmem<int32_t>(OpTestParam &testParam);
-template void TestAllReduceParaWithShmem<float>(OpTestParam &testParam);
-template void TestAllReduceParaWithShmem<float16>(OpTestParam &testParam);
-template void TestAllReduceParaWithShmem<bfloat16>(OpTestParam &testParam);
 } // namespace Distributed 
 } // namespace npu::tile_fwk

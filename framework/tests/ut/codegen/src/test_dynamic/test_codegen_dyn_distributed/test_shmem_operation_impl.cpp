@@ -77,26 +77,6 @@ TEST_F(TestDistributedShmemImpl, TestAllGather)
     uint32_t worldSize = 4;
     Tensor in(DT_FP16, {16, 32}, "in");
     Tensor out(DT_FP16, {64, 32}, "out");
-    FUNCTION("ALLGATHER", {in}, {out}) {
-        TileShape::Current().SetVecTile({16, 32});
-        Tensor predToken(DT_INT32, {1, 1}, "predToken");
-        AllGather(predToken, in, group, worldSize, out);
-    }
-
-    std::string functionRawName = GetFunctionRawName("L0");
-    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-
-TEST_F(TestDistributedShmemImpl, TestAllGatherParaWithShmem)
-{
-    const char *group = "hcom123";
-    uint32_t worldSize = 4;
-    Tensor in(DT_FP16, {16, 32}, "in");
-    Tensor out(DT_FP16, {64, 32}, "out");
     Shape shmemDataShape{worldSize, 16, 32};
     FUNCTION("ALLGATHER", {in}, {out}) {
         TileShape::Current().SetVecTile({16, 32});
@@ -116,27 +96,6 @@ TEST_F(TestDistributedShmemImpl, TestAllGatherParaWithShmem)
 TEST_F(TestDistributedShmemImpl, TestReduceScatter)
 {
     const char *group = "hcom123";
-
-    uint32_t worldSize = 4;
-    Tensor in(DT_FP16, {64, 256}, "in");
-    Tensor out(DT_FP16, {16, 256}, "out");
-    FUNCTION("REDUCESCATTER", {in}, {out}) {
-        TileShape::Current().SetVecTile({64, 256});
-        Tensor predToken(DT_INT32, {1, 1}, "predToken");
-        ReduceScatter(predToken, in, group, worldSize, DistReduceType::DIST_REDUCE_ADD, out);
-    }
-
-    std::string functionRawName = GetFunctionRawName("RS");
-    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-TEST_F(TestDistributedShmemImpl, TestReduceScatterParaWithShmem)
-{
-    const char *group = "hcom123";
-
     uint32_t worldSize = 4;
     Tensor in(DT_FP16, {64, 256}, "in");
     Tensor out(DT_FP16, {16, 256}, "out");
