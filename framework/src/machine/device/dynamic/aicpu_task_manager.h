@@ -59,7 +59,7 @@ public:
     }
 
     // 仅AICPU_0会调用
-    inline int32_t TaskProcess(uint64_t &taskCount) {
+    inline int32_t TaskProcess(uint64_t &taskCount, uint64_t sharedBuffer) {
         if (__atomic_load_n(&readyQueue_->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQueue_->head, __ATOMIC_RELAXED)) {
             return DEVICE_MACHINE_OK;
         }
@@ -68,7 +68,10 @@ public:
         taskCount = readyQueue_->tail - readyQueue_->head;
         readyQueue_->head += taskCount;
         ReadyQueueUnLock();
-
+        KernelArgs *args = (KernelArgs *)(reinterpret_cast<uint8_t*>(sharedBuffer) + 75 * SHARED_BUFFER_SIZE);
+        aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+        aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount].taskId = static_cast<int32_t>(readyQueue_->elem[taskIdx]);;
+        aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount].execStart = GetCycles();
         for (uint32_t i = 0; i < taskCount; ++i) {
             auto ret = TaskDispatch(readyQueue_->elem[taskIdx + i]);
             if (ret != DEVICE_MACHINE_OK) {
@@ -100,6 +103,8 @@ public:
         }
         return DEVICE_MACHINE_OK;
     }
+
+    Metrics* aicpuTaskStat_;
 
 private:
     inline void ReadyQueueLock() {
