@@ -47,7 +47,7 @@ def hc_split_sinkhorn(comb_flag: pypto.Tensor, hc_eps) \
     elif tile_t <= 64:
         pypto.set_vec_tile_shapes(4, 16, 32)
     else:
-        pypto.set_vec_tile_shapes(16, 16, 32)
+        pypto.set_vec_tile_shapes(8, 16, 32)
 
     row_max = pypto.amax(comb_flag, -1, True)   # (tile_t, 4, 1)
     comb_flag = pypto.exp(comb_flag - row_max)    # (tile_t, 4, 4)
@@ -141,7 +141,7 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
     assert hc_scale_.shape[0] == 3, f"hc_scale.shape[0] is {hc_scale_.shape[0]}, expected 3"
 
     # unroll_list = [16, 1]
-    unroll_list=[1024, 256, 64, 16, 4, 1]
+    unroll_list=[128, 64, 16, 4, 1]
 
     for _ in pypto.loop(1):
         x_2d = pypto.reshape(x, [t, hc*d], inplace=True)
@@ -161,8 +161,9 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
             tile_shapes_1 = [8, 1024]
             tile_shape_2 = 32
         else:
-            tile_shapes_1 = [16, 512]
-            tile_shape_2 = 16
+            tile_shapes_1 = [8, 1024]
+            tile_shape_2 = 8
+            pypto.set_cube_tile_shapes([32, 32], [256, 512], [128, 128], enable_multi_data_load = True)
 
         pypto.set_vec_tile_shapes(tile_shapes_1[0], tile_shapes_1[1])
 
