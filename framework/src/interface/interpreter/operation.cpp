@@ -45,8 +45,7 @@ static std::string DumpSymbolicVec(const std::vector<SymbolicScalar> &symbols) {
     return ss.str();
 }
 
-static void LogTensorList(const char *role, Operation *op,
-    const std::vector<std::shared_ptr<LogicalTensor>> &tensors) {
+void LogTensorList(const char *role, Operation *op, const LogicalTensors &tensors) {
     for (size_t i = 0; i < tensors.size(); ++i) {
         auto tensor = tensors[i];
         if (tensor == nullptr) {
