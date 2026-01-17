@@ -99,6 +99,26 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
+        auto opName = npu::tile_fwk::GetBinaryOpName<T>();
+        if (opName == "FMOD") {
+            auto &tileShapeVec = resultTileInfo.shape;
+            size_t rank = tileShapeVec.size();
+            int32_t secondLastDim = (rank >= 2)? tileShapeVec[rank - 2] : 1;
+            int64_t elementCnt = tileShapeVec[rank -1] * secondLastDim;
+            int32_t totalSize = 0;
+            constexpr size_t ALIGN_SIZE = 32;
+            DataType select_dtype;
+            if (input.tensor.GetDataType() == DT_FP32) {
+                totalSize = 2 * elementCnt * npu::tile_fwk::BytesOf(DT_FP32); // Bytes
+            } else {
+                totalSize = 4 * elementCnt * npu::tile_fwk::BytesOf(DT_FP32);
+            }
+            totalSize = (totalSize + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE;
+            std::vector<int64_t> castTmpShape({totalSize});
+            auto castTmpTensor = std::make_shared<LogicalTensor>(function, DT_INT8, castTmpShape); //
+            function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, castTmpTensor});
+            return;
+        }
         if (withBrc) {
             std::vector<int64_t> tmpShape(input1.tileInfo.shape);
             auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor->Datatype());

@@ -111,6 +111,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_PAIRMAX, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_POW, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_FMOD, [this]() { return GenBinaryOp(); }},
 
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},
@@ -119,6 +120,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_DIV_BRC, [this]() { return GenBinaryWithBrc(); }},
           {Opcode::OP_MAX_BRC, [this]() { return GenBinaryWithBrc(); }},
           {Opcode::OP_MIN_BRC, [this]() { return GenBinaryWithBrc(); }},
+          {Opcode::OP_FMOD_BRC, [this]() { return GenBinaryWithBrc(); }},
 
           // binary op: vector scalar
           {Opcode::OP_ADDS, [this]() { return GenVectorScalarOp(); }},
@@ -127,6 +129,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_FMODS, [this]() { return GenVectorScalarOp(); }},
 
           // binary op: vector scalar, scalar mode
           {Opcode::OP_S_ADDS, [this]() { return GenVectorScalarOpScalarMode(); }},
