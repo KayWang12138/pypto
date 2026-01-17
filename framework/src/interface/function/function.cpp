@@ -644,36 +644,37 @@ void Function::CleanRedundantOutCast() {
     CleanRedundantOutcast(removeRecord, getTensorDataRecord);
 }
 
+void Function::FillOriginInOutCast() {
+    OrderedSet<LogicalTensorPtr> incasts;
+    OrderedSet<LogicalTensorPtr> outcasts;
+
+    for (auto &op : operationList) {
+        for (auto &iOperand : op->iOperand) {
+            if (op->IsCall() || (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 &&
+                (&iOperand->BelongFunction() != this))) {
+                incasts.Insert(iOperand);
+                AddOriginIncast(iOperand);
+            }
+        }
+
+        for (auto &oOperand : op->oOperand) {
+            if (op->IsCall() || oOperand->tensor->GetRefCount() > 0) {
+                outcasts.Insert(oOperand);
+                AddOriginOutcast(oOperand);
+                ASSERT(incasts.count(oOperand) == 0)
+                    << "Error: Output operand " << oOperand->tensor->rawmagic
+                    << " is found in incasts. Operation: " << op->Dump();
+            }
+        }
+    }
+}
+
 FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &scope) {
     // Deduce Incast and Outcast here, need by TENSOR_GRAPH & STATIC_TILE_GRAPH
     std::vector<Operation *> operationList = Operations(false).DuplicatedOpList();
     if (IsGraphType(GraphType::TENSOR_GRAPH) ||
         IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
-        OrderedSet<LogicalTensorPtr> incasts;
-        OrderedSet<LogicalTensorPtr> outcasts;
-
-        for (auto &op : operationList) {
-            for (auto &iOperand : op->iOperand) {
-                if (op->IsCall() || (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 &&
-                   (&iOperand->BelongFunction() != this))) {
-                    incasts.Insert(iOperand);
-                }
-            }
-            for (auto &oOperand : op->oOperand) {
-                if (op->IsCall() || oOperand->tensor->GetRefCount() > 0) {
-                    outcasts.Insert(oOperand);
-                    ASSERT(incasts.count(oOperand) == 0)
-                        << "Error: Output operand " << oOperand->tensor->rawmagic
-                        << " is found in incasts. Operation: " << op->Dump();
-                }
-            }
-        }
-        for (const auto &incast : incasts) {
-            AddOriginIncast(incast);
-        }
-        for (const auto &outcast : outcasts) {
-            AddOriginOutcast(outcast);
-        }
+        FillOriginInOutCast();
     }
 
     LogicalTensors inArgumentList, outArgumentList;

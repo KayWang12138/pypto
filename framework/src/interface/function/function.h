@@ -921,6 +921,7 @@ private:
     void RefreshOpPosition();
     auto AnnotateOperation();
 
+    void FillOriginInOutCast();
     void SetCallOpSlot();
     void UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope);
     void DoMergeFunctionDupIncast();
