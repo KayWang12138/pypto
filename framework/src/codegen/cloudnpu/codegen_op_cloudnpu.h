@@ -76,7 +76,9 @@ public:
     std::string GenLogicalAndOp() const;
 
     std::string GenBinaryOp() const;
+    std::string GenBinaryTmpOp() const;
     std::string GenVectorScalarOp() const;
+    std::string GenVectorScalarTmpOp() const;
 
     std::string GenCubeOpMatmul() const;
     std::string GenCubeOpMatmulAcc() const;
@@ -219,6 +221,7 @@ private:
     std::string GenMemUBTransfer(bool isCopyUBToGM) const;
     std::string GenMemUBSpillIntoGM(bool isCopyUBToGM) const;
     std::string GenVectorScalarOpByMode(VecScalMode mode) const;
+    std::string GenVectorScalarTmpOpByMode(VecScalMode mode) const;
     std::string GenVectorScalarOpScalarMode() const;
     std::string GenCubeOp(bool zeroC) const;
     std::string GenCmpOp() const;
@@ -282,6 +285,8 @@ private:
     std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintUnaryStatic(const PrintUnaryParam &param) const;
 
+    std::string PrintBitwiseNot() const;
+
     SortParam PrepareSortParam() const;
     TiledSortParam PrepareTiledSortParam() const;
     std::string PrintTileSortTileTensor() const;
@@ -299,6 +304,9 @@ private:
     std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
     std::string PrintBinaryTileTensor() const;
     std::string PrintBinary(const PrintBinaryParam &param) const;
+
+    std::string PrintBinaryTmpTileTensor() const;
+    std::string PrintBinaryTmp(const PrintBinaryTmpParam &param) const;
 
     std::string PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const;
     std::string PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam &param) const;
@@ -346,6 +354,7 @@ private:
     std::string PrintCastTileTensor() const;
     std::string PrintReduceCombine(const PrintUnaryTmpBuffParam &param) const;
     std::string PrintVectorScalarTileTensor(const PrintUnaryParam &param) const;
+    std::string PrintVectorScalarTmpTileTensor(const PrintUnaryTmpParam &param) const;
     std::string PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam &param) const;
     std::string PrintMemL1ToL0TileTensor() const;
     std::string PrintMatmulTileTensor(bool isAcc) const;

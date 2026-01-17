@@ -228,6 +228,138 @@ def div(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
+def bitwise_and(
+    input: Tensor, other: Union[Tensor, int]
+) -> Tensor:
+    """Computes the element-wise bitwise AND of `input` and `other`.
+
+    This function calculates the formula: `out = input & other`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor or int
+        The second input tensor or an integer scalar.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise bitwise AND result.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    Examples
+    --------
+    a = pypto.tensor([0x1234, 0x5678], pypto.DT_INT16)
+    b = pypto.tensor([0x0F0F, 0xF0F0], pypto.DT_INT16)
+    out = pypto.bitwise_and(a, b)
+
+    Input a:    [5, 3]
+    Input b:    [3, 1]
+    Output out: [1, 1]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.BitwiseAnd(input, other)
+    else:
+        if not isinstance(other, int):
+            raise TypeError(f"Scalar operand for bitwise_and must be an integer, but got {type(other)}.")
+        return pypto_impl.BitwiseAnd(input, pypto_impl.Element(input.dtype, other))
+
+
+@op_wrapper
+def bitwise_or(
+    input: Tensor, other: Union[Tensor, int]
+) -> Tensor:
+    """Computes the element-wise bitwise OR of `input` and `other`.
+
+    This function calculates the formula: `out = input | other`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor or int
+        The second input tensor or an integer scalar.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise bitwise OR result.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    Examples
+    --------
+    a = pypto.tensor([5, 3], pypto.DT_INT16)
+    b = pypto.tensor([3, 1], pypto.DT_INT16)
+    out = pypto.bitwise_or(a, b)
+
+    Input a:    [5, 3]
+    Input b:    [3, 1]
+    Output out: [7, 3]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.BitwiseOr(input, other)
+    else:
+        if not isinstance(other, int):
+            raise TypeError(f"Scalar operand for bitwise_or must be an integer, but got {type(other)}.")
+        return pypto_impl.BitwiseOr(input, pypto_impl.Element(input.dtype, other))
+
+
+@op_wrapper
+def bitwise_xor(
+    input: Tensor, other: Union[Tensor, int]
+) -> Tensor:
+    """Computes the element-wise bitwise XOR of `input` and `other`.
+
+    This function calculates the formula: `out = input ^ other`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor or int
+        The second input tensor or an integer scalar.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise bitwise XOR result.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    Examples
+    --------
+    a = pypto.tensor([5, 3], pypto.DT_INT16)
+    b = pypto.tensor([3, 1], pypto.DT_INT16)
+    out = pypto.bitwise_xor(a, b)
+
+    Input a:    [5, 3]   # binary: [101, 011]
+    Input b:    [3, 1]   # binary: [011, 001]
+    Output out: [6, 2]   # binary: [110, 010]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.BitwiseXor(input, other)
+    else:
+        if not isinstance(other, int):
+            raise TypeError(f"Scalar operand for bitwise_xor must be an integer, but got {type(other)}.")
+        return pypto_impl.BitwiseXor(input, pypto_impl.Element(input.dtype, other))
+
+
+@op_wrapper
 def pow(input: Tensor, other: Union[int, float]) -> Tensor:
     """Computes the element-wise power of `input` raised to `other`.
 
@@ -623,3 +755,32 @@ def cumsum(
                 [3 5 7]]
     """
     return pypto_impl.cumsum(input, dim)
+
+    @op_wrapper
+def bitwise_not(input: Tensor) -> Tensor:
+    """
+    Computes the element-wise bitwise NOT of 'input'
+
+    This function calculates the formula: 'out = ~input'.
+    For each element in the input tensor, performs a bitwise NOT operation.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor (should be of integer type)
+
+    Returns
+    -------
+    Tensor
+        A tensor with the same shape and dtype as input
+
+    Examples
+    --------
+    a = pypto.tensor([0, 1, 2, 3, 4], pypto.DT_INT32)
+    out = pypto.bitwise_not(a)
+
+    Input a:    [0 1 2 3 4]  (in binary: [000, 001, 010, 011, 100])
+    Output out: [-1 -2 -3 -4 -5]  (in binary: [111, 110, 101, 100, 011])
+
+    """
+    return pypto_impl.BitwiseNot(input)
