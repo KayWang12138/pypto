@@ -49,6 +49,7 @@ struct CalcOps {
     void (*Neg)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Rsqrt)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Sqrt)(LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*BitwiseNot)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Abs)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Brcb)(LogicalTensorDataPtr, LogicalTensorDataPtr);  
     void (*WhereTT)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
@@ -65,11 +66,17 @@ struct CalcOps {
     void (*SubS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
     void (*MulS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
     void (*DivS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
+    void (*BitwiseAndS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
+    void (*BitwiseOrS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
+    void (*BitwiseXorS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
 
     void (*Add)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Sub)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Mul)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Div)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*BitwiseAnd)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*BitwiseOr)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*BitwiseXor)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
 
     void (*PairSum)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*PairMax)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
