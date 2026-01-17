@@ -73,14 +73,6 @@ struct AllgatherFunc {
     }
 };
 
-struct AllgatherFuncParaWithShmem {
-    template <typename T>
-    void operator()(OpTestParam &testParam) const
-    {
-        Distributed::TestAllGatherParaWithShmem<T>(testParam);
-    }
-};
-
 struct ReducescatterFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
@@ -89,27 +81,11 @@ struct ReducescatterFunc {
     }
 };
 
-struct ReducescatterFuncParaWithShmem {
-    template <typename T>
-    void operator()(OpTestParam &testParam) const
-    {
-        Distributed::TestReduceScatterParaWithShmem<T>(testParam);
-    }
-};
-
 struct AllreduceFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
         Distributed::TestAllReduce<T>(testParam);
-    }
-};
-
-struct AllreduceFuncParaWithShmem {
-    template <typename T>
-    void operator()(OpTestParam &testParam) const
-    {
-        Distributed::TestAllReduceParaWithShmem<T>(testParam);
     }
 };
 
@@ -134,11 +110,8 @@ void GegisterAllOps()
 {
     auto& reg = GetRegistry();
     reg.RegisterOp("Allgather", AllgatherFunc{});  // 模板算子
-    reg.RegisterOp("Allgather", AllgatherFuncParaWithShmem{});
     reg.RegisterOp("Reducescatter", ReducescatterFunc{});
-    reg.RegisterOp("Reducescatter", ReducescatterFuncParaWithShmem{});
     reg.RegisterOp("Allreduce", AllreduceFunc{});
-    reg.RegisterOp("Allreduce", AllreduceFuncParaWithShmem{});
     reg.RegisterOp("Allreduce_Add_Allreduce", Allreduce_Add_AllreduceFunc{});
     reg.RegisterOp("MoeDistributedCombine", MoeDistributedCombineFunc{});
     reg.registry["MoeDispatch"] = [](OpTestParam &testParam, const std::string&) {
