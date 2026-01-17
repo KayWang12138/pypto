@@ -374,75 +374,83 @@ inline void AiCoreProf::SetPmuEvents(void *mapBase, const int32_t coreIdx) const
     (void)coreIdx;
 }
 
+inline void AiCoreProf::InitPmuRegAddrsDav2201(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs) {
+    pmuCnt0Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT0);
+    pmuCnt1Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT1);
+    pmuCnt2Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT2);
+    pmuCnt3Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT3);
+    pmuCnt4Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT4);
+    pmuCnt5Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT5);
+    pmuCnt6Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT6);
+    pmuCnt7Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT7);
+    pmuCntTotal0Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT_TOTAL0);
+    pmuCntTotal1Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT_TOTAL1);
+
+    addrs.ctrl0Addr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CTRL_0);
+    addrs.startCntCyc0Addr =
+        reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_START_CNT_CYC_0);
+    addrs.startCntCyc1Addr =
+        reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_START_CNT_CYC_1);
+    addrs.stopCntCyc0Addr =
+        reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_STOP_CNT_CYC_0);
+    addrs.stopCntCyc1Addr =
+        reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_STOP_CNT_CYC_1);
+}
+
+inline void AiCoreProf::InitPmuRegAddrsDav3510(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs) {
+    pmuCnt0Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT0);
+    pmuCnt1Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT1);
+    pmuCnt2Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT2);
+    pmuCnt3Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT3);
+    pmuCnt4Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT4);
+    pmuCnt5Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT5);
+    pmuCnt6Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT6);
+    pmuCnt7Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT7);
+    pmuCnt8Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT8);
+    pmuCnt9Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT9);
+    pmuCntTotal0Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT_TOTAL0);
+    pmuCntTotal1Plain_[coreIdx] =
+        reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT_TOTAL1);
+
+    addrs.ctrl0Addr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CTRL_0);
+    addrs.ctrl1Addr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CTRL_1);
+    addrs.startCntCyc0Addr =
+        reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_START_CNT_CYC_0);
+    addrs.startCntCyc1Addr =
+        reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_START_CNT_CYC_1);
+    addrs.stopCntCyc0Addr =
+        reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_STOP_CNT_CYC_0);
+    addrs.stopCntCyc1Addr =
+        reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_STOP_CNT_CYC_1);
+}
+
 inline AiCoreProf::PmuCtrlAddrs AiCoreProf::InitPmuRegAddrsForCore(void *addr, void *mapBase, int coreIdx) {
     PmuCtrlAddrs addrs;
     if (archInfo_ == ArchInfo::DAV_2201) {
-        pmuCnt0Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT0);
-        pmuCnt1Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT1);
-        pmuCnt2Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT2);
-        pmuCnt3Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT3);
-        pmuCnt4Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT4);
-        pmuCnt5Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT5);
-        pmuCnt6Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT6);
-        pmuCnt7Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT7);
-        pmuCntTotal0Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT_TOTAL0);
-        pmuCntTotal1Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT_TOTAL1);
-
-        addrs.ctrl0Addr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CTRL_0);
-        addrs.startCntCyc0Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_START_CNT_CYC_0);
-        addrs.startCntCyc1Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_START_CNT_CYC_1);
-        addrs.stopCntCyc0Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_STOP_CNT_CYC_0);
-        addrs.stopCntCyc1Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_STOP_CNT_CYC_1);
+        InitPmuRegAddrsDav2201(addr, mapBase, coreIdx, addrs);
     } else if (archInfo_ == ArchInfo::DAV_3510) {
-        pmuCnt0Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT0);
-        pmuCnt1Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT1);
-        pmuCnt2Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT2);
-        pmuCnt3Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT3);
-        pmuCnt4Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT4);
-        pmuCnt5Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT5);
-        pmuCnt6Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT6);
-        pmuCnt7Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT7);
-        pmuCnt8Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT8);
-        pmuCnt9Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT9);
-        pmuCntTotal0Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT_TOTAL0);
-        pmuCntTotal1Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT_TOTAL1);
-
-        addrs.ctrl0Addr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CTRL_0);
-        addrs.ctrl1Addr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CTRL_1);
-        addrs.startCntCyc0Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_START_CNT_CYC_0);
-        addrs.startCntCyc1Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_START_CNT_CYC_1);
-        addrs.stopCntCyc0Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_STOP_CNT_CYC_0);
-        addrs.stopCntCyc1Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_STOP_CNT_CYC_1);
+        InitPmuRegAddrsDav3510(addr, mapBase, coreIdx, addrs);
     }
     return addrs;
 }

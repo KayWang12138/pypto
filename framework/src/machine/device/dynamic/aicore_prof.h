@@ -276,6 +276,8 @@ private:
     inline void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs);
     inline void ReadPmuCounters(const int32_t coreIdx) const;
     inline void SetPmuEvents(void *mapBase, const int32_t coreIdx) const;
+    inline void InitPmuRegAddrsDav2201(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs);
+    inline void InitPmuRegAddrsDav3510(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs);
     inline PmuCtrlAddrs InitPmuRegAddrsForCore(void *addr, void *mapBase, int coreIdx);
     inline void ProgramPmuStartForCore(void *mapBase, int coreIdx, const PmuCtrlAddrs &addrs);
     inline void ProfStartPmu();
