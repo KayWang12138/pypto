@@ -101,7 +101,7 @@ void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int
     profLevel_ = CreateProfLevel(profConfig);
     DEV_DEBUG("Pypto config prof level is %d", profLevel_);
     archInfo_ = archInfo;
-    DEV_DEBUG("Arch information is DAV_%d", archInfo_);
+    DEV_DEBUG("Arch information is DAV_%d", static_cast<int>(archInfo_));
     if ((ProfCheckLevel(PROF_TASK_TIME_L2) == true) || (profLevel_ == PROF_LEVEL_FUNC_LOG) || (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU)) {
         profLevel_ = PROF_LEVEL_FUNC_LOG;
         ProfInitLog();
@@ -258,7 +258,7 @@ inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat *taskS
     }
 }
 
-inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs, ArchInfo archInfo) {
+inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs) {
     pmuMsgSize_ = sizeof(PyPtoMsprofAdditionalInfo);
     pmuHeadSize_ = sizeof(MsprofAicpuPyPtoPmuHead);
     pmuDataSize_ = sizeof(MsprofAicpuPyPtoPmuData);
