@@ -33,8 +33,11 @@ public:
     Status RunOnFunction(Function &function) override;
 
 private:
-    void ChangeOpSeq(std::vector<Operation *> &opList, PipeSync &ps, bool isAIV1);
+    void ChangeOpSeq(PipeSync &ps, bool isAIV1);
+    bool IsMergeable(std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, PipeSync &ps, int groupNum);
+    void MoveOpsForMerge(size_t left, size_t right, int groupNum);
     std::vector<std::vector<Operation *>> mergedOps;
+    std::vector<Operation *> opList_;
 };
 }
 #endif // TUNE_TILEOPSEQ_FOR_VF_H
