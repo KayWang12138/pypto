@@ -157,7 +157,7 @@ def gen_win_attn_data_bsnd(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list,
                 kv_valid = kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
                 kv_cache[kv_cache_blk_id, 0: kv_valid.shape[0], :, :] = kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
 
-    atten_out = torch.zeros(atten_out_shape, dtype=torch.float32, device=f'npu:{device_id}')
+    atten_out = torch.zeros(atten_out_shape, dtype=dtypes, device=f'npu:{device_id}')
     return q_tnd.reshape(b, t // b, n_q, d_q), block_table, kv_cache, atten_sink, atten_out
 
 
@@ -223,8 +223,8 @@ def win_atten_calc_mtp_decode(input_params_win_attn, actual_seq_list, atten_sink
     scalar = input_params_win_attn[5]
     b = len(actual_seq_list)
     s_q = t // b
-    atten_out_shape = [b, s_q, n_q, 512]
-    atten_out = torch.zeros(atten_out_shape, dtype=torch.float32, device=f'npu:{device_id}')
+    atten_out_shape = [b, s_q, n_q, d_q]
+    atten_out = torch.zeros(atten_out_shape, dtype=q.dtype, device=f'npu:{device_id}')
     block_size = kv_cache.shape[1]
     for b_index in range(b):
         for s1_index in range(s_q):
@@ -251,25 +251,17 @@ def win_atten_calc_mtp_decode(input_params_win_attn, actual_seq_list, atten_sink
             kv_cur = kv_cur[valid_start_pos : valid_start_pos + valid_win_len, :]
 
             sum_exp = torch.zeros([n_q, 1], dtype=torch.float32, device=f'npu:{device_id}')
-            acc_o = torch.zeros([n_q, d_q], dtype=torch.float32, device=f'npu:{device_id}')
-            scores_max = torch.full((n_q, 1), float('-inf'), device=f'npu:{device_id}')
 
             acc_s = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0)) # [n_q, win_size]
             acc_s = acc_s * scalar  # [n_q, win_size]
-            scores_max_prev = scores_max    #[n_q, 1]
             scores_max = torch.max(acc_s, dim=-1, keepdims=True)[0] # [n_q, 1]
-            scores_scale = torch.exp(scores_max_prev - scores_max)  # [n_q, 1]
             acc_s = torch.exp(acc_s - scores_max) # [n_q, win_size]
-            scores_sum = torch.sum(acc_s, dim=-1, keepdims=True) # [n_q, 1]
-            mul_res = sum_exp * scores_scale
-            sum_exp = mul_res + scores_sum
-            acc_o *= scores_scale # [n_q, d_q]
-            acc_o += torch.matmul(acc_s, kv_cur.to(torch.float32)) #[n_q, d]
-
+            sum_exp = torch.sum(acc_s, dim=-1, keepdims=True) # [n_q, 1]
             sum_exp += torch.exp(atten_sink.reshape(n_q, 1) - scores_max)
-            acc_o /= sum_exp
-
-            atten_out[b_index, s1_index, :, :] = acc_o
+            v1_res = acc_s / sum_exp
+            mm2_res = torch.matmul(v1_res, kv_cur.to(torch.float32)) #[n_q, d]
+           
+            atten_out[b_index, s1_index, :, :] = mm2_res.to(q.dtype)
 
     return atten_out
 
@@ -303,7 +295,7 @@ def test_win_atten_bsnd_mtp_decode() -> None:
 
             golden = win_atten_calc_mtp_decode(input_params_win_attn, seqused_kv_list, attn_sinks, q, ori_kv, ori_block_table, device_id)
             from utils.np_compare import detailed_allclose_manual as compare
-            threhold = 5e-4
+            threhold = 5e-3
             compare(golden, atten_out, "SWA decode bnsd mtp 版本", rtol=threhold, atol=threhold)
 
 
@@ -335,7 +327,7 @@ def test_win_atten_prefill() -> None:
             
             golden = win_atten_calc_tnd_prefill(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, kv_cache, block_table, device_id)
             from utils.np_compare import detailed_allclose_manual as compare
-            threhold = 5e-4
+            threhold = 5e-3
             compare(golden, atten_out, "SWA decode bnsd C128A版本", rtol=threhold, atol=threhold)
 
 
