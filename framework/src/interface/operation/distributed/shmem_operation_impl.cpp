@@ -220,6 +220,39 @@ void ShmemReduce(const Tensor &in, const Tensor &shmData, const Tensor &dummy, c
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
 }
 
+void CreateShmemData(const char *group, int64_t worldSize, DataType dataType, 
+     const Shape &shape, Tensor &shmemTensor, uint64_t memType) 
+ { 
+     auto &function = *Program::GetInstance().GetCurrentFunction(); 
+     int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group))); 
+     Shape shmemShape{worldSize}; 
+     shmemShape.insert(shmemShape.end(), shape.begin(), shape.end()); 
+     auto shmemTensorInner = std::make_shared<LogicalTensor>(function, dataType, shmemShape); 
+     shmemTensor = shmemTensorInner; 
+     Program::GetInstance().GetTensorSlotManager()->TensorWrite(shmemTensor, SlotProperty::SHMEM_TENSOR); 
+     auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensorInner}); 
+     op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, memType, 
+         AlignUp(BytesOf(dataType) * std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<int64_t>()), 512))); 
+ } 
+ 
+ 
+ void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal) 
+ { 
+     auto &function = *Program::GetInstance().GetCurrentFunction(); 
+     int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group))); 
+     int64_t worldSize = shmemData.GetShape(0); 
+     Shape shmemShape{worldSize, worldSize}; 
+     Shape shmemDataShape; 
+     shmemDataShape.assign(shmemData.GetShape().begin() + 1, shmemData.GetShape().end()); 
+     shmemShape.insert(shmemShape.end(), shmemDataShape.begin(), shmemDataShape.end()); 
+     auto shmemTensorInner = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, shmemShape); 
+     shmemSignal = shmemTensorInner; 
+     Program::GetInstance().GetTensorSlotManager()->TensorWrite(shmemSignal, SlotProperty::SHMEM_TENSOR); 
+     auto &op = function.AddOperation(Opcode::OP_BIND_TENSOR, {}, {shmemTensorInner}); 
+     op.SetAttribute(OpAttributeKey::bindTensor, BindTensor(hcclGroupIndex, 0, 
+         BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM)); 
+ }
+
 void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize, Tensor& out)
 {
     ValidateGroup(group);
