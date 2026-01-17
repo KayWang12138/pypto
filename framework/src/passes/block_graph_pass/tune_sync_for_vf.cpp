@@ -118,7 +118,7 @@ Status TuneSyncForVF::UpdatePipeVTime(Operation *vecTileOp1, int groupNum, size_
         }
     }
     if (!findFlag) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, AdjustSetWaitFlag falied.", 
+        APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, UpdatePipeVTime falied.", 
             vecTileOp1->GetOpMagic(), vecTileOp1->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(PipeType::PIPE_V).c_str());
         return FAILED;
     }
@@ -151,7 +151,7 @@ Status TuneSyncForVF::UpdateSetPipeTime(Function *subGraphFunc, std::vector<Oper
             }
         }
         if (!findFlag) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, AdjustSetWaitFlag falied.", 
+            APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, UpdateSetPipeTime falied.", 
                 tileOpZ->GetOpMagic(), tileOpZ->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(pipeX).c_str());
             return FAILED;
         }
@@ -175,7 +175,7 @@ Status TuneSyncForVF::UpdateWaitPipeTime(Function *subGraphFunc, std::vector<Ope
             }
         }
         if (!findFlag) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, AdjustSetWaitFlag falied.", 
+            APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, UpdateWaitPipeTime falied.", 
                 tileOpZ->GetOpMagic(), tileOpZ->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(pipeX).c_str());
             return FAILED;
         }
@@ -198,7 +198,7 @@ Status TuneSyncForVF::MoveBackPipeVOps(int groupNum, const int &maxMoveBackDist)
         }
     }
     if (!findFlag) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, AdjustSetWaitFlag falied.", 
+        APASS_LOG_ERROR_F(Elements::Operation, "Cannot find %d %s in %s oplist, MoveBackPipeVOps falied.", 
             firstOp->GetOpMagic(), firstOp->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(PipeType::PIPE_V).c_str());
         return FAILED;
     }
