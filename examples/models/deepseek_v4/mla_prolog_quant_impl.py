@@ -114,21 +114,21 @@ class MlaPrologV4Configs:
 
 def check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
                                     wq_a_scale, wq_b_scale, w_kv_scale, output_q_data, output_kv_data, output_qr_data):
-    assert token_x.size(1) == 4096 and token_x.dim() == 2, f"expected token_x dim num 2, token_x axis1 4096"
-    assert wq_a.dim() == 2 and wq_a.size(0) == 4096 and wq_a.size(1) == 1024, f"expected wq_a dim num 2 residual axis0 4096, wq_a axis1 1024"
-    assert wq_b.dim() == 2 and wq_b.size(0) == 1024 and wq_b.size(1) == 32768, f"expected wq_b dim num 2, wq_b axis0 1024, wq_b axis1 32768"
-    assert wkv.dim() == 2 and wkv.size(0) == 4096 and wkv.size(1) == 512, f"expected wkv dim num 2, wkv axis0 4096, wkv axis1 512"
-    assert rope_cos.dim() == 2 and rope_cos.size(1) == 64, f"expected rope_cos dim num 2, rope_cos axis1 64"
-    assert rope_sin.dim() == 2 and rope_sin.size(1) == 64, f"expected rope_sin dim num 2, rope_sin axis1 64"
-    assert gamma_cq.dim() == 1 and gamma_cq.size(0) == 1024 , f"expected gamma_cq dim num 1, gamma_cq axis0 1024"
-    assert gamma_ckv.dim() == 1 and gamma_ckv.size(0) == 512, f"expected gamma_ckv dim num 1, gamma_ckv axis0 512"
-    assert wq_a_scale.dim() == 2 and wq_a_scale.size(0) == 1 and wq_a_scale.size(1) == 1024, f"expected wq_a_scale dim num 2 residual axis0 1, wq_a_scale axis1 1024"
-    assert wq_b_scale.dim() == 2 and wq_b_scale.size(0) == 1 and wq_b_scale.size(1) == 32768, f"expected wq_b_scale dim num 2, wq_b_scale axis0 1, wq_b_scale axis1 32768"
-    assert w_kv_scale.dim() == 2 and w_kv_scale.size(0) == 1 and w_kv_scale.size(1) == 512, f"expected w_kv_scale dim num 2, w_kv_scale axis0 1, w_kv_scale axis1 512"
+    assert token_x.size(1) == 4096 and token_x.dim() == 2, f"expected token_x dim num 2, token_x axis1 4096, but got {token_x.shape}"
+    assert wq_a.dim() == 2 and wq_a.size(0) == 4096 and wq_a.size(1) == 1024, f"expected wq_a dim num 2 residual axis0 4096, wq_a axis1 1024, but got {wq_a.shape}"
+    assert wq_b.dim() == 2 and wq_b.size(0) == 1024 and wq_b.size(1) == 32768, f"expected wq_b dim num 2, wq_b axis0 1024, wq_b axis1 32768, but got {wq_b.shape}"
+    assert wkv.dim() == 2 and wkv.size(0) == 4096 and wkv.size(1) == 512, f"expected wkv dim num 2, wkv axis0 4096, wkv axis1 512, but got {wkv.shape}"
+    assert rope_cos.dim() == 2 and rope_cos.size(1) == 64, f"expected rope_cos dim num 2, rope_cos axis1 64, but got {rope_cos.shape}"
+    assert rope_sin.dim() == 2 and rope_sin.size(1) == 64, f"expected rope_sin dim num 2, rope_sin axis1 64, but got {rope_sin.shape}"
+    assert gamma_cq.dim() == 1 and gamma_cq.size(0) == 1024, f"expected gamma_cq dim num 1, gamma_cq axis0 1024, but got {gamma_cq.shape}"
+    assert gamma_ckv.dim() == 1 and gamma_ckv.size(0) == 512, f"expected gamma_ckv dim num 1, gamma_ckv axis0 512, but got {gamma_ckv.shape}"
+    assert wq_a_scale.dim() == 2 and wq_a_scale.size(0) == 1024 and wq_a_scale.size(1) == 1, f"expected wq_a_scale dim num 2 residual axis0 1024, wq_a_scale axis1 1, but got {wq_a_scale.shape}"
+    assert wq_b_scale.dim() == 2 and wq_b_scale.size(0) == 32768 and wq_b_scale.size(1) == 1, f"expected wq_b_scale dim num 2, wq_b_scale axis0 32768, wq_b_scale axis1 1, but got {wq_b_scale.shape}"
+    assert w_kv_scale.dim() == 2 and w_kv_scale.size(0) == 512 and w_kv_scale.size(1) == 1, f"expected w_kv_scale dim num 2, w_kv_scale axis0 512, w_kv_scale axis1 1, but got {w_kv_scale.shape}"
     
-    assert output_q_data.dim() == 3 and output_q_data.size(1) == 64 and output_q_data.size(2) == 512, f"expected output_q_data dim num 3, output_q_data axis1 64, output_q_data axis2 512"
-    assert output_kv_data.dim() == 2 and output_kv_data.size(1) == 512, f"expected output_kv_data dim num 2, output_kv_data axis1 512"
-    assert output_qr_data.dim() == 2 and output_qr_data.size(1) == 1024, f"expected output_qr_data dim num 2, output_qr_data axis1 4096"
+    assert output_q_data.dim() == 3 and output_q_data.size(1) == 64 and output_q_data.size(2) == 512, f"expected output_q_data dim num 3, output_q_data axis1 64, output_q_data axis2 512, but got {output_q_data.shape}"
+    assert output_kv_data.dim() == 2 and output_kv_data.size(1) == 512, f"expected output_kv_data dim num 2, output_kv_data axis1 512, but got {output_kv_data.shape}"
+    assert output_qr_data.dim() == 2 and output_qr_data.size(1) == 1024, f"expected output_qr_data dim num 2, output_qr_data axis1 4096, but got {output_qr_data.shape}"
   
     assert token_x.dtype == torch.bfloat16, f"token_x.dtype is {token_x.dtype}, expected torch.bfloat16"
     assert wq_a.dtype == torch.int8, f"wq_a.dtype is {wq_a.dtype}, expected torch.int8"
@@ -385,6 +385,9 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
     rope_dim = cos.shape[1]
     gamma_cq_2d = pypto.reshape(rmsnorm_gamma_cq, [1, rmsnorm_gamma_cq.shape[0]], inplace=True)
     gamma_ckv_2d = pypto.reshape(rmsnorm_gamma_ckv, [1, rmsnorm_gamma_ckv.shape[0]], inplace=True)
+    wq_a_scale = pypto.reshape(wq_a_scale, [1, wq_a_scale.shape[0]], inplace=True)
+    wq_b_scale = pypto.reshape(wq_b_scale, [1, wq_b_scale.shape[0]], inplace=True)
+    wkv_scale = pypto.reshape(wkv_scale, [1, wkv_scale.shape[0]], inplace=True)
     pypto.set_vec_tile_shapes(4, q_lora_rank)
     gamma_cq_2d_fp32 = pypto.cast(gamma_cq_2d, pypto.DataType.DT_FP32)
     gamma_ckv_2d_fp32 = pypto.cast(gamma_ckv_2d, pypto.DataType.DT_FP32)
@@ -397,7 +400,7 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         pypto.set_vec_tile_shapes(4, 4096)
         x_tile = pypto.view(x, [t_tile, h], [tIdx, 0], valid_shape=[t_tile, h])
         pypto.set_semantic_label("wqa-linear")
-        pypto.set_cube_tile_shapes([tile_bs, tile_bs], [256, 256], [256, 256], True)
+        pypto.set_cube_tile_shapes([tile_bs, tile_bs], [256, 256], [128, 128], True)
         pypto.set_pass_options(sg_set_scope=1)
         x_tile_quant, x_quant_scale = quant(x_tile)
         pypto.set_pass_options(sg_set_scope=-1)
@@ -410,7 +413,9 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         qr = pypto.mul(qr, gamma_cq_2d_fp32)
         qr_cast = pypto.cast(qr, pypto.DataType.DT_BF16)
         pypto.assemble(qr_cast, [tIdx, 0], qr_out)
+        pypto.set_pass_options(sg_set_scope=1)
         qr_quant, qr_scale = quant(qr_cast)
+        pypto.set_pass_options(sg_set_scope=-1)
 
         pypto.set_semantic_label("wqb-linear")
         pypto.set_cube_tile_shapes([tile_bs, tile_bs], [256, 256], [256, 256], True)
@@ -425,10 +430,10 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         sin_2d = pypto.view(sin, [t_tile, rope_dim], [tIdx, 0], valid_shape =[t_tile, rope_dim])
 
         qr2_3d_nope = pypto.view(qr2_3d_cast, [t_tile, head_num, head_dim-rope_dim], [0, 0, 0], valid_shape=[t_tile, head_num, head_dim-rope_dim])
+        pypto.assemble(pypto.clone(qr2_3d_nope), [tIdx, 0, 0], q_out)
         qr2_3d_rope = pypto.view(qr2_3d_cast, [t_tile, head_num, rope_dim], [0, 0, head_dim-rope_dim], valid_shape=[t_tile, head_num, rope_dim])
         qr2_3d_rope = rope_3d(qr2_3d_rope, cos_2d, sin_2d)
-        qr2_3d = pypto.concat([qr2_3d_nope, qr2_3d_rope], -1)
-        pypto.assemble(qr2_3d, [tIdx, 0, 0], q_out)
+        pypto.assemble(qr2_3d_rope, [tIdx, 0, head_dim-rope_dim], q_out)
 
         pypto.set_semantic_label("wkv-linear")
         pypto.set_cube_tile_shapes([tile_bs, tile_bs], [256, 256], [64, 64], True)
@@ -440,16 +445,16 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         kv_norm_cast = pypto.cast(kv_norm, pypto.DataType.DT_BF16)
 
         kv_norm_nope = pypto.view(kv_norm_cast, [t_tile, head_dim-rope_dim], [0, 0], valid_shape=[t_tile, head_dim-rope_dim])
+        pypto.assemble(pypto.clone(kv_norm_nope), [tIdx, 0], kv_out)
         kv_norm_rope = pypto.view(kv_norm_cast, [t_tile, rope_dim], [0, head_dim-rope_dim], valid_shape=[t_tile, rope_dim])
         kv_norm_rope = rope_2d(kv_norm_rope, cos_2d, sin_2d)
-        kv_norm = pypto.concat([kv_norm_nope, kv_norm_rope], -1)
-        pypto.assemble(kv_norm, [tIdx, 0], kv_out)
+        pypto.assemble(kv_norm_rope, [tIdx, head_dim-rope_dim], kv_out)
 
 
 @pypto.jit(runtime_options={
         "stitch_function_inner_memory": 1024,
         "stitch_function_outcast_memory": 1024,
-        "stitch_cfgcache_size": 300000
+        "stitch_cfgcache_size": 3000000
     })
 def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs):
     pypto.experimental.set_operation_config(combine_axis=1)

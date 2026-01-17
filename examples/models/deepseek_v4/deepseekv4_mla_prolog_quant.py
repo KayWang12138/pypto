@@ -328,14 +328,13 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     rope_cos_shape = [t, qk_rope_head_dim]
     rmsnorm_gamma_cq_shape = [q_lora_rank]
     rmsnorm_gamma_ckv_shape = [head_dim]
-    wq_a_scale_shape = [1, q_lora_rank]
-    wq_b_scale_shape = [1, n1 * head_dim]
-    w_kv_scale_shape = [1, head_dim]
+    wq_a_scale_shape = [q_lora_rank, 1]
+    wq_b_scale_shape = [n1 * head_dim, 1]
+    w_kv_scale_shape = [head_dim, 1]
 
     q_out_shape = [t, n1, head_dim]
     kv_out_shape = [t, head_dim]
     qr_out_shape = [t, q_lora_rank]
-    qr_scale_out_shape = [t, 1]
     
     if is_nz:
         wq_a_nz = torch_npu.npu_format_cast(input_tensors["wq_a"].reshape(wq_a_shape).npu().contiguous(), \
