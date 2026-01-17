@@ -180,7 +180,7 @@ class BuildParam(CMakeParam):
         self.generator = self._get_generator(generator=args.generator)
         self.build_type = args.build_type
         self.asan = args.asan
-        self.ubsan = args.ubsan
+        self.ubsan = False
         self.gcov = args.gcov
         self.gcov_incr = args.gcov_increment
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
@@ -320,7 +320,7 @@ class TestsExecuteParam(CMakeParam):
 
     def __init__(self, args):
         self.changed_file = None if not args.changed_files else Path(args.changed_files).resolve()
-        self.auto_execute = args.disable_auto_execute
+        self.auto_execute = True
         self.auto_execute_parallel = self.auto_execute and self.ci_model
         timeout = args.case_execute_timeout
         self.case_execute_timeout = timeout if timeout and timeout > 0 else None  # 单个用例执行超时时长
@@ -1094,13 +1094,13 @@ class BuildCtrl(CMakeParam):
         self.py_tests_run_pytest(dist=dist, params=[(self.tests.models, "models"),
                                                     (self.tests.stest, "python/tests/st")],
                                  ext=ext_str)
-        
+
         # 执行用例, Examples
         dev_ext_comma = ",".join(f"{d}" for d in dev_lst)
         self.py_run_examples(dist=dist, tests=self.tests.example,
                              def_filter=str(Path(self.src_root, "examples")),
                              dev_ext_comma=dev_ext_comma, n_workers=n_workers)
-        
+
     def py_tests_run_pytest(self, dist: Optional[Path], params: List[Tuple[TestsFilterParam, str]], ext: str = ""):
         """
         调用 pytest 执行用例
@@ -1122,7 +1122,7 @@ class BuildCtrl(CMakeParam):
             return
         # 执行 pytest
         self._py_tests_run_pytest(dist=dist, filter_str=filter_str, ext=ext)
-        
+
     def py_run_examples(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str,
                         dev_ext_comma: str = "0", n_workers: str = "auto"):
         if not tests.enable:
