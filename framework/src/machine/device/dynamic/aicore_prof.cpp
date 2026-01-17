@@ -95,11 +95,13 @@ AiCoreProfLevel AiCoreProf::CreateProfLevel(ProfConfig profConfig) {
     return PROF_LEVEL_OFF;
 }
 
-void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig) {
+void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig, [[maybe_unused]]ArchInfo archInfo) {
     DEV_DEBUG("Begin Prof init");
     coreNum_ = hostAicoreMng_.GetAllAiCoreNum();
     profLevel_ = CreateProfLevel(profConfig);
     DEV_DEBUG("Pypto config prof level is %d", profLevel_);
+    archInfo_ = archInfo;
+    DEV_DEBUG("Arch information is DAV_%d", archInfo_);
     if ((ProfCheckLevel(PROF_TASK_TIME_L2) == true) || (profLevel_ == PROF_LEVEL_FUNC_LOG) || (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU)) {
         profLevel_ = PROF_LEVEL_FUNC_LOG;
         ProfInitLog();
@@ -256,7 +258,7 @@ inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat *taskS
     }
 }
 
-inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs) {
+inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs, ArchInfo archInfo) {
     pmuMsgSize_ = sizeof(PyPtoMsprofAdditionalInfo);
     pmuHeadSize_ = sizeof(MsprofAicpuPyPtoPmuHead);
     pmuDataSize_ = sizeof(MsprofAicpuPyPtoPmuData);
@@ -278,14 +280,25 @@ inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs) {
     pmuCnt5Plain_.resize(coreNum_, nullptr);
     pmuCnt6Plain_.resize(coreNum_, nullptr);
     pmuCnt7Plain_.resize(coreNum_, nullptr);
+    pmuCntTotal0Plain_.resize(coreNum_, nullptr);
+    pmuCntTotal1Plain_.resize(coreNum_, nullptr);
+
     pmuCnt8Plain_.resize(coreNum_, nullptr);
     pmuCnt9Plain_.resize(coreNum_, nullptr);
     regAddrs_ = regAddrs;
     pmuEventAddrs_ = pmuEventAddrs;
-    DEV_INFO("0: %x, 1: %x, 2: %x, 3: %x, 4: %x, 5: %x, 6: %x, 7: %x.",
-        (uint32_t)pmuEventAddrs_[0], (uint32_t)pmuEventAddrs_[1], (uint32_t)pmuEventAddrs_[2],
-        (uint32_t)pmuEventAddrs_[3], (uint32_t)pmuEventAddrs_[4], (uint32_t)pmuEventAddrs_[5],
-        (uint32_t)pmuEventAddrs_[6], (uint32_t)pmuEventAddrs_[7]);
+    if (archInfo_ == ArchInfo::DAV_2201) {
+        DEV_INFO("0: %x, 1: %x, 2: %x, 3: %x, 4: %x, 5: %x, 6: %x, 7: %x.",
+            (uint32_t)pmuEventAddrs_[0], (uint32_t)pmuEventAddrs_[1], (uint32_t)pmuEventAddrs_[2],
+            (uint32_t)pmuEventAddrs_[3], (uint32_t)pmuEventAddrs_[4], (uint32_t)pmuEventAddrs_[5],
+            (uint32_t)pmuEventAddrs_[6], (uint32_t)pmuEventAddrs_[7]);
+    } else if (archInfo_ == ArchInfo::DAV_3510) {
+        DEV_INFO("0: %x, 1: %x, 2: %x, 3: %x, 4: %x, 5: %x, 6: %x, 7: %x, 8: %x, 9: %x.",
+            (uint32_t)pmuEventAddrs_[0], (uint32_t)pmuEventAddrs_[1], (uint32_t)pmuEventAddrs_[2],
+            (uint32_t)pmuEventAddrs_[3], (uint32_t)pmuEventAddrs_[4], (uint32_t)pmuEventAddrs_[5],
+            (uint32_t)pmuEventAddrs_[6], (uint32_t)pmuEventAddrs_[7], (uint32_t)pmuEventAddrs_[8],
+            (uint32_t)pmuEventAddrs_[9]);
+    }
 }
 
 inline void AiCoreProf::ReadPmuCounters(const int32_t coreIdx) const {
@@ -294,7 +307,7 @@ inline void AiCoreProf::ReadPmuCounters(const int32_t coreIdx) const {
         dummy_read = *reg; // 通过volatile访问确保实际读取操作
     };
 
-    // 展开读取所有8个寄存器
+    // 展开读取所有寄存器
     read_reg(pmuCnt0Plain_[coreIdx]);
     read_reg(pmuCnt1Plain_[coreIdx]);
     read_reg(pmuCnt2Plain_[coreIdx]);
@@ -303,21 +316,49 @@ inline void AiCoreProf::ReadPmuCounters(const int32_t coreIdx) const {
     read_reg(pmuCnt5Plain_[coreIdx]);
     read_reg(pmuCnt6Plain_[coreIdx]);
     read_reg(pmuCnt7Plain_[coreIdx]);
-    read_reg(pmuCnt8Plain_[coreIdx]);
-    read_reg(pmuCnt9Plain_[coreIdx]);
+    read_reg(pmuCntTotal0Plain_[coreIdx]);
+    read_reg(pmuCntTotal1Plain_[coreIdx]);
+    // 只在DAV_3510架构下读取cnt8和cnt9
+    if (archInfo_ == ArchInfo::DAV_3510) {
+        read_reg(pmuCnt8Plain_[coreIdx]);
+        read_reg(pmuCnt9Plain_[coreIdx]);
+    }
 
     (void)dummy_read; // 抑制未使用变量警告
 }
 
 inline void AiCoreProf::SetPmuEvents(void *mapBase, const int32_t coreIdx) const {
-    uint32_t *cnt0IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT0_IDX);
-    uint32_t *cnt1IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT1_IDX);
-    uint32_t *cnt2IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT2_IDX);
-    uint32_t *cnt3IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT3_IDX);
-    uint32_t *cnt4IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT4_IDX);
-    uint32_t *cnt5IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT5_IDX);
-    uint32_t *cnt6IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT6_IDX);
-    uint32_t *cnt7IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT7_IDX);
+    uint32_t *cnt0IdxAddr = nullptr;
+    uint32_t *cnt1IdxAddr = nullptr;
+    uint32_t *cnt2IdxAddr = nullptr;
+    uint32_t *cnt3IdxAddr = nullptr;
+    uint32_t *cnt4IdxAddr = nullptr;
+    uint32_t *cnt5IdxAddr = nullptr;
+    uint32_t *cnt6IdxAddr = nullptr;
+    uint32_t *cnt7IdxAddr = nullptr;
+    uint32_t *cnt8IdxAddr = nullptr;
+    uint32_t *cnt9IdxAddr = nullptr;
+    if (archInfo_ == ArchInfo::DAV_2201) {
+        cnt0IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT0_IDX);
+        cnt1IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT1_IDX);
+        cnt2IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT2_IDX);
+        cnt3IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT3_IDX);
+        cnt4IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT4_IDX);
+        cnt5IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT5_IDX);
+        cnt6IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT6_IDX);
+        cnt7IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CNT7_IDX);
+    } else if (archInfo_ == ArchInfo::DAV_3510) {
+        cnt0IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CNT0_IDX);
+        cnt1IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CNT1_IDX);
+        cnt2IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CNT2_IDX);
+        cnt3IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CNT3_IDX);
+        cnt4IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CNT4_IDX);
+        cnt5IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CNT5_IDX);
+        cnt6IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CNT6_IDX);
+        cnt7IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CNT7_IDX);
+        cnt8IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CNT8_IDX);
+        cnt9IdxAddr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CNT9_IDX);
+    }
     *cnt0IdxAddr = pmuEventAddrs_[0];
     *cnt1IdxAddr = pmuEventAddrs_[1];
     *cnt2IdxAddr = pmuEventAddrs_[2];
@@ -326,48 +367,93 @@ inline void AiCoreProf::SetPmuEvents(void *mapBase, const int32_t coreIdx) const
     *cnt5IdxAddr = pmuEventAddrs_[5];
     *cnt6IdxAddr = pmuEventAddrs_[6];
     *cnt7IdxAddr = pmuEventAddrs_[7];
+    if (archInfo_ == ArchInfo::DAV_3510) {
+        *cnt8IdxAddr = pmuEventAddrs_[8];
+        *cnt9IdxAddr = pmuEventAddrs_[9];
+    }
     (void)coreIdx;
 }
 
 inline void AiCoreProf::ProfStartPmu() {
     hostAicoreMng_.ForEachManageAicore([&](int coreIdx) {
         void *addr = reinterpret_cast<void *>(regAddrs_[hostAicoreMng_.GetPhyIdByBlockId(coreIdx)]);
-
-        // pmu cnt 0~7 reg
-        pmuCnt0Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT0);
-        pmuCnt1Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT1);
-        pmuCnt2Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT2);
-        pmuCnt3Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT3);
-        pmuCnt4Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT4);
-        pmuCnt5Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT5);
-        pmuCnt6Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT6);
-        pmuCnt7Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT7);
-        pmuCnt8Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT8);
-        pmuCnt9Plain_[coreIdx] =
-            reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT9);
-        // pmu syscnt
         uint32_t pageSize = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
         void *mapBase =
             reinterpret_cast<void *>(reinterpret_cast<uint64_t>(addr) & ~(static_cast<uint64_t>(pageSize) - 1));
-        uint32_t *ctrl0Addr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CTRL_0);
-        uint32_t *startCntCyc0Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_START_CNT_CYC_0);
-        uint32_t *startCntCyc1Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_START_CNT_CYC_1);
-        uint32_t *stopCntCyc0Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_STOP_CNT_CYC_0);
-        uint32_t *stopCntCyc1Addr =
-            reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_STOP_CNT_CYC_1);
+        uint32_t *ctrl0Addr = nullptr;
+        uint32_t *ctrl1Addr = nullptr;
+        uint32_t *startCntCyc0Addr = nullptr;
+        uint32_t *startCntCyc1Addr = nullptr;
+        uint32_t *stopCntCyc0Addr = nullptr;
+        uint32_t *stopCntCyc1Addr = nullptr;
+        if (archInfo_ == ArchInfo::DAV_2201) {
+            pmuCnt0Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT0);
+            pmuCnt1Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT1);
+            pmuCnt2Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT2);
+            pmuCnt3Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT3);
+            pmuCnt4Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT4);
+            pmuCnt5Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT5);
+            pmuCnt6Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT6);
+            pmuCnt7Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT7);
+            pmuCntTotal0Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT_TOTAL0);
+            pmuCntTotal1Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT_TOTAL1);
 
+            ctrl0Addr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_CTRL_0);
+            startCntCyc0Addr =
+                reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_START_CNT_CYC_0);
+            startCntCyc1Addr =
+                reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_START_CNT_CYC_1);
+            stopCntCyc0Addr =
+                reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_STOP_CNT_CYC_0);
+            stopCntCyc1Addr =
+                reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_STOP_CNT_CYC_1);
+        } else if (archInfo_ == ArchInfo::DAV_3510) {
+            pmuCnt0Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT0);
+            pmuCnt1Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT1);
+            pmuCnt2Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT2);
+            pmuCnt3Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT3);
+            pmuCnt4Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT4);
+            pmuCnt5Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT5);
+            pmuCnt6Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT6);
+            pmuCnt7Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT7);
+            pmuCnt8Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT8);
+            pmuCnt9Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT9);
+            pmuCntTotal0Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT_TOTAL0);
+            pmuCntTotal1Plain_[coreIdx] =
+                reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT_TOTAL1);
+
+            ctrl0Addr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CTRL_0);
+            ctrl1Addr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_CTRL_1);
+            startCntCyc0Addr =
+                reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_START_CNT_CYC_0);
+            startCntCyc1Addr =
+                reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_START_CNT_CYC_1);
+            stopCntCyc0Addr =
+                reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_STOP_CNT_CYC_0);
+            stopCntCyc1Addr =
+                reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_STOP_CNT_CYC_1);
+        }
         // 在enable前先读取一次寄存器,将cnt清0
         ReadPmuCounters(coreIdx);
 
@@ -378,7 +464,12 @@ inline void AiCoreProf::ProfStartPmu() {
         *startCntCyc1Addr = 0x0;
         *stopCntCyc0Addr = 0xFFFFFFFF;
         *stopCntCyc1Addr = 0xFFFFFFFF;
-        *ctrl0Addr = GLB_PMU_EN + (USER_PMU_MODE_EN << 1) + (SAMPLE_PMU_MODE_EN << NUM_TWO);
+        if (archInfo_ == ArchInfo::DAV_2201) {
+            *ctrl0Addr = GLB_PMU_EN + (USER_PMU_MODE_EN << 1) + (SAMPLE_PMU_MODE_EN << NUM_TWO);
+        } else if (archInfo_ == ArchInfo::DAV_3510) {
+            *ctrl0Addr = USER_PMU_MODE_EN + (SAMPLE_PMU_MODE_EN << 1);
+            *ctrl1Addr = GLB_PMU_EN;
+        }
     });
 }
 
@@ -467,7 +558,7 @@ void AiCoreProf::FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, ui
     const struct TaskStat *taskStat) const {
     data.seqNo = taskStat->seqNo;
     data.taskId = taskId;
-    data.totalCyc = *(pmuCnt8Plain_[coreIdx]) + (static_cast<uint64_t>(*(pmuCnt9Plain_[coreIdx])) << HIG_32BIT);
+    data.totalCyc = *(pmuCntTotal0Plain_[coreIdx]) + (static_cast<uint64_t>(*(pmuCntTotal1Plain_[coreIdx])) << HIG_32BIT);
     data.pmuCnt0 = *(pmuCnt0Plain_[coreIdx]);
     data.pmuCnt1 = *(pmuCnt1Plain_[coreIdx]);
     data.pmuCnt2 = *(pmuCnt2Plain_[coreIdx]);
@@ -476,6 +567,10 @@ void AiCoreProf::FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, ui
     data.pmuCnt5 = *(pmuCnt5Plain_[coreIdx]);
     data.pmuCnt6 = *(pmuCnt6Plain_[coreIdx]);
     data.pmuCnt7 = *(pmuCnt7Plain_[coreIdx]);
+    if (archInfo_ == ArchInfo::DAV_3510) {
+        data.pmuCnt8 = *(pmuCnt8Plain_[coreIdx]);
+        data.pmuCnt9 = *(pmuCnt9Plain_[coreIdx]);
+    } 
     (void)subGraphId;
 }
 
@@ -484,11 +579,12 @@ inline void AiCoreProf::ProfGetPmu(
     MsprofAicpuPyPtoPmuData data = {0};
     FillPmuData(data, coreIdx, subGraphId, taskId, taskStat);
     DEV_DEBUG("aicore profiling pmu info, core id: %d: (%u, %u | %lu | %p=%u, %p=%u, %p=%u, %p=%u, "
-              "%p=%u, %p=%u, %p=%u, %p=%u).",
-        coreIdx, data.seqNo, data.taskId, data.totalCyc, pmuCnt0Plain_[coreIdx], data.pmuCnt0,
-        pmuCnt1Plain_[coreIdx], data.pmuCnt1, pmuCnt2Plain_[coreIdx], data.pmuCnt2, pmuCnt3Plain_[coreIdx],
-        data.pmuCnt3, pmuCnt4Plain_[coreIdx], data.pmuCnt4, pmuCnt5Plain_[coreIdx], data.pmuCnt5,
-        pmuCnt6Plain_[coreIdx], data.pmuCnt6, pmuCnt7Plain_[coreIdx], data.pmuCnt7);
+            "%p=%u, %p=%u, %p=%u, %p=%u, %p=%u, %p=%u).",
+    coreIdx, data.seqNo, data.taskId, data.totalCyc, pmuCnt0Plain_[coreIdx], data.pmuCnt0,
+    pmuCnt1Plain_[coreIdx], data.pmuCnt1, pmuCnt2Plain_[coreIdx], data.pmuCnt2, pmuCnt3Plain_[coreIdx],
+    data.pmuCnt3, pmuCnt4Plain_[coreIdx], data.pmuCnt4, pmuCnt5Plain_[coreIdx], data.pmuCnt5,
+    pmuCnt6Plain_[coreIdx], data.pmuCnt6, pmuCnt7Plain_[coreIdx], data.pmuCnt7, pmuCnt8Plain_[coreIdx],
+    data.pmuCnt8, pmuCnt9Plain_[coreIdx], data.pmuCnt9);
 
     if (pmuHead_[coreIdx]->cnt == 0) {
         pmuMsg_[coreIdx].magicNumber = 0x5A5AU;
