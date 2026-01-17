@@ -19,33 +19,33 @@ import torch_npu
 import pypto
 import logging
 import numpy as np
-from compress_sparse_flash_attention_impl \
-    import compress_sparse_flash_attention_d, SaTileShapeConfig, npu_compress_sparse_flash_attention
+from sparse_compress_flash_attention_impl \
+    import sparse_compress_flash_attention_d, SCFATileShapeConfig, npu_sparse_compress_flash_attention
 from utils.compare import compare
 
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
-pyptolib.define("compress_sparse_flash_attention(Tensor query_npu, Tensor ori_kv_npu, Tensor cmp_kv_npu, Tensor ori_block_table_npu,\
+pyptolib.define("sparse_compress_flash_attention(Tensor query_npu, Tensor ori_kv_npu, Tensor cmp_kv_npu, Tensor ori_block_table_npu,\
     Tensor cmp_block_table_npu, Tensor atten_sink_npu, Tensor seqused_kv_npu, Tensor cmp_sparse_indices_npu,\
     float softmax_scale, int win_size, int cmp_ratio) -> (Tensor)")
 
-@torch.library.impl(pyptolib, "compress_sparse_flash_attention", "Meta")
-def compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
+@torch.library.impl(pyptolib, "sparse_compress_flash_attention", "Meta")
+def sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                     seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
     y = torch.empty([ori_block_table_npu.size(0), cmp_sparse_indices_npu.size(0) // ori_block_table_npu.size(0),\
         query_npu.size(0) // cmp_sparse_indices_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=query_npu.device)
     return y
 
-@torch.library.impl(pyptolib, "compress_sparse_flash_attention", "NPU")
-def compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
+@torch.library.impl(pyptolib, "sparse_compress_flash_attention", "NPU")
+def sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                     seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
-    return npu_compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
+    return npu_sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                     seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio)
 
 class CompressSFA(torch.nn.Module):
     def forward(self, query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                     seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
-        return torch.ops.pypto.compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
+        return torch.ops.pypto.sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                     seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio)
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
@@ -92,7 +92,6 @@ def compute_attention_no_flash(input_data, params, s2_tile):
 
     # 初始化输出张量
     attention_output = torch.zeros(atten_out_shape, dtype=input_dtype)
-    # tmp_out = torch.zeros([b, s1, n1], dtype=input_dtype)
     
     atten_sink_2d = atten_sink.unsqueeze(-1)
 
@@ -100,26 +99,30 @@ def compute_attention_no_flash(input_data, params, s2_tile):
         cur_k_seq = actual_seq[b_idx]
         origin_cur_k_seq = origin_actual_seq[b_idx]
         for s1_idx in range(s1):
-            origin_cur_win_size = min(origin_cur_k_seq, win_size)
-            origin_cur_block_idx = origin_block_table[b_idx][0]
-            win_kv_cache = torch.zeros([origin_cur_win_size, d], dtype=kv_dtype)
-            win_kv_cache = origin_kv[origin_cur_block_idx * block_size : origin_cur_block_idx * block_size + origin_cur_win_size, :]
+            # win kv_cache
+            valid_data_len = min(win_size + s1 - 1, origin_cur_k_seq)
+            valid_end_pos = valid_data_len - 1 - (s1 - s1_idx - 1)
+            valid_start_pos = valid_end_pos - min(win_size - 1, valid_end_pos)
+            origin_cur_win_size = valid_end_pos - valid_start_pos + 1
+            start_block = valid_start_pos // block_size
+            end_block = valid_end_pos // block_size
+
+            print(f"=========== b_idx:{b_idx}, s1_idx: {s1_idx}, "
+                  f"start_block: {start_block}, end_block: {end_block}, "
+                  f"start_pos: {valid_start_pos}, end_pos: {valid_end_pos}, "
+                  f"cur_win_size: {origin_cur_win_size}")
 
             cur_seq = min(max(cur_k_seq - s1 + 1 + s1_idx, 0), topk)
             bn_per_batch = math.ceil(cur_seq / s2_tile)
-
-            qi = q[b_idx, s1_idx, :, :] # (n1, dk)
-
             for s2_idx in range(bn_per_batch):
                 s2_tile_cur = min(s2_tile, cur_seq - s2_idx * s2_tile)
                 s2_start = s2_tile * s2_idx
                 s2_end = s2_start + s2_tile_cur
 
+                # compress kv_cache
                 topk_indices_tmp = topk_indices[b_idx * s1 + s1_idx, s2_start:s2_end]
-
                 slc_compress_kv = torch.zeros([s2_tile_cur, d_v], dtype=kv_dtype)
-
-                # 当前b&s1&s2 topk_index  --->  kvCache的offset
+                # compress kvCache的offset
                 offset = torch.zeros([s2_tile_cur], dtype=torch.int32)
                 for cur_s2_idx in range(s2_tile_cur):
                     topk_index = topk_indices_tmp[cur_s2_idx]
@@ -127,17 +130,27 @@ def compute_attention_no_flash(input_data, params, s2_tile):
                     slc_block_idx = block_table[b_idx, block_idx_in_batch]
                     tail = topk_index % block_size
                     offset[cur_s2_idx] = slc_block_idx * block_size + tail
-
-                # 索引 kvCache
+                # gather compress kvCache
                 for cur_s2_idx in range(s2_tile_cur):
                     slc_idx = offset[cur_s2_idx]
                     slc_compress_kv[cur_s2_idx, :] = compress_kv[slc_idx, :]
                 
+                # win kv_cache
+                kv_list = []
+                for block_idx in range(start_block, end_block + 1):
+                    physical_block_id = origin_block_table[b_idx, block_idx]
+                    kv_block = origin_kv[physical_block_id * block_size: (physical_block_id + 1) * block_size, :]
+                    kv_list.append(kv_block)
+                kv_cur = torch.cat(kv_list, axis=0)
+                win_kv_cache = kv_cur[valid_start_pos : valid_start_pos + origin_cur_win_size, :]
+
+                # 组装新的kv_cache
                 kj = torch.zeros([origin_cur_win_size + s2_tile_cur, d], dtype=kv_dtype)
                 kj[0 : origin_cur_win_size, :] = win_kv_cache
                 kj[origin_cur_win_size : origin_cur_win_size + s2_tile_cur, :] = slc_compress_kv
 
                 # C1
+                qi = q[b_idx, s1_idx, :, :] # (n1, dk)
                 sij = torch.matmul(qi.to(torch.float32), kj.transpose(1, 0).to(torch.float32)).to(torch.float32)
 
                 sij_scale = sij * scalar # (n1, s2_tile)
@@ -145,7 +158,7 @@ def compute_attention_no_flash(input_data, params, s2_tile):
                 t_sub = sij_scale - tilda_mij # (n1, s2_tile)
                 tilda_pij = torch.exp(t_sub) # (n1, s2_tile)
                 tilda_lij = tilda_pij.sum(dim=-1, keepdims=True)# (n1, 1)
-
+                # calc attn_sink
                 sink_t_sub = atten_sink_2d - tilda_mij # (n1, s2_tile)
                 sink_tilda_pij = torch.exp(sink_t_sub) # (n1, s2_tile)
                 tilda_lij = tilda_lij + sink_tilda_pij
@@ -158,7 +171,6 @@ def compute_attention_no_flash(input_data, params, s2_tile):
     return attention_output
 
 
-# 生成origin的block table，只有一个block块
 def gen_origin_block_table(act_seq, block_size):
     origin_block_num = 0
     origin_block_num_each = []
@@ -187,7 +199,6 @@ def gen_origin_block_table(act_seq, block_size):
     return  origin_block_num, origin_block_table
 
 
-# 生成compress后的block table
 def gen_block_table(act_seq, block_size, s1, need_indices=False):
     block_num = 0
     block_num_each = []
@@ -229,11 +240,11 @@ def gen_block_table(act_seq, block_size, s1, need_indices=False):
     return block_num, block_table, cache_index
 
 
-def gen_compress_sparse_attention_golden(dtype, bn1n2s1, actual_seq, cmp_ratio):
+def gen_sparse_compress_attention_golden(dtype, bn1n2s1, actual_seq, cmp_ratio):
     block_size = 128
     win_size = 128
     torch.manual_seed(42)
-    b, n_q, n_kv, s_q = bn1n2s1  # 48, 128, 1, 1
+    b, n_q, n_kv, s_q = bn1n2s1
     kv_lora_rank = 512
     topk = 512
     np.random.seed(None)
@@ -246,7 +257,6 @@ def gen_compress_sparse_attention_golden(dtype, bn1n2s1, actual_seq, cmp_ratio):
         origin_actual_seq = [actual_seq] * b
     elif isinstance(actual_seq, list):
         if len(actual_seq) == b:
-            # actual_seq = actual_seq
             origin_actual_seq = actual_seq
         else:
             raise RuntimeError("unsupported actual_seq list length")
@@ -255,7 +265,6 @@ def gen_compress_sparse_attention_golden(dtype, bn1n2s1, actual_seq, cmp_ratio):
     
     # 生成压缩后的seq及滑窗的单个windows
     actual_seq = [i // cmp_ratio for i in origin_actual_seq]
-    win_actual_seq = [min(x, win_size) for x in origin_actual_seq]
 
     block_num_per_batch = []
     block_num_min = 0
@@ -272,7 +281,7 @@ def gen_compress_sparse_attention_golden(dtype, bn1n2s1, actual_seq, cmp_ratio):
 
     max_kv_seq = max(actual_seq)
     block_num, block_table, _ = gen_block_table(torch.tensor(actual_seq), block_size, s_q, need_indices=False)
-    origin_block_num, origin_block_table = gen_origin_block_table(torch.tensor(win_actual_seq), block_size)
+    origin_block_num, origin_block_table = gen_origin_block_table(torch.tensor(origin_actual_seq), block_size)
     topk_indices = torch.zeros(b, s_q, topk).to(torch.int32)
     slc_actual_seq = []
     for i in range(b):
@@ -316,14 +325,33 @@ def gen_compress_sparse_attention_golden(dtype, bn1n2s1, actual_seq, cmp_ratio):
     return input_params, input_data_map, atten_out
 
 
-# ST用例入口
-def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p):
+def get_case_config(case_name: str):
+    # case参数配置字典，key为case名称，value为对应的参数元组(bn1n2s1, is_kn_quant, actual_seq, cmp_ratio)
+    test_case_config = {
+        "sfa_bf16_b16_s1_seq64K_d": (
+            (16, 64, 1, 1), 0, [65536] * 16, 4 # for wfa: seq > win_size + s1 -1
+        ),
+        "sfa_bf16_b16_s2_seq1536_d": (
+            (16, 64, 1, 2), 0, [1536] * 16, 4 # for sfa: seq // cmp_ratio < topk
+        ),
+        "sfa_bf16_b16_s2_seq127_d": (
+            (16, 64, 1, 2), 0, [127] * 16, 4 # for wfa: seq < win_size
+        ),
+    	"sfa_bf16_b16_s4_seq130_d": (
+            (4, 64, 1, 4), 0, [130] * 4, 4 # for wfa: win_size <= seq <= win_size + s1 -1
+        ),
+    }
+    case_config = test_case_config.get(case_name)
+    return case_config
+
+
+def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p):
     b, n1, n2, s1 = bn1n2s1
 
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    tile_config = SaTileShapeConfig(
+    tile_config = SCFATileShapeConfig(
         g_tile=64,
         s_kv_tile=2048,
         c1_tile_shape=[64, 64, 128, 640, 128, 128],
@@ -364,38 +392,26 @@ def do_test_sparse_attention_func(bn1n2s1, actual_seq, input_params, input_data,
     pto_inputs = [query_pto, ori_kv_pto, cmp_kv_pto, ori_block_table_pto, cmp_block_table_pto, atten_sink_pto, seqused_kv_pto, cmp_sparse_indices_pto]
     pto_outputs = [attention_out_pto]
 
-    compress_sparse_flash_attention_d(*pto_inputs, *pto_outputs, n_q, n_kv, scalar, topk,
+    print("=============== inputs && outputs =======================")
+    print(*[f"{i.name}: {i.ori_shape} {i.dtype}" for i in pto_inputs], sep="\n")
+    print(*[f"{i.name}: {i.ori_shape} {i.dtype}" for i in pto_outputs], sep="\n")
+    print("========================================================\n")
+    sparse_compress_flash_attention_d(*pto_inputs, *pto_outputs, n_q, n_kv, scalar, topk,
                              block_size, win_size, cmp_ratio, tile_config)
 
     pypto.runtime._device_synchronize()
+    print("======================sfa compare====================")
     compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
 
 
-def get_case_config(case_name: str):
-    # case参数配置字典，key为case名称，value为对应的参数元组(bn1n2s1, is_kn_quant, actual_seq)
-    test_case_config = {
-        "sfa_bf16_b16_s1_seq64K_d": (
-            (16, 64, 1, 1), 0, [65536] * 16, 4
-        ),
-        "sfa_bf16_b16_s1_seq1536_d": (
-            (16, 64, 1, 1), 0, [1536] * 16, 4
-        ),
-        "sfa_bf16_b16_s1_seq127_d": (
-            (16, 64, 1, 1), 0, [127] * 16, 4
-        ),
-    }
-    case_config = test_case_config.get(case_name)
-    return case_config
-
-
 #acl graph测试入口
-def do_test_compress_sparse_attention_func_acl_graph(bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p):
+def do_test_sparse_compress_attention_func_acl_graph(bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p):
     b, n1, n2, s1 = bn1n2s1
 
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
-    torch.npu.set_device(2)
+    torch.npu.set_device(device_id)
 
-    tile_config = SaTileShapeConfig(
+    tile_config = SCFATileShapeConfig(
         g_tile=64,
         s_kv_tile=2048,
         c1_tile_shape=[64, 64, 128, 640, 128, 128],
@@ -415,7 +431,7 @@ def do_test_compress_sparse_attention_func_acl_graph(bn1n2s1, actual_seq, input_
     compiler_config.mode = "reduce-overhead"
     npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
     model = torch.compile(CompressSFA(), dynamic=False, fullgraph=True, backend=npu_backend)
-    
+
     q_npu = q.npu()
     compress_kv_npu = compress_kv.npu()
     origin_kv_npu = origin_kv.npu()
@@ -439,26 +455,24 @@ def do_test_sfa_entry(case_name: str, is_p: bool,  is_acl_graph: bool = False):
         return False
     bn1n2s1, is_kn_quant, actual_seq, cmp_ratio = case_config
 
-    input_params, input_data, atten_out = gen_compress_sparse_attention_golden(
+    print(f"\n================ case_config: {case_config}\n")
+
+    input_params, input_data, atten_out = gen_sparse_compress_attention_golden(
         torch.bfloat16, bn1n2s1, actual_seq, cmp_ratio
     )
     
     if is_acl_graph:
-        do_test_compress_sparse_attention_func_acl_graph(
+        print("\n====================== acl_graph ===============================\n")
+        do_test_sparse_compress_attention_func_acl_graph(
             bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p
         )
     else:
-        do_test_sparse_attention_func(
+        print("\n====================== st ===============================\n")
+        do_test_sparse_compress_attention_func(
             bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p
         )
     return True
 
-
-def test_sfa_bf16_b16_s1_seq64K_d():
-    '''
-    scfa decode测试用例
-    '''
-    do_test_sfa_entry("sfa_bf16_b16_s1_seq64K_d", is_p=False)
 
 # @pytest.mark.skip(reason="acl graph perf")
 def test_sfa_bf16_b4_s4_seq64k_per_graph_d():
@@ -468,17 +482,32 @@ def test_sfa_bf16_b4_s4_seq64k_per_graph_d():
     do_test_sfa_entry("sfa_bf16_b16_s1_seq64K_d", is_p=False, is_acl_graph=True)
 
 
-def test_sfa_bf16_b16_s1_seq1536_d():
+def test_sfa_bf16_b16_s1_seq64K_d():
+    '''
+    scfa decode测试用例, 非MTP场景
+    '''
+    do_test_sfa_entry("sfa_bf16_b16_s1_seq64K_d", is_p=False)
+
+
+def test_sfa_bf16_b16_s2_seq1536_d():
     '''
     scfa decode测试用例, 测试seq_len / cmp_ratio < topk场景
     '''
-    do_test_sfa_entry("sfa_bf16_b16_s1_seq1536_d", is_p=False)
+    do_test_sfa_entry("sfa_bf16_b16_s2_seq1536_d", is_p=False)
 
-def test_sfa_bf16_b16_s1_seq127_d():
+
+def test_sfa_bf16_b16_s2_seq127_d():
     '''
     scfa decode测试用例, 测试seq_len < winsize场景
     '''
-    do_test_sfa_entry("sfa_bf16_b16_s1_seq127_d", is_p=False)
+    do_test_sfa_entry("sfa_bf16_b16_s2_seq127_d", is_p=False)
+
+
+def test_sfa_bf16_b16_s4_seq130_d():
+    '''
+    sfa decode测试函数, 测试win_size <= seq <= win_size + s1 -1场景
+    '''
+    do_test_sfa_entry("sfa_bf16_b16_s4_seq130_d", is_p=False)
 
 
 if __name__ == "__main__":

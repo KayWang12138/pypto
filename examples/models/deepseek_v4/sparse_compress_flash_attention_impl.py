@@ -9,28 +9,23 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
-Sparse Flash Attention Quantization Module
+Sparse compress Flash Attention Module
 
 This module implements sparse flash attention with quantization support for DeepSeek V4.
 It performs attention computation on top-k selected key-value pairs from cache,
 supporting both standard and flash attention algorithms.
 
 Main Functions:
-    - sparse_flash_attention_compute: Standard sparse attention computation
-    - sparse_flash_attention_compute_flash: Flash attention variant with online softmax
-    - sparse_flash_attention_d: JIT-compiled decode version
-    - sparse_flash_attention_p: JIT-compiled prefill version
+    - sparse_compress_flash_attention_compute: Standard sparse attention computation
+    - sparse_compress_flash_attention_flash: Flash attention variant with online softmax
+    - sparse_compress_flash_attention_d: JIT-compiled decode version
 
 Example:
-    See deepseekv4_sparse_flash_attention.py for usage examples.
+    See deepseekv4_sparse_compress_flash_attention.py for usage examples.
 """
 from dataclasses import dataclass
-import math
-import os
 import pypto
-import numpy as np
 import torch
-import torch_npu
 from pypto.experimental import gather_in_ub
 from torch._dynamo import allow_in_graph
 from torch._subclasses.fake_tensor import FakeTensor
@@ -38,7 +33,7 @@ from torch._subclasses.fake_tensor import FakeTensor
 MAX_S2 = 65536
 
 @dataclass
-class SaTileShapeConfig:
+class SCFATileShapeConfig:
     g_tile: int
     s_kv_tile: int
     c1_tile_shape: list
@@ -47,7 +42,7 @@ class SaTileShapeConfig:
     v2_tile_shape: list
 
 
-def compress_sparse_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
+def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
                                    seqused_kv, cmp_sparse_indices,
                                    attention_out, nq, n_kv, softmax_scale, topk,
                                    block_size, win_size, cmp_ratio, tile_config):
@@ -79,10 +74,17 @@ def compress_sparse_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
     for batch_idx in pypto.loop(0, batch_size_sym, 1, name="LOOP_L0_idx", idx_name="bIdx"):
         ori_act_seq = seqused_kv[batch_idx]
         for slc_idx in pypto.loop(0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1Idx"):
-            cur_win_size = (win_size - s1_sym + 1 + slc_idx).max(0).min(ori_act_seq) # for 非MTP
+            max_valid_data_len = pypto.min(win_size + s1_sym - 1, ori_act_seq)
+            cur_valid_end_pos = max_valid_data_len - s1_sym + slc_idx
+            cur_valid_start_pos = cur_valid_end_pos - pypto.min(win_size - 1, cur_valid_end_pos)
+            cur_win_size = cur_valid_end_pos - cur_valid_start_pos + 1
+            start_block = cur_valid_start_pos // block_size
+            end_block = cur_valid_end_pos // block_size
+            physical_block_id_0 = ori_block_table[batch_idx, start_block]
+            physical_block_id_1 = ori_block_table[batch_idx, end_block]
+
             cur_topk_size = (ori_act_seq // cmp_ratio - s1_sym + 1 + slc_idx).max(0).min(topk)
             cur_s2_tile = cur_win_size + cur_topk_size
-
             for n_kv_idx in pypto.loop(0, n_kv_sym, 1, name="LOOP_L2_n_kv_SA", idx_name="n_kvIdx"):
                 for group_idx in pypto.loop(0, g_loop_sym, 1, name="LOOP_L3_g_SA", idx_name="gIdx"):
                     cur_group_tile = group_tile
@@ -99,10 +101,14 @@ def compress_sparse_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
 
                         # ---- window select: GM --> UB  [win_tile, d]
                         pypto.set_vec_tile_shapes(64, 512)
-                        cur_block_idx = ori_block_table[batch_idx, 0] # for 非mtp
-                        win_kv = pypto.view(ori_kv, [win_size, d], [cur_block_idx * block_size, 0], valid_shape=[cur_win_size, d])
+                        kv_block_0 = pypto.view(ori_kv, [block_size, d], [physical_block_id_0 * block_size, 0])
+                        kv_block_1 = pypto.view(ori_kv, [block_size, d], [physical_block_id_1 * block_size, 0])
+                        win_kv_gather = pypto.concat([kv_block_0, kv_block_1], dim=0)
 
+                        # ---- assemble: UB --> UB [s2_tile, d]
+                        pypto.set_vec_tile_shapes(128, 512)
                         kj = pypto.tensor([s2_tile, d], dtype, "kj")
+                        win_kv = pypto.view(win_kv_gather, [win_size, d], [cur_valid_start_pos, 0], valid_shape=[cur_win_size, d])
                         pypto.assemble(pypto.clone(win_kv), [0, 0], kj)
                         pypto.assemble(compress_kv, [cur_win_size, 0], kj)
 
@@ -159,8 +165,7 @@ def compress_sparse_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
     },
     host_options={"only_codegen": True}
 )
-
-def compress_sparse_flash_attention_d(query, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
+def sparse_compress_flash_attention_d(query, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
                              seqused_kv, cmp_sparse_indices,
                              attention_out, nq, n_kv, softmax_scale, topk,
                              block_size, win_size, cmp_ratio, tile_config):
@@ -170,16 +175,19 @@ def compress_sparse_flash_attention_d(query, ori_kv, cmp_kv, ori_block_table, cm
 
     pypto.experimental.set_operation_config(combine_axis=True)
 
-    compress_sparse_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
+    sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
                                    seqused_kv, cmp_sparse_indices,
                                    attention_out, nq, n_kv, softmax_scale, topk,
                                    block_size, win_size, cmp_ratio, tile_config)
 
 
 @allow_in_graph
-def npu_compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
-                                    seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
-    tile_config = SaTileShapeConfig(
+def npu_sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
+                                        seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
+
+    assert not isinstance(query_npu, FakeTensor), f"query_npu is FakeTensor"
+    
+    tile_config = SCFATileShapeConfig(
         g_tile=64,
         s_kv_tile=2048,
         c1_tile_shape=[64, 64, 128, 640, 128, 128],
@@ -188,10 +196,7 @@ def npu_compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_b
         v2_tile_shape=[64, 128]
     )
 
-
     attention_out_npu = torch.zeros([ori_block_table_npu.size(0), cmp_sparse_indices_npu.size(0) // ori_block_table_npu.size(0), query_npu.size(0) // cmp_sparse_indices_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=f'{query_npu.device}')
-    if isinstance(query_npu, FakeTensor):
-        return query_npu
     
     # 确定值先写死，确定整网接口有哪些传参后修改acl graph接口
     nq = query_npu.size(0) // cmp_sparse_indices_npu.size(0)
@@ -199,7 +204,6 @@ def npu_compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_b
     topk = cmp_sparse_indices_npu.size(1)
     block_size = 128
  
-
     query_pto = pypto.from_torch(query_npu, dynamic_axis=[0], name="q_nope")
     ori_kv_pto = pypto.from_torch(ori_kv_npu, dynamic_axis=[0], name="ori_kv")
     cmp_kv_pto = pypto.from_torch(cmp_kv_npu, dynamic_axis=[0], name="cmp_kv")
@@ -214,6 +218,6 @@ def npu_compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_b
     pto_inputs = [query_pto, ori_kv_pto, cmp_kv_pto, ori_block_table_pto, cmp_block_table_pto, atten_sink_pto, seqused_kv_pto, cmp_sparse_indices_pto]
     pto_outputs = [attention_out_pto]
 
-    compress_sparse_flash_attention_d(*pto_inputs, *pto_outputs, nq, n_kv, softmax_scale, topk,
-                                    block_size, win_size, cmp_ratio, tile_config)
+    sparse_compress_flash_attention_d(*pto_inputs, *pto_outputs, nq, n_kv, softmax_scale, topk,
+                                      block_size, win_size, cmp_ratio, tile_config)
     return attention_out_npu
