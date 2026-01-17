@@ -59,6 +59,7 @@ Opcode GetUnaryOpNameCode() {
         CASE(EXP);
         CASE(RSQRT);
         CASE(SQRT);
+        CASE(CEIL);
         CASE(RECIPROCAL);
         CASE(DUPLICATE);
         CASE(ABS);
