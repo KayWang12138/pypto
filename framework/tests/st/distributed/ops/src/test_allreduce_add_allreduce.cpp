@@ -40,9 +40,20 @@ void LoopAllReduce1(const Tensor& in, Tensor& allReduceOut, const OpTestParam& t
 {
     LOOP("AllReduce1", FunctionType::DYNAMIC_LOOP, allReduce1Index, LoopRange(0, 1, 1)) {
         (void)allReduce1Index;
-        Tensor predToken(DT_INT32, {1, 1}, "predToken");
+        Tensor shmemData;
+        Tensor shmemSignal;
+        DataType shmemDataType = in.GetDataType();
+        Shape shmemDataShape {1, row, col};
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        }
         TileShape::Current().SetVecTile(row, col);
-        OneShotAllReduce(predToken, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), allReduceOut);
+        OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, allReduceOut);
     }
 }
 
@@ -142,13 +153,8 @@ void TestAllReduceAddAllReduce(OpTestParam &testParam)
 
     FuncAllReduceAddAllReduce(in, out, testParam, row, col);
 
-    DeviceLauncherConfig config;
-    config.runModel = false;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-
-    auto output = ProgramData::GetInstance().GetOutputData(0);
     int32_t outSize = row * col;
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/out_rank_", outSize, output->GetDevPtr(), testParam));
+    RunTestVerification(dType, "/out_rank_", outSize, testParam);
 }
 
 template void TestAllReduceAddAllReduce<int32_t>(OpTestParam& testParam);
