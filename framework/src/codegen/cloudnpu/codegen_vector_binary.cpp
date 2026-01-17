@@ -204,6 +204,28 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
     return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
 }
 
+std::string CodeGenOpCloudNPU::GenBinaryTmpOp() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
+    std::string src0Tensor = QueryTileTensorNameByIdx(ID2);
+    std::string src1Tensor = QueryTileTensorNameByIdx(ID3);
+    std::vector<std::string> tileOpCallParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
+
+    std::vector<std::string> templateParamList;
+    int64_t brcOperandIdx = 0;
+    if (GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx)) {
+        templateParamList.emplace_back(GetBrcOprandIdxStr(brcOperandIdx));
+    }
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    if (!templateParamList.empty()) {
+        oss << WrapParamByAngleBrackets(templateParamList);
+    }
+    oss << WrapParamByParentheses(tileOpCallParamList) << ";\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const {
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &src0DtypeStr = param.src0DtypeStr;
@@ -342,6 +364,21 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOp() const {
     return GenVectorScalarOpByMode(VecScalMode::VEC_MODE);
+}
+
+std::string CodeGenOpCloudNPU::GenVectorScalarTmpOp() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
+    std::string srcTensor = QueryTileTensorNameByIdx(ID2);
+    std::string srcScalar = std::to_string(extOperandVal.Cast<int>());
+
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, srcScalar, tmpTensor};
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << ";\n";
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOpScalarMode() const {
@@ -549,5 +586,4 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
                      << ret;
     return buffer;
 }
-
 } // namespace npu::tile_fwk
