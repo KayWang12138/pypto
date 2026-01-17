@@ -44,6 +44,11 @@ private:
     bool NeedAdjustOpSeq(Function *subGraphFunc, const std::vector<Operation *> &setFlagList,
         const std::vector<Operation *> &waitFlagList, size_t left, size_t right);
     void AddVecTileopsToGroup(int &groupNum, size_t left, size_t right);
+    size_t MoveOpsForMerge(size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum);
+    Status UpdatePipeVTime(Operation *vecTileOp1, int groupNum, size_t mergedSize, int &curVFStartTime, int &curVecTileOp1EndTime);
+    Status UpdateSetPipeTime(Function *subGraphFunc, std::vector<Operation *> &setFlagList, const int &curVecTileOp1EndTime);
+    Status UpdateWaitPipeTime(Function *subGraphFunc, std::vector<Operation *> &waitFlagList, const int &curVFStartTime, int &maxMoveBackDist);
+    Status MoveBackPipeVOps(int groupNum, const int &maxMoveBackDist);
     std::vector<Operation *> opList_;
     std::vector<std::vector<Operation *>> mergedOps;
     std::unordered_map<PipeType, std::vector<Operation *>> pipeOpMap;
