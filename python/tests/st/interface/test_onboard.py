@@ -223,3 +223,50 @@ def test_device_run_data_from_device_mix_nodep():
         # get data and compare result
         d_data_inlist = [c for r in d_data_list[idx].cpu().tolist() for c in r]
         assert d_data_inlist == [k + idx] * len(d_data_inlist)
+
+def infer_controlflow_shape(*args):
+    b_vec = [1024, 128, 64, 32]
+    s = 32
+    if not args:
+        return [[(b, s), (b, s), (b, s)] for b in b_vec]
+
+    a_shape = args[0]
+    assert a_shape[1] == s
+    for b in b_vec:
+        if a_shape[0] >= b:
+            return [(b, s), (b, s), (b, s)]
+
+    raise ValueError(f"invalid shape {a_shape}")
+
+
+@pypto.jit(
+    host_options={"only_codegen": True},
+    infer_controlflow_shape=infer_controlflow_shape
+)
+def infer_shape_kenrel(A, B, C):
+    pypto.set_vec_tile_shapes(16, 16)
+    for i in pypto.loop(0, A.shape[0], 32):
+        ta = A[i:i+32, :]
+        tb = B[i:i+32, :]
+        C[i:, 0:] = ta + tb
+
+
+def test_infer_shape():
+    device = 'npu'
+    for b in [2048, 1024, 512, 256, 128, 64, 32]:
+        A = torch.randn((b, 32), device=device)
+        B = torch.randn((b, 32), device=device)
+        C = torch.zeros_like(A, device=device)
+        G = A + B
+
+        infer_shape_kenrel(
+            pypto.from_torch(A, dynamic_axis=[0]),
+            pypto.from_torch(B, dynamic_axis=[0]),
+            pypto.from_torch(C, dynamic_axis=[0]),
+        )
+        torch.npu.synchronize()
+        torch.testing.assert_close(C, G)
+
+if __name__ == '__main__':
+    torch.npu.set_device(2)
+    test_infer_shape()
