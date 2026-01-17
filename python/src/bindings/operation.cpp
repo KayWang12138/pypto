@@ -33,6 +33,12 @@ void bind_operation(py::module &m) {
     m.def(
         "Fmod", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Fmod(self, other); }, "Tensor fmod.");
     m.def(
+        "BitwiseAnd", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseAnd(self, other); }, "Tensor bitwise and.");
+    m.def(
+        "BitwiseOr", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseOr(self, other); }, "Tensor bitwise or.");
+    m.def(
+        "BitwiseXor", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseXor(self, other); }, "Tensor bitwise xor.");
+    m.def(
         "View",
         [](const Tensor &operand, const std::vector<int64_t> &shapes, const py::sequence &offsets) {
             bool has_symbolic = false;
@@ -83,6 +89,7 @@ void bind_operation(py::module &m) {
     m.def("Reciprocal", [](const Tensor &operand) { return npu::tile_fwk::Reciprocal(operand); }, "Tensor reciprocal.");
     m.def("Rsqrt", [](const Tensor &self) { return npu::tile_fwk::Rsqrt(self); }, "Tensor rsqrt.");
     m.def("Sqrt", [](const Tensor &self) { return npu::tile_fwk::Sqrt(self); }, "Tensor sqrt.");
+    m.def("BitwiseNot", [](const Tensor &self) { return npu::tile_fwk::BitwiseNot(self); }, "Tensor bitwisenot.");
     m.def("Neg", [](const Tensor &self) { return npu::tile_fwk::Neg(self); }, "Tensor neg.");
     m.def(
         "Log", [](const Tensor &self, const LogBaseType base) { return npu::tile_fwk::Log(self, base); },
@@ -111,6 +118,15 @@ void bind_operation(py::module &m) {
     m.def(
         "Fmod", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Fmod(self, other); },
         "Tensor mod scalar.");
+    m.def(
+        "BitwiseAnd", [](const Tensor &self, const Element &other) { return npu::tile_fwk::BitwiseAnd(self, other); },
+        "Tensor bitwiseand scalar.");
+    m.def(
+        "BitwiseOr", [](const Tensor &self, const Element &other) { return npu::tile_fwk::BitwiseOr(self, other); },
+        "Tensor bitwiseor scalar.");
+    m.def(
+        "BitwiseXor", [](const Tensor &self, const Element &other) { return npu::tile_fwk::BitwiseXor(self, other); },
+        "Tensor bitwisexor scalar.");
     m.def(
         "Range",
         [](const Element &start, const Element &end, const Element &step) {
