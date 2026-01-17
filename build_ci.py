@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """构建总入口.
 """
-import abc
+import abc 
 import argparse
 import dataclasses
 import json
