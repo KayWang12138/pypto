@@ -401,6 +401,9 @@ after:
       copyout
 */
 TEST_F(TestPadLocalBuffer, no_reduce_last_dim_all_vec_last_dim_unpadded) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        GTEST_SKIP() << "Skip reason: COMBINE_AXIS rule applies.";
+    }
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {8, 15};
@@ -448,6 +451,9 @@ after:
       copyout
 */
 TEST_F(TestPadLocalBuffer, no_reduce_last_dim_all_vec_last_dim_padded) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        GTEST_SKIP() << "Skip reason: COMBINE_AXIS rule applies.";
+    }
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {8, 16};
@@ -496,6 +502,9 @@ after:
        copyout
 */
 TEST_F(TestPadLocalBuffer, no_reduce_last_dim_mm) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        GTEST_SKIP() << "Skip reason: COMBINE_AXIS rule applies.";
+    }
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> AShape = {8, 15};
@@ -556,6 +565,9 @@ after:
     copyout
 */
 TEST_F(TestPadLocalBuffer, reduce_last_dim_padding) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        GTEST_SKIP() << "Skip reason: COMBINE_AXIS rule applies.";
+    }
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {8, 15};
@@ -611,6 +623,9 @@ after:
     copyout
 */
 TEST_F(TestPadLocalBuffer, reduce_last_dim_no_padding) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        GTEST_SKIP() << "Skip reason: COMBINE_AXIS rule applies.";
+    }
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {7, 15};
@@ -672,6 +687,9 @@ after:
     copyout
 */
 TEST_F(TestPadLocalBuffer, reduce_last_dim_with_brc) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        GTEST_SKIP() << "Skip reason: COMBINE_AXIS rule applies.";
+    }
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {8, 15};
@@ -758,6 +776,9 @@ after:
     [8,1]
 */
 TEST_F(TestPadLocalBuffer, reduce_last_dim_with_copyout_copyin_elementwise) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        GTEST_SKIP() << "Skip reason: COMBINE_AXIS rule applies.";
+    }
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {8, 15};
@@ -841,6 +862,9 @@ after:
     [8,1]
 */
 TEST_F(TestPadLocalBuffer, reduce_last_dim_with_copyout_copyin_reshape) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        GTEST_SKIP() << "Skip reason: COMBINE_AXIS rule applies.";
+    }
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {8, 15};
@@ -912,6 +936,9 @@ after:
     copyout
 */
 TEST_F(TestPadLocalBuffer, reduce_last_dim_with_transpose) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        GTEST_SKIP() << "Skip reason: COMBINE_AXIS rule applies.";
+    }
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestPadLocalBuffer", "TestPadLocalBuffer", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape = {16, 6};
