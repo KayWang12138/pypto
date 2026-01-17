@@ -24,6 +24,7 @@
 #include <sys/file.h>
 #include "tilefwk/platform.h"
 #include "machine/runtime/host_prof.h"
+#include "nlohmann/json.hpp"
 
 #ifdef BUILD_WITH_CANN
 #include <runtime/rt.h>
@@ -31,6 +32,7 @@
 #include "machine/utils/machine_ws_intf.h"
 constexpr int PMU_EVENT_TYPE_MAX = 8;
 constexpr int CORE_DEFAULT_NUM = 70;
+using json = nlohmann::json;
 namespace npu::tile_fwk {
 struct FileLock {
     FileLock() : fd(-1){};
