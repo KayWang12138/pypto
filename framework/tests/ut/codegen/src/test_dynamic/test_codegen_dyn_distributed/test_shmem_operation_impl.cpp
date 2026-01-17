@@ -25,7 +25,7 @@
 #include "codegen/codegen.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "test_codegen_common.h"
-#include "interface/operation/distributed/distributed_common.h"
+#include "tilefwk/tilefwk_op.h"
 
 namespace npu::tile_fwk::Distributed {
 
