@@ -100,7 +100,8 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam) {
         }
         LOOP("REDUCESCATTER", FunctionType::DYNAMIC_LOOP, unusedIndex, LoopRange(1)) {
             (void) unusedIndex;
-            Shape shmemDataRsShape{1, b * s / testParam.rankSize, h};
+            ASSERT((testParam.rankSize > 0) && ((b * s) % testParam.rankSize == 0)) << "worldSize constraint";
+            Shape shmemDataRsShape{1, (b * s) / testParam.rankSize, h};
             DataType shmemDataType = (attnOut.GetDataType() == DT_BF16 || attnOut.GetDataType() == DT_FP16) 
                                 ? DT_FP32 : attnOut.GetDataType();
             auto [shmemData, shmemSignal] = CreateShmemTensors(testParam, shmemDataType, shmemDataRsShape);
@@ -110,7 +111,7 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam) {
         }
     }
     int32_t outSize = b * s / testParam.rankSize * h;
-    RunTestVerification(dtype, "/rs_out_rank_", outSize, testParam);
+    RunTestVerification(dtype, "/rs_out_rank_", outSize, testParam, 0.1f);
 }
 
 } // namespace Distributed

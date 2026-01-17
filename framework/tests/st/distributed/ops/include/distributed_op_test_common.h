@@ -112,13 +112,13 @@ bool CompareWithGolden(const DataType dType, const std::string &goldenFilename, 
 }
 
 inline void RunTestVerification(DataType dType, const std::string& goldenPath, int32_t expectedSize,
-    OpTestParam& testParam, float tolerance = 0.1f) {
+    OpTestParam& testParam, float tolerance = 0.001f) {
     DeviceLauncherConfig config;
     config.runModel = false;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
     
     auto output = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenPath, expectedSize, output->GetDevPtr(), testParam, 0.1f));
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenPath, expectedSize, output->GetDevPtr(), testParam, tolerance));
 }
 
 enum class WinType : uint32_t {

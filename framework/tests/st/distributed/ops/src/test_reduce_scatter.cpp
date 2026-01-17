@@ -28,6 +28,7 @@ void TestReduceScatter(OpTestParam &testParam)
 {
     constexpr size_t paramsSize = 5;
     auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    ASSERT((testParam.rankSize > 0) && (row % testParam.rankSize == 0)) << "worldSize constraint";
     int rowOut = row / testParam.rankSize;
     DataType dType = GetDataTypeNum(typeNum);
     Tensor in(dType, {row, col}, "in");
@@ -36,7 +37,7 @@ void TestReduceScatter(OpTestParam &testParam)
     std::vector<T> inData = ReadToVector<T>(
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
-    Shape shmemDataShape = {1, rowOut, col};
+    Shape shmemDataShape {1, rowOut, col};
     FUNCTION("ShmemReduceScatter", {in}, {out}) {
         DataType shmemDataType = in.GetDataType();
         shmemDataType = (shmemDataType == DT_BF16) || (shmemDataType == DT_FP16) ? DT_FP32 : shmemDataType;
