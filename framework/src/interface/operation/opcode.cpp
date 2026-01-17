@@ -758,6 +758,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {                Opcode::OP_DIV,           "TDiv"},
     {                Opcode::OP_MUL,           "TMul"},
     {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
+    {             Opcode::OP_GATHER,        "Tgather"},
     {             Opcode::OP_EXPAND,        "TExpand"},
     {            Opcode::OP_BITSORT,       "TBitSort"},
     {            Opcode::OP_MRGSORT,       "TMrgSort"},
@@ -799,6 +800,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
  	{           Opcode::OP_L1_TO_BT,       "TExtract"},
  	{         Opcode::OP_L1_COPY_IN,          "TLoad"},
  	{       Opcode::OP_L0C_COPY_OUT,         "TStore"},  
+    {            Opcode::OP_RANGE,           "TRange"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
 };
 } // namespace npu::tile_fwk
