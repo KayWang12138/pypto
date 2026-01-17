@@ -118,6 +118,11 @@ private:
     rtBinHandle binHdl_;
     FileLock lock_;
     HostProf hostProf_;
+    using SetPmuFn = void (DeviceRunner::*)(int32_t &);
+    inline static const std::unordered_map<ArchInfo, SetPmuFn> kPmuArchHandlers_ = {
+        {ArchInfo::DAV_2201, &DeviceRunner::SetPmuEventTypeDAV2201},
+        {ArchInfo::DAV_3510, &DeviceRunner::SetPmuEventTypeDAV3510},
+    };
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_ = false;
 };

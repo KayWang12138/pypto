@@ -262,12 +262,22 @@ public:
     AiCoreProfLevel CreateProfLevel(ProfConfig profConfig);
     
 private:
+    struct PmuCtrlAddrs {
+        uint32_t *ctrl0Addr{nullptr};
+        uint32_t *ctrl1Addr{nullptr};
+        uint32_t *startCntCyc0Addr{nullptr};
+        uint32_t *startCntCyc1Addr{nullptr};
+        uint32_t *stopCntCyc0Addr{nullptr};
+        uint32_t *stopCntCyc1Addr{nullptr};
+    };
     inline void ProfInitLog();
     inline void ProfStopLog();
     inline void ProfGetLog(int32_t coreIdx, const struct TaskStat *taskStat);
     inline void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs);
     inline void ReadPmuCounters(const int32_t coreIdx) const;
     inline void SetPmuEvents(void *mapBase, const int32_t coreIdx) const;
+    inline PmuCtrlAddrs InitPmuRegAddrsForCore(void *addr, void *mapBase, int coreIdx);
+    inline void ProgramPmuStartForCore(void *mapBase, int coreIdx, const PmuCtrlAddrs &addrs);
     inline void ProfStartPmu();
     inline void ProfStopPmu();
     void FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, uint32_t &subGraphId, uint32_t &taskId,

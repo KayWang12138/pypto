@@ -169,13 +169,12 @@ void DeviceRunner::GetPmuEventType(DeviceArgs &args) {
         eventTypeStr = "2";
     }
     int32_t profPmuType = std::stoi(eventTypeStr);
-    if (args.archInfo == ArchInfo::DAV_2201) {
-        SetPmuEventTypeDAV2201(profPmuType);
-    } else if (args.archInfo == ArchInfo::DAV_3510) {
-        SetPmuEventTypeDAV3510(profPmuType);
-    } else {
-        ALOG_WARN_F("Invalid archInfo %d, only support [2201, 3510].\n", args.archInfo);
+    auto iter = kPmuArchHandlers_.find(args.archInfo);
+    if (iter != kPmuArchHandlers_.end()) {
+        (this->*iter->second)(profPmuType);
+        return;
     }
+    ALOG_WARN_F("Invalid archInfo %d, only support [2201, 3510].\n", args.archInfo);
 }
 
 void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {

@@ -143,22 +143,39 @@ def parse(file_path: str) -> list():
 
 
 def main():
+    args = _parse_args()
+    task_pmu_list = _load_task_pmu_list(args.path)
+    if not task_pmu_list:
+        return
+    table_header = _build_table_header(task_pmu_list, args.arch, args.pmuEvent)
+    if not table_header:
+        return
+    task_pmu_list = _trim_task_pmu_list(task_pmu_list, len(table_header))
+    _print_and_save(task_pmu_list, table_header, args.output)
+
+
+def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--path', type=str, help="请输入要解析的绝对路径")
     parser.add_argument("-pe", "--pmuEvent", nargs="?", type=int, default=2, choices=[1, 2, 4, 5, 6, 7, 8],
-                            help="pmuEvent.")
+                        help="pmuEvent.")
     parser.add_argument('--output', default='', help="pmu数据存储路径")
     parser.add_argument('--arch', default='dav_2201', choices=['dav_2201', 'dav_3510'],
                         help="指定架构类型, 默认dav_2201")
-    args = parser.parse_args()
-    print("start parser pmu data:" + args.path)
-    task_pmu_list = parse(args.path)
+    return parser.parse_args()
+
+
+def _load_task_pmu_list(path):
+    print("start parser pmu data:" + path)
+    task_pmu_list = parse(path)
     if not task_pmu_list:
         print("empty pmu list")
-        return
+        return []
     print("end parser pmu data")
-    table_header = ["thread id", "task id", "stream id", "core id", "seqNo", "sub task id", "total cycle"]
+    return task_pmu_list
 
+
+def _get_pmu_header_maps():
     table_pmu_header_2201 = {
         1: ["cube_fp16_exec", "cube_int8_exec", "vec_fp32_exec", "vec_fp16_128lane_exec",
             "vec_fp16_64lane_exec", "vec_int32_exec", "vec_misc_exec"],
@@ -192,37 +209,52 @@ def main():
             "bif_sc_pmu_ar_close_l2_victim_core", "bif_sc_pmu_aw_close_l2_hit_core",
             "bif_sc_pmu_aw_close_l2_miss_core", "bif_sc_pmu_aw_close_l2_victim_core"],
     }
+    return table_pmu_header_2201, table_pmu_header_3510
 
-    pmu_cnt_num = 0
-    if task_pmu_list:
-        pmu_cnt_num = max(len(item) - len(table_header) for item in task_pmu_list)
-        pmu_cnt_num = max(pmu_cnt_num, 0)
 
-    if args.arch == 'dav_3510':
-        table_pmu_header = table_pmu_header_3510.get(args.pmuEvent, [])
-    elif args.arch == 'dav_2201':
-        table_pmu_header = table_pmu_header_2201.get(args.pmuEvent, [])
-    else:
-        print("invalid arch: " + args.arch)
-        return
+def _calc_pmu_cnt_num(task_pmu_list, base_len):
+    if not task_pmu_list:
+        return 0
+    pmu_cnt_num = max(len(item) - base_len for item in task_pmu_list)
+    return max(pmu_cnt_num, 0)
 
+
+def _select_arch_headers(arch, pmu_event):
+    table_pmu_header_2201, table_pmu_header_3510 = _get_pmu_header_maps()
+    if arch == 'dav_3510':
+        return table_pmu_header_3510.get(pmu_event, [])
+    if arch == 'dav_2201':
+        return table_pmu_header_2201.get(pmu_event, [])
+    print("invalid arch: " + arch)
+    return None
+
+
+def _build_table_header(task_pmu_list, arch, pmu_event):
+    table_header = ["thread id", "task id", "stream id", "core id", "seqNo", "sub task id", "total cycle"]
+    pmu_cnt_num = _calc_pmu_cnt_num(task_pmu_list, len(table_header))
+    table_pmu_header = _select_arch_headers(arch, pmu_event)
+    if table_pmu_header is None:
+        return []
     if not table_pmu_header and pmu_cnt_num > 0:
         table_pmu_header = [f"pmu_cnt{i}" for i in range(pmu_cnt_num)]
-    elif pmu_cnt_num > 0:
-        if len(table_pmu_header) > pmu_cnt_num:
-            table_pmu_header = table_pmu_header[:pmu_cnt_num]
+    elif pmu_cnt_num > 0 and len(table_pmu_header) > pmu_cnt_num:
+        table_pmu_header = table_pmu_header[:pmu_cnt_num]
+    return table_header + table_pmu_header
 
-    expected_len = len(table_header) + len(table_pmu_header)
-    if expected_len > 0:
-        task_pmu_list = [item[:expected_len] for item in task_pmu_list]
 
-    table_header += table_pmu_header
+def _trim_task_pmu_list(task_pmu_list, expected_len):
+    if expected_len <= 0:
+        return task_pmu_list
+    return [item[:expected_len] for item in task_pmu_list]
+
+
+def _print_and_save(task_pmu_list, table_header, output_dir):
     print(tabulate(task_pmu_list, headers=table_header, tablefmt='grid', floatfmt=".1f", showindex="always"))
     df = pd.DataFrame(task_pmu_list, columns=table_header)
-    if args.output == "":
+    if output_dir == "":
         df.to_csv('tilefwk_prof_pmu.csv', index=False)
     else:
-        df.to_csv(f'{args.output}/tilefwk_prof_pmu.csv', index=False)
+        df.to_csv(f'{output_dir}/tilefwk_prof_pmu.csv', index=False)
 
 
 if __name__ == '__main__':
