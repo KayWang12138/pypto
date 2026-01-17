@@ -718,10 +718,9 @@ TEST_F(PreGraphTest, TestRemoveRedundantView) {
     EXPECT_EQ(t->GetShape(), (std::vector<int64_t>{1024, 64}));
 }
 
-TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
+TEST_F(PreGraphTest, TestRemoveRedundantViewMultiCopyIn) {
     ComputationalGraphBuilder G;
     ConstructRemoveRedundantView(G, true);
-
     // run pass
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
@@ -745,6 +744,61 @@ TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
     newDynOffset = copyAttr->GetFromOffset();
     EXPECT_EQ(newDynOffset[0].Dump(), "160");
 }
+
+TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    G.AddTensor(DataType::DT_FP16, {4, 6144}, "t1");
+    G.AddTensor(DataType::DT_FP16, {4, 1, 32, 192}, "t2");
+    G.AddTensor(DataType::DT_FP16, {4, 1, 32, 128}, "t3");
+    auto inputTensor2 = G.GetTensor("t2");
+    auto inputTensor3 = G.GetTensor("t3");
+    inputTensor3->tensor = inputTensor2->tensor;
+    inputTensor3->tensor->UpdateRawShape({4, 1, 32, 192});
+
+    G.AddTensor(DataType::DT_FP16, {4, 32, 128}, "t4");
+
+    // add op
+    G.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "RESHAPE1");
+    G.AddOp(Opcode::OP_VIEW, {"t2"}, {"t3"}, "VIEW");
+    auto view = G.GetOp("VIEW");
+    auto attrA = std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0, 0, 0}, MemoryType::MEM_UNKNOWN,
+        OpImmediate::ToSpecified(OpImmediate::Specified(std::vector<int64_t>{0, 0, 0})));
+    view->SetOpAttribute(attrA);
+    G.AddOp(Opcode::OP_RESHAPE, {"t3"}, {"t4"}, "RESHAPE2");
+    for (size_t i = 0; i < 32; ++i) {
+        std::string tensorName = "t5-" + std::to_string(i);
+        G.AddTensor(DataType::DT_FP16, {4, 1, 128}, tensorName);
+        std::string copyInName = "COPYIN" + tensorName;
+        G.AddOp(Opcode::OP_COPY_IN, {"t4"}, {tensorName}, copyInName);
+        auto copyIn = G.GetOp(copyInName);
+        auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+        copyAttr->SetFromOffset(OpImmediate::Specified(std::vector<int64_t>{0, static_cast<int64_t>(i), 0}));
+        copyAttr->SetShape(OpImmediate::Specified({4, 1, 128}));
+    }
+
+    // set incast and outcast
+    G.SetInCast({"t1"});
+
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    std::string dbjfile = "/home/d00899108/bluecode/view0117";
+    function->DumpJsonFile(dbjfile + "/0json/before8.json");
+    PreGraphProcess passLocal;
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
+    function->DumpJsonFile(dbjfile + "/0json/after8.json");
+    // check after pass
+    auto opList = function->Operations();
+    int64_t viewCnt = 0;
+    for (const auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++viewCnt;
+        }
+    }
+    EXPECT_EQ(viewCnt, 0);
+}
+
 } // namespace tile_fwk
 } // namespace npu
 #undef private
