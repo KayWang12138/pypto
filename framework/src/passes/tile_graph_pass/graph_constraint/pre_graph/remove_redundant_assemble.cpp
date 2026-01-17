@@ -213,6 +213,60 @@ Status ProcessView(Function &function) {
     return SUCCESS;
 }
 
+// large , small
+bool RemoveViewMultiReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOutput) {
+    auto longRawShape = reshapeInput->GetRawTensor()->GetRawShape();
+    auto shortRawShape = reshapeOutput->GetRawTensor()->GetRawShape();
+    if (longRawShape.size() == shortRawShape.size() || std::min(longRawShape.size(), shortRawShape.size()) < 1) {
+        return false;
+    }
+    if (longRawShape.size() < shortRawShape.size()) {
+        return RemoveViewMultiReshapePattern(reshapeOutput, reshapeInput);
+    }
+    auto longRawShapeSize = reshapeInput->GetRawTensor()->GetRawShapeSize();
+    auto shortRawShapeSize = reshapeOutput->GetRawTensor()->GetRawShapeSize();
+    if (longRawShapeSize != shortRawShapeSize) {
+        return false;
+    }
+
+    auto haveOne = longRawShape[0] == 1 || longRawShape[1] == 1;
+    return haveOne && longRawShape[0] * longRawShape[1] == shortRawShape[0];
+}
+
+Status RemoveViewMultiReshape(Function &function) {
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() != Opcode::OP_RESHAPE) {
+            continue;
+        }
+        auto &firstReshape = op;
+        if (!RemoveViewMultiReshapePattern(firstReshape.GetIOperands().front(), firstReshape.GetOOperands().front())) {
+            continue;
+        }
+        auto consumer = firstReshape.GetOOperands().front()->GetConsumers();
+        auto view = *consumer.begin();
+        if (view == nullptr || consumer.size() != 1 || view->GetOpcode() != Opcode::OP_VIEW) {
+            continue;
+        }
+        consumer = view->GetOOperands().front()->GetConsumers();
+        auto secondReshape = *consumer.begin();
+        if (secondReshape == nullptr || consumer.size() != 1 || secondReshape->GetOpcode() != Opcode::OP_RESHAPE) {
+            continue;
+        }
+        APASS_LOG_DEBUG_F(Elements::Operation, "Match RemoveViewMultiReshape pattern %d -> %d -> %d",
+            firstReshape.GetOpMagic(), view->GetOpMagic(), secondReshape->GetOpMagic());
+
+        auto oriRawShape = secondReshape->GetIOperands().front()->GetRawTensor()->GetRawShape();
+        Shape newShape;
+        std::remove_copy_if(oriRawShape.begin(), oriRawShape.end(), 
+                            std::back_inserter(newShape), [](const auto &e) { return e == 1; });
+        secondReshape->GetOOperands().front()->GetRawTensor()->UpdateRawShape(newShape);
+        secondReshape->ReplaceIOperand(0, firstReshape.GetIOperands().front());
+        firstReshape.SetAsDeleted();
+        view->SetAsDeleted();
+    }
+    return SUCCESS;
+}
+
 /*
 生效场景:
 Assemble拆分了最高轴，认为可以透传，不需要拷贝，前序在ExpandFunction中做了判断，属性NeedCopy=false
@@ -429,6 +483,13 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
             if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) return FAILED;
         }
     }
+    if (RemoveViewMultiReshape(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
+        return FAILED;
+    }
+
+    std::string dbjfile = "/home/d00899108/bluecode/view0117";
+    function.DumpJsonFile(dbjfile + "/0json/tmp-before8.json");
     if (ProcessView(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "ProcessView failed.");
         return FAILED;
