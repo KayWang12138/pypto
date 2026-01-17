@@ -14,7 +14,7 @@ import torch
 import pypto
 from torch._dynamo import allow_in_graph
 
-
+# 暂未启用
 def check_args(
     q_tnd,
     block_table,
@@ -82,7 +82,7 @@ def softmax_atten_sink_pto(input: pypto.Tensor, dim: int, atten_sink: pypto.Tens
     runtime_options={"device_sched_mode": 1},
     debug_options={"runtime_debug_mode": 1},
 )
-def win_atten_main_tnd_prefill(q_tnd, block_table, kv_cache, start_pos_list, atten_sink, atten_out, win):
+def win_atten_main_tnd_prefill(q_tnd, block_table, kv_cache, seqused_kv_list, atten_sink, atten_out, win):
     pypto.experimental.set_operation_config(combine_axis=True)
     t = q_tnd.shape[0]
     n_q = q_tnd.shape[1]
@@ -90,20 +90,19 @@ def win_atten_main_tnd_prefill(q_tnd, block_table, kv_cache, start_pos_list, att
     scalar = d_q ** -0.5
     block_size = kv_cache.shape[1]
     d_kv = kv_cache.shape[3]
-    b = start_pos_list.shape[0]
+    b = seqused_kv_list.shape[0]
     s_q = t // b
 
-    for t_idx in pypto.loop(t, name="LOOP_T", idx_name="t_idx", unroll_list=[t]):
+    for t_idx in pypto.loop(t, name="LOOP_T", idx_name="t_idx", unroll_list = [128]):
         b_idx = t_idx // s_q
         s1_idx = t_idx % s_q
 
-        start_pos = start_pos_list[b_idx]
-                
+        actual_seq = seqused_kv_list[b_idx]
         pypto.set_vec_tile_shapes(128, 512, 512)
         q_tensor_cur = pypto.view(q_tnd, [1, n_q, d_q], [t_idx, 0, 0])
         q_tensor_cur = pypto.reshape(q_tensor_cur, (n_q, d_q))
 
-        cur_loc = start_pos + s1_idx + 1
+        cur_loc = actual_seq - s_q + s1_idx + 1
         valid_len = pypto.min(cur_loc, win)
         cur_start_pos = cur_loc - valid_len
         end_pos = cur_loc
