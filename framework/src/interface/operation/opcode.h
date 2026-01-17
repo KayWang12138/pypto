@@ -51,6 +51,7 @@ enum class Opcode {
     OP_DIVS,
     OP_MAXS,
     OP_MINS,
+    OP_FMODS,
     OP_POW,
     OP_S_ADDS,
     OP_S_SUBS,
@@ -70,12 +71,14 @@ enum class Opcode {
     OP_SUB,
     OP_MUL,
     OP_DIV,
+    OP_FMOD,
     OP_ADD_BRC,
     OP_SUB_BRC,
     OP_MUL_BRC,
     OP_DIV_BRC,
     OP_MAX_BRC,
     OP_MIN_BRC,
+    OP_FMOD_BRC,
     OP_S_ADD,
     OP_S_SUB,
     OP_S_MUL,
@@ -478,6 +481,7 @@ const std::unordered_set<Opcode> BINARY_OPS{
     Opcode::OP_SUB,
     Opcode::OP_MUL,
     Opcode::OP_DIV,
+    Opcode::OP_FMOD,
     Opcode::OP_S_ADD,
     Opcode::OP_S_SUB,
     Opcode::OP_S_MUL,
@@ -498,6 +502,7 @@ const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
     Opcode::OP_DIV_BRC,
     Opcode::OP_MAX_BRC,
     Opcode::OP_MIN_BRC,
+    Opcode::OP_FMOD_BRC,
 };
 
 const std::unordered_set<Opcode> UNARY_OPS{Opcode::OP_EXP, Opcode::OP_NEG, Opcode::OP_RSQRT, Opcode::OP_SQRT,
@@ -510,7 +515,7 @@ const std::unordered_set<Opcode> UNARY_OPS_WITH_TMP{Opcode::OP_COMPACT, Opcode::
     Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE};
 
 const std::unordered_set<Opcode> VECTOR_SCALAR_OPS{
-    Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS};
+    Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_FMODS};
 
 const std::unordered_set<Opcode> SCLAR_VECTOR_SCALAR_OPS{
     Opcode::OP_S_ADDS, Opcode::OP_S_SUBS, Opcode::OP_S_MULS, Opcode::OP_S_DIVS, Opcode::OP_S_MAXS, Opcode::OP_S_MINS};
@@ -532,15 +537,15 @@ const std::unordered_set<Opcode> CUM_SUM_OPS{Opcode::OP_CUM_SUM};
 const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE, Opcode::OP_TRANSPOSE_VNCHWCONV,
     Opcode::OP_GATHER_ELEMENT, Opcode::OP_INDEX_ADD, Opcode::OP_CUM_SUM, Opcode::OP_COPY_IN, Opcode::OP_UB_COPY_IN, Opcode::OP_L1_COPY_IN,
     Opcode::OP_COPY_OUT, Opcode::OP_UB_COPY_OUT, Opcode::OP_L1_COPY_OUT, Opcode::OP_L0C_COPY_OUT,
-    Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
+    Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_FMOD,
     Opcode::OP_DIV, Opcode::OP_EXP, Opcode::OP_NEG, Opcode::OP_LN, Opcode::OP_HUB, Opcode::OP_ABS, Opcode::OP_RSQRT,
-    Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS,
+    Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_FMODS,
     Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWSUM_SINGLE, Opcode::OP_EXPAND, Opcode::OP_VEC_DUP, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM,
     Opcode::OP_L1_TO_L0A, Opcode::OP_LOGICALNOT, Opcode::OP_LOGICALAND, Opcode::OP_ONEHOT, Opcode::OP_POW, Opcode::OP_INDEX_PUT,
     Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B,
     Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_B, Opcode::OP_AT_MUL_BT, Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS,
-    Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC,
+    Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC, Opcode::OP_FMOD_BRC,
     Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC, Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC,
     Opcode::OP_GATHER, Opcode::OP_S_ADDS, Opcode::OP_S_SUBS, Opcode::OP_S_DIVS, Opcode::OP_S_MULS, Opcode::OP_S_MAXS,
     Opcode::OP_S_MINS, Opcode::OP_BITSORT, Opcode::OP_MRGSORT, Opcode::OP_CMP, Opcode::OP_CMPS, Opcode::OP_EXTRACT,
@@ -554,8 +559,8 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_R
     Opcode::OP_RECIPROCAL, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_LOGICALNOT,
     Opcode::OP_LOGICALAND, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS,
     Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_S_ADDS, Opcode::OP_S_SUBS, Opcode::OP_S_MULS, Opcode::OP_S_DIVS,
-    Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_NEG, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV,
-    Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
+    Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_NEG, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_FMOD,
+    Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC, Opcode::OP_FMOD_BRC,
     Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_S_ADD, Opcode::OP_S_SUB, Opcode::OP_S_MUL,
     Opcode::OP_S_DIV, Opcode::OP_S_MAX, Opcode::OP_S_MIN,Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS,
     Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX,
