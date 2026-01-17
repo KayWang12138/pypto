@@ -36,10 +36,14 @@ private:
     Status ChangeOpSeq(Function *subGraphFunc, bool isAIV1);
     bool NeedAdjustSetFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *setFlag);
     bool NeedAdjustWaitFlag(Function *subGraphFunc, Operation *vecTileOp0, Operation *vecTileOp1, Operation *waitFlag);
-    Status AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
+    Status AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList,
         std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum);
     void GenPipeOpMap(Function *subGraphFunc);
-    
+    void FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore coreType);
+    bool IsMergeable(size_t left, size_t right, std::vector<Operation *> &setFlagList, std::vector<Operation *> &waitFlagList);
+    bool NeedAdjustOpSeq(Function *subGraphFunc, const std::vector<Operation *> &setFlagList,
+        const std::vector<Operation *> &waitFlagList, size_t left, size_t right);
+    void AddVecTileopsToGroup(int &groupNum, size_t left, size_t right);
     std::vector<Operation *> opList_;
     std::vector<std::vector<Operation *>> mergedOps;
     std::unordered_map<PipeType, std::vector<Operation *>> pipeOpMap;

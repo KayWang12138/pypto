@@ -196,15 +196,7 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     return SUCCESS;
 }
 
-Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
-    AIVCore coreType;
-    if (!isAIV1) {
-        coreType = AIVCore::AIV0;
-    } else {
-        coreType = AIVCore::AIV1;
-    }
-
-    std::vector<size_t> pipeVIdx;
+void TuneSyncForVF::FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore coreType) {
     PipeSync ps;
     for (size_t i = 0; i < opList_.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList_[i]->GetOpcode());
@@ -213,77 +205,103 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
             pipeVIdx.emplace_back(i);
         }
     }
+}
 
+bool TuneSyncForVF::IsMergeable(size_t left, size_t right, std::vector<Operation *> &setFlagList, std::vector<Operation *> &waitFlagList) {
+    // 判断两个pipeV op间是否有SYNC_SRC或者SYNC_DST或者既不是SYNC_SRC也不是SYNC_DST
+    bool hasNonSetWaitOp = false;
+    for (size_t k = left + 1; k < right; k++) {
+        if (opList_[k]->GetOpcode() == Opcode::OP_SYNC_SRC) {
+            setFlagList.emplace_back(opList_[k]);
+        } else if (opList_[k]->GetOpcode() == Opcode::OP_SYNC_DST) {
+            waitFlagList.emplace_back(opList_[k]);
+        } else {
+            hasNonSetWaitOp = true;
+            break;
+        }
+    }
+    // 两个pipeV的op间的op如果有一个既不是SYNC_SRC也不是SYNC_DST,则说明这两个pipeV op不能合并
+    if (hasNonSetWaitOp) {
+        return false;
+    }
+    return true;
+}
+
+bool TuneSyncForVF::NeedAdjustOpSeq(Function *subGraphFunc, const std::vector<Operation *> &setFlagList, 
+    const std::vector<Operation *> &waitFlagList, size_t left, size_t right) {
+    if (setFlagList.empty() && waitFlagList.empty()) {
+        return true;
+    }
+    for (auto &setFlag : setFlagList) {
+        if (NeedAdjustSetFlag(subGraphFunc, opList_[left], opList_[right], setFlag)) {
+            return true;
+        }
+    }
+    for (auto &waitFlag : waitFlagList) {
+        if (NeedAdjustWaitFlag(subGraphFunc, opList_[left], opList_[right], waitFlag)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void TuneSyncForVF::AddVecTileopsToGroup(int &groupNum, size_t left, size_t right) {
+    for (size_t i = 0; i < mergedOps.size(); i++) {
+        for (size_t j = 0; j < mergedOps[i].size(); j++) {
+            if (mergedOps[i][j] == opList_[left]) {
+                groupNum = i;
+                break;
+            }
+        }
+    }
+    if (groupNum == -1) {
+        // 将vecTileop0和vecTileop1添加到mergedOps中
+        std::vector<Operation *> newOp = {opList_[left], opList_[right]};
+        mergedOps.emplace_back(newOp);
+        groupNum = mergedOps.size() - 1;
+    } else {
+        mergedOps[groupNum].emplace_back(opList_[right]);
+    }
+}
+
+Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
+    AIVCore coreType;
+    if (!isAIV1) {
+        coreType = AIVCore::AIV0;
+    } else {
+        coreType = AIVCore::AIV1;
+    }
+    mergedOps.clear();
+
+    std::vector<size_t> pipeVIdx;
+    FindPipeVIdx(pipeVIdx, coreType);
     if (pipeVIdx.size() <= 1) {
         return SUCCESS;
     }
 
-    mergedOps.clear();
     for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
         size_t left = pipeVIdx[idx];
         size_t right = pipeVIdx[idx + 1];
         APASS_LOG_DEBUG_F(Elements::Operation, "Try to merge %d %s and %d %s", opList_[left]->GetOpMagic(), opList_[left]->GetOpcodeStr().c_str(),
             opList_[right]->GetOpMagic(), opList_[right]->GetOpcodeStr().c_str());
-        // 判断两个pipeV op间是否有SYNC_SRC或者SYNC_DST或者既不是SYNC_SRC也不是SYNC_DST
+        
+        // 判断是否可以进行调整
         std::vector<Operation *> setFlagList;
         std::vector<Operation *> waitFlagList;
-        bool hasNonSetWaitOp = false;
-        for (size_t k = left + 1; k < right; k++) {
-            if (opList_[k]->GetOpcode() == Opcode::OP_SYNC_SRC) {
-                setFlagList.emplace_back(opList_[k]);
-            } else if (opList_[k]->GetOpcode() == Opcode::OP_SYNC_DST) {
-                waitFlagList.emplace_back(opList_[k]);
-            } else {
-                hasNonSetWaitOp = true;
-                break;
-            }
-        }
-        // 两个pipeV的op间的op如果有一个既不是SYNC_SRC也不是SYNC_DST,则说明这两个pipeV op不能合并
-        if (hasNonSetWaitOp) {
+        if (!IsMergeable(left, right, setFlagList, waitFlagList)) {
             continue;
         }
-        // 判断是否需要进行调整 （所有的SYNC_SRC和SYNC_DST中，只要有一个是有收益的，就进行融合）
-        bool needAdjustSet = false;
-        if (setFlagList.empty() && waitFlagList.empty()) {
-            needAdjustSet = true;
+
+        // 判断是否需要进行调整（所有的SYNC_SRC和SYNC_DST中，只要有一个是有收益的，就进行融合）
+        if (!NeedAdjustOpSeq(subGraphFunc, setFlagList, waitFlagList, left, right)) {
+            continue;
         }
-        for (auto &setFlag : setFlagList) {
-            if (NeedAdjustSetFlag(subGraphFunc, opList_[left], opList_[right], setFlag)) {
-                needAdjustSet = true;
-                break;
-            }
-        }
-        if (!needAdjustSet) {
-            bool needAdjustWait = false;
-            for (auto &waitFlag : waitFlagList) {
-                if (NeedAdjustWaitFlag(subGraphFunc, opList_[left], opList_[right], waitFlag)) {
-                    needAdjustWait = true;
-                    break;
-                }
-            }
-            if (!needAdjustWait) {
-                continue;
-            }
-        }
-        // 此时vecTileop1和vecTileop2需要融合，先看vecTileop0是否已经在mergedOps中
         APASS_LOG_DEBUG_F(Elements::Operation, "Need merge.");
+
+        // vecTileop1和vecTileop2需要融合，将其加入mergedOps中
         int groupNum = -1;
-        for (size_t i = 0; i < mergedOps.size(); i++) {
-            for (size_t j = 0; j < mergedOps[i].size(); j++) {
-                if (mergedOps[i][j] == opList_[left]) {
-                    groupNum = i;
-                    break;
-                }
-            }
-        }
-        if (groupNum == -1) {
-            // 将vecTileop0和vecTileop1添加到mergedOps中
-            std::vector<Operation *> newOp = {opList_[left], opList_[right]};
-            mergedOps.emplace_back(newOp);
-            groupNum = mergedOps.size() - 1;
-        } else {
-            mergedOps[groupNum].emplace_back(opList_[right]);
-        }
+        AddVecTileopsToGroup(groupNum, left, right);
+
         // 进行调整
         if (AdjustSetWaitFlag(subGraphFunc, setFlagList, waitFlagList, left, right, groupNum) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "ChangeOpSeq failed at function AdjustSetWaitFlag.");
@@ -291,13 +309,7 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
         }
         // 由于移动，pipeVop的idx会发生变化，需要重新更新pipeVIdx
         pipeVIdx.clear();
-        for (size_t i = 0; i < opList_.size(); i++) {
-            auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList_[i]->GetOpcode());
-            ps.AdjustOpCfg(opcfg, *opList_[i]);
-            if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList_[i]->GetAIVCore() == coreType) {
-                pipeVIdx.emplace_back(i);
-            }
-        }
+        FindPipeVIdx(pipeVIdx, coreType);
     }
     return SUCCESS;
 }
