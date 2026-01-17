@@ -31,15 +31,9 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
 template<typename T>
 void TestAllGather(OpTestParam &testParam);
 template<typename T>
-void TestAllGatherParaWithShmem(OpTestParam &testParam);
-template<typename T>
 void TestReduceScatter(OpTestParam &testParam);
 template<typename T>
-void TestReduceScatterParaWithShmem(OpTestParam &testParam);
-template<typename T>
 void TestAllReduce(OpTestParam &testParam);
-template<typename T>
-void TestAllReduceParaWithShmem(OpTestParam &testParam);
 void TestShmemMoeDispatch(OpTestParam &testParam);
 template<typename T>
 void TestAllReduceAddAllReduce(OpTestParam &testParam);

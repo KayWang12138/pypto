@@ -40,44 +40,6 @@ void TestAllGather(OpTestParam &testParam)
 
     std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
     
-    FUNCTION("ALLGATHER", {in}, {out}) {
-        TileShape::Current().SetVecTile({tileRow, tileCol});
-        AllGather(in, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
-    }
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inPtr)
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateTensorZero(out)
-    });
-
-    DeviceLauncherConfig config;
-    config.runModel = false;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-
-    auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
-}
-
-template<typename T>
-void TestAllGatherParaWithShmem(OpTestParam &testParam)
-{
-    constexpr size_t paramsSize = 5;
-    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
-    DataType dType = GetDataTypeNum(typeNum);
-    Shape shape{row, col};
-    Tensor in(dType, shape, "in");
-    std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" +
-        std::to_string(testParam.rankId) + ".bin", shape);
-    Shape outShape{testParam.rankSize * row, col};
-    Tensor out(dType, outShape, "out");
-    
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inPtr)
-    });
-    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateTensorZero(out)});
-
     Shape shmemDataShape{testParam.rankSize, row, col};
     FUNCTION("ALLGATHER", {in}, {out}) {
         TileShape::Current().SetVecTile({tileRow, tileCol});
@@ -95,10 +57,17 @@ void TestAllGatherParaWithShmem(OpTestParam &testParam)
         AllGather(in, in, testParam.group, shmemData, shmemSignal, out);
     }
 
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inPtr)
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensorZero(out)
+    });
+
     DeviceLauncherConfig config;
     config.runModel = false;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-    int32_t outSize = row * col * testParam.rankSize;
+
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
 }
@@ -107,10 +76,6 @@ template void TestAllGather<int32_t>(OpTestParam &testParam);
 template void TestAllGather<float>(OpTestParam &testParam);
 template void TestAllGather<float16>(OpTestParam &testParam);
 template void TestAllGather<bfloat16>(OpTestParam &testParam);
-template void TestAllGatherParaWithShmem<int32_t>(OpTestParam &testParam);
-template void TestAllGatherParaWithShmem<float>(OpTestParam &testParam);
-template void TestAllGatherParaWithShmem<float16>(OpTestParam &testParam);
-template void TestAllGatherParaWithShmem<bfloat16>(OpTestParam &testParam);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk
