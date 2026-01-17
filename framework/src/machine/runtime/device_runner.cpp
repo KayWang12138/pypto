@@ -254,18 +254,7 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     args.startArgsAddr = shmAddr;
     args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
     args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
-    size_t pmuEvtTypeSize = 0;
-    switch (args.archInfo) {
-        case ArchInfo::DAV_2201:
-            pmuEvtTypeSize = PMU_EVENT_TYPE_MAX_DAV2201;
-            break;
-        case ArchInfo::DAV_3510:
-            pmuEvtTypeSize = PMU_EVENT_TYPE_MAX_DAV3510;
-            break;
-        default:
-            ALOG_WARN_F("Invalid archInfo %d, use default pmu event type size.\n", args.archInfo);
-            pmuEvtTypeSize = PMU_EVENT_TYPE_MAX_DAV2201;
-    }
+    size_t pmuEvtTypeSize = args.archInfo == ArchInfo::DAV_2201 ? PMU_EVENT_TYPE_MAX_DAV2201 : PMU_EVENT_TYPE_MAX_DAV3510;
     pmuEvtType_.resize(pmuEvtTypeSize, 0x0);
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 

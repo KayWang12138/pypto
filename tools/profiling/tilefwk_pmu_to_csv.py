@@ -148,8 +148,8 @@ def main():
     parser.add_argument("-pe", "--pmuEvent", nargs="?", type=int, default=2, choices=[1, 2, 4, 5, 6, 7, 8],
                             help="pmuEvent.")
     parser.add_argument('--output', default='', help="pmu数据存储路径")
-    parser.add_argument('--arch', required=True, choices=['dav_2201', 'dav_3510'],
-                        help="架构类型，必须显式指定")
+    parser.add_argument('--arch', default='dav_2201', choices=['dav_2201', 'dav_3510'],
+                        help="指定架构类型, 默认dav_2201")
     args = parser.parse_args()
     print("start parser pmu data:" + args.path)
     task_pmu_list = parse(args.path)
@@ -198,11 +198,13 @@ def main():
         pmu_cnt_num = max(len(item) - len(table_header) for item in task_pmu_list)
         pmu_cnt_num = max(pmu_cnt_num, 0)
 
-    is_dav_3510 = args.arch == 'dav_3510'
-    if is_dav_3510:
+    if args.arch == 'dav_3510':
         table_pmu_header = table_pmu_header_3510.get(args.pmuEvent, [])
-    else:
+    elif args.arch == 'dav_2201':
         table_pmu_header = table_pmu_header_2201.get(args.pmuEvent, [])
+    else:
+        print("invalid arch: " + args.arch)
+        return
 
     if not table_pmu_header and pmu_cnt_num > 0:
         table_pmu_header = [f"pmu_cnt{i}" for i in range(pmu_cnt_num)]

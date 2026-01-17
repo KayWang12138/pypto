@@ -87,7 +87,6 @@ private:
     int LaunchAiCore(rtStream_t aicoreStream, int taskType);
     void Dump();
     void AllocDfxMetricMemory();
-    void GetPmuEventType();
     void SetPmuEventTypeDAV2201(int32_t &profPmuType);
     void SetPmuEventTypeDAV3510(int32_t &profPmuType);
     void GetPmuEventType(DeviceArgs &args);

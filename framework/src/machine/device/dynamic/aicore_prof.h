@@ -265,7 +265,7 @@ private:
     inline void ProfInitLog();
     inline void ProfStopLog();
     inline void ProfGetLog(int32_t coreIdx, const struct TaskStat *taskStat);
-    inline void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs, ArchInfo archInfo);
+    inline void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs);
     inline void ReadPmuCounters(const int32_t coreIdx) const;
     inline void SetPmuEvents(void *mapBase, const int32_t coreIdx) const;
     inline void ProfStartPmu();
