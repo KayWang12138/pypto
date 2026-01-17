@@ -133,6 +133,8 @@ REGISTER_INFER_SHAPE_FUNC(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, Elewis
 REGISTER_INFER_SHAPE_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CMP, Opcode::OP_CMP, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CMPS, Opcode::OP_CMPS, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_FMOD, Opcode::OP_FMOD, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_FMODS, Opcode::OP_FMODS, ElewiseInferFunc);
 void IndexOutCastInferFunc(Operation* op,
                       std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
     std::vector<SymbolicScalar> outValidShape;
