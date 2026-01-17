@@ -143,7 +143,7 @@ def check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin,
     assert w_kv_scale.dtype == torch.float32, f"wkv_scale.dtype is {wkv.dtype}, expected torch.float32"
     assert output_q_data.dtype == torch.bfloat16, f"output_q_data.dtype is {output_q_data.dtype}, expected torch.bfloat16"
     assert output_kv_data.dtype == torch.bfloat16, f"output_kv_data.dtype is {output_kv_data.dtype}, expected torch.bfloat16"
-    assert output_qr_data.dtype == torch.int8, f"output_qr_data.dtype is {output_qr_data.dtype}, expected torch.int8"
+    assert output_qr_data.dtype == torch.bfloat16, f"output_qr_data.dtype is {output_qr_data.dtype}, expected torch.bfloat16"
 
 
 def quant(
@@ -409,8 +409,8 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         qr = rms_norm(dequant_q, attrs.eps)
         qr = pypto.mul(qr, gamma_cq_2d_fp32)
         qr_cast = pypto.cast(qr, pypto.DataType.DT_BF16)
+        pypto.assemble(qr_cast, [tIdx, 0], qr_out)
         qr_quant, qr_scale = quant(qr_cast)
-        pypto.assemble(qr_quant, [tIdx, 0], qr_out)
 
         pypto.set_semantic_label("wqb-linear")
         pypto.set_cube_tile_shapes([tile_bs, tile_bs], [256, 256], [256, 256], True)
@@ -446,9 +446,13 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         pypto.assemble(kv_norm, [tIdx, 0], kv_out)
 
 
-@pypto.jit(runtime_options={"stitch_cfgcache_size": 300000})
+@pypto.jit(runtime_options={
+        "stitch_function_inner_memory": 1024,
+        "stitch_function_outcast_memory": 1024,
+        "stitch_cfgcache_size": 300000
+    })
 def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs):
-    pypto.experimental.set_option_config(combine_axis=1)
+    pypto.experimental.set_operation_config(combine_axis=1)
     pypto.set_pass_options(vec_nbuffer_mode=1, cube_nbuffer_mode=1)
     mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs)
 
@@ -456,7 +460,7 @@ def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, 
 def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, wkv_scale):
     output_q_data = torch.zeros([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
     output_kv_data = torch.zeros([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
-    output_qr_data = torch.zeros([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=f'{token_x.device}')
+    output_qr_data = torch.zeros([token_x.size(0), gamma_cq.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
 
     check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, wkv_scale, 
                                     output_q_data, output_kv_data, output_qr_data)
@@ -464,7 +468,6 @@ def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gam
         out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
         out_kv = pypto.from_torch(output_kv_data, dynamic_axis=[0], name="output_kv")
         out_qr = pypto.from_torch(output_qr_data, dynamic_axis=[0], name="output_qr")
-        out_qr_scale = pypto.from_torch(dynamic_axis=[0], name="output_qr")
 
     token_x_data = pypto.from_torch(token_x, dynamic_axis=[0], name="token_x")
     wq_a_data = pypto.from_torch(wq_a, name="wq_a")
@@ -479,7 +482,7 @@ def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gam
     wkv_scale_data = pypto.from_torch(wkv_scale, name="wkv_scale")
 
     input_data = [token_x_data, wq_a_data, wq_b_data, wkv_data, gamma_cq_data, gamma_ckv_data, rope_cos_data, rope_sin_data, wq_a_scale_data, wq_b_scale_data, wkv_scale_data]
-    output_data = [out_q, out_kv, out_qr, out_qr_scale]
+    output_data = [out_q, out_kv, out_qr]
     attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
     configs = MlaPrologV4Configs(unroll_list=[4, 2, 1],
                                 cube_l1_reuse_setting={2: 4},
