@@ -36,43 +36,6 @@ void TestReduceScatter(OpTestParam &testParam)
     std::vector<T> inData = ReadToVector<T>(
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
-    FUNCTION("ShmemReduceScatter", {in}, {out}) {
-        TileShape::Current().SetVecTile({tileRow, tileCol});
-        ReduceScatter(in, in, testParam.group, static_cast<uint32_t>(testParam.rankSize),
-            npu::tile_fwk::Distributed::DistReduceType::DIST_REDUCE_ADD, out);
-    }
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inData),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<T>(out, 0),
-    });
-
-    DeviceLauncherConfig config;
-    config.runModel = false;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-
-    auto outPut = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
-}
-
-template<typename T>
-void TestReduceScatterParaWithShmem(OpTestParam &testParam)
-{
-    constexpr size_t paramsSize = 5;
-    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
-    DataType dType = GetDataTypeNum(typeNum);
-    Tensor in(dType, {row, col}, "in");
-    ASSERT(row % testParam.rankSize == 0) << "ReduceScatter constraint: row must be divisible by worldSize";
-    int rowOut = row / testParam.rankSize;
-    Tensor out(dType, {rowOut, col}, "out");
-    std::vector<T> inData = ReadToVector<T>(
-        GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
-
-    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateTensor<T>(in, inData)});
-    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateConstantTensor<T>(out, 0)});
-
     Shape shmemDataShape = {1, rowOut, col};
     FUNCTION("ShmemReduceScatter", {in}, {out}) {
         DataType shmemDataType = in.GetDataType();
@@ -87,20 +50,19 @@ void TestReduceScatterParaWithShmem(OpTestParam &testParam)
         TileShape::Current().SetVecTile({tileRow, tileCol});
         ReduceScatter(in, in, testParam.group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
     }
-    DeviceLauncherConfig config;
-    config.runModel = false;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-    auto outPut = ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<T>(out, 0),
+    });
+    RunTestVerification(dType, "/output_rank_", rowOut * col, testParam);
 }
 
 template void TestReduceScatter<int32_t>(OpTestParam &testParam);
 template void TestReduceScatter<float>(OpTestParam &testParam);
 template void TestReduceScatter<float16>(OpTestParam &testParam);
 template void TestReduceScatter<bfloat16>(OpTestParam &testParam);
-template void TestReduceScatterParaWithShmem<int32_t>(OpTestParam &testParam);
-template void TestReduceScatterParaWithShmem<float>(OpTestParam &testParam);
-template void TestReduceScatterParaWithShmem<float16>(OpTestParam &testParam);
-template void TestReduceScatterParaWithShmem<bfloat16>(OpTestParam &testParam);
 } // namespace Distributed
 } // namespace npu::tile_fwk

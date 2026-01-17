@@ -24,6 +24,7 @@
 #include "distributed_op_test_suite.h"
 #include "tileop/distributed/hccl_context.h"
 #include "tilefwk/tilefwk_op.h"
+#include "test_dev_func_runner.h"
 
 namespace npu::tile_fwk {
 namespace Distributed {
@@ -108,6 +109,16 @@ bool CompareWithGolden(const DataType dType, const std::string &goldenFilename, 
             break;
     }
     return result;
+}
+
+inline void RunTestVerification(DataType dType, const std::string& goldenPath, int32_t expectedSize,
+    OpTestParam& testParam, float tolerance = 0.1f) {
+    DeviceLauncherConfig config;
+    config.runModel = false;
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
+    
+    auto output = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenPath, expectedSize, output->GetDevPtr(), testParam, 0.1f));
 }
 
 enum class WinType : uint32_t {
