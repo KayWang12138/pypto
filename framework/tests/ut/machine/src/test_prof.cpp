@@ -60,7 +60,7 @@ TEST_F(TestPro, test_ini) {
     std::cout << "oriRegAddrs_ " << oriRegAddrs_ << std::endl;
     std::cout << "regAddrs_    " << regAddrs_ << std::endl;
     ProfConfig profConfig;
-    prof.ProfInit(regAddrs_, regAddrs_, profConfig);
+    prof.ProfInit(regAddrs_, regAddrs_, profConfig, ArchInfo::DAV_2201);
     prof.ProfStart();
 
     int32_t aicoreId = 0;
