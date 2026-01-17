@@ -89,6 +89,7 @@ public:
     std::string GenVectorScalarOp() const;
     std::string GenBinaryOpWithTmp() const;
     std::string GenVectorScalarOpWithTmp() const;
+    std::string GenVectorScalarIntTmpOp() const;
 
     std::string GenCubeOpMatmul() const;
     std::string GenCubeOpMatmulAcc() const;
@@ -315,6 +316,8 @@ private:
     std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintUnaryStatic(const PrintUnaryParam &param) const;
 
+    std::string PrintBitwiseNot() const;
+
     SortParam PrepareSortParam() const;
     TiledSortParam PrepareTiledSortParam() const;
     std::string PrintTileSortTileTensor() const;
@@ -332,6 +335,9 @@ private:
     std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
     std::string PrintBinaryTileTensor() const;
     std::string PrintBinary(const PrintBinaryParam &param) const;
+
+    std::string PrintBinaryTmpTileTensor() const;
+    std::string PrintBinaryTmp(const PrintBinaryTmpParam &param) const;
 
     std::string PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const;
     std::string PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam &param) const;

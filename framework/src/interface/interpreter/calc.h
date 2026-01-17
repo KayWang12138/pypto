@@ -52,6 +52,9 @@ inline void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Sqrt(out, self);
 }
+inline void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->BitwiseNot(out, self);
+}
 inline void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Abs(out, self);
 }
@@ -110,6 +113,15 @@ inline void DivS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 inline void FmodS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->FmodS(out, self, scalar, reverse);
 }
+inline void BitwiseAndS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+    GetCalcOps()->BitwiseAndS(out, self, scalar, reverse);
+}
+inline void BitwiseOrS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+    GetCalcOps()->BitwiseOrS(out, self, scalar, reverse);
+}
+inline void BitwiseXorS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+    GetCalcOps()->BitwiseXorS(out, self, scalar, reverse);
+}
 inline void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Add(out, self, other);
 }
@@ -136,6 +148,15 @@ inline void MinS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 }
 inline void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
     GetCalcOps()->MaxS(out, self, scalar);
+}
+inline void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->BitwiseAnd(out, self, other);
+}
+inline void BitwiseOr(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->BitwiseOr(out, self, other);
+}
+inline void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->BitwiseXor(out, self, other);
 }
 /* used by reducc op, if shape are not same, need masked */
 inline void PairSum(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
