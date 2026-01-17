@@ -125,10 +125,6 @@ inline int32_t GetLogDeviceId() {
     return logicDeviceId;
 }
 
-inline constexpr uint32_t ONG_GB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE1G_PAGE_ONLY;
-inline constexpr size_t ONT_GB_SIZE = 1024 * 1024 * 1024;
-inline constexpr uint32_t TWO_MB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE_PAGE_FIRST;
-
 class RuntimeAgentMemory {
 public:
     void AllocDevAddr(uint8_t **devAddr, uint64_t size) {
