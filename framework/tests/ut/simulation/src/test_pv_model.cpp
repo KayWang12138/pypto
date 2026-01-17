@@ -67,8 +67,6 @@ extern "C" __global__ [aicore] void TENSOR_Matmul_T_root_3_1(__gm__ GMTensorInfo
 TEST(PvModelTest, TestDynFactory) {
     auto pv = CostModel::PvModelFactory::CreateDyn();
     EXPECT_NE(pv, nullptr);
-    EXPECT_THROW(CostModel::PvModelFactory::CreateDyn("UnKnown"), std::runtime_error);
-    EXPECT_THROW(CostModel::PvModelFactory::Create("UnKnown"), std::runtime_error);
 }
 
 TEST(PvModelTest, TestDynImpl) {
