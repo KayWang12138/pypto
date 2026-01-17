@@ -178,7 +178,7 @@ def compress_sparse_flash_attention_d(query, ori_kv, cmp_kv, ori_block_table, cm
 
 @allow_in_graph
 def npu_compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
-                                    seqused_kv_npu, cmp_sparse_indices_npu):
+                                    seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
     tile_config = SaTileShapeConfig(
         g_tile=64,
         s_kv_tile=2048,
@@ -190,19 +190,15 @@ def npu_compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_b
 
 
     attention_out_npu = torch.zeros([ori_block_table_npu.size(0), cmp_sparse_indices_npu.size(0) // ori_block_table_npu.size(0), query_npu.size(0) // cmp_sparse_indices_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=f'{query_npu.device}')
-    #attention_out_npu = torch.zeros([ori_block_table_npu.size(0), cmp_sparse_indices_npu.size(0) // ori_block_table_npu.size(0), query_npu.size(0) // cmp_sparse_indices_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=f'{query_npu.device}')
     if isinstance(query_npu, FakeTensor):
         return query_npu
     
     # 确定值先写死，确定整网接口有哪些传参后修改acl graph接口
-    nq = 64
+    nq = query_npu.size(0) // cmp_sparse_indices_npu.size(0)
     n_kv = 1
-    softmax_scale = 512 ** -0.5
-    topk = 512
+    topk = cmp_sparse_indices_npu.size(1)
     block_size = 128
-    win_size = 128
-    cmp_ratio = 4
-
+ 
 
     query_pto = pypto.from_torch(query_npu, dynamic_axis=[0], name="q_nope")
     ori_kv_pto = pypto.from_torch(ori_kv_npu, dynamic_axis=[0], name="ori_kv")

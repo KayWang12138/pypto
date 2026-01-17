@@ -26,26 +26,27 @@ from utils.compare import compare
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
 pyptolib.define("compress_sparse_flash_attention(Tensor query_npu, Tensor ori_kv_npu, Tensor cmp_kv_npu, Tensor ori_block_table_npu,\
-    Tensor cmp_block_table_npu, Tensor atten_sink_npu, Tensor seqused_kv_npu, Tensor cmp_sparse_indices_npu) -> (Tensor)")
+    Tensor cmp_block_table_npu, Tensor atten_sink_npu, Tensor seqused_kv_npu, Tensor cmp_sparse_indices_npu,\
+    float softmax_scale, int win_size, int cmp_ratio) -> (Tensor)")
 
 @torch.library.impl(pyptolib, "compress_sparse_flash_attention", "Meta")
 def compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
-                                    seqused_kv_npu, cmp_sparse_indices_npu):
+                                    seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
     y = torch.empty([ori_block_table_npu.size(0), cmp_sparse_indices_npu.size(0) // ori_block_table_npu.size(0),\
         query_npu.size(0) // cmp_sparse_indices_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=query_npu.device)
     return y
 
 @torch.library.impl(pyptolib, "compress_sparse_flash_attention", "NPU")
 def compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
-                                    seqused_kv_npu, cmp_sparse_indices_npu):
+                                    seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
     return npu_compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
-                                    seqused_kv_npu, cmp_sparse_indices_npu)
+                                    seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio)
 
 class CompressSFA(torch.nn.Module):
     def forward(self, query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
-                                    seqused_kv_npu, cmp_sparse_indices_npu):
+                                    seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
         return torch.ops.pypto.compress_sparse_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
-                                    seqused_kv_npu, cmp_sparse_indices_npu)
+                                    seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio)
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
     """
@@ -425,7 +426,7 @@ def do_test_compress_sparse_attention_func_acl_graph(bn1n2s1, actual_seq, input_
     atten_sink_npu = atten_sink.npu()
 
     attention_out = model(q_npu, origin_kv_npu, compress_kv_npu, origin_block_table_npu, block_table_npu, atten_sink_npu,
-                                    kv_act_seqs_npu, topk_indices_npu)
+        kv_act_seqs_npu, topk_indices_npu, softmax_scale, win_size, cmp_ratio)
     pypto.runtime._device_synchronize()
 
     compare(attention_out.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
