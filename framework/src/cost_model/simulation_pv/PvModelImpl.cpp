@@ -763,14 +763,14 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::TearDown(std::string dir, DynFunc
     if (fundata->stackWorkSpaceSize) {
         std::vector<uint8_t> s(reinterpret_cast<uint8_t *>(fundata->stackWorkSpaceAddr), reinterpret_cast<uint8_t *>(fundata->stackWorkSpaceAddr) + fundata->stackWorkSpaceSize);
         PvModelBinHelper::ReadBin(dir + "/stack_out.bin", s);
-        memcpy(reinterpret_cast<void*>(fundata->stackWorkSpaceAddr), s.data(), fundata->stackWorkSpaceSize);
+        memcpy_s(reinterpret_cast<void*>(fundata->stackWorkSpaceAddr), fundata->stackWorkSpaceSize, s.data(), fundata->stackWorkSpaceSize);
     }
 
     if (workspace_.size) {
         std::vector<uint8_t> s(reinterpret_cast<uint8_t *>(workspace_.hostPtr),
         reinterpret_cast<uint8_t *>(workspace_.hostPtr) + workspace_.size);
         PvModelBinHelper::ReadBin(dir + "/workspace_out.bin", s);
-        memcpy(reinterpret_cast<void*>(workspace_.hostPtr), s.data(), workspace_.size);
+        memcpy_s(reinterpret_cast<void*>(workspace_.hostPtr), workspace_.size, s.data(), workspace_.size);
     }
 }
 

@@ -120,6 +120,10 @@ struct MemoryHelper {
 
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
+        if (size == 0) {
+            ALOG_ERROR_F("malloc size is 0!");
+            return nullptr;
+        }
         uint8_t *devPtr = (uint8_t *)malloc(size);
         return devPtr;
     }
