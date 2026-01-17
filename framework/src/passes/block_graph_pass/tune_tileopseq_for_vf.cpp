@@ -21,6 +21,16 @@
 
 namespace npu {
 namespace tile_fwk {
+bool TuneTileOpSeqForVF::IsGroupMergeable(PipeSync &ps, size_t left, size_t k, int groupNum) {
+    size_t tempIdx = left;
+    for (auto &groupOp : mergedOps[groupNum]) {
+        if (ps.HasDataDependency(*groupOp, *opList_[k], --tempIdx, k)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool TuneTileOpSeqForVF::IsMergeable(std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, PipeSync &ps, int groupNum) {
     for (size_t k = left + 1; k < right; k++) {
         // 如果该op和vecTileop0和vecTileop1都存在依赖关系，则不能融合
@@ -33,11 +43,8 @@ bool TuneTileOpSeqForVF::IsMergeable(std::unordered_set<Operation *> &moveFrontO
             if (groupNum == -1) {
                 moveFrontOp.insert(opList_[k]);
             } else {
-                size_t tempIdx = left;
-                for (auto &groupOp : mergedOps[groupNum]) {
-                    if (ps.HasDataDependency(*groupOp, *opList_[k], --tempIdx, k)) {
-                        return false;
-                    }
+                if (!IsGroupMergeable(ps, left, k, groupNum)) {
+                    return false;
                 }
                 moveFrontOp.insert(opList_[k]);
             }
@@ -46,7 +53,7 @@ bool TuneTileOpSeqForVF::IsMergeable(std::unordered_set<Operation *> &moveFrontO
     return true;
 }
 
-void TuneTileOpSeqForVF::MoveOpsForMerge(size_t left, size_t right, int groupNum) {
+void TuneTileOpSeqForVF::MoveOpsForMerge(const std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, int groupNum) {
     std::vector<Operation *> moveLeft;
     std::vector<Operation *> moveRight;
     for (size_t k = left + 1; k < right; k++) {
@@ -72,16 +79,8 @@ void TuneTileOpSeqForVF::MoveOpsForMerge(size_t left, size_t right, int groupNum
     opList_.insert(insertPosL, moveLeft.begin(), moveLeft.end());
 }
 
-void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
-    AIVCore coreType;
-    if (!isAIV1) {
-        coreType = AIVCore::AIV0;
-    } else {
-        coreType = AIVCore::AIV1;
-    }
-
-    std::vector<size_t> pipeVIdx;
-    mergedOps.clear();
+void TuneTileOpSeqForVF::FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore coreType) {
+    PipeSync ps;
     for (size_t i = 0; i < opList_.size(); i++) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList_[i]->GetOpcode());
         ps.AdjustOpCfg(opcfg, *opList_[i]);
@@ -89,7 +88,19 @@ void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
             pipeVIdx.emplace_back(i);
         }
     }
+}
 
+void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
+    AIVCore coreType;
+    if (!isAIV1) {
+        coreType = AIVCore::AIV0;
+    } else {
+        coreType = AIVCore::AIV1;
+    }
+    mergedOps.clear();
+
+    std::vector<size_t> pipeVIdx;
+    FindPipeVIdx(pipeVIdx, coreType);
     if (pipeVIdx.size() <= 1) {
         return;
     }
@@ -127,17 +138,11 @@ void TuneTileOpSeqForVF::ChangeOpSeq(PipeSync &ps, bool isAIV1) {
             mergedOps[groupNum].emplace_back(opList_[right]);
         }
 
-        MoveOpsForMerge(left, right, groupNum);
+        MoveOpsForMerge(moveFrontOp, left, right, groupNum);
 
         // 由于移动，pipeVop的idx会发生变化，需要重新更新pipeVIdx
         pipeVIdx.clear();
-        for (size_t i = 0; i < opList_.size(); i++) {
-            auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList_[i]->GetOpcode());
-            ps.AdjustOpCfg(opcfg, *opList_[i]);
-            if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList_[i]->GetAIVCore() == coreType) {
-                pipeVIdx.emplace_back(i);
-            }
-        }
+        FindPipeVIdx(pipeVIdx, coreType);
     }
 }
 
