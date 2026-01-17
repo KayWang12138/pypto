@@ -49,11 +49,9 @@ public:
 };
 
 TEST_F(ReshapeErrorTest, TestLogTensorListDirectOperation) {
-    // 直接構造一個 Program 和 Function，不通過 FUNCTION 宏
     Program program;
     Function func(program, "test_magic", "test_raw", nullptr);
 
-    // 構造輸入 / 輸出 LogicalTensor 列表
     LogicalTensors iOperands;
     LogicalTensors oOperands;
 
@@ -65,14 +63,11 @@ TEST_F(ReshapeErrorTest, TestLogTensorListDirectOperation) {
     iOperands.push_back(inTensor);
     oOperands.push_back(outTensor);
 
-    // 直接構造一個 Operation
     Operation op(func, Opcode::OP_RESHAPE, iOperands, oOperands, false);
 
-    // 調用 LogTensorList 測試日誌打印，不依賴於完整的函數構建
     LogTensorList("input", &op, op.GetIOperands());
     LogTensorList("output", &op, op.GetOOperands());
 
-    // 驗證 operation 內部確實有輸入 / 輸出
     EXPECT_EQ(op.GetIOperands().size(), 1);
     EXPECT_EQ(op.GetOOperands().size(), 1);
 }
