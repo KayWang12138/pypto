@@ -207,12 +207,12 @@ Status TuneSyncForVF::MoveBackPipeVOps(int groupNum, const int &maxMoveBackDist)
 
 Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
         std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum) {
+    auto vecTileOp1 = opList_[vecTileOp1Idx];
     // 改变opList执行顺序
     size_t mergedSize = MoveOpsForMerge(vecTileOp0Idx, vecTileOp1Idx, groupNum, setFlagList, waitFlagList);
 
     // 更新各pipe上op的时间戳
     // pipe_v
-    auto vecTileOp1 = opList_[vecTileOp1Idx];
     int curVFStartTime; // 当前vf融合op开始时间
     int curVecTileOp1EndTime; // 当前vf融合op结束时间
     if (UpdatePipeVTime(vecTileOp1, groupNum, mergedSize, curVFStartTime, curVecTileOp1EndTime) != SUCCESS) {
