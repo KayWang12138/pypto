@@ -95,7 +95,7 @@ AiCoreProfLevel AiCoreProf::CreateProfLevel(ProfConfig profConfig) {
     return PROF_LEVEL_OFF;
 }
 
-void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig, ArchInfo archInfo) {
+void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig, [[maybe_unused]]ArchInfo archInfo) {
     DEV_DEBUG("Begin Prof init");
     coreNum_ = hostAicoreMng_.GetAllAiCoreNum();
     profLevel_ = CreateProfLevel(profConfig);
