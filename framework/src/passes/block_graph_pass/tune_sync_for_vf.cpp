@@ -70,11 +70,8 @@ void TuneSyncForVF::GenPipeOpMap(Function *subGraphFunc) {
     }
 }
 
-Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
-        std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum) {
-    auto vecTileOp1 = opList_[vecTileOp1Idx];
-    // 改变opList执行顺序
-    // 先将setwaitflag删掉
+size_t TuneSyncForVF::MoveOpsForMerge(size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum) {
+    // 将setwaitflag删掉
     std::vector<size_t> setWaitIdx;
     for (size_t k = vecTileOp0Idx + 1; k < vecTileOp1Idx; k++) {
         setWaitIdx.emplace_back(k);
@@ -89,10 +86,11 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
     size_t mergedSize = mergedOps[groupNum].size();
     auto insertPos2 = opList_.begin() + vecTileOp0Idx - mergedSize + 1;
     opList_.insert(insertPos2, setFlagList.begin(), setFlagList.end());
+    return mergedSize;
+}
 
-    // 更新各pipe上op的时间戳
-    // pipe_v
-    int curVFStartTime = mergedOps[groupNum][0]->cycleStart; // 当前vf融合op开始时间
+Status TuneSyncForVF::UpdatePipeVTime(Operation *vecTileOp1, int groupNum, size_t mergedSize, int &curVFStartTime, int &curVecTileOp1EndTime) {
+    curVFStartTime = mergedOps[groupNum][0]->cycleStart; // 当前vf融合op开始时间
     int prevEndTime = curVFStartTime;
     int preVectileOp1EndTime = mergedOps[groupNum][mergedOps[groupNum].size() - 1]->cycleEnd;
     for (size_t i = 0; i < mergedSize; i++) {
@@ -103,7 +101,7 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
         mergedOps[groupNum][i]->cycleEnd = mergedOps[groupNum][i]->cycleStart + newLatency;
         prevEndTime = mergedOps[groupNum][i]->cycleEnd;
     }
-    int curVecTileOp1EndTime = mergedOps[groupNum][mergedOps[groupNum].size() - 1]->cycleEnd; // 当前vf融合op结束时间
+    curVecTileOp1EndTime = mergedOps[groupNum][mergedOps[groupNum].size() - 1]->cycleEnd; // 当前vf融合op结束时间
     int moveFrontTime = preVectileOp1EndTime - curVecTileOp1EndTime;
     // 找到vecTileOp1在pipe_v中的位置，然后将后面的op的开始终止时间全部提前moveFrontTime
     auto &pipeVops = pipeOpMap[PipeType::PIPE_V];
@@ -123,9 +121,12 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
             vecTileOp1->GetOpMagic(), vecTileOp1->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(PipeType::PIPE_V).c_str());
         return FAILED;
     }
-    // setflag对应的各pipe
+    return SUCCESS;
+}
+
+Status TuneSyncForVF::UpdateSetPipeTime(Function *subGraphFunc, std::vector<Operation *> &setFlagList,  const int &curVecTileOp1EndTime) {
     for (auto &setFlag : setFlagList) {
-        findFlag = false;
+        bool findFlag = false;
         auto pipeX = setFlag->syncQueue_.trigPipeId_;
         auto &tileOpZ = subGraphFunc->setOpMap[setFlag];
         // 在pipeX的队列中找到tileopZ
@@ -154,10 +155,12 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
             return FAILED;
         }
     }
-    // waitflag对应的各pipe  需要让pipev的op后移来满足依赖关系
-    int maxMoveBackDist{0};
+    return SUCCESS;
+}
+
+Status TuneSyncForVF::UpdateWaitPipeTime(Function *subGraphFunc, std::vector<Operation *> &waitFlagList, const int &curVFStartTime, int &maxMoveBackDist) {
     for (auto &waitFlag : waitFlagList) {
-        findFlag = false;
+        bool findFlag = false;
         auto pipeX = waitFlag->syncQueue_.pipeId_;
         auto &tileOpZ = subGraphFunc->waitOpMap[waitFlag];
         // 在pipeX的队列中找到tileopZ
@@ -175,9 +178,12 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
             return FAILED;
         }
     }
-    // 后移vf融合op及其之后的pipe_v Op
+    return SUCCESS;
+}
+
+Status TuneSyncForVF::MoveBackPipeVOps(int groupNum, const int &maxMoveBackDist) {
     auto &firstOp = mergedOps[groupNum][0];
-    findFlag = false;
+    bool findFlag = false;
     for (size_t k = 0; k < pipeVops.size(); k++) {
         if (pipeVops[k]->GetOpMagic() == firstOp->GetOpMagic()) {
             findFlag = true;
@@ -193,6 +199,43 @@ Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Oper
             firstOp->GetOpMagic(), firstOp->GetOpcodeStr().c_str(), GetPipeTypeDict().Find(PipeType::PIPE_V).c_str());
         return FAILED;
     }
+    return SUCCESS;
+}
+
+Status TuneSyncForVF::AdjustSetWaitFlag(Function *subGraphFunc, std::vector<Operation *> &setFlagList, 
+        std::vector<Operation *> &waitFlagList, size_t vecTileOp0Idx, size_t vecTileOp1Idx, int groupNum) {
+    // 改变opList执行顺序
+    size_t mergedSize = MoveOpsForMerge(vecTileOp0Idx, vecTileOp1Idx, groupNum);
+
+    // 更新各pipe上op的时间戳
+    // pipe_v
+    auto vecTileOp1 = opList_[vecTileOp1Idx];
+    int curVFStartTime; // 当前vf融合op开始时间
+    int curVecTileOp1EndTime; // 当前vf融合op结束时间
+    if (UpdatePipeVTime(vecTileOp1, groupNum, mergedSize, curVFStartTime, curVecTileOp1EndTime) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "AdjustSetWaitFlag failed at UpdatePipeVTime.");
+        return FAILED;
+    }
+
+    // setflag对应的各pipe
+    if (UpdateSetPipeTime(subGraphFunc, setFlagList, curVecTileOp1EndTime) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "AdjustSetWaitFlag failed at UpdateSetPipeTime.");
+        return FAILED;
+    }
+
+    // waitflag对应的各pipe  需要让pipev的op后移来满足依赖关系
+    int maxMoveBackDist{0};
+    if (UpdateWaitPipeTime(subGraphFunc, waitFlagList, curVFStartTime, maxMoveBackDist) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "AdjustSetWaitFlag failed at UpdateWaitPipeTime.");
+        return FAILED;
+    }
+
+    // 后移vf融合op及其之后的pipe_v Op
+    if (MoveBackPipeVOps(groupNum, maxMoveBackDist) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "AdjustSetWaitFlag failed at MoveBackPipeVOps.");
+        return FAILED;
+    }
+
     return SUCCESS;
 }
 
@@ -271,14 +314,13 @@ Status TuneSyncForVF::ChangeOpSeq(Function *subGraphFunc, bool isAIV1) {
     } else {
         coreType = AIVCore::AIV1;
     }
-    mergedOps.clear();
-
     std::vector<size_t> pipeVIdx;
     FindPipeVIdx(pipeVIdx, coreType);
     if (pipeVIdx.size() <= 1) {
         return SUCCESS;
     }
 
+    mergedOps.clear();
     for (size_t idx = 0; idx + 1 < pipeVIdx.size(); idx++) {
         size_t left = pipeVIdx[idx];
         size_t right = pipeVIdx[idx + 1];
