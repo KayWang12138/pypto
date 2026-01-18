@@ -1,0 +1,76 @@
+# Dockerfile for manylinux - Build Python wheels compatible with many Linux distributions
+# Based on manylinux2014 (CentOS 7) for maximum compatibility
+# For newer compatibility, use manylinux_2_24 or manylinux_2_28
+# Primary Python version: 3.9 (minimum requirement for PyPTO)
+
+ARG MANYLINUX_VERSION=2014
+ARG PLATFORM=x86_64
+
+# Use manylinux base image
+FROM quay.io/pypa/manylinux${MANYLINUX_VERSION}_${PLATFORM}:latest
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+ENV CC=gcc
+ENV CXX=g++
+# Set Python 3.9 as the default Python version
+ENV PYTHON_VERSION=3.9
+
+# Install system dependencies
+RUN yum install -y -q \
+    git \
+    wget \
+    curl \
+    vim \
+    cmake \
+    ninja-build \
+    gcc \
+    gcc-c++ \
+    make \
+    zlib-devel \
+    openssl-devel \
+    libffi-devel \
+    bzip2-devel \
+    sqlite-devel \
+    && yum clean all
+
+# Upgrade pip and install build dependencies for Python 3.9 (primary version)
+RUN /opt/python/cp39-cp39/bin/pip install --upgrade pip setuptools wheel
+
+# Install Python build dependencies
+# Note: Install for all Python versions in manylinux image
+# Packages include:
+#   - Build dependencies: setuptools, pybind11, build, packaging
+#   - Testing: pytest, pytest-forked, pytest-xdist
+#   - PyPTO runtime dependencies: sympy, PyYAML
+#   - Visualization: matplotlib, pandas, plotly (for swim lane diagrams)
+#   - Additional tools: tabulate, ml_dtypes, jinja2, cloudpickle, tornado, tomli
+RUN for PYTHON in /opt/python/cp3*/bin/python; do \
+    $PYTHON -m pip install --upgrade pip setuptools wheel; \
+    $PYTHON -m pip install --no-cache-dir \
+        pybind11 \
+        pybind11-stubgen \
+        build \
+        packaging \
+        tomli \
+        pytest \
+        pytest-forked \
+        pytest-xdist \
+        sympy \
+        PyYAML \
+        tabulate \
+        pandas \
+        matplotlib \
+        plotly \
+        ml_dtypes \
+        jinja2 \
+        cloudpickle \
+        tornado; \
+done
+
+# Set working directory
+WORKDIR /workspace
+
+# Default command
+CMD ["/bin/bash"]
