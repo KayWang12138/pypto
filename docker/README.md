@@ -12,7 +12,7 @@
 #**************docker info*******************#
 # os: ubuntu22.04, openeuler24.03
 # arch: x86, arm
-# python: 3.11
+# python: 3.9, 3.11 (推荐 3.9，PyPTO 最低要求)
 # cann env
 # cann_verison: 8.5.0alpha001 
 # torch: 2.6.0
@@ -23,6 +23,11 @@
 
 示例dockerfile基于ubuntu操作系统进行编写，不同操作系统略有差异请根据实际使用进行调整。
 使用前请根据自身环境指定ARG CANN_VERSION:<br>
+**Python 3.9 (推荐):**<br>
+Ubuntu+A3 :ARG CANN_VERSION=8.5.0.alpha001-a3-ubuntu22.04-py3.9;	<br>
+Ubuntu+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-ubuntu22.04-py3.9;<br>
+openEuler+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.9;<br>
+**Python 3.11:**<br>
 Ubuntu+A3 :ARG CANN_VERSION=8.5.0.alpha001-a3-ubuntu22.04-py3.11;	<br>
 Ubuntu+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-ubuntu22.04-py3.11;<br>
 openEuler+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11;<br>
@@ -75,7 +80,7 @@ openEuler+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11;<br>
 #**************docker info*******************#
 # os: ubuntu22.04, openeuler22.03
 # arch: x86, arm
-# python: 3.11
+# python: 3.9, 3.11 (推荐 3.9，PyPTO 最低要求)
 # cann env: none
 # torch: 2.6.0
 # torch_npu: 2.6.0
@@ -84,11 +89,18 @@ openEuler+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11;<br>
 ```
 
 dockerfile内容如下：<br>
+**Python 3.9 (推荐):**<br>
+使用Ubuntu22.04 : ARG PY_VERSION=3.9-ubuntu22.04<br>
+使用openeuler ：ARG PY_VERSION=3.9-openeuler22.03<br>
+**Python 3.11:**<br>
 使用Ubuntu22.04 : ARG PY_VERSION=3.11-ubuntu22.04<br>
 使用openeuler ：ARG PY_VERSION=3.11-openeuler22.03
 
 ```
-ARG PY_VERSION=3.11-ubuntu22.04
+# 使用 Python 3.9 (推荐，PyPTO 最低要求)
+ARG PY_VERSION=3.9-ubuntu22.04
+# 或使用 Python 3.11
+# ARG PY_VERSION=3.11-ubuntu22.04
 FROM quay.io/ascend/python:$PY_VERSION
 
 # [Optional] set proxy

@@ -1,0 +1,22 @@
+# Example 7: Binary Operations
+# Demonstrates various binary operations on tensors and tiles
+program.module @test_binary_ops {
+  program.entry @test_binary
+  attr arch = "PTOv2"
+  attr enable_debug = true
+  attr tile_default = { M=16, N=16, K=16 }
+  func.func @test_binary(%input_x: tensor<[%b_1, 128], fp32>, %input_y: tensor<[%b_1, 128], fp32>, %output: tensor<[%b_1, 128], fp32>) {
+    statement.op {
+        # Binary operations on tensors
+        %add_res = tensor.add %input_x, %input_y : (tensor<[%b_1, 128], fp32>, tensor<[%b_1, 128], fp32>) -> tensor<[%b_1, 128], fp32>
+        %sub_res = tensor.sub %add_res, %input_y : (tensor<[%b_1, 128], fp32>, tensor<[%b_1, 128], fp32>) -> tensor<[%b_1, 128], fp32>
+        %mul_res = tensor.mul %sub_res, %input_x : (tensor<[%b_1, 128], fp32>, tensor<[%b_1, 128], fp32>) -> tensor<[%b_1, 128], fp32>
+        %div_res = tensor.div %mul_res, %input_y : (tensor<[%b_1, 128], fp32>, tensor<[%b_1, 128], fp32>) -> tensor<[%b_1, 128], fp32>
+        
+        # Assemble result
+        %output_result = tensor.assemble %div_res, %output : (tensor<[%b_1, 128], fp32>, tensor<[%b_1, 128], fp32>) -> tensor<[%b_1, 128], fp32> {offset=[0, 0]}
+    }
+    statement.return
+  }
+  // func.kind = control_flow
+}
