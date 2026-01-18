@@ -1,0 +1,27 @@
+# Example 6: Types and Values
+# Based on docs/ir/ir_type_and_value.md
+program.module @test_types {
+  program.entry @test_value
+  attr arch = "PTOv2"
+  attr enable_debug = true
+  attr tile_default = { M=16, N=16, K=16 }
+  func.func @test_value(%input_3: tensor<[%b_1, 128], fp32>, %scale1_4: fp32) {
+    statement.op {
+        # Scalar constants
+        %const_0 = 0 : int64
+        %const_pi_13 = 3.14 : fp64
+        %const_128 = 128 : int64
+        
+        # Tensor view operation
+        %loop_tile_11 = tensor.view %input_3 : (tensor<[%b_1, 128], fp32>) -> tensor<[1, 128], fp32> {shape=[1, 128], offset=[0, 0]}
+        
+        # Binary operation with tensor and scalar
+        %mul1_res_12 = tensor.mul %loop_tile_11, %scale1_4 : (tensor<[1, 128], fp32>, %scale1_4) -> tensor<[1, 128], fp32>
+        
+        # Binary operation with tensor and constant scalar
+        %mul2_res_14 = tensor.mul %mul1_res_12, %const_pi_13 : (tensor<[1, 128], fp32>, 3.14) -> tensor<[1, 128], fp32>
+    }
+    statement.return
+  }
+  // func.kind = control_flow
+}
