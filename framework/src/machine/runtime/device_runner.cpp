@@ -530,19 +530,23 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *k
 #ifdef BUILD_WITH_NEW_CANN
     return LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kArgs, aicpuNum_, "PyptoRun");
 #endif
-    struct Args {
-        DeviceKernelArgs kArgs;
-        const char kernelName[32] = {"DynTileFwkKernelServer"};
-        const char soName[32] = {"libaicpu_extend_kernels.so"};
-        const char opName[32] = {""};
-    } args;
-    args.kArgs = *kArgs;
+    // use inputs/outputs store argsaddr/argsSize(aicpu task info + tensorInfo size)
+    auto args = reinterpret_cast<dynamic::AiCpuArgs*>(kArgs->inputs);
+    uint64_t argsSize = reinterpret_cast<uint64_t>(kArgs->outputs);
+    kArgs->inputs = nullptr;
+    args->kArgs = *kArgs;
     rtAicpuArgsEx_t rtArgs;
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    rtArgs.args = &args;
-    rtArgs.argsSize = sizeof(args);
-    rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
-    rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
+    rtArgs.args = args;
+    rtArgs.argsSize = argsSize;
+    rtArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
+    rtArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);
+    rtArgs.hostInputInfoNum = 1;
+    rtHostInputInfo_t hostInputInfo;
+    hostInputInfo.addrOffset = reinterpret_cast<int8_t*>(&args->kArgs.inputs) - reinterpret_cast<int8_t*>(args);
+    hostInputInfo.dataOffset = 512; // dynamic::AiCpuArgs
+    rtArgs.hostInputInfoPtr = &hostInputInfo;
+    ALOG_INFO_F("Copy flow addrOffset %u argsSize %u", hostInputInfo.addrOffset, hostInputInfo.dataOffset);
     return rtAicpuKernelLaunchExWithArgs(
         rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
 }
@@ -756,7 +760,6 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     localArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
     localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
     localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
-    localArgs.isGETensorList = kernelArgs->toSubMachineConfig.isGETensorList;
     int rc = rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
         ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
