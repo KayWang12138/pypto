@@ -51,7 +51,7 @@ static void CeilOperationExeFunc2Dims(
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = Ceil(tileTensor);  // 核心修改：Sqrt → Ceil
+                auto res = Ceil(tileTensor); 
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
@@ -120,7 +120,7 @@ static void CeilOperationExeFunc4Dims(
                                 {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                     nIdx * fourthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = Ceil(tileTensor0);  // 核心修改：Sqrt → Ceil
+                        auto res = Ceil(tileTensor0); 
                         Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                 nIdx * fourthViewShape},
@@ -136,7 +136,7 @@ class CeilOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac
 
 INSTANTIATE_TEST_SUITE_P(TestCeil, CeilOperationTest,
     ::testing::ValuesIn(GetOpMetaData<CeilOpMetaData>(
-        {CeilOperationExeFunc2Dims, CeilOperationExeFunc3Dims, CeilOperationExeFunc4Dims}, "Ceil")));  // 核心修改：Sqrt → Ceil
+        {CeilOperationExeFunc2Dims, CeilOperationExeFunc3Dims, CeilOperationExeFunc4Dims}, "Ceil")));
 
 TEST_P(CeilOperationTest, TestCeil) {
     auto test_data = GetParam().test_data_;

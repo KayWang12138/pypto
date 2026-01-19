@@ -87,6 +87,7 @@
 -   [pypto.sin](operation/pypto-sin.md)
 -   [pypto.softmax](operation/pypto-softmax.md)
 -   [pypto.sqrt](operation/pypto-sqrt.md)
+-   [pypto.ceil](operation/pypto-ceil.md)
 -   [pypto.sub](operation/pypto-sub.md)
 -   [pypto.sum](operation/pypto-sum.md)
 -   [pypto.topk](operation/pypto-topk.md)
