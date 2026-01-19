@@ -379,7 +379,6 @@ private:
         devProg->devArgs.nrValidAic = 24;
         devProg->devArgs.startArgsAddr = (uint64_t)pv_->AllocWorkspaceDev(DEV_ARGS_SIZE);
         devProg->workspaceSize = devProg->memBudget.Total();
-        devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
         devProg->devArgs.scheCpuNum = 1;
         devProg->devArgs.isGETensorList = 1;
         AssignMetaAddr(kArgs, devMem, devProg, nullptr);
