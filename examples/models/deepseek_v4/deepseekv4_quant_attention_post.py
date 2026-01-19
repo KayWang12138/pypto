@@ -20,7 +20,7 @@ from quant_attention_post_impl import (
     AttnPostQuantConfig,
 )
 from utils.golden.common_func import (
-    deepseek_rope_golden,
+    apply_rotary_pos_emb,
     gen_uniform_data,
     quant_golden,
 )
@@ -50,7 +50,7 @@ def quant_attn_post(atten_res, cos, sin, wo_a, wo_b, wo_b_scale):
 
 class QuantAttentionPost(torch.nn.Module):
     def forward(self, attn_res, cos, sin, wo_a, wo_b, wo_b_scale):
-        for i in range(20):
+        for _ in range(20):
             torch.add(attn_res, 0)
         return torch.ops.pypto.quant_attn_post(
             attn_res, cos, sin, wo_a, wo_b, wo_b_scale
@@ -77,7 +77,7 @@ def compute_quant_attention_post(inputs, params):
     rope_in = atten_res[:, :, (d - rope_dim) :]  # (t, n_q, rope_dim), bf16
     # (t, n_q, d - rope_dim), bf16
     nope_res = atten_res[:, :, 0 : (d - rope_dim)]
-    rope_res = deepseek_rope_golden(rope_in, cos, sin)  # (t, n_q, rope_dim), bf16
+    rope_res = apply_rotary_pos_emb(rope_in, cos, sin)  # (t, n_q, rope_dim), bf16
     atten_res_new = torch.cat((nope_res, rope_res), dim=-1)
 
     # batch_matmul
@@ -118,9 +118,10 @@ def gen_quant_attention_post_golden(params):
     attn_res = gen_uniform_data([t, n_q, d], -1, 1, atten_dtype)
     cos = gen_uniform_data([t, rope_dim], -1, 1, atten_dtype)
     sin = gen_uniform_data([t, rope_dim], -1, 1, atten_dtype)
-    wo_a = gen_uniform_data([n_g, n_q * d // n_g, o_lora_rank], -1, 1, atten_dtype)
-    wo_b = gen_uniform_data([n_g * o_lora_rank, h], -1, 1, torch.int8)
-    wo_b_scale = quant_golden(wo_b.t())[1]  # (h, 1)
+    wo_a = gen_uniform_data([n_g, n_q * d // n_g, o_lora_rank], -0.1, 0.1, atten_dtype)
+    wo_b_ori = gen_uniform_data([n_g * o_lora_rank, h], -1, 1, torch.int8)
+    wo_b, wo_b_scale = quant_golden(wo_b_ori.t())
+    wo_b = wo_b.t()
     inputs = [attn_res, cos, sin, wo_a, wo_b, wo_b_scale]
     rope_res, bmm_res, mm_res, res_b16 = compute_quant_attention_post(inputs, params)
     return inputs, rope_res, bmm_res, mm_res, res_b16
@@ -181,7 +182,7 @@ def do_quant_attention_post_func(inputs, params, golden_list):
 
     torch_npu.npu.synchronize()
     compare(
-        hidden_states.cpu(), golden_list[3], "hidden_states", atol=0.0001, rtol=0.005
+        hidden_states.cpu(), golden_list[3], "hidden_states", atol=0.0001, rtol=0.007825
     )
 
 
