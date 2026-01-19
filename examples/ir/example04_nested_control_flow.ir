@@ -1,0 +1,41 @@
+# Example 5: Nested Control Flow (For Loop with If Statement)
+# Based on docs/ir/ir_statement.md structure
+program.module @main {
+  program.entry @test_nested_control_flow
+  attr arch = "PTOv2"
+  attr enable_debug = true
+  attr tile_default = { M=16, N=16, K=16 }
+  func.func @test_nested_control_flow(%input_x: tensor<[%b_1, 128], fp32>, %input_y: tensor<[%b_1, 128], fp32>, %scale1: fp32, %scale2: fp32, %output_x: tensor<[%b_1, 128], fp32>, %output_y: tensor<[%b_1, 128], fp32>) {
+    %res0, %res1 = statement.for %i = %const_0 to %b_1 step %const_1
+                iter_args(%acc0 = %output_x : tensor<[%b_1, 128], fp32>, %acc1 = %output_y : tensor<[%b_1, 128], fp32>)
+    {
+        statement.op {
+            %loop_tile_x = tensor.view %input_x : (tensor<[%b_1, 128], fp32>) -> tensor<[1, 128], fp32> {shape=[1, 128], offset=[%i, 0]}
+            %loop_tile_y = tensor.view %input_y : (tensor<[%b_1, 128], fp32>) -> tensor<[1, 128], fp32> {shape=[1, 128], offset=[%i, 0]}
+            %res_loop_x = tensor.mul %loop_tile_x, %scale1 : (tensor<[1, 128], fp32>, %scale1) -> tensor<[1, 128], fp32>
+            %res_loop_y = tensor.mul %loop_tile_y, %scale2 : (tensor<[1, 128], fp32>, %scale2) -> tensor<[1, 128], fp32>
+        }
+        %r0 = statement.if %i
+        {
+            // then-region: modify output_x
+            statement.op {
+                %res_if_x = tensor.mul %res_loop_x, %scale1 : (tensor<[1, 128], fp32>, %scale1) -> tensor<[1, 128], fp32>
+            }
+            statement.yield %res_if_x, %res_loop_y
+        } else {
+            // else-region: modify output_y
+            statement.op {
+                %res_if_y = tensor.mul %res_loop_y, %scale2 : (tensor<[1, 128], fp32>, %scale2) -> tensor<[1, 128], fp32>
+            }
+            statement.yield %res_loop_x, %res_if_y
+        }
+        statement.op {
+            %new_acc0 = tensor.assemble %r0#0, %acc0 : (tensor<[1, 128], fp32>, tensor<[%b_1, 128], fp32>) -> tensor<[%b_1, 128], fp32> {offset=[%i, 0]}
+            %new_acc1 = tensor.assemble %r0#1, %acc1 : (tensor<[1, 128], fp32>, tensor<[%b_1, 128], fp32>) -> tensor<[%b_1, 128], fp32> {offset=[%i, 0]}
+        }
+        statement.yield %new_acc0, %new_acc1
+    }
+    statement.return
+  }
+  // func.kind = control_flow
+}

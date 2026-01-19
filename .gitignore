@@ -5,6 +5,7 @@ cmake-build-*
 build/
 build_out/
 dist/
+generated_code/
 .cache
 *.log
 *.trace

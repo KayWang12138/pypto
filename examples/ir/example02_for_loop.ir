@@ -1,0 +1,22 @@
+# Example 3: For Loop Statement
+# Based on docs/ir/ir_statement.md ForStatement section
+program.module @main {
+  program.entry @test_for_loop
+  attr arch = "PTOv2"
+  attr enable_debug = true
+  attr tile_default = { M=16, N=16, K=16 }
+  func.func @test_for_loop(%input_3: tensor<[%b_1, 128], fp32>, %scale1_4: fp32, %start_6: int64, %step_7: int64, %output_8: tensor<[%b_1, 128], fp32>) {
+    %res0 = statement.for %i = %start_6 to %b_1 step %step_7
+                iter_args(%acc0 = %output_8 : tensor<[%b_1, 128], fp32>)
+    {
+        statement.op {
+            %loop_tile_11 = tensor.view %input_3 : (tensor<[%b_1, 128], fp32>) -> tensor<[1, 128], fp32> {shape=[1, 128], offset=[%i, 0]}
+            %mul_res_12 = tensor.mul %loop_tile_11, %scale1_4 : (tensor<[1, 128], fp32>, %scale1_4) -> tensor<[1, 128], fp32>
+            %new_acc0 = tensor.assemble %mul_res_12, %acc0 : (tensor<[1, 128], fp32>, tensor<[%b_1, 128], fp32>) -> tensor<[%b_1, 128], fp32> {offset=[%i, 0]}
+        }
+        statement.yield %new_acc0
+    }
+    statement.return
+  }
+  // func.kind = control_flow
+}

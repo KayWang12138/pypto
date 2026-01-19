@@ -1,0 +1,27 @@
+# Example 12: Multi-Head Latent Attention (MLA)
+# Simplified attention mechanism: Attention(Q, K, V) = softmax(Q @ K^T / sqrt(d_k)) @ V
+program.module @main {
+  program.entry @mla
+  attr arch = "PTOv2"
+  attr enable_debug = true
+  attr tile_default = { M=16, N=16, K=16 }
+  func.func @mla(%query: tensor<[%b_1, %num_heads, %seq_len, %d_k], fp32>, %key: tensor<[%b_1, %num_heads, %seq_len, %d_k], fp32>, %value: tensor<[%b_1, %num_heads, %seq_len, %d_v], fp32>, %scale_factor: fp32, %output: tensor<[%b_1, %num_heads, %seq_len, %d_v], fp32>) {
+    statement.op {
+        // Compute Q @ K^T
+        %key_transpose = tensor.view %key : (tensor<[%b_1, %num_heads, %seq_len, %d_k], fp32>) -> tensor<[%b_1, %num_heads, %d_k, %seq_len], fp32>
+        %scores = tensor.mul %query, %key_transpose : (tensor<[%b_1, %num_heads, %seq_len, %d_k], fp32>, tensor<[%b_1, %num_heads, %d_k, %seq_len], fp32>) -> tensor<[%b_1, %num_heads, %seq_len, %seq_len], fp32>
+        // Scale by sqrt(d_k) using scalar multiplication
+        %scaled_scores = tensor.mul %scores, %scale_factor : (tensor<[%b_1, %num_heads, %seq_len, %seq_len], fp32>, %scale_factor) -> tensor<[%b_1, %num_heads, %seq_len, %seq_len], fp32>
+        // Apply exp for softmax computation
+        %exp_scores = tensor.exp %scaled_scores : (tensor<[%b_1, %num_heads, %seq_len, %seq_len], fp32>) -> tensor<[%b_1, %num_heads, %seq_len, %seq_len], fp32>
+        // Normalize (simplified - in practice would sum along last dim and divide)
+        %norm_const = 1.0 : fp32
+        %attention_weights = tensor.mul %exp_scores, %norm_const : (tensor<[%b_1, %num_heads, %seq_len, %seq_len], fp32>, %norm_const) -> tensor<[%b_1, %num_heads, %seq_len, %seq_len], fp32>
+        // Compute attention output: attention_weights @ V
+        %attention_output = tensor.mul %attention_weights, %value : (tensor<[%b_1, %num_heads, %seq_len, %seq_len], fp32>, tensor<[%b_1, %num_heads, %seq_len, %d_v], fp32>) -> tensor<[%b_1, %num_heads, %seq_len, %d_v], fp32>
+        %output_result = tensor.assemble %attention_output, %output : (tensor<[%b_1, %num_heads, %seq_len, %d_v], fp32>, tensor<[%b_1, %num_heads, %seq_len, %d_v], fp32>) -> tensor<[%b_1, %num_heads, %seq_len, %d_v], fp32> {offset=[0, 0, 0, 0]}
+    }
+    statement.return
+  }
+  // func.kind = control_flow
+}
