@@ -110,3 +110,16 @@ pto_input = pypto.from_torch(input_data, "in_0", dynamic_axis=[0])
 pto_output = pypto.from_torch(output_data, "out_0", dynamic_axis=[0])
 ```
 
+通过以下语句可对@pypto.frontend.jit装饰的函数签名中的Tensor进行动态维度设置：
+
+```python
+bs_dyn = pypto.frontend.dynamic("bs_dyn")
+
+@pypto.frontend.jit
+def foo(
+    a: pypto.tensor((bs_dyn, 32), pypto.DT_FP32),
+    b: pypto.tensor((bs_dyn, 32), pypto.DT_FP32),
+) -> pypto.tensor((bs_dyn, 32), pypto.DT_FP32):
+    ...
+    return output
+```

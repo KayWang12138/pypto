@@ -2,13 +2,10 @@
 
 ## 产品支持情况
 
-| AI处理器类型 | 是否支持 |
-|------------|:--------:|
-| Ascend 910C | √ |
-| Ascend 910B | √ |
-| Ascend 310B | ☓ |
-| Ascend 310P | ☓ |
-| Ascend 910 | ☓ |
+| 产品             | 是否支持 |
+|:-----------------|:--------:|
+| Atlas A3 训练系列产品/Atlas A3 推理系列产品 |    √     |
+| Atlas A2 训练系列产品/Atlas A2 推理系列产品 |    √     |
 
 ## 功能说明
 
@@ -78,11 +75,11 @@ result = add_kernel(x, y)
 ```python
 # NPU 模式
 @pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.NPU})
-def kernel_npu(x: pypto.Tensor) -> pypto.Tensor:
+def kernel_npu(x: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
     ...
 
 # Cost Model 模式
 @pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.SIM})
-def kernel_sim(x: pypto.Tensor) -> pypto.Tensor:
+def kernel_sim(x: pypto.Tensor(shape, dtype)) -> pypto.Tensor(shape, dtype):
     ...
 ```

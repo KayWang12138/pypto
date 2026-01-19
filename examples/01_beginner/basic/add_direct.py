@@ -52,8 +52,16 @@ def create_add_direct_kernel(shape: tuple, run_mode: str = "npu"):
         mode = pypto.RunMode.SIM
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
+    
+    verify_options = {
+        "enable_pass_verify": True,
+        "pass_verify_save_tensor": True,
+    }
 
-    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    @pypto.frontend.jit(
+        verify_options=verify_options,
+        runtime_options={"run_mode": mode}
+    )
     def add_direct_kernel(
         x: pypto.Tensor(shape, pypto.DT_FP32),
         y: pypto.Tensor(shape, pypto.DT_FP32),

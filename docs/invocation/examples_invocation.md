@@ -3,14 +3,14 @@
 ## 仿真环境（无 NPU 真实硬件）
 
 ```bash
-cd examples/hello_world
+cd examples/00_hello_world
 python3 hello_world.py --run_mode=sim
 ```
 
 ## 真实可运行环境（有 NPU 真实硬件）
 
 ```bash
-cd examples/hello_world
+cd examples/00_hello_world
 python3 hello_world.py --run_mode=npu
 ```
 更多示例请参考 `examples/` 目录下的示例代码。
@@ -26,41 +26,54 @@ import pypto
 import torch
 import sys
 
+
 # 定义计算函数
-@pypto.jit
-def add_kernel_npu(x0, x1, y):
-    pypto.set_vec_tile_shapes(4, 4)
-    y[:] = x0 + x1
+def add_kernel(run_mode, shape):
+    dtype = pypto.DT_FP32
+    mode = pypto.RunMode.NPU if run_mode == "npu" else pypto.RunMode.SIM
 
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    def kernel(
+        x0: pypto.tensor(shape, dtype),
+        x1: pypto.tensor(shape, dtype),
+    ) -> pypto.tensor(shape, dtype):
+        pypto.set_vec_tile_shapes(4, 4)
+        y = x0 + x1
+        return y
+    return kernel
 
-@pypto.jit(runtime_options={"run_mode": 1})
-def add_kernel_sim(x0, x1, y):
-    pypto.set_vec_tile_shapes(4, 4)
-    y[:] = x0 + x1
 
 if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         print("Please specify the running mode as npu or sim via the args parameter.")
         sys.exit(1)
-    run_mode = sys.argv[1].lower()
+    run_mode = sys.argv[2].lower()
+
+    if run_mode == "npu":
+        torch.npu.set_device(0)
+        device = torch.device("npu:0")
+    elif run_mode == "sim":
+        device = torch.device("cpu")
+    else:
+        print("Invalid parameters")
+        sys.exit(1)
 
     # 创建 Tensor
-    x0 = torch.ones(4, 4, dtype=torch.float32)
-    x1 = torch.ones(4, 4, dtype=torch.float32)
-    y = torch.empty(4, 4, dtype=torch.float32)
+    shape = (4, 4)
+    x0 = torch.ones(shape, dtype=torch.float32, device=device)
+    x1 = torch.ones(shape, dtype=torch.float32, device=device)
 
     # 执行计算
     if run_mode == "npu":
         torch.npu.set_device(0)
-        add_kernel_npu(pypto.from_torch(x0), pypto.from_torch(x1), pypto.from_torch(y))
+        y = add_kernel(run_mode, shape)(x0, x1)
         print(y)
     elif run_mode == "sim":
-        add_kernel_sim(pypto.from_torch(x0), pypto.from_torch(x1), pypto.from_torch(y))
+        y = add_kernel(run_mode, shape)(x0, x1)
         print("Simulation completed, please view the results through the swimlane diagram.")
     else:
         print("Invalid parameters")
-        
 ```
 - 对于真实环境，可以直接通过查看输出 `y` 的值查看运行结果
 - 对于仿真环境，通过 `output/` 下的泳道图查看仿真结果  
