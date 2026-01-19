@@ -22,6 +22,7 @@
 #include "interface/inner/tilefwk.h"
 
 using namespace npu::tile_fwk;
+
 class DynamicOpsTest : public testing::Test {
 public:
     void SetUp() override {
