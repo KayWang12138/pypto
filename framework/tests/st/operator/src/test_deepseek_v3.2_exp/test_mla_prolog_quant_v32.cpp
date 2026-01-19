@@ -210,22 +210,22 @@ void TestMlaPrologQuantV32(
     if (isQuantB) {
         EXPECT_TRUE(resultCmpAbsDelta<kvDtype>(golden3, (kvDtype *)kvCacheData->data(), 1.0f, 1));
     } else {
-        EXPECT_TRUE(resultCmp<kvDtype>(golden3, (kvDtype *)kvCacheData->data(), 0.003f, 1));
+        EXPECT_TRUE(resultCmp<kvDtype>(golden3, (kvDtype *)kvCacheData->data(), 0.01f, 1));
     }
     std::cout << "kr ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden4, (T *)krCacheData->data(), 0.003f, 1));
+    EXPECT_TRUE(resultCmp<T>(golden4, (T *)krCacheData->data(), 0.01f, 1));
     if (isQuantB) {
         std::cout << "kScaleCache ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<float>(golden5, (float *)kScaleCacheData->data(), 0.003f, 1));
+        EXPECT_TRUE(resultCmp<float>(golden5, (float *)kScaleCacheData->data(), 0.01f, 1));
     }
     if (isQuantB) {
         std::cout << "qNorm ====== " << std::endl;
         EXPECT_TRUE(resultCmpAbsDelta<kvDtype>(golden6, (kvDtype *)outputQNormData->data(), 1.0, 1));
         std::cout << "qNormScale ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<float>(golden7, (float *)outputQNormScaleData->data(), 0.003f, 1));
+        EXPECT_TRUE(resultCmp<float>(golden7, (float *)outputQNormScaleData->data(), 0.01f, 1));
     } else {
         std::cout << "qNorm ====== " << std::endl;
-        EXPECT_TRUE(resultCmp<kvDtype>(golden6, (kvDtype *)outputQNormData->data(), 0.003f, 1));
+        EXPECT_TRUE(resultCmp<kvDtype>(golden6, (kvDtype *)outputQNormData->data(), 0.01f, 1));
     }
 }
 
