@@ -150,7 +150,6 @@ private:
         }
         return DEVICE_MACHINE_OK;
     }
-    
 
     ReadyCoreFunctionQueue *readyQueue_{nullptr};
 
