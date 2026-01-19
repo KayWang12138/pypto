@@ -83,7 +83,7 @@ std::string DeviceRunOnceDataFromHost(
         ProgramData::GetInstance().AppendOutput(rawData);
     }
 
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func) != 0) {
+    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func, nullptr) != 0) {
         return "emulation run failed";
     }
 
@@ -107,7 +107,8 @@ std::string DeviceRunOnceDataFromHost(
 
 std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ pythonOperatorPython,
     [[maybe_unused]] const std::vector<DeviceTensorData> &inputs, [[maybe_unused]] const std::vector<DeviceTensorData> &outputs,
-    [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData) {
+    [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData,
+    [[maybe_unused]] py::int_ devCtrlCache) {
 #ifdef BUILD_WITH_CANN
     auto opAddr = static_cast<uintptr_t>(pythonOperatorPython);
     if (opAddr == 0) {
@@ -147,9 +148,10 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     auto aicoreStream = incomingStream;
     auto aicpuStream = DeviceGetAicpuStream();
     auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
-    int rc =
-        ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false,
-            DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
+    auto ctrlCache = static_cast<uintptr_t>(devCtrlCache);
+    int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs,
+        aicpuStream, aicoreStream, false, reinterpret_cast<uint8_t*>(ctrlCache),
+        DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
     if (rc < 0) {
         return "device run failed";
     }
@@ -202,19 +204,34 @@ std::string OperatorEnd(uintptr_t opAddr) {
     return "";
 }
 
-std::string BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
+int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
         const std::vector<DeviceTensorData> &outputList) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
-
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(), inputList, outputList, config) != 0) {
-            return "control flow cache failed";
+        uint8_t* ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
+        if (ctrlCache == nullptr) {
+            DevControlFlowCache* hostCache = nullptr;
+            if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(),
+                inputList, outputList, &hostCache, config) != 0) {
+                return 0;
+            }
+            if (hostCache) {
+                DeviceMemoryUtils devMemory;
+                ctrlCache = devMemory.CopyToDev(reinterpret_cast<uint8_t*>(hostCache),
+                    reinterpret_cast<DevControlFlowCache*>(hostCache)->allCacheSize, nullptr);
+            }
+
+            if (ctrlCache) {
+                op->InsertCtrlFlowCache(inputList, outputList, ctrlCache);
+            }
         }
+
+        return ctrlCache == nullptr ? 0 : reinterpret_cast<int64_t>(ctrlCache);
     }
 
-    return "";
+    return 0;
 }
 
 void BindRuntime(py::module &m) {
