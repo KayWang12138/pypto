@@ -24,7 +24,7 @@ import numpy as np
 from mla_prolog_quant_impl import mla_prolog_v4_in
 from utils.compare import compare
 
-torch.manual_seed(5)
+torch.manual_seed(6)
 
 def prep_env():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
