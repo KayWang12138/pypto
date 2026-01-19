@@ -42,17 +42,6 @@ enum class ScalarValueKind {
     Symbolic,           // Symbolic value known at runtime (symbolic value is a variable name)
 };
 
-// Enumeration for cast modes.
-enum class CastMode {
-    CAST_NONE,       // No rounding mode specified
-    CAST_RINT,       // Round to nearest integer (ties to even)
-    CAST_ROUND,      // Round to nearest integer
-    CAST_FLOOR,      // Round down to nearest integer
-    CAST_CEIL,       // Round up to nearest integer
-    CAST_TRUNC,      // Truncate towards zero
-    CAST_ODD,        // Round to nearest odd integer
-};
-
 // Base class for all data types in PTO-IR.
 class Value : public Object {
 public:
@@ -60,13 +49,6 @@ public:
         : Object(ObjectType::Value, name), valueKind_(kind), type_(type) {}
     virtual ~Value() = default;
 
-    const std::string GetSSAName() const {
-        if (name_.empty()) {
-            return "%" + std::to_string(id_);
-        }
-        // If tensor has a name, return it directly without adding numeric suffix
-        return GetPrefixedName() + "_" + std::to_string(id_);
-    }
     ObjectType GetObjectType() const override { return ObjectType::Value; }
 
     ValueKind GetValueKind() const { return valueKind_; }
@@ -150,6 +132,8 @@ enum class MemSpaceKind {
     SHMEM,
 };
 
+std::string GetMemSpaceKindName(MemSpaceKind kind);
+
 class Memory : public Object {
 public:
     Memory(uint64_t byteSize, MemSpaceKind kind = MemSpaceKind::UNKNOWN) : Object(ObjectType::Memory), byteSize_(byteSize),
@@ -218,9 +202,11 @@ public:
         // Update Type with new shape
         type_ = std::make_shared<TileType>(GetDataType(), newShape);
     }
+    void SetValidShape(const std::vector<ScalarValuePtr>& newValidShape) { validShapes_ = newValidShape; }
     void SetStrides(const std::vector<int64_t>& newStrides) { strides_ = newStrides; }
     void SetStartOffset(const ScalarValuePtr newStartOffset) { startOffset_ = newStartOffset; }
     void SetMemory(const std::shared_ptr<Memory> newMem) { mem_ = newMem; }
+    void SetValidShapes(const std::vector<ScalarValuePtr> &validShapes) { validShapes_ = validShapes; }
 
     void Print(std::ostream& os, int indent = 0) const override;
 
@@ -234,7 +220,7 @@ private:
 using TileValuePtr = std::shared_ptr<TileValue>;
 
 template<typename TDst, typename TSrc>
-static inline std::shared_ptr<TDst> ValueCast(const std::shared_ptr<TSrc> &src) {
+static inline std::shared_ptr<TDst> ObjectCast(const std::shared_ptr<TSrc> &src) {
     return std::static_pointer_cast<TDst>(src);
 }
 
@@ -275,12 +261,39 @@ private:
     Format format_;
 };
 
-static inline std::vector<ValuePtr> CastScalarToValue(const std::vector<ScalarValuePtr> &scalarList) {
-    std::vector<ValuePtr> valueList;
-    for (auto scalar : scalarList) {
-        valueList.emplace_back(std::static_pointer_cast<Value>(scalar));
+using TensorValuePtr = std::shared_ptr<TensorValue>;
+
+struct ValueUtils {
+    template<typename ...TyArgs>
+    static inline std::vector<ValuePtr> Join(TyArgs... args) {
+        std::vector<ValuePtr> valueList;
+        ValueExtend(valueList, args...);
+        return valueList;
     }
-    return valueList;
-}
+private:
+    static inline void ValueAppend(std::vector<ValuePtr> &holder, ValuePtr data) {
+        holder.push_back(data);
+    }
+    static inline void ValueAppend(std::vector<ValuePtr> &holder, TileValuePtr data) {
+        ValueAppend(holder, std::static_pointer_cast<Value>(data));
+    }
+    static inline void ValueAppend(std::vector<ValuePtr> &holder, ScalarValuePtr data) {
+        ValueAppend(holder, std::static_pointer_cast<Value>(data));
+    }
+    static inline void ValueAppend(std::vector<ValuePtr> &holder, const std::vector<ScalarValuePtr> &data) {
+        for (auto v : data) {
+            ValueAppend(holder, v);
+        }
+    }
+    template<typename Ty, typename ...TyArgs>
+    static inline void ValueExtend(std::vector<ValuePtr> &holder, Ty &&arg, TyArgs... args) {
+        ValueAppend(holder, arg);
+        ValueExtend(holder, args...);
+    }
+
+    static inline void ValueExtend(std::vector<ValuePtr> &holder) {
+        (void)holder;
+    }
+};
 
 } // namespace pto
