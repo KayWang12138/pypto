@@ -120,26 +120,6 @@ TEST_F(TestDistributedShmemImpl, TestReduceScatter)
 TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduce)
 {
     const char *group = "hcom123";
-
-    uint32_t worldSize = 4;
-    Tensor in(DT_FP16, {64, 256}, "in");
-    Tensor out(DT_FP16, {64, 256}, "out");
-    FUNCTION("ALLREDUCE", {in}, {out}) {
-        TileShape::Current().SetVecTile({64, 256});
-        Tensor predToken(DT_INT32, {1, 1}, "predToken");
-        TwoShotAllReduce(predToken, in, group, worldSize, out);
-    }
-
-    std::string functionRawName = GetFunctionRawName("TwoShotAllReduce");
-    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduceParaWithShmem)
-{
-    const char *group = "hcom123";
     uint32_t worldSize = 4;
     Tensor in(DT_FP16, {64, 256}, "in");
     Tensor out(DT_FP16, {64, 256}, "out");
@@ -160,26 +140,6 @@ TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduceParaWithShmem)
 }
 
 TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
-{
-    const char *group = "hcom123";
-
-    uint32_t worldSize = 4;
-    Tensor in(DT_FP16, {64, 256}, "in");
-    Tensor out(DT_FP16, {64, 256}, "out");
-    FUNCTION("ALLREDUCE", {in}, {out}) {
-        TileShape::Current().SetVecTile({64, 256});
-        Tensor predToken(DT_INT32, {1, 1}, "predToken");
-        OneShotAllReduce(predToken, in, group, worldSize, out);
-    }
-
-    std::string functionRawName = GetFunctionRawName("OneShotAllReduce");
-    auto function = Program::GetInstance().GetFunctionByRawName(functionRawName);
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
-TEST_F(TestDistributedShmemImpl, TestOneShotAllReduceParaWithShmem)
 {
     const char *group = "hcom123";
 
