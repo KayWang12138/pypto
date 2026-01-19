@@ -106,16 +106,12 @@ public:
     std::vector<ConfigKey> GetAllRegisteredKeys() const;
 
 private:
-    ConfigRegistry() {
-        // When calling the Register function of ConfigRegistry in the REGISTER_CONFIG macro, if ConfigRegistry is not
-        // initialized, throw an exception.
-        isInitialized_ = true;
-    }
+    ConfigRegistry() : isInitialized_(true) {}
     ~ConfigRegistry() = default;
     ConfigRegistry(const ConfigRegistry &) = delete;
     ConfigRegistry &operator=(const ConfigRegistry &) = delete;
 
-    volatile bool isInitialized_;
+    bool isInitialized_;
     std::set<ConfigKey> registeredKeys_;
     std::map<ConfigKey, std::type_index> registeredConfigs_;
     std::map<ConfigKey, std::any> defaultValues_;
