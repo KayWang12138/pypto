@@ -43,13 +43,15 @@ extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(
                  kargs->outputs, kargs->workspace, kargs->cfgdata);
         return -1;
     }
-    g_ctrl_machine.InitDyn(kargs);
+    auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+    g_ctrl_machine.InitTaskPipeWithSched(devProg);
     PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
     return 0;
 }
 
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void *targ) {
     auto kargs = (DeviceKernelArgs *)targ;
+    g_ctrl_machine.InitDyn(kargs);
     int rc = g_ctrl_machine.ExecDyn(kargs);
     if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
         DEV_INFO("All schedule exited, destroy the machine.\n");
