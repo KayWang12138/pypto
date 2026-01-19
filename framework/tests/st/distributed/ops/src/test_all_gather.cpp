@@ -60,7 +60,10 @@ void TestAllGather(OpTestParam &testParam)
         RawTensorData::CreateTensorZero(out)
     });
 
-    RunTestVerification(dType, "/output_rank_", outSize, testParam);
+    RunTestVerification();
+    auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr(); 
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
+
 }
 
 template void TestAllGather<int32_t>(OpTestParam &testParam);

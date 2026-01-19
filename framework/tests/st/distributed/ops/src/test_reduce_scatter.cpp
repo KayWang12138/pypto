@@ -58,7 +58,9 @@ void TestReduceScatter(OpTestParam &testParam)
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<T>(out, 0),
     });
-    RunTestVerification(dType, "/output_rank_", rowOut * col, testParam);
+    RunTestVerification();
+    auto outPut = ProgramData::GetInstance().GetOutputData(0); 
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", rowOut * col, outPut->GetDevPtr(), testParam));
 }
 
 template void TestReduceScatter<int32_t>(OpTestParam &testParam);
