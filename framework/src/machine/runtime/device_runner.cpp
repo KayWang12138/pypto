@@ -287,7 +287,7 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
 
 int DeviceRunner::LaunchAiCore(rtStream_t aicoreStream, int taskType) {
     struct Args {
-        int64_t *syncAddr = nullptr;
+        int64_t *ctrlFlowCache = nullptr;
         int64_t *inputs = nullptr;
         int64_t *outputs = nullptr;
         int64_t *workspace = nullptr;

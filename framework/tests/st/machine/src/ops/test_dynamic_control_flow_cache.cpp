@@ -85,13 +85,14 @@ TEST_F(DynamicControlFlowCacheTest, KernelReuse) {
     }
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
+    DevControlFlowCache* ctrlFlowCache = nullptr;
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlFlowCache, config));
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
 #ifdef BUILD_WITH_CANN
     for (int k = 0; k < 3; k++) {
-        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
     }
@@ -140,14 +141,15 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
     }
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
+    DevControlFlowCache* ctrlFlowCache = nullptr;
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlFlowCache, config));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
-    EXPECT_NE(devProg->controlFlowCache.deviceTaskCount, 0);
+    EXPECT_NE(devProg->ctrlFlowCacheAnchor->deviceTaskCount, 0);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
-    devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache(0, 0, (intptr_t)devProg, (intptr_t)ctrlFlowCache);
 
     {
         // check success
@@ -157,12 +159,12 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
             {0, {2, {n1, n1}}},
         };
         DevStartArgsBase arg = {devTensorList, 2, 1, nullptr};
-        EXPECT_TRUE(devProg->controlFlowCache.MatchInputOutput(&arg));
+        EXPECT_TRUE(ctrlFlowCache->MatchInputOutput(&arg));
     }
     {
         // check failed for count
         DevStartArgsBase arg = {nullptr, 0, 0, nullptr};
-        EXPECT_FALSE(devProg->controlFlowCache.MatchInputOutput(&arg));
+        EXPECT_FALSE(ctrlFlowCache->MatchInputOutput(&arg));
     }
     {
         // check failed for dimension
@@ -172,7 +174,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
             {0, {3, {n1, n1, n1}}},
         };
         DevStartArgsBase arg = {devTensorList, 2, 1, nullptr};
-        EXPECT_FALSE(devProg->controlFlowCache.MatchInputOutput(&arg));
+        EXPECT_FALSE(ctrlFlowCache->MatchInputOutput(&arg));
     }
     {
         // check failed for shape
@@ -182,10 +184,10 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
             {0, {2, {n1, n1 + n1}}},
         };
         DevStartArgsBase arg = {devTensorList, 2, 1, nullptr};
-        EXPECT_FALSE(devProg->controlFlowCache.MatchInputOutput(&arg));
+        EXPECT_FALSE(ctrlFlowCache->MatchInputOutput(&arg));
     }
 
-    devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache((intptr_t)devProg, (intptr_t)ctrlFlowCache, 0, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);
 
     int n2 = tiling * 2;
@@ -195,7 +197,7 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
 
     std::vector<int32_t> outputGolden(n2 * n2, 10);
 #ifdef BUILD_WITH_CANN
-    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
 #endif
@@ -241,16 +243,15 @@ TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
     }
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
+    DevControlFlowCache* ctrlFlowCache = nullptr;
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlFlowCache, config));
 
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
-        const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
-    EXPECT_EQ(devProg->controlFlowCache.deviceTaskCount, 0);
-    EXPECT_EQ(devProg->controlFlowCache.deviceTaskSkippedCount, 1);
+    EXPECT_EQ(ctrlFlowCache->deviceTaskCount, 0);
+    EXPECT_EQ(ctrlFlowCache->deviceTaskSkippedCount, 1);
 
     std::vector<int32_t> outputGolden(n1 * n1, 6);
 #ifdef BUILD_WITH_CANN
-    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
     auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
 #endif
@@ -287,7 +288,8 @@ TEST_F(DynamicControlFlowCacheTest, CheckGetTensorData) {
     }
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
+    DevControlFlowCache* ctrlFlowCache = nullptr;
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlFlowCache, config));
 }
 
 static DeviceTensorData toTensorData(const std::shared_ptr<LogicalTensor> &t) {
@@ -337,32 +339,36 @@ TEST_F(DynamicControlFlowCacheTest, PartialCache) {
     std::vector<DeviceTensorData> outputList = {toTensorData(output.GetStorage())};
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));
-
+    DevControlFlowCache* ctrlFlowCache = nullptr;
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, &ctrlFlowCache, config));
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
-    EXPECT_EQ(0x3, devProg->controlFlowCache.deviceTaskCount);
-    EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskSkippedCount);
+    EXPECT_EQ(0x3, ctrlFlowCache->deviceTaskCount);
+    EXPECT_EQ(0x1, ctrlFlowCache->deviceTaskSkippedCount);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
-    devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
+    ctrlFlowCache->RelocMetaCache(0, (intptr_t)ctrlFlowCache);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache(0, 0, (intptr_t)devProg, (intptr_t)ctrlFlowCache);
 
     for (int i = 0; i < 0x3; i++) {
-        auto dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[i].dynTaskBase;
+        auto dynTaskBase = ctrlFlowCache->deviceTaskCacheList[i].dynTaskBase;
         EXPECT_EQ(0x4, dynTaskBase->GetDynFuncDataList()->Size());
     }
 
-    devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache((intptr_t)devProg, (intptr_t)ctrlFlowCache, 0, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);
-
+    ctrlFlowCache->RelocMetaCache((intptr_t)ctrlFlowCache, 0);
+    EXPECT_EQ(false, ctrlFlowCache->isRelocDataDev);
+    EXPECT_EQ(false, ctrlFlowCache->isRelocMetaDev);
+    EXPECT_EQ(true, ctrlFlowCache->isActivated);
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
 
 #ifdef BUILD_WITH_CANN
     for (int k = 0; k < 0x3; k++) {
-        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
     }
@@ -442,21 +448,25 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     };
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24:max aicore num
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));
+    DevControlFlowCache* ctrlFlowCache = nullptr;
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, &ctrlFlowCache, config));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
-    EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskCount);
-    EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskSkippedCount);
+    EXPECT_EQ(0x1, ctrlFlowCache->deviceTaskCount);
+    EXPECT_EQ(0x1, ctrlFlowCache->deviceTaskSkippedCount);
 
+    ctrlFlowCache->RelocMetaCache(0, (intptr_t)ctrlFlowCache);
     devProg->RelocProgram(0, (intptr_t)devProg);
-    devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache(0, 0, (intptr_t)devProg, (intptr_t)ctrlFlowCache);
 
     uint64_t workspaceSize = devProg->memBudget.Total();
 
-    devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache((intptr_t)devProg, (intptr_t)ctrlFlowCache, 0, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);
+    ctrlFlowCache->RelocMetaCache((intptr_t)ctrlFlowCache, 0);
+
 
 #ifdef BUILD_WITH_CANN
     const int align = 512;
@@ -480,7 +490,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
         auto outputResult = (float *)npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0)->data();
         auto outputSize = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0)->size();
         memset_s(outputResult, outputSize, 0, outputSize);
-        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
         EXPECT_TRUE(resultCmp(outputGolden, outputResult, 0.001f));
 
         for (int w = 0; w <= k - 1; w++) {
@@ -518,30 +528,33 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
         LOOP("s2", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {(void)_; output = Add(sum, sum);}
     }
     DeviceLauncherConfig config; config.blockdim = 24; // 24:max aicore num
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, config));
+    DevControlFlowCache* ctrlFlowCache = nullptr;
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlFlowCache, config));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
-    EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskCount);
-    EXPECT_EQ(0x0, devProg->controlFlowCache.deviceTaskSkippedCount);
+    EXPECT_EQ(0x1, ctrlFlowCache->deviceTaskCount);
+    EXPECT_EQ(0x0, ctrlFlowCache->deviceTaskSkippedCount);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
-    devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
+    ctrlFlowCache->RelocMetaCache(0, (intptr_t)ctrlFlowCache);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache(0, 0, (intptr_t)devProg, (intptr_t)ctrlFlowCache);
 
-    auto dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[0].dynTaskBase;
+    auto dynTaskBase = ctrlFlowCache->deviceTaskCacheList[0].dynTaskBase;
     EXPECT_EQ(0x2, dynTaskBase->GetDynFuncDataList()->Size());
 
-    devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache((intptr_t)devProg, (intptr_t)ctrlFlowCache, 0, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);
+    ctrlFlowCache->RelocMetaCache((intptr_t)ctrlFlowCache, 0);
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
 
 #ifdef BUILD_WITH_CANN
     for (int k = 0; k < 0x3; k++) {
-        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
     }
@@ -579,30 +592,33 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependControl) {
     std::vector<DeviceTensorData> inputList = {toTensorData(inputA.GetStorage()), toTensorData(inputB.GetStorage())};
     std::vector<DeviceTensorData> outputList = {toTensorData(output.GetStorage())};
     DeviceLauncherConfig config; config.blockdim = 24; // 24:max aicore num
-    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, config));
+    DevControlFlowCache *ctrlFlowCache = nullptr;
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, &ctrlFlowCache, config));
 
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
-    EXPECT_EQ(0x1, devProg->controlFlowCache.deviceTaskCount);
-    EXPECT_EQ(0x0, devProg->controlFlowCache.deviceTaskSkippedCount);
+    EXPECT_EQ(0x1, ctrlFlowCache->deviceTaskCount);
+    EXPECT_EQ(0x0, ctrlFlowCache->deviceTaskSkippedCount);
 
     devProg->RelocProgram(0, (intptr_t)devProg);
-    devProg->controlFlowCache.TaskAddrRelocProgram(0, (intptr_t)devProg);
+    ctrlFlowCache->RelocMetaCache(0, (intptr_t)ctrlFlowCache);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache(0, 0, (intptr_t)devProg, (intptr_t)ctrlFlowCache);
 
-    auto dynTaskBase = devProg->controlFlowCache.deviceTaskCacheList[0].dynTaskBase;
+    auto dynTaskBase = ctrlFlowCache->deviceTaskCacheList[0].dynTaskBase;
     EXPECT_EQ(0x2, dynTaskBase->GetDynFuncDataList()->Size());
 
-    devProg->controlFlowCache.TaskAddrRelocProgram((intptr_t)devProg, 0);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache((intptr_t)devProg, (intptr_t)ctrlFlowCache, 0, 0);
     devProg->RelocProgram((intptr_t)devProg, 0);
+    ctrlFlowCache->RelocMetaCache((intptr_t)ctrlFlowCache, 0);
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
 
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
 
 #ifdef BUILD_WITH_CANN
     for (int k = 0; k < 0x3; k++) {
-        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), config));
+        EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
         auto outputResult = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(outputGolden, (int32_t *)outputResult->data(), 0.001f));
     }
