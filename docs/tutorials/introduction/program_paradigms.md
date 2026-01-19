@@ -48,7 +48,7 @@ Tensor层次编程是PyPTO当前主要支持的编程方式，开发者直接使
 
 -   基本编程模式
 
-    典型的Tensor层次编程模式如下，Kernel入口函数通过@pypto.jit装饰器定义，在第一次调用时会进行JIT编译。
+    典型的Tensor层次编程模式如下，Kernel入口函数通过@pypto.frontend.jit装饰器定义，在第一次调用时会进行JIT编译。
 
     ```python
     import pypto
@@ -57,14 +57,21 @@ Tensor层次编程是PyPTO当前主要支持的编程方式，开发者直接使
     pypto.set_vec_tile_shapes(64)
     
     # 2. 定义计算函数
-    @pypto.jit
-    def my_operator(a: pypto.Tensor, b: pypto.Tensor, output: pypto.Tensor):
-        # Tensor 操作
-        result = a + b  # 或使用 pypto.add(a, b)
-        output[:] = result
-    
+    def my_operator(shape, dtype):
+        @pypto.frontend.jit
+        def my_operator_kernel(
+                a: pypto.Tensor(shape, dtype), 
+                b: pypto.Tensor(shape, dtype)
+            ) -> (
+                pypto.Tensor(shape, dtype)
+            ):
+            # Tensor 操作
+            result = a + b  # 或使用 pypto.add(a, b)
+            output = result
+            return output
+        return my_operator_kernel
     # 3. 执行
-    my_operator(tensor_a, tensor_b, output_tensor)
+    tensor_out = my_operator(shape, dtype)(tensor_a, tensor_b)
     ```
 
 -   Tensor操作
@@ -175,13 +182,21 @@ MPMD执行模型的优势包括：
     pypto.set_vec_tile_shapes(64)
     
     # 定义计算函数
-    @pypto.jit
-    def vector_add(a: pypto.Tensor, b: pypto.Tensor, output: pypto.Tensor):
-        # Tensor 操作：向量加法
-        output[:] = a + b  # 输出结果
+    def vector_add(shape, dtype)
+        @pypto.frontend.jit
+        def vector_add_kernel(
+                a: pypto.Tensor(shape, dtype), 
+                b: pypto.Tensor(shape, dtype), 
+            ) -> (
+                pypto.Tensor(shape, dtype)
+            ):
+            # Tensor 操作：向量加法
+            output = a + b  # 输出结果
+            return out
+        return vector_add_kernel
     
     # 执行
-    vector_add(tensor_a, tensor_b, output_tensor)
+    out = vector_add(shape, detype)(tensor_a, tensor_b)
     ```
 
 -   矩阵乘法（Matrix Multiplication）
@@ -191,13 +206,20 @@ MPMD执行模型的优势包括：
     
     # 配置 Cube Tiling（用于矩阵乘法）
     pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128])
-    
-    @pypto.jit
-    def matmul(a: pypto.Tensor, b: pypto.Tensor, output: pypto.Tensor):
-        outputs[:] = pypto.matmul(a, b)  # 矩阵乘法
+    def matmul(shape, dtype)
+        @pypto.frontend.jit
+        def matmul_kernel(
+                a: pypto.Tensor(shape, dtype), 
+                b: pypto.Tensor(shape, dtype), 
+            ) -> (
+                pypto.Tensor(shape, dtype)
+            ):
+            output = pypto.matmul(a, b)  # 矩阵乘法
+            return out
+        return matmul_kernel
     
     # 执行
-    matmul(matrix_a, matrix_b, output_matrix)
+    out = matmul(shape, detype)(matrix_a, matrix_b)
     ```
 
 -   动态Shape处理
@@ -212,29 +234,36 @@ MPMD执行模型的优势包括：
         esum = pypto.sum(exp, dim=-1, keepdim=True)    # 求和
         return exp / esum                              # 概率归一化
     
-    @pypto.jit
-    def dynamic_softmax(input_tensor : pypto.Tensor, output_tensor: pypto.Tensor):
-        # 获取动态维度
-        batch_size = input_tensor.shape[0]
-        tile_size = pypto.symbolic_scalar(64)
-        loop_count = batch_size // tile_size
-    
-        # 循环处理
-        for idx in pypto.loop(0, loop_count, 1, name="LOOP_BATCH"):
-            offset = idx * tile_size
-            end = (idx + 1) * tile_size
-    
-            # 提取当前 Tile
-            x_view = input_tensor[offset:end, :]
-    
-            # 计算 Softmax
-            softmax_out = softmax_core(x_view)
-    
-            # 组装结果
-            output_tensor[offset:end, :] = softmax_out
+    def dynamic_softmax(shape, dtype):
+        @pypto.frontend.jit
+        def dynamic_softmax_kernel(
+                input_tensor : pypto.Tensor(shape, dtype)
+            ) -> (
+                pypto.Tensor(shape, dtype)
+            ):
+            # 获取动态维度
+            batch_size = input_tensor.shape[0]
+            tile_size = pypto.symbolic_scalar(64)
+            loop_count = batch_size // tile_size
+            output_tensor = pypto.tensor(shape, dtype)
+            # 循环处理
+            for idx in pypto.loop(0, loop_count, 1, name="LOOP_BATCH"):
+                offset = idx * tile_size
+                end = (idx + 1) * tile_size
+        
+                # 提取当前 Tile
+                x_view = input_tensor[offset:end, :]
+        
+                # 计算 Softmax
+                softmax_out = softmax_core(x_view)
+
+                # 组装结果
+                output_tensor[offset:end, :] = softmax_out
+            return output_tensor
+        return dynamic_softmax_kernel
     
     # 执行
-    dynamic_softmax(input_tensor, output_tensor)
+    out = dynamic_softmax(shape, dtype)(input_tensor)
     ```
 
 -   与PyTorch集成
@@ -243,21 +272,23 @@ MPMD执行模型的优势包括：
     import pypto
     import torch
     
-    @pypto.jit
-    def my_operator(x: pypto.Tensor, output: pypto.Tensor):
-        result = pypto.matmul(x, weight)
-        output[:] = result
+    def my_operator(shape, dtype):
+        @pypto.frontend.jit
+        def my_operator_kernel(
+                x: pypto.Tensor(shape, dtype),
+            ) -> (
+                pypto.Tensor(shape, dtype)
+            ):
+            result = pypto.matmul(x, weight)
+            output = result
+            return output
+        return my_operator_kernel
     
     # 使用 PyTorch Tensor
     input_torch = torch.randn(32, 128, device='npu')
-    output_torch = torch.zeros(32, 64, device='npu')
-    
-    # 转换为 PyPTO Tensor
-    pto_input = pypto.from_torch(input_torch, "INPUT")
-    pto_output = pypto.from_torch(output_torch, "OUTPUT")
     
     # 执行
-    my_operator(pto_input, pto_output)
+    output = my_operator(shape, dtype)(pto_input)
     ```
 
 ## 总结

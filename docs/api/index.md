@@ -7,6 +7,7 @@ tensor/index
 element/index
 operation/index
 datatype/index
+frontend/index
 controlflow/index
 config/index
 symbolic/index
