@@ -20,7 +20,6 @@
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/tensor/symbolic_scalar.h"
 
 using namespace npu::tile_fwk;
 class DynamicOpsTest : public testing::Test {
@@ -488,5 +487,3 @@ TEST_F(DynamicOpsTest, MatmulBF16FP32) {
 TEST_F(DynamicOpsTest, MatmulFP32FP32) {
     TestMatmul(DT_FP32, DT_FP32);
 }
-
-
