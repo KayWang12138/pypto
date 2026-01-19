@@ -204,9 +204,16 @@ void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
     opCodeStr = OpcodeManager::Inst().GetOpcodeStr(opCode);
 
     int operandIdx = 0;
+    int oOperandCnt = 0;
+    int iOperandCnt = 0;
+
+    bool isAcc = false;
+    ops.GetAttr(OP_ATTR_PREFIX + "gm_acc", isAcc);
+
     for (size_t i = 0; i < ops.oOperand.size(); ++i) {
         const auto &output = ops.oOperand[i];
         UpdateCodegenOpInfoByTensor(ops, false, output, operandIdx, i);
+        ++oOperandCnt;
     }
 
     // if no output like WriteRemote OP, set operandIdx=1 for input
@@ -216,10 +223,15 @@ void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
 
     for (size_t i = 0; i < ops.iOperand.size(); ++i) {
         const auto &input = ops.iOperand[i];
+        MemoryType memType = input->GetMemoryTypeOriginal();
+        if (isAcc && memType == MemoryType::MEM_DEVICE_DDR) {
+            continue;
+        }
         UpdateCodegenOpInfoByTensor(ops, true, input, operandIdx, i);
+        ++iOperandCnt;
     }
 
-    operandCnt = ops.oOperand.size() + ops.iOperand.size();
+    operandCnt = oOperandCnt + iOperandCnt;
 
     GetGmParamIdx(ops);
     syncQueue = ops.syncQueue_;
