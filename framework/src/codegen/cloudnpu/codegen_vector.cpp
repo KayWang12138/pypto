@@ -910,11 +910,11 @@ std::string CodeGenOpCloudNPU::GenCumSumOp() const {
 
 std::string CodeGenOpCloudNPU::PrintTriULTileTensor(int diagonal, bool isUpper) const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
 
     std::ostringstream oss;
     oss << tileOpName << "<" << diagonal << ", " << isUpper << ">"
-        << "(" << dstTensor << ", " << src0Tensor << ");\n";
+        << "(" << dstTensor << ", " << srcTensor << ");\n";
     return oss.str();
 }
 
@@ -928,6 +928,7 @@ std::string CodeGenOpCloudNPU::GenTriULOp() const {
     if (isSupportLayout) {
         return PrintTriULTileTensor(diagonal, isUpper);
     }
+    ASSERT(false) << "cannot generate TriU or TriL operation";
 }
 
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {

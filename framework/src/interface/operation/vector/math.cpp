@@ -613,7 +613,6 @@ void TiledTriUL(Function &function, const TileShape &tileShape, const TriULPara 
         TileInfo(triULPara.dstTensor->GetShape().size(), triULPara.dstTensor->GetOffset().size())};
 
     InnerTiledTriUL(0, function, tileShape, triULPara, triULTileInfo);
-    return;
 }
 
 void TensorTriUL(Function &function, const TriULPara &triULPara) {
@@ -626,13 +625,11 @@ void TensorTriUL(Function &function, const TriULPara &triULPara) {
         op.SetAttribute(OP_ATTR_PREFIX + "diagonal", triULPara.diagonal);
         op.SetAttribute(OP_ATTR_PREFIX + "isUpper", triULPara.isUpper);
         Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConverted}, {triULPara.dstTensor});
-        castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
-        return;
+        castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_TRUNC);
     } else {
         auto &op = function.AddOperation(Opcode::OP_TRIUL, {triULPara.input}, {triULPara.dstTensor});
         op.SetAttribute(OP_ATTR_PREFIX + "diagonal", triULPara.diagonal);
         op.SetAttribute(OP_ATTR_PREFIX + "isUpper", triULPara.isUpper);
-        return;
     }
 }
 
@@ -646,7 +643,7 @@ Tensor TriU(const Tensor &input, const int &diagonal){
         DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
     ASSERT(std::find(TRIU_SUPPORT_DATATYPES.begin(), TRIU_SUPPORT_DATATYPES.end(), dataType) !=
            TRIU_SUPPORT_DATATYPES.end()) << "The datatype is not supported";
-    ASSERT(std::is_integral_v<decltype(diagonal)>) << "The diagonal must be int";
+    // ASSERT(std::is_integral_v<decltype(diagonal)>) << "The diagonal must be int";
     bool isUpper = true;
 
     Tensor result(input.GetDataType(), input.GetShape());
@@ -658,8 +655,8 @@ Tensor TriU(const Tensor &input, const int &diagonal){
 void TriULOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
     int diagonal = op.GetIntAttribute(OP_ATTR_PREFIX + "diagonal");
-    bool flag = op.GetBoolAttribute(OP_ATTR_PREFIX + "flag");
-    TiledTriUL(function, tileShape, {iOperand[0], oOperand[0], diagonal, 0, 0, flag});
+    bool isUpper = op.GetBoolAttribute(OP_ATTR_PREFIX + "isUpper");
+    TiledTriUL(function, tileShape, {iOperand[0], oOperand[0], diagonal, 0, 0, isUpper});
 }
 
 // beginregin: Clip
