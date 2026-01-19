@@ -2,6 +2,7 @@ cmake-build-*
 .idea
 .vscode
 .codemate
+.claude
 build/
 build_out/
 dist/

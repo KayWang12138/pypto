@@ -21,18 +21,21 @@
 示例代码如下：
 
 ```python
-@pypto.jit
-def foo_kernel(x, y):
-    pypto.set_vec_tile_shapes(16, 16)
-    a = pypto.zeros([32, 32])
-    b = a[:16, :16] # 从a中view获取数据
-    a[16:, 16:] = b.exp() # 计算后assemble写回a
-    y[:] = x + a
+def foo(x_shape, y_shape):
+    @pypto.frontend.jit
+    def foo_kernel(x: pypto.tensor(x_shape, pypto.DT_FP32)) -> pypto.tensor(y_shape, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(16, 16)
+        a = pypto.zeros([32, 32])
+        b = a[:16, :16] # 从a中view获取数据
+        a[16:, 16:] = b.exp() # 计算后assemble写回a
+        y = x + a
+        return y
+    return foo_kernel
 
 torch.npu.set_device(0)
-x = torch.ones(32, 32, dtype=torch.float32)
-y = torch.empty(32, 32, dtype=torch.float32)
-foo_kernel(pypto.from_torch(x), pypto.from_torch(y))
+shape = (32, 32)
+x = torch.ones(shape, dtype=torch.float32)
+y = foo(shape, shape)(x)
 ```
 
 执行时报错：ASSERTION FAILED
@@ -95,11 +98,11 @@ libtile_fwk_interface.so(npu::tile_fwk::RecordLoopFunc::Iterator::operator!=(npu
     def handler(in): # 定义公共处理函数
         return pypto.add(in, in)
     
-    @pypto.jit
+    @pypto.frontend.jit
     def adder_256(in_shape_256): # 定义处理in 轴大小是256的场景
         return handler(in_shape_256)
     
-    @pypto.jit
+    @pypto.frontend.jit
     def adder_1024(in_shape_1024): # 定义处理 in 轴大小是 1024 的算子
         return handler(in_shape_1024)
     
@@ -110,7 +113,7 @@ libtile_fwk_interface.so(npu::tile_fwk::RecordLoopFunc::Iterator::operator!=(npu
 -   方案2：定义为动态轴
 
     ```python
-    @pypto.jit
+    @pypto.frontend.jit
     def adder(in_shape): # 定义处理in 轴大小是256的场景
         out = Tensor(in_shape.shape[0])
         for k in pypto.loop(in_shape.shape[0] / 256):
@@ -150,8 +153,11 @@ for outer in pypto.loop(...): # 父循环，执行至少两次，如果只执行
 ### 问题现象描述
 
 ```python
-@pypto.jit
-def add_kernel_1(a, b, c):
+@pypto.frontend.jit
+def add_kernel_1(
+    a: pypto.tensor(shape, dtype), 
+    b: pypto.tensor(shape, dtype), 
+    ) -> pypto.tensor(shape, dtype):
     count = 0
     for i in pypto.loop(20):
         count = count + 1
