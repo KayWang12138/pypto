@@ -329,5 +329,4 @@ void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
     (void)hostTensor;
 #endif
 }
-
 }
