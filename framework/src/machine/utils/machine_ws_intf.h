@@ -41,7 +41,6 @@ struct StaticReadyCoreFunctionQueue {
   size_t lock;
 };
 
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
 struct WrapInfo {
     uint32_t wrapId;
     uint32_t aicCoreIdx;
@@ -60,7 +59,6 @@ struct WrapInfoQueue {
   size_t lock;
   uint64_t Size() { return tail - head;}
 };
-#endif
 
 inline void ReadyQueueLock(ReadyCoreFunctionQueue* rq) {
   while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
@@ -99,7 +97,7 @@ struct DeviceTaskBin {
 constexpr int64_t DEVICE_QUEUE_SIZE = 512;
 #define DEVICE_TASK_STOP 0x7FFFFFFE
 
-struct AstKernelArgs {
+struct DeviceKernelArgs {
     int64_t *syncaddr{nullptr}; // not used
     int64_t *inputs{nullptr};
     int64_t *outputs{nullptr};

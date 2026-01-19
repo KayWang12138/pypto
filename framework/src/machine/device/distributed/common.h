@@ -25,7 +25,7 @@ namespace npu::tile_fwk::dynamic {
 }
 
 namespace npu::tile_fwk::Distributed {
-constexpr uint64_t AICPU_TASK_ARRAY_SIZE = 512;
+constexpr uint64_t AICPU_TASK_ARRAY_SIZE = 1024;
 constexpr uint64_t AICPU_TASK_ARRAY_SIZE_MOD = AICPU_TASK_ARRAY_SIZE - 1;
 constexpr uint64_t SRC_SHMEM_SIGNAL_ID = 1;
 constexpr uint64_t SRC_RANK_ID = 2;
@@ -98,7 +98,7 @@ inline std::vector<uint32_t> GetCoaVector(const uint32_t baseIndex, const uint32
 
 inline AicpuParamInfo DecodeAicpuCode(const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) {
     AicpuParamInfo paramInfo;
-    int index = 1;
+    int index = 1; // aicpuCode[0]表示OpCode，paraminfo索引从1起
     paramInfo.outIndex = index + 1;
 
     index = index + aicpuCode[index] + 1;
