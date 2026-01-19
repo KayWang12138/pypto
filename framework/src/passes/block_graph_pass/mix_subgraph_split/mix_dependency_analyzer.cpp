@@ -18,6 +18,42 @@
 
 namespace npu {
 namespace tile_fwk {
+void MixDependencyAnalyzer::InitSubgraphToFunction(const std::vector<InternalComponentInfo>& components) {
+    subgraphToFunction.nLIST.resize(components.size());
+    subgraphToFunction.subFuncInvokeInfos.resize(components.size());
+    // 初始化nList
+    for (size_t compIndex = 0; compIndex < components.size(); compIndex++) {
+        const auto& component = components[compIndex];
+        // 将 Operation* 转换为 std::shared_ptr<Operation>
+        std::vector<std::shared_ptr<Operation>> sharedOperations;
+        for (auto* op : component.operations) {
+            sharedOperations.push_back(op->shared_from_this());
+        }
+        subgraphToFunction.nLIST[compIndex] = sharedOperations;
+        subgraphToFunction.subFuncInvokeInfos[compIndex] = SubfuncInvokeInfoTy();
+    }
+}
+
+void MixDependencyAnalyzer::InOutCastRecord(Function* originalMixFunc) {
+    for (int i = 0; i < static_cast<int>(subgraphToFunction.nLIST.size()); i++) {
+        for (size_t j = 0; j < subgraphToFunction.nLIST[i].size(); j++) {
+            for (size_t k = 0; k < subgraphToFunction.nLIST[i][j]->GetIOperands().size(); k++) {
+                subgraphToFunction.RecordEsgIncast(*originalMixFunc, i, j, k);
+            }
+            for (size_t k = 0; k < subgraphToFunction.nLIST[i][j]->GetOOperands().size(); k++) {
+                subgraphToFunction.RecordEsgOutcast(*originalMixFunc, i, j, k);
+            }
+        }
+    }
+    // 完成所有记录
+    for (auto& invokeInfo : subgraphToFunction.subFuncInvokeInfos) {
+        invokeInfo.DoFinishRecord();
+    }
+    for (size_t i = 0; i < subgraphToFunction.subFuncInvokeInfos.size(); i++) {
+        subgraphToFunction.subFuncInvokeInfos[i].ConstructActualInvokeParam(i);
+    }
+}
+
 std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDependencies(Function &mixFunc) {
     std::unordered_map<int, std::set<int>> dependencies;
     // 分析子图的所有的op
@@ -109,9 +145,7 @@ void MixDependencyAnalyzer::ComputeDependencyClosure(std::unordered_map<int, std
     UpdateDependencies(dependencies);
 }
 
-void MixDependencyAnalyzer::ExtractExternalDependencies(const std::vector<SubfuncInvokeInfoTy> &subFuncInvokeInfos, 
-                                                        std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
-                                                        std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts) {
+void MixDependencyAnalyzer::ExtractExternalDependencies(const std::vector<SubfuncInvokeInfoTy> &subFuncInvokeInfos) {
     for (size_t i = 0; i < subFuncInvokeInfos.size(); i++) {
         const auto& invokeInfo = subFuncInvokeInfos[i];
         // 提取incast
@@ -144,9 +178,7 @@ bool MixDependencyAnalyzer::ContainsTensor(const std::vector<SimpleTensorParam> 
 }
 
 
-void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::unordered_map<int, std::set<int>> &dependencyClosure, 
-                                                                    std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
-                                                                    std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts) {
+void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::unordered_map<int, std::set<int>> &dependencyClosure) {
     // 基于传递闭包传播依赖
     for (const auto &[sourceComp, targets] : dependencyClosure) {
         // 传播incast：source的incast传播给所有依赖它的target
@@ -175,8 +207,7 @@ void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::
 }
 
 void MixDependencyAnalyzer::CollectInternalDependencies(const std::unordered_map<int, std::set<int>> &dependencyClosure,
-                                                        const std::vector<InternalComponentInfo> &components,
-                                                        std::vector<InternalDependencyInfo> &internalDeps) {
+                                                        const std::vector<InternalComponentInfo> &components) {
     // 遍历传递闭包中的每个依赖关系
     for (const auto& [srcComp, dstComps] : dependencyClosure) {
         ComponentType srcType = components[srcComp].componentType;
@@ -289,8 +320,7 @@ std::vector<std::vector<bool>> MixDependencyAnalyzer::Transpose(const std::vecto
     return ret;
 }
 
-void MixDependencyAnalyzer::EliminateRedundantInnerDeps(std::vector<std::vector<bool>> &innerDeps,
-                                                        std::vector<InternalDependencyInfo> &internalDeps) {
+void MixDependencyAnalyzer::EliminateRedundantInnerDeps(std::vector<std::vector<bool>> &innerDeps) {
     ObtainMinAdjMatrix(innerDeps);
     std::vector<InternalDependencyInfo> internalDepsCopy = internalDeps;
     internalDeps.clear();
@@ -301,9 +331,7 @@ void MixDependencyAnalyzer::EliminateRedundantInnerDeps(std::vector<std::vector<
     }
 }
 
-void MixDependencyAnalyzer::EliminateRedundantDependencies(std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
-                                                           std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts,
-                                                           std::vector<InternalDependencyInfo> &internalDeps) {
+void MixDependencyAnalyzer::EliminateRedundantDependencies() {
     ALOG_INFO_F("Eliminating redundant dependencies...");
     // 生成内部依赖的可达阵
     std::vector<std::vector<bool>> innerDeps(maxComponent + 1, std::vector<bool>(maxComponent + 1, false));
@@ -315,98 +343,34 @@ void MixDependencyAnalyzer::EliminateRedundantDependencies(std::unordered_map<in
     // 消除冗余outcast
     EliminateRedundantOuterDeps(Transpose(innerDeps), allOutcasts);
     // 消除冗余内部依赖
-    EliminateRedundantInnerDeps(innerDeps, internalDeps);
+    EliminateRedundantInnerDeps(innerDeps);
 }
 
-// 应用incast依赖
-void MixDependencyAnalyzer::ApplyIncastDependencies(Function* leafFunc,
-                                                    int componentId,
-                                                    const std::vector<SimpleTensorParam>& incastParams) {
-    if (!leafFunc) {
-        return;
-    }
-    // 获取当前已有的incast，用于去重
-    std::unordered_set<uint32_t> existingMagicSet;
-    for (const auto &tensor : leafFunc->GetIncast()) {
-        if (tensor) {
-            existingMagicSet.insert(tensor->magic);
-        }
-    }
-    for (const auto &param : incastParams) {
-        if (!param.tensor) {
-            ALOG_WARN_F("Component %d: Null tensor in incast params, skipping", componentId);
-            continue;
-        } 
-        // 检查是否已经存在相同tensor（按magic）
-        if (existingMagicSet.find(param.tensor->magic) != existingMagicSet.end()) {
-            ALOG_DEBUG_F("Component %d: Tensor %d already in incast list, skipping",
-                        componentId, param.tensor->GetRawMagic());
-            continue;
-        }
-        // 添加新的incast
-        leafFunc->AppendIncast(param.tensor, param.opMagic, param.operandIdx);   
-        existingMagicSet.insert(param.tensor->magic);
-        ALOG_DEBUG_F("Component %d: Added incast - tensor %d (opMagic=%d, operandIdx=%d)",
-                    componentId, param.tensor->GetRawMagic(), 
-                    param.opMagic, param.operandIdx);
-    }
-}
-
-// 应用outcast依赖
-void MixDependencyAnalyzer::ApplyOutcastDependencies(Function* leafFunc,
-                                                    int componentId,
-                                                    const std::vector<SimpleTensorParam>& outcastParams) {
-    
-    if (!leafFunc) {
-        return;
-    }
-    // 获取当前已有的outcast，用于去重
-    std::unordered_set<uint32_t> existingMagicSet;
-    for (const auto& tensor : leafFunc->GetOutcast()) {
-        if (tensor) {
-            existingMagicSet.insert(tensor->magic);
-        }
-    }
-    for (const auto& param : outcastParams) {
-        if (!param.tensor) {
-            ALOG_WARN_F("Component %d: Null tensor in outcast params, skipping", componentId);
-             continue;
-        }
-        // 检查是否已经存在相同tensor（按magic）
-        if (existingMagicSet.find(param.tensor->magic) != existingMagicSet.end()) {
-            ALOG_DEBUG_F("Component %d: Tensor %d already in outcast list, skipping",
-                        componentId, param.tensor->GetRawMagic());
-            continue;
-        }
-        // 添加新的outcast
-        leafFunc->AppendOutcast(param.tensor, param.opMagic, param.operandIdx);
-        existingMagicSet.insert(param.tensor->magic);
-        ALOG_DEBUG_F("Component %d: Added outcast - tensor %d (opMagic=%d, operandIdx=%d)",
-                    componentId, param.tensor->GetRawMagic(), 
-                    param.opMagic, param.operandIdx);
-    }
-}
-
-void MixDependencyAnalyzer::ApplyFinalDependencies(const std::vector<Function*> &newFunctions,
-                                                    std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
-                                                    std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts) {
-    ALOG_INFO_F("Applying final dependencies to %zu leaf functions", newFunctions.size());
-    for (size_t i = 0; i < newFunctions.size(); i++) {
-        Function* leafFunc = newFunctions[i];
-        if (!leafFunc) {
-            continue;
-        }        
-        // 应用incast依赖
-        auto incastIt = allIncasts.find(i);
-        if (incastIt != allIncasts.end()) {
-            ApplyIncastDependencies(leafFunc, i, incastIt->second);
-        } 
-        // 应用outcast依赖
-        auto outcastIt = allOutcasts.find(i);
-        if (outcastIt != allOutcasts.end()) {
-            ApplyOutcastDependencies(leafFunc, i, outcastIt->second);
-        } 
-    }
-}
+void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input, AnalyzerOutput &output) {
+    InitSubgraphToFunction(input.components);
+    // 步骤1：记录直接的incast/outcast(Mix子图整体与外部的依赖)
+    ALOG_INFO_F("Step 1: Recording direct incast/outcast...");
+    InOutCastRecord(input.originalMixFunc);
+    // 步骤2：分析组件间直接依赖（scope与scope之间的依赖）
+    ALOG_INFO_F("Step 2: Analyzing inter-component dependencies...");
+    auto directDeps = AnalyzeComponentDependencies(*input.originalMixFunc);
+    // 步骤3：计算依赖传递闭包
+    ALOG_INFO_F("Step 3: Computing dependency closure...");
+    auto dependencyClosure = ComputeDependencyClosure(directDeps);    
+    // 步骤4：计算所有依赖（包括外部依赖和内部依赖）
+    ALOG_INFO_F("Step 4: Computing all dependencies...");
+    // 4.1：提取外部依赖（从subgraphToFunction）
+    ExtractExternalDependencies(subgraphToFunction.subFuncInvokeInfos);
+    // 4.2：基于传递闭包传播外部依赖到内部scope
+    PropagateExternalDependenciesWithClosure(dependencyClosure);
+    // 4.3：添加内部同类型scope之间的依赖（只收集C-C、V-V的依赖）
+    CollectInternalDependencies(dependencyClosure, input.components);
+    // 步骤5：消除冗余依赖
+    ALOG_INFO_F("Step 5: Eliminating redundant dependencies...");
+    EliminateRedundantDependencies();
+    output.subgraphToFunction = subgraphToFunction;
+    output.internalDeps = internalDeps;
+    output.allIncasts = allIncasts;
+    output.allOutcasts = allOutcasts;
 }
 }

@@ -39,58 +39,61 @@ struct SimpleTensorParam {
         : tensor(t), opMagic(magic), operandIdx(idx) {}
 };
 
+struct AnalyzerInput {
+    std::vector<InternalComponentInfo> components;
+    Function originalMixFunc;
+    AnalyzerInput(const std::vector<InternalComponentInfo> &comp, const Function &func)
+        : components(comp), originalMixFunc(func) {}
+};
+
+struct AnalyzerOutput {
+    SubgraphToFunction subgraphToFunction;
+    std::vector<InternalDependencyInfo> internalDeps;
+    std::unordered_map<int, std::vector<SimpleTensorParam>> allIncasts;
+    std::unordered_map<int, std::vector<SimpleTensorParam>> allOutcasts;
+    AnalyzerOutput(const SubgraphToFunction &subFunc,
+                const std::vector<InternalDependencyInfo> &deps,
+                const std::unordered_map<int, std::vector<SimpleTensorParam>> incasts,
+                const std::unordered_map<int, std::vector<SimpleTensorParam>> outcasts)
+        : subgraphToFunction(subFunc), internalDeps(deps), allIncasts(incasts), allOutcasts(outcasts) {}
+};
+
 class MixDependencyAnalyzer {
 public:
+    // 记录直接外部依赖
+    void InitSubgraphToFunction(const std::vector<InternalComponentInfo>& components);
+    void InOutCastRecord(Function* originalMixFunc);
     // 1.分析组件间直接依赖
     std::unordered_map<int, std::set<int>> AnalyzeComponentDependencies(Function &mixFunc);
     // 2.计算依赖传递闭包
     void ComputeDependencyClosure(std::unordered_map<int, std::set<int>> &dependencies);
     // 3.提取外部依赖
-    void ExtractExternalDependencies(const std::vector<SubfuncInvokeInfoTy> &subFuncInvokeInfos, 
-                                    std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
-                                    std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts);
+    void ExtractExternalDependencies(const std::vector<SubfuncInvokeInfoTy> &subFuncInvokeInfos);
     // 4.传播外部依赖(基于传递闭包)
     // 看SRS-2依赖重建
     // 传递结果记录在allIncast上
     // key->component， value: 哪些incast
-    void PropagateExternalDependenciesWithClosure(const std::unordered_map<int, std::set<int>> &dependencyClosure, 
-                                                std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
-                                                std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts);
+    void PropagateExternalDependenciesWithClosure(const std::unordered_map<int, std::set<int>> &dependencyClosure);
     // 5.收集内部依赖(C-C, V-V)
     // 只用同类型的依赖需要记录，其他的需要消除
     // 需要分析同类型的依赖有哪些
     // 最后转成控制边的依赖internalDeps
     // 先识别cube/vector, component先标上
     void CollectInternalDependencies(const std::unordered_map<int, std::set<int>> &dependencyClosure,
-                                    const std::vector<InternalComponentInfo> &components,
-                                    std::vector<InternalDependencyInfo> &internalDeps);
+                                    const std::vector<InternalComponentInfo> &components);
     // 6.消除冗余依赖
     // 将多余的依赖转换成普通的依赖
     // 可以优化一下，只消除了外部的
     // 本质上就是看是否存在冗余依赖
-    void EliminateRedundantDependencies(std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
-                                        std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts,
-                                        std::vector<InternalDependencyInfo> &internalDeps);
-    // 7.应用最终依赖到leaf functions
-    // 将依赖重建回去
-    // apply就是掉了AppendIncast上
-    void ApplyFinalDependencies(const std::vector<Function*> &newFunctions,
-                                std::unordered_map<int, std::vector<SimpleTensorParam>> &allIncasts,
-                                std::unordered_map<int, std::vector<SimpleTensorParam>> &allOutcasts);
+    void EliminateRedundantDependencies();
 
     // 基于可达性移除冗余的外部依赖
     void EliminateRedundantOuterDeps(const std::vector<std::vector<bool>> &innerDeps, 
                                     std::unordered_map<int, std::vector<SimpleTensorParam>> &allTensors);
     // 基于可达性移除冗余的内部依赖
-    void EliminateRedundantInnerDeps(std::vector<std::vector<bool>> &innerDeps,
-                                    std::vector<InternalDependencyInfo> &internalDeps);
-
-    void ApplyIncastDependencies(Function* leafFunc,
-                                int componentId,
-                                const std::vector<SimpleTensorParam>& incastParams);
-    void ApplyOutcastDependencies(Function* leafFunc,
-                                int componentId,
-                                const std::vector<SimpleTensorParam>& outcastParams);
+    void EliminateRedundantInnerDeps(std::vector<std::vector<bool>> &innerDeps);
+    // 外部接口
+    void ProcessDependencyAnalyzer(const AnalyzerInput &input, AnalyzerOutput &output);
 private:
     // 完成闭包信息的初始化处理
     void InitDependencies(std::unordered_map<int, std::set<int>> &dependencies);
@@ -106,6 +109,10 @@ private:
     std::vector<std::vector<bool>> Transpose(const std::vector<std::vector<bool>> &matrix);
 
     int maxComponent;
+    SubgraphToFunction subgraphToFunction;
+    std::vector<InternalDependencyInfo> internalDeps;
+    std::unordered_map<int, std::vector<SimpleTensorParam>> allIncasts;
+    std::unordered_map<int, std::vector<SimpleTensorParam>> allOutcasts;
 };
 } // namespace tile_fwk
 } // namespace npu
