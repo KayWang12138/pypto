@@ -115,6 +115,8 @@ void CoreMachine::Xfer()
     }
     if (exectingFixLatencyTask) {
         nextCycles = std::min(nextCycles, fixedLatencyTaskEndCycle);
+    } else if (executingTask && (GetSim()->GetCycles() < executionStartCycle + config.scalarOverhead)) {
+        nextCycles = std::min(nextCycles, executionStartCycle + config.scalarOverhead);
     }
     GetSim()->UpdateNextCycles(nextCycles);
 }
@@ -504,6 +506,9 @@ void CoreMachine::IssueTileOp()
     if (exectingFixLatencyTask) {
         return;
     }
+    if (GetSim()->GetCycles() < executionStartCycle + config.scalarOverhead) {
+        return;
+    }
     for (size_t qid = 0; qid < readyQueues.size(); qid++) {
         // pick one tile operation if:
         // 1. ready tile operation in queue
@@ -655,6 +660,9 @@ void CoreMachine::RunAtBegin()
 void CoreMachine::RunAtEnd()
 {
     if (executingTask && !exectingFixLatencyTask) {
+        if (GetSim()->GetCycles() < executionStartCycle + config.scalarOverhead) {
+            return;
+        }
         if (noIssue) {
             if (allEmpty) {
                 CheckDeadlock();

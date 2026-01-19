@@ -9,12 +9,19 @@
  */
 
 /*!
- * \file PipeSimulatorFast.cpp
+ * \file OpLatency.h
  * \brief
  */
 
-#include "PipeSimulatorFast.h"
+#pragma once
 
-namespace CostModel
-{
+namespace npu::tile_fwk {
+class Operation;
+}
+
+namespace CostModel {
+class OpLatency {
+public:
+    static int GetLatency(const npu::tile_fwk::Operation *op);
+};
 } // namespace CostModel

@@ -30,8 +30,7 @@
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "cost_model/simulation/arch/SimplifiedMemoryAllocator.h"
-#include "cost_model/simulation/arch/PipeSimulatorFast.h"
-#include "cost_model/simulation/arch/A2A3/PostSimulatorA2A3.h"
+#include "cost_model/simulation/arch/OpLatency.h"
 #include "interface/utils/file_utils.h"
 
 namespace CostModel
@@ -217,8 +216,7 @@ namespace CostModel
     {
         auto result = Simulate(tileOp);
         if (result == 0) {
-            auto ptr = std::make_unique<PipeSimulatorFast<PostSimulatorA2A3>>();
-            return ptr->PostSimulate(tileOp);
+            return OpLatency::GetLatency(tileOp->operation);
         }
         return result;
     }
