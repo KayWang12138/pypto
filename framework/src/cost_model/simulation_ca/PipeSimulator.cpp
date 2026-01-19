@@ -31,7 +31,6 @@
 #include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "cost_model/simulation/arch/SimplifiedMemoryAllocator.h"
 #include "cost_model/simulation/arch/PipeSimulatorFast.h"
-#include "cost_model/simulation/arch/A2A3/PostSimulatorA2A3.h"
 #include "interface/utils/file_utils.h"
 
 namespace CostModel
@@ -215,12 +214,7 @@ namespace CostModel
     template <typename Simulator>
     uint64_t PipeSimulator<Simulator>::PostSimulate(const CostModel::TileOpPtr &tileOp)
     {
-        auto result = Simulate(tileOp);
-        if (result == 0) {
-            auto ptr = std::make_unique<PipeSimulatorFast<PostSimulatorA2A3>>();
-            return ptr->PostSimulate(tileOp);
-        }
-        return result;
+        return Simulate(tileOp);
     }
 
     extern "C" UnifiedPipeMachinePtr CreatePipeSimulatorSimulatorA2A3() {

@@ -21,7 +21,6 @@
 #include "CallPipeImpl.h"
 #include "PipeSimulatorFast.h"
 #include "cost_model/simulation/arch/A2A3/L2CacheImplA2A3.h"
-#include "cost_model/simulation/arch/A2A3/PostSimulatorA2A3.h"
 
 namespace CostModel
 {
@@ -47,11 +46,7 @@ namespace CostModel
 
     UnifiedPipeMachinePtr CreateSimulator(const std::string &archType, int accLevel) {
         if (archType == "A2A3") {
-            if (accLevel == 1) {
-                return CreatePipeSimulatorFast<PostSimulatorA2A3>();
-            } else {
-                return CreatePipeSimulator("SimulatorA2A3");
-            }
+            return CreatePipeSimulator("SimulatorA2A3");
         } else {
             throw std::invalid_argument("unknown arch type " + archType);
         }
