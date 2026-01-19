@@ -71,7 +71,10 @@ void TestAllReduce(OpTestParam &testParam)
             OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
         }
     }
-    RunTestVerification(dType, "/output_rank_", outSize, testParam);
+    RunTestVerification();
+    auto output = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, output->GetDevPtr(), testParam));
+
 }
 
 template void TestAllReduce<int32_t>(OpTestParam &testParam);
