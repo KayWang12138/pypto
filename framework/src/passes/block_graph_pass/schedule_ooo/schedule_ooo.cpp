@@ -147,33 +147,33 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
             }
         }
     }
-    std::unordered_map<Operation*, std::vector<int>> opInpuIdxMap;
+    std::unordered_map<Operation*, std::vector<int>> opInputIdxMap;
     for (auto &entry : lastUseMap_) {
         auto lastUseOp = entry.second;
         auto lastUseTensor = entry.first;
-        if (opInpuIdxMap.find(lastUseOp) == opInpuIdxMap.end()) {
+        if (opInputIdxMap.find(lastUseOp) == opInputIdxMap.end()) {
             int tensorSize = lastUseOp->GetIOperands().size() + lastUseOp->GetOOperands().size();
             std::vector<int> tensorIdxVec(tensorSize, false);
             int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + lastUseOp->GetOOperands().size();
             tensorIdxVec[inputIdx] = true;
-            opInpuIdxMap[lastUseOp] = tensorIdxVec;
+            opInputIdxMap[lastUseOp] = tensorIdxVec;
         } else {
-            int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + op->GetOOperands().size();
-            opInpuIdxMap[lastUseOp][inputIdx] = true;
+            int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + lastUseOp->GetOOperands().size();
+            opInputIdxMap[lastUseOp][inputIdx] = true;
         }
         for (auto &prodOp : lastUseTensor->GetProducers()) {
-            if (opInpuIdxMap.find(prodOp) == opInpuIdxMap.end()) {
+            if (opInputIdxMap.find(prodOp) == opInputIdxMap.end()) {
                 int tensorSize = prodOp->GetIOperands().size() + prodOp->GetOOperands().size();
                 std::vector<int> tensorIdxVec(tensorSize, false);
                 int outputIdx = prodOp->GetOOperandIndex(lastUseTensor);
                 tensorIdxVec[outputIdx] = true;
             } else {
                 int outputIdx = prodOp->GetOOperandIndex(lastUseTensor);
-                opInpuIdxMap[prodOp][outputIdx] = true;
+                opInputIdxMap[prodOp][outputIdx] = true;
             }
         }
     }
-    for (auto &entry : opInpuIdxMap) {
+    for (auto &entry : opInputIdxMap) {
         auto op = entry.first;
         op->SetAttribute(OpAttributeKey::lastUse, opInputIdxMap[op]);
     }
