@@ -834,5 +834,6 @@ std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
     Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWMIN_SINGLE,
     Opcode::OP_CAST,
+    Opcode::OP_EXPAND,
 };
 } // namespace npu::tile_fwk
