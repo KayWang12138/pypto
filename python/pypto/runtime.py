@@ -237,6 +237,15 @@ class _JIT:
                 self.compile(*args, **kwargs)
                 self._handler_cache[input_hash] = self._handler
                 pypto_impl.BuildCache(self._handler, in_out_tensors_data, [])
+                import shutil
+ 	             try:
+ 	                 shutil.rmtree(
+ 	                     self._output_path,
+ 	                     ignore_errors=True,  # 忽略删除失败的文件（如只读文件）
+ 	                     onerror=None         # 关闭错误回调（减少函数调用开销）
+ 	                 )
+ 	             except FileNotFoundError:
+ 	                 pass
             else:
                 pypto_impl.ResetLog(self._output_path)
                 self._handler = self._handler_cache.get(input_hash)
