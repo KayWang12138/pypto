@@ -588,17 +588,17 @@ TEST_F(ScheduleOoOTest, TestGenSpillRearrange) {
         Opcode::OP_COPY_IN, Opcode::OP_ADD};
     std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {"t1"}, {"t2"}, {"t4", "t5"}};
     std::vector<std::vector<std::string>> ooperands{{"t3"}, {"t4"}, {"t5"}, {"t6"}, {"t3", "t4"}, {"t5"}, {"t6"}};
-    std::vector<std::string> opNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Copyin1", "Copyin2", "Add1"};
+    std::vector<std::string> operationNames{"Alloc1", "Alloc2", "Alloc3", "Alloc4", "Copyin1", "Copyin2", "Add1"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
-    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, operationNames, true), true);
     Function *function = subGraph.GetFunction();
 
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t3"), nullptr);
     std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor("t3");
-    tensor->shape = {32, 32};
     tensor->tensor->rawshape = {32, 32};
+    tensor->shape = {32, 32};
 
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
@@ -1275,17 +1275,17 @@ TEST_F(ScheduleOoOTest, TestScheduleMainLoopRearrangeUBbf16) {
     EXPECT_NE(function, nullptr);
 
     EXPECT_NE(subGraph.GetTensor("t3"), nullptr);
-    std::shared_ptr<LogicalTensor> tensor = subGraph.GetTensor("t3");
-    tensor->shape = {32, 32};
-    tensor->tensor->rawshape = {32, 32};
+    std::shared_ptr<LogicalTensor> tensor0 = subGraph.GetTensor("t3");
+    tensor0->shape = {32, 32};
+    tensor0->tensor->rawshape = {32, 32};
 
-    OoOScheduler ooOScheduler(*function);
-    Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
+    OoOScheduler oooScheduler(*function);
+    Status res = oooScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.SortOps();
+    res = oooScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    std::swap(ooOScheduler.issueEntries[0], ooOScheduler.issueEntries[1]);
-    res = ooOScheduler.ScheduleMainLoop();
+    std::swap(oooScheduler.issueEntries[0], oooScheduler.issueEntries[1]);
+    res = oooScheduler.ScheduleMainLoop();
     EXPECT_EQ(res, SUCCESS);
 
     std::shared_ptr<LogicalTensor> tensor1 = subGraph.GetTensor("t1");
