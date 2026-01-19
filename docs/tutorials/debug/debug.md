@@ -69,9 +69,9 @@
 
     ```txt
     ├── Pass_xx_xx
-    │   ├── After_004_ExpandFunction_TENSOR_s0_Unroll1_PATH0_8.json # pass优化后的计算图文件
+    │   ├── After_004_ExpandFunction_TENSOR_s0_Unroll1_PATH0_4.json # pass优化后的计算图文件
     │   ├── After_004_ExpandFunction_TENSOR_s0_Unroll1_PATH0_4.tifwkgr # 用户暂不需要关注
-    │   ├── Before_004_ExpandFunction_TENSOR_s0_Unroll1_PATH0_8.json # pass优化前的计算图文件
+    │   ├── Before_004_ExpandFunction_TENSOR_s0_Unroll1_PATH0_4.json # pass优化前的计算图文件
     │   ├── Before_004_ExpandFunction_TENSOR_s0_Unroll1_PATH0_4.tifwkgr # 用户暂不需要关注
     │   └── ExpandFunctionTENSOR_s0_Unroll1_PATH0_4.log
     ├── program.json # 记录function name, semantic label等静态信息
