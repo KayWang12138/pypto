@@ -189,12 +189,6 @@ public:
 
 private:
     CostModelLauncher(Function *function, const DeviceLauncherConfig &config) : function_(function), config_(config) {
-        if (std::getenv("ASCEND_HOME_PATH") == nullptr) {
-            return;
-        }
-        std::cout << "CostModelLauncher: " << std::getenv("ASCEND_HOME_PATH") << std::endl;
-        pv_ = CostModel::PvModelFactory::CreateDyn();
-        model_ = std::make_shared<AiCorePvModelImpl>(pv_);
     }
 
     void RunDynamic(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
@@ -347,7 +341,14 @@ private:
 
     void RunPvModel(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs)
     {
-        if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM || std::getenv("ASCEND_HOME_PATH") == nullptr) {
+        if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+            return;
+        }
+        try {
+            pv_ = CostModel::PvModelFactory::CreateDyn();
+            model_ = std::make_shared<AiCorePvModelImpl>(pv_);
+        }  catch (const std::runtime_error& e) {
+            std::cout << "init pv error." << std::endl;
             return;
         }
         const int maxCpuNum = 6;
