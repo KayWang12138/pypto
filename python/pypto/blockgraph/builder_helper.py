@@ -67,9 +67,8 @@ class BlockBuilderHelper:
     def for_node(self, var, start, end, step, **kwargs):
         fs = self.builder.create_for(self.ctx, var, start, end, step)
         if kwargs:
-            props = fs.properties()
             for key, value in kwargs.items():
-                props[key] = str(value)
+                fs.set_attr(key, value)
         return fs
 
     def if_node(self, cond):
