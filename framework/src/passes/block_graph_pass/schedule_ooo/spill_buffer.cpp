@@ -125,7 +125,7 @@ void OoOScheduler::UpdateOpAttr(
             OpImmediate::Specified(spillTensor->GetRawTensor()->GetDynRawShape())));
     } else if (op.GetOpcodeStr().find("ALLOC") == std::string::npos) {
         if (spillIssue->tileOp.GetOpcode() == Opcode::OP_COPY_IN) {
-            op.SetOpAttribute(spillIssue->tileOp.GetOpAttribute()->Clone());
+            op.SetOpAttribute(spillIssue->tileOp.GetOpAttribute());
             op.inParamLocation_ = spillIssue->tileOp.inParamLocation_;
         } else {
             op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
@@ -834,7 +834,6 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
         for (auto memId : memIds) {
             auto spillIssue = tensorOccupyMap[memType][memId];
             if (spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW ||
-                spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW_TYPE ||
                 spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
                 continue;
             }
@@ -889,7 +888,7 @@ Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
         std::vector<int> memIds = bufferManagerMap[memType].GetAddrSortedBufs();	
         for (auto memId : memIds) {	
             auto spillIssue = GetBufLastWriteIssue(issueEntries[pcIdx], memId);	
-            if (spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW || spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW_TYPE || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {	
+            if (spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {	
                 continue;
             }
             if (spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {

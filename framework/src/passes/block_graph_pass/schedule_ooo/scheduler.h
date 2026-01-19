@@ -84,7 +84,7 @@ struct IssueEntry {
     void UpdateTensorInput(std::shared_ptr<IssueEntry> &spillSrcIssue, LogicalTensorPtr tensor) const;
     void UpdateTensorInputForOperand(size_t index, std::shared_ptr<IssueEntry> &spillSrcIssue,
         LogicalTensorPtr tensor) const;
-    void UpdateTensorInputForView(Operation& op, std::shared_ptr<IssueEntry> &spillSrcIssue,
+    void UpdateTensorInputForView(Operation *op, std::shared_ptr<IssueEntry> &spillSrcIssue,
         LogicalTensorPtr tensor) const;
     std::string GetOpInfo();
 };
@@ -151,7 +151,6 @@ private:
     int workspaceMemId{SYMBOL_STACK_BASE};
     uint64_t numTotalIssues{0};
     std::vector<Operation *> newOperations_;
-    std::vector<Operation *> operations_;
 
     bool issueFinish{false};
     std::map<IssueEntryPtr, std::map<MemoryType, int64_t>> recordBufferAllocate;
@@ -176,7 +175,6 @@ private:
     std::string dumpOpInfo(Operation &op);
     void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
     Status InitDependencies();
-    void FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap);
     void AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc);
     Status InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap);
     void InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
@@ -190,15 +188,13 @@ private:
     Status GenSpillSchedule();
     Status ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx);
     Status RetireIssue(IssueEntryPtr issue);
-    bool IsInissueEntries(Operation* op);
-    Status InitMemWithoutAlloc();
     Status ScheduleMainLoop();
     void LaunchReadyIssue();
     Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle);
     Status RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitCnt);
     Status FreeBuffer(IssueEntryPtr issue);
     Status BufferAllocStage(uint64_t& commitCnt);
-    Status ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType,
+    Status ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, 
         IssueQueue &pipe);
     Status LaunchIssueStage(int& nextCycle);
     Status AllocTensorMemRange(IssueEntryPtr issue);
@@ -320,10 +316,10 @@ private:
 
     // buffer rearrange
     Status RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage, bool &rearrangeUBBF16);
-    Status GenRearrangeCopyOp(IssueEntryPtr issue, MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
+    Status GenRearrangeCopyOp(MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
     Status UpdateMemId(int oldMemId, int newMemId);
     void UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp);
-    void ProcessMoveIssue(IssueEntryPtr moveIssuePtr, IssueEntryPtr AllocIssue, MemoryType memType, int oldMemId, int newMemId);
+    IssueEntryPtr ProcessMoveOp(Operation &moveOp,  Operation &occupyOp, int oldMemId, int newMemId);
     Status UpdateRange(int newMemId, size_t offset, MemoryType memType, BufferPool &bufferManager);
     Status FindMoveFromTensor(Operation &occupyOp, int oldMemId, MemoryType memType, bool &rearrangeUBBF16, LogicalTensorPtr &moveFromTensor);
     Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);

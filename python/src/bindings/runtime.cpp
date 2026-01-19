@@ -83,7 +83,7 @@ std::string DeviceRunOnceDataFromHost(
         ProgramData::GetInstance().AppendOutput(rawData);
     }
 
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func) != 0) {
+    if (config::GetOption<bool>(PROFILE_ENABLE) && EmulationLauncher::EmulationRunOnce(func) != 0) {
         return "emulation run failed";
     }
 
@@ -131,7 +131,7 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
         return "mismatch input/output";
     }
 
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1) {
+    if (config::GetOption<bool>(PROFILE_ENABLE)) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         if (EmulationLauncher::EmulationLaunchDeviceTensorData(func, inputs, outputs, config) != 0) {
@@ -206,7 +206,7 @@ std::string BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &in
         const std::vector<DeviceTensorData> &outputList) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
 
-    if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
+    if (config::GetRuntimeOption<int64_t>(CFGCACHE_DEVICE_TASK_NUM) != 0) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(), inputList, outputList, config) != 0) {

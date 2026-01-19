@@ -23,7 +23,7 @@ extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
 
 namespace npu::tile_fwk::dynamic {
 
-static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
+static int EmulationLaunchOnce(AstKernelArgs &kArgs) {
     constexpr int threadNum = 6;
     std::thread aicpuThreadList[threadNum];
     int aicpuResultList[threadNum] = {0};
@@ -67,9 +67,7 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
         const DeviceLauncherConfig &config) {
     std::cout << "!!! Emulation Launch\n";
 
-    DeviceKernelArgs kArgs;
-    DeviceLauncher::DeviceInitDistributedContextToHost(function->GetDyndevAttribute()->commGroupNames,
- 	                                          function->GetDyndevAttribute()->devProgBinary);
+    AstKernelArgs kArgs;
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
                                          config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
@@ -99,9 +97,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     devProg->controlFlowCache.isRecording = true;
     devProg->controlFlowCache.deviceTaskCount = 0;
     devProg->controlFlowCache.cacheDataOffset = 0;
-    DeviceKernelArgs kArgs;
-    DeviceLauncher::DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames,
- 	         function->GetDyndevAttribute()->devProgBinary);
+    AstKernelArgs kArgs;
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, devProgData, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
         function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
@@ -110,7 +106,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     devProg->controlFlowCache.isRecording = false;
     uint64_t contextWorkspaceAddr = devProg->controlFlowCache.contextWorkspaceAddr;
     devProg->controlFlowCache.IncastOutcastAddrReloc(contextWorkspaceAddr, 0, nullptr);
-    devProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr, nullptr);
+    devProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr);
     devProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);
     devProg->controlFlowCache.TaskAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr);
     devProg->controlFlowCache.TaskAddrRelocProgram(reinterpret_cast<uint64_t>(devProg), 0);

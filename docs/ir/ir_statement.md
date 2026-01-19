@@ -2,7 +2,7 @@
 
 ## OverView
 整个 IR 的结构树大致为：
-```text
+```ir
 program
   └── function
         ├── statement.op
@@ -21,7 +21,7 @@ program
 ```
 
 示例1：
-```text
+```ir
 program.module @main {
   program.entry @test_value
   attr arch = "PTOv2"
@@ -41,7 +41,7 @@ program.module @main {
 ```
 
 示例2：
-```text
+```ir
 program.module @test_type_program {
   program.entry @test_type_complete
   attr arch = "PTOv2"
@@ -72,7 +72,7 @@ program.module @test_type_program {
 ## Program
 Program 是用于编译和执行 PTO 应用程序的容器，pass 处理后生成的 Dataflow Function 和 Kernel Function 也将放入 Program 中。
 ### Syntax
-```text
+```ir
 program.module @main {
   program.entry @test_value
   attr arch = "PTOv2"
@@ -93,7 +93,7 @@ class ProgramModule : public Object {
 
 ### Entry
 Program 必须指定唯一的入口函数：
-```text
+```ir
 program.entry @test_value
 ```
 
@@ -108,7 +108,7 @@ program.entry @test_value
 ## Function
 表示一个SSA形式的函数抽象，它定义了函数名、函数参数以及函数类型。
 ### Syntax
-```text
+```ir
 func.func @test_value(%input_3: tensor<[%b_1, 128], fp32>, %scale1_4: fp32, %len_5: fp32, %output_8: tensor<[%b_1, 128], fp32>) -> (int32) {
     // CompoundStatement
     statement.for{}
@@ -160,7 +160,7 @@ Statement 表示了 For/If 控制流和线性的 Op 序列。主要有以下类�
 注：Statement 中可以看到其前序 Statement 中定义的值。但 for 和 if 内部 statement 定义的值对 for/if 后的 statement 是不可见的。
 
 ### CompoundStatement
-它不在序列化的文本格式 text 上体现出来，只有内存中的数据结构。其完成作用管理的功能，作为 Function、ForStatement 和 IfStatement 的成员对象。其他的 Statement 记录在 CompoundStatement 中。
+它不在序列化的文本格式 ir 上体现出来，只有内存中的数据结构。其完成作用管理的功能，作为 Function、ForStatement 和 IfStatement 的成员对象。其他的 Statement 记录在 CompoundStatement 中。
 
 #### 数据结构
 ```cpp
@@ -169,7 +169,7 @@ class CompoundStatement : public Statement {
     std::weak_ptr<CompoundStatement> parent_{}; 
     // Statements in this scope                        
     std::vector<StatementPtr> statements_; 
-    // Envtextonment table: variable name -> latest SSA Value 
+    // Environment table: variable name -> latest SSA Value 
     std::unordered_map<std::string, ValuePtr> envTable_; 
 };
 ```
@@ -178,12 +178,12 @@ class CompoundStatement : public Statement {
 表示循环结构，具有显式的循环迭代变量和循环传递值（loop-carried value）。
 
 #### Syntax
-```text
+```ir
 %res0, %res1 = statement.for %iv = %lb to %ub step %step
                 iter_args(%acc0 = %init0 : T0, %acc1 = %init1 : T1, ...)
                 [attributes]
 {
-    // 可以有 for/text/op statement 等
+    // 可以有 for/ir/op statement 等
     statement.op {
         %new_acc0 = ...
         %new_acc1 = ...
@@ -216,7 +216,7 @@ std::shared_ptr<Scalar> iterationVar_;
 表示 If-else 分支结构。
 
 #### Syntax
-```text
+```ir
 %r0, %r1 = statement.if %cond
 {
   // then-region statements
@@ -254,7 +254,7 @@ class IfStatement : public Statement {
 一组顺序的 Op 组成的基本语句块，其内部没有嵌套的控制流语句。
 
 #### Syntax
-```text
+```ir
 statement.op {
     // linear sequence of operations
     %v0 = ...
@@ -277,7 +277,7 @@ class OpStatement : public Statement {
 statement.yield 是一个通用的区域终止符，用于将当前作用域的值返回到其父语句。
 
 #### Syntax
-```text
+```ir
 statement.yield %value0, %value1, ...
 ```
 
@@ -289,7 +289,7 @@ statement.yield %value0, %value1, ...
 表示函数执行结束，仅可返回可通过寄存器传递的值。输出 tensor 通过参数方式传递。
 
 #### Syntax
-```text
+```ir
 statement.return %value0, %value1, ...
 ```
 

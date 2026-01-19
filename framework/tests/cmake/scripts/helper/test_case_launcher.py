@@ -40,9 +40,6 @@ class TestCaseLauncher:
         self.log_path = os.path.dirname(self.report_file) + "/test_case_log"
         self.plog_cache_path = f"{self.work_path}/plog"
         self.golden_script = Path(config.golden_script).resolve()
-        self.json_path = os.path.abspath(config.json_path)
-        self.distributed_op = config.distributed_op   # 通信算子标识
-        self.executable_path = config.executable_path
 
     def tear_up(self):
         if os.path.exists(self.log_path):
@@ -76,10 +73,10 @@ class TestCaseLauncher:
         cmd = f"{sys.executable} build_ci.py {clean_str}"
         if self.python:
             cmd += " -f=python3"
-        elif not self.distributed_op:
-            cmd += " -f=cpp -s='TestAdd/AddOperationTest.TestAdd/*' --disable_auto_execute"
         else:
-            cmd += " -f=cpp --stest_distributed='TestAllgather/DistributedTest.TestAllgather/*' --disable_auto_execute"
+            cmd += (
+                " -f=cpp -s='TestAdd/AddOperationTest.TestAdd/*' --disable_auto_execute"
+            )
         TestCaseShellActuator.run(cmd)
 
         if self.python:
@@ -93,15 +90,12 @@ class TestCaseLauncher:
     def run_test_case(self, test_case_info):
         log_file = f"{self.log_path}/{test_case_info['case_name']}.log"
         test_case_info["log_file"] = log_file
-        base_path = Path(__file__).parents[3]
-        launcher_patch = base_path / ("st/operation/python" if not self.distributed_op else "st/distributed/ops/script")
-        launcher_patch = launcher_patch.resolve()
+        launcher_patch: Path = Path(
+            Path(__file__).parent.parent.parent.parent, "st/operation/python"
+        ).resolve()
         if str(launcher_patch) not in sys.path:
             sys.path.append(str(launcher_patch))
-        if not self.distributed_op:
-            from vector_operation_test_case_launcher import test_case_launcher
-        else:
-            from distributed_test_case_launcher import test_case_launcher
+        from vector_operation_test_case_launcher import test_case_launcher
 
         test_case_launcher(test_case_info)
 
@@ -143,21 +137,17 @@ class TestCaseLauncher:
 
     def run(self):
         self.tear_up()
+        json_path = f"{self.work_path}/framework/tests/st/operation/test_case/"
         test_case_info_list = TestCaseLoader(
-            self.input_file, self.op, self.index, self.model, self.json_path
+            self.input_file, self.op, self.index, self.model, json_path
         ).run()
         if self.json_only:
             return
 
         self.compile_if_need()
         is_package_ready = self.python and pkgutil.find_loader("pypto")
-        if not self.distributed_op:
-            stest_exec_file = f"{self.work_path}/build/output/bin/tile_fwk_stest"
-        else:
-            stest_exec_file = f"{self.work_path}/build/output/bin/tile_fwk_stest_distributed"
-        if not self.executable_path:
-            self.executable_path = stest_exec_file
-        is_exec_ready = not self.python and os.path.exists(self.executable_path)
+        stest_exec_file = f"{self.work_path}/build/output/bin/tile_fwk_stest"
+        is_exec_ready = not self.python and os.path.exists(stest_exec_file)
         if not is_package_ready and not is_exec_ready:
             raise RuntimeError(
                 "Runtime time is not ready, Not found package pypto or tile_fwk_stest."
@@ -174,10 +164,7 @@ class TestCaseLauncher:
             # clear golden data
             index = test_case_info["index"]
             case_op = test_case_info["operation"]
-            if not self.distributed_op:
-                test_case = f"Test{case_op}/{case_op}OperationTest.Test{case_op}/{index}"
-            else:
-                test_case = f"Test{case_op}/DistributedTest.Test{case_op}/{index}"
+            test_case = f"Test{case_op}/{case_op}OperationTest.Test{case_op}/{index}"
             golden_path = f"{self.work_path}/build/output/bin/golden/{test_case}"
             if os.path.exists(golden_path + "/golden_desc.json"):
                 os.remove(golden_path + "/golden_desc.json")

@@ -30,15 +30,7 @@ void CompoundStatement::RemoveValue(ValuePtr val) {
     for (auto it = envTable_.begin(); it != envTable_.end();) {
         if (it->second == val) {
             it = envTable_.erase(it);
-            break;
-        } else {
-            ++it;
-        }
-    }
-    for (auto it = valuesIndexTable_.begin(); it != valuesIndexTable_.end();) {
-        if (it->second == val) {
-            it = valuesIndexTable_.erase(it);
-            break;
+            return;
         } else {
             ++it;
         }
@@ -122,8 +114,8 @@ void ForStatement::Print(std::ostream& os, int indent) const {
             }
         }
         os << " = ";
-    }
-
+    } 
+    
     // Print loop header: statement.for %iv = %lb to %ub step %step
     os << "statement.for ";
     if (iterationVar_) {
@@ -442,3 +434,5 @@ void ReturnStatement::Print(std::ostream& os, int indent) const {
 }
 
 } // namespace pto
+
+

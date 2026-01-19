@@ -132,11 +132,11 @@ void bind_operation(py::module &m) {
         "Tensor row sum expand.");
     m.def("Compact", [](const Tensor &operand) { return npu::tile_fwk::Compact(operand); }, "Tensor compact.");
     m.def(
-        "IndexPut_",
-        [](Tensor &self, std::vector<Tensor> indices, const Tensor &values, bool accumulate) {
-            npu::tile_fwk::IndexPut_(self, indices, values, accumulate);
+        "IndexPut",
+        [](const Tensor &src, std::vector<Tensor> indices, const Tensor &values) {
+            return npu::tile_fwk::IndexPut(src, indices, values);
         },
-        "Tensor indexput_.");
+        "Tensor indexput.");
     m.def(
         "Scatter_",
         [](const Tensor &self, const Tensor &indices, const Element &src, int axis, ScatterMode reduce) {
@@ -304,21 +304,21 @@ void bind_operation(py::module &m) {
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
             bool c_matrix_nz) {
             if (!a_trans && !b_trans && !c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, false, false, false);
+                return Matrix::Matmul<false, false, false>(out_type, tensor_a, tensor_b);
             } else if (!a_trans && !b_trans && c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, false, false, true);
+                return Matrix::Matmul<false, false, true>(out_type, tensor_a, tensor_b);
             } else if (!a_trans && b_trans && !c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, false, true, false);
+                return Matrix::Matmul<false, true, false>(out_type, tensor_a, tensor_b);
             } else if (!a_trans && b_trans && c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, false, true, true);
+                return Matrix::Matmul<false, true, true>(out_type, tensor_a, tensor_b);
             } else if (a_trans && !b_trans && !c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, true, false, false);
+                return Matrix::Matmul<true, false, false>(out_type, tensor_a, tensor_b);
             } else if (a_trans && !b_trans && c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, true, false, true);
+                return Matrix::Matmul<true, false, true>(out_type, tensor_a, tensor_b);
             } else if (a_trans && b_trans && !c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, true, true, false);
+                return Matrix::Matmul<true, true, false>(out_type, tensor_a, tensor_b);
             } else {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, true, true, true);
+                return Matrix::Matmul<true, true, true>(out_type, tensor_a, tensor_b);
             }
         },
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
@@ -331,24 +331,24 @@ void bind_operation(py::module &m) {
 
     m.def(
         "Matmul",
-        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b,
-            bool a_trans, bool b_trans, bool c_matrix_nz, const Matrix::MatmulExtendParam &extendParam) {
+        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
+            bool c_matrix_nz, const Matrix::MatmulExtendParam &extendParam) {
             if (!a_trans && !b_trans && !c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, extendParam, false, false, false);
+                return Matrix::Matmul<false, false, false>(out_type, tensor_a, tensor_b, extendParam);
             } else if (!a_trans && !b_trans && c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, extendParam, false, false, true);
+                return Matrix::Matmul<false, false, true>(out_type, tensor_a, tensor_b, extendParam);
             } else if (!a_trans && b_trans && !c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, extendParam, false, true, false);
+                return Matrix::Matmul<false, true, false>(out_type, tensor_a, tensor_b, extendParam);
             } else if (!a_trans && b_trans && c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, extendParam, false, true, true);
+                return Matrix::Matmul<false, true, true>(out_type, tensor_a, tensor_b, extendParam);
             } else if (a_trans && !b_trans && !c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, extendParam, true, false, false);
+                return Matrix::Matmul<true, false, false>(out_type, tensor_a, tensor_b, extendParam);
             } else if (a_trans && !b_trans && c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, extendParam, true, false, true);
+                return Matrix::Matmul<true, false, true>(out_type, tensor_a, tensor_b, extendParam);
             } else if (a_trans && b_trans && !c_matrix_nz) {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, extendParam, true, true, false);
+                return Matrix::Matmul<true, true, false>(out_type, tensor_a, tensor_b, extendParam);
             } else {
-                return Matrix::Matmul(out_type, tensor_a, tensor_b, extendParam, true, true, true);
+                return Matrix::Matmul<true, true, true>(out_type, tensor_a, tensor_b, extendParam);
             }
         },
         py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
@@ -383,31 +383,26 @@ void bind_operation(py::module &m) {
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
             bool c_matrix_nz) {
             if (!a_trans && !b_trans && !c_matrix_nz) {
-                return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, false, false, false);
+                return Matrix::BatchMatmul<false, false, false>(out_type, tensor_a, tensor_b);
             } else if (!a_trans && !b_trans && c_matrix_nz) {
-                return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, false, false, true);
+                return Matrix::BatchMatmul<false, false, true>(out_type, tensor_a, tensor_b);
             } else if (!a_trans && b_trans && !c_matrix_nz) {
-                return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, false, true, false);
+                return Matrix::BatchMatmul<false, true, false>(out_type, tensor_a, tensor_b);
             } else if (!a_trans && b_trans && c_matrix_nz) {
-                return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, false, true, true);
+                return Matrix::BatchMatmul<false, true, true>(out_type, tensor_a, tensor_b);
             } else if (a_trans && !b_trans && !c_matrix_nz) {
-                return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, true, false, false);
+                return Matrix::BatchMatmul<true, false, false>(out_type, tensor_a, tensor_b);
             } else if (a_trans && !b_trans && c_matrix_nz) {
-                return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, true, false, true);
+                return Matrix::BatchMatmul<true, false, true>(out_type, tensor_a, tensor_b);
             } else if (a_trans && b_trans && !c_matrix_nz) {
-                return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, true, true, false);
+                return Matrix::BatchMatmul<true, true, false>(out_type, tensor_a, tensor_b);
             } else {
-                return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, true, true, true);
+                return Matrix::BatchMatmul<true, true, true>(out_type, tensor_a, tensor_b);
             }
         },
         py::arg("out_type"), py::arg("a"), py::arg("b"), py::arg("a_trans") = false, py::arg("b_trans") = false,
         py::arg("c_matrix_nz") = false, "Batch matrix multiply.");
-    m.def(
-        "TransposedBatchMatmul",
-        [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b) {
-            return Matrix::TransposedBatchMatmul(out_type, tensor_a, tensor_b);
-        },
-        py::arg("out_type"), py::arg("a"), py::arg("b"), "Transposed batch matrix multiply.");
+
     m.def(
         "ArgSort",
         [](const Tensor &operand, int axis, bool is_largest = true) {
@@ -477,13 +472,8 @@ void bind_operation(py::module &m) {
         py::arg("scalar"), py::arg("operand"), py::arg("operation"), py::arg("mode"), "Tensor compare.");
     m.def(
         "Assemble",
-        [](const std::vector<std::pair<Tensor, std::vector<SymbolicScalar>>> &inputs,
-            Tensor &dest, bool parallel = false) {
-            std::vector<npu::tile_fwk::AssembleItem> items;
-            for (const auto &[tensor, offset] : inputs) {
-                items.push_back({tensor, offset});
-            }
-            npu::tile_fwk::Assemble(items, dest, parallel);
+        [](const std::vector<std::pair<Tensor, std::vector<int64_t>>> &tensor_int_pairs) {
+            return npu::tile_fwk::Assemble(tensor_int_pairs);
         },
         "Tensor assemble");
     m.def(

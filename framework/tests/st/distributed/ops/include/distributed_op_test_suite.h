@@ -25,14 +25,13 @@ struct OpTestParam {
     int rankId;
 };
 
-template<typename T>
-void TestMoeDistributedCombine(OpTestParam &testParam);
+void TestShmemMoeCombine(OpTestParam &testParam);
 void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam);
 template<typename T>
 void TestDynAllGather(OpTestParam &testParam);
 template<typename T>
 void TestShmemReduceScatter(OpTestParam &testParam);
-template<typename T>
+template<typename T, bool useTwoShot>
 void TestShmemAllReduce(OpTestParam &testParam);
 void TestShmemMoeDispatch(OpTestParam &testParam);
 template<typename T>

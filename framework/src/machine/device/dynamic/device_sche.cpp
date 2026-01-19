@@ -22,6 +22,7 @@
 #include <signal.h>
 #include <sys/ucontext.h>
 #include "machine/device/dynamic/device_utils.h"
+#include "machine/kernel/aicore.h"
 #include "machine/utils/device_log.h"
 #include "device_utils.h"
 
@@ -83,7 +84,7 @@ struct DynMachineManager {
         return;
     }
 
-    int Run(DeviceKernelArgs *args) {
+    int Run(AstKernelArgs *args) {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
         if ((uint32_t)schAicpuNum_ > devArgs->nrAicpu - 1) {
@@ -100,7 +101,7 @@ struct DynMachineManager {
             DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
             DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
-            ret = machine_.Run(threadIdx, devArgs);
+            ret = machine_.Run(threadIdx, devArgs, handshakeByGm_);
             if (ret != DEVICE_MACHINE_OK) {
                 schRunFailed_ = true;
             }
@@ -122,6 +123,12 @@ struct DynMachineManager {
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
         if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
             LastFinishThreadIdx_ = threadIdx;
+#if ENABLE_AICORE_HAND_SHAKE_BY_REG
+            if (!schRunFailed_ && handshakeByGm_) {
+                machine_.CacheValidCore();
+                handshakeByGm_ = false; // hand shake by reg next time
+            }
+#endif      
             if (unlikely(!machine_.CheckAndResetReg())) {
                 DEV_WARN("Some registers force closed!");
             }
@@ -164,6 +171,7 @@ struct DynMachineManager {
     struct sigaction oriBordAct_;
     std::atomic<bool> reset_{false};
     std::atomic<bool> init_{false};
+    bool handshakeByGm_{true};
     std::atomic<bool> schRunFailed_{false};
 };
 
@@ -231,7 +239,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
 }
 
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
-    auto kargs = (DeviceKernelArgs *)targ;
+    auto kargs = (AstKernelArgs *)targ;
     auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
     kargs->taskWastTime = GetCycles();
     g_machine_mgr.Init(devArgs);

@@ -28,7 +28,10 @@ struct DevAscendFunctionDuppedStitch {
     }
 
     void PushBack(uint32_t taskId) {
-        DEV_ASSERT_MSG(size_ < DUPPED_STITCH_SIZE, "Exceed maximum stitch size %u.", DUPPED_STITCH_SIZE);
+        if (size_ >= DUPPED_STITCH_SIZE) {
+            DEV_ERROR("PushBack: Task list is full, size_:%u >= DUPPED_STITCH_SIZE:%u", size_, DUPPED_STITCH_SIZE);
+        }
+        DEV_DEBUG_ASSERT(size_ < DUPPED_STITCH_SIZE);
         taskList_[size_++] = taskId;
     }
 
@@ -37,7 +40,10 @@ struct DevAscendFunctionDuppedStitch {
     DevAscendFunctionDuppedStitch *&Next() { return next_; }
 
     uint32_t At(uint32_t idx) const {
-        DEV_ASSERT_MSG(idx < size_, "Index %u exceeds stitch size %u.", idx, size_);
+        if (idx >= size_) {
+            DEV_ERROR("At: Index %u out of bounds.", idx);
+        }
+        DEV_DEBUG_ASSERT(idx < size_);
         return taskList_[idx];
     }
 
@@ -147,11 +153,11 @@ static void CellMatch5Dimension(const DevCellMatchTableDesc &cellMatchTableDesc,
                     }
                 }
             }
-
+                
         }
-
+            
     }
-
+        
 }
 
 template<typename HandleType, typename ...TyArgs>
@@ -167,7 +173,7 @@ static void CellMatch4Dimension(const DevCellMatchTableDesc &cellMatchTableDesc,
             }
         }
     }
-
+    
 }
 
 template<typename HandleType, typename ...TyArgs>

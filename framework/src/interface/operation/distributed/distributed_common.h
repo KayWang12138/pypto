@@ -83,7 +83,7 @@ public:
     AtomicType atomicType = AtomicType::SET;
     int64_t signalValue;
     int64_t signalStride;
-    int64_t setType;
+    int64_t memType;
     std::vector<int64_t> aicpuOpParams;
     bool fp32Mode;
     int64_t topK;
@@ -91,8 +91,6 @@ public:
     Shape setBufferShape;
     std::string extraTemplateParam{};
     int64_t paddedColShape;
-    int64_t rowOffset{-1};
-    int64_t rowShape{-1};
 };
 
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)

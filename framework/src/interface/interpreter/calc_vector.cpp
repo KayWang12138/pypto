@@ -343,15 +343,6 @@ void ExecuteOpGather(ExecuteOperationContext *ctx) {
     calc::Gather(output, parmas, indices, axis);
 }
 REGISTER_CALC_OP(OP_GATHER, Opcode::OP_GATHER, ExecuteOpGather);
-void ExecuteOpGatherINUB(ExecuteOperationContext *ctx) {
-    auto output = ctx->ooperandInplaceDataViewList->at(0);
-    auto parmas = ctx->ioperandDataViewList->at(0);
-    auto indices = ctx->ioperandDataViewList->at(1);
-    auto pageTable = ctx->ioperandDataViewList->at(2);
-    int blocksize = ctx->op->GetIntAttribute("op_attr_blocksize");
-    calc::GatherINUB(output, parmas, indices, pageTable, blocksize, -2);
-}
-REGISTER_CALC_OP(OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_UB, ExecuteOpGatherINUB);
 
 void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -379,22 +370,6 @@ void ExecuteOpCumSum(ExecuteOperationContext *ctx) {
     calc::CumSum(output, input, axis);
 }
 REGISTER_CALC_OP(OP_CUM_SUM, Opcode::OP_CUM_SUM, ExecuteOpCumSum);
-
-void ExecuteOpIndexPut(ExecuteOperationContext *ctx) {
-    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
-    ASSERT(ctx->ioperandDataViewList->size() <= SIZE_SIX);
-    auto out = ctx->ooperandInplaceDataViewList->at(0);
-    auto self = ctx->ioperandDataViewList->at(0);
-    auto values = ctx->ioperandDataViewList->at(1);
-    std::vector<LogicalTensorDataPtr> indices;
-    for (int i = SIZE_TWO; i < static_cast<int>(ctx->ioperandDataViewList->size()); i++) {
-        auto indicesTemp = ctx->ioperandDataViewList->at(i);
-        indices.push_back(indicesTemp);
-    }
-    bool accumulate = ctx->op->GetBoolAttribute(OpAttributeKey::accumulate);
-    calc::IndexPut(out, self, indices, values, accumulate);
-}
-REGISTER_CALC_OP(OP_INDEX_PUT, Opcode::OP_INDEX_PUT, ExecuteOpIndexPut);
 
 void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);

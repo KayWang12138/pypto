@@ -58,10 +58,10 @@ const std::unordered_set<Opcode> inplaceOpSet = {Opcode::OP_VIEW, Opcode::OP_ASS
 
 class UnionFind {
 public:
-    explicit UnionFind(std::unordered_map<LogicalTensorPtr, int> &tensorToOrderIndex) {
-        for (auto it = tensorToOrderIndex.begin(); it != tensorToOrderIndex.end(); it++) {
-            parentMap[it->first] = it->first;
-            rankMap[it->first] = 1;
+    explicit UnionFind(const LogicalTensors &objects) {
+        for (const auto &obj : objects) {
+            parentMap[obj] = obj;
+            rankMap[obj] = 1;
         }
     }
 
@@ -128,8 +128,7 @@ private:
     Status InplaceCheck(Function &function);
     bool CheckInplace(const Operation &op);
 
-    std::unordered_map<LogicalTensorPtr, int> BuildTensorOrderIndexMap(Function &function);
-    Status FindBaseTensor(Function &function, std::unordered_map<LogicalTensorPtr, int> &tensorToOderIndex, LogicalTensors &group, LogicalTensorPtr &baseTensor);
+    Status FindBaseTensor(Function &function, LogicalTensorPtr &baseTensor, LogicalTensors &group);
     Status ProcessHubOp(Function &function);
     void ProcessHubAssembleOp(Function &function, Operation &hubOp, Operation &assembleOp, 
                              std::shared_ptr<LogicalTensor> hubInput, std::shared_ptr<LogicalTensor> hubOutput);
@@ -150,7 +149,6 @@ private:
     Status ForwardInplaceOp(Operation *op, LogicalTensorPtr &rootTensor, Function &function);
     Status ForwardViewType(Operation *op, LogicalTensorPtr &rootTensor);
     Status ForwardCopyOut(Operation *op, LogicalTensorPtr &rootTensor, Function &function);
-    Status ForwardInputIdx(Operation *op, LogicalTensorPtr &rootTensor, Function &function);
 
     Status BackwardAssemble(Operation *op, LogicalTensorPtr &rootTensor);
     Status BackwardReshape(Operation *op, LogicalTensorPtr &rootTensor);
@@ -160,8 +158,6 @@ private:
 
     Status ForUpdateView(Operation *op);
     Status BackUpdateAssemble(Operation *op);
-
-    Status MarkTensorAsPartialMem(Function &function);
 
     std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
     std::queue<LogicalTensorPtr> backRoots;

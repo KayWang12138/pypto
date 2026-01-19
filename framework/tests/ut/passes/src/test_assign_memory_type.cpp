@@ -44,8 +44,8 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        config::SetPlatformConfig(KEY_TEST_IS_TIG, true);
+        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig("TEST_IS_TIG", true);
         Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
@@ -53,11 +53,11 @@ public:
     void SetHalfwayStrategy() {
         PassManager &passManager = PassManager::Instance();
         passManager.RegisterStrategy("AssignMemoryTypeTestStrategy", {
-            {"RemoveRedundantReshape", PassName::REMOVE_REDUNDANT_RESHAPE},
-            {   "InferMemoryConflict",    PassName::INFER_MEMORY_CONFLICT},
-            {        "ExpandFunction",          PassName::EXPAND_FUNCTION},
-            {           "DuplicateOp",             PassName::DUPLICATE_OP},
-            {     "MergeViewAssemble",      PassName::MERGE_VIEW_ASSEMBLE},
+            {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
+            {      "InferMemoryConflict",      "InferMemoryConflict"},
+            {           "ExpandFunction",           "ExpandFunction"},
+            {              "DuplicateOp",              "DuplicateOp"},
+            {        "MergeViewAssemble",        "MergeViewAssemble"},
         });
         ConfigManager::Instance();
     }
@@ -260,8 +260,8 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
                 CheckConvertOp(op, true);
             }
         }
-        constexpr int expextedConvertNum = 12;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "12 operations should be Convert";
+        constexpr int expextedConvertNum = 6;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "6 operations should be Convert";
     }
 }
 
@@ -285,7 +285,7 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor kUpdate = Matrix::Matmul(out.GetDataType(), inputK, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
-            Tensor QKT = Matrix::Matmul(out.GetDataType(), qUpdate, kUpdate, false, true); // (256 * 64) @ (64 * 256) = (256 * 256)
+            Tensor QKT = Matrix::Matmul<false, true>(out.GetDataType(), qUpdate, kUpdate); // (256 * 64) @ (64 * 256) = (256 * 256)
             TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = Sub(QKT, Element(DataType::DT_FP32, F_3));
         }
@@ -343,7 +343,7 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor kUpdate = Matrix::Matmul(out.GetDataType(), inputK, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
-            Tensor QKT = Matrix::Matmul(out.GetDataType(), qUpdate, kUpdate, false, true); // (256 * 64) @ (64 * 256) = (256 * 256)
+            Tensor QKT = Matrix::Matmul<false, true>(out.GetDataType(), qUpdate, kUpdate); // (256 * 64) @ (64 * 256) = (256 * 256)
             TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = Add(QKT, Element(DataType::DT_FP32, F_1));
         }
@@ -377,8 +377,8 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
             CheckConvertOp(op, true);
             convertNum++;
         }
-        constexpr int expextedConvertNum = 32;
-        EXPECT_EQ(convertNum, expextedConvertNum) << "32 operations should be Convert";
+        constexpr int expextedConvertNum = 12;
+        EXPECT_EQ(convertNum, expextedConvertNum) << "12 operations should be Convert";
     }
 }
 

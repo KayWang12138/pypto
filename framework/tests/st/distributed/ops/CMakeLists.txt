@@ -35,6 +35,10 @@ target_include_directories(${_Target}
         PUBLIC
             include
 )
+target_compile_definitions(${_Target}
+        PRIVATE
+            $<$<BOOL:${BUILD_WITH_CANN_SUB}>:BUILD_WITH_CANN_SUB>
+)
 target_link_libraries(${_Target}
         PRIVATE
             ${PTO_Fwk_STestNamePrefix}_utils

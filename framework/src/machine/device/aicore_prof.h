@@ -21,7 +21,7 @@
 #include <sstream>
 #include <string>
 #include <sys/syscall.h>
-#include "tilefwk/aicpu_common.h"
+#include "machine/kernel/aicore.h"
 
 extern "C" {
 __attribute__((weak)) int32_t AdprofReportAdditionalInfo(uint32_t agingFlag, const void *data, uint32_t length);

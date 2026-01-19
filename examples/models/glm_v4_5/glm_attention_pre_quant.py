@@ -232,7 +232,9 @@ def rope_data(x1, x2, cos, sin, tile_shape):
     runtime_options={"stitch_function_num_initial": 128, 
     "stitch_function_outcast_memory": 1024,
     "stitch_function_inner_memory": 1024,
-    "stitch_cfgcache_size": 3000000},
+    "cfgcache_device_task_num": 100,
+    "cfgcache_root_task_num": 1000,
+    "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
 )
 def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
@@ -429,7 +431,7 @@ def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
             valid_shape=[act_bs_tile, q_num_head, half_rotary_dim])
 
         # rope data
-        q_rope = rope_data(q1, q2, cos_fp32, sin_fp32, [q_batch_tile, q_num_head, head_size])
+        q_rope = rope_data(q1, q2, cos_fp32, sin_fp32, [q_batch_tile, q_num_head, half_rotary_dim])
         q_cat = pypto.concat([q_rope, q_pass], 2)
 
         # k split
@@ -439,7 +441,7 @@ def quant_attention_pre_kernel(x, residual_input, x_gamma, x_bias,
             valid_shape=[act_bs_tile, kv_num_head, half_rotary_dim])
 
         # rope data
-        k_rope = rope_data(k1, k2, cos_fp32, sin_fp32, [q_batch_tile, kv_num_head, head_size])
+        k_rope = rope_data(k1, k2, cos_fp32, sin_fp32, [q_batch_tile, q_num_head, half_rotary_dim])
         k_cat = pypto.concat([k_rope, k_pass], 2)
 
         # post process

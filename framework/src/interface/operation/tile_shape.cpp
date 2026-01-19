@@ -34,7 +34,7 @@ std::string CubeTile::ToString() const {
         << "m: {" << m[0] << ", " << m[1] << '}' << ", "
         << "k: {" << k[0] << ", " << k[1] << ", " << k[0x2] << '}' << ", "
         << "n: {" << n[0] << ", " << n[1] << '}' << ", "
-        << "enableMultiDataLoad: " << enableMultiDataLoad << ", "
+        << "setL1Tile: " << setL1Tile << ", "
         << "enableSplitK: " << enableSplitK
         << "}; ";
     return ss.str();
@@ -87,12 +87,12 @@ void TileShape::SetVecTile(const VecTile &tile) {
 void TileShape::SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m,
                             const std::array<int64_t, MAX_K_DIM_SIZE> &k,
                             const std::array<int64_t, MAX_N_DIM_SIZE> &n,
-                            bool enableMultiDataLoad, bool enableSplitK) {
+                            bool setL1Tile, bool enableSplitK) {
     auto nk = k;
     if (nk[2] == 0) {
         nk[2] = nk[1];
     }
-    cubeTile = {m, nk, n, enableMultiDataLoad, enableSplitK};
+    cubeTile = {m, nk, n, setL1Tile, enableSplitK};
     ConfigManagerNg::CurrentScope()->UpdateValue("cube_tile_shapes", cubeTile);
 }
 

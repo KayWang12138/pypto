@@ -182,11 +182,9 @@ private:
         if (!config_.runModel) {
             return;
         }
-        DeviceKernelArgs kArgs;
+        AstKernelArgs kArgs;
         config_.onBoard = false;
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitDistributedContextToHost(function_->GetDyndevAttribute()->commGroupNames,
- 	        function_->GetDyndevAttribute()->devProgBinary);  
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         std::cout << "Run CostModel " << "\n";
@@ -227,7 +225,7 @@ private:
         }
     }
 
-    void DumpTensorContents(const DeviceKernelArgs &kArgs,
+    void DumpTensorContents(const AstKernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
@@ -269,15 +267,15 @@ private:
         fout.close();
     }
 
-    void RunCostModel(DeviceKernelArgs *kArgs) {
-        if (!config::GetPlatformConfig(KEY_ENABLE_DYN_COST_MODEL, true)) {
+    void RunCostModel(AstKernelArgs *kArgs) {
+        if (!config::GetPlatformConfig("ENABLE_DYN_COST_MODEL", true)) {
             return;
         }
         Function *function = Program::GetInstance().GetLastFunction();
         if (function == nullptr) {
             return;
         }
-        config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::LEAF_FUNCTION);
+        config::SetSimConfig("SIM_MODE", CostModel::SimMode::LEAF_FUNCTION);
         CostModelAgent costModelAgent;
         costModelAgent.SubmitLeafFunctionsToCostModel();
         costModelAgent.RunCostModel();
@@ -298,8 +296,8 @@ private:
         if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
             return;
         }
-        config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::NORMAL);
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+        config::SetSimConfig("SIM_MODE", CostModel::SimMode::NORMAL);
+        config::SetCodeGenConfig("CODEGEN_SUPPORT_TILE_TENSOR", false);
         CostModelAgent costModelAgent;
 
         std::string path = config::LogTopFolder() + "/dyn_topo.txt";
@@ -309,8 +307,9 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunTestMode(DeviceKernelArgs *kArgs) {
+    void RunTestMode(AstKernelArgs *kArgs) {
         (void) kArgs;
+        const int BUFFER_SIZE_64 = 64;
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
         std::atomic<int> idx{0};
         auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
@@ -323,9 +322,10 @@ private:
                 cpu_set_t cpuset;
                 CPU_ZERO(&cpuset);
                 CPU_SET(tidx, &cpuset);
-                std::string name = "aicput" + std::to_string(tidx);
+                char name[BUFFER_SIZE_64];
+                (void)sprintf_s(name, sizeof(name), "aicput%d", tidx);
                 std::cout << "start thread: " << name << std::endl;
-                pthread_setname_np(pthread_self(), name.c_str());
+                pthread_setname_np(pthread_self(), name);
                 pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
                 if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
                     (void)PyptoKernelCtrlServer(kArgs);
@@ -342,7 +342,7 @@ private:
         }
     }
 
-    void InitKernelInOuts(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+    void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;

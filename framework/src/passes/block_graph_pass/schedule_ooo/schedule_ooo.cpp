@@ -15,11 +15,8 @@
 
 #include "schedule_ooo.h"
 #include "passes/pass_log/pass_log.h"
-#include "core_assign.h"
 
-#ifndef MODULE_NAME
 #define MODULE_NAME "OoOSchedule"
-#endif
 
 namespace npu::tile_fwk {
 
@@ -32,112 +29,8 @@ bool OoOSchedule::IsAicpuProgram(std::vector<Operation *> opList) {
     return false;
 }
 
-inline bool IsMixGraph(const std::vector<Operation*> &opList) {
-    bool hasAIC = false;
-    bool hasAIV = false;
-    for (auto opPtr : opList) {
-        if (OpcodeManager::Inst().GetCoreType(opPtr->GetOpcode()) == OpCoreType::AIC) {
-            hasAIC = true;
-        } else if (OpcodeManager::Inst().GetCoreType(opPtr->GetOpcode()) == OpCoreType::AIV) {
-            hasAIV = true;
-        }
-        if (hasAIC && hasAIV) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void OoOSchedule::SortTaskList(std::vector<Operation*> &opList, std::vector<Operation*> &taskList) {
-    std::vector<Operation*> newTaskList;
-    for (auto op : opList) {
-        if (std::find(taskList.begin(), taskList.end(), op) != taskList.end()) {
-            newTaskList.push_back(op);
-        }
-    }
-    taskList = newTaskList;
-}
-
-void OoOSchedule::OoOHealthCheck(OoOScheduler &oooSchedule, Function &function, std::pair<uint64_t, Function*> &program) {
-    if (oooSchedule.oooCheck.doHealthCheck) {
-        oooSchedule.oooCheck.workspaceOffset = oooSchedule.workspaceOffset;
-        oooSchedule.oooCheck.clock = oooSchedule.clock;
-        oooSchedule.oooCheck.jsonFileName = GetDumpFilePrefix(function, false, program.second, program.first);
-        schedulerMap.insert({program.first, oooSchedule});
-    }
-}
-
-Status OoOSchedule::NonMixSchedule(std::vector<Operation*> &opList, Function &function,
-    std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize) {
-    // 直接对oplist进行GenSpill和mainLoop
-    OoOScheduler oooSchedule(*program.second, ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false));
-    if (oooSchedule.Schedule(opList) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Non-mixGraph schedule failed.");
-        return FAILED;
-    }
-    APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule end.", program.first);
-    program.second->ScheduleBy(oooSchedule.GetNewOperations());
-    program.second->RecordOOOSeq();
-    RescheduleUtils::UpdateTensorConsProd(program.second);
-    maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());
-    function.SetStackWorkespaceSize(maxWorkeSpaceSize);
-    OoOHealthCheck(oooSchedule, function, program);
-    return SUCCESS;
-}
-
-Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &function,
-    std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize) {
-    std::unordered_map<TargetCoreType, std::string>  targetToString{{TargetCoreType::AIC, "AIC"}, {TargetCoreType::AIV0, "AIV0"}, {TargetCoreType::AIV1, "AIV1"}, {TargetCoreType::UNKNOWN, "UNKNOWN"}};
-    TaskSpliter spliter;
-    spliter.SplitGraph(opList);
-    for (auto &taskNode : spliter.GetTaskGraph().tasks) {
-        // 对taskNode.opList_进行排序，并返回预估的latency
-        if (SortAndLatencyEstimate(opList, taskNode.opList_, taskNode.latency) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SortAndLatencyEstimate failed, taskNode[%d].", taskNode.idx);
-            return FAILED;
-        }
-    }
-    CoreScheduler coreScheduler;
-    coreScheduler.Schedule(spliter.GetTaskGraph(), 10); // BruteForce threshold is 10
-    for (auto &taskNode : spliter.GetTaskGraph().tasks) {
-        APASS_LOG_INFO_F(Elements::Operation,  "eval task %d on %s: %d - %d.", taskNode.idx, targetToString[taskNode.targetCoreType].c_str(), taskNode.startTime, taskNode.endTime);
-    }
-    spliter.MergeTaskByTargetCoreType();
-    for (auto &taskNode : spliter.GetTaskGraph().tasks) {
-        SortTaskList(opList, taskNode.opList_);
-        OoOScheduler oooSchedule(*program.second);
-        if (oooSchedule.Schedule(taskNode.opList_) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "TaskNode[%d] schedule failed.", taskNode.idx);
-            return FAILED;
-        }
-        OoOHealthCheck(oooSchedule, function, program);
-    }
-    spliter.MarkInternalSubgraphID();
-    APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule end.", program.first);
-    program.second->ScheduleBy(spliter.GetMergedOperations());
-    program.second->RecordOOOSeq();
-    RescheduleUtils::UpdateTensorConsProd(program.second);
-    maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());
-    function.SetStackWorkespaceSize(maxWorkeSpaceSize);
-    return SUCCESS;
-}
-
-Status OoOSchedule::SortAndLatencyEstimate(std::vector<Operation*> &opList, std::vector<Operation*> &taskOpList,
-    int &latency) {
-    APASS_LOG_INFO_F(Elements::Operation, "=======>start SortAndLatencyEstimate");
-    SortTaskList(opList, taskOpList);
-    LatencyEstimator latencyEstimator(taskOpList);
-    if (latencyEstimator.LatencyEstimatorMainLoop() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "SortAndLatencyEstimate LatencyEstimatorMainLoop failed.");
-        return FAILED;
-    }
-    latency = latencyEstimator.clock;
-    APASS_LOG_INFO_F(Elements::Operation, "=======>end SortAndLatencyEstimate");
-    return SUCCESS;
-}
-
 Status OoOSchedule::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "=============== START 2CoreSplit ===============");
+    APASS_LOG_INFO_F(Elements::Operation, "=============== START OoOSchedule ===============");
     int maxWorkeSpaceSize = 0;
     for (auto &program : function.rootFunc_->programs_) {
         auto opList = program.second->Operations(false).DuplicatedOpList();
@@ -146,31 +39,27 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         if (IsAicpuProgram(opList)) {
             continue;
         }
-        OptimizeSort optimizeSort(opList, *program.second);
-        if (optimizeSort.SortOps() != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Global sortOps failed");
+        OoOScheduler oooSchedule(*program.second, ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false));
+        oooSchedule.oooCheck.doHealthCheck = passDfxconfigs_.healthCheck;
+        APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule start.", program.first);
+        if (oooSchedule.Schedule(opList) != SUCCESS) { 
+            APASS_LOG_ERROR_F(Elements::Graph, "Subgraph[%d] OoO Schedule failed.", program.first); 
             return FAILED;
         }
-        // 全局排序的序列
-        opList = optimizeSort.operations;
-        std::pair<uint64_t, Function*> programRef;
-        programRef.first = program.first;
-        programRef.second = program.second;
-        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) {
-            if (NonMixSchedule(opList, function, programRef, maxWorkeSpaceSize) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "NonMix OoO schedule failed.");
-                return FAILED;
-            }
-            programRef.second = program.second;
-            continue;
+        APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule end.", program.first);
+        program.second->ScheduleBy(oooSchedule.GetNewOperations());
+        program.second->RecordOOOSeq();
+        RescheduleUtils::UpdateTensorConsProd(program.second);
+        maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());
+        function.SetStackWorkespaceSize(maxWorkeSpaceSize);
+        if (oooSchedule.oooCheck.doHealthCheck) {
+            oooSchedule.oooCheck.workspaceOffset = oooSchedule.workspaceOffset;
+            oooSchedule.oooCheck.clock = oooSchedule.clock;
+            oooSchedule.oooCheck.jsonFileName = GetDumpFilePrefix(function, false, program.second, program.first);
+            schedulerMap.insert({program.first, oooSchedule});
         }
-        if (MixSchedule(opList, function, programRef, maxWorkeSpaceSize) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Mix OoO schedule failed.");
-            return FAILED;
-        }
-        programRef.second = program.second;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "=============== END 2CoreSplit ===============");
+    APASS_LOG_INFO_F(Elements::Operation, "=============== END OoOSchedule =================");
     return SUCCESS;
 }
 

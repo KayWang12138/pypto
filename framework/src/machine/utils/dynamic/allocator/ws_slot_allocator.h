@@ -57,8 +57,10 @@ public:
     }
 
     WsAllocation Allocate() {
-        DEV_ASSERT_MSG(freeListHeader_ != nullptr,
-            "Available slot: %zu/%zu", availableSlots_, slotNum_);
+        if (freeListHeader_ == nullptr) {
+            DEV_ERROR("freeListHeader_ is null, expected valid pointer\n");
+        }
+        DEV_DEBUG_ASSERT(freeListHeader_ != nullptr);
 
         BlockHeader *node = freeListHeader_;
         freeListHeader_ = freeListHeader_->listNext;
@@ -97,10 +99,15 @@ public:
     }
 
     void Deallocate(uintdevptr_t ptr) {
-        DEV_ASSERT_MSG(workspaceAddr_ <= ptr && ptr < workspaceAddr_ + slotNum_ * slotStandardMemReq_,
-            "Pointer to deallocate is out of range");
-        DEV_ASSERT_MSG(notInUseHeaders_ != nullptr,
-            "Blocks are all free, there shouldn't be any deallocation request.");
+        if (!(workspaceAddr_ <= ptr && ptr < workspaceAddr_ + slotNum_ * slotStandardMemReq_)) {
+            DEV_ERROR("ptr %lu is out of workspace bounds. workspaceAddr_: %lu, workspaceEnd: %lu, slotNum_: %lu, slotStandardMemReq_: %lu",
+            ptr, workspaceAddr_, workspaceAddr_ + slotNum_ * slotStandardMemReq_, slotNum_, slotStandardMemReq_);
+        }
+        DEV_DEBUG_ASSERT(workspaceAddr_ <= ptr && ptr < workspaceAddr_ + slotNum_ * slotStandardMemReq_);
+        if (notInUseHeaders_ == nullptr) {
+            DEV_ERROR("notInUseHeaders_ is null, expected valid pointer\n");
+        }
+        DEV_DEBUG_ASSERT(notInUseHeaders_ != nullptr);
 
         BlockHeader *node = notInUseHeaders_;
         notInUseHeaders_ = notInUseHeaders_->listNext;
@@ -113,10 +120,6 @@ public:
 
     size_t AvailableSlots() const {
         return availableSlots_;
-    }
-
-    uint64_t SlotByteSize() const {
-        return slotStandardMemReq_;
     }
 
     void DumpMemoryUsage(const char *hint) const {

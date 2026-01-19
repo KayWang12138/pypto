@@ -46,21 +46,17 @@ private:
     npu::tile_fwk::DevStartArgsBase *startArgs_{nullptr};
 private:
     int BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram *devProg);
-    void ProcessAivBatchTasks(ReadyCoreFunctionQueue *aivQueue, size_t totalZeroPredAIVBatchEnd,
-        const predcount_t *dupPredCountList, size_t funcIndex);
-    int InitReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
-        ReadyCoreFunctionQueue* queue[READY_QUEUE_SIZE]);
-    void UpdateDeviceTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue, ReadyCoreFunctionQueue *aivQueue,
-        ReadyCoreFunctionQueue *aicQueue, WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
-    int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg,
-        DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
 
-    // mix subgraph schedule
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+    int BuildReadyQueueWithMixTask(DynDeviceTask *dyntask, DevAscendProgram *devProg);
     uint32_t* AllocWrapTasklist(DynDeviceTask *dyntask);
     WrapInfoQueue* AllocWrapQueue(DynDeviceTask *dyntask);
     void ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId, int funcIndex, size_t opIndex,
         WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
-    bool IsNeedWrapProcess(DynDeviceTask *dyntask, DevAscendProgram *devProg);
+#endif
+
+    int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg,
+        DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
 
     inline void doResolve(DynDeviceTask *dyntask, int coreType, size_t funcIdx, size_t succIdx, predcount_t *predList) {
         predList[succIdx] -= 1;
@@ -70,15 +66,20 @@ private:
         if (coreType == static_cast<int>(CoreType::HUB)) {
             ResolveEarlyDepends(dyntask, funcIdx, succIdx);
         } else {
-            int32_t* opWrapList = reinterpret_cast<int32_t *>(dyntask->devTask.mixTaskData.opWrapList[funcIdx]);
-            if (dyntask->devTask.mixTaskData.wrapIdNum > 0 && opWrapList[succIdx] != -1) {
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+            int32_t* opWrapList = reinterpret_cast<int32_t *>(dyntask->devTask.opWrapList[funcIdx]);
+            if (dyntask->devTask.wrapIdNum > 0 && opWrapList[succIdx] != -1) {
                 ProcessWrapQueue(dyntask, MakeMixWrapID(funcIdx, static_cast<uint32_t>(opWrapList[succIdx])), funcIdx, succIdx,
-                    reinterpret_cast<WrapInfoQueue *>(dyntask->devTask.mixTaskData.readyWrapCoreFunctionQue),
-                    reinterpret_cast<uint32_t *>(dyntask->devTask.mixTaskData.wrapTasklist));
+                    reinterpret_cast<WrapInfoQueue *>(dyntask->devTask.readyWrapCoreFunctionQue),
+                    reinterpret_cast<uint32_t *>(dyntask->devTask.wrapTasklist));
             } else {
                 auto q = dyntask->readyQueue[dyntask->GetReadyQueueIndexByCoreType(static_cast<CoreType>(coreType))];
                 q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
             }
+#else
+            auto q = dyntask->readyQueue[dyntask->GetReadyQueueIndexByCoreType(static_cast<CoreType>(coreType))];
+            q->elem[q->tail++] = MakeTaskID(funcIdx, succIdx);
+#endif
             readyTaskNum++;
         }
     }

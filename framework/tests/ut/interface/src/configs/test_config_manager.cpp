@@ -31,18 +31,18 @@ public:
 
 TEST_F(TestConfigManager, PassGloablConfig) {
     {
-        auto ret = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 0);
+        auto ret = config::GetPassGlobalConfig("pass_thread_num", 0);
         EXPECT_EQ(ret, 1);
-        config::SetPassGlobalConfig(KEY_PASS_THREAD_NUM, 0);
-        ret = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 1);
+        config::SetPassGlobalConfig("pass_thread_num", 0);
+        ret = config::GetPassGlobalConfig("pass_thread_num", 1);
         EXPECT_EQ(ret, 0);
     }
 
     {
-        auto ret = config::GetPassGlobalConfig(KEY_ENABLE_CV_FUSE, true);
+        auto ret = config::GetPassGlobalConfig("enable_cv_fuse", true);
         EXPECT_EQ(ret, false);
-        config::SetPassGlobalConfig(KEY_ENABLE_CV_FUSE, true);
-        ret = config::GetPassGlobalConfig(KEY_ENABLE_CV_FUSE, false);
+        config::SetPassGlobalConfig("enable_cv_fuse", true);
+        ret = config::GetPassGlobalConfig("enable_cv_fuse", false);
         EXPECT_EQ(ret, true);
     }
 }
@@ -88,17 +88,17 @@ TEST_F(TestConfigManager, Dump) {
     {
         cm.BeginScope("scope2.1", {{"debug.print.linewidth", 120L}});
         auto scope2 = cm.CurrentScope();
-        auto linewidth = AnyCast<int64_t>(scope2->GetAnyConfig("debug.print.linewidth"));
+        auto linewidth = AnyCast<int64_t>(scope2->GetConfig("debug.print.linewidth"));
         EXPECT_EQ(linewidth, 120);
-        auto edgeitems = AnyCast<int64_t>(scope2->GetAnyConfig("debug.print.edgeitems"));
+        auto edgeitems = AnyCast<int64_t>(scope2->GetConfig("debug.print.edgeitems"));
         EXPECT_EQ(edgeitems, 20);
         cm.EndScope();
     }
 
     auto scope = cm.CurrentScope();
-    auto linewidth = AnyCast<int64_t>(scope->GetAnyConfig("debug.print.linewidth"));
+    auto linewidth = AnyCast<int64_t>(scope->GetConfig("debug.print.linewidth"));
     EXPECT_EQ(linewidth, 80);
-    auto edgeitems = AnyCast<int64_t>(scope->GetAnyConfig("debug.print.edgeitems"));
+    auto edgeitems = AnyCast<int64_t>(scope->GetConfig("debug.print.edgeitems"));
     EXPECT_EQ(edgeitems, 20);
     cm.EndScope();
 
@@ -118,7 +118,7 @@ constexpr const char *ERROR_KEY_WORD = "its value doesn't within the value range
 template <typename T>
 bool RangeTest(
     const std::unordered_map<std::string, std::vector<T>> &input,
-    void (*SetFunc)(const std::string &, const T &),
+    void (*SetFunc)(const std::string &, T &&),
     std::string group) {
     for (auto &[key, val] : input) {
         for (auto it : val) {
@@ -148,11 +148,13 @@ TEST_F(TestConfigManager, NormalRuntimeTest) {
         {STITCH_FUNCTION_OUTCAST_MEMORY, {1, INT_MAX}},
         {STITCH_FUNCTION_NUM_INITIAL, {1, 128}},
         {STITCH_FUNCTION_NUM_STEP, {0, 128}},
-        {STITCH_CFGCACHE_SIZE, {0, 100000000}},
+        {CFGCACHE_DEVICE_TASK_NUM, {0, 100}},
+        {CFGCACHE_ROOT_TASK_NUM, {0, 1000}},
+        {CFGCACHE_LEAF_TASK_NUM, {0, 10000}},
         {STITCH_FUNCTION_SIZE, {1, 65535}},
         {CFG_RUN_MODE, {0, 1}},
     };
-    bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "runtime");
+    bool ret = RangeTest<int64_t>(input, &(config::SetOption), "runtime");
     EXPECT_EQ(ret, true);
 }
 
@@ -165,11 +167,13 @@ TEST_F(TestConfigManager, AbnormalRuntimeTest) {
         {STITCH_FUNCTION_OUTCAST_MEMORY, {0, outVal}},
         {STITCH_FUNCTION_NUM_INITIAL, {0, 129}},
         {STITCH_FUNCTION_NUM_STEP, {-1, 129}},
-        {STITCH_CFGCACHE_SIZE, {-1, 100000001}},
+        {CFGCACHE_DEVICE_TASK_NUM, {-1, 101}},
+        {CFGCACHE_ROOT_TASK_NUM, {-1, 1001}},
+        {CFGCACHE_LEAF_TASK_NUM, {-1, 10001}},
         {STITCH_FUNCTION_SIZE, {0, 65536}},
         {CFG_RUN_MODE, {-1, 2}},
     };
-    bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "runtime");
+    bool ret = RangeTest<int64_t>(input, &(config::SetOption), "runtime");
     EXPECT_EQ(ret, true);
 }
 
@@ -186,7 +190,7 @@ TEST_F(TestConfigManager, NormalPassTest) {
         {SG_CUBE_PARALLEL_NUM, {1, 24}},
         {COPYOUT_RESOLVE_COALESCING, {0, 1000000}}
     };
-    bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "pass");
+    bool ret = RangeTest<int64_t>(input, &(config::SetOption), "pass");
     EXPECT_EQ(ret, true);
 
     std::unordered_map<std::string, std::vector<std::map<int64_t, int64_t>>> input2 = {
@@ -194,7 +198,7 @@ TEST_F(TestConfigManager, NormalPassTest) {
         {CUBE_NBUFFER_SETTING, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}},
         {VEC_NBUFFER_SETTING, {{{-1, 1}}, {{INT_MAX, INT_MAX}}}}
     };
-    ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOptionsNg), "pass");
+    ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOption), "pass");
     EXPECT_EQ(ret, true);
 }
 
@@ -213,7 +217,7 @@ TEST_F(TestConfigManager, AbnormalPassTest) {
         {SG_CUBE_PARALLEL_NUM, {0, 25}},
         {COPYOUT_RESOLVE_COALESCING, {-1, 1000001}}
     };
-    bool ret = RangeTest<int64_t>(input, &(config::SetOptionsNg), "pass");
+    bool ret = RangeTest<int64_t>(input, &(config::SetOption), "pass");
     EXPECT_EQ(ret, true);
 
     std::unordered_map<std::string, std::vector<std::map<int64_t, int64_t>>> input2 = {
@@ -221,33 +225,6 @@ TEST_F(TestConfigManager, AbnormalPassTest) {
         {CUBE_NBUFFER_SETTING, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}},
         {VEC_NBUFFER_SETTING, {{{-2, 1}}, {{INT_MAX, outVal}}, {{-1, 0}}, {{outVal, INT_MAX}}}}
     };
-    ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOptionsNg), "pass");
+    ret = RangeTest<std::map<int64_t, int64_t>>(input2, &(config::SetOption), "pass");
     EXPECT_EQ(ret, true);
-}
-
-TEST_F(TestConfigManager, GlobalConfig) {
-    std::string res = ConfigManagerNg::GetGlobalConfig<std::string>("platform.device_platform");
-    EXPECT_EQ(res, "ASCEND_910B2");
-
-    ConfigManagerNg::SetGlobalConfig("platform.device_platform", "test");
-    res = ConfigManagerNg::GetGlobalConfig<std::string>("platform.device_platform");
-    EXPECT_EQ(res, "test");
-
-    ConfigManagerNg::SetGlobalConfig("simulation.timeout_threshold", 10);
-    long res_int = ConfigManagerNg::GetGlobalConfig<long>("simulation.timeout_threshold");
-    EXPECT_EQ(res_int, 10);
-
-    ConfigManagerNg::SetGlobalConfig("codegen.codegen_support_tile_tensor", true);
-    bool res_bool = ConfigManagerNg::GetGlobalConfig<bool>("codegen.codegen_support_tile_tensor");
-    EXPECT_EQ(res_bool, true);
-
-    // // add code for coverage, python pybind interface
-    std::map<std::string, Any> config_values = {
-        {"simulation.timeout_threshold", 10}
-    };
-    ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(config_values), "default", 1);
-    ConfigManagerNg::GetInstance().GlobalScope();
-
-    std::map<std::string, Any> empty_values = {};
-    ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(empty_values), "default", 1);
 }

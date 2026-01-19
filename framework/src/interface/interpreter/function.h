@@ -26,7 +26,6 @@ namespace npu::tile_fwk {
 struct FunctionIODataPair {
     std::vector<std::shared_ptr<LogicalTensorData>> incastDataViewList;
     std::vector<std::shared_ptr<LogicalTensorData>> outcastDataViewList;
-    std::shared_ptr<FunctionIODataPair> rootInoutDataPair;
 
     FunctionIODataPair() {}
     FunctionIODataPair(std::vector<std::shared_ptr<LogicalTensorData>> incastDataViewList_,
@@ -86,7 +85,6 @@ struct FunctionFrame {
     int frameIndex;
     int funcIndex;
     int rootFuncIndex{-1};
-    int passIndex{-1};
 
     Operation *currentOperation;
 
@@ -343,7 +341,6 @@ struct FunctionInterpreter {
 
     VerifyType verifyType{VerifyType::INVALID};
     int captureIndex{0};
-    int passIndex{-1};
 
     std::vector<std::shared_ptr<LogicalTensorData>> &GetInputDataViewList() {
         return operationInterpreter->evaluateSymbol->GetInputDataViewList();
@@ -370,13 +367,11 @@ struct FunctionInterpreter {
     ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) {
         return operationInterpreter->EvaluateSymbolicScalar(ss);
     }
-    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset,
-            const std::vector<SymbolicScalar> &linearArgList = {}){
-        return operationInterpreter->EvaluateOffset(offset, dynOffset, linearArgList);
+    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset){
+        return operationInterpreter->EvaluateOffset(offset, dynOffset);
     }
-    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape,
-            const std::vector<SymbolicScalar> &linearArgList = {}) {
-        return operationInterpreter->EvaluateValidShape(dynValidShape, linearArgList);
+    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
+        return operationInterpreter->EvaluateValidShape(dynValidShape);
     }
     void EvaluateDynParam(
         const std::map<std::string, DynParamInfo> &dynParamTable, const std::vector<SymbolicScalar> &linearArgList) {
@@ -443,12 +438,8 @@ struct FunctionInterpreter {
     std::shared_ptr<LogicalTensorData> AllocateDataView(FunctionFrame &frame,
         const std::shared_ptr<LogicalTensor> &tensor, DataType dtype,
         const std::shared_ptr<LogicalTensor> &inplaceTensor = nullptr) {
-        std::vector<SymbolicScalar> linearArgList;
-        if (frame.callopAttr != nullptr) {
-            linearArgList = frame.callopAttr->GetLinearArgList();
-        }
-        std::vector<int64_t> offset = EvaluateOffset(tensor->GetOffset(), tensor->GetDynOffset(), linearArgList);
-        auto validShape = EvaluateValidShape(tensor->GetDynValidShape(), linearArgList);
+        std::vector<int64_t> offset = EvaluateOffset(tensor->GetOffset(), tensor->GetDynOffset());
+        auto validShape = EvaluateValidShape(tensor->GetDynValidShape());
         auto rawShape = EvaluateValidShape(tensor->GetRawTensor()->GetDynRawShape());
         auto ret = frame.AllocateDataView(tensor, offset, validShape, rawShape, dtype, inplaceTensor);
         return ret;
@@ -459,11 +450,10 @@ struct FunctionInterpreter {
         return AllocateDataView(frame, tensor, tensor->GetRawTensor()->GetDataType(), inplaceTensor);
     }
 
-    void ExecuteOpCallLeaf(ExecuteOperationContext *ctx, std::shared_ptr<FunctionIODataPair> &rootInoutDataPair) {
+    void ExecuteOpCallLeaf(ExecuteOperationContext *ctx) {
         Function *callee = GetCallee(ctx->op);
         auto inoutDataPair =
             std::make_shared<FunctionIODataPair>(*ctx->ioperandDataViewList, *ctx->ooperandInplaceDataViewList);
-        inoutDataPair->rootInoutDataPair = rootInoutDataPair;
         ExecuteFunctionFrame(callee, ctx->op, inoutDataPair);
     }
 
@@ -488,43 +478,9 @@ struct FunctionInterpreter {
         return -1;
     }
 
-    void UpdateOutcastDataViewList(FunctionFrame &frame, 
-        const std::shared_ptr<LogicalTensor> &oop,
-        const std::shared_ptr<LogicalTensor> &iop,
-        std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
-        auto it = std::find(frame.func->outCasts_.begin(), frame.func->outCasts_.end(), oop);
-        if (it == frame.func->outCasts_.end()) {
-            return;
-        }
-        ASSERT(frame.tensorDataViewDict.count(oop) != 0);
-        auto oopDataView = frame.tensorDataViewDict[oop]; 
-        ASSERT(frame.tensorDataViewDict.count(iop) != 0);
-        auto newPtr = frame.tensorDataViewDict[iop]; 
-        auto targetPair = inoutDataPair->rootInoutDataPair ? inoutDataPair->rootInoutDataPair : inoutDataPair;
-        bool updated = false;
-        for (auto& ptr : targetPair->outcastDataViewList) {
-            if (ptr.get() == oopDataView.get()) {
-                ptr = newPtr;
-                updated = true;
-                break;
-            }
-        }      
-        ASSERT(updated); 
-    }
-
-    bool isConsumerView(Operation &op) {
-        for (auto cons : op.ConsumerOps()) {
-            if (cons->GetOpcode() == Opcode::OP_VIEW) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     void ExecuteInplaceOperation(FunctionFrame &frame, Operation &op, int oOperandIdx,
         const std::vector<std::shared_ptr<LogicalTensorData>> &iOpDataList,
-        std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList,
-        std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
+        std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList) {
         auto oop = op.GetOOperands()[oOperandIdx];
         auto index = GetInplaceIndex(&op, oOperandIdx);
         ASSERT(index != -1);
@@ -535,19 +491,18 @@ struct FunctionInterpreter {
             ASSERT(opAttr != nullptr);
             Offset iopOffsets = iOpDataList[index]->GetOffset();
             Offset viewOffsets = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
+            Offset actualOffsets = viewOffsets;
+            if (std::all_of(viewOffsets.begin(), viewOffsets.end(),
+                    [](const int64_t& val) {return val == static_cast<int64_t>(0);})) {
+                actualOffsets = iopOffsets;
+            }
             auto validShape = EvaluateValidShape(oop->GetDynValidShape());
             auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape());
-            std::shared_ptr<LogicalTensorData> ret;
-            // ExpandFunction passIndex : 4
-            if (frame.passIndex > 4 && !isConsumerView(op)) {
-                ret = frame.AllocateDataView(oop, viewOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
-            } else {
-                ret = AllocateDataView(frame, oop);
-            }
+            auto ret = frame.AllocateDataView(
+                oop, actualOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
             oOpDataList.emplace_back(ret);
         } else {
             oOpDataList.emplace_back(AllocateDataView(frame, oop, iop));
-            UpdateOutcastDataViewList(frame, oop, iop, inoutDataPair);
         }
     }
 
@@ -561,7 +516,7 @@ struct FunctionInterpreter {
         return false;
     }
 
-    void ExecuteOperation(FunctionFrame &frame, Operation *op, std::shared_ptr<FunctionIODataPair> &inoutDataPair) {
+    void ExecuteOperation(FunctionFrame &frame, Operation *op) {
         auto iOpDataList = frame.GetDataViewList(op->GetIOperands());
         for (size_t index = 0; index < iOpDataList.size(); index++) {
             if (iOpDataList[index] == nullptr) {
@@ -574,7 +529,7 @@ struct FunctionInterpreter {
         for (size_t i = 0; i < op->GetOOperands().size(); i++) {
             auto oop = op->GetOOperands()[i];
             if (auto index = GetInplaceIndex(op, i); index != -1) {
-                ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList, inoutDataPair);
+                ExecuteInplaceOperation(frame, *op, i, iOpDataList, oOpDataList);
             } else {
                 if (isConsumerAccMatmul(op)) {
                     auto dtype = oop->GetRawTensor()->GetDataType();
@@ -584,15 +539,14 @@ struct FunctionInterpreter {
                     }
                     oOpDataList.push_back(AllocateDataView(frame, oop, dtype));
                 } else {
-                    auto ret = AllocateDataView(frame, oop);
-                    oOpDataList.push_back(ret);
+                    oOpDataList.push_back(AllocateDataView(frame, oop));
                 }
             }
         }
         ExecuteOperationContext ctx = {&frame, {}, op, &iOpDataList, {}, &oOpDataList};
 
         if (op->GetOpcode() == Opcode::OP_CALL) {
-            ExecuteOpCallLeaf(&ctx, inoutDataPair);
+            ExecuteOpCallLeaf(&ctx);
         } else {
             TimeStamp ts;
             operationInterpreter->ExecuteOperation(&ctx);
@@ -639,7 +593,6 @@ struct FunctionInterpreter {
             std::make_shared<FunctionFrame>(func, callop, callopAttr, inoutDataPair, frameCount++);
         captureFrameList->push_back(frame);
         frame->funcIndex = func->GetFuncMagic();
-        frame->passIndex = passIndex;
         if (func->HasParent()) {
             frame->rootFuncIndex = func->Parent().GetFuncMagic();
         }
@@ -653,7 +606,7 @@ struct FunctionInterpreter {
             if (op.GetOpcode() == Opcode::OP_PRINT && verifyType != VerifyType::TENSOR_GRAPH)
                 continue;
             ExecuteHandleOperationBegin(&op);
-            ExecuteOperation(*frame, &op, inoutDataPair);
+            ExecuteOperation(*frame, &op);
             ExecuteHandleOperationEnd();
         }
         ExecuteHandleFunctionEnd();
@@ -729,9 +682,6 @@ struct FunctionInterpreter {
             UpdateSymbolDict(loop->IterSymbolName(), idx);
             loopSymbolDict[loop->IterSymbolName()] = idx;
             Operation *callop = ExecuteFunctionLoopLookupSat(loop);
-            if (callop == nullptr) {
-                continue;
-            }
             Function *callee = GetCallee(callop);
 
             ExecuteHandleOperationBegin(callop);
@@ -828,21 +778,6 @@ struct FunctionInterpreter {
             FunctionFrame *frame,
             const std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDataViewList,
         const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList);
-
-private:
-    void FillOperationBasicInfo(Operation *op, FunctionFrame *frame, std::vector<std::string> &opInfo);
-    void FillOperationOffsetInfo(Operation *op, FunctionFrame *frame, 
-                                  const std::vector<SymbolicScalar> &linearArgList,
-                                  std::vector<std::string> &opInfo);
-    void FillOperationInputInfo(Operation *op, FunctionFrame *frame,
-                                const std::vector<std::shared_ptr<LogicalTensorData>> *ioperandDataViewList,
-                                std::vector<std::string> &opInfo);
-    void FillOperationOutputInfo(Operation *op, FunctionFrame *frame,
-                                 const std::vector<std::shared_ptr<LogicalTensorData>> *ooperandDataViewList,
-                                 const std::vector<SymbolicScalar> &linearArgList,
-                                 int indent, std::vector<std::string> &opInfo);
-
-public:
     void DumpTensorBinary(
             const std::shared_ptr<LogicalTensor> &tensor,
             const std::shared_ptr<LogicalTensorData> &dataView);

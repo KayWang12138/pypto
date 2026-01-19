@@ -21,8 +21,6 @@ DEFOP(
         OP_SCALAR_NEG,
         OP_SCALAR_POS
     ),
-    INPUT(Scalar, Input),
-    OUTPUT(Scalar, Output)
 )
 
 DEFOP(
@@ -48,9 +46,6 @@ DEFOP(
         OP_SCALAR_MIN,
         OP_SCALAR_MAX
     ),
-    INPUT(Scalar, Lhs),
-    INPUT(Scalar, Rhs),
-    OUTPUT(Scalar, Output)
 )
 
 DEFOP(
@@ -59,8 +54,4 @@ DEFOP(
     OPCODE(
         OP_SCALAR_ITE
     ),
-    INPUT(Scalar, Cond),
-    INPUT(Scalar, Sat),
-    INPUT(Scalar, Unsat),
-    OUTPUT(Scalar, Output)
 )

@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include "distributed_op_test_suite.h"
 #include "distributed_op_test_common.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -85,7 +86,7 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam) {
             Tensor r2Res = Reshape(t3Res, {b * s, n * vHeadDim});
             TileShape::Current().SetCubeTile({16, 16}, {256, 256}, {128, 128});
             // {b * s, n * vHeadDim} @ {n * vHeadDim, h} = {b * s, h}
-            attnOut = Matrix::Matmul(dtype, r2Res, wOut, false, false);
+            attnOut = Matrix::Matmul<false, false>(dtype, r2Res, wOut);
         }
         LOOP("REDUCESCATTER", FunctionType::DYNAMIC_LOOP, unusedIndex, LoopRange(1)) {
             (void) unusedIndex;
@@ -95,8 +96,11 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam) {
                 DistReduceType::DIST_REDUCE_ADD, out);
         }
     }
+    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
     DeviceLauncherConfig config;
     config.runModel = false;
+    config.hcclContext = hcclContext;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     auto output = ProgramData::GetInstance().GetOutputData(0);

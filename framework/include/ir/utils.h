@@ -24,7 +24,6 @@ namespace pto {
 // Forward declaration
 enum class DataType;
 enum class ObjectType;
-struct DTypeInfo;
 
 // ID generator for different object types.
 // Each object type maintains its own independent ID counter.
@@ -44,11 +43,13 @@ private:
 };
 
 // Utility to help printing indentation.
-void PrintIndent(std::ostream &os, int indent);
+void PrintIndent(std::ostream& os, int indent);
 
-DTypeInfo &DTypeInfoOf(DataType dtype);
-DTypeInfo &DTypeInfoOf(const char *name);
-inline DTypeInfo &DTypeInfoOf(const std::string &name) {
-    return DTypeInfoOf(name.c_str());
-}
+// Helper function to convert DataType enum to string name.
+std::string DataTypeToString(DataType type);
+
+// Helper function to convert string name to DataType enum.
+DataType StringToValueType(const std::string& name);
+
 } // namespace pto
+

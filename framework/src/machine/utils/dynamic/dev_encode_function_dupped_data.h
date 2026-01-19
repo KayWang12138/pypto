@@ -240,21 +240,24 @@ struct DevAscendFunctionDupped {
         const DevAscendRawTensor *rawTensor = GetSource()->GetRawTensor(rawIndex);
         if (rawTensor->ioProperty == DevIOProperty::ROOT_INCAST) {
             AddressDescriptor incast = GetIncastAddress(rawTensor->ioIndex);
-            DEV_ASSERT_MSG(!incast.IsNullAddress(),
-                "Null incast: root [%s], rawIndex [%d], ioIndex [%d]",
-                GetSource()->GetRawName(), rawIndex, rawTensor->ioIndex);
+            if (incast.IsNullAddress()) {
+                DEV_ERROR("Null incast address for index:%d", rawTensor->ioIndex);
+            }
+            DEV_DEBUG_ASSERT(!incast.IsNullAddress());
             addr = incast.addr;
         } else if (rawTensor->ioProperty == DevIOProperty::ROOT_OUTCAST) {
             AddressDescriptor outcast = GetOutcastAddress(rawTensor->ioIndex);
-            DEV_ASSERT_MSG(!outcast.IsNullAddress(),
-                "Null outcast: root [%s], rawIndex [%d], ioIndex [%d]",
-                GetSource()->GetRawName(), rawIndex, rawTensor->ioIndex);
+            if (outcast.IsNullAddress()) {
+                DEV_ERROR("Null outcast address for index:%d", rawTensor->ioIndex);
+            }
+            DEV_DEBUG_ASSERT(!outcast.IsNullAddress());
             addr = outcast.addr;
         } else {
             uintdevptr_t runtimeWorkspace = RuntimeWorkspace();
-            DEV_ASSERT_MSG(runtimeWorkspace != 0,
-                "Trying to access inner tensor addr with zero runtime workspace: root [%s], rawIndex [%d]",
-                GetSource()->GetRawName(), rawIndex);
+            if (runtimeWorkspace == 0) {
+                DEV_ERROR("Runtime workspace is zero.");
+            }
+            DEV_DEBUG_ASSERT(runtimeWorkspace != 0);
             addr = runtimeWorkspace + rawTensor->addrOffset;
         }
         return addr;

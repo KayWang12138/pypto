@@ -151,7 +151,7 @@ class DeviceCtrlMachine {
         }
     }
 
-    int InitDyn(DeviceKernelArgs *kargs) {
+    int InitDyn(AstKernelArgs *kargs) {
         DEV_INFO("AscendCppDyInitTask begin");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
@@ -203,7 +203,7 @@ class DeviceCtrlMachine {
         return 0;
     }
 
-    int ExecDyn(npu::tile_fwk::DeviceKernelArgs *args) {
+    int ExecDyn(npu::tile_fwk::AstKernelArgs *args) {
         int ret = 0;
         DEV_INFO("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);

@@ -36,8 +36,8 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", KEY_PRINT_GRAPH, true);
+        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "print_graph", true);
     }
     void TearDown() override {}
 };
@@ -305,7 +305,7 @@ TEST_F(DynAttrToStaticTest, IntBasicCases) {
     std::vector<std::vector<size_t>> groups = {{0,1}, {2}};
     std::string output = checker.PrintIndexGroups(groups);
     std::string expected = 
-        "\nALL Consistent Index Group:  {\n"
+        "ALL Consistent Index Group:  {"
         "Consistent Index Group: 1{0, 1, }"
         "\n"
         "Consistent Index Group: 2{2, }"

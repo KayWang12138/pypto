@@ -15,7 +15,6 @@
 
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "interface/interpreter/function.h"
-#include "interface/operation/attribute.h"
 #include "tensor/symbolic_scalar.h"
 
 namespace npu::tile_fwk {
@@ -197,30 +196,10 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetViewValidShapeDim(
         validshape = 0;
     return validshape;
 }
-
-ScalarImmediateType EvaluateSymbolicCallRuntimeCoaGetValidShape(
-        EvaluateSymbol *evaluateSymbol,
-        const std::vector<ScalarImmediateType> &dataList,
-        const std::vector<SymbolicScalar> &linearArgList) {
-    ASSERT(linearArgList.size()) << "linearArgList is null";
-    auto coaIndex = dataList[1] + COA_INDEX_DIM_BASE + dataList[0] * 3 + dataList[2];
-    return evaluateSymbol->EvaluateSymbolicScalar(linearArgList[coaIndex]);
-}
-
-ScalarImmediateType EvaluateSymbolicCallRuntimeCoaGetOffset(
-        EvaluateSymbol *evaluateSymbol,
-        const std::vector<ScalarImmediateType> &dataList,
-        const std::vector<SymbolicScalar> &linearArgList) {
-    ASSERT(linearArgList.size()) << "linearArgList is null";
-
-    auto coaIndex = dataList[1] + COA_INDEX_DIM_BASE + dataList[2];
-    return evaluateSymbol->EvaluateSymbolicScalar(linearArgList[coaIndex]);
-}
 }
 
 ScalarImmediateType EvaluateSymbol::EvaluateSymbolicCall(
-        const std::string &name, const std::vector<ScalarImmediateType> &dataList,
-        const std::vector<SymbolicScalar> &linearArgList) {
+    const std::string &name, const std::vector<ScalarImmediateType> &dataList) {
     using CallEntry = ScalarImmediateType (*)(EvaluateSymbol *, const std::vector<ScalarImmediateType> &dataList);
     static std::unordered_map<std::string, CallEntry> callEntryDict = {
         {"RUNTIME_GetInputShapeDimSize",        EvaluateSymbolicCallRuntimeGetInputShapeDimSize},
@@ -237,26 +216,13 @@ ScalarImmediateType EvaluateSymbol::EvaluateSymbolicCall(
         {"RUNTIME_GetTensorDataInt32Dim3",      EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3},
         {"RUNTIME_COA_GET_PARAM_ADDR",          EvaluateSymbolicCallGetParaAddr},
     };
-    using CallWithLinerArgsEntry = ScalarImmediateType (*)(EvaluateSymbol *, const std::vector<ScalarImmediateType> &dataList, 
-        const std::vector<SymbolicScalar> &linearArgList);
-    static std::unordered_map<std::string, CallWithLinerArgsEntry> CallWithLinerArgsEntryDict = {
-        {"RUNTIME_COA_GET_PARAM_VALID_SHAPE",   EvaluateSymbolicCallRuntimeCoaGetValidShape},
-        {"RUNTIME_COA_GET_PARAM_OFFSET",        EvaluateSymbolicCallRuntimeCoaGetOffset},
-    };
-    ScalarImmediateType ret{0};
-    if (callEntryDict.count(name)) {
-        auto callEntry = callEntryDict[name];
-        ret = callEntry(this, dataList);
-    } else if (CallWithLinerArgsEntryDict.count(name)) {
-        auto callEntry = CallWithLinerArgsEntryDict[name];
-        ret = callEntry(this, dataList, linearArgList);
-    } else {
-        ASSERT(false) << "Symbolic call not found: " << name;
-    }
+    ASSERT(callEntryDict.count(name)) << "Symbolic call not found: " << name;
+    auto callEntry = callEntryDict[name];
+    auto ret = callEntry(this, dataList);
     return ret;
 }
 
-ScalarImmediateType EvaluateSymbol::EvaluateSymbolicScalar(const RawSymbolicScalarPtr &ss, const std::vector<SymbolicScalar> &linearArgList) {
+ScalarImmediateType EvaluateSymbol::EvaluateSymbolicScalar(const RawSymbolicScalarPtr &ss) {
     ScalarImmediateType result{0};
     switch (ss->Kind()) {
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_IMMEDIATE: {
@@ -273,14 +239,14 @@ ScalarImmediateType EvaluateSymbol::EvaluateSymbolicScalar(const RawSymbolicScal
             if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
                 std::vector<ScalarImmediateType> dataList;
                 for (size_t i = 1; i < expr->OperandList().size(); i++) {
-                    dataList.emplace_back(EvaluateSymbolicScalar(expr->OperandList()[i], linearArgList));
+                    dataList.emplace_back(EvaluateSymbolicScalar(expr->OperandList()[i]));
                 }
                 std::string name = std::static_pointer_cast<RawSymbolicSymbol>(expr->OperandList()[0])->Name();
-                result = EvaluateSymbolicCall(name, dataList, linearArgList);
+                result = EvaluateSymbolicCall(name, dataList);
             } else {
                 std::vector<ScalarImmediateType> dataList;
                 for (size_t i = 0; i < expr->OperandList().size(); i++) {
-                    dataList.emplace_back(EvaluateSymbolicScalar(expr->OperandList()[i], linearArgList));
+                    dataList.emplace_back(EvaluateSymbolicScalar(expr->OperandList()[i]));
                 }
                 if (SymbolicOpcode::T_UOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_UOP_END) {
                     result = RawSymbolicExpression::GetSymbolicCalcUnary(expr->Opcode())(dataList[0]);

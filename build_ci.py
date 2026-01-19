@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -26,13 +26,15 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List, Dict, Tuple, Any
+from typing import Optional, List, Dict, Tuple, Any, Union
 from importlib import metadata
 from packaging import requirements
 
 
 if str(Path(Path(__file__).parent, "tools")) not in sys.path:
     sys.path.append(str(Path(Path(__file__).parent, "tools")))
+
+import work_flow as wf
 
 
 class CMakeParam(abc.ABC):
@@ -147,6 +149,8 @@ class FeatureParam(CMakeParam):
 class BuildParam(CMakeParam):
     """构建相关参数
     """
+    clean: bool = False  # 强制清理 Build-Tree 及 Install-Tree 标记
+    timeout: Optional[int] = None  # 构建超时时长
     # Configure
     generator: Optional[str] = None  # Generator
     build_type: Optional[str] = None  # 构建类型
@@ -154,7 +158,6 @@ class BuildParam(CMakeParam):
     ubsan: bool = False  # 使能 UndefinedBehaviorSanitizer
     gcov: bool = False  # 使能 GNU Coverage
     clang_install_path: Optional[Path] = None  # Clang 安装位置
-    compile_dependency_check: bool = False  # 使能编译依赖关系检查
     # Build
     targets: Optional[List[str]] = None  # 编译目标
     job_num: Optional[int] = None  # 编译阶段使用核数
@@ -162,16 +165,19 @@ class BuildParam(CMakeParam):
     def __init__(self, args):
         self.targets = args.targets
         self.job_num = self._get_job_num(job_num=args.job_num, generator=args.generator)
+        self.clean = args.clean
+        self.timeout = None if args.timeout == 0 else args.timeout
         self.generator = self._get_generator(generator=args.generator)
         self.build_type = args.build_type
         self.asan = args.asan
         self.ubsan = args.ubsan
         self.gcov = args.gcov
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
-        self.compile_dependency_check = args.compile_dependency_check
 
     def __str__(self):
         desc = f"\nBuild"
+        desc += f"\n    Clean                   : {self.clean}"
+        desc += f"\n    Timeout                 : {self.timeout}"
         desc += f"\n    CMake"
         desc += f"\n        Configure"
         desc += f"\n                  Generator : {self.generator}"
@@ -180,7 +186,6 @@ class BuildParam(CMakeParam):
         desc += f"\n                      UbSan : {self.ubsan}"
         desc += f"\n                       GCov : {self.gcov}"
         desc += f"\n           ClangInstallPath : {self.clang_install_path}"
-        desc += f"\n            CompileDepCheck : {self.compile_dependency_check}"
         desc += f"\n        Build"
         desc += f"\n                    Targets : {self.targets}"
         desc += f"\n                    Job Num : {self.job_num}"
@@ -188,6 +193,10 @@ class BuildParam(CMakeParam):
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
+        parser.add_argument("-c", "--clean", action="store_true", default=False,
+                            help="clean, clean Build-Tree and Install-Tree before build.")
+        parser.add_argument("--timeout", nargs="?", type=int, default=0,
+                            help="build task timeout.")
         # Configure
         parser.add_argument("--generator", nargs="?", type=str, default="",
                             help="Specify a build system generator.")
@@ -202,8 +211,6 @@ class BuildParam(CMakeParam):
                             help="Enable GNU Coverage Instrumentation Tool.")
         parser.add_argument("--clang", nargs="?", type=str, default="",
                             help="Specify clang install path, such as /usr/bin/clang")
-        parser.add_argument("--compile_dependency_check", action="store_true", default=False,
-                            help="Enable compile dependency relation check.")
         # Build
         parser.add_argument("-t", "--targets", nargs="?", type=str, action="append",
                             help="targets, specific build targets, "
@@ -271,9 +278,6 @@ class BuildParam(CMakeParam):
             if not ret:
                 raise RuntimeError(f"Clang({self.clang_install_path}) not complete.")
             cmd += clang_cmd
-
-        # Others
-        cmd += self._cfg_require(opt="ENABLE_COMPILE_DEPENDENCY_CHECK", ctr=self.compile_dependency_check)
         return cmd
 
     def get_build_cmd_lst(self, cmake: Path, binary_path: Path) -> List[str]:
@@ -382,7 +386,7 @@ class TestsFilterParam(CMakeParam):
             cmd += self._cfg_require(opt=f"{self.cmake_option}", ctr=self.enable, tv=f"{self.filter_str}")
         return cmd
 
-    def get_filter_str(self, def_filter: str) -> str:
+    def get_filter_str(self, def_filter: str):
         if not self.enable:
             return ""
         if self.filter_str not in ["ON"]:
@@ -600,6 +604,153 @@ class TestsParam(CMakeParam):
         return cmd
 
 
+@dataclasses.dataclass
+class ModelParam(CMakeParam):
+    prof: int = 0
+    pe: int = 2
+    sim: bool = False
+    sim_with_onboard_aicpu: bool = False
+    back_annotation_aicpu: bool = False
+    back_annotation_aicore: bool = False
+    replay_file_path: Optional[str] = None
+    calendar: bool = False
+    pvmodel: bool = False
+
+    def __init__(self, args):
+        self.prof = args.prof
+        self.pe = args.pe
+        self.sim = args.sim
+        self.sim_with_onboard_aicpu = args.sim_with_onboard_aicpu
+        self.back_annotation_aicpu = args.back_annotation_aicpu
+        self.back_annotation_aicore = args.back_annotation_aicore
+        self.replay_file_path = args.replay_file_path
+        self.calendar = args.calendar
+        self.pvmodel = args.pvmodel
+
+    @staticmethod
+    def reg_args(parser, ext: Optional[Any] = None):
+        parser.add_argument("--prof", nargs="?", type=int, default=0, choices=[1, 2],
+                            help="Enable workflow.")
+        parser.add_argument("--pe", nargs="?", type=int, default=2, choices=[1, 2, 4, 5, 6, 7, 8],
+                            help="Enable pmuEvent.")
+        parser.add_argument("-s1", "--sim", action="store_true", default=False,
+                            help="enable simulation")
+        parser.add_argument("-s2", "--sim_with_onboard_aicpu", action="store_true", default=False,
+                            help="enable simulation with onboard aicpu code")
+        parser.add_argument("-b1", "--back_annotation_aicpu", action="store_true", default=False,
+                            help="enable back-annotation in simulation with aicpu onboard data.")
+        parser.add_argument("-b2", "--back_annotation_aicore", action="store_true", default=False,
+                            help="(WIP)enable back-annotation in simulation with aicore onboard data.")
+        parser.add_argument("-rf", "--replay_file_path", type=str, default=None,
+                            help="Specify replay file path for back annotation.")
+        parser.add_argument("-cal", "--calendar", action="store_true", default=False,
+                            help="Enable calendar mode.")
+        parser.add_argument("-pv", "--pvmodel", action="store_true", default=False,
+                            help="Enable PVModel mode.")
+
+    @staticmethod
+    def _save_simulation_json(simulation_json, src_root: Path):
+        temp_json_path = os.path.join(str(src_root), "framework/src/cost_model/simulation/scripts/tmp_simulation.json")
+        os.makedirs(os.path.dirname(temp_json_path), exist_ok=True)
+        with open(temp_json_path, 'w') as f:
+            json.dump(simulation_json, f, indent=4)
+
+    def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
+        return ""
+
+    def gen_simulation_json(self, src_root: Path) -> None:
+        simulation_json = {
+            "global_configs": {
+                "platform_configs": {},
+                "simulation_configs": {}
+            }
+        }
+        self._gen_simulation_json_sim(cfg=simulation_json)
+        self._gen_simulation_json_sim_with_onboard_aicpu(cfg=simulation_json)
+        self._gen_simulation_json_back_annotation_aicpu(cfg=simulation_json)
+        self._gen_simulation_json_back_annotation_aicore(cfg=simulation_json)
+        self._gen_simulation_json_calendar(cfg=simulation_json)
+        self._gen_simulation_json_pvmodel(cfg=simulation_json)
+        self._save_simulation_json(simulation_json, src_root=src_root)
+
+    def _gen_simulation_json_sim(self, cfg: Dict[Any, Any]):
+        if self.sim:
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+
+    def _gen_simulation_json_sim_with_onboard_aicpu(self, cfg: Dict[Any, Any]):
+        if self.sim_with_onboard_aicpu:
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["simulation_configs"]["USE_ON_BOARD_INFO"] = True
+            cfg["global_configs"]["simulation_configs"]["args"] = [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=910B",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0"
+            ]
+
+    def _gen_simulation_json_back_annotation_aicpu(self, cfg: Dict[Any, Any]):
+        if self.back_annotation_aicpu:
+            if self.replay_file_path is None:
+                logging.error("Error: replay_file_path is required when back_annotation_aicpu is enabled")
+                raise ValueError("Missing required argument: -rf, --replay_file_path")
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["simulation_configs"]["args"] = [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=910B",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0",
+                "Model.replayAllMode=1",
+                f"Model.replayFile={self.replay_file_path}"
+            ]
+
+    def _gen_simulation_json_back_annotation_aicore(self, cfg: Dict[Any, Any]):
+        if self.back_annotation_aicore:
+            if self.replay_file_path is None:
+                logging.error("Error: replay_file_path is required when back_annotation_aicore is enabled")
+                raise ValueError("Missing required argument: -rf, --replay_file_path")
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["simulation_configs"]["USE_ON_BOARD_INFO"] = True
+            cfg["global_configs"]["simulation_configs"]["JSON_PATH"] = self.replay_file_path
+            cfg["global_configs"]["simulation_configs"]["args"] = [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=910B",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0"
+            ]
+
+    def _gen_simulation_json_calendar(self, cfg: Dict[Any, Any]):
+        if self.calendar:
+            if self.replay_file_path is None:
+                logging.error("Error: replay_file_path is required when calendar is enabled")
+                raise ValueError("Missing required argument: -rf, --replay_file_path")
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["simulation_configs"]["args"] = [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=910B",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0",
+                "Model.genCalendarScheduleCpp=true",
+                "Model.simulationFixedLatencyTask=true",
+                f"Model.fixedLatencyTaskInfoPath={self.replay_file_path}",
+                "Model.fixedLatencyTimeConvert=1",
+                "Model.aicpuMachineNumber=1",
+                "Model.coreMachineNumberPerAICPU=54",
+                "Model.cubeMachineNumberPerAICPU=27",
+                "Model.vecMachineNumberPerAICPU=27",
+            ]
+
+    def _gen_simulation_json_pvmodel(self, cfg: Dict[Any, Any]):
+        if self.pvmodel:
+            cfg["global_configs"]["platform_configs"]["ENABLE_COST_MODEL"] = True
+            cfg["global_configs"]["simulation_configs"]["PV_LEVEL"] = 2
+            cfg["global_configs"]["simulation_configs"]["args"] = [
+                "Model.statisticReportToFile=true",
+                "Model.deviceArch=910B",
+                "Model.useOOOPassSeq=true",
+                "Core.logLabelMode=0",
+            ]
+
+
 class BuildCtrl(CMakeParam):
     """构建过程控制.
 
@@ -608,15 +759,13 @@ class BuildCtrl(CMakeParam):
     _PYTHONPATH: str = "PYTHONPATH"
 
     def __init__(self, args):
-        self.clean: bool = args.clean  # 强制清理 Build-Tree 及 Install-Tree 标记
-        self.time_start: datetime = datetime.now(tz=timezone.utc)  # 启动时间
-        self.timeout = None if args.timeout <= 0 else args.timeout  # 超时时长
         self.src_root: Path = Path(__file__).parent.resolve()
         self.build_root: Path = Path(Path.cwd(), "build")
         self.install_root: Path = Path(self.build_root.parent, "build_out")
         self.feature: FeatureParam = FeatureParam(args=args)
         self.build: BuildParam = BuildParam(args=args)
         self.tests: TestsParam = TestsParam(args=args)
+        self.model: ModelParam = ModelParam(args=args)
         self.third_party_path: Optional[Path] = Path(args.third_party_path).resolve() if args.third_party_path else None
         self.verbose: bool = args.verbose
         self.cmake: Optional[Path] = self.which_cmake()
@@ -640,10 +789,7 @@ class BuildCtrl(CMakeParam):
         desc += f"\n    Install Dir             : {self.install_root}"
         desc += f"\n    3rd     Dir             : {self.third_party_path}"
         desc += f"\nFlag"
-        desc += f"\n    Clean                   : {self.clean}"
         desc += f"\n    Verbose                 : {self.verbose}"
-        desc += f"\nOthers"
-        desc += f"\n    Timeout                 : {self.timeout}"
         desc += f"{self.feature}"
         desc += f"{self.build}"
         desc += f"{self.tests}"
@@ -656,10 +802,10 @@ class BuildCtrl(CMakeParam):
 
         排除 cmake pip 包的干扰
         """
-        # 拆分 PATH 环境变量为单个目录列表(排除空目录)
+        # 拆分 PATH 环境变量为单个目录列表（排除空目录）
         path_dir_lst = [d.strip() for d in os.environ.get("PATH", "").split(os.pathsep) if d.strip()]
 
-        # 遍历每个 PATH 目录, 逐个调用 shutil.which 检查, 限定 shutil.which 只在当前单个目录下查找 cmake
+        # 遍历每个 PATH 目录，逐个调用 shutil.which 检查, 限定 shutil.which 只在当前单个目录下查找 cmake
         valid_path_lst = []
         for path_dir in path_dir_lst:
             # 避免 PATH 环境变量中有重复的单元
@@ -683,6 +829,55 @@ class BuildCtrl(CMakeParam):
         return None
 
     @staticmethod
+    def run_build_cmd(cmd: str, update_env: Optional[Dict[str, str]] = None, check: bool = False,
+                      timeout: Optional[int] = None) -> Optional[subprocess.CompletedProcess]:
+        """执行具体 build 命令行
+
+        因以下原因, 设置本函数, 而非调用原生 subprocess.run
+            1. 支持多 target 构建, 各 target 构建时长共享公共 timeout 配置;
+            2. UTest/STest 并行执行场景下, 执行时进程调用关系为:
+                   build_ci.py(主进程) -> 进程1(CMake) -> 进程2(CMake Generator, make/ninja) -> 进程3(Python)-> 进程4(exe)
+               此时若 进程1 超时, 需要触发其子/孙进程感知, 进而结束
+
+        :param cmd: Build 命令行
+        :param update_env: 环境变量(额外更新内容)
+        :param check: 检查返回值
+        :param timeout: 执行超时时长
+        """
+
+        def _stop_pg(_msg: str, _p: subprocess.Popen):
+            """通过 SIGINT 信号通知所有子/孙进程结束, python 并行脚本内会捕获该信号进行结算处理
+            """
+            _pgid = os.getpgid(_p.pid)
+            logging.info("%s. Send terminate event to CMake[%s]", _msg, _pgid)
+            os.killpg(_pgid, signal.SIGINT)
+
+        stdout = None
+        stderr = None
+        env = os.environ.copy()
+        env.update(update_env if update_env else {})
+        with subprocess.Popen(shlex.split(cmd), env=env, text=True, encoding='utf-8',
+                              start_new_session=True) as process:
+            try:
+                stdout, stderr = process.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                _stop_pg(_msg="Timeout", _p=process)
+                raise
+            except KeyboardInterrupt:
+                # 一般为用户主动触发, 不需再上报错误
+                _stop_pg(_msg="KeyboardInterrupt", _p=process)
+            except Exception:
+                process.kill()
+                raise
+            finally:
+                stdout = stdout or ""
+                stderr = stderr or ""
+            ret_code = process.poll()
+            if check and ret_code:
+                raise subprocess.CalledProcessError(ret_code, process.args, output=stdout, stderr=stderr)
+        return subprocess.CompletedProcess(process.args, ret_code, stdout, stderr)
+
+    @staticmethod
     def find_match_whl(name: str, path: Path) -> Optional[Path]:
         """在指定路径下, 查找对应匹配的 whl 包文件
 
@@ -703,10 +898,6 @@ class BuildCtrl(CMakeParam):
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
-        parser.add_argument("-c", "--clean", action="store_true", default=False,
-                            help="clean, clean Build-Tree and Install-Tree before build.")
-        parser.add_argument("--timeout", nargs="?", type=int, default=-1,
-                            help="Total timeout.")
         parser.add_argument("--cann_3rd_lib_path", "--third_party_path",
                             nargs="?", type=str, default="", dest="third_party_path",
                             help="Specify 3rd Libraries Path")
@@ -714,7 +905,7 @@ class BuildCtrl(CMakeParam):
                             help="verbose, enable verbose output.")
 
     @classmethod
-    def main(cls) -> str:
+    def main(cls):
         """主处理流程
         """
         parser = argparse.ArgumentParser(description=f"PyPTO Build Ctrl.", epilog="Best Regards!")
@@ -723,6 +914,7 @@ class BuildCtrl(CMakeParam):
         FeatureParam.reg_args(parser=parser)
         BuildParam.reg_args(parser=parser)
         TestsParam.reg_args(parser=parser, ext=sub_parser)
+        ModelParam.reg_args(parser=parser)
         BuildCtrl.reg_args(parser=parser)
 
         # 参数处理
@@ -744,8 +936,28 @@ class BuildCtrl(CMakeParam):
                 args.func(args=args, ctrl=ctrl)
             ctrl.cmake_clean()
             ctrl.cmake_configure()
+            ctrl.model.gen_simulation_json(src_root=ctrl.src_root)
             ctrl.cmake_build()
-        return ctrl.duration()
+
+    @classmethod
+    def pip_uninstall(cls, name: str, path: Optional[Path] = None):
+        """卸载对应 whl 包
+
+        :param name: 包名
+        :param path: 指定安装路径(可选), 如果指定对应路径, 仅会在对应路径尝试卸载
+        """
+        if path:
+            del_lst = [Path(f) for f in path.glob(pattern=f"{name}-*.dist-info")]
+            pkg_dir = Path(path, name)
+            if pkg_dir.exists() and pkg_dir.is_dir():
+                del_lst.append(pkg_dir)
+            for p in del_lst:
+                shutil.rmtree(p)
+        else:
+            cmd = f"{sys.executable} -m pip uninstall -v -y {name}"
+            ret = cls.run_build_cmd(cmd=cmd, check=True)
+            ret.check_returncode()
+        logging.info("Success uninstall %s package%s", name, f" from {path}" if path else "")
 
     @classmethod
     def check_pip_dependencies(cls, deps: Dict[str, str], raise_err: bool = False, log_err: bool = True) -> bool:
@@ -779,63 +991,6 @@ class BuildCtrl(CMakeParam):
             info_lst.append(f"package {pkg} check fail {e}")
         return info_lst
 
-    def run_build_cmd(self, cmd: str, update_env: Optional[Dict[str, str]] = None,
-                      check: bool = False, pg_desc: str = "CMake") -> Tuple[subprocess.CompletedProcess, str]:
-        """执行具体 build 命令行
-
-        因以下原因, 设置本函数, 而非调用原生 subprocess.run
-            1. 支持多 target 构建, 各 target 构建时长共享公共 timeout 配置;
-            2. UTest/STest 并行执行场景下, 执行时进程调用关系为:
-                   build_ci.py(主进程) -> 进程1(CMake) -> 进程2(CMake Generator, make/ninja) -> 进程3(Python)-> 进程4(exe)
-               此时若 进程1 超时, 需要触发其子/孙进程感知, 进而结束
-
-        本函数内支持 timeout 重计算, 仅执行成功时会进行重计算
-
-        :param cmd: Build 命令行
-        :param update_env: 环境变量(额外更新内容)
-        :param check: 检查返回值
-        :param pg_desc: Process Group Desc, 进程组描述
-        """
-
-        def _stop_pg(_msg: str, _p: subprocess.Popen):
-            """通过 SIGINT 信号通知所有子/孙进程结束, python 并行脚本内会捕获该信号进行结算处理
-            """
-            _pgid = os.getpgid(_p.pid)
-            logging.info("%s. Send terminate event to %s[%s]", _msg, pg_desc, _pgid)
-            os.killpg(_pgid, signal.SIGINT)
-
-        stdout = None
-        stderr = None
-        env = os.environ.copy()
-        env.update(update_env if update_env else {})
-        with subprocess.Popen(shlex.split(cmd), env=env, text=True, encoding='utf-8',
-                              start_new_session=True) as process:
-            try:
-                stdout, stderr = process.communicate(timeout=self.timeout)
-            except subprocess.TimeoutExpired as e:
-                _stop_pg(_msg="Timeout", _p=process)
-                raise e
-            except KeyboardInterrupt as e:
-                _stop_pg(_msg="KeyboardInterrupt", _p=process)
-                raise e
-            except Exception as e:
-                process.kill()
-                raise e
-            finally:
-                stdout = stdout or ""
-                stderr = stderr or ""
-            ret_code = process.poll()
-            if check and ret_code:
-                raise subprocess.CalledProcessError(ret_code, process.args, output=stdout, stderr=stderr)
-        # 超时时长更新
-        duration = self.duration()
-        return subprocess.CompletedProcess(process.args, ret_code, stdout, stderr), duration
-
-    def duration(self) -> str:
-        duration = int((datetime.now(tz=timezone.utc) - self.time_start).seconds)
-        self.timeout = self.timeout - duration if self.timeout else self.timeout
-        return f"{duration}/{self.timeout}" if self.timeout else f"{duration}"
-
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         cmd = self._cfg_require(opt=f"PYPTO_THIRD_PARTY_PATH", ctr=bool(self.third_party_path),
                                 tv=f"{self.third_party_path}")
@@ -854,39 +1009,22 @@ class BuildCtrl(CMakeParam):
         :param whl: 包文件
         :param dest: 安装路径(可选), 未指定时会安装在默认路径
         :param opt: 额外安装参数
-        :param update_env: 环境变量(额外更新内容)
+        :param update_env:
         """
+        ts = datetime.now(tz=timezone.utc)
         edit_str = "-e " if self.feature.whl_editable else ""
         cmd = f"{sys.executable} -m pip install {edit_str}" + f"{whl} {opt}" + (" -vvv " if self.verbose else "")
         cmd += f" --target={dest}" if dest else ""
         logging.info("Begin install %s, cmd: %s", whl, cmd)
-        ret, duration = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env, pg_desc="pip")
+        ret = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)
         ret.check_returncode()
+        duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
         logging.info("Success install %s%s, Duration %s sec", whl, f" to {dest}" if dest else "", duration)
-
-    def pip_uninstall(self, name: str, path: Optional[Path] = None):
-        """卸载对应 whl 包
-
-        :param name: 包名
-        :param path: 指定安装路径(可选), 如果指定对应路径, 仅会在对应路径尝试卸载
-        """
-        if path:
-            del_lst = [Path(f) for f in path.glob(pattern=f"{name}-*.dist-info")]
-            pkg_dir = Path(path, name)
-            if pkg_dir.exists() and pkg_dir.is_dir():
-                del_lst.append(pkg_dir)
-            for p in del_lst:
-                shutil.rmtree(p)
-        else:
-            cmd = f"{sys.executable} -m pip uninstall -v -y {name}"
-            ret, _ = self.run_build_cmd(cmd=cmd, check=True, pg_desc="pip")
-            ret.check_returncode()
-        logging.info("Success uninstall %s package%s", name, f" from {path}" if path else "")
 
     def cmake_clean(self):
         """清理中间结果, 清理内容包括构建树, 安装树全部内容.
         """
-        if self.clean:
+        if self.build.clean:
             if self.build_root.exists():
                 logging.info("Clean Build-Tree(%s)", self.build_root)
                 shutil.rmtree(self.build_root)
@@ -902,7 +1040,7 @@ class BuildCtrl(CMakeParam):
 
     def py_clean(self):
         self.cmake_clean()
-        if not self.clean:
+        if not self.build.clean:
             return
         pkg_src = Path(self.src_root, "python/pypto")
         path_lst = [
@@ -937,9 +1075,8 @@ class BuildCtrl(CMakeParam):
         cmd += self.tests.get_cfg_cmd()
         # 执行
         update_env = self.get_cfg_update_env()
-        update_env["CCACHE_BASEDIR"] = str(self.src_root)
         logging.info("CMake Configure, Cmd: %s", cmd)
-        ret, _ = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True)
+        ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True)
         ret.check_returncode()
 
     def cmake_build(self):
@@ -947,20 +1084,32 @@ class BuildCtrl(CMakeParam):
         """
         # prof使能初始化
         update_env = {}
+        if self.model.prof == 1 or self.model.prof == 2:
+            update_env = wf.ini(self.build_root, self.model.prof, self.model.pe)
         if self.build.job_num:
             update_env["PYPTO_UTEST_PARALLEL_NUM"] = str(self.build.job_num)
-        update_env["CCACHE_BASEDIR"] = str(self.src_root)
         cmd_list = self.build.get_build_cmd_lst(cmake=self.cmake, binary_path=self.build_root)
         for i, c in enumerate(cmd_list, start=1):
+            ts = datetime.now(tz=timezone.utc)
             c += " --verbose" if self.verbose else ""
             logging.info("CMake Build(%s/%s), Cmd: %s", i, len(cmd_list), c)
             try:
-                ret, duration = self.run_build_cmd(cmd=c, update_env=update_env, check=True)
+                ret = self.run_build_cmd(cmd=c, update_env=update_env, check=True, timeout=self.build.timeout)
             except subprocess.CalledProcessError as e:
                 logging.info(f"Run cmd {c} failed, ERROR CODE: {e.returncode}")
+                # 一键绘图
+                if self.model.prof == 1 or self.model.prof == 2:
+                    wf.work_flow_plot(self.build_root, self.model.prof, self.model.pe)
                 raise
             ret.check_returncode()
-            logging.info("CMake Build(%s/%s), Cmd: %s, Duration %s sec", i, len(cmd_list), c, duration)
+            duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
+            duration_str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
+            logging.info("CMake Build(%s/%s), Cmd: %s, Duration %s sec", i, len(cmd_list), c, duration_str)
+            # 超时时长更新, 当指定多 target 时, 各 target 共享总超时时长
+            self.build.timeout = self.build.timeout - duration if self.build.timeout else self.build.timeout
+        # 一键绘图
+        if self.model.prof == 1 or self.model.prof == 2:
+            wf.work_flow_plot(self.build_root, self.model.prof, self.model.pe)
 
     def py_build(self):
         """whl 包编译处理
@@ -997,10 +1146,13 @@ class BuildCtrl(CMakeParam):
             cmd = f"{sys.executable} -m build --outdir={self.install_root}"
             cmd += f" --no-isolation" if not self.feature.whl_isolation else ""
             cmd += f" {self._get_setuptools_bdist_wheel_config_setting()}"
+            ts = datetime.now(tz=timezone.utc)
             logging.info("Begin Build whl, Cmd: %s", cmd)
-            ret, duration = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, pg_desc="build")
+            ret = self.run_build_cmd(cmd=cmd, update_env=update_env, check=True, timeout=self.build.timeout)
             ret.check_returncode()
-            logging.info("Success Build whl, Cmd: %s, Duration %s sec", cmd, duration)
+            duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
+            duration_str = f"{duration}/{self.build.timeout}" if self.build.timeout else f"{duration}"
+            logging.info("Success Build whl, Cmd: %s, Duration %s sec", cmd, duration_str)
 
     def py_tests(self):
         if not self.tests.utest.enable and not self.tests.stest.enable and not self.tests.example.enable:
@@ -1015,8 +1167,8 @@ class BuildCtrl(CMakeParam):
             self.pip_install(whl=whl, dest=dist, opt="--no-compile --no-deps")  # 安装 whl 包
 
         # 执行用例, UTest
-        # 在 Python 3.12 中, pytest-xdist 通过 os.fork() 创建子进程时会产生 DeprecationWarning.
-        # 使用 -W ignore::DeprecationWarning 参数来忽略该警告.
+        # 在 Python 3.12 中，pytest-xdist 通过 os.fork() 创建子进程时会产生 DeprecationWarning。
+        # 使用 -W ignore::DeprecationWarning 参数来忽略该警告。
         if self.build.job_num is not None and self.build.job_num > 0:
             n_workers = str(self.build.job_num)
         else:
@@ -1063,9 +1215,11 @@ class BuildCtrl(CMakeParam):
             ori_env_python_path = origin_env.get(self._PYTHONPATH, "")
             act_env_python_path = f"{dist}:{ori_env_python_path}" if ori_env_python_path else f"{dist}"
             update_env.update({self._PYTHONPATH: act_env_python_path})
+        ts = datetime.now(tz=timezone.utc)
         logging.info("pytest run, Cmd: %s", cmd)
-        ret, duration = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env, pg_desc="pytest")
+        ret = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)
         ret.check_returncode()
+        duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
         logging.info("pytest run, Cmd: %s, Duration %s sec", cmd, duration)
 
     def _tests_enable(self) -> bool:
@@ -1110,10 +1264,7 @@ class SubCommandMgr:
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s', level=logging.INFO)
-    try:
-        g_duration = BuildCtrl.main()
-        logging.info("Build[CI] Finish, duration %s secs.", g_duration)
-    except KeyboardInterrupt:
-        logging.error("Operation cancelled by user")
-    except subprocess.TimeoutExpired:
-        logging.error("Operation timeout")
+    ts = datetime.now(tz=timezone.utc)
+    BuildCtrl.main()
+    duration = int((datetime.now(tz=timezone.utc) - ts).seconds)
+    logging.info("Build[CI] Success, duration %s secs.", duration)

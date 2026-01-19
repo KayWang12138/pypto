@@ -56,7 +56,7 @@ public:
         config::Reset();
         config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
         config::SetHostConfig(KEY_STRATEGY, "SplitReshapeTestStrategy");
-        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     }
     void TearDown() override {}
 };
@@ -1076,12 +1076,11 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll) {
     EXPECT_EQ(viewOpAttribute->GetFromOffset(), inputView->offset);
 }
 
-void RunPassStra(Function &func, const PassName passName) {
-    std::string passNameStr = PassNameStr(passName);
-    std::string strategyName = passNameStr + "Strategy";
+void RunPassStra(Function &func, const std::string passName) {
+    std::string strategyName = passName + "Strategy";
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy(strategyName, {
-        {passNameStr, passName},
+        {passName, passName},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), func, strategyName), SUCCESS);
 }
@@ -1164,10 +1163,10 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     
-    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    RunPassStra(*func, "ExpandFunction");
     CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
 
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
     CheckOpReshape(func, CheckReshapeStruct{tiledorigShape, kSizeOne, false, {}, tiledreshapeShape, kSizeOne, false, {}, kNumTwo});
 }
 
@@ -1208,10 +1207,10 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
 
-    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    RunPassStra(*func, "ExpandFunction");
     CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeFour, false, {}, kNumOne});
 
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
     CheckOpReshape(func, CheckReshapeStruct{tiledorigShape, kSizeOne, false, {}, tiledreshapeShape, kSizeTwo, true, tiledviewShape, kNumTwo});
 }
 
@@ -1252,10 +1251,10 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase3");
 
-    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    RunPassStra(*func, "ExpandFunction");
     CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeFour, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
 
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
     CheckOpReshape(func, CheckReshapeStruct{tiledreshapeShape, kSizeTwo, true, tiledassembleShape, tiledviewShape, kSizeOne, true, tiledviewShape, kNumTwo});
 }
 
@@ -1389,7 +1388,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchSTest) {
 
     auto inputs = BuildDynPerfectlyMatchFunc(func);
 
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
 
     std::unordered_map<LogicalTensorPtr, int> inputsWeight = {
         {inputs[0], 1},
@@ -1506,7 +1505,7 @@ TEST_F(TestSplitReshapePass, TestDynBeCoveredSTest) {
     std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
 
     auto inputs = BuildDynBeCoveredFunc(func);
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
 
     std::unordered_map<LogicalTensorPtr, int> inputsWeight = {{inputs[0], 1}, {inputs[1], 10}};
     std::unordered_map<LogicalTensorPtr, Operation*> newAssembles = {{inputs[0], nullptr}, {inputs[1], nullptr}};
@@ -1625,7 +1624,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
     std::vector<SymbolicScalar> dynInputShape = {kNumTwo, kNumTwo, SymbolicScalar("a")};
 
     auto inputs = BuildDynPerfectlyMatchWithAllFunc(func);
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
 
     std::unordered_map<LogicalTensorPtr, int> inputsWeight = {
         {inputs[0], 1}, {inputs[1], 10},
@@ -1714,9 +1713,9 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase5");
 
-    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    RunPassStra(*func, "ExpandFunction");
     int OpNum = CheckOpNum(func, kNumOne);
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
     int AfterOpNum = CheckOpNum(func, kNumOne);
     EXPECT_EQ(AfterOpNum, OpNum);
 }
@@ -1754,10 +1753,10 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase6");
 
-    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    RunPassStra(*func, "ExpandFunction");
 
     CheckOpNum(func, kNumOne);
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
     CheckOpNum(func, kNumOne);
 }
 
@@ -1796,10 +1795,10 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase7");
 
-    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    RunPassStra(*func, "ExpandFunction");
 
     CheckOpNum(func, kNumOne);
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
     CheckOpNum(func, kNumOne);
 }
 
@@ -1857,7 +1856,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase4) {
     func->outCasts_.push_back(output2);
 
     CheckOpNum(func.get(), kNumOne);
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
     CheckOpNum(func.get(), kNumOne);
 }
 
@@ -1893,9 +1892,9 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
 
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase8");
 
-    RunPassStra(*func, PassName::EXPAND_FUNCTION);
+    RunPassStra(*func, "ExpandFunction");
     int OpNum = CheckOpNum(func, kNumOne);
-    RunPassStra(*func, PassName::SPLIT_RESHAPE);
+    RunPassStra(*func, "SplitReshape");
     int AfterOpNum = CheckOpNum(func, kNumOne);
     EXPECT_EQ(AfterOpNum, OpNum);
 }

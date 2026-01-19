@@ -1583,22 +1583,16 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             npu::tile_fwk::Distributed::TiledShmemSet(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND: {
-            npu::tile_fwk::Distributed::TiledMoeDistributedCombineSend(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_SHMEM_MOE_COMBINE_SEND: {
+            npu::tile_fwk::Distributed::TiledShmemMoeCombineSend(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE: {
-            npu::tile_fwk::Distributed::TiledMoeDistributedCombineReceive(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE: {
+            npu::tile_fwk::Distributed::TiledShmemMoeCombineReceive(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_VIEW_TYPE: {
             TiledViewTypeOperation(function, tileShape, iOperand[0], oOperand[0]);
-            break;
-        }
-        case Opcode::OP_BLOCK_CALL: {
-            auto &newOp = function.AddRawOperation(Opcode::OP_BLOCK_CALL, iOperand, oOperand, true);
-            newOp.SetOpAttribute(op.GetOpAttribute());
-            newOp.SetAttr(OpAttributeKey::dontTouch, true);
             break;
         }
         default: {

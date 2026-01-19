@@ -55,7 +55,9 @@ def check_args(
 
 @pypto.jit(
     runtime_options={
-    "stitch_cfgcache_size": 2500000},
+    "cfgcache_device_task_num": 100,
+    "cfgcache_root_task_num": 1000,
+    "cfgcache_leaf_task_num": 10000},
     host_options={"only_codegen": True},
 )
 def select_experts_mm_kernel(hidden_states, mm_weight, router_logits_out):
@@ -134,6 +136,7 @@ def test_select_experts_mm():
         with torch.npu.graph(g):
             select_experts_mm_kernel(*pto_inputs, *pto_outputs)
         g.replay()
+        pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
         # 5. 与PyTorch参考实现对比
         result = torch.matmul(hidden_states, mm_weight.t())
@@ -184,6 +187,7 @@ def gate(
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     select_experts_mm_kernel(*pto_inputs, *pto_outputs)
+    pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
 
 def main():

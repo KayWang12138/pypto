@@ -64,7 +64,7 @@ enum class MISOIdx : unsigned {
 };
 
 // multi input multi output
-enum class MIMOIdx : unsigned {
+enum class MIMOIdx : int {
     DST_IDX = 0,
     TMP_IDX = 1,
     SRC0_IDX = 2,

@@ -54,13 +54,13 @@ public:
     {
         CostModel::PvData::Instance().Enable();
         CostModel::SoftMemory::Instance().Enable();
-        oriPvLevel = config::GetSimConfig(KEY_PV_LEVEL, 0);
-        config::SetSimConfig(KEY_PV_LEVEL, level);
+        oriPvLevel = config::GetSimConfig("PV_LEVEL", 0);
+        config::SetSimConfig("PV_LEVEL", level);
     }
 
     void ResetPVModelConfig()
     {
-        config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel);
+        config::SetSimConfig("PV_LEVEL", oriPvLevel);
     }
 
 protected:
@@ -99,7 +99,7 @@ void TestMatmulTrans(int m, int k, int n, string dataPath) {
 
         npu::tile_fwk::config::SetBuildStatic(true);
         FUNCTION("Matmul_T", {mat_a, mat_b, mat_c}) {
-            mat_c = npu::tile_fwk::Matrix::Matmul(OutputDtype, mat_a, mat_b, false, true);  // result dtype
+            mat_c = npu::tile_fwk::Matrix::Matmul<false, true>(OutputDtype, mat_a, mat_b);  // result dtype
         }
     }
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
@@ -127,8 +127,8 @@ public:
     static void TearDownTestCase() {}
 
     void SetUp() override {
-        cacheEnable = config::GetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, false);
-        config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, false);
+        cacheEnable = config::GetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
+        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
@@ -138,20 +138,20 @@ public:
     }
 
     void TearDown() override {
-        config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, cacheEnable);
+        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, cacheEnable);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         ResetPVModelConfig();
     }
 
     void EnablePVModel(int level)
     {
-        oriPvLevel = config::GetSimConfig(KEY_PV_LEVEL, 0);
-        config::SetSimConfig(KEY_PV_LEVEL, level);
+        oriPvLevel = config::GetSimConfig("PV_LEVEL", 0);
+        config::SetSimConfig("PV_LEVEL", level);
     }
 
     void ResetPVModelConfig()
     {
-        config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel);
+        config::SetSimConfig("PV_LEVEL", oriPvLevel);
     }
 
 protected:
@@ -174,7 +174,7 @@ void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Ten
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
-            Tensor t2 = Matrix::Matmul(DataType::DT_FP32, qi, ki, false, true);
+            Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, ki);
             // conat((t0s + t1, t1)) @ concat (t0s, t1)^T
             Assemble(t2, {idx * s, 0}, out);
         }

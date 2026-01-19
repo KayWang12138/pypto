@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include "distributed_op_test_suite.h"
 #include "distributed_op_test_common.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -67,8 +68,11 @@ void TestShmemMoeDispatch(OpTestParam &testParam)
         RawTensorData::CreateTensor(combineInfo, std::vector<int32_t>(combineInfoEleNum, -1))
     });
 
+    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
     DeviceLauncherConfig config;
     config.runModel = false;
+    config.hcclContext = hcclContext;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     auto expandXOutPut = ProgramData::GetInstance().GetOutputData(0);

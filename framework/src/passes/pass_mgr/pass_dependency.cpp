@@ -21,50 +21,30 @@
 #define MODULE_NAME "PassDependency"
 
 namespace npu::tile_fwk {
-PassDependency &PassDependency::Instance() {
+PassDependency &PassDependency::Instance(){
     static PassDependency instance;
     return instance;
 }
 
 PassDependency::PassDependency() {
-    RegisterPreDependencies();
-    RegisterSequenceDependencies();
+    auto registerDependency = [this](const std::string &name, const std::vector<std::string> &dependencies) {
+        passDependencies_[name] = std::move(dependencies);
+    };
+
+    registerDependency(PassNameStr(PassName::SUBGRAPH_TO_FUNCTION), {PassNameStr(PassName::GRAPH_PARTITION),
+        PassNameStr(PassName::PRE_GRAPH_PROCESS), PassNameStr(PassName::INPLACE_PROCESS), PassNameStr(PassName::INFER_DYN_SHAPE)});
     APASS_LOG_DEBUG_F(Elements::Manager, "Strategy dependency checker initialized.");
 }
 
-void PassDependency::RegisterPreDependencies() {
-    auto registerDependency = [this](const PassName &name, const std::vector<PassName> &dependencies) {
-        preDependencies_[name] = std::move(dependencies);
-    };
-
-    registerDependency(PassName::EXPAND_FUNCTION, {PassName::AUTO_CAST, PassName::INFER_MEMORY_CONFLICT});
-    registerDependency(PassName::GRAPH_PARTITION,
-        {PassName::DUPLICATE_OP, PassName::SPLIT_LARGE_FANOUT_TENSOR, PassName::SPLIT_RESHAPE, PassName::SPLIT_K});
-    registerDependency(PassName::SUBGRAPH_TO_FUNCTION,
-        {PassName::GRAPH_PARTITION, PassName::REPLACE_TENSOR, PassName::PRE_GRAPH_PROCESS, PassName::INFER_DYN_SHAPE});
-    registerDependency(PassName::INSERT_SYNC, {PassName::OOO_SCHEDULE, PassName::COPY_OUT_RESOLVE});
-}
-
-void PassDependency::RegisterSequenceDependencies() {
-    auto registerDependency = [this](const PassName &name, const std::vector<PassName> &dependencies) {
-        sequenceDependencies_[name] = std::move(dependencies);
-    };
-
-    registerDependency(PassName::GRAPH_PARTITION,
-        {PassName::GRAPH_PARTITION, PassName::REDUCE_COPY_MERGE, PassName::N_BUFFER_MERGE,
-            PassName::L1_COPY_IN_REUSE_MERGE, PassName::INTRA_SUBGRAPH_ADAPTER, PassName::GENERATE_MOVE_OP});
-}
-
-Status PassDependency::CheckStrategyDependency(const std::string &strategyName, const std::vector<PassName> &passes) {
+Status PassDependency::CheckStrategyDependency(const std::string &strategyName, const std::vector<std::string> &passes) {
     APASS_LOG_DEBUG_F(Elements::Manager, "Start dependency check for strategy %s.", strategyName.c_str());
     bool needWarn = false;
-    std::unordered_set<PassName> processedPasses;
-    std::unordered_set<PassName> duplicates;
-    std::optional<PassName> prePass;
+    std::unordered_set<std::string> processedPasses;
+    std::unordered_set<std::string> duplicates;
+    std::string prePass;
 
-    for (size_t i = 0; i < passes.size(); i++) {
-        const PassName pName = passes[i];
-        if (prePass.has_value() && prePass.value() == pName) {
+    for (auto &pName : passes) {
+        if (!prePass.empty() && prePass == pName) {
             needWarn = true;
             duplicates.emplace(pName);
             prePass = pName;
@@ -72,16 +52,12 @@ Status PassDependency::CheckStrategyDependency(const std::string &strategyName, 
         }
         prePass = pName;
 
-        if (CheckSequenceDependency(i, strategyName, passes) != SUCCESS) {
-            needWarn = true;
-        }
-
         processedPasses.emplace(pName);
-        auto it = preDependencies_.find(pName);
-        if (it == preDependencies_.end()) {
+        auto it = passDependencies_.find(pName);
+        if (it == passDependencies_.end()) {
             continue;
         }
-        std::vector<PassName> missingDeps;
+        std::vector<std::string> missingDeps;
         for (const auto &dependentPass : it->second) {
             if (processedPasses.find(dependentPass) == processedPasses.end()) {
                 missingDeps.push_back(dependentPass);
@@ -91,43 +67,15 @@ Status PassDependency::CheckStrategyDependency(const std::string &strategyName, 
             continue;
         }
         needWarn = true;
-        APASS_LOG_WARN_F(Elements::Manager,
-            "In strategy %s, %s is missing dependencies, %s are required; Please insert %s before %s.",
-            strategyName.c_str(), PassNameStr(pName),
-            CommonUtils::ContainerToStr<std::vector<PassName>>(it->second).c_str(),
-            CommonUtils::ContainerToStr<std::vector<PassName>>(missingDeps).c_str(), PassNameStr(pName));
+        APASS_LOG_WARN_F(Elements::Manager, "In strategy %s, %s is missing dependencies, %s are required; Please insert %s before %s.",
+            strategyName.c_str(), pName.c_str(), CommonUtils::ContainerToStr(it->second).c_str(),
+            CommonUtils::ContainerToStr(missingDeps).c_str(), pName.c_str());
     }
     if (duplicates.size() != 0) {
-        APASS_LOG_WARN_F(Elements::Manager,
-            "In strategy %s, %s are each arranged at least twice in a row; Please make sure all are needed.",
-            strategyName.c_str(), CommonUtils::ContainerToStr<std::unordered_set<PassName>>(duplicates).c_str());
+        APASS_LOG_WARN_F(Elements::Manager, "In strategy %s, %s are each arranged at least twice in a row; Please make sure all are needed.",
+            strategyName.c_str(), CommonUtils::ContainerToStr(duplicates).c_str());
     }
     APASS_LOG_DEBUG_F(Elements::Manager, "Finish dependency check for strategy %s.", strategyName.c_str());
-    return needWarn ? WARNING : SUCCESS;
+    return needWarn ? WARNING: SUCCESS;
 }
-
-Status PassDependency::CheckSequenceDependency(
-    size_t index, const std::string &strategyName, const std::vector<PassName> &passes) {
-    auto it = sequenceDependencies_.find(passes[index]);
-    if (it == sequenceDependencies_.end()) {
-        return SUCCESS;
-    }
-    std::vector<PassName> &expectedPasses = it->second;
-    std::vector<PassName> actualPasses;
-
-    for (size_t i = 0; i < expectedPasses.size(); i++) {
-        if (index + i >= passes.size() || passes[index + i] != expectedPasses[i]) {
-            size_t end = std::min(passes.size(), index + expectedPasses.size());
-            actualPasses.assign(passes.begin() + index, passes.begin() + end);
-            APASS_LOG_WARN_F(Elements::Manager,
-                "In strategy %s, %s has mismatched sequence dependencies. Expected sequence: %s, but actual sequence "
-                "is: %s.",
-                strategyName.c_str(), PassNameStr(passes[index]),
-                CommonUtils::ContainerToStr<std::vector<PassName>>(expectedPasses).c_str(),
-                CommonUtils::ContainerToStr<std::vector<PassName>>(actualPasses).c_str());
-            return WARNING;
-        }
-    }
-    return SUCCESS;
-}
-} // namespace npu::tile_fwk
+} //namespace npu::tile_fwk

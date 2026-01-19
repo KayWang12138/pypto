@@ -38,7 +38,7 @@ print(t.format)
 
 结果示例如下：
 
-```text
+```python
 输出：TileOpFormat.TILEOP_ND
 ```
 

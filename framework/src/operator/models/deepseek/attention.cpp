@@ -62,7 +62,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
 
     std::vector<int> paOutShape = {b * s * n, kvLoraRank};
 
-    config::SetPassConfig("PVC2_OOO", "InferMemoryConflict", KEY_DISABLE_PASS, true);
+    config::SetPassConfig("PVC2_OOO", "InferMemoryConflict", "DISABLE_PASS", true);
 
     FUNCTION("main",
         {tokenX, wDq, wUqQr, wUk, wDkvKr, gammaCq, gammaCkv, sin, cos, cacheIndex, kvCache, krCache,
@@ -222,7 +222,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, 1 * NUM_1024 * NUM_1024);
         config::SetPassOption(SG_PG_UPPER_BOUND, NUM_100000);
         config::SetPassOption(SG_PARALLEL_NUM, NUM_2);
-        config::SetOperationConfig(KEY_FORCE_COMBINE_AXIS, true);
+        config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
 
         LOOP("LOOP_L0_bIdx_pa", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, batchSizeScalar, 1), {}, true) {
             SymbolicScalar curSeq = GetTensorData(actSeqs, {bIdx});
@@ -263,7 +263,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]});
                     config::SetSemanticLabel("paQkMM");
                     TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
-                    auto sij = Matrix::Matmul(DataType::DT_FP32, qi, kj, false, true); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
+                    auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj); // (curNTile, dN+dR), (curS2Tile, dN+dR) -> (curNTile, curS2Tile)
                     config::SetSemanticLabel("paQkvec1");
                     TileShape::Current().SetVecTile(v1Tile[0], v1Tile[1]);
                     auto sijScale = Mul(sij, Element(DataType::DT_FP32, static_cast<double>(softmaxScale))); // (curNTile, curS2Tile)
@@ -280,7 +280,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         config::SetSemanticLabel("paKvMm");
                         TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
-                        auto oiTmp = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
+                        auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         IF (IsLoopEnd(bn, bnPerBatch)) {
                             config::SetSemanticLabel("paKvVec2");
@@ -312,7 +312,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
                         config::SetSemanticLabel("paUpdateMM2");
                         TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
-                        auto q1 = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
+                        auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
                         TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                         auto q2 = Mul(q1, t4);    // (nTileCur, dN), (nTileCur, 1) -> (nTileCur, dN)
                         auto oiTmp = Add(q3, q2); // (nTileCur, dN), (nTileCur, dN) -> (nTileCur, dN)
@@ -333,7 +333,7 @@ void Attention(const Tensor &tokenX, const Tensor &wDq, const Tensor &wUqQr, con
         config::SetPassOption(MG_COPYIN_UPPER_BOUND, 1 * NUM_1024 * NUM_1024);
         config::SetPassOption(SG_PG_UPPER_BOUND, NUM_500000);
         config::SetPassOption(SG_PARALLEL_NUM, NUM_20);
-        config::SetOperationConfig(KEY_FORCE_COMBINE_AXIS, false);
+        config::SetOperationConfig("FORCE_COMBINE_AXIS", false);
         config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{0, 4}});
         TileShape::Current().SetMatrixSize({});
         LOOP("PaPost", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(bLoop), {}, true) {

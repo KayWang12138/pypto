@@ -1824,6 +1824,7 @@ void TestInnerAssembleByFrameWork() {
     Tensor lens(DT_INT32, {N}, "len");
     Tensor dst(dType, {N, M}, "dst");
 
+    T startValue = uniform(gen);
     std::vector<T> aData(ShapeSize(a.GetShape()), 0);
     for (size_t i = 0; i < aData.size(); i++) {
         aData[i] = uniform(gen);
@@ -2012,7 +2013,7 @@ void TestInnerAssembleMultiView() {
         ASSERT(false);
     }
 
-    constexpr int N = 20;
+    constexpr int N = 5;
     constexpr int M = 1032;
 
     ASSERT(N % 5 == 0);

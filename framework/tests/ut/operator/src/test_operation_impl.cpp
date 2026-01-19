@@ -14,13 +14,13 @@
  */
 
 #include "gtest/gtest.h"
-#include "interface/interpreter/calc.h"
+
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/interpreter/calc.h"
+
 using namespace npu::tile_fwk;
 
 class OperationImplTest : public testing::Test {
@@ -368,7 +368,7 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
                 auto inputB =
                     isTransB ? View(matB, {n, k}, {(int)index * n, 0}) : View(matB, {k, n}, {(int)index * k, 0});
                 TileShape::Current().SetMatrixSize({m, k, n});
-                auto outTensor = npu::tile_fwk::Matrix::Matmul(outputType, inputA, inputB, false, isTransB);
+                auto outTensor = npu::tile_fwk::Matrix::Matmul<false, isTransB>(outputType, inputA, inputB);
                 std::vector<int64_t> pairSecond = {(int)index * m, 0};
                 auto pair = std::make_pair(outTensor, pairSecond);
                 assembleVec.emplace_back(pair);
@@ -458,41 +458,6 @@ TEST_F(OperationImplTest, test_Rsqrt_FP32) {
     FUNCTION("TestRsqrt") {
         result = Rsqrt(operand1);
     }
-}
-
-TEST_F(OperationImplTest, TestIndexPut_) {
-    constexpr int TILE_SHAPE = 8;
-    TileShape::Current().SetVecTile(TILE_SHAPE);
-    Shape shapeSelf({128, 8, 8});
-    Shape shapeValues({128, 8});
-    Shape shapeIndices({128});
-    Tensor self(DT_INT32, shapeSelf, "self");
-    Tensor values(DT_INT32, shapeValues, "values");
-    Tensor indices0(DT_INT32, shapeIndices, "indices0");
-    Tensor indices1(DT_INT32, shapeIndices, "indices1");
-    std::vector<Tensor> indices{indices0, indices1};
-    bool accumulate = false;
-    Tensor result;
-    FUNCTION("TestIndexPut_") {
-        IndexPut_(self, indices, values, accumulate);
-    }
-}
-
-TEST_F(OperationImplTest, TestIndexPut_torch) {
-    Shape shapeSelf({16, 16});
-    Shape shapeValues({8, 16});
-    Shape shapeIndices({8});
-    Shape shapeOffset({0, 0});
-    Shape shapeOffset1({0});
-    auto outData = std::make_shared<RawTensorData>(DataType::DT_FP32, shapeSelf);
-    auto out = std::make_shared<LogicalTensorData>(outData, shapeSelf, shapeOffset);
-    auto selfData = std::make_shared<RawTensorData>(DataType::DT_FP32, shapeSelf);
-    auto self = std::make_shared<LogicalTensorData>(selfData, shapeSelf, shapeOffset);
-    auto indicesData = std::make_shared<RawTensorData>(DataType::DT_INT32, shapeIndices);
-    auto indices = std::make_shared<LogicalTensorData>(indicesData, shapeIndices, shapeOffset1);
-    auto valuesData = std::make_shared<RawTensorData>(DataType::DT_FP32, shapeValues);
-    auto values = std::make_shared<LogicalTensorData>(valuesData, shapeValues, shapeOffset); 
-    npu::tile_fwk::calc::IndexPut(out, self, {indices}, values, false);
 }
 
 TEST_F(OperationImplTest, test_Expand_8_1_to_8_8) {
@@ -608,27 +573,9 @@ TEST_F(OperationImplTest, test_Gather) {
     Tensor operand1(DT_FP16, {8, 16}, "operand1");
     Tensor operand2(DT_INT32, {8, 16}, "operand1");
     Tensor result;
-    FUNCTION("TestGather") {
+    FUNCTION("TestMinS") {
         result = Gather(operand1, operand2, -1);
     }
-}
-TEST_F(OperationImplTest, test_GatherINUB_torch) {
-    Shape paramShape({4, 16});
-    Shape indicesShape({1, 4});
-    Shape pagetableShape({1, 2});
-    Shape outShape({4, 16});
-    std::vector<int64_t> offset({0, 0});
-
-    Tensor result;
-    auto paramData = std::make_shared<RawTensorData>(DataType::DT_FP16, paramShape);
-    auto param = std::make_shared<LogicalTensorData>(paramData, paramShape, offset);
-    auto indicesData = std::make_shared<RawTensorData>(DataType::DT_INT32, indicesShape);
-    auto indices = std::make_shared<LogicalTensorData>(indicesData, indicesShape, offset);
-    auto pagetableData = std::make_shared<RawTensorData>(DataType::DT_INT32, pagetableShape);
-    auto pagetable = std::make_shared<LogicalTensorData>(pagetableData, pagetableShape, offset);
-    auto outData = std::make_shared<RawTensorData>(DataType::DT_FP16, outShape);
-    auto out = std::make_shared<LogicalTensorData>(outData, outShape, offset);
-    npu::tile_fwk::calc::GatherINUB(out, param, indices, pagetable, 2, -2);
 }
 
 TEST_F(OperationImplTest, test_Scatter_FP16) {
@@ -669,7 +616,7 @@ TEST_F(OperationImplTest, test_Add_Brcb) {
     Tensor input0(DT_FP32, {16, 16}, "input0");
     Tensor input1(DT_FP32, {16, 1}, "input0");
     Tensor result;
-    config::SetOperationConfig(KEY_COMBINE_AXIS, true);
+    config::SetOperationConfig("COMBINE_AXIS", true);
     FUNCTION("TestAddBrcb") {
         result = Add(input0, input1);
     }

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -98,8 +98,6 @@ public:
 
     std::string GenIndexAddOp() const;
 
-    std::string GenIndexPutOp() const;
-
     std::string GenIndexOutCastOp() const;
 
     std::string GenCumSumOp() const;
@@ -129,11 +127,11 @@ public:
     std::string GenDistOp() const;
     std::string GetTemplateDType() const;
     std::string GenTemplateParams() const;
-    std::string GenExtraTemplateParamsForMoeDistributedCombine(int32_t operandIndex) const;
+    void GenExtraTemplateParamsForMoeCombine(std::ostringstream &oss, int32_t operandIndex) const;
     std::string GenOffsets(int32_t operandIndex, int32_t dim) const;
     std::string GenShapes(int32_t operandIndex, int32_t dim) const;
     std::string GenRawShapes(int32_t operandIndex, int32_t dim) const;
-    std::string GenExtraParamsStr() const;
+    std::string GenOffsetsAndRawShapes() const;
     std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
 
     std::string GenAicpuCallOp() const;
@@ -152,20 +150,18 @@ public:
     void UpdateSaturateStatus(FloatSaturateStatus &fs);
 
 private:
-    std::string QueryTileTensorNameByIdx(int paramIdx) const;
-
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForSignal() const;
-    std::string GenTemplateParamsForMoeDistributedCombineSend() const;
-    std::string GenTemplateParamsForMoeDistributedCombineReceive() const;
+    std::string GenTemplateParamsForMoeCombineSend() const;
+    std::string GenTemplateParamsForMoeCombineReceive() const;
     std::string GenTemplateParamsForSet() const;
     std::string GenTemplateParamsDefault() const;
 
     std::string GenOffsetsAndRawShapesForShmemPutAndGet() const;
     std::string GenOffsetsAndRawShapesForShmemPutAndGetUB() const;
     std::string GenOffsetsAndRawShapesForShmemSignal() const;
-    std::string GenOffsetsAndRawShapesForMoeDistributedCombineSend() const;
-    std::string GenOffsetsAndRawShapesForMoeDistributedCombineReceive() const;
+    std::string GenOffsetsAndRawShapesForShmemMoeCombineSend() const;
+    std::string GenOffsetsAndRawShapesForShmemMoeCombineReceive() const;
     std::string GenOffsetsAndRawShapesForSendToRoutingExpert() const;
     std::string GenOffsetsAndRawShapesForSendToSharedExpert() const;
     std::string GenOffsetsAndRawShapesForCopyToLocalExpert() const;
@@ -323,7 +319,6 @@ private:
     std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
         const std::string &dstDtypeStr) const;
     std::string PrintOneHot(const PrintUnaryParam &param) const;
-    std::string PrintOneHotLayout() const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;
@@ -356,9 +351,6 @@ private:
     std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
 
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
-
-    std::string PrintIndexPut(const PrintIndexPutParam &param) const;
-    std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
 
