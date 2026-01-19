@@ -341,16 +341,11 @@ private:
 
     void RunPvModel(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs)
     {
-        if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+        if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM || std::getenv("ASCEND_HOME_PATH") == nullptr) {
             return;
         }
-        try {
-            pv_ = CostModel::PvModelFactory::CreateDyn();
-            model_ = std::make_shared<AiCorePvModelImpl>(pv_);
-        }  catch (const std::runtime_error& e) {
-            std::cout << "init pv error." << std::endl;
-            return;
-        }
+        pv_ = CostModel::PvModelFactory::CreateDyn();
+        model_ = std::make_shared<AiCorePvModelImpl>(pv_);
         const int maxCpuNum = 6;
         pv_->Codegen(function_);
         BuildPvKernelArgs(kArgs, inputs, outputs);
