@@ -86,7 +86,7 @@ Function* FunctionClone::CloneFunctionByComponent(const InternalComponentInfo& c
     // 复制参数配置
     cloneFunc->paramConfigs_ = originalMixFunc->paramConfigs_;
     ALOG_DEBUG_F("Called UpdateBelongToThis for new function: %s", leafName.c_str());
-    CopyInferParamIndexInfo(cloneFunc);
+    CopyInferParamIndexInfo();
     auto* resultFunc = cloneFunc.get();
     return resultFunc;
 }
