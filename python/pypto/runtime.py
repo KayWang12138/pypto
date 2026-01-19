@@ -238,7 +238,7 @@ class _JIT:
                 self._handler_cache[input_hash] = self._handler
                 pypto_impl.BuildCache(self._handler, in_out_tensors_data, [])
                 import shutil
- 	            try:
+                try:
  	                shutil.rmtree(
  	                    self._output_path,
  	                    ignore_errors=True,  # 忽略删除失败的文件（如只读文件）
