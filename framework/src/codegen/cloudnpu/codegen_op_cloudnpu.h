@@ -190,6 +190,7 @@ private:
 
     void UpdateTileTensorInfo();
     void UpdateLoopInfo();
+    std::vector<SymbolicScalar> GetLoopAxes();
     ShapeInLoop BuildShapeInLoop(int paramIdx, size_t loopDepth);
     bool ShouldSkipProcInLoop(int paramIdx);
 
