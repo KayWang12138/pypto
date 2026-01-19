@@ -12,7 +12,6 @@
  * \file index_outcast.h
  * \brief
  */
-
 #ifndef TILEOP_TILE_OPERATOR_INDEX_OUTCAST__H
 #define TILEOP_TILE_OPERATOR_INDEX_OUTCAST__H
 
@@ -22,41 +21,41 @@
 template <unsigned cacheMode, unsigned blockSize, typename T0, typename T1, typename T2>
 TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
 {
-    constexpr auto expectSize = 5; // 所有张量均为 5D
+    constexpr auto expectSize = 5; 
 
-    // src: data [1, B, S, 1, D]
     const auto uLayout = src.GetLayout();
-    auto uShape1 = uLayout.template GetShapeDim<1, expectSize>(); // B
-    auto uShape2 = uLayout.template GetShapeDim<2, expectSize>(); // S
-    auto uShape4 = uLayout.template GetShapeDim<4, expectSize>(); // D
+    auto uShape1 = uLayout.template GetShapeDim<1, expectSize>(); 
+    auto uShape2 = uLayout.template GetShapeDim<2, expectSize>(); 
+    auto uShape4 = uLayout.template GetShapeDim<4, expectSize>(); 
     auto uStride1 = uLayout.template GetStrideDim<1, expectSize>();
     auto uStride2 = uLayout.template GetStrideDim<2, expectSize>();
-    auto uStride4 = uLayout.template GetStrideDim<4, expectSize>(); // should be 1
+    auto uStride4 = uLayout.template GetStrideDim<4, expectSize>(); 
 
-    // src1: indices [1, 1, 1, B, S]
+    
     const auto iLayout = src1.GetLayout();
-    auto iShape3 = iLayout.template GetShapeDim<3, expectSize>(); // B
-    auto iShape4 = iLayout.template GetShapeDim<4, expectSize>(); // S
-    auto iStride3 = iLayout.template GetStrideDim<3, expectSize>(); // stride of B
-    auto iStride4 = iLayout.template GetStrideDim<4, expectSize>(); // should be 1
+    auto iShape3 = iLayout.template GetShapeDim<3, expectSize>(); 
+    auto iShape4 = iLayout.template GetShapeDim<4, expectSize>(); 
+    auto iStride3 = iLayout.template GetStrideDim<3, expectSize>(); 
+    auto iStride4 = iLayout.template GetStrideDim<4, expectSize>(); 
 
-    // dst: [1, N, K, 1, D]
     const auto dLayout = dst.GetLayout();
-    auto dShape1 = dLayout.template GetShapeDim<1, expectSize>(); // N
-    auto dShape2 = dLayout.template GetShapeDim<2, expectSize>(); // K  32/128
-    auto dShape4 = dLayout.template GetShapeDim<4, expectSize>(); // D
+    auto dShape1 = dLayout.template GetShapeDim<1, expectSize>(); 
+    auto dShape2 = dLayout.template GetShapeDim<2, expectSize>(); 
+    auto dShape4 = dLayout.template GetShapeDim<4, expectSize>(); 
     auto dStride1 = dLayout.template GetStrideDim<1, expectSize>();
-    auto dStride4 = dLayout.template GetStrideDim<4, expectSize>(); // should be 1
+    auto dStride4 = dLayout.template GetStrideDim<4, expectSize>(); 
 
     using DstDtype = typename T0::Type;
     using SrcDtype = typename T1::Type;
     using IdxDtype = typename T2::Type;
 
-    // Raw tile-aligned shapes from src
-    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>(); // dim3 = 1
-    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>(); // D_32aligned
-    constexpr auto src0rawShape4 = dstTileW;
-    constexpr auto src0rawShape2 = TileOp::GetTensorTileShapeDim<T1, 2, 5>(); // S_32aligned
+
+    constexpr auto src0rawShape1 = TileOp::GetTensorTileShapeDim<T1, 2, 5>(); 
+    constexpr auto dstTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>(); 
+    constexpr auto dstTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>(); 
+    constexpr auto s1_32aligned = TileOp::GetTensorTileShapeDim<T2, 4, 5>(); 
+    constexpr auto nd_32aligned = dstTileW; 
+
 
     if (uShape1 == 0 || uShape2 == 0 || uShape4 == 0 || iShape3 == 0 || iShape4 == 0) {
         return;
@@ -68,31 +67,31 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
 
         __ubuf__ SrcDtype* srcBase = reinterpret_cast<__ubuf__ SrcDtype*>(src.GetAddr());
         __ubuf__ IdxDtype* idxBase = reinterpret_cast<__ubuf__ IdxDtype*>(src1.GetAddr());
-        __gm__ DstDtype* dstBase   = reinterpret_cast<__gm__ DstDtype*>(dst.GetAddr());
+        __gm__   DstDtype* dstBase = reinterpret_cast<__gm__   DstDtype*>(dst.GetAddr());
+
+        __ubuf__ SrcDtype* curSrc = srcBase;
+        __ubuf__ IdxDtype* dstIdx = idxBase;
 
         unsigned B = iShape3;
         unsigned S = iShape4;
         unsigned D = uShape4;
 
-        constexpr unsigned S_32aligned = src0rawShape2;
-        constexpr unsigned D_32aligned = src0rawShape4;
-
-        auto dStride2 = dLayout.template GetStrideDim<2, expectSize>(); 
-
         for (unsigned b = 0; b < B; ++b) {
             for (unsigned s = 0; s < S; ++s) {
-                IdxDtype idx_val_raw = idxBase[b * iStride3 + s * iStride4];
-                unsigned idx_val = static_cast<unsigned>(idx_val_raw);
-                if (idx_val >= dShape1 * dShape2) continue;
 
-                uint64_t srcOffset = b * (S_32aligned * D_32aligned) + s * D_32aligned;
+                unsigned targetRow = static_cast<unsigned>(*dstIdx);
+                __gm__ DstDtype* curDst = dstBase + targetRow * D;
 
-                using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, dstTileH, dstTileW,
-                                               pto::BLayout::RowMajor, -1, -1>;
-                SrcTileDefine srcTile(1, D);
-                pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(srcBase + srcOffset));
-
-                __gm__ DstDtype* scatterAddr = dstBase + idx_val * dStride2;
+                using SrcTileDefine = pto::Tile<
+                    pto::TileType::Vec,
+                    SrcDtype,
+                    dstTileH,               
+                    dstTileW,               
+                    pto::BLayout::RowMajor,
+                    -1, -1
+                >;
+                SrcTileDefine srcTile(1, D); 
+                pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(curSrc));
 
                 using DstGlobalType = pto::GlobalTensor<
                     DstDtype,
@@ -100,24 +99,26 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
                     pto::Stride<0, 0, 0, 0, 1>
                 >;
                 DstGlobalType dstGlobal(
-                    scatterAddr,
+                    curDst,
                     pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(D)),
                     pto::Stride<0, 0, 0, 0, 1>(0, 0, 0, 0, 1)
                 );
                 pto::TSTORE(dstGlobal, srcTile);
+
+                curSrc += nd_32aligned;
+                dstIdx++;
             }
-            idxBase += (S_32aligned - S);
-            srcBase += (S_32aligned - S) * D_32aligned;
+            curSrc += (src0rawShape1 - S) * nd_32aligned;
+            dstIdx += (s1_32aligned - S);
         }
         return;
     }
+    unsigned B = iShape3;
+    unsigned S = iShape4;
+    unsigned D = uShape4;
 
-    unsigned B = uShape1;   // = iShape3
-    unsigned S = uShape2;   // = iShape4
-    unsigned D = uShape4;   // logical D
-
-    constexpr unsigned S_32aligned = src0rawShape2;
-    constexpr unsigned D_32aligned = src0rawShape4;
+    constexpr unsigned S_32aligned = s1_32aligned;
+    constexpr unsigned D_32aligned = nd_32aligned;
 
     __ubuf__ SrcDtype* src0_base = reinterpret_cast<__ubuf__ SrcDtype*>(src.GetAddr());
     __ubuf__ IdxDtype* src1_base = reinterpret_cast<__ubuf__ IdxDtype*>(src1.GetAddr());

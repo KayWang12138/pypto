@@ -86,6 +86,7 @@ class DeviceLauncher {
 public:
     static constexpr uint32_t kDefaultAicNum = 25;
     static constexpr uint32_t kDefaultAivNum = 50;
+    static constexpr uint32_t kDefaultTensorinfoSize = 16384;
     static std::vector<uint8_t>& GetDevProg(Function *func) {
         return func->GetDyndevAttribute()->devProgBinary;
     }
@@ -147,19 +148,13 @@ public:
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
         devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
 
-        config.aicpuNum = std::min(config.aicpuNum,
-            static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1);
-        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, config.aicpuNum);
-
-        devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-        devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
-
-        int minCpuNum = devProg->devArgs.scheCpuNum + 1;
-        if (config.aicpuNum < minCpuNum || config.aicpuNum > DEVICE_MAX_AICPU_NUM) {
-            config.aicpuNum = minCpuNum + 1;
-        }
+        int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum);
+        config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         devProg->devArgs.nrAicpu = config.aicpuNum;
         ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
+        devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
+        devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
 
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
         if (config.dynWorkspaceSize != 0) {
@@ -300,45 +295,41 @@ public:
             return DeviceInitTensorLists(devMem, kArgs, inputList, outputList);
         }
         size_t l2InfoSize = disableL2List.size();
-        auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList, uint8_t* data, size_t size,
+        auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList, DevTensorData* data,
             size_t &tensorIdx) {
-            std::vector<DevTensorData> tensors;
-            for (size_t k = 0; k < tensorDataList.size(); k++) {
+            for (size_t k = 0; k < tensorDataList.size(); ++k) {
                 auto &tensorData = tensorDataList[k];
-                uint64_t addr = 0;
-                if (tensorData.GetAddr() != 0) {
-                    addr = (uint64_t)tensorData.GetAddr();
-                }
-                if (addr != 0 && tensorIdx < l2InfoSize && disableL2List[tensorIdx] == 1) {
+                uint64_t addr = reinterpret_cast<uint64_t>(tensorData.GetAddr());
+                if (unlikely(addr != 0 && tensorIdx < l2InfoSize && disableL2List[tensorIdx] == 1)) {
                     ALOG_INFO_F("Tneosr[%zu] ori:%lx, l2offset[%lu].", tensorIdx, addr, devMem.GetL2Offset());
                     addr += devMem.GetL2Offset();
                 }
-                tensors.emplace_back(DevAscendTensorDataCreator::Create(addr, tensorData.GetShape()));
+                DevAscendTensorDataCreator::Init(data, addr, tensorData.GetShape().data(), tensorData.GetShape().size());
+                data++;
                 tensorIdx++;
             }
-            (void)memcpy_s(data, size, tensors.data(), size);
             return;
         };
         size_t inputSize = inputList.size() * sizeof(DevTensorData);
         size_t outputSize = outputList.size() * sizeof(DevTensorData);
         size_t allSize = inputSize + outputSize + 2 * sizeof(uint64_t);
-        std::vector<int64_t> tensorInfo(allSize);
-        auto* data = tensorInfo.data();
+        if (unlikely(allSize > tensorInfo_.size())) {
+            tensorInfo_.resize(allSize);
+        }
+        auto data = reinterpret_cast<uint64_t*>(tensorInfo_.data());
         *data = inputList.size();
         data++;
         *data = outputList.size();
         data++;
-        uint8_t* dataPtr = reinterpret_cast<uint8_t*>(data);
+        auto dataPtr = reinterpret_cast<DevTensorData*>(data);
         size_t tensorIdx = 0;
-        buildInouts(inputList, dataPtr, inputSize, tensorIdx);
-        dataPtr += inputSize;
-        buildInouts(outputList, dataPtr, outputSize, tensorIdx);
-        dataPtr += outputSize;
-        kArgs.inputs = devMem.CopyToDev(tensorInfo, nullptr);
+        buildInouts(inputList, dataPtr, tensorIdx);
+        dataPtr += inputList.size();
+        buildInouts(outputList, dataPtr, tensorIdx);
+        kArgs.inputs = reinterpret_cast<int64_t*>(devMem.CopyToDev(tensorInfo_.data(), allSize, nullptr));
         kArgs.outputs = kArgs.inputs + 1;
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
-        return;
     }
 
     template<typename DeviceMemoryTy>
@@ -449,6 +440,8 @@ using aclmdlRI = void *;
     static bool DeviceRunCacheKernelEnable(Function *func);
     static void DeviceRunCacheKernelSet(Function *func, uint8_t *devProg);
     static uint8_t *DeviceRunCacheKernelGet(Function *func);
+ public:
+    static std::vector<uint8_t> tensorInfo_;
 };
 }
 #endif//SRC_MACHINE_DEVICE_LAUNCHER_H
