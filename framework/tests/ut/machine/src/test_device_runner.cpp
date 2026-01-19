@@ -49,10 +49,11 @@ TEST_F(TestDeviceRunner, test_device_runner_get_task_time) {
 
 TEST_F(TestDeviceRunner, test_set_pmu_event) {
     // auto runner = npu::tile_fwk::DeviceRunner::Get();
+    DeviceArgs args_;
     for (int i = 0; i < 9; i++) {
         setenv("PROF_PMU_EVENT_TYPE", std::to_string(i).c_str(), 1);
         npu::tile_fwk::DeviceRunner runner;
-        runner.GetPmuEventType();
+        runner.GetPmuEventType(args_);
     }
 }
 
