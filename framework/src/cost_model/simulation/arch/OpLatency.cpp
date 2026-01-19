@@ -9,12 +9,25 @@
  */
 
 /*!
- * \file PipeSimulatorFast.cpp
+ * \file OpLatency.cpp
  * \brief
  */
 
-#include "PipeSimulatorFast.h"
+#include "OpLatency.h"
+#include "cost_model/simulation/arch/A2A3/OpParams.h"
+#include "interface/operation/operation.h"
 
-namespace CostModel
-{
+namespace CostModel {
+
+using npu::tile_fwk::DataType;
+
+int OpLatency::GetLatency(const npu::tile_fwk::Operation *op) {
+    if (op == nullptr) {
+        return OpRegistry::GetInstance().GetDefault()->Calculate(static_cast<const npu::tile_fwk::Operation*>(nullptr));
+    }
+
+    auto calc = OpRegistry::GetInstance().Get(op->GetOpcode());
+    return calc->Calculate(op);
+}
+
 } // namespace CostModel
