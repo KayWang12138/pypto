@@ -149,16 +149,52 @@ void StaticSubgraphProcessor::PrintColorGraph(const Function &function) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Total in: %d, total out: %d.", inCount, outCount);
 }
 
-inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>>& outGraph,
-                                        std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {
-    reachable[start_node].insert(start_node);
-    for (int v : outGraph[start_node]) { 
-        if (visited[v] == 0) {
-            findAllReachableNodes(v, outGraph, reachable, visited);
-        }
-        reachable[start_node].insert(reachable[v].begin(), reachable[v].end());
+inline void findAllReachableNodes(
+    size_t startNode,
+    std::vector<std::vector<int>>& outGraph,
+    std::vector<std::unordered_set<int>>& reachable,
+    std::vector<int>& visited
+) {
+    // 1. 首先检查 startNode 是否合法（在范围内）
+    if (startNode >= outGraph.size()) {
+        return;
     }
-    visited[start_node] = 1;
+
+    if (startNode >= reachable.size() || startNode >= visited.size()) {
+        return;
+    }
+
+    // 2. 检查是否已访问
+    if (visited[startNode] == 1) {
+        return;
+    }
+
+    // 3. 开始处理
+    reachable[startNode].insert(startNode);
+    visited[startNode] = 1;
+
+    // 4. 遍历所有出边
+    for (int v : outGraph[startNode]) {
+        // 这里 v 是 int，可能为负数
+        if (v < 0) {
+            continue;  // 跳过非法节点
+        }
+
+        size_t nodeIdx = static_cast<size_t>(v);
+
+        // 检查 nodeIdx 是否超出范围
+        if (nodeIdx >= reachable.size() || nodeIdx >= visited.size()) {
+            continue;
+        }
+
+        // 递归访问
+        if (visited[nodeIdx] == 0) {
+            findAllReachableNodes(nodeIdx, outGraph, reachable, visited);
+        }
+
+        // 合并可达集合
+        reachable[startNode].insert(reachable[nodeIdx].begin(), reachable[nodeIdx].end());
+    }
 }
 
 void StaticSubgraphProcessor::FindRedundantEdges(int colorNum, std::vector<std::vector<int>>& redundantColorInGraph,
