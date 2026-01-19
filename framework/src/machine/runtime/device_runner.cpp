@@ -526,23 +526,49 @@ int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, DeviceKernelArgs 
     return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, aicoreStream, &cfg);
 }
 
+/*
+typedef struct tagRtAicpuArgsEx {
+    void *args; // args host mem addr
+    rtHostInputInfo_t *hostInputInfoPtr; // nullptr means no host mem input
+    rtHostInputInfo_t *kernelOffsetInfoPtr; // KernelOffsetInfo, it is different for CCE Kernel and fwk kernel
+    uint32_t argsSize;
+    uint16_t hostInputInfoNum; // hostInputInfo num
+    uint16_t kernelOffsetInfoNum; // KernelOffsetInfo num
+    uint32_t soNameAddrOffset; // just for CCE Kernel, default value is 0xffff for FWK kernel
+    uint32_t kernelNameAddrOffset; // just for CCE Kernel, default value is 0xffff for FWK kernel
+    bool isNoNeedH2DCopy; // is no need host to device copy: 0 means need H2D copy,
+                               // other means doesn't need H2D copy.
+    uint16_t timeout;  // timeout for aicpu exit
+    uint8_t reserved;
+} rtAicpuArgsEx_t;
+ typedef struct rtHostInputInfo {
+    uint32_t addrOffset;
+    uint32_t dataOffset;
+} rtHostInputInfo_t;
+*/
 int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *kArgs) {
 #ifdef BUILD_WITH_NEW_CANN
     return LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kArgs, aicpuNum_, "PyptoRun");
 #endif
-    struct Args {
-        DeviceKernelArgs kArgs;
-        const char kernelName[32] = {"DynTileFwkKernelServer"};
-        const char soName[32] = {"libaicpu_extend_kernels.so"};
-        const char opName[32] = {""};
-    } args;
-    args.kArgs = *kArgs;
+    auto args = reinterpret_cast<dynamic::AiCpuArgs*>(kArgs->inputs);
+    uint64_t argsSize = reinterpret_cast<uint64_t>(kArgs->outputs);
+    kArgs->inputs = nullptr;
+    // kArgs.outputs = nullptr;
+    ALOG_ERROR_F("args %p argsSize %u", args, argsSize);
+    args->kArgs = *kArgs;
     rtAicpuArgsEx_t rtArgs;
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
-    rtArgs.args = &args;
-    rtArgs.argsSize = sizeof(args);
-    rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
-    rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
+    rtArgs.args = args;
+    rtArgs.argsSize = argsSize;
+    rtArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
+    rtArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);1q]1qZsadz
+    rtArgs.hostInputInfoNum = 1;
+    rtHostInputInfo_t hostInputInfo;
+    hostInputInfo.addrOffset = reinterpret_cast<int64_t*>(&args->kArgs.inputs) - reinterpret_cast<int64_t>(args);
+    hostInputInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
+    rtArgs.hostInputInfoPtr = &hostInputInfo;
+    ALOG_ERROR_F("addrOffset %u argsSize %u", hostInputInfo.addrOffset, hostInputInfo.dataOffset);
+    
     return rtAicpuKernelLaunchExWithArgs(
         rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
 }
