@@ -24,6 +24,7 @@
 #include "tilefwk/tilefwk.h"
 #include "passes/tile_graph_pass/subgraph_to_function.h"
 #include "passes/block_graph_pass/mix_subgraph_split/mix_subgraph_split_utils.h"
+#include "passes/block_graph_pass/mix_subgraph_split/function_clone.h"
 #include <unordered_map>
 #include <set>
 #include <vector>
@@ -172,13 +173,6 @@ private:
                                   Function& mixSubgraphFunc,
                                   std::function<bool(Operation*)> predicate) const;
 
-    // 创建拆分后的Leaf function
-    Function* CreateSplitLeafFunction(Function& rootFunc,
-                                    Function& originalMixFunc,
-                                    const InternalComponentInfo& component,
-                                    uint64_t newProgramID,
-                                    uint64_t componentIndex,
-                                    SubgraphToFunction& subgraphToFunction);
 
     // 在root function中创建call op
     Status CreateCallOpInRootFunction(Function& rootFunc,
@@ -223,8 +217,6 @@ private:
                                      const std::unordered_map<uint64_t, std::vector<uint64_t>>& mixSubgraphNewIDs);
 
     // 动态参数处理
-    Status CopyInferParamIndexInfo(Function* originalMixFunc,
-                                  const std::vector<Function*>& newFunctions) const;
                                   
     Status CopyDynParamFromOps(Function* newFunc) const;
 
@@ -332,12 +324,6 @@ private:
         const std::vector<SimpleOutcastParam>& outcasts,
         LogicalTensorPtr tensor) const;    
 
-    // 用于存储每个leaf function的op magic映射
-    struct LeafFuncMagicMap {
-        Function* leafFunc;
-        std::unordered_map<int, int> originalToClonedMagic; // 原始magic -> 克隆magic
-    };
-    
     std::unordered_map<Function*, LeafFuncMagicMap> leafFuncMagicMaps_;
     
     // 辅助函数：查找映射后的magic
