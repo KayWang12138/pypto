@@ -30,7 +30,36 @@
 
 namespace npu::tile_fwk {
 
-struct RawTensorData : public std::vector<uint8_t> {
+template <typename T, std::size_t Align>
+class AlignedAllocator {
+public:
+    using value_type = T;
+
+    /* 必须提供 rebind */
+    template <class U>
+    struct rebind { using other = AlignedAllocator<U, Align>; };
+
+    AlignedAllocator() = default;
+    template <class U>
+    AlignedAllocator(const AlignedAllocator<U, Align>&) noexcept {}
+
+    T* allocate(std::size_t n) {
+        if (n > std::size_t(-1) / sizeof(T)) throw std::bad_alloc();
+        void* p = nullptr;
+        if (::posix_memalign(&p, Align, n * sizeof(T)) != 0)
+            throw std::bad_alloc();
+        return static_cast<T*>(p);
+    }
+    void deallocate(T* p, std::size_t) noexcept { std::free(p); }
+
+    /* 可选：让比较运算符始终为 true */
+    template <class U>
+    bool operator==(const AlignedAllocator<U, Align>&) const noexcept { return true; }
+    template <class U>
+    bool operator!=(const AlignedAllocator<U, Align>&) const noexcept { return false; }
+};
+
+struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>> {
     static int GetDataSize(DataType dataType) {
         int result = 0;
         constexpr int DATA_SIZE_HALF = -1;

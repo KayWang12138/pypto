@@ -26,22 +26,22 @@ using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
 
-std::string InitInputOutputData(
+void InitInputOutputData(
     const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
     Function *func = Program::GetInstance().GetLastFunction();
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
-        return "Invalid function format";
+        return;
     }
 
     auto attr = func->GetDyndevAttribute();
     if (attr == nullptr) {
-        return "Invalid function format";
+        return;
     }
 
     auto inputSize = attr->startArgsInputLogicalTensorList.size();
     auto outputSize = attr->startArgsOutputLogicalTensorList.size();
     if (inputSize != inputs.size() || outputSize != outputs.size()) {
-        return "mismatch input/output";
+        return;
     }
 
     for (size_t i = 0; i < inputs.size(); i++) {
@@ -52,18 +52,21 @@ std::string InitInputOutputData(
         auto rawData = std::make_shared<RawTensorData>(outputs[i].GetDataType(), outputs[i].GetShape());
         ProgramData::GetInstance().AppendOutput(rawData);
     }
-    return "";
+}
+
+void CopyTensorFromModel(const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
+    auto &rawInputTensors = ProgramData::GetInstance().GetInputDataList();
+    for (size_t i = 0; i < inputs.size(); i++) {
+        StringUtils::DataCopy((uint8_t *)inputs[i].GetAddr(), inputs[i].GetDataSize(), rawInputTensors[i]->data(), rawInputTensors[i]->GetDataSize());
+    }
 }
 
 std::string CostModelRunOnceDataFromHost(
     const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
-    std::string initResult = InitInputOutputData(inputs, outputs);
-    if (!initResult.empty()) {
-        return initResult;
-    }
-
+    InitInputOutputData(inputs, outputs);
     Function *func = Program::GetInstance().GetLastFunction();
     CostModelLauncher::CostModelRunOnce(func);
+    CopyTensorFromModel(inputs, outputs);
     return "";
 }
 
