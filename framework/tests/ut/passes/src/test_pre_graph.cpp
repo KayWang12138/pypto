@@ -799,6 +799,48 @@ TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
     EXPECT_EQ(viewCnt, 0);
 }
 
+TEST_F(PreGraphTest, TestProcessReshape) {
+    ComputationalGraphBuilder G;
+    // add tensor
+    G.AddTensor(DataType::DT_FP16, {16, 24576}, "t1");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 192}, "t2");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t3");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t4");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t5");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t6");
+
+    // add op
+    G.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "RESHAPE1");
+    G.AddOp(Opcode::OP_VIEW, {"t2"}, {"t3"}, "VIEW");
+    G.AddOp(Opcode::OP_RESHAPE, {"t3"}, {"t4"}, "RESHAPE2");
+    G.AddOp(Opcode::OP_COPY_IN, {"t2"}, {"t5"}, "COPY_IN1");
+    G.AddOp(Opcode::OP_COPY_IN, {"t2"}, {"t6"}, "COPY_IN2");
+    
+    // set incast and outcast
+    G.SetInCast({"t1"});
+
+    // run pass
+    Function *function = G.GetFunction();
+    EXPECT_NE(function, nullptr);
+    PreGraphProcess passLocal;
+    EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
+    
+    // check after pass
+    auto opList = function->Operations();
+    int64_t viewCnt = 0;
+    int64_t reshapeCnt = 0;
+    for (const auto &op : opList) {
+        if (op.GetOpcode() == Opcode::OP_VIEW) {
+            ++viewCnt;
+        }
+        if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+            reshapeCnt++;
+        }
+    }
+    EXPECT_EQ(viewCnt, 0);
+    EXPECT_EQ(reshapeCnt, 2);
+}
+
 } // namespace tile_fwk
 } // namespace npu
 #undef private
