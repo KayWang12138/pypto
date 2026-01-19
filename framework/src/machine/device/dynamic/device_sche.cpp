@@ -233,6 +233,10 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
     auto kargs = (DeviceKernelArgs *)targ;
     auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
+    if (unlikely(!devArgs->isNeedLaunchInit)) {
+        DEV_INFO("Not kernel launch init");
+        DynTileFwkBackendKernelServerInit(targ);
+    }
     kargs->taskWastTime = GetCycles();
     g_machine_mgr.Init(devArgs);
     int rc = g_machine_mgr.Run(kargs);
