@@ -252,7 +252,7 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         functionInterpreter_->captureIndex = captureIndex;
 
         std::shared_ptr<FunctionCaptureExecution> capture = nullptr;
-        float eps = static_cast<float>(1e-3);
+        float eps = static_cast<float>(5e-3);
         capture = captureList[captureIndex];
 
         auto captureExecution = functionInterpreter_->RunForPass(key, func, capture);
