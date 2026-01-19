@@ -38,7 +38,7 @@ enum class BinaryOpType {
     DIV_BRC,
     MAX_BRC,
     MIN_BRC,
-    ADD_BRC,
+    MOD_BRC,
     S_ADD,
     S_SUB,
     S_MUL,
