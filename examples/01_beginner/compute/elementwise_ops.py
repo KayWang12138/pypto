@@ -1339,7 +1339,7 @@ Examples:
             'description': 'Basic usage of rsqrt function example',
             'function': test_rsqrt_basic
         },
-        'ceil::test_rsqrt_basic': {
+        'ceil::test_ceil_basic': {
             'name': 'Test basic usage of ceil function',
             'description': 'Basic usage of ceil function example',
             'function': test_ceil_basic
