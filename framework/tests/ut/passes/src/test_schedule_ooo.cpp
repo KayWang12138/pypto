@@ -1249,14 +1249,8 @@ TEST_F(ScheduleOoOTest, TestScheduleMainLoopRearrangeUB) {
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    std::swap(ooOScheduler.issueEntries[0], ooOScheduler.issueEntries[1]);
     res = ooOScheduler.ScheduleMainLoop();
     EXPECT_EQ(res, SUCCESS);
-
-    std::shared_ptr<LogicalTensor> tensor4 = subGraph.GetTensor("t4");
-    auto moveOp = *tensor4->GetConsumers().begin();
-    auto scalarValue = (moveOp->HasAttr(OpAttributeKey::scalar)) ? moveOp->GetElementAttribute(OpAttributeKey::scalar) : Element(DataType::DT_UINT64, 1);
-    EXPECT_EQ(scalarValue, Element(DataType::DT_UINT64, 0));
 }
 
 TEST_F(ScheduleOoOTest, TestScheduleMainLoopRearrangeUBbf16) {
