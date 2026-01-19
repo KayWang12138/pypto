@@ -54,7 +54,7 @@ public:
     static ConfigRegistry &GetInstance();
 
     template <typename T>
-    ConfigKey Register(const std::string &keyName, const T &defaultValue);
+    static ConfigKey Register(const std::string &keyName, const T &defaultValue);
 
     bool IsRegistered(const ConfigKey &key) const;
 
@@ -152,23 +152,24 @@ inline std::pair<ConfigKey, std::any> MakeConfigEntry(ConfigKey key, const T &va
 
 template <typename T>
 ConfigKey ConfigRegistry::Register(const std::string &keyName, const T &defaultValue) {
+    ConfigRegistry &instance = GetInstance();
     ConfigKey key(keyName);
 
-    if (registeredKeys_.find(key) != registeredKeys_.end()) {
-        auto configIt = registeredConfigs_.find(key);
-        if (configIt != registeredConfigs_.end()) {
+    if (instance.registeredKeys_.find(key) != instance.registeredKeys_.end()) {
+        auto configIt = instance.registeredConfigs_.find(key);
+        if (configIt != instance.registeredConfigs_.end()) {
             std::type_index expectedType = std::type_index(typeid(T));
             if (configIt->second != expectedType) {
                 throw std::runtime_error("Config key '" + keyName + "' is already registered with a different type");
             }
         }
-        defaultValues_[key] = std::any(defaultValue);
+        instance.defaultValues_[key] = std::any(defaultValue);
         return key;
     }
 
-    registeredKeys_.insert(key);
-    registeredConfigs_.emplace(key, std::type_index(typeid(T)));
-    defaultValues_[key] = std::any(defaultValue);
+    instance.registeredKeys_.insert(key);
+    instance.registeredConfigs_.emplace(key, std::type_index(typeid(T)));
+    instance.defaultValues_[key] = std::any(defaultValue);
 
     return key;
 }
@@ -210,16 +211,15 @@ void Config::Set(const ConfigKey &key, const T &value) {
 
 } // namespace pto
 
-#define REGISTER_CONFIG(keyName, defaultValue)                   \
-    namespace {                                                  \
-    struct ConfigRegistrar_##keyName {                           \
-        ConfigRegistrar_##keyName() {                            \
-            auto &registry = pto::ConfigRegistry::GetInstance(); \
-            registry.Register(#keyName, defaultValue);           \
-        }                                                        \
-    };                                                           \
-    ConfigRegistrar_##keyName g_configRegistrar_##keyName;       \
-    }                                                            \
-    namespace pto {                                              \
-    inline const ConfigKey CONFIG_##keyName(#keyName);           \
+#define REGISTER_CONFIG(keyName, defaultValue)                     \
+    namespace {                                                    \
+    struct ConfigRegistrar_##keyName {                             \
+        ConfigRegistrar_##keyName() {                              \
+            pto::ConfigRegistry::Register(#keyName, defaultValue); \
+        }                                                          \
+    };                                                             \
+    ConfigRegistrar_##keyName g_configRegistrar_##keyName;         \
+    }                                                              \
+    namespace pto {                                                \
+    inline const ConfigKey CONFIG_##keyName(#keyName);             \
     }
