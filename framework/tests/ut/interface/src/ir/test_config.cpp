@@ -21,10 +21,13 @@
 #include <cstdio>
 
 // Register test config items
+// Register test config items
 REGISTER_CONFIG(test_int32, int32_t(100));
 REGISTER_CONFIG(test_bool, true);
 REGISTER_CONFIG(test_uint8, uint8_t(42));
 REGISTER_CONFIG(test_uint16, uint16_t(1000));
+REGISTER_CONFIG(test_float32, float(100.0f));
+REGISTER_CONFIG(test_double, double(100.0));
 REGISTER_CONFIG(test_map, (std::map<int64_t, int64_t>{
                               {1, 2},
                               {3, 4}
