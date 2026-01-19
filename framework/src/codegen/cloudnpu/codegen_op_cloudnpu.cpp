@@ -656,8 +656,27 @@ std::vector<SymbolicScalar> CodeGenOpCloudNPU::GetLoopAxes() {
     return newLoopAxes;
 }
 
+bool CodeGenOpCloudNPU::NeedUpdateLoopInfo() {
+    auto iter = SUPPORT_VF_FUSE_OPS.find(opCode);
+    if (iter == SUPPORT_VF_FUSE_OPS.end()) {
+        return false;
+    }
+
+    if (opCode == Opcode::OP_EXPAND) {
+        int64_t expandAxis = -1;
+        GetAttr(OP_ATTR_PREFIX + "EXPANDDIM", expandAxis);
+        ASSERT((expandAxis >= 0) && (expandAxis <= (static_cast<int64_t>(rawShape[1].size() - 1))))
+            << "unsupported expand axis";
+        expandAxis += SHAPE_DIM4 - rawShape[1].size();
+        const int64_t expandLastAxisInDim4 = 3;
+        return expandAxis == expandLastAxisInDim4;
+    }
+
+    return true;
+}
+
 void CodeGenOpCloudNPU::UpdateLoopInfo() {
-    if (SUPPORT_VF_FUSE_OPS.find(opCode) == SUPPORT_VF_FUSE_OPS.end()) {
+    if (!NeedUpdateLoopInfo()) {
         return;
     }
 
