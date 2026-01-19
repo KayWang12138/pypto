@@ -36,6 +36,13 @@
 
 namespace npu::tile_fwk::dynamic {
 
+struct AiCpuArgs {
+    DeviceKernelArgs kArgs;
+    const char kernelName[32] = {"DynTileFwkKernelServer"};
+    const char soName[32] = {"libaicpu_extend_kernels.so"};
+    const char opName[32] = {""};
+};
+
 int GetCfgBlockdim();
 
 class DeviceLauncherContext {
@@ -312,11 +319,14 @@ public:
         };
         size_t inputSize = inputList.size() * sizeof(DevTensorData);
         size_t outputSize = outputList.size() * sizeof(DevTensorData);
-        size_t allSize = inputSize + outputSize + 2 * sizeof(uint64_t);
+        size_t allSize = inputSize + outputSize + 2 * sizeof(uint64_t) + sizeof(struct AiCpuArgs);
         if (unlikely(allSize > tensorInfo_.size())) {
             tensorInfo_.resize(allSize);
         }
-        auto data = reinterpret_cast<uint64_t*>(tensorInfo_.data());
+        // only once time
+        struct AiCpuArgs initArgs;
+        memcpy_s(tensorInfo_.data(), sizeof(struct AiCpuArgs), &initArgs, sizeof(struct AiCpuArgs));
+        auto data = reinterpret_cast<uint64_t*>(tensorInfo_.data() + sizeof(struct AiCpuArgs));
         *data = inputList.size();
         data++;
         *data = outputList.size();
@@ -326,10 +336,12 @@ public:
         buildInouts(inputList, dataPtr, tensorIdx);
         dataPtr += inputList.size();
         buildInouts(outputList, dataPtr, tensorIdx);
-        kArgs.inputs = reinterpret_cast<int64_t*>(devMem.CopyToDev(tensorInfo_.data(), allSize, nullptr));
-        kArgs.outputs = kArgs.inputs + 1;
-        ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
-            kArgs.cfgdata);
+        kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data());
+        kArgs.outputs = (int64_t *)allSize;
+        //kArgs.inputs = reinterpret_cast<int64_t*>(devMem.CopyToDev(tensorInfo_.data(), allSize, nullptr));
+        //kArgs.outputs = kArgs.inputs + 1;
+        ALOG_ERROR_F("Inputs %p outputs %p workspace %p cfgdata %p allSize %zu", kArgs.inputs, kArgs.outputs, kArgs.workspace,
+            kArgs.cfgdata, allSize);
     }
 
     template<typename DeviceMemoryTy>
