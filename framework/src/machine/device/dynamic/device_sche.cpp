@@ -94,17 +94,19 @@ struct DynMachineManager {
         int threadIdx = allocThreadIdx(devArgs->nrAicpu, devArgs->scheCpuNum);
         uint64_t allocThreadCycle = GetCycles();
         if ((threadIdx != -1) && threadIdx < static_cast<int>(devArgs->scheCpuNum)) {
-            CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
-            DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
-                static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
-                devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
-            DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
-                devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
-            DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
-            machine_.SetStachSchduleContext(threadIdx, &local_context);
-            ret = machine_.Run(threadIdx, devArgs);
-            if (ret != DEVICE_MACHINE_OK) {
-                schRunFailed_ = true;
+            if constexpr (IsDeviceMode()) {
+                CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
+                DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
+                    static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
+                    devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
+                DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
+                    devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
+                DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
+                machine_.SetStachSchduleContext(threadIdx, &local_context);
+                ret = machine_.Run(threadIdx, devArgs);
+                if (ret != DEVICE_MACHINE_OK) {
+                    schRunFailed_ = true;
+                }                
             }
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
