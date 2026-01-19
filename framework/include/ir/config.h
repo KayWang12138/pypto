@@ -24,7 +24,6 @@
 #include <typeinfo>
 #include <any>
 #include <nlohmann/json.hpp>
-#include <iostream>
 
 namespace pto {
 
@@ -55,7 +54,7 @@ public:
     static ConfigRegistry &GetInstance();
 
     template <typename T>
-    static ConfigKey Register(const std::string &keyName, const T &defaultValue);
+    ConfigKey Register(const std::string &keyName, const T &defaultValue);
 
     bool IsRegistered(const ConfigKey &key) const;
 
@@ -107,13 +106,12 @@ public:
     std::vector<ConfigKey> GetAllRegisteredKeys() const;
 
 private:
-    ConfigRegistry() {
-        std::cout<<"ConfigRegistry constructor"<<std::endl;
-    }
+    ConfigRegistry() : isInitialized_(true) {}
     ~ConfigRegistry() = default;
     ConfigRegistry(const ConfigRegistry &) = delete;
     ConfigRegistry &operator=(const ConfigRegistry &) = delete;
 
+    bool isInitialized_;
     std::set<ConfigKey> registeredKeys_;
     std::map<ConfigKey, std::type_index> registeredConfigs_;
     std::map<ConfigKey, std::any> defaultValues_;
@@ -155,26 +153,26 @@ inline std::pair<ConfigKey, std::any> MakeConfigEntry(ConfigKey key, const T &va
 
 template <typename T>
 ConfigKey ConfigRegistry::Register(const std::string &keyName, const T &defaultValue) {
-    std::cout<<"Register begin"<<std::endl;
-    ConfigRegistry &instance = GetInstance();
-    std::cout<<"Regiser step"<<std::endl;
+    if (!isInitialized_) {
+        throw std::runtime_error("ConfigRegistry is not initialized. Cannot register config key: " + keyName);
+    }
     ConfigKey key(keyName);
 
-    if (instance.registeredKeys_.find(key) != instance.registeredKeys_.end()) {
-        auto configIt = instance.registeredConfigs_.find(key);
-        if (configIt != instance.registeredConfigs_.end()) {
+    if (registeredKeys_.find(key) != registeredKeys_.end()) {
+        auto configIt = registeredConfigs_.find(key);
+        if (configIt != registeredConfigs_.end()) {
             std::type_index expectedType = std::type_index(typeid(T));
             if (configIt->second != expectedType) {
                 throw std::runtime_error("Config key '" + keyName + "' is already registered with a different type");
             }
         }
-        instance.defaultValues_[key] = std::any(defaultValue);
+        defaultValues_[key] = std::any(defaultValue);
         return key;
     }
 
-    instance.registeredKeys_.insert(key);
-    instance.registeredConfigs_.emplace(key, std::type_index(typeid(T)));
-    instance.defaultValues_[key] = std::any(defaultValue);
+    registeredKeys_.insert(key);
+    registeredConfigs_.emplace(key, std::type_index(typeid(T)));
+    defaultValues_[key] = std::any(defaultValue);
 
     return key;
 }
@@ -220,7 +218,8 @@ void Config::Set(const ConfigKey &key, const T &value) {
     namespace {                                                    \
     struct ConfigRegistrar_##keyName {                             \
         ConfigRegistrar_##keyName() {                              \
-            pto::ConfigRegistry::Register(#keyName, defaultValue); \
+            auto &registry = pto::ConfigRegistry::GetInstance();   \
+            registry.Register(#keyName, defaultValue);             \
         }                                                          \
     };                                                             \
     ConfigRegistrar_##keyName g_configRegistrar_##keyName;         \
