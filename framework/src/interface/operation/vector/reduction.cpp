@@ -283,12 +283,14 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
 Tensor Amax(const Tensor &self, int axis, bool keepDim) {
     DECLARE_TRACER();
     auto resultShape = self.GetShape();
-    axis = axis < 0 ? self.GetShape().size() + axis : axis;
+    size_t selfSize = self.GetShape().size();
+    ASSERT(static_cast<int64_t>(axis) <= static_cast<int64_t>(selfSize) && static_cast<int64_t>(axis) >= -static_cast<int64_t>(selfSize));
+    axis = axis < 0 ? selfSize - static_cast<unsigned long>(-axis) : axis;
 
     resultShape[axis] = 1;
     std::vector<int64_t> outShape(resultShape.begin(), resultShape.end());
 
-    const int lastDim = self.GetShape().size() - 1;
+    const int lastDim = selfSize - 1;
     const int alignNum = BLOCK_SIZE / BytesOf(self.GetStorage()->tensor->datatype);
     auto vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
