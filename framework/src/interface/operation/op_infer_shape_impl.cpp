@@ -774,31 +774,7 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
 REGISTER_INFER_SHAPE_FUNC(OP_VIEW, Opcode::OP_VIEW, ViewInferFunc);
 
 void AssembleInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
-    auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(op->GetOpAttribute());
-    if (assembleOpAttribute != nullptr) {
-        auto fromValidShape = op->GetIOperands()[0]->GetDynValidShape();
-        assembleOpAttribute->SetFromDynValidShape(fromValidShape);
-    } else {
-        ALOG_WARN_F("Copyout [%d] has no copy out attr.", op->GetOpMagic());
-        outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
-        return;
-    }
-    auto offset = assembleOpAttribute->GetToOffset();
-    auto inputShapes = op->GetIOperands()[0]->GetDynValidShape();
-    std::vector<SymbolicScalar> outDynShape = op->GetOOperands()[0]->GetDynValidShape();
-    if (outDynShape.empty()) {
-        for (size_t i = 0; i < op->GetOOperands()[0]->GetShape().size(); ++i) {
-            outDynShape.push_back(SymbolicScalar(0));
-        }
-    }
-    std::vector<SymbolicScalar> outShape;
-    for (size_t i = 0U; i < inputShapes.size(); i++) {
-        SymbolicScalar actualDim = std::max(outDynShape[i], (inputShapes[i] + offset[i]) * (inputShapes[i] != 0));
-        outShape.push_back(actualDim);
-    }
-    for (auto output : op->GetOOperands()) {
-        outValidShapes.push_back(outShape);
-    }
+    outValidShapes.emplace_back(op->GetOOperands()[0]->GetDynValidShape());
 }
 REGISTER_INFER_SHAPE_FUNC(OP_ASSEMBLE, Opcode::OP_ASSEMBLE, AssembleInferFunc);
 
