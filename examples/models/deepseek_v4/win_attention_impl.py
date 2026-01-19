@@ -181,16 +181,22 @@ def win_atten_main_bsnd_mtp_decode(q, block_table, kv_cache, actual_seq_list, at
             pypto.set_vec_tile_shapes(128, 512)
             start_block = valid_start_pos // block_size
             end_block = valid_end_pos // block_size
-            physical_block_id = block_table[b_idx, start_block]
-            kv_block_0 = pypto.view(kv_2d, [block_size, d_kv], [physical_block_id * block_size, 0])
-            physical_block_id = block_table[b_idx, end_block]
-            kv_block_1 = pypto.view(kv_2d, [block_size, d_kv], [physical_block_id * block_size, 0])
-            kv_gather = pypto.concat([kv_block_0, kv_block_1], dim=0)
-            kv_cur = pypto.view(kv_gather, [win, d_kv], [valid_start_pos, 0], valid_shape=[valid_win_len, d_kv])
+            start_block_id = block_table[b_idx, start_block]
+            end_block_id = block_table[b_idx, end_block]
+
+            kv_block_0 = pypto.view(kv_2d, [block_size, d_kv], [start_block_id * block_size + valid_start_pos, 0], 
+                            valid_shape=[valid_win_len - valid_start_pos, d_kv])
+            kv_block_1 = pypto.view(kv_2d, [block_size, d_kv], [end_block_id * block_size, 0], 
+                            valid_shape=[valid_start_pos, d_kv])
 
             # C1
             pypto.set_cube_tile_shapes([64, 64], [128, 512], [128, 128], True, False)
-            acc_s = pypto.matmul(q_tensor_cur, kv_cur, pypto.DT_FP32, b_trans=True)
+            mm1_res = pypto.tensor([n_q, win], pypto.DT_FP32, "mm1_res")
+            mm1_res[0:, 0:valid_win_len - valid_start_pos] = \
+                pypto.matmul(q_tensor_cur, kv_block_0, pypto.DT_FP32, b_trans=True)
+            mm1_res[0:, valid_win_len - valid_start_pos: valid_win_len] = \
+                pypto.matmul(q_tensor_cur, kv_block_1, pypto.DT_FP32, b_trans=True)
+            acc_s = pypto.view(mm1_res, [n_q, win], [0, 0], valid_shape=[n_q, valid_win_len])
 
             # V1
             pypto.set_vec_tile_shapes(128, 128)
@@ -208,6 +214,11 @@ def win_atten_main_bsnd_mtp_decode(q, block_table, kv_cache, actual_seq_list, at
             div_res_b16 = pypto.cast(div_res, dtype)
 
             # C2
+            pypto.set_vec_tile_shapes(128, 512)
+            kv_block_0 = pypto.view(kv_2d, [block_size, d_kv], [start_block_id * block_size, 0])
+            kv_block_1 = pypto.view(kv_2d, [block_size, d_kv], [end_block_id * block_size, 0])
+            kv_gather = pypto.concat([kv_block_0, kv_block_1], dim=0)
+            kv_cur = pypto.view(kv_gather, [win, d_kv], [valid_start_pos, 0], valid_shape=[valid_win_len, d_kv])
             pypto.set_cube_tile_shapes([64, 64], [128, 128], [256, 256], False, False)
             mm2_res = pypto.matmul(div_res_b16, kv_cur, dtype)
 
