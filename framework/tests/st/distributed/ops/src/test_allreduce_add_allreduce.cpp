@@ -153,8 +153,10 @@ void TestAllReduceAddAllReduce(OpTestParam &testParam)
 
     FuncAllReduceAddAllReduce(in, out, testParam, row, col);
 
+    RunTestVerification();
+    auto output = ProgramData::GetInstance().GetOutputData(0);
     int32_t outSize = row * col;
-    RunTestVerification(dType, "/out_rank_", outSize, testParam);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/out_rank_", outSize, output->GetDevPtr(), testParam));
 }
 
 template void TestAllReduceAddAllReduce<int32_t>(OpTestParam& testParam);

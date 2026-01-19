@@ -87,7 +87,6 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam) {
             TileShape::Current().SetVecTile({4, 16, kvLoraRank});
             Tensor t2Res = Transpose(attnRes1, {0, 1});
             TileShape::Current().SetCubeTile({16, 16}, {256, 256}, {128, 128});
-            // {n, b * s, kvLoraRank} @ {n, kvLoraRank, vHeadDim} = {n, b * s, vHeadDim}
             Tensor fp32Bmm4Res =  Matrix::BatchMatmul(DataType::DT_FP32, t2Res, wLora);
             Tensor bmm4Res = Cast(fp32Bmm4Res, dtype);
             TileShape::Current().SetVecTile({32, 4, vHeadDim}); // 必须切，但是尾轴不能切
@@ -95,23 +94,23 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam) {
             TileShape::Current().SetVecTile({4, 32, vHeadDim});
             Tensor r2Res = Reshape(t3Res, {b * s, n * vHeadDim});
             TileShape::Current().SetCubeTile({16, 16}, {256, 256}, {128, 128});
-            // {b * s, n * vHeadDim} @ {n * vHeadDim, h} = {b * s, h}
             attnOut = Matrix::Matmul(dtype, r2Res, wOut, false, false);
         }
         LOOP("REDUCESCATTER", FunctionType::DYNAMIC_LOOP, unusedIndex, LoopRange(1)) {
             (void) unusedIndex;
-            ASSERT((testParam.rankSize > 0) && ((b * s) % testParam.rankSize == 0)) << "worldSize constraint";
             Shape shmemDataRsShape{1, (b * s) / testParam.rankSize, h};
             DataType shmemDataType = (attnOut.GetDataType() == DT_BF16 || attnOut.GetDataType() == DT_FP16) 
-                                ? DT_FP32 : attnOut.GetDataType();
+                ? DT_FP32 : attnOut.GetDataType();
             auto [shmemData, shmemSignal] = CreateShmemTensors(testParam, shmemDataType, shmemDataRsShape);
             TileShape::Current().SetVecTile({16, h});
             Distributed::ReduceScatter(attnOut, attnOut, testParam.group, shmemData, shmemSignal,
                 DistReduceType::DIST_REDUCE_ADD, out);
         }
     }
+    RunTestVerification();
+    auto output = ProgramData::GetInstance().GetOutputData(0);
     int32_t outSize = b * s / testParam.rankSize * h;
-    RunTestVerification(dtype, "/rs_out_rank_", outSize, testParam, 0.1f);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dtype, "/rs_out_rank_", outSize, output->GetDevPtr(), testParam, 0.1f));
 }
 
 } // namespace Distributed
