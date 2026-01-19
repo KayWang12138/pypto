@@ -198,6 +198,14 @@ void HostMachine::SubTask(Function *function) {
     compileQueueCv_.notify_one(); // 通知编译线程
 }
 
+void HostMachine::SubIoPrepareTask(Function *function, const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
+    std::lock_guard<std::mutex> lock(compileQueueMutex_);
+    auto task = std::make_unique<MachineTask>(curTaskId_++, function);
+    task.InitIoInfo(inputs, outputs);
+    compileQueue_.Push(std::move(task));
+    compileQueueCv_.notify_one(); // 通知编译线程
+}
+
 void HostMachine::WaitTaskFinish() {
     while (curTaskId_ != finishQueue_.Size()) {
         usleep(1000); // sleep 1000 us
@@ -318,7 +326,16 @@ void HostMachine::CompileThreadFunc() {
         }
         task = compileQueue_.Pop();
         lock.unlock();
-
+        if (task->prepareIoTask_) {
+            try {
+                (void)Compile(task.get());
+            } catch (const Error &e) {
+                task->SetError(e.what());
+                PushFinishQueue(std::move(task));
+                return;
+            }
+            continue;
+        }
         try {
             (void)Compile(task.get());
         } catch (const Error &e) {

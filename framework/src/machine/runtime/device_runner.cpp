@@ -582,6 +582,8 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArg
     rtArgs.argsSize = sizeof(args);
     rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
     rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
+    // wait I/O tensor OK
+    HostMachine::GetInstance().WaitTaskFinish();
     return rtAicpuKernelLaunchExWithArgs(
         rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, aicpuStream, 0);
 }
