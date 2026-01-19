@@ -28,12 +28,10 @@ public:
     void CopyInferParamIndexInfo();
     void ProcessOperations(const InternalComponentInfo& component);
 
-    std::unordered_map<int, int> magicMap; // 原始magic -> 新magic
     std::vector<std::shared_ptr<Operation>> programOps;
     Function& rootFunc;
     Function* originalMixFunc;
     std::shared_ptr<Function> cloneFunc;
-    LeafFuncMagicMap leafMap;
 };
 
 }

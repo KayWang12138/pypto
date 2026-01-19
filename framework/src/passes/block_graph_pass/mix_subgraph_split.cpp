@@ -1485,7 +1485,6 @@ Status MixSubgraphSplit::GenNewFunctions(Function& rootFunc, Function* originalM
     for (size_t i = 0; i < components.size(); i++) {
         FunctionClone functionClone(rootFunc, originalMixFunc);
         auto newFunc = functionClone.CloneFunctionByComponent(components[i], newProgramIDs[i], i);
-        leafFuncMagicMaps_[newFunc] = std::move(functionClone.leafMap);
         newFunc->ComputeHash();
         FunctionHash funcHash = newFunc->GetFunctionHash();
         ALOG_DEBUG_F("Function %s computed hash: %lu", newFunc->GetMagicName(), funcHash.GetHash());

@@ -37,7 +37,6 @@ void FunctionClone::ProcessOperations(const InternalComponentInfo& component){
             std::shared_ptr<Operation> opPtr = originalOp->shared_from_this();
             programOps.push_back(opPtr);
             int originalMagic = originalOp->GetOpMagic();
-            magicMap[originalMagic] = originalMagic;
             ALOG_DEBUG_F("Reuse op %d in leaf function ", originalMagic);
         }
     }
@@ -69,9 +68,6 @@ Function* FunctionClone::CloneFunctionByComponent(const InternalComponentInfo& c
     cloneFunc->SetGraphType(rootFunc.GetGraphType());
 
     ProcessOperations(component);
-    // 保存映射关系
-    leafMap.leafFunc = cloneFunc.get();
-    leafMap.originalToClonedMagic = std::move(magicMap);
     // 验证顺序正确性
     ALOG_DEBUG_F("Leaf function %s has %zu ops in original order",
                 leafName.c_str(), programOps.size());
