@@ -130,6 +130,14 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     ALOG_INFO_F("start Kernel Launch.");
     if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
         DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
+        // Update runtime-dependent dynamic assemble outcast memory into DevArgs
+        const std::shared_ptr<DyndevFunctionAttribute> &dynAttr = function->GetDyndevAttribute();
+        std::vector<uint8_t> &devProgData = dynAttr->devProgBinary;
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(devProgData.data());
+        Evaluator eval{dynAttr->inputSymbolDict, inputList, outputList};
+        int64_t dynamicAssembleOutcastMem = eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
+        devProg->devArgs.maxDynamicAssembleOutcastMem =
+        static_cast<uint64_t>(dynamicAssembleOutcastMem);
     }
     /* 1.Add stream to capture model*/
     int rc = SetCaptureStream(aicoreStream, aicpuStream, isCapture);
@@ -329,5 +337,4 @@ void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
     (void)hostTensor;
 #endif
 }
-
 }

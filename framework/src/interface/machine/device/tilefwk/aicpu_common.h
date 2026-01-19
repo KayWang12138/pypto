@@ -154,6 +154,7 @@ struct DeviceArgs {
     uint32_t isGETensorList : 26;    // GE graph is tensor list
     uint64_t generalAddr{0};     // aicpu meta addr
     uint64_t stitchPoolAddr{0};  // aicpu meta addr
+    uint64_t maxDynamicAssembleOutcastMem{0};
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     ArchInfo archInfo{ArchInfo::DAV_2201};
     ToSubMachineConfig toSubMachineConfig;
