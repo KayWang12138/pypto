@@ -49,16 +49,19 @@ OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(MemoryType bufferType
 }
 
 int OoOScheduler::GetBufNextUseOrder(IssueEntryPtr issue, int curMemId) {
-    // TODO 同一核上的 NextUseOrder
+    // TODO 同一核上的 上一次被使用
+    auto coreType = issue->coreLocation;
     auto it = std::find_if(issueEntries.begin(), issueEntries.end(), [issue, curMemId](const IssueEntryPtr a) {
         return a && a->execOrder > issue->execOrder &&
-            std::find(a->reqMemIds.begin(), a->reqMemIds.end(), curMemId) != a->reqMemIds.end();
+            std::find(a->reqMemIds.begin(), a->reqMemIds.end(), curMemId) != a->reqMemIds.end() &&
+            coreType.first == a->coreLocation.first && coreType.second == a->coreLocation.second;
     });
     return (it != issueEntries.end()) ? (*it)->execOrder : -1;
 }
 
 int OoOScheduler::GetBufLastUseOrder(IssueEntryPtr issue, int curMemId) {
-    // TODO 同一核上的 NextUseOrder
+    // TODO 同一核上的 上一次被使用
+    auto coreType = issue->coreLocation;
     auto targetIt = std::find(issueEntries.begin(), issueEntries.end(), issue);
     if (targetIt == issueEntries.end()) {
         return -1;
@@ -66,7 +69,8 @@ int OoOScheduler::GetBufLastUseOrder(IssueEntryPtr issue, int curMemId) {
     for (auto it = std::make_reverse_iterator(targetIt); it != issueEntries.rend(); it++) {
         IssueEntryPtr curIssue = *it;
         if (curIssue && curIssue->execOrder < issue->execOrder && std::find(curIssue->reqMemIds.begin(),
-            curIssue->reqMemIds.end(), curMemId) != curIssue->reqMemIds.end()) {
+            curIssue->reqMemIds.end(), curMemId) != curIssue->reqMemIds.end() &&
+            coreType.first == curIssue->coreLocation.first && coreType.second == curIssue->coreLocation.second) {
             return curIssue->execOrder;
         }
     }
@@ -74,7 +78,8 @@ int OoOScheduler::GetBufLastUseOrder(IssueEntryPtr issue, int curMemId) {
 }
 
 IssueEntryPtr OoOScheduler::GetBufLastWriteIssue(IssueEntryPtr issue, int curMemId) {
-    // TODO 同一核上的 LastWriteIssue
+    // TODO 同一核上的 下一次被使用
+    auto coreType = issue->coreLocation;
     auto targetIt = std::find(issueEntries.begin(), issueEntries.end(), issue);
     if (targetIt == issueEntries.end()) {
         return nullptr;
@@ -85,7 +90,8 @@ IssueEntryPtr OoOScheduler::GetBufLastWriteIssue(IssueEntryPtr issue, int curMem
             continue;
         }
         for (auto& outTensor : curIssue->tileOp.GetOOperands()) {
-            if (outTensor->memoryrange.memId == curMemId) {
+            if (outTensor->memoryrange.memId == curMemId &&  coreType.first == curIssue->coreLocation.first &&
+                coreType.second == curIssue->coreLocation.second) {
                 return curIssue;
             }
         }
@@ -890,7 +896,8 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
     return SUCCESS;
 }
 
-Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {	
+Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
+    // TODO 新tensor的对应alloc设置tensorAllocCoreMap
     APASS_LOG_DEBUG_F(Elements::Operation, "START: SPILL tensor.");	
     if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {	
         if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {	
