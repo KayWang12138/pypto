@@ -151,8 +151,8 @@ TILEOP void CeilComputeImpl(T0 dst, T1 src) {
 template <typename T0, typename T1>
 TILEOP void TCeil(T0 dst, T1 src) {
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
-        auto dstTile = PtoTile<T0, pto::Blayout::RowMajor, true>().Data;
-        auto srcTile = PtoTile<T1, pto::Blayout::RowMajor, true>().Data;
+        auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data;
+        auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data;
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
         CeilComputeImpl<float>(dstTile, srcTile);
