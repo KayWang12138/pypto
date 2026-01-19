@@ -153,9 +153,13 @@ void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, con
 }
 
 bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOutput) {
-    return (reshapeInput->GetShape()[0] == 1 && reshapeInput->GetShape().size() == 3 &&
-            reshapeOutput->GetShape().size() == 2 && reshapeInput->GetShape()[1] == reshapeOutput->GetShape()[0] &&
-            reshapeInput->GetShape()[2] == reshapeOutput->GetShape()[1]);
+    auto inputShape = reshapeInput->GetShape();
+    auto outputShape = reshapeOutput->GetShape();
+    if (std::min(inputShape.size(), outputShape.size()) < 3) {
+        return false;
+    }
+    return ((inputShape[0] == 1 || inputShape[1] == 1) && (inputShape[0] * inputShape[1] == outputShape[0]) &&
+            std::equal(inputShape.begin() + 2, inputShape.end(), outputShape.begin() + 1, outputShape.end()));
 }
 
 /*
@@ -215,22 +219,22 @@ Status ProcessView(Function &function) {
 
 // large , small
 bool RemoveViewMultiReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOutput) {
-    auto longRawShape = reshapeInput->GetRawTensor()->GetRawShape();
-    auto shortRawShape = reshapeOutput->GetRawTensor()->GetRawShape();
-    if (longRawShape.size() == shortRawShape.size() || std::min(longRawShape.size(), shortRawShape.size()) < 1) {
+    auto longerRawShape = reshapeInput->GetRawTensor()->GetRawShape();
+    auto shorterRawShape = reshapeOutput->GetRawTensor()->GetRawShape();
+    if (longerRawShape.size() == shorterRawShape.size() ||
+        std::min(longerRawShape.size(), shorterRawShape.size()) < 1) {
         return false;
     }
-    if (longRawShape.size() < shortRawShape.size()) {
+    if (longerRawShape.size() < shorterRawShape.size()) {
         return RemoveViewMultiReshapePattern(reshapeOutput, reshapeInput);
     }
-    auto longRawShapeSize = reshapeInput->GetRawTensor()->GetRawShapeSize();
-    auto shortRawShapeSize = reshapeOutput->GetRawTensor()->GetRawShapeSize();
-    if (longRawShapeSize != shortRawShapeSize) {
+    auto longerRawShapeSize = reshapeInput->GetRawTensor()->GetRawShapeSize();
+    auto shorterRawShapeSize = reshapeOutput->GetRawTensor()->GetRawShapeSize();
+    if (longerRawShapeSize != shorterRawShapeSize) {
         return false;
     }
-
-    auto haveOne = longRawShape[0] == 1 || longRawShape[1] == 1;
-    return haveOne && longRawShape[0] * longRawShape[1] == shortRawShape[0];
+    auto haveOne = longerRawShape[0] == 1 || longerRawShape[1] == 1;
+    return haveOne && longerRawShape[0] * longerRawShape[1] == shorterRawShape[0];
 }
 
 /*
@@ -245,12 +249,13 @@ RESHAPE -> VIEW -> RESHAPE
 RESHAPE -> COPYIN
         -> COPYIN
 */
-Status ProcessReshape(Function &function, Operation &operation) {
-    auto iOperand = operation.iOperand[0];
-    auto oOperand = operation.oOperand[0];
+Status ProcessReshape(Function &function, Operation *&operation) {
+    auto iOperand = operation->iOperand[0];
+    auto oOperand = operation->oOperand[0];
     if (oOperand == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].%s",
-        operation.opmagic, GetFormatBacktrace(operation).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "Null output operand detected while iterating over the output operands of the operation [%d].%s",
+            operation->opmagic, GetFormatBacktrace(operation).c_str());
         return FAILED;
     }
     auto consumers = oOperand->GetConsumers();
@@ -269,44 +274,53 @@ Status ProcessReshape(Function &function, Operation &operation) {
         }
         consumer->ReplaceInput(dst, oOperand);
         auto &newReshapeOp = function.AddRawOperation(Opcode::OP_RESHAPE, {iOperand}, {dst});
-        const std::shared_ptr<OpAttribute> &oriReshapeAttr = operation.GetOpAttribute();
+        const std::shared_ptr<OpAttribute> &oriReshapeAttr = operation->GetOpAttribute();
         if (oriReshapeAttr != nullptr) {
             newReshapeOp.SetOpAttribute(oriReshapeAttr);
         }
+        operation = function.GetOpByOpMagic(newReshapeOp.GetOpMagic());
     }
     return SUCCESS;
 }
 
 Status RemoveViewMultiReshape(Function &function) {
-    for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_RESHAPE) {
+    for (auto op : function.Operations().DuplicatedOpList()) {
+        if (op->GetOpcode() != Opcode::OP_RESHAPE) {
             continue;
         }
-        auto &firstReshape = op;
-        if (!RemoveViewMultiReshapePattern(firstReshape.GetIOperands().front(), firstReshape.GetOOperands().front())) {
+        auto firstReshape = op;
+        if (!RemoveViewMultiReshapePattern(
+                firstReshape->GetIOperands().front(), firstReshape->GetOOperands().front())) {
             continue;
         }
-        auto consumer = firstReshape.GetOOperands().front()->GetConsumers();
-        auto view = *consumer.begin();
-        if (view == nullptr || consumer.size() != 1 || view->GetOpcode() != Opcode::OP_VIEW) {
-            continue;
-        }
-        consumer = view->GetOOperands().front()->GetConsumers();
-        auto secondReshape = *consumer.begin();
-        if (secondReshape == nullptr || consumer.size() != 1 || secondReshape->GetOpcode() != Opcode::OP_RESHAPE) {
-            continue;
-        }
-        APASS_LOG_DEBUG_F(Elements::Operation, "Match RemoveViewMultiReshape pattern %d -> %d -> %d",
-            firstReshape.GetOpMagic(), view->GetOpMagic(), secondReshape->GetOpMagic());
+        auto consumer = firstReshape->GetOOperands().front()->GetConsumers();
+        for (auto view : consumer) {
+            if (view->GetOpcode() != Opcode::OP_VIEW) {
+                continue;
+            }
+            auto viewConsumer = view->GetOOperands().front()->GetConsumers();
+            auto secondReshape = *viewConsumer.begin();
+            if (secondReshape == nullptr || viewConsumer.size() != 1 ||
+                secondReshape->GetOpcode() != Opcode::OP_RESHAPE) {
+                continue;
+            }
+            if (ProcessReshape(function, firstReshape) != SUCCESS) {
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "ProcessReshape failed. %s", GetFormatBacktrace(firstReshape).c_str());
+                return FAILED;
+            }
+            APASS_LOG_DEBUG_F(Elements::Operation, "Match RemoveViewMultiReshape pattern %d -> %d -> %d",
+                firstReshape->GetOpMagic(), view->GetOpMagic(), secondReshape->GetOpMagic());
 
-        auto oriRawShape = secondReshape->GetIOperands().front()->GetRawTensor()->GetRawShape();
-        Shape newShape;
-        std::remove_copy_if(oriRawShape.begin(), oriRawShape.end(), 
-                            std::back_inserter(newShape), [](const auto &e) { return e == 1; });
-        secondReshape->GetOOperands().front()->GetRawTensor()->UpdateRawShape(newShape);
-        secondReshape->ReplaceIOperand(0, firstReshape.GetIOperands().front());
-        firstReshape.SetAsDeleted();
-        view->SetAsDeleted();
+            auto oriRawShape = secondReshape->GetIOperands().front()->GetRawTensor()->GetRawShape();
+            Shape newShape;
+            std::remove_copy_if(oriRawShape.begin(), oriRawShape.end(), std::back_inserter(newShape),
+                [](const auto &e) { return e == 1; });
+            secondReshape->GetOOperands().front()->GetRawTensor()->UpdateRawShape(newShape);
+            secondReshape->ReplaceIOperand(0, firstReshape->GetIOperands().front());
+            firstReshape->SetAsDeleted();
+            view->SetAsDeleted();
+        }
     }
     return SUCCESS;
 }
