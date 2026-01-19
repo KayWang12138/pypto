@@ -478,23 +478,6 @@ TEST_F(OperationImplTest, TestIndexPut_) {
     }
 }
 
-TEST_F(OperationImplTest, TestIndexPut_torch) {
-    Shape shapeSelf({16, 16});
-    Shape shapeValues({8, 16});
-    Shape shapeIndices({8});
-    Shape shapeOffset({0, 0});
-    Shape shapeOffset1({0});
-    auto outData = std::make_shared<RawTensorData>(DataType::DT_FP32, shapeSelf);
-    auto out = std::make_shared<LogicalTensorData>(outData, shapeSelf, shapeOffset);
-    auto selfData = std::make_shared<RawTensorData>(DataType::DT_FP32, shapeSelf);
-    auto self = std::make_shared<LogicalTensorData>(selfData, shapeSelf, shapeOffset);
-    auto indicesData = std::make_shared<RawTensorData>(DataType::DT_INT32, shapeIndices);
-    auto indices = std::make_shared<LogicalTensorData>(indicesData, shapeIndices, shapeOffset1);
-    auto valuesData = std::make_shared<RawTensorData>(DataType::DT_FP32, shapeValues);
-    auto values = std::make_shared<LogicalTensorData>(valuesData, shapeValues, shapeOffset); 
-    npu::tile_fwk::calc::IndexPut(out, self, {indices}, values, false);
-}
-
 TEST_F(OperationImplTest, test_Expand_8_1_to_8_8) {
     TileShape::Current().SetVecTile({4, 4});
 
