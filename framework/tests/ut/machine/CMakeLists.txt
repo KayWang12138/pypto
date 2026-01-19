@@ -26,6 +26,7 @@ PTO_Fwk_UTest_AddCaseLib(
 target_compile_definitions(${_Target}
         PRIVATE
             NO_NEON_SUPPORT
+            ENABLE_UTEST
 )
 # 可执行程序运行依赖的配置, 脚本配置
 add_custom_command(
