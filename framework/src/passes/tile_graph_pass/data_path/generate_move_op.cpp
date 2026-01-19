@@ -114,20 +114,15 @@ Status GenerateMoveOp::A23CreateMoveOpForView(Function &function, Operation &op)
 Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) const {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
     bool isGmInput = op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
-    auto gmOutput = op.oOperand.front()->GetMemoryTypeOriginal();
+    bool isGmOutput = op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
     if (isGmInput) {
         //case1: VIEW转copyIn
-        if (gmOutput == MemoryType::MEM_DEVICE_DDR && HasSpecificConsumer(op)) {
+        if (isGmOutput && HasSpecificConsumer(op)) {
             return SUCCESS;
-        } else if (gmOutput == MemoryType::MEM_L1_SCALE_A) {
-            op.SetOpCode(Opcode::OP_COPY_IN_SCALE_A);
-            SetOpAttr(op, viewOpAttribute);
-        } else if (gmOutput == MemoryType::MEM_L1_SCALE_B) {
-            op.SetOpCode(Opcode::OP_COPY_IN_SCALE_B);
-            SetOpAttr(op, viewOpAttribute);
-        } else {
+        }
+        if ((!isGmOutput)) {
             op.SetOpCode(Opcode::OP_COPY_IN);
-            SetOpAttr(op, viewOpAttribute);
+            SetCopyAttr(op,viewOpAttribute);
         }
     } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
         //case2: VIEW转L0A/L0AT
@@ -147,10 +142,10 @@ Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) 
             op.SetOpCode(Opcode::OP_L1_TO_L0B);
         }
         SetCopyAttr(op,viewOpAttribute);
-    } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0A_MX) {
+    } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) {
         op.SetOpCode(Opcode::OP_L1_TO_L0A_SCALE);
         SetCopyAttr(op, viewOpAttribute);
-    } else if (oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0B_MX) {
+    } else if (oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
         op.SetOpCode(Opcode::OP_L1_TO_L0B_SCALE);
         SetCopyAttr(op, viewOpAttribute);
     } else {
