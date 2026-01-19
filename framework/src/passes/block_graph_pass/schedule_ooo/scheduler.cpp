@@ -532,12 +532,15 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
 }
 
 void OoOScheduler::LaunchReadyIssue() {
+    // TODO 分核初始化 Queue
     for (auto &issue : issueEntries) {
+        auto idx = issue->coreLocation.first;
+        auto coreType = issue->coreLocation.second;
         if (USE_LESS_OPS.find(issue->tileOp.GetOpcode()) != USE_LESS_OPS.end() && issue->predecessors.empty()) {
-            issueQueues[issue->type].Insert(issue);
+            issueQueues[idx][coreType][issue->type].Insert(issue);
         }
         if (issue->isAlloc) {
-            allocIssueQueue[localBufferMap[issue->reqMemIds[0]]->memType].Insert(issue);
+            allocIssueQueue[idx][coreType][localBufferMap[idx][coreType][issue->reqMemIds[0]]->memType].Insert(issue);
         }
     }
 }
@@ -552,7 +555,9 @@ bool OoOScheduler::IsInissueEntries(Operation* op) {
 }
 
 Status OoOScheduler::InitMemWithoutAlloc() {
-    std::set<int> needAllocMem;
+    // TODO 分核进行提前alloc 识别哪个核上？ 其后面op对应属性一致
+    // std::set<int> needAllocMem;
+    std::unordered_map<int, std::pair<int, CoreType>> needAllocMem;
     for (const auto &issue : issueEntries) {
         for (auto &iOperand : issue->tileOp.GetIOperands()) {
             bool needAlloc = true;
@@ -572,12 +577,14 @@ Status OoOScheduler::InitMemWithoutAlloc() {
             }
             if (needAlloc) {
                 auto memId = iOperand->memoryrange.memId;
-                needAllocMem.insert(memId);
+                needAllocMem[memId] = issue->coreLocation;
                 APASS_LOG_DEBUG_F(Elements::Tensor, "Buffer[%d] memId [%d] is ALLOC, it has no producers", iOperand->GetMagic(), memId);
             }
         }
     }
-    for (auto memId : needAllocMem) {
+    for (auto [memId, corePair] : needAllocMem) {
+        auto idx = corePair.first;
+        auto coreType = corePair.second;
         auto memType = localBufferMap[memId]->memType;
         if (!bufferManagerMap[memType].IsFull(localBufferMap[memId])) {
             if (bufferManagerMap[memType].Allocate(localBufferMap[memId]) != SUCCESS) {
@@ -715,16 +722,31 @@ Status OoOScheduler::GenSpillSchedule() {
 }
 
 void OoOScheduler::InitIssueQueuesAndBufferManager() {
+    // TODO 初始化
     for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
-        issueQueues[static_cast<PipeType>(i)] = IssueQueue();
+        // issueQueues[static_cast<PipeType>(i)] = IssueQueue();
+        issueQueues[0][CoreType::AIV][static_cast<PipeType>(i)] = IssueQueue();
+        issueQueues[1][CoreType::AIV][static_cast<PipeType>(i)] = IssueQueue();
+        issueQueues[0][CoreType::AIC][static_cast<PipeType>(i)] = IssueQueue();
     }
 
     bufferManagerMap.clear();
     for (size_t i = 0; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
-        allocIssueQueue[static_cast<MemoryType>(i)] = IssueQueue();
+    // allocIssueQueue[static_cast<MemoryType>(i)] = IssueQueue();
+        allocIssueQueue[0][CoreType::AIV][static_cast<MemoryType>(i)] = IssueQueue();
+        allocIssueQueue[1][CoreType::AIV][static_cast<MemoryType>(i)] = IssueQueue();
+        allocIssueQueue[0][CoreType::AIC][static_cast<MemoryType>(i)] = IssueQueue();
         if (localMemorySize.find(static_cast<MemoryType>(i)) != localMemorySize.end()) {
-            bufferManagerMap.insert({static_cast<MemoryType>(i),
+            // bufferManagerMap.insert({static_cast<MemoryType>(i),
+            //     BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
+            bufferManagerMap[0][CoreType::AIV].insert({static_cast<MemoryType>(i),
                 BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
+            bufferManagerMap[1][CoreType::AIV].insert({static_cast<MemoryType>(i),
+                BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
+            bufferManagerMap[0][CoreType::AIC].insert({static_cast<MemoryType>(i),
+                BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
+
+
         }
     }
 }
@@ -982,6 +1004,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
+        // TODO 核属性的初始化
         auto issue = std::make_shared<IssueEntry>(*op, issueId);
         issueEntryMap[issueId++] = issue;
         if (issue == nullptr) {
