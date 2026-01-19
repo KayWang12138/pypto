@@ -126,10 +126,12 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
         ...
     }
     
-    @pypto.jit(verify_options=verify_options)
-    def add_kernel(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor):
+    @pypto.frontend.jit(verify_options=verify_options)
+    def add_kernel(
+        input0: pypto.Tensor(shape, pypto.DT_FP32), input1: pypto.Tensor(shape, pypto.DT_FP32)
+        ) -> output: pypto.Tensor(shape, pypto.DT_FP32):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        output[:] = input0 + input1
+        output = input0 + input1
     
     ...
     ```
@@ -137,7 +139,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 2.  执行修改后用例。
 
     ```bash
-    python3 examples/01_beginner/00_introduction/add_direct.py
+    python3 examples/01_beginner/basic/add_direct.py
     ```
 
     打印类似以下输出，指示对应的自检结果为通过（PASS）、未通过（FAIL\(ED\)）或跳过校验（NO\_COMPARE）：
@@ -219,34 +221,34 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
         ...
     }
     
-    @pypto.jit(verify_options=verify_options)
-    def add_kernel(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor):
-        pypto.set_vec_tile_shapes(1, 16, 1, 64)
-        output[:] = input0 + input1
-    
-    def add(input_data0, input_data1, output_data):
-        ...
+    def add(shapes):
+        input0_shape = shape
+        input1_shape = shape
+        output_shape = shape
+        dtype = pypto.DT_FP32
+        @pypto.frontend.jit(verify_options=verify_options)
+        def add_kernel(
+            input0: pypto.Tensor(input0_shape, dtype), input1: pypto.Tensor(input1_shape, dtype)
+            ) -> pypto.Tensor(output_shape, dtype):
+            pypto.set_vec_tile_shapes(1, 16, 1, 64)
+            output = input0 + input1
+            return output
+        return add_kernel
+
     
     def test_add():
         shape = (1, 16, 1, 64)
-        input_data0 = torch.rand(shape, dtype=torch.float)
-        input_data1 = torch.rand(shape, dtype=torch.float)
-        output_data = torch.zeros(shape, dtype=torch.float)
-        torch_add = torch.add(input_data0, input_data1)
+        input_data0 = torch.rand(shape, dtype=torch.float).to('npu')
+        input_data1 = torch.rand(shape, dtype=torch.float).to('npu')
+        output_data = add(shape)(input_data0, input_data1)
         pypto.set_verify_golden_data(goldens=[None, None, torch_add])
-    
-        input_data0 = input_data0.to('npu')
-        input_data1 = input_data1.to('npu')
-        output_data = output_data.to('npu')
-    
-        add(input_data0, input_data1, output_data)
     ...
     ```
 
 2.  执行修改后用例。
 
     ```bash
-    python3 examples/01_beginner/00_introduction/add_direct.py 
+    python3 examples/01_beginner/basic/add_direct.py
     ```
 
 3.  打印类似以下输出，指示对应的自检结果为通过（PASS）、未通过（FAIL\(ED\)）或跳过校验（NO\_COMPARE）：
@@ -285,31 +287,33 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
         "enable_pass_verify": True,
         ...
     }
-    
-    @pypto.jit(verify_options=verify_options)
-    def add_kernel(input0: pypto.Tensor, input1: pypto.Tensor, output: pypto.Tensor):
-        pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        pypto.pass_verify_save(input1, "input1_by_pass_verify")
-        pypto.pass_verify_print(input0)
-        output[:] = input0 + input1
-    
-    def add(input_data0, input_data1, output_data):
-        ...
+
+
+    def add(shape):
+        dtype = pypto.DT_FP32
+        @pypto.frontend.jit(verify_options=verify_options)
+        def add_kernel(input0: pypto.tensor(shape, dtype), input1: pypto.tensor(shape, dtype),
+            ) -> pypto.tensor(shape, dtype):
+            pypto.set_vec_tile_shapes(1, 4, 1, 64)
+            pypto.pass_verify_save(input1, "input1_by_pass_verify")
+            pypto.pass_verify_print(input0)
+            output = input0 + input1
+            return output
+        return add_kernel\
+
     
     def test_add():
         input_data0 = torch.rand(shape, dtype=torch.float, device='npu')
         input_data1 = torch.rand(shape, dtype=torch.float, device='npu')
-        output_data = torch.zeros(shape, dtype=torch.float, device='npu')
+        output_data = add(shape)(input_data0, input_data1)
         torch_add = torch.add(input_data0, input_data1)
-    
-        add(input_data0, input_data1, output_data)
     ...
     ```
 
 2.  执行修改后用例。
 
     ```bash
-    python3 examples/01_beginner/00_introduction/add_direct.py 
+    python3 examples/01_beginner/basic/add_direct.py
     ```
 
 3.  打印类似以下输出，指示 input0 所保存的部分参考数据。
