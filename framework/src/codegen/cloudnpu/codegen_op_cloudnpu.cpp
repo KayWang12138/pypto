@@ -639,13 +639,30 @@ bool CodeGenOpCloudNPU::ShouldSkipProcInLoop(int paramIdx) {
     return iter->second.find(paramIdx) != iter->second.end();
 }
 
-void CodeGenOpCloudNPU::UpdateLoopInfo() {
+std::vector<SymbolicScalar> CodeGenOpCloudNPU::GetLoopAxes() {
     std::vector<SymbolicScalar> loopAxes;
-    if (!GetAttr(OpAttributeKey::loopAxes, loopAxes) || loopAxes.empty()) {
+    GetAttr(OpAttributeKey::loopAxes, loopAxes);
+
+    if (!isMainBlock) {
+        return loopAxes;
+    }
+    // use dst shape as loop axes in main block
+    std::vector<SymbolicScalar> newLoopAxes;
+    for (size_t i = 0; i < loopAxes.size(); ++i) {
+        SymbolicScalar axis = isDynamicFunction ? dynamicValidShape[0][i] : SymbolicScalar(originShape[0][i]);
+        newLoopAxes.emplace_back(axis);
+    }
+
+    return newLoopAxes;
+}
+
+void CodeGenOpCloudNPU::UpdateLoopInfo() {
+    if (SUPPORT_VF_FUSE_OPS.find(opCode) == SUPPORT_VF_FUSE_OPS.end()) {
         return;
     }
 
-    if (SUPPORT_VF_FUSE_OPS.find(opCode) == SUPPORT_VF_FUSE_OPS.end()) {
+    std::vector<SymbolicScalar> loopAxes = GetLoopAxes();
+    if (loopAxes.empty()) {
         return;
     }
 
@@ -767,8 +784,8 @@ std::string CodeGenOpCloudNPU::GenOpCode() const {
     return ret;
 }
 
-std::string CodeGenOpCloudNPU::GetLastUse() const{
-    if(!opAttrs.count(OpAttributeKey::lastUse)){
+std::string CodeGenOpCloudNPU::GetLastUse() const {
+    if (!opAttrs.count(OpAttributeKey::lastUse)) {
         return "";
     }
     std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
