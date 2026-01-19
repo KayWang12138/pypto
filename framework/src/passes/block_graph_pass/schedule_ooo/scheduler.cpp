@@ -517,8 +517,8 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
             }
         }
         if (ready) {
-            auto coreType = issue->coreLocation;
-            issueQueues[coreType.first][coreType.second][succ->type].Insert(succ);
+            auto corePair = issue->coreLocation;
+            issueQueues[corePair.first][corePair.second][succ->type].Insert(succ);
             APASS_LOG_DEBUG_F(Elements::Operation, "    Wakeup: %s, execOrder: %d", succ->GetOpInfo().c_str(), succ->execOrder);
         }
     }
