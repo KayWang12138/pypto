@@ -1684,9 +1684,6 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
     ALOG_DEBUG_F("Mix resource type: %d for programID=%d", static_cast<int>(resourceType), programID);
     
     // 从原始mix函数获取isUnderDynamicFunction属性
-    bool isUnderDynamicFunction = originalMixFunc->IsUnderDynamicFunction();
-    ALOG_DEBUG_F("Original mix function isUnderDynamicFunction: %s for programID=%d", 
-                 isUnderDynamicFunction ? "true" : "false", programID);
     
     uint64_t mixId = nextMixId_++;
     ALOG_DEBUG_F("Assigning mixId=%lu for original mix function programID=%d", mixId, programID);
@@ -1706,16 +1703,6 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
     std::vector<Function*> newFunctions;
     if (GenNewFunctions(rootFunc, originalMixFunc, components, newProgramIDs, subgraphToFunction, newFunctions) != SUCCESS) {
         return FAILED;
-    }
-
-    // 设置每个新建leaf function的isUnderDynamicFunction属性
-    ALOG_INFO_F("Setting isUnderDynamicFunction for %zu new leaf functions", newFunctions.size());
-    for (auto* leafFunc : newFunctions) {
-        if (leafFunc) {
-            leafFunc->SetUnderDynamicFunction(isUnderDynamicFunction);
-            ALOG_DEBUG_F("Set isUnderDynamicFunction=%s for leaf function programID=%d",
-                         isUnderDynamicFunction ? "true" : "false", leafFunc->GetProgramId());
-        }
     }
     
     // 步骤5：计算所有依赖（包括外部依赖和内部依赖）
