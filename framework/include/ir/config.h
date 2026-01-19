@@ -30,6 +30,10 @@ namespace pto {
 // Maximum length for normalized config name
 constexpr size_t MAX_CONFIG_NAME_LENGTH = 256;
 
+// Forward declaration
+class ConfigRegistry;
+ConfigRegistry &EnsureRegistryInitialized();
+
 class ConfigKey {
 public:
     explicit ConfigKey(const std::string &key) { key_ = FromRawName(key); }
@@ -108,6 +112,10 @@ public:
 private:
     // Friend class to access private constructor in .cpp file
     friend struct ConfigRegistryHelper;
+    // Friend function for Nifty Counter pattern
+    friend ConfigRegistry &EnsureRegistryInitialized();
+    // Internal implementation for Nifty Counter pattern
+    static ConfigRegistry &GetInstanceImpl();
 
 private:
     ConfigRegistry() {}
@@ -216,6 +224,13 @@ void Config::Set(const ConfigKey &key, const T &value) {
 
 #define REGISTER_CONFIG(keyName, defaultValue)                   \
     namespace {                                                  \
+    /* Nifty Counter: ensure registry is initialized before registrar */ \
+    struct ConfigRegistryInitializer_##keyName {                 \
+        ConfigRegistryInitializer_##keyName() {                  \
+            (void)pto::ConfigRegistry::GetInstance();            \
+        }                                                        \
+    };                                                           \
+    static ConfigRegistryInitializer_##keyName g_init_##keyName; \
     struct ConfigRegistrar_##keyName {                           \
         ConfigRegistrar_##keyName() {                            \
             auto &registry = pto::ConfigRegistry::GetInstance(); \

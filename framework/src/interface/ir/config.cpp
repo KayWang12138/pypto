@@ -21,27 +21,33 @@
 
 namespace pto {
 
-// Helper structure to access private constructor
-struct ConfigRegistryHelper {
-    static void Create(ConfigRegistry* ptr) {
-        new (ptr) ConfigRegistry();
-    }
-};
+// Forward declaration for Nifty Counter
+ConfigRegistry &EnsureRegistryInitialized();
 
-// Storage for global static instance
-alignas(ConfigRegistry) static char instance_storage[sizeof(ConfigRegistry)];
+// Nifty Counter pattern to ensure ConfigRegistry is initialized before any global objects
+namespace {
+    // Counter to track initialization
+    struct ConfigRegistryCounter {
+        ConfigRegistryCounter() {
+            // Ensure instance is constructed during static initialization
+            (void)EnsureRegistryInitialized();
+        }
+    };
+    // This object is initialized before any other global object in this translation unit
+    static ConfigRegistryCounter nifty_counter;
+}
 
-// Global static instance reference
-static ConfigRegistry &instance = []() -> ConfigRegistry& {
-    static bool initialized = false;
-    if (!initialized) {
-        ConfigRegistryHelper::Create(reinterpret_cast<ConfigRegistry*>(instance_storage));
-        initialized = true;
-    }
-    return *reinterpret_cast<ConfigRegistry*>(instance_storage);
-}();
+// Helper function to initialize the registry (friend of ConfigRegistry)
+ConfigRegistry &EnsureRegistryInitialized() {
+    return ConfigRegistry::GetInstanceImpl();
+}
 
 ConfigRegistry &ConfigRegistry::GetInstance() {
+    return GetInstanceImpl();
+}
+
+ConfigRegistry &ConfigRegistry::GetInstanceImpl() {
+    static ConfigRegistry instance;
     return instance;
 }
 
