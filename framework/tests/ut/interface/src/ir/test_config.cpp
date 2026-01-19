@@ -17,7 +17,7 @@
 #include "ir/config.h"
 #include "ir/program.h"
 #include "ir/function.h"
-#include <fstream>
+#include "tilefwk/error.h"
 #include <cstdio>
 
 // Register test config items
@@ -27,7 +27,6 @@ REGISTER_CONFIG(test_bool, true);
 REGISTER_CONFIG(test_uint8, uint8_t(42));
 REGISTER_CONFIG(test_uint16, uint16_t(1000));
 REGISTER_CONFIG(test_float32, float(100.0f));
-REGISTER_CONFIG(test_double, double(100.0));
 REGISTER_CONFIG(test_map, (std::map<int64_t, int64_t>{
                               {1, 2},
                               {3, 4}
@@ -51,6 +50,9 @@ TEST_F(ConfigTest, TestConfigRegistration) {
     EXPECT_TRUE(registry.IsRegistered(CONFIG_test_int32));
     EXPECT_TRUE(registry.IsRegistered(CONFIG_test_bool));
     EXPECT_TRUE(registry.IsRegistered(CONFIG_test_uint8));
+    EXPECT_TRUE(registry.IsRegistered(CONFIG_test_uint16));
+    EXPECT_TRUE(registry.IsRegistered(CONFIG_test_float32));
+    EXPECT_TRUE(registry.IsRegistered(CONFIG_test_map));
 
     // Test GetKeyName
     EXPECT_EQ("test_int32", registry.GetKeyName(CONFIG_test_int32));
@@ -93,6 +95,7 @@ TEST_F(ConfigTest, TestConfigGetAndHas) {
     EXPECT_TRUE(config.Has(CONFIG_test_bool));
     EXPECT_TRUE(config.Has(CONFIG_test_uint8));
     EXPECT_TRUE(config.Has(CONFIG_test_uint16));
+    EXPECT_TRUE(config.Has(CONFIG_test_float32));
     EXPECT_TRUE(config.Has(CONFIG_test_map));
 
     // Verify default values
@@ -100,6 +103,7 @@ TEST_F(ConfigTest, TestConfigGetAndHas) {
     EXPECT_TRUE(config.Get<bool>(CONFIG_test_bool));
     EXPECT_EQ(42, config.Get<uint8_t>(CONFIG_test_uint8));
     EXPECT_EQ(1000, config.Get<uint16_t>(CONFIG_test_uint16));
+    EXPECT_FLOAT_EQ(100.0f, config.Get<float>(CONFIG_test_float32));
 
     // Now override some values using Initialize
     config.Initialize({
@@ -145,7 +149,7 @@ TEST_F(ConfigTest, TestConfigTypeMismatchError) {
                 {CONFIG_test_int32, std::any(true)}  // Should be int32_t, not bool
             });
         },
-        std::runtime_error);
+        npu::tile_fwk::Error);
 }
 
 // Test config unregistered key error
@@ -161,7 +165,7 @@ TEST_F(ConfigTest, TestConfigUnregisteredKeyError) {
                 {unregisteredKey, std::any(int32_t(100))}
             });
         },
-        std::runtime_error);
+        npu::tile_fwk::Error);
 }
 
 // Test config constructor automatically initializes with default values
@@ -174,6 +178,7 @@ TEST_F(ConfigTest, TestConfigConstructorInitializesDefaults) {
     EXPECT_TRUE(config.Has(CONFIG_test_bool));
     EXPECT_TRUE(config.Has(CONFIG_test_uint8));
     EXPECT_TRUE(config.Has(CONFIG_test_uint16));
+    EXPECT_TRUE(config.Has(CONFIG_test_float32));
     EXPECT_TRUE(config.Has(CONFIG_test_map));
 
     // Verify all default values
@@ -181,6 +186,7 @@ TEST_F(ConfigTest, TestConfigConstructorInitializesDefaults) {
     EXPECT_TRUE(config.Get<bool>(CONFIG_test_bool));
     EXPECT_EQ(42, config.Get<uint8_t>(CONFIG_test_uint8));
     EXPECT_EQ(1000, config.Get<uint16_t>(CONFIG_test_uint16));
+    EXPECT_FLOAT_EQ(100.0f, config.Get<float>(CONFIG_test_float32));
 
     // Verify map default value
     const auto &defaultMap = config.Get<std::map<int64_t, int64_t>>(CONFIG_test_map);
@@ -202,7 +208,7 @@ TEST_F(ConfigTest, TestConfigGetWrongTypeError) {
         {
             config.Get<bool>(CONFIG_test_int32); // Should be int32_t, not bool
         },
-        std::runtime_error);
+        npu::tile_fwk::Error);
 }
 
 // Test ProgramModule config
@@ -386,6 +392,7 @@ TEST_F(ConfigTest, TestLoadFromJsonFile) {
     EXPECT_FALSE(config.Get<bool>(CONFIG_test_bool));
     EXPECT_EQ(88, config.Get<uint8_t>(CONFIG_test_uint8));
     EXPECT_EQ(2000, config.Get<uint16_t>(CONFIG_test_uint16));
+    EXPECT_FLOAT_EQ(200.5f, config.Get<float>(CONFIG_test_float32));
 
     // Verify map value
     const auto &retrievedMap = config.Get<std::map<int64_t, int64_t>>(CONFIG_test_map);
@@ -414,7 +421,7 @@ TEST_F(ConfigTest, TestLoadFromJsonFilePartial) {
 TEST_F(ConfigTest, TestLoadFromJsonFileNotFound) {
     Config config;
     std::string jsonPath = "../../../framework/tests/ut/interface/src/ir/json/test_nonexistent_file.json";
-    EXPECT_THROW({ config.LoadFromJsonFile("non_existent_file.json"); }, std::runtime_error);
+    EXPECT_THROW({ config.LoadFromJsonFile("non_existent_file.json"); }, npu::tile_fwk::Error);
 }
 
 // Test SetDefault function
@@ -447,7 +454,7 @@ TEST_F(ConfigTest, TestSetDefaultUnregisteredKey) {
     Config config;
     ConfigKey unregisteredKey("unregistered_key");
 
-    EXPECT_THROW({ config.SetDefault(unregisteredKey); }, std::runtime_error);
+    EXPECT_THROW({ config.SetDefault(unregisteredKey); }, npu::tile_fwk::Error);
 }
 
 // Test Set function (template version)
@@ -473,8 +480,8 @@ TEST_F(ConfigTest, TestSetWrongType) {
     Config config;
 
     // Try to set with wrong type
-    EXPECT_THROW({ config.Set(CONFIG_test_int32, true); }, std::runtime_error);        // bool instead of int32_t
-    EXPECT_THROW({ config.Set(CONFIG_test_bool, int32_t(100)); }, std::runtime_error); // int32_t instead of bool
+    EXPECT_THROW({ config.Set(CONFIG_test_int32, true); }, npu::tile_fwk::Error);        // bool instead of int32_t
+    EXPECT_THROW({ config.Set(CONFIG_test_bool, int32_t(100)); }, npu::tile_fwk::Error); // int32_t instead of bool
 }
 
 // Test Set function with unregistered key
@@ -482,7 +489,7 @@ TEST_F(ConfigTest, TestSetUnregisteredKey) {
     Config config;
     ConfigKey unregisteredKey("unregistered_key");
 
-    EXPECT_THROW({ config.Set(unregisteredKey, int32_t(100)); }, std::runtime_error);
+    EXPECT_THROW({ config.Set(unregisteredKey, int32_t(100)); }, npu::tile_fwk::Error);
 }
 
 // Test Initialize with empty std::any (should use default value)
@@ -509,14 +516,15 @@ TEST_F(ConfigTest, TestConfigRegistryGetDefaultValue) {
     EXPECT_TRUE(registry.GetDefaultValue<bool>(CONFIG_test_bool));
     EXPECT_EQ(42, registry.GetDefaultValue<uint8_t>(CONFIG_test_uint8));
     EXPECT_EQ(1000, registry.GetDefaultValue<uint16_t>(CONFIG_test_uint16));
+    EXPECT_FLOAT_EQ(100.0f, registry.GetDefaultValue<float>(CONFIG_test_float32));
 }
 
 // Test ConfigRegistry::GetDefaultValue with wrong type
 TEST_F(ConfigTest, TestConfigRegistryGetDefaultValueWrongType) {
     auto &registry = ConfigRegistry::GetInstance();
 
-    EXPECT_THROW({ registry.GetDefaultValue<bool>(CONFIG_test_int32); }, std::runtime_error);
-    EXPECT_THROW({ registry.GetDefaultValue<int32_t>(CONFIG_test_bool); }, std::runtime_error);
+    EXPECT_THROW({ registry.GetDefaultValue<bool>(CONFIG_test_int32); }, npu::tile_fwk::Error);
+    EXPECT_THROW({ registry.GetDefaultValue<int32_t>(CONFIG_test_bool); }, npu::tile_fwk::Error);
 }
 
 // Test ConfigRegistry::HasDefaultValue
@@ -528,6 +536,7 @@ TEST_F(ConfigTest, TestConfigRegistryHasDefaultValue) {
     EXPECT_TRUE(registry.HasDefaultValue(CONFIG_test_bool));
     EXPECT_TRUE(registry.HasDefaultValue(CONFIG_test_uint8));
     EXPECT_TRUE(registry.HasDefaultValue(CONFIG_test_uint16));
+    EXPECT_TRUE(registry.HasDefaultValue(CONFIG_test_float32));
     EXPECT_TRUE(registry.HasDefaultValue(CONFIG_test_map));
 
     // Unregistered key should not have default value
@@ -571,6 +580,7 @@ TEST_F(ConfigTest, TestConfigRegistryGetAllRegisteredKeys) {
     bool foundBool = false;
     bool foundUint8 = false;
     bool foundUint16 = false;
+    bool foundFloat32 = false;
     bool foundMap = false;
 
     for (const auto &key : allKeys) {
@@ -582,6 +592,8 @@ TEST_F(ConfigTest, TestConfigRegistryGetAllRegisteredKeys) {
             foundUint8 = true;
         if (key == CONFIG_test_uint16)
             foundUint16 = true;
+        if (key == CONFIG_test_float32)
+            foundFloat32 = true;
         if (key == CONFIG_test_map)
             foundMap = true;
     }
@@ -590,6 +602,7 @@ TEST_F(ConfigTest, TestConfigRegistryGetAllRegisteredKeys) {
     EXPECT_TRUE(foundBool);
     EXPECT_TRUE(foundUint8);
     EXPECT_TRUE(foundUint16);
+    EXPECT_TRUE(foundFloat32);
     EXPECT_TRUE(foundMap);
 }
 
@@ -688,7 +701,7 @@ TEST_F(ConfigTest, TestConfigRegistryGetTypeIndexUnregistered) {
     auto &registry = ConfigRegistry::GetInstance();
     ConfigKey unregisteredKey("unregistered_key");
 
-    EXPECT_THROW({ registry.GetTypeIndex(unregisteredKey); }, std::runtime_error);
+    EXPECT_THROW({ registry.GetTypeIndex(unregisteredKey); }, npu::tile_fwk::Error);
 }
 
 // Test ConfigRegistry::GetDefaultValue with unregistered key
@@ -696,7 +709,7 @@ TEST_F(ConfigTest, TestConfigRegistryGetDefaultValueUnregistered) {
     auto &registry = ConfigRegistry::GetInstance();
     ConfigKey unregisteredKey("unregistered_key");
 
-    EXPECT_THROW({ registry.GetDefaultValue<int32_t>(unregisteredKey); }, std::runtime_error);
+    EXPECT_THROW({ registry.GetDefaultValue<int32_t>(unregisteredKey); }, npu::tile_fwk::Error);
 }
 
 // Test ConfigRegistry::GetDefaultValueAny with unregistered key
@@ -704,7 +717,7 @@ TEST_F(ConfigTest, TestConfigRegistryGetDefaultValueAnyUnregistered) {
     auto &registry = ConfigRegistry::GetInstance();
     ConfigKey unregisteredKey("unregistered_key");
 
-    EXPECT_THROW({ registry.GetDefaultValueAny(unregisteredKey); }, std::runtime_error);
+    EXPECT_THROW({ registry.GetDefaultValueAny(unregisteredKey); }, npu::tile_fwk::Error);
 }
 
 } // namespace pto

@@ -19,11 +19,11 @@
 #include <string>
 #include <vector>
 #include <set>
-#include <stdexcept>
 #include <typeindex>
 #include <typeinfo>
 #include <any>
 #include <nlohmann/json.hpp>
+#include "tilefwk/error.h"
 
 namespace pto {
 
@@ -66,33 +66,24 @@ public:
 
     template <typename T>
     const T &GetDefaultValue(const ConfigKey &key) const {
-        if (!IsRegistered(key)) {
-            throw std::runtime_error("Config key '" + key.Get() + "' is not registered");
-        }
+        ASSERT(IsRegistered(key)) << "Config key '" << key.Get() << "' is not registered";
         auto it = defaultValues_.find(key);
-        if (it == defaultValues_.end()) {
-            throw std::runtime_error("Config key '" + key.Get() + "' has no default value");
-        }
+        ASSERT(it != defaultValues_.end()) << "Config key '" << key.Get() << "' has no default value";
 
         std::type_index expectedType = std::type_index(typeid(T));
         std::type_index actualType = std::type_index(it->second.type());
-        if (actualType != expectedType) {
-            throw std::runtime_error("Config key '" + key.Get() + "' default value type mismatch. Expected: " +
-                                     expectedType.name() + ", Got: " + actualType.name());
-        }
+        ASSERT(actualType == expectedType)
+            << "Config key '" << key.Get() << "' default value type mismatch. Expected: " << expectedType.name()
+            << ", Got: " << actualType.name();
 
         return std::any_cast<const T &>(it->second);
     }
 
     // Get the default value as std::any for a registered key
     std::any GetDefaultValueAny(const ConfigKey &key) const {
-        if (!IsRegistered(key)) {
-            throw std::runtime_error("Config key '" + key.Get() + "' is not registered");
-        }
+        ASSERT(IsRegistered(key)) << "Config key '" << key.Get() << "' is not registered";
         auto it = defaultValues_.find(key);
-        if (it == defaultValues_.end()) {
-            throw std::runtime_error("Config key '" + key.Get() + "' has no default value");
-        }
+        ASSERT(it != defaultValues_.end()) << "Config key '" << key.Get() << "' has no default value";
         return it->second;
     }
 
@@ -153,18 +144,15 @@ inline std::pair<ConfigKey, std::any> MakeConfigEntry(ConfigKey key, const T &va
 
 template <typename T>
 ConfigKey ConfigRegistry::Register(const std::string &keyName, const T &defaultValue) {
-    if (!isInitialized_) {
-        throw std::runtime_error("ConfigRegistry is not initialized. Cannot register config key: " + keyName);
-    }
+    ASSERT(isInitialized_) << "ConfigRegistry is not initialized. Cannot register config key: " << keyName;
     ConfigKey key(keyName);
 
     if (registeredKeys_.find(key) != registeredKeys_.end()) {
         auto configIt = registeredConfigs_.find(key);
         if (configIt != registeredConfigs_.end()) {
             std::type_index expectedType = std::type_index(typeid(T));
-            if (configIt->second != expectedType) {
-                throw std::runtime_error("Config key '" + keyName + "' is already registered with a different type");
-            }
+            ASSERT(configIt->second == expectedType)
+                << "Config key '" << keyName << "' is already registered with a different type";
         }
         defaultValues_[key] = std::any(defaultValue);
         return key;
@@ -180,16 +168,13 @@ ConfigKey ConfigRegistry::Register(const std::string &keyName, const T &defaultV
 template <typename T>
 const T &Config::Get(const ConfigKey &key) const {
     auto it = configs_.find(key);
-    if (it == configs_.end()) {
-        throw std::runtime_error("Config key '" + key.Get() + "' not found in config");
-    }
+    ASSERT(it != configs_.end()) << "Config key '" << key.Get() << "' not found in config";
 
     std::type_index expectedType = std::type_index(typeid(T));
     std::type_index actualType = std::type_index(it->second.type());
-    if (actualType != expectedType) {
-        throw std::runtime_error("Config key '" + key.Get() + "' type mismatch. Expected: " + expectedType.name() +
-                                 ", Got: " + actualType.name());
-    }
+    ASSERT(actualType == expectedType) << "Config key '" << key.Get()
+                                       << "' type mismatch. Expected: " << expectedType.name()
+                                       << ", Got: " << actualType.name();
 
     return std::any_cast<const T &>(it->second);
 }
@@ -197,33 +182,29 @@ const T &Config::Get(const ConfigKey &key) const {
 template <typename T>
 void Config::Set(const ConfigKey &key, const T &value) {
     auto &registry = ConfigRegistry::GetInstance();
-
-    if (!registry.IsRegistered(key)) {
-        throw std::runtime_error("Config key '" + key.Get() + "' is not registered");
-    }
+    ASSERT(registry.IsRegistered(key)) << "Config key '" << key.Get() << "' is not registered";
 
     std::type_index expectedType = registry.GetTypeIndex(key);
     std::type_index actualType = std::type_index(typeid(T));
-    if (actualType != expectedType) {
-        throw std::runtime_error("Config key '" + key.Get() + "' type mismatch. Expected: " + expectedType.name() +
-                                 ", Got: " + actualType.name());
-    }
+    ASSERT(actualType == expectedType) << "Config key '" << key.Get()
+                                       << "' type mismatch. Expected: " << expectedType.name()
+                                       << ", Got: " << actualType.name();
 
     configs_[key] = std::any(value);
 }
 
 } // namespace pto
 
-#define REGISTER_CONFIG(keyName, defaultValue)                     \
-    namespace {                                                    \
-    struct ConfigRegistrar_##keyName {                             \
-        ConfigRegistrar_##keyName() {                              \
-            auto &registry = pto::ConfigRegistry::GetInstance();   \
-            registry.Register(#keyName, defaultValue);             \
-        }                                                          \
-    };                                                             \
-    ConfigRegistrar_##keyName g_configRegistrar_##keyName;         \
-    }                                                              \
-    namespace pto {                                                \
-    inline const ConfigKey CONFIG_##keyName(#keyName);             \
+#define REGISTER_CONFIG(keyName, defaultValue)                   \
+    namespace {                                                  \
+    struct ConfigRegistrar_##keyName {                           \
+        ConfigRegistrar_##keyName() {                            \
+            auto &registry = pto::ConfigRegistry::GetInstance(); \
+            registry.Register(#keyName, defaultValue);           \
+        }                                                        \
+    };                                                           \
+    ConfigRegistrar_##keyName g_configRegistrar_##keyName;       \
+    }                                                            \
+    namespace pto {                                              \
+    inline const ConfigKey CONFIG_##keyName(#keyName);           \
     }

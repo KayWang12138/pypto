@@ -15,9 +15,9 @@
 
 #include "ir/config.h"
 
-#include <stdexcept>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include "tilefwk/error.h"
 
 namespace pto {
 
@@ -32,10 +32,7 @@ bool ConfigRegistry::IsRegistered(const ConfigKey &key) const {
 
 std::type_index ConfigRegistry::GetTypeIndex(const ConfigKey &key) const {
     auto it = registeredConfigs_.find(key);
-    if (it == registeredConfigs_.end()) {
-        throw std::runtime_error(
-            "Config key '" + key.Get() + "' not found. Make sure to register it first using REGISTER_CONFIG macro.");
-    }
+    ASSERT(it != registeredConfigs_.end()) << "Config key '" << key.Get() << "' not found. Make sure to register it first using REGISTER_CONFIG macro.";
     return it->second;
 }
 
@@ -79,11 +76,9 @@ std::string ConfigKey::FromRawName(const std::string &keyName) {
         }
     }
 
-    if (result.length() > MAX_CONFIG_NAME_LENGTH) {
-        throw std::runtime_error("Config key name '" + keyName + "' results in normalized name that is too long (" +
-                                 std::to_string(result.length()) + " characters). Maximum length is " +
-                                 std::to_string(MAX_CONFIG_NAME_LENGTH) + " characters.");
-    }
+    ASSERT(result.length() <= MAX_CONFIG_NAME_LENGTH) << "Config key name '" << keyName << "' results in normalized name that is too long (" <<
+                                 result.length() << " characters). Maximum length is " <<
+                                 MAX_CONFIG_NAME_LENGTH << " characters.";
 
     return result;
 }
@@ -93,9 +88,7 @@ void Config::Initialize(std::initializer_list<std::pair<ConfigKey, std::any>> co
 
     // Validate all provided configs and store them
     for (const auto &[key, value] : configs) {
-        if (!registry.IsRegistered(key)) {
-            throw std::runtime_error("Config key '" + key.Get() + "' is not registered");
-        }
+        ASSERT(registry.IsRegistered(key)) << "Config key '" << key.Get() << "' is not registered";
 
         // If std::any is empty, use default value
         if (!value.has_value()) {
@@ -106,10 +99,8 @@ void Config::Initialize(std::initializer_list<std::pair<ConfigKey, std::any>> co
 
         std::type_index expectedType = registry.GetTypeIndex(key);
         std::type_index actualType = std::type_index(value.type());
-        if (expectedType != actualType) {
-            throw std::runtime_error("Config key '" + key.Get() + "' type mismatch. Expected: " + expectedType.name() +
-                                     ", Got: " + actualType.name());
-        }
+        ASSERT(actualType == expectedType) << "Config key '" << key.Get() << "' type mismatch. Expected: " << expectedType.name() <<
+                                     ", Got: " << actualType.name();
 
         configs_[key] = value;
     }
@@ -118,9 +109,7 @@ void Config::Initialize(std::initializer_list<std::pair<ConfigKey, std::any>> co
 void Config::SetDefault(const ConfigKey &key) {
     auto &registry = ConfigRegistry::GetInstance();
 
-    if (!registry.IsRegistered(key)) {
-        throw std::runtime_error("Config key '" + key.Get() + "' is not registered");
-    }
+    ASSERT(registry.IsRegistered(key)) << "Config key '" << key.Get() << "' is not registered";
 
     std::any defaultValue = registry.GetDefaultValueAny(key);
     configs_[key] = defaultValue;
@@ -147,16 +136,17 @@ std::any Config::ConvertJsonValue(const nlohmann::json &j, const std::type_index
         if (j.is_number_integer()) {
             return std::any(j.get<int64_t>());
         }
+    } else if (expectedType == std::type_index(typeid(float))) {
+        if (j.is_number_float() || j.is_number_integer()) {
+            return std::any(static_cast<float>(j.get<double>()));
+        }
     } else if (expectedType == std::type_index(typeid(std::map<int64_t, int64_t>))) {
         if (j.is_object()) {
             std::map<int64_t, int64_t> mapValue;
             for (auto &[key, val] : j.items()) {
                 int64_t mapKey = std::stoll(key);
-                if (val.is_number_integer()) {
-                    mapValue[mapKey] = val.get<int64_t>();
-                } else {
-                    throw std::runtime_error("Map value must be an integer");
-                }
+                ASSERT(val.is_number_integer()) << "Map value must be an integer";
+                mapValue[mapKey] = val.get<int64_t>();
             }
             return std::any(mapValue);
         }
@@ -166,14 +156,13 @@ std::any Config::ConvertJsonValue(const nlohmann::json &j, const std::type_index
         }
     }
 
-    throw std::runtime_error("Type conversion not supported or JSON type mismatch");
+    ASSERT(false) << "Type conversion not supported or JSON type mismatch";
+    return std::any();  // Never reached, but needed for compilation
 }
 
 void Config::LoadFromJsonFile(const std::string &filePath) {
     std::ifstream ifs(filePath);
-    if (!ifs.is_open()) {
-        throw std::runtime_error("Failed to open JSON file: " + filePath);
-    }
+    ASSERT(ifs.is_open()) << "Failed to open JSON file: " << filePath;
 
     nlohmann::json jsonObj;
     try {
@@ -181,12 +170,10 @@ void Config::LoadFromJsonFile(const std::string &filePath) {
         ifs.close();
     } catch (const std::exception &e) {
         ifs.close();
-        throw std::runtime_error("Failed to parse JSON file: " + filePath + ", error: " + e.what());
+        ASSERT(false) << "Failed to parse JSON file: " << filePath << ", error: " << e.what();
     }
 
-    if (!jsonObj.is_object()) {
-        throw std::runtime_error("JSON file must contain an object: " + filePath);
-    }
+    ASSERT(jsonObj.is_object()) << "JSON file must contain an object: " << filePath;
 
     auto &registry = ConfigRegistry::GetInstance();
 
