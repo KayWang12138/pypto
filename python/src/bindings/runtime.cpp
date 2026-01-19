@@ -130,6 +130,8 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     if (inputSize != inputs.size() || outputSize != outputs.size()) {
         return "mismatch input/output";
     }
+    // multi thread kick start I/O tensor prepare
+    HostMachine::GetInstance().SubIoPrepareTask(func, inputs, outputs);
 
     if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1) {
         DeviceLauncherConfig config;

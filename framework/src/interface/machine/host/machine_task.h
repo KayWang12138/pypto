@@ -81,12 +81,24 @@ public:
     void SetCacheKey(const std::string &cacheKey) { cacheKey_ = cacheKey; }
     void SetError(std::string msg) { error = std::move(msg); }
     const std::string &Error() { return error; }
+    void InitIoInfo(const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs){
+        prepareIoTask_ = true;
+        inputs_ = inputs.data();
+        inputSize_ = inputs.size();
+        outputs_ = outputs.data();
+        outputSize_ = outputs.size();
+    }
 private:
     uint64_t taskId_;
     Function *function_;
     std::string cacheKey_;
     CacheReuseType cacheReuseType_;
     std::string error;
+    bool prepareIoTask_{false};
+    uint32_t inputSize_{0};
+    uint32_t outputSize_{0};
+    const DeviceTensorData *inputs_{nullptr};
+    const DeviceTensorData *outputs_{nullptr};
 };
 }
 #endif // MACHINE_TASK_H

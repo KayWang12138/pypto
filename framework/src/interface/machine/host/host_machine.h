@@ -84,6 +84,7 @@ public:
     void Destroy(); // release resource & stop device machine core machine
 
     void SubTask(Function* function);
+    void SubIoPrepareTask(Function *function, const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs);
     void WaitTaskFinish(); // wait all task finish
 
     void StashTask(Function* function);
