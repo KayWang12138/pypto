@@ -300,7 +300,7 @@ public:
             npu::tile_fwk::DeleteDir(dir_);
         }
         npu::tile_fwk::CreateDir(dir_);
-        std::string soPath = std::string(std::getenv("ASCEND_HOME_PATH")) + "/toolkit/tools/simulator/Ascend910B1/libpem_davinci.so";
+        std::string soPath = std::string(std::getenv("ASCEND_HOME_PATH")) + "/toolkit/tools/simulator/Ascend910B1/lib/libpem_davinci.so";
         void *handle = dlopen((soPath.c_str()), RTLD_LAZY);
         if (!handle) {
             std::cerr << " Cannot open library: " << soPath << std::endl;
