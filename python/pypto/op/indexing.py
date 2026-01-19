@@ -470,8 +470,10 @@ def scatter_(
     """
     scatter_mode = get_scatter_mode(reduce)
     if isinstance(src, float):
-        return pypto_impl.Scatter_(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode)
-    return pypto_impl.Scatter_(input, index, src, dim, scatter_mode)
+        input.Move(pypto_impl.Scatter_(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode))
+        return input
+    input.Move(pypto_impl.Scatter(input, index, src, dim, scatter_mode))
+    return input
 
 
 @op_wrapper
