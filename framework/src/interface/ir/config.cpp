@@ -22,7 +22,9 @@
 namespace pto {
 
 ConfigRegistry &ConfigRegistry::GetInstance() {
+    std::cout<<"GetInstance begin"<<std::endl;
     static ConfigRegistry instance;
+    std::cout<<"GetInstance end"<<std::endl;
     return instance;
 }
 

@@ -24,6 +24,7 @@
 #include <typeinfo>
 #include <any>
 #include <nlohmann/json.hpp>
+#include <iostream>
 
 namespace pto {
 
@@ -106,7 +107,9 @@ public:
     std::vector<ConfigKey> GetAllRegisteredKeys() const;
 
 private:
-    ConfigRegistry() {}
+    ConfigRegistry() {
+        std::cout<<"ConfigRegistry constructor"<<std::endl;
+    }
     ~ConfigRegistry() = default;
     ConfigRegistry(const ConfigRegistry &) = delete;
     ConfigRegistry &operator=(const ConfigRegistry &) = delete;
@@ -152,7 +155,9 @@ inline std::pair<ConfigKey, std::any> MakeConfigEntry(ConfigKey key, const T &va
 
 template <typename T>
 ConfigKey ConfigRegistry::Register(const std::string &keyName, const T &defaultValue) {
+    std::cout<<"Register begin"<<std::endl;
     ConfigRegistry &instance = GetInstance();
+    std::cout<<"Regiser step"<<std::endl;
     ConfigKey key(keyName);
 
     if (instance.registeredKeys_.find(key) != instance.registeredKeys_.end()) {
