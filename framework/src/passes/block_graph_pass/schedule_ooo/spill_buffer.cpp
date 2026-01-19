@@ -49,6 +49,7 @@ OoOSchedulerCheck::SpillInfo OoOScheduler::RecordSpillInfo(MemoryType bufferType
 }
 
 int OoOScheduler::GetBufNextUseOrder(IssueEntryPtr issue, int curMemId) {
+    // TODO 同一核上的 NextUseOrder
     auto it = std::find_if(issueEntries.begin(), issueEntries.end(), [issue, curMemId](const IssueEntryPtr a) {
         return a && a->execOrder > issue->execOrder &&
             std::find(a->reqMemIds.begin(), a->reqMemIds.end(), curMemId) != a->reqMemIds.end();
@@ -57,6 +58,7 @@ int OoOScheduler::GetBufNextUseOrder(IssueEntryPtr issue, int curMemId) {
 }
 
 int OoOScheduler::GetBufLastUseOrder(IssueEntryPtr issue, int curMemId) {
+    // TODO 同一核上的 NextUseOrder
     auto targetIt = std::find(issueEntries.begin(), issueEntries.end(), issue);
     if (targetIt == issueEntries.end()) {
         return -1;
@@ -72,6 +74,7 @@ int OoOScheduler::GetBufLastUseOrder(IssueEntryPtr issue, int curMemId) {
 }
 
 IssueEntryPtr OoOScheduler::GetBufLastWriteIssue(IssueEntryPtr issue, int curMemId) {
+    // TODO 同一核上的 LastWriteIssue
     auto targetIt = std::find(issueEntries.begin(), issueEntries.end(), issue);
     if (targetIt == issueEntries.end()) {
         return nullptr;
