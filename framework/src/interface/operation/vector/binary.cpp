@@ -190,7 +190,7 @@ Tensor Div(const Tensor &self, const Tensor &other) {
 
 Tensor Fmod(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
-    RETURN_CALL(BinaryOperation<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), self, other);
+    RETURN_CALL(BinaryOperation<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2) {
@@ -267,7 +267,7 @@ Tensor Div(const Tensor &self, const Element &other) {
 
 Tensor Fmod(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
-    RETURN_CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(),
+    RETURN_CALL(BinaryOperationScalar<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(),
         self.GetStorage(), other);
 }
 
