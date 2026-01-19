@@ -155,7 +155,7 @@ void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, con
 bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOutput) {
     auto inputShape = reshapeInput->GetShape();
     auto outputShape = reshapeOutput->GetShape();
-    if (std::min(inputShape.size(), outputShape.size()) < 3) {
+    if (inputShape.size() < 3) {
         return false;
     }
     return ((inputShape[0] == 1 || inputShape[1] == 1) && (inputShape[0] * inputShape[1] == outputShape[0]) &&
