@@ -1,69 +1,5 @@
 # 常见问题
 
-## kernel函数出参未写回导致计算不生效
-
-### 问题现象描述
-
-当前PyPTO框架用pypto.jit装饰的kernel函数，不支持有返回值，输出需要通过参数的形式传入并使用\[:\]等进行写回操作，如果直接使用等号赋值，无法将数据写入输出Tensor中。
-
-示例代码：
-
-```python
-@pypto.jit
-def add_kernel(x, y):
-    pypto.set_vec_tile_shapes(4, 4)
-    y = x + 1 # 此处会创建新的Tensor y
-
-torch.npu.set_device(0)
-x = torch.ones(4, 4, dtype=torch.float32)
-y = torch.empty(4, 4, dtype=torch.float32)
-add_kernel(pypto.from_torch(x), pypto.from_torch(y))
-print(y) # 输出torch.empty创建的未经初始化的随机值
-```
-
-输出数据：
-
-```python
-tensor([[2.0703e-19, 7.1833e+22, 1.8502e+28, 6.8608e+22],
-        [4.8011e+30, 1.2123e+25, 4.7418e+30, 1.8465e+25],
-        [1.2122e+25, 4.6114e+24, 1.7836e+31, 1.7591e+22],
-        [1.1306e+24, 4.2245e-39, 6.8664e-44, 0.0000e+00]])
-```
-
-### 原因分析
-
-在add\_kernel函数内部执行`y =  x + 1`时，这里的y是函数的局部变量（相当于创建了一个新的变量y），它会覆盖传入参数y的引用。也就是说，这行代码只是让函数内的y指向了x + 1的新Tensor，并不会修改外部传入的Tensor y的内容。
-
-### 解决措施
-
-通过全切片操作符`[:]`，将计算结果写入函数参数y的原有内存空间
-
-示例代码：
-
-```python
-@pypto.jit
-def add_kernel(x, y):
-    pypto.set_vec_tile_shapes(4, 4)
-    y[:] = x + 1 # 将x+1的结果写入函数参数y的原有内存空间
-
-torch.npu.set_device(0)
-x = torch.ones(4, 4, dtype=torch.float32)
-y = torch.empty(4, 4, dtype=torch.float32)
-add_kernel(pypto.from_torch(x), pypto.from_torch(y))
-print(y) # 输出x + 1的结果
-```
-
-输出数据：
-
-```python
-tensor([[2., 2., 2., 2.],
-        [2., 2., 2., 2.],
-        [2., 2., 2., 2.],
-        [2., 2., 2., 2.]])
-```
-
-其中`y[:] = x + 1`也可以替换为`y.move(x + 1)`或者`y.assemble(x + 1, [0, 0])`。
-
 ## 未设置执行算子的设备id
 
 ### 问题现象描述
@@ -79,7 +15,7 @@ tensor([[2., 2., 2., 2.],
 
 ### 可能原因
 
-用户定义的算子未使用@jit进行装饰，且未使用torch\_npu接口显式设置当前算子执行的Device ID。
+用户定义的算子未使用@pypto.frontend.jit进行装饰，且未使用torch\_npu接口显式设置当前算子执行的Device ID。
 
 ### 处理步骤
 
@@ -279,22 +215,26 @@ CompileCCE failed. errCode = 256, cce file: output/output_20251111_175724_806073
 ### 问题现象描述
 
 ```python
-@pypto.jit
-def add_kernel_0(a, b, c):
+@pypto.frontend.jit
+def add_kernel_0(
+    a: pypto.tensor(a_shape, pypto.DT_FP32), 
+    b: pypto.tensor(a_shape, pypto.DT_FP32)) -> pypto.tensor(c_shape, pypto.DT_FP32):
     for i in pypto.loop(20):
         print("i = ", i)
-        c[:] = a + b
+        c = a + b
 >>>
 i = 0
 
-@pypto.jit
-def add_kernel_1(a, b, c):
+@pypto.frontend.jit
+def add_kernel_1(
+    a: pypto.tensor(a_shape, pypto.DT_FP32), 
+    b: pypto.tensor(a_shape, pypto.DT_FP32)) -> pypto.tensor(c_shape, pypto.DT_FP32):
     for i in pypto.loop(20):
         print("i = ", i)
         if pypto.cond(i == 0):
-            c[:] = a + b
+            c = a + b
         else:
-            c[:] = a - b
+            c = a - b
 >>>
 i = 0
 i = 1
@@ -365,26 +305,38 @@ def loop_roll(start, end, step=1, name=None, idx_name=None,
 8. 为了写代码方便，可能有时看到前端算子并没有直接表达loop，是如何产生loop和loop body的呢. 实际是在构图阶段前端会隐式的在function开始的位置插入一个loop， 循环次数为1. 循环直到下一个循环开始前结束，举例如下
 
     ```python
-    @pypto.jit
-    def foo(a, b, c):
-        c[:] = a + b
+    @pypto.frontend.jit
+    def foo(
+        a: pypto.tensor(a_shape, pypto.DT_FP32), 
+        b: pypto.tensor(b_shape, pypto.DT_FP32),
+    ) -> pypto.tensor(c_shape, pypto.DT_FP32):
+        c = a + b
     # 等价于
-    @pypto.jit
-    def foo(a, b, c):
+    @pypto.frontend.jit
+    def foo(
+        a: pypto.tensor(a_shape, pypto.DT_FP32), 
+        b: pypto.tensor(b_shape, pypto.DT_FP32),
+    ) -> pypto.tensor(c_shape, pypto.DT_FP32):
         for i in pypto.loop(1):
-            c[:] = a + b
+            c = a + b
 
-    @pypto.jit
-    def foo(a, b, c):
+    @pypto.frontend.jit
+    def foo(
+        a: pypto.tensor(a_shape, pypto.DT_FP32), 
+        b: pypto.tensor(b_shape, pypto.DT_FP32),
+    ) -> pypto.tensor(c_shape, pypto.DT_FP32):
         t = a + 1
         for i in pypto.loop(1):
-            c[:] = t + b
+            c = t + b
     # 等价于
-    @pypto.jit
-    def foo(a, b, c):
+    @pypto.frontend.jit
+    def foo(
+        a: pypto.tensor(a_shape, pypto.DT_FP32), 
+        b: pypto.tensor(b_shape, pypto.DT_FP32),
+    ) -> pypto.tensor(c_shape, pypto.DT_FP32):
         for i in pypto.loop(1):
             t = a + 1
         for i in pypto.loop(1):
-            c[:] = t + b
+            c = t + b
     ```
    框架当前不会自动进行loop(1)合并，因此在实际使用中，建议用户手动合并loop(1)，以提高效率
