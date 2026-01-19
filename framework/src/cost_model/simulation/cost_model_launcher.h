@@ -120,7 +120,7 @@ struct MemoryHelper {
 
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        uint8_t *devPtr = (uint8_t *)malloc(size);
+        uint8_t *devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
         return devPtr;
     }
 
