@@ -59,7 +59,7 @@ public:
     }
 
     // 仅AICPU_0会调用
-    inline int32_t TaskProcess(uint64_t &taskCount) {
+    inline int32_t TaskProcess(bool profAicpuTask, uint64_t &taskCount, uint64_t sharedBuffer) {
         if (__atomic_load_n(&readyQueue_->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQueue_->head, __ATOMIC_RELAXED)) {
             return DEVICE_MACHINE_OK;
         }
@@ -68,9 +68,13 @@ public:
         taskCount = readyQueue_->tail - readyQueue_->head;
         readyQueue_->head += taskCount;
         ReadyQueueUnLock();
-
+        if (profAicpuTask) {
+            KernelArgs *args = (KernelArgs *)(sharedBuffer + AICPU_BLOCK_INDEX * SHARED_BUFFER_SIZE);
+            aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+            aicpuTaskStat_->taskCount = taskCount;
+        }
         for (uint32_t i = 0; i < taskCount; ++i) {
-            auto ret = TaskDispatch(readyQueue_->elem[taskIdx + i]);
+            auto ret = TaskDispatch(readyQueue_->elem[taskIdx + i], profAicpuTask);
             if (ret != DEVICE_MACHINE_OK) {
                 return ret;
             }
@@ -101,6 +105,8 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
+    Metrics* aicpuTaskStat_;
+
 private:
     inline void ReadyQueueLock() {
         while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 0, 1))
@@ -125,9 +131,13 @@ private:
         return taskType;
     }
 
-    inline int32_t TaskDispatch(uint64_t taskId) {
+    inline int32_t TaskDispatch(uint64_t taskId ,bool profAicpuTask) {
         int32_t ret = DEVICE_MACHINE_OK;
         auto taskType = GetTaskType(taskId);
+        if (profAicpuTask) {
+            aicpuTaskStat_->tasks[i].taskId = static_cast<int32_t>(taskId);
+            aicpuTaskStat_->tasks[i].execStart = GetCycles();
+        }
         if (taskType < TaskType::TASK_TYPE_NUM) {
             ret = shmemWaitUntil_.EnqueueOp(taskId);
         }
