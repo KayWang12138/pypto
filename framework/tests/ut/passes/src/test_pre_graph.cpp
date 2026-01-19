@@ -783,11 +783,8 @@ TEST_F(PreGraphTest, TestRemoveRedundantViewMultiReshape) {
     // run pass
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-    std::string dbjfile = "/home/d00899108/bluecode/view0117";
-    function->DumpJsonFile(dbjfile + "/0json/before8.json");
     PreGraphProcess passLocal;
     EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
-    function->DumpJsonFile(dbjfile + "/0json/after8.json");
     // check after pass
     auto opList = function->Operations();
     int64_t viewCnt = 0;
