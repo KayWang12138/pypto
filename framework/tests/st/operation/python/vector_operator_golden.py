@@ -1590,7 +1590,7 @@ def gen_indexput__op_golden(
     return indexput_pre_golden_func(output, test_configs[case_index])
 
 
-@TestCaseLoader.reg_params_handler(ops=["Scatter", "Scatter_", "ScatterTensor", "Scatter_Tensor"])
+@TestCaseLoader.reg_params_handler(ops=["Scatter", "ScatterTensor"])
 def params_axis_reduce_func(params: dict):
     params["axis"] = int(params.get("axis"))
     params["reduce"] = "" if params["reduce"] is None else params["reduce"]
@@ -1634,18 +1634,6 @@ def gen_scatter_op_golden(case_name: str, output: Path, case_index: int = None) 
     return gen_op_golden("Scatter", scatter_golden_func, output, case_index)
 
 
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        "TestScatter_/Scatter_OperationTest.TestScatter_",
-    ]
-)
-def gen_scatter__op_golden(
-    case_name: str, output: Path, case_index: int = None
-) -> bool:
-    logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("Scatter_", scatter_golden_func, output, case_index)
-
-
 def scatter_tensor_golden_func(inputs, config: dict):
     params = config.get("params")
     axis = params["axis"]
@@ -1678,18 +1666,6 @@ def scatter_tensor_golden_func(inputs, config: dict):
 def gen_scatter_tensor_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("ScatterTensor", scatter_tensor_golden_func, output, case_index)
-
-
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        "TestScatter_Tensor/Scatter_TensorOperationTest.TestScatter_Tensor",
-    ]
-)
-def gen_scatter__tensor_op_golden(
-    case_name: str, output: Path, case_index: int = None
-) -> bool:
-    logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("Scatter_Tensor", scatter_tensor_golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
