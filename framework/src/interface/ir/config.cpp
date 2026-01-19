@@ -21,8 +21,27 @@
 
 namespace pto {
 
+// Helper structure to access private constructor
+struct ConfigRegistryHelper {
+    static void Create(ConfigRegistry* ptr) {
+        new (ptr) ConfigRegistry();
+    }
+};
+
+// Storage for global static instance
+alignas(ConfigRegistry) static char instance_storage[sizeof(ConfigRegistry)];
+
+// Global static instance reference
+static ConfigRegistry &instance = []() -> ConfigRegistry& {
+    static bool initialized = false;
+    if (!initialized) {
+        ConfigRegistryHelper::Create(reinterpret_cast<ConfigRegistry*>(instance_storage));
+        initialized = true;
+    }
+    return *reinterpret_cast<ConfigRegistry*>(instance_storage);
+}();
+
 ConfigRegistry &ConfigRegistry::GetInstance() {
-    static ConfigRegistry instance;
     return instance;
 }
 

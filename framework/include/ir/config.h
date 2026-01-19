@@ -106,6 +106,10 @@ public:
     std::vector<ConfigKey> GetAllRegisteredKeys() const;
 
 private:
+    // Friend class to access private constructor in .cpp file
+    friend struct ConfigRegistryHelper;
+
+private:
     ConfigRegistry() {}
     ~ConfigRegistry() = default;
     ConfigRegistry(const ConfigRegistry &) = delete;
