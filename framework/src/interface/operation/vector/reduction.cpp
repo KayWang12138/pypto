@@ -285,7 +285,7 @@ Tensor Amax(const Tensor &self, int axis, bool keepDim) {
     auto resultShape = self.GetShape();
     size_t selfSize = self.GetShape().size();
     ASSERT(static_cast<int64_t>(axis) <= static_cast<int64_t>(selfSize) && static_cast<int64_t>(axis) >= -static_cast<int64_t>(selfSize));
-    axis = axis < 0 ? self - static_cast<unsigned long>(-axis) : axis;
+    axis = axis < 0 ? selfSize - static_cast<unsigned long>(-axis) : axis;
 
     resultShape[axis] = 1;
     std::vector<int64_t> outShape(resultShape.begin(), resultShape.end());
