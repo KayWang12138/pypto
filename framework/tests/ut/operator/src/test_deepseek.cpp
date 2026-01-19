@@ -466,7 +466,7 @@ TEST_F(FunctionTest, TestGatherElementAxis0Indices2) {
     ALOG_INFO(Program::GetInstance().Dump());
 }
 
-TEST_F(FunctionTest, TestScatter_) {
+TEST_F(FunctionTest, TestScatter) {
     int b = 2, s = 512, nRoutedExperts = 256, numExpertsPerTok = 8;
     TileShape::Current().SetVecTile(128, nRoutedExperts);
 
@@ -478,7 +478,7 @@ TEST_F(FunctionTest, TestScatter_) {
     config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
 
     FUNCTION("A") {
-        res = Scatter_(cnts, topk_ids, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nRoutedExperts)
+        res = Scatter(cnts, topk_ids, Element(DataType::DT_FP32, 1.0), 1); // (b*s, nRoutedExperts)
     }
     ALOG_INFO(Program::GetInstance().Dump());
 }
