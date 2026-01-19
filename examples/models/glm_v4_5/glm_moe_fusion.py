@@ -277,7 +277,7 @@ def test_moe_fusion():
 
     # 2. 构造多种shape，测试动态case
     torch.manual_seed(0)
-    for bs in [32, 16, 1029]:
+    for bs in [32, 16, 1029, 8]:
         # 3. 准备测试数据
         hidden_states = torch.rand((bs, hidden_size), dtype=x_dtype, device=f'npu:{device_id}') * 0.05
         weight_gate_upper_tensor = torch.rand((hidden_size, intermediate_size * 2),
