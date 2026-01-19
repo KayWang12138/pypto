@@ -19,6 +19,7 @@
 #include "cost_model/simulation/base/ModelTop.h"
 #include "cost_model/simulation/common/ISA.h"
 #include "cost_model/simulation/base/ModelLogger.h"
+#include "cost_model/simulation/arch/OpLatency.h"
 
 namespace CostModel {
 PipeMachine::PipeMachine()
@@ -230,7 +231,11 @@ void PipeMachine::ProcessTileOp()
     // Calculate latency based on shape and config->handle_threshold;
     uint64_t latency = 0;
     if (tileOp != nullptr) {
-        latency = pipeImpl->PostSimulate(tileOp);
+        if (sim->accLevel == 1) {
+            latency = OpLatency::GetLatency(tileOp->operation);
+        } else {
+            latency = pipeImpl->PostSimulate(tileOp);
+        }
         MLOG_INFO("[task:", tileOp->taskId, "][op:", tileOp->opcode, "] latency:", latency);
         if (sim->config.calendarMode != static_cast<uint64_t>(CalendarMode::DEVICE)) {
             // For calendar schuedule fluctuate

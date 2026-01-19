@@ -21,3 +21,5 @@ bufferBackPressure = true
 logLabelMode = 1 # 0: subgraphId; 1: semantic_label;
 
 enableTileOpFlow = false
+
+scalarOverhead = 2000
