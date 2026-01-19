@@ -246,7 +246,7 @@ class _JIT:
                     )
                 except FileNotFoundError:
                     pass
-                else:
+            else:
                 pypto_impl.ResetLog(self._output_path)
                 self._handler = self._handler_cache.get(input_hash)
             # dispatch run mode based on ASCEND_HOME_PATH or run_mode
