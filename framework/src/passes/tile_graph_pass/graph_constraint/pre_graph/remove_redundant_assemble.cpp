@@ -233,6 +233,50 @@ bool RemoveViewMultiReshapePattern(const LogicalTensorPtr &reshapeInput, const L
     return haveOne && longRawShape[0] * longRawShape[1] == shortRawShape[0];
 }
 
+/*
+拷贝一个RESHAPE
+Before:
+RESHAPE -> VIEW -> RESHAPE
+        -> COPYIN
+        -> COPYIN
+
+After:
+RESHAPE -> VIEW -> RESHAPE
+RESHAPE -> COPYIN
+        -> COPYIN
+*/
+Status ProcessReshape(Function &function, Operation &operation) {
+    auto iOperand = operation.iOperand[0];
+    auto oOperand = operation.oOperand[0];
+    if (oOperand == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Null output operand detected while iterating over the output operands of the operation [%d].%s",
+        operation.opmagic, GetFormatBacktrace(operation).c_str());
+        return FAILED;
+    }
+    auto consumers = oOperand->GetConsumers();
+    for (auto &consumer : consumers) {
+        if (consumer == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
+            return FAILED;
+        }
+        if (consumer->GetOpcode() == Opcode::OP_COPY_IN) {
+            continue;
+        }
+        auto dst = oOperand->Clone(function, true);
+        if (dst == nullptr) {
+            APASS_LOG_ERROR_F(Elements::Tensor, "Clone failed for output operand [%d].", oOperand->magic);
+            return FAILED;
+        }
+        consumer->ReplaceInput(dst, oOperand);
+        auto &newReshapeOp = function.AddRawOperation(Opcode::OP_RESHAPE, {iOperand}, {dst});
+        const std::shared_ptr<OpAttribute> &oriReshapeAttr = operation.GetOpAttribute();
+        if (oriReshapeAttr != nullptr) {
+            newReshapeOp.SetOpAttribute(oriReshapeAttr);
+        }
+    }
+    return SUCCESS;
+}
+
 Status RemoveViewMultiReshape(Function &function) {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) {
