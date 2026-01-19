@@ -145,7 +145,7 @@ Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) 
     } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) {
         op.SetOpCode(Opcode::OP_L1_TO_L0A_SCALE);
         SetCopyAttr(op, viewOpAttribute);
-    } else if (oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
+    } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
         op.SetOpCode(Opcode::OP_L1_TO_L0B_SCALE);
         SetCopyAttr(op, viewOpAttribute);
     } else {
@@ -263,7 +263,7 @@ Status GenerateMoveOp::CreateMoveOp(Function &function) const {
                 break;
             }
             case Opcode::OP_VIEW: {
-                if (Platform::Instance.GetSoc().GetNPUArch == NPUArch::DAV_2510) {
+                if (Platform::Instance.GetSoc().GetNPUArch == NPUArch::DAV_3510) {
                     Status status = A5CreateMoveOpForView(function, op);
                     if(status != SUCCESS) {return status;}
                     break;
