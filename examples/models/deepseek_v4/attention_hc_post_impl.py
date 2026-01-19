@@ -382,7 +382,7 @@ def npu_attention_hc_post(
     if isinstance(x, FakeTensor):
         return x
 
-    y = torch.zeros([x.shape[0], post.shape[1], residual.shape[2]]).to(x.dtype).npu()
+    y = torch.zeros([x.shape[0], post.shape[1], residual.shape[2]], dtype=x.dtype, device=f'{x.device}')
 
     check_input_shape_dtype(x, cos, sin, wo_a, wo_b, residual, post, comb)
     # notice mark dynamic_axis
