@@ -68,10 +68,8 @@ TILEOP void ReduceLastAxisCompute(T0 dst, T1 src, T2 tmp) {
     for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
         for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
             for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
-                using DstTileDefine = typename std::conditional<(dstTileW == 1),
-                    pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::ColMajor, -1, -1>,
-                    pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>
-                >::type;
+                using DstTileDefine =
+                    pto::Tile<pto::TileType::Vec, typename T0::Type, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
                 using SrcTileDefine =
                     pto::Tile<pto::TileType::Vec, typename T1::Type, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                 DstTileDefine dstTile(dstShape3, dstShape4);
@@ -90,19 +88,16 @@ TILEOP void ReduceLastAxisCompute(T0 dst, T1 src, T2 tmp) {
     }
 }
 
-#define OP_TILE_OP_ROWSUMSINGLE TRowSumSingle
 template <typename T0, typename T1, typename T2>
 TILEOP void TRowSumSingle(T0 dst, T1 src, T2 tmp) {
     ReduceLastAxisCompute<ReduceOp::SUM>(dst, src, tmp);
 }
 
-#define OP_TILE_OP_ROWMAXSINGLE TRowMaxSingle
 template <typename T0, typename T1, typename T2>
 TILEOP void TRowMaxSingle(T0 dst, T1 src, T2 tmp) {
     ReduceLastAxisCompute<ReduceOp::MAX>(dst, src, tmp);
 }
 
-#define OP_TILE_OP_ROWMINSINGLE TRowMinSingle
 template <typename T0, typename T1, typename T2>
 TILEOP void TRowMinSingle(T0 dst, T1 src, T2 tmp) {
     ReduceLastAxisCompute<ReduceOp::MIN>(dst, src, tmp);
@@ -171,13 +166,11 @@ TILEOP void TRowMaxMinLineDynamic(T0 dst, T1 src) {
     }
 }
 
-#define OP_TILE_OP_ROWMAXLINE TRowMaxLine
 template <int axis, typename T0, typename T1>
 TILEOP void TRowMaxLine(T0 dst, T1 src) {
     TRowMaxMinLineDynamic<ReduceOp::MAX, axis>(dst, src);
 }
 
-#define OP_TILE_OP_ROWMINLINE TRowMinLine
 template <int axis, typename T0, typename T1>
 TILEOP void TRowMinLine(T0 dst, T1 src) {
     TRowMaxMinLineDynamic<ReduceOp::MIN, axis>(dst, src);
@@ -237,7 +230,6 @@ TILEOP void TRowSumLineDynamic(T0 dst, T1 src, T2 tmp) {
     }
 }
 
-#define OP_TILE_OP_ROWSUMLINE TRowSumLine
 template <int axis, typename T0, typename T1, typename T2>
 TILEOP void TRowSumLine(T0 dst, T1 src, T2 tmp) {
     constexpr auto srcShapeSize = Std::tuple_size<typename T1::Shape>::value;

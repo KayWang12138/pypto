@@ -93,7 +93,6 @@ struct CalcOps {
     void (*GatherElements)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*IndexAdd)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, const Element &);
     void (*CumSum)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
-    void (*IndexPut)(LogicalTensorDataPtr, LogicalTensorDataPtr, std::vector<LogicalTensorDataPtr>, LogicalTensorDataPtr, bool);
 
     void (*Reshape)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Permute)(LogicalTensorDataPtr, LogicalTensorDataPtr, const std::vector<int64_t> &);
@@ -102,6 +101,7 @@ struct CalcOps {
     void (*ReduceAcc)(LogicalTensorDataPtr, const std::vector<LogicalTensorDataPtr> &);
     void (*Copy)(LogicalTensorDataPtr, LogicalTensorDataPtr, bool);
     void (*ScatterUpdate)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, std::string, int);
+    void (*LogicalView)(LogicalTensorDataPtr, LogicalTensorDataPtr, Offset);
     void (*Scatter)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, int, int);
     void (*FormatND2NZ)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*FormatNZ2ND)(LogicalTensorDataPtr, LogicalTensorDataPtr);

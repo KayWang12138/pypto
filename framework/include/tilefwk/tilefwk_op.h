@@ -174,7 +174,7 @@ Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, i
     ScatterMode reduce = ScatterMode::NONE);
 Tensor Scatter_(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
     ScatterMode reduce = ScatterMode::NONE);
-void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate = false);
+Tensor IndexPut(const Tensor &src, std::vector<Tensor> indices, const Tensor &values);
 Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});
 Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});
 Tensor RowSumExpand(const Tensor &operand);
@@ -377,16 +377,17 @@ struct MatmulExtendParam {
     MatmulExtendParam() = default;
 };
 
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans = false,
-    bool isBTrans = false, bool isCMatrixNZ = false);
+template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix);
 
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &extendParam,
-    bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false);
+template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const Tensor &cMatrix);
 
-Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans = false,
-    bool isBTrans = false, bool isCMatrixNZ = false);
+template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
+Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &extendParam);
 
-Tensor TransposedBatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix);
+template <bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false>
+Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix);
 
 Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &dequantScaleW);
 } // namespace Matrix
@@ -407,9 +408,8 @@ struct MoeConfig {
 void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
-void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize, Tensor& out);
-Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData);
-Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal);
+void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, Tensor& out);
+Tensor ShmemSet(const Tensor& predToken, const Tensor& shmemTensor);
 void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, DistReduceType reduceType, Tensor& out);
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, const Tensor& shmemSignal,
@@ -423,7 +423,7 @@ void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
 void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal);
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
-std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);
+std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart); 
 Tensor TopKExtract(const Tensor &x, int k, bool isIndex);
 Tensor TopKMerge(const Tensor &x, int mergeSize);
 } // namespace npu::tile_fwk

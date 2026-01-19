@@ -1,0 +1,224 @@
+'''
+'''
+import os
+from pathlib import Path
+import pytest
+import logging
+import math
+import time
+import torch
+import torch_npu
+import pypto
+
+from utils.compare import compare
+from hc_post_impl import npu_hc_post
+
+torch.manual_seed(5)
+
+pyptolib = torch.library.Library("pypto", "FRAGMENT")
+pyptolib.define("hc_post(Tensor x, Tensor residual, Tensor post, Tensor comb) -> (Tensor)")
+
+@torch.library.impl(pyptolib, "hc_post", "Meta")
+def hc_post(x, residual, post, comb):
+    y = torch.empty([x.size(0), residual.size(1), residual.size(2)], dtype=x.dtype, device=x.device)
+    return y
+
+@torch.library.impl(pyptolib, "hc_post", "NPU")
+def hc_post(x, residual, post, comb):
+    return npu_hc_post(x, residual, post, comb)
+
+class HP(torch.nn.Module):
+    def forward(self, x, residual, post, comb):
+        return torch.ops.pypto.hc_post(x, residual, post, comb)
+
+def prep_env():
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+    torch_npu.npu.config.allow_internal_format = True
+
+def convert_torch_tensor(tensor_dict, dynamic_axis_dict, name_prefix):
+    dynamic_count = 0
+    pypto_tensors = []
+    for name, tensor in tensor_dict.items():
+        if name in dynamic_axis_dict.keys():
+            dynamic_axis = dynamic_axis_dict[name]
+            pypto_tensors.append(pypto.from_torch(tensor, name_prefix + name, dynamic_axis=dynamic_axis))
+            dynamic_count += 1
+        else:
+            pypto_tensors.append(pypto.from_torch(tensor, name_prefix + name))
+    assert dynamic_count == len(dynamic_axis_dict)
+    return pypto_tensors
+
+def gen_hc_post_input_data(params, dtypes):
+    x_dtype = dtypes
+    logging.debug(f"gen_hc_post_input_data  dtype:{x_dtype}")
+    b = params.get("b")
+    s = params.get("s")  # s=1 or 2
+    hc = params.get("hc")  # s2=4k
+    d = params.get("d")
+    
+    x_shape = [b * s, d]
+    residual_shape = [b * s, hc, d]
+    post_shape = [b * s, hc]
+    comb_shape = [b * s, hc, hc]
+    
+    x = torch.empty(x_shape, dtype=x_dtype).uniform_(-1, 1)
+    residual = torch.empty(residual_shape, dtype=torch.float32).uniform_(-1, 1)
+    post = torch.empty(post_shape, dtype=torch.float32).uniform_(-1, 1)
+    comb = torch.empty(comb_shape, dtype=torch.float32).uniform_(-1, 1)
+    return x, residual, post, comb
+
+def hc_post_commpute(input_tensors, params):
+    x, residual, post, comb = input_tensors
+
+    b = params.get("b")
+    s = params.get("s")  # s=1 or 2
+    hc = params.get("hc")  # s2=4k
+    d = params.get("d")
+
+    post_reshape = post.reshape(b * s, hc, 1)
+    x_reshape = x.reshape(b * s, 1, d).to(torch.float32)
+    comb_reshape = comb.reshape(b * s, hc, hc, 1)
+    residual_reshape = residual.reshape(b * s, hc, 1, d)
+    
+    y_shape = [b * s, hc, d]
+
+    y = torch.empty(y_shape, dtype=x.dtype)
+    post_res = post_reshape * x_reshape
+    residual_res = comb_reshape * residual_reshape
+    residual_reduce = torch.sum(residual_res, 1)
+    y = torch.add(post_res, residual_reduce).to(x.dtype)
+    return y
+
+
+def test_b4_s64k2_nd_bf16_hc_post():
+    '''
+    hc post测试函数
+    '''
+    prep_env()
+    params = {
+        'b': 8,
+        's': 2,
+        'hc': 4,
+        'd': 4096,
+    }
+    b = params.get('b')
+    s = params.get('s')
+    hc = params.get('hc')
+    d = params.get('d')
+    dtypes = torch.bfloat16
+    x, residual, post, comb = gen_hc_post_input_data(params, dtypes)
+    input_tensors = [x, residual, post, comb]
+    y = hc_post_commpute(input_tensors, params)
+
+    y_out = npu_hc_post(x.npu(), residual.npu(), post.npu(), comb.npu())
+    compare(y_out.cpu(), y.cpu(), 'y', 0.0001, 0.0078125,
+            0.005)
+
+def test_b4_s64k2_nd_bf16_hc_post_large_case():
+    '''
+    hc post测试函数
+    '''
+    prep_env()
+    params = {
+        'b': 1024 * 16,
+        's': 2,
+        'hc': 4,
+        'd': 4096,
+    }
+    b = params.get('b')
+    s = params.get('s')
+    hc = params.get('hc')
+    d = params.get('d')
+    dtypes = torch.bfloat16
+    x, residual, post, comb = gen_hc_post_input_data(params, dtypes)
+    input_tensors = [x, residual, post, comb]
+    y = hc_post_commpute(input_tensors, params)
+
+    y_out = npu_hc_post(x.npu(), residual.npu(), post.npu(), comb.npu())
+    compare(y_out.cpu(), y.cpu(), 'y', 0.0001, 0.0078125,
+            0.005)
+
+
+@pytest.mark.skip(reason="large shape")
+def test_b4_s64k2_nd_bf16_hc_post_graph():
+    '''
+    hc post测试函数
+    '''
+    prep_env()
+    params = {
+        'b': 8,
+        's': 2,
+        'hc': 4,
+        'd': 4096,
+    }
+    b = params.get('b')
+    s = params.get('s')
+    hc = params.get('hc')
+    d = params.get('d')
+    dtypes = torch.bfloat16
+    x, residual, post, comb = gen_hc_post_input_data(params, dtypes)
+    input_tensors = [x, residual, post, comb]
+    y = hc_post_commpute(input_tensors, params)
+    
+    import torchair as tng
+    from torchair.configs.compiler_config import CompilerConfig
+    compiler_config = CompilerConfig()
+    compiler_config.mode = "reduce-overhead"
+    npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
+    model = torch.compile(HP(), dynamic=False, fullgraph=True, backend=npu_backend)
+    # model = torch.compile(HP(), dynamic=False, fullgraph=True, backend="npugraph_ex")
+    
+    x_npu = x.npu()
+    residual_npu = residual.npu()
+    post_npu = post.npu()
+    comb_npu = comb.npu()
+    y_out = model(x_npu, residual_npu, post_npu, comb_npu)
+    pypto.runtime._device_synchronize()
+    compare(y_out.cpu(), y.cpu(), 'y', 0.0001, 0.0078125,
+            0.005)
+
+
+@pytest.mark.skip(reason="large shape")
+def test_b4_s64k2_nd_bf16_hc_post_npu_graph():
+    '''
+    hc post测试函数
+    '''
+    prep_env()
+    params = {
+        'b': 8,
+        's': 2,
+        'hc': 4,
+        'd': 4096,
+    }
+    b = params.get('b')
+    s = params.get('s')
+    hc = params.get('hc')
+    d = params.get('d')
+    dtypes = torch.bfloat16
+    x, residual, post, comb = gen_hc_post_input_data(params, dtypes)
+    input_tensors = [x, residual, post, comb]
+    y = hc_post_commpute(input_tensors, params)
+
+    
+    x_npu = x.npu()
+    residual_npu = residual.npu()
+    post_npu = post.npu()
+    comb_npu = comb.npu()
+    # capture model
+    g = torch.npu.NPUGraph()
+    with torch.npu.graph(g):
+        y_out = npu_hc_post(x_npu, residual_npu, post_npu, comb_npu)
+    
+    g.replay()
+    pypto.runtime._device_synchronize()#内部接口，不推荐使用
+    compare(y_out.cpu(), y.cpu(), 'y', 0.0001, 0.0078125,
+            0.005)
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
+        level=logging.INFO
+    )
+
+    test_b4_s64k2_nd_bf16_hc_post()

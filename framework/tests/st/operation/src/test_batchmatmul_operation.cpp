@@ -84,21 +84,21 @@ static void GetBatchMatmulTileParam(
 
 static Tensor CallBatchMatmulOp(const Tensor &tensorA, const Tensor &tensorB, const MatmulTestCaseParam &param) {
     if (!param.transA && !param.transB && !param.isCMatrixNz) {
-        return Matrix::BatchMatmul(param.outDtype, tensorA, tensorB, false, false, false);
+        return Matrix::BatchMatmul<false, false, false>(param.outDtype, tensorA, tensorB);
     } else if (!param.transA && !param.transB && param.isCMatrixNz) {
-        return Matrix::BatchMatmul(param.outDtype, tensorA, tensorB, false, false, true);
+        return Matrix::BatchMatmul<false, false, true>(param.outDtype, tensorA, tensorB);
     } else if (!param.transA && param.transB && !param.isCMatrixNz) {
-        return Matrix::BatchMatmul(param.outDtype, tensorA, tensorB, false, true, false);
+        return Matrix::BatchMatmul<false, true, false>(param.outDtype, tensorA, tensorB);
     } else if (!param.transA && param.transB && param.isCMatrixNz) {
-        return Matrix::BatchMatmul(param.outDtype, tensorA, tensorB, false, true, true);
+        return Matrix::BatchMatmul<false, true, true>(param.outDtype, tensorA, tensorB);
     } else if (param.transA && !param.transB && !param.isCMatrixNz) {
-        return Matrix::BatchMatmul(param.outDtype, tensorA, tensorB, true, false, false);
+        return Matrix::BatchMatmul<true, false, false>(param.outDtype, tensorA, tensorB);
     } else if (param.transA && !param.transB && param.isCMatrixNz) {
-        return Matrix::BatchMatmul(param.outDtype, tensorA, tensorB, true, false, true);
+        return Matrix::BatchMatmul<true, false, true>(param.outDtype, tensorA, tensorB);
     } else if (param.transA && param.transB && !param.isCMatrixNz) {
-        return Matrix::BatchMatmul(param.outDtype, tensorA, tensorB, true, true, false);
+        return Matrix::BatchMatmul<true, true, false>(param.outDtype, tensorA, tensorB);
     } else {
-        return Matrix::BatchMatmul(param.outDtype, tensorA, tensorB, true, true, true);
+        return Matrix::BatchMatmul<true, true, true>(param.outDtype, tensorA, tensorB);
     }
 }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ public:
     std::string GenGatherElementOp() const;
 
     std::string GenRangeOp() const;
-    std::string PrintRangeTileTensor(const std::string& startVal, const std::string& stepVal, const std::string& tileIdxExpr) const;
+    std::string PrintRangeTileTensor(std::string startVal, std::string stepVal) const;
     std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;
@@ -98,13 +98,10 @@ public:
 
     std::string GenIndexAddOp() const;
 
-    std::string GenIndexPutOp() const;
-
     std::string GenIndexOutCastOp() const;
 
     std::string GenCumSumOp() const;
     std::string PrintGatherDynamicUnaligned() const;
-    std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
     std::string GenGatherFromUBOp() const;
 
@@ -153,8 +150,6 @@ public:
     void UpdateSaturateStatus(FloatSaturateStatus &fs);
 
 private:
-    std::string QueryTileTensorNameByIdx(int paramIdx) const;
-
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForSignal() const;
     std::string GenTemplateParamsForMoeDistributedCombineSend() const;
@@ -324,7 +319,6 @@ private:
     std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
         const std::string &dstDtypeStr) const;
     std::string PrintOneHot(const PrintUnaryParam &param) const;
-    std::string PrintOneHotLayout() const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;
@@ -357,9 +351,6 @@ private:
     std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
 
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
-
-    std::string PrintIndexPut(const PrintIndexPutParam &param) const;
-    std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
 

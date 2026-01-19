@@ -87,8 +87,7 @@ struct MemoryHelper {
 
     bool IsDevice() { return !isTest_; }
 
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
-        (void)cachedDevAddrHolder;
+    uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
         auto ptr = npu::tile_fwk::dynamic::HostAgentStub::GetAgent()->AllocHostAddr(size);
         memcpy_s(ptr, size, data, size);
         return ptr;
@@ -117,12 +116,12 @@ struct MemoryHelper {
     template <typename T>
     T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), nullptr);
+        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {
         if (data.GetDevPtr() == nullptr) {
-            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size(), nullptr);
+            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size());
             data.SetDevPtr(devPtr);
         }
         return data.GetDevPtr();
@@ -183,11 +182,9 @@ private:
         if (!config_.runModel) {
             return;
         }
-        DeviceKernelArgs kArgs;
+        AstKernelArgs kArgs;
         config_.onBoard = false;
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitDistributedContextToHost(function_->GetDyndevAttribute()->commGroupNames,
- 	        function_->GetDyndevAttribute()->devProgBinary);  
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         std::cout << "Run CostModel " << "\n";
@@ -228,7 +225,7 @@ private:
         }
     }
 
-    void DumpTensorContents(const DeviceKernelArgs &kArgs,
+    void DumpTensorContents(const AstKernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
@@ -270,7 +267,7 @@ private:
         fout.close();
     }
 
-    void RunCostModel(DeviceKernelArgs *kArgs) {
+    void RunCostModel(AstKernelArgs *kArgs) {
         if (!config::GetPlatformConfig(KEY_ENABLE_DYN_COST_MODEL, true)) {
             return;
         }
@@ -310,8 +307,9 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunTestMode(DeviceKernelArgs *kArgs) {
+    void RunTestMode(AstKernelArgs *kArgs) {
         (void) kArgs;
+        const int BUFFER_SIZE_64 = 64;
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
         std::atomic<int> idx{0};
         auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
@@ -324,9 +322,10 @@ private:
                 cpu_set_t cpuset;
                 CPU_ZERO(&cpuset);
                 CPU_SET(tidx, &cpuset);
-                std::string name = "aicput" + std::to_string(tidx);
+                char name[BUFFER_SIZE_64];
+                (void)sprintf_s(name, sizeof(name), "aicput%d", tidx);
                 std::cout << "start thread: " << name << std::endl;
-                pthread_setname_np(pthread_self(), name.c_str());
+                pthread_setname_np(pthread_self(), name);
                 pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
                 if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
                     (void)PyptoKernelCtrlServer(kArgs);
@@ -343,7 +342,7 @@ private:
         }
     }
 
-    void InitKernelInOuts(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+    void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;

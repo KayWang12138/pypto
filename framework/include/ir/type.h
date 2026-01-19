@@ -27,27 +27,29 @@ namespace pto {
 // Enumeration for scalar data types.
 // This enum must stay aligned with the Python side DataType enum (pypto_impl.DataType).
 enum class DataType {
-    INT4 = 0,
-    INT8 = 1,
-    INT16 = 2,
-    INT32 = 3,
-    INT64 = 4,
+    BOOL,
 
-    FP8_E4M3FN = 5,
-    FP16 = 6,
-    FP32 = 7,
-    BF16 = 8,
-    HF4 = 9,
-    HF8 = 10,
+    INT4,
+    INT8,
+    INT16,
+    INT32,
+    INT64,
 
-    UINT8 = 11,
-    UINT16 = 12,
-    UINT32 = 13,
-    UINT64 = 14,
+    UINT8,
+    UINT16,
+    UINT32,
+    UINT64,
 
-    BOOL = 15,
-    FP64 = 16,
-    FP8_E5M2 = 17,
+    FP8_E4M3FN,
+    FP8_E5M2,
+
+    FP16,
+    BF16,
+    FP32,
+    FP64,
+
+    HF4,
+    HF8,
 
     UNKNOWN
 };
@@ -127,11 +129,8 @@ public:
     explicit TensorType(DataType dataType) : Type(dataType) {}
 
     uint64_t GetTypeSize() const override { return GetDataTypeSize(); }
-
     void Print(std::ostream& os) const override;
 };
-
-using TensorTypePtr = std::shared_ptr<TensorType>;
 
 } // namespace pto
 

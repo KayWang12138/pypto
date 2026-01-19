@@ -83,10 +83,9 @@ struct DynMachineManager {
         return;
     }
 
-    int Run(DeviceKernelArgs *args) {
+    int Run(AstKernelArgs *args) {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
-        SchduleContext local_context;
         if ((uint32_t)schAicpuNum_ > devArgs->nrAicpu - 1) {
             DEV_ERROR("Aicpu num[%u] less than sche num[%d].", devArgs->nrAicpu, schAicpuNum_);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
@@ -101,7 +100,6 @@ struct DynMachineManager {
             DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
             DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
-            machine_.SetStachSchduleContext(threadIdx, &local_context);
             ret = machine_.Run(threadIdx, devArgs);
             if (ret != DEVICE_MACHINE_OK) {
                 schRunFailed_ = true;
@@ -233,7 +231,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
 }
 
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
-    auto kargs = (DeviceKernelArgs *)targ;
+    auto kargs = (AstKernelArgs *)targ;
     auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
     kargs->taskWastTime = GetCycles();
     g_machine_mgr.Init(devArgs);
@@ -244,7 +242,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
 #if ENABLE_PERF_TRACE
         PerfMtTrace(PERF_TRACE_EXIT, g_machine_mgr.LastFinishThreadIdx_);
         DEV_ERROR("Begin dump machine perf trace:");
-        PerfEvtMgr::Instance().DumpPerfTrace(devArgs->scheCpuNum, "/tmp/tile_fwk_aicpu_perftrace.json");
+        PerfEvtMgr::Instance().DumpPerfTrace("/tmp/tile_fwk_aicpu_perftrace.json");
         DEV_IF_DEVICE {
             g_machine_mgr.machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
         }

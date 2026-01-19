@@ -53,8 +53,7 @@ void ExecuteOpView(ExecuteOperationContext *ctx) {
     if (oop->GetData() == iop->GetData()) {
         return;
     }
-    auto ret = iop->View(oop->GetShape(), offset);
-    calc::Copy(oop, ret);
+    calc::LogicalView(oop, iop, offset);
 }
 REGISTER_CALC_OP(OP_VIEW, Opcode::OP_VIEW, ExecuteOpView); 
 

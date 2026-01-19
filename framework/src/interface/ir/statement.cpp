@@ -30,15 +30,7 @@ void CompoundStatement::RemoveValue(ValuePtr val) {
     for (auto it = envTable_.begin(); it != envTable_.end();) {
         if (it->second == val) {
             it = envTable_.erase(it);
-            break;
-        } else {
-            ++it;
-        }
-    }
-    for (auto it = valuesIndexTable_.begin(); it != valuesIndexTable_.end();) {
-        if (it->second == val) {
-            it = valuesIndexTable_.erase(it);
-            break;
+            return;
         } else {
             ++it;
         }

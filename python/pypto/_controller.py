@@ -592,10 +592,11 @@ def loop_unroll(*args, **kwargs) -> Iterator[Tuple[SymbolicScalar, int]]:
     nstart = start
     for p in unroll_list:
         if ori_name:
-            # "_LoopUnroll" is used by the backend to parse the unroll_times in function
             kwargs["name"] = f"{ori_name}_LoopUnroll{p}"
         else:
             kwargs["name"] = f"_LoopUnroll{p}"
+        if ori_idx_name:
+            kwargs["idx_name"] = f"{ori_idx_name}_{p}"
 
         nstep = step * p
         left = (stop - start) % nstep

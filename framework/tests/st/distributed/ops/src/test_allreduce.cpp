@@ -27,7 +27,7 @@ template<typename T>
 void TestShmemAllReduce(OpTestParam &testParam)
 {
     constexpr size_t paramsSize = 6;
-    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    auto [row, col, typeNum, tileNumRow, tileNumCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
 
     int32_t outSize = row * col;
@@ -46,16 +46,20 @@ void TestShmemAllReduce(OpTestParam &testParam)
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(out),
     });
+    int32_t scatterRow = useTwoShot ? row / testParam.rankSize : row;
     FUNCTION("ALLREDUCE", {in}, {out}) {
-        TileShape::Current().SetVecTile({tileRow, tileCol});
+        TileShape::Current().SetVecTile({scatterRow / tileNumRow, col / tileNumCol});
         if (useTwoShot) {
             TwoShotAllReduce(predToken, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
         } else {
             OneShotAllReduce(predToken, in, testParam.group, static_cast<uint32_t>(testParam.rankSize), out);
         }
     }
+    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
     DeviceLauncherConfig config;
     config.runModel = false;
+    config.hcclContext = hcclContext;
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     auto output = ProgramData::GetInstance().GetOutputData(0);

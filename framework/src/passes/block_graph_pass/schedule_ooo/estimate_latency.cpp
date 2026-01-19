@@ -154,7 +154,6 @@ Status LatencyEstimator::BufferAllocStage(uint64_t &commitCnt) {
 Status LatencyEstimator::LaunchIssueStage(int& nextCycle) {
     // issue from all pipes
     for (auto &[pipeType, pipe] : opQueues) {
-        (void)pipeType;
         if (pipe.Empty() || pipe.busy) {
             continue;
         }

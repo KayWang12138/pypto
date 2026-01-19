@@ -119,10 +119,10 @@ struct TypeInfo {
     std::map<std::string, std::pair<int64_t, int64_t>> rangeInfos;
 };
 
-const Any &ConfigScope::GetAnyConfig(const std::string &key) const {
+const Any &ConfigScope::GetConfig(const std::string &key) const {
     if (values_.find(key) == values_.end()) {
         if (parent_) {
-            return parent_->GetAnyConfig(key);
+            return parent_->GetConfig(key);
         }
         throw std::runtime_error("Config " + key + " not found");
     }
@@ -158,42 +158,38 @@ ConfigScope::~ConfigScope() {
     }
 }
 
-void DumpValue(std::stringstream &os, const std::string &key, const Any &val, const std::string &prefix) {
-    os << prefix << key << ": ";
-    if (val.Type() == typeid(int64_t)) {
-        os << (AnyCast<int64_t>(val));
-    } else if (val.Type() == typeid(bool)) {
-        os << AnyCast<bool>(val);
-    } else if (val.Type() == typeid(std::string)) {
-        os << (AnyCast<std::string>(val));
-    } else if (val.Type() == typeid(std::vector<int64_t>)) {
-        os << (AnyCast<std::vector<int64_t>>(val));
-    } else if (val.Type() == typeid(std::vector<std::string>)) {
-        os << (AnyCast<std::vector<std::string>>(val));
-    } else if (val.Type() == typeid(std::map<int64_t, int64_t>)) {
-        os << '{';
-        bool is_first = true;
-        for (auto &[k, v] : AnyCast<std::map<int64_t, int64_t>>(val)) {
-            if (!is_first)
-                os << ", ";
-            os << "{" << k << ", " << v << "}";
-            is_first = false;
-        }
-        os << '}';
-    } else if (val.Type() == typeid(CubeTile)) {
-        os << (AnyCast<CubeTile>(val).ToString());
-    } else if (val.Type() == typeid(DistTile)) {
-        os << (AnyCast<DistTile>(val).ToString());
-    } else {
-        os << "unknow type: " << val.Type().name();
-    }
-    os << "\n";
-}
-
 void DumpValues(std::stringstream &os, const std::map<std::string, Any> &values,
-                const std::string &prefix) {
-    for (const auto &[key, val] : values) {
-        DumpValue(os, key, val, prefix);
+    const std::string &prefix) {
+    for (auto &[key, val] : values) {
+        os << prefix << key << ": ";
+        if (val.Type() == typeid(int64_t)) {
+            os << (AnyCast<int64_t>(val));
+        } else if (val.Type() == typeid(bool)) {
+            os << AnyCast<bool>(val);
+        } else if (val.Type() == typeid(std::string)) {
+            os << (AnyCast<std::string>(val));
+        } else if (val.Type() == typeid(std::vector<int64_t>)) {
+            os << (AnyCast<std::vector<int64_t>>(val));
+        } else if (val.Type() == typeid(std::vector<std::string>)) {
+            os << (AnyCast<std::vector<std::string>>(val));
+        } else if (val.Type() == typeid(std::map<int64_t, int64_t>)) {
+            os << '{';
+            bool is_first = true;
+            for (auto &[k, v] : AnyCast<std::map<int64_t, int64_t>>(val)) {
+                if (!is_first)
+                    os << ", ";
+                os << "{" << k << ", " << v << "}";
+                is_first = false;
+            }
+            os << '}';
+        } else if (val.Type() == typeid(CubeTile)) {
+            os << (AnyCast<CubeTile>(val).ToString());
+        } else if (val.Type() == typeid(DistTile)) {
+            os << (AnyCast<DistTile>(val).ToString());
+        } else {
+            os << "unknow type: " << val.Type().name();
+        }
+        os << "\n";
     }
 }
 
@@ -238,10 +234,20 @@ const std::map<std::string, Any> ConfigScope::GetAllConfig() const{
 
 void ConfigScope::AddValue(const std::string &key, Any value) {
     std::lock_guard<std::mutex> lock(mtx);
-    values_[key] = value;
+    if (value.Type() == typeid(int)) {
+        int intValue = AnyCast<int>(value);
+        int64_t newInt64Variable = static_cast<int64_t>(intValue);
+        values_[key] = Any(newInt64Variable);
+    } else if (value.Type() == typeid(const char*)) {
+        const char* charPointer = AnyCast<const char*>(value);
+        std::string stringValue(charPointer);
+        values_[key] = Any(stringValue);
+    } else {
+        values_[key] = value;
+    }
 }
 
-void ConfigScope::UpdateValueWithAny(const std::string &key, Any value) {
+void ConfigScope::UpdateValue(const std::string &key, Any value) {
     if (!ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
         std::stringstream os("Option:");
         std::map<std::string, Any> node;
@@ -252,9 +258,6 @@ void ConfigScope::UpdateValueWithAny(const std::string &key, Any value) {
         os << "\n";
         throw std::runtime_error(os.str().c_str());
     }
-    std::stringstream oss;
-    DumpValue(oss, key, value, "");
-    ALOG_DEBUG_F("Set option successfully: %s ", oss.str().c_str());
     std::lock_guard<std::mutex> lock(mtx);
     values_[key] = value;
 }
@@ -329,7 +332,7 @@ struct ConfigManagerImpl {
             scope = scopes.top();
         }
         for (auto &it : values) {
-            scope->UpdateValueWithAny(it.first, it.second);
+            scope->AddValue(it.first, it.second);
         }
     }
 

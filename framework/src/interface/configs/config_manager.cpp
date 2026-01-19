@@ -174,9 +174,9 @@ void ConfigManager::ResetLog(const std::string &path) {
     std::string newLogFile;
     if (path.empty()) {
         globalConfigs_.logTopFolder = CreateLogTopFolder();
-        newLogFile = globalConfigs_.logTopFolder + "/run.log";
+        newLogFile = std::move(globalConfigs_.logTopFolder + "/run.log");
     } else {
-        newLogFile = path + "/run.log";
+        newLogFile = std::move(path + "/run.log");
     }
     LoggerManager::FileLoggerReplace(globalConfigs_.logFile, newLogFile, true);
     globalConfigs_.logFile = std::move(newLogFile);

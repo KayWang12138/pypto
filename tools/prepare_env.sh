@@ -19,7 +19,6 @@ DOWNLOAD_HDK=false
 DEVICE_TYPE=""
 INSTALL_PATH="/usr/local/Ascend"
 DOWNLOAD_DIR=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")/pypto_download
-QUIET=false
 
 DOWNLOADED_CANN_FILES=()
 INSTALL_CANN_FILES=()
@@ -141,11 +140,6 @@ parse_arguments() {
                 fi
                 shift
                 ;;
-            --quiet)
-                QUIET=true
-                shift
-                ;;
-
             -h|--help)
                 help_flag=true
                 shift
@@ -205,7 +199,6 @@ Optional Options:
     --with-install-driver=<bool>    Download driver and firmware packages (true or false, default: false)
     --download-path=<path>          Download cann packages to specific dir path
     --install-path=<path>           Install cann packages to specific dir path
-    --quiet                         Run in quiet mode, automatically answer yes to all prompts
     -h | --help                     Show this help message
 EOF
 }
@@ -372,19 +365,6 @@ check_all_basic_dependencies() {
 prompt_yes_no() {
     local prompt="$1"
     local default="${2:-y}"
-    
-    # quiet mode:
-    if [ "$QUIET" = true ]; then
-        if [ "$default" = "y" ]; then
-            log_print "info" "$prompt [Y/n]: Y (auto-selected in quiet mode)"
-            return 0
-        else
-            log_print "info" "$prompt [y/N]: N (auto-selected in quiet mode)"
-            return 1
-        fi
-    fi
-    
-    # non-quiet mode：
     while true; do
         if [ "$default" = "y" ]; then
             read -p "$prompt [Y/n]: " -n 1 -r
@@ -670,9 +650,9 @@ install_single_package() {
     local install_cmd=""
 
     if [[ "$filename" =~ "ops" ]]; then
-        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
+        install_cmd="$filename --install --force --install-path=$INSTALL_PATH "
     elif [[ "$filename" =~ "toolkit" ]]; then
-        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
+        install_cmd="$filename --full --force --install-path=$INSTALL_PATH "
     else
         install_cmd="$filename --full --install-path=$INSTALL_PATH "
     fi

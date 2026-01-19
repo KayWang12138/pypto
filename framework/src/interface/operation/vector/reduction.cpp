@@ -243,6 +243,9 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
 
 [[maybe_unused]] void TensorReduceSingle(
     Function &function, const std::string &op, const Tensor &operand, Tensor &result, int axis) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        ConfigManager::Instance().SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    }
     ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
         << "Not support op:" << op;
     ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size())
@@ -290,7 +293,7 @@ Tensor Amax(const Tensor &self, int axis, bool keepDim) {
 
     const int lastDim = self.GetShape().size() - 1;
     const int alignNum = BLOCK_SIZE / BytesOf(self.GetStorage()->tensor->datatype);
-    auto vecTile = TileShape::Current().GetVecTile();
+    auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
         ASSERT(vecTile[lastDim] % alignNum == 0) << "Amax op: the tileShape of last axis need to 32Byte align!";
     }
@@ -329,7 +332,7 @@ Tensor Amin(const Tensor &self, int axis, bool keepDim) {
 
     const int lastDim = self.GetShape().size() - 1;
     const int alignNum = BLOCK_SIZE / BytesOf(self.GetStorage()->tensor->datatype);
-    auto vecTile = TileShape::Current().GetVecTile();
+    auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
         ASSERT(vecTile[lastDim] % alignNum == 0) << "Amin op: the tileShape of last axis need to 32Byte align!";
     }
@@ -369,7 +372,7 @@ Tensor Sum(const Tensor &self, int axis, bool keepDim) {
 
     const int lastDim = self.GetShape().size() - 1;
     const int alignNum = BLOCK_SIZE / BytesOf(self.GetStorage()->tensor->datatype);
-    auto vecTile = TileShape::Current().GetVecTile();
+    auto &vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
         ASSERT(vecTile[lastDim] % alignNum == 0) << "Sum op: the tileShape of last axis need to 32Byte align!";
     }

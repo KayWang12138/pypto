@@ -18,7 +18,6 @@
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
 
-#define OP_TILE_OP_VEC_DUP TVecDup
 template <typename Scalar, typename T0>
 TILEOP void TVecDup(T0 dst, Scalar src) {
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;

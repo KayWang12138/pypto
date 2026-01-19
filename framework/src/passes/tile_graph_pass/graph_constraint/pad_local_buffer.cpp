@@ -475,13 +475,22 @@ inline bool IsCopyIn(Operation& op) {
     return true;
 }
 
-int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(LogicalTensorPtr &inTensor) {
-    int dimSize = inTensor->GetShape().size();
-    if (inTensor->shape.back() != 1) {
-        return (dimSize - 1);
+int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, size_t blockPadding) {
+    int64_t maxLastAxis = 0;
+    size_t dimSize = 0;
+    bool existLargeBlock = true;
+    for (const auto &in : op.iOperand) {
+        dimSize = std::max(dimSize, in->shape.size());
+        if (in->shape.back() < static_cast<int>(blockPadding)) {
+            existLargeBlock = false;
+        }
+        maxLastAxis = std::max(maxLastAxis, in->shape.back());
     }
-    if (dimSize > 1) {
+    if (maxLastAxis == 1 && dimSize > 1) {
         return (dimSize - LAST_SECOND_AXIS);
+    }
+    if (existLargeBlock) {
+        return -1;
     }
     return (dimSize - 1);
 }
@@ -531,16 +540,12 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         }
     }
     if (calcType == OpCalcType::BROADCAST) {
-        auto dimIdx = ProcessBroadcastForAxisCombine(in);
+        auto dimIdx = ProcessBroadcastForAxisCombine(op, paddingValue);
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
         return;
     }
     if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT ||
             (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
-        if (op.GetOpcode() == Opcode::OP_EXPAND) {
-            AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
-            return;
-        }
         if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
             AlignedRawTensorIfNeed(in, lastIdx - 1, paddingValue);
             return;

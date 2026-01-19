@@ -31,12 +31,18 @@ namespace pto {
 class IRBuilder {
 public:
     IRBuilder() = default;
-    
+    explicit IRBuilder(std::shared_ptr<ProgramModule> module);
+
+    // ===== Module =====
+    void SetModule(std::shared_ptr<ProgramModule> m);
+    std::shared_ptr<ProgramModule> GetModule() const { return module_; }
+
     // ===== Function (stateless: no current func stored in builder) =====
     std::shared_ptr<Function> CreateFunction(
         std::string name,
         FunctionKind kind,
-        FunctionSignature sig);
+        FunctionSignature sig,
+        bool setAsEntry = false);
 
     // ===== Insertion point =====
     OpStatementPtr GetOrCreateActiveOpStmt(IRBuilderContext& ctx);
@@ -95,6 +101,9 @@ public:
     // These do not pop scopes; they only finalize merge/yield/results and update parent env.
     void ExitIfStatement(IRBuilderContext& ctx, IfStatementPtr st);
     void ExitForStatement(IRBuilderContext& ctx, ForStatementPtr st);
+
+private:
+    std::shared_ptr<ProgramModule> module_{nullptr};
 };
 
 } // namespace pto

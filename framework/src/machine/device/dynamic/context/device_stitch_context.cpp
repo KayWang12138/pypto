@@ -175,12 +175,14 @@ int DeviceStitchContext::MoveTo(DynDeviceTask *dynTask) {
     }
     DEV_ASSERT(dynTask->stitchedList.size() <= MAX_CACHED_FUNC_NUM);
     int size = static_cast<int>(dynTask->stitchedList.size());
-    for (int i = 0; i < size; ++i) {
-        auto &funcDup = dynTask->stitchedList[i];
-        dynTask->dynFuncDataCacheList[i] = {
+    for (int index = 0; index < size; ++index) {
+        auto &funcDup = dynTask->stitchedList[index];
+        dynTask->dynFuncDataCacheList[index] = {
             funcDup.GetSource(), &funcDup.GetOperationCurrPredCount(0), funcDup.GetSource()->GetCalleeIndexAddr(), funcDup.DupDataForDynFuncData()};
-        dynTask->devTask.mixTaskData.opWrapList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());
-        dynTask->devTask.mixTaskData.opWrapTaskNumList[i] = PtrToValue(funcDup.GetSource()->GetOpWrapTaskNumListAddr());
+#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+        dynTask->devTask.opWrapList[index] = PtrToValue(funcDup.GetSource()->GetOpWrapListAddr());
+        dynTask->devTask.opWrapTaskNumList[index] = PtrToValue(funcDup.GetSource()->GetOpWrapTaskNumListAddr());
+#endif
     }
     dynTask->dynFuncDataCacheListSize = size;
     return DEVICE_MACHINE_OK;

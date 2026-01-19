@@ -13,8 +13,9 @@
  * \brief
  */
 
+#include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
-#include "test_cost_macro.h"
+
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/tensor/logical_tensor.h"
@@ -75,7 +76,7 @@ void PerformanceConfig() {
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }
 
-TEST_F_WITH_COST(DynamicLightningIndexerPrologUtest, utest_lightning_indexer_prolog, 60) {
+TEST_F(DynamicLightningIndexerPrologUtest, utest_lightning_indexer_prolog) {
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 256},
         { 32, 128, 128},

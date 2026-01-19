@@ -96,15 +96,12 @@ def _device_run_once_data_from_host(*args):
         _pto_to_tensor_data(in_out_tensors), [])
 
 
-def _compute_tensor_hash(tensors, tensor_data):
-    if (len(tensors) != len(tensor_data)):
-        raise RuntimeError("The number of tensors does not match the number of tensor_data.")
+def _compute_tensor_hash(tensors):
     hash_list = []
-    for tensor, t_data in zip(tensors, tensor_data):
+    for tensor in tensors:
         shape = tuple([dim if isinstance(dim, int) else -1 for dim in tensor.shape])
-        real_shape = tuple(t_data.GetShape())
         dtype = tensor.dtype
-        hash_list.append(tuple([shape, real_shape, dtype]))
+        hash_list.append(tuple([shape, dtype]))
     comupted_hash = tuple(hash_list)
     return comupted_hash
 
@@ -126,8 +123,6 @@ class _JIT:
 
     def compile(self, *args, **kwargs):
         pypto_impl.DeviceInit()
-        # config is reset DeviceInit
-        self._set_config_option()
         in_out_tensors = [item for item in args if isinstance(item, pypto.Tensor)]
 
         if isinstance(self.verify_options, dict) and self.verify_options.get("enable_pass_verify"):
@@ -138,11 +133,12 @@ class _JIT:
             pypto_impl.SetVerifyData(host_pto_t_datas, [], _pto_verify_datas.get_data())
 
         handler = pypto_impl.OperatorBegin()
-        self._set_config_option()
-        with pypto.function(self.dyn_func.__name__, *in_out_tensors) as rlf:
-            for _ in rlf:
-                self.dyn_func(*args, **kwargs)
-            del rlf
+        with pypto.options("jit_scope"):
+            self._set_config_option()
+            with pypto.function(self.dyn_func.__name__, *in_out_tensors) as rlf:
+                for _ in rlf:
+                    self.dyn_func(*args, **kwargs)
+                del rlf
         pypto_impl.OperatorEnd(handler)
 
         _pto_verify_datas.reset()
@@ -184,8 +180,15 @@ class _JIT:
         _cost_model_run_once_data_from_host(in_tensor_data, out_tensor_data)
         return
 
+    def set_runtime_debug_mode(self):
+        if self.debug_options is None:
+            self.debug_options = {}
+        if self.debug_options.get("runtime_debug_mode") == 1 \
+             or pypto.get_debug_options().get("runtime_debug_mode") == 1:
+            pypto.set_option("profile_enable", True)
 
     def dispatch_with_run_mode(self, in_tensor_data, out_tensor_data, device):
+        self.set_runtime_debug_mode()
         cann_is_configed: bool = bool(os.environ.get("ASCEND_HOME_PATH"))
         run_mode = pypto.get_runtime_options().get('run_mode', 0)
         if run_mode == 0:
@@ -228,29 +231,37 @@ class _JIT:
 
         # Convert tensors to tensor data before compile, as compile turns tensor shapes into symbolic scalars.
         in_out_tensors_data = _pto_to_tensor_data(in_out_tensors)
-        input_hash = _compute_tensor_hash(in_out_tensors, in_out_tensors_data)
+        input_hash = _compute_tensor_hash(in_out_tensors)
 
         self.set_run_mode()
-        with pypto.options("jit_scope"):
+        if not self._is_compiled or not self._hit_cache(input_hash):
+            self.compile(*args, **kwargs)
+            self._handler_cache[input_hash] = self._handler
+            pypto_impl.BuildCache(self._handler, in_out_tensors_data, [])
+            import shutil
+            try:
+                shutil.rmtree(
+                    self._output_path,
+                    ignore_errors=True,  # 忽略删除失败的文件（如只读文件）
+                    onerror=None         # 关闭错误回调（减少函数调用开销）
+                )
+            except FileNotFoundError:
+                pass
+        else:
+            pypto_impl.ResetLog(self._output_path)
             self._set_config_option()
-            if not self._is_compiled or not self._hit_cache(input_hash):
-                self.compile(*args, **kwargs)
-                self._handler_cache[input_hash] = self._handler
-                pypto_impl.BuildCache(self._handler, in_out_tensors_data, [])
-            else:
-                pypto_impl.ResetLog(self._output_path)
-                self._handler = self._handler_cache.get(input_hash)
-            # dispatch run mode based on ASCEND_HOME_PATH or run_mode
-            '''
-              if run_mode is not config, use ASCEND_HOME_PATH
-              when ASCEND_HONE_PATH is config, run on with npu
-              when ASCEND_HONE_PATH is not config, run on with simulator
+            self._handler = self._handler_cache.get(input_hash)
+        # dispatch run mode based on ASCEND_HOME_PATH or run_mode
+        '''
+          if run_mode is not config, use ASCEND_HOME_PATH
+          when ASCEND_HONE_PATH is config, run on with npu
+          when ASCEND_HONE_PATH is not config, run on with simulator
 
-              if run_mode is configed, use run_mode
-              if run_mode is npu , check env, than run with differnet tensor type (support cpu or npu)
-              if run_mode is simulator, dont check env, change all tensor to cpu, and run
-            '''
-            self.dispatch_with_run_mode(in_out_tensors, [], device)
+          if run_mode is configed, use run_mode
+          if run_mode is npu , check env, than run with differnet tensor type (support cpu or npu)
+          if run_mode is simulator, dont check env, change all tensor to cpu, and run
+        '''
+        self.dispatch_with_run_mode(in_out_tensors, [], device)
 
     @property
     def handler(self):
@@ -272,7 +283,7 @@ class _JIT:
 
         if isinstance(self.verify_options, dict):
             pypto.set_verify_options(**self.verify_options)
-
+        
         if isinstance(self.debug_options, dict):
             pypto.set_debug_options(**self.debug_options)
 
@@ -388,11 +399,11 @@ def set_verify_golden_data(in_out_tensors=None, goldens=None):
                 data = pypto_impl.DeviceTensorData(DT_FP16, 0, [0, 0])
                 pto_goldens.append(data)
                 continue
-            if not isinstance(golden, pypto.Tensor):
+            if not isinstance(golden, pypto.Tensor): 
                 t = pypto.from_torch(golden)
             else:
                 t = golden
-
+            
             data = pypto_impl.DeviceTensorData(
                     t.dtype,
                     t.data_ptr,
@@ -400,11 +411,11 @@ def set_verify_golden_data(in_out_tensors=None, goldens=None):
                 )
             pto_goldens.append(data)
         _pto_verify_datas.set_data(pto_goldens)
-
+ 
     if in_out_tensors:
         pto_in_out = []
         for t in in_out_tensors:
             pto_in_out.append(t if isinstance(t, pypto.Tensor) else pypto.from_torch(t))
-
+ 
         pypto_impl.SetVerifyData(_pto_to_tensor_data(pto_in_out),
                                  [], pto_goldens)

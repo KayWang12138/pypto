@@ -46,10 +46,6 @@ public:
         }
     }
 
-    void SetStachSchduleContext(int threadIdx, SchduleContext* context) {
-        aicoreManager_[threadIdx]->SetSchduleContext(context);
-    }
-    
     bool CheckAndResetReg(){
         return aicoreManager_[0]->CheckAndResetReg();
     }
@@ -67,7 +63,7 @@ public:
         }
 
         DEV_INFO("thread %d start .", threadIdx);
-        if (static_cast<uint32_t>(threadIdx) >= args->scheCpuNum) {
+        if (static_cast<uint32_t>(threadIdx) >= MAX_SCHEDULE_AICPU_NUM) {
             DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
         }
