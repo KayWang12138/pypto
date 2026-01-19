@@ -110,8 +110,10 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam) {
                 DistReduceType::DIST_REDUCE_ADD, out);
         }
     }
+    RunTestVerification();
+    auto output = ProgramData::GetInstance().GetOutputData(0);
     int32_t outSize = b * s / testParam.rankSize * h;
-    RunTestVerification(dtype, "/rs_out_rank_", outSize, testParam, 0.1f);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dtype, "/rs_out_rank_", outSize, output->GetDevPtr(), testParam, 0.1f));
 }
 
 } // namespace Distributed
