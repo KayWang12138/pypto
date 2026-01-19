@@ -1421,112 +1421,6 @@ int MixSubgraphSplit::GetOffsetFromTensorParam(const SubfuncInvokeInfoTy::Tensor
     return -1;
 }
 
-Function* MixSubgraphSplit::CreateSplitLeafFunction(Function& rootFunc,
-                                                    Function& originalMixFunc,
-                                                    const InternalComponentInfo& component,
-                                                    uint64_t newProgramID,
-                                                    uint64_t i,
-                                                    SubgraphToFunction& subgraphToFunction) {
-    // 创建新的function名称
-    std::string leafName = originalMixFunc.GetRawName() + "_leaf" + std::to_string(i);
-    ALOG_DEBUG_F("Add leafFunction %s", leafName.c_str());
-    // 手动创建function对象
-    auto funcMagicName = leafName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
-    auto newFunc = std::make_shared<Function>(Program::GetInstance(), funcMagicName, leafName, &rootFunc);
-    // 设置function类型
-    newFunc->SetFunctionType(FunctionType::STATIC);
-    newFunc->SetGraphType(GraphType::BLOCK_GRAPH);
-
-    std::vector<std::shared_ptr<Operation>> programOps;
-    std::unordered_map<int, int> magicMap; // 原始magic -> 新magic
-    // 获取原始Mix子图的所有op（按原始顺序）
-    auto originalOps = originalMixFunc.Operations(false).DuplicatedOpList();
-    // 按原始顺序筛选属于当前component的op
-    for (auto *originalOp : originalOps) {
-        if (originalOp->IsNOP()) {
-            continue;
-        }
-        // 检查这个op是否属于当前component
-        bool belongsToComponent = false;
-        for (auto* compOp : component.operations) {
-            if (compOp == originalOp) {
-                belongsToComponent = true;
-                break;
-            }
-        }
-
-        if (belongsToComponent) {
-            // 判断是否为同步op
-            bool isSyncOp = IsSyncOperation(originalOp);
-            if (isSyncOp) {
-                // 对于同步op，直接使用原始op的shared_ptr
-                std::shared_ptr<Operation> opPtr = originalOp->shared_from_this();
-                programOps.push_back(opPtr);
-                int originalMagic = originalOp->GetOpMagic();
-                magicMap[originalMagic] = originalMagic;
-                ALOG_DEBUG_F("Reuse sync op %d in leaf function %s",
-                        originalMagic, leafName.c_str());
-            } else {
-                // 对于非同步op，进行克隆
-                auto iOperands = originalOp->GetIOperands();
-                auto oOperands = originalOp->GetOOperands();
-                Operation& clonedOp = originalOp->CloneOperation(*newFunc, iOperands, oOperands);
-                // 记录映射关系
-                int originalMagic = originalOp->GetOpMagic();
-                int clonedMagic = clonedOp.GetOpMagic();
-                magicMap[originalMagic] = clonedMagic;
-                // 复制offset信息
-                for (size_t idx = 0; idx < iOperands.size(); ++idx) {
-                    int offset = originalOp->GetIOpAttrOffset(idx);
-                    if (offset != -1) {
-                        clonedOp.SetIOpAttrOffset(idx, offset);
-                    }
-                }
-                for (size_t idx = 0; idx < oOperands.size(); ++idx) {
-                    int offset = originalOp->GetOOpAttrOffset(idx);
-                    if (offset != -1) {
-                        clonedOp.SetOOpAttrOffset(idx, offset);
-                    }
-                }
-                programOps.push_back(clonedOp.shared_from_this());
-                ALOG_DEBUG_F("Cloned op %d to leaf function %s (original order preserved)",
-                                originalOp->GetOpMagic(), leafName.c_str());
-            }
-        }
-    }
-    // 保存映射关系
-    LeafFuncMagicMap leafMap;
-    leafMap.leafFunc = newFunc.get();
-    leafMap.originalToClonedMagic = std::move(magicMap);
-    leafFuncMagicMaps_[newFunc.get()] = std::move(leafMap);
-    // 验证顺序正确性
-    ALOG_DEBUG_F("Leaf function %s has %zu ops in original order",
-                leafName.c_str(), programOps.size());
-    newFunc->SetProgramOp(programOps);
-    // 创建并设置LeafFuncAttribute
-    auto leafAttr = std::make_shared<LeafFuncAttribute>();
-    // 设置aivCore属性
-    leafAttr->aivCore = component.aivCore;
-    newFunc->SetLeafFuncAttribute(leafAttr);
-    newFunc->UpdateBelongToThis();
-    newFunc->SetProgramId(newProgramID);
-    // 复制参数配置
-    newFunc->paramConfigs_ = originalMixFunc.paramConfigs_;
-    ALOG_DEBUG_F("Called UpdateBelongToThis for new function: %s", leafName.c_str());
-    newFunc->ComputeHash();
-    FunctionHash funcHash = newFunc->GetFunctionHash();
-    ALOG_DEBUG_F("Function %s computed hash: %lu", leafName.c_str(), funcHash.GetHash());
-    Program::GetInstance().GetFunctionCache().Insert(funcHash, *newFunc);
-    ALOG_DEBUG_F("Inserted new function %s into function cache with hash %lu",
-                leafName.c_str(), funcHash.GetHash());
-    // 注册到program的function map中
-    auto* resultFunc = newFunc.get();
-    Program::GetInstance().InsertFuncToFunctionMap(funcMagicName, newFunc);
-    subgraphToFunction.InsertParameter(i, *resultFunc);
-    ALOG_DEBUG_F("Created leaf function: %s.", leafName.c_str());
-    return resultFunc;
-}
-
 void MixSubgraphSplit::DisplayComponents(const std::vector<InternalComponentInfo>& components) {
     for (size_t i = 0; i < components.size(); i++) {
         const auto& component = components[i];
@@ -1589,7 +1483,15 @@ Status MixSubgraphSplit::GenNewFunctions(Function& rootFunc, Function* originalM
                                         SubgraphToFunction& subgraphToFunction,
                                         std::vector<Function*>& newFunctions) {
     for (size_t i = 0; i < components.size(); i++) {
-        Function* newFunc = CreateSplitLeafFunction(rootFunc, *originalMixFunc, components[i], newProgramIDs[i], i, subgraphToFunction);
+        FunctionClone functionClone(rootFunc, originalMixFunc);
+        auto newFunc = functionClone.CloneFunctionByComponent(components[i], newProgramIDs[i], i);
+        leafFuncMagicMaps_[newFunc] = std::move(functionClone.leafMap);
+        newFunc->ComputeHash();
+        FunctionHash funcHash = newFunc->GetFunctionHash();
+        ALOG_DEBUG_F("Function %s computed hash: %lu", newFunc->GetMagicName(), funcHash.GetHash());
+        Program::GetInstance().GetFunctionCache().Insert(funcHash, *newFunc);
+        Program::GetInstance().InsertFuncToFunctionMap(newFunc->GetMagicName(), functionClone.cloneFunc);
+        subgraphToFunction.InsertParameter(i, *newFunc);
         if (newFunc == nullptr) {
             return FAILED;
         }
@@ -1847,10 +1749,6 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
         return FAILED;
     }
     
-    // 复制InferParamIndex信息到所有新子图
-    if (CopyInferParamIndexInfo(originalMixFunc, newFunctions) != SUCCESS) {
-        return FAILED;
-    }
     // 设置wrapId和resourceType
     if (SetMixIdResourceType(newFunctions, mixId, resourceType) != SUCCESS) {
         return FAILED;
@@ -2398,24 +2296,6 @@ std::unordered_map<int, std::set<int>> MixSubgraphSplit::ComputeDependencyClosur
         ALOG_DEBUG_F("After iteration %d, changed: %s", iteration, changed ? "true" : "false");
     } while (changed);
     return closure;
-}
-
-Status MixSubgraphSplit::CopyInferParamIndexInfo(Function* originalMixFunc,
-                                                const std::vector<Function*>& newFunctions) const {
-    // 获取原Mix子图的完整符号表
-    const auto& originalDynParamTable = originalMixFunc->GetDynParamTable();
-
-    // 为每个新子图继承相同的符号表
-    for (auto* newFunc : newFunctions) {
-        // 使用InsertDynParam方法逐个复制dynParam
-        for (const auto& [dim, info] : originalDynParamTable) {
-            DynParamInfo copiedInfo = info;
-            newFunc->InsertDynParam(dim, copiedInfo);
-        }
-        ALOG_DEBUG_F("Copied %zu dyn param entries to function: %s",
-                    originalDynParamTable.size(), newFunc->GetRawName().c_str());
-    }
-    return SUCCESS;
 }
 
 void MixSubgraphSplit::DeleteOriginalMixCallOps(Function& rootFunc, const std::vector<Operation*>& callOpsToDelete) {
