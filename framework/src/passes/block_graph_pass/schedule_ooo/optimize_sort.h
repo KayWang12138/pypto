@@ -43,6 +43,7 @@ public:
     std::map<Operation*, std::unordered_map<int, int>> backTraceBufRefCount;
     // 回退点,防止死循环
     Operation* rollBackNodeOp{nullptr};
+    std::unordered_map<Operation*, int> depthCache;
 
     void opListInit();
     Status SortOps();
@@ -84,6 +85,7 @@ public:
     Status OpListExecute(std::vector<Operation*> &curOpList, std::map<MemoryType, int64_t> &curMemoryMap,
         size_t &startIndex);
     Status ExecuteOp();
+    void AllocAhead();
 
     void ReplaceIndex(std::vector<Operation*> &curOpList, std::set<size_t> advanceIndexList, size_t rollBackIndex);
     bool HasDependency(Operation* rollBackOp, Operation* backOp);
