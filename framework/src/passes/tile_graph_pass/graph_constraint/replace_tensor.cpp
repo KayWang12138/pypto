@@ -741,7 +741,7 @@ std::unordered_map<LogicalTensorPtr, int> ReplaceTensor::BuildTensorOrderIndexMa
 }
 
 
-void AddCopyUBOp(Function &function, Operation &cons, LogicalTensorPtr &input) {
+void AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input) {
     auto copyShape = input->GetShape();
     std::vector<int64_t> offset00(copyShape.size(), 0);
 
@@ -755,7 +755,7 @@ void AddCopyUBOp(Function &function, Operation &cons, LogicalTensorPtr &input) {
         OpImmediate::Specified(copyShape),
         OpImmediate::Specified(copyShape)
     ));
-    copyOutOp.UpdateSubgraphID(cons.GetSubgraphID());
+    copyOutOp.UpdateSubgraphID(cons->GetSubgraphID());
 
     auto rawTensorCopyInOut = std::make_shared<RawTensor>(input->Datatype(), copyShape);
     auto logicalCopyInOut = std::make_shared<LogicalTensor>(function, rawTensorCopyInOut, offset00, copyShape);
@@ -767,9 +767,9 @@ void AddCopyUBOp(Function &function, Operation &cons, LogicalTensorPtr &input) {
         OpImmediate::Specified(copyShape),
         OpImmediate::Specified(copyShape)
     ));
-    copyInOp.UpdateSubgraphID(cons.GetSubgraphID());
+    copyInOp.UpdateSubgraphID(cons->GetSubgraphID());
 
-    cons.ReplaceInput(logicalCopyInOut, input);
+    cons->ReplaceInput(logicalCopyInOut, input);
 }
 
 void AddCopyOp(Function &function, const std::unordered_set<Operation*> &needAddCopyAssOp) {
