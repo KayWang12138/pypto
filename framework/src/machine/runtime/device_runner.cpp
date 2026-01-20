@@ -466,7 +466,7 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
     }
     
     for (uint32_t i = AICPU_BLOCK_INDEX; i < AICPU_BLOCK_INDEX + args_.nrAicpu; i++) {
-        DumpData(i, "AICPU", root_taskStats);
+        DumpData(i, "AI-CPU", root_taskStats);
     }
     std::string jsonFilePath = config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
     std::ofstream jsonFile(jsonFilePath);

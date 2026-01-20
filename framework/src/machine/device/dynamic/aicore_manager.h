@@ -134,7 +134,7 @@ public:
     }
 
     template <bool enableAicpuTask = false>
-    inline int32_t RunCoreTask(DeviceTaskCtrl *taskCtrl, uint64_t& sent, [[maybe_unused]]uint64_t sharedBuffer) {
+    inline int32_t RunCoreTask(DeviceTaskCtrl *taskCtrl, uint64_t& sent) {
         int32_t ret = DEVICE_MACHINE_OK;
         (void)taskCtrl;
         wrapManager_.DispatchMixCoreTask();
@@ -154,7 +154,7 @@ public:
         sent = 0UL;
         if constexpr (enableAicpuTask) {
             if (IsNeedProcAicpuTask()) {
-                ret = ResolveDepForAicpuTask(sent, sharedBuffer);
+                ret = ResolveDepForAicpuTask(sent);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
                     return ret;
                 }
@@ -202,7 +202,7 @@ public:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
-        ret = ProcessTaskLoop(taskCtrl, sharedBuffer);
+        ret = ProcessTaskLoop(taskCtrl);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
@@ -219,7 +219,7 @@ public:
         return ret;
     }
 
-    inline int32_t ProcessTask(DeviceTaskCtrl *taskCtrl, uint64_t sharedBuffer) {
+    inline int32_t ProcessTask(DeviceTaskCtrl *taskCtrl, [[maybe_unused]]uint64_t sharedBuffer) {
         int32_t ret = DEVICE_MACHINE_OK;
         seq = taskCtrl->taskId;
         DEV_INFO("receive new task %lu.", taskCtrl->taskId);
@@ -227,7 +227,7 @@ public:
 
         uint64_t curSent = 0UL;
         if (!taskCtrl->isFirstDevTask) {
-            ret = RunCoreTask(taskCtrl, curSent, sharedBuffer);
+            ret = RunCoreTask(taskCtrl, curSent);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -235,7 +235,8 @@ public:
         }
 
         if (IsNeedProcAicpuTask()) {
-            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
+            const bool profSwitch = aicoreProf_.ProfIsEnable();
+            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), sharedBuffer, profSwitch);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -243,13 +244,13 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
-    inline int ProcessTaskLoop(DeviceTaskCtrl *taskCtrl, uint64_t sharedBuffer) {
+    inline int ProcessTaskLoop(DeviceTaskCtrl *taskCtrl) {
         uint32_t lastSent = 0;
         uint64_t start = GetCycles();
         uint32_t allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed);
         while (allSentCnt < curDevTask_->coreFunctionCnt) {
             uint64_t curSent = 0;
-            int32_t ret = RunCoreTask<true>(taskCtrl, curSent, sharedBuffer);
+            int32_t ret = RunCoreTask<true>(taskCtrl, curSent);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -895,9 +896,8 @@ private:
         return ret;
     }
 
-    inline int32_t ResolveDepForAicpuTask(uint64_t& taskCount, uint64_t sharedBuffer) {
-        const bool profAicpuTask = aicoreProf_.ProfIsEnable();
-        int32_t ret = aicpuTaskManager_.TaskProcess(profAicpuTask, taskCount, sharedBuffer);
+    inline int32_t ResolveDepForAicpuTask(uint64_t& taskCount) {
+        int32_t ret = aicpuTaskManager_.TaskProcess(taskCount);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
