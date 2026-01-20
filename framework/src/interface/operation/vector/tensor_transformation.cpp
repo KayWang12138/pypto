@@ -610,7 +610,7 @@ Tensor Cat(const std::vector<Tensor> &tensors, int axis) {
 
     auto resultShape = tensors[0].GetShape();
     auto shapeSize = resultShape.size();
-    CheckAxisRange(tensor[0], axis);
+    CheckAxisRange(tensors[0], axis);
     int axisSize = 0;
     for (auto tensor : tensors) {
         axisSize += tensor.GetShape()[axis];
