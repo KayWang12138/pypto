@@ -821,6 +821,18 @@ Status OoOScheduler::SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPt
     return SUCCESS;
 }
 
+Status OoOScheduler::RearrangeBuffer(IssueEntryPtr allocIssue) {
+    MemoryType memType = localBufferMap[allocIssue->reqMemIds[0]]->memType;
+    std::vector<int> memIds = bufferManagerMap[memType].GetAddrSortedBufs();
+    for (auto memId : memIds) {
+        auto spillIssue = tensorOccupyMap[memType][memId];
+        if (IsViewOp(spillIssue->tileOp) || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            return FAILED;
+        } 
+    }
+    return bufferManagerMap[memType].CompactBufferSlices();
+}
+
 Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
     std::vector<int> spillGroup;
     bool spillFailed = false;
@@ -833,9 +845,7 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
         std::vector<int> memIds = bufferManagerMap[memType].GetAddrSortedBufs();
         for (auto memId : memIds) {
             auto spillIssue = tensorOccupyMap[memType][memId];
-            if (spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW ||
-                spillIssue->tileOp.GetOpcode() == Opcode::OP_VIEW_TYPE ||
-                spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            if (IsViewOp(spillIssue->tileOp) || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
                 continue;
             }
             if (spillIssue->tileOp.GetOpcodeStr().find("ALLOC") != std::string::npos) {
@@ -861,6 +871,10 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
             APASS_LOG_ERROR_F(Elements::Operation, "Spill all buffer failed! %s", GetFormatBacktrace(allocIssue->tileOp).c_str());
             PrintSpillFailedInfo(allocIssue, memType);
             return FAILED;
+        }
+        // 内存整理
+        if (RearrangeBuffer(allocIssue) != SUCCESS) {
+            APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffer failed at GenBufferSpill. %s", GetFormatBacktrace(allocIssue->tileOp).c_str());
         }
     } else {
         if (SpillMultiBuffer(allocIssue, spillGroup, temp, localBufferMap[allocIssue->reqMemIds[0]], false) != SUCCESS) {
