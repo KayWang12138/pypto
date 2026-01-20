@@ -29,8 +29,24 @@ class Context:
     dynamic = False
 
 
+def expand_impl(tensor: Union[TensorWrapper, pypto.tensor], target_shape: Iterable[int]) -> TensorWrapper:
+    target_shape = np.array(target_shape, dtype=np.int32)
+    shape = np.array(tensor.shape, dtype=np.int32)
+    prev_shape = shape.copy()
+    shape_it = np.nditer([shape, target_shape], flags=["f_index"])
+    for dim, target_dim in shape_it:
+        if dim != target_dim:
+            prev_shape[shape_it.index] = target_dim
+            tensor = TensorWrapper(pypto_wrap.expand_clone(tensor, prev_shape.tolist()))
+    return tensor
+
+
 def common_broadcast(a: Union[TensorWrapper, Real], b: Union[TensorWrapper, Real],
                      keep_scalar: bool = False) -> Tuple[Union[TensorWrapper, Real], Union[TensorWrapper, Real]]:
+    if isinstance(a, TensorElementWrapper):
+        a = TensorWrapper(a.unwrap())
+    if isinstance(b, TensorElementWrapper):
+        b = TensorWrapper(b.unwrap())
     if keep_scalar and (not isinstance(a, TensorWrapper) or not isinstance(b, TensorWrapper)):
         return a, b
     a_shape = np.array(a.shape, dtype=np.int32)
@@ -62,17 +78,7 @@ def common_broadcast(a: Union[TensorWrapper, Real], b: Union[TensorWrapper, Real
     common_shape = np.where(a_nonones, a_shape, b_shape)
     common_type = dtypes.common_type(a.dtype, b.dtype)
     pypto_wrap.auto_vec_tile(common_shape, common_type)
-
-    def expand_stepwise(tensor: TensorWrapper, shape: np.ndarray) -> TensorWrapper:
-        prev_shape = shape.copy()
-        shape_it = np.nditer([shape, common_shape], flags=["f_index"])
-        for dim, target_dim in shape_it:
-            if dim != target_dim:
-                prev_shape[shape_it.index] = target_dim
-                tensor = TensorWrapper(pypto_wrap.expand_clone(tensor, prev_shape.tolist()))
-        return tensor
-
-    return expand_stepwise(a, a_shape), expand_stepwise(b, b_shape)
+    return expand_impl(a, common_shape), expand_impl(b, common_shape)
 
 
 def pad_shape(shape: List[int], required_rank: int) -> List[int]:
@@ -949,7 +955,7 @@ def load(pointer: BaseTensorLayout, mask: Optional[BaseMaskLayout] = None, other
     if requires_expand:
         src = pypto_wrap.view(layout.base, [1] * len(padded_shape), multidim_offset)
         pypto_wrap.auto_vec_tile(padded_shape, src.dtype)
-        result = pypto_wrap.expand_clone(src, padded_shape)
+        result = expand_impl(src, padded_shape)
     else:
         valid_shape = compute_valid_shape(mask, padded_shape)
         result = pypto_wrap.view(layout.base, padded_shape, multidim_offset, valid_shape=valid_shape)
@@ -1175,8 +1181,7 @@ def sigmoid(x: TensorWrapper) -> TensorWrapper:
 def broadcast_to(input: TensorWrapper, *shape: Union[int, List[int]]) -> TensorWrapper:
     shape = first_or_all(*shape, name="shape")
     pypto_wrap.auto_vec_tile(shape, input.dtype)
-    result = pypto_wrap.expand_clone(input, shape)
-    return TensorWrapper(result)
+    return expand_impl(input, shape)
 
 
 @bind_tensor_method
