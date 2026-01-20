@@ -312,7 +312,7 @@ Status OoOScheduler::SpillOnCoreBlock(int idx, CoreType coreType) {
         }
         APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Possible causes: incorrect memory reuse, memory fragmentation. "
             "Please check tile shape and OOO spill failed info.");
-        return FAILED; 
+        return FAILED;
     }
     if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
@@ -490,7 +490,10 @@ Status OoOScheduler::FreeBuffer(IssueEntryPtr issue) {
                 UpdateBufferUsage(localBufferMap[memId]->memType, memId, true);
             }
             localBufferMap[memId]->retireCycle = clock;
-            tensorOccupyMap[localBufferMap[memId]->memType].erase(localBufferMap[memId]->id);
+            if (tensorOccupyMap[localBufferMap[memId]->memType].erase(localBufferMap[memId]->id) == 0) {
+                APASS_LOG_ERROR_F(Elements::Tensor, "Erase tensor[%d] failed.", memId);
+                return FAILED;
+            }
         }
     }
     return SUCCESS;
@@ -709,10 +712,6 @@ Status OoOScheduler::GenSpillSchedule() {
     UpdateIssueExecOrder();
     size_t pcIdx = 0;
     LOG_SCOPE_BEGIN(tGenSpillSchedule, Elements::Function, "GenSpillSchedule");
-    if (InitMemWithoutAlloc() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "InitMemWithoutAlloc failed.");
-        return FAILED;
-    }
     while (pcIdx < issueEntries.size()) {
         auto issue = issueEntries[pcIdx];
         APASS_LOG_DEBUG_F(Elements::Operation, "Launch %s", issue->GetOpInfo().c_str());
@@ -1001,6 +1000,16 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
     return SUCCESS;
 }
 
+void OoOScheduler::InitTensorCoreMap() {
+    // TODO 正式方案不存在 no producer情况
+    for (auto issue : issueEntries) {
+        if (issue->isAlloc) {
+            auto memId = issue->tileOp.GetOOperands(0)->memoryrange.memId;
+            tensorAllocCoreMap[memId] = issue->coreLocation;
+        }
+    }
+}
+
 Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     issueEntries.clear();
     localBufferMap.clear();
@@ -1039,7 +1048,12 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
         return FAILED;
     }
-
+    // TODO 正式方案保留CheckAllocIssue
+    if (CheckAllocIssue() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocIssue failed!");
+        return FAILED;
+    }
+    InitTensorCoreMap();
     // 初始化内存管理器
     InitIssueQueuesAndBufferManager();
     LOG_SCOPE_END(tInit);
@@ -1069,7 +1083,12 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
         return SUCCESS;
     }
     PrintOpList(operations);
-    if (Init(operations) != SUCCESS) { 
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) {
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_NON_Mix;
+    } else {
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_Mix;
+    }
+    if (Init(operations) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
         return FAILED;
     }
