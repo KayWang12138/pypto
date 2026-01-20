@@ -123,6 +123,11 @@ class BlockBuilderHelper:
         self.builder.emit(self.ctx, op)
         return op
 
+    def trunc(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_TRUNC, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
     def logicalnot(self, a, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_LOGICALNOT, a, out)
         self.builder.emit(self.ctx, op)
