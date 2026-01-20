@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
+#include "securec.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "machine/runtime/runtime.h"
@@ -111,7 +112,7 @@ static void *AllocAligned(size_t alignment, size_t size)
         return nullptr;
     }
     // init as zero to avoid random register values
-    (void)memset(ptr, 0, size);
+    (void)memset_s(ptr, size, 0, size);
     return ptr;
 }
 
