@@ -99,6 +99,26 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
         auto inputTile1 = input1.tensor->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
         auto inputTile2 = input2.tensor->View(function, input2.tileInfo.shape, input2.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
+        auto opName = GetBinaryOpName<T>();
+        if (opName == "MOD") {
+            std::vector<int64_t> tmpShape;
+            if (input1.tileInfo.shape.size() >= 2) {
+                tmpShape.assign(input1.tileInfo.shape.end() - 2, input1.tileInfo.shape.end())
+            } else {
+                tmpShape = input1.tileInfo.shape;
+            }
+            auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor->Datatype());
+            tmpShape[input1.tileInfo.shape.size() - 1] = (tmpShape[input1.tileInfo.shape.size() - 1] + alignSize -1) / alignSize * alignSize;
+            int64_t tmpSize = 1;
+            for (int64_t num : tmpShape){
+                tmpSize *= num;
+            }
+            size_t totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 4;
+            std::vector<int64_t> tmpTensorShape({static_cast<int64_t>(totalBytes)});
+            auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpTensorShape);
+            function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tmpTensor});
+            return;
+        }
         if (withBrc) {
             std::vector<int64_t> tmpShape(input1.tileInfo.shape);
             auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor->Datatype());

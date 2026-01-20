@@ -146,6 +146,7 @@ TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MIN, operand>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_Mod TMod
 template <typename T0, typename T1, typename T2>
 TILEOP void TMod(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MOD>(dst, src0, src1);

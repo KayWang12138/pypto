@@ -111,7 +111,9 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_PAIRSUM, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMAX, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
-          {Opcode::OP_POW, [this]() { return GenBinaryOp(); }},
+
+          // binary op: vector operations with tmp
+          {Opcode::OP_POW, [this]() { return GenBinaryOpWithTmp(); }},
 
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},

@@ -151,6 +151,15 @@ void OpcodeManager::RegisterVectorBinary() {
         {"TileOp::TSmins", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
             OpAttributeKey::outputCombineAxis});
+    RegisterInfo(Opcode::OP_MOD, OpCoreType::AIV, "MOD", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Tmod", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis},
+        TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_MODS, OpCoreType::AIV, "MODS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Tmods", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
+            OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
+        TileShapeVerifier::Verify);
 }
 
 void OpcodeManager::RegisterVectorUnary() {

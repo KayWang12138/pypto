@@ -102,7 +102,6 @@ Opcode GetBinaryOpNameCode() {
             CASE(DIV);
             CASE(MAX);
             CASE(MIN);
-            CASE(MOD);
             default: ASSERT(false && "unknown binary op type");
         }
 #undef CASE
