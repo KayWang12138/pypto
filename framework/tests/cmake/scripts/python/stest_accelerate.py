@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -58,21 +58,27 @@ class STestAccelerate(GTestAccelerate):
         return "STest"
 
     @staticmethod
+    def reg_args(parser: argparse.ArgumentParser):
+        """注册STest加速器参数
+
+        先调用父类(GTestAccelerate)的参数注册, 再添加STest特有参数
+        """
+        GTestAccelerate.reg_args(parser)
+        parser.add_argument("-d", "--device", nargs="?", type=int, action="append",
+                            help="Specific parallel accelerate device, "
+                                 "If this parameter is not specified, 0 device will be used by default.")
+
+    @staticmethod
     def main() -> bool:
         """主处理流程
         """
         # 参数注册
-        parser = argparse.ArgumentParser(description=f"STest Execute Accelerate", epilog="Best Regards!")
+        parser = argparse.ArgumentParser(description="STest Execute Accelerate", epilog="Best Regards!")
         STestAccelerate.reg_args(parser=parser)
-        parser.add_argument("-d", "--device", nargs="?", type=int, action="append",
-                            help="Specific parallel accelerate device, "
-                                 "If this parameter is not specified, 0 device will be used by default.")
         # 流程处理
         args = parser.parse_args()
         params = []
-        device_list = [0]
-        if args.device is not None:
-            device_list = [int(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
+        device_list = STestAccelerate.init_device_list(args)
         for _id in device_list:
             p = GTestAccelerate.ExecParam(cntr_id=_id, envs_func=STestAccelerate.set_device_id_envs)
             params.append(p)
@@ -84,6 +90,22 @@ class STestAccelerate(GTestAccelerate):
     def set_device_id_envs(p: Any) -> Optional[Dict[str, str]]:
         self = p
         return {"TILE_FWK_DEVICE_ID": f"{self.cntr_id}"}
+
+    @staticmethod
+    def init_device_list(args) -> List[int]:
+        """初始化设备列表 - 抽取公共逻辑
+
+        :param args: 命令行参数
+        :return: 设备ID列表
+        """
+        device_list = [0]  # 默认设备
+
+        if args.device is not None:
+            # 去重并过滤空值
+            device_list = [int(d) for d in list(set(args.device)) if d is not None and str(d) != ""]
+
+        logging.debug("Initialized device list: %s", device_list)
+        return device_list
 
     @staticmethod
     def _get_test_costs(binary: str) -> Dict[str, float]:
