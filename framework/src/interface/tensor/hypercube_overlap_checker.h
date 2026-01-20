@@ -105,6 +105,7 @@ int HypercubeOverlapCheckerBlock<T>::CalOverlap(const std::vector<int> &hypercub
 
 // 将hypercube转换成一个或多个哈希值
 template<typename T>
+__attribute__((no_sanitize("unsigned-integer-overflow")))
 void HypercubeOverlapCheckerBlock<T>::Shape2Keys(const std::vector<int> &hypercube, std::vector<uint64_t>& result,
                                             int dimIdx, uint64_t currValue)
 {

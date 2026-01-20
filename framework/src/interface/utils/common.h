@@ -99,6 +99,7 @@ inline constexpr std::underlying_type_t<T> ToUnderlying(T value) {
 }
 
 template <typename T>
+__attribute__((no_sanitize("unsigned-integer-overflow")))
 inline void HashCombine(std::size_t &seed, const T &val) {
     seed ^= std::hash<T>()(val) + 0x9e3779b9 + (seed << 0x6) + (seed >> 0x2);
 }
