@@ -791,7 +791,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {               Opcode::OP_DIVS,          "TDivS"},
     {              Opcode::OP_RSQRT,         "TRsqrt"},
     {               Opcode::OP_SQRT,          "TSqrt"},
-    {               Opcode::OP_SQRT,          "TTrunc"},
+    {               Opcode::OP_TRUNC,        "TTrunc"},
     {                Opcode::OP_EXP,           "TExp"},
     {                Opcode::OP_ABS,           "TAbs"},
     {         Opcode::OP_LOGICALNOT,    "TLogicalNot"},
