@@ -23,6 +23,7 @@ class BlockBuilderHelper:
             ctx = ir.IrBuilderContext()
         self.builder = builder
         self.ctx = ctx
+        self.last_func = None
 
     # ===== Scope Management (Context Managers) =====
 
@@ -81,7 +82,8 @@ class BlockBuilderHelper:
     # ===== Function Creation =====
 
     def create_function(self, name, kind, sig):
-        return self.builder.create_function(name, kind, sig)
+        self.last_func = self.builder.create_function(name, kind, sig)
+        return self.last_func
 
     def create_return(self, values):
         return self.builder.create_return(self.ctx, values)
@@ -229,7 +231,7 @@ class BlockBuilderHelper:
         op = self.builder.create_binary_scalar_op(ir.Opcode.OP_SUBS, a, b, out)
         self.builder.emit(self.ctx, op)
         return op
-
+    
     def muls(self, a, b, out):
         op = self.builder.create_binary_scalar_op(ir.Opcode.OP_MULS, a, b, out)
         self.builder.emit(self.ctx, op)
@@ -500,11 +502,29 @@ class BlockBuilderHelper:
 
     # UB copy operations (Tensor <-> Tile with offsets)
     def ub_copy_in(self, src_tensor, offsets, dst_tile):
+        idx = 0
+        args = self.last_func.sig.arguments
+        for i in range(0, len(args)):
+            if args[i].get_id == src_tensor.get_id:
+                idx = i
+                break
+        constant_idx = block.const(idx, "idx") # TODO 增加去重能力
+        gmAddr = block.scalar(ir.DataType::UINT64, src_tensor.name + "Addr")
+        block.call_1(constant_idx, gmAddr, "GET_TENSOR_ADDR")
         op = self.builder.create_ub_copy_in_op(ir.Opcode.OP_UB_COPY_IN, src_tensor, offsets, dst_tile)
         self.builder.emit(self.ctx, op)
         return op
 
     def ub_copy_out(self, src_tile, offsets, dst_tensor):
+        idx = 0
+        args = self.last_func.sig.arguments
+        for i in range(0, len(args)):
+            if args[i].get_id == dst_tensor.get_id:
+                idx = i
+                break
+        constant_idx = block.const(idx, "idx") # TODO 增加去重能力
+        gmAddr = block.scalar(ir.DataType::UINT64, dst_tensor.name + "Addr")
+
         op = self.builder.create_ub_copy_out_op(ir.Opcode.OP_UB_COPY_OUT, src_tile, offsets, dst_tensor)
         self.builder.emit(self.ctx, op)
         return op
@@ -519,3 +539,30 @@ class BlockBuilderHelper:
         op = self.builder.create_any_data_copy_op(ir.Opcode.OP_VST, a, out)
         self.builder.emit(self.ctx, op)
         return op
+
+    # Call operations
+    def call_1(self, arg0, out, name):
+        op = self.builder.create_call_1_scalar_op(arg0, out, name)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def call_2(self, arg0, arg1, out, name):
+        op = self.builder.create_call_2_scalar_op(arg0, arg1, out, name)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def call_3(self, arg0, arg1, arg2, out, name):
+        op = self.builder.create_call_3_scalar_op(arg0, arg1, arg2, out, name)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def call_4(self, arg0, arg1, arg2, arg3, out, name):
+        op = self.builder.create_call_4_scalar_op(arg0, arg1, arg2, arg3, out, name)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def call_5(self, arg0, arg1, arg2, arg3, arg4, out, name):
+        op = self.builder.create_call_5_scalar_op(arg0, arg1, arg2, arg3, arg4, out, name)
+        self.builder.emit(self.ctx, op)
+        return op
+        
