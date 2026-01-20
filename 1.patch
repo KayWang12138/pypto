@@ -1,0 +1,498 @@
+From 1b9af749473e488218c80dc32507e42e5cc0d0a8 Mon Sep 17 00:00:00 2001
+From: zhaojunhan <zhaojunhan1@huawei.com>
+Date: Tue, 20 Jan 2026 16:12:00 +0800
+Subject: [PATCH] refactor(config): Rename set_operation_config to
+ set_operation_options
+
+---
+ ...pto-experimental-get_operation_options.md} |  6 +-
+ ...pto-experimental-set_operation_options.md} |  8 +--
+ .../sparse_attention_antiquant_impl.py        |  4 +-
+ .../sparse_flash_attention_quant_impl.py      |  4 +-
+ examples/models/glm_v4_5/glm_attention.py     |  2 +-
+ examples/models/glm_v4_5/glm_moe_fusion.py    |  2 +-
+ .../src/interface/configs/config_manager.h    | 68 -------------------
+ .../interface/configs/tile_fwk_config.json    |  7 --
+ .../configs/tile_fwk_config_schema.json       | 46 ++++++-------
+ python/pypto/experimental.py                  | 10 +--
+ python/pypto/pypto_impl.pyi                   |  6 --
+ python/src/bindings/controller.cpp            | 13 ----
+ .../glm/test_glm_ffn_router_expert_quant.py   |  2 +-
+ .../tests/ut/interface/test_config_options.py | 10 +--
+ 14 files changed, 47 insertions(+), 141 deletions(-)
+ rename docs/api/operation/{pypto-experimental-get_operation_config.md => pypto-experimental-get_operation_options.md} (75%)
+ rename docs/api/operation/{pypto-experimental-set_operation_config.md => pypto-experimental-set_operation_options.md} (90%)
+
+diff --git a/docs/api/operation/pypto-experimental-get_operation_config.md b/docs/api/operation/pypto-experimental-get_operation_options.md
+similarity index 75%
+rename from docs/api/operation/pypto-experimental-get_operation_config.md
+rename to docs/api/operation/pypto-experimental-get_operation_options.md
+index 756a795..59a2ccc 100644
+--- a/docs/api/operation/pypto-experimental-get_operation_config.md
++++ b/docs/api/operation/pypto-experimental-get_operation_options.md
+@@ -1,4 +1,4 @@
+-# pypto.experimental.get\_operation\_config
++# pypto.experimental.get\_operation\_options
+
+ ## 产品支持情况
+
+@@ -14,7 +14,7 @@
+ ## 函数原型
+
+ ```python
+-get_operation_config() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]
++get_operation_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]
+ ```
+
+ ## 参数说明
+@@ -32,6 +32,6 @@ get_operation_config() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]
+ ## 调用示例
+
+ ```python
+-pypto.get_operation_config()
++pypto.get_operation_options()
+ ```
+
+diff --git a/docs/api/operation/pypto-experimental-set_operation_config.md b/docs/api/operation/pypto-experimental-set_operation_options.md
+similarity index 90%
+rename from docs/api/operation/pypto-experimental-set_operation_config.md
+rename to docs/api/operation/pypto-experimental-set_operation_options.md
+index 9c4f1b4..f7e41a8 100644
+--- a/docs/api/operation/pypto-experimental-set_operation_config.md
++++ b/docs/api/operation/pypto-experimental-set_operation_options.md
+@@ -1,4 +1,4 @@
+-# pypto.experimental.set\_operation\_config
++# pypto.experimental.set\_operation\_options
+
+ ## 产品支持情况
+
+@@ -14,7 +14,7 @@
+ ## 函数原型
+
+ ```python
+-set_operation_config(*, force_combine_axis: Optional[bool] = None,
++set_operation_options(*, force_combine_axis: Optional[bool] = None,
+                       combine_axis: Optional[bool] = None)
+ ```
+
+@@ -39,6 +39,6 @@ void：Set方法无返回值。设置操作成功即生效。
+ ## 调用示例
+
+ ```python
+-pypto.set_operation_config(combine_axis=True)
+-pypto.set_operation_config(force_combine_axis=False)
++pypto.set_operation_options(combine_axis=True)
++pypto.set_operation_options(force_combine_axis=False)
+ ```
+diff --git a/examples/models/deepseek_v32_exp/sparse_attention_antiquant_impl.py b/examples/models/deepseek_v32_exp/sparse_attention_antiquant_impl.py
+index bf2e44f..489421a 100644
+--- a/examples/models/deepseek_v32_exp/sparse_attention_antiquant_impl.py
++++ b/examples/models/deepseek_v32_exp/sparse_attention_antiquant_impl.py
+@@ -292,7 +292,7 @@ def sparse_attention_antiquant_d(query_nope, query_rope, nope_cache, topk_indice
+         Configured for decode phase with optimized memory and parallelism settings.
+         Uses flash attention algorithm for better numerical stability.
+     """
+-    pypto.experimental.set_operation_config(combine_axis=True)
++    pypto.experimental.set_operation_options(combine_axis=True)
+     sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices,
+                                             block_table, kv_act_seqs, attention_out,
+                                             nq, n_kv, softmax_scale, topk, block_size,
+@@ -348,7 +348,7 @@ def sparse_attention_antiquant_p(query_nope, query_rope, nope_cache, topk_indice
+         Configured for decode phase with optimized memory and parallelism settings.
+         Uses flash attention algorithm for better numerical stability.
+     """
+-    pypto.experimental.set_operation_config(combine_axis=True)
++    pypto.experimental.set_operation_options(combine_axis=True)
+     sparse_attention_antiquant_compute(query_nope, query_rope, nope_cache, topk_indices,
+                                             block_table, kv_act_seqs, attention_out,
+                                             nq, n_kv, softmax_scale, topk, block_size,
+diff --git a/examples/models/deepseek_v32_exp/sparse_flash_attention_quant_impl.py b/examples/models/deepseek_v32_exp/sparse_flash_attention_quant_impl.py
+index 94efd40..53d7a29 100644
+--- a/examples/models/deepseek_v32_exp/sparse_flash_attention_quant_impl.py
++++ b/examples/models/deepseek_v32_exp/sparse_flash_attention_quant_impl.py
+@@ -468,7 +468,7 @@ def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope
+         Configured for decode phase with optimized memory and parallelism settings.
+         Uses flash attention algorithm for better numerical stability.
+     """
+-    pypto.experimental.set_operation_config(combine_axis=True)
++    pypto.experimental.set_operation_options(combine_axis=True)
+
+     sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, key_rope_2d,
+                                          k_nope_scales, topk_indices, block_table, kv_act_seqs,
+@@ -527,7 +527,7 @@ def sparse_flash_attention_quant_p(query_nope, query_rope, key_nope_2d, key_rope
+         Configured for prefill phase with optimized memory and parallelism settings.
+         Uses flash attention algorithm for better numerical stability.
+     """
+-    pypto.experimental.set_operation_config(combine_axis=True)
++    pypto.experimental.set_operation_options(combine_axis=True)
+
+     sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, key_rope_2d,
+                                          k_nope_scales, topk_indices, block_table, kv_act_seqs,
+diff --git a/examples/models/glm_v4_5/glm_attention.py b/examples/models/glm_v4_5/glm_attention.py
+index bbfb4da..19b9eab 100644
+--- a/examples/models/glm_v4_5/glm_attention.py
++++ b/examples/models/glm_v4_5/glm_attention.py
+@@ -316,7 +316,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
+     ):
+
+         # 1. 添加支持动态的config
+-        pypto.experimental.set_operation_config(combine_axis=True)
++        pypto.experimental.set_operation_options(combine_axis=True)
+
+         atten_cfg, tile_cfg = get_qwen_common_config()
+         softmax_scale = atten_cfg.softmax_scale
+diff --git a/examples/models/glm_v4_5/glm_moe_fusion.py b/examples/models/glm_v4_5/glm_moe_fusion.py
+index df34de9..0739508 100644
+--- a/examples/models/glm_v4_5/glm_moe_fusion.py
++++ b/examples/models/glm_v4_5/glm_moe_fusion.py
+@@ -146,7 +146,7 @@ def moe_fusion_kernel(shapes, renormalize, topk_group, num_expert_group):
+         ne = mm_weight.shape[0]
+         topk = ids_k.shape[1]
+
+-        pypto.experimental.set_operation_config(combine_axis=True)
++        pypto.experimental.set_operation_options(combine_axis=True)
+
+         # tiling config
+         vec_tile_shape = (4, 5120)
+diff --git a/framework/src/interface/configs/config_manager.h b/framework/src/interface/configs/config_manager.h
+index 27a8454..4020993 100644
+--- a/framework/src/interface/configs/config_manager.h
++++ b/framework/src/interface/configs/config_manager.h
+@@ -169,15 +169,6 @@ public:
+         return GetConfig(json_, {"global", "host", key}, defaultValue);
+     }
+
+-    template <typename T>
+-    auto GetDeviceConfig(const std::string &key, const T &defaultValue) {
+-        return GetConfig(json_, {"global", "device", key}, defaultValue);
+-    }
+-
+-    template <typename T>
+-    auto GetCoreConfig(const std::string &key, const T &defaultValue) {
+-        return GetConfig(json_, {"global", "core", key}, defaultValue);
+-    }
+
+     template <typename T>
+     auto GetSimConfig(const std::string &key, const T &defaultValue) {
+@@ -189,11 +180,6 @@ public:
+         return GetConfig(json_, {"global", "codegen", key}, defaultValue);
+     }
+
+-    template <typename T>
+-    auto GetDistConfig(const std::string &key, const T &defaultValue) {
+-        return GetConfig(json_, {"global", "distributed", key}, defaultValue);
+-    }
+-
+     template <typename T>
+     auto GetPassConfig(
+         const std::string &strategy, const std::string &identifier, const std::string &key, const T &defaultValue) {
+@@ -232,42 +218,17 @@ public:
+         SetConfig(json_, {"global", "host", key}, value);
+     }
+
+-    template <typename T>
+-    void SetDeviceConfig(const std::string &key, const T &value) {
+-        SetConfig(json_, {"global", "device", key}, value);
+-    }
+-
+-    template <typename T>
+-    void SetCoreConfig(const std::string &key, const T &value) {
+-        SetConfig(json_, {"global", "core", key}, value);
+-    }
+-
+     template <typename T>
+     void SetSimConfig(const std::string &key, const T &value) {
+         SetConfig(json_, {"global", "simulation", key}, value);
+     }
+
+-    template <typename T>
+-    void SetDistConfig(const std::string &key, const T &value) {
+-        SetConfig(json_, {"global", "distributed", key}, value);
+-    }
+-
+     template <typename T>
+     void SetPassConfig(
+         const std::string &strategy, const std::string &identifier, const std::string &key, const T &value) {
+         SetConfig(json_, {"global", "pass_strategies", strategy, identifier, key}, value);
+     }
+
+-    template <typename T>
+-    auto GetOperationConfig(const std::string &key, const T &defaultValue) {
+-        return GetConfig(json_, {"global", "operation", key}, defaultValue);
+-    }
+-
+-    template <typename T>
+-    void SetOperationConfig(const std::string &key, const T &value) {
+-        SetConfig(json_, {"global", "operation", key}, value);
+-    }
+-
+     template <typename T>
+     void SetCodeGenConfig(const std::string &key, const T &value) {
+         SetConfig(json_, {"global", "codegen", key}, value);
+@@ -332,15 +293,6 @@ auto GetHostConfig(const std::string &key, const T &defaultValue) {
+     return ConfigManager::Instance().GetHostConfig(key, defaultValue);
+ }
+
+-template <typename T>
+-auto GetDeviceConfig(const std::string &key, const T &defaultValue) {
+-    return ConfigManager::Instance().GetDeviceConfig(key, defaultValue);
+-}
+-
+-template <typename T>
+-auto GetCoreConfig(const std::string &key, const T &defaultValue) {
+-    return ConfigManager::Instance().GetCoreConfig(key, defaultValue);
+-}
+
+ template <typename T>
+ auto GetPassConfig(
+@@ -388,21 +340,6 @@ void SetHostConfig(const std::string &key, const T &value) {
+     ConfigManager::Instance().SetHostConfig(key, value);
+ }
+
+-template <typename T>
+-void SetDeviceConfig(const std::string &key, const T &value) {
+-    ConfigManager::Instance().SetDeviceConfig(key, value);
+-}
+-
+-template <typename T>
+-void SetCoreConfig(const std::string &key, const T &value) {
+-    ConfigManager::Instance().SetCoreConfig(key, value);
+-}
+-
+-template <typename T>
+-void SetDistConfig(const std::string &key, const T &value) {
+-    ConfigManager::Instance().SetDistConfig(key, value);
+-}
+-
+ template <typename T>
+ void SetPassConfig(const std::string &strategy, const std::string &identifier, const std::string &key, const T &value) {
+     ConfigManager::Instance().SetPassConfig(strategy, identifier, key, value);
+@@ -413,11 +350,6 @@ void SetSimConfig(const std::string &key, const T &value) {
+     ConfigManager::Instance().SetSimConfig(key, value);
+ }
+
+-template <typename T>
+-void SetOperationConfig(const std::string &key, const T &value) {
+-    ConfigManager::Instance().SetOperationConfig(key, value);
+-}
+-
+ template <typename T>
+ void SetCodeGenConfig(const std::string &key, const T &value) {
+     ConfigManager::Instance().SetCodeGenConfig(key, value);
+diff --git a/framework/src/interface/configs/tile_fwk_config.json b/framework/src/interface/configs/tile_fwk_config.json
+index 64513b4..7be8372 100644
+--- a/framework/src/interface/configs/tile_fwk_config.json
++++ b/framework/src/interface/configs/tile_fwk_config.json
+@@ -70,8 +70,6 @@
+         "host": {
+             "strategy": "PVC2_OOO"
+         },
+-        "device": {},
+-        "core": {},
+         "simulation": {
+             "debug_single_func": false,
+             "leaf_function": "DEBUG_LEAF_FUNC",
+@@ -100,11 +98,6 @@
+             "codegen_support_tile_tensor": true,
+             "codegen_need_compile": true
+         },
+-        "operation": {
+-            "force_combine_axis" : false,
+-            "combine_axis" : false
+-        },
+-        "distributed": {},
+         "pass": {
+             "enable_binary_cache": false,
+             "enable_pass_configs": true,
+diff --git a/framework/src/interface/configs/tile_fwk_config_schema.json b/framework/src/interface/configs/tile_fwk_config_schema.json
+index 768af12..49682ad 100644
+--- a/framework/src/interface/configs/tile_fwk_config_schema.json
++++ b/framework/src/interface/configs/tile_fwk_config_schema.json
+@@ -417,6 +417,29 @@
+                 }
+             }
+         },
++        "operation": {
++            "type": "object",
++            "label": {
++                "zh": "...",
++                "en": "..."
++            },
++            "properties": {
++                "force_combine_axis": {
++                    "type": "boolean",
++                    "label": {
++                        "zh": "...",
++                        "en": "..."
++                    }
++                },
++                "combine_axis": {
++                    "type": "boolean",
++                    "label": {
++                        "zh": "...",
++                        "en": "..."
++                    }
++                }
++            }
++        },
+         "global": {
+             "type": "object",
+             "label": {
+@@ -790,29 +813,6 @@
+                         }
+                     }
+                 },
+-                "operation": {
+-                    "type": "object",
+-                    "label": {
+-                        "zh": "...",
+-                        "en": "..."
+-                    },
+-                    "properties": {
+-                        "force_combine_axis": {
+-                            "type": "boolean",
+-                            "label": {
+-                                "zh": "...",
+-                                "en": "..."
+-                            }
+-                        },
+-                        "combine_axis": {
+-                            "type": "boolean",
+-                            "label": {
+-                                "zh": "...",
+-                                "en": "..."
+-                            }
+-                        }
+-                    }
+-                },
+                 "pass": {
+                     "type": "object",
+                     "label": {
+diff --git a/python/pypto/experimental.py b/python/pypto/experimental.py
+index 95ca225..0a336d4 100644
+--- a/python/pypto/experimental.py
++++ b/python/pypto/experimental.py
+@@ -129,11 +129,11 @@ def transposed_batchmatmul(tensor_a: Tensor, tensor_b: Tensor, out_dtype) -> Ten
+     return pypto_impl.TransposedBatchMatmul(out_dtype, tensor_a, tensor_b)
+
+
+-def set_operation_config(*, force_combine_axis: Optional[bool] = None,
++def set_operation_options(*, force_combine_axis: Optional[bool] = None,
+                          combine_axis: Optional[bool] = None):
+
+     """
+-    Set operation config.
++    Set operation options.
+
+     Parameters
+     ---------
+@@ -147,14 +147,14 @@ def set_operation_config(*, force_combine_axis: Optional[bool] = None,
+     set_options(operation_options=options_dict)
+
+
+-def get_operation_config() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
++def get_operation_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
+     """
+-    Get operation config.
++    Get operation options.
+
+     Returns
+     -------
+     Dict[str, Union[str, int, List[int], Dict[int, int]]]
+-        All operation config
++        All operation options
+     """
+
+     scope = get_current_scope()
+diff --git a/python/pypto/pypto_impl.pyi b/python/pypto/pypto_impl.pyi
+index d8cbf71..e545bfb 100644
+--- a/python/pypto/pypto_impl.pyi
++++ b/python/pypto/pypto_impl.pyi
+@@ -574,12 +574,6 @@ def SetPassConfig(strategy: str, identifier: str, key: PassConfigKey, value: boo
+ def GetPassConfigs(strategy: str, identifier: str) -> PassConfigs: ...
+
+
+-def SetOperationConfig(key: str, value: bool): ...
+-
+-
+-def GetOperationConfig(key: str, default_value: bool) -> bool: ...
+-
+-
+ def GetOptionsTree() -> str: ...
+
+
+diff --git a/python/src/bindings/controller.cpp b/python/src/bindings/controller.cpp
+index 2810ac4..f7cf198 100644
+--- a/python/src/bindings/controller.cpp
++++ b/python/src/bindings/controller.cpp
+@@ -331,18 +331,6 @@ void bind_controller_scope_classes(py::module &m) {
+     .def("__str__",  [](const CubeTile &t) { return t.ToString(); });
+ }
+
+-
+-void bind_operation_config(py::module &m) {
+-    m.def("GetOperationConfig", [](const std::string &key, const bool &default_value) -> py::object {
+-        bool result = ConfigManager::Instance().GetOperationConfig<bool>(key, default_value);
+-        return py::cast(result);
+-    }, py::arg("key"), py::arg("default_value"));
+-
+-    m.def("SetOperationConfig", [](const std::string &key, const bool &value) {
+-            config::SetOperationConfig<bool>(key, value);
+-        }, py::arg("key"), py::arg("value"));
+-}
+-
+ void bind_controller(py::module &m) {
+     bind_controller_config(m);
+     bind_controller_set_tile(m);
+@@ -351,7 +339,6 @@ void bind_controller(py::module &m) {
+     bind_controller_utils(m);
+     bind_controller_scope(m);
+     bind_controller_scope_classes(m);
+-    bind_operation_config(m);
+
+     // disable cpp mode
+     SourceLocation::SetCppMode(false);
+diff --git a/python/tests/st/operator/glm/test_glm_ffn_router_expert_quant.py b/python/tests/st/operator/glm/test_glm_ffn_router_expert_quant.py
+index 3ba4052..4fa357e 100644
+--- a/python/tests/st/operator/glm/test_glm_ffn_router_expert_quant.py
++++ b/python/tests/st/operator/glm/test_glm_ffn_router_expert_quant.py
+@@ -403,7 +403,7 @@ def moe_router_expert_main(hidden_states, hidden_states_scale,
+         This function uses cube L1 reuse mode 2 for better memory efficiency.
+         Each expert processes tokens in tiles of size 8.
+     """
+-    pypto.experimental.set_operation_config(combine_axis=True)
++    pypto.experimental.set_operation_options(combine_axis=True)
+
+     # tiling config
+     mm1_cube_tile_shape = (8, 256, 256)
+diff --git a/python/tests/ut/interface/test_config_options.py b/python/tests/ut/interface/test_config_options.py
+index e97d846..9e15ab7 100644
+--- a/python/tests/ut/interface/test_config_options.py
++++ b/python/tests/ut/interface/test_config_options.py
+@@ -11,7 +11,7 @@
+ """
+ """
+ import pypto
+-from pypto.experimental import set_operation_config, get_operation_config
++from pypto.experimental import set_operation_options, get_operation_options
+
+
+ def test_print_options():
+@@ -60,11 +60,11 @@ def test_reset_option():
+
+
+ def test_operation_option():
+-    set_operation_config(force_combine_axis=True)
+-    option = get_operation_config()
++    set_operation_options(force_combine_axis=True)
++    option = get_operation_options()
+     assert option["force_combine_axis"] == True
+-    set_operation_config(combine_axis=True)
+-    option = get_operation_config()
++    set_operation_options(combine_axis=True)
++    option = get_operation_options()
+     assert option["combine_axis"] == True
+
+
+--
+2.43.0
