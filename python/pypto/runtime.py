@@ -245,7 +245,7 @@ class _JIT:
         import shutil
         try:
             shutil.rmtree(
-            self._output_path,
+            pypto_impl.LogTopFolder(),
             ignore_errors=True,  # 忽略删除失败的文件（如只读文件）
             onerror=None         # 关闭错误回调（减少函数调用开销）
         )
