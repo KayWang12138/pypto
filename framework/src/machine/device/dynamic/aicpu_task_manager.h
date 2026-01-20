@@ -70,7 +70,7 @@ public:
     }
 
     // 仅AICPU_0会调用
-    inline int32_t TaskProcess(bool profAicpuTask, uint64_t &taskCount) {
+    inline int32_t TaskProcess(uint64_t &taskCount) {
         if (__atomic_load_n(&readyQueue_->tail, __ATOMIC_RELAXED) == __atomic_load_n(&readyQueue_->head, __ATOMIC_RELAXED)) {
             return DEVICE_MACHINE_OK;
         }
@@ -80,7 +80,7 @@ public:
         readyQueue_->head += taskCount;
         ReadyQueueUnLock();
         for (uint32_t i = 0; i < taskCount; ++i) {
-            auto ret = TaskDispatch(readyQueue_->elem[taskIdx + i], profAicpuTask, i);
+            auto ret = TaskDispatch(readyQueue_->elem[taskIdx + i]);
             if (ret != DEVICE_MACHINE_OK) {
                 return ret;
             }
@@ -111,7 +111,14 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
-    Metrics* aicpuTaskStat_;
+    inline void FillTaskEndTimes(uint64_t taskId) {
+        for (auto i = 0; i < aicpuTaskStat_->taskCount; ++i) {
+            if (aicpuTaskStat_->tasks[i].taskId != static_cast<int32_t>(taskId)) {
+                continue;
+            }
+            aicpuTaskStat_->tasks[i].execEnd = GetCycles();
+        }
+    }
 
 private:
     inline void ReadyQueueLock() {
@@ -177,5 +184,6 @@ private:
     DynFuncData *funcDataList_;
     uint32_t index_{0};
     bool profSwitch_{false};
+    Metrics* aicpuTaskStat_;
 };
 } // namespace npu::tile_fwk

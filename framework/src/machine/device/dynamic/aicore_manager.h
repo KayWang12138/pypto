@@ -186,8 +186,8 @@ public:
         }
     }
 
-    inline int RunTask(DeviceTaskCtrl *taskCtrl, uint64_t sharedBuffer) {
-        auto ret = ExecuteTask(taskCtrl, sharedBuffer);
+    inline int RunTask(DeviceTaskCtrl *taskCtrl) {
+        auto ret = ExecuteTask(taskCtrl);
         wrapManager_.Deinit();
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             DEV_ERROR("Aicpu %d proc finish %lu %lu %lu, but timeout !.", aicpuIdx_,
@@ -197,8 +197,8 @@ public:
         return ret;
     }
 
-    inline int32_t ExecuteTask(DeviceTaskCtrl *taskCtrl, uint64_t sharedBuffer) {
-        int32_t ret = ProcessTask(taskCtrl, sharedBuffer);
+    inline int32_t ExecuteTask(DeviceTaskCtrl *taskCtrl) {
+        int32_t ret = ProcessTask(taskCtrl);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
@@ -219,7 +219,7 @@ public:
         return ret;
     }
 
-    inline int32_t ProcessTask(DeviceTaskCtrl *taskCtrl, [[maybe_unused]]uint64_t sharedBuffer) {
+    inline int32_t ProcessTask(DeviceTaskCtrl *taskCtrl) {
         int32_t ret = DEVICE_MACHINE_OK;
         seq = taskCtrl->taskId;
         DEV_INFO("receive new task %lu.", taskCtrl->taskId);
@@ -236,7 +236,7 @@ public:
 
         if (IsNeedProcAicpuTask()) {
             const bool profSwitch = aicoreProf_.ProfIsEnable();
-            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), sharedBuffer, profSwitch);
+            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), sharedBuffer_, profSwitch);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -359,7 +359,7 @@ public:
             PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
             PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
             PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
-            ret = RunTask(taskCtrl, deviceArgs->sharedBuffer);
+            ret = RunTask(taskCtrl);
             lastDevTaskFinCycle = GetCycles();
             PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
             DEV_DEBUG("Run task finish taskid=%d ret %d.", curTaskId_, ret);
@@ -375,12 +375,7 @@ public:
 
     int32_t ProcessCompletedAicpuTask(uint64_t taskId) {
         if (aicoreProf_.ProfIsEnable()) {
-            for (auto i = 0; i < aicpuTaskManager_.aicpuTaskStat_->taskCount; ++i) {
-                if (aicpuTaskManager_.aicpuTaskStat_->tasks[i].taskId != static_cast<int32_t>(taskId)) {
-                    continue;
-                }
-                aicpuTaskManager_.aicpuTaskStat_->tasks[i].execEnd = GetCycles();
-            }
+            aicpuTaskManager_.FillTaskEndTimes(taskId);
         }
         
         int32_t ret = ResolveDepDyn(taskId);
@@ -1319,6 +1314,7 @@ private:
         runningResolveIndexList_.fill(0);
         pendingResolveIndexList_.fill(0);
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
+        sharedBuffer_ = deviceArgs->sharedBuffer;
 
         wrapManager_.InitArchInfo(deviceArgs->archInfo);
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
@@ -1646,6 +1642,7 @@ private:
     int aicEnd_{0};
     int aivStart_{0};
     int aivEnd_{0};
+    uint64_t sharedBuffer_{0};
     uint64_t procAicCoreFunctionCnt_{0};
     uint64_t procAivCoreFunctionCnt_{0};
     uint64_t procAicpuFunctionCnt_{0};
