@@ -15,7 +15,7 @@ import logging
 import math
 import os
 from multiprocessing import cpu_count
-from typing import List
+from typing import List, Any, Dict, Optional
 
 from accelerate.gtest_accelerate import GTestAccelerate
 
@@ -56,10 +56,23 @@ class UTestAccelerate(GTestAccelerate):
         job_num = min(min(min(max(int(job_num), 1), cpu_count()), 16), len(args.cases))
 
         for job_idx in range(job_num):
-            params.append(GTestAccelerate.ExecParam(cntr_id=job_idx))
+            params.append(GTestAccelerate.ExecParam(cntr_id=job_idx, 
+                                                    envs_func=UTestAccelerate.set_cpu_affinity, custom=int(1)))
         ctrl = UTestAccelerate(args=args, params=params)
         ctrl.process()
         return ctrl.post()
+
+    @staticmethod
+    def set_cpu_affinity(p: Any) -> Optional[Dict[str, str]]:
+        self = p
+        cntr_id = self.cntr_id
+        step = self.custom
+
+        start_core = cntr_id * step
+        cpu_core_list = [str(i) for i in range(start_core, start_core + step)]
+        cpu_core_str = ";".join(cpu_core_list)
+
+        return {"PYPTO_TESTS_PROCESS_AFFINITY_LIST": cpu_core_str}
 
 
 if __name__ == "__main__":
