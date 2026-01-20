@@ -76,7 +76,7 @@ def gen_hc_pre(x, hc_fn, hc_scale, hc_base):
 def gen_hc_pre_data(t = 16):
     print("t is ", t)
     x = torch.empty((t, hc, d), dtype=torch.bfloat16).uniform_(-1, 1)
-    hc_fn = torch.empty((mix_hc, hc*d), dtype=torch.bfloat16).uniform_(-1, 1)
+    hc_fn = torch.empty((mix_hc, hc*d), dtype=torch.float32).uniform_(-1, 1)
     hc_scale = torch.empty((3,), dtype=torch.float32).uniform_(-1, 1)
     hc_base = torch.empty((mix_hc, ), dtype=torch.float32).uniform_(-1, 1)
     res, post, comb, mm_res = gen_hc_pre(x, hc_fn, hc_scale, hc_base)
@@ -142,6 +142,8 @@ def test_hc_pre(t = 16):
     x, hc_fn, hc_scale, hc_base, y_gd, post_gd, comb_gd, mm_res_gd = gen_hc_pre_data(t)
     print("gen golden success !!!")
 
+    check_input_output_shape_dtype(x, hc_fn, hc_scale, hc_base)
+
     y = torch.zeros_like(y_gd).npu()
     post = torch.zeros_like(post_gd).npu()
     comb = torch.zeros_like(comb_gd).npu()
@@ -158,7 +160,7 @@ def test_hc_pre(t = 16):
 
     pto_in_outs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in in_outs.items()]
     hc_pre_kernel(*pto_in_outs)
-    torch_npu.npu.synchronize()
+    pypto.runtime._device_synchronize()
 
     y = y.cpu()
     post = post.cpu()

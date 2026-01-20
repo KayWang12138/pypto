@@ -37,9 +37,8 @@ def sigmoid(x: pypto.Tensor) -> pypto.Tensor:
     return sigmoid
 
 
-def hc_split_sinkhorn(comb_flag: pypto.Tensor, hc_eps) \
+def hc_split_sinkhorn(comb_flag: pypto.Tensor, hc_split_sinkhorn_iters, hc_eps) \
     -> tuple[pypto.Tensor, pypto.Tensor, pypto.Tensor]:
-    sinkhorn_iters = 20
     tile_t, _, _= comb_flag.shape # (tile_t, 4, 4)
 
     if tile_t <= 32:
@@ -57,7 +56,7 @@ def hc_split_sinkhorn(comb_flag: pypto.Tensor, hc_eps) \
     col_sum = pypto.sum(comb_flag, -2, True) # (tile_t, 1, 4)
     comb_flag = comb_flag / (col_sum + hc_eps) # (tile_t, 4, 4)
 
-    for _ in range(sinkhorn_iters - 1):
+    for _ in range(hc_split_sinkhorn_iters - 1):
         row_sum = comb_flag.sum(-1, keepdim=True) # (tile_t, 4, 4)
         comb_flag = comb_flag / (row_sum + hc_eps) # (tile_t, 4, 4)
         col_sum = comb_flag.sum(-2, keepdim=True) # (tile_t, 4, 4)
@@ -122,6 +121,7 @@ def hc_split_sinkhorn_2(x: pypto.Tensor, hc_scale: pypto.Tensor, hc_base: pypto.
 )
 def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor, hc_base_: pypto.Tensor,
                 y: pypto.Tensor, post: pypto.Tensor, comb: pypto.Tensor,
+                hc_mult: int = 4, hc_split_sinkhorn_iters: int = 20, hc_eps: float = 1e-6
 ):
     # pypto.set_debug_options(runtime_debug_mode=1)
     # pypto.set_debug_options(runtime_debug_mode=2)   ## for acl graph
@@ -131,13 +131,11 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
     hc = x.shape[1]
     d = x.shape[2]
     mix_hc = (2 + hc) * hc
-    hc_eps = 1e-6
     split_k = False
 
     ### check shape
-    assert hc == 4, f"hc is {hc}, expected 4"
+    assert hc == hc_mult, f"hc is {hc}, expected {hc_mult}"
     assert d == 4096, f"d is {d}, expected 4096"
-    assert mix_hc == hc_fn.shape[0], f"mix_hc is {hc_fn.shape[0]}, expected 24"
     assert hc_scale_.shape[0] == 3, f"hc_scale.shape[0] is {hc_scale_.shape[0]}, expected 3"
 
     # unroll_list = [16, 1]
@@ -156,7 +154,7 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
             tile_shapes_1 = [1, 16*1024]
             tile_shape_2 = 1
             # pypto.set_cube_tile_shapes([16, 16], [1024, 2*1024], [128, 128], enable_multi_data_load = True, enable_split_k = True)
-            pypto.set_cube_tile_shapes([16, 16], [1024, 1024], [128, 128])
+            pypto.set_cube_tile_shapes([16, 16], [512, 1024], [128, 128], enable_multi_data_load = True)
         elif tile_t <= 64:
             tile_shapes_1 = [8, 1024]
             tile_shape_2 = 32
@@ -177,11 +175,11 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
 
         pypto.set_vec_tile_shapes(tile_shape_2, 32)
         if (not split_k):
-            mm_res = pypto.matmul(x_view, hc_fn, pypto.DT_FP32, b_trans=True)   # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
+            mm_res = pypto.matmul(x_fp32, hc_fn, pypto.DT_FP32, b_trans=True)   # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
         else:
             tile_k = 4*1024
             for k_idx in range(hc*d // tile_k):
-                x_view_k = pypto.view(x_view, [tile_t, tile_k], [0, k_idx * tile_k])
+                x_view_k = pypto.view(x_fp32, [tile_t, tile_k], [0, k_idx * tile_k])
                 hc_fn_k = pypto.view(hc_fn, [mix_hc, tile_k], [0, k_idx * tile_k])
                 mm_res_k = pypto.matmul(x_view_k, hc_fn_k, pypto.DT_FP32, b_trans=True)
                 if k_idx == 0:
@@ -213,29 +211,32 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
         comb_flag = (rms_res[:, 2*hc: ] * (hc_scale_hc[2:3, :]) + hc_base[:, 2*hc: ])
         comb_flag = comb_flag.reshape([tile_t, hc, hc]) # (tile_t, 4, 4)
 
-        comb_ = hc_split_sinkhorn(comb_flag, hc_eps)   # (tile_t, hc), (tile_t, hc), (tile_t, hc, hc)
+        comb_ = hc_split_sinkhorn(comb_flag, hc_split_sinkhorn_iters, hc_eps)   # (tile_t, hc), (tile_t, hc), (tile_t, hc, hc)
         pypto.assemble(comb_, [t_idx, 0, 0], comb)
 
 
-def check_input_output_shape_dtype(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor):
-    assert x.dim() == 3 and x.size(1) == 4 and x.size(2) == 4096,\
-        f"expected x dim num {x.dim()}, x axis1 {x.size(1)}, x axis2 {x.size(2)}"
-    assert hc_fn.dim() == 2 and hc_fn.size(0) == 24 and hc_fn.size(1) == 4 * 4096,\
-        f"expected hc_fn dim num 2, hc_fn axis0 24, hc_fn axis1 12384"
-    assert hc_scale.dim() == 1 and hc_scale.size(0) == 3, f"expected hc_scale dim num 1, hc_scale axis0 3"
-    assert hc_base.dim() == 1 and hc_base.size(0) == 24, f"expected hc_scale dim num 1, hc_scale axis0 24"
+def check_input_output_shape_dtype(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor, hc_mult: int = 4):
+    mix_hc = (2 + hc_mult) * hc_mult
+
+    assert x.dim() == 3 and x.size(1) == hc_mult and x.size(2) == 4096,\
+        f"x dim num is {x.dim()}, x axis1 is {x.size(1)}, x axis2 is {x.size(2)}, expected 3, {hc_mult},  4096"
+    assert hc_fn.dim() == 2 and hc_fn.size(0) == mix_hc and hc_fn.size(1) == 4 * 4096,\
+        f"hc_fn dim num is {hc_fn.dim()}, hc_fn axis0 {hc_fn.size(0)}, hc_fn axis1 {hc_fn.size(1)}, expected 2,  {mix_hc}, 12384"
+    assert hc_scale.dim() == 1 and hc_scale.size(0) == 3, f"hc_scale dim num {hc_scale.dim()}, hc_scale axis0 is {hc_scale.size(0)}, expected 1, 3"
+    assert hc_base.dim() == 1 and hc_base.size(0) == mix_hc, f"hc_scale dim num {hc_base.dim()}, hc_scale axis0 {hc_base.size(0)}, expected  1, {mix_hc}"
 
     assert x.dtype == torch.bfloat16, f"x.dtype is {x.dtype}, expected torch.bfloat16"
-    assert hc_fn.dtype == torch.bfloat16, f"hc_fn.dtype is {hc_fn.dtype}, expected torch.bfloat16"
+    assert hc_fn.dtype == torch.float32, f"hc_fn.dtype is {hc_fn.dtype}, expected torch.bfloat16"
     assert hc_scale.dtype == torch.float32, f"hc_scale.dtype is {hc_scale.dtype}, expected torch.float32"
     assert hc_base.dtype == torch.float32, f"hc_base.dtype is {hc_base.dtype}, expected torch.float32"
 
 
 @allow_in_graph
-def npu_hc_pre(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor)\
+def npu_hc_pre(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor,\
+                hc_mult: int = 4, hc_split_sinkhorn_iters: int = 20, hc_eps: float = 1e-6)\
         -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     ### check dtype
-    check_input_output_shape_dtype(x, hc_fn, hc_scale, hc_base)
+    check_input_output_shape_dtype(x, hc_fn, hc_scale, hc_base, hc_mult)
 
     y = torch.zeros([x.size(0), x.size(2)], dtype=x.dtype, device=f'{x.device}')
     post = torch.zeros([x.size(0), x.size(1)], dtype=hc_scale.dtype, device=f'{x.device}')
@@ -252,7 +253,7 @@ def npu_hc_pre(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_
     }
 
     pto_in_outs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in in_outs.items()]
-    hc_pre_kernel(*pto_in_outs)
+    hc_pre_kernel(*pto_in_outs, hc_mult, hc_split_sinkhorn_iters, hc_eps)
 
     return y, post, comb
 
