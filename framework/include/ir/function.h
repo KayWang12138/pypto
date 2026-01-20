@@ -37,7 +37,7 @@ enum class FunctionKind {
 // Arguments are Data objects where the name field stores the argument name (e.g. "%A").
 struct FunctionSignature {
     FunctionSignature() {}
-    FunctionSignature(const std::vector<TensorValuePtr> &inputArgs,
+    FunctionSignature(const std::vector<TensorValuePtr> &args,
                       const std::vector<TensorValuePtr> &outputArgs) 
     {
         for (auto &inArg : inputArgs) {
