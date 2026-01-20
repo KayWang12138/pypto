@@ -267,7 +267,10 @@ class JitCallableWrapper:
                         f"{device} and {tensor.device}"
                     )
         else:
-            raise RuntimeError("pypto.frontend.jit requires at least one input tensor")
+            device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+            if device_id is None:
+                raise RuntimeError("pypto.frontend.jit requires TILE_FWK_DEVICE_ID environment variable to be set")
+            device = torch.device(f'npu:{device_id}')
 
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
