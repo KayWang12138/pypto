@@ -238,7 +238,7 @@ std::shared_ptr<Function> TestBlockFunction(
     // STUB LeafFuncAttribute
     auto blockFunc = std::dynamic_pointer_cast<pto::BlockFunction>(func);
     auto leafFuncAttr = std::make_shared<npu::tile_fwk::LeafFuncAttribute>();
-    leafFuncAttr->coreType = CoreType::AIV;
+    leafFuncAttr->coreType = npu::tile_fwk::CoreType::AIV;
     blockFunc->SetLeafFuncAttribute(leafFuncAttr);
     std::vector<int64_t> shape = {64, 64};
     // tensorAdd = add(input[0], input[1])
