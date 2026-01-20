@@ -267,6 +267,7 @@ def test_infer_shape():
     torch.npu.set_device(device_id)
 
     device = f'npu:{device_id}'
+
     for b in [2048, 1024, 512, 256, 128, 64, 32]:
         a = torch.randn((b, 32), device=device)
         b = torch.randn((b, 32), device=device)
@@ -280,3 +281,7 @@ def test_infer_shape():
         )
         torch.npu.synchronize()
         torch.testing.assert_close(c, g)
+
+if __name__ == '__main__':
+    test_infer_shape()
+    print("run sucess.")
