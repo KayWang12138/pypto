@@ -773,13 +773,10 @@ void AddCopyUBOp(Function &function, Operation &cons, LogicalTensorPtr &input) {
 }
 
 void AddCopyOp(Function &function, const std::unordered_set<Operation*> &needAddCopyAssOp) {
-    auto opsBeforeAdd = function.Operations();
-    for (const auto &conMagic : needAddCopyAssOp) {
-        for (auto &con : opsBeforeAdd) {
-            auto input = con.GetIOperands()[0];
-            if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-                AddCopyUBOp(function, con, input);
-            }
+    for (auto &con : needAddCopyAssOp) {
+        auto input = con.GetIOperands()[0];
+        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            AddCopyUBOp(function, con, input);
         }
     }
 }
