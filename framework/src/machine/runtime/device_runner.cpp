@@ -840,6 +840,9 @@ int DeviceRunner::Init(void) {
     char path[PATH_LENGTH];
     sprintf_s(path, PATH_LENGTH, "/tmp/aicpu%d.lock", devId_);
     lock_.Init(path);
+    std::string builtInOpPath = config::LogTopFolder() + "/built_in";
+    CreateMultiLevelDir(builtInOpPath);
+    LoadAicpuOp::GetInstance().GenBuiltInOpInfo(builtInOpPath);
     if (LoadAicpuOp::GetInstance().GetBuiltInOpBinHandle() != 0) {
         ALOG_ERROR("Get builtInOp Funchandle failed\n");
         return -1;

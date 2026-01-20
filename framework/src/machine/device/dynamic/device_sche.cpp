@@ -88,7 +88,7 @@ struct DynMachineManager {
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
         SchduleContext local_context;
         if (devArgs->scheCpuNum > devArgs->nrAicpu - 1) {
- 	             DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
+            DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
         int threadIdx = allocThreadIdx(devArgs->nrAicpu, devArgs->scheCpuNum);
@@ -138,7 +138,7 @@ struct DynMachineManager {
         }
         init_.store(true);
         ctrlcpuIdx_.store(args->scheCpuNum);
- 	    machine_.init(args->scheCpuNum);
+        machine_.init(args->scheCpuNum);
         schRunFailed_ = false;
     }
 
