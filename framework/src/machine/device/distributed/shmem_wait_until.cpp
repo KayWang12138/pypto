@@ -28,22 +28,31 @@
 #include "machine/utils/device_log.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "neon_stub.h"
+#include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::Distributed {
 
-inline bool SignalTileOp::PollCompleted() const {
-    if (addr_[0] == expectedSum_) {
-        if (resetSignal_) {
-            addr_[0] = 0;
+inline bool SignalTileOp::PollCompleted() const 
+{
+    if constexpr (npu::tile_fwk::dynamic::IsDeviceMode()) {
+        if (addr_[0] == expectedSum_) {
+            if (resetSignal_) {
+                addr_[0] = 0;
+            }
+            return true;
         }
-        return true;
+        return false;
     }
-    return false;
+    return true;
 }
 
 int32_t ShmemWaitUntil::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager &aicoreManager)
 {
     return runingTaskQueue_.PollCompleted([&](SignalTileOp* task) {
+    if constexpr (npu::tile_fwk::dynamic::IsDeviceMode()) {
+            (void)task;
+ 	        return dynamic::DEVICE_MACHINE_OK;
+        }
         return aicoreManager.ProcessCompletedAicpuTask(task->taskId_);
     });
 }
