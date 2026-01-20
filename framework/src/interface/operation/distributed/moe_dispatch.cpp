@@ -505,7 +505,7 @@ void MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tens
     ASSERT(checkValidInput(validCnt, 1, DataType::DT_INT32, moeConfig.expertNumPerRank, 1, assertResult)) << assertResult;
 
     int hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
+    SymbolicScalar thisRank = GetSymbolicScalarRankId(group);
     int batchSize = tokenTensor.GetShape(0);
     int hiddenSize = tokenTensor.GetShape(1);
     int topK = tokenExpertTable.GetShape(1);

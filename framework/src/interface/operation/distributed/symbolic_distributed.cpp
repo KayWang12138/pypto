@@ -18,13 +18,16 @@
 #include "interface/tensor/symbolic_scalar.h"
 #include "tilefwk/symbolic_scalar.h"
 #include "tilefwk/symbolic_distributed.h"
+#include "tilefwk/comm_group_recorder.h"
 
 namespace npu::tile_fwk {
-SymbolicScalar GetHcclRankId(int32_t groupIndex) {
-    std::string name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetHcclRankId);
+SymbolicScalar GetSymbolicScalarRankId(std::string groupName) {
+    int32_t hcclGroupIndex = static_cast<int32_t>(
+        Distributed::CommGroupRecorder::GetInstance().Input(std::string(groupName)));
+    std::string name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetSymbolicScalarRankId);
     name = AddRuntimePrefix(name);
-    SymbolicScalar getHcclRankId(name);
-    return getHcclRankId(groupIndex);
+    SymbolicScalar getSymbolicScalarRankId(name);
+    return getSymbolicScalarRankId(hcclGroupIndex);
 }
 
 SymbolicScalar BindTensor(uint64_t groupIndex, uint64_t memType, uint64_t size) {
