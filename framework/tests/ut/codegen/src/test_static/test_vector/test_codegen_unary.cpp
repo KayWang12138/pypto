@@ -242,6 +242,7 @@ Function& TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
 
 TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor) {
     Function& func = TestExpandBody({1, 22}, {22, 22}, {2, 2}, "EXPAND_TILETENSOR", true);
+    config::SetPassOption(VEC_NBUFFER_MODE, 0);
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
