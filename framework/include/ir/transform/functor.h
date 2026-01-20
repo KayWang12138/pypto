@@ -25,7 +25,6 @@
 #include "ir/program.h"
 
 #include <memory>
-#include <stdexcept>
 
 namespace pto {
 
@@ -71,7 +70,7 @@ RetTy ProgramFunctor<RetTy, Args...>::VisitProgram(ProgramModulePtr &program, Ar
     PROGRAM_FUNCTOR_DISPATCH(ProgramModule);
 
     // Should never reach here if all types are handled
-    throw std::runtime_error("Unknown program type in ProgramFunctor::VisitProgram");
+    ASSERT(false) << "Unknown program type in ProgramFunctor::VisitProgram";
 }
 
 #undef PROGRAM_FUNCTOR_DISPATCH
@@ -118,7 +117,7 @@ RetTy FunctionFunctor<RetTy, Args...>::VisitFunction(FunctionPtr &func, Args... 
     FUNCTION_FUNCTOR_DISPATCH(Function);
 
     // Should never reach here if all types are handled
-    throw std::runtime_error("Unknown function type in FunctionFunctor::VisitFunction");
+    ASSERT(false) << "Unknown function type in FunctionFunctor::VisitFunction";
 }
 
 #undef FUNCTION_FUNCTOR_DISPATCH
@@ -177,7 +176,7 @@ RetTy StatementFunctor<RetTy, Args...>::VisitStmt(StatementPtr &stmt, Args... ar
     STMT_FUNCTOR_DISPATCH(Statement);
 
     // Should never reach here if all types are handled
-    throw std::runtime_error("Unknown statement type in StatementFunctor::VisitStmt");
+    ASSERT(false) << "Unknown statement type in StatementFunctor::VisitStmt";
 }
 
 #undef STMT_FUNCTOR_DISPATCH
@@ -222,7 +221,7 @@ protected:
 template <typename RetTy, typename... Args>
 RetTy OperationFunctor<RetTy, Args...>::VisitOp(OperationPtr &op, Args... args) {
     if (!op) {
-        throw std::runtime_error("Null operation in OperationFunctor::VisitOp");
+        ASSERT(false) << "Null operation in OperationFunctor::VisitOp";
     }
 
     // 1) Prefer dispatch by opcode for DEFOP-generated concrete ops.
@@ -231,7 +230,7 @@ RetTy OperationFunctor<RetTy, Args...>::VisitOp(OperationPtr &op, Args... args) 
     case Opcode::OPC: {                                                                    \
         auto casted = std::dynamic_pointer_cast<OPCLASS>(op);                              \
         if (!casted) {                                                                     \
-            throw std::runtime_error("Opcode/type mismatch in OperationFunctor::VisitOp"); \
+            ASSERT(false) << "Opcode/type mismatch in OperationFunctor::VisitOp";          \
         }                                                                                  \
         OPCLASS##Ptr typed = casted;                                                       \
         return VisitImplOp(typed, std::forward<Args>(args)...);                            \
@@ -298,7 +297,7 @@ RetTy ValueFunctor<RetTy, Args...>::VisitValue(ValuePtr &value, Args... args) {
     VALUE_FUNCTOR_DISPATCH(Value);
 
     // Should never reach here if all types are handled
-    throw std::runtime_error("Unknown value type in ValueFunctor::VisitValue");
+    ASSERT(false) << "Unknown value type in ValueFunctor::VisitValue";
 }
 
 #undef VALUE_FUNCTOR_DISPATCH
