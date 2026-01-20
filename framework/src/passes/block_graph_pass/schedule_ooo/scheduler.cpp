@@ -29,9 +29,6 @@ constexpr int64_t MAX_FIX_QUANT_PRE_SIZE = 1 * 2048;
 constexpr int32_t DIM_FIVE = 5;
 constexpr int32_t LAST_TWO_DIM = 2;
 constexpr int32_t UB_BLOCK_SIZE = 32;
-constexpr int32_t AIV_ZERO = 0;
-constexpr int32_t AIV_ONE = 1;
-constexpr int32_t AIC_ZERO = 0;
 
 
 inline bool IsMixGraph(const std::vector<Operation*> &operations) {
@@ -437,7 +434,6 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, 
         auto corePair = issue->coreLocation;
         if (!bufferManagerMap[corePair.first][coreLocation.second][memType].IsFull(localBufferMap[issue->reqMemIds[0]])) {
             APASS_LOG_DEBUG_F(Elements::Operation, "ALLOCATE: %s.", issue->GetOpInfo().c_str());
-            tensorAllocCoreMap[memId] = corePair;
             if (bufferManagerMap[corePair.first][coreLocation.second][memType].Allocate(localBufferMap[issue->reqMemIds[0]]) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Allocate Tensor[%d] failed.", issue->reqMemIds[0]); 
                 return FAILED; 
@@ -608,7 +604,7 @@ Status OoOScheduler::InitMemWithoutAlloc() {
             }
             if (needAlloc) {
                 auto memId = iOperand->memoryrange.memId;
-                needAllocMem[memId] = issue->coreLocation;
+                needAllocMem[memId] = tensorAllocCoreMap[memId];
                 APASS_LOG_DEBUG_F(Elements::Tensor, "Buffer[%d] memId [%d] is ALLOC, it has no producers", iOperand->GetMagic(), memId);
             }
         }
@@ -616,7 +612,6 @@ Status OoOScheduler::InitMemWithoutAlloc() {
     for (auto [memId, corePair] : needAllocMem) {
         auto memType = localBufferMap[memId]->memType;
         if (!bufferManagerMap[corePair.first][corePair.second][memType].IsFull(localBufferMap[memId])) {
-            tensorAllocCoreMap[memId] = corePair;
             if (bufferManagerMap[corePair.first][corePair.second][memType].Allocate(localBufferMap[memId]) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "InitMemWithoutAlloc alloc tensor[%d] failed.", memId);
                 return FAILED;
@@ -627,7 +622,6 @@ Status OoOScheduler::InitMemWithoutAlloc() {
 }
 
 Status OoOScheduler::ScheduleMainLoop() {
-    tensorAllocCoreMap.clear();
     UpdateIssueExecOrder();
     LaunchReadyIssue();
     if (InitMemWithoutAlloc() != SUCCESS) {
@@ -714,7 +708,6 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
             }
         }
     }
-    tensorAllocCoreMap[issue->reqMemIds[0]] = corePair;
     if (bufferManagerMap[corePair.first][corePair.second][allocBuffer->memType].Allocate(allocBuffer) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Allocate tensor[%u] failed.", allocBuffer->id); 
         return FAILED; 
@@ -724,7 +717,6 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
 
 Status OoOScheduler::GenSpillSchedule() {
     UpdateIssueExecOrder();
-    tensorAllocCoreMap.clear();
     size_t pcIdx = 0;
     APASS_LOG_DEBUG_F(Elements::Operation, "=========> Begin GenSpillSchedule.");
     while (pcIdx < issueEntries.size()) {
@@ -1034,6 +1026,16 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
     return SUCCESS;
 }
 
+void OoOScheduler::InitTensorCoreMap() {
+    // TODO 正式方案不存在 no producer情况
+    for (auto issue : issueEntries) {
+        if (issue->isAlloc) {
+            auto memId = issue->tileOp.GetOOperands(0)->memoryrange.memId;
+            tensorAllocCoreMap[memId] = issue->coreLocation;
+        }
+    }
+}
+
 Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     issueEntries.clear();
     localBufferMap.clear();
@@ -1072,12 +1074,12 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
         return FAILED;
     }
-
+    // TODO 正式方案保留CheckAllocIssue
     if (CheckAllocIssue() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocIssue failed!");
         return FAILED;
     }
-
+    InitTensorCoreMap();
     // 初始化内存管理器
     InitIssueQueuesAndBufferManager();
     return SUCCESS;
@@ -1106,6 +1108,11 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
         return SUCCESS;
     }
     PrintOpList(operations);
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) {
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_NON_Mix;
+    } else {
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_Mix;
+    }
     if (Init(operations) != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
         return FAILED;
