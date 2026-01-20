@@ -71,6 +71,11 @@ Status PreGraphProcess::RunOnFunction(Function &function) {
             setCopyAttr.ProcessMoveInOperation(op);
         }
     }
+    if (function.paramConfigs_.beginRemoveAssOp) {
+        RemoveRedundantAssemble removeRedundantAssemble;
+        removeRedundantAssemble.DeleteRedundantAssemble(function);
+    }
+     
     CubeProcess cubeProcess;
     if (cubeProcess.UpdateCubeOp(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Update Cube attr failed.");
