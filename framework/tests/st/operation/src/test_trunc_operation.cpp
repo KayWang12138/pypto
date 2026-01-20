@@ -41,8 +41,8 @@ static void TruncOperationExeFunc2Dims(
         const struct TruncOpFuncArgs *args = static_cast<const TruncOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
-        const int bloop = TruncDiv(firstDim, firstViewShape);
-        const int sloop = TruncDiv(secondDim, secondViewShape);
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
@@ -68,9 +68,9 @@ static void TruncOperationExeFunc3Dims(
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
-        const int bloop = TruncDiv(firstDim, firstViewShape);
-        const int sloop = TruncDiv(secondDim, secondViewShape);
-        const int nloop = TruncDiv(thirdDim, thirdViewShape);
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int nloop = CeilDiv(thirdDim, thirdViewShape);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
@@ -102,10 +102,10 @@ static void TruncOperationExeFunc4Dims(
         const int thirdViewShape = args->viewShape_[2];
         const int fourthViewShape = args->viewShape_[3];
 
-        const int bloop = TruncDiv(firstDim, firstViewShape);
-        const int sloop = TruncDiv(secondDim, secondViewShape);
-        const int mloop = TruncDiv(thirdDim, thirdViewShape);
-        const int nloop = TruncDiv(fourthDim, fourthViewShape);
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
+        const int mloop = CeilDiv(thirdDim, thirdViewShape);
+        const int nloop = CeilDiv(fourthDim, fourthViewShape);
 
         LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {

@@ -1,4 +1,4 @@
- case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape
+case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape
 Trunc_test_0,"[16, 32]",fp16,ND,"[0, 1]","[16, 32]",fp16,ND,"[16, 32]","[16, 32]"
 Trunc_test_1,"[16, 32]",fp32,ND,"[0, 1]","[16, 32]",fp32,ND,"[16, 32]","[16, 32]"
 Trunc_test_2,"[1024, 2048]",fp32,ND,"[0, 1]","[1024, 2048]",fp32,ND,"[128, 128]","[32, 32]"
