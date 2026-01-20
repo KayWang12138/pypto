@@ -822,4 +822,20 @@ std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
     Opcode::OP_CAST,
     Opcode::OP_EXPAND,
 };
+
+std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN = {
+    Opcode::OP_VIEW,
+    Opcode::OP_ASSEMBLE,
+    Opcode::OP_RESHAPE,
+    Opcode::OP_UB_ALLOC,
+    Opcode::OP_L1_ALLOC,
+    Opcode::OP_L0A_ALLOC,
+    Opcode::OP_L0B_ALLOC,
+    Opcode::OP_L0C_ALLOC,
+    Opcode::OP_FIX_ALLOC,
+    Opcode::OP_BT_ALLOC,
+    Opcode::OP_BIND_TENSOR,
+    Opcode::OP_NOP,
+    Opcode::OP_HUB,
+};
 } // namespace npu::tile_fwk
