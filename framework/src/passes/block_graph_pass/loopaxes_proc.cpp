@@ -55,13 +55,34 @@ void LoopaxesProc::ClearStatus() {
     }
 }
 
+bool NeedClearStatus(const Operation &op) {
+    auto opCode = op.GetOpcode();
+    auto iter = SUPPORT_VF_FUSE_OPS.find(opCode);
+    if (iter == SUPPORT_VF_FUSE_OPS.end()) {
+        return true;
+    }
+
+    //  Opcode::OP_EXPAND only support last axis or second last axis in for-loop
+    if (opCode == Opcode::OP_EXPAND) {
+        std::string axisKey = OP_ATTR_PREFIX + "EXPANDDIM";
+        ASSERT(op.HasAttr(axisKey)) << "attr " << axisKey << "not found";
+        int64_t expandAxis = op.GetIntAttribute(axisKey);
+        int shapeSize = static_cast<int>(op.GetOOperands().front()->GetDynValidShape().size());
+        expandAxis += SHAPE_DIM4 - shapeSize;
+        return expandAxis == 0 || expandAxis == 1;
+    }
+
+    return false;
+}
+
 Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
     if (SKIP_OPCODE_FOR_CODEGEN.find(op.GetOpcode()) != SKIP_OPCODE_FOR_CODEGEN.end()) {
-        APASS_LOG_INFO_F(Elements::Operation, "Op Code %s, Op[%d] ignore this op");
+        APASS_LOG_DEBUG_F(
+            Elements::Operation, "Op Code %s, Op[%d] ignore this op", op.GetOpcodeStr().c_str(), op.GetOpMagic());
         return SUCCESS;
     }
 
-    if (SUPPORT_VF_FUSE_OPS.find(op.GetOpcode()) == SUPPORT_VF_FUSE_OPS.end()) {
+    if (NeedClearStatus(op)) {
         ClearStatus();
         return SUCCESS;
     }
