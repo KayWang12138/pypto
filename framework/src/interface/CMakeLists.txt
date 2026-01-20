@@ -19,7 +19,8 @@ file(GLOB _Interface_Srcs
         utils/*.cpp
         ir/*.cpp
         ir/builder/*.cpp
-        ir/transform/*.cpp
+        ir/serializer/*.cpp
+        plugin/*.cpp
         ir/verifier/*.cpp
 
         # Operation

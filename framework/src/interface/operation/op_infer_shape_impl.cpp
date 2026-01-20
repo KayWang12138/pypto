@@ -30,13 +30,19 @@ void ElewiseInferFunc(Operation* op,
     std::vector<std::vector<SymbolicScalar>> dimValidShape(shapeDimNum, std::vector<SymbolicScalar>(inputNum, SymbolicScalar()));
     std::vector<std::vector<int64_t>> dimShape(shapeDimNum, std::vector<int64_t>(inputNum, 0));
     for (size_t i = 0; i < op->GetIOperands().size(); ++i) {
+        auto iOperand = op->GetInputOperand(i);
         auto validShape = op->GetIOperands()[i]->GetDynValidShape();
         for (size_t dimIdx = 0; dimIdx < validShape.size(); ++dimIdx) {
             dimValidShape[dimIdx][i] = validShape[dimIdx];
         }
         auto shape = op->GetIOperands()[i]->GetShape();
         for (size_t dimIdx = 0; dimIdx < shape.size() && dimIdx < shapeDimNum; ++dimIdx) {
-            dimShape[dimIdx][i] = shape[dimIdx];
+            if (dimIdx == shape.size() - 1 && iOperand->GetProducers().size() == 1 &&
+                (*iOperand->GetProducers().begin())->GetOpcode() == Opcode::OP_BRCB) {
+                dimShape[dimIdx][i] = 1;
+            } else {
+                dimShape[dimIdx][i] = shape[dimIdx];
+            }
         }
     }
     std::vector<SymbolicScalar> inputValidShape;
@@ -217,6 +223,12 @@ void ViewTypeInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& 
     outValidShapes.push_back(validShape);
 }
 REGISTER_INFER_SHAPE_FUNC(OP_VIEW_TYPE, Opcode::OP_VIEW_TYPE, ViewTypeInferFunc);
+
+void IndexPutInferFunc(Operation* op,
+                        std::vector<std::vector<SymbolicScalar>>& outValidShapes) {
+    outValidShapes.push_back(op->GetIOperands()[0]->GetDynValidShape());
+}
+REGISTER_INFER_SHAPE_FUNC(OP_INDEX_PUT, Opcode::OP_INDEX_PUT, IndexPutInferFunc);
 
 void PairReduceInferFunc(Operation* op,
                         std::vector<std::vector<SymbolicScalar>>& outValidShapes) {

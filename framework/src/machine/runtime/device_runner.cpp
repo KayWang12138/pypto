@@ -64,6 +64,8 @@ constexpr uint32_t HIGHT_BIT = 16;
 
 constexpr uint32_t SUB_CORE = 3;
 constexpr uint32_t AIV_PER_AICORE = 2;
+constexpr uint32_t FREQ_DAV_2201 = 50;
+constexpr uint32_t FREQ_DAV_3510 = 1000;
 
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 namespace npu::tile_fwk {
@@ -161,45 +163,7 @@ void DeviceRunner::ResetPerData() {
     }
 }
 
-int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
-    addressMappingTable_[ArchInfo::DAV_2201] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
-        std::vector<int64_t> aiv;
-        std::vector<int64_t> aic;
-        std::vector<int64_t> aivPmu;
-        std::vector<int64_t> aicPmu;
-        if (machine::GetRA()->GetAicoreRegInfo(aic, aiv, ADDR_MAP_TYPE_REG_AIC_CTRL) != 0) {
-            return -1;
-        }
-        if (machine::GetRA()->GetAicoreRegInfo(aicPmu, aivPmu, ADDR_MAP_TYPE_REG_AIC_PMU_CTRL) != 0) {
-            return 0;
-        }
-        regs.insert(regs.end(), aic.begin(), aic.end());
-        regs.insert(regs.end(), aiv.begin(), aiv.end());
-        regsPmu.insert(regsPmu.end(), aicPmu.begin(), aicPmu.end());
-        regsPmu.insert(regsPmu.end(), aivPmu.begin(), aivPmu.end());
-        return 0;
-    };
-
-    addressMappingTable_[ArchInfo::DAV_3510] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
-        return machine::GetRA()->GetAicoreRegInfoForDAV3510(regs, regsPmu);
-    };
-    
-    hostProf_.RegHostProf();
-    aicpuNum_ = aicpuNum_ < static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum() - 1) ? aicpuNum_ : static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum() - 1);
-    GetHostProfTypeSwtich();
-
-    memset_s(&args, sizeof(args), 0, sizeof(args));
-    std::vector<int64_t> regs;
-    std::vector<int64_t> regsPmu;
-
-    args.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
-    auto it = addressMappingTable_.find(args.archInfo);
-    if (it != addressMappingTable_.end()){
-        if (it->second(regs, regsPmu) != 0) {
-            return -1;
-        }
-    }
-
+int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu) {
     uint32_t totalCoreCount = regs.size();
     uint32_t aicCount = totalCoreCount / SUB_CORE;
     uint32_t aivCount = aicCount * AIV_PER_AICORE;
@@ -234,7 +198,54 @@ int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     ALOG_INFO_F("aic %u aiv %u  blockDim_ %d sharedBuffer %lx coreRegAddr %lx corePmuRegAddr %lx\n", args.nrAic,
         args.nrAiv, blockDim_, args.sharedBuffer, args.coreRegAddr, args.corePmuRegAddr);
     InitDynamicArgs(args);
+
     return 0;
+}
+
+int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
+    addressMappingTable_[ArchInfo::DAV_2201] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
+        std::vector<int64_t> aiv;
+        std::vector<int64_t> aic;
+        std::vector<int64_t> aivPmu;
+        std::vector<int64_t> aicPmu;
+        if (machine::GetRA()->GetAicoreRegInfo(aic, aiv, ADDR_MAP_TYPE_REG_AIC_CTRL) != 0) {
+            return -1;
+        }
+        if (machine::GetRA()->GetAicoreRegInfo(aicPmu, aivPmu, ADDR_MAP_TYPE_REG_AIC_PMU_CTRL) != 0) {
+            return 0;
+        }
+        regs.insert(regs.end(), aic.begin(), aic.end());
+        regs.insert(regs.end(), aiv.begin(), aiv.end());
+        regsPmu.insert(regsPmu.end(), aicPmu.begin(), aicPmu.end());
+        regsPmu.insert(regsPmu.end(), aivPmu.begin(), aivPmu.end());
+        return 0;
+    };
+
+    addressMappingTable_[ArchInfo::DAV_3510] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
+        return machine::GetRA()->GetAicoreRegInfoForDAV3510(regs, regsPmu);
+    };
+    
+    hostProf_.RegHostProf();
+    GetHostProfTypeSwtich();
+
+    memset_s(&args, sizeof(args), 0, sizeof(args));
+    std::vector<int64_t> regs;
+    std::vector<int64_t> regsPmu;
+
+    args.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
+    if (args.archInfo == ArchInfo::DAV_3510) {
+        aicpuNum_ = npu::tile_fwk::dynamic::DEVICE_MAX_AICPU_NUM;
+    }
+    int cpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum() - 1);
+    aicpuNum_ = aicpuNum_ < cpuNum ? aicpuNum_ : cpuNum;
+    auto it = addressMappingTable_.find(args.archInfo);
+    if (it != addressMappingTable_.end()){
+        if (it->second(regs, regsPmu) != 0) {
+            return -1;
+        }
+    }
+
+    return InitDeviceArgsCore(args, regs, regsPmu);
 }
 
 uint64_t DeviceRunner::GetTasksTime() const {
@@ -420,7 +431,7 @@ void DeviceRunner::Dump() {
 void DeviceRunner::DumpAiCoreExecutionTimeData() {
     json root_taskStats = json::array();
     uint32_t block_num_ = args_.GetBlockNum();
-    ALOG_INFO("GetBlockNum : %d",  block_num_);
+    ALOG_INFO_F("GetBlockNum : %d",  block_num_);
     for (uint32_t i = 0; i < block_num_; i++) {
         void* devPtr = perfData_[i];
         size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
@@ -455,18 +466,19 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
     std::ofstream jsonFile(jsonFilePath);
     jsonFile << root_taskStats << std::endl;
     jsonFile.close();
-    ALOG_INFO("tilefwk_L1_prof_data have saved in: %s",  jsonFilePath);
+    ALOG_INFO("tilefwk_L1_prof_data have saved in: ",  jsonFilePath);
     std::string topo_txt_path = config::LogTopFolder() + "/dyn_topo.txt";
     std::string program_json_path = config::LogTopFolder() + "/program.json";
     std::string draw_swim_lane_py_path = GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
-    config::SetRunDataOption(KEY_SWIM_GRAPH_PATH, config::GetAbsoluteTopFolder() + "/merged_swimlane.json");        
+    config::SetRunDataOption(KEY_SWIM_GRAPH_PATH, config::GetAbsoluteTopFolder() + "/merged_swimlane.json");
+    uint64_t freq = (args_.archInfo == ArchInfo::DAV_2201) ? FREQ_DAV_2201 : FREQ_DAV_3510;
 
     if (FileExist(program_json_path) && FileExist(topo_txt_path)) {
         ALOG_INFO("The files program.json and dyn_topo.txt exist. Start merging the swimlane.");
         std::string command = "python3 "+ draw_swim_lane_py_path + " \""
                                 + jsonFilePath + "\" \""
                                 + topo_txt_path + "\" \""
-                                + program_json_path + "\" --label_type=1 --time_convert_denominator=50";
+                                + program_json_path + "\" --label_type=1 --time_convert_denominator=" + std::to_string(freq);
         if (system(command.c_str()) != 0) {
            ALOG_WARN("Failed to execute draw_swim_lane.py. Stop merging the swimlane.");
         }
@@ -738,7 +750,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     localArgs.nrAicpu = launchAicpuNum;
     blockDim_ = blockdim;
     aicpuNum_ = launchAicpuNum;
-    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_);
+    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_, args_.archInfo);
     localArgs.enableCtrl = ctrlStream == nullptr ? 1 : 0; // need set 0 if use custom cpu launch ctrl cpu
     localArgs.validGetPgMask = machine::GetRA()->GetValidGetPgMask();
     localArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
