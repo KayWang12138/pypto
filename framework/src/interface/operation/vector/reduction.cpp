@@ -160,13 +160,14 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
         }
         case npu::tile_fwk::ReduceType::SINGLE: {
             std::vector<int64_t> tmpShape = {1, static_cast<int>(BLOCK_SIZE / BytesOf(in->Datatype()))};
-            if (op == "SUM" || (static_cast<size_t>(axis) == (in->shape.size() - 1))) {
+            bool isSumOp = op == "SUM";
+            if (isSumOp || (static_cast<size_t>(axis) == (in->shape.size() - 1))) {
                 if (static_cast<size_t>(axis) == (in->shape.size() - 1)) {
                     tmpShape[0] = sourceReg->shape[axis - 1];
                     if (static_cast<size_t>(sourceReg->shape[axis]) <= REPEAT_BYTE / BytesOf(in->Datatype())) {
                         tmpShape[0] = 1;
-                    } else if (static_cast<size_t>(sourceReg->shape[axis]) <=
-                            NUM2 * REPEAT_BYTE / BytesOf(in->Datatype())) {
+                    } else if ((static_cast<size_t>(sourceReg->shape[axis]) <=
+                            NUM2 * REPEAT_BYTE / BytesOf(in->Datatype())) || isSumOp) {
                         tmpShape[1] = REPEAT_BYTE / BytesOf(in->Datatype());
                     } else {
                         tmpShape[1] = (((sourceReg->shape[axis] * BytesOf(in->Datatype())) / REPEAT_BYTE) / NUM2) *
