@@ -50,8 +50,9 @@ struct CallOpCreationInfo {
 
 class MixCallOperationBuilder {
 public:
+    MixCallOperationBuilder() : nextWrapId_(0) {}
     Status CreateCallOps(Function& rootFunc,
-                         const std::vector<Operation*>& originalCallOps, 
+                         const std::vector<Operation*>& originalCallOps,
                          Function* originalMixFunc,
                          const std::vector<InternalComponentInfo>& components,
                          const std::vector<uint64_t>& newProgramIDs,
@@ -68,25 +69,63 @@ private:
                                       Function* originalMixFunc,
                                       SubgraphToFunction& subgraphToFunction,
                                       CallOpCreationInfo& info);
+    void FindNewIOperandsInOriginalIncast(
+        const std::vector<LogicalTensorPtr>& originalIOperands,
+        const std::vector<std::shared_ptr<LogicalTensor>>& originalIncasts,
+        const SubfuncInvokeInfoTy& invokeInfo,
+        std::vector<LogicalTensorPtr>& newIOperands,
+        std::set<LogicalTensorPtr>& processedTensors) const;
+    void FindNewOOperandsInOriginalOutcast(
+        const std::vector<LogicalTensorPtr>& originalOOperands,
+        const std::vector<std::shared_ptr<LogicalTensor>>& originalOutcasts,
+        const SubfuncInvokeInfoTy& invokeInfo,
+        std::vector<LogicalTensorPtr>& newOOperands,
+        std::set<LogicalTensorPtr>& processedTensors) const;
+    void FindNewIOperandsAndOOperandsInPropagateInOutcast(
+        const std::vector<LogicalTensorPtr>& originalIOperands,
+        const std::vector<LogicalTensorPtr>& originalOOperands,
+        const std::vector<std::shared_ptr<LogicalTensor>>& originalIncasts,
+        const std::vector<std::shared_ptr<LogicalTensor>>& originalOutcasts,
+        const std::vector<std::shared_ptr<LogicalTensor>>& actualIncasts,
+        const std::vector<std::shared_ptr<LogicalTensor>>& actualOutcasts,
+        const SubfuncInvokeInfoTy& invokeInfo,
+        std::vector<LogicalTensorPtr>& newIOperands,
+        std::vector<LogicalTensorPtr>& newOOperands,
+        std::set<LogicalTensorPtr>& processedTensors) const;
     int FindTensorIndexInList(int tensorMagic, const std::vector<LogicalTensorPtr>& tensorList) const;
     // 参数提取函数
-    std::vector<std::vector<SymbolicScalar>> ExtractArgListForLeafFunction(Function& leafFunc,
-                                                                           CallOpAttribute* originalCallAttr,
-                                                                           const SubfuncInvokeInfoTy& invokeInfo,
-                                                                           std::vector<int>& iOffsets,
-                                                                           std::vector<int>& oOffsets,
-                                                                           Function* originalMixFunc) const;
-    bool ExtractArgListFromIncast(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, ExtractInfo& extractInfo) const;
-    bool ExtractArgListFromOutcast(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, ExtractInfo& extractInfo) const;
-    bool ExtractArgListFromGlobalTensor(const SubfuncInvokeInfoTy& invokeInfo, Function& leafFunc, ExtractInfo& extractInfo) const;
-    bool ExtractArgListFromActualIncasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualIncasts, ExtractInfo& extractInfo, Function* originalMixFunc) const; 
-    bool ExtractArgListFromActualOutcasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualOutcasts, ExtractInfo& extractInfo, Function* originalMixFunc) const;
+    void FindIOpAttrOffsetAndOOpAttrOffset(Function& leafFunc,
+                                           const SubfuncInvokeInfoTy& invokeInfo,
+                                           std::vector<int>& iOffsets,
+                                           std::vector<int>& oOffsets,
+                                           Function* originalMixFunc) const;
+    bool FindIOpAttrOffsetFromIncast(const SubfuncInvokeInfoTy& invokeInfo,
+                                     Function& leafFunc,
+                                     ExtractInfo& extractInfo) const;
+    bool FindOOpAttrOffsetFromOutcast(const SubfuncInvokeInfoTy& invokeInfo,
+                                      Function& leafFunc,
+                                      ExtractInfo& extractInfo) const;
+    bool FindIOOpAttrOffsetGlobalTensor(const SubfuncInvokeInfoTy& invokeInfo,
+                                        Function& leafFunc,
+                                        ExtractInfo& extractInfo) const;
+    bool FindIOpAttrOffsetFromActualIncasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualIncasts,
+                                            ExtractInfo& extractInfo,
+                                            Function* originalMixFunc) const;
+    bool FindOOpAttrOffsetFromActualOutcasts(const std::vector<std::shared_ptr<LogicalTensor>> &actualOutcasts,
+                                             ExtractInfo& extractInfo,
+                                             Function* originalMixFunc) const;
     
-    int GetOffsetFromIncastParam(const SubfuncInvokeInfoTy::IncastParamPackTy& incastParam, Function& leafFunc) const;
-    int GetOffsetFromOutcastParam(const SubfuncInvokeInfoTy::OutcastParamPackTy& outcastParam, Function& leafFunc) const;
     int GetOffsetFromOp(int opMagic, int operandIdx, Function& leafFunc, bool isOutput) const;
     int GetOffsetFromTensorParam(const SubfuncInvokeInfoTy::TensorParamPackTy& tensorParam, Function& leafFunc) const;
     int FindOriginalOffsetInMixFunction(LogicalTensorPtr tensor, Function* originalMixFunc) const;
+    void SetCallOpAttribute(Function& leafFunc,
+                            Operation& callOp,
+                            Operation* originalCallOp,
+                            CallOpAttribute* originalCallAttr,
+                            uint64_t newProgramID,
+                            uint64_t componentIndex,
+                            SubgraphToFunction& subgraphToFunction,
+                            CallOpCreationInfo& info);
     // 内部依赖处理相关函数
     void ProcessAllInternalDependencies(Function& rootFunc,
                                         const std::vector<CallOpCreationInfo>& callOpInfos,
