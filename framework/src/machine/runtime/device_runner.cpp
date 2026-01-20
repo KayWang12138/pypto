@@ -169,10 +169,11 @@ void DeviceRunner::GetPmuEventType(DeviceArgs &args) {
         eventTypeStr = "2";
     }
     int32_t profPmuType = std::stoi(eventTypeStr);
-    auto iter = kPmuArchHandlers_.find(args.archInfo);
-    if (iter != kPmuArchHandlers_.end()) {
-        (this->*iter->second)(profPmuType);
-        return;
+    for (const auto &handler : kPmuArchHandlers_) {
+        if (args.archInfo == handler.first) {
+            (this->*handler.second)(profPmuType);
+            return;
+        }
     }
     ALOG_WARN_F("Invalid archInfo %d, only support [2201, 3510].\n", args.archInfo);
 }

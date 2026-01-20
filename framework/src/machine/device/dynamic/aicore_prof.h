@@ -244,7 +244,7 @@ public:
     explicit AiCoreProf(AiCoreManager &aicoreMng) : hostAicoreMng_(aicoreMng) {}
     ~AiCoreProf() {}
 
-    void ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig, ArchInfo archInfo);
+    void ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig, ArchInfo archInfo = ArchInfo::DAV_2201);
     void ProfStart();
     void ProfGet(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
     void ProfGetSwitch(int64_t &flag) const;
