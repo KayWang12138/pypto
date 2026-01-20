@@ -256,8 +256,10 @@ Tensor Mul(const Tensor &self, const Element &other) {
 
 Tensor Div(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
-    RETURN_CALL(BinaryOperationScalar<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(),
-        self.GetStorage(), other);
+    auto others = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), other,
+        SymbolicScalar(), self.GetDataType(), self.GetShape(), self.GetStorage()->GetDynValidShape());
+    auto result = CALL(BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), self, others);
+    return result;
 }
 
 Tensor Maximum(const Tensor &operand1, const Element &operand2) {
