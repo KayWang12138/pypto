@@ -23,11 +23,18 @@ VerifyResult Verifier::VerifyAllRules(const TileValue &tile) const {
     bool allPassed = true;
     std::string errorMsg;
 
+    // Check if verifier has any rules
+    if (rules_.empty()) {
+        return {VerifyStatus::FAIL, "No verification rules registered"};
+    }
+
     // Execute all rules and collect results
-    for (const auto &[ruleName, ruleFunc] : rules_) {
+    for (const auto &pair : rules_) {
+        const std::string &ruleName = pair.first;
+        const RuleFunc &ruleFunc = pair.second;
         VerifyResult result = ruleFunc(tile);
         results[ruleName] = result;
-        if (!result.passed) {
+        if (!result.Passed()) {
             allPassed = false;
             if (errorMsg.empty()) {
                 errorMsg = "Rule '" + ruleName + "' failed: " + result.errorMsg;
@@ -40,14 +47,16 @@ VerifyResult Verifier::VerifyAllRules(const TileValue &tile) const {
     // Print verification table
     PrintVerificationTable(results);
 
-    return {allPassed, errorMsg};
+    return {allPassed ? VerifyStatus::PASS : VerifyStatus::FAIL, errorMsg};
 }
 
 void Verifier::PrintVerificationTable(const std::map<std::string, VerifyResult> &results) const {
     // Calculate column widths
     size_t maxRuleNameLen = 0;
     size_t maxErrorMsgLen = 0;
-    for (const auto &[ruleName, result] : results) {
+    for (const auto &pair : results) {
+        const std::string &ruleName = pair.first;
+        const VerifyResult &result = pair.second;
         maxRuleNameLen = std::max(maxRuleNameLen, ruleName.length());
         maxErrorMsgLen = std::max(maxErrorMsgLen, result.errorMsg.length());
     }
@@ -64,9 +73,11 @@ void Verifier::PrintVerificationTable(const std::map<std::string, VerifyResult> 
     std::cout << std::string(ruleNameWidth + statusWidth + errorMsgWidth + 6, '-') << std::endl;
 
     // Print table rows
-    for (const auto &[ruleName, result] : results) {
+    for (const auto &pair : results) {
+        const std::string &ruleName = pair.first;
+        const VerifyResult &result = pair.second;
         std::cout << std::left << std::setw(ruleNameWidth) << ruleName << " | " << std::setw(statusWidth)
-                  << (result.passed ? "Passed" : "Failed") << " | " << std::setw(errorMsgWidth)
+                  << (result.Passed() ? "Passed" : "Failed") << " | " << std::setw(errorMsgWidth)
                   << (result.errorMsg.empty() ? "-" : result.errorMsg) << std::endl;
     }
 

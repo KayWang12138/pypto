@@ -17,6 +17,7 @@
 
 #include "ir/value.h"
 
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <string>
@@ -24,20 +25,17 @@
 
 namespace pto {
 
-/**
- * @brief Result of a verification operation
- */
-struct VerifyResult {
-    bool passed;
-    std::string errorMsg;
+enum class VerifyStatus : uint32_t {
+    PASS = 0,
+    FAIL = 1
 };
 
-/**
- * @brief Verify class for TileValue validation
- *
- * This class provides a rule-based verification system for TileValue objects.
- * Each verification rule is implemented as a function pointer stored in a map.
- */
+struct VerifyResult {
+    VerifyStatus status;
+    std::string errorMsg;
+    bool Passed() const { return status == VerifyStatus::PASS; }
+};
+
 class Verifier {
 public:
     using RuleFunc = std::function<VerifyResult(const TileValue &)>;
@@ -45,9 +43,10 @@ public:
     Verifier() = default;
 
     VerifyResult VerifyRule(const std::string &ruleName, const TileValue &tile) const {
+        // Boundary check: ensure rule exists
         auto it = rules_.find(ruleName);
         if (it == rules_.end()) {
-            return {false, "Unknown rule: " + ruleName};
+            return {VerifyStatus::FAIL, "Unknown rule: " + ruleName};
         }
         return it->second(tile);
     }
@@ -57,18 +56,44 @@ public:
     std::vector<std::string> GetRuleNames() const {
         std::vector<std::string> names;
         names.reserve(rules_.size());
-        for (const auto &[name, _] : rules_) {
-            names.push_back(name);
+        for (const auto &pair : rules_) {
+            names.push_back(pair.first);
         }
         return names;
     }
 
-    void RegisterRule(const std::string &ruleName, RuleFunc ruleFunc) { rules_[ruleName] = ruleFunc; }
+    void RegisterRule(const std::string &ruleName, RuleFunc ruleFunc) {
+        rules_[ruleName] = ruleFunc;
+    }
+
+    void RegisterRules(const std::map<std::string, RuleFunc> &rules) {
+        for (const auto &pair : rules) {
+            RegisterRule(pair.first, pair.second);
+        }
+    }
+
+    bool HasRule(const std::string &ruleName) const {
+        return rules_.find(ruleName) != rules_.end();
+    }
+
+    bool RemoveRule(const std::string &ruleName) {
+        return rules_.erase(ruleName) > 0;
+    }
+
+    void ClearRules() {
+        rules_.clear();
+    }
+
+    size_t GetRuleCount() const {
+        return rules_.size();
+    }
+
+    bool IsEmpty() const {
+        return rules_.empty();
+    }
 
 private:
     void PrintVerificationTable(const std::map<std::string, VerifyResult> &results) const;
-
-    // Dictionary of verification rules: key is rule name, value is rule function
     std::map<std::string, RuleFunc> rules_;
 };
 

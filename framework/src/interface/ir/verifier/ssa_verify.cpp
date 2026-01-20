@@ -71,7 +71,7 @@ void ValueSSAVisitor::VisitImplOp(OperationPtr &op) {
 
 VerifyResult VerifySSA(ProgramModulePtr program) {
     if (!program) {
-        return {false, "ProgramModule is null, cannot verify SSA."};
+        return {VerifyStatus::FAIL, "ProgramModule is null, cannot verify SSA."};
     }
 
     std::map<const Value *, size_t> valueSSACountMap;
@@ -98,10 +98,10 @@ VerifyResult VerifySSA(ProgramModulePtr program) {
                 errorMsg += "\n";
             }
         }
-        return {false, errorMsg};
+        return {VerifyStatus::FAIL, errorMsg};
     }
 
-    return {true, ""};
+    return {VerifyStatus::PASS, ""};
 }
 
 } // namespace pto

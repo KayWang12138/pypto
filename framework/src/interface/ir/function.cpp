@@ -83,6 +83,27 @@ int Function::GetOutcastIndex(const ValuePtr &value) const {
     return -1;
 }
 
+std::ostream& operator<<(std::ostream& os, const Function& func) {
+    os << "Function(name=\"" << func.GetName() << "\", kind=";
+    switch (func.GetKind()) {
+        case FunctionKind::ControlFlow:
+            os << "ControlFlow";
+            break;
+        case FunctionKind::DataFlow:
+            os << "DataFlow";
+            break;
+        case FunctionKind::Block:
+            os << "Block";
+            break;
+        default:
+            os << "Unknown";
+            break;
+    }
+    os << ", args=" << func.GetSignature().arguments.size()
+       << ", results=" << func.GetSignature().results.size() << ")";
+    return os;
+}
+
 } // namespace pto
 
 

@@ -20,6 +20,7 @@ file(GLOB _Interface_Srcs
         ir/*.cpp
         ir/builder/*.cpp
         ir/serializer/*.cpp
+        ir/transform/*.cpp
         plugin/*.cpp
         ir/verifier/*.cpp
 

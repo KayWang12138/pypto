@@ -26,8 +26,6 @@
 
 using namespace pto;
 
-// ===== Verifier Class Tests =====
-
 class IRVerifierTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -75,7 +73,7 @@ TEST_F(IRVerifierTest, TestVerifySSASingleInput_ValidProgram) {
     FinishFunction();
 
     VerifyResult result = VerifySSA(module_);
-    EXPECT_TRUE(result.passed) << "Valid program should pass SSA verification";
+    EXPECT_TRUE(result.Passed()) << "Valid program should pass SSA verification";
 }
 
 TEST_F(IRVerifierTest, TestVerifySSASingleInput_InvalidProgram_MultipleDefinitions) {
@@ -88,7 +86,7 @@ TEST_F(IRVerifierTest, TestVerifySSASingleInput_InvalidProgram_MultipleDefinitio
 
     // Create a TileValue that will be used as output multiple times (violates SSA)
     auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
-    
+
     // First definition: output = neg(input)
     auto op1 = builder_->CreateUnaryOp(Opcode::OP_NEG, inputTile, outputTile);
     builder_->Emit(*ctx_, op1);
@@ -100,7 +98,7 @@ TEST_F(IRVerifierTest, TestVerifySSASingleInput_InvalidProgram_MultipleDefinitio
     FinishFunction();
 
     VerifyResult result = VerifySSA(module_);
-    EXPECT_FALSE(result.passed) << "Program with multiple definitions of same TileValue should fail";
+    EXPECT_FALSE(result.Passed()) << "Program with multiple definitions of same TileValue should fail";
     EXPECT_FALSE(result.errorMsg.empty());
 }
 
@@ -119,7 +117,7 @@ TEST_F(IRVerifierTest, TestVerifySSA_ScalarValue_ValidProgram) {
     FinishFunction();
 
     VerifyResult result = VerifySSA(module_);
-    EXPECT_TRUE(result.passed) << "Valid program with ScalarValue should pass SSA verification";
+    EXPECT_TRUE(result.Passed()) << "Valid program with ScalarValue should pass SSA verification";
 }
 
 TEST_F(IRVerifierTest, TestVerifySSA_ScalarValue_InvalidProgram_MultipleDefinitions) {
@@ -131,7 +129,7 @@ TEST_F(IRVerifierTest, TestVerifySSA_ScalarValue_InvalidProgram_MultipleDefiniti
 
     // Create a ScalarValue that will be used as output multiple times (violates SSA)
     auto outputScalar = builder_->CreateScalar(*ctx_, DataType::FP32, "output");
-    
+
     // First definition: output = neg(input)
     auto op1 = builder_->CreateUnaryScalarOp(Opcode::OP_SCALAR_NEG, inputScalar, outputScalar);
     builder_->Emit(*ctx_, op1);
@@ -143,7 +141,7 @@ TEST_F(IRVerifierTest, TestVerifySSA_ScalarValue_InvalidProgram_MultipleDefiniti
     FinishFunction();
 
     VerifyResult result = VerifySSA(module_);
-    EXPECT_FALSE(result.passed) << "Program with multiple definitions of same ScalarValue should fail";
+    EXPECT_FALSE(result.Passed()) << "Program with multiple definitions of same ScalarValue should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("ScalarValue"), std::string::npos);
 }
@@ -175,7 +173,7 @@ TEST_F(IRVerifierTest, TestVerifySSA_MixedTileAndScalar_ValidProgram) {
     FinishFunction();
 
     VerifyResult result = VerifySSA(module_);
-    EXPECT_TRUE(result.passed) << "Valid program with mixed TileValue and ScalarValue should pass SSA verification";
+    EXPECT_TRUE(result.Passed()) << "Valid program with mixed TileValue and ScalarValue should pass SSA verification";
 }
 
 TEST_F(IRVerifierTest, TestVerifySSA_MixedTileAndScalar_InvalidProgram) {
@@ -189,7 +187,7 @@ TEST_F(IRVerifierTest, TestVerifySSA_MixedTileAndScalar_InvalidProgram) {
 
     // Create a ScalarValue that will be used as output multiple times (violates SSA)
     auto outputScalar = builder_->CreateScalar(*ctx_, DataType::FP32, "output");
-    
+
     // First definition: output = neg(input)
     auto op1 = builder_->CreateUnaryScalarOp(Opcode::OP_SCALAR_NEG, inputScalar, outputScalar);
     builder_->Emit(*ctx_, op1);
@@ -208,7 +206,7 @@ TEST_F(IRVerifierTest, TestVerifySSA_MixedTileAndScalar_InvalidProgram) {
     FinishFunction();
 
     VerifyResult result = VerifySSA(module_);
-    EXPECT_FALSE(result.passed) << "Program with multiple definitions of both TileValue and ScalarValue should fail";
+    EXPECT_FALSE(result.Passed()) << "Program with multiple definitions of both TileValue and ScalarValue should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("ScalarValue"), std::string::npos);
     EXPECT_NE(result.errorMsg.find("TileValue"), std::string::npos);
@@ -230,7 +228,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidUnaryOp) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Valid UnaryOp should pass shape verification";
+    EXPECT_TRUE(result.Passed()) << "Valid UnaryOp should pass shape verification";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
@@ -250,7 +248,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidUnaryOp_MismatchedShapes) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_FALSE(result.passed) << "UnaryOp with mismatched shapes should fail";
+    EXPECT_FALSE(result.Passed()) << "UnaryOp with mismatched shapes should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("UnaryOp"), std::string::npos);
 }
@@ -272,7 +270,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_MatchingShapes) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "BinaryOp with matching shapes should pass";
+    EXPECT_TRUE(result.Passed()) << "BinaryOp with matching shapes should pass";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_Broadcast) {
@@ -294,7 +292,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidBinaryOp_Broadcast) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "BinaryOp with broadcastable shape should pass";
+    EXPECT_TRUE(result.Passed()) << "BinaryOp with broadcastable shape should pass";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
@@ -316,7 +314,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidBinaryOp_IncompatibleShapes) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_FALSE(result.passed) << "BinaryOp with incompatible shapes should fail";
+    EXPECT_FALSE(result.Passed()) << "BinaryOp with incompatible shapes should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("BinaryOp"), std::string::npos);
 }
@@ -338,7 +336,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidBinaryScalarMixOp) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Valid BinaryScalarMixOp should pass shape verification";
+    EXPECT_TRUE(result.Passed()) << "Valid BinaryScalarMixOp should pass shape verification";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShapes) {
@@ -359,7 +357,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidBinaryScalarMixOp_MismatchedShap
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_FALSE(result.passed) << "BinaryScalarMixOp with mismatched shapes should fail";
+    EXPECT_FALSE(result.Passed()) << "BinaryScalarMixOp with mismatched shapes should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("BinaryScalarMixOp"), std::string::npos);
 }
@@ -389,7 +387,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_MixedOperations) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Program with valid mixed operations should pass";
+    EXPECT_TRUE(result.Passed()) << "Program with valid mixed operations should pass";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulLoadOp) {
@@ -401,15 +399,21 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulLoadOp) {
     CreateTestFunction(sig);
 
     // MatmulLoadOp with matching input/output shapes
+    // Create TensorValue for input (MatmulLoadOp requires TensorValue as input)
+    std::vector<ScalarValuePtr> tensorShape;
+    for (int64_t dim : tileShape) {
+        tensorShape.push_back(builder_->CreateConst(*ctx_, dim, "dim"));
+    }
+    auto inputTensor = builder_->CreateTensor(*ctx_, tensorShape, DataType::FP32, "input_tensor");
     auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
     std::vector<ScalarValuePtr> offsets = {};
-    auto matmulLoadOp = builder_->CreateMatmulLoadOp(Opcode::OP_L1_COPY_IN, inputTile, offsets, outputTile);
+    auto matmulLoadOp = builder_->CreateMatmulLoadOp(Opcode::OP_L1_COPY_IN, inputTensor, offsets, outputTile);
     builder_->Emit(*ctx_, matmulLoadOp);
 
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Valid MatmulLoadOp should pass shape verification";
+    EXPECT_TRUE(result.Passed()) << "Valid MatmulLoadOp should pass shape verification";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulLoadOp_MismatchedShapes) {
@@ -422,15 +426,21 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulLoadOp_MismatchedShapes) {
     CreateTestFunction(sig);
 
     // MatmulLoadOp with mismatched shapes
+    // Create TensorValue for input (MatmulLoadOp requires TensorValue as input)
+    std::vector<ScalarValuePtr> tensorShape;
+    for (int64_t dim : inputShape) {
+        tensorShape.push_back(builder_->CreateConst(*ctx_, dim, "dim"));
+    }
+    auto inputTensor = builder_->CreateTensor(*ctx_, tensorShape, DataType::FP32, "input_tensor");
     auto outputTile = builder_->CreateTile(*ctx_, outputShape, DataType::FP32, "output");
     std::vector<ScalarValuePtr> offsets = {};
-    auto matmulLoadOp = builder_->CreateMatmulLoadOp(Opcode::OP_L1_COPY_IN, inputTile, offsets, outputTile);
+    auto matmulLoadOp = builder_->CreateMatmulLoadOp(Opcode::OP_L1_COPY_IN, inputTensor, offsets, outputTile);
     builder_->Emit(*ctx_, matmulLoadOp);
 
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_FALSE(result.passed) << "MatmulLoadOp with mismatched shapes should fail";
+    EXPECT_FALSE(result.Passed()) << "MatmulLoadOp with mismatched shapes should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("MatmulLoadOp"), std::string::npos);
 }
@@ -452,7 +462,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulExtractOp_NoTranspose) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Valid MatmulExtractOp without transpose should pass";
+    EXPECT_TRUE(result.Passed()) << "Valid MatmulExtractOp without transpose should pass";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulExtractOp_WithTranspose) {
@@ -473,7 +483,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulExtractOp_WithTranspose) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Valid MatmulExtractOp with transpose should pass";
+    EXPECT_TRUE(result.Passed()) << "Valid MatmulExtractOp with transpose should pass";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulExtractOp_WrongTransposeShape) {
@@ -494,7 +504,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulExtractOp_WrongTransposeSh
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_FALSE(result.passed) << "MatmulExtractOp with wrong transpose shape should fail";
+    EXPECT_FALSE(result.Passed()) << "MatmulExtractOp with wrong transpose shape should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("MatmulExtractOp"), std::string::npos);
 }
@@ -502,8 +512,8 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulExtractOp_WrongTransposeSh
 TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulMmadOp) {
     FunctionSignature sig;
     // Matrix multiplication: A [M, K] * B [K, N] = C [M, N]
-    std::vector<int64_t> lhsShape = {128, 64};  // [M, K]
-    std::vector<int64_t> rhsShape = {64, 256};  // [K, N]
+    std::vector<int64_t> lhsShape = {128, 64};     // [M, K]
+    std::vector<int64_t> rhsShape = {64, 256};     // [K, N]
     std::vector<int64_t> outputShape = {128, 256}; // [M, N]
     auto lhsTile = std::make_shared<TileValue>(lhsShape, DataType::FP32, "lhs");
     auto rhsTile = std::make_shared<TileValue>(rhsShape, DataType::FP32, "rhs");
@@ -519,14 +529,14 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulMmadOp) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Valid MatmulMmadOp should pass shape verification";
+    EXPECT_TRUE(result.Passed()) << "Valid MatmulMmadOp should pass shape verification";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulMmadOp_KDimensionMismatch) {
     FunctionSignature sig;
     // K dimension mismatch: A [M, K1] * B [K2, N] where K1 != K2
-    std::vector<int64_t> lhsShape = {128, 64};  // [M, K1=64]
-    std::vector<int64_t> rhsShape = {32, 256};  // [K2=32, N] - K mismatch!
+    std::vector<int64_t> lhsShape = {128, 64}; // [M, K1=64]
+    std::vector<int64_t> rhsShape = {32, 256}; // [K2=32, N] - K mismatch!
     std::vector<int64_t> outputShape = {128, 256};
     auto lhsTile = std::make_shared<TileValue>(lhsShape, DataType::FP32, "lhs");
     auto rhsTile = std::make_shared<TileValue>(rhsShape, DataType::FP32, "rhs");
@@ -542,7 +552,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulMmadOp_KDimensionMismatch)
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_FALSE(result.passed) << "MatmulMmadOp with K dimension mismatch should fail";
+    EXPECT_FALSE(result.Passed()) << "MatmulMmadOp with K dimension mismatch should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("K dimension mismatch"), std::string::npos);
 }
@@ -566,7 +576,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_InvalidMatmulMmadOp_WrongOutputShape) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_FALSE(result.passed) << "MatmulMmadOp with wrong output shape should fail";
+    EXPECT_FALSE(result.Passed()) << "MatmulMmadOp with wrong output shape should fail";
     EXPECT_FALSE(result.errorMsg.empty());
     EXPECT_NE(result.errorMsg.find("MatmulMmadOp"), std::string::npos);
 }
@@ -590,7 +600,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulAccOp) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Valid MatmulAccOp should pass shape verification";
+    EXPECT_TRUE(result.Passed()) << "Valid MatmulAccOp should pass shape verification";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulStoreOp) {
@@ -602,15 +612,20 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulStoreOp) {
     CreateTestFunction(sig);
 
     // MatmulStoreOp with matching shapes
-    auto outputTile = builder_->CreateTile(*ctx_, tileShape, DataType::FP32, "output");
+    // Create TensorValue for output (MatmulStoreOp requires TensorValue as output)
+    std::vector<ScalarValuePtr> tensorShape;
+    for (int64_t dim : tileShape) {
+        tensorShape.push_back(builder_->CreateConst(*ctx_, dim, "dim"));
+    }
+    auto outputTensor = builder_->CreateTensor(*ctx_, tensorShape, DataType::FP32, "output_tensor");
     std::vector<ScalarValuePtr> offsets = {};
-    auto matmulStoreOp = builder_->CreateMatmulStoreOp(Opcode::OP_L0C_COPY_OUT, inputTile, offsets, outputTile);
+    auto matmulStoreOp = builder_->CreateMatmulStoreOp(Opcode::OP_L0C_COPY_OUT, inputTile, offsets, outputTensor);
     builder_->Emit(*ctx_, matmulStoreOp);
 
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Valid MatmulStoreOp should pass shape verification";
+    EXPECT_TRUE(result.Passed()) << "Valid MatmulStoreOp should pass shape verification";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulBiasOp) {
@@ -630,7 +645,7 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulBiasOp) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Valid MatmulBiasOp should pass shape verification";
+    EXPECT_TRUE(result.Passed()) << "Valid MatmulBiasOp should pass shape verification";
 }
 
 TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulQuantOp) {
@@ -650,5 +665,5 @@ TEST_F(IRVerifierTest, TestVerifyOpShape_ValidMatmulQuantOp) {
     FinishFunction();
 
     VerifyResult result = VerifyOpShape(module_);
-    EXPECT_TRUE(result.passed) << "Valid MatmulQuantOp should pass shape verification";
+    EXPECT_TRUE(result.Passed()) << "Valid MatmulQuantOp should pass shape verification";
 }

@@ -8,10 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/*!
+ * \file shape_verify.cpp
+ * \brief
+ */
+
 #include "ir/verifier/shape_verify.h"
-
 #include "ir/opcode.h"
-
 #include <string>
 #include <vector>
 
@@ -82,41 +85,32 @@ void TileOpShapeVisitor::VisitImplOp(OperationPtr &op) {
 
     if (auto matmulLoad = std::dynamic_pointer_cast<MatmulLoadOp>(op)) {
         CheckMatmulLoadOpShape(matmulLoad);
-    }
-    else if (auto matmulExtract = std::dynamic_pointer_cast<MatmulExtractOp>(op)) {
+    } else if (auto matmulExtract = std::dynamic_pointer_cast<MatmulExtractOp>(op)) {
         CheckMatmulExtractOpShape(matmulExtract);
-    }
-    else if (auto matmulMmad = std::dynamic_pointer_cast<MatmulMmadOp>(op)) {
+    } else if (auto matmulMmad = std::dynamic_pointer_cast<MatmulMmadOp>(op)) {
         CheckMatmulMmadOpShape(matmulMmad);
-    }
-    else if (auto matmulAcc = std::dynamic_pointer_cast<MatmulAccOp>(op)) {
+    } else if (auto matmulAcc = std::dynamic_pointer_cast<MatmulAccOp>(op)) {
         CheckMatmulAccOpShape(matmulAcc);
-    }
-    else if (auto matmulStore = std::dynamic_pointer_cast<MatmulStoreOp>(op)) {
+    } else if (auto matmulStore = std::dynamic_pointer_cast<MatmulStoreOp>(op)) {
         CheckMatmulStoreOpShape(matmulStore);
-    }
-    else if (auto matmulBias = std::dynamic_pointer_cast<MatmulBiasOp>(op)) {
+    } else if (auto matmulBias = std::dynamic_pointer_cast<MatmulBiasOp>(op)) {
         CheckMatmulBiasOpShape(matmulBias);
-    }
-    else if (auto matmulQuant = std::dynamic_pointer_cast<MatmulQuantOp>(op)) {
+    } else if (auto matmulQuant = std::dynamic_pointer_cast<MatmulQuantOp>(op)) {
         CheckMatmulQuantOpShape(matmulQuant);
-    }
-    else if (auto unaryOp = std::dynamic_pointer_cast<UnaryOp>(op)) {
+    } else if (auto unaryOp = std::dynamic_pointer_cast<UnaryOp>(op)) {
         CheckUnaryOpShape(unaryOp);
-    }
-    else if (auto binaryOp = std::dynamic_pointer_cast<BinaryOp>(op)) {
+    } else if (auto binaryOp = std::dynamic_pointer_cast<BinaryOp>(op)) {
         CheckBinaryOpShape(binaryOp);
-    }
-    else if (auto binaryScalarMixOp = std::dynamic_pointer_cast<BinaryScalarMixOp>(op)) {
+    } else if (auto binaryScalarMixOp = std::dynamic_pointer_cast<BinaryScalarMixOp>(op)) {
         CheckBinaryScalarMixOpShape(binaryScalarMixOp);
     }
 }
 
 // ---- Concrete ops (auto-generated from *.def) ----
 #define DEFOP(name, inherit, opcode, ...)                             \
-    void TileOpShapeVisitor::VisitImplOp(name##Ptr &op) {                \
+    void TileOpShapeVisitor::VisitImplOp(name##Ptr &op) {             \
         OperationPtr opPtr = std::static_pointer_cast<Operation>(op); \
-        VisitImplOp(opPtr);                                              \
+        VisitImplOp(opPtr);                                           \
     }
 #include "ir/operation.def"
 #include "ir/tile_graph.def"
@@ -132,8 +126,8 @@ void TileOpShapeVisitor::CheckUnaryOpShape(UnaryOpPtr &unaryOp) {
 
         if (inputShape != outputShape) {
             std::string opName = GetOpcodeName(unaryOp->GetOpcode());
-            std::string msg = "UnaryOp '" + opName + "': input shape " + GetShapeStr(inputShape) +
-                              " != output shape " + GetShapeStr(outputShape);
+            std::string msg = "UnaryOp '" + opName + "': input shape " + GetShapeStr(inputShape) + " != output shape " +
+                              GetShapeStr(outputShape);
             violations_.push_back(msg);
         }
     }
@@ -162,9 +156,8 @@ void TileOpShapeVisitor::CheckBinaryOpShape(BinaryOpPtr &binaryOp) {
 
         if (!bothMatch && !onlyOneDiffers) {
             std::string opName = GetOpcodeName(binaryOp->GetOpcode());
-            std::string msg = "BinaryOp '" + opName + "': lhs shape " + GetShapeStr(lhsShape) +
-                              ", rhs shape " + GetShapeStr(rhsShape) +
-                              " incompatible with output shape " + GetShapeStr(outputShape);
+            std::string msg = "BinaryOp '" + opName + "': lhs shape " + GetShapeStr(lhsShape) + ", rhs shape " +
+                              GetShapeStr(rhsShape) + " incompatible with output shape " + GetShapeStr(outputShape);
             violations_.push_back(msg);
         }
     }
@@ -211,19 +204,36 @@ std::vector<int64_t> TileOpShapeVisitor::GetTransposedShape(const std::vector<in
 
 // Matmul operation shape verification implementations
 void TileOpShapeVisitor::CheckMatmulLoadOpShape(MatmulLoadOpPtr &op) {
-    auto input = op->GetInOperand(0);
-    auto output = op->GetOutOperand(0);
+    // MatmulLoadOp: input is TensorValue (index 0), output is TileValue (index 0)
+    auto inputValue = op->GetInputOperand(0);
+    auto outputValue = op->GetOutputOperand(0);
 
-    if (input && output) {
-        const auto &inputShape = input->GetShape();
-        const auto &outputShape = output->GetShape();
+    if (inputValue && outputValue) {
+        auto input = std::dynamic_pointer_cast<TensorValue>(inputValue);
+        auto output = std::dynamic_pointer_cast<TileValue>(outputValue);
 
-        // MatmulLoadOp: input and output shapes should match (data copy operation)
-        if (inputShape != outputShape) {
-            std::string opName = GetOpcodeName(op->GetOpcode());
-            std::string msg = "MatmulLoadOp '" + opName + "': input shape " + GetShapeStr(inputShape) +
-                              " != output shape " + GetShapeStr(outputShape);
-            violations_.push_back(msg);
+        if (input && output) {
+            // Convert TensorValue shape (std::vector<ScalarValuePtr>) to std::vector<int64_t>
+            const auto &tensorShape = input->GetShape();
+            const auto &tileShape = output->GetShape();
+
+            std::vector<int64_t> inputShape;
+            inputShape.reserve(tensorShape.size());
+            for (const auto &dim : tensorShape) {
+                if (!dim || !dim->HasImmediateValue()) {
+                    // Cannot compare symbolic shapes, skip verification
+                    return;
+                }
+                inputShape.push_back(dim->GetInt64Value());
+            }
+
+            // MatmulLoadOp: input and output shapes should match (data copy operation)
+            if (inputShape != tileShape) {
+                std::string opName = GetOpcodeName(op->GetOpcode());
+                std::string msg = "MatmulLoadOp '" + opName + "': input shape " + GetShapeStr(inputShape) +
+                                  " != output shape " + GetShapeStr(tileShape);
+                violations_.push_back(msg);
+            }
         }
     }
 }
@@ -264,9 +274,8 @@ void TileOpShapeVisitor::CheckMatmulExtractOpShape(MatmulExtractOpPtr &op) {
     }
 }
 
-void TileOpShapeVisitor::CheckMatmulShapeCommon(const TileValuePtr &lhs, const TileValuePtr &rhs, 
-                                                 const TileValuePtr &output, Opcode opcode, 
-                                                 bool transposeA, bool transposeB, const std::string &opTypeName) {
+void TileOpShapeVisitor::CheckMatmulShapeCommon(const TileValuePtr &lhs, const TileValuePtr &rhs,
+    const TileValuePtr &output, Opcode opcode, bool transposeA, bool transposeB, const std::string &opTypeName) {
     if (!lhs || !rhs || !output) {
         return;
     }
@@ -321,9 +330,8 @@ void TileOpShapeVisitor::CheckMatmulShapeCommon(const TileValuePtr &lhs, const T
     if (outputShape != expectedOutputShape) {
         std::string opName = GetOpcodeName(opcode);
         std::string msg = opTypeName + " '" + opName + "': expected output shape " + GetShapeStr(expectedOutputShape) +
-                          " but got " + GetShapeStr(outputShape) +
-                          " (lhs=" + GetShapeStr(lhsShape) + ", rhs=" + GetShapeStr(rhsShape) +
-                          ", transposeA=" + (transposeA ? "true" : "false") +
+                          " but got " + GetShapeStr(outputShape) + " (lhs=" + GetShapeStr(lhsShape) +
+                          ", rhs=" + GetShapeStr(rhsShape) + ", transposeA=" + (transposeA ? "true" : "false") +
                           ", transposeB=" + (transposeB ? "true" : "false") + ")";
         violations_.push_back(msg);
     }
@@ -362,19 +370,37 @@ void TileOpShapeVisitor::CheckMatmulAccOpShape(MatmulAccOpPtr &op) {
 }
 
 void TileOpShapeVisitor::CheckMatmulStoreOpShape(MatmulStoreOpPtr &op) {
-    auto input = op->GetInOperand(0);
-    auto output = op->GetOutOperand(0);
+    // MatmulStoreOp: input is TileValue (index 0), output is TensorValue (index 0)
+    auto inputValue = op->GetInputOperand(0);
+    auto outputValue = op->GetOutputOperand(0);
 
-    if (input && output) {
-        const auto &inputShape = input->GetShape();
-        const auto &outputShape = output->GetShape();
+    if (inputValue && outputValue) {
+        auto input = std::dynamic_pointer_cast<TileValue>(inputValue);
+        auto output = std::dynamic_pointer_cast<TensorValue>(outputValue);
 
-        // MatmulStoreOp: input and output shapes should match (data copy operation)
-        if (inputShape != outputShape) {
-            std::string opName = GetOpcodeName(op->GetOpcode());
-            std::string msg = "MatmulStoreOp '" + opName + "': input shape " + GetShapeStr(inputShape) +
-                              " != output shape " + GetShapeStr(outputShape);
-            violations_.push_back(msg);
+        if (input && output) {
+            // MatmulStoreOp: input is TileValue, output is TensorValue
+            const auto &tileShape = input->GetShape();
+            // Convert TensorValue shape (std::vector<ScalarValuePtr>) to std::vector<int64_t>
+            const auto &tensorShape = output->GetShape();
+
+            std::vector<int64_t> outputShape;
+            outputShape.reserve(tensorShape.size());
+            for (const auto &dim : tensorShape) {
+                if (!dim || !dim->HasImmediateValue()) {
+                    // Cannot compare symbolic shapes, skip verification
+                    return;
+                }
+                outputShape.push_back(dim->GetInt64Value());
+            }
+
+            // MatmulStoreOp: input and output shapes should match (data copy operation)
+            if (tileShape != outputShape) {
+                std::string opName = GetOpcodeName(op->GetOpcode());
+                std::string msg = "MatmulStoreOp '" + opName + "': input shape " + GetShapeStr(tileShape) +
+                                  " != output shape " + GetShapeStr(outputShape);
+                violations_.push_back(msg);
+            }
         }
     }
 }
@@ -417,7 +443,7 @@ void TileOpShapeVisitor::CheckMatmulQuantOpShape(MatmulQuantOpPtr &op) {
 
 VerifyResult VerifyOpShape(ProgramModulePtr program) {
     if (!program) {
-        return {false, "ProgramModule is null, cannot verify operation shapes"};
+        return {VerifyStatus::FAIL, "ProgramModule is null, cannot verify operation shapes"};
     }
 
     TileOpShapeVisitor visitor;
@@ -433,10 +459,10 @@ VerifyResult VerifyOpShape(ProgramModulePtr program) {
                 errorMsg += "\n";
             }
         }
-        return {false, errorMsg};
+        return {VerifyStatus::FAIL, errorMsg};
     }
 
-    return {true, ""};
+    return {VerifyStatus::PASS, ""};
 }
 
 } // namespace pto
