@@ -377,5 +377,3 @@ if __name__ == "__main__":
     test_verifier_verify_unknown_rule()
     test_verifier_complex_rule()
     test_verifier_empty_rules()
-
-    print("All Verifier tests passed!")

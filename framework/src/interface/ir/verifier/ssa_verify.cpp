@@ -21,20 +21,12 @@ std::string GetValueInfoString(const Value *valuePtr) {
     if (valuePtr) {
         // Determine the type name based on ValueKind
         switch (valuePtr->GetValueKind()) {
-            case ValueKind::Tile:
-                valueInfo = "TileValue";
-                break;
-            case ValueKind::Scalar:
-                valueInfo = "ScalarValue";
-                break;
-            case ValueKind::Tensor:
-                valueInfo = "TensorValue";
-                break;
-            default:
-                valueInfo = "Value";
-                break;
+            case ValueKind::Tile: valueInfo = "TileValue"; break;
+            case ValueKind::Scalar: valueInfo = "ScalarValue"; break;
+            case ValueKind::Tensor: valueInfo = "TensorValue"; break;
+            default: valueInfo = "Value"; break;
         }
-        
+
         std::string ssaName = valuePtr->GetSSAName();
         if (!ssaName.empty()) {
             valueInfo += " '" + ssaName + "'";
@@ -61,7 +53,7 @@ void ValueSSAVisitor::VisitImplOp(OperationPtr &op) {
 
 // ---- Concrete ops (auto-generated from *.def) ----
 #define DEFOP(name, inherit, opcode, ...)                             \
-    void ValueSSAVisitor::VisitImplOp(name##Ptr &op) {               \
+    void ValueSSAVisitor::VisitImplOp(name##Ptr &op) {                \
         OperationPtr opPtr = std::static_pointer_cast<Operation>(op); \
         VisitImplOp(opPtr);                                           \
     }

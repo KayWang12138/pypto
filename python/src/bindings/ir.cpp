@@ -667,6 +667,28 @@ void IrBindBlockCall(py::module &m) {
        "Call a registered block by name (PascalCase).");
 }
 
+// Helper function to wrap Python rule function into C++ function
+static Verifier::RuleFunc WrapPythonRuleFunction(py::function pyFunc) {
+    return [pyFunc](const TileValue &tile) -> VerifyResult {
+        try {
+            py::object result = pyFunc(std::make_shared<TileValue>(tile));
+            if (py::isinstance<VerifyResult>(result)) {
+                return py::cast<VerifyResult>(result);
+            } else if (py::isinstance<py::tuple>(result)) {
+                auto tuple = py::cast<py::tuple>(result);
+                if (tuple.size() == 2) {
+                    bool passed = py::cast<bool>(tuple[0]);
+                    std::string msg = py::cast<std::string>(tuple[1]);
+                    return {passed ? VerifyStatus::PASS : VerifyStatus::FAIL, msg};
+                }
+            }
+            throw py::type_error("Rule function must return VerifyResult or (bool, str) tuple");
+        } catch (const py::error_already_set &e) {
+            return {VerifyStatus::FAIL, "Python rule error: " + std::string(e.what())};
+        }
+    };
+}
+
 void IrBindVerifier(py::module &m) {
     // Bind VerifyStatus enum
     py::enum_<VerifyStatus>(m, "VerifyStatus")
@@ -697,26 +719,7 @@ void IrBindVerifier(py::module &m) {
             "Get all registered rule names")
         .def("register_rule",
             [](Verifier &self, const std::string &ruleName, py::function pyFunc) {
-                // Wrap the Python function into a C++ lambda
-                auto cppFunc = [pyFunc](const TileValue &tile) -> VerifyResult {
-                    try {
-                        py::object result = pyFunc(std::make_shared<TileValue>(tile));
-                        if (py::isinstance<VerifyResult>(result)) {
-                            return py::cast<VerifyResult>(result);
-                        } else if (py::isinstance<py::tuple>(result)) {
-                            auto tuple = py::cast<py::tuple>(result);
-                            if (tuple.size() == 2) {
-                                bool passed = py::cast<bool>(tuple[0]);
-                                std::string msg = py::cast<std::string>(tuple[1]);
-                                return {passed ? VerifyStatus::PASS : VerifyStatus::FAIL, msg};
-                            }
-                        }
-                        throw py::type_error("Rule function must return VerifyResult or (bool, str) tuple");
-                    } catch (const py::error_already_set &e) {
-                        return {VerifyStatus::FAIL, "Python rule error: " + std::string(e.what())};
-                    }
-                };
-                self.RegisterRule(ruleName, cppFunc);
+                self.RegisterRule(ruleName, WrapPythonRuleFunction(pyFunc));
             },
             py::arg("rule_name"), py::arg("rule_func"),
             "Register a verification rule. The rule function should take a Tile and return VerifyResult or (bool, str)")
