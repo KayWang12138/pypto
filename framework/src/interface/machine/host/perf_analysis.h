@@ -87,10 +87,10 @@ struct PerfData {
     }
 };
 
-#define HOST_PERF_TRACE_START() PerfAnalysis::Get().TraceStart()
-#define HOST_PERF_TRACE(type) PerfAnalysis::Get().Trace(type)
-#define HOST_PERF_EVT_BEGIN(type) PerfAnalysis::Get().EventBegin(type)
-#define HOST_PERF_EVT_END(type) PerfAnalysis::Get().EventEnd(type)
+#define HOST_PERF_TRACE_START()
+#define HOST_PERF_TRACE(type)
+#define HOST_PERF_EVT_BEGIN(type)
+#define HOST_PERF_EVT_END(type)
 
 class PerfAnalysis {
 private:
