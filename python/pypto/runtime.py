@@ -242,6 +242,15 @@ class _JIT:
 
         # flowverify begin
         self.verify_end()
+        import shutil
+        try:
+            shutil.rmtree(
+            self._output_path,
+            ignore_errors=True,  # 忽略删除失败的文件（如只读文件）
+            onerror=None         # 关闭错误回调（减少函数调用开销）
+        )
+        except FileNotFoundError:
+            pass
         # suspicious code?
         pypto_impl.ResetLog(pypto_impl.LogTopFolder())
         return handler
