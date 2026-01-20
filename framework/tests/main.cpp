@@ -15,6 +15,14 @@
 
 #include <gtest/gtest.h>
 #include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <cstdlib>
+#include <thread>
+#include <cstring>
+#include <cerrno>
+#include <sched.h>
 #include "utils/test_cost_macro.h"
 
 #if defined(BUILD_WITH_CANN) && defined(ENABLE_STEST)
@@ -60,7 +68,123 @@ public:
     }
 };
 
+
+class CpuAffinityManager {
+public:
+    static bool SetProcessAffinity(const std::vector<int>& cores) {
+        unsigned int cpuCount = getCpuCoreCount();
+        if (cpuCount == 0) {
+            return false;
+        }
+
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        for (int core : cores) {
+            if (core < 0 || static_cast<unsigned int>(core) >= cpuCount) {
+                std::cerr << "Invalid CPU core ID: " << core << std::endl;
+                return false;
+            }
+            CPU_SET(core, &cpuset);
+        }
+        if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset) != 0) {
+            std::cerr << "Failed to set process affinity: " << std::strerror(errno) << std::endl;
+            return false;
+        }
+        std::cout << "CPU Num: " << cpuCount << std::endl;
+        std::cout << "Process affinity set to cores: ";
+        for (size_t i = 0; i < cores.size(); ++i) {
+            std::cout << cores[i];
+            if (i != cores.size() - 1) {
+                std::cout << ", ";
+            }
+        }
+        std::cout << std::endl;
+
+        return true;
+    }
+
+    static bool SetProcessAffinityFromEnv(std::string &envName) {
+        const char* envStr = std::getenv(envName.c_str());
+        if (envStr == nullptr) {
+            std::cerr << "Environment variable " << envName << " is not set" << std::endl;
+            return false;
+        }
+        std::string envCoreStr = envStr;
+
+        std::vector<int> targetCores;
+        if (!parseAndValidateCores(envCoreStr, targetCores)) {
+            return false;
+        }
+
+        return SetProcessAffinity(targetCores);
+    }
+
+private:
+    // 禁止实例化, 所有功能通过静态函数提供
+    CpuAffinityManager() = delete;
+    ~CpuAffinityManager() = delete;
+    CpuAffinityManager(const CpuAffinityManager&) = delete;
+    CpuAffinityManager& operator=(const CpuAffinityManager&) = delete;
+
+    static unsigned int getCpuCoreCount() {
+        unsigned int cpuCount = std::thread::hardware_concurrency();
+        if (cpuCount == 0) {
+            // 兜底: 使用系统调用
+            cpuCount = sysconf(_SC_NPROCESSORS_ONLN);
+            if (cpuCount == 0) {
+                std::cerr << "Failed to get CPU core count" << std::endl;
+            }
+        }
+        return cpuCount;
+    }
+
+    static bool stringToInt(const std::string& str, int& outVal) {
+        try {
+            size_t pos;
+            outVal = std::stoi(str, &pos);
+            return pos == str.length();  // 确保整个字符串都是数字（避免"12a"这类非法值）
+        } catch (const std::invalid_argument&) {
+            return false;
+        } catch (const std::out_of_range&) {
+            return false;
+        }
+    }
+
+    static std::vector<std::string> splitString(const std::string& str, char delimiter) {
+        std::vector<std::string> tokens;
+        std::string token;
+        std::istringstream tokenStream(str);
+        while (std::getline(tokenStream, token, delimiter)) {
+            if (!token.empty()) {
+                tokens.push_back(token);
+            }
+        }
+        return tokens;
+    }
+
+    static bool parseAndValidateCores(const std::string& envValue, std::vector<int>& outCores) {
+        outCores.clear();
+        std::vector<std::string> coreStrList = splitString(envValue, ';');
+
+        for (const std::string& coreStr : coreStrList) {
+            int coreId;
+            if (!stringToInt(coreStr, coreId)) {
+                std::cerr << "Invalid CPU core ID (not a number): " << coreStr << std::endl;
+                outCores.clear();
+                return false;
+            }
+            outCores.push_back(coreId);
+        }
+
+        return true;
+    }
+};
+
 int main(int argc, char** argv) {
+    // 设置 CPU 亲和性
+    std::string envName = "PYPTO_TESTS_PROCESS_AFFINITY_LIST";
+    (void) CpuAffinityManager::SetProcessAffinityFromEnv(envName);
+
     testing::InitGoogleTest(&argc, argv);
 
     auto isMetaParam = [](const std::string& arg) {

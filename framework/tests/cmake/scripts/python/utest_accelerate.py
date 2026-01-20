@@ -26,9 +26,9 @@ class UTestAccelerate(GTestAccelerate):
     通过多进程并行执行, 以提升 UTest 执行效率.
     """
 
-    @property
-    def mark(self) -> str:
-        return "UTest"
+    def __init__(self, args):
+        super().__init__(args=args, scene_mark="UTest", cntr_name="Cntr")
+        self.job_num: int = self._init_job_num(args=args)
 
     @staticmethod
     def main() -> bool:
@@ -39,11 +39,17 @@ class UTestAccelerate(GTestAccelerate):
         UTestAccelerate.reg_args(parser=parser)
         parser.add_argument("-j", "--job_num", nargs="?", type=int, default=None,
                             help="Specific parallel accelerate job num.")
+        parser.add_argument("--cpu_rank_size", nargs="?", type=int, default=None,
+                            help="Specify the rank size for CPU affinity grouping.")
         # 流程处理
         args = parser.parse_args()
-        params = []
+        ctrl = UTestAccelerate(args=args)
+        ctrl.prepare()
+        ctrl.process()
+        return ctrl.post()
 
-        # 获取job_num
+    @staticmethod
+    def _init_job_num(args) -> int:
         if args.job_num:
             job_num = args.job_num
         else:
@@ -54,12 +60,13 @@ class UTestAccelerate(GTestAccelerate):
             else:
                 job_num = int(math.ceil(float(cpu_count()) * 0.8))    # use 0.8 cpu
         job_num = min(min(min(max(int(job_num), 1), cpu_count()), 16), len(args.cases))
+        return job_num
 
-        for job_idx in range(job_num):
-            params.append(GTestAccelerate.ExecParam(cntr_id=job_idx))
-        ctrl = UTestAccelerate(args=args, params=params)
-        ctrl.process()
-        return ctrl.post()
+    def _prepare_get_params(self) -> List[GTestAccelerate.ExecParam]:
+        params = []
+        for cntr_id in range(self.job_num):
+            params.append(GTestAccelerate.ExecParam(cntr_id=cntr_id))
+        return params
 
 
 if __name__ == "__main__":

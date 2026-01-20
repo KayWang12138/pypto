@@ -30,7 +30,8 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager_ng.h"
 
-namespace npu::tile_fwk {
+using namespace npu::tile_fwk;
+
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
 void GetEnv(const char * const envName, std::string &envValue)
 {
@@ -742,4 +743,3 @@ std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr) {
     ALOG_WARN("not find function ptr in function map");
     return nullptr;
 }
-} // namespace npu::tile_fwk
