@@ -303,8 +303,7 @@ public:
         std::string soPath = std::string(std::getenv("ASCEND_HOME_PATH")) + "/toolkit/tools/simulator/Ascend910B1/lib/libpem_davinci.so";
         void *handle = dlopen((soPath.c_str()), RTLD_LAZY);
         if (!handle) {
-            std::cerr << " Cannot open library: " << soPath << std::endl;
-            return;
+            throw std::runtime_error("can not load library: " + soPath);
         }
         // Load function symbols
         std::vector<std::string> symbols = {"pv_init", "pv_launch_sub_core", "pv_step", "pv_mem_write", "pv_mem_read",
