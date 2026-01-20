@@ -28,7 +28,7 @@
 
 namespace npu {
 namespace tile_fwk {
-const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "axis";
+const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
 // only save general gm input/output, not contain spill-out scene
 bool CodegenPreproc::IsNeedSave(const Operation &op) const {
     return OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) && (!op.IsNeedStackGM());
@@ -171,11 +171,11 @@ bool ReduceNeedCombineAxis(const Operation &op) {
         return true;
     }
     if (op.GetOpcode() == Opcode::OP_ROWSUMLINE) {
-        auto axis = op.GetIntAttribute(REDUCE_AXIS);
         auto inputs = op.GetIOperands();
-        if (op.GetIOperands().size() != 1) {
+        if (op.GetIOperands().size() != 1 || !op.HasAttr(REDUCE_AXIS)) {
             return false;
         }
+        auto axis = op.GetIntAttribute(REDUCE_AXIS);
         int64_t shapeSize = static_cast<int64_t>(inputs.front()->shape.size());
         return shapeSize != 1 && axis != (shapeSize - 2);
     }
