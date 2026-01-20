@@ -40,6 +40,7 @@
 #include "machine/platform/platform_manager.h"
 #include "machine/runtime/device_error_tracking.h"
 #include "nlohmann/json.hpp"
+#include "machine/host/perf_analysis.h"
 
 using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
@@ -287,7 +288,7 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
 
 int DeviceRunner::LaunchAiCore(rtStream_t aicoreStream, int taskType) {
     struct Args {
-        int64_t *syncAddr = nullptr;
+        int64_t *ctrlFlowCache = nullptr;
         int64_t *inputs = nullptr;
         int64_t *outputs = nullptr;
         int64_t *workspace = nullptr;
@@ -587,13 +588,16 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArg
 }
 
 int DeviceRunner::RunPrepare() {
-   for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
-        rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
-            sizeof(uint64_t),
-            reinterpret_cast<uint8_t *>(&perfData_[i]),
-            sizeof(uint64_t),
-            RT_MEMCPY_HOST_TO_DEVICE);
-    }
+   if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+            rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
+                sizeof(uint64_t),
+                reinterpret_cast<uint8_t *>(&perfData_[i]),
+                sizeof(uint64_t),
+                RT_MEMCPY_HOST_TO_DEVICE);
+        }
+   }
+
     if (isCapture_) {
         aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
         aclmdlRICaptureThreadExchangeMode(&mode);
@@ -655,6 +659,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
     }
     ReportHostProfInfo(startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU);
 
+    HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAicpuInit);
+
     startTime = MsprofSysCycleTime();
     rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
     if (rc < 0) {
@@ -663,6 +669,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
     }
     ReportHostProfInfo(startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
 
+    HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAicpuRun);
+
     startTime = MsprofSysCycleTime();
     rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
@@ -670,6 +678,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
         return rc;
     }
     ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+
+    HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAIcore);
     return rc;
 }
 
@@ -720,13 +730,20 @@ int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlS
     return rc;
 }
 
+
 int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
     DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
     InitializeErrorCallback();
+    
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitErrCallBack);
+
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
     }
     g_IsFirstInit = true;
+    
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
+
     #ifdef BUILD_WITH_NEW_CANN
     if (!g_IsNullLaunched) {
         auto ret = LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kernelArgs, 1, "PyptoNull");
@@ -757,15 +774,24 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
     localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
     localArgs.isGETensorList = kernelArgs->toSubMachineConfig.isGETensorList;
+
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitKernelArgs);
+
     int rc = rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
         ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
         return rc;
     }
+
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitH2DMemCopy);
+
     if (RunPrepare() < 0) {
         ALOG_ERROR_F("Prepare failed %d\n", rc);
         return rc;
     }
+
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitRunPrepare);
+
     if (ctrlStream == nullptr) {
         return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
     } else {
@@ -809,7 +835,7 @@ void DeviceRunner::SetBinData(const std::vector<uint8_t> &binBuf) {
   return;
 }
 
-int DeviceRunner::RegisterKernelBin(void **hdl) {
+int DeviceRunner::RegisterKernelBin(void **hdl, std::vector<uint8_t> *funcBinBuf) {
     if (*hdl) {
         binHdl_ = *hdl;
         ALOG_DEBUG_F("RegisterKernelBin reuse cache.");
@@ -817,9 +843,10 @@ int DeviceRunner::RegisterKernelBin(void **hdl) {
     }
     void *bin = nullptr;
     size_t binSize = 0;
-    if (g_binBuf.size() != 0) {
-        bin = g_binBuf.data();
-        binSize = g_binBuf.size();
+    std::vector<uint8_t> *binBuf = (funcBinBuf == nullptr) ? &g_binBuf : funcBinBuf;
+    if (binBuf->size() != 0) {
+        bin = binBuf->data();
+        binSize = binBuf->size();
         ALOG_DEBUG_F("Reg dynamic bin size %zu.", binSize);
     } else {
         bin = _binary_kernel_o_start;
