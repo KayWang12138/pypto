@@ -18,8 +18,7 @@ import pypto
 import torch
 from torch._dynamo import allow_in_graph
 
-def rms_norm_denom(x: pypto.Tensor) -> pypto.Tensor:
-    norm_eps = 1e-6
+def rms_norm_denom(x: pypto.Tensor, norm_eps = 1e-6) -> pypto.Tensor:
     # Compute RMS: sqrt(mean(x^2) + eps)
     squared = x * x
     mean_sq = pypto.sum(squared, dim=-1, keepdim=True)
@@ -170,7 +169,7 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
 
         pypto.set_pass_options(sg_set_scope = 1)
         x_fp32 = pypto.cast(x_view, pypto.DT_FP32)
-        rms_res = rms_norm_denom(x_fp32)    ## (t, hc*d) -> (t, 1)
+        rms_res = rms_norm_denom(x_fp32, hc_eps)    ## (t, hc*d) -> (t, 1)
         pypto.set_pass_options(sg_set_scope = -1)
 
         pypto.set_vec_tile_shapes(tile_shape_2, 32)
