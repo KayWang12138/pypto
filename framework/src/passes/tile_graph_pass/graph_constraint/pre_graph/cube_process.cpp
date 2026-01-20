@@ -242,9 +242,11 @@ Status CubeProcess::ReconnectGraph(Operation &mulOp, std::vector<Operation *> co
 Status CubeProcess::TransferAttr(Operation &mulOp, std::vector<Operation *> copyOutOps) {
     auto scaleValue = (mulOp.HasAttr(A_MUL_B_SCALE_ATTR)) ? mulOp.GetElementAttribute(A_MUL_B_SCALE_ATTR) : Element(DataType::DT_UINT64, 0);
     auto reluType = (mulOp.HasAttr(A_MUL_B_RELU_ATTR)) ? mulOp.GetIntAttribute(A_MUL_B_RELU_ATTR) : 0;
+    auto quantFlag = (mulOp.HasAttr(A_MUL_B_VECTOR_QUANT_FLAG)) ? mulOp.GetBoolAttribute(A_MUL_B_VECTOR_QUANT_FLAG) : false;
     for (auto copyOutOp : copyOutOps) {
         copyOutOp->SetAttribute(A_MUL_B_SCALE_ATTR, scaleValue);
         copyOutOp->SetAttribute(A_MUL_B_RELU_ATTR, reluType);
+        copyOutOp->SetAttribute(A_MUL_B_VECTOR_QUANT_FLAG, quantFlag);
     }
     return SUCCESS;
 }
