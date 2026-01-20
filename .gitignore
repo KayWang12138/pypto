@@ -10,6 +10,7 @@ dist/
 *.trace
 .clion.source.upload.marker
 *~
+.claude
 
 pre-commit
 compile_commands.json
@@ -37,4 +38,3 @@ python/pypto/pypto_impl*.so
 # 三方软件
 third_party_path/
 fusion_result.json
-.claude

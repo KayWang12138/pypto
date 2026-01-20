@@ -27,6 +27,7 @@
 #include "ir/utils_defop.h"
 #include "ir/value.h"
 #include "ir/block_call.h"
+#include "ir/verifier/verifier.h"
 namespace py = pybind11;
 
 namespace pto {
@@ -665,6 +666,74 @@ void IrBindBlockCall(py::module &m) {
        py::arg("indices"),
        "Call a registered block by name (PascalCase).");
 }
+
+void IrBindVerifier(py::module &m) {
+    // Bind VerifyStatus enum
+    py::enum_<VerifyStatus>(m, "VerifyStatus")
+        .value("PASS", VerifyStatus::PASS)
+        .value("FAIL", VerifyStatus::FAIL)
+        .export_values();
+
+    // Bind VerifyResult struct
+    py::class_<VerifyResult>(m, "VerifyResult")
+        .def(py::init<>())
+        .def(py::init<VerifyStatus, std::string>(), py::arg("status"), py::arg("error_msg"))
+        .def_readwrite("status", &VerifyResult::status)
+        .def_readwrite("error_msg", &VerifyResult::errorMsg)
+        .def("passed", &VerifyResult::Passed, "Check if verification passed")
+        .def("__repr__", [](const VerifyResult &self) {
+            return "VerifyResult(status=" + std::string(self.status == VerifyStatus::PASS ? "PASS" : "FAIL") +
+                   ", error_msg='" + self.errorMsg + "')";
+        });
+
+    // Bind Verifier class
+    py::class_<Verifier>(m, "Verifier")
+        .def(py::init<>(), "Create a new Verifier instance")
+        .def("verify_rule", &Verifier::VerifyRule, py::arg("rule_name"), py::arg("tile"),
+            "Verify a tile value against a specific rule")
+        .def("verify_all_rules", &Verifier::VerifyAllRules, py::arg("tile"),
+            "Verify a tile value against all registered rules")
+        .def("get_rule_names", &Verifier::GetRuleNames,
+            "Get all registered rule names")
+        .def("register_rule",
+            [](Verifier &self, const std::string &ruleName, py::function pyFunc) {
+                // Wrap the Python function into a C++ lambda
+                auto cppFunc = [pyFunc](const TileValue &tile) -> VerifyResult {
+                    try {
+                        py::object result = pyFunc(std::make_shared<TileValue>(tile));
+                        if (py::isinstance<VerifyResult>(result)) {
+                            return py::cast<VerifyResult>(result);
+                        } else if (py::isinstance<py::tuple>(result)) {
+                            auto tuple = py::cast<py::tuple>(result);
+                            if (tuple.size() == 2) {
+                                bool passed = py::cast<bool>(tuple[0]);
+                                std::string msg = py::cast<std::string>(tuple[1]);
+                                return {passed ? VerifyStatus::PASS : VerifyStatus::FAIL, msg};
+                            }
+                        }
+                        throw py::type_error("Rule function must return VerifyResult or (bool, str) tuple");
+                    } catch (const py::error_already_set &e) {
+                        return {VerifyStatus::FAIL, "Python rule error: " + std::string(e.what())};
+                    }
+                };
+                self.RegisterRule(ruleName, cppFunc);
+            },
+            py::arg("rule_name"), py::arg("rule_func"),
+            "Register a verification rule. The rule function should take a Tile and return VerifyResult or (bool, str)")
+        .def("has_rule", &Verifier::HasRule, py::arg("rule_name"),
+            "Check if a rule is registered")
+        .def("remove_rule", &Verifier::RemoveRule, py::arg("rule_name"),
+            "Remove a registered rule")
+        .def("clear_rules", &Verifier::ClearRules,
+            "Clear all registered rules")
+        .def("get_rule_count", &Verifier::GetRuleCount,
+            "Get the number of registered rules")
+        .def("is_empty", &Verifier::IsEmpty,
+            "Check if no rules are registered")
+        .def("__repr__", [](const Verifier &self) {
+            return "Verifier(rule_count=" + std::to_string(self.GetRuleCount()) + ")";
+        });
+}
 } // namespace pto
 
 namespace pypto {
@@ -680,5 +749,6 @@ void BindIr(py::module &m) {
     pto::IrBindModule(ir);
     pto::IrBindBuilder(ir);
     pto::IrBindBlockCall(ir);
+    pto::IrBindVerifier(ir);
 }
 } // namespace pypto
