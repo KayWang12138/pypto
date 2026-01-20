@@ -375,12 +375,7 @@ public:
 
     int32_t ProcessCompletedAicpuTask(uint64_t taskId) {
         if (aicoreProf_.ProfIsEnable()) {
-            for (auto i = 0; i < aicpuTaskManager_.aicpuTaskStat_->taskCount; ++i) {
-                if (aicpuTaskManager_.aicpuTaskStat_->tasks[i].taskId != static_cast<int32_t>(taskId)) {
-                    continue;
-                }
-                aicpuTaskManager_.aicpuTaskStat_->tasks[i].execEnd = GetCycles();
-            }
+            aicpuTaskManager_.FillTaskEndTimes(taskId);
         }
         
         int32_t ret = ResolveDepDyn(taskId);
