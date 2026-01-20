@@ -676,11 +676,9 @@ static Verifier::RuleFunc WrapPythonRuleFunction(py::function pyFunc) {
                 return py::cast<VerifyResult>(result);
             } else if (py::isinstance<py::tuple>(result)) {
                 auto tuple = py::cast<py::tuple>(result);
-                if (tuple.size() == 2) {
-                    bool passed = py::cast<bool>(tuple[0]);
-                    std::string msg = py::cast<std::string>(tuple[1]);
-                    return {passed ? VerifyStatus::PASS : VerifyStatus::FAIL, msg};
-                }
+                bool passed = py::cast<bool>(tuple[0]);
+                std::string msg = py::cast<std::string>(tuple[1]);
+                return {passed ? VerifyStatus::PASS : VerifyStatus::FAIL, msg};
             }
             throw py::type_error("Rule function must return VerifyResult or (bool, str) tuple");
         } catch (const py::error_already_set &e) {
