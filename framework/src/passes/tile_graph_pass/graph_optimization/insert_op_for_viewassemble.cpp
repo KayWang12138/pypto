@@ -184,7 +184,7 @@ void InsertOpForViewAssemble::AddCopyDDROp(Function &function, Operation *cons, 
     cons->ReplaceInput(assembleOut, input);
 }
 
-int InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
+void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
     auto opsBeforeAdd = function.Operations();
     std::unordered_set<int> visitedAssOps;
     std::unordered_set<Operation*> needAddCopyAssOps;
@@ -209,16 +209,12 @@ int InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
             AddCopyDDROp(function, needed, input);
         }
     }
-
-    return needAddCopyAssOps.size()
 }
 
 
 Status InsertOpForViewAssemble::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start InsertOpForViewAssemble");
-    if (InsertAssembleCopy(function) > 0) {
-        function.paramConfigs_.beginRemoveAssOp = false;
-    } 
+    InsertAssembleCopy(function);
     if (JudgedViewAssemble(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Function, "JudgedViewAssemble Failed.");
         return FAILED;
