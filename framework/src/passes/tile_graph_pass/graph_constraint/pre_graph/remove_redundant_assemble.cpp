@@ -158,8 +158,8 @@ bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTens
     if (inputShape.size() < 3) {
         return false;
     }
-    return ((inputShape[0] == 1 || inputShape[1] == 1) && (inputShape[0] * inputShape[1] == outputShape[0]) &&
-            std::equal(inputShape.begin() + 2, inputShape.end(), outputShape.begin() + 1, outputShape.end()));
+
+    return (inputShape[0] == 1 || inputShape[1] == 1);
 }
 
 /*
@@ -192,12 +192,12 @@ Status ProcessView(Function &function) {
             return FAILED;
         }
         auto &offset = opAttr->GetFromDynOffset();
-        std::vector<int64_t> newRawShape;
+        std::vector<int64_t> newRawShape = reshape.GetOOperands().front()->shape;
+        std::cout << IntVecToStr(newRawShape).c_str() << std::endl;
+        newRawShape[0] *=
+            (viewInput->tensor->GetRawShapeSize() / reshape.GetOOperands().front()->tensor->GetRawShapeSize());
+        std::cout << IntVecToStr(newRawShape).c_str() << std::endl;
         std::vector<SymbolicScalar> newDynOffset;
-        if (!CalculateNewRawShape(reshape.GetIOperands().front()->shape, reshape.GetOOperands().front()->shape,
-                viewInput->tensor->rawshape, newRawShape, true)) {
-            return FAILED;
-        }
         GetDynOffsetBeforeReshape(offset, reshape.GetIOperands().front()->shape, newRawShape, newDynOffset);
         for (auto copyIn : reshape.GetOOperands().front()->GetConsumers()) {
             auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
