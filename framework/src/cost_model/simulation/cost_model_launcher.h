@@ -315,6 +315,8 @@ private:
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
         std::atomic<int> idx{0};
         auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
+        size_t shmSize = DEVICE_TASK_CTRL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        (void)memset_s(reinterpret_cast<void*>(devProg->devArgs.taskQueue), shmSize, 0, shmSize);
         (void)DynTileFwkBackendKernelServerInit(kArgs);
         int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
         threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
@@ -348,7 +350,7 @@ private:
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
         std::tie(inputList, outputList) = BuildInputOutputFromHost(MemoryHelper(isTest), inputTensors, outputTensors);
-        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, {}, false);
+        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, {});
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
     }
