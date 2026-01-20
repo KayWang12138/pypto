@@ -17,7 +17,7 @@
 #include "aicpu_runtime.h"
 #include "tileop/distributed/hccl_context.h"
 
-#define RUNTIME_GetHcclRankId(groupIndex) \
+#define RUNTIME_GetSymbolicScalarRankId(groupIndex) \
      ((TileOp::HcclCombinOpParam *)(startArgs->hcclContextAddr[groupIndex]))->rankId
 
 #define RUNTIME_BindTensor(groupIndex, memType, size) \
