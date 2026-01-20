@@ -44,14 +44,11 @@ TILEOP void TTriUL(DstTensor dst, SrcTensor src) {
                 auto tileOffsets = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dstAddr + tileOffsets));
                 pto::TASSIGN(srcTile, (uint64_t)(srcAddr + tileOffsets));
-                if ((diagonal >= shape4 - 1 && !isUpper) || (diagonal <= -shape3 + 1 && isUpper)) {
-                    pto::TMOV(dstTile, srcTile);
-                } else if (diagonal < shape4 - 1 && diagonal > -shape3 + 1) {
-                    pto::TTRI<dstTileDefine, isUpper, diagonal>(dstTile);
-                    pto::TMUL(dstTile, dstTile, srcTile);
-                } else {
-                    pto::TEXPANDS(dstTile, 0);
-                }
+                pto::TTRI<dstTileDefine, isUpper, diagonal>(dstTile);
+                #ifdef __DAV_V220
+                pipe_barrier(PIPE_V);
+                #endif
+                pto::TMUL(dstTile, dstTile, srcTile);
             }
         }
     }
