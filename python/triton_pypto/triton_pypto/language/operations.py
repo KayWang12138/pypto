@@ -786,6 +786,9 @@ class StaticMaskLayout(BaseMaskLayout):
         axes = tuple(i for i, k in enumerate(slices) if k is None)
         return StaticMaskLayout(np.expand_dims(self.bits, axes))
 
+    def broadcast_to(self, shape: Iterable[int]) -> Self:
+        return StaticMaskLayout(np.broadcast_to(self.bits, shape))
+
     def valid_shape(self) -> Optional[Tuple[int, ...]]:
         if self.bits is None:
             return None
@@ -903,6 +906,19 @@ def delinearize_offset(linear_offset: int, shape: Tuple[int, ...]) -> List[int]:
     return list(reversed(offsets))
 
 
+def compute_valid_shape(mask: Optional[BaseMaskLayout], target_shape: Iterable[int]) -> Optional[Tuple[int]]:
+    if Context.dynamic or mask is None:
+        return None
+    if isinstance(mask, CompoundMaskLayout):
+        mask = mask.to_static()
+    if not isinstance(mask, StaticMaskLayout):
+        raise RuntimeError(f"valid shape cannot be computed from mask: {mask!r}")
+    valid_shape = mask.broadcast_to(target_shape).valid_shape()
+    if all(v == t for v, t in zip(valid_shape, target_shape)):
+        return None
+    return valid_shape
+
+
 @log_call
 def load(pointer: BaseTensorLayout, mask: Optional[BaseMaskLayout] = None, other: Optional[Any] = None,
          **kwds) -> Union[TensorWrapper, TensorElementWrapper]:
@@ -935,8 +951,8 @@ def load(pointer: BaseTensorLayout, mask: Optional[BaseMaskLayout] = None, other
         pypto_wrap.auto_vec_tile(padded_shape, src.dtype)
         result = pypto_wrap.expand_clone(src, padded_shape)
     else:
-        # TODO: compute valid shape based on mask
-        result = pypto_wrap.view(layout.base, padded_shape, multidim_offset)
+        valid_shape = compute_valid_shape(mask, padded_shape)
+        result = pypto_wrap.view(layout.base, padded_shape, multidim_offset, valid_shape=valid_shape)
     result = reshape_impl(result, target_shape)
     if inv_order is not None:
         result = permute(result, inv_order)
@@ -951,9 +967,11 @@ def store(pointer: BaseTensorLayout, value: TensorWrapper, mask: Optional[BaseMa
     if not isinstance(layout.base, HostTensorWrapper):
         raise NotImplementedError("Only HostTensorWrapper supported")
     multidim_offset = delinearize_offset(layout.offset, layout.base.original_shape)
-    # TODO: reduce value shape to valid shape based on mask
-    target_shape = pad_shape(value.shape, len(layout.base.shape))
+    src_shape = value.shape
+    target_shape = pad_shape(src_shape, len(layout.base.shape))
     value = reshape_impl(value, target_shape)
+    if valid_shape := compute_valid_shape(mask, target_shape):
+        value = pypto_wrap.view(value, src_shape, [0] * len(src_shape), valid_shape=valid_shape)
     if layout.inverse_order_permutation() is not None:
         order = layout.order
         value = permute(value, order)
