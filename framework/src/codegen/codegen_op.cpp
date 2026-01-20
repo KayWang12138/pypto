@@ -71,7 +71,7 @@ void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput,
         CombineLastTwoAxis(dynamicValidShape[operandIdx], dim);
         ALOG_INFO_F("op code %s, operanIdx: %d, after CombineAxis shape is %s, raw shape is %s, originShape is %s, "
                     "dynamicValidShape is %s",
-            oper.GetOpcodeStr().c_str(), operandIdx, IntVecToStr(shape[operandIdx]),
+            oper.GetOpcodeStr().c_str(), operandIdx, IntVecToStr(shape[operandIdx]).c_str(),
             IntVecToStr(rawShape[operandIdx]).c_str(), IntVecToStr(originShape[operandIdx]).c_str(),
             IntVecToStr(dynamicValidShape[operandIdx]).c_str());
     }
