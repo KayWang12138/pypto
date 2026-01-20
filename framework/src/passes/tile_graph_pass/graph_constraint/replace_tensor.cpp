@@ -789,7 +789,7 @@ void InsertAssembleCopy(Function &function) {
     std::unordered_set<int> visitedAssOp;
     std::unordered_set<Operation*> needAddCopyAssOp;
     for (auto &op : opsBeforeAdd) {
-        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && visitedAssOp.count(op.GetOpMagic())) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOp.count(op.GetOpMagic()))) {
             visitedAssOp.insert(op.GetOpMagic());
             auto assIn = op.GetIOperands()[0];
             auto consumers1 = assIn->GetConsumers();
