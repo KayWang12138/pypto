@@ -31,6 +31,7 @@
 #include "interface/cache/hash.h"
 #include "passes/pass_utils/pass_utils.h"
 
+#include "ir/program.h"
 namespace npu::tile_fwk {
 constexpr int FUNCTION_MAX_INCASTS = 10000;
 
@@ -437,8 +438,6 @@ struct DynParamInfo{
     std::string replacedSymbol;
 };
 struct ParamConfigs {
-    int l1ReuseNum{0};
-    int cubeNBufferNum{1};
     bool dynamicAlignedOps;
     int sgPgUpperBound{1};
     int sgPgLowerBound{1};
@@ -451,6 +450,7 @@ struct ParamConfigs {
     std::map<int64_t, int64_t> cubeNBufferSetting;
     std::string OoOPreScheduleMethod{"PriorDFS"};
     int vecNBuffermode{1};
+    int L1ReuseMode{1};
     int cubeNBufferMode{0};
     int mgVecParallelLb{48};
     int sgCubeParallelNum{24};
@@ -482,6 +482,7 @@ public:
     int opSeed_{FUNCTION_MAX_INCASTS};
     SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
+    pto::ProgramModulePtr programModule_ = nullptr;
     Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系
     ParamConfigs paramConfigs_;
 
@@ -919,6 +920,7 @@ private:
     void RefreshOpPosition();
     auto AnnotateOperation();
 
+    void FillOriginInOutCast(std::vector<Operation *> &operationList);
     void SetCallOpSlot();
     void UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope);
     void DoMergeFunctionDupIncast();

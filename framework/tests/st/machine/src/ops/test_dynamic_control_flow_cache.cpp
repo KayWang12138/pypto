@@ -296,7 +296,7 @@ static DeviceTensorData toTensorData(const std::shared_ptr<LogicalTensor> &t) {
 
 TEST_F(DynamicControlFlowCacheTest, PartialCache) {
     // cache at most 3 task
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 40000);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 46000);
 
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
@@ -373,7 +373,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 100 * 1024 * 1024);
     config::SetPassOption(SG_PG_LOWER_BOUND, 1024);
     config::SetPassOption(SG_PG_UPPER_BOUND, 1024);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 32);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 32}});
     config::SetPassOption(SG_PARALLEL_NUM, 2);
     config::SetPassOption(VEC_NBUFFER_MODE, 2);
     config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {{-1, 16}});

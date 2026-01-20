@@ -37,8 +37,8 @@ extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void *targ);
 
 struct DynMachineManager {
-    int allocThreadIdx(int nrAicpu) {
-        if (schAicpuNum_ == 1) {
+    int allocThreadIdx(int nrAicpu, uint32_t scheCpuNum) {
+        if (scheCpuNum == 1) {
             return threadIdx_++;
         }
         int cpu = sched_getcpu();
@@ -52,7 +52,7 @@ struct DynMachineManager {
         int clus_id = -1;
         for (int index = 0; index < static_cast<int>(sizeof(uint64_t)); ++index) {
             int mask = (maskval >> cpuoff) & 0xF;
-            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= schAicpuNum_) {
+            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= static_cast<int>(scheCpuNum)) {
                 clus_id = index;
                 break;
             }
@@ -86,13 +86,14 @@ struct DynMachineManager {
     int Run(DeviceKernelArgs *args) {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
-        if ((uint32_t)schAicpuNum_ > devArgs->nrAicpu - 1) {
-            DEV_ERROR("Aicpu num[%u] less than sche num[%d].", devArgs->nrAicpu, schAicpuNum_);
+        SchduleContext local_context;
+        if (devArgs->scheCpuNum > devArgs->nrAicpu - 1) {
+            DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        int threadIdx = allocThreadIdx(devArgs->nrAicpu);
+        int threadIdx = allocThreadIdx(devArgs->nrAicpu, devArgs->scheCpuNum);
         uint64_t allocThreadCycle = GetCycles();
-        if ((threadIdx != -1) && threadIdx < schAicpuNum_) {
+        if ((threadIdx != -1) && threadIdx < static_cast<int>(devArgs->scheCpuNum)) {
             CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
             DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
                 static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
@@ -100,6 +101,7 @@ struct DynMachineManager {
             DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
             DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
+            machine_.SetStachSchduleContext(threadIdx, &local_context);
             ret = machine_.Run(threadIdx, devArgs);
             if (ret != DEVICE_MACHINE_OK) {
                 schRunFailed_ = true;
@@ -107,7 +109,7 @@ struct DynMachineManager {
         } else {
             threadIdx = ctrlcpuIdx_.fetch_add(1);
             DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType));
-            if (devArgs->enableCtrl == 1 && threadIdx == schAicpuNum_) {
+            if (devArgs->enableCtrl == 1 && threadIdx == static_cast<int>(devArgs->scheCpuNum)) {
                 CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
                 DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
                 ret = PyptoKernelCtrlServer(static_cast<void*>(args));
@@ -135,9 +137,8 @@ struct DynMachineManager {
             return;
         }
         init_.store(true);
-        schAicpuNum_ = args->scheCpuNum;
-        ctrlcpuIdx_.store(schAicpuNum_);
-        machine_.init(schAicpuNum_);
+        ctrlcpuIdx_.store(args->scheCpuNum);
+        machine_.init(args->scheCpuNum);
         schRunFailed_ = false;
     }
 
@@ -154,7 +155,6 @@ struct DynMachineManager {
     std::atomic<int> finished_{0};
     std::atomic<uint64_t> cpumask_{0};
     std::atomic<int> ctrlcpuIdx_{0};
-    int schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
     DeviceMachine machine_;
     struct sigaction oriFPEAct_;
     struct sigaction oriBUSAct_;
@@ -242,7 +242,7 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
 #if ENABLE_PERF_TRACE
         PerfMtTrace(PERF_TRACE_EXIT, g_machine_mgr.LastFinishThreadIdx_);
         DEV_ERROR("Begin dump machine perf trace:");
-        PerfEvtMgr::Instance().DumpPerfTrace("/tmp/tile_fwk_aicpu_perftrace.json");
+        PerfEvtMgr::Instance().DumpPerfTrace(devArgs->scheCpuNum, "/tmp/tile_fwk_aicpu_perftrace.json");
         DEV_IF_DEVICE {
             g_machine_mgr.machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
         }

@@ -27,6 +27,7 @@
 #include "machine/runtime/device_launcher.h"
 #include "cost_model/simulation/backend.h"
 #include "machine/runtime/host_prof.h"
+#include "machine/runtime/distributed_context.h"
 
 using namespace npu::tile_fwk::dynamic;
 
@@ -37,8 +38,8 @@ struct MemoryHelper {
 
     bool IsDevice() { return !isTest_; }
 
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
-        uint8_t *devPtr = AllocDev(size, nullptr);
+    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
+        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
         if (isTest_)
             memcpy_s(devPtr, size, data, size);
         else
@@ -74,21 +75,21 @@ struct MemoryHelper {
     }
 
     template <typename T>
-    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
-        (void)cachedDevAddrHolder;
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
+    T *CopyToDev(std::vector<T> data, uint8_t **cachedHolder) {
+        (void)cachedHolder;
+        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), nullptr);
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {
         if (data.GetDevPtr() == nullptr) {
-            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size());
+            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size(), nullptr);
             data.SetDevPtr(devPtr);
         }
         return data.GetDevPtr();
     }
 
-    void CopyFromDev(RawTensorData &t) {
-        CopyFromDev(t.data(), t.GetDevPtr(), t.size());
+    void CopyFromDev(RawTensorData &tensorData) {
+        CopyFromDev(tensorData.data(), tensorData.GetDevPtr(), tensorData.size());
     }
 
     uint64_t GetL2Offset() {
@@ -170,6 +171,8 @@ private:
         }
         DeviceKernelArgs kArgs;
         DeviceLauncherConfigFillDeviceInfo(config_);
+        DeviceInitDistributedContextToHost(function_->GetDyndevAttribute()->commGroupNames,
+ 	        function_->GetDyndevAttribute()->devProgBinary);
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         for (int i = 0; i < (config_.controlFlowCache ? 1 : config_.repeatNum); i++) {
             InitKernelInOuts(kArgs, inputs, outputs, true, {}, false);
@@ -257,7 +260,6 @@ private:
 
     void RunOnBoard(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
         std::cout << "!!! Kernel Launch " << "\n";
-        config::SetRunDataOption(KEY_RUNTYPE, "npu");
         int rc = aclInit(nullptr);
         if (rc != 0 && rc != ACL_ERROR_REPEAT_INITIALIZE) {
             ALOG_ERROR_F("Acl init failed!!!");
@@ -266,6 +268,8 @@ private:
         CheckDeviceId();
         DeviceKernelArgs kArgs;
         DeviceLauncherConfigFillDeviceInfo(config_);
+        DeviceInitDistributedContext(function_->GetDyndevAttribute()->commGroupNames,
+ 	        function_->GetDyndevAttribute()->devProgBinary);
         DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
         auto aicpuStream = machine::GetRA()->GetScheStream();
         auto aicoreStream = machine::GetRA()->GetStream();

@@ -512,6 +512,13 @@ struct FunctionInterpreter {
         ASSERT(updated); 
     }
 
+    bool IsViewInplace(const std::shared_ptr<LogicalTensor> &iOp, const std::shared_ptr<LogicalTensor> &oOp) {
+        if (iOp->GetRawTensor()->GetRawMagic() == oOp->GetRawTensor()->GetRawMagic()) {
+            return true;
+        }
+        return false;
+    }
+
     void ExecuteInplaceOperation(FunctionFrame &frame, Operation &op, int oOperandIdx,
         const std::vector<std::shared_ptr<LogicalTensorData>> &iOpDataList,
         std::vector<std::shared_ptr<LogicalTensorData>> &oOpDataList,
@@ -526,16 +533,10 @@ struct FunctionInterpreter {
             ASSERT(opAttr != nullptr);
             Offset iopOffsets = iOpDataList[index]->GetOffset();
             Offset viewOffsets = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
-            Offset actualOffsets = viewOffsets;
-            if (std::all_of(viewOffsets.begin(), viewOffsets.end(),
-                    [](const int64_t& val) {return val == static_cast<int64_t>(0);})) {
-                actualOffsets = iopOffsets;
-            }
             auto validShape = EvaluateValidShape(oop->GetDynValidShape());
             auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape());
             std::shared_ptr<LogicalTensorData> ret;
-            // ExpandFunction passIndex : 4
-            if (frame.passIndex > 4) {
+            if (IsViewInplace(iop, oop)) {
                 ret = frame.AllocateDataView(oop, viewOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
             } else {
                 ret = AllocateDataView(frame, oop);

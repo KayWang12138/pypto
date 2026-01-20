@@ -644,36 +644,38 @@ void Function::CleanRedundantOutCast() {
     CleanRedundantOutcast(removeRecord, getTensorDataRecord);
 }
 
+void Function::FillOriginInOutCast(std::vector<Operation *>& operationList) {
+    OrderedSet<LogicalTensorPtr> incasts;
+    OrderedSet<LogicalTensorPtr> outcasts;
+
+    for (auto &op : operationList) {
+        for (auto &iOperand : op->iOperand) {
+            bool shouldAddIncast = op->IsCall() ||
+                (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 &&
+                (&iOperand->BelongFunction() != this));
+            if (shouldAddIncast && incasts.Insert(iOperand)) {
+                AddOriginIncast(iOperand);
+            }
+        }
+
+        for (auto &oOperand : op->oOperand) {
+            bool shouldAddOutcast = op->IsCall() || oOperand->tensor->GetRefCount() > 0;
+            if (shouldAddOutcast && outcasts.Insert(oOperand)) {
+                AddOriginOutcast(oOperand);
+                ASSERT(incasts.count(oOperand) == 0)
+                    << "Error: Output operand " << oOperand->tensor->rawmagic
+                    << " is found in incasts. Operation: " << op->Dump();
+            }
+        }
+    }
+}
+
 FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &scope) {
     // Deduce Incast and Outcast here, need by TENSOR_GRAPH & STATIC_TILE_GRAPH
     std::vector<Operation *> operationList = Operations(false).DuplicatedOpList();
     if (IsGraphType(GraphType::TENSOR_GRAPH) ||
         IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
-        OrderedSet<LogicalTensorPtr> incasts;
-        OrderedSet<LogicalTensorPtr> outcasts;
-
-        for (auto &op : operationList) {
-            for (auto &iOperand : op->iOperand) {
-                if (op->IsCall() || (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 &&
-                   (&iOperand->BelongFunction() != this))) {
-                    incasts.Insert(iOperand);
-                }
-            }
-            for (auto &oOperand : op->oOperand) {
-                if (op->IsCall() || oOperand->tensor->GetRefCount() > 0) {
-                    outcasts.Insert(oOperand);
-                    ASSERT(incasts.count(oOperand) == 0)
-                        << "Error: Output operand " << oOperand->tensor->rawmagic
-                        << " is found in incasts. Operation: " << op->Dump();
-                }
-            }
-        }
-        for (const auto &incast : incasts) {
-            AddOriginIncast(incast);
-        }
-        for (const auto &outcast : outcasts) {
-            AddOriginOutcast(outcast);
-        }
+        FillOriginInOutCast(operationList);
     }
 
     LogicalTensors inArgumentList, outArgumentList;
@@ -2076,7 +2078,7 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_opseed"] = opSeed_;
     funcDump["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcDump["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
-    funcDump["_l1_reuse_num"] = paramConfigs_.l1ReuseNum;
+    funcDump["_l1_reuse_mode"] = paramConfigs_.L1ReuseMode;
     funcDump["_cube_nbuffer_mode"] = paramConfigs_.cubeNBufferMode;
     funcDump["_sg_pg_upperbound"] = paramConfigs_.sgPgUpperBound;
     funcDump["_sg_pg_lowerbound"] = paramConfigs_.sgPgLowerBound;
@@ -2397,7 +2399,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     IdGen<IdType::RAW_TENSOR>::Inst().SetId(rawid);
     int funcid = funcDump["_funcid"].get<int>();
     IdGen<IdType::FUNCTION>::Inst().SetId(funcid);
-    func->paramConfigs_.l1ReuseNum = funcDump["_l1_reuse_num"].get<int>();
+    func->paramConfigs_.L1ReuseMode = funcDump["_l1_reuse_mode"].get<int>();
     func->paramConfigs_.cubeNBufferMode = funcDump["_cube_nbuffer_mode"].get<int>();
     func->paramConfigs_.sgPgUpperBound = funcDump["_sg_pg_upperbound"].get<int>();
     func->paramConfigs_.sgPgLowerBound = funcDump["_sg_pg_lowerbound"].get<int>();
@@ -3300,6 +3302,9 @@ void Function::SetCallOpSlot() {
     }
     std::vector<Function *> calleeList = GetCalleeFunctionList();
     for (auto callee: calleeList) {
+        if (callee == nullptr) {
+            continue;
+        }
         const std::shared_ptr<TensorSlotScope> calleeScope = callee->GetSlotScope();
         // callee incast -> call op iOperand, callee outcast -> call op oOperand
         UpdateOriIocastSlot(calleeScope);
