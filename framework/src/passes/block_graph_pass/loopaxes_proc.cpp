@@ -56,11 +56,17 @@ void LoopaxesProc::ClearStatus() {
 }
 
 Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
-    std::vector<SymbolicScalar> loopAxes;
+    if (SKIP_OPCODE_FOR_CODEGEN.find(op.GetOpcode()) != SKIP_OPCODE_FOR_CODEGEN.end()) {
+        APASS_LOG_INFO_F(Elements::Operation, "Op Code %s, Op[%d] ignore this op");
+        return SUCCESS;
+    }
+
     if (SUPPORT_VF_FUSE_OPS.find(op.GetOpcode()) == SUPPORT_VF_FUSE_OPS.end()) {
         ClearStatus();
         return SUCCESS;
     }
+
+    std::vector<SymbolicScalar> loopAxes;
     auto output = op.GetOOperands().front();
     auto shape = output->GetDynValidShape();
     if (shape.size() <= NUM2) {
@@ -125,7 +131,8 @@ bool LoopaxesProc::SameLoopAxes(const std::vector<SymbolicScalar> &curLoopAxes) 
         return false;
     }
     for (size_t i = 0; i < curLoopAxes.size(); ++i) {
-        if (curLoopAxes[i].Dump() != previousLoopAxes[i].Dump()) {
+        if (SymbolicExpressionTable::BuildExpression(curLoopAxes[i]) !=
+            SymbolicExpressionTable::BuildExpression(previousLoopAxes[i])) {
             return false;
         }
     }
