@@ -65,7 +65,7 @@ static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
 int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         DevControlFlowCache* ctrlCache, const DeviceLauncherConfig &config) {
-    std::cout << "!!! Emulation Launch\n";
+    // std::cout << "!!! Emulation Launch\n";
 
     DeviceKernelArgs kArgs;
     DeviceLauncher::DeviceInitDistributedContextToHost(function->GetDyndevAttribute()->commGroupNames,
@@ -113,7 +113,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
         CachedOperator *cachedOperator,  DevControlFlowCache **outCtrlFlowCache,
         const DeviceLauncherConfig &config) {
     (void)cachedOperator;
-    std::cout << "!!! Emulation ControlFlowCache\n";
+    // std::cout << "!!! Emulation ControlFlowCache\n";
     std::vector<uint8_t> &devProgData = DeviceLauncher::GetDevProg(function);
     DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
     DevControlFlowCache* hostCtrlFlowCache = CreateHostCtrlFlowCache(devProg, function);
