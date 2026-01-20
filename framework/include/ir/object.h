@@ -190,9 +190,7 @@ public:
     {
         std::vector<std::string> keys;
         for (const auto& [key, value] : attributes_) {
-            if (value.index() != 0) {
                 keys.push_back(key);
-            }
         }
         return keys;
     }

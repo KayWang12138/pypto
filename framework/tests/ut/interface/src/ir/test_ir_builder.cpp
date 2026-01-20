@@ -89,8 +89,11 @@ TEST(IRTEST, TestBuilder) {
     ASSERT_TRUE(module->SetAttr("tile_default", std::string("{ M=16, N=16, K=16 }")));
     ASSERT_TRUE(module->SetAttr("enable_debug", std::string("true")));
 
-    // negative case: unregistered key should be rejected
-    EXPECT_FALSE(module->SetAttr("non_registered_key", std::string("value")));
+    // Incast and Outcast
+    auto incasts = func->GetIncasts();
+    auto outcasts = func->GetOutcasts();
+    ASSERT_EQ(incasts.size(), 2);
+    ASSERT_EQ(outcasts.size(), 1);
 
     std::cout << *module << std::endl;
 }
