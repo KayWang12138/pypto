@@ -51,7 +51,7 @@ void ValidateGroup(const char* group)
         << groupLen;
 }
 
-void ValidateTilingSize(const VecTile &vecTile, const Tensor& in)
+void ValidateTilingSize(const VecTile &vecTile, const Tensor& in, int32_t worldSize)
 {
     int32_t expectedTileSize = in.GetShape().size();
     ASSERT(expectedTileSize == static_cast<int32_t>(vecTile.size())) <<
@@ -66,6 +66,13 @@ void ValidateTilingSize(const VecTile &vecTile, const Tensor& in)
         }
         return true;
     }()) << "Invalid vecTile set: tile size must be <= input shape for each dimension";
+    int32_t tileRowShape = vecTile[0];
+    int32_t tileColShape = vecTile[1];
+    int32_t tileRowNum = in.GetShape(0) / tileRowShape + (in.GetShape(0) % tileRowShape == 0 ? 0 : 1);
+    int32_t tileColNum = in.GetShape(1) / tileColShape + (in.GetShape(1) % tileColShape == 0 ? 0 : 1);
+    ASSERT(worldSize > 0) << "WorldSize is invalid, worldSize should be less than 0, but got " << worldSize;
+    ASSERT(tileRowNum * tileColNum <= MAX_TILE_NUM / worldSize) <<
+        "TotalTileNum is invalid, totalTileNum shoule be less than " << MAX_TILE_NUM / worldSize << ", but got " << tileRowNum * tileColNum;
 }
 
 void ValidateParams(const Tensor &predToken, const Tensor &in, const Tensor &out, Shape shmemDataShape, DataType shmemDataType,
@@ -308,7 +315,7 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
     const TileShape& tileShape = TileShape::Current();
     ValidateGroup(group);
-    ValidateTilingSize(tileShape.GetVecTile(), in);
+    ValidateTilingSize(tileShape.GetVecTile(), in, worldSize);
     ValidateParams(predToken, in, out, shmemData.GetShape(), in.GetDataType());
 
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
@@ -342,7 +349,7 @@ void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group,
     SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
     const TileShape& tileShape = TileShape::Current();
     ValidateGroup(group);
-    ValidateTilingSize(tileShape.GetVecTile(), in);
+    ValidateTilingSize(tileShape.GetVecTile(), in, worldSize);
     ValidateParams(predToken, in, out, shmemData.GetShape(), shmemData.GetDataType(),
         false, true, {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
    
@@ -367,7 +374,7 @@ void AllReduceValidate(const Tensor& predToken, const Tensor& in, const Tensor& 
     ValidateParams(predToken, in, out, shmemData.GetShape(), shmemData.GetDataType(), true, true,
         {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
     const TileShape& tileShape = TileShape::Current();
-    ValidateTilingSize(tileShape.GetVecTile(), in);
+    ValidateTilingSize(tileShape.GetVecTile(), in, shmemData.GetShape(0));
 }
 
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
