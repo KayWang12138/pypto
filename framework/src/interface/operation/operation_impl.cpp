@@ -1278,8 +1278,49 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
     return newShape;
 }
 
-Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape,
-    const std::vector<SymbolicScalar> &validShape, const bool inplace, const void *lr) {
+bool MatchRegisterCopyPattern(const std::vector<int64_t> &inputShape, const std::vector<int64_t> &outputShape) {
+    // [1,a,b] --> Reshape --> [a,b]
+    if (inputShape.size() == 3 && outputShape.size() == 2 && inputShape[0] == 1) {
+        return true;
+    }
+    // [a,b] --> Reshape --> [1,a,b]
+    if (inputShape.size() == 2 && outputShape.size() == 3 && outputShape[0] == 1) {
+        return true;
+    }
+    // [1,1,a,b] --> Reshape --> [a,b]
+    if (inputShape.size() == 4 && outputShape.size() == 2 && inputShape[0] == 1 && inputShape[1] == 1) {
+        return true;
+    }
+    // [a,b] --> Reshape --> [1,1,a,b]
+    if (inputShape.size() == 2 && outputShape.size() == 4 && outputShape[0] == 1 && outputShape[1] == 1) {
+        return true;
+    }
+    return false;
+}
+
+static bool ReshapeNeedCopy(const Tensor &operand) {
+    if (operand.GetShape() != operand.GetStorage()->tensor->rawshape) {
+        return true;
+    }
+    if (operand.GetStorage()->GetProducers().empty()) {
+        return false;
+    }
+
+    auto op = *operand.GetStorage()->GetProducers().begin();
+    while (op->GetOpcode() == Opcode::OP_VIEW) {
+        if (op->GetInputOperand(0)->GetShape() != op->GetOutputOperand(0)->GetShape()) {
+            return true;
+        }
+        if (op->GetInputOperand(0) != nullptr && !op->GetInputOperand(0)->GetProducers().empty()) {
+            op = *op->GetInputOperand(0)->GetProducers().begin();
+        } else {
+            break;
+        }
+    }
+    return false;
+}
+
+Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace, const void *lr) {
     DECLARE_TRACERX(lr);
     ASSERT(!inplace) << "The 'inplace' parameter muster be false !!!";
     if (operand.GetShape() == dstshape) {
@@ -1290,9 +1331,20 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape,
         validShapeDefault = SymbolicScalar::FromConcrete(dstshape);
     }
     auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
-    Tensor result(operand.GetStorage()->Datatype(), newShape, "", operand.Format());
-    CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShapeDefault);
-    return result;
+    if (ReshapeNeedCopy(operand) && MatchRegisterCopyPattern(operand.GetShape(), dstshape)) {
+        Tensor copyOperand(operand.GetStorage()->Datatype(), operand.GetShape(), "", operand.Format());
+        copyOperand.GetStorage()->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
+        CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
+            copyOperand.GetStorage());
+        Tensor result(copyOperand.GetStorage()->Datatype(), newShape, "", operand.Format());
+        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), copyOperand.GetStorage(),
+            result.GetStorage(), validShapeDefault);
+        return result;
+    } else {
+        Tensor result(operand.GetStorage()->Datatype(), newShape, "", operand.Format());
+        CALL(InnerReshape, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(), result.GetStorage(), validShapeDefault);
+        return result;
+    }
 }
 
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape,
