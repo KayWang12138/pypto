@@ -39,9 +39,7 @@
 #include "tilefwk/platform.h"
 #include "machine/platform/platform_manager.h"
 #include "machine/runtime/device_error_tracking.h"
-#include "nlohmann/json.hpp"
 
-using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
 
@@ -148,14 +146,14 @@ void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
     rtMemcpy(reinterpret_cast<void *>(devArgs_), sizeof(DeviceArgs), &args, sizeof(DeviceArgs),
         RT_MEMCPY_HOST_TO_DEVICE);
 
-    for (uint64_t i = 0; i < args.nrAic + args.nrAiv; i++) {
+    for (uint64_t i = 0; i < args.nrAic + args.nrAiv + args.nrAicpuDump; i++) {
         perfData_.push_back(DevAlloc(MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
     }
 }
 
 void DeviceRunner::ResetPerData() {
     auto size = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
-    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv + args_.nrAicpuDump; i++) {
         int rc = rtMemset(perfData_[i], size, 0, size);
         if (rc != 0) {
             ALOG_WARN_F("CoreId %lu, rtMemSet failed, rc: %d", i, rc);
@@ -172,7 +170,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     blockDim_ = dynamic::GetCfgBlockdim();
     args.nrValidAic = blockDim_;
     args.nrAicpu = aicpuNum_;
-    int nrCore = regs.size();
+    int nrCore = regs.size() + args.nrAicpuDump;
     args.sharedBuffer = reinterpret_cast<uint64_t>(DevAlloc(nrCore * SHARED_BUFFER_SIZE));
     args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
@@ -341,7 +339,7 @@ int DeviceRunner::LaunchAiCpu(
 }
 
 void DeviceRunner::AllocDfxMetricMemory() {
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + args_.nrAicpuDump; i++) {
         KernelArgs kernelArgs;
         memset_s(&kernelArgs, sizeof(kernelArgs), 0, sizeof(kernelArgs));
         kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] =
@@ -374,7 +372,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
     AllocDfxMetricMemory();
 #else
-    int size = (args_.nrAic + args_.nrAiv) * SHARED_BUFFER_SIZE;
+    int size = (args_.nrAic + args_.nrAiv + args_.nrAicpuDump) * SHARED_BUFFER_SIZE;
     rtMemset(reinterpret_cast<void *>(args_.sharedBuffer), size, 0, size);
 #endif
 
@@ -428,39 +426,47 @@ void DeviceRunner::Dump() {
 }
 
 /**************************** DynamicFunction *****************************/
+void DeviceRunner::DumpData(uint32_t index, const std::string& coreType, json& root_taskStats) {
+    void* devPtr = perfData_[index];
+    size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
+    std::vector<uint8_t> hostBuffer(dataSize);
+    rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
+    Metrics *metric = reinterpret_cast<Metrics*>(hostBuffer.data());
+    if (metric->taskCount > MAX_DFX_TASK_NUM_PER_CORE) {metric->taskCount = MAX_DFX_TASK_NUM_PER_CORE;} // Limit to the maximum value 
+    TaskStat* taskStats = metric->tasks;
+    size_t numTasks = metric->taskCount;
+    json coreObj;
+    coreObj["blockIdx"] = index;
+    coreObj["coreType"] = coreType;
+    json tasksArr = json::array();
+    for (size_t j = 0; j < numTasks; ++j) {
+        if (taskStats[j].execEnd != 0) {
+            json taskObj;
+            taskObj["seqNo"] = taskStats[j].seqNo;
+            taskObj["subGraphId"] = taskStats[j].subGraphId;
+            taskObj["taskId"] = taskStats[j].taskId;
+            taskObj["execStart"] = taskStats[j].execStart;
+            taskObj["execEnd"] = taskStats[j].execEnd;
+            tasksArr.push_back(taskObj);
+        }
+    }
+    coreObj["tasks"] = tasksArr;
+    if (!tasksArr.empty()) {
+        root_taskStats.push_back(coreObj);
+    }
+}
+
 void DeviceRunner::DumpAiCoreExecutionTimeData() {
     json root_taskStats = json::array();
     uint32_t block_num_ = args_.GetBlockNum();
-    ALOG_INFO_F("GetBlockNum : %d",  block_num_);
+    ALOG_INFO("GetBlockNum : %d",  block_num_);
     for (uint32_t i = 0; i < block_num_; i++) {
-        void* devPtr = perfData_[i];
-        size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
-        std::vector<uint8_t> hostBuffer(dataSize);
-        rtMemcpy(hostBuffer.data(), dataSize, devPtr, dataSize, RT_MEMCPY_DEVICE_TO_HOST);
-        Metrics *metric = reinterpret_cast<Metrics*>(hostBuffer.data());
-        if (metric->taskCount > MAX_DFX_TASK_NUM_PER_CORE) {metric->taskCount = MAX_DFX_TASK_NUM_PER_CORE;} // Limit to the maximum value 
-        TaskStat* taskStats = metric->tasks;
-        size_t numTasks = metric->taskCount;
         std::string coreType = (i < args_.nrValidAic) ? "AIC" : "AIV";
-        json coreObj;
-        coreObj["blockIdx"] = i;
-        coreObj["coreType"] = coreType;
-        json tasksArr = json::array();
-        for (size_t j = 0; j < numTasks; ++j) {
-            if (taskStats[j].execEnd != 0) {
-                json taskObj;
-                taskObj["seqNo"] = taskStats[j].seqNo;
-                taskObj["subGraphId"] = taskStats[j].subGraphId;
-                taskObj["taskId"] = taskStats[j].taskId;
-                taskObj["execStart"] = taskStats[j].execStart;
-                taskObj["execEnd"] = taskStats[j].execEnd;
-                tasksArr.push_back(taskObj);
-            }
-        }
-        coreObj["tasks"] = tasksArr;
-        if (!tasksArr.empty()) {
-            root_taskStats.push_back(coreObj);
-        }
+        DumpData(i, coreType, root_taskStats);
+    }
+    
+    for (uint32_t i = AICPU_BLOCK_INDEX; i < AICPU_BLOCK_INDEX + args_.nrAicpuDump; i++) {
+        DumpData(i, "AI-CPU", root_taskStats);
     }
     std::string jsonFilePath = config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
     std::ofstream jsonFile(jsonFilePath);
@@ -587,7 +593,7 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArg
 }
 
 int DeviceRunner::RunPrepare() {
-   for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+   for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + args_.nrAicpuDump; i++) {
         rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
             sizeof(uint64_t),
             reinterpret_cast<uint8_t *>(&perfData_[i]),

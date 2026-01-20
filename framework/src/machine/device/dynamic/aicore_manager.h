@@ -235,7 +235,8 @@ public:
         }
 
         if (IsNeedProcAicpuTask()) {
-            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
+            const bool profSwitch = aicoreProf_.ProfIsEnable();
+            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), sharedBuffer_, profSwitch);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -375,6 +376,10 @@ public:
     }
 
     int32_t ProcessCompletedAicpuTask(uint64_t taskId) {
+        if (aicoreProf_.ProfIsEnable()) {
+            aicpuTaskManager_.FillTaskEndTimes(taskId);
+        }
+        
         int32_t ret = ResolveDepDyn(taskId);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
@@ -1323,6 +1328,7 @@ private:
         pendingResolveIndexList_.fill(0);
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
         isSendStop = false;
+        sharedBuffer_ = deviceArgs->sharedBuffer;
 
         wrapManager_.InitArchInfo(deviceArgs->archInfo);
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
@@ -1651,6 +1657,7 @@ private:
     int aicEnd_{0};
     int aivStart_{0};
     int aivEnd_{0};
+    uint64_t sharedBuffer_{0};
     uint64_t procAicCoreFunctionCnt_{0};
     uint64_t procAivCoreFunctionCnt_{0};
     uint64_t procAicpuFunctionCnt_{0};
