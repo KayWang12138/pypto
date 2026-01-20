@@ -536,6 +536,7 @@ class JitCallableWrapper:
         in_tensor_data: list[pypto_impl.DeviceTensorData],
         out_tensor_data: list[pypto_impl.DeviceTensorData],
         device: torch.device,
+        ctrl_cache: int = 0
     ) -> None:
         """Execute the compiled kernel on device with workspace allocation.
 
@@ -553,7 +554,8 @@ class JitCallableWrapper:
             Output tensor metadata for the backend.
         device : torch.device
             The device to execute on (must be NPU for this method).
-
+        ctrl_cache : int
+            Device control flow cache.
         Raises
         ------
         RuntimeError
@@ -570,6 +572,7 @@ class JitCallableWrapper:
             [],  # Mark all output tensors as inplace inputs
             torch.npu.current_stream().npu_stream,
             workspace_tensor.data_ptr(),
+            ctrl_cache
         )
         if runtime_error_msg != "":
             raise RuntimeError(runtime_error_msg)
