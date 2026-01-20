@@ -155,7 +155,6 @@ inline void findAllReachableNodes(
     std::vector<std::unordered_set<int>>& reachable,
     std::vector<int>& visited
 ) {
-    // 1. 首先检查 startNode 是否合法（在范围内）
     if (startNode >= outGraph.size()) {
         return;
     }
@@ -164,35 +163,27 @@ inline void findAllReachableNodes(
         return;
     }
 
-    // 2. 检查是否已访问
     if (visited[startNode] == 1) {
         return;
     }
 
-    // 3. 开始处理
     reachable[startNode].insert(startNode);
     visited[startNode] = 1;
 
-    // 4. 遍历所有出边
     for (int v : outGraph[startNode]) {
-        // 这里 v 是 int，可能为负数
         if (v < 0) {
-            continue;  // 跳过非法节点
+            continue;
         }
-
         size_t nodeIdx = static_cast<size_t>(v);
 
-        // 检查 nodeIdx 是否超出范围
         if (nodeIdx >= reachable.size() || nodeIdx >= visited.size()) {
             continue;
         }
 
-        // 递归访问
         if (visited[nodeIdx] == 0) {
             findAllReachableNodes(nodeIdx, outGraph, reachable, visited);
         }
 
-        // 合并可达集合
         reachable[startNode].insert(reachable[nodeIdx].begin(), reachable[nodeIdx].end());
     }
 }
