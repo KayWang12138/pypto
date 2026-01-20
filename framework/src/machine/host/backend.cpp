@@ -451,6 +451,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         for (auto &callee : GetCalleeList(cache, func)) {
             BuildControlFlow(cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss, indent + 1, expName);
         }
+	    controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_CACHESTOP); // Notify cache stop \n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_FINISH); // Notify finish \n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "return 0;\n";
         controlFlowOss << "}\n";
@@ -702,8 +703,18 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
     for (auto &[hash, leaf] : irLeafDict) {
         encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
         attr->devLeafIndex2Hash[leafIndex] = hash;
-        attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(CoreType::HUB); // TODO 补充leafFunctionAttribute
-        attr->cceCodeInfo[leafIndex].psgId = leaf->GetID();
+        auto blockLeaf = std::dynamic_pointer_cast<pto::BlockFunction>(leaf);
+        if (blockLeaf == nullptr) {
+            ALOG_ERROR_F("block leaf is nullptr, func name %s", leaf->GetName().c_str());
+            continue;
+        }
+        auto leafAttr = blockLeaf->GetLeafFuncAttribute();
+        if (leafAttr == nullptr) {
+            ALOG_ERROR_F("LeafFuncAttribute is nullptr, func name %s", leaf->GetName().c_str());
+            continue;
+        }
+        attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(leafAttr->coreType);
+        attr->cceCodeInfo[leafIndex].psgId = blockLeaf->GetID();
         attr->cceCodeInfo[leafIndex].funcHash = hash;
         leafIndex++;
     }
