@@ -50,12 +50,23 @@ public:
     }
 
     // 仅AICPU_0会调用
-     inline int32_t Init(DynDeviceTask *deviceTask) {
+     inline int32_t Init(DynDeviceTask *deviceTask, uint64_t sharedBuffer, const bool profSwitch) {
         curDevTask_ = deviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&deviceTask->GetDynFuncDataList()->At(0));
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(deviceTask->devTask.readyAicpuFunctionQue);
         shmemWaitUntil_.Init(deviceTask);
-        return PrepareAicpuTask();
+        uint32_t taskCount = 0;
+        profSwitch_ = profSwitch;
+        auto ret = PrepareAicpuTask(taskCount);
+        if (ret != DEVICE_MACHINE_OK) {
+            return ret;
+        }
+        if (profSwitch_) {
+            KernelArgs *args = (KernelArgs *)(sharedBuffer + AICPU_BLOCK_INDEX * SHARED_BUFFER_SIZE);
+            aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+            aicpuTaskStat_->taskCount = taskCount;
+        }
+        return DEVICE_MACHINE_OK;
     }
 
     // 仅AICPU_0会调用
@@ -68,7 +79,6 @@ public:
         taskCount = readyQueue_->tail - readyQueue_->head;
         readyQueue_->head += taskCount;
         ReadyQueueUnLock();
-
         for (uint32_t i = 0; i < taskCount; ++i) {
             auto ret = TaskDispatch(readyQueue_->elem[taskIdx + i]);
             if (ret != DEVICE_MACHINE_OK) {
@@ -101,6 +111,15 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
+    inline void FillTaskEndTimes(uint64_t taskId) {
+        for (auto i = 0; i < aicpuTaskStat_->taskCount; ++i) {
+            if (aicpuTaskStat_->tasks[i].taskId != static_cast<int32_t>(taskId)) {
+                continue;
+            }
+            aicpuTaskStat_->tasks[i].execEnd = GetCycles();
+        }
+    }
+
 private:
     inline void ReadyQueueLock() {
         while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 0, 1))
@@ -128,24 +147,31 @@ private:
     inline int32_t TaskDispatch(uint64_t taskId) {
         int32_t ret = DEVICE_MACHINE_OK;
         auto taskType = GetTaskType(taskId);
+        if (profSwitch_) {
+            aicpuTaskStat_->tasks[index_].taskId = static_cast<int32_t>(taskId);
+            aicpuTaskStat_->tasks[index_++].execStart = GetCycles();
+        }
         if (taskType < TaskType::TASK_TYPE_NUM) {
             ret = shmemWaitUntil_.EnqueueOp(taskId);
         }
         return ret;
     }
 
-    inline int32_t PrepareAicpuTask() {
+    inline int32_t PrepareAicpuTask(uint32_t& taskCount) {
         for (uint64_t funcId = 0; funcId < curDevTask_->dynFuncDataCacheListSize; ++funcId) {
             auto callList = curDevTask_->dynFuncDataCacheList[funcId].calleeList;
             for (size_t opIndex = 0; opIndex < curDevTask_->dynFuncDataCacheList[funcId].devFunc->GetOperationSize(); ++opIndex) {
                 auto coreType = curDevTask_->cceBinary[callList[opIndex]].coreType;
-                if (unlikely(coreType != static_cast<int>(MachineType::AICPU))) continue;
+                if (unlikely(coreType != static_cast<int>(MachineType::AICPU))) {
+                    continue;
+                }
                 uint32_t taskId = MakeTaskID(funcId, opIndex);
                 auto &code = curDevTask_->aicpuLeafBinary[callList[opIndex]].aicpuLeafCode;
                 auto ret = shmemWaitUntil_.PrepareTask(taskId, code);
                 if (ret != DEVICE_MACHINE_OK) {
                     return ret;
                 }
+                ++taskCount;
             }
         }
         return DEVICE_MACHINE_OK;
@@ -156,5 +182,8 @@ private:
     npu::tile_fwk::Distributed::ShmemWaitUntil shmemWaitUntil_;
     DynDeviceTask *curDevTask_;
     DynFuncData *funcDataList_;
+    uint32_t index_{0};
+    bool profSwitch_{false};
+    Metrics* aicpuTaskStat_;
 };
 } // namespace npu::tile_fwk
