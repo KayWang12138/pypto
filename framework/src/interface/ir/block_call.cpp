@@ -17,6 +17,140 @@
 
 namespace pto {
 using namespace npu::tile_fwk;
+
+static void NormalizeCoaForScalar(const std::vector<SymbolicScalar>& scalarArgs,
+                                  std::vector<vector<SymbolicScalar>> &coaArgsList, int &coaIndex) {
+    std::vector<SymbolicScalar> coaArgs;
+    for (auto &value: scalarArgs) {
+        coaArgs.push_back(value * 1);
+    }
+
+    coaArgsList.push_back(coaArgs);
+    coaIndex += (int)coaArgs.size();
+}
+
+static void NormalizeCoaForTensor(LogicalTensorPtr tensor,
+                                  std::vector<vector<SymbolicScalar>> &coaArgsList, int &coaIndex) {
+    auto rawshape = OpImmediate::Specified(tensor->GetRawTensor()->GetRawShape());
+    int dim = shape.size();
+    int curIndex = COA_INDEX_DIM_BASE;
+    coaIndex += COA_INDEX_DIM_BASE;
+    std::vector<SymbolicScalar> coaArgs(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
+
+    // offset
+    curIndex += dim;
+    coaIndex += dim;
+
+    // shape
+    OP_BLOCK_CALL::NormalizeValue(coaArgs, curIndex, rawshape, coaIndex, false);
+    curIndex += dim;
+    coaIndex += dim;
+
+    // raw shape
+    OP_BLOCK_CALL::NormalizeValue(coaArgs, curIndex, rawshape, coaIndex, false);
+    curIndex += dim;
+    coaIndex += dim;
+
+    // valid shape
+    curIndex += dim;
+    coaIndex += dim;
+
+    coaArgsList.push_back(coaArgs);
+}
+
+static void NormalizeCoaForBlockFunc(std::vector<LogicalTensorPtr> &inCasts, std::vector<LogicalTensorPtr> &outCasts,
+                                     const std::vector<SymbolicScalar>& scalarArgs,
+                                     std::vector<vector<SymbolicScalar>> &coaArgsList,
+                                     std::vector<int> &iOffset, std::vector<int> &oOffset) {
+    int coaIndex = COA_INDEX_BASE;
+    std::unordered_map<LogicalTensorPtr, int> processedOperands;
+
+    NormalizeCoaForScalar(scalarArgs, coaArgsList, coaIndex);
+
+    for (auto &tensor: inCasts) {
+        if (processedOperands.find(tensor) != processedOperands.end()) {
+            iOffset.push_back(processedOperands[tensor]);
+        } else {
+            iOffset.push_back(coaIndex);
+            processedOperands[tensor] = coaIndex;
+            NormalizeCoaForTensor(tensor, coaArgsList, coaIndex);
+        }
+    }
+
+    for (auto &tensor: outCasts) {
+        if (processedOperands.find(tensor) != processedOperands.end()) {
+            oOffset.push_back(processedOperands[tensor]);
+        } else {
+            oOffset.push_back(coaIndex);
+            processedOperands[tensor] = coaIndex;
+            NormalizeCoaForTensor(tensor, coaArgsList, coaIndex);
+        }
+    }
+}
+
+static bool IsGetTensorArgsOp(OperationPtr op) {
+    const auto &attrList = op->GetAttributeList();
+
+    if (op->GetOpcode() == Opcode::OP_SCALAR_CALL_1) {
+        auto &value = attrList[0].GetValue();
+        if (std::get<std::string>(value) == "GET_TENSOR_ADDR") {
+            return true;
+        }
+    }
+
+    if (op->GetOpcode() == Opcode::OP_SCALAR_CALL_3) {
+        auto &value = attrList[0].GetValue();
+        if (std::get<std::string>(value) == "GET_TENSOR_RAWSHAPE_BY_IDX") {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool IsGetScalarArgsOp(OperationPtr op) {
+    const auto &attrList = op->GetAttributeList();
+
+    if (op->GetOpcode() == Opcode::OP_SCALAR_CALL_1) {
+        auto &value = attrList[0].GetValue();
+        if (std::get<std::string>(value) == "GET_COA") {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void UpdateIrOpAttrOffset(std::shared_ptr<Function> func, std::vector<int> &iOffset, std::vector<int> &oOffset) {
+    size_t iOperandSize = iOffset.size();
+
+    for (auto statement: func->GetCompound()->GetStatements()) {
+        if (statement->GetKind() != StatementKind::Op) {
+            continue;
+        }
+
+        auto opStatement = std::dynamic_pointer_cast<OpStatement>(statement);
+        for (auto op: opStatement->Operations()) {
+            if (IsGetTensorArgsOp(op)) {
+                auto value = std::dynamic_pointer_cast<ScalarValuePtr>(op->GetInOperand(0));
+                auto tensorIndex = static_cast<size_t>(value->GetInt64Value());
+
+                if (tensorIndex < iOperandSize) {
+                    op->SetIOpAttrOffset(0, iOffset[tensorIndex]);
+                } else {
+                    tensorIndex -= iOperandSize;
+                    op->SetIOpAttrOffset(0, oOffset[tensorIndex]);
+                }
+            } else if (IsGetScalarArgsOp(op)) {
+                auto value = std::dynamic_pointer_cast<ScalarValuePtr>(op->GetInOperand(0));
+                auto scalarIndex = value->GetInt64Value();
+
+                op->SetIOpAttrOffset(0, scalarIndex + COA_INDEX_DIM_BASE);
+            }
+        }
+    }
+}
+
 std::vector<Tensor> CallBlock(const pto::FunctionPtr &blockFuncPtr,
     const std::vector<std::reference_wrapper<const Tensor>> &inputTensorArgs,
     const std::vector<std::reference_wrapper<const Tensor>> &outputTensorArgs,
@@ -71,10 +205,16 @@ std::vector<Tensor> CallBlock(const pto::FunctionPtr &blockFuncPtr,
     // IR block function hash
     // 3 Create Call op attribute
     std::vector<std::vector<SymbolicScalar>> argList;
-    argList.emplace_back(indices);
+    std::vector<int> iOffset;
+    std::vector<int> oOffset;
+
+    NormalizeCoaForBlockFunc(inputLogicTensors, outputLogicTensors, indices, argList, iOffset, oOffset);
+    UpdateIrOpAttrOffset(blockFuncPtr, iOffset, oOffset);
+
     auto opAttribute = std::make_shared<CallOpAttribute>(hash, argList,
         function->programModule_->GetFunctions().back()->GetName());
     callOp.SetOpAttribute(opAttribute);
+    callOp.SetOpOffset(iOffset, oOffset);
     return result;
 }
 

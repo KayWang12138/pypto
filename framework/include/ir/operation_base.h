@@ -103,6 +103,26 @@ public:
     ScalarValuePtr GetOutputScalarOperand(size_t idx) const { return std::static_pointer_cast<ScalarValue>(GetOutputOperand(oScalarIndex_ + idx)); }
     void SetOutputScalarOperand(size_t idx, ScalarValuePtr ptr) { SetOutputOperand(oScalarIndex_ + idx, ptr); }
 
+    int GetIOpAttrOffset(int pos) const {
+        return iOpAttrOffset.empty() ? -1 : iOpAttrOffset[pos];
+    }
+
+    int GetOOpAttrOffset(int pos) const {
+        return oOpAttrOffset.empty() ? -1 : oOpAttrOffset[pos];
+    }
+
+    void SetIOpAttrOffset(int pos, int offset) {
+        if (iOpAttrOffset.empty())
+            iOpAttrOffset.resize(iOperand.size(), -1);
+        iOpAttrOffset[pos] = offset;
+    }
+
+    void SetOOpAttrOffset(int pos, int offset) {
+        if (oOpAttrOffset.empty())
+            oOpAttrOffset.resize(oOperand.size(), -1);
+        oOpAttrOffset[pos] = offset;
+    }
+
     // Pretty-print with the given indentation (in spaces).
     void Print(std::ostream& os, int indent = 0) const;
 
@@ -114,6 +134,8 @@ protected:
     Opcode opcode_;
     ssize_t iScalarIndex_{-1};
     ssize_t oScalarIndex_{-1};
+    std::vector<int> iOpAttrOffset;
+    std::vector<int> oOpAttrOffset;
 };
 
 using OperationPtr = std::shared_ptr<Operation>;
