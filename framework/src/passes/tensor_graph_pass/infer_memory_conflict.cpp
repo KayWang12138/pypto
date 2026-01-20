@@ -155,7 +155,7 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     auto input = op.GetIOperands().front();
     VecTile tileSize = op.GetTileShape().GetVecTile();
     if (input->GetShape().size() != tileSize.size()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s",
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] has unequal input shape dims size and tile shape dims, input shape: %s, tile size: %s. %s", 
                             op.GetOpcodeStr().c_str(), op.GetOpMagic(),
                             input->DumpType().c_str(), op.GetTileShape().ToString(TileType::VEC).c_str(), GetFormatBacktrace(op).c_str());
         return false;
@@ -165,8 +165,38 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     return true;
 }
 
+bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOut) {
+    auto inputShape = reshapeInput->GetShape();
+    auto outputShape = reshapeOut->GetShape();
+    // [1,a,b] --> Reshape --> [a,b]
+    if (inputShape.size() == 3 && outputShape.size() == 2 && inputShape[0] == 1) {
+        return true;
+    }
+    // [a,b] --> Reshape --> [1,a,b]
+    if (inputShape.size() == 2 && outputShape.size() == 3 && outputShape[0] == 1) {
+        return true;
+    }
+    // [1,1,a,b] --> Reshape --> [a,b]
+    if (inputShape.size() == 4 && outputShape.size() == 2 && inputShape[0] == 1 && inputShape[1] == 1) {
+        return true;
+    }
+    // [a,b] --> Reshape --> [1,1,a,b]
+    if (inputShape.size() == 2 && outputShape.size() == 4 && outputShape[0] == 1 && outputShape[1] == 1) {
+        return true;
+    }
+    return false;
+}
+
 Status InferMemoryConflict::UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors) {
     for (const auto &outputTensor : consumer->GetOOperands()) {
+        if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
+            auto reshapeInput = consumer->GetIOperands().front();
+            bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
+            if (MatchReshapePattern(reshapeInput, outputTensor) && !isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
+                preregcopys.insert(consumer);
+                continue;
+            }
+        }
         if (memoryInfo.find(outputTensor) != memoryInfo.end() && function.IsFromOutCast(memoryInfo[outputTensor])) {
             if (CheckConflict(memoryInfo[curTensor], memoryInfo[outputTensor])) {
                 preregcopys.insert(consumer);
@@ -190,9 +220,21 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         if (producer->GetOpcode() == Opcode::OP_INDEX_OUTCAST && producer->GetIOperandIndex(inputTensor) != index) {
             continue;
         }
+        auto reshapeOutput = producer->GetOOperands().front();
+        if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
+            bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
+            if (MatchReshapePattern(inputTensor, reshapeOutput) && !isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
+                postregcopys.insert(producer);
+                continue;
+            }
+        }
         if (memoryInfo.find(inputTensor) != memoryInfo.end()) {
             if (CheckConflict(memoryInfo[curTensor], memoryInfo[inputTensor])) {
-                preregcopys.insert(producer);
+                if (producer->GetOpcode() == Opcode::OP_RESHAPE && MatchReshapePattern(inputTensor, reshapeOutput)) {
+                    postregcopys.insert(producer);
+                } else {
+                    preregcopys.insert(producer);
+                }
             }
         } else {
             memoryInfo[inputTensor] = memoryInfo[curTensor];
@@ -332,6 +374,7 @@ Status InferMemoryConflict::ObtainReshapeTile(Operation &op, Shape &inTileShape,
     return SUCCESS;
 }
 
+// 在OP_RESHAPE前面插入OP_REGISTER_COPY
 Status InferMemoryConflict::InsertPrecededCopys(Function &function) {
     for (const auto op : preregcopys) {
         LogicalTensorPtr inputTensor = op->GetIOperands().front();
