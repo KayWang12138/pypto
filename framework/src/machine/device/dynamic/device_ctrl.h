@@ -156,7 +156,10 @@ class DeviceCtrlMachine {
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
         schAicpuNum_ = devProg->devArgs.scheCpuNum;
-        InitTaskPipeWithSched(devProg);
+        auto devArgs = PtrToPtr(int64_t, DeviceArgs)(kargs->cfgdata);
+        if (likely(devArgs->isNeedLaunchInit)) {
+            InitTaskPipeWithSched(devProg);
+        }
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {

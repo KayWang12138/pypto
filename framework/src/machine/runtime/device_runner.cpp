@@ -167,6 +167,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     uint32_t totalCoreCount = regs.size();
     uint32_t aicCount = totalCoreCount / SUB_CORE;
     uint32_t aivCount = aicCount * AIV_PER_AICORE;
+    args.isNeedLaunchInit = true;
     args.nrAic = aicCount;
     args.nrAiv = aivCount;
     blockDim_ = dynamic::GetCfgBlockdim();
@@ -647,16 +648,19 @@ int DeviceRunner::RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream) {
 }
 
 int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim) {
-    uint64_t startTime = MsprofSysCycleTime();
-    int rc = launchDynamicAiCpuInit(aicpuStream, kernelArgs);
-    if (rc < 0) {
-        ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
-        return rc;
-    }
-    ReportHostProfInfo(startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU);
+    uint64_t startTime = 0;
+    if (args_.isNeedLaunchInit) {
+        startTime = MsprofSysCycleTime();
+        int rc = launchDynamicAiCpuInit(aicpuStream, kernelArgs);
+        if (rc < 0) {
+            ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
+            return rc;
+        }
+        ReportHostProfInfo(startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU);
+    } 
 
     startTime = MsprofSysCycleTime();
-    rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
+    auto rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
     if (rc < 0) {
         ALOG_ERROR_F("launch aicpu failed %d\n", rc);
         return rc;
@@ -725,6 +729,8 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     InitializeErrorCallback();
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
+    } else {
+        args_.isNeedLaunchInit = false;
     }
     g_IsFirstInit = true;
     #ifdef BUILD_WITH_NEW_CANN
