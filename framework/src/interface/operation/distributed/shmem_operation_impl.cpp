@@ -308,6 +308,7 @@ Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal)
     return out;
 }
 
+<<<<<<< HEAD
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out)
 {
     ASSERT(worldSize > 0) << "worldSize should be more than 0.";
@@ -338,6 +339,22 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
     ValidateTilingSize(tileShape.GetVecTile(), in);
     ValidateParams(predToken, in, out, shmemData.GetShape(), in.GetDataType());
 
+=======
+void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData, Tensor& shmemSignal,
+    Tensor& out)
+{
+    uint32_t worldSize = shmemData.GetShape()[0];
+    ASSERT(worldSize > 0) << "worldSize should be more than 0.";
+    int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
+    const TileShape& tileShape = TileShape::Current();
+    ValidateGroup(group);
+    ValidateTilingSize(tileShape.GetVecTile(), in);
+    ValidateParams(predToken, in, out, shmemData.GetShape(), in.GetDataType());
+
+>>>>>>> 7b2a07ca (feat(distributed): Remove allgather case LOOP)
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
         auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{dynRankId, thisRank, 0, 0});
         auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col}, 
@@ -353,13 +370,24 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
     }
 }
 
+<<<<<<< HEAD
 void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize,
     DistReduceType reduceType, Tensor& out)
 {
     ASSERT(worldSize > 0) << "worldSize should be more than 0.";
+=======
+void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData, Tensor& shmemSignal,
+    DistReduceType reduceType, Tensor& out)
+{
+    (void)reduceType;
+    int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
+>>>>>>> 7b2a07ca (feat(distributed): Remove allgather case LOOP)
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
+    uint32_t worldSize = shmemData.GetShape()[0];
+    ASSERT(worldSize > 0) << "worldSize should be more than 0.";
     ASSERT((row % worldSize) == 0);
+<<<<<<< HEAD
     int32_t rowOut = row / static_cast<int32_t>(worldSize);
     Shape shmemDataShape{1, static_cast<int64_t>(rowOut), static_cast<int64_t>(col)};
     DataType shmemDataType = in.GetDataType();
@@ -386,6 +414,8 @@ void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group,
     uint32_t worldSize = shmemData.GetShape()[0];
     ASSERT(worldSize > 0) << "worldSize should be more than 0.";
     ASSERT((row % worldSize) == 0);
+=======
+>>>>>>> 7b2a07ca (feat(distributed): Remove allgather case LOOP)
     const int32_t rowOut = row / worldSize;
     Shape outShape = {rowOut, col};
     ASSERT(out.GetShape() == outShape) << "This shape of out is invalid";
@@ -427,6 +457,7 @@ void AllReduceValidate(const Tensor& predToken, const Tensor& in, const Tensor& 
     ValidateTilingSize(tileShape.GetVecTile(), in);
 }
 
+<<<<<<< HEAD
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out)
 {
     ASSERT(worldSize > 0) << "worldSize should be more than 0.";
@@ -447,6 +478,8 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
     OneShotAllReduce(predToken, in, group, shmemData, shmemSignal, out);
 }
 
+=======
+>>>>>>> 7b2a07ca (feat(distributed): Remove allgather case LOOP)
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out)
 {
@@ -477,6 +510,7 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
     out = ShmemGet(dummyLocal, shmemDataTile, in.GetDataType());
 }
 
+<<<<<<< HEAD
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out)
 {
     ASSERT(worldSize > 0) << "AllReduce worldSize should be more than 0.";
@@ -504,6 +538,13 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
 {
     int32_t row = in.GetShape(0);
     int32_t col = in.GetShape(1);
+=======
+void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
+    Tensor& shmemSignal, Tensor& out)
+{
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+>>>>>>> 7b2a07ca (feat(distributed): Remove allgather case LOOP)
     uint32_t worldSize = shmemData.GetShape()[0];
     ASSERT(worldSize > 0) << "AllReduce worldSize should be more than 0.";
     int32_t rowPerRank = row / worldSize;
