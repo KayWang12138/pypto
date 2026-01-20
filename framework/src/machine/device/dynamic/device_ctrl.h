@@ -114,15 +114,13 @@ class DeviceCtrlMachine {
         inspector_ = inspector;
     }
 
-    void InitTaskPipeWithSched(DevAscendProgram *devProg) {
-        taskctrl_ = reinterpret_cast<DeviceTaskCtrl *>(devProg->devArgs.taskCtrl);
-        taskQueue_ = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *>(devProg->devArgs.taskQueue);
+    void InitTaskPipeWithSched() {
         for (uint32_t i = 0; i < MAX_DEVICE_TASK_NUM; i++) {
             taskctrl_[i].retCode = 0;
             taskctrl_[i].runFlag = 0;
         }
 
-        for (uint32_t i = 0; i < devProg->devArgs.scheCpuNum; ++i) {
+        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
             taskQueue_[i].ResetEmpty();
         }
     }
@@ -156,7 +154,9 @@ class DeviceCtrlMachine {
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
         schAicpuNum_ = devProg->devArgs.scheCpuNum;
-        InitTaskPipeWithSched(devProg);
+        taskctrl_ = reinterpret_cast<DeviceTaskCtrl *>(devProg->devArgs.taskCtrl);
+        taskQueue_ = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *>(devProg->devArgs.taskQueue);
+        InitTaskPipeWithSched();
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
@@ -173,23 +173,14 @@ class DeviceCtrlMachine {
         devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
 
         PerfEnd(PERF_EVT_INIT);
-        DevTensorData *inputPtr = nullptr;
-        uint64_t inputSize = 0;
-        uint64_t outputSize = 0;
-        if (devProg->devArgs.isGETensorList == 1) {
-            inputPtr = PtrToPtr<DevStartArgs, DevTensorData>(devArgs + 1);
-            inputSize = DevAscendTensorDataCreator::Decode(kargs->inputs, devProg, 0, inputPtr);
-            auto outputPtr = inputPtr + inputSize;
-            outputSize = DevAscendTensorDataCreator::Decode(kargs->outputs, devProg, inputSize, outputPtr);
-        } else {
-            inputSize = *kargs->inputs;
-            outputSize = *(kargs->inputs + 1);
-            inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
-            DEV_INFO("Input/output size [%lu][%lu] tensor list ptr[%p].", inputSize, outputSize, inputPtr);
-        }
+        uint64_t inputSize = *kargs->inputs;
+        uint64_t outputSize = *(kargs->inputs + 1);
+        auto inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
+        DEV_INFO("Input/output size [%lu][%lu] tensor list ptr[%p].", inputSize, outputSize, inputPtr);
         devArgs->devTensorList = inputPtr;
         devArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
+
         devArgs->contextWorkspaceAddr = PtrToValue(kargs->workspace);
         devArgs->contextWorkspaceSize = devProg->workspaceSize;
         devArgs->devProg = devProg;
@@ -197,23 +188,22 @@ class DeviceCtrlMachine {
         devArgs->inputSymbolList = nullptr;
         devArgs->inputSymbolSize = 0;
         devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
-
         InitCtrlFlowCache(devProg, firstInit);
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }
 
     int ExecDyn(npu::tile_fwk::DeviceKernelArgs *args) {
-        int ret = 0;
         DEV_INFO("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs *)devProg->devArgs.startArgsAddr;
+
         DeviceExecuteContext ctx(devStartArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
-        ret = ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
+        int ret = ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
             if (unlikely(inspectorEntry_ != nullptr)) {
                 inspectorEntry_(inspector_, exeCtx, dynTask);
             }
