@@ -586,7 +586,7 @@ void CheckCat(const std::vector<Tensor> &tensors, int axis) {
     ASSERT(
         std::find(CAT_SUPPORT_DATATYPES.begin(), CAT_SUPPORT_DATATYPES.end(), dataType) != CAT_SUPPORT_DATATYPES.end()) << "The datatype is not within the supported range";
 
-    CheckAxisRange(tensor[0], axis);
+    CheckAxisRange(tensors[0], axis);
     for (auto tensor : tensors) {
         ASSERT(tensor.GetShape().size() == shapeSize) << "The shape size of all tensors should be equal";
         ASSERT(tensor.Format() == format) << "The format of all tensors should be equal";
