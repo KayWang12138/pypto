@@ -67,7 +67,7 @@ TILEOP void ProcessWhere(uint64_t dst, uint64_t vcmpBitResult, uint64_t src0, ui
     pto::TSEL(dstTile, vcmpBitResultTile, src0Tile, src1Tile);
 }
 
-#define OP_TILE_OP_WHERE_TT TWhereTT
+#define OP_TILE_OP_WHERETT TWhereTT
 template <typename TDst, typename TTmp, typename TCond, typename TSrc0, typename TSrc1>
 TILEOP void TWhereTT(TDst dst, TTmp tmpbuf, TCond condition, TSrc0 src0, TSrc1 src1) {
     using ShapeValueType = typename Std::tuple_element<0, typename TDst::Shape>::type;

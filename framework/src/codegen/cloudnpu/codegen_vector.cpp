@@ -1416,7 +1416,7 @@ std::string CodeGenOpCloudNPU::PrintWhereOpTileTensor(const WhereParam &param) c
     oss << tileOpName << "(" << dstTensor << ", " << tempTensor << ", " << condTensor << ", ";
     if (opCode == Opcode::OP_WHERE_TT) {
         std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::src0Idx));
-        std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::src0Idx));
+        std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(WhereOpIdx::src1Idx));
         oss << src0Tensor << ", " << src1Tensor << ");\n";
     }
     if (opCode == Opcode::OP_WHERE_TS) {
