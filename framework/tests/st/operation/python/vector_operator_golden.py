@@ -851,7 +851,10 @@ def gen_add_op_golden(case_name: str, output: Path, case_index: int = None) -> b
 def gen_add_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
     def golden_func(inputs: list, _config: dict):
-        return [np.fmod(inputs[0], inputs[1])]
+        x0 = torch.tensor(inputs[0])
+        x1 = torch.tensor(inputs[1])
+        y = torch.fmod(x0, x1)
+        return [y.numpy()]
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Fmod", golden_func, output, case_index)
