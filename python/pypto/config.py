@@ -319,6 +319,11 @@ def get_debug_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]
     return scope.get_debug_options()
 
 
+def set_option(key: str, value) -> None:
+    """Set a single option."""
+    pypto_impl.SetExperimentalOption(key, value)
+
+
 def set_distributed_options(*,
         hccl_handle: Optional[List[int]] = None,
         hccl_group_name: Optional[List[str]] = None

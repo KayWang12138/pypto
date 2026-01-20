@@ -197,7 +197,9 @@ def set_matrix_size(size: List[int]):
 
 def set_dist_tile_shapes(row: List[int], col: List[int], rank: List[int]):
     """Set distributed tile shapes."""
-    pypto_impl.SetDistTile(row, col, rank)
+    pypto_impl.SetDistTileRow(row)
+    pypto_impl.SetDistTileCol(col)
+    pypto_impl.SetDistTileRank(rank)
 
 
 def get_dist_tile_shapes() -> Tuple[List[int], List[int], List[int]]:

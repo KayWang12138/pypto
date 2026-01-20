@@ -14,8 +14,8 @@
  */
 
 #include <memory>
-#include "securec.h"
 #include "distributed_context.h"
+#include "machine/runtime/mc2_tiling.h"
 #include "interface/tileop/distributed/hccl_context.h"
 #include "interface/machine/device/tilefwk/core_func_data.h"
 #include "runtime.h"
@@ -27,145 +27,6 @@ namespace {
 TileOp::HcclCombinOpParam g_hostAddr[DIST_COMM_GROUP_NUM];
 std::unordered_map<std::string, uint64_t> g_context; //key: groupname, value: deviceHcclContext
 
-#pragma pack(push, 8)
-struct Mc2ServerCfg {
-    uint32_t version = 0;
-    uint8_t debugMode = 0;
-    uint8_t sendArgIndex = 0;
-    uint8_t recvArgIndex = 0;
-    uint8_t commOutArgIndex = 0;
-    uint8_t reserved[8] = {};
-};
-#pragma pack(pop)
-
-#pragma pack(push, 8)
-struct Mc2HcommCfg {
-    uint8_t skipLocalRankCopy = 0;
-    uint8_t skipBufferWindowCopy = 0;
-    uint8_t stepSize = 0;
-    char reserved[13] = {};
-    char groupName[128] = {};
-    char algConfig[128] = {};
-    uint32_t opType = 0;
-    uint32_t reduceType = 0;
-};
-#pragma pack(pop)
-
-struct Mc2CommConfig {
-    uint32_t version;
-    uint32_t hcommCnt;
-    struct Mc2ServerCfg serverCfg;
-    struct Mc2HcommCfg hcommCfg;
-};
-
-constexpr uint32_t INIT_TILING_VERSION = 100U;
-constexpr uint32_t MAX_CC_TILING_NUM = 8U;
-
-#pragma pack(push, 8)
-struct Mc2InitTilingInner {
-    uint32_t version;
-    uint32_t mc2HcommCnt;
-    uint32_t offset[MAX_CC_TILING_NUM];
-    uint8_t debugMode;
-    uint8_t preparePosition;
-    uint16_t queueNum;
-    uint16_t commBlockNum;
-    uint8_t devType;
-    char reserved[17];
-};
-#pragma pack(pop)
-
-constexpr uint32_t GROUP_NAME_SIZE = 128U;
-constexpr uint32_t ALG_CONFIG_SIZE = 128U;
-
-struct Mc2cCTilingInner {
-    uint8_t skipLocalRankCopy;
-    uint8_t skipBufferWindowCopy;
-    uint8_t stepSize;
-    uint8_t version;
-    char reserved[9];
-    uint8_t commEngine;
-    uint8_t srcDataType;
-    uint8_t dstDataType;
-    char groupName[GROUP_NAME_SIZE];
-    char algConfig[ALG_CONFIG_SIZE];
-    uint32_t opType;
-    uint32_t reduceType;
-};
-
-struct Mc2CommConfigV2 {
-    Mc2InitTilingInner init;
-    Mc2cCTilingInner inner;
-};
-
-template<typename Mc2CommConfig>
-class TilingStructBase {
-public:
-    TilingStructBase() {}
-    virtual ~TilingStructBase() {}
-    virtual int32_t MakeMc2TilingStruct(const std::string& groupName) = 0;
-    Mc2CommConfig Mc2CommConfig_;
-private:
-    std::string groupName_{};
-};
-
-class TilingStruct : public TilingStructBase<Mc2CommConfig>  {
-public:
-    TilingStruct() {}
-    ~TilingStruct() {}
-    int32_t MakeMc2TilingStruct(const std::string& groupName) override
-    {
-        (void)memset_s(&Mc2CommConfig_, sizeof(Mc2CommConfig_), 0, sizeof(Mc2CommConfig_));
-        constexpr uint32_t version = 2;
-        constexpr uint32_t hcommCnt = 1;
-        constexpr uint32_t opTypeAllToAll = 6; // numeric representation of AlltoAll
-        const char *algConfig = "AllGather=level0:ring";
-
-        Mc2CommConfig_.version = version;
-        Mc2CommConfig_.hcommCnt = hcommCnt;
-        Mc2CommConfig_.hcommCfg.skipLocalRankCopy = 0;
-        Mc2CommConfig_.hcommCfg.skipBufferWindowCopy = 0;
-        Mc2CommConfig_.hcommCfg.stepSize = 0;
-        Mc2CommConfig_.hcommCfg.opType = opTypeAllToAll;
-        if (strcpy_s(Mc2CommConfig_.hcommCfg.groupName, sizeof(Mc2CommConfig_.hcommCfg.groupName), groupName.c_str()) != EOK) {
-            return -1;
-        }
-        if (strcpy_s(Mc2CommConfig_.hcommCfg.algConfig, sizeof(Mc2CommConfig_.hcommCfg.algConfig), algConfig) != EOK) {
-            return -1;
-        }
-        return 0;
-    }
-};
-
-class TilingStructV2 : public TilingStructBase<Mc2CommConfigV2> {
-public:
-    TilingStructV2() {}
-    ~TilingStructV2() {}
-    int32_t MakeMc2TilingStruct(const std::string& groupName) override
-    {
-        (void)memset_s(&Mc2CommConfig_, sizeof(Mc2CommConfig_), 0, sizeof(Mc2CommConfig_));
-        const char *algConfig = "BatchWrite=level0:fullmesh";
-        Mc2CommConfig_.init.version = INIT_TILING_VERSION;
-        Mc2CommConfig_.init.mc2HcommCnt = 1;
-        Mc2CommConfig_.init.queueNum = 0;
-        Mc2CommConfig_.init.commBlockNum = 48U;
-        Mc2CommConfig_.init.devType = 4U;
-        Mc2CommConfig_.inner.skipLocalRankCopy = 0;
-        Mc2CommConfig_.inner.skipBufferWindowCopy = 0;
-        Mc2CommConfig_.inner.stepSize = 0;
-        Mc2CommConfig_.inner.opType = 18U;
-        Mc2CommConfig_.inner.version = 1;
-        Mc2CommConfig_.init.offset[0] = static_cast<uint32_t>(
-            reinterpret_cast<uint64_t>(&Mc2CommConfig_.inner) - reinterpret_cast<uint64_t>(&Mc2CommConfig_.init));
-        if (strcpy_s(Mc2CommConfig_.inner.groupName, sizeof(Mc2CommConfig_.inner.groupName), groupName.c_str()) != EOK) {
-            return -1;
-        }
-        if (strcpy_s(Mc2CommConfig_.inner.algConfig, sizeof(Mc2CommConfig_.inner.algConfig), algConfig) != EOK) {
-            return -1;
-        }
-        return 0;
-    }
-};
 }
 
 namespace npu::tile_fwk::dynamic {
@@ -188,8 +49,6 @@ std::vector<uint64_t> DistributedContext::GetHcclContextToHost(const std::vector
 std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::string> &groupNames)
 {
 #ifdef BUILD_WITH_CANN
-    std::shared_ptr<TilingStruct> tilingStruct = std::make_shared<TilingStruct>();
-    std::shared_ptr<TilingStructV2> tilingStructV2 = std::make_shared<TilingStructV2>();
     std::vector<uint64_t> hcclContext(groupNames.size(), 0);
     ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
     for (size_t groupIndex = 0; groupIndex < groupNames.size(); ++groupIndex) {
@@ -204,15 +63,17 @@ std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::
         void *commContext = nullptr;
         HcclResult retV1 = HCCL_E_INTERNAL;
         HcclResult retV2 = HCCL_E_INTERNAL;
-        if (tilingStruct->MakeMc2TilingStruct(groupName) == 0) {
+        Mc2CommConfig commConfig = {};
+        if (MakeMc2TilingStruct(commConfig, groupName) == 0) {
             retV1 = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(),
-                &(tilingStruct->Mc2CommConfig_), &commContext);
+                &commConfig, &commContext);
         }
         if ((retV1 != 0) || (commContext == nullptr)) {
             commContext = nullptr;
-            if (tilingStructV2->MakeMc2TilingStruct(groupName) == 0) {
+            Mc2CommConfigV2 commConfigV2 = {};
+            if (MakeMc2TilingStructV2(commConfigV2, groupName) == 0) {
                 retV2 = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(),
-                    &(tilingStructV2->Mc2CommConfig_), &commContext);
+                    &commConfigV2, &commContext);
             }
         }
         if ((retV1 != 0) && (retV2 != 0)) {

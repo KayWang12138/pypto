@@ -308,6 +308,22 @@ Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal)
     return out;
 }
 
+void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out)
+{
+    ASSERT(worldSize > 0) << "worldSize should be more than 0.";
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    Shape shmemDataShape{static_cast<int64_t>(worldSize), static_cast<int64_t>(row), static_cast<int64_t>(col)};
+    Tensor shmemData;
+    Tensor shmemSignal;
+    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void)index;
+        CreateShmemData(group, worldSize, in.GetDataType(), shmemDataShape, shmemData);
+        CreateShmemSignal(group, shmemData, shmemSignal);
+    }
+    AllGather(predToken, in, group, shmemData, shmemSignal, out);
+}
+
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData, Tensor& shmemSignal,
     Tensor& out)
 {
@@ -335,6 +351,29 @@ void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Ten
         auto tempOutTile = ShmemGet(dummyLocal, shmemDataLocal);
         Assemble(tempOutTile, {dynRankId * row, 0}, out);
     }
+}
+
+void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize,
+    DistReduceType reduceType, Tensor& out)
+{
+    ASSERT(worldSize > 0) << "worldSize should be more than 0.";
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    ASSERT((row % worldSize) == 0);
+    int32_t rowOut = row / static_cast<int32_t>(worldSize);
+    Shape shmemDataShape{1, static_cast<int64_t>(rowOut), static_cast<int64_t>(col)};
+    DataType shmemDataType = in.GetDataType();
+    if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+        shmemDataType = DT_FP32;
+    }
+    Tensor shmemData;
+    Tensor shmemSignal;
+    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void)index;
+        CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
+        CreateShmemSignal(group, shmemData, shmemSignal);
+    }
+    ReduceScatter(predToken, in, group, shmemData, shmemSignal, reduceType, out);
 }
 
 void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData, Tensor& shmemSignal,
@@ -388,6 +427,26 @@ void AllReduceValidate(const Tensor& predToken, const Tensor& in, const Tensor& 
     ValidateTilingSize(tileShape.GetVecTile(), in);
 }
 
+void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out)
+{
+    ASSERT(worldSize > 0) << "worldSize should be more than 0.";
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    Shape shmemDataShape{1, static_cast<int64_t>(row), static_cast<int64_t>(col)};
+    DataType shmemDataType = in.GetDataType();
+    if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+        shmemDataType = DT_FP32;
+    }
+    Tensor shmemData;
+    Tensor shmemSignal;
+    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void)index;
+        CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
+        CreateShmemSignal(group, shmemData, shmemSignal);
+    }
+    OneShotAllReduce(predToken, in, group, shmemData, shmemSignal, out);
+}
+
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out)
 {
@@ -416,6 +475,28 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
     auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, thisRank, 0, 0, 0});
     auto dummyLocal = WaitUntil(in, shmemSignalTile, worldSize);
     out = ShmemGet(dummyLocal, shmemDataTile, in.GetDataType());
+}
+
+void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out)
+{
+    ASSERT(worldSize > 0) << "AllReduce worldSize should be more than 0.";
+    int32_t row = in.GetShape(0);
+    int32_t col = in.GetShape(1);
+    ASSERT((row % worldSize) == 0);
+    int32_t rowPerRank = row / static_cast<int32_t>(worldSize);
+    Shape shmemDataShape{static_cast<int64_t>(worldSize), static_cast<int64_t>(rowPerRank), static_cast<int64_t>(col)};
+    DataType shmemDataType = in.GetDataType();
+    if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+        shmemDataType = DT_FP32;
+    }
+    Tensor shmemData;
+    Tensor shmemSignal;
+    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void)index;
+        CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
+        CreateShmemSignal(group, shmemData, shmemSignal);
+    }
+    TwoShotAllReduce(predToken, in, group, shmemData, shmemSignal, out);
 }
 
 void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,

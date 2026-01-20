@@ -116,6 +116,7 @@ def run_moe_combine_test(rank, world_size):
             local_counts[rank_id, token_id] += 1
     local_counts_npu = local_counts.to("npu")
     dist.all_reduce(local_counts_npu, op=dist.ReduceOp.SUM)
+    torch.npu.synchronize()
     recv_counts = local_counts_npu[rank].to(torch.int32)
     recv_counts_pto = pypto.from_torch(recv_counts)
 
@@ -126,20 +127,32 @@ def run_moe_combine_test(rank, world_size):
     combine_kernel(expert_out_pto, combine_info_pto, recv_counts_pto, scale_pto,
                    hccl_comm_name, moe_config, combine_out_pto)
 
-    # Verification
-    # Since Experts are Identity and Scales are 1.0, and we route to TopK experts:
-    # The output should be input * TopK
-    # Note: ShmemMoeCombine output is usually Accumulated.
+    gathered_expand = [torch.empty_like(expand_x_data) for _ in range(world_size)]
+    gathered_info = [torch.empty_like(combine_info_data) for _ in range(world_size)]
+    dist.all_gather(gathered_expand, expand_x_data)
+    dist.all_gather(gathered_info, combine_info_data)
+    torch.npu.synchronize()
 
-    expected_out = token_tensor * recv_counts.to(token_tensor.dtype).view(-1, 1)
+    scale_cpu = scale.cpu()
+    expected_out_fp32 = torch.zeros((batch_size, hidden_size), dtype=torch.float32)
+    for src_rank in range(world_size):
+        expand_x_cpu = gathered_expand[src_rank].cpu()
+        combine_info_cpu = gathered_info[src_rank].cpu().numpy()
+        for row_idx, (rank_id, token_id, k_offset) in enumerate(combine_info_cpu):
+            if rank_id != rank:
+                continue
+            if token_id < 0 or token_id >= batch_size or k_offset < 0 or k_offset >= top_k:
+                continue
+            expected_out_fp32[token_id] += expand_x_cpu[row_idx].float() * scale_cpu[token_id, k_offset]
+    expected_out = expected_out_fp32.to(token_tensor.dtype)
 
-    # Allow some error due to BF16 precision and float accumulation
-    if torch.allclose(combine_out_data, expected_out, rtol=1e-2, atol=1e-2):
-        print(f"[Rank {rank}] SUCCESS! Output matches expected (Input * TopK).")
+    # Allow error due to BF16 precision and accumulation.
+    if torch.allclose(combine_out_data.cpu(), expected_out, rtol=1e-2, atol=1e-2):
+        print(f"[Rank {rank}] SUCCESS! Output matches expected (Input * recv_counts).")
     else:
-        diff = (combine_out_data - expected_out).abs().max().item()
+        diff = (combine_out_data.cpu() - expected_out).abs().max().item()
         print(f"[Rank {rank}] FAILED! Max diff: {diff}")
-        print(f"Sample Output: {combine_out_data[0, :5]}")
+        print(f"Sample Output: {combine_out_data.cpu()[0, :5]}")
         print(f"Sample Expected: {expected_out[0, :5]}")
 
 if __name__ == "__main__":

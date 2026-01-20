@@ -572,15 +572,6 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
         offset[memType] = 0UL;
     }
     uint64_t vaddr = offset[memType] | (groupIndex << GROUP_SHIFT) | (memType << MEMTYPE_SHIFT) | (1UL << FILL_SHIFT);
-    if (memType == 1 && size > 0 && winSize > 0) {
-        uint64_t base = hcclOpParam->windowsExp[hcclOpParam->rankId];
-        if (base != 0) {
-#ifdef BUILD_WITH_CANN
-            void *addr = reinterpret_cast<void *>(base + offset[memType]);
-            (void)rtMemset(addr, size, 0, size);
-#endif
-        }
-    }
     offset[memType] += size;
     return reinterpret_cast<void*>(vaddr);
 }
