@@ -227,6 +227,125 @@ def win_atten_main_bsnd_mtp_decode(q, block_table, kv_cache, actual_seq_list, at
                                                     [atten_out.shape[0], atten_out.shape[1],
                                                     atten_out.shape[2], atten_out.shape[3]], inplace=True)
 
+@pypto.jit(
+    host_options={"only_codegen": True},
+    runtime_options={"device_sched_mode": 1},
+    debug_options={"runtime_debug_mode": 1},
+    pass_options={"cube_l1_reuse_mode": 2},
+)
+def win_atten_main_bsnd_mtp_decode_mask(q, block_table, kv_cache, actual_seq_list, atten_sink, mask2, atten_out, win):
+    pypto.experimental.set_operation_config(combine_axis=True)
+    b = q.shape[0]
+    s_q = q.shape[1]
+    n_q = q.shape[2]
+    d_q = q.shape[3]
+    scalar = d_q ** -0.5
+    block_size = kv_cache.shape[1]
+    d_kv = kv_cache.shape[3]
+    dtype = q.dtype
+
+    q_2d = pypto.reshape(q, [b * s_q * n_q, d_q], inplace=True)
+    atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
+    pypto.set_vec_tile_shapes(128, 128)
+    atten_sink_2d = pypto.concat([atten_sink_2d] * s_q, dim=0)
+    kv_2d = pypto.reshape(kv_cache, [kv_cache.shape[0] * block_size * kv_cache.shape[2], d_kv], inplace=True)
+
+    kv_block_temp = pypto.tensor([block_size * 2, d_kv], dtype, "kv_block_temp")
+    for b_idx in pypto.loop(b, name="LOOP_b", idx_name="b_idx"):
+
+        atten_out_2d = pypto.tensor([b * s_q * n_q, d_q], dtype, "atten_out_2d")
+        cur_offset = b_idx * s_q * n_q
+
+        actual_seq = actual_seq_list[b_idx]
+
+        pypto.set_vec_tile_shapes(128, 512)
+        q_tensor_cur = pypto.view(q_2d, [s_q * n_q, d_q], [cur_offset, 0])
+
+        if pypto.cond(s_q > 1 and actual_seq > 128):
+            # pypto.set_semantic_label("2 blocks")
+
+            pypto.set_vec_tile_shapes(128, 512)
+            physical_block_id = block_table[b_idx, 0]
+            kv_block_0 = pypto.view(kv_2d, [block_size, d_kv], [physical_block_id * block_size, 0])
+            physical_block_id = block_table[b_idx, 1]
+            kv_block_1 = pypto.view(kv_2d, [block_size, d_kv], [physical_block_id * block_size, 0])
+
+            # C1
+            pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128], False, False)
+            acc_s_0 = pypto.matmul(q_tensor_cur, kv_block_0, pypto.DT_FP32, b_trans=True)
+            pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128], False, False)
+            acc_s_1 = pypto.matmul(q_tensor_cur, kv_block_1, pypto.DT_FP32, b_trans=True)
+            pypto.set_vec_tile_shapes(64, 256)
+            acc_s = pypto.concat([acc_s_0, acc_s_1], dim=-1)
+            
+            start_pos = win + s_q - 1 - pypto.min(win + s_q - 1, actual_seq)
+            pypto.set_vec_tile_shapes(64, 256)
+            mask_block = pypto.view(mask2, [s_q * n_q, 256], [0, 128 + start_pos])
+            pypto.set_vec_tile_shapes(64, 256)
+            acc_s = pypto.where(mask_block, acc_s, float("-inf"))
+
+            # V1
+            pypto.set_vec_tile_shapes(64, 256)
+            acc_s = pypto.mul(acc_s, scalar)
+            scores_max = pypto.amax(acc_s, -1, True)
+            sub_res = pypto.sub(acc_s, scores_max)
+            acc_s = pypto.exp(sub_res)
+            
+            sum_exp = pypto.sum(acc_s, -1, True)
+            sub_res = pypto.sub(atten_sink_2d, scores_max)
+            atten_sink_exp = pypto.exp(sub_res)
+            sum_exp = pypto.add(sum_exp, atten_sink_exp)
+
+            div_res = pypto.div(acc_s, sum_exp)
+            div_res_b16 = pypto.cast(div_res, dtype)
+
+            # C2
+            pypto.assemble(kv_block_0, [0, 0], kv_block_temp)
+            pypto.assemble(kv_block_1, [block_size, 0], kv_block_temp)
+            pypto.set_cube_tile_shapes([256, 256], [128, 256], [128, 128], False, False) 
+            mm2_res = pypto.matmul(div_res_b16, kv_block_temp, dtype)
+
+        else:
+            # pypto.set_semantic_label("1 block")
+
+            pypto.set_vec_tile_shapes(128, 512)
+            physical_block_id = block_table[b_idx, 0]
+            kv_block = pypto.view(kv_2d, [block_size, d_kv], [physical_block_id * block_size, 0])
+
+            # C1
+            pypto.set_cube_tile_shapes([64, 64], [128, 128], [128, 128], False, False)
+            acc_s = pypto.matmul(q_tensor_cur, kv_block, pypto.DT_FP32, b_trans=True)
+            
+            start_pos = win + s_q - 1 - pypto.min(win + s_q - 1, actual_seq)
+            pypto.set_vec_tile_shapes(64, 128)
+            mask_block = pypto.view(mask2, [s_q * n_q, 128], [0, 128 + start_pos])
+            pypto.set_vec_tile_shapes(64, 128)
+            acc_s = pypto.where(mask_block, acc_s, float("-inf"))
+
+            # V1
+            pypto.set_vec_tile_shapes(64, 128)
+            acc_s = pypto.mul(acc_s, scalar)
+            scores_max = pypto.amax(acc_s, -1, True)
+            sub_res = pypto.sub(acc_s, scores_max)
+            acc_s = pypto.exp(sub_res)
+            
+            sum_exp = pypto.sum(acc_s, -1, True)
+            sub_res = pypto.sub(atten_sink_2d, scores_max)
+            atten_sink_exp = pypto.exp(sub_res)
+            sum_exp = pypto.add(sum_exp, atten_sink_exp)
+
+            div_res = pypto.div(acc_s, sum_exp)
+            div_res_b16 = pypto.cast(div_res, dtype)
+
+            # C2
+            pypto.set_cube_tile_shapes([256, 256], [128, 256], [128, 128], False, False) 
+            mm2_res = pypto.matmul(div_res_b16, kv_block, dtype)
+
+        pypto.assemble(mm2_res, [cur_offset, 0], atten_out_2d)
+        atten_out[:] = pypto.reshape(atten_out_2d,
+                                                [atten_out.shape[0], atten_out.shape[1],
+                                                atten_out.shape[2], atten_out.shape[3]], inplace=True)
+
 
 @allow_in_graph
 def deepseekv4_win_atten(q: torch.Tensor,
@@ -237,6 +356,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
                         atten_out: torch.Tensor,
                         win_size: int,
                         is_decode: bool = False,
+                        mask: torch.Tensor = None,
 ) -> None:
     """
     """
@@ -254,7 +374,12 @@ def deepseekv4_win_atten(q: torch.Tensor,
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
-    if is_decode:
+    if mask is not None:
+        print("Using mask kernel")
+        inputs[mask] = []
+        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+        win_atten_main_bsnd_mtp_decode_mask(*pto_inputs, *pto_outputs, win_size)
+    elif is_decode:
         print("Using mtp decode kernel")
         win_atten_main_bsnd_mtp_decode(*pto_inputs, *pto_outputs, win_size)
     else:
