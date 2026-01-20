@@ -347,6 +347,9 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
     }
 }
 
+// Standard Matmul implementation for single tile multiplication
+// For optimized GEMM with double buffering and pipeline strategies (like gemm_performance_kernel),
+// see: docs/integration/gemm_performance_kernel_integration.md
 template <bool isZeroC, typename T, typename U, typename V>
 TILEOP void Matmul(T &c, U &a, V &b) {
     constexpr auto shapeSizeA = Std::tuple_size<typename U::Shape>::value;

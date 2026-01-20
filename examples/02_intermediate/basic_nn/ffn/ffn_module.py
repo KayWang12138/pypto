@@ -128,7 +128,10 @@ def gelu_activation_core(x: pypto.tensor) -> pypto.tensor:
     x_scaled = pypto.mul(x, GELU_COEFF)
     x_neg = pypto.mul(x_scaled, F_NEGA_1)
     exp_neg = pypto.exp(x_neg)
-    ones = pypto.full(exp_neg.shape, 1.0, exp_neg.dtype, valid_shape=exp_neg.shape)
+    # Create FP32 constant tensor and cast to target dtype to avoid pypto.full() bfloat16 limitation
+    # sigmoid = 1 / (1 + exp(-x))
+    ones_fp32 = pypto.full(exp_neg.shape, F_1, pypto.DT_FP32, valid_shape=exp_neg.shape)
+    ones = pypto.cast(ones_fp32, exp_neg.dtype)
     sigmoid = pypto.div(ones, pypto.add(exp_neg, F_1))
     return pypto.mul(x, sigmoid)
 
@@ -154,8 +157,11 @@ def swiglu_activation_core(gate: pypto.tensor, up: pypto.tensor) -> pypto.tensor
 
     gate_neg = pypto.mul(gate, F_NEGA_1)
     exp_neg = pypto.exp(gate_neg)
-    ones = pypto.full(exp_neg.shape, F_1, exp_neg.dtype, valid_shape=exp_neg.shape)
-    sigmoid = pypto.div(ones, pypto.add(exp_neg, ones))
+    # Create FP32 constant tensor and cast to target dtype to avoid pypto.full() bfloat16 limitation
+    # sigmoid = 1 / (1 + exp(-gate))
+    ones_fp32 = pypto.full(exp_neg.shape, F_1, pypto.DT_FP32, valid_shape=exp_neg.shape)
+    ones = pypto.cast(ones_fp32, exp_neg.dtype)
+    sigmoid = pypto.div(ones, pypto.add(exp_neg, F_1))
     swish = pypto.mul(gate, sigmoid)
 
     # Multiply with up projection

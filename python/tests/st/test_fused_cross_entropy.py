@@ -388,7 +388,7 @@ def test_pypto_ce():
 
 
 @pypto.jit(
-    codegen_options={"support_dynamic_aligned": True, "codegen_expression_fusion": True},
+    codegen_options={"support_dynamic_aligned": True},
     pass_options={"pg_parallel_lower_bound": 32}
 )
 def pypto_fused_ce_forward_v1_original(
@@ -447,7 +447,7 @@ def pypto_fused_ce_forward_v1_original(
         token_body(i)
 
 @pypto.jit(
-    codegen_options={"support_dynamic_aligned": True, "codegen_expression_fusion": True},
+    codegen_options={"support_dynamic_aligned": True},
     pass_options={"pg_parallel_lower_bound": 32}
 )
 def pypto_fused_ce_backward_v1_original(
@@ -903,7 +903,7 @@ def benchmark_torch_forward_backward(logits, labels, warmup=5, total_iter=10):
     bw_times = []
     reset_peak_memory(device)
     for i in range(total_iter):
-        
+        torch.npu.synchronize()
         start = time.perf_counter()
         torch.npu.synchronize()
         
@@ -938,7 +938,7 @@ def benchmark_torch_only(total_tokens, vocab_size, device="npu:7", warmup=5, tot
     for _ in range(warmup):
         logits = torch.randn(M, N, dtype=torch.float16, device=device, requires_grad=True)
         labels = torch.randint(0, N, (M,), dtype=torch.int32, device=device)
-        benchmark_torch_forward_backward(logits, labels, warmup=0, total_iter=1)
+        fw, bw, mem, _, _ = benchmark_torch_forward_backward(logits, labels, warmup=0, total_iter=1)
 
     # 正式测量
     for i in range(total_iter):
@@ -963,6 +963,7 @@ def benchmark_pypto_forward_backward(logits, labels, tiling, version=0,warmup=5,
     print("pypto forward-backward benchmark start, logits shape:", logits.shape, "labels shape:", labels.shape, "tiling:", tiling)
     reset_peak_memory(logits.device)
     for i in range(total_iter):
+        torch.npu.synchronize()
         start = time.perf_counter()
         torch.npu.synchronize()
 
@@ -1003,7 +1004,7 @@ def benchmark_pypto_only(total_tokens, vocab_size, tiling, device="npu:7", warmu
     for _ in range(warmup):
         logits = torch.randn(M, N, dtype=torch.float16, device=device, requires_grad=True)
         labels = torch.randint(0, N, (M,), dtype=torch.int32, device=device)
-        benchmark_pypto_forward_backward(logits, labels, tiling=tiling, warmup=0, total_iter=1, version=version)
+        fw, bw, mem, _, _ = benchmark_pypto_forward_backward(logits, labels, tiling=tiling, warmup=0, total_iter=1, version=version)
 
     # 正式测量
     for i in range(total_iter):
@@ -1086,6 +1087,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     device = f"npu:{args.npu}"  
+    # vocab_size = 131072
     vocab_size = 152576
     total_tokens_list = [8192]
     tiling_options = [1024]
