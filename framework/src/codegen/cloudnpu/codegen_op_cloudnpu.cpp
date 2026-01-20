@@ -100,6 +100,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
       }),
       binaryOps_({
+
           // binary op: vector operations
           {Opcode::OP_ADD, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_SUB, [this]() { return GenBinaryOp(); }},
@@ -111,6 +112,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_PAIRMAX, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_POW, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_BITWISEAND, [this]() { return GenBinaryOp(); }},
 
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},

@@ -254,7 +254,9 @@ enum class Opcode {
     OP_COMPARE_SWAP,
     OP_MERGE,
     // End: parallel sort
-    OP_UNKNOWN
+    OP_UNKNOWN,
+    // Bitwise Vector
+    OP_BITWISEAND
 };
 
 enum class OpCoreType { AIC, AIV, ANY, AICPU, HUB, GMATOMIC };
@@ -304,6 +306,7 @@ public:
     void RegisterCube();
     void RegisterDistribute();
     void RegisterCommon();
+    void RegisterVectorBitwise();
 
     bool HasOpcode(Opcode opcode) const {
         return static_cast<int>(opcode) >= 0 && static_cast<size_t>(opcode) < opcodeInfos_.size();
@@ -489,6 +492,7 @@ const std::unordered_set<Opcode> BINARY_OPS{
     Opcode::OP_PAIRSUM,
     Opcode::OP_PAIRMAX,
     Opcode::OP_PAIRMIN,
+    Opcode::OP_BITWISEAND,
 };
 
 const std::unordered_set<Opcode> BINARY_WITH_BRC_OPS{
@@ -548,7 +552,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE, Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT,
     Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT, Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_TO_L1,
     Opcode::OP_SCATTER, Opcode::OP_GATHER_FROM_UB, Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT, Opcode::OP_L1_TO_FIX_QUANT_PRE,
-    Opcode::OP_L1_TO_BT, Opcode::OP_BRCB};
+    Opcode::OP_L1_TO_BT, Opcode::OP_BRCB, Opcode::OP_BITWISEAND};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT,
     Opcode::OP_RECIPROCAL, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_LOGICALNOT,
@@ -561,7 +565,7 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_R
     Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX,
     Opcode::OP_ROWEXPSUM, Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,
-    Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_SCATTER};
+    Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_SCATTER, Opcode::OP_BITWISEAND};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_L1_TO_FIX, Opcode::OP_L1_TO_FIX_QUANT_PRE,
     Opcode::OP_L1_TO_FIX_RELU_PRE, Opcode::OP_L1_TO_FIX_RELU_POST, Opcode::OP_L1_TO_FIX_QUANT_POST,

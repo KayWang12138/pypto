@@ -31,6 +31,8 @@ void bind_operation(py::module &m) {
     m.def(
         "Div", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Div(self, other); }, "Tensor div.");
     m.def(
+ 	    "BitwiseAnd", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseAnd(self, other); }, "Tensor bitwiseand.");
+    m.def(
         "View",
         [](const Tensor &operand, const std::vector<int64_t> &shapes, const py::sequence &offsets) {
             bool has_symbolic = false;

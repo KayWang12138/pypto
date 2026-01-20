@@ -76,6 +76,7 @@ public:
     std::string GenLogicalAndOp() const;
 
     std::string GenBinaryOp() const;
+    std::string GenBitwiseOp() const;
     std::string GenVectorScalarOp() const;
 
     std::string GenCubeOpMatmul() const;

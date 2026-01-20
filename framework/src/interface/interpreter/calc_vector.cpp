@@ -76,6 +76,21 @@ REGISTER_CALC_OP(OP_S_MIN, Opcode::OP_S_MIN, ExecuteOpBinary<Opcode::OP_S_MIN>);
 REGISTER_CALC_OP(OP_MAXIMUM, Opcode::OP_MAXIMUM, ExecuteOpBinary<Opcode::OP_S_MAX>);
 REGISTER_CALC_OP(OP_MINIMUM, Opcode::OP_MINIMUM, ExecuteOpBinary<Opcode::OP_S_MIN>);
 
+template <Opcode opcode>
+void ExecuteOpBitwise(ExecuteOperationContext *ctx) {
+
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_TWO);
+    auto ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto lhs = ctx->ioperandDataViewList->at(0);
+    auto rhs = ctx->ioperandDataViewList->at(1);
+
+    switch (opcode) {
+        case Opcode::OP_BITWISEAND: calc::BitwiseAnd(ret, lhs, rhs); break;
+        default: ASSERT(false);
+    }
+}
+REGISTER_CALC_OP(OP_BITWISEAND, Opcode::OP_BITWISEAND, ExecuteOpBitwise<Opcode::OP_BITWISEAND>);
+
 void ExecuteOpVecDup(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 0);

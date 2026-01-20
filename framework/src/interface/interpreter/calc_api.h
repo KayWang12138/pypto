@@ -69,6 +69,7 @@ struct CalcOps {
     void (*Sub)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Mul)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Div)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*BitwiseAnd)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
 
     void (*PairSum)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*PairMax)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);

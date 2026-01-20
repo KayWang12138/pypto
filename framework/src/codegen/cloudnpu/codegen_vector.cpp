@@ -1740,4 +1740,5 @@ std::string CodeGenOpCloudNPU::GenTopKExtractOp() const {
     os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
     return os.str();
 }
+
 } // namespace npu::tile_fwk

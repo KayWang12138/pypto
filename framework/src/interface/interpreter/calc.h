@@ -119,6 +119,9 @@ inline void Min(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
 inline void Max(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Max(out, self, other);
 }
+inline void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+ 	GetCalcOps()->BitwiseAnd(out, self, other);
+}
 inline void MinS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
     GetCalcOps()->MinS(out, self, scalar);
 }

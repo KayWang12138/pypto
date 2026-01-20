@@ -192,6 +192,7 @@ Tensor Div(const Tensor &self, const Tensor &other);
 Tensor Mul(const Tensor &self, const Tensor &other);
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2);
 Tensor Minimum(const Tensor &operand1, const Tensor &operand2);
+Tensor BitwiseAnd(const Tensor &self, const Tensor &other);
 Tensor Add(const Tensor &self, const Element &other);
 Tensor Sub(const Tensor &self, const Element &other);
 Tensor Div(const Tensor &self, const Element &other);

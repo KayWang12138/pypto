@@ -455,6 +455,17 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
         ASSERT_ALLCLOSE(out, golden);
     }
 }
+TEST_F(TorchAdaptorTest, BitwiseOps) {
+    {
+        // bitwiseand
+        auto self = makeTensorData(DT_INT32, {16, 16}, 4);
+        auto other = makeTensorData(DT_INT32, {16, 16}, 1);
+        auto out = makeTensorData(DT_INT32, {16, 16}, 0);
+        auto golden = makeTensorData(DT_INT32, {16, 16}, 5);
+        calc::BitwiseAnd(out, self, other);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+}
 
 TEST_F(TorchAdaptorTest, BinaryOpsS) {
     {

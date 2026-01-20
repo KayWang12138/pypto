@@ -208,6 +208,11 @@ static void Div(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     torch::div_out(tout, From(self), From(other));
 }
 
+static void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+ 	auto tout = From(out);
+ 	torch::bitwise_and_out(tout, From(self), From(other));
+}
+
 static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode) {
     if (mode == CastMode::CAST_ROUND) {
         From(out) = From(self).round();
@@ -981,6 +986,7 @@ static struct CalcOps calcOps = {
     .Topk = Topk,
     .Gather = Gather,
     .GatherINUB = GatherINUB,
+    .BitwiseAnd = BitwiseAnd,
 };
 
 extern "C" struct CalcOps *GetCalcOps() {

@@ -116,6 +116,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE {
     {"WHERE_ST", CorePipeType::PIPE_VECTOR_ALU},
     {"WHERE_SS", CorePipeType::PIPE_VECTOR_ALU},
     {"LOGICALAND", CorePipeType::PIPE_VECTOR_ALU},
+    {"BITWISEAND", CorePipeType::PIPE_VECTOR_ALU},
     // Cube
     {"A_MUL_B", CorePipeType::PIPE_CUBE},
     {"A_MULACC_B", CorePipeType::PIPE_CUBE},

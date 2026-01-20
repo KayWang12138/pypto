@@ -272,11 +272,18 @@ void OpcodeManager::RegisterVectorReduction() {
         {OpAttributeKey::excludeBufferReuse});
 }
 
+void OpcodeManager::RegisterVectorBitwise() {
+    RegisterInfo(Opcode::OP_BITWISEAND, OpCoreType::AIV, "BITWISEAND", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+ 	    {"TileOp::Tbitwiseand", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis},
+ 	    TileShapeVerifier::Verify);
+}
+
 void OpcodeManager::RegisterVector() {
     RegisterVectorBinary();
     RegisterVectorUnary();
     RegisterVectorSort();
     RegisterVectorReduction();
+    RegisterVectorBitwise();
     RegisterInfo(Opcode::OP_CAST, OpCoreType::AIV, "CAST", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tcast", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::CAST, {OP_ATTR_PREFIX + "mode"},
         TileShapeVerifier::Verify);
@@ -788,7 +795,8 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {             Opcode::OP_ONEHOT,        "TOneHot"},
     {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
     {            Opcode::OP_VEC_DUP,        "TVecDup"},
-    {            Opcode::OP_RANGE,           "TRange"},
+    {              Opcode::OP_RANGE,         "TRange"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
+    {         Opcode::OP_BITWISEAND,    "TBitwiseAnd"},
 };
 } // namespace npu::tile_fwk
