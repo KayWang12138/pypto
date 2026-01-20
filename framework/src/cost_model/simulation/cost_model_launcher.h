@@ -344,12 +344,15 @@ private:
         if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM || std::getenv("ASCEND_HOME_PATH") == nullptr) {
             return;
         }
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+        pv_ = CostModel::PvModelFactory::CreateDyn();
         try {
-            pv_ = CostModel::PvModelFactory::CreateDyn();
+            pv_->InitPv();
         } catch (const std::runtime_error &e) {
             std::cerr<< "pv init fail." << std::endl;
             return;
         }
+        
         model_ = std::make_shared<AiCorePvModelImpl>(pv_);
         const int maxCpuNum = 6;
         pv_->Codegen(function_);
