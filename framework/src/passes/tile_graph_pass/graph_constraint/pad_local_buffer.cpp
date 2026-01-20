@@ -37,6 +37,7 @@ const std::vector<bool> AXIS_COMBINED = {true};
 const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
 const int64_t BRCB_SECOND_LAST_BASE = 8;
 const size_t LAST_SECOND_AXIS = 2;
+const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
 int64_t Pad(int64_t dim, int64_t padValue) {
     return (dim + padValue - 1) / padValue * padValue;
 }
@@ -497,7 +498,7 @@ int64_t AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t 
 }
 
 void ProcessReduceForAxisCombine(Operation &op, LogicalTensorPtr &in, size_t paddingValue) {
-    auto axis = op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    auto axis = op.GetIntAttribute(REDUCE_AXIS);
     int64_t shapeSize = static_cast<int64_t>(in->shape.size());
     int64_t lastIdx = shapeSize - 1;
     if (shapeSize == 1 || axis == shapeSize - 2) {
@@ -581,7 +582,9 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
 
 Status PadLocalBuffer::RunOnFunction(Function &function) {
     if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+        APASS_LOG_INFO_F(Elements::Operation, "======> Start PadLocalBuffer in COMBINE_AXIS mode.");
         DoPadding(function);
+        APASS_LOG_INFO_F(Elements::Operation, "======> End PadLocalBuffer in COMBINE_AXIS mode.");
         return SUCCESS;
     }
     for (auto &op : function.Operations()) {

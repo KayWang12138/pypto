@@ -28,7 +28,7 @@
 
 namespace npu {
 namespace tile_fwk {
-const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "axis";
+const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
 // only save general gm input/output, not contain spill-out scene
 bool CodegenPreproc::IsNeedSave(const Operation &op) const {
     return OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) && (!op.IsNeedStackGM());

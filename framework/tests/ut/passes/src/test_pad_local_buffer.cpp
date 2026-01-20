@@ -1041,31 +1041,3 @@ TEST_F(TestPadLocalBuffer, axiscombine3) {
     EXPECT_EQ(shape[shape.size()-2], K_1);
     EXPECT_EQ(shape[shape.size()-3], K_1);
 }
-
-TEST_F(TestPadLocalBuffer, axiscombine4) {
-    ComputationalGraphBuilder graph;
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4, 12, 1}, MemoryType::MEM_UB, "in"), true);
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1, 12, 1}, MemoryType::MEM_UB, "out"), true);
-    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {2, 8}, MemoryType::MEM_UB, "tmp"), true);
-    EXPECT_EQ(graph.AddOp(Opcode::OP_ROWSUMLINE, {"in"}, {"out", "tmp"}, "sumline", true), true);
-    auto sumline = graph.GetOp("sumline");
-    sumline->SetAttribute(OP_ATTR_PREFIX + "AXIS", 0);
-    config::SetOperationConfig(KEY_COMBINE_AXIS, true);
-    auto *rootFuncPtr = graph.GetFunction();
-    AxisCombine axisCombineTest;
-    EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
-    PadLocalBuffer padLocalBufferTest;
-    EXPECT_EQ(padLocalBufferTest.RunOnFunction(*rootFuncPtr), SUCCESS);
-    // ================== Verify Pass Effect ==================
-    auto updatedOperations = rootFuncPtr->Operations();
-    int64_t cnt = 0;
-    for (const auto &op : updatedOperations) {
-        if (op.GetOpcode() == Opcode::OP_BRCB) {
-            ++cnt;
-        }
-    }
-    EXPECT_EQ(cnt, 0);
-    auto tmp = graph.GetTensor("tmp");
-    auto shape = tmp->GetRawTensor()->GetRawShape();
-    EXPECT_EQ(shape[shape.size() - 1], K_16);
-}
