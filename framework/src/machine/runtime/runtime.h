@@ -324,6 +324,7 @@ public:
         }
         // Device allocate always 512 aligned.
         auto hostPtr = (uint8_t *)malloc(size + DEVICE_ALLOC_ALIGN);
+        memset_s(hostPtr, size + DEVICE_ALLOC_ALIGN, 0, size + DEVICE_ALLOC_ALIGN);
         allocatedHostAddr.emplace_back(hostPtr);
         auto resultPtr = (uint8_t *)((((uint64_t)hostPtr) + DEVICE_ALLOC_ALIGN - 1) / DEVICE_ALLOC_ALIGN * DEVICE_ALLOC_ALIGN);
         return resultPtr;
@@ -401,6 +402,7 @@ public:
         }
         // Device allocate always 512 aligned.
         auto hostPtr = (uint8_t *)malloc(size + DEVICE_ALLOC_ALIGN);
+        memset_s(hostPtr, size + DEVICE_ALLOC_ALIGN, 0, size + DEVICE_ALLOC_ALIGN);
         allocatedHostAddr.emplace_back(hostPtr);
         auto resultPtr = (uint8_t *)((((uint64_t)hostPtr) + DEVICE_ALLOC_ALIGN - 1) / DEVICE_ALLOC_ALIGN * DEVICE_ALLOC_ALIGN);
         return resultPtr;
