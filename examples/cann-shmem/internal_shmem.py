@@ -86,6 +86,8 @@ if __name__ == "__main__":
     local_rank = int(os.environ["LOCAL_RANK"])
     rank = int(os.environ.get("RANK", local_rank))
     world_size = int(os.environ["WORLD_SIZE"])
+    if "PYPTO_SHMEM_IP_PORT" not in os.environ:
+        os.environ["PYPTO_SHMEM_IP_PORT"] = f"127.0.0.1:{19777 + world_size}"
     verify_backend = _get_verify_backend()
     torch.npu.set_device(local_rank)
     dist.init_process_group(backend=verify_backend, rank=rank, world_size=world_size)

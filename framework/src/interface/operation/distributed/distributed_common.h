@@ -135,8 +135,12 @@ inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResu
     int32_t rankNum = moeConfig.rankNum;
     int32_t routedExpertNum = moeConfig.routedExpertNum;
     int32_t expertNumPerRank = moeConfig.expertNumPerRank;
-    if (rankNum != 4 && rankNum != 8) { // rankNum仅支持4和8
-        assertResult = "Distributed constraint violated: moeConfig rankSize must be 4 or 8.";
+    if (rankNum <= 0) {
+        assertResult = "Distributed constraint violated: moeConfig rankSize must be positive.";
+        return false;
+    }
+    if (routedExpertNum % rankNum != 0) {
+        assertResult = "Distributed constraint violated: moeConfig rankSize must divide routedExpertNum.";
         return false;
     }
     if (routedExpertNum != ROUTED_EXPET_NUM) {

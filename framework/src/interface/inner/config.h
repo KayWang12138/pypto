@@ -15,7 +15,11 @@
 
 #pragma once
 #include <iostream>
+#include <map>
+#include <string>
+#include <typeinfo>
 #include <variant>
+#include <vector>
 #include "tilefwk/tilefwk.h"
 #include "interface/configs/config_manager_ng.h"
 
@@ -111,6 +115,23 @@ void SetRunDataOption(const std::string &key, const std::string &value);
 
 using ValueType = std::variant<bool, int64_t, std::string, std::vector<int64_t>,
                                std::vector<std::string>, std::map<int64_t, int64_t>>;
+
+namespace experimental {
+bool IsType(const std::string &key, const std::type_info &type);
+bool GetOption(const std::string &key, bool &value);
+bool GetOption(const std::string &key, int64_t &value);
+bool GetOption(const std::string &key, std::string &value);
+bool GetOption(const std::string &key, std::vector<int64_t> &value);
+bool GetOption(const std::string &key, std::vector<std::string> &value);
+bool GetOption(const std::string &key, std::map<int64_t, int64_t> &value);
+void SetOption(const std::string &key, int64_t value);
+void SetOption(const std::string &key, bool value);
+void SetOption(const std::string &key, const char *value);
+void SetOption(const std::string &key, const std::string &value);
+void SetOption(const std::string &key, const std::vector<int64_t> &value);
+void SetOption(const std::string &key, const std::vector<std::string> &value);
+void SetOption(const std::string &key, const std::map<int64_t, int64_t> &value);
+} // namespace experimental
 
 } // namespace config
 } // namespace npu::tile_fwk

@@ -25,7 +25,8 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
             pto::TADD(dst, src0, src1);
         } else {
-            pto::TROWEXPANDADD(dst, src0, src1);
+            pto::TROWEXPAND(dst, src1);
+            pto::TADD(dst, src0, dst);
         }
         return;
     }
@@ -57,7 +58,8 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
             pto::TMAX(dst, src0, src1);
         } else {
-            pto::TROWEXPANDMAX(dst, src0, src1);
+            pto::TROWEXPAND(dst, src1);
+            pto::TMAX(dst, src0, dst);
         }
     }
 
@@ -65,7 +67,8 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
             pto::TMIN(dst, src0, src1);
         } else {
-            pto::TROWEXPANDMIN(dst, src0, src1);
+            pto::TROWEXPAND(dst, src1);
+            pto::TMIN(dst, src0, dst);
         }
     }
 }
