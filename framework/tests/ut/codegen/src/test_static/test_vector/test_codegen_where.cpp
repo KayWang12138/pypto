@@ -176,7 +176,7 @@ TEST_F(TestCodegenWhere, TestOpWhereTS_TileTensor) {
 
 TEST_F(TestCodegenWhere, TestOpWhereTT_TileTensor) {
     std::string expect =
-        R"!!!(TWhereTT(ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0);
+        R"!!!(TWhere(ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0);
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_TT, "TestOpWhereTT", expect, true);
 }
