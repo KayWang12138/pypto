@@ -404,6 +404,11 @@ struct MoeConfig {
     int32_t rankNum{0};
 };
 
+enum class AtomicType {
+    SET,
+    ADD
+};
+
 void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
@@ -428,6 +433,8 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
 void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
     const Shape &shape, Tensor &shmemTensor, uint64_t memType = 0);
 void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal);
+Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
+    AtomicType atomicType = AtomicType::SET);
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);
