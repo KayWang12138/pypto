@@ -48,6 +48,10 @@
         "compile_debug_mode": 0,
         "runtime_debug_mode": 0
     },
+    "operation": {
+        "force_combine_axis" : false,
+        "combine_axis" : false
+    },
     "global": {
         "platform": {
             "enable_cost_model": false,
@@ -66,8 +70,6 @@
         "host": {
             "strategy": "PVC2_OOO"
         },
-        "device": {},
-        "core": {},
         "simulation": {
             "debug_single_func": false,
             "leaf_function": "DEBUG_LEAF_FUNC",
@@ -96,11 +98,6 @@
             "codegen_support_tile_tensor": true,
             "codegen_need_compile": true
         },
-        "operation": {
-            "force_combine_axis" : false,
-            "combine_axis" : false
-        },
-        "distributed": {},
         "pass": {
             "enable_binary_cache": false,
             "enable_pass_configs": true,

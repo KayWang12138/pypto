@@ -192,6 +192,8 @@ void SetParamConfig(Function* currentFunctionPtr_) {
     currentFunctionPtr_->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
     currentFunctionPtr_->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
     currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
+    currentFunctionPtr_->paramConfigs_.combineAxis = currentScope->GetOperationConfig<bool>(KEY_COMBINE_AXIS);
+    currentFunctionPtr_->paramConfigs_.forceCombineAxis = currentScope->GetOperationConfig<bool>(KEY_FORCE_COMBINE_AXIS);
 }
 
 #if ENABLE_HIDDENLOOP
@@ -697,32 +699,12 @@ bool Program::QueryAndUpdateCurrentFunction() {
         return false;
     } else {
         ASSERT(currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH));
-        auto cacheFunc = cacheValue->cacheFunction;
+        auto cacheFunc = cacheValue->GetFunction();
         functionmap_.erase(currentFunctionPtr_->GetMagicName());
         currentFunctionPtr_ = cacheFunc;
         currentFunctionMagicName_ = currentFunctionPtr_->GetMagicName();
         return true;
     }
-}
-
-/* submit to hostmachine , prepare compile */
-int Program::EndFunction(const bool isWaitTaskFinished)
-{
-    ASSERT(currentFunctionPtr_ != nullptr);
-    auto scope = GetTensorSlotManager()->EndScope();
-    auto funcArgs = currentFunctionPtr_->EndFunction(scope);
-    if (currentFunctionPtr_->HasParent()) {
-        auto &callop =
-            currentFunctionPtr_->Parent().AddOperation(Opcode::OP_CALL, funcArgs.iOperands, funcArgs.oOperands, false);
-        callop.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(funcArgs.argList, funcArgs.outIndexToExpr));
-        callop.SetOpOffset(funcArgs.iOpAttrOffset, funcArgs.oOpAttrOffset);
-    }
-    HostMachine::GetInstance().SubTask(currentFunctionPtr_);
-    if (isWaitTaskFinished) {
-        HostMachine::GetInstance().WaitTaskFinish();
-    }
-    ALOG_INFO("End func: name = ", currentFunctionPtr_->GetRawName());
-    return 0;
 }
 
 void Program::VerifyTensorGraph() {

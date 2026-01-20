@@ -457,6 +457,8 @@ struct ParamConfigs {
     bool pgSkipPartition{false};
     std::map<int64_t, int64_t> vecNBufferSetting;
     int copyOutResolveCoalescing{0};
+    bool forceCombineAxis{false};
+    bool combineAxis{false};
 };
 
 struct FunctionParamInfo {
@@ -920,6 +922,7 @@ private:
     void RefreshOpPosition();
     auto AnnotateOperation();
 
+    void FillOriginInOutCast(std::vector<Operation *> &operationList);
     void SetCallOpSlot();
     void UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope);
     void DoMergeFunctionDupIncast();
