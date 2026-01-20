@@ -18,29 +18,29 @@
 #include "pto_tile.h"
 #include "utils/layout.h"
 #include "utils/tile_tensor.h"
-
 #include <cmath>
-
-template <UnaryOp op, typename T0, typename T1>
+template <UnaryOp op, typename LastUse, typename T0, typename T1>
 TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
+    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
+    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     if constexpr (op == UnaryOp::EXP) {
-        pto::TEXP(dst, src);
+        [[pto::last_use(n1, n2)]]pto::TEXP(dst, src);
         return;
     }
     if constexpr (op == UnaryOp::RSQRT) {
-        pto::TRSQRT(dst, src);
+        [[pto::last_use(n1, n2)]]pto::TRSQRT(dst, src);
         return;
     }
     if constexpr (op == UnaryOp::SQRT) {
-        pto::TSQRT(dst, src);
+        [[pto::last_use(n1, n2)]]pto::TSQRT(dst, src);
         return;
     }
     if constexpr (op == UnaryOp::BRCB) {
-        pto::TROWEXPAND(dst, src);
+        [[pto::last_use(n1, n2)]]pto::TROWEXPAND(dst, src);
         return;
     }
     if constexpr (op == UnaryOp::ABS) {
-        pto::TABS(dst, src);
+        [[pto::last_use(n1, n2)]]pto::TABS(dst, src);
         return;
     }
     if constexpr (op == UnaryOp::RECIPROCAL) {
@@ -53,14 +53,14 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
     }
 }
 
-template <UnaryOp op, typename T0, typename T1>
+template <UnaryOp op, typename LastUse, typename T0, typename T1>
 TILEOP void UnaryCompute(T0 dst, T1 src) {
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
         auto dstTile = PtoTile<T0, pto::BLayout::RowMajor, true>().Data();
         auto srcTile = PtoTile<T1, pto::BLayout::RowMajor, true>().Data();
         pto::TASSIGN(dstTile, (uint64_t)dst.GetAddr());
         pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
-        UnaryComputeImpl<op>(dstTile, srcTile);
+        UnaryComputeImpl<op, LastUse>(dstTile, srcTile);
         return;
     }
     const auto dstLayout = dst.GetLayout();
@@ -76,7 +76,7 @@ TILEOP void UnaryCompute(T0 dst, T1 src) {
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 dstTile.Assign(dst, tileOffsets);
                 srcTile.Assign(src, tileOffsets);
-                UnaryComputeImpl<op>(dstTile.Data(), srcTile.Data());
+                UnaryComputeImpl<op, LastUse>(dstTile.Data(), srcTile.Data());
             }
         }
     }
@@ -122,21 +122,21 @@ TILEOP void BrcbCompute(T0 dst, T1 src) {
     }
 }
 
-template <typename T0, typename T1>
+template <typename LastUse, typename T0, typename T1>
 TILEOP void TExp(T0 dst, T1 src) {
-    UnaryCompute<UnaryOp::EXP>(dst, src);
+    UnaryCompute<UnaryOp::EXP, LastUse>(dst, src);
 }
 
 #define OP_TILE_OP_RSQRT TRsqrt
-template <typename T0, typename T1>
+template <typename LastUse, typename T0, typename T1>
 TILEOP void TRsqrt(T0 dst, T1 src) {
-    UnaryCompute<UnaryOp::RSQRT>(dst, src);
+    UnaryCompute<UnaryOp::RSQRT, LastUse>(dst, src);
 }
 
 #define OP_TILE_OP_SQRT TSqrt
-template <typename T0, typename T1>
+template <typename LastUse, typename T0, typename T1>
 TILEOP void TSqrt(T0 dst, T1 src) {
-    UnaryCompute<UnaryOp::SQRT>(dst, src);
+    UnaryCompute<UnaryOp::SQRT, LastUse>(dst, src);
 }
 
 #define OP_TILE_OP_BRCB Tbrcb
@@ -146,9 +146,9 @@ TILEOP void Tbrcb(T0 dst, T1 src) {
 }
 
 #define OP_TILE_OP_ABS TAbs
-template <typename T0, typename T1>
+template <typename LastUse, typename T0, typename T1>
 TILEOP void TAbs(T0 dst, T1 src) {
-    UnaryCompute<UnaryOp::ABS>(dst, src);
+    UnaryCompute<UnaryOp::ABS, LastUse>(dst, src);
 }
 
 #define OP_TILE_OP_BITWISENOT TBitwiseNot

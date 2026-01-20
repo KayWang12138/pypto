@@ -110,7 +110,6 @@ TILEOP void TExpand(T0 dst, T1 src) {
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
                 for (LoopVar i = 0; i < dstShape2; i++) {
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstTileH * dstTileW) * typeSize));
-                    [[pto::last_use(n1, n2)]]pto::TMOV(dstTile, srcTile);
                 }
             }
         }
@@ -132,7 +131,6 @@ TILEOP void TExpand(T0 dst, T1 src) {
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW
                                                                         + j * dstTileH * dstTileW) * typeSize));
-                    [[pto::last_use(n1, n2)]]pto::TMOV(dstTile, srcTile);
                 }
             }
         }
