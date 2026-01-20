@@ -482,6 +482,36 @@ def sqrt(input: Tensor) -> Tensor:
 
 
 @op_wrapper
+def floor(input: Tensor) -> Tensor:
+    """Computes the element-wise squareroot of `input`.
+
+    This function calculates the formula: `out = √input`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise squareroot.
+
+    See Also
+    --------
+    exp : Element-wise exponential function.
+
+    Examples
+    --------
+    x = pypto.tensor([5], pypto.DT_FP32)
+    y = pypto.floor(x)
+
+    Input x:  [1.2 4.2 9.8 6.9 25.5]
+    Output y: [1.0 4.0 9.0 6.0  25.0]
+    """
+    return pypto_impl.Floor(input)
+
+@op_wrapper
 def neg(a: Tensor) -> Tensor:
     """
     Returns a new tensor with the negative of the elements of input.

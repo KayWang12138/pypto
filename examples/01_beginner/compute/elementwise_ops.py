@@ -884,7 +884,51 @@ def test_pow_basic(device_id: int = None, run_mode: str = "npu"):
     print(f"Expected: {expected}")
     print("✓ Basic usage of pow function completed successfully")
 
-
+# ============================================================================
+ 	# FLOOR Examples
+ 	# ============================================================================
+ 	 
+ 	def floor_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+ 	     a_shape = a.shape
+ 	     
+ 	     if run_mode == "npu":
+ 	         mode = pypto.RunMode.NPU
+ 	     elif run_mode == "sim":
+ 	         mode = pypto.RunMode.SIM
+ 	     else:
+ 	         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
+ 	         
+ 	     @pypto.frontend.jit(runtime_options={"run_mode": mode})
+ 	     def floor_kernel(a: pypto.Tensor(a_shape, pypto.DT_FP32)) -> pypto.Tensor(a_shape, pypto.DT_FP32):
+ 	         pypto.set_vec_tile_shapes(2, 8)
+ 	         out = pypto.floor(a)
+ 	         return out
+ 	     
+ 	     out = floor_kernel(a)
+ 	     return out
+ 	 
+ 	 
+ 	 def test_floor_basic(device_id: int = None, run_mode: str = "npu"):
+ 	     """Test basic usage of floor function"""
+ 	     print("=" * 60)
+ 	     print("Test: Basic Usage of floor Function")
+ 	     print("=" * 60)
+ 	     
+ 	     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+ 	     
+ 	     dtype = torch.float32
+ 	     a = torch.tensor([[1.2, 4.7],
+ 	                      [-1.1, 9.0]], dtype=dtype, device=device)
+ 	     expected = torch.tensor([[2.0, 5.0],
+ 	                              [-1.0, 9.0]], dtype=dtype, device=device)
+ 	 
+ 	     out = floor_op(a, run_mode)
+ 	     if run_mode == "npu":
+ 	         assert_allclose(out.cpu().numpy(), expected.cpu().numpy(), rtol=1e-3, atol=1e-3)
+ 	     print(f"Output: {out}")
+ 	     print(f"Expected: {expected}")
+ 	     print("✓ Basic usage of floor function completed successfully")
+ 	 
 # ============================================================================
 # RSQRT Examples
 # ============================================================================
@@ -1289,6 +1333,11 @@ Examples:
             'description': 'Basic usage of pow function example',
             'function': test_pow_basic
         },
+        'floor::test_floor_basic': {
+ 	    'name': 'Test basic usage of floor function',
+ 	    'description': 'Basic usage of floor function example',
+ 	    'function': test_floor_basic
+ 	    },
         'rsqrt::test_rsqrt_basic': {
             'name': 'Test basic usage of rsqrt function',
             'description': 'Basic usage of rsqrt function example',
