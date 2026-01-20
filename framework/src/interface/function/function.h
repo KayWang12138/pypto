@@ -459,6 +459,7 @@ struct ParamConfigs {
     int copyOutResolveCoalescing{0};
     bool forceCombineAxis{false};
     bool combineAxis{false};
+    bool beginRemoveAssOp{true};
 };
 
 struct FunctionParamInfo {
