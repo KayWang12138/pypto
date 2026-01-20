@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,459 +8,510 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""
-"""
+""" """
 import torch
 import torch_npu
 import pypto
 import os
-import pytest
-import math
 import logging
-from lightning_indexer_prolog_quant_impl import (
-    IndexerPrologQuantInput, IndexerPrologQuantOutput, IndexerPrologQuantAttr, IndexerPrologQuantConfigs,
-    lightning_indexer_quant_prolog)
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
+from lightning_indexer_prolog_quant_impl import (
+    IndexerPrologQuantConfig,
+    quant_lightning_indexer_prolog_kernel,
+)
+from utils.golden.common_func import (
+    apply_rotary_pos_emb,
+    gen_uniform_data,
+    quant_golden,
+)
 from utils.compare import compare
 
 
-class IP(torch.nn.Module):
-    def forward(self, x, q_norm, q_norm_scale, w_qb, w_qb_scale, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q, \
-                q_int8, q_scale, weights):
-        lighting_indexer_prolog_dyn(x, q_norm, q_norm_scale, w_qb, w_qb_scale, w_proj, cos_idx_rope, \
-                                    sin_idx_rope, hadamard_q, q_int8, q_scale, weights)
+pyptolib = torch.library.Library("pypto", "FRAGMENT")
+pyptolib.define(
+    "quant_lightning_indexer_prolog(Tensor qr, Tensor idx_wq_b, Tensor x, Tensor weights_proj, Tensor cos, Tensor sin, Tensor hadamard, Tensor qr_scale, Tensor idx_wq_b_scale) -> (Tensor, Tensor, Tensor)"
+)
 
 
-def gen_dims(params):
-    dims = {}
-    dims["b"] = params["b"]
-    dims["t"] = params["b"] * params["s1"]
-    dims["h"] = 4096
-    dims["q_lora_rank"] = 1024
-    dims["idx_head_dim"] = 128
-    dims["idx_n_heads"] = 32
-    dims["rope_head_dim"] = 64
-    return dims
-
-def quant_int8(input_t, is_pertoken: bool = True, has_smooth=False, smooth_cq=None):
-    input_fp32 = input_t.to(torch.float32)
-    if has_smooth:
-        input_fp32 = input_fp32 * smooth_cq
-    abs_res = torch.abs(input_fp32)
-    reduce_idx = -1
-    if not is_pertoken:
-        reduce_idx = -2
-        logging.debug("This PerChannel Quant!!")
-
-    max_value = torch.max(abs_res, dim=reduce_idx, keepdims=True)[0]
-    scale_quant = 127 / max_value
-    out_fp32 = input_fp32 * scale_quant
-    out_int32 = torch.round(out_fp32).to(torch.int32)
-    out_fp16 = out_int32.to(torch.float16)
-    out_int8 = torch.trunc(out_fp16).to(torch.int8)
-    scale_dequant = 1 / scale_quant
-
-    return out_int8, scale_dequant
+@torch.library.impl(pyptolib, "quant_lightning_indexer_prolog", "Meta")
+def quant_lightning_indexer_prolog(
+    qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
+):
+    q = torch.empty(
+        [qr.size(0), weights_proj.size(1), hadamard.size(0)],
+        dtype=qr.dtype,
+        device=qr.device,
+    )
+    weights = torch.empty(
+        [qr.size(0), hadamard.size(0)],
+        dtype=weights_proj.dtype,
+        device=weights_proj.device,
+    )
+    q_scale = torch.empty(
+        [qr.size(0), weights_proj.size(1)],
+        dtype=torch.float16,
+        device=weights_proj.device,
+    )
+    return q, weights, q_scale
 
 
-def gen_inputs(dims, dtype=torch.bfloat16):
-    b, t, n, d = dims["b"], dims["t"], dims["idx_n_heads"], dims["idx_head_dim"]
-    s = t // b
-    h = dims["h"]
-    q_lora_rank = dims["q_lora_rank"]
-    rope_head_dim = dims["rope_head_dim"]
-
-    x = torch.empty((b, s, h), dtype=dtype).uniform_(-1, 1)
-    q_norm = torch.empty((b, s, q_lora_rank), dtype=dtype).uniform_(-1, 1) # bf16
-    q_norm, q_norm_scale = quant_int8(q_norm)
-    w_idx_qb = torch.empty((q_lora_rank, n * d), dtype=dtype).uniform_(-1, 1)
-    w_idx_qb, w_idx_qb_scale_in = quant_int8(w_idx_qb, False)
-    w_idx_qb_scale = w_idx_qb_scale_in.reshape(n * d, 1)
-    w_idx_proj = torch.empty((h, n), dtype=dtype).uniform_(-1, 1)
-
-    random_angles = (torch.rand(b, s, rope_head_dim, dtype=torch.float32) * 2 * torch.pi)
-    cos = torch.cos(random_angles).to(dtype)
-    sin = torch.sin(random_angles).to(dtype)
-
-    hadamard_q = torch.empty((d, d), dtype=dtype).uniform_(-1, 1)  # (128, 128)
-
-    return {
-        "token_x": x,  # input0, bf16
-        "q_norm": q_norm,  # input1, int8
-        "q_norm_scale": q_norm_scale,  # input2, fp32
-        "w_idx_qb": w_idx_qb,  # input3, int8
-        "w_idx_qb_scale": w_idx_qb_scale,  # input4, fp32
-        "w_idx_proj": w_idx_proj,  # input6, bf16
-        "cos_idx_rope": cos,  # input9, bf16
-        "sin_idx_rope": sin,  # input10, bf16
-        "hadamard_q": hadamard_q,  # input11, bf16
-    }
+@torch.library.impl(pyptolib, "quant_lightning_indexer_prolog", "NPU")
+def quant_lightning_indexer_prolog(
+    self, qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
+):
+    return npu_quant_lightning_indexer_prolog(
+        qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
+    )
 
 
-def rotate_half(x):
-    """Rotates half the hidden dims of the input."""
-    x1, x2 = x.chunk(2, dim=-1)
-    return torch.cat((-x2, x1), dim=-1)
+class QuantLightningIndexerProlog(torch.nn.Module):
+    def forward(
+        qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
+    ):
+        for _ in range(20):
+            torch.add(qr_scale, 0)
+        return torch.ops.pypto.quant_lightning_indexer_prolog(
+            qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
+        )
 
 
-def single_rope(x, cos_in, sin_in):
-    logging.info("Entering into single_rope")
-    # x: (b, s, n, d), cos_in: (b, s, d), sin_in: (b, s, d)
-    x_dtype = x.dtype
-    b, s, n, d = x.shape
-    x_cast = x.to(torch.float32)
-    cos_cast = cos_in.to(torch.float32)
-    sin_cast = sin_in.to(torch.float32)
-    cos_re = cos_cast.unsqueeze(2)  # (b, s, 1, d)
-    sin_re = sin_cast.unsqueeze(2)  # (b, s, 1, d)
-    res = x_cast * cos_re + rotate_half(x_cast) * sin_re  # (b, s, n, d)
-    return res.to(x_dtype)
+def compute_quant_lightning_indexer_prolog(inputs, params):
+    qr = inputs[0]
+    idx_wq_b = inputs[1]
+    x = inputs[2]
+    weights_proj = inputs[3]
+    cos = inputs[4]
+    sin = inputs[5]
+    hadamard = inputs[6]
+    qr_scale = inputs[7]
+    idx_wq_b_scale = inputs[8]
 
+    t = params.get("t")
+    idx_nq = params.get("idx_nq")
+    head_dim = params.get("head_dim")
+    rope_dim = params.get("rope_dim")
+    calc_dtype = torch.bfloat16
 
-def indexer_prolog(inputs: dict, dims: dict):
-    # input
-    b, t, n, d = dims["b"], dims["t"], dims["idx_n_heads"], dims["idx_head_dim"]
-    s = t // b
+    # q_linear & q_rope
+    q_fp32 = torch.matmul(qr.to(torch.int32), idx_wq_b.to(torch.int32)).to(
+        torch.float32
+    )  # (t, idx_nq * head_dim)
+    q_fp32 = q_fp32 * qr_scale
+    q_fp32 = q_fp32 * idx_wq_b_scale.reshape(1, idx_nq * head_dim)
+    q_re = q_fp32.to(calc_dtype).reshape(t, idx_nq, head_dim)
+    q_nope, q_rope = torch.split(q_re, [head_dim - rope_dim, rope_dim], dim=-1)
+    q_roped = apply_rotary_pos_emb(q_rope, cos, sin)
+    q = torch.cat([q_nope, q_roped], dim=-1)
 
-    rope_head_dim = dims["rope_head_dim"]
-    x = inputs["token_x"]  # (b, s, h)
-    q_norm = inputs["q_norm"]  # (b, s, q_lora_rank), int8
-    q_norm_scale = inputs["q_norm_scale"]  # (b, s, 1), fp32
-    w_idx_qb = inputs["w_idx_qb"]  # (q_lora_rank, n * d), int8
-    w_idx_qb_scale = inputs["w_idx_qb_scale"]  # (n * d, 1), fp32
-    w_idx_proj = inputs["w_idx_proj"]  # (h, n)
-    cos = inputs["cos_idx_rope"]  # (b, s, rope_head_dim)
-    sin = inputs["sin_idx_rope"]  # (b, s, rope_head_dim)
-    hadamard_q = inputs["hadamard_q"]  # (d, d)
-    x_dtype = x.dtype
-
-    # calculate
-    q = torch.matmul(q_norm.to(torch.int32), w_idx_qb.to(torch.int32))  # (b, s, n * d)
-    q_fp32 = q.to(torch.float32)
-    q_fp32 = q_fp32 * q_norm_scale
-    q_fp32 = q_fp32 * w_idx_qb_scale.reshape(1, n * d)
-    
-    # q_fp32 = q_fp32 * w_idx_qb_scale
-    q_bf16 = q_fp32.reshape(b, s, n, d).to(torch.bfloat16)
-    q_rope, q_nope = torch.split(q_bf16, [rope_head_dim, d - rope_head_dim], dim=-1)
-    q_rope = single_rope(q_rope, cos, sin)
-    q = torch.cat([q_rope, q_nope], dim=-1)
-    
     # hadamard
     # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现跟x86不一致，通过升精度保证正确性
-    q = torch.matmul(q.to(torch.float32), hadamard_q.to(torch.float32)).to(x_dtype)  # (b, s, n, d)
+    # (t, idx_nq, head_dim) @ (1, head_dim, head_dim) -> (t, idx_nq, head_dim)
+    q_hadamard = torch.matmul(
+        q.to(torch.float32), hadamard.reshape(1, head_dim, head_dim).to(torch.float32)
+    ).to(calc_dtype)
+    # (t, idx_nq, head_dim), (t, idx_nq, 1)
+    q_int8, q_scale = quant_golden(q_hadamard)
+    q_scale = q_scale.to(torch.float16).reshape(t, idx_nq)
 
-    q_int8, q_scale = quant_int8(q)  # (b, s, n, d) int8, (b, s, n, 1) fp32
-    q_scale = q_scale.to(torch.float16)
-    
     # matmul use float32 for arm, arm平台matmul在bfloat16数据类型下表现跟x86不一致，通过升精度保证正确性
-    weights = torch.matmul(x.to(torch.float32), \
-        w_idx_proj.to(torch.float32)).to(x_dtype).to(torch.float32)  # (b, s, n)
-    weights = weights * (n ** -0.5) * (d ** -0.5)
-    weights = weights.to(torch.bfloat16)
+    weights = (
+        torch.matmul(x.to(torch.float32), weights_proj.to(torch.float32))
+        .to(calc_dtype)
+        .to(torch.float32)
+    )
+    weights = weights * (idx_nq**-0.5) * (head_dim**-0.5)
+    weights = weights.to(calc_dtype)
 
-    # output dtype: int8, fp16, bf16
-    outputs = {"query": q_int8, "query_scale": q_scale, "weights": weights}
-    return outputs
-
-
-def gen_data(case_name):
-    if case_name.startswith("QuantLightningIndexerPrologSTest.b1_s1_1"):
-        params = {
-            "b": 1,
-            "s1": 1
-        }
-    elif case_name.startswith("QuantLightningIndexerPrologSTest.b4_s1_4"):
-        params = {
-            "b": 4,
-            "s1": 4
-        }
-    elif case_name.startswith("QuantLightningIndexerPrologSTest.b8_s1_8"):
-        params = {
-            "b": 8,
-            "s1": 8
-        }
-    elif case_name.startswith("QuantLightningIndexerPrologSTest.b2_s1_4k"):
-        params = {
-            "b": 2,
-            "s1": 1024 * 4
-        }
-    elif case_name.startswith("QuantLightningIndexerPrologSTest.b1_s1_8193"):
-        params = {
-            "b": 1,
-            "s1": 8193
-        }
-    else:
-        raise Exception(f"Can't get func to gen golden, Case({case_name})")
-
-    seed = 0
-    # PyTorch 随机数生成器
-    torch.manual_seed(seed)
-    dims = gen_dims(params)
-    inputs = gen_inputs(dims, torch.bfloat16)
-    outputs = indexer_prolog(inputs, dims)
-    return dims, inputs, outputs
+    return q_int8, weights, q_scale
 
 
-def gen_zero_tensor(t):
-    return torch.zeros_like(t).npu()
+def gen_quant_attention_post_golden(params):
+    torch.manual_seed(42)
+    t = params.get("t")
+    idx_nq = params.get("idx_nq")
+    head_dim = params.get("head_dim")
+    rope_dim = params.get("rope_dim")
+    q_lora_rank = params.get("q_lora_rank")
+    h = params.get("h")
+
+    # construct inputs
+    qr_ori = gen_uniform_data([t, q_lora_rank], -1, 1, torch.int8)
+    idx_wq_b_ori = gen_uniform_data([q_lora_rank, idx_nq * head_dim], -1, 1, torch.int8)
+    x = gen_uniform_data([t, h], -1, 1, torch.bfloat16)
+    weights_proj = gen_uniform_data([h, idx_nq], -0.1, 0.1, torch.bfloat16)
+    cos = gen_uniform_data([t, rope_dim], -1, 1, torch.bfloat16)
+    sin = gen_uniform_data([t, rope_dim], -1, 1, torch.bfloat16)
+    hadamard = gen_uniform_data([head_dim, head_dim], -1, 1, torch.bfloat16)
+    qr, qr_scale = quant_golden(qr_ori)
+    idx_wq_b, idx_wq_b_scale = quant_golden(idx_wq_b_ori.t())
+    idx_wq_b = idx_wq_b.t()
+
+    # generate golden outputs
+    inputs = [
+        qr,
+        idx_wq_b,
+        x,
+        weights_proj,
+        cos,
+        sin,
+        hadamard,
+        qr_scale,
+        idx_wq_b_scale,
+    ]
+    q_golden, weights_golden, q_scale_golden = compute_quant_lightning_indexer_prolog(
+        inputs, params
+    )
+    return inputs, q_golden, weights_golden, q_scale_golden
 
 
-def check_input_output_shape_dtype(x: torch.tensor,
-                                q_norm: torch.tensor,
-                                q_norm_scale: torch.tensor,
-                                w_qb: torch.tensor,
-                                w_qb_scale: torch.tensor,
-                                w_proj: torch.tensor,
-                                cos_idx_rope: torch.tensor,
-                                sin_idx_rope: torch.tensor,
-                                hadamard_q: torch.tensor,
-                                q_int8: torch.tensor,
-                                q_scale: torch.tensor,
-                                weights: torch.tensor):
-    assert x.size(1) == 4096 and x.dim() == 2, f"expected x axis1 4096, x dim num 2"
-    assert q_norm.size(1) == 1024 and q_norm.dim() == 2, \
-        f"expected q_norm axis1 1024, q_norm dim num 2"
-    assert q_norm_scale.size(1) == 1 and q_norm_scale.dim() == 2, \
-        f"expected q_norm axis1 1, q_norm dim num 2"
-    assert w_qb.size(0) == 1024 and w_qb.size(1) == 4096 and w_qb.dim() == 2, \
-        f"expected w_qb axis0 1024, w_qb axis1 4096, w_qb dim num 2"
-    assert w_qb_scale.size(0) == 4096 and w_qb_scale.size(1) == 1 and w_qb_scale.dim() == 2, \
-        f"expected w_qb_scale axis0 4096, w_qb_scale axis1 1, w_qb_scale dim num 2"
-    assert w_proj.size(0) == 4096 and w_proj.size(1) == 32 and w_proj.dim() == 2, \
-        f"expected w_proj axis0 4096, w_proj axis1 32, w_proj dim num 2"
-    assert cos_idx_rope.size(1) == 64 and cos_idx_rope.dim() == 2, \
-        f"expected cos_idx_rope axis1 64, cos_idx_rope dim num 2"
-    assert sin_idx_rope.size(1) == 64 and sin_idx_rope.dim() == 2, \
-        f"expected sin_idx_rope axis1 64, sin_idx_rope dim num 2"
-    assert hadamard_q.size(0) == 128 and hadamard_q.size(1) == 128 and hadamard_q.dim() == 2, \
-        f"expected hadamard_q axis0 128, hadamard_q axis1 128, hadamard_q dim num 2"
-    assert q_int8.size(1) == 32 and q_int8.size(2) == 128 and q_int8.dim() == 3, \
-        f"expected q_int8 axis1 32, q_int8 axis2 128, q_int8 dim num 3"
-    assert q_scale.size(1) == 32 and q_scale.size(2) == 1 and q_scale.dim() == 3, \
-        f"expected q_scale axis1 32, q_scale axis2 1, q_scale dim num 3"
-    assert weights.size(1) == 32 and weights.dim() == 2, \
-        f"expected weights axis1 32, weights dim num 2"
+def check_input_shape_dtype(
+    qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
+):
+    q_lora_rank = 1024
+    idx_nq = 32
+    head_dim = 128
+    rope_dim = 64
+    h = 4096
+    assert (
+        len(qr.shape) == 2 and qr.size(1) == q_lora_rank
+    ), f"qr shape need to be: (t, f{q_lora_rank}), but got: f{qr.shape}"
+    assert (
+        len(idx_wq_b.shape) == 2
+        and idx_wq_b.size(0) == q_lora_rank
+        and idx_wq_b.size(1) == idx_nq * head_dim
+    ), f"idx_wq_b shape need to be: (f{q_lora_rank, idx_nq * head_dim}), but got: f{idx_wq_b.shape}"
+    assert (
+        len(x.shape) == 2 and x.size(1) == h
+    ), f"x shape need to be: (t, f{h}), but got: f{x.shape}"
+    assert (
+        len(weights_proj.shape) == 2
+        and weights_proj.size(0) == h
+        and weights_proj.size(1) == idx_nq
+    ), f"weights_proj shape need to be: (f{h, idx_nq}), but got: f{weights_proj.shape}"
+    assert (
+        len(cos.shape) == 2 and cos.size(1) == rope_dim
+    ), f"cos shape need to be: (t, f{rope_dim}), but got: f{cos.shape}"
+    assert (
+        len(sin.shape) == 2 and sin.size(1) == rope_dim
+    ), f"sin shape need to be: (t, f{rope_dim}), but got: f{sin.shape}"
+    assert (
+        len(hadamard.shape) == 2
+        and hadamard.size(0) == head_dim
+        and hadamard.size(1) == head_dim
+    ), f"hadamard shape need to be: (f{head_dim, head_dim}), but got: f{hadamard.shape}"
+    assert (
+        len(qr_scale.shape) == 2 and qr_scale.size(1) == 1
+    ), f"qr_scale shape need to be: (t, f{1}), but got: f{qr_scale.shape}"
+    assert (
+        len(idx_wq_b_scale.shape) == 2
+        and idx_wq_b_scale.size(0) == idx_nq * head_dim
+        and idx_wq_b_scale.size(1) == 1
+    ), f"idx_wq_b_scale shape need to be: (f{idx_nq * head_dim, 1}), but got: f{idx_wq_b_scale.shape}"
 
-    
-    assert x.dtype == torch.bfloat16, f"x.dtype is {x.dtype}, expected torch.bfloat16"
-    assert q_norm.dtype == torch.int8, f"q_norm.dtype is {q_norm.dtype}, expected torch.int8"
-    assert q_norm_scale.dtype == torch.float32, f"q_norm.dtype is {q_norm.dtype}, expected torch.float32"
-    assert w_qb.dtype == torch.int8, f"w_qb.dtype is {w_qb.dtype}, expected torch.int8"
-    assert w_qb_scale.dtype == torch.float32, f"w_qb.dtype is {w_qb_scale.dtype}, expected torch.float32"
-    assert w_proj.dtype == torch.bfloat16, f"w_proj.dtype is {w_proj.dtype}, expected torch.bfloat16"
-    assert cos_idx_rope.dtype == torch.bfloat16, f"cos_idx_rope.dtype is {cos_idx_rope.dtype}, expected torch.bfloat16"
-    assert sin_idx_rope.dtype == torch.bfloat16, f"sin_idx_rope.dtype is {sin_idx_rope.dtype}, expected torch.bfloat16"
-    assert hadamard_q.dtype == torch.bfloat16, f"hadamard_q.dtype is {hadamard_q.dtype}, expected torch.bfloat16"
-    assert q_int8.dtype == torch.int8, f"q_bf16.dtype is {q_int8.dtype}, expected torch.q_int8"
-    assert q_scale.dtype == torch.float16, f"q_bf16.dtype is {q_scale.dtype}, expected torch.float16"
-    assert weights.dtype == torch.bfloat16, f"weights.dtype is {weights.dtype}, expected torch.bfloat16"
+    assert (
+        qr.dtype == idx_wq_b.dtype == torch.int8
+    ), f"expected qr and idx_wq_b dtype to be torch.int8, but got: f{qr.dtype} and f{idx_wq_b.dtype}"
+    assert (
+        x.dtype
+        == weights_proj.dtype
+        == cos.dtype
+        == sin.dtype
+        == hadamard.dtype
+        == torch.bfloat16
+    ), f"expected x, weights_proj, cos, sin and hadamard dtype to be torch.bfloat16 but got: f{x.dtype}, f{weights_proj.dtype}, f{cos.dtype}, f{sin.dtype} and f{hadamard.dtype}"
+    assert (
+        qr_scale.dtype == idx_wq_b_scale.dtype == torch.float32
+    ), f"expected qr_scale and idx_wq_b_scale dtype to be torch.float32, but got: f{qr_scale.dtype} and f{idx_wq_b_scale.dtype}"
 
 
 @allow_in_graph
-def lighting_indexer_prolog_dyn(x: torch.tensor,
-                                q_norm: torch.tensor,
-                                q_norm_scale: torch.tensor,
-                                w_qb: torch.tensor,
-                                w_qb_scale: torch.tensor,
-                                w_proj: torch.tensor,
-                                cos_idx_rope: torch.tensor,
-                                sin_idx_rope: torch.tensor,
-                                hadamard_q: torch.tensor,
-                                q_int8: torch.tensor,
-                                q_scale: torch.tensor,
-                                weights: torch.tensor):
-    check_input_output_shape_dtype(x, q_norm, q_norm_scale, w_qb, w_qb_scale, w_proj, cos_idx_rope, \
-                                   sin_idx_rope, hadamard_q, q_int8, q_scale, weights)
-    configs = IndexerPrologQuantConfigs(
-        q_linear=[16, 16, 128, 256, 256, 256],
-        q_hd=[32, 32, 128, 128, 256, 256],
-        w_linear=[16, 16, 1024, 1024, 32, 32],
-        unroll_list=[32, 16, 8, 4, 2, 1],
-        cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
-        pg_upper_bound=8192,
-        block_size=128,
-        t_sub_tile=1,
-        chunk_size=2,
-        vec_nbuffer_mode=0,
+def npu_quant_lightning_indexer_prolog(
+    qr: torch.Tensor,
+    idx_wq_b: torch.Tensor,
+    x: torch.Tensor,
+    weights_proj: torch.Tensor,
+    cos: torch.Tensor,
+    sin: torch.Tensor,
+    hadamard: torch.Tensor,
+    qr_scale: torch.Tensor,
+    idx_wq_b_scale: torch.Tensor,
+):
+    """
+    torch npu graph interface
+
+    """
+
+    q = torch.empty(
+        [qr.size(0), weights_proj.size(1), hadamard.size(0)],
+        dtype=qr.dtype,
+        device=qr.device,
     )
-    input_tensors = {
-        x: [0],
-        q_norm: [0],
-        q_norm_scale: [0],
-        w_qb: [],
-        w_qb_scale: [],
-        w_proj: [],
-        cos_idx_rope: [0],
-        sin_idx_rope: [0],
-        hadamard_q: []
-    }
-    output_tensors = {
-        q_int8: [0],
-        q_scale: [0],
-        weights: [0]
-    }
-    if not isinstance(x, FakeTensor):
-        pypto.from_torch(x, dynamic_axis=[0])
-        pypto.from_torch(q_norm, dynamic_axis=[0])
-        pypto.from_torch(q_norm_scale, dynamic_axis=[0])
-        pypto.from_torch(w_qb, dynamic_axis=[0])
-        pypto.from_torch(w_qb_scale, dynamic_axis=[0])
-        pypto.from_torch(w_proj, dynamic_axis=[0])
-        pypto.from_torch(cos_idx_rope, dynamic_axis=[0])
-        pypto.from_torch(sin_idx_rope, dynamic_axis=[0])
-        pypto.from_torch(hadamard_q, dynamic_axis=[0])
-        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
-        pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
-        lightning_indexer_quant_prolog(*pto_inputs, *pto_outputs, configs)
+    weights = torch.empty(
+        [qr.size(0), weights_proj.size(1)],
+        dtype=weights_proj.dtype,
+        device=weights_proj.device,
+    )
+    q_scale = torch.empty(
+        [qr.size(0), weights_proj.size(1)],
+        dtype=torch.float16,
+        device=weights_proj.device,
+    )
+
+    check_input_shape_dtype(
+        qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
+    )
+    # gen pto tensor from torch
+    qr_pto = pypto.from_torch(qr, dynamic_axis=[0], name="qr")
+    idx_wq_b_pto = pypto.from_torch(idx_wq_b, name="idx_wq_b")
+    x_pto = pypto.from_torch(x, dynamic_axis=[0], name="x")
+    weights_proj_pto = pypto.from_torch(weights_proj, name="weights_proj")
+    cos_pto = pypto.from_torch(cos, dynamic_axis=[0], name="cos")
+    sin_pto = pypto.from_torch(sin, dynamic_axis=[0], name="sin")
+    hadamard_pto = pypto.from_torch(hadamard, name="hadamard")
+    qr_scale_pto = pypto.from_torch(qr_scale, dynamic_axis=[0], name="qr_scale")
+    idx_wq_b_scale_pto = pypto.from_torch(idx_wq_b_scale, name="idx_wq_b_scale")
+
+    q_pto = pypto.from_torch(q, dynamic_axis=[0], name="q")
+    weights_pto = pypto.from_torch(weights, dynamic_axis=[0], name="weights")
+    q_scale_pto = pypto.from_torch(q_scale, dynamic_axis=[0], name="q_scale")
+
+    # tiling
+    tile_config = IndexerPrologQuantConfig(
+        unroll_list=[128, 64, 32, 16, 8, 1],
+        q_linear=[[128, 128], [128, 128], [128, 128]],
+        q_hd=[[128, 128], [128, 128], [128, 128]],
+        w_linear=[[128, 128], [128, 128], [128, 128]],
+    )
+
+    # kernel
+    if not isinstance(qr, FakeTensor):
+        pto_inputs = [
+            qr_pto,
+            idx_wq_b_pto,
+            x_pto,
+            weights_proj_pto,
+            cos_pto,
+            sin_pto,
+            hadamard_pto,
+            qr_scale_pto,
+            idx_wq_b_scale_pto,
+        ]
+        pto_outputs = [q_pto, weights_pto, q_scale_pto]
+        quant_lightning_indexer_prolog_kernel(*pto_inputs, *pto_outputs, tile_config)
+
+    return q, weights, q_scale
 
 
-def do_test_lighting_indexer_prolog(case_name, configs):
-    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+def do_indexer_prolog_quant_func(inputs, params, golden_list):
+    """
+    group       name           dtype     shape                               format
+    INPUT 0	    qr	           DT_INT8	 (t, q_lora_rank)                    ND
+    INPUT 1	    idx_wq_b	   DT_INT8	 (q_lora_rank, idx_nq * head_dim)	 ND
+    INPUT 2	    x	           DT_BF16	 (t, h)	                             ND
+    INPUT 3	    weights_proj   DT_BF16	 (h, idx_nq)	                     ND
+    INPUT 4	    cos	           DT_BF16	 (t, rope_dim)                       ND
+    INPUT 5	    sin	           DT_BF16	 (t, rope_dim)                       ND
+    INPUT 6     hadamard       DT_BF16   (head_dim, head_dim)                ND
+    INPUT 7     qr_scale       DT_FP32   (t, 1)                              ND
+    INPUT 8     idx_wq_b_scale DT_FP32   (idx_nq * head_dim, 1)              ND
+    OUTPUT 0	q              DT_BF16	 (t, idx_nq * head_dim)	             ND
+    OUTPUT 1    weights        DT_BF16   (t, idx_nq)                         ND
+    OUTPUT 2    q_scale        DT_FP16   (t, idx_nq)                         ND
+    CONFIGS     tile_config    /          /                                  /
+    """
+    torch_npu.npu.config.allow_internal_format = True
+    device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
 
-    print(f"=== run test case: {case_name} ===")
+    qr = inputs[0].npu()
+    idx_wq_b = inputs[1].npu()
+    x = inputs[2].npu()
+    weights_proj = inputs[3].npu()
+    cos = inputs[4].npu()
+    sin = inputs[5].npu()
+    hadamard = inputs[6].npu()
+    qr_scale = inputs[7].npu()
+    idx_wq_b_scale = inputs[8].npu()
 
-    dims, inputs_data, golden_data = gen_data(case_name)
+    t = params.get("t")
+    idx_nq = params.get("idx_nq")
+    head_dim = params.get("head_dim")
 
-    t = dims["t"]
-    h = dims["h"]
-    q_lora_rank = dims["q_lora_rank"]
-    idx_head_dim = dims["idx_head_dim"]
-    head_num = dims["idx_n_heads"]
-    rope_head_dim = dims["rope_head_dim"]
+    # define npu outputs
+    q = torch.zeros([t, idx_nq, head_dim]).to(torch.int8).npu()
+    weights = torch.zeros([t, idx_nq]).to(torch.bfloat16).npu()
+    q_scale = torch.zeros([t, idx_nq]).to(torch.float16).npu()
+
+    # gen pto tensor from torch
+    qr_pto = pypto.from_torch(qr, dynamic_axis=[0], name="qr")
+    idx_wq_b_pto = pypto.from_torch(idx_wq_b, name="idx_wq_b")
+    x_pto = pypto.from_torch(x, dynamic_axis=[0], name="x")
+    weights_proj_pto = pypto.from_torch(weights_proj, name="weights_proj")
+    cos_pto = pypto.from_torch(cos, dynamic_axis=[0], name="cos")
+    sin_pto = pypto.from_torch(sin, dynamic_axis=[0], name="sin")
+    hadamard_pto = pypto.from_torch(hadamard, name="hadamard")
+    qr_scale_pto = pypto.from_torch(qr_scale, dynamic_axis=[0], name="qr_scale")
+    idx_wq_b_scale_pto = pypto.from_torch(idx_wq_b_scale, name="idx_wq_b_scale")
+
+    q_pto = pypto.from_torch(q, dynamic_axis=[0], name="q")
+    weights_pto = pypto.from_torch(weights, dynamic_axis=[0], name="weights")
+    q_scale_pto = pypto.from_torch(q_scale, dynamic_axis=[0], name="q_scale")
+
+    pto_inputs = [
+        qr_pto,
+        idx_wq_b_pto,
+        x_pto,
+        weights_proj_pto,
+        cos_pto,
+        sin_pto,
+        hadamard_pto,
+        qr_scale_pto,
+        idx_wq_b_scale_pto,
+    ]
+    pto_outputs = [q_pto, weights_pto, q_scale_pto]
+
+    tile_config = IndexerPrologQuantConfig(
+        unroll_list=[128, 64, 32, 16, 8, 1],
+        q_linear=[[128, 128], [128, 128], [128, 128]],
+        q_hd=[[128, 128], [128, 128], [128, 128]],
+        w_linear=[[128, 128], [128, 128], [128, 128]],
+    )
+
+    # call main function
+    quant_lightning_indexer_prolog_kernel(*pto_inputs, *pto_outputs, tile_config)
+
+    pypto.runtime._device_synchronize()
+    compare(q.cpu(), golden_list[0], "q", atol=0.0001, rtol=0.005)
+    compare(weights.cpu(), golden_list[1], "weights", atol=0.0001, rtol=0.007825)
+    compare(q_scale.cpu(), golden_list[2], "q_scale", atol=0.0001, rtol=0.007825)
+
+
+def do_indexer_prolog_quant_torch_graph(inputs, golden_list):
+    """
+    group       name           dtype     shape                               format
+    INPUT 0	    qr	           DT_INT8	 (t, q_lora_rank)                    ND
+    INPUT 1	    idx_wq_b	   DT_INT8	 (q_lora_rank, idx_nq * head_dim)	 ND
+    INPUT 2	    x	           DT_BF16	 (t, h)	                             ND
+    INPUT 3	    weights_proj   DT_BF16	 (h, idx_nq)	                     ND
+    INPUT 4	    cos	           DT_BF16	 (t, rope_dim)                       ND
+    INPUT 5	    sin	           DT_BF16	 (t, rope_dim)                       ND
+    INPUT 6     hadamard       DT_BF16   (head_dim, head_dim)                ND
+    INPUT 7     qr_scale       DT_FP32   (t, 1)                              ND
+    INPUT 8     idx_wq_b_scale DT_FP32   (idx_nq * head_dim, 1)              ND
+    OUTPUT 0	q              DT_BF16	 (t, idx_nq * head_dim)	             ND
+    OUTPUT 1    weights        DT_BF16   (t, idx_nq)                         ND
+    OUTPUT 2    q_scale        DT_FP16   (t, idx_nq)                         ND
+    CONFIGS     tile_config    /          /                                  /
+    """
+    import torchair as tng
+    from torchair.configs.compiler_config import CompilerConfig
 
     torch_npu.npu.config.allow_internal_format = True
+    device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
 
-    x=inputs_data["token_x"].npu().reshape(t, h)
-    q_norm=inputs_data["q_norm"].npu().reshape(t, q_lora_rank)
-    q_norm_scale=inputs_data["q_norm_scale"].npu().reshape(t, 1)
-    w_qb=inputs_data["w_idx_qb"].npu()
-    w_qb_scale=inputs_data["w_idx_qb_scale"].npu()
-    w_proj=inputs_data["w_idx_proj"].npu()
-    cos_idx_rope=inputs_data["cos_idx_rope"].npu().reshape(t, rope_head_dim)
-    sin_idx_rope=inputs_data["sin_idx_rope"].npu().reshape(t, rope_head_dim)
-    hadamard_q=inputs_data["hadamard_q"].npu()
+    # define npu inputs
+    qr = inputs[0].npu()
+    idx_wq_b = inputs[1].npu()
+    x = inputs[2].npu()
+    weights_proj = inputs[3].npu()
+    cos = inputs[4].npu()
+    sin = inputs[5].npu()
+    hadamard = inputs[6].npu()
+    qr_scale = inputs[7].npu()
+    idx_wq_b_scale = inputs[8].npu()
 
-    q_int8_golden = golden_data["query"].reshape(t, head_num, idx_head_dim)
-    q_scale_golden = golden_data["query_scale"].reshape(t, head_num, 1)
-    weights_golden = golden_data["weights"].reshape(t, head_num)
-
-
-    q_int8=gen_zero_tensor(q_int8_golden)
-    q_scale=gen_zero_tensor(q_scale_golden)
-    weights=gen_zero_tensor(weights_golden)
-    model = torch.compile(IP(), backend="eager", dynamic=True)
-    
-    # capture model
-    g = torch.npu.NPUGraph()
-    with torch.npu.graph(g):
-        model(x, q_norm, q_norm_scale, w_qb, w_qb_scale, w_proj, cos_idx_rope, sin_idx_rope, hadamard_q,
-                q_int8, q_scale, weights)
-
-    g.replay()
-    pypto.runtime._device_synchronize()#内部接口，不推荐使用
-
-    compare(q_int8.cpu(), q_int8_golden, "q_int8", 1, 0, 0)
-    compare(q_scale.cpu(), q_scale_golden, "q_scale", 0.000025, 0.005, 0.001)
-    compare(weights.cpu(), weights_golden, "weights", 0.0001, 0.0078125, 0.001)
-
-    print(f"=== {case_name}: PASS ===")
-
-
-# @pytest.mark.skip(reason="large test case")
-def test_b1_s1_1():
-    configs = IndexerPrologQuantConfigs(
-        q_linear=[16, 16, 128, 256, 256, 256],
-        q_hd=[32, 32, 128, 128, 256, 256],
-        w_linear=[16, 16, 1024, 1024, 32, 32],
-        unroll_list=[32, 16, 8, 4, 2, 1],
-        cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
-        pg_upper_bound=8192,
-        block_size=128,
-        t_sub_tile=1,
-        chunk_size=2,
-        vec_nbuffer_mode=0,
+    compiler_config = CompilerConfig()
+    compiler_config.mode = "reduce-overhead"
+    npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
+    model = torch.compile(
+        QuantLightningIndexerProlog(),
+        dynamic=False,
+        fullgraph=True,
+        backend=npu_backend,
     )
-    do_test_lighting_indexer_prolog("QuantLightningIndexerPrologSTest.b1_s1_1", configs)
 
-
-def test_b4_s1_4():
-    configs = IndexerPrologQuantConfigs(
-        q_linear=[16, 16, 128, 256, 256, 256],
-        q_hd=[32, 32, 128, 128, 256, 256],
-        w_linear=[16, 16, 1024, 1024, 32, 32],
-        unroll_list=[32, 16, 8, 4, 2, 1],
-        cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
-        pg_upper_bound=8192,
-        block_size=128,
-        t_sub_tile=1,
-        chunk_size=2,
-        vec_nbuffer_mode=0,
+    q, weights, q_scale = model(
+        qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
     )
-    do_test_lighting_indexer_prolog("QuantLightningIndexerPrologSTest.b4_s1_4", configs)
+
+    pypto.runtime._device_synchronize()
+    compare(q.cpu(), golden_list[0], "q", atol=0.0001, rtol=0.005)
+    compare(weights.cpu(), golden_list[1], "weights", atol=0.0001, rtol=0.007825)
+    compare(q_scale.cpu(), golden_list[2], "q_scale", atol=0.0001, rtol=0.007825)
 
 
-# @pytest.mark.skip(reason="large test case")
-def test_b8_s1_8():
-    configs = IndexerPrologQuantConfigs(
-        q_linear=[16, 16, 128, 256, 256, 256],
-        q_hd=[32, 32, 128, 128, 256, 256],
-        w_linear=[16, 16, 1024, 1024, 32, 32],
-        unroll_list=[32, 16, 8, 4, 2, 1],
-        cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
-        pg_upper_bound=8192,
-        block_size=128,
-        t_sub_tile=1,
-        chunk_size=2,
-        vec_nbuffer_mode=0,
+def get_indexer_prolog_quant_config(case_name: str):
+    test_case_config = {
+        "test_indexer_prolog_quant_decode_16": 16,
+        "test_indexer_prolog_quant_prefill_512": 512,
+        "test_indexer_prolog_quant_graph": 255,
+    }
+    return test_case_config.get(case_name)
+
+
+def do_indexer_prolog_quant_entry(case_name: str, is_torch_graph: bool = False):
+    params = {
+        "idx_nq": 32,
+        "head_dim": 128,
+        "rope_dim": 64,
+        "q_lora_rank": 1024,
+        "h": 4096,
+    }
+    params["t"] = get_indexer_prolog_quant_config(case_name)
+    if not params:
+        logging.error("Can't get func to gen golden, Case(%s)", case_name)
+        return False
+
+    inputs, q_golden, weights_golden, q_scale_golden = gen_quant_attention_post_golden(
+        params
     )
-    do_test_lighting_indexer_prolog("QuantLightningIndexerPrologSTest.b8_s1_8", configs)
+
+    if is_torch_graph:
+        print("\n =============== torch graph ====================")
+        do_indexer_prolog_quant_torch_graph(
+            inputs, [q_golden, weights_golden, q_scale_golden]
+        )
+    else:
+        print("\n =============== st ====================")
+        do_indexer_prolog_quant_func(
+            inputs, params, [q_golden, weights_golden, q_scale_golden]
+        )
+
+    return True
 
 
-# @pytest.mark.skip(reason="large test case")
-def test_b2_s1_4k():
-    configs = IndexerPrologQuantConfigs(
-        q_linear=[16, 16, 128, 256, 256, 256],
-        q_hd=[32, 32, 128, 128, 256, 256],
-        w_linear=[16, 16, 1024, 1024, 32, 32],
-        unroll_list=[32, 16, 8, 4, 2, 1],
-        cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
-        pg_upper_bound=8192,
-        block_size=128,
-        t_sub_tile=1,
-        chunk_size=2,
-        vec_nbuffer_mode=0,
+def test_indexer_prolog_quant_decode_16():
+    """
+    lightning_indexer_prolog quant decode typical case
+    """
+    do_indexer_prolog_quant_entry(
+        "test_indexer_prolog_quant_decode_16", is_torch_graph=False
     )
-    do_test_lighting_indexer_prolog("QuantLightningIndexerPrologSTest.b1_s1_8193", configs)
-    
-# @pytest.mark.skip(reason="large test case")
-def test_b1_s1_8193():
-    configs = IndexerPrologQuantConfigs(
-        q_linear=[16, 16, 128, 256, 256, 256],
-        q_hd=[32, 32, 128, 128, 256, 256],
-        w_linear=[16, 16, 1024, 1024, 32, 32],
-        unroll_list=[32, 16, 8, 4, 2, 1],
-        cube_l1_reuse_setting={1: 4},
-        mg_copyin_upper_bound=2 * 1024 * 1024,
-        pg_upper_bound=8192,
-        block_size=128,
-        t_sub_tile=1,
-        chunk_size=2,
-        vec_nbuffer_mode=0,
+
+
+def test_indexer_prolog_quant_prefill_512():
+    """
+    lightning_indexer_prolog quant prefill typical case
+    """
+    do_indexer_prolog_quant_entry(
+        "test_indexer_prolog_quant_prefill_512", is_torch_graph=False
     )
-    do_test_lighting_indexer_prolog("QuantLightningIndexerPrologSTest.b1_s1_8193", configs)
+
+
+def test_indexer_prolog_quant_graph():
+    """
+    lightning_indexer_prolog quant graph typical case
+    """
+    do_indexer_prolog_quant_entry(
+        "test_indexer_prolog_quant_graph", is_torch_graph=True
+    )
 
 
 if __name__ == "__main__":
     logging.basicConfig(
-        format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
-        level=logging.INFO
+        format="%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s",
+        level=logging.INFO,
     )
-    test_b4_s1_4()
+    test_indexer_prolog_quant_decode_16()

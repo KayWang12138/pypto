@@ -23,7 +23,7 @@ Example:
 from dataclasses import dataclass
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
-from common import deepseek_rope
+from common import inverse_rope_3d
 from common import quant
 import pypto
 import torch
@@ -114,7 +114,7 @@ def attention_post_quant_compute(
         )  # rope: (tile_t, n_q, 64)
         cos_in = pypto.view(cos, [tile_t, rope_dim], [t_idx, 0])
         sin_in = pypto.view(sin, [tile_t, rope_dim], [t_idx, 0])
-        rope_result = deepseek_rope(atten_res_rope, cos_in, sin_in)
+        rope_result = inverse_rope_3d(atten_res_rope, cos_in, sin_in)
         pypto.assemble(rope_result, [0, 0, nope_dim], tmp_tensor)  # (tile_t, n_q, d)
 
         # bmm1 left transpose: (tile_t, n_q, d) -> (n_g, tile_t, n_q * d / n_g)

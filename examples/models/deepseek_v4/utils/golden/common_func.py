@@ -39,7 +39,7 @@ def gen_uniform_data(data_shape, min_value, max_value, dtype):
 def rotate_half(x):
     """Rotates half the hidden dims of the input."""
     x1 = x[..., : x.shape[-1] // 2]
-    x2 = x[..., x.shape[-1] // 2:]
+    x2 = x[..., x.shape[-1] // 2 :]
     return torch.cat((-x2, x1), dim=-1)
 
 
@@ -50,51 +50,31 @@ def apply_rotary_pos_emb(q, cos, sin):
     sin: (t, rope_dim), bf16
     """
     input_dtype = q.dtype
-    q = q.to(torch.float32)
+    q_new = q.to(torch.float32)
     cos = cos.to(torch.float32)
     sin = sin.to(torch.float32)
 
     cos = torch.unsqueeze(cos, dim=1)  # [t, 1, rope_dim]
     sin = torch.unsqueeze(sin, dim=1)  # [t, 1, rope_dim]
 
-    t, n, d = q.shape
-    q = q.reshape(t, n, d // 2, 2).permute(0, 1, 3, 2).reshape(t, n, d)
+    t, n, d = q_new.shape
+    q_re = q_new.reshape(t, n, d // 2, 2).permute(0, 1, 3, 2).reshape(t, n, d)
+
+    q_rotary = (
+        rotate_half(q_re)
+        .reshape((t, n, 2, d // 2))
+        .permute(0, 1, 3, 2)
+        .reshape((t, n, d))
+    )
 
     # (t, n_q, rope_dim), (t, 1, rope_dim) = (t, n_q, rope_dim)
-    q_embed = (q * cos) + (rotate_half(q) * sin)
+    q_embed = (q_new * cos) + (q_rotary * -sin)
 
     if input_dtype != torch.float32:
         q_embed = q_embed.to(input_dtype)
+
     return q_embed
 
-
-def deepseek_rope_golden(q, cos, sin):
-    """
-    q: (t, n_q, rope_dim), bf16
-    cos: (t, rope_dim), bf16
-    sin: (t, rope_dim), bf16
-    """
-    input_dtype = q.dtype
-    q = q.to(torch.float32)
-    cos = cos.to(torch.float32)
-    sin = sin.to(torch.float32) * (-1.0)
-
-    cos = torch.unsqueeze(cos, dim=1)  # [t, 1, rope_dim]
-    sin = torch.unsqueeze(sin, dim=1)  # [t, 1, rope_dim]
-
-    t, n, d = q.shape
-    q = q.reshape(t, n, d // 2, 2).permute(0, 1, 3, 2).reshape(t, n, d)
-
-    # (t, n_q, rope_dim), (t, 1, rope_dim) = (t, n_q, rope_dim)
-    q_embed = (q * cos) + (rotate_half(q) * sin)
-
-    if input_dtype != torch.float32:
-        q_embed = q_embed.to(input_dtype)
-    q_embed_reshape = q_embed.reshape(t, n, 2, d // 2)
-    q_embed_trans = q_embed_reshape.permute(0, 1, 3, 2)
-    q_embed = q_embed_trans.reshape(t, n, d)
-    return q_embed
-    
 
 def quant_golden(x: torch.Tensor):
     x_dtype = x.dtype
@@ -105,5 +85,5 @@ def quant_golden(x: torch.Tensor):
     y_fp32 = y_fp32.view(x.shape)
     y_int32 = torch.round(y_fp32).to(torch.int32)  # rint mode
     y_int8 = torch.trunc(y_int32.to(x_dtype)).to(torch.int8)
-    scale_dequant = 1.0 / scale_quant # fp32
+    scale_dequant = 1.0 / scale_quant  # fp32
     return y_int8, scale_dequant
