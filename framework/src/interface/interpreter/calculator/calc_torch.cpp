@@ -1107,6 +1107,7 @@ static struct CalcOps calcOps = {
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sqrt = Sqrt,
+    .Trunc = Trunc,
     .Abs = Abs,
     .Brcb = Brcb,
     .WhereTT = WhereTT,
