@@ -65,9 +65,14 @@ const std::unordered_set<Opcode> COPY_IN_OPS = {
     Opcode::OP_UB_COPY_L1_ND
 };
 
-const std::vector<std::pair<int, CoreType>> CORE_INIT_CONFIGS = {
+const std::vector<std::pair<int, CoreType>> CORE_INIT_CONFIGS_Mix = {
     {0, CoreType::AIV},
     {1, CoreType::AIV},
+    {0, CoreType::AIC}
+};
+
+const std::vector<std::pair<int, CoreType>> CORE_INIT_CONFIGS_NON_Mix = {
+    {0, CoreType::AIV},
     {0, CoreType::AIC}
 };
 
@@ -148,6 +153,8 @@ private:
     std::vector<IssueEntryPtr> issueEntries;
     std::unordered_map<int, IssueEntryPtr> issueEntryMap;
 
+    std::vector<std::pair<int, CoreType>> CORE_INIT_CONFIGS;
+
     std::unordered_map<int, LocalBufferPtr> localBufferMap;
     // 分核数据结构
     // std::unordered_map<std::pair<int, CoreType>, std::map<npu::tile_fwk::MemoryType, BufferPool>> bufferManagerMap;
@@ -206,6 +213,7 @@ private:
     void InitBufRefCount();
     void UpdateBufRefCount(IssueEntryPtr issue, LogicalTensorPtr tensor);
     Status CheckAllocIssue();
+    void InitTensorCoreMap();
     void UpdateAllocMap(IssueEntryPtr issue, std::map<int, IssueEntryPtr> &tensorAllocMap);
     void InitIssueQueuesAndBufferManager();
 
