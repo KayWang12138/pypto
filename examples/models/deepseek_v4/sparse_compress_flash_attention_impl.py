@@ -152,7 +152,8 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
         "pg_parallel_lower_bound": 20,
         "vec_nbuffer_mode": 1,
         # "vec_nbuffer_setting": {-1: 2},
-        "cube_l1_reuse_mode": 2
+        # "cube_l1_reuse_mode": 2,
+        "cube_l1_reuse_setting": {-1: 2}
     },
     runtime_options={
         "stitch_function_num_initial": 128,
