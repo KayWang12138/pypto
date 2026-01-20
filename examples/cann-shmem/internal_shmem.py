@@ -44,12 +44,13 @@ def compute(rank, world_size, verify_backend):
 
     import pypto
 
-    @pypto.jit
+    distributed_options = {"hccl_handle": [rank], "hccl_group_name": ["shmem_group"]}
+
+    @pypto.jit(distributed_options=distributed_options)
     def all_gather_kernel(input_tensor: pypto.Tensor, dummy_tensor: pypto.Tensor, result_holder: pypto.Tensor, world_size: int) -> None:
         h, w = input_tensor.shape
         tileNum1 = 8
         tileNum2 = 8
-        pypto.set_distributed_options(hccl_handle=[rank], hccl_group_name=["shmem_group"])
 
         pypto.set_vec_tile_shapes(h, w)
         pypto.set_dist_tile_shapes([h // tileNum1, tileNum1, h % tileNum1], [w // tileNum2, tileNum2, w % tileNum2], [1, world_size, 0])
@@ -75,6 +76,7 @@ def compute(rank, world_size, verify_backend):
     # return
     print(f"[Rank {rank}] Starting AllGather kernel...")
     all_gather_kernel(input_pto, dummy_pto, result_pto, world_size)
+    torch.npu.synchronize()
 
     print(input_data[0:2, 0:2], result_data[0:2, 0:2])
     _verify_result(input_data, result_data, world_size, rank, verify_backend)

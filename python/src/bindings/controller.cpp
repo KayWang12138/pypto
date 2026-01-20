@@ -36,6 +36,70 @@ void bind_controller_config(py::module &m) {
         },
         py::arg("edgeItems"), py::arg("precision"), py::arg("threshold"), py::arg("linewidth"));
 
+    m.def(
+        "SetExperimentalOption",
+        [](const std::string &key, const py::object &value) {
+            if (py::isinstance<py::bool_>(value)) {
+                config::experimental::SetOption(key, value.cast<bool>());
+                return;
+            }
+            if (py::isinstance<py::int_>(value)) {
+                config::experimental::SetOption(key, value.cast<int64_t>());
+                return;
+            }
+            if (py::isinstance<py::str>(value)) {
+                config::experimental::SetOption(key, value.cast<std::string>());
+                return;
+            }
+            if (py::isinstance<py::list>(value) || py::isinstance<py::tuple>(value)) {
+                py::sequence seq = value.cast<py::sequence>();
+                if (seq.size() == 0) {
+                    if (key.find("group_name") != std::string::npos) {
+                        config::experimental::SetOption(key, std::vector<std::string>{});
+                    } else {
+                        config::experimental::SetOption(key, std::vector<int64_t>{});
+                    }
+                    return;
+                }
+                bool all_int = true;
+                bool all_str = true;
+                for (auto item : seq) {
+                    all_int = all_int && py::isinstance<py::int_>(item);
+                    all_str = all_str && py::isinstance<py::str>(item);
+                }
+                if (all_int) {
+                    std::vector<int64_t> vals;
+                    vals.reserve(seq.size());
+                    for (auto item : seq) {
+                        vals.push_back(py::cast<int64_t>(item));
+                    }
+                    config::experimental::SetOption(key, vals);
+                    return;
+                }
+                if (all_str) {
+                    std::vector<std::string> vals;
+                    vals.reserve(seq.size());
+                    for (auto item : seq) {
+                        vals.emplace_back(py::cast<std::string>(item));
+                    }
+                    config::experimental::SetOption(key, vals);
+                    return;
+                }
+            }
+            if (py::isinstance<py::dict>(value)) {
+                std::map<int64_t, int64_t> vals;
+                auto dict = value.cast<py::dict>();
+                for (auto item : dict) {
+                    vals[py::cast<int64_t>(item.first)] = py::cast<int64_t>(item.second);
+                }
+                config::experimental::SetOption(key, vals);
+                return;
+            }
+            throw py::type_error("Unsupported experimental config type.");
+        },
+        py::arg("key"),
+        py::arg("value"));
+
     m.def("SetSemanticLabel",
         [](const std::string &label, const std::string &filename, int lineno) {
             config::SetSemanticLabel(label, filename.c_str(), lineno);
@@ -93,15 +157,23 @@ void bind_controller_set_tile(py::module &m) {
         return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.enableMultiDataLoad, cubeTile.enableSplitK);
     });
 
-    m.def("SetDistTile", [](const std::vector<int> &row, const std::vector<int> &col, const std::vector<int> &rank) {
+    m.def("SetDistTileRow", [](const std::vector<int> &row) {
         std::array<int, MAX_DIST_DIM_SIZE> rowArr = {0};
-        std::array<int, MAX_DIST_DIM_SIZE> colArr = {0};
-        std::array<int, MAX_DIST_DIM_SIZE> rankArr = {0};
         std::copy(row.begin(), row.end(), rowArr.begin());
+        TileShape::Current().SetDistTileRow(rowArr);
+    }, py::arg("row"));
+
+    m.def("SetDistTileCol", [](const std::vector<int> &col) {
+        std::array<int, MAX_DIST_DIM_SIZE> colArr = {0};
         std::copy(col.begin(), col.end(), colArr.begin());
+        TileShape::Current().SetDistTileCol(colArr);
+    }, py::arg("col"));
+
+    m.def("SetDistTileRank", [](const std::vector<int> &rank) {
+        std::array<int, MAX_DIST_DIM_SIZE> rankArr = {0};
         std::copy(rank.begin(), rank.end(), rankArr.begin());
-        TileShape::Current().SetDistTile(rowArr, colArr, rankArr);
-    }, py::arg("row"), py::arg("col"), py::arg("rank"));
+        TileShape::Current().SetDistTileRank(rankArr);
+    }, py::arg("rank"));
 
     m.def("GetDistTile", []() {
         auto distTile = TileShape::Current().GetDistTile();

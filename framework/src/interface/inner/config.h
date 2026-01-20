@@ -40,6 +40,7 @@ constexpr const char *DB_TYPE = "db_type";
 constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
 constexpr const char *ONLY_CODEGEN = "only_codegen";
 constexpr const char *SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
+constexpr const char *COST_MODEL_ENABLE = "cost_model_enable";
 
 //runtime
 constexpr const char *DEVICE_SCHED_MODE = "device_sched_mode";

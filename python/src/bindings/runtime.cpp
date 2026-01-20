@@ -39,6 +39,7 @@
 #include "interface/tileop/distributed/hccl_context.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/runtime/mc2_tiling.h"
 #ifdef BUILD_WITH_CANN
 #include "hccl/hccl.h"
 #include "hccl/hccl_types.h"
@@ -62,126 +63,7 @@ using namespace npu::tile_fwk::dynamic;
 
 namespace {
 #ifdef BUILD_WITH_CANN
-#pragma pack(push, 8)
-struct Mc2ServerCfg {
-    uint32_t version = 0;
-    uint8_t debugMode = 0;
-    uint8_t sendArgIndex = 0;
-    uint8_t recvArgIndex = 0;
-    uint8_t commOutArgIndex = 0;
-    uint8_t reserved[8] = {};
-};
-#pragma pack(pop)
-
-#pragma pack(push, 8)
-struct Mc2HcommCfg {
-    uint8_t skipLocalRankCopy = 0;
-    uint8_t skipBufferWindowCopy = 0;
-    uint8_t stepSize = 0;
-    char reserved[13] = {};
-    char groupName[128] = {};
-    char algConfig[128] = {};
-    uint32_t opType = 0;
-    uint32_t reduceType = 0;
-};
-#pragma pack(pop)
-
-struct Mc2CommConfig {
-    uint32_t version;
-    uint32_t hcommCnt;
-    struct Mc2ServerCfg serverCfg;
-    struct Mc2HcommCfg hcommCfg;
-};
-
-constexpr uint32_t INIT_TILING_VERSION = 100U;
-constexpr uint32_t MAX_CC_TILING_NUM = 8U;
-
-#pragma pack(push, 8)
-struct Mc2InitTilingInner {
-    uint32_t version;
-    uint32_t mc2HcommCnt;
-    uint32_t offset[MAX_CC_TILING_NUM];
-    uint8_t debugMode;
-    uint8_t preparePosition;
-    uint16_t queueNum;
-    uint16_t commBlockNum;
-    uint8_t devType;
-    char reserved[17];
-};
-#pragma pack(pop)
-
-constexpr uint32_t GROUP_NAME_SIZE = 128U;
-constexpr uint32_t ALG_CONFIG_SIZE = 128U;
-
-struct Mc2cCTilingInner {
-    uint8_t skipLocalRankCopy;
-    uint8_t skipBufferWindowCopy;
-    uint8_t stepSize;
-    uint8_t version;
-    char reserved[9];
-    uint8_t commEngine;
-    uint8_t srcDataType;
-    uint8_t dstDataType;
-    char groupName[GROUP_NAME_SIZE];
-    char algConfig[ALG_CONFIG_SIZE];
-    uint32_t opType;
-    uint32_t reduceType;
-};
-
-struct Mc2CommConfigV2 {
-    Mc2InitTilingInner init;
-    Mc2cCTilingInner inner;
-};
-
 extern "C" int HcclAllocComResourceByTiling(void* comm, void *stream, void *mc2Tiling, void **commContext);
-
-int32_t MakeMc2TilingStruct(Mc2CommConfig &commConfig, const std::string &groupName)
-{
-    commConfig = {};
-    constexpr uint32_t version = 2;
-    constexpr uint32_t hcommCnt = 1;
-    constexpr uint32_t opTypeAllToAll = 6; // numeric representation of AlltoAll
-    const char *algConfig = "AllGather=level0:ring";
-    constexpr uint32_t arraySize = 128;
-
-    commConfig.version = version;
-    commConfig.hcommCnt = hcommCnt;
-    commConfig.hcommCfg.skipLocalRankCopy = 0;
-    commConfig.hcommCfg.skipBufferWindowCopy = 0;
-    commConfig.hcommCfg.stepSize = 0;
-    commConfig.hcommCfg.opType = opTypeAllToAll;
-
-    std::strncpy(commConfig.hcommCfg.groupName, groupName.c_str(), arraySize - 1);
-    commConfig.hcommCfg.groupName[arraySize - 1] = '\0';
-
-    std::strncpy(commConfig.hcommCfg.algConfig, algConfig, arraySize - 1);
-    commConfig.hcommCfg.algConfig[arraySize - 1] = '\0';
-
-    return 0;
-}
-
-int32_t MakeMc2TilingStructV2(Mc2CommConfigV2 &commConfig, const std::string &groupName)
-{
-    commConfig = {};
-    const char *algConfig = "BatchWrite=level0:fullmesh";
-    commConfig.init.version = INIT_TILING_VERSION;
-    commConfig.init.mc2HcommCnt = 1;
-    commConfig.init.queueNum = 0;
-    commConfig.init.commBlockNum = 48U;
-    commConfig.init.devType = 4U;
-    commConfig.inner.skipLocalRankCopy = 0;
-    commConfig.inner.skipBufferWindowCopy = 0;
-    commConfig.inner.stepSize = 0;
-    commConfig.inner.opType = 18U;
-    commConfig.inner.version = 1;
-    commConfig.init.offset[0] = static_cast<uint32_t>(
-        reinterpret_cast<uint64_t>(&commConfig.inner) - reinterpret_cast<uint64_t>(&commConfig.init));
-    std::strncpy(commConfig.inner.groupName, groupName.c_str(), GROUP_NAME_SIZE - 1);
-    commConfig.inner.groupName[GROUP_NAME_SIZE - 1] = '\0';
-    std::strncpy(commConfig.inner.algConfig, algConfig, ALG_CONFIG_SIZE - 1);
-    commConfig.inner.algConfig[ALG_CONFIG_SIZE - 1] = '\0';
-    return 0;
-}
 
 std::mutex g_ctxMutex;
 std::unordered_map<uint64_t, uint64_t> g_hcclContextCache;
@@ -559,6 +441,7 @@ uint64_t AllocShmemContextLocked(uint64_t hcclHandle)
             if (setRet != ACLSHMEM_SUCCESS) {
                 ShmemLog("[pypto] shmem_set_attr_uniqueid_args failed ret=%d\n", setRet);
             } else {
+                attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_MTE;
                 int initRet = shmem_init_attr(ACLSHMEMX_INIT_WITH_UNIQUEID, &attributes);
                 if (initRet == ACLSHMEM_SUCCESS) {
                     inited = true;
@@ -590,6 +473,16 @@ uint64_t AllocShmemContextLocked(uint64_t hcclHandle)
                 ShmemLog("[pypto] shmem_init_attr default failed ret=%d\n", initRet);
                 return 0;
             }
+        }
+        for (int attempt = 0; attempt < 200; ++attempt) {
+            if (shmem_init_status() == ACLSHMEM_STATUS_IS_INITIALIZED) {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        if (shmem_init_status() != ACLSHMEM_STATUS_IS_INITIALIZED) {
+            ShmemLog("[pypto] shmem init status not initialized\n");
+            return 0;
         }
     }
 
