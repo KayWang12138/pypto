@@ -94,12 +94,12 @@ inline void HostAssign(T *&ptr, uintdevptr_t offset) {
 }
 template <typename T>
 inline void DeviceReloc(T *&ptr, intdevptr_t shift) {
-    ptr = reinterpret_cast<T *>(reinterpret_cast<uintdevptr_t>(ptr) + shift);
+    ptr = reinterpret_cast<T *>(reinterpret_cast<intdevptr_t>(ptr) + shift);
 }
 template <typename T>
 inline void DeviceRelocMaybeNull(T *&ptr, intdevptr_t shift) {
     if (ptr != nullptr) {
-        ptr = reinterpret_cast<T *>(reinterpret_cast<uintdevptr_t>(ptr) + shift);
+        ptr = reinterpret_cast<T *>(reinterpret_cast<intdevptr_t>(ptr) + shift);
     }
 }
 
