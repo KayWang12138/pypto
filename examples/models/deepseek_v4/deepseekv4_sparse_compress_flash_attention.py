@@ -353,13 +353,10 @@ def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, in
 
     tile_config = SCFATileShapeConfig(
         g_tile=64,
-        s_kv_tile=2048,
-        c1_tile_shape=[64, 64, 128, 640, 128, 128],
+        c1_tile_shape=[64, 64, 128, 512, 128, 128],
         v1_tile_shape=[32, 640],
-        c2_tile_shape=[64, 64, 128, 640, 128, 128],
-        v2_tile_shape=[64, 128]
+        c2_tile_shape=[64, 64, 128, 640, 128, 128]
     )
-    
 
     b, s1, n_q, n_kv, max_kv_seq, kv_lora_rank, block_num, block_size, win_size, topk, scalar,\
         cmp_ratio = input_params
@@ -367,7 +364,7 @@ def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, in
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
 
     calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
-    
+
     # 算子kernel接口入参名称及顺序与算子原型对齐
     q_npu = q.npu()
     query_pto = pypto.from_torch(q_npu, dynamic_axis=[0], name="q_nope")
@@ -410,15 +407,6 @@ def do_test_sparse_compress_attention_func_acl_graph(bn1n2s1, actual_seq, input_
 
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
-
-    tile_config = SCFATileShapeConfig(
-        g_tile=64,
-        s_kv_tile=2048,
-        c1_tile_shape=[64, 64, 128, 640, 128, 128],
-        v1_tile_shape=[32, 640],
-        c2_tile_shape=[64, 64, 128, 640, 128, 128],
-        v2_tile_shape=[64, 128]
-    )
 
     b, s1, n_q, n_kv, max_kv_seq, kv_lora_rank, block_num, block_size, win_size, topk, \
         softmax_scale, cmp_ratio = input_params
@@ -475,7 +463,7 @@ def do_test_sfa_entry(case_name: str, is_p: bool,  is_acl_graph: bool = False):
 
 
 # @pytest.mark.skip(reason="acl graph perf")
-def test_sfa_bf16_b4_s4_seq64k_per_graph_d():
+def test_sfa_bf16_b16_s1_seq64k_acl_graph_d():
     '''
     scfa aclgraph测试用例
     '''
@@ -516,3 +504,6 @@ if __name__ == "__main__":
         level=logging.INFO
     )
     test_sfa_bf16_b16_s1_seq64K_d()
+    test_sfa_bf16_b16_s2_seq1536_d()
+    test_sfa_bf16_b16_s2_seq127_d()
+    test_sfa_bf16_b16_s4_seq130_d()

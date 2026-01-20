@@ -35,11 +35,9 @@ MAX_S2 = 65536
 @dataclass
 class SCFATileShapeConfig:
     g_tile: int
-    s_kv_tile: int
     c1_tile_shape: list
     v1_tile_shape: list
     c2_tile_shape: list
-    v2_tile_shape: list
 
 
 def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
@@ -52,7 +50,6 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
     d = query.shape[1]
     group = nq // n_kv
     group_tile = tile_config.g_tile
-    s_kv_tile = tile_config.s_kv_tile
     c1_tile = tile_config.c1_tile_shape
     v1_tile = tile_config.v1_tile_shape
     c2_tile = tile_config.c2_tile_shape
@@ -67,9 +64,8 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
 
     atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
     topk_tile = topk
-    s2_tile = win_size + topk_tile
-
-    atten_out_2dim = pypto.tensor([batch_size_sym * s1_n2_gsym, d], dtype, "attenOut2Dim")
+    sel_tile = win_size * 2 + topk_tile
+    kv_tile = win_size + topk_tile
 
     for batch_idx in pypto.loop(0, batch_size_sym, 1, name="LOOP_L0_idx", idx_name="bIdx"):
         ori_act_seq = seqused_kv[batch_idx]
@@ -90,26 +86,27 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
                     cur_group_tile = group_tile
                     cur_offset = batch_idx * s1_n2_gsym + slc_idx * nq + n_kv_idx * group + group_idx * cur_group_tile
                     for _, _ in pypto.loop_unroll(0, 1, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx"): # 非Flash: wfa+sfa
-
+                        atten_out_2dim = pypto.tensor([batch_size_sym * s1_n2_gsym, d], dtype, "attenOut2Dim")
                         pypto.set_semantic_label("Sa_V0")
+
+                        # ---- window select: GM --> UB  [win_tile, d]
+                        pypto.set_vec_tile_shapes(128, 512)
+                        kj = pypto.tensor([sel_tile, d], dtype, "kj")
+                        cur_kv_block_0_size = cur_win_size - cur_valid_start_pos
+                        kv_block_0 = pypto.view(ori_kv, [win_size, d], [physical_block_id_0 * block_size + cur_valid_start_pos, 0], valid_shape=[cur_kv_block_0_size, d])
+                        pypto.assemble(pypto.clone(kv_block_0), [0, 0], kj)
+                        if pypto.cond(start_block < end_block):
+                            pypto.set_vec_tile_shapes(128, 512)
+                            cur_kv_block_1_size = cur_win_size - cur_kv_block_0_size
+                            kv_block_1 = pypto.view(ori_kv, [win_size, d], [physical_block_id_1 * block_size, 0], valid_shape=[cur_kv_block_1_size, d])
+                            pypto.assemble(pypto.clone(kv_block_1), [cur_kv_block_0_size, 0], kj)
+
                         # ---- gather: GM --> UB  [topk_tile, d]
-                        pypto.set_vec_tile_shapes(64, 512)
+                        pypto.set_vec_tile_shapes(128, 512)
                         cur_cmp_sparse_indices = pypto.view(cmp_sparse_indices, [1, topk_tile], [batch_idx * s1_sym + slc_idx, 0], valid_shape=[1, cur_topk_size])
                         cur_block_table = pypto.view(cmp_block_table, [1, MAX_S2 // block_size], [batch_idx, 0])
                         cmp_kv_view = pypto.view(cmp_kv, [topk_tile, d], [0, 0], valid_shape=[cur_topk_size, d])
                         compress_kv = gather_in_ub(cmp_kv_view, cur_cmp_sparse_indices, cur_block_table, block_size, -2)
-
-                        # ---- window select: GM --> UB  [win_tile, d]
-                        pypto.set_vec_tile_shapes(64, 512)
-                        kv_block_0 = pypto.view(ori_kv, [block_size, d], [physical_block_id_0 * block_size, 0])
-                        kv_block_1 = pypto.view(ori_kv, [block_size, d], [physical_block_id_1 * block_size, 0])
-                        win_kv_gather = pypto.concat([kv_block_0, kv_block_1], dim=0)
-
-                        # ---- assemble: UB --> UB [s2_tile, d]
-                        pypto.set_vec_tile_shapes(128, 512)
-                        kj = pypto.tensor([s2_tile, d], dtype, "kj")
-                        win_kv = pypto.view(win_kv_gather, [win_size, d], [cur_valid_start_pos, 0], valid_shape=[cur_win_size, d])
-                        pypto.assemble(pypto.clone(win_kv), [0, 0], kj)
                         pypto.assemble(compress_kv, [cur_win_size, 0], kj)
 
                         # C1
@@ -117,8 +114,8 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
                         pypto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]], 
                                                     [c1_tile[4], c1_tile[5]], enable_multi_data_load=True)
                         qv = pypto.view(query, [cur_group_tile, d], [cur_offset, 0], valid_shape=[cur_group_tile, d])
-                        cmp_kv_after_gather = pypto.view(kj, [s2_tile, d], [0, 0], valid_shape=[cur_s2_tile, d])
-                        sij = pypto.matmul(qv, cmp_kv_after_gather, pypto.DT_FP32, a_trans=False, b_trans=True)
+                        kv_after_gather = pypto.view(kj, [kv_tile, d], [0, 0], valid_shape=[cur_s2_tile, d])
+                        sij = pypto.matmul(qv, kv_after_gather, pypto.DT_FP32, a_trans=False, b_trans=True)
 
                         pypto.set_semantic_label("Sa_V1")
                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
@@ -138,7 +135,7 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
                                                     [c2_tile[4], c2_tile[5]], enable_multi_data_load=True)
                         pypto.set_matrix_size([tilda_pij_f16.shape[0],
                                                tilda_pij_f16.shape[1], kj.shape[1]])
-                        vj = pypto.view(kj, [s2_tile, d], [0, 0], valid_shape=[cur_s2_tile, d])
+                        vj = pypto.view(kj, [kv_tile, d], [0, 0], valid_shape=[cur_s2_tile, d])
                         q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
 
                         pypto.assemble(q1, [cur_offset, 0], atten_out_2dim)
@@ -153,15 +150,15 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
         "pg_upper_bound": 50000,
         "pg_lower_bound": 512,
         "pg_parallel_lower_bound": 20,
-        "vec_nbuffer_mode": 2,
-        "vec_nbuffer_setting": {-1: 2},
+        "vec_nbuffer_mode": 1,
+        # "vec_nbuffer_setting": {-1: 2},
         "cube_l1_reuse_mode": 2
     },
     runtime_options={
         "stitch_function_num_initial": 128,
         "stitch_function_inner_memory": 1024,
         "stitch_function_outcast_memory": 1024,
-        "device_sched_mode": 3
+        # "device_sched_mode": 3
     },
     host_options={"only_codegen": True}
 )
@@ -180,7 +177,6 @@ def sparse_compress_flash_attention_d(query, ori_kv, cmp_kv, ori_block_table, cm
                                    attention_out, nq, n_kv, softmax_scale, topk,
                                    block_size, win_size, cmp_ratio, tile_config)
 
-
 @allow_in_graph
 def npu_sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                         seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
@@ -189,11 +185,9 @@ def npu_sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_b
     
     tile_config = SCFATileShapeConfig(
         g_tile=64,
-        s_kv_tile=2048,
-        c1_tile_shape=[64, 64, 128, 640, 128, 128],
+        c1_tile_shape=[64, 64, 128, 512, 128, 128],
         v1_tile_shape=[32, 640],
-        c2_tile_shape=[64, 64, 128, 640, 128, 128],
-        v2_tile_shape=[64, 128]
+        c2_tile_shape=[64, 64, 128, 640, 128, 128]
     )
 
     attention_out_npu = torch.zeros([ori_block_table_npu.size(0), cmp_sparse_indices_npu.size(0) // ori_block_table_npu.size(0), query_npu.size(0) // cmp_sparse_indices_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=f'{query_npu.device}')
