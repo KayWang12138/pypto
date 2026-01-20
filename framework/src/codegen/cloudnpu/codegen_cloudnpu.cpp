@@ -142,7 +142,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         ALOG_INFO_F(
             "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
         Opcode opcode = op.GetOpcode();
-        if (SKIP_OPCODE.find(opcode) != SKIP_OPCODE.end()) {
+        if (SKIP_OPCODE_FOR_CODEGEN.find(opcode) != SKIP_OPCODE_FOR_CODEGEN.end()) {
             ALOG_INFO_F("ignore this op\n------------------------ Op CodeGenNPU Finish -----------------------");
             continue;
         }
