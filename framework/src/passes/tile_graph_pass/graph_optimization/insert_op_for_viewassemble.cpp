@@ -209,6 +209,8 @@ int InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
             AddCopyDDROp(function, needed, input);
         }
     }
+
+    return needAddCopyAssOps.size()
 }
 
 
