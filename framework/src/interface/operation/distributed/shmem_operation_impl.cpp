@@ -36,10 +36,10 @@ void ValidateGroup(const char* group)
         << groupLen;
 }
 
-void ValidateShapeAndType(const Tensor& Tensor, const DataType expectedType, const Shape expectedDataShape)
+void ValidateShapeAndType(const Tensor& inputTensor, const DataType expectedType, const Shape expectedDataShape)
 {
-    ASSERT(Tensor.GetDataType() == expectedType);
-    ASSERT(Tensor.GetShape() == expectedDataShape);
+    ASSERT(inputTensor.GetDataType() == expectedType);
+    ASSERT(inputTensor.GetShape() == expectedDataShape);
 }
 
 void ValidateTilingSize(const VecTile &vecTile, const Tensor& in)
