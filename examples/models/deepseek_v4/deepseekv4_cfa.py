@@ -193,11 +193,24 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, k_win=None, v_win=None
                     max_update[:] = tilda_mij
 
                     # c2
-                    vj = pypto.view(v_win_2d, [block_size, dn], [block_idx_valid * block_size, 0])
+                    vj = pypto.view(v_win_2d, [block_size, dn], [block_idx_valid * block_size, 0], valid_shape=[actual_s2_tile, dn])
                     pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
                     oi_tmp = pypto.matmul(tilda_pij_fp16, vj, pypto.DT_FP32)
                     pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                     oi_update[:] = oi_tmp
+                    
+                    if pypto.cond(s2_loop == 0):
+                        attn_sink_tile = pypto.view(attn_sink_2d, [g_tile, 1], [g_idx * g_tile, 0])
+                        attn_sink_tile = pypto.exp(attn_sink_tile - max_update)
+                        sum_local = pypto.add(sum_update, attn_sink_tile)
+                        oi_final = pypto.div(oi_update, sum_local)
+                        pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
+                        oi_final_3d = pypto.cast(
+                            pypto.reshape(oi_final, [1, g_tile, dn]),
+                            dtype)
+                        # 7. 将结果搬运到输出tensor上
+                        pypto.assemble(oi_final_3d, oi_ofs, atten_out)
+                        
                 for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=unroll_list):
                     block_num = s2_tile // block_size
                     idx = s2_idx * block_num
@@ -284,7 +297,7 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, k_win=None, v_win=None
                         pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                         oi_update[:] = oi_update * update_mul + oi_tmp
                     if pypto.cond(pypto.is_loop_end(s2_idx)):
-                        attn_sink_tile = pypto.view(attn_sink_2d, [g_tile, 1], [0, 0])
+                        attn_sink_tile = pypto.view(attn_sink_2d, [g_tile, 1], [g_idx * g_tile, 0])
                         attn_sink_tile = pypto.exp(attn_sink_tile - max_update)
                         sum_local = pypto.add(sum_update, attn_sink_tile)
                         oi_final = pypto.div(oi_update, sum_local)
