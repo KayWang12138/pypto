@@ -355,7 +355,8 @@ Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &a
     }
 
     auto &assembleOutShape = assembleOp.GetOOperands()[0]->tensor->rawshape;
-    bool ret = CalculateNewRawShape(oriBackUp->shape, producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape, false);
+    bool ret =
+        CalculateNewRawShape(oriBackUp->shape, producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape);
     if (ret == false) return SUCCESS;
     GetDynOffsetBeforeReshape(dynOffset, assembleOutShape, newRawShape, newDynOffset);
     for (auto copyOut : producer->GetIOperands()[0]->GetProducers()) {
