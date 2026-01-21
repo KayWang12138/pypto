@@ -64,8 +64,11 @@ Function* FunctionClone::CloneFunctionByComponent(const InternalComponentInfo& c
     auto funcMagicName = leafName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     cloneFunc = std::make_shared<Function>(Program::GetInstance(), funcMagicName, leafName, &rootFunc);
     // 设置function类型
-    cloneFunc->SetFunctionType(rootFunc.GetFunctionType());
-    cloneFunc->SetGraphType(rootFunc.GetGraphType());
+    cloneFunc->SetFunctionType(originalMixFunc.GetFunctionType());
+    cloneFunc->SetGraphType(originalMixFunc.GetGraphType());
+    if (cloneFunc->GetGraphType() != GraphType::BLOCK_GRAPH){
+        ALOG_ERROR_F("WRONG GRAPH TYPE FOR CLONE FUNCTION: %s", funcMagicName.c_str());
+    }
 
     ProcessOperations(component);
     // 验证顺序正确性
