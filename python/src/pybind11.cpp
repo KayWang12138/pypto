@@ -32,5 +32,6 @@ PYBIND11_MODULE(pypto_impl, m) {
     bind_pass(m);
     BindFunction(m);
     BindIr(m);
+    bind_distributed(m);
 };
 } // namespace pypto
