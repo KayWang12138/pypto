@@ -626,6 +626,9 @@ void TiledRound(Function &function, const TileShape &tileShape, size_t cur, Inpu
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
         std::vector<int64_t> tmpShape(input.tileInfo.shape);
+        if (result->Datatype() == DT_FP32) {
+            tmpShape = {BLOCK_SIZE / sizeof(float)};
+        }
         auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
         auto &newOp = function.AddOperation(Opcode::OP_ROUND, {tile}, {resultTile, tmpTensor});
         float powDecimals = std::pow(static_cast<float>(10), static_cast<float>(decimals));

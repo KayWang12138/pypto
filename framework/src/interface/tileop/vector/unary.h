@@ -158,44 +158,43 @@ TILEOP void TRound(T0 dst, T1 tmp, T2 src, Scalar powDecimals) {
                 tmpTile.Assign(tmp, tileOffsets);
                 srcTile.Assign(src, tileOffsets);
 
-                if constexpr (std::is_same_v<typename T2::Type, half> ||
-                              std::is_same_v<typename T2::Type, bfloat16_t>) {
-                    pto::TCVT(tmpTile.Data(), srcTile.Data(), pto::RoundMode::CAST_NONE);
-                } else if constexpr (std::is_same_v<typename T2::Type, int32_t> ||
-                                     std::is_same_v<typename T2::Type, int16_t>) {
-                    pto::TCVT(tmpTile.Data(), srcTile.Data(), pto::RoundMode::CAST_RINT);
-                }
-
-                if constexpr (!std::is_same_v<typename T2::Type, float>) {
+                if constexpr (std::is_same_v<typename T2::Type, float>) {
+                    pto::TMULS(dstTile.Data(), srcTile.Data(), powDecimals);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TCVT(dstTile.Data(), dstTile.Data(), pto::RoundMode::CAST_ROUND);
+#ifdef __DAV_V220
+                    pipe_barrier(PIPE_V);
+#endif
+                    pto::TDIVS(dstTile.Data(), dstTile.Data(), powDecimals);
+                } else {
+                    if constexpr (std::is_same_v<typename T2::Type, half> ||
+                                  std::is_same_v<typename T2::Type, bfloat16_t>) {
+                        pto::TCVT(tmpTile.Data(), srcTile.Data(), pto::RoundMode::CAST_NONE);
+                    } else {
+                        pto::TCVT(tmpTile.Data(), srcTile.Data(), pto::RoundMode::CAST_RINT);
+                    }
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
                     pto::TMULS(tmpTile.Data(), tmpTile.Data(), powDecimals);
-                } else {
-                    pto::TMULS(tmpTile.Data(), srcTile.Data(), powDecimals);
-                }
 #ifdef __DAV_V220
-                pipe_barrier(PIPE_V);
+                    pipe_barrier(PIPE_V);
 #endif
-                pto::TCVT(tmpTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_ROUND);
+                    pto::TCVT(tmpTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_ROUND);
 #ifdef __DAV_V220
-                pipe_barrier(PIPE_V);
+                    pipe_barrier(PIPE_V);
 #endif
-                if constexpr (std::is_same_v<typename T0::Type, float>) {
-                    pto::TDIVS(dstTile.Data(), tmpTile.Data(), powDecimals);
-                } else {
                     pto::TDIVS(tmpTile.Data(), tmpTile.Data(), powDecimals);
 #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
 #endif
-                }
-
-                if constexpr (std::is_same_v<typename T0::Type, half>) {
-                    pto::TCVT(dstTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_NONE);
-                } else if constexpr (std::is_same_v<typename T0::Type, bfloat16_t> ||
-                                     std::is_same_v<typename T0::Type, int32_t> ||
-                                     std::is_same_v<typename T0::Type, int16_t>) {
-                    pto::TCVT(dstTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_RINT);
+                    if constexpr (std::is_same_v<typename T0::Type, half>) {
+                        pto::TCVT(dstTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_NONE);
+                    } else {
+                        pto::TCVT(dstTile.Data(), tmpTile.Data(), pto::RoundMode::CAST_RINT);
+                    }
                 }
             }
         }
