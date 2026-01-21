@@ -34,7 +34,6 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         ProgramData::GetInstance().Reset();
-        config::SetHostOption(ONLY_CODEGEN, true);
         if (!calc::IsVerifyEnabled()) {
             GTEST_SKIP() << "Verify not supported skip the verify test";
         }
