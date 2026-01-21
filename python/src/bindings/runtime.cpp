@@ -20,6 +20,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "interface/plugin/plugin.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -217,6 +218,14 @@ std::string BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &in
     return "";
 }
 
+void PluginAddCodegenSrc(const std::string &name, const PluginCodegenSrcgen::EntryType &entry) {
+    PluginManager::GetInstance().AddPluginCodegenSrc(name, entry);
+}
+
+void PluginClear() {
+    PluginManager::GetInstance().ClearPlugin();
+}
+
 void BindRuntime(py::module &m) {
     m.def("DeviceInit", &DeviceInit);
     m.def("DeviceFini", &DeviceFini);
@@ -229,6 +238,8 @@ void BindRuntime(py::module &m) {
     m.def("SetVerifyData", &SetVerifyData);
     m.def("BuildCache", BuildCache);
     m.def("CopyToHost", &CopyToHost);
+    m.def("PluginAddCodegenSrc", &PluginAddCodegenSrc);
+    m.def("PluginClear", &PluginClear);
 
     py::class_<DeviceTensorData>(m, "DeviceTensorData")
         .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),
