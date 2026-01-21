@@ -261,7 +261,12 @@ public:
     bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
     AiCoreProfLevel CreateProfLevel(ProfConfig profConfig);
     void SetProfLevel(AiCoreProfLevel level) { profLevel_ = level; }
-    friend class ::TestPro;
+
+    // NOTE: Exposed for UT/coverage to bypass PMU_COLLECT compile-time switch.
+    void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs);
+    void ProfStartPmu();
+    void ProfStopPmu();
+    void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
     
 private:
     struct PmuCtrlAddrs {
@@ -275,20 +280,16 @@ private:
     inline void ProfInitLog();
     inline void ProfStopLog();
     inline void ProfGetLog(int32_t coreIdx, const struct TaskStat *taskStat);
-    inline void ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs);
-    inline void ReadPmuCounters(const int32_t coreIdx) const;
-    inline void SetPmuEvents(void *mapBase, const int32_t coreIdx) const;
-    inline void InitPmuRegAddrsDav2201(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs);
-    inline void InitPmuRegAddrsDav3510(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs);
-    inline PmuCtrlAddrs InitPmuRegAddrsForCore(void *addr, void *mapBase, int coreIdx);
-    inline void ProgramPmuStartForCore(void *mapBase, int coreIdx, const PmuCtrlAddrs &addrs);
-    inline void ProfStartPmu();
-    inline void ProfStopPmu();
+    void ReadPmuCounters(const int32_t coreIdx) const;
+    void SetPmuEvents(void *mapBase, const int32_t coreIdx) const;
+    void InitPmuRegAddrsDav2201(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs);
+    void InitPmuRegAddrsDav3510(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs);
+    PmuCtrlAddrs InitPmuRegAddrsForCore(void *addr, void *mapBase, int coreIdx);
+    void ProgramPmuStartForCore(void *mapBase, int coreIdx, const PmuCtrlAddrs &addrs);
     void FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, uint32_t &subGraphId, uint32_t &taskId,
         const struct TaskStat *taskStat) const;
-    inline void ProfGetPmu(int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat);
-    inline bool ProfCheckLevel(uint64_t feature) const;
-    inline uint64_t ProfGetCurCpuTimestamp();
+    bool ProfCheckLevel(uint64_t feature) const;
+    uint64_t ProfGetCurCpuTimestamp();
 
 private:
     int32_t coreNum_ = 0;
