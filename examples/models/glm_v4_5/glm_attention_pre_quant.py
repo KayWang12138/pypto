@@ -231,7 +231,7 @@ def rope_data(x1, x2, cos, sin, tile_shape):
     return y_bf16
 
 
-def quant_attention_pre(shapes) -> torch.Tensor:
+def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_size, half_rotary_dim) -> torch.Tensor:
     """
     JIT compiled kernel for fused attention_pre_quant operation.
 
@@ -269,7 +269,6 @@ def quant_attention_pre(shapes) -> torch.Tensor:
         This function processes inputs in tiles of size 8 to support dynamic batch sizes.
         The computation uses FP32 for intermediate calculations to maintain numerical precision.
     """
-    bs, hidden_size, total_head_size, head_size, q_size, kv_size, half_rotary_dim = shapes
     bs = pypto.frontend.dynamic("bs")
 
     @pypto.frontend.jit(
@@ -523,27 +522,12 @@ def test_quant_attention_pre():
         cos = torch.rand(bs, 1, half_rotary_dim, dtype=torch.bfloat16, device=f'npu:{device_id}')
         sin = torch.rand(bs, 1, half_rotary_dim, dtype=torch.bfloat16, device=f'npu:{device_id}')
         # # 4. 执行kernel并获取结果
-        inputs = [
-            x,
-            residual_input,
-            x_gamma,
-            x_bias,
-            x_scale,
-            x_offset,
-            weight,
-            quant_bias,
-            deq_scale,
-            q_gamma,
-            q_bias,
-            k_gamma,
-            k_bias,
-            cos,
-            sin
-        ]
+        inputs = [x, residual_input, x_gamma, x_bias, x_scale, x_offset, weight, \
+            quant_bias, deq_scale, q_gamma, q_bias, k_gamma, k_bias, cos, sin]
         
         params = [bs, hidden_size, total_head_size, head_size, q_size, kv_size, half_rotary_dim]
         
-        q, k, v, residual = quant_attention_pre(params)(*inputs)
+        q, k, v, residual = attention_pre_quant(*inputs, *params)
 
         # 5. 与PyTorch参考实现对比
         # add rms norm
@@ -603,11 +587,14 @@ def attention_pre_quant(
     atten_k_norm_bias: torch.Tensor,
     cos: torch.Tensor,
     sin: torch.Tensor,
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
-    residual_res: torch.Tensor
-):
+    bs,
+    hidden_size,
+    total_head_size,
+    head_size,
+    q_size,
+    kv_size,
+    half_rotary_dim
+) -> torch.Tensor:
     """
     Main function for attention_pre_quant operation.
 
@@ -643,35 +630,14 @@ def attention_pre_quant(
         This function is decorated with @allow_in_graph to enable integration
         with PyTorch's compilation graph.
     """
-    if isinstance(hidden_states, FakeTensor):
-        return
 
-    check_args(
-        hidden_states,
-        residual,
-        input_layernorm_weight,
-        input_layernorm_bias,
-        atten_qkv_input_scale_reciprocal,
-        atten_qkv_input_offset,
-        atten_qkv_weight,
-        atten_qkv_quant_bias,
-        atten_qkv_deq_scale,
-        atten_q_norm_weight,
-        atten_q_norm_bias,
-        atten_k_norm_weight,
-        atten_k_norm_bias,
-        cos,
-        sin,
-        query,
-        key,
-        value,
-        residual_res
-    )
-    
     params = [bs, hidden_size, total_head_size, head_size, q_size, kv_size, half_rotary_dim]
+    inputs = [hidden_states, residual, input_layernorm_weight, input_layernorm_bias, atten_qkv_input_scale_reciprocal,
+         atten_qkv_input_offset, atten_qkv_weight, atten_qkv_quant_bias, atten_qkv_deq_scale, 
+         atten_q_norm_weight, atten_q_norm_bias, atten_k_norm_weight, atten_k_norm_bias, cos, sin]
     
-    q, k, v, residual = quant_attention_pre(params)(x, residual_input, x_gamma, x_bias, x_scale, x_offset, \
-        weight, quant_bias, deq_scale, q_gamma, q_bias, k_gamma, k_bias, cos, sin)
+    q, k, v, residual = quant_attention_pre(*params)(*inputs)
+    return q, k, v, residual
 
 
 def main():

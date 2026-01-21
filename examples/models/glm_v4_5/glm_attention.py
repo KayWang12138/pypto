@@ -45,8 +45,7 @@ def check_args(
     key_cache,
     value_cache,
     block_tables,
-    actual_seqs,
-    attn_res
+    actual_seqs
 ):
     assert query.dim() == 3
     assert get_format(query) == 'ND'
@@ -63,9 +62,6 @@ def check_args(
     assert actual_seqs.dim() == 1
     assert get_format(actual_seqs) == 'ND'
     assert actual_seqs.dtype == torch.int32
-    assert attn_res.dim() == 3
-    assert get_format(attn_res) == 'ND'
-    assert attn_res.dtype == torch.bfloat16
 
 @dataclass
 class AttentionTileConfig:
@@ -510,17 +506,11 @@ def IFA(atten_cfg):
 
     out_torch = torch.zeros(q_shape, dtype=torch_dtype).to(device=device)
 
-    inputs = [
-        q,
-        k,
-        v,
-        block_table_torch,
-        act_seq_torch
-    ]
+    inputs = [q, k, v, block_table_torch, act_seq_torch]
 
     shapes = [q_shape, kv_shape, block_table_shape]
     # 5. 执行kernel并获取结果
-    out_torch = ifa_func(*shapes)(*inputs)
+    out_torch = attention(*inputs, *shapes)
 
     # 6. 与PyTorch参考实现对比
     assert_allclose(np.array(attention_output.cpu().flatten().tolist()), 
@@ -555,8 +545,10 @@ def attention(
     value_cache: torch.Tensor,
     block_tables: torch.Tensor,
     actual_seqs: torch.Tensor,
-    attn_res: torch.Tensor
-) -> None:
+    q_shape,
+    kv_shape,
+    block_table_shape
+) -> torch.Tensor:
     """
     Main attention function with Attention support.
 
@@ -576,23 +568,12 @@ def attention(
         This function is decorated with @allow_in_graph to enable integration
         with PyTorch's compilation graph.
     """
-    if isinstance(query, FakeTensor):
-        return
-    check_args(
-        query,
-        key_cache,
-        value_cache,
-        block_tables,
-        actual_seqs,
-        attn_res
-    )
 
+    shapes = [q_shape, kv_shape, block_table_shape]
     inputs = [query, key_cache, value_cache, block_tables, actual_seqs]
-    outputs = [attn_res]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    ifa_func(*pto_inputs, *pto_outputs)
-    pypto.runtime._device_synchronize()#内部接口，不推荐使用
+    out_torch = ifa_func(*shapes)(*inputs)
+    return out_torch
+
 
 if __name__ == "__main__":
     test_ifa()
