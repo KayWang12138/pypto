@@ -58,7 +58,8 @@ def select_experts_mm(bs, ne, h_num) -> torch.Tensor:
     
     @pypto.frontend.jit(
         runtime_options={
-        "stitch_cfgcache_size": 2500000}
+        "stitch_cfgcache_size": 2500000},
+        # host_options={"only_codegen": True},
     )
     def select_experts_mm_kernel(
         hidden_states: pypto.Tensor((bs, h_num), pypto.DT_FP32),
@@ -137,7 +138,7 @@ def test_select_experts_mm():
 
         g = torch.npu.NPUGraph()
         with torch.npu.graph(g):
-            router_logits_out = select_experts_mm(bs, ne, h_num)(*inputs)
+            router_logits_out = gate(*inputs)
         g.replay()
 
         # 5. 与PyTorch参考实现对比
@@ -152,9 +153,8 @@ def test_select_experts_mm():
 
 @allow_in_graph
 def gate(
-    gate_weight: torch.Tensor,  # gate matmul weights
     hidden_states: torch.Tensor,  # Hidden states of shape (num_tokens, hidden_size).
-    router_logits_out: torch.Tensor, 
+    gate_weight: torch.Tensor,  # gate matmul weights
     ) -> torch.Tensor:
     """
     Gate operation for expert routing in MoE architecture.
@@ -176,16 +176,13 @@ def gate(
         This function is decorated with @allow_in_graph to enable integration
         with PyTorch's compilation graph.
     """
-    if isinstance(hidden_states, FakeTensor):
-        return router_logits_out
-    check_args(gate_weight, hidden_states)
 
     inputs = [hidden_states, gate_weight]
     bs, h_num = hidden_states.shape
     ne = gate_weight.shape[0]
-    router_logits_out = select_experts_mm(bs, ne, h_num)(*inputs)
-
-
+    params = [bs, ne, h_num]
+    router_logits_out = select_experts_mm(*params)(*inputs)
+    return router_logits_out
 
 def main():
     test_select_experts_mm()
