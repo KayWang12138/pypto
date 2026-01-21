@@ -103,10 +103,30 @@ def get_case_info(device="cpu"):
     return attn_cfg
 
 
+def get_prefill_case_info(device="cpu"):
+    b = 1
+    s1 = 8 * 1024
+    s2 = s1
+    q_d = 512
+    nq = 64
+    nkv = 1
+    block_table_batch = b
+    block_size = 128
+    cmp_r = 128
+    kv_num_blocks = b * ((s2 + block_size - 1) // block_size)
+    actual_seq_values = [s2] * b
+    actual_seq_tensor = torch.tensor(actual_seq_values, dtype=torch.int32, device=device)
+    attn_cfg = AttentionConfig(b=b, s1=s1, s2=s2, n1=nq, n2=nkv,
+                               q_d=q_d, kv_d=q_d, block_size=block_size, block_table_batch=block_table_batch,
+                               kv_num_blocks=kv_num_blocks, actual_seq=actual_seq_tensor, cmp_r=cmp_r)
+    attn_cfg.max_blocks = (s2 + block_size - 1) // block_size
+    return attn_cfg
+
+
 @pypto.jit(
     runtime_options={"stitch_function_num_initial": 128,
-                     "stitch_function_outcast_memory": 1024,
-                     "stitch_function_inner_memory": 1024,
+                     "stitch_function_outcast_memory": 2048,
+                     "stitch_function_inner_memory": 2048,
                      "device_sched_mode": 1},
     host_options={"only_codegen": True},
     debug_options={"runtime_debug_mode": 1},
@@ -174,7 +194,8 @@ def ifa_flash(q, k, v, attn_sink, block_table, start_pos, k_win=None, v_win=None
                 if enable_c128:
                     bs_ofs = b_idx * s1_scalar + s1_idx
                     n1g_ofs = g_idx * g_tile
-                    actual_s2_tile = (start_pos[b_idx] + s1_scalar).min(block_size) - (s1_scalar - 1 - s1_idx)
+                    origin_s2 = start_pos[b_idx] + s1_scalar
+                    actual_s2_tile = (origin_s2 - (s1_scalar - 1 - s1_idx)).min(block_size)
                     block_idx = blk_win[b_idx, 0]
                     block_idx_valid = block_idx.max(0)
                     pypto.set_vec_tile_shapes(v1_win_tile[0], v1_win_tile[1])
@@ -387,10 +408,7 @@ def test_ifa(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, dev
 
 
 @pytest.mark.skip(reason="large test case")
-def test_c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
-    device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
-    device = f'npu:{device_id}'
-    attn_cfg = get_case_info(device=device)
+def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device: str, pg_upper_bound: int, attn_cfg: AttentionConfig):
     torch_dtype = torch.bfloat16
     b = attn_cfg.b
     s1 = attn_cfg.s1
@@ -517,6 +535,20 @@ def attention(
     ifa_flash(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
     pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
+def test_c128_decode(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
+    device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
+    device = f'npu:{device_id}'    
+    attn_cfg = get_case_info(device=device)
+    c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, pg_upper_bound=pg_upper_bound, attn_cfg=attn_cfg)
+    
+
+def test_c128_prefill(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
+    device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
+    device = f'npu:{device_id}'    
+    attn_cfg = get_case_info(device=device)
+    c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, pg_upper_bound=pg_upper_bound, attn_cfg=attn_cfg)
+    
+
 
 if __name__ == "__main__":
     import argparse as ap
@@ -529,5 +561,7 @@ if __name__ == "__main__":
     p.add_argument("-c", "--device-id", type=int, default=0, help="显卡序号，默认0")
     p.add_argument("-u", "--upper", type=int, default=6000, help="融合上限法")
     args = p.parse_args()
-    test_c128(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
+    # test_c128_prefill(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
+    #          device_id=args.device_id, pg_upper_bound=args.upper)
+    test_c128_decode(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
              device_id=args.device_id, pg_upper_bound=args.upper)
