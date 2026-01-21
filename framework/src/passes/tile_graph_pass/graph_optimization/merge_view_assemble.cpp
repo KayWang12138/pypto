@@ -352,6 +352,9 @@ Status MergeViewAssemble::MergeAssembleChain(Function &function, Operation &oper
         if (status != SUCCESS) {
             return status;
         }
+        if(!hasAssembleConsumer){
+            assembleWithoutAssembleConsumer_.insert(operation.opmagic);
+        }
     } else {
         chainEnd = true;
     }

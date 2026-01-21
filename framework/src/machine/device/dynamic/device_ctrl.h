@@ -151,7 +151,7 @@ class DeviceCtrlMachine {
         }
     }
 
-    int InitDyn(AstKernelArgs *kargs) {
+    int InitDyn(DeviceKernelArgs *kargs) {
         DEV_INFO("AscendCppDyInitTask begin");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
@@ -203,7 +203,7 @@ class DeviceCtrlMachine {
         return 0;
     }
 
-    int ExecDyn(npu::tile_fwk::AstKernelArgs *args) {
+    int ExecDyn(npu::tile_fwk::DeviceKernelArgs *args) {
         int ret = 0;
         DEV_INFO("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
@@ -234,7 +234,7 @@ class DeviceCtrlMachine {
         PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
         ret = SyncTask(&ctx.taskContext);
         devStartArgs->syncFlag = 0;
-        PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, CTRL_CPU_THREAD_IDX);
+        PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, devProg->devArgs.scheCpuNum);
         PerfEnd(PERF_EVT_STAGE_TASK_SYNC);
         PerfEnd(PERF_EVT_EXEC_DYN);
 #if ENABLE_PERF_EVT

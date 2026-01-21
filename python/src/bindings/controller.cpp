@@ -26,50 +26,8 @@ namespace pypto {
 void bind_controller_config(py::module &m) {
     m.def("SetBuildStatic", [](const bool &value) { config::SetBuildStatic(value); }, py::arg("value"));
 
-    m.def(
-        "SetOption", [](const std::string &key, const std::string &value) { config::SetOption(key, value); },
-        py::arg("key"), py::arg("value"));
-    m.def(
-        "SetOption", [](const std::string &key, bool value) { config::SetOption(key, value); }, py::arg("key"),
-        py::arg("value"));
-    m.def(
-        "SetOption", [](const std::string &key, int64_t value) { config::SetOption(key, value); }, py::arg("key"),
-        py::arg("value"));
-    m.def(
-        "SetOption", [](const std::string &key, const std::vector<int64_t> &value) { config::SetOption(key, value); },
-        py::arg("key"), py::arg("value"));
-    m.def(
-        "SetOption", [](const std::string &key, const std::vector<std::string> &value) { config::SetOption(key, value); },
-        py::arg("key"), py::arg("value"));
-    m.def(
-        "SetOption",
-        [](const std::string &key, const std::map<int64_t, int64_t> &value) { config::SetOption(key, value); },
-        py::arg("key"), py::arg("value"));
-
-        m.def(
-        "GetOption",
-        [](const std::string &key) -> py::object {
-            if (config::IsType<int64_t>(key)) {
-                return py::cast(config::GetOption<int64_t>(key));
-            } else if (config::IsType<std::string>(key)) {
-                return py::cast(config::GetOption<std::string>(key));
-            } else if (config::IsType<bool>(key)) {
-                return py::cast(config::GetOption<bool>(key));
-            } else if (config::IsType<std::vector<int64_t>>(key)) {
-                return py::cast(config::GetOption<std::vector<int64_t>>(key));
-            } else if (config::IsType<std::vector<std::string>>(key)) {
-                return py::cast(config::GetOption<std::vector<std::string>>(key));
-            } else if (config::IsType<std::map<int64_t, int64_t>>(key)) {
-                return py::cast(config::GetOption<std::map<int64_t, int64_t>>(key));
-            } else {
-                return py::cast(std::nullopt);
-            }
-        },
-        py::arg("key"), "get config option");
-
     m.def("Reset", []() { config::Reset(); });
 
-    m.def("GetOptions", []() -> py::object { return py::cast(config::GetOptions()); });
 
     m.def(
         "SetPrintOptions",
@@ -84,7 +42,8 @@ void bind_controller_config(py::module &m) {
         }, py::arg("label"), py::arg("filename"), py::arg("lineno"));
 
     m.def("IsVerifyEnabled", &calc::IsVerifyEnabled);
-    m.def("ResetLog", []() { ConfigManager::Instance().ResetLog(); });
+    m.def("LogTopFolder", []() { return py::cast(ConfigManager::Instance().LogTopFolder()); });
+    m.def("ResetLog", [](const std::string &path) { ConfigManager::Instance().ResetLog(path); });
 }
 
 
@@ -104,7 +63,7 @@ void bind_controller_set_tile(py::module &m) {
     m.def(
         "SetCubeTile",
         [](const std::vector<int64_t> &mvec, const std::vector<int64_t> &kvec, const std::vector<int64_t> &nvec,
-            bool setL1Tile, bool enableSplitK) {
+            bool enableMultiDataLoad, bool enableSplitK) {
             if (mvec.size() > MAX_M_DIM_SIZE) {
                 throw py::value_error(
                     "Parameter 'm' must have exactly " + std::to_string(MAX_M_DIM_SIZE) + " elements");
@@ -125,13 +84,13 @@ void bind_controller_set_tile(py::module &m) {
             std::copy(mvec.begin(), mvec.end(), marr.begin());
             std::copy(kvec.begin(), kvec.end(), karr.begin());
             std::copy(nvec.begin(), nvec.end(), narr.begin());
-            TileShape::Current().SetCubeTile(marr, karr, narr, setL1Tile, enableSplitK);
+            TileShape::Current().SetCubeTile(marr, karr, narr, enableMultiDataLoad, enableSplitK);
         },
-        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("set_l1_tile"), py::arg("enable_split_k"),
+        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("enable_multi_data_load"), py::arg("enable_split_k"), 
         "Set cube tile shapes with specified dimensions");
     m.def("GetCubeTile", []() {
         auto cubeTile = TileShape::Current().GetCubeTile();
-        return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.setL1Tile, cubeTile.enableSplitK);
+        return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.enableMultiDataLoad, cubeTile.enableSplitK);
     });
 }
 
@@ -281,8 +240,21 @@ void bind_controller_scope(py::module &m) {
         py::arg("lineno") = -1
     );
 
+    m.def("SetGlobalConfig",
+        [](const py::dict &values, const std::string &filename, int lineno) {
+            auto cpp_values = ConvertPyDictToCppMap(values);
+            ConfigManagerNg::GetInstance().SetGlobalConfig(std::move(cpp_values), filename.c_str(), lineno);
+        },
+        py::arg("values"),
+        py::arg("filename") = "default",
+        py::arg("lineno") = -1
+    );
+
     m.def("CurrentScope",
         []() { return ConfigManagerNg::GetInstance().CurrentScope(); });
+
+    m.def("GlobalScope",
+        []() { return ConfigManagerNg::GetInstance().GlobalScope(); });
 
     m.def("GetOptionsTree",
         []() { return ConfigManagerNg::GetInstance().GetOptionsTree(); });
@@ -310,9 +282,9 @@ py::object AnyToPyObject(const Any &val) {
 
 void bind_controller_scope_classes(py::module &m) {
     py::class_<ConfigScope, std::shared_ptr<ConfigScope>>(m, "ConfigScope")
-        .def("GetConfig",
+        .def("GetAnyConfig",
             [](const ConfigScope &scope, const std::string &key) -> py::object {
-                return AnyToPyObject(scope.GetConfig(key));
+                return AnyToPyObject(scope.GetAnyConfig(key));
             },
             py::arg("key"))
         .def("GetAllConfig",
@@ -346,29 +318,17 @@ void bind_controller_scope_classes(py::module &m) {
          py::arg("m"),
          py::arg("k"),
          py::arg("n"),
-         py::arg("setL1Tile") = false,
+         py::arg("enableMultiDataLoad") = false,
          py::arg("enableSplitK") = false)
     .def_readwrite("m", &CubeTile::m)
     .def_readwrite("k", &CubeTile::k)
     .def_readwrite("n", &CubeTile::n)
-    .def_readwrite("setL1Tile", &CubeTile::setL1Tile)
+    .def_readwrite("enableMultiDataLoad", &CubeTile::enableMultiDataLoad)
     .def_readwrite("enableSplitK", &CubeTile::enableSplitK)
     .def("valid", &CubeTile::valid)
     .def("ToString", &CubeTile::ToString)
     .def("__repr__", [](const CubeTile &t) { return t.ToString(); })
     .def("__str__",  [](const CubeTile &t) { return t.ToString(); });
-}
-
-
-void bind_operation_config(py::module &m) {
-    m.def("GetOperationConfig", [](const std::string &key, const bool &default_value) -> py::object {
-        bool result = ConfigManager::Instance().GetOperationConfig<bool>(key, default_value);
-        return py::cast(result);
-    }, py::arg("key"), py::arg("default_value"));
-
-    m.def("SetOperationConfig", [](const std::string &key, const bool &value) {
-            config::SetOperationConfig<bool>(key, value);
-        }, py::arg("key"), py::arg("value"));
 }
 
 void bind_controller(py::module &m) {
@@ -379,7 +339,6 @@ void bind_controller(py::module &m) {
     bind_controller_utils(m);
     bind_controller_scope(m);
     bind_controller_scope_classes(m);
-    bind_operation_config(m);
 
     // disable cpp mode
     SourceLocation::SetCppMode(false);

@@ -217,17 +217,14 @@ void ReplaceTensor::UniteTensor(Function &function, UnionFind &uf) {
                                      op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetIOperands()[0]->GetMagic(), op.GetOOperands()[0]->GetMagic());
             }
         }
-        if (op.GetOpcode() == Opcode::OP_COPY_OUT && op.HasAttribute(OpAttributeKey::inplaceIdx)) {
+        if (op.HasAttribute(OpAttributeKey::inplaceIdx)) {
             uf.Unite(op.GetIOperands()[op.GetIntAttribute(OpAttributeKey::inplaceIdx)], op.GetOOperands().front());
         }
     }
 }
 
-Status ReplaceTensor::FindBaseTensor(Function &function, LogicalTensorPtr &baseTensor, LogicalTensors &group) {
-    std::unordered_set<LogicalTensorPtr> groupTensor;
-    LogicalTensors orderGroup;
+Status ReplaceTensor::FindBaseTensor(Function &function, std::unordered_map<LogicalTensorPtr, int> &tensorToOrderIndex, LogicalTensors &group, LogicalTensorPtr &baseTensor) {
     for (const auto &curTensor : group) {
-        groupTensor.insert(curTensor);
         if (function.IsFromInCast(curTensor) || function.IsFromOutCast(curTensor)) {
             if (baseTensor == nullptr) {
                 baseTensor = curTensor;
@@ -244,31 +241,20 @@ Status ReplaceTensor::FindBaseTensor(Function &function, LogicalTensorPtr &baseT
             }
         }
     }
-    for (auto &op : function.Operations()) {
-        for (auto &ioperand : op.GetIOperands()) {
-            if (groupTensor.erase(ioperand)) {
-                orderGroup.push_back(ioperand);
-            }
-        }
-        for (auto &ooperand : op.GetOOperands()) {
-            if (groupTensor.erase(ooperand)) {
-                orderGroup.push_back(ooperand);
-            }
-        }
-        if (groupTensor.empty()) {
-            break;
-        }
-    }
     if (baseTensor == nullptr) {
-        baseTensor = orderGroup.front();
+        baseTensor = group.front();
         int64_t baseShape = abs(baseTensor->tensor->GetRawDataSize());
-        for (auto &curTensor : orderGroup) {
+        for (auto &curTensor : group) {
             int64_t curShape = abs(curTensor->tensor->GetRawDataSize());
             if (curShape > baseShape) {
                 APASS_LOG_INFO_F(Elements::Tensor, "Replace curTensor %d size %d to baseTensor %d size %d.",
                                 curTensor->GetMagic(), curShape, baseTensor->GetMagic(), baseShape);
                 baseTensor = curTensor;
                 baseShape = curShape;
+            } else if (curShape == baseShape && tensorToOrderIndex[curTensor] < tensorToOrderIndex[baseTensor]) {
+                APASS_LOG_INFO_F(Elements::Tensor, "Replace curTensor %d idx %d to baseTensor %d idx %d.",
+                                curTensor->GetMagic(), tensorToOrderIndex[curTensor], baseTensor->GetMagic(), tensorToOrderIndex[baseTensor]);
+                baseTensor = curTensor;
             }
         }
     }
@@ -414,6 +400,25 @@ Status ReplaceTensor::ForwardCopyOut(Operation *op, LogicalTensorPtr &rootTensor
     return SUCCESS;
 }
 
+Status ReplaceTensor::ForwardInputIdx(Operation *op, LogicalTensorPtr &rootTensor, Function &function) {
+    auto index = op->GetIntAttribute(OpAttributeKey::inplaceIdx);
+    auto inTensor = op->GetIOperands()[index];
+    auto outTensor = op->GetOOperands().front();
+    if (inTensor != rootTensor) {
+        APASS_LOG_INFO_F(Elements::Operation, "op %s[%d] tensorIn %d is not same as rootTensor %d.",
+                            op->GetOpcodeStr().c_str(), op->GetOpMagic(), inTensor->GetMagic(), rootTensor->GetMagic());
+        return SUCCESS;
+    }
+    processedOp.insert(op->GetOpMagic());
+    if (!function.IsFromOutCast(outTensor)) {
+        function.UpdateLinkMap(outTensor, inTensor);
+    }
+    outTensor->tensor = rootTensor->tensor;
+    outTensor->UpdateOffset(rootTensor->GetOffset());
+    forRoots.push(outTensor);
+    return SUCCESS;
+}
+
 Status ReplaceTensor::BackwardReshape(Operation *op, LogicalTensorPtr &rootTensor) {
     processedOp.insert(op->GetOpMagic());
     op->GetIOperands()[0]->tensor->actualRawmagic = rootTensor->GetRawMagic();
@@ -518,7 +523,12 @@ Status ReplaceTensor::ForwardProcess(Function &function) {
                 if (ForwardCopyOut(consumerOp, rootTensor, function) == FAILED) {
                     return FAILED;
                 }
-            } else {
+            } else if (consumerOp->GetOpcode() == Opcode::OP_INDEX_PUT && consumerOp->HasAttribute(OpAttributeKey::inplaceIdx)) {
+                if (ForwardInputIdx(consumerOp, rootTensor, function) == FAILED) {
+                    return FAILED;
+                }
+            }
+            else {
                 continue;
             }
         }
@@ -712,27 +722,36 @@ Status ReplaceTensor::ProcessHubOp(Function &function) {
     return SUCCESS;
 }
 
-Status ReplaceTensor::RunOnFunction(Function &function) {
-    APASS_LOG_INFO_F(Elements::Operation, "===> Start ReplaceTensor.");
-    LogicalTensors rec;
+std::unordered_map<LogicalTensorPtr, int> ReplaceTensor::BuildTensorOrderIndexMap(Function &function) {
+    std::unordered_map<LogicalTensorPtr, int> tensorToOrderIndex;
+    int index = 0;
     for (const auto &op : function.Operations()) {
         for (const auto &inTensor : op.GetIOperands()) {
-            rec.emplace_back(inTensor);
+            if (!tensorToOrderIndex.count(inTensor)) {
+                tensorToOrderIndex[inTensor] = index++;
+            }
         }
         for (const auto &outTensor : op.GetOOperands()) {
-            rec.emplace_back(outTensor);
+            if (!tensorToOrderIndex.count(outTensor)) {
+                tensorToOrderIndex[outTensor] = index++;
+            }
         }
     }
-    UnionFind uf(rec);
+    return tensorToOrderIndex;
+}
+
+Status ReplaceTensor::RunOnFunction(Function &function) {
+    APASS_LOG_INFO_F(Elements::Operation, "===> Start ReplaceTensor.");
+    auto tensorToOrderIndex = BuildTensorOrderIndexMap(function);
+    UnionFind uf(tensorToOrderIndex);
     UniteTensor(function, uf);
     std::vector<LogicalTensors> tensorGroups = uf.GetGroups();
-    LogicalTensorPtr baseTensor;
     for (auto &group : tensorGroups) {
-        baseTensor = nullptr;
+        LogicalTensorPtr baseTensor = nullptr;
         if (group.size() == 1) {
             continue;
         }
-        if (FindBaseTensor(function, baseTensor, group) == FAILED || baseTensor == nullptr) {
+        if (FindBaseTensor(function, tensorToOrderIndex, group, baseTensor) == FAILED || baseTensor == nullptr) {
             return FAILED;
         }
         backRoots.push(baseTensor);
@@ -747,6 +766,9 @@ Status ReplaceTensor::RunOnFunction(Function &function) {
         return FAILED;
     }
     if (ProcessHubOp(function) == FAILED) {
+        return FAILED;
+    }
+    if (MarkTensorAsPartialMem(function) == FAILED) {
         return FAILED;
     }
     APASS_LOG_INFO_F(Elements::Operation, "===> End ReplaceTensor.");
@@ -846,6 +868,21 @@ Status ReplaceTensor::BackUpdateAssemble(Operation *op) {
     assAttr->SetToOffset(assOffset, assAttr->GetToDynOffset());
     TensorOffset newOffset(assOffset, assDynOffset);
     assembleIn->UpdateOffset(newOffset);
+    return SUCCESS;
+}
+
+Status ReplaceTensor::MarkTensorAsPartialMem(Function &func) {
+    for (auto &op : func.Operations()) {
+        if (op.GetOpcode() != Opcode::OP_ASSEMBLE) {
+            continue;
+        }
+        auto iOperand = op.GetInputOperand(0);
+        auto oOperand = op.GetOutputOperand(0);
+        if (iOperand->GetRawTensor() != oOperand->GetRawTensor()) {
+            continue;
+        }
+        iOperand->SetAttr("isPartialMem", true);
+    }
     return SUCCESS;
 }
 } // namespace tile_fwk

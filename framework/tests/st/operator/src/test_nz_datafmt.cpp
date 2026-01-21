@@ -136,7 +136,7 @@ void TestNZFormatBatch(int bs, int m, int k, int n) {
                 auto inputA = View(matA, {m, k}, {(int)index*m, 0});
                 auto inputB = isTransB ? View(matB, {n, k}, {(int)index*n, 0}) : View(matB, {k, n}, {(int)index*k, 0});
                 TileShape::Current().SetMatrixSize({m, k, n});
-                auto outTensor = npu::tile_fwk::Matrix::Matmul<false, isTransB>(outputType, inputA, inputB);
+                auto outTensor = npu::tile_fwk::Matrix::Matmul(outputType, inputA, inputB, false, isTransB);
                 std::vector<int64_t> pairSecond = {(int)index * m, 0};
                 auto pair = std::make_pair(outTensor, pairSecond);
                 assembleVec.emplace_back(pair);
@@ -181,8 +181,6 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
     assert(mat_a_ptr != nullptr && mat_b_ptr != nullptr);
     uint32_t outputSize = capacity_mat_c * sizeof(float);
     uint8_t* mat_c_ptr = allocDevAddr(outputSize);
-    auto kSplit = 4;
-    auto kSplitSize = k / kSplit;
     auto afmt = IsANZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     Tensor mat_a(inputType, shape_a, (uint8_t *)mat_a_ptr, "MatA", afmt);
@@ -191,19 +189,8 @@ void TestNZFormatACC(int bs, int m, int k, int n) {
 
     config::SetBuildStatic(true);
     FUNCTION("Matmul_T", {mat_a, mat_b, mat_c}) {
-        TileShape::Current().SetVecTile(64, 64);
-        Tensor tmpC(outputType, shape_c, "tmp_c");
-        tmpC = Mul(tmpC, Element(DataType::DT_FP32, 0.0f));
-        std::vector<Tensor> matmulResult;
-        for (int ki = 0; ki < kSplit; ki++) {
-            auto input_mk = View(mat_a, {m, kSplitSize}, {0, ki * kSplitSize});
-            auto input_kn = View(mat_b, {kSplitSize, n}, {ki * kSplitSize, 0});
-            TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
-            auto tmpC1 = Matrix::Matmul<false, false>(outputType, input_mk, input_kn, tmpC);
-            matmulResult.emplace_back(tmpC1);
-        }
-        TileShape::Current().SetVecTile(16, 128);
-        tmpC = npu::tile_fwk::Reduce(matmulResult, ReduceMode::ATOMIC_ADD);
+        TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128}, false, true);
+        Tensor tmpC = Matrix::Matmul(outputType, mat_a, mat_b, false, false);
         TileShape::Current().SetVecTile(16, 128);
         mat_c = Add(tmpC, Element(DataType::DT_FP32, 0.0));
     }
