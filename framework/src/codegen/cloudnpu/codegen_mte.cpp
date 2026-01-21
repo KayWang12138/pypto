@@ -731,10 +731,10 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     std::string gmVarName = GenGmParamVar(param.gmIdx);
     std::string dstTensor = PrintTensorForCopyBetweenGM(ToUnderlying(MISOIdx::DST_IDX), param.gmIdx, gmVarName);
     std::string srcTensor = PrintTensorForCopyBetweenGM(ToUnderlying(MISOIdx::SRC0_IDX), param.gmIdx, gmVarName);
-    bool vquantFlag = false;
-    GetAttr(OpAttributeKey::quantFlag, vquantFlag);
+    int64_t reluMode = 0;
+    GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
     std::string src1Tensor = srcTensor;
-    if (vquantFlag) {
+    if (reluMode) {
         src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
     }
     int64_t nzValue = 0;
@@ -749,7 +749,6 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[1] : std::to_string(innerValue);
     GetAttr(OP_ATTR_PREFIX + "atomic_add", isAcc);
     GetAttr("op_attr_is_nz", nzValue);
-    GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
     std::string nzVar = nzValue ? "CopyOutMode::NZ2NZ" : "CopyOutMode::NZ2ND";
     std::vector<std::string> storeConfigList = {nzVar, std::to_string(isAcc), std::to_string(reluMode)};
     std::string storeConfig = PrintParams({"<", ">"}, storeConfigList, ", ");
