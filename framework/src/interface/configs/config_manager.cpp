@@ -136,7 +136,7 @@ static std::string CreateLogTopFolder() {
     if (envDir != nullptr) {
         std::string envStr(envDir);
         if (!envStr.empty()) {
-            folderPath = std::move(envStr) ;
+            folderPath = std::move(envStr);
         }
     }
     folderPath = folderPath + "/" + "output_" + timestamp.str() + "_" + std::to_string(getpid());
