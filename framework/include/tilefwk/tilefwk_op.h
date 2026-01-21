@@ -398,8 +398,8 @@ void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tens
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor& shmemSignal, Tensor& out);
-void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize, Tensor& out);
+    Tensor &shmemSignal, Tensor &out);
+Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize);
 Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData);
 Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal);
 void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize,
@@ -423,6 +423,8 @@ void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
 void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal);
 Tensor ShmemPut(const Tensor& in, const Tensor& shmemDataTile, const Tensor& barrierDummy,
     AtomicType atomicType = AtomicType::SET);
+Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
+    AtomicType atomicType = AtomicType::SET);
 Tensor ShmemSignal(const Tensor& dummy, const Tensor& shmemSignalTile, AtomicType atomicType);
 Tensor WaitUntil(const Tensor& dummyIn, const Tensor& shmemSignalTile, int32_t expectedSum, bool resetSignal = false);
 Tensor ShmemGet(const Tensor& dummy, const Tensor& shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
@@ -434,4 +436,5 @@ std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);
 Tensor TopKExtract(const Tensor &x, int k, bool isIndex);
 Tensor TopKMerge(const Tensor &x, int mergeSize);
+Tensor Nop(const std::vector<Tensor> &inTensors);
 } // namespace npu::tile_fwk

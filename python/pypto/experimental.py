@@ -14,7 +14,8 @@ from . import pypto_impl
 from ._op_wrapper import op_wrapper
 from .tensor import Tensor
 from .config import get_current_scope, set_options
-
+from .symbolic_scalar import SymbolicScalar
+from .enum import AtomicType
 
 @op_wrapper
 def load(a: Tensor, offsets: Tensor) -> Tensor:
@@ -159,3 +160,34 @@ def get_operation_options() -> Dict[str, Union[str, int, List[int], Dict[int, in
 
     scope = get_current_scope()
     return scope.get_operation_options()
+
+@op_wrapper
+def nop(in_tensors: List[Tensor]) -> Tensor:
+    return pypto_impl.Nop(in_tensors)
+
+
+@op_wrapper
+def shmem_store(
+    src: Tensor,
+    dst_offset: List[Union[int, SymbolicScalar]],
+    dst: Tensor,
+    dst_rank: Union[int, SymbolicScalar],
+    atomic_type: AtomicType = AtomicType.SET,
+    pred_tokens: List[Tensor] = None
+) -> Tensor:
+    dummy = pypto_impl.Nop(pred_tokens)
+    dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, [dst_rank] + dst_offset)
+    return pypto_impl.ShmemPutUb2Gm(src, dst_tile, dummy, atomic_type)
+
+
+@op_wrapper
+def shmem_load(
+    src: Tensor,
+    src_rank: Union[int, SymbolicScalar],
+    shape: List[int] = None,
+    offset: List[Union[int, SymbolicScalar]] = None,
+    pred_token: List[Tensor] = None
+) -> Tensor:
+    dummy = pypto_impl.Nop(pred_token)
+    src_tile = pypto_impl.View(src, [1] + shape, [src_rank] + offset)
+    return pypto_impl.ShmemGetGm2Ub(dummy, src_tile)
