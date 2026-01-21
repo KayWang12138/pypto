@@ -175,8 +175,9 @@ def matmul_proxy(left, right):
 
 def get_block_kv(k_2d, v_2d, block_table, b_idx, s2_idx, block_size, cur_seq):
     block_idx = block_table[b_idx][s2_idx]
+    block_idx_valid = max(block_idx, 0)
     actual_s2_tile = min(block_size, cur_seq - s2_idx * block_size)
-    kj_start = block_idx * block_size
+    kj_start = block_idx_valid * block_size
     kj_end = kj_start + actual_s2_tile
     kj = k_2d[kj_start:kj_end, :]
     vj = v_2d[kj_start:kj_end, :]
