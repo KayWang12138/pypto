@@ -20,6 +20,14 @@
 
 using namespace npu::tile_fwk;
 
+class FileTest : public testing::Test {
+public:
+    static void SetUpTestCase() {}
+    static void TearDownTestCase() {}
+    void SetUp() override {}
+    void TearDown() override {}
+};
+
 TEST(FileTest, NullptrTest) {
     uint8_t a = 255;
     std::vector<uint8_t> data{a};
@@ -27,4 +35,23 @@ TEST(FileTest, NullptrTest) {
 
     bool ret = SaveFile("", &a, 1);
     EXPECT_EQ(ret, false);
+}
+
+TEST(FileTest, ReadBytesFromFileTest) {
+    char a = 'a';
+    std::vector<char> data{a};
+
+    bool ret = ReadBytesFromFile("", data);
+    EXPECT_EQ(ret, false);
+
+    ret = ReadBytesFromFile("/not_exist/test.log", data);
+    EXPECT_EQ(ret, false);
+}
+
+TEST(FileTest, LoadFileTest) {
+    uint8_t a = 255;
+    std::vector<uint8_t> data{a};
+
+    data = LoadFile("");
+    EXPECT_EQ(data.size(), 0);
 }
