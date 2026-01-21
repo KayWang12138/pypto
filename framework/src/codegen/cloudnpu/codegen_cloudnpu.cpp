@@ -30,6 +30,7 @@
 #include "interface/utils/op_info_manager.h"
 #include "codegen_cloudnpu.h"
 #include "interface/operation/distributed/distributed_common.h"
+#include "interface/plugin/plugin.h"
 
 namespace npu::tile_fwk {
 const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
@@ -160,6 +161,7 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         for (auto &c : op.GetCommentList()) {
             tileOpSourceRegion += "/*" + c + "*/\n";
         }
+        tileOpSourceRegion += "O" + std::to_string(operationList.GetOpPosition(op)) + ": ";
         tileOpSourceRegion += tileOpSourceCode;
 
         if (!allocSourceCode.empty()) {
@@ -270,7 +272,10 @@ void CodeGenCloudNPU::GenCode(
             leafKernelFunc << GenFuncEnd();
 #ifdef BUILD_WITH_CANN
             if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
-                DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc.str());
+                std::string cceFilePath = compileInfo.GetCCEAbsPath();
+                std::string leafKernelFuncSource = leafKernelFunc.str();
+                leafKernelFuncSource = PluginManager::GetInstance().RunPluginCodegenSrcgen(cceFilePath, leafKernelFuncSource);
+                DumpCCE(cceFilePath, leafKernelFuncSource);
                 DoCompileCCE(compileInfo, "");
             }
 #endif
@@ -461,7 +466,7 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
         return envPath;
     }
 
-    // Priority 2: Obtain pto-isa from the installed cann package. 
+    // Priority 2: Obtain pto-isa from the installed cann package.
     homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
     if (homePath != nullptr) {
         std::string cannPath = std::string(homePath) + "/include";
@@ -600,7 +605,7 @@ bool CodeGenCloudNPU::HandleForAICpuSubFunc(Function &subFunc) {
         return false;
     }
     std::vector<int32_t> code;
-    
+
     auto operationList = subFunc.Operations(false);
     for (const auto &op : operationList) {
         if (op.GetCoreType() != CoreType::AICPU) {
