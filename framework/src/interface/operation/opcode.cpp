@@ -151,6 +151,15 @@ void OpcodeManager::RegisterVectorBinary() {
         {"TileOp::TSmins", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
             OpAttributeKey::outputCombineAxis});
+    RegisterInfo(Opcode::OP_MOD, OpCoreType::AIV, "MOD", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Tmod", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis},
+        TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_MODS, OpCoreType::AIV, "MODS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Tmods", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
+            OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
+        TileShapeVerifier::Verify);
 }
 
 void OpcodeManager::RegisterVectorUnary() {
@@ -760,6 +769,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {            Opcode::OP_CUM_SUM,        "TCumSum"},
     {                Opcode::OP_SUB,           "TSub"},
     {                Opcode::OP_DIV,           "TDiv"},
+    {                Opcode::OP_MOD,           "TMod"},
     {                Opcode::OP_MUL,           "TMul"},
     {          Opcode::OP_INDEX_ADD,      "TIndexAdd"},
     {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
@@ -783,6 +793,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {           Opcode::OP_WHERE_ST,       "TWhereST"},
     {           Opcode::OP_WHERE_SS,       "TWhereSS"},
     {               Opcode::OP_ADDS,          "TAddS"},
+    {               Opcode::OP_MODS,          "TModS"},
     {               Opcode::OP_SUBS,          "TSubS"},
     {               Opcode::OP_MULS,          "TMulS"},
     {               Opcode::OP_DIVS,          "TDivS"},
