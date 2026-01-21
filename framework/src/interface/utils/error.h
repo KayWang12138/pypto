@@ -16,6 +16,7 @@
 #include <execinfo.h>
 #include <iostream>
 
+#include "interface/utils/log.h"
 #include "tilefwk/error.h"
 
 namespace npu::tile_fwk {
@@ -36,6 +37,7 @@ struct TerminateHandler {
             } catch (const std::exception &e) {
                 std::cout << "Caught exception: '" << e.what() << "'\n";
             }
+            LoggerManager::GetManager().Flush();
             _Exit(1);
         });
     }
@@ -43,6 +45,7 @@ struct TerminateHandler {
     static void SigAction(int signo) {
         (void)signo;
         std::cerr << "segment fault!!!\n" << GetBacktrace(0x2, 0x10)->Get() << std::endl;
+        LoggerManager::GetManager().Flush();
         _Exit(1);
     }
 

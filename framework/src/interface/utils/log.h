@@ -123,6 +123,13 @@ public:
 
     LoggerManager() = default;
 
+    void Flush() {
+        for (auto &[filepath, logger] : fileLoggerDict) {
+            (void)filepath;
+            logger->ofs.flush();
+        }
+    }
+
     template <typename T>
     void Log(LoggerLevel l, T &&t, T &&tRich) {
         std::lock_guard lock(logMtx);

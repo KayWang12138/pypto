@@ -35,6 +35,7 @@ Tensor::~Tensor() {
 
     Program::GetInstance().EraseAliveTensor(this);
     if (storage_ == nullptr) {
+        ASSERT(true);
         return;
     }
     ASSERT(storage_->tensor != nullptr);
