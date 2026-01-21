@@ -15,6 +15,7 @@
 
 #include "interface/configs/config_manager.h"
 #include "interface/utils/log.h"
+#include "interface/utils/file_utils.h"
 #include "passes/pass_mgr/pass_manager.h"
 
 namespace npu::tile_fwk {
@@ -142,7 +143,12 @@ void RecordFunc::EndFunction() {
     }
 
     // might raise exception in EndFunction, force isEnd_ is always set
-    Defer clean([this](){ isEnd_ = true;});
+    Defer clean([this](){
+        isEnd_ = true;
+        if (config::GetDebugOption<int64_t>(CFG_COMPILE_DBEUG_MODE) != CFG_DEBUG_ALL) {
+            DeleteDir(config::GetAbsoluteTopFolder());
+        }
+    });
     (void)Program::GetInstance().EndFunction(funcName);
     if (dynFunc_) {
         Program::GetInstance().SetLastFunction(dynFunc_);
