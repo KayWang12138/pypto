@@ -62,6 +62,7 @@ public:
             return ret;
         }
         if (profSwitch_) {
+            index_ = 0;
             KernelArgs *args = (KernelArgs *)(sharedBuffer + AICPU_BLOCK_INDEX * SHARED_BUFFER_SIZE);
             aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
             aicpuTaskStat_->taskCount = taskCount;
@@ -111,13 +112,10 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
-    inline void FillTaskEndTimes(uint64_t taskId) {
-        for (auto i = 0; i < aicpuTaskStat_->taskCount; ++i) {
-            if (aicpuTaskStat_->tasks[i].taskId != static_cast<int32_t>(taskId)) {
-                continue;
-            }
-            aicpuTaskStat_->tasks[i].execEnd = GetCycles();
-        }
+    inline void FillTaskEndTimes(Distributed::SignalTileOp* task) {
+        aicpuTaskStat_->tasks[index_].execStart = task->taskStatTimes_;
+        aicpuTaskStat_->tasks[index_].taskId = static_cast<int32_t>(task->taskId_);
+        aicpuTaskStat_->tasks[index_++].execEnd = GetCycles();
     }
 
 private:
@@ -147,12 +145,8 @@ private:
     inline int32_t TaskDispatch(uint64_t taskId) {
         int32_t ret = DEVICE_MACHINE_OK;
         auto taskType = GetTaskType(taskId);
-        if (profSwitch_) {
-            aicpuTaskStat_->tasks[index_].taskId = static_cast<int32_t>(taskId);
-            aicpuTaskStat_->tasks[index_++].execStart = GetCycles();
-        }
         if (taskType < TaskType::TASK_TYPE_NUM) {
-            ret = shmemWaitUntil_.EnqueueOp(taskId);
+            ret = shmemWaitUntil_.EnqueueOp(taskId, GetCycles());
         }
         return ret;
     }

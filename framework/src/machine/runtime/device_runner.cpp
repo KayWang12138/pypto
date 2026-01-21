@@ -400,7 +400,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
 void DeviceRunner::Dump() {
     ALOG_INFO_F("======== aicore status ========");
 
-    int coreNum = args_.nrAic + args_.nrAiv;
+    int coreNum = args_.nrAic + args_.nrAiv + args_.nrAicpuDump;
     uint64_t size = coreNum * SHARED_BUFFER_SIZE;
     std::vector<uint64_t> buffer(size / sizeof(uint64_t));
     int rc =
