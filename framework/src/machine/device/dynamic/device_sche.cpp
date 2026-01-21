@@ -143,12 +143,23 @@ struct DynMachineManager {
         schRunFailed_ = false;
     }
 
+    voi CtrlServerInit(void *targ) {
+        mutex_.lock();
+        if (init1_.load()) {
+            return;
+        }
+        (void)PyptoKernelCtrlServerInit(targ);
+        init1_.store(true);
+        mutex_.unlock();
+    }
+
     void DeInit() {
       threadIdx_ = 0;
       finished_ = 0;
       cpumask_ = 0;
       ctrlcpuIdx_ = 0;
       init_.store(false);
+      init1_.store(false);
     }
 
     int LastFinishThreadIdx_{0};
@@ -166,6 +177,8 @@ struct DynMachineManager {
     struct sigaction oriBordAct_;
     std::atomic<bool> reset_{false};
     std::atomic<bool> init_{false};
+    std::atomic<bool> init1_{false};
+    static std::mutex mutex_;
     std::atomic<bool> schRunFailed_{false};
 };
 
@@ -229,15 +242,17 @@ void SigAct(int signum, siginfo_t* info, void* act) {
 
 
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServerInit(void *targ) {
-    return PyptoKernelCtrlServerInit(targ);
+    (void)targ;
+    return 0;
 }
 
 extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelServer(void *targ) {
+    g_machine_mgr.CtrlServerInit(targ);
     auto kargs = (DeviceKernelArgs *)targ;
     auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
     kargs->taskWastTime = GetCycles();
     g_machine_mgr.Init(devArgs);
-    int rc = g_machine_mgr.Run(kargs);
+    rc = g_machine_mgr.Run(kargs);
     if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
         DEV_INFO("All schedule exited, destroy the machine.");
         g_machine_mgr.DeInit();
