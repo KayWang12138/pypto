@@ -55,6 +55,7 @@ inline std::string GetLayoutType(BufferType bufType, int dim, bool isStatic) {
 // Stride<int, int>(64, 1)));
 struct TileTensor {
     bool isStatic;
+    bool isMainBlock;
     int magic; // tensor magic numbuer
     int dim;
     DataType dtype;
@@ -97,7 +98,7 @@ struct TileTensor {
             }
         }
 
-        if (isStatic && bufType != BUF_DDR) {
+        if ((isStatic || isMainBlock) && bufType != BUF_DDR) {
             return "(" + oss.str() + ")";
         }
         params.emplace_back(oss.str());
@@ -159,6 +160,7 @@ struct TileTensorUsing {
     std::vector<int64_t> originShape; // only used for static shape
     std::vector<int64_t> rawShape;
     bool isStatic;
+    bool isMainBlock;
 
     bool operator==(const TileTensorUsing &other) const {
         bool baseCompare = dtype == other.dtype && bufType == other.bufType && rawShape == other.rawShape;
@@ -182,7 +184,7 @@ struct TileTensorUsing {
             ss << GetAddrTypeByOperandType(bufType) << " ";
         }
         ss << DataType2CCEStr(dtype) << ", ";
-        ss << GetLayoutType(bufType, dim, isStatic);
+        ss << GetLayoutType(bufType, dim, isStatic || isMainBlock);
         if (bufType != BUF_DDR) {
             ss << GetLayoutParams();
         }
@@ -195,7 +197,7 @@ private:
     std::string GetLayoutParams() const {
         std::vector<int64_t> params;
         params.reserve(dim * SHAPE_KIND);
-        if (isStatic) {
+        if (isStatic || isMainBlock) {
             params.insert(params.end(), originShape.begin(), originShape.end());
         }
         params.insert(params.end(), rawShape.begin(), rawShape.end());

@@ -554,6 +554,7 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
 
     TileTensor tileTensor;
     tileTensor.isStatic = functionType == FunctionType::STATIC;
+    tileTensor.isMainBlock = isMainBlock;
     tileTensor.magic = operandWithMagic[paramIdx];
     tileTensor.shapeInLoop = shapeInLoop;
 
@@ -623,7 +624,7 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
 
     for (int i = 0; i < operandCnt; ++i) {
         TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(rawShape[i].size()),
-            originShape[i], rawShape[i], functionType == FunctionType::STATIC};
+            originShape[i], rawShape[i], functionType == FunctionType::STATIC, isMainBlock};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType);
         std::string tensorName = sm->AddTileTensor(tileTensor);
@@ -656,27 +657,8 @@ std::vector<SymbolicScalar> CodeGenOpCloudNPU::GetLoopAxes() {
     return newLoopAxes;
 }
 
-bool CodeGenOpCloudNPU::NeedUpdateLoopInfo() {
-    auto iter = SUPPORT_VF_FUSE_OPS.find(opCode);
-    if (iter == SUPPORT_VF_FUSE_OPS.end()) {
-        return false;
-    }
-
-    if (opCode == Opcode::OP_EXPAND) {
-        int64_t expandAxis = -1;
-        GetAttr(OP_ATTR_PREFIX + "EXPANDDIM", expandAxis);
-        ASSERT((expandAxis >= 0) && (expandAxis <= (static_cast<int64_t>(rawShape[1].size() - 1))))
-            << "unsupported expand axis";
-        expandAxis += SHAPE_DIM4 - rawShape[1].size();
-        const int64_t expandLastAxisInDim4 = 3;
-        return expandAxis == expandLastAxisInDim4;
-    }
-
-    return true;
-}
-
 void CodeGenOpCloudNPU::UpdateLoopInfo() {
-    if (!NeedUpdateLoopInfo()) {
+    if (SUPPORT_VF_FUSE_OPS.find(opCode) == SUPPORT_VF_FUSE_OPS.end()) {
         return;
     }
 
@@ -703,7 +685,7 @@ void CodeGenOpCloudNPU::UpdateLoopInfo() {
             loopDepth, IntVecToStr(shapeInLoop.originShape).c_str(), IntVecToStr(shapeInLoop.rawShape).c_str(),
             IntVecToStr(shapeInLoop.dynamicValidShape).c_str());
         TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(shapeInLoop.rawShape.size()),
-            shapeInLoop.originShape, shapeInLoop.rawShape, functionType == FunctionType::STATIC};
+            shapeInLoop.originShape, shapeInLoop.rawShape, functionType == FunctionType::STATIC, isMainBlock};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType, shapeInLoop);
         forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor);
