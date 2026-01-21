@@ -25,6 +25,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import copy
+from en_dtypes import float8_e8m0, hifloat8
 
 g_src_root: Path = Path(Path(__file__).parent, "../../../../").resolve()
 g_ctrl_path: Path = Path(g_src_root, "tests/cmake/scripts")
@@ -518,6 +519,14 @@ def gen_cast_op_golden(case_name: str, output: Path, case_index: int = None) -> 
             x = torch.from_numpy(inputs[0])
             if dtype_out == torch.bfloat16:
                 x = x.to(torch.float32).numpy().astype(bfloat16)
+            elif dst_dtype == "hf8":
+                x = input[0].astype(hifloat8)
+            elif dst_dtype == "fp8e4m3"
+                x = input[0].astype(float8_e4m3)
+            elif dst_dtype == "fp8e5m2":
+                x = input[0].astype(float8_e5m2)
+            elif dst_dtype == "fp8e8m0":
+                x = input[0].astype(float8_e8m0)
             else:
                 x = x.to(dtype_out).numpy()
 
