@@ -58,7 +58,7 @@ inline Operation* SkipViewChain(Operation* start, bool followProducers) {
     while (op != nullptr && IsViewOp(*op)) {
         lastView = op;
         if (followProducers) {
-            const auto &nextOps = op->GetInputOperand(0)->GetProducers();
+            const auto& nextOps = op->GetInputOperand(0)->GetProducers();
             if (nextOps.size() != 1) break;
             op = *nextOps.begin();
         } else {
@@ -316,10 +316,13 @@ Status OoOScheduler::SpillOnBlock() {
         APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info."); 
         return FAILED; 
     }
-
-    if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
-        return FAILED;
+    bool rearrangeUBBF16{false};
+    if (RearrangeBuffers(allocIssueQueue[spillMemType].Front(), false, rearrangeUBBF16) != SUCCESS) {
+        APASS_LOG_WARN_F(Elements::Operation, "SpillOnBlock failed at RearrangeBuffers. Try GenBufferSpill.");
+        if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
+            return FAILED;
+        }
     }
     return SUCCESS;
 }
@@ -337,7 +340,7 @@ Status OoOScheduler::AllocViewTensorMemRange(Operation &operation) {
 }
 
 Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
-    for (auto &op : issue->viewOps) {
+    for (auto& op : issue->viewOps) {
         if (!IsViewOp(*op)) {
             APASS_LOG_ERROR_F(Elements::Operation, "op[%s] is not OP_VIEW.", op->GetOpMagic());
             return FAILED;
@@ -347,7 +350,7 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
             return FAILED;
         }
     }
-    for (auto &outTensor : issue->tileOp.GetOOperands()) {
+    for (auto& outTensor : issue->tileOp.GetOOperands()) {
         MemoryType memType = outTensor->GetMemoryTypeOriginal();
         if (memType == MemoryType::MEM_DEVICE_DDR) {
             continue;
@@ -387,7 +390,7 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
         pipe.curIssue = issue;
         pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
         oooCheck.pipeUsageCount[pipeType] += issue->tileOp.GetLatency();
-        for (auto &op : issue->viewOps) {
+        for (auto& op : issue->viewOps) {
             if (std::find(newOperations_.begin(), newOperations_.end(), op) != newOperations_.end()) {
                 continue;
             }
@@ -664,8 +667,17 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
 
     if (bufferManagerMap[allocBuffer->memType].IsFull(allocBuffer)) {
         if (GenSpillOp(allocBuffer, pcIdx) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed at GenSpillOp. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
-            return FAILED;
+            APASS_LOG_WARN_F(Elements::Operation, "GenSpillOp failed, start trying buffer rearrangement.");
+            if (bufferManagerMap[allocBuffer->memType].IsFullWithoutRearrange(allocBuffer->size)) {
+                APASS_LOG_ERROR_F(Elements::Operation, "GenSpillOp failed and there is no enough buffer space for rearrangement. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
+                return FAILED;
+            }
+            // 如果内存剩余空间 > 需要alloc空间, 进行内存重排
+            bool rearrangeUBBF16{false};
+            if (RearrangeBuffers(issue, true, rearrangeUBBF16) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed at RearrangeBuffers! %s", GetFormatBacktrace(issue->tileOp).c_str());
+                return FAILED;
+            }
         }
     }
 
