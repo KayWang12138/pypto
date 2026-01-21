@@ -100,8 +100,8 @@ private:
     // Cleanup methods
     Status CleanUp(Function &function);
     Status EraseRedundantAssemble(Function &function) const;
-    std::unordered_set<int32_t> visitedOp_;
-    std::unordered_set<int32_t> assembleWithoutAssembleConsumer_;
+    std::unordered_set<int> visitedOp_;
+    std::unordered_set<int> assembleWithoutAssembleConsumer_;
     std::vector<ViewOp> viewOpToAppend_;
     std::vector<AssembleOp> assembleOpToAppend_;
 };
