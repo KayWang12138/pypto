@@ -994,7 +994,8 @@ TEST_F(TestPadLocalBuffer, axiscombineDisable) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"gm"}, {"t2"}, "copyin", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t1","t2"}, {"t3"}, "add", true), true);
     auto *rootFuncPtr = graph.GetFunction();
-    config::SetOperationConfig(KEY_COMBINE_AXIS, true);
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     PadLocalBuffer padLocalBufferTest;

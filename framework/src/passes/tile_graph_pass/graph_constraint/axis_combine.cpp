@@ -70,24 +70,25 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
     for (size_t idx = 0; idx < inputTensor.size(); ++idx) {
         auto srcTensor = inputTensor[idx];
         auto alignedShape = srcTensor->GetShape();
+        bool needMarkBrcInput{true};
         if (alignedShape.back() == 1) {
             if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
                 int64_t padValue = 0;
                 if (GetPaddingValue(srcTensor, padValue) != SUCCESS) {
                     return FAILED;
                 }
-                if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
-                    return FAILED;
-                }
                 if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
                     padValue = inputTensor[idx ^ 1]->GetShape().back();
                 }
-                AlignedIfNeed(alignedShape.back(), padValue);
+                if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
+                    return FAILED;
+                }
                 auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
                 alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
                 if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
                     brcb.SetOpCode(Opcode::OP_EXPAND);
+                    needMarkBrcInput = false;
                     if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
                         brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", inputTensor[idx ^ 1]->GetDynValidShape());
                     } else {
@@ -99,7 +100,9 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
                 op.ReplaceIOperand(idx, alignedTensor);
                 inputTensor[idx] = alignedTensor;
             }
-            op.SetAttribute(OpAttributeKey::brcbIdx, static_cast<int64_t>(idx + 1));
+            if (needMarkBrcInput) {
+                op.SetAttribute(OpAttributeKey::brcbIdx, static_cast<int64_t>(idx + 1));
+            }
         }
     }
     return SUCCESS;
