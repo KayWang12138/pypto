@@ -25,6 +25,7 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 
+#include "ir/function.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -42,11 +43,13 @@ namespace dynamic {
 
 constexpr int32_t CALLOP_ARG_ATTR_BASE_INDEX = 1;
 constexpr int32_t MINI_TILE_LIST_SIZE_THRESHOLD = 16;
-constexpr int32_t DEFAULT_CORE_NUM = 75;
+constexpr int32_t MAX_AICORE_NUM_2210 = 75;
+constexpr int32_t MAX_AICORE_NUM_3510 = 108;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
 constexpr int64_t MAX_SHAPE_WARN_THRESHOLE = 512 * 512;
 constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
 constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
+constexpr int32_t MAX_CELLMATCHSSTRIDE = 20000000;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
 
@@ -953,11 +956,14 @@ struct EncodeDevAscendFunctionInfo {
             cellMatchSize *= tile;
             cellMatchStride[r] = cellMatchSize;
         }
-        ALOG_DEBUG_F("Incast %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
+        ALOG_DEBUG_F("Outcast is %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
             IntVecToStr(tensor->shape).c_str(),
             cellMatchSize,
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
             IntVecToStr(StrideToVector(cellMatchStride)).c_str());
+        ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << "raw" << tensor->GetRawMagic()
+ 	         <<"stitch results in excessive memory consumption," 
+ 	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape."; 
     }
 
     void RecordRawTensor(const std::shared_ptr<LogicalTensor> &tensor) {
@@ -1410,13 +1416,24 @@ struct EncodeDevAscendFunctionInfo {
         FunctionCache &cache = Program::GetInstance().GetFunctionCache();
         for (auto &[callop, succSet] : callOpSuccDict) {
             Function *devLeafFunc = cache.GetCacheFunction(callop->GetCalleeHash());
+            std::shared_ptr<LeafFuncAttribute> leafAttr = nullptr;
             if (devLeafFunc == nullptr) {
-                ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB)) << "GetCoreType return unexpected value: " <<
-                       GetCoreType(callop) << ", expected: " << static_cast<int>(CoreType::HUB) << " for callop: " << callop;
-                copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
+                pto::BlockFunction *devIrBlockFunc = cache.GetCacheIrBlockFunction(callop->GetCalleeHash());
+                if (devIrBlockFunc == nullptr) {
+                    ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB)) << "GetCoreType return unexpected value: " <<
+                       GetCoreType(callop) << ", expectedBlockFunction: " << static_cast<int>(CoreType::HUB) << " for callop: " << callop;
+                    copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
+                    continue;
+                }
+                leafAttr = devIrBlockFunc->GetLeafFuncAttribute();
+            } else {
+                leafAttr = devLeafFunc->GetLeafFuncAttribute();
+            }
+
+            if (leafAttr == nullptr) {
+                ALOG_ERROR_F("Leaf Attr of leaf function %s is nullptr.", callop->GetCalleeMagicName().c_str());
                 continue;
             }
-            std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc->GetLeafFuncAttribute();
             if (leafAttr->outcastCopyOutResolveCounterList.size() == 0) {
                 copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
                 continue;
@@ -2321,7 +2338,8 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.tensor.maxStaticOutcastMem = tensorWsRes.maxStaticOutcastMem;
         base->memBudget.tensor.devTaskBoundaryOutcastNum = tensorWsRes.devTaskBoundaryOutcastNum;
 
-        base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * DEFAULT_CORE_NUM;
+        int32_t maxCoreNum = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 ? MAX_AICORE_NUM_3510 : MAX_AICORE_NUM_2210;
+        base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * maxCoreNum;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->stitchFunctionNumInitial = func->paramConfigs_.stitchFunctionNumInitial_;
         base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;

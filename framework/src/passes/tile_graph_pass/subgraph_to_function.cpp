@@ -92,7 +92,9 @@ Status SubgraphToFunction::HandleBlockCall(Function &function) {
         }
         auto &callOpInRoot = rootFunc->AddRawOperation(npu::tile_fwk::Opcode::OP_CALL, 
             args.iOperands, args.oOperands, false);
-        // 2.1 TODO NormalizeCoa
+        // 2.1 Get OpAttrOffsets
+        args.iOpAttrOffset = oriCallOp.GetIOpAttrOffsets();
+        args.oOpAttrOffset = oriCallOp.GetOOpAttrOffsets();
 
         // 2.2 Create Call op attribute
         auto oriCallOpAttr = std::static_pointer_cast<CallOpAttribute>(oriCallOp.GetOpAttribute());
@@ -543,7 +545,7 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
             APASS_LOG_ERROR_F(Elements::Operation, "Cache miss for callee hash %lu. %s", callAttr->GetCalleeHash().GetHash(), GetFormatBacktrace(callOp).c_str());
             return FAILED;
         }
-        callAttr->SetCalleeMagicName(cacheValue->cacheFunction->GetMagicName());
+        callAttr->SetCalleeMagicName(cacheValue->GetFunction()->GetMagicName());
         callAttr->invokeInfo_->UpdateProgramSubgraphId(std::get<0>(result)->GetProgramId());
         return SUCCESS;
     }

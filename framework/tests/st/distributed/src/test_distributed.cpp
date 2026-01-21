@@ -69,7 +69,7 @@ struct AllgatherFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestDynAllGather<T>(testParam);
+        Distributed::TestAllGather<T>(testParam);
     }
 };
 
@@ -77,7 +77,7 @@ struct ReducescatterFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestShmemReduceScatter<T>(testParam);
+        Distributed::TestReduceScatter<T>(testParam);
     }
 };
 
@@ -85,7 +85,7 @@ struct AllreduceFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestShmemAllReduce<T>(testParam);
+        Distributed::TestAllReduce<T>(testParam);
     }
 };
 
@@ -93,7 +93,7 @@ struct Allreduce_Add_AllreduceFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestShmemAllReduceAddAllReduce<T>(testParam);
+        Distributed::TestAllReduceAddAllReduce<T>(testParam);
     }
 };
 
@@ -209,7 +209,7 @@ INSTANTIATE_TEST_SUITE_P(TestAllgather, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("Allgather")));
 TEST_P(DistributedTest, TestAllgather)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     RunDistributedTestGeneric("Allgather", GetParam().testData_);
 }
 
@@ -217,7 +217,7 @@ INSTANTIATE_TEST_SUITE_P(TestReducescatter, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("Reducescatter")));
 TEST_P(DistributedTest, TestReducescatter)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     RunDistributedTestGeneric("Reducescatter", GetParam().testData_);
 }
 
@@ -225,15 +225,23 @@ INSTANTIATE_TEST_SUITE_P(TestAllreduce, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("Allreduce")));
 TEST_P(DistributedTest, TestAllreduce)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     RunDistributedTestGeneric("Allreduce", GetParam().testData_);
+}
+
+INSTANTIATE_TEST_SUITE_P(TestMoeDispatch, DistributedTest,
+    ::testing::ValuesIn(GetOpMetaData<OpMetaData>("MoeDispatch")));
+TEST_P(DistributedTest, TestMoeDispatch)
+{
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
+    RunDistributedTestGeneric("MoeDispatch", GetParam().testData_);
 }
 
 INSTANTIATE_TEST_SUITE_P(TestMoeDistributedCombine, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("MoeDistributedCombine")));
 TEST_P(DistributedTest, TestMoeDistributedCombine)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     RunDistributedTestGeneric("MoeDistributedCombine", GetParam().testData_);
 }
 
@@ -241,7 +249,7 @@ INSTANTIATE_TEST_SUITE_P(TestAllreduce_Add_Allreduce, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("Allreduce_Add_Allreduce")));
 TEST_P(DistributedTest, TestAllreduce_Add_Allreduce)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     RunDistributedTestGeneric("Allreduce_Add_Allreduce", GetParam().testData_);
 }
 
@@ -249,13 +257,13 @@ INSTANTIATE_TEST_SUITE_P(TestAllgather_AttnPost_Reducescatter, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("Allgather_AttnPost_Reducescatter")));
 TEST_P(DistributedTest, TestAllgather_AttnPost_Reducescatter)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     RunDistributedTestGeneric("Allgather_AttnPost_Reducescatter", GetParam().testData_);
 }
 
 TEST_F(DistributedTest, shmem_allreduce_add_allreduce_bfloat16_256_102400_4)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemAllReduceAddAllReduce<bfloat16>(testParam);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
+    Distributed::TestAllReduceAddAllReduce<bfloat16>(testParam);
 }
 } // namespace npu::tile_fwk::Distributed

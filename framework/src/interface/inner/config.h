@@ -36,11 +36,9 @@ constexpr const char *VEC_NBUFFER_SETTING = "vec_nbuffer_setting";
 constexpr const char *SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num";
 constexpr const char *MG_VEC_PARALLEL_LB = "mg_vec_parallel_lb";
 constexpr const char *PG_SKIP_PARTITION = "pg_skip_partition";
-constexpr const char *NBUFFER_NUM = "nbuffer_num";
-constexpr const char *L1_REUSE_NUM = "l1_reuse_num";
 constexpr const char *DB_TYPE = "db_type";
 constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
-constexpr const char *ONLY_CODEGEN = "only_codegen";
+constexpr const char *COMPILE_STAGE = "compile_stage";
 constexpr const char *SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
 
 //runtime
@@ -76,6 +74,11 @@ const std::string KEY_ENABLE_PASS_VERIFY = "enable_pass_verify";
 const std::string KEY_PASS_VERIFY_SAVE_TENSOR = "pass_verify_save_tensor";
 const std::string KEY_PASS_VERIFY_SAVE_TENSOR_DIR = "pass_verify_save_tensor_dir";
 const std::string KEY_PASS_VERIFY_FILTER = "pass_verify_pass_filter";
+
+constexpr const int ALL_COMPLETE = 0;
+constexpr const int GEN_KERNEL_CODE = 1;
+constexpr const int HOST_COMPILE_END = 2;
+constexpr const int GEN_TENSOR_GRAPH = 3;
 
 struct ConfigStorage;
 
