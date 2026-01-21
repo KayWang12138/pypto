@@ -165,23 +165,25 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     return true;
 }
 
-bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOut) {
-    auto inputShape = reshapeInput->GetShape();
+bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+    auto inputShape = reshapeIn->GetShape();
     auto outputShape = reshapeOut->GetShape();
-    // [1,a,b] --> Reshape --> [a,b]
-    if (inputShape.size() == 3 && outputShape.size() == 2 && inputShape[0] == 1) {
-        return true;
-    }
-    // [a,b] --> Reshape --> [1,a,b]
-    if (inputShape.size() == 2 && outputShape.size() == 3 && outputShape[0] == 1) {
-        return true;
-    }
+    auto inputShapeSize = inputShape.size();
+    auto outputShapeSize = outputShape.size();
     // [1,1,a,b] --> Reshape --> [a,b]
-    if (inputShape.size() == 4 && outputShape.size() == 2 && inputShape[0] == 1 && inputShape[1] == 1) {
+    if (inputShapeSize == 4 && outputShapeSize == 2 && inputShape[0] == 1 && inputShape[1] == 1 && inputShape[2] == outputShape[0] && inputShape[3] == outputShape[1]) {
         return true;
     }
     // [a,b] --> Reshape --> [1,1,a,b]
-    if (inputShape.size() == 2 && outputShape.size() == 4 && outputShape[0] == 1 && outputShape[1] == 1) {
+    if (inputShapeSize == 2 && outputShapeSize == 4 && outputShape[0] == 1 && outputShape[1] == 1 && inputShape[0] == outputShape[2] && inputShape[3] == outputShape[1]) {
+        return true;
+    }
+    // [1,a,b] --> Reshape --> [a,b]
+    if (inputShapeSize == 3 && outputShapeSize == 2 && inputShape[0] == 1 && inputShape[1] == outputShape[0] && inputShape[2] == outputShape[1]) {
+        return true;
+    }
+    // [a,b] --> Reshape --> [1,a,b]
+    if (inputShapeSize == 2 && outputShapeSize == 3 && outputShape[0] == 1 && inputShape[0] == outputShape[1] && inputShape[1] == outputShape[2]) {
         return true;
     }
     return false;
