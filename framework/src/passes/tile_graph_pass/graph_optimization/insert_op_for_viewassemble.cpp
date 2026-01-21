@@ -128,34 +128,63 @@ Status InsertOpForViewAssemble::JudgedViewAssemble(Function &function) {
     return SUCCESS;
 }
 
- void InsertOpForViewAssemble::AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input) {
-        auto copyShape = input->GetShape();
-        std::vector<int64_t> offset0(copyShape.size(), 0);
-        std::vector<SymbolicScalar> dynOffset0(copyShape.size(), 0);
+void InsertOpForViewAssemble::AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input) {
+    auto copyShape = input->GetShape();
+    std::vector<int64_t> offset0(copyShape.size(), 0);
+    std::vector<SymbolicScalar> dynOffset0(copyShape.size(), 0);
+
+    auto assembleOut = std::make_shared<LogicalTensor>(function, input->Datatype(), copyShape);
+    assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto &assembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {input}, {assembleOut});
+    assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(
+        input->GetMemoryTypeOriginal(),
+        offset0,
+        dynOffset0,
+        input->GetDynValidShape()
+    ));
+
+    auto viewOut = std::make_shared<LogicalTensor>(function, input->Datatype(), copyShape);
+    viewOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto &viewOp = function.AddOperation(Opcode::OP_VIEW, {assembleOut}, {viewOut});
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
+        offset0,
+        input->GetMemoryTypeOriginal(),
+        dynOffset0,
+        input->GetDynValidShape()
+    ));
+
+    cons->ReplaceInput(viewOut, input);
+}
+
+
+void InsertOpForViewAssemble::AddCopyDDROp(Function &function, Operation *cons, LogicalTensorPtr &input) {
+    auto copyShape = input->GetShape();
+    std::vector<int64_t> offset00(copyShape.size(), 0);
+    std::vector<SymbolicScalar> dynOffset0(copyShape.size(), 0);
+
+    auto viewOut = std::make_shared<LogicalTensor>(function, input->Datatype(), copyShape);
+    viewOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto &viewOp = function.AddOperation(Opcode::OP_VIEW, {input}, {viewOut});
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
+        input->GetOffset(),
+        MemoryType::MEM_UB,
+        input->GetDynOffset(),
+        input->GetDynValidShape()
+    ));
     
-        auto assembleOut = std::make_shared<LogicalTensor>(function, input->Datatype(), copyShape);
-        assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
-        auto &assembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {input}, {assembleOut});
-        assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(
-            input->GetMemoryTypeOriginal(),
-            offset0,
-            dynOffset0,
-            input->GetDynValidShape()
-        ));
-    
-        auto viewOut = std::make_shared<LogicalTensor>(function, input->Datatype(), copyShape);
-        viewOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-        auto &viewOp = function.AddOperation(Opcode::OP_VIEW, {assembleOut}, {viewOut});
-        viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
-            offset0,
-            input->GetMemoryTypeOriginal(),
-            dynOffset0,
-            input->GetDynValidShape()
-        ));
-    
-        cons->ReplaceInput(viewOut, input);
-    }
- 	 
+    auto assembleOut = std::make_shared<LogicalTensor>(function, input->Datatype(), copyShape);
+    assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+    auto &assembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {viewOut}, {assembleOut});
+    assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(
+        MemoryType::MEM_UB,
+        input->GetOffset(),
+        input->GetDynOffset(),
+        input->GetDynValidShape()
+    ));
+
+    cons->ReplaceInput(assembleOut, input);
+}
+
 void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
     auto opsBeforeAdd = function.Operations();
     std::unordered_set<int> visitedAssOps;
