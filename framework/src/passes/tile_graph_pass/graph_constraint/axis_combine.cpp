@@ -16,7 +16,6 @@
 #include "axis_combine.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_log/pass_log.h"
-#include "passes/pass_utils/reschedule_utils.h"
 
 #define MODULE_NAME "AxisCombine"
 
@@ -78,11 +77,15 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
                     return FAILED;
                 }
 <<<<<<< HEAD
+<<<<<<< HEAD
                 if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
                     return FAILED;
                 }
 =======
                 if (!enableBrcb_) {
+=======
+                if (!axisCombineMarker.IsTensorEnableAxisCombine(tensor)) {
+>>>>>>> a19b382 (fix(pass): Fix unalign combine axis bugs)
                     padValue = inputTensor[idx ^ 1]->GetShape().back();
                 }
                 AlignedIfNeed(alignedShape.back(), padValue);
@@ -90,7 +93,7 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
                 auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
                 alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
-                if (!enableBrcb_) {
+                if (!axisCombineMarker.IsTensorEnableAxisCombine(tensor)) {
                     brcb.SetOpCode(Opcode::OP_EXPAND);
                     if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
                         brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", inputTensor[idx ^ 1]->GetDynValidShape());
@@ -127,7 +130,7 @@ Status AxisCombine::RunOnFunction(Function &function) {
         APASS_LOG_INFO_F(Elements::Operation, "AxisCombine is skipped.");
         return SUCCESS;
     }
-    enableBrcb_ = RescheduleUtils::EnableCombineAxis(function);
+    axisCombineMarker.Run(function);
     if (Process(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "AxisCombine process failed.");
         return FAILED;
@@ -135,5 +138,6 @@ Status AxisCombine::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> End AxisCombine.");
     return SUCCESS;
 }
+
 } // namespace tile_fwk
 } // namespace npu
