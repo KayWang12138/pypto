@@ -23,6 +23,7 @@
 #include "interface/program/program.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_utils/pass_utils.h"
+#include "axis_combine_marker.h"
 
 namespace npu::tile_fwk {
 /*
