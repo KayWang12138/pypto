@@ -13,6 +13,7 @@
 from collections.abc import Iterator
 import inspect
 import functools
+import operator
 import re
 from typing import Any, Optional, Union, Callable
 
@@ -1221,6 +1222,11 @@ class Parser(doc.NodeVisitor):
         else:
             func_obj = func_value
 
+        # Only Python functions are eligible for nested inlining. Builtins (e.g., range)
+        # or other callables should fall back to normal Python evaluation.
+        if func_obj is None or not inspect.isfunction(func_obj):
+            return _NESTED_CALL_UNHANDLED
+
         # Merge closure/global variables of the target function to allow resolving
         # free variables used inside the nested function body.
         env_vars = self._collect_function_environment(func_obj)
@@ -1230,10 +1236,12 @@ class Parser(doc.NodeVisitor):
         # Dynamically obtain the FunctionDef AST of the callee; fail fast if unavailable.
         func_def_node = self._get_function_def_from_func(func_obj)
         if func_def_node is None:
-            raise ParserError(
-                node,
-                ValueError(f"Failed to obtain AST for function '{func_name}'."),
-            )
+            if isinstance(func_value, NestedFunctionMarker):
+                raise ParserError(
+                    node,
+                    ValueError(f"Failed to obtain AST for function '{func_name}'."),
+                )
+            return _NESTED_CALL_UNHANDLED
 
         # If callee is a normal function, ensure it is decorated as nested; otherwise, bail out.
         if not isinstance(func_value, NestedFunctionMarker):
@@ -1410,42 +1418,73 @@ class Parser(doc.NodeVisitor):
             )
         loop_var_name = node.target.id
 
-        # Try to evaluate the iterator expression (e.g., range(10))
-        # This works even with symbolic values in range bounds because
-        # Python's range() is lazily evaluated
+        # Try to evaluate the iterator expression (e.g., range(10), [1, 2, 3]).
         iter_expr = self._eval_expr(node.iter)
 
-        # Support range() calls - extract start, stop, step parameters
-        # These parameters can be concrete values or symbolic expressions
-        iterator = None
+        # Two supported modes:
+        # 1) Python unrolled loops (range/list/tuple): loop variable is a real Python int.
+        # 2) PTO symbolic loops (Iterator, e.g., pypto.loop(...)): loop variable is SymbolicScalar.
+        iterator: Optional[Iterator] = None
+        python_unroll_iterable: Optional[Union[range, list[Any], tuple[Any, ...]]] = None
+
         if isinstance(iter_expr, range):
-            # Extract start, stop, step from range object
-            start = iter_expr.start
-            stop = iter_expr.stop
-            step = iter_expr.step
-            iterator = pypto.loop(
-                start, stop, step, name="Dynamic", idx_name=loop_var_name
-            )
+            python_unroll_iterable = iter_expr
+        elif isinstance(iter_expr, (list, tuple)):
+            python_unroll_iterable = iter_expr
         elif isinstance(iter_expr, Iterator):
             iterator = iter_expr
         else:
             raise ParserError(
                 node.iter,
                 TypeError(
-                    f"Loop iterator must be a range object or Iterator, but got {type(iter_expr).__name__}."
+                    "Loop iterator must be a range, list, tuple, or Iterator, "
+                    f"but got {type(iter_expr).__name__}."
                 ),
             )
 
-        # Create the loop using pypto.loop, which generates the appropriate IR for iteration.
-        # The loop variable is created by the pypto.loop iterator and added to the context
-        # so it can be used within the loop body.
-        # Create a new frame for the loop body scope
         with self.context.with_frame():
-            # The loop variable is yielded by the iterator
+            if python_unroll_iterable is not None:
+                max_unroll_iters = 10_000
+                if len(python_unroll_iterable) > max_unroll_iters:
+                    raise ParserError(
+                        node.iter,
+                        ValueError(
+                            f"Python unrolled loop has {len(python_unroll_iterable)} iterations, "
+                            f"which exceeds the limit ({max_unroll_iters}). "
+                            "Use pypto.loop(...) for symbolic loops or reduce the iteration count."
+                        ),
+                    )
+
+                for value in python_unroll_iterable:
+                    # Ensure the loop variable is a real Python int (not SymbolicScalar).
+                    if isinstance(value, SymbolicScalar):
+                        if not value.is_concrete():
+                            raise ParserError(
+                                node.iter,
+                                TypeError(
+                                    "Python unrolled loops require concrete integers, but got a non-concrete "
+                                    "SymbolicScalar. Use pypto.loop(...) for symbolic loops."
+                                ),
+                            )
+                        value = value.concrete()
+                    try:
+                        loop_var_int = operator.index(value)
+                    except TypeError as e:
+                        raise ParserError(
+                            node.iter,
+                            TypeError(
+                                "Python unrolled loops only support integer iteration values, "
+                                f"but got {type(value).__name__}."
+                            ),
+                        ) from e
+
+                    self.context.add(loop_var_name, loop_var_int)
+                    self._visit_body(node.body)
+                return
+
+            assert iterator is not None
             for loop_var in iterator:
-                # Add the loop variable to the context
                 self.context.add(loop_var_name, loop_var)
-                # Visit the loop body
                 self._visit_body(node.body)
 
     def _assign_target(self, target: doc.expr, expr: Any) -> None:
