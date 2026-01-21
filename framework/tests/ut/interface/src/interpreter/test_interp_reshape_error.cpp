@@ -48,29 +48,31 @@ public:
     }
 };
 
-TEST_F(ReshapeErrorTest, TestLogTensorListDirectOperation) {
-    Program program;
-    Function func(program, "test_magic", "test_raw", nullptr);
-
-    LogicalTensors iOperands;
-    LogicalTensors oOperands;
-
-    auto inTensor = std::make_shared<LogicalTensor>(func, DT_FP32, std::vector<int64_t>{2, 3},
-        TileOpFormat::TILEOP_ND, "input");
-    auto outTensor = std::make_shared<LogicalTensor>(func, DT_FP32, std::vector<int64_t>{3, 2},
-        TileOpFormat::TILEOP_ND, "output");
-
-    iOperands.push_back(inTensor);
-    oOperands.push_back(outTensor);
-
-    Operation op(func, Opcode::OP_RESHAPE, iOperands, oOperands, false);
-
-    LogTensorList("input", &op, op.GetIOperands());
-    LogTensorList("output", &op, op.GetOOperands());
-
-    EXPECT_EQ(op.GetIOperands().size(), 1);
-    EXPECT_EQ(op.GetOOperands().size(), 1);
-}
+ TEST_F(ReshapeErrorTest, ReshapeMismatchElementCount) {
+ 	     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+ 	     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+ 	 
+ 	     Tensor input(DT_FP32, {256, 1, 128}, "input");
+ 	     Tensor output(DT_FP32, {1, 128, 128}, "output");
+ 	 
+ 	     ProgramData::GetInstance().AppendInputs({
+ 	         RawTensorData::CreateConstantTensor<float>(input, 1.0f),
+ 	     });
+ 	     ProgramData::GetInstance().AppendOutputs({
+ 	         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+ 	     });
+ 	 
+ 	     FUNCTION("main", {input}, {output}) {
+ 	         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+ 	             (void)i;
+                //  TileShape::Current().SetVecTile(128, 128, 128);
+ 	             auto t1 = View(input, {128, 1, 128}, {30, 1, 128}, {0, 0, 0});
+                 auto t2 = Reshape(t1, {128, 128}, {30, 128});
+                 auto t3 = Reshape(t2, {1, 128, 128}, {1, 30, 128});
+                 Assemble(t3, {0, 0, 0}, output);
+ 	         }
+ 	     }
+ 	 }
 
 } // namespace npu::tile_fwk
 
