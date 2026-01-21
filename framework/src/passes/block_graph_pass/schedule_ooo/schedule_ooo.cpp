@@ -161,17 +161,6 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
             int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + lastUseOp->GetOOperands().size();
             opInputIdxMap[lastUseOp][inputIdx] = true;
         }
-        for (auto &prodOp : lastUseTensor->GetProducers()) {
-            if (opInputIdxMap.find(prodOp) == opInputIdxMap.end()) {
-                int tensorSize = prodOp->GetIOperands().size() + prodOp->GetOOperands().size();
-                std::vector<int> tensorIdxVec(tensorSize, false);
-                int outputIdx = prodOp->GetOOperandIndex(lastUseTensor);
-                tensorIdxVec[outputIdx] = true;
-            } else {
-                int outputIdx = prodOp->GetOOperandIndex(lastUseTensor);
-                opInputIdxMap[prodOp][outputIdx] = true;
-            }
-        }
     }
     for (auto &entry : opInputIdxMap) {
         auto op = entry.first;
