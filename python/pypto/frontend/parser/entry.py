@@ -225,8 +225,8 @@ class JitCallableWrapper:
 
         Returns
         -------
-        Union[torch.Tensor, tuple[torch.Tensor, ...]]
-            Output tensor(s).
+        Optional[Union[torch.Tensor, tuple[torch.Tensor, ...]]]
+            Output tensor(s), or None if the kernel has no return value.
         """
 
         # Validate that all arguments are tensors
@@ -267,7 +267,16 @@ class JitCallableWrapper:
                         f"{device} and {tensor.device}"
                     )
         else:
-            raise RuntimeError("pypto.frontend.jit requires at least one input tensor")
+            run_mode = self._runtime_options.get("run_mode", None)
+            if run_mode == pypto.RunMode.NPU:
+                if torch.npu.is_available():
+                    device = torch.device('npu', torch.npu.current_device())
+                else:
+                    raise RuntimeError("NPU is not available.")
+            elif run_mode == pypto.RunMode.SIM:
+                device = torch.device('cpu')
+            else:
+                raise RuntimeError(f"Invalid run mode: {run_mode}.")
 
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
@@ -327,6 +336,8 @@ class JitCallableWrapper:
         self._dispatch_with_run_mode(pto_in_tensors + pto_out_tensors, [], device)
 
         # Return single tensor or tuple based on number of outputs
+        if not out_tensors:
+            return None
         if len(out_tensors) == 1:
             return out_tensors[0]
         return tuple(out_tensors)
