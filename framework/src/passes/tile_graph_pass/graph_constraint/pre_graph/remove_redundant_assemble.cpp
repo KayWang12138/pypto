@@ -377,6 +377,7 @@ Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &a
         copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         copyAttr->SetToOffset(newOffset);
     }
+    producer->GetIOperands()[0]->UpdateShape(newRawShape);
     producer->GetIOperands()[0]->tensor->UpdateRawShape(newRawShape);
     return SUCCESS;
 }
