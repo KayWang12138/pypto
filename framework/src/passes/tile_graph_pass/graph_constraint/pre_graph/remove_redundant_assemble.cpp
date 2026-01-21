@@ -42,12 +42,14 @@ void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
 }
 
 bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vector<int64_t> &newShape,
-    const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape, bool skipAccumulate) {
+    const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
+    std::vector<int64_t> oriScale;
     size_t oriSize = oriShape.size();
-    std::vector<int64_t> oriScale(oriSize, 0);
+    oriScale.resize(oriSize);
     for (size_t i = 0; i < oriSize; i++) {
         oriScale[i] = oriRawShape[i] / oriShape[i];
-        if ((i != 0) && (oriScale[i] != 1)) { // 只有当最高轴存在Assemble时，才可以将数据直接拷贝到Assemble之后的内存
+        if ((i != 0) && (oriScale[i] != 1)) {
+            // 只有当最高轴存在Assemble的行为时，才可以将数据直接拷贝到Assemble之后的内存
             return false;
         }
     }
@@ -55,38 +57,35 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
     size_t newSize = newShape.size();
     newRawShape.resize(newSize);
     std::vector<int64_t> newScale(newSize, 1);
-    if (!skipAccumulate) {
-        int64_t accumuOriScale = oriScale[oriSize - 1];
-        int64_t accumuOriShape = oriShape[oriSize - 1];
-        int64_t accumuNewShape = newShape[newSize - 1];
-        for (int i = oriSize - 1, j = newSize - 1; i >= 0 && j >= 0;) {
-            if (accumuOriShape < accumuNewShape) {
-                i--;
-                if (i >= 0) {
-                    accumuOriShape *= oriShape[i];
-                    accumuOriScale *= oriScale[i];
-                }
-                continue;
+    int64_t accumuOriScale = oriScale[oriSize - 1];
+    int64_t accumuOriShape = oriShape[oriSize - 1];
+    int64_t accumuNewShape = newShape[newSize - 1];
+    for (int i = oriSize - 1, j = newSize - 1; i >= 0 && j >= 0;) {
+        if (accumuOriShape < accumuNewShape) {
+            i--;
+            if (i >= 0) {
+                accumuOriShape *= oriShape[i];
+                accumuOriScale *= oriScale[i];
             }
-            if (accumuOriShape == accumuNewShape) {
-                newScale[j] *= accumuOriScale;
-                i--;
-                j--;
-                if (i >= 0 && j >= 0) {
-                    accumuOriScale = oriScale[i];
-                    accumuOriShape = oriShape[i];
-                    accumuNewShape = newShape[j];
-                }
-                continue;
-            }
-            j--;
-            if (j >= 0) {
-                accumuNewShape *= newShape[j];
-            }
+            continue;
         }
-    } else {
-        newScale = oriScale;
+        if (accumuOriShape == accumuNewShape) {
+            newScale[j] *= accumuOriScale;
+            i--;
+            j--;
+            if (i >= 0 && j >= 0) {
+                accumuOriScale = oriScale[i];
+                accumuOriShape = oriShape[i];
+                accumuNewShape = newShape[j];
+            }
+            continue;
+        }
+        j--;
+        if (j >= 0) {
+            accumuNewShape *= newShape[j];
+        }
     }
+
     APASS_LOG_DEBUG_F(Elements::Operation, "newScale is %s.", IntVecToStr(newScale).c_str());
     for (size_t j = 0; j < newSize; j++) {
         newRawShape[j] = newShape[j] * newScale[j];
