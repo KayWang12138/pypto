@@ -51,6 +51,7 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> InitializeTestData(OpTestParam &testP
 }
 
 std::tuple<Tensor, Tensor> CreateShmemTensors(OpTestParam& testParam, DataType dtype, const Shape& shape) {
+std::tuple<Tensor, Tensor> CreateShmemTensors(OpTestParam& testParam, DataType dtype, const Shape& shape) {
     Tensor shmemData;
     Tensor shmemSignal;
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {

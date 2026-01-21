@@ -108,6 +108,17 @@ void ValidateParams(const Tensor &predToken, const Tensor &in, const Tensor &out
     ASSERT(shmemSize < winSize) << "Exceeds winSize limit. Maximum allowed: " << winSize << ", got: " << shmemSize;
 }
 
+void Validate(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, const Tensor& shmemSignal,
+    const char* group, Tensor& out)
+{
+    ValidateGroup(group);
+    ValidateParams(predToken, in, out, shmemData.GetShape(), shmemData.GetDataType(), true, true,
+        {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
+    const TileShape& tileShape = TileShape::Current();
+    ValidateTilingSize(tileShape.GetVecTile(), in);
+    ValidateShmemTensor(shmemData, shmemSignal, out)
+}
+
 Tensor ShmemPut(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, 
     AtomicType atomicType)
 {
@@ -345,15 +356,6 @@ void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group,
         View(shmemSignal, {1, 1, 1, rowOut, col}, std::vector<SymbolicScalar>{thisRank, thisRank, 0, 0, 0});
     auto dummyLocal = WaitUntil(in, shmemSignalLocal, worldSize);
     out = ShmemGet(dummyLocal, shmemDataLocal, in.GetDataType());
-}
-
-void AllReduceValidate(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, const char* group, Tensor& out)
-{
-    ValidateGroup(group);
-    ValidateParams(predToken, in, out, shmemData.GetShape(), shmemData.GetDataType(), true, true,
-        {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
-    const TileShape& tileShape = TileShape::Current();
-    ValidateTilingSize(tileShape.GetVecTile(), in);
 }
 
 void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
