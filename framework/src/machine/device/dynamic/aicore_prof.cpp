@@ -258,7 +258,7 @@ inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat *taskS
     }
 }
 
-inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs) {
+void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs) {
     pmuMsgSize_ = sizeof(PyPtoMsprofAdditionalInfo);
     pmuHeadSize_ = sizeof(MsprofAicpuPyPtoPmuHead);
     pmuDataSize_ = sizeof(MsprofAicpuPyPtoPmuData);
@@ -301,7 +301,7 @@ inline void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs) {
     }
 }
 
-inline void AiCoreProf::ReadPmuCounters(const int32_t coreIdx) const {
+void AiCoreProf::ReadPmuCounters(const int32_t coreIdx) const {
     volatile uint32_t dummy_read = 0;
     auto read_reg = [&dummy_read](volatile uint32_t *reg) {
         dummy_read = *reg; // 通过volatile访问确保实际读取操作
@@ -327,7 +327,7 @@ inline void AiCoreProf::ReadPmuCounters(const int32_t coreIdx) const {
     (void)dummy_read; // 抑制未使用变量警告
 }
 
-inline void AiCoreProf::SetPmuEvents(void *mapBase, const int32_t coreIdx) const {
+void AiCoreProf::SetPmuEvents(void *mapBase, const int32_t coreIdx) const {
     uint32_t *cnt0IdxAddr = nullptr;
     uint32_t *cnt1IdxAddr = nullptr;
     uint32_t *cnt2IdxAddr = nullptr;
@@ -374,7 +374,7 @@ inline void AiCoreProf::SetPmuEvents(void *mapBase, const int32_t coreIdx) const
     (void)coreIdx;
 }
 
-inline void AiCoreProf::InitPmuRegAddrsDav2201(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs) {
+void AiCoreProf::InitPmuRegAddrsDav2201(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs) {
     pmuCnt0Plain_[coreIdx] =
         reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + PMU_CNT0);
     pmuCnt1Plain_[coreIdx] =
@@ -407,7 +407,7 @@ inline void AiCoreProf::InitPmuRegAddrsDav2201(void *addr, void *mapBase, int co
         reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + PMU_STOP_CNT_CYC_1);
 }
 
-inline void AiCoreProf::InitPmuRegAddrsDav3510(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs) {
+void AiCoreProf::InitPmuRegAddrsDav3510(void *addr, void *mapBase, int coreIdx, PmuCtrlAddrs &addrs) {
     pmuCnt0Plain_[coreIdx] =
         reinterpret_cast<volatile uint32_t *>(reinterpret_cast<uint8_t *>(addr) + DAV_3510::PMU_CNT0);
     pmuCnt1Plain_[coreIdx] =
@@ -445,7 +445,7 @@ inline void AiCoreProf::InitPmuRegAddrsDav3510(void *addr, void *mapBase, int co
         reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(mapBase) + DAV_3510::PMU_STOP_CNT_CYC_1);
 }
 
-inline AiCoreProf::PmuCtrlAddrs AiCoreProf::InitPmuRegAddrsForCore(void *addr, void *mapBase, int coreIdx) {
+AiCoreProf::PmuCtrlAddrs AiCoreProf::InitPmuRegAddrsForCore(void *addr, void *mapBase, int coreIdx) {
     PmuCtrlAddrs addrs;
     if (archInfo_ == ArchInfo::DAV_2201) {
         InitPmuRegAddrsDav2201(addr, mapBase, coreIdx, addrs);
@@ -455,7 +455,7 @@ inline AiCoreProf::PmuCtrlAddrs AiCoreProf::InitPmuRegAddrsForCore(void *addr, v
     return addrs;
 }
 
-inline void AiCoreProf::ProgramPmuStartForCore(void *mapBase, int coreIdx, const PmuCtrlAddrs &addrs) {
+void AiCoreProf::ProgramPmuStartForCore(void *mapBase, int coreIdx, const PmuCtrlAddrs &addrs) {
     // 在enable前先读取一次寄存器,将cnt清0
     ReadPmuCounters(coreIdx);
 
@@ -474,7 +474,7 @@ inline void AiCoreProf::ProgramPmuStartForCore(void *mapBase, int coreIdx, const
     }
 }
 
-inline void AiCoreProf::ProfStartPmu() {
+void AiCoreProf::ProfStartPmu() {
     hostAicoreMng_.ForEachManageAicore([&](int coreIdx) {
         void *addr = reinterpret_cast<void *>(regAddrs_[hostAicoreMng_.GetPhyIdByBlockId(coreIdx)]);
         uint32_t pageSize = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
@@ -485,7 +485,7 @@ inline void AiCoreProf::ProfStartPmu() {
     });
 }
 
-inline void AiCoreProf::ProfStopPmu() {
+void AiCoreProf::ProfStopPmu() {
     hostAicoreMng_.ForEachManageAicore([&](int coreIdx) {
         if (pmuHead_[coreIdx]->cnt != 0) {
             int32_t ret = AdprofReportAdditionalInfo(1, &pmuMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
@@ -586,7 +586,7 @@ void AiCoreProf::FillPmuData(MsprofAicpuPyPtoPmuData &data, int32_t &coreIdx, ui
     (void)subGraphId;
 }
 
-inline void AiCoreProf::ProfGetPmu(
+void AiCoreProf::ProfGetPmu(
     int32_t coreIdx, uint32_t subGraphId, uint32_t taskId, const struct TaskStat *taskStat) {
     MsprofAicpuPyPtoPmuData data = {0};
     FillPmuData(data, coreIdx, subGraphId, taskId, taskStat);
@@ -633,7 +633,7 @@ inline void AiCoreProf::ProfGetPmu(
     }
 }
 
-inline bool AiCoreProf::ProfCheckLevel(uint64_t feature) const {
+bool AiCoreProf::ProfCheckLevel(uint64_t feature) const {
     if (AdprofCheckFeatureIsOn == nullptr) {
         return false;
     }
