@@ -50,6 +50,12 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
         pto::TMINS(dst, src0, src1);
         return;
     }
+
+    if constexpr (op == BinaryScalarOp::MOD) {
+        pto::TDIVS(dst, src0, src1);
+        pto::TMULS(dst, dst, src1);
+        pto::TSUB(dst, src0, dst);
+    }
 }
 
 template <BinaryScalarOp op, typename T0, typename T1, typename Scalar>

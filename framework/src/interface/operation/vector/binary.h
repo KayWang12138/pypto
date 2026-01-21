@@ -38,6 +38,7 @@ enum class BinaryOpType {
     DIV_BRC,
     MAX_BRC,
     MIN_BRC,
+    MOD_BRC,
     S_ADD,
     S_SUB,
     S_MUL,
@@ -47,6 +48,7 @@ enum class BinaryOpType {
     MAXIMUM,
     MINIMUM,
     CMP,
+    MOD
 };
 
 template <BinaryOpType T>
@@ -61,6 +63,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::MAXIMUM: return "MAXIMUM";
         case BinaryOpType::MINIMUM: return "MINIMUM";
         case BinaryOpType::POW: return "POW";
+        case BinaryOpType::MOD: return "MOD";
         default: ASSERT(false && "unknown binary op type"); return "";
     }
 }
@@ -77,6 +80,7 @@ Opcode GetBinaryOpNameCode() {
             CASE(DIV);
             CASE(MAX);
             CASE(MIN);
+            CASE(MOD);
             CASE(S_ADD);
             CASE(S_SUB);
             CASE(S_MUL);
@@ -119,6 +123,7 @@ Opcode GetBinaryOpNameCode() {
         CASE(MAXIMUM);
         CASE(MINIMUM);
         CASE(POW);
+        CASE(MOD);
         default: ASSERT(false && "unknown binary op type");
     }
 #undef CASE
