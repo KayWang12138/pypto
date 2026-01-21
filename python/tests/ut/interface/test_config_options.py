@@ -11,7 +11,7 @@
 """
 """
 import pypto
-from pypto.experimental import set_operation_config, get_operation_config
+from pypto.experimental import set_operation_options, get_operation_options
 
 
 def test_print_options():
@@ -23,9 +23,9 @@ def test_print_options():
 
 def test_pass_option():
     # int
-    pypto.set_pass_options(cube_l1_reuse_mode=1)
+    pypto.set_pass_options(cube_l1_reuse_mode=0)
     pass_option = pypto.get_pass_options()
-    assert pass_option["cube_l1_reuse_mode"] == 1
+    assert pass_option["cube_l1_reuse_mode"] == 0
     # map
     pypto.set_pass_options(cube_nbuffer_setting={3: 4})
     pass_option = pypto.get_pass_options()
@@ -54,30 +54,25 @@ def test_reset_option():
     pypto.reset_options()
     runtime_option = pypto.get_runtime_options()
     host_option = pypto.get_host_options()
-    assert runtime_option["stitch_function_num_initial"] == 30
+    assert runtime_option["stitch_function_num_initial"] == 128
     assert host_option["only_codegen"] == False
 
 
-def test_option():
-    pypto.set_option("profile_enable", True)
-    option = pypto.get_option("profile_enable")
-    assert option == True
-
 
 def test_operation_option():
-    set_operation_config(force_combine_axis=True)
-    option = get_operation_config()
+    set_operation_options(force_combine_axis=True)
+    option = get_operation_options()
     assert option["force_combine_axis"] == True
-    set_operation_config(combine_axis=True)
-    option = get_operation_config()
+    set_operation_options(combine_axis=True)
+    option = get_operation_options()
     assert option["combine_axis"] == True
 
 
 def test_global_option():
-    res = pypto.get_global_config("platform.ENABLE_COST_MODEL")
+    res = pypto.get_global_config("platform.enable_cost_model")
     assert res == False
-    pypto.set_global_config("platform.ENABLE_COST_MODEL", True)
-    res = pypto.get_global_config("platform.ENABLE_COST_MODEL")
+    pypto.set_global_config("platform.enable_cost_model", True)
+    res = pypto.get_global_config("platform.enable_cost_model")
     assert res == True
 
     pypto.set_global_config("codegen.parallel_compile", 10)

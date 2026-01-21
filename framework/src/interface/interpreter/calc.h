@@ -174,6 +174,10 @@ inline void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logica
 inline void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
     GetCalcOps()->CumSum(out, in, axis);
 }
+inline void IndexPut(LogicalTensorDataPtr out, LogicalTensorDataPtr self, std::vector<LogicalTensorDataPtr> indices,
+    LogicalTensorDataPtr values, bool accumulate = false) {
+    GetCalcOps()->IndexPut(out, self, indices, values, accumulate);
+}
 inline void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Reshape(out, self);
 }
@@ -226,16 +230,13 @@ inline void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->FormatND2NZ(out, self);
 }
 
-template <bool aTrans = false, bool bTrans = false>
-inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, int64_t kStep = 0) {
-    MatMulParam param = {aTrans, bTrans, kStep};
+inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, 
+    MatMulParam param = {false, false, 0}) {
     GetCalcOps()->MatMul(out, self, other, nullptr, param);
 }
 
-template <bool aTrans = false, bool bTrans = false>
 inline void AccMatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
-    LogicalTensorDataPtr acc = nullptr, int64_t kStep = 0) {
-    MatMulParam param = {aTrans, bTrans, kStep};
+    LogicalTensorDataPtr acc = nullptr, MatMulParam param = {false, false, 0}) {
     GetCalcOps()->MatMul(out, self, other, acc, param);
 }
 } // namespace npu::tile_fwk::calc

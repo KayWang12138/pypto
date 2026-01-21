@@ -376,7 +376,7 @@ def expert_infer_base(
 @pypto.jit(
     host_options={"only_codegen": True},
     runtime_options={"device_sched_mode": 1},
-    pass_options={"cube_l1_reuse_mode": 2}
+    pass_options={"cube_l1_reuse_setting": {-1: 2}}
 )
 def moe_router_expert_main(hidden_states, hidden_states_scale,
                            group_list, group_list_cumsum, w13,
@@ -403,7 +403,7 @@ def moe_router_expert_main(hidden_states, hidden_states_scale,
         This function uses cube L1 reuse mode 2 for better memory efficiency.
         Each expert processes tokens in tiles of size 8.
     """
-    pypto.experimental.set_operation_config(combine_axis=True)
+    pypto.experimental.set_operation_options(combine_axis=True)
 
     # tiling config
     mm1_cube_tile_shape = (8, 256, 256)

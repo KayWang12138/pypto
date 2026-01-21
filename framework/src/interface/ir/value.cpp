@@ -17,8 +17,29 @@
 
 #include <ostream>
 #include <variant>
+#include <unordered_map>
 
 namespace pto {
+
+static std::unordered_map<MemSpaceKind, std::string> memSpaceNameDict = {
+    {MemSpaceKind::DDR,   "DDR"},
+    {MemSpaceKind::L2,    "L2"},
+    {MemSpaceKind::UB,    "UB"},
+    {MemSpaceKind::L1,    "L1"},
+    {MemSpaceKind::L0A,   "L0A"},
+    {MemSpaceKind::L0B,   "L0B"},
+    {MemSpaceKind::L0C,   "L0C"},
+    {MemSpaceKind::REG,   "REG"},
+    {MemSpaceKind::SHMEM, "SHMEM"},
+};
+std::string GetMemSpaceKindName(MemSpaceKind kind) {
+    if (memSpaceNameDict.count(kind)) {
+        return memSpaceNameDict[kind];
+    } else {
+        return "UNKNOWN";
+    }
+}
+
 // ========== Value System Implementation ==========
 
 int64_t ScalarValue::GetInt64Value() const {
@@ -65,7 +86,7 @@ void TensorValue::Print(std::ostream& os, int indent) const {
 
     // ====== type ======
     os << ", ";
-    os << DataTypeToString(GetDataType());
+    os << DTypeInfoOf(GetDataType()).name;
 
     os << ">";
 }
@@ -94,7 +115,7 @@ void TileValue::Print(std::ostream& os, int indent) const {
     os << "], ";
 
     // ====== type ======
-    os << DataTypeToString(GetDataType());
+    os << DTypeInfoOf(GetDataType()).name;
 
     os << ">";
 }

@@ -46,11 +46,11 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
 
     /******** tune params ********/
     // config::SetPassOption(CUBE_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
-    // config::SetPassOption(CUBE_L1_REUSE_MODE, 0);
+    // config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 0}});
     // config::SetPassOption(MG_COPYIN_UPPER_BOUND, 1 * 1024 * 1024);
     // config::SetPassOption(SG_PG_UPPER_BOUND, 100000);
     // config::SetPassOption(SG_PARALLEL_NUM, 2);
-    // config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
+    // config::SetOperationOption(KEY_FORCE_COMBINE_AXIS, true);
 
     SymbolicScalar batchSizeSym = kvSlcActSeqs.GetShape()[0]; // b
     SymbolicScalar s1N2GSym = qNope.GetShape()[0] / batchSizeSym; // s1n2
@@ -100,7 +100,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                         config::SetSemanticLabel("Sa_QkMM");
                         TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
-                        auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
+                        auto sij = Matrix::Matmul(DataType::DT_FP32, qi, kj, false, true);
 
                         // V1
                         config::SetSemanticLabel("Sa_Qkvec1");
@@ -119,7 +119,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                             config::SetSemanticLabel("Sa_KvMm");
                             TileShape::Current().SetMatrixSize(
                                 {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
-                            auto oiTmp = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
+                            auto oiTmp = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
                             TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             IF (IsLoopEnd(s2Idx, bnPerBatch)) { // PATH3
                                 // V2
@@ -154,7 +154,7 @@ void SlcAttnCompute(const Tensor &qNope, const Tensor &qRope, const Tensor &kSlc
                             config::SetSemanticLabel("Sa_UpdateMM2");
                             TileShape::Current().SetMatrixSize(
                                 {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
-                            auto q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
+                            auto q1 = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
                             TileShape::Current().SetVecTile(v2Tile[0], v2Tile[1]);
                             auto q2 = Mul(q1, t4);
                             auto oiTmp = Add(q3, q2);

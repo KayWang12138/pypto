@@ -53,7 +53,7 @@ INLINE int64_t CalNZOffset(const int64_t &srcShape0, const int64_t &srcShape1, c
 
 // Copy data from DDR to L1
 template <CopyInMode mode, typename Coord, typename T, typename U>
-TILEOP void TLoad(T &dst, U &src, const Coord &coord) {
+TILEOP void TLoad(T &dst, U &src, const Coord &coord, const int64_t &curH, const int64_t &curW) {
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
     uint16_t offset0 = coord.GetValue();
@@ -64,7 +64,7 @@ TILEOP void TLoad(T &dst, U &src, const Coord &coord) {
     if constexpr (mode == CopyInMode::ND2NZ) {
         TLoadND2NZ(dst, src, offset0, offset1);
     } else if constexpr (mode == CopyInMode::NZ2NZ) {
-        TLoadNZ2NZ(dst, src, offset0, offset1);
+        TLoadNZ2NZ(dst, src, offset0, offset1, curH, curW);
     } else if constexpr (mode == CopyInMode::ND2ND) {
         TLoadND2ND(dst, src, offset0, offset1);
     }
@@ -90,7 +90,7 @@ INLINE void TLoadND2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &of
     globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
         pto::Shape<1, 1, 1, -1, -1>(staticL1H, staticL1W), pto::Stride<1, 1, 1, -1, -1>(srcStride0, srcStride1));
     using tileData = pto::Tile<pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, -1,
-        -1, SLayout::RowMajor>;
+        -1, pto::SLayout::RowMajor>;
     tileData dstL1(dstShape0, dstShape1);
     pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
     pto::TLOAD(dstL1, src0Global);
@@ -99,13 +99,12 @@ INLINE void TLoadND2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &of
 
 // Copy data from DDR to L1 with NZ -> NZ format
 template <typename T, typename U>
-INLINE void TLoadNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &offset1) {
+INLINE void TLoadNZ2NZ(
+    T &dst, U &src, const int64_t &offset0, const int64_t &offset1, const int64_t &curH, const int64_t &curW) {
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
-    int64_t srcShape0 = GetShape<0>(src);
-    int64_t srcShape1 = GetShape<1>(src);
-    int64_t srcStride0 = GetStride<0>(src);
-    int64_t srcStride1 = GetStride<1>(src);
+    int64_t srcShape0 = curH;
+    int64_t srcShape1 = curW;
     int64_t dstShape0 = GetShape<0>(dst);
     int64_t dstShape1 = GetShape<1>(dst);
     constexpr auto staticL1H = Std::tuple_element<shapeSize - SHAPE_DIM2, typename T::TileShape>::type::value;
@@ -118,7 +117,7 @@ INLINE void TLoadNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &of
         shapeDim2(dstShape1 / c0Size, dstShape0 / BLOCK_CUBE_M_N),
         strideDim2(srcShape0 * srcShape1, srcShape0 * c0Size, BLOCK_CUBE_M_N * c0Size));
     using tileData = pto::Tile<pto::TileType::Mat, typename T::Type, staticL1H, staticL1W, pto::BLayout::ColMajor, -1,
-        -1, SLayout::RowMajor>;
+        -1, pto::SLayout::RowMajor>;
     tileData dstL1(dstShape0, dstShape1);
     pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
     pto::TLOAD(dstL1, src0Global);
@@ -140,7 +139,7 @@ INLINE void TLoadND2ND(T &dst, U &src, const int64_t &offset0, const int64_t &of
     using shapeDim2 = pto::Shape<1, 1, 1, -1, -1>;
     using strideDim2 = pto::Stride<1, 1, 1, -1, -1>;
     using globalData = pto::GlobalTensor<typename U::Type, shapeDim2, strideDim2, pto::Layout::ND>;
-    //目前场景,ND2ND只搬运bias和fixpipe，大小均为1 * N，offset0默认均为0
+    // 目前场景,ND2ND只搬运bias和fixpipe，大小均为1 * N，offset0默认均为0
     int64_t gmOffset = offset1 + offset0 * srcShape1;
     globalData src0Global((__gm__ typename U::Type *)(src.GetAddr() + gmOffset),
         pto::Shape<1, 1, 1, -1, -1>(staticL1H, staticL1W), pto::Stride<1, 1, 1, -1, -1>(srcStride0, srcStride1));
@@ -165,9 +164,9 @@ TILEOP void TMoveND2NZ(T &dst, U &src) {
     int64_t srcShape0 = GetShape<0>(src);
     int64_t srcShape1 = GetShape<1>(src);
     using tileNDTensor =
-        pto::Tile<pto::TileType::Vec, typename U::Type, staticVecH, staticVecW, BLayout::RowMajor, -1, -1>;
-    using tileNZTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticVecH, staticVecW, BLayout::ColMajor, -1,
-        -1, SLayout::RowMajor>;
+        pto::Tile<pto::TileType::Vec, typename U::Type, staticVecH, staticVecW, pto::BLayout::RowMajor, -1, -1>;
+    using tileNZTensor = pto::Tile<pto::TileType::Vec, typename T::Type, staticVecH, staticVecW, pto::BLayout::ColMajor,
+        -1, -1, pto::SLayout::RowMajor>;
     tileNDTensor srcTile(srcShape0, srcShape1);
     tileNZTensor dstTile(dstShape0, dstShape1);
     pto::TASSIGN(srcTile, (uint64_t)src.GetAddr());
@@ -228,7 +227,7 @@ TILEOP void TExtract(T &dst, U &src, V &fixbuf, const Coord &coord, uint64_t sca
         config::kMode == CopyOutMode::NZ2ND ? pto::BLayout::RowMajor : pto::BLayout::ColMajor, -1, -1,
         config::kMode == CopyOutMode::NZ2ND ? pto::SLayout::NoneBox : pto::SLayout::RowMajor>;
     using l0cTileData = pto::Tile<pto::TileType::Acc, typename U::Type, tileH, tileW, pto::BLayout::ColMajor, -1, -1,
-        SLayout::RowMajor>;
+        pto::SLayout::RowMajor>;
     l0cTileData srcL0C(srcShape0, srcShape1);
     l1TileData dstL1(dstShape0, dstShape1);
     pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr() + l0cOffset);
@@ -245,7 +244,7 @@ TILEOP void TExtract(T &dst, U &src, V &fixbuf, const Coord &coord, uint64_t sca
             using scaleTileData =
                 pto::Tile<pto::TileType::Scaling, uint64_t, scaleTileH, scaleTileW, pto::BLayout::RowMajor, -1, -1>;
             scaleTileData scaleData(scaleShape0, scaleShape1);
-            pto::TMOV(dstL1, srcL0C, scaleData);
+            pto::TMOV_FP(dstL1, srcL0C, scaleData);
         }
     } else {
         pto::TMOV(dstL1, srcL0C);
@@ -273,9 +272,9 @@ INLINE void TExtractL1ToL0(T &dst, U &src, const int64_t &offset0, const int64_t
         isTrans ? pto::SLayout::ColMajor : pto::SLayout::RowMajor>;
     // L0 TileLeft为L0A的Tile，TileRight为L0B的Tile，传入的值分别为：
     // 矩阵数据类型，tileShape0，tileShape1，validShape0，validShape0（-1表明传递动态值，在声明时传入）
-    using tileL0Tensor =
-        std::conditional_t<T::FORMAT == Hardware::L0A, TileLeftCompact<typename T::Type, staticL0H, staticL0W, -1, -1>,
-            TileRightCompact<typename T::Type, staticL0H, staticL0W, -1, -1>>;
+    using tileL0Tensor = std::conditional_t<T::FORMAT == Hardware::L0A,
+        pto::TileLeftCompact<typename T::Type, staticL0H, staticL0W, -1, -1>,
+        pto::TileRightCompact<typename T::Type, staticL0H, staticL0W, -1, -1>>;
     tileL1Tensor l1Tile(srcShape0, srcShape1);
     tileL0Tensor l0Tile(dstShape0, dstShape1);
     pto::TASSIGN(l1Tile, (uint64_t)src.GetAddr());
@@ -291,8 +290,8 @@ INLINE void TExtractL1ToBTOrFB(T &dst, U &src) {
     int64_t nL1 = GetShape<1>(src);
     int64_t nL0 = GetShape<1>(dst);
     using tileL1Tensor = pto::Tile<pto::TileType::Mat, typename U::Type, 1, staticL1W, pto::BLayout::RowMajor, -1, -1>;
-    using tileBiasOrFbTensor = pto::Tile<T::FORMAT == Hardware::BIAS ? TileType::Bias : TileType::Scaling,
-        typename T::Type, 1, staticL0BW, BLayout::RowMajor, -1, -1>;
+    using tileBiasOrFbTensor = pto::Tile<T::FORMAT == Hardware::BIAS ? pto::TileType::Bias : pto::TileType::Scaling,
+        typename T::Type, 1, staticL0BW, pto::BLayout::RowMajor, -1, -1>;
     tileL1Tensor l1Tensor(1, nL1);
     tileBiasOrFbTensor biasOrFbTensor(1, nL0);
     pto::TASSIGN<tileL1Tensor>(l1Tensor, (uint64_t)src.GetAddr());
@@ -341,9 +340,9 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
         pto::TASSIGN(UBTile, (uint64_t)dst.GetAddr() + l0cOffset);
         pto::TASSIGN(l0cTile, (uint64_t)src.GetAddr());
         if (subblockId == 0) {
-            pto::TMOV<tileUBTensor, tileL0CTensor, AccToVecMode::SingleModeVec0>(UBTile, l0cTile);
+            pto::TMOV<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec0>(UBTile, l0cTile);
         } else {
-            pto::TMOV<tileUBTensor, tileL0CTensor, AccToVecMode::SingleModeVec1>(UBTile, l0cTile);
+            pto::TMOV<tileUBTensor, tileL0CTensor, pto::AccToVecMode::SingleModeVec1>(UBTile, l0cTile);
         }
     }
 }
@@ -375,7 +374,7 @@ TILEOP void Matmul(T &c, U &a, V &b) {
     tileL0ATensor l0a(validM, validK);
     tileL0BTensor l0b(validK, validN);
     tileL0CTensor l0c(validM, validN);
-    if (std::is_same<typename tileL0ATensor::DType, float>::value){
+    if (std::is_same<typename tileL0ATensor::DType, float>::value) {
         l0a.SetKAligned(true);
     }
 
@@ -409,7 +408,7 @@ TILEOP void Matmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     using tileL0BTensor = pto::TileRight<typename T2::Type, staticL0BH, staticL0BW>;
     using tileL0CTensor = pto::TileAcc<typename T0::Type, staticL0CH, staticL0CW>;
     using tileBiasTensor =
-        pto::Tile<TileType::Bias, typename T3::Type, 1, staticL0BW, BLayout::RowMajor, 1, staticL0BW>;
+        pto::Tile<pto::TileType::Bias, typename T3::Type, 1, staticL0BW, pto::BLayout::RowMajor, 1, staticL0BW>;
 
     tileL0ATensor l0a;
     tileL0BTensor l0b;
@@ -428,7 +427,8 @@ INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, uint64_t scaleV
     if constexpr (std::is_same<typename tileData::DType, int32_t>::value &&
                   std::is_same<typename globalData::DType, __gm__ half>::value) {
         if (scaleValue != 0) {
-            pto::TSTORE<tileData, globalData, config::kIsAcc ? AtomicType::AtomicAdd : AtomicType::AtomicNone>(
+            pto::TSTORE<tileData, globalData,
+                config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone>(
                 dstGlobal, srcL0C, scaleValue);
         } else {
             // fixpipe perchannle 临时方案
@@ -436,10 +436,11 @@ INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, uint64_t scaleV
             using fpTileData = pto::Tile<pto::TileType::Scaling, uint64_t, 32, 32, pto::BLayout::RowMajor, 0, 0>;
             fpTileData fpData;
             pto::TSTORE<tileData, globalData, fpTileData,
-                config::kIsAcc ? AtomicType::AtomicAdd : AtomicType::AtomicNone>(dstGlobal, srcL0C, fpData);
+                config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone>(dstGlobal, srcL0C, fpData);
         }
     } else {
-        pto::TSTORE<tileData, globalData, config::kIsAcc ? AtomicType::AtomicAdd : AtomicType::AtomicNone>(dstGlobal, srcL0C);
+        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone>(
+            dstGlobal, srcL0C);
     }
 }
 
@@ -462,7 +463,7 @@ INLINE void TStoreNZ2ND(T &dst, U &src, const int64_t &offset0, const int64_t &o
     int64_t gmOffset = offset1 + offset0 * dstShape1;
     using globalData = pto::GlobalTensor<typename T::Type, shapeDim2, strideDim2, pto::Layout::ND>;
     using tileData = pto::Tile<pto::TileType::Acc, typename U::Type, tileH, tileW, pto::BLayout::ColMajor, -1, -1,
-        SLayout::RowMajor, TileConfig::fractalCSize, PadValue::Null, CompactMode::Normal>;
+        pto::SLayout::RowMajor, pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
     globalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr() + gmOffset),
         pto::Shape<1, 1, 1, -1, -1>(srcShape0, srcShape1), pto::Stride<1, 1, 1, -1, -1>(dstStride0, dstStride1));
     tileData srcL0C(srcShape0, srcShape1);
@@ -473,14 +474,13 @@ INLINE void TStoreNZ2ND(T &dst, U &src, const int64_t &offset0, const int64_t &o
 
 // Copy data from L0C to DDR with NZ -> NZ format
 template <typename config, typename T, typename U>
-INLINE void TStoreNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &offset1, uint64_t scaleValue = 0) {
+INLINE void TStoreNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &offset1, const int64_t &curH,
+    const int64_t &curW, uint64_t scaleValue = 0) {
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     constexpr int64_t c0Size =
         std::is_same<typename U::Type, int32_t>::value ? BLOCK_CUBE_M_N : BLOCK_ALIGN_BYTE / sizeof(typename T::Type);
-    int64_t dstShape0 = GetShape<0>(dst);
-    int64_t dstShape1 = GetShape<1>(dst);
-    int64_t dstStride0 = GetStride<0>(dst);
-    int64_t dstStride1 = GetStride<1>(dst);
+    int64_t dstShape0 = curH;
+    int64_t dstShape1 = curW;
     int64_t srcShape0 = GetShape<0>(src);
     int64_t srcShape1 = GetShape<1>(src);
 
@@ -495,7 +495,7 @@ INLINE void TStoreNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &o
         shapeDim2(dstShape1 / c0Size, dstShape0 / BLOCK_CUBE_M_N),
         strideDim2(dstShape0 * dstShape1, dstShape0 * c0Size, BLOCK_CUBE_M_N * c0Size));
     using tileData = pto::Tile<pto::TileType::Acc, typename U::Type, tileH, tileW, pto::BLayout::ColMajor, -1, -1,
-        SLayout::RowMajor, TileConfig::fractalCSize, PadValue::Null, CompactMode::Normal>;
+        pto::SLayout::RowMajor, pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
     tileData srcL0C(srcShape0, srcShape1);
     pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());
     TStoreExecute<config, globalData, tileData>(dstGlobal, srcL0C, scaleValue);
@@ -504,7 +504,8 @@ INLINE void TStoreNZ2NZ(T &dst, U &src, const int64_t &offset0, const int64_t &o
 
 // Copy data from L0C to DDR with quantization ability
 template <typename config, typename Coord, typename T, typename U, typename V>
-TILEOP void TStore(T &dst, U &src, V &fixbuf, const Coord &coord, uint64_t scaleValue = 0) {
+TILEOP void TStore(
+    T &dst, U &src, V &fixbuf, const Coord &coord, const int64_t &curH, const int64_t &curW, uint64_t scaleValue = 0) {
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
     uint16_t offset0 = coord.GetValue();
@@ -513,7 +514,7 @@ TILEOP void TStore(T &dst, U &src, V &fixbuf, const Coord &coord, uint64_t scale
         if constexpr (config::kMode == CopyOutMode::NZ2ND) {
             TStoreNZ2ND<config>(dst, src, offset0, offset1, scaleValue);
         } else {
-            TStoreNZ2NZ<config>(dst, src, offset0, offset1, scaleValue);
+            TStoreNZ2NZ<config>(dst, src, offset0, offset1, curH, curW, scaleValue);
         }
     }
 }

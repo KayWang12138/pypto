@@ -14,6 +14,7 @@
  */
 
 #include <torch/torch.h>
+#include "tilefwk/error.h"
 #include "../calc_api.h"
 
 namespace npu::tile_fwk {
@@ -246,8 +247,14 @@ static void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 }
 
 static void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
+    auto tmp = torch::arange(From(start), From(end), From(step));
+    int64_t expected_numel = 1;
+    for (int64_t dim : out->GetShape()) {
+        expected_numel *= dim;
+    }
+    ASSERT(tmp.numel() == expected_numel) << "Range numel mismatch: generated " << tmp.numel() << ", expected " << expected_numel;
     auto tout = From(out);
-    torch::range_out(tout, From(start), From(end), From(step));
+    tout.copy_(tmp);
 }
 
 static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
@@ -589,6 +596,14 @@ void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
     torch::Tensor input = From(in);
 
     torch::cumsum_out(output, input, axis);
+}
+
+void IndexPut(LogicalTensorDataPtr out, LogicalTensorDataPtr self, std::vector<LogicalTensorDataPtr> indices, LogicalTensorDataPtr values, bool accumulate) {
+    c10::List<c10::optional<at::Tensor>> indicesList;
+    for (const auto idx : indices) {
+        indicesList.push_back(From(idx));
+    }
+    From(out) = torch::index_put(From(self), indicesList, From(values), accumulate);
 }
 
 static void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans) {
@@ -950,6 +965,7 @@ static struct CalcOps calcOps = {
     .GatherElements = GatherElements,
     .IndexAdd = IndexAdd,
     .CumSum = CumSum,
+    .IndexPut = IndexPut,
     .Reshape = Reshape,
     .Permute = Permute,
     .Transpose = Transpose,

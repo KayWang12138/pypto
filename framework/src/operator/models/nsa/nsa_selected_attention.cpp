@@ -56,11 +56,11 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
 
     /******** tune params ********/
     // config::SetPassOption(CUBE_NBUFFER_SETTING,  std::map<int64_t, int64_t>{{-1, 2}});
-    // config::SetPassOption(CUBE_L1_REUSE_MODE, 0);
+    // config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 0}});
     // config::SetPassOption(MG_COPYIN_UPPER_BOUND, 1 * 1024 * 1024);
     // config::SetPassOption(SG_PG_UPPER_BOUND, 100000);
     // config::SetPassOption(PG_PARALLEL_LOWER_BOUND, 2);
-    // config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
+    // config::SetOperationOption(KEY_FORCE_COMBINE_AXIS, true);
 
     SymbolicScalar batchSizeSym = topKIndcies.GetShape()[0]; // b
     SymbolicScalar s1N2GSym = qNope.GetShape()[0] / batchSizeSym; // s1n2
@@ -155,7 +155,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                         TileShape::Current().SetCubeTile(
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, true);
                         TileShape::Current().SetMatrixSize({qi.GetShape()[0], 0, kj.GetShape()[0]});
-                        auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
+                        auto sij = Matrix::Matmul(DataType::DT_FP32, qi, kj, false, true);
 
                         // V1
                         config::SetSemanticLabel("Sa_Qkvec1");
@@ -174,7 +174,7 @@ void SelectedAttentionCompute(Tensor &topKIndcies, Tensor &kvNopeCache, Tensor &
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, true);
                         TileShape::Current().SetMatrixSize(
                             {tildaPijF16.GetShape()[0], tildaPijF16.GetShape()[1], vj.GetShape()[1]});
-                        auto oi = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
+                        auto oi = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
 
                         // V2
                         config::SetSemanticLabel("Sa_KvVec2");

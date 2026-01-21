@@ -18,34 +18,6 @@ from functools import wraps
 from . import pypto_impl
 
 
-class _CachedOptions:
-
-    def __init__(self):
-        self._options = pypto_impl.GetOptions()
-
-    def reset(self):
-        self._options = pypto_impl.GetOptions()
-
-    def set_options(self, prefix, options):
-        for name, value in options.items():
-            key = f"{prefix}.{name}"
-            if key in self._options and value is not None:
-                pypto_impl.SetOption(key, value)
-                self._options[key] = value
-
-    def __getitem__(self, key):
-        return self._options[key]
-
-    def __setitem__(self, key, value):
-        self._options[key] = value
-        pypto_impl.SetOption(key, value)
-
-    def get_options(self, prefix):
-        prefix = f"{prefix}."
-        return {k[len(prefix):]: v for k, v in self._options.items() if k.startswith(prefix)}
-
-
-_pto_options = _CachedOptions()
 
 
 def set_print_options(*,
@@ -312,7 +284,7 @@ def get_verify_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]
         All verify options
     """
     scope = get_current_scope()
-    return scope.get_runtime_options()
+    return scope.get_verify_options()
 
 
 def set_debug_options(*,
@@ -362,45 +334,11 @@ def set_semantic_label(label: str) -> None:
     pypto_impl.SetSemanticLabel(label, frame.f_code.co_filename, frame.f_lineno)
 
 
-def set_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
-    """
-    Set global options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-
-    value : Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-    _pto_options[key] = value
-
-
-def get_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
-    """
-    Get global options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-
-    Returns
-    -------
-    Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-
-    return _pto_options[key]
-
-
 def reset_options() -> None:
     """
         Reset all configuration items to their default values.
     """
     pypto_impl.Reset()
-    _pto_options.reset()
 
 
 class _Options:
@@ -408,7 +346,8 @@ class _Options:
     INIT_FIELDS = [
         "name", "codegen_options", "host_options", "pass_options",
         "runtime_options", "verify_options", "debug_options",
-        "vec_tile_shapes", "cube_tile_shapes", "matrix_size"
+        "vec_tile_shapes", "cube_tile_shapes", "matrix_size",
+        "operation_options"
     ]
 
     PREFIX_MAP = {
@@ -418,6 +357,7 @@ class _Options:
         "runtime_options": "runtime.",
         "verify_options": "verify.",
         "debug_options": "debug.",
+        "operation_options": "operation."
     }
 
     def __init__(self, **kwargs):
@@ -485,6 +425,7 @@ def options(
     pass_options=None,
     runtime_options=None,
     verify_options=None,
+    operation_options=None,
     debug_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
@@ -502,6 +443,7 @@ def options(
     runtime_options: Runtime options (dict)
     verify_options: Verify options (dict)
     debug_options: Debug options (dict)
+    operation_options: Operation options (dict)
     vec_tile_shapes: Vector tile shapes (list)
     cube_tile_shapes: Cube tile shapes (CubeTile instance or list)
     matrix_size: Matrix size (list)
@@ -513,7 +455,7 @@ def options(
     Examples:
     -------
     # As decorator
-    @pypto.options(pass_options={"cube_l1_reuse_mode": 4})
+    @pypto.options(pass_options={"cube_l1_reuse_setting": {-1: 4}})
     def func():
         pass
 
@@ -550,6 +492,7 @@ def set_options(
     runtime_options=None,
     verify_options=None,
     debug_options=None,
+    operation_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
     matrix_size=None,
@@ -565,13 +508,14 @@ def set_options(
     runtime_options: Runtime options (dict)
     verify_options: Verify options (dict)
     debug_options: Debug options (dict)
+    operation_options: Operation options (dict)
     vec_tile_shapes: Vector tile shapes (list)
     cube_tile_shapes: Cube tile shapes (CubeTile instance or list)
     matrix_size: Matrix size (list)
 
     Examples:
     ---------
-    set_options(pass_options={"cube_l1_reuse_mode": 4})
+    set_options(pass_options={"cube_l1_reuse_setting": {-1: 4}})
     set_options(cube_tile_shapes=[[16, 16], [256, 512, 128], [128, 128], True])
     """
     temp_opts = options(**locals())
@@ -681,6 +625,9 @@ class ConfigScope:
 
     def get_verify_options(self):
         return self.get_options("verify")
+
+    def get_operation_options(self):
+        return self.get_options("operation")
 
     def get_vec_tile_shapes(self):
         return self._options.get("vec_tile_shapes")

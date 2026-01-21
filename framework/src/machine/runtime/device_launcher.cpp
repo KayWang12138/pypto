@@ -39,6 +39,8 @@ DeviceLauncherContext &DeviceLauncherContext::Get() {
     return context;
 }
 
+std::vector<uint8_t> DeviceLauncher::tensorInfo_(kDefaultTensorinfoSize);
+
 #ifdef BUILD_WITH_CANN
 static const std::unordered_map<int, std::function<void(bool&)>> captureStatusHandlers = {
     {aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE, [](bool& isCapture) {isCapture = true;}},
@@ -127,8 +129,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
         const DeviceLauncherConfig &config) {
     bool isCapture = false;
-    std::cout << "!!! Kernel Launch " << "\n";
-    config::SetRunDataOption(KEY_RUNTYPE, "npu");
+    ALOG_INFO_F("start Kernel Launch.");
     if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
         DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
     }
@@ -157,8 +158,9 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         }
     }
     CheckDeviceId();
-    AstKernelArgs kArgs;
+    DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
+    DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
     DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
     DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList,
@@ -179,6 +181,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     if (streamSynchronize) {
         rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
     }
+    ALOG_INFO_F("finish Kernel Launch.");
     return rc;
 }
 

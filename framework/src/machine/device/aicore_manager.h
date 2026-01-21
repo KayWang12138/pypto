@@ -22,13 +22,11 @@
 #include <array>
 #include <semaphore.h>
 #include "machine/utils/dynamic/spsc_queue.h"
-#include "machine/kernel/aicore.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "aicpu_task_manager.h"
 #include "interface/operation/opcode.h"
 #include "securec.h"
-#include "aicore_prof.h"
 #include "dynamic/device_utils.h"
 #include "aicore_dump.h"
 #include "interface/utils/common.h"
@@ -49,6 +47,7 @@ const uint32_t AIV_NUM_PER_AI_CORE = 2;
 const uint32_t READY_ID_FIX_CACHE_NUM = 800;
 const uint32_t AICORE_TYPE_NUM = 2;
 
+constexpr uint32_t MAX_STATIC_SCHEDULE_AICPU_NUM = 3;   // 真正负责调度aicore的aicpu个数
 constexpr uint32_t MAX_AICORE_NUM = 108;
 constexpr uint32_t NAX_AIV_TOTAL_NUM = 72;
 constexpr uint32_t MAX_MANAGER_AIV_NUM = NAX_AIV_TOTAL_NUM;
@@ -98,7 +97,7 @@ struct DeviceTaskCtrl {
     std::atomic<int> refcnt{-1};
     void (*finishFunc)(void *devTask){nullptr};
     int retCode{0};
-    std::array<std::array<std::atomic<bool>, npu::tile_fwk::dynamic::MAX_SCHEDULE_AICPU_NUM>, AICORE_TYPE_NUM>  isAicpuIdle;
+    std::array<std::array<std::atomic<bool>, MAX_STATIC_SCHEDULE_AICPU_NUM>, AICORE_TYPE_NUM>  isAicpuIdle;
 
     bool IsFree() { return refcnt == -1; }
 
@@ -133,7 +132,7 @@ void SdmaPrefetch(DeviceTask *devTask);
 
 class AiCoreManager {
 public:
-    AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager), prof_(*this){};
+    AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager){};
     ~AiCoreManager(){};
 
     inline void InitTaskData(DeviceTaskCtrl *taskCtrl) {
@@ -413,7 +412,7 @@ private:
     int aicValidNum_{0}; // 有效的aic，根据pgmask计算host传过来
     int aicpuIdx_{0};
     int aicStart_{0};
-    int aicpuNum_{npu::tile_fwk::dynamic::MAX_SCHEDULE_AICPU_NUM};
+    int aicpuNum_{MAX_STATIC_SCHEDULE_AICPU_NUM};
     int aicEnd_{0};
     int aivStart_{0};
     int aivEnd_{0};
@@ -445,7 +444,6 @@ private:
     StaticReadyCoreFunctionQueue *readyAicCoreFunctionQue_{nullptr};
     StaticReadyCoreFunctionQueue *readyAivCoreFunctionQue_{nullptr};
 
-    AiCoreProf prof_;
     AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
     uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0,0};

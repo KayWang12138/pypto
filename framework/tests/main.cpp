@@ -14,6 +14,42 @@
  */
 
 #include <gtest/gtest.h>
+#include <iostream>
+#include "utils/test_cost_macro.h"
+
+#if defined(BUILD_WITH_CANN) && defined(ENABLE_STEST)
+#include "runtime/dev.h"
+
+bool CheckDeviceConsistency() {
+    /* 获取实际生效的 DeviceId */
+    int32_t rtDevId = -1;  // -1 表示无效 DeviceId
+    int32_t getDeviceResult = rtGetDevice(&rtDevId);
+    if (getDeviceResult != RT_ERROR_NONE) {
+        std::cout << "Error: Can't get deviceId" << std::endl;
+        return false;
+    }
+
+    /* 获取环境变量中设置的 DeviceId */
+    int32_t envDevId = 0;
+    const char *devIdPtr = getenv("TILE_FWK_DEVICE_ID");
+    if (devIdPtr != nullptr) {
+        envDevId = std::stoi(devIdPtr);
+    }
+
+    if (rtDevId != envDevId) {
+        std::cout << "Error: rtDevId(" << rtDevId << ") != envDevId(" << envDevId << ")" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+#else
+
+bool CheckDeviceConsistency() {
+    return true;
+}
+
+#endif
 
 class TestExecutionCounter : public testing::EmptyTestEventListener {
 public:
@@ -27,6 +63,13 @@ public:
 int main(int argc, char** argv) {
     testing::InitGoogleTest(&argc, argv);
 
+    auto isMetaParam = [](const std::string& arg) {
+        return arg == "--gtest_list_tests_with_meta";
+    };
+    if (std::find_if(argv + 1, argv + argc, isMetaParam) != argv + argc) {
+        ListTestsWithMetadata();
+        return 0;
+    }
     // 创建并注册监听器
     TestExecutionCounter counter;
     testing::UnitTest::GetInstance()->listeners().Append(&counter);
@@ -40,6 +83,7 @@ int main(int argc, char** argv) {
                   << " to filter." << std::endl;
         ret = ret == 0 ? 1 : ret;
     }
+    ret = CheckDeviceConsistency() ? ret : 1;
 
     return ret;
 }

@@ -36,7 +36,7 @@ public:
      * \brief Get the config value with the specific key. throw runtime_error if
      * the key is not found.
      */
-    const Any &GetConfig(const std::string &key) const;
+    const Any &GetAnyConfig(const std::string &key) const;
 
     /**
      * \brief Returns a map of all configuration key-value pairs.
@@ -98,10 +98,18 @@ public:
     }
 
     /**
+     * \brief Get operation config (prefix: "operation.")
+     */
+    template <typename T>
+    T GetOperationConfig(const std::string &key) const {
+        return GetConfigAllType<T>("operation." + key);
+    }
+
+    /**
      * \brief Retrieves the CubeTile configuration.
      */
     CubeTile GetCubeTile() const {
-        const Any& value = GetConfig("cube_tile_shapes");
+        const Any& value = GetAnyConfig("cube_tile_shapes");
         return AnyCast<CubeTile>(value);
     }
 
@@ -109,18 +117,16 @@ public:
      * \brief Retrieves the VecTile configuration as a VecTile structure.
      */
     VecTile GetVecTile() const {
-        const Any& value = GetConfig("vec_tile_shapes");
-        std::vector<int64_t> vecValue = AnyCast<std::vector<int64_t>>(value);
-        VecTile vectile;
-        vectile.tile = vecValue;
-        return vectile;
-    }
+        const Any& value = GetAnyConfig("vec_tile_shapes");
+
+        return VecTile{AnyCast<std::vector<int64_t>>(value)};
+}
 
     /**
      * \brief Retrieves the matrix size configuration as a vector of integers.
      */
     std::vector<int64_t> GetMatrixSize() const {
-        const Any& value = GetConfig("matrix_size");
+        const Any& value = GetAnyConfig("matrix_size");
         return AnyCast<std::vector<int64_t>>(value);
     }
 
@@ -149,12 +155,18 @@ public:
      */
     void AddValue(const std::string &key, Any value);
 
+    void UpdateValueWithAny(const std::string &key, Any value);
+
     /**
      * \brief update a config value for the given key.
      * \param key The config key.
      * \param value The config value to set.
      */
-    void UpdateValue(const std::string &key, Any value);
+    template <typename T>
+    void UpdateValue(const std::string &key, T RawValue) {
+        Any value = ConvertTtoAny(RawValue);
+        UpdateValueWithAny(key, value);
+    }
 
     /**
      * \brief clear the config in Scope
@@ -166,12 +178,12 @@ public:
     template <typename T>
     T GetConfigAllType(const std::string &key) const {
         if constexpr (std::is_same_v<T, bool>) {
-            return AnyCast<bool>(GetConfig(key));
+            return AnyCast<bool>(GetAnyConfig(key));
         } else if constexpr (std::is_integral_v<T>) {
-            int64_t tmp = AnyCast<int64_t>(GetConfig(key));
+            int64_t tmp = AnyCast<int64_t>(GetAnyConfig(key));
             return static_cast<T>(tmp);
         } else {
-            return AnyCast<T>(GetConfig(key));
+            return AnyCast<T>(GetAnyConfig(key));
         }
     }
 
@@ -181,7 +193,6 @@ private:
     friend struct ConfigManagerImpl;
     std::shared_ptr<ConfigScope> Clone();
 
-private:
     std::shared_ptr<ConfigScope> parent_;
     std::list<ConfigScope *> children_;
     std::map<std::string, Any> values_;
@@ -191,6 +202,19 @@ private:
     int begin_lino_{0};
     std::string end_file_;
     int end_lino_{0};
+
+    template <typename T>
+    Any ConvertTtoAny(T value) {
+        if constexpr (std::is_same_v<T, bool>) {
+            return Any(value);
+        } else if constexpr (std::is_integral_v<T>) {
+            return Any(static_cast<int64_t>(value));
+        } else if constexpr (std::is_same_v<T, const char*>) {
+            return Any(std::string(value));
+        } else {
+            return Any(value);
+        }
+    }
 };
 
 class ConfigManagerNg {
@@ -277,7 +301,7 @@ public:
      */
     template <typename T>
     static void SetGlobalConfig(const std::string &key, T value) {
-        return GetInstance().globalScope->AddValue("global." + key, value);
+        return GetInstance().globalScope->UpdateValue("global." + key, value);
     }
 
     /**
@@ -297,5 +321,23 @@ private:
     std::unique_ptr<ConfigManagerImpl> impl_;
     ConfigScopePtr globalScope;
 };
+
+namespace config {
+#define DEFINE_CONFIG_GROUP(group, prefix)                   \
+template <typename T>                                    \
+inline T Get##group##Option(const std::string &key) {    \
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>(prefix "." + key); \
+}
+
+DEFINE_CONFIG_GROUP(CodeGen, "codegen")
+DEFINE_CONFIG_GROUP(Pass, "pass")
+DEFINE_CONFIG_GROUP(Runtime, "runtime")
+DEFINE_CONFIG_GROUP(Host, "host")
+DEFINE_CONFIG_GROUP(Verify, "verify")
+DEFINE_CONFIG_GROUP(Debug, "debug")
+DEFINE_CONFIG_GROUP(Operation, "operation")
+
+} // namespace config
+
 } // namespace npu::tile_fwk
 #endif // CONFIG_MANAGER_NG_H

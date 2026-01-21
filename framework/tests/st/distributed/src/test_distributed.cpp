@@ -69,7 +69,7 @@ struct AllgatherFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestDynAllGather<T>(testParam);
+        Distributed::TestAllGather<T>(testParam);
     }
 };
 
@@ -77,7 +77,7 @@ struct ReducescatterFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestShmemReduceScatter<T>(testParam);
+        Distributed::TestReduceScatter<T>(testParam);
     }
 };
 
@@ -85,7 +85,7 @@ struct AllreduceFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestShmemAllReduce<T>(testParam);
+        Distributed::TestAllReduce<T>(testParam);
     }
 };
 
@@ -93,10 +93,17 @@ struct Allreduce_Add_AllreduceFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestShmemAllReduceAddAllReduce<T>(testParam);
+        Distributed::TestAllReduceAddAllReduce<T>(testParam);
     }
 };
 
+struct MoeDistributedCombineFunc {
+    template <typename T>
+    void operator()(OpTestParam& testParam) const
+    {
+        Distributed::TestMoeDistributedCombine<T>(testParam);
+    }
+};
 
 // 注册所有算子
 void GegisterAllOps()
@@ -106,8 +113,9 @@ void GegisterAllOps()
     reg.RegisterOp("Reducescatter", ReducescatterFunc{});
     reg.RegisterOp("Allreduce", AllreduceFunc{});
     reg.RegisterOp("Allreduce_Add_Allreduce", Allreduce_Add_AllreduceFunc{});
-    reg.registry["MoeCombine"] = [](OpTestParam &testParam, const std::string&) {
-        Distributed::TestShmemMoeCombine(testParam);
+    reg.RegisterOp("MoeDistributedCombine", MoeDistributedCombineFunc{});
+    reg.registry["MoeDispatch"] = [](OpTestParam &testParam, const std::string&) {
+ 	    Distributed::TestShmemMoeDispatch(testParam);
     };
     reg.registry["Allgather_AttnPost_Reducescatter"] = [](OpTestParam &testParam, const std::string&) {
         Distributed::TestAllGatherAttentionPostReducescatter(testParam);
@@ -221,12 +229,20 @@ TEST_P(DistributedTest, TestAllreduce)
     RunDistributedTestGeneric("Allreduce", GetParam().testData_);
 }
 
-INSTANTIATE_TEST_SUITE_P(TestMoeCombine, DistributedTest,
-    ::testing::ValuesIn(GetOpMetaData<OpMetaData>("MoeCombine")));
-TEST_P(DistributedTest, TestMoeCombine)
+INSTANTIATE_TEST_SUITE_P(TestMoeDispatch, DistributedTest,
+    ::testing::ValuesIn(GetOpMetaData<OpMetaData>("MoeDispatch")));
+TEST_P(DistributedTest, TestMoeDispatch)
 {
     config::SetHostOption(ONLY_CODEGEN, true);
-    RunDistributedTestGeneric("MoeCombine", GetParam().testData_);
+    RunDistributedTestGeneric("MoeDispatch", GetParam().testData_);
+}
+
+INSTANTIATE_TEST_SUITE_P(TestMoeDistributedCombine, DistributedTest,
+    ::testing::ValuesIn(GetOpMetaData<OpMetaData>("MoeDistributedCombine")));
+TEST_P(DistributedTest, TestMoeDistributedCombine)
+{
+    config::SetHostOption(ONLY_CODEGEN, true);
+    RunDistributedTestGeneric("MoeDistributedCombine", GetParam().testData_);
 }
 
 INSTANTIATE_TEST_SUITE_P(TestAllreduce_Add_Allreduce, DistributedTest,
@@ -248,6 +264,6 @@ TEST_P(DistributedTest, TestAllgather_AttnPost_Reducescatter)
 TEST_F(DistributedTest, shmem_allreduce_add_allreduce_bfloat16_256_102400_4)
 {
     config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemAllReduceAddAllReduce<bfloat16>(testParam);
+    Distributed::TestAllReduceAddAllReduce<bfloat16>(testParam);
 }
 } // namespace npu::tile_fwk::Distributed

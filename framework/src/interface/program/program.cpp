@@ -175,7 +175,7 @@ void Program::ClearEmptyHiddenFunction() {
 
 void SetParamConfig(Function* currentFunctionPtr_) {
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
-    currentFunctionPtr_->paramConfigs_.l1ReuseNum = currentScope->GetPassConfig<int>(CUBE_L1_REUSE_MODE);
+    currentFunctionPtr_->paramConfigs_.L1ReuseMode = currentScope->GetPassConfig<int>(CUBE_L1_REUSE_MODE);
     currentFunctionPtr_->paramConfigs_.cubeNBufferMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MODE);
     currentFunctionPtr_->paramConfigs_.sgPgUpperBound = currentScope->GetPassConfig<int>(SG_PG_UPPER_BOUND);
     currentFunctionPtr_->paramConfigs_.sgPgLowerBound = currentScope->GetPassConfig<int>(SG_PG_LOWER_BOUND);
@@ -192,6 +192,8 @@ void SetParamConfig(Function* currentFunctionPtr_) {
     currentFunctionPtr_->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
     currentFunctionPtr_->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
     currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
+    currentFunctionPtr_->paramConfigs_.combineAxis = currentScope->GetOperationConfig<bool>(KEY_COMBINE_AXIS);
+    currentFunctionPtr_->paramConfigs_.forceCombineAxis = currentScope->GetOperationConfig<bool>(KEY_FORCE_COMBINE_AXIS);
 }
 
 #if ENABLE_HIDDENLOOP
@@ -257,7 +259,7 @@ bool Program::BeginFunction(const std::string &funcName,
         currentFunctionPtr_->GetGraphType() != GraphType::EXECUTE_GRAPH) {
         GetTensorSlotManager()->BeginScope(currentFunctionPtr_);
     }
-    SetParamConfig(currentFunctionPtr_);
+
 
 #if ENABLE_HIDDENLOOP
     // Begin new hidden loop for the new function
@@ -300,7 +302,7 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
 
 // Helper function: Dump tensor graph if needed
 void Program::DumpTensorGraphIfNeeded(Function *result) {
-    if (config::GetPassDefaultConfig("print_graph", false) &&
+    if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) &&
         result->IsGraphType(GraphType::TENSOR_GRAPH)) {
         result->DumpJsonFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".json");
         result->DumpFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".tifwkgr");
@@ -356,6 +358,8 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     Operation *callop = FinishCurrentFunction(scope, generateCall);
     bool hit = QueryAndUpdateCurrentFunction();
     auto result = currentFunctionPtr_;
+
+    SetParamConfig(currentFunctionPtr_);
 
     DumpTensorGraphIfNeeded(result);
     PopStackAndUpdateCurrent();
@@ -441,8 +445,8 @@ void TraverAndDumpParent(Function *func, Json &progDump) {
 Json Program::DumpJson(Function *mainFunc) const {
     Json progDump;
     progDump["version"] = T_VERSION;
-    progDump["pass_thread_num"] = config::GetPassGlobalConfig("pass_thread_num", 1);
-    progDump["enable_cvfuse"] = config::GetPassGlobalConfig("enable_cv_fuse", false);
+    progDump["pass_thread_num"] = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 1);
+    progDump["enable_cvfuse"] = config::GetPassGlobalConfig(KEY_ENABLE_CV_FUSE, false);
     if (mainFunc == nullptr) {
         std::shared_ptr<npu::tile_fwk::Function> dyndevFunc = nullptr;
         std::vector<std::shared_ptr<npu::tile_fwk::Function>> rootFuncs;
@@ -695,32 +699,12 @@ bool Program::QueryAndUpdateCurrentFunction() {
         return false;
     } else {
         ASSERT(currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH));
-        auto cacheFunc = cacheValue->cacheFunction;
+        auto cacheFunc = cacheValue->GetFunction();
         functionmap_.erase(currentFunctionPtr_->GetMagicName());
         currentFunctionPtr_ = cacheFunc;
         currentFunctionMagicName_ = currentFunctionPtr_->GetMagicName();
         return true;
     }
-}
-
-/* submit to hostmachine , prepare compile */
-int Program::EndFunction(const bool isWaitTaskFinished)
-{
-    ASSERT(currentFunctionPtr_ != nullptr);
-    auto scope = GetTensorSlotManager()->EndScope();
-    auto funcArgs = currentFunctionPtr_->EndFunction(scope);
-    if (currentFunctionPtr_->HasParent()) {
-        auto &callop =
-            currentFunctionPtr_->Parent().AddOperation(Opcode::OP_CALL, funcArgs.iOperands, funcArgs.oOperands, false);
-        callop.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(funcArgs.argList, funcArgs.outIndexToExpr));
-        callop.SetOpOffset(funcArgs.iOpAttrOffset, funcArgs.oOpAttrOffset);
-    }
-    HostMachine::GetInstance().SubTask(currentFunctionPtr_);
-    if (isWaitTaskFinished) {
-        HostMachine::GetInstance().WaitTaskFinish();
-    }
-    ALOG_INFO("End func: name = ", currentFunctionPtr_->GetRawName());
-    return 0;
 }
 
 void Program::VerifyTensorGraph() {

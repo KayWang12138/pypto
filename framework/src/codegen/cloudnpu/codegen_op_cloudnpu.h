@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ public:
     std::string GenGatherElementOp() const;
 
     std::string GenRangeOp() const;
-    std::string PrintRangeTileTensor(std::string startVal, std::string stepVal) const;
+    std::string PrintRangeTileTensor(const std::string& startVal, const std::string& stepVal, const std::string& tileIdxExpr) const;
     std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;
@@ -98,10 +98,13 @@ public:
 
     std::string GenIndexAddOp() const;
 
+    std::string GenIndexPutOp() const;
+
     std::string GenIndexOutCastOp() const;
 
     std::string GenCumSumOp() const;
     std::string PrintGatherDynamicUnaligned() const;
+    std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
     std::string GenGatherFromUBOp() const;
 
@@ -127,11 +130,11 @@ public:
     std::string GenDistOp() const;
     std::string GetTemplateDType() const;
     std::string GenTemplateParams() const;
-    void GenExtraTemplateParamsForMoeCombine(std::ostringstream &oss, int32_t operandIndex) const;
+    std::string GenExtraTemplateParamsForMoeDistributedCombine(int32_t operandIndex) const;
     std::string GenOffsets(int32_t operandIndex, int32_t dim) const;
     std::string GenShapes(int32_t operandIndex, int32_t dim) const;
     std::string GenRawShapes(int32_t operandIndex, int32_t dim) const;
-    std::string GenOffsetsAndRawShapes() const;
+    std::string GenExtraParamsStr() const;
     std::string GenOffsetsAndRawShapes(int32_t operandIndex, int32_t dim) const;
 
     std::string GenAicpuCallOp() const;
@@ -150,18 +153,20 @@ public:
     void UpdateSaturateStatus(FloatSaturateStatus &fs);
 
 private:
+    std::string QueryTileTensorNameByIdx(int paramIdx) const;
+
     std::string GenTemplateParamsForPutAndGet() const;
     std::string GenTemplateParamsForSignal() const;
-    std::string GenTemplateParamsForMoeCombineSend() const;
-    std::string GenTemplateParamsForMoeCombineReceive() const;
+    std::string GenTemplateParamsForMoeDistributedCombineSend() const;
+    std::string GenTemplateParamsForMoeDistributedCombineReceive() const;
     std::string GenTemplateParamsForSet() const;
     std::string GenTemplateParamsDefault() const;
 
     std::string GenOffsetsAndRawShapesForShmemPutAndGet() const;
     std::string GenOffsetsAndRawShapesForShmemPutAndGetUB() const;
     std::string GenOffsetsAndRawShapesForShmemSignal() const;
-    std::string GenOffsetsAndRawShapesForShmemMoeCombineSend() const;
-    std::string GenOffsetsAndRawShapesForShmemMoeCombineReceive() const;
+    std::string GenOffsetsAndRawShapesForMoeDistributedCombineSend() const;
+    std::string GenOffsetsAndRawShapesForMoeDistributedCombineReceive() const;
     std::string GenOffsetsAndRawShapesForSendToRoutingExpert() const;
     std::string GenOffsetsAndRawShapesForSendToSharedExpert() const;
     std::string GenOffsetsAndRawShapesForCopyToLocalExpert() const;
@@ -319,6 +324,7 @@ private:
     std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
         const std::string &dstDtypeStr) const;
     std::string PrintOneHot(const PrintUnaryParam &param) const;
+    std::string PrintOneHotLayout() const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;
@@ -351,6 +357,11 @@ private:
     std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
 
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
+    std::string PrintIndexAddTileTensor(const PrintIndexAddParam &param) const;
+
+    std::string PrintIndexPut(const PrintIndexPutParam &param) const;
+    std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
+    std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
 
