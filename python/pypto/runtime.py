@@ -14,6 +14,7 @@ import os
 from contextlib import contextmanager
 from enum import IntEnum
 from typing import List, overload
+import sys
 
 import pypto
 
@@ -132,11 +133,25 @@ class _ControlflowShape:
     def __str__(self):
         return str(self.shapes)
 
+class Plugin:
+    def __init__(self, name, callable):
+        self.name = name
+        self.callable = callable
+
+    def __call__(self, *args, **kwargs):
+        result = None
+        try:
+            result = self.callable(*args, **kwargs)
+        except Exception as ex:
+            import traceback
+            traceback.print_exc()
+            raise
+        return result
 
 class _JIT:
     def __init__(self, dyn_func, codegen_options=None, host_options=None,
                  pass_options=None, runtime_options=None, verify_options=None,
-                 debug_options=None, infer_controlflow_shape=None):
+                 debug_options=None, codegen_src_plugins=None, infer_controlflow_shape=None):
         self.dyn_func = dyn_func
         self.codegen_options = codegen_options
         self.host_options = host_options
@@ -144,6 +159,7 @@ class _JIT:
         self.runtime_options = runtime_options or {}
         self.verify_options = verify_options
         self.debug_options = debug_options
+        self.codegen_src_plugins = codegen_src_plugins
         self.infer_controlflow_shape = infer_controlflow_shape
         self.kernel_cache = {}
         self.controlflow_cache = {}
@@ -241,12 +257,16 @@ class _JIT:
         # flowverify begin
         self.verify_begin(tensors)
 
+        if self.codegen_src_plugins:
+            for plugin in self.codegen_src_plugins:
+                pypto_impl.PluginAddCodegenSrc(plugin.name, plugin)
         handler = pypto_impl.OperatorBegin()
         with pypto.function(self.dyn_func.__name__, *tensors) as rlf:
             for _ in rlf:
                 self.dyn_func(*args, **kwargs)
             del rlf
         pypto_impl.OperatorEnd(handler)
+        pypto_impl.PluginClear()
 
         # flowverify begin
         self.verify_end()
@@ -329,6 +349,7 @@ def jit(
         runtime_options=None,
         verify_options=None,
         debug_options=None,
+        codegen_src_plugins=None,
         infer_controlflow_shape=None
 ):
     ...
@@ -342,6 +363,7 @@ def jit(dyn_func=None,
         runtime_options=None,
         verify_options=None,
         debug_options=None,
+        codegen_src_plugins=None,
         infer_controlflow_shape=None):
 
     def decorator(func):
@@ -352,6 +374,7 @@ def jit(dyn_func=None,
                     runtime_options=runtime_options,
                     verify_options=verify_options,
                     debug_options=debug_options,
+                    codegen_src_plugins=codegen_src_plugins,
                     infer_controlflow_shape=infer_controlflow_shape)
 
     if dyn_func is not None:
