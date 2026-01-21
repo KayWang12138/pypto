@@ -128,12 +128,11 @@ Tensor ShmemPut(const Tensor &in, const Tensor &shmemDataTile, const Tensor &bar
     return dummy;
 }
 
-Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int tileCount,
-    AtomicType atomicType = AtomicType::SET)
+Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
+    AtomicType atomicType)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    Shape shape{tileCount, 1};
-    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, shape);
+    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, barrierDummy.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT_UB2GM,
         {in.GetStorage(), shmemDataTile.GetStorage(), barrierDummy.GetStorage()}, {dummy});
     DistOpAttr distOpAttr;
@@ -248,7 +247,7 @@ void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal
         BytesOf(DataType::DT_INT32) * worldSize * SHMEM_SIGNAL_STRIDE * MAX_TILE_NUM));
 }
 
-void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize, Tensor& out)
+Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize)
 {
     ValidateGroup(group);
     SymbolicScalar thisRank = GetHcclRankId(group);
@@ -257,7 +256,9 @@ void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* grou
     auto shmemSignalOut = ShmemSignal(predToken, shmemSignalTile, AtomicType::ADD);
     auto shmemSignalLocal = View(shmemSignal, {1, 1, 1, shmemSignal.GetShape(3), shmemSignal.GetShape(4)},
         std::vector<SymbolicScalar>{thisRank, 0, 0, 0, 0});
+    Tensor out(shmemSignalOut.GetDataType(), shmemSignalOut.GetShape());
     out = WaitUntil(shmemSignalOut, shmemSignalLocal, worldSize, true);
+    return out;
 }
 
 Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData)
