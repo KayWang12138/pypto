@@ -25,7 +25,6 @@ namespace Distributed {
 
 template<typename T>
 void TestReduceScatter(OpTestParam& testParam)
-void TestReduceScatter(OpTestParam& testParam)
 {
     constexpr size_t paramsSize = 5;
     auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
