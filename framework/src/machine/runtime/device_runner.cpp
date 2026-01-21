@@ -39,6 +39,7 @@
 #include "tilefwk/platform.h"
 #include "machine/platform/platform_manager.h"
 #include "machine/runtime/device_error_tracking.h"
+#include "machine/device/distributed/common.h"
 
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
@@ -146,14 +147,14 @@ void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
     rtMemcpy(reinterpret_cast<void *>(devArgs_), sizeof(DeviceArgs), &args, sizeof(DeviceArgs),
         RT_MEMCPY_HOST_TO_DEVICE);
 
-    for (uint64_t i = 0; i < args.nrAic + args.nrAiv + args.nrAicpuDump; i++) {
+    for (uint64_t i = 0; i < args.nrAic + args.nrAiv + AICPU_RUN_NUM; i++) {
         perfData_.push_back(DevAlloc(MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
     }
 }
 
 void DeviceRunner::ResetPerData() {
     auto size = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
-    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv + args_.nrAicpuDump; i++) {
+    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_RUN_NUM; i++) {
         int rc = rtMemset(perfData_[i], size, 0, size);
         if (rc != 0) {
             ALOG_WARN_F("CoreId %lu, rtMemSet failed, rc: %d", i, rc);
@@ -170,7 +171,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     blockDim_ = dynamic::GetCfgBlockdim();
     args.nrValidAic = blockDim_;
     args.nrAicpu = aicpuNum_;
-    int nrCore = regs.size() + args.nrAicpuDump;
+    int nrCore = regs.size() + AICPU_RUN_NUM;
     args.sharedBuffer = reinterpret_cast<uint64_t>(DevAlloc(nrCore * SHARED_BUFFER_SIZE));
     args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
@@ -339,7 +340,7 @@ int DeviceRunner::LaunchAiCpu(
 }
 
 void DeviceRunner::AllocDfxMetricMemory() {
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + args_.nrAicpuDump; i++) {
+    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_RUN_NUM; i++) {
         KernelArgs kernelArgs;
         memset_s(&kernelArgs, sizeof(kernelArgs), 0, sizeof(kernelArgs));
         kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] =
@@ -372,7 +373,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
     AllocDfxMetricMemory();
 #else
-    int size = (args_.nrAic + args_.nrAiv + args_.nrAicpuDump) * SHARED_BUFFER_SIZE;
+    int size = (args_.nrAic + args_.nrAiv + AICPU_RUN_NUM) * SHARED_BUFFER_SIZE;
     rtMemset(reinterpret_cast<void *>(args_.sharedBuffer), size, 0, size);
 #endif
 
@@ -400,7 +401,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
 void DeviceRunner::Dump() {
     ALOG_INFO_F("======== aicore status ========");
 
-    int coreNum = args_.nrAic + args_.nrAiv;
+    int coreNum = args_.nrAic + args_.nrAiv + AICPU_RUN_NUM;
     uint64_t size = coreNum * SHARED_BUFFER_SIZE;
     std::vector<uint64_t> buffer(size / sizeof(uint64_t));
     int rc =
@@ -465,7 +466,7 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
         DumpData(i, coreType, root_taskStats);
     }
     
-    for (uint32_t i = AICPU_BLOCK_INDEX; i < AICPU_BLOCK_INDEX + args_.nrAicpuDump; i++) {
+    for (uint32_t i = args_.nrAic + args_.nrAiv; i < args_.nrAic + args_.nrAiv + AICPU_RUN_NUM; i++) {
         DumpData(i, "AI-CPU", root_taskStats);
     }
     std::string jsonFilePath = config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
@@ -593,11 +594,7 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArg
 }
 
 int DeviceRunner::RunPrepare() {
-    if (args_.nrAic + args_.nrAiv !=  AICPU_BLOCK_INDEX) {
-        ALOG_ERROR_F("nrAic(%u) and nrAiv(%u) need equal %lu\n", args_.nrAic, args_.nrAiv, AICPU_BLOCK_INDEX);
-        return -1;
-    }
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + args_.nrAicpuDump; i++) {
+    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_RUN_NUM; i++) {
         rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
             sizeof(uint64_t),
             reinterpret_cast<uint8_t *>(&perfData_[i]),

@@ -44,6 +44,11 @@ inline bool SignalTileOp::PollCompleted() const {
 int32_t ShmemWaitUntil::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager &aicoreManager)
 {
     return runingTaskQueue_.PollCompleted([&](SignalTileOp* task) {
+        if (task->dumpData != nullptr) {
+            aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount].execStart = task->taskStatTime_;
+            aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount].taskId = static_cast<int32_t>(task->taskId_);
+            aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount++].execEnd = task->taskEndTime_;
+        }
         return aicoreManager.ProcessCompletedAicpuTask(task->taskId_);
     });
 }

@@ -31,6 +31,7 @@ constexpr uint64_t SRC_SHMEM_SIGNAL_ID = 1;
 constexpr uint64_t SRC_RANK_ID = 2;
 constexpr uint64_t SHMEM_DIM_ROW = 3;
 constexpr uint64_t SHMEM_DIM_COL = 4;
+constexpr const uint AICPU_RUN_NUM = 1;
 
 struct TensorInfo {
     uint64_t rawAddr{0};
