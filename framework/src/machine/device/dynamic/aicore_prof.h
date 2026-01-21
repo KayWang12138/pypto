@@ -260,6 +260,7 @@ public:
     void ProInitHandShake();
     bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
     AiCoreProfLevel CreateProfLevel(ProfConfig profConfig);
+    void SetProfLevel(AiCoreProfLevel level) { profLevel_ = level; }
     
 private:
     struct PmuCtrlAddrs {
