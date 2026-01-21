@@ -36,10 +36,10 @@ void ValidateGroup(const char* group)
         << groupLen;
 }
 
-void ValidateShapeAndType(const Tensor& Tensor, const DataType expectedType, const Shape expectedDataShape)
+void ValidateShapeAndType(const Tensor& inputTensor, const DataType expectedType, const Shape expectedDataShape)
 {
-    ASSERT(Tensor.GetDataType() == expectedType);
-    ASSERT(Tensor.GetShape() == expectedDataShape);
+    ASSERT(inputTensor.GetDataType() == expectedType);
+    ASSERT(inputTensor.GetShape() == expectedDataShape);
 }
 
 void ValidateTilingSize(const VecTile &vecTile, const Tensor& in)
@@ -106,17 +106,6 @@ void ValidateParams(const Tensor &predToken, const Tensor &in, const Tensor &out
     uint64_t shmemSize = shmemDataEleNum * BytesOf(shmemDataType) + shmemSignalEleNum * BytesOf(DT_INT32);
     const uint64_t winSize = 1024 * 1024 * 200;
     ASSERT(shmemSize < winSize) << "Exceeds winSize limit. Maximum allowed: " << winSize << ", got: " << shmemSize;
-}
-
-void Validate(const Tensor& predToken, const Tensor& in, const Tensor& shmemData, const Tensor& shmemSignal,
-    const char* group, Tensor& out)
-{
-    ValidateGroup(group);
-    ValidateParams(predToken, in, out, shmemData.GetShape(), shmemData.GetDataType(), true, true,
-        {DT_INT32, DT_FP32, DT_FP16, DT_BF16});
-    const TileShape& tileShape = TileShape::Current();
-    ValidateTilingSize(tileShape.GetVecTile(), in);
-    ValidateShmemTensor(shmemData, shmemSignal, out)
 }
 
 Tensor ShmemPut(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, 
