@@ -570,7 +570,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
         return;
     }
-    if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT ||
+    if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT || op.GetOpcode() == Opcode::OP_VIEW ||
             (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
         if (op.GetOpcode() == Opcode::OP_EXPAND || !axisCombineMarker.IsTensorEnableAxisCombine(in)) {
             AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
