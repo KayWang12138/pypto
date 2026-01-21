@@ -89,7 +89,7 @@ void bind_controller_set_tile(py::module &m) {
             std::copy(nvec.begin(), nvec.end(), narr.begin());
             TileShape::Current().SetCubeTile(marr, karr, narr, enableMultiDataLoad, enableSplitK);
         },
-        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("enable_multi_data_load"), py::arg("enable_split_k"), 
+        py::arg("m"), py::arg("k"), py::arg("n"), py::arg("enable_multi_data_load"), py::arg("enable_split_k"),
         "Set cube tile shapes with specified dimensions");
     m.def("GetCubeTile", []() {
         auto cubeTile = TileShape::Current().GetCubeTile();
@@ -120,7 +120,10 @@ void bind_controller_function(py::module &m) {
                     &>(),
             py::arg("name"), py::arg("inputs"), py::arg("outputs"),
             py::arg("in_place_args"))
-        .def("EndFunction", &RecordFunc::EndFunction)
+        .def("EndFunction", [](RecordFunc &r) {
+                py::gil_scoped_release release;
+                r.EndFunction();
+            })
         .def("__iter__", [](RecordFunc &c) {
             // Return Python iterator from C++ begin/end
             return py::make_iterator(c.begin(), c.end());
@@ -293,7 +296,7 @@ void bind_controller_scope_classes(py::module &m) {
             [](const ConfigScope &scope) -> py::dict {
                 py::dict result;
                 auto config_map = scope.GetAllConfig();
-                
+
                 for (const auto &[key, val] : config_map) {
                     try {
                         result[py::str(key)] = AnyToPyObject(val);
