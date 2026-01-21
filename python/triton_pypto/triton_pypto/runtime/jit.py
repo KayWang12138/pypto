@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 import inspect
 import math
-import os
 from typing import Any, Callable, Dict, Generic, Optional, Tuple, TypeVar, Union, overload
 from typing_extensions import ParamSpec, Self, TypeAlias
 
@@ -13,6 +12,7 @@ import triton
 from ..language.operations import Context, AffineTensorLayout, HostTensorWrapper
 from ..log import get_logger, get_progress_iter
 from .mock import mock
+from . import device
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -47,11 +47,7 @@ class JITFunction(Generic[P, T]):
 
     def __call__(self, *args: P.args, **kwds: P.kwargs) -> None:
         mock()
-        device_id = os.environ.get("TILE_FWK_DEVICE_ID", None) or os.environ.get("TILE_FWK_STEST_DEVICE_ID", None)
-        if device_id is not None and hasattr(torch, "npu"):
-            logger.info("Device %s", device_id)
-            torch.npu.set_device(int(device_id))
-        pypto.runtime._device_init()
+        device.initialize()
         signature = inspect.signature(self.fn)
         for drop_arg in ["maxnreg", "num_ctas", "num_stages", "num_warps"]:
             if drop_arg not in signature.parameters:
@@ -75,8 +71,7 @@ class JITFunction(Generic[P, T]):
                 loop_range = self.static_grid_loop(grid)
             for pid_x, pid_y, pid_z in loop_range:
                 self.call_jit_fn((pid_x, pid_y, pid_z), args, kwds)
-        pypto.runtime._device_run_once_data_from_host(*in_out_tensors)
-        pypto.runtime._device_fini()
+        device.run_once(*in_out_tensors)
 
     def call_jit_fn(self, grid: Grid, args: Tuple[Any], kwds: Dict[str, Any]) -> None:
         logger.debug("Grid: program_id %r", grid)
