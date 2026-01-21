@@ -454,6 +454,7 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
         import utils.compare as compare
         compare.compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)  
     else:
+        from utils.np_compare import detailed_allclose_manual as compare
         compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
     
     # acl graph
