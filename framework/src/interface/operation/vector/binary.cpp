@@ -241,10 +241,11 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, 
             } else {
                 tmpShape = input1.tileInfo.shape;
             }
-            auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor->Datatype());
-            tmpShape[input1.tileInfo.shape.size() - 1] = (tmpShape[input1.tileInfo.shape.size() - 1] + alignSize -1) / alignSize * alignSize;
+            auto alignSize = BLOCK_SIZE / BytesOf(input1.tensor->Datatype());
+            tmpShape[input1.tileInfo.shape.size() - 1] =
+                (tmpShape[input1.tileInfo.shape.size() - 1] + alignSize - 1) / alignSize * alignSize;
             int64_t tmpSize = 1;
-            for (int64_t num : tmpShape){
+            for (int64_t num : tmpShape) {
                 tmpSize *= num;
             }
             size_t totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 4;
@@ -252,10 +253,12 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, 
             auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpTensorShape);
 
             auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {inputTile1}, {resultTile, tmpTensor});
-        } else {
-            // 确认接口
-            auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {inputTile1}, {resultTile});
+            op.SetAttribute(OpAttributeKey::scalar, value);
+            op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
+            return;
         }
+        // 确认接口
+        auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {inputTile1}, {resultTile});
         op.SetAttribute(OpAttributeKey::scalar, value);
         op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
         return;

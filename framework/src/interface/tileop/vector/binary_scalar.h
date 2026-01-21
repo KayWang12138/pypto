@@ -148,7 +148,7 @@ TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
                     pto::TSUB(dstTile, src0Tile, castTmpTile);
                     pipe_barrier(PIPE_V);
                 }  else if constexpr (std::is_same_v<DstType, half> || std::is_same_v<DstType, bfloat16_t>) {
-                    float src1Tmp = std::static_cast<float>(src1);
+                    float src1Tmp = static_cast<float>(src1);
                     using Fp32TmpTileDefine =
                         pto::Tile<pto::TileType::Vec, float, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
                     Fp32TmpTileDefine dstTileTmp(dstShape3, dstShape4);
@@ -164,7 +164,7 @@ TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
                     pipe_barrier(PIPE_V);
                     pto::TCVT(castTileTmp, dstTileTmp, pto::RoundMode::CAST_TRUNC);
                     pipe_barrier(PIPE_V);
-                    pto::TMUL(dstTileTmp, castTileTmp, src1Tmp);
+                    pto::TMULS(dstTileTmp, castTileTmp, src1Tmp);
                     pipe_barrier(PIPE_V);
                     pto::TSUB(dstTileTmp, src0TileTmp, dstTileTmp);
                     pipe_barrier(PIPE_V);
