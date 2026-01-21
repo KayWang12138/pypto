@@ -391,6 +391,14 @@ Tensor TransposedBatchMatmul(DataType dataType, const Tensor &aMatrix, const Ten
 Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &dequantScaleW);
 } // namespace Matrix
 
+namespace Conv {
+
+Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor,
+    const std::vector<int> &strides, const std::vector<int> &paddings, const std::vector<int> &dilations,
+    const int groups);
+
+}
+
 namespace Distributed {
 enum class DistReduceType {
     DIST_REDUCE_ADD,
@@ -413,7 +421,7 @@ void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tens
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor &shmemSignal, Tensor &out);
+    Tensor& shmemSignal, Tensor& out);
 void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize, Tensor& out);
 Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData);
 Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal);
