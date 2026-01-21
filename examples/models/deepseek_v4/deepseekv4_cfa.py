@@ -449,7 +449,12 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
     attn_golden.ifa_golden(q, kv, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True, kv_win=kv_win, blk_win=blk_win)
     threhold = 5e-4
     # compare(output, output_flash, "no flash golden vs flash golden", rtol=threhold, atol=threhold)
-    compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
+    if out_npu.numel() > 1000000:
+        print(f'use other cmpare func')
+        import utils.compare as compare
+        compare.compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)  
+    else:
+        compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
     
     # acl graph
     if enable_graph:
