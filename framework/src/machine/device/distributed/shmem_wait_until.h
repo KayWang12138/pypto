@@ -21,6 +21,7 @@
 #include "common.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/utils/dynamic/device_task.h"
+#include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::Distributed {
 struct SignalTileOp {
@@ -33,10 +34,12 @@ struct SignalTileOp {
     bool PollCompleted() const;
 
     SignalTileOp* next{nullptr};
-    uint64_t taskId_;
+    uint64_t taskId_{0};
     int32_t* addr_;
-    int32_t expectedSum_;
-    bool resetSignal_;
+    int32_t expectedSum_{0};
+    bool resetSignal_{false};
+    uint64_t taskStatTime_{0};
+    uint64_t taskEndTime_{0};
 };
 
 class HashMap {
@@ -148,6 +151,7 @@ public:
                 if (ret != dynamic::DEVICE_MACHINE_OK) {
                     return ret;
                 }
+                task->taskEndTime_ = dynamic::GetCycles();
             }
         }
         return dynamic::DEVICE_MACHINE_OK;
@@ -174,6 +178,7 @@ public:
             DEV_ERROR("There is no this taskId: %lu", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
+        task->taskStatTime_ = dynamic::GetCycles();
         return runingTaskQueue_.Enqueue(task);
     }
 
