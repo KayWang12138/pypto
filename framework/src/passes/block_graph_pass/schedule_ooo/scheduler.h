@@ -65,15 +65,15 @@ const std::unordered_set<Opcode> COPY_IN_OPS = {
     Opcode::OP_UB_COPY_L1_ND
 };
 
-const std::vector<std::pair<int, CoreType>> CORE_INIT_CONFIGS_Mix = {
-    {0, CoreType::AIV},
-    {1, CoreType::AIV},
-    {0, CoreType::AIC}
+const std::map<CoreType, int> CORE_INIT_CONFIGS_Mix = {
+    {CoreType::AIV, 0},
+    {CoreType::AIV, 1},
+    {CoreType::AIC, 0}
 };
 
-const std::vector<std::pair<int, CoreType>> CORE_INIT_CONFIGS_NON_Mix = {
-    {0, CoreType::AIV},
-    {0, CoreType::AIC}
+const std::map<CoreType, int> CORE_INIT_CONFIGS_NON_MIX = {
+    {CoreType::AIV, 0},
+    {CoreType::AIC, 0}
 };
 
 struct IssueEntry {
@@ -84,7 +84,7 @@ struct IssueEntry {
     bool isAlloc{false};
     bool isRetired{false};
     std::vector<Operation*> viewOps;
-    std::pair<int, CoreType> coreLocation;
+    std::pair<CoreType, int> coreLocation;
 
     // 当前op的前序op
     std::unordered_set<int> predecessors;
@@ -153,24 +153,21 @@ private:
     std::vector<IssueEntryPtr> issueEntries;
     std::unordered_map<int, IssueEntryPtr> issueEntryMap;
 
-    std::vector<std::pair<int, CoreType>> CORE_INIT_CONFIGS;
+    std::map<CoreType, int> CORE_INIT_CONFIGS;
 
     std::unordered_map<int, LocalBufferPtr> localBufferMap;
     // 分核数据结构
-    // std::unordered_map<std::pair<int, CoreType>, std::map<npu::tile_fwk::MemoryType, BufferPool>> bufferManagerMap;
-    std::unordered_map<int, std::map<CoreType, std::map<npu::tile_fwk::MemoryType, BufferPool>>> bufferManagerMap;
+    std::unordered_map<CoreType, std::map<int, std::map<npu::tile_fwk::MemoryType, BufferPool>>> bufferManagerMap;
     // std::unordered_map<npu::tile_fwk::MemoryType, BufferPool> bufferManagerMap;
     std::unordered_map<int, int> bufRefCount;
     std::unordered_map<MemoryType, std::map<int, IssueEntryPtr>> tensorOccupyMap;
     // tensor和其初始化时对应的alloc的core类型 memId-core类型
-    std::unordered_map<int, std::pair<int, CoreType>> tensorAllocCoreMap;
+    std::unordered_map<int, std::pair<CoreType, int>> tensorAllocCoreMap;
 
-    // std::unordered_map<std::pair<int, CoreType>, std::map<MemoryType, IssueQueue>> allocIssueQueue;
-    std::unordered_map<int, std::map<CoreType, std::map<MemoryType, IssueQueue>>> allocIssueQueue;
+    std::unordered_map<<CoreType, std::map<int, std::map<MemoryType, IssueQueue>>> allocIssueQueue;
     // std::map<MemoryType, IssueQueue> allocIssueQueue;
 
-    // std::unordered_map<std::pair<int, CoreType>, std::map<PipeType, IssueQueue>> issueQueues;
-    std::unordered_map<int, std::map<CoreType, std::map<PipeType, IssueQueue>>> issueQueues;
+    std::unordered_map<<CoreType, std::map<int, std::map<PipeType, IssueQueue>>> issueQueues;
     // std::map<PipeType, IssueQueue> issueQueues;
     std::unordered_map<MemoryType, int64_t> localMemorySize;
 
