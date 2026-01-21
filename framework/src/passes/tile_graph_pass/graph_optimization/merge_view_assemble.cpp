@@ -57,12 +57,15 @@ Status MergeViewAssemble::ProcessOperations(Function &function) {
             continue;
         }
         Status processStatus = SUCCESS;
+        std::vector<Operation *> chain;
         if (op.GetOpcode() == Opcode::OP_VIEW) {
-            processStatus = ProcessViewOperations(function, op);
+            processStatus = MergeViewChain(function, op, chain);
         } else if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            processStatus = ProcessAssembleOperations(function, op);
+            processStatus = MergeAssembleChain(function, op, chain);
         }
         if (processStatus != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "ProcessOperations failed for operation %s[%d].%s",
+                op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return processStatus;
         }
     }
@@ -74,31 +77,8 @@ Status MergeViewAssemble::ProcessOperations(Function &function) {
     status = AppendMergedAssembleOperations(function);
     if (status != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "AppendMergedAssembleOperations phase failed.");
-        return status;
     }
-    return SUCCESS;
-}
-
-Status MergeViewAssemble::ProcessViewOperations(Function &function, Operation &op) {
-    std::vector<Operation *> chain;
-    Status status = MergeViewChain(function, op, chain);
-    if (status != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "MergeViewChain failed for operation %d.%s", op.GetOpMagic(),
-            GetFormatBacktrace(op).c_str());
-        return status;
-    }
-    return SUCCESS;
-}
-
-Status MergeViewAssemble::ProcessAssembleOperations(Function &function, Operation &op) {
-    std::vector<Operation *> chain;
-    Status status = MergeAssembleChain(function, op, chain);
-    if (status != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "MergeAssembleChain failed for operation %d.%s", op.GetOpMagic(),
-            GetFormatBacktrace(op).c_str());
-        return status;
-    }
-    return SUCCESS;
+    return status;
 }
 
 Status MergeViewAssemble::AppendMergedViewOperations(Function &function) {
