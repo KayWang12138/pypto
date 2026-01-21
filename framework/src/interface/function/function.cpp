@@ -1238,7 +1238,7 @@ void Function::ProducerMagicLookup(const Function *function, const LogicalTensor
                 if (!op->oOperand[0]->isSubGraphBoundary) {
                     ss << " " << op->GetOpAttribute()->Dump();
                 }
-            } else if (IsCopyIn(op->GetOpcode()) || (!IsCopyIn(op->GetOpcode()) && !IsCopyOut(op->GetOpcode())) ||
+            } else if ((!IsCopyIn(op->GetOpcode()) && !IsCopyOut(op->GetOpcode())) ||
                 function->GetGraphType() != GraphType::BLOCK_GRAPH) {
                 ss << " " << op->GetOpAttribute()->Dump();
             }
@@ -1926,9 +1926,8 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
                     ASSERT(producerAttr) << "mix assemble and common operation for same output \n" << producer->Dump();
                     auto [offset, dynOffset] = TensorOffset::Add(iOperand[i]->GetOffset(), iOperand[i]->GetDynOffset(),
                                                                  producerAttr->GetToOffset(), producerAttr->GetToDynOffset());
-                    auto &assembleOp = AddOperation(Opcode::OP_ASSEMBLE, {producer->GetIOperands()[0]}, oOperand);
-                    assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
-                    producer->SetAsDeleted();
+                    producer->ReplaceOOperand(0, rawSymbol);
+                    producer->SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
                 }
                 auto consumers = iOperand[i]->GetConsumers(); // deep copy
                 for (auto consumer : consumers) {
