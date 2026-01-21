@@ -22,6 +22,7 @@
 namespace npu::tile_fwk {
 
 constexpr int64_t MAX_L0A_SIZE = 64 * 1024;
+constexpr int64_t MAX_L0MX_SIZE = 2 * 1024;
 constexpr int64_t MAX_L0C_SIZE = 128 * 1024;
 constexpr int64_t MAX_BT_SIZE = 1 * 1024;
 constexpr int64_t MAX_FIX_SIZE = 1 * 1024;
@@ -1033,6 +1034,8 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
 
 void OoOScheduler::InitMemorySize() {
     localMemorySize = {
+        {MemoryType::MEM_L0AMX, MAX_L0MX_SIZE},
+        {MemoryType::MEM_L0BMX, MAX_L0MX_SIZE},
         {MemoryType::MEM_L0A, MAX_L0A_SIZE},
         {MemoryType::MEM_L0C, MAX_L0C_SIZE},
         {MemoryType::MEM_BT, MAX_BT_SIZE},

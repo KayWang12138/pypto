@@ -144,10 +144,16 @@ Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) 
         SetCopyAttr(op,viewOpAttribute);
     } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) {
         op.SetOpCode(Opcode::OP_L1_TO_L0A_SCALE);
-        SetCopyAttr(op, viewOpAttribute);
+        auto input = op.GetIOperands()[0];
+        auto prodOp = *input->GetProducers().begin();
+        if (prodOp->GetOpcode() == Opcode::OP_COPY_IN && input->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_A_SCALE);
+        }
     } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
         op.SetOpCode(Opcode::OP_L1_TO_L0B_SCALE);
-        SetCopyAttr(op, viewOpAttribute);
+        if (prodOp->GetOpcode() == Opcode::OP_COPY_IN && input->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_B_SCALE);
+        }
     } else {
         //case4: VIEW转其他搬运op
         auto from = op.iOperand.front()->GetMemoryTypeOriginal();

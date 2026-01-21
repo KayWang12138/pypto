@@ -75,7 +75,9 @@ private:
         {MemoryType::MEM_FIX_RELU_POST, Opcode::OP_FIX_ALLOC},
         {MemoryType::MEM_FIX_QUANT_POST, Opcode::OP_FIX_ALLOC},
         {MemoryType::MEM_FIX_ELT_ANTIQ, Opcode::OP_FIX_ALLOC},
-        {MemoryType::MEM_FIX_MTE2_ANTIQ, Opcode::OP_FIX_ALLOC}
+        {MemoryType::MEM_FIX_MTE2_ANTIQ, Opcode::OP_FIX_ALLOC},
+        {MemoryType::MEM_L0AMX, Opcode::OP_L0AMX_ALLOC},
+        {MemoryType::MEM_L0BMX, Opcode::OP_L0BMX_ALLOC}
     };
 };
 
