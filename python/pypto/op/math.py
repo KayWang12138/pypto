@@ -260,9 +260,9 @@ def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     b = pypto.tensor([1, 3], pypto.DT_FP32)
     out = pypto.fmod(a, b)
 
-    Input a:    [[2.0 4.0 6.0]]
+    Input a:    [[2.0 5.0 9.0]]
     Input b:    [[2.0 2.0 2.0]]
-    Output out: [[0.0 2.0 3.0]]
+    Output out: [[0.0 1.0 1.0]]
     """
     if isinstance(other, pypto_impl.Tensor):
         return pypto_impl.Div(input, other)
