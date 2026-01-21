@@ -317,10 +317,11 @@ def win_atten_main_bsnd_mtp_decode_mask(q, block_table, kv_cache, actual_seq_lis
             pypto.set_cube_tile_shapes([256, 256], [128, 128], [128, 128], False, False)
             acc_s = pypto.matmul(q_tensor_cur, kv_block, pypto.DT_FP32, b_trans=True)
             
-            start_pos = win + s_q - 1 - pypto.min(win + s_q - 1, actual_seq)
-            pypto.set_vec_tile_shapes(128, 128)
-            mask_block = pypto.view(mask2, [s_q * n_q, 128], [0, 128 + start_pos])
-            acc_s = pypto.where(mask_block, acc_s, float("-inf"))
+            if pypto.cond(actual_seq <= 128):
+                start_pos = win + s_q - 1 - pypto.min(win + s_q - 1, actual_seq)
+                pypto.set_vec_tile_shapes(128, 128)
+                mask_block = pypto.view(mask2, [s_q * n_q, 128], [0, 128 + start_pos])
+                acc_s = pypto.where(mask_block, acc_s, float("-inf"))
 
             # V1
             acc_s = pypto.mul(acc_s, scalar)
