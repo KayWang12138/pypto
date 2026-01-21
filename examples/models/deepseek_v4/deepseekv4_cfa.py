@@ -545,7 +545,7 @@ def test_c128_decode(enable_flash: bool, enable_high_perf: bool, enable_graph: b
 def test_c128_prefill(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'    
-    attn_cfg = get_case_info(device=device)
+    attn_cfg = get_prefill_case_info(device=device)
     c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, pg_upper_bound=pg_upper_bound, attn_cfg=attn_cfg)
     
 
