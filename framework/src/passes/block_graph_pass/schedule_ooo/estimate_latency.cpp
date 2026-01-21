@@ -218,7 +218,7 @@ void LatencyEstimator::InitMemWithoutAlloc() {
         if (memIdAllocMap.find(memId) != memIdAllocMap.end()) {
             continue;
         }
-        APASS_LOG_INFO_F(Elements::Operation, "memId[%d] in other graph", memId);
+        APASS_LOG_INFO_F(Elements::Operation, "The alloc op of memId[%d] in other graph", memId);
         needAddAlloc = true;
         for (const auto &op : operations) {
             if (IsOpAlloc(op) && op.GetOutputOperand(0)->memoryrange.memId == memId) {
