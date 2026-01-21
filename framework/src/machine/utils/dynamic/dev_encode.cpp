@@ -962,8 +962,8 @@ struct EncodeDevAscendFunctionInfo {
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
             IntVecToStr(StrideToVector(cellMatchStride)).c_str());
         ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << "raw" << tensor->GetRawMagic()
- 	         <<"stitch results in excessive memory consumption," 
- 	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape."; 
+ 	         <<"stitch results in excessive memory consumption,"
+ 	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape.";
     }
 
     void RecordRawTensor(const std::shared_ptr<LogicalTensor> &tensor) {
@@ -1204,6 +1204,52 @@ struct EncodeDevAscendFunctionInfo {
                 callOpPredDict[dummyOp] = predSet.size();
                 for (auto &succ: succSet) {
                     callOpPredDict[succ] -= predSet.size() - 1;
+                }
+            }
+        }
+    }
+
+    void ReplacePredWithHub(std::vector<Operation *> &callOpList, int optimizeLimit) {
+        // create callOpPredDictSet by callOpSuccDict
+        std::unordered_map<Operation *, OrderedSet<Operation *>> callOpPredDictSet;
+        for (auto &callOp : callOpList) {
+            if (callOpSuccDict.count(callOp)) {
+                auto succOps = callOpSuccDict[callOp];
+                for (auto succOp : succOps) {
+                    callOpPredDictSet[succOp].Insert(callOp);
+                }
+            }
+        }
+
+        OrderedMap<OrderedSet<Operation *>, OrderedSet<Operation *>, Hasher> succDict;
+
+        for (auto &callOp : callOpList) {
+            if (callOpPredDictSet.count(callOp)) {
+                auto predOps = callOpPredDictSet[callOp];
+                succDict[predOps].Insert(callOp);
+            }
+        }
+
+        for (auto & [predSet, succSet] : succDict) {
+            int optimizeCnt = succSet.size() * predSet.size() - succSet.size() - predSet.size();
+            if (optimizeCnt > optimizeLimit) {
+                auto dummyOp = MakeDummyCall();
+                callOpList.push_back(dummyOp);
+
+                callOpSuccDict[dummyOp] = succSet;
+                std::vector<Operation *> succVec;
+                for (auto succ : succSet) {
+                    succVec.push_back(succ);
+                }
+
+                for (auto &pred : predSet) {
+                    callOpSuccDict[pred].Remove(succVec);
+                    callOpSuccDict[pred].Insert(dummyOp);
+                }
+
+                callOpPredDict[dummyOp] = predSet.size();
+                for (auto &succ: succSet) {
+                    callOpPredDict[succ] = 1;
                 }
             }
         }
@@ -1595,6 +1641,7 @@ struct EncodeDevAscendFunctionInfo {
 
         RemoveDeadHubCall(callopList);
         ReplaceSuccessorWithHub(callopList, 10); // add dummp op at least 10 depends can be reduced
+        ReplacePredWithHub(callopList, 10);
 
         AddDummyCallsAtBeginningAndEnding(callopList);
 
