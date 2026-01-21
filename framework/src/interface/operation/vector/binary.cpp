@@ -103,7 +103,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
         if (opName == "MOD") {
             std::vector<int64_t> tmpShape;
             if (input1.tileInfo.shape.size() >= 2) {
-                tmpShape.assign(input1.tileInfo.shape.end() - 2, input1.tileInfo.shape.end())
+                tmpShape.assign(input1.tileInfo.shape.end() - 2, input1.tileInfo.shape.end());
             } else {
                 tmpShape = input1.tileInfo.shape;
             }
