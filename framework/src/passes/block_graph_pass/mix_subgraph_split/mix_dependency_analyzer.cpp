@@ -356,15 +356,15 @@ void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input
     auto directDeps = AnalyzeComponentDependencies(*input.originalMixFunc);
     // 步骤3：计算依赖传递闭包
     ALOG_INFO_F("Step 3: Computing dependency closure...");
-    auto dependencyClosure = ComputeDependencyClosure(directDeps);    
+    ComputeDependencyClosure(directDeps);    
     // 步骤4：计算所有依赖（包括外部依赖和内部依赖）
     ALOG_INFO_F("Step 4: Computing all dependencies...");
     // 4.1：提取外部依赖（从subgraphToFunction）
     ExtractExternalDependencies(subgraphToFunction.subFuncInvokeInfos);
     // 4.2：基于传递闭包传播外部依赖到内部scope
-    PropagateExternalDependenciesWithClosure(dependencyClosure);
+    PropagateExternalDependenciesWithClosure(directDeps);
     // 4.3：添加内部同类型scope之间的依赖（只收集C-C、V-V的依赖）
-    CollectInternalDependencies(dependencyClosure, input.components);
+    CollectInternalDependencies(directDeps, input.components);
     // 步骤5：消除冗余依赖
     ALOG_INFO_F("Step 5: Eliminating redundant dependencies...");
     EliminateRedundantDependencies();
@@ -372,5 +372,6 @@ void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input
     output.internalDeps = internalDeps;
     output.allIncasts = allIncasts;
     output.allOutcasts = allOutcasts;
+}
 }
 }

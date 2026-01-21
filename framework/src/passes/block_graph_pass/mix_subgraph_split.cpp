@@ -19,14 +19,6 @@
 
 namespace npu {
 namespace tile_fwk {
-
-MixSubgraphSplit::MixSubgraphSplit() 
-    : componentsAnalyzer_(),
-      dependencyAnalyzer_(),
-      callOpBuilder_(),
-      nextMixId_(0) {
-}
-
 Status MixSubgraphSplit::RunOnFunction(Function &function) {
     ALOG_INFO_F("===============================================================> Start MixSubgraphSplit.");
     // 获取rootFunc和programs
@@ -382,10 +374,13 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
     uint64_t mixId = nextMixId_++;
     ALOG_DEBUG_F("Assigning mixId=%lu for original mix function programID=%d", mixId, programID);
    
-    MixDependencyAnalyzer::AnalyzerInput analyzerInput;
-    analyzerInput.components = components;
-    analyzerInput.originalMixFunc = originalMixFunc;
-    MixDependencyAnalyzer::AnalyzerOutput analyzerOutput;
+    AnalyzerInput analyzerInput(components, originalMixFunc);
+    AnalyzerOutput analyzerOutput(
+        SubgraphToFunction{},
+        std::vector<InternalDependencyInfo>(),
+        std::unordered_map<int, std::vector<SimpleTensorParam>>(),
+        std::unordered_map<int, std::vector<SimpleTensorParam>>()
+    );
     dependencyAnalyzer_.ProcessDependencyAnalyzer(analyzerInput, analyzerOutput);
    
     // 为每个scope创建leaf function
@@ -422,8 +417,8 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
 
 void MixSubgraphSplit::ApplyFinalDependencies(
     const std::vector<Function*>& newFunctions,
-    const std::unordered_map<int, std::vector<SimpleIncastParam>>& allIncasts,
-    const std::unordered_map<int, std::vector<SimpleOutcastParam>>& allOutcasts) const {
+    const std::unordered_map<int, std::vector<SimpleTensorParam>>& allIncasts,
+    const std::unordered_map<int, std::vector<SimpleTensorParam>>& allOutcasts) const {
     ALOG_INFO_F("Applying final dependencies to %zu leaf functions", newFunctions.size());
     for (size_t i = 0; i < newFunctions.size(); i++) {
         Function* leafFunc = newFunctions[i];
@@ -445,7 +440,7 @@ void MixSubgraphSplit::ApplyFinalDependencies(
 void MixSubgraphSplit::ApplyIncastDependencies(
     Function* leafFunc,
     int componentId,
-    const std::vector<SimpleIncastParam>& incastParams) const {
+    const std::vector<SimpleTensorParam>& incastParams) const {
     if (!leafFunc) return;
     // 获取当前已有的incast，用于去重
     const auto& existingIncasts = leafFunc->GetIncast();
@@ -480,7 +475,7 @@ void MixSubgraphSplit::ApplyIncastDependencies(
 void MixSubgraphSplit::ApplyOutcastDependencies(
     Function* leafFunc,
     int componentId,
-    const std::vector<SimpleOutcastParam>& outcastParams) const {
+    const std::vector<SimpleTensorParam>& outcastParams) const {
     
     if (!leafFunc) return;
     // 获取当前已有的outcast，用于去重

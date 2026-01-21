@@ -69,14 +69,6 @@ struct InternalDependencyInfo {
         : srcComp(src), dstComp(dst), dummyTensor(nullptr), 
           dummyTensorMagic(0), isSameType(true), compType(type) {}
 };
-
-// 用于存储每个leaf function的op magic映射
-struct LeafFuncMagicMap {
-    Function* leafFunc;
-    std::unordered_map<int, int> originalToClonedMagic; // 原始magic -> 克隆magic
-};
-
-std::unordered_map<Function*, LeafFuncMagicMap> leafFuncMagicMaps_;
 } // namespace tile_fwk
 } // namespace npu
 

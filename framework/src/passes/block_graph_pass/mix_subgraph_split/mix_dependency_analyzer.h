@@ -41,8 +41,8 @@ struct SimpleTensorParam {
 
 struct AnalyzerInput {
     std::vector<InternalComponentInfo> components;
-    Function originalMixFunc;
-    AnalyzerInput(const std::vector<InternalComponentInfo> &comp, const Function &func)
+    Function* originalMixFunc;
+    AnalyzerInput(const std::vector<InternalComponentInfo> &comp, Function* func)
         : components(comp), originalMixFunc(func) {}
 };
 
