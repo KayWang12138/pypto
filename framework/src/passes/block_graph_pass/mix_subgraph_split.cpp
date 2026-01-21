@@ -24,7 +24,6 @@ MixSubgraphSplit::MixSubgraphSplit()
     : componentsAnalyzer_(),
       dependencyAnalyzer_(),
       callOpBuilder_(),
-      nextWrapId_(0),
       nextMixId_(0) {
 }
 
@@ -405,7 +404,7 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
         return FAILED;
     }
     
-    // 设置wrapId和resourceType
+    // 设置mixId和resourceType
     if (SetMixIdResourceType(newFunctions, mixId, resourceType) != SUCCESS) {
         return FAILED;
     }

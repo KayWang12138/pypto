@@ -60,7 +60,7 @@ struct MixSubgraphInfo {
 
 class MixSubgraphSplit : public Pass {
 public:
-    MixSubgraphSplit() : Pass("MixSubgraphSplit"), nextWrapId_(0), nextMixId_(0) {
+    MixSubgraphSplit() : Pass("MixSubgraphSplit"), nextMixId_(0) {
         SetSupportedArches({NPUArch::DAV_3510});
     }
     ~MixSubgraphSplit() override = default;
@@ -123,7 +123,6 @@ private:
         int componentId,
         const std::vector<SimpleTensorParam>& outcastParams) const;
 
-    uint64_t nextWrapId_;
     uint64_t nextMixId_;
     static constexpr uint64_t INVALID_PROGRAM_ID = static_cast<uint64_t>(-1);
 };
