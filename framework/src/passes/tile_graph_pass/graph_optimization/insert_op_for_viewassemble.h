@@ -44,6 +44,8 @@ private:
     void AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input);
     void AddCopyDDROp(Function &function, Operation *cons, LogicalTensorPtr &input);
     void InsertAssembleCopy(Function &function);
+    void AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input);
+    void InsertAssembleCopy(Function &function);
 
     std::set<LogicalTensorPtr> assembleOutSet_;
     std::vector<std::pair<Operation*, Operation*>> recordOpPair_;
