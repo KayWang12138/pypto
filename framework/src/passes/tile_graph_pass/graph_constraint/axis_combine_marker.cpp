@@ -133,7 +133,7 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
         // 最后两根轴不发生reduce，并且尾轴为1。那么支持交换轴，如果倒数第二根轴发生reduce，不支持。尾轴reduce，需不需要交换轴要看后继节点
         auto inputTensor = op->GetIOperands()[0];
         auto outputTensor = op->GetOOperands()[0];
-        auto dimSize = inputTensor->GetShape();
+        auto dimSize = static_cast<int>(inputTensor->GetShape().size());
         int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
         if (dimSize > 1 && axis < dimSize - 2) {
             tensorStatus_[outputTensor] = tensorStatus_[inputTensor];
@@ -150,7 +150,6 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
     }
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
         OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST) {
-        auto inputTensor = op->GetIOperands()[0];
         auto outputTensor = op->GetOOperands()[0];
         for (auto inputTensor : op->GetIOperands()) {
             if (tensorStatus_[inputTensor] == AxisReorderStatus::DISABLE) {
