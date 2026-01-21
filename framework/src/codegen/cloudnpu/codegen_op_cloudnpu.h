@@ -75,6 +75,7 @@ public:
     std::string GenReshapeCopyOut() const;
 
     std::string GenLoadOp() const;
+    std::string PrintGatherInL1TileTensor() const;
     std::string GenGatherInL1() const;
     std::string GenGatherInUB() const;
 
