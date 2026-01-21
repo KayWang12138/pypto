@@ -168,24 +168,35 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
 bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
     auto inputShape = reshapeIn->GetShape();
     auto outputShape = reshapeOut->GetShape();
-    auto inputShapeSize = inputShape.size();
-    auto outputShapeSize = outputShape.size();
-    // [1,1,a,b] --> Reshape --> [a,b]
-    if (inputShapeSize == 4 && outputShapeSize == 2 && inputShape[0] == 1 && inputShape[1] == 1 && inputShape[2] == outputShape[0] && inputShape[3] == outputShape[1]) {
-        return true;
+    
+    // 定义模式表：{input_size, output_size, pattern_id, 验证函数}
+    using Validator = std::function<bool(const std::vector<int64_t>&, const std::vector<int64_t>&)>;
+    
+    static const std::vector<std::tuple<size_t, size_t, int, Validator>> patterns = {
+        {4, 2, 1, [](const auto& in, const auto& out) {
+            return in[0] == 1 && in[1] == 1 && in[2] == out[0] && in[3] == out[1];
+        }},
+        {2, 4, 2, [](const auto& in, const auto& out) {
+            return out[0] == 1 && out[1] == 1 && in[0] == out[2] && in[1] == out[3];
+        }},
+        {3, 2, 3, [](const auto& in, const auto& out) {
+            return in[0] == 1 && in[1] == out[0] && in[2] == out[1];
+        }},
+        {2, 3, 4, [](const auto& in, const auto& out) {
+            return out[0] == 1 && in[0] == out[1] && in[1] == out[2];
+        }}
+    };
+    
+    for (const auto& [inSize, outSize, patternId, validator] : patterns) {
+        if (inputShape.size() == inSize && 
+            outputShape.size() == outSize &&
+            validator(inputShape, outputShape)) {
+            std::cout << "MatchReshapePattern " << patternId << std::endl;
+            return true;
+        }
     }
-    // [a,b] --> Reshape --> [1,1,a,b]
-    if (inputShapeSize == 2 && outputShapeSize == 4 && outputShape[0] == 1 && outputShape[1] == 1 && inputShape[0] == outputShape[2] && inputShape[3] == outputShape[1]) {
-        return true;
-    }
-    // [1,a,b] --> Reshape --> [a,b]
-    if (inputShapeSize == 3 && outputShapeSize == 2 && inputShape[0] == 1 && inputShape[1] == outputShape[0] && inputShape[2] == outputShape[1]) {
-        return true;
-    }
-    // [a,b] --> Reshape --> [1,a,b]
-    if (inputShapeSize == 2 && outputShapeSize == 3 && outputShape[0] == 1 && inputShape[0] == outputShape[1] && inputShape[1] == outputShape[2]) {
-        return true;
-    }
+    
+    std::cout << "MatchReshapePattern 5" << std::endl;
     return false;
 }
 
@@ -194,7 +205,7 @@ Status InferMemoryConflict::UpdateForwardTensor(Function &function, const Logica
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
             auto reshapeInput = consumer->GetIOperands().front();
             bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (MatchReshapePattern(reshapeInput, outputTensor) && !isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
+            if (!MatchReshapePattern(reshapeInput, outputTensor) && !isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
                 preregcopys.insert(consumer);
                 continue;
             }
@@ -225,14 +236,14 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         auto reshapeOutput = producer->GetOOperands().front();
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
             bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (MatchReshapePattern(inputTensor, reshapeOutput) && !isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
+            if (!MatchReshapePattern(inputTensor, reshapeOutput) && !isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
                 postregcopys.insert(producer);
                 continue;
             }
         }
         if (memoryInfo.find(inputTensor) != memoryInfo.end()) {
             if (CheckConflict(memoryInfo[curTensor], memoryInfo[inputTensor])) {
-                if (producer->GetOpcode() == Opcode::OP_RESHAPE && MatchReshapePattern(inputTensor, reshapeOutput)) {
+                if (producer->GetOpcode() == Opcode::OP_RESHAPE && !MatchReshapePattern(inputTensor, reshapeOutput)) {
                     postregcopys.insert(producer);
                 } else {
                     preregcopys.insert(producer);

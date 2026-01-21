@@ -1282,22 +1282,32 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
 }
 
 bool MatchRegisterCopyPattern(const std::vector<int64_t> &inputShape, const std::vector<int64_t> &outputShape) {
-    // [1,a,b] --> Reshape --> [a,b]
-    if (inputShape.size() == 3 && outputShape.size() == 2 && inputShape[0] == 1 && inputShape[1] == outputShape[0] && inputShape[2] == outputShape[1]) {
-        return true;
+    // 定义所有有效的模式：{input_size, output_size, 验证函数}
+    using Validator = std::function<bool(const std::vector<int64_t>&, const std::vector<int64_t>&)>;
+    
+    static const std::vector<std::pair<std::pair<size_t, size_t>, Validator>> patterns = {
+        {{3, 2}, [](const auto& in, const auto& out) {
+            return in[0] == 1 && in[1] == out[0] && in[2] == out[1];
+        }},
+        {{2, 3}, [](const auto& in, const auto& out) {
+            return out[0] == 1 && in[0] == out[1] && in[1] == out[2];
+        }},
+        {{4, 2}, [](const auto& in, const auto& out) {
+            return in[0] == 1 && in[1] == 1 && in[2] == out[0] && in[3] == out[1];
+        }},
+        {{2, 4}, [](const auto& in, const auto& out) {
+            return out[0] == 1 && out[1] == 1 && in[0] == out[2] && in[1] == out[3];
+        }}
+    };
+    
+    for (const auto& [sizes, validator] : patterns) {
+        if (inputShape.size() == sizes.first && 
+            outputShape.size() == sizes.second &&
+            validator(inputShape, outputShape)) {
+            return true;
+        }
     }
-    // [a,b] --> Reshape --> [1,a,b]
-    if (inputShape.size() == 2 && outputShape.size() == 3 && outputShape[0] == 1 && inputShape[0] == outputShape[1] && inputShape[1] == outputShape[2]) {
-        return true;
-    }
-    // [1,1,a,b] --> Reshape --> [a,b]
-    if (inputShape.size() == 4 && outputShape.size() == 2 && inputShape[0] == 1 && inputShape[1] == 1 && inputShape[1] == 1 && inputShape[2] == outputShape[0] && inputShape[3] == outputShape[1]) {
-        return true;
-    }
-    // [a,b] --> Reshape --> [1,1,a,b]
-    if (inputShape.size() == 2 && outputShape.size() == 4 && outputShape[0] == 1 && outputShape[1] == 1 && outputShape[1] == 1 && inputShape[0] == outputShape[2] && inputShape[3] == outputShape[1]) {
-        return true;
-    }
+    
     return false;
 }
 
@@ -1334,7 +1344,7 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
         validShapeDefault = SymbolicScalar::FromConcrete(dstshape);
     }
     auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
-    if (ReshapeNeedCopy(operand) && MatchRegisterCopyPattern(operand.GetShape(), dstshape)) {
+    if (ReshapeNeedCopy(operand) && !MatchRegisterCopyPattern(operand.GetShape(), dstshape)) {
         Tensor copyOperand(operand.GetStorage()->Datatype(), operand.GetShape(), "", operand.Format());
         copyOperand.GetStorage()->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
         CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
