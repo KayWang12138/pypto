@@ -185,6 +185,7 @@ void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
 
 Status InsertOpForViewAssemble::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start InsertOpForViewAssemble");
+    InsertAssembleCopy(function);
     if (JudgedViewAssemble(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Function, "JudgedViewAssemble Failed.");
         return FAILED;
