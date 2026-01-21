@@ -58,7 +58,7 @@ def quant_lightning_indexer_prolog(
 
 @torch.library.impl(pyptolib, "quant_lightning_indexer_prolog", "NPU")
 def quant_lightning_indexer_prolog(
-    self, qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
+    qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
 ):
     return npu_quant_lightning_indexer_prolog(
         qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
@@ -67,7 +67,16 @@ def quant_lightning_indexer_prolog(
 
 class QuantLightningIndexerProlog(torch.nn.Module):
     def forward(
-        qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
+        self,
+        qr,
+        idx_wq_b,
+        x,
+        weights_proj,
+        cos,
+        sin,
+        hadamard,
+        qr_scale,
+        idx_wq_b_scale,
     ):
         for _ in range(20):
             torch.add(qr_scale, 0)
