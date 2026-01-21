@@ -33,14 +33,14 @@ void AxisCombineMarker::Init(Function &function) {
     size_t i = 0U;
     std::map<int, size_t> opMagic2Idx;
     opList_ = function.Operations().DuplicatedOpList();
-    for (const auto op : opList) {
+    for (const auto op : opList_) {
         opMagic2Idx[op->GetOpMagic()] = i;
         i++;
     }
-    opInGraph_.resize(opList.size());
-    opOutGraph_.resize(opList.size());
-    for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
-        const auto& op = opList[opIdx];
+    opInGraph_.resize(opList_.size());
+    opOutGraph_.resize(opList_.size());
+    for (size_t opIdx = 0; opIdx < opList_.size(); opIdx++) {
+        const auto& op = opList_[opIdx];
         for (const auto producer : op->ProducerOpsOrdered()) {
             opInGraph_[opMagic2Idx[op->GetOpMagic()]].push_back(opMagic2Idx[producer->GetOpMagic()]);
         }
@@ -109,9 +109,8 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
         auto inputTensor = op->GetIOperands()[0];
         auto outputTensor = op->GetOOperands()[0];
         if (tensorStatus_[inputTensor] == AxisReorderStatus::ENABLE) {
-            auto dimSize = inputTensor->GetShape();
-            int axis{-1};
-            op.GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM", axis);
+            auto dimSize = static_cast<int>(inputTensor->GetShape().size());
+            int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
             // 在尾轴为1的条件下，要求尾轴没有发生broadcast。[n, 1, 1]->expand->[n, 8, 1]??
             if (axis < dimSize - 1) {
                 tensorStatus_[outputTensor] = AxisReorderStatus::ENABLE;
@@ -135,8 +134,7 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
         auto inputTensor = op->GetIOperands()[0];
         auto outputTensor = op->GetOOperands()[0];
         auto dimSize = inputTensor->GetShape();
-        int axis{-1};
-        op.GetIntAttribute(OP_ATTR_PREFIX + "AXIS", axis);
+        int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
         if (dimSize > 1 && axis < dimSize - 2) {
             tensorStatus_[outputTensor] = tensorStatus_[inputTensor];
             return;
@@ -152,7 +150,9 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
     }
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
         OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST) {
-        for (auto inputTensor : op.GetIOperands()) {
+        auto inputTensor = op->GetIOperands()[0];
+        auto outputTensor = op->GetOOperands()[0];
+        for (auto inputTensor : op->GetIOperands()) {
             if (tensorStatus_[inputTensor] == AxisReorderStatus::DISABLE) {
                 tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
                 return;
@@ -165,15 +165,17 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
         }
         return;
     }
+    auto outputTensor = op->GetOOperands()[0];
     tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
 }
 
 void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
+    auto op = opList_[opIdx];
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
         OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
         op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-        auto outputTensor = op.GetOOperands()[0];
-        for (auto inputTensor : op.GetIOperands()) {
+        auto outputTensor = op->GetOOperands()[0];
+        for (auto inputTensor : op->GetIOperands()) {
             if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
                 tensorStatus_[inputTensor] = tensorStatus_[outputTensor];
             }
@@ -184,7 +186,7 @@ void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
 void AxisCombineMarker::ForwardVisit()
 {
     std::queue<size_t> procOpQueue;
-    std::vector<size_t> inDegree(opList.size(), 0);
+    std::vector<size_t> inDegree(opList_.size(), 0);
     for (size_t j = 0; j < opInGraph_.size(); ++j) {
         if (opInGraph_[j].empty()) {
             procOpQueue.push(j);
@@ -205,14 +207,14 @@ void AxisCombineMarker::ForwardVisit()
     }
 }
 
-void AxisCombineMarker::ForwardVisit()
+void AxisCombineMarker::BackwardVisit()
 {
     std::queue<size_t> procOpQueue;
-    std::vector<size_t> outDegree(opList.size(), 0);
+    std::vector<size_t> outDegree(opList_.size(), 0);
     for (size_t j = 0; j < opOutGraph_.size(); ++j) {
         if (opOutGraph_[j].empty()) {
             procOpQueue.push(j);
-            UpdateOpACEnableBackward(outIdx);
+            UpdateOpACEnableBackward(j);
         }
         outDegree[j] = opOutGraph_[j].size();
     }
@@ -220,7 +222,7 @@ void AxisCombineMarker::ForwardVisit()
         auto opIdx = procOpQueue.front();
         procOpQueue.pop();
         for (auto outIdx : opInGraph_[opIdx]) {
-            OutDegree[outIdx]--;
+            outDegree[outIdx]--;
             if (outDegree[outIdx] == 0) {
                 procOpQueue.push(outIdx);
                 UpdateOpACEnableBackward(outIdx);

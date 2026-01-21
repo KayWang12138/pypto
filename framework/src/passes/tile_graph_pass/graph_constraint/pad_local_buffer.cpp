@@ -407,11 +407,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
             if (in->tensor->GetRawDataSize() == 0) {
                 continue;
             }
-<<<<<<< HEAD
             if (function.paramConfigs_.combineAxis) {
-=======
-            if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
->>>>>>> a19b382 (fix(pass): Fix unalign combine axis bugs)
                 PadVectorForAxisCombine(op, in, visitedRaw);
             } else {
                 bool noPadding = false;
@@ -589,14 +585,10 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
 }
 
 Status PadLocalBuffer::RunOnFunction(Function &function) {
-<<<<<<< HEAD
     combineAxis = function.paramConfigs_.combineAxis;
     forceCombineAxis = function.paramConfigs_.forceCombineAxis;
     if (combineAxis) {
         APASS_LOG_INFO_F(Elements::Operation, "======> Start PadLocalBuffer in COMBINE_AXIS mode.");
-=======
-    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
->>>>>>> a19b382 (fix(pass): Fix unalign combine axis bugs)
         DoPadding(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> End PadLocalBuffer in COMBINE_AXIS mode.");
         return SUCCESS;

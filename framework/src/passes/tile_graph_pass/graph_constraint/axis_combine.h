@@ -40,6 +40,7 @@ public:
 private:
     Status AlignBroadCastOpInputs(Function &function, Operation &op);
     bool enableBrcb_{true};
+    AxisCombineMarker axisCombineMarker;
 };
 }
 #endif // AXIS_COMBINE_H

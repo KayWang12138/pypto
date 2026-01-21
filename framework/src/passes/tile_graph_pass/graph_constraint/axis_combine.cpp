@@ -76,24 +76,17 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
                 if (GetPaddingValue(srcTensor, padValue) != SUCCESS) {
                     return FAILED;
                 }
-<<<<<<< HEAD
-<<<<<<< HEAD
                 if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
                     return FAILED;
                 }
-=======
-                if (!enableBrcb_) {
-=======
-                if (!axisCombineMarker.IsTensorEnableAxisCombine(tensor)) {
->>>>>>> a19b382 (fix(pass): Fix unalign combine axis bugs)
+                if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
                     padValue = inputTensor[idx ^ 1]->GetShape().back();
                 }
                 AlignedIfNeed(alignedShape.back(), padValue);
->>>>>>> b2e4915 (fix(pass): Fix unalign combine axis bugs)
                 auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
                 alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
                 auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
-                if (!axisCombineMarker.IsTensorEnableAxisCombine(tensor)) {
+                if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
                     brcb.SetOpCode(Opcode::OP_EXPAND);
                     if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
                         brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", inputTensor[idx ^ 1]->GetDynValidShape());

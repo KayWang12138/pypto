@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef AXIS_COMBINE_H
-#define AXIS_COMBINE_H
+#ifndef AXIS_COMBINE_MARKER_H
+#define AXIS_COMBINE_MARKER_H
 
 #include <vector>
 
@@ -30,7 +30,7 @@ namespace npu::tile_fwk {
 class AxisCombineMarker
 {
   public:
-    AxisCombineMarker(Function &function) = default;
+    AxisCombineMarker() = default;
     ~AxisCombineMarker() = default;
     bool IsTensorEnableAxisCombine(LogicalTensorPtr tensor);
     void Run(Function &function);
@@ -51,3 +51,4 @@ class AxisCombineMarker
     std::unordered_map<LogicalTensorPtr, AxisReorderStatus> tensorStatus_;
 };
 }
+#endif
