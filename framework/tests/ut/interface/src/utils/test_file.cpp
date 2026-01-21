@@ -28,3 +28,22 @@ TEST(FileTest, NullptrTest) {
     bool ret = SaveFile("", &a, 1);
     EXPECT_EQ(ret, false);
 }
+
+TEST(FileTest, ReadBytesFromFileTest) {
+    char a = 'a';
+    std::vector<char> data{a};
+
+    bool ret = ReadBytesFromFile("", data);
+    EXPECT_EQ(ret, false);
+
+    ret = ReadBytesFromFile("/not_exist/test.log", data);
+    EXPECT_EQ(ret, false);
+}
+
+TEST(FileTest, LoadFileTest) {
+    uint8_t a = 255;
+    std::vector<uint8_t> data{a};
+
+    bool ret = LoadFile("");
+    EXPECT_EQ(ret, false);
+}
