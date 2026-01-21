@@ -42,6 +42,7 @@ private:
     bool NeedInsertCopy(LogicalTensorPtr &assembleOut);
     void InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp);
     void AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input);
+    void AddCopyDDROp(Function &function, Operation *cons, LogicalTensorPtr &input);
     void InsertAssembleCopy(Function &function);
 
     std::set<LogicalTensorPtr> assembleOutSet_;
