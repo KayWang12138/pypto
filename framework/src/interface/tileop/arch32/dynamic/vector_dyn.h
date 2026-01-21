@@ -180,64 +180,6 @@ namespace TileOp {
 #undef T_UNA
 #undef V_UNA_FUNC
 
-constexpr uint32_t BF16_FP32_MAN_LEN = 16;
-
-// fp32->bf16, rint mode
-INLINE bfloat16_t Fp32ToBf16R(const float fVal) {
-    union Bfloat16Union {
-        bfloat16_t bVal;
-        uint16_t bNum;
-    } bf16Union = {};
-    union Float32Union {
-        float fVal;
-        uint32_t fNum;
-    } fp32Union = {};
-    fp32Union.fVal = fVal;
-    uint32_t x = fp32Union.fNum;
-    // 处理特殊值
-    uint32_t exp = x & 0x7F800000;
-    if (exp == 0x7F800000) { // NaN 或无穷大
-        bf16Union.bNum = static_cast<uint16_t>((x >> BF16_FP32_MAN_LEN) | 0x7F80);
-        return bf16Union.bVal;
-    }
-    if (exp == 0) { // 0或非规格化
-        bf16Union.bNum = static_cast<uint16_t>((x >> BF16_FP32_MAN_LEN) & 0x8000);
-        return bf16Union.bVal;
-    }
-    // RINT舍入
-    uint32_t lsb = (x >> BF16_FP32_MAN_LEN) & 1;
-    uint32_t rounding_bit = (x >> (BF16_FP32_MAN_LEN - 1)) & 1;
-    uint32_t sticky = x & 0x7FFF;
-
-    uint32_t round_up = 0;
-    if (rounding_bit) {
-        round_up = (sticky != 0) ? 1 : lsb;
-    }
-
-    uint32_t result = (x + (round_up << (BF16_FP32_MAN_LEN - 1))) >> BF16_FP32_MAN_LEN;
-    // 溢出检查
-    if ((result & 0x7F80) == 0x7F80) {
-        result = (result & 0x8000) | 0x7F80;
-    }
-    bf16Union.bNum = static_cast<uint16_t>(result);
-    return bf16Union.bVal;
-}
-
-// bf16->fp32
-INLINE float Bf16ToFp32(const bfloat16_t bVal) {
-    union Bfloat16Union {
-        bfloat16_t bVal;
-        uint16_t bNum;
-    } bf16Union = {};
-    union Float32Union {
-        float fVal;
-        uint32_t fNum;
-    } fp32Union = {};
-    bf16Union.bVal = bVal;
-    fp32Union.fNum = static_cast<uint32_t>(bf16Union.bNum) << BF16_FP32_MAN_LEN;
-    return fp32Union.fVal;
-}
-
 template <typename T, unsigned TShape0, unsigned TShape1, unsigned TShape2, unsigned srcRawShape1,
     unsigned srcRawShape2, unsigned axis0, unsigned axis1>
 TILEOP void DynTtransposeMoveOutBase(__gm__ T *dst, __ubuf__ T *src, unsigned dstShape1, unsigned dstShape2) {
@@ -2392,7 +2334,7 @@ TILEOP void IndexAddPublicTool(
     uint32_t repeatTime = TShape3 / rptElm;
     uint32_t remainElm = TShape3 % rptElm;
     if (repeatTime) {
-        if (static_cast<float>(alpha) != 1.0f) {
+        if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
             vmuls(src + srcOffset, src + srcOffset, (T)alpha, repeatTime, 1, 1, 8, 8);
             pipe_barrier(PIPE_V);
             if constexpr (std::is_same_v<T2, bfloat16_t>) {
@@ -2413,7 +2355,7 @@ TILEOP void IndexAddPublicTool(
     }
     if (remainElm) {
         SetContinuousMask(remainElm);
-        if (static_cast<float>(alpha) != 1.0f) {
+        if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
             vmuls(src + srcOffset + repeatTime * rptElm, src + srcOffset + repeatTime * rptElm, (T)alpha, 1, 1, 1, 8, 8);
             pipe_barrier(PIPE_V);
             if constexpr (std::is_same_v<T2, bfloat16_t>) {
@@ -2500,7 +2442,7 @@ TILEOP void IndexAddAxis3(__ubuf__ T *dst, __ubuf__ T *src, __ubuf__ T1 *indices
     uint64_t dstOffset = 0;
     uint64_t srcOffset = 0;
     // 乘法
-    if (static_cast<float>(alpha) != 1.0f) {
+    if (abs(static_cast<float>(alpha) - 1) > EPSILON) {
         for (uint32_t i = 0; i < TShape0; ++i) {
             for (uint32_t j = 0; j < TShape1; ++j) {
                 for (uint32_t k = 0; k < TShape2; ++k) {
@@ -2871,17 +2813,6 @@ TILEOP void DynTscatterElementS(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T1 *
     wait_flag(PIPE_S, PIPE_V, EVENT_ID7);
 }
 
-template <typename T>
-INLINE void ScatterReduceOp(__ubuf__ T *dst, int dstOffset, __ubuf__ T *src2, int src2Offset, unsigned reduceOp) {
-    if (reduceOp == 0) {
-        dst[dstOffset] = src2[src2Offset];
-    } else if (reduceOp == 1) {
-        dst[dstOffset] = static_cast<T>(static_cast<float>(src2[src2Offset]) + static_cast<float>(dst[dstOffset]));
-    } else {
-        dst[dstOffset] = static_cast<T>(static_cast<float>(src2[src2Offset]) * static_cast<float>(dst[dstOffset]));
-    }
-}
-
 // 2-4dim
 template <typename T, typename T2, unsigned src1RawShape1, unsigned src1RawShape2, unsigned src1RawShape3,
     unsigned src2RawShape1, unsigned src2RawShape2, unsigned src2RawShape3,
@@ -2913,7 +2844,13 @@ TILEOP void DynTscatter(__ubuf__ T *dst, __ubuf__ T2 *src1, __ubuf__ T *src2, un
                         dstOffset = i * dstRawShape1 * dstRawShape2 * dstRawShape3 +
                             j * dstRawShape2 * dstRawShape3 + k * dstRawShape3 + index;
                     }
-                    ScatterReduceOp<T>(dst, dstOffset, src2, src2Offset, reduceOp);
+                    if constexpr (reduceOp == 0) {
+                        dst[dstOffset] = src2[src2Offset];
+                    } else if constexpr (reduceOp == 1) {
+                        dst[dstOffset] = src2[src2Offset] + dst[dstOffset];
+                    } else {
+                        dst[dstOffset] = src2[src2Offset] * dst[dstOffset];
+                    }
                 }
             }
         }
@@ -3106,6 +3043,200 @@ TILEOP void DynTgatherFromUB_(__ubuf__ T *dst, __ubuf__ T *src0, __ubuf__ T2 *sr
     if constexpr (after == 1) {
         set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
         wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    }
+}
+
+template <typename T, bool accumulate>
+TILEOP void IndexPutCopyOutBase(__gm__ T *dst, __ubuf__ T *src, uint16_t nBurst, uint32_t lenBurst) {
+    if constexpr (accumulate) {
+        SetAtomicAddition<T>();
+    }
+    if constexpr (sizeof(T) == 2) {
+        copy_ubuf_to_gm_align_b16(
+            dst, src, 0 /*sid*/, nBurst /*nBurst*/, lenBurst * sizeof(T) /*lenBurst*/,
+            0 /*left padding count*/, 0 /*right padding count*/, 0 /*ubGap*/, 0 /*gmGap*/);
+    } else {
+        copy_ubuf_to_gm_align_b32(
+            dst, src, 0 /*sid*/, nBurst /*nBurst*/, lenBurst * sizeof(T) /*lenBurst*/,
+            0 /*left padding count*/, 0 /*right padding count*/, 0 /*ubGap*/, 0 /*gmGap*/);
+    }
+    if constexpr (accumulate) {
+        set_atomic_none();
+    }
+}
+
+/*
+ * T self/values 类型
+ * T2 src2(indices) 类型
+ * dst [GmShape0, GmShape1, GmShape2, GmShape3]
+ * src1/values: [Tshape0(tile轴), src1RawShape1 src1Rawshape2, src1Rawshape3]
+ * src2Dim0: [Tshape0]
+ * dstRank: dst/self归一化前的有效秩
+ * src1Rank = dstRank - indicesSize + 1
+ * indicesSize = 1
+ */
+template <typename T, typename T2, unsigned dstRank, unsigned src1RawShape1, unsigned src1RawShape2,
+    unsigned src1RawShape3, bool accumulate>
+TILEOP void DynTIndexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, unsigned TShape0,
+    unsigned GmShape0, unsigned GmShape1, unsigned GmShape2, unsigned GmShape3) {
+    for (auto i = 0; i < TShape0; i++) {
+        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+        T2 indexDim0 = *(reinterpret_cast<__ubuf__ T2 *>(src2Dim0 + i));
+        if constexpr (dstRank != 1) {
+            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+        }
+        uint64_t dstOffset = 0;
+        uint64_t src1Offset = 0;
+        uint64_t ubNum = 1;
+        uint16_t nBurst = 1;
+        uint32_t lenBurst = 1;
+        if constexpr (dstRank == 1) {
+            dstOffset = indexDim0;
+            src1[0] = src1[i];
+            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
+                dst + dstOffset, src1, nBurst, lenBurst);
+        } else if constexpr (dstRank == 2) {
+            dstOffset = indexDim0 * GmShape3;
+            ubNum = src1RawShape3;
+            src1Offset = i * ubNum;
+            lenBurst = GmShape3;
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
+                dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
+        } else if constexpr (dstRank == 3) {
+            dstOffset = indexDim0 * GmShape3 * GmShape2;
+            ubNum = src1RawShape3 * src1RawShape2;
+            src1Offset = i * ubNum;
+            nBurst = GmShape2;
+            lenBurst = GmShape3;
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
+                dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
+        } else if constexpr (dstRank == 4) {
+            dstOffset = indexDim0 * GmShape3 * GmShape2 * GmShape1;
+            ubNum = src1RawShape3 * src1RawShape2 * src1RawShape1;
+            src1Offset = i * ubNum;
+            nBurst = GmShape1 * GmShape2;
+            lenBurst = GmShape3;
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
+                dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
+        }
+    }
+}
+
+/* indicesSize = 2 */
+template <typename T, typename T2, unsigned dstRank, unsigned src1RawShape1, unsigned src1RawShape2,
+    unsigned src1RawShape3, bool accumulate>
+TILEOP void DynTIndexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, __ubuf__ T2 *src2Dim1,
+    unsigned TShape0, unsigned GmShape0, unsigned GmShape1, unsigned GmShape2, unsigned GmShape3) {
+    for (int i = 0; i < TShape0; i++) {
+        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+        T2 indexDim0 = *(reinterpret_cast<__ubuf__ T2 *>(src2Dim0 + i));
+        T2 indexDim1 = *(reinterpret_cast<__ubuf__ T2 *>(src2Dim1 + i));
+        if constexpr (dstRank != 2) {
+            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+        }
+        uint64_t dstOffset = 0;
+        uint64_t src1Offset = 0;
+        uint64_t ubNum = 1;
+        uint16_t nBurst = 1;
+        uint32_t lenBurst = 1;
+        if constexpr (dstRank == 2) {
+            dstOffset = indexDim0 * GmShape3 + indexDim1;
+            src1[0] = src1[i];
+            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
+                dst + dstOffset, src1, nBurst, lenBurst);
+        } else if constexpr (dstRank == 3) {
+            dstOffset = indexDim0 * GmShape3 * GmShape2 + 
+                indexDim1 * GmShape3;
+            ubNum = src1RawShape3;
+            src1Offset = i * ubNum;
+            lenBurst = GmShape3;
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
+                dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
+        } else if constexpr (dstRank == 4) {
+            dstOffset = indexDim0 * GmShape3 * GmShape2 * GmShape1 + 
+                indexDim1 * GmShape3 * GmShape2;
+            ubNum = src1RawShape3 * src1RawShape2;
+            src1Offset = i * ubNum;
+            nBurst = GmShape2;
+            lenBurst = GmShape3;
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
+                dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
+        }
+    }
+}
+
+/* indicesSize = 3 */
+template <typename T, typename T2, unsigned dstRank, unsigned src1RawShape1, unsigned src1RawShape2,
+    unsigned src1RawShape3, bool accumulate>
+TILEOP void DynTIndexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, __ubuf__ T2 *src2Dim1,
+    __ubuf__ T2 *src2Dim2, unsigned TShape0, unsigned GmShape0, unsigned GmShape1, unsigned GmShape2,
+    unsigned GmShape3) {
+    for (int i = 0; i < TShape0; i++) {
+        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+        T2 indexDim0 = *(reinterpret_cast<__ubuf__ T2 *>(src2Dim0 + i));
+        T2 indexDim1 = *(reinterpret_cast<__ubuf__ T2 *>(src2Dim1 + i));
+        T2 indexDim2 = *(reinterpret_cast<__ubuf__ T2 *>(src2Dim2 + i));
+        if constexpr (dstRank != 3) {
+            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+        }
+        uint64_t dstOffset = 0;
+        uint64_t src1Offset = 0;
+        uint64_t ubNum = 1;
+        uint16_t nBurst = 1;
+        uint32_t lenBurst = 1;
+        if constexpr (dstRank == 3) {
+            dstOffset = indexDim0 * GmShape3 * GmShape2 +
+                indexDim1 * GmShape3 + indexDim2;
+            src1[0] = src1[i];
+            set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
+                dst + dstOffset, src1, nBurst, lenBurst);
+        } else if constexpr (dstRank == 4) {
+            dstOffset = indexDim0 * GmShape3 * GmShape2 * GmShape1 +
+                indexDim1 * GmShape3 * GmShape2 + indexDim2 * GmShape3;
+            ubNum = src1RawShape3;
+            src1Offset = i * ubNum;
+            lenBurst = GmShape3;
+            TileOp::IndexPutCopyOutBase<T, accumulate>(
+                dst + dstOffset, src1 + src1Offset, nBurst, lenBurst);
+        }
+    }
+}
+
+/* indicesSize = 4 */
+template <typename T, typename T2, unsigned dstRank, unsigned src1RawShape1, unsigned src1RawShape2,
+    unsigned src1RawShape3, bool accumulate>
+TILEOP void DynTIndexPut(__gm__ T *dst, __ubuf__ T *src1, __ubuf__ T2 *src2Dim0, __ubuf__ T2 *src2Dim1,
+    __ubuf__ T2 *src2Dim2, __ubuf__ T2 *src2Dim3, unsigned TShape0, unsigned GmShape0, unsigned GmShape1,
+    unsigned GmShape2, unsigned GmShape3) {
+    for (int i = 0; i < TShape0; i++) {
+        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+        T2 indexDim0 = *(reinterpret_cast<__ubuf__ T2 *>(src2Dim0 + i));
+        T2 indexDim1 = *(reinterpret_cast<__ubuf__ T2 *>(src2Dim1 + i));
+        T2 indexDim2 = *(reinterpret_cast<__ubuf__ T2 *>(src2Dim2 + i));
+        T2 indexDim3 = *(reinterpret_cast<__ubuf__ T2 *>(src2Dim3 + i));
+        src1[0] = src1[i];
+        set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+        wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+        uint64_t dstOffset = indexDim0 * GmShape3 * GmShape2 * GmShape1 +
+            indexDim1 * GmShape3 * GmShape2 + indexDim2 * GmShape3 + indexDim3;
+        uint64_t ubNum = 1;
+        uint16_t nBurst = 1;
+        uint32_t lenBurst = 1;
+        TileOp::IndexPutCopyOutBase<T, accumulate>(
+            dst + dstOffset, src1, nBurst, lenBurst);
     }
 }
 

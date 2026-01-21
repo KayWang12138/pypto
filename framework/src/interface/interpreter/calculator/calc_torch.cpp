@@ -91,13 +91,6 @@ static torch::Tensor View(const torch::Tensor &self, const std::vector<int64_t> 
     return self.as_strided(shape, self.strides(), storageOffset);
 }
 
-static void LogicalView(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Offset offset) {
-    auto shape = out->GetShape();
-    auto tself = From(self);
-    auto view = View(tself, shape, offset);
-    From(out) = view;
-}
-
 static bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, double atol, double rtol) {
     return From(self).allclose(From(other), atol, rtol);
 }
@@ -605,6 +598,14 @@ void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
     torch::cumsum_out(output, input, axis);
 }
 
+void IndexPut(LogicalTensorDataPtr out, LogicalTensorDataPtr self, std::vector<LogicalTensorDataPtr> indices, LogicalTensorDataPtr values, bool accumulate) {
+    c10::List<c10::optional<at::Tensor>> indicesList;
+    for (const auto idx : indices) {
+        indicesList.push_back(From(idx));
+    }
+    From(out) = torch::index_put(From(self), indicesList, From(values), accumulate);
+}
+
 static void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans) {
     if (trans) {
         From(out) = From(self).transpose_(-1, AXIS_TO_LAST);
@@ -906,8 +907,8 @@ static void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, L
 
 static const std::vector<std::string> scatterModeString = {"add", "multiply"};
 
-static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src,
-    int axis, int reduce) {
+static void ScatterElement(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
+    const Element &src, int axis, int reduce) {
     auto output = From(out);
     auto inputSelf = From(self);
     auto inputIndices = From(index);
@@ -916,6 +917,20 @@ static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
         From(out) = torch::scatter(inputSelf, axis, inputIndices, From(src));
     } else {
         From(out) = torch::scatter(inputSelf, axis, inputIndices, From(src), scatterModeString.at(reduce - 1));
+    }
+}
+
+static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
+    LogicalTensorDataPtr src, int axis, int reduce) {
+    auto output = From(out);
+    auto inputSelf = From(self);
+    auto inputIndices = From(index);
+    auto inputSrc = From(src);
+
+    if (reduce == 0) {
+        From(out) = torch::scatter(inputSelf, axis, inputIndices, inputSrc);
+    } else {
+        From(out) = torch::scatter(inputSelf, axis, inputIndices, inputSrc, scatterModeString.at(reduce - 1));
     }
 }
 
@@ -964,13 +979,14 @@ static struct CalcOps calcOps = {
     .GatherElements = GatherElements,
     .IndexAdd = IndexAdd,
     .CumSum = CumSum,
+    .IndexPut = IndexPut,
     .Reshape = Reshape,
     .Permute = Permute,
     .Transpose = Transpose,
     .ReduceAcc = ReduceAcc,
     .Copy = Copy,
     .ScatterUpdate = ScatterUpdate,
-    .LogicalView = LogicalView,
+    .ScatterElement = ScatterElement,
     .Scatter = Scatter,
     .FormatND2NZ = FormatND2NZ,
     .FormatNZ2ND = FormatNZ2ND,

@@ -90,7 +90,7 @@ public:
     std::string GenGatherElementOp() const;
 
     std::string GenRangeOp() const;
-    std::string PrintRangeTileTensor(std::string startVal, std::string stepVal) const;
+    std::string PrintRangeTileTensor(const std::string& startVal, const std::string& stepVal, const std::string& tileIdxExpr) const;
     std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;
@@ -98,10 +98,13 @@ public:
 
     std::string GenIndexAddOp() const;
 
+    std::string GenIndexPutOp() const;
+
     std::string GenIndexOutCastOp() const;
 
     std::string GenCumSumOp() const;
     std::string PrintGatherDynamicUnaligned() const;
+    std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
     std::string GenGatherFromUBOp() const;
 
@@ -352,8 +355,14 @@ private:
     std::string PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const;
     std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;
     std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
+    std::string PrintScatterTileTensor(const PrintScatterParam &param) const;
 
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
+    std::string PrintIndexAddTileTensor(const PrintIndexAddParam &param) const;
+
+    std::string PrintIndexPut(const PrintIndexPutParam &param) const;
+    std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
+    std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
 

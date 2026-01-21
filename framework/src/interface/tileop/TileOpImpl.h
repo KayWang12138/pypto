@@ -40,12 +40,16 @@
 #include "vector/reduce.h"
 #include "vector/sort.h"
 #include "vector/mte.h"
+#include "vector/logicalnot.h"
 #include "vector/gather.h"
+#include "vector/indexadd.h"
+#include "vector/scatter.h"
 #include "vector/expand.h"
 #include "vector/extract.h"
 #include "vector/pair_binary.h"
 #include "vector/where.h"
 #include "vector/vector_dup.h"
+#include "vector/range.h"
 #include "vector/onehot.h"
 #endif
 

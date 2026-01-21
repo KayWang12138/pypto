@@ -209,16 +209,23 @@ void ExecuteOpTransposeMoveOut(ExecuteOperationContext *ctx) {
     auto iop = ctx->ioperandDataViewList->at(0);
 
     std::vector<int64_t> axises = ctx->op->GetVectorIntAttribute(OP_ATTR_PREFIX + "shape");
-    auto oopCopy = oop;
     if (std::dynamic_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute())) {
         auto copyoutAttr = std::dynamic_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute());
         std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetShape());
-        std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetToOffset());
-        oopCopy = oop->View(shape, toOffset);
+        if (ctx->op->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
+            std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetToOffset());
+            auto oopCopy = oop->View(shape, toOffset);
+            return calc::Transpose(oopCopy, iop, axises[0], axises[1]);
+        } else {
+            std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetFromOffset());
+            auto iopCopy = iop->View(shape, fromOffset);
+            return calc::Transpose(oop, iopCopy, axises[0], axises[1]);
+        }
     }
-    calc::Transpose(oopCopy, iop, axises[0], axises[1]);
+    calc::Transpose(oop, iop, axises[0], axises[1]);
 }
 REGISTER_CALC_OP(OP_TRANSPOSE_MOVEOUT, Opcode::OP_TRANSPOSE_MOVEOUT, ExecuteOpTransposeMoveOut);
+REGISTER_CALC_OP(OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEIN, ExecuteOpTransposeMoveOut);
 
 void ExecuteOpTranspose(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
@@ -261,7 +268,7 @@ void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, ExecuteOpIndexOutcast);
 
-void ExecuteOpScatter(ExecuteOperationContext *ctx) {
+void ExecuteOpScatterElement(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == SIZE_TWO);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto self = ctx->ioperandDataViewList->at(0);
@@ -271,9 +278,22 @@ void ExecuteOpScatter(ExecuteOperationContext *ctx) {
     ctx->op->GetAttr(OpAttributeKey::scalar, src);
     int reduce = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "scatter_mode");
 
+    calc::ScatterElement(oop, self, indices, src, axis, reduce);
+}
+REGISTER_CALC_OP(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ExecuteOpScatterElement);
+
+void ExecuteOpScatter(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto self = ctx->ioperandDataViewList->at(0);
+    auto indices = ctx->ioperandDataViewList->at(1);
+    auto src = ctx->ioperandDataViewList->at(2);
+    int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    int reduce = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "scatter_mode");
+
     calc::Scatter(oop, self, indices, src, axis, reduce);
 }
-REGISTER_CALC_OP(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ExecuteOpScatter);
+REGISTER_CALC_OP(OP_SCATTER, Opcode::OP_SCATTER, ExecuteOpScatter);
 
 template <typename T, DataType dataType>
 Element GetEndBySize(Element start, Element size, Element step) {
@@ -379,6 +399,22 @@ void ExecuteOpCumSum(ExecuteOperationContext *ctx) {
     calc::CumSum(output, input, axis);
 }
 REGISTER_CALC_OP(OP_CUM_SUM, Opcode::OP_CUM_SUM, ExecuteOpCumSum);
+
+void ExecuteOpIndexPut(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() <= SIZE_SIX);
+    auto out = ctx->ooperandInplaceDataViewList->at(0);
+    auto self = ctx->ioperandDataViewList->at(0);
+    auto values = ctx->ioperandDataViewList->at(1);
+    std::vector<LogicalTensorDataPtr> indices;
+    for (int i = SIZE_TWO; i < static_cast<int>(ctx->ioperandDataViewList->size()); i++) {
+        auto indicesTemp = ctx->ioperandDataViewList->at(i);
+        indices.push_back(indicesTemp);
+    }
+    bool accumulate = ctx->op->GetBoolAttribute(OpAttributeKey::accumulate);
+    calc::IndexPut(out, self, indices, values, accumulate);
+}
+REGISTER_CALC_OP(OP_INDEX_PUT, Opcode::OP_INDEX_PUT, ExecuteOpIndexPut);
 
 void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);

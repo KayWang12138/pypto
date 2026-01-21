@@ -130,7 +130,7 @@ TEST(IRTEST, TestControlFlow) {
     auto func = builder.CreateFunction("test_control", FunctionKind::ControlFlow, sig);
     module->AddFunction(func);
     module->SetProgramEntry(func);
-        // 进入函数体作用域 
+        // 进入函数体作用域
     builder.EnterFunctionBody(ctx, func);
 
     // for i = 0 to batch step 1
@@ -218,8 +218,8 @@ TEST(IRTEST, TestControlFlow) {
 }
 
 std::shared_ptr<Function> TestBlockFunction(
-    const std::vector<TileValuePtr> &inputArgs,
-    const std::vector<TileValuePtr> &outputArgs,
+    const std::vector<TensorValuePtr> &inputArgs,
+    const std::vector<TensorValuePtr> &outputArgs,
     [[maybe_unused]]const std::vector<ScalarValuePtr> &indices) 
 {
     IRBuilderContext ctx;
@@ -227,15 +227,23 @@ std::shared_ptr<Function> TestBlockFunction(
     FunctionSignature sig = FunctionSignature(inputArgs, outputArgs);
     sig.results.push_back(std::make_shared<ScalarValue>(DataType::INT32));
 
-    auto func = builder.CreateFunction("test_all_ops", FunctionKind::ControlFlow, sig);
+    auto func = builder.CreateFunction("test_all_ops", FunctionKind::Block, sig);
     builder.EnterFunctionBody(ctx, func);
-
+    // STUB LeafFuncAttribute
+    auto blockFunc = std::dynamic_pointer_cast<pto::BlockFunction>(func);
+    auto leafFuncAttr = std::make_shared<npu::tile_fwk::LeafFuncAttribute>();
+    leafFuncAttr->coreType = CoreType::AIV;
+    blockFunc->SetLeafFuncAttribute(leafFuncAttr);
+    std::vector<int64_t> shape = {64, 64};
     // tensorAdd = add(input[0], input[1])
-    auto tileAdd = builder.CreateTile(ctx, inputArgs[0]->GetShape(), DataType::FP32, "tensorAdd");
-    auto addOp = builder.CreateBinaryOp(Opcode::OP_ADD, inputArgs[0], inputArgs[1], tileAdd);
+    auto tileAdd = builder.CreateTile(ctx, shape, DataType::FP32, "tensorAdd");
+    auto tileAdd1 = builder.CreateTile(ctx, shape, DataType::FP32, "tensorAdd1");
+    auto tileAdd2 = builder.CreateTile(ctx, shape, DataType::FP32, "tensorAdd2");
+    auto addOp = builder.CreateBinaryOp(Opcode::OP_ADD, tileAdd1, tileAdd2, tileAdd);
     builder.Emit(ctx, addOp);
 
-    auto divOp = builder.CreateBinaryOp(Opcode::OP_DIV, inputArgs[0], tileAdd, outputArgs[0]);
+    auto tileOut = builder.CreateTile(ctx, shape, DataType::FP32, "tensorAdd2");
+    auto divOp = builder.CreateBinaryOp(Opcode::OP_DIV, tileAdd1, tileAdd, tileOut);
     builder.Emit(ctx, divOp);
 
     builder.CreateReturn(ctx, {});
@@ -245,4 +253,146 @@ std::shared_ptr<Function> TestBlockFunction(
     return func;
 }
 
+TEST(IRTEST, TestDynControlFlow)
+{
+    constexpr int LOOP_ITERATION = 8;
+    std::vector<int64_t> shape = {512, 64 * LOOP_ITERATION};
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "TestNewIR";
+    FUNCTION(funcName, {inputA, inputB}, {output}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, npu::tile_fwk::LoopRange(LOOP_ITERATION)) {
+            CallBlock(TestBlockFunction, {inputA, inputB}, {output}, {i});
+        }
+    }
+}
+
+std::shared_ptr<Function> TestBlockFunctionCoa1(
+    const std::vector<TensorValuePtr> &inputArgs,
+    const std::vector<TensorValuePtr> &outputArgs,
+    [[maybe_unused]]const std::vector<ScalarValuePtr> &indices)
+{
+    IRBuilderContext ctx;
+    IRBuilder builder;
+
+    auto createConst = [&](int n) {
+        return builder.CreateConst(ctx, int64_t(n), "const_" + std::to_string(n));
+    };
+
+    FunctionSignature sig = FunctionSignature(inputArgs, outputArgs);
+    sig.results.push_back(std::make_shared<ScalarValue>(DataType::INT32));
+
+    auto func = builder.CreateFunction("test_coa1", FunctionKind::Block, sig);
+    builder.EnterFunctionBody(ctx, func);
+    // STUB LeafFuncAttribute
+    auto blockFunc = std::dynamic_pointer_cast<pto::BlockFunction>(func);
+    auto leafFuncAttr = std::make_shared<npu::tile_fwk::LeafFuncAttribute>();
+    leafFuncAttr->coreType = CoreType::AIV;
+    blockFunc->SetLeafFuncAttribute(leafFuncAttr);
+
+    auto tensorAAddr = builder.CreateScalar(ctx, DataType::UINT64, "_MARCRO_tensorAAddr");
+    auto tensorBAddr = builder.CreateScalar(ctx, DataType::UINT64, "_MARCRO_tensorBAddr");
+    auto tensorCAddr = builder.CreateScalar(ctx, DataType::UINT64, "_MARCRO_tensorCAddr");
+    auto scalarJ = builder.CreateScalar(ctx, DataType::INT64, "_SCALAR_J");
+    auto scalarI = builder.CreateScalar(ctx, DataType::INT64, "_SCALAR_I");
+    auto tensorARawShape_0 = builder.CreateScalar(ctx, DataType::UINT64, "_MARCRO_tensorARawShape_0");
+    auto tensorBRawShape_1 = builder.CreateScalar(ctx, DataType::UINT64, "_MARCRO_tensorBRawShape_1");
+
+    builder.Emit(ctx, builder.CreateCall1ScalarOp(
+        Opcode::OP_SCALAR_CALL_1, createConst(0), tensorAAddr,
+        "GET_TENSOR_ADDR"));
+    builder.Emit(ctx, builder.CreateCall1ScalarOp(
+        Opcode::OP_SCALAR_CALL_1, createConst(1), tensorBAddr,
+        "GET_TENSOR_ADDR"));
+    builder.Emit(ctx, builder.CreateCall1ScalarOp(
+        Opcode::OP_SCALAR_CALL_1, createConst(2), tensorCAddr,
+        "GET_TENSOR_ADDR"));
+    builder.Emit(ctx, builder.CreateCall1ScalarOp(
+        Opcode::OP_SCALAR_CALL_1, createConst(0), scalarJ,
+        "GET_COA"));
+    builder.Emit(ctx, builder.CreateCall1ScalarOp(
+        Opcode::OP_SCALAR_CALL_1, createConst(1), scalarI,
+        "GET_COA"));
+    builder.Emit(ctx, builder.CreateCall3ScalarOp(
+        Opcode::OP_SCALAR_CALL_3, createConst(0), createConst(2), createConst(0), tensorARawShape_0,
+        "GET_TENSOR_RAWSHAPE_BY_IDX"));
+    builder.Emit(ctx, builder.CreateCall3ScalarOp(
+        Opcode::OP_SCALAR_CALL_3, createConst(1), createConst(2), createConst(1), tensorBRawShape_1,
+        "GET_TENSOR_RAWSHAPE_BY_IDX"));
+
+    builder.CreateReturn(ctx, {});
+
+    ctx.PopScope();
+
+    return func;
+}
+
+std::shared_ptr<Function> TestBlockFunctionCoa2(
+    const std::vector<TensorValuePtr> &inputArgs,
+    const std::vector<TensorValuePtr> &outputArgs,
+    [[maybe_unused]]const std::vector<ScalarValuePtr> &indices)
+{
+    IRBuilderContext ctx;
+    IRBuilder builder;
+
+    auto createConst = [&](int n) {
+        return builder.CreateConst(ctx, int64_t(n), "const_" + std::to_string(n));
+    };
+
+    FunctionSignature sig = FunctionSignature(inputArgs, outputArgs);
+    sig.results.push_back(std::make_shared<ScalarValue>(DataType::INT32));
+
+    auto func = builder.CreateFunction("test_coa2", FunctionKind::Block, sig);
+    builder.EnterFunctionBody(ctx, func);
+    // STUB LeafFuncAttribute
+    auto blockFunc = std::dynamic_pointer_cast<pto::BlockFunction>(func);
+    auto leafFuncAttr = std::make_shared<npu::tile_fwk::LeafFuncAttribute>();
+    leafFuncAttr->coreType = CoreType::AIV;
+    blockFunc->SetLeafFuncAttribute(leafFuncAttr);
+
+    auto tensorBAddr = builder.CreateScalar(ctx, DataType::UINT64, "_MARCRO_tensorBAddr");
+    auto tensorCAddr = builder.CreateScalar(ctx, DataType::UINT64, "_MARCRO_tensorCAddr");
+    auto scalarJ = builder.CreateScalar(ctx, DataType::INT64, "_SCALAR_J");
+    auto tensorBRawShape_0 = builder.CreateScalar(ctx, DataType::UINT64, "_MARCRO_tensorBRawShape_0");
+
+    builder.Emit(ctx, builder.CreateCall1ScalarOp(
+        Opcode::OP_SCALAR_CALL_1, createConst(0), tensorBAddr,
+        "GET_TENSOR_ADDR"));
+    builder.Emit(ctx, builder.CreateCall1ScalarOp(
+        Opcode::OP_SCALAR_CALL_1, createConst(1), tensorCAddr,
+        "GET_TENSOR_ADDR"));
+    builder.Emit(ctx, builder.CreateCall1ScalarOp(
+        Opcode::OP_SCALAR_CALL_1, createConst(0), scalarJ,
+        "GET_COA"));
+    builder.Emit(ctx, builder.CreateCall3ScalarOp(
+        Opcode::OP_SCALAR_CALL_3, createConst(0), createConst(2), createConst(0), tensorBRawShape_0,
+        "GET_TENSOR_RAWSHAPE_BY_IDX"));
+
+    builder.CreateReturn(ctx, {});
+
+    ctx.PopScope();
+
+    return func;
+}
+
+TEST(IRTEST, TestDynControlFlowCoa)
+{
+    constexpr int LOOP_ITERATION = 8;
+    std::vector<int64_t> shape = {512, 64 * LOOP_ITERATION};
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "TestNewIRCoa";
+    FUNCTION(funcName, {inputA, inputB}, {output}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, npu::tile_fwk::LoopRange(LOOP_ITERATION)) {
+            LOOP("L1", FunctionType::DYNAMIC_LOOP, j, npu::tile_fwk::LoopRange(LOOP_ITERATION)) {
+                CallBlock(TestBlockFunctionCoa1, {inputA, inputB}, {output}, {j, i});
+                CallBlock(TestBlockFunctionCoa2, {inputB}, {output}, {j});
+            }
+        }
+    }
+}
 } // namespace pto

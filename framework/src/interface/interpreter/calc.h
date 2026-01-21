@@ -174,6 +174,10 @@ inline void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logica
 inline void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
     GetCalcOps()->CumSum(out, in, axis);
 }
+inline void IndexPut(LogicalTensorDataPtr out, LogicalTensorDataPtr self, std::vector<LogicalTensorDataPtr> indices,
+    LogicalTensorDataPtr values, bool accumulate = false) {
+    GetCalcOps()->IndexPut(out, self, indices, values, accumulate);
+}
 inline void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Reshape(out, self);
 }
@@ -195,11 +199,12 @@ inline void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, L
     int axis = -2, std::string cacheMode = "BSND", int blockSize = 1) {
     GetCalcOps()->ScatterUpdate(out, self, index, axis, cacheMode, blockSize);
 }
-inline void LogicalView(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Offset offset) {
-    GetCalcOps()->LogicalView(out, self, offset);
+inline void ScatterElement(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
+    const Element &src, int axis, int reduce) {
+    GetCalcOps()->ScatterElement(out, self, index, src, axis, reduce);
 }
-inline void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src,
-    int axis, int reduce) {
+inline void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
+    LogicalTensorDataPtr src, int axis, int reduce) {
     GetCalcOps()->Scatter(out, self, index, src, axis, reduce);
 }
 inline void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending) {

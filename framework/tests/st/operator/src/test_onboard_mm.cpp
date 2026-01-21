@@ -125,8 +125,6 @@ void TestMatmulACC(int m, int k, int n, string dataPath) {
         Tensor mat_a(InputAstDtype, shape_a, (uint8_t *)a_ptr, "mat_a");
         Tensor mat_b(InputAstDtype, shape_b, (uint8_t *)b_ptr, "mat_b");
         Tensor final_out(OutputAstDtype, shape_c, c_ptr, "final_out");
-        auto kSplit = 4;
-        auto kSplitSize = k / kSplit;
         config::SetBuildStatic(true);
         FUNCTION("Matmul_T", {mat_a, mat_b, final_out}) {
             Tensor tmpC = Matrix::Matmul(OutputAstDtype, mat_a, mat_b, false, false);
@@ -343,7 +341,7 @@ TEST_F(MatmulOnBoardTest, test_mm_unalign_float32_8_64_64_bt) {
 
 TEST_F(MatmulOnBoardTest, test_mm_int8_32_16384_7168) {
     TileShape::Current().SetCubeTile({16, 16}, {128, 128}, {128, 128});
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 32*1024*1024);
     TestMatmul<int8_t, int32_t>(32, 16384, 7168, GetGoldenDir());
 }
