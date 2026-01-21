@@ -1,0 +1,115 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file iso_partitioner.cpp
+ * \brief
+ */
+
+#include "graph_partition.h"
+#include <algorithm>
+#include "interface/function/function.h"
+#include "passes/pass_check/iso_partitioner_checker.h"
+#include "passes/pass_log/pass_log.h"
+
+#define MODULE_NAME "GraphPartition"
+
+namespace npu::tile_fwk {
+
+Status GraphPartition::RunOnFunction(Function &function)
+{    
+    const std::string partitionMode = function.paramConfigs_.sgPartitionAlgorithm;
+
+    if (function.paramConfigs_.sgSkipPartition) {
+        for (auto &op : function.Operations()) {
+            op.UpdateSubgraphID(0);
+        }
+
+        function.SetTotalSubGraphCount(1);
+        APASS_LOG_INFO_F(Elements::Operation, "Graph Partition is skipped.");
+        return SUCCESS;
+    } else if (partitionMode == "Iso") {
+        APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition. Mode: IsoPartitioner.");
+        IsoPartitioner partitioner;
+        if (partitioner.SetParameter(function.paramConfigs_.sgCycleUpperBound,
+                                    function.paramConfigs_.sgParallelNum,
+                                    function.paramConfigs_.sgCycleLowerBound,
+                                    true,
+                                    function.paramConfigs_.sgSkipPartition) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
+            return FAILED;
+        }
+
+        if (partitioner.PartitionGraph(function) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "GraphPartition failed.");
+            return FAILED;
+        }
+
+        APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartition.");
+        return SUCCESS;
+    } else if (partitionMode.find("Osp") != std::string::npos)  {
+        APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition, %s", partitionMode.c_str());
+        OspMode mode{OspMode::SARKAR};
+
+        if (partitionMode.find("Sarkar") != std::string::npos) {
+            mode = OspMode::SARKAR;
+        } else if (partitionMode.find("Bsp") != std::string::npos) {
+            mode = OspMode::MERKLEBSP;
+        }
+
+        OspPartitioner partitioner(mode);
+        partitioner.SetParameter(function);
+        APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartitionOSP.");
+        
+        if (partitioner.PartitionGraph(function) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "GraphPartitionOSP failed.");
+            return FAILED;
+        }
+        
+        return SUCCESS;
+    } else {
+        APASS_LOG_ERROR_F(Elements::Operation, "Invalid partition mode.");
+        return FAILED;
+    }
+}
+
+Status GraphPartition::RunOnFunction(Function &function)
+{
+    APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition.");
+    IsoPartitioner partitioner;
+    if (partitioner.SetParameter(function.paramConfigs_.sgPgUpperBound,
+                                 function.paramConfigs_.sgParallelNum,
+                                 function.paramConfigs_.sgPgLowerBound,
+                                 true,
+                                 function.paramConfigs_.pgSkipPartition) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
+        return FAILED;
+    }
+    if (partitioner.PartitionGraph(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "GraphPartition failed.");
+        return FAILED;
+    }
+    APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartition.");
+    return SUCCESS;
+}
+
+Status GraphPartition::PreCheck(Function &function)
+{
+    GraphPartitionChecker checker;
+    return checker.DoPreCheck(function);
+}
+
+Status GraphPartition::PostCheck(Function &function)
+{
+    GraphPartitionChecker checker;
+    return checker.DoPostCheck(function);
+}
+
+}  // namespace npu::tile_fwk

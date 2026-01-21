@@ -1,0 +1,119 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This file is a part of the CANN Open Software.
+ * Licensed under CANN Open Software License Agreement Version 1.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file osp_partitioner.h
+ * \brief
+ */
+
+#ifndef PASS_OSP_PARTITIONER_H
+#define PASS_OSP_PARTITIONER_H
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.hpp"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.hpp"
+#include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
+#include "passes/algorithms/osp/bsp/model/SetSchedule.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/BspLocking.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GrowLocalAutoCores.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GreedyChildren.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GreedyMetaScheduler.hpp"
+#include "passes/algorithms/osp/dag_divider/isomorphism_divider/IsomorphicSubgraphScheduler.hpp"
+#include "passes/algorithms/osp/dag_divider/isomorphism_divider/PrecomputedHashComputer.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/LocalSearch/KernighanLin_v2/kl_include.hpp"
+#include "passes/algorithms/osp/coarser/Sarkar/SarkarMul.hpp"
+#include "supernode_graph_builder.h"
+//#include "passes/pass_config/pass_config_manager.h"
+#include "passes/pass_interface/pass.h"
+#include <unordered_map>
+
+namespace npu::tile_fwk {
+
+template<typename GraphT>
+struct ArchParameters {
+    osp::v_workw_t<GraphT> commCost_  = 1;
+    osp::v_workw_t<GraphT> synchCost_ = 8000;
+    double commCorrectionFactor = 0.01;
+    osp::v_workw_t<GraphT> partitionWorkUpperBound_ = std::numeric_limits<osp::v_workw_t<GraphT>>::max();
+    osp::v_workw_t<GraphT> partitionWorkLowerBound_ = std::numeric_limits<osp::v_workw_t<GraphT>>::lowest();
+};
+
+enum class OspMode {
+    SARKAR      = 1, 
+    MERKLEBSP   = 2
+};
+
+class OspPartitioner : public SuperNodeGraphBuilder {
+    using vertex_impl = osp::cdag_vertex_impl<int32_t, int32_t, int32_t, int32_t, unsigned>;
+    using GraphType = osp::dag_vector_adapter<vertex_impl, int32_t>;
+    using ConstrGraphType = osp::computational_dag_vector_impl<vertex_impl>;
+    using CoarseGraphType = osp::Compact_Sparse_Graph<true, true, true, true, true, osp::vertex_idx_t<GraphType>, std::size_t, osp::v_workw_t<GraphType>, osp::v_workw_t<GraphType>, osp::v_workw_t<GraphType>, osp::v_type_t<GraphType>>;
+
+    // Core/Vertex type translation maps
+    const std::unordered_map<OpCoreType, osp::v_type_t<GraphType>> ospCoreTypeMapSplit{
+        {OpCoreType::AIC,       0U},
+        {OpCoreType::AIV,       1U},
+        {OpCoreType::AICPU,     2U},
+        {OpCoreType::ANY,       3U},
+        {OpCoreType::HUB,       4U},
+        {OpCoreType::GMATOMIC,  5U}
+    };
+    const std::unordered_map<OpCoreType, osp::v_type_t<GraphType>> ospCoreTypeMapMix{
+        {OpCoreType::AIC,       0U},
+        {OpCoreType::AIV,       0U},
+        {OpCoreType::AICPU,     1U},
+        {OpCoreType::ANY,       2U},
+        {OpCoreType::HUB,       3U},
+        {OpCoreType::GMATOMIC,  4U}
+    };
+
+    // Parameters
+    ArchParameters<GraphType> archParameters_;
+    OspMode ospMode_;
+
+    // Init
+    Status BuildSuperNodeGraph() override;
+    
+    // Construction of OSP instance
+    Status ConstructDagCVSplit(GraphType &graph);
+    Status ConstructDagCVMix(GraphType &graph);
+    void ConstructBspArchCVSplit(osp::BspArchitecture<GraphType> &bspArch);
+    Status ConstructBspArchCVMix(osp::BspArchitecture<GraphType> &bspArch);
+    Status ConstructBspInstance(osp::BspInstance<GraphType> &bspInst);
+
+    // Construction Helpers
+    void SetVertexCommMemWeight(GraphType &graph, int32_t vertex);
+    inline osp::v_type_t<GraphType> getOspCoreTypeSplit(OpCoreType coreType) { return ospCoreTypeMapSplit.at(coreType);}
+    inline osp::v_type_t<GraphType> getOspCoreTypeMix(OpCoreType coreType) { return ospCoreTypeMapMix.at(coreType);}
+    
+    // Run OSP Partition
+    Status RunOspPartition(Function &function, const osp::BspInstance<GraphType> &bspInst);
+    Status UpdatePartitionResult(Function &function, std::vector<osp::vertex_idx_t<GraphType>> &vertexContractionMap);
+
+    // Algorithms
+    Status RunSarkar(const osp::BspInstance<GraphType> &bspInst, CoarseGraphType &coarseGraph, std::vector<osp::vertex_idx_t<GraphType>> &vertexContractionMap);
+    Status RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<osp::vertex_idx_t<GraphType>> &vertexContractionMap);
+    
+    // Helpers
+    uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const override ;
+    Status BuildHashValues() override;
+
+public:    
+    OspPartitioner(OspMode mode) : ospMode_(mode) {};
+    inline void SetParameter(const Function &function) {
+            archParameters_.partitionWorkUpperBound_ = function.paramConfigs_.sgCycleUpperBound;
+            archParameters_.partitionWorkLowerBound_ = function.paramConfigs_.sgCycleLowerBound;
+    }
+    ~OspPartitioner() = default;
+    Status PartitionGraph(Function &function);
+    ArchParameters<GraphType> &GetArchParameters() { return archParameters_; };
+};
+
+}  // namespace npu::tile_fwk
+#endif  // PASS_OSP_PARTITIONER_H
