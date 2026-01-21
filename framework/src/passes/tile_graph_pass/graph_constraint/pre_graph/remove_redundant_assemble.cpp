@@ -545,9 +545,6 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
         APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
         return FAILED;
     }
-
-    std::string dbjfile = "/home/d00899108/bluecode/view0117";
-    function.DumpJsonFile(dbjfile + "/0json/tmp-before8.json");
     if (ProcessView(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "ProcessView failed.");
         return FAILED;
