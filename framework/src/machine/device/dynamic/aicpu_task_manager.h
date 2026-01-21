@@ -111,11 +111,13 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
-    inline void FillTaskEndTimes(uint64_t taskId) {
+    inline void FillTaskEndTimes(SignalTileOp* task) {
         for (auto i = 0; i < aicpuTaskStat_->taskCount; ++i) {
             if (aicpuTaskStat_->tasks[i].taskId != static_cast<int32_t>(taskId)) {
                 continue;
             }
+            aicpuTaskStat_->tasks[i].execStart = task->taskStatTimes_;
+            aicpuTaskStat_->tasks[i].taskId = static_cast<int32_t>(task->taskId_);
             aicpuTaskStat_->tasks[i].execEnd = GetCycles();
         }
     }
@@ -147,12 +149,8 @@ private:
     inline int32_t TaskDispatch(uint64_t taskId) {
         int32_t ret = DEVICE_MACHINE_OK;
         auto taskType = GetTaskType(taskId);
-        if (profSwitch_) {
-            aicpuTaskStat_->tasks[index_].taskId = static_cast<int32_t>(taskId);
-            aicpuTaskStat_->tasks[index_++].execStart = GetCycles();
-        }
         if (taskType < TaskType::TASK_TYPE_NUM) {
-            ret = shmemWaitUntil_.EnqueueOp(taskId);
+            ret = shmemWaitUntil_.EnqueueOp(taskId, GetCycles());
         }
         return ret;
     }

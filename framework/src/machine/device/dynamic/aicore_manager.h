@@ -37,6 +37,7 @@
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/aicore_hal.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
+#include "machine/device/distributed/shmem_wait_until.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/device/dynamic/wrap_manager.h"
 
@@ -375,12 +376,12 @@ public:
         return ret;
     }
 
-    int32_t ProcessCompletedAicpuTask(uint64_t taskId) {
+    int32_t ProcessCompletedAicpuTask(SignalTileOp* task) {
         if (aicoreProf_.ProfIsEnable()) {
-            aicpuTaskManager_.FillTaskEndTimes(taskId);
+            aicpuTaskManager_.FillTaskEndTimes(task);
         }
         
-        int32_t ret = ResolveDepDyn(taskId);
+        int32_t ret = ResolveDepDyn(task->taskId_);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
