@@ -151,33 +151,19 @@ void GetDynOffsetBeforeReshape(const std::vector<SymbolicScalar> &oriOffset, con
     }
 }
 
+std::vector<int64_t> removeAllOnes(const std::vector<int64_t> &vec) {
+    std::vector<int64_t> result = vec;
+    result.erase(std::remove(result.begin(), result.end(), 1), result.end());
+    return result;
+}
+
 bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOutput) {
     auto inputShape = reshapeInput->GetShape();
     auto outputShape = reshapeOutput->GetShape();
     if (inputShape.size() < 3) {
         return false;
     }
-    // 定义所有有效的模式：{input_size, output_size, 验证函数}
-    using Validator = std::function<bool(const std::vector<int64_t> &, const std::vector<int64_t> &)>;
-
-    static const std::vector<std::pair<std::pair<size_t, size_t>, Validator>> patterns = {
-        {{3, 2}, [](const auto &in,const auto &out) { return in[0] == 1 && in[1] == out[0] && in[2] == out[1]; }                                   },
-        {{2, 3}, [](const auto &in, const auto &out) { return out[0] == 1 && in[0] == out[1] && in[1] == out[2]; }},
-        {{4, 2}, [](const auto &in,
-         const auto &out) { return in[0] == 1 && in[1] == 1 && in[2] == out[0] && in[3] == out[1]; }              },
-        {{2, 4}, [](const auto &in,                                                                      const auto &out) {
-                                                                      return out[0] == 1 && out[1] == 1 && in[0] == out[2] && in[1] == out[3];
-                                                                      }        }
-    };
-
-    for (const auto &[sizes, validator] : patterns) {
-        if (inputShape.size() == sizes.first && outputShape.size() == sizes.second &&
-            validator(inputShape, outputShape)) {
-            return true;
-        }
-    }
-
-    return false;
+    return removeAllOnes(inputShape) == removeAllOnes(outputShape);
 }
 
 /*
@@ -216,7 +202,7 @@ Status ProcessView(Function &function) {
             (viewInput->tensor->GetRawShapeSize() / reshape.GetOOperands().front()->tensor->GetRawShapeSize());
         std::cout << IntVecToStr(newRawShape).c_str() << std::endl;
         std::vector<SymbolicScalar> newDynOffset;
-        GetDynOffsetBeforeReshape(offset, reshape.GetIOperands().front()->shape, newRawShape, newDynOffset);
+        GetDynOffsetBeforeReshape(offset, viewInput->shape, newRawShape, newDynOffset);
         for (auto copyIn : reshape.GetOOperands().front()->GetConsumers()) {
             auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
             auto oriCopyOffset = copyAttr->GetFromOffset();
