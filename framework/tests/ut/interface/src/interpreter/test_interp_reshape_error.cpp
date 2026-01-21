@@ -64,7 +64,7 @@ public:
  	     FUNCTION("main", {input}, {output}) {
  	         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
  	             (void)i;
-                //  TileShape::Current().SetVecTile(128, 128, 128);
+                 TileShape::Current().SetVecTile(128, 128, 128);
  	             auto t1 = View(input, {128, 1, 128}, {30, 1, 128}, {0, 0, 0});
                  auto t2 = Reshape(t1, {128, 128}, {30, 128});
                  auto t3 = Reshape(t2, {1, 128, 128}, {1, 30, 128});
