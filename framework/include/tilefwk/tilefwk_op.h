@@ -396,6 +396,14 @@ Tensor TransposedBatchMatmul(DataType dataType, const Tensor &aMatrix, const Ten
 Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &dequantScaleW);
 } // namespace Matrix
 
+namespace Conv {
+
+Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor,
+    const std::vector<int64_t> &strides, const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations,
+    const int64_t groups);
+
+}
+
 namespace Distributed {
 enum class DistReduceType {
     DIST_REDUCE_ADD,
