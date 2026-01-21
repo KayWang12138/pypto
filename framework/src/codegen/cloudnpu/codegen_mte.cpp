@@ -1366,7 +1366,39 @@ std::string CodeGenOpCloudNPU::GenAddrExpr(const std::string &addrExpr, unsigned
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintGatherInL1TileTensor() const {
+    std::string srcVar = sm->QueryTileTensorByBufVarName(GenGmParamVar(ID0));
+    std::string offsetsVar = sm->QueryTileTensorByBufVarName(GenGmParamVar(ID1));
+    std::string blockTableVar = sm->QueryTileTensorByBufVarName(GenGmParamVar(ID2));
+    std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    int64_t blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("op_attr_blocksize"));
+
+    auto startOffset = opAttrs.at(OpAttributeKey::startOffset);
+    ASSERT(startOffset.HasValue() && (startOffset.Type() == typeid(int64_t)))
+        << "GenGatherInL1 startOffset must be int64_t!";
+    auto srcColumnStartOffset = npu::tile_fwk::AnyCast<int64_t>(startOffset);
+    std::string srcCoordCp = WrapParamByParentheses({srcColumnStartOffset});
+    std::string srcCoord = PrintCoord(SHAPE_DIM1, srcCoordCp);
+
+    auto offsetsStartOffsets = GenParamIdxExprByIndex(1, SHAPE_DIM2, PREFIX_STR_OFFSET);
+    std::string offsetCoordCp = WrapParamByParentheses(offsetsStartOffsets);
+    std::string offsetCoord = PrintCoord(SHAPE_DIM2, offsetCoordCp);
+
+    auto blockTableStartOffsets = GenParamIdxExprByIndex(ID2, SHAPE_DIM2, PREFIX_STR_OFFSET);
+    std::string blockTableCoordCp = WrapParamByParentheses(blockTableStartOffsets);
+    std::string blockTableCoord = PrintCoord(SHAPE_DIM2, blockTableCoordCp);
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets({blockSize});
+    oss << WrapParamByParentheses({dstVar, srcVar, blockTableVar, offsetsVar, srcCoord, offsetCoord, blockTableCoord});
+    oss << ";\n";
+}
+
 std::string CodeGenOpCloudNPU::GenGatherInL1() const {
+    if (isSupportLayout) {
+        return PrintGatherInL1TileTensor();
+    }
     const DataType dstDtype = operandDtype[ID0];
     const DataType srcDtype = operandDtype[ID1];
     const DataType offsetsDtype = operandDtype[ID2];
