@@ -41,6 +41,8 @@ private:
     Status InsertCopy(Function &function, Operation *viewOp, Operation *assOp);
     bool NeedInsertCopy(LogicalTensorPtr &assembleOut);
     void InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp);
+    void AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input);
+    void InsertAssembleCopy(Function &function);
 
     std::set<LogicalTensorPtr> assembleOutSet_;
     std::vector<std::pair<Operation*, Operation*>> recordOpPair_;
