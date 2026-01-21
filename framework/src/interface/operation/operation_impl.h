@@ -151,4 +151,12 @@ struct MatmulAttrParam {
 void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
                         const LogicalTensorPtr &cTensorPtr, const Operation &op);
 }  // namespace Matrix
+
+namespace Conv {
+
+void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
+                        const LogicalTensorPtr &cTensorPtr, const Operation &op);
+
+} // namespace Conv
+
 }  // namespace npu::tile_fwk
