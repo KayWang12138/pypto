@@ -55,6 +55,41 @@ def gen_hc_split_sinkhorn(x, hc_scale, hc_base):
     return pre, post, comb_flag
 
 
+def gen_hc_split_sinkhorn_trans(x, hc_scale, hc_base):
+    _, t = x.shape # (24, t)
+    hc_base = hc_base.reshape(mix_hc, 1)
+    print("hc_split_sinkhorn_trans x ", x.shape)
+
+    pre = x[:hc, :] * 1.0
+    pre = pre * hc_scale[0]
+    pre = pre + hc_base[:hc, :] # (4, t)
+    print("pre ", pre.shape)
+    pre_ = pre
+
+    pre = gen_sigmoid(pre) + hc_eps # (4, t)
+
+    post = x[hc: 2*hc, :] * hc_scale[1] + hc_base[hc: 2*hc, :]  # (4, t)
+    post = 2.0 * gen_sigmoid(post)  # (4, t)
+
+    comb_flag = (x[2*hc:, :] * hc_scale[2] + hc_base[2*hc:, :]).reshape(hc, hc, t)  # (4, 4, t)
+    row_max = comb_flag.amax(-2, keepdim=True)  # (4, 1, t)
+    comb_flag = (comb_flag - row_max).exp() # (4, 4, t)
+
+    row_sum = comb_flag.sum(-2, keepdim=True)   # (4, 1, t)
+    comb_flag = comb_flag / row_sum + hc_eps    # (4, 4, t)
+    col_sum = comb_flag.sum(-3, keepdim=True)   # (1, 4, t)
+    comb_flag = comb_flag / (col_sum + hc_eps)  # (4, 4, t)
+    for _ in range(sinkhorn_iters - 1):
+        row_sum = comb_flag.sum(-2, keepdim=True)   # (4, 1, t)
+        comb_flag = comb_flag / (row_sum + hc_eps)  # (4, 4, t)
+        col_sum = comb_flag.sum(-3, keepdim=True)   # (1, 4, t)
+        comb_flag = comb_flag / (col_sum + hc_eps)  # (4, 4, t)
+    pre = pre.transpose(0, 1)
+    post = post.transpose(0, 1)
+    comb_flag = comb_flag.transpose(1, 2).transpose(0, 1)
+    return pre, post, comb_flag, pre_
+
+
 def gen_hc_pre(x, hc_fn, hc_scale, hc_base):
     t = x.shape[0]
     x_16 = x.reshape((t, hc * d))
@@ -73,13 +108,41 @@ def gen_hc_pre(x, hc_fn, hc_scale, hc_base):
     res = res.to(torch.bfloat16)
     return res, post, comb, mm_res
 
-def gen_hc_pre_data(t = 16):
+
+def gen_hc_pre_trans(x, hc_fn, hc_scale, hc_base):
+    t = x.shape[0]
+    x_16 = x.reshape((t, hc * d))
+    hc_base = hc_base.reshape(1, mix_hc)
+    x = x_16.to(torch.float32)
+
+    hc_fn = hc_fn.to(torch.float32)
+    res = torch.matmul(hc_fn, x.transpose(0, 1)) #  (mix_hc, hc*d)@(t, hc*d)^t = (mix_hc, t)
+
+    rms_res = gen_rms_norm_denom(x)
+    res = res / (rms_res.reshape(1, t)) # (mix_hc, t) / (1, t) = (mix_hc, t)
+    # mm_res = res    #(mix_hc, t)
+
+
+    pre, post, comb, pre_ = gen_hc_split_sinkhorn_trans(res, hc_scale, hc_base) # (t, hc), (t, hc), (t, hc, hc)
+    mm_res = pre_
+
+    mul_res = pre.reshape(t, hc, 1) * x.reshape(t, hc, d)
+    res = mul_res.sum(-2) # (t,mul_res d)
+    res = res.to(torch.bfloat16)
+    return res, post, comb, mm_res    
+
+
+def gen_hc_pre_data(t = 16, is_trans = False):
+    torch.manual_seed(42)
     print("t is ", t)
     x = torch.empty((t, hc, d), dtype=torch.bfloat16).uniform_(-1, 1)
     hc_fn = torch.empty((mix_hc, hc*d), dtype=torch.float32).uniform_(-1, 1)
     hc_scale = torch.empty((3,), dtype=torch.float32).uniform_(-1, 1)
     hc_base = torch.empty((mix_hc, ), dtype=torch.float32).uniform_(-1, 1)
-    res, post, comb, mm_res = gen_hc_pre(x, hc_fn, hc_scale, hc_base)
+    if is_trans:
+        res, post, comb, mm_res = gen_hc_pre_trans(x, hc_fn, hc_scale, hc_base)
+    else:
+        res, post, comb, mm_res = gen_hc_pre(x, hc_fn, hc_scale, hc_base)
     return x, hc_fn, hc_scale, hc_base, res, post, comb, mm_res
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
@@ -134,7 +197,7 @@ def test_hc_pre_inmodel(t = 16):
     compare(comb.cpu(), comb_gd, "comb", atol=0.000025, rtol=0.005)
     print("comb compare success!!!")
 
-def test_hc_pre(t = 16):
+def test_hc_pre(t = 16, is_trans = False):
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch.npu.set_device(int(device_id))
     torch.manual_seed(42)
@@ -159,7 +222,10 @@ def test_hc_pre(t = 16):
     }
 
     pto_in_outs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in in_outs.items()]
-    hc_pre_kernel(*pto_in_outs)
+    if not is_trans:
+        hc_pre_kernel(*pto_in_outs)
+    else:
+        hc_pre_kernel_prefill(*pto_in_outs)
     pypto.runtime._device_synchronize()
 
     y = y.cpu()
@@ -172,6 +238,11 @@ def test_hc_pre(t = 16):
     print("post compare success!!!")
     compare(comb, comb_gd, "comb", atol=0.000025, rtol=0.005)
     print("comb compare success!!!")
+
+
+def te_hc_pre_prefill(t = 512):
+    print("hc_pre_prefill ")
+    test_hc_pre(t=t, is_trans=True)
 
 
 if __name__ == "__main__":
