@@ -261,6 +261,7 @@ public:
     bool ProfIsEnable() { return profLevel_ != PROF_LEVEL_OFF; }
     AiCoreProfLevel CreateProfLevel(ProfConfig profConfig);
     void SetProfLevel(AiCoreProfLevel level) { profLevel_ = level; }
+    friend class ::TestPro;
     
 private:
     struct PmuCtrlAddrs {
