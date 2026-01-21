@@ -178,6 +178,9 @@ void HostMachine::CompileFunction(Function* func) const {
         ALOG_INFO_F("RunPass function %s", func->GetMagicName().c_str());
         ASSERT(backend.runPass(Program::GetInstance(), *func, config::GetPassStrategy())) << "Run pass failed.";
     }
+    if (config::GetDebugOption<int64_t>(CFG_COMPILE_DBEUG_MODE) != CFG_DEBUG_ALL) {
+        return;
+    }
     if (func->IsFunctionType(FunctionType::DYNAMIC) || func->IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
         auto path = config::GetAbsoluteTopFolder() + "/program.json";
         Program::GetInstance().DumpJsonFile(path);
@@ -269,7 +272,7 @@ std::string HostMachine::GetCacheKeyFromFunction(Function *function) {
 MachineTask *HostMachine::Compile(MachineTask *task) const {
     MachineTask *compileTask = task;
     if (compileTask == nullptr) {
-        if (curTask == nullptr) {   
+        if (curTask == nullptr) {
             ALOG_WARN("Compile task is null.");
         }
         MACHINE_ASSERT(curTask != nullptr);
