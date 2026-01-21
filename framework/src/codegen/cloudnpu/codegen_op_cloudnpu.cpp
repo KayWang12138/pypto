@@ -132,6 +132,9 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
 
+          // binary op: vector scalar with tmp
+          {Opcode::OP_MODS, [this]() { return GenVectorScalarOpWithTmp(); }},
+
           // binary op: vector scalar, scalar mode
           {Opcode::OP_S_ADDS, [this]() { return GenVectorScalarOpScalarMode(); }},
           {Opcode::OP_S_SUBS, [this]() { return GenVectorScalarOpScalarMode(); }},
