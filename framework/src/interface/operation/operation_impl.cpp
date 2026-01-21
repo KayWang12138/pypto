@@ -1283,19 +1283,19 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
 
 bool MatchRegisterCopyPattern(const std::vector<int64_t> &inputShape, const std::vector<int64_t> &outputShape) {
     // [1,a,b] --> Reshape --> [a,b]
-    if (inputShape.size() == 3 && outputShape.size() == 2 && inputShape[0] == 1) {
+    if (inputShape.size() == 3 && outputShape.size() == 2 && inputShape[0] == 1 && inputShape[1] == outputShape[0] && inputShape[2] == outputShape[1]) {
         return true;
     }
     // [a,b] --> Reshape --> [1,a,b]
-    if (inputShape.size() == 2 && outputShape.size() == 3 && outputShape[0] == 1) {
+    if (inputShape.size() == 2 && outputShape.size() == 3 && outputShape[0] == 1 && inputShape[0] == outputShape[1] && inputShape[1] == outputShape[2]) {
         return true;
     }
     // [1,1,a,b] --> Reshape --> [a,b]
-    if (inputShape.size() == 4 && outputShape.size() == 2 && inputShape[0] == 1 && inputShape[1] == 1) {
+    if (inputShape.size() == 4 && outputShape.size() == 2 && inputShape[0] == 1 && inputShape[1] == 1 && inputShape[1] == 1 && inputShape[2] == outputShape[0] && inputShape[3] == outputShape[1]) {
         return true;
     }
     // [a,b] --> Reshape --> [1,1,a,b]
-    if (inputShape.size() == 2 && outputShape.size() == 4 && outputShape[0] == 1 && outputShape[1] == 1) {
+    if (inputShape.size() == 2 && outputShape.size() == 4 && outputShape[0] == 1 && outputShape[1] == 1 && outputShape[1] == 1 && inputShape[0] == outputShape[2] && inputShape[3] == outputShape[1]) {
         return true;
     }
     return false;
