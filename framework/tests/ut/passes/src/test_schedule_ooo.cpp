@@ -1669,15 +1669,15 @@ TEST_F(ScheduleOoOTest, TestLatencyEstimatorMainLoop) {
     };
 
     std::vector<Opcode> opCodes{Opcode::OP_L0A_ALLOC, Opcode::OP_L0B_ALLOC, Opcode::OP_A_MUL_B, Opcode::OP_L0C_ALLOC,
-        Opcode::OP_UB_ALLOC, Opcode::OP_L0C_COPY_UB, Opcode::OP_UB_COPY_L1};
+        Opcode::OP_UB_ALLOC, Opcode::OP_L0C_COPY_UB, Opcode::OP_UB_COPY_L1, Opcode::OP_UB_ALLOC};
 
-    std::vector<std::vector<std::string>> ioperands{{}, {}, {"t2", "t3"}, {}, {}, {"t4"},  {"t1"}};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {"t2", "t3"}, {}, {}, {"t4"},  {"t1"}, {}};
 
-    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}, {"t4"}, {"t5"}, {"t5"}, {"t2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t2"}, {"t3"}, {"t4"}, {"t4"}, {"t5"}, {"t5"}, {"t2"}, {"t1"}};
 
     std::vector<std::string> opNames{
         "L0A_Alloc1", "L0B_Alloc1", "Mul1", "L0C_Alloc1",
-        "UB_ALLOC1", "OP_L0C_COPY_UB", "OP_UB_COPY_L1"
+        "UB_ALLOC1", "OP_L0C_COPY_UB", "OP_UB_COPY_L1", "UB_ALLOC2"
     };
 
     // 构建计算图
@@ -1689,9 +1689,11 @@ TEST_F(ScheduleOoOTest, TestLatencyEstimatorMainLoop) {
 
     // 创建LatencyEstimator实例
     auto opList = function->Operations(false).DuplicatedOpList();
+    auto taskList = opList;
+    taskList.pop_back();
     int latency = 0;
     OoOSchedule oooSchedule;
-    Status res = oooSchedule.SortAndLatencyEstimate(opList, opList, latency);
+    Status res = oooSchedule.SortAndLatencyEstimate(opList, taskList, latency);
     EXPECT_EQ(res, SUCCESS);
 }
 
