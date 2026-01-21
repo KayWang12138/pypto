@@ -647,16 +647,19 @@ int DeviceRunner::RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream) {
 }
 
 int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim) {
-    uint64_t startTime = MsprofSysCycleTime();
-    int rc = launchDynamicAiCpuInit(aicpuStream, kernelArgs);
-    if (rc < 0) {
-        ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
-        return rc;
+    uint64_t startTime = 0;
+    if (!initFlag_) {
+        startTime = MsprofSysCycleTime();
+        int rc = launchDynamicAiCpuInit(aicpuStream, kernelArgs);
+        if (rc < 0) {
+            ALOG_ERROR_F("launch aicpu init failed %d\n", rc);
+            return rc;
+        }
+        ReportHostProfInfo(startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU);
+        initFlag_ = true;
     }
-    ReportHostProfInfo(startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU);
-
     startTime = MsprofSysCycleTime();
-    rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
+    auto rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
     if (rc < 0) {
         ALOG_ERROR_F("launch aicpu failed %d\n", rc);
         return rc;
