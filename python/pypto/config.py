@@ -289,7 +289,8 @@ def get_verify_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]
 
 def set_debug_options(*,
                       compile_debug_mode: Optional[int] = None,
-                      runtime_debug_mode: Optional[int] = None
+                      runtime_debug_mode: Optional[int] = None,
+                      aicpu_advanced_us: Optional[int] = None
                       ) -> None:
     """
     Set debug options.
