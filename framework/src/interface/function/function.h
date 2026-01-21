@@ -458,6 +458,9 @@ struct ParamConfigs {
     bool pgSkipPartition{false};
     std::map<int64_t, int64_t> vecNBufferSetting;
     int copyOutResolveCoalescing{0};
+    bool forceCombineAxis{false};
+    bool combineAxis{false};
+    bool perGraphAssRemove{true};
 };
 
 struct FunctionParamInfo {
