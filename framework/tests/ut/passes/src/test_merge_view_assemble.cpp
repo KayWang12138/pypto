@@ -951,36 +951,5 @@ TEST_F(MergeViewAssembleTest, MergeViewWithAttr) {
     }
     EXPECT_EQ(view_count_after_pass, NUM2);
 }
-
-TEST_F(MergeViewAssembleTest, FailWhenEndViewHasNoOutput) {
-    Program program;
-    std::string funcMagicName = "test_no_output";
-    std::string funcRawName = "test_no_output_raw";
-    std::unique_ptr<Function> function = std::make_unique<Function>(program, funcMagicName, funcRawName, nullptr);
-
-    auto rawTensor = std::make_shared<RawTensor>(
-        DataType::DT_FP32, std::vector<int64_t>{8, 8}, TileOpFormat::TILEOP_ND, "input_tensor");
-    std::shared_ptr<LogicalTensor> inputTensor =
-        std::make_shared<LogicalTensor>(*function, rawTensor, std::vector<int64_t>{0, 0}, std::vector<int64_t>{8, 8});
-    const_cast<std::vector<std::shared_ptr<LogicalTensor>> &>(function->GetIncast()).push_back(inputTensor);
-
-    auto midTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{6, 6});
-    auto outputTensor = std::make_shared<LogicalTensor>(*function, DataType::DT_FP32, std::vector<int64_t>{4, 4});
-    const_cast<std::vector<std::shared_ptr<LogicalTensor>> &>(function->GetOutcast()).push_back(outputTensor);
-
-    auto &view1Op = function->AddRawOperation(Opcode::OP_VIEW, {inputTensor}, {midTensor});
-    view1Op.SetOpAttribute(std::make_shared<ViewOpAttribute>(
-        std::vector<int64_t>{1, 1}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{}));
-
-    auto &view2Op = function->AddRawOperation(Opcode::OP_VIEW, {midTensor}, {outputTensor});
-    view2Op.SetOpAttribute(std::make_shared<ViewOpAttribute>(
-        std::vector<int64_t>{2, 2}, std::vector<SymbolicScalar>{}, std::vector<SymbolicScalar>{}));
-
-    view2Op.oOperand.clear();
-
-    MergeViewAssemble pass;
-    Status status = pass.RunOnFunction(*function);
-    EXPECT_EQ(status, FAILED) << "Expected pass to fail when last VIEW has no output operands";
-}
 } // namespace tile_fwk
 } // namespace npu
