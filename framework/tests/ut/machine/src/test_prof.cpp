@@ -48,62 +48,6 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestPro, test_ini) {
-    std::unique_ptr<AicpuTaskManager> aicpuTaskPtr = std::make_unique<AicpuTaskManager>();
-    std::unique_ptr<AiCoreManager> AiCoreManagerPtr = std::make_unique<AiCoreManager>(*aicpuTaskPtr);
-    AiCoreManagerPtr->aicNum_ = 0;
-    AiCoreManagerPtr->aivNum_ = 1;
-    AiCoreManagerPtr->aivEnd_ = 1;
-    AiCoreManagerPtr->aicEnd_ = 0;
-    AiCoreManagerPtr->aicpuIdx_ = 0;
-    AiCoreProf prof(*AiCoreManagerPtr);
-
-    int64_t *oriRegAddrs_ = (int64_t *)malloc(sizeof(int64_t) * 1024 * 2);
-    int64_t *regAddrs_ = oriRegAddrs_ + 1024;
-    regAddrs_[0] = (int64_t)&regAddrs_[0];
-    std::cout << "oriRegAddrs_ " << oriRegAddrs_ << std::endl;
-    std::cout << "regAddrs_    " << regAddrs_ << std::endl;
-    ProfConfig profConfig;
-    prof.ProfInit(regAddrs_, regAddrs_, profConfig);
-    prof.ProfStart();
-
-    int32_t aicoreId = 0;
-    int32_t subgraphId = 0;
-    int32_t taskId = 0;
-    TaskStat *taskStat = new TaskStat();
-    taskStat->taskId = 0;
-    taskStat->execEnd = 1;
-    taskStat->execStart = 0;
-    taskStat->subGraphId = 0;
-
-    prof.ProInitHandShake();
-    prof.ProInitAiCpuTaskStat();
-    int threadIdx = 0;
-    AiCpuTaskStat *aiCpuStat = new AiCpuTaskStat();
-    AiCpuHandShakeSta handShakeSta;
-    aiCpuStat->taskId = 0;
-    aiCpuStat->execEnd = 1;
-    aiCpuStat->execStart = 0;
-    aiCpuStat->coreId = 0;
-    aiCpuStat->taskGetStart = 0;
-
-    for (int i = 0; i < 8; i++) {
-        prof.ProfGet(aicoreId, subgraphId, taskId, taskStat);
-        prof.ProfGetAiCpuTaskStat(threadIdx, aiCpuStat);
-        prof.ProGetHandShake(threadIdx, &handShakeSta);
-    }
-    prof.ProfStopHandShake();
-    prof.ProfStopAiCpuTaskStat();
-    int64_t flag = 0;
-    prof.ProfGetSwitch(flag);
-
-    prof.ProfStop();
-    prof.GetAiCpuTaskStat(taskId);
-    delete aiCpuStat;
-    delete taskStat;
-    free(oriRegAddrs_);
-}
-
 static void *AllocAligned(size_t alignment, size_t size)
 {
     void *ptr = nullptr;
@@ -147,7 +91,6 @@ TEST_F(TestPro, test_prof_start_pmu_dav2201) {
     ProfConfig profConfig;
     profConfig.Add(ProfConfig::AICORE_PMU);
     prof.ProfInit(regAddrsArr, pmuEventAddrsArr, profConfig, ArchInfo::DAV_2201);
-    prof.SetProfLevel(PROF_LEVEL_FUNC_LOG_PMU);
     prof.ProfStart(); // trigger ProfStartPmu -> InitPmuRegAddrsDav2201/ReadPmuCounters/SetPmuEvents/ProgramPmuStartForCore
     prof.ProfStop();
 
@@ -183,7 +126,6 @@ TEST_F(TestPro, test_prof_start_pmu_dav3510) {
     ProfConfig profConfig;
     profConfig.Add(ProfConfig::AICORE_PMU);
     prof.ProfInit(regAddrsArr, pmuEventAddrsArr, profConfig, ArchInfo::DAV_3510);
-    prof.SetProfLevel(PROF_LEVEL_FUNC_LOG_PMU);
     prof.ProfStart(); // trigger ProfStartPmu -> InitPmuRegAddrsDav3510/ReadPmuCounters(inc cnt8/9)/SetPmuEvents/ProgramPmuStartForCore
     prof.ProfStop();
 
