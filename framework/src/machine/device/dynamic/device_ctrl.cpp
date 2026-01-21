@@ -30,28 +30,22 @@ extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerRegis
 }
 
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(void *targ) {
-    PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
-#if DEBUG_PLOG && defined(__DEVICE__)
-    InitLogSwitch();
-#endif
-    auto kargs = (DeviceKernelArgs *)targ;
-    if (kargs == nullptr) {
-        return -1;
-    }
-    if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->cfgdata == nullptr) {
-        DEV_ERROR("Args has null in inputs[%p] outputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
-                 kargs->outputs, kargs->workspace, kargs->cfgdata);
-        return -1;
-    }
-    g_ctrl_machine.InitDyn(kargs);
-    PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
+    (void)targ;
     return 0;
 }
 
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void *targ) {
-    auto kargs = (DeviceKernelArgs *)targ;
-    int rc = g_ctrl_machine.ExecDyn(kargs);
-    if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+    auto kargs = reinterpret_cast<DeviceKernelArgs*>(targ);
+    PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
+    if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->cfgdata == nullptr) {
+        DEV_ERROR("Args has null in inputs[%p] outputs[%p] or cfg[%p].\n", kargs->inputs,
+                 kargs->outputs, kargs->cfgdata);
+        return -1;
+    }
+    (void)g_ctrl_machine.InitDyn(kargs);
+    PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
+    if (g_ctrl_machine.ExecDyn(kargs) == npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+ 	    g_ctrl_machine.InitTaskPipeWithSched();
         DEV_INFO("All schedule exited, destroy the machine.\n");
         return 0;
     }

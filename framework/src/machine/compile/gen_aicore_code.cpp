@@ -343,9 +343,14 @@ INLINE void ExecCoreFunctionKernel(ExecuteContext *ctx, uint32_t curTaskIdx) {
 INLINE void WaitWaveSignal(__gm__ KernelArgs *args) {
     uint64_t t2 = get_sys_cnt();
     volatile __gm__ int64_t *waveBuffer = args->waveBufferCpuToCore;
+    // test
+    volatile __gm__ int64_t *hello = args->shakeBuffer;
     while (true) {
         dcci(waveBuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
         if (*waveBuffer == AICORE_SAY_GOODBYE) {
+            *hello = AICORE_SAY_GOODBYE;
+            Barrier();
+            dcci(hello, SINGLE_CACHE_LINE, CACHELINE_OUT);
             return;
         }
         if ((get_sys_cnt() - t2 > 50000000)) {
