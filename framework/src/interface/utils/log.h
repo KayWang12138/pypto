@@ -95,6 +95,7 @@ public:
     template <typename T>
     FileLogger &Log(T &&t) {
         ofs << (std::forward<T>(t));
+        ofs.flush();
         return *this;
     }
 
