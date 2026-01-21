@@ -131,6 +131,16 @@ struct DevAscendFunctionDuppedData {
         return schema::RActWorkspace(schema::Range(workspaceBegin, workspaceEnd));
     }
 
+    schema::expr SchemaGetExpressionTable() const {
+        std::vector<schema::Int64Type> exprTable;
+        uint64_t *exprAddr = GetExpressionAddr();
+        uint64_t exprSize = GetExpressionSize();
+        for (uint64_t i = 0; i < exprSize; i++) {
+            exprTable.push_back(exprAddr[i]);
+        }
+        return schema::expr(exprTable);
+    }
+
     std::string Dump(int indent = 0) const {
         if (GetSource()->GetOperationSize() != GetOperationSize()) {
             DEV_ERROR("GetOperationSize mismatch: source=%zu, self=%u", GetSource()->GetOperationSize(), GetOperationSize());
@@ -224,16 +234,6 @@ struct DevAscendFunctionDupped {
 
     inline AddressDescriptor GetOutcastAddress(int arg) const { return DupData()->GetOutcastAddress(arg); };
     inline AddressDescriptor &GetOutcastAddress(int arg) { return DupData()->GetOutcastAddress(arg); };
-
-    schema::expr SchemaGetExpressionTable() const {
-        std::vector<schema::Int64Type> exprTable;
-        uint64_t *exprAddr = GetExpressionAddr();
-        uint64_t exprSize = GetExpressionSize();
-        for (uint64_t i = 0; i < exprSize; i++) {
-            exprTable.push_back(exprAddr[i]);
-        }
-        return schema::expr(exprTable);
-    }
 
     inline uintdevptr_t GetRawTensorAddr(int rawIndex) const {
         uintdevptr_t addr = 0ULL;
