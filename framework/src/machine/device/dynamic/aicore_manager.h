@@ -235,8 +235,12 @@ public:
         }
 
         if (IsNeedProcAicpuTask()) {
-            const bool profSwitch = aicoreProf_.ProfIsEnable();
-            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), sharedBuffer_, profSwitch);
+            Metrics* aicpuTaskStat{nullptr};
+            if (aicoreProf_.ProfIsEnable()) {
+                KernelArgs *args = (KernelArgs *)(sharedBuffer_ + (aicNum_ + aivNum_) * SHARED_BUFFER_SIZE);
+                aicpuTaskStat = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+            }
+            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), aicpuTaskStat);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -376,10 +380,6 @@ public:
     }
 
     int32_t ProcessCompletedAicpuTask(uint64_t taskId) {
-        if (aicoreProf_.ProfIsEnable()) {
-            aicpuTaskManager_.FillTaskEndTimes(taskId);
-        }
-        
         int32_t ret = ResolveDepDyn(taskId);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;

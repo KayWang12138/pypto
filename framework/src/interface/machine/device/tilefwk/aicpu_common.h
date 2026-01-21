@@ -47,7 +47,6 @@ const uint64_t SHARED_BUFFER_SIZE = 512;
 const uint64_t PMU_BUFFER_SIZE = 4096;
 const uint64_t DEVICE_QUEUE_SIZE = 512;
 const uint64_t PRINT_BUFFER_SIZE = 16384;
-const uint64_t AICPU_BLOCK_INDEX = 75;
 
 constexpr const int DEV_SHAPE_DIM_NUM_2 = 2;
 constexpr const int DEV_SHAPE_DIM_NUM_3 = 3;
@@ -130,7 +129,6 @@ struct DeviceArgs {
     uint32_t nrAiv{0};
     uint32_t nrAicpu{0};
     uint32_t nrValidAic{0};
-    uint32_t nrAicpuDump{1};
     uint64_t opaque{0};       // store device global data, must be init with zero
     uint64_t devQueueAddr;    // pcie/XLink mem, used between host and device, `DEVICE_QUEUE_SIZE`
     uint64_t sharedBuffer;    // SHARED_BUFFER_SIZE per core, aics first
@@ -159,6 +157,7 @@ struct DeviceArgs {
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     ArchInfo archInfo{ArchInfo::DAV_2201};
     ToSubMachineConfig toSubMachineConfig;
+    uint32_t nrAicpuRunNum{1};
 };
 
 #define TO_ENTRY_IMPL(name, line, key, type) (name##line##key##type)
