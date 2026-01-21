@@ -57,14 +57,14 @@ def set_scope_options(a, c, tiling=None):
         # 显式 scope
         with pypto.options("scope2",
                             host_options={"only_codegen": True},
-                            pass_options={"cube_l1_reuse_mode": 1,
+                            pass_options={"cube_l1_reuse_mode": 0,
                                           "pg_upper_bound": 100,
                                           "cube_nbuffer_setting": {3: 4}},
                             vec_tile_shapes=[64, 64],
                             matrix_size=[64, 32],
                             cube_tile_shapes=[[16, 16], [256, 512, 128], [128, 128], True]
                             ): # scope 3
-            assert 1 == get_options("pass.cube_l1_reuse_mode")
+            assert 0 == get_options("pass.cube_l1_reuse_mode")
             assert 100 == get_options("pass.pg_upper_bound")
             assert {3: 4} == get_options("pass.cube_nbuffer_setting")
             assert [64, 64] == get_options("vec_tile_shapes")
@@ -77,7 +77,8 @@ def set_scope_options(a, c, tiling=None):
         assert [32, 32] == get_options("vec_tile_shapes")
 
 
-def check_cube_tile_shapes(expected_m, expected_k, expected_n, expected_set_l1_tile=False):
+def check_cube_tile_shapes(expected_m, expected_k, expected_n, expected_enable_multi_data_load=False, 
+                        expected_enable_split_k=False):
     """Check if cube_tile_shapes matches expected values"""
     cube_tile = get_options("cube_tile_shapes")
     # Expand k to 3 elements if needed
@@ -86,7 +87,8 @@ def check_cube_tile_shapes(expected_m, expected_k, expected_n, expected_set_l1_t
     return (list(cube_tile.m) == expected_m and
             list(cube_tile.k) == expected_k and
             list(cube_tile.n) == expected_n and
-            cube_tile.setL1Tile == expected_set_l1_tile)
+            cube_tile.enableMultiDataLoad == expected_enable_multi_data_load and
+            cube_tile.enableSplitK == expected_enable_split_k)
 
 
 def get_options(key):

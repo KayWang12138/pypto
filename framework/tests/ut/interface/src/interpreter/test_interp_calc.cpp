@@ -436,7 +436,7 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
         auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
         auto out = makeTensorData(DT_FP32, {2, 5}, 0.0f);
         auto golden = makeTensorData(DT_FP32, {2, 5}, gdata);
-        calc::Scatter(out, self, indices, src, 0, 0);
+        calc::ScatterElement(out, self, indices, src, 0, 0);
         ASSERT_ALLCLOSE(out, golden);
     }
     {
@@ -451,7 +451,23 @@ TEST_F(TorchAdaptorTest, BinaryOps) {
         auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
         auto out = makeTensorData(DT_FP32, {2, 5}, 0.0f);
         auto golden = makeTensorData(DT_FP32, {2, 5}, gdata);
-        calc::Scatter(out, self, indices, src, 0, 1);
+        calc::ScatterElement(out, self, indices, src, 0, 1);
+        ASSERT_ALLCLOSE(out, golden);
+    }
+    {
+        // scatter tensor replace
+        std::vector<float> selfData = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+                                       1.0f, 1.0f, 1.0f, 1.0f, 1.0f,};
+        std::vector<int64_t> indicesData = {1, 0, 1, 1,};
+        std::vector<float> srcData = {10, 11, 12, 13,};
+        std::vector<float> gdata = {1.0f,  11.0f, 1.0f,  1.0f,  1.0f,
+                                    10.0f, 1.0f,  12.0f, 13.0f, 1.0f,};
+        auto self = makeTensorData(DT_FP32, {2, 5}, selfData);
+        auto indices = makeTensorData(DT_INT64, {1, 4}, indicesData);
+        auto src = makeTensorData(DT_FP32, {1, 4}, srcData);
+        auto out = makeTensorData(DT_FP32, {2, 5}, 0.0f);
+        auto golden = makeTensorData(DT_FP32, {2, 5}, gdata);
+        calc::Scatter(out, self, indices, src, 0, 0);
         ASSERT_ALLCLOSE(out, golden);
     }
 }
@@ -609,7 +625,8 @@ TEST_F(TorchAdaptorTest, MatMul) {
         auto other = makeTensorData(DT_FP32, {16, 8}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 16.0f);
-        calc::MatMul(out, self, other, 4);
+        MatMulParam param = {false, false, 4};
+        calc::MatMul(out, self, other, param);
         ASSERT_ALLCLOSE(out, golden);
     }
     {
@@ -618,7 +635,8 @@ TEST_F(TorchAdaptorTest, MatMul) {
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 16.0f);
-        calc::MatMul<false, true>(out, self, other);
+        MatMulParam param = {false, true, 0};
+        calc::MatMul(out, self, other, param);
         ASSERT_ALLCLOSE(out, golden);
     }
     {
@@ -627,7 +645,8 @@ TEST_F(TorchAdaptorTest, MatMul) {
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 16.0f);
-        calc::MatMul<false, true>(out, self, other, 4);
+        MatMulParam param = {false, true, 4};
+        calc::MatMul(out, self, other, param);
         ASSERT_ALLCLOSE(out, golden);
     }
     {
@@ -645,7 +664,8 @@ TEST_F(TorchAdaptorTest, MatMul) {
         auto other = makeTensorData(DT_FP32, {16, 8}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 17.0f);
-        calc::AccMatMul(out, self, other, out, 4);
+        MatMulParam param = {false, false, 4};
+        calc::AccMatMul(out, self, other, out, param);
         ASSERT_ALLCLOSE(out, golden);
     }
     {
@@ -654,7 +674,8 @@ TEST_F(TorchAdaptorTest, MatMul) {
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 17.0f);
-        calc::AccMatMul<false, true>(out, self, other, out);
+        MatMulParam param = {false, true, 0};
+        calc::AccMatMul(out, self, other, out, param);
         ASSERT_ALLCLOSE(out, golden);
     }
     {
@@ -663,7 +684,8 @@ TEST_F(TorchAdaptorTest, MatMul) {
         auto other = makeTensorData(DT_FP32, {8, 16}, 1.0f);
         auto out = makeTensorData(DT_FP32, {8, 8}, 1.0f);
         auto golden = makeTensorData(DT_FP32, {8, 8}, 17.0f);
-        calc::AccMatMul<false, true>(out, self, other, out, 4);
+        MatMulParam param = {false, true, 4};
+        calc::AccMatMul(out, self, other, out, param);
         ASSERT_ALLCLOSE(out, golden);
     }
     {

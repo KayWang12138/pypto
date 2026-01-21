@@ -18,34 +18,6 @@ from functools import wraps
 from . import pypto_impl
 
 
-class _CachedOptions:
-
-    def __init__(self):
-        self._options = pypto_impl.GetOptions()
-
-    def reset(self):
-        self._options = pypto_impl.GetOptions()
-
-    def set_options(self, prefix, options):
-        for name, value in options.items():
-            key = f"{prefix}.{name}"
-            if key in self._options and value is not None:
-                pypto_impl.SetOption(key, value)
-                self._options[key] = value
-
-    def __getitem__(self, key):
-        return self._options[key]
-
-    def __setitem__(self, key, value):
-        self._options[key] = value
-        pypto_impl.SetOption(key, value)
-
-    def get_options(self, prefix):
-        prefix = f"{prefix}."
-        return {k[len(prefix):]: v for k, v in self._options.items() if k.startswith(prefix)}
-
-
-_pto_options = _CachedOptions()
 
 
 def set_print_options(*,
@@ -219,10 +191,8 @@ def set_runtime_options(*,
                         stitch_function_outcast_memory: Optional[int] = None,
                         stitch_function_num_initial: Optional[int] = None,
                         stitch_function_num_step: Optional[int] = None,
-                        cfgcache_device_task_num: Optional[int] = None,
-                        cfgcache_root_task_num: Optional[int] = None,
-                        cfgcache_leaf_task_num: Optional[int] = None,
                         stitch_function_size: int = None,
+                        stitch_cfgcache_size: Optional[int] = None,
                         run_mode: Optional[int] = None
                         ) -> None:
     """
@@ -254,6 +224,9 @@ def set_runtime_options(*,
     stitch_function_size: int
         The maximum Callop computation amount per loop for stitch tasks,
         controlled in the ctrlflow AICPU during machine runtime.
+
+    stitch_cfgcache_size: int
+        The size of the control flow cache, in bytes.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(runtime_options=options_dict)
@@ -311,7 +284,7 @@ def get_verify_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]
         All verify options
     """
     scope = get_current_scope()
-    return scope.get_runtime_options()
+    return scope.get_verify_options()
 
 
 def set_debug_options(*,
@@ -361,45 +334,11 @@ def set_semantic_label(label: str) -> None:
     pypto_impl.SetSemanticLabel(label, frame.f_code.co_filename, frame.f_lineno)
 
 
-def set_option(key: str, value: Union[str, int, List[int], Dict[int, int]]) -> None:
-    """
-    Set global options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-
-    value : Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-    _pto_options[key] = value
-
-
-def get_option(key: str) -> Union[str, int, List[int], Dict[int, int]]:
-    """
-    Get global options.
-
-    Parameters
-    ---------
-    key: str
-        Config option key.
-
-    Returns
-    -------
-    Union[str, int, List[int], Dict[int, int]]
-        Config option value.
-    """
-
-    return _pto_options[key]
-
-
 def reset_options() -> None:
     """
         Reset all configuration items to their default values.
     """
     pypto_impl.Reset()
-    _pto_options.reset()
 
 
 class _Options:
@@ -407,7 +346,8 @@ class _Options:
     INIT_FIELDS = [
         "name", "codegen_options", "host_options", "pass_options",
         "runtime_options", "verify_options", "debug_options",
-        "vec_tile_shapes", "cube_tile_shapes", "matrix_size"
+        "vec_tile_shapes", "cube_tile_shapes", "matrix_size",
+        "operation_options"
     ]
 
     PREFIX_MAP = {
@@ -417,6 +357,7 @@ class _Options:
         "runtime_options": "runtime.",
         "verify_options": "verify.",
         "debug_options": "debug.",
+        "operation_options": "operation."
     }
 
     def __init__(self, **kwargs):
@@ -484,6 +425,7 @@ def options(
     pass_options=None,
     runtime_options=None,
     verify_options=None,
+    operation_options=None,
     debug_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
@@ -501,6 +443,7 @@ def options(
     runtime_options: Runtime options (dict)
     verify_options: Verify options (dict)
     debug_options: Debug options (dict)
+    operation_options: Operation options (dict)
     vec_tile_shapes: Vector tile shapes (list)
     cube_tile_shapes: Cube tile shapes (CubeTile instance or list)
     matrix_size: Matrix size (list)
@@ -512,7 +455,7 @@ def options(
     Examples:
     -------
     # As decorator
-    @pypto.options(pass_options={"cube_l1_reuse_mode": 4})
+    @pypto.options(pass_options={"cube_l1_reuse_setting": {-1: 4}})
     def func():
         pass
 
@@ -530,6 +473,18 @@ def get_current_scope():
     return ConfigScope(cpp_scope)
 
 
+def get_global_config(key: str):
+    """Get global config config."""
+    cpp_scope = pypto_impl.GlobalScope()
+    py_scope = ConfigScope(cpp_scope)
+    return py_scope.get_options_prefix("global." + key)
+
+
+def set_global_config(key, value):
+    """Set global config config."""
+    pypto_impl.SetGlobalConfig({"global." + key: value})
+
+
 def set_options(
     codegen_options=None,
     host_options=None,
@@ -537,6 +492,7 @@ def set_options(
     runtime_options=None,
     verify_options=None,
     debug_options=None,
+    operation_options=None,
     vec_tile_shapes=None,
     cube_tile_shapes=None,
     matrix_size=None,
@@ -552,13 +508,14 @@ def set_options(
     runtime_options: Runtime options (dict)
     verify_options: Verify options (dict)
     debug_options: Debug options (dict)
+    operation_options: Operation options (dict)
     vec_tile_shapes: Vector tile shapes (list)
     cube_tile_shapes: Cube tile shapes (CubeTile instance or list)
     matrix_size: Matrix size (list)
 
     Examples:
     ---------
-    set_options(pass_options={"cube_l1_reuse_mode": 4})
+    set_options(pass_options={"cube_l1_reuse_setting": {-1: 4}})
     set_options(cube_tile_shapes=[[16, 16], [256, 512, 128], [128, 128], True])
     """
     temp_opts = options(**locals())
@@ -574,7 +531,7 @@ def get_options_tree():
 
 class CubeTile:
     """CubeTile"""
-    def __init__(self, m: List[int], k: List[int], n: List[int], set_l1_tile: bool = False,
+    def __init__(self, m: List[int], k: List[int], n: List[int], enable_multi_data_load: bool = False,
                         enable_split_k: bool = False):
         """
         CubeTile tile for matmul operation, m[0], k[0], n[0] for L0 Cache, m[1], k[1], n[1] for L1 Cache
@@ -593,7 +550,7 @@ class CubeTile:
             the value of the tile shape in n dimension
             The length of the list must be 2.
 
-        set_l1_tile: bool
+        enable_multi_data_load: bool
             whether the process of moving L1 to L0 is multi data load.
             default is false (i.e. not multi data load)
 
@@ -613,7 +570,7 @@ class CubeTile:
         if len(k_padded) == 2:
             k_padded.append(k_padded[1])  # k[2] = k[1]
 
-        self._impl = pypto_impl.CubeTile(list(m), k_padded, list(n), set_l1_tile, enable_split_k)
+        self._impl = pypto_impl.CubeTile(list(m), k_padded, list(n), enable_multi_data_load, enable_split_k)
 
     def __getattr__(self, name):
         return getattr(self._impl, name)
@@ -668,6 +625,9 @@ class ConfigScope:
 
     def get_verify_options(self):
         return self.get_options("verify")
+
+    def get_operation_options(self):
+        return self.get_options("operation")
 
     def get_vec_tile_shapes(self):
         return self._options.get("vec_tile_shapes")

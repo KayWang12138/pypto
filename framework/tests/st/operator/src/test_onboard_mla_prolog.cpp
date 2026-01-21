@@ -499,7 +499,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
                     qNope, kNopeCache, vNopeCache, qRope, kRopeCache,
                     input_i, t1_i, w_uv_i, w_o_i, outputT}) {
                 if (skipReshape){
-                    config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
+                    config::SetPassConfig("PVC2_OOO", "SplitReshape", KEY_DISABLE_PASS, true);
                 }
 
                 auto q_kv = Attention.MlaPrologFoward(
@@ -566,7 +566,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
                    TileShape::Current().SetCubeTile({16, 16},
                        {std::min(256, nq * vHeadDim), std::min(256, nq * vHeadDim)},
                        {std::min(128, h), std::min(128, h)});
-                   Tensor bmm5_res = Matrix::Matmul<false, false>(dType, r2_res, w_o_i);
+                   Tensor bmm5_res = Matrix::Matmul(dType, r2_res, w_o_i, false, false);
 
                    TileShape::Current().SetVecTile({4, std::min(8192, h)});
                    outputT = Reshape(bmm5_res, {b, s1, h});
@@ -652,7 +652,7 @@ void Attention(std::vector<int> &params, string dataPath, bool isQuant = false, 
        EXPECT_EQ(ret, true);
    }
    if (skipReshape){
-       config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", false);
+       config::SetPassConfig("PVC2_OOO", "SplitReshape", KEY_DISABLE_PASS, false);
    }
 }
 
@@ -924,7 +924,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
                     qNope, kNopeCache, vNopeCache, qRope, kRopeCache,
                     input_i, t1_i, w_uv_i, w_o_i, outputT}) {
                 if (skipReshape){
-                    config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
+                    config::SetPassConfig("PVC2_OOO", "SplitReshape", KEY_DISABLE_PASS, true);
                 }
 
                 auto q_kv = attention.MlaPrologFoward(
@@ -989,7 +989,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
                     TileShape::Current().SetCubeTile({32, 32},
                         {std::min(256, N * v_head_dim), std::min(256, N * v_head_dim)},
                         {std::min(128, H), std::min(128, H)});
-                    Tensor bmm5_res = Matrix::Matmul<false, false>(dType, r2_res, w_o_i);
+                    Tensor bmm5_res = Matrix::Matmul(dType, r2_res, w_o_i, false, false);
 
                     TileShape::Current().SetVecTile({32, std::min(2048, H)});
                     outputT = Reshape(bmm5_res, {B, S, H});
@@ -1075,7 +1075,7 @@ void attention_high(std::vector<int> &params, string dataPath, bool isQuant = fa
         EXPECT_EQ(ret, true);
     }
     if (skipReshape){
-        config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", false);
+        config::SetPassConfig("PVC2_OOO", "SplitReshape", KEY_DISABLE_PASS, false);
     }
 }
 
@@ -1457,7 +1457,7 @@ TEST_F(MlaPrologOnBoardTest, test_MlaProlog_bfloat16_4_32_1_256_7168_1536_quant)
 TEST_F(MlaPrologOnBoardTest, test_MlaProlog_float16_32_128_1_4096_7168_1536_quant) {  // b_n_s_s2_h_q_lora_rank
     // config::SetPassOption(NBUFFER_NUM, 2);
     config::SetPassOption(VEC_NBUFFER_MODE, 1);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
     int& h = std::get<int>(g_deepseekConfig["hiddenSize"]);
     int& n = std::get<int>(g_deepseekConfig["numAttentionHeads"]);
     int& qLoraRank = std::get<int>(g_deepseekConfig["qLoraRank"]);

@@ -146,7 +146,7 @@ enum class Opcode {
     OP_LOAD,
     // Special
     OP_CALL,
-    OP_CALL_NOT_EXPAND,
+    OP_BLOCK_CALL,
     OP_PRINT,
     OP_NOP,
 
@@ -224,8 +224,8 @@ enum class Opcode {
     OP_SHMEM_GET_GM2UB,
     OP_SHMEM_REDUCE,
     OP_BIND_TENSOR,
-    OP_SHMEM_MOE_COMBINE_SEND,
-    OP_SHMEM_MOE_COMBINE_RECEIVE,
+    OP_MOE_DISTRIBUTED_COMBINE_SEND,
+    OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
     // Begin: add for TOPK and ArgSort
     OP_TOPK,
     OP_TILEDMRGSORT,
@@ -293,6 +293,17 @@ public:
         static OpcodeManager inst;
         return inst;
     }
+    void RegisterInfo(Opcode opcode, OpCoreType coreType, std::string str, std::vector<MemoryType> inputsMemType,
+        std::vector<MemoryType> outputsMemType, const TileOpCfg tileOpCfg, OpCalcType calcType,
+        const std::vector<std::string> &attrs = {}, VerifyOperationEntry verifyOperationEntry = nullptr);
+    void RegisterVectorBinary();
+    void RegisterVectorUnary();
+    void RegisterVectorSort();
+    void RegisterVectorReduction();
+    void RegisterVector();
+    void RegisterCube();
+    void RegisterDistribute();
+    void RegisterCommon();
 
     bool HasOpcode(Opcode opcode) const {
         return static_cast<int>(opcode) >= 0 && static_cast<size_t>(opcode) < opcodeInfos_.size();
@@ -385,20 +396,23 @@ public:
     inline bool IsCopyIn(Opcode opCode) const {
         return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
                opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN ||
-               opCode == Opcode::OP_L1_TO_FIX_QUANT_PRE || opCode == Opcode::OP_L1_TO_BT;
+               opCode == Opcode::OP_L1_TO_FIX_QUANT_PRE || opCode == Opcode::OP_L1_TO_BT || 
+               opCode == Opcode::OP_SHMEM_GET_GM2UB;
     }
 
     inline bool IsCopyOut(Opcode opCode) const {
         return opCode == Opcode::OP_COPY_OUT || opCode == Opcode::OP_UB_COPY_OUT || opCode == Opcode::OP_L0C_COPY_OUT ||
                opCode == Opcode::OP_L1_COPY_OUT || opCode == Opcode::OP_TRANSPOSE_MOVEOUT ||
                opCode == Opcode::OP_INDEX_OUTCAST ||
+               opCode == Opcode::OP_INDEX_PUT ||
                opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_BATCHING ||
                opCode == Opcode::OP_FFN_COMBINEINFO || opCode == Opcode::OP_FFN_VALIDCNT ||
                opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_SHMEM_PUT ||
                opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
                opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
-               opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB ||
-               opCode == Opcode::OP_SHMEM_MOE_COMBINE_SEND || opCode == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE;
+               opCode == Opcode::OP_SHMEM_PUT_UB2GM  ||
+               opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
+               opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE;
     }
 
     inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
@@ -410,7 +424,8 @@ public:
             opCode == Opcode::OP_SHMEM_SIGNAL || opCode == Opcode::OP_SHMEM_GET ||
             opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_SHMEM_SET ||
             opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB ||
-            opCode == Opcode::OP_SHMEM_MOE_COMBINE_SEND || opCode == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE ||
+            opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
+            opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE ||
             opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_SEND_TO_ROUTING_EXPERT ||
             opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_DISPATCH_SET_FLAG ||
             opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_COMBINEINFO ||
@@ -436,6 +451,7 @@ private:
 private:
     std::array<OpcodeInfo, static_cast<int>(Opcode::OP_UNKNOWN)> opcodeInfos_{};
     std::unordered_map<std::string, Opcode> strToEnum_;
+    std::unordered_set<Opcode> registered_;
 };
 
 inline Opcode FindOpcode(const std::string &op) {
@@ -511,6 +527,7 @@ const std::unordered_set<Opcode> GATHER_ELEMENT_OPS{Opcode::OP_GATHER_ELEMENT};
 const std::unordered_set<Opcode> SCATTER_ELEMENT_OPS{Opcode::OP_SCATTER_ELEMENT};
 const std::unordered_set<Opcode> SCATTER_OPS{Opcode::OP_SCATTER};
 const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD};
+const std::unordered_set<Opcode> INDEX_PUT_OPS{Opcode::OP_INDEX_PUT};
 const std::unordered_set<Opcode> CUM_SUM_OPS{Opcode::OP_CUM_SUM};
 
 const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE, Opcode::OP_TRANSPOSE_VNCHWCONV,
@@ -521,7 +538,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS,
     Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_PAIRMAX, Opcode::OP_PAIRSUM, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWSUM_SINGLE, Opcode::OP_EXPAND, Opcode::OP_VEC_DUP, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM,
-    Opcode::OP_L1_TO_L0A, Opcode::OP_LOGICALNOT, Opcode::OP_LOGICALAND, Opcode::OP_ONEHOT, Opcode::OP_POW,
+    Opcode::OP_L1_TO_L0A, Opcode::OP_LOGICALNOT, Opcode::OP_LOGICALAND, Opcode::OP_ONEHOT, Opcode::OP_POW, Opcode::OP_INDEX_PUT,
     Opcode::OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B,
     Opcode::OP_A_MUL_BT, Opcode::OP_AT_MUL_B, Opcode::OP_AT_MUL_BT, Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS,
     Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWSUMLINE, Opcode::OP_ADD_BRC, Opcode::OP_ADD_BRC,
@@ -545,7 +562,7 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_R
     Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX,
     Opcode::OP_ROWEXPSUM, Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE,
-    Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE, Opcode::OP_SCATTER, Opcode::OP_VEC_DUP};
+    Opcode::OP_ROWSUM_COMBINE_AXIS_SINGLE};
 
 const std::unordered_set<Opcode> FIX_COPY_IN_OPS{Opcode::OP_L1_TO_FIX, Opcode::OP_L1_TO_FIX_QUANT_PRE,
     Opcode::OP_L1_TO_FIX_RELU_PRE, Opcode::OP_L1_TO_FIX_RELU_POST, Opcode::OP_L1_TO_FIX_QUANT_POST,
@@ -563,7 +580,8 @@ const std::unordered_set<Opcode> DISTRIBUTED_OPS{Opcode::OP_SEND_TO_ROUTING_EXPE
     Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING, Opcode::OP_FFN_COMBINEINFO, Opcode::OP_FFN_VALIDCNT,
     Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET, Opcode::OP_SHMEM_REDUCE,
     Opcode::OP_BIND_TENSOR, Opcode::OP_SHMEM_PUT_UB2GM, Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_SET,
-    Opcode::OP_SHMEM_MOE_COMBINE_SEND, Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE};
+    Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
+    Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE};
 
 inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
@@ -571,17 +589,19 @@ inline bool IsAllocOpCode(Opcode opCode) {
 
 inline bool IsCopyIn(const Opcode opCode) {
     return opCode == Opcode::OP_COPY_IN || opCode == Opcode::OP_UB_COPY_IN || opCode == Opcode::OP_L1_COPY_IN ||
-           opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN;
+           opCode == Opcode::OP_TRANSPOSE_MOVEIN || opCode == Opcode::OP_RESHAPE_COPY_IN || 
+           opCode == Opcode::OP_SHMEM_GET_GM2UB;
 }
 
 inline bool IsCopyOut(const Opcode &op) {
     return (op == Opcode::OP_COPY_OUT || op == Opcode::OP_L0C_COPY_OUT || op == Opcode::OP_TRANSPOSE_MOVEOUT ||
             op == Opcode::OP_INDEX_OUTCAST || op == Opcode::OP_FFN_SCHED || op == Opcode::OP_FFN_BATCHING ||
+            op == Opcode::OP_INDEX_PUT ||
             op == Opcode::OP_FFN_COMBINEINFO || op == Opcode::OP_FFN_VALIDCNT || op == Opcode::OP_COPY_TO_LOCAL_EXPERT ||
             op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL || op == Opcode::OP_SHMEM_GET ||
             op == Opcode::OP_SHMEM_REDUCE || op == Opcode::OP_RESHAPE_COPY_OUT || op == Opcode::OP_SHMEM_PUT_UB2GM ||
-            op == Opcode::OP_SHMEM_GET_GM2UB || op == Opcode::OP_SHMEM_SET || op == Opcode::OP_SHMEM_MOE_COMBINE_SEND ||
-            op == Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE);
+            op == Opcode::OP_SHMEM_SET || op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
+            op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE);
 }
 
 inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {

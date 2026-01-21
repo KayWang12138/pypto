@@ -70,6 +70,7 @@ Status ConfigManager::Initialize() {
     }
 
     config::SetRunDataOption(KEY_PTO_CONFIG_FILE, jsonFilePath);
+    config::SetRunDataOption(KEY_RUNTYPE, "npu");
     ASLOGI("Start to parse op_json_file %s", jsonFilePath.c_str());
     if (!ReadJsonFile(jsonFilePath, json_)) {
         ASLOGE("ReadJsonFile failed.");
@@ -91,10 +92,10 @@ Status ConfigManager::Initialize() {
                 if (jsonConfig.contains("global_configs")) {
                     const auto& genGlobal = jsonConfig["global_configs"];
                     if (genGlobal.contains("platform_configs") && !genGlobal["platform_configs"].empty()) {
-                        json_["global_configs"]["platform_configs"].update(genGlobal["platform_configs"]);
+                        json_["global"]["platform"].update(genGlobal["platform_configs"]);
                     }
                     if (genGlobal.contains("simulation_configs") && !genGlobal["simulation_configs"].empty()) {
-                        json_["global_configs"]["simulation_configs"].update(genGlobal["simulation_configs"]);
+                        json_["global"]["simulation"].update(genGlobal["simulation_configs"]);
                     }
                 }
             }
@@ -104,7 +105,7 @@ Status ConfigManager::Initialize() {
 
     originJson_ = json_;
 
-    if (auto *node = GetJsonChild(json_, "pass_global_configs")) {
+    if (auto *node = GetJsonNode(json_, {"global", "pass"})) {
         globalPassConfigs_ = InternalGetGlobalConfigs(*node);
     }
 
@@ -113,7 +114,7 @@ Status ConfigManager::Initialize() {
 }
 
 void ConfigManager::RefreshGlobalPassCfg() {
-    if (auto *node = GetJsonChild(json_, "pass_global_configs")) {
+    if (auto *node = GetJsonNode(json_, {"global", "pass"})) {
         globalPassConfigs_ = InternalGetGlobalConfigs(*node);
     }
 }
@@ -142,6 +143,7 @@ static std::string CreateLogTopFolder() {
     }
     res = CreateDir(folderPath);
     ASSERT(res) << "Failed to create directory: " << folderPath;
+    config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, RealPath(folderPath));
 
     return folderPath;
 }
@@ -157,7 +159,6 @@ const std::string &ConfigManager::LogTensorGraphFolder() {
     if (globalConfigs_.logTensorGraphFolder.empty()) {
         globalConfigs_.logTensorGraphFolder = LogTopFolder() + "/TensorGraph";
         CreateDir(globalConfigs_.logTensorGraphFolder);
-        config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, config::GetAbsoluteTopFolder() + "/TensorGraph");
     }
     return globalConfigs_.logTensorGraphFolder;
 }
@@ -169,15 +170,20 @@ const std::string &ConfigManager::LogFile() {
     return globalConfigs_.logFile;
 }
 
-void ConfigManager::ResetLog() {
-    globalConfigs_.logTopFolder = CreateLogTopFolder();
-    std::string newLogFile = LogTopFolder() + "/run.log";
+void ConfigManager::ResetLog(const std::string &path) {
+    std::string newLogFile;
+    if (path.empty()) {
+        globalConfigs_.logTopFolder = CreateLogTopFolder();
+        newLogFile = globalConfigs_.logTopFolder + "/run.log";
+    } else {
+        newLogFile = path + "/run.log";
+    }
     LoggerManager::FileLoggerReplace(globalConfigs_.logFile, newLogFile, true);
     globalConfigs_.logFile = std::move(newLogFile);
 }
 
 PassConfigs ConfigManager::GetPassConfigs(const std::string &strategy, const std::string &identifier) const {
-    auto *node = GetJsonNode(json_, {"strategies", strategy, identifier});
+    auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy, identifier});
     if (!node) {
         return globalPassConfigs_.defaultPassConfigs;
     }
@@ -186,7 +192,7 @@ PassConfigs ConfigManager::GetPassConfigs(const std::string &strategy, const std
 
 void ConfigManager::PassConfigsDebugInfo(
     const std::string &strategy, const std::vector<std::string> &identifiers) const {
-    auto *node = GetJsonNode(json_, {"strategies", strategy});
+    auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy});
     if (!node) {
         ALOG_INFO("[ConfigManager] Missing custom pass strategy <", strategy, "> configs. ",
                     "You may add your own custom strategy configs in 'tile_fwk_config.json'.");

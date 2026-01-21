@@ -17,14 +17,12 @@
 
 #include "device_common.h"
 #include "aicore_manager.h"
+#include "aicore_constants.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
 #include "tilefwk/aicore_print.h"
 
 namespace npu::tile_fwk::dynamic {
-#ifndef PAGE_SIZE
-#define PAGE_SIZE       4096
-#endif
 struct AicoreLogManager {
     AicoreLogManager() {
         data_ = aligned_alloc(PAGE_SIZE, MAX_AICORE_NUM * PRINT_BUFFER_SIZE);
@@ -40,15 +38,18 @@ struct AicoreLogManager {
     AicoreLogger logger[MAX_AICORE_NUM];
 };
 
-class DeviceMachine {
+class DeviceSchedMachine {
 public:
-    DeviceMachine() {
+    DeviceSchedMachine() {
         for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM; ++i) {
             aicoreManager_[i] = std::make_unique<AiCoreManager>(aicpuTaskManager_);
         }
-        validCore_.fill(false);
     }
 
+    void SetStachSchduleContext(int schedIdx, SchduleContext* context) {
+        aicoreManager_[schedIdx]->SetSchduleContext(context);
+    }
+    
     bool CheckAndResetReg(){
         return aicoreManager_[0]->CheckAndResetReg();
     }
@@ -57,7 +58,7 @@ public:
         schAicpuNum_ = schNum;
     }
 
-    int Run(int threadIdx, DeviceArgs *args, bool handShakeByGm = true) {
+    int Run(int threadIdx, DeviceArgs *args, int schedIdx) {
         int ret = 0;
         if (args->nrAic == 0 || args->nrValidAic == 0 || args->nrAicpu < NEED_LAUNCH_AICPU_MINNUM) {
             DEV_ERROR("Device machinr run invalid args aicnum:%u, blockdim:%u, launchAicpu num:%u",
@@ -66,23 +67,16 @@ public:
         }
 
         DEV_INFO("thread %d start .", threadIdx);
-        if (static_cast<uint32_t>(threadIdx) >= MAX_SCHEDULE_AICPU_NUM) {
+        if (static_cast<uint32_t>(threadIdx) > args->scheCpuNum) {
             DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
         }
 #if ENABLE_AICORE_PRINT
-        aicoreManager_[threadIdx]->InitLogger(logManager.logger);
+        aicoreManager_[schedIdx]->InitLogger(logManager.logger);
 #endif
-        ret = aicoreManager_[threadIdx]->Run(threadIdx, args, handShakeByGm);
+        ret = aicoreManager_[schedIdx]->Run(threadIdx, args, schedIdx);
         DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
         return ret;
-    }
-
-    void CacheValidCore() {
-        DEV_DEBUG("begin cache valid core.");
-        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-            aicoreManager_[i]->SetValidCore(&validCore_);
-        }
     }
 
     void ResetRegAll() {
@@ -129,7 +123,6 @@ private:
     AicpuTaskManager aicpuTaskManager_;
     uint32_t schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
     std::unique_ptr<AiCoreManager> aicoreManager_[MAX_SCHEDULE_AICPU_NUM];
-    std::array<bool, MAX_AICORE_NUM> validCore_;
 #if ENABLE_AICORE_PRINT
     AicoreLogManager logManager;
 #endif
