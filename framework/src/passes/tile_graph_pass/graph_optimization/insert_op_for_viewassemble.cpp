@@ -128,8 +128,62 @@ Status InsertOpForViewAssemble::JudgedViewAssemble(Function &function) {
     return SUCCESS;
 }
 
+ void InsertOpForViewAssemble::AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input) {
+        auto copyShape = input->GetShape();
+        std::vector<int64_t> offset0(copyShape.size(), 0);
+        std::vector<SymbolicScalar> dynOffset0(copyShape.size(), 0);
+    
+        auto assembleOut = std::make_shared<LogicalTensor>(function, input->Datatype(), copyShape);
+        assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
+        auto &assembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {input}, {assembleOut});
+        assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(
+            input->GetMemoryTypeOriginal(),
+            offset0,
+            dynOffset0,
+            input->GetDynValidShape()
+        ));
+    
+        auto viewOut = std::make_shared<LogicalTensor>(function, input->Datatype(), copyShape);
+        viewOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+        auto &viewOp = function.AddOperation(Opcode::OP_VIEW, {assembleOut}, {viewOut});
+        viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
+            offset0,
+            input->GetMemoryTypeOriginal(),
+            dynOffset0,
+            input->GetDynValidShape()
+        ));
+    
+        cons->ReplaceInput(viewOut, input);
+    }
+ 	 
+void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
+    auto opsBeforeAdd = function.Operations();
+    std::unordered_set<int> visitedAssOps;
+    std::unordered_set<Operation*> needAddCopyAssOps;
+    for (auto &op : opsBeforeAdd) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
+            visitedAssOps.insert(op.GetOpMagic());
+            auto assIn = op.GetIOperands()[0];
+            auto consumers = assIn->GetConsumers();
+            for (auto &con : consumers) {
+                if (con->GetOpMagic() != op.GetOpMagic() && con->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                    visitedAssOps.insert(con->GetOpMagic());
+                    needAddCopyAssOps.insert(con);
+                }
+            }
+        }
+    }
+    for (auto &needed : needAddCopyAssOps) {
+        auto input = needed->GetIOperands()[0];
+        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            AddCopyUBOp(function, needed, input);
+        }
+    }
+}
+
 Status InsertOpForViewAssemble::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start InsertOpForViewAssemble");
+    InsertAssembleCopy(function);
     if (JudgedViewAssemble(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Function, "JudgedViewAssemble Failed.");
         return FAILED;
