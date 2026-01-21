@@ -217,7 +217,7 @@ int InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
 Status InsertOpForViewAssemble::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start InsertOpForViewAssemble");
     if (InsertAssembleCopy(function) > 0) {
-        function.paramc
+        unction.paramConfigs_.perGraphAssRemove = false;
     }
     if (JudgedViewAssemble(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Function, "JudgedViewAssemble Failed.");
