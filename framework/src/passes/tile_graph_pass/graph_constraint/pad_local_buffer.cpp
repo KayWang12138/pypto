@@ -405,7 +405,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
             if (in->tensor->GetRawDataSize() == 0) {
                 continue;
             }
-            if (enableBrcb_) {
+            if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
                 PadVectorForAxisCombine(op, in, visitedRaw);
             } else {
                 bool noPadding = false;
@@ -532,7 +532,10 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         }
     }
     if (calcType == OpCalcType::BROADCAST) {
-        auto dimIdx = ProcessBroadcastForAxisCombine(in);
+        auto dimIdx = lastIdx;
+        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+            dimIdx = ProcessBroadcastForAxisCombine(in);
+        }
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
         return;
     }
@@ -547,8 +550,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
 }
 
 Status PadLocalBuffer::RunOnFunction(Function &function) {
-    enableBrcb_ = ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false) && RescheduleUtils::EnableCombineAxis(function);
-    if (enableBrcb_) {
+    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
         DoPadding(function);
         return SUCCESS;
     }

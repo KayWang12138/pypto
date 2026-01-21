@@ -298,15 +298,4 @@ void RescheduleUtils::PrintColorNode(Function &func) {
         ALOG_DEBUG_F("%s", colorInfo.c_str());
     }
 }
-
-bool RescheduleUtils::EnableCombineAxis(Function &func) {
-    for (auto &op : func.Operations()) {
-        if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode())) {
-            if (op.GetOOperands()[0]->GetShape().back() == 1 && op.GetIOperands()[0]->GetShape().back() > 1) {
-                return false;
-            }
-        }
-    }
-    return true;
-}
 } // namespace npu::tile_fwk
