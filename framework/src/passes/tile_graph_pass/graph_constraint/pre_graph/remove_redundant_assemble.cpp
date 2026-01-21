@@ -157,8 +157,8 @@ bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTens
     if (inputShape.size() < 3) {
         return false;
     }
-
-    return (inputShape[0] == 1 || inputShape[1] == 1);
+    return ((inputShape[0] == 1 || inputShape[1] == 1) && (inputShape[0] * inputShape[1] == outputShape[0]) &&
+            std::equal(inputShape.begin() + 2, inputShape.end(), outputShape.begin() + 1, outputShape.end()));
 }
 
 /*
@@ -545,9 +545,6 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
         APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
         return FAILED;
     }
-
-    std::string dbjfile = "/home/d00899108/bluecode/view0117";
-    function.DumpJsonFile(dbjfile + "/0json/tmp-before8.json");
     if (ProcessView(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "ProcessView failed.");
         return FAILED;
