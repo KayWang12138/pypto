@@ -79,10 +79,13 @@ def softmax_atten_sink_pto(input: pypto.Tensor, dim: int, atten_sink: pypto.Tens
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    runtime_options={"device_sched_mode": 1},
+    runtime_options={"device_sched_mode": 1,
+                    "stitch_function_inner_memory": 1024,
+                    "stitch_function_outcast_memory": 1024,
+                    "stitch_function_num_initial": 128},
     debug_options={"runtime_debug_mode": 1},
 )
-def win_atten_main_tnd_prefill(q_tnd, block_table, kv_cache, seqused_kv_list, atten_sink, atten_out, win):
+def win_atten_main_tnd_prefill(q_tnd, block_table, kv_cache, seqused_kv_list, atten_sink, actual_seq_list_q, atten_out, win):
     pypto.experimental.set_operation_config(combine_axis=True)
     t = q_tnd.shape[0]
     n_q = q_tnd.shape[1]
@@ -91,58 +94,62 @@ def win_atten_main_tnd_prefill(q_tnd, block_table, kv_cache, seqused_kv_list, at
     block_size = kv_cache.shape[1]
     d_kv = kv_cache.shape[3]
     b = seqused_kv_list.shape[0]
-    s_q = t // b
     dtype = q_tnd.dtype
 
-    q_2d = pypto.reshape(q_tnd, [b * s_q * n_q, d_q], inplace=True)
+    q_2d = pypto.reshape(q_tnd, [t * n_q, d_q], inplace=True)
     atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
     kv_2d = pypto.reshape(kv_cache, [kv_cache.shape[0] *block_size * kv_cache.shape[2], d_kv], inplace=True)
-    for t_idx in pypto.loop(t, name="LOOP_T", idx_name="t_idx", unroll_list = [128]):
-        b_idx = t_idx // s_q
-        s1_idx = t_idx % s_q
-        cur_offset = t_idx * n_q
 
-        actual_seq = seqused_kv_list[b_idx]
-        pypto.set_vec_tile_shapes(128, 512)
-        q_tensor_cur = pypto.view(q_2d, [n_q, d_q], [cur_offset, 0])
+    for b_idx in pypto.loop(b, name="LOOP_B", idx_name="B_idx"):
+        cur_s_q = actual_seq_list_q[b_idx + 1] - actual_seq_list_q[b_idx]
 
-        cur_loc = actual_seq - s_q + s1_idx + 1
-        valid_len = pypto.min(cur_loc, win)
-        cur_start_pos = cur_loc - valid_len
-        end_pos = cur_loc
-        start_block = cur_start_pos // block_size
-        start_offset = cur_start_pos % block_size
-        end_block = (end_pos - 1) // block_size
+        for s1_idx in pypto.loop(cur_s_q, name="LOOP_S1", idx_name="S1_idx"):
 
-        start_block_id = block_table[b_idx, start_block]
-        kv_block_0 = pypto.view(kv_2d, [block_size, d_kv], [start_block_id * block_size, 0])
-        end_block_id = block_table[b_idx, end_block]
-        kv_block_1 = pypto.view(kv_2d, [block_size, d_kv], [end_block_id * block_size, 0])
+            t_idx = actual_seq_list_q[b_idx] + s1_idx
 
-        pypto.set_vec_tile_shapes(128, 512)
-        kv_gather = pypto.concat([kv_block_0, kv_block_1], dim=0)
+            cur_offset = t_idx * n_q
 
-        pypto.set_vec_tile_shapes(128, 512)
-        kv_cur = pypto.view(kv_gather, [win, d_kv], [start_offset, 0])
+            actual_seq = seqused_kv_list[b_idx]
+            pypto.set_vec_tile_shapes(128, 512)
+            q_tensor_cur = pypto.view(q_2d, [n_q, d_q], [cur_offset, 0])
 
-        pypto.set_cube_tile_shapes([64, 64], [128, 512], [128, 128], True, False)
-        qk_mm_res = pypto.matmul(q_tensor_cur, kv_cur, pypto.DT_FP32, b_trans=True)
+            cur_loc = actual_seq - cur_s_q + s1_idx + 1
+            valid_len = pypto.min(cur_loc, win)
+            cur_start_pos = cur_loc - valid_len
+            end_pos = cur_loc
+            start_block = cur_start_pos // block_size
+            start_offset = cur_start_pos % block_size
+            end_block = (end_pos - 1) // block_size
 
-        pypto.set_vec_tile_shapes(128, 128)
-        qk_ele_res = pypto.mul(qk_mm_res, scalar)
-        rowmax = pypto.amax(qk_ele_res, -1, True)
-        sub_res = pypto.sub(qk_ele_res, rowmax)
-        exp_res = pypto.exp(sub_res)
-        esum = pypto.sum(exp_res, -1, True)
-        esum = pypto.add(esum, atten_sink_2d)
+            start_block_id = block_table[b_idx, start_block]
+            kv_block_0 = pypto.view(kv_2d, [block_size, d_kv], [start_block_id * block_size, 0])
+            end_block_id = block_table[b_idx, end_block]
+            kv_block_1 = pypto.view(kv_2d, [block_size, d_kv], [end_block_id * block_size, 0])
 
-        softmax_out = pypto.div(exp_res, esum)
-        softmax_out_b16 = pypto.cast(softmax_out, dtype)
+            pypto.set_vec_tile_shapes(128, 512)
+            kv_gather = pypto.concat([kv_block_0, kv_block_1], dim=0)
 
-        pypto.set_cube_tile_shapes([64, 64], [128, 128], [256, 256], False, False)
-        mm2_res = pypto.matmul(softmax_out_b16, kv_cur, dtype)
+            pypto.set_vec_tile_shapes(128, 512)
+            kv_cur = pypto.view(kv_gather, [win, d_kv], [start_offset, 0])
 
-        pypto.assemble(mm2_res, [cur_offset, 0], atten_out)
+            pypto.set_cube_tile_shapes([64, 64], [128, 512], [128, 128], True, False)
+            qk_mm_res = pypto.matmul(q_tensor_cur, kv_cur, pypto.DT_FP32, b_trans=True)
+            
+            pypto.set_vec_tile_shapes(128, 128)
+            qk_ele_res = pypto.mul(qk_mm_res, scalar)
+            rowmax = pypto.amax(qk_ele_res, -1, True)
+            sub_res = pypto.sub(qk_ele_res, rowmax)
+            exp_res = pypto.exp(sub_res)
+            esum = pypto.sum(exp_res, -1, True)
+            esum = pypto.add(esum, atten_sink_2d)
+
+            softmax_out = pypto.div(exp_res, esum)
+            softmax_out_b16 = pypto.cast(softmax_out, dtype)
+
+            pypto.set_cube_tile_shapes([64, 64], [128, 128], [256, 256], False, False)
+            mm2_res = pypto.matmul(softmax_out_b16, kv_cur, dtype)
+
+            pypto.assemble(mm2_res, [cur_offset, 0], atten_out)
 
 
 @pypto.jit(
@@ -357,6 +364,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
                         win_size: int,
                         is_decode: bool = False,
                         mask: torch.Tensor = None,
+                        actual_seq_list_q: torch.Tensor = None,
 ) -> None:
     """
     """
@@ -374,16 +382,23 @@ def deepseekv4_win_atten(q: torch.Tensor,
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
-    if mask is not None:
+    if is_decode and mask is not None:
         print("Using mask kernel")
         inputs[mask] = []
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         win_atten_main_bsnd_mtp_decode_mask(*pto_inputs, *pto_outputs, win_size)
+
     elif is_decode:
         print("Using mtp decode kernel")
         win_atten_main_bsnd_mtp_decode(*pto_inputs, *pto_outputs, win_size)
-    else:
+
+    elif not is_decode and actual_seq_list_q is not None:
         print("Using prefill kernel")
+        inputs[actual_seq_list_q] = []
+        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         win_atten_main_tnd_prefill(*pto_inputs, *pto_outputs, win_size)
 
+    else:
+        print("Please check your params.")
+        
     pypto.runtime._device_synchronize()
