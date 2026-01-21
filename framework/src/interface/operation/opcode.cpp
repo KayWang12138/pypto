@@ -748,6 +748,7 @@ OpcodeManager::OpcodeManager() {
 
 // NEXTNEXT: delete after tile op register has supported tile tensor
 std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
+    {      Opcode::OP_INDEX_OUTCAST,  "TIndexOutcast"},
     {         Opcode::OP_UB_COPY_IN,          "TLoad"},
     {        Opcode::OP_UB_COPY_OUT,         "TStore"},
     {Opcode::OP_TRANSPOSE_VNCHWCONV,         "TTrans"},
@@ -789,7 +790,8 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {             Opcode::OP_ONEHOT,        "TOneHot"},
     {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
     {            Opcode::OP_VEC_DUP,        "TVecDup"},
-    {            Opcode::OP_RANGE,           "TRange"},
+    {              Opcode::OP_RANGE,         "TRange"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
+    {       Opcode::OP_GATHER_IN_L1,    "TGatherInL1"},
 };
 } // namespace npu::tile_fwk

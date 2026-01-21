@@ -66,6 +66,7 @@ public:
     std::string GenReshapeCopyOut() const;
 
     std::string GenLoadOp() const;
+    std::string PrintGatherInL1TileTensor() const;
     std::string GenGatherInL1() const;
     std::string GenGatherInUB() const;
 
@@ -101,6 +102,7 @@ public:
     std::string GenIndexPutOp() const;
 
     std::string GenIndexOutCastOp() const;
+    std::string PrintIndexOutCastTileTensopr() const;
 
     std::string GenCumSumOp() const;
     std::string PrintGatherDynamicUnaligned() const;
