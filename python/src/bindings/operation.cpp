@@ -332,6 +332,17 @@ void bind_operation(py::module &m) {
         py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, py::arg("extend_params"),
         "Matrix multiply with extend param.");
     m.def(
+        "Conv",
+        [](DataType out_type, const Tensor &tensor_input, const Tensor &tensor_weight, const Tensor &tensor_bias,
+            const std::vector<int64_t> &strides, const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations,
+            const int64_t groups) {
+            return Conv::Conv(out_type, tensor_input, tensor_weight, tensor_bias, strides, paddings,
+                dilations, groups);
+        },
+        py::arg("out_type"), py::arg("tensor_input"), py::arg("tensor_weight"), py::arg("tensor_bias"),
+        py::arg("strides"), py::arg("paddings"), py::arg("dilations"), py::arg("groups"),
+        "Convolution forward with Transpose is false.");
+    m.def(
         "BatchMatmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
             bool c_matrix_nz) {
