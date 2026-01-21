@@ -354,42 +354,13 @@ void PrologPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Tensor &q
     Tensor &blockTable, Tensor &actSeqs, Tensor &weightUV, Tensor &weightO, int blockSize, float softmaxScale,
     Tensor &postOut, PaTileShapeConfig &tileConfig);
 
-namespace Matrix {
+namespace Conv {
+    
+    Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor,
+        const std::vector<int> &strides, const std::vector<int> &paddings, const std::vector<int> &dilations,
+        const int groups);
 
-enum class ReLuType : int64_t
-{
-    NoReLu = 0,
-    ReLu = 1
-};
-
-struct MatmulExtendParam {
-    Tensor biasTensor{Tensor()};
-    Tensor scaleTensor{Tensor()};
-    float scaleValue{0.0f};
-    ReLuType reluType{ReLuType::NoReLu};
-
-    MatmulExtendParam(Tensor bias, Tensor scale, float scaleVal, ReLuType relu)
-        : biasTensor(std::move(bias)),
-          scaleTensor(std::move(scale)),
-          scaleValue(scaleVal),
-          reluType(relu) {}
-
-    MatmulExtendParam() = default;
-};
-
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans = false,
-    bool isBTrans = false, bool isCMatrixNZ = false);
-
-Tensor Matmul(DataType outType, const Tensor &aMatrix, const Tensor &bMatrix, const MatmulExtendParam &extendParam,
-    bool isATrans = false, bool isBTrans = false, bool isCMatrixNZ = false);
-
-Tensor BatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix, bool isATrans = false,
-    bool isBTrans = false, bool isCMatrixNZ = false);
-
-Tensor TransposedBatchMatmul(DataType dataType, const Tensor &aMatrix, const Tensor &bMatrix);
-
-Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &dequantScaleW);
-} // namespace Matrix
+}
 
 namespace Distributed {
 enum class DistReduceType {
