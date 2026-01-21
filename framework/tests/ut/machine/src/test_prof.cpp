@@ -147,7 +147,7 @@ TEST_F(TestPro, test_prof_start_pmu_dav2201) {
     ProfConfig profConfig;
     profConfig.Add(ProfConfig::AICORE_PMU);
     prof.ProfInit(regAddrsArr, pmuEventAddrsArr, profConfig, ArchInfo::DAV_2201);
-    prof.SetProfLevel(PROF_LEVEL_FUNC_LOG_PMU);
+    // prof.SetProfLevel(PROF_LEVEL_FUNC_LOG_PMU);
     prof.ProfStart(); // trigger ProfStartPmu -> InitPmuRegAddrsDav2201/ReadPmuCounters/SetPmuEvents/ProgramPmuStartForCore
     prof.ProfStop();
 
@@ -183,7 +183,7 @@ TEST_F(TestPro, test_prof_start_pmu_dav3510) {
     ProfConfig profConfig;
     profConfig.Add(ProfConfig::AICORE_PMU);
     prof.ProfInit(regAddrsArr, pmuEventAddrsArr, profConfig, ArchInfo::DAV_3510);
-    prof.SetProfLevel(PROF_LEVEL_FUNC_LOG_PMU);
+    // prof.SetProfLevel(PROF_LEVEL_FUNC_LOG_PMU);
     prof.ProfStart(); // trigger ProfStartPmu -> InitPmuRegAddrsDav3510/ReadPmuCounters(inc cnt8/9)/SetPmuEvents/ProgramPmuStartForCore
     prof.ProfStop();
 
