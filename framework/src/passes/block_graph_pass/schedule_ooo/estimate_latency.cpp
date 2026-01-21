@@ -204,11 +204,11 @@ void LatencyEstimator::initLatencyEstimatorOpQueues(){
 
 void LatencyEstimator::InitMemWithoutAlloc() {
     std::unordered_set<int> memIds;
-    std::unordered_map<int, operation*> memIdAllocMap;
+    std::unordered_map<int, Operation*> memIdAllocMap;
     bool needAddAlloc = false;
     for (const auto &op : taskList) {
         if (IsOpAlloc(op)) {
-            memIdAllocMap[op] = op.GetOutputOperand(0)->memoryrange.memId;
+            memIdAllocMap[op->GetOutputOperand(0)->memoryrange.memId] = op;
         }
         for (auto &iOperand : op->GetIOperands()) {
             memIds.insert(iOperand->memoryrange.memId);
@@ -221,7 +221,7 @@ void LatencyEstimator::InitMemWithoutAlloc() {
         APASS_LOG_INFO_F(Elements::Operation, "The alloc op of memId[%d] in other graph", memId);
         needAddAlloc = true;
         for (const auto &op : operations) {
-            if (IsOpAlloc(op) && op.GetOutputOperand(0)->memoryrange.memId == memId) {
+            if (IsOpAlloc(op) && op->GetOutputOperand(0)->memoryrange.memId == memId) {
                 taskList.push_back(op);
                 APASS_LOG_INFO_F(Elements::Operation, "Add alloc op %s for memId[%d]", GetOpInfo(op).c_str(), memId);
             }
