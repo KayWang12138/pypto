@@ -62,10 +62,11 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
 
     g_loop_sym = group // group_tile
 
-    atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
     topk_tile = topk
     sel_tile = win_size * 2 + topk_tile
     kv_tile = win_size + topk_tile
+
+    atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
 
     for batch_idx in pypto.loop(0, batch_size_sym, 1, name="LOOP_L0_idx", idx_name="bIdx"):
         ori_act_seq = seqused_kv[batch_idx]
@@ -86,9 +87,10 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
                     cur_group_tile = group_tile
                     cur_offset = batch_idx * s1_n2_gsym + slc_idx * nq + n_kv_idx * group + group_idx * cur_group_tile
                     for _, _ in pypto.loop_unroll(0, 1, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx"): # 非Flash: wfa+sfa
-                        atten_out_2dim = pypto.tensor([batch_size_sym * s1_n2_gsym, d], dtype, "attenOut2Dim")
-                        pypto.set_semantic_label("Sa_V0")
+                        # atten_out_2dim = pypto.tensor([batch_size_sym * s1_n2_gsym, d], dtype, "attenOut2Dim")
 
+                        # V0
+                        pypto.set_semantic_label("Sa_V0")
                         # ---- window select: GM --> UB  [win_tile, d]
                         pypto.set_vec_tile_shapes(128, 512)
                         kj = pypto.tensor([sel_tile, d], dtype, "kj")
@@ -117,6 +119,7 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
                         kv_after_gather = pypto.view(kj, [kv_tile, d], [0, 0], valid_shape=[cur_s2_tile, d])
                         sij = pypto.matmul(qv, kv_after_gather, pypto.DT_FP32, a_trans=False, b_trans=True)
 
+                        # V1
                         pypto.set_semantic_label("Sa_V1")
                         pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
                         sij_scale = pypto.mul(sij, softmax_scale)
@@ -130,18 +133,19 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
                         t_softmax = pypto.div(tilda_pij, tilda_lij_reduce)
                         tilda_pij_f16 = pypto.cast(t_softmax, dtype)
 
+                        # C2
                         pypto.set_semantic_label("Sa_C2")
                         pypto.set_cube_tile_shapes([c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], 
                                                     [c2_tile[4], c2_tile[5]], enable_multi_data_load=True)
-                        pypto.set_matrix_size([tilda_pij_f16.shape[0],
-                                               tilda_pij_f16.shape[1], kj.shape[1]])
+                        pypto.set_matrix_size([tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], kj.shape[1]])
                         vj = pypto.view(kj, [kv_tile, d], [0, 0], valid_shape=[cur_s2_tile, d])
                         q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
 
-                        pypto.assemble(q1, [cur_offset, 0], atten_out_2dim)
+                        pypto.assemble(q1, [cur_offset, 0], attention_out)
 
-                        attention_out[:] = pypto.reshape(atten_out_2dim,
-                            [attention_out.shape[0], attention_out.shape[1], attention_out.shape[2], attention_out.shape[3]], inplace=True)
+                        # pypto.assemble(q1, [cur_offset, 0], atten_out_2dim)
+                        # attention_out[:] = pypto.reshape(atten_out_2dim,
+                        #     [attention_out.shape[0], attention_out.shape[1], attention_out.shape[2], attention_out.shape[3]], inplace=True)
 
 
 @pypto.jit(
@@ -151,8 +155,6 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
         "pg_lower_bound": 512,
         "pg_parallel_lower_bound": 20,
         "vec_nbuffer_mode": 1,
-        # "vec_nbuffer_setting": {-1: 2},
-        # "cube_l1_reuse_mode": 2,
         "cube_l1_reuse_setting": {-1: 2}
     },
     runtime_options={
@@ -160,8 +162,7 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
         "stitch_function_inner_memory": 1024,
         "stitch_function_outcast_memory": 1024,
         # "device_sched_mode": 3
-    },
-    host_options={"only_codegen": True}
+    }
 )
 def sparse_compress_flash_attention_d(query, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
                              seqused_kv, cmp_sparse_indices,
@@ -191,7 +192,8 @@ def npu_sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_b
         c2_tile_shape=[64, 64, 128, 640, 128, 128]
     )
 
-    attention_out_npu = torch.zeros([ori_block_table_npu.size(0), cmp_sparse_indices_npu.size(0) // ori_block_table_npu.size(0), query_npu.size(0) // cmp_sparse_indices_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=f'{query_npu.device}')
+    attention_out_npu = torch.zeros([query_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=f'{query_npu.device}')
+    # attention_out_npu = torch.zeros([ori_block_table_npu.size(0), cmp_sparse_indices_npu.size(0) // ori_block_table_npu.size(0), query_npu.size(0) // cmp_sparse_indices_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=f'{query_npu.device}')
     
     # 确定值先写死，确定整网接口有哪些传参后修改acl graph接口
     nq = query_npu.size(0) // cmp_sparse_indices_npu.size(0)
@@ -208,7 +210,8 @@ def npu_sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_b
     seqused_kv_pto = pypto.from_torch(seqused_kv_npu, dynamic_axis=[0], name="seqused_kv")
     cmp_sparse_indices_pto = pypto.from_torch(cmp_sparse_indices_npu, dynamic_axis=[0], name="cmp_sparse_indices")
     
-    attention_out_pto = pypto.from_torch(attention_out_npu, dynamic_axis=[0, 1], name="calc_attention_out")
+    attention_out_pto = pypto.from_torch(attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
+    # attention_out_pto = pypto.from_torch(attention_out_npu, dynamic_axis=[0, 1], name="calc_attention_out")
 
     pto_inputs = [query_pto, ori_kv_pto, cmp_kv_pto, ori_block_table_pto, cmp_block_table_pto, atten_sink_pto, seqused_kv_pto, cmp_sparse_indices_pto]
     pto_outputs = [attention_out_pto]

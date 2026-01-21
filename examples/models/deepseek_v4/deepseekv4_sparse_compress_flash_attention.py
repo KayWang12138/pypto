@@ -363,7 +363,8 @@ def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, in
     q, compress_kv, origin_kv, topk_indices, block_table, origin_block_table, origin_act_seq, atten_sink = input_data
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
 
-    calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
+    calc_attention_out = torch.zeros([b*s1*n_q, kv_lora_rank], dtype=torch.bfloat16)
+    # calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
 
     # 算子kernel接口入参名称及顺序与算子原型对齐
     q_npu = q.npu()
@@ -384,7 +385,8 @@ def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, in
     atten_sink_pto = pypto.from_torch(atten_sink_npu, name="atten_sink")
 
     calc_attention_out_npu = calc_attention_out.npu()
-    attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0, 1], name="calc_attention_out")
+    attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
+    # attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0, 1], name="calc_attention_out")
 
     pto_inputs = [query_pto, ori_kv_pto, cmp_kv_pto, ori_block_table_pto, cmp_block_table_pto, atten_sink_pto, seqused_kv_pto, cmp_sparse_indices_pto]
     pto_outputs = [attention_out_pto]
@@ -398,7 +400,8 @@ def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, in
 
     pypto.runtime._device_synchronize()
     print("======================sfa compare====================")
-    compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
+    compare(calc_attention_out_npu.cpu(), atten_out.reshape(calc_attention_out.shape), "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
+    # compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
 
 
 #acl graph测试入口
@@ -433,7 +436,8 @@ def do_test_sparse_compress_attention_func_acl_graph(bn1n2s1, actual_seq, input_
         kv_act_seqs_npu, topk_indices_npu, softmax_scale, win_size, cmp_ratio)
     pypto.runtime._device_synchronize()
 
-    compare(attention_out.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
+    compare(attention_out.cpu(), atten_out.reshape(attention_out.shape), "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
+    # compare(attention_out.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
 
 
 def do_test_sfa_entry(case_name: str, is_p: bool,  is_acl_graph: bool = False):
