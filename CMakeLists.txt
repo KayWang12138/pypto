@@ -44,7 +44,6 @@ option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 # 公开编译开关(tests)
 option(ENABLE_TESTS_EXECUTE "Enable auto execute tests executable" OFF)
 option(ENABLE_TESTS_EXECUTE_PARALLEL "Auto execute tests executable parallel" OFF)
-option(ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT "Auto execute tests executable parallel timeout" OFF)
 option(ENABLE_TESTS_EXECUTE_CHANGED_FILE "Specify tests changed file" OFF)
 option(ENABLE_UTEST "Enable UTest" OFF)
 option(ENABLE_UTEST_MODULE "Enable UTest Module compile and execute" OFF)
@@ -108,11 +107,11 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             tile_fwk_runtime_stub
             tile_fwk_simulation
             tile_fwk_simulation_ca
-            tile_fwk_simulation_pv
     )
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")
         install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${PyPTO_WhlName}/lib")
+        install(TARGETS tile_fwk_simulation_pv ARCHIVE DESTINATION "${PyPTO_WhlName}/lib")
     endif ()
     # 不判断 c_sec_shared 存在, 不存在时属异常场景, 应在构建阶段发现
     get_target_property(cSecSharedFile c_sec_shared IMPORTED_LOCATION)

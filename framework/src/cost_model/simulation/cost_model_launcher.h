@@ -345,8 +345,8 @@ private:
             return;
         }
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        pv_ = CostModel::PvModelFactory::CreateDyn();
         try {
+            pv_ = CostModel::PvModelFactory::CreateDyn();
             pv_->InitPv();
         } catch (const std::runtime_error &e) {
             std::cerr<< "pv init fail." << std::endl;
