@@ -20,9 +20,9 @@ import signal
 import subprocess
 import sys
 import time
-from abc import ABC, abstractmethod
+from abc import ABC
 from datetime import datetime, timezone, timedelta
-from multiprocessing import JoinableQueue, Event, Process, Value
+from multiprocessing import JoinableQueue, Event, Process, Value, cpu_count
 from typing import List, Any, Optional, Tuple, Dict, Callable
 
 from utils.args_action import ArgsEnvDictAction, ArgsGTestFilterListAction
@@ -271,15 +271,17 @@ class GTestAccelerate(ABC):
                 pass
             return True
 
-    def __init__(self, args, params: List[ExecParam], cntr_name: str = "Cntr"):
+    def __init__(self, args, scene_mark: str, cntr_name: str):
         """
         :param args: 命令行参数
-        :param params: 执行参数
         :param cntr_name: 容器名称, 用于回显内容
         """
+        # 场景标识
+        self.mark: str = scene_mark
+
         # 用例执行参数, 执行行为控制参数
         self.exe: Executable = Executable(file=args.target[0], envs=args.envs, timeout=args.timeout_case)
-        self.exe_params: List[GTestAccelerate.ExecParam] = params
+        self.exe_params: List[GTestAccelerate.ExecParam] = []
         self.exe_result: GTestAccelerate.ExecResult = GTestAccelerate.ExecResult(cntr_name=cntr_name)
         self.exe_timeout: Optional[int] = args.timeout
         self.exe_halt_on_error: bool = args.halt_on_error  # 失败时终止后续 Case 执行
@@ -298,14 +300,9 @@ class GTestAccelerate(ABC):
         self.cntr_terminate_event = Event()  # 用于通知其他 Container 进程结束运行
         self.cntr_exit_count = Value('i', 0)  # DFX, 统计 Container 退出进度
 
-        # 其他
-        if self.cntr_num == 0:
-            raise ValueError("ExecParams is empty, won't run any task.")
-        if len(params) > self.case_num:
-            logging.info("CaseNum(%s) less than len(ExecParams)=%s, will only start the first %s %s.",
-                         self.case_num, self.cntr_num, self.case_num, self.cntr_name)
-            self.exe_params = self.exe_params[:self.case_num]
-        logging.info("\n\n%s Accelerate Args:%s", self.mark, Table.table(datas=self.brief))
+        # CPU 亲和性管理
+        self.cpu_rank_size: Optional[int] = self._init_cpu_rank_size(args=args)
+        self.cpu_affinity_policy: Optional[int] = None
 
     @property
     def brief(self) -> List[Any]:
@@ -320,6 +317,9 @@ class GTestAccelerate(ABC):
             ["CaseTimeout", self.exe.timeout],
             ["Executable", self.exe.file],
         ]
+        if self.cpu_rank_size:
+            lst.append(["CpuRankSize", self.cpu_rank_size])
+            lst.append(["CpuAffinityPolicy", f"{self.cpu_affinity_policy_str}({self.cpu_affinity_policy})"])
         for k, v in self.exe.envs.items():
             lst.append([k, v])
         return lst
@@ -333,9 +333,15 @@ class GTestAccelerate(ABC):
         return len(self.case_list)
 
     @property
-    @abstractmethod
-    def mark(self) -> str:
-        pass
+    def cpu_affinity_policy_str(self) -> str:
+        if not self.cpu_affinity_policy:
+            return "Disable"
+        elif self.cpu_affinity_policy == 1:
+            return "Even Allocation"  # 均匀分配
+        elif self.cpu_affinity_policy == 2:
+            return "Cyclic Reuse Allocation"  # 循环再利用分配
+        else:
+            return "Unknown"
 
     @staticmethod
     def reg_args(parser: argparse.ArgumentParser):
@@ -363,6 +369,22 @@ class GTestAccelerate(ABC):
         parser.add_argument("--gtest_filter",
                             nargs="+", action=ArgsGTestFilterListAction, default=[], required=True, dest="cases",
                             help="GTestFilter, multiple cases are separated by ':'")
+        # 其他
+        parser.add_argument("--cpu_rank_size", nargs="?", type=int, default=None,
+                            help="Specify the rank size for CPU affinity grouping.")
+
+    @staticmethod
+    def _init_cpu_rank_size(args) -> Optional[int]:
+        cpu_rank_size = None
+        if args.cpu_rank_size:
+            cpu_rank_size = args.cpu_rank_size
+        else:
+            cpu_rank_size_str = os.environ.get("PYPTO_TESTS_CASE_EXECUTE_CPU_RANK_SIZE", None)
+            if cpu_rank_size_str:
+                cpu_rank_size = int(cpu_rank_size_str)
+        if cpu_rank_size and cpu_rank_size > 0:
+            return cpu_rank_size
+        return None
 
     @staticmethod
     def _move(src: JoinableQueue, dst: JoinableQueue):
@@ -386,9 +408,23 @@ class GTestAccelerate(ABC):
         except ModuleNotFoundError:
             pass
 
+    def prepare(self):
+        """执行准备
+        """
+        self.exe_params = self._prepare_get_params()
+        if self.cntr_num == 0:
+            raise ValueError("ExecParams is empty, won't run any task.")
+        if self.cntr_num > self.case_num:
+            logging.info("CaseNum(%s) less than len(ExecParams)=%s, will only start the first %s %s.",
+                         self.case_num, self.cntr_num, self.case_num, self.cntr_name)
+            self.exe_params = self.exe_params[:self.case_num]
+        # CPU 亲和性设置
+        self._prepare_determine_cpu_affinity_policy()
+
     def process(self):
         """执行任务
         """
+        logging.info("\n\n%s Accelerate Args:%s", self.mark, Table.table(datas=self.brief))
         # 执行流程
         ts = datetime.now(tz=timezone.utc)
         self._main()
@@ -415,6 +451,24 @@ class GTestAccelerate(ABC):
         else:
             logging.error(out)
         return case_exec_result
+
+    def _prepare_determine_cpu_affinity_policy(self):
+        """初始化 CPU 亲和性策略
+
+        策略确定需要依赖的 CntrNum 等参数无法在类构造阶段确定, 故本流程延迟到 prepare 阶段处理
+        """
+        self.cpu_affinity_policy = None
+        if self.cpu_rank_size and self.cpu_rank_size > 0:
+            if self.cntr_num * self.cpu_rank_size <= cpu_count():
+                self.cpu_affinity_policy = 1  # 策略1: 均匀分配(每 CPU 组对应 1 个 cntr)
+            else:
+                self.cpu_affinity_policy = 2  # 策略2: 循环复用核心组(期望 CPU 数超出 CPU 总数场景)
+        logging.info("Determine CpuAffinity, Policy=%s(%s), CntrNum=%s, CpuNum=%s, CpuRankSize=%s",
+                     self.cpu_affinity_policy_str, self.cpu_affinity_policy, 
+                     self.cntr_num, cpu_count(), self.cpu_rank_size)
+
+    def _prepare_get_params(self) -> List[ExecParam]:
+        return []
 
     def _post_case_exec_info(self) -> Tuple[str, bool]:
         """获取 Case 执行信息.
@@ -592,6 +646,7 @@ class GTestAccelerate(ABC):
         :param exec_param: ContainerParam
         """
         self._set_process_desc()
+        self._cntr_set_cpu_affinity(cntr_id=cntr_id)
         ctx = GTestAccelerate.CntrContext(cntr_id=cntr_id, exec_param=exec_param)
         try:
             time.sleep(delay)
@@ -674,6 +729,32 @@ class GTestAccelerate(ABC):
         ctx.exit_code = process.exitcode
         logging.info("%s Recv Case[%s] upload terminate event.", self._get_process_desc(), gtest_filter)
         return False
+
+    def _cntr_set_cpu_affinity(self, cntr_id: int):
+        """在 Cntr 启动初期, 设置 CPU 亲和性
+
+        将 CPU 亲和性配置在 Cntr 进程, 则该 Cntr 所执行的 Case 都会继承该配置
+        """
+        if not self.cpu_affinity_policy:
+            return
+        # 确定 CPU 分组索引
+        if self.cpu_affinity_policy == 1:
+            group_idx = cntr_id
+        else:
+            cpu_rank_num = cpu_count() // self.cpu_rank_size
+            group_idx = cntr_id % cpu_rank_num
+        # 计算 CPU 分组内容
+        start_core = group_idx * self.cpu_rank_size
+        end_core = min(start_core + self.cpu_rank_size, cpu_count())  # 防止超出 CPU 总数
+        cpu_core_list = [int(i) for i in range(start_core, end_core)]
+        try:
+            os.sched_setaffinity(0, cpu_core_list)  # 0代表当前进程PID
+            # 验证设置结果（可选）
+        except OSError as e:
+            # CPU 亲和性设置失败不影响用例执行
+            logging.error("%s[%s] Failed to set CPU affinity: %s", self.cntr_name, cntr_id, e)
+        current_affinity = os.sched_getaffinity(0)  # 0代表当前进程PID
+        logging.debug("%s[%s] cpu affinity cores: %s", self.cntr_name, cntr_id, current_affinity)
 
     def _case(self, cntr_id: int, param: ExecParam, gtest_filter: str):
         """具体用例执行进程
