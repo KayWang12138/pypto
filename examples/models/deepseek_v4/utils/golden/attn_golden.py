@@ -44,24 +44,22 @@ def gen_block_table(actual_seq_len, block_size, block_table_shape, cmp_r=1, enab
     return block_table
 
 
-def kv_cache_concat_bsnd(kr_cache_out, kv_cache_out, block_table, actual_seqs):
+def kv_cache_concat_bsnd(kv_cache_out, block_table, actual_seqs):
     b = actual_seqs.shape[0]
-    n2 = kr_cache_out.shape[2]
-    d = kr_cache_out.shape[3]
-    block_size = kr_cache_out.shape[1]
+    n2 = kv_cache_out.shape[2]
+    d = kv_cache_out.shape[3]
+    block_size = kv_cache_out.shape[1]
     dtype = kv_cache_out.dtype
 
     # 处理 torch tensor 类型的 kv_cache_actual_seq
     kv_max = (torch.max(actual_seqs).item() + block_size - 1) // block_size * block_size
 
     # 使用 torch 创建张量，保持在同一设备上
-    k_cache = torch.zeros([b, kv_max, n2, d], dtype=dtype).to(kr_cache_out.device)
-    v_cache = torch.zeros([b, kv_max, n2, d], dtype=dtype).to(kr_cache_out.device)
+    kv_cache = torch.zeros([b, kv_max, n2, d], dtype=dtype).to(kv_cache_out.device)
 
     for b_idx in range(b):
         block_list = block_table[b_idx]
         kv_nope_temp_tensor = torch.zeros([1, kv_max, n2, d], dtype=dtype)
-        kv_rope_temp_tensor = torch.zeros([1, kv_max, n2, d], dtype=dtype)
         s_idx = 0
 
         for _, block_idx in enumerate(block_list):
@@ -74,15 +72,11 @@ def kv_cache_concat_bsnd(kr_cache_out, kv_cache_out, block_table, actual_seqs):
             kv_nope_temp_tensor[:, start_idx:end_idx, :, :] = kv_cache_out[
                 block_idx : block_idx + 1, :, :, :
             ]
-            kv_rope_temp_tensor[:, start_idx:end_idx, :, :] = kr_cache_out[
-                block_idx : block_idx + 1, :, :, :
-            ]
             s_idx += 1
 
-        v_cache[b_idx : b_idx + 1, :, :, :] = kv_nope_temp_tensor
-        k_cache[b_idx : b_idx + 1, :, :, :] = kv_rope_temp_tensor
+        kv_cache[b_idx : b_idx + 1, :, :, :] = kv_nope_temp_tensor
 
-    return k_cache, v_cache
+    return kv_cache
 
 
 def softmax(x, attn_sink, is_fp16=False, is_new_sink = False):
@@ -108,64 +102,58 @@ def softmax(x, attn_sink, is_fp16=False, is_new_sink = False):
     return ans, x_max, x_sum
 
 
-def ifa_golden(q, k, v, attn_sink, blk_cfa, start_pos, out, enable_flash=True, cmp_r=1, is_new_sink=False,
-                k_win=None, v_win=None, blk_win=None):
+def ifa_golden(q, kv, attn_sink, blk_cfa, start_pos, out, enable_flash=True, cmp_r=1, is_new_sink=False,
+                kv_win=None, blk_win=None):
     if not enable_flash:
         fp64 = torch.float64
         q = q.to(fp64)
-        k = k.to(fp64)
-        v = v.to(fp64)
+        kv = kv.to(fp64)
         b = start_pos.shape[0]
         blk_size = k.shape[1]
         bs = q.shape[0]
         s1 = bs // b
-        nkv = k.shape[2]
-        d = k.shape[3]
+        nkv = kv.shape[2]
+        d = kv.shape[3]
         softmax_scale = d**-0.5
         ori_act_seqs = start_pos + s1
         compress_actual_seqs = ori_act_seqs // cmp_r
-        k_bsnd, v_bsnd = kv_cache_concat_bsnd(
-            k, v, blk_cfa, compress_actual_seqs
+        kv_bsnd = kv_cache_concat_bsnd(
+            kv, blk_cfa, compress_actual_seqs
         )
         win_seq_len = 0
-        if k_win is not None and v_win is not None and blk_win is not None:
-            k_cfa_bsnd, v_cfa_bsnd = kv_cache_concat_bsnd(
-                    k, v, blk_cfa, compress_actual_seqs
+        if kv_win is not None and blk_win is not None:
+            k_cfa_bsnd = kv_cache_concat_bsnd(
+                    kv, blk_cfa, compress_actual_seqs
                 )
-            k_win_bsnd, v_win_bsnd = kv_cache_concat_bsnd(
-                    k_win, v_win, blk_win, ori_act_seqs * 0 + 128 + s1 -1
+            k_win_bsnd = kv_cache_concat_bsnd(
+                    kv_win, blk_win, ori_act_seqs * 0 + 128 + s1 -1
                 )
-            k_bsnd = torch.cat([k_win_bsnd, k_cfa_bsnd], dim=1)
-            v_bsnd = torch.cat([v_win_bsnd, v_cfa_bsnd], dim=1)
+            kv_bsnd = torch.cat([k_win_bsnd, k_cfa_bsnd], dim=1)
             win_seq_len = blk_size
         for i in range(b):
             for j in range(s1):
                 for n2_idx in range(nkv):
                     seq_len = min(win_seq_len, ori_act_seqs[i]) + (ori_act_seqs[i] - s1 + 1 + j) // cmp_r
                     q_bs = q[i * s1 + j]
-                    k_bs = k_bsnd[i, :seq_len, n2_idx : n2_idx + 1].reshape(
+                    kv_bs = kv_bsnd[i, :seq_len, n2_idx : n2_idx + 1].reshape(
                         seq_len, d
                     )
-                    v_bs = v_bsnd[i, :seq_len, n2_idx : n2_idx + 1].reshape(
-                        seq_len, d
-                    )
-                    qk_bmm_res = torch.matmul(q_bs, k_bs.transpose(1, 0))
+                    qk_bmm_res = torch.matmul(q_bs, kv_bs.transpose(1, 0))
                     qk_ele_res = qk_bmm_res * softmax_scale
                     softmax_res, _, _ = softmax(qk_ele_res, attn_sink, True, is_new_sink=is_new_sink)
-                    bmm2_res = torch.matmul(softmax_res, v_bs)
+                    bmm2_res = torch.matmul(softmax_res, kv_bs)
                     out[i * s1 + j] = bmm2_res
     else:
         ifa_flash_torch(
             q=q,
-            k=k,
-            v=v,
+            kv=kv,
             attn_sink=attn_sink,
             block_table=blk_cfa,
             start_pos=start_pos,
             out=out,
             cmp_r=cmp_r,
             is_new_sink=is_new_sink,
-            k_win=k_win, v_win=v_win, blk_win=blk_win,
+            kv_win=kv_win, blk_win=blk_win,
         )
 
 
@@ -173,15 +161,14 @@ def matmul_proxy(left, right):
     fp32 = torch.float32
     return torch.matmul(left.to(fp32), right.to(fp32)).to(fp32)
 
-def get_block_kv(k_2d, v_2d, block_table, b_idx, s2_idx, block_size, cur_seq):
+def get_block_kv(kv_2d, block_table, b_idx, s2_idx, block_size, cur_seq):
     block_idx = block_table[b_idx][s2_idx]
     block_idx_valid = max(block_idx, 0)
     actual_s2_tile = min(block_size, cur_seq - s2_idx * block_size)
     kj_start = block_idx_valid * block_size
     kj_end = kj_start + actual_s2_tile
-    kj = k_2d[kj_start:kj_end, :]
-    vj = v_2d[kj_start:kj_end, :]
-    return kj, vj
+    kvj = kv_2d[kj_start:kj_end, :]
+    return kvj
 
 def flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=False):
     li = li_upd.unsqueeze(-1)
@@ -201,8 +188,8 @@ def flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, d
         oi_upd_3d.to(dtype)
     )
 
-def ifa_flash_torch(q, k, v, attn_sink, block_table, start_pos, out, cmp_r=1, is_new_sink=False,
-                k_win=None, v_win=None, blk_win=None):
+def ifa_flash_torch(q, kv, attn_sink, block_table, start_pos, out, cmp_r=1, is_new_sink=False,
+                kv_win=None, blk_win=None):
     """
     Args:
         q: Query [batch_size * s1, num_head, head_size]
@@ -220,12 +207,12 @@ def ifa_flash_torch(q, k, v, attn_sink, block_table, start_pos, out, cmp_r=1, is
     b = start_pos.shape[0]
     s1 = bs1 // b
     original_actual_seqs = start_pos + s1
-    k_shape = k.shape
+    k_shape = kv.shape
     _, block_size, n2, _ = k_shape
     g = n1 // n2
     g_tile = g
-    k_2d = k.reshape(-1, d)
-    v_2d = v.reshape(-1, d)
+    kv_2d = kv.reshape(-1, d)
+    # v_2d = v.reshape(-1, d)
     q_2d = q.reshape(-1, d)
 
     for b_idx in range(b):
@@ -242,33 +229,33 @@ def ifa_flash_torch(q, k, v, attn_sink, block_table, start_pos, out, cmp_r=1, is
                 qi_start = bs_ofs * n1 + n2g_ofs
                 qi_end = qi_start + g_tile
                 qi = q_2d[qi_start:qi_end, :]
-                if k_win is not None and v_win is not None and blk_win is not None:
-                    k_win_2d = k_win.reshape(-1, d)
-                    v_win_2d = v_win.reshape(-1, d)
+                if kv_win is not None and blk_win is not None:
+                    kv_win_2d = kv_win.reshape(-1, d)
+                    # v_win_2d = kv_win.reshape(-1, d)
                     cur_seq_win = min(block_size, original_actual_seqs[b_idx] - (s1 - 1 - s1_idx))
-                    k_win_tmp, v_win_tmp = get_block_kv(k_win_2d, v_win_2d, blk_win, b_idx, 0, block_size, cur_seq_win)
-                    mm1 = matmul_proxy(qi, k_win_tmp.t())
+                    kv_win_tmp = get_block_kv(kv_win_2d, blk_win, b_idx, 0, block_size, cur_seq_win)
+                    mm1 = matmul_proxy(qi, kv_win_tmp.t())
                     muls_res = mm1 * (d**-0.5)
                     tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)
                     tsub = muls_res - tilda_mij
                     tilda_pij = torch.exp(tsub)
                     tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
-                    oi_tmp = matmul_proxy(tilda_pij.to(dtype), v_win_tmp)
+                    oi_tmp = matmul_proxy(tilda_pij.to(dtype), kv_win_tmp)
                     oi_upd = oi_tmp
                     li_upd = tilda_lij.squeeze(-1)
                     mi_upd = tilda_mij.squeeze(-1)
                     if s2_loop == 0:
                          flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=is_new_sink)
                 for s2_idx in range(s2_loop):
-                    kj, vj = get_block_kv(k_2d, v_2d, block_table, b_idx, s2_idx, block_size, cur_seq)
-                    mm1 = matmul_proxy(qi, kj.t())
+                    kvj = get_block_kv(kv_2d, block_table, b_idx, s2_idx, block_size, cur_seq)
+                    mm1 = matmul_proxy(qi, kvj.t())
                     muls_res = mm1 * (d**-0.5)
                     tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)
-                    if s2_idx == 0 and k_win is None:
+                    if s2_idx == 0 and kv_win is None:
                         tsub = muls_res - tilda_mij
                         tilda_pij = torch.exp(tsub)
                         tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
-                        oi_tmp = matmul_proxy(tilda_pij.to(dtype), vj)
+                        oi_tmp = matmul_proxy(tilda_pij.to(dtype), kvj)
                         oi_upd = oi_tmp
                         li_upd = tilda_lij.squeeze(-1)
                         mi_upd = tilda_mij.squeeze(-1)
@@ -286,7 +273,7 @@ def ifa_flash_torch(q, k, v, attn_sink, block_table, start_pos, out, cmp_r=1, is
                         li = li_upd.unsqueeze(-1)
                         sum_new = li * update_mul + tilda_lij
                         li_upd = sum_new.squeeze(-1)
-                        q1 = matmul_proxy(tilda_pij.to(dtype), vj)
+                        q1 = matmul_proxy(tilda_pij.to(dtype), kvj)
                         oi_upd = oi_upd * update_mul + q1
                     if s2_idx == s2_loop - 1:
                         flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=is_new_sink)
