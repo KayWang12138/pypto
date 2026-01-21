@@ -29,6 +29,7 @@
 namespace npu::tile_fwk {
 constexpr int OOO_NUM2 = 2;
 constexpr int OOO_NUM209 = 209;
+constexpr int UBPoolSize = 192 * 1024;
 std::unordered_map<Opcode, int> preNodePriority = {
             // ALLOC 节点优先级最高，因为一个节点的前序ALLOC节点要在最靠近该节点的地方访问。
             {Opcode::OP_UB_ALLOC, 0}, {Opcode::OP_L1_ALLOC, 0}, {Opcode::OP_L0A_ALLOC, 0}, {Opcode::OP_L0B_ALLOC, 0},
@@ -1553,6 +1554,45 @@ TEST_F(ScheduleOoOTest, TestMixSchedule) {
     int size = 0;
     Status res = oooSchedule.MixSchedule(opList, *function, functionPair, size);
     EXPECT_EQ(res, SUCCESS);
+}
+
+TEST_F(ScheduleOoOTest, TestBufferPollRearrange) {
+    // 构造bufferPool
+    BufferPool pool;
+    pool.memSize_ = UBPoolSize;
+    BufferSlice s1; s1.offset = 32768; s1.size = 65536;
+    BufferSlice s2; s2.offset = 98304; s2.size = 65536;
+    pool.bufferSlices[1] = s1;
+    pool.bufferSlices[2] = s2;
+    EXPECT_FALSE(pool.CheckBufferSlicesOverlap());
+    // 构造子图
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<Opcode> opCodes{Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC};
+    std::vector<std::vector<std::string>> ioperands{{}, {}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}};
+    std::vector<std::string> opNames{"Alloc1", "Alloc2"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {128, 128}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    EXPECT_NE(function, nullptr);
+    // 构造issueEntry
+    auto alloc1 = subGraph.GetOp("Alloc1");
+    auto allocIssue1 = std::make_shared<IssueEntry>(*alloc1, 1);
+    auto alloc2 = subGraph.GetOp("Alloc2");
+    auto allocIssue2 = std::make_shared<IssueEntry>(*alloc2, 2);
+    // 验证重排，排序依据为offset从大到小
+    OoOScheduler oooSchedule(*function);
+    oooSchedule.bufferManagerMap[MemoryType::MEM_UB] = pool;
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(1, allocIssue1);
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(2, allocIssue2);
+    EXPECT_EQ(oooSchedule.RearrangeBuffer(MemoryType::MEM_UB), SUCCESS);
+    auto &ubPool = oooSchedule.bufferManagerMap[MemoryType::MEM_UB];
+    EXPECT_EQ(ubPool.GetBufferSize(1), 65536);
+    EXPECT_EQ(ubPool.GetBufferSize(2), 65536);
+    EXPECT_EQ(ubPool.GetBufferOffset(1), 0);
+    EXPECT_EQ(ubPool.GetBufferOffset(2), 65536);
 }
 
 } // namespace npu::tile_fwk
