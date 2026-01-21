@@ -21,10 +21,70 @@
 #include <list>
 #include <string>
 
+#include "tilefwk/tilefwk.h"
 #include "interface/inner/any.h"
 #include "tilefwk/tile_shape.h"
 
 namespace npu::tile_fwk {
+
+// pass
+constexpr const char *SG_PARALLEL_NUM = "pg_parallel_lower_bound";
+constexpr const char *SG_PG_UPPER_BOUND = "pg_upper_bound";
+constexpr const char *SG_PG_LOWER_BOUND = "pg_lower_bound";
+constexpr const char *SG_SET_SCOPE = "sg_set_scope";
+constexpr const char *CUBE_L1_REUSE_MODE = "cube_l1_reuse_mode";
+constexpr const char *CUBE_L1_REUSE_SETTING = "cube_l1_reuse_setting";
+constexpr const char *CUBE_NBUFFER_MODE = "cube_nbuffer_mode";
+constexpr const char *CUBE_NBUFFER_SETTING = "cube_nbuffer_setting";
+constexpr const char *MG_COPYIN_UPPER_BOUND = "mg_copyin_upper_bound";
+constexpr const char *OOO_PRESCHEDULE_METHOD = "ooo_preschedule_method";
+constexpr const char *VEC_NBUFFER_MODE = "vec_nbuffer_mode";
+constexpr const char *VEC_NBUFFER_SETTING = "vec_nbuffer_setting";
+constexpr const char *SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num";
+constexpr const char *MG_VEC_PARALLEL_LB = "mg_vec_parallel_lb";
+constexpr const char *PG_SKIP_PARTITION = "pg_skip_partition";
+constexpr const char *DB_TYPE = "db_type";
+constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
+
+// runtime
+constexpr const char *DEVICE_SCHED_MODE = "device_sched_mode";
+constexpr const char *STITCH_FUNCTION_INNER_MEMORY = "stitch_function_inner_memory";
+constexpr const char *STITCH_FUNCTION_OUTCAST_MEMORY = "stitch_function_outcast_memory";
+constexpr const char *STITCH_FUNCTION_NUM_INITIAL = "stitch_function_num_initial";
+constexpr const char *STITCH_FUNCTION_NUM_STEP = "stitch_function_num_step";
+constexpr const char *STITCH_FUNCTION_SIZE = "stitch_function_size";
+constexpr const char *STITCH_CFGCACHE_SIZE = "stitch_cfgcache_size";
+constexpr const char *CFG_RUN_MODE = "run_mode";
+const int64_t CFG_RUN_MODE_NPU = 0;
+const int64_t CFG_RUN_MODE_SIM = 1;
+
+// host
+constexpr const char *COMPILE_STAGE = "compile_stage";
+
+// codegen
+constexpr const char *SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
+
+/* flow virifer tools KEYs */
+const std::string KEY_ENABLE_PASS_VERIFY = "enable_pass_verify";
+const std::string KEY_PASS_VERIFY_SAVE_TENSOR = "pass_verify_save_tensor";
+const std::string KEY_PASS_VERIFY_SAVE_TENSOR_DIR = "pass_verify_save_tensor_dir";
+const std::string KEY_PASS_VERIFY_FILTER = "pass_verify_pass_filter";
+
+// debug
+constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";
+constexpr const char *CFG_RUNTIME_DBEUG_MODE = "runtime_debug_mode";
+const int64_t CFG_DEBUG_NONE = 0;
+const int64_t CFG_DEBUG_ALL = 1;
+const int64_t CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND = 2;
+
+// operation
+const std::string KEY_FORCE_COMBINE_AXIS = "force_combine_axis";
+const std::string KEY_COMBINE_AXIS = "combine_axis";
+
+constexpr const int ALL_COMPLETE = 0;
+constexpr const int GEN_KERNEL_CODE = 1;
+constexpr const int HOST_COMPILE_END = 2;
+constexpr const int GEN_TENSOR_GRAPH = 3;
 
 class ConfigScope;
 struct ConfigManagerImpl;
@@ -323,19 +383,103 @@ private:
 };
 
 namespace config {
-#define DEFINE_CONFIG_GROUP(group, prefix)                   \
-template <typename T>                                    \
-inline T Get##group##Option(const std::string &key) {    \
-    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>(prefix "." + key); \
+/**
+ * @brief Get host config options from current scope
+ */
+template <typename T>
+inline T GetHostOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("host" "." + key);
 }
 
-DEFINE_CONFIG_GROUP(CodeGen, "codegen")
-DEFINE_CONFIG_GROUP(Pass, "pass")
-DEFINE_CONFIG_GROUP(Runtime, "runtime")
-DEFINE_CONFIG_GROUP(Host, "host")
-DEFINE_CONFIG_GROUP(Verify, "verify")
-DEFINE_CONFIG_GROUP(Debug, "debug")
-DEFINE_CONFIG_GROUP(Operation, "operation")
+/**
+ * @brief Get code generation config options from current scope
+
+ */
+template <typename T>
+inline T GetCodeGenOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("codegen" "." + key);
+}
+
+/**
+ * @brief Get pass config options from current scope
+
+ */
+template <typename T>
+inline T GetPassOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("pass" "." + key);
+}
+
+/**
+ * @brief Get runtime config options from current scope
+ */
+template <typename T>
+inline T GetRuntimeOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("runtime" "." + key);
+}
+
+/**
+ * @brief Get verify config options from current scope
+ */
+template <typename T>
+inline T GetVerifyOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("verify" "." + key);
+}
+
+/**
+ * @brief Get debug config options from current scope
+ */
+template <typename T>
+inline T GetDebugOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("debug" "." + key);
+}
+
+/**
+ * @brief Get operation config options from current scope
+ */
+template <typename T>
+inline T GetOperationOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("operation" "." + key);
+}
+
+template <typename T>
+void SetOptionsNg(const std::string &key, const T &value) {
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
+}
+
+template void SetOptionsNg<bool>(const std::string &key, const bool &value);
+template void SetOptionsNg<int>(const std::string &key, const int &value);
+template void SetOptionsNg<double>(const std::string &key, const double &value);
+template void SetOptionsNg<std::string>(const std::string &key, const std::string &value);
+template void SetOptionsNg<long>(const std::string &key, const long &value);
+template void SetOptionsNg<uint8_t>(const std::string &key, const uint8_t &value);
+template void SetOptionsNg<std::map<int, int>>(const std::string &key, const std::map<int, int> &value);
+template void SetOptionsNg<std::map<long, long>>(const std::string &key, const std::map<long, long> &value);
+template void SetOptionsNg<std::vector<int>>(const std::string &key, const std::vector<int> &value);
+template void SetOptionsNg<std::vector<std::string>>(const std::string &key, const std::vector<std::string> &value);
+
+
+/**
+ * @brief Reset config to initial state by clearing current scope
+ */
+inline void Reset() {
+    ConfigManagerNg::CurrentScope()->Clear();
+}
+
+/**
+ * @brief Duplicate current config scope
+ * @return Shared pointer to current config scope
+ */
+inline std::shared_ptr<ConfigScope> Duplicate() {
+    return ConfigManagerNg::CurrentScope();
+}
+
+/**
+ * @brief Restore previous config scope by pushing to scope stack
+ * @param config The config scope to restore
+ */
+inline void Restore(std::shared_ptr<ConfigScope> config) {
+    ConfigManagerNg::GetInstance().PushScope(config);
+}
 
 } // namespace config
 
