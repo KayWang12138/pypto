@@ -151,4 +151,48 @@ struct MatmulAttrParam {
 void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
                         const LogicalTensorPtr &cTensorPtr, const Operation &op);
 }  // namespace Matrix
+
+namespace Conv {
+
+const std::string OP_ATTR_PREFIX = "op_attr_";
+const std::string CONV_PADDINGS_ATTR = OP_ATTR_PREFIX + "paddings";
+const std::string CONV_DILATIONS_ATTR = OP_ATTR_PREFIX + "dilations";
+const std::string CONV_STRIDES_ATTR = OP_ATTR_PREFIX + "strides";
+const std::string CONV_GROUPS_ATTR = OP_ATTR_PREFIX + "groups";
+const std::string CONV_BIAS_ATTR = OP_ATTR_PREFIX + "bias_flag";
+const std::string CONV_3D_FLAG = OP_ATTR_PREFIX + "is_conv3d";
+
+struct ConvAttrParam {
+    std::vector<int64_t> paddings = {0, 0, 0, 0};
+    std::vector<int64_t> strides = {0, 0, 0, 0};
+    std::vector<int64_t> dilations = {0, 0, 0, 0};
+    int64_t groups = 0;
+    int64_t offset_x = 0;
+    bool hasBias = false;
+    bool isCMatrixNZ = false;
+
+    ConvAttrParam() = default;
+
+    ConvAttrParam(std::vector<int64_t> paddingsList, std::vector<int64_t> stridesList, std::vector<int64_t> dilationsList,
+                  int64_t groupsValue) {
+        paddings = paddingsList;
+        strides = stridesList;
+        dilations = dilationsList;
+        groups = groupsValue;
+    }
+};
+
+struct ConvGraphNodes {
+    LogicalTensorPtr fmapTensorPtr = nullptr;
+    LogicalTensorPtr weightTensorPtr = nullptr;
+    LogicalTensorPtr cL0PartialSumPtr = nullptr;
+    LogicalTensorPtr biasTensorPtr = nullptr;
+    LogicalTensorPtr resTensorPtr = nullptr;
+};
+
+void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
+                        const LogicalTensorPtr &cTensorPtr, const Operation &op);
+
+} // namespace Conv
+
 }  // namespace npu::tile_fwk
