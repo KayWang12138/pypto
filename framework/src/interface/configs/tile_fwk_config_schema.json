@@ -414,6 +414,13 @@
                     },
                     "minimum": 0,
                     "maximum": 2
+                },
+                "aicpu_advanced_us": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "...",
+                        "en": "..."
+                    }
                 }
             }
         },

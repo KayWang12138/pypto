@@ -56,6 +56,8 @@ const int64_t CFG_RUN_MODE_SIM = 1;
 //debug
 constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";
 constexpr const char *CFG_RUNTIME_DBEUG_MODE = "runtime_debug_mode";
+constexpr const char *CFG_AICPU_ADVANCED_US = "aicpu_advanced_us";
+
 const int64_t CFG_DEBUG_NONE = 0;
 const int64_t CFG_DEBUG_ALL = 1;
 const int64_t CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND = 2;

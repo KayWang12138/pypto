@@ -662,6 +662,10 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
         return rc;
     }
     ReportHostProfInfo(startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
+    int sleepUs = config::GetDebugOption<int>(CFG_AICPU_ADVANCED_US);
+    if (sleepUs > 0) {
+        usleep(sleepUs);
+    }
 
     startTime = MsprofSysCycleTime();
     rc = launchDynamicAiCore(aicoreStream, kernelArgs);
