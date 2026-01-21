@@ -125,6 +125,10 @@ enum class Opcode {
     OP_L1_TO_L0A,
     OP_L1_TO_L0B,
     OP_L1_TO_BT,
+    OP_L1_COPY_IN_CONV,
+    OP_LOAD3D_CONV,
+    OP_LOAD2D_CONV,
+    OP_L0C_COPY_OUT_CONV,
     // ANY
     OP_DUPLICATE,
     // View
