@@ -25,7 +25,6 @@ namespace Distributed {
 
 template<typename T>
 void TestAllReduce(OpTestParam& testParam)
-void TestAllReduce(OpTestParam& testParam)
 {
     constexpr size_t paramsSize = 6;
     auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
