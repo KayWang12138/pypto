@@ -7,7 +7,7 @@ import io
 import math
 import operator
 from numbers import Real
-from typing import Any, Callable, ClassVar, Iterable, Optional, Tuple, Type, TypeVar, Union, List, overload
+from typing import Any, Callable, Iterable, Optional, Tuple, Type, TypeVar, Union, List, overload
 from typing_extensions import Self, TypeAlias
 
 import numpy as np
@@ -15,7 +15,7 @@ import pypto
 import torch
 
 from ..log import get_logger
-from . import dtypes, pypto_wrap
+from . import dtypes, op_desc, pypto_wrap
 
 T = TypeVar("T")
 IntArrayLike: TypeAlias = Union[int, Tuple[int, ...], np.ndarray]
@@ -828,25 +828,7 @@ class StaticMaskLayout(BaseMaskLayout):
 
 class CompoundMaskLayout(BaseMaskLayout, StaticDynamic):
 
-    class OpDescriptor:
-
-        def __init__(self, name: str, static_op: Callable, dynamic_op: Optional[Callable] = None) -> None:
-            self.name = name
-            self.static_op = static_op
-            self.dynamic_op = dynamic_op if dynamic_op is not None else static_op
-
-        def __str__(self) -> str:
-            return self.name
-
-    op_gt: ClassVar[OpDescriptor] = OpDescriptor("gt", operator.gt)
-    op_ge: ClassVar[OpDescriptor] = OpDescriptor("gt", operator.ge)
-    op_lt: ClassVar[OpDescriptor] = OpDescriptor("gt", operator.lt)
-    op_le: ClassVar[OpDescriptor] = OpDescriptor("gt", operator.le)
-    op_and: ClassVar[OpDescriptor] = OpDescriptor("and", operator.and_)
-    op_or: ClassVar[OpDescriptor] = OpDescriptor("or", operator.or_)
-    op_getitem: ClassVar[OpDescriptor] = OpDescriptor("getitem", operator.getitem)
-
-    def __init__(self, op: OpDescriptor, lhs, rhs) -> None:
+    def __init__(self, op: op_desc.OpDescriptor, lhs, rhs) -> None:
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
@@ -857,37 +839,37 @@ class CompoundMaskLayout(BaseMaskLayout, StaticDynamic):
     def to_static(self) -> StaticMaskLayout:
         lhs = self.lhs.to_static() if isinstance(self.lhs, StaticDynamic) else self.lhs
         rhs = self.rhs.to_static() if isinstance(self.rhs, StaticDynamic) else self.rhs
-        return self.op.static_op(lhs, rhs)
+        return self.op.static(lhs, rhs)
 
     def to_dynamic(self) -> TensorWrapper:
         lhs = self.lhs.to_dynamic() if isinstance(self.lhs, StaticDynamic) else self.lhs
         rhs = self.rhs.to_dynamic() if isinstance(self.rhs, StaticDynamic) else self.rhs
-        return self.op.dynamic_op(lhs, rhs)
+        return self.op.dynamic(lhs, rhs)
 
     def __and__(self, other) -> Self:
-        return CompoundMaskLayout(self.op_and, self, other)
+        return CompoundMaskLayout(op_desc.and_, self, other)
 
     def __or__(self, other) -> Self:
-        return CompoundMaskLayout(self.op_or, self, other)
+        return CompoundMaskLayout(op_desc.or_, self, other)
 
     def __getitem__(self, slices) -> Self:
-        return CompoundMaskLayout(self.op_getitem, self, slices)
+        return CompoundMaskLayout(op_desc.getitem, self, slices)
 
     @classmethod
     def gt(cls, lhs, rhs) -> Self:
-        return cls(cls.op_gt, lhs, rhs)
+        return cls(op_desc.gt, lhs, rhs)
 
     @classmethod
     def ge(cls, lhs, rhs) -> Self:
-        return cls(cls.op_ge, lhs, rhs)
+        return cls(op_desc.ge, lhs, rhs)
 
     @classmethod
     def lt(cls, lhs, rhs) -> Self:
-        return cls(cls.op_lt, lhs, rhs)
+        return cls(op_desc.lt, lhs, rhs)
 
     @classmethod
     def le(cls, lhs, rhs) -> Self:
-        return cls(cls.op_le, lhs, rhs)
+        return cls(op_desc.le, lhs, rhs)
 
 
 def program_id(axis: int) -> int:
