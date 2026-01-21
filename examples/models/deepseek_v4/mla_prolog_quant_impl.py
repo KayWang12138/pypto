@@ -474,7 +474,7 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         "stitch_cfgcache_size": 3000000
     })
 def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs):
-    pypto.experimental.set_operation_config(combine_axis=1)
+    pypto.experimental.set_operation_config(combine_axis=True)
     pypto.set_pass_options(vec_nbuffer_mode=1, cube_nbuffer_mode=1)
     mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs)
 
