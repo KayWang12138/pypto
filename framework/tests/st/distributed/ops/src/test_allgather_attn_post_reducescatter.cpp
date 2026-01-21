@@ -51,7 +51,6 @@ std::tuple<Tensor, Tensor, Tensor, Tensor> InitializeTestData(OpTestParam &testP
 }
 
 std::tuple<Tensor, Tensor> CreateShmemTensors(OpTestParam& testParam, DataType dtype, const Shape& shape) {
-std::tuple<Tensor, Tensor> CreateShmemTensors(OpTestParam& testParam, DataType dtype, const Shape& shape) {
     Tensor shmemData;
     Tensor shmemSignal;
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
@@ -68,7 +67,7 @@ void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam) {
     DataType dtype = GetDataTypeNum(typeNum);
     auto [agIn, wLora, wOut, out] = InitializeTestData(testParam);
     ASSERT(testParam.rankSize > 0) << "testParam.rankSize must be > 0, but got: " << testParam.rankSize;
-    int32_t outRow = b * s / testParam.rankSize
+    int32_t outRow = b * s / testParam.rankSize;
     FUNCTION("ALLGATHER_ATTNPOST_REDUCESCATTER", {agIn, wLora, wOut}, {out}) {
         Tensor agOut(dtype, {b * n * s, kvLoraRank}, "agOut");
         LOOP("ALLGATHER", FunctionType::DYNAMIC_LOOP, unusedDynRankId, LoopRange(1)) {
