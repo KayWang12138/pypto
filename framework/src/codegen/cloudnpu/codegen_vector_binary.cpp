@@ -264,6 +264,47 @@ std::string CodeGenOpCloudNPU::GenBinaryOpWithTmp() const {
     return PrintBinaryWithTmp({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
 }
 
+std::string CodeGenOpCloudNPU::GenVectorScalarOpWithTmp() const {
+    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+
+    char buffer[BUFFER_SIZE_512] = "CG_ERROR";
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    AppendLocalBufVarOffsetInOrder(dVar, s0Var);
+
+    std::vector src0RawShape = this->rawShape[1];
+    std::vector dstRawShape = this->rawShape[0];
+    std::vector<int64_t> os0 = NormalizeShape(originShape[1], SHAPE_DIM4);
+    std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
+    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
+
+    if (isSupportLayout) {
+        std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+        std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+        std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+        std::vector<std::string> tileOpCallParamList = {dstTensor, srcTensor, tmpTensor};
+
+        std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+
+        std::ostringstream oss;
+        oss << tileOpName << "<" << dstDtypeStr << ">"
+            << "(" << dstTensor << ", " << srcTensor << ", " << scalarTmpBuffer << ", " << tmpTensor << ");\n";
+        return oss.str();
+    }
+
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+    int ret = sprintf_s(buffer, sizeof(buffer),
+        "%s_<%s, %d, %d, %d, %d, /*DS*/ %d, %d, %d, /*S0S*/ %d, %d, %d>"
+        "((__ubuf__ %s*)%s, (__ubuf__ %s*)%s, (%s)%s);\n",
+        tileOpName.c_str(), dstDtypeStr.c_str(), os0[ID0], os0[ID1], os0[ID2], os0[ID3], ds[ID1], ds[ID2], ds[ID3],
+        s0[ID1], s0[ID2], s0[ID3], dstDtypeStr.c_str(), dVar.c_str(), dstDtypeStr.c_str(), s0Var.c_str(),
+        dstDtypeStr.c_str(), scalarTmpBuffer.c_str());
+    ASSERT(ret >= 0) << "GenVectorScalarOpByMode" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
+                     << ret;
+    return buffer;
+}
+
 std::string CodeGenOpCloudNPU::PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const {
     const std::string &dstDtypeStr = param.dstDtypeStr;
     const std::string &src0DtypeStr = param.src0DtypeStr;
