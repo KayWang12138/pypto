@@ -33,10 +33,11 @@ struct SignalTileOp {
     bool PollCompleted() const;
 
     SignalTileOp* next{nullptr};
-    uint64_t taskId_;
-    int32_t* addr_;
-    int32_t expectedSum_;
-    bool resetSignal_;
+    uint64_t taskId_{0};
+    int32_t* addr_{0};
+    int32_t expectedSum_{0};
+    bool resetSignal_{false};
+    uint64_t taskStatTimes_{0};
 };
 
 class HashMap {
@@ -168,12 +169,13 @@ public:
         hashMap_.Init();
     }
 
-    inline int32_t EnqueueOp(uint64_t taskId) {
+    inline int32_t EnqueueOp(uint64_t taskId, uint64_t taskStartTime) {
         SignalTileOp* task = hashMap_.FindTask(taskId);
         if (task == nullptr) {
             DEV_ERROR("There is no this taskId: %lu", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
+        task->taskStatTimes_ = taskStartTime;
         return runingTaskQueue_.Enqueue(task);
     }
 

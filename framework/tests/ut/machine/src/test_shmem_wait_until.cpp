@@ -143,7 +143,7 @@ void PrepareTasks(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUnt
 void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* shmemWaitUntil,
      npu::tile_fwk::dynamic::AiCoreManager* aicoreManager) {
     for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
-        shmemWaitUntil->EnqueueOp(taskId);
+        shmemWaitUntil->EnqueueOp(taskId, 0);
         shmemWaitUntil->PollCompleted(*aicoreManager);
     }
 }
