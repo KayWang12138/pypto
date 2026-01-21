@@ -31,19 +31,23 @@ namespace npu::tile_fwk::Distributed {
 
 class TestDistributedShmemImpl : public ::testing::Test {
 private:
-    void CreateShmemTensors(const char* group, uint32_t worldSize, 
-                          const Tensor& in, const Shape& shmemDataShape,
-                          Tensor& shmemData, Tensor& shmemSignal) {
-        DataType shmemDataType = in.GetDataType();
-        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-            shmemDataType = DT_FP32;
-        }
-        
+    void CreateShmemTensors(const char* group, uint32_t worldSize, const DataType shmemDataType,
+        const Shape& shmemDataShape, Tensor& shmemData, Tensor& shmemSignal)
+    {
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
             CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
             CreateShmemSignal(group, shmemData, shmemSignal);
         }
+    }
+
+    DataType GetType(const Tensor& in)
+    {
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        return shmemDataType;
     }
 
 public:
@@ -82,7 +86,7 @@ TEST_F(TestDistributedShmemImpl, TestAllGather)
         TileShape::Current().SetVecTile({16, 32});
         Tensor shmemData;
         Tensor shmemSignal;
-        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        CreateShmemTensors(group, worldSize, in, DT_FP16, shmemData, shmemSignal);
         AllGather(in, in, group, shmemData, shmemSignal, out);
     }
 
@@ -106,7 +110,8 @@ TEST_F(TestDistributedShmemImpl, TestReduceScatter)
         TileShape::Current().SetVecTile({64, 256});
         Tensor shmemData;
         Tensor shmemSignal;
-        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        DataType shmemDataType = GetType(in);
+        CreateShmemTensors(group, worldSize, shmemDataType, shmemDataShape, shmemData, shmemSignal);
         ReduceScatter(in, in, group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
     }
 
@@ -128,7 +133,8 @@ TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduce)
         TileShape::Current().SetVecTile({64, 256});
         Tensor shmemData;
         Tensor shmemSignal;
-        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        DataType shmemDataType = GetType(in);
+        CreateShmemTensors(group, worldSize, shmemDataType, shmemDataShape, shmemData, shmemSignal);
         TwoShotAllReduce(in, in, group, shmemData, shmemSignal, out);
     }
 
@@ -151,7 +157,8 @@ TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
         TileShape::Current().SetVecTile({64, 256});
         Tensor shmemData;
         Tensor shmemSignal;
-        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        DataType shmemDataType = GetType(in);
+        CreateShmemTensors(group, worldSize, shmemDataType, shmemDataShape, shmemData, shmemSignal);
         OneShotAllReduce(in, in, group, shmemData, shmemSignal, out);
     }
 
