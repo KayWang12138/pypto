@@ -37,6 +37,7 @@
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/aicore_hal.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
+#include "machine/device/distributed/shmem_wait_until.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/device/dynamic/wrap_manager.h"
 
@@ -235,8 +236,13 @@ public:
         }
 
         if (IsNeedProcAicpuTask()) {
-            const bool profSwitch = aicoreProf_.ProfIsEnable();
-            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), sharedBuffer_, profSwitch);
+            Metrics* aicpuTaskStat{nullptr};
+            if (aicoreProf_.ProfIsEnable()) {
+                KernelArgs *args = (KernelArgs *)(sharedBuffer_ + (aicNum_ + aivNum_) * SHARED_BUFFER_SIZE);
+                aicpuTaskStat = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+            }
+            DEV_ERROR("=====%d, ===%d", aicNum_, aivNum_);
+            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), aicpuTaskStat);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -377,7 +383,7 @@ public:
 
     int32_t ProcessCompletedAicpuTask(uint64_t taskId) {
         if (aicoreProf_.ProfIsEnable()) {
-            aicpuTaskManager_.FillTaskEndTimes(taskId);
+            aicpuTaskManager_.FillTaskEndTimes(task);
         }
         
         int32_t ret = ResolveDepDyn(taskId);
