@@ -190,6 +190,18 @@ private:
                 case DataType::DT_UINT64:
                     readGoldenCmp<uint64_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
+                case DataType::DT_HF8:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E4:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E5:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E8:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
                 default:
                     ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
                     break;
