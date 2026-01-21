@@ -301,14 +301,14 @@ Status OoOScheduler::CheckAndUpdateLifecycle() {
     return SUCCESS;
 }
 
-Status OoOScheduler::SpillOnCoreBlock(int idx, CoreType coreType) {
+Status OoOScheduler::SpillOnCoreBlock(CoreType coreType, int idx) {
     MemoryType spillMemType;
-    if (!allocIssueQueue[idx][coreType][MemoryType::MEM_UB].Empty()) {
+    if (!allocIssueQueue[coreType][idx][MemoryType::MEM_UB].Empty()) {
         spillMemType = MemoryType::MEM_UB;
-    } else if (!allocIssueQueue[idx][coreType][MemoryType::MEM_L1].Empty()) {
+    } else if (!allocIssueQueue[coreType][idx][MemoryType::MEM_L1].Empty()) {
         spillMemType = MemoryType::MEM_L1;
     } else {
-        for (auto memType: allocIssueQueue[idx][coreType]) {
+        for (auto memType: allocIssueQueue[coreType][idx]) {
             if (memType.second.Empty()) {
                 continue;
             }
@@ -318,9 +318,9 @@ Status OoOScheduler::SpillOnCoreBlock(int idx, CoreType coreType) {
         return FAILED;
     }
     bool rearrangeUBBF16{false};
-    if (RearrangeBuffers(allocIssueQueue[idx][coreType][spillMemType].Front(), false, rearrangeUBBF16) != SUCCESS) {
+    if (RearrangeBuffers(allocIssueQueue[coreType][idx][spillMemType].Front(), false, rearrangeUBBF16) != SUCCESS) {
         APASS_LOG_WARN_F(Elements::Operation, "SpillOnBlock failed at RearrangeBuffers. Try GenBufferSpill.");
-        if (GenBufferSpill(allocIssueQueue[idx][coreType][spillMemType].Front()) != SUCCESS) {
+        if (GenBufferSpill(allocIssueQueue[coreType][idx][spillMemType].Front()) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
             return FAILED;
         }
@@ -329,8 +329,8 @@ Status OoOScheduler::SpillOnCoreBlock(int idx, CoreType coreType) {
 }
 
 Status OoOScheduler::SpillOnBlock() {
-    for (auto [idx, coreType] : CORE_INIT_CONFIGS) {
-        if (SpillOnCoreBlock(idx, coreType) != SUCCESS) {
+    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        if (SpillOnCoreBlock(coreType, idx) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %d", idx, coreType);
             return FAILED;
         }
@@ -392,8 +392,8 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
 
 Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
     // issue from all pipes
-    for (auto [idx, coreType] : CORE_INIT_CONFIGS) {
-        for (auto &[pipeType, pipe] : issueQueues[idx][coreType]) {
+    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        for (auto &[pipeType, pipe] : issueQueues[coreType][idx]) {
             if (pipe.Empty() || pipe.busy) {
                 continue;
             }
@@ -464,8 +464,8 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, 
 }
 
 Status OoOScheduler::BufferAllocStage(uint64_t &commitCnt) {
-    for (auto [idx, coreType] : CORE_INIT_CONFIGS) {
-        for (auto& [memType, pipe] : allocIssueQueue[idx][coreType]) {
+    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        for (auto& [memType, pipe] : allocIssueQueue[coreType][idx]) {
             if (pipe.Empty()) {
                 continue;
             }
@@ -535,8 +535,8 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
 }
 
 Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
-    for (auto [idx, coreType] : CORE_INIT_CONFIGS) {
-        for (auto& [pipeType, pipe] : issueQueues[idx][coreType]) {
+    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        for (auto& [pipeType, pipe] : issueQueues[coreType][idx]) {
             (void)pipeType;
             if (!pipe.busy) {
                 continue;
@@ -565,13 +565,13 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
 void OoOScheduler::LaunchReadyIssue() {
     // TODO 分核初始化 Queue
     for (auto &issue : issueEntries) {
-        auto idx = issue->coreLocation.first;
-        auto coreType = issue->coreLocation.second;
+        auto coreType = issue->coreLocation.first;
+        auto idx = issue->coreLocation.second;
         if (USE_LESS_OPS.find(issue->tileOp.GetOpcode()) != USE_LESS_OPS.end() && issue->predecessors.empty()) {
-            issueQueues[idx][coreType][issue->type].Insert(issue);
+            issueQueues[coreType][idx][issue->type].Insert(issue);
         }
         if (issue->isAlloc) {
-            allocIssueQueue[idx][coreType][localBufferMap[idx][coreType][issue->reqMemIds[0]]->memType].Insert(issue);
+            allocIssueQueue[coreType][idx][localBufferMap[coreType][idx][issue->reqMemIds[0]]->memType].Insert(issue);
         }
     }
 }
@@ -588,7 +588,7 @@ bool OoOScheduler::IsInissueEntries(Operation* op) {
 Status OoOScheduler::InitMemWithoutAlloc() {
     // TODO 分核进行提前alloc 识别哪个核上？ 正式版本不存在no producer情况
     // std::set<int> needAllocMem;
-    std::unordered_map<int, std::pair<int, CoreType>> needAllocMem;
+    std::unordered_map<int, std::pair<CoreType, int>> needAllocMem;
     for (const auto &issue : issueEntries) {
         for (auto &iOperand : issue->tileOp.GetIOperands()) {
             bool needAlloc = true;
@@ -624,15 +624,17 @@ Status OoOScheduler::InitMemWithoutAlloc() {
 Status OoOScheduler::ScheduleMainLoop() {
     UpdateIssueExecOrder();
     LaunchReadyIssue();
-    if (InitMemWithoutAlloc() != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "InitMemWithoutAlloc failed.");
-        return FAILED;
-    }
+//    if (InitMemWithoutAlloc() != SUCCESS) {
+//        APASS_LOG_ERROR_F(Elements::Operation, "InitMemWithoutAlloc failed.");
+//        return FAILED;
+//    }
     numTotalIssues = issueEntries.size();
     uint64_t commitCnt = 0; // 当前已提交的issue数量
     bool isAllRetired = false;
+    std::map<CoreType, std::map<int, int>> nextCycle;
     while (!isAllRetired) {
         int nextCycle = -1;
+        InitNextCycle(nextCycle);
         APASS_LOG_DEBUG_F(Elements::Operation, "\n clock: %d", clock);
         // Retire Stage : 检查现有pipe中的op是否执行完。如果op执行完，则将op标记为retired状态，将可以被释放的buffer释放掉，并唤醒后续已经就绪的op。
         // 完毕后更新整个pipe的状态。
@@ -752,7 +754,7 @@ Status OoOScheduler::GenSpillSchedule() {
 
 void OoOScheduler::InitIssueQueuesAndBufferManager() {
     // TODO 初始化
-    for (auto [idx, coreType] : CORE_INIT_CONFIGS) {
+    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
         for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
             // issueQueues[static_cast<PipeType>(i)] = IssueQueue();
             issueQueues[idx][coreType][static_cast<PipeType>(i)] = IssueQueue();
@@ -760,14 +762,14 @@ void OoOScheduler::InitIssueQueuesAndBufferManager() {
     }
 
     bufferManagerMap.clear();
-    for (auto [idx, coreType] : CORE_INIT_CONFIGS) {
+    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
         for (size_t i = 0; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
         // allocIssueQueue[static_cast<MemoryType>(i)] = IssueQueue();
-            allocIssueQueue[idx][coreType][static_cast<MemoryType>(i)] = IssueQueue();
+            allocIssueQueue[coreType][idx][static_cast<MemoryType>(i)] = IssueQueue();
             if (localMemorySize.find(static_cast<MemoryType>(i)) != localMemorySize.end()) {
                 // bufferManagerMap.insert({static_cast<MemoryType>(i),
                 //     BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
-                bufferManagerMap[idx][coreType].insert({static_cast<MemoryType>(i),
+                bufferManagerMap[coreType][idx].insert({static_cast<MemoryType>(i),
                     BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
             }
         }
