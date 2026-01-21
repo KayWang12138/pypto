@@ -179,8 +179,10 @@ bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTens
             return true;
         }
     }
-
-    return false;
+    if (std::max(inputShape.size(), outputShape.size()) < 3) {
+        return false;
+    }
+    return removeAllOnes(inputShape) == removeAllOnes(outputShape);
 }
 
 /*
@@ -354,9 +356,10 @@ Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> Assemble(offset, 
 */
 Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &assembleOp,
     const std::set<Operation *, LogicalTensor::CompareOp> &producers) {
+    std::cout << "in handle assemble reshape" << std::endl;
     std::vector<SymbolicScalar> newDynOffset;
     std::vector<int64_t> newRawShape;
-    auto opAttr = dynamic_cast<AssembleOpAttribute *>(assembleOp.GetOpAttribute().get());
+    auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(assembleOp.GetOpAttribute());
     if (opAttr == nullptr) return FAILED;
     auto &dynOffset = opAttr->GetToDynOffset();
     if (dynOffset.empty()) {
@@ -377,10 +380,16 @@ Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &a
     }
 
     auto &assembleOutShape = assembleOp.GetOOperands()[0]->tensor->rawshape;
+
     bool ret =
         CalculateNewRawShape(oriBackUp->shape, producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape);
     if (ret == false) return SUCCESS;
+    newRawShape = producer->GetIOperands()[0]->shape;
+    newRawShape[0] *= (assembleOp.GetOOperands()[0]->tensor->GetRawShapeSize() /
+                       producer->GetIOperands()[0]->tensor->GetRawShapeSize());
     GetDynOffsetBeforeReshape(dynOffset, assembleOutShape, newRawShape, newDynOffset);
+    std::cout << "newshape" << IntVecToStr(newRawShape).c_str() << std::endl;
+    std::cout << "newoffset" << IntVecToStr(newDynOffset).c_str() << std::endl;
     for (auto copyOut : producer->GetIOperands()[0]->GetProducers()) {
         if (!IsCopyOut(copyOut->GetOpcode())) return SUCCESS;
         const std::shared_ptr<OpAttribute> &attr = copyOut->GetOpAttribute();
@@ -394,7 +403,6 @@ Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &a
         copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         copyAttr->SetToOffset(newOffset);
     }
-    producer->GetIOperands()[0]->UpdateShape(newRawShape);
     producer->GetIOperands()[0]->tensor->UpdateRawShape(newRawShape);
     return SUCCESS;
 }

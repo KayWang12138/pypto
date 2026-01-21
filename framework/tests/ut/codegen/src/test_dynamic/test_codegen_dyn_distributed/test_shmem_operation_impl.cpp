@@ -235,9 +235,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
-{
-    const char* group = "hcom123";
+TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub) {
     int64_t row = 4;
     int64_t col = 64;
     Tensor dummy(DT_INT32, {1, 1}, "dummy");
@@ -258,5 +256,4 @@ TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
-
 }
