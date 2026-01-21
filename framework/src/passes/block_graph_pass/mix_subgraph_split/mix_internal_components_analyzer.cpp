@@ -544,5 +544,16 @@ void MixInternalComponentsAnalyzer::CollectConsumerAivCores(Operation* copyOp, s
         }
     }
 }
+
+int GetStartIndex(const std::vector<Operation *> &opList, Operation* startOp) {
+    // 找到起始op的索引
+    for (size_t i = 0; i < opList.size(); ++i) {
+        if (opList[i] == startOp) {
+            return i;
+        }
+    }
+    ALOG_DEBUG_F("Start op %d not found in sequence", startOp->GetOpMagic());
+    return -1;
+}
 }
 }
