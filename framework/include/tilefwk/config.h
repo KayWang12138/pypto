@@ -103,7 +103,18 @@ void SetHostOption(const std::string &key, const T &value) {
  */
 template <typename T>
 void SetVerifyOption(const std::string &key, const T &value) {
-    SetOptionsNg("pass." + key, value);
+    SetOptionsNg("verify." + key, value);
+}
+
+/**
+ * \brief Set Operation options
+ *
+ * \param key config option key
+ * \param value config option value
+ */
+template <typename T>
+void SetOperationOption(const std::string &key, const T &value) {
+    SetOptionsNg("operation." + key, value);
 }
 
 /**

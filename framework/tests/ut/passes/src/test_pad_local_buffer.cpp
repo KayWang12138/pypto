@@ -31,6 +31,7 @@ using namespace npu::tile_fwk;
 constexpr size_t K_1 = 1;
 constexpr size_t K_4 = 4;
 constexpr size_t K_8 = 8;
+constexpr size_t K_16 = 16;
 constexpr size_t K_64 = 64;
 constexpr size_t K_128 = 128;
 class TestPadLocalBuffer : public ::testing::Test {
@@ -42,7 +43,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {
@@ -956,7 +957,8 @@ TEST_F(TestPadLocalBuffer, axiscombine) {
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, MemoryType::MEM_UB, "t3"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t1","t2"}, {"t3"}, "add", true), true);
     auto *rootFuncPtr = graph.GetFunction();
-    config::SetOperationConfig(KEY_COMBINE_AXIS, true);
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     PadLocalBuffer padLocalBufferTest;
@@ -991,8 +993,9 @@ TEST_F(TestPadLocalBuffer, axiscombine2) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_DIV, {"t1","t2"}, {"t3"}, "div", true), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {32,4,1,1}, MemoryType::MEM_UB, "t4"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_RESHAPE, {"t3"}, {"t4"}, "reshape", true), true);
-    config::SetOperationConfig(KEY_COMBINE_AXIS, true);
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
     auto *rootFuncPtr = graph.GetFunction();
+    rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine axisCombineTest;
     EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
     PadLocalBuffer padLocalBufferTest;
@@ -1019,8 +1022,9 @@ TEST_F(TestPadLocalBuffer, axiscombine3) {
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1,1,160}, MemoryType::MEM_UB, "t3"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "reshape", true), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t2"}, {"t3"}, "expand", true), true);
-    config::SetOperationConfig(KEY_COMBINE_AXIS, true);
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
     auto *rootFuncPtr = graph.GetFunction();
+    rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine axisCombineTest;
     EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
     PadLocalBuffer padLocalBufferTest;
