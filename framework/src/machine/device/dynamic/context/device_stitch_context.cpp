@@ -19,10 +19,6 @@ namespace npu::tile_fwk::dynamic {
 void DeviceStitchContext::Init(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace) {
     workspace.SetupVector(stitchedList_);
     workspace_ = &workspace;
-
-    workspace_->SetupVector(slotInfosInDecidingSlotMem_);
-    slotInfosInDecidingSlotMem_.resize(devProg->slotSize); // need pre alloc , left memory for slab allocator
-
     Reset();
 }
 

@@ -76,7 +76,6 @@ struct DeviceStitchContext {
 private:
     uint32_t stitchedCallOpSize_{0};
     StitchedList stitchedList_;
-    Vector<ItemPoolIter, WsMemCategory::VECTOR_TEMPORARY> slotInfosInDecidingSlotMem_;
     DeviceWorkspaceAllocator *workspace_{nullptr};
 
 public:
