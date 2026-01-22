@@ -15,8 +15,8 @@ import os
 from typing import List
 import torch
 import pytest
-
 import pypto
+from utils.time_cost_decorator import time_cost
 
 
 def gather_after_prolog_graph(
@@ -182,7 +182,7 @@ def compare(t: torch.Tensor, t_ref: torch.Tensor):
     # Exact since kernel is purely indexing ops
     torch.testing.assert_close(t, t_ref, rtol=0.0, atol=0.0)
 
-
+@time_cost(33)
 def test_gather():
     topk = 2048
     block_size = 128
