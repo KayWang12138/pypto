@@ -11,7 +11,7 @@
 ## 函数原型
 
 ```python
-round(self, dim: int) -> 'Tensor'
+round(self, decimals: int) -> 'Tensor'
 ```
 
 ## 详细说明
