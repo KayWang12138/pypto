@@ -109,6 +109,7 @@ struct DeviceKernelArgs {
     void *aicoreModel{nullptr};
     uint64_t taskWastTime{0};
     uint8_t machineConfig;
+    uint64_t maxDynamicAssembleOutcastMem{0};
     ToSubMachineConfig toSubMachineConfig;
     OpMetaAddrs opMetaAddrs;
 };
