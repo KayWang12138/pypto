@@ -57,8 +57,6 @@ public:
 
         Program::GetInstance().Reset();
         ProgramData::GetInstance().Reset();
-
-        config::SetHostOption(ONLY_CODEGEN, true);
     }
 
     void DeviceFini() {
@@ -149,7 +147,7 @@ public:
         devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
 
         int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
-        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum);
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         devProg->devArgs.nrAicpu = config.aicpuNum;
         ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
@@ -231,11 +229,11 @@ public:
 
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
         const std::vector<uint8_t> &devProgData) {
+        auto hcclContext = DistributedContext::GetHcclContext(groupNames);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        if (devProg->hcclContext[0] != 0) {
+        if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
             return;
         }
- 	    auto hcclContext = DistributedContext::GetHcclContext(groupNames);
         PrepareHcclContext(hcclContext, devProgData);
     }
 

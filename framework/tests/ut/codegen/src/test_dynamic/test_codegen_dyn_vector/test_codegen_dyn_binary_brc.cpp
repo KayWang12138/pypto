@@ -38,7 +38,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
@@ -47,7 +47,7 @@ public:
 
 // mul (32, 512), (32, 1)
 TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
-    config::SetOperationConfig(KEY_FORCE_COMBINE_AXIS, true);
+    config::SetOperationOption(KEY_FORCE_COMBINE_AXIS, true);
     std::vector<int64_t> shape1 = {32, 512};
     std::vector<int64_t> shape2 = {32, 1};
     TileShape::Current().SetVecTile({32, 256});

@@ -100,8 +100,8 @@ stest:
       - TestAdd/AddOperationTest.TestAdd/11
       - TestConcat/ConcatOperationTest.TestConcat/0
       - TestConcat/ConcatOperationTest.TestConcat/1
-      - TestCumSum/CumSumOperationTest.TestCumSum/0
-      - TestCumSum/CumSumOperationTest.TestCumSum/1
+      - TestCumSum/CumSumOperationTest.TestCumSum/2
+      - TestCumSum/CumSumOperationTest.TestCumSum/3
       - TestGatherElement/GatherElementOperationTest.TestGatherElement/0
       - TestGatherElement/GatherElementOperationTest.TestGatherElement/4
       - TestGatherElement/GatherElementOperationTest.TestGatherElement/14
@@ -137,6 +137,8 @@ stest:
       - TestScatter_/Scatter_OperationTest.TestScatter_/1
       - TestScatter/ScatterOperationTest.TestScatter/0
       - TestScatter/ScatterOperationTest.TestScatter/2
+      - TestScatterTensor/ScatterTensorOperationTest.TestScatterTensor/8
+      - TestScatterTensor/ScatterTensorOperationTest.TestScatterTensor/16
       - TestScatterUpdate/ScatterUpdateOperationTest.TestScatterUpdate/0
       - TestScatterUpdate/ScatterUpdateOperationTest.TestScatterUpdate/1
       - TestRsqrt/RsqrtOperationTest.TestRsqrt/0

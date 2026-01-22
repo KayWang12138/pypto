@@ -332,7 +332,7 @@ void OpcodeManager::RegisterVector() {
         {"TileOp::TscatterElementS", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OpAttributeKey::scalar, OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_SCATTER, OpCoreType::AIV, "SCATTER",
-        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::Tscatter", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_INDEX_PUT, OpCoreType::ANY, "INDEX_PUT",
@@ -611,7 +611,8 @@ void OpcodeManager::RegisterDistribute() {
         {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_GET_GM2UB, OpCoreType::AIV, "SHMEM_GET_GM2UB",
         {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
-        {MemoryType::MEM_UB /* UBData */}, {"TileOp::Distributed::ShmemGetGm2Ub", PIPE_S, PIPE_S, CoreType::AIV},
+        {MemoryType::MEM_UB /* UBData */, MemoryType::MEM_UB /* ubTensor */}, 
+        {"TileOp::Distributed::ShmemGetGm2Ub", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_REDUCE, OpCoreType::AIV, "SHMEM_REDUCE",
         {MemoryType::MEM_DEVICE_DDR /* in */, MemoryType::MEM_DEVICE_DDR /* shmemData */,
@@ -753,12 +754,15 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {Opcode::OP_TRANSPOSE_VNCHWCONV,         "TTrans"},
     {   Opcode::OP_TRANSPOSE_MOVEIN,   "TTransMoveIn"},
     {  Opcode::OP_TRANSPOSE_MOVEOUT,  "TTransMoveOut"},
+    {          Opcode::OP_INDEX_PUT,      "TIndexPut"},
     {                Opcode::OP_ADD,           "TAdd"},
     {                Opcode::OP_SUB,           "TSub"},
     {                Opcode::OP_DIV,           "TDiv"},
     {                Opcode::OP_MUL,           "TMul"},
+    {          Opcode::OP_INDEX_ADD,      "TIndexAdd"},
     {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
     {             Opcode::OP_GATHER,        "Tgather"},
+    {            Opcode::OP_SCATTER,       "Tscatter"},
     {             Opcode::OP_EXPAND,        "TExpand"},
     {            Opcode::OP_BITSORT,       "TBitSort"},
     {            Opcode::OP_MRGSORT,       "TMrgSort"},
@@ -780,6 +784,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {               Opcode::OP_SQRT,          "TSqrt"},
     {                Opcode::OP_EXP,           "TExp"},
     {                Opcode::OP_ABS,           "TAbs"},
+    {         Opcode::OP_LOGICALNOT,    "TLogicalNot"},
     {            Opcode::OP_MAXIMUM,           "TMax"},
     {            Opcode::OP_MINIMUM,           "TMin"},
     {            Opcode::OP_PAIRSUM,       "TPairSum"},
