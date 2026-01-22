@@ -34,14 +34,13 @@
 #include "tilefwk/error.h"
 #include "securec.h"
 #include "tilefwk/symbolic_scalar.h"
+#include "tilefwk/aicore_data.h"
 
 namespace npu::tile_fwk {
 using Status = uint32_t;
 #define SUCCESS 0
 #define FAILED 1
 #define CACHELINE_SIZE_FOR_B64 64
-
-inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
 
 constexpr const int NUM2 = 2;
 constexpr const int NUM4 = 4;
