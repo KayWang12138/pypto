@@ -65,20 +65,20 @@ const std::unordered_set<Opcode> COPY_IN_OPS = {
     Opcode::OP_UB_COPY_L1_ND
 };
 
-const std::map<CoreType, int> CORE_INIT_CONFIGS_Mix = {
-    {CoreType::AIV, 0},
-    {CoreType::AIV, 1},
-    {CoreType::AIC, 0}
+const std::map<OpCoreType, int> CORE_INIT_CONFIGS_Mix = {
+    {OpCoreType::AIV, 0},
+    {OpCoreType::AIV, 1},
+    {OpCoreType::AIC, 0}
 };
 
-const std::map<CoreType, int> CORE_INIT_CONFIGS_NON_MIX = {
-    {CoreType::AIV, 0},
-    {CoreType::AIC, 0}
+const std::map<OpCoreType, int> CORE_INIT_CONFIGS_NON_MIX = {
+    {OpCoreType::AIV, 0},
+    {OpCoreType::AIC, 0}
 };
 
-const std::unordered_map<CoreType, std::pair<CoreType, int>> opCoreTypeMap {
-    {OpCoreType::AIV, std::make_pair(CoreType::AIV, 0)},
-    {OpCoreType::AIC, std::make_pair(CoreType::AIC, 0)}
+const std::unordered_map<OpCoreType, std::pair<CoreType, int>> opCoreTypeMap {
+    {OpCoreType::AIV, std::make_pair(OpCoreType::AIV, 0)},
+    {OpCoreType::AIC, std::make_pair(OpCoreType::AIC, 0)}
 }
 
 struct IssueEntry {
@@ -89,7 +89,7 @@ struct IssueEntry {
     bool isAlloc{false};
     bool isRetired{false};
     std::vector<Operation*> viewOps;
-    std::pair<CoreType, int> coreLocation;
+    std::pair<OpCoreType, int> coreLocation;
 
     // 当前op的前序op
     std::unordered_set<int> predecessors;
@@ -158,21 +158,21 @@ private:
     std::vector<IssueEntryPtr> issueEntries;
     std::unordered_map<int, IssueEntryPtr> issueEntryMap;
 
-    std::map<CoreType, int> CORE_INIT_CONFIGS;
+    std::map<OpCoreType, int> CORE_INIT_CONFIGS;
 
     std::unordered_map<int, LocalBufferPtr> localBufferMap;
     // 分核数据结构
-    std::unordered_map<CoreType, std::map<int, std::map<npu::tile_fwk::MemoryType, BufferPool>>> bufferManagerMap;
+    std::unordered_map<OpCoreType, std::map<int, std::map<npu::tile_fwk::MemoryType, BufferPool>>> bufferManagerMap;
     // std::unordered_map<npu::tile_fwk::MemoryType, BufferPool> bufferManagerMap;
     std::unordered_map<int, int> bufRefCount;
     std::unordered_map<MemoryType, std::map<int, IssueEntryPtr>> tensorOccupyMap;
     // tensor和其初始化时对应的alloc的core类型 memId-core类型
-    std::unordered_map<int, std::pair<CoreType, int>> tensorAllocCoreMap;
+    std::unordered_map<int, std::pair<OpCoreType, int>> tensorAllocCoreMap;
 
-    std::unordered_map<<CoreType, std::map<int, std::map<MemoryType, IssueQueue>>> allocIssueQueue;
+    std::unordered_map<OpCoreType, std::map<int, std::map<MemoryType, IssueQueue>>> allocIssueQueue;
     // std::map<MemoryType, IssueQueue> allocIssueQueue;
 
-    std::unordered_map<<CoreType, std::map<int, std::map<PipeType, IssueQueue>>> issueQueues;
+    std::unordered_map<OpCoreType, std::map<int, std::map<PipeType, IssueQueue>>> issueQueues;
     // std::map<PipeType, IssueQueue> issueQueues;
     std::unordered_map<MemoryType, int64_t> localMemorySize;
 
@@ -201,7 +201,7 @@ private:
     IssueEntryPtr rollBackNodeIssue{nullptr};
     int GetMaxDepthSimple(IssueEntryPtr issue);
     // scheduler
-    Status Init(const std::vector<Operation *> &operations, const std::map<Operation*, CoreType> &opCoreMap = std::map<Operation*, CoreType>());
+    Status Init(const std::vector<Operation *> &operations, const std::map<Operation*, OpCoreType> &opCoreMap = std::map<Operation*, OpCoreType>());
     void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
@@ -236,7 +236,7 @@ private:
     Status AllocTensorMemRange(IssueEntryPtr issue);
     Status AllocViewTensorMemRange(Operation &operation);
     Status SpillOnBlock();
-    Status SpillOnCoreBlock(int idx, CoreType coreType);
+    Status SpillOnCoreBlock(int idx, OpCoreType OpCoreType);
     Status CheckAndUpdateLifecycle();
     
     void InsertIssueEntries(IssueEntryPtr insertIssue);
@@ -363,7 +363,7 @@ private:
     Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
 
 public:
-    Status Schedule(const std::vector<Operation *> &operations, const std::map<Operation*, CoreType> &opCoreMap = std::map<Operation*, CoreType>());
+    Status Schedule(const std::vector<Operation *> &operations, const std::map<Operation*, OpCoreType> &opCoreMap = std::map<Operation*, OpCoreType>());
     OoOScheduler(Function &function, bool combineAxis=false) : function_(function), isCombineAxis_(combineAxis) {}
 
     std::vector<Operation *> GetNewOperations() { return newOperations_; }
