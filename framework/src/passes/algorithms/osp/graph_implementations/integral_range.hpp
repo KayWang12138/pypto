@@ -9,9 +9,9 @@
  */
 
 /*!
-* \file integral_range.hpp
-* \brief
-*/
+ * \file integral_range.hpp
+ * \brief
+ */
 
 #ifndef OSP_INTEGRAL_RANGE_HPP
 #define OSP_INTEGRAL_RANGE_HPP
