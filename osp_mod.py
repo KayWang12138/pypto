@@ -223,9 +223,9 @@ def main():
         description="Refactor C++ headers, namespaces, and includes."
     )
     parser.add_argument(
-        "target_dir",
+        "target_path",
         type=Path,
-        help="Directory to search recursively for .cpp and .hpp files."
+        help="Directory OR single file to process."
     )
     parser.add_argument(
         "--dry-run",
@@ -234,8 +234,8 @@ def main():
     )
     args = parser.parse_args()
 
-    if not args.target_dir.is_dir():
-        print(f"ERROR: Target directory not found: {args.target_dir}")
+    if not args.target_path.exists():
+        print(f"ERROR: Path not found: {args.target_path}")
         return
 
     print("--- New Header Text Preview ---")
@@ -245,32 +245,39 @@ def main():
     if args.dry_run:
         print("\n*** RUNNING IN DRY-RUN MODE - NO FILES WILL BE CHANGED ***\n")
 
-    print(f"Scanning in {args.target_dir}...\n")
+    # Determine list of files to process
+    files_to_process = []
+    
+    if args.target_path.is_file():
+        print(f"Processing single file: {args.target_path}\n")
+        files_to_process = [args.target_path]
+    elif args.target_path.is_dir():
+        print(f"Scanning directory: {args.target_path}\n")
+        files_to_process = args.target_path.rglob('*')
     
     extensions = {'.cpp', '.hpp', '.c', '.h', '.cc', '.hh'}
     file_count = 0
     
-    for file_path in args.target_dir.rglob('*'):
+    for file_path in files_to_process:
+        # Check extensions (applies to both dir scan and single file to prevent errors on binary files)
         if file_path.suffix in extensions:
             file_count += 1
             
             # --- EXECUTION ORDER IS CRITICAL ---
             
-            # 1. Update License Header (Puts License + Doxygen at top)
+            # 1. Update License Header
             replace_header(file_path, args.dry_run)
             
             # 2. Update OSP Include paths
             change_osp_location(file_path, args.dry_run)
             
             # 3. Wrap in namespace (if 'namespace osp' exists)
-            # Must happen BEFORE pragma replacement so closing brace is inside body
             wrap_namespace(file_path, args.dry_run)
             
             # 4. Replace #pragma once with include guards
-            # Must happen LAST. Wraps everything (including new namespace) in #ifndef
             process_pragma_once(file_path, args.dry_run)
 
-    print(f"\nScan complete. Checked {file_count} files.")
+    print(f"\nScan complete. Processed {file_count} files.")
 
 if __name__ == "__main__":
     main()
