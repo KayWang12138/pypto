@@ -234,7 +234,6 @@ std::map<int, size_t> NBufferMerge::GetIsoColorMergeNum(const std::map<uint64_t,
         if (entry.first == 0 || entry.second.empty()) {
             continue;
         }
-        auto subGraphIdx = entry.second.front();
         if (hashCoreNum.find(entry.first) == hashCoreNum.end()) {
             hashCoreNum[entry.first] = mgVecParallelLb;
         }
@@ -467,7 +466,7 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
             return FAILED;
         }
         APASS_LOG_INFO_F(Elements::Config, "Manually set VEC_NBUFFER_MODE to 1, automatically calculate mergeNum.");
-        hashMergeNum = GetIsoColorMergeNum(opOriList, hashMap);
+        hashMergeNum = GetIsoColorMergeNum(hashMap);
     } else {
         if (CheckVecNBufferSettingForManualMerge() == FAILED) {
             APASS_LOG_ERROR_F(Elements::Config, "Check VEC_NBUFFER_SETTING for manualMerge failed; Please check the VEC_NBUFFER_SETTING config.");

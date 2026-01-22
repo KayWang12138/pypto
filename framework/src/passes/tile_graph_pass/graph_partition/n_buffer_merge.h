@@ -44,8 +44,7 @@ private:
     Status CheckAndFixColorOrder(OperationsViewer &opOriList,
                                int &color1, std::vector<int> &colorCycles1,
                                std::vector<std::vector<int>> &colorNode1);
-    std::map<int, size_t> GetIsoColorMergeNum(const OperationsViewer &opOriList,
-                                                   const std::map<uint64_t, std::vector<int>> &hashMap) const;
+    std::map<int, size_t> GetIsoColorMergeNum(const std::map<uint64_t, std::vector<int>> &hashMap) const;
     std::vector<std::vector<int>> SortColorWithInput(std::vector<int> &colorValues) const;
     Status MergeProcess(const OperationsViewer &opOriList,
                         std::map<uint64_t, std::vector<int>> &hashMap,

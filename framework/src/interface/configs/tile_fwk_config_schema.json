@@ -118,15 +118,6 @@
                     "minimum": 1,
                     "maximum": 48
                 },
-                "sg_cube_parallel_num": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "...",
-                        "en": "..."
-                    },
-                    "minimum": 1,
-                    "maximum": 24
-                },
                 "pg_skip_partition": {
                     "type": "boolean",
                     "label": {
