@@ -373,5 +373,9 @@ void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input
     output.allIncasts = allIncasts;
     output.allOutcasts = allOutcasts;
 }
+
+void MixDependencyAnalyzer::Reset() {
+    
+}
 }
 }
