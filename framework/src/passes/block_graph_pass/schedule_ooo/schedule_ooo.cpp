@@ -15,7 +15,6 @@
 
 #include "schedule_ooo.h"
 #include "passes/pass_log/pass_log.h"
-#include "core_assign.h"
 
 #ifndef MODULE_NAME
 #define MODULE_NAME "OoOSchedule"

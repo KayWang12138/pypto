@@ -297,7 +297,7 @@ Status OoOScheduler::CheckAndUpdateLifecycle() {
     return SUCCESS;
 }
 
-Status OoOScheduler::SpillOnCoreBlock(CoreType coreType, int idx) {
+Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
     MemoryType spillMemType;
     if (!allocIssueQueue[coreType][idx][MemoryType::MEM_UB].Empty()) {
         spillMemType = MemoryType::MEM_UB;
@@ -581,7 +581,7 @@ bool OoOScheduler::IsInissueEntries(Operation* op) {
 Status OoOScheduler::InitMemWithoutAlloc() {
     // TODO 正式版本不存在no producer情况
     // std::set<int> needAllocMem;
-    std::unordered_map<int, std::pair<CoreType, int>> needAllocMem;
+    std::unordered_map<int, std::pair<OpCoreType, int>> needAllocMem;
     for (const auto &issue : issueEntries) {
         for (auto &iOperand : issue->tileOp.GetIOperands()) {
             bool needAlloc = true;
@@ -1005,7 +1005,7 @@ void OoOScheduler::InitTensorCoreMap() {
     }
 }
 
-Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::map<Operation*, CoreType> &opCoreMap) {
+Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::map<Operation*, OpCoreType> &opCoreMap) {
     issueEntries.clear();
     localBufferMap.clear();
     depthCache_.clear();
@@ -1074,7 +1074,7 @@ void OoOScheduler::InitMemorySize() {
         Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
 }
 
-Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const std::map<Operation*, CoreType> &opCoreMap) {
+Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const std::map<Operation*, OpCoreType> &opCoreMap) {
     if (operations.empty()) {
         return SUCCESS;
     }

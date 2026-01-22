@@ -22,13 +22,14 @@
 #include "passes/pass_utils/pass_utils.h"
 #include "passes/block_graph_pass/schedule_ooo/optimize_sort.h"
 #include "passes/block_graph_pass/schedule_ooo/estimate_latency.h"
+#include "passes/block_graph_pass/schedule_ooo/core_assign.h"
 
 namespace npu::tile_fwk {
 
-const std::unordered_map<TargetCoreType, std::pair<CoreType, int>> targetCoreTypeMap {
-    {TargetCoreType::AIC, std::make_pair(CoreType::AIC, 0)},
-    {TargetCoreType::AIV0, std::make_pair(CoreType::AIV, 0)},
-    {TargetCoreType::AIV1, std::make_pair(CoreType::AIV, 1)}
+const std::unordered_map<TargetCoreType, std::pair<OpCoreType, int>> targetCoreTypeMap {
+    {TargetCoreType::AIC, std::make_pair(OpCoreType::AIC, 0)},
+    {TargetCoreType::AIV0, std::make_pair(OpCoreType::AIV, 0)},
+    {TargetCoreType::AIV1, std::make_pair(OpCoreType::AIV, 1)}
 }
 
 class OoOSchedule : public Pass {
@@ -48,7 +49,7 @@ private:
     void OoOHealthCheck(OoOScheduler &oooSchedule, Function &function, std::pair<uint64_t, Function*> &program);
     Status NonMixSchedule(std::vector<Operation*> &opList, Function &function, std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize);
     Status MixSchedule(std::vector<Operation*> &opList, Function &function, std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize);
-    Status UpdateOpCoreMap(const TaskNode &taskNode, std::map<Operation*, CoreType> &opCoreMap);
+    Status UpdateOpCoreMap(const TaskNode &taskNode, std::map<Operation*, OpCoreType> &opCoreMap);
     std::vector<Function *> oriFunctions;
     std::map<uint64_t, OoOScheduler> schedulerMap;
     OoOScheduleChecker checker;
