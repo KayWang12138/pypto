@@ -16,7 +16,6 @@
 #include <fstream>
 #include "ini_parser.h"
 #include "tilefwk/platform.h"
-#include "interface/utils/file_utils.h"
 #include "cost_model/simulation_platform/platform.h"
 
 namespace npu::tile_fwk {

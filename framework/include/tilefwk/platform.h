@@ -24,6 +24,7 @@
 #include <set>
 #include <memory>
 #include <unordered_map>
+#include "data_type.h"
 
 #ifdef BUILD_WITH_CANN
 #include "runtime/rt.h"
