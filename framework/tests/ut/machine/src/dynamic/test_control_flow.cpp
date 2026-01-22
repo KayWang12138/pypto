@@ -207,7 +207,7 @@ static DeviceTensorData toTensorData(const std::shared_ptr<LogicalTensor> &t) {
 }
 
 TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 46000);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 92000);
 
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
