@@ -30,7 +30,7 @@ const std::unordered_map<TargetCoreType, std::pair<OpCoreType, int>> targetCoreT
     {TargetCoreType::AIC, std::make_pair(OpCoreType::AIC, 0)},
     {TargetCoreType::AIV0, std::make_pair(OpCoreType::AIV, 0)},
     {TargetCoreType::AIV1, std::make_pair(OpCoreType::AIV, 1)}
-}
+};
 
 class OoOSchedule : public Pass {
 public:

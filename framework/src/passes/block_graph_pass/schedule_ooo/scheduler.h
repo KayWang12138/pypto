@@ -79,7 +79,7 @@ const std::map<OpCoreType, int> CORE_INIT_CONFIGS_NON_MIX = {
 const std::unordered_map<OpCoreType, std::pair<OpCoreType, int>> opCoreTypeMap {
     {OpCoreType::AIV, std::make_pair(OpCoreType::AIV, 0)},
     {OpCoreType::AIC, std::make_pair(OpCoreType::AIC, 0)}
-}
+};
 
 struct IssueEntry {
     Operation &tileOp;
