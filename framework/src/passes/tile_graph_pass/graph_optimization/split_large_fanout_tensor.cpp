@@ -140,15 +140,13 @@ bool HasOldAssembleOp(LogicalTensorPtr overlap, LogicalTensorPtr largeTensor, Op
         for (auto tensorPtr : consumerOp->GetOOperands()) {
             if (tensorPtr == largeTensor) {
                 oldAssembleOp = consumerOp;
+                return true;
             }
         }
     }
-    if (oldAssembleOp == nullptr) {
-        APASS_LOG_DEBUG_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d], skip.",
-            overlap->GetMagic(), largeTensor->GetMagic());
-        return false;
-    }
-    return true;
+    APASS_LOG_DEBUG_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d], skip.",
+        overlap->GetMagic(), largeTensor->GetMagic());
+    return false;
 }
 
 // 对于一对一、一对多场景创建新的AssembleOp和Tensor
