@@ -300,7 +300,8 @@ Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssu
         return FAILED;
     }
     if (!isGenSpill) {
-        allocIssueQueue[bufferType].Insert(reloadAlloc);
+        auto allocIssue->coreLocation;
+        allocIssueQueue[allocIssue.first][allocIssue.second][bufferType].Insert(reloadAlloc);
     }
     auto corePair = allocIssue->coreLocation;
     if (bufferManagerMap[corePair.first][corePair.second][bufferType].Free(spillInfo.spillMemId_) != SUCCESS) {
@@ -726,7 +727,8 @@ Status OoOScheduler::GetGroupNextUseOrder(std::vector<int> group, IssueEntryPtr 
 }
 
 bool OoOScheduler::CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryType memType) {
-    std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals = bufferManagerMap[memType].FindFreeIntervals();
+    auto corePair = tensorAllocCoreMap[tensors[0]->id];
+    std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals = bufferManagerMap[corePair.first][corePair.second][memType].FindFreeIntervals();
     for (auto tensor : tensors) {
         bool canAlloc = false;
         std::pair<uint64_t, uint64_t> newInterval;
@@ -785,7 +787,7 @@ bool OoOScheduler::HasEnoughBuffer(IssueEntryPtr allocIssue, MemoryType memType)
             if (localBufferMap[memId]->memType != memType) {
                 continue;
             }
-            auto corePair = allocIssue->coreLocation;
+            auto corePair = tensorAllocCoreMap[memId];
             if (bufferManagerMap[corePair.first][corePair.second][memType].isAllocate(memId)) {
                 continue;
             }
@@ -854,8 +856,9 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
     }
     size_t temp = 1;
     if (spillFailed) {
+        auto corePair = allocIssue->coreLocation;
         MemoryType memType = localBufferMap[allocIssue->reqMemIds[0]]->memType;
-        std::vector<int> memIds = bufferManagerMap[memType].GetAddrSortedBufs();
+        std::vector<int> memIds = bufferManagerMap[corePair.first][corePair.second][memType].GetAddrSortedBufs();
         for (auto memId : memIds) {
             auto spillIssue = tensorOccupyMap[memType][memId];
             if (IsViewOp(spillIssue->tileOp) || spillIssue->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -882,7 +885,7 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
             if (issue.second->tileOp.GetOpcodeStr().find("ALLOC") == std::string::npos) {
                 continue;
             }
-            bufferManagerMap[memType].Allocate(localBufferMap[issue.first]);
+            bufferManagerMap[corePair.first][corePair.second][memType].Allocate(localBufferMap[issue.first]);
         }
         if (!HasEnoughBuffer(allocIssue, memType)) {
             APASS_LOG_ERROR_F(Elements::Operation, "Spill all buffer failed! %s", GetFormatBacktrace(allocIssue->tileOp).c_str());
