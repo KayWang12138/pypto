@@ -98,7 +98,7 @@ extern "C" std::string GetPlatformFile(const std::string &socVersion) {
 
     std::string platformFile = platformConfDir + socVersion + ".ini";
     if (RealPath(platformFile).empty()) {
-        ALOG_WARN_F("Platform file[" + platformFile + "] is not existed.");
+        ALOG_WARN_F("Platform file[%s] is not existed.", platformFile.c_str());
         return "";
     }
     return platformFile;
