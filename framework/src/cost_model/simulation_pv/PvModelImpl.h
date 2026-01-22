@@ -190,7 +190,7 @@ public:
         std::string line;
         std::string include_lines;
         std::string other_lines;
-        SeparateHeadersAndContent(content, include_lines, other_lines);
+        SeparateHeadersAndContent(include_lines, content, other_lines);
 
         outFile << include_lines;
         auto name = ExtractFunctionName(content);
@@ -215,7 +215,7 @@ extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::Dyn
     }
 
 private:
-    static void SeparateHeadersAndContent(const std::string &content, std::string &headers, std::string &otherContent) {
+    static void SeparateHeadersAndContent(std::string &headers, const std::string &content, std::string &otherContent) {
         std::istringstream stream(content);
         std::string line;
 
@@ -311,7 +311,7 @@ public:
         // Load function symbols
         std::vector<std::string> symbols = {"pv_init", "pv_launch_sub_core", "pv_step", "pv_mem_write", "pv_mem_read",
                                             "pv_reg_write", "set_toml"};
-        auto func_map = load_symbols_batch(handle, symbols);
+        auto func_map = load_symbols(symbols, handle);
         this->pv_init_ = (PvInitFunc)func_map["pv_init"];
         this->pv_launch_sub_core_ = (PvLaunchSubCoreFunc)func_map["pv_launch_sub_core"];
         this->pv_step_ = (PvStepFunc)func_map["pv_step"];
@@ -321,11 +321,7 @@ public:
         this->pv_set_toml = (PvSetTomalFunc)func_map["set_toml"];
     }
 
-    std::unordered_map<std::string, void*> load_symbols_batch(void* handle, const std::vector<std::string>& symbols) {
-        if (!handle) {
-            throw std::runtime_error("Invalid dlopen handle");
-        }
-
+    std::unordered_map<std::string, void*> load_symbols(const std::vector<std::string>& symbols, void* handle) {
         std::unordered_map<std::string, void*> func_map;
         for (const auto& sym : symbols) {
             void* func = dlsym(handle, sym.c_str());

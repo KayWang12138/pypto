@@ -35,7 +35,6 @@ class AlignedAllocator {
 public:
     using value_type = T;
 
-    /* 必须提供 rebind */
     template <class U>
     struct rebind { using other = AlignedAllocator<U, Align>; };
 
@@ -51,12 +50,6 @@ public:
         return static_cast<T*>(p);
     }
     void deallocate(T* p, std::size_t) noexcept { std::free(p); }
-
-    /* 可选：让比较运算符始终为 true */
-    template <class U>
-    bool operator==(const AlignedAllocator<U, Align>&) const noexcept { return true; }
-    template <class U>
-    bool operator!=(const AlignedAllocator<U, Align>&) const noexcept { return false; }
 };
 
 struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>> {

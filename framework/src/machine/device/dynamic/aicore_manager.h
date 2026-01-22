@@ -262,7 +262,7 @@ public:
                 lastSent += curSent;
             }
 
-            if (GetCycles() - start > TIMEOUT_CYCLES && IsDeviceMode()) {
+            if ((GetCycles() - start > TIMEOUT_CYCLES) && IsDeviceMode()) {
                 return DEVICE_MACHINE_TIMEOUT_CORETASK;
             }
             // To prevent an unnecessary execution of RunCoreTask after the final batch of tasks is sent.
@@ -658,7 +658,7 @@ private:
             }
             aivAllStop = curIterAivAllStop;
 
-            if (GetCycles() - start_cycles > TIMEOUT_CYCLES && IsDeviceMode()) {
+            if ((GetCycles() - start_cycles > TIMEOUT_CYCLES) && IsDeviceMode()) {
                 DumpDfxWhenCoreNotStop(coreStatus);
                 DEV_ERROR("SyncAicoreDevTaskFinish timeout notstopNum=%d.", mngCoreNum - finishStopNum);
                 return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH;
