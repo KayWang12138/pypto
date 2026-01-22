@@ -113,7 +113,12 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             for (int64_t num : tmpShape){
                 tmpSize *= num;
             }
-            size_t totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 4;
+            size_t totalBytes = 0;
+            if (input2.tensor->Datatype() == DataType::DT_FP32) {
+                totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 2;
+            } else {
+                totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 4;
+            }
             std::vector<int64_t> tmpTensorShape({static_cast<int64_t>(totalBytes)});
             auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpTensorShape);
             function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tmpTensor});
@@ -247,7 +252,12 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, 
             for (int64_t num : tmpShape) {
                 tmpSize *= num;
             }
-            size_t totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 4;
+            size_t totalBytes = 0;
+            if (input2.tensor->Datatype() == DataType::DT_FP32) {
+                totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 2;
+            } else {
+                totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 4;
+            }
             std::vector<int64_t> tmpTensorShape({static_cast<int64_t>(totalBytes)});
             auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpTensorShape);
 

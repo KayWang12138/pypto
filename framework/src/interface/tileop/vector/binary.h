@@ -68,12 +68,6 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
             pto::TROWEXPANDMIN(dst, src0, src1);
         }
     }
-
-    if constexpr (op == BinaryOp::MOD) {
-        pto::TDIV(dst, src0, src1);
-        pto::TMUL(dst, dst, src1);
-        pto::TSUB(dst, src0, dst);
-    }
 }
 
 template <BinaryOp op, TileOp::BroadcastOperand operand, typename T0, typename T1, typename T2>
