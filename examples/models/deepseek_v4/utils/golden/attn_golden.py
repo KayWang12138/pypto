@@ -212,7 +212,6 @@ def ifa_flash_torch(q, kv, attn_sink, block_table, start_pos, out, cmp_r=1, is_n
     g = n1 // n2
     g_tile = g
     kv_2d = kv.reshape(-1, d)
-    # v_2d = v.reshape(-1, d)
     q_2d = q.reshape(-1, d)
 
     for b_idx in range(b):
@@ -231,7 +230,6 @@ def ifa_flash_torch(q, kv, attn_sink, block_table, start_pos, out, cmp_r=1, is_n
                 qi = q_2d[qi_start:qi_end, :]
                 if kv_win is not None and blk_win is not None:
                     kv_win_2d = kv_win.reshape(-1, d)
-                    # v_win_2d = kv_win.reshape(-1, d)
                     cur_seq_win = min(block_size, original_actual_seqs[b_idx] - (s1 - 1 - s1_idx))
                     kv_win_tmp = get_block_kv(kv_win_2d, blk_win, b_idx, 0, block_size, cur_seq_win)
                     mm1 = matmul_proxy(qi, kv_win_tmp.t())
