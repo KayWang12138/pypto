@@ -347,6 +347,7 @@ void MixDependencyAnalyzer::EliminateRedundantDependencies() {
 }
 
 void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input, AnalyzerOutput &output) {
+    Reset();
     InitSubgraphToFunction(input.components);
     // 步骤1：记录直接的incast/outcast(Mix子图整体与外部的依赖)
     ALOG_INFO_F("Step 1: Recording direct incast/outcast...");
@@ -375,7 +376,9 @@ void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input
 }
 
 void MixDependencyAnalyzer::Reset() {
-    
+    internalDeps.clear();
+    allIncasts.clear();
+    allOutcasts.clear();
 }
 }
 }
