@@ -231,7 +231,7 @@ def rope_data(x1, x2, cos, sin, tile_shape):
     return y_bf16
 
 
-def quant_attention_pre(shapes) -> torch.Tensor:
+def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_size, half_rotary_dim) -> torch.Tensor:
     """
     JIT compiled kernel for fused attention_pre_quant operation.
 
@@ -269,7 +269,6 @@ def quant_attention_pre(shapes) -> torch.Tensor:
         This function processes inputs in tiles of size 8 to support dynamic batch sizes.
         The computation uses FP32 for intermediate calculations to maintain numerical precision.
     """
-    bs, hidden_size, total_head_size, head_size, q_size, kv_size, half_rotary_dim = shapes
     bs = pypto.frontend.dynamic("bs")
 
     @pypto.frontend.jit(
@@ -293,19 +292,13 @@ def quant_attention_pre(shapes) -> torch.Tensor:
         k_gamma: pypto.Tensor((head_size, ), pypto.DT_BF16),
         k_bias: pypto.Tensor((head_size, ), pypto.DT_BF16), 
         cos: pypto.Tensor((bs, 1, half_rotary_dim), pypto.DT_BF16), 
-        sin: pypto.Tensor((bs, 1, half_rotary_dim), pypto.DT_BF16)
-    ) -> (
-        pypto.Tensor((bs, q_size), pypto.DT_BF16),
-        pypto.Tensor((bs, kv_size), pypto.DT_BF16),
-        pypto.Tensor((bs, kv_size), pypto.DT_BF16),
-        pypto.Tensor((bs, hidden_size), pypto.DT_BF16)
+        sin: pypto.Tensor((bs, 1, half_rotary_dim), pypto.DT_BF16),
+        q: pypto.Tensor((bs, q_size), pypto.DT_BF16),
+        k: pypto.Tensor((bs, kv_size), pypto.DT_BF16),
+        v: pypto.Tensor((bs, kv_size), pypto.DT_BF16),
+        residual: pypto.Tensor((bs, hidden_size), pypto.DT_BF16)
     ):
         bs_tile = 8
-
-        q = pypto.tensor((bs, q_size), pypto.DT_BF16)
-        k = pypto.tensor((bs, kv_size), pypto.DT_BF16)
-        v = pypto.tensor((bs, kv_size), pypto.DT_BF16)
-        residual = pypto.tensor((bs, hidden_size), pypto.DT_BF16)
         
         x_mean_coff = 1.0 / x.shape[-1]
         qk_mean_coff = 1.0 / head_size
@@ -473,8 +466,6 @@ def quant_attention_pre(shapes) -> torch.Tensor:
             k[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = k_res
             v[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = v_res
             residual[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = residual_bf16
-            
-        return q, k, v, residual
     
     return quant_attention_pre_kernel
 
@@ -522,6 +513,11 @@ def test_quant_attention_pre():
         k_bias = torch.rand(head_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
         cos = torch.rand(bs, 1, half_rotary_dim, dtype=torch.bfloat16, device=f'npu:{device_id}')
         sin = torch.rand(bs, 1, half_rotary_dim, dtype=torch.bfloat16, device=f'npu:{device_id}')
+        query = torch.rand(bs, q_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+        key = torch.rand(bs, kv_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+        value = torch.rand(bs, kv_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+        residual_res = torch.rand(bs, hidden_size, dtype=torch.bfloat16, device=f'npu:{device_id}')
+
         # # 4. 执行kernel并获取结果
         inputs = [
             x,
@@ -538,12 +534,14 @@ def test_quant_attention_pre():
             k_gamma,
             k_bias,
             cos,
-            sin
+            sin,
+            query,
+            key,
+            value,
+            residual_res
         ]
-        
-        params = [bs, hidden_size, total_head_size, head_size, q_size, kv_size, half_rotary_dim]
-        
-        q, k, v, residual = quant_attention_pre(params)(*inputs)
+         
+        attention_pre_quant(*inputs)
 
         # 5. 与PyTorch参考实现对比
         # add rms norm
@@ -575,13 +573,13 @@ def test_quant_attention_pre():
         # post process
         q_r = q_cat.view(bs, q_size)
         k_r = k_cat.view(bs, kv_size)
-        assert_allclose(np.array(residual_g.cpu().flatten().tolist()), np.array(residual.cpu().flatten().tolist()),
+        assert_allclose(np.array(residual_g.cpu().flatten().tolist()), np.array(residual_res.cpu().flatten().tolist()),
                         rtol=0.0078125, atol=0.0001)
-        assert_allclose(np.array(q_r.cpu().flatten().tolist()), np.array(q.cpu().flatten().tolist()),
+        assert_allclose(np.array(q_r.cpu().flatten().tolist()), np.array(query.cpu().flatten().tolist()),
                         rtol=0.0078125, atol=0.0001)
-        assert_allclose(np.array(k_r.cpu().flatten().tolist()), np.array(k.cpu().flatten().tolist()),
+        assert_allclose(np.array(k_r.cpu().flatten().tolist()), np.array(key.cpu().flatten().tolist()),
                         rtol=0.0078125, atol=0.0001)
-        assert_allclose(np.array(v_g.cpu().flatten().tolist()), np.array(v.cpu().flatten().tolist()),
+        assert_allclose(np.array(v_g.cpu().flatten().tolist()), np.array(value.cpu().flatten().tolist()),
                         rtol=0.0078125, atol=0.0001)
         logging.info("PASS")
 
@@ -643,35 +641,43 @@ def attention_pre_quant(
         This function is decorated with @allow_in_graph to enable integration
         with PyTorch's compilation graph.
     """
-    if isinstance(hidden_states, FakeTensor):
-        return
+    # if isinstance(hidden_states, FakeTensor):
+    #     return
 
-    check_args(
-        hidden_states,
-        residual,
-        input_layernorm_weight,
-        input_layernorm_bias,
-        atten_qkv_input_scale_reciprocal,
-        atten_qkv_input_offset,
-        atten_qkv_weight,
-        atten_qkv_quant_bias,
-        atten_qkv_deq_scale,
-        atten_q_norm_weight,
-        atten_q_norm_bias,
-        atten_k_norm_weight,
-        atten_k_norm_bias,
-        cos,
-        sin,
-        query,
-        key,
-        value,
-        residual_res
-    )
+    # check_args(
+    #     hidden_states,
+    #     residual,
+    #     input_layernorm_weight,
+    #     input_layernorm_bias,
+    #     atten_qkv_input_scale_reciprocal,
+    #     atten_qkv_input_offset,
+    #     atten_qkv_weight,
+    #     atten_qkv_quant_bias,
+    #     atten_qkv_deq_scale,
+    #     atten_q_norm_weight,
+    #     atten_q_norm_bias,
+    #     atten_k_norm_weight,
+    #     atten_k_norm_bias,
+    #     cos,
+    #     sin,
+    #     query,
+    #     key,
+    #     value,
+    #     residual_res
+    # )
     
+    bs = hidden_states.shape[0]
+    hidden_size = hidden_states.shape[1]
+    total_head_size = atten_qkv_weight.shape[1]
+    head_size = atten_q_norm_weight.shape[0]
+    q_size = query.shape[1]
+    kv_size = key.shape[1]
+    half_rotary_dim = cos.shape[2]
     params = [bs, hidden_size, total_head_size, head_size, q_size, kv_size, half_rotary_dim]
-    
-    q, k, v, residual = quant_attention_pre(params)(x, residual_input, x_gamma, x_bias, x_scale, x_offset, \
-        weight, quant_bias, deq_scale, q_gamma, q_bias, k_gamma, k_bias, cos, sin)
+    inputs = [hidden_states, residual, input_layernorm_weight, input_layernorm_bias, atten_qkv_input_scale_reciprocal,
+         atten_qkv_input_offset, atten_qkv_weight, atten_qkv_quant_bias, atten_qkv_deq_scale, atten_q_norm_weight, 
+         atten_q_norm_bias, atten_k_norm_weight, atten_k_norm_bias, cos, sin, query, key, value, residual_res]
+    quant_attention_pre(*params)(*inputs)
 
 
 def main():
