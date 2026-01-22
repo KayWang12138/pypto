@@ -227,7 +227,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveLayout(const PrintTranspose
 
     std::ostringstream oss;
     oss << tileOpName << "<" << (transposeAxis[0] + correctionAxis) << ", " << (transposeAxis[1] + correctionAxis)
-        << ">" << WrapParamByParentheses({dstTensor, srcTensor, coord}) << ";\n";
+        << ">" << WrapParamByParentheses({dstTensor, srcTensor, coord}) << STMT_END;
     return oss.str();
 }
 
@@ -691,7 +691,7 @@ std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accu
         }
     }
     std::ostringstream oss;
-    oss << tileOpName << "<" << accumulate << ", " << indicesSize << ">" << WrapParamByParentheses(paramList) << ";\n";
+    oss << tileOpName << "<" << accumulate << ", " << indicesSize << ">" << WrapParamByParentheses(paramList) << STMT_END;
     return oss.str();
 }
 
@@ -737,7 +737,7 @@ std::string CodeGenOpCloudNPU::PrintRangeTileTensor(const std::string& startVal,
     std::ostringstream oss;
     oss << tileOpName;
     oss << PrintParams({"(", ")"}, paramList, ", ");
-    oss << ";\n";
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -1512,7 +1512,7 @@ std::string CodeGenOpCloudNPU::PrintCmpTileTensor() const {
     oss << tileOpName;
     oss << PrintParams({"<", ">"}, templateParamList, ", ");
     oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
-    oss << ";\n";
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -1619,7 +1619,7 @@ std::string CodeGenOpCloudNPU::PrintLogicalAndTileTensor() const {
     std::ostringstream oss;
     oss << tileOpName;
     oss << PrintParams({"(", ")"}, paramList, ", ");
-    oss << ";\n";
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -1631,7 +1631,7 @@ std::string CodeGenOpCloudNPU::PrintLogicalNotTileTensor() const {
     std::ostringstream oss;
     oss << tileOpName;
     oss << PrintParams({"(", ")"}, paramList, ", ");
-    oss << ";\n";
+    oss << STMT_END;
     return oss.str();
 }
 
