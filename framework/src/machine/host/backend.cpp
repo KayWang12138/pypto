@@ -71,6 +71,40 @@ static void InitSocVersion(std::string &socVersion) {
     ALOG_WARN_F("InitSocVersion requires BUILD_WITH_CANN.");
 }
 
+extern "C" std::string GetPlatformFile(const std::string &socVersion) {
+    #ifdef PROCESSOR_SUBPATH
+        const std::string *configSubpath = PROCESSOR_SUBPATH;
+    #else
+        const std::string *configSubpath = "";
+    #endif
+    const std::string homePathEnvName = "ASCEND_HOME_PATH";
+    const std::string configRelativePath = "/data/platform_config/";
+
+    ALOG_INFO("Begin to initialize PlatformManager with soc version[" + socVersion + "].");
+    if (socVersion.empty()) {
+        ALOG_WARN_F("Soc version is empty.");
+        return false;
+    }
+    // get platform file path
+    const char *envPath = std::getenv(homePathEnvName.c_str());
+    if (envPath == nullptr) {
+        ALOG_WARN_F("Env[" + homePathEnvName + "] is not existed or empty.");
+        return false;
+    }
+
+    std::string platformConfDir = std::string(envPath) + "/" + std::string(configSubpath) + configRelativePath;
+    if (RealPath(platformConfDir).empty()) {
+        platformConfDir = std::string(envPath) + configRelativePath;
+    }
+
+    std::string platformFile = platformConfDir + socVersion + ".ini";
+    if (RealPath(platformFile).empty()) {
+        ALOG_WARN_F("Platform file[" + platformFile + "] is not existed.");
+        return "";
+    }
+    return platformFile;
+}
+
 extern "C" std::string GetPlatformInfo() {
     std::string socVersion;
     InitSocVersion(socVersion);
@@ -79,13 +113,7 @@ extern "C" std::string GetPlatformInfo() {
         ALOG_WARN("GetPlatformInfo: run in SIM mode, platform info not available.");
         return "";
     }
-
-    if (!PlatformManager::Instance().Initialize(socVersion)) {
-        ALOG_WARN_F("Failed to get platform info for SoC version %s.", socVersion.c_str());
-        return "";
-    }
-
-    return PlatformManager::Instance().GetFilePath();
+    return GetPlatformFile(socVersion);
 #else
     ALOG_WARN_F("GetPlatformInfo requires BUILD_WITH_CANN.");
     return "";
