@@ -134,6 +134,23 @@ void SplitLargeFanoutTensor::CollectOverlaps(Function &function, LogicalTensorPt
     }
 }
 
+// 由于tensor->assemble->largeTensor中assemble可以不唯一并指向其他tensor，或assemble位置为其他种类op(op_view)。所以需要找到largeTensor的生产者op
+bool HasOldAssembleOp(LogicalTensorPtr overlap, LogicalTensorPtr largeTensor, Operation *&oldAssembleOp) {
+    for (const auto &consumerOp : overlap->GetConsumers()) {
+        for (auto tensorPtr : consumerOp->GetOOperands()) {
+            if (tensorPtr == largeTensor) {
+                oldAssembleOp = consumerOp;
+            }
+        }
+    }
+    if (oldAssembleOp == nullptr) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d], skip.",
+            overlap->GetMagic(), largeTensor->GetMagic());
+        return false;
+    }
+    return true;
+}
+
 // 对于一对一、一对多场景创建新的AssembleOp和Tensor
 void SplitLargeFanoutTensor::CreateOpFor1toM(Function &function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
     LogicalTensors overlaps, LogicalTensors dualOverlaps) {
@@ -146,7 +163,10 @@ void SplitLargeFanoutTensor::CreateOpFor1toM(Function &function, LogicalTensorPt
             auto newTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(),
                 lcmTileShape, largeTensor->Format());
             auto overlap = overlaps[0];
-            auto oldAssembleOp = *overlap->GetConsumers().begin();
+            Operation *oldAssembleOp = nullptr;
+            if (!HasOldAssembleOp(overlap, largeTensor, oldAssembleOp)) {
+                continue;
+            }
             auto oldAssembleOpAttr = dynamic_cast<AssembleOpAttribute *>(oldAssembleOp->GetOpAttribute().get());
             Shape newAssembleOffset = oldAssembleOpAttr->GetToOffset();
             for (size_t j = 0; j < newAssembleOffset.size(); j++) {
@@ -177,21 +197,10 @@ void SplitLargeFanoutTensor::CreateOpForMtoM(Function &function, LogicalTensorPt
     auto newTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(),
         lcmTileShape, largeTensor->Format());
     for (const auto &overlap : overlaps) {
-        // 由于tensor->assemble->largeTensor中assemble可以不唯一并指向其他tensor，或assemble位置为其他种类op(op_view)。所以需要找到largeTensor的生产者op
         Operation *oldAssembleOp = nullptr;
-        for (const auto &consumerOp : overlap->GetConsumers()) {
-            for (auto tensorPtr : consumerOp->GetOOperands()) {
-                if (tensorPtr == largeTensor) {
-                    oldAssembleOp = consumerOp;
-                }
-            }
-        }
-        if (oldAssembleOp == nullptr) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d], skip.",
-                overlap->GetMagic(), largeTensor->GetMagic());
+        if (!HasOldAssembleOp(overlap, largeTensor, oldAssembleOp)) {
             continue;
         }
-
         auto oldAssembleOpAttr = dynamic_cast<AssembleOpAttribute *>(oldAssembleOp->GetOpAttribute().get());
         Shape newAssembleOffset = oldAssembleOpAttr->GetToOffset();
         for (size_t j = 0; j < newAssembleOffset.size(); j++) {
