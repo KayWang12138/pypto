@@ -275,6 +275,47 @@ function parameters:
 
 TileOp::TLn<float, 16, 512>((__ubuf__ float *)UBId13Addr, (__ubuf__ float *)UBId13Addr);
 
+### Tround
+
+#### Syntax
+
+template <typename T, unsigned TShape0, unsigned TShape1>
+TILEOP void Tround(__ubuf__ T *dst, __ubuf__ T *src)
+
+#### Function Description
+
+```
+dst = Tensor(dtype=T, shape=(TShape0, TShape1))
+src = Tensor(dype=T, shape=(TShape0, TShape1))
+
+for (int i = 0; i < TShape0; i++) {
+    for (int j = 0; j < TShape1; j++) {
+        dst[i][j] = round(src[i][j])
+    }
+}
+```
+
+
+#### Parameters
+
+template parameters: 
+* T: dtype
+* TShape0: dst/src shape dim0
+* TShape1: dst/src shape dim1
+
+function parameters: 
+* dst: dst ub buffer
+* src: src ub buffer
+
+
+#### Constraints
+
+
+
+#### Demonstration
+
+TileOp::Tround<float, 64, 1>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId1Addr);
+
 ### Tsqrt
 
 #### Syntax
