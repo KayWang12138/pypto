@@ -22,7 +22,8 @@
 #include "tilefwk/aicore_data.h"
 
 inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
-inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
+inline constexpr size_t MAX_CACHED_FUNC_NUM = 1024;
+inline constexpr size_t MAX_MEM_ALLOWED_FUNC_NUM = 256;
 constexpr int MAX_DIMS = 8;
 using taskid_t = uint32_t;
 

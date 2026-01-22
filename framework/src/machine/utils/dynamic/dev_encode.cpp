@@ -961,7 +961,7 @@ struct EncodeDevAscendFunctionInfo {
             cellMatchSize,
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
             IntVecToStr(StrideToVector(cellMatchStride)).c_str());
-        ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << "raw" << tensor->GetRawMagic()
+        ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << " raw " << tensor->GetRawMagic()
  	         <<"stitch results in excessive memory consumption," 
  	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape."; 
     }
@@ -1895,14 +1895,20 @@ struct ControlFlowCacheFactor {
 
 static int EstimatedStitchingCount() {
     int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_OUTCAST_MEMORY);
+    if(value > MAX_MEM_ALLOWED_FUNC_NUM) {
+       ALOG_WARN_F ("Invalid value for STITCH_FUNCTION_OUTCAST_MEMORY: %d, must be lesser than %d.", value, (int)MAX_MEM_ALLOWED_FUNC_NUM);
+    }
     ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_OUTCAST_MEMORY: " << value << ", must be greater than 0";
-    return value;
+    return std::min(value, (int)MAX_MEM_ALLOWED_FUNC_NUM);
 }
 
 static int WorkspaceRecyclePeriod() {
     int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_INNER_MEMORY);
+    if(value > MAX_MEM_ALLOWED_FUNC_NUM) {
+       ALOG_WARN_F ("Invalid value for STITCH_FUNCTION_INNER_MEMORY: %d, must be lesser than %d.", value, (int)MAX_MEM_ALLOWED_FUNC_NUM);
+    }
     ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_INNER_MEMORY: " << value << ", must be greater than 0";
-    return value;
+    return std::min(value, (int)MAX_MEM_ALLOWED_FUNC_NUM);
 }
 
 void DevAscendProgram::InitControlFlowCache(
@@ -1931,7 +1937,7 @@ void DevAscendProgram::InitControlFlowCache(
     controlFlowCache.inputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsInputTensorList.size());
     controlFlowCache.outputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsOutputTensorList.size());
 
-    uint64_t slottedCount = slotSize * (std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM) + SLOTS_NEED_ALLOC_SIZE);
+    uint64_t slottedCount = slotSize * (EstimatedStitchingCount() + SLOTS_NEED_ALLOC_SIZE);
     controlFlowCache.runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
 
     controlFlowCache.runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, slotSize);
@@ -2261,7 +2267,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func, DevAscendProgra
         return slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST);
     });
     res.devTaskBoundaryOutcastNum = res.totalExclusiveOutcastSlot * SLOTS_NEED_ALLOC_SIZE +
-        res.totalAssembleOutcastSlot * std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM);
+        res.totalAssembleOutcastSlot * std::min(EstimatedStitchingCount(), (int)MAX_MEM_ALLOWED_FUNC_NUM);
 
     res.perCoreSpilledMem = AlignUp(maxPerCoreSpilledMem, TENSOR_ADDR_ALIGNMENT);
 

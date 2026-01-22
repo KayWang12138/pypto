@@ -197,6 +197,7 @@ public:
             kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
         }
         kArgs.machineConfig = devProg->devArgs.machineConfig;
+        kArgs.maxDynamicAssembleOutcastMem = devProg->memBudget.tensor.maxDynamicAssembleOutcastMem;
         if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
         }
