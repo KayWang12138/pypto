@@ -941,14 +941,14 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest17) {
 }
 
 /*
-TESTRemoveAssembleSpecialCase
+TestRemoveAssembleSpecialCase
 inCast{8,16}->exp->ddrTensor1{8,16} ->assemble-> outCast{8,16}
             ->exp->ddrTensor1{8,16} ->assemble->
 
 inCast{8,16}->exp->ddrTensor1{8,16} ->assemble-> outCast{8,16}
             ->exp->ddrTensor1{8,16} ->assemble->
 */
-TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest18) {
+TEST_F(TestRemoveRedundantOpPass, TestRemoveMoreAssembleSpecialCase) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestRemoveRedundantOp", "TestRemoveRedundantOp", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
