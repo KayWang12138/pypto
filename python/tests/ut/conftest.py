@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -70,3 +70,58 @@ def pytest_runtest_setup(item):
         case_name: str = str(item.name)
         _set_process_desc(f"Case(Device[{device_id}]::{case_name})")
     return None  # 继续执行默认的测试流程
+
+
+def _get_test_time_cost(item):
+    """
+    获取测试用例的耗时信息
+
+    Args:
+        item: pytest 测试项
+
+    Returns:
+        int or None: 耗时秒数, 如果未标记则返回None
+    """
+    # 检查函数是否有time_cost属性（使用公开属性）
+    if hasattr(item.function, 'time_cost'):
+        return item.function.time_cost
+
+    # 检查类是否有time_cost属性（使用公开属性）
+    if hasattr(item, 'cls') and item.cls and hasattr(item.cls, 'time_cost'):
+        return item.cls.time_cost
+
+    # 检查是否有time_cost marker
+    time_marker = item.get_closest_marker("time_cost")
+    if time_marker and time_marker.args:
+        return time_marker.args[0]
+
+    return None
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(items):
+    """
+    在所有conftest.py作用域处理完成后进行全局重排序
+    """
+    if not items:
+        return
+
+    # 分离有耗时标识和无耗时标识的测试用例
+    timed_tests = []
+    untimed_tests = []
+
+    for item in items:
+        time_cost = _get_test_time_cost(item)
+        if time_cost is not None:
+            timed_tests.append((item, time_cost))
+        else:
+            untimed_tests.append(item)
+
+    # 对有耗时标识的测试用例按耗时降序排序
+    timed_tests.sort(key=lambda x: x[1], reverse=True)
+
+    # 重新组合测试列表：耗时长的在前，无标识的在后
+    reordered_items = [item for item, _ in timed_tests] + untimed_tests
+
+    # 更新原始items列表
+    items[:] = reordered_items
