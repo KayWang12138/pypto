@@ -45,10 +45,8 @@ using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
 extern char _binary_kernel_o_end[];
 
-// nocache Addr type for aicore/aicpu map
-constexpr int32_t AICORE_ADDR_TYPE = 2; 
-// nGnRnE Addr type for Geting pmuInfo
-constexpr int32_t PMU_ADDR_TYPE = 3;    
+constexpr int32_t AICORE_ADDR_TYPE = 2; // nocache Addr type for aicore/aicpu map
+constexpr int32_t PMU_ADDR_TYPE = 3;    // nGnRnE Addr type for Geting pmuInfo
 constexpr int32_t PATH_LENGTH = 64;
 constexpr uint32_t LOG_BUF_SIZE = 64 * 1024;
 bool g_IsFirstInit = false;
@@ -105,12 +103,10 @@ void DeviceRunner::GetPmuEventType(DeviceArgs &args) {
         eventTypeStr = "2";
     }
     int32_t profPmuType = std::stoi(eventTypeStr);
-    if (args.archInfo == ArchInfo::DAV_2201) {
-        hostProf_.SetPmuEventTypeDAV2201(profPmuType, pmuEvtType_);
-    } else if (args.archInfo == ArchInfo::DAV_3510) {
-        hostProf_.SetPmuEventTypeDAV3510(profPmuType, pmuEvtType_);
-    } else {
-        ALOG_WARN_F("Invalid archInfo %d, only support [2201, 3510].\n", args.archInfo);
+    auto it = pmuEventTypeTable_.find(args.archInfo);
+    if (it != pmuEventTypeTable_.end()) {
+        it->second(profPmuType, pmuEvtType_);
+        return;
     }
 }
 
@@ -175,6 +171,13 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
 }
 
 int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
+    pmuEventTypeTable_[ArchInfo::DAV_2201] = [this](int32_t profPmuType, std::vector<int64_t>& pmuEvtType) {
+        hostProf_.SetPmuEventTypeDAV2201(profPmuType, pmuEvtType);
+    };
+    pmuEventTypeTable_[ArchInfo::DAV_3510] = [this](int32_t profPmuType, std::vector<int64_t>& pmuEvtType) {
+        hostProf_.SetPmuEventTypeDAV3510(profPmuType, pmuEvtType);
+    };
+
     addressMappingTable_[ArchInfo::DAV_2201] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
         std::vector<int64_t> aiv;
         std::vector<int64_t> aic;

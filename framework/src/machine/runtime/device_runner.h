@@ -117,6 +117,7 @@ private:
     rtBinHandle binHdl_;
     FileLock lock_;
     HostProf hostProf_;
+    std::unordered_map<ArchInfo, std::function<void(int32_t, std::vector<int64_t>&)>> pmuEventTypeTable_;
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_ = false;
 };

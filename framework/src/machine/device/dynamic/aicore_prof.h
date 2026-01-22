@@ -52,6 +52,7 @@ constexpr bool USER_PMU_MODE_EN = (GLB_PMU_EN && true);
 constexpr bool SAMPLE_PMU_MODE_EN = (GLB_PMU_EN && USER_PMU_MODE_EN);
 constexpr bool DUAL_PAGE_EN = false; // 双页表是否使能，如何感知？？？通过runtime？
 constexpr uint32_t MAX_PMU_CNT = 8;
+constexpr uint32_t MAX_PMU_CNT_3510 = 10;
 
 constexpr int32_t PMU_CYCLE = 80; // 记录按照了20MHZ的时钟周期，单位归一按照1600MHZ的时钟周期进行统一，所以80
 constexpr int64_t NUM_TWO_PMU = 2;

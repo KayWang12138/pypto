@@ -285,17 +285,22 @@ void AiCoreProf::ProfInitPmu(int64_t *regAddrs, int64_t *pmuEventAddrs) {
     pmuCnt9Plain_.resize(coreNum_, nullptr);
     regAddrs_ = regAddrs;
     pmuEventAddrs_ = pmuEventAddrs;
-    if (archInfo_ == ArchInfo::DAV_2201) {
-        DEV_INFO("0: %x, 1: %x, 2: %x, 3: %x, 4: %x, 5: %x, 6: %x, 7: %x.",
-            (uint32_t)pmuEventAddrs_[0], (uint32_t)pmuEventAddrs_[1], (uint32_t)pmuEventAddrs_[2],
-            (uint32_t)pmuEventAddrs_[3], (uint32_t)pmuEventAddrs_[4], (uint32_t)pmuEventAddrs_[5],
-            (uint32_t)pmuEventAddrs_[6], (uint32_t)pmuEventAddrs_[7]);
-    } else if (archInfo_ == ArchInfo::DAV_3510) {
-        DEV_INFO("0: %x, 1: %x, 2: %x, 3: %x, 4: %x, 5: %x, 6: %x, 7: %x, 8: %x, 9: %x.",
-            (uint32_t)pmuEventAddrs_[0], (uint32_t)pmuEventAddrs_[1], (uint32_t)pmuEventAddrs_[2],
-            (uint32_t)pmuEventAddrs_[3], (uint32_t)pmuEventAddrs_[4], (uint32_t)pmuEventAddrs_[5],
-            (uint32_t)pmuEventAddrs_[6], (uint32_t)pmuEventAddrs_[7], (uint32_t)pmuEventAddrs_[8],
-            (uint32_t)pmuEventAddrs_[9]);
+
+    auto it = kArchPmuConfigs.find(archInfo_);
+    if (it != kArchPmuConfigs.end()) {
+        size_t pmuCntSize = it->second.pmuCntIdxOffsets.size();
+        if (pmuCntSize == MAX_PMU_CNT) {
+            DEV_INFO("0: %x, 1: %x, 2: %x, 3: %x, 4: %x, 5: %x, 6: %x, 7: %x.",
+                (uint32_t)pmuEventAddrs_[0], (uint32_t)pmuEventAddrs_[1], (uint32_t)pmuEventAddrs_[2],
+                (uint32_t)pmuEventAddrs_[3], (uint32_t)pmuEventAddrs_[4], (uint32_t)pmuEventAddrs_[5],
+                (uint32_t)pmuEventAddrs_[6], (uint32_t)pmuEventAddrs_[7]);
+        } else if (pmuCntSize == MAX_PMU_CNT_3510) {
+            DEV_INFO("0: %x, 1: %x, 2: %x, 3: %x, 4: %x, 5: %x, 6: %x, 7: %x, 8: %x, 9: %x.",
+                (uint32_t)pmuEventAddrs_[0], (uint32_t)pmuEventAddrs_[1], (uint32_t)pmuEventAddrs_[2],
+                (uint32_t)pmuEventAddrs_[3], (uint32_t)pmuEventAddrs_[4], (uint32_t)pmuEventAddrs_[5],
+                (uint32_t)pmuEventAddrs_[6], (uint32_t)pmuEventAddrs_[7], (uint32_t)pmuEventAddrs_[8],
+                (uint32_t)pmuEventAddrs_[9]);
+        }
     }
 }
 
