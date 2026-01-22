@@ -144,6 +144,14 @@ std::map<MemoryType, std::set<Operation *>> ConvertInserter::ReformMap(std::map<
     return result;
 }
 
+std::map<Operation *, MemoryType> ConvertInserter::GetMemoryTypeFromTensorTobeMap(LogicalTensorPtr &tensor) const {
+    auto it = tensorTobeMap.find(tensor);
+    if (it != tensorTobeMap.end()) {
+        return it->second;
+    }
+    return {};
+}
+
 // 过滤得到所有有conflict的Tensor信息
 void ConvertInserter::FilterConflictTensor() {
     for (const auto &pairLocal : tensorTobeMap) {
