@@ -15,6 +15,7 @@ from typing import List, Set
 import logging
 import pytest
 import pypto
+from python.tests.utils.time_cost_decorator import time_cost
 
 SHAPE_DIM_2 = 2
 SHAPE_DIM_3 = 3
@@ -716,6 +717,7 @@ def build_lightning_indexer_prolog_args(
     return args, meta
 
 
+@time_cost(16)
 def test_lightning_indexer_prolog():
     logging.basicConfig(level=logging.INFO)
     setup_lightning_indexer_prolog_config()
