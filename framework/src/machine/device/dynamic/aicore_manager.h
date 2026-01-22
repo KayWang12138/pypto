@@ -235,7 +235,7 @@ public:
         }
 
         if (IsNeedProcAicpuTask()) {
-            const bool profSwitch = aicoreProf_.ProfIsEnable()
+            const bool profSwitch = aicoreProf_.ProfIsEnable();
             ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), deviceArgs, profSwitch);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
