@@ -24,7 +24,7 @@
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* mc2Tiling, void** commContext);
 #endif
 namespace {  
-TileOp::HcclCombinOpParam g_hostAddr[DIST_COMM_GROUP_NUM];
+TileOp::HcclCombinOpParam g_hostAddr[npu::tile_fwk::DIST_COMM_GROUP_NUM];
 std::unordered_map<std::string, uint64_t> g_context; //key: groupname, value: deviceHcclContext
 
 #pragma pack(push, 8)

@@ -28,7 +28,7 @@
 
 namespace npu::tile_fwk {
 
-const uint32_t HCCL_GROUP_NUM = 2;
+const uint32_t DIST_COMM_GROUP_NUM = 2;
 const uint32_t RAW_TENSOR_LOCATION_LOCAL = 0;
 const uint32_t RAW_TENSOR_LOCATION_INCAST = 1;
 const uint32_t RAW_TENSOR_LOCATION_OUTCAST = 2;
@@ -102,7 +102,7 @@ struct DynFuncData {
     uint64_t workspaceAddr;
     uint64_t stackWorkSpaceAddr;
     uint64_t stackWorkSpaceSize;
-    uint64_t hcclContext[HCCL_GROUP_NUM]{0, 0};
+    uint64_t hcclContext[DIST_COMM_GROUP_NUM]{0};
     uint64_t commGroupNum{0};
     __gm__ DevStartArgsBase *startArgs;
 };
