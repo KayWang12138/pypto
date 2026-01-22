@@ -961,7 +961,12 @@ struct EncodeDevAscendFunctionInfo {
             cellMatchSize,
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
             IntVecToStr(StrideToVector(cellMatchStride)).c_str());
-        ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << "raw" << tensor->GetRawMagic()
+        if(cellMatchStride[0] > MAX_CELLMATCHSSTRIDE) {
+ 	             ALOG_ERROR_F("Assemble out-cast %d raw %d stitch results in excessive memory consumption "
+ 	                          "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape. ",
+ 	                          tensor->magic, tensor->GetRawMagic());
+ 	    }
+        ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << " raw " << tensor->GetRawMagic()
  	         <<"stitch results in excessive memory consumption," 
  	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape."; 
     }
