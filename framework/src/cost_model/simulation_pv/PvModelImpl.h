@@ -309,7 +309,6 @@ public:
             throw std::runtime_error("can not load library: " + soPath);
         }
         // Load function symbols
-        auto func_map = load_symbols(handle, symbols);
         this->pv_init_ = (PvInitFunc)load_symbol(handle, "pv_init");
         this->pv_launch_sub_core_ = (PvLaunchSubCoreFunc)load_symbol(handle, "pv_launch_sub_core");
         this->pv_step_ = (PvStepFunc)load_symbol(handle, "pv_step");
@@ -319,7 +318,7 @@ public:
         this->pv_set_toml = (PvSetTomalFunc)load_symbol(handle, "set_toml");
     }
 
-    std::unordered_map<std::string, void*> load_symbol(void* handle, std::string symbol) {
+    void* load_symbol(void* handle, std::string symbol) {
         void* func = dlsym(handle, symbol.c_str());
         if (!func) {
             dlclose(handle);
