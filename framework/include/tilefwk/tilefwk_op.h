@@ -391,6 +391,14 @@ Tensor TransposedBatchMatmul(DataType dataType, const Tensor &aMatrix, const Ten
 Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &dequantScaleW);
 } // namespace Matrix
 
+namespace Conv {
+// Conv2D operation
+// fmap: 5D tensor [N, C1, H, W, C0]
+// weight: 4D tensor [Co, Ci, Kh, Kw]
+// returns: 5D tensor [N, Co1, H_out, W_out, Co0]
+Tensor Conv2D(DataType outType, const Tensor &fmap, const Tensor &weight);
+} // namespace Conv
+
 namespace Distributed {
 enum class DistReduceType {
     DIST_REDUCE_ADD,
