@@ -951,47 +951,40 @@ std::string CodeGenOpCloudNPU::GenCumSumOp() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
-    // Static only support 2Dim
-    int dstRank = shape[ToUnderlying(MISOIdx::DST_IDX)].size();
-    int src1Rank = shape[ToUnderlying(MISOIdx::SRC1_IDX)].size();
-    ASSERT(src1Rank == RANK2) << "GenScatterElementSOp: src1 shape rank is not supported!";
-    ASSERT(dstRank == RANK2) << "GenScatterElementSOp: dst shape rank is not supported!";
+    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "scatter_mode")) << "cannot get scatter mode attr";
+    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
+    int axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "axis"));
+    int scatterMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "scatter_mode"));
+    const DataType dstDtype = operandDtype[ToUnderlying(MISOIdx::DST_IDX)];
+    const DataType src0Dtype = operandDtype[ToUnderlying(MISOIdx::SRC0_IDX)];
+    const DataType src1Dtype = operandDtype[ToUnderlying(MISOIdx::SRC1_IDX)];
 
-    const std::string &dstVar = param.dVar;
-    const std::string &src0Var = param.s0Var;
-    const std::string &src1Var = param.s1Var;
-    std::vector<int64_t> &dstShape = param.dstRawShape;
-    std::vector<int64_t> &src1RawShape = param.src1RawShape;
-    const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
-    const Element &scala = extOperandVal;
+    std::string src0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC0_IDX)]);
+    std::string src1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
 
-    std::vector src1Shape = this->originShape[ToUnderlying(MISOIdx::SRC1_IDX)];
-    std::vector<int64_t> s1os = NormalizeShape(src1Shape, SHAPE_DIM2);
-    std::vector<int64_t> s1rs = NormalizeShape(src1RawShape, SHAPE_DIM2);
-    std::vector<int64_t> drs = NormalizeShape(dstShape, SHAPE_DIM2);
+    std::vector dstRawShape = this->rawShape[ToUnderlying(MISOIdx::DST_IDX)];
+    std::vector src1RawShape = this->rawShape[ToUnderlying(MISOIdx::SRC1_IDX)];
 
-    std::vector<std::string> templateParams;
-    templateParams.emplace_back(dataTypeExpr[ToUnderlying(MISOIdx::DST_IDX)]);
-    templateParams.emplace_back(dataTypeExpr[ToUnderlying(MISOIdx::SRC1_IDX)]);
-    templateParams.emplace_back(std::to_string(s1rs[ToUnderlying(MISOIdx::SRC0_IDX)]));
-    templateParams.emplace_back(std::to_string(drs[ToUnderlying(MISOIdx::SRC0_IDX)]));
-    templateParams.emplace_back(std::to_string(s1os[ToUnderlying(MISOIdx::DST_IDX)]));
-    templateParams.emplace_back(std::to_string(s1os[ToUnderlying(MISOIdx::SRC0_IDX)]));
-    std::string templateParamStr = JoinString(templateParams, ", ");
-    templateParamStr += ", " + std::to_string(param.axis);
+    std::string dstDtypeStr = DataType2CCEStr(dstDtype);
+    std::string src0DtypeStr = DataType2CCEStr(src0Dtype);
+    std::string src1DtypeStr = DataType2CCEStr(src1Dtype);
+    ALOG_INFO_F("GenScatterElementSOp, dstDtypeStr%s", dstDtypeStr.c_str());
+    ALOG_INFO_F("GenScatterElementSOp, src1DtypeStr%s", src1DtypeStr.c_str());
 
-    std::vector<std::string> callParams;
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::DST_IDX)] + "*)" + dstVar);
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::SRC0_IDX)] + "*)" + src0Var);
-    callParams.emplace_back("(__ubuf__ " + dataTypeExpr[ToUnderlying(MISOIdx::SRC1_IDX)] + "*)" + src1Var);
-    std::string scalarTmpBuffer = FormatFloat(scala.Cast<float>());
-    callParams.emplace_back("(" + dataTypeExpr[ToUnderlying(MISOIdx::DST_IDX)] + ")" + scalarTmpBuffer);
+    AppendLocalBufVarOffsetInOrder(dstVar, src0Var, src1Var);
 
-    std::string callParamStr = JoinString(callParams, ", ");
-
-    std::ostringstream oss;
-    oss << tileOpName << "<" << templateParamStr << ">(" << callParamStr << ");\n";
-    return oss.str();
+    const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
+    if (isSupportLayout) {
+        return PrintScatterElementSTileTensor(
+                {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
+    }
+    if (isDynamicFunction) {
+        return PrintScatterElementSOpDynamicUnaligned(
+            {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
+    }
+    return PrintScatterElementSOpStatic(
+        {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
 }
 
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const {
@@ -1035,6 +1028,23 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const Prin
 
     std::ostringstream oss;
     oss << tileOpName << "<" << templateParamStr << ">(" << callParamStr << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintScatterElementSTileTensor(const PrintScatterElemParam &param) const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
+    std::vector<std::string> paramList;
+    std::string scalarDtypeBuffer = DataType2CCEStr(extOperandVal.GetDataType());
+    int axis = param.axis + SHAPE_DIM5 - param.src1RawShape.size();
+    paramList.emplace_back(std::to_string(axis));
+    paramList.emplace_back(std::to_string(param.scatterMode));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">"
+        << "(" << dstTensor << ", " << src1Tensor << ", ("
+        << scalarDtypeBuffer << ")" << scalarTmpBuffer << ");\n";
     return oss.str();
 }
 
