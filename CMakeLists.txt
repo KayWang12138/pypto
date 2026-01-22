@@ -107,11 +107,11 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             tile_fwk_runtime_stub
             tile_fwk_simulation
             tile_fwk_simulation_ca
+            tile_fwk_simulation_pv
     )
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")
         install(TARGETS pypto_ctrl_server ARCHIVE DESTINATION "${PyPTO_WhlName}/lib")
-        install(TARGETS tile_fwk_simulation_pv ARCHIVE DESTINATION "${PyPTO_WhlName}/lib")
     endif ()
     # 不判断 c_sec_shared 存在, 不存在时属异常场景, 应在构建阶段发现
     get_target_property(cSecSharedFile c_sec_shared IMPORTED_LOCATION)

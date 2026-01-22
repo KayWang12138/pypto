@@ -404,8 +404,6 @@ private:
         kArgs.workspace = (int64_t *)pv_->AllocWorkspaceDev(devProg->workspaceSize);
         kArgs.cfgdata = (int64_t *)pv_->CopyToDev(devProgData.data(), devProgData.size());
         kArgs.aicoreModel = model_.get();
-        kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, nullptr);
-        kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData.data(), devProgData.size(), nullptr);
     }
 
     void SetDevPtr(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs)

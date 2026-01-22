@@ -553,7 +553,7 @@ void DynPvModelImpl<SystemConfig, CaseConfig>::BuildFuncData(DynFuncData *funcda
     dupData->rawTensorAddrSize = funcdata->rawTensorAddrSize;
     dupData->rawTensorDescSize = funcdata->rawTensorDescSize;
     dupData->exprNum = funcdata->exprNum;
-    BuildFuncDataWorkSpace(funcdata, funcdata);
+    BuildFuncDataWorkSpace(funcdata, dupData);
 }
 
 template <typename SystemConfig, typename CaseConfig>
