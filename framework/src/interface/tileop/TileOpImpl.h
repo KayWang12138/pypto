@@ -49,6 +49,7 @@
 #include "vector/where.h"
 #include "vector/vector_dup.h"
 #include "vector/range.h"
+#include "vector/index_outcast.h"
 #include "vector/onehot.h"
 #endif
 
