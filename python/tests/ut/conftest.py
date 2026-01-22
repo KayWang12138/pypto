@@ -82,15 +82,14 @@ def _get_test_time_cost(item):
     Returns:
         int or None: 耗时秒数, 如果未标记则返回None
     """
-    # 检查函数是否有time_cost属性（使用公开属性）
+    # 检查函数是否有time_cost属性
     if hasattr(item.function, 'time_cost'):
         return item.function.time_cost
 
-    # 检查类是否有time_cost属性（使用公开属性）
+    # 检查类是否有time_cost属性
     if hasattr(item, 'cls') and item.cls and hasattr(item.cls, 'time_cost'):
         return item.cls.time_cost
 
-    # 检查是否有time_cost marker
     time_marker = item.get_closest_marker("time_cost")
     if time_marker and time_marker.args:
         return time_marker.args[0]
@@ -117,11 +116,7 @@ def pytest_collection_modifyitems(items):
         else:
             untimed_tests.append(item)
 
-    # 对有耗时标识的测试用例按耗时降序排序
     timed_tests.sort(key=lambda x: x[1], reverse=True)
-
-    # 重新组合测试列表：耗时长的在前，无标识的在后
     reordered_items = [item for item, _ in timed_tests] + untimed_tests
 
-    # 更新原始items列表
     items[:] = reordered_items
