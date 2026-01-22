@@ -116,7 +116,6 @@ private:
                                              Function* originalMixFunc) const;
     
     int GetOffsetFromOp(int opMagic, int operandIdx, Function& leafFunc, bool isOutput) const;
-    int GetOffsetFromTensorParam(const SubfuncInvokeInfoTy::TensorParamPackTy& tensorParam, Function& leafFunc) const;
     int FindOriginalOffsetInMixFunction(LogicalTensorPtr tensor, Function* originalMixFunc) const;
     void SetCallOpAttribute(Function& leafFunc,
                             Operation& callOp,
