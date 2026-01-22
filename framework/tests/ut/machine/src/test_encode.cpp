@@ -26,6 +26,7 @@
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
+
 class TestDevEncode : public testing::Test {};
 
 TEST_F(TestDevEncode, DevSymShape) {
@@ -38,6 +39,7 @@ TEST_F(TestDevEncode, DevSymShape) {
     EXPECT_EQ(strides[1], 2);
     EXPECT_EQ(strides[2], 1);
 }
+
 
 TEST_F(TestDevEncode, test_dev_encode_program) {
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);

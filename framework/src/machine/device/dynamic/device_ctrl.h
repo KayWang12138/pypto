@@ -156,6 +156,7 @@ class DeviceCtrlMachine {
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
         schAicpuNum_ = devProg->devArgs.scheCpuNum;
+        auto &tensorBudget = devProg->memBudget.tensor;
         InitTaskPipeWithSched(devProg);
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = false;
@@ -171,7 +172,7 @@ class DeviceCtrlMachine {
         devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
 #endif
         devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
-
+        tensorBudget.maxDynamicAssembleOutcastMem = kargs->maxDynamicAssembleOutcastMem;
         PerfEnd(PERF_EVT_INIT);
         uint64_t inputSize = *kargs->inputs;
         uint64_t outputSize = *(kargs->inputs + 1);
