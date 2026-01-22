@@ -82,5 +82,3 @@ class OperationTestCaseRunner(TestCaseRunner):
         cmd = f"./tile_fwk_stest run --gtest_filter={test_case} 2>&1 | tee {self._log_file}"
         TestCaseShellActuator.run(cmd)
         return None
-
-
