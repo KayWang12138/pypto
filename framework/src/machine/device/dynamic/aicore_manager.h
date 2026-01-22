@@ -781,11 +781,14 @@ private:
         DEV_TRACE_DEBUG(LEvent(
             LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
             LActStart(coreIdx)));
+
+#if ENABLE_TENSOR_DUMP
         // dump input tensor
-        DEV_IF_VERBOSE_DEBUG {
+        if (aicoreDump_.IsEnableDump()) {
             aicoreDump_.DumpInit(newTask, GetPhyIdByBlockId(coreIdx));
             aicoreDump_.DoDump(curDevTask_, "input");
         }
+#endif
         aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;
@@ -1326,10 +1329,10 @@ private:
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
 
         wrapManager_.InitArchInfo(deviceArgs->archInfo);
-        DEV_IF_VERBOSE_DEBUG {
-            aicoreDump_.SetHostPid(deviceArgs->hostPid);
-            aicoreDump_.SetDeviceId(deviceArgs->deviceId);
-        }
+#if ENABLE_TENSOR_DUMP
+        aicoreDump_.SetHostPid(deviceArgs->hostPid);
+        aicoreDump_.SetDeviceId(deviceArgs->deviceId);
+#endif
 
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
             if (aicpuNum_ > 1) {
@@ -1634,11 +1637,15 @@ private:
         aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
 #endif
 
-        DEV_IF_VERBOSE_DEBUG {
-            // dump tensor
+#if ENABLE_TENSOR_DUMP
+        // dump output tensor
+        if (aicoreDump_.IsEnableDump()) {
             aicoreDump_.DumpInit(taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
             aicoreDump_.DoDump(curDevTask_, "output");
+        }
+#endif
 
+        DEV_IF_VERBOSE_DEBUG {
             recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
         }
 

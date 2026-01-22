@@ -172,7 +172,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         ALOG_ERROR_F("Register kernel bin failed.");
         return rc;
     }
-    if (IsAstDataDumpEnabled()) {
+    if (IsPtoDataDumpEnabled()) {
         int sf = AdxDataDumpServerInit();
         if (sf != 0) {
             printf("ERROR AdxDataDumpServerInit failed \n");
@@ -191,7 +191,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     }
     ALOG_INFO_F("finish Kernel Launch.");
 
-    if (IsAstDataDumpEnabled()) {
+    if (IsPtoDataDumpEnabled()) {
         ALOG_DEBUG_F("DataDumpServerInit is called \n");
         int res = AdxDataDumpServerUnInit();
         if (res != 0) {

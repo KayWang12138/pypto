@@ -59,6 +59,7 @@ struct DumpTensorInfo {
     int64_t exeEnd;
     uint64_t rootHash;
     uint64_t funcHash;
+    uint64_t timeStamp;
     uint64_t shape[DEV_SHAPE_DIM_MAX];
     uint64_t offset[DEV_SHAPE_DIM_MAX];
     uint64_t rawShape[DEV_SHAPE_DIM_MAX];
@@ -122,10 +123,15 @@ public:
         coreId_ = coreId;
         execStart_ = execStart;
         execEnd_ = execEnd;
+        timeStamp_ = GetTimeMonotonic();
     }
 
-    void SetHostPid(uint32_t hostPid){ hostPid_ = hostPid; }
+    void SetHostPid(uint32_t hostPid){ 
+        hostPid_ = hostPid;
+        enableDump_ = (hostPid_ != 0);
+    }
     void SetDeviceId(uint32_t devId){ deviceId_ = devId; }
+    bool IsEnableDump() const { return enableDump_; }
 
     inline bool DumpData(const IDE_SESSION &ideSession, std::string &fileName, unsigned char *dataBuf,
         uint64_t dataSize, bool &isLast) const {
@@ -211,6 +217,7 @@ public:
             for (uint32_t i = 0; i < dimSize; i++) {
                 dumpTensorInfo.rawShape[i] = rawTensor->shape.At(i, dupData->GetExpressionAddr());
             }
+            dumpTensorInfo.timeStamp = timeStamp_;
         };
         if (iOinfo == "input") {
             uint64_t rawIdx = func->GetOperationIOperand(opIdx, tensorIdx)->rawIndex;
@@ -247,14 +254,14 @@ public:
         }
         auto seqNo = dyntask->GetDynFuncDataList()->seqNo;
         for (int i = 0; i < tensorNum; i++) {
-            auto dumpTensorInfo = GetDumpTensorInfo(dyntask, iOinfo, i);
+            auto info = GetDumpTensorInfo(dyntask, iOinfo, i);
             bool isLast = (i == tensorNum - 1) ? true : false;
-            std::string tensorInfos = std::to_string(taskId_) + "_" + std::to_string(dumpTensorInfo.funcId) + "_" +
-                                      std::to_string(seqNo) + "_" +  std::to_string(dumpTensorInfo.callOpMagic) + "_" +
-                                      std::to_string(dumpTensorInfo.rootHash) + "_" + std::to_string(dumpTensorInfo.funcHash) + "_" +
-                                      std::to_string(dumpTensorInfo.rawMagic) + "_" + iOinfo + std::to_string(i) + ".bin";
+            std::string tensorInfos = std::to_string(taskId_) + "_" + std::to_string(info.callOpMagic) + "_" +
+                                      std::to_string(info.rootHash) + "_" + std::to_string(info.funcHash) + "_" +
+                                      std::to_string(info.rawMagic) + "_" + std::to_string(timeStamp_) + "_" +
+                                      DataType2CCEStr(static_cast<DataType>(info.dataType)) + "_" + iOinfo + std::to_string(i) + ".tdump";
             std::string fileName = dumpPath + tensorInfos;
-            Dump(ideSession, dumpTensorInfo, fileName, isLast);
+            Dump(ideSession, info, fileName, isLast);
         }
         DEV_DEBUG("Now to close the tensor dump.");
         int m = IdeDumpEnd(ideSession);
@@ -271,6 +278,8 @@ private:
     int64_t execEnd_{0};
     uint32_t deviceId_{0};
     uint32_t hostPid_{0};
+    uint64_t timeStamp_{0};
+    bool enableDump_{false};
 };
 } // namespace npu::tile_fwk
 #endif
