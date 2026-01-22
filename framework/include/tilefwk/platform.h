@@ -24,8 +24,10 @@
 #include <set>
 #include <memory>
 #include <unordered_map>
-#include "data_type.h"
-#include "interface/machine/host/host_machine.h"
+
+#ifdef BUILD_WITH_CANN
+#include "runtime/rt.h"
+#endif
 
 namespace npu::tile_fwk {
 std::string ToJsonString(const std::string& s);
