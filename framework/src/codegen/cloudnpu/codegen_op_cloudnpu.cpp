@@ -554,7 +554,6 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
 
     TileTensor tileTensor;
     tileTensor.isStatic = functionType == FunctionType::STATIC;
-    tileTensor.isMainBlock = isMainBlock;
     tileTensor.magic = operandWithMagic[paramIdx];
     tileTensor.shapeInLoop = shapeInLoop;
 
@@ -624,7 +623,7 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
 
     for (int i = 0; i < operandCnt; ++i) {
         TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(rawShape[i].size()),
-            originShape[i], rawShape[i], functionType == FunctionType::STATIC, isMainBlock};
+            originShape[i], rawShape[i], functionType == FunctionType::STATIC};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType);
         std::string tensorName = sm->AddTileTensor(tileTensor);
@@ -685,7 +684,7 @@ void CodeGenOpCloudNPU::UpdateLoopInfo() {
             loopDepth, IntVecToStr(shapeInLoop.originShape).c_str(), IntVecToStr(shapeInLoop.rawShape).c_str(),
             IntVecToStr(shapeInLoop.dynamicValidShape).c_str());
         TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(shapeInLoop.rawShape.size()),
-            shapeInLoop.originShape, shapeInLoop.rawShape, functionType == FunctionType::STATIC, isMainBlock};
+            shapeInLoop.originShape, shapeInLoop.rawShape, functionType == FunctionType::STATIC};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType, shapeInLoop);
         forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor);
