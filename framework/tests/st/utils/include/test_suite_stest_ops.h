@@ -32,6 +32,8 @@ public:
     static void TearDownTestCase() {}
 
     void SetUp() override {
+        // 所有st用例都会执行
+        config::SetPlatformConfig(KEY_ENABLE_PASS_VERIFY, true);
         // 使能 Aihac 后端
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
