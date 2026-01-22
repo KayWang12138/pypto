@@ -269,7 +269,6 @@ def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_
         This function processes inputs in tiles of size 8 to support dynamic batch sizes.
         The computation uses FP32 for intermediate calculations to maintain numerical precision.
     """
-    bs, hidden_size, total_head_size, head_size, q_size, kv_size, half_rotary_dim = shapes
     bs = pypto.frontend.dynamic("bs")
 
     @pypto.frontend.jit(
@@ -298,7 +297,6 @@ def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_
         k = pypto.Tensor((bs, kv_size), pypto.DT_BF16),
         v = pypto.Tensor((bs, kv_size), pypto.DT_BF16),
         residual = pypto.Tensor((bs, hidden_size), pypto.DT_BF16)
-
     ):
         bs_tile = 8
         
