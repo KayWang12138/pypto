@@ -128,9 +128,7 @@ void InitGraphBuilder(ComputationalGraphBuilder &G, std::vector<int64_t> tileSha
 TEST_F(L1CopyInReuseTest, TestInvalidOp) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    auto shapeImme = OpImmediate::Specified(tileShape);
-    const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;    
+    auto shapeImme = OpImmediate::Specified(tileShape); 
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensorL1"}), true);
@@ -138,8 +136,8 @@ TEST_F(L1CopyInReuseTest, TestInvalidOp) {
     EXPECT_EQ(G.AddOps({Opcode::OP_GATHER_IN_L1}, {{"incast1"}}, {{"tensorL1"}}, {"gather_in_l1"}, true), true);
     G.GetOp("gather_in_l1")->UpdateSubgraphID(1);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
-    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
+    function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, 4}};
+    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -150,14 +148,12 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;
     const int result = 5;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
-    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
+    function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, 4}};
+    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -183,16 +179,14 @@ TEST_F(L1CopyInReuseTest, TestNoL1Num) {
 
 TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;    
+    std::vector<int64_t> tileShape{16, 16};  
     const int result = 5;
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
-    function->paramConfigs_.cubeL1ReuseSetting = {{-1, l1_reuse_num}};
+    function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, 4}};
+    function->paramConfigs_.cubeL1ReuseSetting = {{-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -201,16 +195,14 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map) {
 
 TEST_F(L1CopyInReuseTest, TestNoBufferMap) {
     ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;    
+    std::vector<int64_t> tileShape{16, 16};  
     const int result = 5;
     const int subGraphNum = 20;
     auto shapeImme = OpImmediate::Specified(tileShape);
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferSetting = {{-1, cube_nbuffer}};
-    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
+    function->paramConfigs_.cubeNBufferSetting = {{-1, 4}};
+    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -234,14 +226,12 @@ TEST_F(L1CopyInReuseTest, TestNoParam) {
 TEST_F(L1CopyInReuseTest, TestInvalidL1Num) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    auto shapeImme = OpImmediate::Specified(tileShape);
-    const int cube_nbuffer = 4;
-    const int l1_reuse_num = -1;    
+    auto shapeImme = OpImmediate::Specified(tileShape);  
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferSetting = {{-1, cube_nbuffer}};
-    function->paramConfigs_.cubeL1ReuseSetting = {{-1, l1_reuse_num}};
+    function->paramConfigs_.cubeNBufferSetting = {{-1, 4}};
+    function->paramConfigs_.cubeL1ReuseSetting = {{-1, -1}};
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
@@ -251,13 +241,11 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;    
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferSetting = {{-2, 2}, {-1, cube_nbuffer}};
-    function->paramConfigs_.cubeL1ReuseSetting = {{-2, 2}, {-1, l1_reuse_num}};
+    function->paramConfigs_.cubeNBufferSetting = {{-2, 2}, {-1, 4}};
+    function->paramConfigs_.cubeL1ReuseSetting = {{-2, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -271,16 +259,14 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
 // 健康检查用例:静态图和非静态图
 TEST_F(L1CopyInReuseTest, TestHealthReport) {
     ComputationalGraphBuilder G;
-    std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;    
+    std::vector<int64_t> tileShape{16, 16};  
     const int result = 5;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
 
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
-    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
+    function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, 4}};
+    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
 
     L1CopyInReuseMerge LCRM;
@@ -323,8 +309,6 @@ TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;    
     const int result = 5;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast0", "outcast1"}), true);
     EXPECT_EQ(G.AddOps({Opcode::OP_VIEW}, {{"incast0"}}, {{"incast1"}}, {"view"}, true), true);
@@ -349,8 +333,8 @@ TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn) {
     EXPECT_EQ(G.SetInCast({"incast0"}), true);
     EXPECT_EQ(G.SetOutCast({"outcast0", "outcast1"}), true);
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
-    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
+    function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, 4}};
+    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("myStrategy", {
@@ -366,7 +350,6 @@ TEST_F(L1CopyInReuseTest, TestTensorReuseFailed) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int l1_reuse_num = 2;    
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     for (int i = 1; i < subGraphNum; i++) {
@@ -383,7 +366,7 @@ TEST_F(L1CopyInReuseTest, TestTensorReuseFailed) {
     G.GetTensor("tensor_before1")->tensor->datatype = DataType::DT_FP16;
     G.GetTensor("tensor1")->tensor->datatype = DataType::DT_FP16;
     Function *function = G.GetFunction();
-    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
+    function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, 2}};
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
