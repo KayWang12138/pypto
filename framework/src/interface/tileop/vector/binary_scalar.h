@@ -38,12 +38,6 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
     if constexpr (op == BinaryScalarOp::DIV) {
         pto::TDIVS(dst, src0, src1);
     }
-
-    if constexpr (op == BinaryScalarOp::MOD) {
-        pto::TDIVS(dst, src0, src1);
-        pto::TMULS(dst, dst, src1);
-        pto::TSUB(dst, src0, dst);
-    }
 }
 
 template <BinaryScalarOp op, typename T0, typename T1, typename Scalar>
@@ -90,6 +84,7 @@ TILEOP void TDivS(T0 dst, T1 src0, Scalar src1) {
     BinaryScalarCompute<BinaryScalarOp::DIV>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_MODS TModS
 template <typename Scalar, typename T0, typename T1, typename T2>
 TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
     constexpr size_t expectSize = 5;
@@ -133,7 +128,7 @@ TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
                 auto src0Offset = n0Index * src0Stride0 + n1Index * src0Stride1 + n2Index * src0Stride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dataTypeSize));
                 pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0Offset * dataTypeSize));
-                
+
                 if constexpr (std::is_same_v<DstType, float>) {
                     DstTileDefine divTmpTile(dstShape3, dstShape4);
                     DstTileDefine castTmpTile(dstShape3, dstShape4);
