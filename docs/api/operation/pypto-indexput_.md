@@ -22,10 +22,10 @@ index_put_(input: Tensor, indices: tuple, values: Tensor, accumulate: bool = Fal
 
 |   参数名   | 输入/输出 | 说明                                                                  |
 |------------|-----------|----------------------------------------------------------------------|
-|   input    |    输入   | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_BF16, DT_INT16, DT_INT32。 <br> 不支持空Tensor；Shape仅支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
-|  indices   |   输入    | Tensor类型的元组，每个Tensor表示一个维度的索引。 <br> 支持的类型为：tuple\[Tensor\], 每个Tensor维度相同，且均为一维。 <br> Tensor支持的数据类型为：INT64, INT32。 <br> 不支持空Tensor，tuple中Tensor的个数不大于input的维数，详见约束。 |
-|   values   |   输入    | 待更新到input中的值。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型须与input一致； <br> 不支持空 Tensor，Shape不大于input的维数，详见约束。 |
-| accumulate |   输入    | 累加参数，默认为False； <br> 支持的类型为：bool。 |
+|   input    |    输入   | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_BF16, DT_INT16, DT_INT32。 <br> 不支持空Tensor，Shape仅支持1-4维，Shape Size不大于2147483647（即INT32_MAX）。 |
+|  indices   |   输入    | Tensor类型的元组，每个Tensor表示一个维度的索引。 <br> 支持的类型为：tuple\[Tensor\], 每个Tensor均为一维，且维度相同。 <br> Tensor支持的数据类型为：INT64, INT32。 <br> 不支持空Tensor，tuple中Tensor的个数不大于input的维数。 |
+|   values   |   输入    | 待更新到input中的值。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_BF16, DT_INT16, DT_INT32。 <br> 不支持空 Tensor，维数不大于input的维数。 |
+| accumulate |   输入    | 累加参数，默认为False。 <br> 支持的类型为：bool。 |
 
 ## 返回值说明
 
@@ -33,7 +33,7 @@ index_put_(input: Tensor, indices: tuple, values: Tensor, accumulate: bool = Fal
 
 ## 约束说明
 
-1. indices中的一维Tensor维度相同，不支持broadcast。indices中第i个Tensor中的值须小于input中第i-1维的Shape大小。当indices的选取会造成对同一个位置重复更新时，结果是未确定的。
+1. indices中的一维Tensor维度相同，不支持broadcast。indices中第i个Tensor中的值须小于input中第i-1维的Shape大小。当indices的选取会对同一个位置进行重复更新时，结果是未确定的。
 
 2. values不支持broadcast，其第0维的shape须和indices中一维Tensor的shape相同。
 
@@ -54,9 +54,9 @@ indices = (indices0, )
 values = pypto.tensor([2, 3], pypto.DT_INT32)
 accumulate = True
 # accumulate is True
-pypto.index_add_(x, dim, index, source, alpha=1)
+pypto.index_put_(x, indices, values, accumulate)
 # accumulate is False(default)
-pypto.index_add_(x, dim, index, source)
+pypto.index_put_(x, indices, values)
 ```
 
 结果示例如下：
