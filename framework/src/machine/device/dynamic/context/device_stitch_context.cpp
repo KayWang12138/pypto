@@ -16,13 +16,9 @@
 #include "machine/device/dynamic/context/device_stitch_context.h"
 
 namespace npu::tile_fwk::dynamic {
-void DeviceStitchContext::Init(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace) {
-    workspace.SetupVector(stitchedList_);
+void DeviceStitchContext::Init(DeviceWorkspaceAllocator &workspace) {
     workspace_ = &workspace;
-
-    workspace_->SetupVector(slotInfosInDecidingSlotMem_);
-    slotInfosInDecidingSlotMem_.resize(devProg->slotSize); // need pre alloc , left memory for slab allocator
-
+    workspace_.SetupVector(stitchedList_);
     Reset();
 }
 

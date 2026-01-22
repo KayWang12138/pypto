@@ -102,7 +102,7 @@ int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTa
     slotContext.InitAllocator(workspace, devProg->slotSize);
     slotContext.FillInputOutputSlot(devProg, startArgs);
 
-    stitchContext.Init(devProg, workspace);
+    stitchContext.Init(workspace);
 
     taskContext.InitAllocator(devProg, workspace, startArgs);
 
