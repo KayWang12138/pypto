@@ -48,19 +48,15 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
     """
     dtype = query.dtype
     d = query.shape[1]
-    group = nq // n_kv
     group_tile = tile_config.g_tile
     c1_tile = tile_config.c1_tile_shape
     v1_tile = tile_config.v1_tile_shape
     c2_tile = tile_config.c2_tile_shape
-    n_kv_sym = n_kv
 
     batch_size_sym = seqused_kv.shape[0]
 
     s1_n2_gsym = query.shape[0] // batch_size_sym
     s1_sym = s1_n2_gsym // nq
-
-    g_loop_sym = group // group_tile
 
     topk_tile = topk
     sel_tile = win_size * 2 + topk_tile
@@ -82,70 +78,62 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
 
             cur_topk_size = (ori_act_seq // cmp_ratio - s1_sym + 1 + slc_idx).max(0).min(topk)
             cur_s2_tile = cur_win_size + cur_topk_size
-            for n_kv_idx in pypto.loop(0, n_kv_sym, 1, name="LOOP_L2_n_kv_SA", idx_name="n_kvIdx"):
-                for group_idx in pypto.loop(0, g_loop_sym, 1, name="LOOP_L3_g_SA", idx_name="gIdx"):
-                    cur_group_tile = group_tile
-                    cur_offset = batch_idx * s1_n2_gsym + slc_idx * nq + n_kv_idx * group + group_idx * cur_group_tile
-                    for _, _ in pypto.loop_unroll(0, 1, 1, name="LOOP_L4_s2_SA", idx_name="s2_idx"): # 非Flash: wfa+sfa
-                        # atten_out_2dim = pypto.tensor([batch_size_sym * s1_n2_gsym, d], dtype, "attenOut2Dim")
+            cur_group_tile = group_tile
+            cur_offset = batch_idx * s1_n2_gsym + slc_idx * nq
 
-                        # V0
-                        pypto.set_semantic_label("Sa_V0")
-                        # ---- window select: GM --> UB  [win_tile, d]
-                        pypto.set_vec_tile_shapes(128, 512)
-                        kj = pypto.tensor([sel_tile, d], dtype, "kj")
-                        cur_kv_block_0_size = cur_win_size - cur_valid_start_pos
-                        kv_block_0 = pypto.view(ori_kv, [win_size, d], [physical_block_id_0 * block_size + cur_valid_start_pos, 0], valid_shape=[cur_kv_block_0_size, d])
-                        pypto.assemble(pypto.clone(kv_block_0), [0, 0], kj)
-                        if pypto.cond(start_block < end_block):
-                            pypto.set_vec_tile_shapes(128, 512)
-                            cur_kv_block_1_size = cur_win_size - cur_kv_block_0_size
-                            kv_block_1 = pypto.view(ori_kv, [win_size, d], [physical_block_id_1 * block_size, 0], valid_shape=[cur_kv_block_1_size, d])
-                            pypto.assemble(pypto.clone(kv_block_1), [cur_kv_block_0_size, 0], kj)
+            # V0
+            pypto.set_semantic_label("Sa_V0")
+            # ---- window select: GM --> UB  [win_tile, d]
+            pypto.set_vec_tile_shapes(128, 512)
+            kj = pypto.tensor([sel_tile, d], dtype, "kj")
+            cur_kv_block_0_size = cur_win_size - cur_valid_start_pos
+            kv_block_0 = pypto.view(ori_kv, [win_size, d], [physical_block_id_0 * block_size + cur_valid_start_pos, 0], valid_shape=[cur_kv_block_0_size, d])
+            pypto.assemble(pypto.clone(kv_block_0), [0, 0], kj)
+            if pypto.cond(start_block < end_block):
+                pypto.set_vec_tile_shapes(128, 512)
+                cur_kv_block_1_size = cur_win_size - cur_kv_block_0_size
+                kv_block_1 = pypto.view(ori_kv, [win_size, d], [physical_block_id_1 * block_size, 0], valid_shape=[cur_kv_block_1_size, d])
+                pypto.assemble(pypto.clone(kv_block_1), [cur_kv_block_0_size, 0], kj)
 
-                        # ---- gather: GM --> UB  [topk_tile, d]
-                        pypto.set_vec_tile_shapes(128, 512)
-                        cur_cmp_sparse_indices = pypto.view(cmp_sparse_indices, [1, topk_tile], [batch_idx * s1_sym + slc_idx, 0], valid_shape=[1, cur_topk_size])
-                        cur_block_table = pypto.view(cmp_block_table, [1, MAX_S2 // block_size], [batch_idx, 0])
-                        cmp_kv_view = pypto.view(cmp_kv, [topk_tile, d], [0, 0], valid_shape=[cur_topk_size, d])
-                        compress_kv = gather_in_ub(cmp_kv_view, cur_cmp_sparse_indices, cur_block_table, block_size, -2)
-                        pypto.assemble(compress_kv, [cur_win_size, 0], kj)
+            # ---- gather: GM --> UB  [topk_tile, d]
+            pypto.set_vec_tile_shapes(128, 512)
+            cur_cmp_sparse_indices = pypto.view(cmp_sparse_indices, [1, topk_tile], [batch_idx * s1_sym + slc_idx, 0], valid_shape=[1, cur_topk_size])
+            cur_block_table = pypto.view(cmp_block_table, [1, MAX_S2 // block_size], [batch_idx, 0])
+            cmp_kv_view = pypto.view(cmp_kv, [topk_tile, d], [0, 0], valid_shape=[cur_topk_size, d])
+            compress_kv = gather_in_ub(cmp_kv_view, cur_cmp_sparse_indices, cur_block_table, block_size, -2)
+            pypto.assemble(compress_kv, [cur_win_size, 0], kj)
 
-                        # C1
-                        pypto.set_semantic_label("Sa_C1")
-                        pypto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]], 
-                                                    [c1_tile[4], c1_tile[5]], enable_multi_data_load=True)
-                        qv = pypto.view(query, [cur_group_tile, d], [cur_offset, 0], valid_shape=[cur_group_tile, d])
-                        kv_after_gather = pypto.view(kj, [kv_tile, d], [0, 0], valid_shape=[cur_s2_tile, d])
-                        sij = pypto.matmul(qv, kv_after_gather, pypto.DT_FP32, a_trans=False, b_trans=True)
+            # C1
+            pypto.set_semantic_label("Sa_C1")
+            pypto.set_cube_tile_shapes([c1_tile[0], c1_tile[1]], [c1_tile[2], c1_tile[3]],
+                                        [c1_tile[4], c1_tile[5]], enable_multi_data_load=True)
+            qv = pypto.view(query, [cur_group_tile, d], [cur_offset, 0], valid_shape=[cur_group_tile, d])
+            kv_after_gather = pypto.view(kj, [kv_tile, d], [0, 0], valid_shape=[cur_s2_tile, d])
+            sij = pypto.matmul(qv, kv_after_gather, pypto.DT_FP32, a_trans=False, b_trans=True)
 
-                        # V1
-                        pypto.set_semantic_label("Sa_V1")
-                        pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                        sij_scale = pypto.mul(sij, softmax_scale)
-                        tilda_mij_reduce = pypto.amax(sij_scale, dim=-1, keepdim=True)
-                        t_sub = pypto.sub(sij_scale, tilda_mij_reduce)
-                        tilda_pij = pypto.exp(t_sub)
-                        tilda_lij_reduce = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-                        sink_sub_res = pypto.sub(atten_sink_2d, tilda_mij_reduce)
-                        sink_exp_res = pypto.exp(sink_sub_res)
-                        tilda_lij_reduce = pypto.add(tilda_lij_reduce, sink_exp_res)
-                        t_softmax = pypto.div(tilda_pij, tilda_lij_reduce)
-                        tilda_pij_f16 = pypto.cast(t_softmax, dtype)
+            # V1
+            pypto.set_semantic_label("Sa_V1")
+            pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
+            sij_scale = pypto.mul(sij, softmax_scale)
+            tilda_mij_reduce = pypto.amax(sij_scale, dim=-1, keepdim=True)
+            t_sub = pypto.sub(sij_scale, tilda_mij_reduce)
+            tilda_pij = pypto.exp(t_sub)
+            tilda_lij_reduce = pypto.sum(tilda_pij, dim=-1, keepdim=True)
+            sink_sub_res = pypto.sub(atten_sink_2d, tilda_mij_reduce)
+            sink_exp_res = pypto.exp(sink_sub_res)
+            tilda_lij_reduce = pypto.add(tilda_lij_reduce, sink_exp_res)
+            t_softmax = pypto.div(tilda_pij, tilda_lij_reduce)
+            tilda_pij_f16 = pypto.cast(t_softmax, dtype)
 
-                        # C2
-                        pypto.set_semantic_label("Sa_C2")
-                        pypto.set_cube_tile_shapes([c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]], 
-                                                    [c2_tile[4], c2_tile[5]], enable_multi_data_load=True)
-                        pypto.set_matrix_size([tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], kj.shape[1]])
-                        vj = pypto.view(kj, [kv_tile, d], [0, 0], valid_shape=[cur_s2_tile, d])
-                        q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
+            # C2
+            pypto.set_semantic_label("Sa_C2")
+            pypto.set_cube_tile_shapes([c2_tile[0], c2_tile[1]], [c2_tile[2], c2_tile[3]],
+                                        [c2_tile[4], c2_tile[5]], enable_multi_data_load=True)
+            pypto.set_matrix_size([tilda_pij_f16.shape[0], tilda_pij_f16.shape[1], kj.shape[1]])
+            vj = pypto.view(kj, [kv_tile, d], [0, 0], valid_shape=[cur_s2_tile, d])
+            q1 = pypto.matmul(tilda_pij_f16, vj, dtype)
 
-                        pypto.assemble(q1, [cur_offset, 0], attention_out)
-
-                        # pypto.assemble(q1, [cur_offset, 0], atten_out_2dim)
-                        # attention_out[:] = pypto.reshape(atten_out_2dim,
-                        #     [attention_out.shape[0], attention_out.shape[1], attention_out.shape[2], attention_out.shape[3]], inplace=True)
+            pypto.assemble(q1, [cur_offset, 0], attention_out)
 
 
 @pypto.jit(
@@ -160,8 +148,7 @@ def sparse_compress_flash_attention_compute(query, ori_kv, cmp_kv, ori_block_tab
     runtime_options={
         "stitch_function_num_initial": 128,
         "stitch_function_inner_memory": 1024,
-        "stitch_function_outcast_memory": 1024,
-        # "device_sched_mode": 3
+        "stitch_function_outcast_memory": 1024
     }
 )
 def sparse_compress_flash_attention_d(query, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
@@ -193,7 +180,6 @@ def npu_sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_b
     )
 
     attention_out_npu = torch.zeros([query_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=f'{query_npu.device}')
-    # attention_out_npu = torch.zeros([ori_block_table_npu.size(0), cmp_sparse_indices_npu.size(0) // ori_block_table_npu.size(0), query_npu.size(0) // cmp_sparse_indices_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=f'{query_npu.device}')
     
     # 确定值先写死，确定整网接口有哪些传参后修改acl graph接口
     nq = query_npu.size(0) // cmp_sparse_indices_npu.size(0)
@@ -211,7 +197,6 @@ def npu_sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_b
     cmp_sparse_indices_pto = pypto.from_torch(cmp_sparse_indices_npu, dynamic_axis=[0], name="cmp_sparse_indices")
     
     attention_out_pto = pypto.from_torch(attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
-    # attention_out_pto = pypto.from_torch(attention_out_npu, dynamic_axis=[0, 1], name="calc_attention_out")
 
     pto_inputs = [query_pto, ori_kv_pto, cmp_kv_pto, ori_block_table_pto, cmp_block_table_pto, atten_sink_pto, seqused_kv_pto, cmp_sparse_indices_pto]
     pto_outputs = [attention_out_pto]
