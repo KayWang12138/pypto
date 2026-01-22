@@ -265,9 +265,9 @@ def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
     Output out: [[0.0 1.0 1.0]]
     """
     if isinstance(other, pypto_impl.Tensor):
-        return pypto_impl.Div(input, other)
+        return pypto_impl.Fmod(input, other)
     else:
-        return pypto_impl.Div(input, pypto_impl.Element(input.dtype, other))
+        return pypto_impl.Fmod(input, pypto_impl.Element(input.dtype, other))
 
 
 @op_wrapper
