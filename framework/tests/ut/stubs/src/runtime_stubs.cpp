@@ -153,8 +153,10 @@ rtError_t rtGetSocVersion(char* version, const uint32_t maxlen)
 
 rtError_t rtGetSocSpec(const char* label, const char* key, char* val, const uint32_t maxLen)
 {
+    (void)label;
+    (void)key;
     (void)val;
-    (void)maxlen;
+    (void)maxLen;
     return 1;
 }
 
