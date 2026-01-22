@@ -36,6 +36,7 @@ private:
 
     int64_t groupIdx{INVALID_LOOP_GROUPID};
     int64_t lastGroupIdx{INVALID_LOOP_GROUPID};
+    int64_t previousOutputMagic{INVALID_LOOP_GROUPID};
     std::shared_ptr<Operation> lastOpInLoop{nullptr};
     std::vector<SymbolicScalar> previousLoopAxes;
 };
