@@ -441,11 +441,14 @@ void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForC
         Tensor shmemDataTile = View(shmemData, {1, 1, topK, hiddenSize}, {thisRank, 0, topK * tokenId, 0});
         Tensor shmemGetOutFp16 = ShmemGet(waitUntilOut, shmemDataTile);
 
-        TileShape::Current().SetVecTile({128, 256});
+        TileShape::Current().SetVecTile({topK / 2, hiddenSize});
         Tensor shmemGetOutFp32 = npu::tile_fwk::Cast(shmemGetOutFp16, DT_FP32);
 
         Tensor expertScalesTile = View(expertScales, {1, topK}, {tokenId, 0});
-        TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
+        int64_t kTileShape = AlignUp(topK, 16);
+        int64_t l0bSize = 65536;
+        int64_t nTileShape = l0bSize / BytesOf(DT_FP32) / kTileShape;
+        TileShape::Current().SetCubeTile({1, 1}, {kTileShape, kTileShape}, {nTileShape, nTileShape});
         Tensor matmulOutFp32 = Matrix::Matmul(DT_FP32, expertScalesTile, shmemGetOutFp32);
 
         Tensor matmulOutFp16 = npu::tile_fwk::Cast(matmulOutFp32, DT_BF16);
