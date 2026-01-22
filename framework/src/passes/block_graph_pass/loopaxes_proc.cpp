@@ -106,7 +106,7 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
         }
         // 当前节点的loopaxes和group的loopaxes一致，当前节点划入当前的loopaxes
         // 当前节点的loopaxes和group的loopaxes不一致，划入一个新的group起点，进行group
-        if (!SameLoopAxes(loopAxes) || previousOutputMagic != input->GetMagic()) {
+        if (!SameLoopAxes(loopAxes) && previousOutputMagic != input->GetMagic()) {
             lastGroupIdx = groupIdx++;
             previousLoopAxes = loopAxes;
             op.SetAttribute(OpAttributeKey::loopGroupStart, true);
