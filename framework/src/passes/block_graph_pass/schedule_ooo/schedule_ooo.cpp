@@ -103,15 +103,27 @@ Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &funct
         APASS_LOG_INFO_F(Elements::Operation,  "eval task %d on %s: %d - %d.", taskNode.idx, targetToString[taskNode.targetCoreType].c_str(), taskNode.startTime, taskNode.endTime);
     }
     spliter.MergeTaskByTargetCoreType();
-    for (auto &taskNode : spliter.GetTaskGraph().tasks) {
-        OoOScheduler oooSchedule(*program.second);
-        if (oooSchedule.Schedule(taskNode.opList_) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "TaskNode[%d] schedule failed.", taskNode.idx);
-            return FAILED;
-        }
-        OoOHealthCheck(oooSchedule, function, program);
-    }
     spliter.MarkInternalSubgraphID();
+    // 完整的 MainLoop
+    // 传入一个taskNode序列 taskNodeList
+    auto taskNodeList = spliter.GetTaskGraph().tasks;
+    std::sort(taskNodeList.begin(), taskNodeList.end(), [](const TaskNode& a, const TaskNode& b) {
+        return a.startTime < b.startTime;
+    });
+    std::vector<Operation*> operations;
+    std::map<Operation*, CoreType> opCoreMap;
+    for (auto& taskNode : taskNodeList) {
+        SortTaskList(taskNode.opList_, opList);
+        UpdateOpCoreMap(taskNode, opCoreMap);
+        operations.insert(operations.end(), taskNode.opList_.begin(), taskNode.opList_.end());
+    }
+    opList = operations;
+    OoOScheduler oooSchedule(*program.second);
+    if (oooSchedule.Schedule(opList, opCoreMap) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Schedule failed.");
+        return FAILED;
+    }
+    OoOHealthCheck(oooSchedule, function, program);
     APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule end.", program.first);
     program.second->ScheduleBy(spliter.GetMergedOperations());
     program.second->RecordOOOSeq();
@@ -119,6 +131,16 @@ Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &funct
     maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());
     function.SetStackWorkespaceSize(maxWorkeSpaceSize);
     return SUCCESS;
+}
+
+Status OoOSchedule::UpdateOpCoreMap(const TaskNode &taskNode, std::map<Operation*, CoreType> &opCoreMap) {
+    for (auto op : taskNode.opList_) {
+        if (targetCoreTypeMap.find(taskNode.targetCoreType) == targetCoreTypeMap.end()) {
+            APASS_LOG_ERROR_F(Elements::Operation, "CoreType is not AIC, AIV0 or AIV1");
+            return FAILED;
+        }
+        opCoreMap[op] = targetCoreTypeMap[taskNode.targetCoreType];
+    }
 }
 
 Status OoOSchedule::SortAndLatencyEstimate(std::vector<Operation*> &opList, std::vector<Operation*> &taskOpList,

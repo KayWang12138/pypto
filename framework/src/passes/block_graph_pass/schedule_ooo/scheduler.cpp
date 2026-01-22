@@ -579,7 +579,7 @@ bool OoOScheduler::IsInissueEntries(Operation* op) {
 }
 
 Status OoOScheduler::InitMemWithoutAlloc() {
-    // TODO 分核进行提前alloc 识别哪个核上？ 正式版本不存在no producer情况
+    // TODO 正式版本不存在no producer情况
     // std::set<int> needAllocMem;
     std::unordered_map<int, std::pair<CoreType, int>> needAllocMem;
     for (const auto &issue : issueEntries) {
@@ -1005,7 +1005,7 @@ void OoOScheduler::InitTensorCoreMap() {
     }
 }
 
-Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
+Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::map<Operation*, CoreType> &opCoreMap) {
     issueEntries.clear();
     localBufferMap.clear();
     depthCache_.clear();
@@ -1027,6 +1027,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
         }
         // TODO 核属性的初始化
         auto issue = std::make_shared<IssueEntry>(*op, issueId);
+        issue->coreLocation = opCoreMap.empty() ? opCoreTypeMap[OpcodeManager::Inst().GetCoreType(opPtr->GetOpcode())] : opCoreMap[op];
         issueEntryMap[issueId++] = issue;
         if (issue == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s, %d init failed! %s", 
@@ -1073,17 +1074,17 @@ void OoOScheduler::InitMemorySize() {
         Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
 }
 
-Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
+Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const std::map<Operation*, CoreType> &opCoreMap) {
     if (operations.empty()) {
         return SUCCESS;
     }
     PrintOpList(operations);
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(opList)) {
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
         CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_NON_Mix;
     } else {
         CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_Mix;
     }
-    if (Init(operations) != SUCCESS) {
+    if (Init(operations, opCoreMap) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
         return FAILED;
     }
@@ -1243,6 +1244,7 @@ Status OoOScheduler::GenRearrangeCopyOp(IssueEntryPtr AllocIssue, MemoryType mem
     // UpdateMoveOpAttr & 创建moveop的issueEntry
     UpdateMoveOpAttr(moveOp, occupyOp);
     IssueEntryPtr moveIssuePtr = std::make_shared<IssueEntry>(moveOp, issueId);
+    moveIssuePtr->coreLocation = tensorAllocCoreMap[newMemId];
     // 处理issue & 改变图连接
     ProcessMoveIssue(moveIssuePtr, AllocIssue, memType, oldMemId, newMemId);
     // 更新memId
