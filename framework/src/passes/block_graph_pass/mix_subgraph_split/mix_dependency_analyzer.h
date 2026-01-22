@@ -106,6 +106,8 @@ private:
     // 判断是否包含对应tensor
     bool ContainsTensor(const std::vector<SimpleTensorParam> &tensors, const LogicalTensorPtr &tensor) const;
     // 构建可达阵的转置（即反向的可达阵）
+    
+    void Reset();
     std::vector<std::vector<bool>> Transpose(const std::vector<std::vector<bool>> &matrix);
 
     int maxComponent;
