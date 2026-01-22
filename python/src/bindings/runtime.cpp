@@ -20,6 +20,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/runtime/device_launcher.h"
 #include "machine/host/perf_analysis.h"
 
 using namespace npu::tile_fwk;
@@ -211,7 +212,7 @@ std::string OperatorEnd(uintptr_t opAddr) {
 }
 
 int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
-        const std::vector<DeviceTensorData> &outputList) {
+        const std::vector<DeviceTensorData> &outputList, bool isCapturing) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
 
     HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
@@ -226,10 +227,19 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
                 inputList, outputList, &hostCache, config) != 0) {
                 return 0;
             }
+
+            if (isCapturing) {
+                DeviceLauncher::ChangeCaptureModeRelax();
+            }
+
             if (hostCache) {
                 DeviceMemoryUtils devMemory;
                 ctrlCache = devMemory.CopyToDev(reinterpret_cast<uint8_t*>(hostCache),
                     reinterpret_cast<DevControlFlowCache*>(hostCache)->allCacheSize, nullptr);
+            }
+
+            if (isCapturing) {
+                DeviceLauncher::ChangeCaptureModeGlobal();
             }
 
             if (ctrlCache) {
