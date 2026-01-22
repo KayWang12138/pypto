@@ -41,8 +41,6 @@ using Status = uint32_t;
 #define FAILED 1
 #define CACHELINE_SIZE_FOR_B64 64
 
-inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
-
 constexpr const int NUM2 = 2;
 constexpr const int NUM4 = 4;
 constexpr const int NUM150 = 150;
