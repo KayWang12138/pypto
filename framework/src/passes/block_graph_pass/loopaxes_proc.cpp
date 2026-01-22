@@ -48,6 +48,7 @@ void SetOpLoopEnd(std::shared_ptr<Operation> op) {
 
 void LoopaxesProc::ClearStatus() {
     lastGroupIdx = INVALID_LOOP_GROUPID;
+    previousOutputMagic = INVALID_LOOP_GROUPID;
     previousLoopAxes.clear();
     if (lastOpInLoop != nullptr) {
         SetOpLoopEnd(lastOpInLoop);
@@ -88,6 +89,7 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
     }
 
     std::vector<SymbolicScalar> loopAxes;
+    auto input = op.GetIOperands().front();
     auto output = op.GetOOperands().front();
     auto shape = output->GetDynValidShape();
     if (shape.size() <= NUM2) {
@@ -104,7 +106,7 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
         }
         // 当前节点的loopaxes和group的loopaxes一致，当前节点划入当前的loopaxes
         // 当前节点的loopaxes和group的loopaxes不一致，划入一个新的group起点，进行group
-        if (!SameLoopAxes(loopAxes)) {
+        if (!SameLoopAxes(loopAxes) && previousOutputMagic != input->GetMagic()) {
             lastGroupIdx = groupIdx++;
             previousLoopAxes = loopAxes;
             op.SetAttribute(OpAttributeKey::loopGroupStart, true);
@@ -117,6 +119,7 @@ Status LoopaxesProc::UpdateOpLoopAxes(Operation &op) {
         op.SetAttribute(OpAttributeKey::loopGroup, groupIdx);
         op.SetAttribute(OpAttributeKey::loopAxes, loopAxes);
         lastOpInLoop = op.shared_from_this();
+        previousOutputMagic = output->GetMagic();
         APASS_LOG_INFO_F(Elements::Operation, "Op Code %s, Op[%d] groupIdx is %d, loopAxes is %s",
             op.GetOpcodeStr().c_str(), op.GetOpMagic(), groupIdx, IntVecToStr(loopAxes).c_str());
     }
