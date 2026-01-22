@@ -46,7 +46,13 @@ struct DeviceMemoryUtils {
 
     uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        if (devPtr == nullptr) {
+            throw std::runtime_error("CopyToDev memory allocation failed");
+        }
+        auto ret = rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        if (ret != ACL_RT_SUCCESS) {
+            throw std::runtime_error("CopyToDev rtMemcpy failed");
+        }
         return devPtr;
     }
 
@@ -56,7 +62,10 @@ struct DeviceMemoryUtils {
     }
 
     void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
-        rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
+        auto ret = rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
+        if (ret != ACL_RT_SUCCESS) {
+            throw std::runtime_error("CopyFromDev rtMemcpy failed");
+        }
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {

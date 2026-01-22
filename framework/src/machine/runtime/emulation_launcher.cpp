@@ -125,7 +125,13 @@ int EmulationLauncher::BuildControlFlowCache(Function *function,
     auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
+    try{
     std::tie(inputDeviceDataList, outputDeviceDataList) = DeviceLauncher::BuildInputOutputFromHost(EmulationMemoryUtils(), inputDataList, outputDataList);
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Caught exception: " << e.what() << std::endl;
+        return -1;
+    }
     return BuildControlFlowCacheWithEmulationTensorData(function, inputDeviceDataList, outputDeviceDataList, nullptr, config);
 }
 
