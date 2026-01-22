@@ -33,7 +33,6 @@ constexpr const char *MG_COPYIN_UPPER_BOUND = "mg_copyin_upper_bound";
 constexpr const char *OOO_PRESCHEDULE_METHOD = "ooo_preschedule_method";
 constexpr const char *VEC_NBUFFER_MODE = "vec_nbuffer_mode";
 constexpr const char *VEC_NBUFFER_SETTING = "vec_nbuffer_setting";
-constexpr const char *SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num";
 constexpr const char *MG_VEC_PARALLEL_LB = "mg_vec_parallel_lb";
 constexpr const char *PG_SKIP_PARTITION = "pg_skip_partition";
 constexpr const char *DB_TYPE = "db_type";

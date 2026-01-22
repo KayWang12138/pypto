@@ -8,7 +8,6 @@
         "mg_copyin_upper_bound": 1048576,
         "vec_nbuffer_mode": 1,
         "mg_vec_parallel_lb": 48,
-        "sg_cube_parallel_num": 24,
         "pg_skip_partition": false,
         "copyout_resolve_coalescing": 0,
         "sg_set_scope": -1,

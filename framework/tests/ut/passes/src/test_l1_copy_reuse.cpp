@@ -130,8 +130,7 @@ TEST_F(L1CopyInReuseTest, TestInvalidOp) {
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;
-    const int sg_cube_parallel_num = 4;
+    const int l1_reuse_num = 2;    
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"tensorL1"}), true);
@@ -153,7 +152,6 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int cube_nbuffer = 4;
     const int l1_reuse_num = 2;
-    const int sg_cube_parallel_num = 4;
     const int result = 5;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
@@ -169,8 +167,7 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
 TEST_F(L1CopyInReuseTest, TestNoL1Num) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
-    const int cube_nbuffer = 2;
-    const int sg_cube_parallel_num = 4;
+    const int cube_nbuffer = 2;  
     const int result = 11;
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
@@ -188,8 +185,7 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;
-    const int sg_cube_parallel_num = 4;
+    const int l1_reuse_num = 2;    
     const int result = 5;
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int subGraphNum = 20;
@@ -207,8 +203,7 @@ TEST_F(L1CopyInReuseTest, TestNoBufferMap) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;
-    const int sg_cube_parallel_num = 4;
+    const int l1_reuse_num = 2;    
     const int result = 5;
     const int subGraphNum = 20;
     auto shapeImme = OpImmediate::Specified(tileShape);
@@ -241,8 +236,7 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Num) {
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int cube_nbuffer = 4;
-    const int l1_reuse_num = -1;
-    const int sg_cube_parallel_num = 4;
+    const int l1_reuse_num = -1;    
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
@@ -258,8 +252,7 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;
-    const int sg_cube_parallel_num = 4;
+    const int l1_reuse_num = 2;    
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     Function *function = G.GetFunction();
@@ -280,8 +273,7 @@ TEST_F(L1CopyInReuseTest, TestHealthReport) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;
-    const int sg_cube_parallel_num = 4;
+    const int l1_reuse_num = 2;    
     const int result = 5;
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
@@ -332,8 +324,7 @@ TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn) {
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
     const int cube_nbuffer = 4;
-    const int l1_reuse_num = 2;
-    const int sg_cube_parallel_num = 4;
+    const int l1_reuse_num = 2;    
     const int result = 5;
     EXPECT_EQ(G.AddTensors(DataType::DT_FP32, tileShape, {"incast0", "incast1", "outcast0", "outcast1"}), true);
     EXPECT_EQ(G.AddOps({Opcode::OP_VIEW}, {{"incast0"}}, {{"incast1"}}, {"view"}, true), true);
@@ -375,8 +366,7 @@ TEST_F(L1CopyInReuseTest, TestTensorReuseFailed) {
     ComputationalGraphBuilder G;
     std::vector<int64_t> tileShape{16, 16};
     auto shapeImme = OpImmediate::Specified(tileShape);
-    const int l1_reuse_num = 2;
-    const int sg_cube_parallel_num = 4;
+    const int l1_reuse_num = 2;    
     const int subGraphNum = 20;
     InitGraphBuilder(G, tileShape, subGraphNum);
     for (int i = 1; i < subGraphNum; i++) {
