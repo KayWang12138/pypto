@@ -59,7 +59,6 @@ MemoryType StringToMemoryType(const std::string& memType) {
 NPUArch StringToNPUArch(const std::string& npuArch) {
     auto it = npuArchMap.find(npuArch);
     if (it != npuArchMap.end()) {
-        ALOG_DEBUG_F("Set NpuArch as %s.", npuArch.c_str());
         return it->second;
     }
     return NPUArch::DAV_2201;
@@ -302,7 +301,6 @@ void Platform::ObtainPlatformInfo() {
     /*
     srcPath = HostMachine::GetInstance().GetPlatformInfo();
     if (srcPath.empty()) {
-        ALOG_WARN_F("Cannot obtain ini from the device, using default ini file.");
         CostModel::CostModelPlatform costModelPlatform;
         costModelPlatform.GetCostModelPlatformRealPath(srcPath);
     }
