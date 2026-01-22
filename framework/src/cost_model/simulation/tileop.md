@@ -616,4 +616,3 @@ function parameters:
 #### Demonstration
 
 TileOp::Tgather<float, int, 64, 64, 64, 64, 64, 0>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId2Addr, (__ubuf__ int *)UBId3Addr);
-
