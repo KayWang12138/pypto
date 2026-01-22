@@ -56,12 +56,7 @@ void SetCopyAttr::ProcessMoveInOperation(Operation &op) const {
             }
         }
     }
-    if (op.GetOpcode() == Opcode::OP_L1_COPY_IN_A_SCALE || op.GetOpcode() == Opcode::OP_L1_COPY_IN_B_SCALE) {
-        op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
-        MemoryType::MEM_L1, OpImmediate::Specified(inputTensor->GetShape()),
-        OpImmediate::Specified(inputTensor->tensor->GetDynRawShape()),
-        OpImmediate::Specified(inputTensor->GetDynValidShape())));
-    } else {
+    if (op.GetOpcode() != Opcode::OP_L1_COPY_IN_A_SCALE && op.GetOpcode() != Opcode::OP_L1_COPY_IN_B_SCALE) {
         op.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
         MemoryType::MEM_UB, OpImmediate::Specified(inputTensor->GetShape()),
         OpImmediate::Specified(inputTensor->tensor->GetDynRawShape()),
