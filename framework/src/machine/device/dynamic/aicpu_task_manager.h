@@ -56,7 +56,7 @@ public:
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(deviceTask->devTask.readyAicpuFunctionQue);
         shmemWaitUntil_.Init(deviceTask);
         if (profSwitch) {
-            KernelArgs *args = (KernelArgs *)(deviceArgs.sharedBuffer + (deviceArgs.aicNum_ + deviceArgs.aivNum_)
+            KernelArgs *args = (KernelArgs *)(deviceArgs->sharedBuffer + (deviceArgs->nrAic + deviceArgs->nrAiv)
                 * SHARED_BUFFER_SIZE);
             shmemWaitUntil_.aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         }

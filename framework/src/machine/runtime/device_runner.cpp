@@ -147,14 +147,14 @@ void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
     rtMemcpy(reinterpret_cast<void *>(devArgs_), sizeof(DeviceArgs), &args, sizeof(DeviceArgs),
         RT_MEMCPY_HOST_TO_DEVICE);
 
-    for (uint64_t i = 0; i < args.nrAic + args.nrAiv + AICPU_RUN_NUM; i++) {
+    for (uint64_t i = 0; i < args.nrAic + args.nrAiv + Distributed::AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         perfData_.push_back(DevAlloc(MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
     }
 }
 
 void DeviceRunner::ResetPerData() {
     auto size = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
-    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_RUN_NUM; i++) {
+    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv + Distributed::AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         int rc = rtMemset(perfData_[i], size, 0, size);
         if (rc != 0) {
             ALOG_WARN_F("CoreId %lu, rtMemSet failed, rc: %d", i, rc);
@@ -171,7 +171,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     blockDim_ = dynamic::GetCfgBlockdim();
     args.nrValidAic = blockDim_;
     args.nrAicpu = aicpuNum_;
-    int nrCore = regs.size() + AICPU_RUN_NUM;
+    int nrCore = regs.size() + Distributed::AICPU_NUM_OF_RUN_AICPU_TASKS;
     args.sharedBuffer = reinterpret_cast<uint64_t>(DevAlloc(nrCore * SHARED_BUFFER_SIZE));
     args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
@@ -340,7 +340,7 @@ int DeviceRunner::LaunchAiCpu(
 }
 
 void DeviceRunner::AllocDfxMetricMemory() {
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_RUN_NUM; i++) {
+    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + Distributed::AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         KernelArgs kernelArgs;
         memset_s(&kernelArgs, sizeof(kernelArgs), 0, sizeof(kernelArgs));
         kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] =
@@ -373,7 +373,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
     AllocDfxMetricMemory();
 #else
-    int size = (args_.nrAic + args_.nrAiv + AICPU_RUN_NUM) * SHARED_BUFFER_SIZE;
+    int size = (args_.nrAic + args_.nrAiv + Distributed::AICPU_NUM_OF_RUN_AICPU_TASKS) * SHARED_BUFFER_SIZE;
     rtMemset(reinterpret_cast<void *>(args_.sharedBuffer), size, 0, size);
 #endif
 
@@ -401,7 +401,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
 void DeviceRunner::Dump() {
     ALOG_INFO_F("======== aicore status ========");
 
-    int coreNum = args_.nrAic + args_.nrAiv + AICPU_RUN_NUM;
+    int coreNum = args_.nrAic + args_.nrAiv + Distributed::AICPU_NUM_OF_RUN_AICPU_TASKS;
     uint64_t size = coreNum * SHARED_BUFFER_SIZE;
     std::vector<uint64_t> buffer(size / sizeof(uint64_t));
     int rc =
@@ -466,7 +466,7 @@ void DeviceRunner::DumpAiCoreExecutionTimeData() {
         DumpData(i, coreType, root_taskStats);
     }
     
-    for (uint32_t i = args_.nrAic + args_.nrAiv; i < args_.nrAic + args_.nrAiv + AICPU_RUN_NUM; i++) {
+    for (uint32_t i = args_.nrAic + args_.nrAiv; i < args_.nrAic + args_.nrAiv + Distributed::AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         DumpData(i, "AI-CPU", root_taskStats);
     }
     std::string jsonFilePath = config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
@@ -594,7 +594,7 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArg
 }
 
 int DeviceRunner::RunPrepare() {
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_RUN_NUM; i++) {
+    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + Distributed::AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         rtMemcpy((reinterpret_cast<uint8_t *>(args_.sharedBuffer + sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE,
             sizeof(uint64_t),
             reinterpret_cast<uint8_t *>(&perfData_[i]),
