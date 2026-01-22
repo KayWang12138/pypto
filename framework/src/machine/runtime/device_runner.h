@@ -89,8 +89,6 @@ private:
     int LaunchAiCore(rtStream_t aicoreStream, int taskType);
     void Dump();
     void AllocDfxMetricMemory();
-    void SetPmuEventTypeDAV2201(int32_t &profPmuType);
-    void SetPmuEventTypeDAV3510(int32_t &profPmuType);
     void GetPmuEventType(DeviceArgs &args);
     /**************DynamicFunction**************/
     int launchDynamicAiCore(rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs);
@@ -119,12 +117,6 @@ private:
     rtBinHandle binHdl_;
     FileLock lock_;
     HostProf hostProf_;
-    using SetPmuFn = void (DeviceRunner::*)(int32_t &);
-    using PmuArchHandler = std::pair<ArchInfo, SetPmuFn>;
-    inline static const std::array<PmuArchHandler, 2> kPmuArchHandlers_ = {{
-        {ArchInfo::DAV_2201, &DeviceRunner::SetPmuEventTypeDAV2201},
-        {ArchInfo::DAV_3510, &DeviceRunner::SetPmuEventTypeDAV3510},
-    }};
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_ = false;
 };
