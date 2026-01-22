@@ -60,6 +60,15 @@ Status GetPaddingValue(const LogicalTensorPtr &tensor, int64_t &padValue) {
     return SUCCESS;
 }
 
+inline int GetExpandDim(const std::vector<int64_t> &lhsShape, cosnt std::vector<int64_t> &rhsShape) {
+    for (int i = static_cast<int>(lhsShape.size()); i > 0; --i) {
+        if (lhsShape[i] != rhsShape[i]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, Operation &op) {
     auto inputTensor = op.GetIOperands();
     auto inTensor0 = inputTensor[0];
@@ -88,6 +97,7 @@ Status AxisCombine::AlignBroadCastOpInputs([[maybe_unused]]Function &function, O
                 auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
                 if (!axisCombineMarker.IsTensorEnableAxisCombine(srcTensor)) {
                     brcb.SetOpCode(Opcode::OP_EXPAND);
+                    brcb.SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", GetExpandDim(srcTensor->GetShape(), inputTensor[idx ^ 1]->GetShape()));
                     needMarkBrcInput = false;
                     if (!(inputTensor[idx ^ 1]->GetDynValidShape().empty())) {
                         brcb.SetAttribute(OP_ATTR_PREFIX + "validShape", inputTensor[idx ^ 1]->GetDynValidShape());
