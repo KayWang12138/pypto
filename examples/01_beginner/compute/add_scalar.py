@@ -64,8 +64,8 @@ def create_add_scalar_kernel(shape: tuple, val, run_mode: str = "npu") -> torch.
         y: pypto.Tensor(shape, pypto.DT_FP32),
     ) -> pypto.Tensor(shape, pypto.DT_FP32):
         pypto.set_vec_tile_shapes(1, 4, 1, 64)
-        z = pypto.add(x, y) + val
-        return z
+        return pypto.add(x, y) + val
+
     return add_scalar_kernel
 
 
