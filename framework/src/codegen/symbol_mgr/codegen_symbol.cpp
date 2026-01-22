@@ -111,6 +111,7 @@ std::string SymbolManager::FindUsingName(const TileTensorUsing &tileTensorUsing)
 }
 
 std::string SymbolManager::AddTileTensorUsing(const TileTensorUsing &tileTensorUsing) {
+    CODEGEN_LOGE("hjhj AddTileTensorUsing isConstant is %d", tileTensorUsing.isConstant);
     std::string tensorUsingType = FindUsingName(tileTensorUsing);
     if (!tensorUsingType.empty()) {
         CODEGEN_LOGI("found tensorUsingType %s", tensorUsingType.c_str());
