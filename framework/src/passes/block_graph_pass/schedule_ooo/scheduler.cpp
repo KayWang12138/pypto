@@ -427,7 +427,7 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, 
         auto corePair = issue->coreLocation;
         if (!bufferManagerMap[corePair.first][corePair.second][memType].IsFull(localBufferMap[issue->reqMemIds[0]])) {
             APASS_LOG_DEBUG_F(Elements::Operation, "ALLOCATE: %s.", issue->GetOpInfo().c_str());
-            if (bufferManagerMap[corePair.first][coreLocation.second][memType].Allocate(localBufferMap[issue->reqMemIds[0]]) != SUCCESS) {
+            if (bufferManagerMap[corePair.first][corePair.second][memType].Allocate(localBufferMap[issue->reqMemIds[0]]) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Allocate Tensor[%d] failed.", issue->reqMemIds[0]); 
                 return FAILED; 
             }
@@ -1006,7 +1006,7 @@ void OoOScheduler::InitTensorCoreMap() {
     }
 }
 
-Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::map<Operation*, OpCoreType> &opCoreMap) {
+Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap) {
     issueEntries.clear();
     localBufferMap.clear();
     depthCache_.clear();
@@ -1028,7 +1028,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
         }
         // TODO 核属性的初始化
         auto issue = std::make_shared<IssueEntry>(*op, issueId);
-        issue->coreLocation = opCoreMap.empty() ? opCoreTypeMap.at(OpcodeManager::Inst().GetCoreType(op->GetOpcode())) : opCoreMap[op];
+        issue->coreLocation = opCoreMap.empty() ? opCoreTypeMap.at(OpcodeManager::Inst().GetCoreType(op->GetOpcode())) : opCoreMap.at(op);
         issueEntryMap[issueId++] = issue;
         if (issue == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s, %d init failed! %s", 
@@ -1075,7 +1075,7 @@ void OoOScheduler::InitMemorySize() {
         Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
 }
 
-Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const std::map<Operation*, OpCoreType> &opCoreMap) {
+Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap) {
     if (operations.empty()) {
         return SUCCESS;
     }

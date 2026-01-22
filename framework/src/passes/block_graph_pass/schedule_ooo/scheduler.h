@@ -65,13 +65,13 @@ const std::unordered_set<Opcode> COPY_IN_OPS = {
     Opcode::OP_UB_COPY_L1_ND
 };
 
-const std::map<OpCoreType, int> CORE_INIT_CONFIGS_Mix = {
+const std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS_MIX = {
     {OpCoreType::AIV, 0},
     {OpCoreType::AIV, 1},
     {OpCoreType::AIC, 0}
 };
 
-const std::map<OpCoreType, int> CORE_INIT_CONFIGS_NON_MIX = {
+const std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS_NON_MIX = {
     {OpCoreType::AIV, 0},
     {OpCoreType::AIC, 0}
 };
@@ -158,7 +158,7 @@ private:
     std::vector<IssueEntryPtr> issueEntries;
     std::unordered_map<int, IssueEntryPtr> issueEntryMap;
 
-    std::map<OpCoreType, int> CORE_INIT_CONFIGS;
+    std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS;
 
     std::unordered_map<int, LocalBufferPtr> localBufferMap;
     // 分核数据结构
@@ -201,7 +201,8 @@ private:
     IssueEntryPtr rollBackNodeIssue{nullptr};
     int GetMaxDepthSimple(IssueEntryPtr issue);
     // scheduler
-    Status Init(const std::vector<Operation *> &operations, const std::map<Operation*, OpCoreType> &opCoreMap = std::map<Operation*, OpCoreType>());
+    Status Init(const std::vector<Operation *> &operations,
+        const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>());
     void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
@@ -363,7 +364,8 @@ private:
     Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
 
 public:
-    Status Schedule(const std::vector<Operation *> &operations, const std::map<Operation*, OpCoreType> &opCoreMap = std::map<Operation*, OpCoreType>());
+    Status Schedule(const std::vector<Operation *> &operations,
+        const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>());
     OoOScheduler(Function &function, bool combineAxis=false) : function_(function), isCombineAxis_(combineAxis) {}
 
     std::vector<Operation *> GetNewOperations() { return newOperations_; }
