@@ -71,6 +71,11 @@ const std::map<CoreType, int> CORE_INIT_CONFIGS_NON_MIX = {
     {CoreType::AIC, 0}
 };
 
+const std::unordered_map<CoreType, std::pair<CoreType, int>> opCoreTypeMap {
+    {OpCoreType::AIV, std::make_pair(CoreType::AIV, 0)},
+    {OpCoreType::AIC, std::make_pair(CoreType::AIC, 0)}
+}
+
 struct IssueEntry {
     Operation &tileOp;
     int id{-1};
@@ -191,7 +196,7 @@ private:
     IssueEntryPtr rollBackNodeIssue{nullptr};
     int GetMaxDepthSimple(IssueEntryPtr issue);
     // scheduler
-    Status Init(const std::vector<Operation *> &operations);
+    Status Init(const std::vector<Operation *> &operations, const std::map<Operation*, CoreType> &opCoreMap = std::map<Operation*, CoreType>());
     void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
@@ -352,7 +357,7 @@ private:
     Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
 
 public:
-    Status Schedule(const std::vector<Operation *> &operations);
+    Status Schedule(const std::vector<Operation *> &operations, const std::map<Operation*, CoreType> &opCoreMap = std::map<Operation*, CoreType>());
     OoOScheduler(Function &function, bool combineAxis=false) : function_(function), isCombineAxis_(combineAxis) {}
 
     std::vector<Operation *> GetNewOperations() { return newOperations_; }
