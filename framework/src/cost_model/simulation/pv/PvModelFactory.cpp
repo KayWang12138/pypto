@@ -41,7 +41,7 @@ namespace CostModel
         std::string soPath = "libtile_fwk_simulation_pv.so";
         void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
         if (!handle) {
-            throw std::runtime_error("can not load library: " + soPath);
+            throw std::runtime_error("can not load library: ");
         }
 
         // 获取工厂函数符号
