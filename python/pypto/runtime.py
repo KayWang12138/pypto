@@ -62,6 +62,11 @@ def _current_stream():
     return torch.npu.current_stream().npu_stream
 
 
+def _is_current_stream_capturing():
+    import torch
+    return torch.npu.is_current_stream_capturing()
+
+
 @contextmanager
 def _change_device(device):
     import torch
@@ -276,7 +281,7 @@ class _JIT:
             return kernel, 0
 
         cfdata = [pypto_impl.DeviceTensorData(t.dtype, 0, shape) for t, shape in zip(tensors, cfshape.shapes)]
-        cfcache = pypto_impl.BuildCache(kernel, cfdata, [])
+        cfcache = pypto_impl.BuildCache(kernel, cfdata, [], _is_current_stream_capturing())
 
         return kernel, cfcache
 

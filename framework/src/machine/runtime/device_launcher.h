@@ -373,7 +373,8 @@ public:
     }
 
 #ifdef BUILD_WITH_CANN
-    static void ChangeCaptureMode();
+    static void ChangeCaptureModeRelax();
+    static void ChangeCaptureModeGlobal();
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture);
     static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool &isCapture);
     static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream, bool isCapture);
@@ -389,7 +390,10 @@ public:
 using aclmdlRICaptureMode = uint32_t;
 using rtStream_t = uint64_t;
 using aclmdlRI = void *;
-    static void ChangeCaptureMode() {
+    static void ChangeCaptureModeRelax() {
+        return;
+    }
+    static void ChangeCaptureModeGlobal() {
         return;
     }
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture) {

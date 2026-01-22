@@ -74,9 +74,15 @@ int DeviceLauncher::GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtMo
     return 0;
 }
 
-void DeviceLauncher::ChangeCaptureMode()
+void DeviceLauncher::ChangeCaptureModeRelax()
 {
     aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_RELAXED;   // aclgraph does not support rtmemcpy / rtmemset, set to relaxed mode
+    aclmdlRICaptureThreadExchangeMode(&mode);
+}
+
+void DeviceLauncher::ChangeCaptureModeGlobal()
+{
+    aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_GLOBAL;
     aclmdlRICaptureThreadExchangeMode(&mode);
 }
 
@@ -145,7 +151,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
 
     /* 2. Change capture mode to relaxed*/
     if (isCapture) {
-        ChangeCaptureMode();
+        ChangeCaptureModeRelax();
     }
     DeviceRunner::Get().SetCaptureFlag(isCapture);
 
