@@ -73,23 +73,23 @@ static void InitSocVersion(std::string &socVersion) {
 
 extern "C" std::string GetPlatformFile(const std::string &socVersion) {
     #ifdef PROCESSOR_SUBPATH
-        const std::string *configSubpath = PROCESSOR_SUBPATH;
+        const char *configSubpath = PROCESSOR_SUBPATH;
     #else
-        const std::string *configSubpath = "";
+        const char *configSubpath = "";
     #endif
-    const std::string homePathEnvName = "ASCEND_HOME_PATH";
-    const std::string configRelativePath = "/data/platform_config/";
+    const char *homePathEnvName = "ASCEND_HOME_PATH";
+    const char *configRelativePath = "/data/platform_config/";
 
     ALOG_INFO("Begin to initialize PlatformManager with soc version[" + socVersion + "].");
     if (socVersion.empty()) {
         ALOG_WARN_F("Soc version is empty.");
-        return false;
+        return "";
     }
     // get platform file path
     const char *envPath = std::getenv(homePathEnvName.c_str());
     if (envPath == nullptr) {
         ALOG_WARN_F("Env[" + homePathEnvName + "] is not existed or empty.");
-        return false;
+        return "";
     }
 
     std::string platformConfDir = std::string(envPath) + "/" + std::string(configSubpath) + configRelativePath;
