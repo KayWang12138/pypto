@@ -1038,6 +1038,23 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSOpDynamicUnaligned(const Prin
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintScatterElementSTileTensor(const PrintScatterElemParam &param) const {
+    std::string dstTensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::DST_IDX)]);
+    std::string src1Tensor = sm->QueryTileTensorByMagic(operandWithMagic[ToUnderlying(MISOIdx::SRC1_IDX)]);
+    std::vector<std::string> paramList;
+    std::string scalarDtypeBuffer = DataType2CCEStr(extOperandVal.GetDataType());
+    int axis = param.axis + SHAPE_DIM5 - param.src1RawShape.size();
+    paramList.emplace_back(std::to_string(axis));
+    paramList.emplace_back(std::to_string(param.scatterMode));
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+    std::ostringstream oss;
+    oss << tileOpName << "<" << templateParam << ">"
+        << "(" << dstTensor << ", " << src1Tensor << ", ("
+        << scalarDtypeBuffer << ")" << scalarTmpBuffer << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "scatter_mode")) << "cannot get scatter mode attr";
     ASSERT(opAttrs.count(OP_ATTR_PREFIX + "axis")) << "cannot get axis attr";
@@ -1063,6 +1080,10 @@ std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
     AppendLocalBufVarOffsetInOrder(dstVar, src0Var, src1Var);
 
     const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
+    if (isSupportLayout) {
+        return PrintScatterElementSTileTensor(
+                {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
+    }
     if (isDynamicFunction) {
         return PrintScatterElementSOpDynamicUnaligned(
             {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
