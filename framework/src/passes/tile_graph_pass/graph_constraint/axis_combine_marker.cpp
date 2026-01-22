@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -50,118 +50,144 @@ void AxisCombineMarker::Init(Function &function) {
     }
 }
 
+void UpdateCopyinStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+    auto inputTensor = op->GetIOperands()[0];
+    auto outputTensor = op->GetOOperands()[0];
+    if (outputTensor->GetShape().back() != 1) {
+        tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
+        return;
+    }
+    if (outputTensor->GetShape().back() == inputTensor->GetShape().back()) {
+        tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
+        return;
+    }
+    tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+    return;
+}
+
+void UpdateViewStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+    auto inputTensor = op->GetIOperands()[0];
+    auto outputTensor = op->GetOOperands()[0];
+    if (tensorStatus.find(inputTensor) != tensorStatus.end()) {
+        if (tensorStatus[inputTensor] == AxisReorderStatus::ENABLE) {
+            tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
+            return;
+        }
+        tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+        return;
+    }
+    if (inputTensor->GetShape().back() == 1 && outputTensor->GetShape().back() == 1) {
+        tensorStatus[inputTensor] = AxisReorderStatus::ENABLE;
+        tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
+        return;
+    }
+    tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
+    tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;  // DDR场景，不涉及。
+}
+
+void UpdateAssembleStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+    auto inputTensor = op->GetIOperands()[0];
+    auto outputTensor = op->GetOOperands()[0];
+    if (tensorStatus.find(inputTensor) != tensorStatus.end()) {
+        if (tensorStatus[inputTensor] == AxisReorderStatus::ENABLE) {
+            if (inputTensor->GetShape().back() != outputTensor->GetShape().back()) {
+                tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+                tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;  // 如果尾轴有assemble，那么不能支持合轴
+            } else {
+                tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
+            }
+            return;
+        }
+        tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+        return;
+    }
+    // 正向推导不应该存在assemble输入没被访问过的场景
+}
+
+void UpdateExpandStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+    auto inputTensor = op->GetIOperands()[0];
+    auto outputTensor = op->GetOOperands()[0];
+    if (tensorStatus[inputTensor] == AxisReorderStatus::ENABLE) {
+        auto dimSize = static_cast<int>(inputTensor->GetShape().size());
+        int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
+        // 在尾轴为1的条件下，要求尾轴没有发生broadcast。[n, 1, 1]->expand->[n, 8, 1]??
+        if (axis < dimSize - 1) {
+            tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
+            return;
+        } else {
+            // 如果是尾轴broadcast，不支持交换轴
+            tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
+        }
+        return;
+    }
+    // 如果expand输出尾轴为1，并且输入就不支持合轴，那么输出也不支持合轴
+    if (outputTensor->GetShape().back() == 1) {
+        tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+        return;
+    }
+    // 如果expand的输出尾轴不为1，那么不涉及到合轴优化。
+    tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
+}
+
+void UpdateReduceStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+    // 最后两根轴不发生reduce，并且尾轴为1。那么支持交换轴，如果倒数第二根轴发生reduce，不支持。尾轴reduce，需不需要交换轴要看后继节点
+    auto inputTensor = op->GetIOperands()[0];
+    auto outputTensor = op->GetOOperands()[0];
+    auto dimSize = static_cast<int>(inputTensor->GetShape().size());
+    int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
+    if (dimSize > 1 && axis < dimSize - 2) {
+        tensorStatus[outputTensor] = tensorStatus[inputTensor];
+        return;
+    }
+    if (axis == dimSize - 2) {
+        // reduce倒数第二轴，当前不支持合轴优化
+        tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+        return;
+    }
+    // Reduce尾轴，默认可以
+    tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
+}
+
+void UpdateElewiseStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
+    auto outputTensor = op->GetOOperands()[0];
+    for (auto inputTensor : op->GetIOperands()) {
+        if (tensorStatus[inputTensor] == AxisReorderStatus::DISABLE) {
+            tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+            return;
+        }
+    }
+    if (outputTensor->GetShape().back() == 1) {
+        tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
+    } else {
+        tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
+    }
+}
+
 void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
     auto op = opList_[opIdx];
     if (op->GetOpcode() == Opcode::OP_COPY_IN) {
-        auto inputTensor = op->GetIOperands()[0];
-        auto outputTensor = op->GetOOperands()[0];
-        if (outputTensor->GetShape().back() != 1) {
-            tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
-            return;
-        }
-        if (outputTensor->GetShape().back() == inputTensor->GetShape().back()) {
-            tensorStatus_[outputTensor] = AxisReorderStatus::ENABLE;
-            return;
-        }
-        tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
+        UpdateCopyinStatus(op, tensorStatus_);
         return;
     }
     if (op->GetOpcode() == Opcode::OP_VIEW) {
-        auto inputTensor = op->GetIOperands()[0];
-        auto outputTensor = op->GetOOperands()[0];
-        if (tensorStatus_.find(inputTensor) != tensorStatus_.end()) {
-            if (tensorStatus_[inputTensor] == AxisReorderStatus::ENABLE) {
-                tensorStatus_[outputTensor] = AxisReorderStatus::ENABLE;
-                return;
-            }
-            tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
-            return;
-        }
-        if (inputTensor->GetShape().back() == 1 && outputTensor->GetShape().back() == 1) {
-            tensorStatus_[inputTensor] = AxisReorderStatus::ENABLE;
-            tensorStatus_[outputTensor] = AxisReorderStatus::ENABLE;
-            return;
-        }
-        tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
-        tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;  // DDR场景，不涉及。
+        UpdateViewStatus(op, tensorStatus_);
         return;
     }
     if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
-        auto inputTensor = op->GetIOperands()[0];
-        auto outputTensor = op->GetOOperands()[0];
-        if (tensorStatus_.find(inputTensor) != tensorStatus_.end()) {
-            if (tensorStatus_[inputTensor] == AxisReorderStatus::ENABLE) {
-                if (inputTensor->GetShape().back() != outputTensor->GetShape().back()) {
-                    tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
-                    tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;  // 如果尾轴有assemble，那么不能支持合轴
-                } else {
-                    tensorStatus_[outputTensor] = AxisReorderStatus::ENABLE;
-                }
-                return;
-            }
-            tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
-            return;
-        }
-        // 正向推导不应该存在assemble输入没被访问过的场景
+        UpdateAssembleStatus(op, tensorStatus_);
         return;
     }
     if (op->GetOpcode() == Opcode::OP_EXPAND) {
-        auto inputTensor = op->GetIOperands()[0];
-        auto outputTensor = op->GetOOperands()[0];
-        if (tensorStatus_[inputTensor] == AxisReorderStatus::ENABLE) {
-            auto dimSize = static_cast<int>(inputTensor->GetShape().size());
-            int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "EXPANDDIM");
-            // 在尾轴为1的条件下，要求尾轴没有发生broadcast。[n, 1, 1]->expand->[n, 8, 1]??
-            if (axis < dimSize - 1) {
-                tensorStatus_[outputTensor] = AxisReorderStatus::ENABLE;
-                return;
-            } else {
-                // 如果是尾轴broadcast，不支持交换轴
-                tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
-            }
-            return;
-        }
-        // 如果expand输出尾轴为1，并且输入就不支持合轴，那么输出也不支持合轴
-        if (outputTensor->GetShape().back() == 1) {
-            tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
-            return;
-        }
-        // 如果expand的输出尾轴不为1，那么不涉及到合轴优化。
-        tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
+        UpdateExpandStatus(op, tensorStatus_);
+        return;
     }
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::REDUCE) {
-        // 最后两根轴不发生reduce，并且尾轴为1。那么支持交换轴，如果倒数第二根轴发生reduce，不支持。尾轴reduce，需不需要交换轴要看后继节点
-        auto inputTensor = op->GetIOperands()[0];
-        auto outputTensor = op->GetOOperands()[0];
-        auto dimSize = static_cast<int>(inputTensor->GetShape().size());
-        int axis = op->GetIntAttribute(OP_ATTR_PREFIX + "AXIS");
-        if (dimSize > 1 && axis < dimSize - 2) {
-            tensorStatus_[outputTensor] = tensorStatus_[inputTensor];
-            return;
-        }
-        if (axis == dimSize - 2) {
-            // reduce倒数第二轴，当前不支持合轴优化
-            tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
-            return;
-        }
-        // Reduce尾轴，默认可以
-        tensorStatus_[outputTensor] = AxisReorderStatus::ENABLE;
+        UpdateReduceStatus(op, tensorStatus_);
         return;
     }
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
         OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST) {
-        auto outputTensor = op->GetOOperands()[0];
-        for (auto inputTensor : op->GetIOperands()) {
-            if (tensorStatus_[inputTensor] == AxisReorderStatus::DISABLE) {
-                tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
-                return;
-            }
-        }
-        if (outputTensor->GetShape().back() == 1) {
-            tensorStatus_[outputTensor] = AxisReorderStatus::ENABLE;
-        } else {
-            tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
-        }
+        UpdateElewiseStatus(op, tensorStatus_);
         return;
     }
     auto outputTensor = op->GetOOperands()[0];
