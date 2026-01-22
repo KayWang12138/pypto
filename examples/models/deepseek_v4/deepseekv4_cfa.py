@@ -79,7 +79,7 @@ class AttentionConfig:
     kv_num_blocks: int = 0
 
 
-def get_decode_case_info(device="cpu"):
+def get_case_info(device="cpu"):
     b = 4
     s1 = 1
     s2 = 64 * 1024
@@ -173,7 +173,6 @@ def ifa_flash(q, kv, attn_sink, block_table, start_pos, kv_win=None, blk_win=Non
     attn_sink_2d_shape = (nq, 1)
 
     kv_2d = pypto.reshape(kv, kv_2d_shape, inplace=True)
-    # v_2d = pypto.reshape(kv, kv_2d_shape, inplace=True)
     q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
     if enable_c128:
         kv_win_2d = pypto.reshape(kv_win, kv_win_2d_shape, inplace=True)
@@ -224,7 +223,7 @@ def ifa_flash(q, kv, attn_sink, block_table, start_pos, kv_win=None, blk_win=Non
                         oi_final_3d = pypto.cast(
                             pypto.reshape(oi_final, [1, g_tile, dn]),
                             dtype)
-                        # 7. 将结果搬运到输出tensor上
+
                         pypto.assemble(oi_final_3d, oi_ofs, atten_out)
                         
                 for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=unroll_list):
@@ -472,12 +471,10 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
 def attention(
         query: torch.Tensor,
         kv_cache: torch.Tensor,
-        # value_cache: torch.Tensor,
         attn_sink: torch.Tensor,
         blk_tbl: torch.Tensor,
         start_pos: torch.Tensor,
         kv_win: torch.Tensor,
-        # v_win: torch.Tensor,
         blk_win: torch.Tensor,                
         attn_res: torch.Tensor,
         cmp_r: int = 1,
@@ -535,7 +532,7 @@ def attention(
 def test_c128_decode(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'    
-    attn_cfg = get_decode_case_info(device=device)
+    attn_cfg = get_case_info(device=device)
     c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, pg_upper_bound=pg_upper_bound, attn_cfg=attn_cfg)
     
 
