@@ -185,7 +185,7 @@ void InsertOpForViewAssemble::AddCopyDDROp(Function &function, Operation *cons, 
     cons->ReplaceInput(assembleOut, input);
 }
 
-int InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
+void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
     auto opsBeforeAdd = function.Operations();
     std::unordered_set<int> visitedAssOps;
     std::unordered_set<Operation*> needAddCopyAssOps;
@@ -210,8 +210,6 @@ int InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
             AddCopyDDROp(function, needed, input);
         }
     }
-
-    return needAddCopyAssOps.size();
 }
 
 Status InsertOpForViewAssemble::RunOnFunction(Function &function) {
