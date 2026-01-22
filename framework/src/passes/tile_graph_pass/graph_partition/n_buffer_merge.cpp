@@ -236,12 +236,6 @@ std::map<int, size_t> NBufferMerge::GetIsoColorMergeNum(const OperationsViewer &
             continue;
         }
         auto subGraphIdx = entry.second.front();
-        for (const auto& opIdx : colorNode_[subGraphIdx]) {
-            if (OpcodeManager::Inst().GetCoreType(opOriList[opIdx].GetOpcode()) == OpCoreType::AIC) {
-                hashCoreNum[entry.first] = sgCubeParallelNum;
-                break;
-            }
-        }
         if (hashCoreNum.find(entry.first) == hashCoreNum.end()) {
             hashCoreNum[entry.first] = mgVecParallelLb;
         }
@@ -527,7 +521,6 @@ Status NBufferMerge::RunOnFunction(Function &function) {
         APASS_LOG_INFO_F(Elements::Config, "Manually set VEC_NBUFFER_MODE to 0, skip NBufferMerge.");
         return SUCCESS;
     }
-    sgCubeParallelNum = function.paramConfigs_.sgCubeParallelNum;
     mgVecParallelLb = function.paramConfigs_.mgVecParallelLb;
     vecNBufferSetting = function.paramConfigs_.vecNBufferSetting;
     if (NBufferMergeProcess(function) == FAILED) {

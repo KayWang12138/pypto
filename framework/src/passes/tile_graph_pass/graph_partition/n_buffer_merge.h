@@ -71,7 +71,6 @@ private:
     std::vector<int> colorCycles_;
     int vecNBuffermode;
     int mgVecParallelLb;
-    int sgCubeParallelNum;
     std::map<int64_t, int64_t> vecNBufferSetting;
     std::unordered_map<uint64_t, int> hashOrder;
     enum ModeType {
