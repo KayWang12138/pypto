@@ -56,8 +56,10 @@ TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvert) {
     subGraph.GetOp("L1ToL0A")->UpdateSubgraphID(1);
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
+    function->SetTotalSubGraphCount(2);
     IntraSubgraphAdapter adapter;
     adapter.RunOnFunction(*function);
+    EXPECT_EQ(adapter.PostCheck(*function), SUCCESS);
     const int opNum = 4;
     EXPECT_EQ(function->Operations().DuplicatedOpList().size(), opNum);
     const int copyOutIdx = 1;
