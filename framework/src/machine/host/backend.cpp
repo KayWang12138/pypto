@@ -79,9 +79,8 @@ extern "C" std::string GetPlatformFile(const std::string &socVersion) {
     #endif
     const char *configRelativePath = "/data/platform_config/";
 
-    ALOG_INFO("Begin to initialize PlatformManager with soc version[" + socVersion + "].");
+    ALOG_INFO_F("Get Soc version [%s].", socVersion.c_str());
     if (socVersion.empty()) {
-        ALOG_WARN_F("Soc version is empty.");
         return "";
     }
     // get platform file path
@@ -90,15 +89,15 @@ extern "C" std::string GetPlatformFile(const std::string &socVersion) {
         ALOG_WARN_F("Env[ASCEND_HOME_PATH] is not existed or empty.");
         return "";
     }
-
+    ALOG_INFO_F("Get Env[ASCEND_HOME_PATH] is [%s].", std::string(envPath).c_str());
     std::string platformConfDir = std::string(envPath) + "/" + std::string(configSubpath) + configRelativePath;
     if (RealPath(platformConfDir).empty()) {
         platformConfDir = std::string(envPath) + configRelativePath;
     }
 
     std::string platformFile = platformConfDir + socVersion + ".ini";
+    ALOG_INFO_F("Get platformFile [%s].", platformFile.c_str());
     if (RealPath(platformFile).empty()) {
-        ALOG_WARN_F("Platform file[%s] is not existed.", platformFile.c_str());
         return "";
     }
     return platformFile;
