@@ -575,17 +575,12 @@ public:
         uint64_t slotListCapacity = CalculateVectorCapacity(devProg->slotSize);
         uint64_t slotListMemory = slotListCapacity * sizeof(DeviceExecuteSlot);
         DEV_DEBUG("slotListMemory is %lu,", slotListMemory);
-        // 3. slotInfosInDecidingSlotMem_
-        uint64_t slotInfosCapacity = CalculateVectorCapacity(devProg->slotSize);
-        uint64_t slotInfosMemory = slotInfosCapacity * sizeof(ItemPoolIter); 
-        DEV_DEBUG("slotInfosMemory is %lu,", slotInfosMemory);
-        // 4. rtBoundaryOutcastToBeFree_
+        // 3. rtBoundaryOutcastToBeFree_
         uint64_t boundaryOutcastToFreeListSize = CalculateVectorCapacity(devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
         uint64_t boundaryOutcastToFreeMemory = boundaryOutcastToFreeListSize * sizeof(RuntimeOutcastTensor);
         DEV_DEBUG("Memory of list for Boundary outcast to free is %lu,", boundaryOutcastToFreeMemory);
         // total
-        uint64_t totalSetupVectorMemory = symbolTableMemory + slotListMemory + 
-                                          slotInfosMemory + boundaryOutcastToFreeMemory;
+         uint64_t totalSetupVectorMemory = symbolTableMemory + slotListMemory + boundaryOutcastToFreeMemory;
         return totalSetupVectorMemory;
     }
 
