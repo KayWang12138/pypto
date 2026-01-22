@@ -77,7 +77,7 @@ extern "C" std::string GetPlatformFile(const std::string &socVersion) {
     #else
         const char *configSubpath = "";
     #endif
-    const char *configRelativePath = "/data/platform_config/";
+    const char *configRelativePath = "data/platform_config/";
 
     ALOG_INFO_F("Get Soc version [%s].", socVersion.c_str());
     if (socVersion.empty()) {
@@ -90,9 +90,9 @@ extern "C" std::string GetPlatformFile(const std::string &socVersion) {
         return "";
     }
     ALOG_INFO_F("Get Env[ASCEND_HOME_PATH] is [%s].", std::string(envPath).c_str());
-    std::string platformConfDir = std::string(envPath) + "/" + std::string(configSubpath) + configRelativePath;
+    std::string platformConfDir = std::string(envPath) + "/" + std::string(configSubpath) + "/" + configRelativePath;
     if (RealPath(platformConfDir).empty()) {
-        platformConfDir = std::string(envPath) + configRelativePath;
+        platformConfDir = std::string(envPath) + "/" + configRelativePath;
     }
     ALOG_INFO_F("Get platformConfDir [%s].", platformConfDir.c_str());
     std::string platformFile = platformConfDir + socVersion + ".ini";
