@@ -20,9 +20,9 @@ void DeviceStitchContext::Init(DevAscendProgram *devProg, DeviceWorkspaceAllocat
     workspace.SetupVector(stitchedList_);
     workspace_ = &workspace;
 
-    workspace_->SetupVector(slotInfosInDecidingSlotMem_);
+    workspace_->SetupVector(slotInfosInDecidingSlotMem_); 
     slotInfosInDecidingSlotMem_.resize(devProg->slotSize); // need pre alloc , left memory for slab allocator
-
+    
     Reset();
 }
 
