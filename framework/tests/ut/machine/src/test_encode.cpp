@@ -22,9 +22,17 @@
 #include "interface/inner/config.h"
 #include "interface/configs/config_manager.h"
 #include "interface/program/program.h"
+#include "interface/tensor/logical_tensor.h"
+#include "machine/utils/dynamic/dev_encode_tensor.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
+
+namespace npu::tile_fwk::dynamic {
+// 内部 helper 的前置声明，实现在 dev_encode.cpp 中
+void UpdateCellMatchStrideAndSize(int &cellMatchSize, DevCellMatchTableDesc &cellMatchTableDesc,
+    const std::shared_ptr<LogicalTensor> &tensor, int dim);
+}
 
 class TestDevEncode : public testing::Test {};
 
@@ -37,6 +45,32 @@ TEST_F(TestDevEncode, DevSymShape) {
     EXPECT_EQ(strides[0], 16);
     EXPECT_EQ(strides[1], 2);
     EXPECT_EQ(strides[2], 1);
+}
+
+TEST_F(TestDevEncode, UpdateCellMatchStrideAndSizeBasic) {
+    // 构造一个最小的 Function 和 LogicalTensor
+    Program program;
+    Function func(program, "ut_func_magic", "ut_func_raw", nullptr);
+
+    Shape tensorShape = {4, 5, 6};
+    auto logicalTensor = std::make_shared<LogicalTensor>(func, DT_FP32, tensorShape,
+        TileOpFormat::TILEOP_ND, "ut_tensor", NodeType::LOCAL);
+
+    DevCellMatchTableDesc cellMatchTableDesc{};
+    cellMatchTableDesc.cellShape.dimSize = 3;
+    cellMatchTableDesc.cellShape.dim[0] = 2;
+    cellMatchTableDesc.cellShape.dim[1] = 5;
+    cellMatchTableDesc.cellShape.dim[2] = 3;
+
+    int cellMatchSize = 0;
+    UpdateCellMatchStrideAndSize(cellMatchSize, cellMatchTableDesc, logicalTensor, 3);
+
+    // tile per dim: [4/2=2, 5/5=1, 6/3=2] => total cellMatchSize = 4
+    EXPECT_EQ(cellMatchSize, 4);
+    EXPECT_EQ(cellMatchTableDesc.stride.dimSize, 3);
+    EXPECT_EQ(cellMatchTableDesc.stride[0], 4);
+    EXPECT_EQ(cellMatchTableDesc.stride[1], 2);
+    EXPECT_EQ(cellMatchTableDesc.stride[2], 2);
 }
 
 TEST_F(TestDevEncode, test_dev_encode_program) {
