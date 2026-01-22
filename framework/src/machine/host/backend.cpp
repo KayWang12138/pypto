@@ -94,7 +94,7 @@ extern "C" std::string GetPlatformFile(const std::string &socVersion) {
     if (RealPath(platformConfDir).empty()) {
         platformConfDir = std::string(envPath) + configRelativePath;
     }
-
+    ALOG_INFO_F("Get platformConfDir [%s].", platformConfDir.c_str());
     std::string platformFile = platformConfDir + socVersion + ".ini";
     ALOG_INFO_F("Get platformFile [%s].", platformFile.c_str());
     if (RealPath(platformFile).empty()) {
@@ -105,12 +105,14 @@ extern "C" std::string GetPlatformFile(const std::string &socVersion) {
 
 extern "C" std::string GetPlatformInfo() {
     std::string socVersion;
+    ALOG_DEBUG_F("Start InitSocVersion.");
     InitSocVersion(socVersion);
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM) {
         ALOG_WARN("GetPlatformInfo: run in SIM mode, platform info not available.");
         return "";
     }
+    ALOG_DEBUG_F("GetPlatformFile by %s.", socVersion.c_str());
     return GetPlatformFile(socVersion);
 #else
     ALOG_WARN_F("GetPlatformInfo requires BUILD_WITH_CANN.");
