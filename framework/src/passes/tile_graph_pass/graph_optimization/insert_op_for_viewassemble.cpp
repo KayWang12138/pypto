@@ -193,6 +193,10 @@ void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             visitedAssOps.insert(op.GetOpMagic());
             auto assIn = op.GetIOperands()[0];
+            auto assInProducer0 = *(assIn->GetProducers().begin());
+            if (assInProducer0->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
+                continue;
+            }
             auto consumers = assIn->GetConsumers();
             for (auto &con : consumers) {
                 if (con->GetOpMagic() != op.GetOpMagic() && con->GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -214,9 +218,7 @@ void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
 
 Status InsertOpForViewAssemble::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start InsertOpForViewAssemble");
-    if (InsertAssembleCopy(function) > 0) {
-        function.paramConfigs_.perGraphAssRemove = false;
-    }
+    InsertAssembleCopy(function);
     if (JudgedViewAssemble(function) == FAILED) {
         APASS_LOG_ERROR_F(Elements::Function, "JudgedViewAssemble Failed.");
         return FAILED;
