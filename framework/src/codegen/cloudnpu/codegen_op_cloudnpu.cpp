@@ -244,7 +244,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
     : CodeGenOpCloudNPU(ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset,
           ctx.topFunc.IsUnderDynamicFunction(), ctx.isMainBlock) {
-    CodeGenOp::Init(ctx.ops);
+    CodeGenOp::Init(ctx.operation);
     UpdateTileTensorInfo();
 }
 void CodeGenOpCloudNPU::InitOpsGenMap() {
