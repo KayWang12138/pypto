@@ -20,8 +20,8 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <limits>
 #include <unordered_map>
-#include <numeric_limits>
 
 namespace npu {
 namespace tile_fwk {
