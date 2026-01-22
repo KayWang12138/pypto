@@ -82,6 +82,7 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
     devProg->controlFlowCache.isActivated = true;
 
     devProg->Dump(0, true);
+    devProg->DumpFile("./dum_dev_program.txt");
     devProg->ResetRerun();
     devProg->RuntimeVerify(0, 0);
     EXPECT_NE(devProg->GetInputTensorSlotIndexList().empty(), true);
@@ -106,6 +107,11 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
     if (devFunc1 != nullptr) {
         devFunc->LookupConnectionSlotIndexFrom(devFunc1);
     }
+
+    DevAscendFunctionDuppedData *devFuncDuppedData = devFunc->GetDuppedData();
+    ASSERT_NE(devFuncDuppedData, nullptr);
+    devFuncDuppedData->source_ = devFunc;
+    (void)devFuncDuppedData->Dump();
 
     devProg->ResetFromLaunch();
 }
