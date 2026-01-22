@@ -11,6 +11,7 @@
 """ """
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
+from python.tests.utils.time_cost_decorator import time_cost
 import pypto
 
 
@@ -684,6 +685,7 @@ def build_args(cfg: MlaBuildConfig):
     return MlaArgs(params=params, tensors=tensors, quant=MlaQuantInputs())
 
 
+@time_cost(12)
 def test_dynamic_mla_prolog():
     args = build_args(MlaBuildConfig())
     setup_codegen_passes()
