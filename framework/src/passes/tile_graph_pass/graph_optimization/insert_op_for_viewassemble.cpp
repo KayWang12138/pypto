@@ -198,8 +198,11 @@ void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
                 continue;
             }
             auto consumers = assIn->GetConsumers();
+            if (consumers.size() <= 1) {
+                continue;
+            }
             for (auto &con : consumers) {
-                if (con->GetOpMagic() != op.GetOpMagic() && con->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                if (con->GetOpcode() == Opcode::OP_ASSEMBLE) {
                     visitedAssOps.insert(con->GetOpMagic());
                     needAddCopyAssOps.insert(con);
                 }
