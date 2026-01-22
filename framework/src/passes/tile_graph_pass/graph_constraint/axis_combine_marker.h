@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -27,6 +27,11 @@
 #include "interface/program/program.h"
 #include "interface/function/function.h"
 namespace npu::tile_fwk {
+enum class AxisReorderStatus {
+    ENABLE = 0,  // 明确可以支持合轴优化
+    DISABLE,  // 尾轴为1，但是不支持合轴优化的场景
+    UNKNOWN   // 不涉及合轴优化
+};
 class AxisCombineMarker
 {
   public:
@@ -43,11 +48,6 @@ class AxisCombineMarker
     void UpdateOpACEnableBackward(uint16_t opIdx);
     void ForwardVisit();
     void BackwardVisit();
-    enum class AxisReorderStatus {
-        ENABLE = 0,  // 明确可以支持合轴优化
-        DISABLE,  // 尾轴为1，但是不支持合轴优化的场景
-        UNKNOWN   // 不涉及合轴优化
-    };
     std::unordered_map<LogicalTensorPtr, AxisReorderStatus> tensorStatus_;
 };
 }
