@@ -541,7 +541,7 @@ class Tensor:
         return pypto.sum(self, dim, keepdim)
 
     @source_location
-    def round(self) -> 'Tensor':
+    def round(self, dim: int) -> 'Tensor':
         return pypto.round(self)
     
     @source_location
