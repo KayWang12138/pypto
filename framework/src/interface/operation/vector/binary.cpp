@@ -107,7 +107,7 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             } else {
                 tmpShape = input1.tileInfo.shape;
             }
-            auto alignSize = BLOCK_SIZE / BytesOf(input2.tensor->Datatype());
+            auto alignSize = BLOCK_SIZE / BytesOf(input1.tensor->Datatype());
             tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize -1) / alignSize * alignSize;
             int64_t tmpSize = 1;
             for (int64_t num : tmpShape){
@@ -253,7 +253,7 @@ void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, 
                 tmpSize *= num;
             }
             size_t totalBytes = 0;
-            if (input2.tensor->Datatype() == DataType::DT_FP32) {
+            if (input1.tensor->Datatype() == DataType::DT_FP32) {
                 totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 2;
             } else {
                 totalBytes = BytesOf(DataType::DT_FP32) * tmpSize * 4;
