@@ -58,7 +58,7 @@ public:
         if (profSwitch) {
             KernelArgs *args = (KernelArgs *)(deviceArgs->sharedBuffer + (deviceArgs->nrAic + deviceArgs->nrAiv)
                 * SHARED_BUFFER_SIZE);
-            shmemWaitUntil_.aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+            aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         }
         return PrepareAicpuTask();
     }
@@ -133,7 +133,12 @@ private:
         int32_t ret = DEVICE_MACHINE_OK;
         auto taskType = GetTaskType(taskId);
         if (taskType < TaskType::TASK_TYPE_NUM) {
-            ret = shmemWaitUntil_.EnqueueOp(taskId);
+            TaskStat* taskStat = nullptr;
+            if (aicpuTaskStat_ != nullptr) {
+                taskStat = &(aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount]);
+                ++aicpuTaskStat_->taskCount;
+            }
+            ret = shmemWaitUntil_.EnqueueOp(taskId, taskStat);
         }
         return ret;
     }
@@ -162,5 +167,6 @@ private:
     npu::tile_fwk::Distributed::ShmemWaitUntil shmemWaitUntil_;
     DynDeviceTask *curDevTask_;
     DynFuncData *funcDataList_;
+    Metrics* aicpuTaskStat_;
 };
 } // namespace npu::tile_fwk
