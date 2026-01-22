@@ -243,7 +243,7 @@ class _JIT:
         # flowverify begin
         self.verify_end()
         # suspicious code?
-        if self.debug_options.get("compile_debug_mode", 0) != 1:
+        if self.debug_options and self.debug_options.get("compile_debug_mode", 0) != 1:
             pypto_impl.ResetLog(pypto_impl.LogTopFolder())
         return handler
 
