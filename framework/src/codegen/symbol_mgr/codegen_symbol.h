@@ -43,8 +43,8 @@ struct ShapeInLoop {
     std::vector<SymbolicScalar> dynamicValidShape;
 };
 
-inline std::string GetLayoutType(BufferType bufType, int dim, bool isStatic) {
-    std::string prefix = bufType == BUF_DDR ? "Dyn" : isStatic ? "Static" : "Local";
+inline std::string GetLayoutType(BufferType bufType, int dim, bool isConst = false) {
+    std::string prefix = bufType == BUF_DDR ? "Dyn" : isConst ? "Static" : "Local";
     std::ostringstream ss;
     ss << prefix << LAYOUT << dim << DIM;
     return ss.str();
@@ -54,7 +54,7 @@ inline std::string GetLayoutType(BufferType bufType, int dim, bool isStatic) {
 // UBTileTensorFP32Dim2 ubTile_0((__ubuf__ float*)UB_S0_E16384, DimLayout2(Shape<int, int>(sym_18_dim_0, sym_18_dim_1),
 // Stride<int, int>(64, 1)));
 struct TileTensor {
-    bool isStatic;
+    bool isConstant;
     int magic; // tensor magic numbuer
     int dim;
     DataType dtype;
@@ -101,7 +101,7 @@ struct TileTensor {
             }
         }
 
-        if (isStatic && bufType != BUF_DDR) {
+        if ((isConstant) && bufType != BUF_DDR) {
             return "(" + oss.str() + ")";
         }
         params.emplace_back(oss.str());
@@ -109,7 +109,7 @@ struct TileTensor {
         // ddr: e.g. DynLayout2Dim(Shape2Dim<int, int>(sym_18_dim_0, sym_18_dim_1), Stride2Dim<int, int>(64, 1)));
         // local: e.g. Shape2Dim(sym_18_dim_0, sym_18_dim_1));
         if (bufType == BUF_DDR) {
-            oss << GetLayoutType(bufType, dim, isStatic);
+            oss << GetLayoutType(bufType, dim);
         }
         oss << "(" << GenShapeParam();
         if (bufType == BUF_DDR) {
@@ -157,16 +157,16 @@ struct TileTensorHash {
 };
 
 struct TileTensorUsing {
+    bool isConstant;
     DataType dtype;
     BufferType bufType;
     int dim;
     std::vector<int64_t> originShape; // only used for static shape
     std::vector<int64_t> rawShape;
-    bool isStatic;
 
     bool operator==(const TileTensorUsing &other) const {
         bool baseCompare = dtype == other.dtype && bufType == other.bufType && rawShape == other.rawShape;
-        return isStatic ? baseCompare && originShape == other.originShape : baseCompare;
+        return isConstant ? baseCompare && originShape == other.originShape : baseCompare;
     }
 
     std::string GenName() const {
@@ -186,7 +186,7 @@ struct TileTensorUsing {
             ss << GetAddrTypeByOperandType(bufType) << " ";
         }
         ss << DataType2CCEStr(dtype) << ", ";
-        ss << GetLayoutType(bufType, dim, isStatic);
+        ss << GetLayoutType(bufType, dim, isConstant);
         if (bufType != BUF_DDR) {
             ss << GetLayoutParams();
         }
@@ -199,7 +199,7 @@ private:
     std::string GetLayoutParams() const {
         std::vector<int64_t> params;
         params.reserve(dim * SHAPE_KIND);
-        if (isStatic) {
+        if (isConstant) {
             params.insert(params.end(), originShape.begin(), originShape.end());
         }
         params.insert(params.end(), rawShape.begin(), rawShape.end());
