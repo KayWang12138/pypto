@@ -35,12 +35,10 @@ struct SignalTileOp {
 
     SignalTileOp* next{nullptr};
     uint64_t taskId_{0};
-    int32_t* addr_;
+    int32_t* addr_{nullptr};
     int32_t expectedSum_{0};
     bool resetSignal_{false};
-    uint64_t taskStatTime_{0};
-    uint64_t taskEndTime_{0};
-    Metrics* dumpData{0};
+    TaskStat* dumpData{nullptr};
 };
 
 class HashMap {
@@ -152,7 +150,9 @@ public:
                 if (ret != dynamic::DEVICE_MACHINE_OK) {
                     return ret;
                 }
-                task->taskEndTime_ = dynamic::GetCycles();
+                if (task->dumpData = nullptr) {
+                    task->dumpData->execEnd = dynamic::GetCycles();
+                }
             }
         }
         return dynamic::DEVICE_MACHINE_OK;
@@ -179,7 +179,12 @@ public:
             DEV_ERROR("There is no this taskId: %lu", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
-        task->taskStatTime_ = dynamic::GetCycles();
+        if (aicpuTaskStat_ != nullptr) {
+            task->dumpData = &(aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount]);
+            task->dumpData->taskId = static_cast<int32_t>(taskId);
+            task->dumpData->execStart = dynamic::GetCycles();
+            ++aicpuTaskStat_->taskCount;
+        }
         return runingTaskQueue_.Enqueue(task);
     }
 
