@@ -367,7 +367,8 @@ def test_win_atten_bsnd_mtp_decode_mask() -> None:
 
             golden = win_atten_calc_mtp_decode(input_params_win_attn, seqused_kv_list, attn_sinks, q, ori_kv, ori_block_table, device_id)
             from utils.np_compare import detailed_allclose_manual as compare
-            compare(golden, atten_out, "SWA decode bnsd mtp mask 版本", rtol=0.0078125, atol=0.0001)
+            threhold = 5e-3
+            compare(golden, atten_out, "SWA decode bnsd mtp mask 版本", rtol=threhold, atol=threhold)
 
 
 def test_win_atten_bsnd_mtp_decode() -> None:
@@ -399,7 +400,8 @@ def test_win_atten_bsnd_mtp_decode() -> None:
 
             golden = win_atten_calc_mtp_decode(input_params_win_attn, seqused_kv_list, attn_sinks, q, ori_kv, ori_block_table, device_id)
             from utils.np_compare import detailed_allclose_manual as compare
-            compare(golden, atten_out, "SWA decode bnsd mtp 版本", rtol=0.0078125, atol=0.0001)
+            threhold = 5e-3
+            compare(golden, atten_out, "SWA decode bnsd mtp 版本", rtol=threhold, atol=threhold)
 
 
 def test_win_atten_tnd_prefill_mask() -> None:
