@@ -251,5 +251,53 @@ TEST_F(TestInsertCopyPass, TestOneTensorNAssembleUB) {
     
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
 }
+
+TEST_F(TestInsertCopyPass, TestOneTensorNAssembleDDR) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestOneTensorNAssemble", "TestOneTensorNAssemble", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape = {kSizeEight, kSizeEight};
+    std::vector<int64_t> outShape0 = { kSizeEight, kNumExpFour};
+    std::vector<int64_t> outShape1 = { kNumExpFour, kSizeEight};
+    std::vector<int64_t> offset0 = {kSizeZero, kSizeZero};
+    std::vector<int64_t> offset1 = {kSizeZero, kSizeEight};
+
+    auto inTensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    inTensor0->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+    auto inTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    inTensor1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+    
+    auto outTensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outShape0);
+    outTensor0->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+    auto outTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outShape1);
+    outTensor1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+
+    auto expTensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    expTensor0->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+    auto expTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    expTensor1->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+
+    auto assmbleTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, outShape0);
+    assmbleTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+
+    auto &expOp0 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inTensor0}, {expTensor0});
+    auto &expOp1 = currFunctionPtr->AddOperation(Opcode::OP_EXP, {inTensor1}, {expTensor1});
+
+    auto &assOp00 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {expTensor0}, {outTensor0});
+    assOp00.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset0));
+    auto &assOp10 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {expTensor1}, {outTensor0});
+    assOp10.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset1));
+
+    auto &assOp01 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {expTensor0}, {assmbleTensor});
+    assOp01.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset0));
+    auto &assOp11 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {expTensor1}, {assmbleTensor});
+    assOp11.SetOpAttribute(std::make_shared<AssembleOpAttribute>(MemoryType::MEM_DEVICE_DDR, offset1));
+
+    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {assmbleTensor}, {outTensor1});
+
+    InsertOpForViewAssemble pass;
+    
+    EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
+}
 }
 }
