@@ -297,9 +297,9 @@ void Platform::LoadFromIni(const std::string &filePath) {
 void Platform::ObtainPlatformInfo() {
     std::string srcPath;
     static constexpr uint32_t kMaxVersionLengh = 50;
-    char version[kMaxVersionLengh] = {0};
-    rtGetSocVersion(version, kMaxVersionLengh);
-    std::string socVersion = std::string(version);
+    char socVer[kMaxVersionLengh] = {0};
+    rtGetSocVersion(socVer, kMaxVersionLengh);
+    std::string socVersion = std::string(socVer);
     /*
     srcPath = HostMachine::GetInstance().GetPlatformInfo();
     if (srcPath.empty()) {

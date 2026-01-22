@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <numeric_limits>
 
 namespace npu {
 namespace tile_fwk {
