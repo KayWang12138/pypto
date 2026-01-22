@@ -281,7 +281,7 @@ private:
 
 public:
     using PvInitFunc = void (*)(
-        int pv_mode, int hj_switch, int bLoadInstByPvwrapSelf, const char *out_dir, uint32_t core_id);
+        int pv_mode, int hj_switch, int pv_wrap, const char *out_dir, uint32_t core_id);
     using PvLaunchSubCoreFunc = void (*)(uint64_t pc, const char *bin_file, uint32_t sub_core_id, uint32_t core_id);
     using PvStepFunc = uint32_t (*)(uint32_t pipe_id, uint32_t sub_core_id, uint32_t core_id, uint32_t warp_id);
     using PvMemWriteFunc = void (*)(
@@ -309,29 +309,23 @@ public:
             throw std::runtime_error("can not load library: " + soPath);
         }
         // Load function symbols
-        std::vector<std::string> symbols = {"pv_init", "pv_launch_sub_core", "pv_step", "pv_mem_write", "pv_mem_read",
-                                            "pv_reg_write", "set_toml"};
-        auto func_map = load_symbols(symbols, handle);
-        this->pv_init_ = (PvInitFunc)func_map["pv_init"];
-        this->pv_launch_sub_core_ = (PvLaunchSubCoreFunc)func_map["pv_launch_sub_core"];
-        this->pv_step_ = (PvStepFunc)func_map["pv_step"];
-        this->pv_mem_write_ = (PvMemWriteFunc)func_map["pv_mem_write"];
-        this->pv_mem_read_ = (PvMemReadFunc)func_map["pv_mem_read"];
-        this->pv_reg_write_ = (PvRegWriteFunc)func_map["pv_reg_write"];
-        this->pv_set_toml = (PvSetTomalFunc)func_map["set_toml"];
+        auto func_map = load_symbols(handle, symbols);
+        this->pv_init_ = (PvInitFunc)load_symbol(handle, "pv_init");
+        this->pv_launch_sub_core_ = (PvLaunchSubCoreFunc)load_symbol(handle, "pv_launch_sub_core");
+        this->pv_step_ = (PvStepFunc)load_symbol(handle, "pv_step");
+        this->pv_mem_write_ = (PvMemWriteFunc)load_symbol(handle, "pv_mem_write");
+        this->pv_mem_read_ = (PvMemReadFunc)load_symbol(handle, "pv_mem_read");
+        this->pv_reg_write_ = (PvRegWriteFunc)load_symbol(handle, "pv_reg_write");
+        this->pv_set_toml = (PvSetTomalFunc)load_symbol(handle, "set_toml");
     }
 
-    std::unordered_map<std::string, void*> load_symbols(const std::vector<std::string>& symbols, void* handle) {
-        std::unordered_map<std::string, void*> func_map;
-        for (const auto& sym : symbols) {
-            void* func = dlsym(handle, sym.c_str());
-            if (!func) {
-                dlclose(handle);
-                throw std::runtime_error("Cannot load symbol: " + sym);
-            }
-            func_map[sym] = func;
+    std::unordered_map<std::string, void*> load_symbol(void* handle, std::string symbol) {
+        void* func = dlsym(handle, symbol.c_str());
+        if (!func) {
+            dlclose(handle);
+            throw std::runtime_error("Cannot load symbol: " + symbol);
         }
-        return func_map;
+        return func;
     }
 
     uint64_t *GetDataHostPtr(int index) { return reinterpret_cast<uint64_t *>(data_[index].hostPtr); }
