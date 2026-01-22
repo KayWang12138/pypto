@@ -14,7 +14,12 @@
  */
 #ifndef INI_PARSER_H_
 #define INI_PARSER_H_
+
 #include <fstream>
+#include <map>
+#include <vector>
+#include <unordered_map>
+
 namespace npu {
 namespace tile_fwk {
 

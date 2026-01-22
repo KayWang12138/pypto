@@ -45,7 +45,6 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
     data_.clear();
     std::ifstream file(filepath);
     if (!file.is_open()) {
-        ALOG_ERROR_F("Failed to open ini file: %s.", filepath.c_str());
         return false;
     }
     std::string line;
@@ -66,13 +65,11 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
         }
         size_t equalPos = line.find('=');
         if (equalPos == std::string::npos) {
-            ALOG_WARN_F("Illegal ini format[%s].", line.c_str());
             continue;
         }
         std::string key = line.substr(0, equalPos);
         std::string value = line.substr(equalPos + 1);
         if (key.empty()) {
-            ALOG_WARN_F("Empty attribute[%s].", line.c_str());
             continue;
         }
         data_[section][key] = value;
@@ -84,12 +81,10 @@ bool INIParser::ReadINIFile(const std::string& filepath) {
 bool INIParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) {
     val.clear();
     if (data_.find(column) == data_.end()) {
-        ALOG_ERROR_F("Cannot find attr 'version' from the ini file.");
         return false;
     }
     auto value = data_[column];
     if (value.find(key) == value.end()) {
-        ALOG_WARN_F("Cannot find attr '%s' from the [version] tab.", key.c_str());
         return true;
     }
     val = value[key];
@@ -100,7 +95,6 @@ bool INIParser::GetSizeVal(const std::string& column, const std::string& key, si
     std::string valStr;
     const size_t max_size_t = std::numeric_limits<size_t>::max();
     if (!GetStringVal(column, key, valStr)) {
-        ALOG_ERROR_F("GetStringVal FAILED.");
         return false;
     }
     val = 0UL;
@@ -111,12 +105,10 @@ bool INIParser::GetSizeVal(const std::string& column, const std::string& key, si
     for (const char &c : valStr) {
         int digit = c - '0';
         if (digit < 0 || digit > kMaxDigit10) {
-            ALOG_ERROR_F("Cannot convert string to size_t: %s.", valStr.c_str());
-            return FAILED;
+            return false;
         }
         if (val > (max_size_t - digit) / kRadix10) {
-            ALOG_ERROR_F("Overflow data: %s.", valStr.c_str());
-            return FAILED;
+            return false;
         }
         val = val * kRadix10 + digit;
     }
@@ -126,7 +118,6 @@ bool INIParser::GetSizeVal(const std::string& column, const std::string& key, si
 bool INIParser::GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) {
     ccecVersion.clear();
     if (data_.find(version) == data_.end()) {
-        ALOG_ERROR_F("Cannot find attribute 'version' from the ini file.");
         return false;
     }
     auto versionVal = data_[version];
@@ -142,7 +133,6 @@ bool INIParser::GetCCECVersion(std::unordered_map<std::string, std::string>& cce
 bool INIParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) {
     curVersion.clear();
     if (data_.find(version) == data_.end()) {
-        ALOG_ERROR_F("Cannot find attribute 'version' from the ini file.");
         return false;
     }
     auto versionVal = data_[version];
@@ -157,7 +147,6 @@ bool INIParser::GetCoreVersion(std::unordered_map<std::string, std::string>& cur
 
 bool INIParser::GetDataPath(std::vector<std::vector<std::string>>& dataPath) {
     if (data_.find(instrinsicMap) == data_.end()) {
-        ALOG_ERROR_F("Cannot find attribute '%s' from the ini file.", instrinsicMap.c_str());
         return false;
     }
     std::string from;
