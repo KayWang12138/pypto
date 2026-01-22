@@ -128,6 +128,32 @@ def hc_split_sinkhorn_trans(comb_flag: pypto.Tensor, hc_split_sinkhorn_iters, hc
     return comb_flag
 
 
+class HCPreKernelManager:
+    def __init__(self):
+        self.vec_all_shape = {}
+        self.t_vec = [4096, 128, 64, 16, 4, 1]
+        self.hc_fn_shape = [24, 4*4096]
+        self.hc_scale_shape = [3, ]
+        self.hc_base_shape = [24, ]
+
+        for t in self.t_vec:
+            x_shape = [t, 4, 4096]
+            y_shape = [t, 4096]
+            post_shape = [t, 4]
+            comb_shape = [t, 4, 4]
+            self.vec_all_shape[t] = [x_shape, self.hc_fn_shape, self.hc_scale_shape, self.hc_base_shape, y_shape, post_shape, comb_shape]
+
+    def infer_controlflow_shape(self, *args):
+        if not args:
+            return [v for v in self.vec_all_shape.values()]
+
+        x_shape = args[0]
+        for t in self.t_vec:
+            if x_shape[0] >= t:
+                return self.vec_all_shape[t]
+
+manager = HCPreKernelManager()
+
 @pypto.jit(
     pass_options={
         "vec_nbuffer_mode": 1,
@@ -139,6 +165,7 @@ def hc_split_sinkhorn_trans(comb_flag: pypto.Tensor, hc_split_sinkhorn_iters, hc
         # for acl graph
         "stitch_cfgcache_size": 2500000
     },
+    infer_controlflow_shape = manager.infer_controlflow_shape,
 )
 def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor, hc_base_: pypto.Tensor,
                 y: pypto.Tensor, post: pypto.Tensor, comb: pypto.Tensor,
@@ -191,6 +218,9 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
 
         pypto.set_pass_options(sg_set_scope = 1)
         x_fp32 = pypto.cast(x_view, pypto.DT_FP32)
+        pypto.set_pass_options(sg_set_scope = -1)
+
+        pypto.set_pass_options(sg_set_scope = 2)
         rms_res = rms_norm_denom(x_fp32, hc_eps)    ## (t, hc*d) -> (t, 1)
         pypto.set_pass_options(sg_set_scope = -1)
 
