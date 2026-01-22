@@ -362,7 +362,7 @@ def build_swim_info(swim_data, topo_data, label_type: int = 0):
             entry.core_idx = core_idx
             entry.psg_id_in_dyn = task.get("subGraphId", -1)
             entry.exec_start = task.get("execStart", 0) / args.time_convert_denominator
-            entry.exec_end = task.get("execEnd", 0) / args.time_convert_denominator
+            entry.exec_end = max(task.get("execEnd", 0) / args.time_convert_denominator, entry.exec_start + 0.11)
             entry.core_type = core_entry.get_brief_core_type()
             task_analysis[entry.psg_id_in_dyn].add_task(entry)
             # 判断task 间是否存在时间交叠
@@ -776,7 +776,7 @@ def convert_to_chrome_trace_json(out_path, is_dyn):
             + machine_view_thread_offset
             + task_entry.swim_lane_offset
         )
-        src_time = task_entry.exec_end - 0.1
+        src_time = task_entry.exec_end - 0.0001
 
         for dst in task_entry.successors:
             if dst not in total_tasks:
