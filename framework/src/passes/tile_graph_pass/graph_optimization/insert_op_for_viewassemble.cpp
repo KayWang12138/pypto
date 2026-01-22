@@ -193,9 +193,11 @@ void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             visitedAssOps.insert(op.GetOpMagic());
             auto assIn = op.GetIOperands()[0];
-            auto assInProducer0 = *(assIn->GetProducers().begin());
-            if (assInProducer0->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
-                continue;
+            if (assIn->GetProducers().size() != 0) {
+                auto assInProducer0 = *(assIn->GetProducers().begin());
+                if (assInProducer0->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
+                    continue;
+                }
             }
             auto consumers = assIn->GetConsumers();
             if (consumers.size() <= 1) {
