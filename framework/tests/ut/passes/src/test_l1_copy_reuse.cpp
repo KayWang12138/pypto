@@ -141,7 +141,6 @@ TEST_F(L1CopyInReuseTest, TestInvalidOp) {
     Function *function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -161,7 +160,6 @@ TEST_F(L1CopyInReuseTest, TestNormal) {
     Function *function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -180,7 +178,6 @@ TEST_F(L1CopyInReuseTest, TestNoL1Num) {
     Function *function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -200,7 +197,6 @@ TEST_F(L1CopyInReuseTest, TestNoL1Map) {
     Function *function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.cubeL1ReuseSetting = {{-1, l1_reuse_num}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -220,7 +216,6 @@ TEST_F(L1CopyInReuseTest, TestNoBufferMap) {
     Function *function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{-1, cube_nbuffer}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -253,7 +248,6 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Num) {
     Function *function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{-1, cube_nbuffer}};
     function->paramConfigs_.cubeL1ReuseSetting = {{-1, l1_reuse_num}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
@@ -271,7 +265,6 @@ TEST_F(L1CopyInReuseTest, TestInvalidL1Map) {
     Function *function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{-2, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.cubeL1ReuseSetting = {{-2, 2}, {-1, l1_reuse_num}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), SUCCESS);
@@ -296,7 +289,6 @@ TEST_F(L1CopyInReuseTest, TestHealthReport) {
     Function *function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
 
     L1CopyInReuseMerge LCRM;
@@ -368,7 +360,6 @@ TEST_F(L1CopyInReuseTest, TestGeneralizationL1CopyIn) {
     Function *function = G.GetFunction();
     function->paramConfigs_.cubeNBufferSetting = {{1, 2}, {-1, cube_nbuffer}};
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("myStrategy", {
@@ -403,7 +394,6 @@ TEST_F(L1CopyInReuseTest, TestTensorReuseFailed) {
     G.GetTensor("tensor1")->tensor->datatype = DataType::DT_FP16;
     Function *function = G.GetFunction();
     function->paramConfigs_.cubeL1ReuseSetting = {{1, 2}, {-1, l1_reuse_num}};
-    function->paramConfigs_.sgCubeParallelNum = sg_cube_parallel_num;
     function->SetTotalSubGraphCount(subGraphNum);
     L1CopyInReuseMerge LCRM;
     EXPECT_EQ(LCRM.RunOnFunction(*function), FAILED);
