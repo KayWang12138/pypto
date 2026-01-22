@@ -122,6 +122,12 @@
                     "pre_check": false,
                     "post_check": false,
                     "use_max_freq_label": true
+                },
+                "GraphPartition": {
+                    "post_check": true
+                },
+                "IntraSubgraphAdapter": {
+                    "post_check": true
                 }
             }
         }
