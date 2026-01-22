@@ -425,7 +425,7 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, 
         }
         IssueEntryPtr issue = pipe.Front();
         auto corePair = issue->coreLocation;
-        if (!bufferManagerMap[corePair.first][coreLocation.second][memType].IsFull(localBufferMap[issue->reqMemIds[0]])) {
+        if (!bufferManagerMap[corePair.first][corePair.second][memType].IsFull(localBufferMap[issue->reqMemIds[0]])) {
             APASS_LOG_DEBUG_F(Elements::Operation, "ALLOCATE: %s.", issue->GetOpInfo().c_str());
             if (bufferManagerMap[corePair.first][coreLocation.second][memType].Allocate(localBufferMap[issue->reqMemIds[0]]) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Allocate Tensor[%d] failed.", issue->reqMemIds[0]); 
@@ -541,7 +541,7 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
                 APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTE END: %s", issue->GetOpInfo().c_str());
                 if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) {
                     APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSucc failed at idx: %d coreType: %d! %s",
-                        idx, coreType, (issue->tileOp).c_str());
+                        idx, coreType, GetFormatBacktrace(issue->tileOp).c_str());
                     return FAILED;
                 }
                 continue;
@@ -564,7 +564,8 @@ void OoOScheduler::LaunchReadyIssue() {
             issueQueues[coreType][idx][issue->type].Insert(issue);
         }
         if (issue->isAlloc) {
-            allocIssueQueue[coreType][idx][localBufferMap[coreType][idx][issue->reqMemIds[0]]->memType].Insert(issue);
+            auto memType = localBufferMap[issue->reqMemIds[0]]->memType;
+            allocIssueQueue[coreType][idx][memType].Insert(issue);
         }
     }
 }
@@ -743,7 +744,7 @@ void OoOScheduler::InitIssueQueuesAndBufferManager() {
     for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
         for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
             // issueQueues[static_cast<PipeType>(i)] = IssueQueue();
-            issueQueues[idx][coreType][static_cast<PipeType>(i)] = IssueQueue();
+            issueQueues[coreType][idx][static_cast<PipeType>(i)] = IssueQueue();
         }
     }
 
@@ -1027,7 +1028,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
         }
         // TODO 核属性的初始化
         auto issue = std::make_shared<IssueEntry>(*op, issueId);
-        issue->coreLocation = opCoreMap.empty() ? opCoreTypeMap[OpcodeManager::Inst().GetCoreType(opPtr->GetOpcode())] : opCoreMap[op];
+        issue->coreLocation = opCoreMap.empty() ? opCoreTypeMap.at(OpcodeManager::Inst().GetCoreType(op->GetOpcode())) : opCoreMap[op];
         issueEntryMap[issueId++] = issue;
         if (issue == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s, %d init failed! %s", 
@@ -1080,9 +1081,9 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const 
     }
     PrintOpList(operations);
     if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
-        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_NON_Mix;
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_NON_MIX;
     } else {
-        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_Mix;
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_MIX;
     }
     if (Init(operations, opCoreMap) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 

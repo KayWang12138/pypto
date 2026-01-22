@@ -299,11 +299,10 @@ Status OoOScheduler::SpillInBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssu
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueInfo failed!");
         return FAILED;
     }
-    if (!isGenSpill) {
-        auto allocIssue->coreLocation;
-        allocIssueQueue[allocIssue.first][allocIssue.second][bufferType].Insert(reloadAlloc);
-    }
     auto corePair = allocIssue->coreLocation;
+    if (!isGenSpill) {
+        allocIssueQueue[corePair.first][corePair.second][bufferType].Insert(reloadAlloc);
+    }
     if (bufferManagerMap[corePair.first][corePair.second][bufferType].Free(spillInfo.spillMemId_) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Free spill tensor[%d] failed!", spillInfo.spillMemId_);
         return FAILED;
