@@ -58,7 +58,7 @@ public:
         if (profSwitch) {
             KernelArgs *args = (KernelArgs *)(deviceArgs->sharedBuffer + (deviceArgs->nrAic + deviceArgs->nrAiv)
                 * SHARED_BUFFER_SIZE);
-            shmemWaitUntil_.aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
+            aicpuTaskStat_ = (Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         }
         return PrepareAicpuTask();
     }
@@ -105,6 +105,8 @@ public:
         return DEVICE_MACHINE_OK;
     }
 
+    Metrics* aicpuTaskStat_;
+
 private:
     inline void ReadyQueueLock() {
         while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 0, 1))
@@ -133,7 +135,10 @@ private:
         int32_t ret = DEVICE_MACHINE_OK;
         auto taskType = GetTaskType(taskId);
         if (taskType < TaskType::TASK_TYPE_NUM) {
-            ret = shmemWaitUntil_.EnqueueOp(taskId);
+            ret = shmemWaitUntil_.EnqueueOp(taskId,  &(aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount]));
+        }
+        if (aicpuTaskStat_ != nullptr) {
+            ++aicpuTaskStat_->taskCount;
         }
         return ret;
     }
