@@ -143,7 +143,7 @@ Status RemoveRedundantOpChecker::PostCheckAssemble(const Operation &op) {
         return FAILED;
     }
     if (assembleOut->GetProducers().size() > 1) {
-        APASS_LOG_DEBUG_F(Elements::Tensor, "assemble_out[%d] has more than one producer, skip checking.", assembleOut->GetMagic());
+        APASS_LOG_DEBUG_F(Elements::Tensor, "Assemble's out[%d] has more than one producer, skip checking.", assembleOut->GetMagic());
         return SUCCESS;
     }
     if (assembleIn->shape == assembleOut->shape && assembleIn->GetMemoryTypeOriginal() == assembleOut->GetMemoryTypeOriginal()) {
