@@ -30,6 +30,13 @@ constexpr int32_t DIM_FIVE = 5;
 constexpr int32_t LAST_TWO_DIM = 2;
 constexpr int32_t UB_BLOCK_SIZE = 32;
 
+inline std::string coreTypeToString(OpCoreType coreType) {
+    switch (coreType) {
+        case OpCoreType::AIV: return "AIV";
+        case OpCoreType::AIC: return "AIC";
+        default: return "MEM_UNKNOWN";
+    }
+}
 
 inline bool IsMixGraph(const std::vector<Operation*> &operations) {
     bool hasAIC = false;
@@ -322,7 +329,7 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
 Status OoOScheduler::SpillOnBlock() {
     for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
         if (SpillOnCoreBlock(coreType, idx) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %d", idx, coreType);
+            APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %s", idx, coreTypeToString(coreType).c_str());
             return FAILED;
         }
     }
@@ -404,8 +411,8 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
                 nextCycle = pipe.curOpRetireCycle;
             }
             if (AllocTensorMemRange(issue) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "AllocTensorMemRange failed at idx: %d, coreType: %d. %s",
-                    idx, coreType, GetFormatBacktrace(issue->tileOp).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "AllocTensorMemRange failed at idx: %d, coreType: %s. %s",
+                    idx, coreTypeToString(coreType).c_str(), GetFormatBacktrace(issue->tileOp).c_str());
                 return FAILED;
             }
             APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s.", issue->GetOpInfo().c_str());
@@ -462,7 +469,7 @@ Status OoOScheduler::BufferAllocStage(uint64_t &commitCnt) {
             }
             // 不断按顺序执行alloc指令，直到buffer被占满为止。
             if (ExecuteAllocIssue(commitCnt, memType, pipe) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed at idx: %d coreType: %d.", idx, coreType);
+                APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed at idx: %d coreType: %s.", idx, coreTypeToString(coreType).c_str());
                 return FAILED;
             }
         }
@@ -538,8 +545,8 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
                 pipe.curIssue = nullptr;
                 APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTE END: %s", issue->GetOpInfo().c_str());
                 if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSucc failed at idx: %d coreType: %d! %s",
-                        idx, coreType, GetFormatBacktrace(issue->tileOp).c_str());
+                    APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSucc failed at idx: %d coreType: %s! %s",
+                        idx, coreTypeToString(coreType).c_str(), GetFormatBacktrace(issue->tileOp).c_str());
                     return FAILED;
                 }
                 continue;
@@ -1003,6 +1010,11 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
 
     // 初始化芯片各buffer大小
     InitMemorySize();
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_NON_MIX;
+    } else {
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_MIX;
+    }
     // 校验并初始化issueEntry
     for (const auto &op : operations) {
         if (IsViewOp(*op)) {
@@ -1018,7 +1030,6 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
         }
         // 核属性的初始化
         auto issue = std::make_shared<IssueEntry>(*op, issueId);
-        issue->coreLocation = opCoreMap.empty() ? opCoreTypeMap.at(OpcodeManager::Inst().GetCoreType(op->GetOpcode())) : opCoreMap.at(op);
         issueEntryMap[issueId++] = issue;
         if (issue == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s, %d init failed! %s", 
@@ -1026,6 +1037,21 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
             return FAILED;
         }
         issueEntries.emplace_back(issue);
+        if (!opCoreMap.empty()) {
+            issue->coreLocation = opCoreMap.at(op);
+            continue;
+        }
+        if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
+            continue;
+        }
+        if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() <= MemoryType::MEM_FIX) {
+            issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIC);
+            continue;
+        }
+        APASS_LOG_ERROR_F(Elements::Operation, "%s init coreLocation failed. OOperand memoryType is %s",
+            issue->GetOpInfo().c_str(), MemoryTypeToString(op->GetOutputOperand(0)->GetMemoryTypeOriginal()).c_str());
+        return FAILED;
     }
     numTotalIssues = issueEntries.size();
 
@@ -1068,11 +1094,6 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const 
         return SUCCESS;
     }
     PrintOpList(operations);
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
-        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_NON_MIX;
-    } else {
-        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_MIX;
-    }
     if (Init(operations, opCoreMap) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
         return FAILED;
