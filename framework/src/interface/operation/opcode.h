@@ -249,6 +249,7 @@ enum class Opcode {
     // End: aicpu-aicore communication
     OP_MAX_POOL,
     OP_RANGE,
+    OP_TRIL_MASK,  // Lower triangular mask for causal attention
     // Begin: parallel sort
     OP_SORT,
     OP_COMPARE_SWAP,

@@ -91,6 +91,9 @@ public:
 
     std::string GenRangeOp() const;
     std::string PrintRangeTileTensor(const std::string& startVal, const std::string& stepVal, const std::string& tileIdxExpr) const;
+
+    std::string GenTriLMaskOp() const;
+
     std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;

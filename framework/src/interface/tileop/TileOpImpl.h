@@ -51,6 +51,7 @@
 #include "vector/vector_dup.h"
 #include "vector/range.h"
 #include "vector/onehot.h"
+#include "vector/tril_mask.h"
 #endif
 
 #endif

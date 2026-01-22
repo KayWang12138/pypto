@@ -199,6 +199,66 @@ def arange(*args: Union[int, float]) -> Tensor:
 
 
 @op_wrapper
+def tril_mask(q_idx: int, k_idx: int, length: int) -> Tensor:
+    """
+    Creates a lower triangular mask matrix for causal attention.
+
+    Generates a length x length boolean mask where mask[i][j] = True
+    when (k_idx + j) <= (q_idx + i), which is equivalent to j <= i + (q_idx - k_idx).
+
+    Parameters
+    ----------
+    q_idx : int
+        The starting index of the query dimension.
+    k_idx : int
+        The starting index of the key dimension.
+    length : int
+        The size of the square mask matrix (both rows and columns).
+
+    Returns
+    -------
+    Tensor
+        A length x length tensor of dtype UINT8 (representing boolean values),
+        where 1 indicates True and 0 indicates False.
+
+    Examples
+    --------
+    # Standard lower triangular mask (q_idx == k_idx)
+    mask = pypto.tril_mask(0, 0, 4)
+    # Output:
+    # [[1, 0, 0, 0],
+    #  [1, 1, 0, 0],
+    #  [1, 1, 1, 0],
+    #  [1, 1, 1, 1]]
+
+    # Shifted mask with positive offset (q_idx > k_idx)
+    mask = pypto.tril_mask(2, 0, 4)  # offset = 2
+    # Row 0: j <= 0+2=2, so [1, 1, 1, 0]
+    # Row 1: j <= 1+2=3, so [1, 1, 1, 1]
+    # Output:
+    # [[1, 1, 1, 0],
+    #  [1, 1, 1, 1],
+    #  [1, 1, 1, 1],
+    #  [1, 1, 1, 1]]
+
+    # Shifted mask with negative offset (q_idx < k_idx)
+    mask = pypto.tril_mask(0, 2, 4)  # offset = -2
+    # Row 0: j <= 0-2=-2, so [0, 0, 0, 0]
+    # Row 2: j <= 2-2=0, so [1, 0, 0, 0]
+    # Output:
+    # [[0, 0, 0, 0],
+    #  [0, 0, 0, 0],
+    #  [1, 0, 0, 0],
+    #  [1, 1, 0, 0]]
+    """
+    return pypto_impl.TriLMask(
+        pypto_impl.Element(pypto_impl.DataType.DT_INT64, q_idx),
+        pypto_impl.Element(pypto_impl.DataType.DT_INT64, k_idx),
+        length
+    )
+
+
+@op_wrapper
 def full(
     size: List[int],
     fill_value: Union[int, float, SymbolicScalar, Element],

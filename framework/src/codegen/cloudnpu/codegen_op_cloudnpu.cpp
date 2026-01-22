@@ -140,6 +140,9 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           // range op
           {Opcode::OP_RANGE, [this]() { return GenRangeOp(); }},
 
+          // tril_mask op
+          {Opcode::OP_TRIL_MASK, [this]() { return GenTriLMaskOp(); }},
+
           // logicalnot
           {Opcode::OP_LOGICALNOT, [this]() { return GenLogicalNotOp(); }},
           // logicaland

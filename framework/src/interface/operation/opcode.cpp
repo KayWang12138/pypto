@@ -352,6 +352,9 @@ void OpcodeManager::RegisterVector() {
     RegisterInfo(Opcode::OP_RANGE, OpCoreType::AIV, "RANGE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Range", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "START", OP_ATTR_PREFIX + "STEP"}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_TRIL_MASK, OpCoreType::AIV, "TRIL_MASK", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TrilMask", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OP_ATTR_PREFIX + "Q_IDX", OP_ATTR_PREFIX + "K_IDX", OP_ATTR_PREFIX + "LENGTH"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_VEC_DUP, OpCoreType::AIV, "VEC_DUP", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tduplicate", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
         {OpAttributeKey::scalar, OpAttributeKey::dynScalar, OP_ATTR_PREFIX + "shape"}, TileShapeVerifier::Verify);
@@ -794,6 +797,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
     {            Opcode::OP_VEC_DUP,        "TVecDup"},
     {            Opcode::OP_RANGE,           "TRange"},
+    {        Opcode::OP_TRIL_MASK,       "TTriLMask"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
 };
 } // namespace npu::tile_fwk

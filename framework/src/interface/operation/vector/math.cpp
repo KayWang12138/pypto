@@ -619,8 +619,62 @@ void LogicAndOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledLogicalAndOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
 }
 
+// TriLMask: Lower triangular mask for causal attention
+
+Tensor TensorTriLMask(Function &function, const Element &qIdx, const Element &kIdx, int64_t length) {
+    std::vector<int64_t> shape = {length, length};
+    std::vector<SymbolicScalar> validShape = {SymbolicScalar(length), SymbolicScalar(length)};
+
+    // Output type: DT_UINT8 (Bool is represented as uint8 on hardware)
+    auto result = std::make_shared<LogicalTensor>(function, DataType::DT_UINT8, shape, validShape);
+
+    auto &op = function.AddOperation(Opcode::OP_TRIL_MASK, {}, {result});
+    op.SetAttribute(OP_ATTR_PREFIX + "Q_IDX", qIdx.GetSignedData());
+    op.SetAttribute(OP_ATTR_PREFIX + "K_IDX", kIdx.GetSignedData());
+    op.SetAttribute(OP_ATTR_PREFIX + "LENGTH", length);
+
+    function.UpdateTensorDataUsage(op);
+    return result;
+}
+
+void TiledTriLMask(Function &function, const TileShape &tileShape,
+                   const LogicalTensorPtr &result, int64_t qIdx, int64_t kIdx, int64_t length) {
+    auto &vecTile = tileShape.GetVecTile();
+
+    for (int64_t i = 0; i < length; i += vecTile[0]) {
+        for (int64_t j = 0; j < length; j += vecTile[1]) {
+            int64_t tileH = std::min(length - i, vecTile[0]);
+            int64_t tileW = std::min(length - j, vecTile[1]);
+
+            auto resultTile = result->View(function, {tileH, tileW}, {i, j});
+
+            auto &op = function.AddOperation(Opcode::OP_TRIL_MASK, {}, {resultTile});
+            // For each tile, the effective qIdx and kIdx need to account for the tile offset
+            op.SetAttribute(OP_ATTR_PREFIX + "Q_IDX", qIdx + i);
+            op.SetAttribute(OP_ATTR_PREFIX + "K_IDX", kIdx + j);
+            op.SetAttribute(OP_ATTR_PREFIX + "LENGTH", length);
+        }
+    }
+}
+
+Tensor TriLMask(const Element &qIdx, const Element &kIdx, int64_t length) {
+    DECLARE_TRACER();
+    ASSERT(length > 0) << "Length must be positive";
+    RETURN_CALL(TriLMask, *Program::GetInstance().GetCurrentFunction(), qIdx, kIdx, length);
+}
+
+void TriLMaskOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    const Operation &op) {
+    int64_t qIdx = op.GetIntAttribute(OP_ATTR_PREFIX + "Q_IDX");
+    int64_t kIdx = op.GetIntAttribute(OP_ATTR_PREFIX + "K_IDX");
+    int64_t length = op.GetIntAttribute(OP_ATTR_PREFIX + "LENGTH");
+    TiledTriLMask(function, tileShape, oOperand[0], qIdx, kIdx, length);
+}
+
 REGISTER_OPERATION_TILED_FUNC(OP_LOGICALNOT, Opcode::OP_LOGICALNOT, LogicNotOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_ONEHOT, Opcode::OP_ONEHOT, OneHotOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_LOGICALAND, Opcode::OP_LOGICALAND, LogicAndOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_CUM_SUM, Opcode::OP_CUM_SUM, CumSumOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_TRIL_MASK, Opcode::OP_TRIL_MASK, TriLMaskOperationTileFunc);
 } // namespace npu::tile_fwk

@@ -113,6 +113,13 @@ void bind_operation(py::module &m) {
         },
         py::arg("start"), py::arg("end"), py::arg("step"), "Tensor range.");
     m.def(
+        "TriLMask",
+        [](const Element &qIdx, const Element &kIdx, int64_t length) {
+            return npu::tile_fwk::TriLMask(qIdx, kIdx, length);
+        },
+        py::arg("q_idx"), py::arg("k_idx"), py::arg("length"),
+        "Generate a lower triangular mask matrix for causal attention.");
+    m.def(
         "Amax",
         [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::Amax(operand, axis, keepDim); },
         py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row max single.");

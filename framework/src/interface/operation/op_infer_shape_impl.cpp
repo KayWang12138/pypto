@@ -315,6 +315,16 @@ void RangeInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &out
 }
 REGISTER_INFER_SHAPE_FUNC(OP_RANGE, Opcode::OP_RANGE, RangeInferFunc);
 
+// TriLMask infer shape func
+void TriLMaskInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    int64_t length = op->GetIntAttribute(OP_ATTR_PREFIX + "LENGTH");
+    std::vector<SymbolicScalar> outValidShape = {SymbolicScalar(length), SymbolicScalar(length)};
+    for (auto output : op->GetOOperands()) {
+        outValidShapes.push_back(outValidShape);
+    }
+}
+REGISTER_INFER_SHAPE_FUNC(OP_TRIL_MASK, Opcode::OP_TRIL_MASK, TriLMaskInferFunc);
+
 void LoadInferFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
     auto iOperands = op->GetIOperands();
     assert(iOperands.size() == NUM2);

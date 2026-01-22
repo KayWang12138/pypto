@@ -794,6 +794,43 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::GenTriLMaskOp() const {
+    auto qIdxAttr = opAttrs.at(OP_ATTR_PREFIX + "Q_IDX");
+    auto kIdxAttr = opAttrs.at(OP_ATTR_PREFIX + "K_IDX");
+    ASSERT(qIdxAttr.HasValue() && kIdxAttr.HasValue()) << "GenTriLMaskOp failed: missing Q_IDX or K_IDX";
+
+    int64_t qIdx = npu::tile_fwk::AnyCast<int64_t>(qIdxAttr);
+    int64_t kIdx = npu::tile_fwk::AnyCast<int64_t>(kIdxAttr);
+
+    if (isSupportLayout) {
+        // TileTensor version
+        std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+        std::ostringstream oss;
+        oss << tileOpName << "(" << dstTensor << ", " << qIdx << ", " << kIdx << ");\n";
+        return oss.str();
+    }
+
+    // Dynamic pointer version
+    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+
+    AppendLocalBufVarOffsetInOrder(dVar);
+    std::ostringstream oss;
+    std::string dst = "(" + GetAddrTypeByOperandType(BUF_UB) + " " + dstDtypeStr + "*)" + dVar;
+
+    // Get dynamic shape for rows and cols
+    auto dynShape = dynamicValidShape[ID0];
+    std::string rowsExpr = SymbolicExpressionTable::BuildExpression(dynShape[ID0]);
+    std::string colsExpr = SymbolicExpressionTable::BuildExpression(dynShape[ID1]);
+    std::string strideExpr = std::to_string(rawShape[ID0][ID1]);
+
+    oss << "TTriLMaskDyn<" << dstDtypeStr << ">("
+        << dst << ", "
+        << qIdx << ", " << kIdx << ", "
+        << rowsExpr << ", " << colsExpr << ", " << strideExpr << ");\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const {
     // support 2-4 dims
     const std::string &dstVar = param.dstVar;

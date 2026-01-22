@@ -226,6 +226,7 @@ Tensor NewCompact(const Tensor &operand);
 Tensor Pad(const Tensor &old, const std::vector<int64_t> &newShape);
 Tensor LogicalNot(const Tensor &self);
 Tensor Range(const Element &start, const Element &end, const Element &step);
+Tensor TriLMask(const Element &qIdx, const Element &kIdx, int64_t length);
 Tensor LogicalAnd(const Tensor &self, const Tensor &other);
 
 Tensor Assign(const Tensor &operand);
