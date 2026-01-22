@@ -9,9 +9,10 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """ """
+import pypto
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
-import pypto
+from python.tests.utils.time_cost_decorator import time_cost
 
 
 SHAPE_DIM_0 = 0
@@ -684,6 +685,7 @@ def build_args(cfg: MlaBuildConfig):
     return MlaArgs(params=params, tensors=tensors, quant=MlaQuantInputs())
 
 
+@time_cost(12)
 def test_dynamic_mla_prolog():
     args = build_args(MlaBuildConfig())
     setup_codegen_passes()
