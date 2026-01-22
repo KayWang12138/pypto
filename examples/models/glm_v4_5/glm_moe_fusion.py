@@ -107,7 +107,6 @@ def gen_quan_per_channel_weight_nz(x):
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
     runtime_options={"device_sched_mode": 1,
                      "stitch_function_num_initial": 128,
                      "stitch_function_outcast_memory": 128,
@@ -123,7 +122,7 @@ def moe_fusion_kernel(hidden_states, mm_weight, e_score_bias_input, w13, w13_sca
     ne = mm_weight.shape[0]
     topk = ids_k.shape[1]
 
-    pypto.experimental.set_operation_config(combine_axis=True)
+    pypto.experimental.set_operation_options(combine_axis=True)
 
     # tiling config
     vec_tile_shape = (4, 5120)

@@ -355,18 +355,22 @@ private:
     std::string PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const;
     std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;
     std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
+    std::string PrintScatterTileTensor(const PrintScatterParam &param) const;
 
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
+    std::string PrintIndexAddTileTensor(const PrintIndexAddParam &param) const;
 
     std::string PrintIndexPut(const PrintIndexPutParam &param) const;
+    std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
     std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
+    std::string PrintCumSumTileTensor(int axis) const;
 
     WhereParam PrepareWhereParam() const;
     void GetVarAndTypeParam(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;
     std::string PrintWhereOp(const WhereParam &param) const;
-    std::string PrintWhereOpTileTensor() const;
+    std::string PrintWhereOpTileTensor(const WhereParam &param) const;
 
     std::string PrintCmpTileTensor() const;
     std::string PrintLogicalAndTileTensor() const;

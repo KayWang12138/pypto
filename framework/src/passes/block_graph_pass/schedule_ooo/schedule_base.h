@@ -69,14 +69,14 @@ public:
     ScheduleBase() {}
     ~ScheduleBase() {}
 
-    std::map<Operation*, std::set<Operation*>> inGraph;
-    std::map<Operation*, std::set<Operation*>> outGraph;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> inGraph;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> outGraph;
     std::unordered_map<int, int> bufRefCount;
     std::unordered_map<MemoryType, int64_t> localMemSize; //内存剩余情况
     std::unordered_map<MemoryType, int64_t> localMemoryCurrentSize;
     std::unordered_map<int, LocalBufferPtr> localBufferMap; //memid:local
-    std::map<Operation*, std::unordered_set<Operation*>> opConsumers;
-    std::map<Operation*, std::unordered_set<Operation*>> opProducers;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> opConsumers;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> opProducers;
 
     //  初始依赖的list序列
     std::vector<Operation*> operations;
@@ -138,10 +138,10 @@ public:
         }
         if (localBufferMap.find(memId) == localBufferMap.end()) {
             localBufferMap[memId] = std::make_shared<LocalBuffer>(
-                memId, ShapeCeilAlign(operand->GetShape(), operand->Datatype()), operand->GetMemoryTypeOriginal());
+                memId, ShapeCeilAlign(operand->tensor->rawshape, operand->Datatype()), operand->GetMemoryTypeOriginal());
         } else {
             localBufferMap[memId]->size =
-                std::max(localBufferMap[memId]->size, ShapeCeilAlign(operand->GetShape(), operand->Datatype()));
+                std::max(localBufferMap[memId]->size, ShapeCeilAlign(operand->tensor->rawshape, operand->Datatype()));
         }
     }
 
@@ -223,7 +223,7 @@ public:
         }
     }
 
-    Status InitAllocDependencies(Operation* op, std::map<int, Operation*> tensor2AllocMap) {
+    Status InitAllocDependencies(Operation* op, std::unordered_map<int, Operation*> &tensor2AllocMap) {
         for (auto &tensor : op->GetOOperands()) {
             int memId = tensor->memoryrange.memId;
             if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
@@ -261,12 +261,10 @@ public:
     }
 
     Status InitDependencies() {
+        std::unordered_map<int, Operation*> tensor2AllocMap;
         for (const auto &op : operations) {
             inGraph[op].clear();
             outGraph[op].clear();
-        }
-        std::map<int, Operation*> tensor2AllocMap;
-        for (const auto &op : operations) {
             if (IsOpAlloc(op)) {
                 if (op->GetOOperands().size() != 1) {
                     APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] oOperand must be 1.", op->GetOpMagic());
@@ -421,11 +419,6 @@ public:
         // 构建依赖关系
         if (InitDependencies() != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
-            return FAILED;
-        }
-
-        if (CheckAllocOp(operations) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocOp failed!");
             return FAILED;
         }
 

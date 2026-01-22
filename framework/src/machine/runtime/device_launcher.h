@@ -57,8 +57,6 @@ public:
 
         Program::GetInstance().Reset();
         ProgramData::GetInstance().Reset();
-
-        config::SetHostOption(ONLY_CODEGEN, true);
     }
 
     void DeviceFini() {
@@ -231,11 +229,11 @@ public:
 
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
         const std::vector<uint8_t> &devProgData) {
+        auto hcclContext = DistributedContext::GetHcclContext(groupNames);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        if (devProg->hcclContext[0] != 0) {
+        if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
             return;
         }
- 	    auto hcclContext = DistributedContext::GetHcclContext(groupNames);
         PrepareHcclContext(hcclContext, devProgData);
     }
 

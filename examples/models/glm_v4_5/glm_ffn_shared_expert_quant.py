@@ -221,7 +221,6 @@ def expert_infer_base(hidden_states, w13_params, w2_params, ffn_res, tiling_para
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
     runtime_options={"device_sched_mode": 1,
                      "stitch_cfgcache_size": 2700000},
     pass_options={"cube_l1_reuse_setting": {-1: 2}}
@@ -245,7 +244,7 @@ def share_expert_moe_main(hidden_states, w13, w13_scale, w2, w2_scale, ffn_res):
         This function uses cube L1 reuse mode 2 for better memory efficiency.
         Tokens are processed in tiles of size 8.
     """
-    pypto.experimental.set_operation_config(combine_axis=True)
+    pypto.experimental.set_operation_options(combine_axis=True)
 
     # tiling config
     vec_tile_shape = (4, 5120)
@@ -311,7 +310,6 @@ def ffn_shared_expert_quant(hidden_states: torch.Tensor,
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         share_expert_moe_main(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
 
 def test_ffn_share() -> None:
@@ -341,7 +339,6 @@ def test_ffn_share() -> None:
         pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
         pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
         share_expert_moe_main(*pto_inputs, *pto_outputs)
-        pypto.runtime._device_synchronize()#内部接口，不推荐使用
 
         # golden
         golden = moe_torch_npu(hidden_states, w13, w13_scale, w2, w2_scale)

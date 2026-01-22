@@ -192,6 +192,8 @@ void SetParamConfig(Function* currentFunctionPtr_) {
     currentFunctionPtr_->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
     currentFunctionPtr_->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
     currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
+    currentFunctionPtr_->paramConfigs_.combineAxis = currentScope->GetOperationConfig<bool>(KEY_COMBINE_AXIS);
+    currentFunctionPtr_->paramConfigs_.forceCombineAxis = currentScope->GetOperationConfig<bool>(KEY_FORCE_COMBINE_AXIS);
 }
 
 #if ENABLE_HIDDENLOOP
@@ -322,7 +324,7 @@ void Program::HandleTaskSubmission(Function *result) {
                                  }),
                     scopes.end());
             }
-        } else if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false)) {
+        } else if (config::GetHostOption<int64_t>(COMPILE_STAGE) != GEN_TENSOR_GRAPH) {
             HostMachine::GetInstance().SubTask(result);
             HostMachine::GetInstance().WaitTaskFinish();
         }

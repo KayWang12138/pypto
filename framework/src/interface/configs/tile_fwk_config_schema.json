@@ -288,11 +288,13 @@
                 "en": "..."
             },
             "properties": {
-                "only_codegen": {
-                    "type": "boolean",
+                "compile_stage": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3,
                     "label": {
-                        "zh": "屏蔽静态function的上板过程",
-                        "en": "Shield the static on-board process."
+                        "zh": "控制编译执行的阶段",
+                        "en": "Set the stage of compile."
                     }
                 }
             }
@@ -417,6 +419,29 @@
                 }
             }
         },
+        "operation": {
+            "type": "object",
+            "label": {
+                "zh": "...",
+                "en": "..."
+            },
+            "properties": {
+                "force_combine_axis": {
+                    "type": "boolean",
+                    "label": {
+                        "zh": "...",
+                        "en": "..."
+                    }
+                },
+                "combine_axis": {
+                    "type": "boolean",
+                    "label": {
+                        "zh": "...",
+                        "en": "..."
+                    }
+                }
+            }
+        },
         "global": {
             "type": "object",
             "label": {
@@ -446,20 +471,6 @@
                             }
                         },
                         "enable_aihac_backend": {
-                            "type": "boolean",
-                            "label": {
-                                "zh": "...",
-                                "en": "..."
-                            }
-                        },
-                        "only_tensor_graph": {
-                            "type": "boolean",
-                            "label": {
-                                "zh": "...",
-                                "en": "..."
-                            }
-                        },
-                        "only_host_compile": {
                             "type": "boolean",
                             "label": {
                                 "zh": "...",
@@ -786,29 +797,6 @@
                             "label": {
                                 "zh": "是否需要将生成的设备侧代码编译为二进制",
                                 "en": "Whether it is necessary to compile the generated device-side code into binaries"
-                            }
-                        }
-                    }
-                },
-                "operation": {
-                    "type": "object",
-                    "label": {
-                        "zh": "...",
-                        "en": "..."
-                    },
-                    "properties": {
-                        "force_combine_axis": {
-                            "type": "boolean",
-                            "label": {
-                                "zh": "...",
-                                "en": "..."
-                            }
-                        },
-                        "combine_axis": {
-                            "type": "boolean",
-                            "label": {
-                                "zh": "...",
-                                "en": "..."
                             }
                         }
                     }
