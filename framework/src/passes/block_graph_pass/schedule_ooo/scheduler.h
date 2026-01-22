@@ -202,6 +202,7 @@ private:
     // scheduler
     Status Init(const std::vector<Operation *> &operations,
         const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>());
+    Status InitIssueCoreType(IssueEntryPtr issue, Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);

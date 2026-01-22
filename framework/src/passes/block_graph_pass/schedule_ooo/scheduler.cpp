@@ -1009,6 +1009,25 @@ void OoOScheduler::InitTensorCoreMap() {
     }
 }
 
+Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
+    const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap) {
+    if (!opCoreMap.empty()) {
+        issue->coreLocation = opCoreMap.at(op);
+        return SUCCESS;
+    }
+    if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+        issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
+        return SUCCESS;
+    }
+    if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() <= MemoryType::MEM_FIX) {
+        issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIC);
+        return SUCCESS;
+    }
+    APASS_LOG_ERROR_F(Elements::Operation, "%s init coreLocation failed. OOperand memoryType is %s",
+        issue->GetOpInfo().c_str(), MemoryTypeToString(op->GetOutputOperand(0)->GetMemoryTypeOriginal()).c_str());
+    return FAILED;
+}
+
 Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap) {
     issueEntries.clear();
     localBufferMap.clear();
@@ -1043,21 +1062,10 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
             return FAILED;
         }
         issueEntries.emplace_back(issue);
-        if (!opCoreMap.empty()) {
-            issue->coreLocation = opCoreMap.at(op);
-            continue;
+        if (InitIssueCoreType(issue, op, opCoreMap) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s init coreType failed!", issue->GetOpInfo().c_str());
+            return FAILED;
         }
-        if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
-            continue;
-        }
-        if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() <= MemoryType::MEM_FIX) {
-            issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIC);
-            continue;
-        }
-        APASS_LOG_ERROR_F(Elements::Operation, "%s init coreLocation failed. OOperand memoryType is %s",
-            issue->GetOpInfo().c_str(), MemoryTypeToString(op->GetOutputOperand(0)->GetMemoryTypeOriginal()).c_str());
-        return FAILED;
     }
     numTotalIssues = issueEntries.size();
 
