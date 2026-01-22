@@ -21,6 +21,7 @@
 #include "common.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "machine/utils/dynamic/device_task.h"
+#include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::Distributed {
 struct SignalTileOp {
@@ -33,10 +34,11 @@ struct SignalTileOp {
     bool PollCompleted() const;
 
     SignalTileOp* next{nullptr};
-    uint64_t taskId_;
-    int32_t* addr_;
-    int32_t expectedSum_;
-    bool resetSignal_;
+    uint64_t taskId_{0};
+    int32_t* addr_{nullptr};
+    int32_t expectedSum_{0};
+    bool resetSignal_{false};
+    TaskStat* dumpData{nullptr};
 };
 
 class HashMap {
@@ -148,6 +150,9 @@ public:
                 if (ret != dynamic::DEVICE_MACHINE_OK) {
                     return ret;
                 }
+                if (task->dumpData != nullptr) {
+                    task->dumpData->execEnd = dynamic::GetCycles();
+                }
             }
         }
         return dynamic::DEVICE_MACHINE_OK;
@@ -174,6 +179,12 @@ public:
             DEV_ERROR("There is no this taskId: %lu", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
+        if (aicpuTaskStat_ != nullptr) {
+            task->dumpData = &(aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount]);
+            task->dumpData->taskId = static_cast<int32_t>(taskId);
+            task->dumpData->execStart = dynamic::GetCycles();
+            ++aicpuTaskStat_->taskCount;
+        }
         return runingTaskQueue_.Enqueue(task);
     }
 
@@ -198,6 +209,7 @@ public:
     int32_t PollCompleted(npu::tile_fwk::dynamic::AiCoreManager &aiCoreManager);
 
     CircularQueue runingTaskQueue_;
+    Metrics* aicpuTaskStat_;
 
 private:
     HashMap hashMap_;
