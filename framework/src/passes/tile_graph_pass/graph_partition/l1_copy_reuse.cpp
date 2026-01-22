@@ -209,7 +209,7 @@ inline std::vector<int> GetCopyIn(const OperationsViewer &opOriList,
 void L1CopyInReuseRunner::GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx) {
     uint64_t a = 0x12345678;
     uint64_t p = 37;
-    const uint64_t mod = UINT64_MAX;
+    const uint64_t mod = 0xFFFFFFFFFFFFF;
     uint64_t hash = 0;
     for (char c : op) {
         hash = (hash * p + static_cast<uint64_t>(c)) % mod;
@@ -227,7 +227,7 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer &opOriList, std::v
     }
     uint64_t a = 0x12345678;
     uint64_t p = 23;
-    const uint64_t mod = UINT64_MAX;
+    const uint64_t mod = 0xFFFFFFFFFFFFF;
     std::set<int32_t> mulaccGraph;
     for (size_t i = 0; i < opOriList.size(); i++) {
         if (opOriList[i].GetSubgraphID() < 0) {
