@@ -1019,9 +1019,19 @@ Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
         issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
         return SUCCESS;
     }
-    if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() <= MemoryType::MEM_FIX) {
+    if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() < MemoryType::MEM_FIX) {
         issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIC);
         return SUCCESS;
+    }
+    if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+        if (op->GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
+            return SUCCESS;
+        }
+        if (op->GetInputOperand(0)->GetMemoryTypeOriginal() < MemoryType::MEM_FIX) {
+            issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIC);
+            return SUCCESS;
+        }
     }
     APASS_LOG_ERROR_F(Elements::Operation, "%s init coreLocation failed. OOperand memoryType is %s",
         issue->GetOpInfo().c_str(), MemoryTypeToString(op->GetOutputOperand(0)->GetMemoryTypeOriginal()).c_str());
