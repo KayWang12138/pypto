@@ -34,7 +34,7 @@ struct TriUOpMetaData {
     nlohmann::json test_data_;
 };
 
-static void TriUOperationExeFuncDoubleCut(
+static void TriUOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
     SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
@@ -66,10 +66,141 @@ static void TriUOperationExeFuncDoubleCut(
     }
 }
 
+static void TriUOperationExeFunc3Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
+        auto args = static_cast<const TriUOpFuncArgs *>(opArgs);
+        std::vector<int64_t> viewShape = args->viewShape_;
+        int idx[3] = {0};
+
+        const int loop[] = {CeilDiv(src_firstDim, viewShape[0]), CeilDiv(src_secondDim, viewShape[1]),
+            CeilDiv(src_thirdDim, viewShape[2])};
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {
+                    std::vector<SymbolicScalar> offsets = {
+                        bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2]};
+                    auto tileTensor = View(inputs[0], viewShape,
+                        {std::min(src_firstDim - bIdx * viewShape[0], viewShape[0]),
+                            std::min(src_secondDim - sIdx * viewShape[1], viewShape[1]),
+                            std::min(src_thirdDim - nIdx * viewShape[2], viewShape[2])},
+                        offsets);
+                    int originXIdx = idx[1] * viewShape[1];
+                    int originYIdx = idx[2] * viewShape[2];
+                    int realDiagonal = args->diagonal_ + originXIdx - originYIdx;
+                    TileShape::Current().SetVecTile(args->tileShape_);
+                    auto res = TriU(tileTensor, realDiagonal);
+                    Assemble(res, offsets, outputs[0]);
+                    idx[2] += 1;
+                }
+                idx[1] += 1;
+            }
+            idx[0] += 1;
+        }
+    }
+}
+
+static void TriUOperationExeFunc4Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar src_forthDim = inputs[0].GetShape()[3];
+
+        auto args = static_cast<const TriUOpFuncArgs *>(opArgs);
+        std::vector<int64_t> viewShape = args->viewShape_;
+        int idx[4] = {0};
+
+        const int loop[] = {CeilDiv(src_firstDim, viewShape[0]), CeilDiv(src_secondDim, viewShape[1]),
+            CeilDiv(src_thirdDim, viewShape[2]), CeilDiv(src_forthDim, viewShape[3])};
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {
+                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loop[IDX_DIM3])) {
+                        std::vector<SymbolicScalar> offsets = {
+                            bIdx * viewShape[0], sIdx * viewShape[1], nIdx * viewShape[2], qIdx * viewShape[3]};
+                        auto tileTensor = View(inputs[0], viewShape,
+                            {std::min(src_firstDim - bIdx * viewShape[0], viewShape[0]),
+                                std::min(src_secondDim - sIdx * viewShape[1], viewShape[1]),
+                                std::min(src_thirdDim - nIdx * viewShape[2], viewShape[2]),
+                                std::min(src_forthDim - qIdx * viewShape[3], viewShape[3])},
+                            offsets);
+                        int originXIdx = idx[2] * viewShape[2];
+                        int originYIdx = idx[3] * viewShape[3];
+                        int realDiagonal = args->diagonal_ + originXIdx - originYIdx;
+                        TileShape::Current().SetVecTile(args->tileShape_);
+                        auto res = TriU(tileTensor, realDiagonal);
+                        Assemble(res, offsets, outputs[0]);
+                        idx[3] += 1;
+                    }
+                    idx[2] += 1;
+                }
+                idx[1] += 1;
+            }
+            idx[0] += 1;
+        }
+    }
+}
+
+static void TriUOperationExeFunc5Dims(
+    const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar src_firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar src_secondDim = inputs[0].GetShape()[1];
+        SymbolicScalar src_thirdDim = inputs[0].GetShape()[2];
+        SymbolicScalar src_forthDim = inputs[0].GetShape()[3];
+        SymbolicScalar src_fifthDim = inputs[0].GetShape()[4];
+
+        auto args = static_cast<const TriUOpFuncArgs *>(opArgs);
+        std::vector<int64_t> viewShape = args->viewShape_;
+        int idx[5] = {0};
+
+        const int loop[] = {CeilDiv(src_firstDim, viewShape[0]), CeilDiv(src_secondDim, viewShape[1]),
+            CeilDiv(src_thirdDim, viewShape[2]), CeilDiv(src_forthDim, viewShape[3]),
+            CeilDiv(src_fifthDim, viewShape[4])};
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(loop[IDX_DIM0])) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(loop[IDX_DIM1])) {
+                LOOP("LOOP_L2_nIdx", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(loop[IDX_DIM2])) {
+                    LOOP("LOOP_L3_qIdx", FunctionType::DYNAMIC_LOOP, qIdx, LoopRange(loop[IDX_DIM3])) {
+                        LOOP("LOOP_L4_rIdx", FunctionType::DYNAMIC_LOOP, rIdx, LoopRange(loop[IDX_DIM4])) {
+                            std::vector<SymbolicScalar> offsets = {bIdx * viewShape[0], sIdx * viewShape[1],
+                                nIdx * viewShape[2], qIdx * viewShape[3], rIdx * viewShape[4]};
+                            auto tileTensor = View(inputs[0], viewShape,
+                                {std::min(src_firstDim - bIdx * viewShape[0], viewShape[0]),
+                                    std::min(src_secondDim - sIdx * viewShape[1], viewShape[1]),
+                                    std::min(src_thirdDim - nIdx * viewShape[2], viewShape[2]),
+                                    std::min(src_forthDim - qIdx * viewShape[3], viewShape[3]),
+                                    std::min(src_fifthDim - rIdx * viewShape[4], viewShape[4])},
+                                offsets);
+                            int originXIdx = idx[3] * viewShape[3];
+                            int originYIdx = idx[4] * viewShape[4];
+                            int realDiagonal = args->diagonal_ + originXIdx - originYIdx;
+                            TileShape::Current().SetVecTile(args->tileShape_);
+                            auto res = TriU(tileTensor, realDiagonal);
+                            Assemble(res, offsets, outputs[0]);
+                            idx[4] += 1;
+                        }
+                        idx[3] += 1;
+                    }
+                    idx[2] += 1;
+                }
+                idx[1] += 1;
+            }
+            idx[0] += 1;
+        }
+    }
+}
+
 class TriUOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<TriUOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestTriU, TriUOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<TriUOpMetaData>({TriUOperationExeFuncDoubleCut}, "TriU")));
+    ::testing::ValuesIn(GetOpMetaData<TriUOpMetaData>(
+        {TriUOperationExeFunc2Dims, TriUOperationExeFunc3Dims, TriUOperationExeFunc4Dims, TriUOperationExeFunc5Dims},
+        "TriU")));
 
 TEST_P(TriUOperationTest, TestTriU) {
     auto test_data = GetParam().test_data_;
