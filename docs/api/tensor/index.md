@@ -44,6 +44,7 @@ pypto-Tensor-sub
 pypto-Tensor-sum
 pypto-Tensor-topk
 pypto-Tensor-transpose
+pypto-Tensor-trunc
 pypto-Tensor-unsqueeze
 pypto-Tensor-view
 pypto-Tensor-where
