@@ -141,6 +141,13 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
         auto opList = program.second->Operations(false).DuplicatedOpList();
         for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
             Operation *op = opList[opIdx];
+            if (LASTUSE_OPS.find(op->GetOpcode()) == LASTUSE_OPS.end()) {
+                APASS_LOG_INFO_F(Elements::Operation, "Op %s[%d] is not in LASTUSE_OPS, skip record last_use Attribute.", op->GetOpcodeStr().c_str(), op->GetOpMagic());
+                continue;
+            }
+            int tensorSize = op->GetIOperands().size() + op->GetOOperands().size();
+            std::vector<int> initVec(tensorSize, false);
+            op->SetAttribute(OpAttributeKey::lastUse, initVec);
             for (size_t inputIdx = 0; inputIdx < op->GetIOperands().size(); inputIdx++) {
                 auto inTensor = op->GetInputOperand(inputIdx);
                 lastUseMap_[inTensor] = op;
