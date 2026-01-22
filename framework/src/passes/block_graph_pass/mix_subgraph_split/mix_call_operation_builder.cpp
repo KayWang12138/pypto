@@ -116,7 +116,6 @@ Status MixCallOperationBuilder::CreateCallOpInRootFunction(Function& rootFunc,
     callOp.SetOpOffset(info.iOffsets, info.oOffsets);
     SetCallOpAttribute(leafFunc, callOp, originalCallOp, originalCallAttr,
                        newProgramID, componentIndex, subgraphToFunction, info);
-    subgraphToFunction.SetSemanticLabel(leafFunc.GetProgramOp(), callOp);
     // 将创建的call op记录到info中
     info.createdCallOp = &callOp;
     ALOG_INFO_F("Successfully created callOp %d in root function for programID=%d, leaf=%s",
@@ -383,7 +382,7 @@ bool MixCallOperationBuilder::FindIOOpAttrOffsetGlobalTensor(const SubfuncInvoke
         if (tensor.opMagic == -1) {
             continue;
         }
-        int offset = GetOffsetFromTensorParam(tensor, leafFunc);
+        int offset = GetOffsetFromOp(tensor.opMagic, tensor.operandIdx, leafFunc, tensor.isOutputToGM);
         if (offset == -1) {
             ALOG_ERROR_F("Failed to get offset for global tensor (op=%d, idx=%d, isOutput=%d)!",
                          tensor.opMagic, tensor.operandIdx, tensor.isOutputToGM);
@@ -401,52 +400,6 @@ bool MixCallOperationBuilder::FindIOOpAttrOffsetGlobalTensor(const SubfuncInvoke
         extractInfo.processedTensors.insert(tensor.tensor);
     }
     return true;
-}
-
-int MixCallOperationBuilder::GetOffsetFromTensorParam(const SubfuncInvokeInfoTy::TensorParamPackTy& tensorParam,
-                                                      Function& leafFunc) const
-{
-    int opMagic = tensorParam.opMagic;
-    // 对于global tensor，根据isOutputToGM判断是输入还是输出
-    if (tensorParam.isOutputToGM) {
-        // 作为输出处理
-        auto operations = leafFunc.Operations(false);
-        for (auto& op : operations) {
-            if (op.GetOpMagic() != opMagic) {
-                continue;
-            }
-            if (tensorParam.operandIdx >= 0 && static_cast<size_t>(tensorParam.operandIdx) < op.GetOOperands().size()) {
-                int offset = op.GetOOpAttrOffset(tensorParam.operandIdx);
-                if (offset != -1) {
-                    ALOG_DEBUG_F("Found output offset %d for global tensor (op=%d, idx=%d)",
-                                 offset, opMagic, tensorParam.operandIdx);
-                    return offset;
-                }
-            }
-            break;
-        }
-    } else {
-        // 作为输入处理
-        auto operations = leafFunc.Operations(false);
-        for (auto& op : operations) {
-            if (op.GetOpMagic() != opMagic) {
-                continue;
-            }
-            if (tensorParam.operandIdx >= 0 && static_cast<size_t>(tensorParam.operandIdx) < op.GetIOperands().size()) {
-                int offset = op.GetIOpAttrOffset(tensorParam.operandIdx);
-                if (offset != -1) {
-                    ALOG_DEBUG_F("Found input offset %d for global tensor (op=%d, idx=%d)",
-                                 offset, opMagic, tensorParam.operandIdx);
-                    return offset;
-                }
-            }
-            break;
-        }
-    }
-
-    ALOG_WARN_F("Could not find offset for global tensor (op=%d, idx=%d, isOutput=%d)",
-                opMagic, tensorParam.operandIdx, tensorParam.isOutputToGM);
-    return -1;
 }
 
 bool MixCallOperationBuilder::FindIOpAttrOffsetFromActualIncasts(
@@ -579,6 +532,7 @@ void MixCallOperationBuilder::SetCallOpAttribute(Function& leafFunc,
     if (callOpAttr != nullptr && callOpAttr->invokeInfo_ != nullptr) {
         callOpAttr->invokeInfo_->UpdateProgramSubgraphId(newProgramID);
     }
+    subgraphToFunction.SetSemanticLabel(leafFunc.GetProgramOp(), callOp);
     ALOG_DEBUG_F("Created callOp %d: %zu arg blocks (from original callOp %d), %zu input offsets, %zu output offsets",
                  callOp.GetOpMagic(), argList.size(), originalCallOp->GetOpMagic(),
                  info.iOffsets.size(), info.oOffsets.size());
