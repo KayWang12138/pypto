@@ -293,10 +293,10 @@ def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_
         k_bias: pypto.Tensor((head_size, ), pypto.DT_BF16), 
         cos: pypto.Tensor((bs, 1, half_rotary_dim), pypto.DT_BF16), 
         sin: pypto.Tensor((bs, 1, half_rotary_dim), pypto.DT_BF16),
-        q = pypto.Tensor((bs, q_size), pypto.DT_BF16),
-        k = pypto.Tensor((bs, kv_size), pypto.DT_BF16),
-        v = pypto.Tensor((bs, kv_size), pypto.DT_BF16),
-        residual = pypto.Tensor((bs, hidden_size), pypto.DT_BF16)
+        q: pypto.Tensor((bs, q_size), pypto.DT_BF16),
+        k: pypto.Tensor((bs, kv_size), pypto.DT_BF16),
+        v: pypto.Tensor((bs, kv_size), pypto.DT_BF16),
+        residual: pypto.Tensor((bs, hidden_size), pypto.DT_BF16)
     ):
         bs_tile = 8
         
@@ -573,13 +573,13 @@ def test_quant_attention_pre():
         # post process
         q_r = q_cat.view(bs, q_size)
         k_r = k_cat.view(bs, kv_size)
-        assert_allclose(np.array(residual_g.cpu().flatten().tolist()), np.array(residual.cpu().flatten().tolist()),
+        assert_allclose(np.array(residual_g.cpu().flatten().tolist()), np.array(residual_res.cpu().flatten().tolist()),
                         rtol=0.0078125, atol=0.0001)
-        assert_allclose(np.array(q_r.cpu().flatten().tolist()), np.array(q.cpu().flatten().tolist()),
+        assert_allclose(np.array(q_r.cpu().flatten().tolist()), np.array(query.cpu().flatten().tolist()),
                         rtol=0.0078125, atol=0.0001)
-        assert_allclose(np.array(k_r.cpu().flatten().tolist()), np.array(k.cpu().flatten().tolist()),
+        assert_allclose(np.array(k_r.cpu().flatten().tolist()), np.array(key.cpu().flatten().tolist()),
                         rtol=0.0078125, atol=0.0001)
-        assert_allclose(np.array(v_g.cpu().flatten().tolist()), np.array(v.cpu().flatten().tolist()),
+        assert_allclose(np.array(v_g.cpu().flatten().tolist()), np.array(value.cpu().flatten().tolist()),
                         rtol=0.0078125, atol=0.0001)
         logging.info("PASS")
 

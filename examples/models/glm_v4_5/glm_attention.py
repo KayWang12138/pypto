@@ -290,8 +290,8 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
         This function uses Flash Attention's online softmax algorithm to avoid storing
         the full attention matrix, significantly reducing memory requirements.
     """
-    q_shape[0] = pypto.frontend.dynamic("qshape")
-    kv_shape[0] = pypto.frontend.dynamic("kvshape")
+    q_shape = (pypto.frontend.dynamic("qshape"), q_shape[1], q_shape[2])
+    kv_shape = (pypto.frontend.dynamic("kvshape"), kv_shape[1], kv_shape[2], kv_shape[3])
 
     bs = pypto.frontend.dynamic("bs")
 
@@ -310,8 +310,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
         v: pypto.Tensor(kv_shape, pypto.DT_FP16),
         block_table: pypto.Tensor(block_table_shape, pypto.DT_INT32),
         kv_act_seqs: pypto.Tensor((bs, ), pypto.DT_INT32),
-    ) -> (
-        pypto.Tensor(q_shape, pypto.DT_FP16)
+        atten_out: pypto.Tensor(q_shape, pypto.DT_FP16)
     ):
 
         # 1. 添加支持动态的config
@@ -354,7 +353,6 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
         v_2d = pypto.reshape(v, k_2d_shape, inplace=True)
         q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
 
-        atten_out = pypto.Tensor(q_shape, pypto.DT_FP16)
         block_num = s2_tile // block_size
         
                         
@@ -446,7 +444,6 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
                                     dtype)
                                 # 7. 将结果搬运到输出tensor上
                                 pypto.assemble(oi_final_3d, oi_ofs, atten_out)
-        return atten_out
 
     return ifa_func_kernel
 
@@ -515,12 +512,11 @@ def IFA(atten_cfg):
         k,
         v,
         block_table_torch,
-        act_seq_torch
+        act_seq_torch,
+        out_torch
     ]
-
-    shapes = [q_shape, kv_shape, block_table_shape]
     # 5. 执行kernel并获取结果
-    out_torch = ifa_func(*shapes)(*inputs)
+    attention(*inputs)
 
     # 6. 与PyTorch参考实现对比
     assert_allclose(np.array(attention_output.cpu().flatten().tolist()), 
@@ -576,23 +572,23 @@ def attention(
         This function is decorated with @allow_in_graph to enable integration
         with PyTorch's compilation graph.
     """
-    if isinstance(query, FakeTensor):
-        return
-    check_args(
-        query,
-        key_cache,
-        value_cache,
-        block_tables,
-        actual_seqs,
-        attn_res
-    )
+    # if isinstance(query, FakeTensor):
+    #     return
+    # check_args(
+    #     query,
+    #     key_cache,
+    #     value_cache,
+    #     block_tables,
+    #     actual_seqs,
+    #     attn_res
+    # )
 
-    inputs = [query, key_cache, value_cache, block_tables, actual_seqs]
-    outputs = [attn_res]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-    ifa_func(*pto_inputs, *pto_outputs)
-    pypto.runtime._device_synchronize()#内部接口，不推荐使用
+    q_shape = query.shape
+    kv_shape = key_cache.shape
+    block_table_shape = block_tables.shape
+    shapes = [q_shape, kv_shape, block_table_shape]
+    inputs = [query, key_cache, value_cache, block_tables, actual_seqs, attn_res]
+    ifa_func(*shapes)(*inputs)
 
 if __name__ == "__main__":
     test_ifa()

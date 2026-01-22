@@ -63,7 +63,7 @@ def select_experts_mm(bs, ne, h_num):
     def select_experts_mm_kernel(
         hidden_states: pypto.Tensor((bs, h_num), pypto.DT_FP32),
         mm_weight: pypto.Tensor((ne, h_num), pypto.DT_FP32),
-        router_logits_out = pypto.Tensor((bs, ne), pypto.DT_FP32)
+        router_logits_out: pypto.Tensor((bs, ne), pypto.DT_FP32)
     ):
         """
         JIT compiled kernel for gate matrix multiplication.
@@ -150,8 +150,8 @@ def test_select_experts_mm():
 def gate(
     hidden_states: torch.Tensor,  # Hidden states of shape (num_tokens, hidden_size).
     gate_weight: torch.Tensor,  # gate matmul weights
-    router_logits_out: torch.Tensor, 
-    ):
+    router_logits_out: torch.Tensor
+):
     """
     Gate operation for expert routing in MoE architecture.
 
