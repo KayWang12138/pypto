@@ -9,64 +9,70 @@
 
 ## 功能说明
 
-将source的每一块数据乘以缩放因子alpha（默认为1）加到input的相应数据块上，其中索引和数据块方向由index和dim指定。
+根据索引indices将values的多个或多块数据更新到self中。如果accumulate参数为True，则表示在更新时，values和原本存储在相应位置的值进行累加；如果accumulate为False，则会直接覆盖原本的值。
 
 ## 函数原型
 
 ```python
-index_put_(input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Union[int, float] = 1) -> Tensor
+index_put_(input: Tensor, indices: tuple, values: Tensor, accumulate: bool = False) -> None
 ```
 
 ## 参数说明
 
 
-| 参数名  | 输入/输出 | 说明                                                                 |
-|---------|-----------|----------------------------------------------------------------------|
-| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_BF16, DT_INT16, DT_INT32。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
-| dim     | 输入      | int 类型，加法作用到 input 的维度； <br> 支持任意不超过 input 维数的值，详见约束说明。 |
-| index   | 输入      | 源操作数，值代表 input 所在 dim 轴的索引； <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_INT32, DT_INT64； <br> 不支持空 Tensor，Shape只支持1维，索引与 source 的 dim 轴索引一一对应，Shape大小与 source 所在 dim 轴的Shape大小相同。 |
-| source  | 输入      | 需要加到 input 的源操作数； <br> 支持的类型为：Tensor。 <br> Tensor的数据类型 与 input 相同。 <br> Shape支持2-4维，所在 dim 轴的Shape大小与 index 相同，其他维度的Shape大小与 input 相同。 |
-| alpha   | 输入      | 标量，关键字参数； <br> 表示累加时的缩放因子，默认为 1。 |
+|   参数名   | 输入/输出 | 说明                                                                  |
+|------------|-----------|----------------------------------------------------------------------|
+|   input    |    输入   | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32, DT_FP16, DT_BF16, DT_INT16, DT_INT32。 <br> 不支持空Tensor；Shape仅支持1-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+|  indices   |   输入    | Tensor类型的元组，每个Tensor表示一个维度的索引。 <br> 支持的类型为：tuple\[Tensor\], 每个Tensor维度相同，且均为一维。 <br> Tensor支持的数据类型为：INT64, INT32。 <br> 不支持空Tensor，tuple中Tensor的个数不大于input的维数，详见约束。 |
+|   values   |   输入    | 待更新到input中的值。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型须与input一致； <br> 不支持空 Tensor，Shape不大于input的维数，详见约束。 |
+| accumulate |   输入    | 累加参数，默认为False； <br> 支持的类型为：bool。 |
 
 ## 返回值说明
 
-原地操作返回 input
+对input进行原地操作，无返回值
 
 ## 约束说明
 
-1. index必须是整数类型（DT\_INT32 或 DT\_INT64），值不超过input在dim维度上的Shape大小，维数为1，Shape大小与 source 所在dim轴的Shape大小相同；
+1. indices中的一维Tensor维度相同，不支持broadcast。indices中第i个Tensor中的值须小于input中第i-1维的Shape大小。当indices的选取会造成对同一个位置重复更新时，结果是未确定的。
 
-2. dim为int类型，取值范围：-input.dim <= dim < input.dim；
+2. values不支持broadcast，其第0维的shape须和indices中一维Tensor的shape相同。
 
-3. input和source的数据类型和维数均相同；
+3. input的维度、indices中Tensor的个数和values的维度之间需满足：（input.shape.size） + 1 = (indices.size) + (values.shape.size)。
 
-4. input.shape和source.shape的dim轴viewshape不可切，要求viewshape\[dim\]\>=max\(input.shape\[dim\], source.shape\[dim\]\)，其余维度的Shape大小不做限制；
+4. input和values的数据类型须相同；
 
-4. TileShape的维度与result相同，用于切分input和source，TileShape\[dim\] = viewshape\[dim\]，所有输入和输出的TileShape大小总和不能超过UB内存的大小。
+5. viewshape为一维，针对indices中的每个一维Tensor和values的第0维进行切分，values的其它维度不做切分。
+
+6. TileShape为一维，针对indices中的每个一维Tensor和values的第0维进行切分，values的其它维度不做切分。indices和values的TileShape大小总和不能超过UB内存的大小。
 
 ## 调用示例
 
 ```python
-x = pypto.tensor([2, 3], pypto.DT_INT32)        # shape (2, 3)
-source = pypto.tensor([3, 3], pypto.DT_INT32)   # shape (3, 3)
-index = pypto.tensor([3], pypto.DT_INT32)   # shape (3,)
-dim = 0
-# use alpha
-y = pypto.index_add_(x, dim, index, source, alpha=1)
-# not use alpha
-y = pypto.index_add_(x, dim, index, source)
+x = pypto.tensor([3, 3], pypto.DT_INT32)
+indices0 = pypto.tensor([2], pypto.DT_INT32)
+indices = (indices0, )
+values = pypto.tensor([2, 3], pypto.DT_INT32)
+accumulate = True
+# accumulate is True
+pypto.index_add_(x, dim, index, source, alpha=1)
+# accumulate is False(default)
+pypto.index_add_(x, dim, index, source)
 ```
 
 结果示例如下：
 
 ```python
-输入数据 x:   [[0 0 0],
-               [0 0 0]]
-      source: [[1 1 1],
-               [1 1 1],
-               [1 1 1]]
-      index:   [0 1 0]
-输出数据 y:   [[2 2 2],
-               [1 1 1]]               # shape (2, 3)
+输入数据 x:      [[1 1 1],
+                 [1 1 1],
+                 [0 0 0]]
+      indices:   ([1 2], )
+      values:    [[0 1 0],
+                  [0 2 0]]
+原地更新后的 x:   [[1 1 1],
+                 [1 2 1],
+                 [0 2 0]]               # accumulate is True
+                 [[1 1 1],
+                 [0 1 0],
+                 [0 2 0]]               # accumulate is False
 ```
 
