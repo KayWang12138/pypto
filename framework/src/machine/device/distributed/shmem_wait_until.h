@@ -38,7 +38,7 @@ struct SignalTileOp {
     int32_t* addr_{nullptr};
     int32_t expectedSum_{0};
     bool resetSignal_{false};
-    TaskStat* dumpData{nullptr};
+    TaskStat* profData_{nullptr};
 };
 
 class HashMap {
@@ -142,6 +142,9 @@ public:
             uint16_t actualIndex = i & AICPU_TASK_ARRAY_SIZE_MOD;
             SignalTileOp* task = queue_[actualIndex];
             if (task->PollCompleted()) {
+                if (task->profData_ != nullptr) {
+                    task->profData_->execEnd = dynamic::GetCycles();
+                }
                 int32_t ret = processor(task);
                 if (ret != dynamic::DEVICE_MACHINE_OK) {
                     return ret;
@@ -149,9 +152,6 @@ public:
                 ret = Remove(actualIndex);
                 if (ret != dynamic::DEVICE_MACHINE_OK) {
                     return ret;
-                }
-                if (task->dumpData != nullptr) {
-                    task->dumpData->execEnd = dynamic::GetCycles();
                 }
             }
         }
@@ -173,17 +173,16 @@ public:
         hashMap_.Init();
     }
 
-    inline int32_t EnqueueOp(uint64_t taskId) {
+    inline int32_t EnqueueOp(uint64_t taskId, TaskStat* taskStat) {
         SignalTileOp* task = hashMap_.FindTask(taskId);
         if (task == nullptr) {
             DEV_ERROR("There is no this taskId: %lu", taskId);
             return dynamic::DEVICE_MACHINE_ERROR;
         }
-        if (aicpuTaskStat_ != nullptr) {
-            task->dumpData = &(aicpuTaskStat_->tasks[aicpuTaskStat_->taskCount]);
-            task->dumpData->taskId = static_cast<int32_t>(taskId);
-            task->dumpData->execStart = dynamic::GetCycles();
-            ++aicpuTaskStat_->taskCount;
+        if (taskStat != nullptr) {
+            task->profData_ = taskStat;
+            task->profData_->taskId = static_cast<int32_t>(taskId);
+            task->profData_->execStart = dynamic::GetCycles();
         }
         return runingTaskQueue_.Enqueue(task);
     }
@@ -209,7 +208,6 @@ public:
     int32_t PollCompleted(npu::tile_fwk::dynamic::AiCoreManager &aiCoreManager);
 
     CircularQueue runingTaskQueue_;
-    Metrics* aicpuTaskStat_;
 
 private:
     HashMap hashMap_;
