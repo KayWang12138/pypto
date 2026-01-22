@@ -479,8 +479,8 @@ Status OoOScheduler::FreeBuffer(IssueEntryPtr issue) {
             return FAILED; 
         }
         if (bufRefCount[memId] == 0) {
-            // TODO alloc类型
-            if (bufferManagerMap[tensorAllocCoreMap[memId].first][tensorAllocCoreMap[memId].second][localBufferMap[memId]->memType].Free(localBufferMap[memId]->id) != SUCCESS) {
+            auto corePair = tensorAllocCoreMap[memId];
+            if (bufferManagerMap[corePair.first][corePair.second][localBufferMap[memId]->memType].Free(localBufferMap[memId]->id) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor [%d] failed.", memId); 
                 return FAILED; 
             }
@@ -556,7 +556,7 @@ Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
 }
 
 void OoOScheduler::LaunchReadyIssue() {
-    // TODO 分核初始化 Queue
+    // 初始化 Queue
     for (auto &issue : issueEntries) {
         auto coreType = issue->coreLocation.first;
         auto idx = issue->coreLocation.second;
@@ -580,8 +580,7 @@ bool OoOScheduler::IsInissueEntries(Operation* op) {
 }
 
 Status OoOScheduler::InitMemWithoutAlloc() {
-    // TODO 正式版本不存在no producer情况
-    // std::set<int> needAllocMem;
+    // 全局mainloop 不存在no producer情况
     std::unordered_map<int, std::pair<OpCoreType, int>> needAllocMem;
     for (const auto &issue : issueEntries) {
         for (auto &iOperand : issue->tileOp.GetIOperands()) {
@@ -672,7 +671,7 @@ Status OoOScheduler::RetireIssue(IssueEntryPtr issue) {
             return FAILED; 
         }
         if (bufRefCount[memId] == 0) {
-        // TODO 找前继对应的 issue
+        // 加载时的核信息
             auto corePair =  tensorAllocCoreMap[memId];
             if (bufferManagerMap[corePair.first][corePair.second][localBufferMap[memId]->memType].Free(localBufferMap[memId]->id) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor[%d] failed.", memId); 
@@ -740,10 +739,9 @@ Status OoOScheduler::GenSpillSchedule() {
 }
 
 void OoOScheduler::InitIssueQueuesAndBufferManager() {
-    // TODO 初始化
+    // 初始化
     for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
         for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
-            // issueQueues[static_cast<PipeType>(i)] = IssueQueue();
             issueQueues[coreType][idx][static_cast<PipeType>(i)] = IssueQueue();
         }
     }
@@ -751,11 +749,8 @@ void OoOScheduler::InitIssueQueuesAndBufferManager() {
     bufferManagerMap.clear();
     for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
         for (size_t i = 0; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
-        // allocIssueQueue[static_cast<MemoryType>(i)] = IssueQueue();
             allocIssueQueue[coreType][idx][static_cast<MemoryType>(i)] = IssueQueue();
             if (localMemorySize.find(static_cast<MemoryType>(i)) != localMemorySize.end()) {
-                // bufferManagerMap.insert({static_cast<MemoryType>(i),
-                //     BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
                 bufferManagerMap[coreType][idx].insert({static_cast<MemoryType>(i),
                     BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
             }
@@ -997,7 +992,7 @@ Status OoOScheduler::CheckOpBufferSize(Operation *op) {
 }
 
 void OoOScheduler::InitTensorCoreMap() {
-    // TODO 正式方案不存在 no producer情况
+    // 不存在 no producer情况
     for (auto issue : issueEntries) {
         if (issue->isAlloc) {
             auto memId = issue->tileOp.GetOutputOperand(0)->memoryrange.memId;
@@ -1026,7 +1021,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
                 op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
-        // TODO 核属性的初始化
+        // 核属性的初始化
         auto issue = std::make_shared<IssueEntry>(*op, issueId);
         issue->coreLocation = opCoreMap.empty() ? opCoreTypeMap.at(OpcodeManager::Inst().GetCoreType(op->GetOpcode())) : opCoreMap.at(op);
         issueEntryMap[issueId++] = issue;
@@ -1045,7 +1040,6 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
         return FAILED;
     }
-    // TODO 正式方案保留CheckAllocIssue
     if (CheckAllocIssue() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocIssue failed!");
         return FAILED;
