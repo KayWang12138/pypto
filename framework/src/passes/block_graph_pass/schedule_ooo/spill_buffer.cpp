@@ -475,7 +475,7 @@ LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperan
     localTensor->memoryrange.memId = assembleTensor->memoryrange.memId;
     localTensor->UpdateDynValidShape(spillInfo.spillTensor_->GetDynValidShape());
     localTensor->offset = assembleAttr->GetToOffset();
-    tensorAllocCoreMap[localTensor->memoryrange.memId] = iOperand->memoryrange.memId;
+    tensorAllocCoreMap[localTensor->memoryrange.memId] = tensorAllocCoreMap[iOperand->memoryrange.memId];
     return localTensor;
 }
 

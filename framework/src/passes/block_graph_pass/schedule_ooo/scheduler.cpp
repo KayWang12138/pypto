@@ -999,7 +999,7 @@ void OoOScheduler::InitTensorCoreMap() {
     // TODO 正式方案不存在 no producer情况
     for (auto issue : issueEntries) {
         if (issue->isAlloc) {
-            auto memId = issue->tileOp.GetOOperands(0)->memoryrange.memId;
+            auto memId = issue->tileOp.GetOutputOperand(0)->memoryrange.memId;
             tensorAllocCoreMap[memId] = issue->coreLocation;
         }
     }
