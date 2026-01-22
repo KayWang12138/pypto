@@ -14,6 +14,7 @@ from dataclasses import dataclass
 import logging
 import pytest
 import pypto
+from python.tests.utils.time_cost_decorator import time_cost
 
 
 @dataclass
@@ -199,6 +200,7 @@ def build_gather_args(cfg: BuildConfig = BuildConfig()):
     return args, meta
 
 
+@time_cost(32)
 def test_gather_with_builder():
     logging.basicConfig(level=logging.INFO)
     args, meta = build_gather_args()
