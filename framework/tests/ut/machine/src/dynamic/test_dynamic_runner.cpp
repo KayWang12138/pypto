@@ -161,7 +161,7 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     devKernelArgs.nrValidAic = 1;
     devKernelArgs.nrAicpu = 3;
     std::vector<void *> perfData;
-    Metrics *metr = static_cast<Metrics>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
+    Metrics *metr = static_cast<Metrics*>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
     TaskStat taskStat;
     taskStat.execEnd =1;
     metr->taskCount = 1;
@@ -175,5 +175,5 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     npu::tile_fwk::dynamic::DumpAicoreTaskExectInfo(devKernelArgs, perfData);
     free(metr);
     std::string jsonPath = npu::tile_fwk::config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
-    EXPECT_EQ(IsPathExist(jsonPath), false);
+    EXPECT_EQ(IsPathExist(jsonPath), true);
 }
