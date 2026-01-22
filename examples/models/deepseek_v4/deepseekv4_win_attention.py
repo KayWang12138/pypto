@@ -328,9 +328,10 @@ def win_atten_calc_mtp_decode(input_params_win_attn, actual_seq_list, atten_sink
             sum_exp = torch.sum(acc_s, dim=-1, keepdims=True) # [n_q, 1]
             sum_exp += torch.exp(atten_sink.reshape(n_q, 1) - scores_max)
             v1_res = acc_s / sum_exp
-            mm2_res = torch.matmul(v1_res, kv_cur.to(torch.float32)) #[n_q, d]
+            v1_res = v1_res.to(torch.bfloat16)
+            mm2_res = torch.matmul(v1_res, kv_cur) #[n_q, d]
            
-            atten_out[b_index, s1_index, :, :] = mm2_res.to(q.dtype)
+            atten_out[b_index, s1_index, :, :] = mm2_res
 
     return atten_out
 
