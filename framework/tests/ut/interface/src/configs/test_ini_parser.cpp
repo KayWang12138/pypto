@@ -16,8 +16,7 @@
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
-#include "interface/utils/file_utils.h"
-#include "interface/configs/ini_parser.h"
+#include "platform/ini_parser.h"
 
 using namespace npu::tile_fwk;
 
