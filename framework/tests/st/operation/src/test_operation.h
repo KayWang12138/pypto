@@ -137,17 +137,19 @@ private:
         }
         ProgramData::GetInstance().AppendOutputs({outputs});
 
-        std::vector<Tensor> nonConstOutputs = testCase.outputTensors;
-        testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
+        // std::vector<Tensor> nonConstOutputs = testCase.outputTensors;
+        // testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
 
-        if (testCase.onBoard) {
-            DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-        } else {
-            CostModelDynFuncRunner::Run(Program::GetInstance().GetLastFunction());
-        }
+        // if (testCase.onBoard) {
+        //     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+        // } else {
+        //     CostModelDynFuncRunner::Run(Program::GetInstance().GetLastFunction());
+        // }
 
         ASSERT_EQ(testCase.goldenPaths.size(), testCase.outputTensors.size());
         readGoldenCmpType(testCase);
+        std::vector<Tensor> nonConstOutputs = testCase.outputTensors;
+        testCase.opFunc(testCase.inputTensors, nonConstOutputs, testCase.args);
     }
 
     static void readGoldenCmpType(const TestCaseDesc& testCase) {
@@ -155,46 +157,73 @@ private:
             auto& tensor = testCase.outputTensors[i];
             switch (tensor.GetDataType()) {
                 case DataType::DT_FP32:
-                    readGoldenCmp<float>(tensor, testCase.goldenPaths[i], i, 0.005f);
+                    // readGoldenCmp<float>(tensor, testCase.goldenPaths[i], i, 0.005f);
+                    appendGolden<float>(tensor, testCase.goldenPaths[i], i, 0.005f);
                     break;
                 case DataType::DT_FP16:
-                    readGoldenCmp<npu::tile_fwk::float16>(tensor, testCase.goldenPaths[i], i, 0.005f);
+                    // readGoldenCmp<npu::tile_fwk::float16>(tensor, testCase.goldenPaths[i], i, 0.005f);
+                    appendGolden<npu::tile_fwk::float16>(tensor, testCase.goldenPaths[i], i, 0.005f);
                     break;
                 case DataType::DT_BF16:
-                    readGoldenCmp<npu::tile_fwk::bfloat16>(tensor, testCase.goldenPaths[i], i, 0.005f);
+                    appendGolden<npu::tile_fwk::bfloat16>(tensor, testCase.goldenPaths[i], i, 0.005f);
+                    // readGoldenCmp<npu::tile_fwk::bfloat16>(tensor, testCase.goldenPaths[i], i, 0.005f);
                     break;
                 case DataType::DT_INT8:
-                    readGoldenCmp<int8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    appendGolden<int8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    // readGoldenCmp<int8_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 case DataType::DT_BOOL:
-                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    appendGolden<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    // readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 case DataType::DT_INT16:
-                    readGoldenCmp<int16_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    appendGolden<int16_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    // readGoldenCmp<int16_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 case DataType::DT_INT32:
-                    readGoldenCmp<int32_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    appendGolden<int32_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    // readGoldenCmp<int32_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 case DataType::DT_INT64:
-                    readGoldenCmp<int64_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    appendGolden<int64_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    // readGoldenCmp<int64_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 case DataType::DT_UINT8:
-                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    appendGolden<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    // readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 case DataType::DT_UINT16:
-                    readGoldenCmp<uint16_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    appendGolden<uint16_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    // readGoldenCmp<uint16_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 case DataType::DT_UINT32:
-                    readGoldenCmp<uint32_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    appendGolden<uint32_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    // readGoldenCmp<uint32_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 case DataType::DT_UINT64:
-                    readGoldenCmp<uint64_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    appendGolden<uint64_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    // readGoldenCmp<uint64_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
                 default:
                     ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
                     break;
             }
         }
+    }
+
+    template<typename T>
+    static void appendGolden(const Tensor& tensor, const std::string& goldenPath, size_t index, T tolerance) {
+        size_t elementCount = 1;
+        for(int dim : tensor.GetShape()) {
+            elementCount *= dim;
+        }
+        std::vector<T> goldenOutput(elementCount, 0);
+        readInput<T>(goldenPath, goldenOutput);
+        ProgramData::GetInstance().AppendGoldens({
+            RawTensorData::CreateTensor<T>(tensor, goldenOutput),
+        });
+        (void)index;
+        (void)tolerance;
     }
 
     template<typename T>

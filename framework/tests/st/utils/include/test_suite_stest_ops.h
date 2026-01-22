@@ -32,6 +32,22 @@ public:
     static void TearDownTestCase() {}
 
     void SetUp() override {
+        // 所有st用例都会执行
+        config::SetPlatformConfig(KEY_EXTRACT_TENSOR_GRAPH_THEN_COMPILE, true);
+        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH, true);
+        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_CHECK_PRECISION, true);
+        config::SetPlatformConfig(KEY_VERIFY_PASS, true);
+        config::SetPlatformConfig(KEY_VERIFY_PASS_CHECK_PRECISION, true);
+        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH, true);
+        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_CHECK_PRECISION, true);
+        // 节省时间可以注释以下6个
+        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_OPERATION, true);
+        config::SetPlatformConfig(KEY_VERIFY_TENSOR_GRAPH_DUMP_TENSOR, true);
+        config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_OPERATION, true);
+        config::SetPlatformConfig(KEY_VERIFY_PASS_DUMP_TENSOR, true);
+        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_OPERATION, true);
+        config::SetPlatformConfig(KEY_VERIFY_EXECUTE_GRAPH_DUMP_TENSOR, true);
+        config::SetPlatformConfig(KEY_VERIFY_DUMP_PERF_DATA, true);
         // 使能 Aihac 后端
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
