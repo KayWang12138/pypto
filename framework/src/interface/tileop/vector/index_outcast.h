@@ -74,7 +74,7 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
                     pto::BLayout::RowMajor,
                     -1, -1
                 >;
-                SrcTileDefine srcTile(1, D);
+                SrcTileDefine srcTile(dstTileH, D);
                 pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(curSrc));
 
                 using DstGlobal = pto::GlobalTensor<
