@@ -164,6 +164,14 @@ public:
 
     std::tuple<int, int, int> LookupInvokeArgs(const int paramLoc) const;
 
+    inline void SetOutcastTensorParamList(const std::vector<OutcastParamPackTy> &newList) { 
+        outcastTensorParamList_ = newList; 
+    }
+
+    inline void SetOutcastTensorParamList(std::vector<OutcastParamPackTy> &&newList) { 
+        outcastTensorParamList_ = std::move(newList); 
+    }
+
     bool operator==(const SubfuncInvokeInfoTy &other) const;
     bool operator!=(const SubfuncInvokeInfoTy &other) const;
     friend class Allocator;

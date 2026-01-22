@@ -503,6 +503,8 @@ void SubgraphToFunction::InsertParameter(size_t i, Function& leafFunc) {
     }
 }
 
+std::unordered_map<unsigned long, std::vector<int>> outcastOrderMap;
+
 Status SubgraphToFunction::ProcessSubgraph(
     Function &function, size_t i, size_t &programIdx, std::vector<Function *> &outputFuncList) {
     auto subgraph = nLIST[i];
@@ -527,10 +529,40 @@ Status SubgraphToFunction::ProcessSubgraph(
 
     SetSemanticLabel(subgraph, *callOp);
 
+    // =================================================================================================================================================================
+
+    // if (!std::get<2>(result)) {
+    //     // Cache miss, record the outcast order.
+    //     outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()] = std::get<0>(result)->GetFunctionHash().GetOutcastOrder();
+    //     APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Cache Miss, record the outcast order.", i);
+    //     APASS_LOG_DEBUG_F(Elements::Operation, "Outcast Order is %s.", IntVecToStr(outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()]).c_str());
+    // } else {
+    //     // Cache hit, check whether the outcast order is matched.
+    //     if (outcastOrderMap.find(std::get<0>(result)->GetFunctionHash().GetHash()) == outcastOrderMap.end()) {
+    //         APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Cache Hit but not recorded in outcastOrderMap!!!", i);
+    //         return FAILED;
+    //     }
+    //     if (outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()] != std::get<3>(result)[0]) {
+    //         APASS_LOG_DEBUG_F(Elements::Operation, "LeafFunc %zu Cache Hit with different Outcast Order.", i);
+    //         APASS_LOG_DEBUG_F(Elements::Operation, "Recorded Outcast Order is %s.", IntVecToStr(outcastOrderMap[std::get<0>(result)->GetFunctionHash().GetHash()]).c_str());
+    //         APASS_LOG_DEBUG_F(Elements::Operation, "Current Outcast Order is %s. NEED REORDER!!!", IntVecToStr(std::get<3>(result)[0]).c_str());
+    //         // TODO: reorder outcast
+    //         if (ReorderOutcast(result, std::get<0>(result)->GetFunctionHash().GetOutcastOrder(), std::get<3>(result)[0])) {
+    //             APASS_LOG_DEBUG_F(Elements::Operation, "Reordered outcast for leaf function %zu.", i);
+    //         } else {
+    //             APASS_LOG_ERROR_F(Elements::Operation, "Failed to reorder outcast for leaf function %zu.", i);
+    //             return FAILED;
+    //         }
+    //     }
+    // }
+
+    // =================================================================================================================================================================
+
+
     return ProcessCacheResult(result, i, programIdx, outputFuncList, *callOp);
 }
 
-Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Operation *, bool> &result, size_t i,
+Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Operation *, bool, std::vector<std::vector<int>>> &result, size_t i,
     size_t &programIdx, std::vector<Function *> &outputFuncList, Operation &callOp) {
     const int getValue = 2;
     // 3.1 Hit subgraph
@@ -561,6 +593,21 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
     outputFuncList.push_back(std::get<0>(result));
     std::get<0>(result)->UpdateBelongToThis();
     return SUCCESS;
+}
+
+bool SubgraphToFunction::ReorderOutcast(const std::tuple<Function *, Operation *, bool, std::vector<std::vector<int>>> &result, const std::vector<int> &outcastOrder, const std::vector<int> &currentOutcastOrder) {
+    std::vector<int> applyOrder(outcastOrder.size(), -1);
+    // Deduce the order to apply on outcast
+    for (size_t i = 0; i < outcastOrder.size(); i++) {
+        applyOrder[outcastOrder[i]] = currentOutcastOrder[i];
+    }
+    APASS_LOG_DEBUG_F(Elements::Operation, "Apply Order is %s.", IntVecToStr(applyOrder).c_str());
+
+    std::get<0>(result)->SetFunctionOutcastOrder(applyOrder);
+
+    std::get<1>(result)->SetCallOpOutcastOrder(applyOrder, std::get<1>(result));
+
+    return true;
 }
 
 void SubgraphToFunction::SetSemanticLabel(const std::vector<std::shared_ptr<Operation>>& subgraph, Operation& callOp) {
