@@ -473,8 +473,7 @@ def ceil(input: Tensor) -> Tensor:
 
     See Also
     --------
-    floor : floor rounding (downward to the nearest integer)
-    round : rounding to the nearest integer (half up)
+    ceil : ceil rounding (upward to the nearest integer)
 
     Examples
     --------
@@ -488,6 +487,65 @@ def ceil(input: Tensor) -> Tensor:
     """
     return pypto_impl.Ceil(input)
 
+@op_wrapper
+def floor(input: Tensor) -> Tensor:
+    """Computes the element-wise squareroot of `input`.
+
+    This function calculates the formula: `out = √input`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise squareroot.
+
+    See Also
+    --------
+    floor : floor rounding (downward to the nearest integer)
+
+    Examples
+    --------
+    x = pypto.tensor([5], pypto.DT_FP32)
+    y = pypto.floor(x)
+
+    Input x:  [1.2 4.2 9.8 6.9 25.5]
+    Output y: [1.0 4.0 9.0 6.0  25.0]
+    """
+    return pypto_impl.Floor(input)
+
+@op_wrapper
+def trunc(input: Tensor) -> Tensor:
+    """Computes the element-wise squareroot of `input`.
+
+    This function calculates the formula: `out = √input`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise squareroot.
+
+    See Also
+    --------
+    trunc : trunc rounding (towards zero to the nearest integer)
+
+    Examples
+    --------
+    x = pypto.tensor([5], pypto.DT_FP32)
+    y = pypto.trunc(x)
+
+    Input x:  [1.3 4.2 9.8 16.4 25.8]
+    Output y: [1.0 4.0 10.0 16.0 26.0]
+    """
+    return pypto_impl.Trunc(input)
 
 @op_wrapper
 def sqrt(input: Tensor) -> Tensor:
