@@ -106,6 +106,10 @@ loop = managed_wrap(pypto.loop)
 set_cube_tile_shapes = managed_wrap(pypto.set_cube_tile_shapes)
 set_vec_tile_shapes = managed_wrap(pypto.set_vec_tile_shapes)
 
+# Platform
+l0_size = 64 * 1024
+ub_size = 192 * 1024
+
 
 def reduce_shape(shape: List[int], max_bytes: int, dtype_size: int) -> List[int]:
     current_shape = shape.copy()
@@ -122,9 +126,8 @@ def reduce_shape(shape: List[int], max_bytes: int, dtype_size: int) -> List[int]
     return current_shape
 
 
-def auto_cube_tile(m: List[int], k: List[int], n: List[int], dtype: dtypes.AnyDataType,
-                   l0_size: int = 64 * 1024) -> None:
-    for name, dims in [('m', m), ('k', k), ('n', n)]:
+def auto_cube_tile(m: List[int], k: List[int], n: List[int], dtype: dtypes.AnyDataType) -> None:
+    for name, dims in ('m', m), ('k', k), ('n', n):
         if any(d <= 0 for d in dims):
             raise ValueError(f"All {name} dimensions must be > 0, got {dims}")
 
@@ -142,8 +145,7 @@ def auto_cube_tile(m: List[int], k: List[int], n: List[int], dtype: dtypes.AnyDa
     set_cube_tile_shapes(new_m, new_k, new_n)
 
 
-def auto_vec_tile(target_shape: Iterable[int], dtype: dtypes.AnyDataType, buf_num: int = 2,
-                  ub_size: int = 192 * 1024) -> None:
+def auto_vec_tile(target_shape: Iterable[int], dtype: dtypes.AnyDataType, buf_num: int = 2) -> None:
     shape_list = list(target_shape)
 
     if any(d <= 0 for d in shape_list):

@@ -15,7 +15,7 @@ import pypto
 import torch
 
 from ..log import get_logger
-from .compound import Arange, CompoundMask, CompoundSentinel, TensorPointer, TensorWithOffset
+from .compound import BaseArange, CompoundMask, CompoundNode, TensorPointer, TensorWithOffset
 from .errors import NonAffineLayoutError
 from . import dtypes, pypto_wrap
 
@@ -784,32 +784,44 @@ class BaseMaskLayout:
 
 class StaticMaskLayout(BaseMaskLayout):
 
-    def __init__(self, bits: Optional[np.ndarray] = None):
+    def __init__(self, bits: np.ndarray) -> None:
+        assert bits is not None, "bits must be present"
+        assert bits.dtype == np.bool_, "bits dtype must be bool"
         self.bits = bits
 
     def __repr__(self) -> str:
-        if self.bits is None:
-            return "StaticMaskLayout()"
-        return f"StaticMaskLayout(bits=<numpy.ndarray>)"
+        return "StaticMaskLayout(bits=<numpy.ndarray>)"
 
-    def __str__(self) -> str:
-        return repr(self)
+    @classmethod
+    def apply_bitwise_op(cls, op, lhs, rhs) -> Self:
+        if isinstance(lhs, StaticMaskLayout):
+            lhs = lhs.bits
+        if isinstance(rhs, StaticMaskLayout):
+            rhs = rhs.bits
+        return StaticMaskLayout(op(lhs, rhs))
 
     def __and__(self, other) -> Self:
-        if self.bits is None:
-            return StaticMaskLayout()
-        rhs = other.bits if isinstance(other, StaticMaskLayout) else other
-        return StaticMaskLayout(self.bits & rhs)
+        return self.apply_bitwise_op(operator.and_, self, other)
+
+    def __rand__(self, other) -> Self:
+        return self.apply_bitwise_op(operator.and_, other, self)
 
     def __or__(self, other) -> Self:
-        if self.bits is None:
-            return StaticMaskLayout()
-        rhs = other.bits if isinstance(other, StaticMaskLayout) else other
-        return StaticMaskLayout(self.bits | rhs)
+        return self.apply_bitwise_op(operator.or_, self, other)
+
+    def __ror__(self, other) -> Self:
+        return self.apply_bitwise_op(operator.or_, other, self)
+
+    def __xor__(self, other) -> Self:
+        return self.apply_bitwise_op(operator.xor, self, other)
+
+    def __rxor__(self, other) -> Self:
+        return self.apply_bitwise_op(operator.xor, other, self)
+
+    def __invert__(self) -> Self:
+        return StaticMaskLayout(~self.bits)
 
     def __getitem__(self, slices) -> Self:
-        if self.bits is None:
-            return StaticMaskLayout()
         if not isinstance(slices, tuple):
             slices = (slices, )
         axes = tuple(i for i, k in enumerate(slices) if k is None)
@@ -819,9 +831,6 @@ class StaticMaskLayout(BaseMaskLayout):
         return StaticMaskLayout(np.broadcast_to(self.bits, shape))
 
     def valid_shape(self) -> Optional[Tuple[int, ...]]:
-        if self.bits is None:
-            return None
-        assert self.bits.dtype == np.bool_
         ndim = self.bits.ndim
         block_shape = []
         # Step 1: find block extent along each axis
@@ -849,7 +858,7 @@ class StaticMaskLayout(BaseMaskLayout):
         return block_shape
 
 
-class ArangeConcrete(Arange):
+class Arange(BaseArange):
 
     def to_affine(self):
         return AffineTensorLayout(sizes=self.end - self.start, strides=1)
@@ -873,8 +882,8 @@ def num_programs(axis: int) -> int:
     return Context.num_programs[axis]
 
 
-def arange(start: int, end: int) -> AffineTensorLayout:
-    return ArangeConcrete(start, end)
+def arange(start: int, end: int) -> Arange:
+    return Arange(start, end)
 
 
 def delinearize_offset(linear_offset: int, shape: Tuple[int, ...]) -> List[int]:
@@ -900,7 +909,7 @@ def compute_valid_shape(mask: Optional[BaseMaskLayout], target_shape: Iterable[i
 
 def tensor_to_affine(two: TensorWithOffset) -> BaseTensorLayout:
     offset = two.offset
-    if isinstance(offset, CompoundSentinel):
+    if isinstance(offset, CompoundNode):
         layout = offset.to_affine()
     else:
         layout = AffineTensorLayout(offset=offset, sizes=1, strides=1)
