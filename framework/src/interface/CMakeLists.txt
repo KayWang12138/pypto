@@ -19,6 +19,10 @@ file(GLOB _Interface_Srcs
         utils/*.cpp
         plugin/*.cpp
 
+        # Core infrastructure
+        core/*.cpp
+        ir/*.cpp
+
         # Operation
         operation/*.cpp
         operation/vector/*.cpp
@@ -54,7 +58,9 @@ target_link_libraries(tile_fwk_interface
             dl
             Threads::Threads
             tile_fwk_simulation_platform
+            libbacktrace
 )
+add_dependencies(tile_fwk_interface libbacktrace)
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
 

@@ -43,6 +43,7 @@ function(PTO_Fwk_UTest_AddCaseLib)
                 GTest::gtest
                 json
                 c_sec
+                libbacktrace
     )
     set(PTO_Fwk_UTestCaseLibraries       ${PTO_Fwk_UTestCaseLibraries}       ${ARG_TARGET}            CACHE INTERNAL "" FORCE)
     set(PTO_Fwk_UTestCaseLkLibrariesExt  ${PTO_Fwk_UTestCaseLkLibrariesExt}  ${ARG_LINK_LIBRARIES}    CACHE INTERNAL "" FORCE)
