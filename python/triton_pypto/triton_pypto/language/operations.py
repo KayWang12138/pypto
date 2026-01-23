@@ -15,6 +15,8 @@ import pypto
 import torch
 
 from ..log import get_logger
+from .compound import Arange, CompoundMask, CompoundSentinel, TensorPointer, TensorWithOffset
+from .errors import NonAffineLayoutError
 from . import dtypes, op_desc, pypto_wrap
 
 T = TypeVar("T")
@@ -167,8 +169,8 @@ class TensorWrapper(pypto_wrap.BaseWrapper[pypto.tensor]):
         return self.base.shape
 
     @property
-    def dtype(self) -> pypto.DataType:
-        return self.base.dtype
+    def dtype(self) -> dtypes.DataTypeInfo:
+        return dtypes.to_info(self.base.dtype)
 
     @property
     def rank(self) -> int:
@@ -277,7 +279,7 @@ class TensorWrapper(pypto_wrap.BaseWrapper[pypto.tensor]):
 
     def full_like(self, value: Real) -> Self:
         self.auto_vec_tile()
-        return TensorWrapper(pypto_wrap.full(self.shape, value, self.dtype))
+        return TensorWrapper(pypto_wrap.full(self.shape, value, dtypes.to_pypto(self.dtype)))
 
     def auto_vec_tile(self, buf_num: int = 2) -> None:
         pypto_wrap.auto_vec_tile(self.shape, self.dtype, buf_num=buf_num)
@@ -510,13 +512,34 @@ class StaticTensorLayout(SingleTensorLayout):
     def offset(self) -> int:
         return int(self.indices.flat[0])
 
+    def clone(self, indices: np.ndarray) -> Self:
+        return StaticTensorLayout(self.base, indices)
+
     def is_contiguous(self) -> bool:
         if self.indices.size < 2:
             return True
         return np.all(np.diff(self.indices.ravel()) == 1)
 
-    def __floordiv__(self, other: Any) -> Self:
-        return StaticTensorLayout(self.base, self.indices // other)
+    def __getitem__(self, slices):
+        item = self.indices.__getitem__(slices)
+        if isinstance(item, np.ndarray):
+            return self.clone(self.indices.__getitem__(slices))
+        return item
+
+    def __add__(self, other):
+        return self.clone(self.indices + other)
+
+    def __radd__(self, other):
+        return self.clone(other + self.indices)
+
+    def __mul__(self, other):
+        return self.clone(self.indices * other)
+
+    def __rmul__(self, other):
+        return self.clone(other * self.indices)
+
+    def __floordiv__(self, other):
+        return self.clone(self.indices // other)
 
     def __ge__(self, other) -> StaticMaskLayout:
         return StaticMaskLayout(self.indices >= other)
@@ -555,13 +578,13 @@ class AffineTensorLayout(SingleTensorLayout, StaticDynamic):
     @staticmethod
     def broadcast_sizes(lhs: np.ndarray, rhs: np.ndarray) -> np.ndarray:
         if np.any((lhs != 1) & (rhs != 1)):
-            raise RuntimeError("Non-affine layout")
+            raise NonAffineLayoutError
         return np.where(lhs != 1, lhs, rhs)
 
     @staticmethod
     def broadcast_strides(lhs: np.ndarray, rhs: np.ndarray) -> np.ndarray:
         if np.any((lhs != 0) & (rhs != 0)):
-            raise RuntimeError("Non-affine layout")
+            raise NonAffineLayoutError
         return np.where(lhs != 0, lhs, rhs)
 
     def __repr__(self) -> str:
@@ -612,7 +635,7 @@ class AffineTensorLayout(SingleTensorLayout, StaticDynamic):
         if c <= 0:
             raise ZeroDivisionError("Undefined layout")
         if self.offset % c != 0:
-            raise RuntimeError("Non-affine layout")
+            raise NonAffineLayoutError
         if np.any(self.strides % c != 0):
             return self.try_implicit_broadcast(self.to_static() // c)
         return self.clone(offset=self.offset // c, strides=self.strides // c)
@@ -637,7 +660,7 @@ class AffineTensorLayout(SingleTensorLayout, StaticDynamic):
         max_val = self.offset + contrib_max.sum()
         if min_val >= 0 and max_val < c:
             return self
-        raise RuntimeError("Non-affine layout")
+        raise NonAffineLayoutError
 
     def __gt__(self, other):
         return CompoundMaskLayout.gt(self, other)
@@ -698,7 +721,7 @@ class AffineTensorLayout(SingleTensorLayout, StaticDynamic):
         boundaries = np.concatenate(([0], switch_points, [offsets.size]))
         values = offsets[boundaries[:-1]]
         if values.size > offsets.size // 2:
-            raise RuntimeError("Non-affine layout")
+            raise NonAffineLayoutError
         counts = np.diff(boundaries)
         logger.debug("! Implicit broadcast %s %s", values, counts)
         layouts = []
@@ -872,6 +895,19 @@ class CompoundMaskLayout(BaseMaskLayout, StaticDynamic):
         return cls(op_desc.le, lhs, rhs)
 
 
+class ArangeConcrete(Arange):
+
+    def to_affine(self):
+        return AffineTensorLayout(sizes=self.end - self.start, strides=1)
+
+    def to_static(self):
+        return StaticTensorLayout(None, np.arange(self.start, self.end, dtype=np.int32))
+
+    def to_dynamic(self):
+        pypto_wrap.auto_vec_tile([self.end - self.start], pypto.DT_FP32)
+        return TensorWrapper(pypto_wrap.arange(float(self.start), float(self.end)))
+
+
 def program_id(axis: int) -> int:
     assert 0 <= axis <= 2
     return Context.program_id[axis]
@@ -883,7 +919,7 @@ def num_programs(axis: int) -> int:
 
 
 def arange(start: int, end: int) -> AffineTensorLayout:
-    return AffineTensorLayout(sizes=end - start, strides=1)
+    return ArangeConcrete(start, end)
 
 
 def delinearize_offset(linear_offset: int, shape: Tuple[int, ...]) -> List[int]:
@@ -897,7 +933,7 @@ def delinearize_offset(linear_offset: int, shape: Tuple[int, ...]) -> List[int]:
 def compute_valid_shape(mask: Optional[BaseMaskLayout], target_shape: Iterable[int]) -> Optional[Tuple[int]]:
     if Context.dynamic or mask is None:
         return None
-    if isinstance(mask, CompoundMaskLayout):
+    if isinstance(mask, CompoundMask):
         mask = mask.to_static()
     if not isinstance(mask, StaticMaskLayout):
         raise RuntimeError(f"valid shape cannot be computed from mask: {mask!r}")
@@ -907,8 +943,18 @@ def compute_valid_shape(mask: Optional[BaseMaskLayout], target_shape: Iterable[i
     return valid_shape
 
 
+def tensor_to_affine(two: TensorWithOffset) -> BaseTensorLayout:
+    offset = two.offset
+    if isinstance(offset, CompoundSentinel):
+        layout = offset.to_affine()
+    else:
+        layout = AffineTensorLayout(offset=offset, sizes=1, strides=1)
+    layout.base = two.base
+    return layout
+
+
 @log_call
-def load(pointer: BaseTensorLayout, mask: Optional[BaseMaskLayout] = None, other: Optional[Any] = None,
+def load(pointer: Any, mask: Optional[BaseMaskLayout] = None, other: Optional[Any] = None,
          **kwds) -> Union[TensorWrapper, TensorElementWrapper]:
     layout = pointer
     if other is not None and (not isinstance(other, Real) or other != 0):
@@ -918,6 +964,8 @@ def load(pointer: BaseTensorLayout, mask: Optional[BaseMaskLayout] = None, other
         if len(results) == 1:
             return results[0]
         return TensorWrapper(pypto_wrap.concat([result.tensor for result in results]))
+    if isinstance(layout, TensorWithOffset):
+        layout = tensor_to_affine(pointer)
     if not isinstance(layout, AffineTensorLayout):
         raise TypeError(f"{layout.__class__.__name__} is not supported in single tensor load")
     if not isinstance(layout.base, HostTensorWrapper):
@@ -948,8 +996,11 @@ def load(pointer: BaseTensorLayout, mask: Optional[BaseMaskLayout] = None, other
 
 
 @log_call
-def store(pointer: BaseTensorLayout, value: TensorWrapper, mask: Optional[BaseMaskLayout] = None, **kwds) -> None:
-    layout = pointer
+def store(pointer: Any, value: TensorWrapper, mask: Optional[BaseMaskLayout] = None, **kwds) -> None:
+    if isinstance(pointer, TensorWithOffset):
+        layout = tensor_to_affine(pointer)
+    else:
+        layout = pointer
     if not isinstance(layout, AffineTensorLayout):
         raise TypeError(f"store requires {AffineTensorLayout.__name__}, got {layout.__class__.__name__}")
     if not isinstance(layout.base, HostTensorWrapper):
@@ -969,9 +1020,14 @@ def store(pointer: BaseTensorLayout, value: TensorWrapper, mask: Optional[BaseMa
 
 
 @log_call
-def make_block_ptr(base: AffineTensorLayout, shape: Tuple[int, ...], strides: Tuple[int, ...], offsets: Tuple[int, ...],
+def make_block_ptr(base: Any, shape: Tuple[int, ...], strides: Tuple[int, ...], offsets: Tuple[int, ...],
                    block_shape: Tuple[int, ...], order: Tuple[int, ...]) -> AffineTensorLayout:
-    layout = base
+    if isinstance(base, TensorWithOffset):
+        layout = tensor_to_affine(base)
+    elif isinstance(base, TensorPointer):
+        layout = AffineTensorLayout(base=base.base, offset=0, sizes=1, strides=0)
+    else:
+        layout = base
     if not isinstance(layout, AffineTensorLayout):
         raise RuntimeError(f"base must be AffineTensorLayout, got {layout.__class__.__name__}")
     rank = len(shape)
@@ -1139,6 +1195,8 @@ def trans(input: TensorWrapper, *dims: Union[int, Iterable[int]]) -> TensorWrapp
 @log_call
 def where(condition: Union[CompoundMaskLayout, TensorWrapper], x: TensorWrapper, y: TensorWrapper) -> TensorWrapper:
     if isinstance(condition, CompoundMaskLayout):
+        condition = condition.to_dynamic()
+    elif isinstance(condition, CompoundMask):
         condition = condition.to_dynamic()
     condition.auto_vec_tile()
     return TensorWrapper(pypto_wrap.where(condition, x, y))
