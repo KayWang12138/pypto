@@ -1029,7 +1029,7 @@ Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
         issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
         return SUCCESS;
     }
-    if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() < MemoryType::MEM_FIX) {
+    if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() <= MemoryType::MEM_BT) {
         issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIC);
         return SUCCESS;
     }
@@ -1042,7 +1042,7 @@ Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
             issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
             return SUCCESS;
         }
-        if (op->GetInputOperand(0)->GetMemoryTypeOriginal() < MemoryType::MEM_FIX) {
+        if (op->GetInputOperand(0)->GetMemoryTypeOriginal() <= MemoryType::MEM_BT) {
             issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIC);
             return SUCCESS;
         }
