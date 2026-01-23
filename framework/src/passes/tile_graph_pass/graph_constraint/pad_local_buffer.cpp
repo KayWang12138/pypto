@@ -37,6 +37,7 @@ const std::vector<bool> AXIS_COMBINED = {true};
 const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
 const int64_t BRCB_SECOND_LAST_BASE = 8;
 const size_t LAST_SECOND_AXIS = 2;
+const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
 int64_t Pad(int64_t dim, int64_t padValue) {
     return (dim + padValue - 1) / padValue * padValue;
 }
@@ -172,7 +173,7 @@ void PadLocalBuffer::PadVector(Operation &op, LogicalTensorPtr &in, std::unorder
         in->oriShape = in->shape;
         in->tensor->UpdateRawShape(in->shape);
         in->tensor->oriRawshape = in->tensor->rawshape;
-        if (ConfigManager::Instance().GetOperationConfig(KEY_FORCE_COMBINE_AXIS, false) && paddingValue > 0 && in->tensor->rawshape[lastIdx - 1] % paddingValue != 0) {
+        if (forceCombineAxis && paddingValue > 0 && in->tensor->rawshape[lastIdx - 1] % paddingValue != 0) {
             int64_t shapeAfterPad = Pad(in->tensor->rawshape[lastIdx - 1], paddingValue);
             in->tensor->rawshape[lastIdx - 1] = shapeAfterPad;
         }
@@ -232,8 +233,9 @@ void PadLocalBuffer::TraverseBroadcast(Function &function, Operation &consumer, 
         }
     }
     if (broadcastInputCombined.empty()) {
-        APASS_LOG_ERROR_F(Elements::Tensor, "cannot find tensor %d in input of op %d %s; Please check the input tensor.", output->magic, consumer.opmagic,
-            consumer.GetOpcodeStr().c_str());
+        APASS_LOG_ERROR_F(Elements::Tensor,
+            "cannot find tensor %d in input of op %d %s; Please check the input tensor.", output->magic,
+            consumer.opmagic, consumer.GetOpcodeStr().c_str());
         return;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s input's last dim should not be padded.", consumer.opmagic, consumer.GetOpcodeStr().c_str());
@@ -325,7 +327,7 @@ void PadLocalBuffer::ProcessReduce(Function &function, Operation &op) {
         if (paddingIter != BLOCK_PADDING_DIM.end()) {
             paddingDim = paddingIter->second;
         }
-        if (!ConfigManager::Instance().GetOperationConfig(KEY_FORCE_COMBINE_AXIS, false) && paddingDim > 0 && op.oOperand[0]->shape[op.GetOOperands()[0]->shape.size() - AXIS_COMBINE_MIN_SHAPE_SIZE] % paddingDim != 0) {
+        if (!forceCombineAxis && paddingDim > 0 && op.oOperand[0]->shape[op.GetOOperands()[0]->shape.size() - AXIS_COMBINE_MIN_SHAPE_SIZE] % paddingDim != 0) {
             return;
         }
         APASS_LOG_DEBUG_F(Elements::Operation, "op %d %s is reduce, next to last dim is aligned\n", op.opmagic, op.GetOpcodeStr().c_str());
@@ -407,7 +409,7 @@ void PadLocalBuffer::DoPadding(Function &function) {
             if (in->tensor->GetRawDataSize() == 0) {
                 continue;
             }
-            if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+            if (function.paramConfigs_.combineAxis) {
                 PadVectorForAxisCombine(op, in, visitedRaw);
             } else {
                 bool noPadding = false;
@@ -478,32 +480,52 @@ inline bool IsCopyIn(Operation& op) {
     return true;
 }
 
-int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(Operation &op, size_t blockPadding) {
-    int64_t maxLastAxis = 0;
-    size_t dimSize = 0;
-    bool existLargeBlock = true;
-    for (const auto &in : op.iOperand) {
-        dimSize = std::max(dimSize, in->shape.size());
-        if (in->shape.back() < static_cast<int>(blockPadding)) {
-            existLargeBlock = false;
-        }
-        maxLastAxis = std::max(maxLastAxis, in->shape.back());
+int64_t PadLocalBuffer::ProcessBroadcastForAxisCombine(LogicalTensorPtr &inTensor) {
+    int dimSize = inTensor->GetShape().size();
+    if (inTensor->shape.back() != 1) {
+        return (dimSize - 1);
     }
-    if (maxLastAxis == 1 && dimSize > 1) {
+    if (dimSize > 1) {
         return (dimSize - LAST_SECOND_AXIS);
-    }
-    if (existLargeBlock) {
-        return -1;
     }
     return (dimSize - 1);
 }
 
-void AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t base) {
+int64_t AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t base) {
     if (in == nullptr || pos < 0 || pos >= static_cast<int64_t>(in->tensor->rawshape.size())) {
-        return;
+        return -1;
     }
     int64_t padDim = Pad(in->tensor->rawshape[pos], base);
     in->tensor->rawshape[pos] = padDim;
+    return padDim;
+}
+
+void ProcessReduceForAxisCombine(Operation &op, LogicalTensorPtr &in, size_t paddingValue) {
+    auto axis = op.GetIntAttribute(REDUCE_AXIS);
+    int64_t shapeSize = static_cast<int64_t>(in->shape.size());
+    int64_t lastIdx = shapeSize - 1;
+    if (shapeSize == 1 || axis == shapeSize - 2) {
+        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        return;
+    }
+    int64_t idx = lastIdx;
+    bool isFound = false;
+    for (; idx >= 0; --idx) {
+        if (in->shape[idx] != 1) {
+            isFound = true;
+            break;
+        }
+    }
+    if (!isFound) {
+        idx = lastIdx;
+    }
+    int64_t padDim = AlignedRawTensorIfNeed(in, idx, paddingValue);
+    if (op.GetOpcode() == Opcode::OP_ROWSUMLINE) {
+        auto tempBuffer = op.GetOOperands()[1];
+        size_t tempBufferLastIdx = tempBuffer->shape.size() - 1;
+        tempBuffer->shape[tempBufferLastIdx] = padDim;
+        tempBuffer->GetRawTensor()->rawshape[tempBufferLastIdx] = padDim;
+    }
 }
 
 void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in, std::unordered_set<std::shared_ptr<RawTensor>> &visitedRaw) {
@@ -528,7 +550,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         AlignedRawTensorIfNeed(in, lastIdx - 1, BRCB_SECOND_LAST_BASE);
     }
     if (calcType == OpCalcType::REDUCE) {
-        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        ProcessReduceForAxisCombine(op, in, paddingValue);
         return;
     }
     if (op.GetOpcode() == Opcode::OP_BRCB) {
@@ -543,12 +565,16 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         }
     }
     if (calcType == OpCalcType::BROADCAST) {
-        auto dimIdx = ProcessBroadcastForAxisCombine(op, paddingValue);
+        auto dimIdx = ProcessBroadcastForAxisCombine(in);
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
         return;
     }
     if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT ||
             (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
+        if (op.GetOpcode() == Opcode::OP_EXPAND) {
+            AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+            return;
+        }
         if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
             AlignedRawTensorIfNeed(in, lastIdx - 1, paddingValue);
             return;
@@ -558,8 +584,12 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
 }
 
 Status PadLocalBuffer::RunOnFunction(Function &function) {
-    if (ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false)) {
+    combineAxis = function.paramConfigs_.combineAxis;
+    forceCombineAxis = function.paramConfigs_.forceCombineAxis;
+    if (combineAxis) {
+        APASS_LOG_INFO_F(Elements::Operation, "======> Start PadLocalBuffer in COMBINE_AXIS mode.");
         DoPadding(function);
+        APASS_LOG_INFO_F(Elements::Operation, "======> End PadLocalBuffer in COMBINE_AXIS mode.");
         return SUCCESS;
     }
     for (auto &op : function.Operations()) {
@@ -569,7 +599,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
             ProcessReduce(function, op);
         }
 
-        if (ConfigManager::Instance().GetOperationConfig(KEY_FORCE_COMBINE_AXIS, false) && IsCopyIn(op)) {
+        if (forceCombineAxis && IsCopyIn(op)) {
             ProcessCopyIn(function, op);
         }
 

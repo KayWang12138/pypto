@@ -39,6 +39,8 @@ DeviceLauncherContext &DeviceLauncherContext::Get() {
     return context;
 }
 
+std::vector<uint8_t> DeviceLauncher::tensorInfo_(kDefaultTensorinfoSize);
+
 #ifdef BUILD_WITH_CANN
 static const std::unordered_map<int, std::function<void(bool&)>> captureStatusHandlers = {
     {aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE, [](bool& isCapture) {isCapture = true;}},
@@ -127,8 +129,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
         const DeviceLauncherConfig &config) {
     bool isCapture = false;
-    std::cout << "!!! Kernel Launch " << "\n";
-    config::SetRunDataOption(KEY_RUNTYPE, "npu");
+    ALOG_INFO_F("start Kernel Launch.");
     if (function != nullptr && function->GetDyndevAttribute() != nullptr) {
         DeviceRunner::SetBinData(function->GetDyndevAttribute()->kernelBinary);
     }
@@ -159,10 +160,10 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     CheckDeviceId();
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
+    DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
     DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary, config, cachedOperator);
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList,
-        function->GetDyndevAttribute()->disableL2List, config.isGETensorList);
+    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, function->GetDyndevAttribute()->disableL2List);
     rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))));
     if (rc < 0) {
         ALOG_ERROR_F("Register kernel bin failed.");
@@ -179,6 +180,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     if (streamSynchronize) {
         rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
     }
+    ALOG_INFO_F("finish Kernel Launch.");
     return rc;
 }
 
@@ -329,4 +331,12 @@ void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
 #endif
 }
 
+void CopyHostToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
+#ifdef BUILD_WITH_CANN
+    DeviceMemoryUtils().CopyToDev((uint8_t *)devTensor.GetAddr(), (uint8_t *)hostTensor.GetAddr(), devTensor.GetDataSize());
+#else
+    (void)devTensor;
+    (void)hostTensor;
+#endif
+}
 }

@@ -12,7 +12,7 @@
  * \file dev_encode.cpp
  * \brief
  */
-
+#include "tilefwk/platform.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 
@@ -25,6 +25,7 @@
 #include "interface/program/program.h"
 #include "interface/configs/config_manager.h"
 
+#include "ir/function.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -42,11 +43,13 @@ namespace dynamic {
 
 constexpr int32_t CALLOP_ARG_ATTR_BASE_INDEX = 1;
 constexpr int32_t MINI_TILE_LIST_SIZE_THRESHOLD = 16;
-constexpr int32_t DEFAULT_CORE_NUM = 75;
+constexpr int32_t MAX_AICORE_NUM_2210 = 75;
+constexpr int32_t MAX_AICORE_NUM_3510 = 108;
 constexpr int32_t SLOTS_NEED_ALLOC_SIZE = 2;
 constexpr int64_t MAX_SHAPE_WARN_THRESHOLE = 512 * 512;
 constexpr int32_t ALLOC_NUM_ONE_SLAB = 4;
 constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
+constexpr int32_t MAX_CELLMATCHSSTRIDE = 20000000;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
 
@@ -599,8 +602,10 @@ void DevAscendFunction::InitOperation(
     }
 }
 
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
 void DevAscendFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<Operation *> &callList, bool fillContent) {
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+        return;
+    }
     opWrapList_.HostInitDataSizeOffset(initOffset, callList.size());
     opWrapTaskNumList_.HostInitDataSizeOffset(initOffset, callList.size());
 
@@ -620,7 +625,6 @@ void DevAscendFunction::InitWrapInfo(uintdevptr_t &initOffset, const OrderedSet<
         }
     }
 }
-#endif
 
 void DevAscendFunction::InitIncastOutcast(
         uintdevptr_t &initOffset,
@@ -952,11 +956,14 @@ struct EncodeDevAscendFunctionInfo {
             cellMatchSize *= tile;
             cellMatchStride[r] = cellMatchSize;
         }
-        ALOG_DEBUG_F("Incast %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
+        ALOG_DEBUG_F("Outcast is %d raw %d shape %s | cellMatchSize %d cellMatchShape %s cellMatchStride %s\n", tensor->magic, tensor->GetRawMagic(),
             IntVecToStr(tensor->shape).c_str(),
             cellMatchSize,
             IntVecToStr(ShapeToVector(cellMatchShape)).c_str(),
             IntVecToStr(StrideToVector(cellMatchStride)).c_str());
+        ASSERT(cellMatchStride[0] < MAX_CELLMATCHSSTRIDE) << " Assemble outcast " << tensor->magic << "raw" << tensor->GetRawMagic()
+ 	         <<"stitch results in excessive memory consumption," 
+ 	         << "Please appropriately configure the view shape and tile shape, and ensure aligned with the input shape."; 
     }
 
     void RecordRawTensor(const std::shared_ptr<LogicalTensor> &tensor) {
@@ -1409,13 +1416,24 @@ struct EncodeDevAscendFunctionInfo {
         FunctionCache &cache = Program::GetInstance().GetFunctionCache();
         for (auto &[callop, succSet] : callOpSuccDict) {
             Function *devLeafFunc = cache.GetCacheFunction(callop->GetCalleeHash());
+            std::shared_ptr<LeafFuncAttribute> leafAttr = nullptr;
             if (devLeafFunc == nullptr) {
-                ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB)) << "GetCoreType return unexpected value: " <<
-                       GetCoreType(callop) << ", expected: " << static_cast<int>(CoreType::HUB) << " for callop: " << callop;
-                copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
+                pto::BlockFunction *devIrBlockFunc = cache.GetCacheIrBlockFunction(callop->GetCalleeHash());
+                if (devIrBlockFunc == nullptr) {
+                    ASSERT(GetCoreType(callop) == static_cast<int>(CoreType::HUB)) << "GetCoreType return unexpected value: " <<
+                       GetCoreType(callop) << ", expectedBlockFunction: " << static_cast<int>(CoreType::HUB) << " for callop: " << callop;
+                    copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
+                    continue;
+                }
+                leafAttr = devIrBlockFunc->GetLeafFuncAttribute();
+            } else {
+                leafAttr = devLeafFunc->GetLeafFuncAttribute();
+            }
+
+            if (leafAttr == nullptr) {
+                ALOG_ERROR_F("Leaf Attr of leaf function %s is nullptr.", callop->GetCalleeMagicName().c_str());
                 continue;
             }
-            std::shared_ptr<LeafFuncAttribute> leafAttr = devLeafFunc->GetLeafFuncAttribute();
             if (leafAttr->outcastCopyOutResolveCounterList.size() == 0) {
                 copyOutResolveSuccIndexListDict[callop] = std::vector<int>({0});
                 continue;
@@ -1620,9 +1638,7 @@ struct EncodeDevAscendFunctionInfo {
                 initOffset, expressionTable, callList, tensorList, rawTensorList,
                 callOpPredDict, callOpSuccDict, calleeHashIndexDict, outcastStitchIndexList,
                 noPredOpList, noSuccOpList, copyOutResolveSuccIndexListDict, fillContent);
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
         devFunc->InitWrapInfo(initOffset, callList, fillContent);
-#endif
         devFunc->InitIncastOutcast(initOffset, incastList, outcastList, tensorList, incastOpAttrDict, outcastOpAttrDict, param, rawName, fillContent);
     }
 };
@@ -1717,10 +1733,8 @@ void DevAscendProgram::InitCceCodeList(uintdevptr_t &initOffset, const std::vect
             cceCodeList[index].coreType = cceInfo[index].coreType;
             cceCodeList[index].psgId = cceInfo[index].psgId;
             cceCodeList[index].funcHash = cceInfo[index].funcHash;
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
             cceCodeList[index].wrapVecId = cceInfo[index].wrapVecId;
             cceCodeList[index].mixResourceType = cceInfo[index].mixResourceType;
-#endif
             auto dataLen = cceInfo[index].aicpuLeafCode.size();
             aicpuLeafCodeList[index].aicpuLeafCode.HostAssignRangeOffsetSize(aicpuLeafCodeDataList, offset, dataLen);
             (void)memcpy_s(aicpuLeafCodeList[index].aicpuLeafCode.Data(), sizeof(int32_t) * dataLen,
@@ -2092,17 +2106,19 @@ static bool IsAssembleSlot(std::vector<SlotInfo> &slots, DevAscendFunction *func
 };
 
 static int ParseUnrollTimes(const std::string &rawName) {
-    static const std::string UNROLL_MARK = "_Unroll";
-
-    auto unrollPos = rawName.rfind(UNROLL_MARK);
-    if (unrollPos == std::string::npos) {
-        return 1;
+    const static std::string UNROLL_MARKS[2] = {"_LoopUnroll", "_Unroll"};
+    int unrollTimes = 1;
+    for (auto& unrollMask : UNROLL_MARKS) {
+        auto unrollPos = rawName.rfind(unrollMask);
+        if (unrollPos == std::string::npos) {
+            continue;
+        }
+        std::string suffix = rawName.substr(unrollPos + unrollMask.length());
+        if (std::isdigit(suffix.front())) {
+            unrollTimes *= std::stoi(suffix);
+        }
     }
-    std::string suffix = rawName.substr(unrollPos + UNROLL_MARK.length());
-    if (!std::isdigit(suffix.front())) {
-        return 1;
-    }
-    return std::stoi(suffix);
+    return unrollTimes;
 }
 
 static uint64_t CalcUnrolledRootBudget(uint64_t budget, int unrollTimes, int configMultiplier) {
@@ -2252,9 +2268,23 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func, DevAscendProgra
     return res;
 }
 
-static uint64_t CalcGeneralMetadataWorkspace(DevAscendProgram *devProg) {
+static uint64_t CalcGeneralMetadataSlotWorkspace(DevAscendProgram *devProg) {
+    uint64_t generalMetadataSlotSize = 0;
+    uint64_t itemPoolMemSize = DeviceWorkspaceAllocator::CalcMetadataItemPoolMemSize(devProg);
+    uint64_t vectorMemSize = DeviceWorkspaceAllocator::CalcMetadataVectorMemSize(devProg);
+    uint64_t slotAllocatorMemSize = DeviceWorkspaceAllocator::CalcMetadataSlotAllocatorMemSize(devProg);
+    ALOG_DEBUG_F("itemPoolMemSize is: %lu, vectorMemSize is: %lu, slotAllocatorMemSize is %lu,", 
+                  itemPoolMemSize, vectorMemSize, slotAllocatorMemSize);
+    static constexpr uint64_t AICPU_SLOT_STATIC_MEMSIZE = 2 * MEBI;
+    generalMetadataSlotSize = itemPoolMemSize + vectorMemSize + 
+                              slotAllocatorMemSize + AICPU_SLOT_STATIC_MEMSIZE;
+    ALOG_DEBUG_F("workspace of generalMetadataSlotSize is %lu, ", generalMetadataSlotSize);
+    return generalMetadataSlotSize;
+}
+
+static uint64_t CalcGeneralMetadataSlabWorkspace(DevAscendProgram *devProg) {
     DeviceWorkspaceAllocator workspace(devProg);
-    uint64_t generalMetadataSize = 0;
+    uint64_t generalMetadataSlabSize = 0;
     uint32_t slabSize = workspace.CalcSlabMemObjmaxSize() * ALLOC_NUM_ONE_SLAB;
     uint32_t slabCapacity[ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)];
     size_t objUsedNum [ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT)] {
@@ -2263,10 +2293,8 @@ static uint64_t CalcGeneralMetadataWorkspace(DevAscendProgram *devProg) {
         1,// VecStitchList
         1,// DynDevTask
         READY_QUEUE_SIZE, //ReadyQue
-        #ifdef SUPPORT_MIX_SUBGRAPH_SCHE
         1,
         1,
-        #endif
     };
     workspace.CalculateSlabCapacityPerType(slabSize, slabCapacity,
     ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT));
@@ -2281,11 +2309,11 @@ static uint64_t CalcGeneralMetadataWorkspace(DevAscendProgram *devProg) {
         if(i == ToUnderlying(WsAicpuSlabMemType::DUPPED_FUNC_DATA) ||
          i == ToUnderlying(WsAicpuSlabMemType::READY_QUE)) requiredSlabNum++;
         ALOG_DEBUG_F("requiredSlabNum[%d] is %u", i, requiredSlabNum);
-        generalMetadataSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
+        generalMetadataSlabSize += static_cast<uint64_t>(requiredSlabNum) * slabSize;
     }
-    ALOG_DEBUG_F("generalMetadataSize is %u", generalMetadataSize);
-    generalMetadataSize = (generalMetadataSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSize;
-    return generalMetadataSize;
+    ALOG_DEBUG_F("generalMetadataSlabSize is %u", generalMetadataSlabSize);
+    generalMetadataSlabSize = (generalMetadataSlabSize < GENERAL_METADATA_SIZE_MIN) ? GENERAL_METADATA_SIZE_MIN : generalMetadataSlabSize;
+    return generalMetadataSlabSize;
 }
 
 static uint64_t CalcStitchWorkspace(DevAscendProgram &devProg) {
@@ -2324,12 +2352,14 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.tensor.maxStaticOutcastMem = tensorWsRes.maxStaticOutcastMem;
         base->memBudget.tensor.devTaskBoundaryOutcastNum = tensorWsRes.devTaskBoundaryOutcastNum;
 
-        base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * DEFAULT_CORE_NUM;
+        int32_t maxCoreNum = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 ? MAX_AICORE_NUM_3510 : MAX_AICORE_NUM_2210;
+        base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * maxCoreNum;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->stitchFunctionNumInitial = func->paramConfigs_.stitchFunctionNumInitial_;
         base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
         base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
-        base->memBudget.metadata.general = CalcGeneralMetadataWorkspace(base);
+        base->memBudget.metadata.general = CalcGeneralMetadataSlotWorkspace(base);
+        base->memBudget.metadata.general += CalcGeneralMetadataSlabWorkspace(base);
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
         base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
 

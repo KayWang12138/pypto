@@ -22,6 +22,12 @@ else ()
     get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../" ABSOLUTE)
 endif()
 
+file(GLOB _Device_Utils_Srcs
+    ${PTO_FWK_SRC_ROOT}/framework/src/machine/utils/dynamic/dev_encode_function.cpp
+    ${PTO_FWK_SRC_ROOT}/framework/src/machine/utils/dynamic/dev_encode_function_dupped_data.cpp
+    ${PTO_FWK_SRC_ROOT}/framework/src/machine/utils/dynamic/dev_encode_program.cpp
+)
+
 add_subdirectory(dynamic)
 
 # 缺省编译配置, 编译函数
@@ -39,7 +45,7 @@ file(GLOB_RECURSE _Stub_Srcs stub/*.cpp)
 list(REMOVE_ITEM _Device_Srcs ${_Stub_Srcs})
 
 add_library(tile_fwk_server SHARED)
-target_sources(tile_fwk_server PRIVATE ${_Device_Srcs})
+target_sources(tile_fwk_server PRIVATE ${_Device_Srcs} ${_Device_Utils_Srcs})
 target_compile_options(tile_fwk_server
         PRIVATE
             -Wall
@@ -62,11 +68,9 @@ target_include_directories(tile_fwk_server
             ${PTO_FWK_SRC_ROOT}/framework/src/interface/machine/device
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
         PRIVATE  # 使用 CANN 场景依赖
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include>
-        PRIVATE  # 使用 CANN 整包
-            $<$<BOOL:${BUILD_OPEN_PROJECT}>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>
-        PRIVATE  # 使用 CANN 分包
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN_SUB}>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
+            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include>>
+            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/include/toolchain>>
+            $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
 )
 target_link_directories(tile_fwk_server
         PRIVATE

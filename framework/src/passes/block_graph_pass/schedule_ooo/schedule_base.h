@@ -69,12 +69,14 @@ public:
     ScheduleBase() {}
     ~ScheduleBase() {}
 
-    std::map<Operation*, std::set<Operation*>> inGraph;
-    std::map<Operation*, std::set<Operation*>> outGraph;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> inGraph;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> outGraph;
     std::unordered_map<int, int> bufRefCount;
     std::unordered_map<MemoryType, int64_t> localMemSize; //内存剩余情况
     std::unordered_map<MemoryType, int64_t> localMemoryCurrentSize;
     std::unordered_map<int, LocalBufferPtr> localBufferMap; //memid:local
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> opConsumers;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> opProducers;
 
     //  初始依赖的list序列
     std::vector<Operation*> operations;
@@ -111,16 +113,35 @@ public:
         localMemoryCurrentSize = localMemSize;
     }
 
+    void InitOpConsumerAndProducer() {
+        std::unordered_set<Operation*> operationList;
+        for (auto op : operations) {
+            operationList.insert(op);
+        }
+        for (auto op : operations) {
+            for (auto consumer : op->ConsumerOps()) {
+                if (operationList.find(consumer) != operationList.end()) {
+                    opConsumers[op].insert(consumer);
+                }
+            }
+            for (auto producer : op->ProducerOps()) {
+                if (operationList.find(producer) != operationList.end()) {
+                    opProducers[op].insert(producer);
+                }
+            }
+        }
+    }
+
     void InitLocalBuffer(LogicalTensorPtr operand, int memId) {
         if (operand->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
             return;
         }
         if (localBufferMap.find(memId) == localBufferMap.end()) {
             localBufferMap[memId] = std::make_shared<LocalBuffer>(
-                memId, ShapeCeilAlign(operand->GetShape(), operand->Datatype()), operand->GetMemoryTypeOriginal());
+                memId, ShapeCeilAlign(operand->tensor->rawshape, operand->Datatype()), operand->GetMemoryTypeOriginal());
         } else {
             localBufferMap[memId]->size =
-                std::max(localBufferMap[memId]->size, ShapeCeilAlign(operand->GetShape(), operand->Datatype()));
+                std::max(localBufferMap[memId]->size, ShapeCeilAlign(operand->tensor->rawshape, operand->Datatype()));
         }
     }
 
@@ -202,7 +223,7 @@ public:
         }
     }
 
-    Status InitAllocDependencies(Operation* op, std::map<int, Operation*> tensor2AllocMap) {
+    Status InitAllocDependencies(Operation* op, std::unordered_map<int, Operation*> &tensor2AllocMap) {
         for (auto &tensor : op->GetOOperands()) {
             int memId = tensor->memoryrange.memId;
             if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
@@ -224,12 +245,6 @@ public:
     }
 
     void AddDependency(Operation* preOp, Operation* postOp, bool isAlloc) {
-        if (std::find(operations.begin(), operations.end(), preOp) == operations.end()) {
-            return;
-        }
-        if (std::find(operations.begin(), operations.end(), postOp) == operations.end()) {
-            return;
-        }
         if (isAlloc || (!IsOpAlloc(preOp) && !IsOpAlloc(postOp))) {
             outGraph[preOp].insert(postOp);
             inGraph[postOp].insert(preOp);
@@ -237,31 +252,19 @@ public:
     }
 
     void FindDependencies(Operation* op) {
-        for (auto &producer : op->ProducerOps()) {
-            if (producer->GetOpcode() == Opcode::OP_VIEW) {
-                for (auto viewProducer : producer->ProducerOps()) {
-                    AddDependency(viewProducer, op, false);
-                }
-                continue;
-            }
+        for (auto &producer : opProducers[op]) {
             AddDependency(producer, op, false);
         }
-        for (auto &consumer : op->ConsumerOps()) {
-            if (consumer->GetOpcode() == Opcode::OP_VIEW) {
-                for (auto viewConsumer : consumer->ConsumerOps()) {
-                    AddDependency(op, viewConsumer, false);
-                }
-            }
+        for (auto &consumer : opConsumers[op]) {
+            AddDependency(op, consumer, false);
         }
     }
 
     Status InitDependencies() {
+        std::unordered_map<int, Operation*> tensor2AllocMap;
         for (const auto &op : operations) {
             inGraph[op].clear();
             outGraph[op].clear();
-        }
-        std::map<int, Operation*> tensor2AllocMap;
-        for (const auto &op : operations) {
             if (IsOpAlloc(op)) {
                 if (op->GetOOperands().size() != 1) {
                     APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] oOperand must be 1.", op->GetOpMagic());
@@ -285,7 +288,74 @@ public:
         return SUCCESS;
     }
 
-    void UpdateAllocMap(Operation* op, std::map<int, Operation*> tensorAllocMap) {
+    void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap) {
+        for (auto logicalTensor : tensors) {
+            if (memIdMap.find(logicalTensor->memoryrange.memId) == memIdMap.end()) {
+                bufferSize[logicalTensor->GetMemoryTypeOriginal()] += logicalTensor->GetDataSize();
+                memIdMap.insert(logicalTensor->memoryrange.memId);
+            }
+        }
+    }
+
+    std::string DumpOpInfo(Operation &op) {
+        std::ostringstream os;
+        os << "op: " << op.GetOpcodeStr().c_str() << "[" << op.GetOpMagic() << "] | ";
+        os << "inputs: { ";
+        for (size_t i = 0; i < op.iOperand.size(); i++) {
+            os << "Tensor [" << op.GetInputOperand(i)->GetMagic() << "] ";
+            os << op.iOperand[i]->DumpSSA(false, true, true);
+            if (i != op.iOperand.size() - 1) {
+                os << ", ";
+            }
+        }
+        os << " }" << " | ";
+        os << "outputs: { ";
+        for (size_t i = 0; i < op.oOperand.size(); i++) {
+            os << "Tensor [" << op.GetOutputOperand(i)->GetMagic() << "] ";
+            os << op.oOperand[i]->DumpSSA(false, true, true);
+            if (i != op.oOperand.size() - 1) {
+                os << ", ";
+            }
+        }
+        os << "} ";
+        return os.str();
+    }
+
+    Status CheckOpBufferSize(Operation *op) {
+        std::map<MemoryType, int64_t> bufferSizeMap;
+        std::set<int> memIdMap;
+        CalcBufferSize(op->GetIOperands(), bufferSizeMap, memIdMap);
+        CalcBufferSize(op->GetOOperands(), bufferSizeMap, memIdMap);
+        for (auto &bufferPair : bufferSizeMap) {
+            if (localMemSize.find(bufferPair.first) == localMemSize.end()) {
+                continue;
+            }
+            if (bufferPair.second <= localMemSize[bufferPair.first]) {
+                continue;
+            }
+            if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Alloc tensor [%d] size [%d] exceeds %s size [%d]! %s",
+                    op->GetOutputOperand(0)->GetMagic(), bufferPair.second, MemoryTypeToString(bufferPair.first).c_str(),
+                    localMemSize[bufferPair.first], GetFormatBacktrace(*op).c_str());
+                APASS_LOG_ERROR_F(Elements::Operation, "Tensor [%d] producer info:", op->GetOutputOperand(0)->GetMagic());
+                for (auto producer : op->GetOutputOperand(0)->GetProducers()) {
+                    if (producer == op) {
+                        continue;
+                    }
+                    APASS_LOG_ERROR_F(Elements::Operation, "      %s.", DumpOpInfo(*producer).c_str());
+                }
+            } else {
+                APASS_LOG_ERROR_F(Elements::Operation, "OP %s[%d] in/output total size [%ld] exceeds %s size [%d]!",
+                    op->GetOpcodeStr().c_str(), op->GetOpMagic(), bufferPair.second, MemoryTypeToString(bufferPair.first).c_str(),
+                    localMemSize[bufferPair.first]);
+                APASS_LOG_ERROR_F(Elements::Operation, " %s.", DumpOpInfo(*op).c_str());
+            }
+            return FAILED;
+        }
+        return SUCCESS;
+    }
+
+    void UpdateAllocMap(Operation* op, std::map<int, Operation*> &tensorAllocMap) {
         for (auto outTensor : op->GetOOperands()) {
             if (outTensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
                 continue;
@@ -315,8 +385,13 @@ public:
                         GetOpInfo(op).c_str());
                     return FAILED;
                 }
+                UpdateAllocMap(op, tensorAllocMap);
             }
-            UpdateAllocMap(op, tensorAllocMap);
+        }
+        for (const auto &op : list) {
+            if (!IsOpAlloc(op)) {
+                UpdateAllocMap(op, tensorAllocMap);
+            }
         }
         for (auto tensorAlloc : tensorAllocMap) {
             if (!IsOpAlloc(tensorAlloc.second)) {
@@ -328,19 +403,18 @@ public:
         return SUCCESS;
     }
 
-    Status Init(std::vector<Operation*> opList) {
+    Status Init(std::vector<Operation*> &opList) {
         // 初始化芯片各buffer大小
         InitMemorySize();
         operations = opList;
-        std::vector<Operation *> newOperations;
+        InitOpConsumerAndProducer();
         for (auto& op : operations) {
-            if (op->GetOpcodeStr().find("ALLOC") != std::string::npos) {
-                newOperations.insert(newOperations.begin(), op);
-                continue;
+            if (CheckOpBufferSize(op) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] checkOpBufferSize failed! %s",
+                    op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+                return FAILED;
             }
-            newOperations.push_back(op);
         }
-        operations = newOperations;
         InitBufRefCount();
         // 构建依赖关系
         if (InitDependencies() != SUCCESS) {
@@ -348,10 +422,7 @@ public:
             return FAILED;
         }
 
-        if (CheckAllocOp(operations) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocOp failed!");
-            return FAILED;
-        }
+        opList = operations;
         return SUCCESS;
     }
 

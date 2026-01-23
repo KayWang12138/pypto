@@ -34,6 +34,7 @@ public:
 
     void SetUp() override {
         DeviceLauncherContext::Get().DeviceInit();
+        config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
         rtSetDevice(GetDeviceIdByEnvVar());
      }
 
@@ -296,7 +297,7 @@ static DeviceTensorData toTensorData(const std::shared_ptr<LogicalTensor> &t) {
 
 TEST_F(DynamicControlFlowCacheTest, PartialCache) {
     // cache at most 3 task
-    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 40000);
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 46000);
 
     // every task 4 root func
     config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
@@ -373,7 +374,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 100 * 1024 * 1024);
     config::SetPassOption(SG_PG_LOWER_BOUND, 1024);
     config::SetPassOption(SG_PG_UPPER_BOUND, 1024);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 32);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 32}});
     config::SetPassOption(SG_PARALLEL_NUM, 2);
     config::SetPassOption(VEC_NBUFFER_MODE, 2);
     config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {{-1, 16}});
@@ -420,7 +421,7 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheChangeWorkspaceAddress) {
             std::vector<Tensor> tensorList;
             for (int j = 0; j < v64; j++) {
                 auto t = View(inputB, {v128, v128}, {0, v128 * j}); // <128 x 128 x FP32>
-                auto mm = Matrix::Matmul<false, true>(DataType::DT_FP32, inputA, t); // <64 x 128 x FP32>
+                auto mm = Matrix::Matmul(DataType::DT_FP32, inputA, t, false, true); // <64 x 128 x FP32>
                 tensorList.emplace_back(mm);
             }
             auto mmConcat = Cat(tensorList, -1); // <64 x (128 * 64) x FP32>

@@ -32,8 +32,6 @@ const std::string KEY_STD_LOG_LEVEL = "STD_LOG_LEVEL";
 const std::string KEY_FILE_LOG_LEVEL = "FILE_LOG_LEVEL";
 const std::string KEY_GRAPH_FILE_TYPE = "GRAPH_FILE_TYPE";
 const std::string KEY_GRAPH_ONLY_DOT = "GRAPH_ONLY_DOT";
-const std::string KEY_ONLY_TENSOR_GRAPH = "only_tensor_graph";
-const std::string KEY_ONLY_HOST_COMPILE = "only_host_compile";
 const std::string KEY_ENABLE_COST_MODEL = "enable_cost_model";
 const std::string KEY_ENABLE_DYN_FULL_COST_MODEL = "ENABLE_DYN_FULL_COST_MODEL";
 const std::string KEY_ENABLE_AIHAC_BACKEND = "enable_aihac_backend";
@@ -62,7 +60,6 @@ const std::string KEY_ARGS = "args";
 /* Host KEYs */
 const std::string KEY_STRATEGY = "strategy";
 const std::string KEY_ENABLE_BINARY_CACHE = "enable_binary_cache";
-const std::string KEY_ONLY_CODEGEN = "only_codegen";
 
 /* Pass KEYs */
 
@@ -89,8 +86,6 @@ const std::string KEY_FORCE_OVERWRITE = "force_overwrite"; // if true, don't dum
 const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "codegen_support_tile_tensor";       // if true, gen code with layout mode
 const std::string KEY_CODEGEN_NEED_COMPILE = "codegen_need_compile";       // if true, gen code & compile code
 
-const std::string KEY_FORCE_COMBINE_AXIS = "force_combine_axis";
-const std::string KEY_COMBINE_AXIS = "combine_axis";
 
 enum class DPlatform {
     ASCEND_910B1,
@@ -169,15 +164,6 @@ public:
         return GetConfig(json_, {"global", "host", key}, defaultValue);
     }
 
-    template <typename T>
-    auto GetDeviceConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global", "device", key}, defaultValue);
-    }
-
-    template <typename T>
-    auto GetCoreConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global", "core", key}, defaultValue);
-    }
 
     template <typename T>
     auto GetSimConfig(const std::string &key, const T &defaultValue) {
@@ -187,11 +173,6 @@ public:
     template <typename T>
     auto GetCodeGenConfig(const std::string &key, const T &defaultValue) {
         return GetConfig(json_, {"global", "codegen", key}, defaultValue);
-    }
-
-    template <typename T>
-    auto GetDistConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global", "distributed", key}, defaultValue);
     }
 
     template <typename T>
@@ -233,39 +214,14 @@ public:
     }
 
     template <typename T>
-    void SetDeviceConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global", "device", key}, value);
-    }
-
-    template <typename T>
-    void SetCoreConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global", "core", key}, value);
-    }
-
-    template <typename T>
     void SetSimConfig(const std::string &key, const T &value) {
         SetConfig(json_, {"global", "simulation", key}, value);
-    }
-
-    template <typename T>
-    void SetDistConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global", "distributed", key}, value);
     }
 
     template <typename T>
     void SetPassConfig(
         const std::string &strategy, const std::string &identifier, const std::string &key, const T &value) {
         SetConfig(json_, {"global", "pass_strategies", strategy, identifier, key}, value);
-    }
-
-    template <typename T>
-    auto GetOperationConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global", "operation", key}, defaultValue);
-    }
-
-    template <typename T>
-    void SetOperationConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global", "operation", key}, value);
     }
 
     template <typename T>
@@ -281,7 +237,7 @@ public:
     const std::string &LogTopFolder();
     const std::string &LogTensorGraphFolder();
     const std::string &LogFile();
-    void ResetLog();
+    void ResetLog(const std::string &path = "");
 
 private:
     bool isInit_ = false;
@@ -332,15 +288,6 @@ auto GetHostConfig(const std::string &key, const T &defaultValue) {
     return ConfigManager::Instance().GetHostConfig(key, defaultValue);
 }
 
-template <typename T>
-auto GetDeviceConfig(const std::string &key, const T &defaultValue) {
-    return ConfigManager::Instance().GetDeviceConfig(key, defaultValue);
-}
-
-template <typename T>
-auto GetCoreConfig(const std::string &key, const T &defaultValue) {
-    return ConfigManager::Instance().GetCoreConfig(key, defaultValue);
-}
 
 template <typename T>
 auto GetPassConfig(
@@ -389,21 +336,6 @@ void SetHostConfig(const std::string &key, const T &value) {
 }
 
 template <typename T>
-void SetDeviceConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetDeviceConfig(key, value);
-}
-
-template <typename T>
-void SetCoreConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetCoreConfig(key, value);
-}
-
-template <typename T>
-void SetDistConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetDistConfig(key, value);
-}
-
-template <typename T>
 void SetPassConfig(const std::string &strategy, const std::string &identifier, const std::string &key, const T &value) {
     ConfigManager::Instance().SetPassConfig(strategy, identifier, key, value);
 }
@@ -411,11 +343,6 @@ void SetPassConfig(const std::string &strategy, const std::string &identifier, c
 template <typename T>
 void SetSimConfig(const std::string &key, const T &value) {
     ConfigManager::Instance().SetSimConfig(key, value);
-}
-
-template <typename T>
-void SetOperationConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetOperationConfig(key, value);
 }
 
 template <typename T>
