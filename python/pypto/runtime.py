@@ -183,10 +183,12 @@ class _JIT:
         with pypto.options("jit_scope"):
             self._set_config_option()
             self.kernel_warmup(tensors, argtype, *args, **kwargs)
+            kernel = None
+            ctrcache = None
             if device.type == 'npu':
-                kernel, devCtrlCache = self.get_cached_kernel(tensors, argtype, cfshape, *args, **kwargs)
+                kernel, ctrcache = self.get_cached_kernel(tensors, argtype, cfshape, *args, **kwargs)
             if run_mode == RunMode.NPU:
-                self.run_npu(device, kernel, devCtrlCache, start_args)
+                self.run_npu(device, kernel, ctrcache, start_args)
             else:
                 self.run_cpu(kernel, tensors)
 

@@ -1,3 +1,13 @@
+/**
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -361,7 +371,7 @@ public:
                   << allTotalUs / 1000.0 << " ms" 
                   << " (" << allTotalUs << " us)" << std::endl;
         
-        if (allTotalUs > 0) {
+        if (allTotalUs > 0 && totalTimeUs > 0) {
             double percentage = (double)allTotalUs / totalTimeUs * 100.0;
             out << "Percentage of total time: " << std::fixed << std::setprecision(2) 
                       << percentage << "%" << std::endl;
