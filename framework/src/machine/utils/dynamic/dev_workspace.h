@@ -795,7 +795,7 @@ private:
             allocNumOneSlab = realMaxAllocNum;
         }
         slabSize *= allocNumOneSlab;
-        return ALIGN_UP(slabSize, sizeof(uint64_t));
+        return AlignUp(slabSize, sizeof(uint64_t));
     }
 
     void InitAicpuStitchSlabAllocator(void* memBase, uint32_t totalSize) {
