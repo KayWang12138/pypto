@@ -73,7 +73,7 @@ TEST_F(ControlFlowTest, RunDeviceContext) {
 
     DeviceLauncherConfig config;
     config.blockdim = 24; // 24: max blockdim
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr, config));
     EXPECT_EQ(0x10, inspector.count);
     EXPECT_EQ(0x40, inspector.rootList.size());
     EXPECT_EQ("s0", GetDeclName(inspector.rootList[0]->GetRawName()));
@@ -131,7 +131,7 @@ TEST_F(ControlFlowTest, TestDD) {
 
     DeviceLauncherConfig config;
     config.blockdim = 25;
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr, config));
 }
 
 TEST_F(ControlFlowTest, TensorRecycleDestruct) {
@@ -190,7 +190,7 @@ TEST_F(ControlFlowTest, TensorRecycleDestruct) {
 
     DeviceLauncherConfig config;
     config.blockdim = 25;
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), config));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr, config));
     EXPECT_EQ(1, inspector.taskList.size());
 
     DynDeviceTask *task = inspector.taskList[0];
