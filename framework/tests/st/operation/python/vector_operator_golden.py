@@ -20,6 +20,7 @@ import json
 from pathlib import Path
 from typing import List
 
+import random
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -517,6 +518,14 @@ def gen_cast_op_golden(case_name: str, output: Path, case_index: int = None) -> 
             x = torch.from_numpy(inputs[0])
             if dtype_out == torch.bfloat16:
                 x = x.to(torch.float32).numpy().astype(bfloat16)
+            elif dst_dtype == "hf8":
+                x = inputs[0].astype("hifloat8")
+            elif dst_dtype == "fp8e4m3":
+                x = inputs[0].astype("float8_e4m3fn")
+            elif dst_dtype == "fp8e5m2":
+                x = inputs[0].astype("float8_e5m2")
+            elif dst_dtype == "fp8e8m0":
+                x = inputs[0].astype("float8_e8m0")
             else:
                 x = x.to(dtype_out).numpy()
 
@@ -1486,7 +1495,110 @@ def gen_indexadd__op_golden(
     return gen_op_golden("IndexAdd_", indexadd_golden_func, output, case_index)
 
 
-@TestCaseLoader.reg_params_handler(ops=["Scatter", "Scatter_", "ScatterTensor", "Scatter_Tensor"])
+def indexput_dfs(indices_range, deep, max_count, cur_indices, all_indices):
+    if deep == max_count:
+        all_indices.append([i for i in cur_indices])
+        return
+    for i in range(indices_range[deep][0], indices_range[deep][1]):
+        cur_indices[deep] = i
+        indexput_dfs(indices_range, deep + 1, max_count, cur_indices, all_indices)
+
+
+def indexput_golden_func(indexput_config):
+    output_path = indexput_config["output_path"]
+    indices_range = indexput_config["indices_range"]
+    dtype = indexput_config["dtype"]
+    indices_dtype = indexput_config["indices_dtype"]
+    indices_count = len(indices_range)
+    input_path = Path(output_path, 'input0.bin')
+    values_path = Path(output_path, 'input1.bin')
+    indices_paths = [Path(output_path, f'input{2 + i}.bin') for i in range(indices_count)]
+    input_ = np.random.uniform(indexput_config["input_range"][0],
+        indexput_config["input_range"][1], size=indexput_config["input_shape"]).astype(dtype)
+    input_.tofile(input_path)
+    values = np.random.uniform(indexput_config["values_range"][0],
+        indexput_config["values_range"][1], size=indexput_config["values_shape"]).astype(dtype)
+    values.tofile(values_path)
+    result = 1
+    for arr in indices_range:
+        result *= 1 if arr[0] == arr[1] else arr[1] - arr[0]
+    indices_shape = indexput_config["values_shape"][0]
+    indices = np.zeros((indices_count, indices_shape), dtype=indices_dtype)
+    if indices_shape < result // 2:
+        cnt = 0
+        visit = set()
+        while cnt < indices_shape:
+            tmp = [0 for i in range(indices_count)]
+            for i in range(indices_count):
+                tmp[i] = random.randrange(indices_range[i][0], indices_range[i][1])
+            if tuple(tmp) in visit:
+                continue
+            visit.add(tuple(tmp))
+            for i in range(indices_count):
+                indices[i][cnt] = tmp[i]
+            cnt += 1
+        for i in range(indices_count):
+            indices[i].tofile(indices_paths[i])
+    else:
+        cur_indices = [0 for i in range(indices_count)]
+        all_indices = []
+        indexput_dfs(indices_range, 0, indices_count, cur_indices, all_indices)
+        perm = np.random.permutation(len(all_indices))
+        for i in range(indices_count):
+            for j in range(indices_shape):
+                indices[i][j] = all_indices[perm[j]][i]
+            indices[i].tofile(indices_paths[i])
+    result_path = Path(output_path, 'output0.bin')
+    if indexput_config["accumulate"]:
+        input_[tuple(indices)] += values
+    else:
+        input_[tuple(indices)] = values
+    input_.tofile(result_path)
+    return True
+
+
+def indexput_pre_golden_func(output_path: Path, config: dict):
+    input_tensors = config["input_tensors"]
+    accumulate = config["params"]["accumulate"]
+    input_ = input_tensors[0]
+    values = input_tensors[1]
+    input_data_range = input_["data_range"]
+    values_data_range = values["data_range"]
+    indices_range = []
+    for i in range(len(input_tensors) - 2):
+        indices = input_tensors[i + 2]
+        indices_data_range = indices["data_range"]
+        indices_range.append([indices_data_range['min'], indices_data_range['max']])
+    indexput_config = {
+        "output_path": output_path,
+        "input_shape": input_["shape"],
+        "values_shape": values["shape"],
+        "input_range": [input_data_range["min"], input_data_range["max"]],
+        "values_range": [values_data_range["min"], values_data_range["max"]],
+        "indices_range": indices_range,
+        "dtype": get_dtype_by_name(input_["dtype"]),
+        "indices_dtype": get_dtype_by_name(input_tensors[2]["dtype"]),
+        "accumulate": accumulate
+    }
+    return indexput_golden_func(indexput_config)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestIndexPut_/IndexPut_OperationTest.TestIndexPut_",
+    ]
+)
+def gen_indexput__op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    case_file: Path = Path(Path(__file__).parent.parent, "test_case/IndexPut__st_test_cases.json").resolve()
+    test_configs = load_test_cases_from_json(str(case_file))
+    if len(test_configs) == 0:
+        raise ValueError("Not find test cases, please check.")
+    return indexput_pre_golden_func(output, test_configs[case_index])
+
+
+@TestCaseLoader.reg_params_handler(ops=["Scatter", "ScatterTensor"])
 def params_axis_reduce_func(params: dict):
     params["axis"] = int(params.get("axis"))
     params["reduce"] = "" if params["reduce"] is None else params["reduce"]
@@ -1497,7 +1609,10 @@ def scatter_golden_func(inputs, config: dict):
     axis = params["axis"]
     reduceop = params["reduce"]
     scalar = params["src"]
-    indices = torch.from_numpy(inputs[1])
+    if inputs[1].dtype == np.int32:
+        indices = torch.from_numpy(inputs[1]).long()
+    else:
+        indices = torch.from_numpy(inputs[1])
 
     if inputs[0].dtype == bfloat16:
         bf16_scalar = np.array([scalar], np.float32).astype(inputs[0].dtype).astype(np.float32)
@@ -1530,31 +1645,50 @@ def gen_scatter_op_golden(case_name: str, output: Path, case_index: int = None) 
     return gen_op_golden("Scatter", scatter_golden_func, output, case_index)
 
 
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        "TestScatter_/Scatter_OperationTest.TestScatter_",
-    ]
-)
-def gen_scatter__op_golden(
-    case_name: str, output: Path, case_index: int = None
-) -> bool:
-    logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("Scatter_", scatter_golden_func, output, case_index)
-
-
 def scatter_tensor_golden_func(inputs, config: dict):
     params = config.get("params")
     axis = params["axis"]
     reduceop = params["reduce"]
-    indices = torch.from_numpy(inputs[1])
+
+    input1_tensor = config["input_tensors"][1]
+    data_min = input1_tensor["data_range"]["min"]
+    data_max = input1_tensor["data_range"]["max"]
+    shape = inputs[1].shape
+    dtype = inputs[1].dtype
+    dims = inputs[1].ndim
+    # 当前A5 vscatter指令在index索引重复的情况下并不保证，计算时序，生成golden时需要保证index数据不重复。
+    # 仅axis为尾轴时，会出现此问题，因为pto内部处理时，单次只处理index的一行数据，axis为其他值时单次处理并不会导致
+    # 其他场景，例如reduce为add，当前还是用标量场景
+    is_regen_index = (axis == dims - 1 or axis + dims == dims - 1) and (len(reduceop) == 0 or reduceop == "None") and \
+        (data_max >= shape[-1])
+    if is_regen_index:
+        if dims == 2:
+            for i in range(shape[0]):
+                inputs[1][i] = np.random.choice(range(data_min, data_max), shape[-1], False).astype(dtype)
+        elif dims == 3:
+            for i in range(shape[0]):
+                for j in range(shape[1]):
+                    inputs[1][i, j] = np.random.choice(range(data_min, data_max), shape[-1], False).astype(dtype)
+        elif dims == 4:
+            for i in range(shape[0]):
+                for j in range(shape[1]):
+                    for k in range(shape[2]):
+                        inputs[1][i, j, k] = np.random.choice(range(data_min, data_max), shape[-1], False).astype(dtype)
+        else:
+            raise ValueError("Dims is not supported, please check.")
+
+    if inputs[1].dtype == np.int32:
+        indices = torch.from_numpy(inputs[1]).long()
+    else:
+        indices = torch.from_numpy(inputs[1])
 
     if inputs[0].dtype == bfloat16:
         dst = torch.from_numpy(inputs[0].astype(np.float32))
         src = torch.from_numpy(inputs[2].astype(np.float32))
         if len(reduceop) == 0 or reduceop == "None":
-            res = dst.scatter(axis, indices, src).numpy().astype(bfloat16)
+            res = dst.scatter(axis, indices, src).numpy().astype(inputs[0].dtype)
         else:
-            res = dst.scatter(axis, indices, src, reduce=reduceop).numpy().astype(bfloat16)
+            res = dst.scatter(axis, indices, src, reduce=reduceop).numpy().astype(inputs[0].dtype)
     else:
         dst = torch.from_numpy(inputs[0])
         src = torch.from_numpy(inputs[2])
@@ -1574,18 +1708,6 @@ def scatter_tensor_golden_func(inputs, config: dict):
 def gen_scatter_tensor_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("ScatterTensor", scatter_tensor_golden_func, output, case_index)
-
-
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        "TestScatter_Tensor/Scatter_TensorOperationTest.TestScatter_Tensor",
-    ]
-)
-def gen_scatter__tensor_op_golden(
-    case_name: str, output: Path, case_index: int = None
-) -> bool:
-    logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("Scatter_Tensor", scatter_tensor_golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(

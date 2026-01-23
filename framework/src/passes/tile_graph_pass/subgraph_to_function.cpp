@@ -92,7 +92,9 @@ Status SubgraphToFunction::HandleBlockCall(Function &function) {
         }
         auto &callOpInRoot = rootFunc->AddRawOperation(npu::tile_fwk::Opcode::OP_CALL, 
             args.iOperands, args.oOperands, false);
-        // 2.1 TODO NormalizeCoa
+        // 2.1 Get OpAttrOffsets
+        args.iOpAttrOffset = oriCallOp.GetIOpAttrOffsets();
+        args.oOpAttrOffset = oriCallOp.GetOOpAttrOffsets();
 
         // 2.2 Create Call op attribute
         auto oriCallOpAttr = std::static_pointer_cast<CallOpAttribute>(oriCallOp.GetOpAttribute());
@@ -255,7 +257,8 @@ void SubgraphToFunction::RecordOutcastInfo(Function &function, RecordInfo record
     Offset offset = recordInfo.offset;
     Shape shape = recordInfo.shape;
     auto &op = *nLIST[i][j];
-    if (op.HasAttribute(OpAttributeKey::inplaceIdx) && op.GetOpcode() != Opcode::OP_COPY_OUT) {
+     if (op.HasAttribute(OpAttributeKey::inplaceIdx) && (op.GetOpcode() != Opcode::OP_COPY_OUT &&
+ 	        op.GetOpcode() != Opcode::OP_INDEX_PUT)) {
         return;
     }
     if (function.IsFromOutCast(oOperand) || function.IsFromInCast(oOperand)) {
@@ -395,7 +398,8 @@ void SubgraphToFunction::ProcessOutputOperands(Function& rootFunc, Operation& ti
         std::string name = FindSymbolName(oOperand, oOperand->GetRawMagic());
         auto offset = oOperand->offset;
         auto shape = oOperand->shape;
-        if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) && tileOp.GetOpcode() != Opcode::OP_COPY_OUT) {
+         if (tileOp.HasAttribute(OpAttributeKey::inplaceIdx) && (tileOp.GetOpcode() != Opcode::OP_COPY_OUT &&
+ 	            tileOp.GetOpcode() != Opcode::OP_INDEX_PUT)) {
             return;
         }
         if (IsCopyOut(tileOp.GetOpcode())){
@@ -541,7 +545,7 @@ Status SubgraphToFunction::ProcessCacheResult(const std::tuple<Function *, Opera
             APASS_LOG_ERROR_F(Elements::Operation, "Cache miss for callee hash %lu. %s", callAttr->GetCalleeHash().GetHash(), GetFormatBacktrace(callOp).c_str());
             return FAILED;
         }
-        callAttr->SetCalleeMagicName(cacheValue->cacheFunction->GetMagicName());
+        callAttr->SetCalleeMagicName(cacheValue->GetFunction()->GetMagicName());
         callAttr->invokeInfo_->UpdateProgramSubgraphId(std::get<0>(result)->GetProgramId());
         return SUCCESS;
     }

@@ -37,8 +37,15 @@ enum class FunctionKind {
 // Arguments are Data objects where the name field stores the argument name (e.g. "%A").
 struct FunctionSignature {
     FunctionSignature() {}
-    FunctionSignature(const std::vector<TileValuePtr> &inputArgs,
-                      const std::vector<TileValuePtr> &outputArgs) 
+    FunctionSignature(const std::vector<TensorValuePtr> &args)
+    {
+        for (auto &arg : args) {
+            arguments.emplace_back(arg);
+        }
+    }
+
+    FunctionSignature(const std::vector<TensorValuePtr> &inputArgs,
+                      const std::vector<TensorValuePtr> &outputArgs) 
     {
         for (auto &inArg : inputArgs) {
             arguments.emplace_back(inArg);
@@ -98,7 +105,7 @@ public:
     uint64_t ComputeHash();
 
     // Get function hash value
-    uint64_t GetFunctionHash() const { return functionHash_; }    
+    uint64_t GetFunctionHash() const { return functionHash_; }
 
     // check if value is from in cast
     bool isFromInCast(const ValuePtr &value) const;
@@ -151,6 +158,7 @@ private:
     std::shared_ptr<npu::tile_fwk::LeafFuncAttribute> leafFuncAttr_;
 };
 
+using FunctionPtr = std::shared_ptr<Function>;
 
 // Helper for convenient streaming: std::cout << func;
 std::ostream& operator<<(std::ostream& os, const Function& func);

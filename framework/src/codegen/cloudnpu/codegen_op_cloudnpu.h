@@ -31,22 +31,24 @@
 #include "codegen/codegen_op.h"
 
 namespace npu::tile_fwk {
-struct CodeGenOpCloudNPUCtx {
-    std::shared_ptr<SymbolManager> symbolManager;
-    Function &topFunc;
-    Function &subFunc;
-    const Operation &ops;
-    const std::map<int, int> &locToOffset = {};
-    bool isMainBlock{false};
+struct CodeGenOpCloudNPUCtx : public CodeGenOpCtx {
+    const Operation &operation;
+
+    CodeGenOpCloudNPUCtx(std::shared_ptr<SymbolManager> sm, Function &tf, Function &sf, const Operation &op,
+        const std::map<int, int> &lto = {}, bool isMainBlk = false)
+        : CodeGenOpCtx(std::move(sm), tf, sf, lto, isMainBlk), operation(op) {}
 };
 class CodeGenOpCloudNPU : public CodeGenOp {
 public:
+    explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx);
     CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
         const std::map<int, int> &locToOffset = {}, bool isUnderDynamicFunc = false, bool isMainBlk = false);
 
-    explicit CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx);
     ~CodeGenOpCloudNPU() override = default;
 
+    std::string GenBarrier() const;
+    std::string GenSyncSetOp() const;
+    std::string GenSyncWaitOp() const;
     std::string GenCVSyncSetOp() const;
     std::string GenCVSyncWaitOp() const;
     std::string GenMemL1ToBt() const;
@@ -90,7 +92,8 @@ public:
     std::string GenGatherElementOp() const;
 
     std::string GenRangeOp() const;
-    std::string PrintRangeTileTensor(std::string startVal, std::string stepVal) const;
+    std::string PrintRangeTileTensor(
+        const std::string &startVal, const std::string &stepVal, const std::string &tileIdxExpr) const;
     std::string GenL0CToUBTileTensor() const;
 
     std::string GenScatterElementSOp() const;
@@ -98,10 +101,13 @@ public:
 
     std::string GenIndexAddOp() const;
 
+    std::string GenIndexPutOp() const;
+
     std::string GenIndexOutCastOp() const;
 
     std::string GenCumSumOp() const;
     std::string PrintGatherDynamicUnaligned() const;
+    std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
     std::string GenGatherFromUBOp() const;
 
@@ -352,15 +358,22 @@ private:
     std::string PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const;
     std::string PrintScatterElementSOpDynamicUnaligned(const PrintScatterElemParam &param) const;
     std::string PrintScatterOpDynamicUnaligned(const PrintScatterParam &param) const;
+    std::string PrintScatterTileTensor(const PrintScatterParam &param) const;
 
     std::string PrintIndexAddDynamicUnaligned(const PrintIndexAddParam &param) const;
+    std::string PrintIndexAddTileTensor(const PrintIndexAddParam &param) const;
+
+    std::string PrintIndexPut(const PrintIndexPutParam &param) const;
+    std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
+    std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
+    std::string PrintCumSumTileTensor(int axis) const;
 
     WhereParam PrepareWhereParam() const;
     void GetVarAndTypeParam(std::vector<std::string> &varExpr, std::vector<std::string> &dataTypeExpr) const;
     std::string PrintWhereOp(const WhereParam &param) const;
-    std::string PrintWhereOpTileTensor() const;
+    std::string PrintWhereOpTileTensor(const WhereParam &param) const;
 
     std::string PrintCmpTileTensor() const;
     std::string PrintLogicalAndTileTensor() const;
