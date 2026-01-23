@@ -843,7 +843,6 @@ def gen_sqrt_op_golden(case_name: str, output: Path, case_index: int = None) -> 
 
 @GoldenRegister.reg_golden_func(
     case_names=[
-<<<<<<< HEAD
         "TestFloor/FloorOperationTest.TestFloor",
     ]
 )
@@ -855,7 +854,9 @@ def gen_floor_op_golden(case_name: str, output: Path, case_index: int = None) ->
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Floor", golden_func, output, case_index)
 
-=======
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestTrunc/TruncOperationTest.TestTrunc",
     ]
 )
@@ -866,7 +867,7 @@ def gen_trunc_op_golden(case_name: str, output: Path, case_index: int = None) ->
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Trunc", golden_func, output, case_index)
->>>>>>> remote-C/master
+
 
 
 @GoldenRegister.reg_golden_func(
