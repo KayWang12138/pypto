@@ -79,9 +79,9 @@ endif ()
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_runtime)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_runtime)
 
-
+file(GLOB_RECURSE _Stub_Srcs ${PTO_FWK_SRC_ROOT}/framework/tests/ut/stubs/src/*.cpp)
 add_library(tile_fwk_runtime_stub SHARED)
-target_sources(tile_fwk_runtime_stub PRIVATE ${_Runtime_Srcs} ${_Device_Srcs})
+target_sources(tile_fwk_runtime_stub PRIVATE ${_Runtime_Srcs} ${_Device_Srcs} ${_Stub_Srcs})
 target_include_directories(tile_fwk_runtime_stub
         PRIVATE
             ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
