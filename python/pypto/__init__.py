@@ -40,6 +40,7 @@ def _load_shared_libs():
         _file: Path = Path(lib_dir, _name)
         if not _file.exists():
             return
+        print("Load so", str(_file))
         ctypes.CDLL(str(_file), mode=ctypes.RTLD_GLOBAL)
 
     _load_shared_lib(_desc=["libc_sec.so", not use_cann, ])
