@@ -169,65 +169,6 @@ def gen_win_attn_data_bsnd(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list,
     return q_tnd.reshape(b, t // b, n_q, d_q), block_table, kv_cache, atten_sink, atten_out
 
 
-def gen_win_attn_data_bsnd_mask(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list, dtypes, device_id):
-    torch.manual_seed(42)
-    b = len(actual_seq_list)
-    new_dtype = dtypes
-    s_q = t // b
-    actual_seq_max = max(actual_seq_list)
-    s_kv_max = actual_seq_max
-    shape_q = [t * n_q, d_q]
-    shape_kv = [b, s_kv_max, n_kv, d_kv]
-    atten_out_shape = [b, t // b, n_q, d_kv]
-    block_num_per_batch = []
-    block_num_min = 0
-    block_num = 0
-
-    atten_sink = gen_uniform_data([n_q], -1, 1, torch.float32, device_id)
-
-    # gen q k v data
-    q = gen_uniform_data(shape_q, -1, 1, new_dtype, device_id)
-    q_tnd = q.reshape(t, n_q, d_q)
-    kv_bsnd = gen_uniform_data(shape_kv, -1, 1, new_dtype, device_id)
-
-    for actual_seq in actual_seq_list:
-        block_num_per_batch.append(math.ceil(actual_seq / block_size))
-        block_num_min += math.ceil(actual_seq / block_size)
-
-    # gen block table
-    block_table_shape = [b, math.ceil(s_kv_max / block_size)]
-    block_num = block_num_min
-    block_idx_list = torch.randperm(block_num, dtype=torch.int32)
-    block_idx = 0
-    
-    # invalid block_id set as -1
-    block_table = [-1] * block_table_shape[1]
-
-    block_table = torch.tile(torch.tensor(block_table, device=f'npu:{device_id}').to(torch.int32), (block_table_shape[0], 1))
-    block_table_batch_idx = 0
-    for idx in block_num_per_batch:
-        for j in range(idx):
-            block_table[block_table_batch_idx][j] = (block_idx_list[block_idx])
-            block_idx += 1
-        block_table_batch_idx += 1
-
-    kv_cache = torch.zeros([block_num, block_size, n_kv, d_kv], dtype=new_dtype, device=f'npu:{device_id}')
-    for b_idx in range(b):
-        for block_i, kv_cache_blk_id in enumerate(block_table[b_idx]):
-            block_offset = block_i * block_size
-            if kv_cache_blk_id == -1:
-                continue
-            else:
-                kv_valid = kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
-                kv_cache[kv_cache_blk_id, 0: kv_valid.shape[0], :, :] = kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
-
-    atten_out = torch.zeros(atten_out_shape, dtype=dtypes, device=f'npu:{device_id}')
-
-    mask2 = get_mask2(s_q, n_q, device_id, block_size)
-
-    return q_tnd.reshape(b, s_q, n_q, d_q), block_table, kv_cache, atten_sink, atten_out, mask2
-
-
 def win_atten_calc_tnd_prefill(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, kv_cache, block_table, actual_seq_list_q, device_id):
 
     t = input_params_win_attn[0]
@@ -362,13 +303,14 @@ def test_win_atten_bsnd_mtp_decode_mask() -> None:
             ori_kv_len_list = [min(seqused_kv, win_size + s_q - 1) for seqused_kv in seqused_kv_list]
             print("seqused_kv_list:", seqused_kv_list)
 
-            q, ori_block_table, ori_kv, attn_sinks, atten_out, mask2 = gen_win_attn_data_bsnd_mask(t, n_q, d_q, n_kv, d_kv, block_size, ori_kv_len_list, dtypes, device_id)
+            
+            q, ori_block_table, ori_kv, attn_sinks, atten_out = gen_win_attn_data_bsnd(t, n_q, d_q, n_kv, d_kv, block_size, ori_kv_len_list, dtypes, device_id)
+            mask2 = get_mask2(s_q, n_q, device_id, block_size)
             deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv_list_tensor, attn_sinks, atten_out, win_size, is_decode=True, mask=mask2)
 
             golden = win_atten_calc_mtp_decode(input_params_win_attn, seqused_kv_list, attn_sinks, q, ori_kv, ori_block_table, device_id)
             from utils.np_compare import detailed_allclose_manual as compare
-            threhold = 5e-3
-            compare(golden, atten_out, "SWA decode bnsd mtp mask 版本", rtol=threhold, atol=threhold)
+            compare(golden, atten_out, "SWA decode bnsd mtp mask 版本", rtol=0.0078125, atol=0.0001)
 
 
 def test_win_atten_bsnd_mtp_decode() -> None:
@@ -400,8 +342,7 @@ def test_win_atten_bsnd_mtp_decode() -> None:
 
             golden = win_atten_calc_mtp_decode(input_params_win_attn, seqused_kv_list, attn_sinks, q, ori_kv, ori_block_table, device_id)
             from utils.np_compare import detailed_allclose_manual as compare
-            threhold = 5e-3
-            compare(golden, atten_out, "SWA decode bnsd mtp 版本", rtol=threhold, atol=threhold)
+            compare(golden, atten_out, "SWA decode bnsd mtp 版本", rtol=0.0078125, atol=0.0001)
 
 
 def test_win_atten_tnd_prefill_mask() -> None:

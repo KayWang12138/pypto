@@ -291,7 +291,10 @@ def win_atten_main_tnd_prefill_mask(q_tnd, block_table, kv_cache, seqused_kv_lis
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    runtime_options={"device_sched_mode": 1},
+    runtime_options={"device_sched_mode": 1,
+                    "stitch_function_inner_memory": 1024,
+                    "stitch_function_outcast_memory": 1024,
+                    "stitch_function_num_initial": 128},
     debug_options={"runtime_debug_mode": 1},
 )
 def win_atten_main_bsnd_mtp_decode(q, block_table, kv_cache, actual_seq_list, atten_sink, atten_out, win):
@@ -462,12 +465,13 @@ def win_atten_main_bsnd_mtp_decode_mask(q, block_table, kv_cache, actual_seq_lis
             acc_s = pypto.matmul(q_tensor_cur, kv_block, pypto.DT_FP32, b_trans=True)
             
             if pypto.cond(actual_seq <= 128):
-                end_pos = actual_seq - 1
+                end_pos = pypto.max(actual_seq - 1, 0)
                 pypto.set_vec_tile_shapes(128, 128)
-                mask_block = pypto.view(mask2, [s_q * n_q, 128], [0, 258 - end_pos])
+                mask_block = pypto.view(mask2, [s_q * n_q, 128], [0, 255 + s_q - 1 - end_pos])
                 acc_s = pypto.where(mask_block, acc_s, float("-inf"))
 
             # V1
+            pypto.set_vec_tile_shapes(64, 256)
             acc_s = pypto.mul(acc_s, scalar)
             scores_max = pypto.amax(acc_s, -1, True)
             sub_res = pypto.sub(acc_s, scores_max)
