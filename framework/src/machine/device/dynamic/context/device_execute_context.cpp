@@ -516,7 +516,8 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint6
     void *result = nullptr;
     if (ctx->DuppedRootCached()) {
         result = nullptr;
-    } else if (ctx->devProg->ctrlFlowCacheAnchor->IsRecording() && ctx->devProg->ctrlFlowCacheAnchor->IsRecordingStopped()) {
+    } else if (ctx->devProg->ctrlFlowCacheAnchor->IsRecording() &&
+        ctx->devProg->ctrlFlowCacheAnchor->IsRecordingStopped()) {
         result = nullptr;
     } else {
         result = ctx->CallRootFunctionStitch(rootKey);

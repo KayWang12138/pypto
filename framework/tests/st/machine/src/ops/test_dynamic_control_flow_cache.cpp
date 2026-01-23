@@ -125,14 +125,14 @@ TEST_F(DynamicControlFlowCacheTest, CheckShape) {
 
     FUNCTION("main", {inputA, inputB}, {output}) {
         Tensor sum(DT_INT32, {mid, mid}, "sum");
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(inputA, 0) / tiling)) {
+        LOOP("L0-CheckShape", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(inputA, 0) / tiling)) {
             LOOP("L1", FunctionType::DYNAMIC_LOOP, j, LoopRange(GetInputShape(inputA, 1) / tiling)) {
                 auto a = View(inputA, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
                 auto b = View(inputB, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
                 Assemble(Add(a, b), {i * tiling, j * tiling}, sum);
             }
         }
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(inputA, 0) / tiling)) {
+        LOOP("L0-CheckShape", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(inputA, 0) / tiling)) {
             LOOP("L1", FunctionType::DYNAMIC_LOOP, j, LoopRange(GetInputShape(inputA, 1) / tiling)) {
                 auto a = View(sum, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
                 auto b = View(sum, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
@@ -227,14 +227,14 @@ TEST_F(DynamicControlFlowCacheTest, CheckLackMemory) {
 
     FUNCTION("main", {inputA, inputB}, {output}) {
         Tensor sum(DT_INT32, {mid, mid}, "sum");
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(inputA, 0) / tiling)) {
+        LOOP("L0-CheckShape", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(inputA, 0) / tiling)) {
             LOOP("L1", FunctionType::DYNAMIC_LOOP, j, LoopRange(GetInputShape(inputA, 1) / tiling)) {
                 auto a = View(inputA, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
                 auto b = View(inputB, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
                 Assemble(Add(a, b), {i * tiling, j * tiling}, sum);
             }
         }
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(inputA, 0) / tiling)) {
+        LOOP("L0-c", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(inputA, 0) / tiling)) {
             LOOP("L1", FunctionType::DYNAMIC_LOOP, j, LoopRange(GetInputShape(inputA, 1) / tiling)) {
                 auto a = View(sum, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
                 auto b = View(sum, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
@@ -532,27 +532,25 @@ TEST_F(DynamicControlFlowCacheTest, PartialCacheValueDependData) {
     DevControlFlowCache* ctrlFlowCache = nullptr;
     EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), {}, {}, &ctrlFlowCache, config));
 
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+    DevAscendProgram *devProgram = reinterpret_cast<DevAscendProgram *>(
         const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
 
     EXPECT_EQ(0x1, ctrlFlowCache->deviceTaskCount);
     EXPECT_EQ(0x0, ctrlFlowCache->deviceTaskSkippedCount);
 
-    devProg->RelocProgram(0, (intptr_t)devProg);
+    devProgram->RelocProgram(0, (intptr_t)devProgram);
     ctrlFlowCache->RelocMetaCache(0, (intptr_t)ctrlFlowCache);
-    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache(0, 0, (intptr_t)devProg, (intptr_t)ctrlFlowCache);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache(0, 0, (intptr_t)devProgram, (intptr_t)ctrlFlowCache);
 
     auto dynTaskBase = ctrlFlowCache->deviceTaskCacheList[0].dynTaskBase;
     EXPECT_EQ(0x2, dynTaskBase->GetDynFuncDataList()->Size());
 
-    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache((intptr_t)devProg, (intptr_t)ctrlFlowCache, 0, 0);
-    devProg->RelocProgram((intptr_t)devProg, 0);
+    ctrlFlowCache->TaskAddrRelocProgramAndCtrlCache((intptr_t)devProgram, (intptr_t)ctrlFlowCache, 0, 0);
+    devProgram->RelocProgram((intptr_t)devProgram, 0);
     ctrlFlowCache->RelocMetaCache((intptr_t)ctrlFlowCache, 0);
 
     DeviceLauncher::DeviceRunCacheKernelEnable(Program::GetInstance().GetLastFunction(), true);
-
     EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
-
 #ifdef BUILD_WITH_CANN
     for (int k = 0; k < 0x3; k++) {
         EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction(), ctrlFlowCache, config));
