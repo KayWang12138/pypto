@@ -39,7 +39,7 @@ index_put_(input: Tensor, indices: tuple, values: Tensor, accumulate: bool = Fal
 
 3. input的维度、indices中Tensor的个数和values的维度之间需满足：（input.shape.size） + 1 = (indices.size) + (values.shape.size)。
 
-4. input和values的数据类型须相同；
+4. input和values的数据类型须相同。
 
 5. viewshape为一维，针对indices中的每个一维Tensor和values的第0维进行切分，values的其它维度不做切分。
 
