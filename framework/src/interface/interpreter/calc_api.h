@@ -116,6 +116,8 @@ struct CalcOps {
     void (*Gather)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t);
     void (*GatherINUB)(
         LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t);
+    void (*TileMrgSortInGM)(LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*Sort)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool);
 };
 
 extern "C" struct CalcOps *GetCalcOps();

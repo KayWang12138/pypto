@@ -428,6 +428,24 @@ void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
     calc::Topk(oop, src, topk_axis, kValue, descending);
 }
 REGISTER_CALC_OP(OP_MRGSORT, Opcode::OP_MRGSORT, ExecuteOpMrgSort);
+REGISTER_CALC_OP(OP_MRGSORT_TO_GM, Opcode::OP_MRGSORT_TO_GM, ExecuteOpMrgSort);
+
+void ExecuteOpTileMrgSortInGM(ExecuteOperationContext *ctx) {
+    auto src = ctx->ioperandDataViewList->at(0);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    calc::TileMrgSortInGM(oop, src);
+}
+REGISTER_CALC_OP(OP_TILEMRGSORT_IN_GM, Opcode::OP_TILEMRGSORT_IN_GM, ExecuteOpTileMrgSortInGM);
+
+void ExecuteOpSort(ExecuteOperationContext *ctx) {
+    auto src = ctx->ioperandDataViewList->at(0);
+    auto value = ctx->ooperandInplaceDataViewList->at(0);
+    auto index = ctx->ooperandInplaceDataViewList->at(1);
+    auto axis = ctx->op->GetIntAttribute("op_attr_axis");
+    int descending = ctx->op->GetIntAttribute("op_attr_order");
+    calc::Sort(value, index, src, axis, descending);
+}
+REGISTER_CALC_OP(OP_SORT, Opcode::OP_SORT, ExecuteOpSort);
 
 void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);

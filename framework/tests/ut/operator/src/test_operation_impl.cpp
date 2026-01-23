@@ -686,3 +686,35 @@ TEST_F(OperationImplTest, Test_TopK_04) {
         output = TopK(input_a, 2048, -1);
     }
 }
+
+TEST_F(OperationImplTest, Test_ArgSort_01) {
+    std::vector<int64_t> inputShape = {16, 128};
+    std::vector<int64_t> outputShape = {16, 128};
+    TileShape::Current().SetVecTile({4, 32});
+    Tensor input_a(DT_FP32, inputShape, "A");
+    Tensor output(DT_INT32, outputShape, "res");
+    FUNCTION("ArgSort_T") {
+        output = ArgSort(input_a, 1, true);
+    }
+}
+
+TEST_F(OperationImplTest, Test_ArgSort_02) {
+    std::vector<int64_t> inputShape = {2, 10000};
+    std::vector<int64_t> outputShape = {2, 10000};
+    TileShape::Current().SetVecTile({1, 4096});
+    Tensor input_a(DT_FP32, inputShape, "A");
+    Tensor output(DT_INT32, outputShape, "res");
+    FUNCTION("ArgSort_T") {
+        output = ArgSort(input_a, 1, false);
+    }
+}
+
+TEST_F(OperationImplTest, Test_ArgSort_torch) {
+    Shape shapeSelf({16, 128});
+    Shape shapeOffset({0, 0});
+    auto outData = std::make_shared<RawTensorData>(DataType::DT_FP32, shapeSelf);
+    auto out = std::make_shared<LogicalTensorData>(outData, shapeSelf, shapeOffset);
+    auto selfData = std::make_shared<RawTensorData>(DataType::DT_FP32, shapeSelf);
+    auto self = std::make_shared<LogicalTensorData>(selfData, shapeSelf, shapeOffset);
+    npu::tile_fwk::calc::TileMrgSortInGM(out, self);
+}

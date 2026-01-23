@@ -229,6 +229,14 @@ inline void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t ax
     GetCalcOps()->Topk(out, self, axis, k, descending);
 }
 
+inline void TileMrgSortInGM(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->TileMrgSortInGM(out, self);
+}
+
+inline void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, LogicalTensorDataPtr self, int64_t axis, bool descending) {
+    GetCalcOps()->Sort(value, index, self, axis, descending);
+}
+
 // matmul
 inline void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->FormatNZ2ND(out, self);

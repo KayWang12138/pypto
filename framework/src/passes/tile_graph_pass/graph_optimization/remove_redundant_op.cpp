@@ -110,6 +110,22 @@ Status RemoveRedundantOp::RunOnFunction(Function &function) {
         }
         iterTime++;
     }
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            auto &inOp = *(op.GetIOperands()[0])->GetProducers().begin();
+            if (inOp != nullptr && inOp->GetOpcode() == Opcode::OP_TILEMRGSORT_IN_GM) {
+                auto viewOut = op.GetIOperands()[0]->Clone(function, true);
+                viewOut->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
+                viewOut->SetMemoryTypeToBe(viewOut->GetMemoryTypeOriginal());
+                auto &newView = function.AddOperation(Opcode::OP_VIEW, {op.GetIOperands()[0]}, {viewOut});
+                auto assAttr = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get());
+                assAttr->SetFromType(MemoryType::MEM_UB);
+                auto viewAttr = std::make_shared<ViewOpAttribute>(op.GetIOperands()[0]->GetOffset(), MemoryType::MEM_UB);
+                newView.SetOpAttribute(viewAttr);
+                op.ReplaceInput(viewOut, op.GetIOperands()[0]);
+            }
+        }
+    }
     APASS_LOG_INFO_F(Elements::Function, "===> End RemoveRedundantOp");
     return SUCCESS;
 }

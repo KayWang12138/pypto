@@ -197,6 +197,12 @@ void OpcodeManager::RegisterVectorSort() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TiledMrgSort", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::OTHER, {OP_ATTR_PREFIX + "validBit", OP_ATTR_PREFIX + "kvalue"});
+    RegisterInfo(Opcode::OP_MRGSORT_TO_GM, OpCoreType::ANY, "MRGSORTTOGM", {MemoryType::MEM_UB}, 
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::MrgSortToGM", PIPE_V, PIPE_MTE3, CoreType::AIV}, OpCalcType::OTHER,
+        {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "kvalue"});
+    RegisterInfo(Opcode::OP_TILEMRGSORT_IN_GM, OpCoreType::ANY, "TILEMRGSORTINGM", {MemoryType::MEM_UB}, 
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB}, {"TileOp::TileMrgSortInGM", PIPE_V, PIPE_MTE3, CoreType::AIV}, OpCalcType::OTHER, 
+        {OP_ATTR_PREFIX + "firstShape", OP_ATTR_PREFIX + "offset", OP_ATTR_PREFIX + "round"});
 
     // parallel sort
     RegisterInfo(Opcode::OP_SORT, OpCoreType::AIV, "SORT", {MemoryType::MEM_UB},

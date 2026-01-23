@@ -179,6 +179,9 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SORT, [this]() { return GenSortOp(); }},
           {Opcode::OP_COMPARE_SWAP, [this]() { return GenCompareAndSwapOp(); }},
           {Opcode::OP_MERGE, [this]() { return GenMergeOp(); }},
+
+          {Opcode::OP_MRGSORT_TO_GM, [this]() { return GenMrgSortToGMOp(); }},
+          {Opcode::OP_TILEMRGSORT_IN_GM, [this]() { return GenTileMrgSortInGMOp(); }},
       }),
       cubeOps_({
           // matmul

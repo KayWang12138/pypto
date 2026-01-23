@@ -511,6 +511,8 @@ std::shared_ptr<Operation> Operation::LoadJson(
             case Opcode::OP_TRANSPOSE_MOVEOUT: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
             case Opcode::OP_INDEX_PUT: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
             case Opcode::OP_INDEX_OUTCAST: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
+            case Opcode::OP_MRGSORT_TO_GM: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
+            case Opcode::OP_TILEMRGSORT_IN_GM: opAttribute = DeserializeFrom<CopyOpAttribute>(attrJson); break;
             default: break;
         }
         op->SetOpAttribute(opAttribute);
