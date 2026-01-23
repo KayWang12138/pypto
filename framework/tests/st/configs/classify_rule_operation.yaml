@@ -108,6 +108,11 @@ stest:
       - TestAdds/AddsOperationTest.TestAdds/20
       - TestAdds/AddsOperationTest.TestAdds/21
       - TestAdds/AddsOperationTest.TestAdds/22
+      - TestRound/RoundOperationTest.TestRound/0
+      - TestRound/RoundOperationTest.TestRound/1
+      - TestRound/RoundOperationTest.TestRound/2
+      - TestRound/RoundOperationTest.TestRound/15
+      - TestRound/RoundOperationTest.TestRound/16
       - TestCast/CastOperationTest.TestCast/10
       - TestCast/CastOperationTest.TestCast/11
       - TestCast/CastOperationTest.TestCast/12
