@@ -21,10 +21,7 @@
 
 namespace npu::tile_fwk {
 static std::unordered_map<size_t, std::pair<LogicalTensor*, std::vector<Operation*>>> hashCache;
-unsigned long ComputeHashOrderless(const std::vector <Operation*>& producers) {
-    std::vector<std::string> opStrList;
-    std::stringstream ss;
-    std::vector<Operation*> sortedProducers = producers;
+void SortedProducer(std::vector<Operation*>& sortedProducers) {
     std::sort(sortedProducers.begin(), sortedProducers.end(),
         [](const Operation* op1, const Operation* op2) {
             if (op1 == nullptr || op2 == nullptr) {
@@ -55,6 +52,13 @@ unsigned long ComputeHashOrderless(const std::vector <Operation*>& producers) {
             }
         return ss1.str() < ss2.str();
     });
+}
+
+unsigned long ComputeHashOrderless(const std::vector <Operation*>& producers) {
+    std::vector<std::string> opStrList;
+    std::stringstream ss;
+    std::vector<Operation*> sortedProducers = producers;
+    SortedProducer(sortedProducers);
     for (const auto& op: sortedProducers) {
         if (op == nullptr) {
             continue;
@@ -108,23 +112,22 @@ Status CommonOperationEliminate::RunOnFunction(Function &function) {
     std::unordered_set<Operation*> cacheProducers;
     for (auto& tensorProducerPair: tensorProducerMap) {
         auto& producerGroup = tensorProducerPair.second;
-        if (producerGroup.empty()) {
+        if (producerGroup.empty() || !OpAlreadyExist(tensorProducerPair)) {
             continue;
         }
-        if (OpAlreadyExist(tensorProducerPair)) {
-            for (auto& [hashKey, tensorOpPair]: hashCache) {
-                if (tensorOpPair.first == nullptr) {
-                    continue;
-                }
-                for (auto producer: tensorOpPair.first->GetProducers()) {
-                    if (producer != nullptr) cacheProducers.insert(producer);
-                }
+
+        for (auto& [hashKey, tensorOpPair]: hashCache) {
+            if (tensorOpPair.first == nullptr) {
+                continue;
             }
-            for (auto op: producerGroup) {
-                if (op == nullptr) continue;
-                if (!cacheProducers.count(op)) {
-                    op->SetAsDeleted();
-                }
+            for (auto producer: tensorOpPair.first->GetProducers()) {
+                if (producer != nullptr) cacheProducers.insert(producer);
+            }
+        }
+        for (auto op: producerGroup) {
+            if (op == nullptr) continue;
+            if (!cacheProducers.count(op)) {
+                op->SetAsDeleted();
             }
         }
     }
