@@ -78,7 +78,6 @@ Status SubgraphToFunction::HandleBlockCall(Function &function) {
     auto rootFunc = CreateRootFunc(function);
     ASSERT(rootFunc != nullptr) << "Failed to create root function!";
     rootFunc->programModule_ = function.programModule_;
-    std::cout << *(rootFunc->programModule_) << std::endl;
     for (auto &oriCallOp : function.Operations(false)) {
         APASS_LOG_DEBUG_F(Elements::Function, "Try handle block callop %d", oriCallOp.GetOpMagic());
         ASSERT(oriCallOp.GetOpcode() == Opcode::OP_BLOCK_CALL) << "oriCallOp is invalid";

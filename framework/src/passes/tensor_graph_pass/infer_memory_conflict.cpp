@@ -191,12 +191,9 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
         if (inputShape.size() == inSize && 
             outputShape.size() == outSize &&
             validator(inputShape, outputShape)) {
-            std::cout << "MatchReshapePattern " << patternId << std::endl;
             return true;
         }
     }
-    
-    std::cout << "MatchReshapePattern 5" << std::endl;
     return false;
 }
 

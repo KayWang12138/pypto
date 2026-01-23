@@ -190,9 +190,7 @@ VIEW -> RESHAPE -> COPYIN
 */
 Status ProcessView(Function &function) {
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_RESHAPE) {
-            continue;
-        }
+        if (op.GetOpcode() != Opcode::OP_RESHAPE) continue;
         auto &reshape = op;
         if (!MatchReshapePattern(reshape.GetIOperands().front(), reshape.GetOOperands().front())) {
             continue;
@@ -214,10 +212,8 @@ Status ProcessView(Function &function) {
         }
         auto &offset = opAttr->GetFromDynOffset();
         std::vector<int64_t> newRawShape = reshape.GetOOperands().front()->shape;
-        std::cout << IntVecToStr(newRawShape).c_str() << std::endl;
         newRawShape[0] *=
             (viewInput->tensor->GetRawShapeSize() / reshape.GetOOperands().front()->tensor->GetRawShapeSize());
-        std::cout << IntVecToStr(newRawShape).c_str() << std::endl;
         std::vector<SymbolicScalar> newDynOffset;
         GetDynOffsetBeforeReshape(offset, viewInput->shape, newRawShape, newDynOffset);
         for (auto copyIn : reshape.GetOOperands().front()->GetConsumers()) {
