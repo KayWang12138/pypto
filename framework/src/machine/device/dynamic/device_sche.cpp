@@ -104,6 +104,11 @@ struct DynMachineManager {
             mutex_.unlock();
             return;
         }
+        auto kargs = (DeviceKernelArgs *)targ;
+        auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
+        if (devArgs->aicpuPerfAddr != 0) {
+            PerfEvtMgr::Instance().SetIsOpenProf(true, devArgs->aicpuPerfAddr);
+        }
         (void)PyptoKernelCtrlServerInit(targ);
         initCtrl_.store(true);
         mutex_.unlock();
@@ -223,13 +228,13 @@ extern "C" __attribute__((visibility("default"))) int DynTileFwkBackendKernelSer
         g_machine_mgr.DeInit();
 #if ENABLE_PERF_TRACE
         PerfMtTrace(PERF_TRACE_EXIT, g_machine_mgr.LastFinishThreadIdx_);
-        DEV_ERROR("Begin dump machine perf trace:");
-        PerfEvtMgr::Instance().DumpPerfTrace(devArgs->scheCpuNum, "/tmp/tile_fwk_aicpu_perftrace.json");
-        DEV_IF_DEVICE {
-            g_machine_mgr.machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
-        }
-        DEV_ERROR("Finish dump machine perf trace.");
-#endif
+         DEV_ERROR("Begin dump machine perf trace:");
+         PerfEvtMgr::Instance().DumpPerfTrace(devArgs->scheCpuNum, "/tmp/tile_fwk_aicpu_perftrace.json");
+         DEV_IF_DEVICE {
+             g_machine_mgr.machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
+         }
+         DEV_ERROR("Finish dump machine perf trace.");
+ #endif
         return DEVICE_MACHINE_OK;
     }
     return rc;
