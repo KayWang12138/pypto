@@ -71,6 +71,12 @@ struct DeviceMemoryUtils {
         CopyFromDev(data.data(), data.GetDevPtr(), data.size());
     }
 
+    void Free(uint8_t* mem) {
+        if (mem) {
+            rtFree(mem);
+        }
+    }
+
     uint64_t GetL2Offset() {
         return machine::GetRA()->GetL2Offset();
     }
