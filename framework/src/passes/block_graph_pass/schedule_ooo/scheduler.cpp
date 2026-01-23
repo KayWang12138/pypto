@@ -1082,6 +1082,33 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
         APASS_LOG_ERROR_F(Elements::Operation, "CheckAndUpdateLifecycle failed!");
         return FAILED;
     }
+    for (size_t i = 0; i < operations.size(); i++) {
+        if (operations[i]->GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
+            auto l0MxOut = operations[i]->GetOOperands()[0];
+            auto consOp = *l0MxOut->GetConsumers().begin();
+            LogicalTensorPtr l0ATensor, l0BTensor, l0AMXTensor, l0BMXTensor;
+            for (auto &l0Tensor : consOp->GetIOperands()) {
+                if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
+                    l0ATensor = l0Tensor;
+                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
+                    l0BTensor = l0Tensor;
+                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) {
+                    l0AMXTensor = l0Tensor;
+                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
+                    l0BMXTensor = l0Tensor;
+                }
+            }
+            l02L0MXMap_[l0ATensor] = l0AMXTensor;
+            l02L0MXMap_[l0BTensor] = l0BMXTensor;
+        }
+    }
+    for (auto &entry : l02L0MXMap_) {
+        auto l0Tensor = entry.first;
+        auto l0MXTensor = entry.second;
+        int l0MemID = l0Tensor->memoryrange.memId;
+        int l0MemMXID = l0MXTensor->memoryrange.memId;
+        l0MXTensor->memoryrange = TileRange(localBufferMap[l0MemID]->start >> 4, localBufferMap[l0MemID]->end >> 4, l0MemMXID);
+    }
     PrintOpList(newOperations_);
     function_.SetStackWorkespaceSize(workspaceOffset);
     return SUCCESS;
