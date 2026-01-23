@@ -1034,15 +1034,15 @@ Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
         return SUCCESS;
     }
     if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+        if (op->GetIOperands().size() == 0 || op->GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIC);
+            return SUCCESS;
+        }
         if (op->GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
             issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
             return SUCCESS;
         }
         if (op->GetInputOperand(0)->GetMemoryTypeOriginal() < MemoryType::MEM_FIX) {
-            issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIC);
-            return SUCCESS;
-        }
-        if (op->GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIC);
             return SUCCESS;
         }
