@@ -306,6 +306,16 @@ Status OoOScheduler::CheckAndUpdateLifecycle() {
 }
 
 Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
+    bool isUsed = false;
+    for (size_t i = 0; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
+        if (!allocIssueQueue[coreType][idx][static_cast<MemoryType>(i)].Empty()) {
+            isUsed = true;
+        }
+    }
+    if (!isUsed) {
+        APASS_LOG_INFO_F(Elements::Operation, "idx: %d, coreType: %s not used", idx, coreTypeToString(coreType).c_str());
+        return SUCCESS;
+    }
     MemoryType spillMemType;
     if (!allocIssueQueue[coreType][idx][MemoryType::MEM_UB].Empty()) {
         spillMemType = MemoryType::MEM_UB;
