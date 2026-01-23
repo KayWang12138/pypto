@@ -204,6 +204,7 @@ int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig
     if (HasInplaceArgs(function) || outputDataList.size() == 0) {
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
     }
+    machine::GetRA()->FreeTmpMemory();
     return rc;
 #else
     (void)function;
