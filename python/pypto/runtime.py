@@ -62,6 +62,11 @@ def _current_stream():
     return torch.npu.current_stream().npu_stream
 
 
+def _is_current_stream_capturing():
+    import torch
+    return torch.npu.is_current_stream_capturing()
+
+
 @contextmanager
 def _change_device(device):
     import torch
@@ -178,21 +183,24 @@ class _JIT:
         with pypto.options("jit_scope"):
             self._set_config_option()
             self.kernel_warmup(tensors, argtype, *args, **kwargs)
-            kernel, _ = self.get_cached_kernel(tensors, argtype, cfshape, *args, **kwargs)
+            kernel = None
+            ctrcache = None
+            if device.type == 'npu':
+                kernel, ctrcache = self.get_cached_kernel(tensors, argtype, cfshape, *args, **kwargs)
             if run_mode == RunMode.NPU:
-                self.run_npu(device, kernel, start_args)
+                self.run_npu(device, kernel, ctrcache, start_args)
             else:
                 self.run_cpu(kernel, tensors)
 
     @staticmethod
-    def run_npu(device, kernel, start_args):
+    def run_npu(device, kernel, ctrl_cache, start_args):
         import torch
         with _change_device(device):
-            workspace_size = pypto_impl.GetWorkSpaceSize(kernel, start_args, [])
-            workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
             if device.type == 'npu':
+                workspace_size = pypto_impl.GetWorkSpaceSize(kernel, start_args, [])
+                workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
                 pypto_impl.OperatorDeviceRunOnceDataFromDevice(kernel,
-                    start_args, [], _current_stream(), workspace_tensor.data_ptr())
+                    start_args, [], _current_stream(), workspace_tensor.data_ptr(), ctrl_cache)
             else:
                 pypto_impl.DeviceRunOnceDataFromHost(start_args, [])
 
@@ -274,25 +282,17 @@ class _JIT:
 
     def get_cached_kernel(self, tensors: List[pypto.Tensor], argtype: _ArgType,
                           cfshape: _ControlflowShape, *args, **kwargs):
-        # controlflow cache not shared now, each shape compile as seperated kernel
-        if cfshape:
-            argtype = cfshape
-
-        if argtype not in self.kernel_cache:
+        kernel = self.kernel_cache.get(argtype)
+        if kernel is None:
             kernel = self.compile(tensors, *args, **kwargs)
             self.kernel_cache[argtype] = kernel
 
-        kernel = self.kernel_cache[argtype]
         if not cfshape:
-            return kernel, None
+            return kernel, 0
 
-        cfkey = (kernel, cfshape)
-        if cfkey not in self.controlflow_cache:
-            cfdata = [pypto_impl.DeviceTensorData(t.dtype, 0, shape) for t, shape in zip(tensors, cfshape.shapes)]
-            pypto_impl.BuildCache(kernel, cfdata, [])
-            # controlflow share shame devprog with kernel now
-            self.controlflow_cache[cfkey] = kernel
-        cfcache = self.controlflow_cache[cfkey]
+        cfdata = [pypto_impl.DeviceTensorData(t.dtype, 0, shape) for t, shape in zip(tensors, cfshape.shapes)]
+        cfcache = pypto_impl.BuildCache(kernel, cfdata, [], _is_current_stream_capturing())
+
         return kernel, cfcache
 
     def _set_config_option(self):
