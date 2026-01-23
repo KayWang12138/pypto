@@ -24,7 +24,7 @@
 
 namespace npu::tile_fwk {
 
-void NBufferMerge::GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx) {
+void NBufferMerge::GetOpHash(std::vector<uint64_t> &hashList, const std::string op, size_t idx) {
     uint64_t a = 0x12345678;
     uint64_t p = 37;
     const uint64_t mod = 0xFFFFFFFFFFFFF;

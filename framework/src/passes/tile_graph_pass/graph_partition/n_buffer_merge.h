@@ -36,7 +36,7 @@ private:
     Status NBufferMergeProcess(Function &func);
     Status Init(Function &func);
     void InitParam(OperationsViewer &opOriList);
-    void GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx);
+    void GetOpHash(std::vector<uint64_t> &hashList, const std::string op, size_t idx);
     void GetOpHashReverse(std::vector<uint64_t> &hashList, const std::string op, int idx);
     void GetColorHash(const OperationsViewer &opOriList,
                       std::vector<uint64_t> &hashColor,
