@@ -1,0 +1,185 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file test_span_irnode.cpp
+ * \brief Unit tests for IR core classes (Span and IRNode)
+ */
+
+#include "gtest/gtest.h"
+
+#include <memory>
+#include <string>
+
+#include "ir/core.h"
+
+namespace pypto {
+namespace ir {
+
+TEST(IRCoreTest, TestSpanBasic) {
+    // Test basic Span functionality
+    Span span("test.py", 10, 5, 10, 15);
+
+    ASSERT_EQ(span.filename_, "test.py");
+    ASSERT_EQ(span.begin_line_, 10);
+    ASSERT_EQ(span.begin_column_, 5);
+    ASSERT_EQ(span.end_line_, 10);
+    ASSERT_EQ(span.end_column_, 15);
+}
+
+TEST(IRCoreTest, TestSpanToString) {
+    // Test Span to_string() method
+    Span span("test.py", 10, 5, 10, 15);
+    std::string str = span.to_string();
+
+    // Should contain meaningful location information
+    ASSERT_TRUE(!str.empty());
+    ASSERT_TRUE(str.find("test.py") != std::string::npos ||
+                str.find("10") != std::string::npos);
+}
+
+TEST(IRCoreTest, TestSpanIsValid) {
+    // Test Span is_valid() method
+    Span valid_span("test.py", 10, 5, 10, 15);
+    ASSERT_TRUE(valid_span.is_valid());
+
+    // Unknown span should be invalid
+    Span unknown_span = Span::unknown();
+    ASSERT_FALSE(unknown_span.is_valid());
+}
+
+TEST(IRCoreTest, TestSpanUnknown) {
+    // Test Span::unknown() creates an invalid span
+    Span span = Span::unknown();
+    ASSERT_FALSE(span.is_valid());
+
+    // Unknown span should have meaningful string representation
+    std::string str = span.to_string();
+    ASSERT_TRUE(!str.empty());
+}
+
+TEST(IRCoreTest, TestSpanMultiline) {
+    // Test Span spanning multiple lines
+    Span span("file.py", 5, 10, 8, 20);
+
+    ASSERT_EQ(span.begin_line_, 5);
+    ASSERT_EQ(span.end_line_, 8);
+    ASSERT_EQ(span.begin_column_, 10);
+    ASSERT_EQ(span.end_column_, 20);
+}
+
+TEST(IRCoreTest, TestSpanSingleCharacter) {
+    // Test Span for a single character
+    Span span("file.py", 5, 10, 5, 11);
+
+    ASSERT_EQ(span.begin_line_, 5);
+    ASSERT_EQ(span.end_line_, 5);
+    ASSERT_EQ(span.begin_column_, 10);
+    ASSERT_EQ(span.end_column_, 11);
+    ASSERT_TRUE(span.is_valid());
+}
+
+TEST(IRCoreTest, TestIRNodeBasic) {
+    // Test basic IRNode functionality
+    Span span("test.py", 1, 0, 1, 10);
+    IRNode node(span);
+
+    ASSERT_EQ(node.span_.filename_, span.filename_);
+    ASSERT_EQ(node.span_.begin_line_, span.begin_line_);
+}
+
+TEST(IRCoreTest, TestIRNodeTypeName) {
+    // Test IRNode TypeName() method
+    Span span("test.py", 1, 0, 1, 10);
+    IRNode node(span);
+
+    std::string type_name = node.TypeName();
+    ASSERT_EQ(type_name, "IRNode");
+}
+
+TEST(IRCoreTest, TestIRNodeWithUnknownSpan) {
+    // Test IRNode with unknown span
+    IRNode node(Span::unknown());
+
+    ASSERT_FALSE(node.span_.is_valid());
+    ASSERT_EQ(node.TypeName(), "IRNode");
+}
+
+TEST(IRCoreTest, TestMultipleIRNodes) {
+    // Test creating multiple IRNode instances
+    Span span1("file1.py", 1, 0, 1, 10);
+    Span span2("file2.py", 5, 5, 5, 15);
+    Span span3("file3.py", 10, 0, 12, 0);
+
+    IRNode node1(span1);
+    IRNode node2(span2);
+    IRNode node3(span3);
+
+    ASSERT_EQ(node1.span_.filename_, "file1.py");
+    ASSERT_EQ(node2.span_.filename_, "file2.py");
+    ASSERT_EQ(node3.span_.filename_, "file3.py");
+}
+
+TEST(IRCoreTest, TestSpanCopy) {
+    // Test copying Span objects
+    Span original("test.py", 10, 5, 10, 15);
+    Span copy = original;
+
+    ASSERT_EQ(copy.filename_, original.filename_);
+    ASSERT_EQ(copy.begin_line_, original.begin_line_);
+    ASSERT_EQ(copy.begin_column_, original.begin_column_);
+    ASSERT_EQ(copy.end_line_, original.end_line_);
+    ASSERT_EQ(copy.end_column_, original.end_column_);
+}
+
+TEST(IRCoreTest, TestSpanComparison) {
+    // Test comparing Span objects
+    Span span1("test.py", 10, 5, 10, 15);
+    Span span2("test.py", 10, 5, 10, 15);
+    Span span3("test.py", 20, 5, 20, 15);
+
+    // Same location
+    ASSERT_EQ(span1.filename_, span2.filename_);
+    ASSERT_EQ(span1.begin_line_, span2.begin_line_);
+
+    // Different location
+    ASSERT_NE(span1.begin_line_, span3.begin_line_);
+}
+
+TEST(IRCoreTest, TestIRNodeSharedPtr) {
+    // Test IRNode with shared_ptr
+    Span span("test.py", 1, 0, 1, 10);
+    auto node = std::make_shared<IRNode>(span);
+
+    ASSERT_NE(node, nullptr);
+    ASSERT_EQ(node->TypeName(), "IRNode");
+    ASSERT_EQ(node->span_.filename_, "test.py");
+}
+
+TEST(IRCoreTest, TestSpanZeroPosition) {
+    // Test Span with zero line and column
+    Span span("test.py", 0, 0, 0, 1);
+
+    ASSERT_EQ(span.begin_line_, 0);
+    ASSERT_EQ(span.begin_column_, 0);
+}
+
+TEST(IRCoreTest, TestSpanLargePosition) {
+    // Test Span with large line and column numbers
+    Span span("test.py", 10000, 500, 10001, 600);
+
+    ASSERT_EQ(span.begin_line_, 10000);
+    ASSERT_EQ(span.begin_column_, 500);
+    ASSERT_EQ(span.end_line_, 10001);
+    ASSERT_EQ(span.end_column_, 600);
+}
+
+}  // namespace ir
+}  // namespace pypto

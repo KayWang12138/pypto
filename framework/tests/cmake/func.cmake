@@ -228,6 +228,7 @@ function(PTO_Fwk_GTest_AddExe)
     target_link_libraries(${ARG_TARGET}
             PRIVATE
                 GTest::gtest
+                libbacktrace
                 -Wl,--no-as-needed
                 -Wl,--whole-archive
                 ${ARG_PRIVATE_LINK_LIBRARIES}
