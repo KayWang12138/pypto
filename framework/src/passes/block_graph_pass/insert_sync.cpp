@@ -698,7 +698,7 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
 Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog) {
     PipeCore currPipe = depOps_[idx].selfPipeCore;
     // serch the waitpipe of current op
-    uint64_t waitIdx;
+    uint64_t waitIdx = idx == 0 ? 0 : idx * SEQUENCE_IDX - HALF_SEQUENCE_IDX;
     if (idx == 0) {
         waitIdx = 0;
     }
