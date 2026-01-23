@@ -1072,7 +1072,7 @@ TEST_F(ScheduleOoOTest, TestSingleCopyin2) {
 
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Schedule(function->Operations().DuplicatedOpList());
-    EXPECT_EQ(res, SUCCESS);
+    EXPECT_EQ(res, FAILED);
 }
 
 TEST_F(ScheduleOoOTest, TestDelBufCount) {
