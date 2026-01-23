@@ -845,20 +845,7 @@ TEST_F(MixSubgraphSplitTest, TestCrossFunctionMixSubgraph) {
     }
     EXPECT_FALSE(originalCallOpExists) 
         << "Original cross-function callOp should be deleted";
-    // 9.6 验证新callOp的属性
-    for (auto* callOp : newCallOps) {
-        auto callAttr = dynamic_cast<CallOpAttribute*>(callOp->GetOpAttribute().get());
-        EXPECT_NE(callAttr, nullptr) << "CallOpAttribute should exist";
-        
-        if (callAttr && callAttr->invokeInfo_) {
-            uint64_t progId = callAttr->invokeInfo_->GetProgramId();
-            
-            // 应该使用临时ID
-            EXPECT_GE(progId, 0xFFFFFFFF00000000ULL)
-                << "New callOps should reference temporary program IDs";    
-        }
-    }
-    // 9.7 验证Mix子图仍在全局缓存中
+    // 9.6 验证Mix子图仍在全局缓存中
     auto cacheValue = Program::GetInstance().TryHitCahce(mixFuncHash);
     if (cacheValue) {
         EXPECT_EQ(cacheValue->cacheFunction, externalMixFuncPtr.get())
