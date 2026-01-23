@@ -366,10 +366,20 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintL0CToL1TileTensor() const {
-    std::vector<int64_t> dstOffset = this->offset[ID0];
-    std::string coordCp = WrapParamByParentheses(dstOffset);
-    // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
-    std::string coord = PrintCoord(rawShape[ID0].size(), coordCp);
+    auto l1Offset = offsetFromAttr[ID0];
+    std::vector<std::string> dstOffset;
+    for (auto tmpOffset : l1Offset) {
+        dstOffset.emplace_back(SymbolicExpressionTable::BuildExpression(tmpOffset));
+    }
+    auto locOffset = offsetFromAttr[ID1];
+    std::vector<std::string> srcOffset;
+    for (auto tmpOffset : locOffset) {
+        srcOffset.emplace_back(SymbolicExpressionTable::BuildExpression(tmpOffset));
+    }
+    std::string coordCpDst = WrapParamByParentheses(dstOffset);
+    std::string coordDst = PrintCoord(rawShape[ID0].size(), coordCpDst);
+    std::string coordCpSrc = WrapParamByParentheses(srcOffset);
+    std::string coordSrc = PrintCoord(rawShape[ID1].size(), coordCpSrc);
     bool vquantFlag = false;
     GetAttr(OpAttributeKey::quantFlag, vquantFlag);
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
@@ -388,7 +398,7 @@ std::string CodeGenOpCloudNPU::PrintL0CToL1TileTensor() const {
     npu::tile_fwk::Element scaleValue = npu::tile_fwk::Element(DataType::DT_UINT64, 0);
     GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
     std::vector<std::string> tileOpParamList = {
-        dstTensor, srcTensor, src1Tensor, coord, std::to_string(scaleValue.GetUnsignedData())};
+        dstTensor, srcTensor, src1Tensor, coordDst, coordSrc, std::to_string(scaleValue.GetUnsignedData())};
 
     std::ostringstream oss;
     oss << tileOpName << "<" << "TileOp::TStoreConfig" << storeConfig << ">";
