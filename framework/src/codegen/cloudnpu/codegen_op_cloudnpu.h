@@ -285,6 +285,8 @@ private:
     std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintUnaryStatic(const PrintUnaryParam &param) const;
 
+    std::string PrintBitwiseNot() const;
+
     SortParam PrepareSortParam() const;
     TiledSortParam PrepareTiledSortParam() const;
     std::string PrintTileSortTileTensor() const;

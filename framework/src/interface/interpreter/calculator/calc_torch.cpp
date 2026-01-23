@@ -120,6 +120,11 @@ static void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::sqrt_out(tout, From(self));
 }
 
+static void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::bitwise_not_out(tout, From(self));
+}
+
 static void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::logical_not_out(tout, From(self));
@@ -960,6 +965,7 @@ static struct CalcOps calcOps = {
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sqrt = Sqrt,
+    .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .WhereTT = WhereTT,
     .WhereTS = WhereTS,

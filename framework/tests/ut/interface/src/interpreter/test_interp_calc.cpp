@@ -285,6 +285,14 @@ TEST_F(TorchAdaptorTest, UnaryOps) {
             calc::Cast(out, self);
             ASSERT_ALLCLOSE(out, golden);
         }
+        {
+        // bitwisenot
+            auto self = makeTensorData(DT_INT32, {16, 16}, 4);
+            auto out = makeTensorData(DT_INT32, {16, 16}, 0);
+            auto golden = makeTensorData(DT_INT32, {16, 16}, -5);
+            calc::BitwiseNot(out, self);
+            ASSERT_ALLCLOSE(out, golden);
+        }
     }
 }
 
