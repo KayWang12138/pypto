@@ -560,9 +560,9 @@ class JitCallableWrapper:
         """Set verify input/output/golden data for pass-level verification.
 
         This mirrors the behavior of pypto.runtime._JIT.compile:
-        - 将当前输入/输出从 NPU 拷到 Host
-        - 使用 set_verify_golden_data 预先注入的 golden 数据
-        - 调用 SetVerifyData 将三者注册给底层 ProgramData
+        - Copy current input/output from NPU to Host
+        - Use golden data pre-injected via set_verify_golden_data
+        - Call SetVerifyData to register all three to the underlying ProgramData
         """
         if not (
             isinstance(self._verify_options, dict)
@@ -570,7 +570,7 @@ class JitCallableWrapper:
         ):
             return
 
-        # 将 NPU Tensor 拷贝到 CPU，再转成 pypto.Tensor，便于构造 DeviceTensorData
+        # Copy NPU Tensor to CPU, then convert to pypto.Tensor for constructing DeviceTensorData
         host_pto_tensors = [t.cpu() for t in in_tensors + out_tensors]
         pypto_tensors: list[pypto.Tensor] = []
         for t in host_pto_tensors:
@@ -578,7 +578,7 @@ class JitCallableWrapper:
             pypto_tensors.append(pto_tensor)
 
         host_pto_t_datas = _pto_to_tensor_data(pypto_tensors)
-        # 使用 set_verify_golden_data 预先注入的 golden 数据
+        # Use golden data pre-injected via set_verify_golden_data
         pypto_impl.SetVerifyData(
             host_pto_t_datas,
             [],
