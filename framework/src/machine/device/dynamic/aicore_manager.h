@@ -293,10 +293,10 @@ public:
     void ResetRegAll() {
         ForEachManageAicore([this](int coreIdx) {
             if (aicoreHal_.ReadPathReg(coreIdx) == REG_SPR_FAST_PATH_OPEN) {
-                aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1);
+                aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP);
                 aicoreHal_.WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_CLOSE);
             } else {
-                aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1);
+                aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP);
             }
         });
     }
@@ -535,7 +535,7 @@ private:
                 DEV_VERBOSE_DEBUG("Last devtask ,core %d send AICORE_TASK_STOP.", coreIdx);
             } else {
                 uint64_t stopFlag =
-                    (static_cast<uint64_t>(curTaskId_) << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP + 1);
+                    (static_cast<uint64_t>(curTaskId_) << REG_HIGH_DTASKID_SHIFT) | (AICORE_FUNC_STOP);
                 aicoreHal_.SetReadyQueue(coreIdx, stopFlag);
                 coreStatus[coreIdx] = AicoreStatus::CORE_SEND_STOP;
                 DEV_VERBOSE_DEBUG("core %d send AICORE_FUNC_STOP %lx.", coreIdx, stopFlag);
@@ -795,7 +795,7 @@ private:
         DEV_TRACE_DEBUG(LEvent(
             LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
             LActStart(coreIdx)));
-        aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
+        aicoreHal_.SetReadyQueue(coreIdx, (newTask) & 0xFFFFFFFF);
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;
         context_->sendCnt_[static_cast<int>(type)]++;
@@ -1583,7 +1583,7 @@ private:
 
     inline void NormalStop() {
         DEV_INFO("aicore manager %d try normal stop .", aicpuIdx_);
-        ForEachManageAicore([this](auto coreIdx) { aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1) ; });
+        ForEachManageAicore([this](auto coreIdx) { aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP) ; });
         /* write to MAINBASE reg must be done before close 0x18 */
         __sync_synchronize();
         ForEachManageAicore([this](auto coreIdx) {
@@ -1593,7 +1593,7 @@ private:
     }
 
     inline void NormalStopSingleCore(int coreIdx) {
-        aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1);
+        aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP);
         __sync_synchronize();
         aicoreHal_.ResetShakeBuf(coreIdx);
     }

@@ -19,7 +19,7 @@
 #include <cstdlib>
 #include <type_traits>
 
-#include "aicore_data.h"
+#include "aikernel_data.h"
 
 #ifndef CACHE_LINE_SIZE
 #define CACHE_LINE_SIZE 64
@@ -64,28 +64,7 @@ struct AicoreLogger {
         int64_t tail_;
     };
 
-    static __aicore__ void __PrintInt(LogContext *ctx, __gm__ const char **fmt, int64_t val) {
-        auto self = reinterpret_cast<AicoreLogger *>(ctx);
-        if (self) {
-            self->PrintInt(fmt, val);
-        }
-    }
-
-    static __aicore__ void __PrintFloat(LogContext *ctx, __gm__ const char **fmt, float val) {
-        auto self = reinterpret_cast<AicoreLogger *>(ctx);
-        if (self) {
-            self->PrintFloat(fmt, val);
-        }
-    }
-
-    static __aicore__ void __Print(LogContext *ctx, __gm__ const char *fmt) {
-        auto self = reinterpret_cast<AicoreLogger *>(ctx);
-        if (self) {
-            self->Print(fmt);
-        }
-    }
-
-    __aicore__ void Init(__gm__ uint8_t *buf, size_t n) {
+    INLINE void Init(__gm__ uint8_t *buf, size_t n) {
         remote_ = reinterpret_cast<volatile __gm__ Remote *>(buf);
         remote_->head_ = remote_->tail_ = 0;
         head_ = tail_ = 0;
@@ -96,11 +75,33 @@ struct AicoreLogger {
         ctx.Print = __Print;
     }
 
-    __aicore__ __gm__ uint8_t *GetBuffer()  {
+    INLINE __gm__ uint8_t *GetBuffer()  {
         return data_ - sizeof(Remote);
     }
 
-    __aicore__ void PrintInt(__gm__ const char **fmt, int64_t val) {
+private:
+    static INLINE void __PrintInt(LogContext *ctx, __gm__ const char **fmt, int64_t val) {
+        auto self = reinterpret_cast<AicoreLogger *>(ctx);
+        if (self) {
+            self->PrintInt(fmt, val);
+        }
+    }
+
+    static INLINE void __PrintFloat(LogContext *ctx, __gm__ const char **fmt, float val) {
+        auto self = reinterpret_cast<AicoreLogger *>(ctx);
+        if (self) {
+            self->PrintFloat(fmt, val);
+        }
+    }
+
+    static INLINE void __Print(LogContext *ctx, __gm__ const char *fmt) {
+        auto self = reinterpret_cast<AicoreLogger *>(ctx);
+        if (self) {
+            self->Print(fmt);
+        }
+    }
+
+    INLINE void PrintInt(__gm__ const char **fmt, int64_t val) {
         auto curFmt = *fmt;
         auto idx = ParseNextFormat(*fmt);
         if (idx == -1) {
@@ -139,7 +140,7 @@ struct AicoreLogger {
         *fmt = *fmt + idx;
     }
 
-    __aicore__ void PrintFloat(__gm__ const char **fmt, float val) {
+    INLINE void PrintFloat(__gm__ const char **fmt, float val) {
         auto curFmt = *fmt;
         auto idx = ParseNextFormat(*fmt);
         if (idx == -1) {
@@ -155,7 +156,7 @@ struct AicoreLogger {
         *fmt = *fmt + idx;
     }
 
-    __aicore__ void Print(__gm__ const char *str) {
+    INLINE void Print(__gm__ const char *str) {
         auto n = Length(str);
         if (n) {
             Encode(NORMAL, reinterpret_cast<const __gm__ uint8_t *>(str), n, str, n);
@@ -164,7 +165,7 @@ struct AicoreLogger {
         Sync();
     }
 
-    __aicore__ void Sync() {
+    INLINE void Sync() {
 #ifndef __TILE_FWK_HOST__
         int64_t delta = (int64_t)(&data_[remote_->head_ % size_]) & (CACHE_LINE_SIZE -1);
         int64_t off = remote_->head_ - delta;
@@ -182,7 +183,7 @@ struct AicoreLogger {
     }
 
     INLINE LogContext *context() { return &ctx; }
-
+public:
 #ifdef __TILE_FWK_HOST__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
@@ -229,7 +230,7 @@ struct AicoreLogger {
 #endif
 
 private:
-    __aicore__ int64_t ParseNextFormat(__gm__ const char *fmt) {
+    INLINE int64_t ParseNextFormat(__gm__ const char *fmt) {
         int64_t idx = 0;
         while (fmt[idx]) {
             if (fmt[idx] == '%') {
@@ -303,7 +304,7 @@ private:
     }
 #endif
 
-    __aicore__ void Encode(uint8_t val) {
+    INLINE void Encode(uint8_t val) {
         if (head_ == tail_ + size_) {
             while (Read<uint8_t>(tail_) != END) {
                 tail_++;
@@ -317,7 +318,7 @@ private:
     }
 
     template<typename T>
-    __aicore__ void Encode(NodeTy ty, const T *val, short valLen, __gm__ const char *fmt, int fmtLen) {
+    INLINE void Encode(NodeTy ty, const T *val, short valLen, __gm__ const char *fmt, int fmtLen) {
         Encode(ty);
 
         auto bytes = reinterpret_cast<uint8_t *>(&valLen);
