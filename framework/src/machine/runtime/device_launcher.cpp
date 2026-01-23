@@ -240,6 +240,7 @@ int DeviceLauncher::DeviceRunOnce(Function *function,  DevControlFlowCache* host
     if (HasInplaceArgs(function) || outputDataList.size() == 0) {
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
     }
+    machine::GetRA()->FreeTmpMemory();
     return rc;
 #else
     (void)hostCtrlCache;
