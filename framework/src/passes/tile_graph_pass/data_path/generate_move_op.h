@@ -57,7 +57,8 @@ private:
     Status SetOpcodeByMemPath(Operation &op,MemoryType from,MemoryType to) const;
     bool HasSpecificConsumer(const Operation &op) const;
     void ConvertViewToCopyInWhenInputGm(Operation &op, ViewOpAttribute *viewOpAttribute) const;
-    Status CreateMoveOpForView(Function &function, Operation &op) const;
+    Status A23CreateMoveOpForView(Function &function, Operation &op) const;
+    Status A5CreateMoveOpForView(Function &function, Operation &op) const;
     void CreateMoveOpForAssemble(Operation &op) const;
     Status CreateMoveOpForConvert(Function &function, Operation &op) const;
     void ProcessUB2L1(Function &function, Operation &op) const;
