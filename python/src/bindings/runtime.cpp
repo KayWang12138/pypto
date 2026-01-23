@@ -147,10 +147,16 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     auto aicoreStream = incomingStream;
     auto aicpuStream = DeviceGetAicpuStream();
     auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
-    int rc =
-        ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false,
-            DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
-    if (rc < 0) {
+    try{
+        int rc =
+            ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false,
+                DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr));
+        if (rc < 0) {
+            return "device run failed";
+        }
+    }
+    catch (const std::exception& e){
+        std::cerr << "Caught exception: " << e.what() << std::endl;
         return "device run failed";
     }
 #endif
