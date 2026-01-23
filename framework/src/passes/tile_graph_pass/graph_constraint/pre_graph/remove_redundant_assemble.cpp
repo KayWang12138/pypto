@@ -139,9 +139,7 @@ VIEW -> RESHAPE -> COPYIN
 */
 Status ProcessView(Function &function) {
     for (auto &op : function.Operations()) {
-        if (op.GetOpcode() != Opcode::OP_RESHAPE) {
-            continue;
-        }
+        if (op.GetOpcode() != Opcode::OP_RESHAPE) continue;
         auto &reshape = op;
         if (!MatchReshapePattern(reshape.GetIOperands().front(), reshape.GetOOperands().front())) {
             continue;
