@@ -228,8 +228,8 @@ Status NBufferMerge::Init(Function &func) {
     return SUCCESS;
 }
 
-std::map<int, size_t> NBufferMerge::GetIsoColorMergeNum(const std::map<uint64_t, std::vector<int>> &hashMap) const {
-    std::map<int, size_t> hashCoreNum;
+std::map<uint64_t, size_t> NBufferMerge::GetIsoColorMergeNum(const std::map<uint64_t, std::vector<int>> &hashMap) const {
+    std::map<uint64_t, size_t> hashCoreNum;
     for (const auto& entry : hashMap) {
         if (entry.first == 0 || entry.second.empty()) {
             continue;
