@@ -397,6 +397,9 @@ void PadLocalBuffer::DoPadding(Function &function) {
             }
             visited.emplace(in);
             if (IsMatmul(in)) {
+                if (op.GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
+                    continue;
+                }
                 PadMatmul(op, in);
                 continue;
             }
