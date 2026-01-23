@@ -102,15 +102,19 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
         auto opName = GetBinaryOpName<T>();
         if (opName == "MOD") {
             std::vector<int64_t> tmpShape;
-            if (input1.tileInfo.shape.size() >= 2) {
-                tmpShape.assign(input1.tileInfo.shape.end() - 2, input1.tileInfo.shape.end());
+            auto tileShapeSize = input1.tileInfo.shape.size();
+            if (tileShapeSize >= 2) {
+                tmpShape = {
+                    std::max(input1.tileInfo.shape[tileShapeSize - 2], input2.tileInfo.shape[tileShapeSize - 2]),
+                    std::max(input1.tileInfo.shape[tileShapeSize - 1], input2.tileInfo.shape[tileShapeSize - 1])};
             } else {
-                tmpShape = input1.tileInfo.shape;
+                tmpShape = {
+                    std::max(input1.tileInfo.shape[tileShapeSize - 1], input2.tileInfo.shape[tileShapeSize - 1])};
             }
             auto alignSize = BLOCK_SIZE / BytesOf(input1.tensor->Datatype());
-            tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize -1) / alignSize * alignSize;
+            tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize - 1) / alignSize * alignSize;
             int64_t tmpSize = 1;
-            for (int64_t num : tmpShape){
+            for (int64_t num : tmpShape) {
                 tmpSize *= num;
             }
             size_t totalBytes = 0;
@@ -121,7 +125,8 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             }
             std::vector<int64_t> tmpTensorShape({static_cast<int64_t>(totalBytes)});
             auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmpTensorShape);
-            function.AddOperation(GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tmpTensor});
+            function.AddOperation(
+                GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tmpTensor});
             return;
         }
         if (withBrc) {
