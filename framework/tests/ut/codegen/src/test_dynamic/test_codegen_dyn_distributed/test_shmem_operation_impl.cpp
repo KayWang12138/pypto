@@ -235,7 +235,8 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub) {
+TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
+{
     int64_t row = 4;
     int64_t col = 64;
     Tensor dummy(DT_INT32, {1, 1}, "dummy");
