@@ -22,6 +22,7 @@
 namespace npu::tile_fwk {
 const std::string version = "version";
 const std::string npuArchInfo = "NpuArch";
+const std::string shortSocVer = "Short_SoC_version";
 const std::string socInfo = "SoCInfo";
 const std::string aiCoreCnt = "ai_core_cnt";
 const std::string cubeCoreCnt = "cube_core_cnt";
@@ -252,6 +253,9 @@ void Platform::LoadFromIni(const std::string &filePath) {
     if (parser.GetStringVal(version, npuArchInfo, archType) == SUCCESS) {
         GetSoc().SetNPUArch(archType);
     }
+    if (parser.GetStringVal(version, shortSocVer, archType) == SUCCESS) {
+        GetSoc().SetShortSocVersion(archType);
+    }
     if (parser.GetCCECVersion(versionInfo) == SUCCESS) {
         GetSoc().SetCCECVersion(versionInfo);
     }
@@ -287,7 +291,6 @@ void Platform::LoadFromIni(const std::string &filePath) {
     if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit) == SUCCESS) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
-
     std::vector<std::vector<std::string>> dataPath;
     if (parser.GetDataPath(dataPath) == SUCCESS) {
         GetDie().SetMemoryPath(dataPath);
