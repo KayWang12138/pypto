@@ -699,10 +699,6 @@ Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<Inde
     PipeCore currPipe = depOps_[idx].selfPipeCore;
     // serch the waitpipe of current op
     uint64_t waitIdx = idx == 0 ? 0 : idx * SEQUENCE_IDX - HALF_SEQUENCE_IDX;
-    if (idx == 0) {
-        waitIdx = 0;
-    }
-    waitIdx = idx * SEQUENCE_IDX - HALF_SEQUENCE_IDX;
     for (const auto &ele : depOps_[idx].waitPipe) {
         PipeCore setPipe = depOps_[ele].selfPipeCore;
         PipeCoreReal setPipeReal(setPipe.pipeEnd, setPipe.core);
