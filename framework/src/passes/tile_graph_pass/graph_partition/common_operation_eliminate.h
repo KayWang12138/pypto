@@ -27,18 +27,16 @@ public:
     {}
     ~CommonOperationEliminate() override = default;
     Status PreCheck(Function &function) override;
-    Status PostCheck(Function &function) override;
 
 private:
     Status RunOnFunction(Function &function) override;
-    Operation *OperationExist(Operation *operation);
-    bool OpAlreadyExist(Operation *op);
-    void UpdateView(ViewOpAttribute *viewOpAttribute, const std::shared_ptr<LogicalTensor> oldtensor,
-                    const std::shared_ptr<LogicalTensor> newtensor) const;
-    void UpdateCopy(CopyOpAttribute *copyOpAttribute, const std::shared_ptr<LogicalTensor> oldtensor,
-                    const std::shared_ptr<LogicalTensor> newtensor) const;
-
-    std::unordered_map<unsigned long, Operation*> operationCache_;
+    std::unordered_map<LogicalTensor*, std::vector<Operation*>> GetProducers(Function &function);
+    std::pair<LogicalTensor*, std::vector<Operation*>> OperationExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducersPair);
+    bool OpAlreadyExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducerPair);
+    void UpdateView(ViewOpAttribute *viewOpAttribute, const std::shared_ptr<LogicalTensor> oldtensors,
+                    const std::shared_ptr<LogicalTensor> newtensors) const;
+    void UpdateCopy(CopyOpAttribute *copyOpAttribute, const std::shared_ptr<LogicalTensor> oldtensors,
+                    const std::shared_ptr<LogicalTensor> newtensors) const;
 };
 }  // namespace npu::tile_fwk
 #endif  // PASS_COMMON_OPERATION_ELIMINATE_H_
