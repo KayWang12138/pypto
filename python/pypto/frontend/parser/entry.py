@@ -282,8 +282,13 @@ class JitCallableWrapper:
 
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
+        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
         tmp_parser = self._create_parser()
         input_tensor_defs, output_tensor_defs = tmp_parser.get_signature()
+        symbolic_dim_value_map = {}
+        symbolic_dim_value_map = tmp_parser.match_input_shapes(
+            concrete_input_shapes, input_tensor_defs
+        )
 
         for out_tensor_def in output_tensor_defs:
             shape_list = []
@@ -305,12 +310,7 @@ class JitCallableWrapper:
             out_tensor = torch.empty(shape, dtype=dtype, device=device)
             out_tensors.append(out_tensor)
 
-        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
         self._compile_if_needed(concrete_input_shapes, in_tensors, out_tensors)
-        symbolic_dim_value_map = {}
-        symbolic_dim_value_map = tmp_parser.match_input_shapes(
-            concrete_input_shapes, input_tensor_defs
-        )
 
         # Execute the function using dispatch based on run mode
         def convert_tensors_with_metadata(torch_tensors, tensor_defs):
