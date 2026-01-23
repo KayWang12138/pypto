@@ -462,9 +462,9 @@ def win_atten_main_bsnd_mtp_decode_mask(q, block_table, kv_cache, actual_seq_lis
             acc_s = pypto.matmul(q_tensor_cur, kv_block, pypto.DT_FP32, b_trans=True)
             
             if pypto.cond(actual_seq <= 128):
-                start_pos = win + s_q - 1 - pypto.min(win + s_q - 1, actual_seq)
+                end_pos = actual_seq - 1
                 pypto.set_vec_tile_shapes(128, 128)
-                mask_block = pypto.view(mask2, [s_q * n_q, 128], [0, 128 + start_pos])
+                mask_block = pypto.view(mask2, [s_q * n_q, 128], [0, 258 - end_pos])
                 acc_s = pypto.where(mask_block, acc_s, float("-inf"))
 
             # V1
