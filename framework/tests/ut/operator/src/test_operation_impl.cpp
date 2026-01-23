@@ -27,9 +27,12 @@ class OperationImplTest : public testing::Test {
 public:
     static void TearDownTestCase() {}
 
-    static void SetUpTestCase() { config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true); }
+    static void SetUpTestCase() {}
 
-    void SetUp() override { config::Reset(); }
+    void SetUp() override { 
+        config::Reset();
+        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+    }
 
     void TearDown() override {}
 };
@@ -57,7 +60,7 @@ TEST_F(OperationImplTest, test_CumSum_dim2_0) {
 TEST_F(OperationImplTest, test_CumSum_dim1) {
     int axis = 0;
     TileShape::Current().SetVecTile(5);
-    Tensor input(DT_INT8, {13}, "input");
+    Tensor input(DT_INT32, {13}, "input");
     Tensor result;
     FUNCTION("TestCumSum") {
         result = CumSum(input, axis);

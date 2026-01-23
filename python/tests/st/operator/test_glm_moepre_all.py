@@ -24,7 +24,6 @@ def main():
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
     runtime_options={"stitch_cfgcache_size": 3100000}
 )
 def select_experts_glm(hidden_states, residual, weight, bias_input, mm_weight, e_score_bias_input,
@@ -295,7 +294,6 @@ def select_experts(residual: torch.Tensor,
     return topk_weights, topk_ids, row_idx, output_residual
 
 
-@pytest.mark.skip(reason="case run in bug")
 def test_select_experts():
     # 1. 设置参数
     ne = 160  # 160
