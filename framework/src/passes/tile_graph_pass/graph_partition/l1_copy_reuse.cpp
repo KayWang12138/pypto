@@ -228,7 +228,7 @@ void L1CopyInReuseRunner::GetColorHash(const OperationsViewer &opOriList, std::v
     uint64_t a = 0x12345678;
     uint64_t p = 23;
     const uint64_t mod = 0xFFFFFFFFFFFFF;
-    std::set<int32_t> mulaccGraph;
+    std::set<int> mulaccGraph;
     for (size_t i = 0; i < opOriList.size(); i++) {
         if (opOriList[i].GetSubgraphID() < 0) {
             continue;
@@ -383,7 +383,7 @@ void L1CopyInReuseRunner::GetL1ReuseOpOrder(std::vector<std::pair<int, int>> &op
 
 bool L1CopyInReuseRunner::GetMergedL1(int maxInColor, std::vector<int> &mergedNum, int maxMergeNum, int &tmpColor, int i,
                                     std::map<std::vector<uint64_t>, int> &l1InputList, std::vector<uint64_t> &vec, std::vector<int> &colorCopyIn,
-                                    std::map<uint64_t, int> &mgRem, int idx) {
+                                    std::map<uint64_t, int> &mgRem, uint64_t idx) {
     auto copyId = l1InputList.find(vec);
     if (copyId != l1InputList.end() && copyId->second >= maxInColor && 
         colorCopyIn[copyId->second] + colorCopyIn[i] <= mgCopyInUpperBound &&
