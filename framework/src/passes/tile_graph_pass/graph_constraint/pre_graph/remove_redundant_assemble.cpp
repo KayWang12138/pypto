@@ -41,55 +41,21 @@ void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
     opAttr->SetRawShape(OpImmediate::Specified(op.GetOOperands().front()->tensor->GetDynRawShape()));
 }
 
-bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vector<int64_t> &newShape,
-    const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
-    std::vector<int64_t> oriScale;
-    size_t oriSize = oriShape.size();
-    oriScale.resize(oriSize);
-    for (size_t i = 0; i < oriSize; i++) {
-        oriScale[i] = oriRawShape[i] / oriShape[i];
-        if ((i != 0) && (oriScale[i] != 1)) {
-            // 只有当最高轴存在Assemble的行为时，才可以将数据直接拷贝到Assemble之后的内存
-            return false;
-        }
+bool CalculateNewRawShape(
+    const std::vector<int64_t> &newShape, const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
+    newRawShape = newShape;
+    int64_t newShapeSize = 1;
+    if (newRawShape.size() > 1) {
+        newShapeSize =
+            std::accumulate(newRawShape.begin() + 1, newRawShape.end(), INT64_C(1), std::multiplies<int64_t>());
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "oriScale is %s.", IntVecToStr(oriScale).c_str());
-    size_t newSize = newShape.size();
-    newRawShape.resize(newSize);
-    std::vector<int64_t> newScale(newSize, 1);
-    int64_t accumuOriScale = oriScale[oriSize - 1];
-    int64_t accumuOriShape = oriShape[oriSize - 1];
-    int64_t accumuNewShape = newShape[newSize - 1];
-    for (int i = oriSize - 1, j = newSize - 1; i >= 0 && j >= 0;) {
-        if (accumuOriShape < accumuNewShape) {
-            i--;
-            if (i >= 0) {
-                accumuOriShape *= oriShape[i];
-                accumuOriScale *= oriScale[i];
-            }
-            continue;
-        }
-        if (accumuOriShape == accumuNewShape) {
-            newScale[j] *= accumuOriScale;
-            i--;
-            j--;
-            if (i >= 0 && j >= 0) {
-                accumuOriScale = oriScale[i];
-                accumuOriShape = oriShape[i];
-                accumuNewShape = newShape[j];
-            }
-            continue;
-        }
-        j--;
-        if (j >= 0) {
-            accumuNewShape *= newShape[j];
-        }
+    int64_t oriShapeSize =
+        std::accumulate(oriRawShape.begin(), oriRawShape.end(), INT64_C(1), std::multiplies<int64_t>());
+    if (newShapeSize == 0 || oriShapeSize % newShapeSize != 0) {
+        APASS_LOG_INFO_F(Elements::Function, "Cannot calculate NewRawShape as the dimension is not divisible.");
+        return false;
     }
-
-    APASS_LOG_DEBUG_F(Elements::Operation, "newScale is %s.", IntVecToStr(newScale).c_str());
-    for (size_t j = 0; j < newSize; j++) {
-        newRawShape[j] = newShape[j] * newScale[j];
-    }
+    newRawShape[0] = oriShapeSize / newShapeSize;
     return true;
 }
 
@@ -348,11 +314,11 @@ Assemble拆分了最高轴，认为可以透传，不需要拷贝，前序在Exp
 Copy_Out --> tensor(GM) --> Reshape --> oriBackUp [16, 16] --> Assemble(offset, dynOffset) --> OCAST(offset, dynOffset) [16, 64]
 因此需要: 重新计算Reshape输入的RawShape, offset, dynOffset
 */
-Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &assembleOp,
-    const std::set<Operation *, LogicalTensor::CompareOp> &producers) {
+Status HandleDynOffsetForReshape(
+    Operation &assembleOp, const std::set<Operation *, LogicalTensor::CompareOp> &producers) {
     std::vector<SymbolicScalar> newDynOffset;
     std::vector<int64_t> newRawShape;
-    auto opAttr = dynamic_cast<AssembleOpAttribute *>(assembleOp.GetOpAttribute().get());
+    auto opAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(assembleOp.GetOpAttribute());
     if (opAttr == nullptr) return FAILED;
     auto &dynOffset = opAttr->GetToDynOffset();
     if (dynOffset.empty()) {
@@ -371,12 +337,14 @@ Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &a
             producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
         return SUCCESS;
     }
-
     auto &assembleOutShape = assembleOp.GetOOperands()[0]->tensor->rawshape;
     bool ret =
         CalculateNewRawShape(oriBackUp->shape, producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape);
     if (ret == false) return SUCCESS;
     GetDynOffsetBeforeReshape(dynOffset, assembleOutShape, newRawShape, newDynOffset);
+    APASS_LOG_DEBUG_F(Elements::Operation, "Process Assemble %d Tensor[%d]: newRawshape: %s, newOffset: %s.",
+        assembleOp.GetOpMagic(), producer->GetIOperands()[0]->GetMagic(), IntVecToStr(newRawShape).c_str(),
+        IntVecToStr(newDynOffset).c_str());
     for (auto copyOut : producer->GetIOperands()[0]->GetProducers()) {
         if (!IsCopyOut(copyOut->GetOpcode())) return SUCCESS;
         const std::shared_ptr<OpAttribute> &attr = copyOut->GetOpAttribute();
@@ -503,8 +471,8 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
     LogicalTensorPtr oriOutputBackUp = nullptr;
     for (auto &cons : consumers) {
         if (cons->GetOpcode() != Opcode::OP_ASSEMBLE) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "Change the connection relationship of non assemble op:%s[%d]", 
-                cons->GetOpcodeStr().c_str(), cons->GetOpMagic());
+            APASS_LOG_DEBUG_F(Elements::Operation, "Change the connection relationship of non assemble op:[%d]. %s",
+                cons->GetOpMagic(), cons->GetOpcodeStr().c_str());
             cons->iOperand[0] = output;
             cons->iOperand[0]->AddConsumer(cons);
             continue;
@@ -515,14 +483,18 @@ Status RemoveRedundantAssemble::HanldeForSingleAssemble(Function &function, Logi
             producer->ReplaceOutput(output, oriOutputBackUp);
             output->isSubGraphBoundary = true;
             if (!IsCopyOut(producer->GetOpcode())) continue;
-            APASS_LOG_DEBUG_F(Elements::Operation, "The producer op:%s[%d] is copyOut, update its CopyOpAttr", 
-                producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
+            APASS_LOG_DEBUG_F(Elements::Operation, "The producer op:[%d] is copyOut, update its CopyOpAttr. %s",
+                producer->GetOpMagic(), producer->GetOpcodeStr().c_str());
             UpdateCopyOutAttr(*producer, *cons);
         }
     }
     HandleForAssembleFromInOut(function, op, producersBackup);
     HandleForAssembleToOutcast(function, op, producersBackup);
-    if (HandleDynOffsetForReshape(oriOutputBackUp, op, producersBackup) != SUCCESS) return FAILED;
+    if (HandleDynOffsetForReshape(op, producersBackup) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "HandleDynOffsetForReshape for op:[%d] failed. %s", op.GetOpMagic(),
+            op.GetOpcodeStr().c_str());
+        return FAILED;
+    }
     return SUCCESS;
 }
 
