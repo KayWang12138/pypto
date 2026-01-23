@@ -69,7 +69,7 @@ void DumpAicoreTaskExectInfo(DeviceArgs &args, const std::vector<void *> &perfDa
         ContructTaskInfo(i, rootTaskStatus, args, perfData, coreType);
     }
     uint32_t aicoreBlockNum = args.nrAic + args.nrAiv;
-    for (uint32_t i = aicoreBlockNum; i < aicoreBlockNum + Distributed::AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
+    for (uint32_t i = aicoreBlockNum; i < aicoreBlockNum + AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         ContructTaskInfo(i, rootTaskStatus, args, perfData, "AI-CPU");
     }
     std::string jsonFilePath = npu::tile_fwk::config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
