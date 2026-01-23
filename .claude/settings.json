@@ -1,0 +1,12 @@
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-9r1spdVvMsPhPf7XaeuyQbMQaNvvcvz8LtaTkVklbMxQzMnX",
+    "ANTHROPIC_BASE_URL": "https://jp.duckcoding.com"
+  },
+  "model": "opus",
+  "permissions": {
+    "allow": [
+      "Bash(git clone:*)"
+    ]
+  }
+}

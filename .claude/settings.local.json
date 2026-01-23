@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(ls:*)",
+      "Bash(xargs cat:*)",
+      "Bash(git checkout:*)",
+      "Bash(python3:*)",
+      "Bash(make:*)",
+      "Bash(nm:*)",
+      "Bash(/data/y00949728/workspace/pypto_yhz/build/output/bin/tile_fwk_utest:*)",
+      "Bash(LD_LIBRARY_PATH=/data/y00949728/workspace/pypto_yhz/build/output/lib:/opt/openEuler/llvm-toolset-18/root/usr/lib64:/usr/local/Ascend/cann-8.5.0/aarch64-linux/lib64:/usr/local/Ascend/cann-8.5.0/aarch64-linux/lib /data/y00949728/workspace/pypto_yhz/build/output/bin/tile_fwk_utest:*)",
+      "Bash(/usr/bin/cmake --build:*)",
+      "Bash(/usr/lib64/ccache/c++:*)",
+      "Bash(/tmp/test_utest:*)",
+      "Bash(LD_LIBRARY_PATH=/data/y00949728/workspace/pypto_yhz/build/output/lib:/opt/openEuler/llvm-toolset-18/root/usr/lib64:/usr/local/Ascend/cann-8.5.0/lib64 /tmp/tile_fwk_utest_manual:*)",
+      "Bash(LD_LIBRARY_PATH=/data/y00949728/workspace/pypto_yhz/build/output/lib:/opt/openEuler/llvm-toolset-18/root/usr/lib64:/usr/local/Ascend/cann-8.5.0/lib64 /tmp/tile_fwk_utest_v2:*)",
+      "Bash(LD_LIBRARY_PATH=/data/y00949728/workspace/pypto_yhz/build/output/lib:/opt/openEuler/llvm-toolset-18/root/usr/lib64:/usr/local/Ascend/cann-8.5.0/lib64 /tmp/tile_fwk_utest_v3:*)"
+    ]
+  }
+}
