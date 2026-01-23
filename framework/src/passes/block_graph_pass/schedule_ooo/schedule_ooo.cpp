@@ -140,6 +140,7 @@ Status OoOSchedule::UpdateOpCoreMap(const TaskNode &taskNode, std::unordered_map
         }
         opCoreMap[op] = targetCoreTypeMap.at(taskNode.targetCoreType);
     }
+    return SUCCESS;
 }
 
 Status OoOSchedule::SortAndLatencyEstimate(std::vector<Operation*> &opList, std::vector<Operation*> &taskOpList,
