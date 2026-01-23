@@ -17,6 +17,8 @@
                     "data_range": {
                         "min": 30000000,
                         "max": 30000020
+                        "min": 30000000,
+                        "max": 30000020
                     }
                 }
             ],
@@ -27,6 +29,7 @@
                         4,
                         8
                     ],
+                    "dtype": "int64",
                     "dtype": "int64",
                     "format": "ND",
                     "need_trans": false
@@ -42,6 +45,7 @@
             ],
             "params": {
                 "axis": 1,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -64,6 +68,8 @@
                     "data_range": {
                         "min": 30000000,
                         "max": 30000010
+                        "min": 30000000,
+                        "max": 30000010
                     }
                 }
             ],
@@ -74,6 +80,7 @@
                         8,
                         8
                     ],
+                    "dtype": "int64",
                     "dtype": "int64",
                     "format": "ND",
                     "need_trans": false
@@ -89,6 +96,7 @@
             ],
             "params": {
                 "axis": 0,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -137,6 +145,7 @@
             "params": {
                 "axis": 1,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 2
@@ -183,6 +192,7 @@
             ],
             "params": {
                 "axis": 0,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -231,6 +241,7 @@
             "params": {
                 "axis": 1,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 4
@@ -278,6 +289,7 @@
             "params": {
                 "axis": 1,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 5
@@ -312,6 +324,7 @@
                         10
                     ],
                     "dtype": "int64",
+                    "dtype": "int64",
                     "format": "ND",
                     "need_trans": false
                 }
@@ -328,6 +341,7 @@
             ],
             "params": {
                 "axis": 2,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -363,6 +377,7 @@
                         10
                     ],
                     "dtype": "int64",
+                    "dtype": "int64",
                     "format": "ND",
                     "need_trans": false
                 }
@@ -379,6 +394,7 @@
             ],
             "params": {
                 "axis": 1,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -431,6 +447,7 @@
             "params": {
                 "axis": 1,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 8
@@ -481,6 +498,7 @@
             ],
             "params": {
                 "axis": 2,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -533,6 +551,7 @@
             "params": {
                 "axis": 2,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 10
@@ -584,6 +603,7 @@
             "params": {
                 "axis": 1,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 11
@@ -607,6 +627,8 @@
                     "data_range": {
                         "min": 30000,
                         "max": 30010
+                        "min": 30000,
+                        "max": 30010
                     }
                 }
             ],
@@ -619,6 +641,7 @@
                         10,
                         16
                     ],
+                    "dtype": "int64",
                     "dtype": "int64",
                     "format": "ND",
                     "need_trans": false
@@ -638,6 +661,7 @@
             ],
             "params": {
                 "axis": 0,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -662,6 +686,8 @@
                     "data_range": {
                         "min": -30010,
                         "max": -30000
+                        "min": -30010,
+                        "max": -30000
                     }
                 }
             ],
@@ -674,6 +700,7 @@
                         10,
                         16
                     ],
+                    "dtype": "int64",
                     "dtype": "int64",
                     "format": "ND",
                     "need_trans": false
@@ -693,6 +720,7 @@
             ],
             "params": {
                 "axis": 2,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -730,6 +758,7 @@
                         16
                     ],
                     "dtype": "int64",
+                    "dtype": "int64",
                     "format": "ND",
                     "need_trans": false
                 }
@@ -748,6 +777,7 @@
             ],
             "params": {
                 "axis": 3,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -785,6 +815,7 @@
                         16
                     ],
                     "dtype": "int64",
+                    "dtype": "int64",
                     "format": "ND",
                     "need_trans": false
                 }
@@ -803,6 +834,7 @@
             ],
             "params": {
                 "axis": 1,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -859,6 +891,7 @@
             "params": {
                 "axis": 3,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 16
@@ -913,6 +946,7 @@
             ],
             "params": {
                 "axis": 2,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -969,6 +1003,7 @@
             "params": {
                 "axis": 1,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 18
@@ -1023,6 +1058,7 @@
             ],
             "params": {
                 "axis": 0,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -1079,6 +1115,7 @@
             "params": {
                 "axis": 3,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 20
@@ -1133,6 +1170,7 @@
             ],
             "params": {
                 "axis": 2,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -1189,6 +1227,7 @@
             "params": {
                 "axis": -1,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 22
@@ -1244,6 +1283,7 @@
             "params": {
                 "axis": -2,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 23
@@ -1287,6 +1327,7 @@
             "params": {
                 "axis": 0,
                 "on_board": true,
+                "on_board": true,
                 "func_id": -1
             },
             "index": 24
@@ -1299,6 +1340,7 @@
                 {
                     "name": "input0",
                     "shape": [
+                        5623
                         5623
                     ],
                     "dtype": "fp32",
@@ -1315,6 +1357,7 @@
                     "name": "output0",
                     "shape": [
                         5623
+                        5623
                     ],
                     "dtype": "fp32",
                     "format": "ND",
@@ -1323,12 +1366,15 @@
             ],
             "view_shape": [
                 5623
+                5623
             ],
             "tile_shape": [
+                5623
                 5623
             ],
             "params": {
                 "axis": 0,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
@@ -1343,6 +1389,7 @@
                     "name": "input0",
                     "shape": [
                         4657
+                        4657
                     ],
                     "dtype": "fp32",
                     "format": "ND",
@@ -1358,6 +1405,7 @@
                     "name": "output0",
                     "shape": [
                         4657
+                        4657
                     ],
                     "dtype": "fp32",
                     "format": "ND",
@@ -1366,12 +1414,15 @@
             ],
             "view_shape": [
                 4657
+                4657
             ],
             "tile_shape": [
+                4657
                 4657
             ],
             "params": {
                 "axis": 0,
+                "on_board": true,
                 "on_board": true,
                 "func_id": -1
             },
