@@ -11,6 +11,7 @@ pypto-Tensor-amin
 pypto-Tensor-assemble
 pypto-Tensor-clone
 pypto-Tensor-cos
+pypto-Tensor-floor
 pypto-Tensor-dim
 pypto-Tensor-div
 pypto-Tensor-dtype

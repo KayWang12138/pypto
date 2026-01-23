@@ -46,6 +46,9 @@ inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Neg(out, self);
 }
+inline void Floor(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Floor(out, self);
+}
 inline void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Rsqrt(out, self);
 }

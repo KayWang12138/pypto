@@ -28,6 +28,7 @@ enum class UnaryOpType {
     RSQRT,
     SQRT,
     CEIL,
+    FLOOR,
     RECIPROCAL,
     DUPLICATE,
     ABS,
@@ -42,6 +43,7 @@ std::string GetUnaryOpName() {
         case UnaryOpType::RSQRT: return "RSQRT";
         case UnaryOpType::SQRT: return "SQRT";
         case UnaryOpType::CEIL: return "CEIL";
+        case UnaryOpType::FLOOR: return "FLOOR";
         case UnaryOpType::RECIPROCAL: return "RECIPROCAL";
         case UnaryOpType::DUPLICATE: return "DUPLICATE";
         case UnaryOpType::ABS: return "ABS";
@@ -60,6 +62,7 @@ Opcode GetUnaryOpNameCode() {
         CASE(RSQRT);
         CASE(SQRT);
         CASE(CEIL);
+        CASE(FLOOR);
         CASE(RECIPROCAL);
         CASE(DUPLICATE);
         CASE(ABS);
