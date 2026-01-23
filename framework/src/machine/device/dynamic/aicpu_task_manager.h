@@ -50,7 +50,7 @@ public:
     }
 
     // 仅AICPU_0会调用
-    inline int32_t Init(DynDeviceTask *deviceTask, DeviceArgs *deviceArgs, const bool profSwitch) {
+    inline int32_t Init(DynDeviceTask *deviceTask, DeviceArgs *deviceArgs, bool profSwitch) {
         curDevTask_ = deviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&deviceTask->GetDynFuncDataList()->At(0));
         readyQueue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(deviceTask->devTask.readyAicpuFunctionQue);

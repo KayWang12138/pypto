@@ -26,9 +26,8 @@
 namespace npu::tile_fwk::dynamic {
 constexpr int DUMP_LEVEL_FOUR = 4;
 
-void ContructTaskInfo(const uint32_t &index, json &rootTaskStats, const DeviceArgs &args,
-    const std::vector<void *> &perfData, const std::string& coreType) {
-   
+void ContructTaskInfo(const uint32_t &index, json &rootTaskStats, const std::vector<void *> &perfData,
+    const std::string& coreType) {
     void* devPtr = perfData[index];
     size_t dataSize = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
     std::vector<uint8_t> hostBuffer(dataSize);
@@ -66,11 +65,11 @@ void DumpAicoreTaskExectInfo(DeviceArgs &args, const std::vector<void *> &perfDa
     ALOG_INFO("GetBlockNum : %lu",  blockNum);
     for (uint32_t i = 0; i < blockNum; i++) {
         std::string coreType = (i < args.nrValidAic) ? "AIC" : "AIV";
-        ContructTaskInfo(i, rootTaskStatus, args, perfData, coreType);
+        ContructTaskInfo(i, rootTaskStatus, perfData, coreType);
     }
     uint32_t aicoreBlockNum = args.nrAic + args.nrAiv;
-    for (uint32_t i = aicoreBlockNum; i < aicoreBlockNum + Distributed::AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
-        ContructTaskInfo(i, rootTaskStatus, args, perfData, "AI-CPU");
+    for (uint32_t i = aicoreBlockNum; i < aicoreBlockNum + AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
+        ContructTaskInfo(i, rootTaskStatus, perfData, "AI-CPU");
     }
     std::string jsonFilePath = npu::tile_fwk::config::LogTopFolder() + "/tilefwk_L1_prof_data.json";
     if (!DumpFile(rootTaskStatus.dump(DUMP_LEVEL_FOUR), jsonFilePath)) {
