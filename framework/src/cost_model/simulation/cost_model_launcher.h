@@ -32,6 +32,9 @@
 
 
 namespace npu::tile_fwk::dynamic {
+#ifdef BUILD_WITH_CANN
+    test;
+#endif
 class HostAgentStub {
 public:
     HostAgentStub(HostAgentStub &other) = delete;
