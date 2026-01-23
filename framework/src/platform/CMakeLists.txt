@@ -71,24 +71,3 @@ target_link_libraries(tile_fwk_platform
 
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_platform)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_platform)
-
-add_library(tile_fwk_platform_stub SHARED)
-target_sources(tile_fwk_platform_stub PRIVATE ${_Platform_Srcs})
-target_include_directories(tile_fwk_platform_stub
-        PRIVATE
-            ${PTO_FWK_SRC_ROOT}/framework/src/cost_model
-)
-target_compile_definitions(tile_fwk_platform_stub
-        PRIVATE
-            $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_STEST_INTERPRETER_CONFIG}>:ENABLE_STEST_INTERPRETER_CONFIG>>
-)
-target_link_libraries(tile_fwk_platform_stub
-        PUBLIC
-            $<BUILD_INTERFACE:json>
-        PRIVATE
-            intf_pub_cxx17
-            tile_fwk_intf_pub
-            $<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:kernel_tiling_headers>
-            dl
-            c_sec
-)

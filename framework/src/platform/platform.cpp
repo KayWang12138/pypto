@@ -18,6 +18,10 @@
 #include "tilefwk/platform.h"
 #include "cost_model/simulation_platform/platform.h"
 
+#ifdef BUILD_WITH_CANN
+#include "runtime/rt.h"
+#endif
+
 namespace npu::tile_fwk {
 const std::string version = "version";
 const std::string npuArchInfo = "NpuArch";
@@ -296,15 +300,12 @@ void Platform::ObtainPlatformInfo() {
     std::string srcPath;
     static constexpr uint32_t kMaxVersionLengh = 50;
     char socVer[kMaxVersionLengh] = {0};
-    rtGetSocVersion(socVer, kMaxVersionLengh);
-    std::string socVersion = std::string(socVer);
-    /*
-    srcPath = HostMachine::GetInstance().GetPlatformInfo();
-    if (srcPath.empty()) {
+    if (rtGetSocVersion(socVer, kMaxVersionLengh) == 0) {
+        std::string socVersion = std::string(socVer);
+    } else {
         CostModel::CostModelPlatform costModelPlatform;
         costModelPlatform.GetCostModelPlatformRealPath(srcPath);
+        LoadFromIni(srcPath);
     }
-    LoadFromIni(srcPath);
-    */
 }
 }

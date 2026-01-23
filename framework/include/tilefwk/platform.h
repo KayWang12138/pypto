@@ -26,10 +26,6 @@
 #include <unordered_map>
 #include "data_type.h"
 
-#ifdef BUILD_WITH_CANN
-#include "runtime/rt.h"
-#endif
-
 namespace npu::tile_fwk {
 std::string ToJsonString(const std::string& s);
 
