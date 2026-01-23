@@ -22,6 +22,12 @@ else ()
     get_filename_component(PTO_FWK_SRC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../" ABSOLUTE)
 endif()
 
+file(GLOB _Device_Utils_Srcs
+    ${PTO_FWK_SRC_ROOT}/framework/src/machine/utils/dynamic/dev_encode_function.cpp
+    ${PTO_FWK_SRC_ROOT}/framework/src/machine/utils/dynamic/dev_encode_function_dupped_data.cpp
+    ${PTO_FWK_SRC_ROOT}/framework/src/machine/utils/dynamic/dev_encode_program.cpp
+)
+
 add_subdirectory(dynamic)
 
 # 缺省编译配置, 编译函数
@@ -49,7 +55,7 @@ message(WARNING "building TraCR? '${BUILD_TRACR}' for tile_fwk_server")
 tracr_enable(tile_fwk_server)
 ###
 
-target_sources(tile_fwk_server PRIVATE ${_Device_Srcs})
+target_sources(tile_fwk_server PRIVATE ${_Device_Srcs} ${_Device_Utils_Srcs})
 target_compile_options(tile_fwk_server
         PRIVATE
             -Wall

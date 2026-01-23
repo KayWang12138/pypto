@@ -55,6 +55,9 @@ inline void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Abs(out, self);
 }
+inline void Brcb(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Brcb(out, self);
+}
 inline void WhereTT(
     LogicalTensorDataPtr out, LogicalTensorDataPtr condition, LogicalTensorDataPtr input, LogicalTensorDataPtr other) {
     GetCalcOps()->WhereTT(out, condition, input, other);
@@ -196,8 +199,8 @@ inline void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans
     GetCalcOps()->Copy(out, self, trans);
 }
 inline void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
-    int axis = -2, std::string cacheMode = "BSND", int blockSize = 1) {
-    GetCalcOps()->ScatterUpdate(out, self, index, axis, cacheMode, blockSize);
+    LogicalTensorDataPtr dst, int axis = -2, std::string cacheMode = "BSND", int blockSize = 1) {
+    GetCalcOps()->ScatterUpdate(out, self, index, dst, axis, cacheMode, blockSize);
 }
 inline void ScatterElement(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
     const Element &src, int axis, int reduce) {

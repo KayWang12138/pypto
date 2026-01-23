@@ -118,6 +118,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             tile_fwk_runtime_stub
             tile_fwk_simulation
             tile_fwk_simulation_ca
+            tile_fwk_simulation_pv
     )
 
     ### Including TraCR
