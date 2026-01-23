@@ -131,7 +131,7 @@ std::string SymbolManager::AddTileTensor(const TileTensor &tileTensor) {
     if (tileTensor.shapeInLoop.loopDepth == 0) {
         if (result.second) {
             tileTensorByMagic_.insert({tileTensor.magic, tileTensor});
-        } else if (tileTensorByMagic_.count(tileTensor.magic) == 0) {
+        } else {
             tileTensorByMagic_.insert({tileTensor.magic, result.first->first});
         }
         ALOG_INFO_F(
@@ -143,7 +143,7 @@ std::string SymbolManager::AddTileTensor(const TileTensor &tileTensor) {
     // enable marking 'for' to optimize VF Fusing
     if (result.second) {
         tileTensorByMagicInLoop_.insert({tileTensor.magic, tileTensor});
-    } else if (tileTensorByMagicInLoop_.count(tileTensor.magic) == 0) {
+    } else {
         tileTensorByMagicInLoop_.insert({tileTensor.magic, result.first->first});
     }
     ALOG_INFO_F("tileTensor_.insert result is %d, tileTensor in loop insert tensor magic: %d, tensor name in loop: %s",
