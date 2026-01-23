@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,22 +9,14 @@
  */
 
 /*!
- * \file aicore_data.h
+ * \file aikernel_data.h
  * \brief
  */
 
-#ifndef AICORE_DATA_H
-#define AICORE_DATA_H
+#ifndef AIKERNEL_DATA_H
+#define AIKERNEL_DATA_H
 
-#ifndef __gm__
-#define __gm__
-#define __aicore__
-#define INLINE inline
-#define __TILE_FWK_HOST__
-#else
-#define __aicore__ [aicore]
-#define INLINE __attribute__((always_inline)) inline __aicore__
-#endif
+#include "tilefwk/aikernel_define.h"
 
 namespace npu::tile_fwk {
 
@@ -106,6 +98,33 @@ struct DynFuncData {
     uint64_t commGroupNum{0};
     __gm__ DevStartArgsBase *startArgs;
 };
+
+struct DynFuncBin {
+    uint32_t coreType;
+    uint32_t psgId;
+    uint64_t funcHash;
+    int32_t wrapVecId {-1};
+    uint32_t mixResourceType {0};
+};
+
+struct DynFuncHeader {
+    uint64_t seqNo;
+    uint32_t funcNum;
+    uint32_t funcSize;
+    __gm__ DynFuncBin *cceBinary;
+
+    uint64_t GetIndex() {
+        return seqNo;
+    }
+
+    inline DynFuncData &At(int index) {
+        return (reinterpret_cast<DynFuncData *>(this + 1))[index];
+    }
+    inline uint32_t Size() {
+        return funcNum;
+    }
+};
+
 }
 
 #endif

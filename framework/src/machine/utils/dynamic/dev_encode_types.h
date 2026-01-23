@@ -24,7 +24,7 @@
 #include "tilefwk/error.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/aicpu_common.h"
-#include "tilefwk/aicore_data.h"
+#include "tilefwk/aikernel_data.h"
 #include "tilefwk/core_func_data.h"
 #include "interface/utils/common.h"
 #include "interface/schema/schema.h"
