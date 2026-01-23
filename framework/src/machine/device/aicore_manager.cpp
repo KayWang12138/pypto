@@ -302,7 +302,7 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
 
 void AiCoreManager::AddTask(int coreIdx, uint64_t taskId) {
     DEV_DEBUG("CoreIdx: %d, Send new task: %lx.\n", coreIdx, taskId);
-    SetReadyQueue(coreIdx, taskId + 1);
+    SetReadyQueue(coreIdx, taskId);
 
     DEV_IF_VERBOSE_DEBUG {
         DEV_DEBUG("Start to dump input tensor info, num is\n");
@@ -742,7 +742,7 @@ void AiCoreManager::AbnormalStop() {
 
 void AiCoreManager::NormalStop() {
     DEV_DEBUG("aicore manager %d try normal stop\n", aicpuIdx_);
-    ForEachManageAicore([this](auto coreIdx) { SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1); });
+    ForEachManageAicore([this](auto coreIdx) { SetReadyQueue(coreIdx, AICORE_TASK_STOP); });
     /* write to MAINBASE reg must be done before close 0x18 */
     __sync_synchronize();
     ForEachManageAicore([this](auto coreIdx) {

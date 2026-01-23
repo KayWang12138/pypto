@@ -68,7 +68,7 @@ public:
             regSprDataMainBase_ = DAV_3510::REG_SPR_DATA_MAIN_BASE;
             regSprCond_ = DAV_3510::REG_SPR_COND;
             isNeedWriteRegForFastPath_ = false;
-        } 
+        }
     }
 
     inline uint32_t GetRegSprDataMainBase() {
@@ -127,10 +127,10 @@ public:
 
     inline void SetReadyQueue(int coreIdx, uint64_t value) {
         if constexpr (IsDeviceMode()) {
-            *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value;
+            *readyRegQueues_[GetPhyIdByBlockId(coreIdx)] = value + 1;
         } else {
             DEV_VERBOSE_DEBUG("set coreidx %d value %lx.", coreIdx, value);
-            auto taskId = value - 1;
+            auto taskId = value;
             if (value == 0 || taskId == AICORE_TASK_STOP || (taskId & 0xFFFFFFFF) == AICORE_FUNC_STOP) return;
             CostModelSendTask(coreIdx, taskId);
         }
@@ -406,7 +406,7 @@ public:
                 if (metric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
                     oss << "(" << metric->perfTraceDevTaskId[type][cnt] << ")";
                 }
-    
+
                 oss << "\",\"end\":" << curCycle << "}"
                     << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
             }
@@ -520,7 +520,7 @@ private:
     int aivEnd_{0};
     uint32_t regNum_{0};
     uint64_t freq_{50};
-    
+
     std::array<volatile KernelArgs*, MAX_AICORE_NUM> args_;
 
     std::array<volatile uint64_t*, MAX_AICORE_NUM> readyRegQueues_;
