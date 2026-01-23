@@ -17,7 +17,7 @@ import torch
 from ..log import get_logger
 from .compound import Arange, CompoundMask, CompoundSentinel, TensorPointer, TensorWithOffset
 from .errors import NonAffineLayoutError
-from . import dtypes, op_desc, pypto_wrap
+from . import dtypes, pypto_wrap
 
 T = TypeVar("T")
 IntArrayLike: TypeAlias = Union[int, Tuple[int, ...], np.ndarray]
@@ -663,16 +663,16 @@ class AffineTensorLayout(SingleTensorLayout, StaticDynamic):
         raise NonAffineLayoutError
 
     def __gt__(self, other):
-        return CompoundMaskLayout.gt(self, other)
+        return CompoundMask(operator.gt, self, other)
 
     def __ge__(self, other):
-        return CompoundMaskLayout.ge(self, other)
+        return CompoundMask(operator.ge, self, other)
 
     def __lt__(self, other):
-        return CompoundMaskLayout.lt(self, other)
+        return CompoundMask(operator.lt, self, other)
 
     def __le__(self, other):
-        return CompoundMaskLayout.le(self, other)
+        return CompoundMask(operator.le, self, other)
 
     def __getitem__(self, slices) -> Self:
         if not isinstance(slices, tuple):
@@ -849,52 +849,6 @@ class StaticMaskLayout(BaseMaskLayout):
         return block_shape
 
 
-class CompoundMaskLayout(BaseMaskLayout, StaticDynamic):
-
-    def __init__(self, op: op_desc.OpDescriptor, lhs, rhs) -> None:
-        self.op = op
-        self.lhs = lhs
-        self.rhs = rhs
-
-    def __repr__(self) -> str:
-        return f"CompoundMaskLayout(op={self.op}, lhs={self.lhs!r}, rhs={self.rhs!r})"
-
-    def to_static(self) -> StaticMaskLayout:
-        lhs = self.lhs.to_static() if isinstance(self.lhs, StaticDynamic) else self.lhs
-        rhs = self.rhs.to_static() if isinstance(self.rhs, StaticDynamic) else self.rhs
-        return self.op.static(lhs, rhs)
-
-    def to_dynamic(self) -> TensorWrapper:
-        lhs = self.lhs.to_dynamic() if isinstance(self.lhs, StaticDynamic) else self.lhs
-        rhs = self.rhs.to_dynamic() if isinstance(self.rhs, StaticDynamic) else self.rhs
-        return self.op.dynamic(lhs, rhs)
-
-    def __and__(self, other) -> Self:
-        return CompoundMaskLayout(op_desc.and_, self, other)
-
-    def __or__(self, other) -> Self:
-        return CompoundMaskLayout(op_desc.or_, self, other)
-
-    def __getitem__(self, slices) -> Self:
-        return CompoundMaskLayout(op_desc.getitem, self, slices)
-
-    @classmethod
-    def gt(cls, lhs, rhs) -> Self:
-        return cls(op_desc.gt, lhs, rhs)
-
-    @classmethod
-    def ge(cls, lhs, rhs) -> Self:
-        return cls(op_desc.ge, lhs, rhs)
-
-    @classmethod
-    def lt(cls, lhs, rhs) -> Self:
-        return cls(op_desc.lt, lhs, rhs)
-
-    @classmethod
-    def le(cls, lhs, rhs) -> Self:
-        return cls(op_desc.le, lhs, rhs)
-
-
 class ArangeConcrete(Arange):
 
     def to_affine(self):
@@ -904,6 +858,7 @@ class ArangeConcrete(Arange):
         return StaticTensorLayout(None, np.arange(self.start, self.end, dtype=np.int32))
 
     def to_dynamic(self):
+        # PyPTO crashes when compare INT32 tensors, need to force FP32 here
         pypto_wrap.auto_vec_tile([self.end - self.start], pypto.DT_FP32)
         return TensorWrapper(pypto_wrap.arange(float(self.start), float(self.end)))
 
@@ -1193,10 +1148,8 @@ def trans(input: TensorWrapper, *dims: Union[int, Iterable[int]]) -> TensorWrapp
 
 
 @log_call
-def where(condition: Union[CompoundMaskLayout, TensorWrapper], x: TensorWrapper, y: TensorWrapper) -> TensorWrapper:
-    if isinstance(condition, CompoundMaskLayout):
-        condition = condition.to_dynamic()
-    elif isinstance(condition, CompoundMask):
+def where(condition: Union[CompoundMask, TensorWrapper], x: TensorWrapper, y: TensorWrapper) -> TensorWrapper:
+    if isinstance(condition, CompoundMask):
         condition = condition.to_dynamic()
     condition.auto_vec_tile()
     return TensorWrapper(pypto_wrap.where(condition, x, y))

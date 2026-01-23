@@ -22,17 +22,17 @@ class CompoundSentinel(abc.ABC):
 class CompoundCombiner(CompoundSentinel):
 
     def to_impl(self, method):
-        args = [getattr(arg, method)() if isinstance(arg, CompoundSentinel) else arg for arg in self.args]
+        args = [method(arg) if isinstance(arg, CompoundSentinel) else arg for arg in self.args]
         return self.op(*args)
 
     def to_affine(self):
-        return self.to_impl("to_affine")
+        return self.to_impl(lambda arg: arg.to_affine())
 
     def to_static(self):
-        return self.to_impl("to_static")
+        return self.to_impl(lambda arg: arg.to_static())
 
     def to_dynamic(self):
-        return self.to_impl("to_dynamic")
+        return self.to_impl(lambda arg: arg.to_dynamic())
 
 
 class Arange(CompoundSentinel):
