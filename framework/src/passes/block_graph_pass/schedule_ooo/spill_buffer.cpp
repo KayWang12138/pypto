@@ -726,6 +726,10 @@ Status OoOScheduler::GetGroupNextUseOrder(std::vector<int> group, IssueEntryPtr 
 }
 
 bool OoOScheduler::CanAllocateAll(std::vector<LocalBufferPtr> tensors, MemoryType memType) {
+    if (tensors.empty()) {
+        APASS_LOG_INFO_F(Elements::Operation, "CanAllocateAll tensors is empty.");
+        return true;
+    }
     auto corePair = tensorAllocCoreMap[tensors[0]->id];
     std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals = bufferManagerMap[corePair.first][corePair.second][memType].FindFreeIntervals();
     for (auto tensor : tensors) {
