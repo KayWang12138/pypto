@@ -1051,6 +1051,37 @@ TEST_F(TestPadLocalBuffer, axiscombineDisable1) {
     EXPECT_EQ(cnt, 0);
 }
 
+TEST_F(TestPadLocalBuffer, axiscombineDisable2) {
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,3}, MemoryType::MEM_UB, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, MemoryType::MEM_DEVICE_DDR, "gm2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, MemoryType::MEM_UB, "t4"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,2}, MemoryType::MEM_UB, "t5"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_VIEW, {"t1"}, {"t2"}, "view1", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"gm2"}, {"t3"}, "copyin2", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t2","t3"}, {"t4"}, "add", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ASSEMBLE, {"t4"}, {"t5"}, "assemble", true), true);
+    auto *rootFuncPtr = graph.GetFunction();
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    rootFuncPtr->paramConfigs_.combineAxis = true;
+    AxisCombine pass;
+    EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
+    PadLocalBuffer padLocalBufferTest;
+    padLocalBufferTest.RunOnFunction(*rootFuncPtr);
+    // ================== Verify Pass Effect ==================
+    auto updatedOps = rootFuncPtr->Operations();
+    for (const auto &op : updatedOps) {
+        for (auto &inTensor : op.GetIOperands()) {
+            if (inTensor->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+                std::vector<int64_t> targetShape = {4, 8};
+                EXPECT_EQ(inTensor->GetRawTensor()->GetRawShape(), targetShape);
+            }
+        }
+    }
+}
+
 TEST_F(TestPadLocalBuffer, axiscombine2) {
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {32,4,1}, MemoryType::MEM_UB, "t1"), true);
