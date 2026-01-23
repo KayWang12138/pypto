@@ -74,7 +74,9 @@ public:
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
     void SynchronizeDeviceToHostProfData();
-
+    void InitMetaData(DeviceArgs &devArgs);
+    void InitAiCpuSoBin(DeviceArgs &devArgs);
+    bool GetValidGetPgMask() const;
 private:
     DeviceRunner() = default;
     void *DevAlloc(int size);
@@ -95,7 +97,6 @@ private:
     int RunPreSync(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArgs *kArgs);
-    void InitAiCpuSoBin();
     void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
     int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
     int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
@@ -139,6 +140,8 @@ public:
         (void)taskData;
         return 0;
     }
+    void InitAiCpuSoBin(DeviceArgs &devArgs);
+    bool GetValidGetPgMask();
     HostProf &GetHostProfInstance() {
         return hostProf_;
     }
