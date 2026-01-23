@@ -115,6 +115,16 @@ static void Ceil(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::ceil_out(tout, From(self));
 }
 
+static void Floor(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::floor_out(tout, From(self));
+}
+
+static void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::trunc_out(tout, From(self));
+}
+
 static void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::rsqrt_out(tout, From(self));
@@ -1247,6 +1257,8 @@ static struct CalcOps calcOps = {
     .Rsqrt = Rsqrt,
     .Sqrt = Sqrt,
     .Ceil = Ceil,
+    .Floor = Floor,
+    .Trunc = Trunc,
     .Abs = Abs,
     .Brcb = Brcb,
     .WhereTT = WhereTT,

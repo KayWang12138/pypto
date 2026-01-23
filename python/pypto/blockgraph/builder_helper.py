@@ -129,6 +129,16 @@ class BlockBuilderHelper:
         op = self.builder.create_unary_op(ir.Opcode.OP_CEIL, a, out)
         self.builder.emit(self.ctx, op)
         return op
+    
+    def floor(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_FLOOR, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+    
+    def floor(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_FLOOR, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
 
     def logicalnot(self, a, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_LOGICALNOT, a, out)
