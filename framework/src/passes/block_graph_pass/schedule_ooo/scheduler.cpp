@@ -24,6 +24,7 @@ namespace npu::tile_fwk {
 constexpr int64_t MAX_L0A_SIZE = 64 * 1024;
 constexpr int64_t MAX_L0MX_SIZE = 2 * 1024;
 constexpr int64_t MAX_L0C_SIZE = 128 * 1024;
+constexpr int64_t MAX_L0MX_SIZE = 2 * 1024;
 constexpr int64_t MAX_BT_SIZE = 1 * 1024;
 constexpr int64_t MAX_FIX_SIZE = 1 * 1024;
 constexpr int64_t MAX_FIX_QUANT_PRE_SIZE = 1 * 2048;

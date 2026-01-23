@@ -140,6 +140,7 @@ private:
     std::unordered_map<npu::tile_fwk::MemoryType, BufferPool> bufferManagerMap;
     std::unordered_map<int, int> bufRefCount;
     std::unordered_map<MemoryType, std::map<int, IssueEntryPtr>> tensorOccupyMap;
+    std::unordered_map<LogicalTensorPtr, LogicalTensorPtr> l02L0MXMap_;
 
     std::map<MemoryType, IssueQueue> allocIssueQueue;
     std::map<PipeType, IssueQueue> issueQueues;
