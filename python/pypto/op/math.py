@@ -755,3 +755,32 @@ def cumsum(
                 [3 5 7]]
     """
     return pypto_impl.cumsum(input, dim)
+
+    @op_wrapper
+def bitwise_not(input: Tensor) -> Tensor:
+    """
+    Computes the element-wise bitwise NOT of 'input'
+
+    This function calculates the formula: 'out = ~input'.
+    For each element in the input tensor, performs a bitwise NOT operation.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor (should be of integer type)
+
+    Returns
+    -------
+    Tensor
+        A tensor with the same shape and dtype as input
+
+    Examples
+    --------
+    a = pypto.tensor([0, 1, 2, 3, 4], pypto.DT_INT32)
+    out = pypto.bitwise_not(a)
+
+    Input a:    [0 1 2 3 4]  (in binary: [000, 001, 010, 011, 100])
+    Output out: [-1 -2 -3 -4 -5]  (in binary: [111, 110, 101, 100, 011])
+
+    """
+    return pypto_impl.BitwiseNot(input)
