@@ -12,6 +12,7 @@ if (ENABLE_UTEST)
     add_subdirectory(utils)
     add_subdirectory(stubs)
 
+    PTO_Fwk_UTest_AddModuleDir(DIR platform)
     PTO_Fwk_UTest_AddModuleDir(DIR operator)
     PTO_Fwk_UTest_AddModuleDir(DIR interface)
     PTO_Fwk_UTest_AddModuleDir(DIR passes)

@@ -14,12 +14,15 @@
  */
 
 #include <fstream>
-#include "ini_parser.h"
 #include "tilefwk/platform.h"
-#include "interface/utils/file_utils.h"
 #include "cost_model/simulation_platform/platform.h"
 
+#ifdef BUILD_WITH_CANN
+#include "runtime/rt.h"
+#endif
+
 namespace npu::tile_fwk {
+const uint32_t kMaxLength = 50;
 const std::string version = "version";
 const std::string npuArchInfo = "NpuArch";
 const std::string socInfo = "SoCInfo";
@@ -60,7 +63,6 @@ MemoryType StringToMemoryType(const std::string& memType) {
 NPUArch StringToNPUArch(const std::string& npuArch) {
     auto it = npuArchMap.find(npuArch);
     if (it != npuArchMap.end()) {
-        ALOG_DEBUG_F("Set NpuArch as %s.", npuArch.c_str());
         return it->second;
     }
     return NPUArch::DAV_2201;
@@ -244,64 +246,67 @@ Platform &Platform::Instance() {
     return instance;
 }
 
-void Platform::LoadFromIni(const std::string &filePath) {
-    npu::tile_fwk::INIParser parser;
-    parser.Initialize(filePath);
+void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     std::string archType;
     std::unordered_map<std::string, std::string> versionInfo;
-    if (parser.GetStringVal(version, npuArchInfo, archType) == SUCCESS) {
+    if (parser.GetStringVal(version, npuArchInfo, archType)) {
         GetSoc().SetNPUArch(archType);
     }
-    if (parser.GetCCECVersion(versionInfo) == SUCCESS) {
+    if (parser.GetCCECVersion(versionInfo)) {
         GetSoc().SetCCECVersion(versionInfo);
     }
-    if (parser.GetCoreVersion(versionInfo) == SUCCESS) {
+    if (parser.GetCoreVersion(versionInfo)) {
         GetSoc().SetCoreVersion(versionInfo);
     }
     size_t coreNum;
-    if (parser.GetSizeVal(socInfo, aiCoreCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, aiCoreCnt, coreNum)) {
         GetSoc().SetAICoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum)) {
         GetSoc().SetAICCoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum)) {
         GetSoc().SetAIVCoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, aiCpuCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, aiCpuCnt, coreNum)) {
         GetSoc().SetAICPUNum(coreNum);
     }
     size_t memoryLimit;
-    if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0A, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0B, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0C, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_L1, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
 
     std::vector<std::vector<std::string>> dataPath;
-    if (parser.GetDataPath(dataPath) == SUCCESS) {
+    if (parser.GetDataPath(dataPath)) {
         GetDie().SetMemoryPath(dataPath);
     }
 }
 
 void Platform::ObtainPlatformInfo() {
     std::string srcPath;
-    srcPath = HostMachine::GetInstance().GetPlatformInfo();
-    if (srcPath.empty()) {
-        ALOG_WARN_F("Cannot obtain ini from the device, using default ini file.");
+    char socVer[kMaxLength] = {0};
+    if (rtGetSocVersion(socVer, kMaxLength) == 0) {
+        std::string socVersion = std::string(socVer);
+        npu::tile_fwk::CmdParser cmdparser;
+        LoadPlatformInfo(cmdparser);
+    } else {
         CostModel::CostModelPlatform costModelPlatform;
         costModelPlatform.GetCostModelPlatformRealPath(srcPath);
+        npu::tile_fwk::INIParser iniparser;
+        iniparser.Initialize(srcPath);
+        LoadPlatformInfo(iniparser);
     }
-    LoadFromIni(srcPath);
 }
 }

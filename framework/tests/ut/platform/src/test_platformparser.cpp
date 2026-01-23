@@ -17,11 +17,10 @@
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
 #include "interface/utils/file_utils.h"
-#include "interface/configs/ini_parser.h"
 
 using namespace npu::tile_fwk;
 
-class TestINIParser : public testing::Test {
+class TestPlatformParser : public testing::Test {
 public:
     static void SetUpTestCase() {}
     static void TearDownTestCase() {}
@@ -34,7 +33,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestINIParser, TestParser) {
+TEST_F(TestPlatformParser, TestParser) {
     const std::string archInfo = "ArchInfo";
     const std::string version = "version";
     const std::string socInfo = "SoCInfo";
@@ -61,49 +60,49 @@ TEST_F(TestINIParser, TestParser) {
 
     INIParser parser;
     std::string iniPath = RealPath(GetCurrentSharedLibPath() + "/configs/Soc_version.ini");
-    EXPECT_EQ(parser.Initialize(iniPath), SUCCESS);
+    EXPECT_TRUE(parser.Initialize(iniPath));
 
     std::string socVersion;
-    EXPECT_EQ(parser.GetStringVal(version, shortSocVer, socVersion), SUCCESS);
+    EXPECT_TRUE(parser.GetStringVal(version, shortSocVer, socVersion));
     EXPECT_EQ(socVersion, "Ascend910_95");
 
     // std::string archVal;
-    // EXPECT_EQ(parser.GetStringVal(version, archInfo, socVersion), FAILED);
+    // EXPECT_FALSE(parser.GetStringVal(version, archInfo, socVersion));
 
     std::unordered_map<std::string, std::string> ccecVersion;
-    EXPECT_EQ(parser.GetCCECVersion(ccecVersion), SUCCESS);
+    EXPECT_TRUE(parser.GetCCECVersion(ccecVersion));
     EXPECT_NE(ccecVersion.find("AIC"), ccecVersion.end());
     EXPECT_EQ(ccecVersion["AIC"], "dav-c310");
     EXPECT_NE(ccecVersion.find("AIV"), ccecVersion.end());
     EXPECT_EQ(ccecVersion["AIV"], "dav-c310");
 
     size_t coreNum;
-    EXPECT_EQ(parser.GetSizeVal(socInfo, aiCoreCnt, coreNum), SUCCESS);
+    EXPECT_TRUE(parser.GetSizeVal(socInfo, aiCoreCnt, coreNum));
     EXPECT_EQ(coreNum, expectAICoreCnt);
-    EXPECT_EQ(parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum), SUCCESS);
+    EXPECT_TRUE(parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum));
     EXPECT_EQ(coreNum, expectCubeCoreCnt);
-    EXPECT_EQ(parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum), SUCCESS);
+    EXPECT_TRUE(parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum));
     EXPECT_EQ(coreNum, expectVectorCoreCnt);
-    EXPECT_EQ(parser.GetSizeVal(socInfo, aiCpuCnt, coreNum), SUCCESS);
+    EXPECT_TRUE(parser.GetSizeVal(socInfo, aiCpuCnt, coreNum));
     EXPECT_EQ(coreNum, expectAICpuCnt);
 
     size_t memoryLimit;
-    EXPECT_EQ(parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit), SUCCESS);
+    EXPECT_TRUE(parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit));
     EXPECT_EQ(memoryLimit, expectl0aSize);
-    EXPECT_EQ(parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit), SUCCESS);
+    EXPECT_TRUE(parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit));
     EXPECT_EQ(memoryLimit, expectl0bSize);
-    EXPECT_EQ(parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit), SUCCESS);
+    EXPECT_TRUE(parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit));
     EXPECT_EQ(memoryLimit, expectl0cSize);
-    EXPECT_EQ(parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit), SUCCESS);
+    EXPECT_TRUE(parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit));
     EXPECT_EQ(memoryLimit, expectl1Size);
-    EXPECT_EQ(parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit), SUCCESS);
+    EXPECT_TRUE(parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit));
     EXPECT_EQ(memoryLimit, expectubSize);
 
     std::vector<std::vector<std::string>> dataPath;
-    EXPECT_EQ(parser.GetDataPath(dataPath), SUCCESS);
+    EXPECT_TRUE(parser.GetDataPath(dataPath));
 }
 
-TEST_F(TestINIParser, TestObtainPlatformInfo) {
+TEST_F(TestPlatformParser, TestObtainPlatformInfo) {
     const std::string aic = "AIC";
     const std::string aiv = "AIV";
     const size_t expectAICoreCnt = 24UL;
