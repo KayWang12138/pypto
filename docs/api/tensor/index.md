@@ -40,6 +40,7 @@ pypto-Tensor-sigmoid
 pypto-Tensor-sin
 pypto-Tensor-softmax
 pypto-Tensor-sqrt
+pypto-Tensor-ceil
 pypto-Tensor-sub
 pypto-Tensor-sum
 pypto-Tensor-topk
