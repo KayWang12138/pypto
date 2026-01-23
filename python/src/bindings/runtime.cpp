@@ -20,7 +20,6 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
-#include "machine/runtime/device_launcher.h"
 #include "machine/host/perf_analysis.h"
 
 using namespace npu::tile_fwk;
@@ -85,12 +84,23 @@ std::string DeviceRunOnceDataFromHost(
         ProgramData::GetInstance().AppendOutput(rawData);
     }
 
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func, nullptr) != 0) {
+    DevControlFlowCache* hostCache = nullptr;
+    if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
+        DeviceLauncherConfig config;
+        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+        EmulationLauncher::BuildControlFlowCache(func, inputs, outputs, &hostCache, config);
+    }
+
+    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
         return "emulation run failed";
     }
 
-    if (DeviceRunOnce(func) != 0) {
+    if (DeviceRunOnce(func, reinterpret_cast<uint8_t*>(hostCache)) != 0) {
         return "device run failed";
+    }
+
+    if (hostCache) {
+        free(hostCache);
     }
 
     for (size_t i = 0; i < outputs.size(); i++) {
@@ -214,43 +224,45 @@ std::string OperatorEnd(uintptr_t opAddr) {
 int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
         const std::vector<DeviceTensorData> &outputList, bool isCapturing) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
-
-    HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
-
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         uint8_t* ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
         if (ctrlCache == nullptr) {
+            HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
             DevControlFlowCache* hostCache = nullptr;
             if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(),
                 inputList, outputList, &hostCache, config) != 0) {
                 return 0;
             }
 
+#ifdef BUILD_WITH_CANN
             if (isCapturing) {
-                DeviceLauncher::ChangeCaptureModeRelax();
+                ChangeCaptureModeRelax();
             }
 
             if (hostCache) {
-                DeviceMemoryUtils devMemory;
-                ctrlCache = devMemory.CopyToDev(reinterpret_cast<uint8_t*>(hostCache),
-                    reinterpret_cast<DevControlFlowCache*>(hostCache)->allCacheSize, nullptr);
+                ctrlCache = CopyHostToDev(reinterpret_cast<uint8_t*>(hostCache),
+                    reinterpret_cast<DevControlFlowCache*>(hostCache)->allCacheSize);
+                free(hostCache);
             }
 
             if (isCapturing) {
-                DeviceLauncher::ChangeCaptureModeGlobal();
+                ChangeCaptureModeGlobal();
             }
+#else
+            ctrlCache = reinterpret_cast<uint8_t*>(hostCache);
+#endif
 
             if (ctrlCache) {
                 op->InsertCtrlFlowCache(inputList, outputList, ctrlCache);
             }
+            HOST_PERF_EVT_END(EventPhase::BuildCtrlFlowCache);
         }
 
         return ctrlCache == nullptr ? 0 : reinterpret_cast<int64_t>(ctrlCache);
     }
 
-    HOST_PERF_EVT_END(EventPhase::BuildCtrlFlowCache);
     return 0;
 }
 
