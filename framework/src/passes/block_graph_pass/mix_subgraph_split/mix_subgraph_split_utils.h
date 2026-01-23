@@ -26,7 +26,6 @@
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "passes/tile_graph_pass/subgraph_to_function.h"
-#include "passes/block_graph_pass/mix_subgraph_split/mix_subgraph_split_utils.h"
 
 namespace npu {
 namespace tile_fwk {  

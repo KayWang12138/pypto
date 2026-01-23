@@ -16,16 +16,6 @@
 #ifndef MIX_INTERNAL_COMPONENTS_ANALYZER_H
 #define MIX_INTERNAL_COMPONENTS_ANALYZER_H
 
-#include <set>
-#include <vector>
-#include <unordered_map>
-#include "passes/pass_interface/pass.h"
-#include "interface/function/function.h"
-#include "interface/operation/operation.h"
-#include "interface/program/program.h"
-#include "interface/tensor/logical_tensor.h"
-#include "tilefwk/tilefwk.h"
-#include "passes/tile_graph_pass/subgraph_to_function.h"
 #include "passes/block_graph_pass/mix_subgraph_split/mix_subgraph_split_utils.h"
 
 namespace npu {
