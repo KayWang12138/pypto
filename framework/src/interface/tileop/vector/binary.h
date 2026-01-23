@@ -197,19 +197,31 @@ TILEOP void TMod(T0 dst, T1 src0, T2 src1, T3 tmp) {
                 pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0Offset * dataTypeSize));
                 pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * dataTypeSize));
                 if constexpr (std::is_same_v<DstType, float>) {
-                    DstTileDefine divTmpTile(dstShape3, dstShape4);
+                    DstTileDefine dstTileTmp(dstShape3, dstShape4);
                     DstTileDefine castTmpTile(dstShape3, dstShape4);
                     pto::TASSIGN(divTmpTile, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW));
                     pto::TASSIGN(castTmpTile, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 2));
-                    pto::TDIV(divTmpTile, src0Tile, src1Tile);
+                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+                        pto::TDIV(divTmpTile, src0Tile, src1Tile);
+                    } else {
+                        pto::TROWEXPANDDIV(divTmpTile, src0Tile, src1Tile);
+                    }
                     pipe_barrier(PIPE_V);
                     pto::TCVT(castTmpTile, divTmpTile, pto::RoundMode::CAST_TRUNC);
                     pipe_barrier(PIPE_V);
-                    pto::TMUL(castTmpTile, castTmpTile, src1Tile);
+                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+                        pto::TMUL(castTmpTile, castTmpTile, src1Tile);
+                    } else {
+                        pto::TROWEXPANDMUL(castTmpTile, castTmpTile, src1Tile);
+                    }
                     pipe_barrier(PIPE_V);
-                    pto::TSUB(dstTile, src0Tile, castTmpTile);
+                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+                        pto::TSUB(dstTile, src0Tile, castTmpTile);
+                    } else {
+                        pto::TROWEXPANDSUB(dstTile, src0Tile, castTmpTile);
+                    }
                     pipe_barrier(PIPE_V);
-                }  else if constexpr (std::is_same_v<DstType, half> || std::is_same_v<DstType, bfloat16_t>) {
+                } else if constexpr (std::is_same_v<DstType, half> || std::is_same_v<DstType, bfloat16_t>) {
                     using Fp32TmpTileDefine =
                         pto::Tile<pto::TileType::Vec, float, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
                     Fp32TmpTileDefine dstTileTmp(dstShape3, dstShape4);
@@ -224,13 +236,25 @@ TILEOP void TMod(T0 dst, T1 src0, T2 src1, T3 tmp) {
                     pto::TCVT(src0TileTmp, src0Tile, pto::RoundMode::CAST_NONE);
                     pto::TCVT(src1TileTmp, src1Tile, pto::RoundMode::CAST_NONE);
                     pipe_barrier(PIPE_V);
-                    pto::TDIV(dstTileTmp, src0TileTmp, src1TileTmp);
+                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+                        pto::TDIV(dstTileTmp, src0TileTmp, src1TileTmp);
+                    } else {
+                        pto::TROWEXPANDDIV(dstTileTmp, src0TileTmp, src1TileTmp);
+                    }
                     pipe_barrier(PIPE_V);
                     pto::TCVT(castTileTmp, dstTileTmp, pto::RoundMode::CAST_TRUNC);
                     pipe_barrier(PIPE_V);
-                    pto::TMUL(dstTileTmp, castTileTmp, src1TileTmp);
+                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+                        pto::TMUL(dstTileTmp, castTileTmp, src1TileTmp);
+                    } else {
+                        pto::TROWEXPANDMUL(dstTileTmp, castTileTmp, src1TileTmp);
+                    }
                     pipe_barrier(PIPE_V);
-                    pto::TSUB(dstTileTmp, src0TileTmp, dstTileTmp);
+                    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+                        pto::TSUB(dstTileTmp, src0TileTmp, dstTileTmp);
+                    } else {
+                        pto::TROWEXPANDSUB(dstTileTmp, src0TileTmp, dstTileTmp);
+                    }
                     pipe_barrier(PIPE_V);
                     pto::TCVT(dstTile, dstTileTmp, pto::RoundMode::CAST_NONE);
                 }
