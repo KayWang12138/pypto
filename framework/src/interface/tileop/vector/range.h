@@ -72,7 +72,6 @@
  	         dst_ptr[j] = baseStart + step * static_cast<T>(j);
  	     }
  	 
- 	     // blocks 2~8
  	     int32_t loopN = 0, tailSize = 0;
  	     if (N >= static_cast<unsigned>(kRepElems)) {
  	         loopN = DEFAULT_REPEAT_STRIDE - 1;
@@ -89,7 +88,6 @@
  	         return;
  	     }
  	 
- 	     // repeat
  	     loopN = static_cast<int32_t>(N) / kRepElems - 1;
  	     tailSize = static_cast<int32_t>(N) % kRepElems;
  	     TRangePropagate<T, (ONE_BLK_SIZE * DEFAULT_REPEAT_STRIDE) / sizeof(T)>(
