@@ -48,7 +48,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END)
     if ("${PY3_MOD_PYBIND11_CMAKE_DIR}x" STREQUAL "x")
         message(FATAL_ERROR "Can't get pybind11 cmake dir, Python Frontend can't build.")
     endif ()
-    find_package(pybind11 CONFIG REQUIRED PATHS ${PY3_MOD_PYBIND11_CMAKE_DIR} NO_DEFAULT_PATH)
+    find_package(pybind11 3.0.1 CONFIG REQUIRED PATHS ${PY3_MOD_PYBIND11_CMAKE_DIR} NO_DEFAULT_PATH)
 endif ()
 
 
