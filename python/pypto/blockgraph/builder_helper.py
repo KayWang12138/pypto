@@ -130,8 +130,13 @@ class BlockBuilderHelper:
         self.builder.emit(self.ctx, op)
         return op
 
+<<<<<<< HEAD
     def ceil(self, a, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_CEIL, a, out)
+=======
+    def trunc(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_TRUNC, a, out)
+>>>>>>> remote-C/master
         self.builder.emit(self.ctx, op)
         return op
 

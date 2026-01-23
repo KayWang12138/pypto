@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_ceil_operation.cpp
+ * \file test_trunc_operation.cpp
  * \brief
  */
 
@@ -17,28 +17,28 @@
 
 using namespace tile_fwk::test_operation;
 namespace {
-struct CeilOpFuncArgs : public OpFuncArgs {
-    CeilOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
+struct TruncOpFuncArgs : public OpFuncArgs {
+    TruncOpFuncArgs(const std::vector<int64_t> &viewShape, const std::vector<int64_t> tileShape)
         : viewShape_(viewShape), tileShape_(tileShape) {}
 
     std::vector<int64_t> viewShape_;
     std::vector<int64_t> tileShape_;
 };
 
-struct CeilOpMetaData {
-    explicit CeilOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
+struct TruncOpMetaData {
+    explicit TruncOpMetaData(const OpFunc &opFunc, const nlohmann::json &test_data)
         : opFunc_(opFunc), test_data_(test_data) {}
 
     OpFunc opFunc_;
     nlohmann::json test_data_;
 };
 
-static void CeilOperationExeFunc2Dims(
+static void TruncOperationExeFunc2Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
-        const struct CeilOpFuncArgs *args = static_cast<const CeilOpFuncArgs *>(opArgs);
+        const struct TruncOpFuncArgs *args = static_cast<const TruncOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int bloop = CeilDiv(firstDim, firstViewShape);
@@ -51,20 +51,20 @@ static void CeilOperationExeFunc2Dims(
                         std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
                     {bIdx * firstViewShape, sIdx * secondViewShape});
                 TileShape::Current().SetVecTile(args->tileShape_);
-                auto res = Ceil(tileTensor); 
+                auto res = Trunc(tileTensor);
                 Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
             }
         }
     }
 }
 
-static void CeilOperationExeFunc3Dims(
+static void TruncOperationExeFunc3Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
-        const struct CeilOpFuncArgs *args = static_cast<const CeilOpFuncArgs *>(opArgs);
+        const struct TruncOpFuncArgs *args = static_cast<const TruncOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -81,7 +81,7 @@ static void CeilOperationExeFunc3Dims(
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = Ceil(tileTensor);  
+                    auto res = Trunc(tileTensor); 
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
@@ -89,14 +89,14 @@ static void CeilOperationExeFunc3Dims(
     }
 }
 
-static void CeilOperationExeFunc4Dims(
+static void TruncOperationExeFunc4Dims(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     FUNCTION("main", {inputs[0]}, {outputs[0]}) {
         SymbolicScalar firstDim = inputs[0].GetShape()[0];
         SymbolicScalar secondDim = inputs[0].GetShape()[1];
         SymbolicScalar thirdDim = inputs[0].GetShape()[2];
         SymbolicScalar fourthDim = inputs[0].GetShape()[3];
-        auto args = static_cast<const CeilOpFuncArgs *>(opArgs);
+        auto args = static_cast<const TruncOpFuncArgs *>(opArgs);
         const int firstViewShape = args->viewShape_[0];
         const int secondViewShape = args->viewShape_[1];
         const int thirdViewShape = args->viewShape_[2];
@@ -120,7 +120,7 @@ static void CeilOperationExeFunc4Dims(
                                 {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                     nIdx * fourthViewShape});
                         TileShape::Current().SetVecTile(args->tileShape_);
-                        auto res = Ceil(tileTensor0); 
+                        auto res = Trunc(tileTensor0);
                         Assemble(res,
                             {bIdx * firstViewShape, sIdx * secondViewShape, mIdx * thirdViewShape,
                                 nIdx * fourthViewShape},
@@ -132,16 +132,16 @@ static void CeilOperationExeFunc4Dims(
     }
 }
 
-class CeilOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<CeilOpMetaData> {};
+class TruncOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<TruncOpMetaData> {};
 
-INSTANTIATE_TEST_SUITE_P(TestCeil, CeilOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<CeilOpMetaData>(
-        {CeilOperationExeFunc2Dims, CeilOperationExeFunc3Dims, CeilOperationExeFunc4Dims}, "Ceil")));
+INSTANTIATE_TEST_SUITE_P(TestTrunc, TruncOperationTest,
+    ::testing::ValuesIn(GetOpMetaData<TruncOpMetaData>(
+        {TruncOperationExeFunc2Dims, TruncOperationExeFunc3Dims, TruncOperationExeFunc4Dims}, "Trunc")));
 
-TEST_P(CeilOperationTest, TestCeil) {
+TEST_P(TruncOperationTest, TestTrunc) {
     auto test_data = GetParam().test_data_;
-    auto args = CeilOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
-    auto testCase = CreateTestCaseDesc<CeilOpMetaData>(GetParam(), &args);
+    auto args = TruncOpFuncArgs(GetViewShape(test_data), GetTileShape(test_data));
+    auto testCase = CreateTestCaseDesc<TruncOpMetaData>(GetParam(), &args);
     TestExecutor::runTest(testCase);
 }
 } // namespace

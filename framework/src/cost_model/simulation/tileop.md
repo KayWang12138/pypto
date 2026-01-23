@@ -275,12 +275,20 @@ function parameters:
 
 TileOp::TLn<float, 16, 512>((__ubuf__ float *)UBId13Addr, (__ubuf__ float *)UBId13Addr);
 
+<<<<<<< HEAD
 ### Tfloor
+=======
+### Ttrunc
+>>>>>>> remote-C/master
 
 #### Syntax
 
 template <typename T, unsigned TShape0, unsigned TShape1>
+<<<<<<< HEAD
 TILEOP void Tfloor(__ubuf__ T *dst, __ubuf__ T *src)
+=======
+TILEOP void Ttrunc(__ubuf__ T *dst, __ubuf__ T *src)
+>>>>>>> remote-C/master
 
 #### Function Description
 
@@ -290,7 +298,11 @@ src = Tensor(dype=T, shape=(TShape0, TShape1))
 
 for (int i = 0; i < TShape0; i++) {
     for (int j = 0; j < TShape1; j++) {
+<<<<<<< HEAD
         dst[i][j] = floor(src[i][j])
+=======
+        dst[i][j] = trunc(src[i][j])
+>>>>>>> remote-C/master
     }
 }
 ```
@@ -314,7 +326,11 @@ function parameters:
 
 #### Demonstration
 
+<<<<<<< HEAD
 TileOp::Tfloor<float, 64, 1>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId1Addr);
+=======
+TileOp::Ttrunc<float, 64, 1>((__ubuf__ float *)UBId1Addr, (__ubuf__ float *)UBId1Addr);
+>>>>>>> remote-C/master
 
 ### Tsqrt
 

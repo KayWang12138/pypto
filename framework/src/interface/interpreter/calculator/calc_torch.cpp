@@ -130,6 +130,11 @@ static void Floor(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::floor_out(tout, From(self));
 }
 
+static void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::trunc_out(tout, From(self));
+}
+
 static void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::logical_not_out(tout, From(self));
@@ -1114,6 +1119,7 @@ static struct CalcOps calcOps = {
     .Sqrt = Sqrt,
     .Ceil = Ceil,
     .Floor = Floor,
+    .Trunc = Trunc,
     .Abs = Abs,
     .Brcb = Brcb,
     .WhereTT = WhereTT,
