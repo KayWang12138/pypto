@@ -50,7 +50,7 @@ struct DumpTensorInfo {
     uint32_t headSize;
     uint32_t funcId;
     uint32_t taskId;
-    uint32_t callOpMagic;
+    uint32_t callopMagic;
     int32_t coreId;
     int32_t dataType;  // INT8...
     int32_t rawMagic;
@@ -201,7 +201,7 @@ public:
             uint32_t dimSize = rawTensor->GetDim();
             dumpTensorInfo.headSize = sizeof(DumpTensorInfo);
             dumpTensorInfo.funcId = FuncID(taskId_);
-            dumpTensorInfo.callOpMagic = func->GetOperationDebugOpmagic(opIdx);
+            dumpTensorInfo.callopMagic = func->GetOperationDebugOpmagic(opIdx);
             dumpTensorInfo.taskId = taskId_;
             dumpTensorInfo.rawMagic = rawTensor->rawMagic;
             dumpTensorInfo.coreId = coreId_;
@@ -256,7 +256,7 @@ public:
         for (int i = 0; i < tensorNum; i++) {
             auto info = GetDumpTensorInfo(dyntask, iOinfo, i);
             bool isLast = (i == tensorNum - 1) ? true : false;
-            std::string tensorInfos = std::to_string(taskId_) + "_" + std::to_string(info.callOpMagic) + "_" +
+            std::string tensorInfos = std::to_string(taskId_) + "_" + std::to_string(seqNo) + "_"+ std::to_string(info.callopMagic) + "_" +
                                       std::to_string(info.rootHash) + "_" + std::to_string(info.funcHash) + "_" +
                                       std::to_string(info.rawMagic) + "_" + std::to_string(timeStamp_) + "_" +
                                       DataType2CCEStr(static_cast<DataType>(info.dataType)) + "_" + iOinfo + std::to_string(i) + ".tdump";
