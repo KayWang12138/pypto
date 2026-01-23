@@ -59,6 +59,7 @@ public:
         sharedBuffer_ = deviceArgs->sharedBuffer;
         regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);
         regNum_ = deviceArgs->nrAic + deviceArgs->nrAiv;
+        freq_ = GetFreq() / (NSEC_PER_SEC / NSEC_PER_USEC);
         readyRegQueues_.fill(nullptr);
         finishRegQueues_.fill(nullptr);
         blockIdToPhyCoreId_.fill(-1);
@@ -391,7 +392,7 @@ public:
         }
 
         oss << "{\"blockIdx\":" << coreIdx << ",\"coreType\":\"SCHED" << aicpuIdx << "-"
-            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":50,\"tasks\":[";
+            << (coretype == CoreType::AIC ? "AIC" : "AIV") << "\",\"freq\":" << freq_ << ",\"tasks\":[";
 
         uint64_t curCycle = 0;
         for (uint32_t type = 0; type < PERF_TRACE_CORE_MAX; type++) {
@@ -409,10 +410,11 @@ public:
                 oss << "\",\"end\":" << curCycle << "}"
                     << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
             }
-            metric->perfTraceCnt[type] = 0;
         }
         oss << "]}";
-        memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
+        if (!aicoreProf_->ProfIsEnable()) {
+            memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
+        }
 #endif
         return DEVICE_MACHINE_OK;
     }
@@ -517,6 +519,7 @@ private:
     int aivStart_{0};
     int aivEnd_{0};
     uint32_t regNum_{0};
+    uint64_t freq_{50};
     
     std::array<volatile KernelArgs*, MAX_AICORE_NUM> args_;
 

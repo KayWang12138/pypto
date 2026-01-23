@@ -21,10 +21,70 @@
 #include <list>
 #include <string>
 
+#include "tilefwk/tilefwk.h"
 #include "interface/inner/any.h"
 #include "tilefwk/tile_shape.h"
 
 namespace npu::tile_fwk {
+
+// pass
+constexpr const char *SG_PARALLEL_NUM = "pg_parallel_lower_bound";
+constexpr const char *SG_PG_UPPER_BOUND = "pg_upper_bound";
+constexpr const char *SG_PG_LOWER_BOUND = "pg_lower_bound";
+constexpr const char *SG_SET_SCOPE = "sg_set_scope";
+constexpr const char *CUBE_L1_REUSE_MODE = "cube_l1_reuse_mode";
+constexpr const char *CUBE_L1_REUSE_SETTING = "cube_l1_reuse_setting";
+constexpr const char *CUBE_NBUFFER_MODE = "cube_nbuffer_mode";
+constexpr const char *CUBE_NBUFFER_SETTING = "cube_nbuffer_setting";
+constexpr const char *MG_COPYIN_UPPER_BOUND = "mg_copyin_upper_bound";
+constexpr const char *OOO_PRESCHEDULE_METHOD = "ooo_preschedule_method";
+constexpr const char *VEC_NBUFFER_MODE = "vec_nbuffer_mode";
+constexpr const char *VEC_NBUFFER_SETTING = "vec_nbuffer_setting";
+constexpr const char *SG_CUBE_PARALLEL_NUM = "sg_cube_parallel_num";
+constexpr const char *MG_VEC_PARALLEL_LB = "mg_vec_parallel_lb";
+constexpr const char *PG_SKIP_PARTITION = "pg_skip_partition";
+constexpr const char *DB_TYPE = "db_type";
+constexpr const char *COPYOUT_RESOLVE_COALESCING = "copyout_resolve_coalescing";
+
+// runtime
+constexpr const char *DEVICE_SCHED_MODE = "device_sched_mode";
+constexpr const char *STITCH_FUNCTION_INNER_MEMORY = "stitch_function_inner_memory";
+constexpr const char *STITCH_FUNCTION_OUTCAST_MEMORY = "stitch_function_outcast_memory";
+constexpr const char *STITCH_FUNCTION_NUM_INITIAL = "stitch_function_num_initial";
+constexpr const char *STITCH_FUNCTION_NUM_STEP = "stitch_function_num_step";
+constexpr const char *STITCH_FUNCTION_SIZE = "stitch_function_size";
+constexpr const char *STITCH_CFGCACHE_SIZE = "stitch_cfgcache_size";
+constexpr const char *CFG_RUN_MODE = "run_mode";
+const int64_t CFG_RUN_MODE_NPU = 0;
+const int64_t CFG_RUN_MODE_SIM = 1;
+
+// host
+constexpr const char *COMPILE_STAGE = "compile_stage";
+constexpr const int ALL_COMPLETE = 0;
+constexpr const int GEN_KERNEL_CODE = 1;
+constexpr const int HOST_COMPILE_END = 2;
+constexpr const int GEN_TENSOR_GRAPH = 3;
+
+// codegen
+constexpr const char *SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
+
+/* flow virifer tools KEYs */
+const std::string KEY_ENABLE_PASS_VERIFY = "enable_pass_verify";
+const std::string KEY_PASS_VERIFY_SAVE_TENSOR = "pass_verify_save_tensor";
+const std::string KEY_PASS_VERIFY_SAVE_TENSOR_DIR = "pass_verify_save_tensor_dir";
+const std::string KEY_PASS_VERIFY_FILTER = "pass_verify_pass_filter";
+
+// debug
+constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";
+constexpr const char *CFG_RUNTIME_DBEUG_MODE = "runtime_debug_mode";
+const int64_t CFG_DEBUG_NONE = 0;
+const int64_t CFG_DEBUG_ALL = 1;
+const int64_t CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND = 2;
+
+// operation
+const std::string KEY_FORCE_COMBINE_AXIS = "force_combine_axis";
+const std::string KEY_COMBINE_AXIS = "combine_axis";
+
 
 class ConfigScope;
 struct ConfigManagerImpl;
@@ -36,7 +96,7 @@ public:
      * \brief Get the config value with the specific key. throw runtime_error if
      * the key is not found.
      */
-    const Any &GetConfig(const std::string &key) const;
+    const Any &GetAnyConfig(const std::string &key) const;
 
     /**
      * \brief Returns a map of all configuration key-value pairs.
@@ -98,10 +158,18 @@ public:
     }
 
     /**
+     * \brief Get operation config (prefix: "operation.")
+     */
+    template <typename T>
+    T GetOperationConfig(const std::string &key) const {
+        return GetConfigAllType<T>("operation." + key);
+    }
+
+    /**
      * \brief Retrieves the CubeTile configuration.
      */
     CubeTile GetCubeTile() const {
-        const Any& value = GetConfig("cube_tile_shapes");
+        const Any& value = GetAnyConfig("cube_tile_shapes");
         return AnyCast<CubeTile>(value);
     }
 
@@ -109,18 +177,16 @@ public:
      * \brief Retrieves the VecTile configuration as a VecTile structure.
      */
     VecTile GetVecTile() const {
-        const Any& value = GetConfig("vec_tile_shapes");
-        std::vector<int64_t> vecValue = AnyCast<std::vector<int64_t>>(value);
-        VecTile vectile;
-        vectile.tile = vecValue;
-        return vectile;
-    }
+        const Any& value = GetAnyConfig("vec_tile_shapes");
+
+        return VecTile{AnyCast<std::vector<int64_t>>(value)};
+}
 
     /**
      * \brief Retrieves the matrix size configuration as a vector of integers.
      */
     std::vector<int64_t> GetMatrixSize() const {
-        const Any& value = GetConfig("matrix_size");
+        const Any& value = GetAnyConfig("matrix_size");
         return AnyCast<std::vector<int64_t>>(value);
     }
 
@@ -172,12 +238,12 @@ public:
     template <typename T>
     T GetConfigAllType(const std::string &key) const {
         if constexpr (std::is_same_v<T, bool>) {
-            return AnyCast<bool>(GetConfig(key));
+            return AnyCast<bool>(GetAnyConfig(key));
         } else if constexpr (std::is_integral_v<T>) {
-            int64_t tmp = AnyCast<int64_t>(GetConfig(key));
+            int64_t tmp = AnyCast<int64_t>(GetAnyConfig(key));
             return static_cast<T>(tmp);
         } else {
-            return AnyCast<T>(GetConfig(key));
+            return AnyCast<T>(GetAnyConfig(key));
         }
     }
 
@@ -187,7 +253,6 @@ private:
     friend struct ConfigManagerImpl;
     std::shared_ptr<ConfigScope> Clone();
 
-private:
     std::shared_ptr<ConfigScope> parent_;
     std::list<ConfigScope *> children_;
     std::map<std::string, Any> values_;
@@ -318,18 +383,66 @@ private:
 };
 
 namespace config {
-#define DEFINE_CONFIG_GROUP(group, prefix)                   \
-template <typename T>                                    \
-inline T Get##group##Option(const std::string &key) {    \
-    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>(prefix "." + key); \
+
+void Restore(std::shared_ptr<ConfigScope> config);
+
+std::shared_ptr<ConfigScope> Duplicate();
+
+/**
+ * @brief Get code generation configuration option
+ */
+template <typename T>
+inline T GetCodeGenOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("codegen." + key);
 }
 
-DEFINE_CONFIG_GROUP(CodeGen, "codegen")
-DEFINE_CONFIG_GROUP(Pass, "pass")
-DEFINE_CONFIG_GROUP(Runtime, "runtime")
-DEFINE_CONFIG_GROUP(Host, "host")
-DEFINE_CONFIG_GROUP(Verify, "verify")
-DEFINE_CONFIG_GROUP(Debug, "debug")
+/**
+ * @brief Get pass configuration option
+ */
+template <typename T>
+inline T GetPassOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("pass." + key);
+}
+
+/**
+ * @brief Get runtime configuration option
+ */
+template <typename T>
+inline T GetRuntimeOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("runtime." + key);
+}
+
+/**
+ * @brief Get host configuration option
+ */
+template <typename T>
+inline T GetHostOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("host." + key);
+}
+
+/**
+ * @brief Get verification configuration option
+ */
+template <typename T>
+inline T GetVerifyOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("verify." + key);
+}
+
+/**
+ * @brief Get debug configuration option
+ */
+template <typename T>
+inline T GetDebugOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("debug." + key);
+}
+
+/**
+ * @brief Get operation configuration option
+ */
+template <typename T>
+inline T GetOperationOption(const std::string &key) {
+    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("operation." + key);
+}
 
 } // namespace config
 

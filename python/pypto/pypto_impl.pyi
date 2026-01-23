@@ -359,6 +359,9 @@ def SetPrintOptions(edge_items: int, precision: int, threshold: int, linewidth: 
 def BytesOf(t: DataType) -> int: ...
 
 
+def ResetOptions(): ...
+
+
 def Reset(): ...
 
 
@@ -462,12 +465,12 @@ def Cast(a: Tensor, dtype: DataType, mode: CastMode) -> Tensor: ...
 
 def index_select(src: Tensor,  dim: int,  indices: Tensor) -> Tensor: ...
 
-def Scatter_(self: Tensor, indices: Tensor, src: Element,
-             axis: int = -1, reduce: str = "") -> Tensor: ...
-
-
-def Scatter(self: Tensor, indices: Tensor, src: Element,
-            axis: int = -1, reduce: str = "") -> Tensor: ...
+@overload
+def Scatter(self: Tensor, indices: Tensor, src: Element, axis: int, 
+            reduce: ScatterMode = ScatterMode.NONE) -> Tensor: ...
+@overload
+def Scatter(self: Tensor, indices: Tensor, src: Tensor, axis: int, 
+            reduce: ScatterMode = ScatterMode.NONE) -> Tensor: ...
 
 
 def Full(elem: Union[int, float, SymbolicScalar, Element], shape: List[int],
@@ -535,6 +538,12 @@ def Batch_matmul(dtype: DataType, a: Tensor, b: Tensor, a_trans: bool = False,
                  b_trans: bool = False, c_matrix_nz: bool = False) -> Tensor: ...
 
 
+@overload
+def Assemble(a: List[Tuple[Tensor, List[SymbolicScalar]]], dst: Tensor,
+             parallel: bool = False) -> None: ...
+
+
+@overload
 def Assemble(a: Tensor, offset: List[SymbolicScalar], dst: Tensor) -> None: ...
 
 
@@ -566,12 +575,6 @@ def SetPassConfig(strategy: str, identifier: str, key: PassConfigKey, value: boo
 
 
 def GetPassConfigs(strategy: str, identifier: str) -> PassConfigs: ...
-
-
-def SetOperationConfig(key: str, value: bool): ...
-
-
-def GetOperationConfig(key: str, default_value: bool) -> bool: ...
 
 
 def GetOptionsTree() -> str: ...

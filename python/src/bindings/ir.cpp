@@ -26,7 +26,7 @@
 #include "ir/utils.h"
 #include "ir/utils_defop.h"
 #include "ir/value.h"
-
+#include "ir/block_call.h"
 namespace py = pybind11;
 
 namespace pto {
@@ -191,6 +191,10 @@ static void IrBindValue(py::module &m) {
                  ScalarValuePtr, DataType, MemoryPtr>(),
             py::arg("name"), py::arg("valid_shape"), py::arg("shape"), py::arg("strides"), py::arg("offset"),
             py::arg("dtype"), py::arg("memory"))
+        .def("set_valid_shape", &TileValue::SetValidShape, py::arg("new_valid_shape"))
+        .def("set_memory_param", &TileValue::SetMemoryParam, py::arg("byte_size"), py::arg("space"),
+            py::arg("addr"))
+        .def("set_memory_addr", &TileValue::SetMemoryAddr, py::arg("addr"))
         .def_property("shape", &TileValue::GetShape, &TileValue::SetShape)
         .def_property("strides", &TileValue::GetStrides, &TileValue::SetStrides)
         .def_property("offset", &TileValue::GetStartOffset, &TileValue::SetStartOffset)
@@ -287,6 +291,11 @@ static void IrBindModule(py::module &m) {
 static void IrBindFunction(py::module &m) {
     py::class_<FunctionSignature>(m, "FunctionSignature")
         .def(py::init<>())
+        .def(py::init<const std::vector<pto::TensorValuePtr> &>(),
+                      py::arg("args"))
+        .def(py::init<const std::vector<pto::TensorValuePtr> &,
+                      const std::vector<pto::TensorValuePtr> &>(),
+                      py::arg("input_args"), py::arg("output_args"))
         .def_readwrite("arguments", &FunctionSignature::arguments, py::return_value_policy::reference_internal)
         .def_readwrite("returns", &FunctionSignature::results, py::return_value_policy::reference_internal);
 
@@ -295,45 +304,322 @@ static void IrBindFunction(py::module &m) {
             return std::make_shared<Function>(name, kind, sig);
         }),
             py::arg("kind"), py::arg("name"), py::arg("sig"))
+        .def("get_sig", &Function::GetSignature)
         .def(
             "stmts", [](Function &self) { return self.GetCompound(); }, py::return_value_policy::reference_internal)
         .def_property_readonly("kind", &Function::GetKind);
 }
 
-static void IrBuilderBindOp(py::class_<IRBuilder> &irBuilder) {
+// Scalar operations (from operation.def)
+static void IrBuilderBindScalarOps(py::class_<IRBuilder> &irBuilder) {
     irBuilder
-        .def(
-            "create_unary_scalar_op",
+        .def("create_unary_scalar_op",
             [](IRBuilder &self, Opcode opcode, ScalarValuePtr in, ScalarValuePtr out) {
-                return self.CreateUnaryScalarOp(opcode, in, out);
-            },
-            py::arg("opcode"), py::arg("in"), py::arg("out"))
-        .def(
-            "create_binary_scalar_op",
+                return std::static_pointer_cast<Operation>(self.CreateUnaryScalarOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_binary_scalar_op",
             [](IRBuilder &self, Opcode opcode, ScalarValuePtr lhs, ScalarValuePtr rhs, ScalarValuePtr out) {
-                return self.CreateBinaryScalarOp(opcode, lhs, rhs, out);
-            },
-            py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"));
+                return std::static_pointer_cast<Operation>(self.CreateBinaryScalarOp(opcode, lhs, rhs, out));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"))
+        .def("create_call_1_scalar_op",
+            [](IRBuilder &self, Opcode opcode, ScalarValuePtr arg0, ScalarValuePtr out, const std::string &name) {
+                return std::static_pointer_cast<Operation>(self.CreateCall1ScalarOp(opcode, arg0, out, name));
+}, py::arg("opcode"), py::arg("ar0"), py::arg("out"), py::arg("name"))
+        .def("create_call_2_scalar_op",
+            [](IRBuilder &self, Opcode opcode, ScalarValuePtr arg0, ScalarValuePtr arg1, 
+               ScalarValuePtr out, const std::string &name) {
+                return std::static_pointer_cast<Operation>(self.CreateCall2ScalarOp(opcode, arg0, arg1, out, name));
+}, py::arg("opcode"), py::arg("arg0"), py::arg("arg1"), py::arg("out"), py::arg("name"))
+        .def("create_call_3_scalar_op",
+            [](IRBuilder &self, Opcode opcode, ScalarValuePtr arg0, ScalarValuePtr arg1, 
+               ScalarValuePtr arg2, ScalarValuePtr out, const std::string &name) {
+                return std::static_pointer_cast<Operation>(
+                    self.CreateCall3ScalarOp(opcode, arg0, arg1, arg2, out, name));
+}, py::arg("opcode"), py::arg("arg0"), py::arg("arg1"), py::arg("arg2"), py::arg("out"), py::arg("name"))
+        .def("create_call_4_scalar_op",
+            [](IRBuilder &self, Opcode opcode, 
+                ScalarValuePtr arg0, ScalarValuePtr arg1, ScalarValuePtr arg2, ScalarValuePtr arg3, 
+                ScalarValuePtr out, const std::string &name) {
+                return std::static_pointer_cast<Operation>(
+                    self.CreateCall4ScalarOp(opcode, arg0, arg1, arg2, arg3, out, name));
+}, py::arg("opcode"), py::arg("arg0"), py::arg("arg1"), py::arg("arg2"), py::arg("arg3"), 
+    py::arg("out"), py::arg("name"))
+        .def("create_call_5_scalar_op",
+            [](IRBuilder &self, Opcode opcode, ScalarValuePtr arg0, ScalarValuePtr arg1, 
+                ScalarValuePtr arg2, ScalarValuePtr arg3, ScalarValuePtr arg4, 
+                ScalarValuePtr out, const std::string &name) {
+                return std::static_pointer_cast<Operation>(
+                    self.CreateCall5ScalarOp(opcode, arg0, arg1, arg2, arg3, arg4, out, name));
+}, py::arg("opcode"), py::arg("arg0"), py::arg("arg1"), py::arg("arg2"), py::arg("arg3"), py::arg("arg4"),
+    py::arg("out"), py::arg("name"));
+}
 
+// Tile operations (from tile_graph.def)
+static void IrBuilderBindUnaryOps(py::class_<IRBuilder> &irBuilder) {
     irBuilder
-        .def(
-            "create_unary_op",
+        .def("create_unary_op",
             [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
-                return self.CreateUnaryOp(opcode, in, out);
-            },
-            py::arg("opcode"), py::arg("in"), py::arg("out"))
-        .def(
-            "create_binary_op",
+                return std::static_pointer_cast<Operation>(self.CreateUnaryOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_unary_with_temp_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateUnaryWithTempOp(opcode, in, out, temp));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"), py::arg("temp"))
+        .def("create_expand_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateExpandOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_transpose_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateTransposeOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_transpose_vnchw_conv_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateTransposeVnchwConvOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_onehot_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateOnehotOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_cast_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateCastOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_cumsum_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateCumSumOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_convert_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateConvertOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_duplicate_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateDuplicateOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_any_data_copy_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateAnyDataCopyOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_argsort_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateArgSortOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"));
+}
+
+static void IrBuilderBindBinaryOps(py::class_<IRBuilder> &irBuilder) {
+    irBuilder
+        .def("create_binary_op",
             [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr out) {
-                return self.CreateBinaryOp(opcode, lhs, rhs, out);
-            },
-            py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"))
-        .def(
-            "create_binary_scalar_op",
+                return std::static_pointer_cast<Operation>(self.CreateBinaryOp(opcode, lhs, rhs, out));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"))
+        .def("create_binary_with_temp_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateBinaryWithTempOp(opcode, lhs, rhs, out, temp));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"), py::arg("temp"))
+        .def("create_binary_scalar_op",
             [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, ScalarValuePtr rhs, TileValuePtr out) {
-                return self.CreateBinaryScalarMixOp(opcode, lhs, rhs, out);
-            },
-            py::arg("opcode"), py::arg("lhs"), py::arg("scalar"), py::arg("out"));
+                return std::static_pointer_cast<Operation>(self.CreateBinaryScalarMixOp(opcode, lhs, rhs, out));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("scalar"), py::arg("out"))
+        .def("create_scatter_elements_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr src0, TileValuePtr src1, ScalarValuePtr scatter, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateScatterElementsOp(opcode, src0, src1, scatter, out));
+}, py::arg("opcode"), py::arg("src0"), py::arg("src1"), py::arg("scatter"), py::arg("out"))
+        .def("create_scatter_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr src0, TileValuePtr src1, TileValuePtr src2, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateScatterOp(opcode, src0, src1, src2, out));
+}, py::arg("opcode"), py::arg("src0"), py::arg("src1"), py::arg("src2"), py::arg("out"))
+        .def("create_gather_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateGatherOp(opcode, lhs, rhs, out));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"))
+        .def("create_gather_extended_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateGatherExtendedOp(opcode, lhs, rhs, out));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"))
+        .def("create_broadcast_with_temp_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateBroadcastWithTempOp(opcode, lhs, rhs, out, temp));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"), py::arg("temp"))
+        .def("create_fused_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateFusedOp(opcode, lhs, rhs, out));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"))
+        .def("create_load_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateLoadOp(opcode, lhs, rhs, out));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"))
+        .def("create_copy_in_out_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateCopyInOutOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"));
+}
+
+static void IrBuilderBindScalarInputOps(py::class_<IRBuilder> &irBuilder) {
+    irBuilder
+        .def("create_range_op",
+            [](IRBuilder &self, Opcode opcode, ScalarValuePtr start, ScalarValuePtr step, ScalarValuePtr size, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateRangeOp(opcode, start, step, size, out));
+}, py::arg("opcode"), py::arg("start"), py::arg("step"), py::arg("size"), py::arg("out"))
+        .def("create_vec_dup_op",
+            [](IRBuilder &self, Opcode opcode, ScalarValuePtr value, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateVecDupOp(opcode, value, out));
+}, py::arg("opcode"), py::arg("value"), py::arg("out"))
+        .def("create_pow_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, ScalarValuePtr rhs, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreatePowOp(opcode, lhs, rhs, out));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"));
+}
+
+static void IrBuilderBindScalarListOps(py::class_<IRBuilder> &irBuilder) {
+    irBuilder
+        .def("create_matmul_load_op",
+            [](IRBuilder &self, Opcode opcode, TensorValuePtr input, const std::vector<ScalarValuePtr> &offsets, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateMatmulLoadOp(opcode, input, offsets, out));
+}, py::arg("opcode"), py::arg("input"), py::arg("offsets"), py::arg("out"))
+        .def("create_matmul_extract_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input, const std::vector<ScalarValuePtr> &offsets, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateMatmulExtractOp(opcode, input, offsets, out));
+}, py::arg("opcode"), py::arg("input"), py::arg("offsets"), py::arg("out"))
+        .def("create_matmul_store_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input, const std::vector<ScalarValuePtr> &offsets, TensorValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateMatmulStoreOp(opcode, input, offsets, out));
+}, py::arg("opcode"), py::arg("input"), py::arg("offsets"), py::arg("out"))
+        .def("create_matmul_bias_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input, const std::vector<ScalarValuePtr> &offsets, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateMatmulBiasOp(opcode, input, offsets, out));
+}, py::arg("opcode"), py::arg("input"), py::arg("offsets"), py::arg("out"))
+        .def("create_matmul_quant_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input, const std::vector<ScalarValuePtr> &offsets, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateMatmulQuantOp(opcode, input, offsets, out));
+}, py::arg("opcode"), py::arg("input"), py::arg("offsets"), py::arg("out"))
+        .def("create_ub_copy_in_op",
+            [](IRBuilder &self, Opcode opcode, TensorValuePtr src, const std::vector<ScalarValuePtr> &offset, TileValuePtr dst) {
+                return std::static_pointer_cast<Operation>(self.CreateUBCopyInOp(opcode, src, offset, dst));
+}, py::arg("opcode"), py::arg("src"), py::arg("offset"), py::arg("dst"))
+        .def("create_ub_copy_out_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr src, const std::vector<ScalarValuePtr> &offset, TensorValuePtr dst) {
+                return std::static_pointer_cast<Operation>(self.CreateUBCopyOutOp(opcode, src, offset, dst));
+}, py::arg("opcode"), py::arg("src"), py::arg("offset"), py::arg("dst"));
+}
+
+static void IrBuilderBindMatmulOps(py::class_<IRBuilder> &irBuilder) {
+    irBuilder
+        .def("create_matmul_mmad_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateMatmulMmadOp(opcode, lhs, rhs, out));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"))
+        .def("create_matmul_acc_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr lhs, TileValuePtr rhs, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateMatmulAccOp(opcode, lhs, rhs, out));
+}, py::arg("opcode"), py::arg("lhs"), py::arg("rhs"), py::arg("out"));
+}
+
+static void IrBuilderBindReduceOps(py::class_<IRBuilder> &irBuilder) {
+    irBuilder
+        .def("create_reduce_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateReduceOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_reduce_with_temp_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateReduceWithTempOp(opcode, in, out, temp));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"), py::arg("temp"));
+}
+
+static void IrBuilderBindGatherMultiInputOps(py::class_<IRBuilder> &irBuilder) {
+    irBuilder
+        .def("create_gather_in_ub_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr input3, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateGatherInUBOp(opcode, input1, input2, input3, out));
+}, py::arg("opcode"), py::arg("input1"), py::arg("input2"), py::arg("input3"), py::arg("out"))
+        .def("create_gather_in_l1_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr input3, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateGatherInL1Op(opcode, input1, input2, input3, out));
+}, py::arg("opcode"), py::arg("input1"), py::arg("input2"), py::arg("input3"), py::arg("out"));
+}
+
+static void IrBuilderBindIndexOps(py::class_<IRBuilder> &irBuilder) {
+    irBuilder
+        .def("create_index_out_cast_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr src, TileValuePtr index, TileValuePtr dst, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateIndexOutCastOp(opcode, src, index, dst, out));
+}, py::arg("opcode"), py::arg("src"), py::arg("index"), py::arg("dst"), py::arg("out"))
+        .def("create_index_add_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr input3, ScalarValuePtr alpha, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateIndexAddOp(opcode, input1, input2, input3, alpha, out));
+}, py::arg("opcode"), py::arg("input1"), py::arg("input2"), py::arg("input3"), py::arg("alpha"), py::arg("out"));
+}
+
+static void IrBuilderBindSortOps(py::class_<IRBuilder> &irBuilder) {
+    irBuilder
+        .def("create_topk_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out1, TileValuePtr out2) {
+                return std::static_pointer_cast<Operation>(self.CreateTopKOp(opcode, in, out1, out2));
+}, py::arg("opcode"), py::arg("in"), py::arg("out1"), py::arg("out2"))
+        .def("create_bitsort_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateBitSortOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_mrgsort_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateMrgSortOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_extract_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr in, TileValuePtr out) {
+                return std::static_pointer_cast<Operation>(self.CreateExtractOp(opcode, in, out));
+}, py::arg("opcode"), py::arg("in"), py::arg("out"))
+        .def("create_tiled_mrg_sort_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr input3, TileValuePtr input4, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateTiledMrgSortOp(opcode, input1, input2, input3, input4, out, temp));
+}, py::arg("opcode"), py::arg("input1"), py::arg("input2"), py::arg("input3"), py::arg("input4"), py::arg("out"), py::arg("temp"));
+}
+
+static void IrBuilderBindWhereTernaryOps(py::class_<IRBuilder> &irBuilder) {
+    irBuilder
+        .def("create_ternary_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr condition, TileValuePtr input, TileValuePtr other, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateTernaryOp(opcode, condition, input, other, out, temp));
+}, py::arg("opcode"), py::arg("condition"), py::arg("input"), py::arg("other"), py::arg("out"), py::arg("temp"))
+        .def("create_where_ts_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr condition, TileValuePtr input, ScalarValuePtr other, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateWhereTSOp(opcode, condition, input, other, out, temp));
+}, py::arg("opcode"), py::arg("condition"), py::arg("input"), py::arg("other"), py::arg("out"), py::arg("temp"))
+        .def("create_where_st_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr condition, ScalarValuePtr input, TileValuePtr other, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateWhereSTOp(opcode, condition, input, other, out, temp));
+}, py::arg("opcode"), py::arg("condition"), py::arg("input"), py::arg("other"), py::arg("out"), py::arg("temp"))
+        .def("create_where_ss_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr condition, ScalarValuePtr input, ScalarValuePtr other, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateWhereSSOp(opcode, condition, input, other, out, temp));
+}, py::arg("opcode"), py::arg("condition"), py::arg("input"), py::arg("other"), py::arg("out"), py::arg("temp"));
+}
+
+static void IrBuilderBindCompareOps(py::class_<IRBuilder> &irBuilder) {
+    irBuilder
+        .def("create_compare_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input1, TileValuePtr input2, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateCompareOp(opcode, input1, input2, out, temp));
+}, py::arg("opcode"), py::arg("input1"), py::arg("input2"), py::arg("out"), py::arg("temp"))
+        .def("create_compare_scalar_op",
+            [](IRBuilder &self, Opcode opcode, TileValuePtr input1, ScalarValuePtr input2, TileValuePtr out, TileValuePtr temp) {
+                return std::static_pointer_cast<Operation>(self.CreateCompareScalarOp(opcode, input1, input2, out, temp));
+}, py::arg("opcode"), py::arg("input1"), py::arg("input2"), py::arg("out"), py::arg("temp"));
+}
+
+static void IrBuilderBindOp(py::class_<IRBuilder> &irBuilder) {
+    IrBuilderBindScalarOps(irBuilder);
+    IrBuilderBindUnaryOps(irBuilder);
+    IrBuilderBindBinaryOps(irBuilder);
+    IrBuilderBindScalarInputOps(irBuilder);
+    IrBuilderBindScalarListOps(irBuilder);
+    IrBuilderBindMatmulOps(irBuilder);
+    IrBuilderBindReduceOps(irBuilder);
+    IrBuilderBindGatherMultiInputOps(irBuilder);
+    IrBuilderBindIndexOps(irBuilder);
+    IrBuilderBindSortOps(irBuilder);
+    IrBuilderBindWhereTernaryOps(irBuilder);
+    IrBuilderBindCompareOps(irBuilder);
 }
 
 static void IrBindBuilder(py::module &m) {
@@ -398,6 +684,25 @@ static void IrBindBuilder(py::module &m) {
 
     IrBuilderBindOp(irBuilder);
 }
+
+void IrBindBlockCall(py::module &m) {
+    m.def("call_block", [](const pto::FunctionPtr &blockFuncPtr,
+                           const std::vector<npu::tile_fwk::Tensor>& inputTensors,
+                           const std::vector<npu::tile_fwk::Tensor>& outputTensors,
+                           const std::vector<npu::tile_fwk::SymbolicScalar>& indices) {
+        // 转换为 reference_wrapper
+        std::vector<std::reference_wrapper<const npu::tile_fwk::Tensor>> inputRefs;
+        std::vector<std::reference_wrapper<const npu::tile_fwk::Tensor>> outputRefs;
+        for (const auto& t : inputTensors) inputRefs.emplace_back(t);
+        for (const auto& t : outputTensors) outputRefs.emplace_back(t);
+        // 调用 C++ 的 CallBlock (通过 blockName)
+        return CallBlock(blockFuncPtr, inputRefs, outputRefs, indices);
+    }, py::arg("block_func_ptr"),
+       py::arg("input_tensors"),
+       py::arg("output_tensors"),
+       py::arg("indices"),
+       "Call a registered block by name (PascalCase).");
+}
 } // namespace pto
 
 namespace pypto {
@@ -412,5 +717,6 @@ void BindIr(py::module &m) {
     pto::IrBindFunction(ir);
     pto::IrBindModule(ir);
     pto::IrBindBuilder(ir);
+    pto::IrBindBlockCall(ir);
 }
 } // namespace pypto
