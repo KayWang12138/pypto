@@ -131,6 +131,47 @@ private:
     std::vector<uint8_t *> allocatedHostAddr;
 };
 
+class RuntimeHostAgent : public RuntimeHostAgentMemory {
+public:
+    RuntimeHostAgent(RuntimeHostAgent &other) = delete;
+
+    void operator=(const RuntimeHostAgent &other) = delete;
+
+    static RuntimeHostAgent *GetAgent() {
+        static RuntimeHostAgent inst;
+        return &inst;
+    }
+
+protected:
+    RuntimeHostAgent() {
+        Init();
+    }
+
+public:
+    ~RuntimeHostAgent() { Finalize(); }
+
+public:
+    void Finalize() {
+        if (hostInited) {
+            DestroyMemory();
+        }
+    }
+
+private:
+    void Init() {
+        hostInited = true;
+    }
+
+private:
+    bool hostInited{false};
+};
+
+namespace machine {
+inline npu::tile_fwk::RuntimeHostAgent *GetRuntimeHostAgent() {
+    return npu::tile_fwk::RuntimeHostAgent::GetAgent();
+}
+}
+
 #ifdef BUILD_WITH_CANN
 
 inline void CheckDeviceId() {
@@ -351,94 +392,12 @@ private:
 private:
     bool aclInited{false};
 };
-
-class RuntimeHostAgent : public RuntimeHostAgentMemory {
-public:
-    RuntimeHostAgent(RuntimeHostAgent &other) = delete;
-
-    void operator=(const RuntimeHostAgent &other) = delete;
-
-    static RuntimeHostAgent *GetAgent() {
-        static RuntimeHostAgent inst;
-        return &inst;
-    }
-
-protected:
-    RuntimeHostAgent() {
-        Init();
-    }
-
-public:
-    ~RuntimeHostAgent() { Finalize(); }
-
-public:
-    void Finalize() {
-        if (hostInited) {
-            DestroyMemory();
-        }
-    }
-
-private:
-    void Init() {
-        hostInited = true;
-    }
-
-private:
-    bool hostInited{false};
-};
-
 namespace machine {
-
 inline npu::tile_fwk::RuntimeAgent *GetRA() {
     return npu::tile_fwk::RuntimeAgent::GetAgent();
 }
-
-inline npu::tile_fwk::RuntimeHostAgent *GetRuntimeHostAgent() {
-    return npu::tile_fwk::RuntimeHostAgent::GetAgent();
-}
-
 } // namespace machine
 #else
 
-class RuntimeHostAgent : public RuntimeHostAgentMemory {
-public:
-    RuntimeHostAgent(RuntimeHostAgent &other) = delete;
-
-    void operator=(const RuntimeHostAgent &other) = delete;
-
-    static RuntimeHostAgent *GetAgent() {
-        static RuntimeHostAgent inst;
-        return &inst;
-    }
-
-protected:
-    RuntimeHostAgent() {
-        Init();
-    }
-
-public:
-    ~RuntimeHostAgent() { Finalize(); }
-
-public:
-    void Finalize() {
-        if (hostInited) {
-            DestroyMemory();
-        }
-    }
-
-private:
-    void Init() {
-        hostInited = true;
-    }
-
-private:
-    bool hostInited{false};
-};
-
-namespace machine {
-inline npu::tile_fwk::RuntimeHostAgent *GetRuntimeHostAgent() {
-    return npu::tile_fwk::RuntimeHostAgent::GetAgent();
-}
-}
 #endif
 } // namespace npu::tile_fwk
