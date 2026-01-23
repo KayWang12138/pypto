@@ -142,7 +142,8 @@ def auto_cube_tile(m: List[int], k: List[int], n: List[int], dtype: dtypes.AnyDa
     set_cube_tile_shapes(new_m, new_k, new_n)
 
 
-def auto_vec_tile(target_shape: Iterable[int], dtype: dtypes.AnyDataType, buf_num: int = 2, ub_size: int = 192 * 1024) -> None:
+def auto_vec_tile(target_shape: Iterable[int], dtype: dtypes.AnyDataType, buf_num: int = 2,
+                  ub_size: int = 192 * 1024) -> None:
     shape_list = list(target_shape)
 
     if any(d <= 0 for d in shape_list):
