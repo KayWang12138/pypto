@@ -52,6 +52,10 @@ namespace npu::tile_fwk {
 #endif
 #endif
 
+#define AICORE_DEVICE_TASK_RUN_TIMEOUT 3000000000
+#define AICORE_DEVICE_TASK_WAIT_TIME_OUT 500000000
+#define AICORE_LEAF_TASK_RUN_TIMEOUT 3000000000
+
 using npu::tile_fwk::DynFuncHeader;
 using npu::tile_fwk::DynFuncData;
 using npu::tile_fwk::DynFuncBin;
@@ -60,13 +64,9 @@ using npu::tile_fwk::CoreFunctionData;
 
 #if defined(__MIX__) && defined(__AIV__)
 #define aicore_blockIdx __v_blockIdx
-#define GmWorkspace __v_GmWorkspace
 #endif
 
-#define unlikely(expr) __builtin_expect(!!(expr), 0)
-
-[[block_local]] int aicore_blockIdx;
-[[block_local]] int64_t GmWorkspace;
+BLOCK_LOCAL int aicore_blockIdx;
 
 enum DFX_STAGE_STATUS {
     STAGE_HANDSHAKE_START = 1,
@@ -83,15 +83,23 @@ enum DFX_STAGE_STATUS {
 
 struct ExecuteContext {
     __gm__ KernelArgs *args;
-    uint32_t seqNo;
-    __gm__ DynFuncData *funcDataList;
+    uint32_t seqNo{0};
+    __gm__ DynFuncData *funcDataList{nullptr};
     uint64_t lastTaskFinishCycle{0};
 #if ENABLE_AICORE_PRINT
     AicoreLogger logger;
 #endif
 };
 
-INLINE uint32_t GetNextTask(uint32_t lastTaskIdx, uint32_t curDevTaskId) {
+#if IS_AICORE
+INLINE uint64_t GetDataMainBase() {
+    uint64_t coreStatus = 0;
+    __asm__ volatile("MOV %0, DATA_MAIN_BASE\n" : "+l"(coreStatus));
+    return coreStatus;
+}
+#endif
+
+INLINE uint32_t GetNextLeafTask(uint32_t lastTaskIdx, uint32_t curDevTaskId) {
     uint32_t nextLowIdx = 0;
     uint64_t coreStatus = 0;
     uint64_t t0 = get_sys_cnt();
@@ -99,7 +107,7 @@ INLINE uint32_t GetNextTask(uint32_t lastTaskIdx, uint32_t curDevTaskId) {
     bool isForceContinue = false;
     do {
         isForceContinue = false;
-        __asm__ volatile("MOV %0, DATA_MAIN_BASE\n" : "+l"(coreStatus));
+        coreStatus = GetDataMainBase();
         nextLowIdx = coreStatus & 0xFFFFFFFF;
         nextLowIdx -= 1;
 
@@ -148,6 +156,7 @@ INLINE void HandshakeClient(volatile __gm__ int64_t *shakeBuf) {
 }
 
 INLINE void SetStatus(__gm__ KernelArgs *args, int64_t val) {
+    UNUSED(args); UNUSED(val);
 #if DEBUG_SWITCH
     Barrier();
     args->shakeBuffer[2] = val;
@@ -193,6 +202,7 @@ INLINE void SetTaskStatistic(__gm__ KernelArgs *args, int32_t& dfxPose,
 }
 
 INLINE void AddMetricStatistic(ExecuteContext *ctx, uint32_t seqNo, uint32_t taskId, int32_t subGraphId, int64_t t1) {
+    UNUSED(ctx); UNUSED(seqNo); UNUSED(taskId); UNUSED(subGraphId); UNUSED(t1);
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
     auto m = (__gm__ Metrics*)(ctx->args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     if (m && m->taskCount < MAX_DFX_TASK_NUM_PER_CORE) {
@@ -242,7 +252,7 @@ INLINE void DfxProcWhenDevTaskStop(ExecuteContext *ctx, __gm__ KernelArgs *args,
     SetStatus(args, STAGE_GET_NEXT_TASK_STOP);
 }
 
-INLINE uint64_t getCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
+INLINE uint64_t GetCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
     uint64_t t0 = get_sys_cnt();
     uint64_t loop_count = 0;
     while (true) {
@@ -255,7 +265,7 @@ INLINE uint64_t getCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
         }
 
         ++loop_count;
-        if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
+        if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > AICORE_DEVICE_TASK_WAIT_TIME_OUT)) {
             SetStatus(args, STAGE_GET_COREFUNC_DATA_TIMEOUT);
             break;
         }
@@ -271,6 +281,7 @@ INLINE uint64_t getCoreFuncionData(__gm__ KernelArgs *args, int64_t lastFunc) {
 }
 
 INLINE void PmuTestBegin(__gm__ KernelArgs *args) {
+    UNUSED(args);
 #if PERF_PMU_TEST_SWITCH
     if (args->taskEntry.reserved[0] == PRO_LEVEL2) {
         set_ctrl((uint64_t) get_ctrl() | 0x1);
@@ -279,6 +290,7 @@ INLINE void PmuTestBegin(__gm__ KernelArgs *args) {
 }
 
 INLINE void PmuTestEnd(__gm__ KernelArgs *args) {
+    UNUSED(args);
 #if PERF_PMU_TEST_SWITCH
         if (args->taskEntry.reserved[0] == PRO_LEVEL2) {
             set_ctrl((uint64_t) get_ctrl() - 1);
@@ -331,6 +343,7 @@ INLINE void InitCtx(ExecuteContext *ctx, __gm__ Metrics* metric, uint64_t coreFu
 }
 
 INLINE void ExecCoreFunctionKernel(ExecuteContext *ctx, uint32_t curTaskIdx) {
+    UNUSED(ctx); UNUSED(curTaskIdx);
 #ifdef __HAS_SUB_FUNC__
     ExecDynCoreFunctionKernel(ctx, curTaskIdx);
     return;
@@ -353,6 +366,7 @@ INLINE void WaitWaveSignal(__gm__ KernelArgs *args) {
 
 INLINE void KernelEntry(int64_t ffts_addr, int64_t inputs,
         int64_t outputs, int64_t workspace, int64_t tilingdata, int64_t cfgdata) {
+    UNUSED(ffts_addr); UNUSED(inputs); UNUSED(outputs); UNUSED(workspace); UNUSED(tilingdata);
 #if defined(__AIV__) and defined(__MIX__)
     aicore_blockIdx = get_block_idx() * get_subblockdim() + get_subblockid() + get_block_num();
 #else
@@ -378,7 +392,7 @@ INLINE void KernelEntry(int64_t ffts_addr, int64_t inputs,
     PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_INIT, args);
     while (true) {
         ++loop_count;
-        if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 3000000000)) {
+        if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > AICORE_DEVICE_TASK_RUN_TIMEOUT)) {
             break;
         }
         lastTaskIdx = AICORE_TASK_INIT;
@@ -386,7 +400,7 @@ INLINE void KernelEntry(int64_t ffts_addr, int64_t inputs,
             DfxProcWhenCoreExit(&ctx, args, metric);
             return WaitWaveSignal(args); // no data exit
         }
-        coreFuncData = getCoreFuncionData(args, coreFuncData);
+        coreFuncData = GetCoreFuncionData(args, coreFuncData);
         if (coreFuncData == 0) {
             DfxProcWhenCoreExit(&ctx, args, metric);
             return; // no data exit
@@ -397,10 +411,10 @@ INLINE void KernelEntry(int64_t ffts_addr, int64_t inputs,
         isFirstTask = true;
         while (true) {
             ++inner_loop_count;
-            if ((inner_loop_count % 1000 == 0) && (get_sys_cnt() - t1 > 3000000000)) {
+            if ((inner_loop_count % 1000 == 0) && (get_sys_cnt() - t1 > AICORE_LEAF_TASK_RUN_TIMEOUT)) {
                 break;
             }
-            curTaskIdx = GetNextTask(lastTaskIdx, ctx.seqNo);
+            curTaskIdx = GetNextLeafTask(lastTaskIdx, ctx.seqNo);
             if (curTaskIdx == AICORE_TASK_STOP) {
                 DfxProcWhenDevTaskStop(&ctx, args, metric);
                 SetStatus(args, STAGE_CORE_EXIT);
