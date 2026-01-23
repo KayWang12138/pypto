@@ -1,0 +1,11 @@
+case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape
+BitwiseNot_test_1,"[64, 64, 3]",uint8,ND,"[0, 255]","[64, 64, 3]",uint8,ND,"[32, 32, 3]","[32, 32, 3]"
+BitwiseNot_test_2,"[128, 96, 4]",int8,ND,"[-128, 127]","[128, 96, 4]",int8,ND,"[64, 48, 4]","[64, 48, 4]"
+BitwiseNot_test_3,"[100, 75, 3, 2]",uint16,ND,"[0, 65535]","[100, 75, 3, 2]",uint16,ND,"[50, 75, 3, 2]","[50, 75, 3, 2]"
+BitwiseNot_test_4,"[150, 120, 2]",int16,ND,"[-32768, 32767]","[150, 120, 2]",int16,ND,"[75, 60, 2]","[75, 60, 2]"
+BitwiseNot_test_5,"[256, 128, 64]",uint32,ND,"[0, 4294967295]","[256, 128, 64]",uint32,ND,"[128, 64, 64]","[128, 64, 64]"
+BitwiseNot_test_6,"[99, 77, 3]",int32,ND,"[-2147483648, 2147483647]","[99, 77, 3]",int32,ND,"[33, 77, 3]","[33, 77, 3]"
+BitwiseNot_test_7,"[32, 64, 32, 2]",bool,ND,"[0, 1]","[32, 64, 32, 2]",bool,ND,"[16, 32, 32, 2]","[16, 32, 32, 2]"
+BitwiseNot_test_8,"[67, 89]",uint8,ND,"[0, 255]","[67, 89]",uint8,ND,"[67, 89]","[67, 89]"
+BitwiseNot_test_9,"[128, 256, 128]",int32,ND,"[-100, 100]","[128, 256, 128]",int32,ND,"[64, 128, 128]","[64, 128, 128]"
+BitwiseNot_test_10,"[1, 512, 512, 3]",uint8,ND,"[0, 255]","[1, 512, 512, 3]",uint8,ND,"[1, 256, 256, 3]","[1, 256, 256, 3]"

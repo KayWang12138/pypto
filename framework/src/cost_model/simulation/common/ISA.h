@@ -38,6 +38,7 @@ const std::map<std::string, CorePipeType> SCHED_CORE_PIPE_TYPE {
     {"NEG", CorePipeType::PIPE_VECTOR_ALU},
     {"RSQRT", CorePipeType::PIPE_VECTOR_ALU},
     {"SQRT", CorePipeType::PIPE_VECTOR_ALU},
+    {"BITWISENOT", CorePipeType::PIPE_VECTOR_ALU},
     {"RECIPROCAL", CorePipeType::PIPE_VECTOR_ALU},
     {"CAST", CorePipeType::PIPE_VECTOR_ALU},
     {"EXPAND", CorePipeType::PIPE_VECTOR_ALU},

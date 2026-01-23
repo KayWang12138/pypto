@@ -45,11 +45,11 @@ class TestCaseLauncher:
         self.executable_path = config.executable_path
 
     def tear_up(self):
-        if os.path.exists(self.log_path):
-            os.system(f"rm -rf {self.log_path}")
-        os.mkdir(self.log_path)
-        if os.path.exists(self.plog_cache_path):
-            os.system(f"rm -rf {self.plog_cache_path}")
+        # if os.path.exists(self.log_path):
+        #     os.system(f"rm -rf {self.log_path}")
+        # os.mkdir(self.log_path)
+        # if os.path.exists(self.plog_cache_path):
+        #     os.system(f"rm -rf {self.plog_cache_path}")
         os.mkdir(self.plog_cache_path)
         if os.path.exists(self.report_file):
             os.remove(self.report_file)

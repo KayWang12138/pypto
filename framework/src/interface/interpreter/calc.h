@@ -52,6 +52,9 @@ inline void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Sqrt(out, self);
 }
+inline void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->BitwiseNot(out, self);
+}
 inline void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Abs(out, self);
 }

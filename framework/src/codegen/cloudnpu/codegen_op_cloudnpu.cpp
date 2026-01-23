@@ -74,6 +74,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_EXP, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_NEG, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_RSQRT, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_BITWISENOT, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_SQRT, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_EXPAND, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ONEHOT, [this]() { return GenUnaryOp(); }},
