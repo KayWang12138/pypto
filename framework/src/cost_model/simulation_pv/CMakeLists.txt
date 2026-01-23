@@ -22,6 +22,7 @@ target_link_libraries(tile_fwk_simulation_pv
         PUBLIC
             $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_codegen>
             $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_simulation>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:runtime>>
             json
         PRIVATE
             intf_pub_cxx17
