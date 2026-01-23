@@ -376,7 +376,7 @@ std::vector<std::vector<int>> NBufferMerge::SortColorWithInput(std::vector<int> 
 void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors, 
                                      const OperationsViewer &opOriList, 
                                      std::vector<uint64_t> &hashColor, 
-                                     int &numDBmerge) {
+                                     size_t &numDBmerge) {
     int pingColor = -1;
     for (const auto &input2Color : sortedColors) {
         for (size_t i = 0; i < input2Color.size(); i++) {
@@ -417,7 +417,7 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
             std::vector<int> &colorValues = hashMap[colorHashValue];
             auto sortedColors = SortColorWithInput(colorValues);
             if (sortedColors.empty()) continue;
-            int numDBMerge =
+            size_t numDBMerge =
                 (vecNBuffermode == 1) ? hashMergeNum[colorHashValue] : hashMergeNum[hashOrder[colorHashValue]];
             MergePingPong(sortedColors, opOriList, hashColor, numDBMerge);
         }

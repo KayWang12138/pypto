@@ -58,7 +58,7 @@ private:
     void MergePingPong(std::vector<std::vector<int>> &sortedColors,
                        const OperationsViewer &opOriList,
                        std::vector<uint64_t> &hashColor,
-                       int &numDBmerge);
+                       size_t &numDBmerge);
     std::map<uint64_t, size_t> SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap);
     Status CheckVecNBufferSettingForManualMerge();
 private:
