@@ -102,10 +102,16 @@ void AiCoreProf::ProInitAiCpuTaskStat() {
     sleep(1);
 }
 
-void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs, ProfConfig profConfig) {
+void AiCoreProf::ProfInit([[maybe_unused]]int64_t *regAddrs, [[maybe_unused]]int64_t *pmuEventAddrs,
+    ProfConfig profConfig, ArchInfo archInfo) {
     DEV_DEBUG("Begin Prof init");
     coreNum_ = hostAicoreMng_.GetAllAiCoreNum();
     profLevel_ = CreateProfLevel(profConfig);
+    if (archInfo == ArchInfo::DAV_2201) {
+        profReportAdditionalInfoFunc_ = AdprofReportAdditionalInfo;
+    } else {
+        profReportAdditionalInfoFunc_ = MsprofReportAdditionalInfo;
+    }
     DEV_DEBUG("Pypto config prof level is %d", profLevel_);
     if ((ProfCheckLevel(PROF_TASK_TIME_L2) == true) || (profLevel_ == PROF_LEVEL_FUNC_LOG) || (profLevel_ == PROF_LEVEL_FUNC_LOG_PMU)) {
         profLevel_ = PROF_LEVEL_FUNC_LOG;
@@ -155,7 +161,7 @@ void AiCoreProf::ProGetHandShake(int &threadIdx, const struct AiCpuHandShakeSta 
             handShakeDataSize_, handShakeStat, handShakeDataSize_);
         handShakeMsg.dataLen += logDataSize_;
         handShakeHead->cnt++;
-        int32_t ret = AdprofReportAdditionalInfo(1, &handShakeMsg, sizeof(PyPtoMsprofAdditionalInfo));
+        int32_t ret = profReportAdditionalInfoFunc_(1, &handShakeMsg, sizeof(PyPtoMsprofAdditionalInfo));
         DEV_DEBUG(
             "aicore profiling send log mesg, core id: %d, task num: %d, ret: %d.", threadIdx, handShakeHead->cnt, ret);
         // reset
@@ -230,8 +236,8 @@ inline void AiCoreProf::ProfInitLog() {
 inline void AiCoreProf::ProfStopLog() {
     hostAicoreMng_.ForEachManageAicore([&](int coreIdx) {
         if (logHead_[coreIdx]->cnt != 0) {
-            int32_t ret = AdprofReportAdditionalInfo(1, &logMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
-            DEV_DEBUG("aicore profiling send log mesg, core id: %d, task num: %d, ret: %d.", coreIdx,
+            int32_t ret = profReportAdditionalInfoFunc_(1, &logMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
+            DEV_DEBUG("Aicore profiling send log mesg, core id: %d, task num: %d, ret: %d.", coreIdx,
                 logHead_[coreIdx]->cnt, ret);
             (void)(ret);
             memset_s(&logMsg_[coreIdx], logMsgSize_, 0, logMsgSize_);
@@ -254,8 +260,8 @@ inline void AiCoreProf::ProfGetLog(int32_t coreIdx, const struct TaskStat *taskS
             logDataSize_, taskStat, logDataSize_);
         logMsg.dataLen += logDataSize_;
         logHead->cnt++;
-        int32_t ret = AdprofReportAdditionalInfo(1, &logMsg, sizeof(PyPtoMsprofAdditionalInfo));
-        DEV_DEBUG("aicore profiling send log mesg, core id: %d, task num: %d, ret: %d.", coreIdx, logHead->cnt, ret);
+        int32_t ret = profReportAdditionalInfoFunc_(1, &logMsg, sizeof(PyPtoMsprofAdditionalInfo));
+        DEV_DEBUG("Aicore profiling send log mesg, core id: %d, task num: %d, ret: %d.", coreIdx, logHead->cnt, ret);
         // reset
         (void)(ret);
         logHead->cnt = 0;
@@ -392,7 +398,7 @@ inline void AiCoreProf::ProfStartPmu() {
 inline void AiCoreProf::ProfStopPmu() {
     hostAicoreMng_.ForEachManageAicore([&](int coreIdx) {
         if (pmuHead_[coreIdx]->cnt != 0) {
-            int32_t ret = AdprofReportAdditionalInfo(1, &pmuMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
+            int32_t ret = profReportAdditionalInfoFunc_(1, &pmuMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
             DEV_DEBUG("aicore profiling send pmu mesg, core id: %d, task num: %d, ret: %d.", coreIdx,
                 pmuHead_[coreIdx]->cnt, ret);
             (void)(ret);
@@ -407,9 +413,9 @@ void AiCoreProf::ProfStopHandShake() {
     }
     for (int i = 0; i < AICPUNUM; i++) {
         if (HandShakeHead_[i]->cnt != 0) {
-            int32_t ret = AdprofReportAdditionalInfo(1, &HandShakeMsg_[i], sizeof(PyPtoMsprofAdditionalInfo));
+            int32_t ret = profReportAdditionalInfoFunc_(1, &HandShakeMsg_[i], sizeof(PyPtoMsprofAdditionalInfo));
             DEV_DEBUG(
-                "aicore profiling send pmu mesg, core id: %d, task num: %d, ret: %d.", i, HandShakeHead_[i]->cnt, ret);
+                "Aicore profiling send pmu mesg, core id: %d, task num: %d, ret: %d.", i, HandShakeHead_[i]->cnt, ret);
             memset_s(&HandShakeMsg_[i], handkShakeMsgSize_, 0, handkShakeMsgSize_);
             (void)(ret);
         }
@@ -419,8 +425,8 @@ void AiCoreProf::ProfStopHandShake() {
 void AiCoreProf::ProfStopAiCpuTaskStat() {
     for (int i = 0; i < AICPUNUM; i++) {
         if (aiCpuStatHead_[i]->cnt != 0) {
-            int32_t ret = AdprofReportAdditionalInfo(1, &aiCpuStatMsg_[i], sizeof(PyPtoMsprofAdditionalInfo));
-            DEV_DEBUG("aicore profiling send aicpu stat mesg, aicpu id: %d, task num: %d, ret: %d.", i,
+            int32_t ret = profReportAdditionalInfoFunc_(1, &aiCpuStatMsg_[i], sizeof(PyPtoMsprofAdditionalInfo));
+            DEV_DEBUG("Aicore profiling send aicpu stat mesg, aicpu id: %d, task num: %d, ret: %d.", i,
                 aiCpuStatHead_[i]->cnt, ret);
             memset_s(&aiCpuStatMsg_[i], aiCpuStatMsgSize_, 0, aiCpuStatMsgSize_);
             (void)(ret);
@@ -451,7 +457,7 @@ void AiCoreProf::ProfGetAiCpuTaskStat(int &threadIdx, struct AiCpuTaskStat *aiCp
             aiCpuStatDataSize_, aiCpuStat, aiCpuStatDataSize_);
         aiCpuStatMsg.dataLen += aiCpuStatDataSize_;
         aiCpuStatHead->cnt++;
-        DEV_DEBUG("aicore profiling gen aiCpuStat mesg, coreId: %d thread id: %d, startExeTask: %lu shakeHand start: "
+        DEV_DEBUG("Aicore profiling gen aiCpuStat mesg, coreId: %d thread id: %d, startExeTask: %lu shakeHand start: "
                   "%lu, shakeHandend: %lu.",
             aiCpuStat->coreId, threadIdx, aiCpuStat->taskGetStart, aiCpuStat->execStart, aiCpuStat->execEnd);
     } else if (aiCpuStatHead->cnt == aiCpuStatMaxNum_ - 1) {
@@ -460,8 +466,8 @@ void AiCoreProf::ProfGetAiCpuTaskStat(int &threadIdx, struct AiCpuTaskStat *aiCp
             aiCpuStatDataSize_, aiCpuStat, aiCpuStatDataSize_);
         aiCpuStatMsg.dataLen += logDataSize_;
         aiCpuStatHead->cnt++;
-        int32_t ret = AdprofReportAdditionalInfo(1, &aiCpuStatMsg, sizeof(PyPtoMsprofAdditionalInfo));
-        DEV_DEBUG("aicore profiling send aiCpuStat mesg, core id: %d, task num: %d, ret: %d.", threadIdx,
+        int32_t ret = profReportAdditionalInfoFunc_(1, &aiCpuStatMsg, sizeof(PyPtoMsprofAdditionalInfo));
+        DEV_DEBUG("Aicore profiling send aiCpuStat mesg, core id: %d, task num: %d, ret: %d.", threadIdx,
             aiCpuStatHead->cnt, ret);
         // reset
         (void)(ret);
@@ -518,7 +524,7 @@ inline void AiCoreProf::ProfGetPmu(
             pmuDataSize_, &data, pmuDataSize_);
         pmuMsg_[coreIdx].dataLen += pmuDataSize_;
         pmuHead_[coreIdx]->cnt++;
-        int32_t ret = AdprofReportAdditionalInfo(1, &pmuMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
+        int32_t ret = profReportAdditionalInfoFunc_(1, &pmuMsg_[coreIdx], sizeof(PyPtoMsprofAdditionalInfo));
         DEV_DEBUG("aicore profiling send pmu mesg, core id: %d, task num: %d, ret: %d.", coreIdx,
             pmuHead_[coreIdx]->cnt, ret);
         (void)(ret);
