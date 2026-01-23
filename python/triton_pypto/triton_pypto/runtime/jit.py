@@ -9,7 +9,8 @@ import pypto
 import torch
 import triton
 
-from ..language.operations import Context, AffineTensorLayout, HostTensorWrapper
+from ..language.compound import TensorPointer
+from ..language.operations import Context, HostTensorWrapper
 from ..log import get_logger, get_progress_iter
 from .mock import mock
 from . import device
@@ -57,7 +58,7 @@ class JITFunction(Generic[P, T]):
         logger.info("Grid: num_programs %r", grid)
         Context.num_programs = grid
         args = tuple(self.wrap_kernel_arg(arg) for arg in args)
-        in_out_tensors = [arg.base.base for arg in args if isinstance(arg, AffineTensorLayout)]
+        in_out_tensors = [arg.base.base for arg in args if isinstance(arg, TensorPointer)]
         kwds = {name: self.wrap_kernel_arg(arg) for name, arg in kwds.items()}
         logger.info("Args %s", args)
         logger.info("Kwds %s", kwds)
@@ -97,7 +98,7 @@ class JITFunction(Generic[P, T]):
             return cls.wrap_kernel_arg(arg.value)
         if isinstance(arg, torch.Tensor):
             wrapper = HostTensorWrapper(tensor=pypto.from_torch(arg), storage=arg)
-            return AffineTensorLayout(base=wrapper, offset=0, sizes=1, strides=0)
+            return TensorPointer(wrapper)
         if isinstance(arg, np.ndarray):
             return cls.wrap_kernel_arg(torch.from_numpy(arg))
         return arg
