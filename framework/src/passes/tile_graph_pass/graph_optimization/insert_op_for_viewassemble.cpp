@@ -64,7 +64,7 @@ bool InsertOpForViewAssemble::NeedInsertCopy(LogicalTensorPtr &assembleOut) {
         auto &prodOp = *assOp->GetIOperands()[0]->GetProducers().begin();
         if (prodOp->GetOpcode() != Opcode::OP_VIEW) {
             isNeedInsert = true;
-            APASS_LOG_INFO_F(Elements::Operation, "assOp[%d] producerOp %s[%d] is not viewOp.", assOp->GetOpMagic(), prodOp->GetOpCodeStr().c_str(), prodOp->GetOpMagic());
+            APASS_LOG_INFO_F(Elements::Operation, "assOp[%d] producerOp %s[%d] is not viewOp.", assOp->GetOpMagic(), prodOp->GetOpcodeStr().c_str(), prodOp->GetOpMagic());
             continue;
         }
         recordOpPair_.push_back(std::make_pair(prodOp, assOp));
