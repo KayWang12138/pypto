@@ -72,7 +72,6 @@
  	         dst_ptr[j] = baseStart + step * static_cast<T>(j);
  	     }
  	 
- 	     // blocks 2~8
  	     int32_t loopN = 0, tailSize = 0;
  	     if (N >= static_cast<unsigned>(kRepElems)) {
  	         loopN = DEFAULT_REPEAT_STRIDE - 1;
