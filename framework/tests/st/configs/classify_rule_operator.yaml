@@ -92,6 +92,18 @@ stest:
       - OnBoardTest.test_unary_operation_16_32_32_tileop_sqrt
       - OnBoardTest.test_unary_operation_16_16_64_64_tileop_sqrt
       - OnBoardTest.test_unary_operation_16_16_64_70_tileop_sqrt
+      - OnBoardTest.test_unary_operation_32_32_tileop_ceil
+      - OnBoardTest.test_unary_operation_16_32_32_tileop_ceil
+      - OnBoardTest.test_unary_operation_16_16_64_64_tileop_ceil
+      - OnBoardTest.test_unary_operation_16_16_64_70_tileop_ceil
+      - OnBoardTest.test_unary_operation_32_32_tileop_floor
+      - OnBoardTest.test_unary_operation_16_32_32_tileop_floor
+      - OnBoardTest.test_unary_operation_16_16_64_64_tileop_floor
+      - OnBoardTest.test_unary_operation_16_16_64_70_tileop_floor
+      - OnBoardTest.test_unary_operation_32_32_tileop_trunc
+      - OnBoardTest.test_unary_operation_16_32_32_tileop_trunc
+      - OnBoardTest.test_unary_operation_16_16_64_64_tileop_trunc
+      - OnBoardTest.test_unary_operation_16_16_64_70_tileop_trunc
       - OnBoardTest.test_unary_operation_32_32_tileop_reciprocal
       - OnBoardTest.test_unary_operation_16_32_32_tileop_reciprocal
       - OnBoardTest.test_unary_operation_16_16_64_64_tileop_reciprocal
