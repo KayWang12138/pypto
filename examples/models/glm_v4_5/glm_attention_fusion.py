@@ -21,9 +21,7 @@ from utils.np_compare import detailed_allclose_manual as compare
 import utils.golden.attn_golden as attn_golden
 
 
-np.random.seed(0)
 torch.manual_seed(0)
-np.set_printoptions(formatter={'float': '{:.6f}'.format})
 
 
 @dataclass
