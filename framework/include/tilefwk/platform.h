@@ -25,7 +25,6 @@
 #include <memory>
 #include <unordered_map>
 #include "data_type.h"
-#include "interface/machine/host/host_machine.h"
 
 namespace npu::tile_fwk {
 std::string ToJsonString(const std::string& s);
@@ -91,6 +90,43 @@ struct MemoryGraph {
         std::vector<MemoryType> &paths) const;
     bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
     void Reset();
+};
+
+class PlatformParser {
+  public:
+    PlatformParser() = default;
+    virtual ~PlatformParser() {}
+    virtual bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const = 0;
+    virtual bool GetDataPath(std::vector<std::vector<std::string>>& dataPath) const = 0;
+    
+    bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
+    bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
+    bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const;
+    bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
+    bool FilterDirections(const std::string& value, std::string &part) const;
+    bool FilterDataPath(const std::string& part, std::string &from, std::string &to) const;
+};
+
+class INIParser : public PlatformParser {
+  public:
+    INIParser() = default;
+    ~INIParser() = default;
+    bool Initialize(const std::string &iniFilePath); 
+
+    bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
+    bool GetDataPath(std::vector<std::vector<std::string>>& dataPath) const override;
+  private:
+    bool ReadINIFile(const std::string& filepath);
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> data_;
+};
+
+class CmdParser : public PlatformParser {
+  public:
+    CmdParser() = default;
+    ~CmdParser() = default;
+
+    bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
+    bool GetDataPath(std::vector<std::vector<std::string>>& dataPath) const override;
 };
 
 class Inst {
@@ -317,6 +353,7 @@ class SoC {
 private:
     Die die_;
     NPUArch version_;
+    std::string short_soc_version_;
     size_t dies_cnt_;
     size_t ai_core_cnt_;
     size_t cube_core_cnt_;
@@ -325,6 +362,7 @@ private:
 public:
     void SetDie(const Die& die) { die_ = die; }
     void SetNPUArch(NPUArch version) { version_ = version; }
+    void SetShortSocVersion(const std::string& version) { short_soc_version_ = version; }
     void SetNPUArch(const std::string& version);
     void SetDiesNum(size_t cnt) { dies_cnt_ = cnt; }
     void SetCoreVersion(const std::unordered_map<std::string, std::string>& ver);
@@ -333,6 +371,7 @@ public:
     Die& GetDies() { return die_; }
     NPUArch GetNPUArch() const { return version_; }
     size_t GetDiesNum() const { return dies_cnt_; }
+    std::string GetShortSocVersion() const { return short_soc_version_; }
     std::string GetCoreVersion(std::string CoreType);
     std::string GetCCECVersion(std::string CoreType);
 
@@ -422,6 +461,7 @@ public:
     AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
     
     void LoadFromIni(const std::string &filePath);
+    void LoadPlatformInfo(const PlatformParser &parser);
     void ObtainPlatformInfo();
 
     std::string Dump() {
