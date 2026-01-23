@@ -186,8 +186,8 @@ public:
         }
     }
 
-    inline int RunTask(DeviceTaskCtrl *taskCtrl) {
-        auto ret = ExecuteTask(taskCtrl);
+    inline int RunTask(DeviceTaskCtrl *taskCtrl, DeviceArgs *deviceArgs) {
+        auto ret = ExecuteTask(taskCtrl, deviceArgs);
         wrapManager_.Deinit();
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             DEV_ERROR("Aicpu %d proc finish %lu %lu %lu, but timeout !.", aicpuIdx_,
@@ -197,8 +197,8 @@ public:
         return ret;
     }
 
-    inline int32_t ExecuteTask(DeviceTaskCtrl *taskCtrl) {
-        int32_t ret = ProcessTask(taskCtrl);
+    inline int32_t ExecuteTask(DeviceTaskCtrl *taskCtrl, DeviceArgs *deviceArgs) {
+        int32_t ret = ProcessTask(taskCtrl, deviceArgs);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
@@ -219,7 +219,7 @@ public:
         return ret;
     }
 
-    inline int32_t ProcessTask(DeviceTaskCtrl *taskCtrl) {
+    inline int32_t ProcessTask(DeviceTaskCtrl *taskCtrl, [[maybe_unused]]DeviceArgs *deviceArgs) {
         int32_t ret = DEVICE_MACHINE_OK;
         seq = taskCtrl->taskId;
         DEV_INFO("receive new task %lu.", taskCtrl->taskId);
@@ -235,7 +235,8 @@ public:
         }
 
         if (IsNeedProcAicpuTask()) {
-            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_));
+            const bool profSwitch = aicoreProf_.ProfIsEnable();
+            ret = aicpuTaskManager_.Init(reinterpret_cast<DynDeviceTask *>(curDevTask_), deviceArgs, profSwitch);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -362,7 +363,7 @@ public:
             PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
             PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
             PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
-            ret = RunTask(taskCtrl);
+            ret = RunTask(taskCtrl, deviceArgs);
             lastDevTaskFinCycle = GetCycles();
             PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
             DEV_DEBUG("Run task finish taskid=%d ret %d.", curTaskId_, ret);
