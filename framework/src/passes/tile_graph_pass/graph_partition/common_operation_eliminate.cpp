@@ -242,10 +242,7 @@ bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, st
     if (oldtensors->nodetype == NodeType::OUTCAST) {
         return false;
     }
-    if (newtensors->GetConsumers().size() == 0) {
-        return false;
-    }
-    if (oldtensors->GetConsumers().size() == 0) {
+    if (newtensors->GetConsumers().size() == 0 || oldtensors->GetConsumers().size() == 0) {
         return false;
     }
     auto consumers = oldtensors->GetConsumers();
