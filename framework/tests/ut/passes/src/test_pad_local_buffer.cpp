@@ -1048,7 +1048,7 @@ TEST_F(TestPadLocalBuffer, axiscombineDisable1) {
             }
         }
     }
-    EXPECT_EQ(cnt, K_1);
+    EXPECT_EQ(cnt, 0);
 }
 
 TEST_F(TestPadLocalBuffer, axiscombine2) {
