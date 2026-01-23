@@ -41,55 +41,21 @@ void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
     opAttr->SetRawShape(OpImmediate::Specified(op.GetOOperands().front()->tensor->GetDynRawShape()));
 }
 
-bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vector<int64_t> &newShape,
-    const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
-    std::vector<int64_t> oriScale;
-    size_t oriSize = oriShape.size();
-    oriScale.resize(oriSize);
-    for (size_t i = 0; i < oriSize; i++) {
-        oriScale[i] = oriRawShape[i] / oriShape[i];
-        if ((i != 0) && (oriScale[i] != 1)) {
-            // 只有当最高轴存在Assemble的行为时，才可以将数据直接拷贝到Assemble之后的内存
-            return false;
-        }
+bool CalculateNewRawShape(
+    const std::vector<int64_t> &newShape, const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
+    newRawShape = newShape;
+    int64_t newShapeSize = 1;
+    if (newRawShape.size() > 1) {
+        newShapeSize =
+            std::accumulate(newRawShape.begin() + 1, newRawShape.end(), INT64_C(1), std::multiplies<int64_t>());
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "oriScale is %s.", IntVecToStr(oriScale).c_str());
-    size_t newSize = newShape.size();
-    newRawShape.resize(newSize);
-    std::vector<int64_t> newScale(newSize, 1);
-    int64_t accumuOriScale = oriScale[oriSize - 1];
-    int64_t accumuOriShape = oriShape[oriSize - 1];
-    int64_t accumuNewShape = newShape[newSize - 1];
-    for (int i = oriSize - 1, j = newSize - 1; i >= 0 && j >= 0;) {
-        if (accumuOriShape < accumuNewShape) {
-            i--;
-            if (i >= 0) {
-                accumuOriShape *= oriShape[i];
-                accumuOriScale *= oriScale[i];
-            }
-            continue;
-        }
-        if (accumuOriShape == accumuNewShape) {
-            newScale[j] *= accumuOriScale;
-            i--;
-            j--;
-            if (i >= 0 && j >= 0) {
-                accumuOriScale = oriScale[i];
-                accumuOriShape = oriShape[i];
-                accumuNewShape = newShape[j];
-            }
-            continue;
-        }
-        j--;
-        if (j >= 0) {
-            accumuNewShape *= newShape[j];
-        }
+    int64_t oriShapeSize =
+        std::accumulate(oriRawShape.begin(), oriRawShape.end(), INT64_C(1), std::multiplies<int64_t>());
+    if (newShapeSize == 0 || oriShapeSize % newShapeSize != 0) {
+        std::cout << "not divisible" << std::endl;
+        return false;
     }
-
-    APASS_LOG_DEBUG_F(Elements::Operation, "newScale is %s.", IntVecToStr(newScale).c_str());
-    for (size_t j = 0; j < newSize; j++) {
-        newRawShape[j] = newShape[j] * newScale[j];
-    }
+    newRawShape[0] = oriShapeSize / newShapeSize;
     return true;
 }
 
@@ -160,25 +126,6 @@ std::vector<int64_t> removeAllOnes(const std::vector<int64_t> &vec) {
 bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOutput) {
     auto inputShape = reshapeInput->GetShape();
     auto outputShape = reshapeOutput->GetShape();
-    // 定义所有有效的模式：{input_size, output_size, 验证函数}
-    using Validator = std::function<bool(const std::vector<int64_t> &, const std::vector<int64_t> &)>;
-
-    static const std::vector<std::pair<std::pair<size_t, size_t>, Validator>> patterns = {
-        {{3, 2}, [](const auto &in,const auto &out) { return in[0] == 1 && in[1] == out[0] && in[2] == out[1]; }                                   },
-        {{2, 3}, [](const auto &in, const auto &out) { return out[0] == 1 && in[0] == out[1] && in[1] == out[2]; }},
-        {{4, 2}, [](const auto &in,
-         const auto &out) { return in[0] == 1 && in[1] == 1 && in[2] == out[0] && in[3] == out[1]; }              },
-        {{2, 4}, [](const auto &in,                                                                      const auto &out) {
-                                                                      return out[0] == 1 && out[1] == 1 && in[0] == out[2] && in[1] == out[3];
-                                                                      }        }
-    };
-
-    for (const auto &[sizes, validator] : patterns) {
-        if (inputShape.size() == sizes.first && outputShape.size() == sizes.second &&
-            validator(inputShape, outputShape)) {
-            return true;
-        }
-    }
     if (std::max(inputShape.size(), outputShape.size()) < 3) {
         return false;
     }
@@ -217,8 +164,13 @@ Status ProcessView(Function &function) {
         auto &offset = opAttr->GetFromDynOffset();
         std::vector<int64_t> newRawShape = reshape.GetOOperands().front()->shape;
         std::cout << IntVecToStr(newRawShape).c_str() << std::endl;
-        newRawShape[0] *=
-            (viewInput->tensor->GetRawShapeSize() / reshape.GetOOperands().front()->tensor->GetRawShapeSize());
+        bool ret =
+            CalculateNewRawShape(reshape.GetOOperands().front()->shape, viewInput->tensor->GetRawShape(), newRawShape);
+        if (ret == false) {
+            return SUCCESS;
+        }
+        // newRawShape[0] *=
+        //     (viewInput->tensor->GetRawShapeSize() / reshape.GetOOperands().front()->tensor->GetRawShapeSize());
         std::cout << IntVecToStr(newRawShape).c_str() << std::endl;
         std::vector<SymbolicScalar> newDynOffset;
         GetDynOffsetBeforeReshape(offset, viewInput->shape, newRawShape, newDynOffset);
@@ -381,12 +333,11 @@ Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &a
 
     auto &assembleOutShape = assembleOp.GetOOperands()[0]->tensor->rawshape;
 
-    // bool ret =
-    //     CalculateNewRawShape(oriBackUp->shape, producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape);
-    // if (ret == false) return SUCCESS;
-    newRawShape = producer->GetIOperands()[0]->shape;
-    newRawShape[0] *= (assembleOp.GetOOperands()[0]->tensor->GetRawShapeSize() /
-                       producer->GetIOperands()[0]->tensor->GetRawShapeSize());
+    bool ret = CalculateNewRawShape(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape);
+    if (ret == false) {
+        return SUCCESS;
+    }
+
     GetDynOffsetBeforeReshape(dynOffset, assembleOutShape, newRawShape, newDynOffset);
     std::cout << "newshape" << IntVecToStr(newRawShape).c_str() << std::endl;
     std::cout << "newoffset" << IntVecToStr(newDynOffset).c_str() << std::endl;
