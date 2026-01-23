@@ -709,6 +709,7 @@ def mla_prolog_quant_compute(
 @pypto.jit(
     pass_options={"vec_nbuffer_mode": 1,
                 "cube_l1_reuse_setting": {-1: 4},
+                "cube_nbuffer_setting": {3: 4},
                 "mg_copyin_upper_bound": 2 * 1024 * 1024}
 )
 def mla_prolog_quant_p(
@@ -788,6 +789,7 @@ def mla_prolog_quant_p(
 @pypto.jit(
     pass_options={"vec_nbuffer_mode": 1,
                 "cube_l1_reuse_setting": {-1: 4},
+                "cube_nbuffer_setting": {3: 4},
                 "mg_copyin_upper_bound": 2 * 1024 * 1024}
 )
 def mla_prolog_quant_d(
