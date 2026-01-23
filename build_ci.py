@@ -52,27 +52,46 @@ class CMakeParam(abc.ABC):
     @staticmethod
     @abc.abstractmethod
     def reg_args(parser, ext: Optional[Any] = None):
+        """
+        注册命令行参数
+
+        :param parser: 参数解析器
+        :param ext: 扩展信息, 用于子类特殊实现扩展时使用
+        :type ext: Optional[Any]
+        """
         pass
 
     @classmethod
     def _cfg_require(cls, opt: str, ctr: bool = True, tv: str = "ON", fv: str = "OFF") -> str:
-        """获取 CMake Config 阶段的必选 Option 配置
+        """
+        获取 CMake Config 阶段的必选 Option 配置
 
-        :param opt: CMake 选项, 会最终体现到 CMake -D传入的参数中
-        :param ctr: 控制变量
-        :param tv: 控制变量为 True 时, 设置的值
-        :param fv: 控制变量为 False 时, 设置的值
-        :return: 设置的值
+        :param opt: CMake Option 值, 会最终体现到 CMake -D传入的参数中
+        :type opt: str
+        :param ctr: 控制变量, 标识 CMake Option 布尔值
+        :type ctr: bool
+        :param tv: ctr 为 True 时, 设置的值
+        :type tv: str
+        :param fv: ctr 为 False 时, 设置的值
+        :type fv: str
+        :return: 设置结果
+        :rtype: str
         """
         return f" -D{opt}=" + (tv if ctr else fv)
 
     @classmethod
     def _cfg_optional(cls, opt: str, ctr: bool, v: str):
-        """获取 CMake Config 阶段的可选 Option 配置
+        """
+        获取 CMake Config 阶段的可选 Option 配置
 
-        :param opt: CMake 选项, 会最终体现到 CMake -D传入的参数中
-        :param ctr: 控制变量
+        :param opt: CMake Option 值, 会最终体现到 CMake -D传入的参数中
+        :type opt: str
+        :param ctr: 控制变量, 标识 CMake Option 布尔值
+        :type ctr: bool
         :param v: 控制变量为 True 时, 设置的值
+        :type v: str
+        :return: 设置结果
+        :rtype: str
         """
         return (f" -D{opt}=" + v) if ctr else ""
 
@@ -661,9 +680,13 @@ class BuildCtrl(CMakeParam):
 
     @staticmethod
     def which_cmake() -> Optional[Path]:
-        """查找系统级 CMake 可执行文件路径
+        """
+        查找系统级 CMake 可执行文件路径
 
-        排除 cmake pip 包的干扰
+        实现本函数是为了排除 cmake pip 包的干扰, 否则在 Python 中直接调用 cmake 会调用到 cmake pip 包.
+
+        :return: 系统级 cmake 可执行文件绝对路径
+        :rtype: Path | None
         """
         # 拆分 PATH 环境变量为单个目录列表(排除空目录)
         path_dir_lst = [d.strip() for d in os.environ.get("PATH", "").split(os.pathsep) if d.strip()]
@@ -693,11 +716,15 @@ class BuildCtrl(CMakeParam):
 
     @staticmethod
     def find_match_whl(name: str, path: Path) -> Optional[Path]:
-        """在指定路径下, 查找对应匹配的 whl 包文件
+        """
+        在指定路径下, 查找对应匹配的 whl 包文件
 
         :param name: 包名
+        :type name: str
         :param path: 指定路径
-        :return: whl 包路径, None 表示未找到
+        :type path: Path
+        :return: 指定路径
+        :rtype: Path | None
         """
         cpp_desc = f"cp{sys.version_info.major}{sys.version_info.minor}"
         pattern = f"{name}-*-{cpp_desc}-{cpp_desc}-*.whl"
