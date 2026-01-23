@@ -236,6 +236,7 @@ namespace CostModel
     constexpr const int CORNER_DIM_VAL = 2;
     constexpr const int PARALLEL_RATIO_1 = 1;
     constexpr const int PARALLEL_RATIO_2 = 2;
+    constexpr const int DEFAULT_SHAPE = 256;
 
     // used to extend in future
     static int GetLatency(const std::string &op, DataType dtype)
@@ -261,7 +262,7 @@ namespace CostModel
             unsigned int beginVal = shapeVal.size() - CORNER_DIM_VAL;
             for (unsigned int j = beginVal; j < shapeVal.size(); j++)
             {
-                totalSize *= shapeVal[j];
+                totalSize *= shapeVal[j] == -1 ?  DEFAULT_SHAPE : shapeVal[j];
             }
             minTotalSize = std::min(minTotalSize, totalSize);
         }
@@ -276,7 +277,7 @@ namespace CostModel
             if (shapeVal.size() > CORNER_DIM_VAL) {
                 for (unsigned int j = 0; j < shapeVal.size() - CORNER_DIM_VAL; j++)
                 {
-                    totalSize *= shapeVal[j];
+                    totalSize *= shapeVal[j] == -1 ?  DEFAULT_SHAPE : shapeVal[j];
                 }
             }
             minTotalSize = std::min(minTotalSize, totalSize);
