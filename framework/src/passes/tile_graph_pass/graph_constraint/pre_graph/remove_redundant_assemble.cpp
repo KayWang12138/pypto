@@ -166,11 +166,6 @@ Status ProcessView(Function &function) {
         std::cout << IntVecToStr(newRawShape).c_str() << std::endl;
         bool ret =
             CalculateNewRawShape(reshape.GetOOperands().front()->shape, viewInput->tensor->GetRawShape(), newRawShape);
-        if (ret == false) {
-            return SUCCESS;
-        }
-        // newRawShape[0] *=
-        //     (viewInput->tensor->GetRawShapeSize() / reshape.GetOOperands().front()->tensor->GetRawShapeSize());
         std::cout << IntVecToStr(newRawShape).c_str() << std::endl;
         std::vector<SymbolicScalar> newDynOffset;
         GetDynOffsetBeforeReshape(offset, viewInput->shape, newRawShape, newDynOffset);
@@ -330,7 +325,9 @@ Status HandleDynOffsetForReshape(const LogicalTensorPtr &oriBackUp, Operation &a
             producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
         return SUCCESS;
     }
-
+    // comment
+    APASS_LOG_DEBUG_F(Elements::Operation, "Producer op:%s[%d] is not Reshape", producer->GetOpcodeStr().c_str(),
+        oriBackUp->GetMagic());
     auto &assembleOutShape = assembleOp.GetOOperands()[0]->tensor->rawshape;
 
     bool ret = CalculateNewRawShape(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape);

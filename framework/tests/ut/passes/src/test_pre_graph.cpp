@@ -890,25 +890,6 @@ TEST_F(PreGraphTest, TestRemoveRedundantAssemble) {
     PreGraphProcess passLocal;
     EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
     function->DumpJsonFile();
-    // check after pass
-    // auto opList = function->Operations();
-    // int64_t viewCnt = 0;
-    // for (const auto &op : opList) {
-    //     if (op.GetOpcode() == Opcode::OP_VIEW) {
-    //         ++viewCnt;
-    //     }
-    // }
-    // EXPECT_EQ(viewCnt, 0);
-
-    // auto copyOut = G.GetOp("COPYOUT");
-    // std::shared_ptr<CopyOpAttribute> copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyOut->GetOpAttribute());
-    // auto newDynOffset = copyAttr->GetToOffset();
-    // CompareOpImmediateVector(newDynOffset, std::vector<int64_t>{2 * 64, 0});
-
-    // auto newRawShape = copyAttr->GetRawShape();
-    // CompareOpImmediateVector(newRawShape, std::vector<int64_t>{64, 1, 4, 128});
-    // auto t = G.GetTensor("t3");
-    // EXPECT_EQ(t->GetShape(), (std::vector<int64_t>{64, 1, 4, 128}));
 } // namespace tile_fwk
 
 } // namespace tile_fwk
