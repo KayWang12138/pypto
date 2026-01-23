@@ -177,6 +177,26 @@ bool MixDependencyAnalyzer::ContainsTensor(const std::vector<SimpleTensorParam> 
     return false;
 }
 
+void MixDependencyAnalyzer::PropagateIncastDependencies(const std::set<int> &targets, const std::vector<SimpleTensorParam> &tensorParams) {
+    for (int targetComp : targets) {
+        for (const auto& incastParam : tensorParams) {
+            if (!ContainsTensor(allIncasts[targetComp], incastParam.tensor)) {
+                allIncasts[targetComp].push_back(incastParam);
+            }
+        }
+    }
+}
+
+void MixDependencyAnalyzer::PropagateOutcastDependencies(int targetComp, int sourceComp) {
+    auto outcastIt = allOutcasts.find(targetComp);
+    if (outcastIt != allOutcasts.end()) {
+        for (const auto& outcastParam : outcastIt->second) {
+            if (!ContainsTensor(allOutcasts[sourceComp], outcastParam.tensor)) {
+                allOutcasts[sourceComp].push_back(outcastParam);
+            }
+        }
+    }
+}
 
 void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::unordered_map<int, std::set<int>> &dependencyClosure) {
     // 基于传递闭包传播依赖
@@ -184,24 +204,11 @@ void MixDependencyAnalyzer::PropagateExternalDependenciesWithClosure(const std::
         // 传播incast：source的incast传播给所有依赖它的target
         auto incastIt = allIncasts.find(sourceComp);
         if (incastIt != allIncasts.end()) {
-            for (int targetComp : targets) {
-                for (const auto& incastParam : incastIt->second) {
-                    if (!ContainsTensor(allIncasts[targetComp], incastParam.tensor)) {
-                        allIncasts[targetComp].push_back(incastParam);
-                    }
-                }
-            }
+            PropagateIncastDependencies(targets, incastIt->second);
         }
         // 传播outcast：target的outcast反向传播给所有source
         for (int targetComp : targets) {
-            auto outcastIt = allOutcasts.find(targetComp);
-            if (outcastIt != allOutcasts.end()) {
-                for (const auto& outcastParam : outcastIt->second) {
-                    if (!ContainsTensor(allOutcasts[sourceComp], outcastParam.tensor)) {
-                        allOutcasts[sourceComp].push_back(outcastParam);
-                    }
-                }
-            }
+            PropagateOutcastDependencies(targetComp, sourceComp);
         }
     }
 }
