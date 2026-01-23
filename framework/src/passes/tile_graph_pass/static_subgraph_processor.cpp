@@ -149,8 +149,8 @@ void StaticSubgraphProcessor::PrintColorGraph(const Function &function) {
     APASS_LOG_DEBUG_F(Elements::Operation, "Total in: %d, total out: %d.", inCount, outCount);
 }
 
- inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>>& outGraph,	 
-                                         std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {	 
+inline void findAllReachableNodes(int start_node, std::vector<std::vector<int>>& outGraph,	 
+                                        std::vector<std::unordered_set<int>>& reachable, std::vector<int>& visited) {	 
      reachable[start_node].insert(start_node);	 
      for (int v : outGraph[start_node]) { 	 
          if (visited[v] == 0) {	 

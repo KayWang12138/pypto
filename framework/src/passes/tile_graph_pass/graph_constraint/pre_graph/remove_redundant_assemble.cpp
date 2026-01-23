@@ -310,8 +310,8 @@ Status RemoveViewMultiReshape(Function &function) {
                 firstReshape->GetIOperands().front(), firstReshape->GetOOperands().front())) {
             continue;
         }
-        auto consumer = firstReshape->GetOOperands().front()->GetConsumers();
-        for (auto view : consumer) {
+        auto consumers = firstReshape->GetOOperands().front()->GetConsumers();
+        for (auto view : consumers) {
             if (view->GetOpcode() != Opcode::OP_VIEW) {
                 continue;
             }
