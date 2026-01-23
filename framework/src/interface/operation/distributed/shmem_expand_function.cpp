@@ -304,8 +304,8 @@ void TiledShmemWaitUntil(Function& function, const TileShape& tileShape,
 
         DistOpAttr distOpAttr;
         op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-        distOpAttr.aicpuOpParams.push_back(tileIndex);
-        distOpAttr.aicpuOpParams.push_back(tileRowNum * tileColNum);
+        distOpAttr.aicpuOpParams.push_back(tileRowShape);
+        distOpAttr.aicpuOpParams.push_back(tileColShape);
         tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     });
 }
