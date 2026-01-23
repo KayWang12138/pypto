@@ -29,11 +29,6 @@ Status MixSubgraphSplit::RunOnFunction(Function &function) {
     }
 
     auto& programs = rootFunc->programs_;
-    if (programs.empty()) {
-        ALOG_INFO_F("No leaf function found, jump MixSubgraphSplit.");
-        return SUCCESS;
-    }
-
     // 收集所有需要拆分的Mix子图及其内部组件信息
     std::vector<MixSubgraphInfo> mixSubgraphs;
     std::set<uint64_t> mixSubgraphIDsToDelete;
