@@ -373,6 +373,17 @@ void FunctionInterpreter::DumpPassTensorDiff(
     if (captureExecution->GetFrameList().size() != captureGolden->GetFrameList().size())
         return;
 
+    std::vector<double> tolerance = config::GetVerifyOption<std::vector<double>>(KEY_PASS_VERIFY_ERROR_TOL);
+    float rtol = 0;
+    float atol = 0;
+    if (tolerance.size() < 2) {
+        rtol = static_cast<float>(1e-3);
+        atol = static_cast<float>(1e-3);
+    } else {
+        rtol = static_cast<float>(tolerance[0]);
+        atol = static_cast<float>(tolerance[1]);
+    }
+
     std::string dumpStyleFilePath = execDumpDir + "/entry_" + std::to_string(captureIndex) + ".css";
     execDumpStyleFile = fopen(dumpStyleFilePath.c_str(), "w");
     for (size_t idx = 0; idx < captureGolden->GetFrameList().size(); idx++) {
@@ -398,7 +409,7 @@ void FunctionInterpreter::DumpPassTensorDiff(
             if (!dataViewExecution || !dataViewGolden) {
                 continue;
             }
-            auto compare = FlowVerifier::VerifyResult(dataViewGolden, dataViewExecution, static_cast<float>(1e-5));
+            auto compare = FlowVerifier::VerifyResult(dataViewGolden, dataViewExecution, rtol, atol);
             std::string tensorId = GetDumpTensorId(frameExecution, tensor);
             if (compare.Check()) {
                 fprintf(execDumpStyleFile, "#%s { background-color: LightGreen; }\n", tensorId.c_str());
