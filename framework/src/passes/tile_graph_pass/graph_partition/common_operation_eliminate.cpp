@@ -171,6 +171,14 @@ std::unordered_map<LogicalTensor*, std::vector<Operation*>> CommonOperationElimi
 
 std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::OperationExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducersPair) {
     const std::vector<Operation*>& producers = tensorProducersPair.second;
+    for (const auto& op: producers) {
+        if (op == nullptr) {
+            continue;
+        }
+        if (op->GetOpcode() == Opcode::OP_COMPARE_SWAP) {
+            return {nullptr, {}};
+        }
+    }
     for (auto operation: producers) {
         if (operation == nullptr) continue;
         auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(operation->GetOpcode());
@@ -250,10 +258,10 @@ bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, st
         if (cur == nullptr) continue;
         std::shared_ptr<LogicalTensor> old_ptr(oldtensors, [](LogicalTensor*){});
         std::shared_ptr<LogicalTensor> new_ptr(newtensors, [](LogicalTensor*){});
-        cur->ReplaceInput(new_ptr, old_ptr);
         if (cur->GetOpAttribute() == nullptr) {
             continue;
         }
+        cur->ReplaceInput(new_ptr, old_ptr);
         auto attptr = cur->GetOpAttribute().get();
         if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(attptr)) {
             // VIEW操作的offset要相应被修改。
