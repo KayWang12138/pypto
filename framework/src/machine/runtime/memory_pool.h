@@ -26,7 +26,7 @@
 
 
 namespace npu::tile_fwk {
-
+inline constexpr int RTMALLOC_SUCCESS = 0;
 inline constexpr uint32_t ONG_GB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE1G_PAGE_ONLY;
 inline constexpr size_t ONT_GB_SIZE = 1024 * 1024 * 1024;
 inline constexpr uint32_t TWO_MB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE_PAGE_FIRST;
@@ -38,23 +38,135 @@ inline uint64_t MemSizeAlign(const uint64_t bytes, const uint32_t aligns = 512U)
 
 inline constexpr size_t MIN_FREE_NODE_SIZE = 4 * 1024;;
 
-// 内存块描述结构
 struct MemoryBlock {
-    void* base_addr;   // 块的基地址
-    size_t block_size; // 块大小
-    size_t used_size;  // 已使用大小
-    bool is_huge_1g;   // 是否为1GB大页
-    bool is_allocated; // 是否已分配
+    void* base_addr;
+    size_t block_size;
+    size_t used_size;
+    bool is_huge_1g;
     
     // Only 1G page has FreeNode list
     struct FreeNode {
-        FreeNode* next; // 指向下一个空闲节点
-        size_t size;    // 空闲区域大小
-    }* free_list;       // 空闲列表头
+        FreeNode* next;
+        size_t size;
+    }* free_list;
     
     MemoryBlock(void* addr, size_t size, bool is_huge_1g) 
         : base_addr(addr), block_size(size), used_size(0), 
-          is_huge_1g(is_huge_1g), is_allocated(false), free_list(nullptr) {}
+          is_huge_1g(is_huge_1g), free_list(nullptr) {
+            Init();
+          }
+    
+    void Init() {
+        if (is_huge_1g) {
+            free_list = reinterpret_cast<FreeNode*>(base_addr);
+            free_list->next = nullptr;
+            free_list->size = block_size;
+        } else {
+            free_list = nullptr;
+        }
+    }
+
+    void* Allocate(uint64_t alignSize) {
+        if (!is_huge_1g) {
+            if (used_size == 0 && block_size >= alignSize) {
+                used_size = block_size;
+                return base_addr;
+            }
+            return nullptr;
+        }
+
+        if (alignSize < sizeof(FreeNode)) {
+            alignSize = sizeof(FreeNode);
+        }
+
+        FreeNode* prev = nullptr;
+        FreeNode* curr = free_list;
+
+        while (curr != nullptr) {
+            if (curr->size >= alignSize) {
+                void* use_ptr = curr;
+                size_t remaining = curr->size - alignSize;
+
+                if (remaining >= sizeof(FreeNode)) {
+                    auto new_node = reinterpret_cast<FreeNode*>(static_cast<char*>(use_ptr) + alignSize);
+                    new_node->size = remaining;
+                    new_node->next = curr->next;
+                    
+                    if (prev == nullptr) {
+                        free_list = new_node;
+                    } else {
+                        prev->next = new_node;
+                    }
+                } else {
+                    if (prev == nullptr) {
+                        free_list = curr->next;
+                    } else {
+                        prev->next = curr->next;
+                    }
+                    alignSize = curr->size;
+                }
+                used_size += alignSize;
+                return use_ptr;
+            }
+            prev = curr;
+            curr = curr->next;
+        }
+        return nullptr;
+    }
+
+    void Free(void* ptr, size_t size) {
+        if (!is_huge_1g) {
+            if (ptr != base_addr) {
+                ALOG_ERROR_F("Invalid Free: ptr %p is not the base addr %p of this 2MB block!", ptr, base_addr);
+                return;
+            }
+            if (used_size == 0) {
+                ALOG_WARN_F("Double Free detected for 2MB block %p", ptr);
+                return;
+            }
+
+            used_size = 0; 
+            return;
+        }
+
+        auto new_node = reinterpret_cast<FreeNode*>(ptr);
+        new_node->size = size;
+
+        FreeNode* prev = nullptr;
+        FreeNode* curr = free_list;
+        while (curr != nullptr && curr < new_node) {
+            prev = curr;
+            curr = curr->next;
+        }
+        
+        new_node->next = curr;
+        if (prev == nullptr) {
+            free_list = new_node;
+        } else {
+            prev->next = new_node;
+        }
+        
+        used_size -= size;
+        Merge();
+    }
+
+    void Merge() {
+        if (!is_huge_1g) {
+            return;
+        }
+
+        FreeNode* curr = free_list;
+        while (curr && curr->next) {
+            char* curr_end = reinterpret_cast<char*>(curr) + curr->size;
+            if (curr_end == reinterpret_cast<char*>(curr->next)) {
+                curr->size += curr->next->size;
+                curr->next = curr->next->next;
+            } else {
+                curr = curr->next;
+            }
+        }
+    }
+    
 };
 
 class DevMemoryPool {
@@ -63,199 +175,167 @@ public:
     ~DevMemoryPool();
 
     bool AllocDevAddr(uint8_t **devAddr, uint64_t size) {
-        if (devAddr == nullptr) {
+        if (devAddr == nullptr || size == 0) {
             return false;
         }
         *devAddr = nullptr;
-        if (size == 0) {
-            return false;
-        }
         auto alignSize = MemSizeAlign(size);
         ALOG_INFO_F("MemoryPool::Allocate size[%lu] with align size[%lu].", size, alignSize);
         std::lock_guard<std::mutex> lock(mutex_);
-        // 1. 尝试从现有内存块分配
-        void* ptr = TryAllocateFromExistingBlocks(alignSize);
-        if (ptr != nullptr) {
-            return ptr;
-        }
-        
-        // 2. 尝试分配1GB大页
-        MemoryBlock* block = Allocate1GBBlock(alignSize);
-        if (block != nullptr) {
-            ptr = AllocateFromBlock(block, alignSize);
-            if (ptr != nullptr) {
-                return ptr;
+
+        for (auto& block : memoryBlocks_) {
+            void* ptr = block->Allocate(alignSize);
+            if (ptr) {
+                *devAddr = static_cast<uint8_t*>(ptr);
+                RecordAllocation(ptr, block.get(), alignSize);
+                return true;
             }
         }
         
-        // 3. 尝试分配2MB大页
-        block = Allocate2MBBlock(alignSize);
-        if (block != nullptr) {
-            ptr = AllocateFromBlock(block, alignSize);
-            if (ptr != nullptr) {
-                return ptr;
+        MemoryBlock* newBlock = CreateNewBlock(alignSize);
+        if (newBlock) {
+            void* ptr = newBlock->Allocate(alignSize);
+            if (ptr) {
+                *devAddr = static_cast<uint8_t*>(ptr);
+                RecordAllocation(ptr, newBlock, alignSize);
+                return true;
             }
         }
         
-        ALOG_ERROR_F("MemoryPool::Allocate failed for size %lu", size);
-        return nullptr;
+        ALOG_ERROR_F("Allocate failed size %lu", size);
+        return false;
     }
     
     void FreeDevAddr(void* ptr) {
+        if (!ptr) return;
+        std::lock_guard<std::mutex> lock(mutex_);
 
+        auto it = addrToBlock_.find(ptr);
+        if (it == addrToBlock_.end()) {
+            ALOG_ERROR_F("Freeing unknown pointer: %p", ptr);
+            return;
+        }
+
+        MemoryBlock* block = it->second;
+        size_t size = allocSizes_[ptr];
+
+        block->Free(ptr, size);
+        addrToBlock_.erase(it);
+        allocSizes_.erase(ptr);
+        ALOG_INFO_F("Freed ptr %p back to block %p", ptr, block->base_addr);
     }
-       // 获取内存池状态（调试用）
+    
     void PrintPoolStatus() {
-        std::lock_guard<std::mutex> lock(poolMutex);
-        uint64_t freeTotal = 0;
-        uint64_t usedTotal = 0;
-
-        for (const auto& pair : freeBlocks) {
-            for (const auto& block : pair.second) {
-                freeTotal += block.size;
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        size_t total_1g_count = 0;
+        size_t total_2m_count = 0;
+        size_t total_mem_bytes = 0;
+        size_t total_used_bytes = 0;
+        ALOG_INFO_F("========== [Memory Pool Status] ==========");
+        
+        for (size_t i = 0; i < memoryBlocks_.size(); ++i) {
+            MemoryBlock* block = memoryBlocks_[i].get();
+            
+            if (block->is_huge_1g) {
+                total_1g_count++;
+            } else {
+                total_2m_count++;
             }
+            
+            total_mem_bytes += block->block_size;
+            total_used_bytes += block->used_size;
+            
+            double usage_rate = 0.0;
+            if (block->block_size > 0) {
+                usage_rate = (static_cast<double>(block->used_size) / block->block_size) * 100.0;
+            }
+
+            ALOG_INFO_F("Block[%lu] %s | Addr: %p | Size: %lu MB | Used: %lu MB (%.2f%%)", 
+                        i,
+                        block->is_huge_1g ? "[1GB POOL]" : "[2MB PAGE]",
+                        block->base_addr,
+                        block->block_size / 1024 / 1024,
+                        block->used_size / 1024 / 1024,
+                        usage_rate);
         }
 
-        for (const auto& pair : usedBlocks) {
-            usedTotal += pair.second.size;
+        size_t total_free_bytes = total_mem_bytes - total_used_bytes;
+        
+        ALOG_INFO_F("---------------- Summary -----------------");
+        ALOG_INFO_F("Block Counts : 1GB Huge x %lu, 2MB Page x %lu", total_1g_count, total_2m_count);
+        ALOG_INFO_F("Total Memory : %lu MB", total_mem_bytes / 1024 / 1024);
+        ALOG_INFO_F("Total Used   : %lu MB", total_used_bytes / 1024 / 1024);
+        ALOG_INFO_F("Total Free   : %lu MB", total_free_bytes / 1024 / 1024);
+        ALOG_INFO_F("==========================================");
+    }
+    
+    void FreeMemBlock(MemoryBlock* block) {
+        if (block && block->base_addr) {
+            ALOG_INFO_F("FreeMemBlock %p with size %lu", block->base_addr, block->block_size);
+            rtFree(block->base_addr, block->block_size);
+            block->base_addr = nullptr;
         }
-
-        ALOG_INFO_F("MemPool status: free %lu bytes, used %lu bytes\n", freeTotal, usedTotal);
     }
 
-    // 销毁内存池（程序退出时调用，回收所有内存）
-    void DestroyPool() {
-        std::lock_guard<std::mutex> lock(poolMutex);
 
-        // 释放所有已使用的内存
-        for (const auto& pair : usedBlocks) {
-            FreeMemBlock(pair.second);
-        }
-        usedBlocks.clear();
-
-        // 释放所有空闲的内存
-        for (const auto& pair : freeBlocks) {
-            for (const auto& block : pair.second) {
-                FreeMemBlock(block);
+    void DynamicRecycle() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = memoryBlocks_.begin();
+        while (it != memoryBlocks_.end()) {
+            if ((*it)->used_size == 0) {
+                ALOG_INFO_F("Recycling block %p", (*it)->base_addr);
+                rtFree((*it)->base_addr, (*it)->block_size);
+                it = memoryBlocks_.erase(it);
+            } else {
+                ++it;
             }
         }
-        freeBlocks.clear();
+    }
 
+    void DestroyPool() {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        for (auto& block : memoryBlocks_) {
+            if (block->base_addr) rtFree(block->base_addr, block->block_size);
+        }
+
+        memoryBlocks_.clear();
+        addrToBlock_.clear();
+        allocSizes_.clear();
         ALOG_INFO_F("MemPool destroyed, all memory freed\n");
     }
  private:
-    void* AllocateFromBlock(MemoryBlock* block, uint64_t alignSize) {
-        typename MemoryBlock::FreeNode* prev = nullptr;
-        typename MemoryBlock::FreeNode* curr = block->free_list;
-        
-        // 查找足够大的空闲块
-        while (curr != nullptr) {
-            if (curr->size >= alignSize) {
-                // 找到足够大的块
-                void* ptr = curr + 1; // 跳过FreeNode头部
-                
-                // 如果剩余空间足够大，分割成两个块
-                size_t remaining_size = curr->size - align_size;
-                if (remaining_size >= MIN_FREE_NODE_SIZE) {
-                    // 分割块
-                    typename MemoryBlock::FreeNode* new_node = reinterpret_cast<typename MemoryBlock::FreeNode*>(
-                        static_cast<char*>(ptr) + align_size);
-                    new_node->size = remaining_size - sizeof(typename MemoryBlock::FreeNode);
-                    new_node->next = curr->next;
-                    
-                    if (prev == nullptr) {
-                        block->free_list = new_node;
-                    } else {
-                        prev->next = new_node;
-                    }
-                } else {
-                    // 整个块都分配出去
-                    if (prev == nullptr) {
-                        block->free_list = curr->next;
-                    } else {
-                        prev->next = curr->next;
-                    }
-                }
-                
-                // 更新块的使用情况
-                block->used_size += align_size;
-                block->is_allocated = true;
-                
-                // 记录地址到块的映射
-                addr_to_block_[ptr] = block;
-                
-                ALOG_INFO_F("Allocate from block %p, ptr %p, size %lu", block->base_addr, ptr, align_size);
-                return ptr;
-            }
-            
-            prev = curr;
-            curr = curr->next;
-        }
-        
-        return nullptr; // 没有找到足够大的块
+    void RecordAllocation(void* ptr, MemoryBlock* block, size_t size) {
+        addrToBlock_[ptr] = block;
+        allocSizes_[ptr] = size;
     }
 
-    void* TryAllocateFromExistingBlocks(uint64_t alignSize) {
-        // 遍历所有内存块，尝试分配
-        for (auto blockPtr : memoryBlocks_) {
-            void* ptr = AllocateFromBlock(blockPtr.get(), alignSize);
-            if (ptr != nullptr) {
-                return ptr;
-            }
-        }
-        return nullptr;
-    }
-
-            size_t allocSize = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
-        int res = rtMalloc((void **)devAddr, allocSize, ONG_GB_HUGE_PAGE_FLAGS, 0);
-        if (res != 0) {
-            ALOG_WARN_F("1G page mem alloc failed, turn to 2M page.\n");
-            res = rtMalloc((void **)devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
-            if (res != 0) {
-                ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
-                return;
-            }
-            allocatedDevAddr.emplace_back(*devAddr);
-            ALOG_INFO_F("AllocDevAddr %p size is %lu", *devAddr, size);
-            return;
-        }
-        allocatedDevAddr.emplace_back(*devAddr);
-        hugePageVec.emplace_back(HugePageDesc(*devAddr, allocSize));
-        if (!TryGetHugePageMem(devAddr, alignSize)) {
-            ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
-            return;
-        }
-
-    MemoryBlock* AllocateNewBlock(uint64_t alignSize) {
+    MemoryBlock* CreateNewBlock(uint64_t alignSize) {
         uint8_t *devAddr = nullptr;
-        // 1. Try alloc 1G page memory
-        size_t allocSize = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
-        int res = rtMalloc((void **)&devAddr, allocSize, ONG_GB_HUGE_PAGE_FLAGS, 0);
-        if (res == 0) {
-            auto 1gMemBlk = std::make_unique<MemoryBlock>(devAddr, allocSize, true));
-            InitFreeList(block);
-            memoryBlocks_.push_back(1gMemBlk);
-            return 1gMemBlk.get();
-        }
+        size_t size1G = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
         
-        ALOG_WARN_F("1G page mem alloc failed, turn to 2M page.");
-        // 尝试使用rtMalloc分配2MB大页
-        int res = rtMalloc((void**)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
-        if (res == 0) {
-            auto 2mMemBlk = std::make_unique<MemoryBlock>(devAddr, alignSize, false));
-            InitFreeList(block);
-            memoryBlocks_.push_back(2mMemBlk);
-            return 2mMemBlk.get();
+        if (rtMalloc((void**)&devAddr, size1G, ONG_GB_HUGE_PAGE_FLAGS, 0) == RTMALLOC_SUCCESS) {
+            auto block = std::make_unique<MemoryBlock>(devAddr, size1G, true);
+            MemoryBlock* ptr = block.get();
+            memoryBlocks_.push_back(std::move(block));
+            return ptr;
         }
-        
-        ALOG_ERROR_F("2M page mem alloc failed");
+
+        if (rtMalloc((void**)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0) == RT_ERROR_NONE) {
+            auto block = std::make_unique<MemoryBlock>(devAddr, alignSize, false);
+            MemoryBlock* ptr = block.get();
+            memoryBlocks_.push_back(std::move(block));
+            return ptr;
+        }
+
+        ALOG_ERROR_F("All memory alloc strategies failed");
         return nullptr;
     }
-
  private:
     mutable std::mutex mutex_;
-    // 内存块列表
     std::vector<std::unique_ptr<MemoryBlock>> memoryBlocks_;
-    // 内存块查找表（用于快速定位内存所属的块）
     std::unordered_map<void*, MemoryBlock*> addrToBlock_;
-}
+    std::unordered_map<void*, size_t> allocSizes_;
+};
+} // namespace npu::tile_fwk
