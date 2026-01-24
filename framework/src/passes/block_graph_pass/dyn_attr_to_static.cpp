@@ -79,8 +79,7 @@ struct CoaInfo {
                 return FAILED;
             }
         } else if (coaExpr.find(MAYBE_CONST_POSTFIX) != std::string::npos) {
-            APASS_LOG_ERROR_F(Elements::Function,
-                "This function has already been processed. %s, don't register it in custom strategy.", MODULE_NAME);
+            APASS_LOG_ERROR_F(Elements::Operation, "This coaExpr %s has been processed", coaExpr.c_str());
             return FAILED;
         } else {
             APASS_LOG_ERROR_F(Elements::Operation, "ParseCoaString input coaExpr %s is not recognized.", coaExpr.c_str());
@@ -238,6 +237,9 @@ Status DynAttrToStatic::BuildLeafToCaller(Function *func) {
         Function *rootFunc = func->GetRootFunction();
         return BuildLeafToCaller(rootFunc);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
+        if (func->programModule_ != nullptr) {
+            return SUCCESS;
+        }
         for (auto callop : func->GetCallopList()) {
             Function *leafFunc = nullptr;
             if (GetCallee(*callop, leafFunc) != SUCCESS) {
@@ -286,7 +288,8 @@ Status DynAttrToStatic::BuildNewCoa(
     }
 
     // 3. 刷新新的COA宏
-    APASS_LOG_INFO_F(Elements::Operation, "BuildNewCoa update dynScalar with isConst=%d, value=%d.", scalarValue.isConst, scalarValue.attrValue);
+    APASS_LOG_INFO_F(Elements::Operation, "BuildNewCoa update dynScalar[%s] with isConst=%d, value=%d.",
+        dynParamExpr.c_str(), scalarValue.isConst, scalarValue.attrValue);
     dynScalar.get() = coaExpr.BuildMaybeConstCoa(scalarValue.isConst, scalarValue.attrValue);
     return SUCCESS;
 }
@@ -333,8 +336,12 @@ void ReplaceCommonSymbol(Function *leafFunc, std::vector<std::vector<SymbolicSca
             if (index2BaseSymbol.find(index2GroupId[coaIdx]) == index2BaseSymbol.end()) {
                 leafFunc->GetMutableDynParam(symbolStr).isBaseParam = true;
                 index2BaseSymbol[index2GroupId[coaIdx]] = symbolStr;
+                APASS_LOG_INFO_F(Elements::Operation, "Mark coaIndex[%d] groupId[%zu] symbolStr[%s] as baseParam",
+                    coaIdx, index2GroupId[coaIdx], symbolStr.c_str());
             } else {
                 leafFunc->GetMutableDynParam(symbolStr).replacedSymbol = index2BaseSymbol[index2GroupId[coaIdx]];
+                APASS_LOG_INFO_F(Elements::Operation, "Replace coaIndex[%d] groupId[%zu] symbolStr[%s] with baseParam[%s]", 
+                    coaIdx, index2GroupId[coaIdx], symbolStr.c_str(), index2BaseSymbol[index2GroupId[coaIdx]]);
             }
         }
     }

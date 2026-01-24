@@ -30,7 +30,7 @@ class DynamicBatchMatmulInterpreterTest : public npu::tile_fwk::stest::TestSuite
 
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
 void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
 
     SetInterpreterConfig();
 
@@ -80,14 +80,14 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
             if constexpr (IsBNZ) {
                 TileShape::Current().SetMatrixSize({m, k, n});
             }
-            tensor_c = Matrix::BatchMatmul<false, IsBtrans>(OutputAstDtype, dyn_a, dyn_b);
+            tensor_c = Matrix::BatchMatmul(OutputAstDtype, dyn_a, dyn_b, false, IsBtrans);
         }
     }
 }
 
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
 void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, string dataPath) {
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
 
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
 
@@ -136,7 +136,7 @@ void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, s
             if constexpr (IsBNZ) {
                 TileShape::Current().SetMatrixSize({m, k, n});
             }
-            tensor_c = Matrix::BatchMatmul<false, IsBtrans>(OutputAstDtype, dyn_a, dyn_b);
+            tensor_c = Matrix::BatchMatmul(OutputAstDtype, dyn_a, dyn_b, false, IsBtrans);
         }
     }
 }

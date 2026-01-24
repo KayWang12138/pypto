@@ -70,6 +70,7 @@ Status ConfigManager::Initialize() {
     }
 
     config::SetRunDataOption(KEY_PTO_CONFIG_FILE, jsonFilePath);
+    config::SetRunDataOption(KEY_RUNTYPE, "npu");
     ASLOGI("Start to parse op_json_file %s", jsonFilePath.c_str());
     if (!ReadJsonFile(jsonFilePath, json_)) {
         ASLOGE("ReadJsonFile failed.");
@@ -137,9 +138,9 @@ static std::string CreateLogTopFolder() {
         if (!envStr.empty()) {
             folderPath = std::move(envStr);
         }
-    } else {
-        folderPath = folderPath + "/" + "output_" + timestamp.str() + "_" + std::to_string(getpid());
     }
+    folderPath = folderPath + "/" + "output_" + timestamp.str() + "_" + std::to_string(getpid());
+
     res = CreateDir(folderPath);
     ASSERT(res) << "Failed to create directory: " << folderPath;
     config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, RealPath(folderPath));
@@ -169,9 +170,14 @@ const std::string &ConfigManager::LogFile() {
     return globalConfigs_.logFile;
 }
 
-void ConfigManager::ResetLog() {
-    globalConfigs_.logTopFolder = CreateLogTopFolder();
-    std::string newLogFile = LogTopFolder() + "/run.log";
+void ConfigManager::ResetLog(const std::string &path) {
+    std::string newLogFile;
+    if (path.empty()) {
+        globalConfigs_.logTopFolder = CreateLogTopFolder();
+        newLogFile = globalConfigs_.logTopFolder + "/run.log";
+    } else {
+        newLogFile = path + "/run.log";
+    }
     LoggerManager::FileLoggerReplace(globalConfigs_.logFile, newLogFile, true);
     globalConfigs_.logFile = std::move(newLogFile);
 }

@@ -25,6 +25,7 @@
 namespace pto {
 
 class Function;
+class BlockFunction;
 
 // Represents the top-level program.module container.
 class ProgramModule : public Object {
@@ -36,7 +37,7 @@ public:
     // Entrypoints.
     void SetProgramEntry(const std::shared_ptr<Function>& programEntry);
     const std::shared_ptr<Function> GetProgramEntry() const { return programEntry_; }
-    
+
     // Functions (defined in func.h).
     void AddFunction(const std::shared_ptr<Function>& function);
     const std::vector<std::shared_ptr<Function>> GetFunctions() const { return functions_; }
@@ -49,9 +50,11 @@ private:
     std::vector<std::shared_ptr<Function>> functions_;
 };
 
+using ProgramModulePtr = std::shared_ptr<ProgramModule>;
+
 // Helper for convenient streaming: std::cout << module;
 std::ostream& operator<<(std::ostream& os, const ProgramModule& module);
-
+using ProgramModulePtr = std::shared_ptr<ProgramModule>;
 } // namespace pto
 
 

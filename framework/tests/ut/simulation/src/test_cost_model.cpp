@@ -37,7 +37,7 @@ public:
     void SetUp() override {
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, true);
         config::SetSimConfig(KEY_BUILD_TASK_BASED_TOPO, true);
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         Program::GetInstance().Reset();
     }
 
@@ -84,13 +84,13 @@ void RunMatrixCostModel() {
     FUNCTION("BATCHMATMUL", {matA, matB, matC})
     {
         config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, true);
-        matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP32, matA, matB);
+        matC = npu::tile_fwk::Matrix::BatchMatmul(DT_FP32, matA, matB, false, false);
     }
 }
 
 void RunAttentionPostCostModel()
 {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
     int b = 1;
     int n = 2;
     int s = 128;
@@ -286,7 +286,7 @@ TEST_F(CostModelTest, TestReplaceGMStr)
 void RunCat()
 {
     TileShape::Current().SetVecTile(16, 6, 6, 16);
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
 
     std::vector<int64_t> shape1 = {10, 10, 10, 10};
     std::vector<int64_t> shape2 = {20, 10, 10, 10};
@@ -379,7 +379,7 @@ void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Ten
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
-            Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, ki);
+            Tensor t2 = Matrix::Matmul(DataType::DT_FP32, qi, ki, false, true);
             // conat((t0s + t1, t1)) @ concat (t0s, t1)^T
             Assemble(t2, {idx * s, 0}, out);
         }
@@ -387,7 +387,7 @@ void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Ten
 }
 
 TEST_F(CostModelDynTest, TestDD) {
-    config::SetHostOption(ONLY_CODEGEN, true);
+    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     constexpr int tilingX = 32;
     constexpr int tilingY = 32;
     TileShape::Current().SetVecTile(tilingX, tilingY);

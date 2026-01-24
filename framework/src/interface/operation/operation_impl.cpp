@@ -254,7 +254,10 @@ Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
     }
     std::vector<int64_t> newShape(old.GetStorage()->shape);
     newShape.insert(newShape.begin() + unsqueezeDim, 1);
-    return Reshape(old, newShape);
+    auto validShape = old.GetStorage()->GetDynValidShape();
+    ASSERT(!validShape.empty());
+    validShape.insert(validShape.begin() + unsqueezeDim, 1);
+    return Reshape(old, newShape, validShape);
 }
 
 void TensorInnerAssign(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
@@ -1593,6 +1596,13 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
         }
         case Opcode::OP_VIEW_TYPE: {
             TiledViewTypeOperation(function, tileShape, iOperand[0], oOperand[0]);
+            break;
+        }
+        case Opcode::OP_BLOCK_CALL: {
+            auto &newOp = function.AddRawOperation(Opcode::OP_BLOCK_CALL, iOperand, oOperand, true);
+            newOp.SetOpAttribute(op.GetOpAttribute());
+            newOp.SetAttr(OpAttributeKey::dontTouch, true);
+            newOp.SetOpOffset(op.GetIOpAttrOffsets(), op.GetOOpAttrOffsets());
             break;
         }
         default: {
