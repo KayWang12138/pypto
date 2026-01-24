@@ -774,18 +774,16 @@ void ViewInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
             outValidShapes.push_back(toValidShape);
         }
     } else {
-        auto inputValidShape = op->GetIOperands()[0]->GetDynValidShape();
-        if (inputValidShape.empty()) {
-            auto shapeImm = OpImmediate::Specified(op->GetIOperands()[0]->GetShape());
-            inputValidShape.resize(shapeImm.size());
-            OpImmediate::NormalizeValue(inputValidShape, 0, shapeImm, 0, false);
+        auto outputValidShape = op->GetOOperands()[0]->GetDynValidShape();
+        if (outputValidShape.empty()) {
+        auto validShapeFromOutShape = SymbolicScalar::FromConcrete(op->GetOOperands()[0]->GetShape());
+        for (auto dim : validShapeFromOutShape) {
+            outputValidShape.push_back(dim);
         }
-        auto newDynValidShape = GetViewValidShape(inputValidShape, viewOpAttribute->GetFromOffset(),
-                                                    viewOpAttribute->GetFromDynOffset(), op->GetOOperands()[0]->oriShape);
         for (auto output : op->GetOOperands()) {
-            outValidShapes.push_back(newDynValidShape);
+            outValidShapes.push_back(outputValidShape);
         }
-        viewOpAttribute->SetToDynValidShape(newDynValidShape);
+        viewOpAttribute->SetToDynValidShape(outputValidShape);
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_VIEW, Opcode::OP_VIEW, ViewInferFunc);
