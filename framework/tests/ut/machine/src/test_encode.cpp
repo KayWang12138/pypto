@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include <cstdint>
 
-#include "machine/utils/dynamic/dev_encode.h"
+#include "machine/host/dev_encode.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tilefwk_op.h"
 #include "interface/inner/config.h"
