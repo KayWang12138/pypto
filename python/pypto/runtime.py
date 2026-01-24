@@ -59,7 +59,7 @@ class _CachedVerifyData:
 _pto_verify_datas = _CachedVerifyData()
 
 def _current_stream():
-    npu = getattr(torch, 'npu')
+    npu = getattr(torch, 'npu', None)
     if npu:
         return npu.current_stream().npu_stream
     else:
