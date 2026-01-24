@@ -61,7 +61,7 @@ Status GetPaddingValue(const LogicalTensorPtr &tensor, int64_t &padValue) {
 }
 
 inline int GetExpandDim(const std::vector<int64_t> &lhsShape, const std::vector<int64_t> &rhsShape) {
-    for (int i = static_cast<int>(lhsShape.size()); i > 0; --i) {
+    for (int i = static_cast<int>(lhsShape.size() - 1); i > 0; --i) {
         if (lhsShape[i] != rhsShape[i]) {
             return i;
         }
