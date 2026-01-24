@@ -68,12 +68,11 @@ void UpdateCopyinStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
 void UpdateViewStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
     auto inputTensor = op->GetIOperands()[0];
     auto outputTensor = op->GetOOperands()[0];
+    if (outputTensor->GetShape().back() != 1) {
+        tensorStatus[outputTensor] = AxisCombineMarker::UNKNOWN;
+    }
     if (tensorStatus.find(inputTensor) != tensorStatus.end()) {
-        if (tensorStatus[inputTensor] == AxisReorderStatus::ENABLE) {
-            tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
-            return;
-        }
-        tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+        tensorStatus[outputTensor] = tensorStatus[inputTensor];
         return;
     }
     if (inputTensor->GetShape().back() == 1 && outputTensor->GetShape().back() == 1) {
