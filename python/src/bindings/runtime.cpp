@@ -25,6 +25,7 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
 #include "machine/host/perf_analysis.h"
+#include "tilefwk/aicpu_common.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -365,6 +366,9 @@ struct KernelBinary {
         InitCachedArgs();
         auto aicpuArgs = (AiCpuArgs *)aicpuArgBuf.data();
         DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs);
+
+        auto devArgs = (DeviceArgs *)aicpuArgs->kArgs.cfgdata;
+        std::cout << (void *)devArgs << std::endl;
     }
 
     int64_t GetWorkspaceSize(const std::vector<DeviceTensorData> &tensors) {
