@@ -197,7 +197,7 @@ TILEOP void TMod(T0 dst, T1 src0, T2 src1, T3 tmp) {
                 pto::TASSIGN(src0Tile, (uint64_t)(src0.GetAddr() + src0Offset * dataTypeSize));
                 pto::TASSIGN(src1Tile, (uint64_t)(src1.GetAddr() + src1Offset * dataTypeSize));
                 if constexpr (std::is_same_v<DstType, float>) {
-                    DstTileDefine dstTileTmp(dstShape3, dstShape4);
+                    DstTileDefine divTmpTile(dstShape3, dstShape4);
                     DstTileDefine castTmpTile(dstShape3, dstShape4);
                     pto::TASSIGN(divTmpTile, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW));
                     pto::TASSIGN(castTmpTile, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 2));
