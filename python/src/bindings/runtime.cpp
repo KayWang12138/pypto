@@ -403,10 +403,10 @@ struct KernelBinary {
         auto size = tensors.size();
         ASSERT(size == dynAttr->startArgsInputLogicalTensorList.size()) << "mismatch input size";
         for (size_t i = 0; i < size; ++i) {
-            auto &startArg = dynAttr->startArgsInputLogicalTensorList[i];
-            auto t = tensors[i].get();
-            if (startArg->shape == t.GetShape() && startArg->Datatype() == t.GetDataType() &&
-                startArg->Format() == t.Format()) {
+            auto startArg = dynAttr->startArgsInputLogicalTensorList[i].get();
+            auto t = tensors[i].get().GetStorage(false).get();
+            if (startArg->shape == t->GetShape() && startArg->Datatype() == t->Datatype() &&
+                startArg->Format() == t->Format()) {
                 return true;
             }
         }
@@ -499,7 +499,7 @@ struct KernelModule {
         args->kArgs.launchMode = AICPU_LAUNCH_MODE_CTRL;
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
-
+        return;
         int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
             "AST_DYN_AICPU", 5, &rtAicpuArgs, nullptr, aicpuStream, 0);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
