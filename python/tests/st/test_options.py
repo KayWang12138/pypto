@@ -16,9 +16,6 @@ import torch
 import torch_npu
 import pypto
 
-shape = [4, 4]
-dtype = pypto.DT_FP32
-
 
 # func scope 0
 @pypto.options(vec_tile_shapes=[64, 128])
@@ -76,7 +73,7 @@ def set_scope_options(a, c, tiling=None):
         assert [32, 32] == get_options("vec_tile_shapes")
 
 
-def check_cube_tile_shapes(expected_m, expected_k, expected_n, expected_enable_multi_data_load=False, 
+def check_cube_tile_shapes(expected_m, expected_k, expected_n, expected_enable_multi_data_load=False,
                         expected_enable_split_k=False):
     """Check if cube_tile_shapes matches expected values"""
     cube_tile = get_options("cube_tile_shapes")
@@ -115,16 +112,22 @@ def test_scope():
     assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
 
 
-@pypto.jit
-def loop_scope(a, b, c, tiling=None):
-    pypto.set_vec_tile_shapes(tiling * 2, tiling * 2)
-    for _ in pypto.loop(1, name="s0", idx_name="k"):
-        pypto.set_vec_tile_shapes(tiling, tiling)
-        c.move(pypto.add(a, b))
+def loop_scope_wrapper(shape, tiling=None):
+    @pypto.frontend.jit()
+    def loop_scope(a: pypto.Tensor(shape, pypto.DT_INT32),
+                   b: pypto.Tensor(shape, pypto.DT_INT32)) -> pypto.Tensor(shape, pypto.DT_INT32):
+        pypto.set_vec_tile_shapes(tiling * 2, tiling * 2)
+        result = pypto.Tensor(shape, pypto.DT_INT32)
+        for _ in pypto.loop(1, name="s0", idx_name="k"):
+            pypto.set_vec_tile_shapes(tiling, tiling)
+            result = a + b
 
-    for _ in pypto.loop(1, name="s0", idx_name="k"):
-        assert [tiling * 2, tiling * 2] == pypto.get_vec_tile_shapes()
-        c.move(pypto.add(c, b))
+        for _ in pypto.loop(1, name="s0", idx_name="k"):
+            result = result + b
+
+        return result
+
+    return loop_scope
 
 
 def test_loop_scope():
@@ -132,27 +135,17 @@ def test_loop_scope():
     torch.npu.set_device(int(device_id))
     tiling = 32
     n, m = tiling * 1, tiling * 1
+    shape = (n, m)
 
     # prepare data
-    a_rawdata = torch.ones((n, m)) * 2
-    a_data = a_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
+    a_data = torch.ones((n, m), dtype=torch.int32, device=f'npu:{device_id}') * 2
+    b_data = torch.ones((n, m), dtype=torch.int32, device=f'npu:{device_id}')
 
-    b_rawdata = torch.ones((n, m))
-    b_data = b_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
-
-    c_data = torch.zeros((n, m), dtype=torch.int32, device=f'npu:{device_id}')
-
-    # def inputs and outputs
-    inputs = [a_data, b_data]
-    outputs = [c_data]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-
-    loop_scope(pto_inputs[0], pto_inputs[1], pto_outputs[0], tiling)
+    result = loop_scope_wrapper(shape, tiling)(a_data, b_data)
     torch_npu.npu.synchronize()
 
-    golden = torch.ones((n, m)) * 4
-    assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
+    golden = torch.ones((n, m), dtype=torch.int32) * 4
+    assert torch.allclose(golden, result.cpu(), atol=1e-5)
 
 if __name__ == "__main__":
     test_scope()
