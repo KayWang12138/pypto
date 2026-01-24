@@ -385,6 +385,8 @@ struct KernelBinary {
         auto &disableL2List = dynAttr->disableL2List;
         auto tinfo = (KernelTensorInfo *)(aicpuArgs + 1);
         auto tdata = (DevTensorData *)(tinfo + 1);
+        ALOG_ERROR(">>> inputNum ", tinfo->inputNum, " outputNum ", tinfo->outputNum,
+            "tensors ", tensors.size());
         ASSERT((int64_t)tensors.size() == tinfo->inputNum) << "mismatch tensor size";
         for (size_t i = 0; i < (size_t)tinfo->inputNum; ++i) {
             auto &t = tensors[i];
@@ -475,7 +477,7 @@ private:
         auto tensorInfo = (KernelTensorInfo *)(aicpuArgs + 1);
         tensorInfo->inputNum = dynAttr->startArgsInputLogicalTensorList.size();
         tensorInfo->outputNum = dynAttr->startArgsOutputLogicalTensorList.size();
-
+        ALOG_ERROR("inputNum ", tensorInfo->inputNum, " outputNum ", tensorInfo->outputNum);
         l2Offset = machine::GetRA()->GetL2Offset();
     }
 };
@@ -715,14 +717,14 @@ void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs k
         ctrlFlowCache = BuildTempCache(kbinary, module, tensors);
     }
 
-    ALOG_ERROR(__FUNCTION__, __LINE__) << "ctrlFlowCache " << ctrlFlowCache;
+    ALOG_ERROR(__FUNCTION__, __LINE__, "ctrlFlowCache ", ctrlFlowCache);
     int64_t *wsAddr = nullptr;
     int64_t wsSize = kbinary->GetWorkspaceSize(tensors);
     if (wsSize) {
         auto pyalloc = py::getattr(module, "alloc");
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
-    ALOG_ERROR(__FUNCTION__, __LINE__) << "wsAddr " << wsAddr;
+    ALOG_ERROR(__FUNCTION__, __LINE__, "wsAddr ", wsAddr);
     kmodule->Launch(kbinary, aicpuStream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
 }
 
