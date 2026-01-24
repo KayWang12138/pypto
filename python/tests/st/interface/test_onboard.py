@@ -260,11 +260,10 @@ def infer_shape_kenrel(a, b, c):
 
 
 def test_infer_shape():
-    # device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
-    # torch.npu.set_device(device_id)
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
 
-    # device = f'npu:{device_id}'
-    device = 'cpu'
+    device = f'npu:{device_id}'
     # for b in [2048, 1024, 512, 256, 128, 64, 32]:
     for b in [64, 32]:
         a = torch.randn((b, 32), device=device)
@@ -277,8 +276,8 @@ def test_infer_shape():
             pypto.from_torch(b, dynamic_axis=[0]),
             pypto.from_torch(c, dynamic_axis=[0]),
         )
-        # torch.npu.synchronize()
-        # torch.testing.assert_close(c, g)
+        torch.npu.synchronize()
+        torch.testing.assert_close(c, g)
 
 if __name__ == "__main__":
     test_infer_shape()
