@@ -97,6 +97,10 @@ struct DeviceTaskBin {
 constexpr int64_t DEVICE_QUEUE_SIZE = 512;
 #define DEVICE_TASK_STOP 0x7FFFFFFE
 
+#define AICPU_LAUNCH_MODE_MIX   0
+#define AICPU_LAUNCH_MODE_CTRL  1
+#define AICPU_LAUNCH_MODE_SCHED 2
+
 struct DeviceKernelArgs {
     int64_t *ctrlFlowCache{nullptr};
     int64_t *inputs{nullptr};
@@ -109,6 +113,7 @@ struct DeviceKernelArgs {
     void *aicoreModel{nullptr};
     uint64_t taskWastTime{0};
     uint8_t machineConfig;
+    uint8_t launchMode{0};
     ToSubMachineConfig toSubMachineConfig;
     OpMetaAddrs opMetaAddrs;
 };
