@@ -486,6 +486,34 @@ TEST_F(DynamicOpsTest, MatmulBF16FP32) {
 }
 
 TEST_F(DynamicOpsTest, MatmulFP32FP32) {
+    TestMatmul(DT_INT8, DT_INT8);
+}
+
+TEST_F(DynamicOpsTest, MatmulFP32FP32) {
+    TestMatmul(DT_UINT8, DT_UINT8);
+}
+
+TEST_F(DynamicOpsTest, MatmulFP32FP32) {
+    TestMatmul(DT_INT16, DT_INT16);
+}
+
+TEST_F(DynamicOpsTest, MatmulFP32FP32) {
+    TestMatmul(DT_UINT16, DT_UINT16);
+}
+
+TEST_F(DynamicOpsTest, MatmulFP32FP32) {
+    TestMatmul(DT_UINT32, DT_UINT32);
+}
+
+TEST_F(DynamicOpsTest, MatmulFP32FP32) {
+    TestMatmul(DT_UINT64, DT_UINT64);
+}
+
+TEST_F(DynamicOpsTest, MatmulFP32FP32) {
+    TestMatmul(DT_DOUBLE, DT_DOUBLE);
+}
+
+TEST_F(DynamicOpsTest, MatmulFP32FP32) {
     TestMatmul(DT_FP32, DT_FP32);
 }
 
