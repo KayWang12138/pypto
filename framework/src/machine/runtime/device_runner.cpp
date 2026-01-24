@@ -262,7 +262,7 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
         ALOG_INFO_F("aicpu stream sync failed");
     }
     ASSERT(rc == 0);
-    if (IsAstDataDumpEnabled()) {
+    if (IsPtoDataDumpEnabled()) {
         ALOG_DEBUG_F("DataDumpServerInit is called \n");
         rc = AdxDataDumpServerUnInit();
         if (rc != 0) {
@@ -492,7 +492,7 @@ int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ct
     if (ctrlStream != nullptr) {
         rcCtrl = rtStreamSynchronize(aicpuStream);
     }
-    if (IsAstDataDumpEnabled()) {
+    if (IsPtoDataDumpEnabled()) {
         ALOG_DEBUG_F("DataDumpServerInit is called \n");
         AdxDataDumpServerUnInit();
     }
@@ -549,6 +549,9 @@ void DeviceRunner::InitAiCpuSoBin() {
     args_.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
     args_.aicpuSoLen = buffer.size();
     args_.deviceId = GetLogDeviceId();
+    if (IsPtoDataDumpEnabled()) {
+       args_.hostPid = getpid(); 
+    }
 }
 
 int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArgs *kArgs) {

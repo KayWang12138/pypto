@@ -36,6 +36,7 @@
 #include "machine/utils/device_log.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/aicore_hal.h"
+#include "machine/device/dynamic/aicore_dump.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/device/dynamic/wrap_manager.h"
@@ -780,6 +781,14 @@ private:
         DEV_TRACE_DEBUG(LEvent(
             LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
             LActStart(coreIdx)));
+
+#if ENABLE_TENSOR_DUMP
+        // dump input tensor
+        if (aicoreDump_.IsEnableDump()) {
+            aicoreDump_.DumpInit(newTask, GetPhyIdByBlockId(coreIdx));
+            aicoreDump_.DoDump(curDevTask_, "input");
+        }
+#endif
         aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;
@@ -1320,6 +1329,11 @@ private:
         taskDfxStatPos_.fill(REG_LOW_TASK_PING);
 
         wrapManager_.InitArchInfo(deviceArgs->archInfo);
+#if ENABLE_TENSOR_DUMP
+        aicoreDump_.SetHostPid(deviceArgs->hostPid);
+        aicoreDump_.SetDeviceId(deviceArgs->deviceId);
+#endif
+
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
             if (aicpuNum_ > 1) {
                 enableFairSch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
@@ -1623,6 +1637,14 @@ private:
         aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
 #endif
 
+#if ENABLE_TENSOR_DUMP
+        // dump output tensor
+        if (aicoreDump_.IsEnableDump()) {
+            aicoreDump_.DumpInit(taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
+            aicoreDump_.DoDump(curDevTask_, "output");
+        }
+#endif
+
         DEV_IF_VERBOSE_DEBUG {
             recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
         }
@@ -1692,6 +1714,7 @@ private:
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     AicpuTaskManager &aicpuTaskManager_;
     AiCoreProf aicoreProf_;
+    AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
 
     std::vector<TaskInfo> sendTask_[MAX_AICORE_NUM];
