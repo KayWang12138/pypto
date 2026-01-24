@@ -63,46 +63,53 @@ public:
     ~DevMemoryPool();
 
     bool AllocDevAddr(uint8_t **devAddr, uint64_t size) {
-        if (devAddr == nullptr) {
+        if (devAddr == nullptr || size == 0) {
             return false;
         }
         *devAddr = nullptr;
-        if (size == 0) {
-            return false;
-        }
         auto alignSize = MemSizeAlign(size);
         ALOG_INFO_F("MemoryPool::Allocate size[%lu] with align size[%lu].", size, alignSize);
+        
         std::lock_guard<std::mutex> lock(mutex_);
+
         // 1. 尝试从现有内存块分配
         void* ptr = TryAllocateFromExistingBlocks(alignSize);
         if (ptr != nullptr) {
-            return ptr;
+            *devAddr = static_cast<uint8_t*>(ptr);
+            allocSizes_[ptr] = size;
+            return true;
         }
         
-        // 2. 尝试分配1GB大页
-        MemoryBlock* block = Allocate1GBBlock(alignSize);
+        // 2. 现有不够用，尝试申请新的大块
+        MemoryBlock* block = AllocateNewBlock(alignSize);
         if (block != nullptr) {
             ptr = AllocateFromBlock(block, alignSize);
             if (ptr != nullptr) {
-                return ptr;
-            }
-        }
-        
-        // 3. 尝试分配2MB大页
-        block = Allocate2MBBlock(alignSize);
-        if (block != nullptr) {
-            ptr = AllocateFromBlock(block, alignSize);
-            if (ptr != nullptr) {
-                return ptr;
+                *devAddr = static_cast<uint8_t*>(ptr);
+                allocSizes_[ptr] = size;
+                return true;
             }
         }
         
         ALOG_ERROR_F("MemoryPool::Allocate failed for size %lu", size);
-        return nullptr;
+        return false;
     }
     
     void FreeDevAddr(void* ptr) {
+        if (ptr == nullptr) return;
+        std::lock_guard<std::mutex> lock(mutex_);
 
+        auto it = addrToBlock_.find(ptr);
+        if (it == addrToBlock_.end()) {
+            ALOG_ERROR_F("Freeing unknown pointer: %p", ptr);
+            return;
+        }
+
+        MemoryBlock* block = it->second;
+        size_t size = allocSizes_[ptr];
+        FreeToBlock(block, ptr, size);
+        addrToBlock_.erase(it);
+        ALOG_INFO_F("Freed ptr %p back to block %p", ptr, block->base_addr);
     }
        // 获取内存池状态（调试用）
     void PrintPoolStatus() {
@@ -196,7 +203,7 @@ public:
     }
 
     void* TryAllocateFromExistingBlocks(uint64_t alignSize) {
-        // 遍历所有内存块，尝试分配
+        // 遍历所有现有的内存块，尝试分配
         for (auto blockPtr : memoryBlocks_) {
             void* ptr = AllocateFromBlock(blockPtr.get(), alignSize);
             if (ptr != nullptr) {
@@ -206,49 +213,33 @@ public:
         return nullptr;
     }
 
-            size_t allocSize = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
-        int res = rtMalloc((void **)devAddr, allocSize, ONG_GB_HUGE_PAGE_FLAGS, 0);
-        if (res != 0) {
-            ALOG_WARN_F("1G page mem alloc failed, turn to 2M page.\n");
-            res = rtMalloc((void **)devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
-            if (res != 0) {
-                ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
-                return;
-            }
-            allocatedDevAddr.emplace_back(*devAddr);
-            ALOG_INFO_F("AllocDevAddr %p size is %lu", *devAddr, size);
-            return;
-        }
-        allocatedDevAddr.emplace_back(*devAddr);
-        hugePageVec.emplace_back(HugePageDesc(*devAddr, allocSize));
-        if (!TryGetHugePageMem(devAddr, alignSize)) {
-            ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
-            return;
-        }
-
     MemoryBlock* AllocateNewBlock(uint64_t alignSize) {
         uint8_t *devAddr = nullptr;
         // 1. Try alloc 1G page memory
-        size_t allocSize = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
+        size_t allocSize_1G = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
         int res = rtMalloc((void **)&devAddr, allocSize, ONG_GB_HUGE_PAGE_FLAGS, 0);
-        if (res == 0) {
-            auto 1gMemBlk = std::make_unique<MemoryBlock>(devAddr, allocSize, true));
-            InitFreeList(block);
-            memoryBlocks_.push_back(1gMemBlk);
-            return 1gMemBlk.get();
-        }
+        if (res == 0) {  // 这里使用0 是不合理的，魔鬼数字，应该定义一个成功分配内存的状态吗
+            ALOG_INFO_F("Allocated 1GB huge page block");
+            auto memBlk = std::make_unique<MemoryBlock>(devAddr, allocSize_1G, true));
+            InitFreeList(memBlk.get());
+            MemoryBlock* rawPtr = memBlk.get();
+            memoryBlocks_.push_back(std::move(memBlk));
+            return rawPtr;
+        }   
         
         ALOG_WARN_F("1G page mem alloc failed, turn to 2M page.");
         // 尝试使用rtMalloc分配2MB大页
-        int res = rtMalloc((void**)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
-        if (res == 0) {
-            auto 2mMemBlk = std::make_unique<MemoryBlock>(devAddr, alignSize, false));
-            InitFreeList(block);
-            memoryBlocks_.push_back(2mMemBlk);
-            return 2mMemBlk.get();
+        int res2 = rtMalloc((void**)&devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
+        if (res2 == 0) { // 同上，有待补充返回的状态码
+            ALOG_INFO_F("Allocated 2MB page block");
+            auto memBlk = std::make_unique<MemoryBlock>(devAddr, alignSize, false));
+            InitFreeList(memBlk.get());
+            MemoryBlock* rawPtr = memBlk.get();
+            memoryBlocks_.push_back(std::move(memBlk));
+            return rawPtr;  
         }
         
-        ALOG_ERROR_F("2M page mem alloc failed");
+        ALOG_ERROR_F("All memory alloc strategies failed");
         return nullptr;
     }
 
@@ -258,4 +249,5 @@ public:
     std::vector<std::unique_ptr<MemoryBlock>> memoryBlocks_;
     // 内存块查找表（用于快速定位内存所属的块）
     std::unordered_map<void*, MemoryBlock*> addrToBlock_;
+    std::unordered_map<void*, size_t> allocSizes_;
 }
