@@ -13,8 +13,11 @@
  * \brief
  */
 
+#include "machine/device/dynamic/device_utils.h"
+#include "machine/runtime/device_launcher.h"
 #include "pybind_common.h"
 
+#include <cstdint>
 #include <utility>
 #include <vector>
 #include "interface/interpreter/raw_tensor_data.h"
@@ -319,8 +322,7 @@ struct KernelBinary {
     std::vector<OpMetaAddrs> metas;
     int64_t metaIndex{0};
 
-    std::vector<int64_t> inputInfo;
-    AiCpuArgs *aicpuArgs{nullptr};
+    std::vector<int64_t> aicpuArgBuf;
     uint64_t l2Offset{0};
 
     uint8_t *FindCtrlFlowCache(std::vector<std::vector<int64_t>> &inputs) {
@@ -361,8 +363,8 @@ struct KernelBinary {
         kernelBin = RegisterAicoreKernel();
         workspaceSize = devProg->memBudget.Total();
         InitCachedArgs();
+        auto aicpuArgs = (AiCpuArgs *)aicpuArgBuf.data();
         DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs);
-        ASSERT(aicpuArgs->kArgs.inputs == inputInfo.data());
     }
 
     int64_t GetWorkspaceSize(const std::vector<DeviceTensorData> &tensors) {
@@ -373,8 +375,11 @@ struct KernelBinary {
         return workspaceSize;
     }
 
-    AiCpuArgs *BuildKernelArgs(const std::vector<DeviceTensorData> &tensors) {
+    AiCpuArgs *GetAicpuArgs() { return (AiCpuArgs *)aicpuArgBuf.data(); }
+
+    std::pair<AiCpuArgs *, int64_t> BuildKernelArgs(const std::vector<DeviceTensorData> &tensors) {
         auto &disableL2List = dynAttr->disableL2List;
+        auto aicpuArgs = (AiCpuArgs *)aicpuArgBuf.data();
         int64_t *inputp = (int64_t *)(aicpuArgs + 1);
         auto tensorData = (DevTensorData *)(inputp + 2);
         ASSERT((int64_t)tensors.size() == inputp[0]) << "mismatch tensor size";
@@ -394,7 +399,7 @@ struct KernelBinary {
             tensorData++;
         }
         aicpuArgs->kArgs.opMetaAddrs = metas[metaIndex % AICPU_META_BUFFER_NUM];
-        return aicpuArgs;
+        return {aicpuArgs, aicpuArgBuf.size() * sizeof(int64_t)};
     }
 
     bool Match(std::vector<std::reference_wrapper<Tensor>> &tensors) {
@@ -459,10 +464,10 @@ private:
             dynAttr->startArgsOutputLogicalTensorList.size();
         auto argSize = sizeof(AiCpuArgs) + 2 * sizeof(int64_t) + argNum * sizeof(DevTensorData);
         ASSERT(argSize % 8 == 0);
-        inputInfo.resize(argSize / 8);
-        aicpuArgs = new (inputInfo.data()) AiCpuArgs();
-        aicpuArgs->kArgs.inputs = inputInfo.data();
-        aicpuArgs->kArgs.outputs = (int64_t *)argSize;
+        aicpuArgBuf.resize(argSize / 8);
+        auto aicpuArgs = new (aicpuArgBuf.data()) AiCpuArgs();
+        aicpuArgs->kArgs.inputs = nullptr;
+        aicpuArgs->kArgs.outputs = nullptr;
 
         int64_t *inputp = (int64_t *)(aicpuArgs + 1);
         inputp[0] = dynAttr->startArgsInputLogicalTensorList.size();
@@ -490,14 +495,14 @@ struct KernelModule {
 
     void Launch(KernelBinary *kbinary, aclrtStream aicpuStream, aclrtStream aicoreStream,
         std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
-        auto args = kbinary->BuildKernelArgs(tensors);
-        rtAicpuArgs.args = args->kArgs.inputs;
-        rtAicpuArgs.argsSize = (int64_t)args->kArgs.outputs;
+        auto [args, argsSize] = kbinary->BuildKernelArgs(tensors);
+        rtAicpuArgs.args = args;
+        rtAicpuArgs.argsSize = argsSize;
 
         args->kArgs.launchMode = AICPU_LAUNCH_MODE_CTRL;
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
-        return;
+
         int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
             "AST_DYN_AICPU", 5, &rtAicpuArgs, nullptr, aicpuStream, 0);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
@@ -572,14 +577,14 @@ struct DeviceGuard {
     int32_t nDevId {0};
 };
 
-static Function *Compile(py::object module, py::args args, py::kwargs kwargs) {
+static Function *Compile(py::object module, py::args &args) {
     Program::GetInstance().Reset();
     auto compile = py::getattr(module, "compile");
-    compile(args, kwargs);
+    compile(args);
     return Program::GetInstance().GetLastFunction();
 }
 
-static void BuildDefaultCache(KernelBinary *kbinary, py::object module, std::vector<DeviceTensorData> &tensors) {
+static void BuildDefaultCache(KernelBinary *kbinary, py::object &module, std::vector<DeviceTensorData> &tensors) {
     auto infershape = py::getattr(module, "infer_controlflow_shape");
     if (!infershape.is_none()) {
         auto cfshapes = infershape().cast<py::list>();
@@ -598,7 +603,7 @@ static void BuildDefaultCache(KernelBinary *kbinary, py::object module, std::vec
     }
 }
 
-static uint8_t *BuildTempCache(KernelBinary *kbinary, py::object module, std::vector<DeviceTensorData> &tensors) {
+static uint8_t *BuildTempCache(KernelBinary *kbinary, py::object &module, std::vector<DeviceTensorData> &tensors) {
     auto ctrlCache = kbinary->BuildControlFlowCache(tensors, false);
     auto size = ctrlCache->allCacheSize;
     auto pyalloc = py::getattr(module, "alloc");
@@ -611,7 +616,7 @@ static uint8_t *BuildTempCache(KernelBinary *kbinary, py::object module, std::ve
     return devCache;
 }
 
-static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object module, py::args args) {
+static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object &module, py::args &args) {
     auto infershape = py::getattr(module, "infer_controlflow_shape");
     if (!infershape.is_none()) {
         py::list oriShapes;
@@ -631,7 +636,7 @@ static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object module, py::args
     return nullptr;
 }
 
-static int GetInputTensors(py::args args, std::vector<DeviceTensorData> &tensors,
+static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensors,
     std::vector<std::reference_wrapper<Tensor>> &ref_tensors) {
     py::object device = py::none();
     for (auto &pt : args) {
@@ -673,7 +678,8 @@ static bool AttachAicpuStream(aclrtStream aicoreStream, aclrtStream aicpuStream)
     return false;
 }
 
-void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs kwargs) {
+void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
+    auto t0 = GetTimeMonotonic();
     auto aicoreStream = (aclrtStream)stream;
     auto aicpuStream = (aclrtStream)DeviceGetAicpuStream();
 
@@ -682,17 +688,19 @@ void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs k
     auto devId = GetInputTensors(args, tensors, ref_tensors);
     DeviceGuard devGuard(devId);
 
+    auto t1 = GetTimeMonotonic();
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
     auto kbinary = kmodule->FindFunction(devId, ref_tensors);
     if (kbinary == nullptr) {
         Program::GetInstance().Reset();
         // Set capture mode to relaxed to support rtmemcpy / rtmemset
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
-        auto func = Compile(module, args, kwargs);
+        auto func = Compile(module, args);
         kbinary = kmodule->AddFunction(devId, Program::GetInstance().GetFunctionSharedPtr(func));
         BuildDefaultCache(kbinary, module, tensors);
     }
 
+    auto t2 = GetTimeMonotonic();
     uint8_t *ctrlFlowCache = nullptr;
     if (kbinary->ControlFlowCacheEnable()) {
         ctrlFlowCache = FindCtrlCache(kbinary, module, args);
@@ -702,6 +710,7 @@ void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs k
         ctrlFlowCache = BuildTempCache(kbinary, module, tensors);
     }
 
+    auto t3 = GetTimeMonotonic();
     int64_t *wsAddr = nullptr;
     int64_t wsSize = kbinary->GetWorkspaceSize(tensors);
     if (wsSize) {
@@ -709,7 +718,10 @@ void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs k
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
 
+    auto t4 = GetTimeMonotonic();
     kmodule->Launch(kbinary, aicpuStream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    auto t5 = GetTimeMonotonic();
+    // ALOG_ERROR_F("LaunchKernel time: %lu, %lu, %lu, %lu, %lu", t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4);
 }
 
 void BindRuntime(py::module &m) {
