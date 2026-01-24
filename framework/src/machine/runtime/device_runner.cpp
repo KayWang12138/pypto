@@ -59,7 +59,6 @@ constexpr int32_t MEMORY_UB = 7;
 constexpr int32_t L2_CACHE = 8;
 constexpr int32_t PATH_LENGTH = 64;
 constexpr uint32_t LOG_BUF_SIZE = 64 * 1024;
-bool g_IsFirstInit = false;
 bool g_IsNullLaunched = false;
 constexpr uint32_t MIX_BLOCK_DIM = 2;
 constexpr uint32_t HIGHT_BIT = 16;
@@ -383,10 +382,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
         return rc;
     }
 
-    if (!g_IsFirstInit) {
-        InitAiCpuSoBin();
-    }
-    g_IsFirstInit = true;
+    InitAiCpuSoBin();
 
     rc = LaunchAiCpu(aicpuStream, taskId, taskData, taskType);
     if (rc < 0) {
@@ -495,19 +491,23 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *k
 }
 
 void DeviceRunner::InitAiCpuSoBin() {
-    std::vector<char> buffer;
-    std::string fileName = GetCurrentSharedLibPath() + "/libtilefwk_backend_server.so";
-    if (!ReadBytesFromFile(fileName, buffer)) {
-        ALOG_ERROR_F("Read bin form tilefwk_backend_server.so failed, please check the so[%s]", fileName.c_str());
-        return;
+    static bool inited = false;
+    if (!inited) {
+        std::vector<char> buffer;
+        std::string fileName = GetCurrentSharedLibPath() + "/libtilefwk_backend_server.so";
+        if (!ReadBytesFromFile(fileName, buffer)) {
+            ALOG_ERROR_F("Read bin form tilefwk_backend_server.so failed, please check the so[%s]", fileName.c_str());
+            return;
+        }
+        size_t aicpuDataLength = buffer.size();
+        auto dAicpuData = DevAlloc(aicpuDataLength);
+        rtMemcpy(dAicpuData, aicpuDataLength, reinterpret_cast<void *>(buffer.data()),
+                aicpuDataLength, RT_MEMCPY_HOST_TO_DEVICE);
+        args_.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
+        args_.aicpuSoLen = buffer.size();
+        args_.deviceId = GetLogDeviceId();
+        inited = true;
     }
-    size_t aicpuDataLength = buffer.size();
-    auto dAicpuData = DevAlloc(aicpuDataLength);
-    rtMemcpy(dAicpuData, aicpuDataLength, reinterpret_cast<void *>(buffer.data()),
-             aicpuDataLength, RT_MEMCPY_HOST_TO_DEVICE);
-    args_.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
-    args_.aicpuSoLen = buffer.size();
-    args_.deviceId = GetLogDeviceId();
 }
 
 int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArgs *kArgs) {
@@ -546,7 +546,7 @@ int DeviceRunner::RunPrepare() {
                         RT_MEMCPY_HOST_TO_DEVICE);
         }
     }
-        
+
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         args_.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(DevAlloc(sizeof(MetricPerf)));
         if (args_.aicpuPerfAddr == 0) {
@@ -707,6 +707,7 @@ void DeviceRunner::PrepareLaunchArgs(DeviceArgs &localArgs, DeviceKernelArgs *ke
 }
 
 int DeviceRunner::FillDeviceArgs(DeviceKernelArgs *kargs, int blockDim, int aicpuNum) {
+    InitAiCpuSoBin();
     auto localArgs = args_;
     PrepareLaunchArgs(localArgs, kargs, 0, blockDim, aicpuNum);
     int ret = rtMemcpy(kargs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
@@ -721,15 +722,9 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     if (kernelArgs == nullptr) {
         return -1;
     }
-    InitializeErrorCallback();
-    
-    HOST_PERF_TRACE(TracePhase::RunDevKernelInitErrCallBack);
 
-    if (!g_IsFirstInit) {
-        InitAiCpuSoBin();
-    }
-    g_IsFirstInit = true;
-    
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitErrCallBack);
+    InitAiCpuSoBin();
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
 
     #ifdef BUILD_WITH_NEW_CANN
@@ -855,6 +850,7 @@ int DeviceRunner::Init(void) {
         ALOG_ERROR("RegisterKernelBin failed\n");
         return -1;
     }
+    InitializeErrorCallback();
     return 0;
 }
 } // namespace npu::tile_fwk
