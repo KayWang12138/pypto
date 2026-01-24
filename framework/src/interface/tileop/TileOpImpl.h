@@ -47,6 +47,7 @@
 #include "vector/where.h"
 #include "vector/vector_dup.h"
 #include "vector/onehot.h"
+#include "cube/cube_pto.h"
 #endif
 
 #endif
