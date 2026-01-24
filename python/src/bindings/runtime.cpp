@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include "machine/device/dynamic/device_utils.h"
 #include "pybind_common.h"
 
 #include <utility>
@@ -572,14 +573,14 @@ struct DeviceGuard {
     int32_t nDevId {0};
 };
 
-static Function *Compile(py::object module, py::args args, py::kwargs kwargs) {
+static Function *Compile(py::object module, py::args &args) {
     Program::GetInstance().Reset();
     auto compile = py::getattr(module, "compile");
-    compile(args, kwargs);
+    compile(args);
     return Program::GetInstance().GetLastFunction();
 }
 
-static void BuildDefaultCache(KernelBinary *kbinary, py::object module, std::vector<DeviceTensorData> &tensors) {
+static void BuildDefaultCache(KernelBinary *kbinary, py::object &module, std::vector<DeviceTensorData> &tensors) {
     auto infershape = py::getattr(module, "infer_controlflow_shape");
     if (!infershape.is_none()) {
         auto cfshapes = infershape().cast<py::list>();
@@ -598,7 +599,7 @@ static void BuildDefaultCache(KernelBinary *kbinary, py::object module, std::vec
     }
 }
 
-static uint8_t *BuildTempCache(KernelBinary *kbinary, py::object module, std::vector<DeviceTensorData> &tensors) {
+static uint8_t *BuildTempCache(KernelBinary *kbinary, py::object &module, std::vector<DeviceTensorData> &tensors) {
     auto ctrlCache = kbinary->BuildControlFlowCache(tensors, false);
     auto size = ctrlCache->allCacheSize;
     auto pyalloc = py::getattr(module, "alloc");
@@ -611,7 +612,7 @@ static uint8_t *BuildTempCache(KernelBinary *kbinary, py::object module, std::ve
     return devCache;
 }
 
-static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object module, py::args args) {
+static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object &module, py::args &args) {
     auto infershape = py::getattr(module, "infer_controlflow_shape");
     if (!infershape.is_none()) {
         py::list oriShapes;
@@ -631,7 +632,7 @@ static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object module, py::args
     return nullptr;
 }
 
-static int GetInputTensors(py::args args, std::vector<DeviceTensorData> &tensors,
+static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensors,
     std::vector<std::reference_wrapper<Tensor>> &ref_tensors) {
     py::object device = py::none();
     for (auto &pt : args) {
@@ -673,7 +674,8 @@ static bool AttachAicpuStream(aclrtStream aicoreStream, aclrtStream aicpuStream)
     return false;
 }
 
-void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs kwargs) {
+void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
+    auto t0 = GetTimeMonotonic();
     auto aicoreStream = (aclrtStream)stream;
     auto aicpuStream = (aclrtStream)DeviceGetAicpuStream();
 
@@ -682,17 +684,19 @@ void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs k
     auto devId = GetInputTensors(args, tensors, ref_tensors);
     DeviceGuard devGuard(devId);
 
+    auto t1 = GetTimeMonotonic();
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
     auto kbinary = kmodule->FindFunction(devId, ref_tensors);
     if (kbinary == nullptr) {
         Program::GetInstance().Reset();
         // Set capture mode to relaxed to support rtmemcpy / rtmemset
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
-        auto func = Compile(module, args, kwargs);
+        auto func = Compile(module, args);
         kbinary = kmodule->AddFunction(devId, Program::GetInstance().GetFunctionSharedPtr(func));
         BuildDefaultCache(kbinary, module, tensors);
     }
 
+    auto t2 = GetTimeMonotonic();
     uint8_t *ctrlFlowCache = nullptr;
     if (kbinary->ControlFlowCacheEnable()) {
         ctrlFlowCache = FindCtrlCache(kbinary, module, args);
@@ -702,6 +706,7 @@ void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs k
         ctrlFlowCache = BuildTempCache(kbinary, module, tensors);
     }
 
+    auto t3 = GetTimeMonotonic();
     int64_t *wsAddr = nullptr;
     int64_t wsSize = kbinary->GetWorkspaceSize(tensors);
     if (wsSize) {
@@ -709,7 +714,10 @@ void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs k
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
 
+    auto t4 = GetTimeMonotonic();
     kmodule->Launch(kbinary, aicpuStream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    auto t5 = GetTimeMonotonic();
+    // ALOG_ERROR_F("LaunchKernel time: %lu, %lu, %lu, %lu, %lu", t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4);
 }
 
 void BindRuntime(py::module &m) {
