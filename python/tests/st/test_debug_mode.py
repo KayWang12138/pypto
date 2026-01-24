@@ -16,22 +16,30 @@ import torch
 import torch_npu
 
 
-@pypto.jit(
+def add_wrapper(shape, tiling=None):
+    @pypto.frontend.jit(
     debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1}
-)
-def add(a, b, c, tiling=None):
-    pypto.set_vec_tile_shapes(tiling, tiling)
-    for _ in pypto.loop(1, name="s0", idx_name="k"):
-        c.move(pypto.add(a, b))
+    )
+    def add(a: pypto.Tensor(shape, pypto.DT_INT32),
+            b: pypto.Tensor(shape, pypto.DT_INT32)) -> pypto.Tensor(shape, pypto.DT_INT32):
+        pypto.set_vec_tile_shapes(tiling, tiling)
+        for _ in pypto.loop(1, name="s0", idx_name="k"):
+            c = a + b
+        return c
+    return add
 
 
-@pypto.jit
-def sub(a, b, c, tiling=None):
-    pypto.set_debug_options(compile_debug_mode=1)
-    pypto.set_debug_options(runtime_debug_mode=1)
-    pypto.set_vec_tile_shapes(tiling, tiling)
-    for _ in pypto.loop(1, name="s0", idx_name="k"):
-        c.move(pypto.sub(a, b))
+def sub_wrapper(shape, tiling=None):
+    @pypto.frontend.jit(
+    debug_options={"compile_debug_mode": 1, "runtime_debug_mode": 1}
+    )
+    def sub(a: pypto.Tensor(shape, pypto.DT_INT32),
+            b: pypto.Tensor(shape, pypto.DT_INT32)) -> pypto.Tensor(shape, pypto.DT_INT32):
+        pypto.set_vec_tile_shapes(tiling, tiling)
+        for _ in pypto.loop(1, name="s0", idx_name="k"):
+            c = a - b
+        return c
+    return sub
 
 
 def safe_json_load(file_path):
@@ -52,8 +60,8 @@ def safe_json_load(file_path):
 def get_out_put_path():
     out_path = "./output"
     if os.path.exists(out_path):
-        subdirs = [os.path.join(out_path, d) for d in os.listdir(out_path) 
-                if os.path.isdir(os.path.join(out_path, d))]   
+        subdirs = [os.path.join(out_path, d) for d in os.listdir(out_path)
+                if os.path.isdir(os.path.join(out_path, d))]
         if subdirs:
             latest_dir = max(subdirs, key=os.path.getctime)
             return latest_dir
@@ -63,34 +71,25 @@ def get_out_put_path():
 def device_run(is_run_add, device_id):
     tiling = 32
     n, m = tiling * 1, tiling * 1
+    shape = (n, m)
 
     # prepare data
-    a_rawdata = torch.ones((n, m)) * 2
-    a_data = a_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
+    a_data = torch.ones((n, m), dtype=torch.int32, device=f'npu:{device_id}') * 2
+    b_data = torch.ones((n, m), dtype=torch.int32, device=f'npu:{device_id}')
 
-    b_rawdata = torch.ones((n, m))
-    b_data = b_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
-
-    c_data = torch.zeros((n, m), dtype=torch.int32, device=f'npu:{device_id}')
-
-    # def inputs and outputs
-    inputs = [a_data, b_data]
-    outputs = [c_data]
-    pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-    pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
     if is_run_add:
-        add(pto_inputs[0], pto_inputs[1], pto_outputs[0], tiling)
+        result = add_wrapper(shape, tiling)(a_data, b_data)
         torch_npu.npu.synchronize()
 
-        golden = torch.ones((n, m)) * 3
-        assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
-    
+        golden = torch.ones((n, m), dtype=torch.int32) * 3
+        assert torch.allclose(golden, result.cpu(), atol=1e-5)
+
     else:
-        sub(pto_inputs[0], pto_inputs[1], pto_outputs[0], tiling)
+        result = sub_wrapper(shape, tiling)(a_data, b_data)
         torch_npu.npu.synchronize()
 
-        golden = torch.ones((n, m))
-        assert torch.allclose(golden.int(), c_data.cpu(), atol=1e-5)
+        golden = torch.ones((n, m), dtype=torch.int32)
+        assert torch.allclose(golden, result.cpu(), atol=1e-5)
 
     output_path = get_out_put_path()
     assert output_path
