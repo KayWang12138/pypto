@@ -382,8 +382,6 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
         return rc;
     }
 
-    InitAiCpuSoBin();
-
     rc = LaunchAiCpu(aicpuStream, taskId, taskData, taskType);
     if (rc < 0) {
         ALOG_INFO_F("launch aicpu failed %d\n", rc);
@@ -703,8 +701,8 @@ void DeviceRunner::PrepareLaunchArgs(DeviceArgs &localArgs, DeviceKernelArgs *ke
 }
 
 int DeviceRunner::FillDeviceArgs(DeviceKernelArgs *kargs, int blockDim, int aicpuNum) {
-    InitAiCpuSoBin();
     auto localArgs = args_;
+    std::cout << localArgs.aicpuSoBin << " " << localArgs.aicpuSoLen << std::endl;
     PrepareLaunchArgs(localArgs, kargs, 0, blockDim, aicpuNum);
     int ret = rtMemcpy(kargs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
     if (ret != 0) {
@@ -718,10 +716,6 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     if (kernelArgs == nullptr) {
         return -1;
     }
-
-    HOST_PERF_TRACE(TracePhase::RunDevKernelInitErrCallBack);
-    InitAiCpuSoBin();
-    HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
 
     #ifdef BUILD_WITH_NEW_CANN
     if (!g_IsNullLaunched) {
