@@ -104,7 +104,7 @@ inline void DivS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
     GetCalcOps()->DivS(out, self, scalar, reverse);
 }
 inline void FmodS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
-    GetCalcOps()->FmodS(out, self, scalar);
+    GetCalcOps()->FmodS(out, self, scalar, reverse);
 }
 inline void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Add(out, self, other);
