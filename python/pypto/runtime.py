@@ -59,7 +59,7 @@ class _CachedVerifyData:
 _pto_verify_datas = _CachedVerifyData()
 
 def _current_stream():
-    npu = getattr(torch, 'npu')
+    npu = getattr(torch, 'npu', None)
     if npu:
         return npu.current_stream().npu_stream
     else:
@@ -175,6 +175,7 @@ class _JIT:
                 host_pto_t_datas, [], _pto_verify_datas.get_data())
 
     def compile(self, args, kwargs):
+        print("compile args:", args)
         tensors = [item for item in args if isinstance(item, pypto.Tensor)]
         self.verify_begin(tensors)
 
