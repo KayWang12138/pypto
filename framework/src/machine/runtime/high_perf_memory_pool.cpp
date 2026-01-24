@@ -285,6 +285,7 @@ void HighPerfMemoryPool::FreeToBlock(MemoryBlock* block, void* ptr, uint64_t siz
     // 创建新的空闲节点
     typename MemoryBlock::FreeNode* new_node = reinterpret_cast<typename MemoryBlock::FreeNode*>(
         static_cast<char*>(ptr) - sizeof(typename MemoryBlock::FreeNode));
+    
     new_node->size = size + sizeof(typename MemoryBlock::FreeNode);
     
     // 将新节点插入到空闲列表的合适位置
@@ -304,23 +305,22 @@ void HighPerfMemoryPool::FreeToBlock(MemoryBlock* block, void* ptr, uint64_t siz
     } else {
         prev->next = new_node;
     }
-    
-    // 合并相邻的空闲块
-    MergeFreeBlocks(block);
-    
+        
     // 更新块的使用情况
     block->used_size -= size;
     if (block->used_size == 0) {
         block->is_allocated = false;
     }
+
+    // 合并相邻的空闲块
+    MergeFreeBlocks(block);
 }
 
 void HighPerfMemoryPool::MergeFreeBlocks(MemoryBlock* block) {
     typename MemoryBlock::FreeNode* curr = block->free_list;
-    
     while (curr != nullptr && curr->next != nullptr) {
         // 检查当前块和下一个块是否相邻
-        char* curr_end = static_cast<char*>(curr + 1) + curr->size;
+        char* curr_end = reinterpret_cast<char*>(curr + 1) + curr->size;
         if (curr_end == reinterpret_cast<char*>(curr->next)) {
             // 合并两个块
             curr->size += curr->next->size + sizeof(typename MemoryBlock::FreeNode);
