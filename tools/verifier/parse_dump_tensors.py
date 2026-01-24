@@ -290,9 +290,6 @@ def main():
     # 初始化紧凑解析器
     parser = CompactDumpTensorInfoParser()
     print(f"单个结构字节数：{parser.struct_compact_size}")
-    
-    # file_path = "output/dump_tensor/device_0"
-    # verify_path = "output/output_20260115_104550_726964_2486574/verify_20260115_104551_050470/"
 
     _verify_res.read_verify_result(args.verify_path)
 
@@ -301,9 +298,7 @@ def main():
         for file_name in file_names:
             if not file_name.endswith(".tdump"):
                 continue
-            # bin_file = os.path.abspath(os.path.join(dir_path, file_name))
             bin_file = os.path.join(dir_path, file_name)
-            # tensor_info = parser.parse_file(bin_file)
             
             tensor_infos.append(parser.parse_file(bin_file))
     df = pd.DataFrame(tensor_infos)
