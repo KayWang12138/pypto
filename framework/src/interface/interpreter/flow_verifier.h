@@ -61,10 +61,8 @@ public:
     };
     struct CompareResult : std::vector<CompareElement> {
         CompareResult() {}
-        CompareResult(int size, float eps, size_t errorCountThreshold = 0, size_t zeroCountThreshold = 0) : size_(size), eps_(eps) {
-            errorCountThreshold_ = errorCountThreshold != 0 ? errorCountThreshold : static_cast<int>(size * eps);
-            zeroCountThreshold_ = zeroCountThreshold != 0 ? zeroCountThreshold : THREAD_THOUSAND;
-        }
+        CompareResult(int size, float rtol, float atol, size_t errorCountThreshold = 0, size_t failNum = 0) : size_(size),
+                        rtol_(rtol), atol_(atol), errorCountThreshold_(errorCountThreshold), failNum_(failNum) {}
 
         template<typename...TyArgs>
         void AppendError(TyArgs && ...args) {
@@ -77,8 +75,20 @@ public:
             this->emplace_back(args...);
         }
 
+        void AppendFail() {
+            failNum_++;
+        }
+
+        void UpdateErrorCountThreshold() {
+            errorCountThreshold_ = static_cast<int>((size_ - zeroCount_) * std::min(rtol_, atol_));
+            size_t cnt_adj = static_cast<int>(std::pow((size_ - zeroCount_), 0.5)) / 2;
+            if (errorCountThreshold_ < cnt_adj && cnt_adj < 16) {
+                errorCountThreshold_ = cnt_adj;
+            }
+        }
+
         bool Check() const {
-            return errorCount_ <= errorCountThreshold_ && zeroCount_ <= zeroCountThreshold_;
+            return errorCount_ <= errorCountThreshold_ && failNum_ == 0;
         }
 
         std::vector<std::string> Dump(int indent = 2, size_t maxPrint = 50) const {
@@ -88,7 +98,7 @@ public:
             CompareElement maxRelElement;
             std::ostringstream oss;
             std::string space(indent, ' ');
-            std::string infoError = "\n  " + space + "Error eps=" + std::to_string(eps_);
+            std::string infoError = "\n  " + space + "Error rtol=" + std::to_string(rtol_) + " atol=" + std::to_string(atol_);
             std::string infoZero = "\n  " + space + "Zero";
             size_t count_ = 0;
             for (auto &element : *this) {
@@ -134,12 +144,14 @@ public:
                     std::to_string(errorCount_ * 1.0 / size_)};
         }
 
-        float GetEps() const { return eps_; }
+        float GetRtol() const { return rtol_; }
+        float GetAtol() const { return atol_; }
     private:
         size_t size_{0};
-        float eps_{0};
+        float rtol_{0};
+        float atol_{0};
         size_t errorCountThreshold_{0};
-        size_t zeroCountThreshold_{0};
+        size_t failNum_{0};
         size_t errorCount_ = 0;
         size_t zeroCount_ = 0;
     };
@@ -148,20 +160,34 @@ public:
     static void CompareData(CompareResult &compareResult, size_t count, int64_t offset, const DataType *goldenValueList,
                             const DataType *outputValueList) {
         for (size_t index = 0; index < count; index++) {
-            auto goldenValue = static_cast<float>(goldenValueList[index]);
-            auto outputValue = static_cast<float>(outputValueList[index]);
-            auto absDiff = std::abs(goldenValue - outputValue);
-            auto relDiff = 0.0f;
-            if (std::abs(goldenValue) < 1e-6) {
-                relDiff = std::abs(absDiff) < 1e-6 ? 0 : 1;
+            std::variant<float, double> goldenValue;
+            std::variant<float, double> outputValue;
+            if constexpr (std::is_same_v<T, npu::tile_fwk::float16> || std::is_same_v<T, npu::tile_fwk::bfloat16>) {
+                goldenValue = static_cast<float>(goldenValueList[index]);
+                outputValue = static_cast<float>(outputValueList[index]);
             } else {
-                relDiff = std::abs(absDiff / goldenValue);
+                goldenValue = static_cast<double>(goldenValueList[index]);
+                outputValue = static_cast<double>(outputValueList[index]);
             }
-            if (std::abs(outputValue) <= 1e-6 && std::abs(goldenValue) > 1e-6) {
-                compareResult.AppendZero(false, offset + index, goldenValue, outputValue, absDiff, relDiff);
+            
+            auto output_abs = abs(outputValue);
+            auto golden_abs = abs(goldenValue);
+            auto output_golden_sub_abs = abs(outputValue - goldenValue);
+            auto output_golden_abs_add = output_abs + golden_abs;
+            auto relDiff = output_golden_sub_abs / output_golden_abs_add * 2;
+
+            if (output_golden_abs_add <= 0) {
+                compareResult.AppendZero(false, offset + index, goldenValue, outputValue, 0, 0);
+                continue;
             }
-            if (absDiff > compareResult.GetEps() && relDiff > compareResult.GetEps()) {
-                compareResult.AppendError(true, offset + index, goldenValue, outputValue, absDiff, relDiff);
+
+            auto tol_attn = output_golden_abs_add * compareResult.GetRtol() / 2 + compareResult.GetAtol();
+            auto tol_fail = tol_attn * 128;
+            if (output_golden_sub_abs > tol_attn) {
+                compareResult.AppendError(true, offset + index, goldenValue, outputValue, output_golden_sub_abs, relDiff);
+            }
+            if (output_golden_sub_abs > tol_fail) {
+                compareResult.AppendFail();
             }
         }
     }
@@ -186,24 +212,25 @@ public:
 
     template <typename DataType>
     static CompareResult CompareData(const std::shared_ptr<LogicalTensorData> &goldenDataView,
-        const std::shared_ptr<LogicalTensorData> &outputDataView, float eps, int errorCountThreshold = 0,
-        int zeroCountThreshold = 0) {
+        const std::shared_ptr<LogicalTensorData> &outputDataView, float rtol, float atol, int errorCountThreshold = 0,
+        int failNum = 0) {
         auto &validShape = goldenDataView->GetValidShape();
         auto size = std::accumulate(validShape.begin(), validShape.end(), 1, std::multiplies<>());
-        CompareResult compareResult(size, eps, errorCountThreshold, zeroCountThreshold);
+        CompareResult compareResult(size, rtol, atol, errorCountThreshold, failNum);
         CompareDataRecursive<DataType>(compareResult, 0, 0, 0, goldenDataView, outputDataView);
+        compareResult.UpdateErrorCountThreshold();
         return compareResult;
     }
 
     static CompareResult VerifyResult(
             const std::shared_ptr<LogicalTensorData> &goldenDataView,
-            const std::shared_ptr<LogicalTensorData> &outputDataView, float eps);
+            const std::shared_ptr<LogicalTensorData> &outputDataView, float rtol, float atol);
     static bool VerifyResult(const std::string &key,
         const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
-        const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float eps);
+        const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float rtol, float atol);
     bool VerifyResult(const std::string &key, const std::string tensorNameList,
         const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
-        const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float eps);
+        const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float rtol, float atol);
 
 private:
     void UpdateInterpreterCache();
@@ -213,15 +240,6 @@ private:
             const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList,
             const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
             const std::shared_ptr<TensorSlotManager> &slotManager);
-
-    template <typename type>
-    static bool CompareDataAndCheck(const std::shared_ptr<RawTensorData> &goldenData,
-        const std::shared_ptr<RawTensorData> &cmpData, float eps) {
-        if (!CompareData<type>(goldenData->GetSize(), &goldenData->Get<type>(0), &cmpData->Get<type>(0), eps).Check()) {
-            return false;
-        }
-        return true;
-    }
 
 private:
     Function *entry_;
