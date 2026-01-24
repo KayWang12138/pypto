@@ -66,7 +66,7 @@ constexpr uint32_t HIGHT_BIT = 16;
 
 constexpr uint32_t SUB_CORE = 3;
 constexpr uint32_t AIV_PER_AICORE = 2;
- 
+
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 namespace npu::tile_fwk {
 
@@ -704,6 +704,16 @@ void DeviceRunner::PrepareLaunchArgs(DeviceArgs &localArgs, DeviceKernelArgs *ke
     args_.nrValidAic = localArgs.nrValidAic;
     args_.nrAicpu = localArgs.nrAicpu;
     args_.scheCpuNum = localArgs.scheCpuNum;
+}
+
+int DeviceRunner::FillDeviceArgs(DeviceKernelArgs *kargs, int blockDim, int aicpuNum) {
+    auto localArgs = args_;
+    PrepareLaunchArgs(localArgs, kargs, 0, blockDim, aicpuNum);
+    int ret = rtMemcpy(kargs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
+    if (ret != 0) {
+        ALOG_ERROR_F("Copy args failed %p rc %d\n", kargs->cfgdata, ret);
+    }
+    return ret;
 }
 
 int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,

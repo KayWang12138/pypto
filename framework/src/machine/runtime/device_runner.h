@@ -70,6 +70,7 @@ public:
         isCapture_ = isCapture;
     }
 
+    int FillDeviceArgs(DeviceKernelArgs *kargs, int blockDim, int aicpuNum);
     void ResetPerData();
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
