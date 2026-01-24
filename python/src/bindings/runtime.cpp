@@ -22,6 +22,7 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
 #include "machine/host/perf_analysis.h"
+#include "utils/log.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -494,12 +495,14 @@ struct KernelModule {
         return &kernels.back();
     }
 
-    int Launch(KernelBinary *kbinary, aclrtStream aicpuStream, aclrtStream aicoreStream,
+    void Launch(KernelBinary *kbinary, aclrtStream aicpuStream, aclrtStream aicoreStream,
         std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
+        ALOG_ERROR(__FUNCTION__, __LINE__);
         auto args = kbinary->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args->kArgs.inputs;
         rtAicpuArgs.argsSize = (int64_t)args->kArgs.outputs;
 
+        ALOG_ERROR(__FUNCTION__, __LINE__);
         args->kArgs.launchMode = AICPU_LAUNCH_MODE_CTRL;
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
@@ -507,11 +510,13 @@ struct KernelModule {
             rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtAicpuArgs, nullptr, aicpuStream, 0);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
 
+        ALOG_ERROR(__FUNCTION__, __LINE__);
         args->kArgs.launchMode = AICPU_LAUNCH_MODE_SCHED;
         ret = rtAicpuKernelLaunchExWithArgs(
             rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 3, &rtAicpuArgs, nullptr, aicpuStream, 0);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu sched failed: " << ret;
 
+        ALOG_ERROR(__FUNCTION__, __LINE__);
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
         ret = rtKernelLaunchWithHandleV2(
@@ -562,7 +567,7 @@ static Function *Compile(py::object module, py::args args, py::kwargs kwargs) {
     Program::GetInstance().Reset();
     auto compile = py::getattr(module, "compile");
     compile(args, kwargs);
-    auto func = Program::GetInstance().GetLastFunction();
+    return Program::GetInstance().GetLastFunction();
 }
 
 static void BuildDefaultCache(KernelBinary *kbinary, py::object module, std::vector<DeviceTensorData> &tensors) {
@@ -614,9 +619,10 @@ static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object module, py::args
         auto shape = cfshape.cast<std::vector<std::vector<int64_t>>>();
         return kbinary->FindCtrlFlowCache(shape);
     }
+    return nullptr;
 }
 
-static void GetInputTensors(py::object module, py::args args, std::vector<DeviceTensorData> &tensors,
+static void GetInputTensors(py::args args, std::vector<DeviceTensorData> &tensors,
     std::vector<std::reference_wrapper<Tensor>> &ref_tensors) {
     for (auto &pt : args) {
         auto base = py::getattr(pt, "_base");
@@ -655,28 +661,37 @@ void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs k
 
     std::vector<DeviceTensorData> tensors;
     std::vector<std::reference_wrapper<Tensor>> ref_tensors;
-    GetInputTensors(module, args, tensors, ref_tensors);
+    GetInputTensors(args, tensors, ref_tensors);
 
+    ALOG_ERROR(__FUNCTION__, __LINE__);
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
     auto kbinary = kmodule->FindFunction(devId, ref_tensors);
+    ALOG_ERROR(__FUNCTION__, __LINE__);
     if (kbinary == nullptr) {
         Program::GetInstance().Reset();
         // Set capture mode to relaxed to support rtmemcpy / rtmemset
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+        ALOG_ERROR(__FUNCTION__, __LINE__);
         auto func = Compile(module, args, kwargs);
+        ALOG_ERROR(__FUNCTION__, __LINE__);
         kbinary = kmodule->AddFunction(devId, Program::GetInstance().GetFunctionSharedPtr(func));
+        ALOG_ERROR(__FUNCTION__, __LINE__);
         BuildDefaultCache(kbinary, module, tensors);
+        ALOG_ERROR(__FUNCTION__, __LINE__);
     }
-
+    ALOG_ERROR(__FUNCTION__, __LINE__);
     uint8_t *ctrlFlowCache = nullptr;
     if (kbinary->ControlFlowCacheEnable()) {
+        ALOG_ERROR(__FUNCTION__, __LINE__);
         ctrlFlowCache = FindCtrlCache(kbinary, module, args);
     }
+    ALOG_ERROR(__FUNCTION__, __LINE__);
     auto captured = AttachAicpuStream(aicoreStream, aicpuStream);
     if (ctrlFlowCache == nullptr && captured) {
         ctrlFlowCache = BuildTempCache(kbinary, module, tensors);
     }
 
+    ALOG_ERROR(__FUNCTION__, __LINE__);
     int64_t *wsAddr = nullptr;
     int64_t wsSize = kbinary->GetWorkspaceSize(tensors);
     if (wsSize) {
@@ -684,6 +699,7 @@ void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs k
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
 
+    ALOG_ERROR(__FUNCTION__, __LINE__);
     kmodule->Launch(kbinary, aicpuStream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
 }
 
