@@ -128,7 +128,7 @@ Status InsertOpForViewAssemble::JudgedViewAssemble(Function &function) {
     return SUCCESS;
 }
 
-void InsertOpForViewAssemble::AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input) {
+void InsertOpForViewAssemble::InsertCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input) {
     if (cons->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
         return ;
     }
@@ -160,7 +160,7 @@ void InsertOpForViewAssemble::AddCopyUBOp(Function &function, Operation *cons, L
 }
 
 
-void InsertOpForViewAssemble::AddCopyDDROp(Function &function, Operation *cons, LogicalTensorPtr &input) {
+void InsertOpForViewAssemble::InsertCopyDDROp(Function &function, Operation *cons, LogicalTensorPtr &input) {
     auto copyShape = input->GetShape();
     std::vector<int64_t> offset00(copyShape.size(), 0);
     std::vector<SymbolicScalar> dynOffset0(copyShape.size(), 0);
@@ -214,12 +214,12 @@ void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
             }
         }
     }
-    for (auto &needed : needAddCopyAssOps) {
-        auto input = needed->GetIOperands()[0];
+    for (auto &needAddCopyAssOp : needAddCopyAssOps) {
+        auto input = needAddCopyAssOp->GetIOperands()[0];
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            AddCopyUBOp(function, needed, input);
+            InsertCopyUBOp(function, needAddCopyAssOp, input);
         } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            AddCopyDDROp(function, needed, input);
+            InsertCopyDDROp(function, needAddCopyAssOp, input);
         }
     }
 }
