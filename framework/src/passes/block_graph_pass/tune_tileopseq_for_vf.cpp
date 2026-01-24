@@ -32,22 +32,20 @@ bool TuneTileOpSeqForVF::IsGroupMergeable(PipeSync &ps, size_t left, size_t k, i
 }
 
 bool TuneTileOpSeqForVF::IsMergeable(std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, PipeSync &ps, int groupNum) {
+    (void)moveFrontOp;
+    (void)groupNum;
+    std::unordered_set<Opcode> skipCode{Opcode::OP_VIEW, Opcode::OP_ASSEMBLE, Opcode::OP_NOP, Opcode::OP_HUB};
     for (size_t k = left + 1; k < right; k++) {
+        if (skipCode.count(opList_[k]->GetOpcode())> 0) {
+            continue;
+        }
         // 如果该op和vecTileop0和vecTileop1都存在依赖关系，则不能融合
         if (ps.HasDataDependency(*opList_[left], *opList_[k], left, k) && ps.HasDataDependency(*opList_[k], *opList_[right], k, right)) {
             return false;
         }
         // vecTileop0 op(set) vecTileop1(wait) 这种情况下两个vecTileop中间的op需要前移
         if (ps.HasDataDependency(*opList_[k], *opList_[right], k, right)) {
-            // 需要进一步判断和vecTileop0 group中的op是否有依赖关系
-            if (groupNum == -1) {
-                moveFrontOp.insert(opList_[k]);
-            } else {
-                if (!IsGroupMergeable(ps, left, k, groupNum)) {
-                    return false;
-                }
-                moveFrontOp.insert(opList_[k]);
-            }
+            return false;
         }
     }
     return true;
@@ -75,13 +73,16 @@ void TuneTileOpSeqForVF::MoveOpsForMerge(const std::unordered_set<Operation *> &
     auto insertPosR = opList_.begin() + left + 2;
     opList_.insert(insertPosR, moveRight.begin(), moveRight.end());
     // 在vecTileop0 group的左侧将moveLeft的op插入
-    auto insertPosL = opList_.begin() + left - mergedOps[groupNum].size() + 1;
+    auto insertPosL = opList_.begin() + left - mergedOps[groupNum].size() + 2;
     opList_.insert(insertPosL, moveLeft.begin(), moveLeft.end());
 }
 
 void TuneTileOpSeqForVF::FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore coreType) {
     PipeSync ps;
     for (size_t i = 0; i < opList_.size(); i++) {
+        if (opList_[i]->GetOpcode() == Opcode::OP_VEC_DUP) {
+            continue;
+        }
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList_[i]->GetOpcode());
         ps.AdjustOpCfg(opcfg, *opList_[i]);
         if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList_[i]->GetAIVCore() == coreType) {
@@ -176,8 +177,6 @@ Status TuneTileOpSeqForVF::RunOnFunction(Function &function) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Output Operation %d %s", op->GetOpMagic(), op->GetOpcodeStr().c_str());
         }
         funcId++;
-
-        // TODO 增加拓扑逻辑校验
     }
     return SUCCESS;
 }
