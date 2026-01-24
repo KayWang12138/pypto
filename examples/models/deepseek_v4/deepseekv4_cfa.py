@@ -79,10 +79,10 @@ class AttentionConfig:
     kv_num_blocks: int = 0
 
 
-def get_case_info(device="cpu"):
+def get_decode_case(device="cpu"):
     b = 4
     s1 = 1
-    s2 = 64 * 1024
+    s2 = 261
     q_d = 512
     nq = 64
     nkv = 1
@@ -99,7 +99,7 @@ def get_case_info(device="cpu"):
     return attn_cfg
 
 
-def get_prefill_case_info(device="cpu"):
+def get_prefill_case(device="cpu"):
     b = 1
     s1 = 8 * 1024
     s2 = s1
@@ -130,10 +130,31 @@ def get_prefill_case_info(device="cpu"):
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"cube_l1_reuse_setting": {0: 4, 2:4}}
 )
-def ifa_flash(q, kv, attn_sink, block_table, start_pos, kv_win=None, blk_win=None, 
+def c128_decode(q, kv, attn_sink, block_table, start_pos, kv_win=None, blk_win=None, 
               atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
-    pypto.experimental.set_operation_config(combine_axis=True)
-    # pypto.set_debug_options(runtime_debug_mode=2) #开启AICPU抢跑
+    kernel(q, kv, attn_sink, block_table, start_pos, kv_win=kv_win, blk_win=blk_win, 
+              atten_out = atten_out, cmp_r=cmp_r, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound, is_prefill=False)
+
+
+@pypto.jit(
+    runtime_options={"stitch_function_num_initial": 128,
+                     "stitch_function_outcast_memory": 2048,
+                     "stitch_function_inner_memory": 2048,
+                     "device_sched_mode": 1},
+    host_options={"only_codegen": True},
+    debug_options={"runtime_debug_mode": 1},
+    
+    # 当子图大小达到上界不允许与其他子图合并
+    pass_options={"cube_l1_reuse_setting": {0: 4, 2:4}}
+)
+def c128_prefill(q, kv, attn_sink, block_table, start_pos, kv_win=None, blk_win=None, 
+              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
+    kernel(q, kv, attn_sink, block_table, start_pos, kv_win=kv_win, blk_win=blk_win, 
+              atten_out = atten_out, cmp_r=cmp_r, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound, is_prefill=True)
+    
+
+def kernel(q, kv, attn_sink, block_table, start_pos, kv_win=None, blk_win=None, 
+              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072, is_prefill = False):
     pypto.set_pass_options(pg_upper_bound=pg_upper_bound)
     enable_c128 = kv_win is not None and blk_win is not None
     shape_q = q.shape
@@ -147,6 +168,8 @@ def ifa_flash(q, kv, attn_sink, block_table, start_pos, kv_win=None, blk_win=Non
     nkv = shape_k[2]
     dn = shape_k[3]
     softmax_scale = dn ** -0.5
+    # if is_prefill:
+    #     softmax_scale = 37
     b_scalar = start_pos.shape[0]
 
     dtype = q.dtype
@@ -342,66 +365,7 @@ class MM(torch.nn.Module):
 
 
 @pytest.mark.skip(reason="large test case")
-def test_ifa(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
-    device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
-    device = f'npu:{device_id}'
-    attn_cfg = get_case_info(device=device)
-    torch_dtype = torch.bfloat16
-    b = attn_cfg.b
-    s1 = attn_cfg.s1
-    d = attn_cfg.q_d
-    nq = attn_cfg.n1
-    nkv = attn_cfg.n2
-    cmp_r = attn_cfg.cmp_r
-
-    block_size = attn_cfg.block_size
-    max_blocks = attn_cfg.max_blocks
-    orig_act_seq = attn_cfg.actual_seq
-
-    q_shape = [b * s1, nq, d]
-    kv_shape = [attn_cfg.kv_num_blocks, block_size, nkv, d]
-    blk_tbl_shape = [attn_cfg.block_table_batch, max_blocks]
-
-    empty_kwargs = {"dtype": torch_dtype, "device": device}
-    q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1)
-    k = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
-    v = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
-    attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1) + 50
-
-    import utils.golden.attn_golden as attn_golden
-    output = torch.zeros(q_shape, **empty_kwargs)
-    output_flash = torch.zeros(q_shape, **empty_kwargs)
-
-    blk_tbl = attn_golden.gen_block_table(orig_act_seq, block_size, blk_tbl_shape, cmp_r=cmp_r)
-    start_pos = orig_act_seq - s1
-    out_npu = torch.zeros(q_shape, **empty_kwargs)
-
-    debug_str = os.environ.get("HIGH_PERFORMANCE", "False").lower()
-    unroll_list = [2, 1]
-    if debug_str in ["true", "1"] or enable_high_perf:
-        unroll_list = [2, 1]
-    # attention(q, k, v, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
-    from utils.np_compare import detailed_allclose_manual as compare
-
-    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output, enable_flash=False, cmp_r=cmp_r, is_new_sink=True)
-    attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True)
-    threhold = 5e-4
-    compare(output, output_flash, "no flash golden vs flash golden", rtol=threhold, atol=threhold)
-    compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
-
-    # acl graph
-    if enable_graph:
-        model = torch.compile(MM(), backend="eager", dynamic=True)
-        g = torch.npu.NPUGraph()
-        with torch.npu.graph(g):
-            y = model(q, k, v, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list)
-        g.replay()
-        pypto.runtime._device_synchronize()
-        compare(output_flash, y, "golden vs graph npu", rtol=threhold, atol=threhold)
-
-
-@pytest.mark.skip(reason="large test case")
-def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device: str, pg_upper_bound: int, attn_cfg: AttentionConfig):
+def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device: str, pg_upper_bound: int, attn_cfg: AttentionConfig, is_prefill=False):
     torch_dtype = torch.bfloat16
     b = attn_cfg.b
     s1 = attn_cfg.s1
@@ -443,9 +407,9 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
     unroll_list = [2, 1]
     if enable_high_perf:
         unroll_list = [2, 1]
-    attention(q, kv, attn_sink, blk_tbl, start_pos, kv_win, blk_win, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
+    attention(q, kv, attn_sink, blk_tbl, start_pos, kv_win, blk_win, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound, is_prefill= is_prefill)
     # attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output, enable_flash=False, cmp_r=cmp_r, is_new_sink=True, k_win=k_win, v_win=v_win, blk_win=blk_win)
-    attn_golden.ifa_golden(q, kv, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True, kv_win=kv_win, blk_win=blk_win)
+    attn_golden.ifa_golden(q, kv, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True, kv_win=kv_win, blk_win=blk_win, is_prefill=is_prefill)
     threhold = 5e-4
     # compare(output, output_flash, "no flash golden vs flash golden", rtol=threhold, atol=threhold)
     if out_npu.numel() > 1000000:
@@ -479,7 +443,8 @@ def attention(
         attn_res: torch.Tensor,
         cmp_r: int = 1,
         unroll_list: list | None = None,
-        pg_upper_bound: int = 3072
+        pg_upper_bound: int = 3072,
+        is_prefill: bool = False
 ) -> None:
     """
     Main attention function with Attention support.
@@ -526,20 +491,23 @@ def attention(
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     if unroll_list is None:
         unroll_list = []
-    ifa_flash(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
+    if is_prefill:
+        c128_prefill(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
+    else:
+        c128_decode(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
     pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
 def test_c128_decode(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'    
-    attn_cfg = get_case_info(device=device)
+    attn_cfg = get_decode_case(device=device)
     c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, pg_upper_bound=pg_upper_bound, attn_cfg=attn_cfg)
     
 
 def test_c128_prefill(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'    
-    attn_cfg = get_prefill_case_info(device=device)
+    attn_cfg = get_prefill_case(device=device)
     c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, pg_upper_bound=pg_upper_bound, attn_cfg=attn_cfg)
     
 
@@ -547,7 +515,6 @@ def test_c128_prefill(enable_flash: bool, enable_high_perf: bool, enable_graph: 
 if __name__ == "__main__":
     import argparse as ap
     import utils.golden.attn_golden as attn_golden
-    from utils.np_compare import detailed_allclose_manual as compare
     p = ap.ArgumentParser(description="参数配置")
     p.add_argument("-f", "--enable-flash", action="store_true", help="开启flash模式")
     p.add_argument("-p", "--high-perf", action="store_true", help="启用高性能模式")
@@ -555,7 +522,7 @@ if __name__ == "__main__":
     p.add_argument("-c", "--device-id", type=int, default=0, help="显卡序号，默认0")
     p.add_argument("-u", "--upper", type=int, default=6000, help="融合上限法")
     args = p.parse_args()
-    # test_c128_prefill(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
-    #          device_id=args.device_id, pg_upper_bound=args.upper)
+    test_c128_prefill(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
+             device_id=args.device_id, pg_upper_bound=args.upper)
     test_c128_decode(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
              device_id=args.device_id, pg_upper_bound=args.upper)

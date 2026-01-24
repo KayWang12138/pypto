@@ -103,7 +103,7 @@ def softmax(x, attn_sink, is_fp16=False, is_new_sink = False):
 
 
 def ifa_golden(q, kv, attn_sink, blk_cfa, start_pos, out, enable_flash=True, cmp_r=1, is_new_sink=False,
-                kv_win=None, blk_win=None):
+                kv_win=None, blk_win=None, is_prefill=False):
     if not enable_flash:
         fp64 = torch.float64
         q = q.to(fp64)
@@ -115,6 +115,8 @@ def ifa_golden(q, kv, attn_sink, blk_cfa, start_pos, out, enable_flash=True, cmp
         nkv = kv.shape[2]
         d = kv.shape[3]
         softmax_scale = d**-0.5
+        # if is_prefill:
+        #     softmax_scale = 37        
         ori_act_seqs = start_pos + s1
         compress_actual_seqs = ori_act_seqs // cmp_r
         kv_bsnd = kv_cache_concat_bsnd(
@@ -154,6 +156,7 @@ def ifa_golden(q, kv, attn_sink, blk_cfa, start_pos, out, enable_flash=True, cmp
             cmp_r=cmp_r,
             is_new_sink=is_new_sink,
             kv_win=kv_win, blk_win=blk_win,
+            is_prefill=is_prefill
         )
 
 
@@ -189,7 +192,7 @@ def flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, d
     )
 
 def ifa_flash_torch(q, kv, attn_sink, block_table, start_pos, out, cmp_r=1, is_new_sink=False,
-                kv_win=None, blk_win=None):
+                kv_win=None, blk_win=None, is_prefill=False):
     """
     Args:
         q: Query [batch_size * s1, num_head, head_size]
@@ -213,6 +216,9 @@ def ifa_flash_torch(q, kv, attn_sink, block_table, start_pos, out, cmp_r=1, is_n
     g_tile = g
     kv_2d = kv.reshape(-1, d)
     q_2d = q.reshape(-1, d)
+    scale = d ** -0.5
+    # if is_prefill:
+    #     scale = 37
 
     for b_idx in range(b):
         for s1_idx in range(s1):
@@ -233,7 +239,7 @@ def ifa_flash_torch(q, kv, attn_sink, block_table, start_pos, out, cmp_r=1, is_n
                     cur_seq_win = min(block_size, original_actual_seqs[b_idx] - (s1 - 1 - s1_idx))
                     kv_win_tmp = get_block_kv(kv_win_2d, blk_win, b_idx, 0, block_size, cur_seq_win)
                     mm1 = matmul_proxy(qi, kv_win_tmp.t())
-                    muls_res = mm1 * (d**-0.5)
+                    muls_res = mm1 * scale
                     tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)
                     tsub = muls_res - tilda_mij
                     tilda_pij = torch.exp(tsub)
@@ -247,7 +253,7 @@ def ifa_flash_torch(q, kv, attn_sink, block_table, start_pos, out, cmp_r=1, is_n
                 for s2_idx in range(s2_loop):
                     kvj = get_block_kv(kv_2d, block_table, b_idx, s2_idx, block_size, cur_seq)
                     mm1 = matmul_proxy(qi, kvj.t())
-                    muls_res = mm1 * (d**-0.5)
+                    muls_res = mm1 * scale
                     tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)
                     if s2_idx == 0 and kv_win is None:
                         tsub = muls_res - tilda_mij
