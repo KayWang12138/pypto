@@ -146,16 +146,6 @@ struct DevAscendProgram {
         return localvec[index];
     }
 
-    void DumpCce(std::ostringstream& oss, int indent) const;
-
-    void DumpControlFlow(const int indent, const bool dumpAddr, std::ostringstream& oss) const;
-
-    void DumpExpressionTable(const int indent, const bool dumpAddr, std::ostringstream& oss) const;
-
-    std::string Dump(const int indent = 0, const bool dumpAddr = false) const;
-
-    void DumpFile(const std::string &filePath) const;
-
     std::vector<int> GetInputTensorSlotIndexList() const {
         std::vector<int> indexList;
         for (size_t i = 0; i < startArgsInputTensorSlotIndexList.size(); i++) {
@@ -386,8 +376,18 @@ struct DevAscendProgram {
 
     uint64_t GetSize() const { return reinterpret_cast<uintptr_t>(programLastField.End()) - reinterpret_cast<uintptr_t>(this); }
 
+    std::string Dump(const int indent = 0, const bool dumpAddr = false) const;
+
+    void DumpFile(const std::string &filePath) const;
+
 private:
     friend struct EncodeDevAscendProgramInfo;
+
+    void DumpCce(std::ostringstream& oss, int indent) const;
+
+    void DumpControlFlow(const int indent, const bool dumpAddr, std::ostringstream& oss) const;
+
+    void DumpExpressionTable(const int indent, const bool dumpAddr, std::ostringstream& oss) const;
 
     void InitSymbolTable(
             uintdevptr_t &initOffset, SymbolicSymbolTable *symbolTableInput, bool fillContent);

@@ -26,7 +26,7 @@
 #include "machine/dump/kernel_dump_utils.h"
 #include "machine/compile/machine_compiler.h"
 #include "machine/cache_manager/cache_manager.h"
-#include "machine/utils/dynamic/dev_encode.h"
+#include "machine/host/dev_encode.h"
 #include "machine/host/device_agent_task.h"
 #include "machine/compile/aicore_compiler.h"
 #include "machine/compile/compile_control_bin.h"

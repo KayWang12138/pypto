@@ -21,9 +21,7 @@
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::dynamic {
-constexpr int ARG_ATTR_TYPE = 4;
 const uint32_t RAW_TENSOR_OFFSET_SIZE = 63;
-const uint32_t RAW_TENSOR_DESC_PRE_SIZE = 8;
 
 struct DevAscendFunctionDuppedData {
     DevAscendFunction *source_;
@@ -264,43 +262,7 @@ struct DevAscendFunctionDupped {
             return funcData->rawTensorAddr[desc.offsetOrIndex] & ((1UL << RAW_TENSOR_OFFSET_SIZE) - 1);
     }
 
-    std::string DumpDyn(int funcIdx, int operIdx, const DevCceBinary *cceBinary) const {
-        std::stringstream oss;
-        auto func = GetSource();
-
-        auto attrBase = reinterpret_cast<SymInt *>(&funcData->opAttrs[funcData->opAtrrOffsets[operIdx]]);
-        auto funcIndex = attrBase[0].Value();
-        oss << std::hex << " #funcKey " << func->funcKey << " #operIndex " << operIdx
-            << " #funcHash: " << std::to_string(cceBinary[funcIndex].funcHash)
-            << " #coreType: " << cceBinary[funcIndex].coreType
-            << " #taskID:" << MakeTaskID(funcIdx, operIdx) << "\n";
-
-        auto dumpAttr = [this, &oss](auto attrs, auto &info) {
-            int attrIndex = info.staticOffsetAttrBeginIndex;
-            auto rawIndex = attrs[attrIndex - 1].Value();
-            oss << rawIndex << "@" << GetRawTensorAddrEx(rawIndex) << ", ";
-            int dim = info.GetDim();
-            for (int i = 0; i < dim * ARG_ATTR_TYPE; i++) {
-                oss << GetValue(attrs, attrIndex + i) << ", ";
-            }
-        };
-
-        int offset = 0;
-        for (size_t idx = 0; idx < func->GetOperationIOperandSize(operIdx); idx++) {
-            auto &opInfo = func->GetOperationIOperandInfo(operIdx, idx);
-            offset = std::max(offset, opInfo.staticOffsetAttrBeginIndex + ARG_ATTR_TYPE * opInfo.GetDim());
-            dumpAttr(attrBase, opInfo);
-        }
-        for (size_t idx = 0; idx < func->GetOperationOOperandSize(operIdx); idx++) {
-            auto &opInfo = func->GetOperationOOperandInfo(operIdx, idx);
-            offset = std::max(offset, opInfo.staticOffsetAttrBeginIndex + ARG_ATTR_TYPE * opInfo.GetDim());
-            dumpAttr(attrBase, opInfo);
-        }
-        for (size_t idx = static_cast<size_t>(offset); idx < func->GetOperationAttrSize(operIdx); idx++) {
-            oss << GetValue(attrBase, idx) << ", ";
-        }
-        return oss.str();
-    }
+    std::string DumpDyn(int funcIdx, int operIdx, const DevCceBinary *cceBinary) const;
 
     void DumpTopo(std::ofstream &os, int seqNo, int funcIdx, const DevCceBinary *cceBinary) const;
 
@@ -308,118 +270,9 @@ struct DevAscendFunctionDupped {
     void DumpTensorAddrInfo(std::vector<std::string> &infos, uint32_t seqNo, uint32_t funcIdx);
 #endif // DEBUG_INFINITE_LIFETIME
 
-    void DumpRawShape(const DevAscendRawTensor *rawTensor, uint32_t dimSize, std::vector<std::string> &lines,
-                      std::stringstream &oss) const;
-
-    void DumpOperandShape(uint32_t dimSize, size_t opIdx, size_t operandIdx, bool isIn, std::vector<std::string> &lines,
-                          std::stringstream &oss) const;
-
     std::vector<std::string> DumpLeafs(uint32_t seqNo, uint32_t funcIdx) const;
 
-    void DumpAttr(const DevAscendFunction *func, const SymInt *attrs, const DevAscendOperationOperandInfo &info,
-                  std::stringstream &oss) const {
-        int attrOffset = info.staticOffsetAttrBeginIndex;
-        auto rawIndex = attrs[attrOffset - 1].Value();
-        oss << "@(rawidx:" << rawIndex << " attridx:" << (attrOffset - 1) << ")" << ", ";
-
-        int dim = info.GetDim();
-        auto rawTensor = func->GetRawTensor(rawIndex);
-        if (rawIndex >= func->GetRawTensorSize()) {
-            DEV_ERROR("Invalid rawIndex=%lu, exceeds raw tensor size=%lu", rawIndex, func->GetRawTensorSize());
-        }
-        if (dim != rawTensor->GetDim()) {
-            DEV_ERROR("Dimension mismatch: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
-        }
-        DEV_ASSERT(rawIndex < func->GetRawTensorSize());
-        DEV_ASSERT(dim == rawTensor->GetDim());
-
-        for (int d = 0; d < rawTensor->GetDim(); d++) {
-            auto shapeIdx = attrOffset + d + rawTensor->GetDim() * 2;
-            auto shape = static_cast<int64_t>(rawTensor->shape.At(d, funcData->exprTbl));
-            auto actualShape = GetValue(attrs, shapeIdx);
-            if (actualShape != shape) {
-                DEV_ERROR("Shape mismatch at dim %d: expacted=%ld, got=%ld", d, shape, actualShape);
-            }
-            DEV_ASSERT(actualShape == shape);
-        }
-        if (dim != rawTensor->GetDim()) {
-            DEV_ERROR("Final dimension mismatch after shape validation: info.dim=%d, rawTensor->dim=%d", dim, rawTensor->GetDim());
-        }
-        DEV_ASSERT(dim == rawTensor->GetDim());
-        for (int i = 0; i < dim * ARG_ATTR_TYPE; i++) {
-            oss << GetValue(attrs, attrOffset + i) << ", ";
-        }
-    };
-
-    void DumpFuncData(const DevAscendFunction *func, int funcIdx, const DevCceBinary *cceBinary,
-                      std::stringstream &oss) const {
-        oss << "#funcData: [\n" << std::dec;
-        for (size_t operIdx = 0; operIdx < func->GetOperationSize(); operIdx++) {
-            auto attrBase = &func->GetOperationAttr(operIdx, 0);
-            auto funcIndex = attrBase[0].Value();
-            oss << "  [" << operIdx << "]  #funcHash: " << std::to_string(cceBinary[funcIndex].funcHash)
-                << " #funcIndex: " << funcIndex << " #taskID:" << MakeTaskID(funcIdx, operIdx) 
-                << " #opMagic: " << func->GetOperationDebugOpmagic(operIdx) << "\n";
-            oss << "  #invokeAttrs : ";
-            int offset = 0;
-            for (size_t idx = 0; idx < func->GetOperationIOperandSize(operIdx); idx++) {
-                auto &opInfo = func->GetOperationIOperandInfo(operIdx, idx);
-                offset = std::max(offset, opInfo.staticOffsetAttrBeginIndex + ARG_ATTR_TYPE * opInfo.GetDim());
-                oss << " in:";
-                DumpAttr(func, attrBase, opInfo, oss);
-            }
-            for (size_t idx = 0; idx < func->GetOperationOOperandSize(operIdx); idx++) {
-                auto &opInfo = func->GetOperationOOperandInfo(operIdx, idx);
-                offset = std::max(offset, opInfo.staticOffsetAttrBeginIndex + ARG_ATTR_TYPE * opInfo.GetDim());
-                oss << " out:";
-                DumpAttr(func, attrBase, opInfo, oss);
-            }
-            oss << "\n other attr:";
-            for (size_t idx = offset; idx < func->GetOperationAttrSize(operIdx); idx++) {
-                oss << GetValue(attrBase, idx) << ", ";
-            }
-            oss << "\n";
-        }
-    }
-
-    std::string DumpDyn(int funcIdx, const DevCceBinary *cceBinary) const {
-        std::stringstream oss;
-        auto func = GetSource();
-        for (size_t opIdx = 0; opIdx < DupData()->GetSource()->GetOperationSize(); opIdx++) {
-            oss << std::hex << "[" << opIdx << "] #predCnt:" << GetOperationCurrPredCount(opIdx);
-            auto &succList = func->GetOperationDepGraphSuccList(opIdx);
-            oss << " #succList: [";
-            for (size_t j = 0; j < succList.size(); j++) {
-                if (j != 0)
-                    oss << ", ";
-                oss << func->At(succList, j);
-            }
-            oss << ']';
-            auto &stitch = GetOperationStitch(opIdx);
-            if (!stitch.IsNull())
-                oss << std::hex << " #stitch:" << stitch.Dump();
-            oss << "\n";
-        }
-
-        oss << " #funcKey: " << func->funcKey << " #gmStackBase: " << funcData->stackWorkSpaceAddr
-            << " #stackSize: " << funcData->stackWorkSpaceSize << " #workspace: " << funcData->workspaceAddr << "\n";
-
-        DumpFuncData(func, funcIdx, cceBinary, oss);
-
-        oss << std::hex << "  #rawTensorAddrs: ";
-        for (uint64_t i = 0; i < func->GetRawTensorDescSize(); i++) {
-            if (i % RAW_TENSOR_DESC_PRE_SIZE == 0)
-                oss << "\n   ";
-            if (GetRawTensorAddrEx(i) != GetRawTensorAddr(i)) {
-                DEV_ERROR("Tensor address mismatch at index %lu: addr=%lu, addrEx=%lu.", i, GetRawTensorAddr(i), GetRawTensorAddrEx(i));
-            }
-            DEV_ASSERT(GetRawTensorAddrEx(i) == GetRawTensorAddr(i));
-            auto desc = funcData->rawTensorDesc[i];
-            oss << GetRawTensorAddrEx(i) << "(location:" << desc.location << " offsetOrIdex: " << desc.offsetOrIndex << ")" << ", ";
-        }
-        oss << "\n]";
-        return oss.str();
-    }
+    std::string DumpDyn(int funcIdx, const DevCceBinary *cceBinary) const;
 
     bool IsNull() const { return !dupTiny_; }
     void ResetNull() { dupTiny_.Invalidate(); }
@@ -429,6 +282,18 @@ struct DevAscendFunctionDupped {
     DevAscendFunctionDuppedData *DupDataForDynFuncData() { return DupData(); }
 
 private:
+    void DumpRawShape(const DevAscendRawTensor *rawTensor, uint32_t dimSize, std::vector<std::string> &lines,
+                      std::stringstream &oss) const;
+
+    void DumpOperandShape(uint32_t dimSize, size_t opIdx, size_t operandIdx, bool isIn, std::vector<std::string> &lines,
+                          std::stringstream &oss) const;
+
+    void DumpAttr(const DevAscendFunction *func, const SymInt *attrs, const DevAscendOperationOperandInfo &info,
+                  std::stringstream &oss) const;
+
+    void DumpFuncData(const DevAscendFunction *func, int funcIdx, const DevCceBinary *cceBinary,
+                      std::stringstream &oss) const;
+
     const DevAscendFunctionDuppedData *DupData() const { return dupTiny_.As<DevAscendFunctionDuppedData>(); }
     DevAscendFunctionDuppedData *DupData() { return dupTiny_.As<DevAscendFunctionDuppedData>(); }
 

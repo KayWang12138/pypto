@@ -23,7 +23,7 @@
 #include "test_suite_stest_ops.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek/gen_kv_slc.h"
-#include "machine/utils/dynamic/dev_encode.h"
+#include "machine/host/dev_encode.h"
 #include "test_dev_func_runner.h"
 
 using namespace npu::tile_fwk;
