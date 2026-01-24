@@ -279,7 +279,7 @@ struct ControlFlowCache {
         hash = Hash(inputs);
     }
 
-    static int64_t Hash(std::vector<DeviceTensorData> &datas) {
+    static int64_t Hash(const std::vector<DeviceTensorData> &datas) {
         // FNV-1a
         uint64_t h = 14695981039346656037ull;
         for (auto &data : datas) {
@@ -291,7 +291,7 @@ struct ControlFlowCache {
         return h;
     }
 
-    static int64_t Hash(std::vector<std::vector<int64_t>> &shapes) {
+    static int64_t Hash(const std::vector<std::vector<int64_t>> &shapes) {
         // FNV-1a
         uint64_t h = 14695981039346656037ull;
         for (auto &shape : shapes) {
@@ -305,12 +305,6 @@ struct ControlFlowCache {
 };
 
 #define AICPU_META_BUFFER_NUM 2
-
-struct KernelTensorInfo {
-    int64_t inputNum;
-    int64_t outputNum;
-    DeviceTensorData inputs[0];
-};
 
 struct KernelBinary {
     int64_t devId{0};
@@ -371,7 +365,7 @@ struct KernelBinary {
         ASSERT(aicpuArgs->kArgs.inputs == inputInfo.data());
     }
 
-    int64_t GetWorkspaceSize(std::vector<DeviceTensorData> &tensors) {
+    int64_t GetWorkspaceSize(const std::vector<DeviceTensorData> &tensors) {
         if (dynAttr->maxDynamicAssembleOutcastMem.IsValid()) {
             Evaluator eval{dynAttr->inputSymbolDict, tensors, {}};
             return workspaceSize + eval.Evaluate(dynAttr->maxDynamicAssembleOutcastMem);
@@ -379,25 +373,25 @@ struct KernelBinary {
         return workspaceSize;
     }
 
-    AiCpuArgs *BuildKernelArgs(std::vector<DeviceTensorData> &tensors) {
+    AiCpuArgs *BuildKernelArgs(const std::vector<DeviceTensorData> &tensors) {
         auto &disableL2List = dynAttr->disableL2List;
-        auto tinfo = (KernelTensorInfo *)(aicpuArgs + 1);
-        auto tdata = (DevTensorData *)(tinfo + 1);
-        ASSERT((int64_t)tensors.size() == tinfo->inputNum) << "mismatch tensor size";
-        for (size_t i = 0; i < (size_t)tinfo->inputNum; ++i) {
+        int64_t *inputp = (int64_t *)(aicpuArgs + 1);
+        auto tensorData = (DevTensorData *)(inputp + 2);
+        ASSERT((int64_t)tensors.size() == inputp[0]) << "mismatch tensor size";
+        for (size_t i = 0; i < (size_t)inputp[0]; ++i) {
             auto &t = tensors[i];
             auto addr = (uint64_t)t.GetAddr();
             if (unlikely(addr && disableL2List.size() && disableL2List[i])) {
                 ALOG_ERROR("mismatch tensor addr");
                 addr += l2Offset;
             }
-            tdata->address = addr;
+            tensorData->address = addr;
             auto &shape = t.GetShape();
-            tdata->shape.dimSize = shape.size();
-            for (int j = 0; j < tdata->shape.dimSize; ++j) {
-                tdata->shape.dim[j] = shape[j];
+            tensorData->shape.dimSize = shape.size();
+            for (int j = 0; j < tensorData->shape.dimSize; ++j) {
+                tensorData->shape.dim[j] = shape[j];
             }
-            tdata++;
+            tensorData++;
         }
         aicpuArgs->kArgs.opMetaAddrs = metas[metaIndex % AICPU_META_BUFFER_NUM];
         return aicpuArgs;
@@ -407,10 +401,10 @@ struct KernelBinary {
         auto size = tensors.size();
         ASSERT(size == dynAttr->startArgsInputLogicalTensorList.size()) << "mismatch input size";
         for (size_t i = 0; i < size; ++i) {
-            auto &startArg = dynAttr->startArgsInputLogicalTensorList[i];
-            auto t = tensors[i].get();
-            if (startArg->shape == t.GetShape() && startArg->Datatype() == t.GetDataType() &&
-                startArg->Format() == t.Format()) {
+            auto startArg = dynAttr->startArgsInputLogicalTensorList[i].get();
+            auto t = tensors[i].get().GetStorage(false).get();
+            if (startArg->shape == t->GetShape() && startArg->Datatype() == t->Datatype() &&
+                startArg->Format() == t->Format()) {
                 return true;
             }
         }
@@ -464,15 +458,15 @@ private:
         auto argNum = dynAttr->startArgsInputLogicalTensorList.size() +
             dynAttr->startArgsOutputLogicalTensorList.size();
         auto argSize = sizeof(AiCpuArgs) + 2 * sizeof(int64_t) + argNum * sizeof(DevTensorData);
-        ASSERT(argSize / 8 == 0);
+        ASSERT(argSize % 8 == 0);
         inputInfo.resize(argSize / 8);
         aicpuArgs = new (inputInfo.data()) AiCpuArgs();
         aicpuArgs->kArgs.inputs = inputInfo.data();
         aicpuArgs->kArgs.outputs = (int64_t *)argSize;
 
-        auto tensorInfo = (KernelTensorInfo *)(aicpuArgs + 1);
-        tensorInfo->inputNum = dynAttr->startArgsInputLogicalTensorList.size();
-        tensorInfo->outputNum = dynAttr->startArgsOutputLogicalTensorList.size();
+        int64_t *inputp = (int64_t *)(aicpuArgs + 1);
+        inputp[0] = dynAttr->startArgsInputLogicalTensorList.size();
+        inputp[1] = dynAttr->startArgsOutputLogicalTensorList.size();
 
         l2Offset = machine::GetRA()->GetL2Offset();
     }
@@ -494,7 +488,7 @@ struct KernelModule {
         return &kernels.back();
     }
 
-    int Launch(KernelBinary *kbinary, aclrtStream aicpuStream, aclrtStream aicoreStream,
+    void Launch(KernelBinary *kbinary, aclrtStream aicpuStream, aclrtStream aicoreStream,
         std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
         auto args = kbinary->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args->kArgs.inputs;
@@ -503,14 +497,16 @@ struct KernelModule {
         args->kArgs.launchMode = AICPU_LAUNCH_MODE_CTRL;
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
-        int ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtAicpuArgs, nullptr, aicpuStream, 0);
+        return;
+        int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
+            "AST_DYN_AICPU", 5, &rtAicpuArgs, nullptr, aicpuStream, 0);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
 
-        args->kArgs.launchMode = AICPU_LAUNCH_MODE_SCHED;
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 3, &rtAicpuArgs, nullptr, aicpuStream, 0);
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicpu sched failed: " << ret;
+        // ALOG_ERROR(__FUNCTION__, __LINE__);
+        // args->kArgs.launchMode = AICPU_LAUNCH_MODE_SCHED;
+        // ret = rtAicpuKernelLaunchExWithArgs(
+        //     rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 3, &rtAicpuArgs, nullptr, aicpuStream, 0);
+        // ASSERT(ret == RT_ERROR_NONE) << "launch aicpu sched failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
@@ -525,7 +521,7 @@ struct KernelModule {
         rtAicpuArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);
         rtAicpuArgs.hostInputInfoNum = 1;
         hostInfo.addrOffset = offsetof(dynamic::AiCpuArgs, kArgs.inputs);
-        hostInfo.addrOffset = sizeof(dynamic::AiCpuArgs);
+        hostInfo.dataOffset = sizeof(dynamic::AiCpuArgs);
         rtAicpuArgs.hostInputInfoPtr = &hostInfo;
 
         memset_s(&rtAicoreArgs, sizeof(rtArgsEx_t), 0, sizeof(rtArgsEx_t));
@@ -558,11 +554,29 @@ struct AclModeGuard {
     aclmdlRICaptureMode mode;
 };
 
+struct DeviceGuard {
+    DeviceGuard(int32_t devId): nDevId(devId) {
+        (void)rtGetDevice(&oDevId);
+        if (nDevId != oDevId) {
+            rtSetDevice(nDevId);
+        }
+    }
+
+    ~DeviceGuard() {
+        if (nDevId != oDevId) {
+            rtSetDevice(oDevId);
+        }
+    }
+
+    int32_t oDevId {0};
+    int32_t nDevId {0};
+};
+
 static Function *Compile(py::object module, py::args args, py::kwargs kwargs) {
     Program::GetInstance().Reset();
     auto compile = py::getattr(module, "compile");
     compile(args, kwargs);
-    auto func = Program::GetInstance().GetLastFunction();
+    return Program::GetInstance().GetLastFunction();
 }
 
 static void BuildDefaultCache(KernelBinary *kbinary, py::object module, std::vector<DeviceTensorData> &tensors) {
@@ -607,17 +621,19 @@ static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object module, py::args
                 oriShapes.append(shape);
             }
         }
-        auto cfshape = infershape(oriShapes);
-        if (!cfshape.is_none()) {
+        auto cfshape = infershape(*oriShapes);
+        if (cfshape.is_none()) {
             return nullptr;
         }
         auto shape = cfshape.cast<std::vector<std::vector<int64_t>>>();
         return kbinary->FindCtrlFlowCache(shape);
     }
+    return nullptr;
 }
 
-static void GetInputTensors(py::object module, py::args args, std::vector<DeviceTensorData> &tensors,
+static int GetInputTensors(py::args args, std::vector<DeviceTensorData> &tensors,
     std::vector<std::reference_wrapper<Tensor>> &ref_tensors) {
+    py::object device = py::none();
     for (auto &pt : args) {
         auto base = py::getattr(pt, "_base");
         if (py::isinstance<Tensor>(base)) {
@@ -626,8 +642,18 @@ static void GetInputTensors(py::object module, py::args args, std::vector<Device
             auto shape = py::cast<std::vector<int64_t>>(py::getattr(pt, "ori_shape"));
             tensors.emplace_back(t.GetDataType(), data_ptr, shape);
             ref_tensors.emplace_back(t);
+            if (device.is_none()) {
+                device = py::getattr(pt, "device");
+            } else if (!device.equal(py::getattr(pt, "device"))) {
+                throw std::runtime_error("All input tensors must be on the same device");
+            }
         }
     }
+    ASSERT(tensors.size()) << "No input tensors found";
+    if (py::getattr(device, "type").cast<std::string>() != "npu") {
+        throw std::runtime_error("Not npu device");
+    }
+    return py::getattr(device, "index").cast<int>();
 }
 
 static bool AttachAicpuStream(aclrtStream aicoreStream, aclrtStream aicpuStream) {
@@ -648,14 +674,13 @@ static bool AttachAicpuStream(aclrtStream aicoreStream, aclrtStream aicpuStream)
 }
 
 void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs kwargs) {
-    int devId;
-    (void)rtGetDevice(&devId);
     auto aicoreStream = (aclrtStream)stream;
     auto aicpuStream = (aclrtStream)DeviceGetAicpuStream();
 
     std::vector<DeviceTensorData> tensors;
     std::vector<std::reference_wrapper<Tensor>> ref_tensors;
-    GetInputTensors(module, args, tensors, ref_tensors);
+    auto devId = GetInputTensors(args, tensors, ref_tensors);
+    DeviceGuard devGuard(devId);
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
     auto kbinary = kmodule->FindFunction(devId, ref_tensors);
