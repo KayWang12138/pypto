@@ -26,8 +26,8 @@ public:
     CommonOperationEliminate() : Pass("CommonOperationEliminate")
     {}
     ~CommonOperationEliminate() override = default;
-    Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
+    Status PreCheck(Function &function) override;
 
 private:
     Status RunOnFunction(Function &function) override;
