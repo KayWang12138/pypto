@@ -254,6 +254,7 @@ def set_verify_options(*,
                        pass_verify_save_tensor: Optional[bool] = None,
                        pass_verify_save_tensor_dir: Optional[str] = None,
                        pass_verify_pass_filter: Optional[List[str]] = None,
+                       pass_verify_error_tol: Optional[List[float]] = None,
                        ) -> None:
     """
     Set verify options.
@@ -271,6 +272,9 @@ def set_verify_options(*,
 
     pass_verify_pass_filter : List
         Filting pass to verify.
+
+    pass_verify_error_tol : List
+        Customize atol and rtol.
     """
     if pass_verify_pass_filter == []:
         pass_verify_pass_filter = None
