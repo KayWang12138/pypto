@@ -65,7 +65,7 @@ struct CalcOps {
     void (*SubS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
     void (*MulS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
     void (*DivS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
-    void (*Fmod)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
+    void (*FmodS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
 
     void (*Add)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Sub)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);

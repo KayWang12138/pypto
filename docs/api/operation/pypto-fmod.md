@@ -1,4 +1,4 @@
-# pypto.div
+# pypto.fmod
 
 ## 产品支持情况
 
@@ -12,7 +12,7 @@
 将 input 的每个元素和 other 中对应位置的元素进行取模运算，计算公式如下：
 
 $$
-res_i = input_i \mod other_i
+res_i = input_i \;\%\; other_i
 $$
 
 ## 函数原型
