@@ -193,26 +193,29 @@ def quant(
         For symmetric quantization, scale = max(|input|) / 127.0
         For asymmetric quantization, scale = (max - min) / 255.0
     """
-    input_fp32 = pypto.cast(input_tensor, pypto.DT_FP32)
+    if input_tensor.dtype != pypto.DT_FP32:
+        input_tensor_fp32 = pypto.cast(input_tensor, pypto.DT_FP32)
+    else:
+        input_tensor_fp32 = input_tensor
     if has_smooth_factor:
-        input_fp32 = pypto.mul(input_fp32, smooth_factor)
+        input_tensor_fp32 = pypto.mul(input_tensor_fp32, smooth_factor)
     if is_symmetry:
-        abs_res = pypto.abs(input_fp32)
+        abs_res = pypto.abs(input_tensor_fp32)
         max_value = pypto.amax(abs_res, -1, keepdim=True)
         scale_quant = scalar_div(max_value, 127.0, True)
-        out_fp32 = pypto.mul(input_fp32, scale_quant)
+        out_fp32 = pypto.mul(input_tensor_fp32, scale_quant)
         out_int32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
         out_half = pypto.cast(out_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
         out_int8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC)
         scale_de_quant = scalar_div(scale_quant, 1.0, True)
         return out_int8, scale_de_quant
     else:
-        max_value = pypto.amax(input_fp32, -1, keepdim=True)
-        min_value = pypto.amin(input_fp32, -1, keepdim=True)
+        max_value = pypto.amax(input_tensor_fp32, -1, keepdim=True)
+        min_value = pypto.amin(input_tensor_fp32, -1, keepdim=True)
         scale_de_quant = pypto.max(pypto.div(pypto.sub(max_value, min_value), 255.0), 1e-12)
         offset = pypto.sub(127.0, pypto.div(max_value, scale_de_quant))
         scale_quant = scalar_div(max_value, 1.0, True)
-        out_fp32 = pypto.mul(input_fp32, scale_quant)
+        out_fp32 = pypto.mul(input_tensor_fp32, scale_quant)
         out_int32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
         out_half = pypto.cast(out_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
         out_int8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC)
@@ -220,7 +223,7 @@ def quant(
 
 
 def dequant(
-    dtype: pypto.DataType, input_tensor: pypto.Tensor, scale: pypto.Tensor, w_scale: pypto.Tensor
+    input_tensor: pypto.Tensor, scale: pypto.Tensor, w_scale: pypto.Tensor
 ) -> pypto.Tensor:
     """Dequantize INT8 tensor back to floating point.
 
@@ -228,7 +231,6 @@ def dequant(
     dequantization scales. Supports per-token and per-channel scaling.
 
     Args:
-        dtype: Target data type for output (e.g., DT_BF16, DT_FP16)
         input_tensor: Quantized INT8 input tensor
         scale: Per-token or per-channel dequantization scale
         w_scale: Weight dequantization scale (per-channel)
@@ -243,7 +245,7 @@ def dequant(
     dequant_res = pypto.cast(input_tensor, pypto.DT_FP32)
     dequant_res = dequant_res * scale
     dequant_res = dequant_res * w_scale
-    return pypto.cast(dequant_res, dtype)
+    return dequant_res
 
 
 def rms_norm(input_tensor: pypto.Tensor, epsilon: float) -> pypto.Tensor:
@@ -265,16 +267,15 @@ def rms_norm(input_tensor: pypto.Tensor, epsilon: float) -> pypto.Tensor:
         The normalization is performed along the last dimension.
         Computation is done in FP32 for numerical stability.
     """
-    input_fp32 = pypto.cast(input_tensor, pypto.DT_FP32)
     dim = len(input_tensor.shape)
-    y = pypto.mul(input_fp32, input_fp32)
+    y = pypto.mul(input_tensor, input_tensor)
     y = pypto.mul(y, 1.0 / input_tensor.shape[dim - 1])
     y = pypto.sum(y, -1, keepdim=True)
     y = pypto.add(y, epsilon)
     y = pypto.sqrt(y)
     ones_vector = pypto.full(y.shape, 1.0, pypto.DT_FP32)
     y = pypto.div(ones_vector, y)
-    y = pypto.mul(input_fp32, y)
+    y = pypto.mul(input_tensor, y)
     return y
 
 def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
@@ -334,9 +335,8 @@ def rope_2d(
     """
     assert len(x.shape) == 2 and len(cos.shape) == 2 and len(sin.shape) == 2
     input_dtype = x.dtype
-    pypto.set_vec_tile_shapes(1, 64, 128)
-    y = pypto.clone(x)
-    y_cast = pypto.cast(y, pypto.DT_FP32)
+    pypto.set_vec_tile_shapes(4, 64, 64)
+    x_cast = pypto.cast(x, pypto.DT_FP32)
     x_view = pypto.reshape(x, [x.shape[0], x.shape[1]//2, 2])
     x_trans = pypto.transpose(x_view, 1, 2)
     x_re_second = pypto.reshape(x_trans, x.shape)
@@ -346,12 +346,8 @@ def rope_2d(
     x_new_r = pypto.reshape(x_new_trans, x.shape)
     x_new_cast = pypto.cast(x_new_r, pypto.DT_FP32)
 
-    pypto.set_vec_tile_shapes(1, 64)
-    cast_cos = pypto.cast(cos, pypto.DT_FP32)
-    cast_sin = pypto.cast(sin, pypto.DT_FP32)
-
-    pypto.set_vec_tile_shapes(1, 64, 64)
-    x_embed = y_cast * cast_cos + x_new_cast * cast_sin
+    pypto.set_vec_tile_shapes(4, 64, 64)
+    x_embed = x_cast * cos + x_new_cast * sin
     return pypto.cast(x_embed, input_dtype)
 
 
@@ -360,14 +356,10 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
     """
     assert (len(x.shape) == SHAPE_DIM_3 and len(cos.shape) == SHAPE_DIM_2 and len(sin.shape) == SHAPE_DIM_2)
 
-    pypto.set_vec_tile_shapes(1, 64)
-    cast_cos = pypto.cast(cos, pypto.DataType.DT_FP32)
-    cast_sin = pypto.cast(sin, pypto.DataType.DT_FP32)
-
     pypto.set_vec_tile_shapes(1, 64, 64)
     cast_x = pypto.cast(x, pypto.DataType.DT_FP32)
-    cast_cos = pypto.reshape(cast_cos, [x.shape[0], 1, x.shape[2]])
-    cast_sin = pypto.reshape(cast_sin, [x.shape[0], 1, x.shape[2]])
+    cast_cos = pypto.reshape(cos, [x.shape[0], 1, x.shape[2]])
+    cast_sin = pypto.reshape(sin, [x.shape[0], 1, x.shape[2]])
 
     x_view = pypto.reshape(cast_x, [x.shape[0], x.shape[1], x.shape[2] // 2, 2])
     pypto.set_vec_tile_shapes(1, 64, 64, 64)
@@ -385,10 +377,10 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.Tens
     pypto.set_vec_tile_shapes(1, 64, 64, 64)
     x_rotate_trs_2 = pypto.transpose(x_rotate_reshape_1, 1, 2) # [1, 32, 2, 64]
     x_rotate_reshape_2 = pypto.reshape(x_rotate_trs_2, x_rotate.shape) # [1, 64.., 64]
-    pypto.set_vec_tile_shapes(1, 64, 64)
+    pypto.set_vec_tile_shapes(4, 64, 64)
     x_rotate_res = pypto.transpose(x_rotate_reshape_2, 1, 2) # [1, 64, 64..]
 
-    pypto.set_vec_tile_shapes(1, 64, 64)
+    pypto.set_vec_tile_shapes(4, 64, 64)
     x_embed = cast_x * cast_cos + x_rotate_res * cast_sin
     x_embed_cast = pypto.cast(x_embed, x.dtype)
 
@@ -425,38 +417,43 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         pypto.set_pass_options(sg_set_scope=-1)
         q = pypto.matmul(x_tile_quant, wq_a, pypto.DataType.DT_INT32)
         pypto.set_semantic_label("qa dequant")
-        dequant_q = dequant(pypto.DataType.DT_BF16, q, x_quant_scale, wq_a_scale)
+        dequant_q = dequant(q, x_quant_scale, wq_a_scale)
 
         pypto.set_semantic_label("q-rmsnorm with weight")
         qr = rms_norm(dequant_q, attrs.eps)
         qr = pypto.mul(qr, gamma_cq_2d_fp32)
         qr_cast = pypto.cast(qr, pypto.DataType.DT_BF16)
         pypto.assemble(qr_cast, [tIdx, 0], qr_out)
-        qr_quant, qr_scale = quant(qr_cast)
+        qr_quant, qr_scale = quant(qr)
 
         pypto.set_semantic_label("wqb-linear")
         pypto.set_cube_tile_shapes([tile_bs, tile_bs], [256, 256], [256, 256], True)
         qb = pypto.matmul(qr_quant, wq_b, pypto.DataType.DT_INT32)
-        qb_dequant = dequant(pypto.DataType.DT_BF16, qb, qr_scale, wq_b_scale)
+        qb_dequant = dequant(qb, qr_scale, wq_b_scale)
         
         q_3d = pypto.reshape(qb_dequant, [t_tile, head_num, head_dim])
         pypto.set_vec_tile_shapes(4, 8, 512)
         qr2_3d = rms_norm(q_3d, attrs.eps)
         qr2_3d_cast = pypto.cast(qr2_3d, pypto.DataType.DT_BF16)
-        cos_2d = pypto.view(cos, [t_tile, rope_dim], [tIdx, 0], valid_shape =[t_tile, rope_dim])
-        sin_2d = pypto.view(sin, [t_tile, rope_dim], [tIdx, 0], valid_shape =[t_tile, rope_dim])
-
         qr2_3d_nope = pypto.view(qr2_3d_cast, [t_tile, head_num, head_dim-rope_dim], [0, 0, 0], valid_shape=[t_tile, head_num, head_dim-rope_dim])
         pypto.assemble(pypto.clone(qr2_3d_nope), [tIdx, 0, 0], q_out)
+
+        pypto.set_vec_tile_shapes(32, 64)
+        cos_2d = pypto.view(cos, [t_tile, rope_dim], [tIdx, 0], valid_shape =[t_tile, rope_dim])
+        sin_2d = pypto.view(sin, [t_tile, rope_dim], [tIdx, 0], valid_shape =[t_tile, rope_dim])
+        cast_cos = pypto.cast(cos_2d, pypto.DT_FP32)
+        cast_sin = pypto.cast(sin_2d, pypto.DT_FP32)
+        
+        pypto.set_vec_tile_shapes(4, 64, 64)
         qr2_3d_rope = pypto.view(qr2_3d_cast, [t_tile, head_num, rope_dim], [0, 0, head_dim-rope_dim], valid_shape=[t_tile, head_num, rope_dim])
-        qr2_3d_rope = rope_3d(qr2_3d_rope, cos_2d, sin_2d)
+        qr2_3d_rope = rope_3d(qr2_3d_rope, cast_cos, cast_sin)
         pypto.assemble(qr2_3d_rope, [tIdx, 0, head_dim-rope_dim], q_out)
 
         pypto.set_semantic_label("wkv-linear")
         pypto.set_cube_tile_shapes([tile_bs, tile_bs], [512, 512], [64, 64], True)
         kv = pypto.matmul(x_tile_quant, wkv, pypto.DataType.DT_INT32)
         pypto.set_vec_tile_shapes(4, 512)
-        kv_dequant = dequant(pypto.DataType.DT_BF16, kv, x_quant_scale, wkv_scale)
+        kv_dequant = dequant(kv, x_quant_scale, wkv_scale)
         kv_norm = rms_norm(kv_dequant, attrs.eps)
         kv_norm = pypto.mul(kv_norm, gamma_ckv_2d_fp32)
         kv_norm_cast = pypto.cast(kv_norm, pypto.DataType.DT_BF16)
@@ -464,15 +461,49 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         kv_norm_nope = pypto.view(kv_norm_cast, [t_tile, head_dim-rope_dim], [0, 0], valid_shape=[t_tile, head_dim-rope_dim])
         pypto.assemble(pypto.clone(kv_norm_nope), [tIdx, 0], kv_out)
         kv_norm_rope = pypto.view(kv_norm_cast, [t_tile, rope_dim], [0, head_dim-rope_dim], valid_shape=[t_tile, rope_dim])
-        kv_norm_rope = rope_2d(kv_norm_rope, cos_2d, sin_2d)
+        kv_norm_rope = rope_2d(kv_norm_rope, cast_cos, cast_sin)
         pypto.assemble(kv_norm_rope, [tIdx, head_dim-rope_dim], kv_out)
 
+class MLAKernelMAnager:
+    def __init__(self):
+        self.vec_all_shape = {}
+        self.t_vec = [4096, 128, 64, 32, 16, 1]
+        self.wq_a_shape = [4096, 1024]
+        self.wq_b_shape = [1024, 64 * 512]
+        self.wkv_shape = [4096, 512]
+        self.rmsnorm_gamma_cq_shape = [1024]
+        self.rmsnorm_gamma_ckv_shape = [512]
+        self.wq_a_scale_shape = [1024, 1]
+        self.wq_b_scale_shape = [64 * 512, 1]
+        self.w_kv_scale_shape = [512, 1]
+
+        for t in self.t_vec:
+            x_shape = [t, 4096]
+            rops_cos_shape = [t, 64]
+            q_out_shape = [t, 64, 512]
+            kv_out_shape = [t, 512]
+            qr_out_shape = [t, 1024]
+            self.vec_all_shape[t] = [x_shape, self.wq_a_shape, self.wq_b_shape, self.wkv_shape, rops_cos_shape, rops_cos_shape, self.rmsnorm_gamma_cq_shape, \
+                                self.rmsnorm_gamma_ckv_shape, self.wq_a_scale_shape, self.wq_b_scale_shape, self.w_kv_scale_shape, q_out_shape, \
+                                kv_out_shape, qr_out_shape]
+
+    def infer_controlflow_shape(self, *args):
+        global vec_all_shape, t_vec
+        if not args:
+            return [v for v in self.vec_all_shape.values()]
+        x_shape = args[0]
+        for t in self.t_vec:
+            if x_shape[0]>=t:
+                return self.vec_all_shape[t]
+
+manager = MLAKernelMAnager()
 
 @pypto.jit(runtime_options={
         "stitch_function_inner_memory": 1024,
         "stitch_function_outcast_memory": 1024,
         "stitch_cfgcache_size": 3000000
-    })
+    },
+    infer_controlflow_shape=manager.infer_controlflow_shape,)
 def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs):
     pypto.experimental.set_operation_config(combine_axis=True)
     pypto.set_pass_options(vec_nbuffer_mode=1, cube_nbuffer_mode=1)
