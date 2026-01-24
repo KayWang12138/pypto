@@ -96,9 +96,9 @@ class AttentionConfig:
 
 
 def get_qwen_common_config(device="cpu"):
-    b = 8
+    b = 1
     s1 = 1
-    s2 = 16384
+    s2 = 512
     q_d = 128
     nq = 12
     nkv = 1
@@ -427,8 +427,13 @@ def ifa_func(q, k, v, block_table, kv_act_seqs, atten_out):
                             pypto.assemble(oi_final_3d, oi_ofs, atten_out)
 
 def IFA(atten_cfg):
+<<<<<<< Updated upstream
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch_dtype = torch.float16
+=======
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 1)
+    torch_dtype = torch.bfloat16
+>>>>>>> Stashed changes
     torch.npu.set_device(int(device_id))
     b = atten_cfg.b
     s1 = atten_cfg.s1
@@ -510,7 +515,7 @@ def IFA(atten_cfg):
 @pytest.mark.skip(reason="large test case")
 def test_ifa():
     # 1. 设置参数
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 1)
     device = f'npu:{device_id}'
     atten_cfg, _ = get_qwen_common_config(device=device)
 
