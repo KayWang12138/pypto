@@ -155,7 +155,7 @@ def win_atten_main_tnd_prefill(q_tnd, block_table, kv_cache, seqused_kv_list, at
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    runtime_options={"device_sched_mode": 1,
+    runtime_options={"device_sched_mode": 2,
                     "stitch_function_inner_memory": 1024,
                     "stitch_function_outcast_memory": 1024,
                     "stitch_function_num_initial": 128},
@@ -174,59 +174,60 @@ def win_atten_main_tnd_prefill_mask(q_tnd, block_table, kv_cache, seqused_kv_lis
 
     q_2d = pypto.reshape(q_tnd, [t * n_q, d_q], inplace=True)
     kv_2d = pypto.reshape(kv_cache, [kv_cache.shape[0] *block_size * kv_cache.shape[2], d_kv], inplace=True)
-    kv_block_temp = pypto.tensor([block_size * 2, d_kv], dtype, "kv_block_temp")
 
     for b_idx in pypto.loop(b, name="LOOP_B", idx_name="B_idx"):
 
-        # 假设b = 1, s1 = 512
-        cur_s_q = actual_seq_list_q[b_idx + 1] - actual_seq_list_q[b_idx] # 512
+        cur_s_q = actual_seq_list_q[b_idx + 1] - actual_seq_list_q[b_idx]
         # 每个batch的第一个t索引位置
-        t_start_idx = actual_seq_list_q[b_idx] # 0
+        t_start_idx = actual_seq_list_q[b_idx]
         # 4个s1分为一组
-        groups_num = pypto.ceil(cur_s_q, 4) # 128
+        groups_num = pypto.ceil(cur_s_q, 4)
 
         for g_idx in pypto.loop(groups_num, name="LOOP_G", idx_name="G_idx"):
 
             # 当前组内 全局的t索引
-            group_start_t_idx = t_start_idx + g_idx * 4 # 组内第一个t索引 ：0, 4, 8...127 * 4
-            group_end_t_idx = pypto.min(t_start_idx + g_idx * 4 + 3, t_start_idx + cur_s_q - 1) # 组内最后一个t索引：3, 7, 11 ... 127 * 4 + 3
-            valid_group_len = group_end_t_idx - group_start_t_idx + 1 # 组内t的个数 4
+            group_start_t_idx = t_start_idx + g_idx * 4 # 组内第一个t索引
+            group_end_t_idx = pypto.min(t_start_idx + g_idx * 4 + 3, t_start_idx + cur_s_q - 1) # 组内最后一个t索引
+            valid_group_len = group_end_t_idx - group_start_t_idx + 1 # 组内t的个数
  
-            cur_offset = group_start_t_idx * n_q # 0, 256, 512...127 * 4 * 64
-            actual_seq = seqused_kv_list[b_idx] # s2  512
+            cur_offset = group_start_t_idx * n_q
+            actual_seq = seqused_kv_list[b_idx]
             pypto.set_vec_tile_shapes(128, 512)
-            q_tensor_cur = pypto.view(q_2d, [4 * n_q, d_q], [cur_offset, 0], valid_shape=[valid_group_len * n_q, d_q]) # 取出与组内t对应的q：[256, 512]
+            q_tensor_cur = pypto.view(q_2d, [4 * n_q, d_q], [cur_offset, 0], valid_shape=[valid_group_len * n_q, d_q]) # 取出与组内t对应的q
 
             # 组内s1的b内索引
-            group_start_s1_idx = g_idx * 4 # 当前组内的第一个s1索引：0, 4, 8...127 * 4
-            group_end_s1_idx = g_idx * 4 + valid_group_len - 1 # 当前组的最后一个s1索引：3, 7, 11...127 * 4 + 3
+            group_start_s1_idx = g_idx * 4 # 当前组内的第一个s1索引
+            group_end_s1_idx = g_idx * 4 + valid_group_len - 1 # 当前组的最后一个s1索引
 
-            # s2 = 8k
-            # g_idx = 31时，是最后一组 s1索引124~127
-            cur_end_s2_pos = actual_seq - (cur_s_q - 1) + group_end_s1_idx - 1 # 算末尾位置坐标 s2-1-s1+s1_idx  一组：512 - 1 - 511 + 0 = 0
-            cur_start_s2_pos = pypto.max(0, cur_end_s2_pos - win - (valid_group_len - 1) + 1) # 算开头坐标  一组：0-131+1 = -130 => 0 
+            cur_end_s2_pos = actual_seq - (cur_s_q - 1) + group_end_s1_idx - 1 # 算末尾位置坐标
+            cur_start_s2_pos = pypto.max(0, cur_end_s2_pos - win - (valid_group_len - 1) + 1) # 算开头坐标
             start_block = cur_start_s2_pos // block_size # 0
             start_block_offset = cur_start_s2_pos % block_size # 0
             end_block = cur_end_s2_pos // block_size # 0
             end_block_offset = cur_end_s2_pos % block_size # 3
 
+            pypto.set_vec_tile_shapes(128, 128)
+            atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
+            atten_sink_2d = pypto.concat([atten_sink_2d, atten_sink_2d, atten_sink_2d, atten_sink_2d], dim=0)
+            atten_sink_2d_temp = atten_sink_2d
+
             if pypto.cond(start_block + 1 == end_block):
 
-                pypto.set_vec_tile_shapes(128, 128)
-                atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
-                atten_sink_2d = pypto.concat([atten_sink_2d] * 4, dim=0)
+                acc_s = pypto.tensor([4 * n_q, block_size * 2], pypto.DT_FP32, "acc_s")
+                kv_block_temp = pypto.tensor([block_size * 2, d_kv], dtype, "kv_block_temp")
 
                 start_block_id = block_table[b_idx, start_block]
                 kv_block_0 = pypto.view(kv_2d, [block_size, d_kv], [start_block_id * block_size, 0]) # [128, 512]
                 end_block_id = block_table[b_idx, end_block]
                 kv_block_1 = pypto.view(kv_2d, [block_size, d_kv], [end_block_id * block_size, 0]) # [128, 512]
 
-                pypto.set_cube_tile_shapes([256, 256], [128, 128], [128, 128], True, False)
+                pypto.set_cube_tile_shapes([256, 256], [128, 128], [128, 128], False, False)
                 acc_s_0 = pypto.matmul(q_tensor_cur, kv_block_0, pypto.DT_FP32, b_trans=True) # [valid_group_len * n_q, 128]
                 acc_s_1 = pypto.matmul(q_tensor_cur, kv_block_1, pypto.DT_FP32, b_trans=True) # [valid_group_len * n_q, 128]
 
-                pypto.set_vec_tile_shapes(128, 128)
-                acc_s = pypto.concat([acc_s_0, acc_s_1], dim=-1) # [valid_group_len * n_q, 256]
+                pypto.set_vec_tile_shapes(64, 256)
+                pypto.assemble(acc_s_0, [0, 0], acc_s)
+                pypto.assemble(acc_s_1, [0, block_size], acc_s)
 
                 pypto.set_vec_tile_shapes(64, 256)
                 mask_block = pypto.view(mask2, [4 * n_q, block_size * 2], [0, 128 - start_block_offset], valid_shape=[valid_group_len * n_q, block_size * 2])
@@ -239,7 +240,7 @@ def win_atten_main_tnd_prefill_mask(q_tnd, block_table, kv_cache, seqused_kv_lis
                 acc_s = pypto.exp(sub_res)
 
                 sum_exp = pypto.sum(acc_s, -1, True)
-                sub_res = pypto.sub(atten_sink_2d, scores_max)
+                sub_res = pypto.sub(atten_sink_2d_temp, scores_max)
                 atten_sink_exp = pypto.exp(sub_res)
                 sum_exp = pypto.add(sum_exp, atten_sink_exp)
 
@@ -248,26 +249,22 @@ def win_atten_main_tnd_prefill_mask(q_tnd, block_table, kv_cache, seqused_kv_lis
 
                 pypto.assemble(kv_block_0, [0, 0], kv_block_temp)
                 pypto.assemble(kv_block_1, [block_size, 0], kv_block_temp)
-                pypto.set_cube_tile_shapes([128, 128], [128, 128], [256, 256], False, False) 
+                pypto.set_cube_tile_shapes([256, 256], [128, 128], [128, 128], False, False) 
                 mm2_res = pypto.matmul(div_res_b16, kv_block_temp, dtype)
 
                 pypto.assemble(mm2_res, [cur_offset, 0], atten_out)
         
             elif pypto.cond(start_block == end_block):
 
-                pypto.set_vec_tile_shapes(128, 128)
-                atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
-                atten_sink_2d = pypto.concat([atten_sink_2d] * 4, dim=0)
-
                 start_block_id = block_table[b_idx, start_block]
                 kv_block = pypto.view(kv_2d, [block_size, d_kv], [start_block_id * block_size, 0]) # [128, 512]
 
-                pypto.set_cube_tile_shapes([256, 256], [128, 128], [128, 128], True, False)
+                pypto.set_cube_tile_shapes([256, 256], [128, 128], [128, 128], False, False)
                 acc_s = pypto.matmul(q_tensor_cur, kv_block, pypto.DT_FP32, b_trans=True) # [valid_group_len * n_q, 128]
 
                 pypto.set_vec_tile_shapes(64, 256)
                 mask_block = pypto.view(mask2, [4 * n_q, block_size], [0, 258 - end_block_offset], valid_shape=[valid_group_len * n_q, block_size])
-                acc_s = pypto.where(mask_block, acc_s, float("-inf")) # [valid_group_len * n_q, 256]
+                acc_s = pypto.where(mask_block, acc_s, float("-inf")) # [valid_group_len * n_q, 128]
                 
                 pypto.set_vec_tile_shapes(64, 256)
                 acc_s = pypto.mul(acc_s, scalar)
@@ -276,14 +273,14 @@ def win_atten_main_tnd_prefill_mask(q_tnd, block_table, kv_cache, seqused_kv_lis
                 acc_s = pypto.exp(sub_res)
 
                 sum_exp = pypto.sum(acc_s, -1, True)
-                sub_res = pypto.sub(atten_sink_2d, scores_max)
+                sub_res = pypto.sub(atten_sink_2d_temp, scores_max)
                 atten_sink_exp = pypto.exp(sub_res)
                 sum_exp = pypto.add(sum_exp, atten_sink_exp)
 
                 div_res = pypto.div(acc_s, sum_exp)
                 div_res_b16 = pypto.cast(div_res, dtype) # [valid_group_len * n_q, 128]
 
-                pypto.set_cube_tile_shapes([128, 128], [128, 128], [256, 256], False, False) 
+                pypto.set_cube_tile_shapes([256, 256], [128, 128], [128, 128], False, False) 
                 mm2_res = pypto.matmul(div_res_b16, kv_block, dtype)
 
                 pypto.assemble(mm2_res, [cur_offset, 0], atten_out)
@@ -501,14 +498,18 @@ def deepseekv4_win_atten(q: torch.Tensor,
                         ori_kv: torch.Tensor,
                         seqused_kv: torch.Tensor,
                         attn_sinks: torch.Tensor,
-                        atten_out: torch.Tensor,
                         win_size: int,
-                        is_decode: bool = False,
-                        mask: torch.Tensor = None,
-                        actual_seq_list_q: torch.Tensor = None,
+                        is_decode: bool,
+                        mask: torch.Tensor,
+                        actual_seq_list_q: torch.Tensor,
 ) -> None:
     """
     """
+    if is_decode:
+        atten_out = torch.zeros(q.shape, dtype=q.dtype, device=q.device)
+    else:
+        atten_out = torch.zeros([q.shape[0] * q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
+
     inputs = {
         q: [],
         ori_block_table: [],
@@ -550,3 +551,4 @@ def deepseekv4_win_atten(q: torch.Tensor,
         print("Please check your params.")
         
     pypto.runtime._device_synchronize()
+    return atten_out
