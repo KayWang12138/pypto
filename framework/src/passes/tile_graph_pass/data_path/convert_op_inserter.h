@@ -74,6 +74,7 @@ public:
 
     // 提取指定tensor的指定consumer op所需的mem类型
     MemoryType GetMemoryTypeFromTensorTobeMap(LogicalTensorPtr &tensor, Operation &operation) const;
+    std::map<Operation *, MemoryType> GetMemoryTypeFromTensorTobeMap(LogicalTensorPtr &tensor) const;
 
     // 将 tensor tobe map初始化当前tensor的memory type original
     void RefreshTensorTobeMap(Function &function);

@@ -18,7 +18,6 @@
 #include "codegen_op_cloudnpu.h"
 #include "securec.h"
 #include "codegen/utils/codegen_utils.h"
-#include "codegen/symbol_mgr/codegen_symbol.h"
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::PrintCastDynamicUnaligned(const PrintUnaryParam &param) const {
@@ -63,8 +62,16 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
         modeEnum = npu::tile_fwk::AnyCast<int64_t>(mode);
     }
     std::ostringstream oss;
-    oss << tileOpName << "<" << modeEnum << ">"
-        << "(" << dstTensor << ", " << srcTensor << ");\n";
+    std::vector<std::string> templateParamList;
+    std::string lastUse = GetLastUse();
+    oss << tileOpName;
+    if (!lastUse.empty()) {
+        templateParamList.emplace_back(lastUse);
+    }
+    templateParamList.emplace_back(std::to_string(modeEnum));
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses({dstTensor, srcTensor});
+    oss << ";\n";
     return oss.str();
 }
 
@@ -313,8 +320,16 @@ std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::ostringstream oss;
-    oss << tileOpName << "<" << expandAxis << ">"
-        << "(" << dstTensor << ", " << srcTensor << ");\n";
+    std::vector<std::string> templateParamList;
+    std::string lastUse = GetLastUse();
+    oss << tileOpName;
+    if (!lastUse.empty()) {
+        templateParamList.emplace_back(lastUse);
+    }
+    templateParamList.emplace_back(std::to_string(expandAxis));
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses({dstTensor, srcTensor});
+    oss << ";\n";
     return oss.str();
 }
 
@@ -332,7 +347,7 @@ std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::
         expandAxis = AnyCast<int64_t>(axis);
     }
     ASSERT((expandAxis >= 0) && (expandAxis <= (static_cast<int>(rawShape[1].size() - 1))))
-        << "unsupported reduce axis";
+        << "unsupported expand axis";
     // modify expandAxis for SHAPE_DIM4
     expandAxis += SHAPE_DIM4 - rawShape[1].size();
 
@@ -489,7 +504,14 @@ std::string CodeGenOpCloudNPU::PrintUnaryTileTensor() const {
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
 
     std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor << ", " << srcTensor << ");\n";
+    std::vector<std::string> templateParamList;
+    std::string lastUse = GetLastUse();
+    oss << tileOpName;
+    if (!lastUse.empty()) {
+        oss << WrapParamByAngleBrackets({lastUse});
+    }
+    oss << WrapParamByParentheses({dstTensor, srcTensor});
+    oss << ";\n";
     return oss.str();
 }
 
