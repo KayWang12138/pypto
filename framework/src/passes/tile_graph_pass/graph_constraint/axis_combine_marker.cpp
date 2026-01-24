@@ -69,7 +69,7 @@ void UpdateViewStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisRe
     auto inputTensor = op->GetIOperands()[0];
     auto outputTensor = op->GetOOperands()[0];
     if (outputTensor->GetShape().back() != 1) {
-        tensorStatus[outputTensor] = AxisCombineMarker::UNKNOWN;
+        tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
     }
     if (tensorStatus.find(inputTensor) != tensorStatus.end()) {
         tensorStatus[outputTensor] = tensorStatus[inputTensor];
