@@ -316,13 +316,9 @@ Status OoOScheduler::SpillOnBlock() {
         APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info."); 
         return FAILED; 
     }
-    bool rearrangeUBBF16{false};
-    if (RearrangeBuffers(allocIssueQueue[spillMemType].Front(), false, rearrangeUBBF16) != SUCCESS) {
-        APASS_LOG_WARN_F(Elements::Operation, "SpillOnBlock failed at RearrangeBuffers. Try GenBufferSpill.");
-        if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
-            return FAILED;
-        }
+    if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
+        return FAILED;
     }
     return SUCCESS;
 }
@@ -386,6 +382,9 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
             continue;
         }
         IssueEntryPtr issue = pipe.PopFront();
+        //标注op的生命周期
+        issue->tileOp.cycleStart = clock;
+        issue->tileOp.cycleEnd = clock + issue->tileOp.GetLatency();
         pipe.busy = true;
         pipe.curIssue = issue;
         pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
@@ -514,9 +513,14 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
 
 Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
     for (auto& [pipeType, pipe] : issueQueues) {
-        (void)pipeType;
         if (!pipe.busy) {
             continue;
+        }
+        if (!pipeEndTime.count(pipeType)) {
+            pipeEndTime.emplace(pipeType, pipe.curOpRetireCycle);
+        } else {
+            auto curEndTime = pipeEndTime[pipeType];
+            pipeEndTime[pipeType] = std::max(curEndTime, pipe.curOpRetireCycle);
         }
         if (pipe.curOpRetireCycle <= clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
             IssueEntryPtr issue = pipe.curIssue;
@@ -1061,6 +1065,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
     }
     PrintOpList(newOperations_);
     function_.SetStackWorkespaceSize(workspaceOffset);
+    function_.pipeEndTime = pipeEndTime;
     return SUCCESS;
 }
 
