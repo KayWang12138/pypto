@@ -302,7 +302,9 @@ def main():
             
             tensor_infos.append(parser.parse_file(bin_file))
     df = pd.DataFrame(tensor_infos)
-    print(df)
+    df["rootHash"] = "'" + df["rootHash"]
+    df["funcHash"] = "'" + df["funcHash"]
+
     df.to_csv(os.path.join(args.dump_tensor_path, "tensor_info.csv"), index=False, encoding="utf-8")
 
 

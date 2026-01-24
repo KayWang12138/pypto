@@ -175,7 +175,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     if (IsPtoDataDumpEnabled()) {
         int sf = AdxDataDumpServerInit();
         if (sf != 0) {
-            printf("ERROR AdxDataDumpServerInit failed \n");
+            ALOG_ERROR_F("ERROR AdxDataDumpServerInit failed \n");
         }
     }
     rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
