@@ -149,7 +149,8 @@ class _JIT:
         if len(args) < 1:
             raise ValueError("at least one tensor is required")
         if self.run_mode == RunMode.NPU:
-            pypto_impl.LaunchKernel(self, _current_stream(), *args, **kwargs)
+            self.kwargs = kwargs
+            pypto_impl.LaunchKernel(self, _current_stream(), *args)
         else:
             return self.run_cpu(*args, **kwargs)
 
@@ -174,7 +175,7 @@ class _JIT:
             pypto_impl.SetVerifyData(
                 host_pto_t_datas, [], _pto_verify_datas.get_data())
 
-    def compile(self, args, kwargs):
+    def compile(self, args):
         tensors = [item for item in args if isinstance(item, pypto.Tensor)]
         self.verify_begin(tensors)
 
@@ -185,7 +186,7 @@ class _JIT:
 
             with pypto.function(self.dyn_func.__name__, *tensors) as rlf:
                 for _ in rlf:
-                    self.dyn_func(*args, **kwargs)
+                    self.dyn_func(*args, **self.kwargs)
                 del rlf
 
         # flowverify begin
