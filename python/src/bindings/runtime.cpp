@@ -16,6 +16,7 @@
 #include <pybind11/pytypes.h>
 #include "pybind_common.h"
 
+#include <cstdint>
 #include <utility>
 #include <vector>
 #include "interface/interpreter/raw_tensor_data.h"
@@ -308,12 +309,6 @@ struct ControlFlowCache {
 
 #define AICPU_META_BUFFER_NUM 2
 
-struct KernelTensorInfo {
-    int64_t inputNum;
-    int64_t outputNum;
-    DeviceTensorData inputs[0];
-};
-
 struct KernelBinary {
     int64_t devId{0};
     Function *func{nullptr};
@@ -383,10 +378,12 @@ struct KernelBinary {
 
     AiCpuArgs *BuildKernelArgs(std::vector<DeviceTensorData> &tensors) {
         auto &disableL2List = dynAttr->disableL2List;
-        auto tinfo = (KernelTensorInfo *)(aicpuArgs + 1);
-        auto tdata = (DevTensorData *)(tinfo + 1);
-        ASSERT((int64_t)tensors.size() == tinfo->inputNum) << "mismatch tensor size";
-        for (size_t i = 0; i < (size_t)tinfo->inputNum; ++i) {
+        int64_t *inputp = (int64_t *)(aicpuArgs + 1);
+        auto tdata = (DevTensorData *)(inputp + 2);
+        ALOG_ERROR(">>> inputNum ", inputp[0], " outputNum ", inputp[1],
+            "tensors ", tensors.size());
+        ASSERT((int64_t)tensors.size() == inputp[0]) << "mismatch tensor size";
+        for (size_t i = 0; i < (size_t)inputp[0]; ++i) {
             auto &t = tensors[i];
             auto addr = (uint64_t)t.GetAddr();
             if (unlikely(addr && disableL2List.size() && disableL2List[i])) {
@@ -472,10 +469,10 @@ private:
         aicpuArgs->kArgs.inputs = inputInfo.data();
         aicpuArgs->kArgs.outputs = (int64_t *)argSize;
 
-        auto tensorInfo = (KernelTensorInfo *)(aicpuArgs + 1);
-        tensorInfo->inputNum = dynAttr->startArgsInputLogicalTensorList.size();
-        tensorInfo->outputNum = dynAttr->startArgsOutputLogicalTensorList.size();
-
+        int64_t *inputp = (int64_t *)(aicpuArgs + 1);
+        inputp[0] = dynAttr->startArgsInputLogicalTensorList.size();
+        inputp[1] = dynAttr->startArgsOutputLogicalTensorList.size();
+        ALOG_ERROR("inputNum ", inputp[0], " outputNum ", inputp[1]);
         l2Offset = machine::GetRA()->GetL2Offset();
     }
 };
@@ -507,15 +504,15 @@ struct KernelModule {
         args->kArgs.launchMode = AICPU_LAUNCH_MODE_CTRL;
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
-        int ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtAicpuArgs, nullptr, aicpuStream, 0);
+        int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
+            "AST_DYN_AICPU", 5, &rtAicpuArgs, nullptr, aicpuStream, 0);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
 
-        ALOG_ERROR(__FUNCTION__, __LINE__);
-        args->kArgs.launchMode = AICPU_LAUNCH_MODE_SCHED;
-        ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 3, &rtAicpuArgs, nullptr, aicpuStream, 0);
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicpu sched failed: " << ret;
+        // ALOG_ERROR(__FUNCTION__, __LINE__);
+        // args->kArgs.launchMode = AICPU_LAUNCH_MODE_SCHED;
+        // ret = rtAicpuKernelLaunchExWithArgs(
+        //     rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 3, &rtAicpuArgs, nullptr, aicpuStream, 0);
+        // ASSERT(ret == RT_ERROR_NONE) << "launch aicpu sched failed: " << ret;
 
         ALOG_ERROR(__FUNCTION__, __LINE__);
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
@@ -715,14 +712,14 @@ void LaunchKernel(py::object module, int64_t stream, py::args args, py::kwargs k
         ctrlFlowCache = BuildTempCache(kbinary, module, tensors);
     }
 
-    ALOG_ERROR(__FUNCTION__, __LINE__) << "ctrlFlowCache " << ctrlFlowCache;
+    ALOG_ERROR(__FUNCTION__, __LINE__, "ctrlFlowCache ", (uint64_t)ctrlFlowCache);
     int64_t *wsAddr = nullptr;
     int64_t wsSize = kbinary->GetWorkspaceSize(tensors);
     if (wsSize) {
         auto pyalloc = py::getattr(module, "alloc");
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
-    ALOG_ERROR(__FUNCTION__, __LINE__) << "wsAddr " << wsAddr;
+    ALOG_ERROR(__FUNCTION__, __LINE__, "wsAddr ", (uint64_t)wsAddr);
     kmodule->Launch(kbinary, aicpuStream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
 }
 
