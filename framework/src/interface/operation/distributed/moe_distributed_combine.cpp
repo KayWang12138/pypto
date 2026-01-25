@@ -330,7 +330,7 @@ Tensor MoeDistributedCombineReceive(
     return out;
 }
 
-void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
+void MoeDistributedCombineValidate(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
     const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out)
 {
@@ -349,6 +349,18 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
     MoeDistributedCombineValidateGroup(group);
     MoeDistributedCombineValidateMoeEpWorldSize(epWorldSize);
     MoeDistributedCombineValidateMoeExpertNum(moeExpertNum);
+}
+
+void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
+    const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out)
+{
+    MoeDistributedCombineValidate(expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize,
+        moeExpertNum, sharedExpertNum, sharedExpertRankNum, out);
+
+    int32_t batchSize = expertScales.GetShape(0);
+    int32_t topK = expertScales.GetShape(1);
+    int32_t hiddenSize = expandX.GetShape(1);
 
     int32_t shmemDataRow = topK * batchSize;
     Shape shmemDataShape = {1, shmemDataRow, hiddenSize};
@@ -369,7 +381,8 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
         (void)index;
 
         int32_t expandXRow = expandX.GetShape(0);
-        TileShape::Current().SetDistTile({expandXRow / AIV_NUM, AIV_NUM, expandXRow % AIV_NUM}, {hiddenSize, 1, 0},
+        int32_t aivNum = AIV_NUM;
+        TileShape::Current().SetDistTile({expandXRow / aivNum, aivNum, expandXRow % aivNum}, {hiddenSize, 1, 0},
             {0, 0, 0});
         auto sendOut = MoeDistributedCombineSend(
             expandX,
@@ -379,14 +392,79 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
             shmemSignal,
             topK);
 
-        SymbolicScalar thisRank = GetHcclRankId(hcclGroupIndex);
+        SymbolicScalar thisRank = GetHcclRankId(group);
         auto shmemDataThisRank = View(shmemData, {1, 1, shmemDataRow, hiddenSize},
             std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
         auto shmemSignalThisRank = View(shmemSignal, {1, 1, batchSize, shmemSignalCol},
             std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
         TileShape::Current().SetDistTile(
-            {batchSize / AIV_NUM, AIV_NUM, batchSize % AIV_NUM}, {hiddenSize, 1, 0}, {0, 0, 0});
+            {batchSize / aivNum, aivNum, batchSize % aivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
         out = MoeDistributedCombineReceive(sendOut, expertScales, recvCounts, shmemDataThisRank, shmemSignalThisRank);
+    }
+}
+
+void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
+    const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
+    uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out)
+{
+    MoeDistributedCombineValidate(expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize,
+        moeExpertNum, sharedExpertNum, sharedExpertRankNum, out);
+
+    int32_t batchSize = expertScales.GetShape(0);
+    int32_t topK = expertScales.GetShape(1);
+    int32_t hiddenSize = expandX.GetShape(1);
+
+    Tensor shmemData;
+    Tensor shmemSignal;
+    LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void)index;
+        CreateShmemData(group, epWorldSize, expandX.GetDataType(), {1, batchSize * topK, hiddenSize}, shmemData);
+        CreateShmemSignal(group, shmemData, shmemSignal);
+    }
+
+    SymbolicScalar recvCountsScalar = GetTensorData(recvCounts, {0});
+    Tensor sendOut(DT_INT32, {recvCountsScalar, 1}, "sendOut");
+    std::set<int> unrollList = {64, 32, 16, 8, 4, 2, 1};
+    LOOP("MoeDistributedCombineSend", FunctionType::DYNAMIC_LOOP, rowIndex, LoopRange(recvCountsScalar), unrollList) {
+        SymbolicScalar rankId = GetTensorData(assistInfoForCombine, {rowIndex, 0});
+        SymbolicScalar tokenId = GetTensorData(assistInfoForCombine, {rowIndex, 1});
+        SymbolicScalar kOffset = GetTensorData(assistInfoForCombine, {rowIndex, 2});
+
+        Tensor expandXTile = View(expandX, {1, hiddenSize}, {rowIndex, 0});
+        Tensor shmemDataTile = View(shmemData, {1, 1, 1, hiddenSize}, {rankId, 0, topK * tokenId + kOffset, 0});
+        TileShape::Current().SetVecTile({1, hiddenSize});
+        Tensor predToken(DT_INT32, {1, 1}, "predToken");
+        Tensor shmemPutOut = ShmemPut(expandXTile, shmemDataTile, predToken);
+
+        Tensor shmemSignalTile = View(shmemSignal, {1, 1, 1, 1, hiddenSize}, {rankId, 0, 0, tokenId, 0});
+        Tensor shmemSignalOut = ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::ADD);
+        Assemble(shmemSignalOut, {rowIndex, 0}, sendOut);
+    }
+
+    SymbolicScalar thisRank = GetHcclRankId(group);
+    LOOP("MoeDistributedCombineReceive", FunctionType::DYNAMIC_LOOP, tokenId, LoopRange(batchSize)) {
+        Tensor shmemSignalTile = View(shmemSignal, {1, 1, 1, 1, hiddenSize}, {thisRank, 0, 0, tokenId, 0});
+        TileShape::Current().SetVecTile({1, hiddenSize});
+        Tensor waitUntilOut = WaitUntil(sendOut, shmemSignalTile, topK);
+
+        TileShape::Current().SetVecTile({topK, hiddenSize});
+        Tensor shmemDataTile = View(shmemData, {1, 1, topK, hiddenSize}, {thisRank, 0, topK * tokenId, 0});
+        Tensor shmemGetOutFp16 = ShmemGet(waitUntilOut, shmemDataTile);
+
+        TileShape::Current().SetVecTile({topK / 2, hiddenSize});
+        Tensor shmemGetOutFp32 = npu::tile_fwk::Cast(shmemGetOutFp16, DT_FP32);
+
+        Tensor expertScalesTile = View(expertScales, {1, topK}, {tokenId, 0});
+        int64_t kTileShape = AlignUp(topK, 16);
+        int64_t l0bSize = 65536;
+        ASSERT((BytesOf(DT_FP32) != 0) && (kTileShape != 0));
+        int64_t nTileShape = l0bSize / BytesOf(DT_FP32) / kTileShape;
+        TileShape::Current().SetCubeTile({1, 1}, {kTileShape, kTileShape}, {nTileShape, nTileShape});
+        Tensor matmulOutFp32 = Matrix::Matmul(DT_FP32, expertScalesTile, shmemGetOutFp32);
+
+        Tensor matmulOutFp16 = npu::tile_fwk::Cast(matmulOutFp32, DT_BF16);
+
+        Assemble(matmulOutFp16, {tokenId, 0}, out);
     }
 }
 }   // namespace npu::tile_fwk::Distributed

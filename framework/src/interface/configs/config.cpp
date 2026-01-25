@@ -404,6 +404,5 @@ template void SetOptionsNg<std::map<int, int>>(const std::string &key, const std
 template void SetOptionsNg<std::map<long, long>>(const std::string &key, const std::map<long, long> &value);
 template void SetOptionsNg<std::vector<int>>(const std::string &key, const std::vector<int> &value);
 template void SetOptionsNg<std::vector<std::string>>(const std::string &key, const std::vector<std::string> &value);
-
 } // namespace config
 } // namespace npu::tile_fwk

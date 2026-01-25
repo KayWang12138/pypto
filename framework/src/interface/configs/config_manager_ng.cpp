@@ -496,4 +496,5 @@ ConfigManagerNg &ConfigManagerNg::GetInstance() {
 }
 
 ConfigManagerNg::~ConfigManagerNg() = default;
+
 } // namespace npu::tile_fwk

@@ -425,6 +425,13 @@ uint64_t AllocShmemContextLocked(uint64_t hcclHandle)
 {
     EnsureShmemBootstrapPath();
     EnsureShmemBootstrapSession();
+    static std::once_flag tlsOnce;
+    std::call_once(tlsOnce, []() {
+        int tlsRet = shmem_set_conf_store_tls(false, "", 0);
+        if (tlsRet != ACLSHMEM_SUCCESS) {
+            ShmemLog("[pypto] shmem_set_conf_store_tls failed ret=%d\n", tlsRet);
+        }
+    });
     int initStatus = shmem_init_status();
     if (initStatus != ACLSHMEM_STATUS_IS_INITIALIZED) {
         int rank = GetRankFromEnv(hcclHandle);
@@ -434,19 +441,22 @@ uint64_t AllocShmemContextLocked(uint64_t hcclHandle)
             return 0;
         }
         bool inited = false;
-        shmem_uniqueid_t uid{};
-        if (LoadOrCreateShmemUniqueId(rank, uid)) {
-            shmem_init_attr_t attributes{};
-            int setRet = shmem_set_attr_uniqueid_args(rank, world, SHMEM_LOCAL_MEM_SIZE, &uid, &attributes);
-            if (setRet != ACLSHMEM_SUCCESS) {
-                ShmemLog("[pypto] shmem_set_attr_uniqueid_args failed ret=%d\n", setRet);
-            } else {
-                attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_MTE;
-                int initRet = shmem_init_attr(ACLSHMEMX_INIT_WITH_UNIQUEID, &attributes);
-                if (initRet == ACLSHMEM_SUCCESS) {
-                    inited = true;
+        bool enableUniqueId = (std::getenv("PYPTO_SHMEM_USE_UNIQUEID") != nullptr);
+        if (enableUniqueId) {
+            shmem_uniqueid_t uid{};
+            if (LoadOrCreateShmemUniqueId(rank, uid)) {
+                shmem_init_attr_t attributes{};
+                int setRet = shmem_set_attr_uniqueid_args(rank, world, SHMEM_LOCAL_MEM_SIZE, &uid, &attributes);
+                if (setRet != ACLSHMEM_SUCCESS) {
+                    ShmemLog("[pypto] shmem_set_attr_uniqueid_args failed ret=%d\n", setRet);
                 } else {
-                    ShmemLog("[pypto] shmem_init_attr uniqueid failed ret=%d\n", initRet);
+                    attributes.option_attr.data_op_engine_type = ACLSHMEM_DATA_OP_MTE;
+                    int initRet = shmem_init_attr(ACLSHMEMX_INIT_WITH_UNIQUEID, &attributes);
+                    if (initRet == ACLSHMEM_SUCCESS) {
+                        inited = true;
+                    } else {
+                        ShmemLog("[pypto] shmem_init_attr uniqueid failed ret=%d\n", initRet);
+                    }
                 }
             }
         }
@@ -978,6 +988,10 @@ void CopyToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor)
     CopyDevToHost(devTensor, hostTensor);
 }
 
+void CopyToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
+    CopyHostToDev(devTensor, hostTensor);
+}
+
 void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
                    const std::vector<DeviceTensorData> &outputs,
                    const std::vector<DeviceTensorData> &goldens) {
@@ -1306,6 +1320,7 @@ void BindRuntime(py::module &m) {
     m.def("HcclCommInitRootInfo", &HcclCommInitRootInfoBytes);
     m.def("HcclGetCommName", &HcclGetCommNameFromHandle);
 #endif
+    m.def("CopyToDev", &CopyToDev);
 
     py::class_<DeviceTensorData>(m, "DeviceTensorData")
         .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),

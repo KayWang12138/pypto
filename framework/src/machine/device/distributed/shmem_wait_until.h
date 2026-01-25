@@ -188,11 +188,8 @@ public:
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
         int32_t stride = aicpuCode[paramInfo_.attrIndex + 1];
-        int32_t tileIndex = (info.offset[SHMEM_DIM_ROW] / paramInfo_.tileShapeRow) * 
-            ((paramInfo_.rawShapeCol + paramInfo_.tileShapeCol - 1) / paramInfo_.tileShapeCol) +
-            (info.offset[SHMEM_DIM_COL] / paramInfo_.tileShapeCol);
-        int32_t totalTileNum = ((paramInfo_.rawShapeRow - 1) / paramInfo_.tileShapeRow + 1) * ((paramInfo_.rawShapeCol - 1) / paramInfo_.tileShapeCol + 1);
-
+        int32_t tileIndex = aicpuCode[paramInfo_.attrIndex + 3];
+        int32_t totalTileNum = aicpuCode[paramInfo_.attrIndex + 4];
         // info.offset[1]代表src的rankId=offset[1]的shmemSignal版图, info.offset[2]代表srcRankId, info.offset[3]代表row offset, info.offset[4]代表col offset
         DEV_DEBUG("ShmemWaitUntil::EnqueueOp rawAddr=0x%lx stride=%d rawRankShape=%u rawShapeRow=%u rawShapeCol=%u tileShapeRow=%u tileShapeCol=%u",
             info.rawAddr, stride, paramInfo_.rawRankShape, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol,

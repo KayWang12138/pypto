@@ -104,7 +104,6 @@ Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &funct
     }
     spliter.MergeTaskByTargetCoreType();
     for (auto &taskNode : spliter.GetTaskGraph().tasks) {
-        SortTaskList(opList, taskNode.opList_);
         OoOScheduler oooSchedule(*program.second);
         if (oooSchedule.Schedule(taskNode.opList_) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "TaskNode[%d] schedule failed.", taskNode.idx);
@@ -126,7 +125,7 @@ Status OoOSchedule::SortAndLatencyEstimate(std::vector<Operation*> &opList, std:
     int &latency) {
     APASS_LOG_INFO_F(Elements::Operation, "=======>start SortAndLatencyEstimate");
     SortTaskList(opList, taskOpList);
-    LatencyEstimator latencyEstimator(taskOpList);
+    LatencyEstimator latencyEstimator(taskOpList, opList);
     if (latencyEstimator.LatencyEstimatorMainLoop() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "SortAndLatencyEstimate LatencyEstimatorMainLoop failed.");
         return FAILED;

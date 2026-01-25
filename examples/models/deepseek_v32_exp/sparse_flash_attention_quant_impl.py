@@ -431,8 +431,7 @@ def sparse_flash_attention_quant_compute_flash(query_nope, query_rope, key_nope_
         "stitch_function_inner_memory": 128,
         "stitch_function_outcast_memory": 128,
         "device_sched_mode": 3
-    },
-    host_options={"only_codegen": True}
+    }
 )
 def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                            k_nope_scales, topk_indices, block_table, kv_act_seqs,
@@ -468,7 +467,7 @@ def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope
         Configured for decode phase with optimized memory and parallelism settings.
         Uses flash attention algorithm for better numerical stability.
     """
-    pypto.experimental.set_operation_config(combine_axis=True)
+    pypto.experimental.set_operation_options(combine_axis=True)
 
     sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                          k_nope_scales, topk_indices, block_table, kv_act_seqs,
@@ -490,8 +489,7 @@ def sparse_flash_attention_quant_d(query_nope, query_rope, key_nope_2d, key_rope
         "stitch_function_inner_memory": 32,
         "stitch_function_outcast_memory": 32,
         "stitch_function_num_initial": 128
-    },
-    host_options={"only_codegen": True}
+    }
 )
 def sparse_flash_attention_quant_p(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                            k_nope_scales, topk_indices, block_table, kv_act_seqs,
@@ -527,7 +525,7 @@ def sparse_flash_attention_quant_p(query_nope, query_rope, key_nope_2d, key_rope
         Configured for prefill phase with optimized memory and parallelism settings.
         Uses flash attention algorithm for better numerical stability.
     """
-    pypto.experimental.set_operation_config(combine_axis=True)
+    pypto.experimental.set_operation_options(combine_axis=True)
 
     sparse_flash_attention_quant_compute(query_nope, query_rope, key_nope_2d, key_rope_2d,
                                          k_nope_scales, topk_indices, block_table, kv_act_seqs,

@@ -30,6 +30,7 @@
 #include "interface/operation/opcode.h"
 #include "interface/operation/operation.h"
 #include "interface/configs/config_manager.h"
+#include "tilefwk/tilefwk_op.h"
 #include "distributed_expand.h"
 #include "tilefwk/comm_group_recorder.h"
 
@@ -44,7 +45,7 @@ constexpr int32_t DIST_INDEX_TWO = 2;
 constexpr uint16_t COPY_BLOCK_BYTE_SIZE = 32;
 constexpr uint16_t SAME_ADDR_BYTE_SIZE = 512;
 constexpr int32_t ROUTED_EXPET_NUM = 160;
-constexpr int32_t AIV_MAX_NUM = 8;
+constexpr int32_t FFN_TILE_SIZE = 8;
 constexpr int32_t AIV_NUM = 4;
 constexpr int32_t RECEIVE_CNT_OUT_ROW = 1024;
 constexpr int32_t RECEIVE_CNT_OUT_COL = 512;
@@ -54,11 +55,6 @@ enum class TileIndex : size_t {
     HEAD_SHAPE,
     HEAD_NUM,
     TAIL_SHAPE
-};
-
-enum class AtomicType {
-    SET,
-    ADD
 };
 
 enum class AllReduceType {
@@ -93,6 +89,8 @@ public:
     int64_t paddedColShape;
     int64_t rowOffset{-1};
     int64_t rowShape{-1};
+    int64_t tileRowShape;
+    int64_t tileColShape;
 };
 
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)
@@ -156,19 +154,5 @@ inline bool checkValidConfig(const MoeConfig &moeConfig, std::string &assertResu
 
 } // namespace Distributed
 } // namespace npu::tile_fwk
-
-namespace npu::tile_fwk::Distributed {
-Tensor ShmemPut(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
-    AtomicType atomicType);
-Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int tileCount,
-    AtomicType atomicType);
-Tensor ShmemSignal(const Tensor &dummy, const Tensor &shmemSignalTile, AtomicType atomicType);
-Tensor ShmemGet(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType,
-    AtomicType atomicType);
-Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType,
-    AtomicType atomicType);
-Tensor WaitUntil(const Tensor &dummyIn, const Tensor &shmemSignalTile, int32_t expectedSum, bool resetSignal);
-void ShmemReduce(const Tensor &in, const Tensor &shmData, const Tensor &dummy, const Tensor &out);
-} // namespace npu::tile_fwk::Distributed
 
 #endif
