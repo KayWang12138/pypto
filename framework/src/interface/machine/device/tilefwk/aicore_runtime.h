@@ -22,6 +22,8 @@
 #include "tilefwk/aikernel_runtime.h"
 #include "tileop/distributed/hccl_context.h"
 
+using CoreFuncParam = npu::tile_fwk::CoreFuncParam;
+
 #define CACHELINE_SIZE_FOR_B32 128
 #define CACHELINE_SIZE_FOR_B64 64
 #define DEFAULT_TOTAL_BLOCK_NUM 75
@@ -197,20 +199,6 @@ template <typename T, unsigned SIZE>
 INLINE uint64_t GetLengthPrivate(volatile RingBuffer<T, SIZE> *Q) {
     return (Q->rear - Q->front + Q->MAX_SIZE) % Q->MAX_SIZE;
 }
-
-struct LogContext;
-
-struct CoreFuncParam {
-    __gm__ npu::tile_fwk::DynFuncData *funcData;
-    __gm__ uint64_t *opAttrs;
-    __gm__ uint64_t *exprTbl;
-    uint32_t taskId;
-    LogContext *ctx;
-};
-
-#define TASKID_TASK_BITS 20
-#define FuncID(id)       (id >> TASKID_TASK_BITS)
-#define TaskID(id)       (id & ((1 << TASKID_TASK_BITS) - 1))
 
 #define SYM_VALUE_LEN 63
 #define SYM_VALUE_MASK ((1UL << SYM_VALUE_LEN) - 1)

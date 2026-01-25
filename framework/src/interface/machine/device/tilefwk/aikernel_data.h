@@ -18,6 +18,8 @@
 
 #include "tilefwk/aikernel_define.h"
 
+struct LogContext;
+
 namespace npu::tile_fwk {
 
 const uint32_t HCCL_GROUP_NUM = 2;
@@ -113,17 +115,45 @@ struct DynFuncHeader {
     uint32_t funcSize;
     __gm__ DynFuncBin *cceBinary;
 
-    uint64_t GetIndex() {
+    INLINE uint64_t GetIndex() {
         return seqNo;
     }
 
-    inline DynFuncData &At(int index) {
+    INLINE DynFuncData &At(int index) {
         return (reinterpret_cast<DynFuncData *>(this + 1))[index];
     }
-    inline uint32_t Size() {
+    INLINE uint32_t Size() {
         return funcNum;
     }
 };
+
+struct CoreFuncParam {
+    __gm__ npu::tile_fwk::DynFuncData *funcData;
+    __gm__ uint64_t *opAttrs;
+    __gm__ uint64_t *exprTbl;
+    uint32_t taskId;
+    LogContext *ctx;
+};
+
+#define TASKID_TASK_BITS                        20
+#define TASKID_TASK_MASK                        ((1 << TASKID_TASK_BITS) - 1)
+
+#define TASKID_FUNC_BITS                        11
+#define TASKID_FUNC_MASK                        ((1 << TASKID_FUNC_BITS) - 1)
+
+#define TASKID_SHIFT32                          32
+
+INLINE uint32_t FuncID(uint32_t taskId) {
+    return taskId >> TASKID_TASK_BITS;
+}
+
+INLINE uint32_t TaskID(uint32_t taskId) {
+    return taskId & TASKID_TASK_MASK;
+}
+
+INLINE uint32_t MakeTaskID(uint32_t rootId, uint32_t leafId) {
+    return (rootId << TASKID_TASK_BITS) | leafId;
+}
 
 }
 

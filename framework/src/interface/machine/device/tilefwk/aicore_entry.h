@@ -55,6 +55,7 @@ namespace npu::tile_fwk {
 #define AICORE_DEVICE_TASK_RUN_TIMEOUT 3000000000
 #define AICORE_DEVICE_TASK_WAIT_TIME_OUT 500000000
 #define AICORE_LEAF_TASK_RUN_TIMEOUT 3000000000
+#define AICORE_LEAF_TASK_WAIT_TIMEOUT 500000000
 
 using npu::tile_fwk::DynFuncHeader;
 using npu::tile_fwk::DynFuncData;
@@ -114,7 +115,7 @@ INLINE uint32_t GetNextLeafTask(uint32_t lastTaskIdx, uint32_t curDevTaskId) {
             }
         }
         ++loop_count;
-        if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > 500000000)) {
+        if ((loop_count % 1000 == 0) && (get_sys_cnt() - t0 > AICORE_LEAF_TASK_WAIT_TIMEOUT)) {
             return AICORE_TASK_STOP;
         }
     } while (nextLowIdx == lastTaskIdx || isForceContinue);
@@ -151,12 +152,11 @@ INLINE void HandshakeClient(volatile __gm__ int64_t *shakeBuf) {
 }
 
 INLINE void SetStatus(__gm__ KernelArgs *args, int64_t val) {
-    UNUSED(args); UNUSED(val);
-#if DEBUG_SWITCH
-    Barrier();
-    args->shakeBuffer[2] = val;
-    dcci(args->shakeBuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
-#endif
+    if (!IS_AICORE || DEBUG_SWITCH) {
+        Barrier();
+        args->shakeBuffer[2] = val;
+        dcci(args->shakeBuffer, SINGLE_CACHE_LINE, CACHELINE_OUT);
+    }
 }
 
 INLINE void SendRegFinish(uint32_t curTaskIdx) {
@@ -299,8 +299,8 @@ INLINE void PmuTestEnd(__gm__ KernelArgs *args) {
 INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
     uint64_t t1 = get_sys_cnt();
     SetStatus(ctx->args, ((uint64_t)taskId << 32) | STAGE_PRE_EXEC_COREFUNC_KERNEL); // high 32 bits used for taskId
-    auto funcData = &ctx->funcDataList[FuncID(taskId)];
-    auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[TaskID(taskId)]];
+    auto funcData = &ctx->funcDataList[npu::tile_fwk::FuncID(taskId)];
+    auto opAttrs = &funcData->opAttrs[funcData->opAtrrOffsets[npu::tile_fwk::TaskID(taskId)]];
 #if ENABLE_AICORE_PRINT
     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, ctx->logger.context()};
 #else
