@@ -83,6 +83,7 @@ enum DFX_STAGE_STATUS {
 
 struct ExecuteContext {
     __gm__ KernelArgs *args;
+    int32_t blockIdx;
     uint32_t seqNo{0};
     __gm__ DynFuncData *funcDataList{nullptr};
     uint64_t lastTaskFinishCycle{0};
@@ -311,7 +312,7 @@ INLINE void ExecDynCoreFunctionKernel(ExecuteContext *ctx, uint32_t taskId) {
 #else
     CoreFuncParam param = {funcData, opAttrs, funcData->exprTbl, taskId, nullptr};
 #endif
-    CallSubFuncTask(opAttrs[0], &param, funcData->stackWorkSpaceAddr + aicore_blockIdx * funcData->stackWorkSpaceSize,
+    CallSubFuncTask(opAttrs[0], &param, funcData->stackWorkSpaceAddr + ctx->blockIdx * funcData->stackWorkSpaceSize,
                     (__gm__ int64_t *)funcData->hcclContext);
     SetStatus(ctx->args, STAGE_FINISH_EXEC_COREFUNC_KERNEL);
     PipeSync();
@@ -368,12 +369,12 @@ INLINE void KernelEntry(int64_t ffts_addr, int64_t inputs,
         int64_t outputs, int64_t workspace, int64_t tilingdata, int64_t cfgdata) {
     UNUSED(ffts_addr); UNUSED(inputs); UNUSED(outputs); UNUSED(workspace); UNUSED(tilingdata);
 #if defined(__AIV__) and defined(__MIX__)
-    aicore_blockIdx = get_block_idx() * get_subblockdim() + get_subblockid() + get_block_num();
+    int32_t blockIdx = get_block_idx() * get_subblockdim() + get_subblockid() + get_block_num();
 #else
-    aicore_blockIdx = get_block_idx();
+    int32_t blockIdx = get_block_idx();
 #endif
     auto devArgs = (DeviceArgs*)cfgdata;
-    __gm__ KernelArgs *args = (__gm__ KernelArgs *)(devArgs->sharedBuffer + aicore_blockIdx * SHARED_BUFFER_SIZE);
+    __gm__ KernelArgs *args = (__gm__ KernelArgs *)(devArgs->sharedBuffer + blockIdx * SHARED_BUFFER_SIZE);
     __gm__ Metrics* metric = (__gm__ Metrics*)(args->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
     PerfTraceRecord(INVALID_DEV_TASK_ID, metric, PERF_TRACE_CORE_BEGIN, args);
     bool isFirstTask = true;
@@ -384,7 +385,7 @@ INLINE void KernelEntry(int64_t ffts_addr, int64_t inputs,
     uint32_t curTaskIdx;
     uint32_t lastTaskIdx;
     int64_t coreFuncData = 0;
-    ExecuteContext ctx = {.args = args };
+    ExecuteContext ctx = {.args = args, .blockIdx = blockIdx };
     //get core task data
     uint64_t t0 = get_sys_cnt();
     uint64_t loop_count = 0;
