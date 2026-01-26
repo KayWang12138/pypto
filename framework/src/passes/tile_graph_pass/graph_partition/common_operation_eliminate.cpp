@@ -31,9 +31,6 @@ void SortedProducer(std::vector<Operation*>& sortedProducers) {
             const auto& iOp2 = op2->GetIOperands();
             size_t minLen = std::min(iOp1.size(), iOp2.size());
             for (size_t i = 0; i < minLen; ++i) {
-                if (iOp1[i] == nullptr || iOp2[i] == nullptr) {
-                    return iOp1[i] == nullptr;
-                }
                 LogicalTensor* ptr1 = iOp1[i].get();
                 LogicalTensor* ptr2 = iOp2[i].get();
                 if (ptr1 != ptr2) {
@@ -223,27 +220,27 @@ void CommonOperationEliminate::UpdateCopy(CopyOpAttribute *copyOpAttribute,
 
 bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers) {
     auto& producers = tensorProducerPair.second;  
-    if (producers.empty()) {
-        return false;
-    }
+    if (producers.empty()) return false;
     auto existOp = OperationExist(tensorProducerPair, cacheProducers);
-    if (existOp.first == nullptr || tensorProducerPair.first == nullptr || existOp.second.empty()) {
-        return false;
-    }
-    if (tensorProducerPair.first->shape != existOp.first->shape) {
-        return false;
-    }
-    if (tensorProducerPair.first->tensor->GetDataType() != existOp.first->tensor->GetDataType()) {
-        return false;
-    }
+    if (existOp.first == nullptr || tensorProducerPair.first == nullptr || existOp.second.empty()) return false;
+    if (tensorProducerPair.first->shape != existOp.first->shape) return false;
+    if (tensorProducerPair.first->tensor->GetDataType() != existOp.first->tensor->GetDataType()) return false;
     LogicalTensor* oldtensors = tensorProducerPair.first;
     LogicalTensor* newtensors = existOp.first;
     if (oldtensors->nodetype == NodeType::OUTCAST) {
         return false;
     }
-    if (newtensors->GetConsumers().size() == 0 || oldtensors->GetConsumers().size() == 0) {
-        return false;
+    if (tensorProducerPair.second.size() == existOp.second.size()) {
+        bool allSame = true;
+        for (size_t i = 0; i < existOp.second.size(); i++) {
+            if (tensorProducerPair.second[i] != existOp.second[i]) {
+                allSame = false;
+                break;
+            }
+        }
+        if (allSame) return false;
     }
+    if (newtensors->GetConsumers().size() == 0 || oldtensors->GetConsumers().size() == 0) return false;
     auto consumers = oldtensors->GetConsumers();
     for (auto &cur : consumers) {
         if (cur == nullptr) continue;
@@ -251,18 +248,14 @@ bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, st
         std::shared_ptr<LogicalTensor> new_ptr(newtensors, [](LogicalTensor*){});
         cur->ReplaceInput(new_ptr, old_ptr);
         auto attptr = cur->GetOpAttribute().get();
-        if (attptr == nullptr) {
-            continue;
-        }
+        if (attptr == nullptr) continue;
         if (cur->GetOpcode() == Opcode::OP_VIEW) {
             if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(attptr)) {
-            // VIEW操作的offset要相应被修改。
                 UpdateView(viewOpAttribute, old_ptr, new_ptr);
                 continue;
             }
         } else if (cur->GetOpcode() == Opcode::OP_COPY_IN) { 
             if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(attptr)) {
-            // CopyIn操作的offset要相应被修改。
                 UpdateCopy(copyOpAttribute, old_ptr, new_ptr);
                 continue;
             }
