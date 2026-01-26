@@ -43,9 +43,7 @@ void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
 
 bool CalculateNewRawShape(
     const std::vector<int64_t> &newShape, const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
-    newRawShape.resize(newShape.size());
-    size_t diff = oriRawShape.size() - newShape.size();
-    std::copy(oriRawShape.begin() + diff, oriRawShape.end(), newRawShape.begin());
+    newRawShape = newShape;
     int64_t newShapeSize = 1;
     if (newRawShape.size() > 1) {
         newShapeSize =
@@ -157,7 +155,7 @@ Status RemoveRedundantAssemble::ProcessView(Function &function) const {
         if (producerOp == nullptr || producers.size() != 1 || producerOp->GetOpcode() != Opcode::OP_VIEW) continue;
         auto viewInput = producerOp->GetIOperands().front();
         for (auto reshapeConsumer : reshapeOp.GetOOperands().front()->GetConsumers()) {
-            if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) continue;
+            if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) return SUCCESS;
         }
         auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(producerOp->GetOpAttribute());
         if (opAttr == nullptr) {
