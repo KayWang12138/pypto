@@ -782,7 +782,17 @@ static void RowMinSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, in
     From(out) = std::get<0>(ret);
 }
 
+static void RowMinLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto ret = torch::min(From(self), dim, true);
+    From(out) = std::get<0>(ret);
+}
+
 static void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto ret = torch::max(From(self), dim, true);
+    From(out) = std::get<0>(ret);
+}
+
+static void RowMaxLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
     auto ret = torch::max(From(self), dim, true);
     From(out) = std::get<0>(ret);
 }
@@ -985,6 +995,64 @@ static void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t ax
     for (int64_t i = 0; i < topkGroups.dim(); ++i) {
         if (i == axis) {
             dstShape.push_back(DIM_SIZE_TWO * k);
+        } else if (i !=axis + 1) {
+            dstShape.push_back(topkGroups.size(i));
+        }
+    }
+    torch::Tensor dstSubview = View(tout, dstShape, {0, 0});
+    dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
+}
+
+static void TiledMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr src1, LogicalTensorDataPtr src2,
+    LogicalTensorDataPtr src3, LogicalTensorDataPtr src4, int validBit, int kvalue) {
+    auto self1 = From(src1);
+    auto self2 = From(src2);
+    auto self3 = From(src3);
+    auto self4 = From(src4);
+    auto tout = From(out);
+    constexpr int SORT_NUM_TWO = 2;
+    constexpr int SORT_NUM_THREE = 3;
+    constexpr int SORT_NUM_FOUR = 4;
+    torch::Tensor tself;
+    if (validBit == SORT_NUM_TWO) {
+        tself = torch.cat({self1, self2}, -1);
+    } else if (validBit == SORT_NUM_THREE) {
+        tself = torch.cat({self1, self2, self3}, -1);
+    } else if (validBit == SORT_NUM_FOUR) {
+        tself = torch.cat({self1, self2, self3, self4}, -1);
+    }
+    constexpr int ACTUAL_VALID_RATIO = 2;
+    auto axis = tself.dim() - 1;
+
+    std::vector<int64_t>newShape;
+    newShape.reserve(tself.dim() + 1);
+    for (int64_t i = 0; i < tself.dim(); ++i) {
+        if (i == axis) {
+            newShape.push_back(tself.size(axis) / ACTUAL_VALID_RATIO);
+            newShape.push_back(SORT_NUM_TWO);
+        } else {
+            newShape.push_back(tself.size(i));
+        }
+    }
+    auto tselfGrouped = tself.reshape(torch::IntArrayRef(newShape));
+    torch::Tensor sortedIndices;
+    std::tie(std::ignore, sortedIndices) = tselfGrouped.select(-1, 0).sort(axis, true);
+
+    std::vector<int64_t>indexShape;
+    for (int64_t i = 0; i < sortedIndices.dim(); ++i) {
+        indexShape.push_back(sortedIndices.size(i));
+    }
+    indexShape.push_back(SORT_NUM_TWO);
+    auto expanded_indices = sortedIndices.unsqueeze(-1).expand(torch::IntArrayRef(indexShape));
+    auto sortedGroups = tselfGrouped.gather(axis, expanded_indices);
+    auto indicesk = torch::arange(kvalue, torch::dtype(torch::kLong));
+    auto topkGroups = sortedGroups.index_select(axis, indicesk);
+
+    std::vector<int64_t> dstShape;
+    dstShape.reserve(topkGroups.dim() - 1);
+    for (int64_t i = 0; i < topkGroups.dim(); ++i) {
+        if (i == axis) {
+            dstShape.push_back(SORT_NUM_TWO * kvalue);
         } else if (i !=axis + 1) {
             dstShape.push_back(topkGroups.size(i));
         }
@@ -1278,6 +1346,7 @@ static struct CalcOps calcOps = {
     .FormatNZ2ND = FormatNZ2ND,
     .MatMul = MatMul,
     .BitSort = BitSort,
+    .TiledMrgSort = TiledMrgSort,
     .Extract = Extract,
     .Topk = Topk,
     .TopkSort = TopkSort,
