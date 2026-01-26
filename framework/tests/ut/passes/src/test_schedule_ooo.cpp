@@ -1592,8 +1592,9 @@ TEST_F(ScheduleOoOTest, TestBufferPollRearrange) {
     oooSchedule.bufferManagerMap[MemoryType::MEM_UB] = pool;
     oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(1, allocIssue1);
     oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(2, allocIssue2);
-    EXPECT_EQ(oooSchedule.RearrangeBuffer(MemoryType::MEM_UB), SUCCESS);
-    auto &ubPool = oooSchedule.bufferManagerMap[MemoryType::MEM_UB];
+    auto corePair = opCoreTypeMap.at(OpCoreType::AIV);
+    EXPECT_EQ(oooSchedule.RearrangeBuffer(MemoryType::MEM_UB, corePair), SUCCESS);
+    auto &ubPool = oooSchedule.bufferManagerMap[corePair.first][corePair.second][MemoryType::MEM_UB];
     EXPECT_EQ(ubPool.GetBufferSize(1), 65536);
     EXPECT_EQ(ubPool.GetBufferSize(2), 98304);
     EXPECT_EQ(ubPool.GetBufferOffset(1), 98304);
