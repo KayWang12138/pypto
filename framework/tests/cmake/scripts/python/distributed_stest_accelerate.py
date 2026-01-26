@@ -59,7 +59,8 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
         args = parser.parse_args()
 
         # 获取设备列表
-        device_list = stest_accelerate.STestAccelerate._init_get_device_list(args)
+        ctrl = DistributedSTestAccelerate(args=args)
+        device_list = ctrl._init_get_device_list(args)
 
         # 设备分组处理-顺序分组
         device_groups = DistributedSTestAccelerate._group_devices_by_rank_size(
@@ -67,7 +68,6 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
             rank_size=args.rank_size,
         )
 
-        ctrl = DistributedSTestAccelerate(args=args)
         ctrl.device_groups = device_groups
         ctrl.rank_size = args.rank_size
         ctrl.prepare()
