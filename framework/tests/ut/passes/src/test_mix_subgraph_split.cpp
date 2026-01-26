@@ -354,7 +354,7 @@ TEST_F(MixSubgraphSplitTest, TestSingleMixSubgraphBasicSplit) {
     
     // 2. 创建callOp
     const uint64_t mixProgramId = 100;
-    auto& callOp = CreateCallOp(rootFuncPtr, mixFuncPtr, mixProgramId, mixFuncHash);
+    auto& callOp = CreateCallOp(rootFuncPtr, mixProgramId, mixFuncHash);
     
     // 3. 执行拆分
     MixSubgraphSplit splitter;
