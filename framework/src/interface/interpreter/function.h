@@ -260,6 +260,7 @@ enum class OpInfoCsvHeader {
     rootFuncID,
     funcID,
     verifyType,
+    callopMagic,
     loopInfo,
     opMagic,
     opCode,
@@ -304,8 +305,8 @@ struct FunctionInterpreter {
 
         std::string dumpFilePath = dumpPath + "verify_result.csv";
         execResultFile = fopen(dumpFilePath.c_str(), "w");
-        std::vector<std::string> csvHeader = {"No.", "rootFuncID", "funcID", "verifyType", "LoopInfo", "opMagic", "opCode", 
-            "rawTensorMagic", "tensorMagic", "offset", "inputShape", "inputValidShape", "inputDtype", "inputTensors", 
+        std::vector<std::string> csvHeader = {"No.", "rootFuncID", "funcID", "verifyType", "callopMagic", "loopInfo", "opMagic",
+            "opCode", "rawTensorMagic", "tensorMagic", "offset", "inputShape", "inputValidShape", "inputDtype", "inputTensors", 
             "outputShape", "outputValidShape", "outputDynValidShape", "outputDtype",
             "outputTensor", "verifyResult", "maxAbsDiff", "maxRelDiff", "errorCount", "errorRatio"};
         WriteCsvRow(csvHeader);
@@ -611,7 +612,8 @@ struct FunctionInterpreter {
         DumpFunctionHead(func);
         if (frame->inoutDataPair != nullptr) {
             for (size_t k = 0; k < func->GetIncast().size(); k++) {
-                std::string fileName = "tensor_Incast_" + std::to_string(k) + ".data";
+                auto rawMagic = func->GetIncast()[k]->GetRawTensor()->GetRawMagic(); 
+                std::string fileName = "tensor_Incast_" + std::to_string(rawMagic) + ".data";
                 DumpTensorBinary(frame->inoutDataPair->incastDataViewList[k], fileName);
                 frame->tensorDataBinDict[func->GetIncast()[k]] = fileName;
             }
@@ -888,17 +890,21 @@ public:
         gettimeofday(&tv, nullptr);
         auto ts =  tv.tv_sec * 1000000 + tv.tv_usec; // 1000000 is us per sec
  
-        std::string fileName = std::to_string(frame->rootFuncIndex) + "~" + callopMagic  + GetLoopSymbolString() + "~" + std::to_string(frame->funcIndex) + "~" 
+        std::string fileName = std::to_string(frame->rootFuncIndex) + "~" + callopMagic  + GetLoopSymbolString(false) + "~" + std::to_string(frame->funcIndex) + "~" 
                         + std::to_string(op->GetOpMagic()) + "~" + op->GetOpcodeStr() + "~" + std::to_string(tensor->GetRawTensor()->GetRawMagic()) + "~" + 
                         std::to_string(tensor->GetMagic()) + "~" + std::to_string(ts) + ".data";
         return fileName;
     }
-    std::string GetLoopSymbolString() const {
+    std::string GetLoopSymbolString(bool withName=true) const {
         std::ostringstream loop;
         size_t loopCount = loopSymbolDict.size();
         size_t count = 0;
         for (auto &[name, value] : loopSymbolDict) {
-            loop << name << "=" << value;
+            if (withName) {
+                loop << name << "=" << value;
+            } else {
+                loop << value;
+            }
             if(++count < loopCount) {
                 loop << "@";
             } 
