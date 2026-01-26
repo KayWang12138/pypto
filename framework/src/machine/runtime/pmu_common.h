@@ -30,7 +30,10 @@ constexpr int32_t L2_CACHE = 8;
 constexpr int PMU_EVENT_TYPE_MAX_DAV2201 = 8;
 constexpr int PMU_EVENT_TYPE_MAX_DAV3510 = 10;
 
-void GetPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType);
+class PmuCommon {
+public:
+    static void GetPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType);
+};
 
 } // namespace npu::tile_fwk
 

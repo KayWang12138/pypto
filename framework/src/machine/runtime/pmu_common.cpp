@@ -75,7 +75,7 @@ void SetPmuEventTypeDAV3510(int32_t profPmuType, std::vector<int64_t> &pmuEvtTyp
 }
 }
 
-void GetPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType) {
+void PmuCommon::GetPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType) {
     // 获取pmu事件类型环境变量获取方式
     std::string eventTypeStr = GetEnvVar("PROF_PMU_EVENT_TYPE");
     if (eventTypeStr.empty()) {
