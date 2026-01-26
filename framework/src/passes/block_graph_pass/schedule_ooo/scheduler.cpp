@@ -308,7 +308,8 @@ Status OoOScheduler::SpillOnBlock() {
             }
             PrintSpillFailedInfo(memType.second.Front(), memType.first);
         }
-        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Please check tile shape and OOO spill failed info."); 
+        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Possible causes: incorrect memory reuse, memory fragmentation. "
+            "Please check tile shape and OOO spill failed info."); 
         return FAILED; 
     }
     if (GenBufferSpill(allocIssueQueue[spillMemType].Front()) != SUCCESS) {
@@ -659,6 +660,7 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
     if (bufferManagerMap[allocBuffer->memType].IsFull(allocBuffer)) {
         if (GenSpillOp(allocBuffer, pcIdx) != SUCCESS) {
             APASS_LOG_WARN_F(Elements::Operation, "GenSpillOp failed at ExecuteAllocIssue. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
+            return FAILED;
         }
     }
 
@@ -1024,7 +1026,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
     PrintOpList(operations);
     if (Init(operations) != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
-        return FAILED; 
+        return FAILED;
     }
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) { 
