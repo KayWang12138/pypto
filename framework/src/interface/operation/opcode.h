@@ -234,6 +234,8 @@ enum class Opcode {
     OP_ARGSORT,
     OP_EXTRACT,
     OP_FUSED_OP,
+    OP_MRGSORT_TO_GM,
+    OP_TILEMRGSORT_IN_GM,
     // End: add for TOPK and ArgSort
     // Begin: topk for DS3.2-Day0
     OP_TOPK_SORT,
@@ -412,7 +414,8 @@ public:
                opCode == Opcode::OP_SHMEM_REDUCE || opCode == Opcode::OP_RESHAPE_COPY_OUT ||
                opCode == Opcode::OP_SHMEM_PUT_UB2GM  ||
                opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
-               opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE;
+               opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE || 
+               opCode == Opcode::OP_MRGSORT_TO_GM || opCode == Opcode::OP_TILEMRGSORT_IN_GM;
     }
 
     inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
@@ -549,7 +552,7 @@ const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE,
     Opcode::OP_TOPK_SORT, Opcode::OP_TOPK_MERGE, Opcode::OP_TOPK_EXTRACT, Opcode::OP_SCATTER_ELEMENT,
     Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_SORT, Opcode::OP_COMPARE_SWAP, Opcode::OP_MERGE, Opcode::OP_L0C_TO_L1,
     Opcode::OP_SCATTER, Opcode::OP_GATHER_FROM_UB, Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT, Opcode::OP_L1_TO_FIX_QUANT_PRE,
-    Opcode::OP_L1_TO_BT, Opcode::OP_BRCB};
+    Opcode::OP_L1_TO_BT, Opcode::OP_BRCB, Opcode::OP_MRGSORT_TO_GM, Opcode::OP_TILEMRGSORT_IN_GM};
 
 const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_RSQRT, Opcode::OP_SQRT,
     Opcode::OP_RECIPROCAL, Opcode::OP_ABS, Opcode::OP_LN, Opcode::OP_LOGICALNOT,
@@ -606,7 +609,8 @@ inline bool IsCopyOut(const Opcode &op) {
             op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL || op == Opcode::OP_SHMEM_GET ||
             op == Opcode::OP_SHMEM_REDUCE || op == Opcode::OP_RESHAPE_COPY_OUT || op == Opcode::OP_SHMEM_PUT_UB2GM ||
             op == Opcode::OP_SHMEM_SET || op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
-            op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE);
+            op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE ||
+            op == Opcode::OP_MRGSORT_TO_GM || op == Opcode::OP_TILEMRGSORT_IN_GM);
 }
 
 inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {

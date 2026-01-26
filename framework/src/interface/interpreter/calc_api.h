@@ -110,12 +110,14 @@ struct CalcOps {
     void (*FormatNZ2ND)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*MatMul)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, MatMulParam &);
 
-    void (*BitSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool);
+    void (*BitSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool, int64_t);
     void (*Extract)(LogicalTensorDataPtr, LogicalTensorDataPtr, int, bool);
     void (*Topk)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t, bool);
     void (*Gather)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t);
     void (*GatherINUB)(
         LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t);
+    void (*TileMrgSortInGM)(LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*Sort)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool);
 };
 
 extern "C" struct CalcOps *GetCalcOps();

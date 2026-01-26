@@ -202,4 +202,94 @@ TEST_F(TestCodegenDynSort, TestDynTiledMgrSort) {
     EXPECT_EQ(res, expect);
 }
 
+TEST_F(TestCodegenDynSort, TestDynMrgSortToGM) {
+    std::vector<int64_t> vecTileShape = {2, 64};
+    TileShape::Current().SetVecTile(vecTileShape);
+    std::vector<int64_t> vecTileShape = {2, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    std::vector<SymbolicScalar> dynValidShape = {2, 64};
+
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+    std::string funcName = "TestDynMrgSortToGM";
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
+    }
+    
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto localTensorInput = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, dynValidShape});
+
+    auto &op = function->AddOperation(Opcode::OP_MRGSORT_TO_GM, {localTensorInput}, {localOutTensor, localTensorTmp});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "axis", 1);
+    op.SetAttribute(OP_ATTR_PREFIX + "kvalue", 64);
+    op.SetAttribute(OP_ATTR_PREFIX + "order", 1);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensorInput->GetMagic()] = localTensorInput;
+    function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    std::string expect = 
+        R"!!!(TileOp::DynMrgSortToGM<float, 1, 1, 2, 64, 1, 1, 2, 64, 1, 64, 1>((__gm__ float*)GET_PARAM_ADD(param, 0, 0), (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 2, 64, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, GET_PARAM_OFFSET_2(param, 0, 0))!!!"
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenDynSort, TestDynTileMrgSortInGM) {
+    std::vector<int64_t> vecTileShape = {2, 128};
+    TileShape::Current().SetVecTile(vecTileShape);
+    std::vector<int64_t> vecTileShape = {2, 128};
+    auto shapeImme = OpImmediate::Specified(shape);
+    std::vector<SymbolicScalar> dynValidShape = {2, 128};
+
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+    std::string funcName = "TestDynTileMrgSortInGM";
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(inputA, inputB);
+        }
+    }
+    
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    auto localTensorInput = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, dynValidShape});
+
+    auto &op = function->AddOperation(Opcode::OP_TILEMRGSORT_IN_GM, {localTensorInput}, {localOutTensor, localTensorTmp});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OP_ATTR_PREFIX + "firstshape", 64);
+    op.SetAttribute(OP_ATTR_PREFIX + "round", 1);
+    op.SetAttribute(OP_ATTR_PREFIX + "offset", 0);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensorInput->GetMagic()] = localTensorInput;
+    function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
+    std::string expect = 
+        R"!!!(TileOp::DynTileMrgSortInGM<float, 1, 1, 2, 128, 1, 1, 2, 128, 64, 0, 1>((__gm__ float*)GET_PARAM_ADD(param, 0, 0), (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 2, 128, 1, 1, GET_PARAM_RAWSHAPE_2(param, 0, 0), 0, 0, GET_PARAM_OFFSET_2(param, 0, 0))!!!"
+    EXPECT_EQ(res, expect);
+}
+
 } // namespace npu::tile_fwk

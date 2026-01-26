@@ -823,6 +823,7 @@ const std::string TOPK_AXIS = OP_ATTR_PREFIX + "axis";
 const std::string TOPK_ORDER = OP_ATTR_PREFIX + "order";
 const std::string TOPK_KVALUE = OP_ATTR_PREFIX + "kvalue";
 const std::string EXTRACT_MASKMODE = OP_ATTR_PREFIX + "makeMode";
+const std::string SORT_AXIS = OP_ATTR_PREFIX + "axis";
 constexpr int32_t blockSize = 32;
 constexpr int32_t kFactorSize = 4;
 constexpr int32_t NUM3 = 3;
@@ -929,4 +930,37 @@ void BrcbInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& outV
     }
 }
 REGISTER_INFER_SHAPE_FUNC(OP_BRCB, Opcode::OP_BRCB, BrcbInferFunc);
+
+void MrgSortToGMFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    
+    std::vector<SymbolicScalar> res(inputValidShapes[0]);
+    auto axis = op->GetIntAttribute(SORT_AXIS);
+    SymbolicScalar tmp = (res[axis] + blockSize - 1) / blockSize * blockSize;
+    res[axis] = (res[axis] - tmp / NUM3 * NUM2) * NUM2;
+    outValidShapes.push_back(res);
+    outValidShapes.push_back(res);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_MRGSORT_TO_GM, Opcode::OP_MRGSORT_TO_GM, MrgSortToGMFunc);
+
+void TileMrgSortInGMFunc(Operation *op, std::vector<std::vector<SymbolicScalar>> &outValidShapes) {
+    std::vector<std::vector<SymbolicScalar>> inputValidShapes;
+    for (auto inputTensor : op->GetIOperands()) {
+        inputValidShapes.push_back(inputTensor->GetDynValidShape());
+    }
+    if (inputValidShapes.empty()) {
+        return;
+    }
+    
+    std::vector<SymbolicScalar> res(inputValidShapes[0]);
+    outValidShapes.push_back(res);
+    outValidShapes.push_back(res);
+}
+REGISTER_INFER_SHAPE_FUNC(OP_TILEMRGSORT_IN_GM, Opcode::OP_TILEMRGSORT_IN_GM, TileMrgSortInGMFunc);
 }  // namespace npu::tile_fwk

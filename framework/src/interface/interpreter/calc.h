@@ -210,8 +210,8 @@ inline void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     LogicalTensorDataPtr src, int axis, int reduce) {
     GetCalcOps()->Scatter(out, self, index, src, axis, reduce);
 }
-inline void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending) {
-    GetCalcOps()->BitSort(out, self, axis, descending);
+inline void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending, int64_t offset) {
+    GetCalcOps()->BitSort(out, self, axis, descending, offset);
 }
 inline void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int64_t axis) {
     GetCalcOps()->Gather(out, params, indices, axis);
@@ -227,6 +227,14 @@ inline void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod
 
 inline void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, int64_t k, bool descending) {
     GetCalcOps()->Topk(out, self, axis, k, descending);
+}
+
+inline void TileMrgSortInGM(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->TileMrgSortInGM(out, self);
+}
+
+inline void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, LogicalTensorDataPtr self, int64_t axis, bool descending) {
+    GetCalcOps()->Sort(value, index, self, axis, descending);
 }
 
 // matmul

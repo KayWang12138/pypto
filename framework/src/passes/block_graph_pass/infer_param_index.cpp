@@ -40,13 +40,15 @@ std::string InferParamIndex::DumpParamIndex(const std::map<std::string, DynParam
 
 Status InferParamIndex::ResetOutputDynValidShape(const Operation &op) {
     std::vector<SymbolicScalar> validShape;
-    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND, Opcode::OP_RESHAPE,Opcode::OP_GATHER,
+    const std::set<Opcode> specifiedOps = {Opcode::OP_VEC_DUP, Opcode::OP_EXPAND, Opcode::OP_RESHAPE, Opcode::OP_VIEW_TYPE,
         Opcode::OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_L1, Opcode::OP_LOAD};
     for (auto outOperand : op.GetOOperands()) {
         if (OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) || specifiedOps.count(op.GetOpcode())) {
-            for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
-                validShape.push_back(SymbolicScalar("sym_" +  std::to_string(outOperand->GetMagic()) +
-                                                    "_dim_" + std::to_string(dimIdx)));
+            if (validShape.size() == 0) {
+                for (size_t dimIdx = 0U; dimIdx < outOperand->GetShape().size(); ++dimIdx) {
+                    validShape.push_back(SymbolicScalar("sym_" +  std::to_string(outOperand->GetMagic()) +
+                                                        "_dim_" + std::to_string(dimIdx)));
+                }
             }
         }
         if (op.GetOpcode() != Opcode::OP_ASSEMBLE) { // Assemble的oOperand保持validShape不变
