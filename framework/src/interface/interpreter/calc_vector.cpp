@@ -49,7 +49,6 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_MUL_BRC: calc::Mul(ret, lhs, rhs); break;
         case Opcode::OP_DIV: calc::Div(ret, lhs, rhs); break;
         case Opcode::OP_DIV_BRC: calc::Div(ret, lhs, rhs); break;
-        case Opcode::OP_MOD: calc::Fmod(ret, lhs, rhs); break;
         case Opcode::OP_S_MAX: calc::Max(ret, lhs, rhs); break;
         case Opcode::OP_PAIRMAX: calc::PairMax(ret, lhs, rhs); break;
         case Opcode::OP_PAIRMIN: calc::PairMin(ret, lhs, rhs); break;
@@ -478,7 +477,6 @@ void ExecuteOpBinaryScalar(ExecuteOperationContext *ctx) {
         case Opcode::OP_MAXS: calc::MaxS(ret, lhs, element); break;
         case Opcode::OP_MINS: calc::MinS(ret, lhs, element); break;
         case Opcode::OP_DIVS: calc::DivS(ret, lhs, element, reverse); break;
-        case Opcode::OP_MODS: calc::FmodS(ret, lhs, element); break;
         case Opcode::OP_S_MAXS: calc::MaxS(ret, lhs, element); break;
         case Opcode::OP_S_MINS: calc::MinS(ret, lhs, element);  break;
         default: ASSERT(false);
