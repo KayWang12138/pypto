@@ -614,7 +614,6 @@ def cumsum(
     Examples
     ---------
     x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
-    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
     dim = 0
     out = pypto.cumsum(x, dim)
     Input  x : [[0 1 2],
@@ -623,3 +622,33 @@ def cumsum(
                 [3 5 7]]
     """
     return pypto_impl.cumsum(input, dim)
+
+
+@op_wrapper
+def triu(
+    input: Tensor,
+    diagonal: int
+) -> Tensor:
+    """
+    Return the upper traingular part of a matrix, the other elements of the result are set to 0.
+    Parameters
+    ---------
+    input: Tensor
+        The tensor to be calculated.
+    diagonal : int
+        The diagonal to consider.
+    out: Tensor
+        The tensor after calculation.
+    Examples
+    ---------
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32) 
+    diagonal = 0
+    out = pypto.triu(x, diagonal)
+    Input  x : [[1 2 3],
+                [4 5 6],
+                [7 8 9]]
+    Output out:[[1 2 3],
+                [0 5 6],
+                [0 0 9]]
+    """
+    return pypto_impl.triu(input, diagonal)

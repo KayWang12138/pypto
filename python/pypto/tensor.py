@@ -576,6 +576,10 @@ class Tensor:
         return pypto.cumsum(self, dim)
 
     @source_location
+    def triu(self: 'Tensor', diagonal: int) -> 'Tensor':
+        return pypto.triu(self, diagonal)
+
+    @source_location
     def expand_clone(self, shape: List[int], *,
                      valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None) -> 'Tensor':
         if valid_shape is None:
