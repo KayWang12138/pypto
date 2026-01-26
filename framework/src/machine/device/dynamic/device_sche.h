@@ -62,7 +62,7 @@ public:
         schAicpuNum_ = schNum;
     }
 
-    int Run(int threadIdx, DeviceArgs *args, int schedIdx) {
+    int RunThread(int threadIdx, DeviceArgs *args, int schedIdx) {
         int ret = 0;
         if (args->nrAic == 0 || args->nrValidAic == 0 || args->nrAicpu < NEED_LAUNCH_AICPU_MINNUM) {
             DEV_ERROR("Device machinr run invalid args aicnum:%u, blockdim:%u, launchAicpu num:%u",
@@ -181,7 +181,7 @@ struct DynMachineManager {
             DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
             int schedIdx = threadIdx - 1;
             machine_.SetStachSchduleContext(schedIdx, &local_context);
-            ret = machine_.Run(threadIdx, devArgs, schedIdx);
+            ret = machine_.RunThread(threadIdx, devArgs, schedIdx);
             if (ret != DEVICE_MACHINE_OK) {
                 schRunFailed_ = true;
             }

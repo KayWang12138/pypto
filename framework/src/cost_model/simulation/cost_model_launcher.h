@@ -442,7 +442,7 @@ private:
         std::vector<std::thread> aicpus(maxCpuNum);
         std::atomic<int> idx{0};
         auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
-        size_t shmSize = DEVICE_TASK_CTRL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
         (void)memset_s(reinterpret_cast<void*>(devProg->devArgs.taskQueue), shmSize, 0, shmSize);
         int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
         threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;

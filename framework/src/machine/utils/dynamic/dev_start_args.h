@@ -16,6 +16,7 @@
 #pragma once
 
 #include "machine/utils/dynamic/dev_encode_program.h"
+#include "machine/utils/dynamic/device_task.h"
 
 namespace npu::tile_fwk::dynamic {
 const uint32_t DUMP_INDEX_SIZE_2 = 2;
@@ -23,6 +24,13 @@ const uint32_t DUMP_INDEX_SIZE_4 = 4;
 
 struct DevInputSymbol {
     int64_t value;
+};
+
+struct DeviceRuntimeDataDesc {
+    uint32_t taskCtrlIndex{0};
+    DeviceTaskCtrl *taskCtrlPool{nullptr};
+    DeviceTaskCtrlQueue *taskQueue{nullptr};
+    uint32_t schAicpuNum{MAX_SCHEDULE_AICPU_NUM};
 };
 
 struct DevStartArgs : DevStartArgsBase {
@@ -34,6 +42,8 @@ struct DevStartArgs : DevStartArgsBase {
     uint64_t inputSymbolSize;
     const void *controlFlowEntry;
     std::atomic<uint64_t> syncFlag{0}; // sche and ctrl soft sync flag
+
+    DeviceRuntimeDataDesc deviceRuntimeDataDesc;
 
 public:
     void InitWorkspace(DevAscendProgram *tDevProg, void *workspace) {
@@ -99,4 +109,7 @@ public:
     }
     static std::unordered_map<std::string, SymbolHandlerId> symbolIndexDict;
 };
+
+static_assert(sizeof(DevStartArgs) < DEV_ARGS_SIZE, "dev start args is too large");
+
 }

@@ -23,6 +23,7 @@ class DyndevFunctionAttribute;
 }
 
 namespace npu::tile_fwk::dynamic {
+
 struct DevAscendProgramSymbol {
     DevRelocVector<char> name;
     uint64_t index;
@@ -79,6 +80,7 @@ struct DevAscendProgram {
             return tensor.Total() + aicoreSpilled + debug.dumpTensor;
         }
     } memBudget;
+    DeviceRuntimeOffset deviceRuntimeOffset;
     const void *controlFlowBinaryAddr{nullptr};
     uint64_t hcclContext[HCCL_GROUP_NUM];
     uint64_t commGroupNum{0};
@@ -385,6 +387,12 @@ struct DevAscendProgram {
     }
 
     uint64_t GetSize() const { return reinterpret_cast<uintptr_t>(programLastField.End()) - reinterpret_cast<uintptr_t>(this); }
+
+    uint64_t DeviceRuntimeStartArgsAddr(uint64_t base) { return base + deviceRuntimeOffset.startArgsOffset; }
+    uint64_t DeviceRuntimeTaskCtrlPoolAddr(uint64_t base) { return base + deviceRuntimeOffset.taskCtrlPoolOffset; }
+    uint64_t DeviceRuntimeTaskQueueAddr(uint64_t base) { return base + deviceRuntimeOffset.taskQueueOffset; }
+    uint64_t DeviceRuntimeGeneralAddr(uint64_t base) { return base + deviceRuntimeOffset.generalOffset; }
+    uint64_t DeviceRuntimeStitchPoolAddr(uint64_t base) { return base + deviceRuntimeOffset.stitchPoolOffset; }
 
 private:
     friend struct EncodeDevAscendProgramInfo;

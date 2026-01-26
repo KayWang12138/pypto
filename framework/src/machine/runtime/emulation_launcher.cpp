@@ -29,7 +29,7 @@ static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
     int aicpuResultList[threadNum] = {0};
     std::atomic<int> idx{0};
     auto *devProg = (DevAscendProgram *)(kArgs.cfgdata);
-    size_t shmSize = DEVICE_TASK_CTRL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+    size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
     (void)memset_s(reinterpret_cast<void*>(devProg->devArgs.taskQueue), shmSize, 0, shmSize);
     for (int i = 0; i < static_cast<int>(devProg->devArgs.nrAicpu); i++) {
         aicpuThreadList[i] = std::thread([&](int threadIndex) {
