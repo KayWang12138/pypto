@@ -164,6 +164,11 @@ void UpdateElewiseStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axi
 
 void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
     auto op = opList_[opIdx];
+    auto outputTensor = op->GetOOperands()[0];
+    if (outputTensor->GetShape().back() != outputTensor->GetRawTensor()->GetRawShape().back()) {
+        tensorStatus_[outputTensor] = AxisReorderStatus::DISABLE;
+        return;
+    }
     if (op->GetOpcode() == Opcode::OP_COPY_IN) {
         UpdateCopyinStatus(op, tensorStatus_);
         return;
@@ -189,19 +194,22 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
         UpdateElewiseStatus(op, tensorStatus_);
         return;
     }
-    auto outputTensor = op->GetOOperands()[0];
     tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
 }
 
 void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
     auto op = opList_[opIdx];
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
-        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
-        op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) {
+        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST) {
         auto outputTensor = op->GetOOperands()[0];
         for (auto inputTensor : op->GetIOperands()) {
             if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
                 tensorStatus_[inputTensor] = tensorStatus_[outputTensor];
+                continue;
+            }
+            if (tensorStatus_[outputTensor] == AxisReorderStatus::UNKNOWN) {
+                tensorStatus_[inputTensor] = tensorStatus_[outputTensor];
+                continue;
             }
         }
     }
