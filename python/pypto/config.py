@@ -197,7 +197,8 @@ def set_runtime_options(*,
                         stitch_function_num_step: Optional[int] = None,
                         stitch_function_size: int = None,
                         stitch_cfgcache_size: Optional[int] = None,
-                        run_mode: Optional[int] = None
+                        run_mode: Optional[int] = None,
+                        aicpu_advanced_time: Optional[int] = None
                         ) -> None:
     """
     Set runtime options.
