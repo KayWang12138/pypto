@@ -424,7 +424,7 @@ void CreateNonMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
 
         auto internalTensor2 = std::make_shared<LogicalTensor>(*nonMixFunc, DT_FP32, shape);
         auto& expOp = nonMixFunc->AddRawOperation(Opcode::OP_EXP, {internalTensor1}, {internalTensor2});
-
+        (void) expOp;
         auto& copyOutOp = nonMixFunc->AddRawOperation(Opcode::OP_COPY_OUT, {internalTensor2}, {outcastTensor});
         copyOutOp.SetOOpAttrOffset(0, 0);
         
@@ -680,15 +680,11 @@ TEST_F(MixSubgraphSplitTest, TestMultipleMixSubgraphsSplit) {
     std::vector<int> componentCounts = {2, 3, 4};
     CreateMixFunctions(rootFuncPtr, mixFunctions, mixProgramIds, componentCounts);
     
-    // 3. 记录原始状态
-    size_t originalProgramCount = rootFuncPtr->programs_.size();
-    size_t originalCallOpCount = rootFuncPtr->GetCallopList().size();
-    
-    // 4. 执行拆分
+    // 执行拆分
     MixSubgraphSplit splitter;
     Status status = splitter.RunOnFunction(*rootFuncPtr);
     
-    // 5. 验证结果
+    // 验证结果
     VerifyMultipleMixSplitResults(rootFuncPtr, status, mixFunctions, nonMixFunctions, componentCounts);
 }
 
@@ -718,6 +714,7 @@ TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario) {
         func->inCasts_.push_back(inputTensor);
         func->outCasts_.push_back(outputTensor);
         auto& expOp = func->AddRawOperation(Opcode::OP_EXP, {inputTensor}, {outputTensor});
+        (void) expOp;
         func->ComputeHash();
         FunctionHash hash = func->GetFunctionHash();
         Program::GetInstance().GetFunctionCache().Insert(hash, *func);
