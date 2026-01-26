@@ -153,8 +153,14 @@ inline void RowSumSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, in
 inline void RowMinSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
     GetCalcOps()->RowMinSingle(out, self, dim);
 }
+inline void RowMinLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    GetCalcOps()->RowMinLine(out, self, dim);
+}
 inline void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
     GetCalcOps()->RowMaxSingle(out, self, dim);
+}
+inline void RowMaxLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    GetCalcOps()->RowMaxLine(out, self, dim);
 }
 
 inline void OneHot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int numClasses) {
@@ -212,6 +218,10 @@ inline void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
 }
 inline void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending) {
     GetCalcOps()->BitSort(out, self, axis, descending);
+}
+inline void TiledMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr src1, LogicalTensorDataPtr src2, 
+    LogicalTensorDataPtr src3, LogicalTensorDataPtr src4, int validBit, int kvalue) {
+    GetCalcOps()->TiledMrgSort(out, src1, src2, src3, src4, validBit, kvalue);
 }
 inline void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int64_t axis) {
     GetCalcOps()->Gather(out, params, indices, axis);

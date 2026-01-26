@@ -88,6 +88,9 @@ struct CalcOps {
     void (*RowMinSingle)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*RowMaxSingle)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
 
+    void (*RowMinLine)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
+    void (*RowMaxLine)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
+
     void (*OneHot)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*ExpandS)(LogicalTensorDataPtr, const Element &);
     void (*Expand)(LogicalTensorDataPtr, LogicalTensorDataPtr);
@@ -111,6 +114,7 @@ struct CalcOps {
     void (*MatMul)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, MatMulParam &);
 
     void (*BitSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool);
+    void (*TiledMrgSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, int);
     void (*Extract)(LogicalTensorDataPtr, LogicalTensorDataPtr, int, bool);
     void (*Topk)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t, bool);
     void (*TopkSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int);
