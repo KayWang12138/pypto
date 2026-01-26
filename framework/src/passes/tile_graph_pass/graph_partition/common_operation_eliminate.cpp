@@ -112,17 +112,8 @@ Status CommonOperationEliminate::RunOnFunction(Function &function) {
     std::unordered_set<Operation*> cacheProducers;
     for (auto& tensorProducerPair: tensorProducerMap) {
         auto& producerGroup = tensorProducerPair.second;
-        if (producerGroup.empty() || !OpAlreadyExist(tensorProducerPair)) {
+        if (producerGroup.empty() || !OpAlreadyExist(tensorProducerPair, cacheProducers)) {
             continue;
-        }
-
-        for (auto& [hashKey, tensorOpPair]: hashCache) {
-            if (tensorOpPair.first == nullptr) {
-                continue;
-            }
-            for (auto producer: tensorOpPair.first->GetProducers()) {
-                if (producer != nullptr) cacheProducers.insert(producer);
-            }
         }
         for (auto op: producerGroup) {
             if (op == nullptr) continue;
@@ -169,7 +160,7 @@ std::unordered_map<LogicalTensor*, std::vector<Operation*>> CommonOperationElimi
     return tensorProducerMap;
 }
 
-std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::OperationExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducersPair) {
+std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::OperationExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducersPair, std::unordered_set<Operation*>& cacheProducers) {
     const std::vector<Operation*>& producers = tensorProducersPair.second;
     for (const auto& op: producers) {
         if (op == nullptr) {
@@ -202,6 +193,14 @@ std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::Op
         return hashCache[groupHash];
     }
     hashCache.emplace(groupHash, tensorProducersPair);
+    if (tensorProducersPair.first == nullptr) {
+        return {nullptr, {}};
+    }
+    for (auto producer: tensorProducersPair.first->GetProducers()) {
+        if (producer != nullptr) {
+            cacheProducers.insert(producer);
+        }
+    }
     return {nullptr, {}};
 }
 
@@ -227,12 +226,12 @@ void CommonOperationEliminate::UpdateCopy(CopyOpAttribute *copyOpAttribute,
     }
 }
 
-bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducerPair) {
+bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers) {
     auto& producers = tensorProducerPair.second;  
     if (producers.empty()) {
         return false;
     }
-    auto existOp = OperationExist(tensorProducerPair);
+    auto existOp = OperationExist(tensorProducerPair, cacheProducers);
     if (existOp.first == nullptr || existOp.second.empty()) {
         return false;
     }
@@ -260,6 +259,9 @@ bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, st
         std::shared_ptr<LogicalTensor> new_ptr(newtensors, [](LogicalTensor*){});
         cur->ReplaceInput(new_ptr, old_ptr);
         auto attptr = cur->GetOpAttribute().get();
+        if (attptr == nullptr) {
+            continue;
+        }
         if (cur->GetOpcode() == Opcode::OP_VIEW) {
             if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(attptr)) {
             // VIEW操作的offset要相应被修改。
