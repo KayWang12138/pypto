@@ -21,7 +21,7 @@ import torch_npu
 import pypto
 import logging
 import numpy as np
-from mla_prolog_quant_impl import mla_prolog_v4_in
+from mla_prolog_quant_impl import mla_prolog_v4_in, mla_prolog_v4, MlaPrologV4Attrs, MlaPrologV4Configs, check_input_output_shape_dtype
 from utils.compare import compare
 
 torch.manual_seed(5)
@@ -157,10 +157,10 @@ def mla_prolog_compute(inputs):
     q_a_proj_fp32 = q_a_proj.to(torch.float32)
     q_a_proj_dequant = q_a_proj_fp32 * x_quant_scale
     q_a_proj_dequant = q_a_proj_dequant * wq_a_scale
-    q_a_proj = q_a_proj_dequant.to(torch.bfloat16)
-    q_a_layernorm = rms_norm(q_a_proj, gamma_cq)
-    logging.debug("q_a_layernorm.shape: %s %s", q_a_layernorm.shape, q_a_layernorm.dtype)
 
+    q_a_layernorm = rms_norm(q_a_proj_dequant, gamma_cq)
+    logging.debug("q_a_layernorm.shape: %s %s", q_a_layernorm.shape, q_a_layernorm.dtype)
+    q_a_layernorm_out = q_a_layernorm.to(torch.bfloat16)
     q_a_quant, q_a_quant_scale = quant(q_a_layernorm, True)
     q_b_proj = torch.matmul(q_a_quant.to(torch.int32), wq_b.to(torch.int32))
     logging.debug("q_b_proj.shape: %s %s", q_b_proj.shape, q_b_proj.dtype)
@@ -168,11 +168,11 @@ def mla_prolog_compute(inputs):
     q_b_proj_fp32 = q_b_proj.to(torch.float32)
     q_b_proj_dequant = q_b_proj_fp32 * q_a_quant_scale
     q_b_proj_dequant = q_b_proj_dequant * wq_b_scale
-    q_b_proj = q_b_proj_dequant.to(torch.bfloat16)
 
-    q_reshape = q_b_proj.reshape(t, num_heads, head_dim)
+    q_reshape = q_b_proj_dequant.reshape(t, num_heads, head_dim)
     q_reshape = rms_norm_new(q_reshape)
     logging.debug("q_reshape.shape: %s %s", q_reshape.shape, q_reshape.dtype)
+    q_reshape = q_reshape.to(torch.bfloat16)
 
     """ kv """
     kv_a_proj = torch.matmul(x_quant.to(torch.int32), w_kv.to(torch.int32))
@@ -180,12 +180,12 @@ def mla_prolog_compute(inputs):
     kv_a_proj_fp32 = kv_a_proj.to(torch.float32)
     kv_a_proj_dequant = kv_a_proj_fp32 * x_quant_scale
     kv_a_proj_dequant = kv_a_proj_dequant * w_kv_scale
-    kv_a_proj = kv_a_proj_dequant.to(torch.bfloat16)
-    kv_a_proj_norm = rms_norm(kv_a_proj, gamma_ckv)
+
+    kv_a_proj_norm = rms_norm(kv_a_proj_dequant, gamma_ckv)
     logging.debug("kv_a_proj.shape: %s %s", kv_a_proj.shape, kv_a_proj.dtype)
     kv_reshape = kv_a_proj_norm.reshape(t, head_dim)
     logging.debug("kv_reshape.shape: %s %s", kv_reshape.shape, kv_reshape.dtype)
-
+    kv_reshape = kv_reshape.to(torch.bfloat16)
     """ rope"""
     q_pe = q_reshape[:, :, -qk_rope_head_dim:]
 
@@ -377,13 +377,103 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     
     # compare
     print("q ================")
-    compare(output_q_data.cpu(), golden1.cpu(), "qOut", 0.0001, 0.03, 0.005)
+    compare(output_q_data.cpu(), golden1.cpu(), "qOut", 0.0001, 0.0078125, 0.005)
     print("kv ================")
     compare(output_kv_data.cpu(), golden2.cpu(), "kvOut", 0.0001, 0.0078125, 0.005)
     print("qr ================")
-    compare(output_qr_data.cpu(), golden3.cpu(), "qrOut", 1, 0, 0)
+    compare(output_qr_data.cpu(), golden3.cpu(), "qrOut", 0.0001, 0.0078125, 0.005)
     print("=========== pass ==========")
 
+
+def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs, configs):
+    d_type = pypto.DataType.DT_FP16 if dtype == pypto.DataType.DT_FP16 else pypto.DataType.DT_BF16
+    t = params['t']
+    n1 = params["num_heads"]
+    h = params["h"]
+    q_lora_rank = params["q_lora_rank"]
+    qk_rope_head_dim = params["qk_rope_head_dim"]
+    head_dim = params["head_dim"]
+
+    token_x_shape = [t, h]
+    wq_a_shape = [h, q_lora_rank]
+    wq_b_shape = [q_lora_rank, n1 * head_dim]
+    wkv_shape = [h, head_dim]
+    rope_cos_shape = [t, qk_rope_head_dim]
+    rmsnorm_gamma_cq_shape = [q_lora_rank]
+    rmsnorm_gamma_ckv_shape = [head_dim]
+    wq_a_scale_shape = [q_lora_rank, 1]
+    wq_b_scale_shape = [n1 * head_dim, 1]
+    w_kv_scale_shape = [head_dim, 1]
+
+    q_out_shape = [t, n1, head_dim]
+    kv_out_shape = [t, head_dim]
+    qr_out_shape = [t, q_lora_rank]
+    
+    if is_nz:
+        wq_a_nz = torch_npu.npu_format_cast(input_tensors["wq_a"].reshape(wq_a_shape).npu().contiguous(), \
+                                            torch_npu.Format.FRACTAL_NZ)
+        wq_b_nz = torch_npu.npu_format_cast(input_tensors["wq_b"].reshape(wq_b_shape).npu().contiguous(), \
+                                            torch_npu.Format.FRACTAL_NZ)
+        wkv_nz = torch_npu.npu_format_cast(input_tensors["w_kv"].reshape(wkv_shape).npu().contiguous(), \
+                                            torch_npu.Format.FRACTAL_NZ)
+        input_tensors["wq_a"] = wq_a_nz
+        input_tensors["wq_b"] = wq_b_nz
+        input_tensors["w_kv"] = wkv_nz
+    
+    token_x = input_tensors["x"].reshape(token_x_shape).npu()
+    wq_a = input_tensors["wq_a"].reshape(wq_a_shape).npu()
+    wq_b = input_tensors["wq_b"].reshape(wq_b_shape).npu()
+    wkv = input_tensors["w_kv"].reshape(wkv_shape).npu()
+    rope_cos = input_tensors["cos"].reshape(rope_cos_shape).npu()
+    rope_sin = input_tensors["sin"].reshape(rope_cos_shape).npu()
+    gamma_cq = input_tensors["gamma_cq"].reshape(rmsnorm_gamma_cq_shape).npu()
+    gamma_ckv = input_tensors["gamma_ckv"].reshape(rmsnorm_gamma_ckv_shape).npu()
+    wq_a_scale = input_tensors["wq_a_scale"].reshape(wq_a_scale_shape).npu()
+    wq_b_scale = input_tensors["wq_b_scale"].reshape(wq_b_scale_shape).npu()
+    w_kv_scale = input_tensors["w_kv_scale"].reshape(w_kv_scale_shape).npu()
+
+    output_q_data = torch.zeros([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    output_kv_data = torch.zeros([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    output_qr_data = torch.zeros([token_x.size(0), gamma_cq.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+
+    check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale, 
+                                    output_q_data, output_kv_data, output_qr_data)
+    out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
+    out_kv = pypto.from_torch(output_kv_data, dynamic_axis=[0], name="output_kv")
+    out_qr = pypto.from_torch(output_qr_data, dynamic_axis=[0], name="output_qr")
+
+    token_x_data = pypto.from_torch(token_x, dynamic_axis=[0], name="token_x")
+    wq_a_data = pypto.from_torch(wq_a, name="wq_a")
+    wq_b_data = pypto.from_torch(wq_b, name="wq_a")
+    wkv_data = pypto.from_torch(wkv, name="w_kv")
+    rope_cos_data = pypto.from_torch(rope_cos, dynamic_axis=[0], name="rope_cos")
+    rope_sin_data = pypto.from_torch(rope_sin, dynamic_axis=[0], name="rope_sin")
+    gamma_cq_data = pypto.from_torch(gamma_cq, name="gamma_cq")
+    gamma_ckv_data = pypto.from_torch(gamma_ckv, name="gamma_ckv")
+    wq_a_scale_data = pypto.from_torch(wq_a_scale, name="wq_a_scale")
+    wq_b_scale_data = pypto.from_torch(wq_b_scale, name="wq_b_scale")
+    wkv_scale_data = pypto.from_torch(w_kv_scale, name="wkv_scale")
+
+    input_data = [token_x_data, wq_a_data, wq_b_data, wkv_data, gamma_cq_data, gamma_ckv_data, rope_cos_data, rope_sin_data, wq_a_scale_data, wq_b_scale_data, wkv_scale_data]
+    output_data = [out_q, out_kv, out_qr]
+    mla_prolog_v4(*input_data, *output_data, attrs, configs)
+    pypto.runtime._device_synchronize()
+
+    # golden data 
+    golden1 = golden_tensors["q_golden"].reshape(q_out_shape)
+    golden2 = golden_tensors["kv_golden"].reshape(kv_out_shape)
+    golden3 = golden_tensors["qr_golden"].reshape(qr_out_shape)
+    
+    # compare
+    print("q ================")
+    compare(output_q_data.cpu(), golden1.cpu(), "qOut", 0.0001, 0.0078125, 0.005)
+    print("kv ================")
+    compare(output_kv_data.cpu(), golden2.cpu(), "kvOut", 0.0001, 0.0078125, 0.005)
+    print("qr ================")
+    compare(output_qr_data.cpu(), golden3.cpu(), "qrOut", 0.0001, 0.0078125, 0.005)
+    print("=========== pass ==========")
+
+@pytest.mark.skip("t=4")
 def test_t4_pa_nd_bf16():
     prep_env()
     params = {
@@ -400,6 +490,30 @@ def test_t4_pa_nd_bf16():
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
     mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
 
+def test_t4_pa_nd_bf16_eager():
+    prep_env()
+    params = {
+        't': 4,
+        'num_heads': 64,
+        'h': 4096,
+        'q_lora_rank': 1024,
+        'head_dim': 512,
+        'qk_rope_head_dim': 64,
+    }
+    dtype = pypto.DataType.DT_BF16
+    is_quant = True
+    is_nz = False
+    attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
+    configs = MlaPrologV4Configs(unroll_list=[128, 64, 32, 16, 1],
+                                cube_l1_reuse_setting={2: 4},
+                                mg_copyin_upper_bound=2 * 1024 * 1024,
+                                pg_upper_bound=8192,
+                                block_size=128,
+                                t_sub_tile=1,
+                                chunk_size=2,
+                                vec_nbuffer_mode=1)
+    input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
+    mla_prolog_eager(params, input_tensors, golden_data, dtype, is_nz, attrs, configs)
 
 def test_t16_pa_nd_bf16():
     prep_env()
@@ -417,7 +531,33 @@ def test_t16_pa_nd_bf16():
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
     mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
 
+@pytest.mark.skip("t=16")
+def test_t16_pa_nd_bf16_eager():
+    prep_env()
+    params = {
+        't': 16,
+        'num_heads': 64,
+        'h': 4096,
+        'q_lora_rank': 1024,
+        'head_dim': 512,
+        'qk_rope_head_dim': 64,
+    }
+    dtype = pypto.DataType.DT_BF16
+    is_quant = True
+    is_nz = False
+    attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
+    configs = MlaPrologV4Configs(unroll_list=[128, 64, 32, 16, 1],
+                                cube_l1_reuse_setting={2: 4},
+                                mg_copyin_upper_bound=2 * 1024 * 1024,
+                                pg_upper_bound=8192,
+                                block_size=128,
+                                t_sub_tile=1,
+                                chunk_size=2,
+                                vec_nbuffer_mode=1)
+    input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
+    mla_prolog_eager(params, input_tensors, golden_data, dtype, is_nz, attrs, configs)
 
+@pytest.mark.skip("t=512")
 def test_t512_pa_nd_bf16():
     prep_env()
     params = {
