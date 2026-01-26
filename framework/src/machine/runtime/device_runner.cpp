@@ -94,10 +94,6 @@ void *DeviceRunner::DevAlloc(int size) {
     return devPtr;
 }
 
-void DeviceRunner::GetPmuEventType(DeviceArgs &args) {
-    npu::tile_fwk::GetPmuEventType(args.archInfo, pmuEvtType_);
-}
-
 void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
     devArgs_ = reinterpret_cast<DeviceArgs *>(DevAlloc(sizeof(DeviceArgs)));
     rtMemcpy(reinterpret_cast<void *>(devArgs_), sizeof(DeviceArgs), &args, sizeof(DeviceArgs),
@@ -138,14 +134,12 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.startArgsAddr = shmAddr;
     args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
     args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
-    size_t pmuEvtTypeSize = args.archInfo == ArchInfo::DAV_2201 ? PMU_EVENT_TYPE_MAX_DAV2201 : PMU_EVENT_TYPE_MAX_DAV3510;
-    pmuEvtType_.resize(pmuEvtTypeSize, 0x0);
+    PmuCommon::InitPmuEventType(args.archInfo, pmuEvtType_);
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 
     if (args.sharedBuffer == 0 || args.coreRegAddr == 0 || args.corePmuAddr == 0 || args.corePmuRegAddr == 0) {
         return -1;
     }
-    GetPmuEventType(args);
     size_t size = nrCore * sizeof(uint64_t);
     rtMemcpy(reinterpret_cast<void *>(args.coreRegAddr), size, regs.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
     rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), size, regsPmu.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
