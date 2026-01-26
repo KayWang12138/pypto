@@ -704,7 +704,8 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
     auto corePair = issue->coreLocation;
     if (bufferManagerMap[corePair.first][corePair.second][allocBuffer->memType].IsFull(allocBuffer)) {
         if (GenSpillOp(allocBuffer, pcIdx) != SUCCESS) {
-            APASS_LOG_WARN_F(Elements::Operation, "GenSpillOp failed at ExecuteAllocIssue. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "GenSpillOp failed at ExecuteAllocIssue. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
+            return FAILED;
         }
     }
     tensorAllocCoreMap[issue->reqMemIds[0]] = corePair;
