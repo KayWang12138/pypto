@@ -79,7 +79,7 @@ struct DumpTensorData {
                 TraverseAllAhapeIndexCombinations(shape, stride, offset, idx + 1, dims, newAddr);
             }
         } else {
-            memcpy_s(reinterpret_cast<uint8_t *>(data) + dataOffset, shape[idx] * dataByte,
+            (void)memcpy_s(reinterpret_cast<uint8_t *>(data) + dataOffset, shape[idx] * dataByte,
                         reinterpret_cast<const uint8_t *>(tensorAddr) + offset[idx] * dataByte, shape[idx] * dataByte);
             dataOffset = dataOffset + shape[idx] * dataByte;
         }

@@ -14,6 +14,7 @@ import os
 import json
 import struct
 import argparse
+import logging
 import ml_dtypes
 import numpy as np
 import pandas as pd
@@ -30,6 +31,16 @@ FIELD_SIZES = {
     "int64_t": 8,
     "uint64_t": 8
 }
+
+
+logging.basicConfig(
+    level=logging.DEBUG,  # 日志级别：DEBUG < INFO < WARNING < ERROR < CRITICAL
+    format="%(asctime)s - %(levelname)s - %(message)s",  # 日志格式（含时间、级别、内容）
+    handlers=[
+        logging.StreamHandler(),  # 输出到控制台
+        logging.FileHandler("app.log", encoding="utf-8")  # 输出到文件（持久化）
+    ]
+)
 
 
 class VerifyRes:
@@ -78,13 +89,13 @@ class VerifyRes:
 
         if verify_dup_tensor:
             verify_dup_tensor = os.path.join(self.verify_path, op_info.get("verifyType"), verify_dup_tensor)
-        print("verify_dup_tensor: ", verify_dup_tensor)
+        logging.info("verify_dup_tensor: ", verify_dup_tensor)
         return verify_dup_tensor
         
 
 _verify_res = VerifyRes()
 
-# ===================== 无内存对齐解析器 =====================
+
 class CompactDumpTensorInfoParser:
     def __init__(self):
         # 计算单个结构体的紧凑总字节数（无对齐）
@@ -110,6 +121,32 @@ class CompactDumpTensorInfoParser:
             ("tensorAddr", "uint64_t")
         ]
 
+    @staticmethod
+    def _get_data_type(data_type: int):
+        """数据类型数值转可读字符串"""
+        _data_type_full_mapping = {
+            0: ("DT_INT4", ml_dtypes.int4),
+            1: ("DT_INT8", np.int8),
+            2: ("DT_INT16", np.int16),
+            3: ("DT_INT32", np.int32),
+            4: ("DT_INT64", np.int64),
+            5: ("DT_FP8", ml_dtypes.float8_e4m3fn),
+            6: ("DT_FP16", np.float16),
+            7: ("DT_FP32", np.float32),
+            8: ("DT_BF16", ml_dtypes.bfloat16),
+            9: ("DT_HF4", None),                    # 暂不支持解析
+            10: ("DT_HF8", None),                   # 暂不支持解析
+            11: ("DT_UINT8", np.uint8),
+            12: ("DT_UINT16", np.uint16),
+            13: ("DT_UINT32", np.uint32),
+            14: ("DT_UINT64", np.uint64),
+            15: ("DT_BOOL", np.bool_),
+            16: ("DT_DOUBLE", np.float64),
+            17: ("DT_BOTTOM", None)
+        }
+        return _data_type_full_mapping.get(data_type, f"UNKNOWN({data_type})")
+    
+    @staticmethod
     def _calc_compact_size(self):
         """计算无对齐的紧凑总字节数"""
         total = 0
@@ -125,6 +162,7 @@ class CompactDumpTensorInfoParser:
         total += FIELD_SIZES["uint64_t"]      # tensorAddr
         return total
 
+    @staticmethod
     def _parse_field(self, bin_data: bytes, offset: int, field_type: str, array_len: int = 1) -> tuple:
         """解析单个字段（支持标量/数组）
         Returns:
@@ -173,41 +211,27 @@ class CompactDumpTensorInfoParser:
             result[name] = value
             current_offset += bytes_used
         
-        # 处理有效维度（截取dims指定的长度，忽略多余的0）
-        dims = result["dims"]
+
+        dims = result.get("dims")
         if dims > 0 and dims < DEV_SHAPE_DIM_MAX:
             result["shape"] = result["shape"][:dims]
             result["offset"] = result["offset"][:dims]
             result["rawShape"] = result["rawShape"][:dims]
         
         # 衍生字段（可选）
-        result["exeDuration"] = result["exeEnd"] - result["exeStart"]
-        result["dataTypeStr"] = self._get_data_type(result["dataType"])[0]
+        result["exeDuration"] = result.get("exeEnd") - result.get("exeStart")
+        result["dataTypeStr"] = self._get_data_type(result.get("dataType", 17))[0]
         
         return result
-
-
-    def write_tesnor(self, file_name, data):
-        lenght = 16
-        with open(file_name, "w", encoding="utf-8") as f:
-            for i in range(0, len(data), lenght):
-                content = " ".join(f"{num}".ljust(15) for num in data[i:i+lenght])
-                f.write(content)
-                f.write("\n")
 
     def parse_file(self, file_path: str) -> list[dict]:
         """解析整个紧凑存储的bin文件"""
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"文件不存在：{file_path}")
         
-        if not file_path.endswith(".tdump"):
-            return
-        print(file_path)
-        
         with open(file_path, "rb") as f:
             bin_data = f.read()
         
-        current_offset = 0
         tensor_info = self.parse_single(bin_data, 0)
 
         dtype = self._get_data_type(tensor_info["dataType"])[1]
@@ -234,35 +258,10 @@ class CompactDumpTensorInfoParser:
         return tensor_info
 
 
-    @staticmethod
-    def _get_data_type(data_type: int):
-        """数据类型数值转可读字符串"""
-        DATA_TYPE_FULL_MAPPING = {
-            0: ("DT_INT4", ml_dtypes.int4),
-            1: ("DT_INT8", np.int8),
-            2: ("DT_INT16", np.int16),
-            3: ("DT_INT32", np.int32),
-            4: ("DT_INT64", np.int64),
-            5: ("DT_FP8", ml_dtypes.float8_e4m3fn),
-            6: ("DT_FP16", np.float16),
-            7: ("DT_FP32", np.float32),
-            8: ("DT_BF16", ml_dtypes.bfloat16),
-            9: ("DT_HF4", None),                    # 暂不支持解析
-            10: ("DT_HF8", None),                   # 暂不支持解析
-            11: ("DT_UINT8", np.uint8),
-            12: ("DT_UINT16", np.uint16),
-            13: ("DT_UINT32", np.uint32),
-            14: ("DT_UINT64", np.uint64),
-            15: ("DT_BOOL", np.bool_),
-            16: ("DT_DOUBLE", np.float64),
-            17: ("DT_BOTTOM", None)
-        }
-        return DATA_TYPE_FULL_MAPPING.get(data_type, f"UNKNOWN({data_type})")
-
-
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Parser dump_tensor.")
-    parser.add_argument("--dump_tensor_path", type=str, default="output/dump_tensor/device_0", help="directory like output/dump_tensor/device_x")
+    parser.add_argument("--dump_tensor_path", type=str, default="output/dump_tensor/device_0", 
+                        help="directory like output/dump_tensor/device_x")
     parser.add_argument("--verify_path", type=str, default="", help="Path to verify_result.csv")
     return parser.parse_args()
 
@@ -271,12 +270,12 @@ def main():
     args = parse_arguments()
     # 初始化紧凑解析器
     parser = CompactDumpTensorInfoParser()
-    print(f"单个结构字节数：{parser.struct_compact_size}")
+    logging.info(f"单个结构字节数：{parser.struct_compact_size}")
 
     _verify_res.read_verify_result(args.verify_path)
 
     tensor_infos = []
-    for dir_path, dir_names, file_names in os.walk(args.dump_tensor_path):
+    for dir_path, _, file_names in os.walk(args.dump_tensor_path):
         for file_name in file_names:
             if not file_name.endswith(".tdump"):
                 continue
@@ -285,7 +284,7 @@ def main():
     df = pd.DataFrame(tensor_infos)
     df["rootHash"] = "'" + df["rootHash"]
     df["funcHash"] = "'" + df["funcHash"]
-    print(df)
+    logging.info(df)
 
     df.to_csv(os.path.join(args.dump_tensor_path, "tensor_info.csv"), index=False, encoding="utf-8")
 
