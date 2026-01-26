@@ -65,13 +65,13 @@ const std::unordered_set<Opcode> COPY_IN_OPS = {
     Opcode::OP_UB_COPY_L1_ND
 };
 
-const std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS_MIX = {
+const std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS_HARDWARE_TWO = {
     {OpCoreType::AIV, 0},
     {OpCoreType::AIV, 1},
     {OpCoreType::AIC, 0}
 };
 
-const std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS_NON_MIX = {
+const std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS_HARDWARE_ONE = {
     {OpCoreType::AIV, 0},
     {OpCoreType::AIC, 0}
 };
