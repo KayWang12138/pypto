@@ -61,13 +61,14 @@ uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankI
 {
     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
-    uint64_t memType = npu::tile_fwk::Distributed::GetVirtaulAddrMemType(addr);
-    auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContextAddr_[groupIndex]);
-    if (memType == 0) {
-        return hcclOpParam->windowsIn[dstRankId] + offset;
+   
+    auto hcclOpParam = reinterpret_cast<TileOp::HcclOpResParam*>(hcclContextAddr_[groupIndex]);
+    if ((uint32_t)dstRankId == hcclOpParam->localUsrRankId) {
+        return hcclOpParam->localWindowsIn + offset;
     } else {
-        return hcclOpParam->windowsExp[dstRankId] + offset;
+        return ((TileOp::HcclRankRelationResV2*)(hcclOpParam->remoteRes[dstRankId].nextDevicePtr))->windowsIn + offset;
     }
+    
 }
 
 TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode)

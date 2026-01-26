@@ -175,10 +175,12 @@ TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, ui
     auto groupIndex = GetVirtaulAddrGroupIndex((uint64_t)vAddr);
     auto offset = GetVirtaulAddrOffset((uint64_t)vAddr);
     auto memType = GetVirtaulAddrMemType((uint64_t)vAddr);
-    if (memType == 0) {
-        return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsIn[dstRankId] + offset);
+    auto hcclOpParam = (__gm__ TileOp::HcclOpResParam*)(hcclContext[groupIndex]);
+    if ((uint32_t)dstRankId == hcclOpParam->localUsrRankId) {
+        return (__gm__ T*)(hcclOpParam->localWindowsIn + offset);
     } else {
-        return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsExp[dstRankId] + offset);
+        return (__gm__ T*)(((__gm__ TileOp::HcclRankRelationResV2*)(hcclOpParam->remoteRes[dstRankId].nextDevicePtr))->windowsIn +
+                            offset);
     }
 }
 
