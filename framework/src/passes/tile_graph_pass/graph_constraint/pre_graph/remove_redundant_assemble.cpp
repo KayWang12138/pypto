@@ -146,7 +146,7 @@ Status RemoveRedundantAssemble::ProcessView(Function &function) const {
         }
         auto producers = reshapeOp.GetIOperands().front()->GetProducers();
         if (producers.empty()) {
-            APASS_LOG_INFO_F(Elements::Operation, "No producers found for RESHAPE op's input %d.", reshapeOp->GetOpMagic());
+            APASS_LOG_INFO_F(Elements::Operation, "No producers found for RESHAPE op's input %d.", reshapeOp.GetOpMagic());
             continue;;
         }
         auto producerOp = *producers.begin();
