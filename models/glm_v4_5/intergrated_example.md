@@ -1,11 +1,11 @@
 ## GLM-4.5 模型 PyPTO 算子替换指南
 
-本文选取 `examples/models/glm_v4_5` 目录下 `glm_gate.py` 文件中的 `gate` 算子作为典型案例（其它算子替换逻辑完全相同），重点介绍基于 vllm 工程的 PyPTO 算子便捷替换方案，旨在为 GLM-4.5 模型整网融合后的算子适配工作提供实践支撑。
+本文选取 `models/glm_v4_5` 目录下 `glm_gate.py` 文件中的 `gate` 算子作为典型案例（其它算子替换逻辑完全相同），重点介绍基于 vllm 工程的 PyPTO 算子便捷替换方案，旨在为 GLM-4.5 模型整网融合后的算子适配工作提供实践支撑。
 
 ### 1. 调整目录结构
 
 1. 新建 `glm_pto_kernels` 目录，该目录与现有 `vllm`、`vllm_ascend` 目录同级；
-2. 将 `examples/models/glm_v4_5` 目录下的 `glm_gate.py` 文件复制至新建的 `glm_pto_kernels` 目录中；
+2. 将 `models/glm_v4_5` 目录下的 `glm_gate.py` 文件复制至新建的 `glm_pto_kernels` 目录中；
 3. 在 `glm_pto_kernels` 目录下新建空的 `__init__.py` 文件。
 
 - 调整后的完整目录结构如下：
@@ -31,25 +31,25 @@ glm-net/
 def gate(gate_layer, hidden_states):
     # 导入 PyPTO 实现的 gate 算子
     from glm_pto_kernels.glm_gate import gate as gate_pto
-  
+
     # 获取输入张量的批次大小（bs）和门控层权重的维度（ne）
     bs = hidden_states.shape[0]
     ne = gate_layer.weight.shape[0]
-  
+
     # 初始化输出张量：维度为(bs, ne)，数据类型/设备与门控层权重保持一致
     router_logits_res = torch.empty(
-        (bs, ne), 
-        dtype=gate_layer.weight.dtype, 
+        (bs, ne),
+        dtype=gate_layer.weight.dtype,
         device=hidden_states.device
     )
-  
+
     # 调用 PyPTO 实现的 gate 算子，完成核心计算
     gate_pto(
         gate_layer.weight,
         hidden_states,
         router_logits_res
     )
-  
+
     # 返回计算结果
     return router_logits_res
 ```
@@ -80,7 +80,7 @@ router_logits = glm_pto_kernels.gate(self.gate, hidden_states.to(dtype=torch.flo
 
 
 ### 4. 其它算子适配层接口
-以下提供 `examples/models/glm_v4_5` 目录下各类算子的适配层接口定义，将对应函数直接复制到 `glm_pto_kernels/__init__.py` 文件中即可完成适配层配置；每个函数注释内均标注了目标替换文件、函数及具体替换方法，按说明操作即可完成算子切换。
+以下提供 `models/glm_v4_5` 目录下各类算子的适配层接口定义，将对应函数直接复制到 `glm_pto_kernels/__init__.py` 文件中即可完成适配层配置；每个函数注释内均标注了目标替换文件、函数及具体替换方法，按说明操作即可完成算子切换。
 
 - glm_attention.py 相关的算子适配层函数
 ```
