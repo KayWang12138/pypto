@@ -64,16 +64,16 @@ TILEOP void TExpand(T0 dst, T1 src) {
             for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
                 for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
                     using dstTileDefine =
-                        pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-                    using srcTileDefine =
-                        pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-                    dstTileDefine dstTile(dstShape3, dstShape4);
-                    srcTileDefine srcTile(srcShape3, srcShape4);
+ 	                    pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+ 	                using srcTileDefine =
+ 	                    pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+ 	                dstTileDefine dstTile(dstShape3, dstShape4);
+ 	                srcTileDefine srcTile(srcShape3, srcShape4);
                     auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                     auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-                    [[pto::last_use(n1, n2)]]pto::TROWEXPAND(dstTile, srcTile);
+                    [[pto::last_use(n1, n2)]]pto::TCOLEXPAND(dstTile, srcTile);
                 }
             }
         }
