@@ -306,16 +306,6 @@ Status OoOScheduler::CheckAndUpdateLifecycle() {
 }
 
 Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
-    bool isUsed = false;
-    for (size_t i = 0; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
-        if (!allocIssueQueue[coreType][idx][static_cast<MemoryType>(i)].Empty()) {
-            isUsed = true;
-        }
-    }
-    if (!isUsed) {
-        APASS_LOG_INFO_F(Elements::Operation, "idx: %d, coreType: %s not used", idx, coreTypeToString(coreType).c_str());
-        return SUCCESS;
-    }
     MemoryType spillMemType;
     if (!allocIssueQueue[coreType][idx][MemoryType::MEM_UB].Empty()) {
         spillMemType = MemoryType::MEM_UB;
@@ -340,12 +330,12 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
 }
 
 Status OoOScheduler::SpillOnBlock() {
-    for (auto corePair : CORE_INIT_CONFIGS) {
-        if (!usedCore(corePair)) {
+    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        if (!usedCore[coreType][idx]) {
             continue;
         }
-        if (SpillOnCoreBlock(corePair.first, corePair.second) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %s", corePair.second, coreTypeToString(corePair.first).c_str());
+        if (SpillOnCoreBlock(coreType, idx) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %s", idx, coreTypeToString(coreType).c_str());
             return FAILED;
         }
     }
@@ -407,6 +397,9 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
 Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
     // issue from all pipes
     for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        if (!usedCore[coreType][idx]) {
+            continue;
+        }
         for (auto &[pipeType, pipe] : issueQueues[coreType][idx]) {
             if (pipe.Empty() || pipe.busy) {
                 continue;
@@ -479,6 +472,9 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, 
 
 Status OoOScheduler::BufferAllocStage(uint64_t &commitCnt) {
     for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        if (!usedCore[coreType][idx]) {
+            continue;
+        }
         for (auto& [memType, pipe] : allocIssueQueue[coreType][idx]) {
             if (pipe.Empty()) {
                 continue;
@@ -550,6 +546,9 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
 
 Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
     for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        if (!usedCore[coreType][idx]) {
+            continue;
+        }
         for (auto& [pipeType, pipe] : issueQueues[coreType][idx]) {
             (void)pipeType;
             if (!pipe.busy) {
@@ -762,6 +761,9 @@ Status OoOScheduler::GenSpillSchedule() {
 void OoOScheduler::InitIssueQueuesAndBufferManager() {
     // 初始化
     for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        if (!usedCore[coreType][idx]) {
+            continue;
+        }
         for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
             issueQueues[coreType][idx][static_cast<PipeType>(i)] = IssueQueue();
         }
@@ -769,6 +771,9 @@ void OoOScheduler::InitIssueQueuesAndBufferManager() {
 
     bufferManagerMap.clear();
     for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        if (!usedCore[coreType][idx]) {
+            continue;
+        }
         for (size_t i = 0; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
             allocIssueQueue[coreType][idx][static_cast<MemoryType>(i)] = IssueQueue();
             if (localMemorySize.find(static_cast<MemoryType>(i)) != localMemorySize.end()) {
@@ -1058,18 +1063,14 @@ Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
 }
 
 void OoOScheduler::InitUsedCore() {
-    for (auto corePair : CORE_INIT_CONFIGS) {
-        usedCore[corePair] = false;
+    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
+        usedCore[coreType][idx] = false;
     }
 }
 
 void OoOScheduler::UpdateUsedCore(IssueEntryPtr issue) {
-    for (auto [coreConfig, used] : usedCore) {
-        auto corePair = issue->coreLocation;
-        if (corePair.first == coreConfig.first && corePair.second == coreConfig.second) {
-            usedCore[coreConfig] = true;
-        }
-    }
+    auto corePair = issue->coreLocation;
+    usedCore[corePair.first][corePair.second] = true;
 }
 
 Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap) {

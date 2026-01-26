@@ -160,7 +160,7 @@ private:
 
     std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS;
 
-    std::unordered_map<std::pair<OpCoreType, int>, bool> usedCore;
+    std::unordered_map<OpCoreType, std::unordered_map<int, bool>> usedCore;
 
     std::unordered_map<int, LocalBufferPtr> localBufferMap;
     // 分核数据结构
