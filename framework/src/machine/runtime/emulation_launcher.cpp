@@ -28,7 +28,7 @@ static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
     int aicpuResultList[threadNum] = {0};
     std::atomic<int> idx{0};
     auto *devProg = (DevAscendProgram *)(kArgs.cfgdata);
-    size_t shmSize = DEVICE_TASK_CTRL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+    size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
     (void)memset_s(reinterpret_cast<void*>(devProg->devArgs.taskQueue), shmSize, 0, shmSize);
     for (int i = 0; i < static_cast<int>(devProg->devArgs.nrAicpu); i++) {
         aicpuThreadList[i] = std::thread([&](int threadIndex) {
@@ -163,7 +163,7 @@ int EmulationLauncher::BuildControlFlowCache(
         std::stringstream ss;
         for (size_t i = 0; i < inputTensor.size(); ++i) {
             const auto &shape = inputTensor[i].GetShape();
-            
+
             ss << "[";
             for (size_t j = 0; j < shape.size(); ++j) {
                 ss << shape[j];
@@ -172,7 +172,7 @@ int EmulationLauncher::BuildControlFlowCache(
                 }
             }
             ss << "]";
-            
+
             if (i != inputTensor.size() - 1) {
                 ss << " ";
             }
@@ -180,7 +180,7 @@ int EmulationLauncher::BuildControlFlowCache(
         return ss.str();
     };
     ALOG_INFO_F("!!! Emulation ControlFlowCache shape {%s}\n", getShapeString(inputList).c_str());
- 
+
     /* python front end use inputs/output as unified tensors, outputList is always null */
     if (inputList.size() == 0 && outputList.size() == 0) {
         return BuildControlFlowCache(function, outCtrlFlowCache, config);

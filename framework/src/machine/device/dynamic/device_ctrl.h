@@ -38,7 +38,7 @@ public:
             DEV_ERROR("Init Task control failed, which ctx is null.");
             return;
         }
-        auto taskCtrl = &taskctrl_[idx];
+        auto taskCtrl = &GetTaskCtrlInPool(idx);
         taskCtrl->taskType = type;
         taskCtrl->devTask = devTask;
         taskCtrl->taskId = taskId;
@@ -49,7 +49,7 @@ public:
         taskCtrl->finishedAicpuFunctionCnt = 0;
         taskCtrl->finishedFunctionCnt.store(0, std::memory_order_relaxed);
         taskCtrl->runFlag.store(true, std::memory_order_relaxed);
-        taskCtrl->runcnt.store(schAicpuNum_, std::memory_order_relaxed);
+        taskCtrl->runcnt.store(GetScheAicpuNum(), std::memory_order_relaxed);
         taskCtrl->ctx = ctx;
         taskCtrl->retCode = 0;
         devTask->aicoreModel = reinterpret_cast<uint64_t>(ctx->aicoreModel);
@@ -64,35 +64,36 @@ public:
     }
 
     int AllocNewTaskCtrl() {
+        uint32_t &taskCtrlIndex = devStartArgs_->deviceRuntimeDataDesc.taskCtrlIndex;
         while (true) {
-            if (taskCtrlIndex_ == MAX_DEVICE_TASK_NUM)
-                taskCtrlIndex_ = 0;
-            if (!taskctrl_[taskCtrlIndex_].IsNotFree()) {
-                return taskCtrlIndex_++;
+            if (taskCtrlIndex == MAX_DEVICE_TASK_NUM)
+                taskCtrlIndex = 0;
+            if (!GetTaskCtrlInPool(taskCtrlIndex).IsNotFree()) {
+                return taskCtrlIndex++;
             }
-            taskCtrlIndex_++;
+            taskCtrlIndex++;
         }
     }
 
     int PushTask(int type, DynDeviceTask *dynTask, DeviceExecuteContext *ctx) {
         auto idx = AllocNewTaskCtrl();
         InitTaskCtrl(idx, type, dynTask->GetIndex(), &dynTask->devTask, ctx);
-        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-            taskQueue_[i].Enqueue(&taskctrl_[idx]);
+        for (uint32_t i = 0; i < GetScheAicpuNum(); ++i) {
+            GetTaskQueue(i).Enqueue(&GetTaskCtrlInPool(idx));
         }
         return idx;
     }
 
     void StopAicoreManager() {
-        for (uint32_t i = 0; i < schAicpuNum_; ++i) {
-            taskQueue_[i].Enqueue(nullptr);
+        for (uint32_t i = 0; i < GetScheAicpuNum(); ++i) {
+            GetTaskQueue(i).Enqueue(nullptr);
         }
     }
 
     int SyncTask(int idx) {
-        while (taskctrl_[idx].IsNotFree())
+        while (GetTaskCtrlInPool(idx).IsNotFree())
             ;
-        return taskctrl_[idx].retCode;
+        return GetTaskCtrlInPool(idx).retCode;
     }
 
     int SyncTask(DeviceTaskContext *taskContext = nullptr) {
@@ -114,31 +115,31 @@ public:
         inspector_ = inspector;
     }
 
-    void InitTaskPipeWithSched(DevAscendProgram *devProg) {
-        taskctrl_ = reinterpret_cast<DeviceTaskCtrl *>(devProg->devArgs.taskCtrl);
-        taskQueue_ = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *>(devProg->devArgs.taskQueue);
+    void InitTaskPipeWithSched(DevStartArgs *devStartArgs, DevAscendProgram *devProg) {
+        devStartArgs->deviceRuntimeDataDesc.taskCtrlPool = reinterpret_cast<DeviceTaskCtrl *>(devProg->devArgs.taskCtrl);
+        devStartArgs->deviceRuntimeDataDesc.taskQueue = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *>(devProg->devArgs.taskQueue);
         for (uint32_t i = 0; i < MAX_DEVICE_TASK_NUM; i++) {
-            taskctrl_[i].retCode = 0;
-            taskctrl_[i].runFlag = 0;
+            GetTaskCtrlInPool(i).retCode = 0;
+            GetTaskCtrlInPool(i).runFlag = 0;
         }
 
         for (uint32_t i = 0; i < devProg->devArgs.scheCpuNum; ++i) {
-            taskQueue_[i].ResetEmpty();
+            GetTaskQueue(i).ResetEmpty();
         }
     }
 
     void InitCtrlFlowCache(DevAscendProgram *devProg, DevControlFlowCache *ctrlFlowCache, bool firstInit) {
-        auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
+        auto devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
         DevControlFlowCache* devCtrlFlowCache = nullptr;
         devCtrlFlowCache = &devProg->controlFlowCache;
         if (devProg->controlFlowCache.isRecording) {
             DEV_INFO("Init dev program cache");
-            devProg->controlFlowCache.contextWorkspaceAddr = devArgs->contextWorkspaceAddr;
+            devProg->controlFlowCache.contextWorkspaceAddr = devStartArgs->contextWorkspaceAddr;
         } else if (ctrlFlowCache != nullptr) {
             DEV_INFO("Init independent anchor program cache %p.", ctrlFlowCache);
             if (ctrlFlowCache->isRecording) {
                 DEV_ASSERT_MSG(!devProg->controlFlowCache.isRecording, "dev program ctr cache should not record");
-                ctrlFlowCache->contextWorkspaceAddr = devArgs->contextWorkspaceAddr;
+                ctrlFlowCache->contextWorkspaceAddr = devStartArgs->contextWorkspaceAddr;
             } else {
                 DEV_ASSERT_MSG(!devProg->controlFlowCache.isActivated && ctrlFlowCache->isActivated,
                         "should not active dev program cache and independent ctrl cache at same time");
@@ -159,7 +160,7 @@ public:
             return;
         }
 
-        if (devCtrlFlowCache->IsActivatedPartialCache(devArgs)) {
+        if (devCtrlFlowCache->IsActivatedPartialCache(devStartArgs)) {
             DEV_INFO("ControlFlowCache: 1");
             // Actual run
             if (!devCtrlFlowCache->isRelocDataDev) {
@@ -170,11 +171,11 @@ public:
             }
 
             devCtrlFlowCache->IncastOutcastAddrRestore();
-            devCtrlFlowCache->IncastOutcastAddrReloc(0, devArgs->contextWorkspaceAddr, devArgs);
-            if (devCtrlFlowCache->workspaceAddr != devArgs->contextWorkspaceAddr) {
-                devCtrlFlowCache->workspaceAddr = devArgs->contextWorkspaceAddr;
+            devCtrlFlowCache->IncastOutcastAddrReloc(0, devStartArgs->contextWorkspaceAddr, devStartArgs);
+            if (devCtrlFlowCache->workspaceAddr != devStartArgs->contextWorkspaceAddr) {
+                devCtrlFlowCache->workspaceAddr = devStartArgs->contextWorkspaceAddr;
                 devCtrlFlowCache->TaskAddrRestoreWorkspace();
-                devCtrlFlowCache->TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
+                devCtrlFlowCache->TaskAddrRelocWorkspace(0, devStartArgs->contextWorkspaceAddr, devStartArgs);
             }
             devProg->ResetRerun();
         }
@@ -183,10 +184,14 @@ public:
     int InitDyn(DeviceKernelArgs *kargs) {
         DEV_INFO("AscendCppDyInitTask begin");
 
-        auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
-        auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
-        schAicpuNum_ = devProg->devArgs.scheCpuNum;
-        InitTaskPipeWithSched(devProg);
+        DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
+        devStartArgs_ = devStartArgs;
+
+        devStartArgs->deviceRuntimeDataDesc.schAicpuNum = devProg->devArgs.scheCpuNum;
+        devStartArgs->deviceRuntimeDataDesc.taskCtrlIndex = 0;
+
+        InitTaskPipeWithSched(devStartArgs, devProg);
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
@@ -200,24 +205,24 @@ public:
         auto execProg = DeviceExecuteProgram(devProg, nullptr);
         devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
 #endif
-        devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
+        devStartArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
 
         PerfEnd(PERF_EVT_INIT);
         uint64_t inputSize = *kargs->inputs;
         uint64_t outputSize = *(kargs->inputs + 1);
         auto inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
         DEV_INFO("Input/output size [%lu][%lu] tensor list ptr[%p].", inputSize, outputSize, inputPtr);
-        devArgs->devTensorList = inputPtr;
-        devArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
-        devArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
+        devStartArgs->devTensorList = inputPtr;
+        devStartArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
+        devStartArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
 
-        devArgs->contextWorkspaceAddr = PtrToValue(kargs->workspace);
-        devArgs->contextWorkspaceSize = devProg->workspaceSize;
-        devArgs->devProg = devProg;
+        devStartArgs->contextWorkspaceAddr = PtrToValue(kargs->workspace);
+        devStartArgs->contextWorkspaceSize = devProg->workspaceSize;
+        devStartArgs->devProg = devProg;
 
-        devArgs->inputSymbolList = nullptr;
-        devArgs->inputSymbolSize = 0;
-        devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
+        devStartArgs->inputSymbolList = nullptr;
+        devStartArgs->inputSymbolSize = 0;
+        devStartArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
         InitCtrlFlowCache(devProg, reinterpret_cast<DevControlFlowCache*>(kargs->ctrlFlowCache), firstInit);
         DEV_INFO("AscendCppDyInitTask done.");
@@ -353,10 +358,17 @@ private:
         DEV_DEBUG("===== dev task end =====");
     }
 private:
-    uint32_t taskCtrlIndex_{0};
-    DeviceTaskCtrl *taskctrl_{nullptr};
-    SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
-    uint32_t schAicpuNum_{MAX_SCHEDULE_AICPU_NUM};
+    DeviceTaskCtrl &GetTaskCtrlInPool(int index) {
+        return devStartArgs_->deviceRuntimeDataDesc.taskCtrlPool[index];
+    }
+    DeviceTaskCtrlQueue &GetTaskQueue(int index) {
+        return devStartArgs_->deviceRuntimeDataDesc.taskQueue[index];
+    }
+    uint32_t GetScheAicpuNum() {
+        return devStartArgs_->deviceRuntimeDataDesc.schAicpuNum;
+    }
+private:
+    DevStartArgs *devStartArgs_{nullptr};
 
     /* inspector entry */
     DeviceTaskInspectorEntry inspectorEntry_;

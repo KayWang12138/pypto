@@ -66,7 +66,7 @@ constexpr uint32_t HIGHT_BIT = 16;
 
 constexpr uint32_t SUB_CORE = 3;
 constexpr uint32_t AIV_PER_AICORE = 2;
- 
+
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 namespace npu::tile_fwk {
 
@@ -182,7 +182,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(shmSize)));
     args.startArgsAddr = shmAddr;
     args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
-    args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
+    args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_POOL_SIZE;
     pmuEvtType_.resize(PMU_EVENT_TYPE_MAX, 0x0);
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 
@@ -546,7 +546,7 @@ int DeviceRunner::RunPrepare() {
                        RT_MEMCPY_HOST_TO_DEVICE);
         }
     }
-        
+
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         args_.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(DevAlloc(sizeof(MetricPerf)));
         if (args_.aicpuPerfAddr == 0) {
@@ -712,14 +712,14 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
         return -1;
     }
     InitializeErrorCallback();
-    
+
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitErrCallBack);
 
     if (!g_IsFirstInit) {
         InitAiCpuSoBin();
     }
     g_IsFirstInit = true;
-    
+
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
 
     #ifdef BUILD_WITH_NEW_CANN
