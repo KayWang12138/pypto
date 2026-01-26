@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/*!
+ * \file pmu_common.h
+ * \brief
+ */
+
 #ifndef SRC_MACHINE_RUNTIME_PMU_COMMON_H
 #define SRC_MACHINE_RUNTIME_PMU_COMMON_H
 
@@ -30,7 +35,10 @@ constexpr int32_t L2_CACHE = 8;
 constexpr int PMU_EVENT_TYPE_MAX_DAV2201 = 8;
 constexpr int PMU_EVENT_TYPE_MAX_DAV3510 = 10;
 
-void GetPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType);
+class PmuCommon {
+public:
+    static void InitPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType);
+};
 
 } // namespace npu::tile_fwk
 

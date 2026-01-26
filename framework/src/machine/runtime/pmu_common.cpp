@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/*!
+ * \file pmu_common.cpp
+ * \brief
+ */
+
 #include "machine/runtime/pmu_common.h"
 #include <string>
 #include "interface/utils/common.h"
@@ -75,7 +80,9 @@ void SetPmuEventTypeDAV3510(int32_t profPmuType, std::vector<int64_t> &pmuEvtTyp
 }
 }
 
-void GetPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType) {
+void PmuCommon::InitPmuEventType(const ArchInfo& archInfo, std::vector<int64_t>& pmuEvtType) {
+    size_t pmuEvtTypeSize = archInfo == ArchInfo::DAV_2201 ? PMU_EVENT_TYPE_MAX_DAV2201 : PMU_EVENT_TYPE_MAX_DAV3510;
+    pmuEvtType.resize(pmuEvtTypeSize, 0x0);
     // 获取pmu事件类型环境变量获取方式
     std::string eventTypeStr = GetEnvVar("PROF_PMU_EVENT_TYPE");
     if (eventTypeStr.empty()) {

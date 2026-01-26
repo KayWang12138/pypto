@@ -19,7 +19,6 @@
 #include <cstdint>
 #include <fcntl.h>
 #include <vector>
-#include <array>
 #include <mutex>
 #include <unistd.h>
 #include <sys/file.h>
@@ -88,7 +87,6 @@ private:
     int LaunchAiCore(rtStream_t aicoreStream, int taskType);
     void Dump();
     void AllocDfxMetricMemory();
-    void GetPmuEventType(DeviceArgs &args);
     /**************DynamicFunction**************/
     int launchDynamicAiCore(rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs);
     int launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *kArgs);

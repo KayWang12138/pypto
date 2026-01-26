@@ -22,6 +22,7 @@
 #include <string>
 #include <sys/syscall.h>
 #include "tilefwk/aicpu_common.h"
+#include "machine/device/dynamic/aicore_prof_dav3510_pmu.h"
 
 typedef void* VOID_PTR;
 
@@ -59,7 +60,6 @@ constexpr bool USER_PMU_MODE_EN = (GLB_PMU_EN && true);
 constexpr bool SAMPLE_PMU_MODE_EN = (GLB_PMU_EN && USER_PMU_MODE_EN);
 constexpr bool DUAL_PAGE_EN = false; // 双页表是否使能，如何感知？？？通过runtime？
 constexpr uint32_t MAX_PMU_CNT = 8;
-constexpr uint32_t MAX_PMU_CNT_3510 = 10;
 
 constexpr int32_t PMU_CYCLE = 80; // 记录按照了20MHZ的时钟周期，单位归一按照1600MHZ的时钟周期进行统一，所以80
 constexpr int64_t NUM_TWO_PMU = 2;
@@ -108,36 +108,6 @@ typedef enum AiCoreRegister {
     PMU_STOP_CNT_CYC_1 = 0x2AC,
 } AiCoreRegister;
 
-namespace DAV_3510 {
-    const uint32_t PMU_CTRL_0 = 0x4200;
-    const uint32_t PMU_CTRL_1 = 0X2400;
-    const uint32_t PMU_CNT0 = 0x4210;
-    const uint32_t PMU_CNT1 = 0x4218;
-    const uint32_t PMU_CNT2 = 0x4220;
-    const uint32_t PMU_CNT3 = 0x4228;
-    const uint32_t PMU_CNT4 = 0x4230;
-    const uint32_t PMU_CNT5 = 0x4238;
-    const uint32_t PMU_CNT6 = 0x4240;
-    const uint32_t PMU_CNT7 = 0x4248;
-    const uint32_t PMU_CNT8 = 0x4250;
-    const uint32_t PMU_CNT9 = 0x4254;
-    const uint32_t PMU_CNT_TOTAL0 = 0x4260;
-    const uint32_t PMU_CNT_TOTAL1 = 0x4264;
-    const uint32_t PMU_CNT0_IDX = 0x2500;
-    const uint32_t PMU_CNT1_IDX = 0x2504;
-    const uint32_t PMU_CNT2_IDX = 0x2508;
-    const uint32_t PMU_CNT3_IDX = 0x250C;
-    const uint32_t PMU_CNT4_IDX = 0x2510;
-    const uint32_t PMU_CNT5_IDX = 0x2514;
-    const uint32_t PMU_CNT6_IDX = 0x2518;
-    const uint32_t PMU_CNT7_IDX = 0x251C;
-    const uint32_t PMU_CNT8_IDX = 0x2520;
-    const uint32_t PMU_CNT9_IDX = 0x2524;
-    const uint32_t PMU_START_CNT_CYC_0 = 0x42A0;
-    const uint32_t PMU_START_CNT_CYC_1 = 0x42A4;
-    const uint32_t PMU_STOP_CNT_CYC_0 = 0x42A8;
-    const uint32_t PMU_STOP_CNT_CYC_1 = 0x42AC;
-};
 
 struct ArchPmuConfig {
     std::vector<uint32_t> pmuCntIdxOffsets;
