@@ -19,7 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "interface/interpreter/raw_tensor_data.h"
 

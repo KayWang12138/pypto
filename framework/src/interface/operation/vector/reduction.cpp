@@ -14,7 +14,7 @@
  */
 
 #include "unary.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/utils/operator_tracer.h"
 
 namespace npu::tile_fwk {

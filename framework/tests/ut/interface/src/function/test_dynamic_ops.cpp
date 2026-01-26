@@ -14,7 +14,7 @@
  */
 
 #include "test_cost_macro.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/interpreter/calc.h"
 #include "tilefwk/tilefwk_op.h"

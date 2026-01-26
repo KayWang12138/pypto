@@ -19,7 +19,7 @@
 #include <thread>
 #include <cstdint>
 #include "interface/interpreter/raw_tensor_data.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/function/function.h"
 #include "machine/host/device_agent_task.h"
 #include "machine/device/dynamic/costmodel_utils.h"

@@ -24,7 +24,7 @@
 #include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "cloudnpu/codegen_cloudnpu.h"
 
 namespace npu::tile_fwk {

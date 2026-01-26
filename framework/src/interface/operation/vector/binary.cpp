@@ -16,7 +16,7 @@
 #include "binary.h"
 #include "tensor_transformation.h"
 #include "interface/utils/operator_tracer.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 namespace npu::tile_fwk {
 

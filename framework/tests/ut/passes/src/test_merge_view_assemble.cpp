@@ -18,7 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "computational_graph_builder.h"
 #include "ut_json/ut_json_tool.h"
 #include "passes/tile_graph_pass/graph_optimization/merge_view_assemble.h"

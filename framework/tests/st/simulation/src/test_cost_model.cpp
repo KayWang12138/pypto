@@ -16,7 +16,7 @@
 #include "gtest/gtest.h"
 #include <dlfcn.h>
 
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "operator/models/llama/llama_def.h"
 #include "cost_model/simulation/common/CommonType.h"
 #include "test_common.h"

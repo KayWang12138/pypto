@@ -25,7 +25,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/function/function.h"
 #include "passes/pass_utils/pass_utils.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 namespace npu {
 namespace tile_fwk {

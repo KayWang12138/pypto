@@ -18,7 +18,7 @@
 
 #include "interface/interpreter/thread_pool.h"
 #include "interface/operation/attribute.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
 #include "interface/inner/pre_def.h"

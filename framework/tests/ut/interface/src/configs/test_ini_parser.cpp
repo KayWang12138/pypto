@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_config_manager.cpp
+ * \file test_config_global.cpp
  * \brief
  */
 

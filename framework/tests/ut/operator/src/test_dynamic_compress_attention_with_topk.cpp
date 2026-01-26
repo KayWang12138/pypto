@@ -19,7 +19,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tilefwk.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/nsa/compress_attention_with_topk.h"
 

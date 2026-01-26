@@ -28,7 +28,7 @@
 #include "cost_model/simulation/base/ModelLogger.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
 #include "tilefwk/core_func_data.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "tilefwk/platform.h"
 
 constexpr int INVALID_ARG_INDEX = 0xFFFFFFFF;

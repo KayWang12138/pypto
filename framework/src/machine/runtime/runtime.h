@@ -36,7 +36,7 @@
 #include <execinfo.h>
 #include "interface/utils/log.h"
 #include "interface/utils/common.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/platform.h"
 

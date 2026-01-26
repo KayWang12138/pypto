@@ -21,7 +21,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "computational_graph_builder.h"
 #include "passes/tensor_graph_pass/auto_cast.h"
 

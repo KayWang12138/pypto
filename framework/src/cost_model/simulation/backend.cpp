@@ -16,7 +16,7 @@
 #include "simulation/backend.h"
 
 #include <cctype>
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/cache/function_cache.h"
 #include "interface/machine/host/machine_task.h"
 

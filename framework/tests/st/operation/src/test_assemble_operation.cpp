@@ -14,7 +14,7 @@
  */
 
 #include <random>
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "test_operation.h"
 #include "tilefwk/function.h"
 #include "tilefwk/symbolic_scalar.h"

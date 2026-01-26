@@ -16,7 +16,7 @@
 #include <gtest/gtest.h>
 #include "interface/program/program.h"
 #include "passes/pass_mgr/pass_dependency.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 namespace npu {
 namespace tile_fwk {

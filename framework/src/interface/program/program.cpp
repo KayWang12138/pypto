@@ -21,14 +21,14 @@
 #include "interface/utils/log.h"
 #include "interface/utils/id_gen.h"
 #include "interface/utils/serialization.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/function/function.h"
 #include "interface/interpreter/flow_verifier.h"
 #include "interface/machine/host/host_machine.h"
 #include "interface/program/program.h"
-#include "interface/configs/config_manager_ng.h"
+#include "interface/configs/config_scope.h"
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";

@@ -16,7 +16,7 @@
 #include "operator_tracer.h"
 #include "interface/program/program.h"
 #include "interface/utils/id_gen.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 namespace npu::tile_fwk {
 void OperatorChecker::PreCheck() {

@@ -20,7 +20,7 @@
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/tensor/float.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "machine/runtime/machine_agent.h"

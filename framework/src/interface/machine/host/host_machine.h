@@ -26,7 +26,7 @@
 #include <tuple>
 #include <nlohmann/json.hpp>
 #include "interface/machine/host/machine_task.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/cache/function_cache.h"
 
 namespace npu::tile_fwk {

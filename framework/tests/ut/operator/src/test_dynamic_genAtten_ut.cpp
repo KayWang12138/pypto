@@ -15,7 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "operator/models/nsa/gen_Attention.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 using namespace npu::tile_fwk;
 

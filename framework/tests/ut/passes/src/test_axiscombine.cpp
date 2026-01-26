@@ -19,7 +19,7 @@
 #include "interface/inner/tilefwk.h"
 #include "passes/tile_graph_pass/graph_constraint/axis_combine.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "computational_graph_builder.h"
 #include <nlohmann/json.hpp>
 #include <fstream>

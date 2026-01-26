@@ -19,7 +19,7 @@
 #include "allocator/allocators.h"
 #include "tilefwk/core_func_data.h"
 #ifndef __DEVICE__
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #endif
 
 namespace npu::tile_fwk::dynamic {
