@@ -107,8 +107,8 @@ class OspPartitioner : public SuperNodeGraphBuilder {
 public:    
     OspPartitioner(OspMode mode) : ospMode_(mode) {};
     inline void SetParameter(const Function &function) {
-            archParameters_.partitionWorkUpperBound_ = function.paramConfigs_.sgCycleUpperBound;
-            archParameters_.partitionWorkLowerBound_ = function.paramConfigs_.sgCycleLowerBound;
+            archParameters_.partitionWorkUpperBound_ = function.paramConfigs_.sgPgUpperBound;
+            archParameters_.partitionWorkLowerBound_ = function.paramConfigs_.sgPgLowerBound;
     }
     ~OspPartitioner() = default;
     Status PartitionGraph(Function &function);
