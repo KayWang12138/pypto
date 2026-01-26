@@ -11,6 +11,7 @@ def mock():
         l.dot,
         l.exp,
         l.expand_dims,
+        l.full,
         l.load,
         l.log,
         l.make_block_ptr,
