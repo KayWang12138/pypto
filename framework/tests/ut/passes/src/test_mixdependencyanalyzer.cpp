@@ -131,10 +131,10 @@ TEST_F(MixDependencyAnalyzerTest, UTest2) {
     EXPECT_TRUE(CheckPath(kNum2, kNum3, analyzer.internalDeps));
 
     analyzer.EliminateRedundantDependencies();
-    EXPECT_EQ(analyzer.internalDeps.size(), kNum3); // 边数下降1
+    EXPECT_EQ(analyzer.internalDeps.size(), kNum3); 
     EXPECT_EQ(analyzer.allIncasts[kNum0].size(), kNum1); // incast0
-    EXPECT_EQ(analyzer.allOutcasts[kNum0].size(), kNum0); // 由内部依赖实现
-    EXPECT_EQ(analyzer.allIncasts[kNum1].size(), kNum0); // 由内部依赖实现
+    EXPECT_EQ(analyzer.allOutcasts[kNum0].size(), kNum0); 
+    EXPECT_EQ(analyzer.allIncasts[kNum1].size(), kNum0); 
     EXPECT_EQ(analyzer.allOutcasts[kNum1].size(), kNum1); // outcast0
     EXPECT_EQ(analyzer.allIncasts[kNum2].size(), kNum2); // incast0, incast1
     EXPECT_EQ(analyzer.allOutcasts[kNum2].size(), kNum0); // outcast1
