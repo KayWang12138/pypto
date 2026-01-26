@@ -1,4 +1,4 @@
 case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape,diagonal
 TriL_test_0,"[8, 8]","int32","ND","[-10, 10]","[8,8]",int32,ND,"[4, 16]","[4, 16]",0
-TriL_test_1,"[8, 9]","int32","ND","[-10, 10]","[8,9]",int32,ND,"[4, 16]","[4, 16]",1
-TriL_test_2,"[7, 8]","int32","ND","[-10, 10]","[7,8]",int32,ND,"[4, 16]","[4, 16]",-1
+TriL_test_1,"[8, 9]","int32","ND","[-10, 10]","[8,9]",int32,ND,"[4, 16]","[4, 8]",1
+TriL_test_2,"[7, 8]","int32","ND","[-10, 10]","[7,8]",int32,ND,"[4, 16]","[4, 8]",-1

@@ -569,25 +569,15 @@ struct TriULTileInfoPara {
 struct TriULPara {
     const LogicalTensorPtr &input;
     const LogicalTensorPtr &dstTensor;
-    const int diagonal;
+    const SymbolicScalar diagonal;
     const bool isUpper;
 };
-
-int GetRealDiagonal(int diagonal, Offset offsets, Shape shape) {
-    int realDiagonal = diagonal + offsets[0] - offsets[1];
-    if (realDiagonal < -shape[0] + 1) {
-        realDiagonal = -shape[0];
-    } else if (realDiagonal > shape[1]) {
-        realDiagonal = shape[1];
-    }
-    return realDiagonal;
-}
 
 void InnerTiledTriUL(size_t cur, Function &function, const TileShape &tileShape, const TriULPara &triULPara,
     TriULTileInfoPara &triULTileInfo) {
     const LogicalTensorPtr &input = triULPara.input;
     const LogicalTensorPtr &dstTensor = triULPara.dstTensor;
-    const int diagonal = triULPara.diagonal;
+    SymbolicScalar realDiagonal = triULPara.diagonal;
     const bool isUpper = triULPara.isUpper;
     auto &vecTile = tileShape.GetVecTile();
 
@@ -595,11 +585,9 @@ void InnerTiledTriUL(size_t cur, Function &function, const TileShape &tileShape,
         auto dstTile = dstTensor->View(function, triULTileInfo.dstTileInfo.shape, triULTileInfo.dstTileInfo.offset);
         auto inputTile = input->View(function, triULTileInfo.inputTileInfo.shape, triULTileInfo.inputTileInfo.offset);
         auto &op = function.AddOperation(Opcode::OP_TRIUL, {inputTile}, {dstTile});
-        int realDiagonal = GetRealDiagonal(diagonal, {dstTile->GetOffset()[cur - 2], dstTile->GetOffset()[cur - 1]},
-            {dstTile->GetShape()[cur - 2], dstTile->GetShape()[cur - 1]});
-        op.SetAttribute(OP_ATTR_PREFIX + "diagonal", realDiagonal);
+        realDiagonal = realDiagonal+dstTile->GetOffset()[cur - 2]-dstTile->GetOffset()[cur - 1];
+        op.SetAttribute(OpAttributeKey::dynScalar, realDiagonal);
         op.SetAttribute(OP_ATTR_PREFIX + "isUpper", isUpper);
-
         return;
     }
     int64_t tmpTile = vecTile[cur];
@@ -636,12 +624,12 @@ void TensorTriUL(Function &function, const TriULPara &triULPara) {
         castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_TRUNC);
     } else {
         auto &op = function.AddOperation(Opcode::OP_TRIUL, {triULPara.input}, {triULPara.dstTensor});
-        op.SetAttribute(OP_ATTR_PREFIX + "diagonal", triULPara.diagonal);
+        op.SetAttribute(OpAttributeKey::dynScalar, triULPara.diagonal);
         op.SetAttribute(OP_ATTR_PREFIX + "isUpper", triULPara.isUpper);
     }
 }
 
-Tensor TriU(const Tensor &input, const int diagonal) {
+Tensor TriU(const Tensor &input, const SymbolicScalar diagonal) {
     DECLARE_TRACER();
     auto shapeSize = input.GetShape().size();
     auto dataType = input.GetDataType();
@@ -683,7 +671,7 @@ Tensor TriL(const Tensor &input, const int diagonal) {
 
 void TriULOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
-    int diagonal = op.GetIntAttribute(OP_ATTR_PREFIX + "diagonal");
+    SymbolicScalar diagonal = op.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
     bool isUpper = op.GetBoolAttribute(OP_ATTR_PREFIX + "isUpper");
     TiledTriUL(function, tileShape, {iOperand[0], oOperand[0], diagonal, isUpper});
 }

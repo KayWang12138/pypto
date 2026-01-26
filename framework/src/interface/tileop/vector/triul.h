@@ -18,8 +18,8 @@
 #include "utils/tile_tensor.h"
 
 #define OP_TILE_OP_TRIUL TTriUL
-template <int diagonal, int isUpper, typename DstTensor, typename SrcTensor>
-TILEOP void TTriUL(DstTensor dst, SrcTensor src) {
+template <int isUpper, typename DstTensor, typename SrcTensor>
+TILEOP void TTriUL(DstTensor dst, SrcTensor src, int diagonal) {
     const auto dstLayout = dst.GetLayout();
     auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
     auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
@@ -44,7 +44,7 @@ TILEOP void TTriUL(DstTensor dst, SrcTensor src) {
                 auto tileOffsets = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dstAddr + tileOffsets));
                 pto::TASSIGN(srcTile, (uint64_t)(srcAddr + tileOffsets));
-                pto::TTRI<dstTileDefine, isUpper, diagonal>(dstTile);
+                pto::TTRI<dstTileDefine, isUpper>(dstTile, diagonal);
                 #ifdef __DAV_V220
                 pipe_barrier(PIPE_V);
                 #endif
