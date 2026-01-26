@@ -128,21 +128,21 @@ Status InsertOpForViewAssemble::JudgedViewAssemble(Function &function) {
     return SUCCESS;
 }
 
-void InsertOpForViewAssemble::AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input) {
-    if (cons->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-        return ;
+void InsertOpForViewAssemble::InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, const LogicalTensorPtr &input) {
+    if (needInsertCopyAssOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+        return;
     }
     auto copyShape = input->GetShape();
-    std::vector<int64_t> offset0(copyShape.size(), 0);
-    std::vector<SymbolicScalar> dynOffset0(copyShape.size(), 0);
+    Offset offset(copyShape.size(), 0);
+    std::vector<SymbolicScalar> dynOffset(copyShape.size(), 0);
 
     auto assembleOut = std::make_shared<LogicalTensor>(function, input->Datatype(), copyShape);
     assembleOut->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     auto &assembleOp = function.AddOperation(Opcode::OP_ASSEMBLE, {input}, {assembleOut});
     assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(
         input->GetMemoryTypeOriginal(),
-        offset0,
-        dynOffset0,
+        offset,
+        dynOffset,
         input->GetDynValidShape()
     ));
 
@@ -150,20 +150,18 @@ void InsertOpForViewAssemble::AddCopyUBOp(Function &function, Operation *cons, L
     viewOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     auto &viewOp = function.AddOperation(Opcode::OP_VIEW, {assembleOut}, {viewOut});
     viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
-        offset0,
+        offset,
         input->GetMemoryTypeOriginal(),
-        dynOffset0,
+        dynOffset,
         input->GetDynValidShape()
     ));
 
-    cons->ReplaceInput(viewOut, input);
+    needInsertCopyAssOp->ReplaceInput(viewOut, input);
 }
 
 
-void InsertOpForViewAssemble::AddCopyDDROp(Function &function, Operation *cons, LogicalTensorPtr &input) {
+void InsertOpForViewAssemble::InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, const LogicalTensorPtr &input) {
     auto copyShape = input->GetShape();
-    std::vector<int64_t> offset00(copyShape.size(), 0);
-    std::vector<SymbolicScalar> dynOffset0(copyShape.size(), 0);
 
     auto viewOut = std::make_shared<LogicalTensor>(function, input->Datatype(), copyShape);
     viewOut->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
@@ -185,41 +183,41 @@ void InsertOpForViewAssemble::AddCopyDDROp(Function &function, Operation *cons, 
         input->GetDynValidShape()
     ));
 
-    cons->ReplaceInput(assembleOut, input);
+    needInsertCopyAssOp->ReplaceInput(assembleOut, input);
 }
 
 void InsertOpForViewAssemble::InsertAssembleCopy(Function &function) {
     auto opsBeforeAdd = function.Operations();
     std::unordered_set<int> visitedAssOps;
-    std::unordered_set<Operation*> needAddCopyAssOps;
+    std::unordered_set<Operation*> needInsertCopyAssOps;
     for (auto &op : opsBeforeAdd) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             visitedAssOps.insert(op.GetOpMagic());
-            auto assIn = op.GetIOperands()[0];
-            if (assIn->GetProducers().size() != 0) {
-                auto assInProducer0 = *(assIn->GetProducers().begin());
-                if (assInProducer0->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
+            auto assembleIn = op.GetIOperands()[0];
+            if (assembleIn->GetProducers().size() != 0) {
+                auto assembleInProducer = *(assembleIn->GetProducers().begin());
+                if (assembleInProducer->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
                     continue;
                 }
             }
-            auto consumers = assIn->GetConsumers();
+            auto consumers = assembleIn->GetConsumers();
             if (consumers.size() <= 1) {
                 continue;
             }
             for (auto &con : consumers) {
                 if (con->GetOpcode() == Opcode::OP_ASSEMBLE) {
                     visitedAssOps.insert(con->GetOpMagic());
-                    needAddCopyAssOps.insert(con);
+                    needInsertCopyAssOps.insert(con);
                 }
             }
         }
     }
-    for (auto &needed : needAddCopyAssOps) {
-        auto input = needed->GetIOperands()[0];
+    for (auto &needInsertCopyAssOp : needInsertCopyAssOps) {
+        auto input = needInsertCopyAssOp->GetIOperands()[0];
         if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            AddCopyUBOp(function, needed, input);
+            InsertCopyUBOp(function, needInsertCopyAssOp, input);
         } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            AddCopyDDROp(function, needed, input);
+            InsertCopyDDROp(function, needInsertCopyAssOp, input);
         }
     }
 }

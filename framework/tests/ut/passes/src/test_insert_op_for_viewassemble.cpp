@@ -202,10 +202,18 @@ TEST_F(TestInsertCopyPass, TestInsert) {
     EXPECT_EQ(currFunctionPtr->Operations().size(), result);
 }
 
-TEST_F(TestInsertCopyPass, TestOneTensorNAssembleUB) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestOneTensorNAssemble", "TestOneTensorNAssemble", nullptr);
+TEST_F(TestInsertCopyPass, TestTensorMultiAssembleUB) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestTensorMultiAssembleUB", "TestTensorMultiAssembleUB", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-
+    /*    
+                                    | --- assemble  --------------------------|\-
+    inTensor0 [8, 8] --- view --- t1(UB)                                        \-
+                                    | --- assemble  --- |\-                      \-
+                                                          outTensor0 [8, 16]      t3 --- reshape --- outTensor0 [16, 8]            
+                                    | --- assemble  --- |/-                      /-
+    inTensor1 [8, 8] --- view --- t2(UB)                                        /-
+                                    | --- assemble  --------------------------|/-
+ */
     std::vector<int64_t> shape = {kSizeEight, kSizeEight};
     std::vector<int64_t> outShape0 = { kSizeEight, kNumExpFour};
     std::vector<int64_t> outShape1 = { kNumExpFour, kSizeEight};
@@ -250,12 +258,22 @@ TEST_F(TestInsertCopyPass, TestOneTensorNAssembleUB) {
     InsertOpForViewAssemble pass;
     
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    const int result = 7;
+    EXPECT_EQ(currFunctionPtr->Operations().size(), result);
 }
 
-TEST_F(TestInsertCopyPass, TestOneTensorNAssembleDDR) {
-    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestOneTensorNAssemble", "TestOneTensorNAssemble", nullptr);
+TEST_F(TestInsertCopyPass, TestTensorMultiAssembleDDR) {
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestTensorMultiAssembleDDR", "TestTensorMultiAssembleDDR", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
-
+    /*    
+                    | --- assemble -----------------------------------|\-
+    inTensor0[8, 8](DDR)                                                \-
+                    | --- exp --- t1 --- assemble --- |\-                \-
+                                                       outTensor0[8, 16]  t3 --- reshape --- outTensor0[16, 8]            
+                    | --- exp --- t2 --- assemble --- |/-                /-
+    inTensor1[8, 8](DDR)                                                /-
+                    | --- assemble -----------------------------------|/-
+ */
     std::vector<int64_t> shape = {kSizeEight, kSizeEight};
     std::vector<int64_t> outShape0 = { kSizeEight, kNumExpFour};
     std::vector<int64_t> outShape1 = { kNumExpFour, kSizeEight};
@@ -298,6 +316,8 @@ TEST_F(TestInsertCopyPass, TestOneTensorNAssembleDDR) {
     InsertOpForViewAssemble pass;
     
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
+    const int opNum = 15;
+    EXPECT_EQ(currFunctionPtr->Operations().size(), opNum);
 }
 }
 }
