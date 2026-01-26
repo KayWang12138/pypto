@@ -57,7 +57,7 @@ constexpr uint32_t HIGHT_BIT = 16;
 
 constexpr uint32_t SUB_CORE = 3;
 constexpr uint32_t AIV_PER_AICORE = 2;
- 
+
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 namespace npu::tile_fwk {
 
@@ -115,12 +115,8 @@ void DeviceRunner::ResetPerData() {
 }
 
 void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
-    auto shmAddr = args_.startArgsAddr;
-    devArgs.startArgsAddr = shmAddr;
-    shmAddr += dynamic::DEV_ARGS_SIZE;
-    devArgs.taskCtrl = shmAddr;
-    shmAddr += dynamic::DEVICE_TASK_CTRL_SIZE;
-    devArgs.taskQueue = shmAddr;
+    auto shmAddr = args_.runtimeDataRingBufferAddr;
+    devArgs.runtimeDataRingBufferAddr = shmAddr;
     devArgs.sharedBuffer = args_.sharedBuffer;
     devArgs.coreRegAddr = args_.coreRegAddr;
     devArgs.nrAic = args_.nrAic;
@@ -154,11 +150,9 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
     args.taskWastTime = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(sizeof(uint64_t))));
-    size_t shmSize = dynamic::DEVICE_SHM_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * aicpuNum_;
+    size_t shmSize = sizeof(dynamic::RuntimeDataRingBufferHead) + dynamic::DEVICE_SHM_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * aicpuNum_;
     uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(shmSize)));
-    args.startArgsAddr = shmAddr;
-    args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
-    args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
+    args.runtimeDataRingBufferAddr = shmAddr;
     PmuCommon::InitPmuEventType(args.archInfo, pmuEvtType_);
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 
@@ -231,7 +225,7 @@ uint64_t DeviceRunner::GetTasksTime() const {
     return buffer;
 }
 
-    
+
 bool DeviceRunner::GetValidGetPgMask() const {
     return machine::GetRA()->GetValidGetPgMask();
 }
@@ -665,7 +659,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
         return -1;
     }
     InitializeErrorCallback();
-    
+
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitErrCallBack);
 
     #ifdef BUILD_WITH_NEW_CANN
@@ -688,9 +682,9 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
     blockDim_ = blockdim;
     aicpuNum_ = launchAicpuNum;
-    // for dump perfInfo update device args 
-    args_.nrValidAic = blockdim; 
-    args_.nrAicpu = launchAicpuNum; 
+    // for dump perfInfo update device args
+    args_.nrValidAic = blockdim;
+    args_.nrAicpu = launchAicpuNum;
     args_.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockDim_, aicpuNum_, args_.archInfo);
     ExchangeCaputerMode(isCapture_);
     if (ctrlStream == nullptr) {
