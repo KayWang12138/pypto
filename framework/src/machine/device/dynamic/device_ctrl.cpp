@@ -12,7 +12,7 @@
  * \file device_ctrl.cpp
  * \brief DO NOT MODIFY THIS FILE!!!
  *      This file is an entry file which is only used to export symbol.
- *      Please modify the implementation of DeviceKernelArgs when needed.
+ *      Please modify the implementation of *DeviceKernelArgs* when needed.
  */
 
 #include "device_ctrl.h"
