@@ -202,9 +202,9 @@ private:
 
     void DumpTaskTensor(int &coreIdx, volatile TaskStat *stat);
 
-    bool CheckTaskFinished(int coreIdx, const CoreType type);
+    bool CheckTaskFinished(int coreIdx);
 
-    int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd, const CoreType type);
+    int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
 
     uint64_t TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd);
 

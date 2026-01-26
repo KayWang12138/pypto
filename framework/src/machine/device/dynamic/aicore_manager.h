@@ -21,6 +21,9 @@
 #include <atomic>
 #include <array>
 #include <semaphore.h>
+
+#include <tracr/tracr.hpp>
+
 #include "securec.h"
 #include "device_common.h"
 #include "tilefwk/config.h"
@@ -206,13 +209,18 @@ public:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
+
+
+        INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_SCHED_EXEC, 0);
         PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_);
         PerfMtBegin(PERF_EVT_SYNC_AICORE, aicpuIdx_);
         int32_t rc = SyncTaskFinish();
+        INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, 0);
         PerfMtTrace(PERF_TRACE_DEV_TASK_SYNC_CORE_STOP, aicpuIdx_);
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
         }
+        INSTRUMENTATION_MARK_RESET(aicpuIdx_);
         PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
         DEV_DEBUG("aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu, sync finish ret: %d.",
             aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_, ret);
@@ -317,6 +325,7 @@ public:
         }
 
         if constexpr (IsDeviceMode()) {
+            INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_WAIT_CORE_EXIT, 0);
             PerfMtTrace(PERF_TRACE_WAIT_CORE_EXIT, aicpuIdx_);
             ProfStop();
         }
@@ -325,15 +334,34 @@ public:
     }
 
     inline int Run(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
+        
+        /* TraCR Instrumentation */
+        DEV_ERROR("[TraCR] TraCR active[%d]? %d", threadIdx, INSTRUMENTATION_ACTIVE);
+        if (threadIdx == 1) {
+            DEV_ERROR("[TraCR] Thread [%d] start tracr? [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
+
+            INSTRUMENTATION_START("/tmp/");
+
+            DEV_ERROR("[TraCR] Thread [%d] start tracr done. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
+        } else {
+            DEV_ERROR("[TraCR] Thread [%d] waiting start of tracr. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
+            while (INSTRUMENTATION_IS_PROC_READY() == false) {}
+
+            DEV_ERROR("[TraCR] Thread [%d] tracr thread init? [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
+            INSTRUMENTATION_THREAD_INIT();
+        }
+
         int ret = DEVICE_MACHINE_OK;
         DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
         Init(threadIdx, deviceArgs, schedIdx);
+        INSTRUMENTATION_MARK_SET(threadIdx, PERF_TRACE_INIT, 0);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DEV_DEBUG("Schedule run init succ");
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>*>(deviceArgs->taskQueue)[schedIdx_]);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
+            INSTRUMENTATION_MARK_SET(threadIdx, PERF_TRACE_CORE_HAND_SHAKE, 0);
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 DEV_ERROR("hand shake timeout.");
@@ -353,26 +381,60 @@ public:
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
             DEV_DEBUG("Schedule task recv");
             if (taskCtrl == nullptr) {
+                INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_RCV, (uint32_t)lastDevTaskFinCycle);
                 PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);
                 if (!isSendStop) {
                     SyncTaskFinish(true);
                 }
                 break;
             }
+            INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_RCV, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
             PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
+            INSTRUMENTATION_MARK_SET(threadIdx, PERF_EVT_RUN_TASK, 0);
             PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
             ret = RunTask(taskCtrl);
             lastDevTaskFinCycle = GetCycles();
+            INSTRUMENTATION_MARK_RESET(threadIdx);
             PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
             DEV_DEBUG("Run task finish taskid=%d ret %d.", curTaskId_, ret);
             if (ret != 0)
                 break;
             taskCtrl->PutTask(ret);
+            INSTRUMENTATION_MARK_SET(threadIdx, PERF_TRACE_DEV_TASK_RSP, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_RSP, threadIdx);
             PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
         }
         PostRun(ret, taskCtrl);
+
+        /* TraCR Instrumentation */
+        DEV_ERROR("[TraCR] Begin dump TraCR trace.");
+        if (threadIdx == 1) {
+
+            INSTRUMENTATION_MARK_RESET(threadIdx);
+
+            while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {}
+
+#ifdef ENABLE_TRACR
+            // This is for debugging
+            DEV_ERROR("[TraCR] JSON: %s", INSTRUMENTATION_GET_JSON_STR().c_str());
+
+            DEV_ERROR("[TraCR] BTS: %s", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
+#endif
+
+            DEV_ERROR("[TraCR] Finish dump TraCR trace.");
+
+            INSTRUMENTATION_END();
+        } else {
+#ifdef ENABLE_TRACR
+            INSTRUMENTATION_MARK_RESET(threadIdx);
+
+            // This is for debugging
+            DEV_ERROR("[TraCR] BTS: %s", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
+#endif
+            INSTRUMENTATION_THREAD_FINALIZE();
+        }
+
         return ret;
     }
 
@@ -699,6 +761,7 @@ private:
             DEV_VERBOSE_DEBUG("AiCpud:%d, can not send task currently. ready Core: %u.", aicpuIdx_, ready);
             return 0;
         }
+        INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_EVT_SEND_AIC_TASK, 0);
         PerfMtBegin(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
         uint32_t readyId[MAX_MANAGER_AIV_NUM];
         ReadyQueueLock(readyQue);
@@ -708,6 +771,7 @@ private:
         if (taskCount == 0) {
             DEV_VERBOSE_DEBUG("AiCpud:%u, taskCount is zero", head);
             ReadyQueueUnLock(readyQue);
+            INSTRUMENTATION_MARK_RESET(aicpuIdx_);
             PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
             return 0;
         }
@@ -725,6 +789,7 @@ private:
             taskCount, coreIdxStart, coreIdxEnd, isRealLifo);
         DEV_VERBOSE_DEBUG("core ready cnt: %u", context_->corePendReadyCnt_[static_cast<int>(type)]);
         firstLock[static_cast<int>(type)] = false;
+        INSTRUMENTATION_MARK_RESET(aicpuIdx_);
         PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
         return taskCount;
     }
@@ -801,6 +866,7 @@ private:
         context_->sendCnt_[static_cast<int>(type)]++;
 
         if (isFirstTaskSend_) {
+            INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
             isFirstTaskSend_ = false;
         }
@@ -836,6 +902,7 @@ private:
     }
     inline int32_t ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd) {
         int32_t ret = DEVICE_MACHINE_OK;
+        INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_EVT_RESOLVE_DEPENDENCE, 0);
         PerfMtBegin(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
         for (int i = coreIdxStart; i < coreIdxEnd; i++) {
             if ((runningIds_[i] != AICORE_TASK_INIT || pendingIds_[i] != AICORE_TASK_INIT)) {
@@ -859,6 +926,7 @@ private:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
+        INSTRUMENTATION_MARK_RESET(aicpuIdx_);
         PerfMtEnd(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
         return ret;
     }
