@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ void TiledLogicalNotOperation(
     if (cur == input.tensor.GetShape().size()) {
         auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
         auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
-        
+
         constexpr int64_t COUNT_NUM = 2048;
         constexpr int64_t vcmp_bit_size = COUNT_NUM / 8;
         constexpr size_t ALIGN_SIZE = 32;
@@ -37,7 +37,7 @@ void TiledLogicalNotOperation(
         } else {
             select_dtype = DT_FP16;
         }
-        
+
         int64_t total_size = COUNT_NUM * 2 + COUNT_NUM * BytesOf(select_dtype) * 2 + vcmp_bit_size + 8;
         total_size = (total_size + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE;
         std::vector<int64_t> tmpShape({total_size});
@@ -65,6 +65,7 @@ void TiledLogicalNotOperation(
 }
 
 LogicalTensorPtr TensorLogicalNotOperation(Function &function, LogicalTensorPtr self) {
+    OpInputsChecker::GetInstance(Opcode::OP_LOGICALNOT).Check({self});
     auto result = std::make_shared<LogicalTensor>(function, DT_BOOL, self->shape, self->GetDynValidShape());
     function.AddOperation(Opcode::OP_LOGICALNOT, {self}, {result});
     return result;
@@ -104,7 +105,8 @@ Tensor Log(const Tensor &self, LogBaseType base) {
         << "The datatype is not supported";
 
     auto operandCast = Tensor(DataType::DT_FP32, self.GetShape());
-    if (self.GetStorage()->tensor->datatype == DataType::DT_FP16 || self.GetStorage()->tensor->datatype == DataType::DT_BF16) {
+    if (self.GetStorage()->tensor->datatype == DataType::DT_FP16 ||
+        self.GetStorage()->tensor->datatype == DataType::DT_BF16) {
         operandCast = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
             self.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
     } else {
@@ -265,6 +267,7 @@ Tensor TensorOneHot(Function &function, const LogicalTensorPtr &self, int numCla
     std::vector<SymbolicScalar> validShape(self->dynValidShape_);
     shape.push_back(static_cast<int64_t>(numClasses));
     validShape.push_back(SymbolicScalar(numClasses));
+    OpInputsChecker::GetInstance(Opcode::OP_ONEHOT).Check({self});
     auto result = std::make_shared<LogicalTensor>(function, DataType::DT_INT64, shape, validShape);
     auto &op = function.AddOperation(Opcode::OP_ONEHOT, {self}, {result});
     op.SetAttribute(OP_ATTR_PREFIX + "numClasses", numClasses);
@@ -278,8 +281,8 @@ Tensor OneHot(const Tensor &self, int numClasses) {
     RETURN_CALL(OneHot, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), numClasses);
 }
 
-void TiledLogicalAndOperation(Function& function, const TileShape& tileShape, size_t cur,
-        Input& input0, Input& input1, const LogicalTensorPtr& result, TileInfo &resultTileInfo) {
+void TiledLogicalAndOperation(Function &function, const TileShape &tileShape, size_t cur, Input &input0, Input &input1,
+    const LogicalTensorPtr &result, TileInfo &resultTileInfo) {
     if (cur == input0.tensor.GetShape().size()) {
         auto tile0 = input0.tensor.GetStorage()->View(function, input0.tileInfo.shape, input0.tileInfo.offset);
         auto tile1 = input1.tensor.GetStorage()->View(function, input1.tileInfo.shape, input1.tileInfo.offset);
@@ -297,25 +300,26 @@ void TiledLogicalAndOperation(Function& function, const TileShape& tileShape, si
         std::vector<int64_t> tmp_shape({static_cast<int64_t>(total_bytes)});
         auto tmp_tensor = std::make_shared<LogicalTensor>(function, DT_UINT8, tmp_shape);
 
-        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1}, 
-                            {resultTile, tmp_tensor});    
+        function.AddOperation(Opcode::OP_LOGICALAND, {tile0, tile1}, {resultTile, tmp_tensor});
         return;
     }
 
-    auto& vecTile = tileShape.GetVecTile();
+    auto &vecTile = tileShape.GetVecTile();
     for (int i = 0; i < result->shape[cur]; i += vecTile[cur]) {
         resultTileInfo.offset[cur] = i;
         input0.tileInfo.offset[cur] = i % input0.tensor.GetShape()[cur];
         input1.tileInfo.offset[cur] = i % input1.tensor.GetShape()[cur];
         resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
-        input0.tileInfo.shape[cur] = std::min(input0.tensor.GetShape()[cur] - input0.tileInfo.offset[cur], vecTile[cur]);
-        input1.tileInfo.shape[cur] = std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
+        input0.tileInfo.shape[cur] =
+            std::min(input0.tensor.GetShape()[cur] - input0.tileInfo.offset[cur], vecTile[cur]);
+        input1.tileInfo.shape[cur] =
+            std::min(input1.tensor.GetShape()[cur] - input1.tileInfo.offset[cur], vecTile[cur]);
         TiledLogicalAndOperation(function, tileShape, cur + 1, input0, input1, result, resultTileInfo);
     }
 }
 
-void BroadcastOperand(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
-                                      Function& function, const TileShape& tileShape) {
+void BroadcastOperand(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result, Function &function,
+    const TileShape &tileShape) {
     auto dstShape = result->shape;
     if (operand->shape == dstShape) {
         return;
@@ -325,7 +329,8 @@ void BroadcastOperand(LogicalTensorPtr &operand, LogicalTensorPtr &other, Logica
     operand = expanded;
 }
 
-void TiledLogicalAndOperation(Function& function, const TileShape& tileShape, LogicalTensorPtr operand0, LogicalTensorPtr operand1, const LogicalTensorPtr& result) {
+void TiledLogicalAndOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand0,
+    LogicalTensorPtr operand1, const LogicalTensorPtr &result) {
     BroadcastOperand(operand0, operand1, result, function, tileShape);
     BroadcastOperand(operand1, operand0, result, function, tileShape);
 
@@ -337,7 +342,7 @@ void TiledLogicalAndOperation(Function& function, const TileShape& tileShape, Lo
     TiledLogicalAndOperation(function, tileShape, 0, input0, input1, result, resultTileInfo);
 }
 
-LogicalTensorPtr TensorLogicalAndOperation(Function& function, const Tensor& self, const Tensor& other) {
+LogicalTensorPtr TensorLogicalAndOperation(Function &function, const Tensor &self, const Tensor &other) {
     auto operandT0 = self.GetStorage();
     auto operandT1 = other.GetStorage();
     if (operandT0->shape.size() != operandT1->shape.size()) {
@@ -358,6 +363,7 @@ LogicalTensorPtr TensorLogicalAndOperation(Function& function, const Tensor& sel
         }
     }
 
+    OpInputsChecker::GetInstance(Opcode::OP_LOGICALAND).Check({operandT0, operandT1});
     auto result = std::make_shared<LogicalTensor>(function, DT_BOOL, resultShape, resultValidShape);
     function.AddOperation(Opcode::OP_LOGICALAND, {operandT0, operandT1}, {result});
     return result;
@@ -365,7 +371,8 @@ LogicalTensorPtr TensorLogicalAndOperation(Function& function, const Tensor& sel
 
 Tensor LogicalAnd(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
-    RETURN_CALL(LogicalAndOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other.GetStorage());
+    RETURN_CALL(
+        LogicalAndOperation, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), other.GetStorage());
 }
 
 void LogicNotOperationTileFunc(Function &function, const TileShape &tileShape,
@@ -450,6 +457,7 @@ void TiledCumSum(Function &function, const TileShape &tileShape, const CumSumPar
 }
 
 void TensorCumSum(Function &function, const CumSumPara &cumSumPara) {
+    OpInputsChecker::GetInstance(Opcode::OP_CUM_SUM).Check({cumSumPara.Input});
     if (cumSumPara.Input->Datatype() == DT_INT16) {
         LogicalTensorPtr inputConverted =
             std::make_shared<LogicalTensor>(function, DT_FP32, cumSumPara.Input->GetShape());
@@ -476,7 +484,8 @@ void TensorCumSum(Function &function, const CumSumPara &cumSumPara) {
         Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConverted}, {cumSumPara.dstTensor});
         castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
         return;
-    } if (cumSumPara.Input->Datatype() == DT_INT32) {
+    }
+    if (cumSumPara.Input->Datatype() == DT_INT32) {
         LogicalTensorPtr dstConverted =
             std::make_shared<LogicalTensor>(function, DT_INT32, cumSumPara.dstTensor->GetShape());
         auto &op = function.AddOperation(Opcode::OP_CUM_SUM, {cumSumPara.Input}, {dstConverted});
