@@ -588,6 +588,11 @@ const std::unordered_set<Opcode> DISTRIBUTED_OPS{Opcode::OP_SEND_TO_ROUTING_EXPE
     Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
     Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE};
 
+const std::unordered_set<Opcode> LASTUSE_OPS{Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS,
+                                             Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_EXP, Opcode::OP_SORT, Opcode::OP_SQRT, Opcode::OP_RSQRT, Opcode::OP_RECIPROCAL,
+                                             Opcode::OP_CONVERT, Opcode::OP_EXPAND, Opcode::OP_ROWEXPMAX, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_CAST,
+                                             Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_DIVS, Opcode::OP_ABS};
+
 inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
 }
@@ -615,6 +620,8 @@ inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {
 }
 
 extern std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS;
+extern std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS;
+extern std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN;
 // NEXTNEXT: for test case use only
 inline void InsertTileTensorOp(Opcode opCode, const std::string &tileOpName) {
     SUPPORT_TILETENSOR_OPS.emplace(opCode, tileOpName);
