@@ -444,7 +444,6 @@ void CreateNonMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
     }
 }
 
-// 辅助函数3：为Mix子图创建callOp（这个函数会被CreateMixFunctions调用）
 void CreateCallOpsForMixFunction(std::shared_ptr<Function>& rootFuncPtr,
                                 uint64_t programIdx,
                                 FunctionHash hash,
@@ -523,17 +522,13 @@ void CreateAdditionalScopes(std::shared_ptr<Function>& mixFunc,
     }
 }
 
-// 辅助函数5：创建Mix子图（这个函数调用CreateAdditionalScopes和CreateCallOpsForMixFunction）
 void CreateMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
                        std::vector<std::shared_ptr<Function>>& mixFunctions,
                        const std::vector<uint64_t>& mixProgramIds,
                        const std::vector<int>& componentCounts) {
     for (int mixIdx = 0; mixIdx < 3; mixIdx++) {
-        auto mixFunc = std::make_shared<Function>(
-            Program::GetInstance(),
-            "test_mix_" + std::to_string(mixIdx),
-            "test_mix_" + std::to_string(mixIdx),
-            rootFuncPtr.get());
+        auto mixFunc = std::make_shared<Function>(Program::GetInstance(),"test_mix_" + std::to_string(mixIdx),
+            "test_mix_" + std::to_string(mixIdx), rootFuncPtr.get());
         mixFunc->SetGraphType(GraphType::BLOCK_GRAPH);
         mixFunc->SetFunctionType(FunctionType::STATIC);
 
@@ -561,16 +556,14 @@ void CreateMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
         copyIn1.UpdateInternalSubgraphID(0);
         copyIn1.SetIOpAttrOffset(0, 0);
         copyIn1.SetAttr(OpAttributeKey::isCube, true);
-        auto copyIn1Attr = std::make_shared<CopyOpAttribute>(
-            offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec);
+        auto copyIn1Attr = std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec);
         copyIn1.SetOpAttribute(copyIn1Attr);
 
         auto& copyIn2 = mixFunc->AddRawOperation(Opcode::OP_COPY_IN, {incast2}, {cubeTensor2});
         copyIn2.UpdateInternalSubgraphID(0);
         copyIn2.SetIOpAttrOffset(0, 0);
         copyIn2.SetAttr(OpAttributeKey::isCube, true);
-        auto copyIn2Attr = std::make_shared<CopyOpAttribute>(
-            offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec);
+        auto copyIn2Attr = std::make_shared<CopyOpAttribute>(offsetImme, MemoryType::MEM_UB, shapeImme, shapeImme, emptyVec);
         copyIn2.SetOpAttribute(copyIn2Attr);
         
         auto& cubeMul = mixFunc->AddRawOperation(Opcode::OP_A_MUL_B, {cubeTensor1, cubeTensor2}, {cubeTensor3});
