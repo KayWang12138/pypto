@@ -51,6 +51,7 @@ enum class Opcode {
     OP_DIVS,
     OP_MAXS,
     OP_MINS,
+    OP_TRIUL,
     OP_POW,
     OP_S_ADDS,
     OP_S_SUBS,
@@ -529,9 +530,10 @@ const std::unordered_set<Opcode> SCATTER_OPS{Opcode::OP_SCATTER};
 const std::unordered_set<Opcode> INDEX_ADD_OPS{Opcode::OP_INDEX_ADD};
 const std::unordered_set<Opcode> INDEX_PUT_OPS{Opcode::OP_INDEX_PUT};
 const std::unordered_set<Opcode> CUM_SUM_OPS{Opcode::OP_CUM_SUM};
+const std::unordered_set<Opcode> TRIUL_OPS{Opcode::OP_TRIUL};
 
 const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE, Opcode::OP_TRANSPOSE_VNCHWCONV,
-    Opcode::OP_GATHER_ELEMENT, Opcode::OP_INDEX_ADD, Opcode::OP_CUM_SUM, Opcode::OP_COPY_IN, Opcode::OP_UB_COPY_IN, Opcode::OP_L1_COPY_IN,
+    Opcode::OP_GATHER_ELEMENT, Opcode::OP_INDEX_ADD, Opcode::OP_CUM_SUM, Opcode::OP_TRIUL, Opcode::OP_COPY_IN, Opcode::OP_UB_COPY_IN, Opcode::OP_L1_COPY_IN,
     Opcode::OP_COPY_OUT, Opcode::OP_UB_COPY_OUT, Opcode::OP_L1_COPY_OUT, Opcode::OP_L0C_COPY_OUT,
     Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
     Opcode::OP_DIV, Opcode::OP_EXP, Opcode::OP_NEG, Opcode::OP_LN, Opcode::OP_HUB, Opcode::OP_ABS, Opcode::OP_RSQRT,
