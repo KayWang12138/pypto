@@ -1,3 +1,13 @@
+/**
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -62,7 +72,7 @@ struct PerfData {
     uint64_t maxTimeNs{0};
     uint64_t minTimeNs{UINT64_MAX};
     std::string name;
-    uint64_t ignoreHeaderCnt{516};
+    uint64_t ignoreHeaderCnt{0};
     
     PerfData() : totalTimeNs(0), count(0), maxTimeNs(0), minTimeNs(UINT64_MAX) {}
     
@@ -87,11 +97,18 @@ struct PerfData {
     }
 };
 
+#define HOST_PERF_SWITCH 0
+#if HOST_PERF_SWITCH
+#define HOST_PERF_TRACE_START() PerfAnalysis::Get().TraceStart()
+#define HOST_PERF_TRACE(type) PerfAnalysis::Get().Trace(type)
+#define HOST_PERF_EVT_BEGIN(type) PerfAnalysis::Get().EventBegin(type)
+#define HOST_PERF_EVT_END(type) PerfAnalysis::Get().EventEnd(type)
+#else
 #define HOST_PERF_TRACE_START()
 #define HOST_PERF_TRACE(type)
 #define HOST_PERF_EVT_BEGIN(type)
 #define HOST_PERF_EVT_END(type)
-
+#endif
 class PerfAnalysis {
 private:
     PerfAnalysis() {
@@ -146,7 +163,6 @@ private:
 
     void PrintPerfTable(std::ostream& out, 
                        const std::vector<PerfData>& dataVec,
-                       const std::string* nameArray,
                        size_t dataSize,
                        uint64_t totalTimeNs,
                        uint64_t avgSumNs,
@@ -337,12 +353,12 @@ public:
         out << "========== Perf Statistics ==========" << std::endl;
         uint64_t traceTotalNs = traceTotalUs * 1000;
         uint64_t traceAvgSumNs = CalculateTraceAvgSumNs();
-        PrintPerfTable(out, traceData_, g_perfTraceName, static_cast<size_t>(TracePhase::MAX_TRACE_PHASES),
+        PrintPerfTable(out, traceData_, static_cast<size_t>(TracePhase::MAX_TRACE_PHASES),
                        traceTotalNs, traceAvgSumNs, "Trace");
 
         uint64_t eventTotalNs = eventTotalUs * 1000;
         uint64_t eventAvgSumNs = CalculateEventAvgSumNs();
-        PrintPerfTable(out, eventData_, g_perfEventName, static_cast<size_t>(EventPhase::MAX_EVENT_PHASES),
+        PrintPerfTable(out, eventData_, static_cast<size_t>(EventPhase::MAX_EVENT_PHASES),
                        eventTotalNs, eventAvgSumNs, "Event");
         
         out << std::endl << "--- Summary ---" << std::endl;
@@ -354,7 +370,7 @@ public:
                   << allTotalUs / 1000.0 << " ms" 
                   << " (" << allTotalUs << " us)" << std::endl;
         
-        if (allTotalUs > 0) {
+        if (allTotalUs > 0 && totalTimeUs > 0) {
             double percentage = (double)allTotalUs / totalTimeUs * 100.0;
             out << "Percentage of total time: " << std::fixed << std::setprecision(2) 
                       << percentage << "%" << std::endl;

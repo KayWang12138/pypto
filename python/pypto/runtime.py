@@ -174,10 +174,10 @@ class _JIT:
 
         with pypto.options("jit_scope"):
             self._set_config_option()
-            self.kernel_warmup(tensors, argtype, *args, **kwargs)
-            kernel, devCtrlCache = self.get_cached_kernel(tensors, argtype, cfshape, *args, **kwargs)
+            self.kernel_warmup(device, tensors, argtype, *args, **kwargs)
+            kernel, ctrcache = self.get_cached_kernel(device, tensors, argtype, cfshape, *args, **kwargs)
             if run_mode == RunMode.NPU:
-                self.run_npu(device, kernel, devCtrlCache, start_args)
+                self.run_npu(device, kernel, ctrcache, start_args)
             else:
                 self.run_cpu(kernel, tensors)
 
@@ -185,16 +185,16 @@ class _JIT:
     def run_npu(device, kernel, ctrl_cache, start_args):
         import torch
         with _change_device(device):
-            workspace_size = pypto_impl.GetWorkSpaceSize(kernel, start_args, [])
-            workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
             if device.type == 'npu':
+                workspace_size = pypto_impl.GetWorkSpaceSize(kernel, start_args, [])
+                workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
                 pypto_impl.OperatorDeviceRunOnceDataFromDevice(kernel,
                     start_args, [], _current_stream(), workspace_tensor.data_ptr(), ctrl_cache)
             else:
                 pypto_impl.DeviceRunOnceDataFromHost(start_args, [])
 
     @staticmethod
-    def run_cpu(tensors):
+    def run_cpu(kernel, tensors):
         # call cost_model interface
         from .cost_model import _cost_model_run_once_data_from_host
         _cost_model_run_once_data_from_host(tensors, [])
@@ -264,13 +264,13 @@ class _JIT:
         self.runtime_options["run_mode"] = int(run_mode)
         return RunMode(run_mode)
 
-    def kernel_warmup(self, tensors: List[pypto.Tensor], argtype, *args, **kwargs):
+    def kernel_warmup(self, device, tensors: List[pypto.Tensor], argtype, *args, **kwargs):
         if self.infer_controlflow_shape and not self.kernel_cache:
             for shape in self.infer_controlflow_shape():
                 cfshape = _ControlflowShape(shape)
-                self.get_cached_kernel(tensors, argtype, cfshape, *args, **kwargs)
+                self.get_cached_kernel(device, tensors, argtype, cfshape, *args, **kwargs)
 
-    def get_cached_kernel(self, tensors: List[pypto.Tensor], argtype: _ArgType,
+    def get_cached_kernel(self, device, tensors: List[pypto.Tensor], argtype: _ArgType,
                           cfshape: _ControlflowShape, *args, **kwargs):
         kernel = self.kernel_cache.get(argtype)
         if kernel is None:
@@ -280,8 +280,10 @@ class _JIT:
         if not cfshape:
             return kernel, 0
 
-        cfdata = [pypto_impl.DeviceTensorData(t.dtype, 0, shape) for t, shape in zip(tensors, cfshape.shapes)]
-        cfcache = pypto_impl.BuildCache(kernel, cfdata, [], _is_current_stream_capturing())
+        cfcache = None
+        if device.type == 'npu':
+            cfdata = [pypto_impl.DeviceTensorData(t.dtype, 0, shape) for t, shape in zip(tensors, cfshape.shapes)]
+            cfcache = pypto_impl.BuildCache(kernel, cfdata, [], _is_current_stream_capturing())
 
         return kernel, cfcache
 

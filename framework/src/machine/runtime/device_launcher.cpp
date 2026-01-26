@@ -118,12 +118,12 @@ int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStre
         aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_RELAXED;
         aclmdlRICaptureThreadExchangeMode(&mode);
         int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
-        aclmdlRICaptureThreadExchangeMode(&mode);
         if (rc < 0) {
             return rc;
         }
         DeviceRunner::Get().SynchronizeDeviceToHostProfData();
         DeviceRunner::Get().ResetPerData();
+        aclmdlRICaptureThreadExchangeMode(&mode);
     }
     return 0;
 }
@@ -218,7 +218,7 @@ int DeviceLauncher::DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreS
 }
 #endif
 
-int DeviceLauncher::DeviceRunOnce(Function *function,  DevControlFlowCache* hostCtrlCache, const DeviceLauncherConfig &config) {
+int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache, const DeviceLauncherConfig &config) {
 #ifdef BUILD_WITH_CANN
     auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
     auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
@@ -229,8 +229,8 @@ int DeviceLauncher::DeviceRunOnce(Function *function,  DevControlFlowCache* host
     std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(DeviceMemoryUtils(), inputDataList, outputDataList);
 
     uint8_t* devCtrlCache = nullptr;
+    DeviceMemoryUtils devMemory(false);
     if (hostCtrlCache) {
-        DeviceMemoryUtils devMemory;
         devCtrlCache = devMemory.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->allCacheSize, nullptr);
     }
     
@@ -241,6 +241,7 @@ int DeviceLauncher::DeviceRunOnce(Function *function,  DevControlFlowCache* host
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
     }
     machine::GetRA()->FreeTmpMemory();
+    devMemory.Free(devCtrlCache);
     return rc;
 #else
     (void)hostCtrlCache;
@@ -344,8 +345,8 @@ int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream) {
 #endif
 }
 
-int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config) {
-    return DeviceLauncher::DeviceRunOnce(function, nullptr, config);
+int DeviceRunOnce(Function *function, uint8_t* hostCtrlCache, const DeviceLauncherConfig &config) {
+    return DeviceLauncher::DeviceRunOnce(function, reinterpret_cast<DevControlFlowCache*>(hostCtrlCache), config);
 }
 
 int HasInplaceArgs(Function *function) {
@@ -358,6 +359,15 @@ void DeviceLauncherInit() {
 
 void DeviceLauncherFini() {
     DeviceLauncherContext::Get().DeviceFini();
+}
+
+
+void ChangeCaptureModeRelax() {
+    DeviceLauncher::ChangeCaptureModeRelax();
+}
+
+void ChangeCaptureModeGlobal() {
+    DeviceLauncher::ChangeCaptureModeGlobal();
 }
 
 static std::unordered_map<ExportedOperator *, std::shared_ptr<ExportedOperator>> exportedOperatorDict;
@@ -378,6 +388,16 @@ void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
 #else
     (void)devTensor;
     (void)hostTensor;
+#endif
+}
+
+
+uint8_t* CopyHostToDev(uint8_t* data, uint64_t size) {
+#ifdef BUILD_WITH_CANN
+    return DeviceMemoryUtils(false).CopyToDev((uint8_t *)data, size, nullptr);
+#else
+    (void)data;
+    (void)size;
 #endif
 }
 

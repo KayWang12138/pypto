@@ -130,11 +130,11 @@ void HostMachine::Destroy() {
         WaitTaskFinish();
         DestroyThread();
     }
-
-    // std::string fileName = "/tmp/pypto_perf_statistics_pid_" + std::to_string(getpid()) + ".txt";
-    // PerfAnalysis::Get().Dump(true, fileName);
-    // PerfAnalysis::Get().Dump(false);
-
+#if HOST_PERF_SWITCH
+    std::string fileName = "/tmp/pypto_perf_statistics_pid_" + std::to_string(getpid()) + ".txt";
+    PerfAnalysis::Get().Dump(true, fileName);
+    PerfAnalysis::Get().Dump(false);
+#endif
     ALOG_DEBUG("HostMachine is destroying...");
 }
 

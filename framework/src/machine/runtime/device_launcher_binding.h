@@ -291,7 +291,7 @@ int ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(ExportedOperator *op,
 
 int DeviceSynchronize(DeviceStream aicpuStream, DeviceStream aicoreStream);
 
-int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+int DeviceRunOnce(Function *function, uint8_t* hostCtrlCache = nullptr, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
 int HasInplaceArgs(Function *function);
 
@@ -305,6 +305,9 @@ void ExportedOperatorEnd(ExportedOperator *op);
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor);
 
+uint8_t* CopyHostToDev(uint8_t* data, uint64_t size);
+void ChangeCaptureModeRelax();
+void ChangeCaptureModeGlobal();
 } // namespace npu::tile_fwk::dynamic
 
 #endif // SRC_MACHINE_DEVICE_LAUNCHER_H
