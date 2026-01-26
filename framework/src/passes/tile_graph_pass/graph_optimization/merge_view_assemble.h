@@ -18,7 +18,7 @@
 
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "passes/pass_interface/pass.h"
 
 namespace npu::tile_fwk {

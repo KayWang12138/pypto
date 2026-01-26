@@ -20,7 +20,7 @@
 #include "runtime/mem.h"
 #include "interface/utils/file_utils.h"
 #include "machine/device/dynamic/device_utils.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "machine/device/distributed/common.h"
 namespace npu::tile_fwk::dynamic {
 constexpr int DUMP_LEVEL_FOUR = 4;

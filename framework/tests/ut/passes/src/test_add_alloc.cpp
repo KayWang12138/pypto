@@ -22,7 +22,7 @@
 #include "passes/pass_mgr/pass_manager.h"
 #include "passes/block_graph_pass/schedule_ooo/add_alloc.h"
 #include "ut_json/ut_json_tool.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "computational_graph_builder.h"
 
 namespace npu {

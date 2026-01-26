@@ -23,7 +23,7 @@
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
 #include "interface/program/program.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 #include "ir/function.h"
 #include <algorithm>

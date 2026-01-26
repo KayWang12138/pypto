@@ -20,7 +20,7 @@
 #include "tilefwk/tilefwk.h"
 #include "ut_json/ut_json_tool.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 #define private public
 #include "passes/tile_graph_pass/graph_optimization/remove_redundant_op.h"

@@ -21,7 +21,7 @@
 #include "interface/tensor/raw_tensor.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/deepseek_v3.2_exp/mla_prolog_quant_v32.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/tensor/float.h"
 
 using namespace npu::tile_fwk;

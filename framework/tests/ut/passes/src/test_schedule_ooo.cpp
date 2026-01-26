@@ -20,7 +20,7 @@
 #include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "passes/block_graph_pass/schedule_ooo/schedule_ooo.h"
 #include "passes/block_graph_pass/schedule_ooo/core_assign.h"
 #include "operator/models/deepseek/deepseek_mla.h"

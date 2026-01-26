@@ -18,7 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/operation/operation.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 using namespace npu::tile_fwk;
 

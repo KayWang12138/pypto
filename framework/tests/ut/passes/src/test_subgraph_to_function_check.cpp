@@ -21,7 +21,7 @@
 #include "interface/inner/tile_shape.h"
 #include "interface/function/function.h"
 #include "interface/operation/operation.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/interpreter/raw_tensor_data.h"
 
 using namespace npu::tile_fwk;

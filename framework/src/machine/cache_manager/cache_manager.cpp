@@ -16,7 +16,7 @@
 #include "cache_manager.h"
 #include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"

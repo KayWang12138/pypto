@@ -21,7 +21,7 @@
 #include "passes/tile_graph_pass/graph_constraint/pad_local_buffer.h"
 #include "passes/tile_graph_pass/graph_constraint/axis_combine.h"
 #include "computational_graph_builder.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "ut_json/ut_json_tool.h"
 #include <vector>
 #include <string>

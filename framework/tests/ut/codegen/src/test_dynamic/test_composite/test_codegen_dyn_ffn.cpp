@@ -19,7 +19,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "operator/models/deepseek/deepseek_moeinfer.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 namespace npu::tile_fwk {
 

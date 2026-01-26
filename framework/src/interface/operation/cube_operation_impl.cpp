@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/inner/pre_def.h"
 #include "interface/operation/operation.h"
 #include "interface/operation/operation_common.h"

@@ -26,7 +26,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "cost_model/simulation/pv/PvData.h"
 #include "cost_model/simulation/emulator/SoftMemory.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 using namespace npu::tile_fwk;
 using Json = nlohmann::json;

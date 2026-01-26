@@ -23,7 +23,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "operator/models/nsa/nsa_selected_attention.h"
 #include "operator/models/nsa/dynamic_nsa_v1.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/tensor/float.h"
 
 using namespace npu::tile_fwk;

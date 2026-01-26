@@ -19,7 +19,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "opcode.h"
 #include "tilefwk/tensor.h"
 #include "tilefwk/tile_shape.h"

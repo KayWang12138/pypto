@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file config_manager_ng.h
+ * \file config_scope.h
  * \brief
  */
 
-#ifndef CONFIG_MANAGER_NG_H
-#define CONFIG_MANAGER_NG_H
+#ifndef CONFIG_SCOPE_H
+#define CONFIG_SCOPE_H
 
 #include <map>
 #include <memory>
@@ -447,4 +447,4 @@ inline T GetOperationOption(const std::string &key) {
 } // namespace config
 
 } // namespace npu::tile_fwk
-#endif // CONFIG_MANAGER_NG_H
+#endif // CONFIG_SCOPE_H

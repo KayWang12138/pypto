@@ -17,7 +17,7 @@
 #include <memory>
 #include <vector>
 #include <nlohmann/json.hpp>
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "computational_graph_builder.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/attribute.h"

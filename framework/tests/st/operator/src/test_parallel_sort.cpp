@@ -13,7 +13,7 @@
  * \brief
  */
 #include "tilefwk/tilefwk_op.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "test_suite_stest_ops.h"
 #include "test_dev_func_runner.h"
 

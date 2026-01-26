@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "logical_tensor.h"
 
 #include "raw_tensor.h"

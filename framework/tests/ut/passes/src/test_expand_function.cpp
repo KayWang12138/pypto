@@ -20,7 +20,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "passes/tensor_graph_pass/expand_function.h"
 #include "ut_json/ut_json_tool.h"
 

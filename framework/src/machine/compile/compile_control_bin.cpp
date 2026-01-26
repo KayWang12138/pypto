@@ -21,7 +21,7 @@
 #include "interface/program/program.h"
 #include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/utils/machine_utils.h"
 using Json = nlohmann::json;

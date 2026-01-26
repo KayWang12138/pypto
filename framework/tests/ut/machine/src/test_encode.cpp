@@ -19,8 +19,8 @@
 #include "machine/utils/dynamic/dev_encode.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tilefwk_op.h"
-#include "interface/configs/config_manager.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
+#include "interface/configs/config_global.h"
 #include "interface/program/program.h"
 
 using namespace npu::tile_fwk;

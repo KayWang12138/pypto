@@ -18,7 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "passes/tile_graph_pass/data_path/assign_memory_type.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include <fstream>
