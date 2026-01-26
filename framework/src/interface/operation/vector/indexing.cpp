@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -148,6 +148,8 @@ void TiledIndexAdd(Function &function, const TileShape &tileShape, const IndexAd
 }
 
 void TensorIndexAdd(Function &function, const IndexAddPara indexaddPara) {
+    OpInputsChecker::GetInstance(Opcode::OP_INDEX_ADD)
+        .Check({indexaddPara.selfInput, indexaddPara.srcInput, indexaddPara.indicesInput});
     auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_INDEX_ADD,
         {indexaddPara.selfInput, indexaddPara.srcInput, indexaddPara.indicesInput}, {indexaddPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", indexaddPara.axis);
@@ -312,6 +314,7 @@ void TiledGatherOperation(Function &function, const TileShape &tileShape, const 
 
 LogicalTensorPtr TensorGatherOperation(
     Function &function, const LogicalTensorPtr &params, const LogicalTensorPtr &indices, int axis) {
+    OpInputsChecker::GetInstance(Opcode::OP_GATHER).Check({params, indices});
     const auto &paramsDynShape = params->GetDynValidShape();
     const auto &indicesDynShape = indices->GetDynValidShape();
     const int paramsRank = paramsDynShape.size();
@@ -407,6 +410,7 @@ void TiledGatherElementOperation(Function &function, const TileShape &tileShape,
 
 LogicalTensorPtr TensorGatherElementOperation(
     Function &function, const LogicalTensorPtr &params, const LogicalTensorPtr &indices, int axis) {
+    OpInputsChecker::GetInstance(Opcode::OP_GATHER_ELEMENT).Check({params, indices});
     auto result = std::make_shared<LogicalTensor>(function, params->Datatype(), indices->shape);
     std::vector<std::vector<SymbolicScalar>> outValidShape;
     outValidShape.push_back(indices->GetDynValidShape());
@@ -481,8 +485,8 @@ void InnerTiledScatterElementS(size_t cur, Function &function, const TileShape &
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
     if (vecTile[axis] < std::max(dstTensor->shape[axis], idxInput->shape[axis])) {
-        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", 	 
-            axis, vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
+        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", axis,
+            vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
     }
     ASSERT(vecTile[axis] >= dstTensor->shape[axis]) << "The axis is not supported for tile splitting";
     ASSERT(vecTile[axis] >= idxInput->shape[axis]) << "The axis is not supported for tile splitting";
@@ -531,12 +535,15 @@ void TiledScatterElementS(Function &function, const TileShape &tileShape, const 
 }
 
 void TensorScatterElementS(Function &function, const ScatterElementSPara &scatterPara) {
+    OpInputsChecker::GetInstance(Opcode::OP_SCATTER_ELEMENT).Check({scatterPara.srcInput, scatterPara.idxInput});
     auto &op = GraphUtils::AddDynOperation(
         function, Opcode::OP_SCATTER_ELEMENT, {scatterPara.srcInput, scatterPara.idxInput}, {scatterPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", scatterPara.axis);
     op.SetAttribute(OpAttributeKey::scalar, scatterPara.scalar);
     op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", scatterPara.scatterMode);
-    std::map<int, int> inplaceInfo = {{0, 0}};
+    std::map<int, int> inplaceInfo = {
+        {0, 0}
+    };
     op.SetAttr(OpAttributeKey::inplaceInfo, inplaceInfo);
 }
 
@@ -573,8 +580,8 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
         (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),	 
-        result.GetStorage(), orgDtype, CastMode::CAST_RINT);
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(),
+            orgDtype, CastMode::CAST_RINT);
     }
     return result;
 }
@@ -621,8 +628,8 @@ void InnerTiledScatter(size_t cur, Function &function, const TileShape &tileShap
     // 按照dstShape进行切分
     auto &vecTile = tileShape.GetVecTile();
     if (vecTile[axis] < std::max(dstTensor->shape[axis], idxInput->shape[axis])) {
-        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", 	 
-            axis, vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
+        ALOG_ERROR_F("the axis:%d is not allowed to be cut. tileshape:%lld dstshape:%lld idxshape:%lld", axis,
+            vecTile[axis], dstTensor->shape[axis], idxInput->shape[axis]);
     }
     ASSERT(vecTile[axis] >= dstTensor->shape[axis]) << "The axis is not supported for tile splitting";
     ASSERT(vecTile[axis] >= idxInput->shape[axis]) << "The axis is not supported for tile splitting";
@@ -679,11 +686,15 @@ void TiledScatter(Function &function, const TileShape &tileShape, const ScatterP
 }
 
 void TensorScatter(Function &function, const ScatterPara &scatterPara) {
+    OpInputsChecker::GetInstance(Opcode::OP_SCATTER)
+        .Check({scatterPara.selfInput, scatterPara.idxInput, scatterPara.srcInput});
     auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_SCATTER,
         {scatterPara.selfInput, scatterPara.idxInput, scatterPara.srcInput}, {scatterPara.dstTensor});
     op.SetAttribute(OP_ATTR_PREFIX + "axis", scatterPara.axis);
     op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", scatterPara.scatterMode);
-    std::map<int, int> inplaceInfo = {{0, 0}};
+    std::map<int, int> inplaceInfo = {
+        {0, 0}
+    };
     op.SetAttr(OpAttributeKey::inplaceInfo, inplaceInfo);
 }
 
@@ -722,14 +733,14 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int
     axis = axis < 0 ? operandSelfCast.GetShape().size() + axis : axis;
     CheckScatterParamsInvalid(operandSelfCast, indices, operandSrcCast, axis, reduce);
     Tensor result(operandSelfCast.GetStorage()->tensor->datatype, operandSelfCast.GetShape());
-    CALL(Scatter, *Program::GetInstance().GetCurrentFunction(), 
+    CALL(Scatter, *Program::GetInstance().GetCurrentFunction(),
         {result.GetStorage(), operandSelfCast.GetStorage(), indices.GetStorage(), operandSrcCast.GetStorage(), axis,
             static_cast<int>(reduce)});
 
     if ((orgDtype == DataType::DT_FP16 || orgDtype == DataType::DT_BF16) &&
         (reduce == ScatterMode::ADD || reduce == ScatterMode::MULTIPLY)) {
-        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
-            result.GetStorage(), orgDtype, CastMode::CAST_RINT);
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(),
+            orgDtype, CastMode::CAST_RINT);
     }
     return result;
 }
@@ -951,6 +962,7 @@ void TensorScatterUpdate(Function &function, const LogicalTensorPtr &result, con
     // index: ub
     // dst: gm
     // result: gm
+    OpInputsChecker::GetInstance(Opcode::OP_INDEX_OUTCAST).Check({src, index, dst});
     auto &op = function.AddOperation(Opcode::OP_INDEX_OUTCAST, {src, index, dst}, {result});
     op.SetAttribute("axis", axis);
     op.SetAttribute(OpAttributeKey::panzBlockSize, blockSize);
@@ -1029,20 +1041,22 @@ Tensor ScatterUpdate(
     return result;
 }
 
-void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &inputSelf, Input &inputValues,
-    std::vector<Input> &inputIndices, const LogicalTensorPtr result, bool accumulate) {
+void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &inputSelf,
+    Input &inputValues, std::vector<Input> &inputIndices, const LogicalTensorPtr result, bool accumulate) {
     const auto &vecTile = tileShape.GetVecTile()[0];
     for (int i = 0; i < inputValues.tensor.GetShape()[0]; i += vecTile) {
         inputValues.tileInfo.shape[0] = std::min(inputValues.tensor.GetShape()[0] - i, vecTile);
         inputValues.tileInfo.offset[0] = i;
-        auto inputValuesTile = inputValues.tensor.GetStorage()->View(function, inputValues.tileInfo.shape, inputValues.tileInfo.offset);
+        auto inputValuesTile =
+            inputValues.tensor.GetStorage()->View(function, inputValues.tileInfo.shape, inputValues.tileInfo.offset);
         std::vector<LogicalTensorPtr> inputsTile;
         inputsTile.push_back(inputSelf);
         inputsTile.push_back(inputValuesTile);
         for (size_t j = 0; j < inputIndices.size(); j++) {
             inputIndices[j].tileInfo.shape[0] = std::min(inputIndices[j].tensor.GetShape()[0] - i, vecTile);
             inputIndices[j].tileInfo.offset[0] = i;
-            auto inputIndicesTileTemp = inputIndices[j].tensor.GetStorage()->View(function, inputIndices[j].tileInfo.shape, inputIndices[j].tileInfo.offset);
+            auto inputIndicesTileTemp = inputIndices[j].tensor.GetStorage()->View(
+                function, inputIndices[j].tileInfo.shape, inputIndices[j].tileInfo.offset);
             inputsTile.push_back(inputIndicesTileTemp);
         }
         auto &newOp = function.AddOperation(Opcode::OP_INDEX_PUT, inputsTile, {result});
@@ -1052,8 +1066,9 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, const Logical
     }
 }
 
-void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &self, const LogicalTensorPtr &values,
-    const std::vector<LogicalTensorPtr> &indices, const LogicalTensorPtr &result, bool accumulate) {
+void TiledIndexPut(Function &function, const TileShape &tileShape, const LogicalTensorPtr &self,
+    const LogicalTensorPtr &values, const std::vector<LogicalTensorPtr> &indices, const LogicalTensorPtr &result,
+    bool accumulate) {
     ASSERT(self->GetShape().size() == self->GetOffset().size());
     ASSERT(values->GetShape().size() == values->GetOffset().size());
     for (size_t i = 0; i < indices.size(); i++) {
@@ -1074,8 +1089,8 @@ void TiledIndexPut(Function &function, const TileShape &tileShape, const Logical
     TiledIndexPut(function, tileShape, self, inputValues, inputIndices, result, accumulate);
 }
 
-void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const LogicalTensors &indices, const LogicalTensorPtr &values,
-    const LogicalTensorPtr &dst, bool accumulate) {
+void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const LogicalTensors &indices,
+    const LogicalTensorPtr &values, const LogicalTensorPtr &dst, bool accumulate) {
     Shape selfShape(self->shape);
     Shape valuesShape(values->shape);
     size_t dimSelf = selfShape.size();
@@ -1092,13 +1107,18 @@ void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const Logi
     ASSERT(indicesSize >= num1 && indicesSize <= num4) << "indicesSize is out of range [1, 4]";
     ASSERT(dimSelf >= num1 && dimSelf <= num4) << "input dimSelf is out of range [2, 4]";
     ASSERT(dimValues >= num1 && dimValues <= num4) << "input sizeIndices is out of range [1, 4]";
-    ASSERT(dimValues +  indicesSize == dimSelf + num1) << "unsupport the inputs shape combination: dimValues +  indicesSize != dimSelf + 1";
-    ASSERT(valuesFirstDim == indicesShape) << "valuesFirstDim should equal to indicesSize"; 
+    ASSERT(dimValues + indicesSize == dimSelf + num1)
+        << "unsupport the inputs shape combination: dimValues +  indicesSize != dimSelf + 1";
+    ASSERT(valuesFirstDim == indicesShape) << "valuesFirstDim should equal to indicesSize";
     for (size_t i = 1; i < dimValues; i++) {
-        ASSERT(selfShape[dimSelf - i] == valuesShape[dimValues - i]) << "valuesShape should match selfShape"; 
+        ASSERT(selfShape[dimSelf - i] == valuesShape[dimValues - i]) << "valuesShape should match selfShape";
     }
     LogicalTensors iOperands = indices;
     iOperands.insert(iOperands.begin(), {self, values});
+    const auto max_tensor_cnt = 6;
+    LogicalTensors tmp(max_tensor_cnt - iOperands.size(), iOperands.back());
+    tmp.insert(tmp.begin(), iOperands.begin(), iOperands.end());
+    OpInputsChecker::GetInstance(Opcode::OP_INDEX_PUT).Check(tmp);
     auto &op = function.AddOperation(Opcode::OP_INDEX_PUT, iOperands, {dst});
     op.SetAttribute(OpAttributeKey::inplaceIdx, 0);
     op.SetAttribute(OpAttributeKey::accumulate, accumulate);
@@ -1108,14 +1128,14 @@ void TensorIndexPut(Function &function, const LogicalTensorPtr &self, const Logi
 
 void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate) {
     DECLARE_TRACER();
-    
+
     std::vector<LogicalTensorPtr> indicesLogical;
     for (size_t i = 0; i < indices.size(); i++) {
         indicesLogical.push_back(indices[i].GetStorage());
     }
     Tensor dst(self.GetDataType(), self.GetShape());
-    CALL(IndexPut, *Program::GetInstance().GetCurrentFunction(),
-        self.GetStorage(), indicesLogical, values.GetStorage(), dst.GetStorage(), accumulate);
+    CALL(IndexPut, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), indicesLogical, values.GetStorage(),
+        dst.GetStorage(), accumulate);
     Program::GetInstance().GetCurrentFunction()->SetSameMemId(self.GetStorage(), dst.GetStorage());
     self = dst;
 }
