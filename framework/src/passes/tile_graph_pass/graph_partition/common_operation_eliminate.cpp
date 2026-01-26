@@ -166,9 +166,6 @@ std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::Op
         if (op == nullptr) {
             continue;
         }
-        if (op->GetOpcode() == Opcode::OP_COMPARE_SWAP) {
-            return {nullptr, {}};
-        }
     }
     for (auto operation: producers) {
         if (operation == nullptr) continue;
@@ -181,7 +178,7 @@ std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::Op
         if (inputCheck && calcTypeCheck && outputCheck) { // copy from L1 to L0
             return {nullptr, {}};
         }
-        if (operation->GetOpcode() == Opcode::OP_VIEW) {
+        if (operation->GetOpcode() == Opcode::OP_VIEW || operation->GetOpcode() == Opcode::OP_COMPARE_SWAP) {
             return {nullptr, {}};
         }
         if (operation->GetBoolAttribute(OpAttributeKey::dontTouch)) {
