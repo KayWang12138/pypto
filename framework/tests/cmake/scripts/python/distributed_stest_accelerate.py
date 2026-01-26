@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -12,12 +12,12 @@
 """
 import argparse
 import logging
-import subprocess
 import os
-from typing import NamedTuple
-from typing import List, Any, Optional, Dict
-from stest_accelerate import STestAccelerate
+import subprocess
 from datetime import datetime, timezone
+from typing import Any, NamedTuple
+
+import stest_accelerate
 
 
 class ExecutionResult(NamedTuple):
@@ -27,7 +27,7 @@ class ExecutionResult(NamedTuple):
     stderr: str
 
 
-class DistributedSTestAccelerate(STestAccelerate):
+class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
     """分布式STest执行加速
 
     支持多卡并行执行 通过设备分组实现分布式测试.
@@ -38,11 +38,11 @@ class DistributedSTestAccelerate(STestAccelerate):
         super().__init__(args, scene_mark="Distributed STest", cntr_name="Device Group")
 
     @staticmethod
-    def reg_args(parser: argparse.ArgumentParser):
+    def reg_args(parser: argparse.ArgumentParser) -> None:
         """注册分布式STest参数
         先调用父类(STestAccelerate)的参数注册，再添加分布式特有参数
         """
-        STestAccelerate.reg_args(parser)
+        stest_accelerate.STestAccelerate.reg_args(parser)
         parser.add_argument("--rank_size", type=int, required=True,
                             help="Number of devices per test group")
 
@@ -59,12 +59,12 @@ class DistributedSTestAccelerate(STestAccelerate):
         args = parser.parse_args()
 
         # 获取设备列表
-        device_list = STestAccelerate._init_get_device_list(args)
+        device_list = stest_accelerate.STestAccelerate._init_get_device_list(args)
 
         # 设备分组处理-顺序分组
         device_groups = DistributedSTestAccelerate._group_devices_by_rank_size(
             devices=device_list,
-            rank_size=args.rank_size
+            rank_size=args.rank_size,
         )
 
         ctrl = DistributedSTestAccelerate(args=args)
@@ -75,7 +75,7 @@ class DistributedSTestAccelerate(STestAccelerate):
         return ctrl.post()
 
     @staticmethod
-    def set_distributed_device_envs(p: Any) -> Optional[Dict[str, str]]:
+    def set_distributed_device_envs(p: Any) -> dict[str, str]:
         """设置分布式设备环境变量
 
         多卡用例通过TILE_FWK_DEVICE_ID_LIST环境变量指定使用的设备组
@@ -91,7 +91,7 @@ class DistributedSTestAccelerate(STestAccelerate):
         }
     
     @staticmethod
-    def _group_devices_by_rank_size(devices: List[int], rank_size: int) -> List[List[int]]:
+    def _group_devices_by_rank_size(devices: list[int], rank_size: int) -> list[list[int]]:
         """按照rank_size对设备进行顺序分组
 
         :param devices: 设备列表
@@ -112,10 +112,10 @@ class DistributedSTestAccelerate(STestAccelerate):
 
         return device_groups
     
-    def _prepare_get_params(self) -> List[STestAccelerate.ExecParam]:
+    def _prepare_get_params(self) -> list[stest_accelerate.STestAccelerate.ExecParam]:
         params = []
         for group_id, device_group in enumerate(self.device_groups):
-            p = STestAccelerate.ExecParam(
+            param = stest_accelerate.STestAccelerate.ExecParam(
                 cntr_id=group_id,
                 envs_func=DistributedSTestAccelerate.set_distributed_device_envs,
                 custom={
@@ -124,14 +124,15 @@ class DistributedSTestAccelerate(STestAccelerate):
                     "group_id": group_id
                 }
             )
-            params.append(p)
+            params.append(param)
         return params
 
-    def _execute_case(self, ctx: STestAccelerate.CaseContext, param: STestAccelerate.ExecParam, gtest_filter: str):
+    def _execute_case(self, ctx: stest_accelerate.STestAccelerate.CaseContext,
+        param: stest_accelerate.STestAccelerate.ExecParam, gtest_filter: str) -> None:
         """多卡模式执行 - 重写父类方法"""
         # 安全检查：确保custom参数存在
-        if not hasattr(param, 'custom') or param.custom is None:
-            raise ValueError("No custom config, distribute case case need rank_size para, run case failed")
+        if not hasattr(param, "custom") or param.custom is None:
+            raise ValueError("No custom config, distribute case case need rank_size param, run case failed.")
         
         # 获取执行模式配置
         rank_size = param.custom.get("rank_size", 1)
@@ -141,9 +142,10 @@ class DistributedSTestAccelerate(STestAccelerate):
             device_group = param.custom.get("device_group", [param.cntr_id])
             return self._run_multi_device_case(ctx, device_group, rank_size)
         else:
-            raise ValueError("No custom config found, run distribute case failed")
+            raise ValueError("rank size equal 1, there need rank size greater than 1, run distribute case failed.")
 
-    def _run_multi_device_case(self, ctx: STestAccelerate.CaseContext, device_group: List[int], rank_size: int):
+    def _run_multi_device_case(self, ctx: stest_accelerate.STestAccelerate.CaseContext,
+        device_group: list[int], rank_size: int) -> None:
         """执行多卡分布式测试用例
         
         :param ctx: Case上下文
@@ -153,20 +155,20 @@ class DistributedSTestAccelerate(STestAccelerate):
         """
         # 准备环境变量
         env_vars = os.environ.copy()
-        if hasattr(self, 'exe') and hasattr(self.exe, 'envs') and self.exe.envs:
+        if hasattr(self, "exe") and hasattr(self.exe, "envs") and self.exe.envs:
             env_vars.update(self.exe.envs)
         if ctx.exec_param.get_envs():
             env_vars.update(ctx.exec_param.get_envs())
         
         # 构建mpirun命令
         command = [
-            'mpirun', '-n', str(rank_size),
+            "mpirun", "-n", str(rank_size),
             str(self.exe.file),
-            f'--gtest_filter={ctx.gtest_filter}'
+            f"--gtest_filter={ctx.gtest_filter}",
         ]
         
         device_info = f"DeviceGroup{device_group}"
-        logging.info("Executing %s on %s with rank_size %d", ctx.gtest_filter, device_info, rank_size)
+        logging.info(f"Executing {ctx.gtest_filter} on {device_info} with rank_size {rank_size}.")
         
         try:
             ts = datetime.now(tz=timezone.utc)
@@ -174,18 +176,18 @@ class DistributedSTestAccelerate(STestAccelerate):
                 command,
                 env=env_vars,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             result = ExecutionResult(
                 returncode=completed_process.returncode,
                 stdout=completed_process.stdout,
-                stderr=completed_process.stderr
+                stderr=completed_process.stderr,
             )       
             return result, ' '.join(command), datetime.now(tz=timezone.utc) - ts
 
         except Exception as e:
-            logging.error("MPI execution failed for %s: %s", ctx.gtest_filter, str(e))
+            logging.error(f"MPI execution failed for {ctx.gtest_filter}: {str(e)}.")
             error_result = ExecutionResult(returncode=1, stdout="", stderr=str(e))
             return error_result, ' '.join(command), e
 
@@ -193,8 +195,6 @@ if __name__ == "__main__":
     logging.basicConfig(
         format='%(asctime)s - %(filename)s:%(lineno)d - PID[%(process)d] - %(levelname)s: %(message)s',
         level=logging.INFO,
-        handlers=[
-            logging.StreamHandler()
-        ]
+        handlers=[logging.StreamHandler()]
     )
     exit(0 if DistributedSTestAccelerate.main() else 1)

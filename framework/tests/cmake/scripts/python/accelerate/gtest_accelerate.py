@@ -884,9 +884,8 @@ class GTestAccelerate(ABC):
         logging.info("%s Recv Case[%s] upload terminate event.", self._get_process_desc(), gtest_filter)
         return False
     
-    def _execute_case(self, ctx: CaseContext, param: ExecParam, gtest_filter: str):
+    def _execute_case(self, ctx: CaseContext, param: ExecParam, gtest_filter: str) -> None:
         """统一的用例执行入口 - 由子类重写此方法实现不同模式"""
-        # 默认单卡实现
         return self.exe.run(gtest_filter=gtest_filter, envs=param.get_envs())
 
     def _cntr_set_cpu_affinity(self, cntr_id: int):

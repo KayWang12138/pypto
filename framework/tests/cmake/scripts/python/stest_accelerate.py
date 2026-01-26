@@ -29,6 +29,8 @@ class STestAccelerate(GTestAccelerate):
     def __init__(self, args, scene_mark="STest", cntr_name="Device"):
         """
         :param args: 命令行参数
+        :param scene_mark: 场景标识
+        :param cntr_name: 容器名称
         """
         # 在调用父类初始化之前，从二进制文件获取 meta 信息并重排序用例列表
         # 二进制文件路径通过 -t/--target 参数传入，存储在 args.target[0] 中
@@ -54,7 +56,7 @@ class STestAccelerate(GTestAccelerate):
         self.device_list: List[int] = self._init_get_device_list(args=args)
 
     @staticmethod
-    def reg_args(parser: argparse.ArgumentParser):
+    def reg_args(parser: argparse.ArgumentParser) -> None:
         """注册STest加速器参数
 
         先调用父类(GTestAccelerate)的参数注册, 再添加STest特有参数
