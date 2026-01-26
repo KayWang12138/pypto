@@ -465,32 +465,36 @@ Status MixInternalComponentsAnalyzer::ProcessCubeScope(const std::vector<Operati
 Status MixInternalComponentsAnalyzer::ProcessVecScope(const std::vector<Operation*>& operations, int componentID, AIVCore& outAivCore) const {
     // VEC SCOPE: 基于第一个非同步op确定AIVCore属性
     ALOG_DEBUG_F("Component %d is vec scope. Start process AIVCore", componentID);
-    AIVCore refAIVCore = AIVCore::UNSPECIFIED;
     for (auto* op : operations) {
-        if (!IsSyncOperation(op)) {
-            AIVCore opCore = op->GetAIVCore();
-            if (opCore != AIVCore::UNSPECIFIED) {
-                refAIVCore = opCore;
-
-                // 校验所有非同步算子的AIVCore属性一致
-                for (auto* check_op : operations) {
-                    // 只校验非同步算子
-                    if (IsSyncOperation(check_op)) {
-                        continue;
-                    }
-                    AIVCore check_core = check_op->GetAIVCore();
-                    // 非UNSPECIFIED的AIVCore必须与基准值一致
-                    if (check_core != AIVCore::UNSPECIFIED && check_core != refAIVCore) {
-                        ALOG_ERROR_F("[AIVCore_CHECK] Component %d has inconsistent AIVCore!", componentID);
-                        return FAILED;  
-                    }
-                }
-
-                ALOG_DEBUG_F("Component AIVCore determined by op %s: AIV%d",
-                        op->GetOpcodeStr().c_str(), (opCore == AIVCore::AIV0 ? 0 : 1));
-                outAivCore = opCore;
-                return SUCCESS;
+        if (!IsSyncOperation(op) && op->GetAIVCore() != AIVCore::UNSPECIFIED) {
+            AIVCore refAIVCore = op->GetAIVCore();
+            // 校验所有非同步算子的AIVCore属性一致
+            Status checkRet = CheckVecScopeAivCoreConsistant(operations, componentID, refAIVCore);
+            if (checkRet != SUCCESS) {
+                return checkRet;
             }
+            //校验通过，设置输出并返回
+            ALOG_DEBUG_F("Component AIVCore determined by op %s: AIV%d",
+                    op->GetOpcodeStr().c_str(), (refAIVCore == AIVCore::AIV0 ? 0 : 1));
+            outAivCore = refAIVCore;
+            return SUCCESS;
+        }
+    }
+    return SUCCESS;
+}
+
+Status MixInternalComponentsAnalyzer::CheckVecScopeAivCoreConsistant(const std::vector<Operation*>& operations, int componentID, AIVCore refAIVCore) const {
+    // 校验所有非同步算子的AIVCore属性一致
+    for (auto* check_op : operations) {
+        // 只校验非同步算子
+        if (IsSyncOperation(check_op)) {
+            continue;
+        }
+        AIVCore check_core = check_op->GetAIVCore();
+        // 非UNSPECIFIED的AIVCore必须与基准值一致
+        if (check_core != AIVCore::UNSPECIFIED && check_core != refAIVCore) {
+            ALOG_ERROR_F("[AIVCore_CHECK] Component %d has inconsistent AIVCore!", componentID);
+            return FAILED;  
         }
     }
     return SUCCESS;

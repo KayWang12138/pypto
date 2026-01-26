@@ -73,6 +73,7 @@ bool CheckAllCubeAttrConsistent(const InternalComponentInfo& component) const;
 Status DetermineComponentAIVCore(const std::vector<Operation*>& operations, ComponentType componentType, AIVCore& outAivCore) const;
 Status ProcessCubeScope(const std::vector<Operation*>& operations, int componentID) const;
 Status ProcessVecScope(const std::vector<Operation*>& operations, int componentID, AIVCore& outAivCore) const; 
+Status CheckVecScopeAivCoreConsistant(const std::vector<Operation*>& operations, int componentID, AIVCore refAIVCore) const;
 // 校验函数：校验L0C_COPY_UB的消费者v_scope的AIVCore属性一致性
 Status CheckL0CCopyUBConsumerAIVCoreConsistency(Operation* copyOp, int componentID) const;
 // 获取L0C_COPY_UB输出tensor的第一个V_SCOPE消费者的AIVCore属性
