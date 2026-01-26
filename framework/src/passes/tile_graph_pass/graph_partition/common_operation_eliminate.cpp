@@ -163,9 +163,7 @@ std::unordered_map<LogicalTensor*, std::vector<Operation*>> CommonOperationElimi
 std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::OperationExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducersPair, std::unordered_set<Operation*>& cacheProducers) {
     const std::vector<Operation*>& producers = tensorProducersPair.second;
     for (const auto& op: producers) {
-        if (op == nullptr) {
-            continue;
-        }
+        if (op == nullptr) continue;
     }
     for (auto operation: producers) {
         if (operation == nullptr) continue;
