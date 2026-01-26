@@ -155,6 +155,7 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
         }
     }
     std::unordered_map<Operation*, std::vector<int>> opInputIdxMap;
+    std::unordered_set<Opcode> reduceOp = {Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE};
     for (auto &entry : lastUseMap_) {
         auto lastUseOp = entry.second;
         auto lastUseTensor = entry.first;
@@ -162,7 +163,11 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
             int tensorSize = lastUseOp->GetIOperands().size() + lastUseOp->GetOOperands().size();
             std::vector<int> tensorIdxVec(tensorSize, false);
             int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + lastUseOp->GetOOperands().size();
-            tensorIdxVec[inputIdx] = true;
+            if (reduceOp.find(lastUseOp) != reduceOp.end() && inputIdx == tensorSize - 1) {
+ 	            tensorIdxVec[inputIdx] = false;
+ 	        } else {
+ 	            tensorIdxVec[inputIdx] = true;
+ 	        }
             opInputIdxMap[lastUseOp] = tensorIdxVec;
         } else {
             int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + lastUseOp->GetOOperands().size();
