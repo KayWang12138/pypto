@@ -659,6 +659,7 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
     if (bufferManagerMap[allocBuffer->memType].IsFull(allocBuffer)) {
         if (GenSpillOp(allocBuffer, pcIdx) != SUCCESS) {
             APASS_LOG_WARN_F(Elements::Operation, "GenSpillOp failed at ExecuteAllocIssue. %s", GetFormatBacktrace(issueEntries[pcIdx]->tileOp).c_str());
+            return FAILED;
         }
     }
 
@@ -1024,7 +1025,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations) {
     PrintOpList(operations);
     if (Init(operations) != SUCCESS) { 
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
-        return FAILED; 
+        return FAILED;
     }
     // 生成spill指令
     if (GenSpillSchedule() != SUCCESS) { 

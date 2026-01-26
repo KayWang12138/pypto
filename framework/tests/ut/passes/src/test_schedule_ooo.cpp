@@ -472,7 +472,7 @@ TEST_F(ScheduleOoOTest, TestSpillMultiTensor) {
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_EQ(ooOScheduler.issueEntries.size(), 21);
+    EXPECT_EQ(ooOScheduler.issueEntries.size(), 23);
 }
 
 TEST_F(ScheduleOoOTest, TestSpillView) {
