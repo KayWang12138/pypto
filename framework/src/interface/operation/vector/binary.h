@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@ LogicalTensorPtr BinaryOperationBroadCast(const LogicalTensorPtr &operand, const
 void CheckBinOpOperandsValid(const LogicalTensorPtr &operand1, const LogicalTensorPtr &operand2);
 void BinaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
-void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, std::string &op);
+void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, const Opcode op);
 
 // OP_ADD OP_SUB OP_MUL OP_DIV OP_MAX
 template <BinaryOpType T>
@@ -141,8 +141,9 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
         oprandT1 = BinaryOperationBroadCast(oprandT1, broadCastShape);
         oprandT2 = BinaryOperationBroadCast(oprandT2, broadCastShape);
     }
-    auto opName = GetBinaryOpName<T>();
-    CheckBinaryInputTensors(oprandT1, oprandT2, opName);
+    auto opcode = GetBinaryOpNameCode<T>();
+    OpInputsChecker::GetInstance(opcode).Check({oprandT1, oprandT2});
+    CheckBinaryInputTensors(oprandT1, oprandT2, opcode);
 
     std::vector<SymbolicScalar> resultValidShape;
     std::vector<int64_t> resultShape = BinaryOperationResultShape(oprandT1, oprandT2);
@@ -157,18 +158,18 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
     }
     auto result = std::make_shared<LogicalTensor>(
         function, oprandT1->Datatype(), resultShape, resultValidShape, oprandT1->Format());
-    function.AddOperation(GetBinaryOpNameCode<T>(), {oprandT1, oprandT2}, {result});
+    function.AddOperation(opcode, {oprandT1, oprandT2}, {result});
     return result;
 }
 
 // OP_ADDS OP_SUBS OP_MULS OP_DIVS OP_MAXS OP_MINS
 template <BinaryOpType T>
 LogicalTensorPtr TensorBinaryOperationScalar(Function &function, LogicalTensorPtr operand1, const Element &value) {
-    auto opName = GetBinaryOpName<T>();
-    CheckTensorShape(operand1, opName);
+    auto opcode = GetBinaryOpNameCode<T, true>();
+    OpInputsChecker::GetInstance(opcode).Check({operand1});
     auto result =
         std::make_shared<LogicalTensor>(function, operand1->Datatype(), operand1->shape, operand1->GetDynValidShape());
-    auto &op = function.AddOperation(GetBinaryOpNameCode<T, true>(), {operand1}, {result});
+    auto &op = function.AddOperation(opcode, {operand1}, {result});
     op.SetAttribute(OpAttributeKey::scalar, value);
     return result;
 }
@@ -188,11 +189,11 @@ LogicalTensorPtr TensorBinaryOperationAllScalar(
 // OP_S_ADD OP_S_SUB OP_S_MUL OP_S_DIV OP_S_MAX
 template <BinaryOpType T>
 LogicalTensorPtr TensorBinaryOperationAllScalar(Function &function, const Tensor &operand1, const Tensor &operand2) {
-    auto opName = GetBinaryOpName<T>();
-    CheckBinaryInputTensors(operand1.GetStorage(), operand2.GetStorage(), opName);
+    auto opcode = GetBinaryOpNameCode<T, false>();
+    CheckBinaryInputTensors(operand1.GetStorage(), operand2.GetStorage(), opcode);
     auto result = std::make_shared<LogicalTensor>(
         function, operand1.GetStorage()->Datatype(), operand1.GetShape(), operand1.GetStorage()->GetDynValidShape());
-    function.AddOperation(GetBinaryOpNameCode<T, false>(), {operand1.GetStorage(), operand2.GetStorage()}, {result});
+    function.AddOperation(opcode, {operand1.GetStorage(), operand2.GetStorage()}, {result});
     return result;
 }
 
