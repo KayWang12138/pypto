@@ -3,7 +3,7 @@
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
@@ -20,7 +20,7 @@
 #include "passes/pass_check/common_operation_eliminate_checker.h"
 
 namespace npu::tile_fwk {
-static std::unordered_map<size_t, std::pair<LogicalTensor*, std::vector<Operation*>>> hashCache;
+static std::unordered_map<uint64_t, std::pair<LogicalTensor*, std::vector<Operation*>>> hashCache;
 void SortedProducer(std::vector<Operation*>& sortedProducers) {
     std::sort(sortedProducers.begin(), sortedProducers.end(),
         [](const Operation* op1, const Operation* op2) {
@@ -51,7 +51,7 @@ void SortedProducer(std::vector<Operation*>& sortedProducers) {
     });
 }
 
-unsigned long ComputeHashOrderless(const std::vector <Operation*>& producers) {
+unsigned long ComputeHash(const std::vector <Operation*>& producers) {
     std::vector<std::string> opStrList;
     std::stringstream ss;
     std::vector<Operation*> sortedProducers = producers;
@@ -98,18 +98,12 @@ unsigned long ComputeHashOrderless(const std::vector <Operation*>& producers) {
     return result;
 }
 
-unsigned long ComputeHash(const std::vector <Operation*>& producers) {
-    // compute has every time to avoid member changed
-    unsigned long operationHash_ = ComputeHashOrderless(producers);
-    return operationHash_;
-}
-
 Status CommonOperationEliminate::RunOnFunction(Function &function) {
-    auto tensorProducerMap = GetProducers(function);
+    auto tensorProducerMap = GetTensorProducerMap(function);
     std::unordered_set<Operation*> cacheProducers;
     for (auto& tensorProducerPair: tensorProducerMap) {
         auto& producerGroup = tensorProducerPair.second;
-        if (producerGroup.empty() || !OpAlreadyExist(tensorProducerPair, cacheProducers)) {
+        if (producerGroup.empty() || !TensorProducersMerge(tensorProducerPair, cacheProducers)) {
             continue;
         }
         for (auto op: producerGroup) {
@@ -133,7 +127,7 @@ Status CommonOperationEliminate::PreCheck(Function &function) {
     return checker.DoPreCheck(function);
 }
 
-std::unordered_map<LogicalTensor*, std::vector<Operation*>> CommonOperationEliminate::GetProducers(Function &function) {
+std::unordered_map<LogicalTensor*, std::vector<Operation*>> CommonOperationEliminate::GetTensorProducerMap(Function &function) {
     std::unordered_map<LogicalTensor*, std::vector<Operation*>> tensorProducerMap;
     std::unordered_set<int> visitedTensors;
     auto allOps = function.Operations().DuplicatedOpList();
@@ -141,15 +135,15 @@ std::unordered_map<LogicalTensor*, std::vector<Operation*>> CommonOperationElimi
         if (op == nullptr) {
             continue;
         }
-         auto& outputTensors = op->GetOOperands();
+        auto& outputTensors = op->GetOOperands();
         for (auto& tensor: outputTensors) {
             if (tensor == nullptr || visitedTensors.count(tensor->GetMagic())) {
                 continue;
             }
             visitedTensors.insert(tensor->GetMagic());
-            for (auto& pro: tensor->GetProducers()) {
-                if (pro != nullptr) {
-                    tensorProducerMap[tensor.get()].push_back(pro);
+            for (auto& curOp: tensor->GetProducers()) {
+                if (curOp != nullptr) {
+                    tensorProducerMap[tensor.get()].push_back(curOp);
                 }
             }
         }
@@ -157,13 +151,14 @@ std::unordered_map<LogicalTensor*, std::vector<Operation*>> CommonOperationElimi
     return tensorProducerMap;
 }
 
-std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::OperationExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducersPair, std::unordered_set<Operation*>& cacheProducers) {
+std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::TensorHashExist(const std::pair<LogicalTensor*, 
+                                                                                             std::vector<Operation*>>& tensorProducersPair, 
+                                                                                             std::unordered_set<Operation*>& cacheProducers) {
     const std::vector<Operation*>& producers = tensorProducersPair.second;
-    for (const auto& op: producers) {
-        if (op == nullptr) continue;
-    }
-    for (auto operation: producers) {
-        if (operation == nullptr) continue;
+    for (const auto& operation: producers) {
+        if (operation == nullptr) {
+            continue;
+        }
         auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(operation->GetOpcode());
         auto &outputsMemType = OpcodeManager::Inst().GetOutputsMemType(operation->GetOpcode());
         OpCalcType opCalcType = OpcodeManager::Inst().GetOpCalcType(operation->GetOpcode());
@@ -180,7 +175,7 @@ std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::Op
             return {nullptr, {}};
         }
     }
-    size_t groupHash = ComputeHash(producers);
+    uint64_t groupHash = ComputeHash(producers);
     if (hashCache.count(groupHash) != 0){
         return hashCache[groupHash];
     }
@@ -218,7 +213,7 @@ void CommonOperationEliminate::UpdateCopy(CopyOpAttribute *copyOpAttribute,
     }
 }
 
-void CommonOperationEliminate::UpdateProducers(LogicalTensor* oldtensors,  LogicalTensor* newtensors) {
+void CommonOperationEliminate::UpdateTensorProducers(LogicalTensor* oldtensors,  LogicalTensor* newtensors) {
     auto consumers = oldtensors->GetConsumers();
     for (auto &cur : consumers) {
         if (cur == nullptr) continue;
@@ -241,15 +236,21 @@ void CommonOperationEliminate::UpdateProducers(LogicalTensor* oldtensors,  Logic
     }
 }
 
-bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers) {
+bool CommonOperationEliminate::TensorProducersMerge(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers) {
     auto& producers = tensorProducerPair.second;  
-    if (producers.empty()) return false;
-    auto existOp = OperationExist(tensorProducerPair, cacheProducers);
-    if (existOp.first == nullptr || 
-        tensorProducerPair.first == nullptr || 
-        existOp.second.empty() || 
-        tensorProducerPair.first->shape != existOp.first->shape || 
-        tensorProducerPair.first->tensor->GetDataType() != existOp.first->tensor->GetDataType()) return false;
+    if (producers.empty()) {
+        return false;
+    }
+    auto existOp = TensorHashExist(tensorProducerPair, cacheProducers);
+    if (existOp.first == nullptr || tensorProducerPair.first == nullptr || existOp.second.empty()) {
+        return false;
+    }
+    if (tensorProducerPair.first->shape != existOp.first->shape) {
+        return false;
+    }
+    if (tensorProducerPair.first->tensor->GetDataType() != existOp.first->tensor->GetDataType()) {
+        return false;
+    }
     LogicalTensor* oldtensors = tensorProducerPair.first;
     LogicalTensor* newtensors = existOp.first;
     if (oldtensors->nodetype == NodeType::OUTCAST) {
@@ -260,10 +261,14 @@ bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, st
         for (size_t i = 0; i < existOp.second.size() && allSame; i++) {
             allSame = (tensorProducerPair.second[i] == existOp.second[i]);
         }
-        if (allSame) return false;
+        if (allSame) {
+            return false;
+        }
     }
-    if (newtensors->GetConsumers().size() == 0 || oldtensors->GetConsumers().size() == 0) return false;
-    UpdateProducers (oldtensors, newtensors);
+    if (newtensors->GetConsumers().size() == 0 || oldtensors->GetConsumers().size() == 0) {
+        return false;
+    }
+    UpdateTensorProducers(oldtensors, newtensors);
     oldtensors->GetConsumers().clear();
     ALOG_DEBUG_F("In CommonOperationEliminate, Tensor %d producergroup is marked as redundant.", oldtensors->GetMagic());
     return true;
