@@ -165,37 +165,78 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     return true;
 }
 
-bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
-    auto inputShape = reshapeIn->GetShape();
-    auto outputShape = reshapeOut->GetShape();
+// batch MatMul优化pattern，不插入register copy
+bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
+                                            const LogicalTensorPtr &reshapeOut) {
+    if (!reshapeIn || !reshapeOut) return false;
     
-    // 定义模式表：{input_size, output_size, pattern_id, 验证函数}
-    using Validator = std::function<bool(const std::vector<int64_t>&, const std::vector<int64_t>&)>;
+    const auto &inputShape = reshapeIn->GetShape();
+    const auto &outputShape = reshapeOut->GetShape();
+    const size_t inputDims = inputShape.size();
+    const size_t outputDims = outputShape.size();
     
-    static const std::vector<std::tuple<size_t, size_t, int, Validator>> patterns = {
-        {4, 2, 1, [](const auto& in, const auto& out) {
-            return in[0] == 1 && in[1] == 1 && in[2] == out[0] && in[3] == out[1];
-        }},
-        {2, 4, 2, [](const auto& in, const auto& out) {
-            return out[0] == 1 && out[1] == 1 && in[0] == out[2] && in[1] == out[3];
-        }},
-        {3, 2, 3, [](const auto& in, const auto& out) {
-            return in[0] == 1 && in[1] == out[0] && in[2] == out[1];
-        }},
-        {2, 3, 4, [](const auto& in, const auto& out) {
-            return out[0] == 1 && in[0] == out[1] && in[1] == out[2];
-        }}
-    };
+    // 常量定义
+    constexpr size_t MIN_DIMENSIONS = 2;
+    constexpr size_t MAX_DIMENSIONS = 4;
+    constexpr size_t DIMENSIONS_2D = 2;
+    constexpr size_t DIMENSIONS_3D = 3;
+    constexpr size_t DIMENSIONS_4D = 4;
     
-    for (const auto& [inSize, outSize, patternId, validator] : patterns) {
-        if (inputShape.size() == inSize && 
-            outputShape.size() == outSize &&
-            validator(inputShape, outputShape)) {
-            return true;
-        }
+    if (inputDims < MIN_DIMENSIONS || outputDims < MIN_DIMENSIONS ||
+        inputDims > MAX_DIMENSIONS || outputDims > MAX_DIMENSIONS) {
+        return false;
     }
     
-    return false;
+    // 验证总元素数是否相等（reshape的基本要求）
+    auto calculateTotalElements = [](const std::vector<int64_t>& shape) {
+        int64_t total = 1;
+        for (const auto& dim : shape) {
+            total *= dim;
+        }
+        return total;
+    };
+    
+    if (calculateTotalElements(inputShape) != calculateTotalElements(outputShape)) {
+        return false;
+    }
+    
+    // 编码维度对：输入维度在高位，输出维度在低位
+    const uint32_t dimensionPair = (inputDims << 4) | outputDims;
+    
+    switch (dimensionPair) {
+        // 4D转2D：[1, 1, H, W] -> [H, W]
+        case (DIMENSIONS_4D << 4) | DIMENSIONS_2D: {
+            return inputShape[0] == 1 && 
+                   inputShape[1] == 1 &&
+                   inputShape[2] == outputShape[0] &&
+                   inputShape[3] == outputShape[1];
+        }
+        
+        // 2D转4D：[H, W] -> [1, 1, H, W]
+        case (DIMENSIONS_2D << 4) | DIMENSIONS_4D: {
+            return outputShape[0] == 1 && 
+                   outputShape[1] == 1 &&
+                   inputShape[0] == outputShape[2] &&
+                   inputShape[1] == outputShape[3];
+        }
+        
+        // 3D转2D：[1, H, W] -> [H, W]
+        case (DIMENSIONS_3D << 4) | DIMENSIONS_2D: {
+            return inputShape[0] == 1 &&
+                   inputShape[1] == outputShape[0] &&
+                   inputShape[2] == outputShape[1];
+        }
+        
+        // 2D转3D：[H, W] -> [1, H, W]
+        case (DIMENSIONS_2D << 4) | DIMENSIONS_3D: {
+            return outputShape[0] == 1 &&
+                   inputShape[0] == outputShape[1] &&
+                   inputShape[1] == outputShape[2];
+        }
+        
+        default:
+            return false;
+    }
 }
 
 Status InferMemoryConflict::UpdateForwardTensor(Function &function, const LogicalTensorPtr &curTensor, Operation* consumer, std::queue<LogicalTensorPtr> &curTensors) {
