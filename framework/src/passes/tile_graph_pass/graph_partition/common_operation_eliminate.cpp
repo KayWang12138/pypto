@@ -232,11 +232,8 @@ bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, st
     }
     if (tensorProducerPair.second.size() == existOp.second.size()) {
         bool allSame = true;
-        for (size_t i = 0; i < existOp.second.size(); i++) {
-            if (tensorProducerPair.second[i] != existOp.second[i]) {
-                allSame = false;
-                break;
-            }
+        for (size_t i = 0; i < existOp.second.size() && allSame; i++) {
+            allSame = (tensorProducerPair.second[i] == existOp.second[i]);
         }
         if (allSame) return false;
     }
