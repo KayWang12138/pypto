@@ -41,30 +41,30 @@ void UpdateCopyOutAttr(Operation &op, Operation &opNext) {
     opAttr->SetRawShape(OpImmediate::Specified(op.GetOOperands().front()->tensor->GetDynRawShape()));
 }
 
-bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vector<int64_t> &newShape,
+bool CalculateNewRawShape(const std::vector<int64_t> &reshapeOutputShape, const std::vector<int64_t> &reshapeInputShape,
     const std::vector<int64_t> &oriRawShape, std::vector<int64_t> &newRawShape) {
     std::vector<int64_t> oriScale;
-    size_t oriSize = oriShape.size();
+    size_t oriSize = reshapeOutputShape.size();
     oriScale.resize(oriSize);
     for (size_t i = 0; i < oriSize; i++) {
-        oriScale[i] = oriRawShape[i] / oriShape[i];
+        oriScale[i] = oriRawShape[i] / reshapeOutputShape[i];
         if ((i != 0) && (oriScale[i] != 1)) {
             // 只有当最高轴存在Assemble的行为时，才可以将数据直接拷贝到Assemble之后的内存
             return false;
         }
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "oriScale is %s.", IntVecToStr(oriScale).c_str());
-    size_t newSize = newShape.size();
+    size_t newSize = reshapeInputShape.size();
     newRawShape.resize(newSize);
     std::vector<int64_t> newScale(newSize, 1);
     int64_t accumuOriScale = oriScale[oriSize - 1];
-    int64_t accumuOriShape = oriShape[oriSize - 1];
-    int64_t accumuNewShape = newShape[newSize - 1];
+    int64_t accumuOriShape = reshapeOutputShape[oriSize - 1];
+    int64_t accumuNewShape = reshapeInputShape[newSize - 1];
     for (int i = oriSize - 1, j = newSize - 1; i >= 0 && j >= 0;) {
         if (accumuOriShape < accumuNewShape) {
             i--;
             if (i >= 0) {
-                accumuOriShape *= oriShape[i];
+                accumuOriShape *= reshapeOutputShape[i];
                 accumuOriScale *= oriScale[i];
             }
             continue;
@@ -75,20 +75,20 @@ bool CalculateNewRawShape(const std::vector<int64_t> &oriShape, const std::vecto
             j--;
             if (i >= 0 && j >= 0) {
                 accumuOriScale = oriScale[i];
-                accumuOriShape = oriShape[i];
-                accumuNewShape = newShape[j];
+                accumuOriShape = reshapeOutputShape[i];
+                accumuNewShape = reshapeInputShape[j];
             }
             continue;
         }
         j--;
         if (j >= 0) {
-            accumuNewShape *= newShape[j];
+            accumuNewShape *= reshapeInputShape[j];
         }
     }
 
     APASS_LOG_DEBUG_F(Elements::Operation, "newScale is %s.", IntVecToStr(newScale).c_str());
     for (size_t j = 0; j < newSize; j++) {
-        newRawShape[j] = newShape[j] * newScale[j];
+        newRawShape[j] = reshapeInputShape[j] * newScale[j];
     }
     return true;
 }
