@@ -57,7 +57,7 @@ constexpr uint32_t HIGHT_BIT = 16;
 
 constexpr uint32_t SUB_CORE = 3;
 constexpr uint32_t AIV_PER_AICORE = 2;
- 
+
 extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
 namespace npu::tile_fwk {
 
@@ -154,11 +154,9 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
     args.taskWastTime = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(sizeof(uint64_t))));
-    size_t shmSize = dynamic::DEVICE_SHM_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * aicpuNum_;
+    size_t shmSize = sizeof(dynamic::RuntimeDataRingBufferHead) + dynamic::DEVICE_SHM_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * aicpuNum_;
     uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(shmSize)));
-    args.startArgsAddr = shmAddr;
-    args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
-    args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
+    args.runtimeDataRingBufferAddr = shmAddr;
     PmuCommon::InitPmuEventType(args.archInfo, pmuEvtType_);
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 
@@ -231,7 +229,7 @@ uint64_t DeviceRunner::GetTasksTime() const {
     return buffer;
 }
 
-    
+
 bool DeviceRunner::GetValidGetPgMask() const {
     return machine::GetRA()->GetValidGetPgMask();
 }
@@ -528,6 +526,13 @@ int DeviceRunner::RunPrepare() {
                        RT_MEMCPY_HOST_TO_DEVICE);
         }
     }
+
+    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        args_.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(DevAlloc(sizeof(MetricPerf)));
+        if (args_.aicpuPerfAddr == 0) {
+            ALOG_WARN_F("Aicpu per addr malloc failed");
+        }
+    }
     return ret;
 }
 
@@ -659,14 +664,41 @@ int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlS
     return rc;
 }
 
-int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream,
-    [[maybe_unused]] int64_t taskId, DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+void DeviceRunner::PrepareLaunchArgs(DeviceArgs &localArgs, DeviceKernelArgs *kernelArgs, int64_t taskId, int blockdim, int launchAicpuNum) {
+    localArgs.taskId = taskId;
+    localArgs.taskType = DEVICE_TASK_TYPE_DYN;
+    lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
+    localArgs.machineConfig = kernelArgs->machineConfig;
+    localArgs.toSubMachineConfig = kernelArgs->toSubMachineConfig;
+    localArgs.nrValidAic = blockdim;
+    localArgs.nrAicpu = launchAicpuNum;
+    blockDim_ = blockdim;
+    aicpuNum_ = launchAicpuNum;
+    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_, args_.archInfo);
+    localArgs.validGetPgMask = machine::GetRA()->GetValidGetPgMask();
+    localArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
+
+    // for dump perfInfo update device args
+    args_.nrValidAic = localArgs.nrValidAic;
+    args_.nrAicpu = localArgs.nrAicpu;
+    args_.scheCpuNum = localArgs.scheCpuNum;
+}
+
+int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
+    DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
     if (kernelArgs == nullptr) {
         return -1;
     }
     InitializeErrorCallback();
-    
+
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitErrCallBack);
+
+    if (!g_IsFirstInit) {
+        InitAiCpuSoBin();
+    }
+    g_IsFirstInit = true;
+
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
 
     #ifdef BUILD_WITH_NEW_CANN
     if (!g_IsNullLaunched) {
@@ -688,9 +720,9 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
     blockDim_ = blockdim;
     aicpuNum_ = launchAicpuNum;
-    // for dump perfInfo update device args 
-    args_.nrValidAic = blockdim; 
-    args_.nrAicpu = launchAicpuNum; 
+    // for dump perfInfo update device args
+    args_.nrValidAic = blockdim;
+    args_.nrAicpu = launchAicpuNum;
     args_.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockDim_, aicpuNum_, args_.archInfo);
     ExchangeCaputerMode(isCapture_);
     if (ctrlStream == nullptr) {
