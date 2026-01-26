@@ -208,14 +208,18 @@ struct PerfEvtMgr {
             if (cnt < PERF_TRACE_COUNT_DEVTASK_MAX_NUM) {
                 perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][cnt] =
                     cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
-                aicpuPref_->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
+                #if ENABLE_PERF_TRACE != 1
+                aicpuPref_->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] = cnt + 1;
                 aicpuPref_->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][cnt] = perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][cnt];
+                #endif
                 cnt++;
             }
             return;
         }
         perfTrace[tid][type] = cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
+        #if ENABLE_PERF_TRACE != 1
         aicpuPref_->perfAicpuTrace[tid][type] = perfTrace[tid][type];
+        #endif
     }
 
     void DumpPerfTraceCore(std::ostringstream &oss, uint32_t scheCpuNum) {
