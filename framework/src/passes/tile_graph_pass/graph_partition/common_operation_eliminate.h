@@ -31,6 +31,7 @@ public:
 private:
     Status RunOnFunction(Function &function) override;
     std::unordered_map<LogicalTensor*, std::vector<Operation*>> GetProducers(Function &function);
+    void UpdateProducers(LogicalTensor* oldtensors,  LogicalTensor* newtensors);
     std::pair<LogicalTensor*, std::vector<Operation*>> OperationExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducersPair, std::unordered_set<Operation*>& cacheProducers);
     bool OpAlreadyExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers);
     void UpdateView(ViewOpAttribute *viewOpAttribute, const std::shared_ptr<LogicalTensor> oldtensors,
