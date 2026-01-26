@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -72,11 +72,11 @@ void UnaryOperationOperandCheck(
 
 template <UnaryOpType T>
 LogicalTensorPtr TensorUnaryOperation(Function &function, LogicalTensorPtr operand) {
-    auto opName = GetUnaryOpName<T>();
-    CheckTensorShape(operand, opName);
+    auto opcode = GetUnaryOpNameCode<T>();
+    OpInputsChecker::GetInstance(opcode).Check({operand});
     auto result = std::make_shared<LogicalTensor>(
         function, operand->tensor->datatype, operand->shape, operand->GetDynValidShape(), operand->Format());
-    function.AddOperation(GetUnaryOpNameCode<T>(), {operand}, {result});
+    function.AddOperation(opcode, {operand}, {result});
     return result;
 }
 
