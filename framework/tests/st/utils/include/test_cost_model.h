@@ -162,7 +162,7 @@ private:
         devProg->devArgs.startArgsAddr = shmAddr;
         shmAddr += DEV_ARGS_SIZE;
         devProg->devArgs.taskCtrl = shmAddr;
-        shmAddr += DEVICE_TASK_CTRL_SIZE;
+        shmAddr += DEVICE_TASK_CTRL_POOL_SIZE;
         devProg->devArgs.taskQueue = shmAddr;
         shmAddr += DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
         devProg->devArgs.generalAddr = shmAddr;
