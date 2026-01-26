@@ -204,18 +204,40 @@ struct PerfEvtMgr {
             return;
         }
         if (PerfTraceIsDevTask[type] && DEVTASK_PERF_ARRY_INDEX(type) < DEVTASK_PERF_TYPE_NUM) {
-            auto &cnt = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
+            auto cnt = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
             if (cnt < PERF_TRACE_COUNT_DEVTASK_MAX_NUM) {
                 perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][cnt] =
                     cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
-                aicpuPref_->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
+#if ENABLE_PERF_TRACE != 1
+                aicpuPref_->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] += 1;
                 aicpuPref_->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][cnt] = perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][cnt];
-                cnt++;
+#endif
+                perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] += 1;
             }
             return;
         }
         perfTrace[tid][type] = cycle == 0 ? static_cast<uint64_t>(GetCycles()) : cycle;
+#if ENABLE_PERF_TRACE != 1
         aicpuPref_->perfAicpuTrace[tid][type] = perfTrace[tid][type];
+#endif
+    }
+
+    void SetAicpuPerf() {
+        if (aicpuPref_ == nullptr) {
+            return;
+        }
+        for (uint32_t tid = 0; tid < 3; tid++) {
+            for (uint32_t type = 0; type < PERF_TRACE_MAX; type++) {
+                if (PerfTraceIsDevTask[type]) {
+                    aicpuPref_->perfAicpuTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)] = perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)];
+                    for (uint32_t i = 0; i < perfTraceDevTaskCnt[tid][DEVTASK_PERF_ARRY_INDEX(type)]; i++) {
+                        aicpuPref_->perfAicpuTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][i] = perfTraceDevTask[tid][DEVTASK_PERF_ARRY_INDEX(type)][i];
+                    }
+                }
+                aicpuPref_->perfAicpuTrace[tid][type] = perfTrace[tid][type];
+            }
+        }
+        
     }
 
     void DumpPerfTraceCore(std::ostringstream &oss, uint32_t scheCpuNum) {
