@@ -78,7 +78,6 @@ private:
         const std::vector<std::shared_ptr<LogicalTensor>>& originalOutcasts,
         const std::vector<std::shared_ptr<LogicalTensor>>& actualIncasts,
         const std::vector<std::shared_ptr<LogicalTensor>>& actualOutcasts,
-        const SubfuncInvokeInfoTy& invokeInfo,
         std::vector<LogicalTensorPtr>& newIOperands,
         std::vector<LogicalTensorPtr>& newOOperands,
         std::set<LogicalTensorPtr>& processedTensors) const;
