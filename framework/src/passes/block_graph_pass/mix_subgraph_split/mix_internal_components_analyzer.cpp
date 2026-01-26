@@ -427,65 +427,73 @@ Status MixInternalComponentsAnalyzer::DetermineComponentAIVCore(const std::vecto
     }
     int componentID = operations[0]->GetInternalSubgraphID();
 
-    if (componentType == ComponentType::C_SCOPE) {
-        // CUBE SCOPE: 处理L0C_COPY_UB OP的subBlockIdx属性
-        ALOG_DEBUG_F("Component %d is cube scope, start process L0C_COPY_UB subBlockIdx Attr.", componentID);
-        AIVCore targetAIVCore = AIVCore::UNSPECIFIED;
-        for (auto* op : operations) {
-            if (op->GetOpcode() == Opcode::OP_L0C_COPY_UB) {
-                // 1. 校验L0C_COPY_UB的消费者v_scope的AIVCore属性一致性
-                auto checkRet = CheckL0CCopyUBConsumerAIVCoreConsistency(op, componentID);
-                if (checkRet != SUCCESS) {
-                    return checkRet;
-                }
-                // 2. 获取目标AIVCore并设置subBlockIdx属性
-                targetAIVCore = FindConsumerVectorAIVCore(op);  
-                if (targetAIVCore != AIVCore::UNSPECIFIED) {
-                    int64_t subBlockIdx = (targetAIVCore == AIVCore::AIV0) ? 0 : 1;
-                    op->SetAttr(OpAttributeKey::subBlockIdx, subBlockIdx);
-                    ALOG_DEBUG_F("Set SUB_BLOCK_IDX=%ld for L0C_COPY_UB op %d", subBlockIdx, op->GetOpMagic());
-                }
-            }
-        }
-        outAivCore = AIVCore::UNSPECIFIED; //Cubescope返回UNSPECIFIED
-        return SUCCESS;
-    } else if (componentType == ComponentType::V_SCOPE) {
-        // VEC SCOPE: 基于第一个非同步op确定AIVCore属性
-        ALOG_DEBUG_F("Component %d is vec scope. Start process AIVCore", componentID);
-        AIVCore refAIVCore = AIVCore::UNSPECIFIED;
-        for (auto* op : operations) {
-            if (!IsSyncOperation(op)) {
-                AIVCore opCore = op->GetAIVCore();
-                if (opCore != AIVCore::UNSPECIFIED) {
-                    refAIVCore = opCore;
-
-                    // 校验所有非同步算子的AIVCore属性一致
-                    for (auto* check_op : operations) {
-                        // 只校验非同步算子
-                        if (IsSyncOperation(check_op)) {
-                            continue;
-                        }
-                        AIVCore check_core = check_op->GetAIVCore();
-                        // 非UNSPECIFIED的AIVCore必须与基准值一致
-                        if (check_core != AIVCore::UNSPECIFIED && check_core != refAIVCore) {
-                            ALOG_ERROR_F("[AIVCore_CHECK] Component %d has inconsistent AIVCore!", componentID);
-                            return FAILED;  
-                        }
-                    }
-
-                    ALOG_DEBUG_F("Component AIVCore determined by op %s: AIV%d",
-                            op->GetOpcodeStr().c_str(), (opCore == AIVCore::AIV0 ? 0 : 1));
-                    outAivCore = opCore;
-                    return SUCCESS;
-                }
-            }
-        }
-    } else {
-        ALOG_ERROR_F("Cannot determine AIVCore for component %d: all ops are sync or UNKNOWN scope",
+    switch (componentType) {
+        case ComponentType::C_SCOPE:
+            return ProcessCubeScope(operations, componentID);
+        case ComponentType::V_SCOPE:
+            return ProcessVecScope(operations, componentID, outAivCore);
+        default:
+            ALOG_ERROR_F("Cannot determine AIVCore for component %d: all ops are sync or UNKNOWN scope",
                 operations[0]->GetInternalSubgraphID());
-        return FAILED;
+            return FAILED;
     }  
-    return FAILED;//兜底return
+}
+
+Status MixInternalComponentsAnalyzer::ProcessCubeScope(const std::vector<Operation*>& operations, int componentID) const {
+    // CUBE SCOPE: 处理L0C_COPY_UB OP的subBlockIdx属性
+    ALOG_DEBUG_F("Component %d is cube scope, start process L0C_COPY_UB subBlockIdx Attr.", componentID);
+    AIVCore targetAIVCore = AIVCore::UNSPECIFIED;
+    for (auto* op : operations) {
+        if (op->GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+            // 1. 校验L0C_COPY_UB的消费者v_scope的AIVCore属性一致性
+            auto checkRet = CheckL0CCopyUBConsumerAIVCoreConsistency(op, componentID);
+            if (checkRet != SUCCESS) {
+                return checkRet;
+            }
+            // 2. 获取目标AIVCore并设置subBlockIdx属性
+            targetAIVCore = FindConsumerVectorAIVCore(op);  
+            if (targetAIVCore != AIVCore::UNSPECIFIED) {
+                int64_t subBlockIdx = (targetAIVCore == AIVCore::AIV0) ? 0 : 1;
+                op->SetAttr(OpAttributeKey::subBlockIdx, subBlockIdx);
+                ALOG_DEBUG_F("Set SUB_BLOCK_IDX=%ld for L0C_COPY_UB op %d", subBlockIdx, op->GetOpMagic());
+            }
+        }
+    }
+    return SUCCESS;
+}  
+
+Status MixInternalComponentsAnalyzer::ProcessVecScope(const std::vector<Operation*>& operations, int componentID, AIVCore& outAivCore) const {
+    // VEC SCOPE: 基于第一个非同步op确定AIVCore属性
+    ALOG_DEBUG_F("Component %d is vec scope. Start process AIVCore", componentID);
+    AIVCore refAIVCore = AIVCore::UNSPECIFIED;
+    for (auto* op : operations) {
+        if (!IsSyncOperation(op)) {
+            AIVCore opCore = op->GetAIVCore();
+            if (opCore != AIVCore::UNSPECIFIED) {
+                refAIVCore = opCore;
+
+                // 校验所有非同步算子的AIVCore属性一致
+                for (auto* check_op : operations) {
+                    // 只校验非同步算子
+                    if (IsSyncOperation(check_op)) {
+                        continue;
+                    }
+                    AIVCore check_core = check_op->GetAIVCore();
+                    // 非UNSPECIFIED的AIVCore必须与基准值一致
+                    if (check_core != AIVCore::UNSPECIFIED && check_core != refAIVCore) {
+                        ALOG_ERROR_F("[AIVCore_CHECK] Component %d has inconsistent AIVCore!", componentID);
+                        return FAILED;  
+                    }
+                }
+
+                ALOG_DEBUG_F("Component AIVCore determined by op %s: AIV%d",
+                        op->GetOpcodeStr().c_str(), (opCore == AIVCore::AIV0 ? 0 : 1));
+                outAivCore = opCore;
+                return SUCCESS;
+            }
+        }
+    }
+    return SUCCESS;
 }
 
 // 校验函数：校验L0C_COPY_UB的消费者v_scope的AIVCore属性一致性
