@@ -126,6 +126,33 @@ std::string SymbolicExpressionTable::BuildExpressionByRaw(const RawSymbolicScala
     return result;
 }
 
+void SymbolicExpressionTable::BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict,
+        std::ostringstream &oss) {
+    const auto& operands = expr->OperandList();
+    ASSERT(operands.size() >= 2);
+    std::string funcName = (expr->Opcode() == SymbolicOpcode::T_BOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
+    const size_t n = operands.size();
+
+    // 写前n-2层: fn(op_i,
+    for (size_t i = 0; i + 2 < n; ++i) {
+        oss << funcName << "("
+            << BuildExpressionByRaw(operands[i], exprDict)
+            << ", ";
+    }
+
+    // 最内层: fn(op_{n-2}, op_{n-1})
+    oss << funcName << "("
+        << BuildExpressionByRaw(operands[n - 2], exprDict)
+        << ", "
+        << BuildExpressionByRaw(operands[n - 1], exprDict)
+        << ")";
+
+    // 补齐右括号
+    for (size_t i = 0; i + 2 < n; ++i) {
+        oss << ")";
+    }
+}
+
 std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict) {
     std::ostringstream oss;
     oss << "(";
@@ -133,18 +160,8 @@ std::string SymbolicExpressionTable::BuildExpressionCode(const RawSymbolicExpPtr
         oss << RawSymbolicExpression::GetSymbolicCalcOpcode(expr->Opcode());
         oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict);
     } else if (SymbolicOpcode::T_BOP_BEGIN <= expr->Opcode() && expr->Opcode() < SymbolicOpcode::T_BOP_END) {
-        if (expr->Opcode() == SymbolicOpcode::T_BOP_MAX) {
-            oss << "RUNTIME_Max(";
-            oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict);
-            oss << ", ";
-            oss << BuildExpressionByRaw(expr->OperandList()[1], exprDict);
-            oss << ")";
-        } else if (expr->Opcode() == SymbolicOpcode::T_BOP_MIN) {
-            oss << "RUNTIME_Min(";
-            oss << BuildExpressionByRaw(expr->OperandList()[0], exprDict);
-            oss << ", ";
-            oss << BuildExpressionByRaw(expr->OperandList()[1], exprDict);
-            oss << ")";
+        if (expr->Opcode() == SymbolicOpcode::T_BOP_MAX || expr->Opcode() == SymbolicOpcode::T_BOP_MIN) {
+            BuildExtremaExpressionCode(expr, exprDict, oss);
         } else {
             for (size_t idx = 0; idx < expr->OperandList().size(); idx++) {
                 if (idx != 0) {
@@ -277,7 +294,8 @@ static void DumpSymbolicScalar(const RawSymbolicScalarPtr &raw, Json &jarray) {
             jarray.emplace_back(EXPRESSION);
             RawSymbolicExpPtr expr = std::dynamic_pointer_cast<RawSymbolicExpression>(raw);
             jarray.emplace_back(static_cast<int32_t>(expr->Opcode()));
-            if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL) {
+            if (expr->Opcode() == SymbolicOpcode::T_MOP_CALL || expr->Opcode() == SymbolicOpcode::T_BOP_MAX
+                || expr->Opcode() == SymbolicOpcode::T_BOP_MIN) {
                 jarray.emplace_back(static_cast<int32_t>(expr->OperandList().size()));
             }
             for (auto &op : expr->OperandList()) {
@@ -309,7 +327,8 @@ static RawSymbolicScalarPtr LoadRawSymbolicScalar(const Json &symbolicJson, int 
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
             SymbolicOpcode opcode = static_cast<SymbolicOpcode>(symbolicJson[despos++]);
             std::vector<RawSymbolicScalarPtr> operandList;
-            if (opcode == SymbolicOpcode::T_MOP_CALL) {
+            if (opcode == SymbolicOpcode::T_MOP_CALL || opcode == SymbolicOpcode::T_BOP_MAX
+                || opcode == SymbolicOpcode::T_BOP_MIN) {
                 int size = symbolicJson[despos++];
                 for (int i = 0; i < size; i++) {
                     operandList.push_back(LoadRawSymbolicScalar(symbolicJson, despos));
@@ -480,26 +499,38 @@ bool SymbolicScalar::IsExpression() const {
     return raw_ && raw_->IsExpression();
 }
 
-SymbolicScalar SymbolicScalar::Min(const SymbolicScalar &sval) const {
-    auto raw = RawSymbolicExpression::CreateBopMin(raw_, sval.raw_);
-    if (ConcreteValid() && sval.ConcreteValid()) {
-        return SymbolicScalar(raw, std::min(Concrete(), sval.Concrete()));
-    } else if (sval.Dump() == Dump()) {
-        return sval;
-    } else {
-        return SymbolicScalar(raw);
+static void CollectOperands(const RawSymbolicScalarPtr& node, SymbolicOpcode objOpcode, std::vector<RawSymbolicScalarPtr>& out){
+    if (node && node->Kind() == SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION) {
+        auto expr = std::static_pointer_cast<RawSymbolicExpression>(node);
+        if (expr->Opcode() == objOpcode) {
+            const auto& ops = expr->OperandList();
+            out.insert(out.end(), ops.begin(), ops.end());
+            return;
+        }
     }
+    out.push_back(node);
+}
+
+SymbolicScalar SymbolicScalar::Min(const SymbolicScalar &sval) const {
+    if (ConcreteValid() && sval.ConcreteValid()) {
+        return SymbolicScalar(std::min(Concrete(), sval.Concrete()));
+    }    
+    std::vector<RawSymbolicScalarPtr> operands;
+    CollectOperands(raw_, SymbolicOpcode::T_BOP_MIN, operands);
+    CollectOperands(sval.raw_, SymbolicOpcode::T_BOP_MIN, operands);
+    auto raw = RawSymbolicExpression::CreateBopMin(operands);
+    return SymbolicScalar(raw); 
 }
 
 SymbolicScalar SymbolicScalar::Max(const SymbolicScalar &sval) const {
-    auto raw = RawSymbolicExpression::CreateBopMax(raw_, sval.raw_);
     if (ConcreteValid() && sval.ConcreteValid()) {
-        return SymbolicScalar(raw, std::max(Concrete(), sval.Concrete()));
-    } else if (sval.Dump() == Dump()) {
-        return sval;
-    } else {
-        return SymbolicScalar(raw);
+        return SymbolicScalar(std::max(Concrete(), sval.Concrete()));
     }
+    std::vector<RawSymbolicScalarPtr> operands;
+    CollectOperands(raw_, SymbolicOpcode::T_BOP_MAX, operands);
+    CollectOperands(sval.raw_, SymbolicOpcode::T_BOP_MAX, operands);
+    auto raw = RawSymbolicExpression::CreateBopMax(operands);
+    return SymbolicScalar(raw); 
 }
 
 SymbolicScalar SymbolicScalar::Ternary(const SymbolicScalar &sval1, const SymbolicScalar &sval2) const{
