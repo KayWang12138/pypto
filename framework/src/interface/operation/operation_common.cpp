@@ -22,6 +22,7 @@ inline const std::vector<size_t> &GetShapeLenLimit(const std::string &op) {
     static std::unordered_map<std::string, const std::vector<size_t>> op_shape_len_limit = {
         {    "ADD", {1, 4}},
         {   "CAST", {1, 4}},
+        {    "EXP", {1, 4}},
         {"DEFAULT", {1, 4}}
     };
     if (op_shape_len_limit.find(op) == op_shape_len_limit.end()) {
@@ -91,4 +92,4 @@ void CheckAxisRange(const Tensor &tensor, int &axis) {
     }
     ASSERT(axis >= 0 && axis < shapeSize) << "Axis is not in the reasonable range!";
 }
-}
+} // namespace npu::tile_fwk
