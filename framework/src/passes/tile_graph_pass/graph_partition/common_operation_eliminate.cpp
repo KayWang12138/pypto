@@ -173,7 +173,7 @@ std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::Op
         if (inputCheck && calcTypeCheck && outputCheck) { // copy from L1 to L0
             return {nullptr, {}};
         }
-        if (operation->GetOpcode() == Opcode::OP_VIEW || operation->GetOpcode() == Opcode::OP_COMPARE_SWAP) {
+        if (operation->GetOpcode() == Opcode::OP_VIEW) {
             return {nullptr, {}};
         }
         if (operation->GetBoolAttribute(OpAttributeKey::dontTouch)) {
@@ -263,27 +263,7 @@ bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, st
         if (allSame) return false;
     }
     if (newtensors->GetConsumers().size() == 0 || oldtensors->GetConsumers().size() == 0) return false;
-    // auto consumers = oldtensors->GetConsumers();
     UpdateProducers (oldtensors, newtensors);
-    // for (auto &cur : consumers) {
-    //     if (cur == nullptr) continue;
-    //     std::shared_ptr<LogicalTensor> old_ptr(oldtensors, [](LogicalTensor*){});
-    //     std::shared_ptr<LogicalTensor> new_ptr(newtensors, [](LogicalTensor*){});
-    //     cur->ReplaceInput(new_ptr, old_ptr);
-    //     auto attptr = cur->GetOpAttribute().get();
-    //     if (attptr == nullptr) continue;
-    //     if (cur->GetOpcode() == Opcode::OP_VIEW) {
-    //         if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(attptr)) {
-    //             UpdateView(viewOpAttribute, old_ptr, new_ptr);
-    //             continue;
-    //         }
-    //     } else if (cur->GetOpcode() == Opcode::OP_COPY_IN) { 
-    //         if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(attptr)) {
-    //             UpdateCopy(copyOpAttribute, old_ptr, new_ptr);
-    //             continue;
-    //         }
-    //     }
-    // }
     oldtensors->GetConsumers().clear();
     ALOG_DEBUG_F("In CommonOperationEliminate, Tensor %d producergroup is marked as redundant.", oldtensors->GetMagic());
     return true;
