@@ -265,7 +265,9 @@ Tensor ScalarMulS(const Tensor &operand, const Element &value, bool reverseOpera
 Tensor ScalarSub(const Tensor &operand1, const Tensor &operand2);
 Tensor ScalarDiv(const Tensor &operand1, const Tensor &operand2);
 Tensor CumSum(const Tensor &input, const int &axis);
+// Tensor TriU(const Tensor &input, const int diagonal);
 Tensor TriU(const Tensor &input, const SymbolicScalar diagonal);
+// Tensor TriL(const Tensor &input, const int diagonal);
 Tensor TriL(const Tensor &input, const SymbolicScalar diagonal);
 struct PaTileShapeConfig {
     int headNumQTile;

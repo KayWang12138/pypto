@@ -612,13 +612,21 @@ void TiledTriUL(Function &function, const TileShape &tileShape, const TriULPara 
 }
 
 void TensorTriUL(Function &function, const TriULPara &triULPara) {
+    auto shapeSize = triULPara.input->GetShape().size();
+    auto dataType = triULPara.input->Datatype();
+    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM5) << "This operation's input only support 2-5 dims";
+    const std::unordered_set<DataType> SRC_SUPPORT_DATATYPES = {DT_FP32, DT_FP16, DT_BF16, DT_INT32, DT_INT16, DT_INT8};
+    std::unordered_set<DataType> TRIU_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32,
+        DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
+    ASSERT(TRIU_SUPPORT_DATATYPES.count(dataType))<< "This datatype is not supported";
+
     if (triULPara.input->Datatype() == DT_INT8) {
         LogicalTensorPtr inputConverted = std::make_shared<LogicalTensor>(function, DT_FP16, triULPara.input->GetShape());
         Operation &castinputOp = function.AddOperation(Opcode::OP_CAST, {triULPara.input}, {inputConverted});
         castinputOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
         LogicalTensorPtr dstConverted = std::make_shared<LogicalTensor>(function, DT_FP16, triULPara.dstTensor->GetShape());
         auto &op = function.AddOperation(Opcode::OP_TRIUL, {inputConverted}, {dstConverted});
-        op.SetAttribute(OP_ATTR_PREFIX + "diagonal", triULPara.diagonal);
+        op.SetAttribute(OpAttributeKey::dynScalar, triULPara.diagonal);
         op.SetAttribute(OP_ATTR_PREFIX + "isUpper", triULPara.isUpper);
         Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConverted}, {triULPara.dstTensor});
         castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_TRUNC);
@@ -631,41 +639,15 @@ void TensorTriUL(Function &function, const TriULPara &triULPara) {
 
 Tensor TriU(const Tensor &input, const SymbolicScalar diagonal) {
     DECLARE_TRACER();
-    auto shapeSize = input.GetShape().size();
-    auto dataType = input.GetDataType();
-
-    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM5) << "The shape.size() only support 2~5";
-    std::vector<DataType> TRIU_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32,
-        DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
-    ASSERT(std::find(TRIU_SUPPORT_DATATYPES.begin(), TRIU_SUPPORT_DATATYPES.end(), dataType) !=
-           TRIU_SUPPORT_DATATYPES.end())
-        << "The datatype is not supported";
-    // ASSERT(std::is_integral_v<decltype(diagonal)>) << "The diagonal must be int";
-    bool isUpper = true;
-
     Tensor result(input.GetDataType(), input.GetShape());
-    CALL(TriUL, *Program::GetInstance().GetCurrentFunction(),
-        {input.GetStorage(), result.GetStorage(), diagonal, isUpper});
+    CALL(TriUL, *Program::GetInstance().GetCurrentFunction(), {input.GetStorage(), result.GetStorage(), diagonal, true});
     return result;
 }
 
-Tensor TriL(const Tensor &input, const int diagonal) {
+Tensor TriL(const Tensor &input, const SymbolicScalar diagonal) {
     DECLARE_TRACER();
-    auto shapeSize = input.GetShape().size();
-    auto dataType = input.GetDataType();
-
-    ASSERT(SHAPE_DIM2 <= shapeSize && shapeSize <= SHAPE_DIM5) << "The shape.size() only support 2~5";
-    std::vector<DataType> TRIU_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32,
-        DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
-    ASSERT(std::find(TRIU_SUPPORT_DATATYPES.begin(), TRIU_SUPPORT_DATATYPES.end(), dataType) !=
-           TRIU_SUPPORT_DATATYPES.end())
-        << "The datatype is not supported";
-    // ASSERT(std::is_integral_v<decltype(diagonal)>) << "The diagonal must be int";
-    bool isUpper = false;
-
     Tensor result(input.GetDataType(), input.GetShape());
-    CALL(TriUL, *Program::GetInstance().GetCurrentFunction(),
-        {input.GetStorage(), result.GetStorage(), diagonal, isUpper});
+    CALL(TriUL, *Program::GetInstance().GetCurrentFunction(), {input.GetStorage(), result.GetStorage(), diagonal, false});
     return result;
 }
 
