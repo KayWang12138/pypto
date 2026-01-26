@@ -21,6 +21,7 @@
 #include <string>
 #include <set>
 #include <map>
+#include <unordered_set>
 
 #include <tilefwk/symbolic_scalar.h>
 
@@ -372,6 +373,71 @@ public:
         }
     }
 
+    static void FlattenOperands(const std::vector<RawSymbolicScalarPtr> &inOperandList, std::vector<RawSymbolicScalarPtr> &outOperandList) {
+        for (auto& operand : inOperandList) {
+            if (!operand) {
+                continue;
+            }
+
+            if (operand->Kind() == SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION) {
+                auto expr = std::static_pointer_cast<RawSymbolicExpression>(operand);
+                if (expr->Opcode() == SymbolicOpcode::T_BOP_MAX || expr->Opcode() == SymbolicOpcode::T_BOP_MIN) {
+                    const auto& sub = expr->OperandList();
+                    outOperandList.insert(outOperandList.end(), sub.begin(), sub.end());
+                    continue;
+                }
+            }
+            outOperandList.push_back(operand);
+        }
+    }
+
+    static RawSymbolicScalarPtr CreateRuntimeExtrema(SymbolicOpcode opcode, const std::vector<RawSymbolicScalarPtr> &operandList) {
+        std::vector<RawSymbolicScalarPtr> flat;
+        flat.reserve(operandList.size());
+        FlattenOperands(operandList, flat);
+
+        bool hasImm = false;
+        ScalarImmediateType immExt = 0;
+        std::vector<RawSymbolicScalarPtr> nonImm;
+        std::unordered_set<std::string> seenStr;
+
+        auto combine = [&](ScalarImmediateType a, ScalarImmediateType b) {
+            return (opcode == SymbolicOpcode::T_BOP_MAX) ? std::max(a, b) : std::min(a, b);
+        };
+
+        for (auto& operand : flat) {
+            if (operand->IsImmediate()) {
+                auto value = std::static_pointer_cast<RawSymbolicImmediate>(operand)->Immediate();
+                if (!hasImm) {
+                    immExt = value;
+                    hasImm = true;
+                } else {
+                    immExt = combine(immExt, value);
+                }
+                continue;
+            }
+
+            std::string tmpExpr;
+            operand->DumpBuffer(tmpExpr);
+            if (seenStr.count(tmpExpr)) {
+                continue;
+            } else {
+                seenStr.insert(std::move(tmpExpr));
+                nonImm.emplace_back(operand);
+            }
+        }
+
+        if (hasImm) nonImm.emplace_back(std::make_shared<RawSymbolicImmediate>(immExt));
+        
+        if (nonImm.empty()) {
+            return std::make_shared<RawSymbolicImmediate>(immExt);
+        } else if (nonImm.size() == 1) {
+            return nonImm[0];
+        } else {
+            return std::make_shared<RawSymbolicExpression>(opcode, nonImm);
+        }
+    }
+
     static RawSymbolicScalarPtr Create(SymbolicOpcode opcode, const std::vector<RawSymbolicScalarPtr> &operandList) {
         RawSymbolicScalarPtr raw;
         if (std::all_of(operandList.begin(), operandList.end(),
@@ -411,6 +477,8 @@ public:
             } else {
                 Handle2NonzeroOperand(raw, opcode, nonzeroOperandList);
             }
+        } else if (opcode == SymbolicOpcode::T_BOP_MAX || opcode == SymbolicOpcode::T_BOP_MIN) {
+            raw = CreateRuntimeExtrema(opcode, operandList);
         } else {
             raw = std::make_shared<RawSymbolicExpression>(opcode, operandList);
         }
@@ -445,9 +513,15 @@ public:
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopGt, SymbolicOpcode::T_BOP_GT)
     RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopGe, SymbolicOpcode::T_BOP_GE)
 
-    RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopMin, SymbolicOpcode::T_BOP_MIN)
-    RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP(CreateBopMax, SymbolicOpcode::T_BOP_MAX)
 #undef  RAW_SYMBOLIC_EXPRESSION_DEFINE_BOP
+#define RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(name, mop) \
+    static RawSymbolicScalarPtr name(const std::vector<RawSymbolicScalarPtr> &operands) { \
+        RawSymbolicScalarPtr result = Create(mop, operands);                                           \
+        return result;                                                                                   \
+    }
+    RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(CreateBopMax, SymbolicOpcode::T_BOP_MAX)
+    RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(CreateBopMin, SymbolicOpcode::T_BOP_MIN)
+#undef  RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP
 
     static RawSymbolicScalarPtr CreateMopCall(const RawSymbolicScalarPtr &callee) {
         RawSymbolicScalarPtr result = Create(SymbolicOpcode::T_MOP_CALL, {callee});
@@ -468,6 +542,35 @@ public:
     }
 
 private:
+
+    void DumpRuntimeExtrema(std::string& out) const {
+        ASSERT(operandList_.size() >= 2);
+        std::string funcName = (opcode_ == SymbolicOpcode::T_BOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
+
+        // 从末尾两个开始构造 nestedExpr = fn(a_{n-2}, a_{n-1})
+        std::string nestedExpr;
+        nestedExpr += funcName;
+        nestedExpr += "(";
+        operandList_[operandList_.size() - 2]->DumpBuffer(nestedExpr);
+        nestedExpr += ",";
+        operandList_[operandList_.size() - 1]->DumpBuffer(nestedExpr);
+        nestedExpr += ")";
+        
+        // 再往前折叠 fn(a_i, nestedExpr)
+        for (int i = static_cast<int>(operandList_.size()) - 3; i >= 0; --i) {
+            std::string tmp;
+            tmp += funcName;
+            tmp += "(";
+            operandList_[static_cast<size_t>(i)]->DumpBuffer(tmp);
+            tmp += ", ";
+            tmp += nestedExpr;
+            tmp += ")";
+            nestedExpr = std::move(tmp);
+        }
+
+        out += nestedExpr;
+    }
+
     void DumpBuffer(std::string &buffer) const override {
         if (SymbolicOpcode::T_UOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_UOP_END) {
             buffer += "(";
@@ -475,18 +578,8 @@ private:
             operandList_[0]->DumpBuffer(buffer);
             buffer += ")";
         } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_BOP_END) {
-            if (opcode_ == SymbolicOpcode::T_BOP_MAX) {
-                buffer += "RUNTIME_Max(";
-                operandList_[0]->DumpBuffer(buffer);
-                buffer += ", ";
-                operandList_[1]->DumpBuffer(buffer);
-                buffer += ")";
-            } else if (opcode_ == SymbolicOpcode::T_BOP_MIN) {
-                buffer += "RUNTIME_Min(";
-                operandList_[0]->DumpBuffer(buffer);
-                buffer += ", ";
-                operandList_[1]->DumpBuffer(buffer);
-                buffer += ")";
+            if (opcode_ == SymbolicOpcode::T_BOP_MAX || opcode_ == SymbolicOpcode::T_BOP_MIN) {
+                DumpRuntimeExtrema(buffer);
             } else if (opcode_ == SymbolicOpcode::T_BOP_EQ) {
                 buffer += "RUNTIME_Eq(";
                 operandList_[0]->DumpBuffer(buffer);
@@ -821,6 +914,7 @@ struct SymbolicExpressionTable {
     static std::string BuildExpression(const SymbolicScalar &ss);
     static std::string BuildExpression(const RawSymbolicScalarPtr &ss);
 private:
+    static void BuildExtremaExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict, std::ostringstream &oss);
     static std::string BuildExpressionCode(const RawSymbolicExpPtr &expr, const std::unordered_map<RawSymbolicScalarPtr, std::string> &exprDict);
 
     void AddExpression(const RawSymbolicScalarPtr &raw) {
