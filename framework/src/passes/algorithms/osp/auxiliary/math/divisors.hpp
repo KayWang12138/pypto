@@ -69,7 +69,8 @@ std::vector<IntegralType> DivisorsList(IntegralType num) {
             divs.emplace_back(div);
         }
     }
-    const std::size_t beginIndx = divs.back() * divs.back() == num ? divs.size() - 2U : divs.size() - 1U;
+    constexpr std::size_t numberTwo = 2U;
+    const std::size_t beginIndx = divs.back() * divs.back() == num ? divs.size() - numberTwo : divs.size() - 1U;
     for (std::size_t indx = beginIndx; indx != std::numeric_limits<std::size_t>::max(); --indx) {
         divs.emplace_back(num / divs[indx]);
     }
@@ -79,3 +80,4 @@ std::vector<IntegralType> DivisorsList(IntegralType num) {
 
 }    // end namespace osp
 }    // namespace npu::tile_fwk
+#endif   // PASS_OSP_MATH_H

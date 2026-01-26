@@ -206,3 +206,4 @@ static_assert(isComputationalDagTypedVerticesV<DagVectorAdapter<CDagVertexImplUn
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
+#endif    // PASS_OSP_DAG_VECTOR_ADAPTER_H

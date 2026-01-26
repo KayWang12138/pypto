@@ -25,8 +25,9 @@ namespace osp {
 class BiasedRandom {
   public:
     bool GetFlip() {
-        int genuineRandomSize = 3;
-        int dieSize = 2 * genuineRandomSize + abs(trueBias_);
+        constexpr int genuineRandomSize = 3;
+        constexpr int numberTwo = 2;
+        int dieSize = numberTwo * genuineRandomSize + abs(trueBias_);
         std::uniform_int_distribution<int> distrib(0, dieSize - 1);
         int flip = distrib(gen_);
         if (trueBias_ >= 0) {
@@ -65,10 +66,11 @@ class ThueMorseSequence {
 
     bool GetFlip() {
         for (long unsigned int i = sequence_.size(); i <= next_; i++) {
-            if (i % 2 == 0) {
-                sequence_.emplace_back(sequence_[i / 2]);
+            constexpr long unsigned int numberTwo = 2U;
+            if (i % numberTwo == 0) {
+                sequence_.emplace_back(sequence_[i / numberTwo]);
             } else {
-                sequence_.emplace_back(!sequence_[i / 2]);
+                sequence_.emplace_back(!sequence_[i / numberTwo]);
             }
         }
         return sequence_[next_++];
@@ -81,3 +83,4 @@ class ThueMorseSequence {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
+#endif    // PASS_OSP_BALANCED_COIN_FLIPS_H

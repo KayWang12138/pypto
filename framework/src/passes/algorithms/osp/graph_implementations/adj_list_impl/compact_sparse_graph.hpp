@@ -307,3 +307,4 @@ public:
 
 } // namespace osp
 } // namespace npu::tile_fwk
+#endif // PASS_OSP_COMPACT_SPARSE_GRAPH_H

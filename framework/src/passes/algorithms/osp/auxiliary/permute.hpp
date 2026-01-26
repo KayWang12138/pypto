@@ -54,3 +54,4 @@ void InversePermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm) {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
+#endif    // PASS_OSP_PERMUTE_H

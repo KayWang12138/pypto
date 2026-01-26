@@ -437,3 +437,4 @@ using UnionFindUniverseT = UnionFindUniverse<VertexIdxT<GraphT>, VertexIdxT<Grap
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
+#endif    // PASS_OSP_UNION_FIND_H

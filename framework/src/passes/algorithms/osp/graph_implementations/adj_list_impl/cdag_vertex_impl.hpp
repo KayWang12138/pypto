@@ -85,3 +85,4 @@ using CDagVertexImplUnsigned = CDagVertexImpl<std::size_t, unsigned, unsigned, u
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
+#endif    // PASS_OSP_CDAG_VERTEX_IMPL_H

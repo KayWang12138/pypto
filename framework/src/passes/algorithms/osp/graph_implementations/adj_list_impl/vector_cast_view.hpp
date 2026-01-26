@@ -151,3 +151,4 @@ class VectorCastView {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
+#endif    // PASS_OSP_VECTOR_CAST_VIEW_H

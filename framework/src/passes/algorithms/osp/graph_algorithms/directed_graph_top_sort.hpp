@@ -81,3 +81,4 @@ std::vector<VertexIdxT<GraphT>> GetTopOrderReverse(const GraphT &graph) {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
+#endif    // PASS_OSP_DIRECTED_GRAPH_TOP_SORT_H
