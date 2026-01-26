@@ -20,6 +20,13 @@
 #include "interface/utils/log.h"
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
+#include <chrono>
+
+#define APASS_LOG_F(lvl, MODULE_NAME, opName, fmt, args...)                        \
+    do {                                                                        \
+        ALOG_F(lvl, \
+        "[%s][%s][" #lvl "]: " fmt, MODULE_NAME, opName, ##args);       \
+    } while (false)
 
 namespace npu::tile_fwk {
 
@@ -51,14 +58,26 @@ inline const char* toString(Elements elem) {
     auto it = passElementName.find(elem);
     return (it != passElementName.end()) ? it->second : "Unknown";
 }
+
+class ScopeTimer {
+public:
+    ScopeTimer(const char* moduleName, Elements opEnum, const char* tag)
+        : module_(moduleName), opEnum_(opEnum), tag_(tag), start_(std::chrono::steady_clock::now()) {}
+
+    ~ScopeTimer() {
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_).count();
+        APASS_LOG_F(INFO, module_, toString(opEnum_),
+            "[Perf] %s cost time=%lld us", tag_, (long long)us);
+    }
+
+private:
+    const char* module_;
+    Elements opEnum_;
+    const char* tag_;
+    std::chrono::steady_clock::time_point start_;
+};
+
 }
-
-#define APASS_LOG_F(lvl, MODULE_NAME, opName, fmt, args...)                        \
-    do {                                                                        \
-        ALOG_F(lvl, \
-        "[%s][%s][" #lvl "]: " fmt, MODULE_NAME, opName, ##args);       \
-    } while (false)
-
 
 #define APASS_LOG_DEBUG_F(opEnum, fmt, args...)   APASS_LOG_F(DEBUG, MODULE_NAME, toString(opEnum), fmt, ##args)
 #define APASS_LOG_INFO_F(opEnum, fmt, args...)    APASS_LOG_F(INFO, MODULE_NAME, toString(opEnum), fmt, ##args)

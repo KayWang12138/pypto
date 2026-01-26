@@ -163,14 +163,16 @@ void OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType buf
     APASS_LOG_ERROR_F(Elements::Operation, "======== OoO Spill failed info ===========");
     APASS_LOG_ERROR_F(Elements::Operation, "Spill failed memoryType: %s. %s", MemoryTypeToString(bufferType).c_str(), GetFormatBacktrace(allocIssue->tileOp).c_str());
     if (localBufferMap.find(allocIssue->reqMemIds[0]) != localBufferMap.end()) {
-        APASS_LOG_ERROR_F(Elements::Operation, "%s alloc buffer size: %lu. %s", allocIssue->GetOpInfo().c_str(), 
+        APASS_LOG_ERROR_F(Elements::Operation, "---- alloc request ----");
+        APASS_LOG_ERROR_F(Elements::Operation, "op:%s need buffer size: %lu. %s", allocIssue->GetOpInfo().c_str(), 
             localBufferMap[allocIssue->reqMemIds[0]]->size, GetFormatBacktrace(allocIssue->tileOp).c_str());
     }
     if (tensorOccupyMap.find(bufferType) != tensorOccupyMap.end()) {
+        APASS_LOG_ERROR_F(Elements::Operation, "---- current buffer occupancy ----");
         for (auto occupyIssue : tensorOccupyMap[bufferType]) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s, range[%lu, %lu], Tensor[%d] size: %lu. %s", occupyIssue.second->GetOpInfo().c_str(),
+            APASS_LOG_ERROR_F(Elements::Operation, "Tensor[%d], size: %lu, range[%lu, %lu], last writer:%s. %s", occupyIssue.first, localBufferMap[occupyIssue.first]->size,
                 localBufferMap[occupyIssue.first]->start, localBufferMap[occupyIssue.first]->end, 
-                occupyIssue.first, localBufferMap[occupyIssue.first]->size, GetFormatBacktrace(occupyIssue.second->tileOp).c_str());
+                occupyIssue.second->GetOpInfo().c_str(), GetFormatBacktrace(occupyIssue.second->tileOp).c_str());
         }
     }
 }
@@ -588,12 +590,14 @@ Status OoOScheduler::InitMemWithoutAlloc() {
 }
 
 Status OoOScheduler::ScheduleMainLoop() {
+    ScopeTimer _t_(MODULE_NAME, Elements::Function, "ScheduleMainLoop");
     UpdateIssueExecOrder();
     LaunchReadyIssue();
     if (InitMemWithoutAlloc() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitMemWithoutAlloc failed.");
         return FAILED;
     }
+    APASS_LOG_DEBUG_F(Elements::Function, "=========> Begin ScheduleMainLoop.");
     numTotalIssues = issueEntries.size();
     uint64_t commitCnt = 0; // 当前已提交的issue数量
     bool isAllRetired = false;
@@ -630,6 +634,7 @@ Status OoOScheduler::ScheduleMainLoop() {
             clock = nextCycle;
         }
     }
+    APASS_LOG_DEBUG_F(Elements::Function, "=========> End ScheduleMainLoop.");
     return SUCCESS;
 }
 
@@ -672,9 +677,10 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
 }
 
 Status OoOScheduler::GenSpillSchedule() {
+    ScopeTimer _t_(MODULE_NAME, Elements::Function, "GenSpillSchedule");
     UpdateIssueExecOrder();
     size_t pcIdx = 0;
-    APASS_LOG_DEBUG_F(Elements::Operation, "=========> Begin GenSpillSchedule.");
+    APASS_LOG_DEBUG_F(Elements::Function, "=========> Begin GenSpillSchedule.");
     if (InitMemWithoutAlloc() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitMemWithoutAlloc failed.");
         return FAILED;
@@ -700,7 +706,7 @@ Status OoOScheduler::GenSpillSchedule() {
             return FAILED; 
         }
     }
-    APASS_LOG_DEBUG_F(Elements::Operation, "=========> End GenSpillSchedule.");
+    APASS_LOG_DEBUG_F(Elements::Function, "=========> End GenSpillSchedule.");
     InitBufRefCount();
     // 更新依赖关系
     if (InitDependencies() != SUCCESS) { 
@@ -962,7 +968,8 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
     issueEntries.clear();
     localBufferMap.clear();
     depthCache_.clear();
-
+    ScopeTimer _t_(MODULE_NAME, Elements::Function, "Init");
+    APASS_LOG_DEBUG_F(Elements::Function, "=========> Begin Init.");
     // 初始化芯片各buffer大小
     InitMemorySize();
     // 校验并初始化issueEntry
@@ -998,6 +1005,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations) {
 
     // 初始化内存管理器
     InitIssueQueuesAndBufferManager();
+    APASS_LOG_DEBUG_F(Elements::Function, "=========> End Init.");
     return SUCCESS;
 }
 
