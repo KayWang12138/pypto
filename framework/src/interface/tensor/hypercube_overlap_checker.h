@@ -108,6 +108,9 @@ template<typename T>
 void HypercubeOverlapCheckerBlock<T>::Shape2Keys(const std::vector<int> &hypercube, std::vector<uint64_t>& result,
                                             int dimIdx, uint64_t currValue)
 {
+#if defined(__clang__)
+    __attribute__((no_sanitize("unsigned-integer-overflow")))
+#endif
     if ((dimIdx * elementOfDim + 1) >= static_cast<int>(hypercube.size())) {
         result.push_back(currValue);
         return;

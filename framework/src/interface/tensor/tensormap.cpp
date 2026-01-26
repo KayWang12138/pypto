@@ -216,11 +216,11 @@ OverlapStatus CalcOverlap(
         // Which is equivalent to: a + length_a > b AND b + length_b > a
 
         size_t pStart = pTensor->offset[dim];
-        size_t pEnd = pStart + pTensor->shape[dim] - 1;
+        size_t pEnd = pStart + pTensor->shape[dim];
         size_t qStart = qTensor->offset[dim];
-        size_t qEnd = qStart + qTensor->shape[dim] - 1;
+        size_t qEnd = qStart + qTensor->shape[dim];
 
-        if (pEnd < qStart || qEnd < pStart) {
+        if (pEnd <= qStart || qEnd <= pStart) {
             return OverlapStatus::NO_OVER_LAP;
         }
 

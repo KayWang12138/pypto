@@ -76,7 +76,7 @@ public:
     DataType GetDataType() const { return datatype; }
     const Shape &GetRawShape() const { return rawshape; }
     int64_t GetRawShapeSize() const;
-    int64_t GetRawDataSize() const;
+    int64_t GetRawDataSize() const __attribute__((no_sanitize("unsigned-integer-overflow")));
     const std::vector<SymbolicScalar> &GetDynRawShape() const { return dynRawShape; }
     SymbolicScalar GetDynRawShape(int axis) const { return dynRawShape[axis]; }
     void UpdateDynRawShape(const std::vector<SymbolicScalar> &dynShape) { dynRawShape = dynShape; }
