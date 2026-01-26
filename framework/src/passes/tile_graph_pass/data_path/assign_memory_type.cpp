@@ -502,8 +502,10 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
             bool isToL1 = true;
             auto toBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
             for (const auto &[_, toBeType] : toBeMap) {
-                isToL1 = false;
-                break;
+                if (toBeType != MemoryType::MEM_L1) {
+                    isToL1 = false;
+                    break;
+                }
             }
             if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape())){
                 oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
