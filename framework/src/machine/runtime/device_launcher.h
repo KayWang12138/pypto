@@ -124,30 +124,20 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void AssignMetaAddr(DeviceKernelArgs &kArgs, DeviceMemoryTy devMem, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+    static void AssignMetaAddr(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+        (void)kArgs;
+
+        FillDeviceRuntimeOffset(devProg, DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT);
+        size_t runtimeDataSize = devProg->GetDeviceRuntimeOffset().size;
+        size_t runtimeDataCount = devProg->GetDeviceRuntimeOffset().count;
+        size_t runtimeDataRingBufferSize = RuntimeDataRingBufferHead::GetRingBufferSize(runtimeDataSize, runtimeDataCount);
+        uint64_t runtimeDataRingBufferAddr = (uint64_t)devMem.AllocDev(runtimeDataRingBufferSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
+        devProg->devArgs.runtimeDataRingBufferAddr = runtimeDataRingBufferAddr;
+
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
-        size_t shmSize = generalSize + stitchPoolSize;
-        uint64_t shmAddr = 0U;
-        if (devMem.IsDevice()) {
-            shmAddr = (uint64_t)devMem.AllocDev(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
-        } else {
-            shmSize += (DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum);
-            shmAddr = (uint64_t)devMem.AllocDev(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
-            devProg->devArgs.startArgsAddr = shmAddr;
-            shmAddr += DEV_ARGS_SIZE;
-            devProg->devArgs.taskCtrl = shmAddr;
-            shmAddr += DEVICE_TASK_CTRL_SIZE;
-            devProg->devArgs.taskQueue = shmAddr;
-            shmAddr += DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
-        }
-        devProg->devArgs.generalAddr = shmAddr;
-        kArgs.opMetaAddrs.generalAddr = shmAddr;
-        shmAddr += generalSize;
-        devProg->devArgs.stitchPoolAddr = shmAddr;
-        kArgs.opMetaAddrs.stitchPoolAddr = shmAddr;
-        ALOG_DEBUG_F("generalSize:%lu stitchPoolSize:%lu generalAddr:%lx stitchPoolAddr:%lx.", generalSize, stitchPoolSize,
-            devProg->devArgs.generalAddr, devProg->devArgs.stitchPoolAddr);
+        ALOG_DEBUG_F("generalSize:%lu stitchPoolSize:%lu generalOffset:%lx stitchPoolOffset:%lx.", generalSize, stitchPoolSize,
+            devProg->deviceRuntimeOffset.generalOffset, devProg->deviceRuntimeOffset.stitchPoolOffset);
         return;
     }
 
@@ -200,7 +190,7 @@ public:
     template<typename DeviceMemoryTy>
     static void FillKernelMeta(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
             const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
-        AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
+        AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t *)config.workspaceAddr;
@@ -230,10 +220,10 @@ public:
 
     static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        ASSERT(devProg->commGroupNum == hcclContext.size()) 
-            << "commGroupNum mismatch. commGroupNum = " 
+        ASSERT(devProg->commGroupNum == hcclContext.size())
+            << "commGroupNum mismatch. commGroupNum = "
             <<devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
-        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) 
+        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t)))
             << "commGroupNum exceeds array size. commGroupNum = "
             << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
