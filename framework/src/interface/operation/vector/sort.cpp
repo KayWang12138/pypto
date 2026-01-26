@@ -529,7 +529,7 @@ void TiledSort(Function &function, const TileShape &tileShape, size_t cur, Input
             std::vector<SymbolicScalar> bitSortValidShape(source->GetDynValidShape());
             bitSortValidShape[axis] = (bitSortValidShape[axis] + blockSize - 1) / blockSize * blockSize;
             bitSortValidShape[axis] = bitSortValidShape[axis] * NUM2 + source->GetDynValidShape()[axis];
-            bitSortValidShape->UpdateDynValidShape(bitSortValidShape);
+            bitSortOutputTensor->UpdateDynValidShape(bitSortValidShape);
 
             // 32个元素组成的block之间进行归并
             std::vector<int64_t> mrgSortOutputShape = source->shape;
@@ -593,7 +593,7 @@ void TiledSort(Function &function, const TileShape &tileShape, size_t cur, Input
             std::vector<SymbolicScalar> bitSortDynValidShape(inputTile->GetDynValidShape());
             bitSortDynValidShape[axis] = (bitSortDynValidShape[axis] + blockSize - 1) / blockSize * blockSize;
             bitSortDynValidShape[axis] = bitSortDynValidShape[axis] * NUM2 + inputTile->GetDynValidShape()[axis];
-            bitSortDynValidShape->UpdateDynValidShape(bitSortDynValidShape);
+            bitSortTile->UpdateDynValidShape(bitSortDynValidShape);
             
             tileOutputShape[axis] = (tileSourceShape[axis] + 7) / 8 * 8 * 2; // UB 32B对齐，兼顾了DynMrgSort中的k向8对齐
             tileOutputOffset[axis] = i * 2;
