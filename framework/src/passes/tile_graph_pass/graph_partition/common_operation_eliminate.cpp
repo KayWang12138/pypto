@@ -227,10 +227,7 @@ bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, st
         return false;
     }
     auto existOp = OperationExist(tensorProducerPair, cacheProducers);
-    if (existOp.first == nullptr || existOp.second.empty()) {
-        return false;
-    }
-    if (tensorProducerPair.first == nullptr) {
+    if (existOp.first == nullptr || tensorProducerPair.first == nullptr || existOp.second.empty()) {
         return false;
     }
     if (tensorProducerPair.first->shape != existOp.first->shape) {
