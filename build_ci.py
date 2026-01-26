@@ -316,7 +316,7 @@ class TestsExecuteParam(CMakeParam):
 
     def __init__(self, args):
         self.changed_file = None if not args.changed_files else Path(args.changed_files).resolve()
-        self.auto_execute = args.disable_auto_execute
+        self.auto_execute = True
         self.auto_execute_parallel = self.auto_execute and self.ci_model
         timeout = args.case_execute_timeout
         self.case_execute_timeout = timeout if timeout and timeout > 0 else None  # 单个用例执行超时时长

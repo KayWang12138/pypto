@@ -117,7 +117,7 @@ void RawTensor::AddRefCount(int value) {
 }
 
 int64_t RawTensor::GetRawDataSize() const {
-    return GetRawShapeSize() * BytesOf(datatype);
+    return static_cast<int64_t>(BytesOf(datatype)) * GetRawShapeSize();
 }
 
 
