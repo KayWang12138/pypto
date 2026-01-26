@@ -128,6 +128,7 @@ Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE)
 Tensor Exp(const Tensor &self);
 Tensor Neg(const Tensor &self);
 Tensor Rsqrt(const Tensor &self);
+Tensor BitwiseNot(const Tensor &self);
 Tensor Sqrt(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &self);
