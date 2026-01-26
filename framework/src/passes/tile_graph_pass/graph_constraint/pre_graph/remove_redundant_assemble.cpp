@@ -133,9 +133,13 @@ bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTens
 }
 
 /*
-处理场景:
+删除冗余的VIEW处理场景:
+Brfore：
 VIEW -> RESHAPE -> COPYIN
                 -> COPYIN
+After：
+RESHAPE -> COPYIN
+        -> COPYIN
 */
 Status RemoveRedundantAssemble::ProcessView(Function &function) const {
     for (auto &op : function.Operations()) {
@@ -192,18 +196,25 @@ Status RemoveRedundantAssemble::ProcessView(Function &function) const {
 bool RemoveViewMultiReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTensorPtr &reshapeOutput) {
     auto longerRawShape = reshapeInput->GetRawTensor()->GetRawShape();
     auto shorterRawShape = reshapeOutput->GetRawTensor()->GetRawShape();
-    if (longerRawShape.size() == shorterRawShape.size() ||
-        std::min(longerRawShape.size(), shorterRawShape.size()) < 1) {
+
+    // 确保longerRawShape是维度数更大的一个
+    if (longerRawShape.size() < shorterRawShape.size()) {
+        std::swap(longerRawShape, shorterRawShape);
+    }
+
+    // 维度数一致或太小（小于1）则失败
+    if (longerRawShape.size() == shorterRawShape.size() || std::min(longerRawShape.size(), shorterRawShape.size()) < 1) {
         return false;
     }
-    if (longerRawShape.size() < shorterRawShape.size()) {
-        return RemoveViewMultiReshapePattern(reshapeOutput, reshapeInput);
-    }
+
+    // 检查总元素数量是否一致
     auto longerRawShapeSize = reshapeInput->GetRawTensor()->GetRawShapeSize();
     auto shorterRawShapeSize = reshapeOutput->GetRawTensor()->GetRawShapeSize();
     if (longerRawShapeSize != shorterRawShapeSize) {
         return false;
     }
+
+    // 检查维度为1的条件
     auto haveOne = longerRawShape[0] == 1 || longerRawShape[1] == 1;
     return haveOne && longerRawShape[0] * longerRawShape[1] == shorterRawShape[0];
 }
@@ -225,7 +236,13 @@ Status ProcessReshape(Function &function, Operation *&operation) {
     auto oOperand = operation->oOperand[0];
     if (oOperand == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation,
-            "Null output operand detected while iterating over the output operands of the operation [%d].%s",
+            "Null output operands detected while iterating over the output operands of the operation [%d].%s",
+            operation->opmagic, GetFormatBacktrace(operation).c_str());
+        return FAILED;
+    }
+    if (iOperand == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation,
+            "Null input operands detected while iterating over the input operands of the operation [%d].%s",
             operation->opmagic, GetFormatBacktrace(operation).c_str());
         return FAILED;
     }
@@ -253,6 +270,18 @@ Status ProcessReshape(Function &function, Operation *&operation) {
     return SUCCESS;
 }
 
+/*
+拷贝一个RESHAPE和删除冗余RESHAPE
+Before:
+RESHAPE1 -> VIEW -> RESHAPE2
+         -> COPYIN
+         -> COPYIN
+
+After:
+RESHAPE2
+RESHAPE -> COPYIN
+        -> COPYIN
+*/
 Status RemoveViewMultiReshape(Function &function) {
     for (auto op : function.Operations().DuplicatedOpList()) {
         if (op->GetOpcode() != Opcode::OP_RESHAPE) {
@@ -268,9 +297,9 @@ Status RemoveViewMultiReshape(Function &function) {
             if (consumerOp->GetOpcode() != Opcode::OP_VIEW) {
                 continue;
             }
-            auto viewConsumer = consumerOp->GetOOperands().front()->GetConsumers();
-            auto viewConsumerOp = *viewConsumer.begin();
-            if (viewConsumerOp == nullptr || viewConsumer.size() != 1 ||
+            auto viewConsumers = consumerOp->GetOOperands().front()->GetConsumers();
+            auto viewConsumerOp = *viewConsumers.begin();
+            if (viewConsumerOp == nullptr || viewConsumers.size() != 1 ||
                 viewConsumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
                 continue;
             }
