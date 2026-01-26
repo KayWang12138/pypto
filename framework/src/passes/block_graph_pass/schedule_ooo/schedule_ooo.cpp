@@ -159,11 +159,11 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
     for (auto &entry : lastUseMap_) {
         auto lastUseOp = entry.second;
         auto lastUseTensor = entry.first;
-        if (opInputIdxMap.find(lastUseOp->GetOpcode()) == opInputIdxMap.end()) {
+        if (opInputIdxMap.find(lastUseOp) == opInputIdxMap.end()) {
             int tensorSize = lastUseOp->GetIOperands().size() + lastUseOp->GetOOperands().size();
             std::vector<int> tensorIdxVec(tensorSize, false);
             int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + lastUseOp->GetOOperands().size();
-            if (reduceOp.find(lastUseOp) != reduceOp.end() && inputIdx == tensorSize - 1) {
+            if (reduceOp.find(lastUseOp->GetOpcode()) != reduceOp.end() && inputIdx == tensorSize - 1) {
                 tensorIdxVec[inputIdx] = false;
             } else {
                 tensorIdxVec[inputIdx] = true;
