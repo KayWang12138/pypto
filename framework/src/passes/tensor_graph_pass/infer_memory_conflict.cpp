@@ -182,10 +182,7 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
     constexpr size_t DIMENSIONS_3D = 3;
     constexpr size_t DIMENSIONS_4D = 4;
     
-    if (inputDims < MIN_DIMENSIONS || outputDims < MIN_DIMENSIONS ||
-        inputDims > MAX_DIMENSIONS || outputDims > MAX_DIMENSIONS) {
-        return false;
-    }
+    if (inputDims < MIN_DIMENSIONS || outputDims < MIN_DIMENSIONS || inputDims > MAX_DIMENSIONS || outputDims > MAX_DIMENSIONS) return false;
     
     // 验证总元素数是否相等（reshape的基本要求）
     auto calculateTotalElements = [](const std::vector<int64_t>& shape) {
@@ -196,9 +193,7 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
         return total;
     };
     
-    if (calculateTotalElements(inputShape) != calculateTotalElements(outputShape)) {
-        return false;
-    }
+    if (calculateTotalElements(inputShape) != calculateTotalElements(outputShape)) return false;
     
     // 编码维度对：输入维度在高位，输出维度在低位
     const uint32_t dimensionPair = (inputDims << 4) | outputDims;
