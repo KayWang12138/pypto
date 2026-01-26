@@ -141,35 +141,26 @@ Status RemoveRedundantAssemble::ProcessView(Function &function) const {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) continue;
         auto &reshapeOp = op;
-        if (!MatchReshapePattern(reshapeOp.GetIOperands().front(), reshapeOp.GetOOperands().front())) {
-            continue;
-        }
+        if (!MatchReshapePattern(reshapeOp.GetIOperands().front(), reshapeOp.GetOOperands().front())) continue;
         auto producers = reshapeOp.GetIOperands().front()->GetProducers();
         if (producers.empty()) {
             APASS_LOG_INFO_F(Elements::Operation, "No producers found for RESHAPE op's input %d.", reshapeOp.GetOpMagic());
             continue;;
         }
         auto producerOp = *producers.begin();
-        if (producerOp == nullptr || producers.size() != 1 || producerOp->GetOpcode() != Opcode::OP_VIEW) {
-            continue;
-        }
+        if (producerOp == nullptr || producers.size() != 1 || producerOp->GetOpcode() != Opcode::OP_VIEW) continue;
         auto viewInput = producerOp->GetIOperands().front();
         for (auto reshapeConsumer : reshapeOp.GetOOperands().front()->GetConsumers()) {
-            if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) {
-                return SUCCESS;
-            }
+            if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) return SUCCESS;
         }
         auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(producerOp->GetOpAttribute());
         if (opAttr == nullptr) {
             APASS_LOG_INFO_F(Elements::Operation, "Op %d Attribute is nullptr.", producerOp->GetOpMagic());
-            return FAILED;
+            continue;;
         }
         auto &offset = opAttr->GetFromDynOffset();
         std::vector<int64_t> newRawShape = reshapeOp.GetOOperands().front()->shape;
-        if (!CalculateNewRawShape(
-                reshapeOp.GetOOperands().front()->shape, viewInput->tensor->GetRawShape(), newRawShape)) {
-            return SUCCESS;
-        }
+        if (!CalculateNewRawShape(reshapeOp.GetOOperands().front()->shape, viewInput->tensor->GetRawShape(), newRawShape)) return SUCCESS;
         std::vector<SymbolicScalar> newDynOffset;
         GetDynOffsetBeforeReshape(offset, viewInput->shape, newRawShape, newDynOffset);
         APASS_LOG_DEBUG_F(Elements::Operation, "Process View[%d] Tensor[%d]: newRawshape: %s, newOffset: %s.",
