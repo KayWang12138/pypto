@@ -24,16 +24,6 @@
 
 namespace npu::tile_fwk {
 const std::string OpType = "pyPto";
-
-// pmu event type
-constexpr int32_t ARITHMETIC_UTILIZATION = 1;
-constexpr int32_t PIPE_UTILIZATION = 2;
-constexpr int32_t MEMORY = 4;
-constexpr int32_t MEMORY_L0 = 5;
-constexpr int32_t RESOURCE_CONFLICT_RATION = 6;
-constexpr int32_t MEMORY_UB = 7;
-constexpr int32_t L2_CACHE = 8;
-
 HostProf::~HostProf() {}
 
 uint64_t HostProf::GetProfSwitch() {
@@ -211,64 +201,6 @@ void HostProf::SetProfFunction(Function *function)
   opName_ = function->GetFunctionHash().Data();
   profFunction_ = function;
   inputsSize_ = profFunction_->inCasts_.size();
-}
-
-void HostProf::SetPmuEventTypeDAV2201(int32_t profPmuType, std::vector<int64_t> &pmuEvtType) {
-    // 按照环境变量设置的数值，获取pmu事件类型
-    switch (profPmuType) {
-        case  ARITHMETIC_UTILIZATION:
-            pmuEvtType = {0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x0};
-            break;
-        case PIPE_UTILIZATION:
-            pmuEvtType = {0x08, 0x0a, 0x09, 0x0b, 0x0c, 0x0d, 0x55, 0x54};
-            break;
-        case MEMORY:
-            pmuEvtType = {0x15, 0x16, 0x31, 0x32, 0x0f, 0x10, 0x12, 0x13};
-            break;
-        case MEMORY_L0:
-            pmuEvtType = {0x1b, 0x1c, 0x21, 0x22, 0x27, 0x28, 0x0, 0x0};
-            break;
-        case RESOURCE_CONFLICT_RATION:
-            pmuEvtType = {0x64, 0x65, 0x66, 0x0, 0x0, 0x0, 0x0, 0x0};
-            break;
-        case MEMORY_UB:
-            pmuEvtType = {0x3d, 0x10, 0x13, 0x3e, 0x43, 0x44, 0x37, 0x38};
-            break;
-        case L2_CACHE:
-            pmuEvtType = {0x500, 0x502, 0x504, 0x506, 0x508, 0x50a, 0x0, 0x0};
-            break;
-        default:
-            ALOG_WARN_F("Invalid profPmuType %d, only support [1,2,4,5,6,7,8].\n", profPmuType);
-    }
-}
-
-void HostProf::SetPmuEventTypeDAV3510(int32_t profPmuType, std::vector<int64_t> &pmuEvtType) {
-    // 按照环境变量设置的数值，获取pmu事件类型
-    switch (profPmuType) {
-        case  ARITHMETIC_UTILIZATION:
-            pmuEvtType = {0x323, 0x324, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
-            break;
-        case PIPE_UTILIZATION:
-            pmuEvtType = {0x501, 0x301, 0x1, 0x701, 0x202, 0x203, 0x34, 0x35, 0x714, 0x0};
-            break;
-        case MEMORY:
-            pmuEvtType = {0x0, 0x0, 0x400, 0x401, 0x56f, 0x571, 0x570, 0x572, 0x707, 0x709};
-            break;
-        case MEMORY_L0:
-            pmuEvtType = {0x304, 0x703, 0x306, 0x705, 0x712, 0x30a, 0x308, 0x0, 0x0, 0x0};
-            break;
-        case RESOURCE_CONFLICT_RATION:
-            pmuEvtType = {0x3556, 0x3540, 0x3502, 0x3528, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
-            break;
-        case MEMORY_UB:
-            pmuEvtType = {0x3, 0x5, 0x70c, 0x206, 0x204, 0x571, 0x572, 0x0, 0x0, 0x0};
-            break;
-        case L2_CACHE:
-            pmuEvtType = {0x424, 0x425, 0x426, 0x42a, 0x42b, 0x42c, 0x0, 0x0, 0x0, 0x0};
-            break;
-        default:
-            ALOG_WARN_F("Invalid profPmuType %d, only support [1,2,4,5,6,7,8].\n", profPmuType);
-    }
 }
 }
 #endif

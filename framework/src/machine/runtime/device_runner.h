@@ -30,9 +30,8 @@
 #include <runtime/rt.h>
 #include <acl/acl_rt.h>
 #include "machine/utils/machine_ws_intf.h"
-constexpr int PMU_EVENT_TYPE_MAX = 8;
-constexpr int PMU_EVENT_TYPE_MAX_DAV2201 = 8;
-constexpr int PMU_EVENT_TYPE_MAX_DAV3510 = 10;
+#include "machine/runtime/pmu_common.h"
+
 constexpr int CORE_DEFAULT_NUM = 70;
 namespace npu::tile_fwk {
 struct FileLock {
@@ -116,7 +115,6 @@ private:
     rtBinHandle binHdl_;
     FileLock lock_;
     HostProf hostProf_;
-    std::unordered_map<ArchInfo, std::function<void(int32_t, std::vector<int64_t>&)>> pmuEventTypeTable_;
     std::unordered_map<ArchInfo, std::function<int(std::vector<int64_t>&, std::vector<int64_t>&)>> addressMappingTable_;
     bool isCapture_{false};
     bool initFlag_{false};

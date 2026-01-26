@@ -95,18 +95,7 @@ void *DeviceRunner::DevAlloc(int size) {
 }
 
 void DeviceRunner::GetPmuEventType(DeviceArgs &args) {
-    // 获取pmu事件类型环境变量获取方式
-    std::string eventTypeStr = GetEnvVar("PROF_PMU_EVENT_TYPE");
-    if (eventTypeStr.empty()) {
-        ALOG_WARN_F("Dont support PROF_PMU_EVENT_TYPE env, use default pmu event type PIPE_UTILIZATION.\n");
-        eventTypeStr = "2";
-    }
-    int32_t profPmuType = std::stoi(eventTypeStr);
-    auto it = pmuEventTypeTable_.find(args.archInfo);
-    if (it != pmuEventTypeTable_.end()) {
-        it->second(profPmuType, pmuEvtType_);
-        return;
-    }
+    npu::tile_fwk::GetPmuEventType(args.archInfo, pmuEvtType_);
 }
 
 void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
@@ -171,12 +160,6 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
 
 int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     hostProf_.RegHostProf();
-    pmuEventTypeTable_[ArchInfo::DAV_2201] = [this](int32_t profPmuType, std::vector<int64_t>& pmuEvtType) {
-        hostProf_.SetPmuEventTypeDAV2201(profPmuType, pmuEvtType);
-    };
-    pmuEventTypeTable_[ArchInfo::DAV_3510] = [this](int32_t profPmuType, std::vector<int64_t>& pmuEvtType) {
-        hostProf_.SetPmuEventTypeDAV3510(profPmuType, pmuEvtType);
-    };
 
     addressMappingTable_[ArchInfo::DAV_2201] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
         std::vector<int64_t> aiv;
