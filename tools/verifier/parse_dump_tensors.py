@@ -13,11 +13,11 @@
 import os
 import json
 import struct
-import ml_dtypes
 import argparse
+import ml_dtypes
 import numpy as np
 import pandas as pd
-from functools import reduce
+
 
 # ===================== 核心配置（需和C/C++端一致）=====================
 DEV_SHAPE_DIM_MAX = 5  # 替换为实际值
@@ -31,9 +31,11 @@ FIELD_SIZES = {
     "uint64_t": 8
 }
 
+
 class VerifyRes:
     def __init__(self):
         self.verify_op_info_list = []
+        self.verify_path = ""
     
     def read_verify_result(self, verify_path):
         self.verify_path = verify_path
@@ -41,37 +43,34 @@ class VerifyRes:
         if not os.path.exists(verify_res_file):
             return
         
-        df = pd.read_csv(verify_res_file, 
-                        encoding="utf-8")
+        df = pd.read_csv(verify_res_file, encoding="utf-8")
         df_clean = df.dropna(subset=["rawTensorMagic", "callopMagic"]).copy()
         df_clean["rawTensorMagic"] = df_clean["rawTensorMagic"].astype(int)
         df_clean["callopMagic"] = df_clean["callopMagic"].astype(int)
-        filter = df_clean["verifyType"].str.contains("CodegenPreproc", na=False)
-        df_res = df_clean[filter]
+        codegen_filter = df_clean["verifyType"].str.contains("CodegenPreproc", na=False)
+        df_res = df_clean[codegen_filter]
         self.verify_op_info_list = df_res.to_dict(orient='records')
 
 
     def get_verify_res(self, tensor_info) -> dict:
-        rawMagic = tensor_info.get("rawMagic")
+        raw_magic = tensor_info.get("rawMagic")
         ioflag = tensor_info.get("ioflag")
-        callopMagic = tensor_info.get("callopMagic")
+        callop_magic = tensor_info.get("callopMagic")
         tensor_info_offset_str = '_'.join(str(item) for item in tensor_info.get("offset"))
 
         verify_dup_tensor = ""
         
         for op_info in self.verify_op_info_list:
-            # print(rawMagic, op_info.get("rawTensorMagic"))
-            if callopMagic != op_info.get("callopMagic"):
+            if callop_magic != op_info.get("callopMagic"):
                 continue 
             
-            if ioflag == "input" and f"tensor_Incast_{rawMagic}" in op_info.get("inputTensors") and   \
+            if ioflag == "input" and f"tensor_Incast_{raw_magic}" in op_info.get("inputTensors") and   \
                 op_info.get("opCode") in ["COPY_IN", "VIEW"]:
                 verify_op_offset = json.loads(op_info.get("offset"))
                 verify_op_offset_str = '_'.join(str(item) for item in verify_op_offset)
                 if verify_op_offset_str == tensor_info_offset_str:
                     verify_dup_tensor = op_info.get("outputTensor")
-                    # reduce(lambda a, b: a + b, [1,2,3,4])
-            elif ioflag == "output" and rawMagic == op_info.get("rawTensorMagic"):
+            elif ioflag == "output" and raw_magic == op_info.get("rawTensorMagic"):
                 verify_op_offset = json.loads(op_info.get("offset"))
                 verify_op_offset_str = '_'.join(str(item) for item in verify_op_offset)
                 if verify_op_offset_str == tensor_info_offset_str:
@@ -187,16 +186,6 @@ class CompactDumpTensorInfoParser:
         
         return result
 
-    def print_tensor(self, data):
-        # print(bin_file)
-        np.set_printoptions(linewidth=260, precision=4)
-        # a = np.fromfile(bin_file, np.float32)
-        lenght = 16
-        for i in range(0, len(data), lenght):
-            print(f'{i:5d}', data[i:i+lenght])
-            if i > lenght * 16:
-                break
-
 
     def write_tesnor(self, file_name, data):
         lenght = 16
@@ -205,8 +194,6 @@ class CompactDumpTensorInfoParser:
                 content = " ".join(f"{num}".ljust(15) for num in data[i:i+lenght])
                 f.write(content)
                 f.write("\n")
-
-        
 
     def parse_file(self, file_path: str) -> list[dict]:
         """解析整个紧凑存储的bin文件"""
@@ -222,18 +209,14 @@ class CompactDumpTensorInfoParser:
         
         current_offset = 0
         tensor_info = self.parse_single(bin_data, 0)
-        # for key, val in tensor_info.items():
-        #         print(f"{key:15}: {val}")
 
         dtype = self._get_data_type(tensor_info["dataType"])[1]
         data = np.frombuffer(bin_data, dtype, offset=tensor_info["headSize"])
     
         bin_file = f"{file_path[:-4]}.data"
-        # self.write_tesnor(bin_file, data)
         data.tofile(bin_file)
         
         tensor_info["ioflag"] = "output"
-        # print(bin_file.split("_")[-1])
         if "input" in bin_file.split("_")[-1]:
             tensor_info["ioflag"] = "input"
 
@@ -243,7 +226,6 @@ class CompactDumpTensorInfoParser:
         tensor_info["verify_tensor_file"] = verify_tensor_info
         if os.path.exists(verify_tensor_info):  
             verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
-            # print(verify_tensor_data.size(), data.size())
             cmp_size = min(verify_tensor_data.size, data.size)
             tensor_info["cmp_res"] = np.allclose(data[:cmp_size], verify_tensor_data[:cmp_size])
         else:
@@ -299,11 +281,11 @@ def main():
             if not file_name.endswith(".tdump"):
                 continue
             bin_file = os.path.join(dir_path, file_name)
-            
             tensor_infos.append(parser.parse_file(bin_file))
     df = pd.DataFrame(tensor_infos)
     df["rootHash"] = "'" + df["rootHash"]
     df["funcHash"] = "'" + df["funcHash"]
+    print(df)
 
     df.to_csv(os.path.join(args.dump_tensor_path, "tensor_info.csv"), index=False, encoding="utf-8")
 
