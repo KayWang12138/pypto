@@ -155,7 +155,7 @@ Status RemoveRedundantAssemble::ProcessView(Function &function) const {
         if (producerOp == nullptr || producers.size() != 1 || producerOp->GetOpcode() != Opcode::OP_VIEW) continue;
         auto viewInput = producerOp->GetIOperands().front();
         for (auto reshapeConsumer : reshapeOp.GetOOperands().front()->GetConsumers()) {
-            if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) return SUCCESS;
+            if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) continue;
         }
         auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(producerOp->GetOpAttribute());
         if (opAttr == nullptr) {
@@ -262,7 +262,7 @@ Status ProcessReshape(Function &function, Operation *&operation) {
         }
         consumer->ReplaceInput(dst, oOperand);
         auto &newReshapeOp = function.AddRawOperation(Opcode::OP_RESHAPE, {iOperand}, {dst});
-        const std::shared_ptr<OpAttribute> oriReshapeAttr = operation->GetOpAttribute();
+        const std::shared_ptr<OpAttribute> oriReshapeAttr = operation->GetOpAttribute()->clone();
         if (oriReshapeAttr != nullptr) {
             newReshapeOp.SetOpAttribute(oriReshapeAttr);
         }
