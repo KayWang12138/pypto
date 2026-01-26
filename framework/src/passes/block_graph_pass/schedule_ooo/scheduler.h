@@ -160,6 +160,8 @@ private:
 
     std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS;
 
+    std::unordered_map<std::pair<OpCoreType, int>, bool> usedCore;
+
     std::unordered_map<int, LocalBufferPtr> localBufferMap;
     // 分核数据结构
     std::unordered_map<OpCoreType, std::map<int, std::map<npu::tile_fwk::MemoryType, BufferPool>>> bufferManagerMap;
@@ -203,6 +205,8 @@ private:
     Status Init(const std::vector<Operation *> &operations,
         const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>());
     Status InitIssueCoreType(IssueEntryPtr issue, Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
+    void InitUsedCore();
+    void UpdateUsedCore(IssueEntryPtr issue);
     void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);

@@ -1589,10 +1589,10 @@ TEST_F(ScheduleOoOTest, TestBufferPollRearrange) {
 
     // 验证重排，排序依据为size从大到小
     OoOScheduler oooSchedule(*function);
-    oooSchedule.bufferManagerMap[MemoryType::MEM_UB] = pool;
+    auto corePair = opCoreTypeMap.at(OpCoreType::AIV);
+    oooSchedule.bufferManagerMap[corePair.first][corePair.second][MemoryType::MEM_UB] = pool;
     oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(1, allocIssue1);
     oooSchedule.tensorOccupyMap[MemoryType::MEM_UB].emplace(2, allocIssue2);
-    auto corePair = opCoreTypeMap.at(OpCoreType::AIV);
     EXPECT_EQ(oooSchedule.RearrangeBuffer(MemoryType::MEM_UB, corePair), SUCCESS);
     auto &ubPool = oooSchedule.bufferManagerMap[corePair.first][corePair.second][MemoryType::MEM_UB];
     EXPECT_EQ(ubPool.GetBufferSize(1), 65536);

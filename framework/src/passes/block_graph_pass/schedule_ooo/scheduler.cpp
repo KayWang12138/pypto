@@ -340,9 +340,12 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
 }
 
 Status OoOScheduler::SpillOnBlock() {
-    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
-        if (SpillOnCoreBlock(coreType, idx) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %s", idx, coreTypeToString(coreType).c_str());
+    for (auto corePair : CORE_INIT_CONFIGS) {
+        if (!usedCore(corePair)) {
+            continue;
+        }
+        if (SpillOnCoreBlock(corePair.first, corePair.second) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %s", corePair.second, coreTypeToString(corePair.first).c_str());
             return FAILED;
         }
     }
@@ -1054,11 +1057,27 @@ Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
     return FAILED;
 }
 
+void OoOScheduler::InitUsedCore() {
+    for (auto corePair : CORE_INIT_CONFIGS) {
+        usedCore[corePair] = false;
+    }
+}
+
+void OoOScheduler::UpdateUsedCore(IssueEntryPtr issue) {
+    for (auto [coreConfig, used] : usedCore) {
+        auto corePair = issue->coreLocation;
+        if (corePair.first == coreConfig.first && corePair.second == coreConfig.second) {
+            usedCore[coreConfig] = true;
+        }
+    }
+}
+
 Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap) {
     issueEntries.clear();
     localBufferMap.clear();
     depthCache_.clear();
     LOG_SCOPE_BEGIN(tInit, Elements::Function, "Init");
+    InitUsedCore();
     // 初始化芯片各buffer大小
     InitMemorySize();
     if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
@@ -1092,6 +1111,7 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
             APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s init coreType failed!", issue->GetOpInfo().c_str());
             return FAILED;
         }
+        UpdateUsedCore(issue);
     }
     numTotalIssues = issueEntries.size();
 
