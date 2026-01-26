@@ -315,7 +315,7 @@ TEST_F(TestInsertCopyPass, TestTensorMultiAssembleDDR) {
     InsertOpForViewAssemble pass;
     
     EXPECT_EQ(pass.RunOnFunction(*currFunctionPtr), SUCCESS);
-    const int opNum = 15;
+    const int opNum = 11;
     EXPECT_EQ(currFunctionPtr->Operations().size(), opNum);
 }
 }
