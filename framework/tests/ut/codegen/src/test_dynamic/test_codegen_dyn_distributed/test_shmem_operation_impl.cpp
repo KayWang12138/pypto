@@ -17,6 +17,7 @@
 #include <string>
 
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
@@ -61,6 +62,8 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(getpid());
+        setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
     }
 
     void TearDown() override {}
