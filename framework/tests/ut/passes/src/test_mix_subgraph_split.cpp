@@ -189,7 +189,6 @@ void VerifyBasicSplitResult(Status status, Function& rootFunc,
 
 // 辅助函数2：创建CallOp
 Operation& CreateCallOp(std::shared_ptr<Function>& rootFuncPtr,
-                       std::shared_ptr<Function>& mixFuncPtr,
                        const uint64_t mixProgramId,
                        const FunctionHash& mixFuncHash) {
     std::vector<int64_t> tensorShape = {MS_NUM16, MS_NUM16};
