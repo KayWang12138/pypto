@@ -108,37 +108,6 @@ typedef enum AiCoreRegister {
     PMU_STOP_CNT_CYC_1 = 0x2AC,
 } AiCoreRegister;
 
-namespace DAV_3510 {
-    const uint32_t PMU_CTRL_0 = 0x4200;
-    const uint32_t PMU_CTRL_1 = 0X2400;
-    const uint32_t PMU_CNT0 = 0x4210;
-    const uint32_t PMU_CNT1 = 0x4218;
-    const uint32_t PMU_CNT2 = 0x4220;
-    const uint32_t PMU_CNT3 = 0x4228;
-    const uint32_t PMU_CNT4 = 0x4230;
-    const uint32_t PMU_CNT5 = 0x4238;
-    const uint32_t PMU_CNT6 = 0x4240;
-    const uint32_t PMU_CNT7 = 0x4248;
-    const uint32_t PMU_CNT8 = 0x4250;
-    const uint32_t PMU_CNT9 = 0x4254;
-    const uint32_t PMU_CNT_TOTAL0 = 0x4260;
-    const uint32_t PMU_CNT_TOTAL1 = 0x4264;
-    const uint32_t PMU_CNT0_IDX = 0x2500;
-    const uint32_t PMU_CNT1_IDX = 0x2504;
-    const uint32_t PMU_CNT2_IDX = 0x2508;
-    const uint32_t PMU_CNT3_IDX = 0x250C;
-    const uint32_t PMU_CNT4_IDX = 0x2510;
-    const uint32_t PMU_CNT5_IDX = 0x2514;
-    const uint32_t PMU_CNT6_IDX = 0x2518;
-    const uint32_t PMU_CNT7_IDX = 0x251C;
-    const uint32_t PMU_CNT8_IDX = 0x2520;
-    const uint32_t PMU_CNT9_IDX = 0x2524;
-    const uint32_t PMU_START_CNT_CYC_0 = 0x42A0;
-    const uint32_t PMU_START_CNT_CYC_1 = 0x42A4;
-    const uint32_t PMU_STOP_CNT_CYC_0 = 0x42A8;
-    const uint32_t PMU_STOP_CNT_CYC_1 = 0x42AC;
-};
-
 struct ArchPmuConfig {
     std::vector<uint32_t> pmuCntIdxOffsets;
     std::vector<uint32_t> pmuCntOffsets;
@@ -154,6 +123,10 @@ struct ArchPmuConfig {
     uint32_t ctrl1Val;
 };
 
+// aicore_prof_dav3510.h depends on ArchPmuConfig and GLB_PMU_EN/USER_PMU_MODE_EN/SAMPLE_PMU_MODE_EN defined above.
+// It contains the initialization logic for DAV_3510 architecture.
+#include "aicore_prof_dav3510.h"
+
 inline const std::map<ArchInfo, ArchPmuConfig> kArchPmuConfigs = {
     {ArchInfo::DAV_2201, {
         {PMU_CNT0_IDX, PMU_CNT1_IDX, PMU_CNT2_IDX, PMU_CNT3_IDX, PMU_CNT4_IDX, PMU_CNT5_IDX, PMU_CNT6_IDX, PMU_CNT7_IDX},
@@ -164,19 +137,7 @@ inline const std::map<ArchInfo, ArchPmuConfig> kArchPmuConfigs = {
         PMU_STOP_CNT_CYC_0, PMU_STOP_CNT_CYC_1,
         GLB_PMU_EN + (USER_PMU_MODE_EN << 1) + (SAMPLE_PMU_MODE_EN << NUM_TWO_PMU), 0
     }},
-    {ArchInfo::DAV_3510, {
-        {DAV_3510::PMU_CNT0_IDX, DAV_3510::PMU_CNT1_IDX, DAV_3510::PMU_CNT2_IDX, DAV_3510::PMU_CNT3_IDX,
-         DAV_3510::PMU_CNT4_IDX, DAV_3510::PMU_CNT5_IDX, DAV_3510::PMU_CNT6_IDX, DAV_3510::PMU_CNT7_IDX,
-         DAV_3510::PMU_CNT8_IDX, DAV_3510::PMU_CNT9_IDX},
-        {DAV_3510::PMU_CNT0, DAV_3510::PMU_CNT1, DAV_3510::PMU_CNT2, DAV_3510::PMU_CNT3,
-         DAV_3510::PMU_CNT4, DAV_3510::PMU_CNT5, DAV_3510::PMU_CNT6, DAV_3510::PMU_CNT7,
-         DAV_3510::PMU_CNT8, DAV_3510::PMU_CNT9},
-        DAV_3510::PMU_CNT_TOTAL0, DAV_3510::PMU_CNT_TOTAL1,
-        DAV_3510::PMU_CTRL_0, DAV_3510::PMU_CTRL_1,
-        DAV_3510::PMU_START_CNT_CYC_0, DAV_3510::PMU_START_CNT_CYC_1,
-        DAV_3510::PMU_STOP_CNT_CYC_0, DAV_3510::PMU_STOP_CNT_CYC_1,
-        USER_PMU_MODE_EN + (SAMPLE_PMU_MODE_EN << 1), GLB_PMU_EN
-    }}
+    {ArchInfo::DAV_3510, InitDav3510PmuConfig()}
 };
 
 typedef enum AiCorePmuEvent {
