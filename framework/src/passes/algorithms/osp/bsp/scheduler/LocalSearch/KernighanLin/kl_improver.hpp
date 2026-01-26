@@ -1,22 +1,20 @@
-/*
-Copyright 2024 Huawei Technologies Co., Ltd.
+/**
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+/*!
+ * \file kl_improver.hpp
+ * \brief
+ */
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-@author Toni Boehnlein, Benjamin Lozes, Pal Andras Papp, Raphael S. Steiner
-*/
-
-#pragma once
+#ifndef OSP_KL_IMPROVER_HPP
+#define OSP_KL_IMPROVER_HPP
 
 #include <algorithm>
 #include <chrono>
@@ -30,14 +28,15 @@ limitations under the License.
 
 #include "kl_active_schedule.hpp"
 #include "kl_util.hpp"
-#include "osp/auxiliary/datastructures/heaps/PairingHeap.hpp"
-#include "osp/auxiliary/misc.hpp"
-#include "osp/bsp/model/util/CompatibleProcessorRange.hpp"
-#include "osp/bsp/scheduler/ImprovementScheduler.hpp"
-#include "osp/bsp/scheduler/LocalSearch/LocalSearchMemoryConstraintModules.hpp"
-#include "osp/graph_algorithms/directed_graph_edge_desc_util.hpp"
-#include "osp/graph_algorithms/directed_graph_util.hpp"
+#include "passes/algorithms/osp/auxiliary/datastructures/heaps/PairingHeap.hpp"
+#include "passes/algorithms/osp/auxiliary/misc.hpp"
+#include "passes/algorithms/osp/bsp/model/util/CompatibleProcessorRange.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/ImprovementScheduler.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/LocalSearch/LocalSearchMemoryConstraintModules.hpp"
+#include "passes/algorithms/osp/graph_algorithms/directed_graph_edge_desc_util.hpp"
+#include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 
+namespace npu::tile_fwk {
 namespace osp {
 
 struct KlParameter {
@@ -1910,3 +1909,5 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
 }
 
 }    // namespace osp
+} // namespace npu::tile_fwk
+#endif // OSP_KL_IMPROVER_HPP
