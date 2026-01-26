@@ -222,9 +222,11 @@ bool CommonOperationEliminate::OpAlreadyExist(const std::pair<LogicalTensor*, st
     auto& producers = tensorProducerPair.second;  
     if (producers.empty()) return false;
     auto existOp = OperationExist(tensorProducerPair, cacheProducers);
-    if (existOp.first == nullptr || tensorProducerPair.first == nullptr || existOp.second.empty()) return false;
-    if (tensorProducerPair.first->shape != existOp.first->shape) return false;
-    if (tensorProducerPair.first->tensor->GetDataType() != existOp.first->tensor->GetDataType()) return false;
+    if (existOp.first == nullptr || 
+        tensorProducerPair.first == nullptr || 
+        existOp.second.empty() || 
+        tensorProducerPair.first->shape != existOp.first->shape || 
+        tensorProducerPair.first->tensor->GetDataType() != existOp.first->tensor->GetDataType()) return false;
     LogicalTensor* oldtensors = tensorProducerPair.first;
     LogicalTensor* newtensors = existOp.first;
     if (oldtensors->nodetype == NodeType::OUTCAST) {
