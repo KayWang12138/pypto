@@ -3,12 +3,11 @@
         "pg_parallel_lower_bound": 20,
         "pg_upper_bound": 10000,
         "pg_lower_bound": 512,
-        "cube_l1_reuse_mode": 1,
+        "cube_l1_reuse_mode": 0,
         "cube_nbuffer_mode": 0,
         "mg_copyin_upper_bound": 1048576,
         "vec_nbuffer_mode": 1,
         "mg_vec_parallel_lb": 48,
-        "sg_cube_parallel_num": 24,
         "pg_skip_partition": false,
         "copyout_resolve_coalescing": 0,
         "sg_set_scope": -1,
@@ -27,7 +26,7 @@
         "run_mode": 0
     },
     "host": {
-        "only_codegen": false
+        "compile_stage": 0
     },
     "codegen": {
         "support_dynamic_aligned": false
@@ -57,8 +56,6 @@
             "enable_cost_model": false,
             "enable_dyn_cost_model": false,
             "enable_aihac_backend": true,
-            "only_tensor_graph": false,
-            "only_host_compile": false,
             "test_is_tig": false,
             "dump_source_location": true,
             "enable_checker": false,

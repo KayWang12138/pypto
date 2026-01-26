@@ -83,7 +83,10 @@ inline bool IsTaskFinish(uint32_t id, uint32_t finValue) {
     return (id | AICORE_FIN_MASK) == finValue;
 }
 
-#define ALIGN_UP(val, align)            (((val) + (align) - 1) & ~((align) - 1))
+inline int64_t AlignUp(int64_t val, int64_t align)
+{
+    return (((val) + (align) - 1) & ~((align) - 1));
+}
 
 using uintdevptr_t = uint64_t;
 using intdevptr_t = int64_t;
@@ -94,12 +97,12 @@ inline void HostAssign(T *&ptr, uintdevptr_t offset) {
 }
 template <typename T>
 inline void DeviceReloc(T *&ptr, intdevptr_t shift) {
-    ptr = reinterpret_cast<T *>(reinterpret_cast<uintdevptr_t>(ptr) + shift);
+    ptr = reinterpret_cast<T *>(reinterpret_cast<intdevptr_t>(ptr) + shift);
 }
 template <typename T>
 inline void DeviceRelocMaybeNull(T *&ptr, intdevptr_t shift) {
     if (ptr != nullptr) {
-        ptr = reinterpret_cast<T *>(reinterpret_cast<uintdevptr_t>(ptr) + shift);
+        ptr = reinterpret_cast<T *>(reinterpret_cast<intdevptr_t>(ptr) + shift);
     }
 }
 
@@ -197,8 +200,8 @@ struct DevRelocVector {
         size_ = size;
         offset = reinterpret_cast<uintdevptr_t>(data_ + size);
     }
-    void DeviceRelocData(intdevptr_t shift) { DeviceReloc(data_, ALIGN_UP(shift, alignof(T))); }
-    void DeviceRelocDataMaybeNull(intdevptr_t shift) { DeviceRelocMaybeNull(data_, ALIGN_UP(shift, alignof(T))); }
+    void DeviceRelocData(intdevptr_t shift) { DeviceReloc(data_, AlignUp(shift, alignof(T))); }
+    void DeviceRelocDataMaybeNull(intdevptr_t shift) { DeviceRelocMaybeNull(data_, AlignUp(shift, alignof(T))); }
     uintdevptr_t End() const { return reinterpret_cast<uintdevptr_t>(data_ + size_); }
 
     static uint64_t ElementSize() { return sizeof(T); }
@@ -226,7 +229,7 @@ struct DevLocalVector {
     }
 
     void HostInitDataSizeOffset(uintdevptr_t &offset, size_t size) {
-        offset = ALIGN_UP(offset, alignof(T));
+        offset = AlignUp(offset, alignof(T));
         offset_ = offset;
         size_ = size;
         offset = offset_ + size_ * sizeof(T);
@@ -296,6 +299,22 @@ static inline std::string DevIOProperty2String(DevIOProperty property) {
 
 static inline std::string Delim(bool cond, const std::string &delim) {
     return cond ? delim : "";
+}
+
+static inline std::string DumpByte(uint8_t byte) {
+    char buf[0x10];
+    (void)sprintf_s(buf, sizeof(buf), "0x%02x", byte);
+    return buf;
+}
+
+static inline std::string DumpShape(const DevShape &shape) {
+    std::ostringstream oss;
+    oss << "<";
+    for (int k = 0; k < shape.dimSize; k++) {
+        oss << Delim(k != 0, ",") << shape.dim[k];
+    }
+    oss << ">";
+    return oss.str();
 }
 
 struct AddressDescriptor {

@@ -262,8 +262,10 @@ public:
                 lastSent += curSent;
             }
 
-            if (GetCycles() - start > TIMEOUT_CYCLES) {
-                return DEVICE_MACHINE_TIMEOUT_CORETASK;
+            DEV_IF_DEVICE {
+                if (GetCycles() - start > TIMEOUT_CYCLES) {
+                    return DEVICE_MACHINE_TIMEOUT_CORETASK;
+                }
             }
             // To prevent an unnecessary execution of RunCoreTask after the final batch of tasks is sent.
             allSentCnt = taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) + lastSent;
@@ -657,11 +659,12 @@ private:
                 }
             }
             aivAllStop = curIterAivAllStop;
-
-            if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                DumpDfxWhenCoreNotStop(coreStatus);
-                DEV_ERROR("SyncAicoreDevTaskFinish timeout notstopNum=%d.", mngCoreNum - finishStopNum);
-                return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH;
+            DEV_IF_DEVICE {
+                if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
+                    DumpDfxWhenCoreNotStop(coreStatus);
+                    DEV_ERROR("SyncAicoreDevTaskFinish timeout notstopNum=%d.", mngCoreNum - finishStopNum);
+                    return DEVICE_MACHINE_TIMEOUT_SYNC_CORE_FINISH;
+                }
             }
         }
         return SyncAicpuTaskFinish();
@@ -1337,7 +1340,8 @@ private:
         if constexpr (IsDeviceMode()) {
             aicoreHal_.MapRegistersForAllCores(aicNum_);
             aicoreProf_.ProfInit(reinterpret_cast<int64_t *>(deviceArgs->corePmuRegAddr),
-               reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr),  deviceArgs->toSubMachineConfig.profConfig);
+               reinterpret_cast<int64_t *>(deviceArgs->pmuEventAddr),
+               deviceArgs->toSubMachineConfig.profConfig, deviceArgs->archInfo);
         } else {
             aicoreHal_.SetTaskTimeCost([this](uint64_t coreIdx, uint64_t taskId, uint64_t time)
                 {return GetCostModelTaskTime(coreIdx, taskId, time); });
