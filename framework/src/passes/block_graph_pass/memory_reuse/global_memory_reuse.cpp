@@ -222,7 +222,7 @@ bool GetCopyInSize(LogicalTensorPtr &in, Operation *copyIn, uint64_t &size) {
     if (copyIn == nullptr || !OpcodeManager::Inst().IsCopyIn(copyIn->GetOpcode())) {
         return false;
     }
-    auto attr = dynamic_cast<CopyOpAttribute *>(copyIn->GetOpAttribute().get());
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
     if (attr == nullptr || attr->IsDynFromOffset()) {
         return false;
     }
@@ -402,7 +402,7 @@ void RecordAllConsumerShapeAndOffset(LogicalTensorPtr &out, std::vector<std::vec
             auto &currentOffset = allOffsets.back();
             auto &currentShape = allShapes.back();
 
-            CallOpAttribute *attr = dynamic_cast<CallOpAttribute *>(consumer->GetOpAttribute().get());
+            auto attr = std::dynamic_pointer_cast<CallOpAttribute>(consumer->GetOpAttribute());
             if (attr == nullptr) {
                 continue;
             }
@@ -596,7 +596,7 @@ bool Allocator::GetStorageOffsetByCall(Operation &callOp, size_t inputIdx, uint6
     storageOffset = input->storageOffset_;
 
     // 获取参数列表
-    CallOpAttribute *callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
+    auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(callOp.GetOpAttribute());
     if (callAttr == nullptr) {
         return false;
     }
@@ -708,7 +708,7 @@ void UpdateCallOpRawShape(Operation &consumer, const LogicalTensorPtr &output) {
     const std::vector<LogicalTensorPtr> &consumerInputs = consumer.GetIOperands();
     const size_t outputShapeSize = output->shape.size();
     const size_t rawShapeStartIndex = OFFSET_INDEX + RAW_SHAPE_POS * outputShapeSize;
-    CallOpAttribute *callAttr = dynamic_cast<CallOpAttribute *>(consumer.GetOpAttribute().get());
+    auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(consumer.GetOpAttribute());
     if (callAttr == nullptr) {
         return;
     }
@@ -753,7 +753,7 @@ void RefreshCallRawShape(
     APASS_LOG_DEBUG_F(Elements::Tensor, "Updating rawshape for tensor %d: [%s] -> [%s]", output->magic,
         vectorToString(output->tensor->rawshape).c_str(), vectorToString(reusableInput->tensor->rawshape).c_str());
     output->tensor->UpdateRawShape(reusableInput->tensor->rawshape);
-    CallOpAttribute *callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
+    auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(callOp.GetOpAttribute());
     if (callAttr == nullptr) {
         return;
     }
@@ -974,7 +974,7 @@ Status Allocator::UpdateIncastOutCast() {
         if (callOp.GetOpcode() != Opcode::OP_CALL) {
             continue;
         }
-        auto callAttr = dynamic_cast<CallOpAttribute *>(callOp.GetOpAttribute().get());
+        auto callAttr = std::dynamic_pointer_cast<CallOpAttribute>(callOp.GetOpAttribute());
         if (callAttr == nullptr) {
             APASS_LOG_ERROR_F(Elements::Operation, "Op %d callAttr is nullptr.%s", callOp.opmagic,
                 GetFormatBacktrace(callOp).c_str());
