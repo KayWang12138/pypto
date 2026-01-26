@@ -901,10 +901,7 @@ def compute_valid_shape(mask: Optional[BaseMaskLayout], target_shape: Iterable[i
         mask = mask.to_static()
     if not isinstance(mask, StaticMaskLayout):
         raise RuntimeError(f"valid shape cannot be computed from mask: {mask!r}")
-    valid_shape = mask.broadcast_to(target_shape).valid_shape()
-    if all(v == t for v, t in zip(valid_shape, target_shape)):
-        return None
-    return valid_shape
+    return mask.broadcast_to(target_shape).valid_shape()
 
 
 def tensor_to_affine(two: TensorWithOffset) -> BaseTensorLayout:
@@ -918,7 +915,7 @@ def tensor_to_affine(two: TensorWithOffset) -> BaseTensorLayout:
 
 
 @log_call
-def load(pointer: Any, mask: Optional[BaseMaskLayout] = None, other: Optional[Any] = None,
+def load(pointer: Any, mask: Optional[CompoundMask] = None, other: Optional[Any] = None,
          **kwds) -> Union[TensorWrapper, TensorElementWrapper]:
     layout = pointer
     if other is not None and (not isinstance(other, Real) or other != 0):
@@ -950,12 +947,17 @@ def load(pointer: Any, mask: Optional[BaseMaskLayout] = None, other: Optional[An
         src = pypto_wrap.view(layout.base, [1] * len(padded_shape), multidim_offset)
         pypto_wrap.auto_vec_tile(padded_shape, src.dtype)
         result = expand_impl(src, padded_shape)
+        valid_shape = target_shape
     else:
         valid_shape = compute_valid_shape(mask, padded_shape)
         result = pypto_wrap.view(layout.base, padded_shape, multidim_offset, valid_shape=valid_shape)
     result = reshape_impl(result, target_shape)
     if inv_order is not None:
         result = permute(result, inv_order)
+    requires_mask = not Context.dynamic and valid_shape is None and mask is not None
+    if requires_mask:
+        other = 0 if other is None else other
+        result = where(mask, result, full(target_shape, other, result.dtype))
     return result
 
 
@@ -971,10 +973,10 @@ def store(pointer: Any, value: TensorWrapper, mask: Optional[BaseMaskLayout] = N
         raise NotImplementedError("Only HostTensorWrapper supported")
     multidim_offset = delinearize_offset(layout.offset, layout.base.original_shape)
     src_shape = value.shape
+    if valid_shape := compute_valid_shape(mask, src_shape):
+        value = pypto_wrap.view(value, src_shape, [0] * len(src_shape), valid_shape=valid_shape)
     target_shape = pad_shape(src_shape, len(layout.base.shape))
     value = reshape_impl(value, target_shape)
-    if valid_shape := compute_valid_shape(mask, target_shape):
-        value = pypto_wrap.view(value, src_shape, [0] * len(src_shape), valid_shape=valid_shape)
     if layout.inverse_order_permutation() is not None:
         order = layout.order
         value = permute(value, order)
@@ -1039,10 +1041,15 @@ def static_range(*args: int, **kwds):
 
 
 @log_call
-def zeros(shape: Tuple[int, ...], dtype: dtypes.AnyDataType) -> TensorWrapper:
+def full(shape: Tuple[int, ...], value: Real, dtype: dtypes.AnyDataType) -> TensorWrapper:
     pypto_wrap.auto_vec_tile(shape, dtype)
-    tensor = pypto_wrap.full(shape, 0.0, dtypes.to_pypto(dtype))
+    tensor = pypto_wrap.full(shape, value, dtypes.to_pypto(dtype))
     return TensorWrapper(tensor)
+
+
+@log_call
+def zeros(shape: Tuple[int, ...], dtype: dtypes.AnyDataType) -> TensorWrapper:
+    return full(shape, 0.0, dtype)
 
 
 @log_call
