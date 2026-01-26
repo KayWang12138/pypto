@@ -69,6 +69,7 @@ const std::string OpAttributeKey::accumulate = "accumulate";
 const std::string OpAttributeKey::indicesSize = "indicesSize";
 const std::string OpAttributeKey::brcbIdx = "brcb_idx";
 const std::string OpAttributeKey::quantFlag = "op_attr_vector_quant_flag";
+const std::string OpAttributeKey::lastUse = "last_use";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
