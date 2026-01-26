@@ -32,6 +32,7 @@ import os
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 from utils.get_format import get_format
+from cfa_impl import c128_decode, c128_prefill
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -77,12 +78,41 @@ class AttentionConfig:
     actual_seq: torch.Tensor = None  # 改为 torch.Tensor 类型
     block_table_batch: int = 0
     kv_num_blocks: int = 0
+    
+
+def gen_block_table(actual_seq_len, block_size, block_table_shape, cmp_r=1, enable_win = False, s1 = 0):
+    block_num_per_batch = []
+    block_num = 0
+    
+    if enable_win:
+        cmp_r = 1
+    # 处理 torch tensor 类型的 actual_seq_len
+    for actual_seq in actual_seq_len:
+        block_num_per_batch.append(math.ceil(actual_seq.item() // cmp_r / block_size))
+        block_num += math.ceil(actual_seq.item() / block_size)
+
+    # 使用 torch 替换 numpy
+    block_idx_list = torch.arange(0, block_num, dtype=torch.int32)
+    block_idx_list = block_idx_list[torch.randperm(block_idx_list.size(0))]  # 随机排列
+
+    # 创建 block_table 张量
+    block_table = torch.full(
+        block_table_shape, -1, dtype=torch.int32, device=actual_seq_len.device
+    )
+    block_idx = 0
+    block_table_batch_idx = 0
+    for idx in block_num_per_batch:
+        for j in range(idx):
+            block_table[block_table_batch_idx][j] = block_idx_list[block_idx]
+            block_idx += 1
+        block_table_batch_idx += 1
+    return block_table
 
 
 def get_decode_case(device="cpu"):
     b = 4
     s1 = 1
-    s2 = 261
+    s2 = 8 * 1024
     q_d = 512
     nq = 64
     nkv = 1
@@ -101,7 +131,7 @@ def get_decode_case(device="cpu"):
 
 def get_prefill_case(device="cpu"):
     b = 1
-    s1 = 8 * 1024
+    s1 =  8 * 1024
     s2 = s1
     q_d = 512
     nq = 64
@@ -119,235 +149,6 @@ def get_prefill_case(device="cpu"):
     return attn_cfg
 
 
-@pypto.jit(
-    runtime_options={"stitch_function_num_initial": 128,
-                     "stitch_function_outcast_memory": 2048,
-                     "stitch_function_inner_memory": 2048,
-                     "device_sched_mode": 1},
-    host_options={"only_codegen": True},
-    debug_options={"runtime_debug_mode": 1},
-    
-    # 当子图大小达到上界不允许与其他子图合并
-    pass_options={"cube_l1_reuse_setting": {0: 4, 2:4}}
-)
-def c128_decode(q, kv, attn_sink, block_table, start_pos, kv_win=None, blk_win=None, 
-              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
-    kernel(q, kv, attn_sink, block_table, start_pos, kv_win=kv_win, blk_win=blk_win, 
-              atten_out = atten_out, cmp_r=cmp_r, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound, is_prefill=False)
-
-
-@pypto.jit(
-    runtime_options={"stitch_function_num_initial": 128,
-                     "stitch_function_outcast_memory": 2048,
-                     "stitch_function_inner_memory": 2048,
-                     "device_sched_mode": 1},
-    host_options={"only_codegen": True},
-    debug_options={"runtime_debug_mode": 1},
-    
-    # 当子图大小达到上界不允许与其他子图合并
-    pass_options={"cube_l1_reuse_setting": {0: 4, 2:4}}
-)
-def c128_prefill(q, kv, attn_sink, block_table, start_pos, kv_win=None, blk_win=None, 
-              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
-    kernel(q, kv, attn_sink, block_table, start_pos, kv_win=kv_win, blk_win=blk_win, 
-              atten_out = atten_out, cmp_r=cmp_r, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound, is_prefill=True)
-    
-
-def kernel(q, kv, attn_sink, block_table, start_pos, kv_win=None, blk_win=None, 
-              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072, is_prefill = False):
-    pypto.set_pass_options(pg_upper_bound=pg_upper_bound)
-    enable_c128 = kv_win is not None and blk_win is not None
-    shape_q = q.shape
-    shape_k = kv.shape
-    shape_k_win = kv_win.shape
-    bs_scalar = shape_q[0]
-    nq = shape_q[1]
-    block_num_scalar = shape_k[0]
-    block_num_win_scalar = shape_k_win[0]
-    block_size = shape_k[1]
-    nkv = shape_k[2]
-    dn = shape_k[3]
-    softmax_scale = dn ** -0.5
-    # if is_prefill:
-    #     softmax_scale = 37
-    b_scalar = start_pos.shape[0]
-
-    dtype = q.dtype
-    n2_sym = nkv
-
-    m_tile = 128
-    cube_tile = 128
-    k_cube_tile = 256
-    s2_tile = 512
-
-    g_tile = min(32, nq)
-    c1_tile = [[m_tile, m_tile], [k_cube_tile, k_cube_tile], [cube_tile, cube_tile]]
-    v1_tile = [m_tile, s2_tile]
-    c2_tile = [[m_tile, m_tile], [cube_tile, cube_tile], [k_cube_tile, k_cube_tile]]
-    v2_tile = [m_tile, k_cube_tile]
-    v1_win_tile = [m_tile, block_size]
-    s1_scalar = bs_scalar // b_scalar
-    g = nq // nkv
-    g_loop = g // g_tile
-
-    kv_2d_shape = (block_num_scalar * block_size, n2_sym * dn)
-    kv_win_2d_shape = (block_num_win_scalar * block_size, n2_sym * dn)
-    q_2d_shape = (b_scalar * s1_scalar * nq, dn)
-    attn_sink_2d_shape = (nq, 1)
-
-    kv_2d = pypto.reshape(kv, kv_2d_shape, inplace=True)
-    q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
-    if enable_c128:
-        kv_win_2d = pypto.reshape(kv_win, kv_win_2d_shape, inplace=True)
-    attn_sink_2d = pypto.reshape(attn_sink, attn_sink_2d_shape, inplace=True)
-    for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
-        for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
-            cur_seq = (start_pos[b_idx] + 1 + s1_idx) // cmp_r
-            s2_loop = (cur_seq + s2_tile - 1) // s2_tile
-            for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
-                oi_update = pypto.tensor([g_tile, dn], pypto.DT_FP32, "oi_update")
-                sum_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "sum_update")
-                max_update = pypto.tensor([g_tile, 1], pypto.DT_FP32, "max_update")
-                if enable_c128:
-                    bs_ofs = b_idx * s1_scalar + s1_idx
-                    n1g_ofs = g_idx * g_tile
-                    origin_s2 = start_pos[b_idx] + s1_scalar
-                    actual_s2_tile = (origin_s2 - (s1_scalar - 1 - s1_idx)).min(block_size)
-                    block_idx = blk_win[b_idx, 0]
-                    block_idx_valid = block_idx.max(0)
-                    pypto.set_vec_tile_shapes(v1_win_tile[0], v1_win_tile[1])
-                    qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0])
-                    kj = pypto.view(kv_win_2d, [block_size, dn], [block_idx_valid * block_size, 0])
-                    pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
-                    sij = pypto.matmul(qi, kj, pypto.DT_FP32, a_trans=False, b_trans=True)
-                    sij = pypto.view(sij, [g_tile, block_size], [0, 0], valid_shape=[g_tile, actual_s2_tile])
-                    pypto.set_vec_tile_shapes(v1_win_tile[0], v1_win_tile[1])
-                    sij_scale = pypto.mul(sij, softmax_scale)
-                    tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
-                    tsub = pypto.sub(sij_scale, tilda_mij)
-                    tilda_pij = pypto.exp(tsub)
-                    tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
-                    sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-                    max_update[:] = tilda_mij
-
-                    # c2
-                    vj = pypto.view(kv_win_2d, [block_size, dn], [block_idx_valid * block_size, 0], valid_shape=[actual_s2_tile, dn])
-                    pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
-                    oi_tmp = pypto.matmul(tilda_pij_fp16, vj, pypto.DT_FP32)
-                    pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                    oi_update[:] = oi_tmp
-                    
-                    if pypto.cond(s2_loop == 0):
-                        attn_sink_tile = pypto.view(attn_sink_2d, [g_tile, 1], [g_idx * g_tile, 0])
-                        attn_sink_tile = pypto.exp(attn_sink_tile - max_update)
-                        sum_local = pypto.add(sum_update, attn_sink_tile)
-                        oi_final = pypto.div(oi_update, sum_local)
-                        pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
-                        oi_final_3d = pypto.cast(
-                            pypto.reshape(oi_final, [1, g_tile, dn]),
-                            dtype)
-
-                        pypto.assemble(oi_final_3d, oi_ofs, atten_out)
-                        
-                for s2_idx in pypto.loop(s2_loop, name="LOOP_s2", idx_name="s2_idx", unroll_list=unroll_list):
-                    block_num = s2_tile // block_size
-                    idx = s2_idx * block_num
-                    bs_ofs = b_idx * s1_scalar + s1_idx
-                    n1g_ofs = g_idx * g_tile
-                    actual_s2_tile = (cur_seq - s2_idx * s2_tile).min(s2_tile)
-                    oi_ofs = [bs_ofs, n1g_ofs, 0]
-                    # 5. 按照计算图实现运算逻辑，设置set_vec_tile_shapes时应尽可能用满UB，但不要超过UB的大小。
-                    pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                    qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0])
-
-                    kj_assemble = pypto.tensor([s2_tile, dn], kv_2d.dtype, "kj_assemble")
-                    for i in range(block_num):
-                        block_idx = block_table[b_idx, idx + i]
-                        block_idx_valid = block_idx.max(0)
-                        kj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                            pypto.view(kv_2d, [block_size, dn], [block_idx_valid * block_size, 0])
-                    kj_assemble = pypto.view(kj_assemble, [s2_tile, dn], [0, 0], valid_shape=[s2_tile, dn])
-
-                    # c1
-                    # 6. 下面是flash attention的计算逻辑
-                    pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
-                    sij = pypto.matmul(qi, kj_assemble, pypto.DT_FP32, a_trans=False,
-                                       b_trans=True)
-                    sij = pypto.view(sij, [g_tile, s2_tile], [0, 0],
-                                     valid_shape=[g_tile, actual_s2_tile])
-                    # v1
-                    pypto.set_vec_tile_shapes(v1_tile[0], v1_tile[1])
-                    if not enable_c128 and pypto.cond(pypto.is_loop_begin(s2_idx)):
-                        sij_scale = pypto.mul(sij, softmax_scale)
-                        tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
-
-                        tsub = pypto.sub(sij_scale, tilda_mij)
-                        tilda_pij = pypto.exp(tsub)
-                        tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
-                        sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-                        max_update[:] = tilda_mij
-
-                        # c2
-                        vj_assemble = pypto.tensor([s2_tile, dn], kv_2d.dtype, "vj_assemble")
-                        for i in range(block_num):
-                            block_idx = block_table[b_idx, idx + i]
-                            block_idx_valid = block_idx.max(0)
-                            vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                pypto.view(kv_2d, [block_size, dn], [block_idx_valid * block_size, 0])
-                        vj_assemble = pypto.view(vj_assemble, [s2_tile, dn],
-                                                 [0, 0], valid_shape=[actual_s2_tile, dn])
-                        pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
-                        oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
-
-                        pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                        oi_update[:] = oi_tmp
-                    else:
-                        # pypto.set_pass_options(sg_set_scope=1)
-                        sij_scale = pypto.mul(sij, softmax_scale)
-                        tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
-                        max_new = pypto.maximum(max_update, tilda_mij)
-                        tsub = pypto.sub(sij_scale, max_new)
-                        tilda_pij = pypto.exp(tsub)
-                        tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
-                        sum_local = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-                        # pypto.set_pass_options(sg_set_scope=-1)
-
-                        # pypto.set_pass_options(sg_set_scope=2)
-                        tsub2 = pypto.sub(max_update, max_new)
-                        max_update[:] = max_new
-                        update_mul = pypto.exp(tsub2)
-                        sum_update[:] = sum_update * update_mul + sum_local
-                        # pypto.set_pass_options(sg_set_scope=-1)
-
-                        # c2
-                        vj_assemble = pypto.tensor([s2_tile, dn], kv_2d.dtype, "vj_assemble")
-                        for i in range(block_num):
-                            block_idx = block_table[b_idx, idx + i]
-                            block_idx_valid = block_idx.max(0)
-                            vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
-                                pypto.view(kv_2d, [block_size, dn], [block_idx_valid * block_size, 0])
-                        vj_assemble = pypto.view(vj_assemble, [s2_tile, dn],
-                                                    [0, 0], valid_shape=[actual_s2_tile, dn])
-                        pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
-                        oi_tmp = pypto.matmul(tilda_pij_fp16, vj_assemble, pypto.DT_FP32)
-
-                        # v2
-                        pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
-                        oi_update[:] = oi_update * update_mul + oi_tmp
-                    if pypto.cond(pypto.is_loop_end(s2_idx)):
-                        attn_sink_tile = pypto.view(attn_sink_2d, [g_tile, 1], [g_idx * g_tile, 0])
-                        attn_sink_tile = pypto.exp(attn_sink_tile - max_update)
-                        sum_local = pypto.add(sum_update, attn_sink_tile)
-                        oi_final = pypto.div(oi_update, sum_local)
-
-                        pypto.set_vec_tile_shapes(16, v2_tile[0], v2_tile[1])
-                        oi_final_3d = pypto.cast(
-                            pypto.reshape(oi_final, [1, g_tile, dn]),
-                            dtype)
-                        # 7. 将结果搬运到输出tensor上
-                        pypto.assemble(oi_final_3d, oi_ofs, atten_out)
-
-
 class MM(torch.nn.Module):
     def forward(
             self,
@@ -361,74 +162,260 @@ class MM(torch.nn.Module):
             unroll_list: list | None = None
     ):
         attention(query, kv_cache, attn_sink, blk_tbl, start_pos, attn_res, cmp_r, unroll_list)
-        return attn_res
 
 
-@pytest.mark.skip(reason="large test case")
-def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device: str, pg_upper_bound: int, attn_cfg: AttentionConfig, is_prefill=False):
-    torch_dtype = torch.bfloat16
-    b = attn_cfg.b
-    s1 = attn_cfg.s1
-    d = attn_cfg.q_d
-    nq = attn_cfg.n1
-    nkv = attn_cfg.n2
-    cmp_r = attn_cfg.cmp_r
+def softmax(x, attn_sink, is_fp16=False, is_new_sink = False):
+    # 使用 torch 的 softmax 实现
+    if is_fp16:
+        original_dtype = x.dtype
+        x = x.float()
+    x_max = x.max(dim=-1, keepdim=True).values
+    x_sub = x - x_max
+    y = torch.exp(x_sub)
+    x_sum = y.sum(dim=-1, keepdim=True)
+    if attn_sink != None:
+        if not is_new_sink:
+            x_sum += attn_sink.unsqueeze(-1)
+        else:
+            x_sum += torch.exp(attn_sink.unsqueeze(-1) - x_max)
+    ans = y / x_sum
+    if is_fp16:
+        ans = ans.to(original_dtype)
+        x_max = x_max.to(original_dtype)
+        x_sum = x_sum.to(original_dtype)
 
-    block_size = attn_cfg.block_size
-    max_blocks = attn_cfg.max_blocks
-    orig_act_seq = attn_cfg.actual_seq
+    return ans, x_max, x_sum
 
-    q_shape = [b * s1, nq, d]
-    kv_shape = [attn_cfg.kv_num_blocks, block_size, nkv, d]
-    blk_tbl_shape = [attn_cfg.block_table_batch, max_blocks]
-    max_actual_seq = max(orig_act_seq)
-    win_max_actual_seq = min(max_actual_seq, block_size + s1 -1)
-    win_max_blocks = math.ceil(win_max_actual_seq / block_size)
-    kv_win_shape = [b * win_max_blocks, block_size, nkv, d]
-    blk_win_shape = [b, win_max_blocks]
 
-    empty_kwargs = {"dtype": torch_dtype, "device": device}
-    q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1)
-    kv = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
-    # v = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
-    attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1) 
-    kv_win = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1)
-    # v_win = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1)
-    blk_win = attn_golden.gen_block_table(orig_act_seq, block_size, blk_win_shape, cmp_r=cmp_r, enable_win=True, s1=s1)
+def matmul_proxy(left, right):
+    fp32 = torch.float32
+    return torch.matmul(left.to(fp32), right.to(fp32)).to(fp32)
 
-    
-    output = torch.zeros(q_shape, **empty_kwargs)
-    output_flash = torch.zeros(q_shape, **empty_kwargs)
+def get_block_kv(kv_2d, block_table, b_idx, s2_idx, block_size, cur_seq):
+    block_idx = block_table[b_idx][s2_idx]
+    block_idx_valid = max(block_idx, 0)
+    actual_s2_tile = min(block_size, cur_seq - s2_idx * block_size)
+    kj_start = block_idx_valid * block_size
+    kj_end = kj_start + actual_s2_tile
+    kvj = kv_2d[kj_start:kj_end, :]
+    return kvj
 
-    blk_tbl = attn_golden.gen_block_table(orig_act_seq, block_size, blk_tbl_shape, cmp_r=cmp_r)
-    start_pos = orig_act_seq - s1
-    out_npu = torch.zeros(q_shape, **empty_kwargs)
 
-    unroll_list = [2, 1]
-    if enable_high_perf:
-        unroll_list = [2, 1]
-    attention(q, kv, attn_sink, blk_tbl, start_pos, kv_win, blk_win, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound, is_prefill= is_prefill)
-    # attn_golden.ifa_golden(q, k, v, attn_sink, blk_tbl, start_pos, output, enable_flash=False, cmp_r=cmp_r, is_new_sink=True, k_win=k_win, v_win=v_win, blk_win=blk_win)
-    attn_golden.ifa_golden(q, kv, attn_sink, blk_tbl, start_pos, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True, kv_win=kv_win, blk_win=blk_win, is_prefill=is_prefill)
-    threhold = 5e-4
-    # compare(output, output_flash, "no flash golden vs flash golden", rtol=threhold, atol=threhold)
-    if out_npu.numel() > 1000000:
-        print(f'use other cmpare func')
-        import utils.compare as compare
-        compare.compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)  
+def flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=False):
+    li = li_upd.unsqueeze(-1)
+    if attn_sink != None:
+        if not is_new_sink:
+            li += attn_sink.unsqueeze(-1)
+        else:
+            li += torch.exp(attn_sink - mi_upd).unsqueeze(-1)
+    oi_final = oi_upd / li
+    oi_upd_3d = oi_final.unsqueeze(0)
+    attn_out_start = n2g_ofs
+    attn_out_end = n2g_ofs + g_tile
+    if attn_out_end > out.shape[1]:
+        attn_out_end = out.shape[1]
+        attn_out_start = attn_out_end - g_tile
+    out[bs_ofs : bs_ofs + 1, attn_out_start:attn_out_end, :] = (
+        oi_upd_3d.to(dtype)
+    )
+
+
+def kv_cache_concat_bsnd(kv_cache_out, block_table, actual_seqs):
+    b = actual_seqs.shape[0]
+    n2 = kv_cache_out.shape[2]
+    d = kv_cache_out.shape[3]
+    block_size = kv_cache_out.shape[1]
+    dtype = kv_cache_out.dtype
+
+    # 处理 torch tensor 类型的 kv_cache_actual_seq
+    kv_max = (torch.max(actual_seqs).item() + block_size - 1) // block_size * block_size
+
+    # 使用 torch 创建张量，保持在同一设备上
+    kv_cache = torch.zeros([b, kv_max, n2, d], dtype=dtype).to(kv_cache_out.device)
+
+    for b_idx in range(b):
+        block_list = block_table[b_idx]
+        kv_nope_temp_tensor = torch.zeros([1, kv_max, n2, d], dtype=dtype)
+        s_idx = 0
+
+        for _, block_idx in enumerate(block_list):
+            if block_idx == -1:
+                break
+            # 使用 torch 的切片操作
+            start_idx = s_idx * block_size
+            end_idx = (s_idx + 1) * block_size
+
+            kv_nope_temp_tensor[:, start_idx:end_idx, :, :] = kv_cache_out[
+                block_idx : block_idx + 1, :, :, :
+            ]
+            s_idx += 1
+
+        kv_cache[b_idx : b_idx + 1, :, :, :] = kv_nope_temp_tensor
+
+    return kv_cache
+
+
+def ifa_flash_torch(q, kv, attn_sink, block_table, seqused_kv, out, cmp_r=1, is_new_sink=False,
+                kv_win=None, blk_win=None):
+    """
+    Args:
+        q: Query [batch_size * s1, num_head, head_size]
+        k: Key cache [num_blocks, block_size, kv_head_num, head_size]
+        v: Value cache [num_blocks, block_size, kv_head_num, head_size]
+        block_table: Block mapping table for compress kv cache [batch_size, max_num_blocks_per_query]
+        start_pos: Actual start position [batch_size], satisify start_pos + s1 = original actual seq
+        out: Output [batch_size * s1, num_head, head_size]
+    """
+    fp32 = torch.float32
+    q_shape = q.shape
+    device = q.device
+    dtype = q.dtype
+    bs1, n1, d = q_shape[0], q_shape[1], q_shape[2]
+    b = seqused_kv.shape[0]
+    s1 = bs1 // b
+    k_shape = kv.shape
+    _, block_size, n2, _ = k_shape
+    g = n1 // n2
+    g_tile = g
+    kv_2d = kv.reshape(-1, d)
+    q_2d = q.reshape(-1, d)
+    scale = d ** -0.5
+    win = 128
+
+    for b_idx in range(b):
+        for s1_idx in range(s1):
+            cur_seq = (seqused_kv[b_idx] - (s1 - 1 - s1_idx)) // cmp_r
+            cur_seq = max(cur_seq, 0)
+            s2_loop = math.ceil(cur_seq / block_size)
+            for g_idx in range(g // g_tile):
+                oi_upd = torch.zeros((g_tile, d), device=device, dtype=fp32)
+                li_upd = torch.zeros(g_tile, device=device, dtype=fp32)
+                mi_upd = torch.zeros(g_tile, device=device, dtype=fp32)
+                bs_ofs = b_idx * s1 + s1_idx
+                n2g_ofs = g_idx * g_tile
+                qi_start = bs_ofs * n1 + n2g_ofs
+                qi_end = qi_start + g_tile
+                qi = q_2d[qi_start:qi_end, :]
+                if kv_win is not None and blk_win is not None:
+                    kv_win_2d = kv_win.reshape(-1, d)
+                    valid_len = seqused_kv[b_idx] - (s1 - s1_idx - 1)
+                    valid_win_len = min(valid_len, win)
+                    valid_start_pos = valid_len - valid_win_len
+                    valid_end_pos = valid_len - 1
+                    start_offset = valid_start_pos % block_size
+
+                    start_block = valid_start_pos // block_size
+                    end_block = valid_end_pos // block_size
+                    kv_list = []
+                    
+                    for block_idx in range(start_block, end_block + 1):
+                        block_idx_valid = max(blk_win[b_idx, block_idx], 0)
+                        block_offset = block_idx_valid * block_size
+                        kv_block = kv_win_2d[block_offset: block_offset + block_size, :]
+                        kv_list.append(kv_block)
+
+                    kv_cur = torch.cat(kv_list, axis=0)
+                    kv_cur = kv_cur[start_offset : start_offset + valid_win_len, :]
+
+                    mm1 = matmul_proxy(qi, kv_cur.t())
+                    muls_res = mm1 * scale
+                    tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)
+                    tsub = muls_res - tilda_mij
+                    tilda_pij = torch.exp(tsub)
+                    tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
+                    oi_tmp = matmul_proxy(tilda_pij.to(dtype), kv_cur)
+                    oi_upd = oi_tmp
+                    li_upd = tilda_lij.squeeze(-1)
+                    mi_upd = tilda_mij.squeeze(-1)
+                    if s2_loop == 0:
+                         flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=is_new_sink)
+                for s2_idx in range(s2_loop):
+                    kvj = get_block_kv(kv_2d, block_table, b_idx, s2_idx, block_size, cur_seq)
+                    mm1 = matmul_proxy(qi, kvj.t())
+                    muls_res = mm1 * scale
+                    tilda_mij, _ = torch.max(muls_res, dim=-1, keepdim=True)
+                    if s2_idx == 0 and kv_win is None:
+                        tsub = muls_res - tilda_mij
+                        tilda_pij = torch.exp(tsub)
+                        tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
+                        oi_tmp = matmul_proxy(tilda_pij.to(dtype), kvj)
+                        oi_upd = oi_tmp
+                        li_upd = tilda_lij.squeeze(-1)
+                        mi_upd = tilda_mij.squeeze(-1)
+                    else:
+                        mi = mi_upd.unsqueeze(-1)
+                        max_new, _ = torch.max(
+                            torch.cat([mi, tilda_mij], dim=-1), dim=-1, keepdim=True
+                        )
+                        tsub = muls_res - max_new
+                        tilda_pij = torch.exp(tsub)
+                        tilda_lij = torch.sum(tilda_pij, dim=-1, keepdim=True)
+                        tsub2 = torch.sub(mi, max_new)
+                        mi_upd = max_new.squeeze(-1)
+                        update_mul = torch.exp(tsub2)
+                        li = li_upd.unsqueeze(-1)
+                        sum_new = li * update_mul + tilda_lij
+                        li_upd = sum_new.squeeze(-1)
+                        q1 = matmul_proxy(tilda_pij.to(dtype), kvj)
+                        oi_upd = oi_upd * update_mul + q1
+                    if s2_idx == s2_loop - 1:
+                        flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=is_new_sink)
+    return out
+
+
+def ifa_golden(q, kv, attn_sink, blk_cfa, seqused_kv, out, enable_flash=True, cmp_r=1, is_new_sink=False,
+                kv_win=None, blk_win=None):
+    if not enable_flash:
+        fp64 = torch.float64
+        q = q.to(fp64)
+        kv = kv.to(fp64)
+        b = seqused_kv.shape[0]
+        blk_size = kv.shape[1]
+        bs = q.shape[0]
+        s1 = bs // b
+        nkv = kv.shape[2]
+        d = kv.shape[3]
+        softmax_scale = d**-0.5
+        compress_actual_seqs = seqused_kv // cmp_r
+        kv_bsnd = kv_cache_concat_bsnd(
+            kv, blk_cfa, compress_actual_seqs
+        )
+        win_seq_len = 0
+        if kv_win is not None and blk_win is not None:
+            k_cfa_bsnd = kv_cache_concat_bsnd(
+                    kv, blk_cfa, compress_actual_seqs
+                )
+            k_win_bsnd = kv_cache_concat_bsnd(
+                    kv_win, blk_win, seqused_kv * 0 + 128 + s1 -1
+                )
+            kv_bsnd = torch.cat([k_win_bsnd, k_cfa_bsnd], dim=1)
+            win_seq_len = blk_size
+        for i in range(b):
+            for j in range(s1):
+                for n2_idx in range(nkv):
+                    seq_len = min(win_seq_len, seqused_kv[i]) + (seqused_kv[i] - s1 + 1 + j) // cmp_r
+                    q_bs = q[i * s1 + j]
+                    kv_bs = kv_bsnd[i, :seq_len, n2_idx : n2_idx + 1].reshape(
+                        seq_len, d
+                    )
+                    qk_bmm_res = torch.matmul(q_bs, kv_bs.transpose(1, 0))
+                    qk_ele_res = qk_bmm_res * softmax_scale
+                    softmax_res, _, _ = softmax(qk_ele_res, attn_sink, True, is_new_sink=is_new_sink)
+                    bmm2_res = torch.matmul(softmax_res, kv_bs)
+                    out[i * s1 + j] = bmm2_res
     else:
-        from utils.np_compare import detailed_allclose_manual as compare
-        compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
-    
-    # acl graph
-    if enable_graph:
-        model = torch.compile(MM(), backend="eager", dynamic=True)
-        g = torch.npu.NPUGraph()
-        with torch.npu.graph(g):
-            y = model(q, kv, attn_sink, blk_tbl, start_pos, out_npu, cmp_r, unroll_list)
-        g.replay()
-        pypto.runtime._device_synchronize()
-        compare(output_flash, y, "golden vs graph npu", rtol=threhold, atol=threhold)
+        ifa_flash_torch(
+            q=q,
+            kv=kv,
+            attn_sink=attn_sink,
+            block_table=blk_cfa,
+            seqused_kv=seqused_kv,
+            out=out,
+            cmp_r=cmp_r,
+            is_new_sink=is_new_sink,
+            kv_win=kv_win, 
+            blk_win=blk_win,
+        )
 
 
 @allow_in_graph
@@ -437,7 +424,7 @@ def attention(
         kv_cache: torch.Tensor,
         attn_sink: torch.Tensor,
         blk_tbl: torch.Tensor,
-        start_pos: torch.Tensor,
+        seqused_kv: torch.Tensor,
         kv_win: torch.Tensor,
         blk_win: torch.Tensor,                
         attn_res: torch.Tensor,
@@ -471,7 +458,7 @@ def attention(
         query,
         kv_cache,
         blk_tbl,
-        start_pos,
+        seqused_kv,
         attn_res
     )
 
@@ -480,7 +467,7 @@ def attention(
         kv_cache: [0],
         attn_sink: [],
         blk_tbl: [],
-        start_pos: [0],
+        seqused_kv: [0],
         kv_win: [0],
         blk_win: [0]        
     }
@@ -497,6 +484,69 @@ def attention(
         c128_decode(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
     pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
+
+@pytest.mark.skip(reason="large test case")
+def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device: str, pg_upper_bound: int, attn_cfg: AttentionConfig):
+    torch_dtype = torch.bfloat16
+    b = attn_cfg.b
+    s1 = attn_cfg.s1
+    d = attn_cfg.q_d
+    nq = attn_cfg.n1
+    nkv = attn_cfg.n2
+    cmp_r = attn_cfg.cmp_r
+
+    block_size = attn_cfg.block_size
+    max_blocks = attn_cfg.max_blocks
+    seqused_kv = attn_cfg.actual_seq
+
+    q_shape = [b * s1, nq, d]
+    kv_shape = [attn_cfg.kv_num_blocks, block_size, nkv, d]
+    blk_tbl_shape = [attn_cfg.block_table_batch, max_blocks]
+    max_actual_seq = max(seqused_kv)
+    win_max_actual_seq = max(max_actual_seq, block_size + s1 -1)
+    win_max_blocks = math.ceil(win_max_actual_seq / block_size)
+    kv_win_shape = [b * win_max_blocks, block_size, nkv, d]
+    blk_win_shape = blk_tbl_shape
+
+    empty_kwargs = {"dtype": torch_dtype, "device": device}
+    q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1)
+    kv = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
+    attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1) 
+    kv_win = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1)
+    blk_win = gen_block_table(seqused_kv, block_size, blk_win_shape, cmp_r=cmp_r, enable_win=True, s1=s1)
+    
+    output = torch.zeros(q_shape, **empty_kwargs)
+    output_flash = torch.zeros(q_shape, **empty_kwargs)
+
+    blk_tbl = gen_block_table(seqused_kv, block_size, blk_tbl_shape, cmp_r=cmp_r)
+    out_npu = torch.zeros(q_shape, **empty_kwargs)
+
+    unroll_list = [2, 1]
+    if enable_high_perf:
+        unroll_list = [2, 1]
+    ifa_golden(q, kv, attn_sink, blk_tbl, seqused_kv, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True, \
+                kv_win=kv_win, blk_win=blk_win)
+    threhold = 5e-4
+    # acl graph
+    if enable_graph:
+        model = torch.compile(MM(), backend="eager", dynamic=True)
+        g = torch.npu.NPUGraph()
+        with torch.npu.graph(g):
+            model(q, kv, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
+        g.replay()
+        pypto.runtime._device_synchronize()
+    else:
+        attention(q, kv, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
+
+    if out_npu.numel() > 1000000:
+        print(f'use other cmpare func')
+        import utils.compare as compare
+        compare.compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)  
+    else:
+        from utils.np_compare import detailed_allclose_manual as compare
+        compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
+
+
 def test_c128_decode(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'    
@@ -510,7 +560,6 @@ def test_c128_prefill(enable_flash: bool, enable_high_perf: bool, enable_graph: 
     attn_cfg = get_prefill_case(device=device)
     c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, pg_upper_bound=pg_upper_bound, attn_cfg=attn_cfg)
     
-
 
 if __name__ == "__main__":
     import argparse as ap
