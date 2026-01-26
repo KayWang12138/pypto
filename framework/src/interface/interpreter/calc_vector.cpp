@@ -64,7 +64,6 @@ REGISTER_CALC_OP(OP_SUB_BRC, Opcode::OP_SUB_BRC, ExecuteOpBinary<Opcode::OP_SUB_
 REGISTER_CALC_OP(OP_MUL, Opcode::OP_MUL, ExecuteOpBinary<Opcode::OP_MUL>);
 REGISTER_CALC_OP(OP_MUL_BRC, Opcode::OP_MUL_BRC, ExecuteOpBinary<Opcode::OP_MUL_BRC>);
 REGISTER_CALC_OP(OP_DIV, Opcode::OP_DIV, ExecuteOpBinary<Opcode::OP_DIV>);
-REGISTER_CALC_OP(OP_MOD, Opcode::OP_MOD, ExecuteOpBinary<Opcode::OP_MOD>);
 REGISTER_CALC_OP(OP_DIV_BRC, Opcode::OP_DIV_BRC, ExecuteOpBinary<Opcode::OP_DIV_BRC>);
 REGISTER_CALC_OP(OP_S_ADD, Opcode::OP_S_ADD, ExecuteOpBinary<Opcode::OP_ADD>);
 REGISTER_CALC_OP(OP_S_SUB, Opcode::OP_S_SUB, ExecuteOpBinary<Opcode::OP_SUB>);
@@ -77,6 +76,20 @@ REGISTER_CALC_OP(OP_S_MAX, Opcode::OP_S_MAX, ExecuteOpBinary<Opcode::OP_S_MAX>);
 REGISTER_CALC_OP(OP_S_MIN, Opcode::OP_S_MIN, ExecuteOpBinary<Opcode::OP_S_MIN>);
 REGISTER_CALC_OP(OP_MAXIMUM, Opcode::OP_MAXIMUM, ExecuteOpBinary<Opcode::OP_S_MAX>);
 REGISTER_CALC_OP(OP_MINIMUM, Opcode::OP_MINIMUM, ExecuteOpBinary<Opcode::OP_S_MIN>);
+
+template <Opcode opcode>
+void ExecuteOpBinaryWithTmp(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO); 
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_TWO);
+    auto ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto lhs = ctx->ioperandDataViewList->at(0);
+    auto rhs = ctx->ioperandDataViewList->at(1);
+    switch (opcode) {
+        case Opcode::OP_MOD: calc::Fmod(ret, lhs, rhs); break;
+        default: ASSERT(false);
+    }
+}
+REGISTER_CALC_OP(OP_MOD, Opcode::OP_MOD, ExecuteOpBinaryWithTmp<Opcode::OP_MOD>);
 
 void ExecuteOpVecDup(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -475,7 +488,6 @@ REGISTER_CALC_OP(OP_ADDS, Opcode::OP_ADDS, ExecuteOpBinaryScalar<Opcode::OP_ADDS
 REGISTER_CALC_OP(OP_SUBS, Opcode::OP_SUBS, ExecuteOpBinaryScalar<Opcode::OP_SUBS>);
 REGISTER_CALC_OP(OP_MULS, Opcode::OP_MULS, ExecuteOpBinaryScalar<Opcode::OP_MULS>);
 REGISTER_CALC_OP(OP_DIVS, Opcode::OP_DIVS, ExecuteOpBinaryScalar<Opcode::OP_DIVS>);
-REGISTER_CALC_OP(OP_MODS, Opcode::OP_MODS, ExecuteOpBinaryScalar<Opcode::OP_MODS>);
 REGISTER_CALC_OP(OP_MAXS, Opcode::OP_MAXS, ExecuteOpBinaryScalar<Opcode::OP_MAXS>);
 REGISTER_CALC_OP(OP_MINS, Opcode::OP_MINS, ExecuteOpBinaryScalar<Opcode::OP_MINS>);
 REGISTER_CALC_OP(OP_S_ADDS, Opcode::OP_S_ADDS, ExecuteOpBinaryScalar<Opcode::OP_ADDS>);
@@ -484,6 +496,22 @@ REGISTER_CALC_OP(OP_S_MULS, Opcode::OP_S_MULS, ExecuteOpBinaryScalar<Opcode::OP_
 REGISTER_CALC_OP(OP_S_DIVS, Opcode::OP_S_DIVS, ExecuteOpBinaryScalar<Opcode::OP_DIVS>);
 REGISTER_CALC_OP(OP_S_MAXS, Opcode::OP_S_MAXS, ExecuteOpBinaryScalar<Opcode::OP_S_MAXS>);
 REGISTER_CALC_OP(OP_S_MINS, Opcode::OP_S_MINS, ExecuteOpBinaryScalar<Opcode::OP_S_MINS>);
+
+template <Opcode opcode>
+void ExecuteOpBinaryScalarWithTmp(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &lhs = ctx->ioperandDataViewList->at(0);
+    auto element = Element(DT_FP32, 0.0f);
+    ctx->op->GetAttr(OpAttributeKey::scalar, element);
+
+    switch (opcode) {
+        case Opcode::OP_MODS: calc::FmodS(ret, lhs, element); break;
+        default: ASSERT(false);
+    }
+}
+REGISTER_CALC_OP(OP_MODS, Opcode::OP_MODS, ExecuteOpBinaryScalarWithTmp<Opcode::OP_MODS>);
 
 void ExecuteOpGatherElement(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
