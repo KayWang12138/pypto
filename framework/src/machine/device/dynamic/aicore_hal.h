@@ -68,7 +68,7 @@ public:
             regSprDataMainBase_ = DAV_3510::REG_SPR_DATA_MAIN_BASE;
             regSprCond_ = DAV_3510::REG_SPR_COND;
             isNeedWriteRegForFastPath_ = false;
-        } 
+        }
     }
 
     inline uint32_t GetRegSprDataMainBase() {
@@ -406,14 +406,15 @@ public:
                 if (metric->perfTraceDevTaskId[type][cnt] != INVALID_DEV_TASK_ID) {
                     oss << "(" << metric->perfTraceDevTaskId[type][cnt] << ")";
                 }
-    
+
                 oss << "\",\"end\":" << curCycle << "}"
                     << (((type == PERF_TRACE_CORE_MAX - 1) && (cnt ==  metric->perfTraceCnt[type] - 1)) ? "" : ",");
             }
-            metric->perfTraceCnt[type] = 0;
         }
         oss << "]}";
-        memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
+        if (!aicoreProf_->ProfIsEnable()) {
+            memset_s(metric, sizeof(Metrics), 0, sizeof(Metrics));
+        }
 #endif
         return DEVICE_MACHINE_OK;
     }
@@ -488,7 +489,7 @@ public:
         if (isNeedWriteRegForFastPath_) {
             WriteReg32(coreIdx, REG_SPR_FAST_PATH_ENABLE, REG_SPR_FAST_PATH_OPEN);
         }
-        SetReadyQueue(coreIdx, 0);
+        SetReadyQueue(coreIdx, (uint64_t)0);
         DEV_VERBOSE_DEBUG("hand shake success coreidex:%d", coreIdx);
         return true;
     }
@@ -519,7 +520,7 @@ private:
     int aivEnd_{0};
     uint32_t regNum_{0};
     uint64_t freq_{50};
-    
+
     std::array<volatile KernelArgs*, MAX_AICORE_NUM> args_;
 
     std::array<volatile uint64_t*, MAX_AICORE_NUM> readyRegQueues_;

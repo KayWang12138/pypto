@@ -107,6 +107,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             tile_fwk_runtime_stub
             tile_fwk_simulation
             tile_fwk_simulation_ca
+            tile_fwk_simulation_pv
     )
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")
@@ -145,6 +146,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 framework/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py
                 tools/profiling/function_json_convert.py
                 tools/profiling/parse_pipe_time_trace.py
+                tools/scripts/machine_perf_trace.py
             DESTINATION ${PyPTO_WhlName}/lib/scripts
     )
 

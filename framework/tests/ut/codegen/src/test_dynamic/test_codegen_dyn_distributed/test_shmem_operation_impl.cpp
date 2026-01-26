@@ -224,7 +224,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
         Tensor predToken(DT_INT32, {1, 1}, "predToken");
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void) index;
-            ShmemBarrier(predToken, shmemSignal, group, worldSize, out);
+            out = ShmemBarrier(predToken, shmemSignal, group, worldSize);
         }
     }
 
@@ -237,7 +237,6 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
 
 TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
 {
-    const char* group = "hcom123";
     int64_t row = 4;
     int64_t col = 64;
     Tensor dummy(DT_INT32, {1, 1}, "dummy");
@@ -258,5 +257,4 @@ TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
-
 }

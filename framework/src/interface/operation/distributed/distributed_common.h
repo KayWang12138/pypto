@@ -22,7 +22,7 @@
 #include <vector>
 #include <optional>
 #include <functional>
-#include "interface/inner/config.h"
+#include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -88,6 +88,8 @@ public:
     int64_t paddedColShape;
     int64_t rowOffset{-1};
     int64_t rowShape{-1};
+    int64_t tileRowShape;
+    int64_t tileColShape;
 };
 
 inline int GetTotalTileNum(const std::array<int, MAX_DIST_DIM_SIZE> &tile)

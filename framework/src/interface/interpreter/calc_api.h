@@ -50,6 +50,7 @@ struct CalcOps {
     void (*Rsqrt)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Sqrt)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Abs)(LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*Brcb)(LogicalTensorDataPtr, LogicalTensorDataPtr);  
     void (*WhereTT)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*WhereTS)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &);
     void (*WhereST)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, LogicalTensorDataPtr);
@@ -101,7 +102,7 @@ struct CalcOps {
 
     void (*ReduceAcc)(LogicalTensorDataPtr, const std::vector<LogicalTensorDataPtr> &);
     void (*Copy)(LogicalTensorDataPtr, LogicalTensorDataPtr, bool);
-    void (*ScatterUpdate)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, std::string, int);
+    void (*ScatterUpdate)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, std::string, int);
     void (*ScatterElement)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, int, int);
     void (*Scatter)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr,
         int, int);
@@ -112,6 +113,9 @@ struct CalcOps {
     void (*BitSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool);
     void (*Extract)(LogicalTensorDataPtr, LogicalTensorDataPtr, int, bool);
     void (*Topk)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t, bool);
+    void (*TopkSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int);
+    void (*TopkMerge)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
+    void (*TopkExtract)(LogicalTensorDataPtr, LogicalTensorDataPtr, int, bool);
     void (*Gather)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t);
     void (*GatherINUB)(
         LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t);
