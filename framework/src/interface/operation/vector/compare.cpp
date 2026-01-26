@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -70,7 +70,8 @@ void TiledCompareOperationImpl(Function &function, const TileShape &tileShape, s
 
     if (mode == OutType::BIT && cur == result->shape.size() - 1) {
         step = vecTile[cur] / NUM_VALUE_8;
-        if (step < 1) step = 1;
+        if (step < 1)
+            step = 1;
 
         int64_t actualInputStep = step * NUM_VALUE_8;
 
@@ -135,6 +136,7 @@ LogicalTensorPtr TensorCompareOperation(
     Function &function, const Tensor &self, const Tensor &other, OpType operation, OutType mode) {
     auto operandT1 = self.GetStorage();
     auto operandT2 = other.GetStorage();
+    OpInputsChecker::GetInstance(Opcode::OP_CMP).Check({operandT1, operandT2});
     if (operandT1->shape.size() != operandT2->shape.size()) {
         std::vector<int> broadCastShape = GetBroadCastShape(operandT1, operandT2);
         operandT1 = BinaryOperationBroadCast(operandT1, broadCastShape);
@@ -175,6 +177,7 @@ LogicalTensorPtr TensorCompareOperationScalar(
     Function &function, const Tensor &operand1, const Element &value, OpType operation, OutType mode) {
     DECLARE_TRACER();
     auto operandT1 = operand1.GetStorage();
+    OpInputsChecker::GetInstance(Opcode::OP_CMPS).Check({operandT1});
     std::vector<int64_t> resultShape = operandT1->shape;
     std::vector<SymbolicScalar> resultValidShape = operandT1->GetDynValidShape();
     DataType resultType = DT_BOOL;
@@ -201,9 +204,9 @@ LogicalTensorPtr TensorCompareOperationScalar(
     return result;
 }
 
-LogicalTensorPtr TensorCompareOperationScalar(Function& function, const Element& value, const Tensor& operand1,	 
-    OpType operation, OutType mode) {	 
-    switch(operation) {
+LogicalTensorPtr TensorCompareOperationScalar(
+    Function &function, const Element &value, const Tensor &operand1, OpType operation, OutType mode) {
+    switch (operation) {
         case OpType::LT: operation = OpType::GT; break;
         case OpType::GT: operation = OpType::LT; break;
         case OpType::LE: operation = OpType::GE; break;
@@ -264,7 +267,8 @@ void TiledCmpsOperationImpl(Function &function, const TileShape &tileShape, size
 
     if (mode == OutType::BIT && cur == result->shape.size() - 1) {
         step = vecTile[cur] / NUM_VALUE_8;
-        if (step < 1) step = 1;
+        if (step < 1)
+            step = 1;
 
         int64_t actualInputStep = step * NUM_VALUE_8;
 
