@@ -264,7 +264,7 @@ Status ProcessReshape(Function &function, Operation *&operation) {
         }
         consumer->ReplaceInput(dst, oOperand);
         auto &newReshapeOp = function.AddRawOperation(Opcode::OP_RESHAPE, {iOperand}, {dst});
-        const std::shared_ptr<OpAttribute> oriReshapeAttr = operation->GetOpAttribute().Clone();
+        const std::shared_ptr<OpAttribute> oriReshapeAttr = operation->GetOpAttribute();
         if (oriReshapeAttr != nullptr) {
             newReshapeOp.SetOpAttribute(oriReshapeAttr);
         }
