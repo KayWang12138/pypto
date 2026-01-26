@@ -1146,6 +1146,7 @@ static struct CalcOps calcOps = {
     .Expand = Expand,
     .GatherElements = GatherElements,
     .IndexAdd = IndexAdd,
+    .TriU = TriU,
     .CumSum = CumSum,
     .IndexPut = IndexPut,
     .Reshape = Reshape,
