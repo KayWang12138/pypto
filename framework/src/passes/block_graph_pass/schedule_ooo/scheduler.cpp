@@ -1078,14 +1078,14 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
     localBufferMap.clear();
     depthCache_.clear();
     LOG_SCOPE_BEGIN(tInit, Elements::Function, "Init");
-    InitUsedCore();
     // 初始化芯片各buffer大小
     InitMemorySize();
     if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
-        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_NON_MIX;
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_HARDWARE_ONE;
     } else {
-        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_MIX;
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_HARDWARE_TWO;
     }
+    InitUsedCore();
     // 校验并初始化issueEntry
     for (const auto &op : operations) {
         if (IsViewOp(*op)) {
