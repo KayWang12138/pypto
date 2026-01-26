@@ -19,31 +19,31 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 
-@pypto.jit
-def cust_dyn_func(a, b, c, tiling=None):
-    pypto.set_vec_tile_shapes(32, 32)
-    for _ in pypto.loop(1, name="s0", idx_name="k"):
-        c.move(pypto.add(a, b))
-
+def create_cust_dyn_func(shape_a, shape_b, shape_c, tiling=None):
+    @pypto.frontend.jit()
+    def cust_dyn_func(
+        a: pypto.Tensor(shape_a, pypto.DT_INT32),
+        b: pypto.Tensor(shape_b, pypto.DT_INT32),
+        c: pypto.tensor(shape_c, pypto.DT_INT32)
+    ):
+        pypto.set_vec_tile_shapes(tiling, tiling)
+        for _ in pypto.loop(1, name="s0", idx_name="k"):
+            c.move(pypto.add(a, b))
+    return cust_dyn_func
 
 class Network(torch.nn.Module):
-    def forward(self, data1, data2):
+    def forward(self, data1, data2, shape, tiling=32):
+        kernel = create_cust_dyn_func(shape, shape, shape, tiling=tiling)
         add_01 = torch.add(data1, data2)
-
-        inputs = [add_01, data2]
-        outputs = [data2]
-        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-        cust_dyn_func(pto_inputs[0], pto_inputs[1], pto_outputs[0], 32)
-
+        c1 = torch.zeros(shape, dtype=torch.int32, device=data2.device)
+        kernel(add_01, data2, c1)
+        data2 = c1
         data2 = torch.sub(data2, add_01)
         data2 = torch.add(data2, add_01)
 
-        inputs = [data2, data1]
-        outputs = [data2]
-        pto_inputs = [pypto.from_torch(tensor, f"IN_{idx}") for idx, tensor in enumerate(inputs)]
-        pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
-        cust_dyn_func(pto_inputs[0], pto_inputs[1], pto_outputs[0], 32)
+        c2 = torch.zeros(shape, dtype=torch.int32, device=data2.device)
+        kernel(data2, data1, c2)
+        data2 = c2
         return data2
 
 
@@ -58,6 +58,7 @@ def compute_golden(data1, data2):
 
 def test_select_experts():
     # 1. 设置参数
+    shape = (256, 256)
     input0 = torch.from_numpy(np.random.uniform(-5, 5, size=(256, 256))).to(torch.int32)
     input1 = torch.from_numpy(np.random.uniform(-5, 5, size=(256, 256))).to(torch.int32)
     # run golden
@@ -78,7 +79,7 @@ def test_select_experts():
         # 开始捕获
         g.capture_begin()
         for _ in range(1):
-            npu_out = npu_mode(input0, input1)
+            npu_out = npu_mode(input0, input1, shape)
         assert torch_npu.npu.is_current_stream_capturing()
         g.capture_end()
     torch_npu.npu.current_stream().wait_stream(s)
