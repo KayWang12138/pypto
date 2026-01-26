@@ -693,18 +693,14 @@ TEST_F(MixSubgraphSplitTest, TestMultipleMixSubgraphsSplit) {
  */
 TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario) {
     // 1. 创建仅包含非Mix子图的rootFunction
-    auto rootFuncPtr = std::make_shared<Function>(
-        Program::GetInstance(), "test_root_no_mix", "test_root_no_mix", nullptr);
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "test_root_no_mix", "test_root_no_mix", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     // 2. 创建3个普通（非Mix）子图
     std::vector<std::shared_ptr<Function>> nonMixFunctions;
     std::vector<uint64_t> programIds = {10, 20, 30};
     for (int i = 0; i < 3; i++) {
-        auto func = std::make_shared<Function>(
-            Program::GetInstance(),
-            "test_func_" + std::to_string(i),
-            "test_func_" + std::to_string(i),
-            rootFuncPtr.get());
+        auto func = std::make_shared<Function>(Program::GetInstance(), "test_func_" + std::to_string(i),
+            "test_func_" + std::to_string(i), rootFuncPtr.get());
         func->SetGraphType(GraphType::BLOCK_GRAPH);
         func->SetFunctionType(FunctionType::STATIC);
         // 创建简单op（无internalSubgraphID标记）
@@ -747,12 +743,10 @@ TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario) {
     }
     // 5.2 验证programs保持不变
     auto& newPrograms = rootFuncPtr->programs_;
-    EXPECT_EQ(newPrograms.size(), originalProgramCount) 
-        << "Program count should not change when no mix subgraphs";
+    EXPECT_EQ(newPrograms.size(), originalProgramCount) << "Program count should not change when no mix subgraphs";
     // 5.3 验证callOps数量不变
     auto newCallOps = rootFuncPtr->GetCallopList();
-    EXPECT_EQ(newCallOps.size(), originalCallOpCount)
-        << "CallOp count should not change when no mix subgraphs";
+    EXPECT_EQ(newCallOps.size(), originalCallOpCount) << "CallOp count should not change when no mix subgraphs";
 }
 
 // 辅助函数：创建外部Mix子图
