@@ -41,8 +41,9 @@ private:
     Status InsertCopy(Function &function, Operation *viewOp, Operation *assOp);
     bool NeedInsertCopy(LogicalTensorPtr &assembleOut);
     void InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp);
-    void AddCopyUBOp(Function &function, Operation *cons, LogicalTensorPtr &input);
-    void AddCopyDDROp(Function &function, Operation *cons, LogicalTensorPtr &input);
+
+    void InsertCopyUBOp(Function &function, Operation *cons, const LogicalTensorPtr &input);
+    void InsertCopyDDROp(Function &function, Operation *cons, const LogicalTensorPtr &input);
     void InsertAssembleCopy(Function &function);
 
     std::unordered_set<LogicalTensorPtr> assembleOutSet_;
