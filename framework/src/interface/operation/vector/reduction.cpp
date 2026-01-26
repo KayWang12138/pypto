@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -166,11 +166,11 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
                     if (static_cast<size_t>(sourceReg->shape[axis]) <= REPEAT_BYTE / BytesOf(in->Datatype())) {
                         tmpShape[0] = 1;
                     } else if (static_cast<size_t>(sourceReg->shape[axis]) <=
-                            NUM2 * REPEAT_BYTE / BytesOf(in->Datatype())) {
+                               NUM2 * REPEAT_BYTE / BytesOf(in->Datatype())) {
                         tmpShape[1] = REPEAT_BYTE / BytesOf(in->Datatype());
                     } else {
                         tmpShape[1] = (((sourceReg->shape[axis] * BytesOf(in->Datatype())) / REPEAT_BYTE) / NUM2) *
-                                    REPEAT_BYTE / BytesOf(in->Datatype());
+                                      REPEAT_BYTE / BytesOf(in->Datatype());
                     }
                     if (in->shape.size() == 1) {
                         tmpShape = {tmpShape[1]};
@@ -179,7 +179,7 @@ void TileReduceNew(Function &function, const TileShape &tileShape, const std::st
                     tempTensor->dynValidShape_ = SymbolicScalar::FromConcrete(tmpShape);
                     auto &newOp = function.AddOperation("TILE_ROW" + op + "_SINGLE", {sourceReg}, {result, tempTensor});
                     newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", axis);
-                } else{
+                } else {
                     tmpShape[0] = (sourceReg->shape[axis] + 1) / NUM2;
                     tmpShape[1] = (sourceReg->shape[in->shape.size() - 1] + BLOCK_NUM - 1) / BLOCK_NUM * BLOCK_NUM;
                     auto tempTensor = std::make_shared<LogicalTensor>(function, in->Datatype(), tmpShape);
@@ -268,7 +268,7 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
         outValidShape[axis] = SymbolicScalar(1);
         result.GetStorage()->UpdateDynValidShape(outValidShape);
     }
-
+    OpInputsChecker::GetInstance(opCode).Check({operand.GetStorage()});
     auto &newOp = function.AddOperation(opCode, {operand.GetStorage()}, {result.GetStorage()});
     newOp.SetAttribute(OP_ATTR_PREFIX + "AXIS", static_cast<int>(axis));
     return;
@@ -297,8 +297,7 @@ Tensor Amax(const Tensor &self, int axis, bool keepDim) {
 
     Tensor result(self.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
-    if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 &&
-        shapeSize >= NUM2) {
+    if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 && shapeSize >= NUM2) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX_COMBINE_AXIS", self, result, axis);
     } else {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX", self, result, axis);
@@ -308,7 +307,7 @@ Tensor Amax(const Tensor &self, int axis, bool keepDim) {
         return result;
     } else {
         std::vector<SymbolicScalar> outValidShape;
-        for (auto shape : self.GetStorage()->GetDynValidShape()){
+        for (auto shape : self.GetStorage()->GetDynValidShape()) {
             outValidShape.push_back(shape);
         }
         outShape.erase(outShape.begin() + axis);
@@ -336,8 +335,7 @@ Tensor Amin(const Tensor &self, int axis, bool keepDim) {
 
     Tensor result(self.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
-    if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 &&
-        shapeSize >= NUM2 &&
+    if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 && shapeSize >= NUM2 &&
         (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && vecTile[vecTile.size() - NUM2] % NUM_VALUE_8 == 0)) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN_COMBINE_AXIS", self, result, axis);
     } else {
@@ -348,7 +346,7 @@ Tensor Amin(const Tensor &self, int axis, bool keepDim) {
         return result;
     } else {
         std::vector<SymbolicScalar> outValidShape;
-        for (auto shape : self.GetStorage()->GetDynValidShape()){
+        for (auto shape : self.GetStorage()->GetDynValidShape()) {
             outValidShape.push_back(shape);
         }
         outShape.erase(outShape.begin() + axis);
@@ -376,8 +374,7 @@ Tensor Sum(const Tensor &self, int axis, bool keepDim) {
 
     Tensor result(self.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
-    if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 &&
-        shapeSize >= NUM2) {
+    if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 && shapeSize >= NUM2) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM_COMBINE_AXIS", self, result, axis);
     } else {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM", self, result, axis);
@@ -387,7 +384,7 @@ Tensor Sum(const Tensor &self, int axis, bool keepDim) {
         return result;
     } else {
         std::vector<SymbolicScalar> outValidShape;
-        for (auto shape : self.GetStorage()->GetDynValidShape()){
+        for (auto shape : self.GetStorage()->GetDynValidShape()) {
             outValidShape.push_back(shape);
         }
         outShape.erase(outShape.begin() + axis);

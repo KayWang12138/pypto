@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/operation/opcode.h"
+#include "interface/operation/operation_inputs_checker.h"
 
 namespace npu::tile_fwk {
 #define CALL(n, ...) Tensor##n(__VA_ARGS__)
@@ -57,7 +58,6 @@ struct Input {
     TileInfo tileInfo;
 };
 
-void CheckTensorShape(const LogicalTensorPtr &tensor, const std::string &op);
 std::vector<int> GetBroadCastShape(LogicalTensorPtr &operand1, LogicalTensorPtr &operand2);
 std::vector<int> GetBroadcastAxes(const Shape &shape1, const Shape &shape2);
 void CheckAxisRange(const Tensor &tensor, int &axis);
@@ -89,13 +89,11 @@ private:
     std::unordered_map<Opcode, TiledFuncType> tiledFuncs_;
 };
 
-#define REGISTER_OPERATION_TILED_FUNC(OpCoreStr, OpType, FuncName)                \
-    class OpCoreStr##TiledRegister {                                              \
-    public:                                                                       \
-        OpCoreStr##TiledRegister() {                                              \
-            TiledFuncRegistry::GetInstance().RegisterTiledFunc(OpType, FuncName); \
-        }                                                                         \
-    };                                                                            \
+#define REGISTER_OPERATION_TILED_FUNC(OpCoreStr, OpType, FuncName)                                           \
+    class OpCoreStr##TiledRegister {                                                                         \
+    public:                                                                                                  \
+        OpCoreStr##TiledRegister() { TiledFuncRegistry::GetInstance().RegisterTiledFunc(OpType, FuncName); } \
+    };                                                                                                       \
     static OpCoreStr##TiledRegister OpCoreStr##_tiled_register
 
 class OpSyncQueue {
