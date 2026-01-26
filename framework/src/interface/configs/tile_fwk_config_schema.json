@@ -269,6 +269,15 @@
                             }
                         }
                     ]
+                },
+                "aicpu_advanced_time": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "...",
+                        "en": "..."
+                    },
+                    "minimum": 0,
+                    "maximum": 1000000
                 }
             }
         },
