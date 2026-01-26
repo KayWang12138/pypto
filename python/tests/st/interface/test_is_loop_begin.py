@@ -24,90 +24,109 @@ n1 = 64
 d = 64
 
 
-@pypto.jit
-def dyn_loop_with_loop_begin(in_tensor, out_tensor):
-    pypto.set_vec_tile_shapes(1, 1, 64, 64)
+def create_dyn_loop_with_loop_begin(shape_in, shape_out):
+    @pypto.frontend.jit()
+    def dyn_loop_with_loop_begin(
+        in_tensor: pypto.Tensor(shape_in, pypto.DT_FP32),
+        out_tensor: pypto.Tensor(shape_out, pypto.DT_FP32)
+    ) -> pypto.Tensor(shape_out, pypto.DT_FP32):
+        pypto.set_vec_tile_shapes(1, 1, 64, 64)
 
-    for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
-        for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
-            a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
-            if pypto.cond(pypto.is_loop_begin(b_idx)):
-                a1 = pypto.add(a0, 1.0)
-                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
-            else:
-                a1 = pypto.mul(a0, 1.0)
-                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+        for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
+            for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
+                a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
+                if pypto.is_loop_begin(b_idx):
+                    a1 = pypto.add(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+                else:
+                    a1 = pypto.mul(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+
+    return dyn_loop_with_loop_begin
 
 
 def test_is_loop_begin():
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
-    torch.npu.set_device(int(device_id))
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
 
-    # prepare data
-    input_cpu = torch.rand((b, s, n1, d), dtype=torch.float32)
-    output_cpu = torch.ones((b, s, n1, d), dtype=torch.float32)
-    # def inputs and outputs
-    input_npu = input_cpu.to(device=f'npu:{device_id}')
-    output_npu = output_cpu.to(device=f'npu:{device_id}')
-    pto_inputs = [pypto.from_torch(input_npu, "IN")]
-    pto_outputs = [pypto.from_torch(output_npu, "OUT")]
+    # Define shape parameters
+    shape_in = (b, s, n1, d)
+    shape_out = (b, s, n1, d)
 
-    # compute on npu
-    dyn_loop_with_loop_begin(pto_inputs[0], pto_outputs[0])
+    # Prepare data
+    input_torch = torch.rand(shape_in, dtype=torch.float32, device=f'npu:{device_id}')
+    output_torch = torch.ones(shape_out, dtype=torch.float32, device=f'npu:{device_id}')
+
+    # Create kernel and execute
+    kernel = create_dyn_loop_with_loop_begin(shape_in, shape_out)
+    kernel(input_torch, output_torch)
+
+    # Synchronize device
     torch_npu.npu.synchronize()
 
+    # Get results and verify
+    output_result = output_torch.cpu()
 
-    output_cpu = output_npu.cpu()
-
-    ## golden
-    output_golde = input_cpu
-    output_golde[0:1, :, :, :] = output_golde[0:1, :, :, :] + 1
-
-    assert_allclose(np.array(output_cpu),
-                    np.array(output_golde),
-                    rtol=1e-3, atol=1e-3)
+    # Golden reference: first batch gets +1, rest stay same
+    output_golden = input_torch.clone().cpu()
+    output_golden[0:1, :, :, :] = output_golden[0:1, :, :, :] + 1
 
 
-@pypto.jit
-def dyn_loop_with_loop_end(in_tensor, out_tensor):
-    pypto.set_vec_tile_shapes(1, 1, 64, 64)
+    assert torch.allclose(output_result, output_golden, atol=1e-5)
 
-    for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
-        for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
-            a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
-            if pypto.cond(pypto.is_loop_end(b_idx)):
-                a1 = pypto.add(a0, 1.0)
-                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
-            else:
-                a1 = pypto.mul(a0, 1.0)
-                pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+
+def create_dyn_loop_with_loop_end(shape_in, shape_out):
+    @pypto.frontend.jit()
+    def dyn_loop_with_loop_end(
+        in_tensor: pypto.Tensor(shape_in, pypto.DT_FP32),
+        out_tensor: pypto.Tensor(shape_out, pypto.DT_FP32)
+    ):
+        pypto.set_vec_tile_shapes(1, 1, 64, 64)
+
+        for b_idx in pypto.loop(b, name="b_loop", idx_name="b_idx"):
+            for s_idx in pypto.loop(s, name="s_loop", idx_name="s_idx"):
+                a0 = pypto.view(in_tensor, [1, 1, n1, d], [b_idx, s_idx, 0, 0])
+                if pypto.is_loop_end(b_idx):
+                    a1 = pypto.add(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+                else:
+                    a1 = pypto.mul(a0, 1.0)
+                    pypto.assemble(a1, [b_idx, s_idx, 0, 0], out_tensor)
+
+    return dyn_loop_with_loop_end
 
 
 def test_is_loop_end():
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
-    torch.npu.set_device(int(device_id))
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
 
-    # prepare data
-    input_cpu = torch.rand((b, s, n1, d), dtype=torch.float32)
-    output_cpu = torch.ones((b, s, n1, d), dtype=torch.float32)
-    # def inputs and outputs
-    input_npu = input_cpu.to(device=f'npu:{device_id}')
-    output_npu = output_cpu.to(device=f'npu:{device_id}')
-    pto_inputs = [pypto.from_torch(input_npu, "IN")]
-    pto_outputs = [pypto.from_torch(output_npu, "OUT")]
+    # Define shape parameters
 
-    # compute on npu
-    dyn_loop_with_loop_end(pto_inputs[0], pto_outputs[0])
+    shape_in = (b, s, n1, d)
+    shape_out = (b, s, n1, d)
+
+    # Prepare data on NPU
+    input_torch = torch.rand(shape_in, dtype=torch.float32, device=f'npu:{device_id}')
+    output_torch = torch.ones(shape_out, dtype=torch.float32, device=f'npu:{device_id}')
+
+    # Create kernel and execute
+    kernel = create_dyn_loop_with_loop_end(shape_in, shape_out)
+    kernel(input_torch, output_torch)
+
+    # Synchronize device
     torch_npu.npu.synchronize()
 
-    output_cpu = output_npu.cpu()
+    # Move results to CPU for comparison
+    output_result = output_torch.cpu()
+    output_golden = input_torch.clone().cpu()
+    # is_loop_end 返回True时是最后一个batch (b-1=2，所以是[2:3])
+    output_golden[b - 1:b, :, :, :] = output_golden[b - 1:b, :, :, :] + 1
 
-    ## golden
-    output_golde = input_cpu
-    output_golde[2:3, :, :, :] = output_golde[2:3, :, :, :] + 1
+    # Verify with torch.allclose
+    assert torch.allclose(output_result, output_golden, atol=1e-5)
 
-    assert_allclose(np.array(output_cpu),
-                    np.array(output_golde),
-                    rtol=1e-3, atol=1e-3)
+
+if __name__ == "__main__":
+    test_is_loop_end()
