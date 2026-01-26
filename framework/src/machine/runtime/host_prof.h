@@ -26,8 +26,6 @@ public:
   void HostProfReportNodeInfo(const uint64_t &endTime, const uint32_t blockDim, const uint16_t taskType) const;
   void HostProfReportContextInfo(const uint64_t &endTime) const;
   void SetProfFunction(Function *function);
-  void SetPmuEventTypeDAV2201(int32_t profPmuType, std::vector<int64_t> &pmuEvtType);
-  void SetPmuEventTypeDAV3510(int32_t profPmuType, std::vector<int64_t> &pmuEvtType);
   static uint64_t GetProfSwitch();
   static uint32_t GetProfType();
   static void RegHostProf();
