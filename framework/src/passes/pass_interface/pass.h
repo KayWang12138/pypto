@@ -19,7 +19,7 @@
 #include <string>
 #include <atomic>
 #include "interface/inner/pre_def.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "tilefwk/platform.h"
 
 namespace npu::tile_fwk {

@@ -16,7 +16,7 @@
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"

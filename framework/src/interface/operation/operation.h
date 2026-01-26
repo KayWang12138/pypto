@@ -25,7 +25,7 @@
 #include "interface/inner/any.h"
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk_op.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"
 #include "interface/utils/common.h"

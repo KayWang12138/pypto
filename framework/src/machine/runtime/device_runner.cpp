@@ -31,7 +31,7 @@
 #include "runtime/mem.h"
 #include "machine/utils/device_switch.h"
 #include "interface/utils/common.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/utils/op_info_manager.h"
 #include "toolchain/prof_api.h"
 #include "prof_common.h"

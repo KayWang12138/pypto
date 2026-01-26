@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/utils/id_gen.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

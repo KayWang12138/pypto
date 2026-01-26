@@ -15,7 +15,7 @@
 
 #include "codegen_symbol.h"
 #include "codegen/codegen_common.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 namespace npu::tile_fwk {
 AllocKey SymbolManager::CreateAllocKey(const std::shared_ptr<LogicalTensor> &tensor) const {

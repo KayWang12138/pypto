@@ -21,7 +21,7 @@
 #include "codegen/utils/codegen_utils.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/function/function.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/operation/opcode.h"
 #include "securec.h"
 

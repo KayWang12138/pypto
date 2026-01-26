@@ -17,7 +17,7 @@
 #include "gtest/gtest.h"
 
 #include "interface/tensor/logical_tensor.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "operator/models/llama/llama_def.h"

@@ -16,7 +16,7 @@
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "attention.h"
 
 using namespace npu::tile_fwk;

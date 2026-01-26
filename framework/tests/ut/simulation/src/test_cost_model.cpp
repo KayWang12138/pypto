@@ -23,7 +23,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "cost_model/simulation_ca/PipeSimulator.h"
 
 using namespace npu::tile_fwk;

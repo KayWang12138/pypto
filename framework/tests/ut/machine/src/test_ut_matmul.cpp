@@ -16,8 +16,8 @@
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
-#include "interface/configs/config_manager_ng.h"
+#include "interface/configs/config_global.h"
+#include "interface/configs/config_scope.h"
 
 using namespace npu::tile_fwk;
 

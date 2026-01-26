@@ -14,7 +14,7 @@
  */
 
 #include "passes/tile_graph_pass/static_subgraph_processor.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "passes/pass_log/pass_log.h"
 
 #define MODULE_NAME "StaticSubgraphProcessor"

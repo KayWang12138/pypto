@@ -18,7 +18,7 @@
 #include <functional>
 
 #include "tilefwk/data_type.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/operation/opcode.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -30,7 +30,7 @@
 #include "interface/tensor/raw_tensor.h"
 #include "interface/utils/serialization.h"
 #include "passes/pass_utils/pass_utils.h"
-#include "interface/configs/config_manager_ng.h"
+#include "interface/configs/config_scope.h"
 
 namespace npu::tile_fwk {
 const std::string OpAttributeKey::aicpuCall = "AICPU_CALL";

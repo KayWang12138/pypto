@@ -17,7 +17,7 @@
 
 #include <cstdlib>
 #include <unistd.h>
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_interface/pass_type.h"
 #include "pass_registry.h"

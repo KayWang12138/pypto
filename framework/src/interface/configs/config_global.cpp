@@ -9,11 +9,11 @@
  */
 
 /*!
- * \file config_manager.cpp
+ * \file config_global.cpp
  * \brief
  */
 
-#include "config_manager.h"
+#include "config_global.h"
 #include <map>
 #include <fstream>
 #include <cstdlib>

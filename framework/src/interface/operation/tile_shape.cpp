@@ -14,7 +14,7 @@
  */
 
 #include "tilefwk/tile_shape.h"
-#include "interface/configs/config_manager_ng.h"
+#include "interface/configs/config_scope.h"
 
 using namespace npu::tile_fwk;
 

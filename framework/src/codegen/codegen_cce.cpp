@@ -16,7 +16,7 @@
 #include <unistd.h>
 
 #include "codegen_cce.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/program/program.h"
 #include "interface/utils/file_utils.h"
 

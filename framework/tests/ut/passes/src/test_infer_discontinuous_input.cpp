@@ -18,7 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/function/function.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "computational_graph_builder.h"
 #include "passes/tile_graph_pass/graph_optimization/infer_discontinuous_input.h"
 

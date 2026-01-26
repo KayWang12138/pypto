@@ -23,7 +23,7 @@
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/operation/operation_impl.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "set_heuristic_tile_shapes.h"
  
 using namespace npu::tile_fwk;

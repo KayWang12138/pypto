@@ -19,7 +19,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 
 #define private public
 #include "passes/tensor_graph_pass/infer_memory_conflict.h"

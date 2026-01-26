@@ -17,7 +17,7 @@
 #include "codegen/codegen.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "tilefwk/tilefwk_op.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"

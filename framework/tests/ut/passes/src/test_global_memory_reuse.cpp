@@ -21,7 +21,7 @@
 #include "interface/cache/function_cache.h"
 #include "interface/function/function.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/tensor/tensormap.h"
 #include "operator/models/deepseek/deepseek_mla.h"
 #include "operator/models/deepseek/deepseek_spec.h"

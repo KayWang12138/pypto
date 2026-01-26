@@ -18,7 +18,7 @@
 #include "tilefwk/tensor.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/utils/common.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "dsia_common.h"
  
 namespace npu::tile_fwk {

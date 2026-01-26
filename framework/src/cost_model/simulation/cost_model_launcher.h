@@ -19,7 +19,7 @@
 #include <cstdint>
 #include <unistd.h>
 #include "interface/interpreter/raw_tensor_data.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/function/function.h"
 #include "machine/host/device_agent_task.h"
 #include "cost_model/simulation/pv/PvModel.h"

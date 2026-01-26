@@ -22,14 +22,14 @@
 #include <vector>
 #include <optional>
 #include <functional>
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
 #include "interface/operation/opcode.h"
 #include "interface/operation/operation.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "distributed_expand.h"
 #include "tilefwk/comm_group_recorder.h"
 

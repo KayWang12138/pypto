@@ -20,7 +20,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/tensor/float.h"
 #include "operator/models/deepseek_v3.2_exp/deepseek_indexer_attention_quant.h"
 #include "operator/models/deepseek_v3.2_exp/dsia_common.h"

@@ -14,7 +14,7 @@
  */
 
 #include "operator/models/deepseek/page_attention.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "test_cost_macro.h"
 
 using namespace npu::tile_fwk;

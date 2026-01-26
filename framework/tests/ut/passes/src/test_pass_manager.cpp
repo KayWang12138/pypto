@@ -21,7 +21,7 @@
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "passes/pass_mgr/pass_registry.h"
 #include "ut_json/ut_json_tool.h"
 #include "computational_graph_builder.h"

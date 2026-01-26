@@ -20,14 +20,14 @@
 #include <vector>
 
 #include "machine/runtime/device_launcher_binding.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "interface/function/function.h"
 #include "machine/runtime/runtime.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "tilefwk/data_type.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_global.h"
 #include "machine/runtime/device_launcher.h"
 
 namespace npu::tile_fwk::dynamic {
