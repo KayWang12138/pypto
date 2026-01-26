@@ -19,7 +19,7 @@
 #include "utils/tile_tensor.h"
 
 #define OP_TILE_OP_EXPAND TExpand
-template <unsigned axis, typename T0, typename T1>
+template <typename LastUse, unsigned axis, typename T0, typename T1>
 TILEOP void TExpand(T0 dst, T1 src) {
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
@@ -56,6 +56,9 @@ TILEOP void TExpand(T0 dst, T1 src) {
     constexpr auto srcTileH = TileOp::GetTensorTileShapeDim<T1, 3, 5>();
     constexpr auto srcTileW = TileOp::GetTensorTileShapeDim<T1, 4, 5>();
 
+    constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
+    constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
+
     if constexpr (axis == 3) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
@@ -70,7 +73,7 @@ TILEOP void TExpand(T0 dst, T1 src) {
                     auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-                    pto::TROWEXPAND(dstTile, srcTile);
+                    [[pto::last_use(n1, n2)]]pto::TROWEXPAND(dstTile, srcTile);
                 }
             }
         }
@@ -78,19 +81,17 @@ TILEOP void TExpand(T0 dst, T1 src) {
         for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
             for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
                 for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
+                    using dstTileDefine =
+ 	                    pto::Tile<pto::TileType::Vec, DstDtype, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
+ 	                using srcTileDefine =
+ 	                    pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
+ 	                dstTileDefine dstTile(dstShape3, dstShape4);
+ 	                srcTileDefine srcTile(srcShape3, srcShape4);
                     auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                     auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
-                    using dstTileDefine =
-                        pto::Tile<pto::TileType::Vec, DstDtype, 1, dstTileW, pto::BLayout::RowMajor, -1, -1>;
-                    using srcTileDefine =
-                        pto::Tile<pto::TileType::Vec, SrcDtype, 1, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-                    dstTileDefine dstTile(1, dstShape4);
-                    srcTileDefine srcTile(1, srcShape4);
+                    pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-                    for (unsigned i = 0; i < dstShape3; i++) {
-                        pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstTileW) * typeSize));
-                        pto::TMOV(dstTile, srcTile);
-                    }
+                    [[pto::last_use(n1, n2)]]pto::TCOLEXPAND(dstTile, srcTile);
                 }
             }
         }
@@ -108,7 +109,7 @@ TILEOP void TExpand(T0 dst, T1 src) {
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
                 for (unsigned i = 0; i < dstShape2; i++) {
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstTileH * dstTileW) * typeSize));
-                    pto::TMOV(dstTile, srcTile);
+                    [[pto::last_use(n1, n2)]]pto::TMOV(dstTile, srcTile);
                 }
             }
         }
@@ -130,7 +131,7 @@ TILEOP void TExpand(T0 dst, T1 src) {
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + (srcOffset + j * srcTileH * srcTileW) * typeSize));
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + (dstOffset + i * dstShape2 * dstTileH * dstTileW
                                                                         + j * dstTileH * dstTileW) * typeSize));
-                    pto::TMOV(dstTile, srcTile);
+                    [[pto::last_use(n1, n2)]]pto::TMOV(dstTile, srcTile);
                 }
             }
         }
