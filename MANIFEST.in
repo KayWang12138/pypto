@@ -51,3 +51,4 @@ include tools/profiling/function_json_convert.py
 include tools/profiling/parse_pipe_time_trace.py
 
 recursive-include cmake/third_party/tracr *
+include tools/scripts/machine_perf_trace.py
