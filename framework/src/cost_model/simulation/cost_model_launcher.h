@@ -213,7 +213,7 @@ private:
         config_.onBoard = false;
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitDistributedContextToHost(function_->GetDyndevAttribute()->commGroupNames,
- 	        function_->GetDyndevAttribute()->devProgBinary);  
+ 	        function_->GetDyndevAttribute()->devProgBinary);
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         std::cout << "Run CostModel " << "\n";
@@ -351,7 +351,7 @@ private:
             std::cerr<< "pv init fail." << std::endl;
             return;
         }
-        
+
         model_ = std::make_shared<AiCorePvModelImpl>(pv_);
         const int maxCpuNum = 6;
         pv_->Codegen(function_);
@@ -386,7 +386,7 @@ private:
         devProg->devArgs.startArgsAddr = (uint64_t)pv_->AllocWorkspaceDev(DEV_ARGS_SIZE);
         devProg->workspaceSize = devProg->memBudget.Total();
         devProg->devArgs.scheCpuNum = 1;
-        AssignMetaAddr(kArgs, devMem, devProg, nullptr);
+        AssignMetaAddr(devMem, kArgs, devProg, nullptr);
         for (auto &input: inputs) {
             if (input)
                 input->SetDevPtr(nullptr);

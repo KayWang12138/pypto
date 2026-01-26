@@ -120,7 +120,7 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void AssignMetaAddr(DeviceKernelArgs &kArgs, DeviceMemoryTy devMem, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+    static void AssignMetaAddr(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
         size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
@@ -181,7 +181,7 @@ public:
     template<typename DeviceMemoryTy>
     static void FillKernelMeta(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
             const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
-        AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
+        AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t *)config.workspaceAddr;
@@ -210,10 +210,10 @@ public:
 
     static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        ASSERT(devProg->commGroupNum == hcclContext.size()) 
-            << "commGroupNum mismatch. commGroupNum = " 
+        ASSERT(devProg->commGroupNum == hcclContext.size())
+            << "commGroupNum mismatch. commGroupNum = "
             <<devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
-        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) 
+        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t)))
             << "commGroupNum exceeds array size. commGroupNum = "
             << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
