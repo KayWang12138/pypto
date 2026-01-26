@@ -137,41 +137,50 @@ bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTens
 VIEW -> RESHAPE -> COPYIN
                 -> COPYIN
 */
-Status ProcessView(Function &function) {
+Status RemoveRedundantAssemble::ProcessView(Function &function) const {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) continue;
-        auto &reshape = op;
-        if (!MatchReshapePattern(reshape.GetIOperands().front(), reshape.GetOOperands().front())) {
+        auto &reshapeOp = op;
+        if (!MatchReshapePattern(reshapeOp.GetIOperands().front(), reshapeOp.GetOOperands().front())) {
             continue;
         }
-        auto producer = reshape.GetIOperands().front()->GetProducers();
-        auto view = *producer.begin();
-        if (view == nullptr || producer.size() != 1 || view->GetOpcode() != Opcode::OP_VIEW) {
+        auto producers = reshapeOp.GetIOperands().front()->GetProducers();
+        if (producers.empty()) {
+            APASS_LOG_INFO_F(Elements::Operation, "No producers found for RESHAPE op's input %d.", reshapeOp->GetOpMagic());
+            continue;;
+        }
+        auto producerOp = *producers.begin();
+        if (producerOp == nullptr || producers.size() != 1 || producerOp->GetOpcode() != Opcode::OP_VIEW) {
             continue;
         }
-        auto viewInput = view->GetIOperands().front();
-        for (auto reshapeConsumer : reshape.GetOOperands().front()->GetConsumers()) {
+        auto viewInput = producerOp->GetIOperands().front();
+        for (auto reshapeConsumer : reshapeOp.GetOOperands().front()->GetConsumers()) {
             if (reshapeConsumer->GetOpcode() != Opcode::OP_COPY_IN) {
                 return SUCCESS;
             }
         }
-        auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(view->GetOpAttribute());
+        auto opAttr = std::dynamic_pointer_cast<ViewOpAttribute>(producerOp->GetOpAttribute());
         if (opAttr == nullptr) {
+            APASS_LOG_INFO_F(Elements::Operation, "Op %d Attribute is nullptr.", producerOp->GetOpMagic());
             return FAILED;
         }
         auto &offset = opAttr->GetFromDynOffset();
-        std::vector<int64_t> newRawShape = reshape.GetOOperands().front()->shape;
+        std::vector<int64_t> newRawShape = reshapeOp.GetOOperands().front()->shape;
         if (!CalculateNewRawShape(
-                reshape.GetOOperands().front()->shape, viewInput->tensor->GetRawShape(), newRawShape)) {
+                reshapeOp.GetOOperands().front()->shape, viewInput->tensor->GetRawShape(), newRawShape)) {
             return SUCCESS;
         }
         std::vector<SymbolicScalar> newDynOffset;
         GetDynOffsetBeforeReshape(offset, viewInput->shape, newRawShape, newDynOffset);
         APASS_LOG_DEBUG_F(Elements::Operation, "Process View[%d] Tensor[%d]: newRawshape: %s, newOffset: %s.",
-            view->GetOpMagic(), reshape.GetOOperands().front()->GetMagic(), IntVecToStr(newRawShape).c_str(),
+            producerOp->GetOpMagic(), reshapeOp.GetOOperands().front()->GetMagic(), IntVecToStr(newRawShape).c_str(),
             IntVecToStr(newDynOffset).c_str());
-        for (auto copyIn : reshape.GetOOperands().front()->GetConsumers()) {
-            auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+        for (auto copyIn : reshapeOp.GetOOperands().front()->GetConsumers()) {
+            auto copyAttr = std::dynamic_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
+            if (copyAttr == nullptr) {
+                APASS_LOG_INFO_F(Elements::Operation, "CopyIn Op %d Attribute is nullptr.", copyIn->GetOpMagic());
+                continue;
+            }
             auto oriCopyOffset = copyAttr->GetFromOffset();
             std::vector<OpImmediate> newOffset = OpImmediate::Specified(newDynOffset);
             for (size_t i = 0; i < oriCopyOffset.size(); i++) {
@@ -180,10 +189,10 @@ Status ProcessView(Function &function) {
             copyAttr->SetFromOffset(newOffset);
             copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         }
-        reshape.GetOOperands().front()->shape = newRawShape;
-        reshape.GetOOperands().front()->tensor->UpdateRawShape(newRawShape);
-        reshape.ReplaceIOperand(0, viewInput);
-        view->SetAsDeleted();
+        reshapeOp.GetOOperands().front()->shape = newRawShape;
+        reshapeOp.GetOOperands().front()->tensor->UpdateRawShape(newRawShape);
+        reshapeOp.ReplaceIOperand(0, viewInput);
+        producerOp->SetAsDeleted();
     }
     return SUCCESS;
 }
@@ -245,11 +254,10 @@ Status ProcessReshape(Function &function, Operation *&operation) {
         }
         consumer->ReplaceInput(dst, oOperand);
         auto &newReshapeOp = function.AddRawOperation(Opcode::OP_RESHAPE, {iOperand}, {dst});
-        const std::shared_ptr<OpAttribute> &oriReshapeAttr = operation->GetOpAttribute();
+        const std::shared_ptr<OpAttribute> oriReshapeAttr = operation->GetOpAttribute();
         if (oriReshapeAttr != nullptr) {
             newReshapeOp.SetOpAttribute(oriReshapeAttr);
         }
-        operation = function.GetOpByOpMagic(newReshapeOp.GetOpMagic());
     }
     return SUCCESS;
 }
@@ -265,14 +273,14 @@ Status RemoveViewMultiReshape(Function &function) {
             continue;
         }
         auto consumer = firstReshape->GetOOperands().front()->GetConsumers();
-        for (auto view : consumer) {
-            if (view->GetOpcode() != Opcode::OP_VIEW) {
+        for (auto consumerOp : consumer) {
+            if (consumerOp->GetOpcode() != Opcode::OP_VIEW) {
                 continue;
             }
-            auto viewConsumer = view->GetOOperands().front()->GetConsumers();
-            auto secondReshape = *viewConsumer.begin();
-            if (secondReshape == nullptr || viewConsumer.size() != 1 ||
-                secondReshape->GetOpcode() != Opcode::OP_RESHAPE) {
+            auto viewConsumer = consumerOp->GetOOperands().front()->GetConsumers();
+            auto viewConsumerOp = *viewConsumer.begin();
+            if (viewConsumerOp == nullptr || viewConsumer.size() != 1 ||
+                viewConsumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
                 continue;
             }
             if (ProcessReshape(function, firstReshape) != SUCCESS) {
@@ -281,16 +289,16 @@ Status RemoveViewMultiReshape(Function &function) {
                 return FAILED;
             }
             APASS_LOG_DEBUG_F(Elements::Operation, "Match RemoveViewMultiReshape pattern %d -> %d -> %d",
-                firstReshape->GetOpMagic(), view->GetOpMagic(), secondReshape->GetOpMagic());
+                firstReshape->GetOpMagic(), consumerOp->GetOpMagic(), viewConsumerOp->GetOpMagic());
 
-            auto oriRawShape = secondReshape->GetIOperands().front()->GetRawTensor()->GetRawShape();
+            auto oriRawShape = viewConsumerOp->GetIOperands().front()->GetRawTensor()->GetRawShape();
             Shape newShape;
             std::remove_copy_if(oriRawShape.begin(), oriRawShape.end(), std::back_inserter(newShape),
                 [](const auto &e) { return e == 1; });
-            secondReshape->GetOOperands().front()->GetRawTensor()->UpdateRawShape(newShape);
-            secondReshape->ReplaceIOperand(0, firstReshape->GetIOperands().front());
+            viewConsumerOp->GetOOperands().front()->GetRawTensor()->UpdateRawShape(newShape);
+            viewConsumerOp->ReplaceIOperand(0, firstReshape->GetIOperands().front());
             firstReshape->SetAsDeleted();
-            view->SetAsDeleted();
+            consumerOp->SetAsDeleted();
         }
     }
     return SUCCESS;
@@ -389,7 +397,7 @@ void RemoveRedundantAssemble::HandleForReshapeToOutcast(Function &function) cons
                 continue;
             }
             if (function.IsFromOutCast(op.GetOOperands()[0])) {
-                // input --> reshape --> OCAST
+                // INPUT --> RESHAPE --> OCAST
                 if (op.GetIOperands()[0]->tensor->actualRawmagic != -1) {
                     // 说明输入也来自于reshape，需要找到指向的raw tensor，并更新其actual raw
                     int inputActualRawId = op.GetIOperands()[0]->tensor->actualRawmagic;

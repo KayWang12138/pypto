@@ -1335,7 +1335,7 @@ static bool ReshapeNeedCopy(const Tensor &operand) {
 
 Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, const std::vector<SymbolicScalar> &validShape, const bool inplace, const void *lr) {
     DECLARE_TRACERX(lr);
-    ASSERT(!inplace) << "The 'inplace' parameter muster be false !!!";
+    ASSERT(!inplace) << "The 'inplace' parameter must be false !!!";
     if (operand.GetShape() == dstshape) {
         return operand;
     }
@@ -1371,7 +1371,7 @@ Tensor Reshape(const Tensor &operand, const std::initializer_list<int64_t> &dsts
 }
 
 Tensor Reshape(const Tensor &operand, const std::vector<SymbolicScalar> &dstShape, const bool inplace) {
-    ASSERT(inplace) << "The 'inplace' parameter muster be true !!!";
+    ASSERT(inplace) << "The 'inplace' parameter must be true !!!";
     Tensor dst(operand.GetStorage()->Datatype(), dstShape, "", operand.Format());
     auto slotManager = Program::GetInstance().GetTensorSlotManager();
     auto &operation = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_RESHAPE, {operand.GetStorage()}, {dst.GetStorage()});

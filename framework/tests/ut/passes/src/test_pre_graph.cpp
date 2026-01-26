@@ -886,10 +886,8 @@ TEST_F(PreGraphTest, TestRemoveRedundantAssemble) {
     // run pass
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-    function->DumpJsonFile();
     PreGraphProcess passLocal;
     EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
-    function->DumpJsonFile();
 } // namespace tile_fwk
 
 } // namespace tile_fwk
