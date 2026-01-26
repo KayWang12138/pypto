@@ -124,6 +124,15 @@ struct OpMetaAddrs {
     uint64_t stitchPoolAddr{0};  // aicpu meta addr
 };
 
+struct DeviceRuntimeOffset {
+    uint64_t startArgsOffset{0};
+    uint64_t taskCtrlPoolOffset{0};
+    uint64_t taskQueueOffset{0};
+    uint64_t generalOffset{0};
+    uint64_t stitchPoolOffset{0};
+    uint64_t size{0};
+};
+
 struct DeviceArgs {
     uint32_t nrAic{0};
     uint32_t nrAiv{0};
