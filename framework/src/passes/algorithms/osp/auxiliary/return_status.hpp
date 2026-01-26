@@ -1,0 +1,52 @@
+/**
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file return_status.hpp
+ * \brief
+ */
+
+#ifndef OSP_RETURN_STATUS_HPP
+#define OSP_RETURN_STATUS_HPP
+
+#include <iostream>
+
+namespace npu::tile_fwk {
+namespace osp {
+
+enum class ReturnStatus { OSP_SUCCESS, BEST_FOUND, TIMEOUT, ERROR };
+
+/**
+ * @brief Converts the enum to a string literal.
+ * Returns const char* to avoid std::string allocation overhead.
+ */
+inline const char *ToString(const ReturnStatus status) {
+    switch (status) {
+        case ReturnStatus::OSP_SUCCESS:
+            return "SUCCESS";
+        case ReturnStatus::BEST_FOUND:
+            return "BEST FOUND";
+        case ReturnStatus::TIMEOUT:
+            return "TIMEOUT";
+        case ReturnStatus::ERROR:
+            return "ERROR";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+/**
+ * @brief Stream operator overload using the helper function.
+ */
+inline std::ostream &operator<<(std::ostream &os, ReturnStatus status) { return os << ToString(status); }
+
+}    // namespace osp
+} // namespace npu::tile_fwk
+#endif // OSP_RETURN_STATUS_HPP

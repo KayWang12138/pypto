@@ -21,7 +21,6 @@
 #include "passes/algorithms/osp/auxiliary/return_status.hpp"
 #include "passes/algorithms/osp/bsp/model/BspInstance.hpp"
 #include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
-#include "passes/algorithms/osp/bsp/model/BspScheduleCS.hpp"
 #include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 
 namespace npu::tile_fwk {
@@ -68,25 +67,6 @@ class Scheduler {
      */
     virtual ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) = 0;
 
-    /**
-     * @brief Computes a BSP schedule with communication schedule (CS).
-     *
-     * This method provides a default implementation that first computes the basic BSP schedule using ComputeSchedule().
-     * If successful, it then calls SetAutoCommunicationSchedule() on the schedule to set a communication schedule.
-     *
-     * @param schedule The BspScheduleCS object to be computed. It contains the BspInstance.
-     * @return ReturnStatus::OSP_SUCCESS or ReturnStatus::BEST_FOUND if a schedule was successfully computed,
-     *         ReturnStatus::ERROR if an error occurred, or other status codes as appropriate.
-     */
-    virtual ReturnStatus ComputeScheduleCS(BspScheduleCS<GraphT> &schedule) {
-        auto result = ComputeSchedule(schedule);
-        if (result == ReturnStatus::OSP_SUCCESS || result == ReturnStatus::BEST_FOUND) {
-            schedule.SetAutoCommunicationSchedule();
-            return result;
-        } else {
-            return ReturnStatus::ERROR;
-        }
-    }
 };
 
 }    // namespace osp

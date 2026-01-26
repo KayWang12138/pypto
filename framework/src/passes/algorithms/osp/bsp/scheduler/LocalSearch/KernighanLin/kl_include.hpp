@@ -20,9 +20,9 @@
 #ifndef OSP_KL_INCLUDE_HPP
 #define OSP_KL_INCLUDE_HPP
 
-#include "comm_cost_modules/kl_bsp_comm_cost.hpp"
+//#include "comm_cost_modules/kl_bsp_comm_cost.hpp"
 #include "comm_cost_modules/kl_hyper_total_comm_cost.hpp"
-#include "comm_cost_modules/kl_total_comm_cost.hpp"
+//#include "comm_cost_modules/kl_total_comm_cost.hpp"
 #include "kl_improver.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/LocalSearch/LocalSearchMemoryConstraintModules.hpp"
 
@@ -31,27 +31,7 @@ namespace osp {
 
 using DoubleCostT = double;
 
-template <typename GraphT,
-          typename MemoryConstraintT = NoLocalSearchMemoryConstraint,
-          unsigned windowSize = 1,
-          bool useNodeCommunicationCostsArg = true>
-using KlTotalCommImprover
-    = KlImprover<GraphT,
-                 KlTotalCommCostFunction<GraphT, DoubleCostT, MemoryConstraintT, windowSize, useNodeCommunicationCostsArg>,
-                 MemoryConstraintT,
-                 windowSize,
-                 DoubleCostT>;
 
-template <typename GraphT,
-          typename MemoryConstraintT = LsLocalMemoryConstraint<GraphT>,
-          unsigned windowSize = 1,
-          bool useNodeCommunicationCostsArg = true>
-using KlTotalCommImproverLocalMemConstr
-    = KlImprover<GraphT,
-                 KlTotalCommCostFunction<GraphT, DoubleCostT, MemoryConstraintT, windowSize, useNodeCommunicationCostsArg>,
-                 MemoryConstraintT,
-                 windowSize,
-                 DoubleCostT>;
 
 template <typename GraphT, typename MemoryConstraintT = NoLocalSearchMemoryConstraint, unsigned windowSize = 1>
 using KlTotalLambdaCommImprover = KlImprover<GraphT,
@@ -67,14 +47,6 @@ using KlTotalLambdaCommImproverLocalMemConstr
                  MemoryConstraintT,
                  windowSize,
                  DoubleCostT>;
-
-template <typename GraphT, typename MemoryConstraintT = NoLocalSearchMemoryConstraint, unsigned windowSize = 1>
-using KlBspCommImprover
-    = KlImprover<GraphT, KlBspCommCostFunction<GraphT, DoubleCostT, MemoryConstraintT, windowSize>, MemoryConstraintT, windowSize, DoubleCostT>;
-
-template <typename GraphT, typename MemoryConstraintT = LsLocalMemoryConstraint<GraphT>, unsigned windowSize = 1>
-using KlBspCommImproverLocalMemConstr
-    = KlImprover<GraphT, KlBspCommCostFunction<GraphT, DoubleCostT, MemoryConstraintT, windowSize>, MemoryConstraintT, windowSize, DoubleCostT>;
 
 }    // namespace osp
 } // namespace npu::tile_fwk
