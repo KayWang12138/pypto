@@ -70,7 +70,7 @@ void OoOSchedule::OoOHealthCheck(OoOScheduler &oooSchedule, Function &function, 
 Status OoOSchedule::NonMixSchedule(std::vector<Operation*> &opList, Function &function,
     std::pair<uint64_t, Function*> &program, int &maxWorkeSpaceSize) {
     // 直接对oplist进行GenSpill和mainLoop
-    OoOScheduler oooSchedule(*program.second, ConfigManager::Instance().GetOperationConfig(KEY_COMBINE_AXIS, false));
+    OoOScheduler oooSchedule(*program.second, combineAxis);
     if (oooSchedule.Schedule(opList) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Non-mixGraph schedule failed.");
         return FAILED;
@@ -125,7 +125,7 @@ Status OoOSchedule::SortAndLatencyEstimate(std::vector<Operation*> &opList, std:
     int &latency) {
     APASS_LOG_INFO_F(Elements::Operation, "=======>start SortAndLatencyEstimate");
     SortTaskList(opList, taskOpList);
-    LatencyEstimator latencyEstimator(taskOpList);
+    LatencyEstimator latencyEstimator(taskOpList, opList);
     if (latencyEstimator.LatencyEstimatorMainLoop() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "SortAndLatencyEstimate LatencyEstimatorMainLoop failed.");
         return FAILED;
@@ -159,7 +159,7 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
     for (auto &entry : lastUseMap_) {
         auto lastUseOp = entry.second;
         auto lastUseTensor = entry.first;
-        if (opInputIdxMap.find(lastUseOp) == opInputIdxMap.end()) {
+        if (opInputIdxMap.find(lastUseOp->GetOpcode()) == opInputIdxMap.end()) {
             int tensorSize = lastUseOp->GetIOperands().size() + lastUseOp->GetOOperands().size();
             std::vector<int> tensorIdxVec(tensorSize, false);
             int inputIdx = lastUseOp->GetIOperandIndex(lastUseTensor) + lastUseOp->GetOOperands().size();
@@ -183,6 +183,8 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
 }
 
 Status OoOSchedule::RunOnFunction(Function &function) {
+    combineAxis = function.paramConfigs_.combineAxis;
+    forceCombineAxis = function.paramConfigs_.forceCombineAxis;
     APASS_LOG_INFO_F(Elements::Operation, "=============== START 2CoreSplit ===============");
     int maxWorkeSpaceSize = 0;
     for (auto &program : function.rootFunc_->programs_) {
