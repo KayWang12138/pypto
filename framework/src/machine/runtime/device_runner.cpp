@@ -164,6 +164,22 @@ void DeviceRunner::ResetPerData() {
     }
 }
 
+void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
+    auto shmAddr = args_.startArgsAddr;
+    devArgs.startArgsAddr = shmAddr;
+    shmAddr += dynamic::DEV_ARGS_SIZE;
+    devArgs.taskCtrl = shmAddr;
+    shmAddr += dynamic::DEVICE_TASK_CTRL_SIZE;
+    devArgs.taskQueue = shmAddr;
+    devArgs.sharedBuffer = args_.sharedBuffer;
+    devArgs.coreRegAddr = args_.coreRegAddr;
+    devArgs.corePmuRegAddr = args_.corePmuRegAddr;
+    devArgs.corePmuAddr = args_.corePmuAddr;
+    devArgs.taskWastTime = args_.taskWastTime;
+    InitAiCpuSoBin(devArgs);
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
+}
+
 int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu) {
     uint32_t totalCoreCount = regs.size();
     uint32_t aicCount = totalCoreCount / SUB_CORE;
@@ -386,11 +402,6 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
         return rc;
     }
 
-    if (!g_IsFirstInit) {
-        InitAiCpuSoBin();
-    }
-    g_IsFirstInit = true;
-
     rc = LaunchAiCpu(aicpuStream, taskId, taskData, taskType);
     if (rc < 0) {
         ALOG_INFO_F("launch aicpu failed %d\n", rc);
@@ -552,7 +563,11 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *k
         rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
 }
 
-void DeviceRunner::InitAiCpuSoBin() {
+void DeviceRunner::InitAiCpuSoBin(DeviceArgs &devArgs) {
+    if (g_IsFirstInit) {
+        return;
+    }
+    g_IsFirstInit = true;
     std::vector<char> buffer;
     std::string fileName = GetCurrentSharedLibPath() + "/libtilefwk_backend_server.so";
     if (!ReadBytesFromFile(fileName, buffer)) {
@@ -563,9 +578,9 @@ void DeviceRunner::InitAiCpuSoBin() {
     auto dAicpuData = DevAlloc(aicpuDataLength);
     rtMemcpy(dAicpuData, aicpuDataLength, reinterpret_cast<void *>(buffer.data()),
              aicpuDataLength, RT_MEMCPY_HOST_TO_DEVICE);
-    args_.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
-    args_.aicpuSoLen = buffer.size();
-    args_.deviceId = GetLogDeviceId();
+    devArgs.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
+    devArgs.aicpuSoLen = buffer.size();
+    devArgs.deviceId = GetLogDeviceId();
 }
 
 int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArgs *kArgs) {
@@ -742,13 +757,6 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitErrCallBack);
 
-    if (!g_IsFirstInit) {
-        InitAiCpuSoBin();
-    }
-    g_IsFirstInit = true;
-    
-    HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
-
     #ifdef BUILD_WITH_NEW_CANN
     if (!g_IsNullLaunched) {
         auto ret = LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kernelArgs, 1, "PyptoNull");
@@ -759,6 +767,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     }
     g_IsNullLaunched = true;
     #endif
+    /*
     auto localArgs = args_;
     localArgs.taskId = taskId;
     localArgs.taskType = DEVICE_TASK_TYPE_DYN;
@@ -786,12 +795,12 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
         ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
         return rc;
     }
-
+    */
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitH2DMemCopy);
 
     if (RunPrepare() < 0) {
-        ALOG_ERROR_F("Prepare failed %d\n", rc);
-        return rc;
+        ALOG_ERROR_F("Prepare failed.\n");
+        return -1;
     }
 
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitRunPrepare);
