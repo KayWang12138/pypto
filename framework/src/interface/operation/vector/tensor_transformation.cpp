@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ void CheckExpandTensorVaild(const LogicalTensorPtr &operand, const LogicalTensor
             ASSERT(0 && "shape not match");
         }
     }
-    
+
     int numExpandAxis = 0;
     for (size_t i = 0; i < result->shape.size(); ++i) {
         if (operand->shape[i] != result->shape[i]) {
@@ -157,6 +157,7 @@ void TiledExpand(Function &function, const TileShape &tileShape, const LogicalTe
 
 Tensor TensorExpandOperation(Function &function, const LogicalTensorPtr &operand, const std::vector<int64_t> &dstShape,
     const std::vector<SymbolicScalar> &validShape) {
+    OpInputsChecker::GetInstance(Opcode::OP_EXPAND).Check({operand});
     auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape, validShape);
     auto &op = function.AddOperation(Opcode::OP_EXPAND, {operand}, {result});
 
@@ -168,6 +169,7 @@ Tensor TensorExpandOperation(Function &function, const LogicalTensorPtr &operand
 
 Tensor TensorJustNeedCopyOperation(Function &function, const LogicalTensorPtr &operand,
     const std::vector<int64_t> &dstShape, const std::vector<SymbolicScalar> &validShape) {
+    OpInputsChecker::GetInstance(Opcode::OP_REGISTER_COPY).Check({operand});
     auto result = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape, validShape);
     function.AddOperation(Opcode::OP_REGISTER_COPY, {operand}, {result});
     return result;
@@ -303,6 +305,7 @@ void TensorInnerTranspose(
     int dim2 = (tmpShape.size() == 3) ? 1 : 2; // if input is 3 dims, dim2 = 1, otherwise dim2 = 2
     std::swap(tmpShape[dim1], tmpShape[dim2]);
     std::swap(newVecTileShape[dim1], newVecTileShape[dim2]);
+    OpInputsChecker::GetInstance(Opcode::OP_TRANSPOSE_MOVEIN).Check({self});
     auto moveInResult =
         std::make_shared<LogicalTensor>(function, self->Datatype(), tmpShape, SymbolicScalar::FromConcrete(tmpShape));
     auto &inOp = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEIN, {self}, {moveInResult});
@@ -315,6 +318,7 @@ void TensorInnerTranspose(
     dim2 = (tmpShape.size() == 3) ? 2 : 3; // if input is 3 dims, dim2 = 2, otherwise dim2 = 3
     std::swap(tmpShape[dim1], tmpShape[dim2]);
     std::swap(newVecTileShape[dim1], newVecTileShape[dim2]);
+    OpInputsChecker::GetInstance(Opcode::OP_TRANSPOSE_VNCHWCONV).Check({moveInResult});
     auto vnchwconvResult =
         std::make_shared<LogicalTensor>(function, self->Datatype(), tmpShape, SymbolicScalar::FromConcrete(tmpShape));
     auto &convOp = function.AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {moveInResult}, {vnchwconvResult});
@@ -326,6 +330,7 @@ void TensorInnerTranspose(
     dim1 = (tmpShape.size() == 3) ? 0 : 1; // if input is 3 dims, dim1 = 0, otherwise dim1 = 1
     dim2 = (tmpShape.size() == 3) ? 1 : 2; // if input is 3 dims, dim2 = 1, otherwise dim2 = 2
     std::swap(tmpShape[dim1], tmpShape[dim2]);
+    OpInputsChecker::GetInstance(Opcode::OP_TRANSPOSE_MOVEOUT).Check({vnchwconvResult});
     auto &outOp = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {vnchwconvResult}, {result});
     outOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
     TileShape::Current().SetVecTile(oldVecTileShapes);
@@ -370,7 +375,7 @@ bool MergeTransposeAxis(const Tensor &operand, std::vector<int64_t> &inputShape,
     if (preNum <= 1 && midNum <= 1 && afterNum <= 1) {
         return false;
     }
-    if (operand.GetShape().size() <= 5 && // tileop支持5维
+    if (operand.GetShape().size() <= 5 &&                             // tileop支持5维
         oldTransposeShape[0] == (int)operand.GetShape().size() - 2 && // 最后2维转置
         oldTransposeShape[1] == (int)operand.GetShape().size() - 1) {
         return false;
@@ -491,8 +496,8 @@ void TiledFull(Function &function, const TileShape &tileShape, const Element &va
     TiledFull(function, tileShape, 0, value, dynValue, shape, validShape, results, resultTileInfo);
 }
 
-Tensor TensorFullOperation(Function &function, const Element &src, const SymbolicScalar &dynValue,
-    DataType dtype, const std::vector<int64_t> &dstShape, const std::vector<SymbolicScalar> &validShape) {
+Tensor TensorFullOperation(Function &function, const Element &src, const SymbolicScalar &dynValue, DataType dtype,
+    const std::vector<int64_t> &dstShape, const std::vector<SymbolicScalar> &validShape) {
     auto result = std::make_shared<LogicalTensor>(function, dtype, dstShape, validShape);
     auto &op = function.AddOperation(Opcode::OP_VEC_DUP, {}, {result}); // 输入没有tensor
     op.SetAttribute(OpAttributeKey::scalar, src);
@@ -512,8 +517,8 @@ Tensor Full(
         for (auto x : dstShape)
             validShape.emplace_back(x);
     }
-    RETURN_CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), src, SymbolicScalar(), dtype,
-        dstShape, validShape);
+    RETURN_CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), src, SymbolicScalar(), dtype, dstShape,
+        validShape);
 }
 
 Tensor Full(const SymbolicScalar &dynSrc, DataType dtype, const std::vector<int64_t> &dstShape,
@@ -523,8 +528,8 @@ Tensor Full(const SymbolicScalar &dynSrc, DataType dtype, const std::vector<int6
         for (auto x : dstShape)
             validShape.emplace_back(x);
     }
-    RETURN_CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(dtype, (int64_t)0),
-        dynSrc, dtype, dstShape, validShape);
+    RETURN_CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(dtype, (int64_t)0), dynSrc, dtype,
+        dstShape, validShape);
 }
 
 template <CastOpType T>
@@ -557,7 +562,8 @@ void TiledCastOperation(Function &function, const TileShape &tileShape, const Lo
 
 Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode) {
     DECLARE_TRACER();
-    ASSERT(self.GetShape().size() == self.GetStorage()->offset.size()) << "The shape size of self and offset should be equal";
+    ASSERT(self.GetShape().size() == self.GetStorage()->offset.size())
+        << "The shape size of self and offset should be equal";
     // Cast to same dType with no mode will do nothing
     if (self.GetStorage()->tensor->datatype == dstDataType && (mode == CAST_NONE || mode == CAST_RINT)) {
         return self;
@@ -584,7 +590,8 @@ void CheckCat(const std::vector<Tensor> &tensors, int axis) {
     std::vector<DataType> CAT_SUPPORT_DATATYPES = {DataType::DT_FP32, DataType::DT_FP16, DataType::DT_INT32,
         DataType::DT_INT16, DataType::DT_INT8, DataType::DT_BF16};
     ASSERT(
-        std::find(CAT_SUPPORT_DATATYPES.begin(), CAT_SUPPORT_DATATYPES.end(), dataType) != CAT_SUPPORT_DATATYPES.end()) << "The datatype is not within the supported range";
+        std::find(CAT_SUPPORT_DATATYPES.begin(), CAT_SUPPORT_DATATYPES.end(), dataType) != CAT_SUPPORT_DATATYPES.end())
+        << "The datatype is not within the supported range";
 
     CheckAxisRange(tensors[0], axis);
     for (auto tensor : tensors) {
