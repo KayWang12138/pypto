@@ -201,3 +201,77 @@ TEST_F(ControlFlowTest, TensorRecycleDestruct) {
     EXPECT_TRUE(dup1->GetOutcastAddress(0).IsAddress());
     EXPECT_NE(dup0->GetOutcastAddress(0).GetAddressValue(), dup1->GetOutcastAddress(0).GetAddressValue());
 }
+
+
+
+TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
+    config::SetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE, 46000);
+
+    // every task 4 root func
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 0x4);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
+
+    int tiling = 32; int n = tiling * 4;
+    TileShape::Current().SetVecTile(tiling, tiling);
+
+    Tensor input1(DT_INT32, {n, n}, "A"); Tensor input2(DT_INT32, {n, n}, "B");
+    Tensor output(DT_INT32, {n, n}, "O");
+
+    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateConstantTensor<int32_t>(input1, 1),
+                                             RawTensorData::CreateConstantTensor<int32_t>(input2, 2),});
+    ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateConstantTensor<int32_t>(output, 0),});
+
+    std::vector<int32_t> outputGolden(n * n, 6);
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<int32_t>(output, outputGolden),
+    });
+
+    // 17 root func in total
+    FUNCTION("main-CtrlFlowPartialCache", {input1, input2}, {output}) {
+        Tensor sum(DT_INT32, {n, n}, "sum");
+        LOOP("L0-CtrlFlowPartialCache", FunctionType::DYNAMIC_LOOP, i, LoopRange(GetInputShape(input1, 0) / tiling)) {
+            LOOP("L1", FunctionType::DYNAMIC_LOOP, j, LoopRange(GetInputShape(input1, 1) / tiling)) {
+                auto a = View(input1, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
+                auto b = View(input2, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
+                Assemble(Add(a, b), {i * tiling, j * tiling}, sum);
+            }
+        }
+        LOOP("Use-CtrlFlowPartialCache", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            output = Add(sum, sum);
+        }
+    }
+
+    std::vector<DeviceTensorData> inputList = {toTensorData(input1.GetStorage()), toTensorData(input2.GetStorage())};
+    std::vector<DeviceTensorData> outputList = {toTensorData(output.GetStorage())};
+    DeviceLauncherConfig config;
+    config.blockdim = 24; // 24:max aicore num
+    DevControlFlowCache* ctrolCache = nullptr;
+    EXPECT_EQ(0, EmulationLauncher::BuildControlFlowCache(Program::GetInstance().GetLastFunction(), inputList, outputList, &ctrolCache, config));
+    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(
+        const_cast<uint8_t*>(DeviceLauncher::GetDevProg(Program::GetInstance().GetLastFunction()).data()));
+
+    EXPECT_EQ(0x3, ctrolCache->deviceTaskCount);
+    EXPECT_EQ(0x1, ctrolCache->deviceTaskSkippedCount);
+
+    devProg->RelocProgram(0, (intptr_t)devProg);
+    ctrolCache->RelocMetaCache(0, (intptr_t)ctrolCache);
+    ctrolCache->TaskAddrRelocProgramAndCtrlCache(0, 0, (intptr_t)devProg, (intptr_t)ctrolCache);
+
+    for (int i = 0; i < 0x3; i++) {
+        auto dynTaskBase = ctrolCache->deviceTaskCacheList[i].dynTaskBase;
+        EXPECT_EQ(0x4, dynTaskBase->GetDynFuncDataList()->Size());
+    }
+
+    ctrolCache->TaskAddrRelocProgramAndCtrlCache((intptr_t)devProg, (intptr_t)ctrolCache, 0, 0);
+    devProg->RelocProgram((intptr_t)devProg, 0);
+    ctrolCache->RelocMetaCache((intptr_t)ctrolCache, 0);
+    EXPECT_EQ(false, ctrolCache->isRelocDataDev);
+    EXPECT_EQ(false, ctrolCache->isRelocMetaDev);
+    EXPECT_EQ(true, ctrolCache->isActivated);
+
+    DeviceLauncherConfig config;
+    config.blockdim = 25;
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), ctrolCache, config));
+
+}
