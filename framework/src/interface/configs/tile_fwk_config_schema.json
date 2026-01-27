@@ -55,8 +55,8 @@
                         {
                             "value": "OspSarkar",
                             "label": {
-                                "zh": "",
-                                "en": "OspSarkar graph partitionier"
+                                "zh": "基于关键路径缩减的瓦片内核融合。",
+                                "en": "Fuses tile kernels based on critical path reduction."
                             }
                         },
                         {
