@@ -91,17 +91,6 @@ void SetRuntimeOption(const std::string &key, const T &value) {
  * \param value config option value
  */
 template <typename T>
-void SetHostOption(const std::string &key, const T &value) {
-    SetOptionsNg("host." + key, value);
-}
-
-/**
- * \brief Set host options
- *
- * \param key config option key
- * \param value config option value
- */
-template <typename T>
 void SetVerifyOption(const std::string &key, const T &value) {
     SetOptionsNg("verify." + key, value);
 }

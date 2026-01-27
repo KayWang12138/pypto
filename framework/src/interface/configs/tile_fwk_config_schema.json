@@ -307,24 +307,6 @@
                 }
             }
         },
-        "host": {
-            "type": "object",
-            "label": {
-                "zh": "...",
-                "en": "..."
-            },
-            "properties": {
-                "compile_stage": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 3,
-                    "label": {
-                        "zh": "控制编译执行的阶段",
-                        "en": "Set the stage of compile."
-                    }
-                }
-            }
-        },
         "codegen": {
             "type": "object",
             "label": {

@@ -135,33 +135,6 @@ def get_pass_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
     return scope.get_pass_options()
 
 
-
-def set_host_options(*, compile_stage: Optional[CompStage] = None) -> None:
-    """
-    Set host options.
-
-    Parameters
-    ---------
-    compile_stage : CompStage
-        Control the compilation phase.
-    """
-    options_dict = {k: v.value for k, v in locals().items() if v is not None}
-    set_options(host_options=options_dict)
-
-
-def get_host_options() -> Dict[str, Union[str, int, List[int], Dict[int, int]]]:
-    """
-    Get host options.
-
-    Returns
-    -------
-    Dict[str, Union[str, int, List[int], Dict[int, int]]]
-        All host options
-    """
-    scope = get_current_scope()
-    return scope.get_host_options()
-
-
 def set_codegen_options(*, support_dynamic_aligned: Optional[bool] = None) -> None:
     """
     Set codegen options.
@@ -351,7 +324,7 @@ def reset_options() -> None:
 class _Options:
     """Configuration options class, supports context manager and decorator modes"""
     INIT_FIELDS = [
-        "name", "codegen_options", "host_options", "pass_options",
+        "name", "codegen_options", "pass_options",
         "runtime_options", "verify_options", "debug_options",
         "vec_tile_shapes", "cube_tile_shapes", "matrix_size",
         "operation_options"
@@ -359,7 +332,6 @@ class _Options:
 
     PREFIX_MAP = {
         "codegen_options": "codegen.",
-        "host_options": "host.",
         "pass_options": "pass.",
         "runtime_options": "runtime.",
         "verify_options": "verify.",
@@ -429,7 +401,6 @@ class _Options:
 def options(
     name="",
     codegen_options=None,
-    host_options=None,
     pass_options=None,
     runtime_options=None,
     verify_options=None,
@@ -446,7 +417,6 @@ def options(
     ---------
     name: Scope name
     codegen_options: Code generation options (dict)
-    host_options: Host options (dict)
     pass_options: Pass options (dict)
     runtime_options: Runtime options (dict)
     verify_options: Verify options (dict)
@@ -495,7 +465,6 @@ def set_global_config(key, value):
 
 def set_options(
     codegen_options=None,
-    host_options=None,
     pass_options=None,
     runtime_options=None,
     verify_options=None,
@@ -511,7 +480,6 @@ def set_options(
     Parameters
     ---------
     codegen_options: Code generation options (dict)
-    host_options: Host options (dict)
     pass_options: Pass options (dict)
     runtime_options: Runtime options (dict)
     verify_options: Verify options (dict)
@@ -621,9 +589,6 @@ class ConfigScope:
 
     def get_codegen_options(self):
         return self.get_options("codegen")
-
-    def get_host_options(self):
-        return self.get_options("host")
 
     def get_debug_options(self):
         return self.get_options("debug")
