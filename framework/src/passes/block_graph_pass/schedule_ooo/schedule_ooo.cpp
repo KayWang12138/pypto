@@ -102,8 +102,7 @@ Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &funct
         APASS_LOG_INFO_F(Elements::Operation,  "eval task %d on %s: %d - %d.", taskNode.idx, targetToString[taskNode.targetCoreType].c_str(), taskNode.startTime, taskNode.endTime);
     }
     spliter.MarkInternalSubgraphID();
-    // 完整的 MainLoop
-    // 传入一个taskNode序列 taskNodeList
+    // 传入一个taskNode序列 taskNodeList,对全部opList进行schedule
     auto taskNodeList = spliter.GetTaskGraph().tasks;
     std::sort(taskNodeList.begin(), taskNodeList.end(), [](const TaskNode& a, const TaskNode& b) {
         return a.startTime < b.startTime;

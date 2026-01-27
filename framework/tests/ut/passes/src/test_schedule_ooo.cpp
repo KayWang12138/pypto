@@ -1644,10 +1644,11 @@ TEST_F(ScheduleOoOTest, TestSpillOnBlockFailedAtL0) {
     AllocL0BIssue->reqMemIds = {4};
     // 构造alloc队列、内存气泡场景的localBufferMap、tensorOccupyMap
     OoOScheduler oooSchedule(*function);
-    oooSchedule.allocIssueQueue[MemoryType::MEM_L0A].Insert(AllocL0AIssue);
-    oooSchedule.allocIssueQueue[MemoryType::MEM_L0B].Insert(AllocL0BIssue);
-    oooSchedule.tensorOccupyMap[MemoryType::MEM_L0A].emplace(1, L1toL0AIssue);
-    oooSchedule.tensorOccupyMap[MemoryType::MEM_L0B].emplace(2, L1toL0BIssue);
+    auto corePair = opCoreTypeMap.at(OpCoreType::AIC);
+    oooSchedule.allocIssueQueue[corePair.first][corePair.second][MemoryType::MEM_L0A].Insert(AllocL0AIssue);
+    oooSchedule.allocIssueQueue[corePair.first][corePair.second][MemoryType::MEM_L0B].Insert(AllocL0BIssue);
+    oooSchedule.tensorOccupyMap[corePair.first][corePair.second][MemoryType::MEM_L0A].emplace(1, L1toL0AIssue);
+    oooSchedule.tensorOccupyMap[corePair.first][corePair.second][MemoryType::MEM_L0B].emplace(2, L1toL0BIssue);
     oooSchedule.localBufferMap[1] = std::make_shared<LocalBuffer>(1, 32768, MemoryType::MEM_L0A);
     oooSchedule.localBufferMap[2] = std::make_shared<LocalBuffer>(2, 32768, MemoryType::MEM_L0B);
     oooSchedule.localBufferMap[3] = std::make_shared<LocalBuffer>(3, 32768, MemoryType::MEM_L0A);
