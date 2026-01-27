@@ -252,7 +252,7 @@ struct std::hash<npu::tile_fwk::osp::DirectedEdge<GraphT>> {
         // Combine hashes of source and target
         std::size_t h1 = std::hash<npu::tile_fwk::osp::VertexIdxT<GraphT>>{}(p.source_);
         std::size_t h2 = std::hash<npu::tile_fwk::osp::VertexIdxT<GraphT>>{}(p.target_);
-        osp::HashCombine(h1, h2);
+        npu::tile_fwk::osp::HashCombine(h1, h2);
         return h1;
     }
 };
