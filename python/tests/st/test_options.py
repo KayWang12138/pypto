@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ def set_scope_options(a, c, tiling=None):
         assert [32, 32] == get_options("vec_tile_shapes")
 
 
-def check_cube_tile_shapes(expected_m, expected_k, expected_n, expected_enable_multi_data_load=False, 
+def check_cube_tile_shapes(expected_m, expected_k, expected_n, expected_enable_multi_data_load=False,
                         expected_enable_split_k=False):
     """Check if cube_tile_shapes matches expected values"""
     cube_tile = get_options("cube_tile_shapes")
