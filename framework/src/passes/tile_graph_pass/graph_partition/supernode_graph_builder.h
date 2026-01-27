@@ -68,7 +68,7 @@ public:
 protected:
     Status BuildOpGraph(const std::vector<Operation*> &opList);
     virtual Status BuildSuperNodeGraph();
-    Status BuildHashValues();
+    virtual Status BuildHashValues();
 
     // BuildSuperNodeGraph helpers
     inline bool L1CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
@@ -83,10 +83,12 @@ protected:
                             int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
     inline bool MulAccCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
                             int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
+    inline bool ExpandCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
+                            int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair);
     inline bool AssembleToCopyoutScene(Operation *op);
     
     // BuildHashValues helpers
-    uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const;
+    virtual uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const;
     std::vector<std::pair<int32_t, int32_t>> GetReduceNodeMergePair() const;
     Status BuildReduceNodeHash(std::shared_ptr<NodeGraphInfo> reduceNodeInfo);
     Status BuildBalanceOpHash(std::vector<uint64_t> &opHashList);
