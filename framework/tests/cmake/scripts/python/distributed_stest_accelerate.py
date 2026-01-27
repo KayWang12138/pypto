@@ -60,7 +60,7 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
 
         # 获取设备列表
         ctrl = DistributedSTestAccelerate(args=args)
-        device_list = ctrl._init_get_device_list(args)
+        device_list = ctrl.init_get_device_list(args)
 
         # 设备分组处理-顺序分组
         device_groups = DistributedSTestAccelerate._group_devices_by_rank_size(
