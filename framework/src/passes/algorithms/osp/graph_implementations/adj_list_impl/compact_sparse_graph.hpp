@@ -222,7 +222,7 @@ public:
     virtual ~CompactSparseGraph() = default;
 
     template <template <typename, typename...> class Container>
-    CompactSparseGraph(VertexIdx numVertices, const Container<std::pair<vertex_idx, vertex_idx>> &edges)
+    CompactSparseGraph(VertexIdx numVertices, const Container<std::pair<VertexIdx, VertexIdx>> &edges)
         : numberOfVertices_(numVertices), numberOfEdges_(static_cast<EdgeT>(edges.size())) {
         vertWorkWeights_ = std::vector<VertexWorkWeightType>(NumVertices(), 1);
         vertCommWeights_ = std::vector<VertexCommWeightType>(NumVertices(), 0);
