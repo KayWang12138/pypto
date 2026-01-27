@@ -524,6 +524,22 @@ std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
     }
 }
 
+std::string CodeGenCloudNPU::GetCompiler() const {
+    std::string bishengPath = "bisheng";
+
+    if (platform_ == NPUArch::DAV_3510) {
+        const char *homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
+        ALOG_INFO_F("homePath is %s", homePath);
+        if (homePath != nullptr) {
+            bishengPath = std::string(homePath) + "/include/pto/bisheng_compiler/bin/bisheng";
+            ASSERT(IsPathExist(bishengPath)) << "bisheng path " << bishengPath << " not found! please check.";
+        }
+    }
+
+    ALOG_INFO_F("bisheng path is %s", bishengPath.c_str());
+    return bishengPath;
+}
+
 std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
     const CompileInfo &compileInfo, const std::string &compileOptions) const {
     const std::string srcFile = compileInfo.GetCCEAbsPath();
@@ -531,9 +547,10 @@ std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
 
     std::string coreArch = GetCoreArch(compileInfo);
     std::string allCompileOpts = BuildCompileOptions(compileInfo, compileOptions);
+    std::string compiler = GetCompiler();
 
     std::ostringstream oss;
-    oss << "bisheng " << allCompileOpts << " -c -O3 -g -x cce -std=c++17 "
+    oss << compiler << " " << allCompileOpts << " -c -O3 -g -x cce -std=c++17 "
         << "--cce-aicore-only "
         << "--cce-aicore-arch=" << coreArch << " ";
 
