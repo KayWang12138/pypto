@@ -1094,7 +1094,7 @@ void OoOScheduler::InitUsedCore() {
 
 void OoOScheduler::UpdateUsedCore(IssueEntryPtr issue) {
     auto corePair = issue->coreLocation;
-    APASS_LOG_ERROR_F(Elements::Operation, "issue: %s, coreType: %s, idx: %d",
+    APASS_LOG_DEBUG_F(Elements::Operation, "issue: %s, coreType: %s, idx: %d",
                 issue->GetOpInfo().c_str(), coreTypeToString(corePair.first).c_str(), corePair.second);
     usedCore[corePair.first][corePair.second] = true;
 }
