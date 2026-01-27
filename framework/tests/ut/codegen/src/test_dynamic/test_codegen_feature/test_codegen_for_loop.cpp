@@ -40,7 +40,7 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPassGlobalConfig(KEY_VF_OPT_MARK_FOR, true);
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE3
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
         IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);

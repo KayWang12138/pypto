@@ -31,7 +31,7 @@ public:
 
     void SetUp() override { 
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE3);
     }
 
     void TearDown() override {}
