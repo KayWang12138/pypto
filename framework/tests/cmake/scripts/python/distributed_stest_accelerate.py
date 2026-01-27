@@ -113,10 +113,9 @@ class DistributedSTestAccelerate(STestAccelerate):
                     param: STestAccelerate.ExecParam,
                     gtest_filter: str) -> Tuple[subprocess.CompletedProcess, str, datetime.timedelta]:
         """多卡模式执行 - 重写父类方法"""
-        if "rank_size" not in param.custom:
+        rank_size = param.custom.get("rank_size")
+        if rank_size is None:
             raise ValueError("Missing rank_size in custom config, run distribute case failed.")
-
-        rank_size = param.custom.get("rank_size", 1)
         if rank_size <= 1:
             raise ValueError("Distribute case rank size need greater than 1, run distribute case failed.")
         device_group = param.custom.get("device_group", [param.cntr_id])

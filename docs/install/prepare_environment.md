@@ -197,6 +197,7 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
  3. 选择已下载的.vsix插件文件，完成安装。
 
  ## 安装MPI依赖（可选）
+ 
   PyPTO的分布式用例依赖MPI：
 
     ```bash
