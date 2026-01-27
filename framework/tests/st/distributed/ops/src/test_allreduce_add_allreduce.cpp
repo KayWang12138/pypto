@@ -21,9 +21,20 @@
 #include "tilefwk/data_type.h"
 #include "test_dev_func_runner.h"
 #include "tilefwk/symbolic_distributed.h"
-#include "interface/operation/operation_impl.cpp"
 
 namespace npu::tile_fwk::Distributed {
+
+Tensor Nop(const std::vector<Tensor>& inTensors)
+{
+    auto& function = *Program::GetInstance().GetCurrentFunction();
+    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, Shape{1, 1});
+    LogicalTensors iOperands;
+    for (const Tensor& inTensor : inTensors) {
+        iOperands.emplace_back(inTensor.GetStorage());
+    }
+    function.AddOperation(Opcode::OP_NOP, iOperands, {out});
+    return out;
+}
 
 void LoopAllReduce1(const Tensor& in, Tensor& allReduceOut, const OpTestParam& testParam, int32_t row, int32_t col)
 {
@@ -56,8 +67,7 @@ void LoopAdd(const Tensor& allReduceOut, Tensor& addOut)
 }
 
 void LoopCreateShmemTensor(const Tensor& addOut, Tensor& shmemBarrier1ShmemSignal, Tensor& shmemBarrier2ShmemSignal,
-    Tensor& allReduce2ShmemData, Tensor& allReduce2ShmemSignal, const OpTestParam& testParam, int32_t row, int32_t col,
-    int32_t hcclGroupIndex)
+    Tensor& allReduce2ShmemData, Tensor& allReduce2ShmemSignal, const OpTestParam& testParam, int32_t row, int32_t col)
 {
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
@@ -113,9 +123,8 @@ void FuncAllReduceAddAllReduce(const Tensor& in, Tensor& out, const OpTestParam&
         Tensor shmemBarrier2ShmemSignal;
         Tensor allReduce2ShmemData;
         Tensor allReduce2ShmemSignal;
-        int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(testParam.group)));
         LoopCreateShmemTensor(addOut, shmemBarrier1ShmemSignal, shmemBarrier2ShmemSignal, allReduce2ShmemData,
-            allReduce2ShmemSignal, testParam, row, col, hcclGroupIndex);
+            allReduce2ShmemSignal, testParam, row, col);
         LoopAllReduce2(addOut, shmemBarrier1ShmemSignal, shmemBarrier2ShmemSignal, allReduce2ShmemData,
             allReduce2ShmemSignal, out, testParam, row, col, std::string(testParam.group));
     };
