@@ -148,6 +148,8 @@ struct DeviceArgs {
     uint64_t taskQueue{0};     // task queue between ctrl and sche
     uint64_t taskCtrl{0};      // task ctrl between ctrl and sche
     uint32_t scheCpuNum{0};    // sche cpu num calc by host
+    uint32_t launchScheCpuNum{0};    // max launch sche cpu num by host
+    uint32_t launchAicpu{0};
     uint32_t enableCtrl : 2;    // if enable builtin ctrl
     uint32_t validGetPgMask : 2; // mark pgmask is invalid
     uint32_t disableSync : 28;    // close ctrl and sche soft sync
