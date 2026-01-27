@@ -21,6 +21,7 @@
 #include "tilefwk/tilefwk_op.h"
 #include "interface/function/function.h"
 #include "passes/tile_graph_pass/graph_partition/iso_partitioner.h"
+#include "passes/tile_graph_pass/graph_partition/graph_partition.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/pass_mgr/pass_manager.h"
