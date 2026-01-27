@@ -62,7 +62,7 @@ public:
         schAicpuNum_ = schNum;
     }
 
-    int RunThread(int threadIdx, DeviceArgs *args, int schedIdx) {
+    int RunThread(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *args, int schedIdx) {
         int ret = 0;
         if (args->nrAic == 0 || args->nrValidAic == 0 || args->nrAicpu < NEED_LAUNCH_AICPU_MINNUM) {
             DEV_ERROR("Device machinr run invalid args aicnum:%u, blockdim:%u, launchAicpu num:%u",
@@ -78,7 +78,7 @@ public:
 #if ENABLE_AICORE_PRINT
         aicoreManager_[schedIdx]->InitLogger(logManager.logger);
 #endif
-        ret = aicoreManager_[schedIdx]->Run(threadIdx, args, schedIdx);
+        ret = aicoreManager_[schedIdx]->RunManager(threadIdx, devStartArgs, args, schedIdx);
         DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
         return ret;
     }
@@ -159,7 +159,7 @@ struct DynMachineManager {
 
     int Run(DeviceKernelArgs *args, const KernelCtrlEntry &entry) {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
-        auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
+        DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
         SchduleContext local_context;
         if (devArgs->scheCpuNum > devArgs->nrAicpu - 1) {
             DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
@@ -181,7 +181,8 @@ struct DynMachineManager {
             DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
             int schedIdx = threadIdx - 1;
             machine_.SetStachSchduleContext(schedIdx, &local_context);
-            ret = machine_.RunThread(threadIdx, devArgs, schedIdx);
+            DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devArgs->devStartArgsAddr);
+            ret = machine_.RunThread(threadIdx, devStartArgs, devArgs, schedIdx);
             if (ret != DEVICE_MACHINE_OK) {
                 schRunFailed_ = true;
             }
