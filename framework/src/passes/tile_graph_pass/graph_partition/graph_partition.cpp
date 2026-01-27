@@ -25,9 +25,12 @@ namespace npu::tile_fwk {
 
 Status GraphPartition::RunOnFunction(Function &function)
 {    
-    const std::string partitionMode = function.paramConfigs_.sgPartitionAlgorithm;
+    // const std::string partitionMode = function.paramConfigs_.sgPartitionAlgorithm;
+    const std::string partitionMode = "Iso";
+    // const std::string partitionMode = "OspSarkar";
+    // const std::string partitionMode = "OspBsp";
 
-    if (function.paramConfigs_.sgSkipPartition) {
+    if (function.paramConfigs_.pgSkipPartition) {
         for (auto &op : function.Operations()) {
             op.UpdateSubgraphID(0);
         }
@@ -38,11 +41,11 @@ Status GraphPartition::RunOnFunction(Function &function)
     } else if (partitionMode == "Iso") {
         APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition. Mode: IsoPartitioner.");
         IsoPartitioner partitioner;
-        if (partitioner.SetParameter(function.paramConfigs_.sgCycleUpperBound,
+        if (partitioner.SetParameter(function.paramConfigs_.sgPgUpperBound,
                                     function.paramConfigs_.sgParallelNum,
-                                    function.paramConfigs_.sgCycleLowerBound,
+                                    function.paramConfigs_.sgPgLowerBound,
                                     true,
-                                    function.paramConfigs_.sgSkipPartition) != SUCCESS) {
+                                    function.paramConfigs_.pgSkipPartition) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
             return FAILED;
         }
@@ -78,26 +81,6 @@ Status GraphPartition::RunOnFunction(Function &function)
         APASS_LOG_ERROR_F(Elements::Operation, "Invalid partition mode.");
         return FAILED;
     }
-}
-
-Status GraphPartition::RunOnFunction(Function &function)
-{
-    APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition.");
-    IsoPartitioner partitioner;
-    if (partitioner.SetParameter(function.paramConfigs_.sgPgUpperBound,
-                                 function.paramConfigs_.sgParallelNum,
-                                 function.paramConfigs_.sgPgLowerBound,
-                                 true,
-                                 function.paramConfigs_.pgSkipPartition) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
-        return FAILED;
-    }
-    if (partitioner.PartitionGraph(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "GraphPartition failed.");
-        return FAILED;
-    }
-    APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartition.");
-    return SUCCESS;
 }
 
 Status GraphPartition::PreCheck(Function &function)

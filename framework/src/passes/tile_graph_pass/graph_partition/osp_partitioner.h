@@ -37,11 +37,11 @@ namespace npu::tile_fwk {
 
 template<typename GraphT>
 struct ArchParameters {
-    osp::v_workw_t<GraphT> commCost_  = 1;
-    osp::v_workw_t<GraphT> synchCost_ = 8000;
+    osp::VWorkwT<GraphT> commCost_  = 1;
+    osp::VWorkwT<GraphT> synchCost_ = 8000;
     double commCorrectionFactor = 0.01;
-    osp::v_workw_t<GraphT> partitionWorkUpperBound_ = std::numeric_limits<osp::VWorkwT<GraphT>>::max();
-    osp::v_workw_t<GraphT> partitionWorkLowerBound_ = std::numeric_limits<osp::v_workw_t<GraphT>>::lowest();
+    osp::VWorkwT<GraphT> partitionWorkUpperBound_ = std::numeric_limits<osp::VWorkwT<GraphT>>::max();
+    osp::VWorkwT<GraphT> partitionWorkLowerBound_ = std::numeric_limits<osp::VWorkwT<GraphT>>::lowest();
 };
 
 enum class OspMode {
@@ -89,8 +89,8 @@ class OspPartitioner : public SuperNodeGraphBuilder {
 
     // Construction Helpers
     void SetVertexCommMemWeight(GraphType &graph, int32_t vertex);
-    inline osp::v_type_t<GraphType> GetOspCoreTypeSplit(OpCoreType coreType) { return ospCoreTypeMapSplit.at(coreType);}
-    inline osp::v_type_t<GraphType> GetOspCoreTypeMix(OpCoreType coreType) { return ospCoreTypeMapMix.at(coreType);}
+    inline osp::VTypeT<GraphType> GetOspCoreTypeSplit(OpCoreType coreType) { return ospCoreTypeMapSplit.at(coreType);}
+    inline osp::VTypeT<GraphType> GetOspCoreTypeMix(OpCoreType coreType) { return ospCoreTypeMapMix.at(coreType);}
     
     // Run OSP Partition
     Status RunOspPartition(Function &function, const osp::BspInstance<GraphType> &bspInst);
