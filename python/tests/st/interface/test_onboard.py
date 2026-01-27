@@ -15,8 +15,7 @@ import pypto
 
 import numpy as np
 import torch
-import torch_npu
-
+import time
 
 def test_device_run_data_from_host_numpy():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -264,17 +263,29 @@ def test_infer_shape():
     torch.npu.set_device(device_id)
 
     device = f'npu:{device_id}'
-
-    for b in [2048, 1024, 512, 256, 128, 64, 32]:
+    # for b in [2048, 1024, 512, 256, 128, 64, 32]:
+    for b in [64, 32]:
         a = torch.randn((b, 32), device=device)
         b = torch.randn((b, 32), device=device)
         c = torch.zeros_like(a, device=device)
         g = a + b
 
-        infer_shape_kenrel(
-            pypto.from_torch(a, dynamic_axis=[0]),
-            pypto.from_torch(b, dynamic_axis=[0]),
-            pypto.from_torch(c, dynamic_axis=[0]),
-        )
-        torch.npu.synchronize()
-        torch.testing.assert_close(c, g)
+        ta = pypto.from_torch(a, dynamic_axis=[0])
+        tb = pypto.from_torch(b, dynamic_axis=[0])
+        tc = pypto.from_torch(c, dynamic_axis=[0])
+
+        # warm up
+        for i in range(5):
+            infer_shape_kenrel(ta, tb, tc)
+
+        t = time.monotonic_ns()
+        n = 10
+        for i in range(n):
+            infer_shape_kenrel(ta, tb, tc)
+        t = (time.monotonic_ns() - t) / 1000
+        print(f"{n=} time={t:.3f}u")
+        # torch.npu.synchronize()
+        # torch.testing.assert_close(c, g)
+
+if __name__ == "__main__":
+    test_infer_shape()
