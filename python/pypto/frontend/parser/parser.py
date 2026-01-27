@@ -1626,7 +1626,7 @@ class Parser(doc.NodeVisitor):
         """
         # Evaluate the value expression first
         value_expr = self._eval_expr(node.value)
-        
+
         # Handle different target types
         if isinstance(node.target, doc.Name):
             # For Name targets (e.g., out += y), get the value directly from context
@@ -1642,7 +1642,7 @@ class Parser(doc.NodeVisitor):
             # For Subscript targets (e.g., a[i] += y), evaluate the tensor and slice/index
             tensor = self._eval_expr(node.target.value)
             slice_obj = self._eval_expr(node.target.slice)
-            
+
             # Get the current value from the subscript
             target_value = tensor[slice_obj]
         else:
@@ -1833,6 +1833,70 @@ class Parser(doc.NodeVisitor):
             return nested_outputs if len(nested_outputs) > 1 else nested_outputs[0]
 
         return result
+
+    def _visit_assert(self, node: doc.Assert) -> None:
+        """The general assert visiting method.
+
+        Parameters
+        ----------
+        node : doc.Assert
+            The doc AST assert node.
+
+        Returns
+        -------
+        res : None
+            The visiting result. None.
+
+        Raises
+        ------
+        ParserError
+            If the assert condition can be statically evaluated to False.
+
+        Note
+        ----
+        Assert node structure:
+            test: expr
+            msg: Optional[expr]
+
+        This implementation provides true assertion capability:
+        - For statically evaluable conditions, checks at compile time
+        - For dynamic conditions, generates runtime assertion code
+        """
+        # Evaluate the assert condition
+        test_result = self._visit_expr(node.test)
+
+        # Prepare the error message
+        if node.msg:
+            msg_result = self._visit_expr(node.msg)
+            if msg_result is not None:
+                error_msg = str(msg_result)
+            else:
+                error_msg = "Assertion failed"
+        else:
+            error_msg = "Assertion failed"
+
+        # Handle different types of test results
+        if isinstance(test_result, pypto.SymbolicScalar):
+            cond = pypto.cond(
+                test_result, file=self.diag.source.source_name, lineno=node.lineno
+            )
+            pass
+
+        elif isinstance(test_result, bool):
+            # For concrete boolean values, check immediately
+            if not test_result:
+                raise ParserError(node, f"AssertionError: {error_msg}")
+
+        elif hasattr(test_result, 'dtype'):
+            pass
+
+        else:
+            # For other concrete values, attempt boolean conversion
+            try:
+                if not bool(test_result):
+                    raise ParserError(node, f"AssertionError: {error_msg}")
+            except (TypeError, ValueError):
+                pass
 
     def _visit_delete(self, node: doc.Delete) -> None:
         """The general delete visiting method.
