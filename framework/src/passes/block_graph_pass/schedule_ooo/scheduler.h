@@ -65,15 +65,14 @@ const std::unordered_set<Opcode> COPY_IN_OPS = {
     Opcode::OP_UB_COPY_L1_ND
 };
 
-const std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS_HARDWARE_TWO = {
-    {OpCoreType::AIV, 0},
-    {OpCoreType::AIV, 1},
-    {OpCoreType::AIC, 0}
+const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWARE_TWO = {
+    {OpCoreType::AIV, {0,1}},
+    {OpCoreType::AIC, {0}}
 };
 
-const std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS_HARDWARE_ONE = {
-    {OpCoreType::AIV, 0},
-    {OpCoreType::AIC, 0}
+const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWARE_ONE = {
+    {OpCoreType::AIV, {0}},
+    {OpCoreType::AIC, {0}}
 };
 
 const std::unordered_map<OpCoreType, std::pair<OpCoreType, int>> opCoreTypeMap {
@@ -158,7 +157,7 @@ private:
     std::vector<IssueEntryPtr> issueEntries;
     std::unordered_map<int, IssueEntryPtr> issueEntryMap;
 
-    std::unordered_map<OpCoreType, int> CORE_INIT_CONFIGS;
+    std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS;
 
     std::unordered_map<OpCoreType, std::unordered_map<int, bool>> usedCore;
 
@@ -203,7 +202,9 @@ private:
     int GetMaxDepthSimple(IssueEntryPtr issue);
     // scheduler
     Status Init(const std::vector<Operation *> &operations,
-        const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>());
+        const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>(),
+        const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
+    void InitCoreConfig();
     Status InitIssueCoreType(IssueEntryPtr issue, Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     void InitUsedCore();
     void UpdateUsedCore(IssueEntryPtr issue);
@@ -369,7 +370,8 @@ private:
 
 public:
     Status Schedule(const std::vector<Operation *> &operations,
-        const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>());
+        const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>(),
+        const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
     OoOScheduler(Function &function, bool combineAxis=false) : function_(function), isCombineAxis_(combineAxis) {}
 
     std::vector<Operation *> GetNewOperations() { return newOperations_; }

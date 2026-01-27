@@ -101,7 +101,6 @@ Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &funct
     for (auto &taskNode : spliter.GetTaskGraph().tasks) {
         APASS_LOG_INFO_F(Elements::Operation,  "eval task %d on %s: %d - %d.", taskNode.idx, targetToString[taskNode.targetCoreType].c_str(), taskNode.startTime, taskNode.endTime);
     }
-    spliter.MergeTaskByTargetCoreType();
     spliter.MarkInternalSubgraphID();
     // 完整的 MainLoop
     // 传入一个taskNode序列 taskNodeList
@@ -118,7 +117,7 @@ Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &funct
     }
     opList = operations;
     OoOScheduler oooSchedule(*program.second);
-    if (oooSchedule.Schedule(opList, opCoreMap) != SUCCESS) {
+    if (oooSchedule.Schedule(opList, opCoreMap, CORE_INIT_CONFIGS_HARDWARE_TWO_AIV) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Schedule failed.");
         return FAILED;
     }

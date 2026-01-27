@@ -327,13 +327,15 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
 }
 
 Status OoOScheduler::SpillOnBlock() {
-    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
-        if (!usedCore[coreType][idx]) {
-            continue;
-        }
-        if (SpillOnCoreBlock(coreType, idx) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %s", idx, coreTypeToString(coreType).c_str());
-            return FAILED;
+    for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
+        for (auto idx : idxVec) {
+            if (!usedCore[coreType][idx]) {
+                continue;
+            }
+            if (SpillOnCoreBlock(coreType, idx) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %s", idx, coreTypeToString(coreType).c_str());
+                return FAILED;
+            }
         }
     }
     return SUCCESS;
@@ -393,35 +395,37 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
 
 Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
     // issue from all pipes
-    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
-        if (!usedCore[coreType][idx]) {
-            continue;
-        }
-        for (auto &[pipeType, pipe] : issueQueues[coreType][idx]) {
-            if (pipe.Empty() || pipe.busy) {
+    for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
+        for (auto idx : idxVec) {
+            if (!usedCore[coreType][idx]) {
                 continue;
             }
-            IssueEntryPtr issue = pipe.PopFront();
-            pipe.busy = true;
-            pipe.curIssue = issue;
-            pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
-            oooCheck.pipeUsageCount[pipeType] += issue->tileOp.GetLatency();
-            for (auto& op : issue->viewOps) {
-                if (std::find(newOperations_.begin(), newOperations_.end(), op) != newOperations_.end()) {
+            for (auto &[pipeType, pipe] : issueQueues[coreType][idx]) {
+                if (pipe.Empty() || pipe.busy) {
                     continue;
                 }
-                newOperations_.emplace_back(op);
+                IssueEntryPtr issue = pipe.PopFront();
+                pipe.busy = true;
+                pipe.curIssue = issue;
+                pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
+                oooCheck.pipeUsageCount[pipeType] += issue->tileOp.GetLatency();
+                for (auto& op : issue->viewOps) {
+                    if (std::find(newOperations_.begin(), newOperations_.end(), op) != newOperations_.end()) {
+                        continue;
+                    }
+                    newOperations_.emplace_back(op);
+                }
+                newOperations_.emplace_back(&(issue->tileOp));
+                if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
+                    nextCycle = pipe.curOpRetireCycle;
+                }
+                if (AllocTensorMemRange(issue) != SUCCESS) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "AllocTensorMemRange failed at idx: %d, coreType: %s. %s",
+                        idx, coreTypeToString(coreType).c_str(), GetFormatBacktrace(issue->tileOp).c_str());
+                    return FAILED;
+                }
+                APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s.", issue->GetOpInfo().c_str());
             }
-            newOperations_.emplace_back(&(issue->tileOp));
-            if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
-                nextCycle = pipe.curOpRetireCycle;
-            }
-            if (AllocTensorMemRange(issue) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "AllocTensorMemRange failed at idx: %d, coreType: %s. %s",
-                    idx, coreTypeToString(coreType).c_str(), GetFormatBacktrace(issue->tileOp).c_str());
-                return FAILED;
-            }
-            APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s.", issue->GetOpInfo().c_str());
         }
     }
     return SUCCESS;
@@ -468,18 +472,20 @@ Status OoOScheduler::ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, 
 }
 
 Status OoOScheduler::BufferAllocStage(uint64_t &commitCnt) {
-    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
-        if (!usedCore[coreType][idx]) {
-            continue;
-        }
-        for (auto& [memType, pipe] : allocIssueQueue[coreType][idx]) {
-            if (pipe.Empty()) {
+    for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
+        for (auto idx : idxVec) {
+            if (!usedCore[coreType][idx]) {
                 continue;
             }
-            // 不断按顺序执行alloc指令，直到buffer被占满为止。
-            if (ExecuteAllocIssue(commitCnt, memType, pipe) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed at idx: %d coreType: %s.", idx, coreTypeToString(coreType).c_str());
-                return FAILED;
+            for (auto& [memType, pipe] : allocIssueQueue[coreType][idx]) {
+                if (pipe.Empty()) {
+                    continue;
+                }
+                // 不断按顺序执行alloc指令，直到buffer被占满为止。
+                if (ExecuteAllocIssue(commitCnt, memType, pipe) != SUCCESS) {
+                    APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed at idx: %d coreType: %s.", idx, coreTypeToString(coreType).c_str());
+                    return FAILED;
+                }
             }
         }
     }
@@ -542,30 +548,32 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
 }
 
 Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
-    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
-        if (!usedCore[coreType][idx]) {
-            continue;
-        }
-        for (auto& [pipeType, pipe] : issueQueues[coreType][idx]) {
-            (void)pipeType;
-            if (!pipe.busy) {
+    for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
+        for (auto idx : idxVec) {
+            if (!usedCore[coreType][idx]) {
                 continue;
             }
-            if (pipe.curOpRetireCycle <= clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
-                IssueEntryPtr issue = pipe.curIssue;
-                pipe.busy = false;
-                pipe.curIssue = nullptr;
-                APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTE END: %s", issue->GetOpInfo().c_str());
-                if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) {
-                    APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSucc failed at idx: %d coreType: %s! %s",
-                        idx, coreTypeToString(coreType).c_str(), GetFormatBacktrace(issue->tileOp).c_str());
-                    return FAILED;
+            for (auto& [pipeType, pipe] : issueQueues[coreType][idx]) {
+                (void)pipeType;
+                if (!pipe.busy) {
+                    continue;
                 }
-                continue;
-            }
-            APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTING[%ld]: %s", pipe.curOpRetireCycle, pipe.curIssue->GetOpInfo().c_str());
-            if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
-                nextCycle = pipe.curOpRetireCycle;
+                if (pipe.curOpRetireCycle <= clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
+                    IssueEntryPtr issue = pipe.curIssue;
+                    pipe.busy = false;
+                    pipe.curIssue = nullptr;
+                    APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTE END: %s", issue->GetOpInfo().c_str());
+                    if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) {
+                        APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSucc failed at idx: %d coreType: %s! %s",
+                            idx, coreTypeToString(coreType).c_str(), GetFormatBacktrace(issue->tileOp).c_str());
+                        return FAILED;
+                    }
+                    continue;
+                }
+                APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTING[%ld]: %s", pipe.curOpRetireCycle, pipe.curIssue->GetOpInfo().c_str());
+                if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
+                    nextCycle = pipe.curOpRetireCycle;
+                }
             }
         }
     }
@@ -755,25 +763,29 @@ Status OoOScheduler::GenSpillSchedule() {
 
 void OoOScheduler::InitIssueQueuesAndBufferManager() {
     // 初始化
-    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
-        if (!usedCore[coreType][idx]) {
-            continue;
-        }
-        for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
-            issueQueues[coreType][idx][static_cast<PipeType>(i)] = IssueQueue();
+    for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
+        for (auto idx : idxVec) {
+            if (!usedCore[coreType][idx]) {
+                continue;
+            }
+            for (size_t i = 0; i <= static_cast<int>(PipeType::PIPE_FIX); i++) {
+                issueQueues[coreType][idx][static_cast<PipeType>(i)] = IssueQueue();
+            }
         }
     }
 
     bufferManagerMap.clear();
-    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
-        if (!usedCore[coreType][idx]) {
-            continue;
-        }
-        for (size_t i = 0; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
-            allocIssueQueue[coreType][idx][static_cast<MemoryType>(i)] = IssueQueue();
-            if (localMemorySize.find(static_cast<MemoryType>(i)) != localMemorySize.end()) {
-                bufferManagerMap[coreType][idx].insert({static_cast<MemoryType>(i),
-                    BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
+    for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
+        for (auto idx : idxVec) {
+            if (!usedCore[coreType][idx]) {
+                continue;
+            }
+            for (size_t i = 0; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
+                allocIssueQueue[coreType][idx][static_cast<MemoryType>(i)] = IssueQueue();
+                if (localMemorySize.find(static_cast<MemoryType>(i)) != localMemorySize.end()) {
+                    bufferManagerMap[coreType][idx].insert({static_cast<MemoryType>(i),
+                        BufferPool(static_cast<MemoryType>(i), localMemorySize[static_cast<MemoryType>(i)])});
+                }
             }
         }
     }
@@ -1058,26 +1070,39 @@ Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
 }
 
 void OoOScheduler::InitUsedCore() {
-    for (auto [coreType, idx] : CORE_INIT_CONFIGS) {
-        usedCore[coreType][idx] = false;
+    for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
+        for (auto idx : idxVec) {
+            usedCore[coreType][idx] = false;
+        }
     }
 }
 
 void OoOScheduler::UpdateUsedCore(IssueEntryPtr issue) {
     auto corePair = issue->coreLocation;
+    APASS_LOG_ERROR_F(Elements::Operation, "issue: %s, coreType: %s, idx: %d",
+                issue->GetOpInfo().c_str(), coreTypeToString(corePair.first).c_str(), corePair.second);
     usedCore[corePair.first][corePair.second] = true;
 }
 
-Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap) {
+void OoOScheduler::InitCoreConfig() {
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_HARDWARE_ONE;
+    } else {
+        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_HARDWARE_TWO;
+    }
+}
+
+Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap,
+    const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig) {
     issueEntries.clear();
     localBufferMap.clear();
     depthCache_.clear();
     // 初始化芯片各buffer大小
     InitMemorySize();
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
-        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_HARDWARE_ONE;
+    if (fixCoreConfig.empty()) {
+        InitCoreConfig();
     } else {
-        CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_HARDWARE_TWO;
+        CORE_INIT_CONFIGS = fixCoreConfig;
     }
     InitUsedCore();
     // 校验并初始化issueEntry
@@ -1144,12 +1169,13 @@ void OoOScheduler::InitMemorySize() {
         Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_FIX_QUANT_PRE)});
 }
 
-Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap) {
+Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap,
+    const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig) {
     if (operations.empty()) {
         return SUCCESS;
     }
     PrintOpList(operations);
-    if (Init(operations, opCoreMap) != SUCCESS) {
+    if (Init(operations, opCoreMap, fixCoreConfig) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "Init failed!"); 
         return FAILED;
     }

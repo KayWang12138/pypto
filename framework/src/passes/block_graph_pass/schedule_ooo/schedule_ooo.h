@@ -32,6 +32,11 @@ const std::unordered_map<TargetCoreType, std::pair<OpCoreType, int>> targetCoreT
     {TargetCoreType::AIV1, std::make_pair(OpCoreType::AIV, 1)}
 };
 
+const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWARE_TWO_AIV = {
+    {OpCoreType::AIV, {0,1}},
+    {OpCoreType::AIC, {0}}
+};
+
 class OoOSchedule : public Pass {
 public:
     OoOSchedule() : Pass("OoOSchedule") {}
