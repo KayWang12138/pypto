@@ -36,6 +36,38 @@
                     "minimum": 0,
                     "maximum": 2147483647
                 },
+                "pg_partition_algorithm": {
+                    "type": "string",
+                    "enum": ["Iso", "OspSarkar", "OspBsp"],
+                    "default" : "Iso",
+                    "label": {
+                        "zh": "",
+                        "en": "Graph merging parameter, used to configure the partitioning algorithm."
+                    },
+                    "options": [
+                        {
+                            "value": "Iso",
+                            "label": {
+                                "zh": "",
+                                "en": "Iso graph partitionier"
+                            }
+                        },
+                        {
+                            "value": "OspSarkar",
+                            "label": {
+                                "zh": "",
+                                "en": "OspSarkar graph partitionier"
+                            }
+                        },
+                        {
+                            "value": "OspBsp",
+                            "label": {
+                                "zh": "",
+                                "en": "OspBsp graph partitionier"
+                            }
+                        }
+                    ]
+                },
                 "cube_l1_reuse_mode": {
                     "type": "integer",
                     "label": {
