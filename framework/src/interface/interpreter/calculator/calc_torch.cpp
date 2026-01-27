@@ -33,14 +33,17 @@ static torch::ScalarType FromDataType(DataType t) {
         case DT_FP32: return torch::kFloat32;
         case DT_BF16: return torch::kBFloat16;
         /* unsigned int are limited supported, use signed types for temp */
-        case DT_UINT8: return torch::kInt8;
-        case DT_UINT16: return torch::kInt16;
-        case DT_UINT32: return torch::kInt32;
-        case DT_UINT64: return torch::kInt64;
+        case DT_UINT8: return torch::kUInt8;
+        case DT_UINT16: return torch::kUInt16;
+        case DT_UINT32: return torch::kUInt32;
+        case DT_UINT64: return torch::kUInt64;
         case DT_BOOL: return torch::kBool;
         case DT_DOUBLE: return torch::kDouble;
         case DT_INT4:
-        case DT_FP8:
+        case DT_FP8: return torch::kUInt8;
+        case DT_FP8E5M2: return torch::kUInt8;
+        case DT_FP8E4M3: return torch::kUInt8;
+        case DT_FP8E8M0: return torch::kUInt8;
         case DT_HF4:
         case DT_HF8:
         default: assert(0);
@@ -54,7 +57,7 @@ static at::Scalar From(const Element &elem) {
         case DT_INT4:
         case DT_INT8:
         case DT_INT16:
-        case DT_INT32:
+        case DT_INT32: return at::Scalar(elem.GetSignedData());
         case DT_INT64: return at::Scalar(elem.GetSignedData());
         case DT_FP16:
         case DT_FP32:
@@ -67,6 +70,9 @@ static at::Scalar From(const Element &elem) {
             // lower version of pytorch not support uint64 type, use int64 for temp
             return at::Scalar(static_cast<int64_t>(elem.GetUnsignedData()));
         case DT_FP8:
+        case DT_FP8E5M2:
+        case DT_FP8E4M3:
+        case DT_FP8E8M0:
         case DT_HF4:
         case DT_HF8:
         default: assert(0);
@@ -74,14 +80,64 @@ static at::Scalar From(const Element &elem) {
     return at::Scalar();
 }
 
-static torch::Tensor From(LogicalTensorDataPtr data) {
+static torch::Tensor Fp8ToFloat32(const torch::Tensor &self, DataType actualType) {
+    if (actualType == DT_UINT8) {
+        return self;
+    }
+    else if (actualType == DT_FP8) {
+
+    }
+    else if (actualType == DT_FP8E4M3) {
+
+    }
+    else if (actualType == DT_FP8E5M2) {
+
+    }
+    else if (actualType == DT_FP8E8M0) {
+
+    }
+}
+
+static void WriteIn(const torch::Tensor &src, const torch::Tensor &dst, DataType actualType) {
+    if (actualType == DT_FP8) {
+
+    }
+    else if (actualType == DT_FP8E4M3) {
+
+    }
+    else if (actualType == DT_FP8E5M2) {
+
+    }
+    else if (actualType == DT_FP8E8M0) {
+
+    }
+    return;
+
+}
+
+static std::pair<torch::Tensor, torch::Tensor> From(LogicalTensorDataPtr data) {
     RawTensorDataPtr raw = data->GetData();
-    auto tensor = torch::from_blob(raw->data(), raw->GetShape(), FromDataType(raw->GetDataType()));
+    auto ScalarDataType = FromDataType(raw->GetDataType());
+    auto tensor = torch::from_blob(raw->data(), raw->GetShape(), ScalarDataType);
     auto view = tensor.as_strided(data->GetShape(), raw->GetStride(), data->GetStorageOffset());
     if (data->IsAxisCombine())
         view = view.transpose_(-1, AXIS_TO_LAST);
-    return view;
+    auto actualView = view;
+    if (ScalarDataType == torch::kUInt8) {
+        actualView = Fp8ToFloat32(view, raw->GetDataType());
+    }
+    return {view, actualView};
 }
+
+// static torch::Tensor From(LogicalTensorDataPtr data) {
+//     RawTensorDataPtr raw = data->GetData();
+//     auto ScalarDataType = FromDataType(raw->GetDataType());
+//     auto tensor = torch::from_blob(raw->data(), raw->GetShape(), ScalarDataType);
+//     auto view = tensor.as_strided(data->GetShape(), raw->GetStride(), data->GetStorageOffset());
+//     if (data->IsAxisCombine())
+//         view = view.transpose_(-1, AXIS_TO_LAST);
+//     return view;
+// }
 
 static torch::Tensor View(const torch::Tensor &self, const std::vector<int64_t> &shape, const std::vector<int64_t> &offset) {
     int64_t storageOffset = self.storage_offset();
