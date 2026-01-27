@@ -34,15 +34,13 @@ namespace osp {
  * @tparam T Type of the unique identifier (name).
  * @tparam IndexT Type of the index used for internal references.
  * @tparam WorkwT Type of the weight associated with the object.
- * @tparam MemwT Type of the memory associated with the object.
  */
-template <typename T, typename IndexT, typename WorkwT, typename MemwT>
+template <typename T, typename IndexT, typename WorkwT>
 struct UnionFindObject {
     const T name_;       /** Unique identifier of the object. */
     IndexT parentIndex_; /** Index of the parent object in the union-find tree. */
     unsigned rank_;      /** Rank of the object, used for union operation optimization. */
     WorkwT weight_;      /** Weight associated with the object. */
-    MemwT memory_;       /** Memory associated with the object. */
 
     /**
      * @brief Constructs a new UnionFindObject.
@@ -50,10 +48,9 @@ struct UnionFindObject {
      * @param name Unique identifier.
      * @param parentIndex Index of the parent object.
      * @param weight Weight of the object. Default is 0.
-     * @param memory Memory of the object. Default is 0.
      */
-    explicit UnionFindObject(const T &name, IndexT parentIndex, WorkwT weight = 0, MemwT memory = 0)
-        : name_(name), parentIndex_(parentIndex), rank_(1), weight_(weight), memory_(memory) {}
+    explicit UnionFindObject(const T &name, IndexT parentIndex, WorkwT weight = 0)
+        : name_(name), parentIndex_(parentIndex), rank_(1), weight_(weight) {}
 
     UnionFindObject(const UnionFindObject &other) = default;
     UnionFindObject &operator=(const UnionFindObject &other) = default;
@@ -68,12 +65,11 @@ struct UnionFindObject {
  * @tparam T Type of the unique identifier (name).
  * @tparam IndexT Type of the index used for internal references.
  * @tparam WorkwT Type of the weight associated with the object.
- * @tparam MemwT Type of the memory associated with the object.
  */
-template <typename T, typename IndexT, typename WorkwT, typename MemwT>
+template <typename T, typename IndexT, typename WorkwT>
 class UnionFindUniverse {
   private:
-    std::vector<UnionFindObject<T, IndexT, WorkwT, MemwT>> universe_;
+    std::vector<UnionFindObject<T, IndexT, WorkwT>> universe_;
     std::unordered_map<T, IndexT> namesToIndices_;
     std::set<IndexT> componentIndices_;
 
@@ -96,7 +92,6 @@ class UnionFindUniverse {
         if (universe_[index].rank_ >= universe_[otherIndex].rank_) {
             universe_[otherIndex].parentIndex_ = index;
             universe_[index].weight_ += universe_[otherIndex].weight_;
-            universe_[index].memory_ += universe_[otherIndex].memory_;
             componentIndices_.erase(otherIndex);
 
             if (universe_[index].rank_ == universe_[otherIndex].rank_) {
@@ -105,7 +100,6 @@ class UnionFindUniverse {
         } else {
             universe_[index].parentIndex_ = otherIndex;
             universe_[otherIndex].weight_ += universe_[index].weight_;
-            universe_[otherIndex].memory_ += universe_[index].memory_;
             componentIndices_.erase(index);
         }
         return -1;
@@ -113,58 +107,18 @@ class UnionFindUniverse {
 
     IndexT GetIndexFromName(const T &name) const { return namesToIndices_.at(name); }
 
-    void ReserveAdditional(std::size_t additionalSize) {
-        IndexT addSize = static_cast<IndexT>(additionalSize);
-        IndexT currentSize = static_cast<IndexT>(universe_.size());
-        IndexT currentCapacity = static_cast<IndexT>(universe_.capacity());
-
-        if (addSize + currentSize > currentCapacity) {
-            IndexT newMinCapacity = std::max((currentCapacity + 1) / 2 * 3, currentSize + addSize);
-            universe_.reserve(newMinCapacity);
-        }
-
-        // Reserve map to avoid rehashes
-        IndexT currentMapSize = static_cast<IndexT>(namesToIndices_.size());
-        IndexT currentMapCapacity
-            = static_cast<IndexT>(static_cast<float>(namesToIndices_.bucket_count()) * namesToIndices_.max_load_factor());
-
-        if (currentMapSize + addSize > currentMapCapacity) {
-            IndexT newMinMapCapacity = std::max((currentMapCapacity + 1) / 2 * 3, currentMapSize + addSize);
-            namesToIndices_.reserve(newMinMapCapacity);
-        }
-    }
-
-    void AddObjectInternal(const T &name, WorkwT weight, MemwT memory) {
+    void AddObjectInternal(const T &name, WorkwT weight) {
         if (namesToIndices_.find(name) != namesToIndices_.end()) {
             throw std::runtime_error("This name already exists in the universe.");
         }
         IndexT newIndex = static_cast<IndexT>(universe_.size());
-        universe_.emplace_back(name, newIndex, weight, memory);
+        universe_.emplace_back(name, newIndex, weight);
         namesToIndices_[name] = newIndex;
         componentIndices_.emplace(newIndex);
     }
 
   public:
     explicit UnionFindUniverse() = default;
-
-    explicit UnionFindUniverse(const std::vector<T> &names) { AddObject(names); }
-
-    /**
-     * @brief Initiates a union-find structure and adds objects with weights.
-     * @param names List of object names.
-     * @param weights List of object weights.
-     */
-    explicit UnionFindUniverse(const std::vector<T> &names, const std::vector<WorkwT> &weights) { AddObject(names, weights); }
-
-    /**
-     * @brief Initiates a union-find structure and adds objects with weights and memory.
-     * @param names List of object names.
-     * @param weights List of object weights.
-     * @param memories List of object memories.
-     */
-    explicit UnionFindUniverse(const std::vector<T> &names, const std::vector<WorkwT> &weights, const std::vector<MemwT> &memories) {
-        AddObject(names, weights, memories);
-    }
 
     UnionFindUniverse(const UnionFindUniverse &other) = default;
     UnionFindUniverse &operator=(const UnionFindUniverse &other) = default;
@@ -222,32 +176,6 @@ class UnionFindUniverse {
     }
 
     /**
-     * @brief Retrieves the names of all component representatives together with their weights.
-     * @return Vector of pairs (name, weight).
-     */
-    [[nodiscard]] std::vector<std::pair<T, WorkwT>> GetComponentNamesAndWeights() const {
-        std::vector<std::pair<T, WorkwT>> componentNamesAndWeights;
-        componentNamesAndWeights.reserve(componentIndices_.size());
-        for (auto &indx : componentIndices_) {
-            componentNamesAndWeights.emplace_back(universe_[indx].name_, universe_[indx].weight_);
-        }
-        return componentNamesAndWeights;
-    }
-
-    /**
-     * @brief Retrieves the names of all component representatives together with their weight and memory.
-     * @return Vector of tuples (name, weight, memory).
-     */
-    [[nodiscard]] std::vector<std::tuple<T, WorkwT, MemwT>> GetComponentNamesWeightsAndMemory() const {
-        std::vector<std::tuple<T, WorkwT, MemwT>> componentNamesWeightsAndMemory;
-        componentNamesWeightsAndMemory.reserve(componentIndices_.size());
-        for (auto &indx : componentIndices_) {
-            componentNamesWeightsAndMemory.emplace_back(universe_[indx].name_, universe_[indx].weight_, universe_[indx].memory_);
-        }
-        return componentNamesWeightsAndMemory;
-    }
-
-    /**
      * @brief Retrieves the weight of the component containing the given object.
      * @param name Name of the object.
      * @return Total weight of the component.
@@ -256,17 +184,6 @@ class UnionFindUniverse {
         IndexT index = GetIndexFromName(name);
         index = FindOrigin(index);
         return universe_[index].weight_;
-    }
-
-    /**
-     * @brief Retrieves the memory of the component containing the given object.
-     * @param name Name of the object.
-     * @return Total memory of the component.
-     */
-    [[nodiscard]] MemwT GetMemoryOfComponentByName(const T &name) {
-        IndexT index = GetIndexFromName(name);
-        index = FindOrigin(index);
-        return universe_[index].memory_;
     }
 
     /**
@@ -299,141 +216,18 @@ class UnionFindUniverse {
     }
 
     /**
-     * @brief Retrieves all connected components with their total weights.
-     * @return Vector of pairs (component members, total weight).
-     */
-    [[nodiscard]] std::vector<std::pair<std::vector<T>, WorkwT>> GetConnectedComponentsAndWeights() {
-        std::vector<std::vector<IndexT>> connectedComponentsByIndex;
-        connectedComponentsByIndex.resize(universe_.size());
-        for (IndexT i = 0; i < static_cast<IndexT>(universe_.size()); i++) {
-            connectedComponentsByIndex[FindOrigin(i)].emplace_back(i);
-        }
-
-        std::vector<std::pair<std::vector<T>, WorkwT>> connectedComponentsByNameInclWeight;
-        connectedComponentsByNameInclWeight.reserve(componentIndices_.size());
-
-        for (auto &comp : connectedComponentsByIndex) {
-            if (comp.empty()) {
-                continue;
-            }
-
-            WorkwT compWeight = universe_[FindOrigin(comp[0])].weight_;
-
-            std::vector<T> namesInComp;
-            namesInComp.reserve(comp.size());
-            for (auto &indx : comp) {
-                namesInComp.emplace_back(universe_[indx].name_);
-            }
-            connectedComponentsByNameInclWeight.emplace_back(std::move(namesInComp), compWeight);
-        }
-
-        return connectedComponentsByNameInclWeight;
-    }
-
-    /**
-     * @brief Retrieves all connected components with their total weights and memories.
-     * @return Vector of tuples (component members, total weight, total memory).
-     */
-    [[nodiscard]] std::vector<std::tuple<std::vector<T>, WorkwT, MemwT>> GetConnectedComponentsWeightsAndMemories() {
-        std::vector<std::vector<IndexT>> connectedComponentsByIndex;
-        connectedComponentsByIndex.resize(universe_.size());
-        for (IndexT i = 0; i < static_cast<IndexT>(universe_.size()); i++) {
-            connectedComponentsByIndex[FindOrigin(i)].emplace_back(i);
-        }
-
-        std::vector<std::tuple<std::vector<T>, WorkwT, MemwT>> connectedComponentsByNameInclWeightMemory;
-        connectedComponentsByNameInclWeightMemory.reserve(componentIndices_.size());
-
-        for (auto &comp : connectedComponentsByIndex) {
-            if (comp.empty()) {
-                continue;
-            }
-
-            WorkwT compWeight = universe_[FindOrigin(comp[0])].weight_;
-            MemwT compMemory = universe_[FindOrigin(comp[0])].memory_;
-
-            std::vector<T> namesInComp;
-            namesInComp.reserve(comp.size());
-            for (auto &indx : comp) {
-                namesInComp.emplace_back(universe_[indx].name_);
-            }
-            connectedComponentsByNameInclWeightMemory.emplace_back(std::move(namesInComp), compWeight, compMemory);
-        }
-
-        return connectedComponentsByNameInclWeightMemory;
-    }
-
-    /**
      * @brief Adds a single object to the universe.
      * @param name Name of the object.
      */
-    void AddObject(const T &name) { AddObjectInternal(name, 0, 0); }
+    void AddObject(const T &name) { AddObjectInternal(name, 0); }
 
     /**
      * @brief Adds a single object with weight.
      * @param name Name of the object.
      * @param weight Weight of the object.
      */
-    void AddObject(const T &name, const WorkwT weight) { AddObjectInternal(name, weight, 0); }
-
-    /**
-     * @brief Adds a single object with weight and memory.
-     * @param name Name of the object.
-     * @param weight Weight of the object.
-     * @param memory Memory of the object.
-     */
-    void AddObject(const T &name, const WorkwT weight, const MemwT memory) { AddObjectInternal(name, weight, memory); }
-
-    /**
-     * @brief Adds multiple objects to the universe.
-     * @param names Vector of names.
-     */
-    void AddObject(const std::vector<T> &names) {
-        ReserveAdditional(names.size());
-        for (auto &name : names) {
-            AddObjectInternal(name, 0, 0);
-        }
-    }
-
-    /**
-     * @brief Adds multiple objects with weights.
-     * @param names Vector of names.
-     * @param weights Vector of weights.
-     * @throws std::runtime_error If vectors have different sizes.
-     */
-    void AddObject(const std::vector<T> &names, const std::vector<WorkwT> &weights) {
-        if (names.size() != weights.size()) {
-            throw std::runtime_error("Vectors of names and weights must be of equal length.");
-        }
-        ReserveAdditional(names.size());
-        for (std::size_t i = 0; i < names.size(); i++) {
-            AddObjectInternal(names[i], weights[i], 0);
-        }
-    }
-
-    /**
-     * @brief Adds multiple objects with weights and memories.
-     * @param names Vector of names.
-     * @param weights Vector of weights.
-     * @param memories Vector of memories.
-     * @throws std::runtime_error If vectors have different sizes.
-     */
-    void AddObject(const std::vector<T> &names, const std::vector<WorkwT> &weights, const std::vector<MemwT> &memories) {
-        if (names.size() != weights.size() || names.size() != memories.size()) {
-            throw std::runtime_error("Vectors of names, weights, and memories must be of equal length.");
-        }
-        ReserveAdditional(names.size());
-        for (size_t i = 0; i < names.size(); i++) {
-            AddObjectInternal(names[i], weights[i], memories[i]);
-        }
-    }
+    void AddObject(const T &name, const WorkwT weight) { AddObjectInternal(name, weight); }
 };
-
-/**
- * @brief Alias for a UnionFindUniverse using GraphT properties.
- */
-template <typename GraphT>
-using UnionFindUniverseT = UnionFindUniverse<VertexIdxT<GraphT>, VertexIdxT<GraphT>, VWorkwT<GraphT>, VMemwT<GraphT>>;
 
 }    // namespace osp
 }    // namespace npu::tile_fwk

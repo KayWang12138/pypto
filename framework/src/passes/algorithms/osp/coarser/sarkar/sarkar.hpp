@@ -1074,7 +1074,7 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::LevelContraction(
         const std::vector<VertexIdxT<GraphTIn>> &headVertices = levels[headLevel - minLevel];
         const std::vector<VertexIdxT<GraphTIn>> &footVertices = levels[footLevel - minLevel];
 
-        UnionFindUniverse<VertexType, std::size_t, VWorkwT<GraphTIn>, VMemwT<GraphTIn>> uf;
+        UnionFindUniverse<VertexType, std::size_t, VWorkwT<GraphTIn>> uf;
         for (const VertexType &vert : headVertices) {
             uf.AddObject(vert, graph.VertexWorkWeight(vert));
         }
