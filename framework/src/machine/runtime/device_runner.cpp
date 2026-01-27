@@ -179,9 +179,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.taskWastTime = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(sizeof(uint64_t))));
     size_t shmSize = dynamic::DEVICE_SHM_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * aicpuNum_;
     uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(shmSize)));
-    args.startArgsAddr = shmAddr;
-    args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
-    args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_POOL_SIZE;
+    args.devStartArgsAddr = shmAddr;
     pmuEvtType_.resize(PMU_EVENT_TYPE_MAX, 0x0);
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 
@@ -679,8 +677,6 @@ void DeviceRunner::PrepareLaunchArgs(DeviceArgs &localArgs, DeviceKernelArgs *ke
     localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_, args_.archInfo);
     localArgs.validGetPgMask = machine::GetRA()->GetValidGetPgMask();
     localArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
-    localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
-    localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
 
     // for dump perfInfo update device args
     args_.nrValidAic = localArgs.nrValidAic;
