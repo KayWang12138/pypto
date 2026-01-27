@@ -78,7 +78,7 @@ template <typename T, unsigned T0, unsigned T1, unsigned T2, unsigned T3, unsign
 TILEOP void DynUBCopyIn(__ubuf__ T *dst, __gm__ T *src, unsigned GMS0, unsigned GMS1, unsigned GMS2, unsigned GMS3,
     unsigned GMS4, unsigned Offset0, unsigned Offset1, unsigned Offset2, unsigned Offset3, unsigned Offset4) {
     src += CalcLinearOffset(GMS1, GMS2, GMS3, GMS4, Offset0, Offset1, Offset2, Offset3, Offset4);
-
+    
     static_assert((UBS4 * sizeof(T)) % 32 == 0, "UB tile must be 32B aligned!");
 
     for (int i0 = 0; i0 < T0; i0++) {
