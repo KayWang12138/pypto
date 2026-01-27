@@ -499,8 +499,9 @@ struct KernelModule {
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
 
+        const int nrAicpu = 5; // see also device_runner.cpp
         int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
-            "AST_DYN_AICPU", 5, &rtAicpuArgs, nullptr, aicpuStream, 0);
+            "AST_DYN_AICPU", nrAicpu, &rtAicpuArgs, nullptr, aicpuStream, 0);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
 
         // ALOG_ERROR(__FUNCTION__, __LINE__);
@@ -512,7 +513,7 @@ struct KernelModule {
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
         ret = rtKernelLaunchWithHandleV2(
-            kbinary->kernelBin, tilingKey, blockDim, &rtAicoreArgs, nullptr, aicoreStream, &rtTaskCfg);
+            kbinary->kernelBin, tilingKey, dynamic::GetCfgBlockdim(), &rtAicoreArgs, nullptr, aicoreStream, &rtTaskCfg);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
     }
 
@@ -526,20 +527,17 @@ struct KernelModule {
         rtAicpuArgs.hostInputInfoPtr = &hostInfo;
 
         memset_s(&rtAicoreArgs, sizeof(rtArgsEx_t), 0, sizeof(rtArgsEx_t));
-        kernelArgs.resize(6, nullptr);
+        kernelArgs.resize(7, nullptr); // see aicore.ascpp
         rtAicoreArgs.args = kernelArgs.data();
         rtAicoreArgs.argsSize = kernelArgs.size() * sizeof(void *);
 
         memset_s(&rtTaskCfg, sizeof(rtTaskCfgInfo_t), 0, sizeof(rtTaskCfgInfo_t));
         rtTaskCfg.schemMode = RT_SCHEM_MODE_BATCH;
-
-        blockDim = dynamic::GetCfgBlockdim();
     }
 
     rtHostInputInfo_t hostInfo;
     rtAicpuArgsEx_t rtAicpuArgs;
 
-    int blockDim;
     rtArgsEx_t rtAicoreArgs;
     rtTaskCfgInfo_t rtTaskCfg;
     std::vector<void *> kernelArgs;
