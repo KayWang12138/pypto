@@ -199,7 +199,17 @@ int DeviceLauncher::DeviceRunOnce(Function *function, const DeviceLauncherConfig
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
     std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(DeviceMemoryUtils(), inputDataList, outputDataList);
-    int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList, aicpuStream, aicoreStream, true, nullptr, config);
+    int64_t repeatTime = config::GetRuntimeOption<int64_t>(REPEAT_TIME);
+    if (repeatTime < 1) {
+        repeatTime = 1;
+    }
+    int rc = 0;
+    for (int64_t i = 0; i < repeatTime; ++i) {  
+        rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList, aicpuStream, aicoreStream, true, nullptr, config);
+        if (rc != 0) {
+            break;
+        }
+    }
     CopyFromDev(DeviceMemoryUtils(), outputDataList);
     if (HasInplaceArgs(function) || outputDataList.size() == 0) {
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
