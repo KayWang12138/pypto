@@ -160,6 +160,45 @@ struct DynMachineManager {
         return;
     }
 
+    int GetThreadIdx(DeviceArgs *devArgs) {
+        int threadIdx = 0;
+        if (devArgs->archInfo == ArchInfo::DAV_2201) {
+            threadIdx = threadIdx_++;
+        } else {
+            threadIdx_ = sched_getcpu() - 1;
+            threadIdx = threadIdx_;
+        }
+
+        return threadIdx;
+    }
+
+    int GetSchedIdx(DeviceArgs *devArgs, int threadIdx) {
+        if (devArgs->archInfo == ArchInfo::DAV_2201 || devArgs->scheCpuNum == 1 ||
+            devArgs->launchScheCpuNum == devArgs->scheCpuNum) {
+            return threadIdx - 1;
+        }
+
+        int maxCpuId = static_cast<int>(devArgs->launchAicpu);
+        int die0MaxCpuid = maxCpuId >> 1;
+        int scheCpuNum = static_cast<int>(devArgs->scheCpuNum);
+        int die0MaxCpuNum = scheCpuNum >> 1;
+        int die1MaxCpuNum = scheCpuNum - die0MaxCpuNum;
+
+        if (die0ScheIdx_.load() < die0MaxCpuNum && threadIdx < die0MaxCpuid) {
+            int curDie0ScheIdx = die0ScheIdx_;
+            die0ScheIdx_++;
+            return curDie0ScheIdx;
+        }
+
+        if (die1ScheIdx_.load() < die1MaxCpuNum && threadIdx >= die0MaxCpuid) {
+            int curDie1ScheIdx = die1ScheIdx_ + die0MaxCpuNum;
+            die1ScheIdx_++;
+            return curDie1ScheIdx;
+        }
+
+        return scheCpuNum;
+    }
+        
     int RunCtrl(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry, int threadIdx) {
         CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
         DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
@@ -176,6 +215,8 @@ struct DynMachineManager {
         UNUSED(entry);
 
         DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
+        int schedIdx = GetSchedIdx(devArgs, threadIdx);
+ 	    threadIdx = schedIdx + 1; // Dav3510 thread idx not incrementally
         CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
         DEV_INFO("ThreadScheEnter idx=%d", threadIdx);
 
@@ -185,8 +226,6 @@ struct DynMachineManager {
         DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
             devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
         DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
-        int schedIdx = threadIdx - 1;
-
         SchduleContext local_context;
         machine_.SetStachSchduleContext(schedIdx, &local_context);
         DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(kargs->cfgdata);
@@ -222,14 +261,14 @@ struct DynMachineManager {
             DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        int threadIdx = threadIdx_++;
+        int threadIdx = GetThreadIdx(devArgs);
 
         DEV_INFO("ThreadEnter idx=%d", threadIdx);
 
         uint64_t allocThreadCycle = GetCycles();
         if (devArgs->enableCtrl == 1 && threadIdx == 0) {
             ret = RunCtrl(kargs, entry, threadIdx);
-        } else if (threadIdx > 0 && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {
+        } else if (threadIdx > 0 && threadIdx <= static_cast<int>(devArgs->launchScheCpuNum)) {
             ret = RunSche(kargs, entry, threadIdx);
         } else {
             SignalReg(entry);
@@ -242,7 +281,7 @@ struct DynMachineManager {
 
         GetLogger().Flush();
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
-        if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
+        if (++finished_ == static_cast<std::atomic<int>>(devArgs->launchAicpu)) {
             LastFinishThreadIdx_ = threadIdx;
             if (unlikely(!machine_.CheckAndResetReg())) {
                 DEV_WARN("Some registers force closed!");
@@ -277,16 +316,14 @@ struct DynMachineManager {
             return;
         }
         init_.store(true);
-        ctrlcpuIdx_.store(args->scheCpuNum);
         machine_.init(args->scheCpuNum);
-        schRunFailed_ = false;
     }
 
     void DeInit() {
         threadIdx_ = 0;
         finished_ = 0;
-        cpumask_ = 0;
-        ctrlcpuIdx_ = 0;
+        die0ScheIdx_ = 0;
+        die1ScheIdx_ = 0;
         init_.store(false);
         initCtrl_.store(false);
     }
@@ -432,8 +469,8 @@ struct DynMachineManager {
     int LastFinishThreadIdx_{0};
     std::atomic<int> threadIdx_{0};
     std::atomic<int> finished_{0};
-    std::atomic<uint64_t> cpumask_{0};
-    std::atomic<int> ctrlcpuIdx_{0};
+    std::atomic<int> die0ScheIdx_{0};
+    std::atomic<int> die1ScheIdx_{0};
     DeviceSchedMachine machine_;
     bool sigReg_{false};
     struct sigaction oriFPEAct_;

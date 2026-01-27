@@ -165,6 +165,14 @@ public:
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         devProg->devArgs.nrAicpu = config.aicpuNum;
+        if (devProg->devArgs.archInfo == ArchInfo::DAV_3510) {
+            devProg->devArgs.launchScheCpuNum = aiCpuNum - dynamic::MAX_OTHER_AICPU_NUM;
+            devProg->devArgs.launchAicpu = aiCpuNum;
+        } else {
+            devProg->devArgs.launchScheCpuNum = devProg->devArgs.scheCpuNum;
+            devProg->devArgs.launchAicpu = devProg->devArgs.nrAicpu;
+        }
+
 #ifdef BUILD_WITH_CANN
         if (isDevice) {
             devProg->devArgs.validGetPgMask = DeviceRunner::Get().GetValidGetPgMask();
