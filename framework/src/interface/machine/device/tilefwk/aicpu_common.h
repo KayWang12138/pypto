@@ -167,6 +167,8 @@ struct DeviceArgs {
     uint64_t runtimeDataRingBufferAddr{0}; // DevStartArgs addr
     uint32_t hostPid{0};       // for dump tensor
     uint32_t scheCpuNum{0};    // sche cpu num calc by host
+    uint32_t launchScheCpuNum{0};    // max launch sche cpu num by host
+    uint32_t launchAicpu{0};
     uint32_t enableCtrl : 2;    // if enable builtin ctrl
     uint32_t validGetPgMask : 2; // mark pgmask is invalid
     uint32_t disableSync : 28;    // close ctrl and sche soft sync
