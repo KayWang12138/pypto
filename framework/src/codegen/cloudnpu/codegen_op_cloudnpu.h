@@ -106,6 +106,7 @@ public:
     std::string GenIndexOutCastOp() const;
 
     std::string GenCumSumOp() const;
+    std::string GenTriULOp() const;
     std::string PrintGatherDynamicUnaligned() const;
     std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
@@ -363,6 +364,8 @@ private:
     std::string PrintIndexPut(const PrintIndexPutParam &param) const;
     std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
     std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
+
+    std::string PrintTriULTileTensor(std::string diagonal, bool isUpper) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
     std::string PrintCumSumTileTensor(int axis) const;
