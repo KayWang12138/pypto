@@ -17,6 +17,19 @@
 #include "computational_graph_builder.h"
 #include "passes/pass_utils/pass_utils.h"
 
+#define IS_SYNC_OPERATION(op) \
+    ((op) && ( \
+        (op)->GetOpcode() == Opcode::OP_SYNC_SRC || \
+        (op)->GetOpcode() == Opcode::OP_SYNC_DST || \
+        (op)->GetOpcode() == Opcode::OP_CV_SYNC_SRC || \
+        (op)->GetOpcode() == Opcode::OP_CV_SYNC_DST || \
+        (op)->GetOpcode() == Opcode::OP_PHASE1 || \
+        (op)->GetOpcode() == Opcode::OP_PHASE2 || \
+        (op)->GetOpcode() == Opcode::OP_BAR_V || \
+        (op)->GetOpcode() == Opcode::OP_BAR_M || \
+        (op)->GetOpcode() == Opcode::OP_BAR_ALL \
+    ))
+
 namespace npu {
 namespace tile_fwk {
 // 全局常量定义
@@ -183,22 +196,7 @@ void VerifyScopeOperands(const InternalComponentInfo& component, int expectedOpC
 }
 
 bool IsSyncOperation(const Operation* op) {
-    if (!op) {
-        return false;
-    }
-
-    Opcode opcode = op->GetOpcode();
-
-    // 同步操作类型列表
-    return opcode == Opcode::OP_SYNC_SRC ||
-           opcode == Opcode::OP_SYNC_DST ||
-           opcode == Opcode::OP_CV_SYNC_SRC ||
-           opcode == Opcode::OP_CV_SYNC_DST ||
-           opcode == Opcode::OP_PHASE1 ||
-           opcode == Opcode::OP_PHASE2 ||
-           opcode == Opcode::OP_BAR_V ||
-           opcode == Opcode::OP_BAR_M ||
-           opcode == Opcode::OP_BAR_ALL;
+    return IS_SYNC_OPERATION(op);
 }
 
 void VerifyL0CCopyUbSubBlockIdx(Operation& copyUbOp, int64_t expectedSubBlockIdx) {
