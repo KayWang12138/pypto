@@ -25,9 +25,6 @@
         "stitch_function_size": 20000,
         "run_mode": 0
     },
-    "host": {
-        "compile_stage": 0
-    },
     "codegen": {
         "support_dynamic_aligned": false
     },
