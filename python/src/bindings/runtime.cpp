@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include "machine/device/dynamic/device_utils.h"
 #include "pybind_common.h"
 
 #include <utility>
@@ -22,6 +23,7 @@
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
 #include "machine/host/perf_analysis.h"
+#include "utils/log.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -673,6 +675,7 @@ static bool AttachAicpuStream(aclrtStream aicoreStream, aclrtStream aicpuStream)
 }
 
 void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
+    auto t1 = GetTimeMonotonic();
     auto aicoreStream = (aclrtStream)stream;
     auto aicpuStream = (aclrtStream)DeviceGetAicpuStream();
 
@@ -681,6 +684,7 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     auto devId = GetInputTensors(args, tensors, ref_tensors);
     DeviceGuard devGuard(devId);
 
+    auto t2 = GetTimeMonotonic();
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
     auto kbinary = kmodule->FindFunction(devId, ref_tensors);
     if (kbinary == nullptr) {
@@ -692,6 +696,7 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
         BuildDefaultCache(kbinary, module, tensors);
     }
 
+    auto t3 = GetTimeMonotonic();
     uint8_t *ctrlFlowCache = nullptr;
     if (kbinary->ControlFlowCacheEnable()) {
         ctrlFlowCache = FindCtrlCache(kbinary, module, args);
@@ -708,7 +713,10 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
 
+    auto t4 = GetTimeMonotonic();
     kmodule->Launch(kbinary, aicpuStream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    auto t5 = GetTimeMonotonic();
+    ALOG_ERROR_F(">> %lu %lu %lu %lu", t2 - t1, t3 - t2, t4 - t3, t5 - t4);
 }
 
 void BindRuntime(py::module &m) {
