@@ -11,9 +11,9 @@
 """
 """
 import os
-import pypto
+import time
 
-import numpy as np
+import pypto
 import torch
 import torch_npu
 
@@ -264,17 +264,20 @@ def test_infer_shape():
     torch.npu.set_device(device_id)
 
     device = f'npu:{device_id}'
-
     for b in [2048, 1024, 512, 256, 128, 64, 32]:
         a = torch.randn((b, 32), device=device)
         b = torch.randn((b, 32), device=device)
         c = torch.zeros_like(a, device=device)
         g = a + b
 
-        infer_shape_kenrel(
-            pypto.from_torch(a, dynamic_axis=[0]),
-            pypto.from_torch(b, dynamic_axis=[0]),
-            pypto.from_torch(c, dynamic_axis=[0]),
-        )
+        ta = pypto.from_torch(a, dynamic_axis=[0])
+        tb = pypto.from_torch(b, dynamic_axis=[0])
+        tc = pypto.from_torch(c, dynamic_axis=[0])
+
+        infer_shape_kenrel(ta, tb, tc)
+
         torch.npu.synchronize()
         torch.testing.assert_close(c, g)
+
+if __name__ == "__main__":
+    test_infer_shape()
