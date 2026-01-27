@@ -401,44 +401,48 @@ static void Range(LogicalTensorDataPtr out, const Element &start, const Element 
     tout.copy_(tmp);
 }
 
-static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
-             CmpOperationType operation, CmpModeType mode) {
+template <typename T>
+static void CompareImpl(LogicalTensorDataPtr out, const torch::Tensor& tself, const T& other_op,
+                        CmpOperationType operation, CmpModeType mode) {
     auto tout = From(out);
-    auto tself = From(self);
-    auto tother = From(other);
     torch::Tensor tmp_result;
     switch (operation) {
         case CmpOperationType::EQ:
-            tmp_result = torch::eq(tself, tother);
+            tmp_result = torch::eq(tself, other_op);
             break;
         case CmpOperationType::NE:
-            tmp_result = torch::ne(tself, tother);
+            tmp_result = torch::ne(tself, other_op);
             break;
         case CmpOperationType::LT:
-            tmp_result = torch::lt(tself, tother);
+            tmp_result = torch::lt(tself, other_op);
             break;
         case CmpOperationType::LE:
-            tmp_result = torch::le(tself, tother);
+            tmp_result = torch::le(tself, other_op);
             break;
         case CmpOperationType::GT:
-            tmp_result = torch::gt(tself, tother);
+            tmp_result = torch::gt(tself, other_op);
             break;
         case CmpOperationType::GE:
-            tmp_result = torch::ge(tself, tother);
+            tmp_result = torch::ge(tself, other_op);
             break;
         default:
             ASSERT(false) << "Unsupported compare type";
             break;
     }
+
     if (mode == CmpModeType::BIT) {
         if (tmp_result.dim() > 0) {
             int64_t last_dim = tmp_result.size(-1);
             ASSERT(last_dim % NUM_VALUE_8 == 0) << "Last dimension must be divisible by 8 in BIT mode";
+            
             auto shape = tmp_result.sizes().vec();
             shape.back() = last_dim / NUM_VALUE_8;
+            
             torch::Tensor packed = torch::empty(shape, torch::kUInt8);
-            auto tmp_data = tmp_result.data_ptr<bool>();
+            auto tmp_result_contig = tmp_result.contiguous();
+            auto tmp_data = tmp_result_contig.data_ptr<bool>();
             auto packed_data = packed.data_ptr<uint8_t>();
+            
             const int64_t num_elements = tmp_result.numel();
             for (int64_t i = 0; i < num_elements / NUM_VALUE_8; ++i) {
                 uint8_t byte = 0;
@@ -454,6 +458,16 @@ static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     } else {
         tout.copy_(tmp_result);
     }
+}
+
+static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
+             CmpOperationType operation, CmpModeType mode) {
+    CompareImpl(out, From(self), From(other), operation, mode);
+}
+
+static void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &elem,
+             CmpOperationType operation, CmpModeType mode) {
+    CompareImpl(out, From(self), From(elem), operation, mode);
 }
 
 #define DEFINE_BINARY_PAIR_OPS(Name, bop)                                                              \
@@ -993,6 +1007,131 @@ static void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t ax
     dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
 }
 
+static void TopkSort(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outTemp,
+                     LogicalTensorDataPtr self, int startIndex) {
+    auto tself = From(self);
+    auto toutValue = From(outValue);
+    auto toutTemp = From(outTemp);
+
+    constexpr int GROUP_SIZE = 32;
+    int axis = tself.dim() - 1;
+
+    // 1. Generate indices starting from startIndex*len
+    int64_t len = tself.size(axis);
+    int64_t baseIdx = startIndex * len;
+    auto indices = torch::arange(baseIdx, baseIdx + len, 1, torch::dtype(torch::kFloat));
+    std::vector<int64_t> indexShape(tself.dim(), 1);
+    indexShape[axis] = len;
+    indices = indices.reshape(indexShape).broadcast_to(tself.sizes());
+
+    // 2. Align to GROUP_SIZE (32)
+    auto tselfAlignShape = tself.sizes().vec();
+    int64_t alignedLen = (len + GROUP_SIZE - 1) / GROUP_SIZE * GROUP_SIZE;
+    tselfAlignShape[axis] = alignedLen;
+
+    float padValue = -1.0f / 0.0f;  // Negative infinity for descending sort
+    auto valuesAlign = torch::full(tselfAlignShape, padValue, tself.dtype());
+    torch::Tensor valueView = View(valuesAlign, tself.sizes().vec(), {0, 0});
+    valueView.copy_(tself);
+
+    auto indicesAlign = torch::full(tselfAlignShape, padValue, torch::kFloat);
+    torch::Tensor indexView = View(indicesAlign, indices.sizes().vec(), {0, 0});
+    indexView.copy_(indices);
+
+    // 3. Group and sort (every 32 elements)
+    std::vector<int64_t> groupShape;
+    for (int64_t i = 0; i < valuesAlign.dim(); ++i) {
+        if (i == axis) {
+            groupShape.push_back(alignedLen / GROUP_SIZE);
+            groupShape.push_back(GROUP_SIZE);
+        } else {
+            groupShape.push_back(valuesAlign.size(i));
+        }
+    }
+
+    auto valsGrouped = valuesAlign.reshape(torch::IntArrayRef(groupShape));
+    auto idxsGrouped = indicesAlign.reshape(torch::IntArrayRef(groupShape));
+
+    torch::Tensor sortIdx;
+    std::tie(valsGrouped, sortIdx) = valsGrouped.sort(axis + 1, true);  // Descending
+    idxsGrouped = idxsGrouped.gather(axis + 1, sortIdx);
+
+    // 4. Flatten
+    valsGrouped = valsGrouped.flatten(axis, axis + 1);
+    idxsGrouped = idxsGrouped.flatten(axis, axis + 1);
+
+    // 5. Create pack: [v0, i0, v1, i1, ...]
+    auto stacked = torch::stack({valsGrouped, idxsGrouped}, -1);  // [..., len, 2]
+    auto packed = stacked.flatten(axis, -1);  // [..., len*2]
+
+    // 6. Output
+    torch::Tensor tempView = View(toutTemp, packed.sizes().vec(), {0, 0});
+    tempView.copy_(packed);
+    torch::Tensor valView = View(toutValue, packed.sizes().vec(), {0, 0});
+    valView.copy_(packed);
+}
+
+static void TopkMerge(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mergeSize) {
+    auto tself = From(self);
+    auto tout = From(out);
+
+    int axis = tself.dim() - 1;
+
+    // Input is pack format: [v0, i0, v1, i1, ...]
+    // mergeSize: number of already-sorted packs
+
+    // Extract all values (even positions)
+    auto evenIndices = torch::arange(0, tself.size(axis), 2, torch::dtype(torch::kLong));
+    auto values = tself.index_select(axis, evenIndices);
+
+    // Global sort to get pack order
+    torch::Tensor sortIndices;
+    std::tie(std::ignore, sortIndices) = values.sort(axis, true);  // Descending
+
+    // Build actual element indices (each pack occupies 2 positions)
+    auto packIdx0 = sortIndices * 2;      // value position
+    auto packIdx1 = packIdx0 + 1;         // index position
+    // Stack and flatten to 1D vector for index_select
+    auto allIndices = torch::stack({packIdx0.flatten(), packIdx1.flatten()}, 1).flatten();
+
+    // Rearrange packs
+    auto sorted = tself.index_select(axis, allIndices);
+
+    torch::Tensor outView = View(tout, sorted.sizes().vec(), {0, 0});
+    outView.copy_(sorted);
+}
+
+static void TopkExtract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int k, bool isIndex) {
+    auto tself = From(self);
+    auto tout = From(out);
+
+    int axis = tself.dim() - 1;
+
+    // Input is pack format: [v0, i0, v1, i1, ...]
+    // isIndex=false: extract first k values (even positions: 0, 2, 4, ...)
+    // isIndex=true:  extract first k indices (odd positions: 1, 3, 5, ...)
+
+    int startOffset = isIndex ? 1 : 0;  // index starts from 1, value from 0
+    int stride = 2;                      // Values and indices are interleaved in pack
+
+    // Generate extraction indices: startOffset, startOffset+2, startOffset+4, ..., startOffset+2*(k-1)
+    auto indices = torch::arange(startOffset, startOffset + k * stride, stride, torch::dtype(torch::kLong));
+
+    // Extract
+    auto extracted = tself.index_select(axis, indices);
+
+    // If extracting indices, convert to INT32
+    if (isIndex) {
+        extracted = extracted.to(torch::kInt);
+    }
+
+    // Reshape to [1, k] (according to output shape in operation_impl.cpp)
+    extracted = extracted.reshape({1, k});
+
+    torch::Tensor outView = View(tout, extracted.sizes().vec(), {0, 0});
+    outView.copy_(extracted);
+}
+
 bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, torch::Tensor &indices,
     torch::Tensor &ret, int blockSize) {
     bool flag = false;
@@ -1112,6 +1251,7 @@ static struct CalcOps calcOps = {
     .LogicalNot = LogicalNot,
     .Range = Range,
     .Compare = Compare,
+    .Cmps = Cmps,
     .LogicalAnd = LogicalAnd,
     .AddS = AddS,
     .SubS = SubS,
@@ -1155,6 +1295,9 @@ static struct CalcOps calcOps = {
     .BitSort = BitSort,
     .Extract = Extract,
     .Topk = Topk,
+    .TopkSort = TopkSort,
+    .TopkMerge = TopkMerge,
+    .TopkExtract = TopkExtract,
     .Gather = Gather,
     .GatherINUB = GatherINUB,
 };

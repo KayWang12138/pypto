@@ -347,6 +347,24 @@ void ExecuteOpCompare(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_CMP, Opcode::OP_CMP, ExecuteOpCompare);
 
+void ExecuteOpCmps(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto iop_self = ctx->ioperandDataViewList->at(0);
+    auto element = Element(DT_FP32, 0.0f);
+    ctx->op->GetAttr(OpAttributeKey::scalar, element);
+    
+    auto operation = static_cast<CmpOperationType>(
+        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation")
+    );
+    auto mode = static_cast<CmpModeType>(
+        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode")
+    );
+    calc::Cmps(oop, iop_self, element, operation, mode);
+}
+REGISTER_CALC_OP(OP_CMPS, Opcode::OP_CMPS, ExecuteOpCmps);
+
 void ExecuteOpExtract(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -438,6 +456,47 @@ void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
     calc::BitSort(oop, src, topk_axis, descending);
 }
 REGISTER_CALC_OP(OP_BITSORT, Opcode::OP_BITSORT, ExecuteOpBitSort);
+
+void ExecuteOpTopkSort(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 2);  // value + temp
+
+    auto iop = ctx->ioperandDataViewList->at(0);
+    auto oop_value = ctx->ooperandInplaceDataViewList->at(0);
+    auto oop_temp = ctx->ooperandInplaceDataViewList->at(1);
+
+    int startIndex = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "start_index");
+
+    calc::TopkSort(oop_value, oop_temp, iop, startIndex);
+}
+REGISTER_CALC_OP(OP_TOPK_SORT, Opcode::OP_TOPK_SORT, ExecuteOpTopkSort);
+
+void ExecuteOpTopkMerge(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+
+    auto iop = ctx->ioperandDataViewList->at(0);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+
+    int mergeSize = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "merge_size");
+
+    calc::TopkMerge(oop, iop, mergeSize);
+}
+REGISTER_CALC_OP(OP_TOPK_MERGE, Opcode::OP_TOPK_MERGE, ExecuteOpTopkMerge);
+
+void ExecuteOpTopkExtract(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+
+    auto iop = ctx->ioperandDataViewList->at(0);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+
+    int k = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "k");
+    bool isIndex = static_cast<bool>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "is_index"));
+
+    calc::TopkExtract(oop, iop, k, isIndex);
+}
+REGISTER_CALC_OP(OP_TOPK_EXTRACT, Opcode::OP_TOPK_EXTRACT, ExecuteOpTopkExtract);
 
 void ExecuteOpReduceAcc(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);

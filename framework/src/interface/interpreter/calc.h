@@ -87,6 +87,10 @@ inline void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     CmpOperationType operation, CmpModeType mode) {
     GetCalcOps()->Compare(out, self, other, operation, mode);
 }
+inline void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar,
+    CmpOperationType operation, CmpModeType mode) {
+    GetCalcOps()->Cmps(out, self, scalar, operation, mode);
+}
 inline void LogicalAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->LogicalAnd(out, self, other);
 }
@@ -227,6 +231,19 @@ inline void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod
 
 inline void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, int64_t k, bool descending) {
     GetCalcOps()->Topk(out, self, axis, k, descending);
+}
+
+inline void TopkSort(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outTemp,
+                     LogicalTensorDataPtr self, int startIndex) {
+    GetCalcOps()->TopkSort(outValue, outTemp, self, startIndex);
+}
+
+inline void TopkMerge(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mergeSize) {
+    GetCalcOps()->TopkMerge(out, self, mergeSize);
+}
+
+inline void TopkExtract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int k, bool isIndex) {
+    GetCalcOps()->TopkExtract(out, self, k, isIndex);
 }
 
 // matmul
