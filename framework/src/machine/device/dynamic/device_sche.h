@@ -203,18 +203,15 @@ struct DynMachineManager {
         return ret;
     }
     int CtrlServerInit(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
-        mutex_.lock();
-        if (initCtrl_.load()) {
-            mutex_.unlock();
+        if (initCtrl_.load(std::memory_order_acquire)) {
             return DEVICE_MACHINE_OK;
         }
+        initCtrl_.store(true, std::memory_order_release);
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
         if (devArgs->aicpuPerfAddr != 0) {
             PerfEvtMgr::Instance().SetIsOpenProf(true, devArgs->aicpuPerfAddr);
         }
         auto ret = entry.kernelCtrlServerInit(kargs);
-        initCtrl_.store(true);
-        mutex_.unlock();
         return ret;
     }
 
@@ -334,7 +331,6 @@ struct DynMachineManager {
     std::atomic<bool> reset_{false};
     std::atomic<bool> init_{false};
     std::atomic<bool> initCtrl_{false};
-    std::mutex mutex_;
     std::atomic<bool> schRunFailed_{false};
 };
 
