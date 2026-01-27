@@ -157,6 +157,36 @@ struct DynMachineManager {
         return;
     }
 
+    int BindThreadIdxAndCpuId(DeviceArgs *devArgs) {
+        if (devArgs->archInfo == ArchInfo::DAV_2201 || devArgs->scheCpuNum == 1) {
+            return threadIdx_++;
+        }
+
+        int maxCpuId = static_cast<int>(devArgs->launchAicpu);
+        int die0MaxCpuid = maxCpuId >> 1;
+        int scheCpuNum = static_cast<int>(devArgs->scheCpuNum);
+        int die0MaxCpuNum = scheCpuNum >> 1;
+        int die1MaxCpuNum = scheCpuNum - die0MaxCpuNum;
+        int cpuId = sched_getcpu();
+        if (cpuId == 1) {
+            threadIdx_ = 0; // ctrl cpu thread
+        } else if (cpuId == maxCpuId) {
+            threadIdx_ = maxCpuId - 1;  // signal reg cpu thread
+        } else {    // schedule cpu thread
+            if (cpuId <= die0MaxCpuid && die0ScheIdx_ < die0MaxCpuNum) {
+                threadIdx_++;
+                die0ScheIdx_++;
+            } else if (cpuId > die0MaxCpuid && die1ScheIdx_ < die1MaxCpuNum) {
+                threadIdx_++;
+                die1ScheIdx_++;
+            } else {
+                threadIdx_++;
+            }
+        }
+
+        return threadIdx_;
+    }
+
     int Run(DeviceKernelArgs *args, const KernelCtrlEntry &entry) {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(args->cfgdata);
@@ -165,13 +195,13 @@ struct DynMachineManager {
             DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        int threadIdx = threadIdx_++;
+        int threadIdx = BindThreadIdxAndCpuId(devArgs);
         uint64_t allocThreadCycle = GetCycles();
         if (devArgs->enableCtrl == 1 && threadIdx == 0) {
             CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
             DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
             ret = entry.kernelCtrlServer(static_cast<void*>(args));
-        } else if (threadIdx > 0 && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {
+        } else if (threadIdx > 0 && threadIdx <= static_cast<int>(devArgs->launchScheCpuNum)) {
             CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
             DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
                 static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
@@ -182,9 +212,6 @@ struct DynMachineManager {
             int schedIdx = threadIdx - 1;
             machine_.SetStachSchduleContext(schedIdx, &local_context);
             ret = machine_.Run(threadIdx, devArgs, schedIdx);
-            if (ret != DEVICE_MACHINE_OK) {
-                schRunFailed_ = true;
-            }
         } else {
             SignalReg(entry);
         }
@@ -193,7 +220,7 @@ struct DynMachineManager {
         DEV_INFO("ThreadIdx %d finished, ret %d .", threadIdx, ret);
         GetLogger().Flush();
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
-        if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
+        if (++finished_ == static_cast<std::atomic<int>>(devArgs->launchAicpu)) {
             LastFinishThreadIdx_ = threadIdx;
             if (unlikely(!machine_.CheckAndResetReg())) {
                 DEV_WARN("Some registers force closed!");
@@ -223,16 +250,15 @@ struct DynMachineManager {
             return;
         }
         init_.store(true);
-        ctrlcpuIdx_.store(args->scheCpuNum);
         machine_.init(args->scheCpuNum);
-        schRunFailed_ = false;
     }
 
     void DeInit() {
         threadIdx_ = 0;
         finished_ = 0;
+        die0ScheIdx_ = 0;
+        die1ScheIdx_ = 0;
         cpumask_ = 0;
-        ctrlcpuIdx_ = 0;
         init_.store(false);
         initCtrl_.store(false);
     }
@@ -322,8 +348,9 @@ struct DynMachineManager {
     int LastFinishThreadIdx_{0};
     std::atomic<int> threadIdx_{0};
     std::atomic<int> finished_{0};
+    std::atomic<int> die0ScheIdx_{0};
+    std::atomic<int> die1ScheIdx_{0};
     std::atomic<uint64_t> cpumask_{0};
-    std::atomic<int> ctrlcpuIdx_{0};
     DeviceSchedMachine machine_;
     struct sigaction oriFPEAct_;
     struct sigaction oriBUSAct_;
@@ -335,7 +362,6 @@ struct DynMachineManager {
     std::atomic<bool> init_{false};
     std::atomic<bool> initCtrl_{false};
     std::mutex mutex_;
-    std::atomic<bool> schRunFailed_{false};
 };
 
 } // namespace npu::tile_fwk
