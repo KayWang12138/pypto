@@ -75,6 +75,7 @@ public:
     std::string GenReshapeCopyOut() const;
 
     std::string GenLoadOp() const;
+    std::string PrintGatherInL1TileTensor() const;
     std::string GenGatherInL1() const;
     std::string GenGatherInUB() const;
 
@@ -297,7 +298,7 @@ private:
     std::string PrintMemCopyWithUBDynamic(const PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBDynamicSupportUnaligned(const PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const;
-    std::vector<std::string> GetGmOffsetForTileTensor(const PrintMemCopyWithUBParam &param) const;
+    std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM = false) const;
 
     std::string PrintGather(const PrintGatherParam &param) const;
     std::string PrintGatherDynamicUnaligned(const PrintGatherParam &param) const;
