@@ -15,31 +15,38 @@ import pypto
 from torch._dynamo import allow_in_graph
 
 
-def check_args(
-    q_tnd,
-    block_table,
-    kv_cache,
-    start_pos_list,
-    atten_sink,
+def check_args_tnd(
+            q_tnd: torch.Tensor,
+            block_table: torch.Tensor,
+            kv_cache: torch.Tensor,
+            seqused_kv: torch.Tensor,
+            atten_sink: torch.Tensor,
+            win_size: int,
+            actual_seq_list_q: torch.Tensor,
 ):
-    assert q_tnd.dtype == torch.bfloat16
-    assert q_tnd.ndim == 3
-    assert q_tnd.shape[1] == 64
-    assert q_tnd.shape[2] == 512
+    print("start tnd args check...")
+    assert q_tnd.dtype == torch.bfloat16 and q_tnd.ndim == 3 and q_tnd.shape[1] == 64 and q_tnd.shape[2] == 512, \
+        f"q dtype is {q_tnd.dtype}, ndim is {q_tnd.ndim}, axis2 is {q_tnd.shape[1]}, axis3 is {q_tnd.shape[2]}"
 
-    assert block_table.ndim == 2
-    assert start_pos_list.ndim == 1
-    assert block_table.shape[0] == start_pos_list.shape[0]
+    assert block_table.ndim == 2, f"block_table ndim is {block_table.ndim}"
 
-    assert kv_cache.dtype == torch.bfloat16
-    assert kv_cache.ndim == 4
-    assert kv_cache.shape[1] == 128
-    assert kv_cache.shape[2] == 1
-    assert kv_cache.shape[3] == 512
+    assert kv_cache.dtype == torch.bfloat16 and kv_cache.ndim == 4 and kv_cache.shape[1] == 128 and \
+        kv_cache.shape[2] == 1 and kv_cache.shape[3] == 512, \
+        f"kv_cache dtype is {kv_cache.dtype}, ndim is {kv_cache.ndim}, axis2 is {kv_cache.shape[1]}, \
+        axis3 is {kv_cache.shape[2]}, axis4 is {kv_cache.shape[3]}"
 
-    assert atten_sink.dtype == torch.float32
-    assert atten_sink.ndim == 1
-    assert atten_sink.shape[0] == 64
+    assert atten_sink.dtype == torch.float32 and atten_sink.ndim == 1 and atten_sink.shape[0] == 64, \
+        f"atten_sink dtype is {atten_sink.dtype}, ndim is {atten_sink.ndim}, axis1 is {atten_sink.shape[0]}"
+
+    assert seqused_kv.dtype == torch.int and seqused_kv.ndim == 1, \
+        f"seqused_kv dtype is {seqused_kv.dtype}, ndim is {seqused_kv.ndim}"
+
+    assert win_size == 128, f"win_size is {win_size}"
+
+    assert actual_seq_list_q.dtype == torch.int and actual_seq_list_q.ndim == 1 and \
+        actual_seq_list_q.shape[0] == seqused_kv.shape[0] + 1, \
+        f"actual_seq_list_q dtype is {actual_seq_list_q.dtype}, ndim is {actual_seq_list_q.ndim}, \
+        axis1 is {actual_seq_list_q.shape[0]}, seqused_kv axis1 is {seqused_kv.shape[0]}"
 
 
 def softmax_pto(input: pypto.Tensor, dim: int) -> pypto.Tensor:
@@ -626,6 +633,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
     if actual_seq_list_q is None: # bsnd
         atten_out = torch.zeros(q.shape, dtype=q.dtype, device=q.device)
     else: # tnd
+        check_args_tnd(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, actual_seq_list_q)
         atten_out = torch.zeros([q.shape[0] * q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
 
     inputs = {
