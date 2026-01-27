@@ -418,14 +418,6 @@ inline T GetRuntimeOption(const std::string &key) {
 }
 
 /**
- * @brief Get host configuration option
- */
-template <typename T>
-inline T GetHostOption(const std::string &key) {
-    return ConfigManagerNg::CurrentScope()->GetConfigAllType<T>("host." + key);
-}
-
-/**
  * @brief Get verification configuration option
  */
 template <typename T>
