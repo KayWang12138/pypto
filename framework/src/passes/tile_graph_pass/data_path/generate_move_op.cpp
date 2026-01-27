@@ -154,6 +154,7 @@ Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) 
         if (prodOp->GetOpcode() == Opcode::OP_COPY_IN && input->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_A_SCALE);
         }
+        SetCopyAttr(op,viewOpAttribute);
     } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
         op.SetOpCode(Opcode::OP_L1_TO_L0B_SCALE);
         auto input = op.GetIOperands()[0];
@@ -161,6 +162,7 @@ Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) 
         if (prodOp->GetOpcode() == Opcode::OP_COPY_IN && input->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_B_SCALE);
         }
+        SetCopyAttr(op,viewOpAttribute);
     } else {
         //case4: VIEW转其他搬运op
         auto from = op.iOperand.front()->GetMemoryTypeOriginal();
