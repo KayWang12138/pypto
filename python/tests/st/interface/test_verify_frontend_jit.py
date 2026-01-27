@@ -21,6 +21,7 @@ verify_options = {"enable_pass_verify": True,
                   "pass_verify_save_tensor": True,
                  }
 
+
 def create_add_dyn_kernel(shape: tuple, run_mode: str = "npu"):
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
@@ -34,7 +35,7 @@ def create_add_dyn_kernel(shape: tuple, run_mode: str = "npu"):
                         )
     def add_dyn_kernel(
             x: pypto.Tensor(shape, pypto.DT_FP16), 
-            y: pypto.Tensor(shape, pypto.DT_FP16))-> pypto.Tensor(shape, pypto.DT_FP16):
+            y: pypto.Tensor(shape, pypto.DT_FP16)) -> pypto.Tensor(shape, pypto.DT_FP16):
         first_dim, second_dim = x.shape
         view_shape, tile_shape = (64, 64), (32, 32)
 
@@ -64,6 +65,7 @@ def create_add_dyn_kernel(shape: tuple, run_mode: str = "npu"):
         return out
     return add_dyn_kernel
 
+
 def test_verify_dyn():
     shape = [72, 144]
     run_mode = "npu"
@@ -77,6 +79,4 @@ def test_verify_dyn():
     golden_cpu = golden.cpu()
     pypto.set_verify_golden_data(goldens=[None, None, golden_cpu])
     output_data = create_add_dyn_kernel(shape)(a, b)
-    print(golden)
-    print(output_data)
-
+    assert torch.allclose(output_data, golden)
