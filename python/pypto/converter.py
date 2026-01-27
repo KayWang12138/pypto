@@ -126,7 +126,7 @@ _dtype_dict = {
     "torch.uint32": DataType.DT_UINT32,
     "torch.int64": DataType.DT_INT64,
     "torch.uint64": DataType.DT_UINT64,
-    "torch.bool": DataType.DT_BOOL,
+    "torch.bool": DataType.DT_BOOL, 
 }
 
 
