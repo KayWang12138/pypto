@@ -169,13 +169,19 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         ALOG_ERROR_F("Register kernel bin failed.");
         return rc;
     }
-    rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
-    if (rc < 0) {
-        return rc;
+    int64_t repeatTime = config::GetRuntimeOption<int64_t>(REPEAT_TIME);
+    if (repeatTime < 1) {
+        repeatTime = 1;
     }
-    rc = RunWithProfile(aicoreStream, aicpuStream);
-    if (rc < 0) {
-        return rc;
+    for (int64_t i = 0; i < repeatTime; ++i) {
+        rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
+        if (rc < 0) {
+            return rc;
+        }
+        rc = RunWithProfile(aicoreStream, aicpuStream);
+        if (rc < 0) {
+            return rc;
+        }
     }
     if (streamSynchronize) {
         rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
