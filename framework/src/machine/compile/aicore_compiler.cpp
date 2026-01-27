@@ -35,6 +35,21 @@ constexpr const char* BISHENG_LD_CMD = "ld.lld";
 constexpr const uint8_t MAIN_BLOCK_SIZE = 2;
 }
 
+inline std::string GetCompiler() {
+    std::string bishengPath = "bisheng";
+    const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        const char *homePath = std::getenv(ENV_ASCEND_HOME_PATH.c_str());
+        ALOG_INFO_F("homePath is %s", homePath);
+        if (homePath != nullptr) {
+            bishengPath = std::string(homePath) + "/include/pto/bisheng_compiler/bin/bisheng";
+            ASSERT(IsPathExist(bishengPath)) << "bisheng path " << bishengPath << " not found! please check.";
+        }
+    }
+    ALOG_INFO_F("bisheng path is %s", bishengPath.c_str());
+    return bishengPath;
+}
+
 static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t tilingKey,
                               const std::string &headFile, const std::string &aicoreSrcFile) {
   ALOG_INFO_F("Compile src file is [%s], kernel type[%d].", aicoreSrcFile.c_str(), isCube);
@@ -68,7 +83,7 @@ static int CompileCoreMachine(const std::string &objFile, bool isCube, uint64_t 
                    "-I%s/include/ "
                    "-o %s "
                    "%s",
-                   BISHENG_PROGRAM_CMD, cc_opt.c_str(), std::to_string(tilingKey).c_str(), opType.c_str(),
+                   GetCompiler().c_str(), cc_opt.c_str(), std::to_string(tilingKey).c_str(), opType.c_str(),
                    headFile.c_str(), hasSubFunc.c_str(), coreType.c_str(), includePath.c_str(), includePath.c_str(),
                    GetCurrentSharedLibPath().c_str(), GetCurrentSharedLibPath().c_str(),
                    objFile.c_str(), aicoreSrcFile.c_str());
