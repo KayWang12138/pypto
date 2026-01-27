@@ -25,42 +25,17 @@ Main Functions:
 from dataclasses import dataclass
 import torch
 import pypto
+import torch_npu
 import pytest
 import numpy as np
 import math
 import os
 from torch._subclasses.fake_tensor import FakeTensor
-from torch._dynamo import allow_in_graph
-from utils.get_format import get_format
-from cfa_impl import c128_decode, c128_prefill
+from cfa_impl import *
 
 np.random.seed(0)
 torch.manual_seed(0)
 np.set_printoptions(formatter={'float': '{:.6f}'.format})
-
-
-def check_args(
-        query,
-        kv_cache,
-        blk_tbl,
-        actual_seqs,
-        attn_res
-):
-    assert query.dim() == 3
-    assert get_format(query) == 'ND'
-    assert query.dtype == torch.bfloat16
-    assert kv_cache.dim() == 4
-    assert get_format(kv_cache) == 'ND'
-    assert kv_cache.dtype == torch.bfloat16
-    assert blk_tbl.dim() == 2
-    assert get_format(blk_tbl) == 'ND'
-    assert blk_tbl.dtype == torch.int32
-    assert actual_seqs.dim() == 1
-    assert get_format(actual_seqs) == 'ND'
-    assert actual_seqs.dtype == torch.int32
-    assert attn_res.dim() == 3
-    assert get_format(attn_res) == 'ND'
-    assert attn_res.dtype == torch.bfloat16
 
 
 @dataclass
@@ -112,7 +87,7 @@ def gen_block_table(actual_seq_len, block_size, block_table_shape, cmp_r=1, enab
 def get_decode_case(device="cpu"):
     b = 4
     s1 = 1
-    s2 = 8 * 1024
+    s2 = 64 * 1024
     q_d = 512
     nq = 64
     nkv = 1
@@ -131,7 +106,7 @@ def get_decode_case(device="cpu"):
 
 def get_prefill_case(device="cpu"):
     b = 1
-    s1 =  8 * 1024
+    s1 = 8 * 1024
     s2 = s1
     q_d = 512
     nq = 64
@@ -149,6 +124,22 @@ def get_prefill_case(device="cpu"):
     return attn_cfg
 
 
+pyptolib = torch.library.Library("pypto", "FRAGMENT")
+pyptolib.define("npu_attention(Tensor query, Tensor kv_cache, Tensor attn_sink, Tensor blk_tbl,\
+                Tensor seqused_kv, Tensor kv_win, Tensor blk_win, int cmp_r, bool is_prefill) -> Tensor")
+
+
+@torch.library.impl(pyptolib, "npu_attention", "Meta")
+def npu_attention(query, kv_cache, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, cmp_r, is_prefill):
+    y = torch.zeros([query.size(0), query.size(1), query.size(2)], dtype=query.dtype, device=f'{query.device}')
+    return y
+
+
+@torch.library.impl(pyptolib, "npu_attention", "NPU")
+def npu_attention(query, kv_cache, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, cmp_r, is_prefill):
+    return attention(query, kv_cache, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, cmp_r, is_prefill)
+
+
 class MM(torch.nn.Module):
     def forward(
             self,
@@ -156,12 +147,13 @@ class MM(torch.nn.Module):
             kv_cache: torch.Tensor,
             attn_sink: torch.Tensor,
             blk_tbl: torch.Tensor,
-            start_pos: torch.Tensor,
-            attn_res: torch.Tensor,
+            seqused_kv: torch.Tensor,
+            kv_win: torch.Tensor,
+            blk_win: torch.Tensor,
             cmp_r: int = 1,
-            unroll_list: list | None = None
+            is_prefill: bool = False,
     ):
-        attention(query, kv_cache, attn_sink, blk_tbl, start_pos, attn_res, cmp_r, unroll_list)
+        return torch.ops.pypto.npu_attention(query, kv_cache, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, cmp_r, is_prefill)
 
 
 def softmax(x, attn_sink, is_fp16=False, is_new_sink = False):
@@ -418,75 +410,8 @@ def ifa_golden(q, kv, attn_sink, blk_cfa, seqused_kv, out, enable_flash=True, cm
         )
 
 
-@allow_in_graph
-def attention(
-        query: torch.Tensor,
-        kv_cache: torch.Tensor,
-        attn_sink: torch.Tensor,
-        blk_tbl: torch.Tensor,
-        seqused_kv: torch.Tensor,
-        kv_win: torch.Tensor,
-        blk_win: torch.Tensor,                
-        attn_res: torch.Tensor,
-        cmp_r: int = 1,
-        unroll_list: list | None = None,
-        pg_upper_bound: int = 3072,
-        is_prefill: bool = False
-) -> None:
-    """
-    Main attention function with Attention support.
-
-    This function implements scaled dot-product attention using Attention
-    mechanism, which efficiently handles variable-length sequences and dynamic
-    batch sizes by managing KV cache in non-contiguous blocks.
-
-    Args:
-        query: Query tensor with shape [num_tokens, num_head, head_size]
-        key_cache: Key cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
-        value_cache: Value cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
-        blk_tbl: Block mapping table with shape [batch_size, max_blocks]
-        start_pos: Actual sequence lengths with shape [batch_size]
-        attn_res: Output attention tensor with shape [num_tokens, num_head, head_size]
-
-    Note:
-        This function is decorated with @allow_in_graph to enable integration
-        with PyTorch's compilation graph.
-    """
-    if isinstance(query, FakeTensor):
-        return
-    check_args(
-        query,
-        kv_cache,
-        blk_tbl,
-        seqused_kv,
-        attn_res
-    )
-
-    inputs = {
-        query: [0],
-        kv_cache: [0],
-        attn_sink: [],
-        blk_tbl: [],
-        seqused_kv: [0],
-        kv_win: [0],
-        blk_win: [0]        
-    }
-    outputs = {
-        attn_res: [],
-    }
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    if unroll_list is None:
-        unroll_list = []
-    if is_prefill:
-        c128_prefill(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
-    else:
-        c128_decode(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
-    pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
-
-
 @pytest.mark.skip(reason="large test case")
-def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device: str, pg_upper_bound: int, attn_cfg: AttentionConfig):
+def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device: str, attn_cfg: AttentionConfig, is_prefill: bool):
     torch_dtype = torch.bfloat16
     b = attn_cfg.b
     s1 = attn_cfg.s1
@@ -521,23 +446,26 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
     blk_tbl = gen_block_table(seqused_kv, block_size, blk_tbl_shape, cmp_r=cmp_r)
     out_npu = torch.zeros(q_shape, **empty_kwargs)
 
-    unroll_list = [2, 1]
-    if enable_high_perf:
-        unroll_list = [2, 1]
     ifa_golden(q, kv, attn_sink, blk_tbl, seqused_kv, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True, \
                 kv_win=kv_win, blk_win=blk_win)
     threhold = 5e-4
     # acl graph
     if enable_graph:
-        model = torch.compile(MM(), backend="eager", dynamic=True)
-        g = torch.npu.NPUGraph()
-        with torch.npu.graph(g):
-            model(q, kv, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
-        g.replay()
-        pypto.runtime._device_synchronize()
+        import torchair as tng
+        from torchair.configs.compiler_config import CompilerConfig
+        compiler_config = CompilerConfig()
+        compiler_config.mode = "reduce-overhead"
+        npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
+        model = torch.compile(MM(), dynamic=False, fullgraph=True, backend=npu_backend)
+        for _ in range(1):
+            out_npu = model(q, kv, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, cmp_r, is_prefill)
+            pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
     else:
-        attention(q, kv, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, out_npu, cmp_r, unroll_list, pg_upper_bound=pg_upper_bound)
+        out_npu = attention(q, kv, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, cmp_r, is_prefill)
+        pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
+    print(output_flash.shape)
+    print(out_npu.shape)
     if out_npu.numel() > 1000000:
         print(f'use other cmpare func')
         import utils.compare as compare
@@ -551,14 +479,16 @@ def test_c128_decode(enable_flash: bool, enable_high_perf: bool, enable_graph: b
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'    
     attn_cfg = get_decode_case(device=device)
-    c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, pg_upper_bound=pg_upper_bound, attn_cfg=attn_cfg)
+    c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, \
+        attn_cfg=attn_cfg, is_prefill=False)
     
 
 def test_c128_prefill(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'    
     attn_cfg = get_prefill_case(device=device)
-    c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, pg_upper_bound=pg_upper_bound, attn_cfg=attn_cfg)
+    c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=enable_graph, device=device, \
+        attn_cfg=attn_cfg, is_prefill=True)
     
 
 if __name__ == "__main__":
