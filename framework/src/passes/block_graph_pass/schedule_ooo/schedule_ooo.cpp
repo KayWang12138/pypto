@@ -178,7 +178,7 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
         auto op = entry.first;
         op->SetAttribute(OpAttributeKey::lastUse, opInputIdxMap[op]);
     }
-    APASS_LOG_INFO_F(Elements::Function, "===> Start RecordLastUseMemory.");
+    APASS_LOG_INFO_F(Elements::Function, "===> End RecordLastUseMemory.");
     return SUCCESS;
 }
 
