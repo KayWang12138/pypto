@@ -225,27 +225,27 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes(int32_t operandIndex, int3
     return GenOffsets(operandIndex, dim) + ", " + GenRawShapes(operandIndex, dim);
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemPutAndGet() const
-{
-    std::ostringstream oss;
-    int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 3 : 0;
-    int32_t shmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 4 : 3;
-    int32_t nonShmemDataDim = originShape[nonShmemDataIndex].size();
-    int32_t shmemDataDim = 4;
-    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim) << ", " << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
-    return oss.str();
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemPutAndGet() const	 
+{	 
+    std::ostringstream oss;	 
+    int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 3 : 0;	 
+    int32_t shmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 4 : 3;	 
+    int32_t nonShmemDataDim = originShape[nonShmemDataIndex].size();	 
+    int32_t shmemDataDim = 4;	 
+    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim) << ", " << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);	 
+    return oss.str();	 
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemPutAndGetUB() const
-{
-    std::ostringstream oss;
-    int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT_UB2GM) ? 1 : 0;
-    int32_t shmemDataIndex = 2;
-    int32_t nonShmemDataDim = 2;
-    int32_t shmemDataDim = 4;
-    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim)
-        << ", " << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
-    return oss.str();
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemPutAndGetUB() const 
+{ 
+    std::ostringstream oss; 
+    int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT_UB2GM) ? 1 : 0; 
+    int32_t shmemDataIndex = 2; 
+    int32_t nonShmemDataDim = 2; 
+    int32_t shmemDataDim = 4; 
+    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim) 
+        << ", " << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim); 
+    return oss.str(); 
 }
 
 std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemSignal() const
