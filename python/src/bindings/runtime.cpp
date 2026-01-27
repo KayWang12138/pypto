@@ -411,7 +411,9 @@ struct KernelBinary {
         return false;
     }
 
-    int GetBlockDim() const { return devProg->devArgs.nrValidAic; }
+    std::pair<int, int> GetBlockDim() {
+        return {devProg->devArgs.nrValidAic, devProg->devArgs.nrAicpu};
+    }
 
     ~KernelBinary() {
         rtDevBinaryUnRegister(kernelBin);
@@ -501,6 +503,9 @@ struct KernelModule {
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
 
+        auto [blockDim, aicpuNum] = kbinary->GetBlockDim();
+        std::cout << "blockDim: " << blockDim << " aicpuNum: " << aicpuNum << std::endl;
+
         int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
             "AST_DYN_AICPU", 5, &rtAicpuArgs, nullptr, aicpuStream, 0);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
@@ -514,7 +519,7 @@ struct KernelModule {
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
         ret = rtKernelLaunchWithHandleV2(
-            kbinary->kernelBin, tilingKey, kbinary->GetBlockDim(), &rtAicoreArgs, nullptr, aicoreStream, &rtTaskCfg);
+            kbinary->kernelBin, tilingKey, dynamic::GetCfgBlockdim(), &rtAicoreArgs, nullptr, aicoreStream, &rtTaskCfg);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
     }
 

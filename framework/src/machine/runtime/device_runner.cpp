@@ -688,7 +688,7 @@ void DeviceRunner::PrepareLaunchArgs(DeviceArgs &localArgs, DeviceKernelArgs *ke
     args_.scheCpuNum = localArgs.scheCpuNum;
 }
 
-int DeviceRunner::FillDeviceArgs(DeviceKernelArgs *kargs, int blockDim, int aicpuNum) {
+int DeviceRunner::FillDeviceArgs(DeviceKernelArgs *kargs, std::vector<uint8_t> &devProg, int blockDim, int aicpuNum) {
     auto localArgs = args_;
     localArgs.enableCtrl = 1;
     PrepareLaunchArgs(localArgs, kargs, 0, blockDim, aicpuNum);
@@ -696,6 +696,7 @@ int DeviceRunner::FillDeviceArgs(DeviceKernelArgs *kargs, int blockDim, int aicp
     if (ret != 0) {
         ALOG_ERROR_F("Copy args failed %p rc %d\n", kargs->cfgdata, ret);
     }
+    memcpy_s(devProg.data(), devProg.size(), &localArgs, sizeof(localArgs));
     return ret;
 }
 

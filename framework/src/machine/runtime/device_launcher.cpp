@@ -131,7 +131,7 @@ void DeviceLauncher::FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, Dev
     CachedOperator cache;
     DeviceLauncherConfigFillDeviceInfo(config);
     DeviceInitTilingData(DeviceMemoryUtils(), kargs, devProgData, nullptr, config, &cache);
-    DeviceRunner::Get().FillDeviceArgs(&kargs, config.blockdim, config.aicpuNum);
+    DeviceRunner::Get().FillDeviceArgs(&kargs, devProgData, config.blockdim, config.aicpuNum);
 }
 
 int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(

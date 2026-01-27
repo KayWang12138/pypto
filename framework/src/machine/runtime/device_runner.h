@@ -70,7 +70,7 @@ public:
         isCapture_ = isCapture;
     }
 
-    int FillDeviceArgs(DeviceKernelArgs *kargs, int blockDim, int aicpuNum);
+    int FillDeviceArgs(DeviceKernelArgs *kargs, std::vector<uint8_t> &devProg, int blockDim, int aicpuNum);
     void ResetPerData();
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
