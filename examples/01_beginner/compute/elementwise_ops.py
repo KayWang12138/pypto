@@ -982,11 +982,11 @@ def test_ceil_basic(device_id: int = None, run_mode: str = "npu"):
 # ============================================================================
 
 def floor_op(a: torch.Tensor, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
- 	a_shape = a.shape
+    a_shape = a.shape
 
- 	if run_mode == "npu":
+    if run_mode == "npu":
  	    mode = pypto.RunMode.NPU
- 	elif run_mode == "sim":
+    elif run_mode == "sim":
  	    mode = pypto.RunMode.SIM
  	else:
  	    raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
