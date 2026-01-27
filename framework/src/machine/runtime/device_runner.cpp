@@ -690,6 +690,7 @@ void DeviceRunner::PrepareLaunchArgs(DeviceArgs &localArgs, DeviceKernelArgs *ke
 
 int DeviceRunner::FillDeviceArgs(DeviceKernelArgs *kargs, int blockDim, int aicpuNum) {
     auto localArgs = args_;
+    localArgs.enableCtrl = 1;
     PrepareLaunchArgs(localArgs, kargs, 0, blockDim, aicpuNum);
     int ret = rtMemcpy(kargs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
     if (ret != 0) {
