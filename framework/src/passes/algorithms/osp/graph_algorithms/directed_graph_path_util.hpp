@@ -52,7 +52,8 @@ std::vector<T> GetTopNodeDistance(const GraphT &graph) {
 
     std::vector<T> topDistance(graph.NumVertices(), 0);
 
-    for (const auto &vertex : BfsTopSortView(graph)) {
+    const auto topOrder = GetTopOrder(graph);
+    for (const auto &vertex : topOrder) {
         T maxTemp = 0;
         for (const auto &j : graph.Parents(vertex)) {
             maxTemp = std::max(maxTemp, topDistance[j]);

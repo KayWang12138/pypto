@@ -19,8 +19,6 @@
 #include "passes/pass_check/iso_partitioner_checker.h"
 #include "passes/pass_log/pass_log.h"
 
-#define MODULE_NAME "GraphPartition"
-
 namespace npu::tile_fwk {
 
 Status GraphPartition::RunOnFunction(Function &function)

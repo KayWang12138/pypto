@@ -21,6 +21,24 @@
 namespace npu::tile_fwk {
 namespace osp {
 
+template <typename VertexType, std::size_t defautlVal = 11U>
+struct UniformNodeHashFunc {
+    using ResultType = std::size_t;
+
+    ResultType operator()(const VertexType &) { return defautlVal; }
+};
+
+template <typename VertexType>
+struct VectorNodeHashFunc {
+    const std::vector<std::size_t> &nodeHashes_;
+
+    VectorNodeHashFunc(const std::vector<std::size_t> &nodeHashes) : nodeHashes_(nodeHashes) {}
+
+    using ResultType = std::size_t;
+
+    ResultType operator()(const VertexType &v) const { return nodeHashes_[v]; }
+};
+
 template<class T>
 void HashCombine(std::size_t &seed, const T &v) {
     std::hash<T> hasher;

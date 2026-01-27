@@ -83,7 +83,8 @@ class MerkleHashComputer : public HashComputer<VertexIdxT<GraphT>> {
         vertexHashes_.resize(numVertices);
         std::vector<std::size_t> neighborHashes;
 
-        for (const VertexType &v : TopSortView(graph)) {
+        const auto topSort = GetTopOrder(graph);
+        for (const VertexType &v : topSort) {
             neighborHashes.clear();
             for (const VertexType &parent : graph.Parents(v)) {
                 neighborHashes.push_back(vertexHashes_[parent]);
