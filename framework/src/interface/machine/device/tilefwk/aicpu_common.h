@@ -153,15 +153,11 @@ struct DeviceArgs {
     uint64_t aicpuSoBin{0};    // server so Bin
     uint64_t aicpuSoLen{0};    // server so len
     uint64_t deviceId{0};      // for device copy fileName
-    uint64_t startArgsAddr{0}; // DevStartArgs addr
-    uint64_t taskQueue{0};     // task queue between ctrl and sche
-    uint64_t taskCtrl{0};      // task ctrl between ctrl and sche
+    uint64_t devStartArgsAddr{0}; // DevStartArgs addr
     uint32_t scheCpuNum{0};    // sche cpu num calc by host
     uint32_t enableCtrl : 2;    // if enable builtin ctrl
     uint32_t validGetPgMask : 2; // mark pgmask is invalid
     uint32_t disableSync : 28;    // close ctrl and sche soft sync
-    uint64_t generalAddr{0};     // aicpu meta addr
-    uint64_t stitchPoolAddr{0};  // aicpu meta addr
     uint64_t aicpuPerfAddr{0};    // aicpuPer Gm addr
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     ArchInfo archInfo{ArchInfo::DAV_2201};
