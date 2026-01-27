@@ -15,6 +15,8 @@
 
 #pragma once
 
+#include <thread>
+
 #include "machine/utils/dynamic/dev_encode_program.h"
 #include "machine/utils/dynamic/device_task.h"
 
@@ -125,5 +127,76 @@ public:
 };
 
 static_assert(sizeof(DevStartArgs) < DEV_ARGS_SIZE, "dev start args is too large");
+
+static inline void RuntimeYield() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(0));
+}
+
+#define DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT 2
+struct RuntimeDataRingBufferHead {
+public:
+    void Initialize(uint64_t runtimeDataSize, uint64_t runtimeDataCount) {
+        runtimeDataSize_ = GetAlignedSize(runtimeDataSize);
+        runtimeDataCount_ = runtimeDataCount;
+
+        /* finish starts from round 0 */
+        indexFinished_ = 0;
+        indexPending_ = 0;
+    }
+
+    bool Full() const {
+        return indexFinished_ + runtimeDataCount_ <= indexPending_;
+    }
+
+    uint8_t *Allocate() {
+        while (Full()) {
+            RuntimeYield();
+        }
+        /* allocate next element from the ring buffer */
+        uint64_t index = ++indexPending_;
+        return GetRuntimeData(index);
+    }
+
+    void Deallocate(uint8_t *ptr) {
+        uint8_t *nextFree = GetRuntimeData(indexFinished_ + 1);
+        ASSERT(nextFree == ptr);
+        /* deallocate from the ring buffer */
+        indexFinished_ += 1;
+    }
+
+    uint64_t GetRuntimeDataSize() { return runtimeDataSize_; }
+    uint64_t GetRuntimeDataCount() { return runtimeDataCount_; }
+    uint64_t GetIndexFinished() { return indexFinished_; }
+    uint64_t GetIndexPending()  { return indexPending_; }
+    uint64_t GetIndexCurrent() { return indexFinished_ + 1; }
+
+    uint8_t *GetRuntimeData(uint64_t index) {
+        return &data_[runtimeDataSize_ * (index % runtimeDataCount_)];
+    }
+    uint8_t *GetRuntimeData() {
+        return &data_[0];
+    }
+    uint8_t *GetRuntimeDataCurrent() { return GetRuntimeData(GetIndexCurrent()); }
+    uint8_t *GetRuntimeDataPending() { return GetRuntimeData(GetIndexPending()); }
+
+    static constexpr int AlignSize = 0x10;
+
+    static constexpr uint64_t GetAlignedSize(uint64_t size) {
+        return (size + AlignSize - 1) & ~(AlignSize - 1);
+    }
+
+    static constexpr uint64_t GetRingBufferSize(uint64_t runtimeDataSize, uint64_t runtimeDataCount) {
+        return sizeof(RuntimeDataRingBufferHead) + GetAlignedSize(runtimeDataSize) * runtimeDataCount;
+    }
+
+private:
+    uint64_t runtimeDataSize_;
+    uint64_t runtimeDataCount_;
+
+    /* ringbuffer's end and begin */
+    std::atomic<uint64_t> indexFinished_;
+    std::atomic<uint64_t> indexPending_;
+    unsigned char data_[];
+};
 
 }

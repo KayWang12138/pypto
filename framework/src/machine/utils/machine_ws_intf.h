@@ -116,7 +116,7 @@ struct DeviceKernelArgs {
     uint8_t machineConfig;
     uint8_t launchMode{0};
     ToSubMachineConfig toSubMachineConfig;
-    OpMetaAddrs opMetaAddrs;
+    DeviceKernelArgsParameter parameter;
 };
 
 struct LogHead {
