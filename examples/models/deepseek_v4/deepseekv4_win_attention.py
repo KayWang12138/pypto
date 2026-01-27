@@ -18,23 +18,29 @@ from win_attention_impl import deepseekv4_win_atten
 
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
-pyptolib.define("win_attention(Tensor q, Tensor ori_block_table, Tensor ori_kv, Tensor seqused_kv, Tensor attn_sinks, int win_size, bool is_decode, Tensor mask, Tensor actual_seq_list_q) -> (Tensor)")
+pyptolib.define("win_attention(Tensor q, Tensor ori_block_table, Tensor ori_kv, Tensor seqused_kv, \
+    Tensor attn_sinks, int win_size, bool is_decode, Tensor mask, Tensor actual_seq_list_q) -> (Tensor)")
 
 
 @torch.library.impl(pyptolib, "win_attention", "Meta")
-def win_attention(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, is_decode, mask, actual_seq_list_q):
-    y = torch.empty(q.shape, dtype=q.dtype, device=q.device)
+def win_attention(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, is_decode, \
+    mask, actual_seq_list_q):
+    y = torch.empty([q.shape[0] * q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
     return y
 
 
 @torch.library.impl(pyptolib, "win_attention", "NPU")
-def win_attention(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, is_decode, mask, actual_seq_list_q):
-    return deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, is_decode, mask, actual_seq_list_q)
+def win_attention(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, \
+    is_decode, mask, actual_seq_list_q):
+    return deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, \
+        win_size, is_decode, mask, actual_seq_list_q)
 
 
 class SWA(torch.nn.Module):
-    def forward(self, q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, is_decode, mask, actual_seq_list_q):
-        return torch.ops.pypto.win_attention(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, is_decode, mask, actual_seq_list_q)
+    def forward(self, q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, \
+        is_decode, mask, actual_seq_list_q):
+        return torch.ops.pypto.win_attention(q, ori_block_table, ori_kv, seqused_kv, \
+            attn_sinks, win_size, is_decode, mask, actual_seq_list_q)
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtypes, device_id):
@@ -112,7 +118,8 @@ def gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, seqused_kv_list, 
     # invalid block_id set as -1
     block_table = [-1] * block_table_shape[1]
 
-    block_table = torch.tile(torch.tensor(block_table, device=f'npu:{device_id}').to(torch.int32), (block_table_shape[0], 1))
+    block_table = torch.tile(torch.tensor(block_table, device=f'npu:{device_id}').\
+        to(torch.int32), (block_table_shape[0], 1))
     block_table_batch_idx = 0
     for idx in block_num_per_batch:
         for j in range(idx):
@@ -128,7 +135,8 @@ def gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, seqused_kv_list, 
                 continue
             else:
                 kv_valid = kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
-                kv_cache[kv_cache_blk_id, 0: kv_valid.shape[0], :, :] = kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
+                kv_cache[kv_cache_blk_id, 0: kv_valid.shape[0], :, :] = \
+                    kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
 
     atten_out = torch.zeros(atten_out_shape, dtype=new_dtype, device=f'npu:{device_id}')
     return q_tnd, block_table, kv_cache, atten_sink, atten_out
@@ -168,7 +176,8 @@ def gen_win_attn_data_bsnd(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list,
     # invalid block_id set as -1
     block_table = [-1] * block_table_shape[1]
 
-    block_table = torch.tile(torch.tensor(block_table, device=f'npu:{device_id}').to(torch.int32), (block_table_shape[0], 1))
+    block_table = torch.tile(torch.tensor(block_table, device=f'npu:{device_id}').\
+        to(torch.int32), (block_table_shape[0], 1))
     block_table_batch_idx = 0
     for idx in block_num_per_batch:
         for j in range(idx):
@@ -184,13 +193,15 @@ def gen_win_attn_data_bsnd(t, n_q, d_q, n_kv, d_kv, block_size, actual_seq_list,
                 continue
             else:
                 kv_valid = kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
-                kv_cache[kv_cache_blk_id, 0: kv_valid.shape[0], :, :] = kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
+                kv_cache[kv_cache_blk_id, 0: kv_valid.shape[0], :, :] = \
+                    kv_bsnd[b_idx, block_offset:(block_offset + block_size), :, :]
 
     atten_out = torch.zeros(atten_out_shape, dtype=dtypes, device=f'npu:{device_id}')
     return q_tnd.reshape(b, t // b, n_q, d_q), block_table, kv_cache, atten_sink, atten_out
 
 
-def win_atten_calc_tnd_prefill(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, kv_cache, block_table, actual_seq_list_q, device_id):
+def win_atten_calc_tnd_prefill(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, \
+    kv_cache, block_table, actual_seq_list_q, device_id):
 
     t = input_params_win_attn[0]
     n_q = input_params_win_attn[2]
@@ -230,7 +241,7 @@ def win_atten_calc_tnd_prefill(input_params_win_attn, seqused_kv_list, atten_sin
             kv_cur = kv_cur[start_offset : start_offset + valid_len, :]
 
             sum_exp = torch.zeros([n_q, 1], dtype=torch.float32, device=f'npu:{device_id}')
-            acc_s = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0)) # [n_q, win_size]
+            acc_s = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0))
             acc_s = acc_s * scalar  # [n_q, win_size]
             scores_max = torch.max(acc_s, dim=-1, keepdims=True)[0] # [n_q, 1]
             acc_s = torch.exp(acc_s - scores_max) # [n_q, win_size]
@@ -238,14 +249,15 @@ def win_atten_calc_tnd_prefill(input_params_win_attn, seqused_kv_list, atten_sin
             sum_exp += torch.exp(atten_sink.reshape(n_q, 1) - scores_max)
             v1_res = acc_s / sum_exp
             v1_res = v1_res.to(torch.bfloat16)
-            mm2_res = torch.matmul(v1_res, kv_cur) #[n_q, d]
+            mm2_res = torch.matmul(v1_res, kv_cur) # [n_q, d]
 
             atten_out[t_index:(t_index + 1), :, :] = mm2_res
 
     return atten_out
 
 
-def win_atten_calc_mtp_decode_bsnd(input_params_win_attn, actual_seq_list, atten_sink, q, kv_cache, block_table, device_id):
+def win_atten_calc_mtp_decode_bsnd(input_params_win_attn, actual_seq_list, atten_sink, \
+    q, kv_cache, block_table, device_id):
 
     t = input_params_win_attn[0]
     n_q = input_params_win_attn[2]
@@ -283,7 +295,7 @@ def win_atten_calc_mtp_decode_bsnd(input_params_win_attn, actual_seq_list, atten
 
             sum_exp = torch.zeros([n_q, 1], dtype=torch.float32, device=f'npu:{device_id}')
 
-            acc_s = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0)) # [n_q, win_size]
+            acc_s = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0))
             acc_s = acc_s * scalar  # [n_q, win_size]
             scores_max = torch.max(acc_s, dim=-1, keepdims=True)[0] # [n_q, 1]
             acc_s = torch.exp(acc_s - scores_max) # [n_q, win_size]
@@ -291,14 +303,15 @@ def win_atten_calc_mtp_decode_bsnd(input_params_win_attn, actual_seq_list, atten
             sum_exp += torch.exp(atten_sink.reshape(n_q, 1) - scores_max)
             v1_res = acc_s / sum_exp
             v1_res = v1_res.to(torch.bfloat16)
-            mm2_res = torch.matmul(v1_res, kv_cur) #[n_q, d]
+            mm2_res = torch.matmul(v1_res, kv_cur) # [n_q, d]
            
             atten_out[b_index, s1_index, :, :] = mm2_res
 
     return atten_out
 
 
-def win_atten_calc_mtp_decode_tnd(input_params_win_attn, actual_seq_list, atten_sink, q, kv_cache, block_table, actual_seq_list_q, device_id):
+def win_atten_calc_mtp_decode_tnd(input_params_win_attn, actual_seq_list, atten_sink, q, kv_cache, \
+    block_table, actual_seq_list_q, device_id):
 
     t = input_params_win_attn[0]
     n_q = input_params_win_attn[2]
@@ -339,7 +352,7 @@ def win_atten_calc_mtp_decode_tnd(input_params_win_attn, actual_seq_list, atten_
 
             sum_exp = torch.zeros([n_q, 1], dtype=torch.float32, device=f'npu:{device_id}')
 
-            acc_s = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0)) # [n_q, win_size]
+            acc_s = torch.matmul(q_tensor_cur.to(torch.float32), kv_cur.to(torch.float32).transpose(1, 0))
             acc_s = acc_s * scalar  # [n_q, win_size]
             scores_max = torch.max(acc_s, dim=-1, keepdims=True)[0] # [n_q, 1]
             acc_s = torch.exp(acc_s - scores_max) # [n_q, win_size]
@@ -347,14 +360,14 @@ def win_atten_calc_mtp_decode_tnd(input_params_win_attn, actual_seq_list, atten_
             sum_exp += torch.exp(atten_sink.reshape(n_q, 1) - scores_max)
             v1_res = acc_s / sum_exp
             v1_res = v1_res.to(torch.bfloat16)
-            mm2_res = torch.matmul(v1_res, kv_cur) #[n_q, d]
+            mm2_res = torch.matmul(v1_res, kv_cur) # [n_q, d]
            
             atten_out[t_index, :, :] = mm2_res
 
     return atten_out
 
 
-def test_win_atten_tnd_mtp_decode_mask() -> None:
+def test_win_atten_tnd_mtp_decode_mask(reduce_overhead) -> None:
     
     for b in [4]:
         # len(actual_seq_list_q) = b + 1
@@ -379,30 +392,37 @@ def test_win_atten_tnd_mtp_decode_mask() -> None:
         seqused_kv_list = [8192] * b
         seqused_kv_list_tensor = torch.tensor(seqused_kv_list, dtype=torch.int32, device=f'npu:{device_id}')
         actual_seq_list_q_tenor = torch.tensor(actual_seq_list_q, dtype=torch.int32, device=f'npu:{device_id}')
-        ori_kv_len_list = [min(seqused_kv_list[i], win_size + actual_seq_list_q[i + 1]- actual_seq_list_q[i] - 1) for i in range(len(seqused_kv_list))]
+        ori_kv_len_list = [min(seqused_kv_list[i], win_size + actual_seq_list_q[i + 1] - \
+            actual_seq_list_q[i] - 1) for i in range(len(seqused_kv_list))]
 
-        q_tnd, ori_block_table, ori_kv, atten_sink, _ = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, ori_kv_len_list, dtypes, device_id)
+        q_tnd, ori_block_table, ori_kv, atten_sink, _ = gen_win_attn_data_tnd(t, n_q, d_q, \
+            n_kv, d_kv, block_size, ori_kv_len_list, dtypes, device_id)
 
         mask2 = get_mask2(4, n_q, device_id, block_size)
-        atten_out_2d = deepseekv4_win_atten(q_tnd, ori_block_table, ori_kv, seqused_kv_list_tensor, atten_sink, win_size, is_decode=True, mask=mask2, actual_seq_list_q=actual_seq_list_q_tenor)
 
-        # import torchair as tng
-        # from torchair.configs.compiler_config import CompilerConfig
-        # compiler_config = CompilerConfig()
-        # compiler_config.mode = "reduce-overhead"
-        # npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
-        # model = torch.compile(SWA(), dynamic=False, fullgraph=True, backend=npu_backend)
-        # q_npu = q_tnd.npu()
-        # ori_block_table_npu = ori_block_table.npu()
-        # ori_kv_npu = ori_kv.npu()
-        # seqused_kv_list_tensor_npu = seqused_kv_list_tensor.npu()
-        # attn_sinks_npu = atten_sink.npu()
-        # mask2_npu = mask2.npu()
-        # actual_seq_list_q_tenor_npu = actual_seq_list_q_tenor.npu()
-        # atten_out_2d = model(q_npu, ori_block_table_npu, ori_kv_npu, seqused_kv_list_tensor_npu, attn_sinks_npu, win_size, True, mask2_npu, actual_seq_list_q_tenor_npu)
-        # pypto.runtime._device_synchronize()
+        if reduce_overhead:
+            import torchair as tng
+            from torchair.configs.compiler_config import CompilerConfig
+            compiler_config = CompilerConfig()
+            compiler_config.mode = "reduce-overhead"
+            npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
+            model = torch.compile(SWA(), dynamic=False, fullgraph=True, backend=npu_backend)
+            q_npu = q_tnd.npu()
+            ori_block_table_npu = ori_block_table.npu()
+            ori_kv_npu = ori_kv.npu()
+            seqused_kv_list_tensor_npu = seqused_kv_list_tensor.npu()
+            attn_sinks_npu = atten_sink.npu()
+            mask2_npu = mask2.npu()
+            actual_seq_list_q_tenor_npu = actual_seq_list_q_tenor.npu()
+            atten_out_2d = model(q_npu, ori_block_table_npu, ori_kv_npu, seqused_kv_list_tensor_npu, \
+                attn_sinks_npu, win_size, True, mask2_npu, actual_seq_list_q_tenor_npu)
+            pypto.runtime._device_synchronize()
+        else:
+            atten_out_2d = deepseekv4_win_atten(q_tnd, ori_block_table, ori_kv, seqused_kv_list_tensor, \
+                atten_sink, win_size, is_decode=True, mask=mask2, actual_seq_list_q=actual_seq_list_q_tenor)
 
-        golden = win_atten_calc_mtp_decode_tnd(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, ori_kv, ori_block_table, actual_seq_list_q, device_id)
+        golden = win_atten_calc_mtp_decode_tnd(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, \
+            ori_kv, ori_block_table, actual_seq_list_q, device_id)
         from utils.np_compare import detailed_allclose_manual as compare
         atten_out = torch.reshape(atten_out_2d, [t, n_q, d_q])
         compare(golden, atten_out, "SWA decode tnd mask 版本", rtol=0.0078125, atol=0.0001)
@@ -434,11 +454,14 @@ def test_win_atten_bsnd_mtp_decode_mask() -> None:
             ori_kv_len_list = [min(seqused_kv, win_size + s_q - 1) for seqused_kv in seqused_kv_list]
             print("seqused_kv_list:", seqused_kv_list)
 
-            q, ori_block_table, ori_kv, attn_sinks, atten_out = gen_win_attn_data_bsnd(t, n_q, d_q, n_kv, d_kv, block_size, ori_kv_len_list, dtypes, device_id)
+            q, ori_block_table, ori_kv, attn_sinks, atten_out = gen_win_attn_data_bsnd(t, n_q, d_q, n_kv, \
+                d_kv, block_size, ori_kv_len_list, dtypes, device_id)
             mask2 = get_mask2(s_q, n_q, device_id, block_size)
-            atten_out = deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv_list_tensor, attn_sinks, win_size, is_decode=True, mask=mask2, actual_seq_list_q=None)
+            atten_out = deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv_list_tensor, \
+                attn_sinks, win_size, is_decode=True, mask=mask2, actual_seq_list_q=None)
 
-            golden = win_atten_calc_mtp_decode_bsnd(input_params_win_attn, seqused_kv_list, attn_sinks, q, ori_kv, ori_block_table, device_id)
+            golden = win_atten_calc_mtp_decode_bsnd(input_params_win_attn, seqused_kv_list, attn_sinks, \
+                q, ori_kv, ori_block_table, device_id)
             from utils.np_compare import detailed_allclose_manual as compare
             compare(golden, atten_out, "SWA decode bnsd mtp mask 版本", rtol=0.0078125, atol=0.0001)
 
@@ -467,10 +490,13 @@ def test_win_atten_bsnd_mtp_decode() -> None:
             ori_kv_len_list = [min(seqused_kv, win_size + s_q - 1) for seqused_kv in seqused_kv_list]
             print("seqused_kv_list:", seqused_kv_list)
 
-            q, ori_block_table, ori_kv, attn_sinks, _ = gen_win_attn_data_bsnd(t, n_q, d_q, n_kv, d_kv, block_size, ori_kv_len_list, dtypes, device_id)
-            atten_out = deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv_list_tensor, attn_sinks, win_size, True, None, None)
+            q, ori_block_table, ori_kv, attn_sinks, _ = gen_win_attn_data_bsnd(t, n_q, d_q, n_kv, d_kv, \
+                block_size, ori_kv_len_list, dtypes, device_id)
+            atten_out = deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv_list_tensor, \
+                attn_sinks, win_size, True, None, None)
 
-            golden = win_atten_calc_mtp_decode_bsnd(input_params_win_attn, seqused_kv_list, attn_sinks, q, ori_kv, ori_block_table, device_id)
+            golden = win_atten_calc_mtp_decode_bsnd(input_params_win_attn, seqused_kv_list, attn_sinks, \
+                q, ori_kv, ori_block_table, device_id)
             from utils.np_compare import detailed_allclose_manual as compare
             compare(golden, atten_out, "SWA decode bnsd mtp 版本", rtol=0.0078125, atol=0.0001)
 
@@ -500,11 +526,14 @@ def test_win_atten_tnd_prefill_mask() -> None:
         seqused_kv_list_tensor = torch.tensor(seqused_kv_list, dtype=torch.int32, device=f'npu:{device_id}')
         actual_seq_list_q_tenor = torch.tensor(actual_seq_list_q, dtype=torch.int32, device=f'npu:{device_id}')
 
-        q_tnd, block_table, kv_cache, atten_sink, _ = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, seqused_kv_list, dtypes, device_id)
+        q_tnd, block_table, kv_cache, atten_sink, _ = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, \
+            block_size, seqused_kv_list, dtypes, device_id)
         mask2 = get_mask2(4, n_q, device_id, block_size)
-        atten_out_2d = deepseekv4_win_atten(q_tnd, block_table, kv_cache, seqused_kv_list_tensor, atten_sink, win_size, is_decode=False, mask=mask2, actual_seq_list_q=actual_seq_list_q_tenor)
+        atten_out_2d = deepseekv4_win_atten(q_tnd, block_table, kv_cache, seqused_kv_list_tensor, \
+            atten_sink, win_size, is_decode=False, mask=mask2, actual_seq_list_q=actual_seq_list_q_tenor)
         
-        golden = win_atten_calc_tnd_prefill(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, kv_cache, block_table, actual_seq_list_q, device_id)
+        golden = win_atten_calc_tnd_prefill(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, \
+            kv_cache, block_table, actual_seq_list_q, device_id)
         from utils.np_compare import detailed_allclose_manual as compare
         atten_out = torch.reshape(atten_out_2d, [t, n_q, d_q])
         compare(golden, atten_out, "SWA prefill tnd mask 版本", rtol=0.0078125, atol=0.0001)
@@ -535,18 +564,18 @@ def test_win_atten_tnd_prefill() -> None:
         seqused_kv_list_tensor = torch.tensor(seqused_kv_list, dtype=torch.int32, device=f'npu:{device_id}')
         actual_seq_list_q_tenor = torch.tensor(actual_seq_list_q, dtype=torch.int32, device=f'npu:{device_id}')
 
-        q_tnd, block_table, kv_cache, atten_sink, _ = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, seqused_kv_list, dtypes, device_id)
-        atten_out_2d = deepseekv4_win_atten(q_tnd, block_table, kv_cache, seqused_kv_list_tensor, atten_sink, win_size, is_decode=False, mask=None, actual_seq_list_q=actual_seq_list_q_tenor)
+        q_tnd, block_table, kv_cache, atten_sink, _ = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, \
+            d_kv, block_size, seqused_kv_list, dtypes, device_id)
+        atten_out_2d = deepseekv4_win_atten(q_tnd, block_table, kv_cache, seqused_kv_list_tensor, \
+            atten_sink, win_size, is_decode=False, mask=None, actual_seq_list_q=actual_seq_list_q_tenor)
         
-        golden = win_atten_calc_tnd_prefill(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, kv_cache, block_table, actual_seq_list_q, device_id)
+        golden = win_atten_calc_tnd_prefill(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, \
+            kv_cache, block_table, actual_seq_list_q, device_id)
         from utils.np_compare import detailed_allclose_manual as compare
         atten_out = torch.reshape(atten_out_2d, [t, n_q, d_q])
         compare(golden, atten_out, "SWA prefill tnd 版本", rtol=0.0078125, atol=0.0001)
 
 
 if __name__ == "__main__":
-    test_win_atten_tnd_mtp_decode_mask()
-    # test_win_atten_bsnd_mtp_decode_mask()
-    # test_win_atten_bsnd_mtp_decode()
+    test_win_atten_tnd_mtp_decode_mask(False)
     test_win_atten_tnd_prefill_mask()
-    # test_win_atten_tnd_prefill()
