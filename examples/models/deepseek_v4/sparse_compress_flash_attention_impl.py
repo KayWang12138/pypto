@@ -234,12 +234,12 @@ def sparse_compress_flash_attention_compute_prefill(query, actual_seq_q, ori_kv,
 
 @pypto.jit(
     pass_options={
-        "mg_copyin_upper_bound": 2 * 1024 * 1024,
+        "mg_copyin_upper_bound": 4 * 1024 * 1024,
         "pg_upper_bound": 50000,
         "pg_lower_bound": 512,
         "pg_parallel_lower_bound": 20,
         "vec_nbuffer_mode": 1,
-        "cube_l1_reuse_setting": {-1: 2}
+        "cube_l1_reuse_setting": {-1: 4}
     },
     runtime_options={
         "stitch_function_num_initial": 128,
@@ -265,12 +265,12 @@ def sparse_compress_flash_attention_d(query, actual_seq_q, ori_kv, cmp_kv, ori_b
 
 @pypto.jit(
     pass_options={
-        "mg_copyin_upper_bound": 2 * 1024 * 1024,
+        "mg_copyin_upper_bound": 4 * 1024 * 1024,
         "pg_upper_bound": 50000,
         "pg_lower_bound": 512,
         "pg_parallel_lower_bound": 20,
         "vec_nbuffer_mode": 1,
-        "cube_l1_reuse_setting": {-1: 2}
+        "cube_l1_reuse_setting": {-1: 4}
     },
     runtime_options={
         "stitch_function_num_initial": 128,
@@ -317,7 +317,7 @@ def npu_sparse_compress_flash_attention(query_npu, q_act_seqs_npu, ori_kv_npu, c
         g_tile=64,
         c1_tile_shape=[64, 64, 128, 512, 128, 128],
         v1_tile_shape=[32, 640],
-        c2_tile_shape=[64, 64, 128, 640, 128, 128]
+        c2_tile_shape=[64, 64, 128, 640, 256, 256]
     )
 
     attention_out_npu = torch.zeros([query_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=f'{query_npu.device}')
