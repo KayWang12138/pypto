@@ -31,10 +31,20 @@ PTO_Fwk_GTest_AddExe(
         PRIVATE_LINK_LIBRARIES  ${_PrivateLinkLibraries}
 )
 
-set(TEST_CASE_DIR "${PTO_FWK_SRC_ROOT}/framework/tests/st/distributed/ops/test_case")
+set(TEST_CASE_SRC_DIR "${PTO_FWK_SRC_ROOT}/framework/tests/st/distributed/ops/test_case")
+set(TEST_CASE_DST_DIR "$<TARGET_FILE_DIR:${_Target}>/test_case")
 
+add_custom_command(TARGET ${_Target} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${TEST_CASE_SRC_DIR}"
+        "${TEST_CASE_DST_DIR}"
+    COMMENT "Copying test case data files to output directory..."
+    VERBATIM
+)
 target_compile_definitions(${_Target} PRIVATE 
-    TEST_CASE_DIR="${TEST_CASE_DIR}"
+    TEST_CASE_RELATIVE_PATH="test_case"
+    TEST_CASE_SRC_DIR="${TEST_CASE_SRC_DIR}"
+    TEST_CASE_EXE_DIR="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
 )
 
 # PyPTO, 依赖 CI 任务拆分, 先通过依赖确保上板顺序
