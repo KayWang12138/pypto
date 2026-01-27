@@ -40,7 +40,7 @@ struct ArchParameters {
     osp::v_workw_t<GraphT> commCost_  = 1;
     osp::v_workw_t<GraphT> synchCost_ = 8000;
     double commCorrectionFactor = 0.01;
-    osp::v_workw_t<GraphT> partitionWorkUpperBound_ = std::numeric_limits<osp::v_workw_t<GraphT>>::max();
+    osp::v_workw_t<GraphT> partitionWorkUpperBound_ = std::numeric_limits<osp::VWorkwT<GraphT>>::max();
     osp::v_workw_t<GraphT> partitionWorkLowerBound_ = std::numeric_limits<osp::v_workw_t<GraphT>>::lowest();
 };
 
@@ -50,13 +50,13 @@ enum class OspMode {
 };
 
 class OspPartitioner : public SuperNodeGraphBuilder {
-    using vertex_impl = osp::cdag_vertex_impl<int32_t, int32_t, int32_t, int32_t, unsigned>;
-    using GraphType = osp::dag_vector_adapter<vertex_impl, int32_t>;
-    using ConstrGraphType = osp::computational_dag_vector_impl<vertex_impl>;
-    using CoarseGraphType = osp::Compact_Sparse_Graph<true, true, true, true, true, osp::vertex_idx_t<GraphType>, std::size_t, osp::v_workw_t<GraphType>, osp::v_workw_t<GraphType>, osp::v_workw_t<GraphType>, osp::v_type_t<GraphType>>;
+    using VertexImpl = osp::CDagVertexImpl<int32_t, int32_t, int32_t, int32_t, unsigned>;
+    using GraphType = osp::DagVectorAdapter<VertexImpl, int32_t>;
+    using ConstrGraphType = osp::ComputationalDagVectorImpl<VertexImpl>;
+    using CoarseGraphType = osp::CompactSparseGraph<osp::VertexIdxT<GraphType>, std::size_t, osp::VWorkwT<GraphType>, osp::VWorkwT<GraphType>, osp::VWorkwT<GraphType>, osp::VTypeT<GraphType>>;
 
     // Core/Vertex type translation maps
-    const std::unordered_map<OpCoreType, osp::v_type_t<GraphType>> ospCoreTypeMapSplit{
+    const std::unordered_map<OpCoreType, osp::VTypeT<GraphType>> ospCoreTypeMapSplit{
         {OpCoreType::AIC,       0U},
         {OpCoreType::AIV,       1U},
         {OpCoreType::AICPU,     2U},
@@ -64,7 +64,7 @@ class OspPartitioner : public SuperNodeGraphBuilder {
         {OpCoreType::HUB,       4U},
         {OpCoreType::GMATOMIC,  5U}
     };
-    const std::unordered_map<OpCoreType, osp::v_type_t<GraphType>> ospCoreTypeMapMix{
+    const std::unordered_map<OpCoreType, osp::VTypeT<GraphType>> ospCoreTypeMapMix{
         {OpCoreType::AIC,       0U},
         {OpCoreType::AIV,       0U},
         {OpCoreType::AICPU,     1U},
@@ -89,16 +89,16 @@ class OspPartitioner : public SuperNodeGraphBuilder {
 
     // Construction Helpers
     void SetVertexCommMemWeight(GraphType &graph, int32_t vertex);
-    inline osp::v_type_t<GraphType> getOspCoreTypeSplit(OpCoreType coreType) { return ospCoreTypeMapSplit.at(coreType);}
-    inline osp::v_type_t<GraphType> getOspCoreTypeMix(OpCoreType coreType) { return ospCoreTypeMapMix.at(coreType);}
+    inline osp::v_type_t<GraphType> GetOspCoreTypeSplit(OpCoreType coreType) { return ospCoreTypeMapSplit.at(coreType);}
+    inline osp::v_type_t<GraphType> GetOspCoreTypeMix(OpCoreType coreType) { return ospCoreTypeMapMix.at(coreType);}
     
     // Run OSP Partition
     Status RunOspPartition(Function &function, const osp::BspInstance<GraphType> &bspInst);
-    Status UpdatePartitionResult(Function &function, std::vector<osp::vertex_idx_t<GraphType>> &vertexContractionMap);
+    Status UpdatePartitionResult(Function &function, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap);
 
     // Algorithms
-    Status RunSarkar(const osp::BspInstance<GraphType> &bspInst, CoarseGraphType &coarseGraph, std::vector<osp::vertex_idx_t<GraphType>> &vertexContractionMap);
-    Status RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<osp::vertex_idx_t<GraphType>> &vertexContractionMap);
+    Status RunSarkar(const osp::BspInstance<GraphType> &bspInst, CoarseGraphType &coarseGraph, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap);
+    Status RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap);
     
     // Helpers
     uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const override ;
