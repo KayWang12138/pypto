@@ -18,6 +18,10 @@
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
 #include "machine/host/perf_analysis.h"
+
+extern "C" __attribute__((weak)) int AdxDataDumpServerUnInit();
+extern "C" __attribute__((weak)) int AdxDataDumpServerInit();
+
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
@@ -193,6 +197,12 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
 
     HOST_PERF_TRACE(TracePhase::RunDevRegistKernelBin);
 
+    if (IsPtoDataDumpEnabled()) {
+        int sf = AdxDataDumpServerInit();
+        if (sf != 0) {
+            ALOG_ERROR_F("ERROR AdxDataDumpServerInit failed \n");
+        }
+    }
     rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
     if (rc < 0) {
         return rc;
@@ -207,6 +217,13 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     ALOG_INFO_F("finish Kernel Launch.");
 
     HOST_PERF_TRACE(TracePhase::RunDevRunProfile);
+    if (IsPtoDataDumpEnabled()) {
+        ALOG_DEBUG_F("DataDumpServerInit is called \n");
+        int res = AdxDataDumpServerUnInit();
+        if (res != 0) {
+            ALOG_ERROR_F("AdxDataDumpServerUnInit is failed %d \n", rc);
+        }
+    }
     return rc;
 }
 
