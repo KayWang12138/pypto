@@ -152,10 +152,16 @@ public:
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
 
-        int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
-        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
-        config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
-        devProg->devArgs.nrAicpu = config.aicpuNum;
+        config.aicpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
+        devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, config.aicpuNum, devProg->devArgs.archInfo);
+        devProg->devArgs.nrAicpu = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
+        if (devProg->devArgs.archInfo == ArchInfo::DAV_3510) {
+            devProg->devArgs.launchScheCpuNum = config.aicpuNum - dynamic::MAX_OTHER_AICPU_NUM;
+            devProg->devArgs.launchAicpu = config.aicpuNum;
+        } else {
+            devProg->devArgs.launchScheCpuNum = devProg->devArgs.scheCpuNum;
+            devProg->devArgs.launchAicpu = devProg->devArgs.nrAicpu;
+        }
         ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
 
