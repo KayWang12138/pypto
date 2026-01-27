@@ -180,7 +180,7 @@ template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SingleContraction(
     VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
     using VertexType = VertexIdxT<GraphTIn>;
-    assert(expansionMapOutput.size() == 0);
+    expansionMapOutput.clear();
 
     const std::vector<VertexIdxT<GraphTIn>> vertexPoset
         = params_.useTopPoset_ ? GetTopNodeDistance<GraphTIn, VertexIdxT<GraphTIn>>(graph) : GetBotPosetMap(graph);
@@ -330,7 +330,7 @@ template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllChildrenContraction(
     VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
     using VertexType = VertexIdxT<GraphTIn>;
-    assert(expansionMapOutput.size() == 0);
+    expansionMapOutput.clear();
 
     const std::vector<VertexIdxT<GraphTIn>> vertexPoset = GetTopNodeDistance<GraphTIn, VertexIdxT<GraphTIn>>(graph);
     const std::vector<VWorkwT<GraphTIn>> topDist = GetTopDistance(commCost, graph);
@@ -476,7 +476,7 @@ template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllParentsContraction(
     VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
     using VertexType = VertexIdxT<GraphTIn>;
-    assert(expansionMapOutput.size() == 0);
+    expansionMapOutput.clear();
 
     const std::vector<VertexIdxT<GraphTIn>> vertexPoset = GetBotPosetMap(graph);
     const std::vector<VWorkwT<GraphTIn>> topDist = GetTopDistance(commCost, graph);
@@ -674,7 +674,7 @@ template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
     VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
     using VertexType = VertexIdxT<GraphTIn>;
-    assert(expansionMapOutput.size() == 0);
+    expansionMapOutput.clear();
 
     const std::vector<VertexIdxT<GraphTIn>> vertexPoset = GetTopNodeDistance<GraphTIn, VertexIdxT<GraphTIn>>(graph);
     const std::vector<VWorkwT<GraphTIn>> topDist = GetTopDistance(commCost, graph);
@@ -860,7 +860,7 @@ template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
     VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
     using VertexType = VertexIdxT<GraphTIn>;
-    assert(expansionMapOutput.size() == 0);
+    expansionMapOutput.clear();
 
     const std::vector<VertexIdxT<GraphTIn>> vertexPoset = GetBotPosetMap(graph);
     const std::vector<VWorkwT<GraphTIn>> topDist = GetTopDistance(commCost, graph);
@@ -1046,7 +1046,7 @@ template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::LevelContraction(
     VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
     using VertexType = VertexIdxT<GraphTIn>;
-    assert(expansionMapOutput.size() == 0);
+    expansionMapOutput.clear();
 
     const std::vector<VertexIdxT<GraphTIn>> vertexPoset
         = params_.useTopPoset_ ? GetTopNodeDistance<GraphTIn, VertexIdxT<GraphTIn>>(graph) : GetBotPosetMap(graph);
@@ -1236,9 +1236,6 @@ template <typename GraphTIn, typename GraphTOut>
 std::vector<std::size_t> Sarkar<GraphTIn, GraphTOut>::HomogeneousMerge(const std::size_t number,
                                                                        const std::size_t minSize,
                                                                        const std::size_t maxSize) const {
-    assert(minSize <= maxSize);
-    assert(number > 0);
-
     std::size_t bestDiv = 1U;
     for (std::size_t div : DivisorsList(number)) {
         if (div > maxSize) {
@@ -1291,7 +1288,7 @@ template <typename GraphTIn, typename GraphTOut>
 VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
     VWorkwT<GraphTIn> commCost, const GraphTIn &graph, std::vector<std::vector<VertexIdxT<GraphTIn>>> &expansionMapOutput) const {
     using VertexType = VertexIdxT<GraphTIn>;
-    assert(expansionMapOutput.size() == 0);
+    expansionMapOutput.clear();
 
     const std::vector<VertexIdxT<GraphTIn>> vertexTopPoset = GetTopNodeDistance<GraphTIn, VertexIdxT<GraphTIn>>(graph);
     const std::vector<VertexIdxT<GraphTIn>> vertexBotPoset = GetBotPosetMap(graph);

@@ -245,7 +245,9 @@ bool MultilevelCoarser<GraphT, GraphTCoarse>::CoarsenDag(const GraphT &dagIn,
         return false;
     }
 
-    assert(dagHistory_.size() != 0);
+    if (dagHistory_.size() == 0) {
+        return false;
+    };
     coarsenedDag = *(dagHistory_.back());
 
     vertexContractionMap = GetCombinedContractionMap();
