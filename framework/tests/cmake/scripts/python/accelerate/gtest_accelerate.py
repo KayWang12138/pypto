@@ -927,7 +927,6 @@ class GTestAccelerate(ABC):
         run_desc = f"Run {self.mark}{self.exe.brief} GTestFilter({gtest_filter})"
         try:
             logging.info("%s[%s] [BGN] %s", self.cntr_name, cntr_id, run_desc)
-            # 统一调用入口，具体实现由子类重写
             ret, cmd, _ = self._execute_case(ctx, param, gtest_filter)
             if ret.returncode:
                 self._case_exception_exit(cntr_id=cntr_id, cmd=cmd,
