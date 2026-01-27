@@ -22,7 +22,6 @@ template <unsigned cacheMode, unsigned blockSize, typename T0, typename T1, type
 TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
 {
     constexpr auto expectSize = 5;
-
     const auto uLayout = src.GetLayout();
     auto uShape1 = uLayout.template GetShapeDim<1, expectSize>();
     auto uShape2 = uLayout.template GetShapeDim<2, expectSize>();
@@ -31,6 +30,17 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
     const auto iLayout = src1.GetLayout();
     auto iShape3 = iLayout.template GetShapeDim<3, expectSize>();
     auto iShape4 = iLayout.template GetShapeDim<4, expectSize>();
+
+    const auto dLayout = dst.GetLayout();
+    auto GmShape0 = dLayout.template GetShapeDim<1, expectSize>();
+    auto GmShape1 = dLayout.template GetShapeDim<2, expectSize>();
+    auto GmShape2 = dLayout.template GetShapeDim<3, expectSize>();
+    auto GmShape3 = dLayout.template GetShapeDim<4, expectSize>();
+
+    auto Offset0 = dLayout.template GetStrideDim<1, expectSize>();
+    auto Offset1 = dLayout.template GetStrideDim<2, expectSize>();
+    auto Offset2 = dLayout.template GetStrideDim<3, expectSize>();
+    auto Offset3 = dLayout.template GetStrideDim<4, expectSize>();
 
     using DstDtype = typename T0::Type;
     using SrcDtype = typename T1::Type;
@@ -57,14 +67,14 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
         __ubuf__ SrcDtype* curSrc = srcBase;
         __ubuf__ IdxDtype* dstIdx = idxBase;
 
-        unsigned B = iShape3;
-        unsigned S = iShape4;
-        unsigned D = uShape4;
+        unsigned b = iShape3;
+        unsigned s = iShape4;
+        unsigned dim = uShape4;
 
-        for (unsigned b = 0; b < B; ++b) {
-            for (unsigned s = 0; s < S; ++s) {
+        for (unsigned i = 0; i < b; ++i) {
+            for (unsigned j = 0; j < s; ++j) {
                 unsigned targetRow = static_cast<unsigned>(*dstIdx);
-                __gm__ DstDtype* curDst = dstBase + targetRow * D;
+                __gm__ DstDtype* curDst = dstBase + targetRow * dim;
 
                 using SrcTileDefine = pto::Tile<
                     pto::TileType::Vec,
@@ -74,7 +84,7 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
                     pto::BLayout::RowMajor,
                     -1, -1
                 >;
-                SrcTileDefine srcTile(dstTileH, D);
+                SrcTileDefine srcTile(dstTileH, dim);
                 pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(curSrc));
 
                 using DstGlobal = pto::GlobalTensor<
@@ -84,7 +94,7 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
                 >;
                 DstGlobal dstGlobal(
                     curDst,
-                    pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(D)),
+                    pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(dim)),
                     pto::Stride<0, 0, 0, 0, 1>(0, 0, 0, 0, 1)
                 );
                 pto::TSTORE(dstGlobal, srcTile);
@@ -92,65 +102,99 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1)
                 curSrc += nd_32aligned;
                 dstIdx++;
             }
-            curSrc += (src0rawShape1 - S) * nd_32aligned;
-            dstIdx += (s1_32aligned - S);
+            curSrc += (src0rawShape1 - s) * nd_32aligned;
+            dstIdx += (s1_32aligned - s);
         }
         return;
     }
 
-    unsigned B = iShape3;
-    unsigned S = iShape4;
-    unsigned D = uShape4;
-
-    constexpr unsigned S_32aligned = s1_32aligned;
-    constexpr unsigned D_32aligned = nd_32aligned;
-
+    auto alignTS2TS3 = dstTileH * dstTileW;
+    auto alignSrc1 = s1_32aligned;
     __ubuf__ SrcDtype* src0_base = reinterpret_cast<__ubuf__ SrcDtype*>(src.GetAddr());
     __ubuf__ IdxDtype* src1_base = reinterpret_cast<__ubuf__ IdxDtype*>(src1.GetAddr());
-    __gm__   DstDtype* dst_base  = reinterpret_cast<__gm__   DstDtype*>(dst.GetAddr());
+    __gm__ DstDtype* dst_base = reinterpret_cast<__gm__ DstDtype*>(dst.GetAddr());
+    dst_base += Offset0 * (GmShape1 * GmShape2 * GmShape3)
+              + Offset1 * (GmShape2 * GmShape3)
+              + Offset2 * GmShape3
+              + Offset3;
 
-    for (unsigned b = 0; b < B; ++b) {
-        __ubuf__ SrcDtype* cur_src0 = src0_base + b * (S_32aligned * D_32aligned);
-        __ubuf__ IdxDtype* cur_src1 = src1_base + b * S_32aligned;
+    for (int i = 0; i < uShape1; ++i) {
+        for (int j = 0; j < uShape2; ++j) {
+            for (auto k = 0; k < iShape4; ++k) {
+                set_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+                wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID7);
+                set_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+                wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID7);
+                set_flag(PIPE_V, PIPE_S, EVENT_ID7);
+                wait_flag(PIPE_V, PIPE_S, EVENT_ID7);
 
-        for (unsigned s = 0; s < S; ++s) {
-            IdxDtype curValue = cur_src1[s];
-            __gm__ DstDtype* curDst = nullptr;
+                auto curValue = *(reinterpret_cast<__ubuf__ IdxDtype*>(src1_base + k));
 
-            if constexpr (cacheMode == 1) {
-                auto blockCount = static_cast<unsigned>(curValue) / blockSize;
-                auto index_in_block = static_cast<unsigned>(curValue) % blockSize;
-                unsigned byte_offset = blockCount * blockSize * D + index_in_block * 32 / sizeof(DstDtype);
-                curDst = dst_base + byte_offset;
-            } else {
-                unsigned row_id = static_cast<unsigned>(curValue);
-                curDst = dst_base + row_id * D;
+                __ubuf__ SrcDtype* src_ptr = src0_base + (i * uShape2 + j) * alignTS2TS3 + k * nd_32aligned;
+                
+                if constexpr (cacheMode == 1) {
+                    auto blockCount = curValue / blockSize;
+                    auto index = curValue % blockSize;
+                    __gm__ DstDtype* new_dst = dst_base + blockCount * blockSize * GmShape1 + index * 32 / sizeof(DstDtype);
+                    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+                    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+
+                    using SrcTileDefine = pto::Tile<
+                        pto::TileType::Vec,
+                        SrcDtype,
+                        dstTileH,
+                        dstTileW,
+                        pto::BLayout::RowMajor,
+                        -1, -1
+                    >;
+                    SrcTileDefine srcTile(dstTileH, dstTileW);
+                    pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(src_ptr));
+
+                    using DstGlobalType = pto::GlobalTensor<
+                        DstDtype,
+                        pto::Shape<1, 1, 1, 1, -1>,
+                        pto::Stride<0, 0, 0, 0, 1>
+                    >;
+                    DstGlobalType dstGlobal(
+                        new_dst,
+                        pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(dstTileW)),
+                        pto::Stride<0, 0, 0, 0, 1>(0, 0, 0, 0, 1)
+                    );
+                    pto::TSTORE(dstGlobal, srcTile);
+
+                } else {
+                    __gm__ DstDtype* new_dst = dst_base + static_cast<unsigned>(curValue) * GmShape1;
+                    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+                    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
+
+                    using SrcTileDefine = pto::Tile<
+                        pto::TileType::Vec,
+                        SrcDtype,
+                        dstTileH,
+                        dstTileW,
+                        pto::BLayout::RowMajor,
+                        -1, -1
+                    >;
+                    SrcTileDefine srcTile(dstTileH, dstTileW);
+                    pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(src_ptr));
+
+                    using DstGlobalType = pto::GlobalTensor<
+                        DstDtype,
+                        pto::Shape<1, 1, 1, 1, -1>,
+                        pto::Stride<0, 0, 0, 0, 1>
+                    >;
+                    DstGlobalType dstGlobal(
+                        new_dst,
+                        pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(dstTileW)),
+                        pto::Stride<0, 0, 0, 0, 1>(0, 0, 0, 0, 1)
+                    );
+                    pto::TSTORE(dstGlobal, srcTile);
+                }
             }
-
-            using SrcTileDefine = pto::Tile<
-                pto::TileType::Vec,
-                SrcDtype,
-                dstTileH,
-                dstTileW,
-                pto::BLayout::RowMajor,
-                -1, -1
-            >;
-            SrcTileDefine srcTile(dstTileH, D);
-            pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(cur_src0 + s * D_32aligned));
-
-            using DstGlobalType = pto::GlobalTensor<
-                DstDtype,
-                pto::Shape<1, 1, 1, 1, -1>,
-                pto::Stride<0, 0, 0, 0, 1>
-            >;
-            DstGlobalType dstGlobal(
-                curDst,
-                pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(D)),
-                pto::Stride<0, 0, 0, 0, 1>(0, 0, 0, 0, 1)
-            );
-            pto::TSTORE(dstGlobal, srcTile);
+            src0_base += alignTS2TS3;
+            src1_base += alignSrc1;
+            dst_base += GmShape2 * GmShape3;
         }
     }
 }
-
 #endif // TILEOP_TILE_OPERATOR_INDEX_OUTCAST__H
