@@ -1,0 +1,673 @@
+diff --git a/docs/api/config/pypto-set_verify_options.md b/docs/api/config/pypto-set_verify_options.md
+index 882c87b02720ee332911694a1530111e731a50c9..669a53aa75fdeb5b9fb1322809365f76dd31d964 100644
+--- a/docs/api/config/pypto-set_verify_options.md
++++ b/docs/api/config/pypto-set_verify_options.md
+@@ -19,6 +19,7 @@ set_verify_options(*,
+                    pass_verify_save_tensor: Optional[bool] = None,
+                    pass_verify_save_tensor_dir: Optional[str] = None,
+                    pass_verify_pass_filter: Optional[List[str]] = None,
++                   pass_verify_error_tol: Optional[List[float]] = None,
+                    ) -> None
+ ```
+ 
+@@ -31,6 +32,7 @@ set_verify_options(*,
+ | pass_verify_save_tensor         | 输入      | 含义：配置是否将模拟计算数据存盘。 <br> 说明：True：代表存盘。 <br> 类型：bool <br> 取值范围：True/False <br> 默认值：False |
+ | pass_verify_save_tensor_dir     | 输入      | 含义：配置检测结果及数据的保存路径。 <br> 说明：设定绝对路径的字符串。 <br> 类型：str <br> 默认值：<br> "{RUNNING_DIR}/output/output_{TS}" |
+ | pass_verify_pass_filter         | 输入      | 含义：配置待自检的Pass名称列表。 <br> 说明：合法的Pass名称。不指定则自检所有Pass；指定非法名称则忽略。 <br> 类型：List[str] <br> 默认值：空 |
++| pass_verify_error_tol           | 输入      | 含义：配置精度工具对比精度需要用到的rtol和atol。 <br> 说明：List中的第一个值是rtol，第二个值为atol；List长度不等于2时，使用默认值。 <br> 类型：List[float] <br> 默认值：[1e-3, 1.5e-3] |
+ 
+ ## 返回值说明
+ 
+diff --git a/framework/src/interface/configs/config_manager_ng.cpp b/framework/src/interface/configs/config_manager_ng.cpp
+index 3473e69c6c280116a51b093e15d74bae78ab5828..cdd195b070f111a8bf0fca67da92787a22de135b 100644
+--- a/framework/src/interface/configs/config_manager_ng.cpp
++++ b/framework/src/interface/configs/config_manager_ng.cpp
+@@ -84,6 +84,8 @@ struct TypeInfo {
+                     typeInfos.insert({prefix, typeid(std::vector<std::string>)});
+                 } else if (jitem_type == "integer") {
+                     typeInfos.insert({prefix, typeid(std::vector<int64_t>)});
++                } else if (jitem_type == "double") {
++                    typeInfos.insert({prefix, typeid(std::vector<double>)});
+                 }
+             } else if (type == "object") {
+                 const std::string &typeHints = jdata["typeHints"];
+@@ -393,6 +395,8 @@ private:
+         } else if (jdata.is_array()) {
+             if (typeInfo.Type(prefix) == typeid(std::vector<int64_t>)) {
+                 root->AddValue(prefix, jdata.get<std::vector<int64_t>>());
++            } else if (typeInfo.Type(prefix) == typeid(std::vector<double>)) {
++                root->AddValue(prefix, jdata.get<std::vector<double>>());
+             } else {
+                 root->AddValue(prefix, jdata.get<std::vector<std::string>>());
+             }
+@@ -514,6 +518,7 @@ template void SetOptionsNg<std::map<int, int>>(const std::string &key, const std
+ template void SetOptionsNg<std::map<long, long>>(const std::string &key, const std::map<long, long> &value);
+ template void SetOptionsNg<std::vector<int>>(const std::string &key, const std::vector<int> &value);
+ template void SetOptionsNg<std::vector<std::string>>(const std::string &key, const std::vector<std::string> &value);
++template void SetOptionsNg<std::vector<double>>(const std::string &key, const std::vector<double> &value);
+ 
+ 
+ void Restore(std::shared_ptr<ConfigScope> config) {
+diff --git a/framework/src/interface/configs/config_manager_ng.h b/framework/src/interface/configs/config_manager_ng.h
+index 522b7b936c391f2dbbcdcd258036149fb135e8a7..27b2ced7d1aba4cd08188c1e30f15ed17351cdaf 100644
+--- a/framework/src/interface/configs/config_manager_ng.h
++++ b/framework/src/interface/configs/config_manager_ng.h
+@@ -73,6 +73,7 @@ const std::string KEY_ENABLE_PASS_VERIFY = "enable_pass_verify";
+ const std::string KEY_PASS_VERIFY_SAVE_TENSOR = "pass_verify_save_tensor";
+ const std::string KEY_PASS_VERIFY_SAVE_TENSOR_DIR = "pass_verify_save_tensor_dir";
+ const std::string KEY_PASS_VERIFY_FILTER = "pass_verify_pass_filter";
++const std::string KEY_PASS_VERIFY_ERROR_TOL = "pass_verify_error_tol";
+ 
+ // debug
+ constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";
+diff --git a/framework/src/interface/configs/tile_fwk_config.json b/framework/src/interface/configs/tile_fwk_config.json
+index 60ddd017235b3162bd76b2da452e3f0af7d5082a..836b2add1d92ed6a49df88c659cad0f369c576cd 100644
+--- a/framework/src/interface/configs/tile_fwk_config.json
++++ b/framework/src/interface/configs/tile_fwk_config.json
+@@ -35,7 +35,8 @@
+         "enable_pass_verify": false,
+         "pass_verify_save_tensor": false,
+         "pass_verify_save_tensor_dir": "",
+-        "pass_verify_pass_filter": []
++        "pass_verify_pass_filter": [],
++        "pass_verify_error_tol": [1e-3, 1.5e-3]
+     },
+     "debug": {
+         "compile_debug_mode": 0,
+diff --git a/framework/src/interface/configs/tile_fwk_config_schema.json b/framework/src/interface/configs/tile_fwk_config_schema.json
+index bc1e0c3610b65bf6d171b0b3bae2013045edf7b9..a76dc553cb94e5219cab211ee5c069bb44c3408b 100644
+--- a/framework/src/interface/configs/tile_fwk_config_schema.json
++++ b/framework/src/interface/configs/tile_fwk_config_schema.json
+@@ -343,6 +343,16 @@
+                         "zh": "...",
+                         "en": "..."
+                     }
++                },
++                "pass_verify_error_tol": {
++                    "type": "array",
++                    "items": {
++                        "type": "double"
++                    },
++                    "label": {
++                        "zh": "...",
++                        "en": "..."
++                    }
+                 }
+             }
+         },
+diff --git a/framework/src/interface/interpreter/flow_verifier.cpp b/framework/src/interface/interpreter/flow_verifier.cpp
+index 4635b5d908688a696e23819150a872440cf4a58a..abc4ee5b4b4413ba127b0d12f4c17b4c4e257c43 100644
+--- a/framework/src/interface/interpreter/flow_verifier.cpp
++++ b/framework/src/interface/interpreter/flow_verifier.cpp
+@@ -23,24 +23,24 @@ namespace npu::tile_fwk {
+ 
+ FlowVerifier::CompareResult FlowVerifier::VerifyResult(
+         const std::shared_ptr<LogicalTensorData> &goldenDataView,
+-        const std::shared_ptr<LogicalTensorData> &outputDataView, float eps) {
++        const std::shared_ptr<LogicalTensorData> &outputDataView, float rtol, float atol) {
+     // tensor maybe padded during PadLocalBuffer Pass, tensor shape maybe changed, just check the valid data
+     ASSERT(goldenDataView->GetValidShape() == outputDataView->GetValidShape());
+-
++    ASSERT(goldenDataView->GetDataType() == outputDataView->GetDataType());
+     switch (goldenDataView->GetDataType()) {
+-        case DT_INT8: return CompareData<int8_t>(goldenDataView, outputDataView, eps);
+-        case DT_INT16: return CompareData<int16_t>(goldenDataView, outputDataView, eps);
+-        case DT_INT32: return CompareData<int32_t>(goldenDataView, outputDataView, eps);
+-        case DT_INT64: return CompareData<int64_t>(goldenDataView, outputDataView, eps);
+-        case DT_FP16: return CompareData<npu::tile_fwk::float16>(goldenDataView, outputDataView, eps);
+-        case DT_FP32: return CompareData<float>(goldenDataView, outputDataView, eps);
+-        case DT_BF16: return CompareData<npu::tile_fwk::bfloat16>(goldenDataView, outputDataView, eps);
+-        case DT_UINT8: return CompareData<uint8_t>(goldenDataView, outputDataView, eps);
+-        case DT_UINT16: return CompareData<uint16_t>(goldenDataView, outputDataView, eps);
+-        case DT_UINT32: return CompareData<uint32_t>(goldenDataView, outputDataView, eps);
+-        case DT_UINT64: return CompareData<uint64_t>(goldenDataView, outputDataView, eps);
+-        case DT_DOUBLE: return CompareData<double>(goldenDataView, outputDataView, eps);
+-        case DT_BOOL: return CompareData<uint8_t>(goldenDataView, outputDataView, eps);
++        case DT_INT8: return CompareData<int8_t, double>(goldenDataView, outputDataView, rtol, atol);
++        case DT_INT16: return CompareData<int16_t, double>(goldenDataView, outputDataView, rtol, atol);
++        case DT_INT32: return CompareData<int32_t, double>(goldenDataView, outputDataView, rtol, atol);
++        case DT_INT64: return CompareData<int64_t, double>(goldenDataView, outputDataView, rtol, atol);
++        case DT_FP16: return CompareData<npu::tile_fwk::float16, float>(goldenDataView, outputDataView, rtol, atol);
++        case DT_FP32: return CompareData<float, double>(goldenDataView, outputDataView, rtol, atol);
++        case DT_BF16: return CompareData<npu::tile_fwk::bfloat16, float>(goldenDataView, outputDataView, rtol, atol);
++        case DT_UINT8: return CompareData<uint8_t, double>(goldenDataView, outputDataView, rtol, atol);
++        case DT_UINT16: return CompareData<uint16_t, double>(goldenDataView, outputDataView, rtol, atol);
++        case DT_UINT32: return CompareData<uint32_t, double>(goldenDataView, outputDataView, rtol, atol);
++        case DT_UINT64: return CompareData<uint64_t, double>(goldenDataView, outputDataView, rtol, atol);
++        case DT_DOUBLE: return CompareData<double, double>(goldenDataView, outputDataView, rtol, atol);
++        case DT_BOOL: return CompareData<uint8_t, double>(goldenDataView, outputDataView, rtol, atol);
+         default: ASSERT(false); break;
+     }
+     return CompareResult();
+@@ -48,7 +48,7 @@ FlowVerifier::CompareResult FlowVerifier::VerifyResult(
+ 
+ bool FlowVerifier::VerifyResult(const std::string &key,
+     const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
+-    const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float eps) {
++    const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float rtol, float atol) {
+     ASSERT(goldenDataViewList.size() == outputDataViewList.size());
+     for (size_t k = 0; k < goldenDataViewList.size(); k++) {
+         auto &goldenView = goldenDataViewList[k];
+@@ -56,7 +56,7 @@ bool FlowVerifier::VerifyResult(const std::string &key,
+         if (goldenView == nullptr || outputView == nullptr) {
+             continue;
+         }
+-        auto result = VerifyResult(goldenView, outputView, eps);
++        auto result = VerifyResult(goldenView, outputView, rtol, atol);
+         if (!result.Check()) {
+             ALOG_ERROR(key, ":\n    Verify for ", goldenDataViewList.size(), " data view list index ", k, " result ", TTY_RED("FAILED"));
+             ALOG_ERROR(key, result.Dump());
+@@ -71,7 +71,7 @@ bool FlowVerifier::VerifyResult(const std::string &key,
+ bool FlowVerifier::VerifyResult(const std::string &key,
+     const std::string tensorName,
+     const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
+-    const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float eps) {
++    const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float rtol, float atol) {
+     bool result = true;
+     if (goldenDataViewList.size() != tensorDataViewList.size()) {
+         ALOG_EVENT(key, " Verify NO_COMPARE");
+@@ -98,7 +98,7 @@ bool FlowVerifier::VerifyResult(const std::string &key,
+         opInfo[toIndex(OpInfoCsvHeader::outputTensor)] = fileName;
+         opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "PASS";
+ 
+-        auto tensorGraphResult = VerifyResult(goldenDataViewList[k], tensorDataViewList[k], eps);
++        auto tensorGraphResult = VerifyResult(goldenDataViewList[k], tensorDataViewList[k], rtol, atol);
+         if (!tensorGraphResult.Check()) {
+             ALOG_ERROR(key, " Verify for ", goldenDataViewList.size(), " data view list index ", k, " result ", TTY_RED("FAILED"));
+             opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "FAILED";
+@@ -201,10 +201,13 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
+     functionInterpreter_->DumpReset();
+     bool res = true;
+ 
++    std::vector<double> tolerance = config::GetVerifyOption<std::vector<double>>(KEY_PASS_VERIFY_ERROR_TOL);
++    float rtol = static_cast<float>(tolerance[0]);
++    float atol = static_cast<float>(tolerance[1]);
+     if (outputDataViewList.size() == 0){
+-        res = VerifyResult("tensor_graph", "tensor_graph", goldenDataViewList_, inputDataViewList_, static_cast<float>(1e-2));
++        res = VerifyResult("tensor_graph", "tensor_graph", goldenDataViewList_, inputDataViewList_, rtol, atol);
+     } else {
+-        res = VerifyResult("tensor_graph", "tensor_graph", goldenDataViewList_, outputDataViewList_, static_cast<float>(1e-2));
++        res = VerifyResult("tensor_graph", "tensor_graph", goldenDataViewList_, outputDataViewList_, rtol, atol);
+     }
+     if (!res) {
+         checkResult = false;
+@@ -236,6 +239,9 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
+             return;
+         }
+     }
++    std::vector<double> tolerance = config::GetVerifyOption<std::vector<double>>(KEY_PASS_VERIFY_ERROR_TOL);
++    float rtol = static_cast<float>(tolerance[0]);
++    float atol = static_cast<float>(tolerance[1]);
+ 
+     auto &captureList = controlFlowExecution_->executionListDict.find(func)->second;
+     if (!lastCaptureExecution_.count(func)) {
+@@ -252,7 +258,6 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
+         functionInterpreter_->captureIndex = captureIndex;
+ 
+         std::shared_ptr<FunctionCaptureExecution> capture = nullptr;
+-        float eps = static_cast<float>(1e-3);
+         capture = captureList[captureIndex];
+ 
+         std::shared_ptr<FunctionCaptureExecution> captureExecution = nullptr;
+@@ -273,7 +278,7 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
+         std::string tensorName = "tensor~" + func->GetMagicName() + "~" + passIdentifier +
+                     "~" + functionInterpreter_->GetLoopSymbolString();
+ 
+-        auto res = VerifyResult(key, tensorName, goldenDataViewList, executeDataViewList, eps);
++        auto res = VerifyResult(key, tensorName, goldenDataViewList, executeDataViewList, rtol, atol);
+         if (!res) {
+             checkResult = false;
+         }
+diff --git a/framework/src/interface/interpreter/flow_verifier.h b/framework/src/interface/interpreter/flow_verifier.h
+index 6b7e7e5f25e73d69f089d0106f457785c35c18dd..d99db68ee44cec79fede5eca3cbec51ffe306060 100644
+--- a/framework/src/interface/interpreter/flow_verifier.h
++++ b/framework/src/interface/interpreter/flow_verifier.h
+@@ -61,10 +61,8 @@ public:
+     };
+     struct CompareResult : std::vector<CompareElement> {
+         CompareResult() {}
+-        CompareResult(int size, float eps, size_t errorCountThreshold = 0, size_t zeroCountThreshold = 0) : size_(size), eps_(eps) {
+-            errorCountThreshold_ = errorCountThreshold != 0 ? errorCountThreshold : static_cast<int>(size * eps);
+-            zeroCountThreshold_ = zeroCountThreshold != 0 ? zeroCountThreshold : THREAD_THOUSAND;
+-        }
++        CompareResult(int size, float rtol, float atol, size_t errorCountThreshold = 0, size_t failNum = 0) : size_(size),
++                        rtol_(rtol), atol_(atol), errorCountThreshold_(errorCountThreshold), failNum_(failNum) {}
+ 
+         template<typename...TyArgs>
+         void AppendError(TyArgs && ...args) {
+@@ -77,8 +75,20 @@ public:
+             this->emplace_back(args...);
+         }
+ 
++        void AppendFail() {
++            failNum_++;
++        }
++
++        void UpdateErrorCountThreshold() {
++            errorCountThreshold_ = static_cast<int>((size_ - zeroCount_) * std::min(rtol_, atol_));
++            size_t cnt_adj = static_cast<int>(std::pow((size_ - zeroCount_), 0.5)) / 2;
++            if (errorCountThreshold_ < cnt_adj && cnt_adj < 16) {
++                errorCountThreshold_ = cnt_adj;
++            }
++        }
++
+         bool Check() const {
+-            return errorCount_ <= errorCountThreshold_ && zeroCount_ <= zeroCountThreshold_;
++            return errorCount_ <= errorCountThreshold_ && failNum_ == 0;
+         }
+ 
+         std::vector<std::string> Dump(int indent = 2, size_t maxPrint = 50) const {
+@@ -88,7 +98,7 @@ public:
+             CompareElement maxRelElement;
+             std::ostringstream oss;
+             std::string space(indent, ' ');
+-            std::string infoError = "\n  " + space + "Error eps=" + std::to_string(eps_);
++            std::string infoError = "\n  " + space + "Error rtol=" + std::to_string(rtol_) + " atol=" + std::to_string(atol_);
+             std::string infoZero = "\n  " + space + "Zero";
+             size_t count_ = 0;
+             for (auto &element : *this) {
+@@ -111,7 +121,7 @@ public:
+                 if (isError) {
+                     info = infoError.c_str();
+                 } else {
+-                    info = infoZero.c_str();
++                    continue;
+                 }
+                 if (count_ <= maxPrint) {
+                     oss << space << info << " " << element.Dump() << "";
+@@ -134,76 +144,85 @@ public:
+                     std::to_string(errorCount_ * 1.0 / size_)};
+         }
+ 
+-        float GetEps() const { return eps_; }
++        float GetRtol() const { return rtol_; }
++        float GetAtol() const { return atol_; }
+     private:
+         size_t size_{0};
+-        float eps_{0};
++        float rtol_{0};
++        float atol_{0};
+         size_t errorCountThreshold_{0};
+-        size_t zeroCountThreshold_{0};
++        size_t failNum_{0};
+         size_t errorCount_ = 0;
+         size_t zeroCount_ = 0;
+     };
+ 
+-    template <typename DataType>
++    template <typename DataType, typename T>
+     static void CompareData(CompareResult &compareResult, size_t count, int64_t offset, const DataType *goldenValueList,
+                             const DataType *outputValueList) {
+         for (size_t index = 0; index < count; index++) {
+-            auto goldenValue = static_cast<float>(goldenValueList[index]);
+-            auto outputValue = static_cast<float>(outputValueList[index]);
+-            auto absDiff = std::abs(goldenValue - outputValue);
+-            auto relDiff = 0.0f;
+-            if (std::abs(goldenValue) < 1e-6) {
+-                relDiff = std::abs(absDiff) < 1e-6 ? 0 : 1;
+-            } else {
+-                relDiff = std::abs(absDiff / goldenValue);
++            auto goldenValue = static_cast<T>(goldenValueList[index]);       
++            auto outputValue = static_cast<T>(outputValueList[index]);
++            
++            auto output_abs = abs(outputValue);
++            auto golden_abs = abs(goldenValue);
++            auto output_golden_sub_abs = abs(outputValue - goldenValue);
++            auto output_golden_abs_add = output_abs + golden_abs;
++            if (output_golden_abs_add <= 0) {
++                compareResult.AppendZero(false, offset + index, goldenValue, outputValue, 0, 0);
++                continue;
+             }
+-            if (std::abs(outputValue) <= 1e-6 && std::abs(goldenValue) > 1e-6) {
+-                compareResult.AppendZero(false, offset + index, goldenValue, outputValue, absDiff, relDiff);
++
++            auto relDiff = output_golden_sub_abs / output_golden_abs_add * 2;
++            auto tol_attn = output_golden_abs_add * compareResult.GetRtol() / 2 + compareResult.GetAtol();
++            auto tol_fail = tol_attn * 128;
++            if (output_golden_sub_abs > tol_attn) {
++                compareResult.AppendError(true, offset + index, goldenValue, outputValue, output_golden_sub_abs, relDiff);
+             }
+-            if (absDiff > compareResult.GetEps() && relDiff > compareResult.GetEps()) {
+-                compareResult.AppendError(true, offset + index, goldenValue, outputValue, absDiff, relDiff);
++            if (output_golden_sub_abs > tol_fail) {
++                compareResult.AppendFail();
+             }
+         }
+     }
+ 
+-    template <typename DataType>
++    template <typename DataType, typename T>
+     static void CompareDataRecursive(CompareResult &compareResult, size_t axis, int64_t goldenOffset,
+         int64_t outputOffset, const std::shared_ptr<LogicalTensorData> &goldenDataView,
+         const std::shared_ptr<LogicalTensorData> &outputDataView) {
+         auto &validShape = goldenDataView->GetValidShape();
+         if (axis == validShape.size() - 1) {
+-            CompareData<DataType>(compareResult, validShape[axis], outputOffset, &goldenDataView->Get<DataType>(goldenOffset),
++            CompareData<DataType, T>(compareResult, validShape[axis], outputOffset, &goldenDataView->Get<DataType>(goldenOffset),
+                 &outputDataView->Get<DataType>(outputOffset));
+         } else {
+             for (int i = 0; i < validShape[axis]; i++) {
+                 int nGoldenOffset = goldenOffset + goldenDataView->GetStride(axis) * i;
+                 int nOutputOffset = outputOffset + outputDataView->GetStride(axis) * i;
+-                CompareDataRecursive<DataType>(
++                CompareDataRecursive<DataType, T>(
+                     compareResult, axis + 1, nGoldenOffset, nOutputOffset, goldenDataView, outputDataView);
+             }
+         }
+     }
+ 
+-    template <typename DataType>
++    template <typename DataType, typename T>
+     static CompareResult CompareData(const std::shared_ptr<LogicalTensorData> &goldenDataView,
+-        const std::shared_ptr<LogicalTensorData> &outputDataView, float eps, int errorCountThreshold = 0,
+-        int zeroCountThreshold = 0) {
++        const std::shared_ptr<LogicalTensorData> &outputDataView, float rtol, float atol, int errorCountThreshold = 0,
++        int failNum = 0) {
+         auto &validShape = goldenDataView->GetValidShape();
+         auto size = std::accumulate(validShape.begin(), validShape.end(), 1, std::multiplies<>());
+-        CompareResult compareResult(size, eps, errorCountThreshold, zeroCountThreshold);
+-        CompareDataRecursive<DataType>(compareResult, 0, 0, 0, goldenDataView, outputDataView);
++        CompareResult compareResult(size, rtol, atol, errorCountThreshold, failNum);
++        CompareDataRecursive<DataType, T>(compareResult, 0, 0, 0, goldenDataView, outputDataView);
++        compareResult.UpdateErrorCountThreshold();
+         return compareResult;
+     }
+ 
+     static CompareResult VerifyResult(
+             const std::shared_ptr<LogicalTensorData> &goldenDataView,
+-            const std::shared_ptr<LogicalTensorData> &outputDataView, float eps);
++            const std::shared_ptr<LogicalTensorData> &outputDataView, float rtol, float atol);
+     static bool VerifyResult(const std::string &key,
+         const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
+-        const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float eps);
++        const std::vector<std::shared_ptr<LogicalTensorData>> &outputDataViewList, float rtol, float atol);
+     bool VerifyResult(const std::string &key, const std::string tensorNameList,
+         const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
+-        const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float eps);
++        const std::vector<std::shared_ptr<LogicalTensorData>> &tensorDataViewList, float rtol, float atol);
+ 
+ private:
+     void UpdateInterpreterCache();
+@@ -214,15 +233,6 @@ private:
+             const std::vector<std::shared_ptr<LogicalTensorData>> &goldenDataViewList,
+             const std::shared_ptr<TensorSlotManager> &slotManager);
+ 
+-    template <typename type>
+-    static bool CompareDataAndCheck(const std::shared_ptr<RawTensorData> &goldenData,
+-        const std::shared_ptr<RawTensorData> &cmpData, float eps) {
+-        if (!CompareData<type>(goldenData->GetSize(), &goldenData->Get<type>(0), &cmpData->Get<type>(0), eps).Check()) {
+-            return false;
+-        }
+-        return true;
+-    }
+-
+ private:
+     Function *entry_;
+     bool checkResult{true};
+diff --git a/framework/src/interface/interpreter/function.cpp b/framework/src/interface/interpreter/function.cpp
+index 07d1f08e5487783463ddef7223367811536916f7..176af52b8137b31ff5325d251068c6f0789cb6f8 100644
+--- a/framework/src/interface/interpreter/function.cpp
++++ b/framework/src/interface/interpreter/function.cpp
+@@ -373,6 +373,10 @@ void FunctionInterpreter::DumpPassTensorDiff(
+     if (captureExecution->GetFrameList().size() != captureGolden->GetFrameList().size())
+         return;
+ 
++    std::vector<double> tolerance = config::GetVerifyOption<std::vector<double>>(KEY_PASS_VERIFY_ERROR_TOL);
++    float rtol = static_cast<float>(tolerance[0]);
++    float atol = static_cast<float>(tolerance[1]);
++
+     std::string dumpStyleFilePath = execDumpDir + "/entry_" + std::to_string(captureIndex) + ".css";
+     execDumpStyleFile = fopen(dumpStyleFilePath.c_str(), "w");
+     for (size_t idx = 0; idx < captureGolden->GetFrameList().size(); idx++) {
+@@ -398,7 +402,7 @@ void FunctionInterpreter::DumpPassTensorDiff(
+             if (!dataViewExecution || !dataViewGolden) {
+                 continue;
+             }
+-            auto compare = FlowVerifier::VerifyResult(dataViewGolden, dataViewExecution, static_cast<float>(1e-5));
++            auto compare = FlowVerifier::VerifyResult(dataViewGolden, dataViewExecution, rtol, atol);
+             std::string tensorId = GetDumpTensorId(frameExecution, tensor);
+             if (compare.Check()) {
+                 fprintf(execDumpStyleFile, "#%s { background-color: LightGreen; }\n", tensorId.c_str());
+diff --git a/framework/tests/ut/interface/src/function/test_dynamic_ops.cpp b/framework/tests/ut/interface/src/function/test_dynamic_ops.cpp
+index 74693f4b45126c0d554929ce0fbb8d8f8dee8428..0aff7fee8b865f1fd861dabee28365953bc31e43 100644
+--- a/framework/tests/ut/interface/src/function/test_dynamic_ops.cpp
++++ b/framework/tests/ut/interface/src/function/test_dynamic_ops.cpp
+@@ -551,6 +551,18 @@ TEST_F(DynamicOpsTest, ScatterElement) {
+     }
+ }
+ 
++static void Scatter(Tensor &self, Tensor &idx, Tensor &src, Tensor &out, int b, int s) {
++    FUNCTION("main", {self, idx, src}, {out}) {
++        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
++            (void)i;
++            auto t0 = View(self, {b, s}, {0, 0});
++            auto t1 = View(idx, {b, s}, {0, 0});
++            auto t2 = View(src, {b, s}, {0, 0});
++            out = Scatter(t0, t1, t2, 0);
++        }
++    }
++}
++
+ TEST_F(DynamicOpsTest, Scatter) {
+     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+@@ -573,16 +585,7 @@ TEST_F(DynamicOpsTest, Scatter) {
+     ProgramData::GetInstance().AppendGoldens({
+         RawTensorData::CreateConstantTensor<float>(out, 2.0),
+     });
+-
+-    FUNCTION("main", {self, idx, src}, {out}) {
+-        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+-            (void)i;
+-            auto t0 = View(self, {b, s}, {0, 0});
+-            auto t1 = View(idx, {b, s}, {0, 0});
+-            auto t2 = View(src, {b, s}, {0, 0});
+-            out = Scatter(t0, t1, t2, 0);
+-        }
+-    }
++    Scatter(self, idx, src, out, b, s);
+ }
+ 
+ TEST_F(DynamicOpsTest, TopKSort) {
+@@ -731,3 +734,153 @@ TEST_F(DynamicOpsTest, TopKExtractIndices) {
+         }
+     }
+ }
++
++TEST_F(DynamicOpsTest, ScatterINT8) {
++    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
++    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
++
++    int64_t b = 1;
++    int64_t s = 8;
++    Tensor self(DT_INT8, {b, s}, "self");
++    Tensor idx(DT_INT64, {b, s}, "idx");
++    Tensor src(DT_INT8, {b, s}, "src");
++    Tensor out(DT_INT8, {b, s}, "out");
++
++    ProgramData::GetInstance().AppendInputs({
++        RawTensorData::CreateConstantTensor<int8_t>(self, 1),
++        RawTensorData::CreateConstantTensor<int64_t>(idx, 0),
++        RawTensorData::CreateConstantTensor<int8_t>(src, 2),
++    });
++    ProgramData::GetInstance().AppendOutputs({
++        RawTensorData::CreateConstantTensor<int8_t>(out, 2),
++    });
++    ProgramData::GetInstance().AppendGoldens({
++        RawTensorData::CreateConstantTensor<int8_t>(out, 2),
++    });
++    Scatter(self, idx, src, out, b, s);
++}
++
++TEST_F(DynamicOpsTest, ScatterUINT8) {
++    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
++    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
++
++    int64_t b = 1;
++    int64_t s = 8;
++    Tensor self(DT_UINT8, {b, s}, "self");
++    Tensor idx(DT_INT64, {b, s}, "idx");
++    Tensor src(DT_UINT8, {b, s}, "src");
++    Tensor out(DT_UINT8, {b, s}, "out");
++
++    ProgramData::GetInstance().AppendInputs({
++        RawTensorData::CreateConstantTensor<uint8_t>(self, 1),
++        RawTensorData::CreateConstantTensor<int64_t>(idx, 0),
++        RawTensorData::CreateConstantTensor<uint8_t>(src, 2),
++    });
++    ProgramData::GetInstance().AppendOutputs({
++        RawTensorData::CreateConstantTensor<uint8_t>(out, 2),
++    });
++    ProgramData::GetInstance().AppendGoldens({
++        RawTensorData::CreateConstantTensor<uint8_t>(out, 2),
++    });
++    Scatter(self, idx, src, out, b, s);
++}
++
++TEST_F(DynamicOpsTest, ScatterINT16) {
++    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
++    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
++
++    int64_t b = 1;
++    int64_t s = 8;
++    Tensor self(DT_INT16, {b, s}, "self");
++    Tensor idx(DT_INT64, {b, s}, "idx");
++    Tensor src(DT_INT16, {b, s}, "src");
++    Tensor out(DT_INT16, {b, s}, "out");
++
++    ProgramData::GetInstance().AppendInputs({
++        RawTensorData::CreateConstantTensor<int16_t>(self, 1),
++        RawTensorData::CreateConstantTensor<int64_t>(idx, 0),
++        RawTensorData::CreateConstantTensor<int16_t>(src, 2),
++    });
++    ProgramData::GetInstance().AppendOutputs({
++        RawTensorData::CreateConstantTensor<int16_t>(out, 2),
++    });
++    ProgramData::GetInstance().AppendGoldens({
++        RawTensorData::CreateConstantTensor<int16_t>(out, 2),
++    });
++    Scatter(self, idx, src, out, b, s);
++}
++
++TEST_F(DynamicOpsTest, ScatterUINT16) {
++    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
++    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
++
++    int64_t b = 1;
++    int64_t s = 8;
++    Tensor self(DT_UINT16, {b, s}, "self");
++    Tensor idx(DT_INT64, {b, s}, "idx");
++    Tensor src(DT_UINT16, {b, s}, "src");
++    Tensor out(DT_UINT16, {b, s}, "out");
++
++    ProgramData::GetInstance().AppendInputs({
++        RawTensorData::CreateConstantTensor<uint16_t>(self, 1),
++        RawTensorData::CreateConstantTensor<int64_t>(idx, 0),
++        RawTensorData::CreateConstantTensor<uint16_t>(src, 2),
++    });
++    ProgramData::GetInstance().AppendOutputs({
++        RawTensorData::CreateConstantTensor<uint16_t>(out, 2),
++    });
++    ProgramData::GetInstance().AppendGoldens({
++        RawTensorData::CreateConstantTensor<uint16_t>(out, 2),
++    });
++    Scatter(self, idx, src, out, b, s);
++}
++
++TEST_F(DynamicOpsTest, ScatterUINT32) {
++    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
++    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
++
++    int64_t b = 1;
++    int64_t s = 8;
++    Tensor self(DT_UINT32, {b, s}, "self");
++    Tensor idx(DT_INT64, {b, s}, "idx");
++    Tensor src(DT_UINT32, {b, s}, "src");
++    Tensor out(DT_UINT32, {b, s}, "out");
++
++    ProgramData::GetInstance().AppendInputs({
++        RawTensorData::CreateConstantTensor<uint32_t>(self, 1),
++        RawTensorData::CreateConstantTensor<int64_t>(idx, 0),
++        RawTensorData::CreateConstantTensor<uint32_t>(src, 2),
++    });
++    ProgramData::GetInstance().AppendOutputs({
++        RawTensorData::CreateConstantTensor<uint32_t>(out, 2),
++    });
++    ProgramData::GetInstance().AppendGoldens({
++        RawTensorData::CreateConstantTensor<uint32_t>(out, 2),
++    });
++    Scatter(self, idx, src, out, b, s);
++}
++
++TEST_F(DynamicOpsTest, ScatterUINT64) {
++    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
++    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
++
++    int64_t b = 1;
++    int64_t s = 8;
++    Tensor self(DT_UINT64, {b, s}, "self");
++    Tensor idx(DT_INT64, {b, s}, "idx");
++    Tensor src(DT_UINT64, {b, s}, "src");
++    Tensor out(DT_UINT64, {b, s}, "out");
++
++    ProgramData::GetInstance().AppendInputs({
++        RawTensorData::CreateConstantTensor<uint64_t>(self, 1),
++        RawTensorData::CreateConstantTensor<int64_t>(idx, 0),
++        RawTensorData::CreateConstantTensor<uint64_t>(src, 2),
++    });
++    ProgramData::GetInstance().AppendOutputs({
++        RawTensorData::CreateConstantTensor<uint64_t>(out, 2),
++    });
++    ProgramData::GetInstance().AppendGoldens({
++        RawTensorData::CreateConstantTensor<uint64_t>(out, 2),
++    });
++    Scatter(self, idx, src, out, b, s);
++}
+diff --git a/python/pypto/config.py b/python/pypto/config.py
+index 15e30466c268ed2b5e004efd21e6e0894a3aa402..38b7a22db0b59a79eb90b0fe4d4629f0e7ec01ba 100644
+--- a/python/pypto/config.py
++++ b/python/pypto/config.py
+@@ -254,6 +254,7 @@ def set_verify_options(*,
+                        pass_verify_save_tensor: Optional[bool] = None,
+                        pass_verify_save_tensor_dir: Optional[str] = None,
+                        pass_verify_pass_filter: Optional[List[str]] = None,
++                       pass_verify_error_tol: Optional[List[float]] = None,
+                        ) -> None:
+     """
+     Set verify options.
+@@ -271,9 +272,14 @@ def set_verify_options(*,
+ 
+     pass_verify_pass_filter : List
+         Filting pass to verify.
++
++    pass_verify_error_tol : List
++        Customize atol and rtol.
+     """
+     if pass_verify_pass_filter == []:
+         pass_verify_pass_filter = None
++    if pass_verify_error_tol is None or len(pass_verify_error_tol) != 2:
++        pass_verify_error_tol = [1e-3, 1.5e-3]
+     options_dict = {k: v for k, v in locals().items() if v is not None}
+     set_options(verify_options=options_dict)
+ 
+diff --git a/python/src/bindings/controller.cpp b/python/src/bindings/controller.cpp
+index 1852a01d341b1b9c983997c7a61f73de463f3a0b..7c093614a9ca26f7de24c5d0b1be5170abfad0f0 100644
+--- a/python/src/bindings/controller.cpp
++++ b/python/src/bindings/controller.cpp
+@@ -195,6 +195,8 @@ std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict &
+                     cpp_values[key] = value.cast<std::vector<int64_t>>();
+                 } else if (py::isinstance<py::str>(lst[0])) {
+                     cpp_values[key] = value.cast<std::vector<std::string>>();
++                } else if (py::isinstance<py::float_>(lst[0])) {
++                    cpp_values[key] = value.cast<std::vector<double>>();
+                 } else {
+                     throw py::type_error("Unsupported list element type for key: " + key);
+                 }
+@@ -271,6 +273,7 @@ py::object AnyToPyObject(const Any &val) {
+         {typeid(std::string), [](const Any& a){ return py::cast(AnyCast<std::string>(a)); }},
+         {typeid(std::vector<int64_t>), [](const Any& a){ return py::cast(AnyCast<std::vector<int64_t>>(a)); }},
+         {typeid(std::vector<std::string>), [](const Any& a){ return py::cast(AnyCast<std::vector<std::string>>(a)); }},
++        {typeid(std::vector<double>), [](const Any& a){ return py::cast(AnyCast<std::vector<double>>(a)); }},
+         {typeid(std::map<int64_t,int64_t>), [](const Any& a){ return py::cast(AnyCast<std::map<int64_t,int64_t>>(a)); }},
+         {typeid(CubeTile), [](const Any& a){ return py::cast(AnyCast<CubeTile>(a)); }},
+         {typeid(DistTile), [](const Any& a){ return py::str(AnyCast<DistTile>(a).ToString()); }},
