@@ -27,6 +27,7 @@
 #include "distributed/common.h"
 #include "distributed/moe_dispatch.h"
 #include "distributed/moe_combine.h"
+#include "distributed/moe_combine_ffn_fused.h"
 #include "distributed/tileop_shmem.h"
 #include "dynamic/aicpu_call.h"
 

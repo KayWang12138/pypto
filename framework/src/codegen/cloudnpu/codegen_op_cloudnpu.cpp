@@ -254,6 +254,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SHMEM_REDUCE, [this]() { return GenDistOp(); }},
           {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, [this]() { return GenDistOp(); }},
           {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, [this]() { return GenDistOp(); }},
+          {Opcode::OP_MOE_COMBINE_FFN_FUSED, [this]() { return GenDistOp(); }},
       }),
       gatherScatterOps_({
           // gather/scatter op
