@@ -27,10 +27,15 @@ struct DevInputSymbol {
 };
 
 struct DeviceRuntimeDataDesc {
-    uint32_t taskCtrlIndex{0};
     DeviceTaskCtrl *taskCtrlPool{nullptr};
-    DeviceTaskCtrlQueue *taskQueue{nullptr};
+    DeviceTaskCtrlQueue *taskQueueList{nullptr};
+    uint64_t generalAddr;
+    uint64_t stitchPoolAddr;
+};
+
+struct DevCtrlState {
     uint32_t schAicpuNum{MAX_SCHEDULE_AICPU_NUM};
+    uint32_t taskCtrlIndex{0};
 };
 
 struct DevStartArgs : DevStartArgsBase {
@@ -44,6 +49,15 @@ struct DevStartArgs : DevStartArgsBase {
     std::atomic<uint64_t> syncFlag{0}; // sche and ctrl soft sync flag
 
     DeviceRuntimeDataDesc deviceRuntimeDataDesc;
+    DevCtrlState devCtrlState;
+
+    void InitProgram(DevAscendProgram *prog, uint64_t base) {
+        devProg = prog;
+        deviceRuntimeDataDesc.taskCtrlPool = reinterpret_cast<DeviceTaskCtrl *>(base + devProg->GetDeviceRuntimeOffset().taskCtrlPoolOffset);
+        deviceRuntimeDataDesc.taskQueueList = reinterpret_cast<DeviceTaskCtrlQueue *>(base + devProg->GetDeviceRuntimeOffset().taskQueueOffset);
+        deviceRuntimeDataDesc.generalAddr = base + devProg->GetDeviceRuntimeOffset().generalOffset;
+        deviceRuntimeDataDesc.stitchPoolAddr = base + devProg->GetDeviceRuntimeOffset().stitchPoolOffset;
+    }
 
 public:
     void InitWorkspace(DevAscendProgram *tDevProg, void *workspace) {
