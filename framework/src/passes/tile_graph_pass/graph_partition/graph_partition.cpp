@@ -24,9 +24,6 @@ namespace npu::tile_fwk {
 Status GraphPartition::RunOnFunction(Function &function)
 {    
     const std::string partitionMode = function.paramConfigs_.sgPartitionAlgorithm;
-    //const std::string partitionMode = "Iso";
-    // const std::string partitionMode = "OspSarkar";
-    // const std::string partitionMode = "OspBsp";
 
     if (function.paramConfigs_.pgSkipPartition) {
         for (auto &op : function.Operations()) {

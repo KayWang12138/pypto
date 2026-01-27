@@ -248,7 +248,7 @@ void OspPartitioner::SetVertexCommMemWeight(GraphType &graph, int32_t vertex)
         }
     }
     graph.SetVertexMemWeight(vertex, memWeight);
-    graph.SetVertexCommWeight(vertex, static_cast<osp::VCommwT<GraphType>>(commWeight * archParameters_.commCorrectionFactor));
+    graph.SetVertexCommWeight(vertex, static_cast<osp::VCommwT<GraphType>>(commWeight * archParameters_.commCorrectionFactor_));
 }
 
 Status OspPartitioner::ConstructDagCVSplit(GraphType &graph)

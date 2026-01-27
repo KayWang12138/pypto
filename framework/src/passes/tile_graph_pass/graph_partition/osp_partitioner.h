@@ -40,7 +40,7 @@ template<typename GraphT>
 struct ArchParameters {
     osp::VWorkwT<GraphT> commCost_  = 1;
     osp::VWorkwT<GraphT> synchCost_ = 8000;
-    double commCorrectionFactor = 0.01;
+    double commCorrectionFactor_ = 0.01;
     osp::VWorkwT<GraphT> partitionWorkUpperBound_ = std::numeric_limits<osp::VWorkwT<GraphT>>::max();
     osp::VWorkwT<GraphT> partitionWorkLowerBound_ = std::numeric_limits<osp::VWorkwT<GraphT>>::lowest();
 };
