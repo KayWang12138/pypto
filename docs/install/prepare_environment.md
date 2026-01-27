@@ -184,7 +184,7 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
 | --download-path       | str  | 否    | 指定 CANN 包以及三方依赖包下载路径                     |
 | --with-install-driver | bool | 否    | 指定是否下载 NPU 驱动和固件包，默认为 false             |
 | --help                | -    | 否    | 查看命令参数帮助信息                               |
-  
+
 ## 安装PyPTO Toolkit插件（可选）
 
  如需体验计算图和泳道图的查看能力，请安装PyPTO Toolkit插件：
@@ -197,14 +197,15 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
  3. 选择已下载的.vsix插件文件，完成安装。
 
  ## 安装MPI依赖（可选）
+
   PyPTO的分布式用例依赖MPI：
 
     ```bash
     # 源码安装
-    wget https://download.openmpi.org/release/openmpi-v4.1.5.tar.gz
-    tar -xzf openmpi-${version}.tar.gz
-    cd openmpi-${version}
-    ./configure --prefix=/usr/local/mpich
+    https://www.mpich.org/static/downloads/3.2.1/
+    tar -xzf mpich-${version}.tar.gz
+    cd mpich-${version}
+    ./configure --prefix=/usr/local/mpich --disable-fortran
     make && make install
 
     # 设置环境变量
