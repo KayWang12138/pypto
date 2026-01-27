@@ -223,6 +223,7 @@ public:
         if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
         }
+        devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
     }
 
     static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
