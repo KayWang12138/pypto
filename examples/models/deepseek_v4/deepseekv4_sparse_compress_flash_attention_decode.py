@@ -335,6 +335,9 @@ def get_case_config(case_name: str):
         "sfa_bf16_b64_s1_seq64K_d": (
             (64, 64, 1, 1), 0, [65536] * 64, 4 # for wfa: seq > win_size + s1 -1
         ),
+        "sfa_bf16_b64_s2_seq8K_d": (
+            (64, 64, 1, 2), 0, [8192] * 64, 4 # for wfa: seq > win_size + s1 -1
+        ),
         "sfa_bf16_b16_s2_seq1536_d": (
             (16, 64, 1, 2), 0, [1536] * 16, 4 # for sfa: seq // cmp_ratio < topk
         ),
@@ -359,7 +362,7 @@ def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, in
         g_tile=64,
         c1_tile_shape=[64, 64, 128, 512, 128, 128],
         v1_tile_shape=[32, 640],
-        c2_tile_shape=[64, 64, 128, 640, 128, 128]
+        c2_tile_shape=[64, 64, 128, 640, 256, 256]
     )
 
     b, s1, n_q, n_kv, max_kv_seq, kv_lora_rank, block_num, block_size, win_size, topk, scalar,\
@@ -474,11 +477,11 @@ def test_sfa_bf16_b64_s1_seq64K_acl_graph_d():
     do_test_sfa_entry("sfa_bf16_b64_s1_seq64K_d", is_p=False, is_acl_graph=True)
 
 
-def test_sfa_bf16_b64_s1_seq64K_d():
+def test_sfa_bf16_b64_s2_seq8K_d():
     '''
     scfa decode测试用例, 非MTP场景
     '''
-    do_test_sfa_entry("sfa_bf16_b64_s1_seq64K_d", is_p=False)
+    do_test_sfa_entry("sfa_bf16_b64_s2_seq8K_d", is_p=False)
 
 
 def test_sfa_bf16_b16_s2_seq1536_d():
@@ -507,7 +510,7 @@ if __name__ == "__main__":
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
-    test_sfa_bf16_b16_s1_seq64K_d()
+    test_sfa_bf16_b64_s2_seq8K_d()
     test_sfa_bf16_b16_s2_seq1536_d()
     test_sfa_bf16_b16_s2_seq127_d()
     test_sfa_bf16_b16_s4_seq130_d()

@@ -330,7 +330,7 @@ def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, in
         g_tile=64,
         c1_tile_shape=[64, 64, 128, 512, 128, 128],
         v1_tile_shape=[32, 640],
-        c2_tile_shape=[64, 64, 128, 640, 128, 128]
+        c2_tile_shape=[64, 64, 128, 640, 256, 256]
     )
 
     _, _, n_q, n_kv, max_kv_seq, kv_lora_rank, block_num, block_size, win_size, topk, scalar,\
