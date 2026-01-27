@@ -202,6 +202,56 @@ def test_loop_compile_phase_print(device_id: int = None, run_mode: str = "npu", 
         print("✓ Test loop compile phase print completed successfully")
         print()
 
+def loop_pass_by_reference(shape: tuple, run_mode: str = "npu", dynamic: bool = False) -> torch.Tensor:
+    if dynamic:
+        m = pypto.frontend.dynamic("m")
+        _, n = shape
+    else:
+        m, n = shape
+
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
+
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    def loop_pass_by_reference_kernel(
+        in_t0: pypto.Tensor(shape, pypto.DT_FP32), 
+        in_t1: pypto.Tensor(shape, pypto.DT_FP32),
+        out_t0: pypto.Tensor(shape, pypto.DT_FP32),
+    ):
+        pypto.set_vec_tile_shapes(64, 64)
+        tmp = pypto.add(in_t0, in_t1)
+        for _ in pypto.loop(2):
+            out_t0[:] = pypto.add(out_t0, tmp)
+        return
+
+    return loop_pass_by_reference_kernel
+
+def test_loop_pass_by_reference(device_id: int = None, run_mode: str = "npu", dynamic: bool = False) -> None:
+    """Test loop compile phase print"""
+    print("=" * 60)
+    print("Test: Loop Pass By Reference")
+    print("=" * 60)
+
+    device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
+    
+    m, n = 6, 8
+    shape = (m, n)
+    input_t1 = torch.randn(shape, dtype=torch.float, device=device)
+    input_t2 = torch.randn(shape, dtype=torch.float, device=device)
+    output_t1 = torch.zeros(shape, dtype=torch.float, device=device)
+    loop_pass_by_reference(shape, run_mode, dynamic)(input_t1, input_t2, output_t1)
+
+    # Verify
+    expected_t1 = input_t1 + input_t2 + input_t1 + input_t2
+    if run_mode == "npu":
+        max_diff_t1 = (output_t1 - expected_t1).abs().max().item()
+        print(f"Max difference from PyTorch: {max_diff_t1:.6f}")
+        assert max_diff_t1 < 1e-2, "Result mismatch!"
+        print("✓ Test loop pass by reference completed successfully")
 
 def main():
     """Run loop_feature examples.
@@ -255,6 +305,11 @@ Examples:
             'name': 'Test loop compile phase print',
             'description': 'Loop compile phase print example',
             'function': test_loop_compile_phase_print,
+        },
+        'loop_pass_by_reference::test_loop_pass_by_reference': {
+            'name': 'Test loop pass by reference',
+            'description': 'Loop pass by reference example',
+            'function': test_loop_pass_by_reference,
         }
     }
     

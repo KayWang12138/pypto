@@ -245,6 +245,49 @@ def ffn(config: FFNConfig) -> torch.Tensor:
     
     return ffn_activation_kernel
 
+def ffn_pass_by_reference(config: FFNConfig) -> torch.Tensor:
+
+    batch_size, hidden_size, intermediate_size = config.batch_size, config.hidden_size, config.intermediate_size
+    
+    @pypto.frontend.jit(runtime_options={"run_mode": config.run_mode})
+    def ffn_activation_kernel(
+        hidden_states: pypto.tensor((batch_size, hidden_size), config.dtype),
+        gate_proj_weight: pypto.tensor((hidden_size, intermediate_size), config.dtype),
+        up_proj_weight: pypto.tensor((hidden_size, intermediate_size), config.dtype),
+        down_proj_weight: pypto.tensor((intermediate_size, hidden_size), config.dtype),
+        output: pypto.Tensor((batch_size, hidden_size), config.dtype)
+    ):
+        # Configure tiling for matrix operations
+        pypto.set_cube_tile_shapes(
+            [config.cube_tile_shape[0], config.cube_tile_shape[0]],
+            [config.cube_tile_shape[1], config.cube_tile_shape[1]],
+            [config.cube_tile_shape[2], config.cube_tile_shape[2]]
+        )
+        pypto.set_vec_tile_shapes(*config.vec_tile_shape)
+
+        # Gate projection: [batch_size, hidden_size] @ [hidden_size, intermediate_size]
+        gate = pypto.matmul(hidden_states, gate_proj_weight, config.dtype)
+        
+        if config.use_dynamic_shape == True and config.activation == "gelu":
+            # Dynamic GELU activation
+            dynamic_gelu_activation_core(output, hidden_states, gate_proj_weight, down_proj_weight, config)
+        elif config.activation == "gelu":
+            # GELU activation
+            activated = gelu_activation_core(gate)
+        elif config.activation == "swiglu":
+            # SwiGLU activation
+            up_proj_weight = pypto.matmul(hidden_states, up_proj_weight, config.dtype)
+            activated = swiglu_activation_core(gate, up_proj_weight)
+        elif config.activation == "relu":
+            # ReLU activation
+            activated = relu_activation_core(gate) 
+        else:
+            raise ValueError(f"Unsupported activation: {config.activation}")
+
+        if config.use_dynamic_shape == False:
+            output[:] = pypto.matmul(activated, down_proj_weight, config.dtype, b_trans=False)
+    
+    return ffn_activation_kernel
 
 @pytest.mark.skip
 def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
@@ -289,8 +332,12 @@ def test_ffn_static_gelu(device_id=None, run_mode: str = "npu"):
     output_torch_ref = torch.matmul(gate_activated_torch, down_proj_weight_torch)
 
     output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
+    output_pass_ref = torch.zeros((batch_size, hidden_size), dtype=dtype, device=device)
+    ffn_pass_by_reference(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch, output_pass_ref)
+
     if run_mode == "npu":
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
+        assert_allclose(output_pass_ref.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
     print(f"Output shape: {output_torch_ref.shape}")
     print(f"Output range: [{output_torch_ref.min().item():.4f}, {output_torch_ref.max().item():.4f}]")
     print("✓ Static FFN with GELU test completed")
@@ -336,6 +383,9 @@ def test_ffn_static_swiglu(device_id=None, run_mode: str = "npu"):
     output_torch_ref = torch.matmul(activated_torch, down_proj_weight_torch)
 
     output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
+    output_pass_ref = torch.zeros((batch_size, hidden_size), dtype=dtype, device=device)
+    ffn_pass_by_reference(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch, output_pass_ref)
+    
     print(f"Input shape: {hidden_states_torch.shape}")
     print(f"Gate weight shape: {gate_proj_weight_torch.shape}")
     print(f"Up weight shape: {up_proj_weight_torch.shape}")
@@ -345,6 +395,7 @@ def test_ffn_static_swiglu(device_id=None, run_mode: str = "npu"):
 
     if run_mode == "npu":
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
+        assert_allclose(output_pass_ref.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
     print("✓ Static FFN with SwiGLU test completed")
     print()
 
@@ -398,8 +449,12 @@ def test_ffn_dynamic_gelu(device_id: int = None, run_mode: str = "npu", dynamic:
     print(f"Output range: [{output_torch_ref.min().item():.4f}, {output_torch_ref.max().item():.4f}]")
     
     output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
+    output_pass_ref = torch.zeros((batch_size, hidden_size), dtype=dtype, device=device)
+    ffn_pass_by_reference(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch, output_pass_ref)
+    
     if run_mode == "npu":
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
+        assert_allclose(output_pass_ref.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
     
     print("✓ Dynamic FFN with GELU test completed")
     print()
@@ -446,6 +501,9 @@ def test_ffn_static_relu(device_id: int = None, run_mode: str = "npu", dynamic: 
     output_torch_ref = torch.matmul(gate_activated_torch, down_proj_weight_torch)
     
     output = ffn(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch)
+    output_pass_ref = torch.zeros((batch_size, hidden_size), dtype=dtype, device=device)
+    ffn_pass_by_reference(config)(hidden_states_torch, gate_proj_weight_torch, up_proj_weight_torch, down_proj_weight_torch, output_pass_ref)
+
     max_diff = np.abs((output.cpu().numpy() - output_torch_ref.cpu().numpy())).max()
     print(f"Input shape: {hidden_states_torch.shape}")
     print(f"Output shape: {output_torch_ref.shape}")
@@ -453,6 +511,7 @@ def test_ffn_static_relu(device_id: int = None, run_mode: str = "npu", dynamic: 
     print(f"Max difference: {max_diff:.6f}")
     if run_mode == "npu":
         assert_allclose(output.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
+        assert_allclose(output_pass_ref.cpu().to(torch.float32), output_torch_ref.cpu().to(torch.float32), rtol=3e-3, atol=3e-3)
     print("✓ Static FFN with ReLU test completed")
     print()
 
