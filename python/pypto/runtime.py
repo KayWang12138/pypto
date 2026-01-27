@@ -11,7 +11,6 @@
 """
 """
 import os
-import time
 from contextlib import contextmanager
 from enum import IntEnum
 from typing import List, overload
@@ -124,7 +123,6 @@ class _ControlflowShape:
         return str(self.shapes)
 
 
-
 class _JIT:
     def __init__(self, dyn_func, codegen_options=None, host_options=None,
                  pass_options=None, runtime_options=None, verify_options=None,
@@ -137,13 +135,14 @@ class _JIT:
         self.verify_options = verify_options or {}
         self.debug_options = debug_options
         self.infer_controlflow_shape = infer_controlflow_shape
-        self.kmodule = pypto_impl.KernelModule()
         self.run_mode = self.init_run_mode()
 
         # if infer cache shape supported, also use full cache mode
         if self.infer_controlflow_shape:
             # set to max cfgcache size 100000000
             self.runtime_options['stitch_cfgcache_size'] = 100000000
+
+        self.kmodule = pypto_impl.KernelModule(self)
 
     def __call__(self, *args, **kwargs):
         if len(args) < 1:

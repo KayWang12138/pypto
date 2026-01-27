@@ -14,8 +14,10 @@
  */
 
 #include "machine/device/dynamic/device_utils.h"
+#include "machine/utils/machine_ws_intf.h"
 #include "pybind_common.h"
 
+#include <cstdint>
 #include <utility>
 #include <vector>
 #include "interface/interpreter/raw_tensor_data.h"
@@ -272,10 +274,40 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
     return 0;
 }
 
+class DeviceGuard {
+public:
+    DeviceGuard(int32_t devId) : nDevId(devId) {
+        (void)rtGetDevice(&oDevId);
+        if (nDevId != oDevId) {
+            rtSetDevice(nDevId);
+        }
+    }
+
+    ~DeviceGuard() {
+        if (nDevId != oDevId) {
+            rtSetDevice(oDevId);
+        }
+    }
+
+private:
+    int32_t oDevId{0};
+    int32_t nDevId{0};
+};
+
+
+class AclModeGuard {
+public:
+    AclModeGuard(aclmdlRICaptureMode tmode) : mode(tmode) { aclmdlRICaptureThreadExchangeMode(&mode); }
+    ~AclModeGuard() { aclmdlRICaptureThreadExchangeMode(&mode); }
+private:
+    aclmdlRICaptureMode mode;
+};
+
+
 struct ControlFlowCache {
     int64_t hash;
     std::vector<DeviceTensorData> inputs;
-    uint8_t *devCache;
+    uint8_t *devCache {nullptr};
 
     ControlFlowCache(std::vector<DeviceTensorData> &datas, uint8_t *tcache)
         : inputs(std::move(datas)), devCache(tcache) {
@@ -309,22 +341,17 @@ struct ControlFlowCache {
 
 #define AICPU_META_BUFFER_NUM 2
 
-struct KernelBinary {
-    std::shared_ptr<Function> dynFunc;
-    void *kernelBin{nullptr};
-    DevAscendProgram *devProg{nullptr};
-    DyndevFunctionAttribute *dynAttr{nullptr};
-    int64_t workspaceSize{0}; // static workspace size
-    std::vector<ControlFlowCache> caches;
-
-    std::vector<void *> devMems;
-    std::vector<OpMetaAddrs> metas;
-    int64_t metaIndex{0};
-
-    std::vector<int64_t> aicpuArgBuf;
-    uint64_t l2Offset{0};
-
-    std::vector<DeviceTensorData> argTypes;
+class KernelBinary {
+public:
+    KernelBinary(std::shared_ptr<Function> func): dynFunc(func) {
+        dynAttr = dynFunc->GetDyndevAttribute().get();
+        devProg = (DevAscendProgram *)dynAttr->devProgBinary.data();
+        kernelBin = RegisterAicoreKernel();
+        workspaceSize = devProg->memBudget.Total();
+        InitCachedArgs();
+        auto aicpuArgs = (AiCpuArgs *)aicpuArgBuf.data();
+        DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs);
+    }
 
     uint8_t *FindCtrlFlowCache(std::vector<std::vector<int64_t>> &inputs) {
         int64_t inHash = ControlFlowCache::Hash(inputs);
@@ -335,8 +362,6 @@ struct KernelBinary {
         }
         return nullptr;
     }
-
-    bool ControlFlowCacheEnable() const { return devProg->ctrlFlowCacheSize != 0; }
 
     DevControlFlowCache *BuildControlFlowCache(std::vector<DeviceTensorData> &inputs, bool cache) {
         DeviceLauncherConfig config;
@@ -356,16 +381,6 @@ struct KernelBinary {
             }
         }
         return ctrlCache;
-    }
-
-    KernelBinary(std::shared_ptr<Function> func): dynFunc(func) {
-        dynAttr = dynFunc->GetDyndevAttribute().get();
-        devProg = (DevAscendProgram *)dynAttr->devProgBinary.data();
-        kernelBin = RegisterAicoreKernel();
-        workspaceSize = devProg->memBudget.Total();
-        InitCachedArgs();
-        auto aicpuArgs = (AiCpuArgs *)aicpuArgBuf.data();
-        DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs);
     }
 
     int64_t GetWorkspaceSize(const std::vector<DeviceTensorData> &tensors) {
@@ -424,6 +439,9 @@ struct KernelBinary {
         }
         return true;
     }
+
+    void *GetKernelBin() { return kernelBin; }
+    auto &GetArgTypes() { return argTypes; }
 
     ~KernelBinary() {
         rtDevBinaryUnRegister(kernelBin);
@@ -492,22 +510,54 @@ private:
             argTypes.emplace_back(t->Datatype(), nullptr, t->GetShape());
         }
     }
+
+private:
+    std::shared_ptr<Function> dynFunc;
+    DyndevFunctionAttribute *dynAttr{nullptr};
+    DevAscendProgram *devProg{nullptr};
+    void *kernelBin{nullptr};
+    int64_t workspaceSize{0}; // static workspace size
+    std::vector<ControlFlowCache> caches;
+
+    std::vector<void *> devMems;
+    std::vector<OpMetaAddrs> metas;
+    int64_t metaIndex{0};
+
+    std::vector<int64_t> aicpuArgBuf;
+    uint64_t l2Offset{0};
+    std::vector<DeviceTensorData> argTypes;
 };
 
-struct KernelModule {
-    KernelBinary *Init(std::shared_ptr<Function> func) {
+class KernelModule {
+public:
+    KernelModule(py::object &module) {
+        InitCachedArgs();
+        InitConfigOptions(module);
+    }
+
+    bool IsCompiled() { return kernel != nullptr; }
+    bool IsCacheEnabled() { return stitchCfgCacheSize != 0; }
+    bool CheckArgs(std::vector<DeviceTensorData> &tensors) {
+        return kernel->CheckArgs(tensors);
+    }
+    int64_t GetWorkspaceSize(std::vector<DeviceTensorData> &tensors) {
+        return kernel->GetWorkspaceSize(tensors);
+    }
+
+    void Compile(py::object &module, py::args &args) {
         ASSERT(kernel == nullptr) << "function already set";
-        kernel = std::make_shared<KernelBinary>(func);
-        return kernel.get();
+        auto compile = py::getattr(module, "compile");
+        compile(args);
+        auto func = Program::GetInstance().GetLastFunction();
+        kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
+        if (inferCacheShape) {
+            BuildDefaultCache(module);
+        }
     }
 
-    KernelBinary *GetKernelBinary() {
-        return kernel.get();
-    }
-
-    void Launch(KernelBinary *kbinary, aclrtStream aicpuStream, aclrtStream aicoreStream,
+    void Launch(aclrtStream aicpuStream, aclrtStream aicoreStream,
         std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
-        auto [args, argsSize] = kbinary->BuildKernelArgs(tensors);
+        auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
 
@@ -515,25 +565,53 @@ struct KernelModule {
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
 
-        const int nrAicpu = 5; // see also device_runner.cpp
-        int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
-            "AST_DYN_AICPU", nrAicpu, &rtAicpuArgs, nullptr, aicpuStream, 0);
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
-
-        // ALOG_ERROR(__FUNCTION__, __LINE__);
-        // args->kArgs.launchMode = AICPU_LAUNCH_MODE_SCHED;
-        // ret = rtAicpuKernelLaunchExWithArgs(
-        //     rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 3, &rtAicpuArgs, nullptr, aicpuStream, 0);
-        // ASSERT(ret == RT_ERROR_NONE) << "launch aicpu sched failed: " << ret;
+        if (tripleStream) {
+            args->kArgs.launchMode = AICPU_LAUNCH_MODE_CTRL;
+            int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
+                "AST_DYN_AICPU", 1, &rtAicpuArgs, nullptr, aicpuStream, 0);
+            ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
+            args->kArgs.launchMode = AICPU_LAUNCH_MODE_SCHED;
+            ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
+                "AST_DYN_AICPU", 1, &rtAicpuArgs, nullptr, aicpuStream, 0);
+            ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
+        } else {
+            const int nrAicpu = 5; // see also device_runner.cpp
+            args->kArgs.launchMode = AICPU_LAUNCH_MODE_DEF;
+            int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
+                "AST_DYN_AICPU", nrAicpu, &rtAicpuArgs, nullptr, aicpuStream, 0);
+            ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
+        }
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-        ret = rtKernelLaunchWithHandleV2(
-            kbinary->kernelBin, tilingKey, dynamic::GetCfgBlockdim(), &rtAicoreArgs, nullptr, aicoreStream, &rtTaskCfg);
+        auto ret = rtKernelLaunchWithHandleV2(kernel->GetKernelBin(), tilingKey, dynamic::GetCfgBlockdim(),
+            &rtAicoreArgs, nullptr, aicoreStream, &rtTaskCfg);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
     }
 
-    KernelModule() {
+    uint8_t *FindCtrlFlowCache(py::object &module, py::args &args) {
+        if (!IsCacheEnabled()) {
+            auto shape = InferCacheShape(module, args);
+            return kernel->FindCtrlFlowCache(shape);
+        }
+        return nullptr;
+    }
+
+    uint8_t *BuildTempCache(py::object &module, std::vector<DeviceTensorData> &tensors) {
+        auto ctrlCache = kernel->BuildControlFlowCache(tensors, false);
+        auto size = ctrlCache->allCacheSize;
+        auto pyalloc = py::getattr(module, "alloc");
+        auto devCache = (uint8_t *)pyalloc(size).cast<int64_t>();
+        AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+        int ret = rtMemcpy(devCache, size, (uint8_t *)ctrlCache, size, RT_MEMCPY_HOST_TO_DEVICE);
+        if (ret != RT_ERROR_NONE) {
+            ALOG_ERROR("memcpy failed ", ret);
+        }
+        return devCache;
+    }
+
+private:
+    void InitCachedArgs() {
         memset_s(&rtAicpuArgs, sizeof(rtAicpuArgsEx_t), 0, sizeof(rtAicpuArgsEx_t));
         rtAicpuArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
         rtAicpuArgs.soNameAddrOffset = offsetof(dynamic::AiCpuArgs, soName);
@@ -551,51 +629,23 @@ struct KernelModule {
         rtTaskCfg.schemMode = RT_SCHEM_MODE_BATCH;
     }
 
-    rtHostInputInfo_t hostInfo;
-    rtAicpuArgsEx_t rtAicpuArgs;
-
-    rtArgsEx_t rtAicoreArgs;
-    rtTaskCfgInfo_t rtTaskCfg;
-    std::vector<void *> kernelArgs;
-    std::shared_ptr<KernelBinary> kernel;
-};
-using KernelModulePtr = std::shared_ptr<KernelModule>;
-
-struct AclModeGuard {
-    AclModeGuard(aclmdlRICaptureMode tmode) : mode(tmode) { aclmdlRICaptureThreadExchangeMode(&mode); }
-    ~AclModeGuard() { aclmdlRICaptureThreadExchangeMode(&mode); }
-    aclmdlRICaptureMode mode;
-};
-
-struct DeviceGuard {
-    DeviceGuard(int32_t devId): nDevId(devId) {
-        (void)rtGetDevice(&oDevId);
-        if (nDevId != oDevId) {
-            rtSetDevice(nDevId);
+    void InitConfigOptions(py::object &module) {
+        auto options = module.attr("runtime_options");
+        if (py::hasattr(options, "triple_stream_sched")) {
+            tripleStream = options.attr("triple_stream_sched").cast<bool>();
+        }
+        if (py::hasattr(options, "stitch_cfgcache_size")) {
+            stitchCfgCacheSize = options.attr("stitch_cfgcache_size").cast<int64_t>();
+        }
+        if (!options.attr("infer_controlflow_shape").is_none()) {
+            inferCacheShape = true;
         }
     }
 
-    ~DeviceGuard() {
-        if (nDevId != oDevId) {
-            rtSetDevice(oDevId);
-        }
-    }
-
-    int32_t oDevId {0};
-    int32_t nDevId {0};
-};
-
-static Function *Compile(py::object module, py::args &args) {
-    Program::GetInstance().Reset();
-    auto compile = py::getattr(module, "compile");
-    compile(args);
-    return Program::GetInstance().GetLastFunction();
-}
-
-static void BuildDefaultCache(KernelBinary *kbinary, py::object &module, std::vector<DeviceTensorData> &tensors) {
-    auto infershape = py::getattr(module, "infer_controlflow_shape");
-    if (!infershape.is_none()) {
+    void BuildDefaultCache(py::object &module) {
+        auto infershape = py::getattr(module, "infer_controlflow_shape");
         auto cfshapes = infershape().cast<py::list>();
+        auto tensors = kernel->GetArgTypes();
         for (auto &pyshape : cfshapes) {
             auto inputShapes = pyshape.cast<std::vector<std::vector<int64_t>>>();
             if (inputShapes.size() != tensors.size()) {
@@ -606,27 +656,12 @@ static void BuildDefaultCache(KernelBinary *kbinary, py::object &module, std::ve
             for (size_t i = 0; i < tensors.size(); i++) {
                 inputs.emplace_back(tensors[i].GetDataType(), nullptr, inputShapes[i]);
             }
-            kbinary->BuildControlFlowCache(inputs, true);
+            kernel->BuildControlFlowCache(inputs, true);
         }
     }
-}
 
-static uint8_t *BuildTempCache(KernelBinary *kbinary, py::object &module, std::vector<DeviceTensorData> &tensors) {
-    auto ctrlCache = kbinary->BuildControlFlowCache(tensors, false);
-    auto size = ctrlCache->allCacheSize;
-    auto pyalloc = py::getattr(module, "alloc");
-    auto devCache = (uint8_t *)pyalloc(size).cast<int64_t>();
-    AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
-    int ret = rtMemcpy(devCache, size, (uint8_t *)ctrlCache, size, RT_MEMCPY_HOST_TO_DEVICE);
-    if (ret != RT_ERROR_NONE) {
-        ALOG_ERROR("memcpy failed ", ret);
-    }
-    return devCache;
-}
-
-static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object &module, py::args &args) {
-    auto infershape = py::getattr(module, "infer_controlflow_shape");
-    if (!infershape.is_none()) {
+    std::vector<std::vector<int64_t>> InferCacheShape(py::object &module, py::args &args) {
+        auto infershape = py::getattr(module, "infer_controlflow_shape");
         py::list oriShapes;
         for (auto &pt : args) {
             auto shape = py::getattr(pt, "ori_shape");
@@ -636,13 +671,25 @@ static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object &module, py::arg
         }
         auto cfshape = infershape(*oriShapes);
         if (cfshape.is_none()) {
-            return nullptr;
+            return {};
         }
-        auto shape = cfshape.cast<std::vector<std::vector<int64_t>>>();
-        return kbinary->FindCtrlFlowCache(shape);
+        return cfshape.cast<std::vector<std::vector<int64_t>>>();
     }
-    return nullptr;
-}
+
+private:
+    bool inferCacheShape{false};
+    bool tripleStream{false};
+    int64_t stitchCfgCacheSize{0};
+
+    rtHostInputInfo_t hostInfo;
+    rtAicpuArgsEx_t rtAicpuArgs;
+
+    rtArgsEx_t rtAicoreArgs;
+    rtTaskCfgInfo_t rtTaskCfg;
+    std::vector<void *> kernelArgs;
+    KernelBinary *kernel{nullptr};
+};
+using KernelModulePtr = std::shared_ptr<KernelModule>;
 
 static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensors) {
     py::object device = py::none();
@@ -695,37 +742,31 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
 
     auto t2 = GetTimeMonotonic();
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
-    auto kbinary = kmodule->GetKernelBinary();
-    if (kbinary == nullptr) {
+    if (!kmodule->IsCompiled()) {
         Program::GetInstance().Reset();
         // Set capture mode to relaxed to support rtmemcpy / rtmemset
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
-        auto func = Compile(module, args);
-        kbinary = kmodule->Init(Program::GetInstance().GetFunctionSharedPtr(func));
-        BuildDefaultCache(kbinary, module, tensors);
+        kmodule->Compile(module, args);
     } else {
-        ASSERT(kbinary->CheckArgs(tensors)) << "Invalid input tensors";
+        ASSERT(kmodule->CheckArgs(tensors)) << "Invalid input tensors";
     }
 
     auto t3 = GetTimeMonotonic();
-    uint8_t *ctrlFlowCache = nullptr;
-    if (kbinary->ControlFlowCacheEnable()) {
-        ctrlFlowCache = FindCtrlCache(kbinary, module, args);
-    }
+    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(module, args);
     auto captured = AttachAicpuStream(aicoreStream, aicpuStream);
     if (ctrlFlowCache == nullptr && captured) {
-        ctrlFlowCache = BuildTempCache(kbinary, module, tensors);
+        ctrlFlowCache = kmodule->BuildTempCache(module, tensors);
     }
 
     int64_t *wsAddr = nullptr;
-    int64_t wsSize = kbinary->GetWorkspaceSize(tensors);
+    int64_t wsSize = kmodule->GetWorkspaceSize(tensors);
     if (wsSize) {
         auto pyalloc = py::getattr(module, "alloc");
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
 
     auto t4 = GetTimeMonotonic();
-    kmodule->Launch(kbinary, aicpuStream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    kmodule->Launch(aicpuStream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
     auto t5 = GetTimeMonotonic();
     ALOG_ERROR_F(">> %lu %lu %lu %lu", t2 - t1, t3 - t2, t4 - t3, t5 - t4);
 }
@@ -752,6 +793,6 @@ void BindRuntime(py::module &m) {
         .def("GetShape", &DeviceTensorData::GetShape)
         .def("GetDataType", &DeviceTensorData::GetDataType);
 
-    py::class_<KernelModule, KernelModulePtr>(m, "KernelModule").def(py::init<>());
+    py::class_<KernelModule, KernelModulePtr>(m, "KernelModule").def(py::init<py::object &>());
 }
 } // namespace pypto
