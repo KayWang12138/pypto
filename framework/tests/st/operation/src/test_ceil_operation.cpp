@@ -81,7 +81,7 @@ static void CeilOperationExeFunc3Dims(
                             std::min(thirdDim - nIdx * thirdViewShape, thirdViewShape)},
                         {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape});
                     TileShape::Current().SetVecTile(args->tileShape_);
-                    auto res = Ceil(tileTensor);  // 核心修改：Sqrt → Ceil
+                    auto res = Ceil(tileTensor); 
                     Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape, nIdx * thirdViewShape}, outputs[0]);
                 }
             }
