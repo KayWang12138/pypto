@@ -296,9 +296,12 @@ bool Function::IsCube() const {
                 op.oOperand[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) ||
                 op.GetOpcode() == Opcode::OP_GATHER_IN_L1;
     };
+    auto hasCubeAttr = [](const Operation &op) {
+        return op.HasAttr(OpAttributeKey::isCube) && op.GetBoolAttribute(OpAttributeKey::isCube);
+    };
 
     for (const auto &oper : OperationsViewer(operations_, opPosition_)) {
-        if (isL1CopyIn(oper)) {
+        if (isL1CopyIn(oper) || hasCubeAttr(oper)) {
             return true;
         }
     }
