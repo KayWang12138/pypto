@@ -66,6 +66,7 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
     DeviceKernelArgs kArgs;
     DeviceLauncher::DeviceInitDistributedContextToHost(function->GetDyndevAttribute()->commGroupNames,
  	                                          function->GetDyndevAttribute()->devProgBinary);
+    DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
                                          ctrlCache, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
