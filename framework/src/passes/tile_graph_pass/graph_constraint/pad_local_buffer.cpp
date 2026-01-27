@@ -117,9 +117,9 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         in->tensor->oriRawshape = in->tensor->rawshape;
         in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);
         auto out = op.GetOOperands()[0];
-        out->shape[lowIndex] = Pad(out->shape[lowIndex], CUBE_PAD_VALUE);
+        out->shape[lowIndex] = Pad(out->shape[lowIndex], CUBE_PAD_INT8_VALUE);
         out->tensor->oriRawshape = out->tensor->rawshape;
-        out->tensor->rawshape[lowIndex] = Pad(out->tensor->oriRawshape[lowIndex], CUBE_PAD_VALUE);
+        out->tensor->rawshape[lowIndex] = Pad(out->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);
         return;
     }
     if (isL1ConvertScene) {
