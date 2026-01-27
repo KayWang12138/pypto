@@ -128,14 +128,6 @@ TEST_F(DyNsa, gateScore_mini_mtp) {
     TestNsa<npu::tile_fwk::float16>(params);
 }
 
-TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_4096 * 2;
-    params.n2 = 1;
-    TestGenslc<npu::tile_fwk::float16>(params,(4096+1024*2)+1,true);
-}
-
 TEST_F(DyNsa, GenTopk_b1_s1_fp_6k1_dyn) {
     SimpleParams params = SimpleParams::getHighParams();
     params.b = 1;

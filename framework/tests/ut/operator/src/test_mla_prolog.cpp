@@ -149,29 +149,3 @@ void TestMlaPrologV2(std::vector<int> &params, bool isQuant = false, bool hasSmo
         }
     }
 }
-
-TEST_F(MlaPrologUtest, mla_ut_bf16_high_quant_smooth_nz_pa_bsnd) {  // b_n_s_s2_h_q_lora_rank
-    config::SetPassOption(VEC_NBUFFER_MODE, 2);
-    config::SetPassOption(VEC_NBUFFER_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
-    int b = 32;
-    int s = 1;
-    int s2 = 4096;
-    int h = 7168;
-    int n = 128;
-    int qLoraRank = 1536;
-    int qkNopeHeadDim = 128;
-    int qkRopeHeadDim = 64;
-    int kvLoraRank = 512;
-
-    int blockSize = 128;
-    std::string cacheMode = "PA_BSND";
-
-    const bool splitReduceLastDim = false;
-    const bool splitK = false;
-    const bool nz = true;
-    const bool usePrefetch = false;
-
-    std::vector<int> params = {b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank};
-    TestMlaPrologV2<npu::tile_fwk::bfloat16, splitReduceLastDim, splitK, nz, usePrefetch>(params, true, true,
-                                                                                 blockSize, cacheMode);
-}

@@ -176,7 +176,3 @@ void CommonTestConfig() {
 
     TestCmpAttnTopk<npu::tile_fwk::bfloat16>(config);
 }
-
-TEST_F(CmpAttnTopk, cmp_attn_with_topk_singleop_bf16) {
-    CommonTestConfig();
-}

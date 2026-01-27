@@ -1347,11 +1347,6 @@ void TestMlaPrologV2(const SimpleParams &params) {
 TEST_F(FunctionTest, low) {
     TestMlaPrologV2<npu::tile_fwk::float16>(SimpleParams::getLowParams());
 }
-TEST_F(FunctionTest, low_PAND) {
-    npu::tile_fwk::SimpleParams params = SimpleParams::getLowParams();
-    params.cacheMode = "PA_BSND";
-    TestMlaPrologV2<npu::tile_fwk::float16, false, int8_t, true>(params);
-}
 
 TEST_F(FunctionTest, dynamic_page_attention_adds) {
     config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);

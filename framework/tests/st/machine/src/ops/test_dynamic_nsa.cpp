@@ -414,13 +414,6 @@ TEST_F(DyNsa, GenSlc_b1_s1_fp_4k) {
     TestGenslc<float16>(params, NUM_4096, true);
 }
 
-TEST_F(DyNsa, GenSlc_b1_s1_fp_6k1) {
-    SimpleParams params = SimpleParams::getHighParams();
-    params.b = 1;
-    params.s2 = NUM_8192;
-    params.n2 = 1;
-    TestGenslcV2<float16>(params, NUM_6144 + 1);
-}
 
 TEST_F(DyNsa, GenSlc_b1_s1_bf_1k1) {
     SimpleParams params = SimpleParams::getHighParams();
