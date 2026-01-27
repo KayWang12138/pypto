@@ -28,6 +28,7 @@
 #include "passes/algorithms/osp/dag_divider/isomorphism_divider/PrecomputedHashComputer.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/LocalSearch/KernighanLin/kl_include.hpp"
 #include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.hpp"
+#include "tilefwk/platform.h"
 #include "supernode_graph_builder.h"
 //#include "passes/pass_config/pass_config_manager.h" where is this now?
 #include "passes/pass_interface/pass.h"

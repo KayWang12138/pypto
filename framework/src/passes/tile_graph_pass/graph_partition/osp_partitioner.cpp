@@ -291,9 +291,9 @@ Status OspPartitioner::ConstructDagCVMix(GraphType &graph)
 
 void OspPartitioner::ConstructBspArchCVSplit(osp::BspArchitecture<GraphType> &bspArch)
 {
-    const size_t numCubeCores = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::CUBECORE);
-    const size_t numVectorCores = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::VECTORCORE);
-    const size_t numAiScalarCores = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
+    const size_t numCubeCores = Platform::Instance().GetSoc().GetAICCoreNum();
+    const size_t numVectorCores = Platform::Instance().GetSoc().GetAIVCoreNum();
+    const size_t numAiScalarCores = Platform::Instance().GetSoc().GetAICPUNum();
 
     const size_t numCores = numCubeCores + numVectorCores + numAiScalarCores;
     std::vector<osp::VTypeT<GraphType>> procTypes(numCores);
@@ -319,9 +319,9 @@ void OspPartitioner::ConstructBspArchCVSplit(osp::BspArchitecture<GraphType> &bs
 
 Status OspPartitioner::ConstructBspArchCVMix(osp::BspArchitecture<GraphType> &bspArch)
 {
-    const size_t numCubeCores = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::CUBECORE);
-    const size_t numVectorCores = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::VECTORCORE);
-    const size_t numAiScalarCores = PassConfigManager::Instance().GetPlatformConfig().GetCoreNum(NpuCoreType::AICORE);
+    const size_t numCubeCores = Platform::Instance().GetSoc().GetAICCoreNum();
+    const size_t numVectorCores = Platform::Instance().GetSoc().GetAIVCoreNum();
+    const size_t numAiScalarCores = Platform::Instance().GetSoc().GetAICPUNum();
 
     if (numCubeCores == 0 || ((numVectorCores % numCubeCores) != 0)) {
         APASS_LOG_ERROR_F(Elements::Config, "OSP bsp architecture does not satisfy an 1:N ratio of Cube:Vector cores.");
