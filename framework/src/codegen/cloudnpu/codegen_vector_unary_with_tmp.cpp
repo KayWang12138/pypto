@@ -280,7 +280,7 @@ std::string CodeGenOpCloudNPU::PrintCompact(const PrintUnaryTmpBuffParam &param)
     return PrintCompactStatic(param);
 }
 
-std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
+std::string CodeGenOpCloudNPU::PrintRound() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
@@ -290,114 +290,6 @@ std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
     oss << tileOpName.c_str() << "<float>" << "(" << dstTensor << ", " << tmpTensor << ", " << srcTensor << ", "
         << scalarTmpBuffer << ");\n";
     return oss.str();
-}
-
-std::string CodeGenOpCloudNPU::PrintRoundDynamicUnaligned(const PrintUnaryTmpBuffParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &tmpDtypeStr = param.tmpDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &tVar = param.tmpVar;
-    const std::string &s0Var = param.s0Var;
-
-    std::vector<int64_t> ss = NormalizeShape(rawShape[2], SHAPE_DIM4);
-    std::vector<int64_t> ts = NormalizeShape(rawShape[1], SHAPE_DIM4);
-    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
-
-    std::ostringstream os;
-    std::vector<std::string> paramList;
-    paramList.emplace_back(dstDtypeStr);
-    paramList.emplace_back("/*DS*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
-        paramList.emplace_back(std::to_string(ds[i]));
-    }
-    paramList.emplace_back("/*TS*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
-        paramList.emplace_back(std::to_string(ts[i]));
-    }
-    paramList.emplace_back("/*SS*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
-        paramList.emplace_back(std::to_string(ss[i]));
-    }
-    paramList.emplace_back(FormatFloat(extOperandVal.Cast<float>()));
-    std::string templateParam = JoinString(paramList, CONN_COMMA);
-    paramList.clear();
-    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
-    std::string tmp = "(__ubuf__ " + srcDtypeStr + "*)" + tVar;
-    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
-    paramList.emplace_back(dst);
-    paramList.emplace_back(tmp);
-    paramList.emplace_back(src0);
-
-    auto dynSrcShape = dynamicValidShape[2];
-    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
-    for (auto dynShape : dynSrcShape) {
-        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynShape));
-    }
-    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
-    os << tileOpName.c_str() << "_<" << templateParam << ">"
-       << "(" << tiloOpCallParam << ");\n";
-
-    return os.str();
-}
-
-std::string CodeGenOpCloudNPU::PrintRoundStatic(const PrintUnaryTmpBuffParam &param) const {
-    const std::string &dstDtypeStr = param.dstDtypeStr;
-    const std::string &tmpDtypeStr = param.tmpDtypeStr;
-    const std::string &srcDtypeStr = param.srcDtypeStr;
-    const std::string &dVar = param.dVar;
-    const std::string &tVar = param.tmpVar;
-    const std::string &s0Var = param.s0Var;
-    std::vector<int64_t> os0 = NormalizeShape(originShape[2], SHAPE_DIM4);
-    std::vector<int64_t> ss = NormalizeShape(rawShape[2], SHAPE_DIM4);
-    std::vector<int64_t> ts = NormalizeShape(rawShape[1], SHAPE_DIM4);
-    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
-
-    std::ostringstream os;
-    std::vector<std::string> paramList;
-    paramList.emplace_back(dstDtypeStr);
-    paramList.emplace_back("/*OS*/");
-    for (int i = 0; i < SHAPE_DIM4; ++i) {
-        paramList.emplace_back(std::to_string(os0[i]));
-    }
-    paramList.emplace_back("/*DS*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
-        paramList.emplace_back(std::to_string(ds[i]));
-    }
-    paramList.emplace_back("/*TS*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
-        paramList.emplace_back(std::to_string(ts[i]));
-    }
-    paramList.emplace_back("/*SS*/");
-    for (int i = 1; i < SHAPE_DIM4; ++i) {
-        paramList.emplace_back(std::to_string(ss[i]));
-    }
-    paramList.emplace_back(FormatFloat(extOperandVal.Cast<float>()));
-    std::string templateParam = JoinString(paramList, CONN_COMMA);
-
-    paramList.clear();
-    std::string dst = "(__ubuf__ " + dstDtypeStr + "*)" + dVar;
-    std::string tmp = "(__ubuf__ " + srcDtypeStr + "*)" + tVar;
-    std::string src0 = "(__ubuf__ " + srcDtypeStr + "*)" + s0Var;
-    paramList.emplace_back(dst);
-    paramList.emplace_back(tmp);
-    paramList.emplace_back(src0);
-
-    std::string tiloOpCallParam = JoinString(paramList, CONN_COMMA);
-    os << tileOpName.c_str() << "_<" << templateParam << ">"
-       << "(" << tiloOpCallParam << ");\n";
-
-    return os.str();
-}
-
-std::string CodeGenOpCloudNPU::PrintRound(const PrintUnaryTmpBuffParam &param) const {
-    if (isSupportLayout) {
-        return PrintRoundLayout();
-    }
-    if (isDynamicFunction) {
-        return PrintRoundDynamicUnaligned(param);
-    }
-    return PrintRoundStatic(param);
 }
 
 std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const {
@@ -526,10 +418,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     std::string tmpVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    std::vector srcShape = this->rawShape[2];
+    std::vector srcShape = this->rawShape[MIMOIdx::SRC0_IDX];
     ALOG_INFO_F("GenUnaryOpWithTmpBuff %s src raw shape: %s", tileOpName.c_str(), IntVecToStr(srcShape).c_str());
 
-    std::vector dstShape = this->rawShape[0];
+    std::vector dstShape = this->rawShape[MIMOIdx::DST_IDX];
     ALOG_INFO_F("GenUnaryOpWithTmpBuff %s dst raw shape: %s", tileOpName.c_str(), IntVecToStr(dstShape).c_str());
 
     std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID2]);
@@ -544,7 +436,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     }
 
     if (opCode == Opcode::OP_ROUND) {
-        return PrintRound({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+        return PrintRound();
     } 
 
     if (opCode == Opcode::OP_ROWSUMLINE) {
