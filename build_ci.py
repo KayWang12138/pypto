@@ -30,10 +30,6 @@ from importlib import metadata
 from packaging import requirements
 
 
-if str(Path(Path(__file__).parent, "tools")) not in sys.path:
-    sys.path.append(str(Path(Path(__file__).parent, "tools")))
-
-
 class CMakeParam(abc.ABC):
     """需要向 CMake 传入 Option 的参数
     """
@@ -52,27 +48,46 @@ class CMakeParam(abc.ABC):
     @staticmethod
     @abc.abstractmethod
     def reg_args(parser, ext: Optional[Any] = None):
+        """
+        注册命令行参数
+
+        :param parser: 参数解析器
+        :param ext: 扩展信息, 用于子类特殊实现扩展时使用
+        :type ext: Optional[Any]
+        """
         pass
 
     @classmethod
     def _cfg_require(cls, opt: str, ctr: bool = True, tv: str = "ON", fv: str = "OFF") -> str:
-        """获取 CMake Config 阶段的必选 Option 配置
+        """
+        获取 CMake Config 阶段的必选 Option 配置
 
-        :param opt: CMake 选项, 会最终体现到 CMake -D传入的参数中
-        :param ctr: 控制变量
-        :param tv: 控制变量为 True 时, 设置的值
-        :param fv: 控制变量为 False 时, 设置的值
-        :return: 设置的值
+        :param opt: CMake Option 值, 会最终体现到 CMake -D传入的参数中
+        :type opt: str
+        :param ctr: 控制变量, 标识 CMake Option 布尔值
+        :type ctr: bool
+        :param tv: ctr 为 True 时, 设置的值
+        :type tv: str
+        :param fv: ctr 为 False 时, 设置的值
+        :type fv: str
+        :return: 设置结果
+        :rtype: str
         """
         return f" -D{opt}=" + (tv if ctr else fv)
 
     @classmethod
     def _cfg_optional(cls, opt: str, ctr: bool, v: str):
-        """获取 CMake Config 阶段的可选 Option 配置
+        """
+        获取 CMake Config 阶段的可选 Option 配置
 
-        :param opt: CMake 选项, 会最终体现到 CMake -D传入的参数中
-        :param ctr: 控制变量
+        :param opt: CMake Option 值, 会最终体现到 CMake -D传入的参数中
+        :type opt: str
+        :param ctr: 控制变量, 标识 CMake Option 布尔值
+        :type ctr: bool
         :param v: 控制变量为 True 时, 设置的值
+        :type v: str
+        :return: 设置结果
+        :rtype: str
         """
         return (f" -D{opt}=" + v) if ctr else ""
 
@@ -230,7 +245,7 @@ class BuildParam(CMakeParam):
 
     @staticmethod
     def _get_job_num(job_num: Optional[int], generator: Optional[str]) -> Optional[int]:
-        def_job_num = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 48)  # 48 为缺省最大核数
+        def_job_num = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 128)  # 128 为缺省最大核数
         def_job_num = None if generator and generator.lower() in ["ninja", ] else def_job_num  # ninja 由其自身决定缺省核数
         job_num = job_num if job_num and job_num > 0 else def_job_num
         return job_num
@@ -297,6 +312,7 @@ class TestsExecuteParam(CMakeParam):
     auto_execute: bool = False  # 用例自动执行
     auto_execute_parallel: bool = False  # 用例并行执行
     case_execute_timeout: Optional[int] = None  # 用例执行时, 单个用例超时时长
+    case_execute_cpu_rank_size: Optional[int] = None  # 用例并行执行时, CPU 亲和性 Rank Size
 
     def __init__(self, args):
         self.changed_file = None if not args.changed_files else Path(args.changed_files).resolve()
@@ -304,6 +320,7 @@ class TestsExecuteParam(CMakeParam):
         self.auto_execute_parallel = self.auto_execute and self.ci_model
         timeout = args.case_execute_timeout
         self.case_execute_timeout = timeout if timeout and timeout > 0 else None  # 单个用例执行超时时长
+        self.case_execute_cpu_rank_size = args.cpu_rank_size
 
     @property
     def ci_model(self) -> bool:
@@ -318,6 +335,8 @@ class TestsExecuteParam(CMakeParam):
                             help="Disable auto execute STest/Utest with build.")
         parser.add_argument("--case_execute_timeout", nargs="?", type=int, default=None,
                             help="Case execute timeout.")
+        parser.add_argument("--cpu_rank_size", nargs="?", type=int, default=None,
+                            help="Specify the rank size for CPU affinity grouping.")
 
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         cmd = self._cfg_require(opt="ENABLE_TESTS_EXECUTE", ctr=self.auto_execute)
@@ -520,6 +539,7 @@ class TestsParam(CMakeParam):
         self.stest_group: TestsFilterParam = TestsFilterParam(argv=args.stest_group, opt="ENABLE_STEST_GROUP")
         self.stest_distributed: TestsFilterParam = TestsFilterParam(argv=args.stest_distributed,
                                                                     opt="ENABLE_STEST_DISTRIBUTED")
+        self.models: TestsFilterParam = TestsFilterParam(argv=args.models)
         self.example: TestsFilterParam = TestsFilterParam(argv=args.example)
 
     def __str__(self):
@@ -564,6 +584,10 @@ class TestsParam(CMakeParam):
                 desc += f"\n    Stest Distributed"
                 desc += f"\n                     Enable : {self.stest_distributed.enable}"
                 desc += f"\n                     Filter : {self.stest_distributed.filter_str}"
+            if self.models.enable:
+                desc += f"\n    Models"
+                desc += f"\n                     Enable : {self.models.enable}"
+                desc += f"\n                     Filter : {self.models.filter_str}"
             if self.example.enable:
                 desc += f"\n    Example"
                 desc += f"\n                     Enable : {self.example.enable}"
@@ -572,7 +596,8 @@ class TestsParam(CMakeParam):
 
     @property
     def enable(self) -> bool:
-        return self.utest.enable or self.stest.enable or self.stest_distributed.enable or self.example.enable
+        tests_enable = self.utest.enable or self.stest.enable or self.stest_distributed.enable
+        return tests_enable or self.example.enable or self.models.enable
 
     @staticmethod
     def reg_args(parser, ext: Optional[Any] = None):
@@ -585,12 +610,14 @@ class TestsParam(CMakeParam):
         TestsFilterParam.reg_args(parser=parser, ext="stest")
         TestsFilterParam.reg_args(parser=parser, ext="stest_group")
         TestsFilterParam.reg_args(parser=parser, ext="stest_distributed")
+        TestsFilterParam.reg_args(parser=parser, ext="models")
         TestsFilterParam.reg_args(parser=parser, ext="example")
 
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         cmd = self.utest.get_cfg_cmd()
         cmd += self.stest.get_cfg_cmd()
         cmd += self.stest_distributed.get_cfg_cmd()
+        cmd += self.models.get_cfg_cmd()
         cmd += self.example.get_cfg_cmd()
         if self.enable:
             cmd += self.exec.get_cfg_cmd()
@@ -657,9 +684,13 @@ class BuildCtrl(CMakeParam):
 
     @staticmethod
     def which_cmake() -> Optional[Path]:
-        """查找系统级 CMake 可执行文件路径
+        """
+        查找系统级 CMake 可执行文件路径
 
-        排除 cmake pip 包的干扰
+        实现本函数是为了排除 cmake pip 包的干扰, 否则在 Python 中直接调用 cmake 会调用到 cmake pip 包.
+
+        :return: 系统级 cmake 可执行文件绝对路径
+        :rtype: Path | None
         """
         # 拆分 PATH 环境变量为单个目录列表(排除空目录)
         path_dir_lst = [d.strip() for d in os.environ.get("PATH", "").split(os.pathsep) if d.strip()]
@@ -689,11 +720,15 @@ class BuildCtrl(CMakeParam):
 
     @staticmethod
     def find_match_whl(name: str, path: Path) -> Optional[Path]:
-        """在指定路径下, 查找对应匹配的 whl 包文件
+        """
+        在指定路径下, 查找对应匹配的 whl 包文件
 
         :param name: 包名
+        :type name: str
         :param path: 指定路径
-        :return: whl 包路径, None 表示未找到
+        :type path: Path
+        :return: 指定路径
+        :rtype: Path | None
         """
         cpp_desc = f"cp{sys.version_info.major}{sys.version_info.minor}"
         pattern = f"{name}-*-{cpp_desc}-{cpp_desc}-*.whl"
@@ -864,9 +899,15 @@ class BuildCtrl(CMakeParam):
         env = {}
         if self.build.job_num:
             env["PYPTO_TESTS_PARALLEL_NUM"] = str(self.build.job_num)
-        case_timeout = self.tests.exec.case_execute_timeout
-        if self.tests.exec.auto_execute and case_timeout and case_timeout > 0:
-            env["PYPTO_TESTS_CASE_EXECUTE_TIMEOUT"] = str(case_timeout)
+        # Tests exec
+        tests_exec = self.tests.exec
+        if tests_exec.auto_execute:
+            case_timeout = tests_exec.case_execute_timeout
+            if case_timeout and case_timeout > 0:
+                env["PYPTO_TESTS_CASE_EXECUTE_TIMEOUT"] = str(case_timeout)
+            rank_size = tests_exec.case_execute_cpu_rank_size
+            if rank_size and rank_size > 0:
+                env["PYPTO_TESTS_CASE_EXECUTE_CPU_RANK_SIZE"] = str(rank_size)
         return env
 
     def pip_install(self, whl: Path, dest: Optional[Path] = None, opt: str = "",
@@ -1018,7 +1059,8 @@ class BuildCtrl(CMakeParam):
             logging.info("Build whl success, %s", duration)
 
     def py_tests(self):
-        if not self.tests.utest.enable and not self.tests.stest.enable and not self.tests.example.enable:
+        tests_enable = self.tests.utest.enable or self.tests.stest.enable
+        if not tests_enable and not self.tests.example.enable and not self.tests.models.enable:
             return
         dist = self._get_pip_install_dist()
         if not self._use_pip_install_mode():
@@ -1036,30 +1078,36 @@ class BuildCtrl(CMakeParam):
             n_workers = str(self.build.job_num)
         else:
             n_workers = "auto"
-        self.py_tests_run_pytest(dist=dist, tests=self.tests.utest,
-                                 def_filter=str(Path(self.src_root, "python/tests/ut")),
+        self.py_tests_run_pytest(dist=dist, params=[(self.tests.utest, "python/tests/ut")],
                                  ext=f"-n {n_workers} -W ignore::DeprecationWarning")
 
-        # 设置 Device 相关参数
+        # 执行用例, Models/STest, 支持混合执行
         dev_lst = [int(d) for d in self.tests.stest_exec.auto_execute_device_id.split(":")]
         dev_ext = " ".join(f"{d}" for d in dev_lst)
         ext_str = f"-n {len(dev_lst)} --device {dev_ext}"
-
-        # 执行用例, STest
-        self.py_tests_run_pytest(dist=dist, tests=self.tests.stest,
-                                 def_filter=str(Path(self.src_root, "python/tests/st")),
+        self.py_tests_run_pytest(dist=dist, params=[(self.tests.models, "models"),
+                                                    (self.tests.stest, "python/tests/st")],
                                  ext=ext_str)
 
-        # 执行用例, Examples
-        self.py_tests_run_pytest(dist=dist, tests=self.tests.example,
-                                 def_filter=str(Path(self.src_root, "examples")),
-                                 ext=ext_str)
+    def py_tests_run_pytest(self, dist: Optional[Path], params: List[Tuple[TestsFilterParam, str]], ext: str = ""):
+        """
+        调用 pytest 执行用例
 
-    def py_tests_run_pytest(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str, ext: str = ""):
-        if not tests.enable:
-            return
+        :param dist: 二进制分发包安装路径
+        :type dist: Optional[Path]
+        :param params: 参数列表, 支持多路径下用例混跑
+        :type params: List[Tuple[TestsFilterParam, str]]
+        :param ext: 扩展命令参数
+        :type ext: str
+        """
         # filter 处理
-        filter_str = tests.get_filter_str(def_filter=def_filter)
+        filter_str = ""
+        for cur_tests, cur_filter_str in params:
+            cur_filter_str = cur_tests.get_filter_str(def_filter=cur_filter_str)
+            if cur_filter_str:
+                filter_str += f" {cur_filter_str}"
+        if not filter_str:
+            return
         # 执行 pytest
         self._py_tests_run_pytest(dist=dist, filter_str=filter_str, ext=ext)
 
@@ -1071,6 +1119,9 @@ class BuildCtrl(CMakeParam):
         # cmd 拼接
         cmd = f"{sys.executable} -m pytest {filter_str} -v --durations=0 -s --capture=no"
         cmd += f" --rootdir={self.src_root} {ext} --forked"
+        if self.check_pip_dependencies(deps={"pytest-xdist": ">=3.8.0"}, raise_err=False, log_err=False):
+            cmd += " --dist=loadscope"
+            cmd += " --no-loadscope-reorder"
         # cmd 执行
         origin_env = os.environ.copy()
         update_env = {}

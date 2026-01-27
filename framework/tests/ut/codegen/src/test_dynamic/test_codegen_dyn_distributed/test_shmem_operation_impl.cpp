@@ -17,6 +17,7 @@
 #include <string>
 
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
@@ -31,19 +32,36 @@ namespace npu::tile_fwk::Distributed {
 
 class TestDistributedShmemImpl : public ::testing::Test {
 private:
-    void CreateShmemTensors(const char* group, uint32_t worldSize, 
-                          const Tensor& in, const Shape& shmemDataShape,
-                          Tensor& shmemData, Tensor& shmemSignal) {
-        DataType shmemDataType = in.GetDataType();
-        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
-            shmemDataType = DT_FP32;
-        }
-        
+    void CreateShmemTensors(const char* group, uint32_t worldSize, const DataType shmemDataType,
+        const Shape& shmemDataShape, Tensor& shmemData, Tensor& shmemSignal)
+    {
         LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void)index;
             CreateShmemData(group, worldSize, shmemDataType, shmemDataShape, shmemData);
             CreateShmemSignal(group, shmemData, shmemSignal);
         }
+    }
+
+    DataType GetType(const Tensor& in)
+    {
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        return shmemDataType;
+    }
+
+    std::string getTimeStamp() 
+    {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count() % 1000000;
+
+        std::stringstream timestamp;
+        timestamp << std::put_time(std::localtime(&time), "%Y%m%d_%H%M%S");
+        constexpr int NUM_SIX = 6;
+        timestamp << "_" << std::setw(NUM_SIX) << std::setfill('0') << us;
+        return timestamp.str();
     }
 
 public:
@@ -55,8 +73,10 @@ public:
     {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(getpid());
+        setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
     }
 
     void TearDown() override {}
@@ -82,7 +102,7 @@ TEST_F(TestDistributedShmemImpl, TestAllGather)
         TileShape::Current().SetVecTile({16, 32});
         Tensor shmemData;
         Tensor shmemSignal;
-        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        CreateShmemTensors(group, worldSize, DT_FP16, shmemDataShape, shmemData, shmemSignal);
         AllGather(in, in, group, shmemData, shmemSignal, out);
     }
 
@@ -99,14 +119,13 @@ TEST_F(TestDistributedShmemImpl, TestReduceScatter)
     uint32_t worldSize = 4;
     Tensor in(DT_FP16, {64, 256}, "in");
     Tensor out(DT_FP16, {16, 256}, "out");
-    DataType shmemDataType = in.GetDataType();
-    shmemDataType = (shmemDataType == DT_BF16) || (shmemDataType == DT_FP16) ? DT_FP32 : shmemDataType;
     Shape shmemDataShape = {1, 64 / 4, 256};
     FUNCTION("REDUCESCATTER", {in}, {out}) {
         TileShape::Current().SetVecTile({64, 256});
         Tensor shmemData;
         Tensor shmemSignal;
-        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        DataType shmemDataType = GetType(in);
+        CreateShmemTensors(group, worldSize, shmemDataType, shmemDataShape, shmemData, shmemSignal);
         ReduceScatter(in, in, group, shmemData, shmemSignal, DistReduceType::DIST_REDUCE_ADD, out);
     }
 
@@ -128,7 +147,8 @@ TEST_F(TestDistributedShmemImpl, TestTwoShotAllReduce)
         TileShape::Current().SetVecTile({64, 256});
         Tensor shmemData;
         Tensor shmemSignal;
-        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        DataType shmemDataType = GetType(in);
+        CreateShmemTensors(group, worldSize, shmemDataType, shmemDataShape, shmemData, shmemSignal);
         TwoShotAllReduce(in, in, group, shmemData, shmemSignal, out);
     }
 
@@ -151,7 +171,8 @@ TEST_F(TestDistributedShmemImpl, TestOneShotAllReduce)
         TileShape::Current().SetVecTile({64, 256});
         Tensor shmemData;
         Tensor shmemSignal;
-        CreateShmemTensors(group, worldSize, in, shmemDataShape, shmemData, shmemSignal);
+        DataType shmemDataType = GetType(in);
+        CreateShmemTensors(group, worldSize, shmemDataType, shmemDataShape, shmemData, shmemSignal);
         OneShotAllReduce(in, in, group, shmemData, shmemSignal, out);
     }
 
@@ -219,7 +240,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
         Tensor predToken(DT_INT32, {1, 1}, "predToken");
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void) index;
-            ShmemBarrier(predToken, shmemSignal, group, worldSize, out);
+            out = ShmemBarrier(predToken, shmemSignal, group, worldSize);
         }
     }
 
@@ -232,7 +253,6 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
 
 TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
 {
-    const char* group = "hcom123";
     int64_t row = 4;
     int64_t col = 64;
     Tensor dummy(DT_INT32, {1, 1}, "dummy");
@@ -253,5 +273,4 @@ TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
-
 }

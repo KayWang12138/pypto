@@ -30,14 +30,18 @@
 namespace npu::tile_fwk {
 class TestCodegenDynScatter : public ::testing::Test {
 public:
-    static void SetUpTestCase() {}
+    static void SetUpTestCase() {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    }
 
-    static void TearDownTestCase() {}
+    static void TearDownTestCase() {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    }
 
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
@@ -61,17 +65,16 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
             output = Add(inputA, inputB);
         }
     }
+
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorIdx = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}});
-    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShapeIdx = {32};
-    localTensorSrc->UpdateDynValidShape(dynValidShape);
-    localTensorIdx->UpdateDynValidShape(dynValidShapeIdx);
-    localTensorDst->UpdateDynValidShape(dynValidShape);
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorIdx =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}, dynValidShapeIdx});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_SCATTER_ELEMENT, {localTensorSrc, localTensorIdx}, {localTensorDst});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
@@ -97,7 +100,6 @@ TEST_F(TestCodegenDynScatter, TestDynOpScatterElement) {
 }
 
 TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
-
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
@@ -116,20 +118,20 @@ TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    auto localTensorSelf = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
-    auto localTensorIdx = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}});
-    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
 
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     std::vector<SymbolicScalar> dynValidShapeIdx = {32};
-    localTensorSelf->UpdateDynValidShape(dynValidShape);
-    localTensorSrc->UpdateDynValidShape(dynValidShape);
-    localTensorIdx->UpdateDynValidShape(dynValidShapeIdx);
-    localTensorDst->UpdateDynValidShape(dynValidShape);
+    auto localTensorSelf =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorIdx =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, {32}, dynValidShapeIdx});
+    auto localTensorDst = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_INT32, MemoryType::MEM_UB, {32}});
 
     auto &op =
-        function->AddOperation(Opcode::OP_SCATTER, {localTensorSelf, localTensorIdx, localTensorSrc}, {localTensorDst});
+        function->AddOperation(Opcode::OP_SCATTER, {localTensorSelf, localTensorIdx, localTensorSrc},
+        {localTensorDst, localTensorTmp});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     op.SetAttribute(OP_ATTR_PREFIX + "axis", 0);
     op.SetAttribute(OP_ATTR_PREFIX + "scatter_mode", 0);
@@ -143,6 +145,7 @@ TEST_F(TestCodegenDynScatter, TestOpDynScatter) {
     function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
     function->GetTensorMap().inverseMap_[localTensorIdx->GetMagic()] = localTensorIdx;
     function->GetTensorMap().inverseMap_[localTensorDst->GetMagic()] = localTensorDst;
+    function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
 
     cop.Init(op);
     std::string res = cop.GenOpCode();
