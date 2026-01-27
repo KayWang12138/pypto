@@ -230,13 +230,13 @@ void TiledShmemPutUB2GM(Function& function, const TileShape& tileShape,
     (void)tileShape;
     auto in = iOperand[0];
     auto shmemData = iOperand[1];
-    auto barrierDummy = iOperand[2]; // operand 2
-    auto dummy = oOperand[0];
+    auto predToken = iOperand[2]; // operand 2
+    auto out = oOperand[0];
     DistOpAttr distOpAttr;
     op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     Shape shape = in->shape;
     auto copyBufferShape = GetCopyBufferShape(in->Datatype(), shmemData->Datatype(), shape);
-    auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_PUT_UB2GM, {in, shmemData, barrierDummy}, {dummy});
+    auto& tileOp = function.AddOperation(Opcode::OP_SHMEM_PUT_UB2GM, {in, shmemData, predToken}, {out});
     distOpAttr.copyBufferShape = copyBufferShape;
     tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
 }
