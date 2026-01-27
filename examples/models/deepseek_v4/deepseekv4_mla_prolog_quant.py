@@ -21,10 +21,12 @@ import torch_npu
 import pypto
 import logging
 import numpy as np
-from mla_prolog_quant_impl import mla_prolog_v4_in, mla_prolog_v4, MlaPrologV4Attrs, MlaPrologV4Configs, check_input_output_shape_dtype
+from mla_prolog_quant_impl import mla_prolog_v4_in, mla_prolog_v4, MlaPrologV4Attrs, \
+            MlaTileConfigs, MlaPrologV4Configs, check_input_output_shape_dtype
 from utils.compare import compare
 
 torch.manual_seed(5)
+
 
 def prep_env():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -197,7 +199,8 @@ def mla_prolog_compute(inputs):
     q_out = torch.concat([q_reshape[:, :, :-qk_rope_head_dim], q_embed], -1)
     kv_out = torch.concat([kv_reshape[:, :-qk_rope_head_dim], k_embed_r], -1)
 
-    return q_out, kv_out, q_a_layernorm
+    return q_out, kv_out, q_a_layernorm_out
+
 
 def gen_mla_prolog_input_data(params, dtypes, is_quant=True, is_nz=False):
     dtype = dtypes
@@ -254,6 +257,7 @@ def gen_mla_prolog_input_data(params, dtypes, is_quant=True, is_nz=False):
         res[10] = w_kv_scale
     return res
 
+
 def gen_mla_prolog_data(params, dtype, is_quant=True, is_nz=False):
     logging.debug(f"gen_mla_prolog_data dtype: {dtype}")
     x, wq_a, wq_b, w_kv, gamma_cq, gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale = \
@@ -275,6 +279,7 @@ def gen_mla_prolog_data(params, dtype, is_quant=True, is_nz=False):
     outputs = {"q_golden": q_out, "kv_golden": kv_out, "qr_golden": qr_out}
 
     return inputs, outputs
+
 
 def convert_pypto_to_torch_type(pypto_type):
     if pypto_type == pypto.DataType.DT_INT8:
@@ -311,6 +316,7 @@ def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv
 class MLA_MODEL(torch.nn.Module):
     def forward(self, token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale):
         return torch.ops.pypto.mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale)
+
 
 def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     d_type = pypto.DataType.DT_FP16 if dtype == pypto.DataType.DT_FP16 else pypto.DataType.DT_BF16
@@ -456,7 +462,22 @@ def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs,
 
     input_data = [token_x_data, wq_a_data, wq_b_data, wkv_data, gamma_cq_data, gamma_ckv_data, rope_cos_data, rope_sin_data, wq_a_scale_data, wq_b_scale_data, wkv_scale_data]
     output_data = [out_q, out_kv, out_qr]
-    mla_prolog_v4(*input_data, *output_data, attrs, configs)
+
+    if token_x.shape[0]>64:
+        tile_configs = MlaTileConfigs(
+                two_dim_tile=[1, 64],
+                three_dim_tile=[1, 64, 64],
+                four_dim_tile=[1, 64, 64, 64],
+                vec_tile=[max(1, token_x.shape[0]//16), 64]
+        )
+    else:
+        tile_configs = MlaTileConfigs(
+                two_dim_tile=[1, 64],
+                three_dim_tile=[1, 64, 64],
+                four_dim_tile=[1, 64, 64, 64],
+                vec_tile=[max(1, token_x.shape[0]//16), 64]
+        )
+    mla_prolog_v4(*input_data, *output_data, attrs, configs, tile_configs)
     pypto.runtime._device_synchronize()
 
     # golden data 
@@ -472,6 +493,7 @@ def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs,
     print("qr ================")
     compare(output_qr_data.cpu(), golden3.cpu(), "qrOut", 0.0001, 0.0078125, 0.005)
     print("=========== pass ==========")
+
 
 @pytest.mark.skip("t=4")
 def test_t4_pa_nd_bf16():
@@ -515,6 +537,7 @@ def test_t4_pa_nd_bf16_eager():
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
     mla_prolog_eager(params, input_tensors, golden_data, dtype, is_nz, attrs, configs)
 
+
 def test_t16_pa_nd_bf16():
     prep_env()
     params = {
@@ -530,6 +553,7 @@ def test_t16_pa_nd_bf16():
     is_quant = True
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
     mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
+
 
 @pytest.mark.skip("t=16")
 def test_t16_pa_nd_bf16_eager():
@@ -556,6 +580,7 @@ def test_t16_pa_nd_bf16_eager():
                                 vec_nbuffer_mode=1)
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
     mla_prolog_eager(params, input_tensors, golden_data, dtype, is_nz, attrs, configs)
+
 
 @pytest.mark.skip("t=512")
 def test_t512_pa_nd_bf16():
