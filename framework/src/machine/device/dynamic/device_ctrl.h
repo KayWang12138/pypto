@@ -126,8 +126,7 @@ public:
         }
     }
 
-    void InitCtrlFlowCache(DevAscendProgram *devProg, DevControlFlowCache *ctrlFlowCache, bool firstInit) {
-        auto devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.devStartArgsAddr);
+    void InitCtrlFlowCache(DevAscendProgram *devProg, DevControlFlowCache *ctrlFlowCache, DevStartArgs *devStartArgs, bool firstInit) {
         DevControlFlowCache* devCtrlFlowCache = nullptr;
         devCtrlFlowCache = &devProg->controlFlowCache;
         if (devProg->controlFlowCache.isRecording) {
@@ -179,19 +178,7 @@ public:
         }
     }
 
-    int InitDyn(DeviceKernelArgs *kargs) {
-        DEV_INFO("AscendCppDyInitTask begin");
-
-        DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
-        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.devStartArgsAddr);
-        devStartArgs->InitProgram(devProg, reinterpret_cast<uint64_t>(devStartArgs));
-        devStartArgs->devCtrlState.schAicpuNum = devProg->devArgs.scheCpuNum;
-        devStartArgs->devCtrlState.taskCtrlIndex = 0;
-
-        devStartArgs_ = devStartArgs;
-
-        InitTaskPipeWithSched(devProg);
-        PerfBegin(PERF_EVT_INIT);
+    bool InitDevProgram(DevAscendProgram *devProg) {
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
             devProg->RelocProgram(0, reinterpret_cast<uint64_t>(devProg), true);
@@ -204,9 +191,34 @@ public:
         auto execProg = DeviceExecuteProgram(devProg, nullptr);
         devProg->controlFlowBinaryAddr = execProg.GetControlFlowEntry();
 #endif
+        return firstInit;
+    }
+
+    int InitDyn(DeviceKernelArgs *kargs) {
+        DEV_INFO("AscendCppDyInitTask begin");
+
+        DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+        PerfBegin(PERF_EVT_INIT);
+        bool firstInit = InitDevProgram(devProg);
+        PerfEnd(PERF_EVT_INIT);
+
+        RuntimeDataRingBufferHead *ringBufferHead = reinterpret_cast<RuntimeDataRingBufferHead *>(devProg->GetRuntimeDataList());
+        if (firstInit) {
+            ringBufferHead->Initialize(devProg->GetDeviceRuntimeOffset().size, devProg->GetDeviceRuntimeOffset().count);
+        }
+
+        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(ringBufferHead->Allocate());
+
+        devStartArgs->InitProgram(devProg, reinterpret_cast<uint64_t>(devStartArgs));
+        devStartArgs->devCtrlState.schAicpuNum = devProg->devArgs.scheCpuNum;
+        devStartArgs->devCtrlState.taskCtrlIndex = 0;
+
+        devStartArgs_ = devStartArgs;
+
+        InitTaskPipeWithSched(devProg);
+
         devStartArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
 
-        PerfEnd(PERF_EVT_INIT);
         uint64_t inputSize = *kargs->inputs;
         uint64_t outputSize = *(kargs->inputs + 1);
         auto inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
@@ -222,7 +234,7 @@ public:
         devStartArgs->inputSymbolSize = 0;
         devStartArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
-        InitCtrlFlowCache(devProg, reinterpret_cast<DevControlFlowCache*>(kargs->ctrlFlowCache), firstInit);
+        InitCtrlFlowCache(devProg, reinterpret_cast<DevControlFlowCache*>(kargs->ctrlFlowCache), devStartArgs, firstInit);
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }
@@ -230,7 +242,7 @@ public:
     int ExecDyn(npu::tile_fwk::DeviceKernelArgs *args) {
         DEV_INFO("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
-        auto devStartArgs = (DevStartArgs *)devProg->devArgs.devStartArgsAddr;
+        auto devStartArgs = (DevStartArgs *)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
         DeviceExecuteContext ctx(devStartArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
