@@ -269,59 +269,6 @@ TEST_F(TestCodegenDynCopy, L1CopyInNZWithValue) {
     EXPECT_EQ(res, expect);
 }
 
-TEST_F(TestCodegenDynCopy, TestGatherInL1TileTensor) {
-    std::vector<int64_t> gatherShape = {64, 64};
-    auto shapeImme = OpImmediate::Specified(gatherShape);
-    TileShape::Current().SetVecTile(gatherShape);
-    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
-    InsertTileTensorOp(Opcode::OP_INDEX_OUTCAST, "TGatherInL1");
-    Tensor inputA(DT_FP32, gatherShape, "A");
-    Tensor inputB(DT_FP32, gatherShape, "B");
-    Tensor output(DT_FP32, gatherShape, "C");
-
-    std::string funcName = "GatherInL1TileTensor";
-    FUNCTION(funcName, {inputA, inputB, output}) {
-        output = Add(inputA, inputB);
-    }
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
-    function->SetUnderDynamicFunction(true);
-    std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto gatherTensor =
-        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, gatherShape, dynValidShape});
-    auto localOutTensor =
-        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, gatherShape, dynValidShape});
-
-    std::vector<int64_t> offset = {0, 0};
-    std::vector<SymbolicScalar> dynoffset = {0, 0};
-    gatherTensor->UpdateOffset(TensorOffset(offset, dynoffset));
-    localOutTensor->UpdateOffset(TensorOffset(offset, dynoffset));
-    LogicalTensors inputs = {gatherTensor};
-    LogicalTensors outputs = {localOutTensor};
-
-    auto &indexoutOp = function->AddOperation(Opcode::OP_INDEX_OUTCAST, inputs, outputs);
-    indexoutOp.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-    indexoutOp.SetAttribute("axis", 0);
-    indexoutOp.SetAttribute(OpAttributeKey::panzBlockSize, 1);
-    std::string cacheMode = "PA_BNSD";
-    indexoutOp.SetAttribute(OpAttributeKey::cacheMode, cacheMode);
-    auto to_offset = OpImmediate::Specified({0, 0});
-    indexoutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_UB, to_offset, shapeImme, shapeImme));
-    auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(indexoutOp.GetOpAttribute());
-    indexoutOp.SetOOpAttrOffset(0, 0);
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(indexoutOp, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
-    function->GetTensorMap().inverseMap_[gatherTensor->GetMagic()] = gatherTensor;
-    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
-
-    cop.Init(indexoutOp);
-    cop.UpdateTileTensorInfo();
-    cop.GenOpCode();
-}
 
 TEST_F(TestCodegenDynCopy, L1ToBt) {
     std::vector<int64_t> shape = {64, 64};

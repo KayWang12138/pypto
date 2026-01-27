@@ -145,8 +145,8 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
     std::vector<SymbolicScalar> dynoffset = {0, 0};
     indexoutTensor->UpdateOffset(TensorOffset(offset, dynoffset));
     localOutTensor->UpdateOffset(TensorOffset(offset, dynoffset));
-    LogicalTensors inputs = {localOutTensor, localOutTensor, indexoutTensor};
-    LogicalTensors outputs = {localOutTensor};
+    LogicalTensors inputs = {localOutTensor, localOutTensor, localOutTensor};
+    LogicalTensors outputs = {indexoutTensor};
 
     auto &indexoutOp = function->AddOperation(Opcode::OP_INDEX_OUTCAST, inputs, outputs);
     indexoutOp.SetAttribute("GmTensorParamIdxInCallFunc", 0);
