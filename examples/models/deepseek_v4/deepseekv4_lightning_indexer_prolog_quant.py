@@ -286,12 +286,7 @@ def npu_quant_lightning_indexer_prolog(
     q_scale_pto = pypto.from_torch(q_scale, dynamic_axis=[0], name="q_scale")
 
     # tiling
-    tile_config = IndexerPrologQuantConfig(
-        unroll_list=[128, 64, 32, 16, 8, 1],
-        q_linear=[[128, 128], [128, 128], [128, 128]],
-        q_hd=[[128, 128], [128, 128], [128, 128]],
-        w_linear=[[128, 128], [128, 128], [128, 128]],
-    )
+    tile_config = IndexerPrologQuantConfig(unroll_list=[128, 64, 32, 16, 8, 1])
 
     # kernel
     if not isinstance(qr, FakeTensor):
@@ -380,12 +375,7 @@ def do_indexer_prolog_quant_func(inputs, params, golden_list):
     ]
     pto_outputs = [q_pto, weights_pto, q_scale_pto]
 
-    tile_config = IndexerPrologQuantConfig(
-        unroll_list=[128, 64, 32, 16, 8, 1],
-        q_linear=[[128, 128], [128, 128], [128, 128]],
-        q_hd=[[128, 128], [128, 128], [128, 128]],
-        w_linear=[[128, 128], [128, 128], [128, 128]],
-    )
+    tile_config = IndexerPrologQuantConfig(unroll_list=[128, 64, 32, 16, 8, 1])
 
     # call main function
     quant_lightning_indexer_prolog_kernel(*pto_inputs, *pto_outputs, tile_config)
@@ -453,9 +443,10 @@ def do_indexer_prolog_quant_torch_graph(inputs, golden_list):
 
 def get_indexer_prolog_quant_config(case_name: str):
     test_case_config = {
-        "test_indexer_prolog_quant_decode_16": 16,
-        "test_indexer_prolog_quant_prefill_512": 512,
-        "test_indexer_prolog_quant_graph": 255,
+        "test_indexer_prolog_quant_b64_s1": 64,
+        "test_indexer_prolog_quant_b64_s2": 128,
+        "test_indexer_prolog_quant_b64_s4": 256,
+        "test_indexer_prolog_quant_graph": 511,
     }
     return test_case_config.get(case_name)
 
@@ -491,21 +482,30 @@ def do_indexer_prolog_quant_entry(case_name: str, is_torch_graph: bool = False):
     return True
 
 
-def test_indexer_prolog_quant_decode_16():
+def test_indexer_prolog_quant_b64_s1():
     """
-    lightning_indexer_prolog quant decode typical case
+    lightning_indexer_prolog quant decode mtp=0 case
     """
     do_indexer_prolog_quant_entry(
-        "test_indexer_prolog_quant_decode_16", is_torch_graph=False
+        "test_indexer_prolog_quant_b64_s1", is_torch_graph=False
     )
 
 
-def test_indexer_prolog_quant_prefill_512():
+def test_indexer_prolog_quant_b64_s2():
     """
-    lightning_indexer_prolog quant prefill typical case
+    lightning_indexer_prolog quant decode mtp=1 case
     """
     do_indexer_prolog_quant_entry(
-        "test_indexer_prolog_quant_prefill_512", is_torch_graph=False
+        "test_indexer_prolog_quant_b64_s2", is_torch_graph=False
+    )
+
+
+def test_indexer_prolog_quant_b64_s4():
+    """
+    lightning_indexer_prolog quant decode mtp=3 case
+    """
+    do_indexer_prolog_quant_entry(
+        "test_indexer_prolog_quant_b64_s4", is_torch_graph=False
     )
 
 
@@ -523,4 +523,4 @@ if __name__ == "__main__":
         format="%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s",
         level=logging.INFO,
     )
-    test_indexer_prolog_quant_decode_16()
+    test_indexer_prolog_quant_b64_s1()
