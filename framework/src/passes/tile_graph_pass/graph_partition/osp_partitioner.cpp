@@ -148,7 +148,7 @@ Status OspPartitioner::RunSarkar(const osp::BspInstance<GraphType> &bspInst, Coa
     osp::SarkarMul<GraphType, CoarseGraphType> coarser;
     coarser.SetParameters(params);
 
-    bool coarsenStatus = coarser.coarsenDag(bspInst.GetComputationalDag(), coarseGraph, vertexContractionMap);
+    bool coarsenStatus = coarser.CoarsenDag(bspInst.GetComputationalDag(), coarseGraph, vertexContractionMap);
     if (not coarsenStatus) {
         APASS_LOG_ERROR_F(Elements::Function, "OSP Sarkar failed to generate a coarse graph.");
         return FAILED;
@@ -258,7 +258,7 @@ Status OspPartitioner::ConstructDagCVSplit(GraphType &graph)
         return FAILED;
     }
     
-    for (const auto &superNode : graph.vertices()) {
+    for (const auto &superNode : graph.Vertices()) {
         const OpCoreType vertexType = superNodeInfo_->nodeCoreType_[superNode];
         if (vertexType != OpCoreType::AIC && vertexType != OpCoreType::AIV && vertexType != OpCoreType::AICPU) {
             APASS_LOG_ERROR_F(Elements::Operation, "SuperNode (%d) has core type (%d) which is neither cube nor vector nor ai-scalar.", superNode, vertexType);
@@ -274,7 +274,7 @@ Status OspPartitioner::ConstructDagCVMix(GraphType &graph)
 {    
     graph = GraphType(superNodeInfo_->nodeOutGraphList_, superNodeInfo_->nodeInGraphList_);
     
-    for (const auto &superNode : graph.vertices()) {
+    for (const auto &superNode : graph.Vertices()) {
         graph.SetVertexWorkWeight(superNode, superNodeInfo_->nodeCycles_[superNode]); 
         SetVertexCommMemWeight(graph, superNode);
 
@@ -370,7 +370,7 @@ Status OspPartitioner::ConstructBspInstance(osp::BspInstance<GraphType> &bspInst
             return FAILED;
         };
     }
-    unsigned numTypes = std::max(bspInst.GetArchitecture().GetNumberOfProcessorTypes(), static_cast<unsigned>( bspInst.GetComputationalDag().num_vertex_types()));
+    unsigned numTypes = std::max(bspInst.GetArchitecture().GetNumberOfProcessorTypes(), static_cast<unsigned>( bspInst.GetComputationalDag().NumVertexTypes()));
     bspInst.SetDiagonalCompatibilityMatrix(numTypes);
     return SUCCESS;
 }
