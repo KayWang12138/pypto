@@ -138,8 +138,6 @@ class JitCallableWrapper:
         Parser instance stored for lazy parsing.
     _codegen_options : Optional[dict[str, Any]]
         Options for code generation.
-    _host_options : Optional[dict[str, Any]]
-        Options for host configuration.
     _runtime_options : Optional[dict[str, Any]]
         Options for runtime execution (including run_mode: NPU or SIM).
     _pass_options : Optional[dict[str, Any]]
@@ -156,7 +154,6 @@ class JitCallableWrapper:
         original_func: Callable,
         handler: Optional[int],
         codegen_options: Optional[dict[str, Any]] = None,
-        host_options: Optional[dict[str, Any]] = None,
         pass_options: Optional[dict[str, Any]] = None,
         runtime_options: Optional[dict[str, Any]] = None,
         verify_options: Optional[dict[str, Any]] = None,
@@ -175,8 +172,6 @@ class JitCallableWrapper:
             The backend runtime handler (None initially in lazy mode).
         codegen_options : Optional[dict[str, Any]], optional
             Options for code generation configuration.
-        host_options : Optional[dict[str, Any]], optional
-            Options for host environment configuration.
         pass_options : Optional[dict[str, Any]], optional
             Options for compiler pass configuration.
         runtime_options : Optional[dict[str, Any]], optional
@@ -199,7 +194,6 @@ class JitCallableWrapper:
         self._codegen_options = (
             None if codegen_options is None else dict(codegen_options)
         )
-        self._host_options = None if host_options is None else dict(host_options)
         self._runtime_options = (
             None if runtime_options is None else dict(runtime_options)
         )
@@ -477,7 +471,6 @@ class JitCallableWrapper:
         to configure the backend compilation and runtime behavior. Options include:
         - run_mode (NPU or SIM)
         - codegen options (code generation settings)
-        - host options (host environment settings)
         - pass options (compiler pass configurations)
         - runtime options (execution settings)
         - verify options (verification settings)
@@ -486,8 +479,6 @@ class JitCallableWrapper:
         self._set_run_mode()
         if self._codegen_options:
             pypto.set_codegen_options(**self._codegen_options)
-        if self._host_options:
-            pypto.set_host_options(**self._host_options)
         if self._pass_options:
             pypto.set_pass_options(**self._pass_options)
         if self._runtime_options:
@@ -750,7 +741,6 @@ def function(
 def jit(
     func: Optional[Callable] = None,
     *,
-    host_options: Optional[dict[str, Any]] = None,
     codegen_options: Optional[dict[str, Any]] = None,
     pass_options: Optional[dict[str, Any]] = None,
     runtime_options: Optional[dict[str, Any]] = None,
@@ -769,8 +759,6 @@ def jit(
         The function to decorate. If None, returns a decorator function.
         This allows both @jit and @jit() syntax.
 
-    host_options : Optional[dict[str, Any]], optional
-        Options to configure the host.
     codegen_options : Optional[dict[str, Any]], optional
         Options to configure the codegen.
     pass_options : Optional[dict[str, Any]], optional
@@ -832,7 +820,6 @@ def jit(
             f,
             None,
             codegen_options=codegen_options,
-            host_options=host_options,
             pass_options=pass_options,
             runtime_options=runtime_options,
             verify_options=verify_options,

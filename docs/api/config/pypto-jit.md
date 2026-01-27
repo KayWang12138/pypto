@@ -17,7 +17,6 @@ jit 函数是一个用于装饰和优化动态函数的工具，它通过即时�
 def jit(dyn_func=None,
         *,
         codegen_options=None,
-        host_options=None,
         pass_options=None,
         runtime_options=None)
 ```
@@ -29,7 +28,6 @@ def jit(dyn_func=None,
 |-------------------|-----------|----------------------------------------------------------------------|
 | dyn_func          | 输入      | jit修饰的函数，需要传入pypto.Tensor作为平铺参数，用于后续构建计算图。 |
 | codegen_options   | 输入      | 类型为dict[str, any]，用于设置codegen配置项，配置项参数见[参数说明](pypto-set_codegen_options.md) |
-| host_options      | 输入      | 类型为dict[str, any]，用于设置host配置项，配置项参数见[参数说明](pypto-set_host_options.md) |
 | pass_options      | 输入      | 类型为dict[str, any]，用于设置Pass配置项，配置项参数见[参数说明](pypto-set_pass_options.md) |
 | runtime_options   | 输入      | 类型为dict[str, any]，用于设置runtime配置项，配置项参数见[参数说明](pypto-set_runtime_options.md) |
 

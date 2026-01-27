@@ -144,12 +144,11 @@ class _ControlflowShape:
 
 
 class _JIT:
-    def __init__(self, dyn_func, codegen_options=None, host_options=None,
-                 pass_options=None, runtime_options=None, verify_options=None,
+    def __init__(self, dyn_func, codegen_options=None, pass_options=None,
+                 runtime_options=None, verify_options=None,
                  debug_options=None, infer_controlflow_shape=None):
         self.dyn_func = dyn_func
         self.codegen_options = codegen_options
-        self.host_options = host_options
         self.pass_options = pass_options
         self.runtime_options = runtime_options or {}
         self.verify_options = verify_options
@@ -305,9 +304,6 @@ class _JIT:
         if isinstance(self.codegen_options, dict):
             pypto.set_codegen_options(**self.codegen_options)
 
-        if isinstance(self.host_options, dict):
-            pypto.set_host_options(**self.host_options)
-
         if isinstance(self.pass_options, dict):
             pypto.set_pass_options(**self.pass_options)
 
@@ -330,7 +326,6 @@ def jit(dyn_func=None):
 def jit(
         *,
         codegen_options=None,
-        host_options=None,
         pass_options=None,
         runtime_options=None,
         verify_options=None,
@@ -343,7 +338,6 @@ def jit(
 def jit(dyn_func=None,
         *,
         codegen_options=None,
-        host_options=None,
         pass_options=None,
         runtime_options=None,
         verify_options=None,
@@ -353,7 +347,6 @@ def jit(dyn_func=None,
     def decorator(func):
         return _JIT(func,
                     codegen_options=codegen_options,
-                    host_options=host_options,
                     pass_options=pass_options,
                     runtime_options=runtime_options,
                     verify_options=verify_options,
@@ -372,7 +365,6 @@ def _device_synchronize():
 
 def verify(func, inputs, outputs, goldens, *args,
            codegen_options=None,
-           host_options=None,
            pass_options=None,
            verify_options=None, **kwargs):
     """
@@ -388,8 +380,6 @@ def verify(func, inputs, outputs, goldens, *args,
             see :func:`set_verify_options`.
         codegen_options: dict
             see :func:`set_codegen_options`.
-        host_options: dict
-            see :func:`set_host_options`.
         pass_options: dict
             see :func:`set_pass_options`.
         **kwargs: The extra keyword arguments for func.
