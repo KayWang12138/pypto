@@ -63,7 +63,14 @@ std::string GetBinaryOpName() {
         case BinaryOpType::MAXIMUM: return "MAXIMUM";
         case BinaryOpType::MINIMUM: return "MINIMUM";
         case BinaryOpType::POW: return "POW";
-        case BinaryOpType::MOD: return "MOD";
+        case BinaryOpType::MOD:return "MOD";
+        case BinaryOpType::CMP:return "CMP";
+        case BinaryOpType::S_ADD: return "S_ADD";
+        case BinaryOpType::S_SUB: return "S_SUB";
+        case BinaryOpType::S_MUL: return "S_MUL";
+        case BinaryOpType::S_DIV: return "S_DIV";
+        case BinaryOpType::S_MAX: return "S_MAX";
+        case BinaryOpType::S_MIN: return "S_MIN";
         default: ASSERT(false && "unknown binary op type"); return "";
     }
 }
