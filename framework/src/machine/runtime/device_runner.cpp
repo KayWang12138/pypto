@@ -707,6 +707,14 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     args_.nrValidAic = blockdim;
     args_.nrAicpu = launchAicpuNum;
     args_.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockDim_, aicpuNum_, args_.archInfo);
+
+    args_.launchAicpu = launchAicpuNum;
+    if (args_.archInfo == ArchInfo::DAV_3510) {
+        args_.launchScheCpuNum = launchAicpuNum - dynamic::MAX_OTHER_AICPU_NUM;
+    } else {
+        args_.launchScheCpuNum = args_.scheCpuNum;
+    }
+
     ExchangeCaputerMode(isCapture_);
     if (ctrlStream == nullptr) {
         return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
