@@ -159,13 +159,21 @@ TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
                     pto::TASSIGN(divTmpTile, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW));
                     pto::TASSIGN(castTmpTile, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 2));
                     pto::TDIVS(divTmpTile, src0Tile, src1);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TCVT(castTmpTile, divTmpTile, pto::RoundMode::CAST_TRUNC);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TMULS(castTmpTile, castTmpTile, src1);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TSUB(dstTile, src0Tile, castTmpTile);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                 }  else if constexpr (std::is_same_v<DstType, half> || std::is_same_v<DstType, bfloat16_t>) {
                     float src1Tmp = static_cast<float>(src1);
                     using Fp32TmpTileDefine =
@@ -178,15 +186,25 @@ TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
                     pto::TASSIGN(castTileTmp, reinterpret_cast<uint64_t>(castBufAddr + dstTileH * dstTileW * 3));
                     pto::TCVT(dstTileTmp, dstTile, pto::RoundMode::CAST_NONE);
                     pto::TCVT(src0TileTmp, src0Tile, pto::RoundMode::CAST_NONE);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TDIVS(dstTileTmp, src0TileTmp, src1Tmp);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TCVT(castTileTmp, dstTileTmp, pto::RoundMode::CAST_TRUNC);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TMULS(dstTileTmp, castTileTmp, src1Tmp);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TSUB(dstTileTmp, src0TileTmp, dstTileTmp);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TCVT(dstTile, dstTileTmp, pto::RoundMode::CAST_NONE);
                 }
             }

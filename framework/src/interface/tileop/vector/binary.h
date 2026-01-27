@@ -206,21 +206,29 @@ TILEOP void TMod(T0 dst, T1 src0, T2 src1, T3 tmp) {
                     } else {
                         pto::TROWEXPANDDIV(divTmpTile, src0Tile, src1Tile);
                     }
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TCVT(castTmpTile, divTmpTile, pto::RoundMode::CAST_TRUNC);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     if constexpr (operand == TileOp::BroadcastOperand::NONE) {
                         pto::TMUL(castTmpTile, castTmpTile, src1Tile);
                     } else {
                         pto::TROWEXPANDMUL(castTmpTile, castTmpTile, src1Tile);
                     }
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     if constexpr (operand == TileOp::BroadcastOperand::NONE) {
                         pto::TSUB(dstTile, src0Tile, castTmpTile);
                     } else {
                         pto::TROWEXPANDSUB(dstTile, src0Tile, castTmpTile);
                     }
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                 } else if constexpr (std::is_same_v<DstType, half> || std::is_same_v<DstType, bfloat16_t>) {
                     using Fp32TmpTileDefine =
                         pto::Tile<pto::TileType::Vec, float, dstTileH, dstTileW, pto::BLayout::RowMajor, -1, -1>;
@@ -235,27 +243,37 @@ TILEOP void TMod(T0 dst, T1 src0, T2 src1, T3 tmp) {
                     pto::TCVT(dstTileTmp, dstTile, pto::RoundMode::CAST_NONE);
                     pto::TCVT(src0TileTmp, src0Tile, pto::RoundMode::CAST_NONE);
                     pto::TCVT(src1TileTmp, src1Tile, pto::RoundMode::CAST_NONE);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     if constexpr (operand == TileOp::BroadcastOperand::NONE) {
                         pto::TDIV(dstTileTmp, src0TileTmp, src1TileTmp);
                     } else {
                         pto::TROWEXPANDDIV(dstTileTmp, src0TileTmp, src1TileTmp);
                     }
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TCVT(castTileTmp, dstTileTmp, pto::RoundMode::CAST_TRUNC);
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     if constexpr (operand == TileOp::BroadcastOperand::NONE) {
                         pto::TMUL(dstTileTmp, castTileTmp, src1TileTmp);
                     } else {
                         pto::TROWEXPANDMUL(dstTileTmp, castTileTmp, src1TileTmp);
                     }
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     if constexpr (operand == TileOp::BroadcastOperand::NONE) {
                         pto::TSUB(dstTileTmp, src0TileTmp, dstTileTmp);
                     } else {
                         pto::TROWEXPANDSUB(dstTileTmp, src0TileTmp, dstTileTmp);
                     }
+                    #ifdef __DAV_V220
                     pipe_barrier(PIPE_V);
+                    #endif
                     pto::TCVT(dstTile, dstTileTmp, pto::RoundMode::CAST_NONE);
                 }
             }

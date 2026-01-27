@@ -166,41 +166,9 @@ std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const {
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::PrintBinaryTileTensorWithTmp() const {
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
-    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
-    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
-    std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC1_IDX));
-    std::vector<std::string> tileOpCallParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
-
-    std::vector<std::string> templateParamList;
-    int64_t brcOperandIdx = 0;
-    if (GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx)) {
-        templateParamList.emplace_back(GetBrcOprandIdxStr(brcOperandIdx));
-    }
-
-    std::ostringstream oss;
-    oss << tileOpName;
-    if (!templateParamList.empty()) {
-        oss << WrapParamByAngleBrackets(templateParamList);
-    }
-    oss << WrapParamByParentheses(tileOpCallParamList) << ";\n";
-    return oss.str();
-}
-
 std::string CodeGenOpCloudNPU::PrintBinary(const PrintBinaryParam &param) const {
     if (isSupportLayout) {
         return PrintBinaryTileTensor();
-    }
-    if (isDynamicFunction) {
-        return PrintBinaryDynamicUnaligned(param);
-    }
-    return PrintBinaryStatic(param);
-}
-
-std::string CodeGenOpCloudNPU::PrintBinaryWithTmp(const PrintBinaryParam &param) const {
-    if (isSupportLayout) {
-        return PrintBinaryTileTensorWithTmp();
     }
     if (isDynamicFunction) {
         return PrintBinaryDynamicUnaligned(param);
@@ -237,72 +205,28 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenBinaryOpWithTmp() const {
-    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
-    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-
-    std::vector src0RawShape = this->rawShape[ID1];
-    ALOG_INFO_F("genBinaryOp %s, src0RawShape is %s", tileOpName.c_str(), IntVecToStr(src0RawShape).c_str());
-
-    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-    std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
-    std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID2]);
-
-    std::string s1Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID2]);
-
-    auto offset0 = GetOperandStartOffset(ID0);
-    auto offset1 = GetOperandStartOffset(ID1);
-    auto offset2 = GetOperandStartOffset(ID2);
-    if (!offset0.ConcreteValid() || offset0.Concrete() != 0) {
-        dVar += "+" + GetOperandStartOffset(ID0).Dump();
-    }
-    if (!offset1.ConcreteValid() || offset1.Concrete() != 0) {
-        s0Var += "+" + GetOperandStartOffset(ID1).Dump();
-    }
-    if (!offset2.ConcreteValid() || offset2.Concrete() != 0) {
-        s1Var += "+" + GetOperandStartOffset(ID2).Dump();
-    }
-    return PrintBinaryWithTmp({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC1_IDX));
+    std::vector<std::string> tileOpCallParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByParentheses(tileOpCallParamList) << ";\n";
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenVectorScalarOpWithTmp() const {
-    std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
-    std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
-
-    char buffer[BUFFER_SIZE_512] = "CG_ERROR";
-    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
-
-    AppendLocalBufVarOffsetInOrder(dVar, s0Var);
-
-    std::vector src0RawShape = this->rawShape[1];
-    std::vector dstRawShape = this->rawShape[0];
-    std::vector<int64_t> os0 = NormalizeShape(originShape[1], SHAPE_DIM4);
-    std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
-    std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
-
-    if (isSupportLayout) {
-        std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
-        std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
-        std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
-        std::vector<std::string> tileOpCallParamList = {dstTensor, srcTensor, tmpTensor};
-
-        std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
-
-        std::ostringstream oss;
-        oss << tileOpName << "<" << dstDtypeStr << ">"
-            << "(" << dstTensor << ", " << srcTensor << ", " << scalarTmpBuffer << ", " << tmpTensor << ");\n";
-        return oss.str();
-    }
-
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::vector<std::string> tileOpCallParamList = {dstTensor, srcTensor, tmpTensor};
     std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
-    int ret = sprintf_s(buffer, sizeof(buffer),
-        "%s_<%s, %d, %d, %d, %d, /*DS*/ %d, %d, %d, /*S0S*/ %d, %d, %d>"
-        "((__ubuf__ %s*)%s, (__ubuf__ %s*)%s, (%s)%s);\n",
-        tileOpName.c_str(), dstDtypeStr.c_str(), os0[ID0], os0[ID1], os0[ID2], os0[ID3], ds[ID1], ds[ID2], ds[ID3],
-        s0[ID1], s0[ID2], s0[ID3], dstDtypeStr.c_str(), dVar.c_str(), dstDtypeStr.c_str(), s0Var.c_str(),
-        dstDtypeStr.c_str(), scalarTmpBuffer.c_str());
-    ASSERT(ret >= 0) << "GenVectorScalarOpByMode" << OpcodeManager::Inst().GetOpcodeStr(opCode) << " sprintf_s failed "
-                     << ret;
-    return buffer;
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::ostringstream oss;
+    oss << tileOpName << "<" << dstDtypeStr << ">"
+        << "(" << dstTensor << ", " << srcTensor << ", " << scalarTmpBuffer << ", " << tmpTensor << ");\n";
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const {
