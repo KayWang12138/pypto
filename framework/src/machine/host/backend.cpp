@@ -172,13 +172,6 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         CacheManager::Instance().SaveTaskFile(deviceAgentTask.get());
     }
 
-    if (config::GetHostOption<int64_t>(COMPILE_STAGE) == GEN_KERNEL_CODE) {
-        ALOG_INFO("only gen code switch enabled, push finish queue.");
-        // only static use gDeviceAgentTaskPtr; when dynamic, delete deviceMachineTask
-        return 0;
-    }
-
-    gDeviceAgentTaskPtr = deviceAgentTask;
     return 0;
 }
 

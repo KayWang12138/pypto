@@ -1254,7 +1254,6 @@ template <typename T = npu::tile_fwk::float16, bool codegen = true, typename wDt
     bool isSmooth = true, bool usePrefetch = true>
 void TestMlaPrologV2(const SimpleParams &params) {
     if constexpr (codegen) {
-        config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     } else {
         config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
     }
@@ -1354,7 +1353,6 @@ TEST_F(FunctionTest, low_PAND) {
 }
 
 TEST_F(FunctionTest, dynamic_page_attention_adds) {
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
 
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     std::vector<uint8_t> devProgBinary;
@@ -1402,7 +1400,6 @@ TEST_F(FunctionTest, dynamic_page_attention_adds) {
 }
 
 TEST_F(FunctionTest, dynamic_page_attention_adds_single_single_out) {
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
 
     config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
     std::vector<uint8_t> devProgBinary;
