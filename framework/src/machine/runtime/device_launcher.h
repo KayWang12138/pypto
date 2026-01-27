@@ -121,25 +121,21 @@ public:
 
     template<typename DeviceMemoryTy>
     static void AssignMetaAddr(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+        (void)kArgs;
+
         FillDeviceRuntimeOffset(devProg);
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
         size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
             generalSize + stitchPoolSize;
         uint64_t shmAddr = (uint64_t)devMem.AllocDev(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
-        devProg->devArgs.startArgsAddr = shmAddr;
+        devProg->devArgs.devStartArgsAddr = shmAddr;
         shmAddr += DEV_ARGS_SIZE;
-        devProg->devArgs.taskCtrl = shmAddr;
         shmAddr += DEVICE_TASK_CTRL_POOL_SIZE;
-        devProg->devArgs.taskQueue = shmAddr;
         shmAddr += DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
-        devProg->devArgs.generalAddr = shmAddr;
         shmAddr += generalSize;
-        devProg->devArgs.stitchPoolAddr = shmAddr;
-        ALOG_DEBUG_F("generalSize:%lu stitchPoolSize:%lu generalAddr:%lx stitchPoolAddr:%lx.", generalSize, stitchPoolSize,
-            devProg->devArgs.generalAddr, devProg->devArgs.stitchPoolAddr);
-        kArgs.opMetaAddrs.generalAddr = devProg->devArgs.generalAddr;
-        kArgs.opMetaAddrs.stitchPoolAddr = devProg->devArgs.stitchPoolAddr;
+        ALOG_DEBUG_F("generalSize:%lu stitchPoolSize:%lu generalOffset:%lx stitchPoolOffset:%lx.", generalSize, stitchPoolSize,
+            devProg->deviceRuntimeOffset.generalOffset, devProg->deviceRuntimeOffset.stitchPoolOffset);
         return;
     }
 

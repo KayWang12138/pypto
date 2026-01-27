@@ -64,7 +64,7 @@ public:
     }
 
     int AllocNewTaskCtrl() {
-        uint32_t &taskCtrlIndex = devStartArgs_->deviceRuntimeDataDesc.taskCtrlIndex;
+        uint32_t &taskCtrlIndex = devStartArgs_->devCtrlState.taskCtrlIndex;
         while (true) {
             if (taskCtrlIndex == MAX_DEVICE_TASK_NUM)
                 taskCtrlIndex = 0;
@@ -115,9 +115,7 @@ public:
         inspector_ = inspector;
     }
 
-    void InitTaskPipeWithSched(DevStartArgs *devStartArgs, DevAscendProgram *devProg) {
-        devStartArgs->deviceRuntimeDataDesc.taskCtrlPool = reinterpret_cast<DeviceTaskCtrl *>(devProg->devArgs.taskCtrl);
-        devStartArgs->deviceRuntimeDataDesc.taskQueue = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *>(devProg->devArgs.taskQueue);
+    void InitTaskPipeWithSched(DevAscendProgram *devProg) {
         for (uint32_t i = 0; i < MAX_DEVICE_TASK_NUM; i++) {
             GetTaskCtrlInPool(i).retCode = 0;
             GetTaskCtrlInPool(i).runFlag = 0;
@@ -129,7 +127,7 @@ public:
     }
 
     void InitCtrlFlowCache(DevAscendProgram *devProg, DevControlFlowCache *ctrlFlowCache, bool firstInit) {
-        auto devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
+        auto devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.devStartArgsAddr);
         DevControlFlowCache* devCtrlFlowCache = nullptr;
         devCtrlFlowCache = &devProg->controlFlowCache;
         if (devProg->controlFlowCache.isRecording) {
@@ -185,13 +183,14 @@ public:
         DEV_INFO("AscendCppDyInitTask begin");
 
         DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
-        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
+        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.devStartArgsAddr);
+        devStartArgs->InitProgram(devProg, reinterpret_cast<uint64_t>(devStartArgs));
+        devStartArgs->devCtrlState.schAicpuNum = devProg->devArgs.scheCpuNum;
+        devStartArgs->devCtrlState.taskCtrlIndex = 0;
+
         devStartArgs_ = devStartArgs;
 
-        devStartArgs->deviceRuntimeDataDesc.schAicpuNum = devProg->devArgs.scheCpuNum;
-        devStartArgs->deviceRuntimeDataDesc.taskCtrlIndex = 0;
-
-        InitTaskPipeWithSched(devStartArgs, devProg);
+        InitTaskPipeWithSched(devProg);
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
@@ -218,7 +217,6 @@ public:
 
         devStartArgs->contextWorkspaceAddr = PtrToValue(kargs->workspace);
         devStartArgs->contextWorkspaceSize = devProg->workspaceSize;
-        devStartArgs->devProg = devProg;
 
         devStartArgs->inputSymbolList = nullptr;
         devStartArgs->inputSymbolSize = 0;
@@ -232,7 +230,7 @@ public:
     int ExecDyn(npu::tile_fwk::DeviceKernelArgs *args) {
         DEV_INFO("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
-        auto devStartArgs = (DevStartArgs *)devProg->devArgs.startArgsAddr;
+        auto devStartArgs = (DevStartArgs *)devProg->devArgs.devStartArgsAddr;
 
         DeviceExecuteContext ctx(devStartArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
@@ -362,10 +360,10 @@ private:
         return devStartArgs_->deviceRuntimeDataDesc.taskCtrlPool[index];
     }
     DeviceTaskCtrlQueue &GetTaskQueue(int index) {
-        return devStartArgs_->deviceRuntimeDataDesc.taskQueue[index];
+        return devStartArgs_->deviceRuntimeDataDesc.taskQueueList[index];
     }
     uint32_t GetScheAicpuNum() {
-        return devStartArgs_->deviceRuntimeDataDesc.schAicpuNum;
+        return devStartArgs_->devCtrlState.schAicpuNum;
     }
 private:
     DevStartArgs *devStartArgs_{nullptr};
