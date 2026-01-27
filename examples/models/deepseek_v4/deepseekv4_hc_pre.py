@@ -1,23 +1,22 @@
 import os
 import sys
+import pypto
 import torch
-import torch_npu
-from hc_pre_impl import *
+from hc_pre_impl import hc_pre_kernel, hc_pre_kernel_prefill, npu_hc_pre, check_input_output_shape_dtype
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, '../deepseek_v32_exp/utils'))
 from compare import compare
 
-# t = bsz * seq, dynamic
 hc, d, sinkhorn_iters, norm_eps, hc_eps = 4, 4096, 20, 1e-6, 1e-6
 mix_hc = (2 + hc) * hc
-# x: [t,hc,d], hc_fn: [mix_hc,hc*d], hc_scale: [3], hc_base: [mix_hc], y: [t,d]
+
 
 def gen_rms_norm_denom(x):
-    _, d = x.shape
+    _, len = x.shape
     print("rms norm x.shape", x.shape)
     x = x.square()
-    x = x.sum(-1, True) / d
+    x = x.sum(-1, True) / len
     x = x + norm_eps
     x = x.sqrt()
     return x
@@ -31,32 +30,32 @@ def gen_sigmoid(x):
 
 
 def gen_hc_split_sinkhorn(x, hc_scale, hc_base):
-    t, _ = x.shape # (t, 24)
+    t, _ = x.shape  # (t, 24)
 
     pre = x[:, :hc] * hc_scale[0] + hc_base[:, :hc] # (t, 4)
     pre = gen_sigmoid(pre) + hc_eps # (t, 4)
 
-    post = x[:, hc: 2*hc] * hc_scale[1] + hc_base[:, hc: 2*hc] # (t, 4)
-    post = 2.0 * gen_sigmoid(post) # (t, 4)
+    post = x[:, hc: 2*hc] * hc_scale[1] + hc_base[:, hc: 2*hc]  # (t, 4)
+    post = 2.0 * gen_sigmoid(post)  # (t, 4)
 
-    comb_flag = (x[:, 2*hc: ] * hc_scale[2] + hc_base[:, 2*hc: ]).reshape(t, hc, hc) # (t, 4, 4)
-    row_max = comb_flag.amax(-1, keepdim=True) # (t, 4, 1)
+    comb_flag = (x[:, 2*hc: ] * hc_scale[2] + hc_base[:, 2*hc: ]).reshape(t, hc, hc)    # (t, 4, 4)
+    row_max = comb_flag.amax(-1, keepdim=True)  # (t, 4, 1)
     comb_flag = (comb_flag - row_max).exp() # (t, 4, 4)
 
-    row_sum = comb_flag.sum(-1, keepdim=True) # (t, 4, 1)
-    comb_flag = comb_flag / row_sum + hc_eps # (t, 4, 4)
-    col_sum = comb_flag.sum(-2, keepdim=True) # (t, 1, 4)
-    comb_flag = comb_flag / (col_sum + hc_eps) # (t, 4, 4)
+    row_sum = comb_flag.sum(-1, keepdim=True)   # (t, 4, 1)
+    comb_flag = comb_flag / row_sum + hc_eps    # (t, 4, 4)
+    col_sum = comb_flag.sum(-2, keepdim=True)   # (t, 1, 4)
+    comb_flag = comb_flag / (col_sum + hc_eps)  # (t, 4, 4)
     for _ in range(sinkhorn_iters - 1):
-        row_sum = comb_flag.sum(-1, keepdim=True) # (t, 4, 4)
-        comb_flag = comb_flag / (row_sum + hc_eps) # (t, 4, 4)
-        col_sum = comb_flag.sum(-2, keepdim=True) # (t, 4, 4)
-        comb_flag = comb_flag / (col_sum + hc_eps) # (t, 4, 4)
+        row_sum = comb_flag.sum(-1, keepdim=True)   # (t, 4, 4)
+        comb_flag = comb_flag / (row_sum + hc_eps)  # (t, 4, 4)
+        col_sum = comb_flag.sum(-2, keepdim=True)   # (t, 4, 4)
+        comb_flag = comb_flag / (col_sum + hc_eps)  # (t, 4, 4)
     return pre, post, comb_flag
 
 
 def gen_hc_split_sinkhorn_trans(x, hc_scale, hc_base):
-    _, t = x.shape # (24, t)
+    _, t = x.shape  # (24, t)
     hc_base = hc_base.reshape(mix_hc, 1)
     print("hc_split_sinkhorn_trans x ", x.shape)
 
@@ -97,14 +96,14 @@ def gen_hc_pre(x, hc_fn, hc_scale, hc_base):
     x = x_16.to(torch.float32)
 
     hc_fn = hc_fn.to(torch.float32)
-    res = torch.matmul(x, hc_fn.transpose(0, 1)) # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
+    res = torch.matmul(x, hc_fn.transpose(0, 1))    # (t, hc*d) @ (mix_hc, hc*d)^t = (t, mix_hc)
 
-    res = res / gen_rms_norm_denom(x) # (t, mix_hc) / (t, 1) = (t, mix_hc)
+    res = res / gen_rms_norm_denom(x)   # (t, mix_hc) / (t, 1) = (t, mix_hc)
     mm_res = res
 
     pre, post, comb = gen_hc_split_sinkhorn(res, hc_scale, hc_base) # (t, hc), (t, hc), (t, hc, hc)
     mul_res = pre.reshape(t, hc, 1) * x.reshape(t, hc, d)
-    res = mul_res.sum(-2) # (t,mul_res d)
+    res = mul_res.sum(-2)   # (t,mul_res d)
     res = res.to(torch.bfloat16)
     return res, post, comb, mm_res
 
@@ -116,23 +115,21 @@ def gen_hc_pre_trans(x, hc_fn, hc_scale, hc_base):
     x = x_16.to(torch.float32)
 
     hc_fn = hc_fn.to(torch.float32)
-    res = torch.matmul(hc_fn, x.transpose(0, 1)) #  (mix_hc, hc*d)@(t, hc*d)^t = (mix_hc, t)
+    res = torch.matmul(hc_fn, x.transpose(0, 1))    # (mix_hc, hc*d)@(t, hc*d)^t = (mix_hc, t)
 
     rms_res = gen_rms_norm_denom(x)
     res = res / (rms_res.reshape(1, t)) # (mix_hc, t) / (1, t) = (mix_hc, t)
-    # mm_res = res    #(mix_hc, t)
-
 
     pre, post, comb, pre_ = gen_hc_split_sinkhorn_trans(res, hc_scale, hc_base) # (t, hc), (t, hc), (t, hc, hc)
     mm_res = pre_
 
     mul_res = pre.reshape(t, hc, 1) * x.reshape(t, hc, d)
-    res = mul_res.sum(-2) # (t,mul_res d)
+    res = mul_res.sum(-2)   # (t,mul_res d)
     res = res.to(torch.bfloat16)
-    return res, post, comb, mm_res    
+    return res, post, comb, mm_res
 
 
-def gen_hc_pre_data(t = 16, is_trans = False):
+def gen_hc_pre_data(t=16, is_trans=False):
     torch.manual_seed(42)
     print("t is ", t)
     x = torch.empty((t, hc, d), dtype=torch.bfloat16).uniform_(-1, 1)
@@ -148,6 +145,7 @@ def gen_hc_pre_data(t = 16, is_trans = False):
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
 pyptolib.define("hc_pre(Tensor x, Tensor hc_fn, Tensor hc_scale, Tensor hc_base) -> (Tensor, Tensor, Tensor)")
 
+
 @torch.library.impl(pyptolib, "hc_pre", "Meta")
 def hc_pre(x, hc_fn, hc_scale, hc_base):
     y = torch.empty([x.size(0), x.size(2)], dtype=x.dtype, device=f'{x.device}')
@@ -160,13 +158,14 @@ def hc_pre(x, hc_fn, hc_scale, hc_base):
 def hc_pre(x, hc_fn, hc_scale, hc_base):
     return npu_hc_pre(x, hc_fn, hc_scale, hc_base)
 
+
 class HC_PRE(torch.nn.Module):
     def forward(self, x, hc_fn, hc_scale, hc_base):
-        #### add some op here
-        # x = torch.add(x, 0)
+        #### add some op here  x = torch.add(x, 0)
         return torch.ops.pypto.hc_pre(x, hc_fn, hc_scale, hc_base)
 
-def test_hc_pre_inmodel(t = 16):
+
+def test_hc_pre_inmodel(t=16):
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch.npu.set_device(int(device_id))
     torch.manual_seed(42)
@@ -197,7 +196,8 @@ def test_hc_pre_inmodel(t = 16):
     compare(comb.cpu(), comb_gd, "comb", atol=0.000025, rtol=0.005)
     print("comb compare success!!!")
 
-def test_hc_pre(t = 16, is_trans = False):
+
+def test_hc_pre(t=16, is_trans=False):
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     torch.npu.set_device(int(device_id))
     torch.manual_seed(42)
@@ -240,7 +240,7 @@ def test_hc_pre(t = 16, is_trans = False):
     print("comb compare success!!!")
 
 
-def te_hc_pre_prefill(t = 512):
+def te_hc_pre_prefill(t=512):
     print("hc_pre_prefill ")
     test_hc_pre(t=t, is_trans=True)
 
@@ -248,8 +248,4 @@ def te_hc_pre_prefill(t = 512):
 if __name__ == "__main__":
     print("start test !!!")
     test_hc_pre_inmodel(16)
-    # decode_t_list = {2048, 8192, }
-    # for t_dyn in decode_t_list:
-    #     test_hc_pre(t_dyn)
-    # test_hc_pre(127)
-
+    test_hc_pre(127)
