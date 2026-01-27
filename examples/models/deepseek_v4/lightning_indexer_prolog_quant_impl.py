@@ -34,9 +34,6 @@ from common import inverse_rope_3d, quant_tensor
 @dataclass
 class IndexerPrologQuantConfig:
     unroll_list: list
-    q_linear: list
-    q_hd: list
-    w_linear: list
 
 
 def quant_lightning_indexer_prolog_compute(
@@ -117,7 +114,7 @@ def quant_lightning_indexer_prolog_compute(
         qr_in = pypto.view(qr, [t_tile, q_lora_rank], [t_idx, 0])
         qs_in = pypto.view(qr_scale, [t_tile, 1], [t_idx, 0])
         pypto.set_semantic_label("Query-Linear")
-        pypto.set_cube_tile_shapes(*tile_config.q_linear)
+        pypto.set_cube_tile_shapes([256, 256], [256, 1024], [256, 256], enable_multi_data_load=True)
         # (t_tile, q_lora_rank) @ (q_lora_rank, idx_nq * head_dim) --> (t_tile, idx_nq * head_dim)
         q_s32 = pypto.matmul(qr_in, idx_wq_b, pypto.DT_INT32)
 
@@ -149,7 +146,7 @@ def quant_lightning_indexer_prolog_compute(
         pypto.assemble(q_roped, [0, 0, head_dim - rope_dim], q_assemble)
 
         pypto.set_semantic_label("Hadamard-Compute")
-        pypto.set_cube_tile_shapes(*(tile_config.q_hd))
+        pypto.set_cube_tile_shapes([idx_nq, idx_nq], [head_dim, head_dim], [head_dim, head_dim])
         # (t_tile, idx_nq, head_dim) @ (1, head_dim, head_dim) -> (t_tile, idx_nq, head_dim)
         q_hadamard = pypto.matmul(
             q_assemble, hadamard_q, x_dtype
@@ -166,7 +163,7 @@ def quant_lightning_indexer_prolog_compute(
 
         pypto.set_semantic_label("Weight-Compute")
         x_in = pypto.view(x, [t_tile, h], [t_idx, 0])
-        pypto.set_cube_tile_shapes(*(tile_config.w_linear))
+        pypto.set_cube_tile_shapes([32, 64], [h // 4, h], [idx_nq, idx_nq], enable_multi_data_load=True)
         pypto.set_vec_tile_shapes(t_tile, idx_nq)
         # (t_tile, h) @ (h, idx_nq) --> (t_tile, idx_nq)
         weights_fp32 = pypto.cast(
@@ -190,6 +187,7 @@ def quant_lightning_indexer_prolog_compute(
         "stitch_function_inner_memory": 128,
         "stitch_function_outcast_memory": 128,
         "stitch_cfgcache_size": 2500000,
+        "device_sched_mode": 1,
     },
 )
 def quant_lightning_indexer_prolog_kernel(
