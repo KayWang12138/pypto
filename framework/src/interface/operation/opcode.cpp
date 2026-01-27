@@ -556,8 +556,8 @@ void OpcodeManager::RegisterDistribute() {
         {"TileOp::Distributed::ShmemPut", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
         {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_PUT_UB2GM, OpCoreType::AIV, "SHMEM_PUT_UB2GM",
-        {MemoryType::MEM_UB , MemoryType::MEM_DEVICE_DDR,
-            MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR , MemoryType::MEM_DEVICE_DDR,
+            MemoryType::MEM_UB},
         {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Distributed::ShmemPutUb2Gm", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_SIGNAL, OpCoreType::AIV, "SHMEM_SIGNAL",
