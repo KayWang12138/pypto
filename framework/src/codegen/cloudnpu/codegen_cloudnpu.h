@@ -150,6 +150,8 @@ private:
 
     void UpdateSubFunc(std::pair<uint64_t, Function *> subFuncPair, const CompileInfo &compileInfo) const;
 
+    std::string GetCompiler() const;
+
     NPUArch platform_;
 
     std::string GetIncludePathForCompileCCE() const;
