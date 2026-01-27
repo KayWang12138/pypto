@@ -49,7 +49,7 @@ public:
 
 TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
 
     std::vector<int64_t> shape = {64, 64};
     std::vector<int64_t> tileShape = {64, 64};

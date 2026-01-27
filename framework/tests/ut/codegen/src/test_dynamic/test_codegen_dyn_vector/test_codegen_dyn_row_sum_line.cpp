@@ -96,7 +96,7 @@ TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumLine) {
 
 TEST_F(TestCodegenDynRowSumLine, TestOperationRowSumSingleTileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
 
     int shape0 = 257;
     int shape1 = 128;

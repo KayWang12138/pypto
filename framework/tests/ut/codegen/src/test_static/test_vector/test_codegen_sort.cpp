@@ -60,7 +60,7 @@ struct TopKParams {
 };
 void TopKOnBoardFunc(TopKParams &params) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     config::SetPassOption(CUBE_L1_REUSE_MODE, 0);
     config::SetBuildStatic(true);
 

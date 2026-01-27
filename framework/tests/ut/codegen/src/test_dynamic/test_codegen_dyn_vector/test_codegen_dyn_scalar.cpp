@@ -130,7 +130,7 @@ TEST_F(TestCodegenDynScalar, TestScalarDivs) {
 
 TEST_F(TestCodegenDynScalar, TestAddsTileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE4);
     int s = 32;
     Tensor t0(DT_FP32, {-1, s}, "t0"); // [32*8, 32]
     Tensor out(DT_FP32, {-1, s}, "out");
