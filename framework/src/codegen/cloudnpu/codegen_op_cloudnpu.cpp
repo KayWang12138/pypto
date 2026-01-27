@@ -657,7 +657,11 @@ void CodeGenOpCloudNPU::FillParamWithShapeExceptFirst(
 
 std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     std::vector<TileTensor> res;
+<<<<<<< HEAD
     if (forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop()) {
+=======
+    if (forBlkMgr_->IsInLoop()) {
+>>>>>>> 418c79e (feat(pass, codegen, interface):VF support for A5)
         res = sm->QueryTileTensorInLoopByMagic(operandWithMagic[paramIdx]);
         // some tensor in loop is reused same tensor out of loop
         if (res.empty()) {
@@ -673,8 +677,12 @@ std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
     ALOG_INFO_F("paramIdx is %d, tensor magic is %d, res size is %d", paramIdx, operandWithMagic[paramIdx], res.size());
 
     for (const auto &tileTensor : res) {
+<<<<<<< HEAD
         auto targetRawShape =
             forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop() ? tileTensor.shapeInLoop.rawShape : rawShape[paramIdx];
+=======
+        auto targetRawShape = forBlkMgr_->IsInLoop() ? tileTensor.shapeInLoop.rawShape : rawShape[paramIdx];
+>>>>>>> 418c79e (feat(pass, codegen, interface):VF support for A5)
         // Currently only support additional comparison of rawShape
         if (tileTensor.rawShape == targetRawShape) {
             return tileTensor.tensorName;
@@ -710,6 +718,19 @@ std::string CodeGenOpCloudNPU::GenOpCode() const {
     ret = forBlkMgr_->Print();
     forBlkMgr_->OutLoop();
     return ret;
+}
+
+std::string CodeGenOpCloudNPU::GetLastUse() const {
+    if (!opAttrs.count(OpAttributeKey::lastUse)) {
+        return "";
+    }
+    std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
+    int valSize = val.size();
+    ASSERT(valSize != 0) << "GetLastUse error!!!";
+    std::ostringstream oss;
+    oss << "LastUse" << valSize << "Dim";
+    oss << WrapParamByAngleBrackets(val);
+    return oss.str();
 }
 
 } // namespace npu::tile_fwk

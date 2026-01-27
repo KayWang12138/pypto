@@ -79,12 +79,10 @@ int OptimizeSort::GetMaxDepthSimple(Operation* op) {
     if (it != depthCache.end()) {
         return it->second;
     }
-
     int maxDepth = 0;
     for (const auto& pre : inGraph[op]) {
         maxDepth = std::max(maxDepth, GetMaxDepthSimple(pre));
     }
-
     int depth = maxDepth + 1;
     depthCache[op] = depth;
     return depth;
