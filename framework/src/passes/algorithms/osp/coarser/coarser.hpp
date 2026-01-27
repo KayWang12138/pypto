@@ -140,3 +140,4 @@ class CoarserGenExpansionMap : public Coarser<GraphTIn, GraphTOut> {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
+#endif    // PASS_OSP_COARSER_H

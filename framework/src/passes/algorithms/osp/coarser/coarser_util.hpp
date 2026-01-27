@@ -517,3 +517,4 @@ std::vector<IntegralType> ComposeVertexContractionMap(const std::vector<Integral
 }    // end namespace coarser_util
 }    // end namespace osp
 }    // namespace npu::tile_fwk
+#endif    // PASS_OSP_COARSER_UTIL_H

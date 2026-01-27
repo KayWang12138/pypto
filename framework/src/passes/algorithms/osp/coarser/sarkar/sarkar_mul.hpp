@@ -304,3 +304,4 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunContractions() {
 
 }    // end namespace osp
 }    // namespace npu::tile_fwk
+#endif    // PASS_OSP_SARKAR_MUL_H

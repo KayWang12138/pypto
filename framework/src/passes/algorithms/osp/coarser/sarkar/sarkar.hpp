@@ -1467,3 +1467,4 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
 
 }    // end namespace osp
 }    // namespace npu::tile_fwk
+#endif
