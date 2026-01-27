@@ -15,7 +15,7 @@ import pytest
 from test_case_class_vector_operations import LogicalAndTestCase
 
 
-def test_tensor_add():
+def test_tensor_and():
     original_shape = (32, 32)
     input_tensors = [
         {
