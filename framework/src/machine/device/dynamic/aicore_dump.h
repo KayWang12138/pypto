@@ -127,6 +127,7 @@ public:
 
     void SetHostPid(uint32_t hostPid){ 
         hostPid_ = hostPid;
+        DEV_DEBUG("hostPid is %u.", hostPid_);
         enableDump_ = (hostPid_ != 0);
     }
     void SetDeviceId(uint32_t devId){ deviceId_ = devId; }
