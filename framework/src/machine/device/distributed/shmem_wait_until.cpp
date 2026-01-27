@@ -62,11 +62,11 @@ uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankI
     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
     uint64_t memType = npu::tile_fwk::Distributed::GetVirtaulAddrMemType(addr);
-    auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContextAddr_[groupIndex]);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr_[groupIndex]);
     if (memType == 0) {
-        return hcclOpParam->windowsIn[dstRankId] + offset;
+        return hcclOpParam->winAddr[dstRankId] + offset;
     } else {
-        return hcclOpParam->windowsExp[dstRankId] + offset;
+        return hcclOpParam->winAddr[dstRankId + hcclOpParam->rankNum] + offset;
     }
 }
 
