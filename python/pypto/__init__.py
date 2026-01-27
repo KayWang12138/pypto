@@ -78,11 +78,12 @@ from .cost_model import *  # noqa
 from . import frontend
 from .converter import from_torch
 from .converter import ir_from_tensor
-from ._utils import ceildiv, bytes_of
 from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 from .functions import Function, get_last_function, get_current_function
+
+from ._utils import ceildiv, bytes_of
 
 tensor = Tensor
 symbolic_scalar = SymbolicScalar
