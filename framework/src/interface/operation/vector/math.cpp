@@ -622,16 +622,16 @@ void TensorTriUL(Function &function, const TriULPara &triULPara) {
 
     if (triULPara.input->Datatype() == DT_INT8) {
         LogicalTensorPtr inputConverted = std::make_shared<LogicalTensor>(function, DT_FP16, triULPara.input->GetShape());
-        Operation &castinputOp = function.AddOperation(Opcode::OP_CAST, {triULPara.input}, {inputConverted});
+        auto &castinputOp = GraphUtils::AddDynOperation(function, Opcode::OP_CAST, {triULPara.input}, {inputConverted});
         castinputOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
         LogicalTensorPtr dstConverted = std::make_shared<LogicalTensor>(function, DT_FP16, triULPara.dstTensor->GetShape());
-        auto &op = function.AddOperation(Opcode::OP_TRIUL, {inputConverted}, {dstConverted});
+        auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_TRIUL, {inputConverted}, {dstConverted});
         op.SetAttribute(OpAttributeKey::dynScalar, triULPara.diagonal);
         op.SetAttribute(OP_ATTR_PREFIX + "isUpper", triULPara.isUpper);
-        Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConverted}, {triULPara.dstTensor});
+        auto &castDstOp = GraphUtils::AddDynOperation(function, Opcode::OP_CAST, {dstConverted}, {triULPara.dstTensor});
         castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_TRUNC);
     } else {
-        auto &op = function.AddOperation(Opcode::OP_TRIUL, {triULPara.input}, {triULPara.dstTensor});
+        auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_TRIUL, {triULPara.input}, {triULPara.dstTensor});
         op.SetAttribute(OpAttributeKey::dynScalar, triULPara.diagonal);
         op.SetAttribute(OP_ATTR_PREFIX + "isUpper", triULPara.isUpper);
     }

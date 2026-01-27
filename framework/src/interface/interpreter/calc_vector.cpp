@@ -397,8 +397,14 @@ void ExecuteOpTriU(ExecuteOperationContext *ctx) {
     auto &output = ctx->ooperandInplaceDataViewList->at(0);
     auto &input = ctx->ioperandDataViewList->at(0);
 
-    int diagonal = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "diagonal");
-    calc::TriU(output, input, diagonal);
+    auto dia = ctx->op->GetElementAttribute(OpAttributeKey::dynScalar);
+    int diagonal = static_cast<int32_t>(dia.GetSignedData());
+    bool isUpper = ctx->op->GetBoolAttribute(OP_ATTR_PREFIX + "isUpper");
+    if (isUpper) {
+        calc::TriU(output, input, diagonal);
+    } else {
+        calc::TriL(output, input, diagonal);
+    }
 }
 REGISTER_CALC_OP(OP_TRIUL, Opcode::OP_TRIUL, ExecuteOpTriU);
 

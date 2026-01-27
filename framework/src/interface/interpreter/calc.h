@@ -177,6 +177,9 @@ inline void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logica
 inline void TriU(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
     GetCalcOps()->TriU(out, in, diagonal);
 }
+inline void TriL(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+    GetCalcOps()->TriL(out, in, diagonal);
+}
 inline void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
     GetCalcOps()->CumSum(out, in, axis);
 }
