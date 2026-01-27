@@ -623,7 +623,6 @@ std::vector<std::vector<VertexIdxT<GraphTIn>>> Sarkar<GraphTIn, GraphTOut>::Gene
                                                                                                        VertexIdxT<GraphTIn> &diff) {
     std::vector<std::vector<VertexIdxT<GraphTIn>>> expansionMap;
 
-    // std::cout << "Mode: " << static_cast<int>(params.mode) << "\n";
     switch (params_.mode_) {
         case sarkar_params::Mode::LINES: {
             diff = SingleContraction(params_.commCost_, dagIn, expansionMap);
@@ -657,14 +656,10 @@ std::vector<std::vector<VertexIdxT<GraphTIn>>> Sarkar<GraphTIn, GraphTOut>::Gene
         } break;
 
         default: {
-#ifdef __cpp_lib_unreachable
-            std::unreachable();
-#endif
-            assert(false);
+            diff = 0;
         } break;
     }
 
-    // std::cout << " Diff: " << diff << '\n';
 
     return expansionMap;
 }
