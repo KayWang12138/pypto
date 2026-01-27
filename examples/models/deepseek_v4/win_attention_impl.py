@@ -269,7 +269,7 @@ def win_atten_main_tnd_prefill_mask(q_tnd, block_table, kv_cache, seqused_kv_lis
                 acc_s = pypto.matmul(q_tensor_cur, kv_block, pypto.DT_FP32, b_trans=True)
 
                 pypto.set_vec_tile_shapes(64, 256)
-                mask_block = pypto.view(mask2, [4 * n_q, block_size], [0, 258 - end_block_offset], \
+                mask_block = pypto.view(mask2, [4 * n_q, block_size], [0, 255 + valid_group_len - 1 - end_block_offset], \
                     valid_shape=[valid_group_len * n_q, block_size])
                 acc_s = pypto.where(mask_block, acc_s, float("-inf")) # [valid_group_len * n_q, 128]
                 
@@ -500,7 +500,7 @@ def win_atten_main_bsnd_mtp_decode_mask(q, block_table, kv_cache, actual_seq_lis
 
 @pypto.jit(
     host_options={"only_codegen": True},
-    runtime_options={"device_sched_mode": 1,
+    runtime_options={"device_sched_mode": 2,
                     "stitch_function_inner_memory": 1024,
                     "stitch_function_outcast_memory": 1024,
                     "stitch_function_num_initial": 128},
