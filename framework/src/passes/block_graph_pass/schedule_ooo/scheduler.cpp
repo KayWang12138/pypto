@@ -550,33 +550,40 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
     return SUCCESS;
 }
 
+Status OoOScheduler::RetireUsedCoreIssue(OpCoreType coreType, int idx, uint64_t& commitCnt, int& nextCycle) {
+    for (auto& [pipeType, pipe] : issueQueues[coreType][idx]) {
+        (void)pipeType;
+        if (!pipe.busy) {
+            continue;
+        }
+        if (pipe.curOpRetireCycle <= clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
+            IssueEntryPtr issue = pipe.curIssue;
+            pipe.busy = false;
+            pipe.curIssue = nullptr;
+            APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTE END: %s", issue->GetOpInfo().c_str());
+            if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSucc failed at idx: %d coreType: %s! %s",
+                    idx, coreTypeToString(coreType).c_str(), GetFormatBacktrace(issue->tileOp).c_str());
+                return FAILED;
+            }
+            continue;
+        }
+        APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTING[%ld]: %s", pipe.curOpRetireCycle, pipe.curIssue->GetOpInfo().c_str());
+        if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
+            nextCycle = pipe.curOpRetireCycle;
+        }
+    }
+    return SUCCESS;
+}
+
 Status OoOScheduler::RetireIssueStage(uint64_t& commitCnt, int& nextCycle) {
     for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
         for (auto idx : idxVec) {
             if (!usedCore[coreType][idx]) {
                 continue;
             }
-            for (auto& [pipeType, pipe] : issueQueues[coreType][idx]) {
-                (void)pipeType;
-                if (!pipe.busy) {
-                    continue;
-                }
-                if (pipe.curOpRetireCycle <= clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
-                    IssueEntryPtr issue = pipe.curIssue;
-                    pipe.busy = false;
-                    pipe.curIssue = nullptr;
-                    APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTE END: %s", issue->GetOpInfo().c_str());
-                    if (RetireOpAndAwakeSucc(issue, commitCnt) != SUCCESS) {
-                        APASS_LOG_ERROR_F(Elements::Operation, "RetireOpAndAwakeSucc failed at idx: %d coreType: %s! %s",
-                            idx, coreTypeToString(coreType).c_str(), GetFormatBacktrace(issue->tileOp).c_str());
-                        return FAILED;
-                    }
-                    continue;
-                }
-                APASS_LOG_DEBUG_F(Elements::Operation, "EXECUTING[%ld]: %s", pipe.curOpRetireCycle, pipe.curIssue->GetOpInfo().c_str());
-                if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
-                    nextCycle = pipe.curOpRetireCycle;
-                }
+            if (RetireUsedCoreIssue(coreType, idx, commitCnt, nextCycle) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "RetireIssueStage failed");
             }
         }
     }
@@ -1089,12 +1096,41 @@ void OoOScheduler::UpdateUsedCore(IssueEntryPtr issue) {
     usedCore[corePair.first][corePair.second] = true;
 }
 
-void OoOScheduler::InitCoreConfig() {
+void OoOScheduler::InitCoreConfig(const std::vector<Operation *> &operations) {
     if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
         CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_HARDWARE_ONE;
     } else {
         CORE_INIT_CONFIGS = CORE_INIT_CONFIGS_HARDWARE_TWO;
     }
+}
+
+Status OoOScheduler::InitIssueEntry(Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap) {
+    if (IsViewOp(*op)) {
+        if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+            newOperations_.push_back(op);
+        }
+        continue;
+    }
+    if (CheckOpBufferSize(op) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] CheckOpBufferSize failed! %s",
+            op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+        return FAILED;
+    }
+    // 核属性的初始化
+    auto issue = std::make_shared<IssueEntry>(*op, issueId);
+    issueEntryMap[issueId++] = issue;
+    if (issue == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s, %d init failed! %s",
+            op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+        return FAILED;
+    }
+    issueEntries.emplace_back(issue);
+    if (InitIssueCoreType(issue, op, opCoreMap) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s init coreType failed!", issue->GetOpInfo().c_str());
+        return FAILED;
+    }
+    UpdateUsedCore(issue);
+    return SUCCESS;
 }
 
 Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap,
@@ -1106,38 +1142,17 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
     // 初始化芯片各buffer大小
     InitMemorySize();
     if (fixCoreConfig.empty()) {
-        InitCoreConfig();
+        InitCoreConfig(operations);
     } else {
         CORE_INIT_CONFIGS = fixCoreConfig;
     }
     InitUsedCore();
     // 校验并初始化issueEntry
     for (const auto &op : operations) {
-        if (IsViewOp(*op)) {
-            if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-                newOperations_.push_back(op);
-            }
-            continue;
-        }
-        if (CheckOpBufferSize(op) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] CheckOpBufferSize failed! %s", 
-                op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+        if (InitIssueEntry(op, opCoreMap) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Operation %s[%d] init issue failed!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
             return FAILED;
         }
-        // 核属性的初始化
-        auto issue = std::make_shared<IssueEntry>(*op, issueId);
-        issueEntryMap[issueId++] = issue;
-        if (issue == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s, %d init failed! %s", 
-                op->GetOpcodeStr().c_str(), op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
-            return FAILED;
-        }
-        issueEntries.emplace_back(issue);
-        if (InitIssueCoreType(issue, op, opCoreMap) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s init coreType failed!", issue->GetOpInfo().c_str());
-            return FAILED;
-        }
-        UpdateUsedCore(issue);
     }
     numTotalIssues = issueEntries.size();
 
