@@ -155,7 +155,6 @@ void TiledBitwiseShiftOperationScalar(Function &function, const TileShape &tileS
     if (cur == self.tensor->GetShape().size()) {
         auto inputTile = self.tensor->View(function, self.tileInfo.shape, self.tileInfo.offset);
         auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        // 确认接口
         auto &op = function.AddOperation(GetBitwiseShiftOpNameCode<T, true>(), {inputTile}, {resultTile});
         op.SetAttribute(OpAttributeKey::scalar, value);
         op.SetAttribute(OP_ATTR_PREFIX + "reverseOperand", reverseOperand);
