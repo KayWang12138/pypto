@@ -67,11 +67,8 @@ enum class PassName {
     MIX_SUBGRAPH_SPLIT,
     CODEGEN_PREPROC,
     DYN_ATTR_TO_STATIC,
-<<<<<<< HEAD
-=======
     TUNE_TILEOP_SEQ_FOR_VF,
     TUNE_SYNC_FOR_VF,
->>>>>>> 418c79e (feat(pass, codegen, interface):VF support for A5)
     LOOPAXES_PROC,
     NOT_DEFINED
 };
