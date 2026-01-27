@@ -73,7 +73,7 @@ auto ConfigureFuncData(npu::tile_fwk::DynFuncData* funcData, uint64_t rawAddr,
     auto exprTbl = std::make_unique<uint64_t[]>(exprTblSize);
     funcData->exprTbl = exprTbl.get();
 
-    auto hcclParam = std::make_unique<TileOp::HcclCombinOpParam>();
+    auto hcclParam = std::make_unique<TileOp::CommContext>();
     hcclParam->rankNum = 0;
     hcclParam->windowsIn[0] = rawAddr;
     funcData->hcclContext[0] = reinterpret_cast<uint64_t>(hcclParam.get());

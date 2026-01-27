@@ -214,6 +214,16 @@ struct HcclCombinOpParam {
     uint64_t ibverbsData = 0; // TransportDeviceNormalIbverbsData数组的首地址
     uint64_t ibverbsDataSize = 0; // TransportDeviceNormalIbverbsData数组的字节长度
 };
+
+struct CommContext {
+    uint32_t rankId = 0; // 当前卡rankId
+    uint32_t rankNum = 0;
+    uint64_t winDataSize = 0; // 每个win区大小,winInSize
+    uint64_t winStatusSize = 0; // winExpSize
+    uint64_t winDebugSize = 0; // winOutSize
+    uint64_t totalWinNum = 0; 
+    uint64_t winAddr[0]; // size大小rankNum*3，内存排布windata[0~rankNum],winStatus[0~rankNum].winDebug[0~rankNum]
+};
 } // namespace TileOp
 
 #endif

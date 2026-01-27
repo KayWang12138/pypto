@@ -175,10 +175,11 @@ TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, ui
     auto groupIndex = GetVirtaulAddrGroupIndex((uint64_t)vAddr);
     auto offset = GetVirtaulAddrOffset((uint64_t)vAddr);
     auto memType = GetVirtaulAddrMemType((uint64_t)vAddr);
+    __gm__ TileOp::CommContext* hcclOpParam = (__gm__ TileOp::CommContext*)hcclContext[groupIndex];
     if (memType == 0) {
-        return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsIn[dstRankId] + offset);
+        return (__gm__ T*)(hcclOpParam->winAddr[dstRankId] + offset);
     } else {
-        return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsExp[dstRankId] + offset);
+        return (__gm__ T*)(hcclOpParam->winAddr[dstRankId + hcclOpParam->rankNum] + offset);
     }
 }
 
@@ -329,7 +330,7 @@ TILEOP void WaitFlagV2(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uint32_t
 TILEOP void ClearFlagV2(__ubuf__ int32_t *flag, uint32_t offset, uint32_t repeat,
     __gm__ int64_t *hcclContext, DispatchInfo &dispatchInfo, __gm__ int32_t *shmemFlagBaseAddr)
 {
-    __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[dispatchInfo.groupIndex]);
+    __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[dispatchInfo.groupIndex]);
     uint32_t localUsrRankId = winContext->rankId;
     GM_ADDR winFlagBaseAddr = (GM_ADDR)MapVirtualAddr<int32_t>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
     GM_ADDR winFlagReadStartAddr = winFlagBaseAddr + offset;
@@ -359,7 +360,7 @@ template<typename T>
 TILEOP void ReadFlagV2(__ubuf__ uint32_t *flag, uint32_t offset, uint32_t repeat,
     __gm__ int64_t *hcclContext, __gm__ T* shmemFlagBaseAddr, DispatchInfo &dispatchInfo)
 {
-    __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[dispatchInfo.groupIndex]);
+    __gm__ CommContext *winContext = (__gm__ CommContext *)(hcclContext[dispatchInfo.groupIndex]);
     uint32_t localUsrRankId = winContext->rankId;
     __gm__ T* winFlagBaseAddr = MapVirtualAddr<T>(hcclContext, shmemFlagBaseAddr, localUsrRankId); // flag 在 win 区的基地址
     GM_ADDR winFlagReadStartAddr = (GM_ADDR) winFlagBaseAddr + static_cast<uint32_t>(offset);

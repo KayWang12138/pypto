@@ -22,7 +22,10 @@ class DistributedContext {
 public:
     DistributedContext(){};
     ~DistributedContext(){};
-    static std::vector<uint64_t> GetHcclContext(const std::vector<std::string> &groupNames);
-    static std::vector<uint64_t> GetHcclContextToHost(const std::vector<std::string> &groupNames);
+    static std::vector<uint64_t> GetCommContext(const std::vector<std::string> &groupNames);
+    static std::vector<uint64_t> GetCommContextToHost(const std::vector<std::string> &groupNames);
+    static uint64_t AllocCommContextV1(uint64_t ctxAddr);
+    static uint64_t AllocCommContextV2(uint64_t ctxAddr);
+
 };
 } // namespace npu::tile_fwk::dynamic
