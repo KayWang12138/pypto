@@ -388,9 +388,12 @@ uint64_t OspPartitioner::CombineHash(const uint64_t h1, const uint64_t h2) const
 
 Status OspPartitioner::BuildHashValues()
 {
+    constexpr uint64_t numThree = 3U;
+    constexpr std::size_t numEleven = 11U;
+
     std::vector<uint64_t> opHashList;
     std::vector<uint64_t> opHashListFront(operationInfo_->opList_.size(), 0);
-    std::vector<uint64_t> opHashListBack(operationInfo_->opList_.size(), 3);
+    std::vector<uint64_t> opHashListBack(operationInfo_->opList_.size(), numThree);
     std::vector<uint64_t> opHashListFrontBack(operationInfo_->opList_.size(), 0);
     for (size_t i = 0; i < operationInfo_->opList_.size(); i++) {
         opHashListFront[i] = operationInfo_->opHashList_[i];
@@ -427,7 +430,7 @@ Status OspPartitioner::BuildHashValues()
     int32_t numNode = superNodeInfo_->node2Op_.size();
     superNodeInfo_->nodeHashList_.resize(numNode);
     for (int32_t i = 0; i < numNode; i++) {
-        superNodeInfo_->nodeHashList_[i] = 11;
+        superNodeInfo_->nodeHashList_[i] = numEleven;
         std::vector<uint64_t> hashes;
         for (int32_t opIdx : superNodeInfo_->node2Op_[i]) {
             hashes.push_back(opHashList[opIdx]);
