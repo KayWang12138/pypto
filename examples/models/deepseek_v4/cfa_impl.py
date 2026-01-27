@@ -30,10 +30,97 @@ import numpy as np
 import math
 import os
 from torch._subclasses.fake_tensor import FakeTensor
+from torch._dynamo import allow_in_graph
+from utils.get_format import get_format
+
+
+def check_args(
+        query,
+        kv_cache,
+        blk_tbl,
+        actual_seqs,
+):
+    assert query.dim() == 3
+    assert get_format(query) == 'ND'
+    assert query.dtype == torch.bfloat16
+    assert kv_cache.dim() == 4
+    assert get_format(kv_cache) == 'ND'
+    assert kv_cache.dtype == torch.bfloat16
+    assert blk_tbl.dim() == 2
+    assert get_format(blk_tbl) == 'ND'
+    assert blk_tbl.dtype == torch.int32
+    assert actual_seqs.dim() == 1
+    assert get_format(actual_seqs) == 'ND'
+    assert actual_seqs.dtype == torch.int32
+
+
+@allow_in_graph
+def attention(
+        query: torch.Tensor,
+        kv_cache: torch.Tensor,
+        attn_sink: torch.Tensor,
+        blk_tbl: torch.Tensor,
+        seqused_kv: torch.Tensor,
+        kv_win: torch.Tensor,
+        blk_win: torch.Tensor,                
+        cmp_r: int = 1,
+        is_prefill: bool = False,
+) -> None:
+    """
+    Main attention function with Attention support.
+
+    This function implements scaled dot-product attention using Attention
+    mechanism, which efficiently handles variable-length sequences and dynamic
+    batch sizes by managing KV cache in non-contiguous blocks.
+
+    Args:
+        query: Query tensor with shape [num_tokens, num_head, head_size]
+        key_cache: Key cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
+        value_cache: Value cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
+        blk_tbl: Block mapping table with shape [batch_size, max_blocks]
+        start_pos: Actual sequence lengths with shape [batch_size]
+        attn_res: Output attention tensor with shape [num_tokens, num_head, head_size]
+
+    Note:
+        This function is decorated with @allow_in_graph to enable integration
+        with PyTorch's compilation graph.
+    """
+    if isinstance(query, FakeTensor):
+        return
+    check_args(
+        query,
+        kv_cache,
+        blk_tbl,
+        seqused_kv,
+    )
+    attn_res = torch.zeros([query.size(0), query.size(1), query.size(2)], dtype=query.dtype, device=f'{query.device}')
+    unroll_list = [2, 1]
+    pg_upper_bound = 3072
+    inputs = {
+        query: [0],
+        kv_cache: [0],
+        attn_sink: None,
+        blk_tbl: [0],
+        seqused_kv: [0],
+        kv_win: [0],
+        blk_win: [0]
+    }
+    outputs = {
+        attn_res: [0],
+    }
+    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
+    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
+    if unroll_list is None:
+        unroll_list = []
+    if is_prefill:
+        c128_prefill(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
+    else:
+        c128_decode(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
+    return attn_res
 
 
 def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None, 
-              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072, is_prefill = False):
+              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
     pypto.set_pass_options(pg_upper_bound=pg_upper_bound)
     enable_c128 = kv_win is not None and blk_win is not None
     shape_q = q.shape
@@ -109,13 +196,9 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
 
                     pypto.set_vec_tile_shapes(v1_win_tile[0], v1_win_tile[1])
                     kv_win_cur = pypto.view(kv_gather, [win, dn], [start_offset, 0], valid_shape=[valid_win_len, dn])
-                    
-                    
-                    # block_idx = blk_win[b_idx, 0]
-                    # block_idx_valid = block_idx.max(0)
+
                     pypto.set_vec_tile_shapes(v1_win_tile[0], v1_win_tile[1])
                     qi = pypto.view(q_2d, [g_tile, dn], [bs_ofs * nq + n1g_ofs, 0])
-                    # kj = pypto.view(kv_win_2d, [block_size, dn], [block_idx_valid * block_size, 0])
                     pypto.set_cube_tile_shapes(c1_tile[0], c1_tile[1], c1_tile[2])
                     sij = pypto.matmul(qi, kv_win_cur, pypto.DT_FP32, a_trans=False, b_trans=True)
                     sij = pypto.view(sij, [g_tile, block_size], [0, 0], valid_shape=[g_tile, actual_s2_tile])
@@ -128,8 +211,7 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
                     sum_update[:] = pypto.sum(tilda_pij, dim=-1, keepdim=True)
                     max_update[:] = tilda_mij
 
-                    # c2
-                    # vj = pypto.view(kv_win_2d, [block_size, dn], [block_idx_valid * block_size, 0], valid_shape=[actual_s2_tile, dn])
+
                     pypto.set_cube_tile_shapes(c2_tile[0], c2_tile[1], c2_tile[2])
                     oi_tmp = pypto.matmul(tilda_pij_fp16, kv_win_cur, pypto.DT_FP32)
                     pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
@@ -251,8 +333,6 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
                      "stitch_function_outcast_memory": 2048,
                      "stitch_function_inner_memory": 2048,
                      "device_sched_mode": 1},
-    host_options={"only_codegen": True},
-    debug_options={"runtime_debug_mode": 1},
     
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"cube_l1_reuse_setting": {0: 4, 2:4}}
@@ -260,7 +340,7 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
 def c128_decode(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None, 
               atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
     kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=kv_win, blk_win=blk_win, 
-              atten_out = atten_out, cmp_r=cmp_r, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound, is_prefill=False)
+              atten_out = atten_out, cmp_r=cmp_r, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound)
 
 
 @pypto.jit(
@@ -268,8 +348,6 @@ def c128_decode(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=
                      "stitch_function_outcast_memory": 2048,
                      "stitch_function_inner_memory": 2048,
                      "device_sched_mode": 1},
-    host_options={"only_codegen": True},
-    debug_options={"runtime_debug_mode": 1},
     
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"cube_l1_reuse_setting": {0: 4, 2:4}}
@@ -277,4 +355,4 @@ def c128_decode(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=
 def c128_prefill(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None, 
               atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
     kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=kv_win, blk_win=blk_win, 
-              atten_out = atten_out, cmp_r=cmp_r, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound, is_prefill=True)
+              atten_out = atten_out, cmp_r=cmp_r, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound)
