@@ -118,7 +118,7 @@ class BlockBuilderHelper:
         self.builder.emit(self.ctx, op)
         return op
 
-    def round(self, a, out):
+    def round(self, a, b, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_ROUND, a, b, out)
         self.builder.emit(self.ctx, op)
         return op
