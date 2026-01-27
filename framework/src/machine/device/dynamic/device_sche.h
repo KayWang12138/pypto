@@ -202,21 +202,6 @@ struct DynMachineManager {
         }
         return ret;
     }
-    int CtrlServerInit(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
-        mutex_.lock();
-        if (initCtrl_.load()) {
-            mutex_.unlock();
-            return DEVICE_MACHINE_OK;
-        }
-        auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
-        if (devArgs->aicpuPerfAddr != 0) {
-            PerfEvtMgr::Instance().SetIsOpenProf(true, devArgs->aicpuPerfAddr);
-        }
-        auto ret = entry.kernelCtrlServerInit(kargs);
-        initCtrl_.store(true);
-        mutex_.unlock();
-        return ret;
-    }
 
     void Init(DeviceArgs *args) {
         if (init_.load()) {
@@ -234,7 +219,6 @@ struct DynMachineManager {
         cpumask_ = 0;
         ctrlcpuIdx_ = 0;
         init_.store(false);
-        initCtrl_.store(false);
     }
 
     __sighandler_t GetSigHandle(int signum) {
@@ -293,12 +277,10 @@ struct DynMachineManager {
     }
 
     int Entry(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
-        auto ret = CtrlServerInit(kargs, entry);
-        if (ret != DEVICE_MACHINE_OK) {
-            DEV_ERROR("Server init failed");
-            return -1;
-        }
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
+        if (devArgs->aicpuPerfAddr != 0) {
+            PerfEvtMgr::Instance().SetIsOpenProf(true, devArgs->aicpuPerfAddr);
+        }
         kargs->taskWastTime = GetCycles();
         Init(devArgs);
         int rc = Run(kargs, entry);
@@ -333,8 +315,6 @@ struct DynMachineManager {
     struct sigaction oriBordAct_;
     std::atomic<bool> reset_{false};
     std::atomic<bool> init_{false};
-    std::atomic<bool> initCtrl_{false};
-    std::mutex mutex_;
     std::atomic<bool> schRunFailed_{false};
 };
 

@@ -38,5 +38,8 @@ extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServerInit(
 
 extern "C" __attribute__((visibility("default"))) int PyptoKernelCtrlServer(void *targ) {
     DeviceKernelArgs *kargs = (DeviceKernelArgs *)targ;
+    if (g_ctrl_machine.EntryInit(kargs) != 0) {
+        return -1;
+    }
     return g_ctrl_machine.EntryMain(kargs);
 }

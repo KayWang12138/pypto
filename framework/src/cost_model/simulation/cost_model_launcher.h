@@ -386,6 +386,7 @@ private:
         devProg->devArgs.startArgsAddr = (uint64_t)pv_->AllocWorkspaceDev(DEV_ARGS_SIZE);
         devProg->workspaceSize = devProg->memBudget.Total();
         devProg->devArgs.scheCpuNum = 1;
+        devProg->devArgs.enableCtrl = 1;
         AssignMetaAddr(kArgs, devMem, devProg, nullptr);
         for (auto &input: inputs) {
             if (input)
