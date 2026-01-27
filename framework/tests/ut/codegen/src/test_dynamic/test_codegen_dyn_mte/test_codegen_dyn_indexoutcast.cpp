@@ -117,6 +117,53 @@ TEST_F(TestCodegenDynIndexOutCast, IndexOutCast) {
     EXPECT_EQ(res, expect);
 }
 
+TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
+    std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+    TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    InsertTileTensorOp(Opcode::OP_INDEX_OUTCAST, "TIndexOutcast");
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+
+    std::string funcName = "IndexoutTileTensor";
+    FUNCTION(funcName, {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+    function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, dynValidShape});
+    auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
+    std::vector<int64_t> offset = {0, 0};
+    std::vector<SymbolicScalar> dynoffset = {0, 0};
+    localTensor->UpdateOffset(TensorOffset(offset, dynoffset));
+    localOutTensor->UpdateOffset(TensorOffset(offset, dynoffset));
+    LogicalTensors inputs = {localTensor, localTensor};
+    LogicalTensors outputs = {localOutTensor};
+
+    auto &op = function->AddOperation(Opcode::OP_INDEX_OUTCAST, inputs, outputs);
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
+    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
+
+    cop.Init(op);
+    cop.UpdateTileTensorInfo();
+    cop.GenOpCode();
+    std::cout<<cop.GenOpCode()<<std::endl;
+}
+
 TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
     TileShape::Current().SetVecTile({32, 32});
 
