@@ -165,7 +165,7 @@ const uint64_t DEVICE_TASK_QUEUE_SIZE = sizeof(DeviceTaskCtrlQueue);
 
 const uint64_t DEVICE_SHM_SIZE = DEV_ARGS_SIZE + DEVICE_TASK_CTRL_POOL_SIZE;
 
-static inline void FillDeviceRuntimeOffset(DevAscendProgram *devProg) {
+static inline void FillDeviceRuntimeOffset(DevAscendProgram *devProg, uint64_t count) {
     DeviceRuntimeOffset &offset = devProg->deviceRuntimeOffset;
 
     offset.startArgsOffset = 0;
@@ -174,6 +174,7 @@ static inline void FillDeviceRuntimeOffset(DevAscendProgram *devProg) {
     offset.generalOffset = offset.taskQueueOffset + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
     offset.stitchPoolOffset = offset.generalOffset + devProg->memBudget.metadata.general;
     offset.size = offset.stitchPoolOffset + devProg->memBudget.metadata.stitchPool;
+    offset.count = count;
 }
 
 }
