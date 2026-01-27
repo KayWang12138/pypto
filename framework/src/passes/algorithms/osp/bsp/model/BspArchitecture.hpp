@@ -177,7 +177,6 @@ class BspArchitecture {
           communicationCosts_(communicationCost),
           synchronisationCosts_(synchronisationCost),
           memoryBound_(numberOfProcessors, memoryBound),
-          isNuma_(false),
           processorTypes_(numberOfProcessors, 0U) {
         if (numberOfProcessors == 0U) {
             throw std::runtime_error("BspArchitecture: Number of processors must be greater than 0.");
