@@ -197,6 +197,7 @@ def set_runtime_options(*,
                         stitch_function_num_step: Optional[int] = None,
                         stitch_function_size: int = None,
                         stitch_cfgcache_size: Optional[int] = None,
+                        sched_triple_stream: Optional[bool] = None,
                         run_mode: Optional[int] = None
                         ) -> None:
     """
