@@ -43,9 +43,9 @@ def hc_split_sinkhorn(comb_flag: pypto.Tensor, hc_split_sinkhorn_iters, hc_eps) 
     if tile_t <= 32:
         pypto.set_vec_tile_shapes(1, 16, 32)
     elif tile_t <= 64:
-        pypto.set_vec_tile_shapes(4, 16, 32)
+        pypto.set_vec_tile_shapes(2, 16, 32)
     else:
-        pypto.set_vec_tile_shapes(8, 16, 32)
+        pypto.set_vec_tile_shapes(4, 16, 32)
 
     row_max = pypto.amax(comb_flag, -1, True)   # (tile_t, 4, 1)
     comb_flag = pypto.exp(comb_flag - row_max)    # (tile_t, 4, 4)
@@ -171,8 +171,6 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
                 y: pypto.Tensor, post: pypto.Tensor, comb: pypto.Tensor,
                 hc_mult: int = 4, hc_split_sinkhorn_iters: int = 20, hc_eps: float = 1e-6
 ):
-    # pypto.set_debug_options(runtime_debug_mode=1)
-    # pypto.set_debug_options(runtime_debug_mode=2)   ## for acl graph
     pypto.experimental.set_operation_config(combine_axis=True)
 
     t = x.shape[0]
@@ -201,15 +199,20 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
             split_k = True
             tile_shapes_1 = [1, 16*1024]
             tile_shape_2 = 1
-            # pypto.set_cube_tile_shapes([16, 16], [1024, 2*1024], [128, 128], enable_multi_data_load = True, enable_split_k = True)
+            # pypto.set_cube_tile_shapes([16, 16], [512, 1024], [128, 128], enable_multi_data_load = True, enable_split_k = True)
             pypto.set_cube_tile_shapes([16, 16], [512, 1024], [128, 128], enable_multi_data_load = True)
         elif tile_t <= 64:
-            tile_shapes_1 = [8, 1024]
-            tile_shape_2 = 32
+            split_k = True
+            tile_shapes_1 = [2, 8*1024]
+            tile_shape_2 = 2
+            # pypto.set_cube_tile_shapes([8, 8], [512, 1024], [128, 128], enable_multi_data_load = True, enable_split_k = True)
+            pypto.set_cube_tile_shapes([16, 16], [512, 1024], [128, 128], enable_multi_data_load = True)
         else:
-            tile_shapes_1 = [8, 1024]
-            tile_shape_2 = 8
-            pypto.set_cube_tile_shapes([32, 32], [256, 512], [128, 128], enable_multi_data_load = True)
+            split_k = True
+            tile_shapes_1 = [4, 1024]
+            tile_shape_2 = 4
+            # pypto.set_cube_tile_shapes([8, 8], [512, 1024], [128, 128], enable_multi_data_load = True, enable_split_k = True)
+            pypto.set_cube_tile_shapes([16, 16], [512, 1024], [128, 128], enable_multi_data_load = True)
 
         pypto.set_vec_tile_shapes(tile_shapes_1[0], tile_shapes_1[1])
 
@@ -238,6 +241,7 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
                 else:
                     mm_res = mm_res + mm_res_k
 
+        pypto.set_vec_tile_shapes(tile_shape_2, 32)
         rms_res = mm_res / rms_res  ## t, mix_hc
         hc_scale_hc = hc_scale.expand_clone([3, hc])
 
@@ -415,5 +419,3 @@ def npu_hc_pre(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_
     hc_pre_kernel(*pto_in_outs, hc_mult, hc_split_sinkhorn_iters, hc_eps)
 
     return y, post, comb
-
-
