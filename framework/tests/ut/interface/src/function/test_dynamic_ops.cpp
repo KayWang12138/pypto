@@ -573,7 +573,7 @@ TEST_F(DynamicOpsTest, Scatter) {
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateConstantTensor<float>(out, 2.0),
     });
-
+    
     FUNCTION("main", {self, idx, src}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
