@@ -767,37 +767,14 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     }
     g_IsNullLaunched = true;
     #endif
-    /*
-    auto localArgs = args_;
-    localArgs.taskId = taskId;
-    localArgs.taskType = DEVICE_TASK_TYPE_DYN;
-    if (kernelArgs == nullptr) {
-        return -1;
-    }
-    lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
-    localArgs.machineConfig = kernelArgs->machineConfig;
-    localArgs.toSubMachineConfig = kernelArgs->toSubMachineConfig;
-    localArgs.nrValidAic = blockdim;
-    localArgs.nrAicpu = launchAicpuNum;
+
     blockDim_ = blockdim;
     aicpuNum_ = launchAicpuNum;
-    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_, args_.archInfo);
-    localArgs.enableCtrl = ctrlStream == nullptr ? 1 : 0; // need set 0 if use custom cpu launch ctrl cpu
-    localArgs.validGetPgMask = machine::GetRA()->GetValidGetPgMask();
-    localArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
-    localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
-    localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
-
-    HOST_PERF_TRACE(TracePhase::RunDevKernelInitKernelArgs);
-
-    int rc = rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
-    if (rc != 0) {
-        ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
-        return rc;
-    }
-    */
-    HOST_PERF_TRACE(TracePhase::RunDevKernelInitH2DMemCopy);
-
+    lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
+    // for dump perfInfo update device args 
+    args_.nrValidAic = blockdim; 
+    args_.nrAicpu = launchAicpuNum; 
+    args_.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockDim_, aicpuNum_, args_.archInfo);
     if (RunPrepare() < 0) {
         ALOG_ERROR_F("Prepare failed.\n");
         return -1;
