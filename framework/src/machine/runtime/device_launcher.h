@@ -225,7 +225,7 @@ public:
         if (devProg->hcclContext[0] != 0) {
             return;
         }
-        auto hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
+        auto hcclContext = DistributedContext::GetCommContextToHost(groupNames);
         PrepareHcclContext(hcclContext, devProgData);
     }
 
@@ -235,7 +235,7 @@ public:
         if (devProg->hcclContext[0] != 0) {
             return;
         }
- 	    auto hcclContext = DistributedContext::GetHcclContext(groupNames);
+ 	    auto hcclContext = DistributedContext::GetCommContext(groupNames);
         PrepareHcclContext(hcclContext, devProgData);
     }
 

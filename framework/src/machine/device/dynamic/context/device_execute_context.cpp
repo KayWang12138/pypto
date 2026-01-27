@@ -564,7 +564,7 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     constexpr uint64_t FILL_SHIFT = MEMTYPE_SHIFT + MEMTYPE_BITS;
     DEV_ASSERT(memType < memTypeCount);
     DeviceExecuteContext* ctx = (DeviceExecuteContext*)ctx_;
-    auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(ctx->args->hcclContextAddr[groupIndex]);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(ctx->args->hcclContextAddr[groupIndex]);
     uint64_t winSize = memType == 0 ? hcclOpParam->winSize : hcclOpParam->winExpSize;
     if (offset[memType] + size > winSize) {
         offset[memType] = 0UL;
