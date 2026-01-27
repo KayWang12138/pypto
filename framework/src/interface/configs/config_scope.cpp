@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 - 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file config_manager_ng.cpp
+ * \file config_scope.cpp
  * \brief
  */
 #include <string>
@@ -31,7 +31,7 @@
 #include "interface/utils/file_utils.h"
 #include "interface/utils/string_utils.h"
 
-#include "config_manager_ng.h"
+#include "config_scope.h"
 #include "tilefwk/tile_shape.h"
 
 
@@ -59,11 +59,8 @@ struct TypeInfo {
             for (auto &it : properties.items()) {
                 const std::string &key = it.key();
                 const nlohmann::json &value = it.value();
-                if (prefix.empty()) {
-                    build_type_infos(value, key);
-                } else {
-                    build_type_infos(value, prefix + "." + key);
-                }
+                std::string new_prefix = prefix.empty() ? key : prefix + "." + key;
+                build_type_infos(value, new_prefix);
             }
         } else if (jdata.contains("type")) {
             const std::string &type = jdata["type"];
