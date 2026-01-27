@@ -344,7 +344,7 @@ public:
                 }
                 return ret;
             }
-            reinterpret_cast<DevStartArgs *>(deviceArgs->devStartArgsAddr)->syncFlag = 1;
+            devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
         DEV_DEBUG("Schedule run start succ");
