@@ -123,17 +123,15 @@ public:
     static void AssignMetaAddr(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
         (void)kArgs;
 
-        FillDeviceRuntimeOffset(devProg);
+        FillDeviceRuntimeOffset(devProg, DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT);
+        size_t runtimeDataSize = devProg->GetDeviceRuntimeOffset().size;
+        size_t runtimeDataCount = devProg->GetDeviceRuntimeOffset().count;
+        size_t runtimeDataRingBufferSize = RuntimeDataRingBufferHead::GetRingBufferSize(runtimeDataSize, runtimeDataCount);
+        uint64_t runtimeDataRingBufferAddr = (uint64_t)devMem.AllocDev(runtimeDataRingBufferSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
+        devProg->devArgs.runtimeDataRingBufferAddr = runtimeDataRingBufferAddr;
+
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
-        size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
-            generalSize + stitchPoolSize;
-        uint64_t shmAddr = (uint64_t)devMem.AllocDev(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
-        devProg->devArgs.devStartArgsAddr = shmAddr;
-        shmAddr += DEV_ARGS_SIZE;
-        shmAddr += DEVICE_TASK_CTRL_POOL_SIZE;
-        shmAddr += DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
-        shmAddr += generalSize;
         ALOG_DEBUG_F("generalSize:%lu stitchPoolSize:%lu generalOffset:%lx stitchPoolOffset:%lx.", generalSize, stitchPoolSize,
             devProg->deviceRuntimeOffset.generalOffset, devProg->deviceRuntimeOffset.stitchPoolOffset);
         return;

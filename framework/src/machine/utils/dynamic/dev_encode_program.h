@@ -29,6 +29,7 @@ struct DevAscendProgramSymbol {
     uint64_t index;
 };
 
+struct RuntimeDataRingBufferHead;
 struct DevAscendProgram {
     // shadow definition in `aicore_runtime_manager.h`, make sure the first 4 members are the same
     DeviceArgs devArgs;
@@ -138,6 +139,8 @@ struct DevAscendProgram {
      *      DevAscendProgramPartialUpdate partialUpdateList[]
      *      DevAscendProgramSlot slotList[]
      */
+
+    RuntimeDataRingBufferHead *GetRuntimeDataList() { return reinterpret_cast<RuntimeDataRingBufferHead *>(devArgs.runtimeDataRingBufferAddr); }
 
     template <typename T>
     const T &At(const DevRelocVector<T> &localvec, int index) const {

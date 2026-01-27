@@ -383,7 +383,7 @@ private:
 
         devProg->devArgs.nrAicpu = 6;
         devProg->devArgs.nrValidAic = 24;
-        devProg->devArgs.devStartArgsAddr = (uint64_t)pv_->AllocWorkspaceDev(DEV_ARGS_SIZE);
+        devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)pv_->AllocWorkspaceDev(DEV_ARGS_SIZE);
         devProg->workspaceSize = devProg->memBudget.Total();
         devProg->devArgs.scheCpuNum = 1;
         AssignMetaAddr(devMem, kArgs, devProg, nullptr);
@@ -444,7 +444,7 @@ private:
         std::atomic<int> idx{0};
         auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
         size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
-        auto deviceTaskCtrlPoolAddr = devProg->devArgs.devStartArgsAddr + DEV_ARGS_SIZE;
+        auto deviceTaskCtrlPoolAddr = devProg->devArgs.runtimeDataRingBufferAddr + sizeof(RuntimeDataRingBufferHead) + DEV_ARGS_SIZE;
         (void)memset_s(reinterpret_cast<void*>(deviceTaskCtrlPoolAddr), shmSize, 0, shmSize);
         int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
         threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
