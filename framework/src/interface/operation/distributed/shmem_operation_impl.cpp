@@ -128,17 +128,17 @@ Tensor ShmemPut(const Tensor &predToken, const Tensor &in, const Tensor &shmemDa
     return out;
 }
 
-Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
+Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemData, const Tensor &predToken,
  	AtomicType atomicType)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, barrierDummy.GetShape());
+    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_PUT_UB2GM,
-        {in.GetStorage(), shmemDataTile.GetStorage(), barrierDummy.GetStorage()}, {dummy});
+        {in.GetStorage(), shmemData.GetStorage(), predToken.GetStorage()}, {out});
     DistOpAttr distOpAttr;
     distOpAttr.atomicType = atomicType;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-    return dummy;
+    return out;
 }
 
 Tensor ShmemSignal(const Tensor &predToken, const Tensor &shmemSignal, AtomicType atomicType)
@@ -256,9 +256,7 @@ Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* gr
     auto shmemSignalOut = ShmemSignal(predToken, shmemSignalTile, AtomicType::ADD);
     auto shmemSignalLocal = View(shmemSignal, {1, 1, 1, shmemSignal.GetShape(3), shmemSignal.GetShape(4)},
         std::vector<SymbolicScalar>{thisRank, 0, 0, 0, 0});
-    Tensor out(shmemSignalOut.GetDataType(), shmemSignalOut.GetShape());
-    out = WaitUntil(shmemSignalOut, shmemSignalLocal, worldSize, true);
-    return out;
+    return WaitUntil(shmemSignalOut, shmemSignalLocal, worldSize, true);
 }
 
 Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData)

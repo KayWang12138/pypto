@@ -423,9 +423,9 @@ void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
 void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal);
 Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
     AtomicType atomicType = AtomicType::SET);
-Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
+Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemData, const Tensor &predToken,
  	AtomicType atomicType = AtomicType::SET);
-Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType);
+Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType = AtomicType::SET);
 Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal = false);
 Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonShmemDataType = DataType::DT_BOTTOM,
     AtomicType atomicType = AtomicType::SET);
