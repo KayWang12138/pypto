@@ -114,7 +114,7 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1, C coordinate){
 
                 auto curValue = *(reinterpret_cast<__ubuf__ IdxDtype*>(src1Base + k));
 
-                __ubuf__ SrcDtype* srcPtr = srcBase + k * srcNdAligned;
+                __ubuf__ SrcDtype* srcPtr = srcBase + k * srcrawShape1;
                 
                 if constexpr (cacheMode == 1) {
                     auto blockCount = curValue / blockSize;
@@ -135,10 +135,15 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1, C coordinate){
                     __gm__ DstDtype* newDst = dstBase + static_cast<unsigned>(curValue) * dstShape4;
                     set_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
                     wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
-
+                    /* 
+                    原 TileOp::UBCopyOutBase<T, src0rawShape1>(new_dst, src0 + i * src0rawShape1, 1, src0OriShape1, GmShape1);
+                    =
+                    copy_ubuf_to_gm_align_b32(newDst, srcPtr+dstShape4, 0, 1, srcShape2, 0)
+                    */
+                    
                     using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
                     SrcTileDefine srcTile(srcShape3, srcShape4);
-                    pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(srcPtr));
+                    pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(srcPtr + dstShape4));
 
                     using DstGlobalType = pto::GlobalTensor<DstDtype, pto::Shape<1, 1, 1, 1, -1>, pto::Stride<0, 0, 0, 0, 1>>;
                     DstGlobalType dstGlobal(newDst, pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(srcShape4)), pto::Stride<0, 0, 0, 0, 1>(0, 0, 0, 0, 1));
