@@ -25,7 +25,6 @@ namespace npu::tile_fwk {
 
 using AtomicType = npu::tile_fwk::Distributed::AtomicType;
 using DistOpAttr = npu::tile_fwk::Distributed::DistOpAttr;
-constexpr int32_t GM2UB_SHMEMDATA_INDEX = 2;
 
 void CheckInRange(int64_t value)
 {
@@ -82,7 +81,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForPutAndGet() const
     static const std::unordered_map<Opcode, std::array<int32_t, 3>> opcodeIndexMap = {
         {Opcode::OP_SHMEM_PUT, {3, 4, 3}},
         {Opcode::OP_SHMEM_GET, {0, 3, 3}},
-        {Opcode::OP_SHMEM_PUT_UB2GM, {1, GM2UB_SHMEMDATA_INDEX, 1}},
+        {Opcode::OP_SHMEM_PUT_UB2GM, {2, 3, 1}},
         {Opcode::OP_SHMEM_GET_GM2UB, {0, 3, 3}}
     };
     auto [nonShmemDataIndex, shmemDataIndex, shapeIndex] = opcodeIndexMap.at(opCode);
@@ -228,25 +227,33 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapes(int32_t operandIndex, int3
 std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemPutAndGet() const
 {
     std::ostringstream oss;
-    int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 3 : 0;
-    int32_t shmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 4 : 3;
-    int32_t nonShmemDataDim = originShape[nonShmemDataIndex].size();
+    static const std::unordered_map<Opcode, std::array<int32_t, 2>> opcodeIndexMap = {
+        {Opcode::OP_SHMEM_PUT, {3, 4}},
+        {Opcode::OP_SHMEM_GET, {0, 3}},
+        {Opcode::OP_SHMEM_PUT_UB2GM, {2, 3}},
+        {Opcode::OP_SHMEM_GET_GM2UB, {0, 3}}
+    };
+    auto [nonShmemDataIndex, shmemDataIndex] = opcodeIndexMap.at(opCode);
+    int32_t nonShmemDataDim = (opCode == Opcode::OP_SHMEM_PUT_UB2GM) ? 2 : originShape[nonShmemDataIndex].size();
+    // int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 3 : 0;
+    // int32_t shmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT) ? 4 : 3;
+    // int32_t nonShmemDataDim = originShape[nonShmemDataIndex].size();
     int32_t shmemDataDim = 4;
     oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim) << ", " << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemPutAndGetUB() const
-{
-    std::ostringstream oss;
-    int32_t nonShmemDataIndex = (opCode == Opcode::OP_SHMEM_PUT_UB2GM) ? 1 : 0;
-    int32_t shmemDataIndex = 2;
-    int32_t nonShmemDataDim = 2;
-    int32_t shmemDataDim = 4;
-    oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim)
-        << ", " << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
-    return oss.str();
-}
+// std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemPutAndGetUB() const
+// {
+//     std::ostringstream oss;
+//     int32_t nonShmemDataIndex = 2;
+//     int32_t shmemDataIndex = 3;
+//     int32_t nonShmemDataDim = 2;
+//     int32_t shmemDataDim = 4;
+//     oss << ", " << GenOffsetsAndRawShapes(nonShmemDataIndex, nonShmemDataDim)
+//         << ", " << GenOffsetsAndRawShapes(shmemDataIndex, shmemDataDim);
+//     return oss.str();
+// }
 
 std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForShmemSignal() const
 {
@@ -363,7 +370,7 @@ std::string CodeGenOpCloudNPU::GenExtraParamsStr() const
         std::function<std::string(CodeGenOpCloudNPU const*)>> offsetsAndRawShapesHandlers = {
         {Opcode::OP_SHMEM_PUT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemPutAndGet(); }},
         {Opcode::OP_SHMEM_GET, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemPutAndGet(); }},
-        {Opcode::OP_SHMEM_PUT_UB2GM, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemPutAndGetUB(); }},
+        {Opcode::OP_SHMEM_PUT_UB2GM, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemPutAndGet(); }},
         {Opcode::OP_SHMEM_GET_GM2UB, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemPutAndGet(); }},
         {Opcode::OP_SHMEM_SIGNAL, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemSignal(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineSend(); }},
@@ -394,7 +401,7 @@ std::string CodeGenOpCloudNPU::GenDistOp() const
     static const std::unordered_map<Opcode, std::unordered_set<int32_t>> skipIndexMap = {
         {Opcode::OP_SHMEM_PUT, {0, 2}},
         {Opcode::OP_SHMEM_GET, {2}},
-        {Opcode::OP_SHMEM_PUT_UB2GM, {0, 3}},
+        {Opcode::OP_SHMEM_PUT_UB2GM, {0, 1}},
         {Opcode::OP_SHMEM_GET_GM2UB, {2}},
         {Opcode::OP_SHMEM_SIGNAL, {0, 2}},
         {Opcode::OP_SHMEM_SET, {0, 2}},
