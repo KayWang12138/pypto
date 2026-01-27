@@ -1109,7 +1109,7 @@ Status OoOScheduler::InitIssueEntry(Operation* op, const std::unordered_map<Oper
         if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
             newOperations_.push_back(op);
         }
-        continue;
+        return SUCCESS;
     }
     if (CheckOpBufferSize(op) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] CheckOpBufferSize failed! %s",
