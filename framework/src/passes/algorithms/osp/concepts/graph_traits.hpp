@@ -247,11 +247,11 @@ inline constexpr bool hasVerticesInTopOrderV = HasVerticesInTopOrderTrait<T>::va
  * std::unordered_set and std::unordered_map.
  */
 template <typename GraphT>
-struct std::hash<osp::DirectedEdge<GraphT>> {
-    std::size_t operator()(const osp::DirectedEdge<GraphT> &p) const noexcept {
+struct std::hash<npu::tile_fwk::osp::DirectedEdge<GraphT>> {
+    std::size_t operator()(const npu::tile_fwk::osp::DirectedEdge<GraphT> &p) const noexcept {
         // Combine hashes of source and target
-        std::size_t h1 = std::hash<osp::VertexIdxT<GraphT>>{}(p.source_);
-        std::size_t h2 = std::hash<osp::VertexIdxT<GraphT>>{}(p.target_);
+        std::size_t h1 = std::hash<npu::tile_fwk::osp::VertexIdxT<GraphT>>{}(p.source_);
+        std::size_t h2 = std::hash<npu::tile_fwk::osp::VertexIdxT<GraphT>>{}(p.target_);
         osp::HashCombine(h1, h2);
         return h1;
     }
