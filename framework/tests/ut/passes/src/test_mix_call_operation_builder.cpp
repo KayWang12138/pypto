@@ -1,13 +1,3 @@
-/**
- * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
-
 /*!
  * \file test_mix_call_operation_builder.cpp
  * \brief Unit test for MixCallOperationBuilder
@@ -180,24 +170,6 @@ protected:
         return subgraphToFunction;
     }
 
-    // 创建带有实际offset的Function
-    std::shared_ptr<Function> createFunctionWithRealOffsetOps(
-        const std::string& name,
-        int internalSubgraphId,
-        const std::shared_ptr<LogicalTensor>& input1,
-        const std::shared_ptr<LogicalTensor>& input2,
-        const std::shared_ptr<LogicalTensor>& output)
-    {
-        auto func = createSimpleFunction(name);
-        const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
-        
-        func->inCasts_.push_back(input1);
-        func->inCasts_.push_back(input2);
-        func->outCasts_.push_back(output);
-        
-        return createOperationsWithOffsets(func, internalSubgraphId, input1, input2, output, shape);
-    }
-    
     // 创建基本测试场景
     TestScenario createBasicTestScenario()
     {
@@ -260,56 +232,6 @@ protected:
     {
         func->inCasts_.push_back(propagatedInput);
         func->outCasts_.push_back(propagatedOutput);
-    }
-    
-    // 为函数添加传播依赖张量的操作
-    void addPropagatedTensorOperations(
-        const std::shared_ptr<Function>& func,
-        int componentId,
-        const std::shared_ptr<LogicalTensor>& propagatedInput,
-        const std::shared_ptr<LogicalTensor>& propagatedOutput)
-    {
-        const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
-        
-        // 为传播依赖的输入张量创建 CopyIn 操作
-        auto internalPropagatedInput = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
-        createCopyInOperation(func, componentId, propagatedInput, internalPropagatedInput,
-            OFFSET_INPUT1 + MS_NUM10);  // 不同的偏移量
-        
-        // 为传播依赖的输出张量创建 CopyOut 操作
-        auto internalPropagatedOutput = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
-        createCopyOutOperation(func, componentId, internalPropagatedOutput, propagatedOutput,
-            OFFSET_OUTPUT + MS_NUM10);  // 不同的偏移量
-    }
-    
-    // 创建带有传播依赖的原始混合函数
-    std::shared_ptr<Function> createOriginalMixFuncWithPropagatedTensors(
-        const std::string& name,
-        const TestScenario& scenario,
-        const PropagatedTensors& propagatedTensors)
-    {
-        auto originalMixFunc = createSimpleFunction(name);
-        const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
-        
-        // 添加常规 incasts
-        originalMixFunc->inCasts_.push_back(scenario.inputTensor1);
-        originalMixFunc->inCasts_.push_back(scenario.inputTensor2);
-        
-        // 添加常规 outcasts
-        originalMixFunc->outCasts_.push_back(scenario.outputTensor);
-        
-        // 添加传播依赖的 incast/outcast
-        addPropagatedIncastOutcast(originalMixFunc, propagatedTensors.input, propagatedTensors.output);
-        
-        // 为常规张量创建操作
-        createOperationsWithOffsets(originalMixFunc, COMPONENT_ID_0, scenario.inputTensor1,
-                                    scenario.inputTensor2, scenario.outputTensor, shape);
-        
-        // 为传播依赖张量创建操作
-        addPropagatedTensorOperations(originalMixFunc, COMPONENT_ID_0,
-                                      propagatedTensors.input, propagatedTensors.output);
-        
-        return originalMixFunc;
     }
     
     // 创建带有传播依赖的叶子函数
@@ -517,6 +439,74 @@ private:
         callOp.UpdateSubgraphID(programId);
         
         return &callOp;
+    }
+
+    // 创建带有实际offset的Function
+    std::shared_ptr<Function> createFunctionWithRealOffsetOps(
+        const std::string& name,
+        int internalSubgraphId,
+        const std::shared_ptr<LogicalTensor>& input1,
+        const std::shared_ptr<LogicalTensor>& input2,
+        const std::shared_ptr<LogicalTensor>& output)
+    {
+        auto func = createSimpleFunction(name);
+        const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
+        
+        func->inCasts_.push_back(input1);
+        func->inCasts_.push_back(input2);
+        func->outCasts_.push_back(output);
+        
+        return createOperationsWithOffsets(func, internalSubgraphId, input1, input2, output, shape);
+    }
+
+    // 为函数添加传播依赖张量的操作
+    void addPropagatedTensorOperations(
+        const std::shared_ptr<Function>& func,
+        int componentId,
+        const std::shared_ptr<LogicalTensor>& propagatedInput,
+        const std::shared_ptr<LogicalTensor>& propagatedOutput)
+    {
+        const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
+        
+        // 为传播依赖的输入张量创建 CopyIn 操作
+        auto internalPropagatedInput = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+        createCopyInOperation(func, componentId, propagatedInput, internalPropagatedInput,
+            OFFSET_INPUT1 + MS_NUM10);  // 不同的偏移量
+        
+        // 为传播依赖的输出张量创建 CopyOut 操作
+        auto internalPropagatedOutput = std::make_shared<LogicalTensor>(*func, DT_FP32, shape);
+        createCopyOutOperation(func, componentId, internalPropagatedOutput, propagatedOutput,
+            OFFSET_OUTPUT + MS_NUM10);  // 不同的偏移量
+    }
+    
+    // 创建带有传播依赖的原始混合函数
+    std::shared_ptr<Function> createOriginalMixFuncWithPropagatedTensors(
+        const std::string& name,
+        const TestScenario& scenario,
+        const PropagatedTensors& propagatedTensors)
+    {
+        auto originalMixFunc = createSimpleFunction(name);
+        const std::vector<int64_t> shape = {MS_NUM16, MS_NUM16};
+        
+        // 添加常规 incasts
+        originalMixFunc->inCasts_.push_back(scenario.inputTensor1);
+        originalMixFunc->inCasts_.push_back(scenario.inputTensor2);
+        
+        // 添加常规 outcasts
+        originalMixFunc->outCasts_.push_back(scenario.outputTensor);
+        
+        // 添加传播依赖的 incast/outcast
+        addPropagatedIncastOutcast(originalMixFunc, propagatedTensors.input, propagatedTensors.output);
+        
+        // 为常规张量创建操作
+        createOperationsWithOffsets(originalMixFunc, COMPONENT_ID_0, scenario.inputTensor1,
+                                    scenario.inputTensor2, scenario.outputTensor, shape);
+        
+        // 为传播依赖张量创建操作
+        addPropagatedTensorOperations(originalMixFunc, COMPONENT_ID_0,
+                                      propagatedTensors.input, propagatedTensors.output);
+        
+        return originalMixFunc;
     }
 
     void verifyCallOpOffsets(Operation* callOp,
