@@ -39,10 +39,10 @@ TILEOP void TIndexOutcastMode2(T0 dst, T1 src, T2 src1, unsigned b, unsigned s, 
 
             using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
             SrcTileDefine srcTile(srcTileH, srcTileW);
-            pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(curSrc));
+            pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(srcDim));
 
             using DstGlobal = pto::GlobalTensor<DstDtype, pto::Shape<1, 1, 1, 1, -1>, pto::Stride<0, 0, 0, 0, 1>>;
-            DstGlobal dstGlobal(curDst, pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(srcTileW)), pto::Stride<0, 0, 0, 0, 1>(0, 0, 0, 0, 1)
+            DstGlobal dstGlobal(curDst, pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(srcDim)), pto::Stride<0, 0, 0, 0, 1>(0, 0, 0, 0, 1)
             );
             pto::TSTORE(dstGlobal, srcTile);
             curSrc += srcNdAligned;
@@ -136,11 +136,11 @@ TILEOP void TIndexOutcast(T0 dst, T1 src, T2 src1, C coordinate){
                     wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID7);
 
                     using SrcTileDefine = pto::Tile<pto::TileType::Vec, SrcDtype, srcTileH, srcTileW, pto::BLayout::RowMajor, -1, -1>;
-                    SrcTileDefine srcTile(srcTileH, srcTileW);
+                    SrcTileDefine srcTile(srcTileH, srcDim);
                     pto::TASSIGN(srcTile, reinterpret_cast<uint64_t>(srcPtr));
 
                     using DstGlobalType = pto::GlobalTensor<DstDtype, pto::Shape<1, 1, 1, 1, -1>, pto::Stride<0, 0, 0, 0, 1>>;
-                    DstGlobalType dstGlobal(newDst, pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(srcTileW)), pto::Stride<0, 0, 0, 0, 1>(0, 0, 0, 0, 1));
+                    DstGlobalType dstGlobal(newDst, pto::Shape<1, 1, 1, 1, -1>(1, 1, 1, 1, static_cast<int64_t>(srcDim)), pto::Stride<0, 0, 0, 0, 1>(0, 0, 0, 0, 1));
                     pto::TSTORE(dstGlobal, srcTile);
                 }
             }

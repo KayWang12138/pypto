@@ -111,7 +111,7 @@ public:
     std::string GenIndexPutOp() const;
 
     std::string GenIndexOutCastOp() const;
-    std::string PrintIndexOutCastTileTensopr() const;
+    std::string PrintIndexOutCastTileTensor() const;
 
     std::string GenCumSumOp() const;
     std::string PrintGatherDynamicUnaligned() const;
