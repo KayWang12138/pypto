@@ -106,7 +106,7 @@ Status MixCallOperationBuilder::CreateCallOpInRootFunction(Function& rootFunc,
     // 处理传播依赖的IOperands和OOperands
     FindNewIOperandsAndOOperandsInPropagateInOutcast(originalIOperands, originalOOperands,
                                                      originalIncasts, originalOutcasts,
-                                                     actualIncasts, actualOutcasts, invokeInfo,
+                                                     actualIncasts, actualOutcasts,
                                                      newIOperands, newOOperands, processedTensors);
     auto& callOp = rootFunc.AddRawOperation(Opcode::OP_CALL, newIOperands, newOOperands, false);
     ALOG_INFO_F("Created operands for new callOp %d: %zu inputs, %zu outputs",
@@ -200,7 +200,6 @@ void MixCallOperationBuilder::FindNewIOperandsAndOOperandsInPropagateInOutcast(
     const std::vector<std::shared_ptr<LogicalTensor>>& originalOutcasts,
     const std::vector<std::shared_ptr<LogicalTensor>>& actualIncasts,
     const std::vector<std::shared_ptr<LogicalTensor>>& actualOutcasts,
-    const SubfuncInvokeInfoTy& invokeInfo,
     std::vector<LogicalTensorPtr>& newIOperands,
     std::vector<LogicalTensorPtr>& newOOperands,
     std::set<LogicalTensorPtr>& processedTensors) const

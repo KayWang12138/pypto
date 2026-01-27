@@ -189,7 +189,6 @@ void VerifyBasicSplitResult(Status status, Function& rootFunc,
 
 // 辅助函数2：创建CallOp
 Operation& CreateCallOp(std::shared_ptr<Function>& rootFuncPtr,
-                       std::shared_ptr<Function>& mixFuncPtr,
                        const uint64_t mixProgramId,
                        const FunctionHash& mixFuncHash) {
     std::vector<int64_t> tensorShape = {MS_NUM16, MS_NUM16};
@@ -355,7 +354,7 @@ TEST_F(MixSubgraphSplitTest, TestSingleMixSubgraphBasicSplit) {
     
     // 2. 创建callOp
     const uint64_t mixProgramId = 100;
-    auto& callOp = CreateCallOp(rootFuncPtr, mixFuncPtr, mixProgramId, mixFuncHash);
+    auto& callOp = CreateCallOp(rootFuncPtr, mixProgramId, mixFuncHash);
     
     // 3. 执行拆分
     MixSubgraphSplit splitter;
@@ -425,7 +424,7 @@ void CreateNonMixFunctions(std::shared_ptr<Function>& rootFuncPtr,
 
         auto internalTensor2 = std::make_shared<LogicalTensor>(*nonMixFunc, DT_FP32, shape);
         auto& expOp = nonMixFunc->AddRawOperation(Opcode::OP_EXP, {internalTensor1}, {internalTensor2});
-
+        (void) expOp;
         auto& copyOutOp = nonMixFunc->AddRawOperation(Opcode::OP_COPY_OUT, {internalTensor2}, {outcastTensor});
         copyOutOp.SetOOpAttrOffset(0, 0);
         
@@ -681,15 +680,11 @@ TEST_F(MixSubgraphSplitTest, TestMultipleMixSubgraphsSplit) {
     std::vector<int> componentCounts = {2, 3, 4};
     CreateMixFunctions(rootFuncPtr, mixFunctions, mixProgramIds, componentCounts);
     
-    // 3. 记录原始状态
-    size_t originalProgramCount = rootFuncPtr->programs_.size();
-    size_t originalCallOpCount = rootFuncPtr->GetCallopList().size();
-    
-    // 4. 执行拆分
+    // 执行拆分
     MixSubgraphSplit splitter;
     Status status = splitter.RunOnFunction(*rootFuncPtr);
     
-    // 5. 验证结果
+    // 验证结果
     VerifyMultipleMixSplitResults(rootFuncPtr, status, mixFunctions, nonMixFunctions, componentCounts);
 }
 
@@ -698,18 +693,14 @@ TEST_F(MixSubgraphSplitTest, TestMultipleMixSubgraphsSplit) {
  */
 TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario) {
     // 1. 创建仅包含非Mix子图的rootFunction
-    auto rootFuncPtr = std::make_shared<Function>(
-        Program::GetInstance(), "test_root_no_mix", "test_root_no_mix", nullptr);
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "test_root_no_mix", "test_root_no_mix", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     // 2. 创建3个普通（非Mix）子图
     std::vector<std::shared_ptr<Function>> nonMixFunctions;
     std::vector<uint64_t> programIds = {10, 20, 30};
     for (int i = 0; i < 3; i++) {
-        auto func = std::make_shared<Function>(
-            Program::GetInstance(),
-            "test_func_" + std::to_string(i),
-            "test_func_" + std::to_string(i),
-            rootFuncPtr.get());
+        auto func = std::make_shared<Function>(Program::GetInstance(), "test_func_" + std::to_string(i),
+            "test_func_" + std::to_string(i), rootFuncPtr.get());
         func->SetGraphType(GraphType::BLOCK_GRAPH);
         func->SetFunctionType(FunctionType::STATIC);
         // 创建简单op（无internalSubgraphID标记）
@@ -719,6 +710,7 @@ TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario) {
         func->inCasts_.push_back(inputTensor);
         func->outCasts_.push_back(outputTensor);
         auto& expOp = func->AddRawOperation(Opcode::OP_EXP, {inputTensor}, {outputTensor});
+        (void) expOp;
         func->ComputeHash();
         FunctionHash hash = func->GetFunctionHash();
         Program::GetInstance().GetFunctionCache().Insert(hash, *func);
@@ -751,12 +743,10 @@ TEST_F(MixSubgraphSplitTest, TestNoMixSubgraphScenario) {
     }
     // 5.2 验证programs保持不变
     auto& newPrograms = rootFuncPtr->programs_;
-    EXPECT_EQ(newPrograms.size(), originalProgramCount) 
-        << "Program count should not change when no mix subgraphs";
+    EXPECT_EQ(newPrograms.size(), originalProgramCount) << "Program count should not change when no mix subgraphs";
     // 5.3 验证callOps数量不变
     auto newCallOps = rootFuncPtr->GetCallopList();
-    EXPECT_EQ(newCallOps.size(), originalCallOpCount)
-        << "CallOp count should not change when no mix subgraphs";
+    EXPECT_EQ(newCallOps.size(), originalCallOpCount) << "CallOp count should not change when no mix subgraphs";
 }
 
 // 辅助函数：创建外部Mix子图
