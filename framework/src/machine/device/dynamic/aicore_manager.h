@@ -325,14 +325,14 @@ public:
                  aicpuIdx_, ret, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
     }
 
-    inline int Run(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
+    inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
         DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
         Init(threadIdx, deviceArgs, schedIdx);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DEV_DEBUG("Schedule run init succ");
         DeviceTaskCtrl *taskCtrl = nullptr;
-        taskQueue_ = &(reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>*>(deviceArgs->taskQueue)[schedIdx_]);
+        taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
@@ -344,7 +344,7 @@ public:
                 }
                 return ret;
             }
-            reinterpret_cast<DevStartArgs *>(deviceArgs->startArgsAddr)->syncFlag = 1;
+            reinterpret_cast<DevStartArgs *>(deviceArgs->devStartArgsAddr)->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
         DEV_DEBUG("Schedule run start succ");
