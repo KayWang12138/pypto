@@ -1,0 +1,75 @@
+FROM quay.io/ascend/python:3.11-ubuntu22.04
+
+ENV GIT_SSL_NO_VERIFY=1
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ---- build args  ----
+ARG arch=aarch64
+ARG isa_path=/installers/pto-isa/cann
+ARG ascend_path=/usr/local/Ascend
+ARG pypto_path=/installers/pypto
+ARG PYPTO_COMMIT=5dd1570be6da678f739c45485161e92df1065fed
+
+# ---- runtime/build env vars ----
+ENV PTO_TILE_LIB_CODE_PATH=${isa_path} \
+    PYPTO_THIRD_PARTY_PATH=${pypto_path}/thirdparty
+
+# ---- system deps ----
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git gdb gawk wget curl tar lcov openssl ca-certificates \
+    gcc g++ make cmake zlib1g zlib1g-dev libsqlite3-dev \
+    libssl-dev libffi-dev libbz2-dev libxslt1-dev pciutils \
+    net-tools openssh-client libblas-dev gfortran libblas3 llvm ccache \
+    python-is-python3 python3-pip python3-venv ninja-build python3-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---- python deps ----
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
+ && python -m pip install --no-cache-dir \
+    attrs cython numpy decorator sympy cffi pyyaml pathlib2 psutil protobuf scipy requests absl-py \
+    tomli pybind11 pybind11-stubgen pytest pytest-forked pytest-xdist \
+    tabulate pandas matplotlib build ml_dtypes jinja2 cloudpickle tornado
+
+RUN python -m pip install --no-cache-dir torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu \
+ && python -m pip install --no-cache-dir torch-npu==2.6.0
+
+WORKDIR /installers
+
+RUN wget --no-check-certificate -O /installers/Ascend-cann-toolkit_8.5.0_linux-${arch}.run \
+        https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/aarch64/Ascend-cann-toolkit_8.5.0_linux-aarch64.run \
+ && wget --no-check-certificate -O /installers/Ascend-cann-910b-ops_8.5.0_linux-${arch}.run \
+        https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/aarch64/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run \
+ && wget --no-check-certificate -O /installers/cann-pto-isa_8.5.0_linux-${arch}.run \
+        http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/202601/20260112/ubuntu_aarch64/cann-pto-isa_8.5.0_linux-aarch64.run
+
+# ---- install Ascend CANN Toolkit 8.5.0 ----
+RUN chmod +x Ascend-cann-toolkit_8.5.0_linux-${arch}.run \
+ && ./Ascend-cann-toolkit_8.5.0_linux-${arch}.run --full --quiet --force --install-for-all --install-path=${ascend_path} \
+ && rm -f Ascend-cann-toolkit_8.5.0_linux-${arch}.run
+
+RUN echo "" >> /root/.bashrc \
+ && echo "# Ascend CANN env" >> /root/.bashrc \
+ && echo "source /usr/local/Ascend/cann/set_env.sh" >> /root/.bashrc
+
+# ---- install device ops (A2) ----
+RUN chmod +x Ascend-cann-910b-ops_8.5.0_linux-${arch}.run \
+ && ./Ascend-cann-910b-ops_8.5.0_linux-${arch}.run --quiet --force --install --install-path=${ascend_path} \
+ && rm -f Ascend-cann-910b-ops_8.5.0_linux-${arch}.run
+
+# ---- install pto-isa from prebuilt .run ----
+RUN mkdir -p /installers/pto-isa \
+ && chmod +x /installers/cann-pto-isa_8.5.0_linux-${arch}.run \
+ && /installers/cann-pto-isa_8.5.0_linux-${arch}.run --full --quiet --install-path=/installers/pto-isa
+
+# ---- install pypto ----
+RUN git clone https://gitcode.com/cann/pypto.git ${pypto_path} \
+ && cd ${pypto_path} \
+ && git fetch --depth 1 origin ${PYPTO_COMMIT} \
+ && git checkout ${PYPTO_COMMIT} \
+ && python3 -m pip install -r python/requirements.txt \
+ && mkdir -p thirdparty \
+ && bash tools/prepare_env.sh --type=third_party --download-path=${pypto_path}/thirdparty \
+ && python3 -m pip install -vv -e .
+
