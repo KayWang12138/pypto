@@ -28,6 +28,12 @@ enum class MixResourceType {
     MIX_1C2V = 2
 };
 
+enum class DieId {
+    DIE_0 = 0,
+    DIE_1 = 1,
+    DIE_MIX
+};
+
 inline void WrapInfoQueueLock(WrapInfoQueue* rq) {
     while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
     }
@@ -61,6 +67,7 @@ public:
     uint32_t* runningIds_;
 
     int aicValidNum_{0};
+    int curDie0MaxCpuId_{0};
     WrapInfoQueue* readyWrapCoreFunctionQue_{nullptr};
     // Queue managed by each thread, elem is wrapInfo's addr
     StaticReadyCoreFunctionQueue wrapQueueForThread_{0, 0, nullptr, 0};
@@ -71,6 +78,10 @@ public:
 
     inline void InitArchInfo(ArchInfo info) {
         isSupportMixSche = (info == ArchInfo::DAV_3510);
+    }
+
+    inline void InitDieMaxCpuId(int scheCpuNum) {
+        curDie0MaxCpuId_ = scheCpuNum >> 1;
     }
 
     inline void Init(DeviceTask* curDevTask, uint32_t* coreRunReadyCnt, uint32_t* runReadyCoreIdxZero,
