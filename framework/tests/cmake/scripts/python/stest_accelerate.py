@@ -26,7 +26,7 @@ class STestAccelerate(GTestAccelerate):
     通过多进程并行执行, 以提升 STest 执行效率.
     """
 
-    def __init__(self, args, scene_mark="STest", cntr_name="Device"):
+    def __init__(self, args, scene_mark: str = "STest", cntr_name: str = "Device"):
         """
         :param args: 命令行参数
         :param scene_mark: 场景标识
@@ -53,7 +53,7 @@ class STestAccelerate(GTestAccelerate):
         # 调用父类初始化
         super().__init__(args, scene_mark=scene_mark, cntr_name=cntr_name)
 
-        self.device_list: List[int] = self._init_get_device_list(args=args)
+        self.device_list: List[int] = self.init_get_device_list(args=args)
 
     @staticmethod
     def reg_args(parser: argparse.ArgumentParser) -> None:
@@ -86,7 +86,7 @@ class STestAccelerate(GTestAccelerate):
         return {"TILE_FWK_DEVICE_ID": f"{self.cntr_id}"}
 
     @staticmethod
-    def _init_get_device_list(args) -> List[int]:
+    def init_get_device_list(args) -> List[int]:
         device_list = [0]
         if args.device is not None:
             device_list = [int(d) for d in list(set(args.device)) if d is not None and str(d) != ""]

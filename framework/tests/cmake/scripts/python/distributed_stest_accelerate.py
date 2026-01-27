@@ -11,10 +11,10 @@
 """STest 分布式 STest 并性执行.
 """
 import argparse
+import datetime
 import logging
 import os
 import subprocess
-from datetime import datetime, timezone
 from typing import Any, NamedTuple
 
 import stest_accelerate
@@ -51,18 +51,15 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
         """分布式主处理流程"""
         parser = argparse.ArgumentParser(
             description="Distributed STest Execute Accelerate",
-            epilog="Best Regards!"
+            epilog="Best Regards!",
         )
 
-        # 使用自己的reg_args方法
         DistributedSTestAccelerate.reg_args(parser=parser)
         args = parser.parse_args()
 
-        # 获取设备列表
         ctrl = DistributedSTestAccelerate(args=args)
-        device_list = ctrl._init_get_device_list(args)
+        device_list = ctrl.init_get_device_list(args)
 
-        # 设备分组处理-顺序分组
         device_groups = DistributedSTestAccelerate._group_devices_by_rank_size(
             devices=device_list,
             rank_size=args.rank_size,
@@ -83,11 +80,10 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
         custom_data = p.custom
         device_group = custom_data["device_group"]
 
-        # 将设备列表转换为逗号分隔的字符串
         device_list_str = ",".join(str(device_id) for device_id in device_group)
 
         return {
-            "TILE_FWK_DEVICE_ID_LIST": device_list_str,  # 多卡设备列表
+            "TILE_FWK_DEVICE_ID_LIST": device_list_str,
         }
     
     @staticmethod
@@ -101,13 +97,12 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
         if len(devices) < rank_size:
             raise ValueError(f"Available devices ({len(devices)}) are less than required rank_size ({rank_size})")
 
-        # 顺序分组策略
         device_groups = []
         sorted_devices = sorted(devices)
 
         for i in range(0, len(sorted_devices), rank_size):
             group = sorted_devices[i:i + rank_size]
-            if len(group) == rank_size:  # 只保留完整的分组
+            if len(group) == rank_size:
                 device_groups.append(group)
 
         return device_groups
@@ -121,46 +116,43 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
                 custom={
                     "device_group": device_group,
                     "rank_size": self.rank_size,
-                    "group_id": group_id
+                    "group_id": group_id,
                 }
             )
             params.append(param)
         return params
 
     def _execute_case(self, ctx: stest_accelerate.STestAccelerate.CaseContext,
-        param: stest_accelerate.STestAccelerate.ExecParam, gtest_filter: str) -> None:
+        param: stest_accelerate.STestAccelerate.ExecParam,
+        gtest_filter: str) -> tuple[ExecutionResult, str, datetime.timedelta]:
         """多卡模式执行 - 重写父类方法"""
-        # 安全检查：确保custom参数存在
         if not hasattr(param, "custom") or param.custom is None:
-            raise ValueError("No custom config, distribute case case need rank_size param, run case failed.")
+            raise ValueError("No custom config, distribute case case need rank_size parameter, run case failed.")
         
-        # 获取执行模式配置
-        rank_size = param.custom.get("rank_size", 1)
-        
-        if rank_size > 1:
-            # 多卡模式：使用mpirun执行
-            device_group = param.custom.get("device_group", [param.cntr_id])
-            return self._run_multi_device_case(ctx, device_group, rank_size)
-        else:
-            raise ValueError("rank size equal 1, there need rank size greater than 1, run distribute case failed.")
+        if "rank_size" not in param.custom:
+            raise ValueError("Missing rank_size in custom config, run distribute case failed.")
+
+        rank_size = param.custom["rank_size"]
+        if rank_size <= 1:
+            raise ValueError("Distribute case rank size need greater than 1, run distribute case failed.")
+        device_group = param.custom.get("device_group", [param.cntr_id])
+        return self._run_multi_device_case(ctx, device_group, rank_size)
 
     def _run_multi_device_case(self, ctx: stest_accelerate.STestAccelerate.CaseContext,
-        device_group: list[int], rank_size: int) -> None:
+        device_group: list[int], rank_size: int) -> tuple[ExecutionResult, str, datetime.timedelta]:
         """执行多卡分布式测试用例
         
         :param ctx: Case上下文
         :param device_group: 设备组列表
         :param rank_size: 设备组大小
-        :return: 执行结果，命令行，错误信息
+        :return: 执行结果，命令行，时间
         """
-        # 准备环境变量
         env_vars = os.environ.copy()
         if hasattr(self, "exe") and hasattr(self.exe, "envs") and self.exe.envs:
             env_vars.update(self.exe.envs)
         if ctx.exec_param.get_envs():
             env_vars.update(ctx.exec_param.get_envs())
         
-        # 构建mpirun命令
         command = [
             "mpirun", "-n", str(rank_size),
             str(self.exe.file),
@@ -171,7 +163,7 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
         logging.info(f"Executing {ctx.gtest_filter} on {device_info} with rank_size {rank_size}.")
         
         try:
-            ts = datetime.now(tz=timezone.utc)
+            ts = datetime.datetime.now(tz=datetime.timezone.utc)
             completed_process = subprocess.run(
                 command,
                 env=env_vars,
@@ -184,7 +176,7 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
                 stdout=completed_process.stdout,
                 stderr=completed_process.stderr,
             )       
-            return result, ' '.join(command), datetime.now(tz=timezone.utc) - ts
+            return result, ' '.join(command), datetime.datetime.now(tz=datetime.timezone.utc) - ts
 
         except Exception as e:
             logging.error(f"MPI execution failed for {ctx.gtest_filter}: {str(e)}.")
@@ -195,6 +187,6 @@ if __name__ == "__main__":
     logging.basicConfig(
         format='%(asctime)s - %(filename)s:%(lineno)d - PID[%(process)d] - %(levelname)s: %(message)s',
         level=logging.INFO,
-        handlers=[logging.StreamHandler()]
+        handlers=[logging.StreamHandler()],
     )
     exit(0 if DistributedSTestAccelerate.main() else 1)
