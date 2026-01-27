@@ -334,7 +334,7 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastTileTensor() const {
     std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
 
     int dim = rawShape[ID0].size();
-    std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(ID0, dim, PREFIX_STR_OFFSET);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(ID0);
     std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
     // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
     std::string coord = PrintCoord(dim, coordCp);
@@ -506,9 +506,6 @@ std::string CodeGenOpCloudNPU::GenUBToUBND2NZTileTensor() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintIndexOutCast(const PrintIndexOutCastParam &param) const {
-    if (functionType == FunctionType::STATIC) {
-        PrintIndexOutCastStatic(param);
-    }
     if (isSupportLayout) {
         return PrintIndexOutCastTileTensor();
     }
@@ -517,8 +514,7 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCast(const PrintIndexOutCastParam &p
     } else if (isDynamicFunction) {
         return PrintIndexOutCastDynamicUnaligned(param);
     }
-    ASSERT(false) << "unsupport indexout cast";
-    return "";
+    return PrintIndexOutCastStatic(param);
 }
 
 int CodeGenOpCloudNPU::GetCacheModeFlag(const std::string &cacheMode) const {
@@ -1283,11 +1279,10 @@ std::string CodeGenOpCloudNPU::GenLoadOp() const {
     return ostring;
 }
 
-std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(const PrintMemCopyWithUBParam &param) const {
-    unsigned gmIdx = param.gmIdx;
+std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM) const {
     int dim = static_cast<int>(rawShape[gmIdx].size());
     std::vector<std::string> gmOffsetExpr;
-    if (param.isSpillIntoGM || functionType == FunctionType::STATIC) {
+    if (isSpillingToGM || functionType == FunctionType::STATIC) {
         return std::vector<std::string>(dim, "0");
     }
 
@@ -1299,7 +1294,7 @@ std::vector<std::string> CodeGenOpCloudNPU::GetGmOffsetForTileTensor(const Print
 }
 
 std::string CodeGenOpCloudNPU::PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const {
-    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(param);
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(param.gmIdx, param.isSpillIntoGM);
     // constructor call parameter ((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136,
     // 1)))
     std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
