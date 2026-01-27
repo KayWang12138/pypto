@@ -584,6 +584,15 @@ void bind_operation(py::module &m) {
         py::arg("in"), py::arg("combineInfo"), py::arg("recvCounts"), py::arg("scale"),
         py::arg("group"), py::arg("rankSize"), py::arg("totalExpertNum"), py::arg("out"),
         "MoE combine operation.");
+    m.def("ShmemMoeCombineFfnFused",
+        [](const Tensor &in, const Tensor &combineInfo, const Tensor &recvCounts, const Tensor &scale,
+            const Tensor &ffnWeight, const std::string &group, int32_t rankSize, int32_t totalExpertNum, Tensor &out) {
+            Distributed::MoeDistributedCombineFfnFused(in, combineInfo, recvCounts, scale, ffnWeight, group.c_str(),
+                rankSize, totalExpertNum, 0, 0, out);
+        },
+        py::arg("in"), py::arg("combineInfo"), py::arg("recvCounts"), py::arg("scale"), py::arg("ffnWeight"),
+        py::arg("group"), py::arg("rankSize"), py::arg("totalExpertNum"), py::arg("out"),
+        "MoE combine + FFN fused operation.");
 
     m.def("ShmemPut",
         [](const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int tileCount, Distributed::AtomicType atomicType) {

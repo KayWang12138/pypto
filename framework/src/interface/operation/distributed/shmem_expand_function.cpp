@@ -401,6 +401,7 @@ void TiledShmemSet(Function& function, const TileShape& tileShape,
     op.GetAttr(OpAttributeKey::distOpAttr, distOpAttr);
     distOpAttr.setBufferShape = bufferShape;
     tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+    tileOp.SetAttr(OpAttributeKey::dontTouch, true);
 }
 
 Shape GetReduceUbShape(int64_t rowSize, int64_t colSize, DataType dType, bool fp32Mode)

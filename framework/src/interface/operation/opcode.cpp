@@ -630,8 +630,10 @@ void OpcodeManager::RegisterDistribute() {
         {"TileOp::Distributed::MoeDistributedCombineSend", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
         {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, OpCoreType::ANY, "MOE_DISTRIBUTED_COMBINE_RECEIVE",
-        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
-        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
+            MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
+            MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::Distributed::MoeDistributedCombineReceive", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
         {OpAttributeKey::requiresBoundaryCopy});
 }
