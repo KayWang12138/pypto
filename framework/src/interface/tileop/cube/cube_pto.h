@@ -224,13 +224,13 @@ TILEOP void TExtractL0CToL1(
     if constexpr (std::is_same<typename l0cData::DType, int32_t>::value &&
                   std::is_same<typename l1Data::DType, half>::value) {
         if (scaleValue != 0) {
-            pto::TEXTRACT(dstL1, srcL0C, scaleValue, locOffset0, locOffset1);
+            pto::TEXTRACT<l1Data, l0cData>(dstL1, srcL0C, scaleValue, locOffset0, locOffset1);
         } else {
             auto scaleData = CreateScaleTileData(fixbuf);
             pto::TEXTRACT_FP(dstL1, srcL0C, scaleData, locOffset0, locOffset1);
         }
     } else {
-        pto::TEXTRACT(dstL1, srcL0C, locOffset0, locOffset1);
+        pto::TEXTRACT<l1Data, l0cData>(dstL1, srcL0C, locOffset0, locOffset1);
     }
 }
 
@@ -240,13 +240,13 @@ TILEOP void TInsertL0CToL1(
     if constexpr (std::is_same<typename l0cData::DType, int32_t>::value &&
                   std::is_same<typename l1Data::DType, half>::value) {
         if (scaleValue != 0) {
-            pto::TINSERT(dstL1, srcL0C, scaleValue, l1Offset0, l1Offset1);
+            pto::TINSERT<l1Data, l0cData>(dstL1, srcL0C, scaleValue, l1Offset0, l1Offset1);
         } else {
             auto scaleData = CreateScaleTileData(fixbuf);
             pto::TINSERT_FP(dstL1, srcL0C, scaleData, l1Offset0, l1Offset1);
         }
     } else {
-        pto::TINSERT(dstL1, srcL0C, l1Offset0, l1Offset1);
+        pto::TINSERT<l1Data, l0cData>(dstL1, srcL0C, l1Offset0, l1Offset1);
     }
 }
 
@@ -492,8 +492,8 @@ INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, V &fixbuf, uint
                 dstGlobal, srcL0C, fpData);
         }
     } else {
-        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone>(
-            dstGlobal, srcL0C);
+        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone,
+            config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(dstGlobal, srcL0C);
     }
 }
 
