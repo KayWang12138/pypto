@@ -885,7 +885,7 @@ class GTestAccelerate(ABC):
         return False
     
     def _execute_case(self, ctx: CaseContext, param: ExecParam,
-        gtest_filter: str) -> Tuple[subprocess.CompletedProcess, str, timedelta]:
+                    gtest_filter: str) -> Tuple[subprocess.CompletedProcess, str, timedelta]:
         """统一的用例执行入口 - 由子类重写此方法实现不同模式"""
         return self.exe.run(gtest_filter=gtest_filter, envs=param.get_envs())
 

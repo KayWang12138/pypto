@@ -195,3 +195,20 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
   ![vscode_install](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/devkit/images/vscode_install.png)
 
  3. 选择已下载的.vsix插件文件，完成安装。
+
+ ## 安装MPI依赖（可选）
+  PyPTO的分布式用例依赖MPI：
+
+    ```bash
+    # 源码安装
+    wget https://download.openmpi.org/release/openmpi-v4.1.5.tar.gz
+    tar -xzf openmpi-${version}.tar.gz
+    cd openmpi-${version}
+    ./configure --prefix=/usr/local/mpich
+    make && make install
+
+    # 设置环境变量
+    export MPI_HOME=/usr/local/mpich
+    export MPI_BIN_PATH=$MPI_HOME/bin
+    export PATH=$MPI_BIN_PATH:$PATH
+    ```

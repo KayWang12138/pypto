@@ -15,12 +15,12 @@ import datetime
 import logging
 import os
 import subprocess
-from typing import Any
+from typing import Any, List, Tuple, Dict
 
-import stest_accelerate
+from stest_accelerate import STestAccelerate
 
 
-class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
+class DistributedSTestAccelerate(STestAccelerate):
     """分布式STest执行加速
 
     支持多卡并行执行 通过设备分组实现分布式测试.
@@ -29,13 +29,16 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
 
     def __init__(self, args: argparse.Namespace):
         super().__init__(args, scene_mark="Distributed STest", cntr_name="Device Group")
+        device_list = self._init_get_device_list(args)
+        self.rank_size = args.rank_size
+        self.device_groups = self._group_devices_by_rank_size(device_list, self.rank_size)
 
     @staticmethod
     def reg_args(parser: argparse.ArgumentParser) -> None:
         """注册分布式STest参数
         先调用父类(STestAccelerate)的参数注册，再添加分布式特有参数
         """
-        stest_accelerate.STestAccelerate.reg_args(parser)
+        STestAccelerate.reg_args(parser)
         parser.add_argument("--rank_size", type=int, required=True,
                             help="Number of devices per test group")
 
@@ -51,21 +54,12 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
         args = parser.parse_args()
 
         ctrl = DistributedSTestAccelerate(args=args)
-        device_list = ctrl.init_get_device_list(args)
-
-        device_groups = DistributedSTestAccelerate._group_devices_by_rank_size(
-            devices=device_list,
-            rank_size=args.rank_size,
-        )
-
-        ctrl.device_groups = device_groups
-        ctrl.rank_size = args.rank_size
         ctrl.prepare()
         ctrl.process()
         return ctrl.post()
 
     @staticmethod
-    def set_distributed_device_envs(p: Any) -> dict[str, str]:
+    def set_distributed_device_envs(p: Any) -> Dict[str, str]:
         """设置分布式设备环境变量
 
         多卡用例通过TILE_FWK_DEVICE_ID_LIST环境变量指定使用的设备组
@@ -78,9 +72,9 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
         return {
             "TILE_FWK_DEVICE_ID_LIST": device_list_str,
         }
-    
+
     @staticmethod
-    def _group_devices_by_rank_size(devices: list[int], rank_size: int) -> list[list[int]]:
+    def _group_devices_by_rank_size(devices: List[int], rank_size: int) -> List[List[int]]:
         """按照rank_size对设备进行顺序分组
 
         :param devices: 设备列表
@@ -99,11 +93,11 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
                 device_groups.append(group)
 
         return device_groups
-    
-    def _prepare_get_params(self) -> list[stest_accelerate.STestAccelerate.ExecParam]:
+
+    def _prepare_get_params(self) -> List[STestAccelerate.ExecParam]:
         params = []
         for group_id, device_group in enumerate(self.device_groups):
-            param = stest_accelerate.STestAccelerate.ExecParam(
+            param = STestAccelerate.ExecParam(
                 cntr_id=group_id,
                 envs_func=DistributedSTestAccelerate.set_distributed_device_envs,
                 custom={
@@ -115,24 +109,22 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
             params.append(param)
         return params
 
-    def _execute_case(self, ctx: stest_accelerate.STestAccelerate.CaseContext,
-        param: stest_accelerate.STestAccelerate.ExecParam,
-        gtest_filter: str) -> tuple[subprocess.CompletedProcess, str, datetime.timedelta]:
+    def _execute_case(self, ctx: STestAccelerate.CaseContext,
+                    param: STestAccelerate.ExecParam,
+                    gtest_filter: str) -> Tuple[subprocess.CompletedProcess, str, datetime.timedelta]:
         """多卡模式执行 - 重写父类方法"""
-        if not hasattr(param, "custom") or param.custom is None:
-            raise ValueError("No custom config, distribute case case need rank_size parameter, run case failed.")
-        
         if "rank_size" not in param.custom:
             raise ValueError("Missing rank_size in custom config, run distribute case failed.")
 
-        rank_size = param.custom["rank_size"]
+        rank_size = param.custom.get("rank_size", 1)
         if rank_size <= 1:
             raise ValueError("Distribute case rank size need greater than 1, run distribute case failed.")
         device_group = param.custom.get("device_group", [param.cntr_id])
         return self._run_multi_device_case(ctx, device_group, rank_size)
 
-    def _run_multi_device_case(self, ctx: stest_accelerate.STestAccelerate.CaseContext,
-        device_group: list[int], rank_size: int) -> tuple[subprocess.CompletedProcess, str, datetime.timedelta]:
+    def _run_multi_device_case(self, ctx: STestAccelerate.CaseContext,
+                            device_group: List[int], 
+                            rank_size: int) -> Tuple[subprocess.CompletedProcess, str, datetime.timedelta]:
         """执行多卡分布式测试用例
         
         :param ctx: Case上下文
@@ -141,40 +133,24 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
         :return: 执行结果，命令行，时间
         """
         env_vars = os.environ.copy()
-        if hasattr(self, "exe") and hasattr(self.exe, "envs") and self.exe.envs:
-            env_vars.update(self.exe.envs)
-        if ctx.exec_param.get_envs():
-            env_vars.update(ctx.exec_param.get_envs())
-        
+        env_vars.update(self.exe.envs)
+        env_vars.update(ctx.exec_param.get_envs())
         command = [
             "mpirun", "-n", str(rank_size),
             str(self.exe.file),
             f"--gtest_filter={ctx.gtest_filter}",
         ]
-        
         device_info = f"DeviceGroup{device_group}"
         logging.info(f"Executing {ctx.gtest_filter} on {device_info} with rank_size {rank_size}.")
-        
-        try:
-            ts = datetime.datetime.now(tz=datetime.timezone.utc)
-            completed_process = subprocess.run(
-                command,
-                env=env_vars,
-                capture_output=True,
-                text=True,
-            )
+        ts = datetime.datetime.now(tz=datetime.timezone.utc)
+        completed_process = subprocess.run(
+            command,
+            env=env_vars,
+            capture_output=True,
+            text=True,
+        )
+        return completed_process, ' '.join(command), datetime.datetime.now(tz=datetime.timezone.utc) - ts
 
-            return completed_process, ' '.join(command), datetime.datetime.now(tz=datetime.timezone.utc) - ts
-
-        except Exception as e:
-            logging.error(f"MPI execution failed for {ctx.gtest_filter}: {str(e)}.")
-            result = subprocess.CompletedProcess(
-                args=command,
-                returncode=1,
-                stdout="",
-                stderr=str(e),
-            )
-            return result, ' '.join(command), datetime.timedelta(0)
 
 if __name__ == "__main__":
     logging.basicConfig(
