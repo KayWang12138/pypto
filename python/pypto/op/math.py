@@ -487,6 +487,7 @@ def ceil(input: Tensor) -> Tensor:
     """
     return pypto_impl.Ceil(input)
 
+
 @op_wrapper
 def floor(input: Tensor) -> Tensor:
     """Computes the element-wise squareroot of `input`.
@@ -517,6 +518,7 @@ def floor(input: Tensor) -> Tensor:
     """
     return pypto_impl.Floor(input)
 
+
 @op_wrapper
 def trunc(input: Tensor) -> Tensor:
     """Computes the element-wise squareroot of `input`.
@@ -546,6 +548,7 @@ def trunc(input: Tensor) -> Tensor:
     Output y: [1.0 4.0 10.0 16.0 26.0]
     """
     return pypto_impl.Trunc(input)
+
 
 @op_wrapper
 def sqrt(input: Tensor) -> Tensor:

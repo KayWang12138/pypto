@@ -11,13 +11,14 @@
 """
 """
 import sys
+import math
 import functools
 from typing import Sequence, Union, List
 
 from . import pypto_impl
 from .enum import DataType
 from .symbolic_scalar import SymbolicScalar, SymInt
-import math
+
 
 def to_sym(value) -> pypto_impl.SymbolicScalar:
     if isinstance(value, int):
