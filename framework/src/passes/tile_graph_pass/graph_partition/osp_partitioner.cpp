@@ -135,7 +135,7 @@ Status OspPartitioner::RunOspPartition(Function &function, const osp::BspInstanc
 
 Status OspPartitioner::RunSarkar(const osp::BspInstance<GraphType> &bspInst, CoarseGraphType &coarseGraph, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap)
 {
-    osp::SarkarParams::MulParameters< osp::VWorkwT<GraphType> > params;
+    osp::sarkar_params::MulParameters< osp::VWorkwT<GraphType> > params;
     params.seed_ = 1729U;
     params.geomDecay_ = 0.875;
     params.leniency_ = 0.005;
@@ -143,7 +143,7 @@ Status OspPartitioner::RunSarkar(const osp::BspInstance<GraphType> &bspInst, Coa
     params.maxWeight_ = archParameters_.partitionWorkUpperBound_;
     params.smallWeightThreshold_ = archParameters_.partitionWorkLowerBound_; 
     params.maxNumIterationWithoutChanges_ = 3U;
-    params.bufferMergeMode_ = osp::SarkarParams::BufferMergeMode::FULL;
+    params.bufferMergeMode_ = osp::sarkar_params::BufferMergeMode::FULL;
 
     osp::SarkarMul<GraphType, CoarseGraphType> coarser;
     coarser.SetParameters(params);
