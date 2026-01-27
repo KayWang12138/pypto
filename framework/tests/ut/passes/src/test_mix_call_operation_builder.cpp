@@ -305,6 +305,67 @@ protected:
             << "wrapId should be set (not -1)";
     }
 
+    // 创建叶子函数和对应的Function指针向量
+    void createLeafFunctionsAndPointers(
+        int count,
+        const std::string& baseName,
+        std::vector<std::shared_ptr<Function>>& leafFuncs,
+        std::vector<Function*>& newFunctions)
+    {
+        leafFuncs.clear();
+        newFunctions.clear();
+        
+        for (int i = 0; i < count; ++i) {
+            auto leafFunc = createSimpleFunction(baseName + std::to_string(i));
+            leafFuncs.push_back(leafFunc);
+            newFunctions.push_back(leafFunc.get());
+        }
+    }
+    
+    // 创建程序ID向量
+    std::vector<uint64_t> createProgramIds(size_t count, uint64_t baseProgramId = TEST_PROGRAM_ID)
+    {
+        std::vector<uint64_t> programIds;
+        for (size_t i = 0; i < count; ++i) {
+            programIds.push_back(baseProgramId + i);
+        }
+        return programIds;
+    }
+    
+    // 创建组件和对应的子图函数信息
+    void createComponentsAndSubgraphInfo(
+        const std::vector<ComponentType>& componentTypes,
+        const TestScenario& scenario,
+        std::vector<InternalComponentInfo>& components,
+        std::vector<std::shared_ptr<Function>>& leafFuncs,
+        std::vector<Function*>& newFunctions,
+        SubgraphToFunction& subgraphToFunction,
+        std::vector<uint64_t>& newProgramIDs)
+    {
+        components.clear();
+        leafFuncs.clear();
+        newFunctions.clear();
+        subgraphToFunction.subFuncInvokeInfos.clear();
+        newProgramIDs.clear();
+        
+        for (size_t i = 0; i < componentTypes.size(); ++i) {
+            int componentId = static_cast<int>(i);
+            components.emplace_back(componentId, "comp_" + std::to_string(i), AIVCore::UNSPECIFIED, componentTypes[i]);
+            
+            auto leafFunc = createFunctionWithRealOffsetOps(
+                "leaf_" + std::to_string(i), componentId,
+                scenario.inputTensor1, scenario.inputTensor2, scenario.outputTensor);
+            leafFuncs.push_back(leafFunc);
+            newFunctions.push_back(leafFunc.get());
+            
+            auto invokeInfo = createInvokeInfoWithTensorParams(
+                TEST_PROGRAM_ID + i, scenario.inputTensor1, scenario.inputTensor2, scenario.outputTensor);
+            subgraphToFunction.subFuncInvokeInfos.push_back(invokeInfo);
+            
+            newProgramIDs.push_back(TEST_PROGRAM_ID + i);
+        }
+    }
+
 protected:
     std::shared_ptr<Function> rootFunc;
     std::unique_ptr<MixCallOperationBuilder> builder;
@@ -546,16 +607,14 @@ TEST_F(MixCallOperationBuilderTest, TestSameWrapIdForSameOriginalCallOp)
     auto components = createMixedComponents();  // 2个组件
     auto subgraphToFunction = createSubgraphToFunctionForComponents(components.size());
     
+    // 使用辅助函数创建叶子函数和指针
     std::vector<std::shared_ptr<Function>> leafFuncs;
-    leafFuncs.push_back(createSimpleFunction("leaf0"));
-    leafFuncs.push_back(createSimpleFunction("leaf1"));
-    
     std::vector<Function*> newFunctions;
-    for (const auto& func : leafFuncs) {
-        newFunctions.push_back(func.get());
-    }
+    createLeafFunctionsAndPointers(2, "leaf", leafFuncs, newFunctions);
     
-    std::vector<uint64_t> newProgramIDs = {TEST_PROGRAM_ID, TEST_PROGRAM_ID + 1};
+    // 使用辅助函数创建程序ID
+    std::vector<uint64_t> newProgramIDs = createProgramIds(components.size());
+    
     std::vector<InternalDependencyInfo> emptyDeps;
     
     Status status = builder->CreateCallOps(*rootFunc, {originalCallOp}, originalMixFunc.get(), components,
@@ -605,16 +664,14 @@ TEST_F(MixCallOperationBuilderTest, TestDifferentWrapIdForDifferentOriginalCallO
     auto components = createMixedComponents();  // 2个组件
     auto subgraphToFunction = createSubgraphToFunctionForComponents(components.size());
     
+    // 使用辅助函数创建叶子函数和指针
     std::vector<std::shared_ptr<Function>> leafFuncs;
-    leafFuncs.push_back(createSimpleFunction("leaf0"));
-    leafFuncs.push_back(createSimpleFunction("leaf1"));
-    
     std::vector<Function*> newFunctions;
-    for (const auto& func : leafFuncs) {
-        newFunctions.push_back(func.get());
-    }
+    createLeafFunctionsAndPointers(2, "leaf", leafFuncs, newFunctions);
     
-    std::vector<uint64_t> newProgramIDs = {TEST_PROGRAM_ID, TEST_PROGRAM_ID + 1};
+    // 使用辅助函数创建程序ID
+    std::vector<uint64_t> newProgramIDs = createProgramIds(components.size());
+    
     std::vector<InternalDependencyInfo> emptyDeps;
     
     Status status = builder->CreateCallOps(*rootFunc, {originalCallOp1, originalCallOp2}, originalMixFunc.get(),
@@ -669,7 +726,7 @@ TEST_F(MixCallOperationBuilderTest, TestGlobalTensorHandling)
         subgraphToFunction.subFuncInvokeInfos.push_back(leafInvokeInfo);
     }
     
-    std::vector<uint64_t> newProgramIDs = {TEST_PROGRAM_ID, TEST_PROGRAM_ID + 1};
+    std::vector<uint64_t> newProgramIDs = createProgramIds(components.size());
     std::vector<InternalDependencyInfo> emptyDeps;
     
     Status status = builder->CreateCallOps(*rootFunc, {scenario.originalCallOp}, scenario.originalMixFunc.get(),
@@ -715,20 +772,17 @@ TEST_F(MixCallOperationBuilderTest, TestInternalDependencies)
     auto components = createMixedComponents();
     auto subgraphToFunction = createSubgraphToFunctionForComponents(components.size());
     
+    // 使用辅助函数创建叶子函数和指针
     std::vector<std::shared_ptr<Function>> leafFuncs;
-    leafFuncs.push_back(createSimpleFunction("leaf0"));
-    leafFuncs.push_back(createSimpleFunction("leaf1"));
-    
     std::vector<Function*> newFunctions;
-    for (const auto& func : leafFuncs) {
-        newFunctions.push_back(func.get());
-    }
+    createLeafFunctionsAndPointers(2, "leaf", leafFuncs, newFunctions);
     
     std::vector<InternalDependencyInfo> internalDeps = {
         {COMPONENT_ID_0, COMPONENT_ID_1, ComponentType::C_SCOPE}
     };
     
-    std::vector<uint64_t> newProgramIDs = {TEST_PROGRAM_ID, TEST_PROGRAM_ID + 1};
+    // 使用辅助函数创建程序ID
+    std::vector<uint64_t> newProgramIDs = createProgramIds(components.size());
     
     Status status = builder->CreateCallOps(*rootFunc, {originalCallOp}, originalMixFunc.get(), components,
         newProgramIDs, subgraphToFunction, newFunctions, internalDeps);
@@ -747,29 +801,15 @@ TEST_F(MixCallOperationBuilderTest, TestOffsets)
         ComponentType::V_SCOPE
     };
     
+    // 使用辅助函数创建组件和子图信息
     std::vector<InternalComponentInfo> components;
-    std::vector<std::shared_ptr<Function>> leafFuncs;  // 使用 shared_ptr 管理生命周期
+    std::vector<std::shared_ptr<Function>> leafFuncs;
     std::vector<Function*> newFunctions;
     SubgraphToFunction subgraphToFunction;
-    
-    for (size_t i = 0; i < componentTypes.size(); ++i) {
-        int componentId = static_cast<int>(i);
-        components.emplace_back(componentId, "comp_" + std::to_string(i), AIVCore::UNSPECIFIED, componentTypes[i]);
-        
-        auto leafFunc = createFunctionWithRealOffsetOps("leaf_" + std::to_string(i),
-            componentId, scenario.inputTensor1, scenario.inputTensor2, scenario.outputTensor);
-        leafFuncs.push_back(leafFunc);  // 保存 shared_ptr
-        newFunctions.push_back(leafFunc.get());
-        
-        auto invokeInfo = createInvokeInfoWithTensorParams(TEST_PROGRAM_ID + i,
-            scenario.inputTensor1, scenario.inputTensor2, scenario.outputTensor);
-        subgraphToFunction.subFuncInvokeInfos.push_back(invokeInfo);
-    }
-    
     std::vector<uint64_t> newProgramIDs;
-    for (size_t i = 0; i < componentTypes.size(); ++i) {
-        newProgramIDs.push_back(TEST_PROGRAM_ID + i);
-    }
+    
+    createComponentsAndSubgraphInfo(componentTypes, scenario, components, leafFuncs, newFunctions, subgraphToFunction,
+        newProgramIDs);
     
     std::vector<InternalDependencyInfo> emptyDeps;
     
@@ -836,10 +876,7 @@ TEST_F(MixCallOperationBuilderTest, TestPropagatedIncastOutcast)
     }
     
     // 8. 准备调用参数
-    std::vector<uint64_t> newProgramIDs;
-    for (size_t i = 0; i < components.size(); ++i) {
-        newProgramIDs.push_back(TEST_PROGRAM_ID + i);
-    }
+    std::vector<uint64_t> newProgramIDs = createProgramIds(components.size());
     
     std::vector<InternalDependencyInfo> emptyDeps;
     
