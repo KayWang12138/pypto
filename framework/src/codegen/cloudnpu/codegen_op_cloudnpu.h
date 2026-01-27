@@ -365,7 +365,7 @@ private:
     std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
     std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
 
-    std::string PrintTriULTileTensor(int diagonal, bool isUpper) const;
+    std::string PrintTriULTileTensor(std::string diagonal, bool isUpper) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
     std::string PrintCumSumTileTensor(int axis) const;
