@@ -103,23 +103,15 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     第二种：iOperands (dtype:int8) -> Matmul系列(A_MUL_B, AT_MUL_B, A_MUL_BT, AT_MUL_BT, A_MULACC_B) -> in (dtype:fp16/int32) -> iOperands (dtype:fp16/int32) -> COPY_OUT
     这种情况是COPY_OUT需要根据in的producer的iOperands来进行判断，所以会需要获取到in的producer的iOperands的数据类型。
     */
-    if (op.GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE) {
+    if (op.GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE) {
         in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_VALUE);
         in->tensor->oriRawshape = in->tensor->rawshape;
         in->tensor->rawshape[highIndex] = Pad(in->tensor->oriRawshape[highIndex], CUBE_PAD_VALUE);
-        auto out = op.GetOOperands()[0];
-        out->shape[highIndex] = Pad(out->shape[highIndex], CUBE_PAD_VALUE);
-        out->tensor->oriRawshape = out->tensor->rawshape;
-        out->tensor->rawshape[highIndex] = Pad(out->tensor->oriRawshape[highIndex], CUBE_PAD_VALUE);
         return;
-    } else if (op.GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
+    } else if (op.GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
         in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_INT8_VALUE);
         in->tensor->oriRawshape = in->tensor->rawshape;
         in->tensor->rawshape[lowIndex] = Pad(in->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);
-        auto out = op.GetOOperands()[0];
-        out->shape[lowIndex] = Pad(out->shape[lowIndex], CUBE_PAD_INT8_VALUE);
-        out->tensor->oriRawshape = out->tensor->rawshape;
-        out->tensor->rawshape[lowIndex] = Pad(out->tensor->oriRawshape[lowIndex], CUBE_PAD_INT8_VALUE);
         return;
     }
     if (isL1ConvertScene) {
@@ -390,7 +382,9 @@ bool PadLocalBuffer::IsMatmul(const LogicalTensorPtr &tensor) const {
         (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) ||
         (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) ||
         (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE) ||
-        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_BT)) {
+        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_BT) ||
+        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) ||
+        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX)) {
         return true;
     }
     return false;
