@@ -138,7 +138,7 @@ Status OoOSchedule::SortAndLatencyEstimate(std::vector<Operation*> &opList, std:
 Status OoOSchedule::RecordLastUseMemory(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start RecordLastUseMemory.");
     for (auto &program : function.rootFunc_->programs_) {
-        auto opList = program.second->Operations(false).DuplicatedOpList();
+        auto opList = program.second->Operations(false);
         for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
             Operation *op = opList[opIdx];
             if (LASTUSE_OPS.find(op->GetOpcode()) == LASTUSE_OPS.end()) {
