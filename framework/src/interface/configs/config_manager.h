@@ -22,7 +22,7 @@
 #include <type_traits>
 #include <set>
 #include "interface/utils/file_utils.h"
-#include "interface/configs/config_manager_ng.h"
+#include "interface/configs/config_scope.h"
 #include "tilefwk/config.h"
 #include "tilefwk/function.h"
 #include "interface/utils/common.h"

@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file config_manager_ng.cpp
+ * \file config_scope.cpp
  * \brief
  */
 #include <string>
@@ -31,7 +31,7 @@
 #include "interface/utils/file_utils.h"
 #include "interface/utils/string_utils.h"
 
-#include "config_manager_ng.h"
+#include "config_scope.h"
 #include "tilefwk/tile_shape.h"
 
 

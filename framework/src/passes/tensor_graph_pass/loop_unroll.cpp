@@ -16,7 +16,7 @@
 #include "passes/tensor_graph_pass/loop_unroll.h"
 #include "interface/machine/host/host_machine.h"
 #include "passes/pass_log/pass_log.h"
-#include "interface/configs/config_manager_ng.h"
+#include "interface/configs/config_scope.h"
 
 #define MODULE_NAME "LoopUnroll"
 

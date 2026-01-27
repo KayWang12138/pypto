@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file config_manager_ng.h
+ * \file config_scope.h
  * \brief
  */
 

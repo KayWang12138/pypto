@@ -28,7 +28,7 @@
 #include "interface/interpreter/flow_verifier.h"
 #include "interface/machine/host/host_machine.h"
 #include "interface/program/program.h"
-#include "interface/configs/config_manager_ng.h"
+#include "interface/configs/config_scope.h"
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
