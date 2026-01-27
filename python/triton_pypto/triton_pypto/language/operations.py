@@ -7,7 +7,7 @@ import io
 import math
 import operator
 from numbers import Real
-from typing import Any, Callable, Iterable, Optional, Tuple, Type, TypeVar, Union, List, overload
+from typing import Any, Callable, Iterable, NoReturn, Optional, Tuple, Type, TypeVar, Union, List, overload
 from typing_extensions import Self, TypeAlias
 
 import numpy as np
@@ -1047,9 +1047,12 @@ def full(shape: Tuple[int, ...], value: Real, dtype: dtypes.AnyDataType) -> Tens
     return TensorWrapper(tensor)
 
 
-@log_call
 def zeros(shape: Tuple[int, ...], dtype: dtypes.AnyDataType) -> TensorWrapper:
     return full(shape, 0.0, dtype)
+
+
+def zeros_like(input: TensorWrapper) -> TensorWrapper:
+    return zeros(input.shape, input.dtype)
 
 
 @log_call
@@ -1102,6 +1105,30 @@ def exp(x: TensorWrapper) -> TensorWrapper:
 
 @bind_tensor_method
 @log_call
+def sin(x: TensorWrapper) -> TensorWrapper:
+    x.auto_vec_tile()
+    return TensorWrapper(pypto_wrap.sin(x))
+
+
+@bind_tensor_method
+@log_call
+def cos(x: TensorWrapper) -> TensorWrapper:
+    x.auto_vec_tile()
+    return TensorWrapper(pypto_wrap.cos(x))
+
+
+@bind_tensor_method
+@log_call
+def softmax(x: TensorWrapper, dim: Optional[int] = None, keep_dims: bool = False) -> TensorWrapper:
+    if keep_dims:
+        logger.warning("keep_dims=True is ignored in softmax")
+    dim = dim if dim is not None else -1
+    x.auto_vec_tile()
+    return TensorWrapper(pypto_wrap.softmax(x, dim))
+
+
+@bind_tensor_method
+@log_call
 def max(input: TensorWrapper, axis: Optional[int] = None, keep_dims: bool = False) -> TensorWrapper:
     axis = axis if axis is not None else -1
     keep_dims = keep_dims or input.rank == 1
@@ -1128,6 +1155,19 @@ def sum(input: TensorWrapper, axis: Optional[int] = None, keep_dims: bool = Fals
     keep_dims = keep_dims or input.rank == 1
     input.auto_vec_tile(buf_num=4)
     return TensorWrapper(pypto_wrap.sum(input, axis, keep_dims))
+
+
+@bind_tensor_method
+@log_call
+def cumsum(input: TensorWrapper, axis: int = 0, reverse: bool = False,
+           dtype: Optional[dtypes.AnyDataType] = None) -> TensorWrapper:
+    if reverse:
+        logger.warning("reverse=True is ignored in cumsum")
+    input.auto_vec_tile()
+    result = TensorWrapper(pypto_wrap.cumsum(input, axis))
+    if dtype is not None and dtypes.to_info(dtype) != result.dtype:
+        result = cast(result, dtype)
+    return result
 
 
 @bind_tensor_method
@@ -1185,6 +1225,11 @@ def sigmoid(x: TensorWrapper) -> TensorWrapper:
     return TensorWrapper(pypto_wrap.sigmoid(x))
 
 
+@log_call
+def broadcast(input: TensorWrapper, other: TensorWrapper) -> TensorWrapper:
+    return common_broadcast(input, other)
+
+
 @bind_tensor_method
 @log_call
 def broadcast_to(input: TensorWrapper, *shape: Union[int, List[int]]) -> TensorWrapper:
@@ -1208,6 +1253,11 @@ def cast(input: TensorWrapper, dtype: dtypes.AnyDataType) -> TensorWrapper:
 def reshape(input: TensorWrapper, *shape: Union[int, Iterable[int]]) -> TensorWrapper:
     shape = first_or_all(*shape, name="shape")
     return reshape_impl(input, shape)
+
+
+@bind_tensor_method
+def view(input: TensorWrapper, *shape: Union[int, Iterable[int]]) -> TensorWrapper:
+    return reshape(input, shape)
 
 
 @bind_tensor_method
@@ -1238,3 +1288,28 @@ def expand_dims(input: TensorWrapper, axis: Union[int, Iterable[int]]) -> Tensor
         pypto_wrap.auto_vec_tile(new_shape, input.dtype)
         return TensorWrapper(pypto_wrap.unsqueeze(input, axis[0]))
     return reshape_impl(input, new_shape)
+
+
+@log_call
+def inline_asm_elementwise(*args, **kwds) -> NoReturn:
+    raise RuntimeError("inline_asm_elementwise is not supported")
+
+
+@log_call
+def assume(*args, **kwds) -> None:
+    pass
+
+
+@log_call
+def max_constancy(input: T, values: Any) -> T:
+    return input
+
+
+@log_call
+def max_contiguous(input: T, values: Any) -> T:
+    return input
+
+
+@log_call
+def multiple_of(input: T, values: Any) -> T:
+    return input
