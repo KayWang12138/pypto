@@ -140,7 +140,7 @@ Status OoOSchedule::RecordLastUseMemory(Function &function) {
     for (auto &program : function.rootFunc_->programs_) {
         auto opList = program.second->Operations(false);
         for (size_t opIdx = 0; opIdx < opList.size(); opIdx++) {
-            Operation *op = opList[opIdx];
+            Operation *op = &opList[opIdx];
             if (LASTUSE_OPS.find(op->GetOpcode()) == LASTUSE_OPS.end()) {
                 APASS_LOG_INFO_F(Elements::Operation, "Op %s[%d] is not in LASTUSE_OPS, skip record last_use Attribute.", op->GetOpcodeStr().c_str(), op->GetOpMagic());
                 continue;
