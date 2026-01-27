@@ -324,10 +324,7 @@ private:
         const std::string &dstDtypeStr) const;
     std::string PrintOneHot(const PrintUnaryParam &param) const;
     std::string PrintOneHotLayout() const;
-    std::string PrintRound(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintRoundLayout() const;
-    std::string PrintRoundDynamicUnaligned(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintRoundStatic(const PrintUnaryTmpBuffParam &param) const;
+    std::string PrintRound() const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;
