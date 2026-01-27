@@ -391,6 +391,17 @@ void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, ExecuteOpIndexAdd);
 
+void ExecuteOpTriU(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &output = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+
+    int diagonal = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "diagonal");
+    calc::TriU(output, input, diagonal);
+}
+REGISTER_CALC_OP(OP_TRIUL, Opcode::OP_TRIUL, ExecuteOpTriU);
+
 void ExecuteOpCumSum(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
