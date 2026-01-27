@@ -1659,6 +1659,7 @@ TEST_F(TestSplitReshapePass, TestDynPerfectlyMatchWithAllSTest) {
         {inputs[2], expectValidShape}, {inputs[3], expectValidShape}
     };
     CheckNewAssembles(newAssembles, expectAssembleOffset, expectAssembleDynShape, expectValidShapes, dynInputShape, reshapeOutputs, kNumFour);
+    
     EXPECT_NE(reshapeOutputs[0], reshapeOutputs[3]);
     EXPECT_EQ(reshapeOutputs[0]->GetConsumers().size(), kNumOne);
     EXPECT_EQ(reshapeOutputs[3]->GetConsumers().size(), kNumOne);
