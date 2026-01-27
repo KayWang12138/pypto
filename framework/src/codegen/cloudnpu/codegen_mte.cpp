@@ -325,14 +325,20 @@ std::string CodeGenOpCloudNPU::GenReshapeCopyOut() const {
     return GenMemCopyVar(true, 0);
 }
 
-std::string CodeGenOpCloudNPU::PrintIndexOutCastTileTensopr() const {
+std::string CodeGenOpCloudNPU::PrintIndexOutCastTileTensor() const {
     auto cacheMode = npu::tile_fwk::AnyCast<std::string>(opAttrs.at(OpAttributeKey::cacheMode));
     auto blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OpAttributeKey::panzBlockSize));
     int cacheModeFlag = GetCacheModeFlag(cacheMode);
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, src1Tensor};
+
+    int dim = rawShape[ID0].size();
+    std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(ID0, dim, PREFIX_STR_OFFSET);
+    std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
+    // e.g. Coord4Dim((RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 0)),(RUNTIME_COA_GET_PARAM_OFFSET(2, 136, 1)))
+    std::string coord = PrintCoord(dim, coordCp);
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, src1Tensor, coord};
 
     std::ostringstream oss;
     oss << tileOpName;
@@ -346,7 +352,7 @@ std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
     ASSERT(opAttrs.count(OpAttributeKey::cacheMode)) << "cannot get cacheMode attr";
     ASSERT(opAttrs.count(OpAttributeKey::panzBlockSize)) << "cannot get panzBlockSize attr";
     if (isSupportLayout) {
-        return PrintIndexOutCastTileTensopr();
+        return PrintIndexOutCastTileTensor();
     }
     auto cacheMode = npu::tile_fwk::AnyCast<std::string>(opAttrs.at(OpAttributeKey::cacheMode));
     auto blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OpAttributeKey::panzBlockSize));
