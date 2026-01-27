@@ -29,7 +29,6 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         ProgramData::GetInstance().Reset();
-        config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
         if (!calc::IsVerifyEnabled()) {
             GTEST_SKIP() << "Verify not supported skip the verify test";
         }
@@ -447,7 +446,7 @@ TEST_F(DynamicOpsTest, MatmulAcc) {
 TEST_F(DynamicOpsTest, GetTensorData) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
-    config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+    config::SetRuntimeOption(CFG_RUN_MODE, COMPILE_STAGE3);
 
     Tensor t0(DT_FP32, {32, 32}, "t0");
     Tensor out(DT_FP32, {64, 64}, "out");

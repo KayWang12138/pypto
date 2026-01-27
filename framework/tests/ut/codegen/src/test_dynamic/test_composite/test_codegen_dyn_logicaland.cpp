@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_codegen_dyn_where.cpp
+ * \file test_codegen_dyn_logicaland.cpp
  * \brief Unit test for codegen.
  */
 
@@ -28,7 +28,7 @@
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
-class TestCodegenDynWhere : public ::testing::Test {
+class TestCodegenDynLogicalAnd : public ::testing::Test {
 public:
     static void SetUpTestCase() {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
@@ -45,21 +45,20 @@ public:
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
-    void TearDown() override {
-    }
+    void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynWhere, TestDynOpWhere) {
+TEST_F(TestCodegenDynLogicalAnd, TestDynOpLogicalAnd) {
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
-    
+
     Element scalaVal(DataType::DT_FP32, 1.0);
 
-    std::string funcName = "TestDynOpWhere";
+    std::string funcName = "TestDynOpLogicalAnd";
     FUNCTION(funcName, {inputA, inputB, output}) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
@@ -68,19 +67,19 @@ TEST_F(TestCodegenDynWhere, TestDynOpWhere) {
     }
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-        
+    auto localTensorInput1 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorInput2 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape});
+
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
-    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
-    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
-    auto localTensorCond =
-        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
-    auto localTensorSrc0 =
-        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
-    auto localTensorSrc1 =
-        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    localTensorInput1->UpdateDynValidShape(dynValidShape);
+    localTensorInput2->UpdateDynValidShape(dynValidShape);
+    localTensorRes->UpdateDynValidShape(dynValidShape);
+    localTensorTmp->UpdateDynValidShape(dynValidShape);
 
     auto &op = function->AddOperation(
-        Opcode::OP_WHERE_TT, {localTensorCond, localTensorSrc0, localTensorSrc1}, {localTensorRes, localTensorTmp});
+        Opcode::OP_LOGICALAND, {localTensorInput1, localTensorInput2}, {localTensorRes, localTensorTmp});
     op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
@@ -88,16 +87,15 @@ TEST_F(TestCodegenDynWhere, TestDynOpWhere) {
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensorInput1->GetMagic()] = localTensorInput1;
+    function->GetTensorMap().inverseMap_[localTensorInput2->GetMagic()] = localTensorInput2;
     function->GetTensorMap().inverseMap_[localTensorRes->GetMagic()] = localTensorRes;
     function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
-    function->GetTensorMap().inverseMap_[localTensorCond->GetMagic()] = localTensorCond;
-    function->GetTensorMap().inverseMap_[localTensorSrc0->GetMagic()] = localTensorSrc0;
-    function->GetTensorMap().inverseMap_[localTensorSrc1->GetMagic()] = localTensorSrc1;
 
     cop.Init(op);
     std::string res = cop.GenOpCode();
     std::string expect =
-        R"!!!(TileOp::DynWhere_TT<float, float, /*DstRawShape*/ 1, 64, 64, /*ConditionRawShape*/ 1, 64, 64, /*Src0RawShape*/ 1, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64);
+        R"!!!(TileOp::DynTlogicalAnd<float, float, 64, 64, 64>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 64, 64);
 )!!!";
     EXPECT_EQ(res, expect);
 }
