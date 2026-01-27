@@ -23,19 +23,19 @@ def _count_calls(func):
 
     @wraps(func)
     def wrapper(tensor, name: str = "", *, dynamic_axis: Optional[List[int]] = None,
-                tensor_format: Optional[TileOpFormat] = None):
+                tensor_format: Optional[TileOpFormat] = None, dst_type: Optional[DataType] = None):
         nonlocal count
         count += 1
         if name == "":
             name = f"TENSOR_{count}"
-        return func(tensor, name, dynamic_axis, tensor_format)
+        return func(tensor, name, dynamic_axis, tensor_format, dst_type)
 
     return wrapper
 
 
 @_count_calls
 def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
-               tensor_format: Optional[TileOpFormat] = None):
+               tensor_format: Optional[TileOpFormat] = None, dst_type: Optional[DataType] = None):
     """
     convert the input into a PyPTO Tensor
 
@@ -88,7 +88,7 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
             if torch_npu.get_npu_format(tensor) == 29:
                 tensor_format = TileOpFormat.TILEOP_NZ
 
-    dtype = _dtype_from(tensor.dtype)
+    dtype = _dtype_from(tensor.dtype) if dst_type is None else dst_type
     if tensor.dim() == 0:
         return Tensor(
             shape=tuple([1]),
@@ -127,7 +127,6 @@ _dtype_dict = {
     "torch.int64": DataType.DT_INT64,
     "torch.uint64": DataType.DT_UINT64,
     "torch.bool": DataType.DT_BOOL,
-    "torch.hifloat8": DataType.DT_HF8,
     "torch.float8_e4m3fn": DataType.DT_FP8E4M3,
     "torch.float8_e5m2": DataType.DT_FP8E5M2,
 }

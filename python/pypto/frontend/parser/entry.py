@@ -310,10 +310,12 @@ class JitCallableWrapper:
             out_tensors.append(out_tensor)
 
         # Execute the function using dispatch based on run mode
-        def convert_tensors_with_metadata(torch_tensors, tensor_defs):
+        def convert_tensors_with_metadata(torch_tensors, tensor_defs, parse_types = None):
             """Convert torch tensors to pypto tensors with name and dynamic_axis metadata."""
             pto_tensors = []
-            for torch_tensor, tensor_def in zip(torch_tensors, tensor_defs):
+            if parse_types is None:
+                parse_types = [None for it in torch_tensors]
+            for torch_tensor, tensor_def, dtype in zip(torch_tensors, tensor_defs, parse_types):
                 name = tensor_def.name
                 # Determine which axes are dynamic by checking for SymbolicScalar in shape
                 dynamic_axis = [
@@ -327,11 +329,13 @@ class JitCallableWrapper:
                         name=name,
                         dynamic_axis=dynamic_axis if dynamic_axis else None,
                         tensor_format=tensor_def.format,
+                        dst_type=dtype,
                     )
                 )
             return pto_tensors
 
-        pto_in_tensors = convert_tensors_with_metadata(in_tensors, input_tensor_defs)
+        parse_types = self._parse_type()
+        pto_in_tensors = convert_tensors_with_metadata(in_tensors, input_tensor_defs, parse_types)
         pto_out_tensors = convert_tensors_with_metadata(out_tensors, output_tensor_defs)
 
         self._dispatch_with_run_mode(pto_in_tensors + pto_out_tensors, [], device)
@@ -466,6 +470,26 @@ class JitCallableWrapper:
             captured_vars.update(self._captured_locals)
         parser = Parser(source, captured_vars)
         return parser
+
+    def _parse_type(self) -> list:
+        """Obtains the input parameter type annotation of the func.
+
+
+        Returns
+        -------
+        list
+            A list with the input parameter type annotation of the func.
+        """
+        sig = inspect.signature(self._original_func)
+        params = list(sig.parameters.values())
+
+        param_types = []
+        for param in params:
+            if isinstance(param.annotation, pypto.Tensor):
+                param_types.append(param.annotation.dtype)
+            else:
+                param_types.append(None)
+        return param_types
 
     def _set_config_option(self) -> None:
         """Apply all configuration options to the PTO backend.
