@@ -225,15 +225,24 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
     std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(DeviceMemoryUtils(), inputDataList, outputDataList);
-
     uint8_t* devCtrlCache = nullptr;
     DeviceMemoryUtils devMemory(false);
     if (hostCtrlCache) {
         devCtrlCache = devMemory.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->allCacheSize, nullptr);
     }
 
-    int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList,
-        aicpuStream, aicoreStream, true, nullptr, reinterpret_cast<DevControlFlowCache*>(devCtrlCache), config);
+    int64_t repeatTime = config::GetRuntimeOption<int64_t>(REPEAT_TIME);
+    if (repeatTime < 1) {
+        repeatTime = 1;
+    }
+    int rc = 0;
+    for (int64_t i = 0; i < repeatTime; ++i) {
+        rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList,
+            aicpuStream, aicoreStream, true, nullptr, reinterpret_cast<DevControlFlowCache*>(devCtrlCache), config);
+        if (rc != 0) {
+            break;
+        }
+    }
     CopyFromDev(DeviceMemoryUtils(), outputDataList);
     if (HasInplaceArgs(function) || outputDataList.size() == 0) {
         CopyFromDev(DeviceMemoryUtils(), inputDataList);
