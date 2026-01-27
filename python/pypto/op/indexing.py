@@ -15,6 +15,7 @@ from ..enum import ScatterMode
 from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
 from .._element import Element
+from ..tensor import Tensor
 
 
 @op_wrapper
@@ -414,7 +415,8 @@ def get_scatter_mode(reduce: str):
 
 
 @op_wrapper
-def scatter_(input: Tensor, dim: int, index: Tensor, src: Union[float, Element], *, reduce: str = None) -> Tensor:
+def scatter_(
+    input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
     """Write all values from the value 'src' into 'input' at the indices specified in the 'index' tensor.
 
     This function calculates the formula:
@@ -431,8 +433,8 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: Union[float, Element],
         The axis along which to index.
     index : Tensor
         The indices of elements to scatter.
-    src : float
-        The scalar value to scatter.
+    src : Tensor or Element
+        The Tensor or Element to scatter.
 
     Returns
     -------
@@ -444,6 +446,7 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: Union[float, Element],
     RuntimeError
         If the dimension of 'index' is not equal to the dimension of 'input'.
         If the index.size(d) > input.size(d)
+        If the index.size(d) > src.size(d) when src is Tensor and d != dim 
         If the value of 'input[i][j][k]' is bigger than the shape size of the dimension of 'input'.
 
     See Also
@@ -468,12 +471,15 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: Union[float, Element],
     """
     scatter_mode = get_scatter_mode(reduce)
     if isinstance(src, float):
-        return pypto_impl.Scatter_(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode)
-    return pypto_impl.Scatter_(input, index, src, dim, scatter_mode)
+        input.Move(pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode))
+        return input
+    input.Move(pypto_impl.Scatter(input, index, src, dim, scatter_mode))
+    return input
 
 
 @op_wrapper
-def scatter(input: Tensor, dim: int, index: Tensor, src: Union[float, Element], *, reduce: str = None) -> Tensor:
+def scatter(
+    input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
     """Out-of-place version of 'scatter_'."""
     scatter_mode = get_scatter_mode(reduce)
     if isinstance(src, float):

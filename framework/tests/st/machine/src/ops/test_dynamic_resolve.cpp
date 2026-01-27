@@ -32,6 +32,7 @@ public:
 
     void SetUp() override {
         DeviceLauncherContext::Get().DeviceInit();
+        config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
         rtSetDevice(GetDeviceIdByEnvVar());
      }
 
@@ -95,7 +96,7 @@ TEST_F(DynamicResolveTest, TestResolve) {
         }
     }
 
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction()));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr));
 
 #ifdef BUILD_WITH_CANN
     EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));

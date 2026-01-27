@@ -127,6 +127,9 @@ _dtype_dict = {
     "torch.int64": DataType.DT_INT64,
     "torch.uint64": DataType.DT_UINT64,
     "torch.bool": DataType.DT_BOOL,
+    "torch.hifloat8": DataType.DT_HF8,
+    "torch.float8_e4m3fn": DataType.DT_FP8E4M3,
+    "torch.float8_e5m2": DataType.DT_FP8E5M2,
 }
 
 
@@ -205,4 +208,4 @@ def ir_from_tensor(pto_tensor: Tensor):
         tensor_shape.append(dim)
         dim_num = dim_num + 1
     return ir.Tensor(tensor_shape, ir.DataType(int(pto_tensor.dtype)), \
-        pto_tensor.name, ir.Format((int(pto_tensor.format))))
+        "_MACRO_" + pto_tensor.name, ir.Format((int(pto_tensor.format))))

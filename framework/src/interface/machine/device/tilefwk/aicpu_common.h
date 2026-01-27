@@ -17,6 +17,7 @@
 #define RUNTIME_COMMON_DEF_H
 
 #include <cstdint>
+#include "aicpu_perf.h"
 
 const uint64_t AICORE_TASK_INIT = 0xFFFFFFFF;
 const uint64_t AICORE_TASK_STOP = 0x7FFFFFF0;
@@ -116,7 +117,6 @@ struct ProfConfig : public BitmaskBase<ProfConfig, uint32_t> {
 
 struct ToSubMachineConfig {
     ProfConfig profConfig{ProfConfig::OFF};
-    uint64_t isGETensorList{0};
 };
 
 struct OpMetaAddrs {
@@ -150,10 +150,10 @@ struct DeviceArgs {
     uint32_t scheCpuNum{0};    // sche cpu num calc by host
     uint32_t enableCtrl : 2;    // if enable builtin ctrl
     uint32_t validGetPgMask : 2; // mark pgmask is invalid
-    uint32_t disableSync : 2;    // close ctrl and sche soft sync
-    uint32_t isGETensorList : 26;    // GE graph is tensor list
+    uint32_t disableSync : 28;    // close ctrl and sche soft sync
     uint64_t generalAddr{0};     // aicpu meta addr
     uint64_t stitchPoolAddr{0};  // aicpu meta addr
+    uint64_t aicpuPerfAddr{0};    // aicpuPer Gm addr
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     ArchInfo archInfo{ArchInfo::DAV_2201};
     ToSubMachineConfig toSubMachineConfig;
@@ -201,11 +201,17 @@ enum AicorePerfTrace {
 
 struct Metrics {
   int64_t isMetricStop;
-  int64_t taskCount; 
+  int64_t taskCount;
   int64_t perfTrace[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
   uint32_t perfTraceDevTaskId[PERF_TRACE_CORE_MAX][PERF_TRACE_INST_MAX_NUM_EVERY_TYPE];
   uint32_t perfTraceCnt[PERF_TRACE_CORE_MAX];
   TaskStat tasks[];
+};
+
+struct MetricPerf {
+    uint64_t perfAicpuTrace[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::PERF_TRACE_MAX] = {{0}};
+    uint64_t perfAicpuTraceDevTask[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM][npu::tile_fwk::dynamic::PERF_TRACE_COUNT_DEVTASK_MAX_NUM] = {{{0}}}; // 每个devTask 的对应type的数据
+    uint8_t perfAicpuTraceDevTaskCnt[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM] = {{0}};
 };
 
 inline const char *AicorePerfTraceName[] = {
@@ -237,6 +243,11 @@ struct KernelArgs {
     int64_t waveBufferCpuToCore[8];
     TaskEntry taskEntry;
     TaskStat taskStat[2]; // 寄存器高低32位，两个task 和 pending & running task存储： 2 * 2 个
+};
+
+union KernelSharedBuffer {
+    struct KernelArgs args;
+    uint8_t sharedBuffer[SHARED_BUFFER_SIZE];
 };
 
 static_assert(sizeof(KernelArgs) < SHARED_BUFFER_SIZE);

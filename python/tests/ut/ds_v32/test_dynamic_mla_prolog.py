@@ -12,6 +12,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 import pypto
+from conftest import duration_estimate
 
 
 SHAPE_DIM_0 = 0
@@ -37,7 +38,6 @@ NUM_1127 = 1127
 NUM_1536 = 1536
 NUM_7168 = 7168
 
-KEY_ONLY_CODEGEN = "ONLY_CODEGEN"
 KEY_VEC_NBUFFER_MODE = "VEC_NBUFFER_MODE"
 KEY_CUBE_L1_REUSE_MODE = "CUBE_L1_REUSE_MODE"
 KEY_CUBE_NBUFFER_SETTING = "CUBE_NBUFFER_SETTING"
@@ -561,7 +561,6 @@ class MlaBuildConfig:
 
 
 def setup_codegen_passes():
-    pypto.set_host_options(only_codegen=True)
     pypto.set_pass_options(
         vec_nbuffer_mode=NUM_1,
         cube_l1_reuse_setting={-1: NUM_4},
@@ -686,6 +685,7 @@ def build_args(cfg: MlaBuildConfig):
     return MlaArgs(params=params, tensors=tensors, quant=MlaQuantInputs())
 
 
+@duration_estimate(12)
 def test_dynamic_mla_prolog():
     args = build_args(MlaBuildConfig())
     setup_codegen_passes()

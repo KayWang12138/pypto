@@ -18,7 +18,6 @@
 #include "codegen_op_cloudnpu.h"
 #include "securec.h"
 #include "codegen/utils/codegen_utils.h"
-#include "codegen/symbol_mgr/codegen_symbol.h"
 
 namespace npu::tile_fwk {
 std::string GetBrcOprandIdxStr(int64_t brcbOperandIdx) {
@@ -162,7 +161,7 @@ std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const {
     if (!templateParamList.empty()) {
         oss << WrapParamByAngleBrackets(templateParamList);
     }
-    oss << WrapParamByParentheses(tileOpCallParamList) << ";\n";
+    oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
     return oss.str();
 }
 
