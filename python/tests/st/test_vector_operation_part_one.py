@@ -275,6 +275,7 @@ def test_vector_operation_sqrt():
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     pypto.runtime._device_fini()
 
+
 def test_vector_operation_ceil():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -312,6 +313,7 @@ def test_vector_operation_ceil():
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     
     pypto.runtime._device_fini()
+
 
 def test_vector_operation_floor():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -351,6 +353,7 @@ def test_vector_operation_floor():
     
     pypto.runtime._device_fini()
 
+
 def test_vector_operation_trunc():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -388,6 +391,7 @@ def test_vector_operation_trunc():
     assert_allclose(b_tensor.flatten(), expected.flatten(), rtol=1e-3, atol=1e-3)
     
     pypto.runtime._device_fini()
+
 
 def test_vector_operation_exp():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
