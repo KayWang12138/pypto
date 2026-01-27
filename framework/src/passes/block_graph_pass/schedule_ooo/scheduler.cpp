@@ -396,6 +396,15 @@ Status OoOScheduler::AllocTensorMemRange(IssueEntryPtr issue) {
     return SUCCESS;
 }
 
+void OoOScheduler::HandleViewOp(IssueEntryPtr issue) {
+    for (auto& op : issue->viewOps) {
+        if (std::find(newOperations_.begin(), newOperations_.end(), op) != newOperations_.end()) {
+            continue;
+        }
+        newOperations_.emplace_back(op);
+    }
+}
+
 Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
     // issue from all pipes
     for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
@@ -412,12 +421,7 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
                 pipe.curIssue = issue;
                 pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
                 oooCheck.pipeUsageCount[pipeType] += issue->tileOp.GetLatency();
-                for (auto& op : issue->viewOps) {
-                    if (std::find(newOperations_.begin(), newOperations_.end(), op) != newOperations_.end()) {
-                        continue;
-                    }
-                    newOperations_.emplace_back(op);
-                }
+                HandleViewOp(issue);
                 newOperations_.emplace_back(&(issue->tileOp));
                 if (nextCycle == -1 || nextCycle > pipe.curOpRetireCycle) {
                     nextCycle = pipe.curOpRetireCycle;

@@ -240,6 +240,7 @@ private:
     Status BufferAllocStage(uint64_t& commitCnt);
     Status ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType,
         IssueQueue &pipe);
+    void HandleViewOp(IssueEntryPtr issue);
     Status LaunchIssueStage(int& nextCycle);
     Status AllocTensorMemRange(IssueEntryPtr issue);
     Status AllocViewTensorMemRange(Operation &operation);
