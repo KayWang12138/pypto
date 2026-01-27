@@ -309,8 +309,7 @@ struct ControlFlowCache {
 #define AICPU_META_BUFFER_NUM 2
 
 struct KernelBinary {
-    int64_t devId{0};
-    Function *func{nullptr};
+    std::shared_ptr<Function> dynFunc;
     void *kernelBin{nullptr};
     DevAscendProgram *devProg{nullptr};
     DyndevFunctionAttribute *dynAttr{nullptr};
@@ -341,7 +340,7 @@ struct KernelBinary {
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         DevControlFlowCache *ctrlCache = nullptr;
 
-        int ret = EmulationLauncher::BuildControlFlowCache(func, inputs, {}, &ctrlCache, config);
+        int ret = EmulationLauncher::BuildControlFlowCache(dynFunc.get(), inputs, {}, &ctrlCache, config);
         if (ret != 0) {
             ALOG_ERROR("control flow cache failed", ret);
             return nullptr;
@@ -356,8 +355,8 @@ struct KernelBinary {
         return ctrlCache;
     }
 
-    KernelBinary(int64_t tdevId, Function *funcp) : devId(tdevId), func(funcp) {
-        dynAttr = func->GetDyndevAttribute().get();
+    KernelBinary(std::shared_ptr<Function> func): dynFunc(func) {
+        dynAttr = dynFunc->GetDyndevAttribute().get();
         devProg = (DevAscendProgram *)dynAttr->devProgBinary.data();
         kernelBin = RegisterAicoreKernel();
         workspaceSize = devProg->memBudget.Total();
@@ -476,24 +475,18 @@ private:
 };
 
 struct KernelModule {
-    KernelBinary *FindFunction(int32_t devId, std::vector<std::reference_wrapper<Tensor>> &tensors) {
-        for (auto &kbinary : kernels) {
-            if (kbinary.devId == devId && kbinary.Match(tensors)) {
-                return &kbinary;
-            }
-        }
-        return nullptr;
+    KernelBinary *Init(std::shared_ptr<Function> func) {
+        ASSERT(kernel == nullptr) << "function already set";
+        kernel = std::make_shared<KernelBinary>(func);
+        return kernel.get();
     }
 
-    KernelBinary *AddFunction(int32_t devId, std::shared_ptr<Function> func) {
-        kernels.emplace_back(devId, func.get());
-        kfuncs.emplace_back(func);
-        return &kernels.back();
+    KernelBinary *GetKernelBinary() {
+        return kernel.get();
     }
 
     void Launch(KernelBinary *kbinary, aclrtStream aicpuStream, aclrtStream aicoreStream,
         std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
-        auto t0 = GetTimeMonotonic();
         auto [args, argsSize] = kbinary->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
@@ -502,7 +495,6 @@ struct KernelModule {
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
 
-        auto t1 = GetTimeMonotonic();
         const int nrAicpu = 5; // see also device_runner.cpp
         int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
             "AST_DYN_AICPU", nrAicpu, &rtAicpuArgs, nullptr, aicpuStream, 0);
@@ -514,14 +506,11 @@ struct KernelModule {
         //     rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 3, &rtAicpuArgs, nullptr, aicpuStream, 0);
         // ASSERT(ret == RT_ERROR_NONE) << "launch aicpu sched failed: " << ret;
 
-        auto t2 = GetTimeMonotonic();
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
         ret = rtKernelLaunchWithHandleV2(
             kbinary->kernelBin, tilingKey, dynamic::GetCfgBlockdim(), &rtAicoreArgs, nullptr, aicoreStream, &rtTaskCfg);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
-        auto t3 = GetTimeMonotonic();
-        ALOG_ERROR_F("<< %lu %lu %lu", t1 - t0, t2 - t1, t3 - t2);
     }
 
     KernelModule() {
@@ -548,9 +537,7 @@ struct KernelModule {
     rtArgsEx_t rtAicoreArgs;
     rtTaskCfgInfo_t rtTaskCfg;
     std::vector<void *> kernelArgs;
-
-    std::vector<std::shared_ptr<Function>> kfuncs;
-    std::vector<KernelBinary> kernels;
+    std::shared_ptr<KernelBinary> kernel;
 };
 using KernelModulePtr = std::shared_ptr<KernelModule>;
 
@@ -637,8 +624,7 @@ static uint8_t *FindCtrlCache(KernelBinary *kbinary, py::object &module, py::arg
     return nullptr;
 }
 
-static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensors,
-    std::vector<std::reference_wrapper<Tensor>> &ref_tensors) {
+static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensors) {
     py::object device = py::none();
     for (auto &pt : args) {
         auto base = py::getattr(pt, "_base");
@@ -647,7 +633,6 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
             auto data_ptr = py::cast<int64_t>(py::getattr(pt, "data_ptr"));
             auto shape = py::cast<std::vector<int64_t>>(py::getattr(pt, "ori_shape"));
             tensors.emplace_back(t.GetDataType(), data_ptr, shape);
-            ref_tensors.emplace_back(t);
             if (device.is_none()) {
                 device = py::getattr(pt, "device");
             } else if (!device.equal(py::getattr(pt, "device"))) {
@@ -685,19 +670,18 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     auto aicpuStream = (aclrtStream)DeviceGetAicpuStream();
 
     std::vector<DeviceTensorData> tensors;
-    std::vector<std::reference_wrapper<Tensor>> ref_tensors;
-    auto devId = GetInputTensors(args, tensors, ref_tensors);
+    auto devId = GetInputTensors(args, tensors);
     DeviceGuard devGuard(devId);
 
     auto t2 = GetTimeMonotonic();
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
-    auto kbinary = kmodule->FindFunction(devId, ref_tensors);
+    auto kbinary = kmodule->GetKernelBinary();
     if (kbinary == nullptr) {
         Program::GetInstance().Reset();
         // Set capture mode to relaxed to support rtmemcpy / rtmemset
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
         auto func = Compile(module, args);
-        kbinary = kmodule->AddFunction(devId, Program::GetInstance().GetFunctionSharedPtr(func));
+        kbinary = kmodule->Init(Program::GetInstance().GetFunctionSharedPtr(func));
         BuildDefaultCache(kbinary, module, tensors);
     }
 
