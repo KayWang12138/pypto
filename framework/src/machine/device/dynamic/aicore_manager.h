@@ -1339,6 +1339,7 @@ private:
         }
 
         wrapManager_.InitArchInfo(deviceArgs->archInfo);
+        wrapManager_.InitDieMaxCpuId(static_cast<int>(deviceArgs->scheCpuNum));
 #if ENABLE_TENSOR_DUMP
         aicoreDump_.Init(startArgs, schedIdx);
 #endif
