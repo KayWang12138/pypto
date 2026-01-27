@@ -1,5 +1,6 @@
 import abc
 import operator
+from typing import List
 
 import pypto
 
@@ -143,6 +144,10 @@ class BaseArange(CompoundNode):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(start={self.start}, end={self.end})"
+
+    @property
+    def shape(self) -> List[int]:
+        return [self.end - self.start]
 
     def __add__(self, other):
         return CompoundOffset(operator.add, self, other)

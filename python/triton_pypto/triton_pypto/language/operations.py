@@ -860,6 +860,10 @@ class StaticMaskLayout(BaseMaskLayout):
 
 class Arange(BaseArange):
 
+    def to(self, dtype) -> Self:
+        # TODO: handle dtype
+        return self
+
     def to_affine(self):
         return AffineTensorLayout(sizes=self.end - self.start, strides=1)
 
@@ -1281,7 +1285,9 @@ def rsqrt(x: TensorWrapper) -> TensorWrapper:
 
 @bind_tensor_method
 @log_call
-def expand_dims(input: TensorWrapper, axis: Union[int, Iterable[int]]) -> TensorWrapper:
+def expand_dims(input: Union[TensorWrapper, CompoundNode], axis: Union[int, Iterable[int]]) -> TensorWrapper:
+    if isinstance(input, CompoundNode):
+        input = input.to_dynamic()
     axis = first_or_all(axis)
     new_shape = np.insert(input.shape, axis, 1).tolist()
     if len(axis) == 1 and input.dtype in (pypto.DT_FP32, pypto.DT_FP16, pypto.DT_BF16):
