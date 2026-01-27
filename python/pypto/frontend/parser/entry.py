@@ -531,7 +531,6 @@ class JitCallableWrapper:
 
         # Initialize backend for compilation
         pypto_impl.DeviceInit()
-        # 紧挨 DeviceInit 之后设置 verify/golden 数据
         self._setup_verify_data(in_tensors, out_tensors)
         handler = pypto_impl.OperatorBegin()
 
