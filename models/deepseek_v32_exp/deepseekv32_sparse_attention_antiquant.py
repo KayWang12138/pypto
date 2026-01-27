@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ def compute_attention_aq(input_data, params, s2_tile):
                 slc_kv_fp32 = slc_kv_int8.reshape(-1, 128).to(torch.float)
                 slc_kv = slc_kv_fp32 * slc_kv_scales
                 slc_kr_vin8 = slc_nope[:, kv_lora_rank:kv_lora_rank + 2 * qk_rope_dim]
-
+                
                 slc_kv_up[:, :kv_lora_rank] = slc_kv.to(input_dtype).reshape(-1, kv_lora_rank)
                 slc_kv_up[:, kv_lora_rank:] = slc_kr_vin8.view(input_dtype)
                 vj = slc_kv_up[:, :kv_lora_rank]
@@ -131,7 +131,7 @@ def compute_attention_aq(input_data, params, s2_tile):
 
                 # C2
                 q1 = torch.matmul(tilda_pij_f16.to(torch.float32), vj.to(torch.float32)).to(torch.float32)
-
+                
             attention_output[b_idx, s1_idx, :, :] = q1.to(input_dtype)
 
     return attention_output, tmp_out
@@ -240,10 +240,10 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
                 topk_indices[b_i, s_q_i, :] = perm[:topk]
 
     topk_indices = topk_indices.reshape(b * s_q, n_kv * topk)
-
+    
     q_bsnd = gen_uniform_data(shape_q, -1, 1, dtype)
     kn_bsnd = gen_uniform_data(shape_kn, -1, 1, dtype)
-
+    
     kn_bsnd_reshape = kn_bsnd.reshape(block_num * block_size, 4, 128).to(torch.float32)
     kn_scales = kn_bsnd_reshape.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8) / 127.0
     kn_quant_fp32 = kn_bsnd.reshape(block_num * block_size, 4, 128) / kn_scales
@@ -277,7 +277,7 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
     # 3. 计算attention
     params = [n_q, block_size, scalar, topk, kv_lora_rank, qk_rope_dim]
     input_data = [q_nope, q_rope, nope_cache_2d, topk_indices, block_table, actual_seq]
-
+    
     s2_tile = 2048
     atten_out, tmp_out = compute_attention_aq(input_data, params, s2_tile)
 
@@ -290,7 +290,7 @@ def gen_gather_select_attention_golden_aq(dtype, bn1n2s1, is_kn_quant, actual_se
 
 def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_data, atten_out, is_p):
     b, n1, n2, s1 = bn1n2s1
-
+    
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
@@ -321,36 +321,28 @@ def do_test_sparse_attention_func_aq(bn1n2s1, actual_seq, input_params, input_da
     calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
 
     q_nope_npu = q_nope.npu()
-    q_nope_pto = pypto.from_torch(q_nope_npu, dynamic_axis=[0], name="q_nope")
     q_rope_npu = q_rope.npu()
-    q_rope_pto = pypto.from_torch(q_rope_npu, dynamic_axis=[0], name="q_rope")
     nope_cache_npu = nope_cache_2d.npu()
-    nope_cache_pto = pypto.from_torch(nope_cache_npu, name="nope_cache")
     topk_indices_npu = topk_indices.npu()
-    topk_indices_pto = pypto.from_torch(topk_indices_npu, dynamic_axis=[0], name="topk_indices")
     block_table_npu = block_table.npu()
-    block_table_pto = pypto.from_torch(block_table_npu, dynamic_axis=[0], name="block_table")
     kv_act_seqs_npu = kv_act_seqs.npu()
-    kv_act_seqs_pto = pypto.from_torch(kv_act_seqs_npu, dynamic_axis=[0], name="kv_act_seqs")
 
     calc_attention_out_npu = calc_attention_out.npu()
     calc_attention_out_npu = calc_attention_out_npu.reshape(-1, kv_lora_rank)
-    calc_attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
 
-    pto_inputs = [q_nope_pto, q_rope_pto, nope_cache_pto, topk_indices_pto, block_table_pto, kv_act_seqs_pto]
-    pto_outputs = [calc_attention_out_pto]
+    pto_inputs = [q_nope_npu, q_rope_npu, nope_cache_npu, topk_indices_npu, block_table_npu, kv_act_seqs_npu]
 
     max_blocknum_perbatch = math.ceil(max_kv_seq / block_size)
 
     if is_p:
-        sparse_attention_antiquant_p(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale, topk, block_size,
-                                           max_blocknum_perbatch, tile_config)
+        calc_attention_out = sparse_attention_antiquant_p(block_num, max_kv_seq, kv_lora_rank, qk_rope_dim,
+                                                    n_q, n_kv, softmax_scale, topk, block_size,
+                                                    max_blocknum_perbatch, tile_config)(*pto_inputs)
     else:
-        sparse_attention_antiquant_d(*pto_inputs, *pto_outputs, n_q, n_kv, softmax_scale,
-                                                    topk, block_size, max_blocknum_perbatch, tile_config)
-
-
-    calc_attention_out_npu = calc_attention_out_npu.reshape(b, s1, n_q, kv_lora_rank)
+        calc_attention_out = sparse_attention_antiquant_d(block_num, max_kv_seq, kv_lora_rank, qk_rope_dim,
+                                                    n_q, n_kv, softmax_scale, topk, block_size,
+                                                    max_blocknum_perbatch, tile_config)(*pto_inputs)
+    calc_attention_out_npu = calc_attention_out.reshape(b, s1, n_q, kv_lora_rank)
     torch_npu.npu.synchronize()
     compare(calc_attention_out_npu.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
 
