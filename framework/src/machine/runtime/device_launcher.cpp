@@ -382,7 +382,13 @@ void ExportedOperatorEnd(ExportedOperator *op) {
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
 #ifdef BUILD_WITH_CANN
-    DeviceMemoryUtils().CopyFromDev((uint8_t *)hostTensor.GetAddr(), (uint8_t *)devTensor.GetAddr(), devTensor.GetDataSize());
+    try{
+        DeviceMemoryUtils().CopyFromDev((uint8_t *)hostTensor.GetAddr(), (uint8_t *)devTensor.GetAddr(), devTensor.GetDataSize());
+    }
+    catch (const std::exception& e){
+        std::cerr << "Caught exception: " << e.what() << std::endl;
+        return;
+    }
 #else
     (void)devTensor;
     (void)hostTensor;

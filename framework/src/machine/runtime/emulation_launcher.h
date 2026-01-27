@@ -49,7 +49,14 @@ struct EmulationMemoryUtils {
 
     uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        memcpy_s(devPtr, size, data, size);
+        if (devPtr == nullptr) {
+            throw std::runtime_error("CopyToDev memory allocation failed");
+        }
+        auto ret = memcpy_s(devPtr, size, data, size);
+        if (ret != 0) {
+            ALOG_ERROR_F("CopyToDev memcpy_s failed");
+            throw std::runtime_error("CopyToDev memcpy_s failed");
+        }
         return devPtr;
     }
 
@@ -60,7 +67,11 @@ struct EmulationMemoryUtils {
     }
 
     void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
-        memcpy_s(data, size, devPtr, size);
+        auto ret = memcpy_s(data, size, devPtr, size);
+        if (ret != 0) {
+            ALOG_ERROR_F("CopyFromDev memcpy_s failed");
+            throw std::runtime_error("CopyFromDev memcpy_s failed");
+        }
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {

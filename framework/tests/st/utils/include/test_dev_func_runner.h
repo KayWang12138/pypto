@@ -137,7 +137,13 @@ private:
         if (config_.controlFlowCache) {
             functionDevProg->controlFlowCache.isRecording = true;
         }
-        RunModel(inputs, outputs);
+        try{
+            RunModel(inputs, outputs);
+        }
+        catch (const std::exception& e){
+            std::cerr << "Caught exception: " << e.what() << std::endl;
+            return;
+        }
         if (functionDevProg->controlFlowCache.isRecording) {
             functionDevProg->controlFlowCache.isRecording = false;
 
@@ -153,16 +159,28 @@ private:
             functionDevProg->controlFlowCache.isActivated = true;
         }
         if (config_.onBoard) {
-            RunOnBoard(inputs, outputs);
+            try{
+                RunOnBoard(inputs, outputs);
+            }
+            catch (const std::exception& e){
+                std::cerr << "Caught exception: " << e.what() << std::endl;
+                return;
+            }
         }
     }
     static void RunStatic() {
-        if (gDeviceAgentTaskPtr == nullptr) {
+        try{
+            if (gDeviceAgentTaskPtr == nullptr) {
+                return;
+            }
+            MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
+            CheckDeviceId();
+            MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
+        }
+        catch (const std::exception& e){
+            std::cerr << "Caught exception: " << e.what() << std::endl;
             return;
         }
-        MachineAgent::AgentProc(gDeviceAgentTaskPtr.get());
-        CheckDeviceId();
-        MachinePipe::PipeProc(gDeviceAgentTaskPtr.get());
     }
 
     void RunModel(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
