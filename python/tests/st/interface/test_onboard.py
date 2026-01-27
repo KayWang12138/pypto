@@ -280,7 +280,7 @@ def test_infer_shape():
 
         t = time.monotonic_ns()
         n = 10
-        for i in range(5):
+        for i in range(n):
             infer_shape_kenrel(ta, tb, tc)
         t = (time.monotonic_ns() - t) / 1000
         print(f"{n=} time={t:.3f}u")
