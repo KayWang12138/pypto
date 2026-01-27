@@ -46,6 +46,23 @@ std::unordered_map<Opcode, int> preNodePriority = {
             {Opcode::OP_L0C_COPY_UB, 2}, {Opcode::OP_UB_COPY_L1, 2},
             // 最后访问其它计算节点（其它节点默认的优先级为10）。
         };
+
+inline bool IsMixGraph(const std::vector<Operation*> &opList) {
+    bool hasAIC = false;
+    bool hasAIV = false;
+    for (auto op : opList) {
+        if (OpcodeManager::Inst().GetCoreType(op->GetOpcode()) == OpCoreType::AIV) {
+            hasAIV = true;
+        } else if (OpcodeManager::Inst().GetCoreType(op->GetOpcode()) == OpCoreType::AIC) {
+            hasAIC = true;
+        }
+        if (hasAIV && hasAIC) {
+            return true;
+        }
+    }
+    return false;
+}
+
 class ScheduleOoOTest : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -1641,6 +1658,52 @@ TEST_F(ScheduleOoOTest, TestSpillOnBlockFailedAtL0) {
     oooSchedule.localBufferMap[2]->end = 33280;
     //验证内存气泡导致L0AB卡死
     EXPECT_EQ(oooSchedule.SpillOnBlock(), FAILED);
+}
+
+TEST_F(ScheduleOoOTest, TestOoO1C2V) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t3", "t6", "t7", "t8", "t10", "DDR1", "DDR2", "DDR3", "DDR4", "t11", "t12"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_UB, MemoryType::MEM_UB,
+        MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB};
+    std::vector<std::string> tensorNames_L0{"t2", "t4", "t5"};
+    std::vector<MemoryType> tensorMemTypes_L0AB{MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0C};
+
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_L0A_ALLOC, Opcode::OP_L0B_ALLOC,
+        Opcode::OP_L0C_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC,
+        Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_L1_TO_L0A, Opcode::OP_L1_TO_L0B, Opcode::OP_A_MUL_B,
+        Opcode::OP_L0C_COPY_UB, Opcode::OP_ADDS, Opcode::OP_COPY_OUT, Opcode::OP_L1_COPY_UB, Opcode::OP_ADDS, Opcode::OP_COPY_OUT,
+        Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_ADDS, Opcode::OP_UB_COPY_L1};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {}, {}, {}, {},
+        {"DDR1"}, {"DDR2"}, {"t1"}, {"t3"}, {"t2", "t4"}, {"t5"}, {"t6"}, {"t7"},
+        {"t3"}, {"t8"}, {"t10"}, {}, {}, {"t11"}, {"t12"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t3"}, {"t2"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"},{"t10"},
+        {"t11"}, {"t3"}, {"t2"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"DDR3"},
+        {"t8"}, {"t10"}, {"DDR4"}, {"t11"}, {"t12"}, {"t12"}, {"t1"}};
+    std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "L0A_Alloc1", "L0B_Alloc1", "L0C_Alloc1", "UB_Alloc1",
+    "UB_Alloc2", "UB_Alloc3", "UB_Alloc4", "COPY_IN1", "COPY_IN2", "L1_TO_L0A", "L1_TO_L0B", "A_MUL_B", "L0C_COPY_UB",
+    "ADDS1", "COPY_OUT1", "L1_COPY_UB", "ADDS2", "COPY_OUT2", "UB_Alloc5", "UB_Alloc6", "ADDS3", "UB_COPY_L1"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes_L0AB, tensorNames_L0, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    auto op1 = subGraph.GetOp("ADDS3");
+    auto op2 = subGraph.GetOp("ADDS2");
+    auto op3 = subGraph.GetOp("ADDS1");
+    auto op4 = subGraph.GetOp("L1_TO_L0A");
+    OptimizeSort optimizeSort(function->Operations().DuplicatedOpList(), *function);
+    Status res = optimizeSort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    auto opList = optimizeSort.operations;
+    OoOSchedule oooSchedule;
+    std::pair<uint64_t, Function*> functionPair = std::make_pair(0, function);
+    int size = 0;
+    res = oooSchedule.MixSchedule(opList, *function, functionPair, size);
+    EXPECT_EQ(res, SUCCESS);
+    EXPECT_EQ(op1->GetInternalSubgraphID(), 1);
+    EXPECT_EQ(op2->GetInternalSubgraphID(), 0);
+    EXPECT_EQ(op3->GetInternalSubgraphID(), 1);
+    EXPECT_EQ(op4->GetInternalSubgraphID(), 2);
 }
 
 } // namespace npu::tile_fwk
