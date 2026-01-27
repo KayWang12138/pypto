@@ -25,28 +25,32 @@ from utils.compare import compare
 
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
-pyptolib.define("sparse_compress_flash_attention(Tensor query_npu, Tensor ori_kv_npu, Tensor cmp_kv_npu, Tensor ori_block_table_npu,\
+pyptolib.define("sparse_compress_flash_attention(Tensor query_npu, Tensor q_act_seqs_npu, Tensor ori_kv_npu, Tensor cmp_kv_npu, Tensor ori_block_table_npu,\
     Tensor cmp_block_table_npu, Tensor atten_sink_npu, Tensor seqused_kv_npu, Tensor cmp_sparse_indices_npu,\
     float softmax_scale, int win_size, int cmp_ratio) -> (Tensor)")
 
+
 @torch.library.impl(pyptolib, "sparse_compress_flash_attention", "Meta")
-def sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
+def sparse_compress_flash_attention(query_npu, q_act_seqs_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                     seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
     y = torch.empty([ori_block_table_npu.size(0), cmp_sparse_indices_npu.size(0) // ori_block_table_npu.size(0),\
         query_npu.size(0) // cmp_sparse_indices_npu.size(0), query_npu.size(1)], dtype=query_npu.dtype, device=query_npu.device)
     return y
 
+
 @torch.library.impl(pyptolib, "sparse_compress_flash_attention", "NPU")
-def sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
+def sparse_compress_flash_attention(query_npu, q_act_seqs_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                     seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
-    return npu_sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
+    return npu_sparse_compress_flash_attention(query_npu, q_act_seqs_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                     seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio)
 
+
 class CompressSFA(torch.nn.Module):
-    def forward(self, query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
+    def forward(self, query_npu, q_act_seqs_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                     seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio):
-        return torch.ops.pypto.sparse_compress_flash_attention(query_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
+        return torch.ops.pypto.sparse_compress_flash_attention(query_npu, q_act_seqs_npu, ori_kv_npu, cmp_kv_npu, ori_block_table_npu, cmp_block_table_npu, atten_sink_npu,
                                     seqused_kv_npu, cmp_sparse_indices_npu, softmax_scale, win_size, cmp_ratio)
+
 
 def gen_uniform_data(data_shape, min_value, max_value, dtype):
     """
@@ -328,8 +332,8 @@ def gen_sparse_compress_attention_golden(dtype, bn1n2s1, actual_seq, cmp_ratio):
 def get_case_config(case_name: str):
     # case参数配置字典，key为case名称，value为对应的参数元组(bn1n2s1, is_kn_quant, actual_seq, cmp_ratio)
     test_case_config = {
-        "sfa_bf16_b16_s1_seq64K_d": (
-            (16, 64, 1, 1), 0, [65536] * 16, 4 # for wfa: seq > win_size + s1 -1
+        "sfa_bf16_b64_s1_seq64K_d": (
+            (64, 64, 1, 1), 0, [65536] * 64, 4 # for wfa: seq > win_size + s1 -1
         ),
         "sfa_bf16_b16_s2_seq1536_d": (
             (16, 64, 1, 2), 0, [1536] * 16, 4 # for sfa: seq // cmp_ratio < topk
@@ -364,7 +368,6 @@ def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, in
     kv_act_seqs = torch.tensor(actual_seq, dtype=torch.int32)
 
     calc_attention_out = torch.zeros([b*s1*n_q, kv_lora_rank], dtype=torch.bfloat16)
-    # calc_attention_out = torch.zeros([b, s1, n_q, kv_lora_rank], dtype=torch.bfloat16)
 
     # 算子kernel接口入参名称及顺序与算子原型对齐
     q_npu = q.npu()
@@ -386,13 +389,12 @@ def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, in
 
     calc_attention_out_npu = calc_attention_out.npu()
     attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0], name="calc_attention_out")
-    # attention_out_pto = pypto.from_torch(calc_attention_out_npu, dynamic_axis=[0, 1], name="calc_attention_out")
 
-    pto_inputs = [query_pto, ori_kv_pto, cmp_kv_pto, ori_block_table_pto, cmp_block_table_pto, atten_sink_pto, seqused_kv_pto, cmp_sparse_indices_pto]
+    pto_inputs = [query_pto, None, ori_kv_pto, cmp_kv_pto, ori_block_table_pto, cmp_block_table_pto, atten_sink_pto, seqused_kv_pto, cmp_sparse_indices_pto]
     pto_outputs = [attention_out_pto]
 
     print("=============== inputs && outputs =======================")
-    print(*[f"{i.name}: {i.ori_shape} {i.dtype}" for i in pto_inputs], sep="\n")
+    print(*[f"{i.name}: {i.ori_shape} {i.dtype}" for i in pto_inputs if i is not None], sep="\n")
     print(*[f"{i.name}: {i.ori_shape} {i.dtype}" for i in pto_outputs], sep="\n")
     print("========================================================\n")
     sparse_compress_flash_attention_d(*pto_inputs, *pto_outputs, n_q, n_kv, scalar, topk,
@@ -432,12 +434,11 @@ def do_test_sparse_compress_attention_func_acl_graph(bn1n2s1, actual_seq, input_
     kv_act_seqs_npu = kv_act_seqs.npu()
     atten_sink_npu = atten_sink.npu()
 
-    attention_out = model(q_npu, origin_kv_npu, compress_kv_npu, origin_block_table_npu, block_table_npu, atten_sink_npu,
+    attention_out = model(q_npu, None, origin_kv_npu, compress_kv_npu, origin_block_table_npu, block_table_npu, atten_sink_npu,
         kv_act_seqs_npu, topk_indices_npu, softmax_scale, win_size, cmp_ratio)
     pypto.runtime._device_synchronize()
 
     compare(attention_out.cpu(), atten_out.reshape(attention_out.shape), "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
-    # compare(attention_out.cpu(), atten_out, "atten_out", atol=0.0001, rtol=0.005, max_error_count=100)
 
 
 def do_test_sfa_entry(case_name: str, is_p: bool,  is_acl_graph: bool = False):
@@ -466,19 +467,18 @@ def do_test_sfa_entry(case_name: str, is_p: bool,  is_acl_graph: bool = False):
     return True
 
 
-# @pytest.mark.skip(reason="acl graph perf")
-def test_sfa_bf16_b16_s1_seq64k_acl_graph_d():
+def test_sfa_bf16_b64_s1_seq64K_acl_graph_d():
     '''
     scfa aclgraph测试用例
     '''
-    do_test_sfa_entry("sfa_bf16_b16_s1_seq64K_d", is_p=False, is_acl_graph=True)
+    do_test_sfa_entry("sfa_bf16_b64_s1_seq64K_d", is_p=False, is_acl_graph=True)
 
 
-def test_sfa_bf16_b16_s1_seq64K_d():
+def test_sfa_bf16_b64_s1_seq64K_d():
     '''
     scfa decode测试用例, 非MTP场景
     '''
-    do_test_sfa_entry("sfa_bf16_b16_s1_seq64K_d", is_p=False)
+    do_test_sfa_entry("sfa_bf16_b64_s1_seq64K_d", is_p=False)
 
 
 def test_sfa_bf16_b16_s2_seq1536_d():
