@@ -26,7 +26,7 @@ class STestAccelerate(GTestAccelerate):
     通过多进程并行执行, 以提升 STest 执行效率.
     """
 
-    def __init__(self, args, scene_mark: str = "STest", cntr_name: str = "Device"):
+    def __init__(self, args: argparse.Namespace, scene_mark: str = "STest", cntr_name: str = "Device"):
         """
         :param args: 命令行参数
         :param scene_mark: 场景标识

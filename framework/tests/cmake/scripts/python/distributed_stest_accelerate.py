@@ -15,16 +15,9 @@ import datetime
 import logging
 import os
 import subprocess
-from typing import Any, NamedTuple
+from typing import Any
 
 import stest_accelerate
-
-
-class ExecutionResult(NamedTuple):
-    """执行结果明确返回值结构"""
-    returncode: int
-    stdout: str  
-    stderr: str
 
 
 class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
@@ -34,7 +27,7 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
     继承自STestAccelerate, 使用父类的device_list参数, 按照rank_size进行设备分组.
     """
 
-    def __init__(self, args):
+    def __init__(self, args: argparse.Namespace):
         super().__init__(args, scene_mark="Distributed STest", cntr_name="Device Group")
 
     @staticmethod
@@ -117,14 +110,14 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
                     "device_group": device_group,
                     "rank_size": self.rank_size,
                     "group_id": group_id,
-                }
+                },
             )
             params.append(param)
         return params
 
     def _execute_case(self, ctx: stest_accelerate.STestAccelerate.CaseContext,
         param: stest_accelerate.STestAccelerate.ExecParam,
-        gtest_filter: str) -> tuple[ExecutionResult, str, datetime.timedelta]:
+        gtest_filter: str) -> tuple[subprocess.CompletedProcess, str, datetime.timedelta]:
         """多卡模式执行 - 重写父类方法"""
         if not hasattr(param, "custom") or param.custom is None:
             raise ValueError("No custom config, distribute case case need rank_size parameter, run case failed.")
@@ -139,7 +132,7 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
         return self._run_multi_device_case(ctx, device_group, rank_size)
 
     def _run_multi_device_case(self, ctx: stest_accelerate.STestAccelerate.CaseContext,
-        device_group: list[int], rank_size: int) -> tuple[ExecutionResult, str, datetime.timedelta]:
+        device_group: list[int], rank_size: int) -> tuple[subprocess.CompletedProcess, str, datetime.timedelta]:
         """执行多卡分布式测试用例
         
         :param ctx: Case上下文
@@ -171,17 +164,17 @@ class DistributedSTestAccelerate(stest_accelerate.STestAccelerate):
                 text=True,
             )
 
-            result = ExecutionResult(
-                returncode=completed_process.returncode,
-                stdout=completed_process.stdout,
-                stderr=completed_process.stderr,
-            )       
-            return result, ' '.join(command), datetime.datetime.now(tz=datetime.timezone.utc) - ts
+            return completed_process, ' '.join(command), datetime.datetime.now(tz=datetime.timezone.utc) - ts
 
         except Exception as e:
             logging.error(f"MPI execution failed for {ctx.gtest_filter}: {str(e)}.")
-            error_result = ExecutionResult(returncode=1, stdout="", stderr=str(e))
-            return error_result, ' '.join(command), e
+            result = subprocess.CompletedProcess(
+                args=command,
+                returncode=1,
+                stdout="",
+                stderr=str(e),
+            )
+            return result, ' '.join(command), datetime.timedelta(0)
 
 if __name__ == "__main__":
     logging.basicConfig(
