@@ -595,7 +595,7 @@ bool SuperNodeGraphBuilder::ExpandCombine(const std::shared_ptr<OperationGraphIn
     if (opList[i]->GetOpcode() == Opcode::OP_EXPAND) {
         if (operationInfo->outGraph_[i].size() == 1U) {
             mergePair.emplace_back(i, *(operationInfo->outGraph_[i].begin()));
-            ALOG_DEBUG_F("Combine %d and %d for Expand in building SuperNode.",
+            APASS_LOG_DEBUG_F("Combine %d and %d for Expand in building SuperNode.",
                          opList[i]->GetOpMagic(), opList[*(operationInfo->outGraph_[i].begin())]->GetOpMagic());
             return true;
         }
