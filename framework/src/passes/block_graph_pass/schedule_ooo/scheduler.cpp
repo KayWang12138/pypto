@@ -734,7 +734,6 @@ Status OoOScheduler::ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx) {
             return FAILED;
         }
     }
-    tensorAllocCoreMap[issue->reqMemIds[0]] = corePair;
     if (bufferManagerMap[corePair.first][corePair.second][allocBuffer->memType].Allocate(allocBuffer) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Allocate tensor[%u] failed.", allocBuffer->id); 
         return FAILED; 
