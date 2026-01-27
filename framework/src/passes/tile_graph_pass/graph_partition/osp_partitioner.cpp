@@ -302,10 +302,10 @@ void OspPartitioner::ConstructBspArchCVSplit(osp::BspArchitecture<GraphType> &bs
     for (size_t i = 0; i < numCores; i++) {
         if (i < numCubeCores) { // Cube Cores
             procTypes[i] = GetOspCoreTypeSplit(OpCoreType::AIC);
-            procMemoryBound[i] = static_cast<osp::VWorkwT<GraphType>>( PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1) );
+            procMemoryBound[i] = static_cast<osp::VWorkwT<GraphType>>( Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L1) );
         } else if (i < numCubeCores + numVectorCores) { // Vector Cores
             procTypes[i] = GetOspCoreTypeSplit(OpCoreType::AIV);
-            procMemoryBound[i] = static_cast<osp::VWorkwT<GraphType>>( PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB) );
+            procMemoryBound[i] = static_cast<osp::VWorkwT<GraphType>>( Platform::Instance().GetAIVCore().GetMemorySize(MemoryType::MEM_UB) );
         } else { // AI Scalar Cores
             procTypes[i] = GetOspCoreTypeSplit(OpCoreType::AICPU);
             procMemoryBound[i] = std::numeric_limits< osp::VWorkwT<GraphType> >::max();
@@ -334,8 +334,8 @@ Status OspPartitioner::ConstructBspArchCVMix(osp::BspArchitecture<GraphType> &bs
     std::vector<osp::VTypeT<GraphType>> procTypes(numCores);
     std::vector<osp::VWorkwT<GraphType>> procMemoryBound(numCores);
 
-    const size_t cubeVecMemoryBound = ((numCubeCores != 0U ? 1U : 0U)) * PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_L1)
-                                    + (numVecPerCube * PassConfigManager::Instance().GetPlatformConfig().GetMemoryLimit(MemoryType::MEM_UB));
+    const size_t cubeVecMemoryBound = ((numCubeCores != 0U ? 1U : 0U)) * Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L1)
+                                    + (numVecPerCube * Platform::Instance().GetAIVCore().GetMemorySize(MemoryType::MEM_UB));
 
     for (size_t i = 0; i < numCores; i++) {
         if (i < numCubeCores) { // Cube Vector Core Mix
