@@ -106,14 +106,51 @@ def softmax(shape: tuple, run_mode: str = "npu", dynamic: bool = True) -> torch.
 
     return softmax_kernel
 
+def softmax_pass_by_reference(shape: tuple, run_mode: str = "npu", dynamic: bool = True) -> torch.Tensor:
+
+    bs, seqlen, head, dim = shape
+    if dynamic:
+        bs = pypto.frontend.dynamic("bs")
+    
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
+    
+    # launch the kernel
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
+    def softmax_kernel(
+        input_tensor: pypto.Tensor((bs, seqlen, head, dim), pypto.DT_FP32),
+        output_tensor: pypto.Tensor((bs, seqlen, head, dim), pypto.DT_FP32)
+    ) -> None:
+        tile_b = 1  # Process one batch at a time
+        b_loop = bs // tile_b
+
+        # Tiling shape setting for efficient execution
+        pypto.set_vec_tile_shapes(1, 4, 1, 64)
+
+        for idx in pypto.loop(0, b_loop, 1, name="LOOP_L0_bIdx", idx_name="idx"):
+            b_offset = idx * tile_b
+            b_offset_end = (idx + 1) * tile_b
+            input_view = input_tensor[b_offset:b_offset_end, :seqlen, :head, :dim]
+            softmax_out = softmax_core(input_view)
+            output_tensor[b_offset:, ...] = softmax_out
+
+    return softmax_kernel
+
 
 def test_softmax(device_id: int = None, run_mode: str = "npu", dynamic: bool = True) -> None:
     device = f'npu:{device_id}' if (run_mode == "npu" and device_id is not None) else 'cpu'
 
     shape = (32, 32, 1, 256)
     x = torch.rand(shape, dtype=torch.float, device=device)
+    z = torch.zeros(shape, dtype=torch.float, device=device)
 
     y = softmax(x.shape, run_mode, dynamic)(x).cpu() # default dim: -1
+    softmax_pass_by_reference(x.shape, run_mode, dynamic)(x, z)
+    z = z.cpu()
     golden = torch.softmax(x, dim=-1).cpu()
 
     max_diff = np.abs(y.numpy() - golden.numpy()).max()
@@ -121,8 +158,14 @@ def test_softmax(device_id: int = None, run_mode: str = "npu", dynamic: bool = T
     print(f"Output shape: {y.shape}")
     print(f"Max difference: {max_diff:.6f}")
 
+    max_diff_by_ref = np.abs(z.numpy() - golden.numpy()).max()
+    print(f"Input shape: {x.shape}")
+    print(f"Output shape: {z.shape}")
+    print(f"Max difference: {max_diff_by_ref:.6f}")
+
     if run_mode == "npu":
         assert_allclose(np.array(y), np.array(golden), rtol=3e-3, atol=3e-3)
+        assert_allclose(np.array(z), np.array(golden), rtol=3e-3, atol=3e-3)
     print("✓ Softmax test passed")
     print()
 
