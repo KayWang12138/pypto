@@ -26,8 +26,7 @@ from pypto.converter import _torch_dtype_from
 from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
 from pypto.frontend.parser.parser import NestedFunctionMarker, Parser
-# Import _pto_verify_datas to access golden data set by set_verify_golden_data
-from pypto.runtime import _pto_verify_datas  # type: ignore
+from pypto.runtime import _pto_verify_datas
 
 
 def _default_globals() -> dict[str, Any]:
