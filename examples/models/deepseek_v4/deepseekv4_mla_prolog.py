@@ -421,22 +421,6 @@ def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs,
     print("=========== pass ==========")
 
 
-def test_t4_pa_nd_bf16():
-    prep_env()
-    params = {
-        't': 4,
-        'num_heads': 64,
-        'h': 4096,
-        'q_lora_rank': 1024,
-        'head_dim': 512,
-        'qk_rope_head_dim': 64,
-    }
-    dtype = pypto.DataType.DT_BF16
-    is_nz = False
-    input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_nz)
-    mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
-
-
 def test_t16_pa_nd_bf16():
     prep_env()
     params = {

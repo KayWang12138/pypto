@@ -376,8 +376,8 @@ class MLAKernelMAnager:
             q_out_shape = [t, 64, 512]
             kv_out_shape = [t, 512]
             qr_out_shape = [t, 1024]
-            self.vec_all_shape[t] = [x_shape, self.wq_a_shape, self.wq_b_shape, self.wkv_shape, rops_cos_shape, rops_cos_shape, self.rmsnorm_gamma_cq_shape, \
-                                self.rmsnorm_gamma_ckv_shape, q_out_shape, kv_out_shape, qr_out_shape]
+            self.vec_all_shape[t] = [x_shape, self.wq_a_shape, self.wq_b_shape, self.wkv_shape, self.rmsnorm_gamma_cq_shape, \
+                                self.rmsnorm_gamma_ckv_shape,  rops_cos_shape, rops_cos_shape, q_out_shape, kv_out_shape, qr_out_shape]
 
     def infer_controlflow_shape(self, *args):
         global vec_all_shape, t_vec
@@ -425,7 +425,7 @@ def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gam
     input_data = [token_x_data, wq_a_data, wq_b_data, wkv_data, gamma_cq_data, gamma_ckv_data, rope_cos_data, rope_sin_data]
     output_data = [out_q, out_kv, out_qr]
     attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
-    configs = MlaPrologV4Configs(unroll_list=[128, 64, 16, 4, 1],
+    configs = MlaPrologV4Configs(unroll_list=[128, 64, 32, 16, 1],
                                 cube_l1_reuse_setting={2: 4},
                                 mg_copyin_upper_bound=2 * 1024 * 1024,
                                 pg_upper_bound=8192,
