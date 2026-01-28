@@ -86,6 +86,14 @@ TEST_F(TorchAdaptorTest, Range) {
     ASSERT_ALLCLOSE(out, golden);
 }
 
+TEST_F(TorchAdaptorTest, Round) {
+    auto self = makeTensorData(DT_FP32, {16, 16}, 1.1f);
+    auto out = makeTensorData(DT_FP32, {16, 16}, 1.0f);
+    auto golden = makeTensorData(DT_FP32, {16, 16}, 1.0f);
+    calc::Round(out, self, 0);
+    ASSERT_ALLCLOSE(out, golden);
+}
+
 TEST_F(TorchAdaptorTest, Compare) {
     auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
     auto other = makeTensorData(DT_FP32, {16, 16}, 4.0f);
@@ -173,14 +181,6 @@ TEST_F(TorchAdaptorTest, Cmps) {
 }
 
 TEST_F(TorchAdaptorTest, UnaryOps) {
-    {
-        // round
-        auto self = makeTensorData(DT_FP32, {16, 16}, 1.1f);
-        auto out = makeTensorData(DT_FP32, {16, 16}, 1.0f);
-        auto golden = makeTensorData(DT_FP32, {16, 16}, 1.0f);
-        calc::Round(out, self, 0);
-        ASSERT_ALLCLOSE(out, golden);
-    }
     {
         // rsqrt
         auto self = makeTensorData(DT_FP32, {16, 16}, 4.0f);
