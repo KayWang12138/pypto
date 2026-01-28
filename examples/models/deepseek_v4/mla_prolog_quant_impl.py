@@ -162,22 +162,6 @@ def check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin,
     assert output_qr_data.dtype == torch.bfloat16, \
             f"output_qr_data.dtype is {output_qr_data.dtype}, expected torch.bfloat16"
 
-@op_wrapper
-def scalar_div(tensor, other, is_reserve=False):
-    """Scalar division operation wrapper.
-
-    Performs element-wise division of input tensor by a scalar value.
-
-    Args:
-        tensor: Input tensor
-        other: Scalar divisor value
-        is_reserve: Whether to reserve (inverse) the operation
-
-    Returns:
-        Result tensor after scalar division
-    """
-    return pypto_impl.ScalarDivS(tensor, pypto_impl.Element(tensor.dtype, other), is_reserve)
-
 
 def quant(
     input_tensor: pypto.Tensor,
@@ -216,19 +200,19 @@ def quant(
     if is_symmetry:
         abs_res = pypto.abs(input_tensor_fp32)
         max_value = pypto.amax(abs_res, -1, keepdim=True)
-        scale_quant = scalar_div(max_value, 127.0, True)
+        scale_quant = pypto.div(pypto.full(max_value.shape, 127.0, pypto.DT_FP32), max_value)
         out_fp32 = pypto.mul(input_tensor_fp32, scale_quant)
         out_int32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
         out_half = pypto.cast(out_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
         out_int8 = pypto.cast(out_half, pypto.DT_INT8, pypto.CastMode.CAST_TRUNC)
-        scale_de_quant = scalar_div(scale_quant, 1.0, True)
+        scale_de_quant = pypto.div(pypto.full(scale_quant.shape, 1.0, pypto.DT_FP32), scale_quant)
         return out_int8, scale_de_quant
     else:
         max_value = pypto.amax(input_tensor_fp32, -1, keepdim=True)
         min_value = pypto.amin(input_tensor_fp32, -1, keepdim=True)
         scale_de_quant = pypto.max(pypto.div(pypto.sub(max_value, min_value), 255.0), 1e-12)
         offset = pypto.sub(127.0, pypto.div(max_value, scale_de_quant))
-        scale_quant = scalar_div(max_value, 1.0, True)
+        scale_quant = pypto.div(pypto.full(max_value.shape, 1.0, pypto.DT_FP32), max_value)
         out_fp32 = pypto.mul(input_tensor_fp32, scale_quant)
         out_int32 = pypto.cast(out_fp32, pypto.DT_INT32, pypto.CastMode.CAST_RINT)
         out_half = pypto.cast(out_int32, pypto.DT_FP16, pypto.CastMode.CAST_ROUND)
@@ -283,8 +267,8 @@ def rms_norm(input_tensor: pypto.Tensor, epsilon: float) -> pypto.Tensor:
     """
     dim = len(input_tensor.shape)
     y = pypto.mul(input_tensor, input_tensor)
-    y = pypto.mul(y, 1.0 / input_tensor.shape[dim - 1])
     y = pypto.sum(y, -1, keepdim=True)
+    y = pypto.mul(y, 1.0 / input_tensor.shape[dim - 1])
     y = pypto.add(y, epsilon)
     y = pypto.sqrt(y)
     ones_vector = pypto.full(y.shape, 1.0, pypto.DT_FP32)
@@ -410,6 +394,7 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
     head_dim = rmsnorm_gamma_ckv.shape[0]
     head_num = wq_b.shape[1] // head_dim
     rope_dim = cos.shape[1]
+    k_tile = 2048
     gamma_cq_2d = pypto.reshape(rmsnorm_gamma_cq, [1, rmsnorm_gamma_cq.shape[0]], inplace=True)
     gamma_ckv_2d = pypto.reshape(rmsnorm_gamma_ckv, [1, rmsnorm_gamma_ckv.shape[0]], inplace=True)
     wq_a_scale = pypto.reshape(wq_a_scale, [1, wq_a_scale.shape[0]], inplace=True)
@@ -427,11 +412,18 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         pypto.set_vec_tile_shapes(4, 4096)
         x_tile = pypto.view(x, [t_tile, h], [tIdx, 0], valid_shape=[t_tile, h])
         pypto.set_semantic_label("wqa-linear")
-        pypto.set_cube_tile_shapes([tile_bs, tile_bs], [512, 512], [128, 128], True)
+        pypto.set_cube_tile_shapes([tile_bs, tile_bs], [256, 512], [128, 128], True)
         pypto.set_pass_options(sg_set_scope=1)
         x_tile_quant, x_quant_scale = quant(x_tile)
         pypto.set_pass_options(sg_set_scope=-1)
-        q = pypto.matmul(x_tile_quant, wq_a, pypto.DataType.DT_INT32)
+        x_view_k1 = pypto.view(x_tile_quant, [t_tile, k_tile], [0, 0])
+        x_view_k2 = pypto.view(x_tile_quant, [t_tile, k_tile], [0, k_tile])
+        wq_a_k1 = pypto.view(wq_a, [k_tile, q_lora_rank], [0, 0])
+        wq_a_k2 = pypto.view(wq_a, [k_tile, q_lora_rank], [k_tile, 0])
+        q1 = pypto.matmul(x_view_k1, wq_a_k1, pypto.DataType.DT_INT32)
+        q2 = pypto.matmul(x_view_k2, wq_a_k2, pypto.DT_INT32)
+        q = q1 + q2
+
         pypto.set_semantic_label("qa dequant")
         dequant_q = dequant(q, x_quant_scale, wq_a_scale)
 
@@ -443,10 +435,11 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         qr_quant, qr_scale = quant(qr)
 
         pypto.set_semantic_label("wqb-linear")
-        pypto.set_cube_tile_shapes([tile_bs, tile_bs], [256, 256], [256, 256], True)
+        pypto.set_cube_tile_shapes([tile_bs, tile_bs], [128, 1024, 512], [256, 256], True)
         qb = pypto.matmul(qr_quant, wq_b, pypto.DataType.DT_INT32)
+
+        pypto.set_vec_tile_shapes(4, 4096)
         qb_dequant = dequant(qb, qr_scale, wq_b_scale)
-        
         q_3d = pypto.reshape(qb_dequant, [t_tile, head_num, head_dim])
         pypto.set_vec_tile_shapes(4, 8, 512)
         qr2_3d = rms_norm(q_3d, attrs.eps)
@@ -467,9 +460,9 @@ def mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ck
         pypto.assemble(qr2_3d_rope, [tIdx, 0, head_dim-rope_dim], q_out)
 
         pypto.set_semantic_label("wkv-linear")
-        pypto.set_cube_tile_shapes([tile_bs, tile_bs], [512, 512], [128, 128], True)
+        pypto.set_cube_tile_shapes([tile_bs, tile_bs], [256, 512], [128, 128], True, True)
         kv = pypto.matmul(x_tile_quant, wkv, pypto.DataType.DT_INT32)
-        pypto.set_vec_tile_shapes(4, 512)
+        pypto.set_vec_tile_shapes(8, 512)
         kv_dequant = dequant(kv, x_quant_scale, wkv_scale)
         kv_norm = rms_norm(kv_dequant, attrs.eps)
         kv_norm = pypto.mul(kv_norm, gamma_ckv_2d_fp32)
@@ -518,12 +511,22 @@ manager = MLAKernelMAnager()
 @pypto.jit(runtime_options={
         "stitch_function_inner_memory": 1024,
         "stitch_function_outcast_memory": 1024,
-        "stitch_cfgcache_size": 3000000
+        "stitch_cfgcache_size": 3000000,
+        "device_sched_mode": 1
+    },
+    pass_options={
+        "mg_copyin_upper_bound": 8 * 1024 * 1024,
+        "pg_upper_bound": 50000,
+        "pg_lower_bound": 512,
+        "pg_parallel_lower_bound": 40,
+        "cube_nbuffer_mode": 1,
+        "cube_l1_reuse_setting": {-1: 4},
+        "vec_nbuffer_mode": 2,
+        "vec_nbuffer_setting": {-1: 2}
     },
     infer_controlflow_shape=manager.infer_controlflow_shape,)
 def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs, tile_configs):
     pypto.experimental.set_operation_config(combine_axis=True)
-    pypto.set_pass_options(vec_nbuffer_mode=1, cube_nbuffer_mode=1)
     mla_prolog_v4_compute(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale, q_out, kv_out, qr_out, attrs, configs, tile_configs)
 
 @allow_in_graph
@@ -556,20 +559,13 @@ def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gam
         rope_cos_data, rope_sin_data, wq_a_scale_data, wq_b_scale_data, wkv_scale_data]
     output_data = [out_q, out_kv, out_qr]
     attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
-    if token_x.shape[0]>64:
-        tile_configs = MlaTileConfigs(
-            two_dim_tile=[1, 64],
-            three_dim_tile=[1, 64, 64],
-            four_dim_tile=[1, 64, 64, 64],
-            vec_tile=[max(1, token_x.shape[0]//16), 64]
-        )
-    else:
-        tile_configs = MlaTileConfigs(
-            two_dim_tile=[1, 64],
-            three_dim_tile=[1, 64, 64],
-            four_dim_tile=[1, 64, 64, 64],
-            vec_tile=[max(1, token_x.shape[0]//16), 64]
-        )
+
+    tile_configs = MlaTileConfigs(
+        two_dim_tile=[1, 64],
+        three_dim_tile=[1, 64, 64],
+        four_dim_tile=[1, 64, 64, 64],
+        vec_tile=[max(1, token_x.shape[0]//16), 64]
+    )
     configs = MlaPrologV4Configs(unroll_list=[128, 64, 32, 16, 1],
                                 cube_l1_reuse_setting={2: 4},
                                 mg_copyin_upper_bound=2 * 1024 * 1024,
