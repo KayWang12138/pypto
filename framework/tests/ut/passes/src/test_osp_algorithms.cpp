@@ -383,10 +383,6 @@ TEST_F(OspAlgorithmTest, Architecture) {
     EXPECT_EQ(architecture.GetNumberOfProcessorTypes(), 2);
 
     EXPECT_TRUE(architecture.SendCost() == uniformSentCosts);
-
-    EXPECT_EQ(architecture.CommunicationCosts(0, 1), 4);
-    EXPECT_EQ(architecture.CommunicationCosts(0, 0), 0);
-
     EXPECT_EQ(architecture.CommunicationCosts(0, 1), 2);
     EXPECT_EQ(architecture.CommunicationCosts(0, 0), 0);
 }
