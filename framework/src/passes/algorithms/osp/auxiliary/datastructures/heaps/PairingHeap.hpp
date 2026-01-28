@@ -459,12 +459,6 @@ class PairingHeap {
 template <typename Key, typename Value>
 using MaxPairingHeap = PairingHeap<Key, Value, std::greater<Value>>;
 
-/**
- * @brief Alias for a min-pairing heap.
- */
-template <typename Key, typename Value>
-using MinPairingHeap = PairingHeap<Key, Value, std::less<Value>>;
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_PAIRINGHEAP_HPP

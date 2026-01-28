@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "IBspSchedule.hpp"
-#include "IBspScheduleEval.hpp"
 #include "passes/algorithms/osp/bsp/model/cost/LazyCommunicationCost.hpp"
 #include "passes/algorithms/osp/bsp/model/util/SetSchedule.hpp"
 #include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
@@ -53,7 +52,7 @@ namespace osp {
  * @see IBspScheduleEval
  */
 template <typename GraphT>
-class BspSchedule : public IBspSchedule<GraphT>, public IBspScheduleEval<GraphT> {
+class BspSchedule : public IBspSchedule<GraphT> {
     static_assert(isComputationalDagV<GraphT>, "BspSchedule can only be used with computational DAGs.");
     static_assert(std::is_same_v<VWorkwT<GraphT>, VCommwT<GraphT>>,
                   "BspSchedule requires work and comm. weights to have the same type.");
@@ -362,14 +361,14 @@ class BspSchedule : public IBspSchedule<GraphT>, public IBspScheduleEval<GraphT>
      *
      * @return The work costs of the schedule.
      */
-    virtual VWorkwT<GraphT> ComputeWorkCosts() const override { return cost_helpers::ComputeWorkCosts(*this); }
+    virtual VWorkwT<GraphT> ComputeWorkCosts() const { return cost_helpers::ComputeWorkCosts(*this); }
 
     /**
      * @brief Computes the costs of the schedule accoring to lazy communication cost evaluation.
      *
      * @return The costs of the schedule.
      */
-    virtual VWorkwT<GraphT> ComputeCosts() const override { return LazyCommunicationCost<GraphT>()(*this); }
+    virtual VWorkwT<GraphT> ComputeCosts() const { return LazyCommunicationCost<GraphT>()(*this); }
 
     /**
      * @brief Checks if the schedule is valid.
