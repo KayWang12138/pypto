@@ -384,21 +384,8 @@ TEST_F(OspAlgorithmTest, Architecture) {
 
     EXPECT_TRUE(architecture.SendCost() == uniformSentCosts);
 
-    std::vector<std::vector<unsigned>> expectedSendCosts = {
-        {0, 2, 2, 2},
-        {2, 0, 2, 2},
-        {2, 2, 0, 2},
-        {2, 2, 2, 0}
-    };
-
-    architecture.SetSendCosts(expectedSendCosts);
-    EXPECT_TRUE(architecture.SendCost() == expectedSendCosts);
-
     EXPECT_EQ(architecture.CommunicationCosts(0, 1), 4);
     EXPECT_EQ(architecture.CommunicationCosts(0, 0), 0);
-
-    architecture.SetSendCosts(uniformSentCosts);
-    EXPECT_TRUE(architecture.SendCost() == uniformSentCosts);
 
     EXPECT_EQ(architecture.CommunicationCosts(0, 1), 2);
     EXPECT_EQ(architecture.CommunicationCosts(0, 0), 0);

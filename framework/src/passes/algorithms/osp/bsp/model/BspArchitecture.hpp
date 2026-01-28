@@ -224,70 +224,11 @@ class BspArchitecture {
         : BspArchitecture(numberOfProcessors, communicationCost, synchronisationCost, 100U, sendCosts) {}
 
     /**
-     * @brief Sets the uniform send cost for each pair of processors.
-     * The send cost is set to 0 if the processors are the same, and 1 otherwise.
-     */
-    void SetUniformSendCost() {
-        for (unsigned i = 0U; i < numberOfProcessors_; i++) {
-            for (unsigned j = 0U; j < numberOfProcessors_; j++) {
-                if (i == j) {
-                    sendCosts_[FlatIndex(i, j)] = 0U;
-                } else {
-                    sendCosts_[FlatIndex(i, j)] = 1U;
-                }
-            }
-        }
-    }
-
-    /**
      * @brief Returns a view of processor indices from 0 to numberOfProcessors_ - 1.
      * @return An integral view of processor indices.
      */
     [[nodiscard]] auto Processors() const { return IntegralRange<unsigned>(numberOfProcessors_); }
 
-    /**
-     * @brief Sets the send costs for the BspArchitecture.
-     *
-     * @param vec A 2D vector representing the send costs between processors.
-     * @throws std::invalid_argument if the size of the vector is invalid or diagonal elements are not 0.
-     */
-    void SetSendCosts(const std::vector<std::vector<VCommwT<GraphT>>> &vec) {
-        if (vec.size() != numberOfProcessors_) {
-            throw std::invalid_argument("Invalid Argument: Vector size mismatch.");
-        }
-
-        for (unsigned i = 0U; i < numberOfProcessors_; i++) {
-            if (vec.at(i).size() != numberOfProcessors_) {
-                throw std::invalid_argument("Invalid Argument: Inner vector size mismatch.");
-            }
-
-            for (unsigned j = 0U; j < numberOfProcessors_; j++) {
-                if (i == j && vec.at(i).at(j) != 0U) {
-                    throw std::invalid_argument("Invalid Argument: Diagonal elements should be 0.");
-                }
-
-                sendCosts_.at(FlatIndex(i, j)) = vec.at(i).at(j);
-            }
-        }
-    }
-
-    /**
-     * @brief Sets the send costs between two processors.
-     *
-     * @param p1 The index of the first processor. Must be less than numberOfProcessors_.
-     * @param p2 The index of the second processor. Must be less than numberOfProcessors_.
-     * @param cost The cost of sending data between the processors.
-     * @throws std::invalid_argument if the processor indices are out of bounds.
-     */
-    void SetSendCosts(const unsigned p1, const unsigned p2, const VCommwT<GraphT> cost) {
-        if (p1 >= numberOfProcessors_ || p2 >= numberOfProcessors_) {
-            throw std::invalid_argument("Invalid Argument: Processor index out of bounds.");
-        }
-
-        if (p1 != p2) {
-            sendCosts_.at(FlatIndex(p1, p2)) = cost;
-        }
-    }
 
     /**
      * @brief Sets the memory bound for all processors.
