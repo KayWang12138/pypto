@@ -24,13 +24,12 @@
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::Distributed {
+constexpr int32_t ATTR_INDEX_OFFSET_ONE = 1;
+constexpr int32_t ATTR_INDEX_OFFSET_THREE = 3;
+constexpr int32_t ATTR_INDEX_OFFSET_FOUR = 4;
 struct SignalTileOp {
-    void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal) {
-        taskId_ = taskId;
-        addr_ = addr;
-        expectedSum_ = expectedSum;
-        resetSignal_ = resetSignal;
-    }
+    void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal) 
+        : taskId_(taskId), addr_(addr), expectedSum_(expectedSum), resetSignal_(resetSignal) {}
     bool PollCompleted() const;
 
     SignalTileOp* next{nullptr};
@@ -192,9 +191,9 @@ public:
         TensorInfo info = ShmemWaitUntil::GetTensorInfo(taskId, aicpuCode);
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
-        int32_t stride = aicpuCode[paramInfo_.attrIndex + 1];
-        int32_t tileIndex = aicpuCode[paramInfo_.attrIndex + 3];
-        int32_t totalTileNum = aicpuCode[paramInfo_.attrIndex + 4];
+        int32_t stride = aicpuCode[paramInfo_.attrIndex + ATTR_INDEX_OFFSET_ONE];
+        int32_t tileIndex = aicpuCode[paramInfo_.attrIndex + ATTR_INDEX_OFFSET_THREE];
+        int32_t totalTileNum = aicpuCode[paramInfo_.attrIndex + ATTR_INDEX_OFFSET_FOUR];
         // info.offset[1]代表src的rankId=offset[1]的shmemSignal版图, info.offset[2]代表srcRankId, info.offset[3]代表row offset, info.offset[4]代表col offset
         DEV_DEBUG("ShmemWaitUntil::EnqueueOp offset1=%u, offset2=%u, offset3=%u,  offset4=%u, shape3=%u, shape4=%u, rawShape3=%u, rawShape4=%u, tileIndex=%d, totalTileNum=%d", 
             info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL],
