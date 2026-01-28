@@ -184,6 +184,9 @@ class _JIT:
             self._set_config_option()
             self.kernel_warmup(device, tensors, argtype, *args, **kwargs)
             kernel, ctrcache = self.get_cached_kernel(device, tensors, argtype, cfshape, *args, **kwargs)
+            compile_stage = pypto.get_host_options().get("compile_stage", 0)
+            if compile_stage != pypto.CompStage.ALL_COMPLETE:  # COMPILE mode
+                return
             if run_mode == RunMode.NPU:
                 self.run_npu(device, kernel, ctrcache, start_args)
             else:
