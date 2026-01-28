@@ -182,7 +182,7 @@ public:
 
     int InitDyn(DeviceKernelArgs *kargs) {
         DEV_INFO("AscendCppDyInitTask begin");
-
+        PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
         schAicpuNum_ = devProg->devArgs.scheCpuNum;
@@ -221,6 +221,7 @@ public:
 
         InitCtrlFlowCache(devProg, reinterpret_cast<DevControlFlowCache*>(kargs->ctrlFlowCache), firstInit);
         DEV_INFO("AscendCppDyInitTask done.");
+        PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
         return 0;
     }
 
@@ -255,7 +256,7 @@ public:
         PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
         ret = SyncTask(&ctx.taskContext);
         devStartArgs->syncFlag = 0;
-        PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, devProg->devArgs.scheCpuNum);
+        PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, CTRL_CPU_THREAD_IDX);
         PerfEnd(PERF_EVT_STAGE_TASK_SYNC);
         PerfEnd(PERF_EVT_EXEC_DYN);
 #if ENABLE_PERF_EVT
@@ -267,7 +268,6 @@ public:
     }
 
     int EntryInit(DeviceKernelArgs *kargs) {
-        PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
 #if DEBUG_PLOG && defined(__DEVICE__)
         InitLogSwitch();
 #endif
@@ -279,12 +279,12 @@ public:
                     kargs->outputs, kargs->workspace, kargs->cfgdata);
             return -1;
         }
-        InitDyn(kargs);
-        PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
+        InitTaskPipeWithSched(PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata));
         return 0;
     }
 
     int EntryMain(DeviceKernelArgs *kargs) {
+        InitDyn(kargs);
         int rc = ExecDyn(kargs);
         if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
             DEV_INFO("All schedule exited, destroy the machine.\n");

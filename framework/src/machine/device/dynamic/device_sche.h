@@ -203,9 +203,9 @@ struct DynMachineManager {
         return ret;
     }
     int CtrlServerInit(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
-        mutex_.lock();
+        //mutex_.lock();
         if (initCtrl_.load()) {
-            mutex_.unlock();
+            //mutex_.unlock();
             return DEVICE_MACHINE_OK;
         }
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
@@ -214,7 +214,7 @@ struct DynMachineManager {
         }
         auto ret = entry.kernelCtrlServerInit(kargs);
         initCtrl_.store(true);
-        mutex_.unlock();
+        //mutex_.unlock();
         return ret;
     }
 
@@ -293,13 +293,13 @@ struct DynMachineManager {
     }
 
     int Entry(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
+        kargs->taskWastTime = GetCycles();
         auto ret = CtrlServerInit(kargs, entry);
         if (ret != DEVICE_MACHINE_OK) {
             DEV_ERROR("Server init failed");
             return -1;
         }
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
-        kargs->taskWastTime = GetCycles();
         Init(devArgs);
         int rc = Run(kargs, entry);
         if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
