@@ -18,7 +18,7 @@
 #include "tileop/distributed/hccl_context.h"
 
 #define RUNTIME_GetHcclRankId(groupIndex) \
-     ((TileOp::HcclCombinOpParam *)(startArgs->hcclContextAddr[groupIndex]))->rankId
+     ((TileOp::HcclCombinOpParam *)(startArgs->commContexts[groupIndex]))->rankId
 
 #define RUNTIME_BindTensor(groupIndex, memType, size) \
     [&](void *ctx, uint64_t tgroupIndex, uint64_t tmemType, uint64_t tsize) -> uint64_t { \

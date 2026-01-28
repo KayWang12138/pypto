@@ -106,6 +106,7 @@ struct MultipleCore : ThreadAicoreEmulation {
         for (size_t k = 0; k < dataList->funcNum; k++) {
             dataList->At(k).opAttrs = devFuncAttrList.data();
             dataList->At(k).opAtrrOffsets = devFuncAttrOffsetList.data();
+            dataList->At(k).startArgs = &startArgs;
             dataList->At(k).exprTbl = reinterpret_cast<uint64_t*>(devFuncExprTbl.data());
         }
 
@@ -140,7 +141,6 @@ public:
     std::vector<uint8_t> dynFuncDataList;
     std::vector<uint64_t> devFuncAttrList;
     std::vector<int32_t> devFuncAttrOffsetList;
-    std::vector<uint64_t> devFuncExprTbl;
 
     std::mutex traceMutex;
     struct Trace {
