@@ -24,24 +24,25 @@
 #include "securec.h"
 
 #include "machine/device/dynamic/aicore_manager.h"
-#include "tileop/distributed/hccl_context.h"
+#include "tileop/distributed/comm_context.h"
 #include "machine/utils/device_log.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "neon_stub.h"
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::Distributed {
-
+constexpr int32_t AICPU_ATTR_INDEX_ZERO = 2;
+constexpr int32_t AICPU_ATTR_INDEX_ONE = 3;
 inline bool SignalTileOp::PollCompleted() const
 {
-    if constexpr (npu::tile_fwk::dynamic::IsDeviceMode()) {
-        if (addr_[0] == expectedSum_) {
-            if (resetSignal_) {
-                addr_[0] = 0;
-            }
-            return true;
-        }
+    if constexpr (!npu::tile_fwk::dynamic::IsDeviceMode()) {
+        return true;
+    }
+    if (addr_[0] != expectedSum_) {
         return false;
+    }
+    if (resetSignal_) {
+        addr_[0] = 0;
     }
     return true;
 }
@@ -62,12 +63,9 @@ uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankI
     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
     uint64_t memType = npu::tile_fwk::Distributed::GetVirtualAddrMemType(addr);
-    auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContextAddr_[groupIndex]);
-    if (memType == 0) {
-        return hcclOpParam->windowsIn[dstRankId] + offset;
-    } else {
-        return hcclOpParam->windowsExp[dstRankId] + offset;
-    }
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr_[groupIndex]);
+    auto winAddrOffset = (memType == 0) ? dstRankId : hcclOpParam->statusIndex + dstRankId;
+    return hcclOpParam->winAddr[winAddrOffset] + offset;
 }
 
 TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode)
@@ -78,16 +76,16 @@ TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::d
     auto opAttrs = &funcData.opAttrs[funcData.opAtrrOffsets[opIndex]];
     auto expressionTable = funcData.exprTbl;
 
-    int32_t index = aicpuCode[paramInfo_.inIndex + 3]; // ShmemWaitUntil注册registerInfo中ShmemTensor位于第2个输入位，因此dim、offset位于2和3号位
+    int32_t index = aicpuCode[paramInfo_.inIndex + AICPU_ATTR_INDEX_ONE]; // ShmemWaitUntil注册registerInfo中ShmemTensor位于第2个输入位，因此dim、offset位于2和3号位
     TensorInfo info;
     info.rawIndex = GetCoa(index, opAttrs, expressionTable);
     ++index; // 跳过 rawIndex
-    info.dim = aicpuCode[paramInfo_.inIndex + 2];
+    info.dim = aicpuCode[paramInfo_.inIndex + AICPU_ATTR_INDEX_ZERO];
     info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
     const uint32_t dstRankId = info.offset[0];
 
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
-    info.resetSignal = aicpuCode[paramInfo_.attrIndex + 2];
+    info.resetSignal = aicpuCode[paramInfo_.attrIndex + AICPU_ATTR_INDEX_ZERO];
     auto desc = &funcData.rawTensorDesc[info.rawIndex];
     info.rawAddr = ShmemWaitUntil::GetRawAddr(funcData.rawTensorAddr[desc->offsetOrIndex], dstRankId);
     return info;
