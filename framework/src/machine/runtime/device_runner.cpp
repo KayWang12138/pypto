@@ -522,8 +522,14 @@ int DeviceRunner::InitAicpuServer() {
     rtArgs.argsSize = sizeof(args);
     rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
     rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
-    return rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
+    int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
         "AST_DYN_AICPU", 1, &rtArgs, nullptr, aicpuStream, 0);
+    if (ret != RT_ERROR_NONE) {
+        ALOG_ERROR_F("Aicpu server init failed %d", ret);
+        return ret;
+    }
+    // for triple stream schedule, must wait aicpu server init done
+    (void)rtStreamSynchronize(aicpuStream);
 }
 
 int DeviceRunner::RunPrepare() {
