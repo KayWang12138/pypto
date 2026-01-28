@@ -369,13 +369,6 @@ class KlActiveSchedule {
 
         RevertMoves(threadData.bestScheduleIdx_, commDatastructures, threadData, startStep, endStep);
 
-#ifdef KL_DEBUG
-        if (not threadData.feasible_) {
-            std::cout << "Reverted to best schedule with cost: " << threadData.bestCost_ << " and "
-                      << vectorSchedule_.NumberOfSupersteps() << " supersteps" << std::endl;
-        }
-#endif
-
         threadData.appliedMoves_.clear();
         threadData.bestScheduleIdx_ = 0;
         threadData.currentViolations_.clear();
@@ -476,26 +469,6 @@ class KlActiveSchedule {
                 }
             }
         }
-
-#ifdef KL_DEBUG
-
-        if (threadData.newViolations_.size() > 0) {
-            std::cout << "New violations: " << std::endl;
-            for (const auto &edge : threadData.newViolations_) {
-                std::cout << "Edge: " << Source(edge.second, instance_->GetComputationalDag()) << " -> "
-                          << Target(edge.second, instance_->GetComputationalDag()) << std::endl;
-            }
-        }
-
-        if (threadData.resolvedViolations_.size() > 0) {
-            std::cout << "Resolved violations: " << std::endl;
-            for (const auto &edge : threadData.resolvedViolations_) {
-                std::cout << "Edge: " << Source(edge, instance_->GetComputationalDag()) << " -> "
-                          << Target(edge, instance_->GetComputationalDag()) << std::endl;
-            }
-        }
-
-#endif
 
         if (threadData.currentViolations_.size() > 0) {
             threadData.feasible_ = false;

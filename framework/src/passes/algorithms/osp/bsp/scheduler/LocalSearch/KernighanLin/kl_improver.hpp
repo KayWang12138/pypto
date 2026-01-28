@@ -1039,8 +1039,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 }
 
                 threadData.affinityTable_.Insert(node);
-                // threadData.selectionStrategy_.AddNeighboursToSelection(node, threadData.affinityTable_,
-                // threadData.startStep_, threadData.endStep_);
                 if (threadData.activeScheduleData_.newViolations_.size() > 0) {
                     for (const auto &vertexEdgePair : threadData.activeScheduleData_.newViolations_) {
                         const auto &vertex = vertexEdgePair.first;

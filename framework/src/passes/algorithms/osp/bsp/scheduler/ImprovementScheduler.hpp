@@ -46,30 +46,6 @@ class ImprovementScheduler {
     virtual ~ImprovementScheduler() = default;
 
     /**
-     * @brief Set the time limit in seconds for the improvement algorithm.
-     * @param limit The time limit in seconds.
-     */
-    virtual void SetTimeLimitSeconds(unsigned int limit) { timeLimitSeconds_ = limit; }
-
-    /**
-     * @brief Set the time limit in hours for the improvement algorithm.
-     * @param limit The time limit in hours.
-     */
-    virtual void SetTimeLimitHours(unsigned int limit) { timeLimitSeconds_ = limit * 3600; }
-
-    /**
-     * @brief Get the time limit in seconds for the improvement algorithm.
-     * @return The time limit in seconds.
-     */
-    inline unsigned int GetTimeLimitSeconds() const { return timeLimitSeconds_; }
-
-    /**
-     * @brief Get the time limit in hours for the improvement algorithm.
-     * @return The time limit in hours.
-     */
-    inline unsigned int GetTimeLimitHours() const { return timeLimitSeconds_ / 3600; }
-
-    /**
      * @brief Improve the given BspSchedule.
      * @param schedule The BspSchedule to be improved.
      * @return The status of the improvement operation.
