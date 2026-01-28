@@ -175,9 +175,9 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     CheckDeviceId();
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceInitDistributedContext(dynAttr->commGroupNames, GetDevProg(function));
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
+    DeviceInitDistributedContext(DeviceMemoryUtils(), dynAttr->commGroupNames, kArgs);
     DeviceInitTilingData(DeviceMemoryUtils(), kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
