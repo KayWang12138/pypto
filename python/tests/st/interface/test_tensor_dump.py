@@ -11,6 +11,7 @@
 """
 """
 import os
+import time
 import pytest
 import torch
 import torch_npu
@@ -68,5 +69,7 @@ def test_tensor_dump():
     pto_outputs = [pypto.from_torch(tensor, f"OUT_{idx}") for idx, tensor in enumerate(outputs)]
 
     compute_dyn(*pto_inputs, *pto_outputs)
+    time.sleep(1)
+    assert torch.allclose(outputs[0].cpu(), golden) 
     assert os.path.exists("output/dump_tensor")
 
