@@ -25,7 +25,7 @@ template <typename VertexType, std::size_t defautlVal = 11U>
 struct UniformNodeHashFunc {
     using ResultType = std::size_t;
 
-    ResultType operator()(const VertexType &) { return defautlVal; }
+    constexpr ResultType operator()(const VertexType &) { return defautlVal; }
 };
 
 template <typename VertexType>

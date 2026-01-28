@@ -25,19 +25,6 @@ namespace npu::tile_fwk {
 namespace osp {
 
 template <typename T, typename Ind>
-void PermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm) {
-    static_assert(std::is_integral_v<Ind>);
-    static_assert(std::is_unsigned_v<Ind>);
-
-    for (Ind i = 0; i < perm.size(); ++i) {
-        while (perm[i] != i) {
-            std::swap(vec[i], vec[perm[i]]);
-            std::swap(perm[i], perm[perm[i]]);
-        }
-    }
-}
-
-template <typename T, typename Ind>
 void InversePermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm) {
     static_assert(std::is_integral_v<Ind>);
     static_assert(std::is_unsigned_v<Ind>);
@@ -52,6 +39,6 @@ void InversePermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm) {
     }
 }
 
-}    // namespace osp
-}    // namespace npu::tile_fwk
-#endif    // PASS_OSP_PERMUTE_H
+} // namespace osp
+} // namespace npu::tile_fwk
+#endif // PASS_OSP_PERMUTE_H

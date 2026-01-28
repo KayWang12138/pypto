@@ -68,7 +68,7 @@ struct UnionFindObject {
  */
 template <typename T, typename IndexT, typename WorkwT>
 class UnionFindUniverse {
-  private:
+private:
     std::vector<UnionFindObject<T, IndexT, WorkwT>> universe_;
     std::unordered_map<T, IndexT> namesToIndices_;
     std::set<IndexT> componentIndices_;
@@ -117,7 +117,7 @@ class UnionFindUniverse {
         componentIndices_.emplace(newIndex);
     }
 
-  public:
+public:
     explicit UnionFindUniverse() = default;
 
     UnionFindUniverse(const UnionFindUniverse &other) = default;
@@ -140,7 +140,9 @@ class UnionFindUniverse {
      * @param name The name of the object.
      * @return True if the object exists, false otherwise.
      */
-    [[nodiscard]] bool IsInUniverse(const T &name) const noexcept { return namesToIndices_.find(name) != namesToIndices_.end(); }
+    [[nodiscard]] bool IsInUniverse(const T &name) const noexcept {
+        return namesToIndices_.find(name) != namesToIndices_.end();
+    }
 
     /**
      * @brief Finds the representative name of the component containing the object.
@@ -154,7 +156,9 @@ class UnionFindUniverse {
      * @param name Name of the first object.
      * @param otherName Name of the second object.
      */
-    void JoinByName(const T &name, const T &otherName) { Join(namesToIndices_.at(name), namesToIndices_.at(otherName)); }
+    void JoinByName(const T &name, const T &otherName) {
+        Join(namesToIndices_.at(name), namesToIndices_.at(otherName));
+    }
 
     /**
      * @brief Retrieves the current number of connected components.
@@ -229,6 +233,6 @@ class UnionFindUniverse {
     void AddObject(const T &name, const WorkwT weight) { AddObjectInternal(name, weight); }
 };
 
-}    // namespace osp
-}    // namespace npu::tile_fwk
-#endif    // PASS_OSP_UNION_FIND_H
+} // namespace osp
+} // namespace npu::tile_fwk
+#endif // PASS_OSP_UNION_FIND_H
