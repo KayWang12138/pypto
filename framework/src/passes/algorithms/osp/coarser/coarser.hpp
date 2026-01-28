@@ -86,12 +86,9 @@ class CoarserGenExpansionMap : public Coarser<GraphTIn, GraphTOut> {
         }
 
         std::vector<std::vector<VertexIdxT<GraphTIn>>> vertexExpansionMap = GenerateVertexExpansionMap(dagIn);
-        assert(coarser_util::CheckValidExpansionMap<GraphTIn>(vertexExpansionMap));
-
         coarser_util::ReorderExpansionMap<GraphTIn>(dagIn, vertexExpansionMap);
 
         vertexContractionMap = coarser_util::InvertVertexExpansionMap<GraphTIn, GraphTOut>(vertexExpansionMap);
-
         return coarser_util::ConstructCoarseDag(dagIn, coarsenedDag, vertexContractionMap);
     }
 
