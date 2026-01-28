@@ -1,10 +1,3 @@
-# test_chunk_gated_delta_rule_bth_fused.py
-# 要求覆盖：
-# 1) forward_ref 与 torch_chunk_gated_delta_rule 输出一致 (B,T,H,* 输入)
-# 2) backward_ref 与 forward_ref autograd / torch_chunk autograd 都一致
-# 3) backward_ref 所有操作包在 B/H/T(chunk) 三重循环内
-# 4) backward_ref 不用 tril/triu/ones/zeros/masked_fill/cumsum/flip
-# 5) backward_ref 中间 tensor 维度不超过 4D
 
 import math
 import torch
