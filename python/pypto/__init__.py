@@ -86,6 +86,9 @@ from ._element import Element
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
 
+# Import distributed module
+from . import distributed
+
 
 tensor = Tensor
 element = Element
