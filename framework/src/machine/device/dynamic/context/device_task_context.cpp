@@ -193,7 +193,28 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
     return DEVICE_MACHINE_OK;
 }
 
-int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg,
+int DeviceTaskContext::CheckDynFuncData(DynFuncData *dyndata)
+{
+    if (reinterpret_cast<uint64_t>(dyndata->opAttrs) % OP_ATTRS_PRE_NUM != 0) {
+        DEV_ERROR("opAttrs address is not aligned.");
+        return DEVICE_MACHINE_ERROR;
+    }
+    if (reinterpret_cast<uint64_t>(dyndata->opAtrrOffsets) % OP_ATTRS_OFFSET_PRE_NUM != 0) {
+        DEV_ERROR("opAtrrOffsets address is not aligned.");
+        return DEVICE_MACHINE_ERROR;
+    }
+    if (reinterpret_cast<uint64_t>(dyndata->exprTbl) % EXPR_TABLE_PRE_NUM != 0) {
+        DEV_ERROR("exprTbl address is not aligned.");
+        return DEVICE_MACHINE_ERROR;
+    }
+    if (reinterpret_cast<uint64_t>(dyndata->rawTensorAddr) % RAW_TENSOR_ADDR_MASK != 0) {
+        DEV_ERROR("rawTensorAddr address is not aligned.");
+        return DEVICE_MACHINE_ERROR;
+    }
+    return DEVICE_MACHINE_OK;
+}
+
+int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
     DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize) {
     size_t headerSize = sizeof(DynFuncHeader) + stitchedSize * sizeof(DynFuncData);
     auto funcHeader = workspace_->AllocateDynFuncData(headerSize);
@@ -228,34 +249,9 @@ int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
         dyndata->opAttrSize = dupFunc.GetSource()->GetOpAttrSize();
         dyndata->rawTensorAddrSize = dupFunc.GetSource()->GetIncastSize() + dupFunc.GetSource()->GetOutcastSize();
         dyndata->rawTensorDescSize = dupFunc.GetSource()->GetRawTensorDescSize();
-        dyndata->commGroupNum = devProg->commGroupNum;
-        if (sizeof(dyndata->hcclContext) != sizeof(devProg->hcclContext)) {
-            DEV_ERROR("hcclContext size mismatch, dyndata size: %zu, devProg size: %zu",
-                      sizeof(dyndata->hcclContext), sizeof(devProg->hcclContext));
+        if (unlikely(CheckDynFuncData(dyndata) != DEVICE_MACHINE_OK)) {
             return DEVICE_MACHINE_ERROR;
         }
-        DEV_ASSERT(sizeof(dyndata->hcclContext) == sizeof(devProg->hcclContext));
-        (void)memcpy_s(dyndata->hcclContext, sizeof(dyndata->hcclContext), devProg->hcclContext, sizeof(devProg->hcclContext));
-        if (reinterpret_cast<uint64_t>(dyndata->opAttrs) % OP_ATTRS_PRE_NUM != 0) {
-            DEV_ERROR("opAttrs address is not aligned.");
-            return DEVICE_MACHINE_ERROR;
-        }
-        if (reinterpret_cast<uint64_t>(dyndata->opAtrrOffsets) % OP_ATTRS_OFFSET_PRE_NUM != 0) {
-            DEV_ERROR("opAtrrOffsets address is not aligned.");
-            return DEVICE_MACHINE_ERROR;
-        }
-        if (reinterpret_cast<uint64_t>(dyndata->exprTbl) % EXPR_TABLE_PRE_NUM != 0) {
-            DEV_ERROR("exprTbl address is not aligned.");
-            return DEVICE_MACHINE_ERROR;
-        }
-        if (reinterpret_cast<uint64_t>(dyndata->rawTensorAddr) % RAW_TENSOR_ADDR_MASK != 0) {
-            DEV_ERROR("rawTensorAddr address is not aligned.");
-            return DEVICE_MACHINE_ERROR;
-        }
-        DEV_ASSERT(reinterpret_cast<uint64_t>(dyndata->opAttrs) % OP_ATTRS_PRE_NUM == 0);
-        DEV_ASSERT(reinterpret_cast<uint64_t>(dyndata->opAtrrOffsets) % OP_ATTRS_OFFSET_PRE_NUM == 0);
-        DEV_ASSERT(reinterpret_cast<uint64_t>(dyndata->exprTbl) % EXPR_TABLE_PRE_NUM == 0);
-        DEV_ASSERT(reinterpret_cast<uint64_t>(dyndata->rawTensorAddr) % RAW_TENSOR_ADDR_MASK == 0);
 
         leafFuncDataSize += dupFunc.GetSource()->GetOpAttrSize() * sizeof(SymInt); // opAttrs
         leafFuncDataSize += dupFunc.GetSource()->GetOperationSize() * sizeof(int32_t); // opAttrOffsts;
@@ -470,7 +466,7 @@ int DeviceTaskContext::BuildDeviceTaskDataAndReadyQueue(DynDeviceTask *dyntask, 
 
     DEV_VERBOSE_DEBUG("Build func data");
     PerfBegin(PERF_EVT_CORE_FUNCDATA);
-    result = BuildDynFuncData(dyntask, taskId, devProg, &dyntask->stitchedList[0], dyntask->stitchedList.size());
+    result = BuildDynFuncData(dyntask, taskId, &dyntask->stitchedList[0], dyntask->stitchedList.size());
     if (unlikely(result != DEVICE_MACHINE_OK)) {
         return DEVICE_MACHINE_ERROR;
     }
