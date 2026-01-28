@@ -228,6 +228,11 @@ std::string PassManager::GetResumePath(const std::string &strategy) {
     return "";
 }
 
+static const std::unordered_map<std::string, int64_t> kPassToStageMap = {
+ 	     {"ExpandFunction", CS_TENSOR_GRAPH},
+ 	     {"SubgraphToFunction", CS_TILE_GRAPH},
+ 	 };
+
 Status PassManager::RunPass(Program &program, Function &function, const std::string &strategy) const {
     Platform::Instance().ObtainPlatformInfo();
     auto strategyPasses = GetStrategyPasses(strategy);
@@ -237,6 +242,11 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
     ConfigManager::Instance().PassConfigsDebugInfo(strategy, identifiers);
     for (size_t i = startIdx; i < strategyPasses.size(); i++) {
         const auto &identifier = strategyPasses[i].identifier;
+        auto it = kPassToStageMap.find(identifier);
+ 	    if (it != kPassToStageMap.end() && it->second == config::GetRuntimeOption<int64_t>(CFG_RUN_MODE)) {
+ 	        ALOG_INFO_F("Compile stage terminates after %s.", identifier.c_str());
+ 	        return SUCCESS;
+ 	    }
         const auto &passName = strategyPasses[i].passName;
         auto pass = PassRegistry::GetInstance().CreatePass(PassNameStr(passName));
         if (pass == nullptr) {
