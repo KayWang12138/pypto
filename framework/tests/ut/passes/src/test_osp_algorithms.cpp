@@ -656,6 +656,20 @@ TEST_F(OspAlgorithmTest, ExpansionMapValidity) {
     EXPECT_FALSE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap5));
 }
 
+TEST_F(OspAlgorithmTest, ContractionMapValidity) {
+    const std::vector<VertexIdxT<GraphType>> contractionMap1 = {0, 1, 2, 3};
+    EXPECT_TRUE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap1));
+
+    const std::vector<VertexIdxT<GraphType>> contractionMap2 = {0, 1, 1, 1};
+    EXPECT_TRUE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap2));
+
+    const std::vector<VertexIdxT<GraphType>> contractionMap3 = {0, 1, 1, 3};
+    EXPECT_FALSE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap3));
+
+    const std::vector<VertexIdxT<GraphType>> contractionMap4 = {2, 1, 1, 3};
+    EXPECT_FALSE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap4));
+}
+
 TEST_F(OspAlgorithmTest, ContractionMapCoarsening) {
     std::set<std::pair<VertexIdxT<GraphType>, VertexIdxT<GraphType>>> edges({{0, 1}, {1, 2}});
     GraphType graph(6, edges);
@@ -663,6 +677,7 @@ TEST_F(OspAlgorithmTest, ContractionMapCoarsening) {
     GraphType coarseGraph1;
 
     std::vector<VertexIdxT<GraphType>> contractionMap({0, 0, 1, 1, 2, 3});
+    EXPECT_TRUE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap));
     EXPECT_TRUE(coarser_util::ConstructCoarseDag(graph, coarseGraph1, contractionMap));
     EXPECT_TRUE(contractionMap == std::vector<VertexIdxT<GraphType>>({0, 0, 1, 1, 2, 3}));
 
