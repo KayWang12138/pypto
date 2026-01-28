@@ -24,10 +24,10 @@
 
 namespace npu::tile_fwk {
 
-void NBufferMerge::GetOpHash(std::vector<uint64_t> &hashList, const std::string op, int idx) {
+void NBufferMerge::GetOpHash(std::vector<uint64_t> &hashList, const std::string op, size_t idx) {
     uint64_t a = 0x12345678;
     uint64_t p = 37;
-    const uint64_t mod = UINT64_MAX;
+    const uint64_t mod = 0xFFFFFFFFFFFFF;
     uint64_t hash = 0;
     for (char c : op) {
         hash = (hash * p + static_cast<uint64_t>(c)) % mod;
@@ -41,7 +41,7 @@ void NBufferMerge::GetOpHash(std::vector<uint64_t> &hashList, const std::string 
 void NBufferMerge::GetOpHashReverse(std::vector<uint64_t> &hashList, const std::string op, int idx) {
     uint64_t a = 0x12345678;
     uint64_t p = 37;
-    const uint64_t mod = UINT64_MAX;
+    const uint64_t mod = 0xFFFFFFFFFFFFF;
     uint64_t hash = 0;
     for (char c : op) {
         hash = (hash * p + static_cast<uint64_t>(c)) % mod;
@@ -228,8 +228,8 @@ Status NBufferMerge::Init(Function &func) {
     return SUCCESS;
 }
 
-std::map<int, size_t> NBufferMerge::GetIsoColorMergeNum(const std::map<uint64_t, std::vector<int>> &hashMap) const {
-    std::map<int, size_t> hashCoreNum;
+std::map<uint64_t, size_t> NBufferMerge::GetIsoColorMergeNum(const std::map<uint64_t, std::vector<int>> &hashMap) const {
+    std::map<uint64_t, size_t> hashCoreNum;
     for (const auto& entry : hashMap) {
         if (entry.first == 0 || entry.second.empty()) {
             continue;
@@ -264,7 +264,7 @@ void NBufferMerge::GetColorHash(const OperationsViewer &opOriList,
     }
     uint64_t a = 0x12345678;
     uint64_t p = 23;
-    const uint64_t mod = UINT64_MAX;
+    const uint64_t mod = 0xFFFFFFFFFFFFF;
     std::set<int32_t> mulaccGraph;
     std::unordered_map<int, int> reshapeCount;
     std::unordered_map<int, int> subgraphOpCount;
@@ -326,7 +326,7 @@ inline int GetCopyIn(const OperationsViewer &opOriList, std::vector<int> &colorN
 void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors, 
                                      const OperationsViewer &opOriList, 
                                      std::vector<uint64_t> &hashColor, 
-                                     int &numDBmerge) {
+                                     size_t &numDBmerge) {
     int pingColor = -1;
     for (auto &input2Color : sortedColors) {
         APASS_LOG_DEBUG_F(Elements::Operation, "NBuffer %d Number of subgraphs %d SubGraphIDs %s", numDBmerge, input2Color.size(), IntVecToStr(input2Color).c_str());
@@ -356,7 +356,7 @@ void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
 
 Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList, 
                                       std::map<uint64_t, std::vector<int>> &hashMap, 
-                                      std::map<int, size_t> &hashMergeNum, 
+                                      std::map<uint64_t, size_t> &hashMergeNum, 
                                       std::vector<uint64_t> &hashColor) {
     std::vector<uint64_t> hashMapKeys;
     for (const auto &entry : hashMap) {
@@ -372,7 +372,7 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
             if(colorValues.empty()) continue;
             std::vector<std::vector<int>> sortedColors;
             sortedColors.push_back(colorValues);
-            int numDBMerge =
+            size_t numDBMerge =
                 (vecNBuffermode == 1) ? hashMergeNum[colorHashValue] : hashMergeNum[hashOrder[colorHashValue]];
             MergePingPong(sortedColors, opOriList, hashColor, numDBMerge);
         }
@@ -380,17 +380,17 @@ Status NBufferMerge::MergeProcess(const OperationsViewer &opOriList,
     return SUCCESS;
 }
 
-std::map<int, size_t> NBufferMerge::SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap) {
-    std::map<int, size_t> numDBList;
+std::map<uint64_t, size_t> NBufferMerge::SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap) {
+    std::map<uint64_t, size_t> numDBList;
     auto it = vecNBufferSetting.find(VEC_NBUFFER_SETTING_DEFAULT_MERGE_NUM_KEY);
     if (it != vecNBufferSetting.end()) {
         int defaultVal = it->second;
-        for (int i = 0; i < static_cast<int>(hashMap.size()); i++) {
+        for (uint64_t i = 0; i < static_cast<uint64_t>(hashMap.size()); i++) {
             numDBList[i] = defaultVal;
         }
         vecNBufferSetting.erase(it);
     } else {
-        for (int i = 0; i < static_cast<int>(hashMap.size()); i++) {
+        for (uint64_t i = 0; i < static_cast<uint64_t>(hashMap.size()); i++) {
             numDBList[i] = 1;
         }
     }
@@ -416,7 +416,7 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
     std::vector<uint64_t> hashColor(color_, 0);
     std::map<uint64_t, std::vector<int>> hashMap;
     GetColorHash(opOriList, hashColor, hashMap);
-    std::map<int, size_t> hashMergeNum;
+    std::map<uint64_t, size_t> hashMergeNum;
     if (vecNBuffermode == 1) {
         if (vecNBufferSetting.size() != 0) {
             APASS_LOG_ERROR_F(Elements::Config, "VEC_NBUFFER_MODE is manually set to 1; Please set VEC_NBUFFER_SETTING to empty.");
