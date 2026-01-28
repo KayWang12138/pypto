@@ -68,6 +68,11 @@ void UpdateCopyinStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
 void UpdateViewStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
     auto inputTensor = op->GetIOperands()[0];
     auto outputTensor = op->GetOOperands()[0];
+    if (inputTensor->GetShape().back() != outputTensor->GetShape().back()) {
+        tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
+        tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
+        return;
+    }
     if (outputTensor->GetShape().back() != 1) {
         tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
     }
@@ -203,9 +208,12 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
 
 void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
     auto op = opList_[opIdx];
+    auto outputTensor = op->GetOOperands()[0];
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
-        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST) {
-        auto outputTensor = op->GetOOperands()[0];
+        OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
+        ((op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) &&
+          outputTensor->GetShape().back() != outputTensor->GetRawTensor()->GetRawShape().back())) {
+        
         for (auto inputTensor : op->GetIOperands()) {
             if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
                 tensorStatus_[inputTensor] = tensorStatus_[outputTensor];
