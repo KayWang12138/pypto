@@ -131,7 +131,7 @@ pyptolib.define("npu_attention(Tensor query, Tensor kv_cache, Tensor attn_sink, 
 
 @torch.library.impl(pyptolib, "npu_attention", "Meta")
 def npu_attention(query, kv_cache, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, cmp_r, is_prefill):
-    y = torch.zeros([query.size(0), query.size(1), query.size(2)], dtype=query.dtype, device=f'{query.device}')
+    y = torch.zeros_like(query)
     return y
 
 
@@ -153,7 +153,8 @@ class MM(torch.nn.Module):
             cmp_r: int = 1,
             is_prefill: bool = False,
     ):
-        return torch.ops.pypto.npu_attention(query, kv_cache, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, cmp_r, is_prefill)
+        return torch.ops.pypto.npu_attention(query, kv_cache, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, \
+                                            cmp_r, is_prefill)
 
 
 def softmax(x, attn_sink, is_fp16=False, is_new_sink = False):
@@ -320,7 +321,8 @@ def ifa_flash_torch(q, kv, attn_sink, block_table, seqused_kv, out, cmp_r=1, is_
                     li_upd = tilda_lij.squeeze(-1)
                     mi_upd = tilda_mij.squeeze(-1)
                     if s2_loop == 0:
-                         flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=is_new_sink)
+                         flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, \
+                                is_new_sink=is_new_sink)
                 for s2_idx in range(s2_loop):
                     kvj = get_block_kv(kv_2d, block_table, b_idx, s2_idx, block_size, cur_seq)
                     mm1 = matmul_proxy(qi, kvj.t())
@@ -351,7 +353,8 @@ def ifa_flash_torch(q, kv, attn_sink, block_table, seqused_kv, out, cmp_r=1, is_
                         q1 = matmul_proxy(tilda_pij.to(dtype), kvj)
                         oi_upd = oi_upd * update_mul + q1
                     if s2_idx == s2_loop - 1:
-                        flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, is_new_sink=is_new_sink)
+                        flash_end(out, attn_sink, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, \
+                                is_new_sink=is_new_sink)
     return out
 
 
@@ -411,7 +414,8 @@ def ifa_golden(q, kv, attn_sink, blk_cfa, seqused_kv, out, enable_flash=True, cm
 
 
 @pytest.mark.skip(reason="large test case")
-def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device: str, attn_cfg: AttentionConfig, is_prefill: bool):
+def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device: str, attn_cfg: AttentionConfig, \
+        is_prefill: bool):
     torch_dtype = torch.bfloat16
     b = attn_cfg.b
     s1 = attn_cfg.s1
@@ -422,7 +426,7 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
 
     block_size = attn_cfg.block_size
     max_blocks = attn_cfg.max_blocks
-    seqused_kv = attn_cfg.actual_seq
+    seqused_kv = attn_cfg.actual_seq.npu()
 
     q_shape = [b * s1, nq, d]
     kv_shape = [attn_cfg.kv_num_blocks, block_size, nkv, d]
@@ -434,16 +438,16 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
     blk_win_shape = blk_tbl_shape
 
     empty_kwargs = {"dtype": torch_dtype, "device": device}
-    q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1)
-    kv = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1)
-    attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1) 
-    kv_win = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1)
-    blk_win = gen_block_table(seqused_kv, block_size, blk_win_shape, cmp_r=cmp_r, enable_win=True, s1=s1)
+    q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1).npu()
+    kv = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1).npu()
+    attn_sink = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1).npu()
+    kv_win = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1).npu()
+    blk_win = gen_block_table(seqused_kv, block_size, blk_win_shape, cmp_r=cmp_r, enable_win=True, s1=s1).npu()
     
-    output = torch.zeros(q_shape, **empty_kwargs)
+    output = torch.zeros(q_shape, **empty_kwargs).npu()
     output_flash = torch.zeros(q_shape, **empty_kwargs)
 
-    blk_tbl = gen_block_table(seqused_kv, block_size, blk_tbl_shape, cmp_r=cmp_r)
+    blk_tbl = gen_block_table(seqused_kv, block_size, blk_tbl_shape, cmp_r=cmp_r).npu()
     out_npu = torch.zeros(q_shape, **empty_kwargs)
 
     ifa_golden(q, kv, attn_sink, blk_tbl, seqused_kv, output_flash, enable_flash=True, cmp_r=cmp_r, is_new_sink=True, \
@@ -464,8 +468,6 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
         out_npu = attention(q, kv, attn_sink, blk_tbl, seqused_kv, kv_win, blk_win, cmp_r, is_prefill)
         pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
-    print(output_flash.shape)
-    print(out_npu.shape)
     if out_npu.numel() > 1000000:
         print(f'use other cmpare func')
         import utils.compare as compare
@@ -475,7 +477,8 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
         compare(output_flash, out_npu, "golden vs npu", rtol=threhold, atol=threhold)
 
 
-def test_c128_decode(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
+def test_c128_decode(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, \
+                    pg_upper_bound: int):
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'    
     attn_cfg = get_decode_case(device=device)
@@ -483,7 +486,8 @@ def test_c128_decode(enable_flash: bool, enable_high_perf: bool, enable_graph: b
         attn_cfg=attn_cfg, is_prefill=False)
     
 
-def test_c128_prefill(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, pg_upper_bound: int):
+def test_c128_prefill(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device_id: int, \
+                    pg_upper_bound: int):
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'    
     attn_cfg = get_prefill_case(device=device)
@@ -501,7 +505,7 @@ if __name__ == "__main__":
     p.add_argument("-c", "--device-id", type=int, default=0, help="显卡序号，默认0")
     p.add_argument("-u", "--upper", type=int, default=6000, help="融合上限法")
     args = p.parse_args()
-    test_c128_prefill(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
-             device_id=args.device_id, pg_upper_bound=args.upper)
+    # test_c128_prefill(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
+    #          device_id=args.device_id, pg_upper_bound=args.upper)
     test_c128_decode(enable_flash=args.enable_flash, enable_high_perf=args.high_perf, enable_graph=args.enable_graph,
              device_id=args.device_id, pg_upper_bound=args.upper)
