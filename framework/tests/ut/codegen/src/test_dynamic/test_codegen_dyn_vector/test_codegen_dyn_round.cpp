@@ -59,9 +59,25 @@ TEST_F(TestCodegenDynRound, RoundLayout) {
         output = Round(input, 1);
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ROUND");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    function->SetUnderDynamicFunction(true);
+
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
+    auto &op = function->AddOperation(Opcode::OP_WHERE_TT, {localTensorSrc}, {localTensorRes, localTensorTmp});
+    op.SetAttribute(OpAttributeKey::scalar, Element(DataType::DT_FP32, 10.0f));
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    cop.Init(op);
+    cop.GenOpCode();
 }
 } // namespace npu::tile_fwk
