@@ -378,7 +378,7 @@ struct DynMachineManager {
         int ret = RunSche(kargs, entry, threadIdx);
 
         DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(kargs->cfgdata);
-        if (splittedInfo_.ScheSync(devProg->devArgs.nrAicpu)) {
+        if (splittedInfo_.ScheSync(devProg->devArgs.scheCpuNum)) {
             ReleaseRuntimeDataRingBuffer(devProg);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
         }
