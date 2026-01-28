@@ -22,6 +22,7 @@ import os
 import sys
 import time
 import argparse
+import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple, List, Dict, Any
 
@@ -42,21 +43,21 @@ def get_device_id():
         int: The device ID if valid, None otherwise.
     """
     if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        print("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        print("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        print("Please set it before running this example:")
-        print("  export TILE_FWK_DEVICE_ID=0")
+        logging.info("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
+        logging.info("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
+        logging.info("Please set it before running this example:")
+        logging.info("  export TILE_FWK_DEVICE_ID=0")
         return None
 
     try:
         device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
         return device_id
     except ValueError:
-        print(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
+        logging.error(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
         return None
 
+
 def rms_norm_golden(x: torch.Tensor, eps: float) -> torch.Tensor:
-    # 转fp32
     x = x.to(torch.float32)
     mean_square = x.pow(2).mean(-1, keepdim=True)
     inv_rms = torch.rsqrt(mean_square + eps)
@@ -69,6 +70,7 @@ def gelu_approx_sigmoid_golden(x: torch.Tensor) -> torch.Tensor:
     Matches the NPU implementation for alignment.
     """
     return x * torch.sigmoid(1.702 * x)
+
 
 def sum_lstm_golden(
     states_4d: torch.Tensor,
@@ -124,6 +126,7 @@ def sum_lstm_golden(
 
     return h_new, c_new
 
+
 @dataclass
 class LstmConfig:
     """Hyperparameters for LSTM."""
@@ -149,18 +152,16 @@ def rms_norm_pure(x: pypto.Tensor, epsilon: float) -> pypto.Tensor:
     input_dtype = x.dtype
     x_fp32 = pypto.cast(x, pypto.DT_FP32)
 
-    # y = mean(x^2)
     y = pypto.mul(x_fp32, x_fp32)
     y = pypto.mul(y, 1.0 / x.shape[-1])
     y = pypto.sum(y, -1, keepdim=True)
 
-    # y = rsqrt(y + eps)
     y = pypto.add(y, epsilon)
     y = pypto.sqrt(y)
 
-    # output = x / y
     output = pypto.div(x_fp32, y)
     return pypto.cast(output, input_dtype)
+
 
 def gelu_activation_core(x: pypto.Tensor) -> pypto.Tensor:
     """
@@ -178,7 +179,6 @@ def gelu_activation_core(x: pypto.Tensor) -> pypto.Tensor:
     pypto.Tensor
         GELU activated tensor
     """
-    # x_scaled = 1.702 * x
     x_scaled = pypto.mul(x, 1.702)
 
     # sigmoid(x) = 1 / (1 + exp(-x))
@@ -203,10 +203,6 @@ def sum_lstm_compute(
     c_out: pypto.Tensor,
 ):
     """Core computation logic for Snowflake Arctic LSTM."""
-    # input params
-    # inputs_torch = [states_4d, z4_4d, prev_cell, w_c, b_c, w_s, b_s]
-    # outputs_torch = [h_out, c_out]
-    # config = LstmConfig(alpha=0.1, eps_cell=1e-6, eps_state=1e-6)
     # Dimensions
     batch_size = states_4d.shape[0]
     hidden_dim_4 = states_4d.shape[1] # 4 * H
@@ -239,7 +235,6 @@ def sum_lstm_compute(
             b_state_b = pypto.cast(b_state_b_half, pypto.DT_FP32)
             w_state_b = pypto.cast(w_state_b_half, pypto.DT_FP32)
         # Set vector tile shape for current batch
-        # pypto.set_vec_tile_shapes(current_tile_bs, tile_config.h_tile)
         pypto.set_vec_tile_shapes(1, hidden_dim_4)
 
         # === Step 1: Input Fusion (states + alpha * z4) ===
@@ -393,9 +388,9 @@ def prepare_test_data(device) -> Dict[str, Any]:
 
 def run_precision_test(kernel_func, data: Dict[str, Any]):
     """Run correctness verification."""
-    print("\n" + "=" * 40)
-    print("Running [Precision Test]")
-    print("=" * 40)
+    logging.info("\n" + "=" * 40)
+    logging.info("Running [Precision Test]")
+    logging.info("=" * 40)
 
     # Unpack data
     t_in = data["torch_inputs"]
@@ -418,20 +413,20 @@ def run_precision_test(kernel_func, data: Dict[str, Any]):
     # 3. Compare
     diff_h = (h_out - golden_h).abs().max().item()
     diff_c = (c_out - golden_c).abs().max().item()
-    print(f"Max Diff Hidden: {diff_h:.6f}")
-    print(f"Max Diff Cell:   {diff_c:.6f}")
+    logging.info(f"Max Diff Hidden: {diff_h:.6f}")
+    logging.info(f"Max Diff Cell:   {diff_c:.6f}")
 
     try:
         assert_allclose(h_out.cpu().numpy(), golden_h.cpu().numpy(), rtol=0.001, atol=5e-3)
         assert_allclose(c_out.cpu().numpy(), golden_c.cpu().numpy(), rtol=5e-3, atol=5e-3)
-        print(">> Precision Test PASSED!")
+        logging.info(">> Precision Test PASSED!")
     except AssertionError as e:
-        print(">> Precision Test FAILED!")
+        logging.error(">> Precision Test FAILED!")
         raise e
 
 def benchmark_func(func, name: str, n_warmup=1, n_repeat=2) -> float:
     """Helper for measuring execution time."""
-    print(f"Benchmarking {name} ...")
+    logging.info(f"Benchmarking {name} ...")
     # Warmup
     for _ in range(n_warmup): func()
     torch.npu.synchronize()
@@ -443,14 +438,14 @@ def benchmark_func(func, name: str, n_warmup=1, n_repeat=2) -> float:
     t1 = time.time()
 
     avg_ms = (t1 - t0) * 1000 / n_repeat
-    print(f" -> {name}: {avg_ms:.4f} ms")
+    logging.info(f" -> {name}: {avg_ms:.4f} ms")
     return avg_ms
 
 def run_performance_test(kernel_func, data: Dict[str, Any]):
     """Run performance benchmarking."""
-    print("\n" + "=" * 40)
-    print("Running [Performance Test]")
-    print("=" * 40)
+    logging.info("\n" + "=" * 40)
+    logging.info("Running [Performance Test]")
+    logging.info("=" * 40)
 
     # Unpack data
     t_in = data["torch_inputs"]
@@ -474,7 +469,7 @@ def run_performance_test(kernel_func, data: Dict[str, Any]):
     time_gold = benchmark_func(run_golden, "PyTorch Golden")
 
     if time_npu > 0:
-        print(f"\n>> Speedup: {time_gold / time_npu:.2f}x")
+        logging.info(f"\n>> Speedup: {time_gold / time_npu:.2f}x")
 
 def main():
     parser = argparse.ArgumentParser(description="Run Arctic LSTM PyPTO Example")
@@ -485,14 +480,12 @@ def main():
     args = parser.parse_args()
 
     # # Enable debug options for development
-    # pypto.set_debug_options(compile_debug_mode=1)
-    # pypto.set_debug_options(runtime_debug_mode=1)
     if args.run_mode == "npu":
         device_id = get_device_id()
         if device_id is None:
             return
         import torch_npu
-    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 2))
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
     # 1. Compile Kernel (JIT)
@@ -510,7 +503,7 @@ def main():
         if args.run_mode == "npu":
             run_performance_test(kernel_func, data)
         else:
-            print("\n[INFO] Skipping performance test in simulation mode.")
+            logging.info("\n[INFO] Skipping performance test in simulation mode.")
 
 if __name__ == "__main__":
     main()
