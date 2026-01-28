@@ -73,31 +73,6 @@ class Coarser {
  *
  */
 template <typename GraphTIn, typename GraphTOut>
-class CoarserGenContractionMap : public Coarser<GraphTIn, GraphTOut> {
-  public:
-    virtual std::vector<VertexIdxT<GraphTOut>> GenerateVertexContractionMap(const GraphTIn &dagIn) = 0;
-
-    virtual bool CoarsenDag(const GraphTIn &dagIn,
-                            GraphTOut &coarsenedDag,
-                            std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) override {
-        vertexContractionMap = dagIn.NumVertices() == 0 ? std::vector<VertexIdxT<GraphTOut>>()
-                                                        : GenerateVertexContractionMap(dagIn);
-
-        return coarser_util::ConstructCoarseDag(dagIn, coarsenedDag, vertexContractionMap);
-    }
-
-    /**
-     * @brief Destructor for the CoarserGenContractionMap class.
-     */
-    virtual ~CoarserGenContractionMap() = default;
-};
-
-/**
- * @class Coarser
- * @brief Abstract base class for coarsening ComputationalDags.
- *
- */
-template <typename GraphTIn, typename GraphTOut>
 class CoarserGenExpansionMap : public Coarser<GraphTIn, GraphTOut> {
   public:
     virtual std::vector<std::vector<VertexIdxT<GraphTIn>>> GenerateVertexExpansionMap(const GraphTIn &dagIn) = 0;
