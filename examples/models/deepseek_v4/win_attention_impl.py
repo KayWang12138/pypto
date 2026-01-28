@@ -242,7 +242,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
                         attn_sinks: torch.Tensor,
                         mask: torch.Tensor,
                         actual_seq_list_q: torch.Tensor,
-) -> None:
+):
     """
     """
     check_args_tnd(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, actual_seq_list_q)
