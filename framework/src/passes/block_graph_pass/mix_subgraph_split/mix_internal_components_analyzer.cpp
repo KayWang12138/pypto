@@ -249,7 +249,7 @@ bool MixInternalComponentsAnalyzer::MergeSyncOperation(Operation* op, std::map<i
 bool MixInternalComponentsAnalyzer::MergeSyncPhase2(Operation* op, Function& mixSubgraphFunc, std::map<int, std::vector<Operation*>>& componentsByInternalID, std::unordered_map<Operation*, int>& opToComponentMap) const {
     Operation* targetOp = FindFirstOpBackward(op, mixSubgraphFunc,
         [](Operation* candidate) {
-            return candidate->GetOpcode() == Opcode::OP_COPY_IN;
+            return candidate != nullptr && !candidate->IsNop();
         });
     if (targetOp) {
         auto it = opToComponentMap.find(targetOp);
@@ -257,19 +257,19 @@ bool MixInternalComponentsAnalyzer::MergeSyncPhase2(Operation* op, Function& mix
             op->UpdateInternalSubgraphID(it->second);
             componentsByInternalID[it->second].push_back(op);
             opToComponentMap[op] = it->second;
-            ALOG_DEBUG_F("Merged PHASE2 %d to component %d via COPY_IN %d",
+            ALOG_DEBUG_F("Merged PHASE2 %d to component %d via previous op %d",
                         op->GetOpMagic(), it->second, targetOp->GetOpMagic());
             return true;
         }
     }
-    ALOG_WARN_F("Failed to merge PHASE2 %d: no COPY_IN found backward", op->GetOpMagic());
+    ALOG_WARN_F("Failed to merge PHASE2 %d: no valid previous op found backward", op->GetOpMagic());
     return false;
 }
 
 bool MixInternalComponentsAnalyzer::MergeSyncPhase1(Operation* op, Function& mixSubgraphFunc, std::map<int, std::vector<Operation*>>& componentsByInternalID, std::unordered_map<Operation*, int>& opToComponentMap) const {
     Operation* targetOp = FindFirstOpForward(op, mixSubgraphFunc,
         [](Operation* candidate) {
-            return candidate->GetOpcode() == Opcode::OP_COPY_IN;
+            return candidate != nullptr && !candidate->IsNop();
         });
     if (targetOp) {
         auto it = opToComponentMap.find(targetOp);
@@ -277,12 +277,12 @@ bool MixInternalComponentsAnalyzer::MergeSyncPhase1(Operation* op, Function& mix
             op->UpdateInternalSubgraphID(it->second);
             componentsByInternalID[it->second].push_back(op);
             opToComponentMap[op] = it->second;
-            ALOG_DEBUG_F("Merged PHASE1 %d to component %d via COPY_IN %d",
+            ALOG_DEBUG_F("Merged PHASE1 %d to component %d via next op %d",
                         op->GetOpMagic(), it->second, targetOp->GetOpMagic());
             return true;
         }
     }
-    ALOG_WARN_F("Failed to merge PHASE1 %d: no COPY_IN found forward", op->GetOpMagic());
+    ALOG_WARN_F("Failed to merge PHASE1 %d: no valid next op found forward", op->GetOpMagic());
     return false;
 }
 
