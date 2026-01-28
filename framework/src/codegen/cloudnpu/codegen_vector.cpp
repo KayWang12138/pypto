@@ -984,10 +984,9 @@ std::string CodeGenOpCloudNPU::GenTriULOp() const {
     
     std::string diagonal = "(int)(" + SymbolicExpressionTable::BuildExpression(scalarExpr) + ")";
     bool isUpper = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "isUpper"));
-    if (isSupportLayout) {
-        return PrintTriULTileTensor(diagonal, isUpper);
-    }
-    ASSERT(false) << "cannot generate TriU or TriL operation";
+
+    ASSERT(isSupportLayout) << "cannot generate TriU or TriL operation";
+    return PrintTriULTileTensor(diagonal, isUpper);
 }
 
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
