@@ -21,6 +21,7 @@
 #include <set>
 #include <vector>
 
+#include "passes/algorithms/osp/auxiliary/return_status.hpp"
 #include "passes/algorithms/osp/coarser/coarser.hpp"
 
 namespace npu::tile_fwk {

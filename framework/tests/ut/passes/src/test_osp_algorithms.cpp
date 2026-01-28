@@ -13,6 +13,10 @@
  * \brief Unit test for OSP Algorithm files.
  */
 
+#include <algorithm>
+#include <iterator>
+#include <limits>
+#include <numeric>
 #include <vector>
 #include <string>
 #include "gtest/gtest.h"
@@ -25,9 +29,10 @@
 #include "passes/algorithms/osp/bsp/model/BspArchitecture.hpp"
 
 #include "passes/algorithms/osp/coarser/coarser_util.hpp"
+#include "passes/algorithms/osp/coarser/sarkar/sarkar.hpp"
+#include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.hpp"
 
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
-
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -45,7 +50,7 @@ public:
 TEST_F(OspAlgorithmTest, UnionFind1) {
     std::vector<std::string> names({"a", "b", "c", "d", "e", "f"});
     UnionFindUniverse<std::string, unsigned, int> testUniverse;
-    for (const auto &name :names) {
+    for (const auto &name : names) {
         testUniverse.AddObject(name);
     }
 
@@ -185,16 +190,15 @@ TEST_F(OspAlgorithmTest, UnionFind3) {
     EXPECT_EQ(testUniverse.GetWeightOfComponentByName("b"), 7);
     EXPECT_EQ(testUniverse.GetWeightOfComponentByName("e"), 2);
 
-    std::vector<std::vector<std::string>> components =
-        testUniverse.GetConnectedComponents();
+    std::vector<std::vector<std::string>> components = testUniverse.GetConnectedComponents();
     unsigned totalCompWeights = 0;
     unsigned totalElements = 0;
     for (auto &comp : components) {
         totalCompWeights += testUniverse.GetWeightOfComponentByName(comp.at(0));
         totalElements += static_cast<unsigned>(comp.size());
         for (auto &name : comp) {
-            EXPECT_TRUE(std::any_of(names.cbegin(), names.cend(),
-                                    [name](std::string other_name) { return name == other_name; }));
+            EXPECT_TRUE(std::any_of(
+                names.cbegin(), names.cend(), [name](std::string other_name) { return name == other_name; }));
         }
     }
 
@@ -207,11 +211,10 @@ TEST_F(OspAlgorithmTest, UnionFind3) {
     EXPECT_EQ(totalWeight, totalCompWeights);
 
     for (auto &name : names) {
-        EXPECT_TRUE(std::any_of(components.cbegin(), components.cend(),
-                                [name](std::vector<std::string> comp) {
-                                    return std::any_of(comp.cbegin(), comp.cend(),
-                                                       [name](std::string other_name) { return name == other_name; });
-                                }));
+        EXPECT_TRUE(std::any_of(components.cbegin(), components.cend(), [name](std::vector<std::string> comp) {
+            return std::any_of(
+                comp.cbegin(), comp.cend(), [name](std::string other_name) { return name == other_name; });
+        }));
     }
 }
 
@@ -235,7 +238,7 @@ TEST_F(OspAlgorithmTest, Divisors) {
         for (const std::size_t &div : divs) {
             EXPECT_EQ(num % div, 0U);
         }
-        
+
         auto it = divs.begin();
         for (std::size_t i = 1U; i <= num; ++i) {
             if (num % i == 0) {
@@ -251,17 +254,17 @@ TEST_F(OspAlgorithmTest, Divisors) {
 bool thueMorseGen(long unsigned int n) {
     unsigned long int bin_sum = 0;
     while (n != 0) {
-        bin_sum += n%2;
+        bin_sum += n % 2;
         n /= 2;
     }
-    return bool(bin_sum%2);
+    return bool(bin_sum % 2);
 }
 
 TEST_F(OspAlgorithmTest, RandomBiasedCoin) {
     BiasedRandom Coin;
     bool valAnd = true;
-    bool valOr  = false;
-    for (int i = 0 ; i < 1000 ; i++) {
+    bool valOr = false;
+    for (int i = 0; i < 1000; i++) {
         const bool flip = Coin.GetFlip();
         valAnd &= flip;
         valOr |= flip;
@@ -275,17 +278,18 @@ TEST_F(OspAlgorithmTest, RandomBiasedCoin) {
 TEST_F(OspAlgorithmTest, ThueMorse) {
     ThueMorseSequence Coin(0);
 
-    std::vector<bool> beginning({0,1,1,0,1,0,0,1,1,0,0,1,0,1,1,0,1,0,0,1,0,1,1,0,0,1,1,0,1});
+    std::vector<bool> beginning(
+        {0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1});
     std::vector<bool> generated;
-    for (long unsigned i = 0 ; i<beginning.size(); i++) {
+    for (long unsigned i = 0; i < beginning.size(); i++) {
         const bool next = Coin.GetFlip();
         generated.emplace_back(next);
     }
 
-    EXPECT_TRUE( beginning == generated );
+    EXPECT_TRUE(beginning == generated);
 
     ThueMorseSequence Test_Coin_in_seq(0);
-    for (unsigned i = 0 ; i < 200u; i++) {
+    for (unsigned i = 0; i < 200u; i++) {
         EXPECT_EQ(Test_Coin_in_seq.GetFlip(), thueMorseGen(i));
     }
 }
@@ -324,7 +328,7 @@ TEST_F(OspAlgorithmTest, InPlaceInversePermutationRandom) {
 
 TEST_F(OspAlgorithmTest, InPlaceInversePermutationChar) {
     std::vector<char> vec({'a', 'b', 'c', 'd', 'e', 'f', 'g'});
-    std::vector<std::size_t> perm({4,0,1,2,3,6,5});
+    std::vector<std::size_t> perm({4, 0, 1, 2, 3, 6, 5});
     std::vector<char> sol({'e', 'a', 'b', 'c', 'd', 'g', 'f'});
 
     InversePermuteInplace(vec, perm);
@@ -334,7 +338,12 @@ TEST_F(OspAlgorithmTest, InPlaceInversePermutationChar) {
 }
 
 TEST_F(OspAlgorithmTest, Architecture) {
-    std::vector<std::vector<unsigned>> uniformSentCosts = {{0, 1, 1, 1}, {1, 0, 1, 1}, {1, 1, 0, 1}, {1, 1, 1, 0}};
+    std::vector<std::vector<unsigned>> uniformSentCosts = {
+        {0, 1, 1, 1},
+        {1, 0, 1, 1},
+        {1, 1, 0, 1},
+        {1, 1, 1, 0}
+    };
 
     BspArchitecture<GraphType> architecture;
     architecture.SetNumberOfProcessors(4);
@@ -364,7 +373,7 @@ TEST_F(OspAlgorithmTest, Architecture) {
     EXPECT_EQ(architecture.ProcessorType(1), 0);
     EXPECT_EQ(architecture.ProcessorType(2), 0);
     EXPECT_EQ(architecture.ProcessorType(3), 0);
-    architecture.SetProcessorsWithTypes({0,0,0,1});
+    architecture.SetProcessorsWithTypes({0, 0, 0, 1});
     EXPECT_EQ(architecture.ProcessorType(2), 0);
     EXPECT_EQ(architecture.ProcessorType(3), 1);
 
@@ -373,10 +382,14 @@ TEST_F(OspAlgorithmTest, Architecture) {
 
     EXPECT_EQ(architecture.GetNumberOfProcessorTypes(), 2);
 
-
     EXPECT_TRUE(architecture.SendCost() == uniformSentCosts);
 
-    std::vector<std::vector<unsigned>> expectedSendCosts = {{0, 2, 2, 2}, {2, 0, 2, 2}, {2, 2, 0, 2}, {2, 2, 2, 0}};
+    std::vector<std::vector<unsigned>> expectedSendCosts = {
+        {0, 2, 2, 2},
+        {2, 0, 2, 2},
+        {2, 2, 0, 2},
+        {2, 2, 2, 0}
+    };
 
     architecture.SetSendCosts(expectedSendCosts);
     EXPECT_TRUE(architecture.SendCost() == expectedSendCosts);
@@ -408,7 +421,15 @@ TEST_F(OspAlgorithmTest, NoEdgesGraph) {
 }
 
 TEST_F(OspAlgorithmTest, LineGraph) {
-    const std::set<std::pair<std::size_t, std::size_t>> edges({{0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7}});
+    const std::set<std::pair<std::size_t, std::size_t>> edges({
+        {0, 1},
+        {1, 2},
+        {2, 3},
+        {3, 4},
+        {4, 5},
+        {5, 6},
+        {6, 7}
+    });
 
     GraphType graph(8, edges);
 
@@ -480,7 +501,19 @@ TEST_F(OspAlgorithmTest, LineGraph) {
 }
 
 TEST_F(OspAlgorithmTest, Graph1) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({{0, 1}, {2, 3}, {6, 10}, {7, 9}, {0, 2}, {4, 6}, {1, 6}, {6, 7}, {5, 6}, {3, 7}, {1, 2}});
+    const std::vector<std::pair<std::size_t, std::size_t>> edges({
+        {0,  1},
+        {2,  3},
+        {6, 10},
+        {7,  9},
+        {0,  2},
+        {4,  6},
+        {1,  6},
+        {6,  7},
+        {5,  6},
+        {3,  7},
+        {1,  2}
+    });
 
     GraphType graph(11, edges);
 
@@ -558,7 +591,19 @@ TEST_F(OspAlgorithmTest, Graph1) {
 }
 
 TEST_F(OspAlgorithmTest, GraphWorkWeights) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({{0, 1}, {2, 3}, {6, 10}, {7, 9}, {0, 2}, {4, 6}, {1, 6}, {6, 7}, {5, 6}, {3, 7}, {1, 2}});
+    const std::vector<std::pair<std::size_t, std::size_t>> edges({
+        {0,  1},
+        {2,  3},
+        {6, 10},
+        {7,  9},
+        {0,  2},
+        {4,  6},
+        {1,  6},
+        {6,  7},
+        {5,  6},
+        {3,  7},
+        {1,  2}
+    });
 
     std::vector<unsigned> ww(11);
     std::iota(ww.begin(), ww.end(), 0);
@@ -569,16 +614,28 @@ TEST_F(OspAlgorithmTest, GraphWorkWeights) {
     }
 
     for (auto vert : graph.Vertices()) {
-        EXPECT_EQ( graph.VertexWorkWeight(vert), ww[vert]);
+        EXPECT_EQ(graph.VertexWorkWeight(vert), ww[vert]);
 
         const unsigned wt = static_cast<unsigned>(rand());
         graph.SetVertexWorkWeight(vert, wt);
-        EXPECT_EQ( graph.VertexWorkWeight(vert), wt);
+        EXPECT_EQ(graph.VertexWorkWeight(vert), wt);
     }
 }
 
 TEST_F(OspAlgorithmTest, GraphCommWeights) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({{0, 1}, {2, 3}, {6, 10}, {7, 9}, {0, 2}, {4, 6}, {1, 6}, {6, 7}, {5, 6}, {3, 7}, {1, 2}});
+    const std::vector<std::pair<std::size_t, std::size_t>> edges({
+        {0,  1},
+        {2,  3},
+        {6, 10},
+        {7,  9},
+        {0,  2},
+        {4,  6},
+        {1,  6},
+        {6,  7},
+        {5,  6},
+        {3,  7},
+        {1,  2}
+    });
 
     std::vector<unsigned> cw(11);
     std::iota(cw.begin(), cw.end(), 11);
@@ -589,16 +646,28 @@ TEST_F(OspAlgorithmTest, GraphCommWeights) {
     }
 
     for (auto vert : graph.Vertices()) {
-        EXPECT_EQ( graph.VertexCommWeight(vert), cw[vert]);
-        
+        EXPECT_EQ(graph.VertexCommWeight(vert), cw[vert]);
+
         const unsigned wt = static_cast<unsigned>(rand());
         graph.SetVertexCommWeight(vert, wt);
-        EXPECT_EQ( graph.VertexCommWeight(vert), wt);
+        EXPECT_EQ(graph.VertexCommWeight(vert), wt);
     }
 }
 
 TEST_F(OspAlgorithmTest, GraphMemWeights) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({{0, 1}, {2, 3}, {6, 10}, {7, 9}, {0, 2}, {4, 6}, {1, 6}, {6, 7}, {5, 6}, {3, 7}, {1, 2}});
+    const std::vector<std::pair<std::size_t, std::size_t>> edges({
+        {0,  1},
+        {2,  3},
+        {6, 10},
+        {7,  9},
+        {0,  2},
+        {4,  6},
+        {1,  6},
+        {6,  7},
+        {5,  6},
+        {3,  7},
+        {1,  2}
+    });
 
     std::vector<unsigned> mw(11);
     std::iota(mw.begin(), mw.end(), 22);
@@ -610,16 +679,28 @@ TEST_F(OspAlgorithmTest, GraphMemWeights) {
     }
 
     for (auto vert : graph.Vertices()) {
-        EXPECT_EQ( graph.VertexMemWeight(vert), mw[vert]);
-        
+        EXPECT_EQ(graph.VertexMemWeight(vert), mw[vert]);
+
         const unsigned wt = static_cast<unsigned>(rand());
         graph.SetVertexMemWeight(vert, wt);
-        EXPECT_EQ( graph.VertexMemWeight(vert), wt);
+        EXPECT_EQ(graph.VertexMemWeight(vert), wt);
     }
 }
 
 TEST_F(OspAlgorithmTest, GraphVtype) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({{0, 1}, {2, 3}, {6, 10}, {7, 9}, {0, 2}, {4, 6}, {1, 6}, {6, 7}, {5, 6}, {3, 7}, {1, 2}});
+    const std::vector<std::pair<std::size_t, std::size_t>> edges({
+        {0,  1},
+        {2,  3},
+        {6, 10},
+        {7,  9},
+        {0,  2},
+        {4,  6},
+        {1,  6},
+        {6,  7},
+        {5,  6},
+        {3,  7},
+        {1,  2}
+    });
 
     std::vector<unsigned> vt(11);
     std::iota(vt.begin(), vt.end(), 33);
@@ -631,11 +712,11 @@ TEST_F(OspAlgorithmTest, GraphVtype) {
     }
 
     for (auto vert : graph.Vertices()) {
-        EXPECT_EQ( graph.VertexType(vert), vt[vert]);
-        
+        EXPECT_EQ(graph.VertexType(vert), vt[vert]);
+
         const unsigned wt = static_cast<unsigned>(rand());
         graph.SetVertexType(vert, wt);
-        EXPECT_EQ( graph.VertexType(vert), wt);
+        EXPECT_EQ(graph.VertexType(vert), wt);
     }
 }
 
@@ -646,10 +727,16 @@ TEST_F(OspAlgorithmTest, ExpansionMapValidity) {
     const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap2 = {{0}, {2}, {3}};
     EXPECT_FALSE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap2));
 
-    const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap3 = {{0, 3}};
+    const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap3 = {
+        {0, 3}
+    };
     EXPECT_FALSE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap3));
 
-    const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap4 = {{0, 3}, {2, 1, 4}, {5}};
+    const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap4 = {
+        {0, 3},
+        {2, 1, 4},
+        {5}
+    };
     EXPECT_TRUE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap4));
 
     const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap5 = {{0}, {}, {2}, {3}, {1}};
@@ -671,7 +758,10 @@ TEST_F(OspAlgorithmTest, ContractionMapValidity) {
 }
 
 TEST_F(OspAlgorithmTest, ContractionMapCoarsening) {
-    std::set<std::pair<VertexIdxT<GraphType>, VertexIdxT<GraphType>>> edges({{0, 1}, {1, 2}});
+    std::set<std::pair<VertexIdxT<GraphType>, VertexIdxT<GraphType>>> edges({
+        {0, 1},
+        {1, 2}
+    });
     GraphType graph(6, edges);
 
     GraphType coarseGraph1;
@@ -699,6 +789,139 @@ TEST_F(OspAlgorithmTest, ContractionMapCoarsening) {
     for (const auto &vert : coarseGraph1.Parents(1)) {
         EXPECT_EQ(vert, 0);
     }
+}
+
+void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser) {
+    const std::vector<std::pair<std::size_t, std::size_t>> edges({
+        {0,  1},
+        {2,  3},
+        {6, 10},
+        {7,  9},
+        {0,  2},
+        {4,  6},
+        {1,  6},
+        {6,  7},
+        {5,  6},
+        {3,  7},
+        {1,  2}
+    });
+    std::vector<unsigned> vt(11, 0);
+    vt[0] = 1U;
+    vt[1] = 1U;
+    vt[2] = 1U;
+
+    GraphType graph(11, edges);
+    for (auto vert : graph.Vertices()) {
+        graph.SetVertexType(vert, vt[vert]);
+    }
+
+    GraphType coarseGraph;
+    std::vector<VertexIdxT<GraphType>> contractionMap;
+
+    EXPECT_TRUE(coarser.CoarsenDag(graph, coarseGraph, contractionMap));
+    EXPECT_EQ(contractionMap.size(), graph.NumVertices());
+    EXPECT_TRUE(coarser_util::CheckValidContractionMap<GraphType>(contractionMap));
+
+    for (auto vert : graph.Vertices()) {
+        EXPECT_EQ(graph.VertexType(vert), coarseGraph.VertexType(contractionMap[vert]));
+    }
+
+    // Acyclic check
+    std::vector<VertexIdxT<GraphType>> coarseVerts(coarseGraph.NumVertices());
+    std::iota(coarseVerts.begin(), coarseVerts.end(), 0);
+    const auto coarseTopOrder = GetTopOrder<GraphType>(coarseGraph);
+    EXPECT_TRUE(std::is_permutation(coarseTopOrder.cbegin(), coarseTopOrder.cend(), coarseVerts.cbegin(), coarseVerts.cend()));
+    for (const auto vert : coarseGraph.Vertices()) {
+        for (const auto chld : coarseGraph.Children(vert)) {
+            EXPECT_GT(std::distance(std::find(coarseTopOrder.cbegin(), coarseTopOrder.cend(), vert),
+                                    std::find(coarseTopOrder.cbegin(), coarseTopOrder.cend(), chld)),
+                      0);
+        }
+    }
+    for (const auto vert : graph.Vertices()) {
+        for (const auto chld : graph.Children(vert)) {
+            EXPECT_GE(std::distance(std::find(coarseTopOrder.cbegin(), coarseTopOrder.cend(), contractionMap[vert]),
+                                    std::find(coarseTopOrder.cbegin(), coarseTopOrder.cend(), contractionMap[chld])),
+                      0);
+        }
+    }
+
+    // Grouping of Vertex Types
+    std::vector<unsigned> coarseTypes(coarseGraph.NumVertices(), std::numeric_limits<unsigned>::max());
+    for (const auto vert : graph.Vertices()) {
+        const auto coarseVert = contractionMap[vert];
+        if (coarseTypes[coarseVert] != std::numeric_limits<unsigned>::max()) {
+            EXPECT_EQ(coarseTypes[coarseVert], graph.VertexType(vert));
+        }
+        coarseTypes[coarseVert] = graph.VertexType(vert);
+    }
+}
+
+TEST_F(OspAlgorithmTest, CoarsenSarkar) {
+    sarkar_params::Parameters<VWorkwT<GraphType>> params;
+    params.mode_ = sarkar_params::Mode::LINES;
+    params.commCost_ = 100;
+    params.useTopPoset_ = true;
+
+    Sarkar<GraphType, GraphType> coarser(params);
+
+    testCoarseningAlgorithm(coarser);
+
+    params.useTopPoset_ = false;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+
+    params.mode_ = sarkar_params::Mode::FAN_IN_FULL;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+
+    params.mode_ = sarkar_params::Mode::FAN_IN_PARTIAL;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+
+    params.mode_ = sarkar_params::Mode::FAN_OUT_FULL;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+
+    params.mode_ = sarkar_params::Mode::FAN_OUT_PARTIAL;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+
+    params.mode_ = sarkar_params::Mode::LEVEL_EVEN;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+
+    params.mode_ = sarkar_params::Mode::LEVEL_ODD;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+
+    params.mode_ = sarkar_params::Mode::FAN_IN_BUFFER;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+
+    params.mode_ = sarkar_params::Mode::FAN_OUT_BUFFER;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+
+    params.mode_ = sarkar_params::Mode::HOMOGENEOUS_BUFFER;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+}
+
+
+TEST_F(OspAlgorithmTest, CoarsenSarkarML) {
+    sarkar_params::MulParameters<VWorkwT<GraphType>> params;
+    params.commCostVec_ = {100};
+
+    SarkarMul<GraphType, GraphType> coarser;
+    coarser.SetParameters(params);
+    testCoarseningAlgorithm(coarser);
+
+    params.commCostVec_ = {1, 2, 10, 50, 100};
+    params.bufferMergeMode_ = sarkar_params::BufferMergeMode::FULL;
+    coarser.SetParameters(params);
+
+    testCoarseningAlgorithm(coarser);
 }
 
 } // namespace osp
