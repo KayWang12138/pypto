@@ -35,6 +35,11 @@ inline uint64_t CeilAlign(uint64_t a, int b) {
     return ((a + b - 1) / b) * b;
 }
 
+inline bool IsViewOp(const Operation& op) {
+    const auto opc = op.GetOpcode();
+    return opc == Opcode::OP_VIEW || opc == Opcode::OP_VIEW_TYPE;
+}
+
 using LocalBufferPtr = std::shared_ptr<LocalBuffer>;
 
 const std::unordered_set<Opcode> USE_LESS_OPS = {
@@ -176,9 +181,9 @@ private:
     std::string dumpOpInfo(Operation &op);
     void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
     Status InitDependencies();
-    void FindDependencies(IssueEntryPtr issue, std::map<Operation*, IssueEntryPtr> op2IssueEntryMap);
+    void FindDependencies(IssueEntryPtr issue, std::unordered_map<Operation*, IssueEntryPtr> &op2IssueEntryMap);
     void AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc);
-    Status InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap);
+    Status InitAllocDependencies(IssueEntryPtr issue, std::unordered_map<int, IssueEntryPtr> &tensor2AllocMap);
     void InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
     void InitLocalBufferForAxisCombine(LogicalTensorPtr oOperand, int memId);
     void InitBufRefCount();
@@ -319,6 +324,7 @@ private:
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
 
     // buffer rearrange
+    Status RearrangeBuffer(MemoryType memType);
     Status RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage, bool &rearrangeUBBF16);
     Status GenRearrangeCopyOp(IssueEntryPtr issue, MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
     Status UpdateMemId(int oldMemId, int newMemId);

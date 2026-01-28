@@ -332,12 +332,13 @@ void OpcodeManager::RegisterVector() {
         {"TileOp::TscatterElementS", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OpAttributeKey::scalar, OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_SCATTER, OpCoreType::AIV, "SCATTER",
-        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::Tscatter", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::OTHER,
         {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "scatter_mode"}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_INDEX_PUT, OpCoreType::ANY, "INDEX_PUT",
- 	    {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
- 	    {MemoryType::MEM_DEVICE_DDR}, {"TileOp::TIndexPut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT,
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB,
+            MemoryType::MEM_UB},
+        {MemoryType::MEM_DEVICE_DDR}, {"TileOp::TIndexPut", PIPE_MTE3, PIPE_MTE3, CoreType::AIV}, OpCalcType::MOVE_OUT,
         {OpAttributeKey::accumulate, OpAttributeKey::indicesSize});
     RegisterInfo(Opcode::OP_SCATTER_UPDATE, OpCoreType::ANY, "SCATTER_UPDATE", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {}, OpCalcType::OTHER);
@@ -548,76 +549,40 @@ void OpcodeManager::RegisterDistribute() {
     RegisterInfo(Opcode::OP_SHMEM_SET, OpCoreType::AIV, "SHMEM_SET",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemSet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED);
-    /*
-     * 1. TileOp 的说明：把非 SHMEM 的数据传输到 SHMEM
-     * 2. 支持的属性：
-     *    a. AtomicType：类型为 AtomicType，默认值为 AtomicType::SET
-     * 3. buffer 的使用说明：根据需要初始化一个一维的 LogicalTensor，类型与输入一致、大小为一次传输的元素个数，如果不是
-     * 32B 对齐，底层实现会补齐到 32B 对齐
-     * 4. 控制边的说明：
-     *    a. dummy：用于保证 SHMEM_SIGNAL 在 SHMEM_PUT 之后执行
-     */
     RegisterInfo(Opcode::OP_SHMEM_PUT, OpCoreType::AIV, "SHMEM_PUT",
-        {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_DEVICE_DDR /* shmemData */,
-            MemoryType::MEM_DEVICE_DDR /* dummpy */},
-        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_UB /* buffer */},
+        {MemoryType::MEM_DEVICE_DDR , MemoryType::MEM_DEVICE_DDR ,
+            MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemPut", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
         {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_PUT_UB2GM, OpCoreType::AIV, "SHMEM_PUT_UB2GM",
-        {MemoryType::MEM_UB /* UBData */, MemoryType::MEM_DEVICE_DDR /* shmemData */,
-            MemoryType::MEM_DEVICE_DDR /* dummpy */},
-        {MemoryType::MEM_DEVICE_DDR /* dummy */}, {"TileOp::Distributed::ShmemPutUb2Gm", PIPE_S, PIPE_S, CoreType::AIV},
+        {MemoryType::MEM_UB , MemoryType::MEM_DEVICE_DDR,
+            MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR}, {"TileOp::Distributed::ShmemPutUb2Gm", PIPE_S, PIPE_S, CoreType::AIV},
         OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
-    /*
-     * 1. TileOp 的说明：设置 Signal，每个 TileOp 设置一个 Signal
-     * 2. 支持的属性：
-     *    a. Value：类型为 int32_t，默认值为 1
-     *    b. AtomicType：类型为 AtomicType，默认值为 AtomicType::SET
-     * 3. buffer 的使用说明：初始化一个一维的 LogicalTensor，类型为 int32_t、大小为 8，如果大小不是
-     * 8，底层实现仍然会使用 8
-     * 4. 控制边的说明：
-     *    a. dummy：用于保证 SHMEM_SIGNAL 在 SHMEM_PUT 之后执行
-     */
     RegisterInfo(Opcode::OP_SHMEM_SIGNAL, OpCoreType::AIV, "SHMEM_SIGNAL",
-        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemSignal */},
-        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB /* buffer */},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemSignal", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
         {OpAttributeKey::requiresBoundaryCopy});
-    /*
-     * 1. TileOp 的说明：等待 Signal，每个 TileOp 等待一个 Signal，对应一次 EnqueueOp
-     * 2. 支持的属性：
-     *    a. Value：类型为 int32_t，默认值为 1
-     * 3. 控制边的说明：
-     *    a. dummyIn：用于保证 SHMEM_WAIT_UNTIL 在 nonShmemDataIn 准备好之后执行
-     *    b. dummyOut：用于保证 SHMEM_GET 在 SHMEM_WAIT_UNTIL 之后执行
-     */
     RegisterInfo(Opcode::OP_SHMEM_WAIT_UNTIL, OpCoreType::AICPU, "SHMEM_WAIT_UNTIL",
-        {MemoryType::MEM_DEVICE_DDR /* dummyIn */, MemoryType::MEM_DEVICE_DDR /* shmemSignal */},
-        {MemoryType::MEM_DEVICE_DDR /* dummyOut */}, TileOpCfg(), OpCalcType::DISTRIBUTED,
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR}, TileOpCfg(), OpCalcType::DISTRIBUTED,
         {OP_ATTR_PREFIX + "distributed"});
-    /*
-     * 1. TileOp 的说明：把 SHMEM 的数据传输到非 SHMEM
-     * 2. 支持的属性：
-     *    a. AtomicType：类型为 AtomicType，默认值为 AtomicType::SET
-     * 3. buffer 的使用说明：根据需要初始化一个一维的 LogicalTensor，类型与输入一致、大小为一次传输的元素个数，如果不是
-     * 32B 对齐，底层实现会补齐到 32B 对齐
-     * 4. 控制边的说明：
-     *    a. dummy：用于保证 SHMEM_GET 在 SHMEM_WAIT_UNTIL 之后执行
-     */
     RegisterInfo(Opcode::OP_SHMEM_GET, OpCoreType::AIV, "SHMEM_GET",
-        {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
-        {MemoryType::MEM_DEVICE_DDR /* nonShmemData */, MemoryType::MEM_UB /* buffer */},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
         {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_GET_GM2UB, OpCoreType::AIV, "SHMEM_GET_GM2UB",
         {MemoryType::MEM_DEVICE_DDR /* dummy */, MemoryType::MEM_DEVICE_DDR /* shmemData */},
-        {MemoryType::MEM_UB /* UBData */, MemoryType::MEM_UB /* ubTensor */}, 
-        {"TileOp::Distributed::ShmemGetGm2Ub", PIPE_S, PIPE_S, CoreType::AIV},
-        OpCalcType::DISTRIBUTED, {OpAttributeKey::requiresBoundaryCopy});
+        {MemoryType::MEM_UB /* UBData */, MemoryType::MEM_UB /* ubTensor */},
+        {"TileOp::Distributed::ShmemGetGm2Ub", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
+        {OpAttributeKey::requiresBoundaryCopy});
     RegisterInfo(Opcode::OP_SHMEM_REDUCE, OpCoreType::AIV, "SHMEM_REDUCE",
-        {MemoryType::MEM_DEVICE_DDR /* in */, MemoryType::MEM_DEVICE_DDR /* shmemData */,
-            MemoryType::MEM_DEVICE_DDR /*dummy*/},
-        {MemoryType::MEM_DEVICE_DDR /* out */, MemoryType::MEM_UB /* ubTensor */},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
+            MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
         {"TileOp::Distributed::ShmemReduce", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED);
     RegisterInfo(Opcode::OP_BIND_TENSOR, OpCoreType::ANY, "BIND_TENSOR", {}, {MemoryType::MEM_DEVICE_DDR},
         {"TileOp::Distributed::ShmemGet", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
@@ -756,12 +721,15 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {  Opcode::OP_TRANSPOSE_MOVEOUT,  "TTransMoveOut"},
     {          Opcode::OP_INDEX_PUT,      "TIndexPut"},
     {                Opcode::OP_ADD,           "TAdd"},
+    {            Opcode::OP_CUM_SUM,        "TCumSum"},
     {                Opcode::OP_SUB,           "TSub"},
     {                Opcode::OP_DIV,           "TDiv"},
     {                Opcode::OP_MUL,           "TMul"},
     {          Opcode::OP_INDEX_ADD,      "TIndexAdd"},
     {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
     {             Opcode::OP_GATHER,        "Tgather"},
+    {            Opcode::OP_SCATTER,       "Tscatter"},
+    {  Opcode::OP_SCATTER_ELEMENT, "TscatterElementS"},
     {             Opcode::OP_EXPAND,        "TExpand"},
     {            Opcode::OP_BITSORT,       "TBitSort"},
     {            Opcode::OP_MRGSORT,       "TMrgSort"},
@@ -774,9 +742,17 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {         Opcode::OP_ROWSUMLINE,    "TRowSumLine"},
     {         Opcode::OP_ROWMAXLINE,    "TRowMaxLine"},
     {         Opcode::OP_ROWMINLINE,    "TRowMinLine"},
-    {           Opcode::OP_WHERE_TT,         "TWhere"},
+    {         Opcode::OP_LOGICALAND,    "TLogicalAnd"},
+    {           Opcode::OP_WHERE_TT,       "TWhereTT"},
+    {           Opcode::OP_WHERE_TS,       "TWhereTS"},
+    {           Opcode::OP_WHERE_ST,       "TWhereST"},
+    {           Opcode::OP_WHERE_SS,       "TWhereSS"},
+    {                Opcode::OP_CMP,       "TCompare"},
+ 	{               Opcode::OP_CMPS,       "TCompare"},  
     {               Opcode::OP_ADDS,          "TAddS"},
     {               Opcode::OP_SUBS,          "TSubS"},
+    {               Opcode::OP_MAXS,          "TMaxS"},
+    {               Opcode::OP_MINS,          "TMinS"},
     {               Opcode::OP_MULS,          "TMulS"},
     {               Opcode::OP_DIVS,          "TDivS"},
     {              Opcode::OP_RSQRT,         "TRsqrt"},
@@ -792,7 +768,44 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {             Opcode::OP_ONEHOT,        "TOneHot"},
     {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
     {            Opcode::OP_VEC_DUP,        "TVecDup"},
-    {            Opcode::OP_RANGE,           "TRange"},
+    {              Opcode::OP_RANGE,         "TRange"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
+};
+
+std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
+    Opcode::OP_ADD,
+    Opcode::OP_SUB,
+    Opcode::OP_DIV,
+    Opcode::OP_MUL,
+    Opcode::OP_ADDS,
+    Opcode::OP_MULS,
+    Opcode::OP_SUBS,
+    Opcode::OP_DIVS,
+    Opcode::OP_RSQRT,
+    Opcode::OP_SQRT,
+    Opcode::OP_EXP,
+    Opcode::OP_MAXIMUM,
+    Opcode::OP_MINIMUM,
+    Opcode::OP_ROWSUM_SINGLE,
+    Opcode::OP_ROWMAX_SINGLE,
+    Opcode::OP_ROWMIN_SINGLE,
+    Opcode::OP_CAST,
+    Opcode::OP_EXPAND,
+};
+
+std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN = {
+    Opcode::OP_VIEW,
+    Opcode::OP_ASSEMBLE,
+    Opcode::OP_RESHAPE,
+    Opcode::OP_UB_ALLOC,
+    Opcode::OP_L1_ALLOC,
+    Opcode::OP_L0A_ALLOC,
+    Opcode::OP_L0B_ALLOC,
+    Opcode::OP_L0C_ALLOC,
+    Opcode::OP_FIX_ALLOC,
+    Opcode::OP_BT_ALLOC,
+    Opcode::OP_BIND_TENSOR,
+    Opcode::OP_NOP,
+    Opcode::OP_HUB,
 };
 } // namespace npu::tile_fwk

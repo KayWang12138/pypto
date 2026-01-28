@@ -32,7 +32,7 @@
 
 namespace npu::tile_fwk::Distributed {
 
-inline bool SignalTileOp::PollCompleted() const 
+inline bool SignalTileOp::PollCompleted() const
 {
     if constexpr (npu::tile_fwk::dynamic::IsDeviceMode()) {
         if (addr_[0] == expectedSum_) {
@@ -57,11 +57,11 @@ int32_t ShmemWaitUntil::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager &aic
     });
 }
 
-uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankId) 
+uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankId)
 {
     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
-    uint64_t memType = npu::tile_fwk::Distributed::GetVirtaulAddrMemType(addr);
+    uint64_t memType = npu::tile_fwk::Distributed::GetVirtualAddrMemType(addr);
     auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContextAddr_[groupIndex]);
     if (memType == 0) {
         return hcclOpParam->windowsIn[dstRankId] + offset;
@@ -70,10 +70,10 @@ uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankI
     }
 }
 
-TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode) 
+TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::dynamic::DevRelocVector<int32_t> &aicpuCode)
 {
-    uint32_t funcId = npu::tile_fwk::dynamic::FuncID(taskId);
-    uint32_t opIndex = npu::tile_fwk::dynamic::TaskID(taskId);
+    uint32_t funcId = npu::tile_fwk::FuncID(taskId);
+    uint32_t opIndex = npu::tile_fwk::TaskID(taskId);
     auto &funcData = funcDataList_[funcId];
     auto opAttrs = &funcData.opAttrs[funcData.opAtrrOffsets[opIndex]];
     auto expressionTable = funcData.exprTbl;

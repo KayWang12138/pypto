@@ -399,7 +399,7 @@ void OptimizeSort::RecoverSymbol(size_t startIndex, std::vector<Operation*> curO
 }
 
 // 找未被执行的 consumer
-void OptimizeSort::GetConsumerGroup(std::set<Operation*> consumers, std::vector<Operation*> &consumersGroup) {
+void OptimizeSort::GetConsumerGroup(std::unordered_set<Operation*> &consumers, std::vector<Operation*> &consumersGroup) {
     for (auto op : consumers) {
         APASS_LOG_DEBUG_F(Elements::Operation, "consumer: %s", GetOpInfo(op).c_str());
         if (!visitedOp[op]) {
@@ -634,7 +634,7 @@ void OptimizeSort::AllocAhead() {
 }
 
 Status OptimizeSort::SortOps() {
-    APASS_LOG_INFO_F(Elements::Operation, "====>start SortOps");
+    LOG_SCOPE_BEGIN(tSortOps, Elements::Function, "SortOps");
     Init(operations);
     if (CheckAllocOp(operations) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CheckAllocOp failed!");
@@ -677,7 +677,7 @@ Status OptimizeSort::SortOps() {
         APASS_LOG_ERROR_F(Elements::Operation, "PreSchedule method not recognized.");
         return FAILED;
     }
-    APASS_LOG_INFO_F(Elements::Operation, "====>end SortOps");
+    LOG_SCOPE_END(tSortOps);
     return SUCCESS;
 }
 
