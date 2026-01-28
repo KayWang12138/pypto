@@ -40,6 +40,7 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetHostConfig(KEY_STRATEGY, "GraphPartitionTestStrategy");
+        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 };
@@ -247,6 +248,27 @@ TEST_F(GraphPartitionTest, TestBuildIsomorphismGraph) {
     EXPECT_EQ(function->GetTotalSubGraphCount(), subGraphNum);
 }
 
+TEST_F(GraphPartitionTest, TestIsoParameterFailure) {
+    ComputationalGraphBuilder G;
+    Function *function = G.GetFunction();
+    EXPECT_EQ(function->Operations().size(), 0);
+
+    const int cycleUBFail = -1;
+    const int cycleUB = 100000;
+    const int parallelTHFail = -2;
+    const int parallelTH = 10;
+    const int cycleLBFail = -11;
+    const int cycleLB = 100000;
+    const int useNodeHash = false;
+
+    IsoPartitioner partitioner;
+    EXPECT_EQ(partitioner.SetParameter(cycleUBFail, parallelTH, cycleLB, useNodeHash), FAILED);
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTHFail, cycleLB, useNodeHash), FAILED);
+    EXPECT_EQ(partitioner.SetParameter(cycleUB, parallelTH, cycleLBFail, useNodeHash), FAILED);
+
+    EXPECT_EQ(partitioner.PartitionGraph(*function), FAILED);
+}
+
 TEST_F(GraphPartitionTest, TestEmptyGraph) {
     ComputationalGraphBuilder G;
     Function *function = G.GetFunction();
@@ -254,6 +276,42 @@ TEST_F(GraphPartitionTest, TestEmptyGraph) {
     GraphPartition gpp;
     EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
     EXPECT_EQ(function->GetTotalSubGraphCount(), 0);
+}
+
+TEST_F(GraphPartitionTest, TestSarkarEmptyGraph) {
+    const std::string partitionAlg = "OspSarkar";
+
+    ComputationalGraphBuilder G;
+    Function *function = G.GetFunction();
+    function->paramConfigs_.sgPartitionAlgorithm = partitionAlg;
+    EXPECT_EQ(function->paramConfigs_.sgPartitionAlgorithm, partitionAlg);
+    EXPECT_EQ(function->Operations().size(), 0);
+    GraphPartition gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
+}
+
+TEST_F(GraphPartitionTest, TestOrbitBspEmptyGraph) {
+    const std::string partitionAlg = "OspBsp";
+
+    ComputationalGraphBuilder G;
+    Function *function = G.GetFunction();
+    function->paramConfigs_.sgPartitionAlgorithm = partitionAlg;
+    EXPECT_EQ(function->paramConfigs_.sgPartitionAlgorithm, partitionAlg);
+    EXPECT_EQ(function->Operations().size(), 0);
+    GraphPartition gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
+}
+
+TEST_F(GraphPartitionTest, TestPartitionerParameterFailure) {
+    const std::string partitionAlg = "NotExistent";
+
+    ComputationalGraphBuilder G;
+    Function *function = G.GetFunction();
+    function->paramConfigs_.sgPartitionAlgorithm = partitionAlg;
+    EXPECT_EQ(function->paramConfigs_.sgPartitionAlgorithm, partitionAlg);
+    EXPECT_EQ(function->Operations().size(), 0);
+    GraphPartition gpp;
+    EXPECT_EQ(gpp.RunOnFunction(*function), FAILED);
 }
 
 void GetCubeVectorGraph(ComputationalGraphBuilder &G, int brNum) {
@@ -342,6 +400,44 @@ TEST_F(GraphPartitionTest, TestCVGraph) {
         subgraphIDs.insert(op->GetSubgraphID());
     }
     EXPECT_EQ(subgraphIDs.size(), subGraphNum);
+}
+
+TEST_F(GraphPartitionTest, TestOspCVGraph) {
+    const std::vector<std::string> partitionAlgs = {"OspSarkar", "OspBsp"};
+
+    for (const auto &partitionAlg : partitionAlgs) {
+        ComputationalGraphBuilder G;
+        const int brNum = 4;
+        GetCubeVectorGraph(G, brNum);
+        Function *function = G.GetFunction();
+        function->paramConfigs_.sgPartitionAlgorithm = partitionAlg;
+
+        GraphPartition gpp;
+        EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
+
+        std::unordered_set<std::string> cubeOp{"MUL1", "MC1", "MC2", "MC3", "COPY_OUT_C"};
+        for (int i = 0; i < brNum; i++) {
+            std::string br = std::to_string(i);
+            cubeOp.insert("IN_L1_A" + br);
+            cubeOp.insert("IN_L1_B" + br);
+            cubeOp.insert("L1_TO_L0A" + br);
+            cubeOp.insert("L1_TO_L0B" + br);
+        }
+        const int subGraphNum = function->GetTotalSubGraphCount();
+        std::unordered_set<int> subgraphIDs;
+        for (auto &opPair : G.operations_) {
+            Operation *op = opPair.second;
+            EXPECT_NE(op, nullptr);
+            if (cubeOp.count(opPair.first) > 0) {
+                EXPECT_EQ(op->HasAttr(OpAttributeKey::isCube) && op->GetBoolAttribute(OpAttributeKey::isCube), true);
+            } else {
+                EXPECT_EQ(op->HasAttr(OpAttributeKey::isCube) && !op->GetBoolAttribute(OpAttributeKey::isCube), true);
+            }
+            EXPECT_EQ(op->GetSubgraphID() >= 0 && op->GetSubgraphID() < subGraphNum, true);
+            subgraphIDs.insert(op->GetSubgraphID());
+        }
+        EXPECT_EQ(subgraphIDs.size(), subGraphNum);
+    }
 }
 
 void GetMergeableGraph(ComputationalGraphBuilder &G, int brNum) {
