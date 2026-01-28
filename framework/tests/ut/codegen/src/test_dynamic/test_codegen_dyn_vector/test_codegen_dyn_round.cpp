@@ -15,7 +15,6 @@
 
 #include "gtest/gtest.h"
 
-#include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
@@ -48,20 +47,44 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynRound, RoundLayout) {
+TEST_F(TestCodegenDynRound, TestDynOpRound) {
     std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
+    Element scalaVal(DataType::DT_FP32, 10.0f);
 
     std::string funcName = "TestDynOpRound";
     FUNCTION(funcName, {input, output}) {
-        output = Round(input, 1);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Round(input, 1);
+        }
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ROUND");
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
+    auto &op = function->AddOperation(Opcode::OP_ROUND, {localTensorSrc}, {localTensorRes, localTensorTmp});
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::scalar, scalaVal);
+
+    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+    CodeGenCtx ctx;
+    CodeGenCloudNPU cga(ctx);
+    cga.GenAllocForLocalBuffer(op, symbolManager);
+    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensorRes->GetMagic()] = localTensorRes;
+    function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
+    function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
+
+    cop.Init(op);
+    std::string res = cop.GenOpCode();
 }
 } // namespace npu::tile_fwk
