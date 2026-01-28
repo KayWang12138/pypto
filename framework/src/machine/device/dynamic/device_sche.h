@@ -380,7 +380,7 @@ struct DynMachineManager {
         DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(kargs->cfgdata);
         if (splittedInfo_.ScheSync(devProg->devArgs.scheCpuNum)) {
             ReleaseRuntimeDataRingBuffer(devProg);
-            return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
+            return DEVICE_MACHINE_OK;
         }
         return ret;
     }
