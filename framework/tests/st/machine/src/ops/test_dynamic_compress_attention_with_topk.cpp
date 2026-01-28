@@ -39,37 +39,53 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
     return RawTensorData::CreateTensor<T>(tensor, values);
 }
 
-template <typename T = npu::tile_fwk::bfloat16>
-void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig) {
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
-
-    DataType dType = DT_FP32;
+template <typename T>
+DataType GetCmpAttnTopkDataType() {
     if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        dType = DT_BF16;
+        return DT_BF16;
     } else if (std::is_same<T, npu::tile_fwk::float16>::value) {
-        dType = DT_FP16;
-    } else {
-        dType = DT_FP32;
+        return DT_FP16;
     }
+    return DT_FP32;
+}
 
+struct CmpAttnTopkParams {
+    int b;
+    int s1;
+    int n1;
+    int dn;
+    int dr;
+    int n2;
+    int blockSize;
+    int cmpBlockSize;
+    int cmpStride;
+    int slcBlockSize;
+    int topk;
+    int front;
+    int near;
+    float softmaxScale;
+};
+
+CmpAttnTopkParams ReadCmpAttnTopkParams() {
+    CmpAttnTopkParams params;
     int paramsSize = 13;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/in_params.bin", input_param);
 
-    const int b = input_param[0];
-    const int s1 = input_param[1];
-    const int n1 = input_param[2];
-    const int dn = input_param[3];
-    const int dr = input_param[4];
-    const int n2 = input_param[5];
-    const int blockSize = input_param[6];
-    const int cmpBlockSize = input_param[7];
-    const int cmpStride = input_param[8];
-    const int slcBlockSize = input_param[9];
-    const int topk = input_param[10];
-    const int front = input_param[11];
-    const int near = input_param[12];
-    const float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
+    params.b = input_param[0];
+    params.s1 = input_param[1];
+    params.n1 = input_param[2];
+    params.dn = input_param[3];
+    params.dr = input_param[4];
+    params.n2 = input_param[5];
+    params.blockSize = input_param[6];
+    params.cmpBlockSize = input_param[7];
+    params.cmpStride = input_param[8];
+    params.slcBlockSize = input_param[9];
+    params.topk = input_param[10];
+    params.front = input_param[11];
+    params.near = input_param[12];
+    params.softmaxScale = static_cast<float>(1.0 / sqrtf((params.dn + params.dr)));
 
     ALOG_EVENT_F(R"(
 TestCmpAttnTopk params:
@@ -87,82 +103,163 @@ TestCmpAttnTopk params:
     front=%d
     near=%d
 )",
-        b, s1, n1, dn, dr, n2, blockSize, cmpBlockSize, cmpStride, slcBlockSize, topk, front, near);
+        params.b, params.s1, params.n1, params.dn, params.dr, params.n2, params.blockSize, params.cmpBlockSize,
+        params.cmpStride, params.slcBlockSize, params.topk, params.front, params.near);
 
-    DataType qType = dType;
-    DataType kType = dType;
+    return params;
+}
 
-    // Read actSeq
-    std::vector<int> actSeqLen(b);
-    readInput<int>(GetGoldenDir() + "/act_seq.bin", actSeqLen);
+struct CmpAttnSeqInfo {
     std::vector<int> actCmpSeq;
+    int cmpBlockNum;
+    int maxCmpSeq;
+    int maxCmpBlockNum;
+    int slcSize;
+    int blockSlcNum;
+};
+
+CmpAttnSeqInfo ProcessCmpAttnSeq(const CmpAttnTopkParams& params) {
+    CmpAttnSeqInfo seqInfo;
+    std::vector<int> actSeqLen(params.b);
+    readInput<int>(GetGoldenDir() + "/act_seq.bin", actSeqLen);
+
     for (auto curSeq : actSeqLen) {
-        auto curCmpSeq = (curSeq - cmpBlockSize) / cmpStride + 1;
-        actCmpSeq.emplace_back(curCmpSeq);
+        auto curCmpSeq = (curSeq - params.cmpBlockSize) / params.cmpStride + 1;
+        seqInfo.actCmpSeq.emplace_back(curCmpSeq);
     }
 
-    int cmpBlockNum = 0;
-    for (auto s : actCmpSeq) {
-        cmpBlockNum += CeilDiv(s, blockSize);
+    seqInfo.cmpBlockNum = 0;
+    for (auto s : seqInfo.actCmpSeq) {
+        seqInfo.cmpBlockNum += CeilDiv(s, params.blockSize);
     }
-    int maxCmpSeq = *(std::max_element(actCmpSeq.begin(), actCmpSeq.end()));
-    int maxCmpBlockNum = CeilDiv(maxCmpSeq, blockSize);
+    seqInfo.maxCmpSeq = *(std::max_element(seqInfo.actCmpSeq.begin(), seqInfo.actCmpSeq.end()));
+    seqInfo.maxCmpBlockNum = CeilDiv(seqInfo.maxCmpSeq, params.blockSize);
+    seqInfo.slcSize = params.slcBlockSize / params.cmpStride;
+    seqInfo.blockSlcNum = params.blockSize / seqInfo.slcSize;
 
-    const int slcSize = slcBlockSize / cmpStride;
-    const int blockSlcNum = blockSize / slcSize;
+    return seqInfo;
+}
 
-    // Construct input tensors
-    Tensor qNope(qType, {b * s1 * n1, dn}, "qNope");
-    Tensor qRope(qType, {b * s1 * n1, dr}, "qRope");
-    Tensor cmpKvCache(kType, {cmpBlockNum, blockSize, n2, dn}, "cmpKvCache");
-    Tensor cmpKrCache(kType, {cmpBlockNum, blockSize, n2, dr}, "cmpKrCache");
-    Tensor cmpBlockTable(DT_INT32, {b, maxCmpBlockNum}, "cmpBlockTable");
-    Tensor actSeq(DT_INT32, {b}, "actSeq");
-    Tensor auxTensor(DT_FP32, {slcBlockSize / cmpStride + cmpBlockSize / cmpStride - 1, n1}, "auxTensor"); // (5, n1)
-    Tensor incSeq(DT_INT32, {1, 1, maxCmpBlockNum * blockSlcNum}, "incSeq");
+struct CmpAttnTopkTensors {
+    Tensor qNope;
+    Tensor qRope;
+    Tensor cmpKvCache;
+    Tensor cmpKrCache;
+    Tensor cmpBlockTable;
+    Tensor actSeq;
+    Tensor auxTensor;
+    Tensor incSeq;
+    Tensor cmpAttn;
+    Tensor topkRes;
+};
 
-    // Construct out tensors
-    Tensor cmpAttn(DT_FP32, {b, s1, n1, dn}, "cmpAttnOut");
-    Tensor topkRes(DT_INT32, {b, s1, topk}, "topkRes");
+CmpAttnTopkTensors CreateCmpAttnTopkTensors(const CmpAttnTopkParams& params, const CmpAttnSeqInfo& seqInfo, DataType dType) {
+    CmpAttnTopkTensors tensors;
+    tensors.qNope = Tensor(dType, {params.b * params.s1 * params.n1, params.dn}, "qNope");
+    tensors.qRope = Tensor(dType, {params.b * params.s1 * params.n1, params.dr}, "qRope");
+    tensors.cmpKvCache = Tensor(dType, {seqInfo.cmpBlockNum, params.blockSize, params.n2, params.dn}, "cmpKvCache");
+    tensors.cmpKrCache = Tensor(dType, {seqInfo.cmpBlockNum, params.blockSize, params.n2, params.dr}, "cmpKrCache");
+    tensors.cmpBlockTable = Tensor(DT_INT32, {params.b, seqInfo.maxCmpBlockNum}, "cmpBlockTable");
+    tensors.actSeq = Tensor(DT_INT32, {params.b}, "actSeq");
+    tensors.auxTensor = Tensor(DT_FP32, {params.slcBlockSize / params.cmpStride + params.cmpBlockSize / params.cmpStride - 1, params.n1}, "auxTensor");
+    tensors.incSeq = Tensor(DT_INT32, {1, 1, seqInfo.maxCmpBlockNum * seqInfo.blockSlcNum}, "incSeq");
+    tensors.cmpAttn = Tensor(DT_FP32, {params.b, params.s1, params.n1, params.dn}, "cmpAttnOut");
+    tensors.topkRes = Tensor(DT_INT32, {params.b, params.s1, params.topk}, "topkRes");
 
-    // Read goldens
-    std::vector<float> attnGolden(b * s1 * n1 * dn, 0.0);
-    std::vector<int32_t> topkGolden(b * s1 * topk, 0);
+    return tensors;
+}
 
-    readInput(GetGoldenDir() + "/cmp_attn_out.bin", attnGolden);
-    readInput(GetGoldenDir() + "/topk_res.bin", topkGolden);
+struct CmpAttnTopkGoldenData {
+    std::vector<float> attnGolden;
+    std::vector<int32_t> topkGolden;
+};
 
-    auto qNopeData = CreateTensorData<T>(qNope, "/q_nope.bin");
-    auto qRopeData = CreateTensorData<T>(qRope, "/q_rope.bin");
-    auto cmpKvCacheData = CreateTensorData<T>(cmpKvCache, "/cmp_kv_cache.bin");
-    auto cmpKrCacheData = CreateTensorData<T>(cmpKrCache, "/cmp_kr_cache.bin");
-    auto cmpBlockTableData = CreateTensorData<int32_t>(cmpBlockTable, "/cmp_block_table.bin");
-    auto actSeqData = CreateTensorData<int32_t>(actSeq, "/act_seq.bin");
-    auto auxData = CreateTensorData<float>(auxTensor, "/aux_tensor.bin");
+CmpAttnTopkGoldenData ReadCmpAttnTopkGoldens(const CmpAttnTopkParams& params) {
+    CmpAttnTopkGoldenData golden;
+    golden.attnGolden.resize(params.b * params.s1 * params.n1 * params.dn, 0.0);
+    golden.topkGolden.resize(params.b * params.s1 * params.topk, 0);
 
-    auto cmpAttnData = RawTensorData::CreateConstantTensor<float>(cmpAttn, 0.0f);
-    auto topkResData = RawTensorData::CreateConstantTensor<int32_t>(topkRes, 0);
+    readInput(GetGoldenDir() + "/cmp_attn_out.bin", golden.attnGolden);
+    readInput(GetGoldenDir() + "/topk_res.bin", golden.topkGolden);
 
+    return golden;
+}
+
+template <typename T>
+struct CmpAttnTopkInputData {
+    std::shared_ptr<RawTensorData> qNopeData;
+    std::shared_ptr<RawTensorData> qRopeData;
+    std::shared_ptr<RawTensorData> cmpKvCacheData;
+    std::shared_ptr<RawTensorData> cmpKrCacheData;
+    std::shared_ptr<RawTensorData> cmpBlockTableData;
+    std::shared_ptr<RawTensorData> actSeqData;
+    std::shared_ptr<RawTensorData> auxData;
+    std::shared_ptr<RawTensorData> cmpAttnData;
+    std::shared_ptr<RawTensorData> topkResData;
+};
+
+template <typename T>
+CmpAttnTopkInputData<T> PrepareCmpAttnTopkData(const CmpAttnTopkTensors& tensors) {
+    CmpAttnTopkInputData<T> data;
+
+    data.qNopeData = CreateTensorData<T>(tensors.qNope, "/q_nope.bin");
+    data.qRopeData = CreateTensorData<T>(tensors.qRope, "/q_rope.bin");
+    data.cmpKvCacheData = CreateTensorData<T>(tensors.cmpKvCache, "/cmp_kv_cache.bin");
+    data.cmpKrCacheData = CreateTensorData<T>(tensors.cmpKrCache, "/cmp_kr_cache.bin");
+    data.cmpBlockTableData = CreateTensorData<int32_t>(tensors.cmpBlockTable, "/cmp_block_table.bin");
+    data.actSeqData = CreateTensorData<int32_t>(tensors.actSeq, "/act_seq.bin");
+    data.auxData = CreateTensorData<float>(tensors.auxTensor, "/aux_tensor.bin");
+    data.cmpAttnData = RawTensorData::CreateConstantTensor<float>(tensors.cmpAttn, 0.0f);
+    data.topkResData = RawTensorData::CreateConstantTensor<int32_t>(tensors.topkRes, 0);
+
+    return data;
+}
+
+template <typename T>
+void SetupCmpAttnTopkProgram(const CmpAttnTopkTensors& tensors, const CmpAttnTopkInputData<T>& data,
+                             const CmpAttnTopkParams& params, CmpAttnTopkTile& tileConfig) {
     std::vector<RawTensorDataPtr> inputDataList = {
-        qNopeData, qRopeData, cmpKvCacheData, cmpKrCacheData, cmpBlockTableData, actSeqData, auxData};
-    std::vector<RawTensorDataPtr> outputDataList = {cmpAttnData, topkResData};
+        data.qNopeData, data.qRopeData, data.cmpKvCacheData, data.cmpKrCacheData,
+        data.cmpBlockTableData, data.actSeqData, data.auxData
+    };
+    std::vector<RawTensorDataPtr> outputDataList = {data.cmpAttnData, data.topkResData};
 
     FUNCTION("CompressAttentionWithTopK",
-        {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor}, {cmpAttn, topkRes}) {
-        CompressAttentionWithTopK(qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor, cmpAttn,
-            topkRes, blockSize, cmpBlockSize, cmpStride, slcBlockSize, softmaxScale, n1, topk, front, near, tileConfig);
+        {tensors.qNope, tensors.qRope, tensors.cmpKvCache, tensors.cmpKrCache, tensors.cmpBlockTable,
+         tensors.actSeq, tensors.auxTensor}, {tensors.cmpAttn, tensors.topkRes}) {
+        CompressAttentionWithTopK(tensors.qNope, tensors.qRope, tensors.cmpKvCache, tensors.cmpKrCache,
+            tensors.cmpBlockTable, tensors.actSeq, tensors.auxTensor, tensors.cmpAttn, tensors.topkRes,
+            params.blockSize, params.cmpBlockSize, params.cmpStride, params.slcBlockSize, params.softmaxScale,
+            params.n1, params.topk, params.front, params.near, tileConfig);
     }
 
     auto funcop = Program::GetInstance().GetLastFunction();
     ProgramData::GetInstance().AppendInputs(inputDataList);
     ProgramData::GetInstance().AppendOutputs(outputDataList);
     DevFuncRunner::Run(funcop);
+}
 
-    float eps = 3e-3f; // Compare results
+template <typename T>
+void RunAndVerifyCmpAttnTopk(const CmpAttnTopkInputData<T>& data, const CmpAttnTopkGoldenData& golden) {
+    float eps = 3e-3f;
     std::cout << "=======================attnOut===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(attnGolden, (float *)cmpAttnData->data(), eps, 100));
+    EXPECT_TRUE(resultCmp(golden.attnGolden, (float *)data.cmpAttnData->data(), eps, 100));
     std::cout << "=======================topkRes===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(topkGolden, (int32_t *)topkResData->data(), 0, 0, 3, false, false, 128));
+    EXPECT_TRUE(resultCmp(golden.topkGolden, (int32_t *)data.topkResData->data(), 0, 0, 3, false, false, 128));
+}
+
+template <typename T = npu::tile_fwk::bfloat16>
+void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig) {
+    DataType dType = GetCmpAttnTopkDataType<T>();
+    CmpAttnTopkParams params = ReadCmpAttnTopkParams();
+    CmpAttnSeqInfo seqInfo = ProcessCmpAttnSeq(params);
+    CmpAttnTopkTensors tensors = CreateCmpAttnTopkTensors(params, seqInfo, dType);
+
+    auto goldenData = ReadCmpAttnTopkGoldens(params);
+    auto inputData = PrepareCmpAttnTopkData<T>(tensors);
+
+    SetupCmpAttnTopkProgram(tensors, inputData, params, tileConfig);
+    RunAndVerifyCmpAttnTopk(inputData, goldenData);
 }
 
 void CommonTestConfig() {

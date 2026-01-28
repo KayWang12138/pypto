@@ -31,96 +31,177 @@ using namespace npu::tile_fwk::dynamic;
 
 class DynamicSlcTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-template <typename T = npu::tile_fwk::float16, DataType tensorType = DataType::DT_FP16>
-void testSlc(KvSlcTileShapeConfig& tileConfig) {
-    SetInterpreterConfig();
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
+struct KvSlcParams {
+    int blockSize;
+    int b;
+    int s;
+    int n2;
+    int kv_lora_rank;
+    int rope_dim;
+    int front;
+    int near;
+    int topK;
+    int l_prime;
+    int blockNum;
+    int maxBlockNumPerBatch;
+};
+
+KvSlcParams ReadKvSlcParams() {
+    KvSlcParams params;
     int paramsSize = 10;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", input_param);
 
-    int blockSize = input_param[9];
-    int b = input_param[0];
-    int s = input_param[1];
-    int n2 = input_param[2];
-    int kv_lora_rank = input_param[3];
-    int rope_dim = input_param[4];
-    int front = input_param[5];
-    int near = input_param[6];
-    int topK = input_param[7];
-    int l_prime = input_param[8];
-    std::vector<int> seq(b);
+    params.blockSize = input_param[9];
+    params.b = input_param[0];
+    params.s = input_param[1];
+    params.n2 = input_param[2];
+    params.kv_lora_rank = input_param[3];
+    params.rope_dim = input_param[4];
+    params.front = input_param[5];
+    params.near = input_param[6];
+    params.topK = input_param[7];
+    params.l_prime = input_param[8];
+
+    std::vector<int> seq(params.b);
     readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
 
-    int blockNum = 0;
+    params.blockNum = 0;
     for (auto seq_item : seq) {
-        blockNum += CeilDiv(seq_item, blockSize);
+        params.blockNum += CeilDiv(seq_item, params.blockSize);
     }
     int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
-    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
-    // 读数据
-    Tensor topk_tensor(DT_INT32, {b, s, topK - front - near}, "topk_tensor");
-    Tensor topk_tensor_shape(DT_INT32, {b, s}, "topk_tensor_shape");
-    Tensor kvNopeCache(tensorType, {int(blockNum * blockSize), n2 * kv_lora_rank}, "kNopeCache");
-    Tensor kRopeCache(tensorType, {int(blockNum * blockSize), n2 * rope_dim}, "vNopeCache");
-    Tensor kvActSeqs(DT_INT32, {b}, "kvActSeqs");
-    Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
-    Tensor k_slcOut(tensorType, {b * s * n2 * topK * l_prime, rope_dim + kv_lora_rank}, "k_slcOut");
-    Tensor v_slcOut(tensorType, {b * s * n2 * topK * l_prime, kv_lora_rank}, "v_slcOut");
-    Tensor kvSlcActSeqs(DT_INT32, {b, s}, "kvSlcActSeqs");
+    params.maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, params.blockSize);
 
-    // 读数据
-    std::vector<int32_t> topkTensorData(b * s * (topK - front - near), 0);
-    std::vector<int32_t> topkTensorShapeData(b * s, 0);
-    std::vector<T> kvNopeCacheData(blockNum * blockSize * n2 * kv_lora_rank, 0);
-    std::vector<T> kRopeCacheData(blockNum * blockSize * n2 * rope_dim, 0);
-    std::vector<int32_t> kvActSeqsData(b, 0);
-    std::vector<int32_t> blockTableData(b * maxBlockNumPerBatch, 0);
-    std::vector<int32_t> kvSlcActSeqsData(b * s, 0);
+    return params;
+}
 
-    GenKvSlc(topk_tensor, topk_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topK, l_prime,
-            n2, blockTable, blockSize, k_slcOut, v_slcOut, kvSlcActSeqs, tileConfig);
+struct KvSlcTensors {
+    Tensor topk_tensor;
+    Tensor topk_tensor_shape;
+    Tensor kvNopeCache;
+    Tensor kRopeCache;
+    Tensor kvActSeqs;
+    Tensor blockTable;
+    Tensor k_slcOut;
+    Tensor v_slcOut;
+    Tensor kvSlcActSeqs;
+};
 
-    readInput<int32_t>(GetGoldenDir() + "/topk_tensor.bin", topkTensorData);
-    readInput<int32_t>(GetGoldenDir() + "/topk_tensor_shape.bin", topkTensorShapeData);
-    readInput<T>(GetGoldenDir() + "/kv_nope_cache.bin", kvNopeCacheData);
-    readInput<T>(GetGoldenDir() + "/k_rope_cache.bin", kRopeCacheData);
-    readInput<int32_t>(GetGoldenDir() + "/actual_seq_len.bin", kvActSeqsData);
-    readInput<int32_t>(GetGoldenDir() + "/block_table.bin", blockTableData);
-    std::vector<T> k_golden(b * s * n2 * topK * l_prime * (rope_dim + kv_lora_rank), 0);
-    std::vector<T> v_golden(b * s * n2 * topK * l_prime * kv_lora_rank, 0);
-    std::vector<int32_t> kvSlcActSeqs_golden(b * s, 0);
+KvSlcTensors CreateKvSlcTensors(const KvSlcParams& params, DataType tensorType) {
+    KvSlcTensors tensors;
+    tensors.topk_tensor = Tensor(DT_INT32, {params.b, params.s, params.topK - params.front - params.near}, "topk_tensor");
+    tensors.topk_tensor_shape = Tensor(DT_INT32, {params.b, params.s}, "topk_tensor_shape");
+    tensors.kvNopeCache = Tensor(tensorType, {int(params.blockNum * params.blockSize), params.n2 * params.kv_lora_rank}, "kNopeCache");
+    tensors.kRopeCache = Tensor(tensorType, {int(params.blockNum * params.blockSize), params.n2 * params.rope_dim}, "vNopeCache");
+    tensors.kvActSeqs = Tensor(DT_INT32, {params.b}, "kvActSeqs");
+    tensors.blockTable = Tensor(DT_INT32, {params.b, params.maxBlockNumPerBatch}, "blockTable");
+    tensors.k_slcOut = Tensor(tensorType, {params.b * params.s * params.n2 * params.topK * params.l_prime, params.rope_dim + params.kv_lora_rank}, "k_slcOut");
+    tensors.v_slcOut = Tensor(tensorType, {params.b * params.s * params.n2 * params.topK * params.l_prime, params.kv_lora_rank}, "v_slcOut");
+    tensors.kvSlcActSeqs = Tensor(DT_INT32, {params.b, params.s}, "kvSlcActSeqs");
+    return tensors;
+}
 
-    readInput(GetGoldenDir() + "/k_slc_out.bin", k_golden);
-    readInput(GetGoldenDir() + "/v_slc_out.bin", v_golden);
-    readInput(GetGoldenDir() + "/kv_slc_actual_seqs.bin", kvSlcActSeqs_golden);
+template <typename T>
+struct KvSlcInputData {
+    std::vector<int32_t> topkTensorData;
+    std::vector<int32_t> topkTensorShapeData;
+    std::vector<T> kvNopeCacheData;
+    std::vector<T> kRopeCacheData;
+    std::vector<int32_t> kvActSeqsData;
+    std::vector<int32_t> blockTableData;
+    std::vector<int32_t> kvSlcActSeqsData;
+};
 
+template <typename T>
+KvSlcInputData<T> ReadKvSlcInputData(const KvSlcParams& params) {
+    KvSlcInputData<T> data;
+    data.topkTensorData.resize(params.b * params.s * (params.topK - params.front - params.near), 0);
+    data.topkTensorShapeData.resize(params.b * params.s, 0);
+    data.kvNopeCacheData.resize(params.blockNum * params.blockSize * params.n2 * params.kv_lora_rank, 0);
+    data.kRopeCacheData.resize(params.blockNum * params.blockSize * params.n2 * params.rope_dim, 0);
+    data.kvActSeqsData.resize(params.b, 0);
+    data.blockTableData.resize(params.b * params.maxBlockNumPerBatch, 0);
+    data.kvSlcActSeqsData.resize(params.b * params.s, 0);
+
+    readInput<int32_t>(GetGoldenDir() + "/topk_tensor.bin", data.topkTensorData);
+    readInput<int32_t>(GetGoldenDir() + "/topk_tensor_shape.bin", data.topkTensorShapeData);
+    readInput<T>(GetGoldenDir() + "/kv_nope_cache.bin", data.kvNopeCacheData);
+    readInput<T>(GetGoldenDir() + "/k_rope_cache.bin", data.kRopeCacheData);
+    readInput<int32_t>(GetGoldenDir() + "/actual_seq_len.bin", data.kvActSeqsData);
+    readInput<int32_t>(GetGoldenDir() + "/block_table.bin", data.blockTableData);
+    return data;
+}
+
+template <typename T>
+struct KvSlcGoldenData {
+    std::vector<T> k_golden;
+    std::vector<T> v_golden;
+    std::vector<int32_t> kvSlcActSeqs_golden;
+};
+
+template <typename T>
+KvSlcGoldenData<T> ReadKvSlcGoldenData(const KvSlcParams& params) {
+    KvSlcGoldenData<T> golden;
+    golden.k_golden.resize(params.b * params.s * params.n2 * params.topK * params.l_prime * (params.rope_dim + params.kv_lora_rank), 0);
+    golden.v_golden.resize(params.b * params.s * params.n2 * params.topK * params.l_prime * params.kv_lora_rank, 0);
+    golden.kvSlcActSeqs_golden.resize(params.b * params.s, 0);
+
+    readInput(GetGoldenDir() + "/k_slc_out.bin", golden.k_golden);
+    readInput(GetGoldenDir() + "/v_slc_out.bin", golden.v_golden);
+    readInput(GetGoldenDir() + "/kv_slc_actual_seqs.bin", golden.kvSlcActSeqs_golden);
+    return golden;
+}
+
+template <typename T>
+void SetupKvSlcProgramData(const KvSlcTensors& tensors, const KvSlcInputData<T>& inputData, const KvSlcGoldenData<T>& goldenData) {
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<int32_t>(topk_tensor, topkTensorData),
-        RawTensorData::CreateTensor<int32_t>(topk_tensor_shape, topkTensorShapeData),
-        RawTensorData::CreateTensor<T>(kvNopeCache, kvNopeCacheData),
-        RawTensorData::CreateTensor<T>(kRopeCache, kRopeCacheData),
-        RawTensorData::CreateTensor<int32_t>(kvActSeqs, kvActSeqsData),
-        RawTensorData::CreateTensor<int32_t>(blockTable, blockTableData),
+        RawTensorData::CreateTensor<int32_t>(tensors.topk_tensor, inputData.topkTensorData),
+        RawTensorData::CreateTensor<int32_t>(tensors.topk_tensor_shape, inputData.topkTensorShapeData),
+        RawTensorData::CreateTensor<T>(tensors.kvNopeCache, inputData.kvNopeCacheData),
+        RawTensorData::CreateTensor<T>(tensors.kRopeCache, inputData.kRopeCacheData),
+        RawTensorData::CreateTensor<int32_t>(tensors.kvActSeqs, inputData.kvActSeqsData),
+        RawTensorData::CreateTensor<int32_t>(tensors.blockTable, inputData.blockTableData),
     });
     ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<T>(k_slcOut, 0),
-        RawTensorData::CreateConstantTensor<T>(v_slcOut, 0),
-        RawTensorData::CreateConstantTensor<int32_t>(kvSlcActSeqs, 0),
+        RawTensorData::CreateConstantTensor<T>(tensors.k_slcOut, 0),
+        RawTensorData::CreateConstantTensor<T>(tensors.v_slcOut, 0),
+        RawTensorData::CreateConstantTensor<int32_t>(tensors.kvSlcActSeqs, 0),
     });
     ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateTensor<T>(k_slcOut, k_golden),
-        RawTensorData::CreateTensor<T>(v_slcOut, v_golden),
-        RawTensorData::CreateTensor<int32_t>(kvSlcActSeqs, kvSlcActSeqs_golden),
+        RawTensorData::CreateTensor<T>(tensors.k_slcOut, goldenData.k_golden),
+        RawTensorData::CreateTensor<T>(tensors.v_slcOut, goldenData.v_golden),
+        RawTensorData::CreateTensor<int32_t>(tensors.kvSlcActSeqs, goldenData.kvSlcActSeqs_golden),
     });
+}
 
+template <typename T>
+void RunAndVerifyKvSlc(const KvSlcGoldenData<T>& goldenData) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto k_Out = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     auto v_Out = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
     auto kvSlcActSeqs_out = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(2);
-    EXPECT_TRUE(resultCmp(k_golden, (T *)k_Out->data(), 0.0005f));
-    EXPECT_TRUE(resultCmp(v_golden, (T *)v_Out->data(), 0.0005f));
-    EXPECT_TRUE(resultCmp(kvSlcActSeqs_golden, (int32_t *)kvSlcActSeqs_out->data(), 0.0005f));
+    EXPECT_TRUE(resultCmp(goldenData.k_golden, (T *)k_Out->data(), 0.0005f));
+    EXPECT_TRUE(resultCmp(goldenData.v_golden, (T *)v_Out->data(), 0.0005f));
+    EXPECT_TRUE(resultCmp(goldenData.kvSlcActSeqs_golden, (int32_t *)kvSlcActSeqs_out->data(), 0.0005f));
+}
+
+template <typename T = npu::tile_fwk::float16, DataType tensorType = DataType::DT_FP16>
+void testSlc(KvSlcTileShapeConfig& tileConfig) {
+    SetInterpreterConfig();
+
+    KvSlcParams params = ReadKvSlcParams();
+    KvSlcTensors tensors = CreateKvSlcTensors(params, tensorType);
+
+    GenKvSlc(tensors.topk_tensor, tensors.topk_tensor_shape, tensors.kvNopeCache, tensors.kRopeCache, tensors.kvActSeqs,
+             params.front, params.near, params.topK, params.l_prime, params.n2, tensors.blockTable,
+             params.blockSize, tensors.k_slcOut, tensors.v_slcOut, tensors.kvSlcActSeqs, tileConfig);
+
+    auto inputData = ReadKvSlcInputData<T>(params);
+    auto goldenData = ReadKvSlcGoldenData<T>(params);
+
+    SetupKvSlcProgramData(tensors, inputData, goldenData);
+    RunAndVerifyKvSlc(goldenData);
 }
 
 TEST_F(DynamicSlcTest, dynamic_p_slc_fp16) {

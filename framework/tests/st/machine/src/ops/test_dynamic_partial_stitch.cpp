@@ -24,9 +24,29 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
+void BuildPartialFunction(const Tensor& q, const Tensor& seq, Tensor& out, 
+                          DataType vType, const std::vector<int64_t>& midShape, 
+                          int blockSize)
+{
+    FUNCTION("main", {q, seq}, {out}) {
+        Tensor mid(vType, midShape, "mid");
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (blockSize))) {
+            Tensor block = View(q, {blockSize, blockSize}, {batchId * blockSize, 0});
+            SymbolicScalar curSeq = GetTensorData(seq, {batchId});
+            config::SetSemanticLabel("add");
+            Tensor add = Add(block, block);
+            Assemble(add, {curSeq * blockSize, 0}, mid);
+        }
+        LOOP("SUM", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
+            (void)_;
+            config::SetSemanticLabel("adds");
+            out = Add(mid, Element(DT_FP32, 1.0f));
+        }
+    }
+}
+
 TEST_F(DynamicTest, TestPartial) {
     SetInterpreterConfig();
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
 
     TileShape::Current().SetVecTile(16, 16);
 
@@ -70,21 +90,7 @@ TEST_F(DynamicTest, TestPartial) {
         RawTensorData::CreateTensor<float>(out, goldenData),
     });
 
-    FUNCTION("main", {q, seq}, {out}) {
-        Tensor mid(vType, midShape, "mid");
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, batchId, LoopRange(GetInputShape(q, 0) / (blockSize))) {
-            Tensor block = View(q, {blockSize, blockSize}, {batchId * blockSize, 0});
-            SymbolicScalar curSeq = GetTensorData(seq, {batchId});
-            config::SetSemanticLabel("add");
-            Tensor add = Add(block, block);
-            Assemble(add, {curSeq * blockSize, 0}, mid);
-        }
-        LOOP("SUM", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
-            (void)_;
-            config::SetSemanticLabel("adds");
-            out = Add(mid, Element(DT_FP32, 1.0f));
-        }
-    }
+    BuildPartialFunction(q, seq, out, vType, midShape, blockSize);
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
 
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);

@@ -22,286 +22,413 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicAttention : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 namespace {
+struct AttentionTestParams {
+    int b;
+    int s;
+    int s2;
+    int n;
+    int h;
+    int qLoraRank;
+    int qkNopeHeadDim;
+    int qkRopeHeadDim;
+    int kvLoraRank;
+    int vHeadDim;
+    int blockSize;
+    int q_head_dim;
+    int maxSeqAllBatch;
+    int maxBlockNumPerBatch;
+    int blockNum;
+    float softmaxScale;
+    std::vector<int> atcSeqs;
+};
+
+void SetupRuntimeConfig() {
+    config::SetRuntimeOption(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
+    config::SetRuntimeOption(STITCH_FUNCTION_NUM_INITIAL, 128);
+}
+
+AttentionTestParams ParseParams(const std::vector<int> &params, const std::string &dataPath) {
+    AttentionTestParams parsed;
+
+    parsed.b = params[0];
+    parsed.s = params[1];
+    parsed.s2 = params[2];
+    parsed.n = params[3];
+    parsed.h = params[4];
+    parsed.qLoraRank = params[5];
+    parsed.qkNopeHeadDim = params[6];
+    parsed.qkRopeHeadDim = params[7];
+    parsed.kvLoraRank = params[8];
+    parsed.vHeadDim = params[9];
+    parsed.blockSize = params[10];
+    parsed.q_head_dim = parsed.qkNopeHeadDim + parsed.qkRopeHeadDim;
+
+    parsed.atcSeqs.resize(parsed.b);
+    readInput<int>(dataPath + "/actual_seq_len.bin", parsed.atcSeqs);
+
+    parsed.blockNum = 0;
+    for (auto seq : parsed.atcSeqs) {
+        parsed.blockNum += CeilDiv(seq, parsed.blockSize);
+    }
+
+    parsed.softmaxScale = static_cast<float>(1.0 / sqrtf((parsed.kvLoraRank + parsed.qkRopeHeadDim)));
+    parsed.maxSeqAllBatch = *(std::max_element(parsed.atcSeqs.begin(), parsed.atcSeqs.end()));
+    parsed.maxBlockNumPerBatch = CeilDiv(parsed.maxSeqAllBatch, parsed.blockSize);
+
+    return parsed;
+}
+
+DataType GetDtype(bool isQuant, DataType baseDtype) {
+    return isQuant ? DT_INT8 : baseDtype;
+}
+
+template <typename T>
+DataType GetTemplateDtype() {
+    if (std::is_same<T, npu::tile_fwk::float16>::value) {
+        return DT_FP16;
+    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
+        return DT_BF16;
+    }
+    return DT_FP32;
+}
+
+template <typename T, typename wDtype, bool usePrefetch>
+struct AttentionTestTensors {
+    // Input tensors
+    Tensor x, wDq, wUqQr, wDkvKr, wUk, gamma_cq, gamma_ckv, cos, sin, kv_len, kv_cache, kr_cache, w_qb_scale, smooth_cq;
+    // Output tensors
+    Tensor output_q, output_q_rope, output_kv_cache, output_kr_cache;
+    // PA tensors
+    Tensor blockTable, actSeqs, paOut;
+    // Post tensors
+    Tensor weightUV, weightO, weightOScaleW, postOut;
+    RoPETileShapeConfigNew ropeConfig;
+};
+
+struct AttentionTestCapacities {
+    int64_t capacity_x, wDqCapacity, wUqQrCapacity, wDkvKrCapacity, wUkCapacity;
+    int64_t capacity_cos, capacity_gamma_cq, capacity_gamma_ckv, capacity_kv_len;
+    int64_t capacity_kv_cache, capacity_kr_cache, capacity_w_qb_scale, capacity_smooth_cq;
+    int64_t capacity_q_out, capacity_q_rope_out, capacity_fake_out, capacity_fake_out1;
+};
+
+AttentionTestCapacities DefineTensorShapesAndCapacities(const AttentionTestParams &p, const std::string &cacheMode,
+    std::vector<int64_t> &kv_cache_shape, std::vector<int64_t> &kr_cache_shape) {
+    AttentionTestCapacities caps;
+
+    kv_cache_shape = {p.b, 1, p.s2, p.kvLoraRank};
+    kr_cache_shape = {p.b, 1, p.s2, p.qkRopeHeadDim};
+    if (cacheMode != "BNSD") {
+        kv_cache_shape = {p.blockNum, p.blockSize, 1, p.kvLoraRank};
+        kr_cache_shape = {p.blockNum, p.blockSize, 1, p.qkRopeHeadDim};
+    }
+
+    std::vector<int64_t> x_shape = {p.b, p.s, p.h};
+    std::vector<int64_t> w_qa_shape = {p.h, p.qLoraRank};
+    std::vector<int64_t> w_qb_shape = {p.qLoraRank, p.n * p.q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {p.h, p.kvLoraRank + p.qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {p.n, p.qkNopeHeadDim, p.kvLoraRank};
+    std::vector<int64_t> cos_shape = {p.b, p.s, p.qkRopeHeadDim};
+    std::vector<int64_t> gamma_cq_shape = {p.qLoraRank};
+    std::vector<int64_t> gamma_ckv_shape = {p.kvLoraRank};
+    std::vector<int64_t> kv_len_shape = {p.b, p.s};
+    std::vector<int64_t> w_qb_scale_shape = {1, p.n * p.q_head_dim};
+    std::vector<int64_t> smooth_cq_shape = {1, p.qLoraRank};
+    std::vector<int64_t> q_out_shape = {p.b, p.s, p.n, p.kvLoraRank};
+    std::vector<int64_t> q_rope_out_shape = {p.b, p.s, p.n, p.qkRopeHeadDim};
+    std::vector<int64_t> fake_out_shape = {p.b, p.s, p.kvLoraRank + p.qkRopeHeadDim};
+    std::vector<int64_t> fake_out_shape1 = {p.n, p.b * p.s, p.qkNopeHeadDim};
+
+    auto calc_capacity = [](const std::vector<int64_t> &shape) {
+        return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    };
+
+    caps.capacity_x = calc_capacity(x_shape);
+    caps.wDqCapacity = calc_capacity(w_qa_shape);
+    caps.wUqQrCapacity = calc_capacity(w_qb_shape);
+    caps.wDkvKrCapacity = calc_capacity(w_kv_a_shape);
+    caps.wUkCapacity = calc_capacity(w_kv_b_k_shape);
+    caps.capacity_cos = calc_capacity(cos_shape);
+    caps.capacity_gamma_cq = calc_capacity(gamma_cq_shape);
+    caps.capacity_gamma_ckv = calc_capacity(gamma_ckv_shape);
+    caps.capacity_kv_len = calc_capacity(kv_len_shape);
+    caps.capacity_kv_cache = calc_capacity(kv_cache_shape);
+    caps.capacity_kr_cache = calc_capacity(kr_cache_shape);
+    caps.capacity_w_qb_scale = calc_capacity(w_qb_scale_shape);
+    caps.capacity_smooth_cq = calc_capacity(smooth_cq_shape);
+    caps.capacity_q_out = calc_capacity(q_out_shape);
+    caps.capacity_q_rope_out = calc_capacity(q_rope_out_shape);
+    caps.capacity_fake_out = calc_capacity(fake_out_shape);
+    caps.capacity_fake_out1 = calc_capacity(fake_out_shape1);
+
+    return caps;
+}
+
+template <typename T, typename wDtype, bool usePrefetch>
+void CreateAllTensors(const AttentionTestParams &p, DataType dType, DataType dTypeQuantIn,
+    TileOpFormat weightFormat, TileOpFormat paFormat, bool isQuant, bool isSmooth,
+    const std::string &cacheMode, const std::vector<int64_t> &kv_cache_shape,
+    const std::vector<int64_t> &kr_cache_shape, AttentionTestTensors<T, wDtype, usePrefetch> &tensors) {
+
+    std::vector<int64_t> x_shape = {p.b, p.s, p.h};
+    std::vector<int64_t> w_qa_shape = {p.h, p.qLoraRank};
+    std::vector<int64_t> w_qb_shape = {p.qLoraRank, p.n * p.q_head_dim};
+    std::vector<int64_t> w_kv_a_shape = {p.h, p.kvLoraRank + p.qkRopeHeadDim};
+    std::vector<int64_t> w_kv_b_k_shape = {p.n, p.qkNopeHeadDim, p.kvLoraRank};
+    std::vector<int64_t> cos_shape = {p.b, p.s, p.qkRopeHeadDim};
+    std::vector<int64_t> gamma_cq_shape = {p.qLoraRank};
+    std::vector<int64_t> gamma_ckv_shape = {p.kvLoraRank};
+    std::vector<int64_t> kv_len_shape = {p.b, p.s};
+    std::vector<int64_t> w_qb_scale_shape = {1, p.n * p.q_head_dim};
+    std::vector<int64_t> smooth_cq_shape = {1, p.qLoraRank};
+
+    tensors.x = Tensor(dType, x_shape, "x");
+    tensors.wDq = Tensor(dType, w_qa_shape, "wDq", weightFormat);
+    tensors.wUqQr = Tensor(dTypeQuantIn, w_qb_shape, "wUqQr", weightFormat);
+    if constexpr (usePrefetch) {
+        tensors.wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
+        tensors.wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
+    }
+    tensors.wDkvKr = Tensor(dType, w_kv_a_shape, "wDkvKr", weightFormat);
+    tensors.wUk = Tensor(dType, w_kv_b_k_shape, "wUk", weightFormat);
+    tensors.gamma_cq = Tensor(dType, gamma_cq_shape, "gamma_cq");
+    tensors.gamma_ckv = Tensor(dType, gamma_ckv_shape, "gamma_ckv");
+    tensors.cos = Tensor(dType, cos_shape, "cos");
+    tensors.sin = Tensor(dType, cos_shape, "sin");
+    tensors.kv_len = Tensor(DT_INT64, kv_len_shape, "kv_len");
+    tensors.kv_cache = Tensor(dType, kv_cache_shape, "kv_cache", paFormat);
+    tensors.kr_cache = Tensor(dType, kr_cache_shape, "kr_cache", paFormat);
+    if (isQuant) {
+        tensors.w_qb_scale = Tensor(DT_FP32, w_qb_scale_shape, "w_qb_scale");
+        if (isSmooth) {
+            tensors.smooth_cq = Tensor(DT_FP32, smooth_cq_shape, "smooth_cq");
+        }
+    }
+
+    tensors.output_q = Tensor(dType, {p.b*p.s*p.n, p.kvLoraRank}, "output_q");
+    tensors.output_q_rope = Tensor(dType, {p.b*p.s*p.n, p.qkRopeHeadDim}, "output_q_rope");
+    tensors.output_kv_cache = Tensor(dType, {p.b * 1 * p.s2, p.kvLoraRank}, "output_kv_cache", paFormat);
+    tensors.output_kr_cache = Tensor(dType, {p.b * 1 * p.s2, p.qkRopeHeadDim}, "output_kr_cache", paFormat);
+
+    tensors.blockTable = Tensor(DT_INT32, {p.b, p.maxBlockNumPerBatch}, "blockTable");
+    tensors.actSeqs = Tensor(DT_INT32, {p.b}, "actSeqs");
+    tensors.paOut = Tensor(DT_FP32, {p.b * p.n * p.s, p.kvLoraRank}, "paOut");
+
+    tensors.weightUV = Tensor(dType, {p.n, p.kvLoraRank, p.vHeadDim}, "weightUV");
+    tensors.weightUV.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
+    tensors.weightO = Tensor(DT_INT8, {p.n * p.vHeadDim, p.h}, "weightO", weightFormat);
+    tensors.weightO.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
+    tensors.weightOScaleW = Tensor(DT_FP32, {1, p.h}, "weightOScaleW");
+    tensors.weightOScaleW.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
+
+    tensors.postOut = Tensor(dType, x_shape, "postOut");
+    tensors.postOut.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
+
+    int tileB = p.b;
+    tensors.ropeConfig = RoPETileShapeConfigNew {
+        {tileB, 1, 64},
+        {tileB, 1, 1, 64},
+        {tileB, 1, 1, 64},
+        {tileB, 1, 1, 32, 2}
+    };
+}
+
+template <typename T, typename wDtype>
+struct AttentionTestDataVectors {
+    std::vector<T> xValue, wDqValue, wUkValue, wDkvKrValue, gammaCqValue, gammaCkvValue, sinValue, cosValue;
+    std::vector<wDtype> wUqQrValue;
+    std::vector<int64_t> kvLenValue;
+    std::vector<T> kvCacheValue, krCacheValue;
+    std::vector<float> wQbScaleValue, smoothCqValue;
+    std::vector<int32_t> blockTableValue, actSeqsValue;
+    std::vector<T> weightUVValue;
+    std::vector<int8_t> weightOValue;
+    std::vector<float> weightOScaleWValue;
+    std::vector<T> q_golden, q_rope_golden, kv_cache_golden, kr_cache_golden, golden5, golden6;
+    std::vector<float> atten_out_golden;
+    std::vector<T> attn_output_golden;
+};
+
+template <typename T, typename wDtype>
+void CreateAllDataVectors(const AttentionTestParams &p, const AttentionTestCapacities &caps,
+    AttentionTestDataVectors<T, wDtype> &data) {
+    data.xValue.resize(caps.capacity_x);
+    data.wDqValue.resize(caps.wDqCapacity);
+    data.wUqQrValue.resize(caps.wUqQrCapacity);
+    data.wUkValue.resize(caps.wUkCapacity);
+    data.wDkvKrValue.resize(caps.wDkvKrCapacity);
+    data.gammaCqValue.resize(caps.capacity_gamma_cq);
+    data.gammaCkvValue.resize(caps.capacity_gamma_ckv);
+    data.sinValue.resize(caps.capacity_cos);
+    data.cosValue.resize(caps.capacity_cos);
+    data.kvLenValue.resize(caps.capacity_kv_len);
+    data.kvCacheValue.resize(caps.capacity_kv_cache);
+    data.krCacheValue.resize(caps.capacity_kr_cache);
+    data.wQbScaleValue.resize(caps.capacity_w_qb_scale);
+    data.smoothCqValue.resize(caps.capacity_smooth_cq);
+    data.blockTableValue.resize(p.b * p.maxBlockNumPerBatch);
+    data.actSeqsValue.resize(p.b * p.s2);
+    data.weightUVValue.resize(p.n * p.kvLoraRank * p.vHeadDim);
+    data.weightOValue.resize(p.n * p.vHeadDim * p.h);
+    data.weightOScaleWValue.resize(p.h);
+    data.q_golden.resize(caps.capacity_q_out);
+    data.q_rope_golden.resize(caps.capacity_q_rope_out);
+    data.kv_cache_golden.resize(caps.capacity_kv_cache);
+    data.kr_cache_golden.resize(caps.capacity_kr_cache);
+    data.golden5.resize(caps.capacity_fake_out);
+    data.golden6.resize(caps.capacity_fake_out1);
+    data.atten_out_golden.resize(p.b * p.n * p.s * p.kvLoraRank);
+    data.attn_output_golden.resize(caps.capacity_x);
+}
+
+template <typename T, typename wDtype>
+void LoadAllData(const std::string &dataPath, const AttentionTestParams &p, bool isQuant, bool isSmooth,
+    AttentionTestDataVectors<T, wDtype> &data) {
+    readInput<T>(dataPath + "/x.bin", data.xValue);
+    readInput<T>(dataPath + "/wDq.bin", data.wDqValue);
+    readInput<wDtype>(dataPath + "/wUqQr.bin", data.wUqQrValue);
+    readInput<T>(dataPath + "/wUk.bin", data.wUkValue);
+    readInput<T>(dataPath + "/wDkvKr.bin", data.wDkvKrValue);
+    readInput<T>(dataPath + "/gamma_cq.bin", data.gammaCqValue);
+    readInput<T>(dataPath + "/gamma_ckv.bin", data.gammaCkvValue);
+    readInput<T>(dataPath + "/sin.bin", data.sinValue);
+    readInput<T>(dataPath + "/cos.bin", data.cosValue);
+    readInput<int64_t>(dataPath + "/kv_len.bin", data.kvLenValue);
+    readInput<T>(dataPath + "/kv_cache.bin", data.kvCacheValue);
+    readInput<T>(dataPath + "/kr_cache.bin", data.krCacheValue);
+    if (isQuant) {
+        readInput<float>(dataPath + "/w_qb_scale.bin", data.wQbScaleValue);
+        if (isSmooth) {
+            readInput<float>(dataPath + "/smooth_cq.bin", data.smoothCqValue);
+        }
+    }
+    readInput<int32_t>(dataPath + "/block_table.bin", data.blockTableValue);
+    readInput<int32_t>(dataPath + "/actual_seq_len.bin", data.actSeqsValue);
+    readInput<T>(dataPath + "/w_uv.bin", data.weightUVValue);
+    readInput<int8_t>(dataPath + "/w_o.bin", data.weightOValue);
+    readInput<float>(dataPath + "/w_o_scale_w.bin", data.weightOScaleWValue);
+    readInput<T>(dataPath + "/q_golden.bin", data.q_golden);
+    readInput<T>(dataPath + "/q_rope_golden.bin", data.q_rope_golden);
+    readInput<T>(dataPath + "/kv_cache_golden.bin", data.kv_cache_golden);
+    readInput<T>(dataPath + "/kr_cache_golden.bin", data.kr_cache_golden);
+    readInput<float>(dataPath + "/atten_out.bin", data.atten_out_golden);
+    readInput<T>(dataPath + "/attn_output.bin", data.attn_output_golden);
+}
+
+template <typename T, typename wDtype, bool usePrefetch>
+struct AttentionTestTensorData {
+    std::shared_ptr<RawTensorData> xData, wDqData, wUqQrData, wUkData, wDkvKrData;
+    std::shared_ptr<RawTensorData> gammaCqData, gammaCkvData, cosData, sinData, kvLenData;
+    std::shared_ptr<RawTensorData> kvCacheData, krCacheData, wQbScaleData, smoothCqData;
+    std::shared_ptr<RawTensorData> outputQData, outputQRopeData;
+    std::shared_ptr<RawTensorData> blockTableData, actSeqsData, paOutData;
+    std::shared_ptr<RawTensorData> weightUVData, weightOData, weightOScaleWData, postOutData;
+};
+
+template <typename T, typename wDtype>
+void CreateAllTensorData(const AttentionTestTensors<T, wDtype, false> &tensors,
+    const AttentionTestDataVectors<T, wDtype> &data, bool isQuant, bool isSmooth,
+    AttentionTestTensorData<T, wDtype, false> &tensorData) {
+    tensorData.xData = RawTensorData::CreateTensor<T>(tensors.x, data.xValue);
+    tensorData.wDqData = RawTensorData::CreateTensor<T>(tensors.wDq, data.wDqValue);
+    tensorData.wUqQrData = RawTensorData::CreateTensor<wDtype>(tensors.wUqQr, data.wUqQrValue);
+    tensorData.wUkData = RawTensorData::CreateTensor<T>(tensors.wUk, data.wUkValue);
+    tensorData.wDkvKrData = RawTensorData::CreateTensor<T>(tensors.wDkvKr, data.wDkvKrValue);
+    tensorData.gammaCqData = RawTensorData::CreateTensor<T>(tensors.gamma_cq, data.gammaCqValue);
+    tensorData.gammaCkvData = RawTensorData::CreateTensor<T>(tensors.gamma_ckv, data.gammaCkvValue);
+    tensorData.cosData = RawTensorData::CreateTensor<T>(tensors.cos, data.cosValue);
+    tensorData.sinData = RawTensorData::CreateTensor<T>(tensors.sin, data.sinValue);
+    tensorData.kvLenData = RawTensorData::CreateTensor<int64_t>(tensors.kv_len, data.kvLenValue);
+    tensorData.kvCacheData = RawTensorData::CreateTensor<T>(tensors.kv_cache, data.kvCacheValue);
+    tensorData.krCacheData = RawTensorData::CreateTensor<T>(tensors.kr_cache, data.krCacheValue);
+
+    if (isQuant) {
+        tensorData.wQbScaleData = RawTensorData::CreateTensor<float>(tensors.w_qb_scale, data.wQbScaleValue);
+        if (isSmooth) {
+            tensorData.smoothCqData = RawTensorData::CreateTensor<float>(tensors.smooth_cq, data.smoothCqValue);
+        }
+    }
+
+    tensorData.outputQData = RawTensorData::CreateConstantTensor<T>(tensors.output_q, 0.0);
+    tensorData.outputQRopeData = RawTensorData::CreateConstantTensor<T>(tensors.output_q_rope, 0.0);
+    tensorData.blockTableData = RawTensorData::CreateTensor<int32_t>(tensors.blockTable, data.blockTableValue);
+    tensorData.actSeqsData = RawTensorData::CreateTensor<int32_t>(tensors.actSeqs, data.actSeqsValue);
+    tensorData.paOutData = RawTensorData::CreateConstantTensor<float>(tensors.paOut, 0.0);
+    tensorData.weightUVData = RawTensorData::CreateTensor<T>(tensors.weightUV, data.weightUVValue);
+    tensorData.weightOData = RawTensorData::CreateTensor<int8_t>(tensors.weightO, data.weightOValue);
+    tensorData.weightOScaleWData = RawTensorData::CreateTensor<float>(tensors.weightOScaleW, data.weightOScaleWValue);
+    tensorData.postOutData = RawTensorData::CreateConstantTensor<T>(tensors.postOut, 0.0);
+}
+
+template <typename T, typename wDtype>
+void RunAndVerify(const AttentionTestTensors<T, wDtype, false> &tensors,
+    const AttentionTestDataVectors<T, wDtype> &data, const AttentionTestTensorData<T, wDtype, false> &tensorData,
+    const AttentionTestParams &p, bool isQuant, bool isSmooth, PaTileShapeConfig &paTileConfig,
+    const std::string &cacheMode) {
+    MlaQuantInputs quantInputs;
+    if (isQuant) {
+        quantInputs.dequantScaleWUqQr = tensors.w_qb_scale;
+        if (isSmooth) {
+            quantInputs.smoothScalesCq = tensors.smooth_cq;
+        }
+    }
+
+    Attention(tensors.x, tensors.wDq, tensors.wUqQr, tensors.wUk, tensors.wDkvKr,
+            tensors.gamma_cq, tensors.gamma_ckv, tensors.sin, tensors.cos, tensors.kv_len,
+            tensors.kv_cache, tensors.kr_cache, tensors.output_q, tensors.output_q_rope,
+            tensors.output_kv_cache, tensors.output_kr_cache, quantInputs, tensors.ropeConfig,
+            tensors.blockTable, tensors.actSeqs, tensors.paOut, p.blockSize, p.softmaxScale,
+            paTileConfig, tensors.weightUV, tensors.weightO, tensors.weightOScaleW, tensors.postOut,
+            1e-5f, 1e-5f, cacheMode);
+
+#ifdef BUILD_WITH_CANN
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
+        {tensorData.xData, tensorData.wDqData, tensorData.wUqQrData, tensorData.wUkData,
+         tensorData.wDkvKrData, tensorData.gammaCqData, tensorData.gammaCkvData,
+         tensorData.sinData, tensorData.cosData, tensorData.kvLenData, tensorData.kvCacheData,
+         tensorData.krCacheData, tensorData.wQbScaleData, tensorData.smoothCqData,
+         tensorData.blockTableData, tensorData.actSeqsData, tensorData.weightUVData,
+         tensorData.weightOData, tensorData.weightOScaleWData}, {tensorData.postOutData});
+
+    std::cout << "====== kvCacheData out: " << std::endl;
+    EXPECT_TRUE(resultCmp<T>(data.kv_cache_golden, (T *)tensorData.kvCacheData->data(), 0.001f));
+    std::cout << "====== krCacheData out: " << std::endl;
+    EXPECT_TRUE(resultCmp<T>(data.kr_cache_golden, (T *)tensorData.krCacheData->data(), 0.001f));
+    std::cout << "====== postOutData out: " << std::endl;
+    EXPECT_TRUE(resultCmp<T>(data.attn_output_golden, (T *)tensorData.postOutData->data(), 0.03f, 0, 1000, false, true, 0));
+#endif
+}
+
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = false, bool usePrefetch = false>
 void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileConfig, string dataPath,
         uint64_t timeThreshold, bool isQuant = false, bool isSmooth = false) {
     (void) timeThreshold;
+    (void) splitK;
 
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
-    config::SetRuntimeOption(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
-    config::SetRuntimeOption(STITCH_FUNCTION_NUM_INITIAL, 128);
+    SetupRuntimeConfig();
     std::string cacheMode = "PA_NZ";
+    AttentionTestParams p = ParseParams(params, dataPath);
 
-    int b = params[0];
-    int s = params[1];
-    int s2 = params[2];
-    int n = params[3];
-    int h = params[4];
-    int qLoraRank = params[5];
-    int qkNopeHeadDim = params[6];
-    int qkRopeHeadDim = params[7];
-    int kvLoraRank = params[8];
-
-    int vHeadDim = params[9];
-    int blockSize =params[10];
-    int q_head_dim = qkNopeHeadDim + qkRopeHeadDim;
-
-    std::vector<int> atcSeqs(b);
-    readInput<int>(dataPath + "/actual_seq_len.bin", atcSeqs);
-
-    int blockNum = 0;
-    for (auto seq : atcSeqs) {
-        blockNum += CeilDiv(seq, blockSize);
-    }
-
-    float softmaxScale = static_cast<float>(1.0 / sqrtf((kvLoraRank + qkRopeHeadDim)));
-    // blockTable: (b, maxBlockNumPerBatch)
-    int maxSeqAllBatch = *(std::max_element(atcSeqs.begin(), atcSeqs.end()));
-    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
-
-    DataType dType = DT_FP32;
-    if (std::is_same<T, npu::tile_fwk::float16>::value) {
-        dType = DT_FP16;
-    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        dType = DT_BF16;
-    } else {
-        dType = DT_FP32;
-    }
-
-    DataType dTypeQuantIn = isQuant ? DT_INT8 : dType;
-
-    std::vector<int64_t> x_shape = {b, s, h};
-    std::vector<int64_t> w_qa_shape = {h, qLoraRank};
-    std::vector<int64_t> w_qb_shape = {qLoraRank, n * q_head_dim};
-    std::vector<int64_t> w_kv_a_shape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int64_t> w_kv_b_k_shape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int64_t> cos_shape = {b, s, qkRopeHeadDim};
-    std::vector<int64_t> gamma_cq_shape = {qLoraRank};
-    std::vector<int64_t> gamma_ckv_shape = {kvLoraRank};
-    std::vector<int64_t> kv_len_shape = {b, s};
-    std::vector<int64_t> kv_cache_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int64_t> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
-    if (cacheMode != "BNSD") {
-        kv_cache_shape = {blockNum, blockSize, 1, kvLoraRank};
-        kr_cache_shape = {blockNum, blockSize, 1, qkRopeHeadDim};
-    }
-    std::vector<int64_t> w_qb_scale_shape = {1, n * q_head_dim};
-    std::vector<int64_t> smooth_cq_shape{1, qLoraRank};
-    // pa
-    std::vector<int64_t> blockTableShape = {b, 1, s2, qkRopeHeadDim};
-    // output
-    std::vector<int64_t> q_out_shape = {b, s, n, kvLoraRank};
-    std::vector<int64_t> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
-    std::vector<int64_t> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int64_t> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
-    std::vector<int64_t> fake_out_shape = {b, s, kvLoraRank + qkRopeHeadDim};
-    std::vector<int64_t> fake_out_shape1 = {n, b * s, qkNopeHeadDim};
-
-    int capacity_x = std::accumulate(x_shape.begin(), x_shape.end(), 1, std::multiplies<>());
-    int wDqCapacity = std::accumulate(w_qa_shape.begin(), w_qa_shape.end(), 1, std::multiplies<>());
-    int wUqQrCapacity = std::accumulate(w_qb_shape.begin(), w_qb_shape.end(), 1, std::multiplies<>());
-    int wDkvKrCapacity = std::accumulate(w_kv_a_shape.begin(), w_kv_a_shape.end(), 1, std::multiplies<>());
-    int wUkCapacity = std::accumulate(w_kv_b_k_shape.begin(), w_kv_b_k_shape.end(), 1, std::multiplies<>());
-    int capacity_cos = std::accumulate(cos_shape.begin(), cos_shape.end(), 1, std::multiplies<>());
-    int capacity_gamma_cq = std::accumulate(gamma_cq_shape.begin(), gamma_cq_shape.end(), 1, std::multiplies<>());
-    int capacity_gamma_ckv = std::accumulate(gamma_ckv_shape.begin(), gamma_ckv_shape.end(), 1, std::multiplies<>());
-    int capacity_kv_len = std::accumulate(kv_len_shape.begin(), kv_len_shape.end(), 1, std::multiplies<>());
-    int capacity_kv_cache = std::accumulate(kv_cache_shape.begin(), kv_cache_shape.end(), 1, std::multiplies<>());
-    int capacity_kr_cache = std::accumulate(kr_cache_shape.begin(), kr_cache_shape.end(), 1, std::multiplies<>());
-    int capacity_w_qb_scale = std::accumulate(w_qb_scale_shape.begin(), w_qb_scale_shape.end(), 1, std::multiplies<>());
-    int capacity_smooth_cq = std::accumulate(smooth_cq_shape.begin(), smooth_cq_shape.end(), 1, std::multiplies<>());
-    // output
-    int capacity_q_out = std::accumulate(q_out_shape.begin(), q_out_shape.end(), 1, std::multiplies<>());
-    int capacity_q_rope_out = std::accumulate(q_rope_out_shape.begin(), q_rope_out_shape.end(), 1, std::multiplies<>());
-    int capacity_fake_out = std::accumulate(fake_out_shape.begin(), fake_out_shape.end(), 1, std::multiplies<>());
-    int capacity_fake_out1 = std::accumulate(fake_out_shape1.begin(), fake_out_shape1.end(), 1, std::multiplies<>());
-
+    DataType dType = GetTemplateDtype<T>();
+    DataType dTypeQuantIn = GetDtype(isQuant, dType);
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     TileOpFormat paFormat = cacheMode == "PA_NZ" ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
 
-    // mla_prolog
-    Tensor x(dType, x_shape, "x");
-    Tensor wDq(dType, w_qa_shape, "wDq", weightFormat);
-    Tensor wUqQr(dTypeQuantIn, w_qb_shape, "wUqQr", weightFormat);
-    if constexpr (usePrefetch) {
-        wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
-        wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
-    }
-    Tensor wDkvKr(dType, w_kv_a_shape, "wDkvKr", weightFormat);
-    Tensor wUk(dType, w_kv_b_k_shape, "wUk", weightFormat);
-    Tensor gamma_cq(dType, gamma_cq_shape, "gamma_cq");
-    Tensor gamma_ckv(dType, gamma_ckv_shape, "gamma_ckv");
-    Tensor cos(dType, cos_shape, "cos");
-    Tensor sin(dType, cos_shape, "sin");
-    Tensor kv_len(DT_INT64, kv_len_shape, "kv_len"); // int64
-    Tensor kv_cache(dType, kv_cache_shape, "kv_cache", paFormat);
-    Tensor kr_cache(dType, kr_cache_shape, "kr_cache", paFormat);
-    Tensor w_qb_scale;
-    Tensor smooth_cq;
-    if (isQuant) {
-        w_qb_scale = Tensor(DT_FP32, w_qb_scale_shape, "w_qb_scale");
-        if (isSmooth) {
-            smooth_cq = Tensor(DT_FP32, smooth_cq_shape, "smooth_cq");
-        }
-    }
+    std::vector<int64_t> kv_cache_shape, kr_cache_shape;
+    AttentionTestCapacities caps = DefineTensorShapesAndCapacities(p, cacheMode, kv_cache_shape, kr_cache_shape);
 
-    Tensor output_q(dType, {b*s*n, kvLoraRank}, "output_q");
-    Tensor output_q_rope(dType, {b*s*n, qkRopeHeadDim}, "output_q_rope");
-    Tensor output_kv_cache(dType, {b * 1 * s2, kvLoraRank}, "output_kv_cache", paFormat);
-    Tensor output_kr_cache(dType, {b * 1 * s2, qkRopeHeadDim}, "output_kr_cache", paFormat);
+    AttentionTestTensors<T, wDtype, usePrefetch> tensors;
+    CreateAllTensors(p, dType, dTypeQuantIn, weightFormat, paFormat, isQuant, isSmooth, cacheMode,
+                     kv_cache_shape, kr_cache_shape, tensors);
 
-    // pa
-    Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
-    Tensor actSeqs(DT_INT32, {b}, "actSeqs");
-    // pa output
-    Tensor paOut(DT_FP32, {b * n * s, kvLoraRank}, "paOut");
-    // post
-    Tensor weightUV(dType, {n, kvLoraRank, vHeadDim}, "weightUV");
-    weightUV.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
-    Tensor weightO(DT_INT8, {n * vHeadDim, h}, "weightO", weightFormat); // NZ
-    weightO.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
-    Tensor weightOScaleW(DT_FP32, {1, h}, "weightOScaleW");
-    weightOScaleW.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
-    // output
-    Tensor postOut(dType, x_shape, "postOut");
-    postOut.SetCachePolicy(CachePolicy::NONE_CACHEABLE, true);
+    AttentionTestDataVectors<T, wDtype> data;
+    CreateAllDataVectors(p, caps, data);
+    LoadAllData(dataPath, p, isQuant, isSmooth, data);
 
-    int tileB = b;
-    RoPETileShapeConfigNew ropeConfig {
-        {tileB, 1, 64}, // (b,s,d)
-        {tileB, 1, 1, 64}, // Q (b,s,n,d)
-        {tileB, 1, 1, 64}, // K (b,s,1,d)
-        {tileB, 1, 1, 32, 2} // (b,s,n,d//2,2)
-    };
+    AttentionTestTensorData<T, wDtype, usePrefetch> tensorData;
+    CreateAllTensorData(tensors, data, isQuant, isSmooth, tensorData);
 
-    std::vector<T> xValue(capacity_x, 0);
-    std::vector<T> wDqValue(wDqCapacity, 0);
-    std::vector<wDtype> wUqQrValue(wUqQrCapacity, 0);
-    std::vector<T> wUkValue(wUkCapacity, 0);
-    std::vector<T> wDkvKrValue(wDkvKrCapacity, 0);
-    std::vector<T> gammaCqValue(capacity_gamma_cq, 0);
-    std::vector<T> gammaCkvValue(capacity_gamma_ckv, 0);
-    std::vector<T> sinValue(capacity_cos, 0);
-    std::vector<T> cosValue(capacity_cos, 0);
-    std::vector<int64_t> kvLenValue(capacity_kv_len, 0);
-    std::vector<T> kvCacheValue(capacity_kv_cache, 0);
-    std::vector<T> krCacheValue(capacity_kr_cache, 0);
-    std::vector<float> wQbScaleValue(capacity_w_qb_scale, 0);
-    std::vector<float> smoothCqValue(capacity_smooth_cq, 0);
-    //pa
-    std::vector<int32_t> blockTableValue(b*maxBlockNumPerBatch, 0);
-    std::vector<int32_t> actSeqsValue(b, s2);
-    //post
-    std::vector<T> weightUVValue(n*kvLoraRank*vHeadDim, 0);
-    std::vector<int8_t> weightOValue(n * vHeadDim*h, 0);
-    std::vector<float> weightOScaleWValue(h, 0);
-
-    // read data
-    readInput<T>(dataPath + "/x.bin", xValue);
-    readInput<T>(dataPath + "/wDq.bin", wDqValue);
-    readInput<wDtype>(dataPath + "/wUqQr.bin", wUqQrValue);
-    readInput<T>(dataPath + "/wUk.bin", wUkValue);
-    readInput<T>(dataPath + "/wDkvKr.bin", wDkvKrValue);
-    readInput<T>(dataPath + "/gamma_cq.bin", gammaCqValue);
-    readInput<T>(dataPath + "/gamma_ckv.bin", gammaCkvValue);
-    readInput<T>(dataPath + "/sin.bin", sinValue);
-    readInput<T>(dataPath + "/cos.bin", cosValue);
-    readInput<int64_t>(dataPath + "/kv_len.bin", kvLenValue);
-    readInput<T>(dataPath + "/kv_cache.bin", kvCacheValue);
-    readInput<T>(dataPath + "/kr_cache.bin", krCacheValue);
-    if (isQuant) {
-        readInput<float>(dataPath + "/w_qb_scale.bin", wQbScaleValue);
-        if (isSmooth) {
-            readInput<float>(dataPath + "/smooth_cq.bin", smoothCqValue);
-        }
-    }
-    // pa
-    readInput<int32_t>(dataPath + "/block_table.bin", blockTableValue);
-    readInput<int32_t>(dataPath + "/actual_seq_len.bin", actSeqsValue);
-    // post
-    readInput<T>(dataPath + "/w_uv.bin", weightUVValue);
-    readInput<int8_t>(dataPath + "/w_o.bin", weightOValue); // NZ
-    readInput<float>(dataPath + "/w_o_scale_w.bin", weightOScaleWValue);
-
-     // golden
-    std::vector<T> q_golden(capacity_q_out, 0);
-    std::vector<T> q_rope_golden(capacity_q_rope_out, 0);
-    std::vector<T> kv_cache_golden(capacity_kv_cache, 0);
-    std::vector<T> kr_cache_golden(capacity_kr_cache, 0);
-    std::vector<T> golden5(capacity_fake_out, 0);
-    std::vector<T> golden6(capacity_fake_out1, 0);
-
-    std::vector<float> atten_out_golden(b * n * s*kvLoraRank, 0);
-    std::vector<T> attn_output_golden(capacity_x, 0);
-
-    readInput<T>(dataPath + "/q_golden.bin", q_golden);
-    readInput<T>(dataPath + "/q_rope_golden.bin", q_rope_golden);
-    readInput<T>(dataPath + "/kv_cache_golden.bin", kv_cache_golden);
-    readInput<T>(dataPath + "/kr_cache_golden.bin", kr_cache_golden);
-
-    readInput<float>(dataPath + "/atten_out.bin", atten_out_golden); // pa out
-    readInput<T>(dataPath + "/attn_output.bin", attn_output_golden);    // attention out
-
-    auto xData = RawTensorData::CreateTensor<T>(x, xValue);
-    auto wDqData = RawTensorData::CreateTensor<T>(wDq, wDqValue);
-    auto wUqQrData = RawTensorData::CreateTensor<wDtype>(wUqQr, wUqQrValue);
-    auto wUkData = RawTensorData::CreateTensor<T>(wUk, wUkValue);
-    auto wDkvKrData = RawTensorData::CreateTensor<T>(wDkvKr, wDkvKrValue);
-    auto gammaCqData = RawTensorData::CreateTensor<T>(gamma_cq, gammaCqValue);
-    auto gammaCkvData = RawTensorData::CreateTensor<T>(gamma_ckv, gammaCkvValue);
-    auto cosData = RawTensorData::CreateTensor<T>(cos, cosValue);
-    auto sinData = RawTensorData::CreateTensor<T>(sin, sinValue);
-    auto kvLenData = RawTensorData::CreateTensor<int64_t>(kv_len, kvLenValue);
-    auto kvCacheData = RawTensorData::CreateTensor<T>(kv_cache, kvCacheValue);
-    auto krCacheData = RawTensorData::CreateTensor<T>(kr_cache, krCacheValue);
-    std::shared_ptr<RawTensorData> wQbScaleData;
-    std::shared_ptr<RawTensorData> smoothCqData;
-    if (isQuant) {
-        wQbScaleData = RawTensorData::CreateTensor<float>(w_qb_scale, wQbScaleValue);
-        if (isSmooth) {
-            smoothCqData = RawTensorData::CreateTensor<float>(smooth_cq, smoothCqValue);
-        }
-    }
-
-    auto outputQData = RawTensorData::CreateConstantTensor<T>(output_q, 0.0);
-    auto outputQRopeData = RawTensorData::CreateConstantTensor<T>(output_q_rope, 0.0);
-    // pa
-    auto blockTableData = RawTensorData::CreateTensor<int32_t>(blockTable, blockTableValue);
-    auto actSeqsData = RawTensorData::CreateTensor<int32_t>(actSeqs, actSeqsValue);
-    auto paOutData = RawTensorData::CreateConstantTensor<float>(paOut, 0.0);
-    // post
-    auto weightUVData = RawTensorData::CreateTensor<T>(weightUV, weightUVValue);
-    auto weightOData = RawTensorData::CreateTensor<int8_t>(weightO, weightOValue);
-    auto weightOScaleWData = RawTensorData::CreateTensor<float>(weightOScaleW, weightOScaleWValue);
-    // output
-    auto postOutData = RawTensorData::CreateConstantTensor<T>(postOut, 0.0);
-
-    MlaQuantInputs quantInputs;
-    if (isQuant) {
-        quantInputs.dequantScaleWUqQr = w_qb_scale;
-        if (isSmooth) {
-            quantInputs.smoothScalesCq = smooth_cq;
-        }
-    }
-    Attention(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache,
-            output_q, output_q_rope, output_kv_cache, output_kr_cache, quantInputs, ropeConfig, /*---*/
-            blockTable, actSeqs, paOut, blockSize, softmaxScale, paTileConfig, /*---*/
-            weightUV, weightO, weightOScaleW, postOut, 1e-5f, 1e-5f, cacheMode);
-
-#ifdef BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
-        {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
-         kvCacheData, krCacheData, wQbScaleData, smoothCqData,
-         blockTableData, actSeqsData, weightUVData, weightOData, weightOScaleWData},
-        {postOutData});
-
-    std::cout << "====== kvCacheData out: " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(kv_cache_golden, (T *)kvCacheData->data(), 0.001f));
-    std::cout << "====== krCacheData out: " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(kr_cache_golden, (T *)krCacheData->data(), 0.001f));
-    std::cout << "====== postOutData out: " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(attn_output_golden, (T *)postOutData->data(), 0.03f, 0, 1000, false, true, 0));
-#endif
+    RunAndVerify(tensors, data, tensorData, p, isQuant, isSmooth, paTileConfig, cacheMode);
 }
 
 TEST_F(DynamicAttention, dynamic_attention_low) { // b_n_s_s2_h_q_lora_rank

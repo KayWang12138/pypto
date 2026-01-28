@@ -41,59 +41,83 @@ constexpr int NUM_256 = 256;
 constexpr int NUM_512 = 512;
 constexpr int NUM_1024 = 1024;
 
-template <typename T = npu::tile_fwk::float16>
-void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
+struct WinAttenInterpreterContext {
+    int b;
+    int sQ;
+    int nQ;
+    int nKV;
+    int blockSize;
+    int windowSize;
+    float softmaxScale;
+    Tensor actSeqs;
+    Tensor qNope;
+    Tensor qRope;
+    Tensor vNopeCache;
+    Tensor kRopeCache;
+    Tensor blockTable;
+    Tensor attentionOut;
+};
 
-    SetInterpreterConfig();
+template <typename T>
+WinAttenInterpreterContext PrepareWinAttenInterpreterContext() {
+    WinAttenInterpreterContext ctx;
 
     DataType dType = DT_FP32;
     if (std::is_same<T, npu::tile_fwk::float16>::value) {
         dType = DT_FP16;
     } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
         dType = DT_BF16;
-    } else {
-        dType = DT_FP32;
     }
-
 
     int paramsSize = 9;
     std::vector<int> inputParam(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", inputParam);
 
-
-    int b = inputParam[0];
-    int sQ = inputParam[1];
-    int nQ = inputParam[2];
-    int nKV = inputParam[3];
+    ctx.b = inputParam[0];
+    ctx.sQ = inputParam[1];
+    ctx.nQ = inputParam[2];
+    ctx.nKV = inputParam[3];
     int sMax = inputParam[4];
     int dN = inputParam[5];
     int dR = inputParam[6];
-    int blockSize = inputParam[7];
-    int windowSize = inputParam[8];
-    float softmaxScale = static_cast<float>(1.0 / sqrtf((dN + dR)));
+    ctx.blockSize = inputParam[7];
+    ctx.windowSize = inputParam[8];
+    ctx.softmaxScale = static_cast<float>(1.0 / sqrtf((dN + dR)));
+
     std::cout << "====input param==== " << std::endl;
-    std::cout <<" b = " << b << " sQ = " << sQ << " nQ = " << nQ << " nKV = " << nKV << " sMax =" << sMax << " dN = " << dN
-        << " dR = " << dR << " blockSize = " << blockSize << " windowSize = " << windowSize << std::endl;
+    std::cout << " b = " << ctx.b << " sQ = " << ctx.sQ << " nQ = " << ctx.nQ
+        << " nKV = " << ctx.nKV << " sMax =" << sMax << " dN = " << dN
+        << " dR = " << dR << " blockSize = " << ctx.blockSize
+        << " windowSize = " << ctx.windowSize << std::endl;
 
+    int maxBlock = (sMax + ctx.blockSize - 1) / ctx.blockSize;
+    std::vector<int64_t> qNopeShape = {ctx.b * ctx.sQ * ctx.nQ, dN};
+    std::vector<int64_t> qRopeShape = {ctx.b * ctx.sQ * ctx.nQ, dR};
+    std::vector<int64_t> vNopeCacheShape = {ctx.b * maxBlock * ctx.blockSize, ctx.nKV * dN};
+    std::vector<int64_t> kRopeCacheShape = {ctx.b * maxBlock * ctx.blockSize, ctx.nKV * dR};
+    std::vector<int64_t> attentionOutShape = {ctx.b, ctx.sQ, ctx.nQ, dN};
+    std::vector<int64_t> blockTableShape = {ctx.b, maxBlock};
 
-    int maxBlock = (sMax + blockSize - 1) / blockSize;
-    std::vector<int64_t> qNopeShape = {b * sQ * nQ, dN};
-    std::vector<int64_t> qRopeShape = {b * sQ * nQ, dR};
-    std::vector<int64_t> vNopeCacheShape = {b * maxBlock * blockSize , nKV * dN};
-    std::vector<int64_t> kRopeCacheShape = {b * maxBlock * blockSize , nKV * dR};
-    std::vector<int64_t> attentionOutShape = {b ,sQ ,nQ, dN};
-    std::vector<int64_t> blockTableShape = {b, maxBlock};
+    ctx.actSeqs = Tensor(DT_INT32, {ctx.b}, "actSeqs");
+    ctx.qNope = Tensor(dType, qNopeShape, "qNope");
+    ctx.qRope = Tensor(dType, qRopeShape, "qRope");
+    ctx.vNopeCache = Tensor(dType, vNopeCacheShape, "vNopeCache");
+    ctx.kRopeCache = Tensor(dType, kRopeCacheShape, "kRopeCache");
+    ctx.blockTable = Tensor(DT_INT32, blockTableShape, "blockTable");
+    ctx.attentionOut = Tensor(DT_FP32, attentionOutShape, "attentionOut");
 
-    Tensor actSeqs(DT_INT32, {b}, "actSeqs");
-    Tensor qNope(dType, qNopeShape, "qNope");
-    Tensor qRope(dType, qRopeShape, "qRope");
-    Tensor vNopeCache(dType, vNopeCacheShape, "vNopeCache");
-    Tensor kRopeCache(dType, kRopeCacheShape, "kRopeCache");
-    Tensor blockTable(DT_INT32, blockTableShape, "blockTable");
-    Tensor attentionOut(DT_FP32, attentionOutShape, "attentionOut");
+    return ctx;
+}
 
-    // 读数据
+template <typename T>
+void SetupWinAttenInterpreterProgram(const WinAttenInterpreterContext& ctx) {
+    auto qNopeShape = ctx.qNope.GetShape();
+    auto qRopeShape = ctx.qRope.GetShape();
+    auto vNopeCacheShape = ctx.vNopeCache.GetShape();
+    auto kRopeCacheShape = ctx.kRopeCache.GetShape();
+    auto blockTableShape = ctx.blockTable.GetShape();
+    auto attentionOutShape = ctx.attentionOut.GetShape();
+
     int qNopeSize = std::accumulate(qNopeShape.begin(), qNopeShape.end(), 1, std::multiplies<>());
     int qRopeSize = std::accumulate(qRopeShape.begin(), qRopeShape.end(), 1, std::multiplies<>());
     int vNopeCacheSize = std::accumulate(vNopeCacheShape.begin(), vNopeCacheShape.end(), 1, std::multiplies<>());
@@ -101,7 +125,7 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     int blockTableSize = std::accumulate(blockTableShape.begin(), blockTableShape.end(), 1, std::multiplies<>());
     int winAttenOutSize = std::accumulate(attentionOutShape.begin(), attentionOutShape.end(), 1, std::multiplies<>());
 
-    std::vector<int> seq(b);
+    std::vector<int> seq(ctx.b);
     std::vector<T> qNopeData(qNopeSize, 0);
     std::vector<T> qRopeData(qRopeSize, 0);
     std::vector<T> vNopeCacheData(vNopeCacheSize, 0);
@@ -119,23 +143,31 @@ void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
     readInput(GetGoldenDir() + "/atten_out.bin", golden);
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(qNope, qNopeData),
-        RawTensorData::CreateTensor<T>(vNopeCache, vNopeCacheData),
-        RawTensorData::CreateTensor<T>(qRope, qRopeData),
-        RawTensorData::CreateTensor<T>(kRopeCache, kRopeCacheData),
-        RawTensorData::CreateTensor<int32_t>(blockTable, blockTableData),
-        RawTensorData::CreateTensor<int32_t>(actSeqs, seq),
+        RawTensorData::CreateTensor<T>(ctx.qNope, qNopeData),
+        RawTensorData::CreateTensor<T>(ctx.vNopeCache, vNopeCacheData),
+        RawTensorData::CreateTensor<T>(ctx.qRope, qRopeData),
+        RawTensorData::CreateTensor<T>(ctx.kRopeCache, kRopeCacheData),
+        RawTensorData::CreateTensor<int32_t>(ctx.blockTable, blockTableData),
+        RawTensorData::CreateTensor<int32_t>(ctx.actSeqs, seq),
     });
     ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(attentionOut, 0),
+        RawTensorData::CreateConstantTensor<float>(ctx.attentionOut, 0),
     });
-
     ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateTensor<float>(attentionOut, golden),
+        RawTensorData::CreateTensor<float>(ctx.attentionOut, golden),
     });
+}
 
-    WinAttentionDebug(qNope, vNopeCache, qRope, kRopeCache, nQ, nKV, blockTable, actSeqs, windowSize,
-        blockSize, softmaxScale, attentionOut, tileConfig);
+template <typename T = npu::tile_fwk::float16>
+void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
+    SetInterpreterConfig();
+
+    auto ctx = PrepareWinAttenInterpreterContext<T>();
+    SetupWinAttenInterpreterProgram<T>(ctx);
+
+    WinAttentionDebug(ctx.qNope, ctx.vNopeCache, ctx.qRope, ctx.kRopeCache,
+        ctx.nQ, ctx.nKV, ctx.blockTable, ctx.actSeqs, ctx.windowSize,
+        ctx.blockSize, ctx.softmaxScale, ctx.attentionOut, tileConfig);
 }
 
 TEST_F(DynamicWinAttenInterpreterTest, test_DynAttn_nas_win_attn_s1_2_actseqlen_1024_mla_fp16_inter) {
