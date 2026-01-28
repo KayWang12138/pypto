@@ -56,6 +56,7 @@
 #include "vector/onehot.h"
 #include "vector/index_outcast.h"
 #include "vector/bitwise_shift.h"
+#include "cube/cube_pto.h"
 #endif
 
 #endif
