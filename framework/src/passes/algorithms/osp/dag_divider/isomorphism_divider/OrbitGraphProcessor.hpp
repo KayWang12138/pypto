@@ -69,8 +69,6 @@ class OrbitGraphProcessor {
 
     using VertexType = VertexIdxT<GraphT>;
 
-    static constexpr bool verbose_ = false;
-
     // Represents a group of isomorphic subgraphs, corresponding to a single node in a coarse graph.
     struct Group {
         // Each vector of vertices represents one of the isomorphic subgraphs in this group.
@@ -241,18 +239,12 @@ class OrbitGraphProcessor {
                     if constexpr (hasTypedVerticesV<ConstrGraphT>) {
                         if (not mergeDifferentNodeTypes_) {
                             if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
-                                if constexpr (verbose_) {
-                                    std::cout << "  - Merge of " << u << " and " << v << " not viable (different node types)\n";
-                                }
                                 continue;
                             }
                         }
                     }
 
                     if (nonViableEdgesCache_.count({u, v}) || nonViableCritPathEdgesCache_.count({u, v})) {
-                        if constexpr (verbose_) {
-                            std::cout << "  - Merge of " << u << " and " << v << " already checked. Skipping.\n";
-                        }
                         continue;
                     }
 
@@ -264,18 +256,10 @@ class OrbitGraphProcessor {
                         = workThreshold * static_cast<VWorkwT<ConstrGraphT>>(currentGroups[u].size());
 
                     if (uWorkWeight > uThreshold && vWorkWeight > vThreshold) {
-                        if constexpr (verbose_) {
-                            std::cout << "  - Merge of " << u << " and " << v << " not viable (work threshold)\n";
-                        }
                         continue;
                     }
 
                     if ((vertexPoset[u] + 1 != vertexPoset[v]) && (vertexBotPoset[u] != 1 + vertexBotPoset[v])) {
-                        if constexpr (verbose_) {
-                            std::cout << "  - Merge of " << u << " and " << v
-                                      << " not viable poset. poste v: " << vertexBotPoset[v] << " poste u: " << vertexBotPoset[u]
-                                      << "\n";
-                        }
                         continue;
                     }
 
@@ -283,10 +267,6 @@ class OrbitGraphProcessor {
                     const bool mergeIsValid = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], newSubgraphs);
 
                     if (!mergeIsValid) {
-                        if constexpr (verbose_) {
-                            std::cout << "  - Merge of " << u << " and " << v << " and " << v
-                                      << " not viable (error in is_merge_viable)\n";
-                        }
                         nonViableEdgesCache_.insert({u, v});
                         continue;
                     }
@@ -296,19 +276,8 @@ class OrbitGraphProcessor {
                     if (CriticalPathWeight(tempCoarseGraph)
                         > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
                            + CriticalPathWeight(currentCoarseGraph))) {
-                        if constexpr (verbose_) {
-                            std::cout << "  - Merge of " << u << " and " << v
-                                      << " increases critical path. Old cirtical path: " << CriticalPathWeight(currentCoarseGraph)
-                                      << " new critical path: " << CriticalPathWeight(tempCoarseGraph) << " + "
-                                      << pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size()) << "\n";
-                        }
                         nonViableCritPathEdgesCache_.insert({u, v});
                         continue;
-                    }
-
-                    if constexpr (verbose_) {
-                        std::cout << "  - Merging " << v << " into " << u << ". New coarse graph has "
-                                  << tempCoarseGraph.NumVertices() << " nodes.\n";
                     }
 
                     CommitMerge(u,
@@ -462,28 +431,18 @@ class OrbitGraphProcessor {
                 VertexType v = Target(edge, currentCoarseGraph);
 
                 if (nonViableEdgesCache_.count({u, v}) || nonViableCritPathEdgesCache_.count({u, v})) {
-                    if constexpr (verbose_) {
-                        std::cout << "  - Merge of " << u << " and " << v << " already checked. Skipping.\n";
-                    }
                     continue;
                 }
 
                 if constexpr (hasTypedVerticesV<ConstrGraphT>) {
                     if (not mergeDifferentNodeTypes) {
                         if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
-                            if constexpr (verbose_) {
-                                std::cout << "  - Merge of " << u << " and " << v << " not viable (different node types)\n";
-                            }
                             continue;
                         }
                     }
                 }
 
                 if ((vertexPoset[u] + 1 != vertexPoset[v]) && (vertexBotPoset[u] != 1 + vertexBotPoset[v])) {
-                    if constexpr (verbose_) {
-                        std::cout << "  - Merge of " << u << " and " << v << " not viable poset. poste v: " << vertexBotPoset[v]
-                                  << " poste u: " << vertexBotPoset[u] << "\n";
-                    }
                     continue;
                 }
 
@@ -495,10 +454,6 @@ class OrbitGraphProcessor {
                 const std::size_t newSize = newSubgraphs.size();
 
                 if (!mergeIsValid) {
-                    if constexpr (verbose_) {
-                        std::cout << "  - Merge of " << u << " and " << v << " and " << v
-                                  << " not viable (error in is_merge_viable)\n";
-                    }
                     nonViableEdgesCache_.insert({u, v});
                     continue;
                 }
@@ -507,12 +462,6 @@ class OrbitGraphProcessor {
                 const bool bothBelowMinimalThreshold = mergeBelowThreshold && (uSize < minSymmetry_) && (vSize < minSymmetry_);
 
                 if (!mergeViable && !bothBelowMinimalThreshold) {
-                    if constexpr (verbose_) {
-                        std::cout << "  - Merge of " << u << " and " << v << " not viable (Symmetry Threshold)\n";
-                        std::cout << "    - u_sym: " << uSize << ", v_sym: " << vSize << " -> new_sym: " << newSize
-                                  << " (current_threshold: " << currentSymmetry_ << ", global_min_threshold: " << minSymmetry_
-                                  << ")\n";
-                    }
                     nonViableEdgesCache_.insert({u, v});
                     continue;
                 }
@@ -532,11 +481,6 @@ class OrbitGraphProcessor {
                 if (uIsSignificant && vIsSignificant) {
                     // Both are significant ---
                     if (newSize < std::min(uSize, vSize)) {
-                        if constexpr (verbose_) {
-                            std::cout << "  - Merge of " << u << " and " << v
-                                      << " not viable (Symmetry Narrowing below min of two significant nodes)\n";
-                            std::cout << "    - u_sym: " << uSize << ", v_sym: " << vSize << " -> new_sym: " << newSize << "\n";
-                        }
                         nonViableEdgesCache_.insert({u, v});
                         continue;
                     }
@@ -545,13 +489,6 @@ class OrbitGraphProcessor {
                     const std::size_t significantNodeSize = uIsSignificant ? uSize : vSize;
 
                     if (newSize < significantNodeSize) {
-                        if constexpr (verbose_) {
-                            std::cout << "  - Merge of " << u << " and " << v
-                                      << " not viable (Symmetry Narrowing of a single significant node)\n";
-                            std::cout << "    - u_sym: " << uSize << " (sig: " << uIsSignificant << ")"
-                                      << ", v_sym: " << vSize << " (sig: " << vIsSignificant << ")"
-                                      << " -> new_sym: " << newSize << "\n";
-                        }
                         nonViableEdgesCache_.insert({u, v});
                         continue;
                     }
@@ -562,20 +499,9 @@ class OrbitGraphProcessor {
 
                 if (CriticalPathWeight(tempCoarseGraph) > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
                                                            + CriticalPathWeight(currentCoarseGraph))) {
-                    if constexpr (verbose_) {
-                        std::cout << "  - Merge of " << u << " and " << v
-                                  << " increases critical path. Old cirtical path: " << CriticalPathWeight(currentCoarseGraph)
-                                  << " new critical path: " << CriticalPathWeight(tempCoarseGraph) << " + "
-                                  << pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size()) << "\n";
-                    }
+
                     nonViableCritPathEdgesCache_.insert({u, v});
                     continue;
-                }
-
-                // Commit Merge
-                if constexpr (verbose_) {
-                    std::cout << "  - Merging " << v << " into " << u << ". New coarse graph has "
-                              << tempCoarseGraph.NumVertices() << " nodes.\n";
                 }
 
                 CommitMerge(u,
@@ -693,40 +619,6 @@ class OrbitGraphProcessor {
         std::vector<size_t> symmetryLevelsToTest
             = ComputeSymmetryLevels(relAccWorkPerOrbitSize, workPerOrbitSize, totalWork, orbitSizeCounts);
 
-        if constexpr (verbose_) {
-            std::cout << "\n--- Orbit Analysis ---\n";
-            for (auto const &[size, count] : orbitSizeCounts) {
-                if (totalWork > 0) {
-                    std::cout << "  - Orbits of size " << size << ": " << count << " groups, weight: "
-                              << 100.0 * static_cast<double>(workPerOrbitSize[size]) / static_cast<double>(totalWork) << "%\n";
-                } else {
-                    std::cout << "  - Orbits of size " << size << ": " << count << " groups, weight: 0.0%\n";
-                }
-            }
-            std::cout << "  Cumulative work distribution by orbit size (largest to smallest):\n";
-            size_t i = 0;
-            for (auto it = orbitSizeCounts.rbegin(); it != orbitSizeCounts.rend() && i < relAccWorkPerOrbitSize.size(); ++it, ++i) {
-                std::cout << "    - Orbits with size >= " << it->first << ": " << std::fixed << std::setprecision(2)
-                          << relAccWorkPerOrbitSize[i] * 100 << "%\n";
-            }
-            std::cout << "  Work distribution by vertex type:\n";
-            for (size_t j = 0; j < workPerVertexType.size(); ++j) {
-                if (totalWork > 0) {
-                    std::cout << "    - Vertex type " << j << ": "
-                              << 100.0 * static_cast<double>(workPerVertexType[j]) / static_cast<double>(totalWork) << "%\n";
-                } else {
-                    std::cout << "    - Vertex type " << j << ": 0.0%\n";
-                }
-            }
-
-            std::cout << "--------------------------------\n";
-            std::cout << " Symmetry levels to test: " << "\n";
-            for (const auto level : symmetryLevelsToTest) {
-                std::cout << "  - " << level << "\n";
-            }
-            std::cout << "--------------------------------\n";
-        }
-
         coarser_util::ConstructCoarseDag(dag, coarseGraph_, contractionMap_);
 
         if (useAdaptiveSymmetryThreshold_) {
@@ -743,10 +635,6 @@ class OrbitGraphProcessor {
                 }
 
                 if (count > totalSizeCount / 2) {
-                    if constexpr (verbose_) {
-                        std::cout << "Setting current_symmetry to " << size << " because " << count << " orbits of size " << size
-                                  << " are more than half of the total number of orbits.\n";
-                    }
                     currentSymmetry_ = size;
                 }
             }
@@ -765,9 +653,6 @@ class OrbitGraphProcessor {
 
         switch (symmetryLevelHeuristic_) {
             case SymmetryLevelHeuristic::PERCENTILE_BASED: {
-                if constexpr (verbose_) {
-                    std::cout << "Using PERCENTILE_BASED heuristic for symmetry levels.\n";
-                }
                 size_t percentileIdx = 0;
                 VWorkwT<GraphT> cumulativeWork = 0;
                 for (auto it = workPerOrbitSize.rbegin(); it != workPerOrbitSize.rend(); ++it) {
@@ -791,10 +676,6 @@ class OrbitGraphProcessor {
             }
 
             case SymmetryLevelHeuristic::NATURAL_BREAKS: {
-                if constexpr (verbose_) {
-                    std::cout << "Using NATURAL_BREAKS heuristic for symmetry levels.\n";
-                }
-
                 size_t totalOrbitGroups = 0;
                 for (const auto &[size, count] : orbitSizeCounts) {
                     totalOrbitGroups += count;
@@ -802,9 +683,6 @@ class OrbitGraphProcessor {
                 size_t countThreshold = static_cast<size_t>(static_cast<double>(totalOrbitGroups) * naturalBreaksCountPercentage_);
                 if (countThreshold == 0 && totalOrbitGroups > 0) {
                     countThreshold = 1;    // Ensure threshold is at least 1 if possible
-                }
-                if constexpr (verbose_) {
-                    std::cout << "  - Total orbit groups: " << totalOrbitGroups << ", count threshold: " << countThreshold << "\n";
                 }
 
                 std::vector<size_t> sortedSizes;
@@ -845,23 +723,11 @@ class OrbitGraphProcessor {
                         symmetryLevelsToTest.push_back(sizeWithMaxCount);
                     }
                 }
-
-                // Verbose print data
-                VWorkwT<GraphT> cumulativeWork = 0;
-                for (auto it = workPerOrbitSize.rbegin(); it != workPerOrbitSize.rend(); ++it) {
-                    cumulativeWork += it->second;
-                    if (totalWork > 0) {
-                        relAccWorkPerOrbitSize.push_back(static_cast<double>(cumulativeWork) / static_cast<double>(totalWork));
-                    }
-                }
                 break;
             }
 
             case SymmetryLevelHeuristic::CURRENT_DEFAULT:
             default: {
-                if constexpr (verbose_) {
-                    std::cout << "Using CURRENT_DEFAULT heuristic for symmetry levels.\n";
-                }
                 double threshold = lockOrbitRatio_;
                 VWorkwT<GraphT> cumulativeWork = 0;
                 for (auto it = workPerOrbitSize.rbegin(); it != workPerOrbitSize.rend(); ++it) {
@@ -920,22 +786,12 @@ class OrbitGraphProcessor {
         }
 
         if constexpr (hasTypedVerticesV<ConstrGraphT>) {
-            if constexpr (verbose_) {
-                std::cout << "Attempting to merge same node types.\n";
-            }
             ContractEdges(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, false, false);
             ContractEdges(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, true, false);
         }
 
-        if constexpr (verbose_) {
-            std::cout << "Attempting to merge different node types.\n";
-        }
         ContractEdges(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, false, mergeDifferentNodeTypes_);
         ContractEdges(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, true, mergeDifferentNodeTypes_);
-
-        if constexpr (verbose_) {
-            std::cout << "Attempting to merge small orbits.\n";
-        }
         MergeSmallOrbits(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, workThreshold_);
 
         nonViableCritPathEdgesCache_.clear();
@@ -958,9 +814,6 @@ class OrbitGraphProcessor {
         finalContractionMap_ = std::move(currentContractionMap);
         finalGroups_ = std::move(currentGroups);
 
-        if constexpr (verbose_) {
-            PrintFinalGroupsSummary();
-        }
     }
 
     /**
@@ -994,16 +847,9 @@ class OrbitGraphProcessor {
             currentGroups[coarseNode].subgraphs_.push_back({i});
         }
 
-        if constexpr (verbose_) {
-            std::cout << " Starting adaptive symmetry coarsening with critical_path_threshold: " << criticalPathThreshold_ << "\n";
-        }
-
         for (const auto sym : symmetryLevelsToTest) {
             currentSymmetry_ = sym;
             const bool isLastLoop = (sym == symmetryLevelsToTest.back());
-            if constexpr (verbose_) {
-                std::cout << "  Current symmetry threshold: " << currentSymmetry_ << "\n";
-            }
 
             nonViableEdgesCache_.clear();
 
@@ -1031,9 +877,6 @@ class OrbitGraphProcessor {
                                      criticalPathThreshold_);
         }
 
-        if constexpr (verbose_) {
-            std::cout << " Merging small orbits with work threshold: " << workThreshold_ << "\n";
-        }
         nonViableEdgesCache_.clear();
         MergeSmallOrbits(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, workThreshold_);
 
@@ -1050,23 +893,6 @@ class OrbitGraphProcessor {
         finalCoarseGraph_ = std::move(currentCoarseGraph);
         finalContractionMap_ = std::move(currentContractionMap);
         finalGroups_ = std::move(currentGroups);
-
-        if constexpr (verbose_) {
-            PrintFinalGroupsSummary();
-        }
-    }
-
-    void PrintFinalGroupsSummary() const {
-        std::cout << "\n--- 📦 Final Groups Summary ---\n";
-        std::cout << "Total final groups: " << finalGroups_.size() << "\n";
-        for (size_t i = 0; i < finalGroups_.size(); ++i) {
-            const auto &group = finalGroups_[i];
-            std::cout << "  - Group " << i << " (Size: " << group.subgraphs_.size() << ")\n";
-            if (!group.subgraphs_.empty() && !group.subgraphs_[0].empty()) {
-                std::cout << "    - Rep. Subgraph size: " << group.subgraphs_[0].size() << " nodes\n";
-            }
-        }
-        std::cout << "--------------------------------\n";
     }
 
     /**
@@ -1094,12 +920,6 @@ class OrbitGraphProcessor {
         for (const auto &sg : groupV.subgraphs_) {
             allNodes.insert(allNodes.end(), sg.begin(), sg.end());
         }
-
-        assert([&]() {
-            std::vector<VertexType> tempNodesForCheck = allNodes;
-            std::sort(tempNodesForCheck.begin(), tempNodesForCheck.end());
-            return std::unique(tempNodesForCheck.begin(), tempNodesForCheck.end()) == tempNodesForCheck.end();
-        }() && "Assumption failed: Vertices in groups being merged are not disjoint.");
 
         std::sort(allNodes.begin(), allNodes.end());
 

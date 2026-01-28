@@ -55,7 +55,6 @@ class IsomorphicSubgraphScheduler {
                   "GraphT and ConstrGraphT must have the same VertexIdx types");
 
   private:
-    static constexpr bool verbose_ = false;
     const HashComputer<VertexIdxT<GraphT>> *hashComputer_;
     size_t symmetry_ = 4;
     Scheduler<ConstrGraphT> *bspScheduler_;
@@ -230,9 +229,6 @@ class IsomorphicSubgraphScheduler {
     void TrimSubgraphGroups(std::vector<typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group> &isomorphicGroups,
                             const BspInstance<GraphT> &instance,
                             std::vector<bool> &wasTrimmed) {
-        if constexpr (verbose_) {
-            std::cout << "\n--- Trimming Isomorphic Subgraph Groups ---" << std::endl;
-        }
         for (size_t groupIdx = 0; groupIdx < isomorphicGroups.size(); ++groupIdx) {
             auto &group = isomorphicGroups[groupIdx];
             const unsigned groupSize = static_cast<unsigned>(group.size());
@@ -243,10 +239,6 @@ class IsomorphicSubgraphScheduler {
             unsigned effectiveMinProcTypeCount = 0;
 
             if (useMaxGroupSize_) {
-                if constexpr (verbose_) {
-                    std::cout << "Group " << groupIdx << " (size " << groupSize
-                              << "): Using fixed max_group_size_ = " << maxGroupSize_ << " for trimming." << std::endl;
-                }
                 effectiveMinProcTypeCount = maxGroupSize_;
             } else {
                 // Determine if the group consists of a single node type
@@ -283,19 +275,8 @@ class IsomorphicSubgraphScheduler {
                         }
                     }
                     if (foundCompatibleProcessor) {
-                        if constexpr (verbose_) {
-                            std::cout << "Group " << groupIdx << " (size " << groupSize << "): Single node type ("
-                                      << commonNodeType << "). Min compatible processors: " << minCompatibleProcessors << "."
-                                      << std::endl;
-                        }
                         effectiveMinProcTypeCount = minCompatibleProcessors;
                     } else {
-                        if constexpr (verbose_) {
-                            std::cout << "Group " << groupIdx << " (size " << groupSize << "): Single node type ("
-                                      << commonNodeType << ") but no compatible processors found. Disabling trimming."
-                                      << std::endl;
-                        }
-                        // If no compatible processors found for this type, effectively disable trimming for this group.
                         effectiveMinProcTypeCount = 1;
                     }
                 } else {
@@ -305,11 +286,6 @@ class IsomorphicSubgraphScheduler {
                         effectiveMinProcTypeCount = 0;
                     }
                     effectiveMinProcTypeCount = *std::min_element(typeCount.begin(), typeCount.end());
-                    if constexpr (verbose_) {
-                        std::cout << "Group " << groupIdx << " (size " << groupSize
-                                  << "): Multi-type or untyped group. Using default min_proc_type_count: "
-                                  << effectiveMinProcTypeCount << "." << std::endl;
-                    }
                 }
             }
 
@@ -326,10 +302,6 @@ class IsomorphicSubgraphScheduler {
             unsigned gcd = std::gcd(groupSize, effectiveMinProcTypeCount);
 
             if (gcd < groupSize) {
-                if constexpr (verbose_) {
-                    std::cout << "  -> Trimming group " << groupIdx << ". GCD(" << groupSize << ", " << effectiveMinProcTypeCount
-                              << ") = " << gcd << ". Merging " << groupSize / gcd << " subgraphs at a time." << std::endl;
-                }
 
                 if (allowUseTrimmedScheduler_) {
                     gcd = 1;
@@ -358,9 +330,6 @@ class IsomorphicSubgraphScheduler {
                 }
                 group.subgraphs_ = std::move(newSubgraphs);
             } else {
-                if constexpr (verbose_) {
-                    std::cout << "  -> No trim needed for group " << groupIdx << "." << std::endl;
-                }
                 wasTrimmed[groupIdx] = false;
             }
         }
@@ -414,24 +383,6 @@ class IsomorphicSubgraphScheduler {
         }
         coarser_util::ConstructCoarseDag(
             originalInstance.GetComputationalDag(), result.instance_.GetComputationalDag(), contractionMap);
-
-        if constexpr (verbose_) {
-            std::cout << "\n--- Preparing Subgraph Scheduling Input ---\n";
-            std::cout << "Found " << isomorphicGroups.size() << " isomorphic groups to schedule as coarse nodes.\n";
-            for (size_t j = 0; j < isomorphicGroups.size(); ++j) {
-                std::cout << "  - Coarse Node " << j << " (from " << isomorphicGroups[j].subgraphs_.size()
-                          << " isomorphic subgraphs):\n";
-                std::cout << "    - Multiplicity for scheduling: " << result.multiplicities_[j] << "\n";
-                std::cout << "    - Total Work (in coarse graph): " << result.instance_.GetComputationalDag().VertexWorkWeight(j)
-                          << "\n";
-                std::cout << "    - Required Processor Types: ";
-                for (unsigned k = 0; k < numProcTypes; ++k) {
-                    std::cout << result.requiredProcTypes_[j][k] << " ";
-                }
-                std::cout << "\n";
-                std::cout << "    - Max number of processors: " << result.maxNumProcessors_[j] << "\n";
-            }
-        }
         return result;
     }
 
@@ -490,60 +441,15 @@ class IsomorphicSubgraphScheduler {
             Scheduler<ConstrGraphT> *schedulerForGroupPtr;
             std::unique_ptr<Scheduler<ConstrGraphT>> trimmedSchedulerOwner;
             if (useTrimmedScheduler) {
-                if constexpr (verbose_) {
-                    std::cout << "Using TrimmedGroupScheduler for group " << groupIdx << std::endl;
-                }
                 trimmedSchedulerOwner = std::make_unique<TrimmedGroupScheduler<ConstrGraphT>>(*bspScheduler_, minNonZeroProcs);
                 schedulerForGroupPtr = trimmedSchedulerOwner.get();
             } else {
-                if constexpr (verbose_) {
-                    std::cout << "Using standard BSP scheduler for group " << groupIdx << std::endl;
-                }
                 schedulerForGroupPtr = bspScheduler_;
             }
 
             // --- Schedule the representative to get the pattern ---
             BspSchedule<ConstrGraphT> bspSchedule(representativeInstance);
-
-            if constexpr (verbose_) {
-                std::cout << "--- Scheduling representative for group " << groupIdx << " ---" << std::endl;
-                std::cout << "  Number of subgraphs in group: " << group.subgraphs_.size() << std::endl;
-                const auto &repDag = representativeInstance.GetComputationalDag();
-                std::cout << "  Representative subgraph size: " << repDag.NumVertices() << " vertices" << std::endl;
-                std::vector<unsigned> nodeTypeCounts(repDag.NumVertexTypes(), 0);
-                for (const auto &v : repDag.Vertices()) {
-                    nodeTypeCounts[repDag.VertexType(v)]++;
-                }
-                std::cout << "    Node type counts: ";
-                for (size_t typeIdx = 0; typeIdx < nodeTypeCounts.size(); ++typeIdx) {
-                    if (nodeTypeCounts[typeIdx] > 0) {
-                        std::cout << "T" << typeIdx << ":" << nodeTypeCounts[typeIdx] << " ";
-                    }
-                }
-                std::cout << std::endl;
-
-                const auto &subArch = representativeInstance.GetArchitecture();
-                std::cout << "  Sub-architecture for scheduling:" << std::endl;
-                std::cout << "    Processors: " << subArch.NumberOfProcessors() << std::endl;
-                std::cout << "    Processor types counts: ";
-                const auto &typeCounts = subArch.GetProcessorTypeCount();
-                for (size_t typeIdx = 0; typeIdx < typeCounts.size(); ++typeIdx) {
-                    std::cout << "T" << typeIdx << ":" << typeCounts[typeIdx] << " ";
-                }
-                std::cout << std::endl;
-                std::cout << "    Sync cost: " << subArch.SynchronisationCosts()
-                          << ", Comm cost: " << subArch.CommunicationCosts() << std::endl;
-            }
-
             schedulerForGroupPtr->ComputeSchedule(bspSchedule);
-
-            if constexpr (verbose_) {
-                std::cout << "  Schedule satisfies precedence constraints: ";
-                std::cout << bspSchedule.SatisfiesPrecedenceConstraints() << std::endl;
-                std::cout << "  Schedule satisfies node type constraints: ";
-                std::cout << bspSchedule.SatisfiesNodeTypeConstraints() << std::endl;
-            }
-
             const bool maxBsp = useMaxBsp_ && (representativeInstance.GetComputationalDag().NumEdges() == 0)
                                 && (representativeInstance.GetComputationalDag().VertexType(0) == 0);
 
