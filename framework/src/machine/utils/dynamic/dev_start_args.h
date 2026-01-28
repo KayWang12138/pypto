@@ -36,8 +36,15 @@ struct DeviceRuntimeDataDesc {
 };
 
 struct DevCtrlState {
+    /* state used by control */
     uint32_t schAicpuNum{MAX_SCHEDULE_AICPU_NUM};
     uint32_t taskCtrlIndex{0};
+};
+
+struct DevScheState {
+    /* state used by schedule */
+    std::atomic<int> threadIdx{0};
+    std::atomic<int> finished{0};
 };
 
 struct DevStartArgs : DevStartArgsBase {
@@ -52,6 +59,7 @@ struct DevStartArgs : DevStartArgsBase {
 
     DeviceRuntimeDataDesc deviceRuntimeDataDesc;
     DevCtrlState devCtrlState;
+    DevScheState devScheState;
 
     void InitProgram(DevAscendProgram *prog, uint64_t base) {
         devProg = prog;
