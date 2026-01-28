@@ -169,7 +169,7 @@ public:
     inline void Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask) {
         dynDeviceTask_ = dynDeviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&dynDeviceTask->GetDynFuncDataList()->At(0));
-        hcclContextAddr_ = funcDataList_->hcclContext;
+        hcclContextAddr_ = funcDataList_->startArgs->commContexts;
         hashMap_.Init();
     }
 

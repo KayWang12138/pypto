@@ -208,37 +208,16 @@ public:
         }
     }
 
-    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        ASSERT(devProg->commGroupNum == hcclContext.size()) 
-            << "commGroupNum mismatch. commGroupNum = " 
-            <<devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
-        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) 
-            << "commGroupNum exceeds array size. commGroupNum = "
-            << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
-        for (size_t i = 0; i < devProg->commGroupNum; i++) {
-            devProg->hcclContext[i] = hcclContext[i];
-        }
-    }
-
-     static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames,
-        const std::vector<uint8_t> &devProgData) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        if (devProg->hcclContext[0] != 0) {
-            return;
-        }
-        auto hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
-        PrepareHcclContext(hcclContext, devProgData);
-    }
-
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
         const std::vector<uint8_t> &devProgData) {
-        auto hcclContext = DistributedContext::GetHcclContext(groupNames);
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
-            return;
+        std::vector<uint64_t> hcclContext;
+        if (devMem.IsDevice()) {
+            hcclContext = DistributedContext::GetHcclContext(groupNames);
+        } else {
+            hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
         }
-        PrepareHcclContext(hcclContext, devProgData);
+        hcclContext.insert(hcclContext.begin(), hcclContext.size());
+        kArgs.commContexts = devMem.CopyToDev(hcclContext);
     }
 
     template<typename DeviceMemoryTy>
