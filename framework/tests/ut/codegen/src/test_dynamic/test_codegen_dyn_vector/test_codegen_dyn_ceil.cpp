@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 
 #include "gtest/gtest.h"
 
-#include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
@@ -32,15 +31,17 @@ namespace npu::tile_fwk {
 
 class TestCodegenDynCeil : public ::testing::Test {
 public:
-    static void SetUpTestCase() {}
+    static void SetUpTestCase() {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    }
 
-    static void TearDownTestCase() {}
+    static void TearDownTestCase() {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    }
 
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetBuildStatic(true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
         config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
@@ -48,34 +49,44 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynCeil, CeilLayout) {  
+TEST_F(TestCodegenDynCeil, TestDynOpCeil) {
     std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     Tensor input(DT_FP32, shape, "input");
     Tensor output(DT_FP32, shape, "output");
+    Element scalaVal(DataType::DT_FP32, 10.0f);
 
-    std::string funcName = "TestDynOpCeil";  
+    std::string funcName = "TestDynOpCeil";
     FUNCTION(funcName, {input, output}) {
-        output = Ceil(input);
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Ceil(input);
+        }
     }
 
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-
+    function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_CEIL, {localTensorSrc}, {localTensorRes, localTensorTmp});
-    op.SetAttribute(OpAttributeKey::scalar, Element(DataType::DT_FP32, 10.0f));
+    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+    op.SetAttribute(OpAttributeKey::scalar, scalaVal);
 
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
     CodeGenCtx ctx;
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
+    function->GetTensorMap().inverseMap_[localTensorRes->GetMagic()] = localTensorRes;
+    function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
+    function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
+
     cop.Init(op);
-    cop.GenOpCode();
+    std::string res = cop.GenOpCode();
 }
 } // namespace npu::tile_fwk
