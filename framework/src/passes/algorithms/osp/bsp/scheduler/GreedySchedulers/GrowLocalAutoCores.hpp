@@ -26,7 +26,6 @@
 #include <vector>
 
 #include "MemoryConstraintModules.hpp"
-#include "passes/algorithms/osp/auxiliary/misc.hpp"
 #include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/Scheduler.hpp"
 

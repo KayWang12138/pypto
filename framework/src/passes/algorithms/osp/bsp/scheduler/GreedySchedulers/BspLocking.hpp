@@ -27,7 +27,6 @@
 
 #include "MemoryConstraintModules.hpp"
 #include "passes/algorithms/osp/auxiliary/datastructures/heaps/PairingHeap.hpp"
-#include "passes/algorithms/osp/auxiliary/misc.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/Scheduler.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_top_sort.hpp"
 
@@ -603,8 +602,6 @@ class BspLocking : public Scheduler<GraphT> {
                 endSupStep = true;
             }
         }
-
-        assert(schedule.SatisfiesPrecedenceConstraints());
 
         return ReturnStatus::OSP_SUCCESS;
     }

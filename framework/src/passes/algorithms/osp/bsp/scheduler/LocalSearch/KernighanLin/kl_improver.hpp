@@ -29,7 +29,6 @@
 #include "kl_active_schedule.hpp"
 #include "kl_util.hpp"
 #include "passes/algorithms/osp/auxiliary/datastructures/heaps/PairingHeap.hpp"
-#include "passes/algorithms/osp/auxiliary/misc.hpp"
 #include "passes/algorithms/osp/bsp/model/util/CompatibleProcessorRange.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/ImprovementScheduler.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/LocalSearch/LocalSearchMemoryConstraintModules.hpp"
