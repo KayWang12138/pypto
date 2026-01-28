@@ -21,11 +21,17 @@
 
 namespace npu {
 namespace tile_fwk {
-bool TuneTileOpSeqForVF::IsGroupMergeable(PipeSync &ps, size_t left, size_t k, int groupNum) {
+bool TuneTileOpSeqForVF::IsGroupMergeable(PipeSync &ps, size_t left, size_t k, int groupNum, const std::unordered_set<Operation *> &moveFrontOp) {
     size_t tempIdx = left;
     for (auto &groupOp : mergedOps[groupNum]) {
         if (ps.HasDataDependency(*groupOp, *opList_[k], --tempIdx, k)) {
             return false;
+        }
+        for (size_t i = left + 1; i < k; i++) {
+            if (ps.HasDataDependency(*opList_[i], *opList_[k], i, k) &&
+                std::find(moveFrontOp.begin(), moveFrontOp.end(), opList_[i]) == moveFrontOp.end()) {
+                return false;
+            }
         }
     }
     return true;
@@ -47,7 +53,7 @@ bool TuneTileOpSeqForVF::IsMergeable(std::unordered_set<Operation *> &moveFrontO
             if (groupNum == -1) {
                 moveFrontOp.insert(opList_[k]);
             } else {
-                if (!IsGroupMergeable(ps, left, k, groupNum)) {
+                if (!IsGroupMergeable(ps, left, k, groupNum, moveFrontOp)) {
                     return false;
                 }
                 moveFrontOp.insert(opList_[k]);
