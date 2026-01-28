@@ -2,8 +2,8 @@
     "test_cases": [
         {
             "case_index": 0,
-            "case_name": "Allgather_test_1",
-            "operation": "Allgather",
+            "case_name": "AllGather_test_1",
+            "operation": "AllGather",
             "input_tensors": [
                 {
                     "name": "input0",
@@ -36,16 +36,15 @@
                 ""
             ],
             "tile_shape": [
-                ""
+                16,
+                32
             ],
             "params": {
                 "rank_size": 4,
-                "tile_row_shape": 16,
-                "tile_col_shape": 32,
                 "on_board": true,
                 "func_id": -1
             },
-            "index": 0
+            "index": 1
         }
     ]
 }
