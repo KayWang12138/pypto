@@ -32,7 +32,7 @@
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/configs/config_manager.h"
 #include "tilefwk/platform.h"
-#include "machine/runtime/distributed_context.h"
+#include "machine/runtime/distributed/distributed_context.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -227,13 +227,13 @@ public:
         if (devProg->hcclContext[0] != 0) {
             return;
         }
-        auto hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
+        auto hcclContext = DistributedContext::GetCommContextToHost(groupNames);
         PrepareHcclContext(hcclContext, devProgData);
     }
 
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
         const std::vector<uint8_t> &devProgData) {
-        auto hcclContext = DistributedContext::GetHcclContext(groupNames);
+        auto hcclContext = DistributedContext::GetCommContext(groupNames);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
             return;
