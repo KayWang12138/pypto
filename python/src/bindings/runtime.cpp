@@ -470,9 +470,6 @@ private:
     }
 
     void InitCachedArgs() {
-        auto genSize = devProg->memBudget.metadata.general;
-        auto stitchPoolSize = devProg->memBudget.metadata.general;
-
         auto argNum = dynAttr->startArgsInputLogicalTensorList.size() +
             dynAttr->startArgsOutputLogicalTensorList.size();
         auto argSize = sizeof(AiCpuArgs) + 2 * sizeof(int64_t) + argNum * sizeof(DevTensorData);
@@ -750,6 +747,7 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     ALOG_ERROR("find ctrlflow cache");
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(module, args);
     auto captured = AttachAicpuStream(aicoreStream, ctrlStream, schedtream, kmodule->IsTripleStream());
+    (void)captured;
     if (ctrlFlowCache == nullptr && kmodule->IsCacheEnabled()) {
         // TODO none reloc cache if captured
         ALOG_ERROR("build temp cache");
