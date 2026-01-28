@@ -21,7 +21,7 @@
 
 #include "test_cost_model.h"
 #include "test_suite_stest_ops.h"
-#include "interface/inner/config.h"
+#include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "test_dev_func_runner.h"
@@ -190,6 +190,18 @@ private:
                 case DataType::DT_UINT64:
                     readGoldenCmp<uint64_t>(tensor, testCase.goldenPaths[i], i, 0);
                     break;
+                case DataType::DT_HF8:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E4M3:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E5M2:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
+                case DataType::DT_FP8E8M0:
+                    readGoldenCmp<uint8_t>(tensor, testCase.goldenPaths[i], i, 0);
+                    break;
                 default:
                     ASSERT_TRUE(false) << "no support dtype " << tensor.GetDataType();
                     break;
@@ -337,6 +349,8 @@ static DataType GetDataType(const std::string &name) {
         {"uint64", DataType::DT_UINT64},
         {  "bool",   DataType::DT_BOOL},
         {"double", DataType::DT_DOUBLE},
+        {"fp8e4m3", DataType::DT_FP8E4M3},
+        {"fp8e5m2", DataType::DT_FP8E5M2},
     };
     if (name_to_dtype.find(name) == name_to_dtype.end()) {
         ALOG_ERROR << "Not support type " << name << " yet, return fp32 as default.";

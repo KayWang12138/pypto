@@ -59,6 +59,7 @@ struct CalcOps {
     void (*LogicalNot)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Range)(LogicalTensorDataPtr, const Element &, const Element &, const Element &);
     void (*Compare)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, CmpOperationType, CmpModeType);
+    void (*Cmps)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, CmpOperationType, CmpModeType);
     void (*LogicalAnd)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
 
     void (*AddS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
@@ -113,6 +114,9 @@ struct CalcOps {
     void (*BitSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool);
     void (*Extract)(LogicalTensorDataPtr, LogicalTensorDataPtr, int, bool);
     void (*Topk)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t, bool);
+    void (*TopkSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int);
+    void (*TopkMerge)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
+    void (*TopkExtract)(LogicalTensorDataPtr, LogicalTensorDataPtr, int, bool);
     void (*Gather)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t);
     void (*GatherINUB)(
         LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, int64_t);
