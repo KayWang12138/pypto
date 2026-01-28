@@ -217,7 +217,8 @@ public:
 
         devArgs->inputSymbolList = nullptr;
         devArgs->inputSymbolSize = 0;
-        devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
+        devArgs->commGroupNum = static_cast<uint64_t>(*kargs->commContexts);
+        devArgs->commContexts = (devArgs->commGroupNum == 0) ? nullptr : kargs->commContexts + 1;
 
         InitCtrlFlowCache(devProg, reinterpret_cast<DevControlFlowCache*>(kargs->ctrlFlowCache), firstInit);
         DEV_INFO("AscendCppDyInitTask done.");
