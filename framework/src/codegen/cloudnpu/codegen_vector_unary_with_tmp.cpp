@@ -292,6 +292,7 @@ std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintRound() const {
+    ASSERT(isSupportLayout) << "Round only support tile tensor";
     return PrintRoundLayout();
 }
 
@@ -440,7 +441,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
 
     if (opCode == Opcode::OP_ROUND) {
         return PrintRound();
-    } 
+    }
 
     if (opCode == Opcode::OP_ROWSUMLINE) {
         return PrintRowSumline({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
