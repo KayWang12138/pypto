@@ -209,6 +209,7 @@ public:
 
         DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(ringBufferHead->Allocate());
 
+        devStartArgs->syncFlag = 0;
         devStartArgs->InitProgram(devProg, reinterpret_cast<uint64_t>(devStartArgs));
         devStartArgs->devCtrlState.schAicpuNum = devProg->devArgs.scheCpuNum;
         devStartArgs->devCtrlState.taskCtrlIndex = 0;
@@ -267,17 +268,12 @@ public:
         StopAicoreManager();
         PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
         DEV_INFO("aicore manager stopped");
-        PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
-        ret = SyncTask(&ctx.taskContext);
-        devStartArgs->syncFlag = 0;
-        PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, devProg->devArgs.scheCpuNum);
-        PerfEnd(PERF_EVT_STAGE_TASK_SYNC);
         PerfEnd(PERF_EVT_EXEC_DYN);
 #if ENABLE_PERF_EVT
         ctx.ShowStats();
         PerfEvtMgr::Instance().Dump();
         PerfettoMgr::Instance().Dump("/tmp/perfetto.txt");
-    #endif
+#endif
         return ret;
     }
 
