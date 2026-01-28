@@ -18,11 +18,17 @@
 #include <string>
 
 namespace npu::tile_fwk::dynamic {
+enum class ResType {
+    HCCLMESH
+};
+
 class DistributedContext {
 public:
     DistributedContext(){};
     ~DistributedContext(){};
-    static std::vector<uint64_t> GetHcclContext(const std::vector<std::string> &groupNames);
-    static std::vector<uint64_t> GetHcclContextToHost(const std::vector<std::string> &groupNames);
+    static std::vector<uint64_t> GetCommContext(const std::vector<std::string> &groupNames);
+    static std::vector<uint64_t> GetCommContextToHost(const std::vector<std::string> &groupNames);
+    template<ResType T>
+    static uint64_t AllocCommContext(uint64_t ctxAddr);
 };
 } // namespace npu::tile_fwk::dynamic
