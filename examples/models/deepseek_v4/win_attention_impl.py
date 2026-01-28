@@ -25,6 +25,10 @@ def check_args_tnd(
             actual_seq_list_q: torch.Tensor,
 ):
     print("start tnd args check...")
+    
+    assert q_tnd != None and block_table != None and kv_cache != None and seqused_kv != None and \
+        atten_sink != None and actual_seq_list_q != None
+
     assert q_tnd.dtype == torch.bfloat16 and q_tnd.ndim == 3 and q_tnd.shape[1] == 64 and q_tnd.shape[2] == 512, \
         f"q dtype is {q_tnd.dtype}, ndim is {q_tnd.ndim}, axis2 is {q_tnd.shape[1]}, axis3 is {q_tnd.shape[2]}"
 
@@ -54,7 +58,9 @@ def check_args_tnd(
     runtime_options={"stitch_function_inner_memory": 1024,
                     "stitch_function_outcast_memory": 1024,
                     "stitch_function_num_initial": 128},
-    pass_options={"cube_l1_reuse_mode": 2},
+    pass_options={"cube_nbuffer_setting": {1: 2},
+                "vec_nbuffer_mode": 2,
+                "vec_nbuffer_setting": {-1: 4}}
 )
 def win_atten_main_tnd_mask(q_tnd, block_table, kv_cache, seqused_kv_list, atten_sink, \
     actual_seq_list_q, mask2, atten_out, win):
@@ -120,7 +126,7 @@ def win_atten_main_tnd_mask(q_tnd, block_table, kv_cache, seqused_kv_list, atten
                 end_block_id = block_table[b_idx, end_block]
                 kv_block_2 = pypto.view(kv_2d, [block_size, d_kv], [end_block_id * block_size, 0])
 
-                pypto.set_cube_tile_shapes([256, 256], [128, 128], [128, 128], False, False)
+                pypto.set_cube_tile_shapes([256, 256], [128, 128 * 2], [128, 128], True, False)
                 acc_s_0 = pypto.matmul(q_tensor_cur, kv_block_0, pypto.DT_FP32, b_trans=True)
                 acc_s_1 = pypto.matmul(q_tensor_cur, kv_block_1, pypto.DT_FP32, b_trans=True)
                 acc_s_2 = pypto.matmul(q_tensor_cur, kv_block_2, pypto.DT_FP32, b_trans=True)
@@ -165,7 +171,7 @@ def win_atten_main_tnd_mask(q_tnd, block_table, kv_cache, seqused_kv_list, atten
                 end_block_id = block_table[b_idx, end_block]
                 kv_block_1 = pypto.view(kv_2d, [block_size, d_kv], [end_block_id * block_size, 0])
 
-                pypto.set_cube_tile_shapes([256, 256], [128, 128], [128, 128], False, False)
+                pypto.set_cube_tile_shapes([256, 256], [128, 128 * 2], [128, 128], True, False)
                 acc_s_0 = pypto.matmul(q_tensor_cur, kv_block_0, pypto.DT_FP32, b_trans=True)
                 acc_s_1 = pypto.matmul(q_tensor_cur, kv_block_1, pypto.DT_FP32, b_trans=True)
                 pypto.assemble(acc_s_0, [0, 0], acc_s)
@@ -202,7 +208,7 @@ def win_atten_main_tnd_mask(q_tnd, block_table, kv_cache, seqused_kv_list, atten
                 start_block_id = block_table[b_idx, start_block]
                 kv_block = pypto.view(kv_2d, [block_size, d_kv], [start_block_id * block_size, 0])
 
-                pypto.set_cube_tile_shapes([256, 256], [128, 128], [128, 128], False, False)
+                pypto.set_cube_tile_shapes([256, 256], [128, 128 * 2], [128, 128], True, False)
                 acc_s = pypto.matmul(q_tensor_cur, kv_block, pypto.DT_FP32, b_trans=True)
 
                 pypto.set_vec_tile_shapes(64, 256)
@@ -251,6 +257,8 @@ def deepseekv4_win_atten(q: torch.Tensor,
         ori_kv: [],
         seqused_kv: [],
         attn_sinks: [],
+        actual_seq_list_q: [],
+        mask: []
     }
     outputs = {
         atten_out: [],
@@ -259,15 +267,8 @@ def deepseekv4_win_atten(q: torch.Tensor,
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
-    if actual_seq_list_q is not None and mask is not None:
-        print("Using tnd mask kernel")
-        inputs[actual_seq_list_q] = []
-        inputs[mask] = []
-        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-        win_atten_main_tnd_mask(*pto_inputs, *pto_outputs, win_size)
+    print("Using tnd mask kernel")
+    win_atten_main_tnd_mask(*pto_inputs, *pto_outputs, win_size)
 
-    else:
-        print("Please check your params.")
-        
     pypto.runtime._device_synchronize()
     return atten_out

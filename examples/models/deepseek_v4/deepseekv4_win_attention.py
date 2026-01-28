@@ -201,7 +201,7 @@ def test_win_atten_tnd_mask(allow_in_graph) -> None:
         seqused_kv_list_tensor = torch.tensor(seqused_kv_list, dtype=torch.int32, device=f'npu:{device_id}')
         actual_seq_list_q_tenor = torch.tensor(actual_seq_list_q, dtype=torch.int32, device=f'npu:{device_id}')
 
-        q_tnd, block_table, kv_cache, atten_sink, _ = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, \
+        q_tnd, block_table, kv_cache, attn_sinks, _ = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, \
             block_size, seqused_kv_list, dtypes, device_id)
         mask2 = get_mask2(4, n_q, device_id, block_size)
 
@@ -217,7 +217,7 @@ def test_win_atten_tnd_mask(allow_in_graph) -> None:
             ori_block_table_npu = block_table.npu()
             ori_kv_npu = kv_cache.npu()
             seqused_kv_list_tensor_npu = seqused_kv_list_tensor.npu()
-            attn_sinks_npu = atten_sink.npu()
+            attn_sinks_npu = attn_sinks.npu()
             mask2_npu = mask2.npu()
             actual_seq_list_q_tenor_npu = actual_seq_list_q_tenor.npu()
 
@@ -227,10 +227,9 @@ def test_win_atten_tnd_mask(allow_in_graph) -> None:
 
         else:
             atten_out_2d = deepseekv4_win_atten(q_tnd, block_table, kv_cache, seqused_kv_list_tensor, \
-            atten_sink, win_size, mask=mask2, actual_seq_list_q=actual_seq_list_q_tenor)
-        
+            attn_sinks, win_size, mask=mask2, actual_seq_list_q=actual_seq_list_q_tenor)
 
-        golden = win_atten_calc_tnd(input_params_win_attn, seqused_kv_list, atten_sink, q_tnd, \
+        golden = win_atten_calc_tnd(input_params_win_attn, seqused_kv_list, attn_sinks, q_tnd, \
             kv_cache, block_table, actual_seq_list_q, device_id)
         from utils.np_compare import detailed_allclose_manual as compare
         atten_out = torch.reshape(atten_out_2d, [t, n_q, d_q])
