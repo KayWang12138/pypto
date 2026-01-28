@@ -23,6 +23,8 @@ MachineTask *GenCode(
 
 struct Linker {
     SymbolicSymbolTable &symbolTable_;
+    SymbolicScalar mainBlockScalar_;
+    std::unordered_set<std::string> mainBlockGroup_;
 
     DyndevFunctionAttribute::FunctionGroup &funcGroup_;
     DyndevFunctionAttribute::ExpressionTableDictGroup &exprTableDictGroup_;

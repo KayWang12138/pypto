@@ -197,6 +197,8 @@ static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *fun
 
 static void HandleExecuteGraph(FunctionCache &cache, Linker &linker, Function *func);
 static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *func) {
+    SymbolicScalar runtimeAnd("RUNTIME_And");
+
     if (func->IsDynloop()) {
         auto dynloopAttr = func->GetDynloopAttribute();
         auto ss = SymbolicScalar(dynloopAttr->iterSymbolName);
@@ -227,6 +229,8 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         HandleExecuteGraph(cache, linker, func);
     } else if (func->GetGraphType() == GraphType::BLOCK_GRAPH) {
+        SymbolicScalar cond = SetMainBlock(func, linker.mainBlockGroup_);
+        linker.mainBlockScalar_ = AddUniqueCondition(runtimeAnd, linker.mainBlockScalar_, cond, linker.mainBlockGroup_);
         for (auto &op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_VEC_DUP) {
                 if (op.HasAttr(OpAttributeKey::dynScalar)) {
@@ -937,10 +941,17 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         Function *devTile = attr->rootTileDict[devRoot];
         config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, devTile->paramConfigs_.dynamicAlignedOps);
         npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
+        npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true);
         npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+        npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
         codeGen.GenCode(*devTile, {});
+<<<<<<< HEAD
         MainBlockCondBulider builder;
         builder.Gencode(devTile, {});
+=======
+        codeGenMainBlock.GenCode(*devTile, {});
+
+>>>>>>> 37c911b (feat(pass, codegen, interface):VF support for A5)
         for (auto &[psgId, leaf] : devRoot->programs_) {
             (void)psgId;
             auto hash = leaf->GetFunctionHash().GetHash();
@@ -1033,16 +1044,22 @@ MachineTask *GenCode(
     MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache,
     std::string &kernelPath) {
     npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
+    npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true);
     npu::tile_fwk::CreateMultiLevelDir(codeGenCtx.cceDir);
     npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+    npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
     auto function = task->GetFunction();
     /* each leafFunction inside is compiled to a standalone object file.
      * the filepath of the object file is updated to the binPath_ member.
      */
     if (function->GetGraphType() == GraphType::TILE_GRAPH) {
         codeGen.GenCode(*function, invokeParaOffset);
+<<<<<<< HEAD
         MainBlockCondBulider builder;
         builder.Gencode(function, invokeParaOffset);
+=======
+        codeGenMainBlock.GenCode(*function, invokeParaOffset);
+>>>>>>> 37c911b (feat(pass, codegen, interface):VF support for A5)
     } else {
         if (function->IsFunctionType(FunctionType::DYNAMIC)) {
             std::string cce_path = RealPath(codeGenCtx.cceDir) + "/";
