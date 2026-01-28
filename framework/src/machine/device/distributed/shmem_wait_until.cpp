@@ -24,7 +24,7 @@
 #include "securec.h"
 
 #include "machine/device/dynamic/aicore_manager.h"
-#include "tileop/distributed/hccl_context.h"
+#include "tileop/distributed/comm_context.h"
 #include "machine/utils/device_log.h"
 #include "machine/utils/dynamic/dev_workspace.h"
 #include "neon_stub.h"
@@ -62,11 +62,11 @@ uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankI
     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
     uint64_t memType = npu::tile_fwk::Distributed::GetVirtualAddrMemType(addr);
-    auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContextAddr_[groupIndex]);
+    auto hcclOpParam = reinterpret_cast<TileOp::CommContext*>(hcclContextAddr_[groupIndex]);
     if (memType == 0) {
-        return hcclOpParam->windowsIn[dstRankId] + offset;
+        return hcclOpParam->winAddr[dstRankId] + offset;
     } else {
-        return hcclOpParam->windowsExp[dstRankId] + offset;
+        return hcclOpParam->winAddr[hcclOpParam->statusIndex + dstRankId] + offset;
     }
 }
 
