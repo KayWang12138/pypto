@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ from torch._dynamo import allow_in_graph
 BATCH_SIZE = 32
 D_GATE = 4096
 D_GATE_4 = 16384
+
 
 def get_device_id():
     """
@@ -140,7 +141,7 @@ class LstmTileConfig:
     """Tiling configuration for NPU optimization."""
     def __init__(self):
         self.tile_bs = 1          # Batch dimension tile size
-        self.unroll_list = [1,2,4]    # Loop unrolling strategy
+        self.unroll_list = [1, 2, 4]    # Loop unrolling strategy
         self.h_tile = 4096         # Hidden dimension tile size (aligned to 128 bytes)
 
 
@@ -181,7 +182,6 @@ def gelu_activation_core(x: pypto.Tensor) -> pypto.Tensor:
     """
     x_scaled = pypto.mul(x, 1.702)
 
-    # sigmoid(x) = 1 / (1 + exp(-x))
     x_neg = pypto.mul(x_scaled, -1.0)
     exp_neg = pypto.exp(x_neg)
     ones = pypto.full(exp_neg.shape, 1.0, exp_neg.dtype, valid_shape=exp_neg.shape)
@@ -219,13 +219,13 @@ def sum_lstm_compute(
 
 
     # Main Loop over Batch Dimension
-    for bs_offset, unrollLength in pypto.loop_unroll(
+    for bs_offset, unroll_length in pypto.loop_unroll(
         0, batch_size, 1,
         name="LSTM_BATCH_LOOP",
         idx_name="bs_offset",
         unroll_list=tile_config.unroll_list
     ):
-        current_tile_bs = unrollLength
+        current_tile_bs = unroll_length
         output_offset = [bs_offset, 0]
         pypto.set_vec_tile_shapes(current_tile_bs, tile_config.h_tile)
         if w_cell is not None:
@@ -339,6 +339,7 @@ def sum_lstm(run_mode: str = "npu"):
         )
     return sum_lstm_kernel
 
+
 def prepare_test_data(device) -> Dict[str, Any]:
     """Prepare common data for both precision and performance tests."""
     # Data
@@ -386,6 +387,7 @@ def prepare_test_data(device) -> Dict[str, Any]:
         "config": config,
     }
 
+
 def run_precision_test(kernel_func, data: Dict[str, Any]):
     """Run correctness verification."""
     logging.info("\n" + "=" * 40)
@@ -424,22 +426,26 @@ def run_precision_test(kernel_func, data: Dict[str, Any]):
         logging.error(">> Precision Test FAILED!")
         raise e
 
+
 def benchmark_func(func, name: str, n_warmup=1, n_repeat=2) -> float:
     """Helper for measuring execution time."""
     logging.info(f"Benchmarking {name} ...")
     # Warmup
-    for _ in range(n_warmup): func()
+    for _ in range(n_warmup): 
+        func()
     torch.npu.synchronize()
 
     # Timing
     t0 = time.time()
-    for _ in range(n_repeat): func()
+    for _ in range(n_repeat): 
+        func()
     torch.npu.synchronize()
     t1 = time.time()
 
     avg_ms = (t1 - t0) * 1000 / n_repeat
     logging.info(f" -> {name}: {avg_ms:.4f} ms")
     return avg_ms
+
 
 def run_performance_test(kernel_func, data: Dict[str, Any]):
     """Run performance benchmarking."""
@@ -470,6 +476,7 @@ def run_performance_test(kernel_func, data: Dict[str, Any]):
 
     if time_npu > 0:
         logging.info(f"\n>> Speedup: {time_gold / time_npu:.2f}x")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run Arctic LSTM PyPTO Example")
