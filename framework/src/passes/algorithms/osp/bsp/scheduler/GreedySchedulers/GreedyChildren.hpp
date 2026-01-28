@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "passes/algorithms/osp/bsp/scheduler/Scheduler.hpp"
-#include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -49,8 +48,9 @@ class GreedyChildren : public Scheduler<GraphT> {
 
         std::vector<VertexType> predecessorsCount(instance.NumberOfVertices(), 0);
         std::multiset<std::pair<unsigned, VertexType>, std::greater<>> next;
-        for (const VertexType &i : SourceVerticesView(graph)) {
-            next.emplace(graph.OutDegree(i), i);
+        for (const VertexType &i : graph.Vertices()) {
+            if (graph.InDegree(i) == 0)
+                next.emplace(graph.OutDegree(i), i);
         }
 
         while (!next.empty()) {
