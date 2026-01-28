@@ -268,4 +268,5 @@ def deepseekv4_win_atten(q: torch.Tensor,
     win_atten_main_tnd_mask(*pto_inputs, *pto_outputs)
 
     pypto.runtime._device_synchronize()
+    atten_out = atten_out.reshape([q.shape[0], q.shape[1], q.shape[2]])
     return atten_out
