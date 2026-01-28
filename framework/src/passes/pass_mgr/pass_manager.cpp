@@ -116,6 +116,7 @@ void PassManager::RegDefaultStrategy() {
             {         "AssignMemoryType",            PassName::ASSIGN_MEMORY_TYPE},
             {  "InferDiscontinuousInput",     PassName::INFER_DISCONTINUOUS_INPUT},
             {        "RemoveRedundantOp",           PassName::REMOVE_REDUNDANT_OP},
+            {       "MergeViewAssemble2",           PassName::MERGE_VIEW_ASSEMBLE},
             {  "InsertOpForViewAssemble",    PassName::INSERT_OP_FOR_VIEWASSEMBLE},
             {                   "SplitK",                       PassName::SPLIT_K},
             {           "GraphPartition",               PassName::GRAPH_PARTITION},
