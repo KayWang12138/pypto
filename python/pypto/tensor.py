@@ -554,6 +554,10 @@ class Tensor:
         return pypto.sqrt(self)
 
     @source_location
+    def reciprocal(self) -> 'Tensor':
+        return pypto.reciprocal(self)
+
+    @source_location
     def transpose(self, dim0: int, dim1: int) -> 'Tensor':
         return pypto.transpose(self, dim0, dim1)
 

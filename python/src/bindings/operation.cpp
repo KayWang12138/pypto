@@ -81,6 +81,7 @@ void bind_operation(py::module &m) {
     m.def("Reciprocal", [](const Tensor &operand) { return npu::tile_fwk::Reciprocal(operand); }, "Tensor reciprocal.");
     m.def("Rsqrt", [](const Tensor &self) { return npu::tile_fwk::Rsqrt(self); }, "Tensor rsqrt.");
     m.def("Sqrt", [](const Tensor &self) { return npu::tile_fwk::Sqrt(self); }, "Tensor sqrt.");
+    m.def("Reciprocal", [](const Tensor &self) { return npu::tile_fwk::Reciprocal(self); }, "Tensor Reciprocal.");
     m.def("Neg", [](const Tensor &self) { return npu::tile_fwk::Neg(self); }, "Tensor neg.");
     m.def(
         "Log", [](const Tensor &self, const LogBaseType base) { return npu::tile_fwk::Log(self, base); },
