@@ -144,7 +144,6 @@ Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor
 Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
-    auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_SIGNAL, {predToken.GetStorage(), shmemSignal.GetStorage()},
         {out});
     DistOpAttr distOpAttr;
