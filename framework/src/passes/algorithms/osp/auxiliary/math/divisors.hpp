@@ -16,7 +16,6 @@
 #ifndef PASS_OSP_MATH_H
 #define PASS_OSP_MATH_H
 
-#include <cassert>
 #include <cmath>
 #include <limits>
 #include <type_traits>

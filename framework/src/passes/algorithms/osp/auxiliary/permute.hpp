@@ -16,7 +16,6 @@
 #ifndef PASS_OSP_PERMUTE_H
 #define PASS_OSP_PERMUTE_H
 
-#include <cassert>
 #include <type_traits>
 #include <utility>
 #include <vector>
