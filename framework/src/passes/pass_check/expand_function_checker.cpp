@@ -28,9 +28,13 @@ Status ExpandFunctionChecker::DoPreCheck(Function &function) {
     }
     std::unordered_set<OpCalcType> calTypes{OpCalcType::ELMWISE, OpCalcType::BROADCAST, OpCalcType::REDUCE,
                                             OpCalcType::CONV};
+    std::unordered_set<Opcode> supportBF16Code{Opcode::OP_CMP, Opcode::OP_CMPS};
     for (auto &op : function.Operations().DuplicatedOpList()) {
         OpCalcType opCalType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
         if (calTypes.count(opCalType) > 0) {
+            if (supportBF16Code.find(op->GetOpcode()) != supportBF16Code.end()) {
+                continue;
+            }
             for (auto &itensor: op->GetIOperands()) {
                 if (itensor->tensor->datatype == DT_BF16) {
                     APASS_LOG_ERROR_F(Elements::Tensor, "Calculation Op [%d] has BF16 operand %d.", op->GetOpMagic(), itensor->GetMagic());
