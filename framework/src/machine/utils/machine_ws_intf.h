@@ -97,24 +97,18 @@ struct DeviceTaskBin {
 constexpr int64_t DEVICE_QUEUE_SIZE = 512;
 #define DEVICE_TASK_STOP 0x7FFFFFFE
 
-#define AICPU_LAUNCH_MODE_INVAL   0
-#define AICPU_LAUNCH_MODE_DEF     1
-#define AICPU_LAUNCH_MODE_CTRL    2
-#define AICPU_LAUNCH_MODE_SCHED   3
-
 struct DeviceKernelArgs {
     int64_t *ctrlFlowCache{nullptr};
     int64_t *inputs{nullptr};
     int64_t *outputs{nullptr};
     int64_t *workspace{nullptr};
-    int64_t sequence{0};
+    int64_t *tiling{nullptr};
     int64_t *cfgdata{nullptr};
     // following 4 paras need remove to binary
     void *costmodeldata{nullptr};
     void *aicoreModel{nullptr};
     uint64_t taskWastTime{0};
     uint8_t machineConfig;
-    uint8_t launchMode{0};
     ToSubMachineConfig toSubMachineConfig;
     DeviceKernelArgsParameter parameter;
 };
