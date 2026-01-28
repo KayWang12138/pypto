@@ -508,7 +508,7 @@ def test_t4_pa_nd_bf16():
     }
     dtype = pypto.DataType.DT_BF16
     is_quant = True
-    is_nz = False
+    is_nz = True
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
     mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
 
@@ -524,7 +524,7 @@ def test_t4_pa_nd_bf16_eager():
     }
     dtype = pypto.DataType.DT_BF16
     is_quant = True
-    is_nz = False
+    is_nz = True
     attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
     configs = MlaPrologV4Configs(unroll_list=[128, 64, 32, 16, 1],
                                 cube_l1_reuse_setting={2: 4},
@@ -549,7 +549,7 @@ def test_t16_pa_nd_bf16():
         'qk_rope_head_dim': 64,
     }
     dtype = pypto.DataType.DT_BF16
-    is_nz = False
+    is_nz = True
     is_quant = True
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
     mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
@@ -568,7 +568,7 @@ def test_t16_pa_nd_bf16_eager():
     }
     dtype = pypto.DataType.DT_BF16
     is_quant = True
-    is_nz = False
+    is_nz = True
     attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
     configs = MlaPrologV4Configs(unroll_list=[128, 64, 32, 16, 1],
                                 cube_l1_reuse_setting={2: 4},
@@ -594,7 +594,7 @@ def test_t512_pa_nd_bf16():
         'qk_rope_head_dim': 64,
     }
     dtype = pypto.DataType.DT_BF16
-    is_nz = False
+    is_nz = True
     is_quant = True
     input_tensors, golden_data = gen_mla_prolog_data(params, torch.bfloat16, is_quant, is_nz)
     mla_prolog(params, input_tensors, golden_data, dtype, is_nz)
