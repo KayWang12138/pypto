@@ -14,8 +14,8 @@
                     "format": "ND",
                     "need_trans": false,
                     "data_range": {
-                        "min": "",
-                        "max": ""
+                        "min": 0,
+                        "max": 1
                     }
                 }
             ],
@@ -62,8 +62,8 @@
                     "format": "ND",
                     "need_trans": false,
                     "data_range": {
-                        "min": "",
-                        "max": ""
+                        "min": 0,
+                        "max": 1
                     }
                 }
             ],
@@ -94,7 +94,7 @@
                 "on_board": true,
                 "func_id": -1
             },
-            "index": 1
+            "index": 7
         }
     ]
 }
