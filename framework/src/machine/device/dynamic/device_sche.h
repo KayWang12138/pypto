@@ -188,14 +188,14 @@ struct DynMachineManager {
         return ret;
     }
 
-    void RunPost(DeviceArgs *devArgs) {
-        UNUSED(devArgs);
+    void RunPost(DevAscendProgram *devProg) {
+        ReleaseRuntimeDataRingBuffer(devProg);
         DEV_INFO("All schedule exited, destroy the machine.");
         DeInit();
 #if ENABLE_PERF_TRACE
         PerfMtTrace(PERF_TRACE_EXIT, LastFinishThreadIdx_);
         DEV_ERROR("Begin dump machine perf trace:");
-        PerfEvtMgr::Instance().DumpPerfTrace(devArgs->scheCpuNum, "/tmp/tile_fwk_aicpu_perftrace.json");
+        PerfEvtMgr::Instance().DumpPerfTrace(devProg->devArgs.scheCpuNum, "/tmp/tile_fwk_aicpu_perftrace.json");
         DEV_IF_DEVICE {
             machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
         }
@@ -329,18 +329,23 @@ struct DynMachineManager {
         return;
     }
 
+    void ReleaseRuntimeDataRingBuffer(DevAscendProgram *devProg) {
+        RuntimeDataRingBufferHead *runtimeDataList = devProg->GetRuntimeDataList();
+        runtimeDataList->Deallocate(runtimeDataList->GetRuntimeDataCurrent());
+    }
+
     int EntryUnifiedStream(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
         auto ret = RunCtrlInit(kargs, entry);
         if (ret != DEVICE_MACHINE_OK) {
             DEV_ERROR("Server init failed");
             return ret;
         }
-        DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
+        DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         kargs->taskWastTime = GetCycles();
-        Init(devArgs);
+        Init(&devProg->devArgs);
         int rc = Run(kargs, entry);
         if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
-            RunPost(devArgs);
+            RunPost(devProg);
             return DEVICE_MACHINE_OK;
         }
         return rc;
@@ -353,12 +358,13 @@ struct DynMachineManager {
         uint64_t step = splittedInfo_.step++;
         // ctrl start 2 threads: one for ctrl, one for registering signal
         if (step % 2 == 0) {
-            splittedInfo_.CtrlUpdate(ctrlThreadIdx, kargs->parameter.globalRound);
-
             ret = RunCtrlInitNoLock(kargs, entry);
             if (ret != 0) {
                 return ret;
             }
+
+            splittedInfo_.CtrlUpdate(ctrlThreadIdx, kargs->parameter.globalRound);
+
             ret = RunCtrl(kargs, entry, ctrlThreadIdx);
         } else {
             SignalReg(entry);
@@ -373,8 +379,7 @@ struct DynMachineManager {
 
         DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(kargs->cfgdata);
         if (splittedInfo_.ScheSync(devProg->devArgs.nrAicpu)) {
-            RuntimeDataRingBufferHead *runtimeDataList = devProg->GetRuntimeDataList();
-            runtimeDataList->Deallocate(runtimeDataList->GetRuntimeDataCurrent());
+            ReleaseRuntimeDataRingBuffer(devProg);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED;
         }
         return ret;
