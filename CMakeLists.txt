@@ -86,6 +86,7 @@ include(cmake/third_party/googletest/googletest.cmake)
 set(BUILD_TRACR OFF CACHE BOOL "Enable TraCR")
 
 include(framework/src/machine/tracr/tracr.cmake)
+include(tools/tracr/tracr.cmake)
 
 ########################################################################################################################
 # 编译流程
@@ -93,7 +94,6 @@ include(framework/src/machine/tracr/tracr.cmake)
 
 add_subdirectory(framework)
 add_subdirectory(python)
-
 
 ########################################################################################################################
 # 安装流程
