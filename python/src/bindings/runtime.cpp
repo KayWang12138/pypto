@@ -60,10 +60,8 @@ void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
     }
 }
 
-std::string DeviceRunOnceDataFromHost(
-    const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
-    ProgramData::GetInstance().Reset();
-    Function *func = Program::GetInstance().GetLastFunction();
+static std::string ValidateFunctionAndIO(Function *func, const std::vector<DeviceTensorData> &inputs,
+                                          const std::vector<DeviceTensorData> &outputs) {
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
         return "Invalid function format";
     }
@@ -77,6 +75,20 @@ std::string DeviceRunOnceDataFromHost(
     auto outputSize = attr->startArgsOutputLogicalTensorList.size();
     if (inputSize != inputs.size() || outputSize != outputs.size()) {
         return "mismatch input/output";
+    }
+    return "";
+}
+
+std::string DeviceRunOnceDataFromHost(
+    const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
+        return "";
+    }
+    ProgramData::GetInstance().Reset();
+    Function *func = Program::GetInstance().GetLastFunction();
+    auto errorMsg = ValidateFunctionAndIO(func, inputs, outputs);
+    if (!errorMsg.empty()) {
+        return errorMsg;
     }
 
     for (size_t i = 0; i < inputs.size(); i++) {
@@ -126,6 +138,9 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData,
     [[maybe_unused]] py::int_ devCtrlCache) {
 
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
+        return "";
+    }
     HOST_PERF_TRACE_START();
     HOST_PERF_EVT_BEGIN(EventPhase::RunDevice);
 
@@ -137,19 +152,9 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
 
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     Function *func = op->GetFunction();
-    if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
-        return "Invalid function format";
-    }
-
-    auto attr = func->GetDyndevAttribute();
-    if (attr == nullptr) {
-        return "Invalid function format";
-    }
-
-    auto inputSize = attr->startArgsInputLogicalTensorList.size();
-    auto outputSize = attr->startArgsOutputLogicalTensorList.size();
-    if (inputSize != inputs.size() || outputSize != outputs.size()) {
-        return "mismatch input/output";
+    auto errorMsg = ValidateFunctionAndIO(func, inputs, outputs);
+    if (!errorMsg.empty()) {
+        return errorMsg;
     }
 
     if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1) {
