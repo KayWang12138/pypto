@@ -249,7 +249,8 @@ class InferControlflowShape:
 
 
 @pypto.jit(
-    infer_controlflow_shape=InferControlflowShape()
+    infer_controlflow_shape=InferControlflowShape(),
+    runtime_options={ "triple_stream_sched": True }
 )
 def infer_shape_kenrel(a, b, c):
     pypto.set_vec_tile_shapes(16, 16)
@@ -263,22 +264,24 @@ def test_infer_shape():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
+    n = 100
     device = f'npu:{device_id}'
     # for b in [2048, 1024, 512, 256, 128, 64, 32]:
     for b in [32]:
-        a = torch.randn((b, 32), device=device)
-        b = torch.randn((b, 32), device=device)
-        c = torch.zeros_like(a, device=device)
-        g = a + b
 
-        ta = pypto.from_torch(a, dynamic_axis=[0])
-        tb = pypto.from_torch(b, dynamic_axis=[0])
-        tc = pypto.from_torch(c, dynamic_axis=[0])
+        a = [torch.randn((b, 32), device=device) for _ in range(n)]
+        b = [torch.randn((b, 32), device=device) for _ in range(n)]
+        c = [torch.zeros_like(a[0], device=device) for _ in range(n)]
 
-        infer_shape_kenrel(ta, tb, tc)
+        for i in range(n):
+            ta = pypto.from_torch(a[i], dynamic_axis=[0])
+            tb = pypto.from_torch(b[i], dynamic_axis=[0])
+            tc = pypto.from_torch(c[i], dynamic_axis=[0])
+            infer_shape_kenrel(ta, tb, tc)
 
         torch.npu.synchronize()
-        torch.testing.assert_close(c, g)
+        for i in range(n):
+            torch.testing.assert_close(c[i], a[i] + b[i])
 
 if __name__ == "__main__":
     test_infer_shape()
