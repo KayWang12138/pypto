@@ -51,9 +51,9 @@ constexpr int32_t RECEIVE_CNT_OUT_COL = 512;
 constexpr int32_t SHMEM_SIGNAL_STRIDE = 8;
 constexpr int32_t MAX_TILE_NUM = 1024;
 enum class TileIndex : size_t {
-    HEAD_SHAPE,
-    HEAD_NUM,
-    TAIL_SHAPE
+     HEAD_SHAPE,
+     HEAD_NUM,
+     TAIL_SHAPE
 };
 
 enum class AllReduceType {
