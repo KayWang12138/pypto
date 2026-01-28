@@ -16,37 +16,11 @@
 #ifndef OSP_RETURN_STATUS_HPP
 #define OSP_RETURN_STATUS_HPP
 
-#include <iostream>
-
 namespace npu::tile_fwk {
 namespace osp {
 
 enum class ReturnStatus { OSP_SUCCESS, BEST_FOUND, TIMEOUT, ERROR };
 
-/**
- * @brief Converts the enum to a string literal.
- * Returns const char* to avoid std::string allocation overhead.
- */
-inline const char *ToString(const ReturnStatus status) {
-    switch (status) {
-        case ReturnStatus::OSP_SUCCESS:
-            return "SUCCESS";
-        case ReturnStatus::BEST_FOUND:
-            return "BEST FOUND";
-        case ReturnStatus::TIMEOUT:
-            return "TIMEOUT";
-        case ReturnStatus::ERROR:
-            return "ERROR";
-        default:
-            return "UNKNOWN";
-    }
-}
-
-/**
- * @brief Stream operator overload using the helper function.
- */
-inline std::ostream &operator<<(std::ostream &os, ReturnStatus status) { return os << ToString(status); }
-
-}    // namespace osp
+} // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_RETURN_STATUS_HPP
