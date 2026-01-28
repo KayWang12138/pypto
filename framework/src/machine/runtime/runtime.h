@@ -121,11 +121,12 @@ public:
             free(ptr);
         }
     }
-protected:
+
     void DestroyMemory() {
         for (uint8_t *addr : allocatedHostAddr) {
             free(addr);
         }
+        allocatedHostAddr.clear();
     }
 private:
     std::vector<uint8_t *> allocatedHostAddr;

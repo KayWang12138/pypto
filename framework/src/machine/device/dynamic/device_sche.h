@@ -293,13 +293,13 @@ struct DynMachineManager {
     }
 
     int Entry(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
+        kargs->taskWastTime = GetCycles();
         auto ret = CtrlServerInit(kargs, entry);
         if (ret != DEVICE_MACHINE_OK) {
             DEV_ERROR("Server init failed");
             return -1;
         }
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
-        kargs->taskWastTime = GetCycles();
         Init(devArgs);
         int rc = Run(kargs, entry);
         if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
