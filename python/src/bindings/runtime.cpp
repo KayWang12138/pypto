@@ -62,6 +62,10 @@ void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
 
 std::string DeviceRunOnceDataFromHost(
     const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
+    if(config::GetHostOption<int64_t>(COMPILE_STAGE)!=CS_ALL_COMPLETE)
+    {
+        return "";
+    }
     ProgramData::GetInstance().Reset();
     Function *func = Program::GetInstance().GetLastFunction();
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
@@ -126,6 +130,10 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData,
     [[maybe_unused]] py::int_ devCtrlCache) {
 
+    if(config::GetHostOption<int64_t>(COMPILE_STAGE)!=CS_ALL_COMPLETE)
+    {
+        return "";
+    }
     HOST_PERF_TRACE_START();
     HOST_PERF_EVT_BEGIN(EventPhase::RunDevice);
 
