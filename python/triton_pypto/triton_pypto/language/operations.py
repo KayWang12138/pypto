@@ -208,6 +208,16 @@ class TensorWrapper(pypto_wrap.BaseWrapper[pypto.tensor]):
     def __rtruediv__(self, other) -> Self:
         return tensor_binary_op(other, self, pypto_wrap.div, "rtruediv")
 
+    def __floordiv__(self, other) -> Self:
+        if not self.dtype.is_int():
+            raise RuntimeError("operator '//' is supported for integer tensors only")
+        return tensor_binary_op(self, other, pypto_wrap.div, "floordiv")
+
+    def __rfloordiv__(self, other) -> Self:
+        if not self.dtype.is_int():
+            raise RuntimeError("operator '//' is supported for integer tensors only")
+        return tensor_binary_op(other, self, pypto_wrap.div, "rfloordiv")
+
     def __and__(self, other) -> Self:
         if self.dtype != pypto.DT_BOOL:
             raise RuntimeError("Bitwise AND is supported only for DT_BOOL")
@@ -977,7 +987,8 @@ def store(pointer: Any, value: TensorWrapper, mask: Optional[BaseMaskLayout] = N
         raise NotImplementedError("Only HostTensorWrapper supported")
     multidim_offset = delinearize_offset(layout.offset, layout.base.original_shape)
     src_shape = value.shape
-    if valid_shape := compute_valid_shape(mask, src_shape):
+    valid_shape = compute_valid_shape(mask, src_shape)
+    if valid_shape is not None and not np.array_equal(src_shape, valid_shape):
         value = pypto_wrap.view(value, src_shape, [0] * len(src_shape), valid_shape=valid_shape)
     target_shape = pad_shape(src_shape, len(layout.base.shape))
     value = reshape_impl(value, target_shape)
@@ -1060,6 +1071,34 @@ def zeros_like(input: TensorWrapper) -> TensorWrapper:
 
 
 @log_call
+def cat(input: TensorWrapper, other: TensorWrapper, can_reorder: bool = False) -> TensorWrapper:
+    # can_reorder is intentionally ignored
+    if input.dtype != other.dtype:
+        raise RuntimeError("Both tensors must have the same dtype")
+    i_shape = input.shape
+    o_shape = other.shape
+    for idim, odim in zip(i_shape[1:], o_shape[1:]):
+        if idim != odim:
+            raise RuntimeError("Both tensors must have the same shape (except in the concatenating dimension)")
+    result_shape = [i_shape[0] + o_shape[0]] + i_shape[1:]
+    if len(result_shape) > 4:
+        raise RuntimeError("Concatenating tensors with rank > 4 is not supported")
+    need_reshape = len(result_shape) < 2
+    if need_reshape:
+        input = reshape(input, 1, *i_shape)
+        other = reshape(other, 1, *o_shape)
+        pypto_wrap.auto_vec_tile([1, *result_shape], input.dtype)
+    else:
+        pypto_wrap.auto_vec_tile(result_shape, input.dtype)
+    tensors = [pypto_wrap.unwrap(input), pypto_wrap.unwrap(other)]
+    dim = 1 if need_reshape else 0
+    result = TensorWrapper(pypto_wrap.concat(tensors, dim))
+    if need_reshape:
+        result = reshape(result, result_shape)
+    return result
+
+
+@log_call
 def dot(input: TensorWrapper, other: TensorWrapper, acc: Optional[TensorWrapper] = None,
         out_dtype: dtypes.AnyDataType = pypto.DataType.DT_FP32) -> TensorWrapper:
     if input.dtype != other.dtype:
@@ -1133,11 +1172,20 @@ def softmax(x: TensorWrapper, dim: Optional[int] = None, keep_dims: bool = False
 
 @bind_tensor_method
 @log_call
-def max(input: TensorWrapper, axis: Optional[int] = None, keep_dims: bool = False) -> TensorWrapper:
+def max(input: TensorWrapper, axis: Optional[int] = None, keep_dims: bool = False, **kwds) -> TensorWrapper:
     axis = axis if axis is not None else -1
     keep_dims = keep_dims or input.rank == 1
     input.auto_vec_tile()
     return TensorWrapper(pypto_wrap.amax(input, axis, keep_dims))
+
+
+@bind_tensor_method
+@log_call
+def min(input: TensorWrapper, axis: Optional[int] = None, keep_dims: bool = False, **kwds) -> TensorWrapper:
+    axis = axis if axis is not None else -1
+    keep_dims = keep_dims or input.rank == 1
+    input.auto_vec_tile()
+    return TensorWrapper(pypto_wrap.amin(input, axis, keep_dims))
 
 
 @log_call
@@ -1150,6 +1198,18 @@ def maximum(x: TensorWrapper, y: TensorWrapper) -> TensorWrapper:
 def minimum(x: TensorWrapper, y: TensorWrapper) -> TensorWrapper:
     x.auto_vec_tile()
     return TensorWrapper(pypto_wrap.minimum(x, y))
+
+
+@log_call
+def fdiv(x: TensorWrapper, y: TensorWrapper, ieee_rounding: bool = False) -> TensorWrapper:
+    # ieee_rounding is intentionally ignored
+    return x / y
+
+
+@log_call
+def fma(x: TensorWrapper, y: TensorWrapper, z: TensorWrapper) -> TensorWrapper:
+    # probably need to upcast to the higher precision dtype to avoid accuracy loss
+    return x * y + z
 
 
 @bind_tensor_method
@@ -1319,3 +1379,13 @@ def max_contiguous(input: T, values: Any) -> T:
 @log_call
 def multiple_of(input: T, values: Any) -> T:
     return input
+
+
+@log_call
+def static_print(*values, sep: str = ' ', end: str = '\n', file: Optional[Any] = None, flush: bool = False) -> None:
+    print(*values, sep=sep, end=end, file=file, flush=flush)
+
+
+@log_call
+def static_assert(cond: bool, msg: str = '') -> None:
+    assert cond, msg
