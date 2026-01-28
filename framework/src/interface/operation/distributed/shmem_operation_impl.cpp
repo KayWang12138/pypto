@@ -63,19 +63,42 @@ void ValidateTilingSize(const VecTile& vecTile, const Tensor& in, int32_t worldS
     int32_t tileColNum = in.GetShape(1) / tileColShape + (in.GetShape(1) % tileColShape == 0 ? 0 : 1);
     ASSERT(worldSize > 0) << "WorldSize is invalid, worldSize should be less than 0, but got " << worldSize;
     ASSERT(tileRowNum * tileColNum <= MAX_TILE_NUM / worldSize) <<
-        "TotalTileNum is invalid, totalTileNum shoule be less than " << MAX_TILE_NUM / worldSize << ", but got " << tileRowNum * tileColNum;
+        "TotalTileNum is invalid, totalTileNum shoule be less than " << MAX_TILE_NUM / worldSize << ", but got " <<
+        tileRowNum * tileColNum;
 }
 
-void ValidateParams(const Tensor& predToken, const Tensor& in, const Tensor& out, Shape shmemDataShape, DataType shmemDataType,
-    bool checkShapeMatch = false, bool validateType = false, const std::unordered_set<DataType>& allowedTypes = {}) 
+void ValidateDataType(DataType dataType, const std::unordered_set<DataType>& allowedTypes)
 {
-    ASSERT(predToken.GetShape().size() == 2UL) << "Invalid dimensional: PredToken dimensional must be 2, but got dimensional=" << predToken.GetShape().size(); 
+    std::ostringstream oss;
+    oss << "[";
+    bool first = true;
+    for (const auto& dtype : allowedTypes) {
+        if (!first) {
+            oss << ", ";
+        }
+        oss << DataType2CCEStr(dtype);
+        first = false;
+    }
+    oss << "]";
+    ASSERT(allowedTypes.count(dataType)) << "Invalid data type for input tensor. Expected: " << oss.str() <<
+        ", but got: " << DataType2CCEStr(dataType);
+}
+
+void ValidateParams(const Tensor& predToken, const Tensor& in, const Tensor& out, Shape shmemDataShape,
+    DataType shmemDataType, bool checkShapeMatch = false, bool validateType = false,
+    const std::unordered_set<DataType>& allowedTypes = {}) 
+{
+    ASSERT(predToken.GetShape().size() == 2UL) <<
+        "Invalid dimensional: PredToken dimensional must be 2, but got dimensional=" << predToken.GetShape().size(); 
     int32_t predRow = predToken.GetShape(0);
     int32_t predCol = predToken.GetShape(1);
-    ASSERT(predRow > 0 && predCol > 0) << "PredToken parameter error - the 'row' and 'col' dimensional of the input tensor must be greater than 0, "
-        << "but got row=" << predRow << ", col=" << predCol;
-    ASSERT(in.GetShape().size() == 2UL) << "Invalid dimensional: Input dimensional must be 2, but got dimensional=" << in.GetShape().size();
-    ASSERT(out.GetShape().size() == 2UL) << "Invalid dimensional: Output dimensional must be 2, but got dimensional=" << out.GetShape().size();
+    ASSERT(predRow > 0 && predCol > 0) <<
+        "PredToken parameter error - the 'row' and 'col' dimensional of the input tensor must be greater than 0, " <<
+        "but got row=" << predRow << ", col=" << predCol;
+    ASSERT(in.GetShape().size() == 2UL) << "Invalid dimensional: Input dimensional must be 2, but got dimensional=" <<
+        in.GetShape().size();
+    ASSERT(out.GetShape().size() == 2UL) << "Invalid dimensional: Output dimensional must be 2, but got dimensional=" <<
+        out.GetShape().size();
     ASSERT(out.GetDataType() == in.GetDataType()) << "The data type of \"out\" must be consistent with that of \"in\", "
         << "but the data type of \"out\" is "<< DataType2String(out.GetDataType()) << " and the data type of \"in\" is "
         << DataType2String(in.GetDataType()) << ".";
@@ -86,27 +109,18 @@ void ValidateParams(const Tensor& predToken, const Tensor& in, const Tensor& out
     int32_t inCol = in.GetShape(1);
     int32_t outRow = out.GetShape(0);
     int32_t outCol = out.GetShape(1);
-    ASSERT((in.Format() != TileOpFormat::TILEOP_NZ) && (out.Format() != TileOpFormat::TILEOP_NZ)) << "NZ not supported.";
-    ASSERT(inRow > 0 && inCol > 0) << "Input parameter error - the 'row' and 'col' dimensional of the input tensor must be greater than 0, "
+    ASSERT((in.Format() != TileOpFormat::TILEOP_NZ) && (out.Format() != TileOpFormat::TILEOP_NZ)) <<
+        "NZ not supported.";
+    ASSERT(inRow > 0 && inCol > 0) <<
+        "Input parameter error - the 'row' and 'col' dimensional of the input tensor must be greater than 0, "
         << "but got row=" << inRow << ", col=" << inCol;
     if (checkShapeMatch) {
-        ASSERT((inRow == outRow) && (inCol == outCol)) << "Shape mismatch: Input and output dimensions must be the same, but got "
+        ASSERT((inRow == outRow) && (inCol == outCol)) <<
+        "Shape mismatch: Input and output dimensions must be the same, but got "
         << "Input shape: (" << inRow << "," << inCol << "), Output shape: (" << outRow << "," << outCol << ").";
     }
     if (validateType) {
-        std::ostringstream oss;
-        oss << "[";
-        bool first = true;
-        for (const auto& dtype : allowedTypes) {
-            if (!first) {
-                oss << ", ";
-            }
-            oss << DataType2CCEStr(dtype);
-            first = false;
-        }
-        oss << "]";
-        ASSERT(allowedTypes.count(in.GetDataType())) << "Invalid data type for input tensor. Expected: " << oss.str() <<
-        ", but got: " << DataType2CCEStr(in.GetDataType());
+        ValidateDataType(in.GetDataType(), allowedTypes);
     }
     int64_t shmemDataEleNum =
         std::accumulate(shmemDataShape.begin() + 1, shmemDataShape.end(), 1, std::multiplies<int64_t>());
@@ -129,7 +143,7 @@ Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemDa
 }
 
 Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
- 	AtomicType atomicType)
+    AtomicType atomicType)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     auto dummy = std::make_shared<LogicalTensor>(function, DT_INT32, barrierDummy.GetShape());
@@ -193,7 +207,8 @@ Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t exp
     auto out = std::make_shared<LogicalTensor>(function, DT_INT32, predToken.GetShape());
     auto &op = function.AddOperation(Opcode::OP_SHMEM_WAIT_UNTIL, {predToken.GetStorage(), shmemSignal.GetStorage()},
         {out});
-    std::vector<int64_t> param = {static_cast<int64_t>(expectedSum), static_cast<int64_t>(SHMEM_SIGNAL_STRIDE), static_cast<int64_t>(resetSignal)};
+    std::vector<int64_t> param = {static_cast<int64_t>(expectedSum),
+        static_cast<int64_t>(SHMEM_SIGNAL_STRIDE), static_cast<int64_t>(resetSignal)};
     DistOpAttr distOpAttr;
     distOpAttr.aicpuOpParams = param;
     op.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
@@ -385,7 +400,8 @@ void OneShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
         ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::ADD);
     }
     auto shmemDataTile = View(shmemData, {1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
-    auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col}, std::vector<SymbolicScalar>{thisRank, thisRank, 0, 0, 0});
+    auto shmemSignalTile = View(shmemSignal, {1, 1, 1, row, col},
+        std::vector<SymbolicScalar>{thisRank, thisRank, 0, 0, 0});
     auto waitUntilout = WaitUntil(in, shmemSignalTile, worldSize);
     out = ShmemGet(waitUntilout, shmemDataTile, in.GetDataType());
 }
@@ -406,12 +422,15 @@ void TwoShotAllReduce(const Tensor& predToken, const Tensor& in, const char* gro
     ValidateTypeAndShape(shmemSignal, DataType::DT_INT32, {worldSize, worldSize, worldSize, rowPerRank, col});
     SymbolicScalar thisRank = GetHcclRankId(group);
     for (uint32_t dynRankId = 0; dynRankId < worldSize; ++dynRankId) {
-        auto shmemDataTile = View(shmemData, {1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
-        auto shmemSignalTile = View(shmemSignal, {worldSize, 1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{0, dynRankId, dynRankId, 0, 0});
+        auto shmemDataTile = View(shmemData, {1, 1, rowPerRank, col},
+            std::vector<SymbolicScalar>{dynRankId, dynRankId, 0, 0});
+        auto shmemSignalTile = View(shmemSignal, {worldSize, 1, 1, rowPerRank, col},
+            std::vector<SymbolicScalar>{0, dynRankId, dynRankId, 0, 0});
         auto inTile = View(in, {rowPerRank, col}, std::vector<SymbolicScalar>{rowPerRank * dynRankId, 0});
         auto shmemPutOut = ShmemPut(predToken, inTile, shmemDataTile, AtomicType::ADD);
         auto shmemSignalOut = ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::ADD);
-        auto waitSignalTile = View(shmemSignal, {1, 1, 1, rowPerRank, col}, std::vector<SymbolicScalar>{thisRank, dynRankId, dynRankId, 0, 0});
+        auto waitSignalTile = View(shmemSignal, {1, 1, 1, rowPerRank, col},
+            std::vector<SymbolicScalar>{thisRank, dynRankId, dynRankId, 0, 0});
         auto waitUntilOut = WaitUntil(shmemSignalOut, waitSignalTile, worldSize);
         auto tmp = ShmemGet(waitUntilOut, shmemDataTile, in.GetDataType());
         Assemble(tmp, {rowPerRank * dynRankId, 0}, out);
