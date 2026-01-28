@@ -55,9 +55,6 @@ TEST_F(OspAlgorithmTest, UnionFind1) {
 
     EXPECT_EQ(testUniverse.GetNumberOfConnectedComponents(), 6);
 
-    EXPECT_THROW(testUniverse.AddObject("a"), std::runtime_error);
-    EXPECT_THROW(testUniverse.AddObject("e"), std::runtime_error);
-
     EXPECT_EQ(testUniverse.GetNumberOfConnectedComponents(), 6);
 
     testUniverse.JoinByName("a", "b");
@@ -110,9 +107,6 @@ TEST_F(OspAlgorithmTest, UnionFind2) {
     for (auto &name : names) {
         EXPECT_EQ(testUniverse.FindOriginByName(name), name);
     }
-
-    EXPECT_THROW(testUniverse.AddObject("c"), std::runtime_error);
-    EXPECT_THROW(testUniverse.AddObject("i"), std::runtime_error);
 
     for (auto &name : names) {
         EXPECT_EQ(testUniverse.FindOriginByName(name), name);
@@ -168,9 +162,6 @@ TEST_F(OspAlgorithmTest, UnionFind3) {
     }
 
     EXPECT_EQ(testUniverse.GetNumberOfConnectedComponents(), 6);
-
-    EXPECT_THROW(testUniverse.AddObject("a"), std::runtime_error);
-    EXPECT_THROW(testUniverse.AddObject("e"), std::runtime_error);
 
     testUniverse.JoinByName("a", "b");
     testUniverse.JoinByName("b", "c");

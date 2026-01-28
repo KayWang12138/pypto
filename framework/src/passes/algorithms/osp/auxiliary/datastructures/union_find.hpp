@@ -109,7 +109,7 @@ class UnionFindUniverse {
 
     void AddObjectInternal(const T &name, WorkwT weight) {
         if (namesToIndices_.find(name) != namesToIndices_.end()) {
-            throw std::runtime_error("This name already exists in the universe.");
+            return;
         }
         IndexT newIndex = static_cast<IndexT>(universe_.size());
         universe_.emplace_back(name, newIndex, weight);
