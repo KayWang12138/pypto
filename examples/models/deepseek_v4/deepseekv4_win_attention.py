@@ -25,7 +25,7 @@ pyptolib.define("win_attention(Tensor q, Tensor ori_block_table, Tensor ori_kv, 
 @torch.library.impl(pyptolib, "win_attention", "Meta")
 def win_attention(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, \
     mask, actual_seq_list_q):
-    y = torch.empty([q.shape[0] * q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
+    y = torch.empty([q.shape[0], q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
     return y
 
 
@@ -221,18 +221,17 @@ def test_win_atten_tnd_mask(allow_in_graph) -> None:
             mask2_npu = mask2.npu()
             actual_seq_list_q_tenor_npu = actual_seq_list_q_tenor.npu()
 
-            atten_out_2d = model(q_npu, ori_block_table_npu, ori_kv_npu, seqused_kv_list_tensor_npu, \
+            atten_out = model(q_npu, ori_block_table_npu, ori_kv_npu, seqused_kv_list_tensor_npu, \
                 attn_sinks_npu, mask2_npu, actual_seq_list_q_tenor_npu)
             pypto.runtime._device_synchronize()
 
         else:
-            atten_out_2d = deepseekv4_win_atten(q_tnd, block_table, kv_cache, seqused_kv_list_tensor, \
+            atten_out = deepseekv4_win_atten(q_tnd, block_table, kv_cache, seqused_kv_list_tensor, \
             attn_sinks, mask=mask2, actual_seq_list_q=actual_seq_list_q_tenor)
 
         golden = win_atten_calc_tnd(input_params_win_attn, seqused_kv_list, attn_sinks, q_tnd, \
             kv_cache, block_table, actual_seq_list_q, device_id)
         from utils.np_compare import detailed_allclose_manual as compare
-        atten_out = torch.reshape(atten_out_2d, [t, n_q, d_q])
         compare(golden, atten_out, "SWA tnd mask 版本", rtol=0.0078125, atol=0.0001)
 
 
