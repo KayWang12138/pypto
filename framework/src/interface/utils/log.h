@@ -81,12 +81,15 @@ private:
 class FileLogger {
 public:
     std::ofstream ofs;
+    std::once_flag hasOpenFile;
+    FileLogger(const std::string &filepath, bool append) :
+        append_(append), filePath_(filepath) {}
 
-    FileLogger(const std::string &filepath, bool append) {
-        if (append) {
-            ofs.open(filepath, std::ios_base::app);
+    void Init() {
+        if (append_) {
+            ofs.open(filePath_, std::ios_base::app);
         } else {
-            ofs.open(filepath);
+            ofs.open(filePath_);
         }
     }
 
@@ -94,11 +97,14 @@ public:
 
     template <typename T>
     FileLogger &Log(T &&t) {
+        std::call_once(hasOpenFile, &FileLogger::Init, this);
         ofs << (std::forward<T>(t));
         return *this;
     }
 
 private:
+    bool append_;
+    std::string filePath_; 
     FileLogger(const FileLogger &) = delete;
     FileLogger &operator=(const FileLogger &) = delete;
 };
