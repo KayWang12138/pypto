@@ -939,8 +939,10 @@ def load(pointer: Any, mask: Optional[CompoundMask] = None, other: Optional[Any]
         if len(results) == 1:
             return results[0]
         return TensorWrapper(pypto_wrap.concat([result.tensor for result in results]))
-    if isinstance(layout, TensorWithOffset):
+    if isinstance(pointer, TensorWithOffset):
         layout = tensor_to_affine(pointer)
+    elif isinstance(pointer, TensorPointer):
+        layout = AffineTensorLayout(base=pointer.base, offset=0, sizes=1, strides=1)
     if not isinstance(layout, AffineTensorLayout):
         raise TypeError(f"{layout.__class__.__name__} is not supported in single tensor load")
     if not isinstance(layout.base, HostTensorWrapper):
@@ -979,6 +981,8 @@ def load(pointer: Any, mask: Optional[CompoundMask] = None, other: Optional[Any]
 def store(pointer: Any, value: TensorWrapper, mask: Optional[BaseMaskLayout] = None, **kwds) -> None:
     if isinstance(pointer, TensorWithOffset):
         layout = tensor_to_affine(pointer)
+    elif isinstance(pointer, TensorPointer):
+        layout = AffineTensorLayout(base=pointer.base, offset=0, sizes=1, strides=1)
     else:
         layout = pointer
     if not isinstance(layout, AffineTensorLayout):
@@ -1006,7 +1010,7 @@ def make_block_ptr(base: Any, shape: Tuple[int, ...], strides: Tuple[int, ...], 
     if isinstance(base, TensorWithOffset):
         layout = tensor_to_affine(base)
     elif isinstance(base, TensorPointer):
-        layout = AffineTensorLayout(base=base.base, offset=0, sizes=1, strides=0)
+        layout = AffineTensorLayout(base=base.base, offset=0, sizes=1, strides=1)
     else:
         layout = base
     if not isinstance(layout, AffineTensorLayout):
