@@ -25,7 +25,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include "MemoryConstraintModules.hpp"
 #include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/Scheduler.hpp"
 
@@ -48,24 +47,10 @@ struct GrowLocalAutoCoresParams {
  * The GetScheduleName() method returns the name of the schedule, which is "GreedyBspGrowLocalAutoCores" in this
  * case.
  */
-template <typename GraphT, typename MemoryConstraintT = NoMemoryConstraint>
+template <typename GraphT>
 class GrowLocalAutoCores : public Scheduler<GraphT> {
   private:
     GrowLocalAutoCoresParams<VWorkwT<GraphT>> params_;
-
-    constexpr static bool useMemoryConstraint_ = isMemoryConstraintV<MemoryConstraintT>
-                                                 or isMemoryConstraintScheduleV<MemoryConstraintT>;
-
-    static_assert(not useMemoryConstraint_ or std::is_same_v<GraphT, typename MemoryConstraintT::GraphImplT>,
-                  "GraphT must be the same as MemoryConstraintT::GraphImplT.");
-
-    static_assert(not useMemoryConstraint_
-                      or not(std::is_same_v<MemoryConstraintT, PersistentTransientMemoryConstraint<GraphT>>
-                             or std::is_same_v<MemoryConstraintT, GlobalMemoryConstraint<GraphT>>),
-                  "MemoryConstraintT must not be PersistentTransientMemoryConstraint or global_memory_constraint. Not "
-                  "supported in GrowLocalAutoCores.");
-
-    MemoryConstraintT localMemoryConstraint_;
 
   public:
     /**
@@ -97,12 +82,6 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
         }
 
         unsigned supstep = 0;
-
-        if constexpr (isMemoryConstraintV<MemoryConstraintT>) {
-            localMemoryConstraint_.Initialize(instance);
-        } else if constexpr (isMemoryConstraintScheduleV<MemoryConstraintT>) {
-            localMemoryConstraint_.Initialize(schedule, supstep);
-        }
 
         auto &nodeToProc = schedule.AssignedProcessors();
         auto &nodeToSupstep = schedule.AssignedSupersteps();
@@ -165,41 +144,22 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
                 while (newAssignments[0].size() < limit) {
                     VertexIdx chosenNode = std::numeric_limits<VertexIdx>::max();
 
-                    if constexpr (useMemoryConstraint_) {
-                        if (!procReady[0].empty() && localMemoryConstraint_.CanAdd(procReady[0].front(), 0)) {
-                            chosenNode = procReady[0].front();
-                            std::pop_heap(procReady[0].begin(), procReady[0].end(), std::greater<VertexIdx>());
-                            procReady[0].pop_back();
-                        } else if (!allReady.empty() && localMemoryConstraint_.CanAdd(allReady.front(), 0)) {
-                            chosenNode = allReady.front();
-                            std::pop_heap(allReady.begin(), allReady.end(), std::greater<VertexIdx>());
-                            allReady.pop_back();
-                        } else {
-                            earlyMemoryBreak = true;
-                            break;
-                        }
+                    if (!procReady[0].empty()) {
+                        chosenNode = procReady[0].front();
+                        std::pop_heap(procReady[0].begin(), procReady[0].end(), std::greater<VertexIdx>());
+                        procReady[0].pop_back();
+                    } else if (!allReady.empty()) {
+                        chosenNode = allReady.front();
+                        std::pop_heap(allReady.begin(), allReady.end(), std::greater<VertexIdx>());
+                        allReady.pop_back();
                     } else {
-                        if (!procReady[0].empty()) {
-                            chosenNode = procReady[0].front();
-                            std::pop_heap(procReady[0].begin(), procReady[0].end(), std::greater<VertexIdx>());
-                            procReady[0].pop_back();
-                        } else if (!allReady.empty()) {
-                            chosenNode = allReady.front();
-                            std::pop_heap(allReady.begin(), allReady.end(), std::greater<VertexIdx>());
-                            allReady.pop_back();
-                        } else {
-                            break;
-                        }
-                    }
+                        break;
+                    }                    
 
                     newAssignments[0].push_back(chosenNode);
                     nodeToProc[chosenNode] = 0;
                     newTotalAssigned++;
                     weightLimit += g.VertexWorkWeight(chosenNode);
-
-                    if constexpr (useMemoryConstraint_) {
-                        localMemoryConstraint_.Add(chosenNode, 0);
-                    }
 
                     for (const auto &succ : g.Children(chosenNode)) {
                         if (nodeToProc[succ] == std::numeric_limits<unsigned>::max()) {
@@ -228,41 +188,22 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
                     while (currentWeightAssigned < weightLimit) {
                         VertexIdx chosenNode = std::numeric_limits<VertexIdx>::max();
 
-                        if constexpr (useMemoryConstraint_) {
-                            if (!procReady[proc].empty() && localMemoryConstraint_.CanAdd(procReady[proc].front(), proc)) {
-                                chosenNode = procReady[proc].front();
-                                std::pop_heap(procReady[proc].begin(), procReady[proc].end(), std::greater<VertexIdx>());
-                                procReady[proc].pop_back();
-                            } else if (!allReady.empty() && localMemoryConstraint_.CanAdd(allReady.front(), proc)) {
-                                chosenNode = allReady.front();
-                                std::pop_heap(allReady.begin(), allReady.end(), std::greater<VertexIdx>());
-                                allReady.pop_back();
-                            } else {
-                                earlyMemoryBreak = true;
-                                break;
-                            }
+                        if (!procReady[proc].empty()) {
+                            chosenNode = procReady[proc].front();
+                            std::pop_heap(procReady[proc].begin(), procReady[proc].end(), std::greater<VertexIdx>());
+                            procReady[proc].pop_back();
+                        } else if (!allReady.empty()) {
+                            chosenNode = allReady.front();
+                            std::pop_heap(allReady.begin(), allReady.end(), std::greater<VertexIdx>());
+                            allReady.pop_back();
                         } else {
-                            if (!procReady[proc].empty()) {
-                                chosenNode = procReady[proc].front();
-                                std::pop_heap(procReady[proc].begin(), procReady[proc].end(), std::greater<VertexIdx>());
-                                procReady[proc].pop_back();
-                            } else if (!allReady.empty()) {
-                                chosenNode = allReady.front();
-                                std::pop_heap(allReady.begin(), allReady.end(), std::greater<VertexIdx>());
-                                allReady.pop_back();
-                            } else {
-                                break;
-                            }
+                            break;
                         }
-
+                        
                         newAssignments[proc].push_back(chosenNode);
                         nodeToProc[chosenNode] = proc;
                         newTotalAssigned++;
                         currentWeightAssigned += g.VertexWorkWeight(chosenNode);
-
-                        if constexpr (useMemoryConstraint_) {
-                            localMemoryConstraint_.Add(chosenNode, proc);
-                        }
 
                         for (const auto &succ : g.Children(chosenNode)) {
                             if (nodeToProc[succ] == std::numeric_limits<unsigned>::max()) {
@@ -321,11 +262,6 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
                     continueSuperstepAttempts = false;
                 }
 
-                if constexpr (useMemoryConstraint_) {
-                    if (earlyMemoryBreak) {
-                        continueSuperstepAttempts = false;
-                    }
-                }
 
                 // undo proc assingments and predec decreases in any case
                 for (unsigned proc = 0; proc < p; ++proc) {
@@ -336,10 +272,6 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
                             predec[succ]++;
                             nodeToProc[succ] = std::numeric_limits<unsigned>::max();
                         }
-                    }
-
-                    if constexpr (useMemoryConstraint_) {
-                        localMemoryConstraint_.Reset(proc);
                     }
                 }
 

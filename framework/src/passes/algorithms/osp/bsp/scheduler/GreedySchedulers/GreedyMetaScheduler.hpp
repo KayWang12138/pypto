@@ -43,17 +43,9 @@ class GreedyMetaScheduler : public Scheduler<GraphT> {
     Serial<GraphT> serialScheduler_;
     std::vector<Scheduler<GraphT> *> schedulers_;
 
-    static constexpr bool verbose_ = false;
-
   public:
-    /**
-     * @brief Default constructor for GreedyMetaScheduler.
-     */
-    GreedyMetaScheduler() : Scheduler<GraphT>() {}
 
-    /**
-     * @brief Default destructor for MetaScheduler.
-     */
+    GreedyMetaScheduler() : Scheduler<GraphT>() {}
     ~GreedyMetaScheduler() override = default;
 
     void AddSerialScheduler() { schedulers_.push_back(&serialScheduler_); }
@@ -64,9 +56,6 @@ class GreedyMetaScheduler : public Scheduler<GraphT> {
 
     ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override {
         if (schedule.GetInstance().GetArchitecture().NumberOfProcessors() == 1) {
-            if constexpr (verbose_) {
-                std::cout << "Using serial scheduler for P=1." << std::endl;
-            }
             serialScheduler_.ComputeSchedule(schedule);
             return ReturnStatus::OSP_SUCCESS;
         }
@@ -78,17 +67,9 @@ class GreedyMetaScheduler : public Scheduler<GraphT> {
             scheduler->ComputeSchedule(currentSchedule);
             const VWorkwT<GraphT> scheduleCost = CostModel()(currentSchedule);
 
-            if constexpr (verbose_) {
-                std::cout << "Executed scheduler " << scheduler->GetScheduleName() << ", costs: " << scheduleCost
-                          << ", nr. supersteps: " << currentSchedule.NumberOfSupersteps() << std::endl;
-            }
-
             if (scheduleCost < bestScheduleCost) {
                 bestScheduleCost = scheduleCost;
                 schedule = currentSchedule;
-                if constexpr (verbose_) {
-                    std::cout << "New best schedule!" << std::endl;
-                }
             }
         }
 
