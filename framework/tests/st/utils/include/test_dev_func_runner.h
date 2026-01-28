@@ -171,8 +171,7 @@ private:
         }
         DeviceKernelArgs kArgs;
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitDistributedContextToHost(function_->GetDyndevAttribute()->commGroupNames,
- 	        function_->GetDyndevAttribute()->devProgBinary);
+        DeviceInitDistributedContext(MemoryHelper(true), function_->GetDyndevAttribute()->commGroupNames, kArgs);
         DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
         for (int i = 0; i < (config_.controlFlowCache ? 1 : config_.repeatNum); i++) {
             InitKernelInOuts(kArgs, inputs, outputs, true, {});
@@ -268,8 +267,7 @@ private:
         CheckDeviceId();
         DeviceKernelArgs kArgs;
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitDistributedContext(function_->GetDyndevAttribute()->commGroupNames,
- 	        function_->GetDyndevAttribute()->devProgBinary);
+        DeviceInitDistributedContext(MemoryHelper(false), function_->GetDyndevAttribute()->commGroupNames, kArgs);
         DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
         auto aicpuStream = machine::GetRA()->GetScheStream();
         auto aicoreStream = machine::GetRA()->GetStream();
