@@ -33,6 +33,10 @@ bool TuneTileOpSeqForVF::IsGroupMergeable(PipeSync &ps, size_t left, size_t k, i
 
 bool TuneTileOpSeqForVF::IsMergeable(std::unordered_set<Operation *> &moveFrontOp, size_t left, size_t right, PipeSync &ps, int groupNum) {
     for (size_t k = left + 1; k < right; k++) {
+        if (opList_[k]->GetOpcode() == Opcode::OP_VIEW || opList_[k]->GetOpcode() == Opcode::OP_ASSEMBLE ||
+            opList_[k]->GetOpcode() == Opcode::OP_NOP || opList_[k]->GetOpcode() == Opcode::OP_HUB) {
+            continue;
+        }
         // 如果该op和vecTileop0和vecTileop1都存在依赖关系，则不能融合
         if (ps.HasDataDependency(*opList_[left], *opList_[k], left, k) && ps.HasDataDependency(*opList_[k], *opList_[right], k, right)) {
             return false;
@@ -75,13 +79,16 @@ void TuneTileOpSeqForVF::MoveOpsForMerge(const std::unordered_set<Operation *> &
     auto insertPosR = opList_.begin() + left + 2;
     opList_.insert(insertPosR, moveRight.begin(), moveRight.end());
     // 在vecTileop0 group的左侧将moveLeft的op插入
-    auto insertPosL = opList_.begin() + left - mergedOps[groupNum].size() + 1;
+    auto insertPosL = opList_.begin() + left - mergedOps[groupNum].size() + 2;
     opList_.insert(insertPosL, moveLeft.begin(), moveLeft.end());
 }
 
 void TuneTileOpSeqForVF::FindPipeVIdx(std::vector<size_t> &pipeVIdx, AIVCore coreType) {
     PipeSync ps;
     for (size_t i = 0; i < opList_.size(); i++) {
+        if (opList_[i]->GetOpcode() == Opcode::OP_VEC_DUP) {
+            continue;
+        }
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opList_[i]->GetOpcode());
         ps.AdjustOpCfg(opcfg, *opList_[i]);
         if (opcfg.pipeIdStart_ == PipeType::PIPE_V && opList_[i]->GetAIVCore() == coreType) {
