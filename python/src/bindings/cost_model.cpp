@@ -69,6 +69,10 @@ static void CopyTensorFromModel(const std::vector<DeviceTensorData> &inputs, con
 
 std::string CostModelRunOnceDataFromHost(
     const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
+    if(config::GetHostOption<int64_t>(COMPILE_STAGE)!=CS_ALL_COMPLETE)
+    {
+        return "";
+    }
     std::string initResult = InitInputOutputData(inputs, outputs);
     if (!initResult.empty()) {
         return initResult;
