@@ -37,35 +37,6 @@ std::pair<EdgeDescT<GraphT>, bool> EdgeDesc(const VertexIdxT<GraphT> &src, const
     return {EdgeDescT<GraphT>(), false};
 }
 
-template <typename GraphT>
-std::unordered_set<EdgeDescT<GraphT>> LongEdgesInTriangles(const GraphT &graph) {
-    static_assert(isDirectedGraphEdgeDescV<GraphT>, "GraphT must satisfy the directed_graph edge desc concept");
-    static_assert(hasHashableEdgeDescV<GraphT>, "GraphT must satisfy the HasHashableEdgeDesc concept");
-
-    std::unordered_set<EdgeDescT<GraphT>> longEdges;
-
-    for (const auto &vertex : graph.Vertices()) {
-        std::unordered_set<VertexIdxT<GraphT>> childrenSet;
-
-        for (const auto &v : graph.Children(vertex)) {
-            childrenSet.emplace(v);
-        }
-
-        for (const auto &edge : OutEdges(vertex, graph)) {
-            const auto &child = Target(edge, graph);
-
-            for (const auto &parent : graph.Parents(child)) {
-                if (childrenSet.find(parent) != childrenSet.cend()) {
-                    longEdges.emplace(edge);
-                    break;
-                }
-            }
-        }
-    }
-
-    return longEdges;
-}
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_DIRECTED_GRAPH_EDGE_DESC_UTIL_HPP
