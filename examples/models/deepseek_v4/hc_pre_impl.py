@@ -121,7 +121,7 @@ manager = HCPreKernelManager()
     runtime_options={
         "stitch_function_inner_memory": 2048,
         "stitch_function_outcast_memory": 2048,
-        "device_sched_mode": 0,
+        "device_sched_mode": 1,
         # for acl graph
         "stitch_cfgcache_size": 2500000
     },
@@ -149,6 +149,7 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
     for _ in pypto.loop(1):
         x_2d = pypto.reshape(x, [t, hc*d], inplace=True)
         hc_scale = pypto.reshape(hc_scale_, [3, 1], inplace=True)
+
     for t_idx, unrollLength in pypto.loop_unroll(0, t, 1, name="t_loop", idx_name="t_idx", unroll_list=unroll_list):
         tile_t = unrollLength
         pypto.set_cube_tile_shapes([16, 16], [256, 512], [128, 128])
@@ -166,20 +167,21 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
             tile_shape_2 = 2
             pypto.set_cube_tile_shapes([16, 16], [512, 1024], [128, 128], enable_multi_data_load=True)
         else:
-            split_k = True
-            tile_shapes_1 = [4, 1024]
+            split_k = False
+            tile_shapes_1 = [4, 4*1024]
             tile_shape_2 = 4
-            pypto.set_cube_tile_shapes([16, 16], [512, 1024], [128, 128], enable_multi_data_load=True)
+            pypto.set_cube_tile_shapes([16, 16], [512, 2*1024], [128, 128], \
+                                        enable_multi_data_load=True, enable_split_k=True)
 
         pypto.set_vec_tile_shapes(tile_shapes_1[0], tile_shapes_1[1])
-
-        x_view = pypto.view(x_2d, [tile_t, hc*d], [t_idx, 0])
         hc_base = pypto.reshape(hc_base_, [1, mix_hc])
 
+        x_view = pypto.view(x_2d, [tile_t, hc*d], [t_idx, 0])
         pypto.set_pass_options(sg_set_scope = 1)
         x_fp32 = pypto.cast(x_view, pypto.DT_FP32)
         pypto.set_pass_options(sg_set_scope = -1)
 
+        pypto.set_vec_tile_shapes(tile_shapes_1[0], tile_shapes_1[1])
         pypto.set_pass_options(sg_set_scope = 2)
         rms_res = rms_norm_denom(x_fp32, hc_eps)    # (t, hc*d) -> (t, 1)
         pypto.set_pass_options(sg_set_scope = -1)
