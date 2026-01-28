@@ -169,7 +169,7 @@ public:
     inline void Init(npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask) {
         dynDeviceTask_ = dynDeviceTask;
         funcDataList_ = reinterpret_cast<DynFuncData*>(&dynDeviceTask->GetDynFuncDataList()->At(0));
-        hcclContextAddr_ = funcDataList_->hcclContext;
+        hcclContextAddr_ = funcDataList_->startArgs->commContexts;
         hashMap_.Init();
     }
 
@@ -215,7 +215,7 @@ private:
 
     npu::tile_fwk::dynamic::DynDeviceTask *dynDeviceTask_;
     npu::tile_fwk::DynFuncData *funcDataList_;
-    uint64_t *hcclContextAddr_;
+    int64_t *hcclContextAddr_;
     AicpuParamInfo paramInfo_;
 
     uint64_t GetRawAddr(const uint64_t addr, const uint64_t dstRankId);
