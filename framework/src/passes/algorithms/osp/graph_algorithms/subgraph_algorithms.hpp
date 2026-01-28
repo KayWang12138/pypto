@@ -16,6 +16,7 @@
 #ifndef OSP_SUBGRAPH_ALGORITHMS_HPP
 #define OSP_SUBGRAPH_ALGORITHMS_HPP
 
+#include <cassert>
 #include <map>
 #include <set>
 #include <unordered_map>

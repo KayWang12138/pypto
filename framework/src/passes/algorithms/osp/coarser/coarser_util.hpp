@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "passes/algorithms/osp/auxiliary/permute.hpp"
-#include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
 #include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/constructable_computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/graph_traits.hpp"
@@ -63,17 +62,15 @@ struct AccMax {
  */
 
 template <typename GraphTIn, class GraphTOut, typename VWorkAccMethod = AccSum<VWorkwT<GraphTIn>>,
-    typename VCommAccMethod = AccSum<VCommwT<GraphTIn>>, typename VMemAccMethod = AccSum<VMemwT<GraphTIn>>,
-    typename ECommAccMethod = AccSum<ECommwT<GraphTIn>>>
+    typename VCommAccMethod = AccSum<VCommwT<GraphTIn>>, typename VMemAccMethod = AccSum<VMemwT<GraphTIn>>>
 bool ConstructCoarseDag(
     const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) {
-    static_assert(isDirectedGraphV<GraphTIn> && isDirectedGraphV<GraphTOut>,
-        "Graph types need to satisfy the is_directed_graph concept.");
-    static_assert(isComputationalDagV<GraphTIn>, "GraphTIn must be a computational DAG");
-    static_assert(isConstructableCdagV<GraphTOut> || isDirectConstructableCdagV<GraphTOut>,
-        "GraphTOut must be a (direct) constructable computational DAG");
-
-    assert(CheckValidContractionMap<GraphTOut>(vertexContractionMap));
+    static_assert(isComputationalDagV<GraphTIn>, "In-Graph must be computational dag");
+    static_assert(isComputationalDagV<GraphTOut>, "Out-Graph must be computational dag");
+    static_assert(isDirectConstructableCdagV<GraphTOut> || isConstructableCdagV<GraphTOut>,
+        "Out-Graph must be (directly) constructable.");
+    static_assert(isModifiableCdagVertexV<GraphTOut>, "Out-Graph must have modifiable Vertices traits.");
+    static_assert(isModifiableCdagTypedVertexV<GraphTOut>, "Out-Graph must have modifiable vertex type.");
 
     if (vertexContractionMap.size() == 0) {
         coarsenedDag = GraphTOut();
@@ -97,66 +94,29 @@ bool ConstructCoarseDag(
 
         coarsenedDag = GraphTOut(numVertQuotient, quotientEdges);
 
-        if constexpr (hasVertexWeightsV<GraphTIn> && isModifiableCdagVertexV<GraphTOut>) {
-            static_assert(std::is_same_v<VWorkwT<GraphTIn>, VWorkwT<GraphTOut>>,
-                "Work weight types of in-graph and out-graph must be the same.");
-            static_assert(std::is_same_v<VCommwT<GraphTIn>, VCommwT<GraphTOut>>,
-                "Vertex communication types of in-graph and out-graph must be the same.");
-            static_assert(std::is_same_v<VMemwT<GraphTIn>, VMemwT<GraphTOut>>,
-                "Memory weight types of in-graph and out-graph must be the same.");
-
-            for (const VertexIdxT<GraphTIn> &vert : coarsenedDag.Vertices()) {
-                coarsenedDag.SetVertexWorkWeight(vert, 0);
-                coarsenedDag.SetVertexCommWeight(vert, 0);
-                coarsenedDag.SetVertexMemWeight(vert, 0);
-            }
-
-            for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
-                coarsenedDag.SetVertexWorkWeight(vertexContractionMap[vert],
-                    VWorkAccMethod()(
-                        coarsenedDag.VertexWorkWeight(vertexContractionMap[vert]), dagIn.VertexWorkWeight(vert)));
-
-                coarsenedDag.SetVertexCommWeight(vertexContractionMap[vert],
-                    VCommAccMethod()(
-                        coarsenedDag.VertexCommWeight(vertexContractionMap[vert]), dagIn.VertexCommWeight(vert)));
-
-                coarsenedDag.SetVertexMemWeight(vertexContractionMap[vert],
-                    VMemAccMethod()(
-                        coarsenedDag.VertexMemWeight(vertexContractionMap[vert]), dagIn.VertexMemWeight(vert)));
-            }
+        for (const VertexIdxT<GraphTIn> &vert : coarsenedDag.Vertices()) {
+            coarsenedDag.SetVertexWorkWeight(vert, 0);
+            coarsenedDag.SetVertexCommWeight(vert, 0);
+            coarsenedDag.SetVertexMemWeight(vert, 0);
         }
 
-        if constexpr (hasTypedVerticesV<GraphTIn> && isModifiableCdagTypedVertexV<GraphTOut>) {
-            static_assert(std::is_same_v<VTypeT<GraphTIn>, VTypeT<GraphTOut>>,
-                "Vertex type types of in graph and out graph must be the same!");
+        for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
+            coarsenedDag.SetVertexWorkWeight(
+                vertexContractionMap[vert], VWorkAccMethod()(coarsenedDag.VertexWorkWeight(vertexContractionMap[vert]),
+                                                dagIn.VertexWorkWeight(vert)));
 
-            for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
-                coarsenedDag.SetVertexType(vertexContractionMap[vert], dagIn.VertexType(vert));
-            }
+            coarsenedDag.SetVertexCommWeight(
+                vertexContractionMap[vert], VCommAccMethod()(coarsenedDag.VertexCommWeight(vertexContractionMap[vert]),
+                                                dagIn.VertexCommWeight(vert)));
+
+            coarsenedDag.SetVertexMemWeight(vertexContractionMap[vert],
+                VMemAccMethod()(coarsenedDag.VertexMemWeight(vertexContractionMap[vert]), dagIn.VertexMemWeight(vert)));
         }
 
-        if constexpr (hasEdgeWeightsV<GraphTIn> && isModifiableCdagCommEdgeV<GraphTOut>) {
-            static_assert(std::is_same_v<ECommwT<GraphTIn>, ECommwT<GraphTOut>>,
-                "Edge weight type of in graph and out graph must be the same!");
-
-            for (const auto &edge : Edges(coarsenedDag)) {
-                coarsenedDag.SetEdgeCommWeight(edge, 0);
-            }
-
-            for (const auto &oriEdge : Edges(dagIn)) {
-                VertexIdxT<GraphTOut> src = vertexContractionMap[Source(oriEdge, dagIn)];
-                VertexIdxT<GraphTOut> tgt = vertexContractionMap[Target(oriEdge, dagIn)];
-
-                if (src == tgt) {
-                    continue;
-                }
-
-                const auto [contEdge, found] = EdgeDesc(src, tgt, coarsenedDag);
-                assert(found && "The edge should already exist");
-                coarsenedDag.SetEdgeCommWeight(
-                    contEdge, ECommAccMethod()(coarsenedDag.EdgeCommWeight(contEdge), dagIn.EdgeCommWeight(oriEdge)));
-            }
+        for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
+            coarsenedDag.SetVertexType(vertexContractionMap[vert], dagIn.VertexType(vert));
         }
+
         return true;
     }
 
@@ -183,13 +143,8 @@ bool ConstructCoarseDag(
                 VMemAccMethod()(coarsenedDag.VertexMemWeight(vertexContractionMap[vert]), dagIn.VertexMemWeight(vert)));
         }
 
-        if constexpr (hasTypedVerticesV<GraphTIn> && isModifiableCdagTypedVertexV<GraphTOut>) {
-            static_assert(std::is_same_v<VTypeT<GraphTIn>, VTypeT<GraphTOut>>,
-                "Vertex type types of in graph and out graph must be the same!");
-
-            for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
-                coarsenedDag.SetVertexType(vertexContractionMap[vert], dagIn.VertexType(vert));
-            }
+        for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
+            coarsenedDag.SetVertexType(vertexContractionMap[vert], dagIn.VertexType(vert));
         }
 
         for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
@@ -198,28 +153,14 @@ bool ConstructCoarseDag(
                     continue;
                 }
 
-                if constexpr (hasEdgeWeightsV<GraphTIn> && isModifiableCdagCommEdgeV<GraphTOut>) {
-                    static_assert(std::is_same_v<ECommwT<GraphTIn>, ECommwT<GraphTOut>>,
-                        "Edge weight type of in graph and out graph must be the same!");
-
-                    EdgeDescT<GraphTIn> oriEdge = EdgeDesc(vert, chld, dagIn).first;
-                    const auto pair = EdgeDesc(vertexContractionMap[vert], vertexContractionMap[chld], coarsenedDag);
-                    if (pair.second) {
-                        coarsenedDag.SetEdgeCommWeight(pair.first,
-                            ECommAccMethod()(coarsenedDag.EdgeCommWeight(pair.first), dagIn.EdgeCommWeight(oriEdge)));
-                    } else {
-                        coarsenedDag.AddEdge(
-                            vertexContractionMap[vert], vertexContractionMap[chld], dagIn.EdgeCommWeight(oriEdge));
-                    }
-                } else {
-                    if (not Edge(vertexContractionMap[vert], vertexContractionMap[chld], coarsenedDag)) {
-                        coarsenedDag.AddEdge(vertexContractionMap[vert], vertexContractionMap[chld]);
-                    }
+                if (not Edge(vertexContractionMap[vert], vertexContractionMap[chld], coarsenedDag)) {
+                    coarsenedDag.AddEdge(vertexContractionMap[vert], vertexContractionMap[chld]);
                 }
             }
         }
         return true;
     }
+
     return false;
 }
 
@@ -328,22 +269,6 @@ void ReorderExpansionMap(const GraphTIn &graph, std::vector<std::vector<VertexId
 
     InversePermuteInplace(vertexExpansionMap, topOrder);
     return;
-}
-
-template <typename GraphTIn, typename GraphTOut>
-bool PullBackSchedule(const BspSchedule<GraphTIn> &scheduleIn,
-    const std::vector<std::vector<VertexIdxT<GraphTIn>>> &vertexMap, BspSchedule<GraphTOut> &scheduleOut) {
-    for (unsigned v = 0; v < vertexMap.size(); ++v) {
-        const auto proc = scheduleIn.AssignedProcessor(v);
-        const auto step = scheduleIn.AssignedSuperstep(v);
-
-        for (const auto &u : vertexMap[v]) {
-            scheduleOut.SetAssignedSuperstep(u, step);
-            scheduleOut.SetAssignedProcessor(u, proc);
-        }
-    }
-
-    return true;
 }
 
 } // end namespace coarser_util
