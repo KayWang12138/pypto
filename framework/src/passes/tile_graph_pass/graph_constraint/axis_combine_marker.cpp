@@ -212,8 +212,7 @@ void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
         OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
         ((op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) &&
-          outputTensor->GetShape().back() != outputTensor->GetRawTensor()->GetRawShape().back())) {
-        
+          outputTensor->GetShape().back() == outputTensor->GetRawTensor()->GetRawShape().back())) {
         for (auto inputTensor : op->GetIOperands()) {
             if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
                 tensorStatus_[inputTensor] = tensorStatus_[outputTensor];
