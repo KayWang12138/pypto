@@ -16,6 +16,12 @@ configure_file(
     COPYONLY
 )
 
+configure_file(
+    ${CMAKE_CURRENT_LIST_DIR}/custom_info.json
+    ${CMAKE_CURRENT_BINARY_DIR}/output/bin/custom_info.json
+    COPYONLY
+)
+
 add_executable(tracr_process ${CMAKE_CURRENT_LIST_DIR}/tracr_process.cpp)
 
 tracr_enable(tracr_process)
