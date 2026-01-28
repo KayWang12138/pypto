@@ -457,7 +457,7 @@ bool LogicalTensor::Overlap(const std::shared_ptr<LogicalTensor> &other) const {
 
 int LogicalTensor::GetDataSize() const {
     int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
-    return shapeSize * BytesOf(tensor->GetDataType());
+    return static_cast<int>(BytesOf(tensor->GetDataType())) * shapeSize;
 }
 
 bool LogicalTensor::CompareOp::operator()(const Operation *a, const Operation *b) const {
