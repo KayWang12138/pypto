@@ -50,6 +50,33 @@
 #include "passes/block_graph_pass/loopaxes_proc.h"
 
 namespace npu::tile_fwk {
+class PassLogUtil {
+public:
+    PassLogUtil(Pass &pass, Function &function, size_t passIndex)
+        : enableLog_(std::getenv("GLOBAL_LOG_LEVEL") != nullptr) {
+        if (enableLog_) {
+            originLogOutPath_ = config::LogFile();
+            std::string logFolder = pass.LogFolder(config::LogTopFolder(), passIndex);
+            logfilePath_ = logFolder + "/" + (pass.GetName() + function.GetMagicName() + ".log");
+            LoggerManager::FileLoggerReplace(originLogOutPath_, logfilePath_, true);
+        }
+    }
+    
+    ~PassLogUtil() {
+        if (enableLog_) {
+            LoggerManager::FileLoggerReplace(logfilePath_, originLogOutPath_, true);
+        }
+    }
+    
+    PassLogUtil(const PassLogUtil &) = delete;
+    PassLogUtil &operator=(const PassLogUtil &) = delete;
+
+private:
+    bool enableLog_;
+    std::string originLogOutPath_;
+    std::string logfilePath_;
+};
+
 PassManager &PassManager::Instance() {
     static PassManager instance;
     return instance;
@@ -243,13 +270,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             ALOG_ERROR_F("Pass [%s] does not exist.", PassNameStr(passName));
             return FAILED;
         }
-        std::string originLogOutPath = config::LogFile();
-        std::string logFolder = pass->LogFolder(config::LogTopFolder(), i);
-        std::string logfilePath = logFolder + "/" + (pass->GetName() + function.GetMagicName() + ".log");
-        LoggerManager::FileLoggerReplace(originLogOutPath, logfilePath, true);
-        Defer rollback([logfilePath, originLogOutPath]() {
-            LoggerManager::FileLoggerReplace(logfilePath, originLogOutPath, true);
-        });
+        PassLogUtil logUtil(*pass, function, i);
         auto passDfxCfg = ConfigManager::Instance().GetPassConfigs(strategy, identifier);
         if (config::GetDebugOption<int64_t>(CFG_COMPILE_DBEUG_MODE) == CFG_DEBUG_ALL) {
             passDfxCfg.printGraph = true;
