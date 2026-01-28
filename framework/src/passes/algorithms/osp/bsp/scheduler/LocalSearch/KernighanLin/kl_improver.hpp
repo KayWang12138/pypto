@@ -31,7 +31,6 @@
 #include "passes/algorithms/osp/auxiliary/datastructures/heaps/PairingHeap.hpp"
 #include "passes/algorithms/osp/bsp/model/util/CompatibleProcessorRange.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/ImprovementScheduler.hpp"
-#include "passes/algorithms/osp/bsp/scheduler/LocalSearch/LocalSearchMemoryConstraintModules.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_edge_desc_util.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 
@@ -81,7 +80,6 @@ struct KlUpdateInfo {
 
 template <typename GraphT,
           typename CommCostFunctionT,
-          typename MemoryConstraintT = NoLocalSearchMemoryConstraint,
           unsigned windowSize = 1,
           typename CostT = double>
 class KlImprover : public ImprovementScheduler<GraphT> {
@@ -103,7 +101,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
 
     using KlMove = KlMoveStruct<CostT, VertexType>;
     using HeapDatastructure = MaxPairingHeap<VertexType, KlMove>;
-    using ActiveScheduleT = KlActiveSchedule<GraphT, CostT, MemoryConstraintT>;
+    using ActiveScheduleT = KlActiveSchedule<GraphT, CostT>;
     using NodeSelectionContainerT = AdaptiveAffinityTable<GraphT, CostT, ActiveScheduleT, windowSize>;
     using KlGainUpdateInfo = KlUpdateInfo<VertexType>;
 
@@ -218,12 +216,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                                           unsigned &maxStep,
                                           const std::vector<std::vector<CostT>> &affinityTableNode) const {
         for (const unsigned p : procRange_.CompatibleProcessorsVertex(node)) {
-            if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-                if (not activeSchedule_.memoryConstraint_.CanMove(node, p, nodeStep + idx - windowSize)) {
-                    continue;
-                }
-            }
-
             const CostT gain = affinityCurrentProcStep - affinityTableNode[p][idx];
             if (gain > maxGain) {
                 maxGain = gain;
@@ -256,12 +248,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
             for (const unsigned proc : procRange_.CompatibleProcessorsVertex(node)) {
                 if (proc == nodeProc) {
                     continue;
-                }
-
-                if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-                    if (not activeSchedule_.memoryConstraint_.CanMove(node, proc, nodeStep + idx - windowSize)) {
-                        continue;
-                    }
                 }
 
                 const CostT gain = affinityCurrentProcStep - affinityTableNode[proc][windowSize];
@@ -520,17 +506,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
         changeInCost
             -= static_cast<CostT>(threadData.activeScheduleData_.newViolations_.size()) * threadData.rewardPenaltyStrat_.penalty_;
 
-#ifdef KL_DEBUG
-        std::cout << "penalty: " << threadData.rewardPenaltyStrat_.penalty_
-                  << " num violations: " << threadData.activeScheduleData_.currentViolations_.size()
-                  << " num new violations: " << threadData.activeScheduleData_.newViolations_.size()
-                  << ", num resolved violations: " << threadData.activeScheduleData_.resolvedViolations_.size()
-                  << ", reward: " << threadData.rewardPenaltyStrat_.reward_ << std::endl;
-        std::cout << "apply move, previous cost: " << threadData.activeScheduleData_.cost_
-                  << ", new cost: " << threadData.activeScheduleData_.cost_ + changeInCost << ", "
-                  << (threadData.activeScheduleData_.feasible_ ? "feasible," : "infeasible,") << std::endl;
-#endif
-
         threadData.activeScheduleData_.UpdateCost(changeInCost);
 
         return changeInCost;
@@ -540,9 +515,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                        ThreadSearchContext &threadData,
                        const CostT changeInCost,
                        const VertexType bestMoveNode) {
-#ifdef KL_DEBUG
-        std::cout << "Starting quick moves sequence." << std::endl;
-#endif
         innerIter++;
 
         const size_t numAppliedMoves = threadData.activeScheduleData_.appliedMoves_.size() - 1;
@@ -571,12 +543,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
             if (bestQuickMove.gain_ <= std::numeric_limits<CostT>::lowest()) {
                 continue;
             }
-
-#ifdef KL_DEBUG
-            std::cout << " >>> move node " << bestQuickMove.node_ << " with gain " << bestQuickMove.gain_
-                      << ", from proc|step: " << bestQuickMove.fromProc_ << "|" << bestQuickMove.fromStep_
-                      << " to: " << bestQuickMove.toProc_ << "|" << bestQuickMove.toStep_ << std::endl;
-#endif
 
             ApplyMove(bestQuickMove, threadData);
             innerIter++;
@@ -610,15 +576,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                                                   threadData.activeScheduleData_,
                                                   threadData.startStep_,
                                                   threadData.endStep_);
-#ifdef KL_DEBUG
-            std::cout << "Ending quick moves sequence with infeasible solution." << std::endl;
-#endif
         }
-#ifdef KL_DEBUG
-        else {
-            std::cout << "Ending quick moves sequence with feasible solution." << std::endl;
-        }
-#endif
 
         threadData.affinityTable_.Trim();
         threadData.maxGainHeap_.Clear();
@@ -630,10 +588,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
         auto &currentViolations = threadData.activeScheduleData_.currentViolations_;
         unsigned numViolations = static_cast<unsigned>(currentViolations.size());
         if (numViolations > 0) {
-#ifdef KL_DEBUG_1
-            std::cout << "thread " << threadData.threadId_ << ", Starting preresolving violations with " << numViolations
-                      << " initial violations" << std::endl;
-#endif
+
             threadData.rewardPenaltyStrat_.InitRewardPenalty(static_cast<double>(numViolations) + 1.0);
             std::unordered_set<VertexType> localLock;
             unsigned numIter = 0;
@@ -649,9 +604,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 const bool targetLocked = localLock.find(targetV) != localLock.end();
 
                 if (sourceLocked && targetLocked) {
-#ifdef KL_DEBUG_1
-                    std::cout << "source, target locked" << std::endl;
-#endif
                     break;
                 }
 
@@ -676,11 +628,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
 
                 ApplyMove(bestMove, threadData);
                 threadData.affinityTable_.Insert(bestMove.node_);
-#ifdef KL_DEBUG_1
-                std::cout << "move node " << bestMove.node_ << " with gain " << bestMove.gain_
-                          << ", from proc|step: " << bestMove.fromProc_ << "|" << bestMove.fromStep_
-                          << " to: " << bestMove.toProc_ << "|" << bestMove.toStep_ << std::endl;
-#endif
                 const unsigned newNumViolations = static_cast<unsigned>(currentViolations.size());
                 if (newNumViolations == 0) {
                     break;
@@ -696,11 +643,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 const double gain = static_cast<double>(numViolations) - static_cast<double>(newNumViolations);
                 numViolations = newNumViolations;
                 UpdateAvgGain(gain, numIter++, threadData.averageGain_);
-#ifdef KL_DEBUG_1
-                std::cout << "thread " << threadData.threadId_ << ",  preresolving violations with " << numViolations
-                          << " violations, " << numIter << " #iterations, " << threadData.averageGain_ << " average gain"
-                          << std::endl;
-#endif
+
                 if (numIter > minIter && threadData.averageGain_ < 0.0) {
                     break;
                 }
@@ -710,11 +653,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
     }
 
     void RunLocalSearch(ThreadSearchContext &threadData) {
-#ifdef KL_DEBUG_1
-        std::cout << "thread " << threadData.threadId_
-                  << ", start local search, initial schedule cost: " << threadData.activeScheduleData_.cost_ << " with "
-                  << threadData.NumSteps() << " supersteps." << std::endl;
-#endif
         std::vector<VertexType> newNodes;
         std::vector<VertexType> unlockNodes;
         std::map<VertexType, KlGainUpdateInfo> recomputeMaxGain;
@@ -738,36 +676,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
             unsigned resetCounter = 0;
             bool iterInitalFeasible = threadData.activeScheduleData_.feasible_;
 
-#ifdef KL_DEBUG
-            std::cout << "------ start inner loop ------" << std::endl;
-            std::cout << "initial node selection: {";
-            for (size_t i = 0; i < threadData.affinityTable_.size(); ++i) {
-                std::cout << threadData.affinityTable_.GetSelectedNodes()[i] << ", ";
-            }
-            std::cout << "}" << std::endl;
-#endif
-#ifdef KL_DEBUG_1
-            if (not iterInitalFeasible) {
-                std::cout << "initial solution not feasible, num violations: "
-                          << threadData.activeScheduleData_.currentViolations_.size()
-                          << ". Penalty: " << threadData.rewardPenaltyStrat_.penalty_
-                          << ", reward: " << threadData.rewardPenaltyStrat_.reward_ << std::endl;
-            }
-#endif
-#ifdef KL_DEBUG_COST_CHECK
-            activeSchedule_.GetVectorSchedule().numberOfSupersteps = threadDataVec_[0].NumSteps();
-            if (std::abs(commCostF_.ComputeScheduleCostTest() - threadData.activeScheduleData_.cost_) > 0.00001) {
-                std::cout << "computed cost: " << commCostF_.ComputeScheduleCostTest()
-                          << ", current cost: " << threadData.activeScheduleData_.cost_ << std::endl;
-                std::cout << ">>>>>>>>>>>>>>>>>>>>>> compute cost not equal to new cost <<<<<<<<<<<<<<<<<<<<" << std::endl;
-            }
-            if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-                if (not activeSchedule_.memoryConstraint_.SatisfiedMemoryConstraint()) {
-                    std::cout << "memory constraint not satisfied" << std::endl;
-                }
-            }
-#endif
-
             while (innerIter < threadData.maxInnerIterations_ && threadData.maxGainHeap_.size() > 0) {
                 KlMove bestMove
                     = GetBestMove(threadData.affinityTable_,
@@ -777,57 +685,18 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                     break;
                 }
                 UpdateAvgGain(bestMove.gain_, innerIter, threadData.averageGain_);
-#ifdef KL_DEBUG
-                std::cout << " >>> move node " << bestMove.node_ << " with gain " << bestMove.gain_
-                          << ", from proc|step: " << bestMove.fromProc_ << "|" << bestMove.fromStep_ << " to: " << bestMove.toProc_
-                          << "|" << bestMove.toStep_ << ",avg gain: " << threadData.averageGain_ << std::endl;
-#endif
+
                 if (innerIter > threadData.minInnerIter_ && threadData.averageGain_ < 0.0) {
-#ifdef KL_DEBUG
-                    std::cout << "Negative average gain: " << threadData.averageGain_ << ", end local search" << std::endl;
-#endif
                     break;
                 }
-
-#ifdef KL_DEBUG
-                if (not activeSchedule_.GetInstance().IsCompatible(bestMove.node_, bestMove.toProc_)) {
-                    std::cout << "move to incompatibe node" << std::endl;
-                }
-#endif
 
                 const auto prevWorkData = activeSchedule_.GetPreMoveWorkData(bestMove);
                 const typename CommCostFunctionT::PreMoveCommDataT prevCommData = commCostF_.GetPreMoveCommData(bestMove);
                 const CostT changeInCost = ApplyMove(bestMove, threadData);
-#ifdef KL_DEBUG_COST_CHECK
-                activeSchedule_.GetVectorSchedule().numberOfSupersteps = threadDataVec_[0].NumSteps();
-                if (std::abs(commCostF_.ComputeScheduleCostTest() - threadData.activeScheduleData_.cost_) > 0.00001) {
-                    std::cout << "computed cost: " << commCostF_.ComputeScheduleCostTest()
-                              << ", current cost: " << threadData.activeScheduleData_.cost_ << std::endl;
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>>> compute cost not equal to new cost <<<<<<<<<<<<<<<<<<<<" << std::endl;
-                }
-                if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-                    if (not activeSchedule_.memoryConstraint_.SatisfiedMemoryConstraint()) {
-                        std::cout << "memory constraint not satisfied" << std::endl;
-                    }
-                }
-#endif
+
                 if constexpr (enableQuickMoves_) {
                     if (iterInitalFeasible && threadData.activeScheduleData_.newViolations_.size() > 0) {
                         RunQuickMoves(innerIter, threadData, changeInCost, bestMove.node_);
-#ifdef KL_DEBUG_COST_CHECK
-                        activeSchedule_.GetVectorSchedule().numberOfSupersteps = threadDataVec_[0].NumSteps();
-                        if (std::abs(commCostF_.ComputeScheduleCostTest() - threadData.activeScheduleData_.cost_) > 0.00001) {
-                            std::cout << "computed cost: " << commCostF_.ComputeScheduleCostTest()
-                                      << ", current cost: " << threadData.activeScheduleData_.cost_ << std::endl;
-                            std::cout << ">>>>>>>>>>>>>>>>>>>>>> compute cost not equal to new cost <<<<<<<<<<<<<<<<<<<<"
-                                      << std::endl;
-                        }
-                        if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-                            if (not activeSchedule_.memoryConstraint_.SatisfiedMemoryConstraint()) {
-                                std::cout << "memory constraint not satisfied" << std::endl;
-                            }
-                        }
-#endif
                         continue;
                     }
                 }
@@ -850,10 +719,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                                     threadData.activeScheduleData_.currentViolations_,
                                     threadData.startStep_,
                                     threadData.endStep_);
-#ifdef KL_DEBUG
-                                std::cout << "Infeasible, and no violations resolved for 5 iterations, reset node selection"
-                                          << std::endl;
-#endif
+
                                 threadData.rewardPenaltyStrat_.InitRewardPenalty(
                                     static_cast<double>(threadData.activeScheduleData_.currentViolations_.size()));
                                 InsertGainHeap(threadData);
@@ -862,10 +728,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                                 innerIter++;
                                 continue;
                             } else {
-#ifdef KL_DEBUG
-                                std::cout << "Infeasible, and no violations resolved for 5 iterations, end local search"
-                                          << std::endl;
-#endif
                                 break;
                             }
                         }
@@ -887,32 +749,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 newNodes.insert(newNodes.end(), unlockNodes.begin(), unlockNodes.end());
                 unlockNodes.clear();
 
-#ifdef KL_DEBUG
-                std::cout << "recmopute max gain: {";
-                for (const auto mapPair : recomputeMaxGain) {
-                    const auto &key = mapPair.first;
-                    std::cout << key << ", ";
-                }
-                std::cout << "}" << std::endl;
-                std::cout << "new nodes: {";
-                for (const auto v : newNodes) {
-                    std::cout << v << ", ";
-                }
-                std::cout << "}" << std::endl;
-#endif
-#ifdef KL_DEBUG_COST_CHECK
-                activeSchedule_.GetVectorSchedule().numberOfSupersteps = threadDataVec_[0].NumSteps();
-                if (std::abs(commCostF_.ComputeScheduleCostTest() - threadData.activeScheduleData_.cost_) > 0.00001) {
-                    std::cout << "computed cost: " << commCostF_.ComputeScheduleCostTest()
-                              << ", current cost: " << threadData.activeScheduleData_.cost_ << std::endl;
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>>> compute cost not equal to new cost <<<<<<<<<<<<<<<<<<<<" << std::endl;
-                }
-                if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-                    if (not activeSchedule_.memoryConstraint_.SatisfiedMemoryConstraint()) {
-                        std::cout << "memory constraint not satisfied" << std::endl;
-                    }
-                }
-#endif
                 UpdateMaxGain(bestMove, recomputeMaxGain, threadData);
                 InsertNewNodesGainHeap(newNodes, threadData.affinityTable_, threadData);
 
@@ -922,47 +758,12 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 innerIter++;
             }
 
-#ifdef KL_DEBUG
-            std::cout << "--- end inner loop after " << innerIter
-                      << " inner iterations, gain heap size: " << threadData.maxGainHeap_.size() << ", outer iteraion "
-                      << outerIter << "/" << parameters_.maxOuterIterations_
-                      << ", current cost: " << threadData.activeScheduleData_.cost_ << ", "
-                      << (threadData.activeScheduleData_.feasible_ ? "feasible" : "infeasible") << std::endl;
-#endif
-#ifdef KL_DEBUG_1
-            const unsigned numStepsTmp = threadData.endStep_;
-#endif
             activeSchedule_.RevertToBestSchedule(threadData.localSearchStartStep_,
                                                  threadData.stepToRemove_,
                                                  commCostF_,
                                                  threadData.activeScheduleData_,
                                                  threadData.startStep_,
                                                  threadData.endStep_);
-#ifdef KL_DEBUG_1
-            if (threadData.localSearchStartStep_ > 0) {
-                if (numStepsTmp == threadData.endStep_) {
-                    std::cout << "thread " << threadData.threadId_ << ", removing step " << threadData.stepToRemove_
-                              << " succeded " << std::endl;
-                } else {
-                    std::cout << "thread " << threadData.threadId_ << ", removing step " << threadData.stepToRemove_ << " failed "
-                              << std::endl;
-                }
-            }
-#endif
-
-#ifdef KL_DEBUG_COST_CHECK
-            activeSchedule_.GetVectorSchedule().numberOfSupersteps = threadDataVec_[0].NumSteps();
-            if (std::abs(commCostF_.ComputeScheduleCostTest() - threadData.activeScheduleData_.cost_) > 0.00001) {
-                std::cout << "computed cost: " << commCostF_.ComputeScheduleCostTest()
-                          << ", current cost: " << threadData.activeScheduleData_.cost_ << std::endl;
-                std::cout << ">>>>>>>>>>>>>>>>>>>>>> compute cost not equal to new cost <<<<<<<<<<<<<<<<<<<<" << std::endl;
-            }
-            if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-                if (not activeSchedule_.memoryConstraint_.SatisfiedMemoryConstraint()) {
-                    std::cout << "memory constraint not satisfied" << std::endl;
-                }
-            }
-#endif
 
             if (computeWithTimeLimit_) {
                 auto finishTime = std::chrono::high_resolution_clock::now();
@@ -973,9 +774,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
             }
 
             if (OtherThreadsFinished(threadData.threadId_)) {
-#ifdef KL_DEBUG_1
-                std::cout << "thread " << threadData.threadId_ << ", other threads finished, end local search" << std::endl;
-#endif
                 break;
             }
 
@@ -983,10 +781,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 noImprovementIterCounter++;
 
                 if (noImprovementIterCounter >= parameters_.maxNoImprovementIterations_) {
-#ifdef KL_DEBUG_1
-                    std::cout << "thread " << threadData.threadId_ << ", no improvement for "
-                              << parameters_.maxNoImprovementIterations_ << " iterations, end local search" << std::endl;
-#endif
                     break;
                 }
             } else {
@@ -996,12 +790,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
             AdjustLocalSearchParameters(outerIter, noImprovementIterCounter, threadData);
         }
 
-#ifdef KL_DEBUG_1
-        std::cout << "thread " << threadData.threadId_ << ", local search end after " << outerIter
-                  << " outer iterations, current cost: " << threadData.activeScheduleData_.cost_ << " with "
-                  << threadData.NumSteps() << " supersteps, vs serial cost " << activeSchedule_.GetTotalWorkWeight() << "."
-                  << std::endl;
-#endif
         threadFinishedVec_[threadData.threadId_] = true;
     }
 
@@ -1140,16 +928,10 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                     unlockNodes.push_back(sourceV);
                 }
             }
-#ifdef KL_DEBUG
-            std::cout << "Nodes of violated edge locked, backtrack counter: " << threadData.unlockEdgeBacktrackCounter_
-                      << std::endl;
-#endif
+
             threadData.unlockEdgeBacktrackCounter_--;
             return true;
         } else {
-#ifdef KL_DEBUG
-            std::cout << "Nodes of violated edge locked, end local search" << std::endl;
-#endif
             return false;    // or reset local search and initalize with violating nodes
         }
     }
@@ -1161,30 +943,16 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 = static_cast<CostT>(std::floor(std::sqrt(threadData.rewardPenaltyStrat_.initialPenalty_)));
             threadData.unlockEdgeBacktrackCounterReset_ += 1;
             threadData.noImprovementIterationsReducePenalty_ += 15;
-#ifdef KL_DEBUG_1
-            std::cout << "thread " << threadData.threadId_ << ", no improvement for "
-                      << threadData.noImprovementIterationsReducePenalty_ << " iterations, reducing initial penalty to "
-                      << threadData.rewardPenaltyStrat_.initialPenalty_ << std::endl;
-#endif
         }
 
         if (parameters_.tryRemoveStepAfterNumOuterIterations_ > 0
             && ((outerIter + 1) % parameters_.tryRemoveStepAfterNumOuterIterations_) == 0) {
             threadData.stepSelectionEpochCounter_ = 0;
-            ;
-#ifdef KL_DEBUG
-            std::cout << "reset remove epoc counter after " << outerIter << " iterations." << std::endl;
-#endif
         }
 
         if (noImpCounter >= threadData.noImprovementIterationsIncreaseInnerIter_) {
             threadData.minInnerIter_ = static_cast<unsigned>(std::ceil(threadData.minInnerIter_ * 2.2));
             threadData.noImprovementIterationsIncreaseInnerIter_ += 20;
-#ifdef KL_DEBUG_1
-            std::cout << "thread " << threadData.threadId_ << ", no improvement for "
-                      << threadData.noImprovementIterationsIncreaseInnerIter_ << " iterations, increasing min inner iter to "
-                      << threadData.minInnerIter_ << std::endl;
-#endif
         }
     }
 
@@ -1234,10 +1002,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 threadData.maxInnerIterations_
                     = std::max(threadData.unlockEdgeBacktrackCounter_ * 5u, parameters_.maxInnerIterationsReset_);
                 threadData.maxNoVioaltionsRemovedBacktrack_ = parameters_.maxNoVioaltionsRemovedBacktrackForRemoveStepReset_;
-#ifdef KL_DEBUG_1
-                std::cout << "thread " << threadData.threadId_ << ", Trying to remove step " << threadData.stepToRemove_
-                          << std::endl;
-#endif
                 return;
             }
         }
@@ -1283,26 +1047,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                         threadData.affinityTable_.Insert(vertex);
                     }
                 }
-
-#ifdef KL_DEBUG
-                std::cout << "move node " << bestMove.node_ << " with gain " << bestMove.gain_
-                          << ", from proc|step: " << bestMove.fromProc_ << "|" << bestMove.fromStep_
-                          << " to: " << bestMove.toProc_ << "|" << bestMove.toStep_ << std::endl;
-#endif
-
-#ifdef KL_DEBUG_COST_CHECK
-                activeSchedule_.GetVectorSchedule().numberOfSupersteps = threadDataVec_[0].NumSteps();
-                if (std::abs(commCostF_.ComputeScheduleCostTest() - threadData.activeScheduleData_.cost_) > 0.00001) {
-                    std::cout << "computed cost: " << commCostF_.ComputeScheduleCostTest()
-                              << ", current cost: " << threadData.activeScheduleData_.cost_ << std::endl;
-                    std::cout << ">>>>>>>>>>>>>>>>>>>>>> compute cost not equal to new cost <<<<<<<<<<<<<<<<<<<<" << std::endl;
-                }
-                if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-                    if (not activeSchedule_.memoryConstraint_.SatisfiedMemoryConstraint()) {
-                        std::cout << "memory constraint not satisfied" << std::endl;
-                    }
-                }
-#endif
             }
 
             if (abort) {
@@ -1400,8 +1144,8 @@ class KlImprover : public ImprovementScheduler<GraphT> {
     }
 };
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::SetParameters(VertexIdxT<GraphT> numNodes) {
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::SetParameters(VertexIdxT<GraphT> numNodes) {
     const unsigned logNumNodes = (numNodes > 1) ? static_cast<unsigned>(std::log(numNodes)) : 1;
 
     // Total number of outer iterations. Proportional to sqrt N.
@@ -1437,22 +1181,10 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
         thread.selectionStrategy_.selectionThreshold_
             = static_cast<std::size_t>(std::ceil(parameters_.timeQuality_ * 10 * logNumNodes + logNumNodes));
     }
-
-#ifdef KL_DEBUG_1
-    std::cout << "kl set parameter, number of nodes: " << numNodes << std::endl;
-    std::cout << "max outer iterations: " << parameters_.maxOuterIterations_ << std::endl;
-    std::cout << "max inner iterations: " << parameters_.maxInnerIterationsReset_ << std::endl;
-    std::cout << "no improvement iterations reduce penalty: " << threadDataVec_[0].noImprovementIterationsReducePenalty_
-              << std::endl;
-    std::cout << "selction threshold: " << threadDataVec_[0].selectionStrategy_.selectionThreshold_ << std::endl;
-    std::cout << "remove step epocs: " << parameters_.removeStepEpocs_ << std::endl;
-    std::cout << "try remove step after num outer iterations: " << parameters_.tryRemoveStepAfterNumOuterIterations_ << std::endl;
-    std::cout << "number of parallel loops: " << parameters_.numParallelLoops_ << std::endl;
-#endif
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::UpdateNodeWorkAffinity(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateNodeWorkAffinity(
     NodeSelectionContainerT &nodes,
     KlMove move,
     const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
@@ -1469,8 +1201,8 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     }
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::UpdateMaxGain(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateMaxGain(
     KlMove move, std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain, ThreadSearchContext &threadData) {
     for (auto &pair : recomputeMaxGain) {
         if (pair.second.fullUpdate_) {
@@ -1493,8 +1225,8 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     }
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::ComputeWorkAffinity(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ComputeWorkAffinity(
     VertexType node, std::vector<std::vector<CostT>> &affinityTableNode, ThreadSearchContext &threadData) {
     const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
     const VertexWorkWeightT vertexWeight = graph_->VertexWorkWeight(node);
@@ -1533,8 +1265,8 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     }
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::ProcessWorkUpdateStep(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessWorkUpdateStep(
     VertexType node,
     unsigned nodeStep,
     unsigned nodeProc,
@@ -1649,23 +1381,15 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     }
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-bool KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::SelectNodesCheckRemoveSuperstep(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::SelectNodesCheckRemoveSuperstep(
     unsigned &stepToRemove, ThreadSearchContext &threadData) {
     if (threadData.stepSelectionEpochCounter_ >= parameters_.nodeMaxStepSelectionEpochs_ || threadData.NumSteps() < 3) {
         return false;
     }
 
     for (stepToRemove = threadData.stepSelectionCounter_; stepToRemove <= threadData.endStep_; stepToRemove++) {
-        assert(stepToRemove >= threadData.startStep_ && stepToRemove <= threadData.endStep_);
-#ifdef KL_DEBUG
-        std::cout << "Checking to remove step " << stepToRemove << "/" << threadData.endStep_ << std::endl;
-#endif
         if (CheckRemoveSuperstep(stepToRemove)) {
-#ifdef KL_DEBUG
-            std::cout << "Checking to scatter step " << stepToRemove << "/" << threadData.endStep_ << std::endl;
-#endif
-            assert(stepToRemove >= threadData.startStep_ && stepToRemove <= threadData.endStep_);
             if (ScatterNodesSuperstep(stepToRemove, threadData)) {
                 threadData.stepSelectionCounter_ = stepToRemove + 1;
 
@@ -1683,8 +1407,8 @@ bool KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     return false;
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-bool KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::CheckRemoveSuperstep(unsigned step) {
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::CheckRemoveSuperstep(unsigned step) {
     if (activeSchedule_.NumSteps() < 2) {
         return false;
     }
@@ -1696,8 +1420,8 @@ bool KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     return false;
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::ResetInnerSearchStructures(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ResetInnerSearchStructures(
     ThreadSearchContext &threadData) const {
     threadData.unlockEdgeBacktrackCounter_ = threadData.unlockEdgeBacktrackCounterReset_;
     threadData.maxInnerIterations_ = parameters_.maxInnerIterationsReset_;
@@ -1708,8 +1432,8 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     threadData.lockManager_.Clear();
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-bool KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::IsLocalSearchBlocked(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+bool KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::IsLocalSearchBlocked(
     ThreadSearchContext &threadData) {
     for (const auto &pair : threadData.activeScheduleData_.newViolations_) {
         if (threadData.lockManager_.IsLocked(pair.first)) {
@@ -1719,8 +1443,8 @@ bool KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     return false;
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::InitializeDatastructures(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InitializeDatastructures(
     BspSchedule<GraphT> &schedule) {
     inputSchedule_ = &schedule;
     instance_ = &schedule.GetInstance();
@@ -1747,15 +1471,15 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     }
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::UpdateAvgGain(const CostT gain,
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateAvgGain(const CostT gain,
                                                                                                 const unsigned numIter,
                                                                                                 double &averageGain) {
     averageGain = static_cast<double>((averageGain * numIter + gain)) / (numIter + 1.0);
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::InsertGainHeap(ThreadSearchContext &threadData) {
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InsertGainHeap(ThreadSearchContext &threadData) {
     const size_t activeCount = threadData.affinityTable_.size();
 
     for (size_t i = 0; i < activeCount; ++i) {
@@ -1766,8 +1490,8 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     }
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::InsertNewNodesGainHeap(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::InsertNewNodesGainHeap(
     std::vector<VertexType> &newNodes, NodeSelectionContainerT &nodes, ThreadSearchContext &threadData) {
     for (const auto &node : newNodes) {
         nodes.Insert(node);
@@ -1777,35 +1501,14 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     }
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::CleanupDatastructures() {
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::CleanupDatastructures() {
     threadDataVec_.clear();
     activeSchedule_.Clear();
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::PrintHeap(HeapDatastructure &maxGainHeap) const {
-    if (maxGainHeap.IsEmpty()) {
-        std::cout << "heap is empty" << std::endl;
-        return;
-    }
-    HeapDatastructure tempHeap = maxGainHeap;    // requires copy constructor
-
-    std::cout << "heap current size: " << tempHeap.size() << std::endl;
-    const auto &topVal = tempHeap.GetValue(tempHeap.Top());
-    std::cout << "heap top node " << topVal.node_ << " gain " << topVal.gain_ << std::endl;
-
-    unsigned count = 0;
-    while (!tempHeap.IsEmpty() && count++ < 15) {
-        const auto &val = tempHeap.GetValue(tempHeap.Top());
-        std::cout << "node " << val.node_ << " gain " << val.gain_ << " to proc " << val.toProc_ << " to step " << val.toStep_
-                  << std::endl;
-        tempHeap.Pop();
-    }
-}
-
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::UpdateBestMove(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateBestMove(
     VertexType node, unsigned step, unsigned proc, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData) {
     const unsigned nodeProc = activeSchedule_.AssignedProcessor(node);
     const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
@@ -1823,11 +1526,6 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     if ((maxStep == step) && (maxProc == proc)) {
         RecomputeNodeMaxGain(node, affinityTable, threadData);
     } else {
-        if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-            if (not activeSchedule_.memoryConstraint_.CanMove(node, proc, step)) {
-                return;
-            }
-        }
         const unsigned idx = RelStepIdx(nodeStep, step);
         const CostT gain = affinityTable[node][nodeProc][windowSize] - affinityTable[node][proc][idx];
         if (gain > maxGain) {
@@ -1846,8 +1544,8 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
     }
 }
 
-template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>::UpdateBestMove(
+template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateBestMove(
     VertexType node, unsigned step, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData) {
     const unsigned nodeProc = activeSchedule_.AssignedProcessor(node);
     const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
@@ -1864,11 +1562,6 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
         if (nodeStep != step) {
             const unsigned idx = RelStepIdx(nodeStep, step);
             for (const unsigned p : procRange_.CompatibleProcessorsVertex(node)) {
-                if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-                    if (not activeSchedule_.memoryConstraint_.CanMove(node, p, step)) {
-                        continue;
-                    }
-                }
                 const CostT gain = affinityTable[node][nodeProc][windowSize] - affinityTable[node][p][idx];
                 if (gain > maxGain) {
                     maxGain = gain;
@@ -1881,11 +1574,7 @@ void KlImprover<GraphT, CommCostFunctionT, MemoryConstraintT, windowSize, CostT>
                 if (proc == nodeProc) {
                     continue;
                 }
-                if constexpr (ActiveScheduleT::useMemoryConstraint_) {
-                    if (not activeSchedule_.memoryConstraint_.CanMove(node, proc, step)) {
-                        continue;
-                    }
-                }
+
                 const CostT gain = affinityTable[node][nodeProc][windowSize] - affinityTable[node][proc][windowSize];
                 if (gain > maxGain) {
                     maxGain = gain;

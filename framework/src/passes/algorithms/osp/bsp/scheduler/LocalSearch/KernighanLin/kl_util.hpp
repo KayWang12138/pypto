@@ -47,21 +47,6 @@ struct RewardPenaltyStrategy {
 };
 
 template <typename VertexType>
-struct SetVertexLockManager {
-    std::unordered_set<VertexType> lockedNodes_;
-
-    void Initialize(size_t) {}
-
-    void Lock(VertexType node) { lockedNodes_.insert(node); }
-
-    void Unlock(VertexType node) { lockedNodes_.erase(node); }
-
-    bool IsLocked(VertexType node) { return lockedNodes_.find(node) != lockedNodes_.end(); }
-
-    void Clear() { lockedNodes_.clear(); }
-};
-
-template <typename VertexType>
 struct VectorVertexLockManager {
     std::vector<bool> lockedNodes_;
 
@@ -237,65 +222,6 @@ struct AdaptiveAffinityTable {
         }
         gaps_.clear();
     }
-};
-
-template <typename GraphT, typename CostT, typename KlActiveScheduleT, unsigned windowSize>
-struct StaticAffinityTable {
-    constexpr static unsigned windowRange_ = 2 * windowSize + 1;
-    using VertexType = VertexIdxT<GraphT>;
-
-  private:
-    const KlActiveScheduleT *activeSchedule_;
-    const GraphT *graph_;
-
-    std::unordered_set<VertexType> selectedNodes_;
-
-    std::vector<std::vector<std::vector<CostT>>> affinityTable_;
-
-  public:
-    void Initialize(const KlActiveScheduleT &sche, const std::size_t) {
-        activeSchedule_ = &sche;
-        graph_ = &(sche.GetInstance().GetComputationalDag());
-
-        affinityTable_.resize(graph_->NumVertices());
-        const unsigned numProcs = sche.GetInstance().NumberOfProcessors();
-        for (auto &table : affinityTable_) {
-            table.resize(numProcs);
-            for (auto &row : table) {
-                row.resize(windowRange_);
-            }
-        }
-    }
-
-    inline std::vector<VertexType> GetSelectedNodes() const { return {selectedNodes_.begin(), selectedNodes_.end()}; }
-
-    inline size_t size() const { return selectedNodes_.size(); }
-
-    inline bool IsSelected(VertexType node) const { return selectedNodes_.find(node) != selectedNodes_.end(); }
-
-    inline std::vector<std::vector<CostT>> &operator[](VertexType node) { return affinityTable_[node]; }
-
-    inline std::vector<std::vector<CostT>> &At(VertexType node) { return affinityTable_[node]; }
-
-    inline const std::vector<std::vector<CostT>> &At(VertexType node) const { return affinityTable_[node]; }
-
-    inline std::vector<std::vector<CostT>> &GetAffinityTable(VertexType node) { return affinityTable_[node]; }
-
-    bool Insert(VertexType node) {
-        const auto pair = selectedNodes_.insert(node);
-        return pair.second;
-    }
-
-    void Remove(VertexType node) { selectedNodes_.erase(node); }
-
-    void ResetNodeSelection() { selectedNodes_.clear(); }
-
-    void Clear() {
-        affinityTable_.clear();
-        selectedNodes_.clear();
-    }
-
-    void Trim() {}
 };
 
 template <typename GraphT, typename ContainerT, typename KlActiveScheduleT>

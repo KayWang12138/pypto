@@ -12,41 +12,23 @@
  * \file kl_include.hpp
  * \brief
  */
-// #define KL_DEBUG
-// #define KL_DEBUG_1
-// #define KL_DEBUG_COST_CHECK
-
 
 #ifndef OSP_KL_INCLUDE_HPP
 #define OSP_KL_INCLUDE_HPP
 
-//#include "comm_cost_modules/kl_bsp_comm_cost.hpp"
 #include "comm_cost_modules/kl_hyper_total_comm_cost.hpp"
-//#include "comm_cost_modules/kl_total_comm_cost.hpp"
 #include "kl_improver.hpp"
-#include "passes/algorithms/osp/bsp/scheduler/LocalSearch/LocalSearchMemoryConstraintModules.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {
 
 using DoubleCostT = double;
 
-
-
-template <typename GraphT, typename MemoryConstraintT = NoLocalSearchMemoryConstraint, unsigned windowSize = 1>
+template <typename GraphT, unsigned windowSize = 1>
 using KlTotalLambdaCommImprover = KlImprover<GraphT,
-                                             KlHyperTotalCommCostFunction<GraphT, DoubleCostT, MemoryConstraintT, windowSize>,
-                                             MemoryConstraintT,
+                                             KlHyperTotalCommCostFunction<GraphT, DoubleCostT, windowSize>,
                                              windowSize,
                                              DoubleCostT>;
-
-template <typename GraphT, typename MemoryConstraintT = LsLocalMemoryConstraint<GraphT>, unsigned windowSize = 1>
-using KlTotalLambdaCommImproverLocalMemConstr
-    = KlImprover<GraphT,
-                 KlHyperTotalCommCostFunction<GraphT, DoubleCostT, MemoryConstraintT, windowSize>,
-                 MemoryConstraintT,
-                 windowSize,
-                 DoubleCostT>;
 
 }    // namespace osp
 } // namespace npu::tile_fwk

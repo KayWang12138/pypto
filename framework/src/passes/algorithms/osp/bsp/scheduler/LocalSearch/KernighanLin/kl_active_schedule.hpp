@@ -21,7 +21,6 @@
 #include "passes/algorithms/osp/bsp/model/util/SetSchedule.hpp"
 #include "passes/algorithms/osp/bsp/model/util/VectorSchedule.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/ImprovementScheduler.hpp"
-#include "passes/algorithms/osp/bsp/scheduler/LocalSearch/LocalSearchMemoryConstraintModules.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 
 namespace npu::tile_fwk {
@@ -274,7 +273,7 @@ struct ThreadLocalActiveScheduleData {
     }
 };
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
+template <typename GraphT, typename CostT>
 class KlActiveSchedule {
   private:
     using VertexType = VertexIdxT<GraphT>;
@@ -331,10 +330,6 @@ class KlActiveSchedule {
 
     inline void SetCost(CostT cost) { cost_ = cost; }
 
-    constexpr static bool useMemoryConstraint_ = isLocalSearchMemoryConstraintV<MemoryConstraintT>;
-
-    MemoryConstraintT memoryConstraint_;
-
     KlActiveScheduleWorkDatastructures<GraphT> workDatastructures_;
 
     inline VWorkwT<GraphT> GetStepTotalWork(unsigned step) const {
@@ -356,9 +351,6 @@ class KlActiveSchedule {
         threadData.appliedMoves_.push_back(move);
 
         workDatastructures_.ApplyMove(move, instance_->GetComputationalDag().VertexWorkWeight(move.node_));
-        if constexpr (useMemoryConstraint_) {
-            memoryConstraint_.ApplyMove(move.node_, move.fromProc_, move.fromStep_, move.toProc_, move.toStep_);
-        }
     }
 
     template <typename CommDatastructuresT>
@@ -435,9 +427,6 @@ class KlActiveSchedule {
             setSchedule_.GetProcessorStepVertices()[move.toStep_][move.toProc_].insert(move.node_);
             workDatastructures_.ApplyMove(move, instance_->GetComputationalDag().VertexWorkWeight(move.node_));
             commDatastructures.UpdateDatastructureAfterMove(move, startStep, endStep);
-            if constexpr (useMemoryConstraint_) {
-                memoryConstraint_.ApplyMove(move.node_, move.fromProc_, move.fromStep_, move.toProc_, move.toStep_);
-            }
         }
     }
 
@@ -516,18 +505,15 @@ class KlActiveSchedule {
     }
 };
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
-void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::Clear() {
+template <typename GraphT, typename CostT>
+void KlActiveSchedule<GraphT, CostT>::Clear() {
     workDatastructures_.Clear();
     vectorSchedule_.Clear();
     setSchedule_.Clear();
-    if constexpr (useMemoryConstraint_) {
-        memoryConstraint_.Clear();
-    }
 }
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
-void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::ComputeViolations(ThreadDataT &threadData) {
+template <typename GraphT, typename CostT>
+void KlActiveSchedule<GraphT, CostT>::ComputeViolations(ThreadDataT &threadData) {
     threadData.currentViolations_.clear();
     threadData.feasible_ = true;
 
@@ -547,8 +533,8 @@ void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::ComputeViolations(Threa
     }
 }
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
-void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::Initialize(const IBspSchedule<GraphT> &schedule) {
+template <typename GraphT, typename CostT>
+void KlActiveSchedule<GraphT, CostT>::Initialize(const IBspSchedule<GraphT> &schedule) {
     instance_ = &schedule.GetInstance();
     vectorSchedule_ = VectorSchedule(schedule);
     setSchedule_ = SetSchedule(schedule);
@@ -557,23 +543,16 @@ void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::Initialize(const IBspSc
     cost_ = 0;
     feasible_ = true;
 
-    if constexpr (useMemoryConstraint_) {
-        memoryConstraint_.Initialize(setSchedule_, vectorSchedule_);
-    }
-
     ComputeWorkMemoryDatastructures(0, NumSteps() - 1);
 }
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
-void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::ComputeWorkMemoryDatastructures(unsigned startStep, unsigned endStep) {
-    if constexpr (useMemoryConstraint_) {
-        memoryConstraint_.ComputeMemoryDatastructure(startStep, endStep);
-    }
+template <typename GraphT, typename CostT>
+void KlActiveSchedule<GraphT, CostT>::ComputeWorkMemoryDatastructures(unsigned startStep, unsigned endStep) {
     workDatastructures_.ComputeWorkDatastructures(startStep, endStep);
 }
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
-void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::WriteSchedule(BspSchedule<GraphT> &schedule) {
+template <typename GraphT, typename CostT>
+void KlActiveSchedule<GraphT, CostT>::WriteSchedule(BspSchedule<GraphT> &schedule) {
     for (const auto v : instance_->Vertices()) {
         schedule.SetAssignedProcessor(v, vectorSchedule_.AssignedProcessor(v));
         schedule.SetAssignedSuperstep(v, vectorSchedule_.AssignedSuperstep(v));
@@ -581,8 +560,8 @@ void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::WriteSchedule(BspSchedu
     schedule.UpdateNumberOfSupersteps();
 }
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
-void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::RemoveEmptyStep(unsigned step) {
+template <typename GraphT, typename CostT>
+void KlActiveSchedule<GraphT, CostT>::RemoveEmptyStep(unsigned step) {
     for (unsigned i = step; i < NumSteps() - 1; i++) {
         for (unsigned proc = 0; proc < instance_->NumberOfProcessors(); proc++) {
             for (const auto node : setSchedule_.GetProcessorStepVertices()[i + 1][proc]) {
@@ -591,15 +570,12 @@ void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::RemoveEmptyStep(unsigne
         }
         std::swap(setSchedule_.GetProcessorStepVertices()[i], setSchedule_.GetProcessorStepVertices()[i + 1]);
         workDatastructures_.SwapSteps(i, i + 1);
-        if constexpr (useMemoryConstraint_) {
-            memoryConstraint_.SwapSteps(i, i + 1);
-        }
     }
     vectorSchedule_.numberOfSupersteps_--;
 }
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
-void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::SwapEmptyStepFwd(const unsigned step, const unsigned toStep) {
+template <typename GraphT, typename CostT>
+void KlActiveSchedule<GraphT, CostT>::SwapEmptyStepFwd(const unsigned step, const unsigned toStep) {
     for (unsigned i = step; i < toStep; i++) {
         for (unsigned proc = 0; proc < instance_->NumberOfProcessors(); proc++) {
             for (const auto node : setSchedule_.GetProcessorStepVertices()[i + 1][proc]) {
@@ -608,14 +584,11 @@ void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::SwapEmptyStepFwd(const 
         }
         std::swap(setSchedule_.GetProcessorStepVertices()[i], setSchedule_.GetProcessorStepVertices()[i + 1]);
         workDatastructures_.SwapSteps(i, i + 1);
-        if constexpr (useMemoryConstraint_) {
-            memoryConstraint_.SwapSteps(i, i + 1);
-        }
     }
 }
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
-void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::InsertEmptyStep(unsigned step) {
+template <typename GraphT, typename CostT>
+void KlActiveSchedule<GraphT, CostT>::InsertEmptyStep(unsigned step) {
     unsigned i = vectorSchedule_.IncrementNumberOfSupersteps();
 
     for (; i > step; i--) {
@@ -626,14 +599,11 @@ void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::InsertEmptyStep(unsigne
         }
         std::swap(setSchedule_.GetProcessorStepVertices()[i], setSchedule_.GetProcessorStepVertices()[i - 1]);
         workDatastructures_.SwapSteps(i - 1, i);
-        if constexpr (useMemoryConstraint_) {
-            memoryConstraint_.SwapSteps(i - 1, i);
-        }
     }
 }
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
-void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::SwapEmptyStepBwd(const unsigned toStep, const unsigned emptyStep) {
+template <typename GraphT, typename CostT>
+void KlActiveSchedule<GraphT, CostT>::SwapEmptyStepBwd(const unsigned toStep, const unsigned emptyStep) {
     unsigned i = toStep;
 
     for (; i > emptyStep; i--) {
@@ -644,14 +614,11 @@ void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::SwapEmptyStepBwd(const 
         }
         std::swap(setSchedule_.GetProcessorStepVertices()[i], setSchedule_.GetProcessorStepVertices()[i - 1]);
         workDatastructures_.SwapSteps(i - 1, i);
-        if constexpr (useMemoryConstraint_) {
-            memoryConstraint_.SwapSteps(i - 1, i);
-        }
     }
 }
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT>
-void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::SwapSteps(const unsigned step1, const unsigned step2) {
+template <typename GraphT, typename CostT>
+void KlActiveSchedule<GraphT, CostT>::SwapSteps(const unsigned step1, const unsigned step2) {
     if (step1 == step2) {
         return;
     }
@@ -666,9 +633,6 @@ void KlActiveSchedule<GraphT, CostT, MemoryConstraintT>::SwapSteps(const unsigne
     }
     std::swap(setSchedule_.GetProcessorStepVertices()[step1], setSchedule_.GetProcessorStepVertices()[step2]);
     workDatastructures_.SwapSteps(step1, step2);
-    if constexpr (useMemoryConstraint_) {
-        memoryConstraint_.SwapSteps(step1, step2);
-    }
 }
 
 }    // namespace osp

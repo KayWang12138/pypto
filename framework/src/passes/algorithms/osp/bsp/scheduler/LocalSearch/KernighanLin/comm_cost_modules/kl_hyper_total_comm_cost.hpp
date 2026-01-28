@@ -23,7 +23,7 @@
 namespace npu::tile_fwk {
 namespace osp {
 
-template <typename GraphT, typename CostT, typename MemoryConstraintT, unsigned windowSize = 1>
+template <typename GraphT, typename CostT, unsigned windowSize = 1>
 struct KlHyperTotalCommCostFunction {
     using VertexType = VertexIdxT<GraphT>;
     using KlMove = KlMoveStruct<CostT, VertexType>;
@@ -32,7 +32,7 @@ struct KlHyperTotalCommCostFunction {
     constexpr static unsigned windowRange_ = 2 * windowSize + 1;
     constexpr static bool isMaxCommCostFunction_ = false;
 
-    KlActiveSchedule<GraphT, CostT, MemoryConstraintT> *activeSchedule_;
+    KlActiveSchedule<GraphT, CostT> *activeSchedule_;
 
     CompatibleProcessorRange<GraphT> *procRange_;
 
@@ -54,7 +54,7 @@ struct KlHyperTotalCommCostFunction {
 
     inline bool IsCompatible(VertexType node, unsigned proc) { return activeSchedule_->GetInstance().IsCompatible(node, proc); }
 
-    void Initialize(KlActiveSchedule<GraphT, CostT, MemoryConstraintT> &sched, CompatibleProcessorRange<GraphT> &pRange) {
+    void Initialize(KlActiveSchedule<GraphT, CostT> &sched, CompatibleProcessorRange<GraphT> &pRange) {
         activeSchedule_ = &sched;
         procRange_ = &pRange;
         instance_ = &sched.GetInstance();
