@@ -193,6 +193,8 @@ static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *fun
 
 static void HandleExecuteGraph(FunctionCache &cache, Linker &linker, Function *func);
 static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *func) {
+    SymbolicScalar runtimeAnd("RUNTIME_And");
+
     if (func->IsDynloop()) {
         auto dynloopAttr = func->GetDynloopAttribute();
         auto ss = SymbolicScalar(dynloopAttr->iterSymbolName);
@@ -223,6 +225,8 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
         HandleExecuteGraph(cache, linker, func);
     } else if (func->GetGraphType() == GraphType::BLOCK_GRAPH) {
+        SymbolicScalar cond = SetMainBlock(func, linker.mainBlockGroup_);
+        linker.mainBlockScalar_ = AddUniqueCondition(runtimeAnd, linker.mainBlockScalar_, cond, linker.mainBlockGroup_);
         for (auto &op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_VEC_DUP) {
                 if (op.HasAttr(OpAttributeKey::dynScalar)) {
@@ -933,7 +937,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         Function *devTile = attr->rootTileDict[devRoot];
         config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, devTile->paramConfigs_.dynamicAlignedOps);
         npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
+        npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true);
         npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+        npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
         codeGen.GenCode(*devTile, {});
         MainBlockCondBulider builder;
         builder.Gencode(devTile, {});
@@ -1031,8 +1037,10 @@ MachineTask *GenCode(
     MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache,
     std::string &kernelPath) {
     npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
+    npu::tile_fwk::CodeGenCtx codeGenCtxMainBlock("", GetEmitPath("kernel_aicore"), true);
     npu::tile_fwk::CreateMultiLevelDir(codeGenCtx.cceDir);
     npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+    npu::tile_fwk::CodeGen codeGenMainBlock(codeGenCtxMainBlock);
     auto function = task->GetFunction();
     /* each leafFunction inside is compiled to a standalone object file.
      * the filepath of the object file is updated to the binPath_ member.

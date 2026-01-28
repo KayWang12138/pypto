@@ -53,6 +53,7 @@ constexpr int64_t DEFAULT_CACHE_DEVICE_TASK_NUM = 10000;
 constexpr int32_t MAX_CELLMATCHSSTRIDE = 20000000;
 static constexpr uint64_t GENERAL_METADATA_SIZE_MIN = 4 * MEBI;
 constexpr uint32_t FRIENDLY_CACHE_ALIGN_U64_SIZE = 2; // 友好的cache对齐是2个u64
+constexpr const uint8_t MAIN_BLOCK_SIZE = 2;
 
 void DevAscendFunction::InitIncastOutcastAttr(
         uintdevptr_t &initOffset,
