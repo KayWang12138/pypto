@@ -545,5 +545,13 @@ void bind_operation(py::module &m) {
         "TopKExtract(x, k:int, is_index:bool=False) -> y\n"
         "Extracts the top-k values (or indices if is_index=True)."
     );
+
+    m.def(
+        "Nop",
+        [](const std::vector<Tensor> &inTensors) {
+            return npu::tile_fwk::Nop(inTensors);
+        },
+        py::arg("in_tensors")
+    );
 }
 } // namespace pypto
