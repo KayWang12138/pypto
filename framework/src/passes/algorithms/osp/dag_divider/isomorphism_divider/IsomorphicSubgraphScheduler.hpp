@@ -22,7 +22,6 @@
 #include "MerkleHashComputer.hpp"
 #include "OrbitGraphProcessor.hpp"
 #include "TrimmedGroupScheduler.hpp"
-#include "passes/algorithms/osp/auxiliary/io/DotFileWriter.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/Scheduler.hpp"
 #include "passes/algorithms/osp/graph_algorithms/subgraph_algorithms.hpp"
 
@@ -62,7 +61,6 @@ class IsomorphicSubgraphScheduler {
     Scheduler<ConstrGraphT> *bspScheduler_;
     bool useMaxGroupSize_ = false;
     unsigned maxGroupSize_ = 0;
-    bool plotDotGraphs_ = false;
     VWorkwT<ConstrGraphT> workThreshold_ = 10;
     VWorkwT<ConstrGraphT> criticalPathThreshold_ = 10;
     double orbitLockRatio_ = 0.4;
@@ -78,7 +76,7 @@ class IsomorphicSubgraphScheduler {
      * @param bspScheduler The underlying scheduler to use for scheduling individual subgraphs.
      */
     IsomorphicSubgraphScheduler(Scheduler<ConstrGraphT> &bspScheduler)
-        : hashComputer_(nullptr), bspScheduler_(&bspScheduler), plotDotGraphs_(false) {}
+        : hashComputer_(nullptr), bspScheduler_(&bspScheduler) {}
 
     /**
      * @brief Constructs the scheduler with a base scheduler and an existing hash computer.
@@ -86,7 +84,7 @@ class IsomorphicSubgraphScheduler {
      * @param hashComputer The pre-computed hash computer for the graph.
      */
     IsomorphicSubgraphScheduler(Scheduler<ConstrGraphT> &bspScheduler, const HashComputer<VertexIdxT<GraphT>> &hashComputer)
-        : hashComputer_(&hashComputer), bspScheduler_(&bspScheduler), plotDotGraphs_(false) {}
+        : hashComputer_(&hashComputer), bspScheduler_(&bspScheduler) {}
 
     virtual ~IsomorphicSubgraphScheduler() {}
 
@@ -127,12 +125,6 @@ class IsomorphicSubgraphScheduler {
      * @param flag True to allow, false otherwise.
      */
     void SetAllowTrimmedScheduler(bool flag) { allowUseTrimmedScheduler_ = flag; }
-
-    /**
-     * @brief Enables or disables plotting of intermediate graphs to DOT files.
-     * @param plot True to enable plotting.
-     */
-    void SetPlotDotGraphs(bool plot) { plotDotGraphs_ = plot; }
 
     /**
      * @brief Disables the use of a fixed maximum group size for trimming.
@@ -212,24 +204,6 @@ class IsomorphicSubgraphScheduler {
         std::vector<VertexIdxT<GraphT>> partition(instance.NumberOfVertices(), 0);
         ScheduleIsomorphicGroup(instance, isomorphicGroups, subgraphSchedule, partition);
 
-        if (plotDotGraphs_) {
-            auto now = std::chrono::system_clock::now();
-            auto inTimeT = std::chrono::system_clock::to_time_t(now);
-            std::stringstream ss;
-            ss << std::put_time(std::localtime(&inTimeT), "%Y%m%d_%H%M%S");
-            std::string timestamp = ss.str() + "_";
-
-            DotFileWriter writer;
-            writer.WriteColoredGraph(
-                timestamp + "isomorphic_groups.dot", instance.GetComputationalDag(), orbitProcessor.GetFinalContractionMap());
-            writer.WriteColoredGraph(
-                timestamp + "orbits_colored.dot", instance.GetComputationalDag(), orbitProcessor.GetContractionMap());
-            writer.WriteGraph(timestamp + "iso_groups_contracted.dot", input.instance_.GetComputationalDag());
-            writer.WriteColoredGraph(timestamp + "graph_partition.dot", instance.GetComputationalDag(), partition);
-            ConstrGraphT coarseGraph;
-            coarser_util::ConstructCoarseDag(instance.GetComputationalDag(), coarseGraph, partition);
-            writer.WriteGraph(timestamp + "block_graph.dot", coarseGraph);
-        }
         return partition;
     }
 
@@ -568,30 +542,6 @@ class IsomorphicSubgraphScheduler {
                 std::cout << bspSchedule.SatisfiesPrecedenceConstraints() << std::endl;
                 std::cout << "  Schedule satisfies node type constraints: ";
                 std::cout << bspSchedule.SatisfiesNodeTypeConstraints() << std::endl;
-            }
-
-            if (plotDotGraphs_) {
-                const auto &repDag = bspSchedule.GetInstance().GetComputationalDag();
-                std::vector<unsigned> colors(repDag.NumVertices());
-                std::map<std::pair<unsigned, unsigned>, unsigned> procSsToColor;
-                unsigned nextColor = 0;
-
-                for (const auto &v : repDag.Vertices()) {
-                    const auto assignment = std::make_pair(bspSchedule.AssignedProcessor(v), bspSchedule.AssignedSuperstep(v));
-                    if (procSsToColor.find(assignment) == procSsToColor.end()) {
-                        procSsToColor[assignment] = nextColor++;
-                    }
-                    colors[v] = procSsToColor[assignment];
-                }
-
-                auto now = std::chrono::system_clock::now();
-                auto inTimeT = std::chrono::system_clock::to_time_t(now);
-                std::stringstream ss;
-                ss << std::put_time(std::localtime(&inTimeT), "%Y%m%d_%H%M%S");
-                std::string timestamp = ss.str() + "_";
-
-                DotFileWriter writer;
-                writer.WriteColoredGraph(timestamp + "iso_group_rep_" + std::to_string(groupIdx) + ".dot", repDag, colors);
             }
 
             const bool maxBsp = useMaxBsp_ && (representativeInstance.GetComputationalDag().NumEdges() == 0)
