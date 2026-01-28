@@ -16,6 +16,7 @@
 #ifndef OSP_BSPLOCKING_HPP
 #define OSP_BSPLOCKING_HPP
 
+#include <cassert>
 #include <chrono>
 #include <climits>
 #include <cmath>
