@@ -18,8 +18,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <iomanip>
-#include <iostream>
 #include <limits>
 #include <numeric>
 #include <stdexcept>
@@ -45,30 +43,6 @@ enum class MemoryConstraintType {
     PERSISTENT_AND_TRANSIENT /** Memory bounds apply to the sum of memory weights of nodes assigned to the same processor plus
                                  the maximum communication weight of a node assigned to a processor. */
 };
-
-/**
- * @brief Converts the enum to a string literal.
- * Returns const char* to avoid std::string allocation overhead.
- */
-inline const char *ToString(MemoryConstraintType type) {
-    switch (type) {
-        case MemoryConstraintType::NONE:
-            return "NONE";
-        case MemoryConstraintType::LOCAL:
-            return "LOCAL";
-        case MemoryConstraintType::GLOBAL:
-            return "GLOBAL";
-        case MemoryConstraintType::PERSISTENT_AND_TRANSIENT:
-            return "PERSISTENT_AND_TRANSIENT";
-        default:
-            return "UNKNOWN";
-    }
-}
-
-/**
- * @brief Stream operator overload using the helper function.
- */
-inline std::ostream &operator<<(std::ostream &os, MemoryConstraintType type) { return os << ToString(type); }
 
 /**
  * @class BspArchitecture
