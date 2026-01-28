@@ -337,8 +337,6 @@ struct ControlFlowCache {
     }
 };
 
-#define AICPU_META_BUFFER_NUM 2
-
 class KernelBinary {
 public:
     KernelBinary(std::shared_ptr<Function> func): dynFunc(func) {
@@ -410,7 +408,7 @@ public:
             }
             tensorData++;
         }
-        aicpuArgs->kArgs.opMetaAddrs = metas[metaIndex % AICPU_META_BUFFER_NUM];
+
         return {aicpuArgs, aicpuArgBuf.size() * sizeof(int64_t)};
     }
 
@@ -443,9 +441,6 @@ public:
 
     ~KernelBinary() {
         rtDevBinaryUnRegister(kernelBin);
-        for (auto ptr : devMems) {
-            rtFree(ptr);
-        }
     }
 
 private:
@@ -465,25 +460,9 @@ private:
         return hdl;
     }
 
-    void *AllocDevMem(int64_t size) {
-        void *devPtr = nullptr;
-        int ret = rtMalloc(&devPtr, size, RT_MEMORY_HBM, 0);
-        if (ret != RT_ERROR_NONE) {
-            ALOG_ERROR("malloc dev mem failed, ret: %d", ret);
-        }
-        devMems.emplace_back(devPtr);
-        return devPtr;
-    }
-
     void InitCachedArgs() {
         auto genSize = devProg->memBudget.metadata.general;
         auto stitchPoolSize = devProg->memBudget.metadata.general;
-        for (int i = 0; i < AICPU_META_BUFFER_NUM; ++i) {
-            OpMetaAddrs opMeta;
-            opMeta.generalAddr = (uint64_t)AllocDevMem(genSize);
-            opMeta.stitchPoolAddr = (uint64_t)AllocDevMem(stitchPoolSize);
-            metas.push_back(opMeta);
-        }
 
         auto argNum = dynAttr->startArgsInputLogicalTensorList.size() +
             dynAttr->startArgsOutputLogicalTensorList.size();
@@ -516,10 +495,6 @@ private:
     void *kernelBin{nullptr};
     int64_t workspaceSize{0}; // static workspace size
     std::vector<ControlFlowCache> caches;
-
-    std::vector<void *> devMems;
-    std::vector<OpMetaAddrs> metas;
-    int64_t metaIndex{0};
 
     std::vector<int64_t> aicpuArgBuf;
     uint64_t l2Offset{0};
@@ -561,23 +536,22 @@ public:
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
 
-        args->kArgs.launchMode = AICPU_LAUNCH_MODE_CTRL;
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
-        args->kArgs.sequence = ++sequence;
+        args->kArgs.parameter.globalRound = ++sequence;
 
         if (tripleStream) {
-            args->kArgs.launchMode = AICPU_LAUNCH_MODE_CTRL;
+            args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
             int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
                 "AST_DYN_AICPU", 2, &rtAicpuArgs, nullptr, ctrlStream, 0);
             ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
-            args->kArgs.launchMode = AICPU_LAUNCH_MODE_SCHED;
+            args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
             ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
                 "AST_DYN_AICPU", 3, &rtAicpuArgs, nullptr, schedtream, 0);
             ASSERT(ret == RT_ERROR_NONE) << "launch aicpu sched failed: " << ret;
         } else {
             const int nrAicpu = 5; // see also device_runner.cpp
-            args->kArgs.launchMode = AICPU_LAUNCH_MODE_DEF;
+            args->kArgs.parameter.runMode = RUN_UNIFIED_STREAM;
             int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
                 "AST_DYN_AICPU", nrAicpu, &rtAicpuArgs, nullptr, schedtream, 0);
             ASSERT(ret == RT_ERROR_NONE) << "launch aicpu def failed: " << ret;
