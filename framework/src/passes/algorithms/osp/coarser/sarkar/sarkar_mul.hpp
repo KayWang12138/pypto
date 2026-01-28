@@ -72,8 +72,6 @@ class SarkarMul : public MultilevelCoarser<GraphT, GraphTCoarse> {
         SetSeed();
         InitParams();
     };
-
-    std::string GetCoarserName() const override { return "Sarkar"; };
 };
 
 template <typename GraphT, typename GraphTCoarse>

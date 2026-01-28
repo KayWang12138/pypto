@@ -116,8 +116,6 @@ class Sarkar : public CoarserGenExpansionMap<GraphTIn, GraphTOut> {
     Sarkar &operator=(const Sarkar &) = default;
     Sarkar &operator=(Sarkar &&) = default;
     virtual ~Sarkar() override = default;
-
-    std::string GetCoarserName() const override { return "Sarkar"; }
 };
 
 template <typename GraphTIn, typename GraphTOut>

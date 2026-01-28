@@ -62,12 +62,6 @@ class Coarser {
         = 0;
 
     /**
-     * @brief Get the name of the coarsening algorithm.
-     * @return A human-readable name of the coarsening algorithm, typically used for identification or logging purposes.
-     */
-    virtual std::string GetCoarserName() const = 0;
-
-    /**
      * @brief Destructor for the Coarser class.
      */
     virtual ~Coarser() = default;
@@ -125,12 +119,6 @@ class CoarserGenExpansionMap : public Coarser<GraphTIn, GraphTOut> {
 
         return coarser_util::ConstructCoarseDag(dagIn, coarsenedDag, vertexContractionMap);
     }
-
-    /**
-     * @brief Get the name of the coarsening algorithm.
-     * @return A human-readable name of the coarsening algorithm, typically used for identification or logging purposes.
-     */
-    virtual std::string GetCoarserName() const override = 0;
 
     /**
      * @brief Destructor for the CoarserGenExpansionMap class.

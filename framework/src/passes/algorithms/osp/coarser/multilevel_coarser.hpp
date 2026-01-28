@@ -66,8 +66,6 @@ class MultilevelCoarser : public Coarser<GraphT, GraphTCoarse> {
 
     ReturnStatus Run(const GraphT &graph);
     ReturnStatus Run(const BspInstance<GraphT> &inst);
-
-    virtual std::string GetCoarserName() const override = 0;
 };
 
 template <typename GraphT, typename GraphTCoarse>
