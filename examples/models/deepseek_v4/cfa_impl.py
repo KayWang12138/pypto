@@ -93,7 +93,7 @@ def attention(
         blk_tbl,
         seqused_kv,
     )
-    attn_res = torch.zeros([query.size(0), query.size(1), query.size(2)], dtype=query.dtype, device=f'{query.device}')
+    attn_res = torch.zeros_like(query).npu()
     unroll_list = [2, 1]
     pg_upper_bound = 3072
     inputs = {
@@ -108,6 +108,7 @@ def attention(
     outputs = {
         attn_res: [0],
     }
+    # print(f"===============seqused_kv123===={seqused_kv}=====================")
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     if unroll_list is None:
@@ -187,9 +188,11 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
                     end_block = valid_end_pos // block_size
 
                     start_block_id = blk_win[b_idx, start_block].max(0)
-                    kv_block_0 = pypto.view(kv_win_2d, [block_size, dn], [start_block_id * block_size, 0], valid_shape=[valid_win_len, dn])
+                    kv_block_0 = pypto.view(kv_win_2d, [block_size, dn], [start_block_id * block_size, 0], \
+                                            valid_shape=[valid_win_len, dn])
                     end_block_id = blk_win[b_idx, end_block].max(0)
-                    kv_block_1 = pypto.view(kv_win_2d, [block_size, dn], [end_block_id * block_size, 0], valid_shape=[valid_win_len, dn])
+                    kv_block_1 = pypto.view(kv_win_2d, [block_size, dn], [end_block_id * block_size, 0], \
+                                            valid_shape=[valid_win_len, dn])
 
                     pypto.set_vec_tile_shapes(v1_win_tile[0], v1_win_tile[1])
                     kv_gather = pypto.concat([kv_block_0, kv_block_1], dim=0)
