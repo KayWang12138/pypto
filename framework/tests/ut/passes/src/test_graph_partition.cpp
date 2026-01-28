@@ -403,7 +403,7 @@ TEST_F(GraphPartitionTest, TestCVGraph) {
 }
 
 TEST_F(GraphPartitionTest, TestOspCVGraph) {
-    const std::vector<std::string> partitionAlgs = {"OspSarkar", "OspBsp"};
+    const std::vector<std::string> partitionAlgs = {"Iso", "OspSarkar", "OspBsp"};
 
     for (const auto &partitionAlg : partitionAlgs) {
         ComputationalGraphBuilder G;
@@ -424,7 +424,7 @@ TEST_F(GraphPartitionTest, TestOspCVGraph) {
             cubeOp.insert("L1_TO_L0B" + br);
         }
         const int subGraphNum = function->GetTotalSubGraphCount();
-        std::unordered_set<int> subgraphIDs;
+        std::unordered_map<int, bool> subgraphIDs2IsCube;
         for (auto &opPair : G.operations_) {
             Operation *op = opPair.second;
             EXPECT_NE(op, nullptr);
@@ -434,9 +434,15 @@ TEST_F(GraphPartitionTest, TestOspCVGraph) {
                 EXPECT_EQ(op->HasAttr(OpAttributeKey::isCube) && !op->GetBoolAttribute(OpAttributeKey::isCube), true);
             }
             EXPECT_EQ(op->GetSubgraphID() >= 0 && op->GetSubgraphID() < subGraphNum, true);
-            subgraphIDs.insert(op->GetSubgraphID());
+
+            const auto subgraphId = op->GetSubgraphID();
+            if (subgraphIDs2IsCube.count(subgraphId) > 0) {
+                EXPECT_EQ(subgraphIDs2IsCube.at(subgraphId), op->GetBoolAttribute(OpAttributeKey::isCube));
+            } else {
+                subgraphIDs2IsCube.emplace(subgraphId, op->GetBoolAttribute(OpAttributeKey::isCube));
+            }
         }
-        EXPECT_EQ(subgraphIDs.size(), subGraphNum);
+        EXPECT_EQ(subgraphIDs2IsCube.size(), subGraphNum);
     }
 }
 
