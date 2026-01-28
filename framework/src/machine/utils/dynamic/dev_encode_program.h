@@ -80,8 +80,6 @@ struct DevAscendProgram {
         }
     } memBudget;
     const void *controlFlowBinaryAddr{nullptr};
-    uint64_t hcclContext[HCCL_GROUP_NUM];
-    uint64_t commGroupNum{0};
     uint16_t stitchFunctionNumInitial{0};
     uint16_t stitchFunctionNumStep{0};
     uint32_t stitchFunctionsize{0};

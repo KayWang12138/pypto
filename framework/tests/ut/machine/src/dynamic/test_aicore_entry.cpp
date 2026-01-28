@@ -103,6 +103,7 @@ struct MultipleCore : ThreadAicoreEmulation {
         for (size_t k = 0; k < dataList->funcNum; k++) {
             dataList->At(k).opAttrs = devFuncAttrList.data();
             dataList->At(k).opAtrrOffsets = devFuncAttrOffsetList.data();
+            dataList->At(k).startArgs = &startArgs;
         }
 
         KernelSharedBuffer *buffer = memory->GetSharedBuffer();
@@ -136,6 +137,7 @@ public:
     std::vector<uint8_t> dynFuncDataList;
     std::vector<uint64_t> devFuncAttrList;
     std::vector<int32_t> devFuncAttrOffsetList;
+    DevStartArgsBase startArgs;
 
     std::mutex traceMutex;
     struct Trace {
