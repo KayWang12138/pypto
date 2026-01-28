@@ -245,7 +245,6 @@ void TiledMoeDistributedCombineReceive(
     int64_t floatByteSize = BytesOf(DataType::DT_FP32);
     ASSERT(floatByteSize != 0);
     int64_t floatEleNum = AlignUp(floatByteSize * paddedColShape, REPEAT_BYTE) / floatByteSize;
-    Shape signalShape = Shape{static_cast<int64_t>(REPEAT_BYTE) / static_cast<int64_t>(BytesOf(DT_INT32))};
 
     DistOpAttr distOpAttr;
     distOpAttr.topK = topK;
@@ -260,11 +259,10 @@ void TiledMoeDistributedCombineReceive(
             auto mulFp32Buffer = std::make_shared<LogicalTensor>(function, DT_FP32, Shape{floatEleNum});
             auto sumFp32Buffer = std::make_shared<LogicalTensor>(function, DT_FP32, Shape{floatEleNum});
             auto outBuffer = std::make_shared<LogicalTensor>(function, out->Datatype(), Shape{hiddenSize});
-            auto signalBuffer = std::make_shared<LogicalTensor>(function, DT_INT32, signalShape);
 
             auto& tileOp = function.AddOperation(Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
                 {predToken, expertScales, recvCounts, shmemDataTile, shmemSignalThisRank},
-                {outTile, mulFp32Buffer, sumFp32Buffer, outBuffer, signalBuffer});
+                {outTile, mulFp32Buffer, sumFp32Buffer, outBuffer});
 
             distOpAttr.paddedColShape = paddedColShape;
             distOpAttr.rowOffset = rowOffset;
@@ -371,17 +369,13 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
 
     Tensor shmemData;
     Tensor shmemSignal;
-    Tensor shmemSignalSetOut;
     int32_t hcclGroupIndex = static_cast<int>(CommGroupRecorder::GetInstance().Input(std::string(group)));
-    SymbolicScalar thisRank = GetHcclRankId(group);
     LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
         CreateShmemTensor(shmemData, epWorldSize, hcclGroupIndex, expandX.GetDataType(), shmemDataShape);
         CreateShmemTensor(shmemSignal, epWorldSize, hcclGroupIndex, DT_INT32, shmemSignalShape, 1);
         // 清零 exp window 通过 SHMEM_SET 完成，避免运行时 rtMemset.
-        auto shmemSignalThisRank = View(shmemSignal, {1, 1, batchSize, shmemSignalCol},
-            std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
-        shmemSignalSetOut = ShmemDataSet(recvCounts, shmemSignalThisRank);
+        (void)ShmemDataSet(recvCounts, shmemSignal);
     }
     LOOP("MoeDistributedCombine", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
@@ -393,11 +387,12 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
         auto sendOut = MoeDistributedCombineSend(
             expandX,
             assistInfoForCombine,
-            shmemSignalSetOut,
+            recvCounts,
             shmemData,
             shmemSignal,
             topK);
 
+        SymbolicScalar thisRank = GetHcclRankId(group);
         auto shmemDataThisRank = View(shmemData, {1, 1, shmemDataRow, hiddenSize},
             std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
         auto shmemSignalThisRank = View(shmemSignal, {1, 1, batchSize, shmemSignalCol},

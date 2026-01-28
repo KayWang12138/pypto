@@ -271,7 +271,7 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForMoeDistributedCombineSen
 std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForMoeDistributedCombineReceive() const
 {
     std::ostringstream oss;
-    int32_t shmemDataIndex = 8;
+    int32_t shmemDataIndex = 7;
     int32_t shmemDataDim = 4;
     DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     oss << ", " << GenOffsets(shmemDataIndex, shmemDataDim) << ", " << distOpAttr.rowOffset;
@@ -400,7 +400,7 @@ std::string CodeGenOpCloudNPU::GenDistOp() const
         {Opcode::OP_SHMEM_SIGNAL, {0, 2}},
         {Opcode::OP_SHMEM_SET, {0, 2}},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, {0}},
-        {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, {5}},
+        {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, {4}},
     };
     auto it = skipIndexMap.find(opCode);
     if (it != skipIndexMap.end()) {
