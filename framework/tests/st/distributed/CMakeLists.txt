@@ -38,19 +38,21 @@ if (TARGET ${PTO_Fwk_STestNamePrefix}_python)
 endif ()
 
 # 用例可执行程序(执行)
-set(_DistributedGTestCaseFilterConfig 
-        "TestAllgather/DistributedTest.TestAllgather/0" "4"
-        "TestAllreduce/DistributedTest.TestAllreduce/0" "4"
-        "TestAllreduce/DistributedTest.TestAllreduce/1" "4"
-        "TestMoeDispatch/DistributedTest.TestMoeDispatch/0" "4"
-        "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/0" "4"
-        "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/1" "4"
-        "TestReducescatter/DistributedTest.TestReducescatter/0" "4"
-        "TestReducescatter/DistributedTest.TestReducescatter/1" "4"
-        "TestReducescatter/DistributedTest.TestReducescatter/2" "4"
-        "TestAllgather_AttnPost_Reducescatter/DistributedTest.TestAllgather_AttnPost_Reducescatter/0" "4"
-        "TestAllreduce_Add_Allreduce/DistributedTest.TestAllreduce_Add_Allreduce/0" "4"
+set(_num_ranks "4")
+set(_num_cases "10")
+set(_DistributedGTestCaseFilterConfig "")
+foreach(i RANGE 0 ${_num_cases})
+    list(APPEND _DistributedGTestCaseFilterConfig 
+        "TestDistributedOps/DistributedTest.TestOps/${i}" "${_num_ranks}"
+    )
+endforeach()
+
+set(TEST_CASE_DIR "${PTO_FWK_SRC_ROOT}/framework/tests/st/distributed/ops/test_case")
+ 	 
+target_compile_definitions(${_Target} PRIVATE 
+    TEST_CASE_DIR="${TEST_CASE_DIR}"
 )
+
 set(_LdLibrariesExt
         tile_fwk_compiler
         ${PTO_Fwk_STestNamePrefix}_distributed_framework
@@ -65,4 +67,3 @@ PTO_Fwk_STest_Distributed_RunExe(
        GTEST_FILTER_CONFIG     ${_DistributedGTestCaseFilterConfig}
        GOLDEN_SCRIPT_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/ops/script
 )
-
