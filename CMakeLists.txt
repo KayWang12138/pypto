@@ -85,11 +85,7 @@ include(cmake/third_party/googletest/googletest.cmake)
 
 set(BUILD_TRACR OFF CACHE BOOL "Enable TraCR")
 
-# if (BUILD_TRACR)
-#     include(cmake/third_party/tracr/tracr.cmake)
-# endif()
-
-include(cmake/third_party/tracr/tracr.cmake)
+include(framework/src/machine/tracr/tracr.cmake)
 
 ########################################################################################################################
 # 编译流程

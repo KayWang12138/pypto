@@ -1,4 +1,4 @@
-# cmake/third_party/tracr/tracr.cmake
+# framework/src/machine/tracr/tracr.cmake
 
 function(tracr_enable target)
     message(STATUS "Enabling TraCR for target: ${target}")
@@ -15,7 +15,7 @@ function(tracr_enable target)
 
     # Create the TraCR include directory path
     set(TRACR_INCLUDE_DIR
-        ${CMAKE_SOURCE_DIR}/cmake/third_party/tracr/include
+        ${CMAKE_SOURCE_DIR}/framework/src/machine/tracr/include
     )
 
     # Check if it even exists
