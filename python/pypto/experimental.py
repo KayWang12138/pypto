@@ -14,6 +14,8 @@ from . import pypto_impl
 from ._op_wrapper import op_wrapper
 from .tensor import Tensor
 from .config import get_current_scope, set_options
+from .symbolic_scalar import SymbolicScalar
+from .enum import AtomicType
 
 
 @op_wrapper
@@ -159,3 +161,113 @@ def get_operation_options() -> Dict[str, Union[str, int, List[int], Dict[int, in
 
     scope = get_current_scope()
     return scope.get_operation_options()
+
+
+@op_wrapper
+def nop(in_tensors: List[Tensor]) -> Tensor:
+    return pypto_impl.Nop(in_tensors)
+
+
+@op_wrapper
+def shmem_store(
+    src: Tensor,
+    dst: Tensor,
+    dst_rank: Union[int, SymbolicScalar],
+    offsets: List[Union[int, SymbolicScalar]],
+    atomic_type: AtomicType = AtomicType.SET,
+    pred_tokens: List[Tensor] = None
+) -> Tensor:
+    """Stores local UB data to remote device Global Memory.
+
+    Parameters
+    ----------
+    src : Tensor
+        The source tensor in local UB.
+    dst : Tensor
+        The destination tensor on the remote device (symmetric memory).
+    dst_rank : int
+        The rank of the destination device.
+    offsets : list of int
+        The offsets in the destination tensor.
+    atomic_type : AtomicType
+        The type of atomic operation.
+    pred_tokens : Tensor
+        Predicate tokens used as control dependencies.
+
+    Returns
+    -------
+    Tensor
+        Output predicate tokens.
+
+    Examples
+    --------
+    Store the computation result from UB to rank 2
+    result = pypto.matmul(A_tile, B_tile, pypto.DT_FP16)
+    dummy = pypto.experimental.shmem_store(
+        result,
+        sym_buffer,
+        dst_rank2,
+        offsets=[m_offset, n_offset],
+        atomic_type=pypto.AtomicType.SET,
+        pred_tokens
+    )
+    """
+    dummy = pypto_impl.Nop(pred_tokens)
+    dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, [dst_rank] + dst_offset)
+    return pypto_impl.ShmemPutUb2Gm(src, dst_tile, dummy, atomic_type)
+
+
+@op_wrapper
+def shmem_load(
+    src: Tensor,
+    src_rank: Union[int, SymbolicScalar],
+    shape: List[int] = None,
+    offset: List[Union[int, SymbolicScalar]] = None,
+    pred_token: List[Tensor] = None
+) -> Tensor:
+    """
+    Loads data from remote device Global Memory to local UB.
+
+    Parameters
+    ----------
+    src : Tensor
+        The source tensor on the remote device (symmetric memory).
+    src_rank : int
+        The rank of the source device.
+    shape : list of int
+        The shape of the source tensor.
+    offset : list of int
+        The offset of the source tensor.
+    pred_token : Tensor
+        Predicate token used as a control dependency.
+
+    Returns
+    -------
+    Tensor
+        The tensor in local UB (can be used directly for computation).
+
+    Examples
+    --------
+    Load a [64, 128] tile from rank 1 into UB
+    shmem_tile = pypto.view(shmem_tensor, shape=[64, 128], offset=[0, 0])
+    pre_token = pypto.distributed.waituntil(
+        shmem_signal, 
+        shapes, 
+        offsets,
+        cmp_value,
+        clear_flag,
+        pred_tokens,
+    )
+    tile = pypto.experimental.shmem_load(
+        shmem_tile,
+        src_rank=1,
+        shape,
+        offset,
+        pred_token
+    )
+    The tile is now in UB and can be used directly for computation
+    result = pypto.exp(tile)
+    """
+    dummy = pypto_impl.Nop(pred_token)
+    src_tile = pypto_impl.View(src, [1] + shape, [src_rank] + offset)
+    return pypto_impl.ShmemGetGm2Ub(dummy, src_tile)
