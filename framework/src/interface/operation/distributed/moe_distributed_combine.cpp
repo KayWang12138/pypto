@@ -205,7 +205,8 @@ void TiledMoeDistributedCombineSend(
 
             auto expandXTile = expandX->View(function, {rowShape, colShape}, {rowOffset, colOffset});
             auto dataBuffer = std::make_shared<LogicalTensor>(function, expandX->Datatype(), Shape{hiddenSize});
-            auto assistInfoForCombineBuffer = std::make_shared<LogicalTensor>(function, DT_INT32, assistInfoForCombineShape);
+            auto assistInfoForCombineBuffer = std::make_shared<LogicalTensor>(function, DT_INT32,
+                assistInfoForCombineShape);
             auto signalBuffer = std::make_shared<LogicalTensor>(function, DT_INT32, signalShape);
 
             auto& tileOp = function.AddOperation(Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,

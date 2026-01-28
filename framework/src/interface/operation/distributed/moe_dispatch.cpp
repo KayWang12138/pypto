@@ -190,7 +190,8 @@ void TiledDispatchFFNValidCnt(Function& function, const TileShape& tileShape,
     Shape bufferShape {shmemFlag->shape[0] * expertCount};
 
     for (int32_t expertIndex = 0; expertIndex < expertCount; ++expertIndex) {
-        int32_t expertShape = ((tileExpert[2] != 0) && (expertIndex == expertCount - 1)) ? tileExpert[2] : tileExpert[0];
+        int32_t expertShape =
+            ((tileExpert[2] != 0) && (expertIndex == expertCount - 1)) ? tileExpert[2] : tileExpert[0];
         int32_t expertOffset = expertIndex * tileExpertShape;
         auto validCntBuffer = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, bufferShape);
         auto shmemFlagTile = shmemFlag->View(function, {1, expertShape, rankSize, flagColSize},
@@ -209,7 +210,8 @@ Tensor DispatchFFNValidCnt(const Tensor& recvTokenCntOut, const Tensor& shmemFla
     auto &function = *Program::GetInstance().GetCurrentFunction();
     Shape validCntShape = {moeConfig.expertNumPerRank, 1};
     auto validCntPtr = std::make_shared<LogicalTensor>(function, DataType::DT_INT32, validCntShape);
-    auto &oper = function.AddOperation(Opcode::OP_FFN_VALIDCNT, {recvTokenCntOut.GetStorage(), shmemFlag.GetStorage()}, {validCntPtr});
+    auto &oper = function.AddOperation(Opcode::OP_FFN_VALIDCNT, {recvTokenCntOut.GetStorage(), shmemFlag.GetStorage()},
+        {validCntPtr});
     (void)oper;
     return validCntPtr;
 }
@@ -260,7 +262,8 @@ Tensor DispatchFFNBatching(const char *group, const Tensor &tokenTensor,
     return expandXPtr;
 }
 
-Tensor DispatchFFNSched(const char *group, const Tensor &flagDummy, Tensor &shmemFlag, const MoeConfig &moeConfig, int32_t ffnTileCnt)
+Tensor DispatchFFNSched(const char *group, const Tensor &flagDummy, Tensor &shmemFlag, const MoeConfig &moeConfig,
+    int32_t ffnTileCnt)
 {
     auto &function = *Program::GetInstance().GetCurrentFunction();
     int32_t totalTileNum = moeConfig.routedExpertNum * ffnTileCnt;
@@ -507,7 +510,8 @@ void MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tens
 
     ASSERT(checkValidInput(tokenTensor, 2, DataType::DT_BF16, 8, 5120, assertResult)) << assertResult; // 当前仅支持shape:8,5120
     ASSERT(checkValidInput(tokenExpertTable, 2, DataType::DT_INT32, 8, 8, assertResult)) << assertResult; // 当前仅支持shape:8,8
-    ASSERT(checkValidInput(validCnt, 1, DataType::DT_INT32, moeConfig.expertNumPerRank, 1, assertResult)) << assertResult;
+    ASSERT(checkValidInput(validCnt, 1, DataType::DT_INT32, moeConfig.expertNumPerRank, 1, assertResult)) <<
+        assertResult;
 
     int hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     SymbolicScalar thisRank = GetHcclRankId(group);
