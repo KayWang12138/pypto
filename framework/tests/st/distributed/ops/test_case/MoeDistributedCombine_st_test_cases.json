@@ -43,7 +43,6 @@
                 "routed_expert_num": 160,
                 "top_k": 8,
                 "rank_size": 4,
-                "use_v2": 1,
                 "on_board": true,
                 "func_id": -1
             },
@@ -86,13 +85,12 @@
                 ""
             ],
             "params": {
-                "batch_size": 8,
+                "batch_size": 256,
                 "hidden_size": 5120,
                 "shared_expert_num": 0,
                 "routed_expert_num": 160,
                 "top_k": 8,
                 "rank_size": 4,
-                "use_v2": 0,
                 "on_board": true,
                 "func_id": -1
             },
