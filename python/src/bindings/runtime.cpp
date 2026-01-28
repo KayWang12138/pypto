@@ -16,6 +16,7 @@
 #include "pybind_common.h"
 
 #include <cstdint>
+#include <sstream>
 #include <utility>
 #include <vector>
 #include "interface/interpreter/raw_tensor_data.h"
@@ -313,26 +314,34 @@ struct ControlFlowCache {
     }
 
     static int64_t Hash(const std::vector<DeviceTensorData> &datas) {
+        std::stringstream ss;
         // FNV-1a
         uint64_t h = 14695981039346656037ull;
         for (auto &data : datas) {
             for (auto x : data.GetShape()) {
                 h ^= x;
                 h *= 1099511628211ull;
+                ss << x << " ";
             }
         }
+        ss << h;
+        ALOG_ERROR("cache hash: ", ss.str());
         return h;
     }
 
     static int64_t Hash(const std::vector<std::vector<int64_t>> &shapes) {
+        std::stringstream ss;
         // FNV-1a
         uint64_t h = 14695981039346656037ull;
         for (auto &shape : shapes) {
             for (auto x : shape) {
                 h ^= x;
                 h *= 1099511628211ull;
+                ss << x << " ";
             }
         }
+        ss << h;
+        ALOG_ERROR("matrix hash: ", ss.str());
         return h;
     }
 };
@@ -525,6 +534,7 @@ public:
         auto func = Program::GetInstance().GetLastFunction();
         kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
         if (inferCacheShape) {
+            ALOG_ERROR("build default cache");
             BuildDefaultCache(module);
         }
     }
@@ -539,7 +549,7 @@ public:
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
         args->kArgs.parameter.globalRound = ++sequence;
-
+        ALOG_ERROR("start launch kernel triple stream ", tripleStream, " sequence ", sequence);
         if (tripleStream) {
             args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
             int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
@@ -557,6 +567,7 @@ public:
             ASSERT(ret == RT_ERROR_NONE) << "launch aicpu def failed: " << ret;
         }
 
+        ALOG_ERROR("launch aicore kernel");
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
         auto ret = rtKernelLaunchWithHandleV2(kernel->GetKernelBin(), tilingKey, dynamic::GetCfgBlockdim(),
@@ -718,6 +729,7 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     auto schedtream = (aclrtStream)machine::GetRA()->GetScheStream();
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
 
+    ALOG_ERROR("parse input tensors");
     std::vector<DeviceTensorData> tensors;
     auto devId = GetInputTensors(args, tensors);
     DeviceGuard devGuard(devId);
@@ -727,15 +739,18 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
         Program::GetInstance().Reset();
         // Set capture mode to relaxed to support rtmemcpy / rtmemset
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+        ALOG_ERROR("compile kernel");
         kmodule->Compile(module, args);
     } else {
         ASSERT(kmodule->CheckArgs(tensors)) << "Invalid input tensors";
     }
 
+    ALOG_ERROR("find ctrlflow cache");
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(module, args);
     auto captured = AttachAicpuStream(aicoreStream, ctrlStream, schedtream, kmodule->IsTripleStream());
     if (ctrlFlowCache == nullptr && kmodule->IsCacheEnabled()) {
         // TODO none reloc cache if captured
+        ALOG_ERROR("build temp cache");
         ctrlFlowCache = kmodule->BuildTempCache(module, tensors);
     }
 
@@ -745,7 +760,9 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
         auto pyalloc = py::getattr(module, "alloc");
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
+    ALOG_ERROR("start launch kernel");
     kmodule->Launch(ctrlStream, schedtream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    ALOG_ERROR("launch kernel end");
 }
 
 void BindRuntime(py::module &m) {
