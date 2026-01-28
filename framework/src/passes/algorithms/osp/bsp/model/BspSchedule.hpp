@@ -378,7 +378,7 @@ class BspSchedule : public IBspSchedule<GraphT> {
      * @return True if the schedule is valid, false otherwise.
      */
     [[nodiscard]] bool IsValid() const {
-        return SatisfiesPrecedenceConstraints() && SatisfiesMemoryConstraints() && SatisfiesNodeTypeConstraints();
+        return SatisfiesPrecedenceConstraints() && SatisfiesNodeTypeConstraints();
     }
 
     /**
@@ -435,32 +435,6 @@ class BspSchedule : public IBspSchedule<GraphT> {
         }
 
         return true;
-    }
-
-    /**
-     * @brief Checks if the schedule satisfies memory constraints.
-     *
-     * Memory constraints are checked based on the type of memory constraint specified in the architecture.
-     *
-     * @return True if memory constraints are satisfied, false otherwise.
-     */
-    [[nodiscard]] bool SatisfiesMemoryConstraints() const {
-        switch (instance_->GetArchitecture().GetMemoryConstraintType()) {
-            case MemoryConstraintType::LOCAL:
-                return SatisfiesLocalMemoryConstraints();
-
-            case MemoryConstraintType::PERSISTENT_AND_TRANSIENT:
-                return SatisfiesPersistentAndTransientMemoryConstraints();
-
-            case MemoryConstraintType::GLOBAL:
-                return SatisfiesGlobalMemoryConstraints();
-
-            case MemoryConstraintType::NONE:
-                return true;
-
-            default:
-                throw std::invalid_argument("Unknown memory constraint type.");
-        }
     }
 
     /**
@@ -582,145 +556,6 @@ class BspSchedule : public IBspSchedule<GraphT> {
             nodeToSuperstepAssignment_[node] = newStepIndex[nodeToSuperstepAssignment_[node]];
         }
         SetNumberOfSupersteps(currentIndex);
-    }
-
-  private:
-    /**
-     * @brief Checks if the schedule satisfies local memory constraints.
-     *
-     * In this model, the memory usage of a processor in a superstep is the sum of the memory weights of all nodes
-     * assigned to it in that superstep.
-     *
-     * @return True if local memory constraints are satisfied, false otherwise.
-     */
-    bool SatisfiesLocalMemoryConstraints() const {
-        std::vector<std::vector<VMemwT<GraphT>>> memory(numberOfSupersteps_,
-                                                        std::vector<VMemwT<GraphT>>(instance_->NumberOfProcessors(), 0));
-
-        for (const auto &node : instance_->Vertices()) {
-            memory[nodeToSuperstepAssignment_[node]][nodeToProcessorAssignment_[node]]
-                += instance_->GetComputationalDag().VertexMemWeight(node);
-        }
-
-        for (unsigned step = 0; step < numberOfSupersteps_; step++) {
-            for (unsigned proc = 0; proc < instance_->NumberOfProcessors(); proc++) {
-                if (memory[step][proc] > instance_->GetArchitecture().MemoryBound(proc)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    /**
-     * @brief Checks if the schedule satisfies persistent and transient memory constraints.
-     *
-     * This model distinguishes between persistent memory (node memory weight) and transient memory (max communication
-     * weight). The total memory usage on a processor is the sum of persistent memory of all assigned nodes plus the
-     * maximum transient memory required by any single node assigned to it.
-     *
-     * @return True if persistent and transient memory constraints are satisfied, false otherwise.
-     */
-    bool SatisfiesPersistentAndTransientMemoryConstraints() const {
-        std::vector<VMemwT<GraphT>> currentProcPersistentMemory(instance_->NumberOfProcessors(), 0);
-        std::vector<VMemwT<GraphT>> currentProcTransientMemory(instance_->NumberOfProcessors(), 0);
-
-        for (const auto &node : instance_->Vertices()) {
-            const unsigned proc = nodeToProcessorAssignment_[node];
-            currentProcPersistentMemory[proc] += instance_->GetComputationalDag().VertexMemWeight(node);
-            currentProcTransientMemory[proc]
-                = std::max(currentProcTransientMemory[proc], instance_->GetComputationalDag().VertexCommWeight(node));
-
-            if (currentProcPersistentMemory[proc] + currentProcTransientMemory[proc]
-                > instance_->GetArchitecture().MemoryBound(proc)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * @brief Checks if the schedule satisfies global memory constraints.
-     *
-     * In this model, the memory usage of a processor is the sum of the memory weights of all nodes assigned to it,
-     * regardless of the superstep.
-     *
-     * @return True if global memory constraints are satisfied, false otherwise.
-     */
-    bool SatisfiesGlobalMemoryConstraints() const {
-        std::vector<VMemwT<GraphT>> currentProcMemory(instance_->NumberOfProcessors(), 0);
-
-        for (const auto &node : instance_->Vertices()) {
-            const unsigned proc = nodeToProcessorAssignment_[node];
-            currentProcMemory[proc] += instance_->GetComputationalDag().VertexMemWeight(node);
-
-            if (currentProcMemory[proc] > instance_->GetArchitecture().MemoryBound(proc)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    bool SatisfiesLocalIncEdgesMemoryConstraints() const {
-        SetSchedule setSchedule = SetSchedule(*this);
-
-        for (unsigned step = 0; step < numberOfSupersteps_; step++) {
-            for (unsigned proc = 0; proc < instance_->NumberOfProcessors(); proc++) {
-                std::unordered_set<VertexIdxT<GraphT>> nodesWithIncomingEdges;
-
-                VMemwT<GraphT> memory = 0;
-                for (const auto &node : setSchedule.GetProcessorStepVertices()[step][proc]) {
-                    memory += instance_->GetComputationalDag().VertexCommWeight(node);
-
-                    for (const auto &parent : instance_->GetComputationalDag().Parents(node)) {
-                        if (nodeToSuperstepAssignment_[parent] != step) {
-                            nodesWithIncomingEdges.insert(parent);
-                        }
-                    }
-                }
-
-                for (const auto &node : nodesWithIncomingEdges) {
-                    memory += instance_->GetComputationalDag().VertexCommWeight(node);
-                }
-
-                if (memory > instance_->GetArchitecture().MemoryBound(proc)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    bool SatisfiesLocalSourcesIncEdgesMemoryConstraints() const {
-        SetSchedule setSchedule = SetSchedule(*this);
-
-        for (unsigned step = 0; step < numberOfSupersteps_; step++) {
-            for (unsigned proc = 0; proc < instance_->NumberOfProcessors(); proc++) {
-                std::unordered_set<VertexIdxT<GraphT>> nodesWithIncomingEdges;
-
-                VMemwT<GraphT> memory = 0;
-                for (const auto &node : setSchedule.GetProcessorStepVertices()[step][proc]) {
-                    if (IsSource(node, instance_->GetComputationalDag())) {
-                        memory += instance_->GetComputationalDag().VertexMemWeight(node);
-                    }
-
-                    for (const auto &parent : instance_->GetComputationalDag().Parents(node)) {
-                        if (nodeToSuperstepAssignment_[parent] != step) {
-                            nodesWithIncomingEdges.insert(parent);
-                        }
-                    }
-                }
-
-                for (const auto &node : nodesWithIncomingEdges) {
-                    memory += instance_->GetComputationalDag().VertexCommWeight(node);
-                }
-
-                if (memory > instance_->GetArchitecture().MemoryBound(proc)) {
-                    return false;
-                }
-            }
-        }
-        return true;
     }
 };
 
