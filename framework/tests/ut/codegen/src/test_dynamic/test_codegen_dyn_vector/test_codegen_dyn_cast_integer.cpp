@@ -29,7 +29,7 @@
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynCeil : public ::testing::Test {
+class TestCodegenDynCastInteger : public ::testing::Test {
 public:
     static void SetUpTestCase() {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
@@ -53,7 +53,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynCeil, TestDynOpCeil) {
+TEST_F(TestCodegenDynCastInteger, TestDynOpCeil) {
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
@@ -65,6 +65,86 @@ TEST_F(TestCodegenDynCeil, TestDynOpCeil) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             output = Ceil(input);
+        }
+    }
+
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
+    for (auto &subFunc : function->rootFunc_->programs_) {
+        for (auto &op : subFunc.second->Operations()) {
+            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
+                if (IsCopyIn(op.GetOpcode()))
+                    op.SetIOpAttrOffset(0, 0);
+                else
+                    op.SetOOpAttrOffset(0, 0);
+                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+            }
+        }
+    }
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenDynCastInteger, TestDynOpFloor) {
+    std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    std::string funcName = "TestDynOpFloor";
+    FUNCTION(funcName, {input, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Floor(input);
+        }
+    }
+
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
+    for (auto &subFunc : function->rootFunc_->programs_) {
+        for (auto &op : subFunc.second->Operations()) {
+            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
+                if (IsCopyIn(op.GetOpcode()))
+                    op.SetIOpAttrOffset(0, 0);
+                else
+                    op.SetOOpAttrOffset(0, 0);
+                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+            }
+        }
+    }
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+
+TEST_F(TestCodegenDynCastInteger, TestDynOpTrunc) {
+    std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
+    TileShape::Current().SetVecTile(shape);
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+
+    std::string funcName = "TestDynOpTrunc";
+    FUNCTION(funcName, {input, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Trunc(input);
         }
     }
 
