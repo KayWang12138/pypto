@@ -28,6 +28,8 @@
 #include "passes/algorithms/osp/auxiliary/permute.hpp"
 #include "passes/algorithms/osp/bsp/model/BspArchitecture.hpp"
 
+#include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.hpp"
+
 #include "passes/algorithms/osp/coarser/coarser_util.hpp"
 #include "passes/algorithms/osp/coarser/sarkar/sarkar.hpp"
 #include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.hpp"
@@ -795,6 +797,37 @@ TEST_F(OspAlgorithmTest, TestTopSort) {
                                     std::find(topOrderVec.cbegin(), topOrderVec.cend(), chld)),
                       0);
         }
+    }
+}
+
+TEST_F(OspAlgorithmTest, NodeDistances) {
+    const std::vector<std::pair<std::size_t, std::size_t>> edges({
+        {0,  1},
+        {2,  3},
+        {6, 10},
+        {7,  9},
+        {0,  2},
+        {4,  6},
+        {1,  6},
+        {6,  7},
+        {5,  6},
+        {3,  7},
+        {1,  2}
+    });
+
+    const std::vector<unsigned> botDistAns = {5, 4, 3, 2, 3, 3, 2, 1, 0, 0, 0};
+    const std::vector<unsigned> topDistAns = {0, 1, 2, 3, 0, 0, 2, 4, 0, 5, 3};
+
+    const GraphType graph(11, edges);
+    const std::vector<unsigned> botDist = GetBottomNodeDistance(graph);
+    const std::vector<unsigned> topDist = GetTopNodeDistance(graph);
+
+    EXPECT_EQ(botDist.size(), graph.NumVertices());
+    EXPECT_EQ(topDist.size(), graph.NumVertices());
+
+    for (const auto vert : graph.Vertices()) {
+        EXPECT_EQ(botDist[vert], botDistAns[vert]);
+        EXPECT_EQ(topDist[vert], topDistAns[vert]);
     }
 }
 
