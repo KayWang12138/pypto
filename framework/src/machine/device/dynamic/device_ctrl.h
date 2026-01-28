@@ -176,6 +176,10 @@ public:
                 devCtrlFlowCache->TaskAddrRestoreWorkspace();
                 devCtrlFlowCache->TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
             }
+            if (devProg->controlFlowCache.hcclContextAddr != devArgs->hcclContextAddr) {
+                devProg->controlFlowCache.hcclContextAddr = devArgs->hcclContextAddr;
+                devProg->controlFlowCache.TaskAddrRestoreHcclContext(devArgs->hcclContextAddr);
+ 	        }
             devProg->ResetRerun();
         }
     }
