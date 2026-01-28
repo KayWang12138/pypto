@@ -85,15 +85,15 @@ enum class SymbolicOpcode {
     T_BOP_GT,
     T_BOP_GE,
 
-    T_BOP_MIN,
-    T_BOP_MAX,
+    T_MOP_MIN,
+    T_MOP_MAX,
 
     T_MOP_CALL,
 
     T_UOP_BEGIN = T_UOP_POS,
     T_UOP_END = T_UOP_NOT + 1,
     T_BOP_BEGIN = T_BOP_ADD,
-    T_BOP_END = T_BOP_MAX + 1
+    T_BOP_END = T_MOP_MAX + 1
 };
 
 class RawSymbolicScalar {
@@ -404,7 +404,7 @@ public:
         seenStr.reserve(flat.size());
 
         auto combine = [&](ScalarImmediateType a, ScalarImmediateType b) {
-            return (opcode == SymbolicOpcode::T_BOP_MAX) ? std::max(a, b) : std::min(a, b);
+            return (opcode == SymbolicOpcode::T_MOP_MAX) ? std::max(a, b) : std::min(a, b);
         };
 
         for (auto& operand : flat) {
@@ -429,7 +429,9 @@ public:
             }
         }
 
-        if (hasImm) nonImm.emplace_back(std::make_shared<RawSymbolicImmediate>(immExt));
+        if (hasImm) {
+            nonImm.emplace_back(std::make_shared<RawSymbolicImmediate>(immExt));
+        } 
         
         if (nonImm.empty()) {
             return std::make_shared<RawSymbolicImmediate>(immExt);
@@ -479,7 +481,7 @@ public:
             } else {
                 Handle2NonzeroOperand(raw, opcode, nonzeroOperandList);
             }
-        } else if (opcode == SymbolicOpcode::T_BOP_MAX || opcode == SymbolicOpcode::T_BOP_MIN) {
+        } else if (opcode == SymbolicOpcode::T_MOP_MAX || opcode == SymbolicOpcode::T_MOP_MIN) {
             raw = CreateRuntimeExtrema(opcode, operandList);
         } else {
             raw = std::make_shared<RawSymbolicExpression>(opcode, operandList);
@@ -521,8 +523,8 @@ public:
         RawSymbolicScalarPtr result = Create(mop, operands);                                           \
         return result;                                                                                   \
     }
-    RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(CreateBopMax, SymbolicOpcode::T_BOP_MAX)
-    RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(CreateBopMin, SymbolicOpcode::T_BOP_MIN)
+    RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(CreateBopMax, SymbolicOpcode::T_MOP_MAX)
+    RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP(CreateBopMin, SymbolicOpcode::T_MOP_MIN)
 #undef  RAW_SYMBOLIC_EXPRESSION_DEFINE_MOP
 
     static RawSymbolicScalarPtr CreateMopCall(const RawSymbolicScalarPtr &callee) {
@@ -547,7 +549,7 @@ private:
 
     void DumpRuntimeExtrema(std::string& out) const {
         ASSERT(operandList_.size() >= 2);
-        std::string funcName = (opcode_ == SymbolicOpcode::T_BOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
+        std::string funcName = (opcode_ == SymbolicOpcode::T_MOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
         const size_t n = operandList_.size();
         for (size_t i = 0; i + 2 < n; ++i) {
             out += funcName;
@@ -575,7 +577,7 @@ private:
             operandList_[0]->DumpBuffer(buffer);
             buffer += ")";
         } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_BOP_END) {
-            if (opcode_ == SymbolicOpcode::T_BOP_MAX || opcode_ == SymbolicOpcode::T_BOP_MIN) {
+            if (opcode_ == SymbolicOpcode::T_MOP_MAX || opcode_ == SymbolicOpcode::T_MOP_MIN) {
                 DumpRuntimeExtrema(buffer);
             } else if (opcode_ == SymbolicOpcode::T_BOP_EQ) {
                 buffer += "RUNTIME_Eq(";

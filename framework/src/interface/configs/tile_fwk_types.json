@@ -78,8 +78,8 @@
         "T_BOP_LE": 11,
         "T_BOP_GT": 12,
         "T_BOP_GE": 13,
-        "T_BOP_MIN": 14,
-        "T_BOP_MAX": 15,
+        "T_MOP_MIN": 14,
+        "T_MOP_MAX": 15,
         "T_MOP_CALL": 16
     }
 }
