@@ -21,7 +21,6 @@ def check_args_tnd(
             kv_cache: torch.Tensor,
             seqused_kv: torch.Tensor,
             atten_sink: torch.Tensor,
-            win_size: int,
             actual_seq_list_q: torch.Tensor,
 ):
     print("start tnd args check...")
@@ -45,8 +44,6 @@ def check_args_tnd(
     assert seqused_kv.dtype == torch.int and seqused_kv.ndim == 1, \
         f"seqused_kv dtype is {seqused_kv.dtype}, ndim is {seqused_kv.ndim}"
 
-    assert win_size == 128, f"win_size is {win_size}"
-
     assert actual_seq_list_q.dtype == torch.int and actual_seq_list_q.ndim == 1 and \
         actual_seq_list_q.shape[0] == seqused_kv.shape[0] + 1, \
         f"actual_seq_list_q dtype is {actual_seq_list_q.dtype}, ndim is {actual_seq_list_q.ndim}, \
@@ -63,8 +60,9 @@ def check_args_tnd(
                 "vec_nbuffer_setting": {-1: 4}}
 )
 def win_atten_main_tnd_mask(q_tnd, block_table, kv_cache, seqused_kv_list, atten_sink, \
-    actual_seq_list_q, mask2, atten_out, win):
+    actual_seq_list_q, mask2, atten_out):
     pypto.experimental.set_operation_config(combine_axis=True)
+    win = 128
     t = q_tnd.shape[0]
     n_q = q_tnd.shape[1]
     d_q = q_tnd.shape[2]
@@ -242,13 +240,12 @@ def deepseekv4_win_atten(q: torch.Tensor,
                         ori_kv: torch.Tensor,
                         seqused_kv: torch.Tensor,
                         attn_sinks: torch.Tensor,
-                        win_size: int,
                         mask: torch.Tensor,
                         actual_seq_list_q: torch.Tensor,
 ) -> None:
     """
     """
-    check_args_tnd(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, actual_seq_list_q)
+    check_args_tnd(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, actual_seq_list_q)
     atten_out = torch.zeros([q.shape[0] * q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
 
     inputs = {
@@ -268,7 +265,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
     print("Using tnd mask kernel")
-    win_atten_main_tnd_mask(*pto_inputs, *pto_outputs, win_size)
+    win_atten_main_tnd_mask(*pto_inputs, *pto_outputs)
 
     pypto.runtime._device_synchronize()
     return atten_out
