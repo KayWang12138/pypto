@@ -540,5 +540,13 @@ void bind_operation(py::module &m) {
 
     m.def(
         "CopySign", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::CopySign(self, other); }, "Tensor copysign.");
+
+    m.def(
+        "Nop",
+        [](const std::vector<Tensor> &inTensors) {
+            return npu::tile_fwk::Nop(inTensors);
+        },
+        py::arg("in_tensors")
+    );
 }
 } // namespace pypto
