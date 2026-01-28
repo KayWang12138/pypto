@@ -39,10 +39,6 @@ class ImprovementScheduler {
      * @param timelimit The time limit in seconds for the improvement algorithm. Default is 3600 seconds (1 hour).
      */
     ImprovementScheduler(unsigned timelimit = 3600) : timeLimitSeconds_(timelimit) {}
-
-    /**
-     * @brief Destructor for ImprovementScheduler.
-     */
     virtual ~ImprovementScheduler() = default;
 
     /**

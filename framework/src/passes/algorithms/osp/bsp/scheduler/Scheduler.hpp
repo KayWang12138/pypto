@@ -39,14 +39,8 @@ class Scheduler {
     static_assert(isComputationalDagV<GraphT>, "Scheduler can only be used with computational DAGs.");
 
   public:
-    /**
-     * @brief Constructor for the Scheduler class.
-     */
-    Scheduler() = default;
 
-    /**
-     * @brief Destructor for the Scheduler class.
-     */
+    Scheduler() = default;
     virtual ~Scheduler() = default;
 
     /**
