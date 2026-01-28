@@ -292,6 +292,7 @@ std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintRound() const {
+    ASSERT(isSupportLayout) << "Round only support tile tensor";
     return PrintRoundLayout();
 }
 
