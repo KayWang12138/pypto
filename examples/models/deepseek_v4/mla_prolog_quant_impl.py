@@ -559,7 +559,7 @@ def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gam
     if token_x.shape[0]>64:
         tile_configs = MlaTileConfigs(
             two_dim_tile=[1, 64],
-            three_dim_tile=[4, 64, 64],
+            three_dim_tile=[1, 64, 64],
             four_dim_tile=[1, 64, 64, 64],
             vec_tile=[max(1, token_x.shape[0]//16), 64]
         )
