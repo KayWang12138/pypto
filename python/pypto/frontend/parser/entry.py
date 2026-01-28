@@ -677,6 +677,9 @@ class JitCallableWrapper:
         """
         cann_is_configed = bool(os.environ.get("ASCEND_HOME_PATH"))
         run_mode = pypto.get_runtime_options().get("run_mode", 0)
+        compile_stage = pypto.get_host_options().get("compile_stage", 0)
+        if compile_stage != pypto.CompStage.ALL_COMPLETE:  # COMPILE mode
+            return
         if run_mode == 0:  # NPU mode
             if not cann_is_configed:
                 raise RuntimeError(
