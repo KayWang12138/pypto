@@ -3,14 +3,14 @@
 ## 仿真环境（无 NPU 真实硬件）
 
 ```bash
-cd examples/hello_world
+cd examples\00_hello_world
 python3 hello_world.py --run_mode=sim
 ```
 
 ## 真实可运行环境（有 NPU 真实硬件）
 
 ```bash
-cd examples/hello_world
+cd examples\00_hello_world
 python3 hello_world.py --run_mode=npu
 ```
 更多示例请参考 `examples/` 目录下的示例代码。
@@ -60,8 +60,8 @@ if __name__ == "__main__":
         print("Simulation completed, please view the results through the swimlane diagram.")
     else:
         print("Invalid parameters")
-        
+
 ```
 - 对于真实环境，可以直接通过查看输出 `y` 的值查看运行结果
-- 对于仿真环境，通过 `output/` 下的泳道图查看仿真结果  
+- 对于仿真环境，通过 `output/` 下的泳道图查看仿真结果
 
