@@ -376,7 +376,7 @@ class MLAKernelMAnager:
             q_out_shape = [t, 64, 512]
             kv_out_shape = [t, 512]
             qr_out_shape = [t, 1024]
-            self.vec_all_shape[t] = [x_shape, self.wq_a_shape, self.wq_b_shape, self.wkv_shape, rops_cos_shape, self.rmsnorm_gamma_cq_shape, \
+            self.vec_all_shape[t] = [x_shape, self.wq_a_shape, self.wq_b_shape, self.wkv_shape, rops_cos_shape, rops_cos_shape, self.rmsnorm_gamma_cq_shape, \
                                 self.rmsnorm_gamma_ckv_shape, q_out_shape, kv_out_shape, qr_out_shape]
 
     def infer_controlflow_shape(self, *args):
