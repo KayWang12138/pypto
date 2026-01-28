@@ -552,9 +552,9 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallLog(void *ctx_, uint64_t val
 }
 
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, uint64_t value) {
-    uint64_t groupIndex = (reinterpret_cast<uint64_t*>(value))[0];
-    uint64_t memType = (reinterpret_cast<uint64_t*>(value))[1];
-    uint64_t size = (reinterpret_cast<uint64_t*>(value))[2];
+    uint64_t groupIndex = (value >> 62) & 0x3;
+    uint64_t memType = (value >> 60) & 0x3;
+    uint64_t size = value & ((1ULL << 60) - 1);
     constexpr uint64_t memTypeCount = 2;
     constexpr uint64_t OFFSET_BITS = 58UL;
     constexpr uint64_t GROUP_BITS = 2UL;
