@@ -66,6 +66,7 @@ def managed_wrap(fn: T) -> T:
 abs = managed_wrap(pypto.abs)
 add = managed_wrap(pypto.add)
 amax = managed_wrap(pypto.amax)
+amin = managed_wrap(pypto.amin)
 arange = managed_wrap(pypto.arange)
 assemble = managed_wrap(pypto.assemble)
 cast = managed_wrap(pypto.cast)
