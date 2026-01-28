@@ -249,7 +249,7 @@ bool MixInternalComponentsAnalyzer::MergeSyncOperation(Operation* op, std::map<i
 bool MixInternalComponentsAnalyzer::MergeSyncPhase2(Operation* op, Function& mixSubgraphFunc, std::map<int, std::vector<Operation*>>& componentsByInternalID, std::unordered_map<Operation*, int>& opToComponentMap) const {
     Operation* targetOp = FindFirstOpBackward(op, mixSubgraphFunc,
         [](Operation* candidate) {
-            return candidate != nullptr && !candidate->IsNop();
+            return candidate != nullptr && !candidate->IsNOP();
         });
     if (targetOp) {
         auto it = opToComponentMap.find(targetOp);
@@ -269,7 +269,7 @@ bool MixInternalComponentsAnalyzer::MergeSyncPhase2(Operation* op, Function& mix
 bool MixInternalComponentsAnalyzer::MergeSyncPhase1(Operation* op, Function& mixSubgraphFunc, std::map<int, std::vector<Operation*>>& componentsByInternalID, std::unordered_map<Operation*, int>& opToComponentMap) const {
     Operation* targetOp = FindFirstOpForward(op, mixSubgraphFunc,
         [](Operation* candidate) {
-            return candidate != nullptr && !candidate->IsNop();
+            return candidate != nullptr && !candidate->IsNOP();
         });
     if (targetOp) {
         auto it = opToComponentMap.find(targetOp);
