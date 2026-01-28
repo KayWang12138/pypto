@@ -1137,7 +1137,7 @@ def clamp(x: TensorWrapper, min: Union[TensorWrapper, Real], max: Union[TensorWr
     if not isinstance(max, TensorWrapper):
         max = x.full_like(max)
     x.auto_vec_tile()
-    # PTO issue: assertion in pypto.clip fails
+    # PyPTO issue: assertion in pypto.clip fails
     maxmin = pypto_wrap.maximum(x, min)
     minmax = pypto_wrap.minimum(TensorWrapper(maxmin), max)
     return TensorWrapper(minmax)
@@ -1204,13 +1204,16 @@ def minimum(x: TensorWrapper, y: TensorWrapper) -> TensorWrapper:
     return TensorWrapper(pypto_wrap.minimum(x, y))
 
 
-@log_call
 def fdiv(x: TensorWrapper, y: TensorWrapper, ieee_rounding: bool = False) -> TensorWrapper:
     # ieee_rounding is intentionally ignored
     return x / y
 
 
-@log_call
+def div_rn(x: TensorWrapper, y: TensorWrapper) -> TensorWrapper:
+    # PyPTO doesn't have precise division
+    return x / y
+
+
 def fma(x: TensorWrapper, y: TensorWrapper, z: TensorWrapper) -> TensorWrapper:
     # probably need to upcast to the higher precision dtype to avoid accuracy loss
     return x * y + z
@@ -1338,6 +1341,11 @@ def ravel(x: TensorWrapper) -> TensorWrapper:
 def sqrt(x: TensorWrapper) -> TensorWrapper:
     x.auto_vec_tile()
     return TensorWrapper(pypto_wrap.sqrt(x))
+
+
+def sqrt_rn(x: TensorWrapper) -> TensorWrapper:
+    # PyPTO doesn't have precise sqrt
+    return sqrt(x)
 
 
 @bind_tensor_method
