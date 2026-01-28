@@ -151,8 +151,6 @@ class Serial : public Scheduler<GraphT> {
         schedule.SetNumberOfSupersteps(currentSuperstep + 1);
         return ReturnStatus::OSP_SUCCESS;
     }
-
-    std::string GetScheduleName() const override { return "Serial"; }
 };
 
 }    // namespace osp

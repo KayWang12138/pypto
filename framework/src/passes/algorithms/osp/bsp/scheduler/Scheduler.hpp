@@ -50,12 +50,6 @@ class Scheduler {
     virtual ~Scheduler() = default;
 
     /**
-     * @brief Get the name of the scheduling algorithm.
-     * @return The name of the scheduling algorithm.
-     */
-    virtual std::string GetScheduleName() const = 0;
-
-    /**
      * @brief Computes a BSP schedule for the given BSP instance.
      *
      * This pure virtual function must be implemented by derived classes to provide

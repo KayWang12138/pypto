@@ -37,9 +37,8 @@ namespace osp {
  * @brief The GreedyBspLocking class represents a scheduler that uses a greedy algorithm to compute schedules for
  * BspInstance.
  *
- * This class inherits from the Scheduler class and implements the ComputeSchedule() and GetScheduleName() methods.
+ * This class inherits from the Scheduler class and implements the ComputeSchedule() methods.
  * The ComputeSchedule() method computes a schedule for a given BspInstance using a greedy algorithm.
- * The GetScheduleName() method returns the name of the schedule, which is "BspGreedy" in this case.
  */
 
 template <typename GraphT>
@@ -517,17 +516,6 @@ class BspLocking : public Scheduler<GraphT> {
         }
 
         return ReturnStatus::OSP_SUCCESS;
-    }
-
-    /**
-     * @brief Get the name of the schedule.
-     *
-     * This method returns the name of the schedule, which is "BspGreedy" in this case.
-     *
-     * @return The name of the schedule.
-     */
-    virtual std::string GetScheduleName() const override {
-        return "BspGreedyLocking";        
     }
 
     void SetMaxPercentIdleProcessors(float maxPercentIdleProcessors) { maxPercentIdleProcessors_ = maxPercentIdleProcessors; }

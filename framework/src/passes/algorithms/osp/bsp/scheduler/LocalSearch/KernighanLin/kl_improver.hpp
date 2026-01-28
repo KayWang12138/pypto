@@ -1398,8 +1398,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
     virtual void SetSuperstepRemoveStrengthParameter(const double superstepRemoveStrength) {
         this->parameters_.superstepRemoveStrength_ = superstepRemoveStrength;
     }
-
-    virtual std::string GetScheduleName() const { return "kl_improver_" + commCostF_.Name(); }
 };
 
 template <typename GraphT, typename CommCostFunctionT, typename MemoryConstraintT, unsigned windowSize, typename CostT>

@@ -131,8 +131,6 @@ class GreedyChildren : public Scheduler<GraphT> {
 
         return ReturnStatus::OSP_SUCCESS;
     }
-
-    std::string GetScheduleName() const override { return ensureEnoughSources_ ? "GreedyChildrenS" : "GreedyChildren"; }
 };
 
 }    // namespace osp

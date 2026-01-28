@@ -70,12 +70,6 @@ class ImprovementScheduler {
     inline unsigned int GetTimeLimitHours() const { return timeLimitSeconds_ / 3600; }
 
     /**
-     * @brief Get the name of the improvement scheduling algorithm.
-     * @return The name of the algorithm as a string.
-     */
-    virtual std::string GetScheduleName() const = 0;
-
-    /**
      * @brief Improve the given BspSchedule.
      * @param schedule The BspSchedule to be improved.
      * @return The status of the improvement operation.
@@ -101,10 +95,6 @@ class ComboScheduler : public Scheduler<GraphT> {
         : Scheduler<GraphT>(), baseScheduler_(base), improvementScheduler_(improvement) {}
 
     virtual ~ComboScheduler() = default;
-
-    virtual std::string GetScheduleName() const override {
-        return baseScheduler_.GetScheduleName() + "+" + improvementScheduler_.GetScheduleName();
-    }
 
     virtual ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override {
         ReturnStatus status = baseScheduler_.ComputeSchedule(schedule);
