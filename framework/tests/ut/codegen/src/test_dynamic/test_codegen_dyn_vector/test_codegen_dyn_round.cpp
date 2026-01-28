@@ -44,6 +44,10 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+        IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
+        IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
+        IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
     }
 
     void TearDown() override {}
@@ -67,26 +71,27 @@ TEST_F(TestCodegenDynRound, TestDynOpRound) {
 
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
     std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
     auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
 
-    auto &op = function->AddOperation(Opcode::OP_ROUND, {localTensorSrc}, {localTensorRes, localTensorTmp});
-    op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-    op.SetAttribute(OpAttributeKey::scalar, scalaVal);
-
-    std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
-    CodeGenCtx ctx;
-    CodeGenCloudNPU cga(ctx);
-    cga.GenAllocForLocalBuffer(op, symbolManager);
-    CodeGenOpCloudNPU cop(symbolManager, FunctionType::DYNAMIC_LOOP_PATH, {}, true);
-    function->GetTensorMap().inverseMap_[localTensorRes->GetMagic()] = localTensorRes;
-    function->GetTensorMap().inverseMap_[localTensorTmp->GetMagic()] = localTensorTmp;
-    function->GetTensorMap().inverseMap_[localTensorSrc->GetMagic()] = localTensorSrc;
-
-    cop.Init(op);
-    std::string res = cop.GenOpCode();
+    for (auto &subFunc : function->rootFunc_->programs_) {
+        for (auto &op : subFunc.second->Operations()) {
+            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
+                if (IsCopyIn(op.GetOpcode()))
+                    op.SetIOpAttrOffset(0, 0);
+                else
+                    op.SetOOpAttrOffset(0, 0);
+                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+                op.SetAttribute(OpAttributeKey::scalar, scalaVal);
+            }
+        }
+    }
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
 }
 } // namespace npu::tile_fwk
