@@ -12,11 +12,6 @@
 
 import pypto
 import torch
-from compressor_prefill import (
-    compressor_prefill_ratio_4_rotate,
-    compressor_prefill_ratio_4,
-    compressor_prefill_ratio_128,
-)
 from compressor_decode import (
     compressor_decode_ratio_4_rotate,
     compressor_decode_ratio_4,
@@ -183,81 +178,6 @@ def check_args(
     assert score_state_out.dtype == torch.float32, (
         f"score_state_out.dtype is {score_state_out.dtype}, expected torch.float32"
     )
-
-
-def compressor_prefill(
-    x,
-    kv_state,
-    score_state,
-    cache_index_2d,
-    sin,
-    cos,
-    wkv,
-    wgate,
-    ape,
-    weight,
-    out,
-    kv_state_out,
-    score_state_out,
-    ratio,
-    start_pos,
-    kv_len_int,
-    rope_head_dim,
-    rotate,
-    **kwargs,
-):
-    check_args(
-        x,
-        kv_state,
-        score_state,
-        cache_index_2d,
-        sin,
-        cos,
-        wkv,
-        wgate,
-        ape,
-        weight,
-        out,
-        kv_state_out,
-        score_state_out,
-        ratio,
-        start_pos,
-        kv_len_int,
-        rope_head_dim,
-        rotate,
-        kwargs["hadamard"]
-    )
-    inputs = {
-        x: [0],
-        kv_state: [0],
-        score_state: [0],
-        cache_index_2d: [],
-        sin: [],
-        cos: [],
-        wkv: [],
-        wgate: [],
-        ape: [],
-        weight: [],
-    }
-    outputs = {out: [0], kv_state_out: [0], score_state_out: [0]}
-    kv_len_int_dy = pypto.SymbolicScalar(kv_len_int)
-
-    pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    if start_pos == 0 and rotate and ratio == 4:
-        hadamard = kwargs.get("hadamard")
-        hadamard = pypto.from_torch(hadamard, dynamic_axis=[])
-        compressor_prefill_ratio_4_rotate(
-            *pto_inputs, hadamard, *pto_outputs, ratio, kv_len_int_dy, rope_head_dim
-        )
-    elif start_pos == 0 and not rotate and ratio == 4:
-        compressor_prefill_ratio_4(
-            *pto_inputs, *pto_outputs, ratio, kv_len_int_dy, rope_head_dim
-        )
-    elif start_pos == 0 and not rotate and ratio == 128:
-        compressor_prefill_ratio_128(
-            *pto_inputs, *pto_outputs, ratio, kv_len_int_dy, rope_head_dim
-        )
 
 
 def compressor_decode(
