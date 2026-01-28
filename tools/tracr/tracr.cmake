@@ -8,8 +8,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-message(WARNING "TraCR tools path: ${CMAKE_SOURCE_DIR}")
-message(WARNING "TraCR tools path: ${CMAKE_BINARY_DIR}")
+message(STATUS "Compiling the TraCR post processing script 'tracr_process' in: ${CMAKE_CURRENT_BINARY_DIR}/output/bin")
 
 configure_file(
     ${CMAKE_CURRENT_LIST_DIR}/paraver/state.cfg

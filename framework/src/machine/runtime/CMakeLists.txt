@@ -14,7 +14,7 @@ file(GLOB_RECURSE _Device_Srcs ${PTO_FWK_SRC_ROOT}/framework/src/machine/device/
 add_library(tile_fwk_runtime SHARED)
 
 ### Including TraCR
-message(WARNING "building TraCR? '${BUILD_TRACR}' for tile_fwk_runtime")
+message(STATUS "building TraCR? '${BUILD_TRACR}' for tile_fwk_runtime")
 tracr_enable(tile_fwk_runtime)
 ###
 
