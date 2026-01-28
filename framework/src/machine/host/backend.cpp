@@ -121,8 +121,9 @@ extern "C" std::string GetPlatformInfo() {
 }
 
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
-    if (config::GetHostOption<int64_t>(COMPILE_STAGE) == HOST_COMPILE_END) {
-        ALOG_INFO("draw graph switch enabled, push finish queue.");
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) >= TENSOR_GRAPH &&
+        config::GetHostOption<int64_t>(COMPILE_STAGE) <= EXECUTION_GRAPH) {
+        ALOG_INFO("Compile stage terminates after execution graph generation.");
         return 0;
     }
     auto deviceMachineTask = std::make_shared<MachineTask>(task->GetTaskId(), task->GetFunction());
@@ -970,6 +971,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
 
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+        if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CODEGEN_INSTRUCTION) {
+ 	        return;
+        }
         int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
                                     ccePath, function->GetFunctionHash().Data(), kernelPath);
         if (ret != 0) {
