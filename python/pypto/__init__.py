@@ -63,6 +63,7 @@ _load_shared_libs()
 
 from . import experimental
 
+from .bench import do_bench # noqa
 from .config import *  # noqa
 from ._controller import *  # noqa
 from .converter import from_torch
