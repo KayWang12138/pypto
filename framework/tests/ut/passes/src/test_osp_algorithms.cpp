@@ -276,21 +276,21 @@ TEST_F(OspAlgorithmTest, RandomBiasedCoin) {
 }
 
 TEST_F(OspAlgorithmTest, ThueMorse) {
-    ThueMorseSequence Coin(0);
+    ThueMorseSequence coin(0);
 
     std::vector<bool> beginning(
         {0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1});
     std::vector<bool> generated;
     for (long unsigned i = 0; i < beginning.size(); i++) {
-        const bool next = Coin.GetFlip();
+        const bool next = coin.GetFlip();
         generated.emplace_back(next);
     }
 
     EXPECT_TRUE(beginning == generated);
 
-    ThueMorseSequence Test_Coin_in_seq(0);
+    ThueMorseSequence testCoinInSeq(0);
     for (unsigned i = 0; i < 200u; i++) {
-        EXPECT_EQ(Test_Coin_in_seq.GetFlip(), thueMorseGen(i));
+        EXPECT_EQ(testCoinInSeq.GetFlip(), thueMorseGen(i));
     }
 }
 
@@ -710,16 +710,10 @@ TEST_F(OspAlgorithmTest, ExpansionMapValidity) {
     const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap2 = {{0}, {2}, {3}};
     EXPECT_FALSE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap2));
 
-    const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap3 = {
-        {0, 3}
-    };
+    const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap3 = {{0, 3}};
     EXPECT_FALSE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap3));
 
-    const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap4 = {
-        {0, 3},
-        {2, 1, 4},
-        {5}
-    };
+    const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap4 = {{0, 3}, {2, 1, 4}, {5}};
     EXPECT_TRUE(coarser_util::CheckValidExpansionMap<GraphType>(expansionmap4));
 
     const std::vector<std::vector<VertexIdxT<GraphType>>> expansionmap5 = {{0}, {}, {2}, {3}, {1}};
