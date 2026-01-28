@@ -1619,6 +1619,7 @@ void InsertSync::InsertPipeAll(Function *subGraphFunc) {
         newOpList.push_back(&syncOp);
     }
     subGraphFunc->ScheduleBy(newOpList, true);
+    subGraphFunc->oriOpList = oriOpList;
 }
 
 Status InsertSync::CheckNewOpListSeq(const std::vector<Operation *> &oriOpList, const std::vector<Operation *> &opListNew) {
