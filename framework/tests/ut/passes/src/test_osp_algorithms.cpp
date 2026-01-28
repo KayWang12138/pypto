@@ -791,6 +791,36 @@ TEST_F(OspAlgorithmTest, ContractionMapCoarsening) {
     }
 }
 
+TEST_F(OspAlgorithmTest, TestTopSort) {
+    const std::vector<std::pair<std::size_t, std::size_t>> edges({
+        {0,  1},
+        {2,  3},
+        {6, 10},
+        {7,  9},
+        {0,  2},
+        {4,  6},
+        {1,  6},
+        {6,  7},
+        {5,  6},
+        {3,  7},
+        {1,  2}
+    });
+
+    const GraphType graph(11, edges);
+
+    std::vector<VertexIdxT<GraphType>> verts(graph.NumVertices());
+    std::iota(verts.begin(), verts.end(), 0);
+    const auto topOrderVec = GetTopOrder<GraphType>(graph);
+    EXPECT_TRUE(std::is_permutation(topOrderVec.cbegin(), topOrderVec.cend(), verts.cbegin(), verts.cend()));
+    for (const auto vert : graph.Vertices()) {
+        for (const auto chld : graph.Children(vert)) {
+            EXPECT_GT(std::distance(std::find(topOrderVec.cbegin(), topOrderVec.cend(), vert),
+                                    std::find(topOrderVec.cbegin(), topOrderVec.cend(), chld)),
+                      0);
+        }
+    }
+}
+
 void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser) {
     const std::vector<std::pair<std::size_t, std::size_t>> edges({
         {0,  1},
