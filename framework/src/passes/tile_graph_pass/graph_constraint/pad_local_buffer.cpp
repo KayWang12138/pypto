@@ -118,7 +118,18 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
         L1_TO_BT --> bias_BT (shape:[1, 16]) --> A_MUL_B --> output(shape:[32, 16])
         L1_TO_L0B --> L0B (shape:[400, 16])  -->   /
         */
-        in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_VALUE);
+        if ((*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_BT) { // copy
+            auto preInput = (*producers.begin())->GetIOperands().front();
+            in->shape = preInput->shape;
+            in->tensor->rawshape = preInput->tensor->rawshape;
+            return;
+        }
+        auto bytes = BytesOf(in->Datatype());
+        if (in->Datatype() != DataType::DT_UINT64) { // Opcode::OP_L1_TO_BT
+            in->shape[lowIndex] = Pad(in->shape[lowIndex], 64 / bytes);
+        } else { // Opcode::OP_L1_TO_FIX_QUANT_PRE
+            in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_VALUE);
+        }
     } else if (isInt8Input) {
         in->shape[highIndex] = Pad(in->shape[highIndex], CUBE_PAD_INT8_VALUE);
         in->shape[lowIndex] = Pad(in->shape[lowIndex], CUBE_PAD_INT8_VALUE);
