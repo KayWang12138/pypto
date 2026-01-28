@@ -390,13 +390,7 @@ std::string CodeGenOpCloudNPU::PrintRoundStatic(const PrintUnaryTmpBuffParam &pa
 }
 
 std::string CodeGenOpCloudNPU::PrintRound(const PrintUnaryTmpBuffParam &param) const {
-    if (isSupportLayout) {
-        return PrintRoundLayout();
-    }
-    if (isDynamicFunction) {
-        return PrintRoundDynamicUnaligned(param);
-    }
-    return PrintRoundStatic(param);
+    return PrintRoundLayout();
 }
 
 std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const {
