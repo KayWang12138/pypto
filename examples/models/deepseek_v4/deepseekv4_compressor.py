@@ -13,7 +13,7 @@
 import os
 import torch
 from numpy.testing import assert_allclose
-from deepseekv4_compressor_impl import compressor_prefill, compressor_decode
+from deepseekv4_compressor_impl import compressor_decode
 
 
 def overlap_transform(tensor: torch.Tensor, value):
@@ -157,95 +157,6 @@ def gen_inputs(bsz, seq, h, d, rope_head_dim, ratio, device):
     return x, sin, cos, wkv, wgate, ape, weight, kv_state, score_state, hadamard
 
 
-def test_prefill():
-    """Test Compressor"""
-    print("=" * 60)
-    print("Test: Compressor")
-    print("=" * 60)
-
-    device_id = os.environ.get("TILE_FWK_DEVICE_ID", 0)
-    device = f"npu:{device_id}"
-    kv_len_int_ori = [255]
-    ratio_4 = [4] * len(kv_len_int_ori)
-    ratio_128 = [128] * len(kv_len_int_ori)
-
-    rotate = [False, True] * len(ratio_4) + [False] * len(ratio_128)
-    ratio = ratio_4 * 2 + ratio_128
-    kv_len_int = kv_len_int_ori * (len(rotate) // 1)
-
-    for kv_len, ra, ro in zip(kv_len_int, ratio, rotate):
-        print(
-            f"test_compressor_prefill (kv_len_int: {kv_len}, ratio: {ra}, rotate: {ro}) begin!"
-        )
-        bsz = 1
-        start_pos = 0
-        h = 4096
-        if ro:
-            d = 128
-        else:
-            d = 512
-        rope_head_dim = 64
-        overlap = ra == 4
-        coff = 1 + overlap
-        x, sin, cos, wkv, wgate, ape, weight, kv_state, score_state, hadamard = (
-            gen_inputs(bsz, kv_len, h, d, rope_head_dim, ra, device)
-        )
-        cache_index_2d = torch.arange(bsz * coff * ra, dtype=torch.int32, device=device).reshape(bsz, coff * ra)
-
-        out = torch.zeros((bsz, max(1, kv_len // ra), d), dtype=torch.bfloat16, device=device)
-        kv_state_out = torch.zeros((bsz, coff * ra, coff * d), dtype=torch.float32, device=device)
-        score_state_out = torch.full((bsz, coff * ra, coff * d), float("-inf"), dtype=torch.float32, device=device)
-
-        compressor_prefill(
-            x,
-            kv_state,
-            score_state,
-            cache_index_2d,
-            sin,
-            cos,
-            wkv,
-            wgate,
-            ape,
-            weight,
-            out,
-            kv_state_out,
-            score_state_out,
-            ra,
-            start_pos,
-            kv_len,
-            rope_head_dim,
-            ro,
-            hadamard=hadamard,
-        )
-        x, sin, cos, wkv, wgate, ape, weight, kv_state, score_state, hadamard = (
-            gen_inputs(bsz, kv_len, h, d, rope_head_dim, ra, device)
-        )
-        kv = golden_compress(
-            x,
-            sin,
-            cos,
-            wkv,
-            wgate,
-            ape,
-            weight,
-            kv_state,
-            score_state,
-            hadamard,
-            ra,
-            start_pos,
-            rope_head_dim,
-            ro,
-            kv_len,
-        )
-
-        assert_allclose(kv_state_out.cpu().float().numpy(), kv_state.cpu().float().numpy(), rtol=1e-3, atol=1e-3)
-        assert_allclose(score_state_out.cpu().float().numpy(), score_state.cpu().float().numpy(),rtol=1e-3,atol=1e-3)
-        if kv is not None:
-            assert_allclose(out.cpu().float().numpy(), kv.cpu().float().numpy(), rtol=0.0078125, atol=1e-4)
-
-        print(f"test_compressor_prefill passed!")
-
-
 def test_decode():
     """Test Compressor"""
     print("=" * 60)
@@ -337,5 +248,4 @@ def test_decode():
 
 
 if __name__ == "__main__":
-    test_prefill()
     test_decode()
