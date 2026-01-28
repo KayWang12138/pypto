@@ -450,7 +450,7 @@ def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs,
 
     token_x_data = pypto.from_torch(token_x, dynamic_axis=[0], name="token_x")
     wq_a_data = pypto.from_torch(wq_a, name="wq_a")
-    wq_b_data = pypto.from_torch(wq_b, name="wq_a")
+    wq_b_data = pypto.from_torch(wq_b, name="wq_b")
     wkv_data = pypto.from_torch(wkv, name="w_kv")
     rope_cos_data = pypto.from_torch(rope_cos, dynamic_axis=[0], name="rope_cos")
     rope_sin_data = pypto.from_torch(rope_sin, dynamic_axis=[0], name="rope_sin")

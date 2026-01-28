@@ -159,9 +159,10 @@ int EmulationLauncher::BuildControlFlowCache(
         const std::vector<DeviceTensorData> &inputList,
         const std::vector<DeviceTensorData> &outputList, DevControlFlowCache **outCtrlFlowCache,
         const DeviceLauncherConfig &config) {
+    int ret = 0;
     /* python front end use inputs/output as unified tensors, outputList is always null */
     if (inputList.size() == 0 && outputList.size() == 0) {
-        return BuildControlFlowCache(function, outCtrlFlowCache, config);
+        ret = BuildControlFlowCache(function, outCtrlFlowCache, config);
     } else {
         std::vector<DeviceTensorData> inputDeviceDataList;
         std::vector<DeviceTensorData> outputDeviceDataList;
@@ -174,8 +175,10 @@ int EmulationLauncher::BuildControlFlowCache(
             outputDeviceDataList.emplace_back(output.GetDataType(), CONTROL_FLOW_CACHE_BASE_ADDR + index * CONTROL_FLOW_CACHE_TENSOR_SIZE, output.GetShape());
             index++;
         }
-        return BuildControlFlowCacheWithEmulationTensorData(function, inputDeviceDataList, outputDeviceDataList, nullptr, outCtrlFlowCache, config);
+        ret = BuildControlFlowCacheWithEmulationTensorData(function, inputDeviceDataList, outputDeviceDataList, nullptr, outCtrlFlowCache, config);
     }
+    machine::GetRuntimeHostAgent()->DestroyMemory();
+    return ret;
 }
 
 static std::vector<DeviceTensorData> toHostTensorData(const std::vector<DeviceTensorData> &devDataList, bool isInput) {
