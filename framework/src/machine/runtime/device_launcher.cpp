@@ -112,16 +112,14 @@ int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStre
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         if (isCapture) {
             ALOG_WARN("The swimlane function is not currently supported in CaptureMode. The contents of tilefwk_L1_prof_data may be empty.");
+            return 0;
         }
-        aclmdlRICaptureMode mode = ACL_MODEL_RI_CAPTURE_MODE_RELAXED;
-        aclmdlRICaptureThreadExchangeMode(&mode);
         int rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
         if (rc < 0) {
             return rc;
         }
         DeviceRunner::Get().SynchronizeDeviceToHostProfData();
         DeviceRunner::Get().ResetPerData();
-        aclmdlRICaptureThreadExchangeMode(&mode);
     }
     return 0;
 }
