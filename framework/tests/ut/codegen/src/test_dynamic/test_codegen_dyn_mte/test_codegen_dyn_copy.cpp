@@ -269,6 +269,7 @@ TEST_F(TestCodegenDynCopy, L1CopyInNZWithValue) {
     EXPECT_EQ(res, expect);
 }
 
+
 TEST_F(TestCodegenDynCopy, L1ToBt) {
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
