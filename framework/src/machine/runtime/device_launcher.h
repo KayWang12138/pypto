@@ -227,33 +227,17 @@ public:
         devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
     }
 
-    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, DevAscendProgram *devProg) {
-        ASSERT(devProg->commGroupNum == hcclContext.size())
-            << "commGroupNum mismatch. commGroupNum = "
-            <<devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
-        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t)))
-            << "commGroupNum exceeds array size. commGroupNum = "
-            << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
-        for (size_t i = 0; i < devProg->commGroupNum; i++) {
-            devProg->hcclContext[i] = hcclContext[i];
+    template<typename DeviceMemoryTy>
+    static void DeviceInitDistributedContext(DeviceMemoryTy devMem, const std::vector<std::string> &groupNames,
+        DeviceKernelArgs &kArgs) {
+        std::vector<uint64_t> hcclContext;
+        if (devMem.IsDevice()) {
+            hcclContext = DistributedContext::GetHcclContext(groupNames);
+        } else {
+            hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
         }
-    }
-
-     static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames, DevAscendProgram *devProg) {
-        if (devProg->hcclContext[0] != 0) {
-            return;
-        }
-        auto hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
-        PrepareHcclContext(hcclContext, devProg);
-    }
-
-    static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
-        DevAscendProgram *devProg) {
-        auto hcclContext = DistributedContext::GetHcclContext(groupNames);
-        if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
-            return;
-        }
-        PrepareHcclContext(hcclContext, devProg);
+        hcclContext.insert(hcclContext.begin(), hcclContext.size());
+        kArgs.commContexts = reinterpret_cast<int64_t*>(devMem.CopyToDev(hcclContext, nullptr));
     }
 
     template<typename DeviceMemoryTy>
