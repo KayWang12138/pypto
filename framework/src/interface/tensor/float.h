@@ -73,7 +73,11 @@ class Float {
         return ret;
     }
 
-    static constexpr TBase BaseFromFp32(uint32_t v32) {
+    static constexpr TBase BaseFromFp32(uint32_t v32)
+#if defined(__clang__)
+    __attribute__((no_sanitize("unsigned-integer-overflow")))
+#endif
+    {
         if (expBit == EXP_BIT_EIGHT) {
             /*  Converts a float point to bfloat16, with round-nearest-to-even as rounding method.
                 最接近偶数舍入法:
