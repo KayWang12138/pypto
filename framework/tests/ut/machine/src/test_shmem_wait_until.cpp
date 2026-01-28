@@ -76,7 +76,6 @@ auto ConfigureFuncData(npu::tile_fwk::DynFuncData* funcData, uint64_t rawAddr,
     auto hcclParam = std::make_unique<TileOp::HcclCombinOpParam>();
     hcclParam->rankNum = 0;
     hcclParam->windowsIn[0] = rawAddr;
-    funcData->hcclContext[0] = reinterpret_cast<uint64_t>(hcclParam.get());
 
     auto rawTensorAddrHolder = std::make_unique<uint64_t[]>(1);
     auto rawTensorDescHolder = std::make_unique<npu::tile_fwk::DevRawTensorDesc[]>(1);
@@ -84,6 +83,7 @@ auto ConfigureFuncData(npu::tile_fwk::DynFuncData* funcData, uint64_t rawAddr,
     rawTensorDescHolder[0] = {0, 0};
     funcData->rawTensorAddr = rawTensorAddrHolder.get();
     funcData->rawTensorDesc = rawTensorDescHolder.get();
+    funcData->startArgs->commContexts = reinterpret_cast<int64_t*>(hcclParam.get());
 
     constexpr size_t opAttrsLength = 17;
     auto opAttrs = std::make_unique<uint64_t[]>(opAttrsLength);
