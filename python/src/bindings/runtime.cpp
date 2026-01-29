@@ -588,8 +588,8 @@ public:
     }
 
     uint8_t *FindCtrlFlowCache(py::object &module, py::args &args) {
-        if (IsCacheEnabled()) {
-            auto shape = InferCacheShape(module, args);
+        std::vector<std::vector<int64_t>> shape;
+        if (InferCacheShape(module, args, shape)) {
             return kernel->FindCtrlFlowCache(shape);
         }
         return nullptr;
@@ -660,8 +660,11 @@ private:
         }
     }
 
-    std::vector<std::vector<int64_t>> InferCacheShape(py::object &module, py::args &args) {
-        auto infershape = py::getattr(module, "infer_controlflow_shape");
+    bool InferCacheShape(py::object &module, py::args &args, std::vector<std::vector<int64_t>> &shapes) {
+        auto infershape = py::getattr(module, "infer_controlflow_shape", py::none());
+        if (infershape.is_none()) {
+            return false;
+        }
         py::list oriShapes;
         for (auto &pt : args) {
             auto shape = py::getattr(pt, "ori_shape", py::none());
@@ -671,9 +674,10 @@ private:
         }
         auto cfshape = infershape(*oriShapes);
         if (cfshape.is_none()) {
-            return {};
+            return false;
         }
-        return cfshape.cast<std::vector<std::vector<int64_t>>>();
+        shapes = cfshape.cast<std::vector<std::vector<int64_t>>>();
+        return true;
     }
 
 private:
