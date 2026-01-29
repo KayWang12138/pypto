@@ -31,6 +31,26 @@ using namespace npu::tile_fwk::dynamic;
 
 class DynamicSlcTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
+namespace {
+// Helper function to calculate block information
+inline int CalculateBlockNum(const std::vector<int>& seqs, int blockSize) {
+    int blockNum = 0;
+    for (auto seq : seqs) {
+        blockNum += CeilDiv(seq, blockSize);
+    }
+    return blockNum;
+}
+
+// Helper function to read tensor data
+template <typename T>
+inline std::vector<T> ReadTensorData(const std::string& path, int64_t capacity) {
+    std::vector<T> data(capacity, 0);
+    readInput<T>(path, data);
+    return data;
+}
+
+} // namespace
+
 template <typename T = npu::tile_fwk::float16, DataType tensorType = DataType::DT_FP16>
 void testSlc(KvSlcTileShapeConfig& tileConfig) {
     SetInterpreterConfig();
@@ -51,10 +71,7 @@ void testSlc(KvSlcTileShapeConfig& tileConfig) {
     std::vector<int> seq(b);
     readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
 
-    int blockNum = 0;
-    for (auto seq_item : seq) {
-        blockNum += CeilDiv(seq_item, blockSize);
-    }
+    int blockNum = CalculateBlockNum(seq, blockSize);
     int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
     int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
     // 读数据
@@ -69,13 +86,13 @@ void testSlc(KvSlcTileShapeConfig& tileConfig) {
     Tensor kvSlcActSeqs(DT_INT32, {b, s}, "kvSlcActSeqs");
 
     // 读数据
-    std::vector<int32_t> topkTensorData(b * s * (topK - front - near), 0);
-    std::vector<int32_t> topkTensorShapeData(b * s, 0);
-    std::vector<T> kvNopeCacheData(blockNum * blockSize * n2 * kv_lora_rank, 0);
-    std::vector<T> kRopeCacheData(blockNum * blockSize * n2 * rope_dim, 0);
-    std::vector<int32_t> kvActSeqsData(b, 0);
-    std::vector<int32_t> blockTableData(b * maxBlockNumPerBatch, 0);
-    std::vector<int32_t> kvSlcActSeqsData(b * s, 0);
+    std::vector<int32_t> topkTensorData = ReadTensorData<int32_t>(GetGoldenDir() + "/topk_tensor.bin", b * s * (topK - front - near));
+    std::vector<int32_t> topkTensorShapeData = ReadTensorData<int32_t>(GetGoldenDir() + "/topk_tensor_shape.bin", b * s);
+    std::vector<T> kvNopeCacheData = ReadTensorData<T>(GetGoldenDir() + "/kv_nope_cache.bin", blockNum * blockSize * n2 * kv_lora_rank);
+    std::vector<T> kRopeCacheData = ReadTensorData<T>(GetGoldenDir() + "/k_rope_cache.bin", blockNum * blockSize * n2 * rope_dim);
+    std::vector<int32_t> kvActSeqsData = ReadTensorData<int32_t>(GetGoldenDir() + "/actual_seq_len.bin", b);
+    std::vector<int32_t> blockTableData = ReadTensorData<int32_t>(GetGoldenDir() + "/block_table.bin", b * maxBlockNumPerBatch);
+    std::vector<int32_t> kvSlcActSeqsData = ReadTensorData<int32_t>(GetGoldenDir() + "/kv_slc_actual_seqs.bin", b * s);
 
     GenKvSlc(topk_tensor, topk_tensor_shape, kvNopeCache, kRopeCache, kvActSeqs, front, near, topK, l_prime,
             n2, blockTable, blockSize, k_slcOut, v_slcOut, kvSlcActSeqs, tileConfig);

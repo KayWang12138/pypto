@@ -24,6 +24,30 @@ class DynamicPAPOSTTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac
 
 namespace {
 
+inline int CalculateBlockNum(const std::vector<int>& seqs, int blockSize) {
+    int blockNum = 0;
+    for (auto s : seqs) {
+        blockNum += CeilDiv(s, blockSize);
+    }
+    return blockNum;
+}
+
+struct BlockInfo {
+    int blockNum;
+    int maxBlockNum;
+    int maxSeqAllBatch;
+};
+
+inline BlockInfo CalculateBlockInfo(const std::vector<int>& seqs, int blockSize) {
+    int blockNum = 0;
+    for (auto s : seqs) {
+        blockNum += CeilDiv(s, blockSize);
+    }
+    int maxSeqAllBatch = *(std::max_element(seqs.begin(), seqs.end()));
+    int maxBlockNum = CeilDiv(maxSeqAllBatch, blockSize);
+    return {blockNum, maxBlockNum, maxSeqAllBatch};
+}
+
 TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_low_lantency) {
     int b = 2;
     int sq = 1;
@@ -48,13 +72,10 @@ TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_low_lantency) {
 
     const std::vector<int> seq(b, skv);
     // 根据Per Batch实际的sequence构造blockNum，blockNum >= Sum(blockNumPerBatch)，此处选取相等场景
-    int blockNum = 0;
-    for (auto s : seq) {
-        blockNum += CeilDiv(s, blockSize);
-    }
-    // blockTable: (b, maxBlockNumPerBatch)
-    int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
-    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+    auto blockInfo = CalculateBlockInfo(seq, blockSize);
+    int blockNum = blockInfo.blockNum;
+    int maxSeqAllBatch = blockInfo.maxSeqAllBatch;
+    int maxBlockNumPerBatch = blockInfo.maxBlockNum;
 
     Tensor qNope(DT_BF16, {b * nq * sq, dn}, "qNope");
     Tensor kNopeCache(DT_BF16, {int(blockNum * blockSize), dn}, "kNopeCache");
@@ -114,50 +135,86 @@ TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_low_lantency) {
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.004f));
 }
 
-void testPaAdds(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manualUnroll = false, bool outputPaOut = true) {
-    std::vector<uint8_t> devProgBinary;
+struct PaAddsParams {
+    int b;
+    int sq;
+    int nq;
+    int nk;
+    int dn;
+    int dr;
+    int blockSize;
+    float softmaxScale;
+};
+
+inline PaAddsParams LoadPaAddsParams() {
     int paramsSize = 8;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", input_param);
-    int b = input_param[0];
-    int sq = input_param[1];
-    int nq = input_param[2];
-    int nk = input_param[3];
-    int dn = input_param[4];
-    int dr = input_param[5];
-    int blockSize = input_param[6];
-    float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
+    float softmaxScale = static_cast<float>(1.0 / sqrtf((input_param[4] + input_param[5])));
+    return {input_param[0], input_param[1], input_param[2], input_param[3], input_param[4], 
+            input_param[5], input_param[6], softmaxScale};
+}
+
+struct PaAddsTensors {
+    Tensor qNope;
+    Tensor kNopeCache;
+    Tensor vNopeCache;
+    Tensor qRope;
+    Tensor kRopeCache;
+    Tensor blockTable;
+    Tensor actSeqs;
+    Tensor paOut;
+    Tensor postOut;
+};
+
+inline PaAddsTensors CreatePaAddsTensors(const PaAddsParams &params, const BlockInfo &blockInfo) {
+    int b = params.b;
+    int sq = params.sq;
+    int nq = params.nq;
+    int nk = params.nk;
+    int dn = params.dn;
+    int dr = params.dr;
+    int blockSize = params.blockSize;
+    int blockNum = blockInfo.blockNum;
+    int maxBlockNumPerBatch = blockInfo.maxBlockNum;
+
+    return {
+        Tensor(DT_BF16, {b * nq * sq, dn}, "qNope"),
+        Tensor(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache"),
+        Tensor(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache"),
+        Tensor(DT_BF16, {b * nq * sq, nk * dr}, "qRope"),
+        Tensor(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope"),
+        Tensor(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable"),
+        Tensor(DT_INT32, {b}, "actSeqs"),
+        Tensor(DT_FP32, {b * nq * sq, dn}, "paOut"),
+        Tensor(DT_FP32, {b * nq * sq, dn}, "postOut")
+    };
+}
+
+struct PaAddsData {
+    std::vector<npu::tile_fwk::bfloat16> qNopeData;
+    std::vector<npu::tile_fwk::bfloat16> qRopeData;
+    std::vector<npu::tile_fwk::bfloat16> kNopeCacheData;
+    std::vector<npu::tile_fwk::bfloat16> kRopeCacheData;
+    std::vector<npu::tile_fwk::bfloat16> vNopeCacheData;
+    std::vector<int32_t> blockTableData;
+    std::vector<int> seq;
+    std::vector<float> golden;
+};
+
+inline PaAddsData LoadPaAddsData(const PaAddsParams &params, const BlockInfo &blockInfo) {
+    int b = params.b;
+    int sq = params.sq;
+    int nq = params.nq;
+    int dn = params.dn;
+    int dr = params.dr;
+    int blockSize = params.blockSize;
+    int blockNum = blockInfo.blockNum;
+    int maxBlockNumPerBatch = blockInfo.maxBlockNum;
+
     std::vector<int> seq(b);
     readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
 
-    int blockNum = 0;
-    for (auto s : seq) {
-        blockNum += CeilDiv(s, blockSize);
-    }
-    // blockTable: (b, maxBlockNumPerBatch)
-    int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
-    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
-
-    Tensor qNope(DT_BF16, {b * nq * sq, dn}, "qNope");
-    Tensor kNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache");
-    Tensor vNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache");
-    Tensor qRope(DT_BF16, {b * nq * sq, nk * dr}, "qRope");
-    Tensor kRopeCache(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope");
-    Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
-    Tensor actSeqs(DT_INT32, {b}, "actSeqs");
-    Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
-    Tensor postOut(DT_FP32, {b * nq * sq, dn}, "postOut");
-    if (!manualUnroll) {
-        if (outputPaOut) {
-            PageAttentionAddS(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut, postOut,
-                tileConfig, maxUnrollTimes);
-        } else {
-            PageAttentionAddSSingleOutput(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut, postOut,
-                tileConfig, maxUnrollTimes);
-        }
-    }
-
-    // 读数据
     std::vector<npu::tile_fwk::bfloat16> qNopeData(b * nq * sq * dn, 0);
     std::vector<npu::tile_fwk::bfloat16> qRopeData(b * nq * sq * dr, 0);
     std::vector<npu::tile_fwk::bfloat16> kNopeCacheData(blockNum * blockSize * dn, 0);
@@ -175,35 +232,74 @@ void testPaAdds(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manu
     std::vector<float> golden(b * sq * nq * dn, 0);
     readInput(GetGoldenDir() + "/atten_out.bin", golden);
 
+    return {qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData, blockTableData, seq, golden};
+}
+
+inline void BuildPaAddsGraph(const PaAddsTensors &tensors, const PaAddsParams &params,
+                             PaTileShapeConfig &tileConfig, int maxUnrollTimes, bool outputPaOut) {
+    if (outputPaOut) {
+        PageAttentionAddS(tensors.qNope, tensors.kNopeCache, tensors.vNopeCache, tensors.qRope, tensors.kRopeCache,
+                         tensors.blockTable, tensors.actSeqs, params.blockSize, params.softmaxScale,
+                         tensors.paOut, tensors.postOut, tileConfig, maxUnrollTimes);
+    } else {
+        PageAttentionAddSSingleOutput(tensors.qNope, tensors.kNopeCache, tensors.vNopeCache, tensors.qRope,
+                                       tensors.kRopeCache, tensors.blockTable, tensors.actSeqs, params.blockSize,
+                                       params.softmaxScale, tensors.paOut, tensors.postOut, tileConfig, maxUnrollTimes);
+    }
+}
+
+inline void SetupPaAddsProgram(const PaAddsTensors &tensors, const PaAddsData &data, bool outputPaOut) {
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qNope, qNopeData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kNopeCache, kNopeCacheData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
-        RawTensorData::CreateTensor<int32_t>(blockTable, blockTableData),
-        RawTensorData::CreateTensor<int32_t>(actSeqs, seq),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.qNope, data.qNopeData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.kNopeCache, data.kNopeCacheData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.vNopeCache, data.vNopeCacheData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.qRope, data.qRopeData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.kRopeCache, data.kRopeCacheData),
+        RawTensorData::CreateTensor<int32_t>(tensors.blockTable, data.blockTableData),
+        RawTensorData::CreateTensor<int32_t>(tensors.actSeqs, data.seq),
     });
+
     if (outputPaOut) {
         ProgramData::GetInstance().AppendOutputs({
-            RawTensorData::CreateConstantTensor<float>(paOut, 0),
-            RawTensorData::CreateConstantTensor<float>(postOut, 0),
+            RawTensorData::CreateConstantTensor<float>(tensors.paOut, 0),
+            RawTensorData::CreateConstantTensor<float>(tensors.postOut, 0),
         });
+    } else {
+        ProgramData::GetInstance().AppendOutputs({
+            RawTensorData::CreateConstantTensor<float>(tensors.postOut, 0),
+        });
+    }
+}
 
-        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+inline void VerifyPaAddsResult(const std::vector<float> &golden, bool outputPaOut) {
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    if (outputPaOut) {
         auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
         EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f));
         EXPECT_TRUE(resultCmp(golden, (float *)outs1->data(), 0.0005f));
     } else {
-        ProgramData::GetInstance().AppendOutputs({
-            RawTensorData::CreateConstantTensor<float>(postOut, 0),
-        });
-
-        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
         auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
         EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f));
     }
+}
+
+void testPaAdds(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manualUnroll = false, bool outputPaOut = true) {
+    if (manualUnroll) {
+        return;
+    }
+
+    auto params = LoadPaAddsParams();
+    std::vector<int> seq(params.b);
+    readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
+    auto blockInfo = CalculateBlockInfo(seq, params.blockSize);
+
+    auto tensors = CreatePaAddsTensors(params, blockInfo);
+    auto data = LoadPaAddsData(params, blockInfo);
+
+    BuildPaAddsGraph(tensors, params, tileConfig, maxUnrollTimes, outputPaOut);
+    SetupPaAddsProgram(tensors, data, outputPaOut);
+    VerifyPaAddsResult(data.golden, outputPaOut);
 }
 
 TEST_F(DynamicPAPOSTTest, dynamic_page_attention_adds_high_throughput_dview_large) {
@@ -399,64 +495,121 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
     }
 }
 
-void testPaPost(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manualUnroll = false) {
-    std::vector<uint8_t> devProgBinary;
+struct PaPostParams {
+    int b;
+    int sq;
+    int nq;
+    int nk;
+    int dn;
+    int dr;
+    int blockSize;
+    float softmaxScale;
+    int B;
+    int S;
+    int N;
+    int H;
+    int kvLoraRank;
+    int vHeadDim;
+};
 
+inline PaPostParams LoadPaPostParams() {
     int paramsSize = 8;
     int postParamsSize = 7;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", input_param);
 
-    int b = input_param[0];
-    int sq = input_param[1];
-    int nq = input_param[2];
-    int nk = input_param[3];
-    int dn = input_param[4];
-    int dr = input_param[5];
-    int blockSize = input_param[6];
-    float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
+    float softmaxScale = static_cast<float>(1.0 / sqrtf((input_param[4] + input_param[5])));
 
-    std::vector<int64_t> params(postParamsSize);
-    readInput<int64_t>(GetGoldenDir() + "/params.bin", params);
+    std::vector<int64_t> postParams(postParamsSize);
+    readInput<int64_t>(GetGoldenDir() + "/params.bin", postParams);
 
-    int B = params[0];
-    int S = params[1];
-    int N = params[2];
-    int H = params[3];
-    int kvLoraRank = params[4];
-    int vHeadDim = params[5];
+    return {input_param[0], input_param[1], input_param[2], input_param[3], input_param[4], input_param[5],
+            input_param[6], softmaxScale, int(postParams[0]), int(postParams[1]), int(postParams[2]),
+            int(postParams[3]), int(postParams[4]), int(postParams[5])};
+}
+
+struct PaPostTensors {
+    Tensor qNope;
+    Tensor kNopeCache;
+    Tensor vNopeCache;
+    Tensor qRope;
+    Tensor kRopeCache;
+    Tensor blockTable;
+    Tensor actSeqs;
+    Tensor paOut;
+    Tensor weightUV;
+    Tensor weightO;
+    Tensor weightOScaleW;
+    Tensor postOut;
+};
+
+inline PaPostTensors CreatePaPostTensors(const PaPostParams &params, const BlockInfo &blockInfo) {
+    int b = params.b;
+    int sq = params.sq;
+    int nq = params.nq;
+    int nk = params.nk;
+    int dn = params.dn;
+    int dr = params.dr;
+    int blockSize = params.blockSize;
+    int blockNum = blockInfo.blockNum;
+    int maxBlockNumPerBatch = blockInfo.maxBlockNum;
+    int N = params.N;
+    int kvLoraRank = params.kvLoraRank;
+    int vHeadDim = params.vHeadDim;
+    int H = params.H;
+    int B = params.B;
+    int S = params.S;
+
+    return {
+        Tensor(DT_BF16, {b * nq * sq, dn}, "qNope"),
+        Tensor(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache"),
+        Tensor(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache"),
+        Tensor(DT_BF16, {b * nq * sq, nk * dr}, "qRope"),
+        Tensor(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope"),
+        Tensor(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable"),
+        Tensor(DT_INT32, {b}, "actSeqs"),
+        Tensor(DT_FP32, {b * nq * sq, dn}, "paOut"),
+        Tensor(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV"),
+        Tensor(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ),
+        Tensor(DT_FP32, {1, H}, "weightOScaleW"),
+        Tensor(DT_BF16, {B, S, H}, "postOut")
+    };
+}
+
+struct PaPostData {
+    std::vector<npu::tile_fwk::bfloat16> qNopeData;
+    std::vector<npu::tile_fwk::bfloat16> qRopeData;
+    std::vector<npu::tile_fwk::bfloat16> kNopeCacheData;
+    std::vector<npu::tile_fwk::bfloat16> kRopeCacheData;
+    std::vector<npu::tile_fwk::bfloat16> vNopeCacheData;
+    std::vector<int32_t> blockTableData;
+    std::vector<int> seq;
+    std::vector<float> paGolden;
+    std::vector<npu::tile_fwk::bfloat16> weightUVData;
+    std::vector<int8_t> weightOData;
+    std::vector<float> weightOScaleWData;
+    std::vector<npu::tile_fwk::bfloat16> postGolden;
+};
+
+inline PaPostData LoadPaPostData(const PaPostParams &params, const BlockInfo &blockInfo) {
+    int b = params.b;
+    int sq = params.sq;
+    int nq = params.nq;
+    int dn = params.dn;
+    int dr = params.dr;
+    int blockSize = params.blockSize;
+    int blockNum = blockInfo.blockNum;
+    int maxBlockNumPerBatch = blockInfo.maxBlockNum;
+    int N = params.N;
+    int kvLoraRank = params.kvLoraRank;
+    int vHeadDim = params.vHeadDim;
+    int H = params.H;
+    int B = params.B;
+    int S = params.S;
 
     std::vector<int> seq(b);
     readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
 
-    int blockNum = 0;
-    for (auto s : seq) {
-        blockNum += CeilDiv(s, blockSize);
-    }
-    // blockTable: (b, maxBlockNumPerBatch)
-    int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
-    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
-
-    Tensor qNope(DT_BF16, {b * nq * sq, dn}, "qNope");
-    Tensor kNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache");
-    Tensor vNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache");
-    Tensor qRope(DT_BF16, {b * nq * sq, nk * dr}, "qRope");
-    Tensor kRopeCache(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope");
-    Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
-    Tensor actSeqs(DT_INT32, {b}, "actSeqs");
-    Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
-    Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
-    Tensor weightOScaleW(DT_FP32, {1, H}, "weightOScaleW");
-    Tensor postOut(DT_BF16, {B, S, H}, "postOut");
-
-    if (!manualUnroll) {
-        PageAttentionPost(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize,
-                          softmaxScale, weightUV, weightO, weightOScaleW, paOut, postOut, tileConfig, maxUnrollTimes);
-    }
-
-    // 读数据
-    // PA数据
     std::vector<npu::tile_fwk::bfloat16> qNopeData(b * nq * sq * dn, 0);
     std::vector<npu::tile_fwk::bfloat16> qRopeData(b * nq * sq * dr, 0);
     std::vector<npu::tile_fwk::bfloat16> kNopeCacheData(blockNum * blockSize * dn, 0);
@@ -470,38 +623,71 @@ void testPaPost(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manu
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/v_cache.bin", vNopeCacheData);
     readInput<int32_t>(GetGoldenDir() + "/block_table.bin", blockTableData);
+
     std::vector<float> paGolden(b * sq * nq * dn, 0);
     readInput(GetGoldenDir() + "/atten_out.bin", paGolden);
 
-    // POST数据
     std::vector<npu::tile_fwk::bfloat16> weightUVData(N * kvLoraRank * vHeadDim, 0);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/w_uv.bin", weightUVData);
     std::vector<int8_t> weightOData(N * vHeadDim * H, 0);
-    readInput<int8_t>(GetGoldenDir() + "/w_o.bin", weightOData);// NZ
+    readInput<int8_t>(GetGoldenDir() + "/w_o.bin", weightOData);
     std::vector<float> weightOScaleWData(1 * H, 0);
     readInput<float>(GetGoldenDir() + "/w_o_scale_w.bin", weightOScaleWData);
-    std::vector<npu::tile_fwk::bfloat16> paPostgolden(B * S * H, 0);
-    readInput(GetGoldenDir() + "/attn_output.bin", paPostgolden);
+    std::vector<npu::tile_fwk::bfloat16> postGolden(B * S * H, 0);
+    readInput(GetGoldenDir() + "/attn_output.bin", postGolden);
 
+    return {qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData, blockTableData,
+            seq, paGolden, weightUVData, weightOData, weightOScaleWData, postGolden};
+}
+
+inline void BuildPaPostGraph(const PaPostTensors &tensors, const PaPostParams &params,
+                             PaTileShapeConfig &tileConfig, int maxUnrollTimes) {
+    PageAttentionPost(tensors.qNope, tensors.kNopeCache, tensors.vNopeCache, tensors.qRope,
+                      tensors.kRopeCache, tensors.blockTable, tensors.actSeqs, params.blockSize,
+                      params.softmaxScale, tensors.weightUV, tensors.weightO, tensors.weightOScaleW,
+                      tensors.paOut, tensors.postOut, tileConfig, maxUnrollTimes);
+}
+
+inline void SetupPaPostProgram(const PaPostTensors &tensors, const PaPostData &data) {
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qNope, qNopeData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kNopeCache, kNopeCacheData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
-        RawTensorData::CreateTensor<int32_t>(blockTable, blockTableData),
-        RawTensorData::CreateTensor<int32_t>(actSeqs, seq),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(weightUV, weightUVData),
-        RawTensorData::CreateTensor<int8_t>(weightO, weightOData),
-        RawTensorData::CreateTensor<float>(weightOScaleW, weightOScaleWData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.qNope, data.qNopeData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.kNopeCache, data.kNopeCacheData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.vNopeCache, data.vNopeCacheData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.qRope, data.qRopeData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.kRopeCache, data.kRopeCacheData),
+        RawTensorData::CreateTensor<int32_t>(tensors.blockTable, data.blockTableData),
+        RawTensorData::CreateTensor<int32_t>(tensors.actSeqs, data.seq),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(tensors.weightUV, data.weightUVData),
+        RawTensorData::CreateTensor<int8_t>(tensors.weightO, data.weightOData),
+        RawTensorData::CreateTensor<float>(tensors.weightOScaleW, data.weightOScaleWData),
     });
     ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(postOut, 0),
+        RawTensorData::CreateConstantTensor<npu::tile_fwk::bfloat16>(tensors.postOut, 0),
     });
+}
 
+inline void VerifyPaPostResult(const std::vector<npu::tile_fwk::bfloat16> &postGolden) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(paPostgolden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.04f));
+    EXPECT_TRUE(resultCmp(postGolden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.04f));
+}
+
+void testPaPost(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manualUnroll = false) {
+    if (manualUnroll) {
+        return;
+    }
+
+    auto params = LoadPaPostParams();
+    std::vector<int> seq(params.b);
+    readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
+    auto blockInfo = CalculateBlockInfo(seq, params.blockSize);
+
+    auto tensors = CreatePaPostTensors(params, blockInfo);
+    auto data = LoadPaPostData(params, blockInfo);
+
+    BuildPaPostGraph(tensors, params, tileConfig, maxUnrollTimes);
+    SetupPaPostProgram(tensors, data);
+    VerifyPaPostResult(data.postGolden);
 }
 
 TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_high_throughput_dview_large) {

@@ -37,18 +37,38 @@ constexpr int NUM_256 = 256;
 constexpr int NUM_512 = 512;
 constexpr int NUM_1024 = 1024;
 
+namespace {
+// Helper function to get DataType from template type
+template <typename T>
+inline DataType GetDataType() {
+    if (std::is_same<T, npu::tile_fwk::float16>::value) {
+        return DT_FP16;
+    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
+        return DT_BF16;
+    }
+    return DT_FP32;
+}
+
+// Helper function to calculate capacity from shape
+inline int64_t CalculateCapacity(const std::vector<int64_t>& shape) {
+    return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+}
+
+// Helper function to read tensor data
+template <typename T>
+inline std::vector<T> ReadTensorData(const std::string& path, int64_t capacity) {
+    std::vector<T> data(capacity, 0);
+    readInput<T>(path, data);
+    return data;
+}
+
+} // namespace
+
 template <typename T = npu::tile_fwk::float16>
 void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
     SetInterpreterConfig();
 
-    DataType dType = DT_FP32;
-    if (std::is_same<T, npu::tile_fwk::float16>::value) {
-        dType = DT_FP16;
-    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        dType = DT_BF16;
-    } else {
-        dType = DT_FP32;
-    }
+    DataType dType = GetDataType<T>();
 
     int paramsSize = 9;
     std::vector<int> inputParam(paramsSize);
@@ -85,29 +105,20 @@ void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
     Tensor attentionOut(DT_FP32, attentionOutShape, "attentionOut");
 
     // 读数据
-    int qNopeSize = std::accumulate(qNopeShape.begin(), qNopeShape.end(), 1, std::multiplies<>());
-    int qRopeSize = std::accumulate(qRopeShape.begin(), qRopeShape.end(), 1, std::multiplies<>());
-    int vNopeCacheSize = std::accumulate(vNopeCacheShape.begin(), vNopeCacheShape.end(), 1, std::multiplies<>());
-    int kRopeCacheSize = std::accumulate(kRopeCacheShape.begin(), kRopeCacheShape.end(), 1, std::multiplies<>());
-    int blockTableSize = std::accumulate(blockTableShape.begin(), blockTableShape.end(), 1, std::multiplies<>());
-    int winAttenOutSize = std::accumulate(attentionOutShape.begin(), attentionOutShape.end(), 1, std::multiplies<>());
+    int qNopeSize = CalculateCapacity(qNopeShape);
+    int qRopeSize = CalculateCapacity(qRopeShape);
+    int vNopeCacheSize = CalculateCapacity(vNopeCacheShape);
+    int kRopeCacheSize = CalculateCapacity(kRopeCacheShape);
+    int blockTableSize = CalculateCapacity(blockTableShape);
+    int winAttenOutSize = CalculateCapacity(attentionOutShape);
 
-    std::vector<int> seq(b);
-    std::vector<T> qNopeData(qNopeSize, 0);
-    std::vector<T> qRopeData(qRopeSize, 0);
-    std::vector<T> vNopeCacheData(vNopeCacheSize, 0);
-    std::vector<T> kRopeCacheData(kRopeCacheSize, 0);
-    std::vector<int> blockTableData(blockTableSize, 0);
-
-    readInput<int>(GetGoldenDir() + "/actual_seq_list.bin", seq);
-    readInput<T>(GetGoldenDir() + "/q_nope.bin", qNopeData);
-    readInput<T>(GetGoldenDir() + "/q_rope.bin", qRopeData);
-    readInput<T>(GetGoldenDir() + "/k_cache_nope.bin", vNopeCacheData);
-    readInput<T>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
-    readInput<int>(GetGoldenDir() + "/block_table.bin", blockTableData);
-
-    std::vector<float> golden(winAttenOutSize, 0);
-    readInput(GetGoldenDir() + "/atten_out.bin", golden);
+    std::vector<int> seq = ReadTensorData<int>(GetGoldenDir() + "/actual_seq_list.bin", b);
+    std::vector<T> qNopeData = ReadTensorData<T>(GetGoldenDir() + "/q_nope.bin", qNopeSize);
+    std::vector<T> qRopeData = ReadTensorData<T>(GetGoldenDir() + "/q_rope.bin", qRopeSize);
+    std::vector<T> vNopeCacheData = ReadTensorData<T>(GetGoldenDir() + "/k_cache_nope.bin", vNopeCacheSize);
+    std::vector<T> kRopeCacheData = ReadTensorData<T>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheSize);
+    std::vector<int> blockTableData = ReadTensorData<int>(GetGoldenDir() + "/block_table.bin", blockTableSize);
+    std::vector<float> golden = ReadTensorData<float>(GetGoldenDir() + "/atten_out.bin", winAttenOutSize);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(qNope, qNopeData),

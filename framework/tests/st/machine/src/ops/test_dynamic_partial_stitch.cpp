@@ -24,6 +24,36 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
+namespace {
+// Helper function to create test data
+inline std::vector<float> CreateQData(int b, int blockSize) {
+    std::vector<float> qData(b * blockSize * blockSize);
+    for (int i = 0; i < b * blockSize * blockSize; i++) {
+        qData[i] = i / (blockSize * blockSize);
+    }
+    return qData;
+}
+
+// Helper function to create seq data
+inline std::vector<int> CreateSeqData(int b) {
+    std::vector<int> seqData(b);
+    for (int i = 0; i < b; i++) {
+        seqData[i] = i;
+    }
+    return seqData;
+}
+
+// Helper function to create golden data
+inline std::vector<float> CreateGoldenData(int b, int blockSize) {
+    std::vector<float> goldenData(b * blockSize * blockSize);
+    for (int i = 0; i < b * blockSize * blockSize; i++) {
+        goldenData[i] = (float)(((i / (blockSize * blockSize))) * 2 + 1.0);
+    }
+    return goldenData;
+}
+
+} // namespace
+
 TEST_F(DynamicTest, TestPartial) {
     SetInterpreterConfig();
 
@@ -31,7 +61,7 @@ TEST_F(DynamicTest, TestPartial) {
 
     int b = 8;
     int blockSize = 32;
-    std::vector<int64_t> qShape = {b * blockSize, blockSize}; /* 1 - b */
+    std::vector<int64_t> qShape = {b * blockSize, blockSize};
     std::vector<int64_t> seqShape = {b};
     std::vector<int64_t> midShape = {b * blockSize, blockSize};
     std::vector<int64_t> outShape = {b * blockSize, blockSize};
@@ -41,20 +71,9 @@ TEST_F(DynamicTest, TestPartial) {
     Tensor seq(DataType::DT_INT32, seqShape, "seq");
     Tensor out(vType, outShape, "out");
 
-    std::vector<float> qData(b * blockSize * blockSize);
-    for (int i = 0; i < b * blockSize * blockSize; i++) {
-        qData[i] = i / (blockSize * blockSize);
-    }
-
-    std::vector<int> seqData(b);
-    for (int i = 0; i < b; i++) {
-        seqData[i] = i;
-    }
-
-    std::vector<float> goldenData(b * blockSize * blockSize);
-    for (int i = 0; i < b * blockSize * blockSize; i++) {
-        goldenData[i] = (float)(((i / (blockSize * blockSize))) * 2 + 1.0);
-    }
+    std::vector<float> qData = CreateQData(b, blockSize);
+    std::vector<int> seqData = CreateSeqData(b);
+    std::vector<float> goldenData = CreateGoldenData(b, blockSize);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<float>(q, qData),
