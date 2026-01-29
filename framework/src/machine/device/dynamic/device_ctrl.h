@@ -257,7 +257,7 @@ public:
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs *)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
-        DeviceExecuteContext ctx(devStartArgs);
+        DeviceExecuteContext ctx(args, devStartArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
