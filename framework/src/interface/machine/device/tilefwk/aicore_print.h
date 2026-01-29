@@ -31,7 +31,7 @@
 #include <securec.h>
 #endif
 
-enum NodeTy { END, NORMAL, FLOAT, INT, CHAR, STRING, POINTER };
+enum NodeTy { END, NORMAL, FLOAT, INT, CHAR, STRING, POINTER, HEX};
 
 struct LogContext {
     void (*PrintInt)(LogContext *ctx, __gm__ const char **fmt, int64_t val);
@@ -217,6 +217,7 @@ struct AicoreLogger {
                 case CHAR: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<char>(valOff)); break;
                 case STRING: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), ReadString(valOff).c_str()); break;
                 case POINTER: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff)); break;
+                case HEX: n = snprintf_s(buf, maxSize, maxSize - 1, fmt.c_str(), Read<int64_t>(valOff)); break;
                 default: if (n) { buf[0] = '?'; n = 1;} break;
             }
             buf += n;
