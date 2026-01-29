@@ -1238,7 +1238,7 @@ void Function::ProducerMagicLookup(const Function *function, const LogicalTensor
                 if (!op->oOperand[0]->isSubGraphBoundary) {
                     ss << " " << op->GetOpAttribute()->Dump();
                 }
-            } else if ((!IsCopyIn(op->GetOpcode()) && !IsCopyOut(op->GetOpcode())) ||
+            } else if (IsCopyIn(op->GetOpcode()) || (!IsCopyIn(op->GetOpcode()) && !IsCopyOut(op->GetOpcode())) ||
                 function->GetGraphType() != GraphType::BLOCK_GRAPH) {
                 ss << " " << op->GetOpAttribute()->Dump();
             }
