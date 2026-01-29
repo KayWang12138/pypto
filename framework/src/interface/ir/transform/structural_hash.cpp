@@ -1,12 +1,11 @@
-/*
- * Copyright (c) PyPTO Contributors.
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
- * -----------------------------------------------------------------------------------------------------------
  */
 
 #include <algorithm>
@@ -32,7 +31,6 @@
 #include "ir/stmt.h"
 #include "ir/type.h"
 
-// Temporary replacement for INTERNAL_CHECK - depends on core/error.h which is temporarily removed
 #ifndef INTERNAL_CHECK
 #define INTERNAL_CHECK(expr) \
   if (!(expr)) throw std::logic_error(std::string("Check failed: " #expr " at ") + __FILE__ + ":" + std::to_string(__LINE__)); \
@@ -192,8 +190,7 @@ class StructuralHasher {
       } else if (value.type() == typeid(DataType)) {
         h = hash_combine(h, std::hash<uint8_t>{}(AnyCast<DataType>(value, "hashing kwarg: " + key).Code()));
       } else {
-        // throw TypeError("Invalid kwarg type for key: " + key +  // Temporarily commented out
-        throw std::logic_error("Invalid kwarg type for key: " + key +  // Using std::logic_error instead
+        throw std::logic_error("Invalid kwarg type for key: " + key +
                         ", expected int, bool, std::string, double, float, or DataType, but got " +
                         DemangleTypeName(value.type().name()));
       }
@@ -362,8 +359,7 @@ StructuralHasher::result_type StructuralHasher::HashNode(const IRNodePtr& node) 
 
   if (!dispatched) {
     // Unknown IR node type
-    // throw pypto::TypeError("Unknown IR node type in StructuralHasher::HashNode");  // Temporarily commented out
-    throw std::logic_error("Unknown IR node type in StructuralHasher::HashNode");  // Using std::logic_error instead
+    throw std::logic_error("Unknown IR node type in StructuralHasher::HashNode");
   } else {
     hash_value_map_.emplace(node, hash_value);
     return hash_value;
