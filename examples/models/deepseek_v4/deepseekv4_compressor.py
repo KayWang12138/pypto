@@ -12,9 +12,16 @@
 
 import os
 import torch
+import pypto
 from numpy.testing import assert_allclose
-from deepseekv4_compressor_impl import compressor_decode
+from deepseekv4_compressor_impl import npu_compressor_decode
 
+
+class CompressorDecode(torch.nn.Module):
+    def forward(self, x, kv_state, score_state, cache_index_2d, sin, cos, wkv, wgate, ape, weight, 
+        ratio, start_pos,  kv_len_int, rope_head_dim, rotate, hadamard):
+        return torch.ops.pypto.compressor_decode(x, kv_state, score_state, cache_index_2d, sin, cos, wkv, wgate, ape, weight, 
+            ratio, start_pos,  kv_len_int, rope_head_dim, rotate, hadamard)
 
 def overlap_transform(tensor: torch.Tensor, value):
     # tensor: [b,s,r,2d]
@@ -157,7 +164,7 @@ def gen_inputs(bsz, seq, h, d, rope_head_dim, ratio, device):
     return x, sin, cos, wkv, wgate, ape, weight, kv_state, score_state, hadamard
 
 
-def test_decode():
+def test_decode(enable_graph=False):
     """Test Compressor"""
     print("=" * 60)
     print("Test: Compressor")
@@ -197,27 +204,39 @@ def test_decode():
         kv_state_out = torch.zeros((bsz, coff * ra, coff * d), dtype=torch.float32, device=device)
         score_state_out = torch.full((bsz, coff * ra, coff * d), float("-inf"), dtype=torch.float32, device=device)
 
-        compressor_decode(
-            x,
-            kv_state,
-            score_state,
-            cache_index_2d,
-            sin,
-            cos,
-            wkv,
-            wgate,
-            ape,
-            weight,
-            out,
-            kv_state_out,
-            score_state_out,
-            ra,
-            st,
-            kv_len_int,
-            rope_head_dim,
-            ro,
-            hadamard=hadamard,
-        )
+        if enable_graph:
+            import torchair as tng
+            from torchair.configs.compiler_config import CompilerConfig
+            compiler_config = CompilerConfig()
+            compiler_config.mode = "reduce-overhead"
+            npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
+            model = torch.compile(CompressorDecode(), dynamic=False, fullgraph=True, backend=npu_backend)
+
+            out, kv_state_out, score_state_out = model(x, kv_state, score_state, cache_index_2d, sin, cos, wkv, wgate, ape, weight, 
+                ra, st,  kv_len_int, rope_head_dim, ro, hadamard)
+            pypto.runtime._device_synchronize()
+        else:
+            npu_compressor_decode(
+                x,
+                kv_state,
+                score_state,
+                cache_index_2d,
+                sin,
+                cos,
+                wkv,
+                wgate,
+                ape,
+                weight,
+                out,
+                kv_state_out,
+                score_state_out,
+                ra,
+                st,
+                kv_len_int,
+                rope_head_dim,
+                ro,
+                hadamard=hadamard,
+            )
         x, sin, cos, wkv, wgate, ape, weight, kv_state, score_state, hadamard = (
             gen_inputs(bsz, seq, h, d, rope_head_dim, ra, device)
         )
@@ -248,4 +267,4 @@ def test_decode():
 
 
 if __name__ == "__main__":
-    test_decode()
+    test_decode(True)
