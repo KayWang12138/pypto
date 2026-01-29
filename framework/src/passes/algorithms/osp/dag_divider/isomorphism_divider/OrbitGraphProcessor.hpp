@@ -651,7 +651,7 @@ class OrbitGraphProcessor {
         if (numComponents > 1) {
             const size_t firstSgSize = outNewSubgraphs[0].size();
             ConstrGraphT repSg;
-            CreateInducedSubgraph(originalDag, repSg, outNewSubgraphs[0]);
+            CreateInducedSubgraphMap(originalDag, repSg, outNewSubgraphs[0]);
 
             for (size_t i = 1; i < numComponents; ++i) {
                 if (outNewSubgraphs[i].size() != firstSgSize) {
@@ -659,7 +659,7 @@ class OrbitGraphProcessor {
                 }
 
                 ConstrGraphT currentSg;
-                CreateInducedSubgraph(originalDag, currentSg, outNewSubgraphs[i]);
+                CreateInducedSubgraphMap(originalDag, currentSg, outNewSubgraphs[i]);
                 if (!AreIsomorphicByMerkleHash(repSg, currentSg)) {
                     return false;
                 }

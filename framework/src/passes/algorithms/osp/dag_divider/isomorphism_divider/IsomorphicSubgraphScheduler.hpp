@@ -406,12 +406,11 @@ class IsomorphicSubgraphScheduler {
             }
 
             // Schedule the Representative Subgraph to get a BSP schedule pattern ---
-            auto repSubgraphVerticesSorted = group.subgraphs_[0];
-            std::sort(repSubgraphVerticesSorted.begin(), repSubgraphVerticesSorted.end());
+            auto repSubgraphVertices = group.subgraphs_[0];
 
             BspInstance<ConstrGraphT> representativeInstance;
             auto repGlobalToLocalMap = CreateInducedSubgraphMap(
-                instance.GetComputationalDag(), representativeInstance.GetComputationalDag(), repSubgraphVerticesSorted);
+                instance.GetComputationalDag(), representativeInstance.GetComputationalDag(), repSubgraphVertices);
 
             representativeInstance.GetArchitecture() = instance.GetArchitecture();
             const auto &procsForGroup = subSched.nodeAssignedWorkerPerType_[groupIdx];
@@ -452,7 +451,7 @@ class IsomorphicSubgraphScheduler {
             // Map (superstep, processor) -> relative partition ID
             std::map<std::pair<unsigned, unsigned>, VertexIdxT<GraphT>> spProcToRelativePartition;
             VertexIdxT<GraphT> numPartitionsPerSubgraph = 0;
-            for (VertexIdxT<GraphT> j = 0; j < static_cast<VertexIdxT<GraphT>>(repSubgraphVerticesSorted.size()); ++j) {
+            for (VertexIdxT<GraphT> j = 0; j < static_cast<VertexIdxT<GraphT>>(repSubgraphVertices.size()); ++j) {
                 auto spPair = std::make_pair(bspSchedule.AssignedSuperstep(j), bspSchedule.AssignedProcessor(j));
 
                 if (maxBsp) {
@@ -469,8 +468,7 @@ class IsomorphicSubgraphScheduler {
 
             // Replicate the schedule pattern for ALL subgraphs in the group ---
             for (VertexIdxT<GraphT> i = 0; i < static_cast<VertexIdxT<GraphT>>(group.subgraphs_.size()); ++i) {
-                auto currentSubgraphVerticesSorted = group.subgraphs_[i];
-                std::sort(currentSubgraphVerticesSorted.begin(), currentSubgraphVerticesSorted.end());
+                auto currentSubgraphVertices = group.subgraphs_[i];
 
                 // Map from a vertex in the current subgraph to its corresponding local index (0, 1, ...) in the representative's schedule
                 std::unordered_map<VertexIdxT<GraphT>, VertexIdxT<ConstrGraphT>> currentVertexToRepLocalIdx;
@@ -479,7 +477,13 @@ class IsomorphicSubgraphScheduler {
                     currentVertexToRepLocalIdx = std::move(repGlobalToLocalMap);
                 } else {    // For other subgraphs, build the isomorphic mapping
                     ConstrGraphT currentSubgraphGraph;
-                    CreateInducedSubgraph(instance.GetComputationalDag(), currentSubgraphGraph, currentSubgraphVerticesSorted);
+                    auto currentGlobalToLocalMap = CreateInducedSubgraphMap(
+                        instance.GetComputationalDag(), currentSubgraphGraph, currentSubgraphVertices);
+
+                    std::vector<VertexIdxT<GraphT>> currentLocalToGlobalMap(currentGlobalToLocalMap.size());
+                    for (const auto &[globalVertex, localVertex] : currentGlobalToLocalMap) {
+                        currentLocalToGlobalMap[localVertex] = globalVertex;
+                    }
 
                     MerkleHashComputer<ConstrGraphT> currentHasher(currentSubgraphGraph);
 
@@ -487,14 +491,14 @@ class IsomorphicSubgraphScheduler {
                         const auto &currentOrbitNodes = currentHasher.GetOrbitFromHash(hash);
                         for (size_t k = 0; k < repOrbitNodes.size(); ++k) {
                             // Map: current_subgraph_vertex -> representative_subgraph_local_idx
-                            currentVertexToRepLocalIdx[currentSubgraphVerticesSorted[currentOrbitNodes[k]]]
+                            currentVertexToRepLocalIdx[currentLocalToGlobalMap[currentOrbitNodes[k]]]
                                 = static_cast<VertexIdxT<ConstrGraphT>>(repOrbitNodes[k]);
                         }
                     }
                 }
 
                 // Apply the partition pattern
-                for (const auto &currentVertex : currentSubgraphVerticesSorted) {
+                for (const auto &currentVertex : currentSubgraphVertices) {
                     const auto repLocalIdx = currentVertexToRepLocalIdx.at(currentVertex);
                     auto spPair
                         = std::make_pair(bspSchedule.AssignedSuperstep(repLocalIdx), bspSchedule.AssignedProcessor(repLocalIdx));
