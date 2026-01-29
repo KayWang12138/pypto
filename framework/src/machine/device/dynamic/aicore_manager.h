@@ -24,6 +24,7 @@
 
 #include <tracr/tracr.hpp>
 
+#include "acl/acl.h"
 #include "securec.h"
 #include "device_common.h"
 #include "tilefwk/config.h"
@@ -210,7 +211,6 @@ public:
             return ret;
         }
 
-
         INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_SCHED_EXEC, 0);
         PerfMtTrace(PERF_TRACE_DEV_TASK_SCHED_EXEC, aicpuIdx_);
         PerfMtBegin(PERF_EVT_SYNC_AICORE, aicpuIdx_);
@@ -337,7 +337,7 @@ public:
     inline int Run(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
         
         /* TraCR Instrumentation */
-        DEV_ERROR("[TraCR] TraCR active[%d]? %d", threadIdx, INSTRUMENTATION_ACTIVE);
+        DEV_ERROR("[TraCR] TraCR active[%d,%ld]? %d", threadIdx, syscall(SYS_gettid), INSTRUMENTATION_ACTIVE);
         if (threadIdx == 1) {
             DEV_ERROR("[TraCR] Thread [%d] start tracr? [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
 
