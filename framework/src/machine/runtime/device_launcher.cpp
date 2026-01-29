@@ -195,6 +195,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         repeatTime = 1;
     }
     for (int64_t i = 0; i < repeatTime; ++i) {
+        UpdateProfConfig(kArgs, config, (i == repeatTime - 1));
         DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, function->GetDyndevAttribute()->disableL2List);
         HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 
