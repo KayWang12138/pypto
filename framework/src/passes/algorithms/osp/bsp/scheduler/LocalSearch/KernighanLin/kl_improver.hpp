@@ -1064,7 +1064,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
     void SynchronizeActiveSchedule(const unsigned numThreads) {
         if (numThreads == 1) {    // single thread case
             activeSchedule_.SetCost(threadDataVec_[0].activeScheduleData_.cost_);
-            activeSchedule_.GetVectorSchedule().numberOfSupersteps_ = threadDataVec_[0].NumSteps();
+            activeSchedule_.GetVectorSchedule().NumberOfSupersteps() = threadDataVec_[0].NumSteps();
             return;
         }
 
@@ -1080,7 +1080,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 }
             }
         }
-        activeSchedule_.GetVectorSchedule().numberOfSupersteps_ = writeCursor;
+        activeSchedule_.GetVectorSchedule().NumberOfSupersteps() = writeCursor;
         const CostT newCost = commCostF_.ComputeScheduleCost();
         activeSchedule_.SetCost(newCost);
     }

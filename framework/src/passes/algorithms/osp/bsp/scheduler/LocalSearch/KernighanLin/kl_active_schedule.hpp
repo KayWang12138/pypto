@@ -17,9 +17,7 @@
 #define OSP_KL_ACTIVE_SCHEDULE_HPP
 
 #include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
-#include "passes/algorithms/osp/bsp/model/IBspSchedule.hpp"
 #include "passes/algorithms/osp/bsp/model/util/SetSchedule.hpp"
-#include "passes/algorithms/osp/bsp/model/util/VectorSchedule.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/ImprovementScheduler.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 
@@ -283,7 +281,7 @@ class KlActiveSchedule {
 
     const BspInstance<GraphT> *instance_;
 
-    VectorSchedule<GraphT> vectorSchedule_;
+    BspSchedule<GraphT> vectorSchedule_;
     SetSchedule<GraphT> setSchedule_;
 
     CostT cost_ = 0;
@@ -294,9 +292,9 @@ class KlActiveSchedule {
 
     inline const BspInstance<GraphT> &GetInstance() const { return *instance_; }
 
-    inline const VectorSchedule<GraphT> &GetVectorSchedule() const { return vectorSchedule_; }
+    inline const BspSchedule<GraphT> &GetVectorSchedule() const { return vectorSchedule_; }
 
-    inline VectorSchedule<GraphT> &GetVectorSchedule() { return vectorSchedule_; }
+    inline BspSchedule<GraphT> &GetVectorSchedule() { return vectorSchedule_; }
 
     inline const SetSchedule<GraphT> &GetSetSchedule() const { return setSchedule_; }
 
@@ -394,7 +392,7 @@ class KlActiveSchedule {
     void ComputeViolations(ThreadDataT &threadData);
     void ComputeWorkMemoryDatastructures(unsigned startStep, unsigned endStep);
     void WriteSchedule(BspSchedule<GraphT> &schedule);
-    inline void Initialize(const IBspSchedule<GraphT> &schedule);
+    inline void Initialize(const BspSchedule<GraphT> &schedule);
     inline void Clear();
     void RemoveEmptyStep(unsigned step);
     void InsertEmptyStep(unsigned step);
@@ -507,9 +505,9 @@ void KlActiveSchedule<GraphT, CostT>::ComputeViolations(ThreadDataT &threadData)
 }
 
 template <typename GraphT, typename CostT>
-void KlActiveSchedule<GraphT, CostT>::Initialize(const IBspSchedule<GraphT> &schedule) {
+void KlActiveSchedule<GraphT, CostT>::Initialize(const BspSchedule<GraphT> &schedule) {
     instance_ = &schedule.GetInstance();
-    vectorSchedule_ = VectorSchedule(schedule);
+    vectorSchedule_ = BspSchedule(schedule);
     setSchedule_ = SetSchedule(schedule);
     workDatastructures_.Initialize(setSchedule_, *instance_, NumSteps());
 
@@ -544,7 +542,7 @@ void KlActiveSchedule<GraphT, CostT>::RemoveEmptyStep(unsigned step) {
         std::swap(setSchedule_.GetProcessorStepVertices()[i], setSchedule_.GetProcessorStepVertices()[i + 1]);
         workDatastructures_.SwapSteps(i, i + 1);
     }
-    vectorSchedule_.numberOfSupersteps_--;
+    vectorSchedule_.NumberOfSupersteps()--;
 }
 
 template <typename GraphT, typename CostT>

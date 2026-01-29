@@ -8,18 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file SetSchedule.hpp
- * \brief
- */
-
 #ifndef OSP_SETSCHEDULE_HPP
 #define OSP_SETSCHEDULE_HPP
 
 #include <unordered_set>
 #include <vector>
 
-#include "passes/algorithms/osp/bsp/model/IBspSchedule.hpp"
+#include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
 #include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 
 namespace npu::tile_fwk {
@@ -50,10 +45,10 @@ class SetSchedule {
     SetSchedule() = default;
 
     /**
-     * @brief Constructs a SetSchedule from another IBspSchedule.
+     * @brief Constructs a SetSchedule from another BspSchedule.
      * @param schedule The source schedule to copy from.
      */
-    SetSchedule(const IBspSchedule<GraphT> &schedule)
+    SetSchedule(const BspSchedule<GraphT> &schedule)
         : instance_(&schedule.GetInstance()), numberOfSupersteps_(schedule.NumberOfSupersteps()) {
         stepProcessorVertices_.resize(schedule.NumberOfSupersteps(),
                                       std::vector<std::unordered_set<VertexIdx>>(schedule.GetInstance().NumberOfProcessors()));
@@ -69,70 +64,20 @@ class SetSchedule {
     }
 
     ~SetSchedule() = default;
-
-    /**
-     * @brief Clears the schedule assignments and resets the number of supersteps to 0.
-     */
     void Clear() {
         stepProcessorVertices_.clear();
         numberOfSupersteps_ = 0;
     }
 
-    /**
-     * @brief Get the BSP instance associated with this schedule.
-     *
-     * @return The BSP instance.
-     */
     [[nodiscard]] const BspInstance<GraphT> &GetInstance() const { return *instance_; }
-
     [[nodiscard]] unsigned NumberOfSupersteps() const { return numberOfSupersteps_; }
-
-    /**
-     * @brief Merges a range of supersteps into a single superstep (the startStep).
-     * @param startStep The start of the range (inclusive).
-     * @param endStep The end of the range (inclusive).
-     */
-    void MergeSupersteps(unsigned startStep, unsigned endStep) {
-        if (startStep >= endStep || endStep >= numberOfSupersteps_) {
-            return;
-        }
-
-        unsigned step = startStep + 1;
-        // Merge contents of [startStep+1, endStep] into startStep
-        for (; step <= endStep; step++) {
-            for (unsigned proc = 0; proc < GetInstance().NumberOfProcessors(); proc++) {
-                stepProcessorVertices_[startStep][proc].merge(stepProcessorVertices_[step][proc]);
-            }
-        }
-
-        // Shift remaining supersteps down
-        // The original logic was: step is now endStep + 1
-        unsigned shift = endStep - startStep;
-        for (; step < numberOfSupersteps_; step++) {
-            for (unsigned proc = 0; proc < GetInstance().NumberOfProcessors(); proc++) {
-                stepProcessorVertices_[step - shift][proc] = std::move(stepProcessorVertices_[step][proc]);
-            }
-        }
-
-        numberOfSupersteps_ -= shift;
-        stepProcessorVertices_.resize(numberOfSupersteps_);
-    }
 
     /**
      * @brief Get the internal node assignment structure.
      * @return Reference to the vector of vectors of unordered sets of vertices.
      */
-    [[nodiscard]] const std::vector<std::vector<std::unordered_set<VertexIdx>>> &GetProcessorStepVertices() const {
-        return stepProcessorVertices_;
-    }
-
-    /**
-     * @brief Get the internal node assignment structure (mutable).
-     * @return Reference to the vector of vectors of unordered sets of vertices.
-     */
-    [[nodiscard]] std::vector<std::vector<std::unordered_set<VertexIdx>>> &GetProcessorStepVertices() {
-        return stepProcessorVertices_;
-    }
+    [[nodiscard]] const std::vector<std::vector<std::unordered_set<VertexIdx>>> &GetProcessorStepVertices() const { return stepProcessorVertices_;  }
+    [[nodiscard]] std::vector<std::vector<std::unordered_set<VertexIdx>>> &GetProcessorStepVertices() { return stepProcessorVertices_;  }
 };
 
 }    // namespace osp

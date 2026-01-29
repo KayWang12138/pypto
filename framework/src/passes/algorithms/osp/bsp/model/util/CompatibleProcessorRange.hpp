@@ -8,11 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file CompatibleProcessorRange.hpp
- * \brief
- */
-
 #ifndef OSP_COMPATIBLEPROCESSORRANGE_HPP
 #define OSP_COMPATIBLEPROCESSORRANGE_HPP
 
@@ -77,7 +72,6 @@ class CompatibleProcessorRange {
      * @return A const reference to a vector of compatible processor indices.
      */
     [[nodiscard]] const auto &CompatibleProcessorsType(const VTypeT<GraphT> type) const {
-        assert(instance_ != nullptr);
         if constexpr (hasTypedVerticesV<GraphT>) {
             return typeProcessorIdx_[type];
         } else {
@@ -92,7 +86,6 @@ class CompatibleProcessorRange {
      * @return A const reference to a vector of compatible processor indices.
      */
     [[nodiscard]] const auto &CompatibleProcessorsVertex(const VertexIdxT<GraphT> vertex) const {
-        assert(instance_ != nullptr);
         return CompatibleProcessorsType(instance_->GetComputationalDag().VertexType(vertex));
     }
 };

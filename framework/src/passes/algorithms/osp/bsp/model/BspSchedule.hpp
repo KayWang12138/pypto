@@ -21,9 +21,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "IBspSchedule.hpp"
 #include "passes/algorithms/osp/bsp/model/cost/LazyCommunicationCost.hpp"
-#include "passes/algorithms/osp/bsp/model/util/SetSchedule.hpp"
 #include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 
 namespace npu::tile_fwk {
@@ -47,12 +45,9 @@ namespace osp {
  * tied to a `BspInstance` object.
  *
  * @tparam GraphT The type of the computational DAG, which must satisfy `is_computational_dag_v`.
- * @see BspInstance
- * @see IBspSchedule
- * @see IBspScheduleEval
  */
 template <typename GraphT>
-class BspSchedule : public IBspSchedule<GraphT> {
+class BspSchedule {
     static_assert(isComputationalDagV<GraphT>, "BspSchedule can only be used with computational DAGs.");
     static_assert(std::is_same_v<VWorkwT<GraphT>, VCommwT<GraphT>>,
                   "BspSchedule requires work and comm. weights to have the same type.");
@@ -68,14 +63,14 @@ class BspSchedule : public IBspSchedule<GraphT> {
     std::vector<unsigned> nodeToSuperstepAssignment_;
 
   public:
-    BspSchedule() = delete;
-
+    BspSchedule() = default;
+    
     /**
      * @brief Constructs a BspSchedule object with the specified BspInstance.
      *
      * @param inst The BspInstance for the schedule.
      */
-    explicit BspSchedule(const BspInstance<GraphT> &inst)
+    BspSchedule(const BspInstance<GraphT> &inst)
         : instance_(&inst),
           numberOfSupersteps_(1),
           nodeToProcessorAssignment_(std::vector<unsigned>(inst.NumberOfVertices(), 0)),
@@ -94,22 +89,6 @@ class BspSchedule : public IBspSchedule<GraphT> {
                 const std::vector<unsigned> &superstepAssignment)
         : instance_(&inst), nodeToProcessorAssignment_(processorAssignment), nodeToSuperstepAssignment_(superstepAssignment) {
         UpdateNumberOfSupersteps();
-    }
-
-    /**
-     * @brief Copy constructor from an IBspSchedule.
-     *
-     * @param schedule The schedule to copy.
-     */
-    explicit BspSchedule(const IBspSchedule<GraphT> &schedule)
-        : instance_(&schedule.GetInstance()),
-          numberOfSupersteps_(schedule.NumberOfSupersteps()),
-          nodeToProcessorAssignment_(schedule.GetInstance().NumberOfVertices()),
-          nodeToSuperstepAssignment_(schedule.GetInstance().NumberOfVertices()) {
-        for (const auto &v : schedule.GetInstance().GetComputationalDag().Vertices()) {
-            nodeToProcessorAssignment_[v] = schedule.AssignedProcessor(v);
-            nodeToSuperstepAssignment_[v] = schedule.AssignedSuperstep(v);
-        }
     }
 
     /**
@@ -190,14 +169,22 @@ class BspSchedule : public IBspSchedule<GraphT> {
      *
      * @return A reference to the BspInstance for the schedule.
      */
-    [[nodiscard]] const BspInstance<GraphT> &GetInstance() const override { return *instance_; }
+    [[nodiscard]] const BspInstance<GraphT> &GetInstance() const { return *instance_; }
 
     /**
      * @brief Returns the number of supersteps in the schedule.
      *
      * @return The number of supersteps in the schedule.
      */
-    [[nodiscard]] unsigned NumberOfSupersteps() const override { return numberOfSupersteps_; }
+    [[nodiscard]] unsigned NumberOfSupersteps() const { return numberOfSupersteps_; }
+
+    unsigned& NumberOfSupersteps() { return numberOfSupersteps_; }
+
+    void Clear() {
+        nodeToProcessorAssignment_.clear();
+        nodeToSuperstepAssignment_.clear();
+        numberOfSupersteps_ = 0;
+    }
 
     /**
      * @brief Updates the number of supersteps based on the current assignment.
@@ -217,7 +204,7 @@ class BspSchedule : public IBspSchedule<GraphT> {
      * @param node The node for which to return the assigned superstep.
      * @return The superstep assigned to the specified node.
      */
-    [[nodiscard]] unsigned AssignedSuperstep(const VertexIdx node) const override { return nodeToSuperstepAssignment_[node]; }
+    [[nodiscard]] unsigned AssignedSuperstep(const VertexIdx node) const { return nodeToSuperstepAssignment_[node]; }
 
     /**
      * @brief Returns the processor assigned to the specified node.
@@ -225,7 +212,7 @@ class BspSchedule : public IBspSchedule<GraphT> {
      * @param node The node for which to return the assigned processor.
      * @return The processor assigned to the specified node.
      */
-    [[nodiscard]] unsigned AssignedProcessor(const VertexIdx node) const override { return nodeToProcessorAssignment_[node]; }
+    [[nodiscard]] unsigned AssignedProcessor(const VertexIdx node) const { return nodeToProcessorAssignment_[node]; }
 
     /**
      * @brief Returns the superstep assignment for the schedule.
