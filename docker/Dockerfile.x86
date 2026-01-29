@@ -38,11 +38,11 @@ RUN python -m pip install --no-cache-dir torch==2.6.0 --index-url https://downlo
 WORKDIR /installers
 
 RUN wget --no-check-certificate -O /installers/Ascend-cann-toolkit_8.5.0_linux-${arch}.run \
-        https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-toolkit_8.5.0_linux-x86_64.run \
+        https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-toolkit_8.5.0_linux-${arch}.run \
  && wget --no-check-certificate -O /installers/Ascend-cann-910b-ops_8.5.0_linux-${arch}.run \
-        https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run \
+        https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-910b-ops_8.5.0_linux-${arch}.run \
  && wget --no-check-certificate -O /installers/cann-pto-isa_8.5.0_linux-${arch}.run \
-        http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/202601/20260112/ubuntu_x86/cann-pto-isa_8.5.0_linux-x86_64.run
+        http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/release_version/ubuntu_x86/cann-pto-isa_linux-${arch}.run
 
 # ---- install Ascend CANN Toolkit 8.5.0 ----
 RUN chmod +x Ascend-cann-toolkit_8.5.0_linux-${arch}.run \
