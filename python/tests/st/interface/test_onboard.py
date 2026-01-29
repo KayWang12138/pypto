@@ -263,6 +263,18 @@ def infer_shape_kenrel(a, b, c, eps):
         tb = b[i: i + 32, :]
         c[i:, 0:] = ta + tb
 
+@pypto.jit(
+    runtime_options={
+        "stitch_cfgcache_size": 1024 * 1024,
+    }
+)
+def infer_shape_kenrel1(a, b, c, eps):
+    assert eps == 1.0
+    pypto.set_vec_tile_shapes(16, 16)
+    for i in pypto.loop(0, a.shape[0], 32):
+        ta = a[i: i + 32, :]
+        tb = b[i: i + 32, :]
+        c[i:, 0:] = ta + tb
 
 def test_infer_shape():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
@@ -281,7 +293,10 @@ def test_infer_shape():
             ta = pypto.from_torch(a[i], dynamic_axis=[0])
             tb = pypto.from_torch(b[i], dynamic_axis=[0])
             tc = pypto.from_torch(c[i], dynamic_axis=[0])
-            infer_shape_kenrel(ta, tb, tc, 1.0)
+            if (i % 3 == 0):
+                infer_shape_kenrel(ta, tb, tc, 1.0)
+            else:
+                infer_shape_kenrel1(ta, tb, tc, 1.0)
 
         torch.npu.synchronize()
         for i in range(n):
