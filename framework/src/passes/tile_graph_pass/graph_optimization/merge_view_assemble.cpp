@@ -92,11 +92,12 @@ Status MergeViewAssemble::AppendMergedViewOperations(Function &function) {
         }
         auto &mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output});
         mergedViewOp.SetOpAttribute(attr);
-        // 继承op_attr_copy_in_mode属性
-        if (viewOp.hasCopyInMode) {
-            mergedViewOp.SetAttr("op_attr_copy_in_mode", viewOp.copyInModeValue); 
-            APASS_LOG_DEBUG_F(Elements::Operation, "Inherited op_attr_copy_in_mode attribute for merged view operation.");
-        }   
+        // 继承所有需要保留的属性
+        for (const auto &[attrName, attrValue] : viewOp.inheritedAttrs) {
+            mergedViewOp.SetAttr(attrName, attrValue);
+            APASS_LOG_DEBUG_F(
+                Elements::Operation, "Inherited attribute %s for merged view operation.", attrName.c_str());
+        }
         viewOp.output->UpdateDynValidShape(viewOp.dynValidShape);    
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "Appended %zu merged view operations.", viewOpToAppend_.size());
@@ -314,15 +315,21 @@ void MergeViewAssemble::RecordMergedViewOperation(Operation* lastViewOp, const s
                     lastViewOp->GetOpMagic(), GetFormatBacktrace(*lastViewOp).c_str());
         return;
     }
-    // 获取特定的 op_attr_copy_in_mode 属性
-    int64_t copyInModeValue = 0;
-    bool hasCopyInMode = lastViewOp->GetAttr<int64_t>("op_attr_copy_in_mode", copyInModeValue);
+    // 收集需要继承的属性
+    std::unordered_map<std::string, npu::tile_fwk::Any> inheritedAttrs;
+    for (const auto &attrName : kInheritedAttrNames) {
+        auto attrValue = lastViewOp->GetRawAttr(attrName);
+        if (attrValue.HasValue()) {
+            inheritedAttrs[attrName] = attrValue;
+        }
+    }
     // 清理消费者关系
     endTensor->GetProducers().clear();
     // 记录合并op
-    viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode, std::move(copyInModeValue)});
-    APASS_LOG_DEBUG_F(Elements::Operation, "Recorded merged view operation from opmagic: %d, hasCopyInMode: %d.", 
-                lastViewOp->GetOpMagic(), hasCopyInMode);
+    APASS_LOG_DEBUG_F(Elements::Operation, "Recorded merged view operation from opmagic: %d, inherited %zu attributes.",
+        lastViewOp->GetOpMagic(), inheritedAttrs.size());
+    viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape,
+        lastViewAttr->GetTo(), std::move(inheritedAttrs)});
 }
 
 Status MergeViewAssemble::MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain) {
