@@ -77,6 +77,9 @@ public:
     std::string GenLoadOp() const;
     std::string GenGatherInL1() const;
     std::string GenGatherInUB() const;
+    std::string PrintGatherInUBDynamicUnaligned() const;
+    std::string PrintGatherInUBLayout() const;
+    
 
     std::string GenUnaryOp() const;
     std::string GenUnaryOpWithTmpBuff() const;
