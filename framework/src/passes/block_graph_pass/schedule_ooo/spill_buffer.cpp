@@ -122,6 +122,7 @@ Status OoOScheduler::UpdateTensorAttr(
 void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, IssueEntryPtr issue) {
     if (issue->tileOp.GetInternalSubgraphID() != NOT_IN_SUBGRAPH) {
         op.UpdateInternalSubgraphID(issue->tileOp.GetInternalSubgraphID());
+        op.SetAIVCore(issue->tileOp.GetAIVCore());
     }
 }
 

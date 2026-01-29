@@ -1272,6 +1272,7 @@ void OoOScheduler::UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp) {
     }
     if (occupyOp.GetInternalSubgraphID() != NOT_IN_SUBGRAPH) {
         moveOp.UpdateInternalSubgraphID(occupyOp.GetInternalSubgraphID());
+        moveOp.SetAIVCore(occupyOp.GetAIVCore());
     }
 }
 
