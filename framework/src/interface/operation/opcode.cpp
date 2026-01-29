@@ -79,6 +79,21 @@ void OpcodeManager::RegisterVectorBinary() {
     RegisterInfo(Opcode::OP_MINIMUM, OpCoreType::AIV, "MINIMUM", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::Tmin", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST,
         {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_BITWISERIGHTSHIFT, OpCoreType::AIV, "BITWISERIGHTSHIFT", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tbitwiserightshift", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, 
+        {OpAttributeKey::inputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_BITWISELEFTSHIFT, OpCoreType::AIV, "BITWISELEFTSHIFT", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tbitwiseleftshift", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, 
+        {OpAttributeKey::inputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_BITWISEAND, OpCoreType::AIV, "BITWISEAND", {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {MemoryType::MEM_UB}, {"TileOp::TbitwiseAnd", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, 
+        {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_BITWISEOR, OpCoreType::AIV, "BITWISEOR", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB}, {"TileOp::TbitwiseOr", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST,
+        {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_BITWISEXOR, OpCoreType::AIV, "BITWISEXOR", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TbitwiseXor", PIPE_V, PIPE_V, CoreType::AIV}, 
+        OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_S_ADD, OpCoreType::AIV, "S_ADD", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::TSadd", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST,
         {OpAttributeKey::inputCombineAxis});
@@ -127,6 +142,39 @@ void OpcodeManager::RegisterVectorBinary() {
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
             OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
         TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_BITWISERIGHTSHIFTS, OpCoreType::AIV, "BITWISERIGHTSHIFTS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Tbitwiserightshifts", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
+            OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
+        TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_BITWISELEFTSHIFTS, OpCoreType::AIV, "BITWISELEFTSHIFTS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Tbitwiseleftshifts", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
+            OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
+        TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_SBITWISERIGHTSHIFT, OpCoreType::AIV, "SBITWISERIGHTSHIFT", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TSbitwiserightshift", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
+            OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse});
+    RegisterInfo(Opcode::OP_SBITWISELEFTSHIFT, OpCoreType::AIV, "SBITWISELEFTSHIFT", {MemoryType::MEM_UB},
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TSbitwiseleftshift", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
+            OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse});
+    RegisterInfo(Opcode::OP_BITWISEANDS, OpCoreType::AIV, "BITWISEANDS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Tbitwiseands", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand", 
+            OpAttributeKey::excludeBufferReuse, OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
+        TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_BITWISEORS, OpCoreType::AIV, "BITWISEORS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Tbitwiseors", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand", 
+            OpAttributeKey::excludeBufferReuse, OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
+        TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_BITWISEXORS, OpCoreType::AIV, "BITWISEXORS", {MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tbitwisexors", PIPE_V, PIPE_V, CoreType::AIV}, 
+        OpCalcType::ELMWISE, {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", 
+            OpAttributeKey::excludeBufferReuse, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis, 
+            OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_S_ADDS, OpCoreType::AIV, "S_ADDS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::TSadds", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
@@ -177,6 +225,9 @@ void OpcodeManager::RegisterVectorUnary() {
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_SQRT, OpCoreType::AIV, "SQRT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tsqrt", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_BITWISENOT, OpCoreType::AIV, "BITWISENOT", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Tbitwisenot", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_ABS, OpCoreType::AIV, "ABS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tabs", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
@@ -782,6 +833,19 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {              Opcode::OP_RANGE,         "TRange"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
     {      Opcode::OP_INDEX_OUTCAST,  "TIndexOutcast"},
+    {  Opcode::OP_BITWISERIGHTSHIFT,     "TBitrshift"},
+    {   Opcode::OP_BITWISELEFTSHIFT,     "TBitlshift"},
+    { Opcode::OP_BITWISERIGHTSHIFTS,    "TBitrshiftS"},
+    {  Opcode::OP_BITWISELEFTSHIFTS,    "TBitlshiftS"},
+    { Opcode::OP_SBITWISERIGHTSHIFT,    "TSBitrshift"},
+    {  Opcode::OP_SBITWISELEFTSHIFT,    "TSBitlshift"},
+    {         Opcode::OP_BITWISEAND,    "TBitwiseAnd"},
+    {          Opcode::OP_BITWISEOR,     "TBitwiseOr"},
+    {         Opcode::OP_BITWISEXOR,    "TBitwiseXor"},
+    {        Opcode::OP_BITWISEANDS,   "TBitwiseAndS"},
+    {         Opcode::OP_BITWISEORS,    "TBitwiseOrS"},
+    {        Opcode::OP_BITWISEXORS,   "TBitwiseXorS"},
+    {         Opcode::OP_BITWISENOT,    "TBitwiseNot"},
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
