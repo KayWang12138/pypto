@@ -497,14 +497,9 @@ int64_t AlignedRawTensorIfNeed(LogicalTensorPtr &in, int64_t pos, const int64_t 
     return padDim;
 }
 
-void ProcessReduceForAxisCombine(Operation &op, LogicalTensorPtr &in, size_t paddingValue) {
-    auto axis = op.GetIntAttribute(REDUCE_AXIS);
+int64_t FindPadIdx(LogicalTensorPtr &in) {
     int64_t shapeSize = static_cast<int64_t>(in->shape.size());
     int64_t lastIdx = shapeSize - 1;
-    if (shapeSize == 1 || axis == shapeSize - 2) {
-        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
-        return;
-    }
     int64_t idx = lastIdx;
     bool isFound = false;
     for (; idx >= 0; --idx) {
@@ -516,6 +511,18 @@ void ProcessReduceForAxisCombine(Operation &op, LogicalTensorPtr &in, size_t pad
     if (!isFound) {
         idx = lastIdx;
     }
+    return idx;
+}
+
+void ProcessReduceForAxisCombine(Operation &op, LogicalTensorPtr &in, size_t paddingValue) {
+    auto axis = op.GetIntAttribute(REDUCE_AXIS);
+    int64_t shapeSize = static_cast<int64_t>(in->shape.size());
+    int64_t lastIdx = shapeSize - 1;
+    if (shapeSize == 1 || axis == shapeSize - 2) {
+        AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
+        return;
+    }
+    int64_t idx = FindPadIdx(in);
     int64_t padDim = AlignedRawTensorIfNeed(in, idx, paddingValue);
     if (op.GetOpcode() == Opcode::OP_ROWSUMLINE) {
         auto tempBuffer = op.GetOOperands()[1];
@@ -566,6 +573,12 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
         return;
     }
+    if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+        if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
+            AlignedRawTensorIfNeed(in, lastIdx - 1, paddingValue);
+            return;
+        }
+    }
     if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT ||
             (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
         if (op.GetOpcode() == Opcode::OP_EXPAND) {
@@ -573,7 +586,11 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
             return;
         }
         if (lastIdx > 0 && in->tensor->rawshape[lastIdx] == 1) {
-            AlignedRawTensorIfNeed(in, lastIdx - 1, paddingValue);
+            size_t padIdx = FindPadIdx(in);
+            if (padIdx == lastIdx) {
+                padIdx = lastIdx - 1;
+            }
+            AlignedRawTensorIfNeed(in, padIdx, paddingValue);
             return;
         }
     }
