@@ -405,7 +405,7 @@ TEST_F(OspAlgorithmTest, NoEdgesGraph) {
     EXPECT_EQ(graph.NumEdges(), 0);
 }
 
-TEST_F(OspAlgorithmTest, LineGraph) {
+GraphType LineGraph() {
     const std::set<std::pair<std::size_t, std::size_t>> edges({
         {0, 1},
         {1, 2},
@@ -416,7 +416,11 @@ TEST_F(OspAlgorithmTest, LineGraph) {
         {6, 7}
     });
 
-    GraphType graph(8, edges);
+    return GraphType(8, edges);
+}
+
+TEST_F(OspAlgorithmTest, TestLineGraph) {
+    const GraphType graph = LineGraph();
 
     EXPECT_EQ(graph.NumVertices(), 8);
     EXPECT_EQ(graph.NumEdges(), 7);
@@ -485,7 +489,7 @@ TEST_F(OspAlgorithmTest, LineGraph) {
     }
 }
 
-TEST_F(OspAlgorithmTest, Graph1) {
+GraphType SimpleGraph() {
     const std::vector<std::pair<std::size_t, std::size_t>> edges({
         {0,  1},
         {2,  3},
@@ -500,7 +504,11 @@ TEST_F(OspAlgorithmTest, Graph1) {
         {1,  2}
     });
 
-    GraphType graph(11, edges);
+    return GraphType(11, edges);
+}
+
+TEST_F(OspAlgorithmTest, Graph1) {
+    const GraphType graph = SimpleGraph();
 
     EXPECT_EQ(graph.NumVertices(), 11);
     EXPECT_EQ(graph.NumEdges(), 11);
@@ -576,24 +584,10 @@ TEST_F(OspAlgorithmTest, Graph1) {
 }
 
 TEST_F(OspAlgorithmTest, GraphWorkWeights) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({
-        {0,  1},
-        {2,  3},
-        {6, 10},
-        {7,  9},
-        {0,  2},
-        {4,  6},
-        {1,  6},
-        {6,  7},
-        {5,  6},
-        {3,  7},
-        {1,  2}
-    });
-
     std::vector<unsigned> ww(11);
     std::iota(ww.begin(), ww.end(), 0);
 
-    GraphType graph(11, edges);
+    GraphType graph = SimpleGraph();
     for (auto vert : graph.Vertices()) {
         graph.SetVertexWorkWeight(vert, ww[vert]);
     }
@@ -608,24 +602,10 @@ TEST_F(OspAlgorithmTest, GraphWorkWeights) {
 }
 
 TEST_F(OspAlgorithmTest, GraphCommWeights) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({
-        {0,  1},
-        {2,  3},
-        {6, 10},
-        {7,  9},
-        {0,  2},
-        {4,  6},
-        {1,  6},
-        {6,  7},
-        {5,  6},
-        {3,  7},
-        {1,  2}
-    });
-
     std::vector<unsigned> cw(11);
     std::iota(cw.begin(), cw.end(), 11);
 
-    GraphType graph(11, edges);
+    GraphType graph = SimpleGraph();
     for (auto vert : graph.Vertices()) {
         graph.SetVertexCommWeight(vert, cw[vert]);
     }
@@ -640,24 +620,10 @@ TEST_F(OspAlgorithmTest, GraphCommWeights) {
 }
 
 TEST_F(OspAlgorithmTest, GraphMemWeights) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({
-        {0,  1},
-        {2,  3},
-        {6, 10},
-        {7,  9},
-        {0,  2},
-        {4,  6},
-        {1,  6},
-        {6,  7},
-        {5,  6},
-        {3,  7},
-        {1,  2}
-    });
-
     std::vector<unsigned> mw(11);
     std::iota(mw.begin(), mw.end(), 22);
 
-    GraphType graph(11, edges);
+    GraphType graph = SimpleGraph();
 
     for (auto vert : graph.Vertices()) {
         graph.SetVertexMemWeight(vert, mw[vert]);
@@ -673,24 +639,10 @@ TEST_F(OspAlgorithmTest, GraphMemWeights) {
 }
 
 TEST_F(OspAlgorithmTest, GraphVtype) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({
-        {0,  1},
-        {2,  3},
-        {6, 10},
-        {7,  9},
-        {0,  2},
-        {4,  6},
-        {1,  6},
-        {6,  7},
-        {5,  6},
-        {3,  7},
-        {1,  2}
-    });
-
     std::vector<unsigned> vt(11);
     std::iota(vt.begin(), vt.end(), 33);
 
-    GraphType graph(11, edges);
+    GraphType graph = SimpleGraph();
 
     for (auto vert : graph.Vertices()) {
         graph.SetVertexType(vert, vt[vert]);
@@ -771,21 +723,7 @@ TEST_F(OspAlgorithmTest, ContractionMapCoarsening) {
 }
 
 TEST_F(OspAlgorithmTest, TestTopSort) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({
-        {0,  1},
-        {2,  3},
-        {6, 10},
-        {7,  9},
-        {0,  2},
-        {4,  6},
-        {1,  6},
-        {6,  7},
-        {5,  6},
-        {3,  7},
-        {1,  2}
-    });
-
-    const GraphType graph(11, edges);
+    const GraphType graph = SimpleGraph();
 
     std::vector<VertexIdxT<GraphType>> verts(graph.NumVertices());
     std::iota(verts.begin(), verts.end(), 0);
@@ -801,24 +739,10 @@ TEST_F(OspAlgorithmTest, TestTopSort) {
 }
 
 TEST_F(OspAlgorithmTest, NodeDistances) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({
-        {0,  1},
-        {2,  3},
-        {6, 10},
-        {7,  9},
-        {0,  2},
-        {4,  6},
-        {1,  6},
-        {6,  7},
-        {5,  6},
-        {3,  7},
-        {1,  2}
-    });
-
     const std::vector<unsigned> botDistAns = {5, 4, 3, 2, 3, 3, 2, 1, 0, 0, 0};
     const std::vector<unsigned> topDistAns = {0, 1, 2, 3, 0, 0, 2, 4, 0, 5, 3};
 
-    const GraphType graph(11, edges);
+    const GraphType graph = SimpleGraph();
     const std::vector<unsigned> botDist = GetBottomNodeDistance(graph);
     const std::vector<unsigned> topDist = GetTopNodeDistance(graph);
 
@@ -832,25 +756,12 @@ TEST_F(OspAlgorithmTest, NodeDistances) {
 }
 
 void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({
-        {0,  1},
-        {2,  3},
-        {6, 10},
-        {7,  9},
-        {0,  2},
-        {4,  6},
-        {1,  6},
-        {6,  7},
-        {5,  6},
-        {3,  7},
-        {1,  2}
-    });
     std::vector<unsigned> vt(11, 0);
     vt[0] = 1U;
     vt[1] = 1U;
     vt[2] = 1U;
 
-    GraphType graph(11, edges);
+    GraphType graph = SimpleGraph();
     for (auto vert : graph.Vertices()) {
         graph.SetVertexType(vert, vt[vert]);
     }
