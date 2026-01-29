@@ -51,8 +51,20 @@ static void* TryOpen(const std::string& path, int flags = RTLD_NOW) {
 void* GetLibHandle()
 {
     static auto handle = []() -> void* {
-        const std::vector<std::string> candidates = {
-            // Common install locations
+        std::vector<std::string> candidates;
+
+        // Environment variables take priority (user override)
+        if (const char* libPath = getenv("MPI_LIB_PATH")) {
+            candidates.push_back(std::string(libPath) + "/libmpi.so");
+            candidates.push_back(std::string(libPath) + "/libmpich.so");
+        }
+        if (const char* mpiHome = getenv("MPI_HOME")) {
+            candidates.push_back(std::string(mpiHome) + "/lib/libmpi.so");
+            candidates.push_back(std::string(mpiHome) + "/lib/libmpich.so");
+        }
+
+        // Common install locations
+        const std::vector<std::string> defaultPaths = {
             "/usr/local/mpich/lib/libmpi.so",
             "/usr/lib/libmpi.so",
             "/lib/libmpi.so",
@@ -62,6 +74,7 @@ void* GetLibHandle()
             "libmpi.so",
             "libmpich.so"
         };
+        candidates.insert(candidates.end(), defaultPaths.begin(), defaultPaths.end());
 
         for (const auto& path : candidates) {
             // If absolute path, try RTLD_NOW|RTLD_NOLOAD first to see if already loaded via that path
