@@ -250,7 +250,10 @@ class InferControlflowShape:
 
 @pypto.jit(
     infer_controlflow_shape=InferControlflowShape(),
-    runtime_options={ "triple_stream_sched": True }
+    runtime_options={
+        "triple_stream_sched": True,
+        "stitch_cfgcache_size": 1024 * 1024,
+    }
 )
 def infer_shape_kenrel(a, b, c, eps):
     assert eps == 1.0

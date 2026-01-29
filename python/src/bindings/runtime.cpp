@@ -14,6 +14,7 @@
  */
 
 #include <pybind11/pytypes.h>
+#include "machine/utils/dynamic/dev_encode_program_ctrlflow_cache.h"
 #include "pybind_common.h"
 
 #include <cstdint>
@@ -369,38 +370,22 @@ public:
         return nullptr;
     }
 
-    DevControlFlowCache *BuildControlFlowCache(std::vector<DeviceTensorData> &inputs, bool cache) {
+    DevControlFlowCache *BuildControlFlowCache(std::vector<DeviceTensorData> &inputs, int64_t cfgCacheSize) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         DevControlFlowCache *ctrlCache = nullptr;
 
+        devProg->ctrlFlowCacheSize = cfgCacheSize;
         int ret = EmulationLauncher::BuildControlFlowCache(dynFunc.get(), inputs, {}, &ctrlCache, config);
         if (ret != 0) {
             ALOG_ERROR("control flow cache failed", ret);
             return nullptr;
         }
-
-        auto ctrlCachePtr = std::unique_ptr<uint8_t>((uint8_t *)ctrlCache);
-        if (cache && ctrlCache) {
-            uint8_t *devCache = nullptr;
-            auto cacheSize = ctrlCache->allCacheSize;
-            auto bufNum = DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT;
-            ret = rtMalloc((void **)&devCache, cacheSize * bufNum, RT_MEMORY_HBM, 0);
-            if (ret != 0) {
-                ALOG_ERROR("control flow cache malloc failed", ret);
-                return nullptr;
-            }
-            for (int i = 0; i < bufNum; ++i) {
-                ret = rtMemcpy(devCache + i * cacheSize, cacheSize, ctrlCache, cacheSize, RT_MEMCPY_HOST_TO_DEVICE);
-                if (ret != 0) {
-                    ALOG_ERROR("control flow cache memcpy failed", ret);
-                    rtFree(devCache);
-                    return nullptr;
-                }
-            }
-            caches.emplace_back(inputs, devCache);
-        }
         return ctrlCache;
+    }
+
+    void InsertCtrlFlowCache(std::vector<DeviceTensorData> &inputs, uint8_t *devCache) {
+        caches.emplace_back(inputs, devCache);
     }
 
     int64_t GetWorkspaceSize(const std::vector<DeviceTensorData> &tensors) {
@@ -597,18 +582,40 @@ public:
 
     uint8_t *BuildTempCache(py::object &module, std::vector<DeviceTensorData> &tensors) {
         auto ctrlCache = kernel->BuildControlFlowCache(tensors, false);
-        auto size = ctrlCache->allCacheSize;
-        auto pyalloc = py::getattr(module, "alloc");
-        auto devCache = (uint8_t *)pyalloc(size).cast<int64_t>();
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
-        int ret = rtMemcpy(devCache, size, (uint8_t *)ctrlCache, size, RT_MEMCPY_HOST_TO_DEVICE);
-        if (ret != RT_ERROR_NONE) {
-            ALOG_ERROR("memcpy failed ", ret);
-        }
+        auto devCache = DevCopyCtrlCache(module, ctrlCache, true);
+        free(ctrlCache);
         return devCache;
     }
 
 private:
+    uint8_t *DevCopyCtrlCache(py::object &module, DevControlFlowCache *ctrlCache, bool temp) {
+        uint8_t *devCache = nullptr;
+        auto cacheSize = ctrlCache->allCacheSize;
+        auto bufNum = DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT;
+
+        if (temp) {
+            auto pyalloc = py::getattr(module, "alloc");
+            devCache = (uint8_t *)pyalloc(cacheSize * bufNum).cast<int64_t>();
+        } else {
+            rtMalloc((void **)&devCache, cacheSize * bufNum, RT_MEMORY_HBM, 0);
+        }
+        if (devCache == nullptr) {
+            ALOG_ERROR("control flow cache malloc failed");
+            return nullptr;
+        }
+
+        for (int i = 0; i < bufNum; ++i) {
+            auto ret = rtMemcpy(devCache + i * cacheSize, cacheSize, ctrlCache, cacheSize, RT_MEMCPY_HOST_TO_DEVICE);
+            if (ret != 0) {
+                ALOG_ERROR("control flow cache memcpy failed", ret);
+                rtFree(devCache);
+                return nullptr;
+            }
+        }
+        return devCache;
+    }
+
     void InitCachedArgs() {
         memset_s(&rtAicpuArgs, sizeof(rtAicpuArgsEx_t), 0, sizeof(rtAicpuArgsEx_t));
         rtAicpuArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
@@ -656,7 +663,10 @@ private:
             for (size_t i = 0; i < tensors.size(); i++) {
                 inputs.emplace_back(tensors[i].GetDataType(), nullptr, inputShapes[i]);
             }
-            kernel->BuildControlFlowCache(inputs, true);
+            auto ctrlCache = kernel->BuildControlFlowCache(inputs, stitchCfgCacheSize);
+            auto devCache = DevCopyCtrlCache(module, ctrlCache, false);
+            kernel->InsertCtrlFlowCache(inputs, devCache);
+            free(ctrlCache);
         }
     }
 
