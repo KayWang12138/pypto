@@ -151,6 +151,8 @@ public:
 
         DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devCtrlFlowCache->deviceTaskCount, (int)firstInit);
 
+        /* Currently, sche does not use ctrlFlowCacheAnchor, so that we could record it in devProgram.
+         * However, it should be moved into the execute context. */
         devProg->ctrlFlowCacheAnchor = devCtrlFlowCache;
         if (devCtrlFlowCache->deviceTaskCount == 0) {
             DEV_INFO("ControlFlowCache: cache have no devtask , ignore it");
@@ -235,7 +237,10 @@ public:
         devStartArgs->inputSymbolSize = 0;
         devStartArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
-        InitCtrlFlowCache(devProg, reinterpret_cast<DevControlFlowCache*>(kargs->ctrlFlowCache), devStartArgs, firstInit);
+        DevControlFlowCache *ctrlFlowCacheBase = reinterpret_cast<DevControlFlowCache *>(kargs->ctrlFlowCache);
+        DevControlFlowCache *ctrlFlowCache = reinterpret_cast<DevControlFlowCache *>(
+            reinterpret_cast<uint8_t *>(kargs->ctrlFlowCache) + ctrlFlowCacheBase->allCacheSize * ringBufferHead->GetIndexPendingIndex());
+        InitCtrlFlowCache(devProg, ctrlFlowCache, devStartArgs, firstInit);
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }
