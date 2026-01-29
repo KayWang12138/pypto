@@ -33,7 +33,7 @@ const std::unordered_map<TargetCoreType, std::pair<OpCoreType, int>> targetCoreT
 };
 
 const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWARE_TWO_AIV = {
-    {OpCoreType::AIV, {0,1}},
+    {OpCoreType::AIV, {0, 1}},
     {OpCoreType::AIC, {0}}
 };
 

@@ -66,7 +66,7 @@ const std::unordered_set<Opcode> COPY_IN_OPS = {
 };
 
 const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWARE_TWO = {
-    {OpCoreType::AIV, {0,1}},
+    {OpCoreType::AIV, {0, 1}},
     {OpCoreType::AIC, {0}}
 };
 
