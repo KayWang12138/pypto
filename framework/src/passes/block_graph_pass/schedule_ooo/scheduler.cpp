@@ -186,6 +186,9 @@ void OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType buf
 }
 
 void OoOScheduler::PrintDependencies() {
+    if (static_cast<int>(LoggerManager::GetManager().level) > static_cast<int>(LoggerLevel::DEBUG)) {
+        return;
+    }
     for (const auto &issue : issueEntries) {
         APASS_LOG_DEBUG_F(Elements::Operation, "%s, latency: %d.", issue->GetOpInfo().c_str(), issue->tileOp.GetLatency());
         for (const auto &preId : issue->predecessors) {
@@ -256,6 +259,7 @@ void OoOScheduler::InsertIssueEntries(IssueEntryPtr insertIssue) {
         }
     }
     auto insertPos = issueEntries.insert(it++, insertIssue);
+    issueEntriesOpMagic.insert(insertIssue->tileOp.GetOpMagic());
     for (auto adjustIt = insertPos + 1; adjustIt != issueEntries.end(); adjustIt++) {
         if ((*adjustIt)->execOrder >= insertIssue->execOrder) {
             (*adjustIt)->execOrder++;
@@ -609,13 +613,8 @@ void OoOScheduler::LaunchReadyIssue() {
     }
 }
 
-bool OoOScheduler::IsInissueEntries(Operation* op) {
-    for (auto &issue : issueEntries) {
-        if (issue->tileOp.GetOpMagic() == op->GetOpMagic()) {
-            return true;
-        }
-    }
-    return false;
+bool OoOScheduler::IsInIssueEntries(Operation* op) {
+    return issueEntriesOpMagic.count(op->GetOpMagic());
 }
 
 Status OoOScheduler::InitMemWithoutAlloc() {
@@ -629,11 +628,11 @@ Status OoOScheduler::InitMemWithoutAlloc() {
                 continue;
             }
             for (auto pre : iOperand->GetProducers()) {
-                if (IsViewOp(*pre) && IsInissueEntries(*SkipViewChain(pre, true)->GetInputOperand(0)->GetProducers().begin())) {
+                if (IsViewOp(*pre) && IsInIssueEntries(*SkipViewChain(pre, true)->GetInputOperand(0)->GetProducers().begin())) {
                     needAlloc = false;
                     break;
                 }
-                if (!IsViewOp(*pre) && IsInissueEntries(pre)) {
+                if (!IsViewOp(*pre) && IsInIssueEntries(pre)) {
                     needAlloc = false;
                     break;
                 }
@@ -1128,6 +1127,7 @@ Status OoOScheduler::InitIssueEntry(Operation* op, const std::unordered_map<Oper
         return FAILED;
     }
     issueEntries.emplace_back(issue);
+    issueEntriesOpMagic.insert(issue->tileOp.GetOpMagic());
     if (InitIssueCoreType(issue, op, opCoreMap) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "IssueEntry %s init coreType failed!", issue->GetOpInfo().c_str());
         return FAILED;
