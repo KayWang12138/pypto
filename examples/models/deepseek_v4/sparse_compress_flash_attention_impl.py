@@ -62,8 +62,6 @@ def sparse_compress_flash_attention_compute_decode(query, actual_seq_q, ori_kv, 
     sel_tile = win_size * 2 + topk_tile
     kv_tile = win_size + topk_tile
 
-    atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
-
     for batch_idx in pypto.loop(0, batch_size_sym, 1, name="LOOP_L0_idx", idx_name="bIdx"):
         ori_act_seq = seqused_kv[batch_idx]
         for slc_idx in pypto.loop(0, s1_sym, 1, name="LOOP_L1_s1_SA", idx_name="s1Idx"):
@@ -119,6 +117,7 @@ def sparse_compress_flash_attention_compute_decode(query, actual_seq_q, ori_kv, 
             t_sub = pypto.sub(sij_scale, tilda_mij_reduce)
             tilda_pij = pypto.exp(t_sub)
             tilda_lij_reduce = pypto.sum(tilda_pij, dim=-1, keepdim=True)
+            atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
             sink_sub_res = pypto.sub(atten_sink_2d, tilda_mij_reduce)
             sink_exp_res = pypto.exp(sink_sub_res)
             tilda_lij_reduce = pypto.add(tilda_lij_reduce, sink_exp_res)
@@ -153,8 +152,6 @@ def sparse_compress_flash_attention_compute_prefill(query, actual_seq_q, ori_kv,
     topk_tile = topk
     sel_tile = win_size * 2 + topk_tile
     kv_tile = win_size + topk_tile
-
-    atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
 
     for batch_idx in pypto.loop(0, batch_size_sym, 1, name="LOOP_L0_idx", idx_name="bIdx"):
         cur_s1 = actual_seq_q[batch_idx + 1] - actual_seq_q[batch_idx]
@@ -215,6 +212,7 @@ def sparse_compress_flash_attention_compute_prefill(query, actual_seq_q, ori_kv,
             t_sub = pypto.sub(sij_scale, tilda_mij_reduce)
             tilda_pij = pypto.exp(t_sub)
             tilda_lij_reduce = pypto.sum(tilda_pij, dim=-1, keepdim=True)
+            atten_sink_2d = pypto.reshape(atten_sink, [atten_sink.shape[0], 1], inplace=True)
             sink_sub_res = pypto.sub(atten_sink_2d, tilda_mij_reduce)
             sink_exp_res = pypto.exp(sink_sub_res)
             tilda_lij_reduce = pypto.add(tilda_lij_reduce, sink_exp_res)
@@ -234,17 +232,19 @@ def sparse_compress_flash_attention_compute_prefill(query, actual_seq_q, ori_kv,
 
 @pypto.jit(
     pass_options={
-        "mg_copyin_upper_bound": 4 * 1024 * 1024,
-        "pg_upper_bound": 50000,
+        "mg_copyin_upper_bound": 8 * 1024 * 1024,
+        "pg_upper_bound": 80000,
         "pg_lower_bound": 512,
-        "pg_parallel_lower_bound": 20,
+        "pg_parallel_lower_bound": 40,
+        "cube_l1_reuse_setting": {-1: 2, 0: 8},
         "vec_nbuffer_mode": 1,
-        "cube_l1_reuse_setting": {-1: 4}
+        "vec_nbuffer_setting": {-1: 8}
     },
     runtime_options={
         "stitch_function_num_initial": 128,
         "stitch_function_inner_memory": 1024,
-        "stitch_function_outcast_memory": 1024
+        "stitch_function_outcast_memory": 1024,
+        "device_sched_mode": 1,
     }
 )
 def sparse_compress_flash_attention_d(query, actual_seq_q, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
@@ -265,17 +265,19 @@ def sparse_compress_flash_attention_d(query, actual_seq_q, ori_kv, cmp_kv, ori_b
 
 @pypto.jit(
     pass_options={
-        "mg_copyin_upper_bound": 4 * 1024 * 1024,
-        "pg_upper_bound": 50000,
+        "mg_copyin_upper_bound": 8 * 1024 * 1024,
+        "pg_upper_bound": 80000,
         "pg_lower_bound": 512,
-        "pg_parallel_lower_bound": 20,
+        "pg_parallel_lower_bound": 40,
+        "cube_l1_reuse_setting": {-1: 2, 0: 8},
         "vec_nbuffer_mode": 1,
-        "cube_l1_reuse_setting": {-1: 4}
+        "vec_nbuffer_setting": {-1: 8}
     },
     runtime_options={
         "stitch_function_num_initial": 128,
         "stitch_function_inner_memory": 1024,
-        "stitch_function_outcast_memory": 1024
+        "stitch_function_outcast_memory": 1024,
+        "device_sched_mode": 1,
     }
 )
 def sparse_compress_flash_attention_p(query, actual_seq_q, ori_kv, cmp_kv, ori_block_table, cmp_block_table, atten_sink,
