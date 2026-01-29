@@ -1,12 +1,11 @@
-/*
- * Copyright (c) PyPTO Contributors.
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
- * -----------------------------------------------------------------------------------------------------------
  */
 
 #ifndef PYPTO_IR_SCALAR_EXPR_H_
@@ -309,8 +308,7 @@ inline DataType GetScalarDtype(const ExprPtr& expr) {
   if (auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(expr->GetType())) {
     return scalar_type->dtype_;
   } else {
-    // throw TypeError("Expression must be ScalarExpr or Var with ScalarType, got " + expr->TypeName() +  // Temporarily commented out
-    throw std::invalid_argument("Expression must be ScalarExpr or Var with ScalarType, got " + expr->TypeName() +  // Using std::invalid_argument instead
+    throw std::invalid_argument("Expression must be ScalarExpr or Var with ScalarType, got " + expr->TypeName() +
                     " with type " + expr->GetType()->TypeName());
   }
 }
@@ -329,21 +327,18 @@ inline ScalarCategory GetNumericCategory(const DataType& dtype, const std::strin
   if (dtype.IsInt()) {
     return ScalarCategory::kInt;
   }
-  // throw TypeError("Operator '" + op_name + "' requires numeric scalar dtype, got " + dtype.ToString());  // Temporarily commented out
-  throw std::invalid_argument("Operator '" + op_name + "' requires numeric scalar dtype, got " + dtype.ToString());  // Using std::invalid_argument instead
+  throw std::invalid_argument("Operator '" + op_name + "' requires numeric scalar dtype, got " + dtype.ToString());
 }
 
 inline DataType PromoteSameCategoryDtype(const DataType& left_dtype, const DataType& right_dtype,
                                          const std::string& op_name) {
   if (IsBoolDtype(left_dtype) || IsBoolDtype(right_dtype)) {
-    // throw TypeError("Operator '" + op_name + "' does not accept bool dtype");  // Temporarily commented out
-    throw std::invalid_argument("Operator '" + op_name + "' does not accept bool dtype");  // Using std::invalid_argument instead
+    throw std::invalid_argument("Operator '" + op_name + "' does not accept bool dtype");
   }
   auto left_category = GetNumericCategory(left_dtype, op_name);
   auto right_category = GetNumericCategory(right_dtype, op_name);
   if (left_category != right_category) {
-    // throw TypeError("Operator '" + op_name + "' requires same numeric dtype category, got " +  // Temporarily commented out
-    throw std::invalid_argument("Operator '" + op_name + "' requires same numeric dtype category, got " +  // Using std::invalid_argument instead
+    throw std::invalid_argument("Operator '" + op_name + "' requires same numeric dtype category, got " +
                     left_dtype.ToString() + " and " + right_dtype.ToString());
   }
   size_t left_bits = left_dtype.GetBit();
@@ -384,8 +379,7 @@ inline BinaryOperands PromoteIntBinaryOperands(const ExprPtr& left, const ExprPt
   DataType left_dtype = GetScalarDtype(left);
   DataType right_dtype = GetScalarDtype(right);
   if (!left_dtype.IsInt() || !right_dtype.IsInt()) {
-    // throw TypeError("Operator '" + op_name + "' requires integer dtype, got " + left_dtype.ToString() +  // Temporarily commented out
-    throw std::invalid_argument("Operator '" + op_name + "' requires integer dtype, got " + left_dtype.ToString() +  // Using std::invalid_argument instead
+    throw std::invalid_argument("Operator '" + op_name + "' requires integer dtype, got " + left_dtype.ToString() +
                     " and " + right_dtype.ToString());
   }
   DataType promoted_dtype = PromoteSameCategoryDtype(left_dtype, right_dtype, op_name);
@@ -499,8 +493,7 @@ inline ExprPtr MakeNeg(const ExprPtr& operand, const Span& span = Span::unknown(
 inline ExprPtr MakeBitNot(const ExprPtr& operand, const Span& span = Span::unknown()) {
   DataType dtype = GetScalarDtype(operand);
   if (!dtype.IsInt()) {
-    // throw TypeError("Operator 'bit_not' requires integer dtype, got " + dtype.ToString());  // Temporarily commented out
-    throw std::invalid_argument("Operator 'bit_not' requires integer dtype, got " + dtype.ToString());  // Using std::invalid_argument instead
+    throw std::invalid_argument("Operator 'bit_not' requires integer dtype, got " + dtype.ToString());
   }
   return std::make_shared<BitNot>(operand, dtype, span);
 }
