@@ -36,6 +36,8 @@
 #include <utility>
 #include <vector>
 
+#include "securec.h"
+
 namespace pypto {
 
 // Forward declaration for vector streaming support
@@ -396,11 +398,8 @@ class Logger {
       char buf[MAX_LOG_BUF_SIZE];
       auto epoch = now.time_since_epoch();
       auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(epoch).count() % 1000;
-      std::snprintf(buf, MAX_LOG_BUF_SIZE, "%03d %c | ", static_cast<int>(ms), MSG[static_cast<int>(level)]);
-
+      sprintf_s(buf, MAX_LOG_BUF_SIZE, "%03d %c | ", static_cast<int>(ms), MSG[static_cast<int>(level)]);
       Log(buf);
-      // Uncomment the following line to include function and line number in logs:
-      // Log(func + ":" + std::to_string(line) + " | ");
     }
   }
 
@@ -484,12 +483,14 @@ class Logger {
     if (pypto::LoggerManager::GetManager().level <= pypto::LogLevel::lvl) { \
       constexpr int default_buf_size = 1024;                                \
       std::string buf(default_buf_size, '\0');                              \
-      int msg_length = std::snprintf(buf.data(), buf.size(), ##args) + 1;   \
-      if (msg_length > default_buf_size) {                                  \
-        buf.resize(msg_length, '\0');                                       \
-        std::snprintf(buf.data(), buf.size(), ##args);                      \
+      int msg_length = sprintf_s(buf.data(), buf.size(), ##args);           \
+      if (msg_length > 0 && msg_length >= default_buf_size) {               \
+        buf.resize(msg_length + 1, '\0');                                   \
+        sprintf_s(buf.data(), buf.size(), ##args);                          \
       }                                                                     \
-      LOG_##lvl(buf.data());                                                \
+      if (msg_length > 0) {                                                 \
+        LOG_##lvl(buf.data());                                              \
+      }                                                                     \
     }                                                                       \
   } while (false)
 
