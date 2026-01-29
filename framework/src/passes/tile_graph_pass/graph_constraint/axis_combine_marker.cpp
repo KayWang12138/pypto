@@ -74,6 +74,7 @@ void UpdateViewStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisRe
     }
     if (outputTensor->GetShape().back() != 1) {
         tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
+        return;
     }
     if (tensorStatus.find(inputTensor) != tensorStatus.end()) {
         tensorStatus[outputTensor] = tensorStatus[inputTensor];
@@ -154,20 +155,21 @@ void UpdateReduceStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
 void UpdateElewiseStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
     auto outputTensor = op->GetOOperands()[0];
     for (auto inputTensor : op->GetIOperands()) {
+        if (tensorStatus[inputTensor] == AxisCombineMarker::UNKNOWN && inputTensor->GetShape().back() == 1) {
+            tensorStatus[inputTensor] = AxisReorderStatus::ENABLE;
+        }
+    }
+    if (outputTensor->GetShape().back() != 1) {
+        tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
+        return;
+    }
+    for (auto inputTensor : op->GetIOperands()) {
         if (tensorStatus.find(inputTensor) != tensorStatus.end() && tensorStatus[inputTensor] == AxisReorderStatus::DISABLE) {
             tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
             return;
-        } else {
-            if (inputTensor->GetShape().back() == 1) {
-                tensorStatus[inputTensor] = AxisReorderStatus::ENABLE;
-            }
         }
     }
-    if (outputTensor->GetShape().back() == 1) {
-        tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
-    } else {
-        tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
-    }
+    tensorStatus[outputTensor] = AxisReorderStatus::ENABLE;
 }
 
 void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
@@ -212,14 +214,27 @@ void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
         OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
         ((op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) &&
           outputTensor->GetShape().back() == outputTensor->GetRawTensor()->GetRawShape().back())) {
-        for (auto inputTensor : op->GetIOperands()) {
-            if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
-                tensorStatus_[inputTensor] = tensorStatus_[outputTensor];
-                continue;
+        if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
+            for (auto inputTensor : op->GetIOperands()) {
+                tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
             }
+            return;
+        }
+        bool disable{false};
+        for (auto inputTensor : op->GetIOperands()) {
+            if (tensorStatus_[inputTensor] == AxisReorderStatus::DISABLE) {
+                disable = true;
+            }
+        }
+        if (disable) {
+            for (auto inputTensor : op->GetIOperands()) {
+                tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
+            }
+            return;
+        }
+        for (auto inputTensor : op->GetIOperands()) {
             if (tensorStatus_[inputTensor] == AxisReorderStatus::UNKNOWN) {
                 tensorStatus_[inputTensor] = tensorStatus_[outputTensor];
-                continue;
             }
         }
     }
