@@ -46,85 +46,174 @@ static std::shared_ptr<RawTensorData> CreateTensorData(
     return RawTensorData::CreateTensor<T>(tensor, values);
 }
 
-void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
+struct IndexerTopkParams {
+    int b;
+    int s1;
+    int n1;
+    int d;
+    int blockNum;
+    int blockSize;
+    int n2;
+    int maxBlockNum;
+    int selectedCount;
+};
 
+inline IndexerTopkParams LoadIndexerTopkParams() {
     int paramsSize = 9;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_params.bin", input_param);
+    return {input_param[0], input_param[1], input_param[2], input_param[3],
+            input_param[4], input_param[5], input_param[6], input_param[7], input_param[8]};
+}
 
-    const int b = input_param[0];
-    const int s1 = input_param[1];
-    const int n1 = input_param[2];
-    const int d = input_param[3];
-    const int blockNum = input_param[4];
-    const int blockSize = input_param[5];
-    const int n2 = input_param[6];
-    const int maxBlockNum = input_param[7];
-    const int selectedCount = input_param[8];
+struct IndexerTopkTensors {
+    Tensor staticQuery;
+    Tensor staticKey;
+    Tensor staticQScale;
+    Tensor staticKScale;
+    Tensor staticWeights;
+    Tensor staticActSeq;
+    Tensor staticBlockTable;
+    Tensor staticTopkRes;
+    Tensor staticTmpOut;
+    Tensor staticTopkValue;
+    Tensor query;
+    Tensor key;
+    Tensor qScale;
+    Tensor kScale;
+    Tensor weights;
+    Tensor actSeq;
+    Tensor blockTable;
+    Tensor topkRes;
+    Tensor tmpOut;
+    Tensor topkValue;
+};
 
-    std::set<int> unrollList = {64, 32, 16, 8, 4, 2, 1};
+inline IndexerTopkTensors CreateIndexerTopkTensors(const IndexerTopkParams &params) {
+    const int b = params.b;
+    const int s1 = params.s1;
+    const int n1 = params.n1;
+    const int d = params.d;
+    const int blockNum = params.blockNum;
+    const int blockSize = params.blockSize;
+    const int n2 = params.n2;
+    const int maxBlockNum = params.maxBlockNum;
+    const int selectedCount = params.selectedCount;
 
-    Tensor staticQuery(DT_INT8, {b, s1, n1, d}, "staticQuery");
-    Tensor staticKey(DT_INT8, {blockNum, blockSize, n2, d}, "staticKey");
-    Tensor staticQScale(DT_FP16, {b, s1, n1, 1}, "staticQScale");
-    Tensor staticKScale(DT_FP16, {blockNum, blockSize, n2, 1}, "staticKScale");
-    Tensor staticWeights(DT_FP16, {b, s1, n1}, "staticWeights");
-    Tensor staticActSeq(DT_INT32, {b}, "staticActSeq");
-    Tensor staticBlockTable(DT_INT32, {b, maxBlockNum}, "staticBlockTable");
-    Tensor staticTopkRes(DT_INT32, {b, s1, n2, selectedCount}, "staticTopkRes");
-    Tensor staticTmpOut(DT_FP32, {b * s1 * n2, maxBlockNum * blockSize}, "staticTmpOut");
-    Tensor staticTopkValue(DT_FP32, {b, s1, n2, selectedCount}, "staticTopkValue");
+    return {
+        Tensor(DT_INT8, {b, s1, n1, d}, "staticQuery"),
+        Tensor(DT_INT8, {blockNum, blockSize, n2, d}, "staticKey"),
+        Tensor(DT_FP16, {b, s1, n1, 1}, "staticQScale"),
+        Tensor(DT_FP16, {blockNum, blockSize, n2, 1}, "staticKScale"),
+        Tensor(DT_FP16, {b, s1, n1}, "staticWeights"),
+        Tensor(DT_INT32, {b}, "staticActSeq"),
+        Tensor(DT_INT32, {b, maxBlockNum}, "staticBlockTable"),
+        Tensor(DT_INT32, {b, s1, n2, selectedCount}, "staticTopkRes"),
+        Tensor(DT_FP32, {b * s1 * n2, maxBlockNum * blockSize}, "staticTmpOut"),
+        Tensor(DT_FP32, {b, s1, n2, selectedCount}, "staticTopkValue"),
+        Tensor(DT_INT8, {-1, -1, n1, d}, "query"),
+        Tensor(DT_INT8, {-1, blockSize, n2, d}, "key"),
+        Tensor(DT_FP16, {-1, -1, n1, 1}, "qScale"),
+        Tensor(DT_FP16, {-1, blockSize, n2, 1}, "kScale"),
+        Tensor(DT_FP16, {-1, -1, n1}, "weights"),
+        Tensor(DT_INT32, {-1}, "actSeq"),
+        Tensor(DT_INT32, {-1, -1}, "blockTable"),
+        Tensor(DT_INT32, {}, "topkRes"),
+        Tensor(DT_FP32, {}, "tmpOut"),
+        Tensor(DT_FP32, {}, "topkValue")
+    };
+}
 
-    Tensor query(DT_INT8, {-1, -1, n1, d}, "query");
-    Tensor key(DT_INT8, {-1, blockSize, n2, d}, "key");
-    Tensor qScale(DT_FP16, {-1, -1, n1, 1}, "qScale");
-    Tensor kScale(DT_FP16, {-1, blockSize, n2, 1}, "kScale");
-    Tensor weights(DT_FP16, {-1, -1, n1}, "weights");
-    Tensor actSeq(DT_INT32, {-1}, "actSeq");
-    Tensor blockTable(DT_INT32, {-1, -1}, "blockTable");
+struct IndexerTopkData {
+    std::vector<int32_t> topkResGolden;
+    std::vector<float> tmpGolden;
+    std::vector<float> topkValueGolden;
+    std::vector<RawTensorDataPtr> inputDataList;
+    std::vector<RawTensorDataPtr> outputDataList;
+};
 
-    auto symB = GetInputShape(query, 0);
-    auto symS1 = GetInputShape(query, 1);
-    auto symMaxBlock = GetInputShape(blockTable, 1);
-
-    Tensor topkRes(DT_INT32, {symB, symS1, n2, selectedCount}, "topkRes");
-    Tensor tmpOut(DT_FP32, {symB * symS1 * n2, symMaxBlock * blockSize}, "tmpOut");
-    Tensor topkValue(DT_FP32, {symB, symS1, n2, selectedCount}, "topkValue");
+inline IndexerTopkData LoadIndexerTopkData(const IndexerTopkParams &params, IndexerTopkTensors &tensors) {
+    const int b = params.b;
+    const int s1 = params.s1;
+    const int n1 = params.n1;
+    const int d = params.d;
+    const int blockNum = params.blockNum;
+    const int blockSize = params.blockSize;
+    const int n2 = params.n2;
+    const int maxBlockNum = params.maxBlockNum;
+    const int selectedCount = params.selectedCount;
 
     auto topkResGolden = getGoldenVec<int32_t>({b, s1, n2, selectedCount}, "/topk_res.bin");
     auto tmpGolden = getGoldenVec<float>({b * s1 * n2, maxBlockNum * blockSize}, "/tmp_out.bin");
     auto topkValueGolden = getGoldenVec<float>({b, s1, n2, selectedCount}, "/topk_value.bin");
 
-    auto qData = CreateTensorData<int8_t>(staticQuery, {b, s1, n1, d}, "/query.bin");
-    auto kData = CreateTensorData<int8_t>(staticKey, {blockNum, blockSize, n2, d}, "/key.bin");
-    auto qsData = CreateTensorData<npu::tile_fwk::float16>(staticQScale, {b, s1, n1, 1}, "/q_scale.bin");
-    auto ksData = CreateTensorData<npu::tile_fwk::float16>(staticKScale, {blockNum, blockSize, n2, 1}, "/k_scale.bin");
-    auto wData = CreateTensorData<npu::tile_fwk::float16>(staticWeights, {b, s1, n1}, "/weights.bin");
-    auto sData = CreateTensorData<int32_t>(staticActSeq, {b}, "/act_seq.bin");
-    auto bData = CreateTensorData<int32_t>(staticBlockTable, {b, maxBlockNum}, "/block_table.bin");
-    auto topkResData = RawTensorData::CreateConstantTensor<int32_t>(staticTopkRes, 0);
-    auto tmpData = RawTensorData::CreateConstantTensor<float>(staticTmpOut, 0);
-    auto topkValueData = RawTensorData::CreateConstantTensor<float>(staticTopkValue, 0);
+    auto qData = CreateTensorData<int8_t>(tensors.staticQuery, {b, s1, n1, d}, "/query.bin");
+    auto kData = CreateTensorData<int8_t>(tensors.staticKey, {blockNum, blockSize, n2, d}, "/key.bin");
+    auto qsData = CreateTensorData<npu::tile_fwk::float16>(tensors.staticQScale, {b, s1, n1, 1}, "/q_scale.bin");
+    auto ksData = CreateTensorData<npu::tile_fwk::float16>(tensors.staticKScale, {blockNum, blockSize, n2, 1}, "/k_scale.bin");
+    auto wData = CreateTensorData<npu::tile_fwk::float16>(tensors.staticWeights, {b, s1, n1}, "/weights.bin");
+    auto sData = CreateTensorData<int32_t>(tensors.staticActSeq, {b}, "/act_seq.bin");
+    auto bData = CreateTensorData<int32_t>(tensors.staticBlockTable, {b, maxBlockNum}, "/block_table.bin");
+    auto topkResData = RawTensorData::CreateConstantTensor<int32_t>(tensors.staticTopkRes, 0);
+    auto tmpData = RawTensorData::CreateConstantTensor<float>(tensors.staticTmpOut, 0);
+    auto topkValueData = RawTensorData::CreateConstantTensor<float>(tensors.staticTopkValue, 0);
 
     std::vector<RawTensorDataPtr> inputDataList = {qData, kData, qsData, ksData, wData, sData, bData};
-    // std::vector<RawTensorDataPtr> outputDataList = {topkResData, tmpData};
     std::vector<RawTensorDataPtr> outputDataList = {topkResData, tmpData, topkValueData};
 
-    FUNCTION("IndexerTopk", {query, key, qScale, kScale, weights, actSeq, blockTable}, {topkRes, tmpOut, topkValue}) {
-        LightningIndexerTopkImpl(query, key, true, &qScale, &kScale,
-            weights, actSeq, blockTable, topkRes, selectedCount, tileConfig, unrollList,
-            &tmpOut, &topkValue);
-    }
+    return {topkResGolden, tmpGolden, topkValueGolden, inputDataList, outputDataList};
+}
 
-    DevFuncRunner::Run(
-        Program::GetInstance().GetLastFunction(), inputDataList, outputDataList, DeviceLauncherConfig(0));
+inline void BuildIndexerTopkGraph(IndexerTopkTensors &tensors, const IndexerTopkParams &params,
+                                  IndexerTile &tileConfig, const std::set<int> &unrollList) {
+    const int n2 = params.n2;
+    const int selectedCount = params.selectedCount;
+    const int blockSize = params.blockSize;
+
+    auto symB = GetInputShape(tensors.query, 0);
+    auto symS1 = GetInputShape(tensors.query, 1);
+    auto symMaxBlock = GetInputShape(tensors.blockTable, 1);
+
+    tensors.topkRes = Tensor(DT_INT32, {symB, symS1, n2, selectedCount}, "topkRes");
+    tensors.tmpOut = Tensor(DT_FP32, {symB * symS1 * n2, symMaxBlock * blockSize}, "tmpOut");
+    tensors.topkValue = Tensor(DT_FP32, {symB, symS1, n2, selectedCount}, "topkValue");
+
+    FUNCTION("IndexerTopk", {tensors.query, tensors.key, tensors.qScale, tensors.kScale, tensors.weights,
+                              tensors.actSeq, tensors.blockTable},
+                              {tensors.topkRes, tensors.tmpOut, tensors.topkValue}) {
+        LightningIndexerTopkImpl(tensors.query, tensors.key, true, &tensors.qScale, &tensors.kScale,
+            tensors.weights, tensors.actSeq, tensors.blockTable, tensors.topkRes, selectedCount,
+            tileConfig, unrollList, &tensors.tmpOut, &tensors.topkValue);
+    }
+}
+
+inline void VerifyIndexerTopkResult(const std::vector<int32_t> &topkResGolden,
+                                    const std::vector<float> &tmpGolden,
+                                    const std::vector<float> &topkValueGolden,
+                                    const std::vector<RawTensorDataPtr> &outputDataList,
+                                    int selectedCount) {
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
+                      ProgramData::GetInstance().GetInputData(),
+                      outputDataList, DeviceLauncherConfig(0));
     constexpr float PRE_TAIL = 1e-5f;
     constexpr int TOPK_COUNT = 100;
     constexpr float ratio = 5e-3f;
     std::cout << "=======================topkValue===============================" << std::endl;
-    EXPECT_TRUE(resultCmp(topkValueGolden, (float *)topkValueData->data(), PRE_TAIL, 0, TOPK_COUNT, false, true));
+    EXPECT_TRUE(resultCmp(topkValueGolden, (float *)outputDataList[2]->data(), PRE_TAIL, 0, TOPK_COUNT, false, true));
     std::cout << "=======================topkRes===============================" << std::endl;
-    EXPECT_TRUE(resultCmp4TopK(topkResGolden, (int32_t *)topkResData->data(), selectedCount, ratio));
+    EXPECT_TRUE(resultCmp4TopK(topkResGolden, (int32_t *)outputDataList[0]->data(), selectedCount, ratio));
+}
+
+void TestLightningIndexerTopkQuant(IndexerTile &tileConfig) {
+    std::set<int> unrollList = {64, 32, 16, 8, 4, 2, 1};
+
+    auto params = LoadIndexerTopkParams();
+    auto tensors = CreateIndexerTopkTensors(params);
+    auto data = LoadIndexerTopkData(params, tensors);
+
+    BuildIndexerTopkGraph(tensors, params, tileConfig, unrollList);
+    VerifyIndexerTopkResult(data.topkResGolden, data.tmpGolden, data.topkValueGolden,
+                            data.outputDataList, params.selectedCount);
 }
 
 // DynamicIndexerTopk.indexer_topk_quant_4_b_1_s1_64k_s2

@@ -46,17 +46,46 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
     return RawTensorData::CreateTensor<T>(tensor, values);
 }
 
+template <typename T>
+inline DataType GetDataType() {
+    if (std::is_same<T, npu::tile_fwk::float16>::value) {
+        return DT_FP16;
+    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
+        return DT_BF16;
+    }
+    return DT_FP32;
+}
+
+inline int64_t CalculateCapacity(const std::vector<int64_t>& shape) {
+    return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+}
+
+inline int CalculateBlockNum(const std::vector<int>& seqs, int blockSize) {
+    int blockNum = 0;
+    for (auto s : seqs) {
+        blockNum += CeilDiv(s, blockSize);
+    }
+    return blockNum;
+}
+
+struct BlockInfo {
+    int blockNum;
+    int maxBlockNum;
+};
+
+inline BlockInfo CalculateBlockInfo(const std::vector<int>& seqs, int blockSize) {
+    int blockNum = 0;
+    for (auto s : seqs) {
+        blockNum += CeilDiv(s, blockSize);
+    }
+    int maxSeqAllBatch = *(std::max_element(seqs.begin(), seqs.end()));
+    int maxBlockNum = CeilDiv(maxSeqAllBatch, blockSize);
+    return {blockNum, maxBlockNum};
+}
+
 template <typename T = npu::tile_fwk::bfloat16>
 void TestCmpKvSel(CmpAttnTile &tileConfig) {
-
-    DataType dType = DT_FP32;
-    if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        dType = DT_BF16;
-    } else if (std::is_same<T, npu::tile_fwk::float16>::value) {
-        dType = DT_FP16;
-    } else {
-        dType = DT_FP32;
-    }
+    DataType dType = GetDataType<T>();
 
     int paramsSize = 10;
     std::vector<int> input_param(paramsSize);
@@ -81,21 +110,15 @@ void TestCmpKvSel(CmpAttnTile &tileConfig) {
     // Read actSeqLen_v2
     std::vector<int> actSeq(b);
     readInput<int>(GetGoldenDir() + "/act_seq_compress.bin", actSeq);
-    int blockNum = 0;
-    for (auto s : actSeq) {
-        blockNum += CeilDiv(s, blockSize);
-    }
-    // blockTable_v2: (b, maxBlockNum)
+    auto blockInfo = CalculateBlockInfo(actSeq, blockSize);
+    int blockNum = blockInfo.blockNum;
     int maxBlockNum = CeilDiv(s2, blockSize);
 
     // Read actCmpSeqLen_v2
     std::vector<int> actCmpSeq(b);
     readInput<int>(GetGoldenDir() + "/act_cmp_seq_compress.bin", actCmpSeq);
-    int cmpBlockNum = 0;
-    for (auto s : actCmpSeq) {
-        cmpBlockNum += CeilDiv(s, blockSize);
-    }
-    // cmpBlockTable_v2: (b, maxCmpBlockNum)
+    auto cmpBlockInfo = CalculateBlockInfo(actCmpSeq, blockSize);
+    int cmpBlockNum = cmpBlockInfo.blockNum;
     int maxCmpSeq = *(std::max_element(actCmpSeq.begin(), actCmpSeq.end()));
     int maxCmpBlockNum = CeilDiv(maxCmpSeq, blockSize);
 

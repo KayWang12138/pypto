@@ -45,10 +45,18 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
     return golden;
 }
 
-template <typename T = npu::tile_fwk::float16, bool nz = true, typename wUvDType = int8_t, bool isSmoothWUv = false,
-    typename wODType = int8_t, bool isSmoothWo = false>
-void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileConfig, float precision) {
-    SetInterpreterConfig();
+struct AttentionPostShapes {
+    std::vector<int64_t> xShape;
+    std::vector<int64_t> wUvShape;
+    std::vector<int64_t> wUvScaleShape;
+    std::vector<int64_t> smoothWUvShape;
+    std::vector<int64_t> woShape;
+    std::vector<int64_t> woScaleShape;
+    std::vector<int64_t> smoothWoShape;
+    std::vector<int64_t> outShape;
+};
+
+inline AttentionPostShapes CalculateAttentionPostShapes(const TestPostParams &params) {
     int b = params.b;
     int n = params.n;
     int s = params.s;
@@ -56,66 +64,143 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
     int kvLoraRank = params.kvLoraRank;
     int vHeadDim = params.vHeadDim;
 
+    return {
+        {b, s, n, kvLoraRank},
+        {n, kvLoraRank, vHeadDim},
+        {n, 1, vHeadDim},
+        {1, kvLoraRank},
+        {n * vHeadDim, h},
+        {1, h},
+        {1, n * vHeadDim},
+        {b, s, h}
+    };
+}
+
+template <typename T>
+struct AttentionPostTensors {
+    Tensor x;
+    Tensor wUv;
+    Tensor wo;
+    Tensor postOut;
+};
+
+template <typename T, bool nz, typename wUvDType, typename wODType>
+AttentionPostTensors<T> CreateAttentionPostTensors(const AttentionPostShapes &shapes) {
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
     bool isQuantWUv = std::is_same<wUvDType, int8_t>::value;
     bool isQuantWo = std::is_same<wODType, int8_t>::value;
 
-    std::vector<int64_t> xShape = {b, s, n, kvLoraRank};
-    std::vector<int64_t> wUvShape = {n, kvLoraRank, vHeadDim};
-    std::vector<int64_t> wUvScaleShape = {n, 1, vHeadDim};
-    std::vector<int64_t> smoothWUvShape = {1, kvLoraRank};
-    std::vector<int64_t> woShape = {n * vHeadDim, h};
-    std::vector<int64_t> woScaleShape = {1, h};
-    std::vector<int64_t> smoothWoShape = {1, n * vHeadDim};
-    std::vector<int64_t> outShape = {b, s, h};
-
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor x(dType, xShape, "x");
-    Tensor wUv(isQuantWUv ? DT_INT8 : dType, wUvShape, "wUv");
-    Tensor wo(isQuantWo ? DT_INT8 : dType, woShape, "wo", weightFormat);
-    Tensor postOut(dType, outShape, "postOut");
+    
+    return {
+        Tensor(dType, shapes.xShape, "x"),
+        Tensor(isQuantWUv ? DT_INT8 : dType, shapes.wUvShape, "wUv"),
+        Tensor(isQuantWo ? DT_INT8 : dType, shapes.woShape, "wo", weightFormat),
+        Tensor(dType, shapes.outShape, "postOut")
+    };
+}
 
-    std::vector<T> goldenDate = getGoldenVec<T>(outShape, "/golden_output.bin");
+template <typename T>
+struct AttentionPostData {
+    std::vector<T> golden;
+    std::vector<RawTensorDataPtr> inputDataList;
+    std::vector<RawTensorDataPtr> outputDataList;
+};
 
-    auto xData = CreateTensorData<T>(x, "/x.bin");
-    auto wUvData = CreateTensorData<wUvDType>(wUv, "/w_uv.bin");
-    auto woData = CreateTensorData<wODType>(wo, "/w_o.bin");
-    auto outputData = RawTensorData::CreateConstantTensor<T>(postOut, 0.0);
+template <typename T, typename wUvDType, typename wODType>
+AttentionPostData<T> PrepareAttentionPostData(const AttentionPostTensors<T> &tensors,
+                                              const AttentionPostShapes &shapes,
+                                              bool isQuantWUv, bool isSmoothWUv,
+                                              bool isQuantWo, bool isSmoothWo) {
+    auto golden = getGoldenVec<T>(shapes.outShape, "/golden_output.bin");
 
-    std::vector<RawTensorDataPtr> outputDataList = {outputData};
+    auto xData = CreateTensorData<T>(tensors.x, "/x.bin");
+    auto wUvData = CreateTensorData<wUvDType>(tensors.wUv, "/w_uv.bin");
+    auto woData = CreateTensorData<wODType>(tensors.wo, "/w_o.bin");
+    auto outputData = RawTensorData::CreateConstantTensor<T>(tensors.postOut, 0.0);
+
     std::vector<RawTensorDataPtr> inputDataList = {xData, wUvData, woData};
+    std::vector<RawTensorDataPtr> outputDataList = {outputData};
 
-    QuantTensorWithData wUvQuant{isQuantWUv, isSmoothWUv, wUvScaleShape, smoothWUvShape, "wUvScale", "smoothWUv",
-        "/w_uv_scale.bin", "/smooth_w_uv.bin"};
+    QuantTensorWithData wUvQuant{isQuantWUv, isSmoothWUv, shapes.wUvScaleShape, shapes.smoothWUvShape,
+        "wUvScale", "smoothWUv", "/w_uv_scale.bin", "/smooth_w_uv.bin"};
     CreateQuantTensorAndData(wUvQuant);
     inputDataList.emplace_back(wUvQuant.scale.dataPtr);
     inputDataList.emplace_back(wUvQuant.smooth.dataPtr);
 
-    QuantTensorWithData wOQuant{
-        isQuantWo, isSmoothWo, woScaleShape, smoothWoShape, "woScale", "smoothWo", "/w_o_scale.bin", "/smooth_w_o.bin"};
+    QuantTensorWithData wOQuant{isQuantWo, isSmoothWo, shapes.woScaleShape, shapes.smoothWoShape,
+        "woScale", "smoothWo", "/w_o_scale.bin", "/smooth_w_o.bin"};
     CreateQuantTensorAndData(wOQuant);
     inputDataList.emplace_back(wOQuant.scale.dataPtr);
     inputDataList.emplace_back(wOQuant.smooth.dataPtr);
 
+    return {golden, inputDataList, outputDataList};
+}
+
+inline void SetupAttentionPostProgram(const AttentionPostTensors<npu::tile_fwk::float16> &tensors,
+                                       const std::vector<npu::tile_fwk::float16> &golden,
+                                       const std::vector<RawTensorDataPtr> &inputDataList,
+                                       const std::vector<RawTensorDataPtr> &outputDataList) {
     ProgramData::GetInstance().AppendInputs({inputDataList});
-
     ProgramData::GetInstance().AppendOutputs({outputDataList});
-
     ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateTensor<T>(postOut, goldenDate),
+        RawTensorData::CreateTensor<npu::tile_fwk::float16>(tensors.postOut, golden),
     });
+}
 
-    PostTensors postTensors{
-        wUv, wo, wUvQuant.scale.tensor, wUvQuant.smooth.tensor, wOQuant.scale.tensor, wOQuant.smooth.tensor};
-    AttentionPostStandalone(x, postTensors, tileConfig, postOut);
+inline void BuildAttentionPostGraph(const AttentionPostTensors<npu::tile_fwk::float16> &tensors,
+                                     const PostTileConfig &tileConfig,
+                                     const QuantTensorWithData &wUvQuant,
+                                     const QuantTensorWithData &wOQuant) {
+    PostTensors postTensors{tensors.wUv, tensors.wo, wUvQuant.scale.tensor, wUvQuant.smooth.tensor,
+                            wOQuant.scale.tensor, wOQuant.smooth.tensor};
+    AttentionPostStandalone(tensors.x, postTensors, tileConfig, tensors.postOut);
+}
+
+template <typename T>
+inline void VerifyAttentionPostResult(const std::vector<T> &golden, RawTensorDataPtr outputData,
+                                      const TestPostParams &params, float precision) {
+    int b = params.b;
+    int s = params.s;
+    int h = params.h;
 
 #ifdef BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
-
     std::cout << "postOut ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(goldenDate, (T *)outputData->data(), precision));
-    resultCmp<T>(goldenDate, (T *)outputData->data(), precision, int(b * s * h * precision), 1000, false, false, 16);
+    EXPECT_TRUE(resultCmp<T>(golden, (T *)outputData->data(), precision));
+    resultCmp<T>(golden, (T *)outputData->data(), precision, int(b * s * h * precision), 1000, false, false, 16);
 #endif
+}
+
+template <typename T = npu::tile_fwk::float16, bool nz = true, typename wUvDType = int8_t, bool isSmoothWUv = false,
+    typename wODType = int8_t, bool isSmoothWo = false>
+void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileConfig, float precision) {
+    SetInterpreterConfig();
+    
+    bool isQuantWUv = std::is_same<wUvDType, int8_t>::value;
+    bool isQuantWo = std::is_same<wODType, int8_t>::value;
+
+    auto shapes = CalculateAttentionPostShapes(params);
+    auto tensors = CreateAttentionPostTensors<T, nz, wUvDType, wODType>(shapes);
+    
+    auto testData = PrepareAttentionPostData<T, wUvDType, wODType>(tensors, shapes, isQuantWUv, isSmoothWUv,
+                                                                     isQuantWo, isSmoothWo);
+    
+    SetupAttentionPostProgram(tensors, testData.golden, testData.inputDataList, testData.outputDataList);
+
+    QuantTensorWithData wUvQuant{isQuantWUv, isSmoothWUv, shapes.wUvScaleShape, shapes.smoothWUvShape,
+        "wUvScale", "smoothWUv", "/w_uv_scale.bin", "/smooth_w_uv.bin"};
+    CreateQuantTensorAndData(wUvQuant);
+    QuantTensorWithData wOQuant{isQuantWo, isSmoothWo, shapes.woScaleShape, shapes.smoothWoShape,
+        "woScale", "smoothWo", "/w_o_scale.bin", "/smooth_w_o.bin"};
+    CreateQuantTensorAndData(wOQuant);
+
+    BuildAttentionPostGraph(tensors, tileConfig, wUvQuant, wOQuant);
+
+#ifdef BUILD_WITH_CANN
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), testData.inputDataList, testData.outputDataList);
+#endif
+
+    VerifyAttentionPostResult(testData.golden, testData.outputDataList[0], params, precision);
 }
 
 void PerformanceConfig() {

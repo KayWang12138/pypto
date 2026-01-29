@@ -28,74 +28,87 @@ using namespace npu::tile_fwk;
 class CmpAttnTopk : public testing::Test {
 };
 
-template <typename T = npu::tile_fwk::bfloat16>
-void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig, std::vector<int> input_param, std::vector<int> actSeqLen) {
-
-    DataType dType = DT_FP32;
+template <typename T>
+inline DataType GetDataType() {
     if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        dType = DT_BF16;
+        return DT_BF16;
     } else if (std::is_same<T, npu::tile_fwk::float16>::value) {
-        dType = DT_FP16;
-    } else {
-        dType = DT_FP32;
+        return DT_FP16;
     }
+    return DT_FP32;
+}
 
-    const int b = input_param[0];
-    const int s1 = input_param[1];
-    const int n1 = input_param[2];
+struct CmpAttnTopkParams {
+    int b;
+    int s1;
+    int n1;
+    int dn;
+    int dr;
+    int n2;
+    int blockSize;
+    int cmpBlockSize;
+    int cmpStride;
+    int slcBlockSize;
+    int topk;
+    int front;
+    int near;
+    float softmaxScale;
+};
+
+inline CmpAttnTopkParams CalculateCmpAttnTopkParams(const std::vector<int> &input_param) {
     const int dn = input_param[3];
     const int dr = input_param[4];
-    const int n2 = input_param[5];
-    const int blockSize = input_param[6];
-    const int cmpBlockSize = input_param[7];
-    const int cmpStride = input_param[8];
-    const int slcBlockSize = input_param[9];
-    const int topk = input_param[10];
-    const int front = input_param[11];
-    const int near = input_param[12];
-    const float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
+    return {input_param[0], input_param[1], input_param[2], dn, dr,
+            input_param[5], input_param[6], input_param[7], input_param[8],
+            input_param[9], input_param[10], input_param[11], input_param[12],
+            static_cast<float>(1.0 / sqrtf((dn + dr)))};
+}
 
-    DataType qType = dType;
-    DataType kType = dType;
-
+inline std::vector<int> CalculateActCmpSeq(const std::vector<int> &actSeqLen, int cmpBlockSize, int cmpStride) {
     std::vector<int> actCmpSeq;
+    actCmpSeq.reserve(actSeqLen.size());
     for (auto curSeq : actSeqLen) {
-        auto curCmpSeq = (curSeq - cmpBlockSize) / cmpStride + 1;
-        actCmpSeq.emplace_back(curCmpSeq);
+        actCmpSeq.emplace_back((curSeq - cmpBlockSize) / cmpStride + 1);
     }
+    return actCmpSeq;
+}
 
+inline int CalculateCmpBlockNum(const std::vector<int> &actCmpSeq, int blockSize, int s1) {
     int cmpBlockNum = 0;
     for (auto s : actCmpSeq) {
         cmpBlockNum += CeilDiv(s, blockSize);
     }
+    return cmpBlockNum;
+}
+
+template <typename T = npu::tile_fwk::bfloat16>
+void TestCmpAttnTopk(CmpAttnTopkTile &tileConfig, std::vector<int> input_param, std::vector<int> actSeqLen) {
+    DataType dType = GetDataType<T>();
+
+    auto params = CalculateCmpAttnTopkParams(input_param);
+    auto actCmpSeq = CalculateActCmpSeq(actSeqLen, params.cmpBlockSize, params.cmpStride);
+    int cmpBlockNum = CalculateCmpBlockNum(actCmpSeq, params.blockSize, params.s1);
     int maxCmpSeq = *(std::max_element(actCmpSeq.begin(), actCmpSeq.end()));
-    int maxCmpBlockNum = CeilDiv(maxCmpSeq, blockSize);
+    int maxCmpBlockNum = CeilDiv(maxCmpSeq, params.blockSize);
+    const int slcSize = params.slcBlockSize / params.cmpStride;
 
-    const int slcSize = slcBlockSize / cmpStride;
-    const int blockSlcNum = blockSize / slcSize;
-    (void)blockSlcNum;
+    Tensor qNope(dType, {params.b * params.s1 * params.n1, params.dn}, "qNope");
+    Tensor qRope(dType, {params.b * params.s1 * params.n1, params.dr}, "qRope");
+    Tensor cmpKvCache(dType, {cmpBlockNum, params.blockSize, params.n2, params.dn}, "cmpKvCache");
+    Tensor cmpKrCache(dType, {cmpBlockNum, params.blockSize, params.n2, params.dr}, "cmpKrCache");
+    Tensor cmpBlockTable(DT_INT32, {params.b, maxCmpBlockNum}, "cmpBlockTable");
+    Tensor actSeq(DT_INT32, {params.b}, "actSeq");
+    Tensor auxTensor(DT_FP32, {slcSize + params.cmpBlockSize / params.cmpStride - 1, params.n1}, "auxTensor");
 
-    // Construct input tensors
-    Tensor qNope(qType, {b * s1 * n1, dn}, "qNope");
-    Tensor qRope(qType, {b * s1 * n1, dr}, "qRope");
-    Tensor cmpKvCache(kType, {cmpBlockNum, blockSize, n2, dn}, "cmpKvCache");
-    Tensor cmpKrCache(kType, {cmpBlockNum, blockSize, n2, dr}, "cmpKrCache");
-    Tensor cmpBlockTable(DT_INT32, {b, maxCmpBlockNum}, "cmpBlockTable");
-    Tensor actSeq(DT_INT32, {b}, "actSeq");
-    Tensor auxTensor(DT_FP32, {slcBlockSize / cmpStride + cmpBlockSize / cmpStride - 1, n1}, "auxTensor"); // (5, n1)
-
-    // Construct out tensors
-    Tensor cmpAttn(DT_FP32, {b, s1, n1, dn}, "cmpAttnOut");
-    Tensor topkRes(DT_INT32, {b, s1, topk}, "topkRes");
-
-    // Read goldens
-    std::vector<float> attnGolden(b * s1 * n1 * dn, 0.0);
-    std::vector<int32_t> topkGolden(b * s1 * topk, 0);
+    Tensor cmpAttn(DT_FP32, {params.b, params.s1, params.n1, params.dn}, "cmpAttnOut");
+    Tensor topkRes(DT_INT32, {params.b, params.s1, params.topk}, "topkRes");
 
     FUNCTION("CompressAttentionWithTopK",
-        {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor}, {cmpAttn, topkRes}) {
+        {qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor},
+        {cmpAttn, topkRes}) {
         CompressAttentionWithTopK(qNope, qRope, cmpKvCache, cmpKrCache, cmpBlockTable, actSeq, auxTensor, cmpAttn,
-            topkRes, blockSize, cmpBlockSize, cmpStride, slcBlockSize, softmaxScale, n1, topk, front, near, tileConfig);
+            topkRes, params.blockSize, params.cmpBlockSize, params.cmpStride, params.slcBlockSize, params.softmaxScale,
+            params.n1, params.topk, params.front, params.near, tileConfig);
     }
 }
 
