@@ -14,7 +14,6 @@
 #include <stdexcept>
 #include <utility>
 
-// #include "core/error.h"
 #include "ir/type.h"
 
 #ifndef CHECK
