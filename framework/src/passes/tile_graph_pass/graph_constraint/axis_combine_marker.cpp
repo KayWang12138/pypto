@@ -69,7 +69,6 @@ void UpdateViewStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisRe
     auto inputTensor = op->GetIOperands()[0];
     auto outputTensor = op->GetOOperands()[0];
     if (inputTensor->GetShape().back() != outputTensor->GetShape().back()) {
-        tensorStatus[inputTensor] = AxisReorderStatus::DISABLE;
         tensorStatus[outputTensor] = AxisReorderStatus::DISABLE;
         return;
     }

@@ -1112,6 +1112,72 @@ TEST_F(TestPadLocalBuffer, axiscombine2) {
     EXPECT_EQ(shape[shape.size()-2], K_8);
 }
 
+TEST_F(TestPadLocalBuffer, axiscombineDisable3) {
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1,1}, MemoryType::MEM_UB, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,1}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t1"}, {"t2"}, "expand", true), true);
+    graph.GetOp("exapnd")->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);
+
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,1}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,1}, MemoryType::MEM_UB, "t4"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_DIV, {"t2","t3"}, {"t4"}, "div", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24, 1}, MemoryType::MEM_DEVICE_DDR, "gm2"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_OUT, {"t4"}, {"gm2"}, "copyout", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, MemoryType::MEM_UB, "t5"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_VIEW, {"t4"}, {"t5"}, "view", true), true);
+
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,2}, MemoryType::MEM_UB, "t6"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, MemoryType::MEM_UB, "t7"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_VIEW, {"t6"}, {"t7"}, "view1", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,1}, MemoryType::MEM_UB, "resres"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t5", "t7"}, {"resres"}, "add", true), true);
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    auto *rootFuncPtr = graph.GetFunction();
+    rootFuncPtr->paramConfigs_.combineAxis = true;
+    AxisCombine axisCombineTest;
+    EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+    PadLocalBuffer padLocalBufferTest;
+    EXPECT_EQ(padLocalBufferTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+    auto updatedOperations = rootFuncPtr->Operations();
+    int64_t cnt = 0;
+    for (const auto &op : updatedOperations) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
+            ++cnt;
+        }
+    }
+    EXPECT_EQ(cnt, 0);
+}
+
+TEST_F(TestPadLocalBuffer, axiscombineEnable) {
+    ComputationalGraphBuilder graph;
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1,16}, MemoryType::MEM_UB, "t1"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,16}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t1"}, {"t2"}, "expand", true), true);
+    graph.GetOp("exapnd")->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);
+
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,1}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24, 16}, MemoryType::MEM_UB, "t4"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_DIV, {"t2","t3"}, {"t4"}, "div", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24, 1}, MemoryType::MEM_UB, "t5"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_VIEW, {"t4"}, {"t5"}, "view", true), true);
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    auto *rootFuncPtr = graph.GetFunction();
+    rootFuncPtr->paramConfigs_.combineAxis = true;
+    AxisCombine axisCombineTest;
+    EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+    PadLocalBuffer padLocalBufferTest;
+    EXPECT_EQ(padLocalBufferTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+    auto updatedOperations = rootFuncPtr->Operations();
+    int64_t cnt = 0;
+    for (const auto &op : updatedOperations) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
+            ++cnt;
+        }
+    }
+    EXPECT_EQ(cnt, 1);
+}
+
 TEST_F(TestPadLocalBuffer, axiscombine3) {
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1,1}, MemoryType::MEM_UB, "t1"), true);
