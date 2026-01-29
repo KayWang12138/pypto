@@ -346,16 +346,21 @@ int MachineAgent::PrepareReadyCoreFunction(DeviceAgentTask *task) {
         std::cerr << "[DEVICE AGENT] Error: Failed to allocate ready que memory!" << std::endl;
         return MACHINE_ERROR;
     }
-
-    machine::GetRA()->CopyToDev(task->deviceInfo.readyAicQueElmGmAddr,
-        reinterpret_cast<uint8_t *>(task->compileInfo.readyAicIdVec.data()),
-        task->compileInfo.readyAicIdVec.size() * sizeof(uint64_t));
-    machine::GetRA()->CopyToDev(task->deviceInfo.readyAivQueElmGmAddr,
-        reinterpret_cast<uint8_t *>(task->compileInfo.readyAivIdVec.data()),
-        task->compileInfo.readyAivIdVec.size() * sizeof(uint64_t));
-    machine::GetRA()->CopyToDev(task->deviceInfo.readyAicpuQueElmGmAddr,
-        static_cast<uint8_t *>(static_cast<void*>(task->compileInfo.readyAicpuIdVec.data())),
-        task->compileInfo.readyAicpuIdVec.size() * sizeof(uint64_t));
+    if (task->compileInfo.readyAicIdVec.size() > 0) {
+        machine::GetRA()->CopyToDev(task->deviceInfo.readyAicQueElmGmAddr,
+            reinterpret_cast<uint8_t *>(task->compileInfo.readyAicIdVec.data()),
+            task->compileInfo.readyAicIdVec.size() * sizeof(uint64_t));
+    }
+    if (task->compileInfo.readyAivIdVec.size() > 0) {
+        machine::GetRA()->CopyToDev(task->deviceInfo.readyAivQueElmGmAddr,
+            reinterpret_cast<uint8_t *>(task->compileInfo.readyAivIdVec.data()),
+            task->compileInfo.readyAivIdVec.size() * sizeof(uint64_t));
+    }
+    if (task->compileInfo.readyAicpuIdVec.size() > 0) {
+        machine::GetRA()->CopyToDev(task->deviceInfo.readyAicpuQueElmGmAddr,
+            reinterpret_cast<uint8_t *>(task->compileInfo.readyAicpuIdVec.data()),
+            task->compileInfo.readyAicpuIdVec.size() * sizeof(uint64_t));
+    }
 
     auto funcSetQue = [](uint8_t *elm, uint8_t *que, uint64_t elmCnt) {
         StaticReadyCoreFunctionQueue rq;
