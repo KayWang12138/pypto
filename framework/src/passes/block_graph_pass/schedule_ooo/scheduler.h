@@ -339,6 +339,7 @@ private:
     Status UpdateReloadIssueDepend(IssueEntryPtr reloadCopyin, IssueEntryPtr spillIssue, int spillMemId);
     Status UpdateRemainOpBufId(int oldMemId, int newMemId);
     void ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int newMemId);
+    void UpdateOpInternalSubgraphID(Operation &op, IssueEntryPtr issue);
     void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset,
         IssueEntryPtr spillIssue);
     Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
