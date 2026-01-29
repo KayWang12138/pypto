@@ -139,6 +139,7 @@ struct SpillInfo {
 class OoOScheduler {
 private:
     std::vector<IssueEntryPtr> issueEntries;
+    std::unordered_set<int> issueEntriesOpMagic;
     std::unordered_map<int, IssueEntryPtr> issueEntryMap;
 
     std::unordered_map<int, LocalBufferPtr> localBufferMap;
@@ -195,7 +196,7 @@ private:
     Status GenSpillSchedule();
     Status ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx);
     Status RetireIssue(IssueEntryPtr issue);
-    bool IsInissueEntries(Operation* op);
+    bool IsInIssueEntries(Operation* op);
     Status InitMemWithoutAlloc();
     Status ScheduleMainLoop();
     void LaunchReadyIssue();

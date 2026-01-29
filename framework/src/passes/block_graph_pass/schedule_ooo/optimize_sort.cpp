@@ -614,8 +614,10 @@ Status OptimizeSort::AllocExecute(Operation* op, std::shared_ptr<std::vector<Ope
         backTraceOp_ = (*curOpList)[startIndex];
         backTraceBufferAllocate_ = recordBufferAllocate_;
         backTraceOpList_ = recordOpList_;
+        if (startIndex >= 1) {
+            recordBufRefCount_[(*curOpList)[startIndex - 1]] = bufRefCount;
+        }
         backTraceBufRefCount_ = recordBufRefCount_;
-        recordBufRefCount_[(*curOpList)[startIndex - 1]] = bufRefCount;
         APASS_LOG_DEBUG_F(Elements::Operation, "backTraceOp_: %s, backTraceIndex: %d, memType: %d",
             GetOpInfo(backTraceOp_).c_str(), backTraceOpList_[backTraceOp_].first, recordOpBuffer_[backTraceOp_]);
         APASS_LOG_DEBUG_F(Elements::Operation, "=====> Need backtrace.");
