@@ -58,9 +58,9 @@ target_link_libraries(tile_fwk_interface
             dl
             Threads::Threads
             tile_fwk_simulation_platform
-            libbacktrace
+            # libbacktrace  # Temporarily commented out
 )
-add_dependencies(tile_fwk_interface libbacktrace)
+# add_dependencies(tile_fwk_interface libbacktrace)  # Temporarily commented out
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
 
