@@ -1270,6 +1270,9 @@ void OoOScheduler::UpdateMoveOpAttr(Operation &moveOp, Operation &occupyOp) {
             moveOp.SetAttr(OpAttributeKey::outputCombineAxis, attrOut);
         }
     }
+    if (occupyOp.GetInternalSubgraphID() != NOT_IN_SUBGRAPH) {
+        moveOp.UpdateInternalSubgraphID(occupyOp.GetInternalSubgraphID());
+    }
 }
 
 void OoOScheduler::ProcessMoveIssue(IssueEntryPtr moveIssuePtr, IssueEntryPtr AllocIssue, MemoryType memType, int oldMemId, int newMemId) {

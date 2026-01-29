@@ -136,6 +136,9 @@ void OoOScheduler::UpdateOpAttr(
         }
     }
     op.UpdateLatency(opLatency);
+    if (spillIssue->tileOp.GetInternalSubgraphID() != NOT_IN_SUBGRAPH) {
+        op.UpdateInternalSubgraphID(spillIssue->tileOp.GetInternalSubgraphID());
+    }
 }
 
 void OoOScheduler::ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int newMemId) {
@@ -493,6 +496,9 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         Opcode allocOp = assembleTensor->GetMemoryTypeToBe() == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
         auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
         spillAllocOp.UpdateLatency(1);
+        if (allocIssue->tileOp.GetInternalSubgraphID() != NOT_IN_SUBGRAPH) {
+            spillAllocOp.UpdateInternalSubgraphID(allocIssue->tileOp.GetInternalSubgraphID());
+        }
         IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
         issueEntryMap[issueId++] = spillAllocInst;
         spillAllocInst->reqMemIds = {assembleTensor->memoryrange.memId};
