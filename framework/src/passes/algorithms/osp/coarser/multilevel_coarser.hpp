@@ -62,7 +62,6 @@ class MultilevelCoarser : public Coarser<GraphT, GraphTCoarse> {
                     std::vector<VertexIdxT<GraphTCoarse>> &vertexContractionMap) override;
 
     ReturnStatus Run(const GraphT &graph);
-    ReturnStatus Run(const BspInstance<GraphT> &inst);
 };
 
 template <typename GraphT, typename GraphTCoarse>
@@ -78,11 +77,6 @@ ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::Run(const GraphT &graph) {
     }
 
     return status;
-}
-
-template <typename GraphT, typename GraphTCoarse>
-ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::Run(const BspInstance<GraphT> &inst) {
-    return Run(inst.GetComputationalDag());
 }
 
 template <typename GraphT, typename GraphTCoarse>
