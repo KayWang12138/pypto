@@ -96,6 +96,8 @@ enum class SymbolicOpcode {
     T_BOP_END = T_BOP_MAX + 1
 };
 
+void FlattenOperands(const std::vector<RawSymbolicScalarPtr> &inOperandList, SymbolicOpcode objOpcode, std::vector<RawSymbolicScalarPtr> &outOperandList);
+
 class RawSymbolicScalar {
 public:
     SymbolicScalarKind kind;
@@ -373,41 +375,23 @@ public:
         }
     }
 
-    static void FlattenOperands(const std::vector<RawSymbolicScalarPtr> &inOperandList, SymbolicOpcode objOpcode, std::vector<RawSymbolicScalarPtr> &outOperandList) {
-        for (auto& operand : inOperandList) {
-            if (!operand) {
-                continue;
-            }
-
-            if (operand->Kind() == SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION) {
-                auto expr = std::static_pointer_cast<RawSymbolicExpression>(operand);
-                if (expr->Opcode() == objOpcode) {
-                    const auto& sub = expr->OperandList();
-                    outOperandList.insert(outOperandList.end(), sub.begin(), sub.end());
-                    continue;
-                }
-            }
-            outOperandList.push_back(operand);
-        }
-    }
-
     static RawSymbolicScalarPtr CreateRuntimeExtrema(SymbolicOpcode opcode, const std::vector<RawSymbolicScalarPtr> &operandList) {
-        std::vector<RawSymbolicScalarPtr> flat;
-        flat.reserve(operandList.size());
-        FlattenOperands(operandList, opcode, flat);
+        std::vector<RawSymbolicScalarPtr> flatOperands;
+        flatOperands.reserve(operandList.size());
+        FlattenOperands(operandList, opcode, flatOperands);
 
         bool hasImm = false;
         ScalarImmediateType immExt = 0;
         std::vector<RawSymbolicScalarPtr> nonImm;
-        nonImm.reserve(flat.size());
+        nonImm.reserve(flatOperands.size());
         std::unordered_set<std::string> seenStr;
-        seenStr.reserve(flat.size());
+        seenStr.reserve(flatOperands.size());
 
         auto combine = [&](ScalarImmediateType a, ScalarImmediateType b) {
             return (opcode == SymbolicOpcode::T_BOP_MAX) ? std::max(a, b) : std::min(a, b);
         };
 
-        for (auto& operand : flat) {
+        for (auto& operand : flatOperands) {
             if (operand->IsImmediate()) {
                 auto value = std::static_pointer_cast<RawSymbolicImmediate>(operand)->Immediate();
                 if (!hasImm) {
@@ -429,7 +413,9 @@ public:
             }
         }
 
-        if (hasImm) nonImm.emplace_back(std::make_shared<RawSymbolicImmediate>(immExt));
+        if (hasImm) {
+            nonImm.emplace_back(std::make_shared<RawSymbolicImmediate>(immExt));
+        } 
         
         if (nonImm.empty()) {
             return std::make_shared<RawSymbolicImmediate>(immExt);
@@ -546,7 +532,7 @@ public:
 private:
 
     void DumpRuntimeExtrema(std::string& out) const {
-        ASSERT(operandList_.size() >= 2);
+        ASSERT(operandList_.size() >= 2) << "Extrema expression must have at least 2 operands";
         std::string funcName = (opcode_ == SymbolicOpcode::T_BOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
         const size_t n = operandList_.size();
         for (size_t i = 0; i + 2 < n; ++i) {
