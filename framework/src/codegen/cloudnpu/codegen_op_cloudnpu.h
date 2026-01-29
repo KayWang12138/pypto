@@ -75,6 +75,7 @@ public:
     std::string GenReshapeCopyOut() const;
 
     std::string GenLoadOp() const;
+    std::string PrintGatherInL1TileTensor() const;
     std::string GenGatherInL1() const;
     std::string GenGatherInUB() const;
 
@@ -86,9 +87,14 @@ public:
 
     std::string GenBinaryOp() const;
     std::string GenVectorScalarOp() const;
+    std::string GenBinaryOpWithTmp() const;
+    std::string GenVectorScalarOpWithTmp() const;
 
     std::string GenCubeOpMatmul() const;
     std::string GenCubeOpMatmulAcc() const;
+
+    std::string GenBitwiseShiftOp() const;
+    std::string GenBitwiseShiftScalarOp() const;
 
     std::string GenCastOp() const;
 
@@ -111,6 +117,7 @@ public:
     std::string GenIndexPutOp() const;
 
     std::string GenIndexOutCastOp() const;
+    std::string PrintIndexOutCastTileTensor() const;
 
     std::string GenCumSumOp() const;
     std::string PrintGatherDynamicUnaligned() const;
@@ -296,7 +303,7 @@ private:
     std::string PrintMemCopyWithUBDynamic(const PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBDynamicSupportUnaligned(const PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBTileTensor(const PrintMemCopyWithUBParam &param) const;
-    std::vector<std::string> GetGmOffsetForTileTensor(const PrintMemCopyWithUBParam &param) const;
+    std::vector<std::string> GetGmOffsetForTileTensor(unsigned gmIdx, bool isSpillingToGM = false) const;
 
     std::string PrintGather(const PrintGatherParam &param) const;
     std::string PrintGatherDynamicUnaligned(const PrintGatherParam &param) const;
@@ -405,6 +412,8 @@ private:
     std::string PrintCmpTileTensor() const;
     std::string PrintLogicalAndTileTensor() const;
     std::string PrintLogicalNotTileTensor() const;
+    std::string PrintBitwiseShiftTensor() const;
+    std::string PrintBitwiseShiftScalar() const;
 
     void InitOpsGenMap();
     void InitScalaOpsMap();
