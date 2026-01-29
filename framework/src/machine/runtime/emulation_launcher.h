@@ -33,11 +33,25 @@
 namespace npu::tile_fwk::dynamic {
 
 struct EmulationMemoryUtils {
+
+    EmulationMemoryUtils() {}
+    ~EmulationMemoryUtils() {
+        for(auto ptr : EmulationAllocatePtrs_) {
+            if (ptr) {
+                free(ptr);
+            }
+        }
+        EmulationAllocatePtrs_.clear();
+    }
     static bool IsDevice() { return false; }
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        uint8_t *devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
-        return devPtr;
+        uint8_t *ptr = (uint8_t *)malloc(size);
+        if (ptr) {
+            memset_s(ptr, size, 0, size);
+            EmulationAllocatePtrs_.push_back(ptr);
+        }
+        return ptr;
     }
 
     uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
@@ -78,6 +92,8 @@ struct EmulationMemoryUtils {
     uint64_t GetL2Offset() {
         return 0;
     }
+private:
+        std::vector<uint8_t *> EmulationAllocatePtrs_;
 };
 
 class EmulationLauncher {
