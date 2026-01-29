@@ -25,8 +25,8 @@ namespace npu::tile_fwk::Distributed {
 template<typename T>
 void TestMoeDistributedCombine(OpTestParam& testParam)
 {
-    constexpr size_t paramsSize = 5;
-    auto [batchSize, hiddenSize, moeExpertNum, topK, dtype_num] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    constexpr size_t paramsSize = 6;
+    auto [batchSize, hiddenSize, moeExpertNum, topK, dtype_num, useV2] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
 
     DataType dType = GetDataTypeNum(dtype_num);
 
@@ -53,8 +53,15 @@ void TestMoeDistributedCombine(OpTestParam& testParam)
     std::vector<float> expertScalesPtr = ReadToVector<float>(
         dispatchPath + "/scale_rank_" + std::to_string(testParam.rankId) + ".bin", scaleShape);
 
+    std::function<void(const Tensor&, const Tensor&, const Tensor&, const Tensor&, const char*, uint32_t, uint32_t, uint32_t, uint32_t, Tensor&)> func;
+    if (useV2 == 1) {
+        func = MoeDistributedCombineV2;
+    } else {
+        func = MoeDistributedCombine;
+    }
+
     FUNCTION("MoeDistributedCombineMain", {expandX, assistInfoForCombine, recvCounts, expertScales}, {out}) {
-        MoeDistributedCombine(expandX, assistInfoForCombine, recvCounts, expertScales, testParam.group,
+        func(expandX, assistInfoForCombine, recvCounts, expertScales, testParam.group,
             testParam.rankSize, moeExpertNum, 0, 0, out);
     }
 
