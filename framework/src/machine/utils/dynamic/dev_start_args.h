@@ -178,6 +178,8 @@ public:
     uint64_t GetIndexPending()  { return indexPending_; }
     uint64_t GetIndexCurrent() { return indexFinished_ + 1; }
 
+    uint64_t GetIndexPendingIndex() { return GetIndexPending() % GetRuntimeDataCount(); }
+
     uint8_t *GetRuntimeData(uint64_t index) {
         return &data_[runtimeDataSize_ * (index % runtimeDataCount_)];
     }
