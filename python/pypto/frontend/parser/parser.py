@@ -15,7 +15,8 @@ import inspect
 import functools
 import re
 from typing import Any, Optional, Union, Callable
-
+import time
+import sys
 import pypto
 from pypto.symbolic_scalar import SymbolicScalar
 from . import doc
@@ -1021,11 +1022,46 @@ class Parser(doc.NodeVisitor):
             if is_nested:
                 # For nested functions, we don't create a pypto.Function; body will be inlined on call.
                 return None
+            
             else:
+                print(f"\n{'='*100}")
+                print(f"【开始执行 _visit_function_def: {node.name}】")
+                print(f"{'='*100}\n")
+                
+                # 【阶段 1】: 进入 pypto.function()
+                t1 = time.time()
+                print(f"[1] 进入 pypto.function()...")
+                sys.stdout.flush()
                 with pypto.function(node.name, *tensor_input_args, *output_args):
+                    t2 = time.time()
+                    print(f"[1] ✓ pypto.function().__enter__() 完成，耗时: {t2-t1:.3f}s\n")
+                    sys.stdout.flush()
+
+                    # 【阶段 2】: 执行循环体
+                    print(f"[2] 开始执行 _visit_body()...")
+                    sys.stdout.flush()
+                    t3 = time.time()
                     for _ in pypto.loop(1):
                         self._visit_body(node.body)
+                    
+                    t4 = time.time()
+                    print(f"[2] ✓ _visit_body() 完成，耗时: {t4-t3:.3f}s\n")
+                    sys.stdout.flush()
+                
+                t5 = time.time()
+                print(f"[3] ✓ pypto.function().__exit__() 完成，耗时: {t5-t4:.3f}s\n")
+                sys.stdout.flush()
 
+        t_total = t5 - t1
+        print(f"{'='*100}")
+        print(f"【耗时汇总】")
+        print(f"  [1] pypto.function().__enter__():  {t2-t1:>10.3f}s ({(t2-t1)/t_total*100:>6.2f}%)")
+        print(f"  [2] _visit_body():                {t4-t3:>10.3f}s ({(t4-t3)/t_total*100:>6.2f}%)")
+        print(f"  [3] pypto.function().__exit__():  {t5-t4:>10.3f}s ({(t5-t4)/t_total*100:>6.2f}%)")
+        print(f"  ────────────────────────────────────────────────")
+        print(f"  总计:                             {t_total:>10.3f}s (100.00%)")
+        print(f"{'='*100}\n")
+        sys.stdout.flush()
         return pypto.functions.get_last_function()
 
     def _visit_arg(self, node: doc.arg) -> pypto.Tensor:

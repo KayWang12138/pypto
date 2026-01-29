@@ -32,6 +32,8 @@ from numpy.testing import assert_allclose
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 import pypto
+print("pypto_position: ", pypto.__file__)
+import time
 from utils.get_format import get_format
 
 np.random.seed(0)
@@ -380,7 +382,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
                             tmp_k_2d = pypto.reshape(k, tmp_k_2d_shape, inplace=True)
                             kj_assemble = pypto.tensor([s2_tile, dn], tmp_k_2d.dtype, "kj_assemble")
 
-                            for i in pypto.loop(block_num):
+                            for i in range(block_num):
                                 block_idx = block_table[b_idx, idx + i]
                                 block_idx_valid = block_idx.max(0)
                                 kj_assemble[i * k.shape[1]:(i + 1) * k.shape[1], 0:] = \
@@ -590,7 +592,18 @@ def attention(
     block_table_shape = block_tables.shape
     shapes = [q_shape, kv_shape, block_table_shape]
     inputs = [query, key_cache, value_cache, block_tables, actual_seqs, attn_res]
-    ifa_func(*shapes)(*inputs)
+    global index
+    start_time = time.perf_counter()
+    kernel = ifa_func(*shapes)
+    kernel(*inputs)
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"第：{index} 次执行")
+    print(f"ifa_func 执行耗时: {elapsed_time:.6f} 秒")
+    print()
+index = 0
 
 if __name__ == "__main__":
+    current_script_path = os.path.abspath(__file__)
+    print(f"当前脚本的绝对路径: {current_script_path}")
     test_ifa()
