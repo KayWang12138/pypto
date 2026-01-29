@@ -56,7 +56,7 @@ class IsomorphicSubgraphScheduler {
 
   private:
     const HashComputer<VertexIdxT<GraphT>> *hashComputer_;
-    size_t symmetry_ = 4;
+
     Scheduler<ConstrGraphT> *bspScheduler_;
     bool useMaxGroupSize_ = false;
     unsigned maxGroupSize_ = 0;
@@ -67,7 +67,7 @@ class IsomorphicSubgraphScheduler {
     bool mergeDifferentNodeTypes_ = true;
     bool allowUseTrimmedScheduler_ = true;
     bool useMaxBsp_ = false;
-    bool useAdaptiveSymmetryThreshold_ = true;
+
 
   public:
     /**
@@ -148,16 +148,13 @@ class IsomorphicSubgraphScheduler {
     /**
      * @brief Enables the adaptive symmetry threshold heuristic.
      */
-    void SetEnableAdaptiveSymmetryThreshold() { useAdaptiveSymmetryThreshold_ = true; }
+
 
     /**
      * @brief Sets a static symmetry level, disabling adaptive threshold logic.
      * @param staticSymmetryLevel The static symmetry level to use.
      */
-    void SetUseStaticSymmetryLevel(size_t staticSymmetryLevel) {
-        useAdaptiveSymmetryThreshold_ = false;
-        symmetry_ = staticSymmetryLevel;
-    }
+
 
     /**
      * @brief Computes the partition of the graph.
@@ -175,9 +172,7 @@ class IsomorphicSubgraphScheduler {
         orbitProcessor.SetCriticalPathThreshold(criticalPathThreshold_);
         orbitProcessor.SetLockRatio(orbitLockRatio_);
         orbitProcessor.SetNaturalBreaksCountPercentage(naturalBreaksCountPercentage_);
-        if (not useAdaptiveSymmetryThreshold_) {
-            orbitProcessor.SetUseStaticSymmetryLevel(symmetry_);
-        }
+
 
         std::unique_ptr<HashComputer<VertexIdxT<GraphT>>> localHasher;
         if (!hashComputer_) {

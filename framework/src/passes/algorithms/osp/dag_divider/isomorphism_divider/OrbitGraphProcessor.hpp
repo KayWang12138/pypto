@@ -149,31 +149,19 @@ class OrbitGraphProcessor {
         currentCoarseGraph = std::move(nextCoarseGraph);
 
         // Update caches for new vertex indices
-        std::unordered_set<std::pair<VertexType, VertexType>, PairHasher> nextNonViableEdges;
-        for (const auto &nonViableEdge : nonViableEdgesCache_) {
-            const VertexType oldU = nonViableEdge.first;
-            const VertexType oldV = nonViableEdge.second;
-            const VertexType newU = groupRemap[oldU];
-            const VertexType newV = groupRemap[oldV];
-
-            if (oldU != v && oldV != v && newU != newV) {
-                nextNonViableEdges.insert({newU, newV});
+        auto UpdateCache = [&](auto &cache) {
+            std::unordered_set<std::pair<VertexType, VertexType>, PairHasher> nextCache;
+            for (const auto &[oldU, oldV] : cache) {
+                const VertexType newU = groupRemap[oldU];
+                const VertexType newV = groupRemap[oldV];
+                if (oldU != v && oldV != v && newU != newV) {
+                    nextCache.insert({newU, newV});
+                }
             }
-        }
-        nonViableEdgesCache_ = std::move(nextNonViableEdges);
-
-        std::unordered_set<std::pair<VertexType, VertexType>, PairHasher> nextNonViableCritPathEdges;
-        for (const auto &nonViableEdge : nonViableCritPathEdgesCache_) {
-            const VertexType oldU = nonViableEdge.first;
-            const VertexType oldV = nonViableEdge.second;
-            const VertexType newU = groupRemap[oldU];
-            const VertexType newV = groupRemap[oldV];
-
-            if (oldU != v && oldV != v && newU != newV) {
-                nextNonViableCritPathEdges.insert({newU, newV});
-            }
-        }
-        nonViableCritPathEdgesCache_ = std::move(nextNonViableCritPathEdges);
+            cache = std::move(nextCache);
+        };
+        UpdateCache(nonViableEdgesCache_);
+        UpdateCache(nonViableCritPathEdgesCache_);
 
         // Update groups
         std::vector<Group> nextGroups(currentCoarseGraph.NumVertices());
@@ -364,25 +352,13 @@ class OrbitGraphProcessor {
                     vType = currentCoarseGraph.VertexType(v);
                 }
 
-                const bool uIsSignificant = (uSize >= minSymmetry_)
-                                            && (currentCoarseGraph.VertexWorkWeight(u) > lockThresholdPerType[uType]);
-                const bool vIsSignificant = (vSize >= minSymmetry_)
-                                            && (currentCoarseGraph.VertexWorkWeight(v) > lockThresholdPerType[vType]);
+                const bool uSig = (uSize >= minSymmetry_) && (currentCoarseGraph.VertexWorkWeight(u) > lockThresholdPerType[uType]);
+                const bool vSig = (vSize >= minSymmetry_) && (currentCoarseGraph.VertexWorkWeight(v) > lockThresholdPerType[vType]);
 
-                if (uIsSignificant && vIsSignificant) {
-                    // Both are significant ---
-                    if (newSize < std::min(uSize, vSize)) {
-                        nonViableEdgesCache_.insert({u, v});
-                        continue;
-                    }
-                } else if (uIsSignificant || vIsSignificant) {
-                    // Exactly one is significant ---
-                    const std::size_t significantNodeSize = uIsSignificant ? uSize : vSize;
-
-                    if (newSize < significantNodeSize) {
-                        nonViableEdgesCache_.insert({u, v});
-                        continue;
-                    }
+                if ((uSig && vSig && newSize < std::min(uSize, vSize)) ||
+                    ((uSig ^ vSig) && newSize < (uSig ? uSize : vSize))) {
+                    nonViableEdgesCache_.insert({u, v});
+                    continue;
                 }
 
                 // Critical Path Check
@@ -464,8 +440,6 @@ class OrbitGraphProcessor {
         workPerVertexType.resize(mergeDifferentNodeTypes_ ? 1U : dag.NumVertexTypes(), 0);
 
         std::map<size_t, size_t> orbitSizeCounts;
-        std::map<size_t, VWorkwT<GraphT>> workPerOrbitSize;
-        VWorkwT<GraphT> totalWork = 0;
         for (const auto &[hash, vertices] : orbits) {
             const size_t orbitSize = vertices.size();
 
@@ -485,9 +459,6 @@ class OrbitGraphProcessor {
             } else {
                 workPerVertexType[0] += orbitWork;
             }
-
-            workPerOrbitSize[orbitSize] += orbitWork;
-            totalWork += orbitWork;
         }
 
         std::vector<VWorkwT<GraphT>> lockThresholdPerType(workPerVertexType.size());
@@ -495,21 +466,13 @@ class OrbitGraphProcessor {
             lockThresholdPerType[i] = static_cast<VWorkwT<GraphT>>(lockOrbitRatio_ * workPerVertexType[i]);
         }
 
-        std::vector<double> relAccWorkPerOrbitSize;
-        std::vector<size_t> symmetryLevelsToTest
-            = ComputeSymmetryLevels(relAccWorkPerOrbitSize, workPerOrbitSize, totalWork, orbitSizeCounts);
-
-        coarser_util::ConstructCoarseDag(dag, coarseGraph_, contractionMap_);
-
+        std::vector<size_t> symmetryLevelsToTest = ComputeSymmetryLevels(orbitSizeCounts);
         coarser_util::ConstructCoarseDag(dag, coarseGraph_, contractionMap_);
         PerformCoarseningAdaptiveSymmetry(dag, coarseGraph_, lockThresholdPerType, symmetryLevelsToTest);
     }
 
   private:
-    std::vector<size_t> ComputeSymmetryLevels(std::vector<double> &relAccWorkPerOrbitSize,
-                                              const std::map<size_t, VWorkwT<GraphT>> workPerOrbitSize,
-                                              const VWorkwT<GraphT> totalWork,
-                                              const std::map<size_t, size_t> orbitSizeCounts) {
+    std::vector<size_t> ComputeSymmetryLevels(const std::map<size_t, size_t> orbitSizeCounts) {
         std::vector<size_t> symmetryLevelsToTest;
         minSymmetry_ = 2;
 
@@ -613,29 +576,14 @@ class OrbitGraphProcessor {
             const bool isLastLoop = (sym == symmetryLevelsToTest.back());
 
             nonViableEdgesCache_.clear();
-
-            ContractEdgesAdpativeSym(
-                originalDag, currentCoarseGraph, currentGroups, currentContractionMap, false, isLastLoop, lockThresholdPerType);
+            ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, false, isLastLoop, lockThresholdPerType);
 
             if (mergeDifferentNodeTypes_) {
-                ContractEdgesAdpativeSym(originalDag,
-                                         currentCoarseGraph,
-                                         currentGroups,
-                                         currentContractionMap,
-                                         mergeDifferentNodeTypes_,
-                                         isLastLoop,
-                                         lockThresholdPerType);
+                ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, mergeDifferentNodeTypes_, isLastLoop, lockThresholdPerType);
             }
 
             nonViableCritPathEdgesCache_.clear();
-            ContractEdgesAdpativeSym(originalDag,
-                                     currentCoarseGraph,
-                                     currentGroups,
-                                     currentContractionMap,
-                                     mergeDifferentNodeTypes_,
-                                     isLastLoop,
-                                     lockThresholdPerType,
-                                     criticalPathThreshold_);
+            ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, mergeDifferentNodeTypes_, isLastLoop, lockThresholdPerType, criticalPathThreshold_);
         }
 
         nonViableEdgesCache_.clear();
@@ -673,8 +621,9 @@ class OrbitGraphProcessor {
                        const Group &groupV,
                        std::vector<std::vector<VertexType>> &outNewSubgraphs) const {
         std::vector<VertexType> allNodes;
-        allNodes.reserve(groupU.subgraphs_.size() * (groupU.subgraphs_.empty() ? 0 : groupU.subgraphs_[0].size())
-                         + groupV.subgraphs_.size() * (groupV.subgraphs_.empty() ? 0 : groupV.subgraphs_[0].size()));
+        const size_t uNodes = groupU.subgraphs_.empty() ? 0 : groupU.subgraphs_.size() * groupU.subgraphs_[0].size();
+        const size_t vNodes = groupV.subgraphs_.empty() ? 0 : groupV.subgraphs_.size() * groupV.subgraphs_[0].size();
+        allNodes.reserve(uNodes + vNodes);
         for (const auto &sg : groupU.subgraphs_) {
             allNodes.insert(allNodes.end(), sg.begin(), sg.end());
         }
