@@ -24,7 +24,9 @@
         "stitch_cfgcache_size": 0,
         "stitch_function_size": 20000,
         "run_mode": 0,
-        "valid_shape_optimize": 0
+        "valid_shape_optimize": 0,
+        "aicpu_advanced_time": 0,
+        "repeat_time": 1
     },
     "host": {
         "compile_stage": 0
