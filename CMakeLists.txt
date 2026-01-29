@@ -77,8 +77,6 @@ include(cmake/config.cmake)
 include(cmake/intf.cmake)
 
 # External dependencies
-include(${CMAKE_SOURCE_DIR}/cmake/libbacktrace.cmake)
-
 include(cmake/third_party/nlohmann_json/nlohmann_json.cmake)
 include(cmake/third_party/libboundscheck/libboundscheck.cmake)
 include(cmake/third_party/googletest/googletest.cmake)
