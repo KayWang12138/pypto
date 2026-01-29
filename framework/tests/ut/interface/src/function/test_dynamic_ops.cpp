@@ -865,3 +865,32 @@ TEST_F(DynamicOpsTest, TopKExtractIndices) {
         }
     }
 }
+
+TEST_F(DynamicOpsTest, BitwiseRightShift) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    int64_t b = 8;
+    int64_t s = 8;
+    Tensor self(DT_INT16, {b, s}, "self");
+    Tensor other(DT_INT16, {b, s}, "other");
+    Tensor out(DT_INT16, {b, s}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(self, 4),
+        RawTensorData::CreateConstantTensor<float>(other, 1),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(out, 2),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateConstantTensor<float>(out, 2),
+    });
+
+    FUNCTION("main", {self, other}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto t0 = View(self, {b, s}, {0, 0});
+            out = BitwiseRightShift(self, other);
+        }
+    }
+}
