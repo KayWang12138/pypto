@@ -188,6 +188,9 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     }
     if(attrToType == MemoryType::MEM_L1) {
         auto producerOps = operation.ProducerOps();
+        if (in->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+            inserter.UpdateTensorTobeMap(in,operation,attrToType);
+        }
         for(const auto &producerOp : producerOps) {
             if(producerOp->GetOpcode() == Opcode::OP_VIEW) {
                 in->SetMemoryTypeOriginal(attrToType,true);
