@@ -39,8 +39,20 @@ static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::strin
     return RawTensorData::CreateTensor<T>(tensor, values);
 }
 
+template <typename T>
+inline DataType GetDataType() {
+    if (std::is_same<T, npu::tile_fwk::float16>::value) {
+        return DT_FP16;
+    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
+        return DT_BF16;
+    }
+    return DT_FP32;
+}
+
 template <typename T = npu::tile_fwk::bfloat16>
 void TestCmpKv(CmpAttnTile &tileConfig) {
+    DataType dType = GetDataType<T>();
+    DataType kType = dType;
 
     int paramsSize = 13;
     std::vector<int32_t> input_param(paramsSize);
@@ -64,16 +76,6 @@ void TestCmpKv(CmpAttnTile &tileConfig) {
     const int rs = slcBlockSize / stride;
     const int rc = cmpBlockSize / stride;
     const int auxVecLen = 128;
-
-    DataType dType = DT_FP32;
-    if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        dType = DT_BF16;
-    } else if (std::is_same<T, npu::tile_fwk::float16>::value) {
-        dType = DT_FP16;
-    } else {
-        dType = DT_FP32;
-    }
-    DataType kType = dType;
 
     ALOG_EVENT_F(R"(
 KVCompress params:
