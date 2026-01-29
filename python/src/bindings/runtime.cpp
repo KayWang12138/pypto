@@ -581,20 +581,28 @@ public:
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p",
             tripleStream, sequence.load(), workspace, ctrlFlowCache);
 #endif
+        auto &devRunner = DeviceRunner::Get();
         if (tripleStream) {
+            auto startTime = MsprofSysCycleTime();
             args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
             int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
                 "AST_DYN_AICPU", 2, &rtAicpuArgs, nullptr, ctrlStream, 0);
+            devRunner.ReportHostProfInfo(startTime, 2, MSPROF_GE_TASK_TYPE_AI_CPU, false);
             ASSERT(ret == RT_ERROR_NONE) << "launch aicpu ctrl failed: " << ret;
+
             args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
+            startTime = MsprofSysCycleTime();
             ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
                 "AST_DYN_AICPU", 3, &rtAicpuArgs, nullptr, schedtream, 0);
             ASSERT(ret == RT_ERROR_NONE) << "launch aicpu sched failed: " << ret;
+            devRunner.ReportHostProfInfo(startTime, 3, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         } else {
             const int nrAicpu = 5; // see also device_runner.cpp
             args->kArgs.parameter.runMode = RUN_UNIFIED_STREAM;
+            auto startTime = MsprofSysCycleTime();
             int ret = rtAicpuKernelLaunchExWithArgs(rtKernelType_t::KERNEL_TYPE_AICPU_KFC,
                 "AST_DYN_AICPU", nrAicpu, &rtAicpuArgs, nullptr, schedtream, 0);
+            devRunner.ReportHostProfInfo(startTime, nrAicpu, MSPROF_GE_TASK_TYPE_AI_CPU, false);
             ASSERT(ret == RT_ERROR_NONE) << "launch aicpu def failed: " << ret;
         }
 #if ENABALE_VERBOSE_LOG
@@ -602,8 +610,11 @@ public:
 #endif
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
-        auto ret = rtKernelLaunchWithHandleV2(kernel->GetKernelBin(), tilingKey, dynamic::GetCfgBlockdim(),
+        auto blockDim = dynamic::GetCfgBlockdim();
+        auto startTime = MsprofSysCycleTime();
+        auto ret = rtKernelLaunchWithHandleV2(kernel->GetKernelBin(), tilingKey, blockDim,
             &rtAicoreArgs, nullptr, aicoreStream, &rtTaskCfg);
+        devRunner.ReportHostProfInfo(startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
     }
 
