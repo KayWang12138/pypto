@@ -19,28 +19,28 @@ from win_attention_impl import deepseekv4_win_atten
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
 pyptolib.define("win_attention(Tensor q, Tensor ori_block_table, Tensor ori_kv, Tensor seqused_kv, \
-    Tensor attn_sinks, Tensor mask, Tensor actual_seq_list_q) -> (Tensor)")
+    Tensor attn_sinks, int win_size, Tensor mask, Tensor actual_seq_list_q) -> (Tensor)")
 
 
 @torch.library.impl(pyptolib, "win_attention", "Meta")
-def win_attention(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, \
+def win_attention(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, \
     mask, actual_seq_list_q):
     y = torch.empty([q.shape[0], q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
     return y
 
 
 @torch.library.impl(pyptolib, "win_attention", "NPU")
-def win_attention(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, \
+def win_attention(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, \
     mask, actual_seq_list_q):
-    return deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, \
+    return deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, \
         mask, actual_seq_list_q)
 
 
 class SWA(torch.nn.Module):
-    def forward(self, q, ori_block_table, ori_kv, seqused_kv, attn_sinks, \
+    def forward(self, q, ori_block_table, ori_kv, seqused_kv, attn_sinks, win_size, \
         mask, actual_seq_list_q):
         return torch.ops.pypto.win_attention(q, ori_block_table, ori_kv, seqused_kv, \
-            attn_sinks, mask, actual_seq_list_q)
+            attn_sinks, win_size, mask, actual_seq_list_q)
 
 
 def gen_uniform_data(data_shape, min_value, max_value, dtypes, device_id):
@@ -222,12 +222,12 @@ def test_win_atten_tnd_mask(allow_in_graph) -> None:
             actual_seq_list_q_tenor_npu = actual_seq_list_q_tenor.npu()
 
             atten_out = model(q_npu, ori_block_table_npu, ori_kv_npu, seqused_kv_list_tensor_npu, \
-                attn_sinks_npu, mask2_npu, actual_seq_list_q_tenor_npu)
+                attn_sinks_npu, win_size, mask2_npu, actual_seq_list_q_tenor_npu)
             pypto.runtime._device_synchronize()
 
         else:
             atten_out = deepseekv4_win_atten(q_tnd, block_table, kv_cache, seqused_kv_list_tensor, \
-            attn_sinks, mask=mask2, actual_seq_list_q=actual_seq_list_q_tenor)
+                attn_sinks, win_size, mask=mask2, actual_seq_list_q=actual_seq_list_q_tenor)
 
         golden = win_atten_calc_tnd(input_params_win_attn, seqused_kv_list, attn_sinks, q_tnd, \
             kv_cache, block_table, actual_seq_list_q, device_id)
