@@ -145,7 +145,8 @@ void RunTests(uint32_t tileOpCount, npu::tile_fwk::Distributed::ShmemWaitUntil* 
     TaskStat* taskStat{nullptr};
     for (uint32_t taskId = 0; taskId < tileOpCount; ++taskId) {
         shmemWaitUntil->EnqueueOp(taskId, taskStat);
-        shmemWaitUntil->PollCompleted(*aicoreManager);
+        aicoreManager = nullptr;
+        shmemWaitUntil->PollCompleted(aicoreManager);
     }
 }
 
