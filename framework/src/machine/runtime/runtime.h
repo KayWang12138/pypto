@@ -254,13 +254,21 @@ public:
     }
 
     static void CopyToDev(uint8_t *devDstAddr, uint8_t *hostSrcAddr, uint64_t size) {
-        rtMemcpy(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE);
+        auto ret = rtMemcpy(devDstAddr, size, hostSrcAddr, size, RT_MEMCPY_HOST_TO_DEVICE);
+        if (ret != ACL_RT_SUCCESS) {
+            ALOG_ERROR_F("rtMemcpy failed, size: %ld, ret: %d", size, ret);
+            throw std::runtime_error("CopyToDev rtMemcpy failed");
+        }
         ALOG_DEBUG_F("RuntimeAgent::CopyToDev for src %lx to dst %lx with size %u", reinterpret_cast<uint64_t>(hostSrcAddr),
             reinterpret_cast<uint64_t>(devDstAddr), size);
     }
 
     static void CopyFromDev(uint8_t *hostDstAddr, uint8_t *devSrcAddr, uint64_t size) {
-        rtMemcpy(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST);
+        auto ret = rtMemcpy(hostDstAddr, size, devSrcAddr, size, RT_MEMCPY_DEVICE_TO_HOST);
+        if (ret != ACL_RT_SUCCESS) {
+            ALOG_ERROR_F("rtMemcpy failed, size: %ld, ret: %d", size, ret);
+            throw std::runtime_error("CopyFromDev rtMemcpy failed");
+        }
     }
 
     int GetAicoreRegInfo(std::vector<int64_t> &aic, std::vector<int64_t> &aiv, const int &addrType);
