@@ -37,7 +37,7 @@
 #include <utility>
 #include <vector>
 
-#include "core/error.h"
+// #include "core/error.h"  // Temporarily commented out
 
 namespace pypto {
 
@@ -584,30 +584,38 @@ class CheckLogger<ExceptionType, true> {
  *
  * Usage: CHECK(condition) << "error message";
  */
-#define CHECK(expr) pypto::CheckLogger<pypto::ValueError>(static_cast<bool>(expr), #expr, __FILE__, __LINE__)
+// Temporarily commented out - depends on core/error.h
+/* #define CHECK(expr) pypto::CheckLogger<pypto::ValueError>(static_cast<bool>(expr), #expr, __FILE__, __LINE__) */
 
 /**
  * @brief Check an internal invariant and throw InternalError if it fails
  *
  * Usage: INTERNAL_CHECK(condition) << "error message";
  */
+// Temporarily commented out - depends on core/error.h
+/*
 #define INTERNAL_CHECK(expr) \
   pypto::CheckLogger<pypto::InternalError>(static_cast<bool>(expr), #expr, __FILE__, __LINE__)
+*/
 
 /**
  * @brief Mark a code path as unreachable and throw ValueError if reached
  *
  * Usage: UNREACHABLE << "optional message";
  */
-#define UNREACHABLE pypto::CheckLogger<pypto::ValueError, true>(false, "unreachable", __FILE__, __LINE__)
+// Temporarily commented out - depends on core/error.h
+/* #define UNREACHABLE pypto::CheckLogger<pypto::ValueError, true>(false, "unreachable", __FILE__, __LINE__) */
 
 /**
  * @brief Mark a code path as internally unreachable and throw InternalError if reached
  *
  * Usage: INTERNAL_UNREACHABLE << "optional message";
  */
+// Temporarily commented out - depends on core/error.h
+/*
 #define INTERNAL_UNREACHABLE \
   pypto::CheckLogger<pypto::InternalError, true>(false, "unreachable", __FILE__, __LINE__)
+*/
 
 }  // namespace pypto
 
