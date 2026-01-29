@@ -134,8 +134,9 @@ int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTa
     return DEVICE_MACHINE_OK;
 }
 
-DeviceExecuteContext::DeviceExecuteContext(DevStartArgs *startArgs) {
+DeviceExecuteContext::DeviceExecuteContext(DeviceKernelArgs *kArgs, DevStartArgs *startArgs) {
     PerfBegin(PERF_EVT_INIT);
+    this->kernelArgs = kArgs;
     this->devProg = startArgs->devProg;
 
     DEV_IF_VERBOSE_DEBUG {
@@ -239,6 +240,20 @@ int DeviceExecuteContext::GELaunch(DevStartArgs *startArgs, PushTaskEntry tPushT
     return DEVICE_MACHINE_OK;
 }
 
+void DeviceExecuteContext::MaybeWaitForAicoreStart(DevStartArgs *devStartArgs) {
+    DEV_IF_DEVICE {
+        if (devStartArgs->parameter.runMode == RUN_UNIFIED_STREAM) {
+            uint64_t start = GetCycles();
+            while ((devStartArgs->devProg->devArgs.disableSync == 0) && devStartArgs->syncFlag != 1) {
+                if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {
+                    DEV_ERROR("Wait sync flag timeout.");
+                    break;
+                }
+            }
+        }
+    }
+}
+
 int DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
     int ret = DEVICE_MACHINE_OK;
     DEV_TRACE_DEBUG(CtrlEvent(none(), Workspace(Range(startArgs->contextWorkspaceAddr, startArgs->contextWorkspaceAddr + startArgs->contextWorkspaceSize))));
@@ -248,15 +263,7 @@ int DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTask
         DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCachePartRunCache(devProg->ctrlFlowCacheAnchor->deviceTaskCount, devProg->ctrlFlowCacheAnchor->rootTaskCount)));
         GELaunchRunCached(startArgs, tPushTask);
     }
-    DEV_IF_DEVICE {
-        uint64_t start = GetCycles();
-        while ((startArgs->devProg->devArgs.disableSync == 0) && startArgs->syncFlag != 1) {
-            if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("Wait sync flag timeout.");
-                break;
-            }
-        }
-    }
+    MaybeWaitForAicoreStart(startArgs);
     DEV_TRACE_DEBUG(CtrlEvent(none(), ControlFlowCacheFullRunControl()));
     ret = RunInit(startArgs, tPushTask);
     if (unlikely(ret != DEVICE_MACHINE_OK)) {
