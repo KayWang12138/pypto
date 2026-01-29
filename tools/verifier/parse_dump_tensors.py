@@ -70,6 +70,7 @@ class VerifyRes:
         tensor_info_offset_str = '_'.join(str(item) for item in tensor_info.get("offset"))
 
         verify_dup_tensor = ""
+        valid_shape = []
         
         for op_info in self.verify_op_info_list:
             if callop_magic != op_info.get("callopMagic"):
@@ -81,15 +82,17 @@ class VerifyRes:
                 verify_op_offset_str = '_'.join(str(item) for item in verify_op_offset)
                 if verify_op_offset_str == tensor_info_offset_str:
                     verify_dup_tensor = op_info.get("outputTensor")
+                    valid_shape = json.loads(op_info.get("outputValidShape"))
             elif ioflag == "output" and raw_magic == op_info.get("rawTensorMagic"):
                 verify_op_offset = json.loads(op_info.get("offset"))
                 verify_op_offset_str = '_'.join(str(item) for item in verify_op_offset)
                 if verify_op_offset_str == tensor_info_offset_str:
                     verify_dup_tensor = op_info.get("inputTensors")   # COPY_OUT的op只会有一个输入
+                    valid_shape = json.loads(op_info.get("inputValidShape"))
 
         if verify_dup_tensor:
             verify_dup_tensor = os.path.join(self.verify_path, op_info.get("verifyType"), verify_dup_tensor)
-        return verify_dup_tensor
+        return verify_dup_tensor, valid_shape
         
 
 _verify_res = VerifyRes()
@@ -245,12 +248,19 @@ class CompactDumpTensorInfoParser:
 
         tensor_info["bin_file"] = file_path
 
-        verify_tensor_info = _verify_res.get_verify_res(tensor_info)
+        verify_tensor_info, verify_tshape = _verify_res.get_verify_res(tensor_info)
+        dump_tshape = tensor_info.get("shape")
         tensor_info["verify_tensor_file"] = verify_tensor_info
-        if os.path.exists(verify_tensor_info):  
+        if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape):
             verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
-            cmp_size = min(verify_tensor_data.size, data.size)
-            tensor_info["cmp_res"] = np.allclose(data[:cmp_size], verify_tensor_data[:cmp_size])
+            verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
+            data = data.reshape(dump_tshape)
+            # dump tensor可能存在无效数据，只对吧有效部分
+            slices = []
+            for dim in range(data.ndim):
+                stop = min(verify_tshape[dim], dump_tshape[dim])
+                slices.append(slice(0, stop))
+            tensor_info["cmp_res"] = np.allclose(data[tuple(slices)], verify_tensor_data[tuple(slices)])
         else:
             tensor_info["cmp_res"] = "NO_CMP"
 
