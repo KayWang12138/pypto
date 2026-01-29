@@ -28,7 +28,7 @@
 #include <string>
 #include <typeinfo>
 
-#include "core/error.h"
+// #include "core/error.h"  // Temporarily commented out
 
 namespace pypto {
 
@@ -89,18 +89,20 @@ T AnyCast(const std::any& value, const std::string& context = "") {
   try {
     return std::any_cast<T>(value);
   } catch (const std::bad_any_cast& e) {
-    std::string expected_type = DemangleTypeName(typeid(T).name());
-    std::string actual_type = DemangleTypeName(value.type().name());
-    std::string error_msg = "Invalid type";
-    if (!context.empty()) {
-      error_msg += " for ";
-      error_msg += context;
-    }
-    error_msg += ", expected ";
-    error_msg += expected_type;
-    error_msg += ", but got ";
-    error_msg += actual_type;
-    throw TypeError(error_msg);
+    // Temporarily commented out - depends on core/error.h
+    // std::string expected_type = DemangleTypeName(typeid(T).name());
+    // std::string actual_type = DemangleTypeName(value.type().name());
+    // std::string error_msg = "Invalid type";
+    // if (!context.empty()) {
+    //   error_msg += " for ";
+    //   error_msg += context;
+    // }
+    // error_msg += ", expected ";
+    // error_msg += expected_type;
+    // error_msg += ", but got ";
+    // error_msg += actual_type;
+    // throw TypeError(error_msg);
+    throw;  // Re-throw std::bad_any_cast for now
   }
 }
 
@@ -126,18 +128,20 @@ const T& AnyCastRef(const std::any& value, const std::string& context = "") {
   try {
     return std::any_cast<const T&>(value);
   } catch (const std::bad_any_cast& e) {
-    std::string expected_type = DemangleTypeName(typeid(T).name());
-    std::string actual_type = DemangleTypeName(value.type().name());
-    std::string error_msg = "Invalid type";
-    if (!context.empty()) {
-      error_msg += " for ";
-      error_msg += context;
-    }
-    error_msg += ", expected ";
-    error_msg += expected_type;
-    error_msg += ", but got ";
-    error_msg += actual_type;
-    throw TypeError(error_msg);
+    // Temporarily commented out - depends on core/error.h
+    // std::string expected_type = DemangleTypeName(typeid(T).name());
+    // std::string actual_type = DemangleTypeName(value.type().name());
+    // std::string error_msg = "Invalid type";
+    // if (!context.empty()) {
+    //   error_msg += " for ";
+    //   error_msg += context;
+    // }
+    // error_msg += ", expected ";
+    // error_msg += expected_type;
+    // error_msg += ", but got ";
+    // error_msg += actual_type;
+    // throw TypeError(error_msg);
+    throw;  // Re-throw std::bad_any_cast for now
   }
 }
 
