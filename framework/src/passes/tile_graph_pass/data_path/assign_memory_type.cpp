@@ -152,11 +152,11 @@ void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr 
             tensor->SetMemoryTypeOriginal(attrToType, true);
             inserter.UpdateTensorTobeMap(tensor,operation, attrToType);
             continue;
-        }else if (producerOpcode == Opcode::OP_L1_TO_L0A || producerOpcode == Opcode::OP_L1_TO_L0_AT) {
+        }else if (producerOpcode == Opcode::OP_L1_TO_L0A || producerOpcode == Opcode::OP_L1_TO_L0_AT || producerOpcode == Opcode::OP_LOAD3D_CONV) {
             tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0A, true);
             inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0A);
             continue;
-        }else if (producerOpcode == Opcode::OP_L1_TO_L0B || producerOpcode == Opcode::OP_L1_TO_L0_BT) {
+        }else if (producerOpcode == Opcode::OP_L1_TO_L0B || producerOpcode == Opcode::OP_L1_TO_L0_BT || producerOpcode == Opcode::OP_LOAD2D_CONV) {
             tensor->SetMemoryTypeOriginal(MemoryType::MEM_L0B, true);
             inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0B);
             continue;
