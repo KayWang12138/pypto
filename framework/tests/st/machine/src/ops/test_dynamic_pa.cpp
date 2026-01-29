@@ -54,6 +54,30 @@ struct PaConfig {
     bool isImmediateSymScalar{false};
 };
 
+inline int CalculateBlockNum(const std::vector<int>& seqs, int blockSize) {
+    int blockNum = 0;
+    for (auto s : seqs) {
+        blockNum += CeilDiv(s, blockSize);
+    }
+    return blockNum;
+}
+
+struct BlockInfo {
+    int blockNum;
+    int maxBlockNum;
+    int maxSeqAllBatch;
+};
+
+inline BlockInfo CalculateBlockInfo(const std::vector<int>& seqs, int blockSize) {
+    int blockNum = 0;
+    for (auto s : seqs) {
+        blockNum += CeilDiv(s, blockSize);
+    }
+    int maxSeqAllBatch = *(std::max_element(seqs.begin(), seqs.end()));
+    int maxBlockNum = CeilDiv(maxSeqAllBatch, blockSize);
+    return {blockNum, maxBlockNum, maxSeqAllBatch};
+}
+
 void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     SetInterpreterConfig();
 
@@ -74,13 +98,10 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     std::vector<int> seq(b);
     readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
 
-    int blockNum = 0;
-    for (auto s : seq) {
-        blockNum += CeilDiv(s, blockSize);
-    }
-    // blockTable: (b, maxBlockNumPerBatch)
-    int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
-    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+    auto blockInfo = CalculateBlockInfo(seq, blockSize);
+    int blockNum = blockInfo.blockNum;
+    int maxSeqAllBatch = blockInfo.maxSeqAllBatch;
+    int maxBlockNumPerBatch = blockInfo.maxBlockNum;
     std::vector<std::vector<int>> blockTableVector(b, std::vector<int>(maxBlockNumPerBatch, 0));
 
     TileOpFormat kvFormat = config.isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;

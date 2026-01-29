@@ -22,6 +22,48 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicAttention : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 namespace {
+
+// Helper function to get DataType from template type
+template <typename T>
+DataType GetDataType() {
+    if (std::is_same<T, npu::tile_fwk::float16>::value) {
+        return DT_FP16;
+    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
+        return DT_BF16;
+    }
+    return DT_FP32;
+}
+
+// Helper function to calculate capacity from shape
+inline int64_t CalculateCapacity(const std::vector<int64_t>& shape) {
+    return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+}
+
+// Helper function to read tensor data
+template <typename T>
+std::vector<T> ReadTensorData(const std::string& path, int64_t capacity) {
+    std::vector<T> data(capacity, 0);
+    readInput<T>(path, data);
+    return data;
+}
+
+// Helper function to calculate block information
+struct BlockInfo {
+    int blockNum;
+    int maxBlockNumPerBatch;
+    int maxSeqAllBatch;
+};
+
+inline BlockInfo CalculateBlockInfo(const std::vector<int>& seqs, int blockSize) {
+    int blockNum = 0;
+    for (auto seq : seqs) {
+        blockNum += CeilDiv(seq, blockSize);
+    }
+    int maxSeqAllBatch = *(std::max_element(seqs.begin(), seqs.end()));
+    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+    return {blockNum, maxBlockNumPerBatch, maxSeqAllBatch};
+}
+
 template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = false, bool usePrefetch = false>
 void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileConfig, string dataPath,
         uint64_t timeThreshold, bool isQuant = false, bool isSmooth = false) {
@@ -48,25 +90,14 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     std::vector<int> atcSeqs(b);
     readInput<int>(dataPath + "/actual_seq_len.bin", atcSeqs);
 
-    int blockNum = 0;
-    for (auto seq : atcSeqs) {
-        blockNum += CeilDiv(seq, blockSize);
-    }
-
     float softmaxScale = static_cast<float>(1.0 / sqrtf((kvLoraRank + qkRopeHeadDim)));
-    // blockTable: (b, maxBlockNumPerBatch)
-    int maxSeqAllBatch = *(std::max_element(atcSeqs.begin(), atcSeqs.end()));
-    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+    
+    auto blockInfo = CalculateBlockInfo(atcSeqs, blockSize);
+    int blockNum = blockInfo.blockNum;
+    int maxBlockNumPerBatch = blockInfo.maxBlockNumPerBatch;
+    int maxSeqAllBatch = blockInfo.maxSeqAllBatch;
 
-    DataType dType = DT_FP32;
-    if (std::is_same<T, npu::tile_fwk::float16>::value) {
-        dType = DT_FP16;
-    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        dType = DT_BF16;
-    } else {
-        dType = DT_FP32;
-    }
-
+    DataType dType = GetDataType<T>();
     DataType dTypeQuantIn = isQuant ? DT_INT8 : dType;
 
     std::vector<int64_t> x_shape = {b, s, h};
@@ -96,24 +127,24 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
     std::vector<int64_t> fake_out_shape = {b, s, kvLoraRank + qkRopeHeadDim};
     std::vector<int64_t> fake_out_shape1 = {n, b * s, qkNopeHeadDim};
 
-    int capacity_x = std::accumulate(x_shape.begin(), x_shape.end(), 1, std::multiplies<>());
-    int wDqCapacity = std::accumulate(w_qa_shape.begin(), w_qa_shape.end(), 1, std::multiplies<>());
-    int wUqQrCapacity = std::accumulate(w_qb_shape.begin(), w_qb_shape.end(), 1, std::multiplies<>());
-    int wDkvKrCapacity = std::accumulate(w_kv_a_shape.begin(), w_kv_a_shape.end(), 1, std::multiplies<>());
-    int wUkCapacity = std::accumulate(w_kv_b_k_shape.begin(), w_kv_b_k_shape.end(), 1, std::multiplies<>());
-    int capacity_cos = std::accumulate(cos_shape.begin(), cos_shape.end(), 1, std::multiplies<>());
-    int capacity_gamma_cq = std::accumulate(gamma_cq_shape.begin(), gamma_cq_shape.end(), 1, std::multiplies<>());
-    int capacity_gamma_ckv = std::accumulate(gamma_ckv_shape.begin(), gamma_ckv_shape.end(), 1, std::multiplies<>());
-    int capacity_kv_len = std::accumulate(kv_len_shape.begin(), kv_len_shape.end(), 1, std::multiplies<>());
-    int capacity_kv_cache = std::accumulate(kv_cache_shape.begin(), kv_cache_shape.end(), 1, std::multiplies<>());
-    int capacity_kr_cache = std::accumulate(kr_cache_shape.begin(), kr_cache_shape.end(), 1, std::multiplies<>());
-    int capacity_w_qb_scale = std::accumulate(w_qb_scale_shape.begin(), w_qb_scale_shape.end(), 1, std::multiplies<>());
-    int capacity_smooth_cq = std::accumulate(smooth_cq_shape.begin(), smooth_cq_shape.end(), 1, std::multiplies<>());
+    int capacity_x = CalculateCapacity(x_shape);
+    int wDqCapacity = CalculateCapacity(w_qa_shape);
+    int wUqQrCapacity = CalculateCapacity(w_qb_shape);
+    int wDkvKrCapacity = CalculateCapacity(w_kv_a_shape);
+    int wUkCapacity = CalculateCapacity(w_kv_b_k_shape);
+    int capacity_cos = CalculateCapacity(cos_shape);
+    int capacity_gamma_cq = CalculateCapacity(gamma_cq_shape);
+    int capacity_gamma_ckv = CalculateCapacity(gamma_ckv_shape);
+    int capacity_kv_len = CalculateCapacity(kv_len_shape);
+    int capacity_kv_cache = CalculateCapacity(kv_cache_shape);
+    int capacity_kr_cache = CalculateCapacity(kr_cache_shape);
+    int capacity_w_qb_scale = CalculateCapacity(w_qb_scale_shape);
+    int capacity_smooth_cq = CalculateCapacity(smooth_cq_shape);
     // output
-    int capacity_q_out = std::accumulate(q_out_shape.begin(), q_out_shape.end(), 1, std::multiplies<>());
-    int capacity_q_rope_out = std::accumulate(q_rope_out_shape.begin(), q_rope_out_shape.end(), 1, std::multiplies<>());
-    int capacity_fake_out = std::accumulate(fake_out_shape.begin(), fake_out_shape.end(), 1, std::multiplies<>());
-    int capacity_fake_out1 = std::accumulate(fake_out_shape1.begin(), fake_out_shape1.end(), 1, std::multiplies<>());
+    int capacity_q_out = CalculateCapacity(q_out_shape);
+    int capacity_q_rope_out = CalculateCapacity(q_rope_out_shape);
+    int capacity_fake_out = CalculateCapacity(fake_out_shape);
+    int capacity_fake_out1 = CalculateCapacity(fake_out_shape1);
 
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     TileOpFormat paFormat = cacheMode == "PA_NZ" ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
@@ -173,73 +204,36 @@ void TestDynamicAttention(std::vector<int> &params, PaTileShapeConfig &paTileCon
         {tileB, 1, 1, 32, 2} // (b,s,n,d//2,2)
     };
 
-    std::vector<T> xValue(capacity_x, 0);
-    std::vector<T> wDqValue(wDqCapacity, 0);
-    std::vector<wDtype> wUqQrValue(wUqQrCapacity, 0);
-    std::vector<T> wUkValue(wUkCapacity, 0);
-    std::vector<T> wDkvKrValue(wDkvKrCapacity, 0);
-    std::vector<T> gammaCqValue(capacity_gamma_cq, 0);
-    std::vector<T> gammaCkvValue(capacity_gamma_ckv, 0);
-    std::vector<T> sinValue(capacity_cos, 0);
-    std::vector<T> cosValue(capacity_cos, 0);
-    std::vector<int64_t> kvLenValue(capacity_kv_len, 0);
-    std::vector<T> kvCacheValue(capacity_kv_cache, 0);
-    std::vector<T> krCacheValue(capacity_kr_cache, 0);
-    std::vector<float> wQbScaleValue(capacity_w_qb_scale, 0);
-    std::vector<float> smoothCqValue(capacity_smooth_cq, 0);
-    //pa
-    std::vector<int32_t> blockTableValue(b*maxBlockNumPerBatch, 0);
-    std::vector<int32_t> actSeqsValue(b, s2);
-    //post
-    std::vector<T> weightUVValue(n*kvLoraRank*vHeadDim, 0);
-    std::vector<int8_t> weightOValue(n * vHeadDim*h, 0);
-    std::vector<float> weightOScaleWValue(h, 0);
+    std::vector<T> xValue = ReadTensorData<T>(dataPath + "/x.bin", capacity_x);
+    std::vector<T> wDqValue = ReadTensorData<T>(dataPath + "/wDq.bin", wDqCapacity);
+    std::vector<wDtype> wUqQrValue = ReadTensorData<wDtype>(dataPath + "/wUqQr.bin", wUqQrCapacity);
+    std::vector<T> wUkValue = ReadTensorData<T>(dataPath + "/wUk.bin", wUkCapacity);
+    std::vector<T> wDkvKrValue = ReadTensorData<T>(dataPath + "/wDkvKr.bin", wDkvKrCapacity);
+    std::vector<T> gammaCqValue = ReadTensorData<T>(dataPath + "/gamma_cq.bin", capacity_gamma_cq);
+    std::vector<T> gammaCkvValue = ReadTensorData<T>(dataPath + "/gamma_ckv.bin", capacity_gamma_ckv);
+    std::vector<T> sinValue = ReadTensorData<T>(dataPath + "/sin.bin", capacity_cos);
+    std::vector<T> cosValue = ReadTensorData<T>(dataPath + "/cos.bin", capacity_cos);
+    std::vector<int64_t> kvLenValue = ReadTensorData<int64_t>(dataPath + "/kv_len.bin", capacity_kv_len);
+    std::vector<T> kvCacheValue = ReadTensorData<T>(dataPath + "/kv_cache.bin", capacity_kv_cache);
+    std::vector<T> krCacheValue = ReadTensorData<T>(dataPath + "/kr_cache.bin", capacity_kr_cache);
+    std::vector<float> wQbScaleValue = ReadTensorData<float>(dataPath + "/w_qb_scale.bin", capacity_w_qb_scale);
+    std::vector<float> smoothCqValue = ReadTensorData<float>(dataPath + "/smooth_cq.bin", capacity_smooth_cq);
+    
+    std::vector<int32_t> blockTableValue = ReadTensorData<int32_t>(dataPath + "/block_table.bin", b*maxBlockNumPerBatch);
+    std::vector<int32_t> actSeqsValue = ReadTensorData<int32_t>(dataPath + "/actual_seq_len.bin", b);
+    
+    std::vector<T> weightUVValue = ReadTensorData<T>(dataPath + "/w_uv.bin", n*kvLoraRank*vHeadDim);
+    std::vector<int8_t> weightOValue = ReadTensorData<int8_t>(dataPath + "/w_o.bin", n * vHeadDim*h);
+    std::vector<float> weightOScaleWValue = ReadTensorData<float>(dataPath + "/w_o_scale_w.bin", h);
 
-    // read data
-    readInput<T>(dataPath + "/x.bin", xValue);
-    readInput<T>(dataPath + "/wDq.bin", wDqValue);
-    readInput<wDtype>(dataPath + "/wUqQr.bin", wUqQrValue);
-    readInput<T>(dataPath + "/wUk.bin", wUkValue);
-    readInput<T>(dataPath + "/wDkvKr.bin", wDkvKrValue);
-    readInput<T>(dataPath + "/gamma_cq.bin", gammaCqValue);
-    readInput<T>(dataPath + "/gamma_ckv.bin", gammaCkvValue);
-    readInput<T>(dataPath + "/sin.bin", sinValue);
-    readInput<T>(dataPath + "/cos.bin", cosValue);
-    readInput<int64_t>(dataPath + "/kv_len.bin", kvLenValue);
-    readInput<T>(dataPath + "/kv_cache.bin", kvCacheValue);
-    readInput<T>(dataPath + "/kr_cache.bin", krCacheValue);
-    if (isQuant) {
-        readInput<float>(dataPath + "/w_qb_scale.bin", wQbScaleValue);
-        if (isSmooth) {
-            readInput<float>(dataPath + "/smooth_cq.bin", smoothCqValue);
-        }
-    }
-    // pa
-    readInput<int32_t>(dataPath + "/block_table.bin", blockTableValue);
-    readInput<int32_t>(dataPath + "/actual_seq_len.bin", actSeqsValue);
-    // post
-    readInput<T>(dataPath + "/w_uv.bin", weightUVValue);
-    readInput<int8_t>(dataPath + "/w_o.bin", weightOValue); // NZ
-    readInput<float>(dataPath + "/w_o_scale_w.bin", weightOScaleWValue);
-
-     // golden
-    std::vector<T> q_golden(capacity_q_out, 0);
-    std::vector<T> q_rope_golden(capacity_q_rope_out, 0);
-    std::vector<T> kv_cache_golden(capacity_kv_cache, 0);
-    std::vector<T> kr_cache_golden(capacity_kr_cache, 0);
-    std::vector<T> golden5(capacity_fake_out, 0);
-    std::vector<T> golden6(capacity_fake_out1, 0);
-
-    std::vector<float> atten_out_golden(b * n * s*kvLoraRank, 0);
-    std::vector<T> attn_output_golden(capacity_x, 0);
-
-    readInput<T>(dataPath + "/q_golden.bin", q_golden);
-    readInput<T>(dataPath + "/q_rope_golden.bin", q_rope_golden);
-    readInput<T>(dataPath + "/kv_cache_golden.bin", kv_cache_golden);
-    readInput<T>(dataPath + "/kr_cache_golden.bin", kr_cache_golden);
-
-    readInput<float>(dataPath + "/atten_out.bin", atten_out_golden); // pa out
-    readInput<T>(dataPath + "/attn_output.bin", attn_output_golden);    // attention out
+    std::vector<T> q_golden = ReadTensorData<T>(dataPath + "/q_golden.bin", capacity_q_out);
+    std::vector<T> q_rope_golden = ReadTensorData<T>(dataPath + "/q_rope_golden.bin", capacity_q_rope_out);
+    std::vector<T> kv_cache_golden = ReadTensorData<T>(dataPath + "/kv_cache_golden.bin", capacity_kv_cache);
+    std::vector<T> kr_cache_golden = ReadTensorData<T>(dataPath + "/kr_cache_golden.bin", capacity_kr_cache);
+    std::vector<T> golden5 = ReadTensorData<T>(dataPath + "/fake_out.bin", capacity_fake_out);
+    std::vector<T> golden6 = ReadTensorData<T>(dataPath + "/fake_out1.bin", capacity_fake_out1);
+    std::vector<float> atten_out_golden = ReadTensorData<float>(dataPath + "/atten_out.bin", b * n * s*kvLoraRank);
+    std::vector<T> attn_output_golden = ReadTensorData<T>(dataPath + "/attn_output.bin", capacity_x);
 
     auto xData = RawTensorData::CreateTensor<T>(x, xValue);
     auto wDqData = RawTensorData::CreateTensor<T>(wDq, wDqValue);
