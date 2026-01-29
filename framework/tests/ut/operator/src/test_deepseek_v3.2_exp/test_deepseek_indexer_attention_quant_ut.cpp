@@ -240,13 +240,3 @@ void test_common_ut(DSIASimpleParams params) {
 
     TestDeepSeekIndexerAttentionQuantUTest(params);
 }
-
-TEST_F_WITH_COST(DeepSeekIndexerAttentionQuantUTest, 4B_mtp_ut, 176) {
-    DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
-    params.b = 4;
-    params.s1 = 2;
-    params.s2 = 128 * 1024;
-    params.n1 = 128;
-    params.n2 = 1;
-    // test_common_ut(params);
-}
