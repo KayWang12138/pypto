@@ -238,8 +238,13 @@ public:
         devStartArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
         DevControlFlowCache *ctrlFlowCacheBase = reinterpret_cast<DevControlFlowCache *>(kargs->ctrlFlowCache);
-        DevControlFlowCache *ctrlFlowCache = reinterpret_cast<DevControlFlowCache *>(
-            reinterpret_cast<uint8_t *>(kargs->ctrlFlowCache) + ctrlFlowCacheBase->allCacheSize * ringBufferHead->GetIndexPendingIndex());
+        DevControlFlowCache *ctrlFlowCache;
+        if (ctrlFlowCacheBase->IsRecording()) {
+            ctrlFlowCache = ctrlFlowCacheBase;
+        } else {
+            ctrlFlowCache = reinterpret_cast<DevControlFlowCache *>(
+                reinterpret_cast<uint8_t *>(kargs->ctrlFlowCache) + ctrlFlowCacheBase->allCacheSize * ringBufferHead->GetIndexPendingIndex());
+        }
         InitCtrlFlowCache(devProg, ctrlFlowCache, devStartArgs, firstInit);
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
