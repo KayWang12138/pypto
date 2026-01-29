@@ -30,13 +30,44 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class CmpAttnTopk : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
+namespace {
+// Helper function to get DataType from template type
 template <typename T>
-static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, std::string fileName) {
+DataType GetDataType() {
+    if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
+        return DT_BF16;
+    } else if (std::is_same<T, npu::tile_fwk::float16>::value) {
+        return DT_FP16;
+    } else {
+        return DT_FP32;
+    }
+}
+
+inline int64_t CalculateCapacity(const std::vector<int64_t>& shape) {
+    return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+}
+
+template <typename T>
+std::vector<T> ReadTensorData(const std::string& path, int64_t capacity) {
+    std::vector<T> data(capacity, 0);
+    readInput<T>(GetGoldenDir() + path, data);
+    return data;
+}
+
+} // namespace
+
+template <typename T>
+static std::shared_ptr<RawTensorData> CreateTensorData(Tensor tensor, const std::string& fileName) {
     auto shape = tensor.GetShape();
-    int capacity = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
-    std::vector<T> values(capacity, 0);
-    readInput<T>(GetGoldenDir() + fileName, values);
+    int capacity = CalculateCapacity(shape);
+    auto values = ReadTensorData<T>(fileName, capacity);
     return RawTensorData::CreateTensor<T>(tensor, values);
+}
+
+template <typename T>
+std::vector<T> getGoldenVec(const std::vector<int64_t>& shape, const std::string& fileName) {
+    int capacity = CalculateCapacity(shape);
+    return ReadTensorData<T>(fileName, capacity);
 }
 
 template <typename T = npu::tile_fwk::bfloat16>

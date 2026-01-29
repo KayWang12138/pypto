@@ -34,18 +34,21 @@ struct SaConfig {
     bool isNzFormat{false};
 };
 
+template <typename T>
+inline DataType GetDataType() {
+    if (std::is_same<T, npu::tile_fwk::float16>::value) {
+        return DT_FP16;
+    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
+        return DT_BF16;
+    }
+    return DT_FP32;
+}
+
 template <typename T = npu::tile_fwk::float16>
 void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
     SetInterpreterConfig();
 
-    DataType dType = DT_FP32;
-    if (std::is_same<T, npu::tile_fwk::float16>::value) {
-        dType = DT_FP16;
-    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        dType = DT_BF16;
-    } else {
-        dType = DT_FP32;
-    }
+    DataType dType = GetDataType<T>();
 
     std::vector<uint8_t> devProgBinary;
 

@@ -26,16 +26,19 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicGatherSlcFlashAttnDSASTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
+template <typename T>
+inline DataType GetDataType() {
+    if (std::is_same<T, npu::tile_fwk::float16>::value) {
+        return DT_FP16;
+    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
+        return DT_BF16;
+    }
+    return DT_FP32;
+}
+
 template <typename T = npu::tile_fwk::float16>
 void TestSa(SaTileShapeConfig& tileConfig) {
-    DataType dType = DT_FP32;
-    if (std::is_same<T, npu::tile_fwk::float16>::value) {
-        dType = DT_FP16;
-    } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        dType = DT_BF16;
-    } else {
-        dType = DT_FP32;
-    }
+    DataType dType = GetDataType<T>();
     int paramsSize = 11;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", input_param);
@@ -77,49 +80,38 @@ void TestSa(SaTileShapeConfig& tileConfig) {
     Tensor saOut(dType, {b, sq, nq, dn}, "saOut");
     RawTensorDataPtr saOutData = RawTensorData::CreateConstantTensorData<T>(saOutShape, dType, 0);
 
-    if(isKnQuant == 0){
+    int saOutSize = std::accumulate(saOutShape.begin(), saOutShape.end(), 1, std::multiplies<>());
+    std::vector<T> golden(saOutSize, 0);
+    readInput(GetGoldenDir() + "/atten_out.bin", golden);
+
+    if (isKnQuant == 0) {
         auto kNope2D = CreateTensorAndData<T>(knShape, dType, "kn", "/k_nope.bin", {0});
         SelectedAttentionV2(
             qNope.tensor, qRope.tensor, kNope2D.tensor, kRope2D.tensor, knScales.tensor,
             topKIndcies.tensor, blockTable.tensor, actSeqs.tensor, nq, nkv, softmaxScale, topk, blockSize, maxBlockNumPerBatch, saOut, tileConfig
         );
-        // 读数据
-        int saOutSize = std::accumulate(saOutShape.begin(), saOutShape.end(), 1, std::multiplies<>());
-        std::vector<T> golden(saOutSize, 0);
-        readInput(GetGoldenDir() + "/atten_out.bin", golden);
-
         ProgramData::GetInstance().AppendInputs({
             qNope.dataPtr, qRope.dataPtr, kNope2D.dataPtr, kRope2D.dataPtr, 
             knScales.dataPtr, topKIndcies.dataPtr, blockTable.dataPtr, actSeqs.dataPtr
         });
-        ProgramData::GetInstance().AppendOutputs({
-            saOutData
-        });
-        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-        auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-        EXPECT_TRUE(resultCmp(golden, (T *)outs->data(), 0.0005f));
     } else {
-        // kn int8
         auto kNope2D = CreateTensorAndData<int8_t>(knShape, DT_INT8, "kn", "/k_nope.bin", {0});
         SelectedAttentionV2(
             qNope.tensor, qRope.tensor, kNope2D.tensor, kRope2D.tensor, knScales.tensor,
             topKIndcies.tensor, blockTable.tensor, actSeqs.tensor, nq, nkv, softmaxScale, topk, blockSize, maxBlockNumPerBatch, saOut, tileConfig
         );
-        int saOutSize = std::accumulate(saOutShape.begin(), saOutShape.end(), 1, std::multiplies<>());
-        std::vector<T> golden(saOutSize, 0);
-        readInput(GetGoldenDir() + "/atten_out.bin", golden);
-
         ProgramData::GetInstance().AppendInputs({
             qNope.dataPtr, qRope.dataPtr, kNope2D.dataPtr, kRope2D.dataPtr, 
             knScales.dataPtr, topKIndcies.dataPtr, blockTable.dataPtr, actSeqs.dataPtr
         });
-        ProgramData::GetInstance().AppendOutputs({
-            saOutData
-        });
-        DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-        auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-        EXPECT_TRUE(resultCmp(golden, (T *)outs->data(), 0.0005f));
     }
+    
+    ProgramData::GetInstance().AppendOutputs({
+        saOutData
+    });
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (T *)outs->data(), 0.0005f));
 }
 
 SaTileShapeConfig GetDefaultSaTileShapeConfig(const int gTile, const int sTile) {
