@@ -741,9 +741,6 @@ std::unordered_map<LogicalTensorPtr, int> ReplaceTensor::BuildTensorOrderIndexMa
 }
 
 void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input) {
-    if (needInsertCopyAssOp->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-        return;
-    }
     auto copyShape = input->GetShape();
     auto copyDynShape = input->GetDynValidShape();
     Offset offset(copyShape.size(), 0);
@@ -809,19 +806,12 @@ void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCop
 }
 
 void ReplaceTensor::InsertAssembleCopy(Function &function) {
-    auto opsBeforeAdd = function.Operations();
     std::unordered_set<int> visitedAssOps;
     std::unordered_set<Operation*> needInsertCopyAssOps;
-    for (auto &op : opsBeforeAdd) {
+    for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             visitedAssOps.insert(op.GetOpMagic());
             auto assembleIn = op.GetIOperands()[0];
-            if (assembleIn->GetProducers().size() != 0) {
-                auto assembleInProducer = *(assembleIn->GetProducers().begin());
-                if (assembleInProducer->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
-                    continue;
-                }
-            }
             auto consumers = assembleIn->GetConsumers();
             if (consumers.size() <= 1) { 
                 continue;
@@ -846,7 +836,6 @@ void ReplaceTensor::InsertAssembleCopy(Function &function) {
 
 Status ReplaceTensor::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start ReplaceTensor.");
-    APASS_LOG_INFO_F(Elements::Operation, "Test one Tensor connects mutli Assemble.");
     InsertAssembleCopy(function);
     auto tensorToOrderIndex = BuildTensorOrderIndexMap(function);
     UnionFind uf(tensorToOrderIndex);
