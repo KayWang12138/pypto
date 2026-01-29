@@ -197,10 +197,14 @@ public:
             kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
         }
         kArgs.machineConfig = devProg->devArgs.machineConfig;
+    }
+
+    static void UpdateProfConfig(DeviceKernelArgs &kArgs, const DeviceLauncherConfig &config, bool isLastRepeat) {
+        kArgs.toSubMachineConfig.profConfig = ProfConfig::OFF;
         if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICPU_FUNC);
         }
-        if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) || config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL)  {
+        if (isLastRepeat && (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_TIME, false) || config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL))  {
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_TIME);
         }
         if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {

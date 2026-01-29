@@ -269,6 +269,24 @@
                             }
                         }
                     ]
+                },
+                "aicpu_advanced_time": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "设置AICPU提前启动时间 (单位: us)",
+                        "en": "Set AICPU advanced start time (unit: us)"
+                    },
+                    "minimum": 0,
+                    "maximum": 1000000
+                },
+                "repeat_time": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "设置单算子执行轮数",
+                        "en": "Set repeat count for single-operator execution"
+                    },
+                    "minimum": 1,
+                    "maximum": 1000000
                 }
             }
         },
