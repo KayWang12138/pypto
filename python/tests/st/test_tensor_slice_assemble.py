@@ -16,7 +16,6 @@ import pypto
 import pytest
 import torch
 import torch_npu
-import math
 
 
 def test_slice_neg_index():
