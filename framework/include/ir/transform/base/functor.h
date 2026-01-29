@@ -1,12 +1,11 @@
-/*
- * Copyright (c) PyPTO Contributors.
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
- * -----------------------------------------------------------------------------------------------------------
  */
 
 #ifndef PYPTO_IR_TRANSFORM_BASE_FUNCTOR_H_
@@ -141,8 +140,7 @@ R ExprFunctor<R, Args...>::VisitExpr(const ExprPtr& expr, Args... args) {
   EXPR_FUNCTOR_DISPATCH(Cast);
 
   // Should never reach here if all types are handled
-  // throw pypto::TypeError("Unknown expression type in ExprFunctor::VisitExpr");  // Temporarily commented out
-  throw std::logic_error("Unknown expression type in ExprFunctor::VisitExpr");  // Using std::logic_error instead
+  throw std::logic_error("Unknown expression type in ExprFunctor::VisitExpr");
 }
 
 #undef EXPR_FUNCTOR_DISPATCH
@@ -203,8 +201,7 @@ R StmtFunctor<R, Args...>::VisitStmt(const StmtPtr& stmt, Args... args) {
   STMT_FUNCTOR_DISPATCH(Stmt);
 
   // Should never reach here if all types are handled
-  // throw pypto::TypeError("Unknown statement type in StmtFunctor::VisitStmt");  // Temporarily commented out
-  throw std::logic_error("Unknown statement type in StmtFunctor::VisitStmt");  // Using std::logic_error instead
+  throw std::logic_error("Unknown statement type in StmtFunctor::VisitStmt");
 }
 
 #undef STMT_FUNCTOR_DISPATCH
@@ -238,8 +235,7 @@ class IRFunctor : public ExprFunctor<R, Args...>, public StmtFunctor<R, Args...>
     } else if (auto stmt = std::dynamic_pointer_cast<const Stmt>(node)) {
       return StmtFunctor<R, Args...>::VisitStmt(stmt, std::forward<Args>(args)...);
     }
-    // throw pypto::TypeError("Unknown IR node type in IRFunctor::VisitIRNode");  // Temporarily commented out
-    throw std::logic_error("Unknown IR node type in IRFunctor::VisitIRNode");  // Using std::logic_error instead
+    throw std::logic_error("Unknown IR node type in IRFunctor::VisitIRNode");
   }
 };
 
