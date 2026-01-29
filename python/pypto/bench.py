@@ -12,8 +12,7 @@
 """
 from typing import Callable, List, Literal, Union
 import torch
-import torch_npu  # explicit import for torch version < 2.5
-import pypto
+import torch_npu
 
 
 def do_bench(
