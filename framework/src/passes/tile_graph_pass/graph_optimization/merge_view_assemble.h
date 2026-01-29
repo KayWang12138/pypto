@@ -28,6 +28,11 @@ public:
     ~MergeViewAssemble() override = default;
 
 private:
+    // 需要在view合并时继承的属性列表
+    static constexpr const char* kInheritedAttrNames[] = {
+        "op_attr_copy_in_mode",
+        "IS_CONV"
+    };
     struct ViewOp {
         std::shared_ptr<LogicalTensor> input;
         std::shared_ptr<LogicalTensor> output;
@@ -35,8 +40,7 @@ private:
         std::vector<SymbolicScalar> dynOffset;
         std::vector<SymbolicScalar> dynValidShape;
         MemoryType toType = MemoryType::MEM_UNKNOWN;
-        bool hasCopyInMode;     // 是否有copy_in_mode属性
-        npu::tile_fwk::Any copyInModeValue;    // copy_in_mode属性值
+        std::unordered_map<std::string, npu::tile_fwk::Any> inheritedAttrs;  // 需要继承的属性
     };
     struct AssembleOp {
         std::shared_ptr<LogicalTensor> input;
