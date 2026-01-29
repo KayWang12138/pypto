@@ -54,6 +54,61 @@ struct PaConfig {
     bool isImmediateSymScalar{false};
 };
 
+static void PreparePaInputs(PaConfig config, int b, int sq, int nq, int nk, int dn, int dr, int blockSize,
+                              int maxBlockNumPerBatch, std::vector<std::vector<int>>& blockTableVector,
+                              std::vector<npu::tile_fwk::bfloat16>& qNopeData,
+                              std::vector<npu::tile_fwk::bfloat16>& qRopeData,
+                              std::vector<npu::tile_fwk::bfloat16>& kNopeCacheData,
+                              std::vector<npu::tile_fwk::bfloat16>& kRopeCacheData,
+                              std::vector<npu::tile_fwk::bfloat16>& vNopeCacheData,
+                              std::vector<int32_t>& blockTableData, std::vector<int>& seq) {
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_nope.bin", qNopeData);
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_rope.bin", qRopeData);
+    if (config.isNzFormat) {
+        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_nope_nz.bin", kNopeCacheData);
+        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_rope_nz.bin", kRopeCacheData);
+        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/v_cache_nz.bin", vNopeCacheData);
+    } else {
+        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_nope.bin", kNopeCacheData);
+        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
+        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/v_cache.bin", vNopeCacheData);
+    }
+    readInput<int32_t>(GetGoldenDir() + "/block_table.bin", blockTableData);
+    readBlockTableFromFile(GetGoldenDir() + "/block_table.bin", b, maxBlockNumPerBatch, blockTableVector);
+}
+
+static void PreparePaTensors(PaConfig config, int b, int sq, int nq, int nk, int dn, int dr, int blockSize,
+                              int blockNum, int maxBlockNumPerBatch,
+                              Tensor& qNope, Tensor& kNopeCache, Tensor& vNopeCache, Tensor& qRope,
+                              Tensor& kRopeCache, Tensor& blockTable, Tensor& actSeqs, Tensor& paOut) {
+    TileOpFormat kvFormat = config.isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
+
+    qNope = Tensor(DT_BF16, {b * nq * sq, dn}, "qNope");
+    kNopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache", kvFormat);
+    vNopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache", kvFormat);
+    qRope = Tensor(DT_BF16, {b * nq * sq, nk * dr}, "qRope");
+    kRopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope", kvFormat);
+    blockTable = Tensor(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
+    actSeqs = Tensor(DT_INT32, {b}, "actSeqs");
+    paOut = Tensor(DT_FP32, {b * nq * sq, dn}, "paOut");
+}
+
+static void PreparePaDataVectors(int b, int sq, int nq, int nk, int dn, int dr, int blockSize,
+                                   int maxBlockNumPerBatch, int blockNum,
+                                   std::vector<npu::tile_fwk::bfloat16>& qNopeData,
+                                   std::vector<npu::tile_fwk::bfloat16>& qRopeData,
+                                   std::vector<npu::tile_fwk::bfloat16>& kNopeCacheData,
+                                   std::vector<npu::tile_fwk::bfloat16>& kRopeCacheData,
+                                   std::vector<npu::tile_fwk::bfloat16>& vNopeCacheData,
+                                   std::vector<int32_t>& blockTableData) {
+    qNopeData.resize(b * nq * sq * dn, 0);
+    qRopeData.resize(b * nq * sq * dr, 0);
+    kNopeCacheData.resize(blockNum * blockSize * dn, 0);
+    kRopeCacheData.resize(blockNum * blockSize * dr, 0);
+    vNopeCacheData.resize(blockNum * blockSize * dn, 0);
+    blockTableData.resize(b * maxBlockNumPerBatch, 0);
+}
+
 void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     SetInterpreterConfig();
 
@@ -78,44 +133,21 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
     for (auto s : seq) {
         blockNum += CeilDiv(s, blockSize);
     }
-    // blockTable: (b, maxBlockNumPerBatch)
     int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
     int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
     std::vector<std::vector<int>> blockTableVector(b, std::vector<int>(maxBlockNumPerBatch, 0));
 
-    TileOpFormat kvFormat = config.isNzFormat ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
+    Tensor qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, paOut;
+    PreparePaTensors(config, b, sq, nq, nk, dn, dr, blockSize, blockNum, maxBlockNumPerBatch,
+                     qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, paOut);
 
-    Tensor qNope(DT_BF16, {b * nq * sq, dn}, "qNope");
-    Tensor kNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache", kvFormat);
-    Tensor vNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache", kvFormat);
-    Tensor qRope(DT_BF16, {b * nq * sq, nk * dr}, "qRope");
-    Tensor kRopeCache(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope", kvFormat);
-    Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
-    Tensor actSeqs(DT_INT32, {b}, "actSeqs");
-    Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
+    std::vector<npu::tile_fwk::bfloat16> qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData;
+    std::vector<int32_t> blockTableData;
+    PreparePaDataVectors(b, sq, nq, nk, dn, dr, blockSize, maxBlockNumPerBatch, blockNum,
+                          qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData, blockTableData);
+    PreparePaInputs(config, b, sq, nq, nk, dn, dr, blockSize, maxBlockNumPerBatch, blockTableVector,
+                    qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData, blockTableData, seq);
 
-    // 读数据
-    std::vector<npu::tile_fwk::bfloat16> qNopeData(b * nq * sq * dn, 0);
-    std::vector<npu::tile_fwk::bfloat16> qRopeData(b * nq * sq * dr, 0);
-    std::vector<npu::tile_fwk::bfloat16> kNopeCacheData(blockNum * blockSize * dn, 0);
-    std::vector<npu::tile_fwk::bfloat16> kRopeCacheData(blockNum * blockSize * dr, 0);
-    std::vector<npu::tile_fwk::bfloat16> vNopeCacheData(blockNum * blockSize * dn, 0);
-    std::vector<int32_t> blockTableData(b * maxBlockNumPerBatch, 0);
-
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_nope.bin", qNopeData);
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_rope.bin", qRopeData);
-    if (config.isNzFormat) {
-        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_nope_nz.bin", kNopeCacheData);
-        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_rope_nz.bin", kRopeCacheData);
-        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/v_cache_nz.bin", vNopeCacheData);
-    } else {
-        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_nope.bin", kNopeCacheData);
-        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
-        readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/v_cache.bin", vNopeCacheData);
-    }
-    readInput<int32_t>(GetGoldenDir() + "/block_table.bin", blockTableData);
-
-    readBlockTableFromFile(GetGoldenDir() + "/block_table.bin", b, maxBlockNumPerBatch, blockTableVector);
     std::vector<float> golden(b * sq * nq * dn, 0);
     readInput(GetGoldenDir() + "/atten_out.bin", golden);
 
@@ -126,7 +158,6 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
-
             RawTensorData::CreateTensor<int32_t>(blockTable, blockTableData),
             RawTensorData::CreateTensor<int32_t>(actSeqs, seq),
         });
@@ -137,7 +168,7 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
             RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
-            });
+        });
     }
 
     ProgramData::GetInstance().AppendOutputs({
@@ -156,7 +187,7 @@ void testPa(PaTileShapeConfig& tileConfig, PaConfig config) {
                 PageAttention(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
                     tileConfig, config.maxUnrollTimes, config.isNzFormat);
             } else {
-                PageAttentionWithImmScalar(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTableVector/*vector*/, seq/*vector*/, blockSize, softmaxScale, paOut,
+                PageAttentionWithImmScalar(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTableVector, seq, blockSize, softmaxScale, paOut,
                     tileConfig, config.maxUnrollTimes, config.isNzFormat);
             }
         } else {

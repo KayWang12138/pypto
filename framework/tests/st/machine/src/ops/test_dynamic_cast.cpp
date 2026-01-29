@@ -82,6 +82,19 @@ TEST_F(DynamicCastTest, testDynCastUnalign) {
     EXPECT_EQ(ret, true);
 }
 
+static std::vector<int32_t> GenerateGoldenData(int b, int sq, int d, const std::vector<int>& actSeqsData) {
+    std::vector<int32_t> golden(b * sq * d, 0);
+    for (int bidx = 0; bidx < b; ++bidx) {
+        for (int seq = 0; seq < actSeqsData[bidx]; ++seq) {
+            for (int dim = 0; dim < d; ++dim) {
+                int idx = bidx * sq * d + seq * d + dim;
+                golden[idx] = 1;
+            }
+        }
+    }
+    return golden;
+}
+
 TEST_F(DynamicCastTest, testDynCastDevSeparate) {
 #ifdef BUILD_WITH_NEW_CANN
     TileShape::Current().SetVecTile(1, 16);
@@ -100,15 +113,7 @@ TEST_F(DynamicCastTest, testDynCastDevSeparate) {
     Tensor out(oType, outShape, "out");
 
     std::vector<int> actSeqsData(b, 20);
-    std::vector<int32_t> golden(b * sq * d, 0);
-    for (int bidx = 0; bidx < b; ++bidx) {
-        for (int seq = 0; seq < actSeqsData[bidx]; ++seq) {
-            for (int dim = 0; dim < d; ++dim) {
-                int idx = bidx * sq * d + seq * d + dim;
-                golden[idx] = 1;
-            }
-        }
-    }
+    std::vector<int32_t> golden = GenerateGoldenData(b, sq, d, actSeqsData);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(q, 1.0),
@@ -135,7 +140,7 @@ TEST_F(DynamicCastTest, testDynCastDevSeparate) {
     DeviceLauncherConfig config;
     config.repeatNum = 3;
     config.cpuSeparate = true;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config); // 看护可重入，连续执行3次
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
 
     std::vector<float> x(b * sq * d);
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);

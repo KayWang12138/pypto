@@ -80,46 +80,52 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFN) {
 #endif
 }
 
-TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
+static void SetFFNQuantConfig()
+{
     TileShape::Current().SetVecTile(32, 256);
     TileShape::Current().SetCubeTile({32, 32}, {256, 256}, {128, 128}, true);
-    config::SetPassOption(VEC_NBUFFER_MODE, 1);      // 是否开启db切分 1开启
+    config::SetPassOption(VEC_NBUFFER_MODE, 1);
     config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 2}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 10*1024*1024);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
+}
 
-    constexpr int BATCH_SIZE = 32;
-    constexpr int SEQUENCE = 1;
-    constexpr int H = 7168;
-    constexpr int ExpertDim = 2048;
-    constexpr int BS = BATCH_SIZE * SEQUENCE;
-    constexpr int BASIC_BATCH = 32;
-    std::vector<uint8_t> devProgBinary;
+static void CreateFFNQuantTensors(int BS, int H, int ExpertDim,
+    Tensor& hiddenStates, Tensor& hiddenStatesScale, Tensor& ffnWeight1,
+    Tensor& ffnWeight2, Tensor& ffnWeight3, Tensor& ffnScale1,
+    Tensor& ffnScale2, Tensor& ffnScale3, Tensor& ffnout)
+{
     std::vector<int64_t> hiddenStatesShape{BS, H};
     std::vector<int64_t> weightShape{H, ExpertDim};
-    std::vector<int64_t> OutShape{BS, H};
+    std::vector<int64_t> outShape{BS, H};
 
-    Tensor hiddenStates(DT_INT8, hiddenStatesShape, "hiddenStates");
-    Tensor hiddenStatesScale(DT_FP32, {BS, 1}, "hiddenStatesScale");
-    Tensor ffnWeight1(DT_INT8, weightShape, "ffnWeight1", TileOpFormat::TILEOP_NZ);
-    Tensor ffnWeight2(DT_INT8, weightShape, "ffnWeight2", TileOpFormat::TILEOP_NZ);
-    Tensor ffnWeight3(DT_INT8, weightShape, "ffnWeight3", TileOpFormat::TILEOP_NZ);
-    Tensor ffnScale1(DT_FP32, {1, ExpertDim}, "ffnScale1");
-    Tensor ffnScale2(DT_FP32, {1, ExpertDim}, "ffnScale2");
-    Tensor ffnScale3(DT_FP32, {1, H}, "ffnScale3");
-    Tensor ffnout(DT_FP32, OutShape, "ffnout");
+    hiddenStates = Tensor(DT_INT8, hiddenStatesShape, "hiddenStates");
+    hiddenStatesScale = Tensor(DT_FP32, {BS, 1}, "hiddenStatesScale");
+    ffnWeight1 = Tensor(DT_INT8, weightShape, "ffnWeight1", TileOpFormat::TILEOP_NZ);
+    ffnWeight2 = Tensor(DT_INT8, weightShape, "ffnWeight2", TileOpFormat::TILEOP_NZ);
+    ffnWeight3 = Tensor(DT_INT8, weightShape, "ffnWeight3", TileOpFormat::TILEOP_NZ);
+    ffnScale1 = Tensor(DT_FP32, {1, ExpertDim}, "ffnScale1");
+    ffnScale2 = Tensor(DT_FP32, {1, ExpertDim}, "ffnScale2");
+    ffnScale3 = Tensor(DT_FP32, {1, H}, "ffnScale3");
+    ffnout = Tensor(DT_FP32, outShape, "ffnout");
+}
 
-    std::vector<int8_t>hiddenStatesData(BS * H);
-    std::vector<float>hiddenStatesScaleData(BS);
-    std::vector<int8_t>ffnweight1Data(ExpertDim * H);
-    std::vector<int8_t>ffnweight2Data(ExpertDim * H);
-    std::vector<int8_t>ffnweight3Data(ExpertDim * H);
-
-    std::vector<float>ffnScale1Data(ExpertDim);
-    std::vector<float>ffnScale2Data(ExpertDim);
-    std::vector<float>ffnScale3Data(H);
-
-    std::vector<float>golden(BS * H);
+static void ReadFFNQuantData(int BS, int H, int ExpertDim,
+    std::vector<int8_t>& hiddenStatesData, std::vector<float>& hiddenStatesScaleData,
+    std::vector<int8_t>& ffnweight1Data, std::vector<int8_t>& ffnweight2Data,
+    std::vector<int8_t>& ffnweight3Data, std::vector<float>& ffnScale1Data,
+    std::vector<float>& ffnScale2Data, std::vector<float>& ffnScale3Data,
+    std::vector<float>& golden)
+{
+    hiddenStatesData.resize(BS * H);
+    hiddenStatesScaleData.resize(BS);
+    ffnweight1Data.resize(ExpertDim * H);
+    ffnweight2Data.resize(ExpertDim * H);
+    ffnweight3Data.resize(ExpertDim * H);
+    ffnScale1Data.resize(ExpertDim);
+    ffnScale2Data.resize(ExpertDim);
+    ffnScale3Data.resize(H);
+    golden.resize(BS * H);
 
     readInput(GetGoldenDir() + "/hidden_states.bin", hiddenStatesData);
     readInput(GetGoldenDir() + "/hidden_states_scale.bin", hiddenStatesScaleData);
@@ -130,8 +136,33 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
     readInput(GetGoldenDir() + "/ffnScale2.bin", ffnScale2Data);
     readInput(GetGoldenDir() + "/ffnScale3.bin", ffnScale3Data);
     readInput(GetGoldenDir() + "/final_out.bin", golden);
+}
 
-    DynamicFFNQuant(hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3, ffnout, BASIC_BATCH);
+TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
+    SetFFNQuantConfig();
+
+    constexpr int BATCH_SIZE = 32;
+    constexpr int SEQUENCE = 1;
+    constexpr int H = 7168;
+    constexpr int ExpertDim = 2048;
+    constexpr int BS = BATCH_SIZE * SEQUENCE;
+    constexpr int BASIC_BATCH = 32;
+
+    Tensor hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3;
+    Tensor ffnScale1, ffnScale2, ffnScale3, ffnout;
+    CreateFFNQuantTensors(BS, H, ExpertDim, hiddenStates, hiddenStatesScale, ffnWeight1,
+        ffnWeight2, ffnWeight3, ffnScale1, ffnScale2, ffnScale3, ffnout);
+
+    std::vector<int8_t> hiddenStatesData;
+    std::vector<float> hiddenStatesScaleData;
+    std::vector<int8_t> ffnweight1Data, ffnweight2Data, ffnweight3Data;
+    std::vector<float> ffnScale1Data, ffnScale2Data, ffnScale3Data;
+    std::vector<float> golden;
+    ReadFFNQuantData(BS, H, ExpertDim, hiddenStatesData, hiddenStatesScaleData, ffnweight1Data,
+        ffnweight2Data, ffnweight3Data, ffnScale1Data, ffnScale2Data, ffnScale3Data, golden);
+
+    DynamicFFNQuant(hiddenStates, hiddenStatesScale, ffnWeight1, ffnWeight2, ffnWeight3,
+        ffnScale1, ffnScale2, ffnScale3, ffnout, BASIC_BATCH);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<int8_t>(hiddenStates, hiddenStatesData),
@@ -142,7 +173,6 @@ TEST_F(DynamicFFNTest, TestOnbroadDynamicFFNQuant) {
         RawTensorData::CreateTensor<float>(ffnScale1, ffnScale1Data),
         RawTensorData::CreateTensor<float>(ffnScale2, ffnScale2Data),
         RawTensorData::CreateTensor<float>(ffnScale3, ffnScale3Data),
-
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(ffnout, 0),

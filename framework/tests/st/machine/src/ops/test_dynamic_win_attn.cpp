@@ -37,36 +37,70 @@ constexpr int NUM_256 = 256;
 constexpr int NUM_512 = 512;
 constexpr int NUM_1024 = 1024;
 
-template <typename T = npu::tile_fwk::float16>
-void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
-    SetInterpreterConfig();
-
-    DataType dType = DT_FP32;
+template <typename T>
+static DataType GetDataType()
+{
     if (std::is_same<T, npu::tile_fwk::float16>::value) {
-        dType = DT_FP16;
+        return DT_FP16;
     } else if (std::is_same<T, npu::tile_fwk::bfloat16>::value) {
-        dType = DT_BF16;
-    } else {
-        dType = DT_FP32;
+        return DT_BF16;
     }
+    return DT_FP32;
+}
 
+static void ReadWinAttenInputParams(int& b, int& sQ, int& nQ, int& nKV, int& sMax, int& dN, int& dR, int& blockSize, int& windowSize, float& softmaxScale)
+{
     int paramsSize = 9;
     std::vector<int> inputParam(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", inputParam);
 
-    int b = inputParam[0];
-    int sQ = inputParam[1];
-    int nQ = inputParam[2];
-    int nKV = inputParam[3];
-    int sMax = inputParam[4];
-    int dN = inputParam[5];
-    int dR = inputParam[6];
-    int blockSize = inputParam[7];
-    int windowSize = inputParam[8];
-    float softmaxScale = static_cast<float>(1.0 / sqrtf((dN + dR)));
+    b = inputParam[0];
+    sQ = inputParam[1];
+    nQ = inputParam[2];
+    nKV = inputParam[3];
+    sMax = inputParam[4];
+    dN = inputParam[5];
+    dR = inputParam[6];
+    blockSize = inputParam[7];
+    windowSize = inputParam[8];
+    softmaxScale = static_cast<float>(1.0 / sqrtf((dN + dR)));
+
     std::cout << "====input param==== " << std::endl;
     std::cout <<" b = " << b << " sQ = " << sQ << " nQ = " << nQ << " nKV = " << nKV << " sMax =" << sMax << " dN = " << dN
         << " dR = " << dR << " blockSize = " << blockSize << " windowSize = " << windowSize << std::endl;
+}
+
+template <typename T>
+static void ReadWinAttenData(int b, int sMax, int blockSize, int qNopeSize, int qRopeSize, int vNopeCacheSize, int kRopeCacheSize, int blockTableSize, int winAttenOutSize,
+    std::vector<int>& seq, std::vector<T>& qNopeData, std::vector<T>& qRopeData, std::vector<T>& vNopeCacheData, std::vector<T>& kRopeCacheData,
+    std::vector<int>& blockTableData, std::vector<float>& golden)
+{
+    seq.resize(b);
+    qNopeData.resize(qNopeSize);
+    qRopeData.resize(qRopeSize);
+    vNopeCacheData.resize(vNopeCacheSize);
+    kRopeCacheData.resize(kRopeCacheSize);
+    blockTableData.resize(blockTableSize);
+    golden.resize(winAttenOutSize);
+
+    readInput<int>(GetGoldenDir() + "/actual_seq_list.bin", seq);
+    readInput<T>(GetGoldenDir() + "/q_nope.bin", qNopeData);
+    readInput<T>(GetGoldenDir() + "/q_rope.bin", qRopeData);
+    readInput<T>(GetGoldenDir() + "/k_cache_nope.bin", vNopeCacheData);
+    readInput<T>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
+    readInput<int>(GetGoldenDir() + "/block_table.bin", blockTableData);
+    readInput(GetGoldenDir() + "/atten_out.bin", golden);
+}
+
+template <typename T = npu::tile_fwk::float16>
+void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
+    SetInterpreterConfig();
+
+    DataType dType = GetDataType<T>();
+
+    int b, sQ, nQ, nKV, sMax, dN, dR, blockSize, windowSize;
+    float softmaxScale;
+    ReadWinAttenInputParams(b, sQ, nQ, nKV, sMax, dN, dR, blockSize, windowSize, softmaxScale);
 
     int maxBlock = (sMax + blockSize - 1) / blockSize;
     std::vector<int64_t> qNopeShape = {b * sQ * nQ, dN};
@@ -84,7 +118,6 @@ void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
     Tensor blockTable(DT_INT32, blockTableShape, "blockTable");
     Tensor attentionOut(DT_FP32, attentionOutShape, "attentionOut");
 
-    // 读数据
     int qNopeSize = std::accumulate(qNopeShape.begin(), qNopeShape.end(), 1, std::multiplies<>());
     int qRopeSize = std::accumulate(qRopeShape.begin(), qRopeShape.end(), 1, std::multiplies<>());
     int vNopeCacheSize = std::accumulate(vNopeCacheShape.begin(), vNopeCacheShape.end(), 1, std::multiplies<>());
@@ -92,22 +125,12 @@ void TestWinAtten(WinAttenTileShapeConfig& tileConfig) {
     int blockTableSize = std::accumulate(blockTableShape.begin(), blockTableShape.end(), 1, std::multiplies<>());
     int winAttenOutSize = std::accumulate(attentionOutShape.begin(), attentionOutShape.end(), 1, std::multiplies<>());
 
-    std::vector<int> seq(b);
-    std::vector<T> qNopeData(qNopeSize, 0);
-    std::vector<T> qRopeData(qRopeSize, 0);
-    std::vector<T> vNopeCacheData(vNopeCacheSize, 0);
-    std::vector<T> kRopeCacheData(kRopeCacheSize, 0);
-    std::vector<int> blockTableData(blockTableSize, 0);
-
-    readInput<int>(GetGoldenDir() + "/actual_seq_list.bin", seq);
-    readInput<T>(GetGoldenDir() + "/q_nope.bin", qNopeData);
-    readInput<T>(GetGoldenDir() + "/q_rope.bin", qRopeData);
-    readInput<T>(GetGoldenDir() + "/k_cache_nope.bin", vNopeCacheData);
-    readInput<T>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
-    readInput<int>(GetGoldenDir() + "/block_table.bin", blockTableData);
-
-    std::vector<float> golden(winAttenOutSize, 0);
-    readInput(GetGoldenDir() + "/atten_out.bin", golden);
+    std::vector<int> seq;
+    std::vector<T> qNopeData, qRopeData, vNopeCacheData, kRopeCacheData;
+    std::vector<int> blockTableData;
+    std::vector<float> golden;
+    ReadWinAttenData<T>(b, sMax, blockSize, qNopeSize, qRopeSize, vNopeCacheSize, kRopeCacheSize, blockTableSize, winAttenOutSize,
+        seq, qNopeData, qRopeData, vNopeCacheData, kRopeCacheData, blockTableData, golden);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<T>(qNope, qNopeData),

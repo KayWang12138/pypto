@@ -47,6 +47,23 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
 
 template <typename T = npu::tile_fwk::float16, bool nz = true, typename wUvDType = int8_t, bool isSmoothWUv = false,
     typename wODType = int8_t, bool isSmoothWo = false>
+static void PreparePostShapes(const TestPostParams &params, DataType dType, bool isQuantWUv, bool isQuantWo,
+                              std::vector<int64_t>& xShape, std::vector<int64_t>& wUvShape,
+                              std::vector<int64_t>& wUvScaleShape, std::vector<int64_t>& smoothWUvShape,
+                              std::vector<int64_t>& woShape, std::vector<int64_t>& woScaleShape,
+                              std::vector<int64_t>& smoothWoShape, std::vector<int64_t>& outShape) {
+    xShape = {params.b, params.s, params.n, params.kvLoraRank};
+    wUvShape = {params.n, params.kvLoraRank, params.vHeadDim};
+    wUvScaleShape = {params.n, 1, params.vHeadDim};
+    smoothWUvShape = {1, params.kvLoraRank};
+    woShape = {params.n * params.vHeadDim, params.h};
+    woScaleShape = {1, params.h};
+    smoothWoShape = {1, params.n * params.vHeadDim};
+    outShape = {params.b, params.s, params.h};
+}
+
+template <typename T = npu::tile_fwk::float16, bool nz = true, typename wUvDType = int8_t, bool isSmoothWUv = false,
+    typename wODType = int8_t, bool isSmoothWo = false>
 void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileConfig, float precision) {
     SetInterpreterConfig();
     int b = params.b;
@@ -60,14 +77,10 @@ void TestAttentionPost(const TestPostParams &params, const PostTileConfig &tileC
     bool isQuantWUv = std::is_same<wUvDType, int8_t>::value;
     bool isQuantWo = std::is_same<wODType, int8_t>::value;
 
-    std::vector<int64_t> xShape = {b, s, n, kvLoraRank};
-    std::vector<int64_t> wUvShape = {n, kvLoraRank, vHeadDim};
-    std::vector<int64_t> wUvScaleShape = {n, 1, vHeadDim};
-    std::vector<int64_t> smoothWUvShape = {1, kvLoraRank};
-    std::vector<int64_t> woShape = {n * vHeadDim, h};
-    std::vector<int64_t> woScaleShape = {1, h};
-    std::vector<int64_t> smoothWoShape = {1, n * vHeadDim};
-    std::vector<int64_t> outShape = {b, s, h};
+    std::vector<int64_t> xShape, wUvShape, wUvScaleShape, smoothWUvShape, woShape, woScaleShape, smoothWoShape, outShape;
+    PreparePostShapes<T, nz, wUvDType, isSmoothWUv, wODType, isSmoothWo>(params, dType, isQuantWUv, isQuantWo,
+                                                                    xShape, wUvShape, wUvScaleShape, smoothWUvShape,
+                                                                    woShape, woScaleShape, smoothWoShape, outShape);
 
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
     Tensor x(dType, xShape, "x");

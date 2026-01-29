@@ -151,6 +151,65 @@ static void MNSplitFunc(
     }
 }
 
+static void PrepareInterpreterMatmulTensors(bool transA, bool transB, bool isCNz, int m, int k, int n,
+                                            bool isANz, bool isBNz,
+                                            Tensor& tensor_a, Tensor& tensor_b, Tensor& tensor_c)
+{
+    tensor_a = transA ? constructMatmulTensor<inputDtype>({k, m}, "tensor_a", isANz) :
+                       constructMatmulTensor<inputDtype>({m, k}, "tensor_a", isANz);
+    tensor_b = transB ? constructMatmulTensor<inputDtype>({n, k}, "tensor_b", isBNz) :
+                       constructMatmulTensor<inputDtype>({k, n}, "tensor_b", isBNz);
+    tensor_c = constructMatmulTensor<outputDtype>({m, n}, "tensor_c", isCNz);
+}
+
+static void ReadInterpreterMatmulData(int m, int k, int n, string dataPath,
+                                     std::vector<inputDtype>& aData,
+                                     std::vector<inputDtype>& bData,
+                                     std::vector<outputDtype>& golden)
+{
+    aData.assign(m * k, 0);
+    bData.assign(k * n, 0);
+    golden.assign(m * n, 0);
+
+    readInput<inputDtype>(dataPath + "/mat_a.bin", aData);
+    readInput<inputDtype>(dataPath + "/mat_b.bin", bData);
+    readInput<outputDtype>(dataPath + "/mat_c.bin", golden);
+}
+
+static void AppendInterpreterMatmulProgramData(const Tensor& tensor_a, const Tensor& tensor_b, const Tensor& tensor_c,
+                                           const std::vector<inputDtype>& aData,
+                                           const std::vector<inputDtype>& bData,
+                                           const std::vector<outputDtype>& golden)
+{
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<inputDtype>(tensor_a, aData),
+        RawTensorData::CreateTensor<inputDtype>(tensor_b, bData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<outputDtype>(tensor_c, 0.0f),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<outputDtype>(tensor_c, golden),
+    });
+}
+
+static void ExecuteInterpreterMatmulFunc(const std::vector<int64_t>& viewShape, const Tensor& tensor_a,
+                                       const Tensor& tensor_b, Tensor& tensor_c)
+{
+    int viewM = viewShape[0];
+    int viewN = viewShape[1];
+
+    if (viewM > 0 && viewN > 0) {
+        MNSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
+    } else if (viewM > 0) {
+        MSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
+    } else if (viewN > 0) {
+        NSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
+    } else {
+        NonSplitFunc<outputDtype, transA, transB, isCNz>(tensor_a, tensor_b, tensor_c);
+    }
+}
+
 template <typename inputDtype, typename outputDtype, bool transA, bool transB, bool isCNz>
 void TestDynMatmul(
     const std::vector<int64_t>& mmShape, bool isANz, bool isBNz, const std::vector<int64_t> &viewShape, string dataPath) {
@@ -164,45 +223,18 @@ void TestDynMatmul(
     int m = mmShape[0];
     int k = mmShape[1];
     int n = mmShape[MM_SHAPE_N_IDX];
-    Tensor tensor_a = transA ? constructMatmulTensor<inputDtype>({k, m}, "tensor_a", isANz) :
-                               constructMatmulTensor<inputDtype>({m, k}, "tensor_a", isANz);
-    Tensor tensor_b = transB ? constructMatmulTensor<inputDtype>({n, k}, "tensor_b", isBNz) :
-                               constructMatmulTensor<inputDtype>({k, n}, "tensor_b", isBNz);
-    Tensor tensor_c = constructMatmulTensor<outputDtype>({m, n}, "tensor_c", isCNz);
 
-    int viewM = viewShape[0];
-    int viewN = viewShape[1];
+    Tensor tensor_a, tensor_b, tensor_c;
+    PrepareInterpreterMatmulTensors<inputDtype, outputDtype>(transA, transB, isCNz, m, k, n, isANz, isBNz,
+                                                           tensor_a, tensor_b, tensor_c);
 
-    std::vector<inputDtype> aData(m * k, 0);
-    std::vector<inputDtype> bData(k * n, 0);
-    std::vector<outputDtype> golden(m * n, 0);
+    std::vector<inputDtype> aData, bData;
+    std::vector<outputDtype> golden;
+    ReadInterpreterMatmulData<inputDtype, outputDtype>(m, k, n, dataPath, aData, bData, golden);
 
-    readInput<inputDtype>(dataPath + "/mat_a.bin", aData);
-    readInput<inputDtype>(dataPath + "/mat_b.bin", bData);
-    readInput<outputDtype>(dataPath + "/mat_c.bin", golden);
+    AppendInterpreterMatmulProgramData<inputDtype, outputDtype>(tensor_a, tensor_b, tensor_c, aData, bData, golden);
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<inputDtype>(tensor_a, aData),
-        RawTensorData::CreateTensor<inputDtype>(tensor_b, bData),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<outputDtype>(tensor_c, 0.0f),
-    });
-
-    ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateTensor<outputDtype>(tensor_c, golden),
-    });
-
-    if (viewM > 0 && viewN > 0) {
-        MNSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
-    } else if (viewM > 0) {
-        MSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
-    } else if (viewN > 0) {
-        NSplitFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
-    } else {
-        NonSplitFunc<outputDtype, transA, transB, isCNz>(tensor_a, tensor_b, tensor_c);
-    }
+    ExecuteInterpreterMatmulFunc<outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c);
 
     // // excute
     // DevFuncRunner::Run(Program::GetInstance().GetLastFunction());

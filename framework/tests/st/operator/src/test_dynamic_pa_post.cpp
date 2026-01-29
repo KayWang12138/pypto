@@ -24,6 +24,104 @@ class DynamicPAPOSTTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac
 
 namespace {
 
+static void CalculateLowLatencyParams(int b, int sq, int nq, int dn, int dr, int skv, int blockSize,
+                                        int& blockNum, int& maxBlockNumPerBatch, std::vector<int>& seq)
+{
+    seq.assign(b, skv);
+    blockNum = 0;
+    for (auto s : seq) {
+        blockNum += CeilDiv(s, blockSize);
+    }
+    int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
+    maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+}
+
+static void CreateLowLatencyTensors(int b, int sq, int nq, int dn, int dr, int blockSize, int blockNum,
+                                    int maxBlockNumPerBatch, int vHeadDim, int h,
+                                    Tensor& qNope, Tensor& kNopeCache, Tensor& vNopeCache,
+                                    Tensor& qRope, Tensor& kRopeCache, Tensor& blockTable,
+                                    Tensor& actSeqs, Tensor& weightUV, Tensor& weightO, Tensor& postOut)
+{
+    qNope = Tensor(DT_BF16, {b * nq * sq, dn}, "qNope");
+    kNopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), dn}, "kNopeCache");
+    vNopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), dn}, "vNopeCache");
+    qRope = Tensor(DT_BF16, {b * nq * sq, dr}, "qRope");
+    kRopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), dr}, "kRope");
+    blockTable = Tensor(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
+    actSeqs = Tensor(DT_INT32, {b}, "actSeqs");
+    weightUV = Tensor(DT_BF16, {nq, dn, vHeadDim}, "weightUV");
+    weightO = Tensor(DT_BF16, {nq * vHeadDim, h}, "weightO");
+    postOut = Tensor(DT_FP32, {b, sq, h}, "postOut");
+}
+
+static void ReadLowLatencyData(int b, int sq, int nq, int dn, int dr, int blockSize, int blockNum,
+                               int maxBlockNumPerBatch, int vHeadDim, int h, const std::vector<int>& seq,
+                               std::vector<npu::tile_fwk::bfloat16>& qNopeData,
+                               std::vector<npu::tile_fwk::bfloat16>& qRopeData,
+                               std::vector<npu::tile_fwk::bfloat16>& kNopeCacheData,
+                               std::vector<npu::tile_fwk::bfloat16>& kRopeCacheData,
+                               std::vector<npu::tile_fwk::bfloat16>& vNopeCacheData,
+                               std::vector<int32_t>& blockTableData,
+                               std::vector<npu::tile_fwk::bfloat16>& weightUVData,
+                               std::vector<npu::tile_fwk::bfloat16>& weightOData,
+                               std::vector<float>& golden)
+{
+    qNopeData.assign(b * nq * sq * dn, 0);
+    qRopeData.assign(b * nq * sq * dr, 0);
+    kNopeCacheData.assign(blockNum * blockSize * dn, 0);
+    kRopeCacheData.assign(blockNum * blockSize * dr, 0);
+    vNopeCacheData.assign(blockNum * blockSize * dn, 0);
+    blockTableData.assign(b * maxBlockNumPerBatch, 0);
+    weightUVData.assign(nq * dn * vHeadDim, 0);
+    weightOData.assign(nq * vHeadDim * h, 0);
+
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_nope.bin", qNopeData);
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_rope.bin", qRopeData);
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_nope.bin", kNopeCacheData);
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/v_cache.bin", vNopeCacheData);
+    readInput<int32_t>(GetGoldenDir() + "/block_table.bin", blockTableData);
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/weight_uv.bin", weightUVData);
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/weight_o.bin", weightOData);
+
+    golden.assign(b * sq * h, 0);
+    readInput(GetGoldenDir() + "/post_out.bin", golden);
+}
+
+static void ExecuteLowLatencyTest(const Tensor& qNope, const Tensor& kNopeCache, const Tensor& vNopeCache,
+                                  const Tensor& qRope, const Tensor& kRopeCache, const Tensor& blockTable,
+                                  const Tensor& actSeqs, const Tensor& weightUV, const Tensor& weightO,
+                                  const Tensor& postOut, const std::vector<int>& seq,
+                                  const std::vector<npu::tile_fwk::bfloat16>& qNopeData,
+                                  const std::vector<npu::tile_fwk::bfloat16>& qRopeData,
+                                  const std::vector<npu::tile_fwk::bfloat16>& kNopeCacheData,
+                                  const std::vector<npu::tile_fwk::bfloat16>& kRopeCacheData,
+                                  const std::vector<npu::tile_fwk::bfloat16>& vNopeCacheData,
+                                  const std::vector<int32_t>& blockTableData,
+                                  const std::vector<npu::tile_fwk::bfloat16>& weightUVData,
+                                  const std::vector<npu::tile_fwk::bfloat16>& weightOData,
+                                  const std::vector<float>& golden)
+{
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qNope, qNopeData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kNopeCache, kNopeCacheData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
+        RawTensorData::CreateTensor<int32_t>(blockTable, blockTableData),
+        RawTensorData::CreateTensor<int32_t>(actSeqs, seq),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(weightUV, weightUVData),
+        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(weightO, weightOData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(postOut, 0),
+    });
+
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.004f));
+}
+
 TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_low_lantency) {
     int b = 2;
     int sq = 1;
@@ -46,41 +144,60 @@ TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_low_lantency) {
     tileConfig.c2TileShape = {nTile, nTile, dTile, dTile, blockSize, blockSize};
     tileConfig.v2TileShape = {nTile, dTile};
 
-    const std::vector<int> seq(b, skv);
-    // 根据Per Batch实际的sequence构造blockNum，blockNum >= Sum(blockNumPerBatch)，此处选取相等场景
-    int blockNum = 0;
-    for (auto s : seq) {
-        blockNum += CeilDiv(s, blockSize);
-    }
-    // blockTable: (b, maxBlockNumPerBatch)
-    int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
-    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+    int blockNum, maxBlockNumPerBatch;
+    std::vector<int> seq;
+    CalculateLowLatencyParams(b, sq, nq, dn, dr, skv, blockSize, blockNum, maxBlockNumPerBatch, seq);
 
-    Tensor qNope(DT_BF16, {b * nq * sq, dn}, "qNope");
-    Tensor kNopeCache(DT_BF16, {int(blockNum * blockSize), dn}, "kNopeCache");
-    Tensor vNopeCache(DT_BF16, {int(blockNum * blockSize), dn}, "vNopeCache");
-    Tensor qRope(DT_BF16, {b * nq * sq, dr}, "qRope");
-    Tensor kRopeCache(DT_BF16, {int(blockNum * blockSize), dr}, "kRope");
-    Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
-    Tensor actSeqs(DT_INT32, {b}, "actSeqs");
-    Tensor weightUV(DT_BF16, {nq, dn, vHeadDim}, "weightUV");
-    Tensor weightO(DT_BF16, {nq * vHeadDim, h}, "weightO");
-    Tensor postOut(DT_FP32, {b, sq, h}, "postOut");
+    Tensor qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, weightUV, weightO, postOut;
+    CreateLowLatencyTensors(b, sq, nq, dn, dr, blockSize, blockNum, maxBlockNumPerBatch, vHeadDim, h,
+                           qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, weightUV, weightO, postOut);
 
     std::vector<uint8_t> devProgBinary;
-
     PrologPost(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, weightUV, weightO, blockSize,
         softmaxScale, postOut, tileConfig);
 
-    // 读数据
-    std::vector<npu::tile_fwk::bfloat16> qNopeData(b * nq * sq * dn, 0);
-    std::vector<npu::tile_fwk::bfloat16> qRopeData(b * nq * sq * dr, 0);
-    std::vector<npu::tile_fwk::bfloat16> kNopeCacheData(blockNum * blockSize * dn, 0);
-    std::vector<npu::tile_fwk::bfloat16> kRopeCacheData(blockNum * blockSize * dr, 0);
-    std::vector<npu::tile_fwk::bfloat16> vNopeCacheData(blockNum * blockSize * dn, 0);
-    std::vector<int32_t> blockTableData(b * maxBlockNumPerBatch, 0);
-    std::vector<npu::tile_fwk::bfloat16> weightUVData(nq * dn * vHeadDim, 0);
-    std::vector<npu::tile_fwk::bfloat16> weightOData(nq * vHeadDim * h, 0);
+    std::vector<npu::tile_fwk::bfloat16> qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData, weightUVData, weightOData;
+    std::vector<int32_t> blockTableData;
+    std::vector<float> golden;
+    ReadLowLatencyData(b, sq, nq, dn, dr, blockSize, blockNum, maxBlockNumPerBatch, vHeadDim, h, seq,
+                       qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData, blockTableData,
+                       weightUVData, weightOData, golden);
+
+    ExecuteLowLatencyTest(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, weightUV, weightO, postOut, seq,
+                         qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData, blockTableData,
+                         weightUVData, weightOData, golden);
+}
+
+static void PreparePaAddsTensors(int b, int sq, int nq, int nk, int dn, int dr, int blockSize,
+                                     int blockNum, int maxBlockNumPerBatch,
+                                     Tensor& qNope, Tensor& kNopeCache, Tensor& vNopeCache, Tensor& qRope,
+                                     Tensor& kRopeCache, Tensor& blockTable, Tensor& actSeqs,
+                                     Tensor& paOut, Tensor& postOut) {
+    qNope = Tensor(DT_BF16, {b * nq * sq, dn}, "qNope");
+    kNopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache");
+    vNopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache");
+    qRope = Tensor(DT_BF16, {b * nq * sq, nk * dr}, "qRope");
+    kRopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope");
+    blockTable = Tensor(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
+    actSeqs = Tensor(DT_INT32, {b}, "actSeqs");
+    paOut = Tensor(DT_FP32, {b * nq * sq, dn}, "paOut");
+    postOut = Tensor(DT_FP32, {b * nq * sq, dn}, "postOut");
+}
+
+static void PreparePaAddsData(int b, int sq, int nq, int nk, int dn, int dr, int blockSize,
+                              int blockNum, int maxBlockNumPerBatch,
+                              std::vector<npu::tile_fwk::bfloat16>& qNopeData,
+                              std::vector<npu::tile_fwk::bfloat16>& qRopeData,
+                              std::vector<npu::tile_fwk::bfloat16>& kNopeCacheData,
+                              std::vector<npu::tile_fwk::bfloat16>& kRopeCacheData,
+                              std::vector<npu::tile_fwk::bfloat16>& vNopeCacheData,
+                              std::vector<int32_t>& blockTableData) {
+    qNopeData.resize(b * nq * sq * dn, 0);
+    qRopeData.resize(b * nq * sq * dr, 0);
+    kNopeCacheData.resize(blockNum * blockSize * dn, 0);
+    kRopeCacheData.resize(blockNum * blockSize * dr, 0);
+    vNopeCacheData.resize(blockNum * blockSize * dn, 0);
+    blockTableData.resize(b * maxBlockNumPerBatch, 0);
 
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_nope.bin", qNopeData);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_rope.bin", qRopeData);
@@ -88,30 +205,6 @@ TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_low_lantency) {
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/v_cache.bin", vNopeCacheData);
     readInput<int32_t>(GetGoldenDir() + "/block_table.bin", blockTableData);
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/weight_uv.bin", weightUVData);
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/weight_o.bin", weightOData);
-
-    std::vector<float> golden(b * sq * h, 0);
-    readInput(GetGoldenDir() + "/post_out.bin", golden);
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qNope, qNopeData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kNopeCache, kNopeCacheData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(vNopeCache, vNopeCacheData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qRope, qRopeData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kRopeCache, kRopeCacheData),
-        RawTensorData::CreateTensor<int32_t>(blockTable, blockTableData),
-        RawTensorData::CreateTensor<int32_t>(actSeqs, seq),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(weightUV, weightUVData),
-        RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(weightO, weightOData),
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float>(postOut, 0),
-    });
-
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.004f));
 }
 
 void testPaAdds(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manualUnroll = false, bool outputPaOut = true) {
@@ -134,19 +227,13 @@ void testPaAdds(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manu
     for (auto s : seq) {
         blockNum += CeilDiv(s, blockSize);
     }
-    // blockTable: (b, maxBlockNumPerBatch)
     int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
     int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
 
-    Tensor qNope(DT_BF16, {b * nq * sq, dn}, "qNope");
-    Tensor kNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache");
-    Tensor vNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache");
-    Tensor qRope(DT_BF16, {b * nq * sq, nk * dr}, "qRope");
-    Tensor kRopeCache(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope");
-    Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
-    Tensor actSeqs(DT_INT32, {b}, "actSeqs");
-    Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
-    Tensor postOut(DT_FP32, {b * nq * sq, dn}, "postOut");
+    Tensor qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, paOut, postOut;
+    PreparePaAddsTensors(b, sq, nq, nk, dn, dr, blockSize, blockNum, maxBlockNumPerBatch,
+                       qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, paOut, postOut);
+
     if (!manualUnroll) {
         if (outputPaOut) {
             PageAttentionAddS(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut, postOut,
@@ -157,20 +244,10 @@ void testPaAdds(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manu
         }
     }
 
-    // 读数据
-    std::vector<npu::tile_fwk::bfloat16> qNopeData(b * nq * sq * dn, 0);
-    std::vector<npu::tile_fwk::bfloat16> qRopeData(b * nq * sq * dr, 0);
-    std::vector<npu::tile_fwk::bfloat16> kNopeCacheData(blockNum * blockSize * dn, 0);
-    std::vector<npu::tile_fwk::bfloat16> kRopeCacheData(blockNum * blockSize * dr, 0);
-    std::vector<npu::tile_fwk::bfloat16> vNopeCacheData(blockNum * blockSize * dn, 0);
-    std::vector<int32_t> blockTableData(b * maxBlockNumPerBatch, 0);
-
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_nope.bin", qNopeData);
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_rope.bin", qRopeData);
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_nope.bin", kNopeCacheData);
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/v_cache.bin", vNopeCacheData);
-    readInput<int32_t>(GetGoldenDir() + "/block_table.bin", blockTableData);
+    std::vector<npu::tile_fwk::bfloat16> qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData;
+    std::vector<int32_t> blockTableData;
+    PreparePaAddsData(b, sq, nq, nk, dn, dr, blockSize, blockNum, maxBlockNumPerBatch,
+                      qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData, blockTableData);
 
     std::vector<float> golden(b * sq * nq * dn, 0);
     readInput(GetGoldenDir() + "/atten_out.bin", golden);
@@ -399,70 +476,82 @@ void PageAttentionPost(Tensor &qNope, Tensor &kNopeCache, Tensor &vNopeCache, Te
     }
 }
 
-void testPaPost(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manualUnroll = false) {
-    std::vector<uint8_t> devProgBinary;
-
+static void ReadPaPostInputParams(int& b, int& sq, int& nq, int& nk, int& dn, int& dr, int& blockSize, float& softmaxScale,
+                                   int& B, int& S, int& N, int& H, int& kvLoraRank, int& vHeadDim)
+{
     int paramsSize = 8;
     int postParamsSize = 7;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", input_param);
-
-    int b = input_param[0];
-    int sq = input_param[1];
-    int nq = input_param[2];
-    int nk = input_param[3];
-    int dn = input_param[4];
-    int dr = input_param[5];
-    int blockSize = input_param[6];
-    float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
+    b = input_param[0];
+    sq = input_param[1];
+    nq = input_param[2];
+    nk = input_param[3];
+    dn = input_param[4];
+    dr = input_param[5];
+    blockSize = input_param[6];
+    softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
 
     std::vector<int64_t> params(postParamsSize);
     readInput<int64_t>(GetGoldenDir() + "/params.bin", params);
+    B = params[0];
+    S = params[1];
+    N = params[2];
+    H = params[3];
+    kvLoraRank = params[4];
+    vHeadDim = params[5];
+}
 
-    int B = params[0];
-    int S = params[1];
-    int N = params[2];
-    int H = params[3];
-    int kvLoraRank = params[4];
-    int vHeadDim = params[5];
-
-    std::vector<int> seq(b);
-    readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
-
-    int blockNum = 0;
+static void CalculatePaPostBlockNums(const std::vector<int>& seq, int blockSize, int& blockNum, int& maxBlockNumPerBatch)
+{
+    blockNum = 0;
     for (auto s : seq) {
         blockNum += CeilDiv(s, blockSize);
     }
-    // blockTable: (b, maxBlockNumPerBatch)
     int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
-    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+    maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+}
 
-    Tensor qNope(DT_BF16, {b * nq * sq, dn}, "qNope");
-    Tensor kNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache");
-    Tensor vNopeCache(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache");
-    Tensor qRope(DT_BF16, {b * nq * sq, nk * dr}, "qRope");
-    Tensor kRopeCache(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope");
-    Tensor blockTable(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
-    Tensor actSeqs(DT_INT32, {b}, "actSeqs");
-    Tensor paOut(DT_FP32, {b * nq * sq, dn}, "paOut");
-    Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
-    Tensor weightOScaleW(DT_FP32, {1, H}, "weightOScaleW");
-    Tensor postOut(DT_BF16, {B, S, H}, "postOut");
+static void CreatePaPostTensors(int b, int sq, int nq, int nk, int dn, int dr, int blockSize, int blockNum,
+                                int maxBlockNumPerBatch, int N, int H, int kvLoraRank, int vHeadDim,
+                                Tensor& qNope, Tensor& kNopeCache, Tensor& vNopeCache, Tensor& qRope,
+                                Tensor& kRopeCache, Tensor& blockTable, Tensor& actSeqs, Tensor& paOut,
+                                Tensor& weightUV, Tensor& weightO, Tensor& weightOScaleW, Tensor& postOut)
+{
+    qNope = Tensor(DT_BF16, {b * nq * sq, dn}, "qNope");
+    kNopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), nk * dn}, "kNopeCache");
+    vNopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), nk * dn}, "vNopeCache");
+    qRope = Tensor(DT_BF16, {b * nq * sq, nk * dr}, "qRope");
+    kRopeCache = Tensor(DT_BF16, {int(blockNum * blockSize), nk * dr}, "kRope");
+    blockTable = Tensor(DT_INT32, {b, maxBlockNumPerBatch}, "blockTable");
+    actSeqs = Tensor(DT_INT32, {b}, "actSeqs");
+    paOut = Tensor(DT_FP32, {b * nq * sq, dn}, "paOut");
+    weightUV = Tensor(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
+    weightO = Tensor(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ);
+    weightOScaleW = Tensor(DT_FP32, {1, H}, "weightOScaleW");
+    postOut = Tensor(DT_BF16, {B, S, H}, "postOut");
+}
 
-    if (!manualUnroll) {
-        PageAttentionPost(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize,
-                          softmaxScale, weightUV, weightO, weightOScaleW, paOut, postOut, tileConfig, maxUnrollTimes);
-    }
-
-    // 读数据
-    // PA数据
-    std::vector<npu::tile_fwk::bfloat16> qNopeData(b * nq * sq * dn, 0);
-    std::vector<npu::tile_fwk::bfloat16> qRopeData(b * nq * sq * dr, 0);
-    std::vector<npu::tile_fwk::bfloat16> kNopeCacheData(blockNum * blockSize * dn, 0);
-    std::vector<npu::tile_fwk::bfloat16> kRopeCacheData(blockNum * blockSize * dr, 0);
-    std::vector<npu::tile_fwk::bfloat16> vNopeCacheData(blockNum * blockSize * dn, 0);
-    std::vector<int32_t> blockTableData(b * maxBlockNumPerBatch, 0);
+static void ReadPaPostData(int b, int sq, int nq, int nk, int dn, int dr, int blockSize, int blockNum,
+                           int maxBlockNumPerBatch, int N, int H, int kvLoraRank, int vHeadDim,
+                           std::vector<npu::tile_fwk::bfloat16>& qNopeData,
+                           std::vector<npu::tile_fwk::bfloat16>& qRopeData,
+                           std::vector<npu::tile_fwk::bfloat16>& kNopeCacheData,
+                           std::vector<npu::tile_fwk::bfloat16>& kRopeCacheData,
+                           std::vector<npu::tile_fwk::bfloat16>& vNopeCacheData,
+                           std::vector<int32_t>& blockTableData,
+                           std::vector<float>& paGolden,
+                           std::vector<npu::tile_fwk::bfloat16>& weightUVData,
+                           std::vector<int8_t>& weightOData,
+                           std::vector<float>& weightOScaleWData,
+                           std::vector<npu::tile_fwk::bfloat16>& paPostgolden)
+{
+    qNopeData.assign(b * nq * sq * dn, 0);
+    qRopeData.assign(b * nq * sq * dr, 0);
+    kNopeCacheData.assign(blockNum * blockSize * dn, 0);
+    kRopeCacheData.assign(blockNum * blockSize * dr, 0);
+    vNopeCacheData.assign(blockNum * blockSize * dn, 0);
+    blockTableData.assign(b * maxBlockNumPerBatch, 0);
 
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_nope.bin", qNopeData);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/q_rope.bin", qRopeData);
@@ -470,19 +559,34 @@ void testPaPost(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manu
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/k_cache_rope.bin", kRopeCacheData);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/v_cache.bin", vNopeCacheData);
     readInput<int32_t>(GetGoldenDir() + "/block_table.bin", blockTableData);
-    std::vector<float> paGolden(b * sq * nq * dn, 0);
+    paGolden.assign(b * sq * nq * dn, 0);
     readInput(GetGoldenDir() + "/atten_out.bin", paGolden);
 
-    // POST数据
-    std::vector<npu::tile_fwk::bfloat16> weightUVData(N * kvLoraRank * vHeadDim, 0);
+    weightUVData.assign(N * kvLoraRank * vHeadDim, 0);
     readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/w_uv.bin", weightUVData);
-    std::vector<int8_t> weightOData(N * vHeadDim * H, 0);
-    readInput<int8_t>(GetGoldenDir() + "/w_o.bin", weightOData);// NZ
-    std::vector<float> weightOScaleWData(1 * H, 0);
+    weightOData.assign(N * vHeadDim * H, 0);
+    readInput<int8_t>(GetGoldenDir() + "/w_o.bin", weightOData);
+    weightOScaleWData.assign(1 * H, 0);
     readInput<float>(GetGoldenDir() + "/w_o_scale_w.bin", weightOScaleWData);
-    std::vector<npu::tile_fwk::bfloat16> paPostgolden(B * S * H, 0);
+    paPostgolden.assign(b * sq * H, 0);
     readInput(GetGoldenDir() + "/attn_output.bin", paPostgolden);
+}
 
+static void ExecutePaPostTest(const Tensor& qNope, const Tensor& kNopeCache, const Tensor& vNopeCache,
+                              const Tensor& qRope, const Tensor& kRopeCache, const Tensor& blockTable,
+                              const Tensor& actSeqs, const Tensor& weightUV, const Tensor& weightO,
+                              const Tensor& weightOScaleW, const Tensor& postOut, const std::vector<int>& seq,
+                              const std::vector<npu::tile_fwk::bfloat16>& qNopeData,
+                              const std::vector<npu::tile_fwk::bfloat16>& qRopeData,
+                              const std::vector<npu::tile_fwk::bfloat16>& kNopeCacheData,
+                              const std::vector<npu::tile_fwk::bfloat16>& kRopeCacheData,
+                              const std::vector<npu::tile_fwk::bfloat16>& vNopeCacheData,
+                              const std::vector<int32_t>& blockTableData,
+                              const std::vector<npu::tile_fwk::bfloat16>& weightUVData,
+                              const std::vector<int8_t>& weightOData,
+                              const std::vector<float>& weightOScaleWData,
+                              const std::vector<npu::tile_fwk::bfloat16>& paPostgolden)
+{
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(qNope, qNopeData),
         RawTensorData::CreateTensor<npu::tile_fwk::bfloat16>(kNopeCache, kNopeCacheData),
@@ -502,6 +606,47 @@ void testPaPost(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manu
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(paPostgolden, (npu::tile_fwk::bfloat16 *)outs->data(), 0.04f));
+}
+
+void testPaPost(PaTileShapeConfig& tileConfig, int maxUnrollTimes = 1, bool manualUnroll = false) {
+    std::vector<uint8_t> devProgBinary;
+
+    int b, sq, nq, nk, dn, dr, blockSize;
+    float softmaxScale;
+    int B, S, N, H, kvLoraRank, vHeadDim;
+    ReadPaPostInputParams(b, sq, nq, nk, dn, dr, blockSize, softmaxScale, B, S, N, H, kvLoraRank, vHeadDim);
+
+    std::vector<int> seq(b);
+    readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
+
+    int blockNum, maxBlockNumPerBatch;
+    CalculatePaPostBlockNums(seq, blockSize, blockNum, maxBlockNumPerBatch);
+
+    Tensor qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, paOut;
+    Tensor weightUV, weightO, weightOScaleW, postOut;
+    CreatePaPostTensors(b, sq, nq, nk, dn, dr, blockSize, blockNum, maxBlockNumPerBatch, N, H, kvLoraRank, vHeadDim,
+                       qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, paOut,
+                       weightUV, weightO, weightOScaleW, postOut);
+
+    if (!manualUnroll) {
+        PageAttentionPost(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize,
+                          softmaxScale, weightUV, weightO, weightOScaleW, paOut, postOut, tileConfig, maxUnrollTimes);
+    }
+
+    std::vector<npu::tile_fwk::bfloat16> qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData;
+    std::vector<int32_t> blockTableData;
+    std::vector<float> paGolden;
+    std::vector<npu::tile_fwk::bfloat16> weightUVData;
+    std::vector<int8_t> weightOData;
+    std::vector<float> weightOScaleWData;
+    std::vector<npu::tile_fwk::bfloat16> paPostgolden;
+    ReadPaPostData(b, sq, nq, nk, dn, dr, blockSize, blockNum, maxBlockNumPerBatch, N, H, kvLoraRank, vHeadDim,
+                   qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData, blockTableData,
+                   paGolden, weightUVData, weightOData, weightOScaleWData, paPostgolden);
+
+    ExecutePaPostTest(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, weightUV, weightO, weightOScaleW, postOut, seq,
+                      qNopeData, qRopeData, kNopeCacheData, kRopeCacheData, vNopeCacheData, blockTableData,
+                      weightUVData, weightOData, weightOScaleWData, paPostgolden);
 }
 
 TEST_F(DynamicPAPOSTTest, dynamic_prolog_post_high_throughput_dview_large) {

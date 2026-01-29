@@ -35,6 +35,19 @@ struct SaConfig {
 };
 
 template <typename T = npu::tile_fwk::float16>
+static void PrepareSaData(const std::vector<int>& input_param, int& b, int& sq, int& nq, int& nkv,
+                          int& dn, int& dr, int& smax, float& softmaxScale) {
+    b = input_param[0];
+    sq = input_param[1];
+    nq = input_param[2];
+    nkv = input_param[3];
+    dn = input_param[4];
+    dr = input_param[5];
+    smax = input_param[6];
+    softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
+}
+
+template <typename T = npu::tile_fwk::float16>
 void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
     SetInterpreterConfig();
 
@@ -53,14 +66,9 @@ void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", input_param);
 
-    int b = input_param[0];
-    int sq = input_param[1];
-    int nq = input_param[2];
-    int nkv = input_param[3];
-    int dn = input_param[4];
-    int dr = input_param[5];
-    int smax = input_param[6];
-    float softmaxScale = static_cast<float>(1.0 / sqrtf((dn + dr)));
+    int b, sq, nq, nkv, dn, dr, smax;
+    float softmaxScale;
+    PrepareSaData<T>(input_param, b, sq, nq, nkv, dn, dr, smax, softmaxScale);
 
     std::cout << "====input param==== b sq nq nkv dn dr smax: " << b << " " << sq << " " << nq << " " << nkv << " " << dn << " " << dr << " " << smax << std::endl;
 
@@ -125,7 +133,6 @@ void TestSa(SaTileShapeConfig& tileConfig, SaConfig config) {
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f));
-    // EXPECT_TRUE(resultCmp(golden, (float *)outs->data(), 0.0005f, 0, 1000, true));
 }
 
 TEST_F(DynamicSATest, slc_attn_fp16) { // 测试项：fp16, flash小块

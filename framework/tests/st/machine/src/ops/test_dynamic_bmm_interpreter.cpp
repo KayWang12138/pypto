@@ -28,49 +28,79 @@ namespace {
 
 class DynamicBatchMatmulInterpreterTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
-template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
-void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
-
-    SetInterpreterConfig();
-
+template <typename InputT, typename OutputT, bool IsBtrans, bool IsBNZ>
+static void PrepareBatchMatmulTensors(int b, int m, int k, int n,
+                                    std::vector<int64_t>& shape_a,
+                                    std::vector<int64_t>& shape_b,
+                                    std::vector<int64_t>& shape_c,
+                                    Tensor& tensor_a, Tensor& tensor_b, Tensor& tensor_c)
+{
     int ka = k;
     int kb = k;
     int nb = n;
     if constexpr (IsBtrans) {
         std::swap(kb, nb);
     }
-    std::vector<int64_t> shape_a = {b, m, ka};
-    std::vector<int64_t> shape_b = {b, kb, nb};
-    std::vector<int64_t> shape_c = {b, m, n};
+    shape_a = {b, m, ka};
+    shape_b = {b, kb, nb};
+    shape_c = {b, m, n};
 
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OutputT>();
 
-    Tensor tensor_a(InputAstDtype, shape_a, "tensor_a");
+    tensor_a = Tensor(InputAstDtype, shape_a, "tensor_a");
     auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor tensor_b(InputAstDtype, shape_b, "tensor_b", bfmt);
-    Tensor tensor_c(OutputAstDtype, shape_c, "tensor_c");
+    tensor_b = Tensor(InputAstDtype, shape_b, "tensor_b", bfmt);
+    tensor_c = Tensor(OutputAstDtype, shape_c, "tensor_c");
+}
 
-    std::vector<InputT> aData(b * m * k, 0);
-    std::vector<InputT> bData(b * k * n, 0);
-    std::vector<OutputT> golden(b * m * n, 0);
+template <typename InputT, typename OutputT>
+static void ReadBatchMatmulData(int b, int m, int k, int n, string dataPath,
+                                std::vector<InputT>& aData,
+                                std::vector<InputT>& bData,
+                                std::vector<OutputT>& golden)
+{
+    aData.assign(b * m * k, 0);
+    bData.assign(b * k * n, 0);
+    golden.assign(b * m * n, 0);
 
     readInput<InputT>(dataPath + "/mat_a.bin", aData);
     readInput<InputT>(dataPath + "/mat_b.bin", bData);
     readInput<OutputT>(dataPath + "/mat_c.bin", golden);
+}
 
-     ProgramData::GetInstance().AppendInputs({
+template <typename InputT, typename OutputT>
+static void AppendBatchMatmulProgramData(const Tensor& tensor_a, const Tensor& tensor_b, const Tensor& tensor_c,
+                                       const std::vector<InputT>& aData,
+                                       const std::vector<InputT>& bData,
+                                       const std::vector<OutputT>& golden)
+{
+    ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<InputT>(tensor_a, aData),
         RawTensorData::CreateTensor<InputT>(tensor_b, bData),
     });
-
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<OutputT>(tensor_c, 0.0f),
     });
-
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<OutputT>(tensor_c, golden),
     });
+}
+
+template <typename InputT, typename OutputT, bool IsBtrans, bool IsBNZ>
+static void ExecuteBatchMatmulFunc(const Tensor& tensor_a, const Tensor& tensor_b, Tensor& tensor_c,
+                                  int b, int m, int k, int n,
+                                  const std::vector<int64_t>& shape_a,
+                                  const std::vector<int64_t>& shape_b)
+{
+    int ka = k;
+    int kb = k;
+    int nb = n;
+    if constexpr (IsBtrans) {
+        std::swap(kb, nb);
+    }
+
+    auto OutputAstDtype = GetAstDtype<OutputT>();
 
     FUNCTION("test_dyn_bmm", {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
@@ -85,47 +115,73 @@ void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
 }
 
 template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
-void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, string dataPath) {
+void TestDynBatchMatmul(int b, int m, int k, int n, string dataPath) {
+    SetInterpreterConfig();
 
-    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    std::vector<int64_t> shape_a, shape_b, shape_c;
+    Tensor tensor_a, tensor_b, tensor_c;
+    PrepareBatchMatmulTensors<InputT, OutputT, IsBtrans, IsBNZ>(b, m, k, n, shape_a, shape_b, shape_c, tensor_a, tensor_b, tensor_c);
 
+    std::vector<InputT> aData, bData;
+    std::vector<OutputT> golden;
+    ReadBatchMatmulData<InputT, OutputT>(b, m, k, n, dataPath, aData, bData, golden);
+
+    AppendBatchMatmulProgramData<InputT, OutputT>(tensor_a, tensor_b, tensor_c, aData, bData, golden);
+
+    ExecuteBatchMatmulFunc<InputT, OutputT, IsBtrans, IsBNZ>(tensor_a, tensor_b, tensor_c, b, m, k, n, shape_a, shape_b);
+}
+
+template <typename InputT, typename OutputT, bool IsBtrans, bool IsBNZ>
+static void PrepareBatchMatmul4DTensors(vector<int> b1, vector<int> b2, int m, int k, int n,
+                                        std::vector<int64_t>& shape_a,
+                                        std::vector<int64_t>& shape_b,
+                                        std::vector<int64_t>& shape_c,
+                                        Tensor& tensor_a, Tensor& tensor_b, Tensor& tensor_c)
+{
     int ka = k;
     int kb = k;
     int nb = n;
     if constexpr (IsBtrans) {
         std::swap(kb, nb);
     }
-    std::vector<int64_t> shape_a = {b1[0], b1[1], m, ka};
-    std::vector<int64_t> shape_b = {b2[0], b2[1], kb, nb};
-    std::vector<int64_t> shape_c = {b1[0], b1[1], m, n};
+    shape_a = {b1[0], b1[1], m, ka};
+    shape_b = {b2[0], b2[1], kb, nb};
+    shape_c = {b1[0], b1[1], m, n};
 
     auto InputAstDtype = GetAstDtype<InputT>();
     auto OutputAstDtype = GetAstDtype<OutputT>();
-    Tensor tensor_a(InputAstDtype, shape_a, "tensor_a");
+    tensor_a = Tensor(InputAstDtype, shape_a, "tensor_a");
     auto bfmt = IsBNZ ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor tensor_b(InputAstDtype, shape_b, "tensor_b", bfmt);
-    Tensor tensor_c(OutputAstDtype, shape_c, "tensor_c");
+    tensor_b = Tensor(InputAstDtype, shape_b, "tensor_b", bfmt);
+    tensor_c = Tensor(OutputAstDtype, shape_c, "tensor_c");
+}
 
-    std::vector<InputT> aData(b1[0] * b1[1] * m * k, 0);
-    std::vector<InputT> bData(b2[0] * b2[1] * k * n, 0);
-    std::vector<OutputT> golden(b1[0] * b1[1] * m * n, 0);
-    // read
+template <typename InputT, typename OutputT>
+static void ReadBatchMatmul4DData(vector<int> b1, vector<int> b2, int m, int k, int n, string dataPath,
+                                   std::vector<InputT>& aData,
+                                   std::vector<InputT>& bData,
+                                   std::vector<OutputT>& golden)
+{
+    aData.assign(b1[0] * b1[1] * m * k, 0);
+    bData.assign(b2[0] * b2[1] * k * n, 0);
+    golden.assign(b1[0] * b1[1] * m * n, 0);
     readInput<InputT>(dataPath + "/mat_a.bin", aData);
     readInput<InputT>(dataPath + "/mat_b.bin", bData);
     readInput<OutputT>(dataPath + "/mat_c.bin", golden);
+}
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<InputT>(tensor_a, aData),
-        RawTensorData::CreateTensor<InputT>(tensor_b, bData),
-    });
+template <typename InputT, typename OutputT, bool IsBtrans, bool IsBNZ>
+static void ExecuteBatchMatmul4DFunc(const Tensor& tensor_a, const Tensor& tensor_b, Tensor& tensor_c,
+                                    vector<int> b1, vector<int> b2, int m, int k, int n)
+{
+    int ka = k;
+    int kb = k;
+    int nb = n;
+    if constexpr (IsBtrans) {
+        std::swap(kb, nb);
+    }
 
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<OutputT>(tensor_c, 0.0f),
-    });
-
-    ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateTensor<OutputT>(tensor_c, golden),
-    });
+    auto OutputAstDtype = GetAstDtype<OutputT>();
 
     FUNCTION("main", {tensor_a, tensor_b}, {tensor_c}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
@@ -137,6 +193,32 @@ void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, s
             tensor_c = Matrix::BatchMatmul(OutputAstDtype, dyn_a, dyn_b, false, IsBtrans);
         }
     }
+}
+
+template <typename InputT, typename OutputT, bool IsBtrans = false, bool IsBNZ = false>
+void TestDynBatchMatmul4D(vector<int> b1, vector<int> b2, int m, int k, int n, string dataPath) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+
+    std::vector<int64_t> shape_a, shape_b, shape_c;
+    Tensor tensor_a, tensor_b, tensor_c;
+    PrepareBatchMatmul4DTensors<InputT, OutputT, IsBtrans, IsBNZ>(b1, b2, m, k, n, shape_a, shape_b, shape_c, tensor_a, tensor_b, tensor_c);
+
+    std::vector<InputT> aData, bData;
+    std::vector<OutputT> golden;
+    ReadBatchMatmul4DData<InputT, OutputT>(b1, b2, m, k, n, dataPath, aData, bData, golden);
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<InputT>(tensor_a, aData),
+        RawTensorData::CreateTensor<InputT>(tensor_b, bData),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<OutputT>(tensor_c, 0.0f),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<OutputT>(tensor_c, golden),
+    });
+
+    ExecuteBatchMatmul4DFunc<InputT, OutputT, IsBtrans, IsBNZ>(tensor_a, tensor_b, tensor_c, b1, b2, m, k, n);
 }
 
 TEST_F(DynamicBatchMatmulInterpreterTest, test_bmm_A_B_ND_bf16) {

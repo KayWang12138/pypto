@@ -32,31 +32,44 @@ using namespace npu::tile_fwk::dynamic;
 class DynamicSlcTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 template <typename T = npu::tile_fwk::float16, DataType tensorType = DataType::DT_FP16>
+static void PrepareSlcTestData(const std::vector<int>& input_param, const std::vector<int>& seq,
+                                  int& blockSize, int& b, int& s, int& n2, int& kv_lora_rank,
+                                  int& rope_dim, int& front, int& near, int& topK, int& l_prime,
+                                  int& blockNum, int& maxBlockNumPerBatch) {
+    blockSize = input_param[9];
+    b = input_param[0];
+    s = input_param[1];
+    n2 = input_param[2];
+    kv_lora_rank = input_param[3];
+    rope_dim = input_param[4];
+    front = input_param[5];
+    near = input_param[6];
+    topK = input_param[7];
+    l_prime = input_param[8];
+
+    blockNum = 0;
+    for (auto seq_item : seq) {
+        blockNum += CeilDiv(seq_item, blockSize);
+    }
+    int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
+    maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+}
+
+template <typename T = npu::tile_fwk::float16, DataType tensorType = DataType::DT_FP16>
 void testSlc(KvSlcTileShapeConfig& tileConfig) {
     SetInterpreterConfig();
     int paramsSize = 10;
     std::vector<int> input_param(paramsSize);
     readInput<int>(GetGoldenDir() + "/input_param.bin", input_param);
 
-    int blockSize = input_param[9];
-    int b = input_param[0];
-    int s = input_param[1];
-    int n2 = input_param[2];
-    int kv_lora_rank = input_param[3];
-    int rope_dim = input_param[4];
-    int front = input_param[5];
-    int near = input_param[6];
-    int topK = input_param[7];
-    int l_prime = input_param[8];
-    std::vector<int> seq(b);
+    std::vector<int> seq(input_param[0]);
     readInput<int>(GetGoldenDir() + "/actual_seq_len.bin", seq);
 
-    int blockNum = 0;
-    for (auto seq_item : seq) {
-        blockNum += CeilDiv(seq_item, blockSize);
-    }
-    int maxSeqAllBatch = *(std::max_element(seq.begin(), seq.end()));
-    int maxBlockNumPerBatch = CeilDiv(maxSeqAllBatch, blockSize);
+    int blockSize, b, s, n2, kv_lora_rank, rope_dim, front, near, topK, l_prime;
+    int blockNum, maxBlockNumPerBatch;
+    PrepareSlcTestData<T>(input_param, seq, blockSize, b, s, n2, kv_lora_rank, rope_dim,
+                          front, near, topK, l_prime, blockNum, maxBlockNumPerBatch);
+
     // 读数据
     Tensor topk_tensor(DT_INT32, {b, s, topK - front - near}, "topk_tensor");
     Tensor topk_tensor_shape(DT_INT32, {b, s}, "topk_tensor_shape");

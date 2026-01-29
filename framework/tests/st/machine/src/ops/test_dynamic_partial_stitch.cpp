@@ -24,6 +24,21 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 class DynamicTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
+static void PrepareTestData(int b, int blockSize, std::vector<float>& qData,
+                             std::vector<int>& seqData, std::vector<float>& goldenData) {
+    for (int i = 0; i < b * blockSize * blockSize; i++) {
+        qData[i] = i / (blockSize * blockSize);
+    }
+
+    for (int i = 0; i < b; i++) {
+        seqData[i] = i;
+    }
+
+    for (int i = 0; i < b * blockSize * blockSize; i++) {
+        goldenData[i] = (float)(((i / (blockSize * blockSize))) * 2 + 1.0);
+    }
+}
+
 TEST_F(DynamicTest, TestPartial) {
     SetInterpreterConfig();
 
@@ -42,19 +57,9 @@ TEST_F(DynamicTest, TestPartial) {
     Tensor out(vType, outShape, "out");
 
     std::vector<float> qData(b * blockSize * blockSize);
-    for (int i = 0; i < b * blockSize * blockSize; i++) {
-        qData[i] = i / (blockSize * blockSize);
-    }
-
     std::vector<int> seqData(b);
-    for (int i = 0; i < b; i++) {
-        seqData[i] = i;
-    }
-
     std::vector<float> goldenData(b * blockSize * blockSize);
-    for (int i = 0; i < b * blockSize * blockSize; i++) {
-        goldenData[i] = (float)(((i / (blockSize * blockSize))) * 2 + 1.0);
-    }
+    PrepareTestData(b, blockSize, qData, seqData, goldenData);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<float>(q, qData),

@@ -266,39 +266,60 @@ static void MNSplitFunc(SplitFuncParam &splitFuncParam) {
 }
 
 template <typename MatmulImplType>
-void TestDynMatmul(MatrixOpParams &opParams) {
-    SetInterpreterConfig();
+static void PrepareMatmulTensors(const MatrixOpParams &opParams, int64_t m, int64_t k, int64_t n,
+                                  Tensor &tensor_a, Tensor &tensor_b, Tensor &tensor_c,
+                                  Tensor &tensor_bias, Tensor &tensor_scale)
+{
+    using inputDtype = typename MatmulImplType::inputDtype;
+    using outputDtype = typename MatmulImplType::outputDtype;
+    using biasDtype = typename MatmulImplType::biasDtype;
 
-    if (opParams.mmShape.size() != MM_SHAPE_SIZE || opParams.viewShape.size() != MM_VIEW_SHAPE_SIZE) {
-        return;
-    }
+    tensor_a = MatmulImplType::cfg::transA ?
+                  constructMatmulTensor<inputDtype>({k, m}, "tensor_a", opParams.isANz) :
+                  constructMatmulTensor<inputDtype>({m, k}, "tensor_a", opParams.isANz);
+    tensor_b = MatmulImplType::cfg::transB ?
+                  constructMatmulTensor<inputDtype>({n, k}, "tensor_b", opParams.isBNz) :
+                  constructMatmulTensor<inputDtype>({k, n}, "tensor_b", opParams.isBNz);
+    tensor_c = constructMatmulTensor<outputDtype>({m, n}, "tensor_c", MatmulImplType::cfg::isCNz);
+    tensor_bias = opParams.has_bias ? constructMatmulTensor<biasDtype>({1, n}, "tensor_bias", false) : Tensor();
+    tensor_scale = opParams.quant_mode == QUANT_PERCHANNEL ?
+                      Tensor(DT_UINT64, {1, n}, "tensor_scale", TileOpFormat::TILEOP_ND) :
+                      Tensor();
+}
 
+template <typename MatmulImplType>
+static void PrepareMatmulData(const MatrixOpParams &opParams, int64_t m, int64_t k, int64_t n,
+                               std::vector<typename MatmulImplType::inputDtype> &aData,
+                               std::vector<typename MatmulImplType::inputDtype> &bData,
+                               std::vector<typename MatmulImplType::outputDtype> &golden,
+                               std::vector<typename MatmulImplType::biasDtype> &biasData,
+                               std::vector<typename MatmulImplType::scaleDtype> &scaleData)
+{
     using inputDtype = typename MatmulImplType::inputDtype;
     using outputDtype = typename MatmulImplType::outputDtype;
     using biasDtype = typename MatmulImplType::biasDtype;
     using scaleDtype = typename MatmulImplType::scaleDtype;
 
-    int64_t m = opParams.mmShape[0];
-    int64_t k = opParams.mmShape[1];
-    int64_t n = opParams.mmShape[MM_SHAPE_N_IDX];
+    aData.assign(m * k, 0);
+    bData.assign(k * n, 0);
+    golden.assign(m * n, 0);
+    biasData.assign(opParams.has_bias ? 1 * n : 0, 0);
+    scaleData.assign(opParams.quant_mode == QUANT_PERCHANNEL ? 1 * n : 0, 0);
+}
 
-    Tensor tensor_a = MatmulImplType::cfg::transA ?
-                          constructMatmulTensor<inputDtype>({k, m}, "tensor_a", opParams.isANz) :
-                          constructMatmulTensor<inputDtype>({m, k}, "tensor_a", opParams.isANz);
-    Tensor tensor_b = MatmulImplType::cfg::transB ?
-                          constructMatmulTensor<inputDtype>({n, k}, "tensor_b", opParams.isBNz) :
-                          constructMatmulTensor<inputDtype>({k, n}, "tensor_b", opParams.isBNz);
-    Tensor tensor_c = constructMatmulTensor<outputDtype>({m, n}, "tensor_c", MatmulImplType::cfg::isCNz);
-    Tensor tensor_bias = opParams.has_bias ? constructMatmulTensor<biasDtype>({1, n}, "tensor_bias", false) : Tensor();
-    Tensor tensor_scale = opParams.quant_mode == QUANT_PERCHANNEL ?
-                              Tensor(DT_UINT64, {1, n}, "tensor_scale", TileOpFormat::TILEOP_ND) :
-                              Tensor();
-
-    std::vector<inputDtype> aData(m * k, 0);
-    std::vector<inputDtype> bData(k * n, 0);
-    std::vector<outputDtype> golden(m * n, 0);
-    std::vector<biasDtype> biasData(opParams.has_bias ? 1 * n : 0);
-    std::vector<scaleDtype> scaleData(opParams.quant_mode == QUANT_PERCHANNEL ? 1 * n : 0);
+template <typename MatmulImplType>
+static void ReadMatmulData(const MatrixOpParams &opParams, const Tensor &tensor_a, const Tensor &tensor_b,
+                            const Tensor &tensor_c, const Tensor &tensor_bias, const Tensor &tensor_scale,
+                            std::vector<typename MatmulImplType::inputDtype> &aData,
+                            std::vector<typename MatmulImplType::inputDtype> &bData,
+                            std::vector<typename MatmulImplType::outputDtype> &golden,
+                            std::vector<typename MatmulImplType::biasDtype> &biasData,
+                            std::vector<typename MatmulImplType::scaleDtype> &scaleData)
+{
+    using inputDtype = typename MatmulImplType::inputDtype;
+    using outputDtype = typename MatmulImplType::outputDtype;
+    using biasDtype = typename MatmulImplType::biasDtype;
+    using scaleDtype = typename MatmulImplType::scaleDtype;
 
     readInput<inputDtype>(opParams.dataPath + "/mat_a.bin", aData);
     readInput<inputDtype>(opParams.dataPath + "/mat_b.bin", bData);
@@ -333,6 +354,13 @@ void TestDynMatmul(MatrixOpParams &opParams) {
     } else {
         ProgramData::GetInstance().AppendInputs({nullptr});
     }
+}
+
+template <typename MatmulImplType>
+static void ExecuteMatmulFunc(const MatrixOpParams &opParams, const Tensor &tensor_a, const Tensor &tensor_b,
+                               const Tensor &tensor_c, const Tensor &tensor_bias, const Tensor &tensor_scale)
+{
+    using outputDtype = typename MatmulImplType::outputDtype;
 
     int64_t viewM = opParams.viewShape[0];
     int64_t viewN = opParams.viewShape[1];
@@ -356,8 +384,39 @@ void TestDynMatmul(MatrixOpParams &opParams) {
         NonSplitFunc<outputDtype, MatmulImplType::cfg::transA, MatmulImplType::cfg::transB, MatmulImplType::cfg::isCNz>(
             funcParam);
     }
+}
 
-    // excute
+template <typename MatmulImplType>
+void TestDynMatmul(MatrixOpParams &opParams) {
+    SetInterpreterConfig();
+
+    if (opParams.mmShape.size() != MM_SHAPE_SIZE || opParams.viewShape.size() != MM_VIEW_SHAPE_SIZE) {
+        return;
+    }
+
+    using inputDtype = typename MatmulImplType::inputDtype;
+    using outputDtype = typename MatmulImplType::outputDtype;
+    using biasDtype = typename MatmulImplType::biasDtype;
+    using scaleDtype = typename MatmulImplType::scaleDtype;
+
+    int64_t m = opParams.mmShape[0];
+    int64_t k = opParams.mmShape[1];
+    int64_t n = opParams.mmShape[MM_SHAPE_N_IDX];
+
+    Tensor tensor_a, tensor_b, tensor_c, tensor_bias, tensor_scale;
+    PrepareMatmulTensors<MatmulImplType>(opParams, m, k, n, tensor_a, tensor_b, tensor_c, tensor_bias, tensor_scale);
+
+    std::vector<inputDtype> aData, bData;
+    std::vector<outputDtype> golden;
+    std::vector<biasDtype> biasData;
+    std::vector<scaleDtype> scaleData;
+    PrepareMatmulData<MatmulImplType>(opParams, m, k, n, aData, bData, golden, biasData, scaleData);
+
+    ReadMatmulData<MatmulImplType>(opParams, tensor_a, tensor_b, tensor_c, tensor_bias, tensor_scale,
+                                   aData, bData, golden, biasData, scaleData);
+
+    ExecuteMatmulFunc<MatmulImplType>(opParams, tensor_a, tensor_b, tensor_c, tensor_bias, tensor_scale);
+
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (outputDtype *)outs->data(), 0.001f));

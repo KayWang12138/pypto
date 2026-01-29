@@ -23,6 +23,47 @@ class DyMla : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 namespace {
 
+struct MlaPrologShapes {
+    std::vector<int64_t> x;
+    std::vector<int64_t> wDq;
+    std::vector<int64_t> wUqQr;
+    std::vector<int64_t> wDkvKr;
+    std::vector<int64_t> wUk;
+    std::vector<int64_t> cos;
+    std::vector<int64_t> gammaCq;
+    std::vector<int64_t> gammaCkv;
+    std::vector<int64_t> kvLen;
+    std::vector<int64_t> kvCache;
+    std::vector<int64_t> krCache;
+    std::vector<int64_t> wQbScale;
+    std::vector<int64_t> smoothCq;
+    std::vector<int64_t> qOut;
+    std::vector<int64_t> qRopeOut;
+    std::vector<int64_t> kvCacheOut;
+    std::vector<int64_t> krCacheOut;
+};
+
+struct MlaPrologTensors {
+    Tensor x;
+    Tensor wDq;
+    Tensor wUqQr;
+    Tensor wDkvKr;
+    Tensor wUk;
+    Tensor gammaCq;
+    Tensor gammaCkv;
+    Tensor cos;
+    Tensor sin;
+    Tensor kvLen;
+    Tensor kvCache;
+    Tensor krCache;
+    Tensor wQbScale;
+    Tensor smoothCq;
+    Tensor outputKvCache;
+    Tensor outputKrCache;
+    Tensor outputQ;
+    Tensor outputQRope;
+};
+
 void pre() {
 
 }
@@ -50,12 +91,9 @@ static std::vector<T> getGoldenVec(std::vector<int64_t> shape, std::string fileN
     return golden;
 }
 
-template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
-    bool isSmooth = true, bool usePrefetch = true>
-void TestMlaPrologV2(const SimpleParams &params) {
-    SetInterpreterConfig();
-    pre();
-
+template <typename T, typename wDtype>
+static MlaPrologShapes CalculateMlaPrologShapes(const SimpleParams &params) {
+    MlaPrologShapes shapes;
     int b = params.b;
     int s = params.s;
     int s2 = params.s2;
@@ -67,125 +105,177 @@ void TestMlaPrologV2(const SimpleParams &params) {
     int kvLoraRank = params.kv_lora_rank;
     int q_head_dim = params.q_head_dim;
 
+    shapes.x = {b, s, h};
+    shapes.wDq = {h, qLoraRank};
+    shapes.wUqQr = {qLoraRank, n * q_head_dim};
+    shapes.wDkvKr = {h, kvLoraRank + qkRopeHeadDim};
+    shapes.wUk = {n, qkNopeHeadDim, kvLoraRank};
+    shapes.cos = {b, s, qkRopeHeadDim};
+    shapes.gammaCq = {qLoraRank};
+    shapes.gammaCkv = {kvLoraRank};
+    shapes.kvLen = {b, s};
+    shapes.kvCache = {b, 1, s2, kvLoraRank};
+    shapes.krCache = {b, 1, s2, qkRopeHeadDim};
+    if (params.cacheMode != "BNSD") {
+        int blockNum = b * (s2 / params.blockSize);
+        shapes.kvCache = {blockNum, params.blockSize, 1, kvLoraRank};
+        shapes.krCache = {blockNum, params.blockSize, 1, qkRopeHeadDim};
+    }
+    shapes.wQbScale = {1, n * q_head_dim};
+    shapes.smoothCq = {1, qLoraRank};
+    shapes.qOut = {b, s, n, kvLoraRank};
+    shapes.qRopeOut = {b, s, n, qkRopeHeadDim};
+    shapes.kvCacheOut = {b, 1, s2, kvLoraRank};
+    shapes.krCacheOut = {b, 1, s2, qkRopeHeadDim};
+    return shapes;
+}
+
+template <typename T, typename wDtype, bool nz, bool usePrefetch>
+static MlaPrologTensors CreateMlaPrologTensors(const SimpleParams &params, const MlaPrologShapes& shapes) {
+    MlaPrologTensors tensors;
+    int b = params.b;
+
     DataType dType = (std::is_same<T, npu::tile_fwk::float16>::value) ? DT_FP16 : DT_BF16;
     bool isQuant = std::is_same<wDtype, int8_t>::value;
     DataType dTypeQuant = isQuant ? DT_INT8 : dType;
 
-    std::vector<int64_t> x_shape = {b, s, h};
-    std::vector<int64_t> wDqShape = {h, qLoraRank};
-    std::vector<int64_t> wUqQrShape = {qLoraRank, n * q_head_dim};
-    std::vector<int64_t> wDkvKrShape = {h, kvLoraRank + qkRopeHeadDim};
-    std::vector<int64_t> wUkShape = {n, qkNopeHeadDim, kvLoraRank};
-    std::vector<int64_t> cos_shape = {b, s, qkRopeHeadDim};
-    std::vector<int64_t> gamma_cq_shape = {qLoraRank};
-    std::vector<int64_t> gamma_ckv_shape = {kvLoraRank};
-    std::vector<int64_t> kv_len_shape = {b, s};
-    std::vector<int64_t> kv_cache_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int64_t> kr_cache_shape = {b, 1, s2, qkRopeHeadDim};
-    if (params.cacheMode != "BNSD") {
-        int blockNum = b * (s2 / params.blockSize);
-        kv_cache_shape = {blockNum, params.blockSize, 1, kvLoraRank};
-        kr_cache_shape = {blockNum, params.blockSize, 1, qkRopeHeadDim};
-    }
-    std::vector<int64_t> w_qb_scale_shape = {1, n * q_head_dim};
-    std::vector<int64_t> smooth_cq_shape{1, qLoraRank};
-    // output
-    std::vector<int64_t> q_out_shape = {b, s, n, kvLoraRank};
-    std::vector<int64_t> q_rope_out_shape = {b, s, n, qkRopeHeadDim};
-    std::vector<int64_t> kv_cache_out_shape = {b, 1, s2, kvLoraRank};
-    std::vector<int64_t> kr_cache_out_shape = {b, 1, s2, qkRopeHeadDim};
-
-    Tensor x(dType, x_shape, "x");
     TileOpFormat weightFormat = nz ? TileOpFormat::TILEOP_NZ : TileOpFormat::TILEOP_ND;
-    Tensor wDq(dType, wDqShape, "wDq", weightFormat);
-    Tensor wUqQr(dTypeQuant, wUqQrShape, "wUqQr", weightFormat);
+
+    tensors.x = Tensor(dType, shapes.x, "x");
+    tensors.wDq = Tensor(dType, shapes.wDq, "wDq", weightFormat);
+    tensors.wUqQr = Tensor(dTypeQuant, shapes.wUqQr, "wUqQr", weightFormat);
     if constexpr (usePrefetch) {
-        wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
-        wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
+        tensors.wDq.SetCachePolicy(CachePolicy::PREFETCH, true);
+        tensors.wUqQr.SetCachePolicy(CachePolicy::PREFETCH, true);
     }
-    Tensor wDkvKr(dType, wDkvKrShape, "wDkvKr", weightFormat);
-    Tensor wUk(dType, wUkShape, "wUk", weightFormat);
-    Tensor gamma_cq(dType, gamma_cq_shape, "gamma_cq");
-    Tensor gamma_ckv(dType, gamma_ckv_shape, "gamma_ckv");
-    Tensor cos(dType, cos_shape, "cos");
-    Tensor sin(dType, cos_shape, "sin");
-    Tensor kv_len(DT_INT64, kv_len_shape, "kv_len"); // int64
-    Tensor kv_cache(dType, kv_cache_shape, "kv_cache");
-    Tensor kr_cache(dType, kr_cache_shape, "kr_cache");
-    Tensor w_qb_scale(DT_FP32, w_qb_scale_shape, "w_qb_scale");
-    Tensor smooth_cq(DT_FP32, smooth_cq_shape, "smooth_cq");
+    tensors.wDkvKr = Tensor(dType, shapes.wDkvKr, "wDkvKr", weightFormat);
+    tensors.wUk = Tensor(dType, shapes.wUk, "wUk", weightFormat);
+    tensors.gammaCq = Tensor(dType, shapes.gammaCq, "gamma_cq");
+    tensors.gammaCkv = Tensor(dType, shapes.gammaCkv, "gamma_ckv");
+    tensors.cos = Tensor(dType, shapes.cos, "cos");
+    tensors.sin = Tensor(dType, shapes.cos, "sin");
+    tensors.kvLen = Tensor(DT_INT64, shapes.kvLen, "kv_len");
+    tensors.kvCache = Tensor(dType, shapes.kvCache, "kv_cache");
+    tensors.krCache = Tensor(dType, shapes.krCache, "kr_cache");
+    tensors.wQbScale = Tensor(DT_FP32, shapes.wQbScale, "w_qb_scale");
+    tensors.smoothCq = Tensor(DT_FP32, shapes.smoothCq, "smooth_cq");
+    tensors.outputKvCache = Tensor(dType, shapes.kvCache, "output_kv_cache");
+    tensors.outputKrCache = Tensor(dType, shapes.krCache, "output_kr_cache");
+    tensors.outputQ = Tensor(dType, shapes.qOut, "output_q");
+    tensors.outputQRope = Tensor(dType, shapes.qRopeOut, "output_q_rope");
+    return tensors;
+}
 
-    // output
-    Tensor output_kv_cache(dType, kv_cache_shape, "output_kv_cache");
-    Tensor output_kr_cache(dType, kr_cache_shape, "output_kr_cache");
-    Tensor output_q(dType, q_out_shape, "output_q");
-    Tensor output_q_rope(dType, q_rope_out_shape, "output_q_rope");
+template <typename T, typename wDtype>
+static void ReadMlaPrologData(const MlaPrologShapes& shapes, const MlaPrologTensors& tensors,
+                              std::vector<T>& golden1, std::vector<T>& golden2,
+                              std::vector<T>& golden3, std::vector<T>& golden4,
+                              std::vector<RawTensorDataPtr>& inputDataList,
+                              std::vector<RawTensorDataPtr>& outputDataList,
+                              std::vector<RawTensorDataPtr>& goldenDataList)
+{
+    auto xData = CreateTensorData<T>(tensors.x, shapes.x, "/x.bin");
+    auto wDqData = CreateTensorData<T>(tensors.wDq, shapes.wDq, "/wDq.bin");
+    auto wUqQrData = CreateTensorData<wDtype>(tensors.wUqQr, shapes.wUqQr, "/wUqQr.bin");
+    auto wUkData = CreateTensorData<T>(tensors.wUk, shapes.wUk, "/wUk.bin");
+    auto wDkvKrData = CreateTensorData<T>(tensors.wDkvKr, shapes.wDkvKr, "/wDkvKr.bin");
+    auto gammaCqData = CreateTensorData<T>(tensors.gammaCq, shapes.gammaCq, "/gamma_cq.bin");
+    auto gammaCkvData = CreateTensorData<T>(tensors.gammaCkv, shapes.gammaCkv, "/gamma_ckv.bin");
+    auto cosData = CreateTensorData<T>(tensors.cos, shapes.cos, "/cos.bin");
+    auto sinData = CreateTensorData<T>(tensors.sin, shapes.cos, "/sin.bin");
+    auto kvLenData = CreateTensorData<int64_t>(tensors.kvLen, shapes.kvLen, "/kv_len.bin");
+    auto kvCacheData = CreateTensorData<T>(tensors.kvCache, shapes.kvCache, "/kv_cache.bin");
+    auto krCacheData = CreateTensorData<T>(tensors.krCache, shapes.krCache, "/kr_cache.bin");
+    auto wQbScaleData = CreateTensorData<float>(tensors.wQbScale, shapes.wQbScale, "/w_qb_scale.bin");
+    auto smoothCqData = CreateTensorData<float>(tensors.smoothCq, shapes.smoothCq, "/smooth_cq.bin");
+    auto outputQData = RawTensorData::CreateConstantTensor<T>(tensors.outputQ, 0.0);
+    auto outputQRopeData = RawTensorData::CreateConstantTensor<T>(tensors.outputQRope, 0.0);
 
-    RoPETileShapeConfigNew ropeConfig{
-        {b, 1, 64}, // (b,s,d)
-        {b, 1, 1, 64}, // Q (b,s,n,d)
-        {b, 1, 1, 64}, // K (b,s,1,d)
-        {b, 1, 1, 32, 2}  // (b,s,n,d//2,2)
-    };
+    golden1 = getGoldenVec<T>(shapes.qOut, "/q_golden.bin");
+    golden2 = getGoldenVec<T>(shapes.qRopeOut, "/q_rope_golden.bin");
+    golden3 = getGoldenVec<T>(shapes.kvCache, "/kv_cache_golden.bin");
+    golden4 = getGoldenVec<T>(shapes.krCache, "/kr_cache_golden.bin");
 
-    MlaQuantInputs quantInputs;
-    // // output
-    std::vector<T> golden1 = getGoldenVec<T>(q_out_shape, "/q_golden.bin");
-    std::vector<T> golden2 = getGoldenVec<T>(q_rope_out_shape, "/q_rope_golden.bin");
-    std::vector<T> golden3 = getGoldenVec<T>(kv_cache_shape, "/kv_cache_golden.bin");
-    std::vector<T> golden31 = getGoldenVec<T>(kv_cache_shape, "/kv_cache.bin");
-    std::vector<T> golden4 = getGoldenVec<T>(kr_cache_shape, "/kr_cache_golden.bin");
+    auto golden1Data = CreateTensorData<T>(tensors.outputQ, shapes.qOut, "/q_golden.bin");
+    auto golden2Data = CreateTensorData<T>(tensors.outputQRope, shapes.qRopeOut, "/q_rope_golden.bin");
+    auto golden3Data = CreateTensorData<T>(tensors.kvCache, shapes.kvCache, "/kv_cache_golden.bin");
+    auto golden4Data = CreateTensorData<T>(tensors.krCache, shapes.krCache, "/kr_cache_golden.bin");
 
-    auto xData = CreateTensorData<T>(x, x_shape, "/x.bin");
-    auto wDqData = CreateTensorData<T>(wDq, wDqShape, "/wDq.bin");
-    auto wUqQrData = CreateTensorData<wDtype>(wUqQr, wUqQrShape, "/wUqQr.bin");
-    auto wUkData = CreateTensorData<T>(wUk, wUkShape, "/wUk.bin");
-    auto wDkvKrData = CreateTensorData<T>(wDkvKr, wDkvKrShape, "/wDkvKr.bin");
-    auto gammaCqData = CreateTensorData<T>(gamma_cq, gamma_cq_shape, "/gamma_cq.bin");
-    auto gammaCkvData = CreateTensorData<T>(gamma_ckv, gamma_ckv_shape, "/gamma_ckv.bin");
-    auto cosData = CreateTensorData<T>(cos, cos_shape, "/cos.bin");
-    auto sinData = CreateTensorData<T>(sin, cos_shape, "/sin.bin");
-    auto kvLenData = CreateTensorData<int64_t>(kv_len, kv_len_shape, "/kv_len.bin");
-    auto kvCacheData = CreateTensorData<T>(kv_cache, kv_cache_shape, "/kv_cache.bin");
-    auto krCacheData = CreateTensorData<T>(kr_cache, kr_cache_shape, "/kr_cache.bin");
-    auto wQbScaleData = CreateTensorData<float>(w_qb_scale, w_qb_scale_shape, "/w_qb_scale.bin");
-    auto smoothCqData = CreateTensorData<float>(smooth_cq, smooth_cq_shape, "/smooth_cq.bin");
-    auto outputQData = RawTensorData::CreateConstantTensor<T>(output_q, 0.0);
-    auto outputQRopeData = RawTensorData::CreateConstantTensor<T>(output_q_rope, 0.0);
+    inputDataList = {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData,
+                    sinData, cosData, kvLenData, kvCacheData, krCacheData, wQbScaleData, smoothCqData};
+    outputDataList = {outputQData, outputQRopeData, kvCacheData, krCacheData};
+    goldenDataList = {golden1Data, golden2Data, golden3Data, golden4Data};
+}
 
-    auto golden1Data = CreateTensorData<T>(output_q, q_out_shape, "/q_golden.bin");
-    auto golden2Data = CreateTensorData<T>(output_q_rope, q_rope_out_shape, "/q_rope_golden.bin");
-    auto golden3Data = CreateTensorData<T>(kv_cache, kv_cache_shape, "/kv_cache_golden.bin");
-    auto golden4Data = CreateTensorData<T>(kr_cache, kr_cache_shape, "/kr_cache_golden.bin");
-
-    ProgramData::GetInstance().PrepareData(
-        {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
-            kvCacheData, krCacheData, wQbScaleData, smoothCqData},
-        {outputQData, outputQRopeData, kvCacheData, krCacheData}, {golden1Data, golden2Data, golden3Data, golden4Data});
+template <typename T, typename wDtype, bool isQuant, bool isSmooth>
+static void PrepareMlaPrologQuantInputs(const MlaPrologTensors& tensors, MlaQuantInputs& quantInputs)
+{
     if (isQuant) {
-        quantInputs.dequantScaleWUqQr = w_qb_scale;
+        quantInputs.dequantScaleWUqQr = tensors.wQbScale;
         if (isSmooth) {
-            quantInputs.smoothScalesCq = smooth_cq;
+            quantInputs.smoothScalesCq = tensors.smoothCq;
         }
     }
+}
+
+template <typename T, typename wDtype, bool splitK, bool isSmooth>
+static void ExecuteMlaPrologAndVerify(const MlaPrologTensors& tensors, const SimpleParams &params,
+                                      const std::vector<T>& golden1, const std::vector<T>& golden2,
+                                      const std::vector<T>& golden3, const std::vector<T>& golden4,
+                                      const MlaQuantInputs& quantInputs,
+                                      const std::vector<RawTensorDataPtr>& inputDataList,
+                                      const std::vector<RawTensorDataPtr>& outputDataList)
+{
+    int b = params.b;
+
+    RoPETileShapeConfigNew ropeConfig{
+        {b, 1, 64},
+        {b, 1, 1, 64},
+        {b, 1, 1, 64},
+        {b, 1, 1, 32, 2}
+    };
+
     config::SetPassConfig("PVC2_OOO", "InferMemoryConflict", KEY_DISABLE_PASS, true);
-    MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, quantInputs,
-        ropeConfig, output_q, output_q_rope, output_kv_cache, output_kr_cache, 1e-5f, 1e-5f, params.cacheMode, splitK,
-        isSmooth);
+    MlaProlog(tensors.x, tensors.wDq, tensors.wUqQr, tensors.wUk, tensors.wDkvKr,
+        tensors.gammaCq, tensors.gammaCkv, tensors.sin, tensors.cos, tensors.kvLen,
+        tensors.kvCache, tensors.krCache, quantInputs, ropeConfig, tensors.outputQ,
+        tensors.outputQRope, tensors.outputKvCache, tensors.outputKrCache, 1e-5f, 1e-5f,
+        params.cacheMode, splitK, isSmooth);
+
 #ifdef BUILD_WITH_CANN
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(),
-        {xData, wDqData, wUqQrData, wUkData, wDkvKrData, gammaCqData, gammaCkvData, sinData, cosData, kvLenData,
-            kvCacheData, krCacheData, wQbScaleData, smoothCqData},
-        {outputQData, outputQRopeData, kvCacheData, krCacheData});
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), inputDataList, outputDataList);
     std::cout << "qNope ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden1, (T *)outputQData->data(), 0.008f, 16));
+    EXPECT_TRUE(resultCmp<T>(golden1, (T *)outputDataList[0]->data(), 0.008f, 16));
     std::cout << "qRope ======" << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden2, (T *)outputQRopeData->data(), 0.005f, 16));
+    EXPECT_TRUE(resultCmp<T>(golden2, (T *)outputDataList[1]->data(), 0.005f, 16));
     std::cout << "kv ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden3, (T *)kvCacheData->data(), 0.003f, 16));
+    EXPECT_TRUE(resultCmp<T>(golden3, (T *)outputDataList[2]->data(), 0.003f, 16));
     std::cout << "kr ====== " << std::endl;
-    EXPECT_TRUE(resultCmp<T>(golden4, (T *)krCacheData->data(), 0.003f, 16));
+    EXPECT_TRUE(resultCmp<T>(golden4, (T *)outputDataList[3]->data(), 0.003f, 16));
 #endif
+}
+
+template <typename T = npu::tile_fwk::float16, typename wDtype = int8_t, bool splitK = false, bool nz = true,
+    bool isSmooth = true, bool usePrefetch = true>
+void TestMlaPrologV2(const SimpleParams &params) {
+    SetInterpreterConfig();
+    pre();
+
+    MlaPrologShapes shapes = CalculateMlaPrologShapes<T, wDtype>(params);
+    MlaPrologTensors tensors = CreateMlaPrologTensors<T, wDtype, nz, usePrefetch>(params, shapes);
+
+    bool isQuant = std::is_same<wDtype, int8_t>::value;
+    std::vector<T> golden1, golden2, golden3, golden4;
+    std::vector<RawTensorDataPtr> inputDataList, outputDataList, goldenDataList;
+    ReadMlaPrologData<T, wDtype>(shapes, tensors, golden1, golden2, golden3, golden4, inputDataList, outputDataList, goldenDataList);
+
+    MlaQuantInputs quantInputs;
+    PrepareMlaPrologQuantInputs<T, wDtype, isQuant, isSmooth>(tensors, quantInputs);
+
+    ProgramData::GetInstance().PrepareData(inputDataList, outputDataList, goldenDataList);
+
+    ExecuteMlaPrologAndVerify<T, wDtype, splitK, isSmooth>(tensors, params, golden1, golden2, golden3, golden4,
+                                                            quantInputs, inputDataList, outputDataList);
 }
 
 TEST_F(DyMla, low) {

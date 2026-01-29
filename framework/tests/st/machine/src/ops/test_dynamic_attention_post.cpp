@@ -932,6 +932,49 @@ void PaPostCastFirstQuant(Tensor &postIn, Tensor &r2In, Tensor &weightUV, Tensor
         }
     }
 }
+static void PrepareCastFirstQuantTensors(int B, int S, int N, int H, int kvLoraRank, int vHeadDim,
+                                          Tensor& postIn, Tensor& r2In, Tensor& weightUV, Tensor& weightO,
+                                          Tensor& weightOScaleW, Tensor& quantInt8Out, Tensor& quantFp32Out) {
+    postIn = Tensor(DT_FP32, {B * S * N, kvLoraRank}, "postIn");
+    r2In = Tensor(DT_BF16, {B * S, N * vHeadDim}, "r2In");
+    weightUV = Tensor(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
+    weightO = Tensor(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ);
+    weightOScaleW = Tensor(DT_FP32, {H}, "weightOScaleW");
+    quantInt8Out = Tensor(DT_INT8, {B * S, N * vHeadDim}, "quantInt8Out");
+    quantFp32Out = Tensor(DT_FP32, {B * S, 1}, "quantFp32Out");
+}
+
+static void ReadCastFirstQuantData(int B, int S, int N, int kvLoraRank, int vHeadDim, int H,
+                                 std::vector<float>& postInData, std::vector<npu::tile_fwk::bfloat16>& r2InData,
+                                 std::vector<npu::tile_fwk::bfloat16>& weightUVData, std::vector<int8_t>& weightOData,
+                                 std::vector<float>& weightOScaleWData) {
+    postInData.resize(B * S * N * kvLoraRank, 0);
+    r2InData.resize(B * S * N * vHeadDim, 0);
+    weightUVData.resize(N * kvLoraRank * vHeadDim, 0);
+    weightOData.resize(N * vHeadDim * H, 0);
+    weightOScaleWData.resize(H, 0);
+
+    readInput<float>(GetGoldenDir() + "/input.bin", postInData);
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/r2.bin", r2InData);
+    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/w_uv.bin", weightUVData);
+    readInput<int8_t>(GetGoldenDir() + "/w_o.bin", weightOData);
+    readInput<float>(GetGoldenDir() + "/w_o_scale_w.bin", weightOScaleWData);
+}
+
+static void VerifyCastFirstQuantOutput(int B, int S, int N, int vHeadDim) {
+    std::cout<<"=======================QuantInt8Out: "<<std::endl;
+    std::vector<int8_t> golden0(B * S * N * vHeadDim, 0);
+    readInput(GetGoldenDir() + "/quant0_int8.bin", golden0);
+    auto outs0 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(resultCmp(golden0, (int8_t *)outs0->data(), 0.005f));
+
+    std::cout<<"=======================QuantFp32Out: "<<std::endl;
+    std::vector<float> golden1(B * S * 1, 0);
+    readInput(GetGoldenDir() + "/quant0_fp32.bin", golden1);
+    auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
+    EXPECT_TRUE(resultCmp(golden1, (float *)outs1->data(), 0.005f));
+}
+
 TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_quant) {
 
     int paramsSize = 7;
@@ -946,33 +989,18 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_quant) {
 
     std::vector<uint8_t> devProgBinary;
 
-    Tensor postIn(DT_FP32, {B * S * N, kvLoraRank}, "postIn");
-    Tensor r2In(DT_BF16, {B * S, N * vHeadDim}, "r2In");
-    Tensor weightUV(DT_BF16, {N, kvLoraRank, vHeadDim}, "weightUV");
-    Tensor weightO(DT_INT8, {N * vHeadDim, H}, "weightO", TileOpFormat::TILEOP_NZ); // NZ
-    Tensor weightOScaleW(DT_FP32, {H}, "weightOScaleW");
-    Tensor quantInt8Out(DT_INT8, {B * S, N * vHeadDim}, "quantInt8Out");
-    Tensor quantFp32Out(DT_FP32, {B * S, 1}, "quantFp32Out");
+    Tensor postIn, r2In, weightUV, weightO, weightOScaleW, quantInt8Out, quantFp32Out;
+    PrepareCastFirstQuantTensors(B, S, N, H, kvLoraRank, vHeadDim,
+                                postIn, r2In, weightUV, weightO, weightOScaleW, quantInt8Out, quantFp32Out);
 
     PaPostCastFirstQuant(postIn, r2In, weightUV, weightO, weightOScaleW, quantInt8Out, quantFp32Out);
 
-    // 读数据
-    std::vector<float> postInData(B * S * N * kvLoraRank, 0);
-    std::vector<npu::tile_fwk::bfloat16> r2InData(B * S * N * vHeadDim, 0);
-    std::vector<npu::tile_fwk::bfloat16> weightUVData(N * kvLoraRank * vHeadDim, 0);
-    std::vector<int8_t> weightOData(N * vHeadDim * H, 0);
-    std::vector<float> weightOScaleWData(H, 0);
-
-    readInput<float>(GetGoldenDir() + "/input.bin", postInData);
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/r2.bin", r2InData);
-    readInput<npu::tile_fwk::bfloat16>(GetGoldenDir() + "/w_uv.bin", weightUVData);
-    readInput<int8_t>(GetGoldenDir() + "/w_o.bin", weightOData);// NZ
-    readInput<float>(GetGoldenDir() + "/w_o_scale_w.bin", weightOScaleWData);
-
-    std::vector<int8_t> golden0(B * S * N * vHeadDim, 0);
-    readInput(GetGoldenDir() + "/quant0_int8.bin", golden0);
-    std::vector<float> golden1(B * S * 1, 0);
-    readInput(GetGoldenDir() + "/quant0_fp32.bin", golden1);
+    std::vector<float> postInData;
+    std::vector<npu::tile_fwk::bfloat16> r2InData, weightUVData;
+    std::vector<int8_t> weightOData;
+    std::vector<float> weightOScaleWData;
+    ReadCastFirstQuantData(B, S, N, kvLoraRank, vHeadDim, H,
+                           postInData, r2InData, weightUVData, weightOData, weightOScaleWData);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<float>(postIn, postInData),
@@ -987,12 +1015,7 @@ TEST_F(DynamicAttentionPostTest, dynamic_pa_post_cast_first_quant) {
     });
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
-    std::cout<<"=======================QuantInt8Out: "<<std::endl;
-    auto outs0 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden0, (int8_t *)outs0->data(), 0.005f));
-    std::cout<<"=======================QuantFp32Out: "<<std::endl;
-    auto outs1 = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(1);
-    EXPECT_TRUE(resultCmp(golden1, (float *)outs1->data(), 0.005f));
+    VerifyCastFirstQuantOutput(B, S, N, vHeadDim);
 }
 
 // =============================t3r2

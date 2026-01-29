@@ -170,44 +170,58 @@ static void MNSplitFunc(
 }
 
 template <typename inputDtype, typename outputDtype, bool transA, bool transB, bool isCNz>
-void TestDynBatchMatmul(
-    const std::vector<int64_t>& mmShape, bool isANz, bool isBNz, const std::vector<int64_t> &viewShape, string dataPath) {
-    SetInterpreterConfig();
+static void PrepareBatchMatmul3DTensors(const std::vector<int64_t>& mmShape, bool isANz, bool isBNz,
+                                      int64_t& b, int64_t& m, int64_t& k, int64_t& n,
+                                      Tensor& tensor_a, Tensor& tensor_b, Tensor& tensor_c)
+{
+    b = mmShape[0];
+    m = mmShape[1];
+    k = mmShape[2];
+    n = mmShape[BMM_SHAPE_N_IDX];
+    tensor_a = transA ? constructMatmulTensor<inputDtype>({b, k, m}, "tensor_a", isANz) :
+                       constructMatmulTensor<inputDtype>({b, m, k}, "tensor_a", isANz);
+    tensor_b = transB ? constructMatmulTensor<inputDtype>({b, n, k}, "tensor_b", isBNz) :
+                       constructMatmulTensor<inputDtype>({b, k, n}, "tensor_b", isBNz);
+    tensor_c = constructMatmulTensor<outputDtype>({b, m, n}, "tensor_c", isCNz);
+}
 
-    if (mmShape.size() != BMM_SHAPE_SIZE || viewShape.size() != BMM_VIEW_SHAPE_SIZE) {
-        return;
-    }
-    int64_t b = mmShape[0];
-    int64_t m = mmShape[1];
-    int64_t k = mmShape[2];
-    int64_t n = mmShape[BMM_SHAPE_N_IDX];
-    Tensor tensor_a = transA ? constructMatmulTensor<inputDtype>({b, k, m}, "tensor_a", isANz) :
-                               constructMatmulTensor<inputDtype>({b, m, k}, "tensor_a", isANz);
-    Tensor tensor_b = transB ? constructMatmulTensor<inputDtype>({b, n, k}, "tensor_b", isBNz) :
-                               constructMatmulTensor<inputDtype>({b, k, n}, "tensor_b", isBNz);
-    Tensor tensor_c = constructMatmulTensor<outputDtype>({b, m, n}, "tensor_c", isCNz);
-
-    std::vector<inputDtype> aData(b * m * k, 0);
-    std::vector<inputDtype> bData(b * k * n, 0);
-    std::vector<outputDtype> golden(b * m * n, 0);
-
+template <typename inputDtype, typename outputDtype>
+static void ReadBatchMatmul3DData(int64_t b, int64_t m, int64_t k, int64_t n, string dataPath,
+                                  std::vector<inputDtype>& aData,
+                                  std::vector<inputDtype>& bData,
+                                  std::vector<outputDtype>& golden)
+{
+    aData.assign(b * m * k, 0);
+    bData.assign(b * k * n, 0);
+    golden.assign(b * m * n, 0);
     readInput<outputDtype>(dataPath + "/mat_c.bin", golden);
     readInput<inputDtype>(dataPath + "/mat_a.bin", aData);
     readInput<inputDtype>(dataPath + "/mat_b.bin", bData);
+}
 
+template <typename inputDtype, typename outputDtype>
+static void AppendBatchMatmul3DProgramData(const Tensor& tensor_a, const Tensor& tensor_b, const Tensor& tensor_c,
+                                        const std::vector<inputDtype>& aData,
+                                        const std::vector<inputDtype>& bData,
+                                        const std::vector<outputDtype>& golden)
+{
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<outputDtype>(tensor_c, 0.0f),
     });
-
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<inputDtype>(tensor_a, aData),
         RawTensorData::CreateTensor<inputDtype>(tensor_b, bData),
     });
-
     ProgramData::GetInstance().AppendGoldens({
         RawTensorData::CreateTensor<outputDtype>(tensor_c, golden),
     });
+}
 
+template <typename inputDtype, typename outputDtype, bool transA, bool transB, bool isCNz>
+static void ExecuteBatchMatmul3DAndVerify(const std::vector<int64_t>& viewShape, const Tensor& tensor_a,
+                                        const Tensor& tensor_b, Tensor& tensor_c,
+                                        const std::vector<outputDtype>& golden)
+{
     int64_t viewM = viewShape[1];
     int64_t viewN = viewShape[2];
     if (viewM > 0 && viewN > 0) {
@@ -220,10 +234,32 @@ void TestDynBatchMatmul(
         NonSplitFunc<outputDtype, transA, transB, isCNz>(tensor_a, tensor_b, tensor_c);
     }
 
-    // excute
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(resultCmp(golden, (outputDtype *)outs->data(), 0.001f));
+}
+
+template <typename inputDtype, typename outputDtype, bool transA, bool transB, bool isCNz>
+void TestDynBatchMatmul(
+    const std::vector<int64_t>& mmShape, bool isANz, bool isBNz, const std::vector<int64_t> &viewShape, string dataPath) {
+    SetInterpreterConfig();
+
+    if (mmShape.size() != BMM_SHAPE_SIZE || viewShape.size() != BMM_VIEW_SHAPE_SIZE) {
+        return;
+    }
+
+    int64_t b, m, k, n;
+    Tensor tensor_a, tensor_b, tensor_c;
+    PrepareBatchMatmul3DTensors<inputDtype, outputDtype, transA, transB, isCNz>(mmShape, isANz, isBNz, b, m, k, n,
+                                                                             tensor_a, tensor_b, tensor_c);
+
+    std::vector<inputDtype> aData, bData;
+    std::vector<outputDtype> golden;
+    ReadBatchMatmul3DData<inputDtype, outputDtype>(b, m, k, n, dataPath, aData, bData, golden);
+
+    AppendBatchMatmul3DProgramData<inputDtype, outputDtype>(tensor_a, tensor_b, tensor_c, aData, bData, golden);
+
+    ExecuteBatchMatmul3DAndVerify<inputDtype, outputDtype, transA, transB, isCNz>(viewShape, tensor_a, tensor_b, tensor_c, golden);
 }
 
 TEST_F(DynamicBatchMatmulTest, test_bmm_A_Bt_ND_fp16) {

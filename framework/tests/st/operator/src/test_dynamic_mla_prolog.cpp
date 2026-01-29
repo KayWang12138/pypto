@@ -38,6 +38,59 @@ struct TestShapeParams {
     int blockSize;
 };
 
+template <typename T>
+struct MlaShapes {
+    std::vector<int64_t> x;
+    std::vector<int64_t> wDq;
+    std::vector<int64_t> wUqQr;
+    std::vector<int64_t> wDkvKr;
+    std::vector<int64_t> wUk;
+    std::vector<int64_t> cos;
+    std::vector<int64_t> gammaCq;
+    std::vector<int64_t> gammaCkv;
+    std::vector<int64_t> kvLen;
+    std::vector<int64_t> kvCache;
+    std::vector<int64_t> krCache;
+    std::vector<int64_t> kvCacheOut;
+    std::vector<int64_t> krCacheOut;
+    std::vector<int64_t> scaleWDq;
+    std::vector<int64_t> scaleWUqQr;
+    std::vector<int64_t> scaleWDkvKr;
+    std::vector<int64_t> smoothCq;
+    std::vector<int64_t> qOut;
+    std::vector<int64_t> qRopeOut;
+};
+
+template <typename T, typename wDtype>
+struct MlaTensors {
+    Tensor x;
+    Tensor wDq;
+    Tensor wUqQr;
+    Tensor wDkvKr;
+    Tensor wUk;
+    Tensor gammaCq;
+    Tensor gammaCkv;
+    Tensor cos;
+    Tensor sin;
+    Tensor cacheIndex;
+    Tensor kvCache;
+    Tensor krCache;
+    Tensor scaleWDq;
+    Tensor scaleWUqQr;
+    Tensor scaleWDkvKr;
+    Tensor smoothCq;
+    Tensor outputKvCache;
+    Tensor outputKrCache;
+    Tensor outputQ;
+    Tensor outputQRope;
+    Tensor dynamicX;
+    Tensor dynamicCos;
+    Tensor dynamicSin;
+    Tensor dynamicCacheIndex;
+    Tensor dynamicOutputQ;
+    Tensor dynamicOutputQRope;
+};
+
 void PerformanceConfig() {
     config::SetPassOption(VEC_NBUFFER_MODE, 1);
     config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
