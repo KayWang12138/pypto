@@ -48,9 +48,9 @@ public:
             ALOG_ERROR_F("malloc size is 0!");
             return nullptr;
         }
-        auto hostPtr = (uint8_t *)malloc(size);
-        allocatedHostAddr.emplace_back(hostPtr);
-        return hostPtr;
+        auto hostPtr = std::make_unique<uint8_t[]>(size);
+        allocatedHostAddr.emplace_back(hostPtr.get());
+        return hostPtr.get();
     }
 
     void Finalize() {
@@ -120,7 +120,7 @@ struct MemoryHelper {
 
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        uint8_t *devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
+        uint8_t *devPtr = npu::tile_fwk::dynamic::HostAgentStub::GetAgent()->AllocHostAddr(size);
         return devPtr;
     }
 
