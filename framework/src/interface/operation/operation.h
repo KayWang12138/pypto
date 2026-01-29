@@ -373,7 +373,7 @@ public:
             Opcode::OP_SHMEM_SET,
             Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
             Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
-            Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT};
+            Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT, Opcode::OP_L1_COPY_IN_CONV};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
             ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
             return;
