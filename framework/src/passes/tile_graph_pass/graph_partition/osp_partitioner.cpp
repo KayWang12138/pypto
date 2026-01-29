@@ -81,20 +81,14 @@ Status OspPartitioner::PartitionGraph(Function &function)
             return FAILED;
         }
     }
-
-    osp::BspInstance<GraphType> bspInstance;
-    if (ConstructBspInstance(bspInstance) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate a bsp instance.");
-        return FAILED;
-    }
-    if (RunOspPartition(function, bspInstance) != SUCCESS) {
+    if (RunOspPartition(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate a partition.");
         return FAILED;
     }
     return SUCCESS;
 }
 
-Status OspPartitioner::RunOspPartition(Function &function, const osp::BspInstance<GraphType> &bspInst)
+Status OspPartitioner::RunOspPartition(Function &function)
 {
     Status status = FAILED;
     std::vector<osp::VertexIdxT<GraphType>> vertexContractionMap;
@@ -104,13 +98,23 @@ Status OspPartitioner::RunOspPartition(Function &function, const osp::BspInstanc
     {
         case OspMode::SARKAR:
         {
-            status = RunSarkar(bspInst, coarseGraph, vertexContractionMap);
+            GraphType graph;
+            if (ConstructDag(graph) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate graph.");
+                return FAILED;
+            }
+            status = RunSarkar(graph, coarseGraph, vertexContractionMap);
         }
         break;
 
         case OspMode::MERKLEBSP:
         {
-            status = RunMerkleBsp(bspInst, vertexContractionMap);
+            osp::BspInstance<GraphType> bspInstance;
+            if (ConstructBspInstance(bspInstance) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate a bsp instance.");
+                return FAILED;
+            }
+            status = RunMerkleBsp(bspInstance, vertexContractionMap);
         }
         break;
 
@@ -133,7 +137,7 @@ Status OspPartitioner::RunOspPartition(Function &function, const osp::BspInstanc
     return status;
 }
 
-Status OspPartitioner::RunSarkar(const osp::BspInstance<GraphType> &bspInst, CoarseGraphType &coarseGraph, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap)
+Status OspPartitioner::RunSarkar(const GraphType &graph, CoarseGraphType &coarseGraph, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap)
 {
     osp::sarkar_params::MulParameters< osp::VWorkwT<GraphType> > params;
     params.seed_ = 1729U;
@@ -148,7 +152,7 @@ Status OspPartitioner::RunSarkar(const osp::BspInstance<GraphType> &bspInst, Coa
     osp::SarkarMul<GraphType, CoarseGraphType> coarser;
     coarser.SetParameters(params);
 
-    bool coarsenStatus = coarser.CoarsenDag(bspInst.GetComputationalDag(), coarseGraph, vertexContractionMap);
+    bool coarsenStatus = coarser.CoarsenDag(graph, coarseGraph, vertexContractionMap);
     if (not coarsenStatus) {
         APASS_LOG_ERROR_F(Elements::Function, "OSP Sarkar failed to generate a coarse graph.");
         return FAILED;
@@ -352,6 +356,19 @@ Status OspPartitioner::ConstructBspArchCVMix(osp::BspArchitecture<GraphType> &bs
     bspArch.SetCommunicationCosts(archParameters_.commCost_);
     bspArch.SetSynchronisationCosts(archParameters_.synchCost_);
 
+    return SUCCESS;
+}
+
+Status OspPartitioner::ConstructDag(GraphType &graph)
+{
+    if (useCVMixPartition_) {
+        ConstructDagCVMix(graph);
+    } else {
+        if (ConstructDagCVSplit(graph) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate graph with CV split.");
+            return FAILED;
+        };
+    }
     return SUCCESS;
 }
 
