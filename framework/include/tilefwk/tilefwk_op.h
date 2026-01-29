@@ -175,18 +175,27 @@ Tensor Add(const Tensor &self, const Tensor &other);
 Tensor Sub(const Tensor &self, const Tensor &other);
 Tensor Div(const Tensor &self, const Tensor &other);
 Tensor Mul(const Tensor &self, const Tensor &other);
+Tensor Fmod(const Tensor &self, const Tensor &other);
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2);
 Tensor Minimum(const Tensor &operand1, const Tensor &operand2);
 Tensor Add(const Tensor &self, const Element &other);
 Tensor Sub(const Tensor &self, const Element &other);
 Tensor Div(const Tensor &self, const Element &other);
 Tensor Mul(const Tensor &self, const Element &other);
+Tensor Fmod(const Tensor &self, const Element &other);
 Tensor Minimum(const Tensor &operand1, const Element &operand2);
 Tensor Maximum(const Tensor &operand1, const Element &operand2);
 Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode);
 Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode);
 Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode);
 Tensor Pow(const Tensor &self, const Element &other);
+
+Tensor BitwiseRightShift(const Tensor &self, const Tensor &other);
+Tensor BitwiseRightShift(const Tensor &self, const Element &other);
+Tensor BitwiseRightShift(const Element &self, const Tensor &other);
+Tensor BitwiseLeftShift(const Tensor &self, const Tensor &other);
+Tensor BitwiseLeftShift(const Tensor &self, const Element &other);
+Tensor BitwiseLeftShift(const Element &self, const Tensor &other);
 
 Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Tensor &input, const Element &other);
