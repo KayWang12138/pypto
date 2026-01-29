@@ -322,14 +322,14 @@ public:
                  aicpuIdx_, ret, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
     }
 
-    inline int Run(int threadIdx, DeviceArgs *deviceArgs) {
+    inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
         DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
         Init(threadIdx, deviceArgs);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DEV_DEBUG("Schedule run init succ");
         DeviceTaskCtrl *taskCtrl = nullptr;
-        taskQueue_ = &(reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>*>(deviceArgs->taskQueue)[threadIdx]);
+        taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx]);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
@@ -341,7 +341,6 @@ public:
                 }
                 return ret;
             }
-            auto devStartArgs = reinterpret_cast<DevStartArgs *>(deviceArgs->startArgsAddr);
             devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
@@ -500,9 +499,6 @@ private:
     inline bool PreFetchNextDevTask() {
         preFetchNextDevTaskCtrl_ = nullptr;
         preFetchSuccess_ = taskQueue_->TryDequeue(preFetchNextDevTaskCtrl_);
-
-        DEV_INFO("Prefetch next dev task : success:%d, devtaskid:%lu.",
-            preFetchSuccess_, preFetchNextDevTaskCtrl_ != nullptr ? preFetchNextDevTaskCtrl_->taskId : INVALID_DEV_TASK_ID);
         return preFetchSuccess_;
     }
 
