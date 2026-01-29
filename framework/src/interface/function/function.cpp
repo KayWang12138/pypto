@@ -1926,8 +1926,9 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
                     ASSERT(producerAttr) << "mix assemble and common operation for same output \n" << producer->Dump();
                     auto [offset, dynOffset] = TensorOffset::Add(iOperand[i]->GetOffset(), iOperand[i]->GetDynOffset(),
                                                                  producerAttr->GetToOffset(), producerAttr->GetToDynOffset());
-                    producer->ReplaceOOperand(0, rawSymbol);
-                    producer->SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
+                    auto &assembleOp = AddOperation(producer->GetOpcode(), {producer->GetIOperands()[0]}, oOperand);
+                    assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
+                    producer->SetAsDeleted();
                 }
                 auto consumers = iOperand[i]->GetConsumers(); // deep copy
                 for (auto consumer : consumers) {
