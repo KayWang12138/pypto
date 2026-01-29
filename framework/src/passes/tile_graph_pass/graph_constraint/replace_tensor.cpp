@@ -809,10 +809,9 @@ void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCop
 }
 
 void ReplaceTensor::InsertAssembleCopy(Function &function) {
-    auto opsBeforeAdd = function.Operations();
     std::unordered_set<int> visitedAssOps;
     std::unordered_set<Operation*> needInsertCopyAssOps;
-    for (auto &op : opsBeforeAdd) {
+    for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             visitedAssOps.insert(op.GetOpMagic());
             auto assembleIn = op.GetIOperands()[0];
@@ -846,7 +845,6 @@ void ReplaceTensor::InsertAssembleCopy(Function &function) {
 
 Status ReplaceTensor::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start ReplaceTensor.");
-    APASS_LOG_INFO_F(Elements::Operation, "Test one Tensor connects mutli Assemble.");
     InsertAssembleCopy(function);
     auto tensorToOrderIndex = BuildTensorOrderIndexMap(function);
     UnionFind uf(tensorToOrderIndex);
