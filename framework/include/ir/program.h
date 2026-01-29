@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * Temporary stub for IR program.h - waiting for new IR integration
  * This file provides minimal interface to keep compilation working
  */

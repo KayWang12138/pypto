@@ -1,12 +1,11 @@
-/*
- * Copyright (c) PyPTO Contributors.
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
- * -----------------------------------------------------------------------------------------------------------
  */
 
 #ifndef PYPTO_IR_REFLECTION_FIELD_VISITOR_H_
@@ -23,7 +22,6 @@
 #include "pypto/core/logging.h"
 #include "pypto/ir/reflection/field_traits.h"
 
-// Temporary replacement for INTERNAL_UNREACHABLE - depends on core/error.h which is temporarily removed
 #ifndef INTERNAL_UNREACHABLE
 #define INTERNAL_UNREACHABLE \
   if (true) throw std::logic_error(std::string("Unreachable code at ") + __FILE__ + ":" + std::to_string(__LINE__)); \
