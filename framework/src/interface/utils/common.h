@@ -41,7 +41,7 @@ using Status = uint32_t;
 #define FAILED 1
 #define CACHELINE_SIZE_FOR_B64 64
 
-inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
+constexpr uint32_t DIST_COMM_GROUP_NUM = 2;
 
 constexpr const int NUM2 = 2;
 constexpr const int NUM4 = 4;
@@ -85,6 +85,8 @@ constexpr const int SHAPE_BUFFER_MAX_SIZE = 32;
 inline constexpr uint64_t KIBI = 1024;
 inline constexpr uint64_t MEBI = UINT64_C(1024) * 1024;
 inline constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
+
+constexpr const int INVALID_LOOP_GROUPID = -1;
 
 inline int64_t AlignUp(int64_t value, int64_t alignment) {
     if (alignment == 0) {

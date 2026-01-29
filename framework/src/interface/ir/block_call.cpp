@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 - 2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -17,6 +17,77 @@
 
 namespace pto {
 using namespace npu::tile_fwk;
+
+static void NormalizeCoaForScalar(const std::vector<SymbolicScalar>& scalarArgs,
+                                  std::vector<std::vector<SymbolicScalar>> &coaArgsList, int &coaIndex) {
+    std::vector<SymbolicScalar> coaArgs;
+    for (auto &value: scalarArgs) {
+        coaArgs.push_back(value * 1);
+    }
+
+    coaArgsList.push_back(coaArgs);
+    coaIndex += (int)coaArgs.size();
+}
+
+static void NormalizeCoaForTensor(LogicalTensorPtr tensor,
+                                  std::vector<std::vector<SymbolicScalar>> &coaArgsList, int &coaIndex) {
+    auto rawshape = OpImmediate::Specified(tensor->GetRawTensor()->GetRawShape());
+    int dim = rawshape.size();
+    int curIndex = COA_INDEX_DIM_BASE;
+    coaIndex += COA_INDEX_DIM_BASE;
+    std::vector<SymbolicScalar> coaArgs(COA_INDEX_DIM_BASE + dim * COA_INDEX_TYPE_COUNT, 0);
+
+    // offset
+    curIndex += dim;
+    coaIndex += dim;
+
+    // shape
+    OpImmediate::NormalizeValue(coaArgs, curIndex, rawshape, coaIndex, false);
+    curIndex += dim;
+    coaIndex += dim;
+
+    // raw shape
+    OpImmediate::NormalizeValue(coaArgs, curIndex, rawshape, coaIndex, false);
+    curIndex += dim;
+    coaIndex += dim;
+
+    // valid shape
+    curIndex += dim;
+    coaIndex += dim;
+
+    coaArgsList.push_back(coaArgs);
+}
+
+static void NormalizeCoaForBlockFunc(std::vector<LogicalTensorPtr> &inCasts, std::vector<LogicalTensorPtr> &outCasts,
+                                     const std::vector<SymbolicScalar>& scalarArgs,
+                                     std::vector<std::vector<SymbolicScalar>> &coaArgsList,
+                                     std::vector<int> &iOffset, std::vector<int> &oOffset) {
+    int coaIndex = COA_INDEX_BASE;
+    std::unordered_map<LogicalTensorPtr, int> processedOperands;
+
+    NormalizeCoaForScalar(scalarArgs, coaArgsList, coaIndex);
+
+    for (auto &tensor: inCasts) {
+        if (processedOperands.find(tensor) != processedOperands.end()) {
+            iOffset.push_back(processedOperands[tensor]);
+        } else {
+            iOffset.push_back(coaIndex);
+            processedOperands[tensor] = coaIndex;
+            NormalizeCoaForTensor(tensor, coaArgsList, coaIndex);
+        }
+    }
+
+    for (auto &tensor: outCasts) {
+        if (processedOperands.find(tensor) != processedOperands.end()) {
+            oOffset.push_back(processedOperands[tensor]);
+        } else {
+            oOffset.push_back(coaIndex);
+            processedOperands[tensor] = coaIndex;
+            NormalizeCoaForTensor(tensor, coaArgsList, coaIndex);
+        }
+    }
+}
+
 std::vector<Tensor> CallBlock(const pto::FunctionPtr &blockFuncPtr,
     const std::vector<std::reference_wrapper<const Tensor>> &inputTensorArgs,
     const std::vector<std::reference_wrapper<const Tensor>> &outputTensorArgs,
@@ -47,7 +118,7 @@ std::vector<Tensor> CallBlock(const pto::FunctionPtr &blockFuncPtr,
     }
 
     auto function = npu::tile_fwk::Program::GetInstance().GetCurrentFunction();
-    ALOG_INFO_F("In block call Function name %s, type %d %d", function->GetMagicName().c_str(), 
+    ALOG_INFO_F("In block call Function name %s, type %d %d", function->GetMagicName().c_str(),
         (int)function->GetFunctionType(), (int)function->GetGraphType());
     // 1. Here we put program module into TensorGraph and create a CallOp in TensorGraph
     if (function->programModule_ == nullptr) {
@@ -57,7 +128,7 @@ std::vector<Tensor> CallBlock(const pto::FunctionPtr &blockFuncPtr,
     ASSERT(blockFuncPtr->GetKind() == FunctionKind::Block);
     function->programModule_->AddFunction(blockFuncPtr);
     function->programModule_->SetProgramEntry(blockFuncPtr);
-    auto &callOp = function->AddRawOperation(npu::tile_fwk::Opcode::OP_BLOCK_CALL, 
+    auto &callOp = function->AddRawOperation(npu::tile_fwk::Opcode::OP_BLOCK_CALL,
         inputLogicTensors, outputLogicTensors, false);
 
     // 2 Compute hash of program module
@@ -68,20 +139,24 @@ std::vector<Tensor> CallBlock(const pto::FunctionPtr &blockFuncPtr,
         functionCache.Insert(hash, blockFuncPtr.get());
     }
 
-    // IR block function hash
     // 3 Create Call op attribute
     std::vector<std::vector<SymbolicScalar>> argList;
-    argList.emplace_back(indices);
+    std::vector<int> iOffset;
+    std::vector<int> oOffset;
+
+    NormalizeCoaForBlockFunc(inputLogicTensors, outputLogicTensors, indices, argList, iOffset, oOffset);
+
     auto opAttribute = std::make_shared<CallOpAttribute>(hash, argList,
         function->programModule_->GetFunctions().back()->GetName());
     callOp.SetOpAttribute(opAttribute);
+    callOp.SetOpOffset(iOffset, oOffset);
     return result;
 }
 
 std::vector<npu::tile_fwk::Tensor> CallBlock(const BlockFunctionType &blockFunc,
     const std::vector<std::reference_wrapper<const npu::tile_fwk::Tensor>> &inputTensorArgs,
     const std::vector<std::reference_wrapper<const npu::tile_fwk::Tensor>> &outputTensorArgs,
-    const std::vector<npu::tile_fwk::SymbolicScalar> &indices) 
+    const std::vector<npu::tile_fwk::SymbolicScalar> &indices)
 {
     std::vector<TensorValuePtr> inputArgs;
     for (const auto &tensorRef : inputTensorArgs) {
@@ -90,7 +165,7 @@ std::vector<npu::tile_fwk::Tensor> CallBlock(const BlockFunctionType &blockFunc,
         for (int64_t ele : tensor.GetShape()) {
             tensorShape.emplace_back(static_cast<uint64_t>(ele));
         }
-        auto tensorValue = std::make_shared<TensorValue>((pto::DataType)tensor.GetDataType(), tensorShape, 
+        auto tensorValue = std::make_shared<TensorValue>((pto::DataType)tensor.GetDataType(), tensorShape,
             tensor.GetName());
         inputArgs.emplace_back(tensorValue);
     }
@@ -102,7 +177,7 @@ std::vector<npu::tile_fwk::Tensor> CallBlock(const BlockFunctionType &blockFunc,
         for (auto ele : tensor.GetShape()) {
             tensorShape.emplace_back(static_cast<uint64_t>(ele));
         }
-        auto tensorValue = std::make_shared<TensorValue>((pto::DataType)tensor.GetDataType(), tensorShape, 
+        auto tensorValue = std::make_shared<TensorValue>((pto::DataType)tensor.GetDataType(), tensorShape,
             tensor.GetName());
         outputArgs.emplace_back(tensorValue);
     }

@@ -76,6 +76,27 @@ REGISTER_CALC_OP(OP_S_MIN, Opcode::OP_S_MIN, ExecuteOpBinary<Opcode::OP_S_MIN>);
 REGISTER_CALC_OP(OP_MAXIMUM, Opcode::OP_MAXIMUM, ExecuteOpBinary<Opcode::OP_S_MAX>);
 REGISTER_CALC_OP(OP_MINIMUM, Opcode::OP_MINIMUM, ExecuteOpBinary<Opcode::OP_S_MIN>);
 
+void ExecuteOpFmod(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_TWO);
+    auto ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto lhs = ctx->ioperandDataViewList->at(0);
+    auto rhs = ctx->ioperandDataViewList->at(1);
+    calc::Fmod(ret, lhs, rhs);
+}
+REGISTER_CALC_OP(OP_MOD, Opcode::OP_MOD, ExecuteOpFmod);
+
+void ExecuteOpFmods(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &lhs = ctx->ioperandDataViewList->at(0);
+    auto element = Element(DT_FP32, 0.0f);
+    ctx->op->GetAttr(OpAttributeKey::scalar, element);
+    calc::FmodS(ret, lhs, element);
+}
+REGISTER_CALC_OP(OP_MODS, Opcode::OP_MODS, ExecuteOpFmods);
+
 void ExecuteOpVecDup(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 0);
@@ -142,13 +163,17 @@ void ExecuteOpReduce(ExecuteOperationContext *ctx) {
         case Opcode::OP_ROWMAX_SINGLE: calc::RowMaxSingle(oop, iop, axis); break;
         case Opcode::OP_ROWMIN_SINGLE: calc::RowMinSingle(oop, iop, axis); break;
         case Opcode::OP_ROWSUMLINE: calc::RowSumExpand(oop, iop, axis); break;
+        case Opcode::OP_ROWMAXLINE: calc::RowMaxLine(oop, iop, axis); break;
+        case Opcode::OP_ROWMINLINE: calc::RowMinLine(oop, iop, axis); break;
         default: ASSERT(false) << "opcode not support" << ctx->op->GetOpcodeStr();
     }
 }
 REGISTER_CALC_OP(OP_ROWSUM_SINGLE, Opcode::OP_ROWSUM_SINGLE, ExecuteOpReduce<Opcode::OP_ROWSUM_SINGLE>);
 REGISTER_CALC_OP(OP_ROWSUMLINE, Opcode::OP_ROWSUMLINE, ExecuteOpReduce<Opcode::OP_ROWSUMLINE>);
 REGISTER_CALC_OP(OP_ROWMAX_SINGLE, Opcode::OP_ROWMAX_SINGLE, ExecuteOpReduce<Opcode::OP_ROWMAX_SINGLE>);
+REGISTER_CALC_OP(OP_ROWMAXLINE, Opcode::OP_ROWMAXLINE, ExecuteOpReduce<Opcode::OP_ROWMAXLINE>);
 REGISTER_CALC_OP(OP_ROWMIN_SINGLE, Opcode::OP_ROWMIN_SINGLE, ExecuteOpReduce<Opcode::OP_ROWMIN_SINGLE>);
+REGISTER_CALC_OP(OP_ROWMINLINE, Opcode::OP_ROWMINLINE, ExecuteOpReduce<Opcode::OP_ROWMINLINE>);
 
 void ExecuteOpCast(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -172,6 +197,7 @@ void ExecuteOpUnary(ExecuteOperationContext *ctx) {
         case Opcode::OP_RSQRT: calc::Rsqrt(ret, iop); break;
         case Opcode::OP_SQRT: calc::Sqrt(ret, iop); break;
         case Opcode::OP_ABS: calc::Abs(ret, iop); break;
+        case Opcode::OP_BRCB: calc::Brcb(ret, iop); break;
         case Opcode::OP_LN: calc::Ln(ret, iop); break;
         default: ASSERT(false);
     }
@@ -181,6 +207,7 @@ REGISTER_CALC_OP(OP_NEG, Opcode::OP_NEG, ExecuteOpUnary<Opcode::OP_NEG>);
 REGISTER_CALC_OP(OP_RSQRT, Opcode::OP_RSQRT, ExecuteOpUnary<Opcode::OP_RSQRT>);
 REGISTER_CALC_OP(OP_SQRT, Opcode::OP_SQRT, ExecuteOpUnary<Opcode::OP_SQRT>);
 REGISTER_CALC_OP(OP_ABS, Opcode::OP_ABS, ExecuteOpUnary<Opcode::OP_ABS>);
+REGISTER_CALC_OP(OP_BRCB, Opcode::OP_BRCB, ExecuteOpUnary<Opcode::OP_BRCB>);
 REGISTER_CALC_OP(OP_LN, Opcode::OP_LN, ExecuteOpUnary<Opcode::OP_LN>);
 
 void ExecuteOpOneHot(ExecuteOperationContext *ctx) {
@@ -264,11 +291,11 @@ void ExecuteOpIndexOutcast(ExecuteOperationContext *ctx) {
     int blockSize = ctx->op->GetIntAttribute(OpAttributeKey::panzBlockSize);
     std::string cacheMode = ctx->op->GetStringAttribute(OpAttributeKey::cacheMode);
 
-    calc::ScatterUpdate(oop, src, index, axis, cacheMode, blockSize);
+    calc::ScatterUpdate(oop, src, index, dst, axis, cacheMode, blockSize);
 }
 REGISTER_CALC_OP(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, ExecuteOpIndexOutcast);
 
-void ExecuteOpScatter(ExecuteOperationContext *ctx) {
+void ExecuteOpScatterElement(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == SIZE_TWO);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto self = ctx->ioperandDataViewList->at(0);
@@ -278,9 +305,22 @@ void ExecuteOpScatter(ExecuteOperationContext *ctx) {
     ctx->op->GetAttr(OpAttributeKey::scalar, src);
     int reduce = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "scatter_mode");
 
+    calc::ScatterElement(oop, self, indices, src, axis, reduce);
+}
+REGISTER_CALC_OP(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ExecuteOpScatterElement);
+
+void ExecuteOpScatter(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto self = ctx->ioperandDataViewList->at(0);
+    auto indices = ctx->ioperandDataViewList->at(1);
+    auto src = ctx->ioperandDataViewList->at(2);
+    int axis = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "axis");
+    int reduce = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "scatter_mode");
+
     calc::Scatter(oop, self, indices, src, axis, reduce);
 }
-REGISTER_CALC_OP(OP_SCATTER_ELEMENT, Opcode::OP_SCATTER_ELEMENT, ExecuteOpScatter);
+REGISTER_CALC_OP(OP_SCATTER, Opcode::OP_SCATTER, ExecuteOpScatter);
 
 template <typename T, DataType dataType>
 Element GetEndBySize(Element start, Element size, Element step) {
@@ -331,6 +371,24 @@ void ExecuteOpCompare(ExecuteOperationContext *ctx) {
     calc::Compare(oop, iop_self, iop_other, operation, mode);
 }
 REGISTER_CALC_OP(OP_CMP, Opcode::OP_CMP, ExecuteOpCompare);
+
+void ExecuteOpCmps(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto iop_self = ctx->ioperandDataViewList->at(0);
+    auto element = Element(DT_FP32, 0.0f);
+    ctx->op->GetAttr(OpAttributeKey::scalar, element);
+    
+    auto operation = static_cast<CmpOperationType>(
+        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation")
+    );
+    auto mode = static_cast<CmpModeType>(
+        ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_mode")
+    );
+    calc::Cmps(oop, iop_self, element, operation, mode);
+}
+REGISTER_CALC_OP(OP_CMPS, Opcode::OP_CMPS, ExecuteOpCmps);
 
 void ExecuteOpExtract(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
@@ -414,6 +472,18 @@ void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_MRGSORT, Opcode::OP_MRGSORT, ExecuteOpMrgSort);
 
+void ExecuteOpTopK(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto outValue = ctx->ooperandInplaceDataViewList->at(0);
+    auto outIndex = ctx->ooperandInplaceDataViewList->at(1);
+    auto src = ctx->ioperandDataViewList->at(0);
+    auto topk_axis = ctx->op->GetIntAttribute("op_attr_axis");
+    auto kValue = ctx->op->GetIntAttribute("op_attr_kvalue");
+    int descending = ctx->op->GetIntAttribute("op_attr_order");
+    calc::TopK(outValue, outIndex, src, kValue, topk_axis, descending);
+}
+REGISTER_CALC_OP(OP_TOPK, Opcode::OP_TOPK, ExecuteOpTopK);
+
 void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -423,6 +493,60 @@ void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
     calc::BitSort(oop, src, topk_axis, descending);
 }
 REGISTER_CALC_OP(OP_BITSORT, Opcode::OP_BITSORT, ExecuteOpBitSort);
+
+void ExecuteOpTiledMrgSort(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_FOUR);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto src1 = ctx->ioperandDataViewList->at(0);
+    auto src2 = ctx->ioperandDataViewList->at(1);
+    auto src3 = ctx->ioperandDataViewList->at(2);
+    auto src4 = ctx->ioperandDataViewList->at(3);
+    auto validBit = ctx->op->GetIntAttribute("op_attr_validBit");
+    auto kvalue = ctx->op->GetIntAttribute("op_attr_kvalue");
+    calc::TiledMrgSort(oop, src1, src2, src3, src4, validBit, kvalue);
+}
+REGISTER_CALC_OP(OP_TILEDMRGSORT, Opcode::OP_TILEDMRGSORT, ExecuteOpTiledMrgSort);
+
+void ExecuteOpTopkSort(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 2);  // value + temp
+
+    auto iop = ctx->ioperandDataViewList->at(0);
+    auto oop_value = ctx->ooperandInplaceDataViewList->at(0);
+    auto oop_temp = ctx->ooperandInplaceDataViewList->at(1);
+
+    int startIndex = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "start_index");
+
+    calc::TopkSort(oop_value, oop_temp, iop, startIndex);
+}
+REGISTER_CALC_OP(OP_TOPK_SORT, Opcode::OP_TOPK_SORT, ExecuteOpTopkSort);
+
+void ExecuteOpTopkMerge(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+
+    auto iop = ctx->ioperandDataViewList->at(0);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+
+    int mergeSize = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "merge_size");
+
+    calc::TopkMerge(oop, iop, mergeSize);
+}
+REGISTER_CALC_OP(OP_TOPK_MERGE, Opcode::OP_TOPK_MERGE, ExecuteOpTopkMerge);
+
+void ExecuteOpTopkExtract(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+
+    auto iop = ctx->ioperandDataViewList->at(0);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+
+    int k = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "k");
+    bool isIndex = static_cast<bool>(ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "is_index"));
+
+    calc::TopkExtract(oop, iop, k, isIndex);
+}
+REGISTER_CALC_OP(OP_TOPK_EXTRACT, Opcode::OP_TOPK_EXTRACT, ExecuteOpTopkExtract);
 
 void ExecuteOpReduceAcc(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);

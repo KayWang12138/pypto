@@ -36,6 +36,13 @@
 
 namespace npu::tile_fwk::dynamic {
 
+struct AiCpuArgs {
+    DeviceKernelArgs kArgs;
+    const char kernelName[32] = {"DynTileFwkKernelServer"};
+    const char soName[32] = {"libaicpu_extend_kernels.so"};
+    const char opName[32] = {""};
+};
+
 int GetCfgBlockdim();
 
 class DeviceLauncherContext {
@@ -57,8 +64,6 @@ public:
 
         Program::GetInstance().Reset();
         ProgramData::GetInstance().Reset();
-
-        config::SetHostOption(ONLY_CODEGEN, true);
     }
 
     void DeviceFini() {
@@ -146,7 +151,6 @@ public:
         devProg->devArgs.nrValidAic = config.blockdim;
         devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-        devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
 
         int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
@@ -154,7 +158,6 @@ public:
         devProg->devArgs.nrAicpu = config.aicpuNum;
         ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
         devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
-        devProg->devArgs.isGETensorList = config.isGETensorList ? 1 : 0;
 
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
         if (config.dynWorkspaceSize != 0) {
@@ -177,7 +180,7 @@ public:
     // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
     template<typename DeviceMemoryTy>
     static void FillKernelMeta(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
-            const std::vector<uint8_t> &devProgData, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+            const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
@@ -185,7 +188,7 @@ public:
         } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
             kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
         }
-        if (devProg->controlFlowCache.isRecording && !devMem.IsDevice()) {
+        if (isCtrlCacheRecording) {
             kArgs.cfgdata = (int64_t *)devProg;
         } else if (CachedOperator::GetCfgDataDevAddrHolder(cachedOperator) && *CachedOperator::GetCfgDataDevAddrHolder(cachedOperator)) {
             /* Already copied, do not copy again. */
@@ -203,7 +206,6 @@ public:
         if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
         }
-        kArgs.toSubMachineConfig.isGETensorList = config.isGETensorList ? 1 : 0;
     }
 
     static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
@@ -231,50 +233,33 @@ public:
 
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
         const std::vector<uint8_t> &devProgData) {
+        auto hcclContext = DistributedContext::GetHcclContext(groupNames);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        if (devProg->hcclContext[0] != 0) {
+        if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
             return;
         }
- 	    auto hcclContext = DistributedContext::GetHcclContext(groupNames);
         PrepareHcclContext(hcclContext, devProgData);
     }
 
     template<typename DeviceMemoryTy>
     static void DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
-            const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+            DevControlFlowCache* ctrlFlowCache, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         auto &mutableConfig = const_cast<DeviceLauncherConfig &>(config);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         PrepareDevProgArgs(devProg, mutableConfig);
+
         // Fill all metadata and kernel args
-        FillKernelMeta(devMem, kArgs, devProg, devProgData, config, cachedOperator);
+        bool isCtrlCacheRecording  = false;
+        if (!devMem.IsDevice()) {
+            isCtrlCacheRecording =  ctrlFlowCache != nullptr ? ctrlFlowCache->IsRecording() : devProg->controlFlowCache.IsRecording();
+        }
+        FillKernelMeta(devMem, kArgs, devProg, devProgData, isCtrlCacheRecording, config, cachedOperator);
+        kArgs.ctrlFlowCache = reinterpret_cast<int64_t*>(ctrlFlowCache);
     }
 
-    template<typename DeviceMemoryTy>
-    static void DeviceInitTensorLists(
-            DeviceMemoryTy devMem,
-            DeviceKernelArgs &kArgs,
-            const std::vector<DeviceTensorData> &inputList,
-            const std::vector<DeviceTensorData> &outputList) {
-        auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList) {
-            std::vector<DevTensorData> geTensors;
-            for (size_t k = 0; k < tensorDataList.size(); k++) {
-                auto &tensorData = tensorDataList[k];
-                uint64_t addr = 0;
-                if (tensorData.GetAddr() != 0) {
-                    addr = (uint64_t)tensorData.GetAddr();
-                }
-                geTensors.emplace_back(DevAscendTensorDataCreator::Create(addr, tensorData.GetShape()));
-            }
-            std::vector<int64_t> encoded = DevAscendTensorDataCreator::Encode(geTensors);
-            return encoded;
-        };
-        std::vector<int64_t> encodedInputList = buildInouts(inputList);
-        std::vector<int64_t> encodedOutputList = buildInouts(outputList);
-        kArgs.inputs = devMem.CopyToDev(encodedInputList, nullptr);
-        kArgs.outputs = devMem.CopyToDev(encodedOutputList, nullptr);
-        ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
-            kArgs.cfgdata);
-        return;
+    static int InitAicpuTaskInfo() {
+        AiCpuArgs initArgs;
+        return memcpy_s(tensorInfo_.data(), sizeof(AiCpuArgs), &initArgs, sizeof(AiCpuArgs));
     }
 
     /*
@@ -290,10 +275,7 @@ public:
     template<typename DeviceMemoryTy>
     static void DeviceInitKernelInOuts(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-            const std::vector<uint8_t>& disableL2List, bool isGETensorList) {
-        if (isGETensorList) {
-            return DeviceInitTensorLists(devMem, kArgs, inputList, outputList);
-        }
+            const std::vector<uint8_t>& disableL2List) {
         size_t l2InfoSize = disableL2List.size();
         auto buildInouts = [&](const std::vector<DeviceTensorData> &tensorDataList, DevTensorData* data,
             size_t &tensorIdx) {
@@ -312,11 +294,17 @@ public:
         };
         size_t inputSize = inputList.size() * sizeof(DevTensorData);
         size_t outputSize = outputList.size() * sizeof(DevTensorData);
-        size_t allSize = inputSize + outputSize + 2 * sizeof(uint64_t);
+        size_t tensorSize = inputSize + outputSize + 2 * sizeof(uint64_t);
+        size_t allSize = tensorSize + sizeof(AiCpuArgs);
         if (unlikely(allSize > tensorInfo_.size())) {
             tensorInfo_.resize(allSize);
         }
-        auto data = reinterpret_cast<uint64_t*>(tensorInfo_.data());
+        static auto ret = InitAicpuTaskInfo();
+        if (unlikely(ret != 0)) {
+            ALOG_ERROR_F("Copy aicpu task info failed!");
+            return;
+        }
+        auto data = reinterpret_cast<uint64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
         *data = inputList.size();
         data++;
         *data = outputList.size();
@@ -326,10 +314,15 @@ public:
         buildInouts(inputList, dataPtr, tensorIdx);
         dataPtr += inputList.size();
         buildInouts(outputList, dataPtr, tensorIdx);
-        kArgs.inputs = reinterpret_cast<int64_t*>(devMem.CopyToDev(tensorInfo_.data(), allSize, nullptr));
-        kArgs.outputs = kArgs.inputs + 1;
-        ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
-            kArgs.cfgdata);
+        if (devMem.IsDevice()) {
+            kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data());
+            kArgs.outputs = (int64_t *)allSize;
+        } else {;
+            kArgs.inputs = reinterpret_cast<int64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
+            kArgs.outputs = kArgs.inputs + 1;
+        }
+        ALOG_DEBUG_F("Inputs %p outputs %p workspace %p cfgdata %p tensorSize %zu", kArgs.inputs, kArgs.outputs, kArgs.workspace,
+            kArgs.cfgdata, tensorSize);
     }
 
     template<typename DeviceMemoryTy>
@@ -378,13 +371,16 @@ public:
     }
 
 #ifdef BUILD_WITH_CANN
-    static void ChangeCaptureMode();
+    static void ChangeCaptureModeRelax();
+    static void ChangeCaptureModeGlobal();
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture);
     static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool &isCapture);
-    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream);
+    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream, bool isCapture);
     static int DeviceLaunchOnceWithDeviceTensorData(
-            Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
+            Function *function, const std::vector<DeviceTensorData> &inputList,
+            const std::vector<DeviceTensorData> &outputList,
+            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize,
+            CachedOperator *cachedOperator, DevControlFlowCache* ctrlCache = nullptr,
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
@@ -392,7 +388,10 @@ public:
 using aclmdlRICaptureMode = uint32_t;
 using rtStream_t = uint64_t;
 using aclmdlRI = void *;
-    static void ChangeCaptureMode() {
+    static void ChangeCaptureModeRelax() {
+        return;
+    }
+    static void ChangeCaptureModeGlobal() {
         return;
     }
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture) {
@@ -407,9 +406,10 @@ using aclmdlRI = void *;
         (void)isCapture;
         return 0;
     }
-    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream) {
+    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream, bool isCapture) {
         (void)aicoreStream;
         (void)aicpuStream;
+        (void)isCapture;
         return 0;
     }
     static int DeviceLaunchOnceWithDeviceTensorData(
@@ -434,12 +434,13 @@ using aclmdlRI = void *;
         return 0;
     }
 #endif
-    static int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+    static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static void DeviceRunCacheKernelEnable(Function *func, bool enabled);
     static bool DeviceRunCacheKernelEnable(Function *func);
     static void DeviceRunCacheKernelSet(Function *func, uint8_t *devProg);
     static uint8_t *DeviceRunCacheKernelGet(Function *func);
+    static CachedOperator* DeviceRunCacheOperatorGet(Function *func);
  public:
     static std::vector<uint8_t> tensorInfo_;
 };

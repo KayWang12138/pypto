@@ -12,6 +12,8 @@
 
 #include <iostream>
 
+#include "gtest/gtest.h"
+
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 
@@ -58,6 +60,11 @@ std::string GetResultFromCpp(const Function &function) {
     std::string res((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
     ifs.close();
     return res;
+}
+
+void CheckStringExist(const std::string &expect, const std::string &result) {
+    bool res = result.find(expect) != std::string::npos;
+    EXPECT_TRUE(res) << "expect: \n" << expect << "\n\n ---- not found in result ---- \n\n" << result << std::endl;
 }
 
 } // namespace npu::tile_fwk

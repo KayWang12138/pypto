@@ -14,10 +14,7 @@ from dataclasses import dataclass
 import logging
 import pytest
 import pypto
-
-
-def set_config():
-    pypto.set_host_options(only_codegen=True)
+from conftest import duration_estimate
 
 
 @dataclass
@@ -203,9 +200,9 @@ def build_gather_args(cfg: BuildConfig = BuildConfig()):
     return args, meta
 
 
+@duration_estimate(32)
 def test_gather_with_builder():
     logging.basicConfig(level=logging.INFO)
-    set_config()
     args, meta = build_gather_args()
     logging.info({"Sanity": meta})
     gather_after_prolog_compute(args)
