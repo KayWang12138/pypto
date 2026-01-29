@@ -282,6 +282,13 @@ Status IntraSubgraphAdapter::AdapteTensorConsumers(Function &function, LogicalTe
         if (consumer->GetOpcode() != Opcode::OP_VIEW && consumer->GetOpcode() != Opcode::OP_COPY_IN) {
             consumerColor2OpsMap[consumer->GetSubgraphID()].push_back(consumer);
         }
+        else if (consumer->GetOpcode() == Opcode::OP_VIEW) {
+            auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(consumer->GetOpAttribute().get());
+            MemoryType attrToType = viewOpAttribute->GetTo();
+            if (attrToType != MemoryType::MEM_UNKNOWN) {
+                consumerColor2OpsMap[consumer->GetSubgraphID()].push_back(consumer);
+            }
+        }
     }
     for (auto& [color, consumers] : consumerColor2OpsMap) {
         (void)color;
