@@ -205,7 +205,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
     }
     // L1层级 Fmap 展开
     if (aL1UpadateFlag) {
-        iterInfo.kAL1Size = std::min(convTileInfo.orgK - convTileInfo.kAL1, convTileInfo.kAL1);
+        iterInfo.kAL1Size = std::min(convTileInfo.orgK - iterInfo.kOffset, convTileInfo.kAL1);
         std::vector<int64_t> dstAL1Shape = std::vector<int64_t>{1, iterInfo.kAL1Size / 16, 8, 8, 16};
         std::vector<int64_t> dstAL1Offset = std::vector<int64_t>{iterInfo.batchOffset, 0 , 8, 8, 0};
         dstAL1TensorPtr =
@@ -215,6 +215,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
         dstAL1TensorPtr->UpdateDynValidShape(
             GetViewValidShape(tensorGraphNodes.fmapTensorPtr->GetDynValidShape(), dstAL1Offset, {}, dstAL1Shape));
         auto &viewOpAl1 = function.AddOperation(Opcode::OP_VIEW, {tensorGraphNodes.fmapTensorPtr}, {dstAL1TensorPtr});
+        viewOpAl1.SetAttribute("IS_CONV", true);
         auto viewAttribute = std::make_shared<ViewOpAttribute>(dstAL1Offset, MemoryType::MEM_L1,
              SymbolicScalar::FromConcrete(dstAL1Offset), dstAL1TensorPtr->GetDynValidShape());
         viewOpAl1.SetOpAttribute(viewAttribute);
@@ -244,16 +245,17 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
     // L1层级 Weight 展开
     if (bL1UpadateFlag) {
         iterInfo.nL1Size = std::min(convTileInfo.orgCout - convTileInfo.nBL1, convTileInfo.nBL1);
-        iterInfo.kBL1Size = std::min(convTileInfo.orgK - convTileInfo.kBL1, convTileInfo.kBL1);
-        std::vector<int64_t> dstBL1Shape = std::vector<int64_t>{iterInfo.nL1Size, iterInfo.kBL1Size / 16, 16, 16};
-        std::vector<int64_t> dstBL1Offset = std::vector<int64_t>{2, 1, 16, 16};
+        iterInfo.kBL1Size = std::min(convTileInfo.orgK - iterInfo.kOffset, convTileInfo.kBL1);
+        std::vector<int64_t> dstBL1Shape = std::vector<int64_t>{iterInfo.kBL1Size / 16, iterInfo.nL1Size, 16, 16};
+        std::vector<int64_t> dstBL1Offset = std::vector<int64_t>{0, iterInfo.nOffset / 16, 0, 0};
         dstBL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL1Shape,
                                             SymbolicScalar::FromConcrete(dstBL1Shape),
                                             tensorGraphNodes.weightTensorPtr->Format(), "bL1Tensor", NodeType::LOCAL);
         dstBL1TensorPtr->UpdateDynValidShape(
-            GetViewValidShape(tensorGraphNodes.weightTensorPtr->GetDynValidShape(), dstBL1Offset, {}, dstBL1Offset));
+            GetViewValidShape(tensorGraphNodes.weightTensorPtr->GetDynValidShape(), dstBL1Offset, {}, dstBL1Shape));
         auto &viewOpBl1 = function.AddOperation(Opcode::OP_VIEW, {tensorGraphNodes.weightTensorPtr}, {dstBL1TensorPtr});
+        viewOpBl1.SetAttribute("IS_CONV", true);
         auto viewAttribute = std::make_shared<ViewOpAttribute>(dstBL1Offset, MemoryType::MEM_L1,
              SymbolicScalar::FromConcrete(dstBL1Offset), dstBL1TensorPtr->GetDynValidShape());
         viewOpBl1.SetOpAttribute(viewAttribute);
