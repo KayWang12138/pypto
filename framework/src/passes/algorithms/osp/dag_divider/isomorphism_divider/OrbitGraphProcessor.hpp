@@ -43,23 +43,7 @@ namespace osp {
 template <typename GraphT, typename ConstrGraphT>
 class OrbitGraphProcessor {
   public:
-    /**
-     * @brief Heuristics for selecting which symmetry levels to test during coarsening.
-     */
-    enum class SymmetryLevelHeuristic {
-        /**
-         * @brief Original logic: Select levels where cumulative work passes an increasing threshold.
-         */
-        CURRENT_DEFAULT,
-        /**
-         * @brief Select levels that correspond to fixed work-load percentiles.
-         */
-        PERCENTILE_BASED,
-        /**
-         * @brief Select levels based on the orbit size or count distribution.
-         */
-        NATURAL_BREAKS
-    };
+
 
     static_assert(isComputationalDagV<GraphT>, "Graph must be a computational DAG");
     static_assert(isComputationalDagV<ConstrGraphT>, "ConstrGraphT must be a computational DAG");
@@ -94,11 +78,7 @@ class OrbitGraphProcessor {
     bool mergeDifferentNodeTypes_ = true;
     double lockOrbitRatio_ = 0.5;
 
-    SymmetryLevelHeuristic symmetryLevelHeuristic_ = SymmetryLevelHeuristic::NATURAL_BREAKS;
-    std::vector<double> workPercentiles_ = {0.50, 0.75};
     double naturalBreaksCountPercentage_ = 0.2;
-
-    bool useAdaptiveSymmetryThreshold_ = true;
 
     struct PairHasher {
         template <class T1, class T2>
@@ -299,96 +279,7 @@ class OrbitGraphProcessor {
         }
     }
 
-    /**
-     * @brief Contract edges in the coarse graph based on symmetry and constraints.
-     *
-     * @deprecated This function is a non-adaptive legacy version. Use ContractEdgesAdpativeSym instead.
-     *
-     * @param originalDag The original DAG.
-     * @param currentCoarseGraph The current coarse graph.
-     * @param currentGroups The current groups.
-     * @param currentContractionMap The current contraction map.
-     * @param mergeSymmetryNarrowing If true, allows merging even if it reduces symmetry (narrowing).
-     * @param mergeDifferentNodeTypes If true, allows merging nodes of different types.
-     * @param pathThreshold Threshold for critical path increase.
-     */
-    void ContractEdges(const GraphT &originalDag,
-                       ConstrGraphT &currentCoarseGraph,
-                       std::vector<Group> &currentGroups,
-                       std::vector<VertexType> &currentContractionMap,
-                       const bool mergeSymmetryNarrowing,
-                       const bool mergeDifferentNodeTypes,
-                       const VWorkwT<ConstrGraphT> pathThreshold = 0) {
-        bool changed = true;
-        while (changed) {
-            const std::vector<VertexIdxT<ConstrGraphT>> vertexPoset
-                = GetTopNodeDistance<ConstrGraphT, VertexIdxT<ConstrGraphT>>(currentCoarseGraph);
-            const std::vector<VertexIdxT<ConstrGraphT>> vertexBotPoset
-                = GetBottomNodeDistance<ConstrGraphT, VertexIdxT<ConstrGraphT>>(currentCoarseGraph);
 
-            changed = false;
-            for (const auto &edge : Edges(currentCoarseGraph)) {
-                VertexType u = Source(edge, currentCoarseGraph);
-                VertexType v = Target(edge, currentCoarseGraph);
-
-                if (nonViableEdgesCache_.count({u, v}) || nonViableCritPathEdgesCache_.count({u, v})) {
-                    continue;
-                }
-                if constexpr (hasTypedVerticesV<ConstrGraphT>) {
-                    if (not mergeDifferentNodeTypes) {
-                        if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
-                            continue;
-                        }
-                    }
-                }
-                if ((vertexPoset[u] + 1 != vertexPoset[v]) && (vertexBotPoset[u] != 1 + vertexBotPoset[v])) {
-                    continue;
-                }
-
-                std::vector<std::vector<VertexType>> newSubgraphs;
-                const std::size_t uSize = currentGroups[u].size();
-                const std::size_t vSize = currentGroups[v].size();
-                const bool mergeIsValid = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], newSubgraphs);
-                const std::size_t newSize = newSubgraphs.size();
-
-                const bool mergeViable = (newSize >= currentSymmetry_);
-                const bool bothBelowSymmetryThreshold = (uSize < currentSymmetry_) && (vSize < currentSymmetry_);
-
-                if (!mergeIsValid) {
-                    nonViableEdgesCache_.insert({u, v});
-                    continue;
-                }
-                if (!mergeViable && !bothBelowSymmetryThreshold) {
-                    nonViableEdgesCache_.insert({u, v});
-                    continue;
-                }
-                if (not mergeSymmetryNarrowing) {
-                    if (newSize < std::min(uSize, vSize)) {
-                        continue;
-                    }
-                }
-
-                auto [tempCoarseGraph, tempContractionMap] = SimulateMerge(u, v, currentCoarseGraph);
-
-                if (CriticalPathWeight(tempCoarseGraph) > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
-                                                           + CriticalPathWeight(currentCoarseGraph))) {
-                    nonViableCritPathEdgesCache_.insert({u, v});
-                    continue;
-                }
-
-                CommitMerge(u,
-                            v,
-                            std::move(tempCoarseGraph),
-                            tempContractionMap,
-                            std::move(newSubgraphs),
-                            currentCoarseGraph,
-                            currentGroups,
-                            currentContractionMap);
-                changed = true;
-                break;
-            }
-        }
-    }
 
     /**
      * @brief Core adaptive merging function that attempts to contract edges while preserving symmetry constraints.
@@ -530,18 +421,7 @@ class OrbitGraphProcessor {
 
     void SetLockRatio(double lockRatio) { lockOrbitRatio_ = lockRatio; }
 
-    void SetSymmetryLevelHeuristic(SymmetryLevelHeuristic heuristic) { symmetryLevelHeuristic_ = heuristic; }
 
-    void SetWorkPercentiles(const std::vector<double> &percentiles) {
-        workPercentiles_ = percentiles;
-        std::sort(workPercentiles_.begin(), workPercentiles_.end());
-    }
-
-    void SetUseStaticSymmetryLevel(size_t staticSymmetryLevel) {
-        symmetryLevelHeuristic_ = SymmetryLevelHeuristic::NATURAL_BREAKS;
-        useAdaptiveSymmetryThreshold_ = false;
-        currentSymmetry_ = staticSymmetryLevel;
-    }
 
     void SetNaturalBreaksCountPercentage(double percentage) { naturalBreaksCountPercentage_ = percentage; }
 
@@ -621,26 +501,8 @@ class OrbitGraphProcessor {
 
         coarser_util::ConstructCoarseDag(dag, coarseGraph_, contractionMap_);
 
-        if (useAdaptiveSymmetryThreshold_) {
-            PerformCoarseningAdaptiveSymmetry(dag, coarseGraph_, lockThresholdPerType, symmetryLevelsToTest);
-        } else {
-            size_t totalSizeCount = 0U;
-            for (const auto &[size, count] : orbitSizeCounts) {
-                totalSizeCount += count;
-            }
-
-            for (const auto &[size, count] : orbitSizeCounts) {
-                if (size == 1U || size > currentSymmetry_) {
-                    continue;
-                }
-
-                if (count > totalSizeCount / 2) {
-                    currentSymmetry_ = size;
-                }
-            }
-
-            PerformCoarsening(dag, coarseGraph_);
-        }
+        coarser_util::ConstructCoarseDag(dag, coarseGraph_, contractionMap_);
+        PerformCoarseningAdaptiveSymmetry(dag, coarseGraph_, lockThresholdPerType, symmetryLevelsToTest);
     }
 
   private:
@@ -651,97 +513,51 @@ class OrbitGraphProcessor {
         std::vector<size_t> symmetryLevelsToTest;
         minSymmetry_ = 2;
 
-        switch (symmetryLevelHeuristic_) {
-            case SymmetryLevelHeuristic::PERCENTILE_BASED: {
-                size_t percentileIdx = 0;
-                VWorkwT<GraphT> cumulativeWork = 0;
-                for (auto it = workPerOrbitSize.rbegin(); it != workPerOrbitSize.rend(); ++it) {
-                    cumulativeWork += it->second;
-                    if (totalWork == 0) {
-                        continue;    // Avoid division by zero
-                    }
-                    double currentWorkRatio = static_cast<double>(cumulativeWork) / static_cast<double>(totalWork);
-                    relAccWorkPerOrbitSize.push_back(currentWorkRatio);    // For printing
+        size_t totalOrbitGroups = 0;
+        for (const auto &[size, count] : orbitSizeCounts) {
+            totalOrbitGroups += count;
+        }
+        size_t countThreshold = static_cast<size_t>(static_cast<double>(totalOrbitGroups) * naturalBreaksCountPercentage_);
+        if (countThreshold == 0 && totalOrbitGroups > 0) {
+            countThreshold = 1;    // Ensure threshold is at least 1 if possible
+        }
 
-                    if (percentileIdx < workPercentiles_.size() && currentWorkRatio >= workPercentiles_[percentileIdx]) {
-                        if (it->first > minSymmetry_) {
-                            symmetryLevelsToTest.push_back(it->first);
-                        }
-                        while (percentileIdx < workPercentiles_.size() && currentWorkRatio >= workPercentiles_[percentileIdx]) {
-                            percentileIdx++;
-                        }
-                    }
+        std::vector<size_t> sortedSizes;
+        sortedSizes.reserve(orbitSizeCounts.size());
+        for (const auto &[size, count] : orbitSizeCounts) {
+            sortedSizes.push_back(size);
+        }
+        std::sort(sortedSizes.rbegin(), sortedSizes.rend());    // Sort descending
+
+        if (!sortedSizes.empty()) {
+            for (size_t i = 0; i < sortedSizes.size(); ++i) {
+                const size_t currentSize = sortedSizes[i];
+                if (currentSize < minSymmetry_) {
+                    continue;
                 }
-                break;
+
+                // Add if this size's count is significant
+                const size_t currentCount = orbitSizeCounts.at(currentSize);
+                bool countSignificant = (currentCount >= countThreshold);
+
+                if (countSignificant) {
+                    symmetryLevelsToTest.push_back(currentSize);
+                    continue;
+                }
             }
+        }
 
-            case SymmetryLevelHeuristic::NATURAL_BREAKS: {
-                size_t totalOrbitGroups = 0;
-                for (const auto &[size, count] : orbitSizeCounts) {
-                    totalOrbitGroups += count;
+        if (symmetryLevelsToTest.empty()) {
+            size_t maxCount = 0;
+            size_t sizeWithMaxCount = 0;
+            for (const auto &[size, count] : orbitSizeCounts) {
+                if (count > maxCount) {
+                    maxCount = count;
+                    sizeWithMaxCount = size;
                 }
-                size_t countThreshold = static_cast<size_t>(static_cast<double>(totalOrbitGroups) * naturalBreaksCountPercentage_);
-                if (countThreshold == 0 && totalOrbitGroups > 0) {
-                    countThreshold = 1;    // Ensure threshold is at least 1 if possible
-                }
-
-                std::vector<size_t> sortedSizes;
-                sortedSizes.reserve(orbitSizeCounts.size());
-                for (const auto &[size, count] : orbitSizeCounts) {
-                    sortedSizes.push_back(size);
-                }
-                std::sort(sortedSizes.rbegin(), sortedSizes.rend());    // Sort descending
-
-                if (!sortedSizes.empty()) {
-                    for (size_t i = 0; i < sortedSizes.size(); ++i) {
-                        const size_t currentSize = sortedSizes[i];
-                        if (currentSize < minSymmetry_) {
-                            continue;
-                        }
-
-                        // Add if this size's count is significant
-                        const size_t currentCount = orbitSizeCounts.at(currentSize);
-                        bool countSignificant = (currentCount >= countThreshold);
-
-                        if (countSignificant) {
-                            symmetryLevelsToTest.push_back(currentSize);
-                            continue;
-                        }
-                    }
-                }
-
-                if (symmetryLevelsToTest.empty()) {
-                    size_t maxCount = 0;
-                    size_t sizeWithMaxCount = 0;
-                    for (const auto &[size, count] : orbitSizeCounts) {
-                        if (count > maxCount) {
-                            maxCount = count;
-                            sizeWithMaxCount = size;
-                        }
-                    }
-                    if (sizeWithMaxCount > 0) {
-                        symmetryLevelsToTest.push_back(sizeWithMaxCount);
-                    }
-                }
-                break;
             }
-
-            case SymmetryLevelHeuristic::CURRENT_DEFAULT:
-            default: {
-                double threshold = lockOrbitRatio_;
-                VWorkwT<GraphT> cumulativeWork = 0;
-                for (auto it = workPerOrbitSize.rbegin(); it != workPerOrbitSize.rend(); ++it) {
-                    cumulativeWork += it->second;
-                    const double relWork
-                        = (totalWork == 0) ? 0 : static_cast<double>(cumulativeWork) / static_cast<double>(totalWork);
-                    relAccWorkPerOrbitSize.push_back(relWork);    // For printing
-
-                    if (relWork >= threshold && it->first > minSymmetry_) {
-                        symmetryLevelsToTest.push_back(it->first);
-                        threshold += lockOrbitRatio_ * 0.5;
-                    }
-                }
-                break;
+            if (sizeWithMaxCount > 0) {
+                symmetryLevelsToTest.push_back(sizeWithMaxCount);
             }
         }
 
@@ -759,62 +575,7 @@ class OrbitGraphProcessor {
         return symmetryLevelsToTest;
     }
 
-    /**
-     * @brief Performs non-adaptive coarsening.
-     *
-     * This legacy method runs a fixed sequence of merge passes.
-     *
-     * @param originalDag The original DAG.
-     * @param initialCoarseGraph The initial coarse graph derived from orbits.
-     */
-    void PerformCoarsening(const GraphT &originalDag, const ConstrGraphT &initialCoarseGraph) {
-        finalCoarseGraph_ = ConstrGraphT();
-        finalContractionMap_.clear();
 
-        if (initialCoarseGraph.NumVertices() == 0) {
-            return;
-        }
-
-        ConstrGraphT currentCoarseGraph = initialCoarseGraph;
-        std::vector<Group> currentGroups(initialCoarseGraph.NumVertices());
-        std::vector<VertexType> currentContractionMap = contractionMap_;
-
-        // Initialize groups: each group corresponds to an orbit.
-        for (VertexType i = 0; i < originalDag.NumVertices(); ++i) {
-            const VertexType coarseNode = contractionMap_[i];
-            currentGroups[coarseNode].subgraphs_.push_back({i});
-        }
-
-        if constexpr (hasTypedVerticesV<ConstrGraphT>) {
-            ContractEdges(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, false, false);
-            ContractEdges(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, true, false);
-        }
-
-        ContractEdges(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, false, mergeDifferentNodeTypes_);
-        ContractEdges(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, true, mergeDifferentNodeTypes_);
-        MergeSmallOrbits(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, workThreshold_);
-
-        nonViableCritPathEdgesCache_.clear();
-        nonViableEdgesCache_.clear();
-
-        ContractEdges(
-            originalDag, currentCoarseGraph, currentGroups, currentContractionMap, true, mergeDifferentNodeTypes_, workThreshold_);
-
-        // Rebuild contraction map from currentGroups
-        currentContractionMap.assign(originalDag.NumVertices(), 0);
-        for (VertexType coarseIdx = 0; coarseIdx < static_cast<VertexType>(currentGroups.size()); ++coarseIdx) {
-            for (const auto &subgraph : currentGroups[coarseIdx].subgraphs_) {
-                for (const auto v : subgraph) {
-                    currentContractionMap[v] = coarseIdx;
-                }
-            }
-        }
-
-        finalCoarseGraph_ = std::move(currentCoarseGraph);
-        finalContractionMap_ = std::move(currentContractionMap);
-        finalGroups_ = std::move(currentGroups);
-
-    }
 
     /**
      * @brief Performs adaptive symmetry coarsening.
