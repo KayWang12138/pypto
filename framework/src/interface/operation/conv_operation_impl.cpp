@@ -207,7 +207,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
     if (aL1UpadateFlag) {
         iterInfo.kAL1Size = std::min(convTileInfo.orgK - iterInfo.kOffset, convTileInfo.kAL1);
         std::vector<int64_t> dstAL1Shape = std::vector<int64_t>{1, iterInfo.kAL1Size / 16, 8, 8, 16};
-        std::vector<int64_t> dstAL1Offset = std::vector<int64_t>{iterInfo.batchOffset, 0 , 8, 8, 0};
+        std::vector<int64_t> dstAL1Offset = std::vector<int64_t>{iterInfo.batchOffset, 0 , 0, 0, 0};
         dstAL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstAL1Shape,
                                             SymbolicScalar::FromConcrete(dstAL1Shape),
@@ -244,10 +244,10 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
     }
     // L1层级 Weight 展开
     if (bL1UpadateFlag) {
-        iterInfo.nL1Size = std::min(convTileInfo.orgCout - convTileInfo.nBL1, convTileInfo.nBL1);
+        iterInfo.nL1Size = std::min(convTileInfo.orgCout - iterInfo.nOffset, convTileInfo.nBL1);
         iterInfo.kBL1Size = std::min(convTileInfo.orgK - iterInfo.kOffset, convTileInfo.kBL1);
-        std::vector<int64_t> dstBL1Shape = std::vector<int64_t>{iterInfo.kBL1Size / 16, iterInfo.nL1Size, 16, 16};
-        std::vector<int64_t> dstBL1Offset = std::vector<int64_t>{0, iterInfo.nOffset / 16, 0, 0};
+        std::vector<int64_t> dstBL1Shape = std::vector<int64_t>{iterInfo.kBL1Size / 16, iterInfo.nL1Size / 16, 16, 16};
+        std::vector<int64_t> dstBL1Offset = std::vector<int64_t>{iterInfo.kOffset / 16, iterInfo.nOffset / 16, 0, 0};
         dstBL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL1Shape,
                                             SymbolicScalar::FromConcrete(dstBL1Shape),
