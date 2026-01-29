@@ -31,10 +31,10 @@ public:
 
 private:
     Status RunOnFunction(Function &function) override;
-    std::unordered_map<LogicalTensor*, std::vector<Operation*>> GetTensorProducers(Function &function);
-    void UpdateConnection(LogicalTensor* oldtensors,  LogicalTensor* newtensors);
-    std::pair<LogicalTensor*, std::vector<Operation*>> TensorHashExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducersPair, std::unordered_set<Operation*>& cacheProducers);
-    bool TensorProducersMerge(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers);
+    std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> GetTensorProducers(Function &function);
+    void UpdateConnection(LogicalTensorPtr oldtensors,  LogicalTensorPtr newtensors);
+    std::pair<LogicalTensorPtr, std::vector<Operation*>> TensorHashExist(const std::pair<LogicalTensorPtr, std::vector<Operation*>>& tensorProducersPair, std::unordered_set<Operation*>& cacheProducers);
+    bool TensorProducersMerge(const std::pair<LogicalTensorPtr, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers);
     void UpdateView(ViewOpAttribute *viewOpAttribute, const std::shared_ptr<LogicalTensor> oldtensors,
                     const std::shared_ptr<LogicalTensor> newtensors) const;
     void UpdateCopy(CopyOpAttribute *copyOpAttribute, const std::shared_ptr<LogicalTensor> oldtensors,

@@ -23,7 +23,7 @@
 #define MODULE_NAME "CommonOperationEliminate"
 
 namespace npu::tile_fwk {
-static std::unordered_map<uint64_t, std::pair<LogicalTensor*, std::vector<Operation*>>> hashCache;
+static std::unordered_map<uint64_t, std::pair<LogicalTensorPtr, std::vector<Operation*>>> hashCache;
 void SortedProducer(std::vector<Operation*>& sortedProducers) {
     std::sort(sortedProducers.begin(), sortedProducers.end(),
         [](const Operation* op1, const Operation* op2) {
@@ -31,8 +31,8 @@ void SortedProducer(std::vector<Operation*>& sortedProducers) {
             const auto& iOp2 = op2->GetIOperands();
             size_t minLen = std::min(iOp1.size(), iOp2.size());
             for (size_t i = 0; i < minLen; ++i) {
-                LogicalTensor* ptr1 = iOp1[i].get();
-                LogicalTensor* ptr2 = iOp2[i].get();
+                LogicalTensorPtr ptr1 = iOp1[i];
+                LogicalTensorPtr ptr2 = iOp2[i];
                 if (ptr1 != ptr2) {
                     return ptr1 < ptr2;
                 }
@@ -51,7 +51,7 @@ void SortedProducer(std::vector<Operation*>& sortedProducers) {
     });
 }
 
-unsigned long ComputeHash(const std::vector <Operation*>& producers, LogicalTensor* curTensor) {
+unsigned long ComputeHash(const std::vector <Operation*>& producers, LogicalTensorPtr curTensor) {
     std::vector<std::string> opStrList;
     std::stringstream ss;
     std::vector<Operation*> sortedProducers = producers;
@@ -93,7 +93,7 @@ unsigned long ComputeHash(const std::vector <Operation*>& producers, LogicalTens
             ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
         }
         ss << "id" << op->GetSubgraphID();
-        opStrList.push_back(ss.str());
+        opStrList.emplace_back(ss.str());
     }
     ss.str(""), ss.clear();
     for (const auto& str: opStrList) {
@@ -133,23 +133,23 @@ Status CommonOperationEliminate::PreCheck(Function &function) {
     return checker.DoPreCheck(function);
 }
 
-std::unordered_map<LogicalTensor*, std::vector<Operation*>> CommonOperationEliminate::GetTensorProducers(Function &function) {
-    std::unordered_map<LogicalTensor*, std::vector<Operation*>> tensorProducerMap;
+std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> CommonOperationEliminate::GetTensorProducers(Function &function) {
+    std::unordered_map<LogicalTensorPtr, std::vector<Operation*>> tensorProducerMap;
     std::unordered_set<int> visitedTensors;
     auto allOps = function.Operations(true).DuplicatedOpList();
     for (const auto& op: allOps) {
         if (op == nullptr) {
             continue;
         }
-         auto& outputTensors = op->GetOOperands();
-        for (auto& tensor: outputTensors) {
+        auto& outputTensors = op->GetOOperands();
+        for (const auto& tensor: outputTensors) {
             if (tensor == nullptr || visitedTensors.count(tensor->GetMagic())) {
                 continue;
             }
             visitedTensors.insert(tensor->GetMagic());
-            for (auto& pro: tensor->GetProducers()) {
+            for (const auto& pro: tensor->GetProducers()) {
                 if (pro != nullptr) {
-                    tensorProducerMap[tensor.get()].push_back(pro);
+                    tensorProducerMap[tensor].push_back(pro);
                 }
             }
         }
@@ -157,7 +157,7 @@ std::unordered_map<LogicalTensor*, std::vector<Operation*>> CommonOperationElimi
     return tensorProducerMap;
 }
 
-std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::TensorHashExist(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducersPair, std::unordered_set<Operation*>& cacheProducers) {
+std::pair<LogicalTensorPtr, std::vector<Operation*>>  CommonOperationEliminate::TensorHashExist(const std::pair<LogicalTensorPtr, std::vector<Operation*>>& tensorProducersPair, std::unordered_set<Operation*>& cacheProducers) {
     const std::vector<Operation*>& producers = tensorProducersPair.second;
     for (auto operation: producers) {
         if (operation == nullptr) {
@@ -198,53 +198,53 @@ std::pair<LogicalTensor*, std::vector<Operation*>>  CommonOperationEliminate::Te
 }
 
 void CommonOperationEliminate::UpdateView(ViewOpAttribute *viewOpAttribute,
-                                          const std::shared_ptr<LogicalTensor> oldtensors,
-                                          const std::shared_ptr<LogicalTensor> newtensors) const {
+                                          const std::shared_ptr<LogicalTensor> oldtensor,
+                                          const std::shared_ptr<LogicalTensor> newtensor) const {
     auto &fromOffset = viewOpAttribute->GetFromOffset();
     for (size_t j = 0; j < fromOffset.size(); j++) {
-        fromOffset[j] -= oldtensors->offset[j] - newtensors->offset[j];
+        fromOffset[j] -= oldtensor->offset[j] - newtensor->offset[j];
     }
 }
 
 void CommonOperationEliminate::UpdateCopy(CopyOpAttribute *copyOpAttribute,
-                                          const std::shared_ptr<LogicalTensor> oldtensors,
-                                          const std::shared_ptr<LogicalTensor> newtensors) const {
+                                          const std::shared_ptr<LogicalTensor> oldtensor,
+                                          const std::shared_ptr<LogicalTensor> newtensor) const {
     if (!copyOpAttribute->IsCopyOut()) {
         auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
         (void)memType;
         for (size_t j = 0; j < fromOffset.size(); j++) {
-            fromOffset[j] -= oldtensors->offset[j] - newtensors->offset[j];
+            fromOffset[j] -= oldtensor->offset[j] - newtensor->offset[j];
         }
         copyOpAttribute->SetFromOffset(fromOffset);
     }
 }
 
-void CommonOperationEliminate::UpdateConnection(LogicalTensor* oldtensors,  LogicalTensor* newtensors) {
-    auto consumers = oldtensors->GetConsumers();
+void CommonOperationEliminate::UpdateConnection(LogicalTensorPtr oldtensor,  LogicalTensorPtr newtensor) {
+    auto consumers = oldtensor->GetConsumers();
     for (auto &cur : consumers) {
-        if (cur == nullptr) continue;
-        std::shared_ptr<LogicalTensor> old_ptr(oldtensors, [](LogicalTensor*){});
-        std::shared_ptr<LogicalTensor> new_ptr(newtensors, [](LogicalTensor*){});
-        cur->ReplaceInput(new_ptr, old_ptr);
+        if (cur == nullptr) {
+            continue;
+        }
+        cur->ReplaceInput(newtensor, oldtensor);
         auto attptr = cur->GetOpAttribute().get();
         if (attptr == nullptr) {
             continue;
         }
         if (cur->GetOpcode() == Opcode::OP_VIEW) {
             if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(attptr)) {
-                UpdateView(viewOpAttribute, old_ptr, new_ptr);
+                UpdateView(viewOpAttribute, oldtensor, newtensor);
                 continue;
             }
         } else if (cur->GetOpcode() == Opcode::OP_COPY_IN) { 
             if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(attptr)) {
-                UpdateCopy(copyOpAttribute, old_ptr, new_ptr);
+                UpdateCopy(copyOpAttribute, oldtensor, newtensor);
                 continue;
             }
         }
     }
 }
 
-bool CommonOperationEliminate::TensorProducersMerge(const std::pair<LogicalTensor*, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers) {
+bool CommonOperationEliminate::TensorProducersMerge(const std::pair<LogicalTensorPtr, std::vector<Operation*>>& tensorProducerPair, std::unordered_set<Operation*>& cacheProducers) {
     auto& producers = tensorProducerPair.second;  
     if (producers.empty()) {
         return false;
@@ -259,9 +259,9 @@ bool CommonOperationEliminate::TensorProducersMerge(const std::pair<LogicalTenso
     if (tensorProducerPair.first->tensor->GetDataType() != existOp.first->tensor->GetDataType()) {
         return false;
     }
-    LogicalTensor* oldtensors = tensorProducerPair.first;
-    LogicalTensor* newtensors = existOp.first;
-    if (oldtensors->nodetype == NodeType::OUTCAST) {
+    LogicalTensorPtr oldtensor = tensorProducerPair.first;
+    LogicalTensorPtr newtensor = existOp.first;
+    if (oldtensor->nodetype == NodeType::OUTCAST) {
         return false;
     }
     if (tensorProducerPair.second.size() == existOp.second.size()) {
@@ -273,12 +273,12 @@ bool CommonOperationEliminate::TensorProducersMerge(const std::pair<LogicalTenso
             return false;
         }
     }
-    if (newtensors->GetConsumers().size() == 0 || oldtensors->GetConsumers().size() == 0) {
+    if (newtensor->GetConsumers().size() == 0 || oldtensor->GetConsumers().size() == 0) {
         return false;
     }
-    UpdateConnection (oldtensors, newtensors);
-    oldtensors->GetConsumers().clear();
-    APASS_LOG_DEBUG_F(Elements::Operation, "In CommonOperationEliminate, Tensor[%d] and producersgroup are marked as redundant.", oldtensors->GetMagic());
+    UpdateConnection(oldtensor, newtensor);
+    oldtensor->GetConsumers().clear();
+    APASS_LOG_DEBUG_F(Elements::Operation, "In CommonOperationEliminate, Tensor[%d] and producersgroup are marked as redundant.", oldtensor->GetMagic());
     return true;
 }  
 }// namespace npu::tile_fwk
