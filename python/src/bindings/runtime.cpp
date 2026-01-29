@@ -23,6 +23,7 @@
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
 #include "tilefwk/aikernel_define.h"
 #include "utils/log.h"
@@ -302,7 +303,6 @@ private:
     aclmdlRICaptureMode mode;
 };
 
-
 struct ControlFlowCache {
     int64_t hash;
     std::vector<DeviceTensorData> inputs;
@@ -379,11 +379,25 @@ public:
             return nullptr;
         }
 
+        auto ctrlCachePtr = std::unique_ptr<uint8_t>((uint8_t *)ctrlCache);
         if (cache && ctrlCache) {
-            auto devCache = CopyHostToDev(reinterpret_cast<uint8_t *>(ctrlCache), ctrlCache->allCacheSize);
-            if (devCache) {
-                caches.emplace_back(inputs, devCache);
+            uint8_t *devCache = nullptr;
+            auto cacheSize = ctrlCache->allCacheSize;
+            auto bufNum = DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT;
+            ret = rtMalloc((void **)&devCache, cacheSize * bufNum, RT_MEMORY_HBM, 0);
+            if (ret != 0) {
+                ALOG_ERROR("control flow cache malloc failed", ret);
+                return nullptr;
             }
+            for (int i = 0; i < bufNum; ++i) {
+                ret = rtMemcpy(devCache + i * cacheSize, cacheSize, ctrlCache, cacheSize, RT_MEMCPY_HOST_TO_DEVICE);
+                if (ret != 0) {
+                    ALOG_ERROR("control flow cache memcpy failed", ret);
+                    rtFree(devCache);
+                    return nullptr;
+                }
+            }
+            caches.emplace_back(inputs, devCache);
         }
         return ctrlCache;
     }
