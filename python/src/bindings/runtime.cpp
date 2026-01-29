@@ -664,7 +664,7 @@ private:
         auto infershape = py::getattr(module, "infer_controlflow_shape");
         py::list oriShapes;
         for (auto &pt : args) {
-            auto shape = py::getattr(pt, "ori_shape");
+            auto shape = py::getattr(pt, "ori_shape", py::none());
             if (!shape.is_none()) {
                 oriShapes.append(shape);
             }
