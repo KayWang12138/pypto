@@ -35,12 +35,20 @@
 #include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.hpp"
 
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.hpp"
 #include "passes/algorithms/osp/graph_implementations/integral_range.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {
 
-using GraphType = CompactSparseGraph<>;
+using VertType = int32_t;
+using WorkType = int32_t;
+using VTypeType = unsigned;
+
+using GraphType = CompactSparseGraph<VertType, VertType, WorkType, WorkType, WorkType, VTypeType>;
+
+using VertexImpl = osp::CDagVertexImpl<VertType, WorkType, WorkType, WorkType, VTypeType>;
+using GraphAdapterType = osp::DagVectorAdapter<VertexImpl, VertType>;
 
 class OspAlgorithmTest : public testing::Test {
 public:
@@ -341,7 +349,7 @@ TEST_F(OspAlgorithmTest, InPlaceInversePermutationChar) {
 }
 
 TEST_F(OspAlgorithmTest, Architecture) {
-    std::vector<std::vector<unsigned>> uniformSentCosts = {
+    std::vector<std::vector<WorkType>> uniformSentCosts = {
         {0, 1, 1, 1},
         {1, 0, 1, 1},
         {1, 1, 0, 1},
@@ -398,7 +406,7 @@ TEST_F(OspAlgorithmTest, EmptyGraph) {
 }
 
 TEST_F(OspAlgorithmTest, NoEdgesGraph) {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({});
+    const std::vector<std::pair<VertType, VertType>> edges({});
 
     GraphType graph(10, edges);
 
@@ -407,7 +415,7 @@ TEST_F(OspAlgorithmTest, NoEdgesGraph) {
 }
 
 GraphType LineGraph() {
-    const std::set<std::pair<std::size_t, std::size_t>> edges({
+    const std::set<std::pair<VertType, VertType>> edges({
         {0, 1},
         {1, 2},
         {2, 3},
@@ -436,7 +444,7 @@ TEST_F(OspAlgorithmTest, TestLineGraph) {
     for (const auto &vert : graph.Vertices()) {
         if (vert != 7) {
             EXPECT_EQ(graph.OutDegree(vert), 1);
-            for (const std::size_t &chld : graph.Children(vert)) {
+            for (const auto &chld : graph.Children(vert)) {
                 EXPECT_EQ(chld, vert + 1);
             }
             auto chldren = graph.Children(vert);
@@ -447,7 +455,7 @@ TEST_F(OspAlgorithmTest, TestLineGraph) {
 
         } else {
             EXPECT_EQ(graph.OutDegree(vert), 0);
-            for (const std::size_t &chld : graph.Children(vert)) {
+            for (const auto &chld : graph.Children(vert)) {
                 EXPECT_TRUE(false);
                 EXPECT_EQ(chld, 100);
             }
@@ -462,7 +470,7 @@ TEST_F(OspAlgorithmTest, TestLineGraph) {
     for (const auto &vert : graph.Vertices()) {
         if (vert != 0) {
             EXPECT_EQ(graph.InDegree(vert), 1);
-            for (const std::size_t &par : graph.Parents(vert)) {
+            for (const auto &par : graph.Parents(vert)) {
                 EXPECT_EQ(par, vert - 1);
             }
             auto prnts = graph.Parents(vert);
@@ -472,7 +480,7 @@ TEST_F(OspAlgorithmTest, TestLineGraph) {
             }
         } else {
             EXPECT_EQ(graph.InDegree(vert), 0);
-            for (const std::size_t &par : graph.Parents(vert)) {
+            for (const auto &par : graph.Parents(vert)) {
                 EXPECT_TRUE(false);
                 EXPECT_EQ(par, 100);
             }
@@ -491,7 +499,7 @@ TEST_F(OspAlgorithmTest, TestLineGraph) {
 }
 
 GraphType SimpleGraph() {
-    const std::vector<std::pair<std::size_t, std::size_t>> edges({
+    const std::vector<std::pair<VertType, VertType>> edges({
         {0,  1},
         {2,  3},
         {6, 10},
@@ -515,11 +523,17 @@ TEST_F(OspAlgorithmTest, Graph1) {
     EXPECT_EQ(graph.NumEdges(), 11);
 
     std::size_t cntr0 = 0;
+    std::size_t cntrChldEdges = 0U;
+    std::size_t cntrParEdges = 0U;
     for (const auto &vert : graph.Vertices()) {
         EXPECT_EQ(vert, cntr0);
         ++cntr0;
+        cntrChldEdges += graph.OutDegree(vert);
+        cntrParEdges += graph.InDegree(vert);
     }
     EXPECT_EQ(graph.NumVertices(), cntr0);
+    EXPECT_EQ(graph.NumEdges(), cntrChldEdges);
+    EXPECT_EQ(graph.NumEdges(), cntrParEdges);
 
     const std::vector<std::vector<std::size_t>> outEdges({
         {1, 2},
@@ -901,6 +915,92 @@ TEST_F(OspAlgorithmTest, CoarsenSarkarML) {
     coarser.SetParameters(params);
 
     testCoarseningAlgorithm(coarser);
+}
+
+TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph) {
+    const std::vector<std::vector<VertType>> outEdges({
+        {1, 2},
+        {2, 6},
+        {3},
+        {7},
+        {6},
+        {6},
+        {7, 10},
+        {9},
+        {},
+        {},
+        {}
+    });
+
+    const std::vector<std::vector<VertType>> inEdges({
+        {},
+        {0},
+        {0, 1},
+        {2},
+        {},
+        {},
+        {1, 4, 5},
+        {3, 6},
+        {},
+        {7},
+        {6}
+    });
+
+    GraphAdapterType graph(outEdges, inEdges);
+
+    EXPECT_EQ(graph.NumVertices(), 11);
+    EXPECT_EQ(graph.NumEdges(), 11);
+
+    std::size_t cntr0 = 0;
+    std::size_t cntrChldEdges = 0U;
+    std::size_t cntrParEdges = 0U;
+    for (const auto &vert : graph.Vertices()) {
+        EXPECT_EQ(vert, cntr0);
+        ++cntr0;
+        cntrChldEdges += graph.OutDegree(vert);
+        cntrParEdges += graph.InDegree(vert);
+    }
+    EXPECT_EQ(graph.NumVertices(), cntr0);
+    EXPECT_EQ(graph.NumEdges(), cntrChldEdges);
+    EXPECT_EQ(graph.NumEdges(), cntrParEdges);
+
+    for (const auto &vert : graph.Vertices()) {
+        EXPECT_EQ(graph.OutDegree(vert), outEdges[vert].size());
+        std::size_t cntr = 0;
+        for (const auto &chld : graph.Children(vert)) {
+            EXPECT_EQ(chld, outEdges[vert][cntr]);
+            ++cntr;
+        }
+        EXPECT_EQ(cntr, graph.OutDegree(vert));
+    }
+
+    for (const auto &vert : graph.Vertices()) {
+        EXPECT_EQ(graph.InDegree(vert), inEdges[vert].size());
+        std::size_t cntr = 0;
+        for (const auto &par : graph.Parents(vert)) {
+            EXPECT_EQ(par, inEdges[vert][cntr]);
+            ++cntr;
+        }
+        EXPECT_EQ(cntr, graph.InDegree(vert));
+    }
+
+    for (const auto &vert : graph.Vertices()) {
+        EXPECT_EQ(graph.VertexType(vert), 0);
+    }
+    EXPECT_EQ(graph.NumVertexTypes(), 1);
+
+    for (const auto vert : graph.Vertices()) {
+        graph.SetVertexWorkWeight(vert, 4*vert + 0);
+        graph.SetVertexCommWeight(vert, 4*vert + 1);
+        graph.SetVertexMemWeight(vert, 4*vert + 2);
+        graph.SetVertexType(vert, static_cast<VTypeType>(4*vert + 3));
+    }
+    for (const auto vert : graph.Vertices()) {
+        EXPECT_EQ(graph.VertexWorkWeight(vert), 4*vert + 0);
+        EXPECT_EQ(graph.VertexCommWeight(vert), 4*vert + 1);
+        EXPECT_EQ(graph.VertexMemWeight(vert), 4*vert + 2);
+        EXPECT_EQ(graph.VertexType(vert), static_cast<VTypeType>(4*vert + 3));
+    }
 }
 
 } // namespace osp
