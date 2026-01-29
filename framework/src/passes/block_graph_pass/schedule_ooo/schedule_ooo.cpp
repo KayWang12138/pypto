@@ -123,7 +123,7 @@ Status OoOSchedule::MixSchedule(std::vector<Operation*> &opList, Function &funct
     }
     OoOHealthCheck(oooSchedule, function, program);
     APASS_LOG_INFO_F(Elements::Operation, "Subgraph[%d] OOOSchedule end.", program.first);
-    program.second->ScheduleBy(spliter.GetMergedOperations());
+    program.second->ScheduleBy(oooSchedule.GetNewOperations());
     program.second->RecordOOOSeq();
     RescheduleUtils::UpdateTensorConsProd(program.second);
     maxWorkeSpaceSize = std::max(maxWorkeSpaceSize, (*program.second).GetStackWorkespaceSize());
