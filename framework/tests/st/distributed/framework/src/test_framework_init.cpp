@@ -15,6 +15,7 @@
 
 #include <string>
 #include <future>
+#include <vector>
 #include <dlfcn.h>
 #include "hccl/hccl.h"
 #include "machine/runtime/runtime.h"
@@ -39,15 +40,69 @@ using MpiBarrierFunc = int(*)(MPI_Comm);
 using MpiAbortFunc = int (*)(MPI_Comm, int);
 using MpiFinalizeFunc = int (*)();
 
-const std::string MPI_LIB_PATH = "/usr/local/mpich/lib";
-const std::string MPI_LIB_NAME = "libmpi.so";
- 
+// Try several common MPI library paths/names so the test can find MPICH/MPILib without
+// requiring system-level changes (e.g., no sudo inside container).
+static void* TryOpen(const std::string& path, int flags = RTLD_NOW) {
+    void* h = dlopen(path.c_str(), flags);
+    if (h) return h;
+    return nullptr;
+}
+
+std::vector<std::string> BuildMpiCandidatePaths()
+{
+    // Try original hardcoded path first (backwards compatibility),
+    // then automatically discover MPI in common installation paths
+    const std::vector<std::string> candidates = {
+        // Original default path - try first for backwards compatibility
+        "/usr/local/mpich/lib/libmpi.so",
+        
+        // Automatic discovery - common installation paths as fallback
+        "/lib/aarch64-linux-gnu/libmpich.so",
+        "/lib/x86_64-linux-gnu/libmpich.so",
+        "/usr/lib/libmpi.so",
+        "/usr/lib/libmpich.so",
+        "/lib/libmpi.so",
+        "/lib/libmpich.so",
+        "/usr/lib/x86_64-linux-gnu/libmpi.so",
+        "/usr/lib/aarch64-linux-gnu/libmpi.so",
+        
+        // Last resort: let dynamic loader search LD_LIBRARY_PATH
+        "libmpi.so",
+        "libmpich.so"
+    };
+    
+    return candidates;
+}
+
 void* GetLibHandle()
 {
-    static auto handle = []() {
-        const auto libPath = MPI_LIB_PATH + "/" + MPI_LIB_NAME;
-        auto handler = dlopen(libPath.c_str(), RTLD_NOW | RTLD_NOLOAD);
-        return handler ? handler : dlopen(libPath.c_str(), RTLD_LAZY);
+    static std::vector<std::string> candidates = BuildMpiCandidatePaths();
+    static auto handle = []() -> void* {
+        for (const auto& path : candidates) {
+            // If absolute path, try RTLD_NOW|RTLD_NOLOAD first to see if already loaded via that path
+            if (!path.empty() && path.front() == '/') {
+                void* h = TryOpen(path, RTLD_NOW | RTLD_NOLOAD);
+                if (h) {
+                    ALOG_INFO_F("Found already-loaded MPI library: %s", path.c_str());
+                    return h;
+                }
+                h = TryOpen(path, RTLD_NOW);
+                if (h) {
+                    ALOG_INFO_F("Loaded MPI library from path: %s", path.c_str());
+                    return h;
+                }
+            } else {
+                // symbolic name: let the dynamic loader resolve it using standard search paths
+                void* h = TryOpen(path, RTLD_NOW);
+                if (h) {
+                    ALOG_INFO_F("Loaded MPI library by name: %s", path.c_str());
+                    return h;
+                }
+            }
+        }
+
+        ALOG_ERROR("Failed to load MPI library from common candidate paths/names");
+        return static_cast<void*>(nullptr);
     }();
     return handle;
 }
