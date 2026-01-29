@@ -226,7 +226,7 @@ int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
         dyndata->stackWorkSpaceSize = workspace_->StandardStackWorkspacePerCore();
         dyndata->stackWorkSpaceAddr = workspace_->StackWorkspaceAddr();
         dyndata->opAttrSize = dupFunc.GetSource()->GetOpAttrSize();
-        dyndata->rawTensorAddrSize = dupFunc.GetSource()->GetIncastSize();
+        dyndata->rawTensorAddrSize = dupFunc.GetSource()->GetIncastSize() + dupFunc.GetSource()->GetOutcastSize();
         dyndata->rawTensorDescSize = dupFunc.GetSource()->GetRawTensorDescSize();
         dyndata->commGroupNum = devProg->commGroupNum;
         if (sizeof(dyndata->hcclContext) != sizeof(devProg->hcclContext)) {
@@ -365,7 +365,7 @@ void DeviceTaskContext::DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *dev
         DEV_ERROR("%s: output-%d:%llx", prefix, (int)i, (unsigned long long)startArgs->GetOutputTensor(i).address);
     }
     std::unordered_map<uint64_t, AddressDescriptor> cacheInputOutputDict;
-    DevProgramControlFlowCache::RelocBuildInputOutputDesc(cacheInputOutputDict, startArgs);
+    DevControlFlowCache::RelocBuildInputOutputDesc(cacheInputOutputDict, startArgs);
     RelocRange relocWorkspace(startArgs->contextWorkspaceAddr, 0);
 
     DynFuncHeader *dynFuncDataList = dyntask->GetDynFuncDataList();
@@ -402,7 +402,7 @@ void DeviceTaskContext::DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *dev
         for (size_t incastIndex = 0; incastIndex < duppedData->GetIncastSize(); incastIndex++) {
             AddressDescriptor addr = duppedData->GetIncastAddress(incastIndex);
             AddressDescriptor addrDesc = addr;
-            DevProgramControlFlowCache::RelocDescToCache(addrDesc, relocWorkspace, cacheInputOutputDict);
+            DevControlFlowCache::RelocDescToCache(addrDesc, relocWorkspace, cacheInputOutputDict);
 
             DEV_ERROR("%s: R(%d,%d).incast-%d: 0x%llx - 0x%llx\n",
                 prefix, (int)deviceIndex, (int)dupIndex, (int)incastIndex,
@@ -412,7 +412,7 @@ void DeviceTaskContext::DumpDepend(DynDeviceTask *dyntask, DevAscendProgram *dev
         for (size_t outcastIndex = 0; outcastIndex < duppedData->GetOutcastSize(); outcastIndex++) {
             AddressDescriptor addr = duppedData->GetOutcastAddress(outcastIndex);
             AddressDescriptor addrDesc = addr;
-            DevProgramControlFlowCache::RelocDescToCache(addrDesc, relocWorkspace, cacheInputOutputDict);
+            DevControlFlowCache::RelocDescToCache(addrDesc, relocWorkspace, cacheInputOutputDict);
             DEV_ERROR("%s: R(%d,%d).outcast-%d: 0x%llx - 0x%llx\n",
                 prefix, (int)deviceIndex, (int)dupIndex, (int)outcastIndex,
                 (unsigned long long)addrDesc.GetAddressValue(),

@@ -21,8 +21,12 @@
 #include <unistd.h>
 #include <type_traits>
 #include <set>
+#include "interface/utils/file_utils.h"
+#include "interface/configs/config_manager_ng.h"
+#include "tilefwk/config.h"
+#include "tilefwk/function.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
+
 
 namespace npu::tile_fwk {
 using JsonExpcetion = nlohmann::json::exception;
@@ -32,8 +36,6 @@ const std::string KEY_STD_LOG_LEVEL = "STD_LOG_LEVEL";
 const std::string KEY_FILE_LOG_LEVEL = "FILE_LOG_LEVEL";
 const std::string KEY_GRAPH_FILE_TYPE = "GRAPH_FILE_TYPE";
 const std::string KEY_GRAPH_ONLY_DOT = "GRAPH_ONLY_DOT";
-const std::string KEY_ONLY_TENSOR_GRAPH = "only_tensor_graph";
-const std::string KEY_ONLY_HOST_COMPILE = "only_host_compile";
 const std::string KEY_ENABLE_COST_MODEL = "enable_cost_model";
 const std::string KEY_ENABLE_DYN_FULL_COST_MODEL = "ENABLE_DYN_FULL_COST_MODEL";
 const std::string KEY_ENABLE_AIHAC_BACKEND = "enable_aihac_backend";
@@ -62,7 +64,6 @@ const std::string KEY_ARGS = "args";
 /* Host KEYs */
 const std::string KEY_STRATEGY = "strategy";
 const std::string KEY_ENABLE_BINARY_CACHE = "enable_binary_cache";
-const std::string KEY_ONLY_CODEGEN = "only_codegen";
 
 /* Pass KEYs */
 
@@ -80,6 +81,7 @@ const std::string KEY_EXEC_VERIFIER = "EXEC_VERIFIER";
 const std::string KEY_SET_SCOPE = "SCOPE";
 const std::string KEY_ENABLE_CV_FUSE = "enable_cv_fuse";
 const std::string KEY_PASS_THREAD_NUM = "pass_thread_num";
+const std::string KEY_VF_OPT_MARK_FOR = "vf_opt_mark_for";
 
 
 /* CodeGen KEYs */
@@ -89,8 +91,6 @@ const std::string KEY_FORCE_OVERWRITE = "force_overwrite"; // if true, don't dum
 const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "codegen_support_tile_tensor";       // if true, gen code with layout mode
 const std::string KEY_CODEGEN_NEED_COMPILE = "codegen_need_compile";       // if true, gen code & compile code
 
-const std::string KEY_FORCE_COMBINE_AXIS = "force_combine_axis";
-const std::string KEY_COMBINE_AXIS = "combine_axis";
 
 enum class DPlatform {
     ASCEND_910B1,
@@ -169,15 +169,6 @@ public:
         return GetConfig(json_, {"global", "host", key}, defaultValue);
     }
 
-    template <typename T>
-    auto GetDeviceConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global", "device", key}, defaultValue);
-    }
-
-    template <typename T>
-    auto GetCoreConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global", "core", key}, defaultValue);
-    }
 
     template <typename T>
     auto GetSimConfig(const std::string &key, const T &defaultValue) {
@@ -187,11 +178,6 @@ public:
     template <typename T>
     auto GetCodeGenConfig(const std::string &key, const T &defaultValue) {
         return GetConfig(json_, {"global", "codegen", key}, defaultValue);
-    }
-
-    template <typename T>
-    auto GetDistConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global", "distributed", key}, defaultValue);
     }
 
     template <typename T>
@@ -233,23 +219,8 @@ public:
     }
 
     template <typename T>
-    void SetDeviceConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global", "device", key}, value);
-    }
-
-    template <typename T>
-    void SetCoreConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global", "core", key}, value);
-    }
-
-    template <typename T>
     void SetSimConfig(const std::string &key, const T &value) {
         SetConfig(json_, {"global", "simulation", key}, value);
-    }
-
-    template <typename T>
-    void SetDistConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global", "distributed", key}, value);
     }
 
     template <typename T>
@@ -259,18 +230,12 @@ public:
     }
 
     template <typename T>
-    auto GetOperationConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global", "operation", key}, defaultValue);
-    }
-
-    template <typename T>
-    void SetOperationConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global", "operation", key}, value);
-    }
-
-    template <typename T>
     void SetCodeGenConfig(const std::string &key, const T &value) {
         SetConfig(json_, {"global", "codegen", key}, value);
+    }
+
+    const nlohmann::json* GetPrintOptions() {
+        return GetJsonNode(json_, {"global", "tensor_print"});
     }
 
     void Reset() { json_ = originJson_; }
@@ -321,6 +286,37 @@ private:
     }
 };
 
+// config.h
+
+/* Rundata KEYS */
+constexpr const char *KEY_RUNTYPE = "runtype";
+constexpr const char *KEY_PTO_CONFIG_FILE = "pto_config_file";
+constexpr const char *KEY_COMPUTE_GRAPH_PATH = "compute_graph_path";
+constexpr const char *KEY_AICPU_PERF_GRAPH_PATH = "aicpu_perf_path";
+constexpr const char *KEY_SWIM_GRAPH_PATH = "swim_graph_path";
+constexpr const char *KEY_FLOW_VERIFY_PATH = "flow_verify_path";
+constexpr const char *KEY_PROGRAM_PATH = "program_file";
+
+struct ConfigStorage;
+
+struct PrintOptions {
+    int edgeItems;
+    int precision;
+    int threshold;
+    int linewidth;
+};
+
+struct SemanticLabel {
+    std::string label;
+    std::string filename;
+    int lineno;
+
+    SemanticLabel(const std::string &tlabel, const char *tfilename, int tlineno)
+        : label(tlabel), filename(tfilename), lineno(tlineno) {}
+    SemanticLabel(const std::string &tlabel, const std::string &tfilename, int tlineno)
+        : label(tlabel), filename(tfilename), lineno(tlineno) {}
+};
+
 namespace config {
 template <typename T>
 auto GetPlatformConfig(const std::string &key, const T &defaultValue) {
@@ -332,15 +328,6 @@ auto GetHostConfig(const std::string &key, const T &defaultValue) {
     return ConfigManager::Instance().GetHostConfig(key, defaultValue);
 }
 
-template <typename T>
-auto GetDeviceConfig(const std::string &key, const T &defaultValue) {
-    return ConfigManager::Instance().GetDeviceConfig(key, defaultValue);
-}
-
-template <typename T>
-auto GetCoreConfig(const std::string &key, const T &defaultValue) {
-    return ConfigManager::Instance().GetCoreConfig(key, defaultValue);
-}
 
 template <typename T>
 auto GetPassConfig(
@@ -389,21 +376,6 @@ void SetHostConfig(const std::string &key, const T &value) {
 }
 
 template <typename T>
-void SetDeviceConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetDeviceConfig(key, value);
-}
-
-template <typename T>
-void SetCoreConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetCoreConfig(key, value);
-}
-
-template <typename T>
-void SetDistConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetDistConfig(key, value);
-}
-
-template <typename T>
 void SetPassConfig(const std::string &strategy, const std::string &identifier, const std::string &key, const T &value) {
     ConfigManager::Instance().SetPassConfig(strategy, identifier, key, value);
 }
@@ -411,11 +383,6 @@ void SetPassConfig(const std::string &strategy, const std::string &identifier, c
 template <typename T>
 void SetSimConfig(const std::string &key, const T &value) {
     ConfigManager::Instance().SetSimConfig(key, value);
-}
-
-template <typename T>
-void SetOperationConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetOperationConfig(key, value);
 }
 
 template <typename T>
@@ -429,11 +396,7 @@ inline DPlatform GetDevicePlatform() {
 }
 
 inline const std::string GetAbsoluteTopFolder() {
-    constexpr size_t size = 1024;
-    char cwdBuf[size] = {};
-    std::string cwd = getcwd(cwdBuf, size);
-
-    return cwd + "/" + ConfigManager::Instance().LogTopFolder();
+    return RealPath(ConfigManager::Instance().LogTopFolder());
 }
 
 inline const std::string &LogTopFolder() {
@@ -461,6 +424,18 @@ inline bool UseTIG() {
     return GetPassStrategy() == "TIG" || GetPassStrategy() == "PVC2_OOO" || GetPlatformConfig(KEY_TEST_IS_TIG, false) ||
            GetPassStrategy() == "DFS_OOO" || GetPassStrategy() == "BFS_DFS_OOO";
 }
+
+// config.h
+
+FunctionType GetFunctionType();
+
+std::shared_ptr<SemanticLabel> GetSemanticLabel();
+void SetSemanticLabel(std::shared_ptr<SemanticLabel> label);
+
+PrintOptions &GetPrintOptions();
+
+void SetRunDataOption(const std::string &key, const std::string &value);
+
 
 } // namespace config
 

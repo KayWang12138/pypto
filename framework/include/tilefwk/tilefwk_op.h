@@ -159,21 +159,6 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
     ScatterMode reduce = ScatterMode::NONE);
 Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
     ScatterMode reduce = ScatterMode::NONE);
-/**
- * \brief Write the scalar value of src into self Tensor, with the write position specified by the indices Tensor. It is
- * the inplace version of Scatter
- *
- * \param self : Tensor to write into.
- * \param indices : the index Tensor of element to be dispersed.
- * \param src : scalar value or tensor to be dispersed.
- * \param axis : axis to be indexed.
- * \param reduce : scatter reduction mode to be applied. Support NONE, ADD, MULTIPLY. NONE is default.
- * \return Tensor
- */
-Tensor Scatter_(const Tensor &self, const Tensor &indices, const Element &src, int axis,
-    ScatterMode reduce = ScatterMode::NONE);
-Tensor Scatter_(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
-    ScatterMode reduce = ScatterMode::NONE);
 void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate = false);
 Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});
 Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});
@@ -190,12 +175,14 @@ Tensor Add(const Tensor &self, const Tensor &other);
 Tensor Sub(const Tensor &self, const Tensor &other);
 Tensor Div(const Tensor &self, const Tensor &other);
 Tensor Mul(const Tensor &self, const Tensor &other);
+Tensor Fmod(const Tensor &self, const Tensor &other);
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2);
 Tensor Minimum(const Tensor &operand1, const Tensor &operand2);
 Tensor Add(const Tensor &self, const Element &other);
 Tensor Sub(const Tensor &self, const Element &other);
 Tensor Div(const Tensor &self, const Element &other);
 Tensor Mul(const Tensor &self, const Element &other);
+Tensor Fmod(const Tensor &self, const Element &other);
 Tensor Minimum(const Tensor &operand1, const Element &operand2);
 Tensor Maximum(const Tensor &operand1, const Element &operand2);
 Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode);
@@ -413,8 +400,8 @@ void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tens
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
-    Tensor &shmemSignal, Tensor &out);
-void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize, Tensor& out);
+    Tensor& shmemSignal, Tensor& out);
+Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize);
 Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData);
 Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal);
 void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize,
@@ -436,15 +423,20 @@ void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForC
 void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
     const Shape &shape, Tensor &shmemTensor, uint64_t memType = 0);
 void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal);
-Tensor ShmemPut(const Tensor& in, const Tensor& shmemDataTile, const Tensor& barrierDummy,
+Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
     AtomicType atomicType = AtomicType::SET);
-Tensor ShmemSignal(const Tensor& dummy, const Tensor& shmemSignalTile, AtomicType atomicType);
-Tensor WaitUntil(const Tensor& dummyIn, const Tensor& shmemSignalTile, int32_t expectedSum, bool resetSignal = false);
-Tensor ShmemGet(const Tensor& dummy, const Tensor& shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
+Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
+ 	AtomicType atomicType = AtomicType::SET);
+Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType);
+Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal = false);
+Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonShmemDataType = DataType::DT_BOTTOM,
+    AtomicType atomicType = AtomicType::SET);
+Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
     AtomicType atomicType = AtomicType::SET);
 } // namespace Distributed
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);
 Tensor TopKExtract(const Tensor &x, int k, bool isIndex);
 Tensor TopKMerge(const Tensor &x, int mergeSize);
+Tensor Nop(const std::vector<Tensor> &inTensors);
 } // namespace npu::tile_fwk

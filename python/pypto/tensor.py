@@ -427,8 +427,17 @@ class Tensor:
         return pypto.div(self, other)
 
     @source_location
+    def fmod(self, other: 'Tensor | int | float') -> 'Tensor':
+        return pypto.fmod(self, other)
+
+    @source_location
     def greater(self, other: 'Tensor'):
         return pypto.greater(self, other)
+
+    @source_location
+    def fill_(self, other: 'int | float') -> 'Tensor':
+        self.move(pypto.full(self.shape, other, self.dtype))
+        return self
 
     @source_location
     def matmul(
@@ -582,11 +591,13 @@ class Tensor:
         return pypto.scatter_update(self, dim, index, src)
 
     @source_location
-    def scatter_(self, dim: int, index: 'Tensor', src: Union[float, Element], *, reduce: str = None) -> 'Tensor':
+    def scatter_(self, dim: int, index: 'Tensor', 
+                 src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter_(self, dim, index, src, reduce=reduce)
 
     @source_location
-    def scatter(self, dim: int, index: 'Tensor', src: Union[float, Element], *, reduce: str = None) -> 'Tensor':
+    def scatter(self, dim: int, index: 'Tensor',
+                src: Union[float, Element, 'Tensor'], *, reduce: str = None) -> 'Tensor':
         return pypto.scatter(self, dim, index, src, reduce=reduce)
 
     def _is_empty_slice(self, key):

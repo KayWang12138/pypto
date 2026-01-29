@@ -47,6 +47,7 @@
 #include "passes/block_graph_pass/copy_out_resolve.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/block_graph_pass/mix_subgraph_split.h"
+#include "passes/block_graph_pass/loopaxes_proc.h"
 
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {
@@ -96,6 +97,7 @@ void RegPass() {
     REG_PASS(DuplicateOp);
     REG_PASS(AxisCombine);
     REG_PASS(InsertOpForViewAssemble);
+    REG_PASS(LoopaxesProc);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -139,6 +141,7 @@ void PassManager::RegDefaultStrategy() {
             {           "CopyOutResolve",              PassName::COPY_OUT_RESOLVE},
             {               "InsertSync",                   PassName::INSERT_SYNC},
             {         "MixSubgraphSplit",            PassName::MIX_SUBGRAPH_SPLIT},
+            {             "LoopaxesProc",             PassName::LOOPAXES_PROC},
             {           "CodegenPreproc",               PassName::CODEGEN_PREPROC},
     });
     RegisterStrategy(
@@ -264,6 +267,9 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
             ALOG_INFO_F("Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(), program.Name().c_str(),
                 function.GetMagicName().c_str(), duration.count());
+        }
+        if (pass->GetName() == PassNameStr(PassName::EXPAND_FUNCTION)) {
+            ALOG_INFO_F("Function operation size is: %zu after expansion.", function.Operations().size());
         }
         if (config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY)) {
             Program::GetInstance().VerifyPass(&function, i, identifier);

@@ -172,9 +172,7 @@ def test_device_run_data_from_device():
 
 
 # def dynamic function
-@pypto.jit(
-    host_options={"only_codegen": True}
-)
+@pypto.jit
 def matmul_add(in_tensor0, in_tensor1, in_tensor2, out_tensor, m, k, n, tiling=None):
     a = in_tensor0
     b = in_tensor1
@@ -251,7 +249,6 @@ class InferControlflowShape:
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
     infer_controlflow_shape=InferControlflowShape()
 )
 def infer_shape_kenrel(a, b, c):
@@ -267,6 +264,7 @@ def test_infer_shape():
     torch.npu.set_device(device_id)
 
     device = f'npu:{device_id}'
+
     for b in [2048, 1024, 512, 256, 128, 64, 32]:
         a = torch.randn((b, 32), device=device)
         b = torch.randn((b, 32), device=device)

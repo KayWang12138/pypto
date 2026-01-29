@@ -43,6 +43,8 @@ DEFAULT_VISIT = {
     "Pass",
 }
 
+_NESTED_CALL_UNHANDLED = object()
+
 
 def _catch_parser_errors(func):
     """Decorator to normalize parser error handling for public APIs."""
@@ -289,10 +291,13 @@ class Parser(doc.NodeVisitor):
             tensor_input_args = self._visit_arguments(function_node.args)
 
             # Get and validate output arguments
-            output_expr = self._visit_expr(function_node.returns)
-            output_tensors = self._normalize_output_annotation(
-                output_expr, function_node.returns
-            )
+            if function_node.returns is None:
+                output_tensors = []
+            else:
+                output_expr = self._visit_expr(function_node.returns)
+                output_tensors = self._normalize_output_annotation(
+                    output_expr, function_node.returns
+                )
 
             self._signature_cache = (
                 tensor_input_args,
@@ -552,9 +557,12 @@ class Parser(doc.NodeVisitor):
         Any
             The evaluated result of the expression.
         """
+        if isinstance(node, doc.Expr) and hasattr(node, "value"):
+            node = node.value
+
         if isinstance(node, doc.Call):
             nested_result = self._try_nested_call(node, extra_vars)
-            if nested_result is not None:
+            if nested_result is not _NESTED_CALL_UNHANDLED:
                 return nested_result
 
         var_values = self.context.get()
@@ -618,6 +626,8 @@ class Parser(doc.NodeVisitor):
         ParserError
             If the annotation is not a valid tensor or collection of tensors.
         """
+        if output_expr is None:
+            return []
         if isinstance(output_expr, pypto.Tensor):
             return [output_expr]
         if isinstance(output_expr, (list, tuple)):
@@ -781,6 +791,8 @@ class Parser(doc.NodeVisitor):
 
         # Extract variable names from the return value
         return_value = last_stmt.value
+        if isinstance(return_value, doc.Constant) and return_value.value is None:
+            return None
         if isinstance(return_value, doc.Name):
             # Single return value: return x
             return [return_value.id]
@@ -1180,8 +1192,9 @@ class Parser(doc.NodeVisitor):
 
         Returns
         -------
-        Optional[Any]
-            The result of the inlined function, or None if inlining is not applicable.
+        Any
+            The result of the inlined function, or _NESTED_CALL_UNHANDLED if inlining
+            is not applicable.
 
         Raises
         ------
@@ -1190,7 +1203,7 @@ class Parser(doc.NodeVisitor):
         """
         # Only simple name calls (no attributes/methods) are considered for inlining.
         if not isinstance(node.func, doc.Name):
-            return None
+            return _NESTED_CALL_UNHANDLED
 
         # Collect current context variables and any extra_vars provided by eval_expr.
         func_name = node.func.id
@@ -1199,7 +1212,7 @@ class Parser(doc.NodeVisitor):
             var_values = {**var_values, **extra_vars}
 
         if func_name not in var_values:
-            return None
+            return _NESTED_CALL_UNHANDLED
 
         # Resolve the callee function object; if it's a NestedFunctionMarker, unwrap to the original function.
         func_value = var_values[func_name]
@@ -1207,6 +1220,14 @@ class Parser(doc.NodeVisitor):
             func_obj = func_value._original_func
         else:
             func_obj = func_value
+
+        # Check if the function is a builtin function or a function without source code.
+        if inspect.isbuiltin(func_obj) or inspect.isbuiltin(func_value):
+            return _NESTED_CALL_UNHANDLED
+
+        # Also check if it's a builtin function by checking the module
+        if hasattr(func_obj, '__module__') and func_obj.__module__ == 'builtins':
+            return _NESTED_CALL_UNHANDLED
 
         # Merge closure/global variables of the target function to allow resolving
         # free variables used inside the nested function body.
@@ -1217,15 +1238,14 @@ class Parser(doc.NodeVisitor):
         # Dynamically obtain the FunctionDef AST of the callee; fail fast if unavailable.
         func_def_node = self._get_function_def_from_func(func_obj)
         if func_def_node is None:
-            raise ParserError(
-                node,
-                ValueError(f"Failed to obtain AST for function '{func_name}'."),
-            )
+            # If we cannot get the AST for non-builtin functions, it might be a C extension
+            # or other callable that doesn't have Python source code. Let the evaluator handle it.
+            return _NESTED_CALL_UNHANDLED
 
         # If callee is a normal function, ensure it is decorated as nested; otherwise, bail out.
         if not isinstance(func_value, NestedFunctionMarker):
             if not self._is_nested_function(func_def_node.decorator_list):
-                return None
+                return _NESTED_CALL_UNHANDLED
 
         # Parse parameters/return annotations to get tensor/non-tensor lists and ordered specs.
         # Seed the temp frame with the callee's env so that annotations depending on globals
@@ -1238,9 +1258,16 @@ class Parser(doc.NodeVisitor):
                 func_def_node.args
             )
 
-            output_args = self._eval_expr(func_def_node.returns, extra_vars=var_values)
-            if not isinstance(output_args, (list, tuple)):
-                output_args = [output_args]
+            if func_def_node.returns is None:
+                output_args = []
+            else:
+                output_args = self._eval_expr(
+                    func_def_node.returns, extra_vars=var_values
+                )
+                if output_args is None:
+                    output_args = []
+                elif not isinstance(output_args, (list, tuple)):
+                    output_args = [output_args]
 
         # Evaluate call-site arguments; keyword arguments are not supported yet.
         # Use merged env (locals + globals of callee + caller extras) so symbols referenced
@@ -1343,6 +1370,8 @@ class Parser(doc.NodeVisitor):
                 self.diag = old_diag
 
             # Return aggregation: single tensor returns directly; multiple returns as a list.
+            if not nested_output_args:
+                return None
             if len(nested_output_args) == 1:
                 return nested_output_args[0]
             return nested_output_args
@@ -1378,15 +1407,34 @@ class Parser(doc.NodeVisitor):
                 ),
             )
 
-        # Extract the loop variable name
-        if not isinstance(node.target, doc.Name):
+        # Extract the loop variable(s) - support both single name and tuple unpacking
+        is_tuple_unpack = isinstance(node.target, (doc.Tuple, doc.List))
+
+        if isinstance(node.target, doc.Name):
+            # Single variable: for x in iterator
+            loop_var_name = node.target.id
+            target_names = [loop_var_name]
+        elif is_tuple_unpack:
+            # Tuple unpacking: for x, y in iterator
+            target_names = []
+            for elt in node.target.elts:
+                if not isinstance(elt, doc.Name):
+                    raise ParserError(
+                        elt,
+                        TypeError(
+                            f"Tuple unpacking in for loop only supports simple names, "
+                            f"but got {type(elt).__name__}."
+                        ),
+                    )
+                target_names.append(elt.id)
+        else:
             raise ParserError(
                 node.target,
                 TypeError(
-                    f"Loop variable must be a simple name, but got {type(node.target).__name__}."
+                    f"Loop variable must be a simple name or tuple/list for unpacking, "
+                    f"but got {type(node.target).__name__}."
                 ),
             )
-        loop_var_name = node.target.id
 
         # Try to evaluate the iterator expression (e.g., range(10))
         # This works even with symbolic values in range bounds because
@@ -1401,8 +1449,9 @@ class Parser(doc.NodeVisitor):
             start = iter_expr.start
             stop = iter_expr.stop
             step = iter_expr.step
+            # For range(), use the first target name as the loop variable name
             iterator = pypto.loop(
-                start, stop, step, name="Dynamic", idx_name=loop_var_name
+                start, stop, step, name="Dynamic", idx_name=target_names[0]
             )
         elif isinstance(iter_expr, Iterator):
             iterator = iter_expr
@@ -1421,8 +1470,30 @@ class Parser(doc.NodeVisitor):
         with self.context.with_frame():
             # The loop variable is yielded by the iterator
             for loop_var in iterator:
-                # Add the loop variable to the context
-                self.context.add(loop_var_name, loop_var)
+                if is_tuple_unpack:
+                    # Unpack tuple/list: for x, y in iterator
+                    # loop_var should be a tuple/list that can be unpacked
+                    if not isinstance(loop_var, (tuple, list)):
+                        raise ParserError(
+                            node.target,
+                            TypeError(
+                                f"Expected iterator to yield a tuple/list for unpacking, "
+                                f"but got {type(loop_var).__name__}."
+                            ),
+                        )
+                    if len(loop_var) != len(target_names):
+                        raise ParserError(
+                            node.target,
+                            ValueError(
+                                f"Cannot unpack {len(loop_var)} values into {len(target_names)} targets."
+                            ),
+                        )
+                    # Use _assign_target to handle unpacking (it already supports Tuple/List)
+                    self._assign_target(node.target, loop_var)
+                else:
+                    # Single variable: for x in iterator
+                    # Add the loop variable to the context
+                    self.context.add(loop_var_name, loop_var)
                 # Visit the loop body
                 self._visit_body(node.body)
 
@@ -1633,6 +1704,8 @@ class Parser(doc.NodeVisitor):
         res : Any
             The visiting result.
         """
+        if isinstance(node, doc.Expr):
+            return self._eval_expr(node.value)
         return self._eval_expr(node)
 
     def _visit_if(self, node: doc.If) -> Any:

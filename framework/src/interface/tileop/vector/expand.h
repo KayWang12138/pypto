@@ -89,7 +89,7 @@ TILEOP void TExpand(T0 dst, T1 src) {
                     srcTileDefine srcTile(srcShape3, srcShape4);
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
-                    pto::TCOLEPAND(dstTile, srcTile);
+                    pto::TCOLEXPAND(dstTile, srcTile);
                 }
             }
         }

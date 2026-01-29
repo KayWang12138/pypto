@@ -69,14 +69,14 @@ public:
     ScheduleBase() {}
     ~ScheduleBase() {}
 
-    std::map<Operation*, std::set<Operation*>> inGraph;
-    std::map<Operation*, std::set<Operation*>> outGraph;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> inGraph;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> outGraph;
     std::unordered_map<int, int> bufRefCount;
     std::unordered_map<MemoryType, int64_t> localMemSize; //内存剩余情况
     std::unordered_map<MemoryType, int64_t> localMemoryCurrentSize;
     std::unordered_map<int, LocalBufferPtr> localBufferMap; //memid:local
-    std::map<Operation*, std::unordered_set<Operation*>> opConsumers;
-    std::map<Operation*, std::unordered_set<Operation*>> opProducers;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> opConsumers;
+    std::unordered_map<Operation*, std::unordered_set<Operation*>> opProducers;
 
     //  初始依赖的list序列
     std::vector<Operation*> operations;
@@ -172,7 +172,7 @@ public:
             uint64_t preDimSize = 1;
             uint64_t lastTwoDimSize = 1;
             for (size_t i = 0; i < shape.size(); i++) {
-                if ((i < (shape.size() - LAST_TWO_DIM)) && (shape.size() != 1)) {
+                if ((shape.size() != 1) && (i < (shape.size() - LAST_TWO_DIM))) {
                     preDimSize *= shape[i];
                 } else {
                     lastTwoDimSize *= shape[i];
@@ -223,7 +223,7 @@ public:
         }
     }
 
-    Status InitAllocDependencies(Operation* op, std::map<int, Operation*> tensor2AllocMap) {
+    Status InitAllocDependencies(Operation* op, std::unordered_map<int, Operation*> &tensor2AllocMap) {
         for (auto &tensor : op->GetOOperands()) {
             int memId = tensor->memoryrange.memId;
             if (tensor->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
@@ -261,12 +261,10 @@ public:
     }
 
     Status InitDependencies() {
+        std::unordered_map<int, Operation*> tensor2AllocMap;
         for (const auto &op : operations) {
             inGraph[op].clear();
             outGraph[op].clear();
-        }
-        std::map<int, Operation*> tensor2AllocMap;
-        for (const auto &op : operations) {
             if (IsOpAlloc(op)) {
                 if (op->GetOOperands().size() != 1) {
                     APASS_LOG_ERROR_F(Elements::Operation, "Alloc[%d] oOperand must be 1.", op->GetOpMagic());
