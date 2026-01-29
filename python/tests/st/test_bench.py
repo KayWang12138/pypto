@@ -26,19 +26,19 @@ def cust_dyn_func_add(a, b, c, tiling=None):
 
 def test_bench_kernel():
     """
-        Test that do_bench runs with multiple warmup and benchmark iterations
-        for a real kernel.
+    Test that do_bench runs with multiple warmup and benchmark iterations
+    for a real kernel.
     """
-    device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
+    device_id = os.environ.get("TILE_FWK_DEVICE_ID", 0)
     torch.npu.set_device(int(device_id))
     tiling = 32
     n, m = tiling * 1, tiling * 1
 
     a_rawdata = torch.ones((n, m)) * 2
     b_rawdata = torch.ones((n, m))
-    a_data = a_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
-    b_data = b_rawdata.to(dtype=torch.int32, device=f'npu:{device_id}')
-    c_data = torch.zeros((n, m), dtype=torch.int32, device=f'npu:{device_id}')
+    a_data = a_rawdata.to(dtype=torch.int32, device=f"npu:{device_id}")
+    b_data = b_rawdata.to(dtype=torch.int32, device=f"npu:{device_id}")
+    c_data = torch.zeros((n, m), dtype=torch.int32, device=f"npu:{device_id}")
 
     inputs = [a_data, b_data]
     outputs = [c_data]

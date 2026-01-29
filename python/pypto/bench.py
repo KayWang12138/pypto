@@ -45,7 +45,7 @@ def do_bench(
 
     for _ in range(warmup_iters):
         # Make sure to sync in-between each call since the output tensor object
-        # is reused for all calls. This prevents the deadlock-scenario: when two 
+        # is reused for all calls. This prevents the deadlock-scenario: when two
         # kernels simultaneously manipulate the same output tensor object.
         torch_npu.npu.synchronize()
         fn()
