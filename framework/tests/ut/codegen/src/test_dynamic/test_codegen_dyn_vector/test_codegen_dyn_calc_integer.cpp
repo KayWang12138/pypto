@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file test_codegen_dyn_ceil.cpp
+ * \file test_codegen_dyn_calc_integer.cpp
  * \brief Unit test for codegen.
  */
 
@@ -29,7 +29,7 @@
 
 namespace npu::tile_fwk {
 
-class TestCodegenDynCastInteger : public ::testing::Test {
+class TestCodegenDynCalcInteger : public ::testing::Test {
 public:
     static void SetUpTestCase() {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
@@ -53,7 +53,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynCastInteger, TestDynOpCeil) {
+TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil) {
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
@@ -93,7 +93,7 @@ TEST_F(TestCodegenDynCastInteger, TestDynOpCeil) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynCastInteger, TestDynOpFloor) {
+TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor) {
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
@@ -133,7 +133,7 @@ TEST_F(TestCodegenDynCastInteger, TestDynOpFloor) {
     codeGen.GenCode(*function, {});
 }
 
-TEST_F(TestCodegenDynCastInteger, TestDynOpTrunc) {
+TEST_F(TestCodegenDynCalcInteger, TestDynOpTrunc) {
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
