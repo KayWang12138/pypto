@@ -809,10 +809,9 @@ void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCop
 }
 
 void ReplaceTensor::InsertAssembleCopy(Function &function) {
-    auto opsBeforeAdd = function.Operations();
     std::unordered_set<int> visitedAssOps;
     std::unordered_set<Operation*> needInsertCopyAssOps;
-    for (auto &op : opsBeforeAdd) {
+    for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             visitedAssOps.insert(op.GetOpMagic());
             auto assembleIn = op.GetIOperands()[0];
