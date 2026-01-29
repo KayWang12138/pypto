@@ -161,7 +161,7 @@ class TrimmedGroupScheduler : public Scheduler<ConstrGraphT> {
             BspSchedule<ConstrGraphT> subSchedule(subInstance);
             auto status = subScheduler_->ComputeSchedule(subSchedule);
 
-            if (status != ReturnStatus::OSP_SUCCESS && status != ReturnStatus::BEST_FOUND) {
+            if (status != ReturnStatus::OSP_SUCCESS && status != ReturnStatus::OSP_BEST_FOUND) {
                 return status;
             }
 

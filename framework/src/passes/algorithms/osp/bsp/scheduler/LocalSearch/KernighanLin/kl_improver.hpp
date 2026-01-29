@@ -1097,7 +1097,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
 
     virtual ReturnStatus ImproveSchedule(BspSchedule<GraphT> &schedule) override {
         if (schedule.GetInstance().NumberOfProcessors() < 2) {
-            return ReturnStatus::BEST_FOUND;
+            return ReturnStatus::OSP_BEST_FOUND;
         }
 
         const unsigned numThreads = 1;
@@ -1126,7 +1126,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
             return ReturnStatus::OSP_SUCCESS;
         } else {
             CleanupDatastructures();
-            return ReturnStatus::BEST_FOUND;
+            return ReturnStatus::OSP_BEST_FOUND;
         }
     }
 

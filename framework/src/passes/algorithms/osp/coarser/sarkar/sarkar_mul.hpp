@@ -136,7 +136,7 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunSingleContractionMode(VertexIdx
     }
 
     if (!coarsenSuccess) {
-        status = ReturnStatus::ERROR;
+        status = ReturnStatus::OSP_ERROR;
     }
 
     status = std::max(

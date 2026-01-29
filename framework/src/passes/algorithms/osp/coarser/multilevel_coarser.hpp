@@ -149,7 +149,7 @@ ReturnStatus MultilevelCoarser<GraphT, GraphTCoarse>::AddContraction(std::vector
         CompactifyDagHistory();
         return ReturnStatus::OSP_SUCCESS;
     } else {
-        return ReturnStatus::ERROR;
+        return ReturnStatus::OSP_ERROR;
     }
 }
 
@@ -189,7 +189,7 @@ bool MultilevelCoarser<GraphT, GraphTCoarse>::CoarsenDag(const GraphT &dagIn,
 
     ReturnStatus status = Run(dagIn);
 
-    if (status != ReturnStatus::OSP_SUCCESS && status != ReturnStatus::BEST_FOUND) {
+    if (status != ReturnStatus::OSP_SUCCESS && status != ReturnStatus::OSP_BEST_FOUND) {
         return false;
     }
 

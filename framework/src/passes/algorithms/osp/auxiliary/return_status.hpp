@@ -19,7 +19,7 @@
 namespace npu::tile_fwk {
 namespace osp {
 
-enum class ReturnStatus { OSP_SUCCESS, BEST_FOUND, TIMEOUT, ERROR };
+enum class ReturnStatus { OSP_SUCCESS, OSP_BEST_FOUND, OSP_ERROR };
 
 } // namespace osp
 } // namespace npu::tile_fwk

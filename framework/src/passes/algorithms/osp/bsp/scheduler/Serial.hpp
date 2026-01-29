@@ -70,7 +70,7 @@ class Serial : public Scheduler<GraphT> {
         }
 
         if (chosenProcs.empty()) {
-            return ReturnStatus::ERROR;
+            return ReturnStatus::OSP_ERROR;
         }
 
         const unsigned numNodeTypes = dag.NumVertexTypes();

@@ -51,7 +51,7 @@ class Scheduler {
      *
      * @param schedule The BspSchedule object to be computed. It contains the BspInstance.
      * @return ReturnStatus::OSP_SUCCESS if a schedule was successfully computed,
-     *         ReturnStatus::ERROR if an error occurred, or other status codes as appropriate.
+     *         ReturnStatus::OSP_ERROR if an error occurred, or other status codes as appropriate.
      */
     virtual ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) = 0;
 
