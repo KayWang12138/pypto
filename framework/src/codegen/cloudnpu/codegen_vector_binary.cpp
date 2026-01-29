@@ -368,6 +368,21 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOp() const {
     return GenVectorScalarOpByMode(VecScalMode::VEC_MODE);
 }
 
+std::string CodeGenOpCloudNPU::GenVectorScalarIntTmpOp() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ID0);
+    std::string tmpTensor = QueryTileTensorNameByIdx(ID1);
+    std::string srcTensor = QueryTileTensorNameByIdx(ID2);
+    std::string srcScalar = std::to_string(extOperandVal.Cast<int>());
+
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, srcScalar, tmpTensor};
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << ";\n";
+    return oss.str();
+}
+
 std::string CodeGenOpCloudNPU::GenVectorScalarOpScalarMode() const {
     return GenVectorScalarOpByMode(VecScalMode::SCALAR_MODE);
 }
