@@ -32,12 +32,35 @@
 
 namespace npu::tile_fwk::dynamic {
 
+struct FreeDeleter
+{
+    void operator() (void* p) const {
+        free(p);
+    }
+};
+
+
 struct EmulationMemoryUtils {
+
+    EmulationMemoryUtils() {}
+    ~EmulationMemoryUtils() {
+        for(auto ptr : EmulationAllocatePtrs_) {
+            if (ptr) {
+                free(ptr);
+            }
+        }
+        EmulationAllocatePtrs_.clear();
+    }
     static bool IsDevice() { return false; }
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        uint8_t *devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
-        return devPtr;
+        auto uniquePtr = std::make_unique<uint8_t[]>(size);
+        uint8_t *ptr = uniquePtr.get();
+        if (ptr) {
+            memset_s(ptr, size, 0, size);
+            EmulationAllocatePtrs_.push_back(ptr);
+        }
+        return ptr;
     }
 
     uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
@@ -78,6 +101,8 @@ struct EmulationMemoryUtils {
     uint64_t GetL2Offset() {
         return 0;
     }
+private:
+        std::vector<uint8_t *> EmulationAllocatePtrs_;
 };
 
 class EmulationLauncher {
@@ -88,7 +113,7 @@ public:
         const std::vector<DeviceTensorData> &outputList, const DeviceLauncherConfig &config = DeviceLauncherConfig());
     static int EmulationRunOnce(Function *function, DevControlFlowCache* ctrlCache, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
-    static DevControlFlowCache* CreateHostCtrlFlowCache(DevAscendProgram *devProg, Function *function);
+    static std::unique_ptr<DevControlFlowCache, FreeDeleter> CreateHostCtrlFlowCache(DevAscendProgram *devProg, Function *function);
     static int BuildControlFlowCacheWithEmulationTensorData(
             Function *function, const std::vector<DeviceTensorData> &inputList,
             const std::vector<DeviceTensorData> &outputList,
