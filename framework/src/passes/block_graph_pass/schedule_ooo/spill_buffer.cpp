@@ -72,7 +72,6 @@ int OoOScheduler::GetBufLastUseOrder(IssueEntryPtr issue, int curMemId) {
 }
 
 IssueEntryPtr OoOScheduler::GetBufLastWriteIssue(IssueEntryPtr issue, int curMemId) {
-    auto corePair = issue->coreLocation;
     auto targetIt = std::find(issueEntries.begin(), issueEntries.end(), issue);
     if (targetIt == issueEntries.end()) {
         return nullptr;
