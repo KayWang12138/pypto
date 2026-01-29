@@ -35,6 +35,7 @@
 #include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.hpp"
 
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
+#include "passes/algorithms/osp/graph_implementations/integral_range.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -753,6 +754,33 @@ TEST_F(OspAlgorithmTest, NodeDistances) {
         EXPECT_EQ(botDist[vert], botDistAns[vert]);
         EXPECT_EQ(topDist[vert], topDistAns[vert]);
     }
+}
+
+TEST_F(OspAlgorithmTest, TestIntegralRange) {
+    const std::size_t length0 = 0U;
+    for (const auto val : IntegralRange(length0)) {
+        EXPECT_TRUE(false);
+    }
+
+    const std::size_t length147 = 147U;
+    std::size_t cntr147 = 0U;
+    for (const auto val : IntegralRange(length147)) {
+        EXPECT_EQ(val, cntr147++);
+    }
+    EXPECT_EQ(cntr147, length147);
+
+    const std::size_t start67 = 67U;
+    const std::size_t end67 = 67U;
+    for (const auto val : IntegralRange(start67, end67)) {
+        EXPECT_TRUE(false);
+    }
+
+    std::size_t start134 = 67U;
+    const std::size_t end257 = 67U;
+    for (const auto val : IntegralRange(start134, end257)) {
+        EXPECT_EQ(val, start134++);
+    }
+    EXPECT_EQ(start134, end257);
 }
 
 void testCoarseningAlgorithm(Coarser<GraphType, GraphType> &coarser) {
