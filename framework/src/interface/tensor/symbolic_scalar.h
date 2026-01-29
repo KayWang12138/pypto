@@ -392,22 +392,22 @@ public:
     }
 
     static RawSymbolicScalarPtr CreateRuntimeExtrema(SymbolicOpcode opcode, const std::vector<RawSymbolicScalarPtr> &operandList) {
-        std::vector<RawSymbolicScalarPtr> flat;
-        flat.reserve(operandList.size());
-        FlattenOperands(operandList, opcode, flat);
+        std::vector<RawSymbolicScalarPtr> flatOperands;
+        flatOperands.reserve(operandList.size());
+        FlattenOperands(operandList, opcode, flatOperands);
 
         bool hasImm = false;
         ScalarImmediateType immExt = 0;
         std::vector<RawSymbolicScalarPtr> nonImm;
-        nonImm.reserve(flat.size());
+        nonImm.reserve(flatOperands.size());
         std::unordered_set<std::string> seenStr;
-        seenStr.reserve(flat.size());
+        seenStr.reserve(flatOperands.size());
 
         auto combine = [&](ScalarImmediateType a, ScalarImmediateType b) {
             return (opcode == SymbolicOpcode::T_BOP_MAX) ? std::max(a, b) : std::min(a, b);
         };
 
-        for (auto& operand : flat) {
+        for (auto& operand : flatOperands) {
             if (operand->IsImmediate()) {
                 auto value = std::static_pointer_cast<RawSymbolicImmediate>(operand)->Immediate();
                 if (!hasImm) {
@@ -429,7 +429,9 @@ public:
             }
         }
 
-        if (hasImm) nonImm.emplace_back(std::make_shared<RawSymbolicImmediate>(immExt));
+        if (hasImm) {
+            nonImm.emplace_back(std::make_shared<RawSymbolicImmediate>(immExt));
+        } 
         
         if (nonImm.empty()) {
             return std::make_shared<RawSymbolicImmediate>(immExt);
@@ -546,7 +548,7 @@ public:
 private:
 
     void DumpRuntimeExtrema(std::string& out) const {
-        ASSERT(operandList_.size() >= 2);
+        ASSERT(operandList_.size() >= 2) << "Extrema expression must have at least 2 operands";
         std::string funcName = (opcode_ == SymbolicOpcode::T_BOP_MAX) ? "RUNTIME_Max" : "RUNTIME_Min";
         const size_t n = operandList_.size();
         for (size_t i = 0; i + 2 < n; ++i) {
