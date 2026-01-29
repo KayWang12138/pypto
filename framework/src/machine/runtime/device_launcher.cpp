@@ -180,9 +180,6 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, function->GetDyndevAttribute()->disableL2List);
-
-    HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 
     rc = DeviceRunner::Get().RegisterKernelBin(&(*reinterpret_cast<rtBinHandle *>(CachedOperator::GetBinHandleHolder(cachedOperator))),
             cachedOperator == nullptr ? nullptr : &(function->GetDyndevAttribute()->kernelBinary));
@@ -193,16 +190,29 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
 
     HOST_PERF_TRACE(TracePhase::RunDevRegistKernelBin);
 
-    rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
-    if (rc < 0) {
-        return rc;
+    int64_t repeatTime = config::GetRuntimeOption<int64_t>(REPEAT_TIME);
+    if (repeatTime < 1) {
+        repeatTime = 1;
     }
-    rc = RunWithProfile(aicoreStream, aicpuStream, isCapture);
-    if (rc < 0) {
-        return rc;
-    }
-    if (streamSynchronize) {
-        rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
+    for (int64_t i = 0; i < repeatTime; ++i) {
+        UpdateProfConfig(kArgs, config, (i == repeatTime - 1));
+        DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, function->GetDyndevAttribute()->disableL2List);
+        HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
+
+        rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
+        if (rc < 0) {
+            return rc;
+        }
+        rc = RunWithProfile(aicoreStream, aicpuStream, isCapture);
+        if (rc < 0) {
+            return rc;
+        }
+        if (streamSynchronize || (i < repeatTime - 1)) {
+            rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
+            if (rc < 0) {
+                return rc;
+            }
+        }
     }
     ALOG_INFO_F("finish Kernel Launch.");
 
@@ -225,7 +235,6 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
     std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(DeviceMemoryUtils(), inputDataList, outputDataList);
-
     uint8_t* devCtrlCache = nullptr;
     DeviceMemoryUtils devMemory(false);
     if (hostCtrlCache) {
