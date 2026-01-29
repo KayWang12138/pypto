@@ -252,7 +252,8 @@ class InferControlflowShape:
     infer_controlflow_shape=InferControlflowShape(),
     runtime_options={ "triple_stream_sched": True }
 )
-def infer_shape_kenrel(a, b, c):
+def infer_shape_kenrel(a, b, c, eps):
+    assert eps == 1.0
     pypto.set_vec_tile_shapes(16, 16)
     for i in pypto.loop(0, a.shape[0], 32):
         ta = a[i: i + 32, :]
@@ -277,7 +278,7 @@ def test_infer_shape():
             ta = pypto.from_torch(a[i], dynamic_axis=[0])
             tb = pypto.from_torch(b[i], dynamic_axis=[0])
             tc = pypto.from_torch(c[i], dynamic_axis=[0])
-            infer_shape_kenrel(ta, tb, tc)
+            infer_shape_kenrel(ta, tb, tc, 1.0)
 
         torch.npu.synchronize()
         for i in range(n):
