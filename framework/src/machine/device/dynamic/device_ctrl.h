@@ -239,7 +239,9 @@ public:
 
         DevControlFlowCache *ctrlFlowCacheBase = reinterpret_cast<DevControlFlowCache *>(kargs->ctrlFlowCache);
         DevControlFlowCache *ctrlFlowCache;
-        if (ctrlFlowCacheBase->IsRecording()) {
+        if (ctrlFlowCacheBase == nullptr) {
+            ctrlFlowCache = ctrlFlowCacheBase;
+        } else if (ctrlFlowCacheBase->IsRecording()) {
             ctrlFlowCache = ctrlFlowCacheBase;
         } else {
             ctrlFlowCache = reinterpret_cast<DevControlFlowCache *>(
