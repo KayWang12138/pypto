@@ -16,6 +16,7 @@
 #include "pybind_common.h"
 
 #include <cstdint>
+#include <memory>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -368,7 +369,17 @@ public:
         return nullptr;
     }
 
-    DevControlFlowCache *BuildControlFlowCache(std::vector<DeviceTensorData> &inputs, int64_t cfgCacheSize) {
+    uint8_t *FindCtrlFlowCache(std::vector<DeviceTensorData> &inputs) {
+        int64_t inHash = ControlFlowCache::Hash(inputs);
+        for (auto &cache : caches) {
+            if (cache.hash == inHash) {
+                return cache.devCache;
+            }
+        }
+        return nullptr;
+    }
+
+    uint8_t *BuildControlFlowCache(std::vector<DeviceTensorData> &inputs, int64_t cfgCacheSize) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
         DevControlFlowCache *ctrlCache = nullptr;
@@ -379,7 +390,27 @@ public:
             ALOG_ERROR("control flow cache failed", ret);
             return nullptr;
         }
-        return ctrlCache;
+
+        auto ctrlCachePtr = std::unique_ptr<uint8_t>((uint8_t *)ctrlCache);
+        uint8_t *devCache = nullptr;
+        auto cacheSize = ctrlCache->allCacheSize;
+        auto bufNum = DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT;
+
+        ret = rtMalloc((void **)&devCache, cacheSize * bufNum, RT_MEMORY_HBM, 0);
+        if (devCache == nullptr) {
+            ALOG_ERROR("control flow cache malloc failed");
+            return nullptr;
+        }
+
+        for (int i = 0; i < bufNum; ++i) {
+            ret = rtMemcpy(devCache + i * cacheSize, cacheSize, ctrlCache, cacheSize, RT_MEMCPY_HOST_TO_DEVICE);
+            if (ret != 0) {
+                ALOG_ERROR("control flow cache memcpy failed", ret);
+                rtFree(devCache);
+                return nullptr;
+            }
+        }
+        return devCache;
     }
 
     void InsertCtrlFlowCache(std::vector<DeviceTensorData> &inputs, uint8_t *devCache) {
@@ -569,50 +600,20 @@ public:
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
     }
 
-    uint8_t *FindCtrlFlowCache(py::object &module, py::args &args) {
+    uint8_t *FindCtrlFlowCache(py::object &module, py::args &args, std::vector<DeviceTensorData> &tensors) {
         std::vector<std::vector<int64_t>> shape;
-        if (InferCacheShape(module, args, shape)) {
-            return kernel->FindCtrlFlowCache(shape);
+        auto devCache = kernel->FindCtrlFlowCache(tensors);
+        if (devCache == nullptr && InferCacheShape(module, args, shape)) {
+            devCache = kernel->FindCtrlFlowCache(shape);
         }
-        return nullptr;
-    }
-
-    uint8_t *BuildTempCache(py::object &module, std::vector<DeviceTensorData> &tensors) {
-        auto ctrlCache = kernel->BuildControlFlowCache(tensors, false);
-        AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
-        auto devCache = DevCopyCtrlCache(module, ctrlCache, true);
-        free(ctrlCache);
+        if (devCache == nullptr && IsCacheEnabled()) {
+            AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+            devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize);
+        }
         return devCache;
     }
 
 private:
-    uint8_t *DevCopyCtrlCache(py::object &module, DevControlFlowCache *ctrlCache, bool temp) {
-        uint8_t *devCache = nullptr;
-        auto cacheSize = ctrlCache->allCacheSize;
-        auto bufNum = DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT;
-
-        if (temp) {
-            auto pyalloc = py::getattr(module, "alloc");
-            devCache = (uint8_t *)pyalloc(cacheSize * bufNum).cast<int64_t>();
-        } else {
-            rtMalloc((void **)&devCache, cacheSize * bufNum, RT_MEMORY_HBM, 0);
-        }
-        if (devCache == nullptr) {
-            ALOG_ERROR("control flow cache malloc failed");
-            return nullptr;
-        }
-
-        for (int i = 0; i < bufNum; ++i) {
-            auto ret = rtMemcpy(devCache + i * cacheSize, cacheSize, ctrlCache, cacheSize, RT_MEMCPY_HOST_TO_DEVICE);
-            if (ret != 0) {
-                ALOG_ERROR("control flow cache memcpy failed", ret);
-                rtFree(devCache);
-                return nullptr;
-            }
-        }
-        return devCache;
-    }
-
     void InitCachedArgs() {
         memset_s(&rtAicpuArgs, sizeof(rtAicpuArgsEx_t), 0, sizeof(rtAicpuArgsEx_t));
         rtAicpuArgs.kernelNameAddrOffset = offsetof(dynamic::AiCpuArgs, kernelName);
@@ -642,8 +643,6 @@ private:
         if (!module.attr("infer_controlflow_shape").is_none()) {
             inferCacheShape = true;
         }
-        // ALOG_ERROR("triple_stream_sched: ", tripleStream, " stitch_cfgcache_size: ",
-        //     stitchCfgCacheSize, " infer_cache_shape: ", inferCacheShape);
     }
 
     void BuildDefaultCache(py::object &module) {
@@ -661,9 +660,6 @@ private:
                 inputs.emplace_back(tensors[i].GetDataType(), nullptr, inputShapes[i]);
             }
             auto ctrlCache = kernel->BuildControlFlowCache(inputs, stitchCfgCacheSize);
-            auto devCache = DevCopyCtrlCache(module, ctrlCache, false);
-            kernel->InsertCtrlFlowCache(inputs, devCache);
-            free(ctrlCache);
         }
     }
 
@@ -770,22 +766,20 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
         ASSERT(kmodule->CheckArgs(tensors)) << "Invalid input tensors";
     }
 
-    // ALOG_ERROR("find ctrlflow cache");
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(module, args);
-    auto captured = AttachAicpuStream(aicoreStream, ctrlStream, schedtream, kmodule->IsTripleStream());
-    (void)captured;
-    if (ctrlFlowCache == nullptr && kmodule->IsCacheEnabled()) {
-        // TODO none reloc cache if captured
-        // ALOG_ERROR("build temp cache");
-        ctrlFlowCache = kmodule->BuildTempCache(module, tensors);
-    }
-
+    // ALOG_ERROR("alloc workspace");
     int64_t *wsAddr = nullptr;
     int64_t wsSize = kmodule->GetWorkspaceSize(tensors);
     if (wsSize) {
         auto pyalloc = py::getattr(module, "alloc");
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
     }
+
+    // ALOG_ERROR("attach aicpu stream");
+    AttachAicpuStream(aicoreStream, ctrlStream, schedtream, kmodule->IsTripleStream());
+
+    // ALOG_ERROR("find ctrlflow cache");
+    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(module, args, tensors);
+
     // ALOG_ERROR("start launch kernel");
     kmodule->Launch(ctrlStream, schedtream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
     // ALOG_ERROR("launch kernel end");
