@@ -1,12 +1,11 @@
-/*
- * Copyright (c) PyPTO Contributors.
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
- * -----------------------------------------------------------------------------------------------------------
  */
 
 /**
@@ -27,9 +26,6 @@
 #include <any>
 #include <string>
 #include <typeinfo>
-
-// #include "core/error.h"  // Temporarily commented out
-
 namespace pypto {
 
 /**
@@ -89,20 +85,7 @@ T AnyCast(const std::any& value, const std::string& context = "") {
   try {
     return std::any_cast<T>(value);
   } catch (const std::bad_any_cast& e) {
-    // Temporarily commented out - depends on core/error.h
-    // std::string expected_type = DemangleTypeName(typeid(T).name());
-    // std::string actual_type = DemangleTypeName(value.type().name());
-    // std::string error_msg = "Invalid type";
-    // if (!context.empty()) {
-    //   error_msg += " for ";
-    //   error_msg += context;
-    // }
-    // error_msg += ", expected ";
-    // error_msg += expected_type;
-    // error_msg += ", but got ";
-    // error_msg += actual_type;
-    // throw TypeError(error_msg);
-    throw;  // Re-throw std::bad_any_cast for now
+    throw;
   }
 }
 
@@ -128,20 +111,7 @@ const T& AnyCastRef(const std::any& value, const std::string& context = "") {
   try {
     return std::any_cast<const T&>(value);
   } catch (const std::bad_any_cast& e) {
-    // Temporarily commented out - depends on core/error.h
-    // std::string expected_type = DemangleTypeName(typeid(T).name());
-    // std::string actual_type = DemangleTypeName(value.type().name());
-    // std::string error_msg = "Invalid type";
-    // if (!context.empty()) {
-    //   error_msg += " for ";
-    //   error_msg += context;
-    // }
-    // error_msg += ", expected ";
-    // error_msg += expected_type;
-    // error_msg += ", but got ";
-    // error_msg += actual_type;
-    // throw TypeError(error_msg);
-    throw;  // Re-throw std::bad_any_cast for now
+    throw;
   }
 }
 

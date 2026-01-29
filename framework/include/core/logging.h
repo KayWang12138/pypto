@@ -1,12 +1,11 @@
-/*
- * Copyright (c) PyPTO Contributors.
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
- * -----------------------------------------------------------------------------------------------------------
  */
 
 /**
@@ -36,8 +35,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
-// #include "core/error.h"  // Temporarily commented out
 
 namespace pypto {
 
@@ -584,38 +581,24 @@ class CheckLogger<ExceptionType, true> {
  *
  * Usage: CHECK(condition) << "error message";
  */
-// Temporarily commented out - depends on core/error.h
-/* #define CHECK(expr) pypto::CheckLogger<pypto::ValueError>(static_cast<bool>(expr), #expr, __FILE__, __LINE__) */
 
 /**
  * @brief Check an internal invariant and throw InternalError if it fails
  *
  * Usage: INTERNAL_CHECK(condition) << "error message";
  */
-// Temporarily commented out - depends on core/error.h
-/*
-#define INTERNAL_CHECK(expr) \
-  pypto::CheckLogger<pypto::InternalError>(static_cast<bool>(expr), #expr, __FILE__, __LINE__)
-*/
 
 /**
  * @brief Mark a code path as unreachable and throw ValueError if reached
  *
  * Usage: UNREACHABLE << "optional message";
  */
-// Temporarily commented out - depends on core/error.h
-/* #define UNREACHABLE pypto::CheckLogger<pypto::ValueError, true>(false, "unreachable", __FILE__, __LINE__) */
 
 /**
  * @brief Mark a code path as internally unreachable and throw InternalError if reached
  *
  * Usage: INTERNAL_UNREACHABLE << "optional message";
  */
-// Temporarily commented out - depends on core/error.h
-/*
-#define INTERNAL_UNREACHABLE \
-  pypto::CheckLogger<pypto::InternalError, true>(false, "unreachable", __FILE__, __LINE__)
-*/
 
 }  // namespace pypto
 
