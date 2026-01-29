@@ -31,7 +31,7 @@
 #include <securec.h>
 #endif
 
-enum NodeTy { END, NORMAL, FLOAT, INT, CHAR, STRING, POINTER };
+enum NodeTy { END, NORMAL, FLOAT, INT, CHAR, STRING, POINTER};
 
 struct LogContext {
     void (*PrintInt)(LogContext *ctx, __gm__ const char **fmt, int64_t val);
