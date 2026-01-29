@@ -47,22 +47,6 @@ std::unordered_map<Opcode, int> preNodePriority = {
             // 最后访问其它计算节点（其它节点默认的优先级为10）。
         };
 
-inline bool IsMixGraph(const std::vector<Operation*> &opList) {
-    bool hasAIC = false;
-    bool hasAIV = false;
-    for (auto op : opList) {
-        if (OpcodeManager::Inst().GetCoreType(op->GetOpcode()) == OpCoreType::AIV) {
-            hasAIV = true;
-        } else if (OpcodeManager::Inst().GetCoreType(op->GetOpcode()) == OpCoreType::AIC) {
-            hasAIC = true;
-        }
-        if (hasAIV && hasAIC) {
-            return true;
-        }
-    }
-    return false;
-}
-
 class ScheduleOoOTest : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
