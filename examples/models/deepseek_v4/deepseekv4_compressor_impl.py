@@ -12,6 +12,7 @@
 
 import pypto
 import torch
+from torch._dynamo import allow_in_graph
 from compressor_decode import (
     compressor_decode_ratio_4_rotate,
     compressor_decode_ratio_4,
@@ -180,7 +181,8 @@ def check_args(
     )
 
 
-def compressor_decode(
+@allow_in_graph
+def npu_compressor_decode(
     x,
     kv_state,
     score_state,
@@ -253,3 +255,43 @@ def compressor_decode(
         compressor_decode_ratio_128(
             *pto_inputs, *pto_outputs, ratio, start_pos_dy, rope_head_dim
         )
+
+
+pyptolib = torch.library.Library("pypto", "FRAGMENT")
+pyptolib.define("compressor_decode(Tensor x, Tensor kv_state, Tensor score_state, Tensor cache_index_2d, \
+    Tensor sin, Tensor cos, Tensor wkv, Tensor wgate, Tensor ape, Tensor weight, int ratio, int start_pos, int kv_len_int, int rope_head_dim, bool rotate, Tensor hadamard) -> (Tensor, Tensor, Tensor)")
+
+
+@torch.library.impl(pyptolib, "compressor_decode", "Meta")
+def compressor_decode(x, kv_state, score_state, cache_index_2d, sin, cos, wkv, wgate, ape, weight, 
+        ratio, start_pos,  kv_len_int, rope_head_dim, rotate, hadamard):
+    bsz = x.shape[0]
+    overlap = ratio == 4
+    coff = 1 + overlap
+    d = weight.shape[0]
+    cmp_seq = max(1, (kv_len_int - start_pos) // ratio)
+    out = torch.zeros((bsz, cmp_seq, d), dtype=torch.bfloat16, device=x.device)
+    kv_state_out = torch.zeros((bsz, coff * ratio, coff * d), dtype=torch.float32, device=x.device)
+    score_state_out = torch.full((bsz, coff * ratio, coff * d), float("-inf"), dtype=torch.float32, device=x.device)
+    return out, kv_state_out, score_state_out
+
+
+@torch.library.impl(pyptolib, "compressor_decode", "NPU")
+def compressor_decode(x, kv_state, score_state, cache_index_2d, sin, cos, wkv, wgate, ape, weight, 
+        ratio, start_pos,  kv_len_int, rope_head_dim, rotate, hadamard):
+    bsz = x.shape[0]
+    overlap = ratio == 4
+    coff = 1 + overlap
+    d = weight.shape[0]
+    cmp_seq = max(1, (kv_len_int - start_pos) // ratio)
+    out = torch.zeros((bsz, cmp_seq, d), dtype=torch.bfloat16, device=x.device)
+    kv_state_out = torch.zeros((bsz, coff * ratio, coff * d), dtype=torch.float32, device=x.device)
+    score_state_out = torch.full((bsz, coff * ratio, coff * d), float("-inf"), dtype=torch.float32, device=x.device)
+    npu_compressor_decode(x, kv_state, score_state, cache_index_2d, sin, cos, wkv, wgate, ape, weight, 
+        out, kv_state_out, score_state_out, ratio, start_pos,  kv_len_int, rope_head_dim, rotate, hadamard=hadamard)
+    return out, kv_state_out, score_state_out
+
+def compressor_decode_graph(x, kv_state, score_state, cache_index_2d, sin, cos, wkv, wgate, ape, weight, 
+        ratio, start_pos,  kv_len_int, rope_head_dim, rotate, hadamard):
+    return torch.ops.pypto.compressor_decode(x, kv_state, score_state, cache_index_2d, sin, cos, wkv, wgate, ape, weight, 
+        ratio, start_pos,  kv_len_int, rope_head_dim, rotate, hadamard)
