@@ -21,12 +21,12 @@ def check_args_tnd(
             kv_cache: torch.Tensor,
             seqused_kv: torch.Tensor,
             atten_sink: torch.Tensor,
-            actual_seq_list_q: torch.Tensor,
+            cu_seqlens_q: torch.Tensor,
 ):
     print("start tnd args check...")
     
     assert q_tnd != None and block_table != None and kv_cache != None and seqused_kv != None and \
-        atten_sink != None and actual_seq_list_q != None
+        atten_sink != None and cu_seqlens_q != None
 
     assert q_tnd.dtype == torch.bfloat16 and q_tnd.ndim == 3 and q_tnd.shape[1] == 64 and q_tnd.shape[2] == 512, \
         f"q dtype is {q_tnd.dtype}, ndim is {q_tnd.ndim}, axis2 is {q_tnd.shape[1]}, axis3 is {q_tnd.shape[2]}"
@@ -44,14 +44,13 @@ def check_args_tnd(
     assert seqused_kv.dtype == torch.int and seqused_kv.ndim == 1, \
         f"seqused_kv dtype is {seqused_kv.dtype}, ndim is {seqused_kv.ndim}"
 
-    assert actual_seq_list_q.dtype == torch.int and actual_seq_list_q.ndim == 1 and \
-        actual_seq_list_q.shape[0] == seqused_kv.shape[0] + 1, \
-        f"actual_seq_list_q dtype is {actual_seq_list_q.dtype}, ndim is {actual_seq_list_q.ndim}, \
-        axis1 is {actual_seq_list_q.shape[0]}, seqused_kv axis1 is {seqused_kv.shape[0]}"
+    assert cu_seqlens_q.dtype == torch.int and cu_seqlens_q.ndim == 1 and \
+        cu_seqlens_q.shape[0] == seqused_kv.shape[0] + 1, \
+        f"cu_seqlens_q dtype is {cu_seqlens_q.dtype}, ndim is {cu_seqlens_q.ndim}, \
+        axis1 is {cu_seqlens_q.shape[0]}, seqused_kv axis1 is {seqused_kv.shape[0]}"
 
 
 @pypto.jit(
-    host_options={"only_codegen": True},
     runtime_options={"stitch_function_inner_memory": 1024,
                     "stitch_function_outcast_memory": 1024,
                     "stitch_function_num_initial": 128},
@@ -61,7 +60,7 @@ def check_args_tnd(
                 "vec_nbuffer_setting": {-1: 4}},
 )
 def win_atten_main_tnd_mask(q_tnd, block_table, kv_cache, seqused_kv_list, atten_sink, \
-    actual_seq_list_q, mask2, atten_out, win):
+    cu_seqlens_q, mask2, atten_out, win):
     pypto.experimental.set_operation_config(combine_axis=True)
     win = 128
     t = q_tnd.shape[0]
@@ -78,9 +77,9 @@ def win_atten_main_tnd_mask(q_tnd, block_table, kv_cache, seqused_kv_list, atten
 
     for b_idx in pypto.loop(b, name="LOOP_B", idx_name="B_idx"):
 
-        cur_s_q = actual_seq_list_q[b_idx + 1] - actual_seq_list_q[b_idx]
+        cur_s_q = cu_seqlens_q[b_idx + 1] - cu_seqlens_q[b_idx]
         # 每个batch的第一个t索引位置
-        t_start_idx = actual_seq_list_q[b_idx]
+        t_start_idx = cu_seqlens_q[b_idx]
         # group_size个s1分为一组
         group_size = 2
         groups_num = pypto.ceil(cur_s_q, group_size)
@@ -241,11 +240,11 @@ def deepseekv4_win_atten(q: torch.Tensor,
                         attn_sinks: torch.Tensor,
                         win_size: int,
                         mask: torch.Tensor,
-                        actual_seq_list_q: torch.Tensor,
+                        cu_seqlens_q: torch.Tensor,
 ):
     """
     """
-    check_args_tnd(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, actual_seq_list_q)
+    check_args_tnd(q, ori_block_table, ori_kv, seqused_kv, attn_sinks, cu_seqlens_q)
     atten_out = torch.zeros([q.shape[0] * q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
 
     inputs = {
@@ -254,7 +253,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
         ori_kv: [0],
         seqused_kv: [0],
         attn_sinks: [],
-        actual_seq_list_q: [],
+        cu_seqlens_q: [0],
         mask: []
     }
     outputs = {
