@@ -659,6 +659,7 @@ void TiledRound(Function &function, const TileShape &tileShape, size_t cur, Inpu
         if (decimals > maxFp32Len) {
             powDecimals = INFINITY;
         }
+        newOp.SetAttribute(OP_ATTR_PREFIX + "decimals", decimals);
         newOp.SetAttribute(OpAttributeKey::scalar, Element(DataType::DT_FP32, powDecimals));
         return;
     }
