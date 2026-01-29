@@ -1116,7 +1116,7 @@ TEST_F(TestPadLocalBuffer, axiscombineDisable3) {
     ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1,1}, MemoryType::MEM_DEVICE_DDR, "gm"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {1,1}, MemoryType::MEM_UB, "t1"), true);
-    EXPECT_EQ(graph.AddOp(Opcode::OP_COPYIN, {"gm"}, {"t1"}, "copyin", true), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"gm"}, {"t1"}, "copyin", true), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,1}, MemoryType::MEM_UB, "t2"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t1"}, {"t2"}, "expand", true), true);
     graph.GetOp("expand")->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);
