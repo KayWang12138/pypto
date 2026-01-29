@@ -155,12 +155,12 @@ void UpdateReduceStatus(Operation *op, std::unordered_map<LogicalTensorPtr, Axis
 void UpdateElewiseStatus(Operation *op, std::unordered_map<LogicalTensorPtr, AxisReorderStatus> &tensorStatus) {
     auto outputTensor = op->GetOOperands()[0];
     for (auto inputTensor : op->GetIOperands()) {
-        if (tensorStatus[inputTensor] == AxisCombineMarker::UNKNOWN && inputTensor->GetShape().back() == 1) {
+        if (tensorStatus[inputTensor] == AxisReorderStatus::UNKNOWN && inputTensor->GetShape().back() == 1) {
             tensorStatus[inputTensor] = AxisReorderStatus::ENABLE;
         }
     }
     if (outputTensor->GetShape().back() != 1) {
-        tensorStatus_[outputTensor] = AxisReorderStatus::UNKNOWN;
+        tensorStatus[outputTensor] = AxisReorderStatus::UNKNOWN;
         return;
     }
     for (auto inputTensor : op->GetIOperands()) {
