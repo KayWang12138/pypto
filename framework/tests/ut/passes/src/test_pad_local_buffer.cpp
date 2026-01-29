@@ -1156,11 +1156,21 @@ TEST_F(TestPadLocalBuffer, axiscombineTest) {
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,16}, MemoryType::MEM_UB, "t1"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {8,16}, MemoryType::MEM_UB, "t2"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_VIEW, {"t1"}, {"t2"}, "view", true), true);
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    auto *rootFuncPtr = graph.GetFunction();
+    rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine axisCombineTest;
     EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+}
+
+TEST_F(TestPadLocalBuffer, axiscombineTest1) {
+    ComputationalGraphBuilder graph;
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,1}, MemoryType::MEM_UB, "t3"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {8,1}, MemoryType::MEM_UB, "t4"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_VIEW, {"t3"}, {"t4"}, "view1", true), true);
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    auto *rootFuncPtr = graph.GetFunction();
+    rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine axisCombineTest;
     EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
 }
