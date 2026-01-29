@@ -76,6 +76,27 @@ REGISTER_CALC_OP(OP_S_MIN, Opcode::OP_S_MIN, ExecuteOpBinary<Opcode::OP_S_MIN>);
 REGISTER_CALC_OP(OP_MAXIMUM, Opcode::OP_MAXIMUM, ExecuteOpBinary<Opcode::OP_S_MAX>);
 REGISTER_CALC_OP(OP_MINIMUM, Opcode::OP_MINIMUM, ExecuteOpBinary<Opcode::OP_S_MIN>);
 
+void ExecuteOpFmod(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_TWO);
+    auto ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto lhs = ctx->ioperandDataViewList->at(0);
+    auto rhs = ctx->ioperandDataViewList->at(1);
+    calc::Fmod(ret, lhs, rhs);
+}
+REGISTER_CALC_OP(OP_MOD, Opcode::OP_MOD, ExecuteOpFmod);
+
+void ExecuteOpFmods(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    auto &lhs = ctx->ioperandDataViewList->at(0);
+    auto element = Element(DT_FP32, 0.0f);
+    ctx->op->GetAttr(OpAttributeKey::scalar, element);
+    calc::FmodS(ret, lhs, element);
+}
+REGISTER_CALC_OP(OP_MODS, Opcode::OP_MODS, ExecuteOpFmods);
+
 void ExecuteOpVecDup(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 0);
@@ -142,13 +163,17 @@ void ExecuteOpReduce(ExecuteOperationContext *ctx) {
         case Opcode::OP_ROWMAX_SINGLE: calc::RowMaxSingle(oop, iop, axis); break;
         case Opcode::OP_ROWMIN_SINGLE: calc::RowMinSingle(oop, iop, axis); break;
         case Opcode::OP_ROWSUMLINE: calc::RowSumExpand(oop, iop, axis); break;
+        case Opcode::OP_ROWMAXLINE: calc::RowMaxLine(oop, iop, axis); break;
+        case Opcode::OP_ROWMINLINE: calc::RowMinLine(oop, iop, axis); break;
         default: ASSERT(false) << "opcode not support" << ctx->op->GetOpcodeStr();
     }
 }
 REGISTER_CALC_OP(OP_ROWSUM_SINGLE, Opcode::OP_ROWSUM_SINGLE, ExecuteOpReduce<Opcode::OP_ROWSUM_SINGLE>);
 REGISTER_CALC_OP(OP_ROWSUMLINE, Opcode::OP_ROWSUMLINE, ExecuteOpReduce<Opcode::OP_ROWSUMLINE>);
 REGISTER_CALC_OP(OP_ROWMAX_SINGLE, Opcode::OP_ROWMAX_SINGLE, ExecuteOpReduce<Opcode::OP_ROWMAX_SINGLE>);
+REGISTER_CALC_OP(OP_ROWMAXLINE, Opcode::OP_ROWMAXLINE, ExecuteOpReduce<Opcode::OP_ROWMAXLINE>);
 REGISTER_CALC_OP(OP_ROWMIN_SINGLE, Opcode::OP_ROWMIN_SINGLE, ExecuteOpReduce<Opcode::OP_ROWMIN_SINGLE>);
+REGISTER_CALC_OP(OP_ROWMINLINE, Opcode::OP_ROWMINLINE, ExecuteOpReduce<Opcode::OP_ROWMINLINE>);
 
 void ExecuteOpCast(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -447,6 +472,18 @@ void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_MRGSORT, Opcode::OP_MRGSORT, ExecuteOpMrgSort);
 
+void ExecuteOpTopK(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto outValue = ctx->ooperandInplaceDataViewList->at(0);
+    auto outIndex = ctx->ooperandInplaceDataViewList->at(1);
+    auto src = ctx->ioperandDataViewList->at(0);
+    auto topk_axis = ctx->op->GetIntAttribute("op_attr_axis");
+    auto kValue = ctx->op->GetIntAttribute("op_attr_kvalue");
+    int descending = ctx->op->GetIntAttribute("op_attr_order");
+    calc::TopK(outValue, outIndex, src, kValue, topk_axis, descending);
+}
+REGISTER_CALC_OP(OP_TOPK, Opcode::OP_TOPK, ExecuteOpTopK);
+
 void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
@@ -456,6 +493,19 @@ void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
     calc::BitSort(oop, src, topk_axis, descending);
 }
 REGISTER_CALC_OP(OP_BITSORT, Opcode::OP_BITSORT, ExecuteOpBitSort);
+
+void ExecuteOpTiledMrgSort(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_FOUR);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto src1 = ctx->ioperandDataViewList->at(0);
+    auto src2 = ctx->ioperandDataViewList->at(1);
+    auto src3 = ctx->ioperandDataViewList->at(2);
+    auto src4 = ctx->ioperandDataViewList->at(3);
+    auto validBit = ctx->op->GetIntAttribute("op_attr_validBit");
+    auto kvalue = ctx->op->GetIntAttribute("op_attr_kvalue");
+    calc::TiledMrgSort(oop, src1, src2, src3, src4, validBit, kvalue);
+}
+REGISTER_CALC_OP(OP_TILEDMRGSORT, Opcode::OP_TILEDMRGSORT, ExecuteOpTiledMrgSort);
 
 void ExecuteOpTopkSort(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
