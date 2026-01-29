@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include <pybind11/pytypes.h>
 #include "pybind_common.h"
 
 #include <cstdint>
@@ -697,7 +698,7 @@ std::atomic<int64_t> KernelModule::sequence(0);
 static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensors) {
     py::object device = py::none();
     for (auto &pt : args) {
-        auto base = py::getattr(pt, "_base");
+        auto base = py::getattr(pt, "_base", py::none());
         if (py::isinstance<Tensor>(base)) {
             auto &t = base.cast<Tensor &>();
             auto data_ptr = py::cast<int64_t>(py::getattr(pt, "data_ptr"));
