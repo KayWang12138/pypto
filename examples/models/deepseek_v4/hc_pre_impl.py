@@ -90,7 +90,7 @@ def hc_split_sinkhorn_trans(comb_flag: pypto.Tensor, hc_split_sinkhorn_iters, hc
 class HCPreKernelManager:
     def __init__(self):
         self.vec_all_shape = {}
-        self.t_vec = [4096, 128, 64, 16, 4, 1]
+        self.t_vec = [4096, 256, 128, 64, 16, 4, 1]
         self.hc_fn_shape = [24, 4*4096]
         self.hc_scale_shape = [3, ]
         self.hc_base_shape = [24, ]
@@ -119,9 +119,9 @@ manager = HCPreKernelManager()
         "vec_nbuffer_mode": 1,
     },
     runtime_options={
-        "stitch_function_inner_memory": 2048,
-        "stitch_function_outcast_memory": 2048,
-        "device_sched_mode": 1,
+        "stitch_function_inner_memory": 512,
+        "stitch_function_outcast_memory": 512,
+        "device_sched_mode": 0,
         # for acl graph
         "stitch_cfgcache_size": 2500000
     },
@@ -144,7 +144,7 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
     assert d == 4096, f"d is {d}, expected 4096"
     assert hc_scale_.shape[0] == 3, f"hc_scale.shape[0] is {hc_scale_.shape[0]}, expected 3"
 
-    unroll_list = [128, 64, 16, 4, 1]
+    unroll_list = [256, 64, 16, 4, 1]
 
     for _ in pypto.loop(1):
         x_2d = pypto.reshape(x, [t, hc*d], inplace=True)
@@ -173,7 +173,7 @@ def hc_pre_kernel(x: pypto.Tensor, hc_fn: pypto.Tensor, hc_scale_: pypto.Tensor,
             pypto.set_cube_tile_shapes([16, 16], [512, 2*1024], [128, 128], \
                                         enable_multi_data_load=True, enable_split_k=True)
 
-        pypto.set_vec_tile_shapes(tile_shapes_1[0], tile_shapes_1[1])
+        pypto.set_vec_tile_shapes(tile_shapes_1[0] * 2, tile_shapes_1[1])
         hc_base = pypto.reshape(hc_base_, [1, mix_hc])
 
         x_view = pypto.view(x_2d, [tile_t, hc*d], [t_idx, 0])
