@@ -93,9 +93,6 @@ public:
     std::string GenCubeOpMatmul() const;
     std::string GenCubeOpMatmulAcc() const;
 
-    std::string GenBitwiseShiftOp() const;
-    std::string GenBitwiseShiftScalarOp() const;
-
     std::string GenCastOp() const;
 
     std::string GenDupOp() const;
