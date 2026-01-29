@@ -17,6 +17,8 @@
 
 #include "interface/operation/operation.h"
 #include "interface/tensor/logical_tensor.h"
+#include "interface/operation/opcode.h"
+#include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {
 #define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass
@@ -520,6 +522,85 @@ public:
             numel *= num;
         }
         return numel;
+    }
+};
+
+class OpChecker {
+public:
+    class BaseChecker {
+    public:
+        virtual bool check(Operation *op) const = 0;
+        virtual ~BaseChecker() = default;
+    };
+
+    class CalcTypeChecker : public BaseChecker {
+        std::vector<OpCalcType> conditions;
+    public:
+        CalcTypeChecker(std::vector<OpCalcType> calcTypes) : conditions(std::move(calcTypes)) {}
+        CalcTypeChecker(OpCalcType calcType) : conditions({calcType}) {}
+        bool check(Operation *op) const override {
+            if (conditions.empty()) return true;
+            OpCalcType currentType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
+            return std::find(conditions.begin(), conditions.end(), currentType) != conditions.end();
+        }
+    };
+
+    class CoreTypeChecker : public BaseChecker {
+        std::vector<OpCoreType> conditions;
+    public:
+        CoreTypeChecker(std::vector<OpCoreType> coreTypes) : conditions(std::move(coreTypes)) {}
+        CoreTypeChecker(OpCoreType coreType) : conditions({coreType}) {}
+        bool check(Operation *op) const override {
+            if (conditions.empty()) return true;
+            OpCoreType currentType = OpcodeManager::Inst().GetCoreType(op->GetOpcode());
+            return std::find(conditions.begin(), conditions.end(), currentType) != conditions.end();
+        }
+    };
+
+    class InputMemTypeChecker : public BaseChecker {
+        std::vector<MemoryType> conditions;
+    public:
+        InputMemTypeChecker(std::vector<MemoryType> inputMemTypes) : conditions(std::move(inputMemTypes)) {}
+        InputMemTypeChecker(MemoryType inputMemType) : conditions({inputMemType}) {}
+        // op预设的输入memoryType中存在满足预期的即返回true，否则返回false。
+        bool check(Operation *op) const override {
+            if (conditions.empty()) return true;
+            const std::vector<MemoryType> &currentType = OpcodeManager::Inst().GetInputsMemType(op->GetOpcode());
+            return std::any_of(
+                currentType.begin(), 
+                currentType.end(),
+                [this](const MemoryType &memType) {
+                    return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
+                });
+        }
+    };
+
+    class OutputMemTypeChecker : public BaseChecker {
+        std::vector<MemoryType> conditions;
+    public:
+        OutputMemTypeChecker(std::vector<MemoryType> outputMemTypes) : conditions(std::move(outputMemTypes)) {}
+        OutputMemTypeChecker(MemoryType outputMemType) : conditions({outputMemType}) {}
+        // op预设的输出memoryType中存在满足预期的即返回true，否则返回false。
+        bool check(Operation *op) const override {
+            if (conditions.empty()) return true;
+            const std::vector<MemoryType> &currentType = OpcodeManager::Inst().GetOutputsMemType(op->GetOpcode());
+            return std::any_of(
+                currentType.begin(), 
+                currentType.end(),
+                [this](const MemoryType &memType) {
+                    return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
+                });
+        }
+    };
+
+    template<typename...Checkers>
+    static bool check(Operation *op, Checkers&&... checkers) {
+        return (checkers.check(op) && ...);
+    }
+
+    template<typename...Checkers>
+    static bool check(Operation &op, Checkers&&... checkers) {
+        return check(&op, std::forward<Checkers>(checkers)...);
     }
 };
 }
