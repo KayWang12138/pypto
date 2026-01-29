@@ -167,19 +167,6 @@ public:
     [[nodiscard]] std::size_t GetNumberOfConnectedComponents() const noexcept { return componentIndices_.size(); }
 
     /**
-     * @brief Retrieves the names of all component representatives.
-     * @return Vector of names.
-     */
-    [[nodiscard]] std::vector<T> GetComponentNames() const {
-        std::vector<T> componentNames;
-        componentNames.reserve(componentIndices_.size());
-        for (auto &indx : componentIndices_) {
-            componentNames.emplace_back(universe_[indx].name_);
-        }
-        return componentNames;
-    }
-
-    /**
      * @brief Retrieves the weight of the component containing the given object.
      * @param name Name of the object.
      * @return Total weight of the component.
