@@ -31,7 +31,7 @@ import numpy as np
 import math
 import os
 from torch._subclasses.fake_tensor import FakeTensor
-from cfa_impl import *
+from impl.cfa_pypto import *
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -408,24 +408,24 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
 
     q_shape = [b * s1, nq, d]
     kv_shape = [attn_cfg.kv_num_blocks, block_size, nkv, d]
-    blk_tbl_shape = [attn_cfg.block_table_batch, max_blocks]
+    cmp_blk_tbl_shape = [attn_cfg.block_table_batch, max_blocks]
     max_actual_seq = max(seqused_kv)
     win_max_actual_seq = max(max_actual_seq, block_size + s1 - 1)
     win_max_blocks = math.ceil(win_max_actual_seq / block_size)
     kv_win_shape = [b * win_max_blocks, block_size, nkv, d]
-    blk_win_shape = blk_tbl_shape
+    ori_blk_tbl_shape = cmp_blk_tbl_shape
 
     empty_kwargs = {"dtype": torch_dtype, "device": device}
     q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1).npu()
     cmp_kv = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1).npu()
     sinks = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1).npu()
     ori_kv = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1).npu()
-    ori_block_table = gen_block_table(seqused_kv, block_size, blk_win_shape, cmp_ratio=cmp_ratio, \
+    ori_block_table = gen_block_table(seqused_kv, block_size, ori_blk_tbl_shape, cmp_ratio=cmp_ratio, \
                                         enable_win=True, s1=s1).npu()
 
     output_flash = torch.zeros(q_shape, **empty_kwargs).npu()
 
-    cmp_block_table = gen_block_table(seqused_kv, block_size, blk_tbl_shape, cmp_ratio=cmp_ratio).npu()
+    cmp_block_table = gen_block_table(seqused_kv, block_size, cmp_blk_tbl_shape, cmp_ratio=cmp_ratio).npu()
     attention_out = torch.zeros(q_shape, **empty_kwargs)
 
     ifa_golden(q, cmp_kv, sinks, cmp_block_table, seqused_kv, output_flash, enable_flash=True, cmp_ratio=cmp_ratio, \
