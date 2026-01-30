@@ -309,8 +309,6 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
     MemoryType spillMemType;
     if (!allocIssueQueue[coreType][idx][MemoryType::MEM_UB].Empty()) {
         spillMemType = MemoryType::MEM_UB;
-    } else if (!allocIssueQueue[coreType][idx][MemoryType::MEM_L1].Empty()) {
-        spillMemType = MemoryType::MEM_L1;
     } else {
         for (auto memType: allocIssueQueue[coreType][idx]) {
             if (memType.second.Empty()) {
@@ -318,7 +316,7 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
             }
             PrintSpillFailedInfo(memType.second.Front(), memType.first);
         }
-        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Possible causes: incorrect memory reuse, memory fragmentation. "
+        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L1/L0A/L0B/L0C] is Full. Possible causes: incorrect memory reuse, memory fragmentation. "
             "Please check tile shape and OOO spill failed info.");
         return FAILED;
     }
