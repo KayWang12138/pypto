@@ -123,6 +123,10 @@
                     "pre_check": false,
                     "post_check": false,
                     "use_max_freq_label": true
+                },
+                "RemoveRedundantReshape": {
+                    "pre_check": true,
+                    "post_check": true
                 }
             }
         }
