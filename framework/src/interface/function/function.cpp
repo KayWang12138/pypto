@@ -1825,6 +1825,18 @@ LogicalTensors Function::MakeIncasts(const std::shared_ptr<TensorSlotScope> &sco
     return inArgumentList;
 }
 
+inline void ReplaceProducerOOperand(Function &function, Operation *producer, std::vector<int64_t> offset,
+    std::vector<SymbolicScalar> dynOffset, LogicalTensorPtr rawSymbol) {
+    if (producer->GetOpcode() == Opcode::OP_ASSEMBLE_SSA) {
+        producer->ReplaceOOperand(0, rawSymbol);
+        producer->SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
+    } else {
+        auto &assembleOp = function.AddOperation(producer->GetOpcode(), {producer->GetIOperands()[0]}, {rawSymbol});
+        assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
+        producer->SetAsDeleted();
+    }
+}
+
 LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &scope) {
     ASSERT(IsGraphType(GraphType::TENSOR_GRAPH) || IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH))
         << "Invalid function type or graph type";
@@ -1926,14 +1938,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
                     ASSERT(producerAttr) << "mix assemble and common operation for same output \n" << producer->Dump();
                     auto [offset, dynOffset] = TensorOffset::Add(iOperand[i]->GetOffset(), iOperand[i]->GetDynOffset(),
                                                                  producerAttr->GetToOffset(), producerAttr->GetToDynOffset());
-                    if (producer->GetOpcode() == Opcode::OP_ASSEMBLE_SSA) {
-                        producer->ReplaceOOperand(0, rawSymbol);
-                        producer->SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
-                    } else {
-                        auto &assembleOp = AddOperation(producer->GetOpcode(), {producer->GetIOperands()[0]}, oOperand);
-                        assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
-                        producer->SetAsDeleted();
-                    }
+                    ReplaceProducerOOperand(*this, producer, offset, dynOffset, rawSymbol);
                 }
                 auto consumers = iOperand[i]->GetConsumers(); // deep copy
                 for (auto consumer : consumers) {
