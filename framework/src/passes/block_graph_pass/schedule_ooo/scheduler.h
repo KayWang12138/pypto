@@ -314,6 +314,7 @@ private:
 
     // gen spill
     Status GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx);
+    Status CanSpill(LocalBufferPtr allocBuffer, size_t &pcIdx);
     Status GenBufferSpill(IssueEntryPtr allocIssue);
     Status SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPtr issue, 
         std::vector<int> &spillGroup, bool isGenSpill);
