@@ -315,7 +315,7 @@ Status BufferPool::ModifyBufferRange(LocalBufferPtr localBuffer, size_t offset) 
     return SUCCESS;
 }
 
-Status BufferPool::CompactBufferSlices() {
+Status BufferPool::CompactBufferSlices(std::unordered_map<int, LocalBufferPtr> &localBufferMap) {
     if (bufferSlices.empty()) {
         return SUCCESS;
     }
@@ -338,7 +338,18 @@ Status BufferPool::CompactBufferSlices() {
 
     // 写回
     for (const auto &it : items) {
-        bufferSlices[it.first].offset = it.second.offset;
+        auto memId = static_cast<int>(it.first);
+        auto newOff = it.second.offset;
+        bufferSlices[memId].offset = newOff;
+
+        auto localBufferIt = localBufferMap.find(memId);
+        if (localBufferIt != localBufferMap.end() && localBufferIt->second) {
+            auto &localBuffer = localBufferIt->second;
+            localBuffer->start = newOff;
+            localBuffer->end = newOff + localBuffer->size;
+        } else {
+            APASS_LOG_WARN_F(Elements::Tensor, "CompactBufferSlices: missing LocalBufferPtr for memId=%d, only updated bufferSlices offset", memId);
+        }
     }
     if (CheckBufferSlicesOverlap()) {
         return FAILED;
