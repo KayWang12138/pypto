@@ -24,7 +24,6 @@
 
 #include <tracr/tracr.hpp>
 
-#include "acl/acl.h"
 #include "securec.h"
 #include "device_common.h"
 #include "tilefwk/config.h"
@@ -335,23 +334,6 @@ public:
     }
 
     inline int Run(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
-        
-        /* TraCR Instrumentation */
-        DEV_ERROR("[TraCR] TraCR active[%d,%ld]? %d", threadIdx, syscall(SYS_gettid), INSTRUMENTATION_ACTIVE);
-        if (threadIdx == 1) {
-            DEV_ERROR("[TraCR] Thread [%d] start tracr? [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
-
-            INSTRUMENTATION_START("/tmp/");
-
-            DEV_ERROR("[TraCR] Thread [%d] start tracr done. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
-        } else {
-            DEV_ERROR("[TraCR] Thread [%d] waiting start of tracr. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
-            while (INSTRUMENTATION_IS_PROC_READY() == false) {}
-
-            DEV_ERROR("[TraCR] Thread [%d] tracr thread init? [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
-            INSTRUMENTATION_THREAD_INIT();
-        }
-
         int ret = DEVICE_MACHINE_OK;
         DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
         Init(threadIdx, deviceArgs, schedIdx);
@@ -407,34 +389,6 @@ public:
             PROF_STAGE_END_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.after\n");
         }
         PostRun(ret, taskCtrl);
-
-        /* TraCR Instrumentation */
-        DEV_ERROR("[TraCR] Begin dump TraCR trace.");
-        if (threadIdx == 1) {
-
-            INSTRUMENTATION_MARK_RESET(threadIdx);
-
-            while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {}
-
-#ifdef ENABLE_TRACR
-            // This is for debugging
-            DEV_ERROR("[TraCR] JSON: %s", INSTRUMENTATION_GET_JSON_STR().c_str());
-
-            DEV_ERROR("[TraCR] BTS: %s", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
-#endif
-
-            DEV_ERROR("[TraCR] Finish dump TraCR trace.");
-
-            INSTRUMENTATION_END();
-        } else {
-#ifdef ENABLE_TRACR
-            INSTRUMENTATION_MARK_RESET(threadIdx);
-
-            // This is for debugging
-            DEV_ERROR("[TraCR] BTS: %s", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
-#endif
-            INSTRUMENTATION_THREAD_FINALIZE();
-        }
 
         return ret;
     }
@@ -867,7 +821,6 @@ private:
         context_->sendCnt_[static_cast<int>(type)]++;
 
         if (isFirstTaskSend_) {
-            INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_SEND_FIRST_CALLOP_TASK, aicpuIdx_);
             isFirstTaskSend_ = false;
         }
