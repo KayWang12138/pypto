@@ -265,6 +265,39 @@ public:
 
             DEV_IF_DEVICE {
                 if (GetCycles() - start > TIMEOUT_CYCLES) {
+                    uint64_t elapsedCycles = GetCycles() - start;
+                    uint32_t aicRunReady = (context_ != nullptr) ?
+                        context_->coreRunReadyCnt_[static_cast<int>(CoreType::AIC)] : 0;
+                    uint32_t aivRunReady = (context_ != nullptr) ?
+                        context_->coreRunReadyCnt_[static_cast<int>(CoreType::AIV)] : 0;
+                    uint32_t aicPendReady = (context_ != nullptr) ?
+                        context_->corePendReadyCnt_[static_cast<int>(CoreType::AIC)] : 0;
+                    uint32_t aivPendReady = (context_ != nullptr) ?
+                        context_->corePendReadyCnt_[static_cast<int>(CoreType::AIV)] : 0;
+                    uint32_t aicQueueSize = readyAicCoreFunctionQue_ ?
+                        (readyAicCoreFunctionQue_->tail - readyAicCoreFunctionQue_->head) : 0;
+                    uint32_t aivQueueSize = readyAivCoreFunctionQue_ ?
+                        (readyAivCoreFunctionQue_->tail - readyAivCoreFunctionQue_->head) : 0;
+                    DEV_ERROR("ProcessTaskLoop TIMEOUT: aicpuIdx=%d taskId=%lu allSentCnt=%u coreFunctionCnt=%lu "
+                              "lastSent=%u elapsedCycles=%lu TIMEOUT_CYCLES=%lu aicRunReady=%u aivRunReady=%u "
+                              "aicPendReady=%u aivPendReady=%u aicQueueSize=%u aivQueueSize=%u.",
+                              aicpuIdx_, taskCtrl->taskId, allSentCnt, curDevTask_->coreFunctionCnt, lastSent,
+                              elapsedCycles, static_cast<uint64_t>(TIMEOUT_CYCLES),
+                              aicRunReady, aivRunReady, aicPendReady, aivPendReady, aicQueueSize, aivQueueSize);
+                    for (int i = aicStart_; i < aicEnd_; i++) {
+                        if (pendingIds_[i] != AICORE_TASK_INIT || runningIds_[i] != AICORE_TASK_INIT) {
+                            DEV_ERROR("ProcessTaskLoop TIMEOUT AIC core[%d] pendingId=%u runningId=%u regFin=%lu status=%lu.",
+                                      i, pendingIds_[i], runningIds_[i],
+                                      aicoreHal_.GetFinishedTask(i), aicoreHal_.GetAicoreStatus(i));
+                        }
+                    }
+                    for (int i = aivStart_; i < aivEnd_; i++) {
+                        if (pendingIds_[i] != AICORE_TASK_INIT || runningIds_[i] != AICORE_TASK_INIT) {
+                            DEV_ERROR("ProcessTaskLoop TIMEOUT AIV core[%d] pendingId=%u runningId=%u regFin=%lu status=%lu.",
+                                      i, pendingIds_[i], runningIds_[i],
+                                      aicoreHal_.GetFinishedTask(i), aicoreHal_.GetAicoreStatus(i));
+                        }
+                    }
                     return DEVICE_MACHINE_TIMEOUT_CORETASK;
                 }
             }
