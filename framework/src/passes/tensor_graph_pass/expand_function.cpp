@@ -94,6 +94,17 @@ bool NotNeedExpand(Opcode opcode, bool needCopy) {
            opcode == Opcode::OP_NOP;
 }
 
+Status ExpandOperation(Function &function, Operation &op) {
+    if (!GraphUtils::IsCVMixPlatform() && op.GetScopeId() == 2) {
+        APASS_LOG_ERROR_F(Elements::Operation, "Found CV Mix setting on a CV Seperate platform, please check your setting: sg_set_scope");
+        return FAILED;
+    }
+    config::SetPassOption(SG_SET_SCOPE, op.GetScopeId());
+    ExpandOperationInto(function, op.GetTileShape(), op.GetOpcode(), op.GetIOperands(), op.GetOOperands(), op);
+    config::SetPassOption(SG_SET_SCOPE, -1);
+    return SUCCESS;
+}
+
 void ProcessForNotExpandOp(Function &function, Operation &op) {
     auto &newOp = function.AddOperation(op.GetOpcode(), op.GetIOperands(), op.GetOOperands());
     newOp.SetOpAttribute(op.GetOpAttribute());
@@ -174,13 +185,10 @@ Status ExpandFunction::Expandfunction(Function &function) const {
         }
         config::SetSemanticLabel(op->GetSemanticLabel());
         size_t opListPreSize = function.Operations(false).size();
-        if (!GraphUtils::IsCVMixPlatform() && op->GetScopeId() == 2) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Found CV Mix setting on a CV Seperate platform, please check your setting: sg_set_scope");
+        if (ExpandOperation(function, *op) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "ExpandOperation failed.");
             return FAILED;
         }
-        config::SetPassOption(SG_SET_SCOPE, op->GetScopeId());
-        ExpandOperationInto(function, op->GetTileShape(), op->GetOpcode(), op->GetIOperands(), op->GetOOperands(), *op);
-        config::SetPassOption(SG_SET_SCOPE, -1);
         auto opListPost = function.Operations(false);
         if (op->GetOpcode() == Opcode::OP_ADDS) {
             for (size_t i = opListPreSize; i < opListPost.size(); i++) {
