@@ -37,10 +37,10 @@ namespace osp {
  */
 template <typename T, typename IndexT, typename WorkwT>
 struct UnionFindObject {
-    const T name_;       /** Unique identifier of the object. */
-    IndexT parentIndex_; /** Index of the parent object in the union-find tree. */
-    unsigned rank_;      /** Rank of the object, used for union operation optimization. */
-    WorkwT weight_;      /** Weight associated with the object. */
+    const T name_;       ///< Unique identifier of the object.
+    IndexT parentIndex_; ///< Index of the parent object in the union-find tree.
+    unsigned rank_;      ///< Rank of the object, used for union operation optimization.
+    WorkwT weight_;      ///< Weight associated with the object.
 
     /**
      * @brief Constructs a new UnionFindObject.
@@ -73,49 +73,11 @@ private:
     std::unordered_map<T, IndexT> namesToIndices_;
     std::set<IndexT> componentIndices_;
 
-    IndexT FindOrigin(IndexT index) {
-        while (index != universe_[index].parentIndex_) {
-            universe_[index].parentIndex_ = universe_[universe_[index].parentIndex_].parentIndex_;
-            index = universe_[index].parentIndex_;
-        }
-        return index;
-    }
+    IndexT FindOrigin(IndexT index);
+    bool Join(IndexT index, IndexT otherIndex);
 
-    int Join(IndexT index, IndexT otherIndex) {
-        index = FindOrigin(index);
-        otherIndex = FindOrigin(otherIndex);
-
-        if (index == otherIndex) {
-            return 0;
-        }
-
-        if (universe_[index].rank_ >= universe_[otherIndex].rank_) {
-            universe_[otherIndex].parentIndex_ = index;
-            universe_[index].weight_ += universe_[otherIndex].weight_;
-            componentIndices_.erase(otherIndex);
-
-            if (universe_[index].rank_ == universe_[otherIndex].rank_) {
-                universe_[index].rank_++;
-            }
-        } else {
-            universe_[index].parentIndex_ = otherIndex;
-            universe_[otherIndex].weight_ += universe_[index].weight_;
-            componentIndices_.erase(index);
-        }
-        return -1;
-    }
-
-    IndexT GetIndexFromName(const T &name) const { return namesToIndices_.at(name); }
-
-    void AddObjectInternal(const T &name, WorkwT weight) {
-        if (namesToIndices_.find(name) != namesToIndices_.end()) {
-            return;
-        }
-        IndexT newIndex = static_cast<IndexT>(universe_.size());
-        universe_.emplace_back(name, newIndex, weight);
-        namesToIndices_[name] = newIndex;
-        componentIndices_.emplace(newIndex);
-    }
+    IndexT GetIndexFromName(const T &name) const;
+    void AddObjectInternal(const T &name, WorkwT weight);
 
 public:
     explicit UnionFindUniverse() = default;
@@ -126,99 +88,168 @@ public:
     UnionFindUniverse &operator=(UnionFindUniverse &&other) noexcept = default;
     ~UnionFindUniverse() = default;
 
-    /**
-     * @brief Resets the universe, clearing all objects and components.
-     */
-    void Reset() {
-        universe_.clear();
-        namesToIndices_.clear();
-        componentIndices_.clear();
-    }
+    void AddObject(const T &name, const WorkwT weight = 0);
+    void JoinByName(const T &name, const T &otherName);
 
-    /**
-     * @brief Checks if an object exists in the universe.
-     * @param name The name of the object.
-     * @return True if the object exists, false otherwise.
-     */
-    [[nodiscard]] bool IsInUniverse(const T &name) const noexcept {
-        return namesToIndices_.find(name) != namesToIndices_.end();
-    }
+    [[nodiscard]] bool IsInUniverse(const T &name) const noexcept;
+    [[nodiscard]] T FindOriginByName(const T &name);
+    
+    [[nodiscard]] std::size_t GetNumberOfConnectedComponents() const noexcept;
+    [[nodiscard]] std::vector<std::vector<T>> GetConnectedComponents();
+    
+    [[nodiscard]] WorkwT GetWeightOfComponentByName(const T &name);
 
-    /**
-     * @brief Finds the representative name of the component containing the object.
-     * @param name The name of the object.
-     * @return The name of the component's representative.
-     */
-    [[nodiscard]] T FindOriginByName(const T &name) { return universe_[FindOrigin(namesToIndices_.at(name))].name_; }
-
-    /**
-     * @brief Joins the components containing the two objects.
-     * @param name Name of the first object.
-     * @param otherName Name of the second object.
-     */
-    void JoinByName(const T &name, const T &otherName) {
-        Join(namesToIndices_.at(name), namesToIndices_.at(otherName));
-    }
-
-    /**
-     * @brief Retrieves the current number of connected components.
-     * @return Number of disjoint sets.
-     */
-    [[nodiscard]] std::size_t GetNumberOfConnectedComponents() const noexcept { return componentIndices_.size(); }
-
-    /**
-     * @brief Retrieves the weight of the component containing the given object.
-     * @param name Name of the object.
-     * @return Total weight of the component.
-     */
-    [[nodiscard]] WorkwT GetWeightOfComponentByName(const T &name) {
-        IndexT index = GetIndexFromName(name);
-        index = FindOrigin(index);
-        return universe_[index].weight_;
-    }
-
-    /**
-     * @brief Retrieves all connected components grouping member names.
-     * @return Vector of components, where each component is a vector of names.
-     */
-    [[nodiscard]] std::vector<std::vector<T>> GetConnectedComponents() {
-        std::vector<std::vector<IndexT>> connectedComponentsByIndex;
-        connectedComponentsByIndex.resize(universe_.size());
-        for (IndexT i = 0; i < static_cast<IndexT>(universe_.size()); i++) {
-            connectedComponentsByIndex[FindOrigin(i)].emplace_back(i);
-        }
-
-        std::vector<std::vector<T>> connectedComponentsByName;
-        connectedComponentsByName.reserve(componentIndices_.size());
-
-        for (auto &comp : connectedComponentsByIndex) {
-            if (comp.empty()) {
-                continue;
-            }
-            std::vector<T> namesInComp;
-            namesInComp.reserve(comp.size());
-            for (const auto &indx : comp) {
-                namesInComp.emplace_back(universe_[indx].name_);
-            }
-            connectedComponentsByName.push_back(std::move(namesInComp));
-        }
-
-        return connectedComponentsByName;
-    }
-
-    /**
-     * @brief Adds a single object to the universe.
-     * @param name Name of the object.
-     */
-    void AddObject(const T &name) { AddObjectInternal(name, 0); }
-
-    /**
-     * @brief Adds a single object with weight.
-     * @param name Name of the object.
-     * @param weight Weight of the object.
-     */
-    void AddObject(const T &name, const WorkwT weight) { AddObjectInternal(name, weight); }
+    void Reset();
 };
+
+template <typename T, typename IndexT, typename WorkwT>
+IndexT UnionFindUniverse<T, IndexT, WorkwT>::FindOrigin(IndexT index) {
+    while (index != universe_[index].parentIndex_) {
+        universe_[index].parentIndex_ = universe_[universe_[index].parentIndex_].parentIndex_;
+        index = universe_[index].parentIndex_;
+    }
+    return index;
+}
+
+template <typename T, typename IndexT, typename WorkwT>
+bool UnionFindUniverse<T, IndexT, WorkwT>::Join(IndexT index, IndexT otherIndex) {
+    index = FindOrigin(index);
+    otherIndex = FindOrigin(otherIndex);
+
+    if (index == otherIndex) {
+        return false;
+    }
+
+    if (universe_[index].rank_ >= universe_[otherIndex].rank_) {
+        universe_[otherIndex].parentIndex_ = index;
+        universe_[index].weight_ += universe_[otherIndex].weight_;
+        componentIndices_.erase(otherIndex);
+
+        if (universe_[index].rank_ == universe_[otherIndex].rank_) {
+            universe_[index].rank_++;
+        }
+    } else {
+        universe_[index].parentIndex_ = otherIndex;
+        universe_[otherIndex].weight_ += universe_[index].weight_;
+        componentIndices_.erase(index);
+    }
+    return true;
+}
+
+template <typename T, typename IndexT, typename WorkwT>
+IndexT UnionFindUniverse<T, IndexT, WorkwT>::GetIndexFromName(const T &name) const {
+    return namesToIndices_.at(name);
+}
+
+template <typename T, typename IndexT, typename WorkwT>
+void UnionFindUniverse<T, IndexT, WorkwT>::AddObjectInternal(const T &name, WorkwT weight) {
+    if (namesToIndices_.find(name) != namesToIndices_.end()) {
+        return;
+    }
+    IndexT newIndex = static_cast<IndexT>(universe_.size());
+    universe_.emplace_back(name, newIndex, weight);
+    namesToIndices_[name] = newIndex;
+    componentIndices_.emplace(newIndex);
+}
+
+/**
+ * @brief Resets the universe, clearing all objects and components.
+ */
+template <typename T, typename IndexT, typename WorkwT>
+void UnionFindUniverse<T, IndexT, WorkwT>::Reset() {
+    universe_.clear();
+    namesToIndices_.clear();
+    componentIndices_.clear();
+}
+
+/**
+ * @brief Checks if an object exists in the universe.
+ * @param name The name of the object.
+ * @return True if the object exists, false otherwise.
+ */
+template <typename T, typename IndexT, typename WorkwT>
+bool UnionFindUniverse<T, IndexT, WorkwT>::IsInUniverse(const T &name) const noexcept {
+    return namesToIndices_.find(name) != namesToIndices_.end();
+}
+
+/**
+ * @brief Finds the representative name of the component containing the object.
+ * @param name The name of the object.
+ * @return The name of the component's representative.
+ */
+template <typename T, typename IndexT, typename WorkwT>
+T UnionFindUniverse<T, IndexT, WorkwT>::FindOriginByName(const T &name) { return universe_[FindOrigin(namesToIndices_.at(name))].name_; }
+
+/**
+ * @brief Joins the components containing the two objects.
+ * @param name Name of the first object.
+ * @param otherName Name of the second object.
+ */
+template <typename T, typename IndexT, typename WorkwT>
+void UnionFindUniverse<T, IndexT, WorkwT>::JoinByName(const T &name, const T &otherName) {
+    Join(namesToIndices_.at(name), namesToIndices_.at(otherName));
+}
+
+/**
+ * @brief Retrieves the current number of connected components.
+ * @return Number of disjoint sets.
+ */
+template <typename T, typename IndexT, typename WorkwT>
+std::size_t UnionFindUniverse<T, IndexT, WorkwT>::GetNumberOfConnectedComponents() const noexcept {
+    return componentIndices_.size();
+}
+
+/**
+ * @brief Retrieves the weight of the component containing the given object.
+ * @param name Name of the object.
+ * @return Total weight of the component.
+ */
+template <typename T, typename IndexT, typename WorkwT>
+WorkwT UnionFindUniverse<T, IndexT, WorkwT>::GetWeightOfComponentByName(const T &name) {
+    IndexT index = GetIndexFromName(name);
+    index = FindOrigin(index);
+    return universe_[index].weight_;
+}
+
+/**
+ * @brief Retrieves all connected components grouping member names.
+ * @return Vector of components, where each component is a vector of names.
+ */
+template <typename T, typename IndexT, typename WorkwT>
+std::vector<std::vector<T>> UnionFindUniverse<T, IndexT, WorkwT>::GetConnectedComponents() {
+    std::vector<std::vector<IndexT>> connectedComponentsByIndex;
+    connectedComponentsByIndex.resize(universe_.size());
+    for (IndexT i = 0; i < static_cast<IndexT>(universe_.size()); i++) {
+        connectedComponentsByIndex[FindOrigin(i)].emplace_back(i);
+    }
+
+    std::vector<std::vector<T>> connectedComponentsByName;
+    connectedComponentsByName.reserve(componentIndices_.size());
+
+    for (auto &comp : connectedComponentsByIndex) {
+        if (comp.empty()) {
+            continue;
+        }
+        std::vector<T> namesInComp;
+        namesInComp.reserve(comp.size());
+        for (const auto &indx : comp) {
+            namesInComp.emplace_back(universe_[indx].name_);
+        }
+        connectedComponentsByName.push_back(std::move(namesInComp));
+    }
+
+    return connectedComponentsByName;
+}
+
+/**
+ * @brief Adds a single object with weight.
+ * @param name Name of the object.
+ * @param weight Weight of the object.
+ */
+template <typename T, typename IndexT, typename WorkwT>
+void UnionFindUniverse<T, IndexT, WorkwT>::AddObject(const T &name, const WorkwT weight) {
+    AddObjectInternal(name, weight);
+}
 
 } // namespace osp
 } // namespace npu::tile_fwk
