@@ -39,7 +39,85 @@ namespace Conv {
 
 void CheckConvOperands(DataType outType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3) {
     // todo
+     // 1、dtype校验
+    OP_CHECK(true, {
+        ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16)
+        << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.";
+    });
+
+
+    // 2、shape合法性校验
+    CheckOperandShape(operand1, operand2, operand3);
+    
+
+    
+
+
+
+
+
 }
+
+void CheckOperandShape(const Tensor &operand1, const Tensor &operand2)
+{
+    for (size_t i = 0; i < operand1.size(); ++i) {
+        OP_CHECK(true, {
+            ASSERT(operand1.GetShape()[i] <= MAX_SIZE)
+            << "The value of the " << i 
+            << "-th dimension of fmap must be in the range [1, " << MAX_SIZE
+            << "]." << std::endl});
+        }
+
+    for (size_t i = 0; i < operand2.size(); ++i) {
+        OP_CHECK(true, {
+            ASSERT(operand2.GetShape()[i] <= MAX_SIZE)
+            << "The value of the " << i 
+            << "-th dimension of weight must be in the range [1, " << MAX_SIZE
+            << "]." << std::endl});
+    }
+
+    int64_t Cout = operand1.GetShape()[0];
+    operand1.GetShape()[]
+
+    //.....
+    //output C1HWNC0
+    int64_t Ho = ConvComputeHo(hin, kH, padTop, padBottom, dilationH, strideH);
+    OP_CHECK(true, {
+            ASSERT(Ho <= MAX_SIZE)
+        << "Invalid hout value: " << Hout
+        << ", expected range[1, %lu]" << MAX_SIZE;
+    });
+
+    int64_t Wo = ConvComputeHo(win, kW, padLeft, padRight, dilationH, strideH);
+    OP_CHECK(true, {
+            ASSERT(Wo <= MAX_SIZE)
+        << "Invalid Wout value: " << Wout
+        << ", expected range[1, %lu]" << MAX_SIZE;
+    });
+
+
+
+}
+
+
+int64_t ConvComputeHo(int64_t hin, int64_t kH, int64_t padTop, int64_t padBottom, int64_t dilationH, int64_t strideH)
+{
+    if (strideH == 0) {
+        return 1;
+    }
+    int64_t cmpHo = (hin + padTop + padBottom - dilationH * (kH - 1) - 1) / strideH + 1;
+    return cmpHo;
+}
+
+int64_t ConvComputeWo(int64_t win, int64_t kW, int64_t padLeft, int64_t padRight, int64_t dilationW, int64_t strideW)
+{
+    if (strideW == 0) {
+        return 1;
+    }
+    int64_t cmpWo = (win + padLeft + padRight - dilationH * (hk - 1) - 1) / strideW + 1;
+    return cmpWo;
+}
+
 
 void SetTensorOpAttr(Operation &op, const ConvAttrParam &convAttrParam)
 {
