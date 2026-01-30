@@ -469,7 +469,7 @@ void ExecuteOpTri(ExecuteOperationContext *ctx) {
 
     auto dia = ctx->op->GetElementAttribute(OpAttributeKey::dynScalar);
     int diagonal = static_cast<int32_t>(dia.GetSignedData());
-    bool isUpper = ctx->op->GetBoolAttribute(OP_ATTR_PREFIX + "isUpper");
+    bool isUpper = ctx->op->GetBoolAttribute(OpAttributeKey::isUpper);
     isUpper ? calc::TriU(output, input, diagonal) : calc::TriL(output, input, diagonal);
 }
 REGISTER_CALC_OP(OP_TRIUL, Opcode::OP_TRIUL, ExecuteOpTri);

@@ -977,14 +977,14 @@ std::string CodeGenOpCloudNPU::PrintTriULTileTensor(const std::string &diagonal,
 
 std::string CodeGenOpCloudNPU::GenTriULOp() const {
     ASSERT(opAttrs.count(OpAttributeKey::dynScalar)) << "cannot get diagonal attr";
-    ASSERT(opAttrs.count(OP_ATTR_PREFIX + "isUpper")) << "cannot get isUpper attr";
+    ASSERT(opAttrs.count(OpAttributeKey::isUpper)) << "cannot get isUpper attr";
     auto scalarAny = opAttrs.at(OpAttributeKey::dynScalar);
     ASSERT((scalarAny.HasValue()) && (scalarAny.Type() == typeid(SymbolicScalar)))
         << npu::tile_fwk::AnyCast<SymbolicScalar>(scalarAny).IsValid() << "diagonal must have symbolic value.";
     auto scalarExpr = npu::tile_fwk::AnyCast<SymbolicScalar>(scalarAny);
     
     std::string diagonal = "(int)(" + SymbolicExpressionTable::BuildExpression(scalarExpr) + ")";
-    bool isUpper = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "isUpper"));
+    bool isUpper = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OpAttributeKey::isUpper));
 
     ASSERT(isSupportLayout) << "TriU or TriL only support TileTensor mode";
     return PrintTriULTileTensor(diagonal, isUpper);

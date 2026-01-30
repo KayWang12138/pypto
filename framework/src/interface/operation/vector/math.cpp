@@ -576,7 +576,7 @@ void InnerTiledTriUL(size_t cur, Function &function, const TileShape &tileShape,
         auto &op = function.AddOperation(Opcode::OP_TRIUL, {inputTile}, {dstTile});
         realDiagonal = realDiagonal+dstTile->GetOffset()[cur - 2]-dstTile->GetOffset()[cur - 1];
         op.SetAttribute(OpAttributeKey::dynScalar, realDiagonal);
-        op.SetAttribute(OP_ATTR_PREFIX + "isUpper", isUpper);
+        op.SetAttribute(OpAttributeKey::isUpper, isUpper);
         return;
     }
     int64_t tmpTile = vecTile[cur];
@@ -613,13 +613,13 @@ void TensorTriUL(Function &function, const TriULPara &triULPara) {
         LogicalTensorPtr dstConverted = std::make_shared<LogicalTensor>(function, DT_FP16, triULPara.dstTensor->GetShape());
         auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_TRIUL, {inputConverted}, {dstConverted});
         op.SetAttribute(OpAttributeKey::dynScalar, triULPara.diagonal);
-        op.SetAttribute(OP_ATTR_PREFIX + "isUpper", triULPara.isUpper);
+        op.SetAttribute(OpAttributeKey::isUpper, triULPara.isUpper);
         auto &castDstOp = GraphUtils::AddDynOperation(function, Opcode::OP_CAST, {dstConverted}, {triULPara.dstTensor});
         castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_TRUNC);
     } else {
         auto &op = GraphUtils::AddDynOperation(function, Opcode::OP_TRIUL, {triULPara.input}, {triULPara.dstTensor});
         op.SetAttribute(OpAttributeKey::dynScalar, triULPara.diagonal);
-        op.SetAttribute(OP_ATTR_PREFIX + "isUpper", triULPara.isUpper);
+        op.SetAttribute(OpAttributeKey::isUpper, triULPara.isUpper);
     }
 }
 
@@ -640,7 +640,7 @@ Tensor TriL(const Tensor &input, const SymbolicScalar &diagonal) {
 void TriULOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
     SymbolicScalar diagonal = op.GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
-    bool isUpper = op.GetBoolAttribute(OP_ATTR_PREFIX + "isUpper");
+    bool isUpper = op.GetBoolAttribute(OpAttributeKey::isUpper);
     TiledTriUL(function, tileShape, {iOperand[0], oOperand[0], diagonal, isUpper});
 }
 
