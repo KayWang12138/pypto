@@ -45,8 +45,6 @@ void CheckConvOperands(DataType outType, const Tensor &operand1, const Tensor &o
         << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.";
     });
 
-
-    // 2、shape合法性校验
     CheckOperandShape(operand1, operand2, operand3);
     
     CheckOutputShape(operand1, operand2, operand3, attrParam);
@@ -54,48 +52,178 @@ void CheckConvOperands(DataType outType, const Tensor &operand1, const Tensor &o
     CheckAttrShape(attrParam);
 
     CheckTileTiling(operand1, operand2, attrParam);
+    CheckL1SizeTiling(outType, operand2, attrParam);
     
 }
 
 void CheckTileTiling(const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
     auto convTile = TileShape::Current().GetConvTile();
-    int tileHin    = convTile.tileL1Info.tileHin;
-    int tileHout   = convTile.tileL1Info.tileHout;
-    int tileWin    = convTile.tileL1Info.tileWin;
-    int tileWout   = convTile.tileL1Info.tileWout;
-    int tileCin    = convTile.tileL1Info.tileCin;
-    int tileCout   = convTile.tileL1Info.tileCout;
+    int64_t tileHin    = convTile.tileL1Info.tileHin;
+    uint64_t tileWin    = convTile.tileL1Info.tileWin;
+    uint64_t tileCinFmap    = convTile.tileL1Info.tileCinFmap;
+    uint64_t tileCinWeight    = convTile.tileL1Info.tileCinWeight;
+    uint64_t tileCout   = convTile.tileL1Info.tileCout;
+    uint64_t tileBatch = convTile.tileL1Info.tileN;
 
-    int64_t hin =  operand1.GetShape()[2];
-    int64_t win =  operand1.GetShape()[3];
+    uint64_t batch =  operand1.GetShape()[0];
+    uint64_t cin =  operand1.GetShape()[1];
+    uint64_t hin =  operand1.GetShape()[2];
+    uint64_t win =  operand1.GetShape()[3];
+    OP_CHECK(true, {
+        ASSERT(tileBatch > 0 && tileBatch <= batch)
+            << "Invalid tileHin value: " << tileBatch 
+            << ", expected range [1, " << batch
+            << "]." << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(tileCinFmap > 0 && tileCinFmap <= cin)
+            << "Invalid tileHin value: " << tileCinFmap 
+            << ", expected range [1, " << cin
+            << "]." << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(tileCinWeight > 0 && tileCinWeight <= cin)
+            << "Invalid tileHin value: " << tileCinWeight 
+            << ", expected range [1, " << cin
+            << "]." << std::endl;
+    });
     OP_CHECK(true, {
         ASSERT(tileHin > 0 && tileHin <= hin)
-            << "Invalid tileHin value:: " << tileHin 
-            << ",, expected range [1, " << hin
+            << "Invalid tileHin value: " << tileHin 
+            << ", expected range [1, " << hin
             << "]." << std::endl;
     });
 
     OP_CHECK(true, {
         ASSERT(tileWin > 0 && tileWin <= win)
-            << "Invalid tileHin value:: " << tileWin 
-            << ",, expected range [1, " << win
+            << "Invalid tileHin value: " << tileWin 
+            << ", expected range [1, " << win
             << "]." << std::endl;
     });
 
-
-
-
-    
+    CheckHoWoTiling(operand1, operand2, attrParam);
 
     bool isSetL0Tile = convTile.setL0Tile;
     if (isSetL0Tile){
-        int tileM = convTile.tileL0Info.tileM;
-        int tileN = convTile.tileL0Info.tileN;
-        int tileK = convTile.tileL0Info.tileK;
+        CheckTileTiling(operand2, attrParam);
     }
+   
+}
+
+CheckL1SizeTiling(DataType outType, ){
+   uint64_t l1Size = pipeConfig.l1SizeThreshold;
+    %lu %lu
+
+    uint64_t tileHout   = convTile.tileL1Info.tileHout;
+    uint64_t tileWout   = convTile.tileL1Info.tileWout;
+
+    uint64_t mL1   = tileHout * tileWout;
+    uint64_t nL1   = convTile.tileL1Info.tileCout;
+
+    int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
+    int64_t kH =  operand2.GetShape()[2];
+    int64_t kW =  operand2.GetShape()[3];   
+    int64_t kL1 = kH * kH * tileCinWeight;
+
+    int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
+
+    uint64_t MinL1LoadSize = ConvAlignB(mL1, NUM16)* ConvAlignB(kL1, k0) * BytesOf(outType) + 
+                ConvAlignB(nL1, NUM16) * ConvAlignB(kL1, k0) * BytesOf(outType);
+
+    OP_CHECK(true, {
+        ASSERT(MinL1LoadSize <= l1Size)
+            << "MinL1LoadSize > L1size, current L1size: " << l1Size 
+            << ", maxL1Size: " << MinL1LoadSize
+            << "." << std::endl;
+    });
 
 
    
+
+
+
+}
+uint64_t ConvAlignB(uint64_t a, uint64_t b)
+{
+    if (b == 0) {
+        return 0;
+    }
+    return ((a + b - 1) / b) * b;
+}
+
+void CheckHoWoTiling(const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
+    int64_t hin =  operand1.GetShape()[2];
+    int64_t win =  operand1.GetShape()[3];
+    int64_t kH =  operand2.GetShape()[2];
+    int64_t kW =  operand2.GetShape()[3];
+    int64_t padTop =  paddings[0];
+    int64_t padBottom =  paddings[1];
+    int64_t padLeft =  paddings[2];
+    int64_t padRight =  paddings[3];
+    int64_t dilationH =  dilations[2];
+    int64_t dilationW =  dilations[3];
+    int64_t strideH =  strides[2];
+    int64_t strideH =  strides[3]; 
+
+    int64_t tileHout   = convTile.tileL1Info.tileHout;
+    int64_t tileWout   = convTile.tileL1Info.tileWout;
+
+    int64_t Ho = ConvComputeHo(hin, kH, padTop, padBottom, dilationH, strideH);
+    int64_t Wo = ConvComputeWo(win, kW, padLeft, padRight, dilationW, strideW);
+    OP_CHECK(true, {
+        ASSERT(tileHout > 0 && tileHout <= Ho)
+            << "Invalid tileHout value:: " << tileHout 
+            << ",, expected range [1, " << Ho
+            << "]." << std::endl;
+    });
+
+    OP_CHECK(true, {
+        ASSERT(tileWout > 0 && tileWout <= Wo)
+            << "Invalid tileWout value:: " << tileWout 
+            << ",, expected range [1, " << Wo
+            << "]." << std::endl;
+    });
+
+}
+
+void CheckTileTiling(const Tensor &operand2, const MatmulAttrParam &attrParam) {
+    int64_t tileM = convTile.tileL0Info.tileM;
+    int64_t tileN = convTile.tileL0Info.tileN;
+    int64_t tileK = convTile.tileL0Info.tileK;
+
+    int64_t tileHout   = convTile.tileL1Info.tileHout;
+    int64_t tileWout   = convTile.tileL1Info.tileWout;
+    OP_CHECK(true, {
+        ASSERT(tileM > 0 && tileM <= tileHout * tileWout)
+            << "Invalid tileHin value:: " << tileM 
+            << ",, expected range [1, " << tileHout * tileWout
+            << ".Current tileHout= " << tileHout
+            << ", tileWout=" << tileWout
+            << " → maximum allowed = tileHout * tileWout" << std::endl;
+    });
+
+    int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
+    int64_t kH =  operand2.GetShape()[2];
+    int64_t kW =  operand2.GetShape()[3];   
+    int64_t maxK = kH * kH * tileCinWeight;
+    OP_CHECK(true, {
+        ASSERT(tileK > 0 && tileK <= maxK)
+            << "Invalid tileHin value:: " << tileK 
+            << ",, expected range [1, " << maxK
+            << ".Current tileCinWeight= " << tileCinWeight
+            << ", kH=" << kH
+            << ", kW=" << kW
+            << " → maximum allowed = kH * kH * tileCinWeight" << std::endl;
+    });
+
+    int tileCout   = convTile.tileL1Info.tileCout;
+    OP_CHECK(true, {
+        ASSERT(tileN > 0 && tileN <= tileCout)
+            << "Invalid tileHin value:: " << tileN 
+            << ",, expected range [1, " << tileCout
+            << "]." << std::endl;
+    });
+
 }
 
 void CheckPadShape(const std::vector<int64_t> &paddings){
@@ -249,7 +377,7 @@ void CheckAttrShape(const Tensor &operand1, const Tensor &operand2, const convAt
         << "]." << std::endl
     });
 
-    int64_t Wo = ConvComputeHo(win, kW, padLeft, padRight, dilationH, strideH);
+    int64_t Wo = ConvComputeWo(win, kW, padLeft, padRight, dilationW, strideW);
     OP_CHECK(true, {
             ASSERT(Wo <= MAX_SIZE)
         << "Invalid Wout value: " << Wout
