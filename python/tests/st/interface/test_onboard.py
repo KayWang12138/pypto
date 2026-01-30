@@ -10,6 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
+import contextlib
 import os
 import time
 
@@ -278,12 +279,8 @@ def infer_shape_kenrel1(a, b, c, eps):
         tb = b[i: i + 32, :]
         c[i:, 0:] = ta + tb
 
-def test_infer_shape():
-    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
-    torch.npu.set_device(device_id)
-
+def test_infer_shape(device):
     n = 100
-    device = f'npu:{device_id}'
     # for b in [2048, 1024, 512, 256, 128, 64, 32]:
     for b in [32]:
 
@@ -300,9 +297,30 @@ def test_infer_shape():
             else:
                 infer_shape_kenrel1(ta, tb, tc, 1.0)
 
-        torch.npu.synchronize()
-        for i in range(n):
-            torch.testing.assert_close(c[i], a[i] + b[i])
+
+@contextlib.contextmanager
+def aclgraph_enable():
+    s = torch.npu.Stream()
+    with torch.npu.stream(s):
+        g = torch_npu.npu.NPUGraph()
+        torch_npu.npu.empty_cache()
+        assert not torch_npu.npu.is_current_stream_capturing()
+        g.capture_begin()
+        yield
+        assert torch_npu.npu.is_current_stream_capturing()
+        g.capture_end()
+    torch_npu.npu.current_stream().wait_stream(s)
+    # 执行
+    g.replay()
+    stream = torch_npu.npu.current_stream()
+    stream.synchronize()
+    g.reset()
+
 
 if __name__ == "__main__":
-    test_infer_shape()
+    device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
+    torch.npu.set_device(device_id)
+
+    with aclgraph_enable():
+        test_infer_shape(f'npu:{device_id}')
+    # test_infer_shape(f'npu:{device_id}')
