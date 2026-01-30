@@ -856,7 +856,7 @@ Status OoOScheduler::RearrangeBuffer(MemoryType memType, std::pair<OpCoreType, i
             return FAILED;
         }
     }
-    return bufferManagerMap[corePair.first][corePair.second][memType].CompactBufferSlices();
+    return bufferManagerMap[corePair.first][corePair.second][memType].CompactBufferSlices(localBufferMap);
 }
 
 Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
