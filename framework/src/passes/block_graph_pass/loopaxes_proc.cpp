@@ -27,9 +27,6 @@
 namespace npu {
 namespace tile_fwk {
 Status LoopaxesProc::RunOnFunction(Function &function) {
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
-        return SUCCESS;
-    }
     bool useMarkFor = config::GetPassGlobalConfig(KEY_VF_OPT_MARK_FOR, false);
     if (!useMarkFor) {
         return SUCCESS;
