@@ -55,13 +55,11 @@ bool ReplaceTensor::CheckAssembleConflict(const Operation& op) {
 用于校验index_outcast节点的输入输出是否存在冲突
 注意，若输出后接assemble节点，则不会出现冲突
 */
-bool ReplaceTensor::CheckIndexOutcastConflict(const Operation& op) {
+bool ReplaceTensor::CheckIndexOutcastConflict(const Operation& op, Function& function) {
     int index = 2;
     auto indexIn = op.GetInputOperand(index);
     auto indexOut = op.GetOOperands().front();
-    auto &inOp = *indexIn->GetProducers().begin();
-    auto &outOp = *indexOut->GetConsumers().begin();
-    if (inOp == nullptr && outOp == nullptr) {
+    if (function.IsFromInCast(indexIn) && function.IsFromOutCast(indexOut)) {
         return false;
     }
     if (indexIn->GetRawMagic() != indexOut->GetRawMagic()) {
@@ -105,24 +103,30 @@ bool ReplaceTensor::CheckAMulAccBConflict(const Operation& op) {
 Status ReplaceTensor::InplaceCheck(Function& function) {
     struct OpValidator {
         std::function<bool(const Operation&)> validate;
+        std::function<bool(const Operation&, Function&)> validateWithFunc;
         std::function<bool(size_t)> inputCountValidator;
         std::function<bool(size_t)> outputCountValidator;
     };
     
     std::unordered_map<Opcode, OpValidator> opValidators = {
         {Opcode::OP_VIEW, {[this](const Operation& op) { return this->CheckAddrConflict(op); },
+            nullptr,
             [](size_t inputCount) { return inputCount == OperandCount::VIEW_INPUT; },
             [](size_t outputCount) { return outputCount == OperandCount::VIEW_OUTPUT; }}},
         {Opcode::OP_ASSEMBLE, {[this](const Operation& op) { return this->CheckAssembleConflict(op); },
+            nullptr,
             [](size_t inputCount) { return inputCount == OperandCount::ASSEMBLE_INPUT; },
             [](size_t outputCount) { return outputCount == OperandCount::ASSEMBLE_OUTPUT; }}},
-        {Opcode::OP_INDEX_OUTCAST, {[this](const Operation& op) { return this->CheckIndexOutcastConflict(op); },
+        {Opcode::OP_INDEX_OUTCAST, {nullptr,
+            [this](const Operation& op, Function& func) { return this->CheckIndexOutcastConflict(op, func); },
             [](size_t inputCount) { return inputCount == OperandCount::INDEX_OUTCAST_INPUTS; },
             [](size_t outputCount) { return outputCount == OperandCount::INDEX_OUTCAST_OUTPUT; }}},
         {Opcode::OP_RESHAPE, {[this](const Operation& op) { return this->CheckReshapeConflict(op); },
+            nullptr,
             [](size_t inputCount) { return inputCount == OperandCount::RESHAPE_INPUT; },
             [](size_t outputCount) { return outputCount == OperandCount::RESHAPE_OUTPUT; }}},
         {Opcode::OP_A_MULACC_B, {[this](const Operation& op) { return this->CheckAMulAccBConflict(op); },
+            nullptr,
             [](size_t inputCount) { return inputCount == OperandCount::A_MULACC_B_MIN_INPUTS || inputCount == OperandCount::A_MULACC_B_MAX_INPUTS; },
             [](size_t outputCount) { return outputCount == OperandCount::A_MULACC_B_OUTPUT; }}},
     };
@@ -133,9 +137,11 @@ Status ReplaceTensor::InplaceCheck(Function& function) {
         const auto& validator = it->second;
         size_t inputCount = op.GetInputOperandSize();
         size_t outputCount = op.GetOutputOperandSize();
-        if (!validator.inputCountValidator(inputCount) || 
-            !validator.outputCountValidator(outputCount) || 
-            validator.validate(op)) {
+        bool checkFaild = !validator.inputCountValidator(inputCount) || 
+                          !validator.outputCountValidator(outputCount) || 
+                          (validator.validate && validator.validate(op)) ||
+                          (validator.validateWithFunc && validator.validateWithFunc(op, function));
+        if (checkFaild) {
             APASS_LOG_ERROR_F(Elements::Operation, "%s op[%d] invalid or conflict.", op.GetOpcodeStr().c_str(), op.GetOpMagic());
             return FAILED;
         }
