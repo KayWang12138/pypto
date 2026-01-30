@@ -26,6 +26,12 @@ using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
 
 namespace pypto {
+    
+struct FreeDeleter {
+    void operator()(void* p) const { 
+        free(p); 
+    }
+};
 
 void CopyToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
     CopyDevToHost(devTensor, hostTensor);
@@ -88,23 +94,21 @@ std::string DeviceRunOnceDataFromHost(
         ProgramData::GetInstance().AppendOutput(rawData);
     }
 
-    DevControlFlowCache* hostCache = nullptr;
+    std::unique_ptr<DevControlFlowCache, FreeDeleter> hostCache(nullptr);
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        EmulationLauncher::BuildControlFlowCache(func, inputs, outputs, &hostCache, config);
+        DevControlFlowCache* rawPtr = nullptr;
+        EmulationLauncher::BuildControlFlowCache(func, inputs, outputs, &rawPtr, config);
+        hostCache.reset(rawPtr);
     }
 
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
+    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func, hostCache.get()) != 0) {
         return "emulation run failed";
     }
 
-    if (DeviceRunOnce(func, reinterpret_cast<uint8_t*>(hostCache)) != 0) {
+    if (DeviceRunOnce(func, reinterpret_cast<uint8_t*>(hostCache.get())) != 0) {
         return "device run failed";
-    }
-
-    if (hostCache) {
-        free(hostCache);
     }
 
     for (size_t i = 0; i < outputs.size(); i++) {
@@ -234,11 +238,13 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
         uint8_t* ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
         if (ctrlCache == nullptr) {
             HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
-            DevControlFlowCache* hostCache = nullptr;
+            std::unique_ptr<DevControlFlowCache, FreeDeleter> hostCache(nullptr);
+            DevControlFlowCache* rawPtr = nullptr;
             if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(),
-                inputList, outputList, &hostCache, config) != 0) {
+                inputList, outputList, &rawPtr, config) != 0) {
                 return 0;
             }
+            hostCache.reset(rawPtr);
 
 #ifdef BUILD_WITH_CANN
             if (isCapturing) {
@@ -246,16 +252,15 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
             }
 
             if (hostCache) {
-                ctrlCache = CopyHostToDev(reinterpret_cast<uint8_t*>(hostCache),
-                    reinterpret_cast<DevControlFlowCache*>(hostCache)->allCacheSize);
-                free(hostCache);
+                ctrlCache = CopyHostToDev(reinterpret_cast<uint8_t*>(hostCache.get()),
+                    reinterpret_cast<DevControlFlowCache*>(hostCache.get())->allCacheSize);
             }
 
             if (isCapturing) {
                 ChangeCaptureModeGlobal();
             }
 #else
-            ctrlCache = reinterpret_cast<uint8_t*>(hostCache);
+            ctrlCache = reinterpret_cast<uint8_t*>(hostCache.release());
 #endif
 
             if (ctrlCache) {
