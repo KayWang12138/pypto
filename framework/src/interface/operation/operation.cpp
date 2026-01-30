@@ -168,8 +168,8 @@ Operation::Operation(
         if (coreType_ == CoreType::AIV && calcType != OpCalcType::DISTRIBUTED) {
             auto &vecTile = tileShape_.GetVecTile();
             ASSERT(vecTile.valid()) << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
-            if (iOperands.size()) {
-                auto dataType = iOperands[0]->Datatype();
+            if (iOperand.size()) {
+                auto dataType = iOperand[0]->Datatype();
                 auto lastAxis = vecTile.tile.back();
                 ASSERT((lastAxis * BytesOf(dataType)) % BLOCK_SIZE == 0) << "vec tile should be 32B align";
             }
