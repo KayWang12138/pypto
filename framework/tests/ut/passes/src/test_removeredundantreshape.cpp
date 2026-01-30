@@ -322,9 +322,5 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeUTest5) {
     RemoveRedundantReshape removeredundantpass;
     EXPECT_NE(removeredundantpass.PostCheck(*currFunctionPtr), SUCCESS);
 }
-
-/*
-view->reshape->reshape  ->exp       ->reshape   ->reshape   ->assemble
-                                                ->assemble
 }
 }
