@@ -203,7 +203,7 @@ def test_win_atten_tnd_mask(allow_in_graph) -> None:
 
         q_tnd, block_table, kv_cache, sinks, _ = gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, \
             block_size, seqused_kv_list, dtypes, device_id)
-        mask2 = get_mask(2, n_q, device_id, block_size)
+        mask2 = get_mask(4, n_q, device_id, block_size)
 
         if allow_in_graph:
             import torchair as tng

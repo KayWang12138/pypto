@@ -77,7 +77,7 @@ def win_atten_main_tnd_mask(q_tnd, block_table, kv_cache, seqused_kv_list, sinks
 
         cur_s_q = cu_seqlens_q[b_idx + 1] - cu_seqlens_q[b_idx]
         t_start_idx = cu_seqlens_q[b_idx]
-        group_size = 2
+        group_size = 4
         groups_num = pypto.ceil(cur_s_q, group_size)
 
         for g_idx in pypto.loop(groups_num, name="LOOP_G", idx_name="G_idx"):
