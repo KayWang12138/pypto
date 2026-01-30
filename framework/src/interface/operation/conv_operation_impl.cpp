@@ -52,15 +52,50 @@ void CheckConvOperands(DataType outType, const Tensor &operand1, const Tensor &o
     CheckOutputShape(operand1, operand2, operand3, attrParam);
 
     CheckAttrShape(attrParam);
+
+    CheckTileTiling(operand1, operand2, attrParam);
     
+}
+
+void CheckTileTiling(const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
+    auto convTile = TileShape::Current().GetConvTile();
+    int tileHin    = convTile.tileL1Info.tileHin;
+    int tileHout   = convTile.tileL1Info.tileHout;
+    int tileWin    = convTile.tileL1Info.tileWin;
+    int tileWout   = convTile.tileL1Info.tileWout;
+    int tileCin    = convTile.tileL1Info.tileCin;
+    int tileCout   = convTile.tileL1Info.tileCout;
+
+    int64_t hin =  operand1.GetShape()[2];
+    int64_t win =  operand1.GetShape()[3];
+    OP_CHECK(true, {
+        ASSERT(tileHin > 0 && tileHin <= hin)
+            << "Invalid tileHin value:: " << tileHin 
+            << ",, expected range [1, " << hin
+            << "]." << std::endl;
+    });
+
+    OP_CHECK(true, {
+        ASSERT(tileWin > 0 && tileWin <= win)
+            << "Invalid tileHin value:: " << tileWin 
+            << ",, expected range [1, " << win
+            << "]." << std::endl;
+    });
+
+
+
+
     
 
+    bool isSetL0Tile = convTile.setL0Tile;
+    if (isSetL0Tile){
+        int tileM = convTile.tileL0Info.tileM;
+        int tileN = convTile.tileL0Info.tileN;
+        int tileK = convTile.tileL0Info.tileK;
+    }
 
 
-
-
-
-
+   
 }
 
 void CheckPadShape(const std::vector<int64_t> &paddings){
