@@ -58,14 +58,8 @@ def apply_rotary_pos_emb(q, cos, sin):
     sin = torch.unsqueeze(sin, dim=1)  # [t, 1, rope_dim]
 
     t, n, d = q_new.shape
-    q_re = q_new.reshape(t, n, d // 2, 2).permute(0, 1, 3, 2).reshape(t, n, d)
-
-    q_rotary = (
-        rotate_half(q_re)
-        .reshape((t, n, 2, d // 2))
-        .permute(0, 1, 3, 2)
-        .reshape((t, n, d))
-    )
+    q_re = q_new.reshape(t, n, d // 2, 2)
+    q_rotary = rotate_half(q_re).reshape(t, n, d)
 
     # (t, n_q, rope_dim), (t, 1, rope_dim) = (t, n_q, rope_dim)
     q_embed = (q_new * cos) + (q_rotary * -sin)
