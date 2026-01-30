@@ -31,7 +31,7 @@ Status RemoveRedundantReshapeChecker::DoPreCheck(Function &function) {
         return FAILED;
     }
     for (const auto &op : function.Operations().DuplicatedOpList()) {
-        if (ProcessPreCheck(op)) {
+        if (ProcessPreCheck(*op)) {
             APASS_LOG_ERROR_F(Elements::Operation, "Precheck RemoveRedundantShape failed. %s", GetFormatBacktrace(*op).c_str());
             return FAILED;
         }
@@ -42,19 +42,19 @@ Status RemoveRedundantReshapeChecker::DoPreCheck(Function &function) {
 Status RemoveRedundantReshapeChecker::DoPostCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "PostCheck for RemoveRedundantShape.");
     for (const auto &op : function.Operations().DuplicatedOpList()) {
-        if (ProcessPostCheck(op)) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Postcheck RemoveRedundantShape failed. %s", GetFormatBacktrace(*op).c_str());
+        if (ProcessPostCheck(*op)) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Postcheck RemoveRedundantShape failed. %s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
     return SUCCESS;
 }
 
-Status RemoveRedundantReshapeChecker::ProcessPreCheck(const Operation *op) {
-    if (op->GetOpcode() == Opcode::OP_RESHAPE) {
-        auto in = op->iOperand.front();
+Status RemoveRedundantReshapeChecker::ProcessPreCheck(const Operation &op) {
+    if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+        auto in = op.iOperand.front();
         if (PreCheckReshape(in) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Precheck of reshape op[%d] failed. %s", op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+            APASS_LOG_ERROR_F(Elements::Operation, "Precheck of reshape op[%d] failed. %s", op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
@@ -75,12 +75,12 @@ Status RemoveRedundantReshapeChecker::PreCheckReshape(const LogicalTensorPtr &in
     return SUCCESS;
 }
 
-Status RemoveRedundantReshapeChecker::ProcessPostCheck(const Operation *op) {
-    if (op->GetOpcode() == Opcode::OP_RESHAPE) {
-        auto in = op->iOperand.front();
+Status RemoveRedundantReshapeChecker::ProcessPostCheck(const Operation &op) {
+    if (op.GetOpcode() == Opcode::OP_RESHAPE) {
+        const auto in = op.iOperand.front();
         if (PostCheckReshape(in) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "Postcheck of reshape op[%d] failed. %s", 
-            op->GetOpMagic(), GetFormatBacktrace(*op).c_str());
+            op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return FAILED;
         }
     }
@@ -88,7 +88,7 @@ Status RemoveRedundantReshapeChecker::ProcessPostCheck(const Operation *op) {
 }
 
 bool CheckForConsecutiveReshape(const Operation *childOp){
-    for (auto &consumer : childOp->GetOOperands()[0]->GetConsumers()){
+    for (const auto &consumer : childOp->GetOOperands()[0]->GetConsumers()){
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE){
             return true;
         }
@@ -98,7 +98,7 @@ bool CheckForConsecutiveReshape(const Operation *childOp){
 
 // Postcheck for reshape
 Status RemoveRedundantReshapeChecker::PostCheckReshape(const LogicalTensorPtr &in) {
-    for (auto &childOp : in->GetConsumers()) {
+    for (const auto &childOp : in->GetConsumers()) {
         if (childOp->GetOpcode() == Opcode::OP_RESHAPE) {
             if (CheckForConsecutiveReshape(childOp)) {
                 APASS_LOG_ERROR_F(Elements::Operation, "PostCheckReshape failed: Found consecutive reshape ops.");
