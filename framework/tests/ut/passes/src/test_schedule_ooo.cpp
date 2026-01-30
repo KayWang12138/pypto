@@ -1691,4 +1691,25 @@ TEST_F(ScheduleOoOTest, TestOoO1C2V) {
     EXPECT_EQ(op4->GetInternalSubgraphID(), 2);
 }
 
+TEST_F(ScheduleOoOTest, TestGenSpillL1Failed) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorNames{"t1", "t2"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1};
+
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC};
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {}, {}, {}, {},
+        {"DDR1"}, {"DDR2"}, {"t1"}, {"t3"}, {"t2", "t4"}, {"t5"}, {"t6"}, {"t7"},
+        {"t3"}, {"t8"}, {"t10"}, {}, {}, {"t11"}, {"t12"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t3"}, {"t2"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"t8"},{"t10"},
+        {"t11"}, {"t3"}, {"t2"}, {"t4"}, {"t5"}, {"t6"}, {"t7"}, {"DDR3"},
+        {"t8"}, {"t10"}, {"DDR4"}, {"t11"}, {"t12"}, {"t12"}, {"t1"}};
+    std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "L0A_Alloc1", "L0B_Alloc1", "L0C_Alloc1", "UB_Alloc1",
+    "UB_Alloc2", "UB_Alloc3", "UB_Alloc4", "COPY_IN1", "COPY_IN2", "L1_TO_L0A", "L1_TO_L0B", "A_MUL_B", "L0C_COPY_UB",
+    "ADDS1", "COPY_OUT1", "L1_COPY_UB", "ADDS2", "COPY_OUT2", "UB_Alloc5", "UB_Alloc6", "ADDS3", "UB_COPY_L1"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes_L0AB, tensorNames_L0, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+}
+
 } // namespace npu::tile_fwk
