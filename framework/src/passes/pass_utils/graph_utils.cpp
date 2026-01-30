@@ -136,5 +136,13 @@ void GraphUtils::SetAssembleAttr(Operation &op, const AssembleOp &assemble) {
     assembleOpAttribute->SetFromDynValidShape(fromValidShape);
     op.SetOpAttribute(assembleOpAttribute);
 }
+
+bool GraphUtils::IsCVMixPlatform() {
+    auto socVersion = Platform::Instance().GetSoc().GetNPUArch();
+    if (socVersion == NPUArch::DAV_3510) {
+        return true;
+    }
+    return false;
+}
 }
 }
