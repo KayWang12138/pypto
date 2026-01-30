@@ -16,6 +16,7 @@
 #include <torch/torch.h>
 #include "tilefwk/error.h"
 #include "../calc_api.h"
+#include "interpreter/calculator/fp8_convert.h"
 
 namespace npu::tile_fwk {
 
@@ -39,7 +40,7 @@ static torch::ScalarType FromDataType(DataType t) {
         case DT_BOOL: return torch::kBool;
         case DT_DOUBLE: return torch::kDouble;
         case DT_INT4:
-        case DT_FP8: return torch::kUInt8;
+        case DT_FP8:
         case DT_FP8E5M2: return torch::kUInt8;
         case DT_FP8E4M3: return torch::kUInt8;
         case DT_FP8E8M0: return torch::kUInt8;
@@ -79,24 +80,10 @@ static at::Scalar From(const Element &elem) {
     return at::Scalar();
 }
 
-static torch::Tensor Fp8ToFloat32(const torch::Tensor &self, DataType actualType) {
-    if (actualType == DT_UINT8) {
-        return self;
-    } else {
-        // TODO: implement precise FP8 conversion for all FP8 data types.
-        // Currently, treat underlying uint8 values as numerical values in float32.
-        return self.to(torch::kFloat32);
-    }
-}
-
 static void WriteIn(const torch::Tensor &src, const torch::Tensor &dst, DataType actualType) {
-    // For now, use a simple round-trip between float32 and uint8 for FP8 storage.
-    // TODO: replace with real FP8 encode logic when available.
-    if (actualType == DT_FP8 ||
-        actualType == DT_FP8E4M3 ||
-        actualType == DT_FP8E5M2 ||
-        actualType == DT_FP8E8M0) {
-        dst.copy_(src.to(torch::kUInt8));
+    if (actualType == DT_FP8 || actualType == DT_FP8E4M3 ||
+        actualType == DT_FP8E5M2 || actualType == DT_FP8E8M0) {
+        dst.copy_(Float32ToFp8(src, actualType));
     } else {
         dst.copy_(src);
     }
