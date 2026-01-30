@@ -396,10 +396,10 @@ void PadLocalBuffer::DoPadding(Function &function) {
                 continue;
             }
             visited.emplace(in);
-            if (IsMatmul(in)) {
-                PadMatmul(op, in);
-                continue;
-            }
+            // if (IsMatmul(in)) {
+            //     PadMatmul(op, in);
+            //     continue;
+            // }
             if (!IsVector(in)) {
                 continue;
             }
