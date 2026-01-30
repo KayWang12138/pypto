@@ -254,18 +254,27 @@ struct ConvIterInfo {
     int64_t wL1InOffset = 0;
     int64_t wL1OutOffset = 0;
     int64_t nL1Offset = 0;
+<<<<<<< HEAD
     int64_t hL0Offset = 0;
     int64_t wL0Offset = 0;
+=======
+    int64_t mL0Offset = 0;
+>>>>>>> 3c85a05... iter add L1
     int64_t nL0Offset = 0;
     int64_t kAL1Offset = 0;
     int64_t kBL1Offset = 0;
     int64_t kL0Offset = 0;
+<<<<<<< HEAD
     int64_t hinL1Size = 0;
     int64_t winL1Size = 0;
     int64_t houtL1Size = 0;
     int64_t woutL1Size = 0;
     int64_t kAL1Size = 0;
     int64_t kBL1Size = 0;
+=======
+    int64_t HinL1Size = 0;
+    int64_t WinL1Size = 0;
+>>>>>>> 3c85a05... iter add L1
     int64_t mL0Size = 0;
     int64_t nL1Size = 0;
     int64_t nL0Size = 0;
