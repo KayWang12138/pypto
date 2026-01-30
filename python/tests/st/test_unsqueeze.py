@@ -27,10 +27,12 @@ def test_unsqueeze_shape_dim():
     dim = 0
     with pypto.function("UNSQUEEZE_SHAPE", x):
         pypto.set_vec_tile_shapes(8, 8, 8, 8)
+        res = pypto.tensor(shape, dtype)
 
         #Test each valid dim:[-4, -3, -2, -1, 0, 1, 2, 3]
         for dim in range(-4, 4, 1):
             res = pypto.unsqueeze(x, dim)
+            res = pypto.add(res, 0)
             torch_case_tensor = torch.randn((8, 16, 16), dtype = torch.float32)
             torch_case_res = torch.unsqueeze(torch_case_tensor, dim)
             assert res.shape == list(torch_case_res.shape)
