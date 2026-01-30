@@ -169,7 +169,6 @@ void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
     devArgs.corePmuRegAddr = args_.corePmuRegAddr;
     devArgs.corePmuAddr = args_.corePmuAddr;
     devArgs.taskWastTime = args_.taskWastTime;
-    InitAiCpuSoBin(devArgs);
     HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
 }
 

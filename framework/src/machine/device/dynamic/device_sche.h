@@ -180,7 +180,7 @@ struct DynMachineManager {
         machine_.SetStachSchduleContext(schedIdx, &local_context);
         DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(kargs->cfgdata);
         DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
-        int ret = machine_.RunThread(threadIdx, devStartArgs, devArgs, schedIdx);
+        int ret = machine_.RunThread(schedIdx, devStartArgs, devArgs, schedIdx);
         if (ret != DEVICE_MACHINE_OK) {
             schRunFailed_ = true;
         }
