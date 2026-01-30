@@ -554,7 +554,7 @@ def lightning_indexer_prolog_quant(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
     pypto.set_pass_options(pg_upper_bound=configs.pg_upper_bound)
 
     pypto.set_runtime_options(device_sched_mode=1)
-
+    pypto.experimental.set_operation_options(combine_axis=True)
     lightning_indexer_prolog_quant_compute(x_in, q_norm_in, q_norm_scale_in, w_qb_in,
                                            w_qb_scale_in, wk_in, w_proj_in, ln_gamma_k_in,
                                            ln_beta_k_in, cos_idx_rope_in, sin_idx_rope_in,
