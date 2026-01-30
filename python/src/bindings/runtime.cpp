@@ -808,7 +808,7 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
 
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(module, args, tensors);
 
-    kmodule->Launch(ctrlStream, schedtream, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    kmodule->Launch(aicoreStream, ctrlStream, schedtream, tensors, ctrlFlowCache, wsAddr);
 }
 
 void BindRuntime(py::module &m) {
