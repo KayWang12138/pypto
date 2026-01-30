@@ -133,7 +133,7 @@ static torch::Tensor Float32ToFp8E4M3(const torch::Tensor &self) {
             enc = 0x7F;
         } else if (std::isinf(v)) {
             enc = (v < 0) ? 0xFE : 0x7E;
-        } else if (v == 0.0f) {
+        } else if (std::fpclassify(v) == FP_ZERO) {
             enc = (std::signbit(v) ? 0x80 : 0);
         } else {
             float absv = std::fabs(v);
@@ -178,7 +178,7 @@ static torch::Tensor Float32ToFp8E5M2(const torch::Tensor &self) {
             enc = 0x7F;
         } else if (std::isinf(v)) {
             enc = (v < 0) ? 0xFC : 0x7C;
-        } else if (v == 0.0f) {
+        } else if (std::fpclassify(v) == FP_ZERO) {
             enc = (std::signbit(v) ? 0x80 : 0);
         } else {
             float absv = std::fabs(v);
@@ -218,7 +218,7 @@ static torch::Tensor Float32ToFp8E8M0(const torch::Tensor &self) {
     for (int64_t i = 0; i < flat.numel(); ++i) {
         float v = ptr[i];
         uint8_t enc = 0;
-        if (std::isnan(v) || std::isinf(v) || v == 0.0f) {
+        if (std::isnan(v) || std::isinf(v) || std::fpclassify(v) == FP_ZERO) {
             enc = (std::signbit(v) && !std::isnan(v)) ? 0x80 : 0;
         } else {
             float absv = std::fabs(v);
