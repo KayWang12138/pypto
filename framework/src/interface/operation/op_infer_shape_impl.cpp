@@ -101,6 +101,7 @@ REGISTER_INFER_SHAPE_FUNC(OP_SUB, Opcode::OP_SUB, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_POW, Opcode::OP_POW, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_EXP, Opcode::OP_EXP, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_NEG, Opcode::OP_NEG, ElewiseInferFunc);
+REGISTER_INFER_SHAPE_FUNC(OP_ROUND, Opcode::OP_ROUND, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_RSQRT, Opcode::OP_RSQRT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_SQRT, Opcode::OP_SQRT, ElewiseInferFunc);
 REGISTER_INFER_SHAPE_FUNC(OP_CEIL, Opcode::OP_CEIL, ElewiseInferFunc);
@@ -829,7 +830,12 @@ void AssembleInferFunc(Operation* op, std::vector<std::vector<SymbolicScalar>>& 
     }
     std::vector<SymbolicScalar> outShape;
     for (size_t i = 0U; i < inputShapes.size(); i++) {
-        SymbolicScalar actualDim = std::max(outDynShape[i], (inputShapes[i] + offset[i]) * (inputShapes[i] != 0));
+        SymbolicScalar actualDim;
+        if (offset[i] == 0) {
+            actualDim = std::max(outDynShape[i], inputShapes[i]);
+        } else {
+            actualDim = std::max(outDynShape[i], (inputShapes[i] + offset[i]) * (inputShapes[i] != 0));
+        }
         outShape.push_back(actualDim);
     }
     for (auto output : op->GetOOperands()) {
