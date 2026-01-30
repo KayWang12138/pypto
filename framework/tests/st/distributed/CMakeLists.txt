@@ -54,17 +54,14 @@ endif ()
 
 # 用例可执行程序(执行)
 set(_DistributedGTestCaseFilterConfig
-        # "TestAllgather/DistributedTest.TestAllgather/0" "4"
-        # "TestAllreduce/DistributedTest.TestAllreduce/0" "4"
-        # "TestAllreduce/DistributedTest.TestAllreduce/1" "4"
-        # "TestMoeDispatch/DistributedTest.TestMoeDispatch/0" "4"
-        # "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/0" "4"
-        # "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/1" "4"
-        # "TestReducescatter/DistributedTest.TestReducescatter/0" "4"
-        # "TestReducescatter/DistributedTest.TestReducescatter/1" "4"
-        # "TestReducescatter/DistributedTest.TestReducescatter/2" "4"
-        # "TestAllgather_AttnPost_Reducescatter/DistributedTest.TestAllgather_AttnPost_Reducescatter/0" "4"
-        # "TestAllreduce_Add_Allreduce/DistributedTest.TestAllreduce_Add_Allreduce/0" "4"
+        "TestAllreduce/DistributedTest.TestAllreduce/0" "4"
+        "TestAllreduce/DistributedTest.TestAllreduce/1" "4"
+        "TestMoeDispatch/DistributedTest.TestMoeDispatch/0" "4"
+        "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/0" "4"
+        "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/1" "4"
+        "TestReducescatter/DistributedTest.TestReducescatter/2" "4"
+        "TestAllgather_AttnPost_Reducescatter/DistributedTest.TestAllgather_AttnPost_Reducescatter/0" "4"
+        "TestAllreduce_Add_Allreduce/DistributedTest.TestAllreduce_Add_Allreduce/0" "4"
 )
 set(_LdLibrariesExt
         tile_fwk_compiler
