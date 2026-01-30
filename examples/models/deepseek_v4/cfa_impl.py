@@ -35,20 +35,20 @@ from utils.get_format import get_format
 
 
 def check_args(
-        query,
-        kv_cache,
-        blk_tbl,
+        q,
+        cmp_kv,
+        cmp_block_table,
         actual_seqs,
 ):
-    assert query.dim() == 3
-    assert get_format(query) == 'ND'
-    assert query.dtype == torch.bfloat16
-    assert kv_cache.dim() == 4
-    assert get_format(kv_cache) == 'ND'
-    assert kv_cache.dtype == torch.bfloat16
-    assert blk_tbl.dim() == 2
-    assert get_format(blk_tbl) == 'ND'
-    assert blk_tbl.dtype == torch.int32
+    assert q.dim() == 3
+    assert get_format(q) == 'ND'
+    assert q.dtype == torch.bfloat16
+    assert cmp_kv.dim() == 4
+    assert get_format(cmp_kv) == 'ND'
+    assert cmp_kv.dtype == torch.bfloat16
+    assert cmp_block_table.dim() == 2
+    assert get_format(cmp_block_table) == 'ND'
+    assert cmp_block_table.dtype == torch.int32
     assert actual_seqs.dim() == 1
     assert get_format(actual_seqs) == 'ND'
     assert actual_seqs.dtype == torch.int32
@@ -56,16 +56,15 @@ def check_args(
 
 @allow_in_graph
 def attention(
-        query: torch.Tensor,
-        kv_cache: torch.Tensor,
-        attn_sink: torch.Tensor,
-        blk_tbl: torch.Tensor,
+        q: torch.Tensor,
+        cmp_kv: torch.Tensor,
+        sinks: torch.Tensor,
+        cmp_block_table: torch.Tensor,
         seqused_kv: torch.Tensor,
-        kv_win: torch.Tensor,
-        blk_win: torch.Tensor,                
-        cmp_r: int = 1,
-        is_prefill: bool = False,
-) -> None:
+        ori_kv: torch.Tensor,
+        ori_block_table: torch.Tensor,                
+        cmp_ratio: int = 128,
+) -> torch.Tensor:
     """
     Main attention function with Attention support.
 
@@ -74,59 +73,58 @@ def attention(
     batch sizes by managing KV cache in non-contiguous blocks.
 
     Args:
-        query: Query tensor with shape [num_tokens, num_head, head_size]
-        key_cache: Key cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
-        value_cache: Value cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
-        blk_tbl: Block mapping table with shape [batch_size, max_blocks]
-        start_pos: Actual sequence lengths with shape [batch_size]
-        attn_res: Output attention tensor with shape [num_tokens, num_head, head_size]
+        q: Query tensor with shape [num_tokens, num_head, head_size]
+        cmp_kv: Compressed key cache tensor with shape [num_blocks, block_size, kv_head_num, head_size]
+        sinks: The attention is applied to the tensor with shape is [n_q].
+        cmp_block_table: Compressed block mapping table with shape [b, max_blocks]
+        seqused_kv: Actual sequence lengths with shape [batch_size]
+        ori_kv: Uncompressed key cache tensor with shape [block_num, ori_block_size, KV_N, D]
+        ori_block_table: Uncompressed block mapping table with shape [b, num_head, head_size]
+        cmp_ratio: Compression ratio of ori_kv. The data type can be `int`, and the value range is 4/128
 
     Note:
         This function is decorated with @allow_in_graph to enable integration
         with PyTorch's compilation graph.
     """
-    if isinstance(query, FakeTensor):
+    if isinstance(q, FakeTensor):
         return
     check_args(
-        query,
-        kv_cache,
-        blk_tbl,
+        q,
+        cmp_kv,
+        cmp_block_table,
         seqused_kv,
     )
-    attn_res = torch.zeros_like(query).npu()
+    attention_out = torch.zeros_like(q).npu()
     unroll_list = [2, 1]
     pg_upper_bound = 3072
     inputs = {
-        query: [0],
-        kv_cache: [0],
-        attn_sink: None,
-        blk_tbl: [0],
+        q: [0],
+        cmp_kv: [0],
+        sinks: None,
+        cmp_block_table: [0],
         seqused_kv: [0],
-        kv_win: [0],
-        blk_win: [0]
+        ori_kv: [0],
+        ori_block_table: [0]
     }
     outputs = {
-        attn_res: [0],
+        attention_out: [0],
     }
-    # print(f"===============seqused_kv123===={seqused_kv}=====================")
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     if unroll_list is None:
         unroll_list = []
-    if is_prefill:
-        c128_prefill(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
-    else:
-        c128_decode(*pto_inputs, *pto_outputs, cmp_r, unroll_list, pg_upper_bound)
-    return attn_res
+
+    c128_decode(*pto_inputs, *pto_outputs, cmp_ratio, unroll_list, pg_upper_bound)
+    return attention_out
 
 
-def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None, 
-              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
+def kernel(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv=None, ori_block_table=None, \
+              atten_out=None, cmp_ratio=128, unroll_list=[], pg_upper_bound=3072):
     pypto.set_pass_options(pg_upper_bound=pg_upper_bound)
-    enable_c128 = kv_win is not None and blk_win is not None
+    enable_c128 = ori_kv is not None and ori_block_table is not None
     shape_q = q.shape
-    shape_k = kv.shape
-    shape_k_win = kv_win.shape
+    shape_k = cmp_kv.shape
+    shape_k_win = ori_kv.shape
     bs_scalar = shape_q[0]
     nq = shape_q[1]
     block_num_scalar = shape_k[0]
@@ -160,15 +158,15 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
     q_2d_shape = (b_scalar * s1_scalar * nq, dn)
     attn_sink_2d_shape = (nq, 1)
 
-    kv_2d = pypto.reshape(kv, kv_2d_shape, inplace=True)
+    kv_2d = pypto.reshape(cmp_kv, kv_2d_shape, inplace=True)
     q_2d = pypto.reshape(q, q_2d_shape, inplace=True)
     if enable_c128:
-        kv_win_2d = pypto.reshape(kv_win, kv_win_2d_shape, inplace=True)
+        kv_win_2d = pypto.reshape(ori_kv, kv_win_2d_shape, inplace=True)
         win = 128
-    attn_sink_2d = pypto.reshape(attn_sink, attn_sink_2d_shape, inplace=True)
+    attn_sink_2d = pypto.reshape(sinks, attn_sink_2d_shape, inplace=True)
     for b_idx in pypto.loop(b_scalar, name="LOOP_b", idx_name="b_idx"):
         for s1_idx in pypto.loop(s1_scalar, name="LOOP_s1", idx_name="s1_idx"):
-            cur_seq = (seqused_kv[b_idx] - ((s1_scalar - 1) - s1_idx)) // cmp_r
+            cur_seq = (seqused_kv[b_idx] - ((s1_scalar - 1) - s1_idx)) // cmp_ratio
             s2_loop = (cur_seq + s2_tile - 1) // s2_tile
             for g_idx in pypto.loop(g_loop, name="LOOP_g", idx_name="g_idx"):
                 oi_update = pypto.tensor([g_tile, dn], pypto.DT_FP32, "oi_update")
@@ -187,10 +185,10 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
                     start_block = valid_start_pos // block_size
                     end_block = valid_end_pos // block_size
 
-                    start_block_id = blk_win[b_idx, start_block].max(0)
+                    start_block_id = ori_block_table[b_idx, start_block].max(0)
                     kv_block_0 = pypto.view(kv_win_2d, [block_size, dn], [start_block_id * block_size, 0], \
                                             valid_shape=[valid_win_len, dn])
-                    end_block_id = blk_win[b_idx, end_block].max(0)
+                    end_block_id = ori_block_table[b_idx, end_block].max(0)
                     kv_block_1 = pypto.view(kv_win_2d, [block_size, dn], [end_block_id * block_size, 0], \
                                             valid_shape=[valid_win_len, dn])
 
@@ -245,7 +243,7 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
 
                     kj_assemble = pypto.tensor([s2_tile, dn], kv_2d.dtype, "kj_assemble")
                     for i in range(block_num):
-                        block_idx = block_table[b_idx, idx + i]
+                        block_idx = cmp_block_table[b_idx, idx + i]
                         block_idx_valid = block_idx.max(0)
                         kj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
                             pypto.view(kv_2d, [block_size, dn], [block_idx_valid * block_size, 0])
@@ -273,7 +271,7 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
                         # c2
                         vj_assemble = pypto.tensor([s2_tile, dn], kv_2d.dtype, "vj_assemble")
                         for i in range(block_num):
-                            block_idx = block_table[b_idx, idx + i]
+                            block_idx = cmp_block_table[b_idx, idx + i]
                             block_idx_valid = block_idx.max(0)
                             vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
                                 pypto.view(kv_2d, [block_size, dn], [block_idx_valid * block_size, 0])
@@ -285,7 +283,6 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
                         pypto.set_vec_tile_shapes(v2_tile[0], v2_tile[1])
                         oi_update[:] = oi_tmp
                     else:
-                        # pypto.set_pass_options(sg_set_scope=1)
                         sij_scale = pypto.mul(sij, softmax_scale)
                         tilda_mij = pypto.amax(sij_scale, dim=-1, keepdim=True)
                         max_new = pypto.maximum(max_update, tilda_mij)
@@ -293,19 +290,15 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
                         tilda_pij = pypto.exp(tsub)
                         tilda_pij_fp16 = pypto.cast(tilda_pij, dtype)
                         sum_local = pypto.sum(tilda_pij, dim=-1, keepdim=True)
-                        # pypto.set_pass_options(sg_set_scope=-1)
-
-                        # pypto.set_pass_options(sg_set_scope=2)
                         tsub2 = pypto.sub(max_update, max_new)
                         max_update[:] = max_new
                         update_mul = pypto.exp(tsub2)
                         sum_update[:] = sum_update * update_mul + sum_local
-                        # pypto.set_pass_options(sg_set_scope=-1)
 
                         # c2
                         vj_assemble = pypto.tensor([s2_tile, dn], kv_2d.dtype, "vj_assemble")
                         for i in range(block_num):
-                            block_idx = block_table[b_idx, idx + i]
+                            block_idx = cmp_block_table[b_idx, idx + i]
                             block_idx_valid = block_idx.max(0)
                             vj_assemble[i * block_size:(i + 1) * block_size, 0:] = \
                                 pypto.view(kv_2d, [block_size, dn], [block_idx_valid * block_size, 0])
@@ -340,22 +333,7 @@ def kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None,
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={"cube_l1_reuse_setting": {0: 4, 2:4}}
 )
-def c128_decode(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None, 
-              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
-    kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=kv_win, blk_win=blk_win, 
-              atten_out = atten_out, cmp_r=cmp_r, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound)
-
-
-@pypto.jit(
-    runtime_options={"stitch_function_num_initial": 128,
-                     "stitch_function_outcast_memory": 2048,
-                     "stitch_function_inner_memory": 2048,
-                     "device_sched_mode": 1},
-    
-    # 当子图大小达到上界不允许与其他子图合并
-    pass_options={"cube_l1_reuse_setting": {0: 4, 2:4}}
-)
-def c128_prefill(q, kv, attn_sink, block_table, seqused_kv, kv_win=None, blk_win=None, 
-              atten_out = None, cmp_r=1, unroll_list=[], pg_upper_bound=3072):
-    kernel(q, kv, attn_sink, block_table, seqused_kv, kv_win=kv_win, blk_win=blk_win, 
-              atten_out = atten_out, cmp_r=cmp_r, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound)
+def c128_decode(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv=None, ori_block_table=None, \
+              atten_out=None, cmp_ratio=128, unroll_list=[], pg_upper_bound=3072):
+    kernel(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv=ori_kv, ori_block_table=ori_block_table, 
+              atten_out=atten_out, cmp_ratio=cmp_ratio, unroll_list=unroll_list, pg_upper_bound=pg_upper_bound)
