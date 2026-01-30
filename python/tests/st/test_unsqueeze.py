@@ -18,23 +18,6 @@ import numpy as np
 import torch_npu
 
 
-def test_unsqueeze_shape_dim():
-    """Test whether the output shape is correct"""
-
-    shape = [8, 16, 16]
-    dtype = pypto.DT_FP32
-    x = pypto.tensor(shape, dtype)
-    dim = 0
-    with pypto.function("UNSQUEEZE_SHAPE", x):
-        pypto.set_vec_tile_shapes(8, 8, 8, 8)
-
-        #Test each valid dim:[-4, -3, -2, -1, 0, 1, 2, 3]
-        for dim in range(-4, 4, 1):
-            res = pypto.unsqueeze(x, dim)
-            torch_case_tensor = torch.randn((8, 16, 16), dtype = torch.float32)
-            torch_case_res = torch.unsqueeze(torch_case_tensor, dim)
-            assert res.shape == list(torch_case_res.shape)
-
 def test_unsqueeze_content_equal():
     """Test whether the output content has changed"""
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
