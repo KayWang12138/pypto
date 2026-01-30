@@ -400,7 +400,7 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
                         tileGraphNodes.weightTensorPtr =
                             ConstructWeightTile(function, tensorGraphNodes, convTileInfo, iterInfo, weightL1TensorPtr);
                         // add mmad node
-                        resCl0TensorPtr = DoMmad(function, convAttrParam, tensorGraphNodes, tileGraphNodes, iterInfo);
+                        resCl0TensorPtr = DoMmad(function, convAttrParam, tensorGraphNodes, tileGraphNodes, convTileInfo, iterInfo);
                     }
                     auto &viewOpRes = function.AddOperation(Opcode::OP_L0C_COPY_OUT_CONV, {resCl0TensorPtr}, {cTensorPtr});
                 }
