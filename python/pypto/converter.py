@@ -33,6 +33,26 @@ def _count_calls(func):
     return wrapper
 
 
+_dtype_to_size = {
+    "torch.float16": 2,
+    "torch.bfloat16": 2,
+    "torch.float32": 4,
+    "torch.float64": 8,
+    "torch.int8": 1,
+    "torch.uint8": 1,
+    "torch.int16": 2,
+    "torch.uint16": 2,
+    "torch.int32": 4,
+    "torch.uint32": 4,
+    "torch.int64": 8,
+    "torch.uint64": 8,
+    "torch.bool": 1,
+    "torch.hifloat8": 1,
+    "torch.float8_e4m3fn": 1,
+    "torch.float8_e5m2": 1,
+}
+
+
 @_count_calls
 def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
                tensor_format: Optional[TileOpFormat] = None):
@@ -87,6 +107,12 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
 
             if torch_npu.get_npu_format(tensor) == 29:
                 tensor_format = TileOpFormat.TILEOP_NZ
+
+    BLOCK_ALIGN_BYTES = 32
+    if tensor_format == TileOpFormat.TILEOP_NZ and isinstance(tensor.shape[-1], int) and \
+        tensor.shape[-1] != -1 and \
+        (tensor.shape[-1] * _dtype_to_size.get(str(tensor.dtype))) % BLOCK_ALIGN_BYTES != 0:
+        raise RuntimeError("NZ format inner axis must be aligned to 32B.")
 
     dtype = _dtype_from(tensor.dtype)
     if tensor.dim() == 0:
