@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file remove_redundant_reshape_checker.h
+ * \file remove_redundant_reshape_checker.cpp
  * \brief
  */
 
