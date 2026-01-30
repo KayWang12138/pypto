@@ -135,6 +135,16 @@ static void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::sqrt_out(tout, From(self));
 }
 
+static void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::reciprocal_out(tout, From(self));
+}
+
+static void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::bitwise_not_out(tout, From(self));
+}
+
 static void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::logical_not_out(tout, From(self));
@@ -203,6 +213,9 @@ DEFINE_BINARY_S_OPS(SubS, sub_out)
 DEFINE_BINARY_S_OPS(MulS, mul_out)
 DEFINE_BINARY_S_OPS(DivS, div_out)
 DEFINE_BINARY_S_OPS(FmodS, fmod_out)
+DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
+DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
+DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
 
 static void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tself = From(self);
@@ -347,6 +360,20 @@ static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
     } else {
         torch::fmod_out(tout, tself, tother);
     }
+}
+static void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_and_out(tout, From(self), From(other));
+}
+
+static void BitwiseOr(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_or_out(tout, From(self), From(other));
+}
+
+static void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_xor_out(tout, From(self), From(other));
 }
 
 static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
@@ -1398,6 +1425,8 @@ static struct CalcOps calcOps = {
     .Ceil = Ceil,
     .Floor = Floor,
     .Trunc = Trunc,
+    .Reciprocal = Reciprocal,
+    .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
     .WhereTT = WhereTT,
@@ -1415,11 +1444,17 @@ static struct CalcOps calcOps = {
     .MulS = MulS,
     .DivS = DivS,
     .FmodS = FmodS,
+    .BitwiseAndS = BitwiseAndS,
+    .BitwiseOrS = BitwiseOrS,
+    .BitwiseXorS = BitwiseXorS,
     .Add = Add,
     .Sub = Sub,
     .Mul = Mul,
     .Div = Div,
     .Fmod = Fmod,
+    .BitwiseAnd = BitwiseAnd,
+    .BitwiseOr = BitwiseOr,
+    .BitwiseXor = BitwiseXor,
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,
