@@ -154,8 +154,8 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
 
     > 方法一：安装CANN pto-isa包
     > 根据实际环境下载对应的安装包，下载链接如下(如果浏览器不支持自动下载，请选择右键，"链接另存为...")：
-    > - x86：[cann-pto-isa_8.5.0_linux-x86_64.run](http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/202601/20260112/ubuntu_x86/cann-pto-isa_8.5.0_linux-x86_64.run)
-    > - aarch64：[cann-pto-isa_8.5.0_linux-aarch64.run](http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/202601/20260112/ubuntu_aarch64/cann-pto-isa_8.5.0_linux-aarch64.run)
+    > - x86：[cann-pto-isa_8.5.0_linux-x86_64.run](http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/release_version/ubuntu_x86/cann-pto-isa_linux-x86_64.run)
+    > - aarch64：[cann-pto-isa_8.5.0_linux-aarch64.run](http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/release_version/ubuntu_aarch64/cann-pto-isa_linux-aarch64.run)
     > ```
     > # 确保安装包有可执行权限
     > chmod +x cann-pto-isa_8.5.0_linux-${arch}.run
@@ -188,7 +188,7 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
     # 指定路径安装
     source ${install_path}/cann/set_env.sh
     ```
-  
+
 ## 安装PyPTO Toolkit插件（可选）
 
  如需体验计算图和泳道图的查看能力，请安装PyPTO Toolkit插件：
@@ -199,3 +199,21 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
   ![vscode_install](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/devkit/images/vscode_install.png)
 
  3. 选择已下载的.vsix插件文件，完成安装。
+
+ ## 安装MPI依赖（可选）
+
+  PyPTO的分布式用例依赖MPI：
+
+    ```bash
+    # 源码安装
+    https://www.mpich.org/static/downloads/3.2.1/
+    tar -xzf mpich-${version}.tar.gz
+    cd mpich-${version}
+    ./configure --prefix=/usr/local/mpich --disable-fortran
+    make && make install
+
+    # 设置环境变量
+    export MPI_HOME=/usr/local/mpich
+    export MPI_BIN_PATH=$MPI_HOME/bin
+    export PATH=$MPI_BIN_PATH:$PATH
+    ```

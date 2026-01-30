@@ -558,6 +558,22 @@ class Tensor:
         return pypto.sqrt(self)
 
     @source_location
+    def ceil(self) -> 'Tensor':
+        return pypto.ceil(self)
+
+    @source_location
+    def floor(self) -> 'Tensor':
+        return pypto.floor(self)
+
+    @source_location
+    def trunc(self) -> 'Tensor':
+        return pypto.trunc(self)
+        
+    @source_location
+    def reciprocal(self) -> 'Tensor':
+        return pypto.reciprocal(self)
+
+    @source_location
     def transpose(self, dim0: int, dim1: int) -> 'Tensor':
         return pypto.transpose(self, dim0, dim1)
 

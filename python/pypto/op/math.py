@@ -273,6 +273,132 @@ def fmod(input: Tensor, other: Union[Tensor, float]) -> Tensor:
 
 
 @op_wrapper
+def bitwise_and(self: Tensor, other: Union[Tensor, int]) -> Tensor:
+    """Computes the element-wise bitwise AND of `self` and `other`.
+
+    This function calculates the formula: `out = self & other`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    self : Tensor
+        The first input tensor.
+    other : Tensor or int
+        The second input tensor or an integer scalar.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise bitwise AND result.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    Examples
+    --------
+    a = pypto.tensor([0x1234, 0x5678], pypto.DT_INT16)
+    b = pypto.tensor([0x0F0F, 0xF0F0], pypto.DT_INT16)
+    out = pypto.bitwise_and(a, b)
+
+    Input a:    [5, 3]
+    Input b:    [3, 1]
+    Output out: [1, 1]
+    """
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.BitwiseAnd(self, other)
+    else:
+        if not isinstance(other, int):
+            raise TypeError(f"Scalar operand for bitwise_and must be an integer, but got {type(other)}.")
+        return pypto_impl.BitwiseAnd(self, pypto_impl.Element(self.dtype, other))
+
+
+@op_wrapper
+def bitwise_or(input1: Tensor, input2: Union[Tensor, int]) -> Tensor:
+    """Computes the element-wise bitwise OR of `input1` and `input2`.
+
+    This function calculates the formula: `out = input1 | input2`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    input1 : Tensor
+        The first input tensor.
+    input2 : Tensor or int
+        The second input tensor or an integer scalar.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise bitwise OR result.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    Examples
+    --------
+    a = pypto.tensor([5, 3], pypto.DT_INT16)
+    b = pypto.tensor([3, 1], pypto.DT_INT16)
+    out = pypto.bitwise_or(a, b)
+
+    Input a:    [5, 3]
+    Input b:    [3, 1]
+    Output out: [7, 3]
+    """
+    if isinstance(input2, pypto_impl.Tensor):
+        return pypto_impl.BitwiseOr(input1, input2)
+    else:
+        if not isinstance(input2, int):
+            raise TypeError(f"Scalar operand for bitwise_or must be an integer, but got {type(input2)}.")
+        return pypto_impl.BitwiseOr(input1, pypto_impl.Element(input1.dtype, input2))
+
+
+@op_wrapper
+def bitwise_xor(first: Tensor, second: Union[Tensor, int]) -> Tensor:
+    """Computes the element-wise bitwise XOR of `first` and `second`.
+
+    This function calculates the formula: `out = first ^ second`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    first : Tensor
+        The first input tensor.
+    second : Tensor or int
+        The second input tensor or an integer scalar.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise bitwise XOR result.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+
+    Examples
+    --------
+    a = pypto.tensor([5, 3], pypto.DT_INT16)
+    b = pypto.tensor([3, 1], pypto.DT_INT16)
+    out = pypto.bitwise_xor(a, b)
+
+    Input a:    [5, 3]   # binary: [101, 011]
+    Input b:    [3, 1]   # binary: [011, 001]
+    Output out: [6, 2]   # binary: [110, 010]
+    """
+    if isinstance(second, pypto_impl.Tensor):
+        return pypto_impl.BitwiseXor(first, second)
+    else:
+        if not isinstance(second, int):
+            raise TypeError(f"Scalar operand for bitwise_xor must be an integer, but got {type(second)}.")
+        return pypto_impl.BitwiseXor(first, pypto_impl.Element(first.dtype, second))
+
+
+@op_wrapper
 def pow(input: Tensor, other: Union[int, float]) -> Tensor:
     """Computes the element-wise power of `input` raised to `other`.
 
@@ -493,6 +619,106 @@ def rsqrt(input: Tensor) -> Tensor:
               [0.25 0.33333]]
     """
     return pypto_impl.Rsqrt(input)
+
+
+@op_wrapper
+def ceil(input: Tensor) -> Tensor:
+    """Computes the element-wise ceiling of `input` (upward rounding to the nearest integer)
+
+    This function calculates the formula: `out = ceil(input)`.
+    The ceiling of a number is the smallest integer greater than or equal to the number.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor containing numerical values to be ceiling-rounded.
+
+    Returns
+    -------
+    Tensor
+        A new tensor with the ceiling value of each element of the input tensor.
+
+    Raises
+    ------
+    TODO
+
+    See Also
+    --------
+    ceil : ceil rounding (upward to the nearest integer)
+
+    Examples
+    --------
+    x = pypto.tensor([2.1, -2.1, 5.0, 3.9], pypto.DT_FP32)
+    y = pypto.ceil(x)
+
+    Input x: [[1.2  4.7],
+              [-1.1  9.0]]
+    Output y:[[2.0  5.0],
+              [-1.0  9.0]]
+    """
+    return pypto_impl.Ceil(input)
+
+
+@op_wrapper
+def floor(input: Tensor) -> Tensor:
+    """Computes the element-wise squareroot of `input`.
+
+    This function calculates the formula: `out = √input`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise squareroot.
+
+    See Also
+    --------
+    floor : floor rounding (downward to the nearest integer)
+
+    Examples
+    --------
+    x = pypto.tensor([5], pypto.DT_FP32)
+    y = pypto.floor(x)
+
+    Input x:  [1.2 4.2 9.8 6.9 25.5]
+    Output y: [1.0 4.0 9.0 6.0  25.0]
+    """
+    return pypto_impl.Floor(input)
+
+
+@op_wrapper
+def trunc(input: Tensor) -> Tensor:
+    """Computes the element-wise squareroot of `input`.
+
+    This function calculates the formula: `out = √input`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise squareroot.
+
+    See Also
+    --------
+    trunc : trunc rounding (towards zero to the nearest integer)
+
+    Examples
+    --------
+    x = pypto.tensor([5], pypto.DT_FP32)
+    y = pypto.trunc(x)
+
+    Input x:  [1.3 4.2 9.8 16.4 25.8]
+    Output y: [1.0 4.0 10.0 16.0 26.0]
+    """
+    return pypto_impl.Trunc(input)
 
 
 @op_wrapper
@@ -764,3 +990,33 @@ def bitwise_left_shift(
         return pypto_impl.BitwiseLeftShift(input, pypto_impl.Element(input.dtype, other))
     else:
         return pypto_impl.BitwiseLeftShift(pypto_impl.Element(other.dtype, input), other)
+
+
+@op_wrapper
+def bitwise_not(self: Tensor) -> Tensor:
+    """
+    Computes the element-wise bitwise NOT of 'self'
+
+    This function calculates the formula: 'out = ~self'.
+    For each element in the self tensor, performs a bitwise NOT operation.
+
+    Parameters
+    ----------
+    self : Tensor
+        The input tensor (should be of integer type)
+
+    Returns
+    -------
+    Tensor
+        A tensor with the same shape and dtype as input
+
+    Examples
+    --------
+    a = pypto.tensor([0, 1, 2, 3, 4], pypto.DT_INT32)
+    out = pypto.bitwise_not(a)
+
+    Self a:    [0 1 2 3 4]  (in binary: [000, 001, 010, 011, 100])
+    Output out: [-1 -2 -3 -4 -5]  (in binary: [111, 110, 101, 100, 011])
+
+    """
+    return pypto_impl.BitwiseNot(self)

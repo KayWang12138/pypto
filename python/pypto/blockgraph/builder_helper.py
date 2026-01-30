@@ -120,8 +120,28 @@ class BlockBuilderHelper:
         self.builder.emit(self.ctx, op)
         return op
 
+    def reciprocal(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_RECIPROCAL, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
     def sqrt(self, a, out):
         op = self.builder.create_unary_op(ir.Opcode.OP_SQRT, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+
+    def ceil(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_CEIL, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+    
+    def floor(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_FLOOR, a, out)
+        self.builder.emit(self.ctx, op)
+        return op
+    
+    def floor(self, a, out):
+        op = self.builder.create_unary_op(ir.Opcode.OP_FLOOR, a, out)
         self.builder.emit(self.ctx, op)
         return op
 
