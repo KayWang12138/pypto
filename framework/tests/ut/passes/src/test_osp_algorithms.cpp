@@ -47,7 +47,7 @@ using VTypeType = unsigned;
 using GraphType = CompactSparseGraph<VertType, VertType, WorkType, WorkType, WorkType, VTypeType>;
 
 using VertexImpl = osp::CDagVertexImpl<VertType, WorkType, WorkType, WorkType, VTypeType>;
-using GraphAdapterType = osp::DagVectorAdapter<VertexImpl, VertType>;
+using GraphAdapterType = osp::DagVectorAdapter<VertexImpl>;
 
 class OspAlgorithmTest : public testing::Test {
 public:

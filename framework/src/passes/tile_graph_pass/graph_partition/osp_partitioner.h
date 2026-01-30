@@ -55,7 +55,7 @@ class OspPartitioner : public SuperNodeGraphBuilder {
     using WorkType = int32_t;
     using VTypeType = unsigned;
     using VertexImpl = osp::CDagVertexImpl<VertType, WorkType, WorkType, WorkType, VTypeType>;
-    using GraphType = osp::DagVectorAdapter<VertexImpl, VertType>;
+    using GraphType = osp::DagVectorAdapter<VertexImpl>;
     using ConstrGraphType = osp::ComputationalDagVectorImpl<VertexImpl>;
     using CoarseGraphType = osp::CompactSparseGraph<VertType, VertType, WorkType, WorkType, WorkType, VTypeType>;
 

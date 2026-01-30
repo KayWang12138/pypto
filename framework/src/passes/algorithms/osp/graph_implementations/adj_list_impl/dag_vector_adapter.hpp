@@ -21,7 +21,6 @@
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/cdag_vertex_impl.hpp"
 #include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/graph_implementations/integral_range.hpp"
-#include "passes/algorithms/osp/graph_implementations/adj_list_impl/vector_cast_view.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -58,10 +57,11 @@ namespace osp {
  *
  * @tparam index_t The type used for vertex indices in the adjacency lists.
  */
-template <typename VImpl, typename IndexT>
+template <typename VImpl>
 class DagVectorAdapter {
   public:
     using VertexIdx = typename VImpl::VertexIdxType;
+    using IndexT = VertexIdx;
 
     using VertexWorkWeightType = typename VImpl::WorkWeightType;
     using VertexCommWeightType = typename VImpl::CommWeightType;
@@ -135,13 +135,13 @@ class DagVectorAdapter {
      * @brief Returns a view of the parents (in-neighbors) of a vertex. Does not perform bounds checking.
      * @param v The vertex index.
      */
-    [[nodiscard]] auto Parents(const VertexIdx v) const { return VectorCastView<IndexT, VertexIdx>((*inNeigbors_)[v]); }
+    [[nodiscard]] auto Parents(const VertexIdx v) const { return (*inNeigbors_)[v]; }
 
     /**
      * @brief Returns a view of the children (out-neighbors) of a vertex. Does not perform bounds checking.
      * @param v The vertex index.
      */
-    [[nodiscard]] auto Children(const VertexIdx v) const { return VectorCastView<IndexT, VertexIdx>((*outNeigbors_)[v]); }
+    [[nodiscard]] auto Children(const VertexIdx v) const { return (*outNeigbors_)[v]; }
 
     /**
      * @brief Returns the in-degree of a vertex. Does not perform bounds checking.
@@ -192,16 +192,16 @@ class DagVectorAdapter {
     unsigned numVertexTypes_ = 0;
 };
 
-static_assert(isDirectedGraphEdgeDescV<DagVectorAdapter<CDagVertexImplUnsigned, int>>,
+static_assert(isDirectedGraphEdgeDescV<DagVectorAdapter<CDagVertexImplUnsigned>>,
               "dag_vector_adapter must satisfy the directed_graph_edge_desc concept");
 
-static_assert(hasVertexWeightsV<DagVectorAdapter<CDagVertexImplUnsigned, int>>,
+static_assert(hasVertexWeightsV<DagVectorAdapter<CDagVertexImplUnsigned>>,
               "dag_vector_adapter must satisfy the has_vertex_weights concept");
 
-static_assert(isDirectedGraphV<DagVectorAdapter<CDagVertexImplUnsigned, int>>,
+static_assert(isDirectedGraphV<DagVectorAdapter<CDagVertexImplUnsigned>>,
               "dag_vector_adapter must satisfy the directed_graph concept");
 
-static_assert(isComputationalDagTypedVerticesV<DagVectorAdapter<CDagVertexImplUnsigned, int>>,
+static_assert(isComputationalDagTypedVerticesV<DagVectorAdapter<CDagVertexImplUnsigned>>,
               "dag_vector_adapter must satisfy the is_computation_dag concept");
 
 }    // namespace osp
