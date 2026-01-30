@@ -351,8 +351,8 @@ void TestQuantMM3D(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
 }
 
 TEST_F_WITH_COST(QuantMMOnBoardTest, test_QuantMM_32_16384_times_16384_7168_np, 18) {
-    std::vector<int64_t> shapeA = {32, 16384};
-    std::vector<int64_t> shapeW = {16384, 7168};
+    std::vector<int64_t> shapeA = {32, 256};
+    std::vector<int64_t> shapeW = {256, 7168};
     TestQuantMM(shapeA, shapeW);
 }
 

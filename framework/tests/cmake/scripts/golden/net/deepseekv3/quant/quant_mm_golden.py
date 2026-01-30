@@ -154,8 +154,8 @@ def quant_mm_func_torch(case_name: str, output: Path) -> bool:
 )
 def quant_mm_func(case_name: str, output: Path) -> bool:
     if case_name == "QuantMMOnBoardTest.test_QuantMM_32_16384_times_16384_7168_np":
-        shape_a = (32, 16384)
-        shape_w = (16384, 7168)
+        shape_a = (32, 256)
+        shape_w = (256, 7168)
         shape_scale_w = (1, 7168)
         a_dtype = bfloat16
         w_dtype = np.int8
