@@ -273,8 +273,32 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
     return dstBL0TensorPtr;
 }
 
+void SetAMulBAttr(const ConvGraphNodes &tensorGraphNodes, const ConvTileInfo &convTileInfo, Operation &op)
+{
+    OP_CHECK(true,
+        {
+            ASSERT(tensorGraphNodes.fmapTensorPtr != nullptr && tensorGraphNodes.weightTensorPtr != nullptr &&
+            tensorGraphNodes.resTensorPtr != nullptr)
+            << "Expected fmapTensorPtr, weightTensorPtr, and resTensorPtr to be non-nullptr." << std::endl;
+        });
+
+    int64_t nzAttr = (static_cast<int64_t>(tensorGraphNodes.fmapTensorPtr->Format())) |
+                     (static_cast<int64_t>(tensorGraphNodes.weightTensorPtr->Format()) << 1) |
+                     (static_cast<int64_t>(tensorGraphNodes.resTensorPtr->Format()) << 2);
+    op.SetAttribute(MATMUL_NZ_ATTR, nzAttr);
+    op.SetAttribute(A_MUL_B_ACT_M, convTileInfo.mL0);
+    op.SetAttribute(A_MUL_B_ACT_K, convTileInfo.kL0);
+    op.SetAttribute(A_MUL_B_ACT_N, convTileInfo.nL0);
+
+    if (op.GetOpcode() == Opcode::OP_A_MUL_B) {
+        op.SetAttribute(A_MUL_B_BIAS_ATTR, tensorGraphNodes.biasTensorPtr != nullptr);
+        // op.SetAttribute(A_MUL_B_RELU_ATTR, static_cast<int64_t>(attrParam.reluType));
+        // op.SetAttribute(A_MUL_B_SCALE_ATTR, Element(DataType::DT_UINT64, attrParam.scaleValue));
+    }
+}
+
 LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, const ConvGraphNodes &tensorGraphNodes,
-            ConvGraphNodes &tileGraphNodes, const ConvIterInfo &iterInfo)
+                        ConvGraphNodes &tileGraphNodes, const ConvTileInfo &convTileInfo, const ConvIterInfo &iterInfo)
 {
     OP_CHECK(true, {
         ASSERT(tileGraphNodes.fmapTensorPtr != nullptr && tileGraphNodes.weightTensorPtr != nullptr &&
@@ -312,6 +336,8 @@ LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, 
         mmadOutputs = {tileGraphNodes.cL0PartialSumPtr};
     }
     auto &aMulBOp = function.AddOperation(MmadOpStr, mmadInputs, mmadOutputs);
+
+    SetAMulBAttr(tensorGraphNodes, convTileInfo, aMulBOp);
 
     return mmadOutputs[0];
 }
