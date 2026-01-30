@@ -205,6 +205,10 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord) {
     pto::TEXTRACT(l1Tile, UBTile);
 }
 
+<<<<<<< HEAD
+=======
+// 创建ScaleData
+>>>>>>> 5631b40 (feat(operation): Add l0c2l1 scenario adaptation for PTO)
 template <typename V>
 INLINE auto CreateScaleTileData(V &fixbuf) {
     constexpr int64_t shapeSize = Std::tuple_size<typename V::Shape>::value;
