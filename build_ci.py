@@ -1070,7 +1070,7 @@ class BuildCtrl(CMakeParam):
         filter_str = filter_str.replace(',', ' ')
         # cmd 拼接
         cmd = f"{sys.executable} -m pytest {filter_str} -v --durations=0 -s --capture=no"
-        cmd += f" --rootdir={self.src_root} {ext} --forked"
+        cmd += f" --rootdir={self.src_root}"
         # cmd 执行
         origin_env = os.environ.copy()
         update_env = {}
