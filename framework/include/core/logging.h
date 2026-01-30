@@ -493,11 +493,18 @@ inline std::string FormatLogMessage(const char* fmt, ...) {
   int msg_length = vsnprintf_s(buf.data(), buf.size(), buf.size() - 1, fmt, args);
   va_end(args);
 
-  if (msg_length > default_buf_size && msg_length > 0) {
+  if (msg_length < 0) {
+    return "[FormatLogMessage error]";
+  }
+
+  if (msg_length > default_buf_size) {
     buf.resize(msg_length + 1, '\0');
     va_start(args, fmt);
-    vsnprintf_s(buf.data(), buf.size(), buf.size() - 1, fmt, args);
+    int ret = vsnprintf_s(buf.data(), buf.size(), buf.size() - 1, fmt, args);
     va_end(args);
+    if (ret < 0) {
+      return "[FormatLogMessage error]";
+    }
   }
 
   return buf;
