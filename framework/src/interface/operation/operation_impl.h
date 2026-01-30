@@ -174,8 +174,8 @@ const std::vector<int64_t> CONV3D_ATTR_DEFAULT_LIST = {0, 0, 0, 0, 0, 0};
 
 struct ConvAttrParam {
     std::vector<int64_t> paddings = {0, 0, 0, 0};
-    std::vector<int64_t> strides = {0, 0, 0, 0};
-    std::vector<int64_t> dilations = {0, 0, 0, 0};
+    std::vector<int64_t> strides = {0, 0};
+    std::vector<int64_t> dilations = {0, 0};
     std::vector<int64_t> oriFmapShape = {0, 0, 0, 0};
     std::vector<int64_t> oriweightShape = {0, 0, 0, 0};
     int64_t groups = 0;
@@ -229,9 +229,16 @@ struct ConvTileInfo {
 struct ConvIterInfo {
     int64_t batchOffset = 0;
     int64_t coutOffset = 0;
-    int64_t mOffset = 0;
-    int64_t nOffset = 0;
-    int64_t kOffset = 0;
+    int64_t hL1InOffset = 0;
+    int64_t hL1OutOffset = 0;
+    int64_t wL1InOffset = 0;
+    int64_t wL1OutOffset = 0;
+    int64_t nL1Offset = 0;
+    int64_t mL0Offset = 0;
+    int64_t nL0Offset = 0;
+    int64_t kAL1Offset = 0;
+    int64_t kBL1Offset = 0;
+    int64_t kL0Offset = 0;
     int64_t HinL1Size = 0;
     int64_t WinL1Size = 0;
     int64_t mL0Size = 0;
