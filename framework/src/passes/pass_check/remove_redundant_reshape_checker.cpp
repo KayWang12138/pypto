@@ -108,6 +108,5 @@ Status RemoveRedundantReshapeChecker::PostCheckReshape(const LogicalTensorPtr &i
     }
     return SUCCESS;
 }
-
 } // namespace tile_fwk
 } // namespace npu
