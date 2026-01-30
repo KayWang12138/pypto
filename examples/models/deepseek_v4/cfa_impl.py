@@ -31,27 +31,30 @@ import math
 import os
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
-from utils.get_format import get_format
 
 
 def check_args(
         q,
         cmp_kv,
+        sinks,
         cmp_block_table,
-        actual_seqs,
+        seqused_kv,
+        ori_kv,
+        ori_block_table,
 ):
-    assert q.dim() == 3
-    assert get_format(q) == 'ND'
-    assert q.dtype == torch.bfloat16
-    assert cmp_kv.dim() == 4
-    assert get_format(cmp_kv) == 'ND'
-    assert cmp_kv.dtype == torch.bfloat16
-    assert cmp_block_table.dim() == 2
-    assert get_format(cmp_block_table) == 'ND'
-    assert cmp_block_table.dtype == torch.int32
-    assert actual_seqs.dim() == 1
-    assert get_format(actual_seqs) == 'ND'
-    assert actual_seqs.dtype == torch.int32
+    assert q.dim() == 3 and q.size(1) == 64 and q.size(2) == 512, \
+        f"q dim num is {q.dim()}, q axis1 is {q.size(1)}, q axis2 is {q.size(2)}, expected 3, 64, 512"
+    assert cmp_kv.dim() == 4 and cmp_kv.size(1) == 128 and cmp_kv.size(2) == 1  and cmp_kv.size(3) == 512, \
+        f"cmp_kv dim num is {cmp_kv.dim()}, cmp_kv axis1 {cmp_kv.size(1)}, cmp_kv axis2 {cmp_kv.size(2)}, \
+            cmp_kv axis3 {cmp_kv.size(3)}, expected 4, 128, 1, 512"
+    assert sinks.dim() == 1 and sinks.size(0) == 64, f"sinks dim num {sinks.dim()}, \
+            sinks axis0 is {sinks.size(0)}, expected 1, 64"
+    assert cmp_block_table.dim() == 2, f"cmp_block_table dim num {cmp_block_table.dim()}, expected 2"
+    assert seqused_kv.dim() == 1, f"seqused_kv dim num {seqused_kv.dim()}, expected 1"
+    assert ori_kv.dim() == 4 and ori_kv.size(1) == 128 and ori_kv.size(2) == 1 and ori_kv.size(3) == 512, \
+        f"ori_kv dim num {ori_kv.dim()}, ori_kv axis1 {ori_kv.size(1)}, ori_kv axis2 {ori_kv.size(2)}, \
+            ori_kv axis3 {ori_kv.size(3)}, expected 4, 128, 1, 512"
+    assert ori_block_table.dim() == 2, f"ori_block_table dim num {ori_block_table.dim()}, expected 2"
 
 
 @allow_in_graph
@@ -91,8 +94,11 @@ def attention(
     check_args(
         q,
         cmp_kv,
+        sinks,
         cmp_block_table,
         seqused_kv,
+        ori_kv,
+        ori_block_table,
     )
     attention_out = torch.zeros_like(q).npu()
     unroll_list = [2, 1]
