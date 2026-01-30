@@ -143,9 +143,7 @@ def mla_prolog_compute(inputs):
     w_kv = inputs.get("w_kv")
     cos = inputs.get("cos")
     sin = inputs.get("sin")
-    wq_a_scale = inputs.get("wq_a_scale")
     wq_b_scale = inputs.get("wq_b_scale")
-    w_kv_scale = inputs.get("w_kv_scale")
 
     t, h = x.shape
     qk_rope_head_dim = cos.shape[1]
@@ -153,14 +151,9 @@ def mla_prolog_compute(inputs):
     num_heads = wq_b.shape[-1] // head_dim
 
     ''' q '''
-    x_quant, x_quant_scale = quant(x, True)
-    q_a_proj = torch.matmul(x_quant.to(torch.int32), wq_a.to(torch.int32))
-    ''' dequant'''
-    q_a_proj_fp32 = q_a_proj.to(torch.float32)
-    q_a_proj_dequant = q_a_proj_fp32 * x_quant_scale
-    q_a_proj_dequant = q_a_proj_dequant * wq_a_scale
+    q_a_proj = torch.matmul(x.to(torch.float32), wq_a.to(torch.float32))
 
-    q_a_layernorm = rms_norm(q_a_proj_dequant, gamma_cq)
+    q_a_layernorm = rms_norm(q_a_proj, gamma_cq)
     logging.debug("q_a_layernorm.shape: %s %s", q_a_layernorm.shape, q_a_layernorm.dtype)
     q_a_layernorm_out = q_a_layernorm.to(torch.bfloat16)
     q_a_quant, q_a_quant_scale = quant(q_a_layernorm, True)
@@ -177,13 +170,9 @@ def mla_prolog_compute(inputs):
     q_reshape = q_reshape.to(torch.bfloat16)
 
     """ kv """
-    kv_a_proj = torch.matmul(x_quant.to(torch.int32), w_kv.to(torch.int32))
-    """ dequant """
-    kv_a_proj_fp32 = kv_a_proj.to(torch.float32)
-    kv_a_proj_dequant = kv_a_proj_fp32 * x_quant_scale
-    kv_a_proj_dequant = kv_a_proj_dequant * w_kv_scale
+    kv_a_proj = torch.matmul(x.to(torch.float32), w_kv.to(torch.float32))
 
-    kv_a_proj_norm = rms_norm(kv_a_proj_dequant, gamma_ckv)
+    kv_a_proj_norm = rms_norm(kv_a_proj, gamma_ckv)
     logging.debug("kv_a_proj.shape: %s %s", kv_a_proj.shape, kv_a_proj.dtype)
     kv_reshape = kv_a_proj_norm.reshape(t, head_dim)
     logging.debug("kv_reshape.shape: %s %s", kv_reshape.shape, kv_reshape.dtype)
@@ -199,7 +188,7 @@ def mla_prolog_compute(inputs):
     q_out = torch.concat([q_reshape[:, :, :-qk_rope_head_dim], q_embed], -1)
     kv_out = torch.concat([kv_reshape[:, :-qk_rope_head_dim], k_embed_r], -1)
 
-    return q_out, kv_out, q_a_layernorm_out
+    return q_out, kv_out, q_a_quant, q_a_quant_scale
 
 
 def gen_mla_prolog_input_data(params, dtypes, is_quant=True, is_nz=False):
@@ -227,7 +216,7 @@ def gen_mla_prolog_input_data(params, dtypes, is_quant=True, is_nz=False):
     logging.debug("cgamma_cq shape is %s", gamma_cq_shape)
     logging.debug("cgamma_ckv is %s", gamma_ckv_shape)
 
-    res = [None] * 11
+    res = [None] * 9
     x = torch.empty(x_shape, dtype=dtype).uniform_(-1, 1)
     res[0] = x
 
@@ -235,9 +224,8 @@ def gen_mla_prolog_input_data(params, dtypes, is_quant=True, is_nz=False):
     wq_b = torch.empty(wq_b_shape, dtype=dtype).uniform_(-0.1, 0.1)
     w_kv = torch.empty(wkv_shape, dtype=dtype).uniform_(-0.1, 0.1)
     if is_quant:
-        wq_a, wq_a_scale = quant(wq_a, False)
         wq_b, wq_b_scale = quant(wq_b, False)
-        w_kv, w_kv_scale = quant(w_kv, False)
+        res[-1] = wq_b_scale
     res[1] = wq_a
     res[2] = wq_b
     res[3] = w_kv
@@ -251,16 +239,13 @@ def gen_mla_prolog_input_data(params, dtypes, is_quant=True, is_nz=False):
     sin = torch.empty(cos_shape, dtype=dtype).uniform_(-1, 1)
     res[6] = cos
     res[7] = sin
-    if is_quant:
-        res[8] = wq_a_scale
-        res[9] = wq_b_scale
-        res[10] = w_kv_scale
+
     return res
 
 
 def gen_mla_prolog_data(params, dtype, is_quant=True, is_nz=False):
     logging.debug(f"gen_mla_prolog_data dtype: {dtype}")
-    x, wq_a, wq_b, w_kv, gamma_cq, gamma_ckv, cos, sin, wq_a_scale, wq_b_scale, wkv_scale = \
+    x, wq_a, wq_b, w_kv, gamma_cq, gamma_ckv, cos, sin, wq_b_scale = \
         gen_mla_prolog_input_data(params, dtype, is_quant, is_nz)
     inputs = dict()
     inputs["x"] = x
@@ -271,12 +256,10 @@ def gen_mla_prolog_data(params, dtype, is_quant=True, is_nz=False):
     inputs["sin"] = sin
     inputs["gamma_cq"] = gamma_cq
     inputs["gamma_ckv"] = gamma_ckv
-    inputs["wq_a_scale"] = wq_a_scale
     inputs["wq_b_scale"] = wq_b_scale
-    inputs["w_kv_scale"] = wkv_scale
 
-    q_out, kv_out, qr_out = mla_prolog_compute(inputs)
-    outputs = {"q_golden": q_out, "kv_golden": kv_out, "qr_golden": qr_out}
+    q_out, kv_out, qr_out, qr_scale_out = mla_prolog_compute(inputs)
+    outputs = {"q_golden": q_out, "kv_golden": kv_out, "qr_golden": qr_out, "qr_scale_golden": qr_scale_out}
 
     return inputs, outputs
 
@@ -298,24 +281,25 @@ def convert_pypto_to_torch_type(pypto_type):
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
 pyptolib.define("mla_prolog(Tensor token_x, Tensor wq_a, Tensor wq_b, Tensor wkv, Tensor rope_cos, Tensor rope_sin, \
-    Tensor gamma_cq, Tensor gamma_ckv, Tensor wq_a_scale, Tensor wq_b_scale, Tensor w_kv_scale) -> (Tensor, Tensor, Tensor)")
+    Tensor gamma_cq, Tensor gamma_ckv, Tensor wq_b_scale) -> (Tensor, Tensor, Tensor, Tensor)")
 
 @torch.library.impl(pyptolib, "mla_prolog", "Meta")
-def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale):
+def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
     q_out = torch.empty([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
     kv_out = torch.empty([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
-    qr_out = torch.empty([token_x.size(0), gamma_cq.size(0)], dtype=token_x.dtype, device=token_x.device)
-    return q_out, kv_out, qr_out
+    qr_out = torch.empty([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=token_x.device)
+    qr_scale_out = torch.empty([token_x.size(0), 1], dtype=torch.float32, device=token_x.device)
+    return q_out, kv_out, qr_out, qr_scale_out
 
 
 @torch.library.impl(pyptolib, "mla_prolog", "NPU")
-def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale):
-    return mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale)
+def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
+    return mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale)
 
 
 class MLA_MODEL(torch.nn.Module):
-    def forward(self, token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale):
-        return torch.ops.pypto.mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale)
+    def forward(self, token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
+        return torch.ops.pypto.mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale)
 
 
 def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
@@ -334,13 +318,12 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     rope_cos_shape = [t, qk_rope_head_dim]
     rmsnorm_gamma_cq_shape = [q_lora_rank]
     rmsnorm_gamma_ckv_shape = [head_dim]
-    wq_a_scale_shape = [q_lora_rank, 1]
     wq_b_scale_shape = [n1 * head_dim, 1]
-    w_kv_scale_shape = [head_dim, 1]
 
     q_out_shape = [t, n1, head_dim]
     kv_out_shape = [t, head_dim]
     qr_out_shape = [t, q_lora_rank]
+    qr_scale_shape = [t, 1]
     
     if is_nz:
         wq_a_nz = torch_npu.npu_format_cast(input_tensors["wq_a"].reshape(wq_a_shape).npu().contiguous(), \
@@ -361,10 +344,8 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     rope_sin = input_tensors["sin"].reshape(rope_cos_shape).npu()
     gamma_cq = input_tensors["gamma_cq"].reshape(rmsnorm_gamma_cq_shape).npu()
     gamma_ckv = input_tensors["gamma_ckv"].reshape(rmsnorm_gamma_ckv_shape).npu()
-    wq_a_scale = input_tensors["wq_a_scale"].reshape(wq_a_scale_shape).npu()
     wq_b_scale = input_tensors["wq_b_scale"].reshape(wq_b_scale_shape).npu()
-    w_kv_scale = input_tensors["w_kv_scale"].reshape(w_kv_scale_shape).npu()
-    inputs = [token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale]
+    inputs = [token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale]
 
     import torchair as tng
     from torchair.configs.compiler_config import CompilerConfig
@@ -373,13 +354,14 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
     model = torch.compile(MLA_MODEL(), dynamic=False, fullgraph=True, backend=npu_backend)
     
-    output_q_data, output_kv_data, output_qr_data = model(*inputs)
+    output_q_data, output_kv_data, output_qr_data, output_qr_scale_data = model(*inputs)
     pypto.runtime._device_synchronize()
 
     # golden data 
     golden1 = golden_tensors["q_golden"].reshape(q_out_shape)
     golden2 = golden_tensors["kv_golden"].reshape(kv_out_shape)
     golden3 = golden_tensors["qr_golden"].reshape(qr_out_shape)
+    golden4 = golden_tensors["qr_scale_golden"].reshape(qr_scale_shape)
     
     # compare
     print("q ================")
@@ -387,7 +369,9 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     print("kv ================")
     compare(output_kv_data.cpu(), golden2.cpu(), "kvOut", 0.0001, 0.0078125, 0.005)
     print("qr ================")
-    compare(output_qr_data.cpu(), golden3.cpu(), "qrOut", 0.0001, 0.0078125, 0.005)
+    compare(output_qr_data.cpu(), golden3.cpu(), "qrOut", 1, 0, 0)
+    print(" qr_scale ==========")
+    compare(output_qr_scale_data.cpu(), golden4.cpu(), "qrScaleOut", 0.000025, 0.005, 0.005)
     print("=========== pass ==========")
 
 
@@ -407,13 +391,12 @@ def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs,
     rope_cos_shape = [t, qk_rope_head_dim]
     rmsnorm_gamma_cq_shape = [q_lora_rank]
     rmsnorm_gamma_ckv_shape = [head_dim]
-    wq_a_scale_shape = [q_lora_rank, 1]
     wq_b_scale_shape = [n1 * head_dim, 1]
-    w_kv_scale_shape = [head_dim, 1]
 
     q_out_shape = [t, n1, head_dim]
     kv_out_shape = [t, head_dim]
     qr_out_shape = [t, q_lora_rank]
+    qr_scale_shape = [t, 1]
     
     if is_nz:
         wq_a_nz = torch_npu.npu_format_cast(input_tensors["wq_a"].reshape(wq_a_shape).npu().contiguous(), \
@@ -434,19 +417,18 @@ def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs,
     rope_sin = input_tensors["sin"].reshape(rope_cos_shape).npu()
     gamma_cq = input_tensors["gamma_cq"].reshape(rmsnorm_gamma_cq_shape).npu()
     gamma_ckv = input_tensors["gamma_ckv"].reshape(rmsnorm_gamma_ckv_shape).npu()
-    wq_a_scale = input_tensors["wq_a_scale"].reshape(wq_a_scale_shape).npu()
     wq_b_scale = input_tensors["wq_b_scale"].reshape(wq_b_scale_shape).npu()
-    w_kv_scale = input_tensors["w_kv_scale"].reshape(w_kv_scale_shape).npu()
 
     output_q_data = torch.zeros([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
     output_kv_data = torch.zeros([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
-    output_qr_data = torch.zeros([token_x.size(0), gamma_cq.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
-
-    check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_a_scale, wq_b_scale, w_kv_scale, 
-                                    output_q_data, output_kv_data, output_qr_data)
+    output_qr_data = torch.zeros([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=f'{token_x.device}')
+    output_qr_scale_data = torch.zeros([token_x.size(0), 1], dtype=torch.float32, device=f'{token_x.device}')
+    check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale, 
+                                    output_q_data, output_kv_data, output_qr_data, output_qr_scale_data)
     out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
     out_kv = pypto.from_torch(output_kv_data, dynamic_axis=[0], name="output_kv")
     out_qr = pypto.from_torch(output_qr_data, dynamic_axis=[0], name="output_qr")
+    out_qr_scale = pypto.from_torch(output_qr_scale_data, dynamic_axis=[0], name="output_qr_scale")
 
     token_x_data = pypto.from_torch(token_x, dynamic_axis=[0], name="token_x")
     wq_a_data = pypto.from_torch(wq_a, name="wq_a")
@@ -456,27 +438,17 @@ def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs,
     rope_sin_data = pypto.from_torch(rope_sin, dynamic_axis=[0], name="rope_sin")
     gamma_cq_data = pypto.from_torch(gamma_cq, name="gamma_cq")
     gamma_ckv_data = pypto.from_torch(gamma_ckv, name="gamma_ckv")
-    wq_a_scale_data = pypto.from_torch(wq_a_scale, name="wq_a_scale")
     wq_b_scale_data = pypto.from_torch(wq_b_scale, name="wq_b_scale")
-    wkv_scale_data = pypto.from_torch(w_kv_scale, name="wkv_scale")
 
-    input_data = [token_x_data, wq_a_data, wq_b_data, wkv_data, gamma_cq_data, gamma_ckv_data, rope_cos_data, rope_sin_data, wq_a_scale_data, wq_b_scale_data, wkv_scale_data]
-    output_data = [out_q, out_kv, out_qr]
+    input_data = [token_x_data, wq_a_data, wq_b_data, wkv_data, gamma_cq_data, gamma_ckv_data, rope_cos_data, rope_sin_data, wq_b_scale_data]
+    output_data = [out_q, out_kv, out_qr, out_qr_scale]
 
-    if token_x.shape[0]>64:
-        tile_configs = MlaTileConfigs(
-                two_dim_tile=[1, 64],
-                three_dim_tile=[1, 64, 64],
-                four_dim_tile=[1, 64, 64, 64],
-                vec_tile=[max(1, token_x.shape[0]//16), 64]
-        )
-    else:
-        tile_configs = MlaTileConfigs(
-                two_dim_tile=[1, 64],
-                three_dim_tile=[1, 64, 64],
-                four_dim_tile=[1, 64, 64, 64],
-                vec_tile=[max(1, token_x.shape[0]//16), 64]
-        )
+    tile_configs = MlaTileConfigs(
+            two_dim_tile=[1, 64],
+            three_dim_tile=[1, 64, 64],
+            four_dim_tile=[1, 64, 64, 64],
+            vec_tile=[max(1, token_x.shape[0]//16), 64]
+    )
     mla_prolog_v4(*input_data, *output_data, attrs, configs, tile_configs)
     pypto.runtime._device_synchronize()
 
@@ -484,6 +456,7 @@ def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs,
     golden1 = golden_tensors["q_golden"].reshape(q_out_shape)
     golden2 = golden_tensors["kv_golden"].reshape(kv_out_shape)
     golden3 = golden_tensors["qr_golden"].reshape(qr_out_shape)
+    golden4 = golden_tensors["qr_scale_golden"].reshape(qr_scale_shape)
     
     # compare
     print("q ================")
@@ -491,7 +464,9 @@ def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs,
     print("kv ================")
     compare(output_kv_data.cpu(), golden2.cpu(), "kvOut", 0.0001, 0.0078125, 0.005)
     print("qr ================")
-    compare(output_qr_data.cpu(), golden3.cpu(), "qrOut", 0.0001, 0.0078125, 0.005)
+    compare(output_qr_data.cpu(), golden3.cpu(), "qrOut", 1, 0, 0)
+    print(" qr_scale ==========")
+    compare(output_qr_scale_data.cpu(), golden4.cpu(), "qrScaleOut", 0.000025, 0.005, 0.005)
     print("=========== pass ==========")
 
 
@@ -525,7 +500,7 @@ def test_t4_pa_nd_bf16_eager():
     dtype = pypto.DataType.DT_BF16
     is_quant = True
     is_nz = True
-    attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
+    attrs = MlaPrologV4Attrs(eps=1e-6)
     configs = MlaPrologV4Configs(unroll_list=[128, 64, 32, 16, 1],
                                 cube_l1_reuse_setting={2: 4},
                                 mg_copyin_upper_bound=2 * 1024 * 1024,
@@ -569,7 +544,7 @@ def test_t16_pa_nd_bf16_eager():
     dtype = pypto.DataType.DT_BF16
     is_quant = True
     is_nz = True
-    attrs = MlaPrologV4Attrs(eps=1e-6, layout_query="TND", layout_key="PA_BSND")
+    attrs = MlaPrologV4Attrs(eps=1e-6)
     configs = MlaPrologV4Configs(unroll_list=[128, 64, 32, 16, 1],
                                 cube_l1_reuse_setting={2: 4},
                                 mg_copyin_upper_bound=2 * 1024 * 1024,
