@@ -600,10 +600,7 @@ def mla_prolog_quant_compute(
 
     assert qk_nope_head_dim == 128 or qk_rope_head_dim == 64
 
-    tile_bs = tile_config.tile_bs
-
     t = token_x.shape[0]
-    bs_loop = (t + tile_bs - 1) // tile_bs
 
     quant_inputs = MlaQuantInputs()
 
