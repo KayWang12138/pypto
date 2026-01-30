@@ -602,7 +602,7 @@
                     "name": "output0",
                     "shape": [257, 464],
                     "dtype": "fp32",
-                    "format": "NZ"
+                    "format": "ND"
                 }
             ],
             "view_shape": [201, -1],
@@ -646,7 +646,7 @@
                     "name": "output0",
                     "shape": [168, 592],
                     "dtype": "fp32",
-                    "format": "NZ"
+                    "format": "ND"
                 }
             ],
             "view_shape": [-1, 160],
@@ -1336,7 +1336,7 @@
                         448
                     ],
                     "dtype": "fp32",
-                    "format": "NZ"
+                    "format": "ND"
                 }
             ],
             "view_shape": [
