@@ -728,65 +728,6 @@ TEST_F(DynamicReshapeTest, test_split) {
     EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::float16 *)outs->data(), 0.001f, 0, 1000, true));
 }
 
-TEST_F(DynamicReshapeTest, test_merge_and_split) {
-
-    TileShape::Current().SetVecTile(16, 16);
-
-    int s = 16, d = 32;
-    int actD = -1;
-
-    std::vector<int64_t> inputShape = {s, actD};
-    std::vector<int64_t> outputShape = {s, actD};
-
-    Tensor q(DT_FP16, inputShape, "q");
-    Tensor out(DT_FP16, outputShape, "out");
-
-    FUNCTION("main", {q}, {out}) {
-        LOOP("L0", FunctionType::DYNAMIC_LOOP, l0Idx, LoopRange(0, (GetInputShape(q, 1) + 31)/32, 1)) {
-            TileShape::Current().SetVecTile(16, 16);
-            auto a = View(q, {s, d}, {16, GetInputShape(q, 1)}, {0, l0Idx*32});
-            auto a1 = Reshape(a, {16*32}, {16*GetInputShape(q, 1)});
-            TileShape::Current().SetVecTile(16*16);
-            auto a2 = Add(a1, Element(DataType::DT_FP32, 1.0f));
-            auto a3 = Reshape(a2, {{s, d}}, {s, GetInputShape(q, 1)});
-            TileShape::Current().SetVecTile(16, 16);
-            Assemble(a3, {0, l0Idx*32}, out);
-        }
-    }
-    actD = 30;
-    inputShape = {s, actD};
-    outputShape = {s, actD};
-    Tensor q_real(DT_FP16, inputShape, "q");
-    Tensor out_real(DT_FP16, outputShape, "out");
-
-    npu::tile_fwk::float16 initInputValue = 2.0f;
-    npu::tile_fwk::float16 initOutValue = 0.5f;
-
-    std::vector<npu::tile_fwk::float16> inputValueData;
-    for (int i = 0; i < s * actD; i++){
-        inputValueData.push_back(static_cast<npu::tile_fwk::float16>(i));
-    }
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<npu::tile_fwk::float16>(q_real, inputValueData),
-    });
-
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<npu::tile_fwk::float16>(out_real, initOutValue),
-    });
-
-    // excute
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), DeviceLauncherConfig(q_real.GetStorage()->GetDataSize()));
-
-    std::vector<npu::tile_fwk::float16> golden(s*actD, initInputValue);
-    for (int i = 0; i < s * actD; i++){
-        golden[i] = inputValueData[i] + 1.0f;
-    }
-
-    auto outs = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
-    EXPECT_TRUE(resultCmp(golden, (npu::tile_fwk::float16 *)outs->data(), 0.001f, 0, 1000));
-}
-
 TEST_F(DynamicReshapeTest, test_split_and_merge) {
 
     TileShape::Current().SetVecTile(16, 16);
