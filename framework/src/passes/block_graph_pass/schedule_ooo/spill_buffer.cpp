@@ -915,12 +915,15 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
 Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
     APASS_LOG_DEBUG_F(Elements::Operation, "START: SPILL tensor.");	
     if (allocBuffer->memType != MemoryType::MEM_UB) {
-        if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {	
-            APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method.");	
-            return FAILED;	
+        if ((Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && allocBuffer->memType != MemoryType::MEM_L1) ||
+            Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+            if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {
+                APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method.");
+                return FAILED;
+            }
+            APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L1/L0A/L0B/L0C] is Full. Please check tile shape and OOO spill failed info.");
+            return FAILED;
         }
-        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L1/L0A/L0B/L0C] is Full. Please check tile shape and OOO spill failed info.");
-        return FAILED;	
     }	
     // 选择最晚被使用的spill 单个或多个tensor	
     std::vector<int> spillGroup;	
