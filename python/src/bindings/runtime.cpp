@@ -292,7 +292,7 @@ private:
 };
 
 
-#define ENABALE_VERBOSE_LOG 1
+#define ENABALE_VERBOSE_LOG 0
 
 
 class AclModeGuard {
