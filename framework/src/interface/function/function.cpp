@@ -1825,8 +1825,8 @@ LogicalTensors Function::MakeIncasts(const std::shared_ptr<TensorSlotScope> &sco
     return inArgumentList;
 }
 
-inline void ReplaceProducerOOperand(Function &function, Operation *producer, std::vector<int64_t> offset,
-    std::vector<SymbolicScalar> dynOffset, LogicalTensorPtr rawSymbol) {
+inline void ReplaceProducerOOperand(Function &function, Operation *producer, std::vector<int64_t> &offset,
+    std::vector<SymbolicScalar> &dynOffset, LogicalTensorPtr rawSymbol) {
     if (producer->GetOpcode() == Opcode::OP_ASSEMBLE_SSA) {
         producer->ReplaceOOperand(0, rawSymbol);
         producer->SetOpAttribute(std::make_shared<AssembleOpAttribute>(offset, dynOffset));
