@@ -93,8 +93,7 @@ static at::Scalar From(const Element &elem) {
 }
 
 static void WriteIn(const torch::Tensor &src, const torch::Tensor &dst, DataType actualType) {
-    if (actualType == DT_FP8 || actualType == DT_FP8E4M3 ||
-        actualType == DT_FP8E5M2 || actualType == DT_FP8E8M0) {
+    if (actualType == DT_FP8E4M3 || actualType == DT_FP8E5M2 || actualType == DT_FP8E8M0) {
         dst.copy_(Float32ToFp8(src, actualType));
     } else {
         dst.copy_(src);
@@ -159,17 +158,23 @@ static void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 
 static void Ceil(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
-    torch::ceil_out(tout, From(self));
+    auto tself = From(self);
+    torch::ceil_out(tout.second, tself.second);
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void Floor(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
-    torch::floor_out(tout, From(self));
+    auto tself = From(self);
+    torch::floor_out(tout.second, tself.second);
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
-    torch::trunc_out(tout, From(self));
+    auto tself = From(self);
+    torch::trunc_out(tout.second, tself.second);
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void Round(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int decimals) {
@@ -194,7 +199,9 @@ static void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 
 static void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
-    torch::reciprocal_out(tout, From(self));
+    auto tself = From(self);
+    torch::reciprocal_out(tout.second, tself.second);
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
@@ -429,17 +436,18 @@ static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
             auto tother_final = tother_expanded.index(
                 {torch::indexing::Slice(), 
                  torch::indexing::Slice(0, cols_self)});
-            torch::div_out(tout.second, tself.second, tother_final);
+            torch::fmod_out(tout.second, tself.second, tother_final);
         } else {
-            torch::div_out(tout.second, tself.second, tother.second);
+            torch::fmod_out(tout.second, tself.second, tother.second);
         }
     } else {
-        torch::div_out(tout.second, tself.second, tother.second);
+        torch::fmod_out(tout.second, tself.second, tother.second);
     }
     WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
-static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
@@ -490,31 +498,44 @@ static void CopySign(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logica
 static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tout = From(out);
     torch::bitwise_right_shift_out(tout, From(self), From(other));
+    torch::bitwise_right_shift_out(tout.second, tself.second, tother.second);
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void BitwiseLeftShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tout = From(out);
-    torch::bitwise_left_shift_out(tout, From(self), From(other));
+    auto tself = From(self);
+    auto tother = From(other);
+    torch::bitwise_left_shift_out(tout.second, tself.second, tother.second);
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void BitwiseRightShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
     auto tout = From(out);
-    torch::bitwise_right_shift_out(tout, From(self), From(scalar));
+    auto tself = From(self);
+    torch::bitwise_right_shift_out(tout.second, tself.second, From(scalar));
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void BitwiseLeftShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
     auto tout = From(out);
-    torch::bitwise_left_shift_out(tout, From(self), From(scalar));
+    auto tself = From(self);
+    torch::bitwise_left_shift_out(tout.second, tself.second, From(scalar));
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void SBitwiseRightShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
     auto tout = From(out);
-    torch::bitwise_right_shift_out(tout, From(scalar), From(other));
+    auto tother = From(other);
+    torch::bitwise_right_shift_out(tout.second, From(scalar), tother.second);
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void SBitwiseLeftShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
     auto tout = From(out);
-    torch::bitwise_left_shift_out(tout, From(scalar), From(other));
+    auto tother = From(other);
+    torch::bitwise_left_shift_out(tout.second, From(scalar), tother.second);
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode) {
@@ -686,12 +707,12 @@ static void CompareImpl(LogicalTensorDataPtr out, const torch::Tensor& tself, co
 
 static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
              CmpOperationType operation, CmpModeType mode) {
-    CompareImpl(out, From(self), From(other), operation, mode);
+    CompareImpl(out, From(self).second, From(other).second, operation, mode);
 }
 
 static void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &elem,
              CmpOperationType operation, CmpModeType mode) {
-    CompareImpl(out, From(self), From(elem), operation, mode);
+    CompareImpl(out, From(self).second, From(elem), operation, mode);
 }
 
 #define DEFINE_BINARY_PAIR_OPS(Name, bop)                                                              \
@@ -741,8 +762,8 @@ static void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     int64_t padn = alignup(n, n0);
     int64_t n1 = padn / n0;
 
-    auto tself = From(self);
-    tself = tself.reshape({-1, m, n}); // [b, m1*m0, n1*n0]
+    auto tself_pair = From(self);
+    auto tself = tself_pair.second.reshape({-1, m, n}); // [b, m1*m0, n1*n0]
     if (padm != m || padn != n) {
         tself = torch::constant_pad_nd(tself, {0, padn - n, 0, padm - m}, 0); // [b, padm, padn]
     }
@@ -754,15 +775,16 @@ static void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     nzShape.push_back(padm);
     nzShape.push_back(padn);
     tself = tself.reshape(nzShape); // [b, padm, padn]
-    From(out).copy_(tself);
-    WriteIn(From(out).second, From(out).first, out->GetData()->GetDataType());
+    auto tout = From(out);
+    WriteIn(tself, tout.first, out->GetData()->GetDataType());
 }
 
 static void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto &shape = self->GetShape();
     ASSERT(shape.size() >= 0x2) << "Input tensor must have at least 2 dimensions";
 
-    auto tself = From(self); // [b, m1*m0, n1*n0]
+    auto tself_pair = From(self);
+    auto tself = tself_pair.second; // [b, m1*m0, n1*n0]
     int64_t ndim = shape.size();
     int64_t m = shape[ndim - 0x2];
     int64_t n0 = BLOCK_SIZE / BytesOf(self->GetDataType());
@@ -1064,8 +1086,10 @@ static void RowMinSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, in
 }
 
 static void RowMinLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
-    auto ret = torch::min(From(self), dim, true);
-    From(out) = std::get<0>(ret);
+    auto tself = From(self);
+    auto tout = From(out);
+    auto ret = torch::min(tself.second, dim, true);
+    WriteIn(std::get<0>(ret), tout.first, out->GetData()->GetDataType());
 }
 
 static void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
@@ -1076,8 +1100,10 @@ static void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, in
 }
 
 static void RowMaxLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
-    auto ret = torch::max(From(self), dim, true);
-    From(out) = std::get<0>(ret);
+    auto tself = From(self);
+    auto tout = From(out);
+    auto ret = torch::max(tself.second, dim, true);
+    WriteIn(std::get<0>(ret), tout.first, out->GetData()->GetDataType());
 }
 
 static void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
@@ -1206,22 +1232,23 @@ static void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod
     constexpr int INDICE_STEP = 2;
 
     std::vector<int64_t> viewOffset(tself.dim(), 0);
-    int dim = tself.dim() - 1;
+    int dim = tself.second.dim() - 1;
     if (tself.size(dim) == 0) {
         return;
     }
     auto indices = torch::arange(
         (mod == 1?1:0),
-        tself.size(dim),
+        tself.second.size(dim),
         INDICE_STEP,
         torch::dtype(torch::kLong)
     );
-    torch::Tensor selfSubview = View(tself.index_select(dim, indices), tout.sizes().vec(), viewOffset);
-    tout.copy_(selfSubview);
+    torch::Tensor selfSubview = View(tself.second.index_select(dim, indices), tout.second.sizes().vec(), viewOffset);
+    tout.second.copy_(selfSubview);
 
     if (!descending && mod == 0) {
-        tout.neg_();
+        tout.second.neg_();
     }
+    WriteIn(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 /**
@@ -1579,13 +1606,13 @@ static void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, L
     auto src = From(self);
     auto indices = From(index);
 
-    ASSERT(indices.dim() == 2);                   // indices should be 2 dim
-    ASSERT((src.dim() == 2) || (src.dim() == 4)); // only 2, 4 dim support
-    ASSERT((ret.dim() == 2) || (ret.dim() == 4)); // only 2, 4 dim support
-    ASSERT(src.dim() == ret.dim());
+    ASSERT(indices.second.dim() == 2);                   // indices should be 2 dim
+    ASSERT((src.second.dim() == 2) || (src.second.dim() == 4)); // only 2, 4 dim support
+    ASSERT((ret.second.dim() == 2) || (ret.second.dim() == 4)); // only 2, 4 dim support
+    ASSERT(src.second.dim() == ret.second.dim());
 
-    int64_t b = indices.size(0);
-    int64_t s = indices.size(1);
+    int64_t b = indices.second.size(0);
+    int64_t s = indices.second.size(1);
     for (int64_t i = 0; i < b; i++) {
         for (int64_t j = 0; j < s; j++) {
             if (ScatterDateCopy({i, j}, src.second, indices.second, ret.second, blockSize) == false) {
