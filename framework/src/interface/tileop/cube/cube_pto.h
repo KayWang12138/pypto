@@ -56,8 +56,8 @@ template <CopyInMode mode, typename Coord, typename T, typename U>
 TILEOP void TLoad(T &dst, U &src, const Coord &coord, const int64_t &curH, const int64_t &curW) {
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
-    uint16_t offset0 = coord.GetValue();
-    uint16_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
+    int64_t offset0 = coord.GetValue();
+    int64_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
 
     static_assert(T::FORMAT == Hardware::L1 && U::FORMAT == Hardware::GM,
         "[TLoad Error]: Dst format shoulde be L1 and Src format shoulde be GM");
@@ -307,8 +307,8 @@ template <bool isTrans, typename Coord, typename T, typename U>
 TILEOP void TExtract(T &dst, U &src, const Coord &coord) {
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
-    uint16_t offset0 = coord.GetValue();
-    uint16_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
+    int64_t offset0 = coord.GetValue();
+    int64_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
     if constexpr ((T::FORMAT == Hardware::L0A || T::FORMAT == Hardware::L0B) && U::FORMAT == Hardware::L1) {
         TExtractL1ToL0<isTrans>(dst, src, offset0, offset1);
     }
@@ -325,8 +325,8 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
     if constexpr (T::FORMAT == Hardware::UB && U::FORMAT == Hardware::L0C) {
-        uint16_t offset0 = coord.GetValue();
-        uint16_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
+        int64_t offset0 = coord.GetValue();
+        int64_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
         constexpr auto staticUBH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename T::TileShape>::type::value;
         constexpr auto staticUBW = Std::tuple_element<shapeSize - 1, typename T::TileShape>::type::value;
         constexpr auto staticL0CH = Std::tuple_element<shapeSize - SHAPE_DIM2, typename U::TileShape>::type::value;
@@ -351,7 +351,7 @@ TILEOP void TExtract(T &dst, U &src, const Coord &coord, int16_t subblockId) {
 }
 
 template <bool isZeroC, typename T, typename U, typename V>
-TILEOP void Matmul(T &c, U &a, V &b) {
+TILEOP void TMatmul(T &c, U &a, V &b) {
     constexpr auto shapeSizeA = Std::tuple_size<typename U::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename V::Shape>::value;
     constexpr auto shapeSizeC = Std::tuple_size<typename T::Shape>::value;
@@ -393,7 +393,7 @@ TILEOP void Matmul(T &c, U &a, V &b) {
 }
 
 template <typename T0, typename T1, typename T2, typename T3>
-TILEOP void Matmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
+TILEOP void TMatmul(T0 &c, T1 &a, T2 &b, T3 &bias) {
     constexpr auto shapeSizeA = Std::tuple_size<typename T1::Shape>::value;
     constexpr auto shapeSizeB = Std::tuple_size<typename T2::Shape>::value;
     constexpr auto shapeSizeC = Std::tuple_size<typename T0::Shape>::value;
@@ -524,8 +524,8 @@ TILEOP void TStore(
     T &dst, U &src, V &fixbuf, const Coord &coord, const int64_t &curH, const int64_t &curW, uint64_t scaleValue = 0) {
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
-    uint16_t offset0 = coord.GetValue();
-    uint16_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
+    int64_t offset0 = coord.GetValue();
+    int64_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
     if constexpr (U::FORMAT == Hardware::L0C && T::FORMAT == Hardware::GM) {
         if constexpr (config::kMode == CopyOutMode::NZ2ND) {
             TStoreNZ2ND<config>(dst, src, fixbuf, offset0, offset1, scaleValue);
