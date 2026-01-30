@@ -127,8 +127,12 @@ Status DuplicateOpChecker::ProcessPostCheck(const Operation &op) {
 
 Status DuplicateOpChecker::DoPreCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "PreCheck for DuplicateOp");
-    if (CheckCompleteness(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "CheckCompleteness for function[%d] failed!", function.GetFuncMagic());
+    if (CheckValidOp(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Found invalid op in the function.");
+        return FAILED;
+    }
+    if (CheckOpIOValid(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Found invalid input/output from the function.");
         return FAILED;
     }
     for (const auto &op : function.Operations()) {
@@ -142,8 +146,12 @@ Status DuplicateOpChecker::DoPreCheck(Function &function) {
 
 Status DuplicateOpChecker::DoPostCheck(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "PostCheck for DuplicateOp");
-    if (CheckCompleteness(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "CheckCompleteness for function[%d] failed!", function.GetFuncMagic());
+    if (CheckValidOp(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Postcheck failed; Found invalid op in the function.");
+        return FAILED;
+    }
+    if (CheckOpIOValid(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "Postcheck failed; Found invalid input or output from the function.");
         return FAILED;
     }
     for (const auto &op : function.Operations()) {
