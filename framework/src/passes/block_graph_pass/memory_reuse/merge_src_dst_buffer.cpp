@@ -326,11 +326,21 @@ Status SrcDstBufferMergeImpl::ProcessL0MemoryReuse(const Operation& op, std::uno
         APASS_LOG_ERROR_F(Elements::Operation, "Op:%s[%d] failed to obtain the input/output tensor", op.GetOpcodeStr().c_str(), op.GetOpMagic());
         return FAILED;
     }
+    if (tensorConsumers_[inputTensor->memoryrange.memId].size() > 1) {
+        APASS_LOG_DEBUG_F(Elements::Operation, "Tensor[%d], memId[%d], memType[%s] has more than 1 consumer.",
+            inputTensor->GetMagic(), inputTensor->memoryrange.memId, MemoryTypeToString(inputTensor->GetMemoryTypeOriginal()));
+        return SUCCESS;
+    }
     for (auto& producerOp : inputTensor->GetProducers()) {
         if (!IsL0CToL1Transfer(*producerOp)) {
             return SUCCESS;
         }
         auto l0cTensor = producerOp->GetIOperands().front();
+        if (tensorConsumers_[l0cTensor->memoryrange.memId].size() > 1) {
+            APASS_LOG_DEBUG_F(Elements::Operation, "Tensor[%d], memId[%d], memType[%s] has more than 1 consumer.",
+                l0cTensor->GetMagic(), l0cTensor->memoryrange.memId, MemoryTypeToString(l0cTensor->GetMemoryTypeOriginal()));
+            return SUCCESS;
+        }
         auto checkOp = *l0cTensor->GetProducers().begin();
         if(FindReuseableL0Tensor(*checkOp, replacedTensors, outputTensor, hasFound) != SUCCESS) {
             return FAILED;
