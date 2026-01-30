@@ -164,6 +164,11 @@ const std::string CONV_ORI_WEIGHT_SHAPE_ATTR = OP_ATTR_PREFIX + "ori_weight_shap
 const std::string CONV_BIAS_ATTR = OP_ATTR_PREFIX + "bias_flag";
 const std::string IS_MATRIX_NZ = OP_ATTR_PREFIX + "is_matrix_nz";
 const std::string CONV_3D_FLAG = OP_ATTR_PREFIX + "is_conv3d";
+const std::string MATMUL_NZ_ATTR = OP_ATTR_PREFIX + "matmul_nz_attr";
+const std::string A_MUL_B_ACT_M = OP_ATTR_PREFIX + "act_m";
+const std::string A_MUL_B_ACT_K = OP_ATTR_PREFIX + "act_k";
+const std::string A_MUL_B_ACT_N = OP_ATTR_PREFIX + "act_n";
+const std::string A_MUL_B_BIAS_ATTR = OP_ATTR_PREFIX + "has_bias";
 const std::vector<int64_t> CONV2D_ATTR_DEFAULT_LIST = {0, 0, 0, 0};
 const std::vector<int64_t> CONV3D_ATTR_DEFAULT_LIST = {0, 0, 0, 0, 0, 0};
 
