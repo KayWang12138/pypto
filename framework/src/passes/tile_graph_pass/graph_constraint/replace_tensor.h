@@ -122,7 +122,7 @@ private:
     bool CheckAddrConflict(const Operation& op);
     bool CheckIndexProducer(const Operation& op);
     bool CheckAssembleConflict(const Operation& op);
-    bool CheckIndexOutcastConflict(const Operation& op);
+    bool CheckIndexOutcastConflict(const Operation& op, Function& function);
     bool CheckReshapeConflict(const Operation& op);
     bool CheckAMulAccBConflict(const Operation& op);
     Status InplaceCheck(Function &function);
