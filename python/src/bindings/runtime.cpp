@@ -540,31 +540,66 @@ public:
         InitConfigOptions(module);
     }
 
-    bool IsCompiled() { return kernel != nullptr; }
-    bool IsCacheEnabled() { return stitchCfgCacheSize != 0; }
-    bool IsTripleStream() { return tripleStream; }
-    bool CheckArgs(std::vector<DeviceTensorData> &tensors) {
-        return kernel->CheckArgs(tensors);
-    }
-    int64_t GetWorkspaceSize(std::vector<DeviceTensorData> &tensors) {
-        return kernel->GetWorkspaceSize(tensors);
+    ~KernelModule() {
+        for (auto &k : kernels) {
+            delete k;
+        }
     }
 
-    void Compile(py::object &module, py::args &args) {
-        ASSERT(kernel == nullptr) << "function already set";
+    bool IsTripleStream() { return tripleStream; }
+
+    KernelBinary *GetKernelBinary(std::vector<DeviceTensorData> &tensors) {
+        for (auto &k : kernels) {
+            if (k->CheckArgs(tensors)) {
+                return k;
+            }
+        }
+        return nullptr;
+    }
+
+    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module, py::args &args,
+        std::vector<DeviceTensorData> &tensors) {
+        std::vector<std::vector<int64_t>> shape;
+        auto devCache = kernel->FindCtrlFlowCache(tensors);
+        if (devCache == nullptr && InferCacheShape(module, args, shape)) {
+            devCache = kernel->FindCtrlFlowCache(shape);
+        }
+        if (devCache == nullptr && IsCacheEnabled()) {
+            AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+            devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize);
+        }
+#if ENABALE_VERBOSE_LOG
+        std::stringstream ss;
+        for (auto &t : tensors) {
+            for (auto &s : t.GetShape()) {
+                ss << s << " ";
+            }
+        }
+        ALOG_ERROR_F("find ctrlflow cache: %p shape %s", devCache, ss.str().c_str());
+#endif
+        return devCache;
+    }
+
+    KernelBinary *Compile(py::object &module, py::args &args) {
         auto compile = py::getattr(module, "compile");
         compile(args);
         auto func = Program::GetInstance().GetLastFunction();
-        kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
+        auto kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
+        kernels.push_back(kernel);
         if (inferCacheShape) {
 #if ENABALE_VERBOSE_LOG
             ALOG_ERROR("build default cache");
 #endif
-            BuildDefaultCache(module);
+            BuildDefaultCache(kernel, module);
         }
+        return kernel;
     }
 
-    void Launch(aclrtStream aicoreStream, aclrtStream ctrlStream, aclrtStream schedtream,
+    int64_t GetWorkspaceSize(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors) {
+        return kernel->GetWorkspaceSize(tensors);
+    }
+
+    void Launch(KernelBinary *kernel, aclrtStream aicoreStream, aclrtStream ctrlStream, aclrtStream schedtream,
         std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
@@ -614,28 +649,6 @@ public:
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
     }
 
-    uint8_t *FindCtrlFlowCache(py::object &module, py::args &args, std::vector<DeviceTensorData> &tensors) {
-        std::vector<std::vector<int64_t>> shape;
-        auto devCache = kernel->FindCtrlFlowCache(tensors);
-        if (devCache == nullptr && InferCacheShape(module, args, shape)) {
-            devCache = kernel->FindCtrlFlowCache(shape);
-        }
-        if (devCache == nullptr && IsCacheEnabled()) {
-            AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
-            devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize);
-        }
-#if ENABALE_VERBOSE_LOG
-        std::stringstream ss;
-        for (auto &t : tensors) {
-            for (auto &s : t.GetShape()) {
-                ss << s << " ";
-            }
-        }
-        ALOG_ERROR_F("find ctrlflow cache: %p shape %s", devCache, ss.str().c_str());
-#endif
-        return devCache;
-    }
-
 private:
     void InitCachedArgs() {
         memset_s(&rtAicpuArgs, sizeof(rtAicpuArgsEx_t), 0, sizeof(rtAicpuArgsEx_t));
@@ -672,7 +685,7 @@ private:
 #endif
     }
 
-    void BuildDefaultCache(py::object &module) {
+    void BuildDefaultCache(KernelBinary *kernel, py::object &module) {
         auto infershape = py::getattr(module, "infer_controlflow_shape");
         auto cfshapes = infershape().cast<py::list>();
         auto tensors = kernel->GetArgTypes();
@@ -686,7 +699,11 @@ private:
             for (size_t i = 0; i < tensors.size(); i++) {
                 inputs.emplace_back(tensors[i].GetDataType(), nullptr, inputShapes[i]);
             }
-            kernel->BuildControlFlowCache(inputs, stitchCfgCacheSize);
+            if (kernel->CheckArgs(inputs)) {
+                kernel->BuildControlFlowCache(inputs, stitchCfgCacheSize);
+            } else {
+                ALOG_ERROR("Invalid cache shape, skip it");
+            }
         }
     }
 
@@ -710,6 +727,8 @@ private:
         return true;
     }
 
+    bool IsCacheEnabled() { return stitchCfgCacheSize != 0; }
+
 private:
     bool inferCacheShape{false};
     bool tripleStream{false};
@@ -721,7 +740,7 @@ private:
     rtArgsEx_t rtAicoreArgs;
     rtTaskCfgInfo_t rtTaskCfg;
     std::vector<void *> kernelArgs;
-    KernelBinary *kernel{nullptr};
+    std::vector<KernelBinary *> kernels;
 
     static std::atomic<int64_t> sequence;
 };
@@ -782,23 +801,22 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     DeviceGuard devGuard(devId);
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
-    if (!kmodule->IsCompiled()) {
+    auto kbinary = kmodule->GetKernelBinary(tensors);
+    if (kbinary == nullptr) {
         Program::GetInstance().Reset();
         // Set capture mode to relaxed to support rtmemcpy / rtmemset
         AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR("compile kernel");
 #endif
-        kmodule->Compile(module, args);
-    } else {
-        ASSERT(kmodule->CheckArgs(tensors)) << "Invalid input tensors";
+        kbinary = kmodule->Compile(module, args);
     }
 
 #if ENABALE_VERBOSE_LOG
     ALOG_ERROR("alloc workspace");
 #endif
     int64_t *wsAddr = nullptr;
-    int64_t wsSize = kmodule->GetWorkspaceSize(tensors);
+    int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
     if (wsSize) {
         auto pyalloc = py::getattr(module, "alloc");
         wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
@@ -806,9 +824,9 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
 
     AttachAicpuStream(aicoreStream, ctrlStream, schedtream, kmodule->IsTripleStream());
 
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(module, args, tensors);
+    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors);
 
-    kmodule->Launch(aicoreStream, ctrlStream, schedtream, tensors, ctrlFlowCache, wsAddr);
+    kmodule->Launch(kbinary, aicoreStream, ctrlStream, schedtream, tensors, ctrlFlowCache, wsAddr);
 }
 
 void BindRuntime(py::module &m) {

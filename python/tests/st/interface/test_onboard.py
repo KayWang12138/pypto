@@ -266,6 +266,7 @@ def infer_shape_kenrel(a, b, c, eps):
         tb = b[i: i + 32, :]
         c[i:, 0:] = ta + tb
 
+
 @pypto.jit(
     runtime_options={
         "stitch_cfgcache_size": 1024 * 1024,
@@ -279,23 +280,26 @@ def infer_shape_kenrel1(a, b, c, eps):
         tb = b[i: i + 32, :]
         c[i:, 0:] = ta + tb
 
-def test_infer_shape(device):
-    n = 100
+
+def test_infer_shape(device, s=1, n=2, mix=False):
     # for b in [2048, 1024, 512, 256, 128, 64, 32]:
     for b in [32]:
 
-        a = [torch.randn((b, 32), device=device) for _ in range(n)]
-        b = [torch.randn((b, 32), device=device) for _ in range(n)]
+        a = [torch.randn((b, 32 * s), device=device) for _ in range(n)]
+        b = [torch.randn((b, 32 * s), device=device) for _ in range(n)]
         c = [torch.zeros_like(a[0], device=device) for _ in range(n)]
 
         for i in range(n):
             ta = pypto.from_torch(a[i], dynamic_axis=[0])
             tb = pypto.from_torch(b[i], dynamic_axis=[0])
             tc = pypto.from_torch(c[i], dynamic_axis=[0])
-            if (i % 3 == 0):
-                infer_shape_kenrel(ta, tb, tc, 1.0)
+            if mix:
+                if i % 3 == 0:
+                    infer_shape_kenrel(ta, tb, tc, 1.0)
+                else:
+                    infer_shape_kenrel1(ta, tb, tc, 1.0)
             else:
-                infer_shape_kenrel1(ta, tb, tc, 1.0)
+                infer_shape_kenrel(ta, tb, tc, 1.0)
 
 
 @contextlib.contextmanager
@@ -317,10 +321,23 @@ def aclgraph_enable():
     g.reset()
 
 
+def test_aclgraph(device):
+    with aclgraph_enable():
+        test_infer_shape(device)
+
+
+def test_two_kernel(device):
+    # one jit multi kernel
+    test_infer_shape(device, s=2)
+    test_infer_shape(device, s=1)
+
+
+def test_mix_unify_split_stream(device):
+    test_infer_shape(device, mix=True)
+
+
 if __name__ == "__main__":
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    with aclgraph_enable():
-        test_infer_shape(f'npu:{device_id}')
-    # test_infer_shape(f'npu:{device_id}')
+    test_two_kernel(f'npu:{device_id}')
