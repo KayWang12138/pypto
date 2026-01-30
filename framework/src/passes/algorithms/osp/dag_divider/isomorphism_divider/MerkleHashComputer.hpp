@@ -24,6 +24,8 @@
 #include <utility>
 #include <vector>
 
+#include "interface/utils/common.h"
+
 #include "passes/algorithms/osp/auxiliary/hash_util.hpp"
 #include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/dag_divider/isomorphism_divider/HashComputer.hpp"

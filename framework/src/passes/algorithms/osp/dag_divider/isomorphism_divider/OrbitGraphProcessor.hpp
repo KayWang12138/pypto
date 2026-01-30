@@ -29,6 +29,8 @@
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 #include "passes/algorithms/osp/graph_algorithms/subgraph_algorithms.hpp"
 
+#include "interface/utils/common.h"
+
 namespace npu::tile_fwk {
 namespace osp {
 

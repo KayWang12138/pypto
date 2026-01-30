@@ -39,14 +39,6 @@ struct VectorNodeHashFunc {
     ResultType operator()(const VertexType &v) const { return nodeHashes_[v]; }
 };
 
-template<class T>
-void HashCombine(std::size_t &seed, const T &v) {
-    std::hash<T> hasher;
-    constexpr std::size_t magicNumber_ = 0x9e3779b9;
-    constexpr std::size_t magicNumberTwo_ = 2U;
-    constexpr std::size_t magicNumberSix_ = 6U;
-    seed ^= hasher(v) + magicNumber_ + (seed << magicNumberSix_) + (seed >> magicNumberTwo_);
-}
 } // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_HASH_UTIL_HPP

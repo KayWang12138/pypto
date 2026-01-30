@@ -18,7 +18,8 @@
 #define OSP_GRAPH_TRAITS_HPP
 
 #include "iterator_concepts.hpp"
-#include "passes/algorithms/osp/auxiliary/hash_util.hpp"
+
+#include "interface/utils/common.h"
 
 /**
  * @file graph_traits.hpp
@@ -252,7 +253,7 @@ struct std::hash<npu::tile_fwk::osp::DirectedEdge<GraphT>> {
         // Combine hashes of source and target
         std::size_t h1 = std::hash<npu::tile_fwk::osp::VertexIdxT<GraphT>>{}(p.source_);
         std::size_t h2 = std::hash<npu::tile_fwk::osp::VertexIdxT<GraphT>>{}(p.target_);
-        npu::tile_fwk::osp::HashCombine(h1, h2);
+        npu::tile_fwk::HashCombine(h1, h2);
         return h1;
     }
 };

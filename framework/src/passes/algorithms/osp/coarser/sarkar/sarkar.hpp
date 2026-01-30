@@ -25,10 +25,11 @@
 #include <vector>
 
 #include "passes/algorithms/osp/auxiliary/datastructures/union_find.hpp"
-#include "passes/algorithms/osp/auxiliary/hash_util.hpp"
 #include "passes/algorithms/osp/auxiliary/math/divisors.hpp"
 #include "passes/algorithms/osp/coarser/coarser.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.hpp"
+
+#include "interface/utils/common.h"
 
 namespace npu::tile_fwk {
 namespace osp {

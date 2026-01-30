@@ -24,7 +24,6 @@
 #include "passes/algorithms/osp/auxiliary/datastructures/union_find.hpp"
 #include "passes/algorithms/osp/auxiliary/math/divisors.hpp"
 #include "passes/algorithms/osp/auxiliary/balanced_coin_flips.hpp"
-#include "passes/algorithms/osp/auxiliary/hash_util.hpp"
 #include "passes/algorithms/osp/auxiliary/permute.hpp"
 #include "passes/algorithms/osp/bsp/model/BspArchitecture.hpp"
 
@@ -303,15 +302,6 @@ TEST_F(OspAlgorithmTest, ThueMorse) {
     for (unsigned i = 0; i < 200u; i++) {
         EXPECT_EQ(testCoinInSeq.GetFlip(), thueMorseGen(i));
     }
-}
-
-TEST_F(OspAlgorithmTest, CombineHashes) {
-    std::size_t hash1 = 1729U;
-    std::size_t hash2 = 1729U;
-    HashCombine(hash1, 1U);
-    HashCombine(hash2, 2U);
-    // Can technically fail but is highly unlikely
-    EXPECT_NE(hash1, hash2);
 }
 
 TEST_F(OspAlgorithmTest, InPlaceInversePermutationRandom) {
