@@ -21,7 +21,7 @@
 
 #include "test_cost_model.h"
 #include "test_suite_stest_ops.h"
-#include "interface/configs/config_manager.h"
+ #include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "test_dev_func_runner.h"
@@ -75,6 +75,7 @@ struct MatmulTestCaseParam {
     bool l0c2l1IsNz = false;
     bool l0c2l1TmpIsTrans = false;
     bool enable_l0c2l1 = false;
+    std::vector<std::vector<int64_t>> l0c2l1TileShape = {};
 };
 
 class TestExecutor {
@@ -469,6 +470,32 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     return tileShape;
 }
 
+[[maybe_unused]] static std::vector<std::vector<int64_t>> GetL0CToL1TileShape(const string &shape) {
+    std::vector<std::vector<int64_t>> tileShape;
+    std::stringstream ss(shape);
+    char ch;
+    ss >> ch;
+    while (true) {
+        std::vector<int64_t> inner;
+        ss >> ch;
+        while (true) {
+            int num;
+            ss >> num;
+            inner.push_back(num);
+            ss >> ch;
+            if (ch == ']') {
+                break;
+            }
+        }
+        tileShape.push_back(inner);
+        ss >> ch;
+        if (ch == ']') {
+            break;
+        }
+    }
+    return tileShape;
+}
+
 [[maybe_unused]] static MatmulTestCaseParam GetMatmulParam(const nlohmann::json &json_data) {
     MatmulTestCaseParam param;
     param.transA = json_data.at("input_tensors")[0].at("need_trans");
@@ -503,6 +530,11 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
         if (json_data.at("params").at("l0c2l1_params").find("is_as_left_matrix") !=
                 json_data.at("params").at("l0c2l1_params").end()) {
             param.l0c2l1AsLeftMatrix = GetValueByNameWithKey<bool>(json_data, "is_as_left_matrix", "l0c2l1_params");
+        }
+        if (json_data.at("params").at("l0c2l1_params").find("l0c2l1_tile_shape") !=
+            json_data.at("params").at("l0c2l1_params").end()) {
+            param.l0c2l1TileShape =
+                GetL0CToL1TileShape(GetValueByNameWithKey<string>(json_data, "l0c2l1_tile_shape", "l0c2l1_params"));
         }
     }
 

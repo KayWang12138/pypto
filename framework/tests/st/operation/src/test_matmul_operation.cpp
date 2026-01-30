@@ -70,8 +70,12 @@ static void MatmulOperationExeFuncNoSplitWithL0C2L1(
     SymbolicScalar tensorcMdim = args->param_.l0c2l1IsTrans ? inputs[l0cToL1Index].GetShape()[1] : inputs[l0cToL1Index].GetShape()[0];
     SymbolicScalar tensorcNdim = args->param_.l0c2l1IsTrans ? inputs[l0cToL1Index].GetShape()[0] : inputs[l0cToL1Index].GetShape()[1];
 
-    FUNCTION("testNoSplit", {inputs[0], inputs[1], inputs[scaleIndex], inputs[biasIndex], inputs[l0cToL1Index]}, {outputs[0]}) {
+    FUNCTION("testNoSplit", {inputs[0], inputs[1], inputs[scaleIndex], inputs[biasIndex], inputs[l0cToL1Index]},
+        {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
+            TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
+                {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]},
+                true, args->param_.enableKSplit);
             Tensor tensorL0c2L1;
             if (args->param_.l0c2l1IsTrans) {
                 // 2: l0c2l1的tensor的index
@@ -101,8 +105,15 @@ static void MatmulOperationExeFuncNoSplitWithL0C2L1(
             if (args->param_.hasScale) {
                 param.scaleTensor = View(inputs[scaleIndex], {1, nDim}, {1, nDim}, {0, 0});
             }
+
             Tensor tensorTmp = CallMatmulOpWithL0C2L1AndScale(tensorA, tensorB, {args->param_.transA, args->param_.transB}, args->param_.l0c2l1IsNz,
                 args->param_.outDtype, param);
+
+            TileShape::Current().SetCubeTile({args->param_.l0c2l1TileShape[0][0], args->param_.l0c2l1TileShape[0][1]},
+                {args->param_.l0c2l1TileShape[1][0], args->param_.l0c2l1TileShape[1][1]},
+                {args->param_.l0c2l1TileShape[2][0], args->param_.l0c2l1TileShape[2][1]}, true,
+                args->param_.enableKSplit);
+
             if (args->param_.l0c2l1AsLeftMatrix) {
                 outputs[0] = CallMatmulOpWithL0C2L1(
                     tensorL0c2L1, tensorTmp, {args->param_.l0c2l1IsTrans, args->param_.l0c2l1TmpIsTrans}, args->param_.isCMatrixNz, args->param_.outDtype);
@@ -298,17 +309,9 @@ static void MatmulOperationExeFuncSplitMN(
 static void MatmulOperationExeFunc(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
-    if (args->param_.hasScale || args->param_.hasBias) {
-        int64_t nTile =
-            (args->tileShape_[2][0] < args->tileShape_[2][1]) ? args->tileShape_[2][0] : args->tileShape_[2][1];
-        TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
-                                         {args->tileShape_[1][0], args->tileShape_[1][1]},
-                                         {nTile, nTile}, true, args->param_.enableKSplit);
-    } else {
-        TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
-                                         {args->tileShape_[1][0], args->tileShape_[1][1]},
-                                         {args->tileShape_[2][0], args->tileShape_[2][1]}, true, args->param_.enableKSplit);
-    }
+    TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
+        {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]}, true,
+        args->param_.enableKSplit);
 
     const size_t MM_VIEW_SHAPE_DIM = 2;
     ASSERT(args->viewShape_.size() == MM_VIEW_SHAPE_DIM);
@@ -328,17 +331,20 @@ static void MatmulOperationExeFunc(
     }
 }
 
-static void CheckBTransNZUnaligned(bool transB, bool isCMatrixNz, const Tensor &b, const Tensor &c) {
+static void CheckBTransNZUnaligned(const MatmulOpFuncArgs &args, TestCaseDesc &testCase, Tensor &l0c2L1Tensor) {
     constexpr int blockAlignBytes = 32;
-    ASSERT(BytesOf(c.GetDataType()) != 0)
-        << "wrong data type";
-    int innerNum = blockAlignBytes / BytesOf(c.GetDataType());
-    SymbolicScalar bN = transB ? b.GetShape()[0] : b.GetShape()[1];
-    SymbolicScalar cN = c.GetShape()[1];
-    bool nNotEqualCase = !transB && isCMatrixNz && cN % innerNum == 0;
-    // (N, K)输入，NZ输出是，由于ND2NZ指令无法在N轴补零，最终NPU输出在N轴可能存在脏数据，暂不支持。
-    ASSERT(bN == cN || nNotEqualCase)
-        << "N, K shape for NZ output format with N unaligned is not supported";
+    ASSERT(BytesOf(testCase.outputTensors[0].GetDataType()) != 0) << "wrong data type";
+    int innerNum = blockAlignBytes / BytesOf(testCase.outputTensors[0].GetDataType());
+    int cN = testCase.outputTensors[0].GetShape()[1];
+    if(args.param_.l0c2l1AsLeftMatrix){
+        int bN = args.param_.transB ? testCase.inputTensors[1].GetShape()[0] : testCase.inputTensors[1].GetShape()[1];
+        bool nNotEqualCase = args.param_.isCMatrixNz && cN % innerNum == 0;
+        ASSERT(bN == cN || nNotEqualCase) << "N, K shape for NZ output format with N unaligned is not supported";
+    }else{
+        int bN = args.param_.l0c2l1IsTrans ? l0c2L1Tensor.GetShape()[0] : l0c2L1Tensor.GetShape()[1];
+        bool nNotEqualCase = !args.param_.l0c2l1IsTrans && args.param_.isCMatrixNz && cN % innerNum == 0;
+        ASSERT(bN == cN || nNotEqualCase) << "N, K shape for NZ output format with N unaligned is not supported";
+    }
 }
 
 class MatmulOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<MatmulOpMetaData> {};
@@ -376,10 +382,9 @@ TEST_P(MatmulOperationTest, TestMatmul) {
         Tensor l0c2L1Tensor = GetParamTensor(test_data, "l0c2l1_tensor");
         testCase.inputTensors.push_back(l0c2L1Tensor);
         testCase.inputPaths.push_back(GetGoldenDir() + "/" + l0c2L1Tensor.GetStorage()->Symbol() + ".bin");
+        CheckBTransNZUnaligned(args, testCase, l0c2L1Tensor);
     }
     testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
-    CheckBTransNZUnaligned(
-        args.param_.transB, args.param_.isCMatrixNz, testCase.inputTensors[1], testCase.outputTensors[0]);
     if (args.param_.enableKSplit) {
         TestExecutor::setGMNotClear();
     }
@@ -419,8 +424,6 @@ TEST_P(MatmulVerifyOperationTest, TestMatmulVerify) {
         }
     }
     testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
-    CheckBTransNZUnaligned(
-        args.param_.transB, args.param_.isCMatrixNz, testCase.inputTensors[1], testCase.outputTensors[0]);
     TestFlowVerifier::runTest(testCase);
 }
 } // namespace
