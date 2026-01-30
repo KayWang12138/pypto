@@ -324,7 +324,7 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
             }
             PrintSpillFailedInfo(memType.second.Front(), memType.first);
         }
-        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L1/L0A/B/C] is Full. Possible causes: incorrect memory reuse, memory fragmentation, lack alloc. "
+        APASS_LOG_WARN_F(Elements::Operation, "Buffer[L1/L0A/B/C] is Full. Possible causes: incorrect memory reuse, memory fragmentation, lack alloc. "
             "Please check tile shape, OOO spill failed info and alloc location.");
         return FAILED;
     }
@@ -340,7 +340,7 @@ Status OoOScheduler::SpillOnBlock() {
     for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
         for (auto idx : idxVec) {
             if (SpillOnCoreBlock(coreType, idx) != SUCCESS) {
-                APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %s", idx, coreTypeToString(coreType).c_str());
+                APASS_LOG_WARN_F(Elements::Operation, "SpillOnBlock failed at idx: %d, coreType: %s", idx, coreTypeToString(coreType).c_str());
             } else {
                 flag = true;
             }
