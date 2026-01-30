@@ -23,8 +23,6 @@ def check_args_tnd(
             sinks: torch.Tensor,
             cu_seqlens_q: torch.Tensor,
 ):
-    print("start tnd args check...")
-    
     assert q_tnd != None and block_table != None and kv_cache != None and seqused_kv != None and \
         sinks != None and cu_seqlens_q != None
 
@@ -94,7 +92,6 @@ def win_atten_main_tnd_mask(q_tnd, block_table, kv_cache, seqused_kv_list, sinks
             q_tensor_cur = pypto.view(q_2d, [group_size * n_q, d_q], [cur_offset, 0], \
                 valid_shape=[valid_group_len * n_q, d_q])
 
-            group_start_s1_idx = g_idx * group_size
             group_end_s1_idx = g_idx * group_size + valid_group_len - 1
 
             cur_end_s2_pos = actual_seq - (cur_s_q - 1) + group_end_s1_idx - 1
@@ -239,7 +236,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
                         cu_seqlens_q: torch.Tensor,
 ):
     check_args_tnd(q, ori_block_table, ori_kv, seqused_kv, sinks, cu_seqlens_q)
-    atten_out = torch.zeros([q.shape[0] * q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
+    atten_out = torch.empty([q.shape[0] * q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
 
     inputs = {
         q: [0],
@@ -257,9 +254,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
 
-    print("Using tnd mask kernel")
     win_atten_main_tnd_mask(*pto_inputs, *pto_outputs, win_size)
 
-    pypto.runtime._device_synchronize()
-    atten_out = atten_out.reshape([q.shape[0], q.shape[1], q.shape[2]])
+    atten_out = atten_out.reshape(q.shape)
     return atten_out
