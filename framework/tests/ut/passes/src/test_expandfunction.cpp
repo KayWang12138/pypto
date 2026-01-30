@@ -139,19 +139,30 @@ TEST_F(TestExpandFunctionPass, TestCVSeperate2) {
     std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
     std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};    
     TileShape::Current().SetVecTile(kNumExpFive, kNumExpFive);
+    TileShape::Current().SetCubeTile({kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, false, false);
+
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
 
     auto ubTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     auto ubTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    auto out = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto L1Tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto L1Tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto out1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    auto out2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
 
-    auto& op = currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {out});
+    auto& opAdd = currFunctionPtr->AddOperation(Opcode::OP_ADD, {ubTensor1, ubTensor2}, {out1});
+    auto& opMatmul = currFunctionPtr->AddOperation(Opcode::OP_A_MUL_B, {L1Tensor1, L1Tensor2}, {out2});
 
     currFunctionPtr->inCasts_.push_back(ubTensor1);
     currFunctionPtr->inCasts_.push_back(ubTensor2);
-    currFunctionPtr->outCasts_.push_back(out);
-    op.tileShape_.SetVecTile(tile_shape);
-    op.SetScopeId(2);
+    currFunctionPtr->inCasts_.push_back(L1Tensor1);
+    currFunctionPtr->inCasts_.push_back(L1Tensor2);
+    currFunctionPtr->outCasts_.push_back(out1);
+    currFunctionPtr->outCasts_.push_back(out2);
+
+    opAdd.tileShape_.SetVecTile(tile_shape);
+    opAdd.SetScopeId(1);
+    opMatmul.SetScopeId(1);
     ExpandFunction expandfunctionpass;
     auto status = expandfunctionpass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, FAILED);

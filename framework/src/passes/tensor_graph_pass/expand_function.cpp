@@ -15,7 +15,6 @@
 
 #include "passes/tensor_graph_pass/expand_function.h"
 #include <map>
-#include "interface/operation/opcode.h"
 #include "interface/function/function.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/tensor/logical_tensor.h"
@@ -94,17 +93,6 @@ bool NotNeedExpand(Opcode opcode, bool needCopy) {
            opcode == Opcode::OP_NOP;
 }
 
-Status ExpandOperation(Function &function, Operation &op) {
-    if (!GraphUtils::IsCVMixPlatform() && op.GetScopeId() == 2) {
-        APASS_LOG_ERROR_F(Elements::Operation, "Found CV Mix setting on a CV Seperate platform, please check your setting: sg_set_scope");
-        return FAILED;
-    }
-    config::SetPassOption(SG_SET_SCOPE, op.GetScopeId());
-    ExpandOperationInto(function, op.GetTileShape(), op.GetOpcode(), op.GetIOperands(), op.GetOOperands(), op);
-    config::SetPassOption(SG_SET_SCOPE, -1);
-    return SUCCESS;
-}
-
 void ProcessForNotExpandOp(Function &function, Operation &op) {
     auto &newOp = function.AddOperation(op.GetOpcode(), op.GetIOperands(), op.GetOOperands());
     newOp.SetOpAttribute(op.GetOpAttribute());
@@ -113,6 +101,10 @@ void ProcessForNotExpandOp(Function &function, Operation &op) {
         newOp.SetAttribute(OpAttributeKey::inplaceIdx, op.GetIntAttribute(OpAttributeKey::inplaceIdx));
     }
 }
+}
+
+void ExpandFunction::Init() {
+    scopeMap_.clear();
 }
 
 Status ExpandFunction::PreCheck(Function &function) {
@@ -128,6 +120,7 @@ Status ExpandFunction::PostCheck(Function &function) {
 Status ExpandFunction::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "Start ExpandFunction function [%s].", function.GetRawName().c_str());
     std::ostringstream oss;
+    Init();
     bool verifyResult = true;
     for (auto &op : function.Operations(false)) {
         auto verifyOperationEntry = OpcodeManager::Inst().GetVerifyOperationEntry(op.GetOpcode());
@@ -199,6 +192,21 @@ Status ExpandFunction::Expandfunction(Function &function) const {
         SourceLocation::ClearLocation();
     }
     function.expandFunctionAccelerate = false;
+    return SUCCESS;
+}
+
+Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
+    int scopeIdx = op.GetScopeId();
+    if (scopeIdx >= 0) { // scopeIdx < 0 means no need to merge
+        scopeMap_[scopeIdx].insert(op.GetCoreType());
+        if (!GraphUtils::IsCVMixPlatform() && scopeMap_[scopeIdx].find(CoreType::AIC) != scopeMap_[scopeIdx].end() && scopeMap_[scopeIdx].find(CoreType::AIV) != scopeMap_[scopeIdx].end()) {
+            APASS_LOG_ERROR_F(Elements::Operation, "Cannot mix cube and vector op on a CV seperate platform, please check your setting: sg_set_scope=%d", scopeIdx);
+            return FAILED;
+        }
+    }
+    config::SetPassOption(SG_SET_SCOPE, scopeIdx);
+    ExpandOperationInto(function, op.GetTileShape(), op.GetOpcode(), op.GetIOperands(), op.GetOOperands(), op);
+    config::SetPassOption(SG_SET_SCOPE, -1);
     return SUCCESS;
 }
 
