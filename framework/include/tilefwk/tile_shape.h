@@ -57,9 +57,9 @@ struct CubeTile {
 
     std::string ToString() const;
 };
-
+                        
 /**
- * @brief COnvTile tile for conv operation
+ * @brief ConvTile tile for conv operation
  *
  */
 struct ConvTile {
