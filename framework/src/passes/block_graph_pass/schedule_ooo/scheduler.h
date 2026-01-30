@@ -205,8 +205,6 @@ private:
     Status InitIssueEntry(Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     void InitCoreConfig(const std::vector<Operation *> &operations);
     Status InitIssueCoreType(IssueEntryPtr issue, Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
-    void InitUsedCore();
-    void UpdateUsedCore(IssueEntryPtr issue);
     void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
