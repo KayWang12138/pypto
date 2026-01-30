@@ -68,7 +68,7 @@ def quant_lightning_indexer_prolog_compute(
         INPUT 7     qr_scale       DT_FP32   (t, 1)                              ND
         INPUT 8     idx_wq_b_scale DT_FP32   (idx_nq * head_dim, 1)              ND
         OUTPUT 0	q              DT_BF16	 (t, idx_nq * head_dim)	             ND
-        OUTPUT 1    weights        DT_BF16   (t, idx_nq)                         ND
+        OUTPUT 1    weights        DT_FP16   (t, idx_nq)                         ND
         OUTPUT 2    q_scale        DT_FP16   (t, idx_nq)                         ND
         CONFIGS     tile_config    /          /                                  /
     1. Query Path:
@@ -114,8 +114,8 @@ def quant_lightning_indexer_prolog_compute(
         qr_in = pypto.view(qr, [t_tile, q_lora_rank], [t_idx, 0])
         qs_in = pypto.view(qr_scale, [t_tile, 1], [t_idx, 0])
         pypto.set_semantic_label("Query-Linear")
-        pypto.set_cube_tile_shapes([256, 256], [256, 1024], [256, 256], enable_multi_data_load=True)
         # (t_tile, q_lora_rank) @ (q_lora_rank, idx_nq * head_dim) --> (t_tile, idx_nq * head_dim)
+        pypto.set_cube_tile_shapes([128, 128], [256, 1024], [256, 256], enable_multi_data_load=True)
         q_s32 = pypto.matmul(qr_in, idx_wq_b, pypto.DT_INT32)
 
         pypto.set_semantic_label("Query-Dequant")
@@ -124,7 +124,7 @@ def quant_lightning_indexer_prolog_compute(
         q_f32 = pypto.cast(q_s32, pypto.DT_FP32)
         # (t_tile, idx_nq * head_dim), fp32, last dim brc
         q_f32 = q_f32 * qs_in
-        # (til_t, idx_nq * head_dim), fp32, first dim brc
+        # (t_tile, idx_nq * head_dim), fp32, first dim brc
         q_f32 = q_f32 * w_qb_scale
         q_cast = pypto.cast(q_f32, x_dtype)
         q_re = pypto.reshape(q_cast, [t_tile, idx_nq, head_dim])
@@ -146,11 +146,9 @@ def quant_lightning_indexer_prolog_compute(
         pypto.assemble(q_roped, [0, 0, head_dim - rope_dim], q_assemble)
 
         pypto.set_semantic_label("Hadamard-Compute")
-        pypto.set_cube_tile_shapes([idx_nq, idx_nq], [head_dim, head_dim], [head_dim, head_dim])
         # (t_tile, idx_nq, head_dim) @ (1, head_dim, head_dim) -> (t_tile, idx_nq, head_dim)
-        q_hadamard = pypto.matmul(
-            q_assemble, hadamard_q, x_dtype
-        )  # (t_tile, idx_nq, head_dim)
+        pypto.set_cube_tile_shapes([idx_nq, idx_nq], [head_dim, head_dim], [head_dim, head_dim])
+        q_hadamard = pypto.matmul(q_assemble, hadamard_q, x_dtype)  # (t_tile, idx_nq, head_dim)
         pypto.set_vec_tile_shapes(1, idx_nq, head_dim)
         # (t_tile, idx_nq, head_dim), (t_tile, idx_nq, 1)
         q_res, q_scale_res = quant_tensor(q_hadamard)
@@ -163,25 +161,21 @@ def quant_lightning_indexer_prolog_compute(
 
         pypto.set_semantic_label("Weight-Compute")
         x_in = pypto.view(x, [t_tile, h], [t_idx, 0])
-        pypto.set_cube_tile_shapes([32, 64], [h // 4, h], [idx_nq, idx_nq], enable_multi_data_load=True)
-        pypto.set_vec_tile_shapes(t_tile, idx_nq)
         # (t_tile, h) @ (h, idx_nq) --> (t_tile, idx_nq)
-        weights_fp32 = pypto.cast(
-            pypto.matmul(x_in, weights_proj, x_dtype), pypto.DT_FP32
-        )
-        weights_mul = pypto.mul(
-            weights_fp32, 1.0 / (math.sqrt(idx_nq) * math.sqrt(head_dim))
-        )
-        weights_bf16 = pypto.cast(weights_mul, pypto.DT_BF16)
-        pypto.assemble(weights_bf16, [t_idx, 0], weights)
+        pypto.set_cube_tile_shapes([32, 64], [h // 4, h], [idx_nq // 4, idx_nq // 4], enable_multi_data_load=True)
+        pypto.set_vec_tile_shapes(t_tile, idx_nq)
+        weights_fp32 = pypto.cast(pypto.matmul(x_in, weights_proj, x_dtype), pypto.DT_FP32)
+        weights_mul = pypto.mul(weights_fp32, 1.0 / (math.sqrt(idx_nq) * math.sqrt(head_dim)))
+        weights_fp16 = pypto.cast(weights_mul, pypto.DT_FP16)
+        pypto.assemble(weights_fp16, [t_idx, 0], weights)
 
 
 @pypto.jit(
     pass_options={
-        "mg_copyin_upper_bound": 16 * 1024 * 1024,
-        "pg_upper_bound": 80000,
-        "pg_lower_bound": 512,
-        "pg_parallel_lower_bound": 40,
+        "cube_nbuffer_mode": 2,
+        "vec_nbuffer_mode": 2,
+        "cube_l1_reuse_setting": {-1: 2},
+        "vec_nbuffer_setting": {1: 2},
     },
     runtime_options={
         "stitch_function_inner_memory": 128,
@@ -223,7 +217,7 @@ def quant_lightning_indexer_prolog_kernel(
         INPUT 7     qr_scale       DT_FP32   (t, 1)                              ND
         INPUT 8     idx_wq_b_scale DT_FP32   (idx_nq * head_dim, 1)              ND
         OUTPUT 0	q              DT_BF16	 (t, idx_nq * head_dim)	             ND
-        OUTPUT 1    weights        DT_BF16   (t, idx_nq)                         ND
+        OUTPUT 1    weights        DT_FP16   (t, idx_nq)                         ND
         OUTPUT 2    q_scale        DT_FP16   (t, idx_nq)                         ND
         CONFIGS     tile_config    /          /                                  /
     Note:

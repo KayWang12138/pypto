@@ -45,7 +45,7 @@ def quant_lightning_indexer_prolog(
     )
     weights = torch.empty(
         [qr.size(0), hadamard.size(0)],
-        dtype=weights_proj.dtype,
+        dtype=torch.float16,
         device=weights_proj.device,
     )
     q_scale = torch.empty(
@@ -130,7 +130,7 @@ def compute_quant_lightning_indexer_prolog(inputs, params):
         .to(torch.float32)
     )
     weights = weights * (idx_nq**-0.5) * (head_dim**-0.5)
-    weights = weights.to(calc_dtype)
+    weights = weights.to(torch.float16)
 
     return q_int8, weights, q_scale
 
@@ -258,7 +258,7 @@ def npu_quant_lightning_indexer_prolog(
     )
     weights = torch.empty(
         [qr.size(0), weights_proj.size(1)],
-        dtype=weights_proj.dtype,
+        dtype=torch.float16,
         device=weights_proj.device,
     )
     q_scale = torch.empty(
@@ -273,11 +273,14 @@ def npu_quant_lightning_indexer_prolog(
     # gen pto tensor from torch
     qr_pto = pypto.from_torch(qr, dynamic_axis=[0], name="qr")
     idx_wq_b_pto = pypto.from_torch(idx_wq_b, name="idx_wq_b")
+    idx_wq_b_pto.set_cache_policy(pypto.CachePolicy.NONE_CACHEABLE, True)
     x_pto = pypto.from_torch(x, dynamic_axis=[0], name="x")
     weights_proj_pto = pypto.from_torch(weights_proj, name="weights_proj")
+    weights_proj_pto.set_cache_policy(pypto.CachePolicy.NONE_CACHEABLE, True)
     cos_pto = pypto.from_torch(cos, dynamic_axis=[0], name="cos")
     sin_pto = pypto.from_torch(sin, dynamic_axis=[0], name="sin")
     hadamard_pto = pypto.from_torch(hadamard, name="hadamard")
+    hadamard_pto.set_cache_policy(pypto.CachePolicy.NONE_CACHEABLE, True)
     qr_scale_pto = pypto.from_torch(qr_scale, dynamic_axis=[0], name="qr_scale")
     idx_wq_b_scale_pto = pypto.from_torch(idx_wq_b_scale, name="idx_wq_b_scale")
 
@@ -320,7 +323,7 @@ def do_indexer_prolog_quant_func(inputs, params, golden_list):
     INPUT 7     qr_scale       DT_FP32   (t, 1)                              ND
     INPUT 8     idx_wq_b_scale DT_FP32   (idx_nq * head_dim, 1)              ND
     OUTPUT 0	q              DT_BF16	 (t, idx_nq * head_dim)	             ND
-    OUTPUT 1    weights        DT_BF16   (t, idx_nq)                         ND
+    OUTPUT 1    weights        DT_FP16   (t, idx_nq)                         ND
     OUTPUT 2    q_scale        DT_FP16   (t, idx_nq)                         ND
     CONFIGS     tile_config    /          /                                  /
     """
@@ -330,8 +333,10 @@ def do_indexer_prolog_quant_func(inputs, params, golden_list):
 
     qr = inputs[0].npu()
     idx_wq_b = inputs[1].npu()
+    idx_wq_b_nz = torch_npu.npu_format_cast(idx_wq_b, torch_npu.Format.FRACTAL_NZ)
     x = inputs[2].npu()
     weights_proj = inputs[3].npu()
+    weights_proj_nz = torch_npu.npu_format_cast(weights_proj, torch_npu.Format.FRACTAL_NZ)
     cos = inputs[4].npu()
     sin = inputs[5].npu()
     hadamard = inputs[6].npu()
@@ -344,17 +349,20 @@ def do_indexer_prolog_quant_func(inputs, params, golden_list):
 
     # define npu outputs
     q = torch.zeros([t, idx_nq, head_dim]).to(torch.int8).npu()
-    weights = torch.zeros([t, idx_nq]).to(torch.bfloat16).npu()
+    weights = torch.zeros([t, idx_nq]).to(torch.float16).npu()
     q_scale = torch.zeros([t, idx_nq]).to(torch.float16).npu()
 
     # gen pto tensor from torch
     qr_pto = pypto.from_torch(qr, dynamic_axis=[0], name="qr")
-    idx_wq_b_pto = pypto.from_torch(idx_wq_b, name="idx_wq_b")
+    idx_wq_b_pto = pypto.from_torch(idx_wq_b_nz, name="idx_wq_b")
+    idx_wq_b_pto.set_cache_policy(pypto.CachePolicy.NONE_CACHEABLE, True)
     x_pto = pypto.from_torch(x, dynamic_axis=[0], name="x")
-    weights_proj_pto = pypto.from_torch(weights_proj, name="weights_proj")
+    weights_proj_pto = pypto.from_torch(weights_proj_nz, name="weights_proj")
+    weights_proj_pto.set_cache_policy(pypto.CachePolicy.NONE_CACHEABLE, True)
     cos_pto = pypto.from_torch(cos, dynamic_axis=[0], name="cos")
     sin_pto = pypto.from_torch(sin, dynamic_axis=[0], name="sin")
     hadamard_pto = pypto.from_torch(hadamard, name="hadamard")
+    hadamard_pto.set_cache_policy(pypto.CachePolicy.NONE_CACHEABLE, True)
     qr_scale_pto = pypto.from_torch(qr_scale, dynamic_axis=[0], name="qr_scale")
     idx_wq_b_scale_pto = pypto.from_torch(idx_wq_b_scale, name="idx_wq_b_scale")
 
@@ -399,7 +407,7 @@ def do_indexer_prolog_quant_torch_graph(inputs, golden_list):
     INPUT 7     qr_scale       DT_FP32   (t, 1)                              ND
     INPUT 8     idx_wq_b_scale DT_FP32   (idx_nq * head_dim, 1)              ND
     OUTPUT 0	q              DT_BF16	 (t, idx_nq * head_dim)	             ND
-    OUTPUT 1    weights        DT_BF16   (t, idx_nq)                         ND
+    OUTPUT 1    weights        DT_FP16   (t, idx_nq)                         ND
     OUTPUT 2    q_scale        DT_FP16   (t, idx_nq)                         ND
     CONFIGS     tile_config    /          /                                  /
     """
@@ -413,8 +421,10 @@ def do_indexer_prolog_quant_torch_graph(inputs, golden_list):
     # define npu inputs
     qr = inputs[0].npu()
     idx_wq_b = inputs[1].npu()
+    idx_wq_b_nz = torch_npu.npu_format_cast(idx_wq_b, torch_npu.Format.FRACTAL_NZ)
     x = inputs[2].npu()
     weights_proj = inputs[3].npu()
+    weights_proj_nz = torch_npu.npu_format_cast(weights_proj, torch_npu.Format.FRACTAL_NZ)
     cos = inputs[4].npu()
     sin = inputs[5].npu()
     hadamard = inputs[6].npu()
@@ -432,7 +442,15 @@ def do_indexer_prolog_quant_torch_graph(inputs, golden_list):
     )
 
     q, weights, q_scale = model(
-        qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
+        qr,
+        idx_wq_b_nz,
+        x,
+        weights_proj_nz,
+        cos,
+        sin,
+        hadamard,
+        qr_scale,
+        idx_wq_b_scale,
     )
 
     pypto.runtime._device_synchronize()
@@ -453,7 +471,7 @@ def get_indexer_prolog_quant_config(case_name: str):
 
 def do_indexer_prolog_quant_entry(case_name: str, is_torch_graph: bool = False):
     params = {
-        "idx_nq": 32,
+        "idx_nq": 64,
         "head_dim": 128,
         "rope_dim": 64,
         "q_lora_rank": 1024,

@@ -108,9 +108,8 @@ def inverse_rope_3d(
             x_rotate_trs_1.shape[2],
         ],
     )
-    pypto.set_vec_tile_shapes(1, 2, rope_dim // 2, n_q)
+    pypto.set_vec_tile_shapes(1, rope_dim, rope_dim, n_q)
     x_rotate_trs_2 = pypto.transpose(x_rotate_reshape_1, 1, 2)
-    pypto.set_vec_tile_shapes(1, rope_dim // 2, 2, n_q)
     x_rotate_add = pypto.add(x_rotate_trs_2, 0.0)
     x_rotate_reshape_2 = pypto.reshape(x_rotate_add, [t, rope_dim, n_q])
     pypto.set_vec_tile_shapes(1, rope_dim, n_q)
