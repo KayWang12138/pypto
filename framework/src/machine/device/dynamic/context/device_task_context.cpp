@@ -228,6 +228,9 @@ int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
         dyndata->opAttrSize = dupFunc.GetSource()->GetOpAttrSize();
         dyndata->rawTensorAddrSize = dupFunc.GetSource()->GetIncastSize() + dupFunc.GetSource()->GetOutcastSize();
         dyndata->rawTensorDescSize = dupFunc.GetSource()->GetRawTensorDescSize();
+#ifdef __ESL_SIMULATION__
+        busDirectWrite_(static_cast<int64_t>(PtrToValue(dyndata->rawTensorAddr)), dyndata->stackWorkSpaceSize * sizeof(uint64_t), dyndata->rawTensorAddr, 0);    
+#endif
         dyndata->commGroupNum = devProg->commGroupNum;
         if (sizeof(dyndata->hcclContext) != sizeof(devProg->hcclContext)) {
             DEV_ERROR("hcclContext size mismatch, dyndata size: %zu, devProg size: %zu",
@@ -267,6 +270,9 @@ int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
         dyndata++;
     }
     dynFuncDataSize += headerSize * sizeof(int64_t);
+#ifdef __ESL_SIMULATION__
+    busDirectWrite_(static_cast<int64_t>(PtrToValue(dyntask->GetDynFuncDataList())), dynFuncDataSize, dyntask->GetDynFuncDataList(), 0);    
+#endif
     return DEVICE_MACHINE_OK;
 }
 
