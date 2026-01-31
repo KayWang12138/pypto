@@ -86,9 +86,10 @@ def index_add_(
                 [1 1 1]]               # shape (2, 3)
     """
     if alpha == 1 or alpha == 1.0:
-        return pypto_impl.IndexAdd_(input, source, index, dim)
+        input.Move(pypto_impl.IndexAdd(input, source, index, dim))
     else:
-        return pypto_impl.IndexAdd_(input, source, index, dim, pypto_impl.Element(input.dtype, alpha))
+        input.Move(pypto_impl.IndexAdd(input, source, index, dim, pypto_impl.Element(input.dtype, alpha)))
+    return input
 
 
 @op_wrapper
