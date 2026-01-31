@@ -117,7 +117,7 @@ void PassManager::RegDefaultStrategy() {
             {  "InsertOpForViewAssemble",    PassName::INSERT_OP_FOR_VIEWASSEMBLE},
             {                   "SplitK",                       PassName::SPLIT_K},
             {           "GraphPartition",               PassName::GRAPH_PARTITION},
-            {          "ReduceCopyMerge",             PassName::REDUCE_COPY_MERGE},
+            //{          "ReduceCopyMerge",             PassName::REDUCE_COPY_MERGE},
             {             "NBufferMerge",                PassName::N_BUFFER_MERGE},
             {       "L1CopyInReuseMerge",        PassName::L1_COPY_IN_REUSE_MERGE},
             {     "IntraSubgraphAdapter",        PassName::INTRA_SUBGRAPH_ADAPTER},
