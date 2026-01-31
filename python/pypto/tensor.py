@@ -604,8 +604,18 @@ class Tensor:
         return pypto.triu(self, diagonal)
 
     @source_location
+    def triu_(self: 'Tensor', diagonal: 'int | SymbolicScalar') -> 'Tensor':
+        self.move(pypto.triu(self, diagonal))
+        return self
+    
+    @source_location
     def tril(self: 'Tensor', diagonal: 'int | SymbolicScalar') -> 'Tensor':
         return pypto.tril(self, diagonal)
+
+    @source_location
+    def tril_(self: 'Tensor', diagonal: 'int | SymbolicScalar') -> 'Tensor':
+        self.move(pypto.tril(self, diagonal))
+        return self
 
     @source_location
     def expand_clone(self, shape: List[int], *,
