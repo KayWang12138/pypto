@@ -24,6 +24,8 @@
 inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
 inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
 constexpr int MAX_DIMS = 8;
+constexpr uint32_t AICORE_TYPE_NUM = 2;
+
 using taskid_t = uint32_t;
 
 namespace npu::tile_fwk {

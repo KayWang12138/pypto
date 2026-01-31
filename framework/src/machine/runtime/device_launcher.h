@@ -96,13 +96,12 @@ public:
     static constexpr uint32_t kDefaultAicNum = 25;
     static constexpr uint32_t kDefaultAivNum = 50;
     static constexpr uint32_t kDefaultTensorinfoSize = 16384;
-    static std::vector<uint8_t>& GetDevProg(Function *func) {
-        return func->GetDyndevAttribute()->devProgBinary;
+    static DevAscendProgram *GetDevProg(Function *func) {
+        return reinterpret_cast<DevAscendProgram *>(func->GetDyndevAttribute()->devProgBinary.data());
     }
 
     static bool HasInplaceArgs(Function *function) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function).data()));
-        return devProg->outputInplaceSlotList.size() != 0;
+        return GetDevProg(function)->outputInplaceSlotList.size() != 0;
     }
 
     static void DeviceLauncherConfigFillDeviceInfo(const DeviceLauncherConfig &config) {
@@ -124,30 +123,20 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void AssignMetaAddr(DeviceKernelArgs &kArgs, DeviceMemoryTy devMem, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+    static void AssignMetaAddr(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+        (void)kArgs;
+
+        FillDeviceRuntimeOffset(devProg, DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT);
+        size_t runtimeDataSize = devProg->GetDeviceRuntimeOffset().size;
+        size_t runtimeDataCount = devProg->GetDeviceRuntimeOffset().count;
+        size_t runtimeDataRingBufferSize = RuntimeDataRingBufferHead::GetRingBufferSize(runtimeDataSize, runtimeDataCount);
+        uint64_t runtimeDataRingBufferAddr = (uint64_t)devMem.AllocDev(runtimeDataRingBufferSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
+        devProg->devArgs.runtimeDataRingBufferAddr = runtimeDataRingBufferAddr;
+
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
-        size_t shmSize = generalSize + stitchPoolSize;
-        uint64_t shmAddr = 0U;
-        if (devMem.IsDevice()) {
-            shmAddr = (uint64_t)devMem.AllocDev(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
-        } else {
-            shmSize += (DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum);
-            shmAddr = (uint64_t)devMem.AllocDev(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
-            devProg->devArgs.startArgsAddr = shmAddr;
-            shmAddr += DEV_ARGS_SIZE;
-            devProg->devArgs.taskCtrl = shmAddr;
-            shmAddr += DEVICE_TASK_CTRL_SIZE;
-            devProg->devArgs.taskQueue = shmAddr;
-            shmAddr += DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
-        }
-        devProg->devArgs.generalAddr = shmAddr;
-        kArgs.opMetaAddrs.generalAddr = shmAddr;
-        shmAddr += generalSize;
-        devProg->devArgs.stitchPoolAddr = shmAddr;
-        kArgs.opMetaAddrs.stitchPoolAddr = shmAddr;
-        ALOG_DEBUG_F("generalSize:%lu stitchPoolSize:%lu generalAddr:%lx stitchPoolAddr:%lx.", generalSize, stitchPoolSize,
-            devProg->devArgs.generalAddr, devProg->devArgs.stitchPoolAddr);
+        ALOG_DEBUG_F("generalSize:%lu stitchPoolSize:%lu generalOffset:%lx stitchPoolOffset:%lx.", generalSize, stitchPoolSize,
+            devProg->deviceRuntimeOffset.generalOffset, devProg->deviceRuntimeOffset.stitchPoolOffset);
         return;
     }
 
@@ -198,7 +187,7 @@ public:
     template<typename DeviceMemoryTy>
     static void FillKernelMeta(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
             const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
-        AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
+        AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
             kArgs.workspace = (int64_t *)config.workspaceAddr;
@@ -226,12 +215,11 @@ public:
         devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
     }
 
-    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        ASSERT(devProg->commGroupNum == hcclContext.size()) 
-            << "commGroupNum mismatch. commGroupNum = " 
+    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, DevAscendProgram *devProg) {
+        ASSERT(devProg->commGroupNum == hcclContext.size())
+            << "commGroupNum mismatch. commGroupNum = "
             <<devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
-        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t))) 
+        ASSERT(devProg->commGroupNum <= (sizeof(devProg->hcclContext) / sizeof(uint64_t)))
             << "commGroupNum exceeds array size. commGroupNum = "
             << devProg->commGroupNum << ", max allowed = " << sizeof(devProg->hcclContext) / sizeof(uint64_t);
         for (size_t i = 0; i < devProg->commGroupNum; i++) {
@@ -239,24 +227,21 @@ public:
         }
     }
 
-     static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames,
-        const std::vector<uint8_t> &devProgData) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+     static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames, DevAscendProgram *devProg) {
         if (devProg->hcclContext[0] != 0) {
             return;
         }
         auto hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
-        PrepareHcclContext(hcclContext, devProgData);
+        PrepareHcclContext(hcclContext, devProg);
     }
 
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
-        const std::vector<uint8_t> &devProgData) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        if (devProg->hcclContext[0] != 0) {
+        DevAscendProgram *devProg) {
+        auto hcclContext = DistributedContext::GetHcclContext(groupNames);
+        if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
             return;
         }
- 	    auto hcclContext = DistributedContext::GetHcclContext(groupNames);
-        PrepareHcclContext(hcclContext, devProgData);
+        PrepareHcclContext(hcclContext, devProg);
     }
 
     template<typename DeviceMemoryTy>
@@ -275,10 +260,16 @@ public:
         kArgs.ctrlFlowCache = reinterpret_cast<int64_t*>(ctrlFlowCache);
     }
 
-    static int InitAicpuTaskInfo() {
-        AiCpuArgs initArgs;
-        return memcpy_s(tensorInfo_.data(), sizeof(AiCpuArgs), &initArgs, sizeof(AiCpuArgs));
+    static void InitAicpuTaskInfo() {
+        static bool inited = false;
+        if (!inited) {
+            AiCpuArgs initArgs;
+            (void)memcpy_s(tensorInfo_.data(), sizeof(AiCpuArgs), &initArgs, sizeof(AiCpuArgs));
+            inited = true;
+        }
     }
+
+    static void FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, DeviceKernelArgs &kargs);
 
     /*
      *  inputs          |  inputSize  |
@@ -317,11 +308,7 @@ public:
         if (unlikely(allSize > tensorInfo_.size())) {
             tensorInfo_.resize(allSize);
         }
-        static auto ret = InitAicpuTaskInfo();
-        if (unlikely(ret != 0)) {
-            ALOG_ERROR_F("Copy aicpu task info failed!");
-            return;
-        }
+        InitAicpuTaskInfo();
         auto data = reinterpret_cast<uint64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
         *data = inputList.size();
         data++;

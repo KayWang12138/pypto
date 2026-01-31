@@ -30,6 +30,7 @@ struct DeviceExecuteContext {
     using PushTaskEntry = std::function<void(DynDeviceTask *, DeviceExecuteContext *)>;
     PushTaskEntry pushTask;
 
+    DeviceKernelArgs *kernelArgs{nullptr};
     DevStartArgs *args{nullptr};
     uint64_t taskId{0};
     bool isFirstTaskSend{true};
@@ -74,9 +75,11 @@ struct DeviceExecuteContext {
 
     static void *SymbolHandlerIdToHandler(SymbolHandlerId id);
 
-    DeviceExecuteContext(DevStartArgs *startArgs);
+    DeviceExecuteContext(DeviceKernelArgs *kernelArgs, DevStartArgs *startArgs);
 
     void ShowStats();
+
+    void MaybeWaitForAicoreStart(DevStartArgs *devStartArgs);
 
     int RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTask);
 
