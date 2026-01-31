@@ -207,6 +207,8 @@ struct ConvTileInfo {
     int64_t orgBatch = 0;
     int64_t orgCout = 0;
     int64_t orgDout = 0;
+    int64_t orgHin = 0;
+    int64_t orgWin = 0;
     int64_t orgHout = 0;
     int64_t orgWout = 0;
     int64_t orgHoutWout = 0;
@@ -222,8 +224,10 @@ struct ConvTileInfo {
     int64_t hAL1Out = 0;
     int64_t wAL1Out = 0;
     int64_t kL0 = 0;
-    int64_t mL0 = 0;
+    int64_t hL0 = 0;
+    int64_t wL0 = 0;
     int64_t nL0 = 0;
+    int64_t cin0 = 0;
 };
 
 struct ConvIterInfo {
@@ -234,19 +238,24 @@ struct ConvIterInfo {
     int64_t wL1InOffset = 0;
     int64_t wL1OutOffset = 0;
     int64_t nL1Offset = 0;
-    int64_t mL0Offset = 0;
+    int64_t hL0Offset = 0;
+    int64_t wL0Offset = 0;
     int64_t nL0Offset = 0;
     int64_t kAL1Offset = 0;
     int64_t kBL1Offset = 0;
     int64_t kL0Offset = 0;
-    int64_t HinL1Size = 0;
-    int64_t WinL1Size = 0;
+    int64_t hinL1Size = 0;
+    int64_t winL1Size = 0;
+    int64_t houtL1Size = 0;
+    int64_t woutL1Size = 0;
+    int64_t kAL1Size = 0;
+    int64_t kBL1Size = 0;
     int64_t mL0Size = 0;
     int64_t nL1Size = 0;
     int64_t nL0Size = 0;
-    int64_t kAL1Size = 0;
-    int64_t kBL1Size = 0;
     int64_t kL0Size = 0;
+    bool aL1UpadateFlag = false;
+    bool bL1UpadateFlag = false;
     bool isFirstK = false;
     bool isLastK = false;
 };
