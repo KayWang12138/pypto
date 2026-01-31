@@ -200,12 +200,6 @@ void CheckIndexAddParamsInvalid(
 
 Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
     DECLARE_TRACER();
-    Tensor result = self;
-    return IndexAdd_(result, src, indices, axis, alpha);
-}
-
-Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
-    DECLARE_TRACER();
     CheckIndexAddParamsInvalid(self, src, indices, axis, alpha);
     axis = axis < 0 ? self.GetShape().size() + axis : axis;
     DataType selfDataType = self.GetDataType();
@@ -213,7 +207,6 @@ Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, i
     Tensor result(selfDataType, self.GetShape());
     CALL(IndexAdd, *Program::GetInstance().GetCurrentFunction(),
         {self.GetStorage(), src.GetStorage(), indices.GetStorage(), result.GetStorage(), axis, alpha_});
-
     return result;
 }
 
