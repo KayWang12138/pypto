@@ -49,7 +49,7 @@ def conv(
         -- scale_tensor：per_channel场景下，dequant，requant的scale tensor输入
         -- relu_type：fixpipe随路relu（normal relu, leakyrelu，prelu）
     """
-    # __validate_inputs(input, weight, out_dtype, bias, strides, paddings, dilations, groups)
+    __validate_inputs(input, weight, out_dtype, bias, strides, paddings, dilations, groups)
     return pypto_impl.Conv(
         out_dtype, input, weight, bias, strides, paddings, dilations, groups
     )
@@ -77,27 +77,31 @@ def __validate_shape(input: Tensor, weight: Tensor, bias: Tensor, transposed: bo
             "Tensor dimension mismatch. Expect input_dim == weight_dim and both in [3, 4, 5], "
             f"got input_dim: {input_dim}, weight_dim: {weight_dim}."
         )
-    
+    if input_dim not in {3}:
+        raise RuntimeError(
+            "Tensor dimension not support. Expect input_dim == weight_dim and both in[3], "
+            f"got input_dim: {input_dim}, weight_dim: {weight_dim}."
+        )
 
 
 def __validate_inputs(input, weight, out_dtype, bias, strides, paddings, dilations, groups) -> None:
+    __validate_type(input, pypto_impl.Tensor, "input")
+    __validate_type(weight, pypto_impl.Tensor, "weight")
     __validate_type(out_dtype, DataType, "out_dtype")
-    __validate_type(strides, bool, "strides")
-    __validate_type(paddings, bool, "paddings")
-    __validate_type(dilations, bool, "dilations")
+    __validate_type(strides, list, "strides")
+    __validate_type(paddings, list, "paddings")
+    __validate_type(dilations, list, "dilations")
+    __validate_type(groups, int, "groups")
     __validate_shape(input, weight, bias, False)
 
-    if is_out_nz:
-        raise ValueError("Output tensor do not support NZ currently.")
-    input1_valid = input_tensor1.GetDataType() == pypto_impl.DataType.DT_FP32 \
-        and input_tensor1.Format() == pypto_impl.TileOpFormat.TILEOP_NZ
-    input2_valid = input_tensor2.GetDataType() == pypto_impl.DataType.DT_FP32 \
-        and input_tensor2.Format() == pypto_impl.TileOpFormat.TILEOP_NZ
-    if input1_valid or input2_valid:
-        raise ValueError("Input tensor with DT_FP32 must use ND format, NZ format is not support currently.")
-    if input_tensor1.GetDataType() != input_tensor2.GetDataType():
-        raise ValueError("All input tensors must have the same data type")
-    if input_tensor1.Dim() != 2 and extend_params is not None:
-        raise RuntimeError(
-            "extend_params is not supported for batched matrix multiplication."
+    if input.GetDataType() not in (pypto_impl.DataType.DT_BF16, pypto_impl.DataType.DT_FP16, pypto_impl.DataType.DT_FP32):
+        raise ValueError(
+            "Input tensor data type must in [bf16, fp16, fp32],"
+            f"but Input tensor got {input.GetDataType()}"
+        )
+    
+    if weight.GetDataType() not in (pypto_impl.DataType.DT_BF16, pypto_impl.DataType.DT_FP16, pypto_impl.DataType.DT_FP32):
+        raise ValueError(
+            "Weight tensor data type must in [bf16, fp16, fp32],"
+            f"but Weight tensor got {input.GetDataType()}"
         )
