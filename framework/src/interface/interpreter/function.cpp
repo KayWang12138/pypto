@@ -210,7 +210,11 @@ std::shared_ptr<LogicalTensorData> FunctionInterpreter::LoadTensorBinary(
     }
     FILE *fdata = fopen(filepath.c_str(), "rb");
     auto data = std::make_shared<RawTensorData>(static_cast<DataType>(tensor->Datatype()), shape);
-    fread(data->data(), 1, data->size(), fdata);
+    size_t readSize = fread(data->data(), 1, data->size(), fdata);
+    if (readSize != data->size()) {
+        fclose(fdata);
+        return nullptr;
+    }
     auto dataView = std::make_shared<LogicalTensorData>(data, shape, shape, std::vector<int64_t>(shape.size(), 0));
     fclose(fdata);
     return dataView;
