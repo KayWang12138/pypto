@@ -330,7 +330,12 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::TopK(self, k, axis, islargest);
         },
         py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
-
+    m.def(
+        "ArgSort",
+        [](const Tensor &self, int axis, bool descending) {
+            return npu::tile_fwk::ArgSort(self, axis, descending);
+        },
+        py::arg("operand"), py::arg("axis"), py::arg("descending") = false, "Tensor argsort.");
     m.def(
         "Matmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
