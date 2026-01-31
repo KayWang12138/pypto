@@ -88,6 +88,12 @@ def from_torch(tensor, name: str = "", dynamic_axis: Optional[List[int]] = None,
             if torch_npu.get_npu_format(tensor) == 29:
                 tensor_format = TileOpFormat.TILEOP_NZ
 
+    block_align_bytes = 32
+    inner_axis_check = tensor.dim() > 0 and isinstance(tensor.shape[-1], int) and \
+        (tensor.shape[-1] * tensor.element_size()) % block_align_bytes != 0
+    if tensor_format == TileOpFormat.TILEOP_NZ and inner_axis_check:
+        raise RuntimeError("NZ format inner axis must be aligned to 32B.")
+
     dtype = _dtype_from(tensor.dtype)
     if tensor.dim() == 0:
         return Tensor(
