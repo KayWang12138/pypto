@@ -36,6 +36,7 @@ namespace npu::tile_fwk {
 struct MemoryHelper {
     MemoryHelper(bool isTest) : isTest_(isTest) {}
 
+    ~MemoryHelper() {} = default;
     bool IsDevice() { return !isTest_; }
 
     uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
@@ -57,10 +58,26 @@ struct MemoryHelper {
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
         uint8_t *devPtr = nullptr;
-        if (isTest_)
-            devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
-        else
+        if (isTest_) {
+            size_t ailgnSize = 512;
+            size_t totalSize = size + ailgnSize;
+
+            if (totalSize < size || totalSize > 0x7FFFFFFF) {
+                return nullptr;
+            }
+
+            uint8_t * rawPtr = (uint8_t*)malloc(totalSize);
+            if (!rawPtr) {
+                return nullptr;
+            }
+            std::shared_ptr<uint8_t> ptr(rawPtr, free);
+            memset_s(rawPtr, totalSize, 0, totalSize);
+            
+            devPtr = (uint8_t *)((((uint64_t)rawPtr) + ailgnSize - 1) / ailgnSize * ailgnSize);
+            testAllocatePtrs_.push_back(ptr);
+        } else {
             machine::GetRA()->AllocDevAddr(&devPtr, size);
+        }
         return devPtr;
     }
 
@@ -97,6 +114,7 @@ struct MemoryHelper {
     }
 
     bool isTest_{true};
+    std::vector<std::shared_ptr<uint8_t>> testAllocatePtrs_;
 };
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
@@ -170,12 +188,13 @@ private:
             return;
         }
         DeviceKernelArgs kArgs;
+        MemoryHelper memoryHelper(true);
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitDistributedContextToHost(function_->GetDyndevAttribute()->commGroupNames,
  	        function_->GetDyndevAttribute()->devProgBinary);
-        DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
+        DeviceInitTilingData(memoryHelper, kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
         for (int i = 0; i < (config_.controlFlowCache ? 1 : config_.repeatNum); i++) {
-            InitKernelInOuts(kArgs, inputs, outputs, true, {});
+            InitKernelInOuts(memoryHelper, kArgs, inputs, outputs, true, {});
             std::cout << "!!! Run CostModel " << i << "\n";
             RunCostModel(&kArgs);
             std::cout << "!!! Run TestModel " << i << "\n";
@@ -266,23 +285,24 @@ private:
             return;
         }
         CheckDeviceId();
+        MemoryHelper memoryHelper(false);
         DeviceKernelArgs kArgs;
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitDistributedContext(function_->GetDyndevAttribute()->commGroupNames,
  	        function_->GetDyndevAttribute()->devProgBinary);
-        DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
+        DeviceInitTilingData(memoryHelper, kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
         auto aicpuStream = machine::GetRA()->GetScheStream();
         auto aicoreStream = machine::GetRA()->GetStream();
         auto ctrlStream = config_.cpuSeparate ? machine::GetRA()->GetCtrlStream() : nullptr;
         for (int i = 0; i < config_.repeatNum; i++) {
-            InitKernelInOuts(kArgs, inputs, outputs, false, function_->GetDyndevAttribute()->disableL2List);
+            InitKernelInOuts(memoryHelper, kArgs, inputs, outputs, false, function_->GetDyndevAttribute()->disableL2List);
             rc = DeviceRunner::Get().DynamicRun(aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
             EXPECT_EQ(rc, 0);
             DeviceRunner::Get().SynchronizeDeviceToHostProfData();
         }
-        CopyFromDev(MemoryHelper(false), outputs);
+        CopyFromDev(memoryHelper, outputs);
         if (outputs.size() == 0 || HasInplaceArgs(function_)) {
-            CopyFromDev(MemoryHelper(false), inputs);
+            CopyFromDev(memoryHelper, inputs);
         }
         if (IsDumpTensorEnable()) {
             DumpTensorContents(kArgs, inputs, outputs);
@@ -366,12 +386,12 @@ private:
         }
     }
 
-    void InitKernelInOuts(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+    void InitKernelInOuts(MemoryHelper &memoryHelper, DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest, const std::vector<uint8_t>& disableL2List) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
-        std::tie(inputList, outputList) = BuildInputOutputFromHost(MemoryHelper(isTest), inputTensors, outputTensors);
-        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, disableL2List);
+        std::tie(inputList, outputList) = BuildInputOutputFromHost(memoryHelper, inputTensors, outputTensors);
+        DeviceInitKernelInOuts(memoryHelper, kArgs, inputList, outputList, disableL2List);
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
         return;
