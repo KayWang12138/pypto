@@ -94,7 +94,8 @@ bool InferMemoryConflict::CheckConflict(const LogicalTensorPtr &inTensor, const 
     return true;
 }
 
-bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor) {
+bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor, const LogicalTensorPtr &outTensor,
+    bool isBackWard, const LogicalTensorPtr &reshapeTensor) {
     int64_t inRawSize = 1;
     int64_t outRawSize = 1;
     Shape inShape = inTensor->GetRawTensor()->GetRawShape();
@@ -128,6 +129,11 @@ bool InferMemoryConflict::CheckRawShapeConflict(const LogicalTensorPtr &inTensor
             return true;
         }
         outRawSize *= outShape[i];
+    }
+    auto reshapeInput = isBackWard ? inTensor : reshapeTensor;
+    auto reshapeOutput = isBackWard ? reshapeTensor : outTensor;
+    if (MatchReshapePattern(reshapeInput, reshapeOutput)) {
+        return false;
     }
     if (inRawSize > 0 && outRawSize > 0 && inRawSize != outRawSize) {
         APASS_LOG_DEBUG_F(Elements::Operation, "The raw size of input is %d, the raw size of output is %d", inRawSize, outRawSize);
@@ -169,7 +175,7 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
 bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
                                             const LogicalTensorPtr &reshapeOut) {
     if (!reshapeIn || !reshapeOut) return false;
-    
+
     const auto &inputShape = reshapeIn->GetShape();
     const auto &outputShape = reshapeOut->GetShape();
     const size_t inputDims = inputShape.size();
@@ -239,7 +245,7 @@ Status InferMemoryConflict::UpdateForwardTensor(Function &function, const Logica
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
             auto reshapeInput = consumer->GetIOperands().front();
             bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (!MatchReshapePattern(reshapeInput, outputTensor) && !isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
+            if (!isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor, false, reshapeInput)) {
                 preregcopys.insert(consumer);
                 continue;
             }
@@ -270,7 +276,7 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         auto reshapeOutput = producer->GetOOperands().front();
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
             bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (!MatchReshapePattern(inputTensor, reshapeOutput) && !isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
+            if (!isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor], true, reshapeOutput)) {
                 postregcopys.insert(producer);
                 continue;
             }
