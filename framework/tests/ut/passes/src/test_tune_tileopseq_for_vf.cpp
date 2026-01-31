@@ -19,6 +19,18 @@
 
 namespace npu {
 namespace tile_fwk {
+constexpr int TT_NUM10 = 10;
+constexpr int TT_NUM20 = 20;
+constexpr int TT_NUM30 = 30;
+constexpr int TT_NUM40 = 40;
+constexpr int TT_NUM50 = 50;
+constexpr int TT_NUM60 = 60;
+constexpr int TT_NUM70 = 70;
+constexpr int TT_NUM80 = 80;
+constexpr int TT_NUM90 = 90;
+constexpr int TT_NUM100 = 100;
+constexpr int TT_NUM16 = 16;
+constexpr int TT_NUM5 = 5;
 
 class TuneTileopseqForVFTest : public ::testing::Test {
 public:
@@ -37,37 +49,37 @@ public:
 };
 
 void BuildGraphForTest(std::shared_ptr<Function> currFunctionPtr, std::vector<Operation *> &opListPtr) {
-    std::vector<int64_t> shape = {16, 16};
+    std::vector<int64_t> shape = {TT_NUM16, TT_NUM16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->memoryrange.start = 0;
-    tensor1->memoryrange.end = 10;
+    tensor1->memoryrange.end = TT_NUM10;
     auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    tensor2->memoryrange.start = 10;
-    tensor2->memoryrange.end = 20;
+    tensor2->memoryrange.start = TT_NUM10;
+    tensor2->memoryrange.end = TT_NUM20;
     auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    tensor3->memoryrange.start = 20;
-    tensor3->memoryrange.end = 30;
+    tensor3->memoryrange.start = TT_NUM20;
+    tensor3->memoryrange.end = TT_NUM30;
     auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    tensor4->memoryrange.start = 30;
-    tensor4->memoryrange.end = 40;
+    tensor4->memoryrange.start = TT_NUM30;
+    tensor4->memoryrange.end = TT_NUM40;
     auto tensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    tensor5->memoryrange.start = 40;
-    tensor5->memoryrange.end = 50;
+    tensor5->memoryrange.start = TT_NUM40;
+    tensor5->memoryrange.end = TT_NUM50;
     auto tensor6 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    tensor6->memoryrange.start = 50;
-    tensor6->memoryrange.end = 60;
+    tensor6->memoryrange.start = TT_NUM50;
+    tensor6->memoryrange.end = TT_NUM60;
     auto tensor7 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    tensor7->memoryrange.start = 60;
-    tensor7->memoryrange.end = 70;
+    tensor7->memoryrange.start = TT_NUM60;
+    tensor7->memoryrange.end = TT_NUM70;
     auto tensor8 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    tensor8->memoryrange.start = 70;
-    tensor8->memoryrange.end = 80;
+    tensor8->memoryrange.start = TT_NUM70;
+    tensor8->memoryrange.end = TT_NUM80;
     auto tensor9 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    tensor9->memoryrange.start = 80;
-    tensor9->memoryrange.end = 90;
+    tensor9->memoryrange.start = TT_NUM80;
+    tensor9->memoryrange.end = TT_NUM90;
     auto tensor10 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
-    tensor10->memoryrange.start = 90;
-    tensor10->memoryrange.end = 100;
+    tensor10->memoryrange.start = TT_NUM90;
+    tensor10->memoryrange.end = TT_NUM100;
     auto &vecop1 = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor1}, {tensor2});
     opListPtr.emplace_back(&vecop1);
     auto &vecop2 = currFunctionPtr->AddRawOperation(Opcode::OP_SQRT, {tensor3}, {tensor4});
@@ -99,7 +111,7 @@ TEST_F(TuneTileopseqForVFTest, TestMergeForTuneTileop) {
     }
     tuneTileop.ChangeOpSeq(ps, false);
     EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_TRANSPOSE_MOVEIN);
-    EXPECT_EQ(tuneTileop.opList_[5]->GetOpcode(), Opcode::OP_TRANSPOSE_MOVEOUT);
+    EXPECT_EQ(tuneTileop.opList_[TT_NUM5]->GetOpcode(), Opcode::OP_TRANSPOSE_MOVEOUT);
 }
 
 TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
@@ -111,14 +123,14 @@ TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
     std::vector<Operation *> opListPtr;
     BuildGraphForTest(currFunctionPtr, opListPtr);
-    opListPtr[3]->GetIOperands()[0]->memoryrange.start = 50;
-    opListPtr[3]->GetIOperands()[0]->memoryrange.end = 60;
-    opListPtr[3]->GetOOperands()[0]->memoryrange.start = 60;
-    opListPtr[3]->GetOOperands()[0]->memoryrange.end = 70;
-    opListPtr[4]->GetIOperands()[0]->memoryrange.start = 60;
-    opListPtr[4]->GetIOperands()[0]->memoryrange.end = 70;
-    opListPtr[4]->GetOOperands()[0]->memoryrange.start = 70;
-    opListPtr[4]->GetOOperands()[0]->memoryrange.end = 80; 
+    opListPtr[3]->GetIOperands()[0]->memoryrange.start = TT_NUM50;
+    opListPtr[3]->GetIOperands()[0]->memoryrange.end = TT_NUM60;
+    opListPtr[3]->GetOOperands()[0]->memoryrange.start = TT_NUM60;
+    opListPtr[3]->GetOOperands()[0]->memoryrange.end = TT_NUM70;
+    opListPtr[4]->GetIOperands()[0]->memoryrange.start = TT_NUM60;
+    opListPtr[4]->GetIOperands()[0]->memoryrange.end = TT_NUM70;
+    opListPtr[4]->GetOOperands()[0]->memoryrange.start = TT_NUM70;
+    opListPtr[4]->GetOOperands()[0]->memoryrange.end = TT_NUM80; 
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
     tuneTileop.opList_ = opListPtr;
@@ -127,7 +139,7 @@ TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
     }
     tuneTileop.ChangeOpSeq(ps, false);
     EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_EXP);
-    EXPECT_EQ(tuneTileop.opList_[5]->GetOpcode(), Opcode::OP_EXPAND);
+    EXPECT_EQ(tuneTileop.opList_[TT_NUM5]->GetOpcode(), Opcode::OP_EXPAND);
 }
 
 } // namespace tile_fwk
