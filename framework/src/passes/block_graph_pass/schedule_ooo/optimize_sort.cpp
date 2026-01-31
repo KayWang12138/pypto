@@ -18,6 +18,8 @@
 
 
 namespace npu::tile_fwk {
+static constexpr size_t invalidIndex = std::numeric_limits<size_t>::max();
+
 void OptimizeSort::UpdatePreNodeQueue(std::unordered_set<Operation*> &curr,
     std::unordered_set<Operation*> &preNodeTotal, std::map<Operation*, bool>& visited) {
     std::unordered_set<Operation*> next;
@@ -395,8 +397,8 @@ const std::vector<int> &OptimizeSort::GetOpMemIds(Operation* op) {
         return it->second;
     }
     std::vector<int> memIds;
-    memIds.reserve(GetInOutOperand(op).size());
-    for (auto tensor : GetInOutOperand(op)) {
+    memIds.reserve(GetInOutOperandCached(op).size());
+    for (auto tensor : GetInOutOperandCached(op)) {
         memIds.push_back(tensor->memoryrange.memId);
     }
     auto inserted = opMemIdsCache_.emplace(op, std::move(memIds));
@@ -404,7 +406,7 @@ const std::vector<int> &OptimizeSort::GetOpMemIds(Operation* op) {
 }
 
 void OptimizeSort::ResetBufRefCountForOpList(const std::shared_ptr<std::vector<Operation*>> &curOpList) {
-    bufRefCount.clear();
+    bufRefCount_.clear();
     for (auto op : *curOpList) {
         for (auto tensor : op->GetIOperands()) {
             UpdateBufRefCount(tensor);
@@ -415,7 +417,7 @@ void OptimizeSort::ResetBufRefCountForOpList(const std::shared_ptr<std::vector<O
     }
 }
 
-Status OptimizeSort::ApplyOpRefCount(Operation* op) {
+Status OptimizeSort::ConsumeOpBuffers(Operation* op) {
     for (auto memId : GetOpMemIds(op)) {
         if (DelBufRefCount(memId) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Tensor, "DelBufRefCount tensor[%d] failed.", memId);
@@ -435,7 +437,7 @@ void OptimizeSort::RecoverSymbol(size_t startIndex, std::shared_ptr<std::vector<
     size_t baseIndex = startIndex;
     auto targetIt = recordBufRefCount_.find(targetOp);
     if (targetIt != recordBufRefCount_.end()) {
-        bufRefCount = targetIt->second;
+        bufRefCount_ = targetIt->second;
         hasBaseSnapshot = true;
     } else {
         for (size_t i = startIndex; i > 0; --i) {
@@ -443,7 +445,7 @@ void OptimizeSort::RecoverSymbol(size_t startIndex, std::shared_ptr<std::vector<
             Operation* op = (*curOpList)[idx];
             auto it = recordBufRefCount_.find(op);
             if (it != recordBufRefCount_.end()) {
-                bufRefCount = it->second;
+                bufRefCount_ = it->second;
                 baseIndex = idx;
                 hasBaseSnapshot = true;
                 break;
@@ -454,19 +456,24 @@ void OptimizeSort::RecoverSymbol(size_t startIndex, std::shared_ptr<std::vector<
     if (!hasBaseSnapshot) {
         // 没有可用快照时，回到“初始 refcount”，再回放到目标点。
         ResetBufRefCountForOpList(curOpList);
-        baseIndex = static_cast<size_t>(-1);
+        baseIndex = invalidIndex;
     }
 
-    size_t replayStart = (baseIndex == static_cast<size_t>(-1)) ? 0 : baseIndex + 1;
+    size_t replayStart = (baseIndex == invalidIndex) ? 0 : baseIndex + 1;
     for (size_t i = replayStart; i <= startIndex && i < curOpList->size(); ++i) {
-        if (ApplyOpRefCount((*curOpList)[i]) != SUCCESS) {
+        if (ConsumeOpBuffers((*curOpList)[i]) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "RecoverSymbol replay failed at index %d.", i);
             return;
         }
     }
 
-    for (size_t i = 0; i < curOpList->size(); i++) {
-        visitedOp_[(*curOpList)[i]] = (i <= startIndex);
+    for (size_t i = 0; i < curOpList->size(); ++i) {
+        Operation* op = (*curOpList)[i];
+        if (i <= startIndex) {
+            visitedOp_[op] = true;
+        } else {
+            visitedOp_[op] = false;
+        }
     }
 }
 
@@ -516,7 +523,7 @@ Status OptimizeSort::BacktraceOnMemoryExceeded(size_t &startIndex,
         GetConsumerGroup(outGraph[op], consumersGroup);
         APASS_LOG_DEBUG_F(Elements::Operation, "push %s to stack", GetOpInfo(op).c_str());
         curMemoryMap = recordBufferAllocate_[op];
-        recordBufRefCount_[op] = bufRefCount;
+        recordBufRefCount_[op] = bufRefCount_;
         needFreeOpStack_.push(make_pair(op, recordOpBuffer_[op]));
         if (UpdateOOperandPreDependence(startIndex, curOpList, consumersGroup) != SUCCESS) {
             needFreeOpStack_.pop();
@@ -581,13 +588,13 @@ Status OptimizeSort::ModifyBuffer(std::map<MemoryType, int64_t> &curMemoryMap, M
 
 // 释放内存 notTaskOp需要减去bufRefCount
 Status OptimizeSort::RetireOpBuffer(std::map<MemoryType, int64_t> &curMemoryMap, Operation* op) {
-    for (auto tensor : GetInOutOperand(op)) {
+    for (auto tensor : GetInOutOperandCached(op)) {
         auto memId = tensor->memoryrange.memId;
         if (DelBufRefCount(memId) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Tensor, "DelBufRefCount tensor[%d] failed.", memId);
             return FAILED;
         }
-        if (bufRefCount[memId] == 0) {
+        if (bufRefCount_[memId] == 0) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Start to free memory:");
             if (ModifyBuffer(curMemoryMap, tensor->GetMemoryTypeOriginal(), ShapeCeilAlign(tensor->tensor->rawshape, tensor->Datatype()), false) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor[%d] failed.", memId);
@@ -615,7 +622,7 @@ Status OptimizeSort::AllocExecute(Operation* op, std::shared_ptr<std::vector<Ope
         backTraceBufferAllocate_ = recordBufferAllocate_;
         backTraceOpList_ = recordOpList_;
         if (startIndex >= 1) {
-            recordBufRefCount_[(*curOpList)[startIndex - 1]] = bufRefCount;
+            recordBufRefCount_[(*curOpList)[startIndex - 1]] = bufRefCount_;
         }
         backTraceBufRefCount_ = recordBufRefCount_;
         APASS_LOG_DEBUG_F(Elements::Operation, "backTraceOp_: %s, backTraceIndex: %d, memType: %d",
@@ -678,9 +685,6 @@ Status OptimizeSort::ExecuteOp() {
     std::map<MemoryType, int64_t> curMemoryMap = {{MemoryType::MEM_L0A, 0}, {MemoryType::MEM_L0B, 0},
         {MemoryType::MEM_L0C, 0}};
     size_t startIndex{0};
-    opFinish_ = false;
-    recordBufRefCount_.clear();
-    opMemIdsCache_.clear();
     for (auto &op : operations) {
         visitedOp_[op] = false;
     }

@@ -83,7 +83,7 @@ public:
         const std::map<MemoryType, int64_t> &curMemoryMap);
     const std::vector<int> &GetOpMemIds(Operation* op);
     void ResetBufRefCountForOpList(const std::shared_ptr<std::vector<Operation*>> &curOpList);
-    Status ApplyOpRefCount(Operation* op);
+    Status ConsumeOpBuffers(Operation* op);
     Status AllocExecute(Operation* op, std::shared_ptr<std::vector<Operation*>> &curOpList,
         std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue);
     Status OpListExecute(std::shared_ptr<std::vector<Operation*>> &curOpList, std::map<MemoryType, int64_t> &curMemoryMap,
