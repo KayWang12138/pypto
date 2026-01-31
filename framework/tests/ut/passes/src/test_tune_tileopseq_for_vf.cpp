@@ -94,7 +94,10 @@ TEST_F(TuneTileopseqForVFTest, TestMergeForTuneTileop) {
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
     tuneTileop.opList_ = opListPtr;
-    tuneTileop.ChangeOpSeq(ps. false);
+    for (auto &op : tuneTileop.opList_) {
+        op->SetAIVCore(AIVCore::AIV0);
+    }
+    tuneTileop.ChangeOpSeq(ps, false);
     EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_TRANSPOSE_MOVEIN);
     EXPECT_EQ(tuneTileop.opList_[5]->GetOpcode(), Opcode::OP_TRANSPOSE_MOVEOUT);
 }
@@ -119,7 +122,10 @@ TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
     TuneTileOpSeqForVF tuneTileop;
     PipeSync ps;
     tuneTileop.opList_ = opListPtr;
-    tuneTileop.ChangeOpSeq(ps. false);
+    for (auto &op : tuneTileop.opList_) {
+        op->SetAIVCore(AIVCore::AIV0);
+    }
+    tuneTileop.ChangeOpSeq(ps, false);
     EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_EXP);
     EXPECT_EQ(tuneTileop.opList_[5]->GetOpcode(), Opcode::OP_EXPAND);
 }
