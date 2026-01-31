@@ -398,6 +398,35 @@ Tensor QuantMM(const Tensor &operand1, const Tensor &operand2, const Tensor &deq
 
 namespace Conv {
 
+struct TileL1Info {
+    int64_t tileHin{0};
+    int64_t tileHout{0};
+    int64_t tileWin{0};
+    int64_t tileWout{0};
+    int64_t tileCinFmap{0};
+    int64_t tileCinWeight{0};
+    int64_t tileCout{0};
+    int64_t tileN{0};
+
+    TileL1Info(int64_t hin, int64_t hout, int64_t win, int64_t wout, 
+                int64_t cinFmap, int64_t cinWeight, int64_t cout, int64_t n)
+        : tileHin(hin), tileHout(hout), tileWin(win), tileWout(wout), 
+            tileCinFmap(cinFmap), tileCinWeight(cinWeight), tileCout(cout), tileN(n) {}
+    
+    TileL1Info() = default;
+};
+
+struct TileL0Info{
+    int64_t tileM{0};
+    int64_t tileK{0};
+    int64_t tileN{0};
+
+    TileL0Info(int64_t m, int64_t k, int64_t n)
+        : tileM(m), tileK(k), tileN(n) {}
+        
+    TileL0Info() = default;
+};
+
 Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor,
     const std::vector<int64_t> &strides, const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations,
     const int64_t groups);

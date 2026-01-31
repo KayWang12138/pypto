@@ -40,6 +40,33 @@ std::string CubeTile::ToString() const {
     return ss.str();
 }
 
+std::string ConvTile::ToString() const {
+    std::stringstream ss;
+    ss << "ConvTile: " << '{'
+       << "tileL1Info: {"
+       << "tileHin: " << tileL1Info.tileHin << ", "
+       << "tileHout: " << tileL1Info.tileHout << ", "
+       << "tileWin: " << tileL1Info.tileWin << ", "
+       << "tileWout: " << tileL1Info.tileWout << ", "
+       << "tileCinFmap: " << tileL1Info.tileCinFmap << ", "
+       << "tileCinWeight: " << tileL1Info.tileCinWeight << ", "
+       << "tileCout: " << tileL1Info.tileCout << ", "
+       << "tileN: " << tileL1Info.tileN
+       << "}, "
+       << "tileL0Info: {"
+       << "tileM: " << tileL0Info.tileM << ", "
+       << "tileK: " << tileL0Info.tileK << ", "
+       << "tileN: " << tileL0Info.tileN
+       << "}, "
+       << "setL0Tile: " << (setL0Tile ? "true" : "false")
+       << "};";
+    return ss.str();
+}
+
+bool ConvTile::valid() const {
+    return true;
+}
+
 bool DistTile::valid() const {
     return std::all_of(row.begin(), row.end(), [](int x) { return x > 0; }) &&
             std::all_of(col.begin(), col.end(), [](int x) { return x > 0; }) &&
@@ -58,15 +85,16 @@ std::string DistTile::ToString() const {
 }
 
 TileShape::TileShape()
-    : vecTile{}, cubeTile{}, distTile{}, matrixSize{} {}
+    : vecTile{}, cubeTile{}, convTile{}, distTile{}, matrixSize{} {}
 
 TileShape::TileShape(
     const std::vector<int64_t>& vTile,
     const CubeTile& cTile,
+    const ConvTile& cvTile,
     const DistTile& dTile,
     const std::vector<int64_t>& mSize
 )
-    : vecTile{vTile}, cubeTile(cTile), distTile(dTile), matrixSize(mSize) {}
+    : vecTile{vTile}, cubeTile(cTile), convTile(cvTile), distTile(dTile), matrixSize(mSize) {}
 
 TileShape &TileShape::Current() {
     static TileShape instance;
@@ -94,6 +122,13 @@ void TileShape::SetCubeTile(const std::array<int64_t, MAX_M_DIM_SIZE> &m,
     }
     cubeTile = {m, nk, n, enableMultiDataLoad, enableSplitK};
     ConfigManagerNg::CurrentScope()->UpdateValue("cube_tile_shapes", cubeTile);
+}
+
+void TileShape::SetConvTile(const TileL1Info &tileL1Info, 
+                            const TileL0Info &tileL0Info, 
+                            bool setL0Tile) {
+    convTile = {tileL1Info, tileL0Info, setL0Tile};
+    ConfigManagerNg::CurrentScope()->UpdateValue("conv_tile_shapes", convTile);
 }
 
 void TileShape::SetMatrixSize(const std::vector<int64_t> &size) {
@@ -148,6 +183,9 @@ std::string TileShape::ToString(TileType type) const {
     }
     if (type == TileType::CUBE || type == TileType::MAX) {
         ss << cubeTile.ToString();
+    }
+    if (type == TileType::CONV || type == TileType::MAX) {
+        ss << convTile.ToString();
     }
     if (type == TileType::DIST || type == TileType::MAX) {
         ss << distTile.ToString();
