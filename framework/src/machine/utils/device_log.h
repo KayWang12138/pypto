@@ -33,6 +33,29 @@
 
 #ifdef __DEVICE__
 #include "dlog_pub.h"
+<<<<<<< HEAD
+=======
+#endif
+namespace npu::tile_fwk {
+
+#define DEV_IF_NONDEVICE                                                        \
+    if constexpr (!IsDeviceMode())
+
+#define DEV_IF_DEVICE                                                           \
+    if constexpr (IsDeviceMode())
+
+#define DEV_IF_DEVICE_OR_ESL                                                        \
+    if constexpr (IsDeviceMode() || IsEslMode())
+
+#define DEV_IF_DEBUG                                                        \
+    if (IsDebugMode())
+
+#define DEV_IF_VERBOSE_DEBUG                                            \
+    if constexpr (IsCompileVerboseLog())
+
+#if ENABLE_TMP_LOG == 0
+#define DEBUG_PLOG 1
+>>>>>>> d6779a08 (feat(camodel): Enable machine to support ESL model)
 #else
 #include "tilefwk/pypto_fwk_log.h"
 #endif

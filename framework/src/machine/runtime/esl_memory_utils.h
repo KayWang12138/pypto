@@ -15,16 +15,18 @@
 
 #pragma once
 
+#ifdef __ESL_SIMULATION__
 #ifdef BUILD_WITH_CANN
 
+#include <sys/mman.h>
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_runner.h"
 #include "machine/platform/platform_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
 
 namespace npu::tile_fwk::dynamic {
-struct DeviceMemoryUtils {
-    DeviceMemoryUtils(bool isHugePage = true) :isUseHugePage_(isHugePage) {}
+struct EslModelMemoryUtils {
+    EslModelMemoryUtils(bool isHugePage = true) :isUseHugePage_(isHugePage) {}
     static bool IsDevice() { return true; }
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = nullptr;
@@ -44,6 +46,7 @@ struct DeviceMemoryUtils {
         } else {
             devPtr = *cachedDevAddrHolder;
         }
+        MapEslAddrToHostAddr(reinterpret_cast<uintptr_t>(devPtr), size);
         return devPtr;
     }
 
@@ -56,6 +59,7 @@ struct DeviceMemoryUtils {
     uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
         rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        MemCopytoMapAddr(devPtr, data, size);
         return devPtr;
     }
 
@@ -75,11 +79,13 @@ struct DeviceMemoryUtils {
     uint8_t *CopyToDev(RawTensorData &data) {
         if (data.GetDevPtr() == nullptr) {
             uint8_t *devPtr = nullptr;
-            machine::GetRA()->AllocDevAddr(&devPtr, data.size());
+            machine::GetRA()->AllocDevAddr(&devPtr, data.size(), true);
             if (devPtr == nullptr) {
                 return nullptr;
             }
+            MapEslAddrToHostAddr(reinterpret_cast<uintptr_t>(devPtr), data.size());
             rtMemcpy(devPtr, data.size(), (uint8_t *)data.data(), data.size(), RT_MEMCPY_HOST_TO_DEVICE);
+            MemCopytoMapAddr(devPtr, (uint8_t *)data.data(), data.size());
             data.SetDevPtr(devPtr);
         }
         return data.GetDevPtr();
@@ -89,14 +95,14 @@ struct DeviceMemoryUtils {
         CopyFromDev(data.data(), data.GetDevPtr(), data.size());
     }
 
-    void FreeTensor(uint8_t *devAddr) {
-        machine::GetRA()->FreeTensor(devAddr);
-    }
-
     void Free(uint8_t* mem) {
         if (mem && (!isUseHugePage_)) {
             rtFree(mem);
         }
+    }
+
+    void FreeTensor(uint8_t *devAddr) {
+        machine::GetRA()->FreeTensor(devAddr);
     }
 
     uint64_t GetL2Offset() {
@@ -104,6 +110,36 @@ struct DeviceMemoryUtils {
     }
 
     bool isUseHugePage_{true};
+
+    uintptr_t AlignAddress(uintptr_t addr, size_t size, bool alignUp) {
+        if (size == 0) {
+            return addr;
+        }
+        if (alignUp) {
+            return ((addr + size - 1) / size) * size;
+        }
+        return (addr / size) * size;
+    }
+
+    void* MapEslAddrToHostAddr(uintptr_t eslAddr, uintptr_t size) {
+        long pageSize = sysconf(_SC_PAGESIZE);
+
+        // todo : workspace size is 0
+        void *hostAddr = mmap(
+            (void *) AlignAddress(eslAddr, pageSize, false),
+            AlignAddress(size, pageSize, true) + pageSize,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+            -1,
+            0
+        );
+        return hostAddr;
+    }
+
+    void MemCopytoMapAddr(uint8_t *dst, uint8_t *src, uintptr_t size) {
+        memcpy_s(dst, size, src, size);
+    }
 };
 }
 #endif
+#endif // __ESL_SIMULATION__
