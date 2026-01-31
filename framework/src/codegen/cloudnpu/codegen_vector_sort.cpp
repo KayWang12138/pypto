@@ -590,4 +590,102 @@ std::string CodeGenOpCloudNPU::GenTopKExtractOp() const {
     os << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
     return os.str();
 }
+
+std::string CodeGenOpCloudNPU::PrintTwoTileMrgSortDynamicUnaligned() const {
+    const DataType dstDtype = operandDtype[ID0];
+    const DataType srcDtype = operandDtype[ID1];
+    std::string dstDtypeStr = DataType2CCEStr(dstDtype);
+    std::string srcDtypeStr = DataType2CCEStr(srcDtype);
+
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    AppendLocalBufVarOffsetInOrder(dstVar, srcVar);
+
+    std::vector dstShape = this->rawShape[ID0];
+    std::vector srcShape = this->rawShape[ID1];
+    std::vector<int64_t> ds = NormalizeShape(dstShape, SHAPE_DIM4);
+    std::vector<int64_t> ss = NormalizeShape(srcShape, SHAPE_DIM4);
+
+    auto dynSrcShape = dynamicValidShape[ID1];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[ID1].size(), 1);
+
+    std::vector<std::string> paramList;
+    paramList.emplace_back(srcDtypeStr);
+    for (int i = 0; i < SHAPE_DIM4; i ++ ) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    for (int i = 0; i < SHAPE_DIM4; i ++ ) {
+        paramList.emplace_back(std::to_string(ss[i]));
+    }
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    templateParam += GenOpAttr();
+    paramList.clear();
+
+    std::string srcParam = "(__ubuf__ " + srcDtypeStr + "*)" + srcVar;
+    std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dstVar;
+
+    paramList.insert(paramList.end(), {dstParam, srcParam});
+    for (int i = 0; i < SHAPE_DIM4; i ++ ) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrcShape[i]));
+    }
+    
+    std::string tileOpParam = JoinString(paramList, CONN_COMMA);
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenTwoTileMrgSort() const {
+    return PrintTwoTileMrgSortDynamicUnaligned();
+}
+
+std::string CodeGenOpCloudNPU::PrintExtractSingleDynamicUnaligned() const {
+    const DataType dstDtype = operandDtype[ID0];
+    const DataType srcDtype = operandDtype[ID1];
+    std::string dstDtypeStr = DataType2CCEStr(dstDtype);
+    std::string srcDtypeStr = DataType2CCEStr(srcDtype);
+
+    std::string dstVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
+    std::string srcVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
+    AppendLocalBufVarOffsetInOrder(dstVar, srcVar);
+
+    std::vector dstShape = this->rawShape[ID0];
+    std::vector srcShape = this->rawShape[ID1];
+    std::vector<int64_t> ds = NormalizeShape(dstShape, SHAPE_DIM4);
+    std::vector<int64_t> ss = NormalizeShape(srcShape, SHAPE_DIM4);
+
+    auto dynSrcShape = dynamicValidShape[ID1];
+    FillIntVecWithDummyInHead<SymbolicScalar>(dynSrcShape, SHAPE_DIM4 - dynamicValidShape[ID1].size(), 1);
+
+    std::vector<std::string> paramList;
+    paramList.insert(paramList.end(), {dstDtypeStr, srcDtypeStr});
+    for (int i = 0; i < SHAPE_DIM4; i ++ ) {
+        paramList.emplace_back(std::to_string(ds[i]));
+    }
+    for (int i = 0; i < SHAPE_DIM4; i ++ ) {
+        paramList.emplace_back(std::to_string(ss[i]));
+    }
+    std::string templateParam = JoinString(paramList, CONN_COMMA);
+    templateParam += GenOpAttr();
+    paramList.clear();
+
+    std::string srcParam = "(__ubuf__ " + srcDtypeStr + "*)" + srcVar;
+    std::string dstParam = "(__ubuf__ " + dstDtypeStr + "*)" + dstVar;
+
+    paramList.insert(paramList.end(), {dstParam, srcParam});
+    for (int i = 0; i < SHAPE_DIM4; i ++ ) {
+        paramList.emplace_back(SymbolicExpressionTable::BuildExpression(dynSrcShape[i]));
+    }
+    
+    std::string tileOpParam = JoinString(paramList, CONN_COMMA);
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<" << templateParam << ">" << "(" << tileOpParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenExtractSingleOp() const {
+    return PrintExtractSingleDynamicUnaligned();
+}
 } // namespace npu::tile_fwk
