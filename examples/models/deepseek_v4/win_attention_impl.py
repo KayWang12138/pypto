@@ -236,7 +236,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
                         win_size: int,
                         mask: torch.Tensor,
                         cu_seqlens_q: torch.Tensor,
-):
+) -> torch.Tensor:
     check_args_tnd(q, ori_block_table, ori_kv, seqused_kv, sinks, win_size, cu_seqlens_q)
     atten_out = torch.empty([q.shape[0] * q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
 
