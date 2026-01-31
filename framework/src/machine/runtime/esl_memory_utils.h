@@ -79,7 +79,7 @@ struct EslModelMemoryUtils {
     uint8_t *CopyToDev(RawTensorData &data) {
         if (data.GetDevPtr() == nullptr) {
             uint8_t *devPtr = nullptr;
-            machine::GetRA()->AllocDevAddr(&devPtr, data.size(), true);
+            machine::GetRA()->AllocDevAddr(&devPtr, data.size());
             if (devPtr == nullptr) {
                 return nullptr;
             }

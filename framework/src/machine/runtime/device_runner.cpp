@@ -123,13 +123,8 @@ void *DeviceRunner::DevAlloc(int size) {
     devPtr = devMemory.AllocDev(size, nullptr);
     int rc = rtMemset(devPtr, size, 0, size);
     if (rc != 0) {
-<<<<<<< HEAD
-        machine::GetRA()->FreeTensor(devPtr);
-        MACHINE_LOGE("rtMemset failed size=%d rc=%d\n", size, rc);
-=======
         devMemory.FreeTensor(devPtr);
         ALOG_ERROR_F("rtMemset failed size=%d rc=%d\n", size, rc);
->>>>>>> d6779a08 (feat(camodel): Enable machine to support ESL model)
         return nullptr;
     }
     return devPtr;

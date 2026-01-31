@@ -247,14 +247,6 @@ int DeviceTaskContext::BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId,
         busDirectWrite_(static_cast<int64_t>(PtrToValue(dyndata->rawTensorAddr)), dyndata->rawTensorAddrSize * sizeof(uint64_t), dyndata->rawTensorAddr, 0);
         busDirectWrite_(static_cast<int64_t>(PtrToValue(dyndata->exprTbl)), dyndata->exprNum * sizeof(uint64_t), dyndata->exprTbl, 0);
 #endif
-        dyndata->commGroupNum = devProg->commGroupNum;
-        if (sizeof(dyndata->hcclContext) != sizeof(devProg->hcclContext)) {
-            DEV_ERROR("hcclContext size mismatch, dyndata size: %zu, devProg size: %zu",
-                      sizeof(dyndata->hcclContext), sizeof(devProg->hcclContext));
-            return DEVICE_MACHINE_ERROR;
-        }
-        DEV_ASSERT(sizeof(dyndata->hcclContext) == sizeof(devProg->hcclContext));
-        (void)memcpy_s(dyndata->hcclContext, sizeof(dyndata->hcclContext), devProg->hcclContext, sizeof(devProg->hcclContext));
         if (reinterpret_cast<uint64_t>(dyndata->opAttrs) % OP_ATTRS_PRE_NUM != 0) {
             DEV_ERROR("opAttrs address is not aligned.");
             return DEVICE_MACHINE_ERROR;
