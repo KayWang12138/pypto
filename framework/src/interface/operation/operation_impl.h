@@ -158,11 +158,20 @@ constexpr const int NCHW_N_IDX = 0;
 constexpr const int NCHW_C_IDX = 1;
 constexpr const int NCHW_H_IDX = 2;
 constexpr const int NCHW_W_IDX = 3;
+constexpr const int NCDHW_N_IDX = 0;
+constexpr const int NCDHW_C_IDX = 1;
+constexpr const int NCDHW_D_IDX = 2;
+constexpr const int NCDHW_H_IDX = 3;
+constexpr const int NCDHW_W_IDX = 4;
 constexpr const int NC1HWC0_C1_IDX = 1;
 constexpr const int FRACTALZ_CO1_IDX = 1;
 constexpr const int INPUT_FMAP_IDX = 0;
 constexpr const int INPUT_WEIGHT_IDX = 1;
 constexpr const int INPUT_BIAS_IDX = 2;
+constexpr const int CONV1D_INPUT_DIM = 3;
+constexpr const int CONV3D_INPUT_DIM = 5;
+constexpr const int MKN_N_VALUE = 16;
+constexpr const int MKN_M_VALUE = 16;
 constexpr uint32_t PAD_TOP_INDEX = 0;
 constexpr uint32_t PAD_BOTTOM_INDEX = 1;
 constexpr uint32_t PAD_LEFT_INDEX = 2;
@@ -175,8 +184,8 @@ const std::string CONV_STRIDES_ATTR = OP_ATTR_PREFIX + "strides";
 const std::string CONV_GROUPS_ATTR = OP_ATTR_PREFIX + "groups";
 const std::string CONV_ORI_FMAP_SHAPE_ATTR = OP_ATTR_PREFIX + "ori_fmap_shape";
 const std::string CONV_ORI_WEIGHT_SHAPE_ATTR = OP_ATTR_PREFIX + "ori_weight_shape";
+const std::string CONV_ORI_RES_SHAPE_ATTR = OP_ATTR_PREFIX + "ori_res_shape";
 const std::string CONV_BIAS_ATTR = OP_ATTR_PREFIX + "bias_flag";
-const std::string IS_MATRIX_NZ = OP_ATTR_PREFIX + "is_matrix_nz";
 const std::string CONV_3D_FLAG = OP_ATTR_PREFIX + "is_conv3d";
 const std::string MATMUL_NZ_ATTR = OP_ATTR_PREFIX + "matmul_nz_attr";
 const std::string A_MUL_B_ACT_M = OP_ATTR_PREFIX + "act_m";
@@ -188,15 +197,34 @@ const std::vector<int64_t> CONV3D_ATTR_DEFAULT_LIST = {1, 1, 1};
 const std::vector<int64_t> CONV2D_PAD_ATTR_DEFAULT_LIST = {0, 0, 0, 0};
 const std::vector<int64_t> CONV3D_PAD_ATTR_DEFAULT_LIST = {0, 0, 0, 0, 0, 0};
 
+class Im2ColOpAttributeKey {
+public:
+    static const std::string postK;
+    static const std::string postM;
+    static const std::string filterH;
+    static const std::string filterW;
+    static const std::string strideH;
+    static const std::string strideW;
+    static const std::string dilationH;
+    static const std::string dilationW;
+    static const std::string paddingLeft;
+    static const std::string paddingRight;
+    static const std::string paddingTop;
+    static const std::string paddingBottom;
+    static const std::string padValue;
+};
+
 struct ConvAttrParam {
     std::vector<int64_t> paddings = {0, 0, 0, 0};
     std::vector<int64_t> strides = {0, 0};
     std::vector<int64_t> dilations = {0, 0};
     std::vector<int64_t> oriFmapShape = {0, 0, 0, 0};
-    std::vector<int64_t> oriweightShape = {0, 0, 0, 0};
+    std::vector<int64_t> oriWeightShape = {0, 0, 0, 0};
+    std::vector<int64_t> oriResShape = {0, 0, 0, 0};
     int64_t groups = 0;
     int64_t offsetX = 0;
-    bool isConv3D = 0;
+    bool isConv1D = false;
+    bool isConv3D = false;
     bool hasBias = false;
     bool isInOutTensorNZ = false;
 
@@ -222,6 +250,7 @@ struct ConvGraphNodes {
 struct ConvTileInfo {
     int64_t orgBatch = 0;
     int64_t orgCout = 0;
+    int64_t orgDin = 0;
     int64_t orgDout = 0;
     int64_t orgHin = 0;
     int64_t orgWin = 0;
@@ -229,9 +258,11 @@ struct ConvTileInfo {
     int64_t orgWout = 0;
     int64_t orgHoutWout = 0;
     int64_t orgKh = 0;
-    int64_t orgCin = 0;
     int64_t orgKw = 0;
-    int64_t orgK = 0;
+    int64_t orgKd = 0;
+    int64_t orgCin = 0;
+    int64_t kPerGroup = 0;
+    int64_t coutPerGroup = 0;
     int64_t kAL1 = 0;
     int64_t kBL1 = 0;
     int64_t nBL1 = 0;
@@ -247,34 +278,31 @@ struct ConvTileInfo {
 };
 
 struct ConvIterInfo {
+    int64_t groupOffset = 0;
     int64_t batchOffset = 0;
+    int64_t dinL1Offset = 0;
+    int64_t doL1Offset = 0;
     int64_t coutOffset = 0;
     int64_t hL1InOffset = 0;
     int64_t hL1OutOffset = 0;
     int64_t wL1InOffset = 0;
     int64_t wL1OutOffset = 0;
+    int64_t dkL1Size = 0;
+    int64_t dkAL1Size = 0;
+    int64_t dkBL1Size = 0;
     int64_t nL1Offset = 0;
-<<<<<<< HEAD
     int64_t hL0Offset = 0;
     int64_t wL0Offset = 0;
-=======
-    int64_t mL0Offset = 0;
->>>>>>> 3c85a05... iter add L1
     int64_t nL0Offset = 0;
     int64_t kAL1Offset = 0;
     int64_t kBL1Offset = 0;
     int64_t kL0Offset = 0;
-<<<<<<< HEAD
     int64_t hinL1Size = 0;
     int64_t winL1Size = 0;
     int64_t houtL1Size = 0;
     int64_t woutL1Size = 0;
     int64_t kAL1Size = 0;
     int64_t kBL1Size = 0;
-=======
-    int64_t HinL1Size = 0;
-    int64_t WinL1Size = 0;
->>>>>>> 3c85a05... iter add L1
     int64_t mL0Size = 0;
     int64_t nL1Size = 0;
     int64_t nL0Size = 0;
