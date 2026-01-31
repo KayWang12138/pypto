@@ -163,15 +163,15 @@ void CheckHoWoTiling(const Tensor &operand1, const Tensor &operand2, const Matmu
     int64_t Wo = ConvComputeWo(win, kW, padLeft, padRight, dilationW, strideW);
     OP_CHECK(true, {
         ASSERT(tileHout > 0 && tileHout <= Ho)
-            << "Invalid tileHout value:: " << tileHout 
-            << ",, expected range [1, " << Ho
+            << "Invalid tileHout value: " << tileHout 
+            << ", expected range [1, " << Ho
             << "]." << std::endl;
     });
 
     OP_CHECK(true, {
         ASSERT(tileWout > 0 && tileWout <= Wo)
-            << "Invalid tileWout value:: " << tileWout 
-            << ",, expected range [1, " << Wo
+            << "Invalid tileWout value: " << tileWout 
+            << ", expected range [1, " << Wo
             << "]." << std::endl;
     });
 
@@ -186,8 +186,8 @@ void CheckTileTiling(const Tensor &operand2, const MatmulAttrParam &attrParam) {
     int64_t tileWout   = convTile.tileL1Info.tileWout;
     OP_CHECK(true, {
         ASSERT(tileM > 0 && tileM <= tileHout * tileWout)
-            << "Invalid tileHin value:: " << tileM 
-            << ",, expected range [1, " << tileHout * tileWout
+            << "Invalid tileHin value: " << tileM 
+            << ",expected range [1, " << tileHout * tileWout
             << ".Current tileHout= " << tileHout
             << ", tileWout=" << tileWout
             << " → maximum allowed = tileHout * tileWout" << std::endl;
@@ -199,8 +199,8 @@ void CheckTileTiling(const Tensor &operand2, const MatmulAttrParam &attrParam) {
     int64_t maxK = kH * kH * tileCinWeight;
     OP_CHECK(true, {
         ASSERT(tileK > 0 && tileK <= maxK)
-            << "Invalid tileHin value:: " << tileK 
-            << ",, expected range [1, " << maxK
+            << "Invalid tileHin value: " << tileK 
+            << ", expected range [1, " << maxK
             << ".Current tileCinWeight= " << tileCinWeight
             << ", kH=" << kH
             << ", kW=" << kW
@@ -210,8 +210,8 @@ void CheckTileTiling(const Tensor &operand2, const MatmulAttrParam &attrParam) {
     int tileCout   = convTile.tileL1Info.tileCout;
     OP_CHECK(true, {
         ASSERT(tileN > 0 && tileN <= tileCout)
-            << "Invalid tileHin value:: " << tileN 
-            << ",, expected range [1, " << tileCout
+            << "Invalid tileHin value: " << tileN 
+            << ", expected range [1, " << tileCout
             << "]." << std::endl;
     });
 
@@ -222,7 +222,7 @@ void CheckPadShape(const std::vector<int64_t> &paddings){
             ASSERT(paddings.size() <= NUM4)
         << "Input attr stride dim: " << paddings.size()
         << "!=" << NUM4
-        << "]." << std::endl
+        << "." << std::endl
     });
 
     for (size_t i = 0; i < paddings.size(); ++i) {
@@ -241,7 +241,7 @@ void CheckDilationShape(const std::vector<int64_t> &dilations){
         ASSERT(dilations.size() <= NUM4)
         << "Input attr dilations dim: " << dilations.size()
         << "!=" << NUM4
-        << "]." << std::endl
+        << "." << std::endl
     });
 
     for (size_t i = 0; i < dilations.size(); ++i) {
@@ -258,7 +258,7 @@ void CheckDilationShape(const std::vector<int64_t> &dilations){
                 ASSERT(dilations[i] != NUM1)
                 << "The value of the " << i 
                 << "-th dimension of stride must be " << NUM1
-                << "]." << std::endl
+                << "." << std::endl
             });
         }
         
@@ -270,7 +270,7 @@ void heckStrideShape(const std::vector<int64_t> &strides){
         ASSERT(strides.size() <= NUM4)
         << "Input attr strides dim: " << strides.size()
         << "!=" << NUM4
-        << "]." << std::endl
+        << "." << std::endl
     });
 
     for (size_t i = 0; i < strides.size(); ++i) {
@@ -287,7 +287,7 @@ void heckStrideShape(const std::vector<int64_t> &strides){
                 ASSERT(strides[i] != NUM1)
                 << "The value of the " << i 
                 << "-th dimension of stride must be " << NUM1
-                << "]." << std::endl
+                << "." << std::endl
             });
         }
     }
