@@ -143,7 +143,7 @@ def win_atten_calc_tnd(input_params_win_attn, seqused_kv_list, sinks, q_tnd, \
     return atten_out
 
 
-def test_win_atten_tnd_mask(allow_in_graph = False) -> None:
+def test_win_atten_tnd_mask(allow_in_graph=False) -> None:
 
     for b in [64]:
         s_val = 2

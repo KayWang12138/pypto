@@ -24,8 +24,8 @@ def check_args_tnd(
             win_size: int,
             cu_seqlens_q: torch.Tensor,
 ):
-    assert q_tnd != None and block_table != None and kv_cache != None and seqused_kv != None and \
-        sinks != None and cu_seqlens_q != None
+    assert q_tnd is not None and block_table is not None and kv_cache is not None and seqused_kv is not None and \
+        sinks is not None and cu_seqlens_q is not None
 
     assert q_tnd.dtype == torch.bfloat16 and q_tnd.ndim == 3 and q_tnd.shape[1] == 64 and q_tnd.shape[2] == 512, \
         f"q dtype is {q_tnd.dtype}, ndim is {q_tnd.ndim}, axis2 is {q_tnd.shape[1]}, axis3 is {q_tnd.shape[2]}"
