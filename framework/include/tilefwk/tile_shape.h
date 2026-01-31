@@ -57,33 +57,33 @@ struct CubeTile {
 
     std::string ToString() const;
 };
-                  
+
 /**
-* @brief COnvTile tile for conv operation
+ * @brief ConvTile tile for conv operation
  *
-*/
+ */
 struct ConvTile {
- 	struct TileL1Info {
- 	    int64_t tileHin;
- 	    int64_t tileHout;
- 	    int64_t tileWin;
- 	    int64_t tileWout;
- 	    int64_t tileCinFmap;
+    struct TileL1Info {
+        int64_t tileHin;
+        int64_t tileHout;
+        int64_t tileWin;
+        int64_t tileWout;
+        int64_t tileCinFmap;
         int64_t tileCinWeight;
- 	    int64_t tileCout;
+        int64_t tileCout;
         int64_t tileN;
     };
- 	 
- 	struct TileL0Info {
- 	    int64_t tileM;
- 	    int64_t tileN;
- 	 };
- 	 
- 	TileL1Info tileL1Info;
- 	TileL0Info tileL0Info;
- 	bool setL0Tile{false};
- 	 
- 	bool valid() const;
+    
+    struct TileL0Info {
+        int64_t tileM;
+        int64_t tileN;
+        };
+        
+    TileL1Info tileL1Info;
+    TileL0Info tileL0Info;
+    bool setL0Tile{false};
+        
+    bool valid() const;
 };
 
 /**
