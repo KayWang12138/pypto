@@ -13,10 +13,10 @@ deepseekv4 Attention Module
 
 This module implements the Attention mechanism for deepseekv4 model, which uses
 a paged memory management approach similar to operating systems to efficiently
-handle variable-length sequences and dynamic batch sizes in attention computation.
+handle variable-length sequences and dynamic batch sizes in cfa_attention computation.
 
 Main Functions:
-    - attention: Main attention function with Attention support
+    - cfa_attention: Main cfa_attention function with Attention support
     - ifa_flash: JIT compiled kernel implementing Flash Attention with paged KV cache
     - gen_block_table: Generate block mapping table for Attention
     - kv_cache_concat_bsnd: Convert paged KV cache to BSND format
@@ -25,13 +25,11 @@ Main Functions:
 from dataclasses import dataclass
 import torch
 import pypto
-import torch_npu
 import pytest
 import numpy as np
 import math
 import os
-from torch._subclasses.fake_tensor import FakeTensor
-from cfa_impl import *
+from impl.cfa_pypto import cfa_attention
 
 np.random.seed(0)
 torch.manual_seed(0)
@@ -55,7 +53,7 @@ class AttentionConfig:
     kv_num_blocks: int = 0
     
 
-def gen_block_table(actual_seq_len, block_size, block_table_shape, cmp_ratio=128, enable_win = False, s1 = 0):
+def gen_block_table(actual_seq_len, block_size, block_table_shape, cmp_ratio=128, enable_win=False):
     block_num_per_batch = []
     block_num = 0
     
@@ -105,19 +103,19 @@ def get_decode_case(device="cpu"):
 
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
-pyptolib.define("npu_attention(Tensor q, Tensor cmp_kv, Tensor sinks, Tensor cmp_block_table,\
+pyptolib.define("npu_cfa_attention(Tensor q, Tensor cmp_kv, Tensor sinks, Tensor cmp_block_table,\
                 Tensor seqused_kv, Tensor ori_kv, Tensor ori_block_table, int cmp_ratio) -> Tensor")
 
 
-@torch.library.impl(pyptolib, "npu_attention", "Meta")
-def npu_attention(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, cmp_ratio):
+@torch.library.impl(pyptolib, "npu_cfa_attention", "Meta")
+def npu_cfa_attention(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, cmp_ratio):
     y = torch.zeros_like(q)
     return y
 
 
-@torch.library.impl(pyptolib, "npu_attention", "NPU")
-def npu_attention(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, cmp_ratio):
-    return attention(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, cmp_ratio)
+@torch.library.impl(pyptolib, "npu_cfa_attention", "NPU")
+def npu_cfa_attention(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, cmp_ratio):
+    return cfa_attention(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, cmp_ratio)
 
 
 class MM(torch.nn.Module):
@@ -132,7 +130,7 @@ class MM(torch.nn.Module):
             ori_block_table: torch.Tensor,
             cmp_ratio: int = 1,
     ):
-        return torch.ops.pypto.npu_attention(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, \
+        return torch.ops.pypto.npu_cfa_attention(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, \
                                             ori_block_table, cmp_ratio)
 
 
@@ -162,6 +160,7 @@ def softmax(x, sinks, is_fp16=False, is_new_sink=False):
 def matmul_proxy(left, right):
     fp32 = torch.float32
     return torch.matmul(left.to(fp32), right.to(fp32)).to(fp32)
+
 
 def get_block_kv(kv_2d, cmp_block_table, b_idx, s2_idx, block_size, cur_seq):
     block_idx = cmp_block_table[b_idx][s2_idx]
@@ -407,21 +406,21 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
     seqused_kv = attn_cfg.actual_seq.npu()
 
     q_shape = [b * s1, nq, d]
-    kv_shape = [attn_cfg.kv_num_blocks, block_size, nkv, d]
+    cmp_kv_shape = [attn_cfg.kv_num_blocks, block_size, nkv, d]
     cmp_blk_tbl_shape = [attn_cfg.block_table_batch, max_blocks]
     max_actual_seq = max(seqused_kv)
     win_max_actual_seq = max(max_actual_seq, block_size + s1 - 1)
     win_max_blocks = math.ceil(win_max_actual_seq / block_size)
-    kv_win_shape = [b * win_max_blocks, block_size, nkv, d]
+    ori_kv_shape = [b * win_max_blocks, block_size, nkv, d]
     ori_blk_tbl_shape = cmp_blk_tbl_shape
 
     empty_kwargs = {"dtype": torch_dtype, "device": device}
     q = torch.empty(q_shape, **empty_kwargs).uniform_(-1, 1).npu()
-    cmp_kv = torch.empty(kv_shape, **empty_kwargs).uniform_(-1, 1).npu()
+    cmp_kv = torch.empty(cmp_kv_shape, **empty_kwargs).uniform_(-1, 1).npu()
     sinks = torch.empty(nq, dtype=torch.float32, device=device).uniform_(-1, 1).npu()
-    ori_kv = torch.empty(kv_win_shape, **empty_kwargs).uniform_(-1, 1).npu()
+    ori_kv = torch.empty(ori_kv_shape, **empty_kwargs).uniform_(-1, 1).npu()
     ori_block_table = gen_block_table(seqused_kv, block_size, ori_blk_tbl_shape, cmp_ratio=cmp_ratio, \
-                                        enable_win=True, s1=s1).npu()
+                                        enable_win=True).npu()
 
     output_flash = torch.zeros(q_shape, **empty_kwargs).npu()
 
@@ -443,16 +442,12 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
             attention_out = model(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, cmp_ratio)
             pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
     else:
-        attention_out = attention(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, cmp_ratio)
+        attention_out = cfa_attention(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, \
+                                        cmp_ratio)
         pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
-    if attention_out.numel() > 1000000:
-        print(f'use other cmpare func')
-        import utils.compare as compare
-        compare.compare(output_flash, attention_out, "golden vs npu", rtol=threhold, atol=threhold)  
-    else:
-        from utils.np_compare import detailed_allclose_manual as compare
-        compare(output_flash, attention_out, "golden vs npu", rtol=threhold, atol=threhold)
+    import utils.compare as compare
+    compare.compare(output_flash, attention_out, "golden vs npu", rtol=threhold, atol=threhold)
 
 
 def test_c128_decode(enable_flash: bool = False, enable_high_perf: bool = False, enable_graph: bool = True, \

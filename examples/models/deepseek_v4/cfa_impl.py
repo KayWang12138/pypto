@@ -25,10 +25,6 @@ Main Functions:
 from dataclasses import dataclass
 import torch
 import pypto
-import pytest
-import numpy as np
-import math
-import os
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 
@@ -44,7 +40,7 @@ def check_args(
 ):
     assert q.dim() == 3 and q.size(1) == 64 and q.size(2) == 512, \
         f"q dim num is {q.dim()}, q axis1 is {q.size(1)}, q axis2 is {q.size(2)}, expected 3, 64, 512"
-    assert cmp_kv.dim() == 4 and cmp_kv.size(1) == 128 and cmp_kv.size(2) == 1  and cmp_kv.size(3) == 512, \
+    assert cmp_kv.dim() == 4 and cmp_kv.size(1) == 128 and cmp_kv.size(2) == 1 and cmp_kv.size(3) == 512, \
         f"cmp_kv dim num is {cmp_kv.dim()}, cmp_kv axis1 {cmp_kv.size(1)}, cmp_kv axis2 {cmp_kv.size(2)}, \
             cmp_kv axis3 {cmp_kv.size(3)}, expected 4, 128, 1, 512"
     assert sinks.dim() == 1 and sinks.size(0) == 64, f"sinks dim num {sinks.dim()}, \
@@ -58,14 +54,14 @@ def check_args(
 
 
 @allow_in_graph
-def attention(
+def cfa_attention(
         q: torch.Tensor,
         cmp_kv: torch.Tensor,
         sinks: torch.Tensor,
         cmp_block_table: torch.Tensor,
         seqused_kv: torch.Tensor,
         ori_kv: torch.Tensor,
-        ori_block_table: torch.Tensor,                
+        ori_block_table: torch.Tensor,
         cmp_ratio: int = 128,
 ) -> torch.Tensor:
     """
@@ -117,15 +113,14 @@ def attention(
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
     if unroll_list is None:
-        unroll_list = []
+        unroll_list = [32]
 
     c128_decode(*pto_inputs, *pto_outputs, cmp_ratio, unroll_list)
     attention_out = attention_out.reshape(q.shape)
     return attention_out
 
 
-def kernel(q, cmp_kv, sinks, cmp_blk_tb, seqused_kv, ori_kv=None, ori_block_table=None,
-           atten_out=None, cmp_ratio=128, unroll_list=[]):
+def kernel(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, atten_out, cmp_ratio, unroll_list):
     pypto.experimental.set_operation_config(combine_axis=True)
     shape_q = q.shape
     shape_k = cmp_kv.shape
@@ -186,7 +181,7 @@ def kernel(q, cmp_kv, sinks, cmp_blk_tb, seqused_kv, ori_kv=None, ori_block_tabl
 
         kv_assemble = pypto.tensor([combine_s2_tile, dn], kv_2d.dtype, "kj_assemble")
         kv_assemble[0:blk_size, :] = vld_win_blk
-        blk_idx = cmp_blk_tb[b_idx, 0]
+        blk_idx = cmp_block_table[b_idx, 0]
         blk_idx_valid = blk_idx.max(0)
         kv_assemble[blk_size:, :] = pypto.view(kv_2d, [blk_size, dn], [blk_idx_valid * blk_size, 0])
 
@@ -214,14 +209,18 @@ def kernel(q, cmp_kv, sinks, cmp_blk_tb, seqused_kv, ori_kv=None, ori_block_tabl
 
 @pypto.jit(
     runtime_options={"stitch_function_num_initial": 128,
-                     "stitch_function_outcast_memory": 2048,
-                     "stitch_function_inner_memory": 2048,
+                     "stitch_function_outcast_memory": 512,
+                     "stitch_function_inner_memory": 512,
                      "device_sched_mode": 1},
     
     # 当子图大小达到上界不允许与其他子图合并
-    pass_options={"cube_l1_reuse_setting": {0: 4, 2:4}}
+    pass_options={
+                 "cube_l1_reuse_setting": {-1: 3},
+                  "cube_nbuffer_setting":{-1:2},
+                  "vec_nbuffer_mode":2,
+                  "vec_nbuffer_setting": {-1:4, 0:1}}
 )
-def c128_decode(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv=None, ori_block_table=None, \
-              atten_out=None, cmp_ratio=128, unroll_list=[]):
+def c128_decode(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, \
+              atten_out, cmp_ratio, unroll_list):
     kernel(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, 
               atten_out, cmp_ratio, unroll_list)
