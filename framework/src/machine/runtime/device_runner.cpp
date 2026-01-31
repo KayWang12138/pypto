@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <mutex>
 #include <limits.h>
+#include <sys/mman.h>
 #include "securec.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_launcher.h"
@@ -87,10 +88,15 @@ HostProf& DeviceRunner::GetHostProfInstance() {
 
 void *DeviceRunner::DevAlloc(int size) {
     uint8_t *devPtr = nullptr;
-    machine::GetRA()->AllocDevAddr(&devPtr, size);
+#ifdef __ESL_SIMULATION__
+    dynamic::EslModelMemoryUtils devMemory;
+#else
+    dynamic::DeviceMemoryUtils devMemory;
+#endif
+    devPtr = devMemory.AllocDev(size, nullptr);
     int rc = rtMemset(devPtr, size, 0, size);
     if (rc != 0) {
-        machine::GetRA()->FreeTensor(devPtr);
+        devMemory.FreeTensor(devPtr);
         ALOG_ERROR_F("rtMemset failed size=%d rc=%d\n", size, rc);
         return nullptr;
     }
@@ -461,7 +467,7 @@ int DeviceRunner::launchDynamicAiCore(rtStream_t aicoreStream, DeviceKernelArgs 
     uint64_t tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
     rtTaskCfgInfo_t cfg = {};
     cfg.schemMode = RT_SCHEM_MODE_BATCH;
-    return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, blockDim_, &rtArgs, nullptr, aicoreStream, &cfg);
+    return rtKernelLaunchWithHandleV2(binHdl_, tilingKey, 32, &rtArgs, nullptr, aicoreStream, &cfg);
 }
 
 int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *kArgs) {
@@ -610,6 +616,56 @@ int DeviceRunner::RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream) {
     return 0;
 }
 
+extern "C" int DynTileFwkBackendKernelServer(void *targ);
+extern "C" int PyptoKernelCtrlServer(void *targ);
+
+int DeviceRunner::DynamicKernelLaunchEsl(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kArgs, int blockdim) {
+        
+        auto rc = launchDynamicAiCore(aicoreStream, kArgs);
+        if (rc < 0) {
+            ALOG_ERROR_F("launch aicpu failed %d\n", rc);
+            return rc;
+        } 
+
+        auto *devProg = (dynamic::DevAscendProgram *)(kArgs->cfgdata);
+        devProg->devArgs.nrAic = 32;
+        devProg->devArgs.nrAiv = 64;
+        devProg->devArgs.nrValidAic = 32;
+        size_t shmSize = dynamic::DEVICE_TASK_CTRL_POOL_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        // auto deviceTaskCtrlPoolAddr = devProg->devArgs.runtimeDataRingBufferAddr + sizeof(dynamic::RuntimeDataRingBufferHead) + dynamic::DEV_ARGS_SIZE;
+        (void)memset_s(reinterpret_cast<void*>(devProg->devArgs.runtimeDataRingBufferAddr), shmSize, 0, shmSize);
+        int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
+        threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
+        std::vector<std::thread> aicpus(threadNum);
+        std::atomic<int> idx{0};
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        for (int i = 0; i < threadNum; i++) {
+            aicpus[i] = std::thread([&]() {
+                int tidx = idx++;
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                CPU_SET(tidx, &cpuset);
+                std::string name = "aicput" + std::to_string(tidx);
+                std::cout << "start thread: " << name << std::endl;
+                pthread_setname_np(pthread_self(), name.c_str());
+                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+                (void)DynTileFwkBackendKernelServer(kArgs);
+            });
+        }
+
+        for (int i = 0; i < threadNum; i++) {
+            if (aicpus[i].joinable()) {
+                aicpus[i].join();
+            }
+        }
+        
+        (void) aicpuStream;
+        (void) aicoreStream;
+        (void) blockdim;
+        return 0;
+}
+
+
 int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim) {
     HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAicpuInit);
     uint64_t startTime = MsprofSysCycleTime();
@@ -709,7 +765,7 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
     args_.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockDim_, aicpuNum_, args_.archInfo);
     ExchangeCaputerMode(isCapture_);
     if (ctrlStream == nullptr) {
-        return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
+        return DynamicKernelLaunchEsl(aicpuStream, aicoreStream, kernelArgs, blockDim_);
     } else {
         return DynamicSeparateLaunch(aicpuStream, ctrlStream, aicoreStream, kernelArgs, blockDim_);
     }
@@ -801,7 +857,9 @@ int DeviceRunner::Init(void) {
         ALOG_ERROR("RegisterKernelBin failed\n");
         return -1;
     }
+#ifndef __ESL_SIMULATION__
     InitAicpuServer();
+#endif
     return 0;
 }
 } // namespace npu::tile_fwk

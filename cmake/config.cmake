@@ -185,6 +185,9 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/bin)     # 设置可执行文件输出目录
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/lib)     # 设置动态库输出目录
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/lib)     # 设置静态库输出目录
+file(MAKE_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/bin/log/ub_log)
+file(MAKE_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/bin/log_ca)
+file(MAKE_DIRECTORY ${PTO_FWK_BIN_OUTPUT_ROOT}/bin/run_log)
 
 
 # 安装阶段(Install)
