@@ -9,35 +9,35 @@
  */
 
 /*!
- * \file test_codegen_dyn_bitwiseshift.cpp
+ * \file test_codegen_dyn_round.cpp
  * \brief Unit test for codegen.
  */
 
-#include <iostream>
-
 #include "gtest/gtest.h"
 
-#include "interface/operation/opcode.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/configs/config_manager.h"
 #include "interface/operation/operation.h"
 #include "tilefwk/data_type.h"
-#include "codegen/symbol_mgr/codegen_symbol.h"
-#include "passes/pass_mgr/pass_manager.h"
 #include "codegen/codegen.h"
-#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
+#include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_utils.h"
 #include "test_codegen_common.h"
-#include "interface/utils/id_gen.h"
 
 namespace npu::tile_fwk {
-class TestCodegenDynBitwiseShift : public ::testing::Test {
-public:
-    static void SetUpTestCase() {}
 
-    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
+class TestCodegenDynRound : public ::testing::Test {
+public:
+    static void SetUpTestCase() {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
+    }
+
+    static void TearDownTestCase() {
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    }
 
     void SetUp() override {
         Program::GetInstance().Reset();
@@ -53,18 +53,19 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestCodegenDynBitwiseShift, TestCodegenBitwiseRightShiftTileTensor) {
-    std::vector<int64_t> shape{32, 32};
+TEST_F(TestCodegenDynRound, TestDynOpRound) {
+    std::vector<int64_t> shape = {64, 64};
+    auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
-    std::string funcName = "BitwiseRightShift_TileTensor";
-    Tensor input_a(DT_INT16, shape, "A");
-    Tensor input_b(DT_INT16, shape, "B");
-    Tensor output(DT_INT16, shape, "C");
+    Tensor input(DT_FP32, shape, "input");
+    Tensor output(DT_FP32, shape, "output");
+    Element scalaVal(DataType::DT_FP32, 10.0f);
 
-    FUNCTION(funcName, {input_a, input_b, output}) {
+    std::string funcName = "TestDynOpRound";
+    FUNCTION(funcName, {input, output}) {
         LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            output = BitwiseRightShift(input_a, input_b);
+            output = Round(input, 1);
         }
     }
 
@@ -72,6 +73,11 @@ TEST_F(TestCodegenDynBitwiseShift, TestCodegenBitwiseRightShiftTileTensor) {
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
+    std::vector<SymbolicScalar> dynValidShape = {64, 64};
+    auto localTensorRes = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorTmp = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+    auto localTensorSrc = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, dynValidShape});
+
     for (auto &subFunc : function->rootFunc_->programs_) {
         for (auto &op : subFunc.second->Operations()) {
             if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
@@ -80,6 +86,7 @@ TEST_F(TestCodegenDynBitwiseShift, TestCodegenBitwiseRightShiftTileTensor) {
                 else
                     op.SetOOpAttrOffset(0, 0);
                 op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
+                op.SetAttribute(OpAttributeKey::scalar, scalaVal);
             }
         }
     }
@@ -87,40 +94,4 @@ TEST_F(TestCodegenDynBitwiseShift, TestCodegenBitwiseRightShiftTileTensor) {
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
-
-TEST_F(TestCodegenDynBitwiseShift, TestCodegenBitwiseLeftShiftTileTensor) {
-    std::vector<int64_t> shape{32, 32};
-    TileShape::Current().SetVecTile(shape);
-    std::string funcName = "BitwiseLeftShift_TileTensor";
-    Tensor input_a(DT_INT16, shape, "A");
-    Tensor input_b(DT_INT16, shape, "B");
-    Tensor output(DT_INT16, shape, "C");
-
-    FUNCTION(funcName, {input_a, input_b, output}) {
-        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
-            (void)i;
-            output = BitwiseLeftShift(input_a, input_b);
-        }
-    }
-
-    auto function =
-        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
-    function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
-        }
-    }
-    npu::tile_fwk::CodeGenCtx ctx;
-    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
-    codeGen.GenCode(*function, {});
-}
-
 } // namespace npu::tile_fwk

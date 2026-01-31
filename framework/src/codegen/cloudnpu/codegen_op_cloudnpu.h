@@ -93,9 +93,6 @@ public:
     std::string GenCubeOpMatmul() const;
     std::string GenCubeOpMatmulAcc() const;
 
-    std::string GenBitwiseShiftOp() const;
-    std::string GenBitwiseShiftScalarOp() const;
-
     std::string GenCastOp() const;
 
     std::string GenDupOp() const;
@@ -318,6 +315,8 @@ private:
     std::string PrintUnaryDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintUnaryStatic(const PrintUnaryParam &param) const;
 
+    std::string PrintBitwiseNot() const;
+
     SortParam PrepareSortParam() const;
     TiledSortParam PrepareTiledSortParam() const;
     std::string PrintTileSortTileTensor() const;
@@ -335,6 +334,9 @@ private:
     std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;
     std::string PrintBinaryTileTensor() const;
     std::string PrintBinary(const PrintBinaryParam &param) const;
+
+    std::string PrintBinaryTmpTileTensor() const;
+    std::string PrintBinaryTmp(const PrintBinaryTmpParam &param) const;
 
     std::string PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const;
     std::string PrintBinaryBrcDynamicUnaligned(const PrintBinaryBrcParam &param) const;
@@ -361,6 +363,8 @@ private:
         const std::string &dstDtypeStr) const;
     std::string PrintOneHot(const PrintUnaryParam &param) const;
     std::string PrintOneHotLayout() const;
+    std::string PrintRound() const;
+    std::string PrintRoundLayout() const;
 
     DynamicParamPackMTE PrepareDynamicShapeInfoForMTE(
         int dynShapeIdx, int ShapeDim = SHAPE_DIM4, bool isGmSpill = false) const;
@@ -412,8 +416,6 @@ private:
     std::string PrintCmpTileTensor() const;
     std::string PrintLogicalAndTileTensor() const;
     std::string PrintLogicalNotTileTensor() const;
-    std::string PrintBitwiseShiftTensor() const;
-    std::string PrintBitwiseShiftScalar() const;
 
     void InitOpsGenMap();
     void InitScalaOpsMap();
