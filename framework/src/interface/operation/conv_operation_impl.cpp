@@ -37,8 +37,398 @@ namespace Conv {
         } \
     } while (0)
 
-void CheckConvOperands(DataType outType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3) {
+void CheckConvOperands(DataType outType, const Tensor &operand1, const Tensor &operand2, const Tensor &operand3, const convAttrParam &attrParam) {
     // todo
+     // 1、dtype校验
+    OP_CHECK(true, {
+        ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16)
+        << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.";
+    });
+
+    CheckOperandShape(operand1, operand2, operand3);
+    
+    CheckOutputShape(operand1, operand2, operand3, attrParam);
+
+    CheckAttrShape(attrParam);
+
+    CheckTileTiling(operand1, operand2, attrParam);
+    CheckL1SizeTiling(outType);
+    
+}
+
+void CheckTileTiling(const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
+    auto convTile = TileShape::Current().GetConvTile();
+    int64_t tileHin    = convTile.tileL1Info.tileHin;
+    uint64_t tileWin    = convTile.tileL1Info.tileWin;
+    uint64_t tileCinFmap    = convTile.tileL1Info.tileCinFmap;
+    uint64_t tileCinWeight    = convTile.tileL1Info.tileCinWeight;
+    uint64_t tileCout   = convTile.tileL1Info.tileCout;
+    uint64_t tileBatch = convTile.tileL1Info.tileN;
+
+    uint64_t batch =  operand1.GetShape()[0];
+    uint64_t cin =  operand1.GetShape()[1];
+    uint64_t hin =  operand1.GetShape()[2];
+    uint64_t win =  operand1.GetShape()[3];
+    OP_CHECK(true, {
+        ASSERT(tileBatch > 0 && tileBatch <= batch)
+            << "Invalid tileHin value: " << tileBatch 
+            << ", expected range [1, " << batch
+            << "]." << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(tileCinFmap > 0 && tileCinFmap <= cin)
+            << "Invalid tileHin value: " << tileCinFmap 
+            << ", expected range [1, " << cin
+            << "]." << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(tileCinWeight > 0 && tileCinWeight <= cin)
+            << "Invalid tileHin value: " << tileCinWeight 
+            << ", expected range [1, " << cin
+            << "]." << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(tileHin > 0 && tileHin <= hin)
+            << "Invalid tileHin value: " << tileHin 
+            << ", expected range [1, " << hin
+            << "]." << std::endl;
+    });
+
+    OP_CHECK(true, {
+        ASSERT(tileWin > 0 && tileWin <= win)
+            << "Invalid tileHin value: " << tileWin 
+            << ", expected range [1, " << win
+            << "]." << std::endl;
+    });
+
+    CheckHoWoTiling(operand1, operand2, attrParam);
+
+    bool isSetL0Tile = convTile.setL0Tile;
+    if (isSetL0Tile){
+        CheckTileTiling(operand2, attrParam);
+    }
+}
+
+CheckL1SizeTiling(DataType outType){
+    uint64_t l1Size = pipeConfig.l1SizeThreshold;
+    uint64_t tileHout   = convTile.tileL1Info.tileHout;
+    uint64_t tileWout   = convTile.tileL1Info.tileWout;
+
+    uint64_t mL1   = tileHout * tileWout;
+    uint64_t nL1   = convTile.tileL1Info.tileCout;
+
+    int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
+    int64_t kH =  operand2.GetShape()[2];
+    int64_t kW =  operand2.GetShape()[3];   
+    int64_t kL1 = kH * kH * tileCinWeight;
+
+    int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
+
+    uint64_t MinL1LoadSize = ConvAlignB(mL1, NUM16)* ConvAlignB(kL1, k0) * BytesOf(outType) + 
+                ConvAlignB(nL1, NUM16) * ConvAlignB(kL1, k0) * BytesOf(outType);
+
+    OP_CHECK(true, {
+        ASSERT(MinL1LoadSize <= l1Size)
+            << "MinL1LoadSize > L1size, current L1size: " << l1Size 
+            << ", maxL1Size: " << MinL1LoadSize
+            << "." << std::endl;
+    });
+}
+uint64_t ConvAlignB(uint64_t a, uint64_t b)
+{
+    if (b == 0) {
+        return 0;
+    }
+    return ((a + b - 1) / b) * b;
+}
+
+void CheckHoWoTiling(const Tensor &operand1, const Tensor &operand2, const MatmulAttrParam &attrParam) {
+    int64_t hin =  operand1.GetShape()[2];
+    int64_t win =  operand1.GetShape()[3];
+    int64_t kH =  operand2.GetShape()[2];
+    int64_t kW =  operand2.GetShape()[3];
+    int64_t padTop =  paddings[0];
+    int64_t padBottom =  paddings[1];
+    int64_t padLeft =  paddings[2];
+    int64_t padRight =  paddings[3];
+    int64_t dilationH =  dilations[2];
+    int64_t dilationW =  dilations[3];
+    int64_t strideH =  strides[2];
+    int64_t strideH =  strides[3]; 
+
+    int64_t tileHout   = convTile.tileL1Info.tileHout;
+    int64_t tileWout   = convTile.tileL1Info.tileWout;
+
+    int64_t Ho = ConvComputeHo(hin, kH, padTop, padBottom, dilationH, strideH);
+    int64_t Wo = ConvComputeWo(win, kW, padLeft, padRight, dilationW, strideW);
+    OP_CHECK(true, {
+        ASSERT(tileHout > 0 && tileHout <= Ho)
+            << "Invalid tileHout value: " << tileHout 
+            << ", expected range [1, " << Ho
+            << "]." << std::endl;
+    });
+
+    OP_CHECK(true, {
+        ASSERT(tileWout > 0 && tileWout <= Wo)
+            << "Invalid tileWout value: " << tileWout 
+            << ", expected range [1, " << Wo
+            << "]." << std::endl;
+    });
+
+}
+
+void CheckTileTiling(const Tensor &operand2, const MatmulAttrParam &attrParam) {
+    int64_t tileM = convTile.tileL0Info.tileM;
+    int64_t tileN = convTile.tileL0Info.tileN;
+    int64_t tileK = convTile.tileL0Info.tileK;
+
+    int64_t tileHout   = convTile.tileL1Info.tileHout;
+    int64_t tileWout   = convTile.tileL1Info.tileWout;
+    OP_CHECK(true, {
+        ASSERT(tileM > 0 && tileM <= tileHout * tileWout)
+            << "Invalid tileHin value: " << tileM 
+            << ",expected range [1, " << tileHout * tileWout
+            << ".Current tileHout= " << tileHout
+            << ", tileWout=" << tileWout
+            << " → maximum allowed = tileHout * tileWout" << std::endl;
+    });
+
+    int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
+    int64_t kH =  operand2.GetShape()[2];
+    int64_t kW =  operand2.GetShape()[3];   
+    int64_t maxK = kH * kH * tileCinWeight;
+    OP_CHECK(true, {
+        ASSERT(tileK > 0 && tileK <= maxK)
+            << "Invalid tileHin value: " << tileK 
+            << ", expected range [1, " << maxK
+            << ".Current tileCinWeight= " << tileCinWeight
+            << ", kH=" << kH
+            << ", kW=" << kW
+            << " → maximum allowed = kH * kH * tileCinWeight" << std::endl;
+    });
+
+    int tileCout   = convTile.tileL1Info.tileCout;
+    OP_CHECK(true, {
+        ASSERT(tileN > 0 && tileN <= tileCout)
+            << "Invalid tileHin value: " << tileN 
+            << ", expected range [1, " << tileCout
+            << "]." << std::endl;
+    });
+
+}
+
+void CheckPadShape(const std::vector<int64_t> &paddings){
+    OP_CHECK(true, {
+            ASSERT(paddings.size() <= NUM4)
+        << "Input attr stride dim: " << paddings.size()
+        << "!=" << NUM4
+        << "." << std::endl
+    });
+
+    for (size_t i = 0; i < paddings.size(); ++i) {
+        OP_CHECK(true, {
+            ASSERT(paddings[i] <= MAX_PAD)
+            << "The value of the " << i 
+            << "-th dimension of stride must be in the range [1, " << MAX_PAD
+            << "]." << std::endl
+        });
+    }
+
+}
+
+void CheckDilationShape(const std::vector<int64_t> &dilations){
+    OP_CHECK(true, {
+        ASSERT(dilations.size() <= NUM4)
+        << "Input attr dilations dim: " << dilations.size()
+        << "!=" << NUM4
+        << "." << std::endl
+    });
+
+    for (size_t i = 0; i < dilations.size(); ++i) {
+        if(i > 1) {
+            OP_CHECK(true, {
+                ASSERT(dilations[i] <= MAX_DILATION_STRIDE)
+                << "The value of the " << i 
+                << "-th dimension of stride must be in the range [1, " << MAX_DILATION_STRIDE
+                << "]." << std::endl
+            });
+        }
+        else {
+            OP_CHECK(true, {
+                ASSERT(dilations[i] != NUM1)
+                << "The value of the " << i 
+                << "-th dimension of stride must be " << NUM1
+                << "." << std::endl
+            });
+        }
+        
+    }
+}
+
+void heckStrideShape(const std::vector<int64_t> &strides){
+    OP_CHECK(true, {
+        ASSERT(strides.size() <= NUM4)
+        << "Input attr strides dim: " << strides.size()
+        << "!=" << NUM4
+        << "." << std::endl
+    });
+
+    for (size_t i = 0; i < strides.size(); ++i) {
+        if(i > 1) {
+            OP_CHECK(true, {
+                ASSERT(strides[i] <= MAX_DILATION_STRIDE)
+                << "The value of the " << i 
+                << "-th dimension of stride must be in the range [1, " << MAX_DILATION_STRIDE
+                << "]." << std::endl
+            });
+        }
+        else {
+            OP_CHECK(true, {
+                ASSERT(strides[i] != NUM1)
+                << "The value of the " << i 
+                << "-th dimension of stride must be " << NUM1
+                << "." << std::endl
+            });
+        }
+    }
+}
+
+void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64_t Cout, const int64_t groups){
+
+    OP_CHECK(true, {
+            ASSERT(groups <= SHAPE_INNER_AXIS_MAX_SIZE)
+            << "Invalid groups value: groups =" << i 
+            << "expected range [1, " << SHAPE_INNER_AXIS_MAX_SIZE
+            << "]." << std::endl
+    });
+
+    OP_CHECK(true, {
+            ASSERT(cinFmap % groups == 0)
+            << "Cin = " << cinFmap
+            << "is not divisible by groups: " << groups
+            << "adjusting Cin to the nearest value such that Cin % groups == 0." << std::endl
+    });
+
+    OP_CHECK(true, {
+            ASSERT(Cout % groups == 0)
+            << "Cout = " << Cout
+            << "is not divisible by groups: " << groups
+            << "adjusting Cout to the nearest value such that Cout % groups == 0." << std::endl
+    });
+
+    OP_CHECK(true, {
+            ASSERT(cinFmap != cinWeight * groups)
+            << "Fmap Cin : " << cinFmap
+            << "!= weight Cin: " << cinWeight
+            << "groups: " << groups
+            << "." << std::endl
+    });
+}
+
+void CheckAttrShape(const Tensor &operand1, const Tensor &operand2, const convAttrParam &attrParam){
+    std::vector<int64_t> paddings = attrParam.paddings;
+    CheckPadShape(paddings);
+
+    std::vector<int64_t> dilations = attrParam.dilations;
+
+    CheckDilationShape(dilations);
+
+    std::vector<int64_t> strides = attrParam.strides;
+
+    heckStrideShape(strides);
+    
+    int64_t groups = attrParam.groups;
+
+    int64_t cinFmap =  operand1.GetShape()[2];
+    int64_t cinWeight =  operand2.GetShape()[2];
+    int64_t cout =  operand2.GetShape()[0];
+    CheckGroupsShape(cinFmap, cinWeight, cout, groups);
+
+    int64_t hin =  operand1.GetShape()[2];
+    int64_t win =  operand1.GetShape()[3];
+    int64_t kH =  operand2.GetShape()[2];
+    int64_t kW =  operand2.GetShape()[3];
+    int64_t padTop =  paddings[0];
+    int64_t padBottom =  paddings[1];
+    int64_t padLeft =  paddings[2];
+    int64_t padRight =  paddings[3];
+    int64_t dilationH =  dilations[2];
+    int64_t dilationW =  dilations[3];
+    int64_t strideH =  strides[2];
+    int64_t strideH =  strides[3];
+
+    int64_t Ho = ConvComputeHo(hin, kH, padTop, padBottom, dilationH, strideH);
+    OP_CHECK(true, {
+            ASSERT(Ho <= MAX_SIZE)
+        << "Invalid hout value: " << Hout
+        << ", expected range[1, " << MAX_SIZE
+        << "]." << std::endl
+    });
+
+    int64_t Wo = ConvComputeWo(win, kW, padLeft, padRight, dilationW, strideW);
+    OP_CHECK(true, {
+            ASSERT(Wo <= MAX_SIZE)
+        << "Invalid Wout value: " << Wout
+        << ", expected range[1,  " << MAX_SIZE
+        << "]." << std::endl
+    });
+}
+
+void CheckOperandShape(const Tensor &operand1, const Tensor &operand2)
+{
+    for (size_t i = 0; i < operand1.size(); ++i) {
+        OP_CHECK(true, {
+            ASSERT(operand1.GetShape()[i] <= MAX_SIZE)
+            << "The value of the " << i 
+            << "-th dimension of fmap must be in the range [1, " << MAX_SIZE
+            << "]." << std::endl
+        });
+    }
+
+    for (size_t i = 0; i < operand2.size(); ++i) {
+        OP_CHECK(true, {
+            ASSERT(operand2.GetShape()[i] <= MAX_SIZE)
+            << "The value of the " << i 
+            << "-th dimension of weight must be in the range [1, " << MAX_SIZE
+            << "]." << std::endl
+        });
+    }
+
+    int64_t Cout = operand2.GetShape()[0];
+    OP_CHECK(true, {
+        ASSERT(operand3.GetShape()[i] == Cout)
+        << "Input illegal bias shape:" << operand3.GetShape()[i] 
+        << ", which must euqal to Cout:" << Cout
+        << "." << std::endl
+    });
+
+    int64_t kH = operand2.GetShape()[2];
+    int64_t kw = operand2.GetShape()[3];
+    OP_CHECK(true, {
+        ASSERT(kH * kW <= MAX_PAD_KERNEL)
+        << "Weight shape not satisfy Load3D's limits: kh=" << kH
+        << ", kw=" << kW
+        << ", which must <=" << MAX_PAD_KERNEL
+        << "." << std::endl
+    });
+}
+
+int64_t ConvComputeHo(int64_t hin, int64_t kH, int64_t padTop, int64_t padBottom, int64_t dilationH, int64_t strideH)
+{
+    if (strideH == 0) {
+        return 1;
+    }
+    int64_t cmpHo = (hin + padTop + padBottom - dilationH * (kH - 1) - 1) / strideH + 1;
+    return cmpHo;
+}
+
+int64_t ConvComputeWo(int64_t win, int64_t kW, int64_t padLeft, int64_t padRight, int64_t dilationW, int64_t strideW)
+{
+    if (strideW == 0) {
+        return 1;
+    }
+    int64_t cmpWo = (win + padLeft + padRight - dilationH * (hk - 1) - 1) / strideW + 1;
+    return cmpWo;
 }
 
 void SetTensorOpAttr(Operation &op, const ConvAttrParam &convAttrParam)
@@ -340,7 +730,7 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
             const int64_t groups)
 {
     ConvAttrParam convAttrParam(paddings, strides, dilations, groups);
-    CheckConvOperands(outType, inputTensor, weightTensor, biasTensor);
+    CheckConvOperands(outType, inputTensor, weightTensor, biasTensor, convAttrParam);
     // auto &conveTile = TileShape::Current().GetConvTile();
     // Check ConvTile Valid
     // infer hout, wout
