@@ -103,10 +103,6 @@ void ProcessForNotExpandOp(Function &function, Operation &op) {
 }
 }
 
-void ExpandFunction::Init() {
-    scopeMap_.clear();
-}
-
 Status ExpandFunction::PreCheck(Function &function) {
     ExpandFunctionChecker checker;
     return checker.DoPreCheck(function);
@@ -120,7 +116,7 @@ Status ExpandFunction::PostCheck(Function &function) {
 Status ExpandFunction::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "Start ExpandFunction function [%s].", function.GetRawName().c_str());
     std::ostringstream oss;
-    Init();
+    scopeMap_.clear();
     bool verifyResult = true;
     for (auto &op : function.Operations(false)) {
         auto verifyOperationEntry = OpcodeManager::Inst().GetVerifyOperationEntry(op.GetOpcode());
@@ -200,7 +196,7 @@ Status ExpandFunction::ExpandOperation(Function &function, Operation &op) const{
     if (scopeIdx >= 0) { // scopeIdx < 0 means no need to merge
         scopeMap_[scopeIdx].insert(op.GetCoreType());
         if (!GraphUtils::IsCVMixPlatform() && scopeMap_[scopeIdx].find(CoreType::AIC) != scopeMap_[scopeIdx].end() && scopeMap_[scopeIdx].find(CoreType::AIV) != scopeMap_[scopeIdx].end()) {
-            APASS_LOG_ERROR_F(Elements::Operation, "Cannot mix cube and vector op on a CV seperate platform, please check your setting: sg_set_scope=%d", scopeIdx);
+            APASS_LOG_ERROR_F(Elements::Function, "Cannot mix cube and vector op on a CV seperate platform in function: %s, please check your setting: sg_set_scope=%d", function.GetRawName().c_str(), scopeIdx);
             return FAILED;
         }
     }

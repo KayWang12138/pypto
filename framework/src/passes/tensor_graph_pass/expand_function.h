@@ -27,7 +27,6 @@ public:
     Status PreCheck(Function &function) override;
     Status PostCheck(Function &function) override;
 private:
-    void Init();
     Status RunOnFunction(Function &function) override;
     Status Expandfunction(Function &function) const;
     Status ExpandOperation(Function &function, Operation &op) const;
