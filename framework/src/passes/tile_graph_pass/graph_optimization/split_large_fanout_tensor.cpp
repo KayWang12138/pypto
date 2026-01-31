@@ -415,10 +415,20 @@ bool SplitLargeFanoutTensor::HasDuplicateToTile(std::vector<std::pair<LogicalTen
     return false;
 }
 
+void insertShapeIfNotDup(std::multiset<Shape, ShapeComparator>& set, const Shape& shape) {
+    auto range = set.equal_range(shape);
+    for (auto it = range.first; it != tange.send; ++it) {
+        if (*it == shape) {
+            return;
+        }
+    }
+    set.insert(shape);
+}
+
 // 遍历所有的大tensor, 对前后不同的tileShape计算lcmShape, 并尝试拆分
 void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
     for (const auto &largeTensor : largeTensors) {
-        std::multiset<Shape, ShapeComparator> lcmShapes;
+        std::multiset<Shape, ShapeComparator> tileShapes;
         // 验证Assemble成LargeTensor的tileTensor们需要包含于LargeTensor
         if (!IsBeCovered(function, largeTensor, toInfoMap[largeTensor->tensor->rawmagic])) {
             continue;
@@ -444,13 +454,19 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
                         "the largeTensor's shape.", largeTensor->GetMagic());
                     continue;
                 }
-                lcmShapes.insert(lcmShape);
+                insertShapeIfNotDup(tileShapes, lcmShape);
+
+                Shape maxShape(toShape.size(), 0);
+                for (size_t i = 0; i < toShape.size(); i++) {
+                    maxShape[i] = std::max(toShape[i], fromShape[i]);
+                }
+                insertShapeIfNotDup(tileShapes, maxShape);
             }
         }
-        for (const auto &lcmShape : lcmShapes) {
+        for (const auto &tileShape : tileShapes) {
             // 当lcmTile的shape小于largeTensor时, 开始尝试拆分
-            APASS_LOG_INFO_F(Elements::Tensor, "Try to split, large tensor magic is %d.", largeTensor->GetMagic());
-            TryToSplitLargeTensor(function, lcmShape, largeTensor);
+            APASS_LOG_DEBUG_F(Elements::Tensor, "Try to split with shape %s, large tensor magic is %d.", CommonUtils::ContainerToStr(tileShape).c_str(), largeTensor->GetMagic());
+            TryToSplitLargeTensor(function, tileShape, largeTensor);
         }
     }
 }
@@ -458,6 +474,9 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
 void SplitLargeFanoutTensor::TryToSplitLargeTensor(Function &function, const Shape &lcmShape, const LogicalTensorPtr &largeTensor) {
     std::vector<Shape> lcmTileOffsets;
     Shape current(lcmShape.size());
+    for (const auto &offset : toShapes[largeTensor]) {
+        GenerateOffset(largeTensor->shape, offset, current, lcmTileOffsets, 0);
+    }
     GenerateOffset(largeTensor->shape, lcmShape, current, lcmTileOffsets, 0);
     APASS_LOG_INFO_F(Elements::Operation, "LcmTile num: %d.", lcmTileOffsets.size());
     for (const auto &lcmTileOffset : lcmTileOffsets) {
