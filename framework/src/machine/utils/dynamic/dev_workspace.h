@@ -201,10 +201,20 @@ private:
                                         [[maybe_unused]] WsAllocatorCounter *pDfxCounter) {
         DevAscendFunction *devRootSrc = devRootDup.GetSource();
         size_t outcastMemReq = devRootSrc->exclusiveOutcastWsMemoryRequirement;
+        uint64_t allocatedBefore = tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+        uint64_t freeBefore = tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+        DEV_ERROR("[InnerOutcast] Allocate Before: rootFunc=%s, memReq=%zu, allocated=%lu, free=%lu",
+            devRootSrc->GetRawName(), outcastMemReq, allocatedBefore, freeBefore);
+        DEV_ERROR("tensorAllocators_.outcast.ResetTimes() %u", tensorAllocators_.devTaskInnerExclusiveOutcasts.ResetTimes());
         if (outcastMemReq != 0) {
             DEV_ASSERT(tensorAllocators_.devTaskInnerExclusiveOutcasts.CanAllocate(outcastMemReq));
             WsAllocation allocation = tensorAllocators_.devTaskInnerExclusiveOutcasts.Malloc(
                 outcastMemReq, WsMemCategory::TENSOR_ROOTFUNC_INTERNAL);
+        // 添加日志：分配后
+        uint64_t allocatedAfter = tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+        uint64_t freeAfter = tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+        DEV_ERROR("[InnerOutcast] Allocate After: rootFunc=%s, memReq=%zu, addr=0x%lx, allocated=%lu, free=%lu",
+            devRootSrc->GetRawName(), outcastMemReq, allocation.ptr, allocatedAfter, freeAfter);
 #if DEBUG_MEM_DUMP_LEVEL >= DEBUG_MEM_DUMP_FULL
             if (pDfxCounter) {
                 pDfxCounter->LogMalloc(allocation);
@@ -316,7 +326,15 @@ private:
 
         // check allocation of outcast workspace
         size_t outcastMemReq = devRootSrc->exclusiveOutcastWsMemoryRequirement;
+        // 添加日志：分配检查前
+        uint64_t allocated = tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+        uint64_t freeMem = tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+        uint64_t capacity = tensorAllocators_.devTaskInnerExclusiveOutcasts.Capacity();
+        DEV_ERROR("[InnerOutcast] CanAllocate Check: rootFunc=%s, memReq=%zu, allocated=%lu, free=%lu, capacity=%lu",
+        devRootSrc->GetRawName(), outcastMemReq, allocated, freeMem, capacity);
         if (!tensorAllocators_.devTaskInnerExclusiveOutcasts.CanAllocate(outcastMemReq)) {
+            DEV_ERROR("[InnerOutcast] CanAllocate FAILED: rootFunc=%s, memReq=%zu, allocated=%lu, free=%lu, capacity=%lu, need=%lu",
+            devRootSrc->GetRawName(), outcastMemReq, allocated, freeMem, capacity, allocated + outcastMemReq);
             return false;
         }
 
@@ -324,6 +342,7 @@ private:
 
         // check if reallocated-assemble-slots and the stitch-ending slotMem (secondary allocation) can be allocated
         if (devProg_->slottableOutcastSlotSize > tensorAllocators_.devTaskBoundaryOutcasts.AvailableSlots()) {
+            DEV_ERROR("slottableOutcastSlotSize is %u", devProg_->slottableOutcastSlotSize );
             return false;
         }
 
@@ -351,6 +370,7 @@ public:
         AutoScopedPerf asp(PERF_EVT_ALLOCATE_WORKSPACE);
 
         if (!CanAllocateFunctionMemory(devRootDup)) {
+            DEV_ERROR("Can not Allocate Function Memory ");
             return false;
         }
 
@@ -468,8 +488,20 @@ public:
     }
 
     void RecycleDevFuncWorkspace() {
+        uint64_t allocatedBefore = tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+        uint64_t freeBefore = tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+        uint64_t capacity = tensorAllocators_.devTaskInnerExclusiveOutcasts.Capacity();
+        uint32_t resetTimesBefore = tensorAllocators_.devTaskInnerExclusiveOutcasts.ResetTimes();
+        DEV_ERROR("[InnerOutcast] Recycle Before: allocated=%lu, free=%lu, capacity=%lu, resetTimes=%u",
+            allocatedBefore, freeBefore, capacity, resetTimesBefore);
         tensorAllocators_.devTaskInnerExclusiveOutcasts.ResetPool();
         tensorAllocators_.rootInner.ResetPool();
+        uint64_t allocatedAfter = tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+        uint64_t freeAfter = tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+        uint32_t resetTimesAfter = tensorAllocators_.devTaskInnerExclusiveOutcasts.ResetTimes();
+        DEV_ERROR("[InnerOutcast] Recycle After: allocated=%lu, free=%lu, resetTimes=%u",
+            allocatedAfter, freeAfter, resetTimesAfter);
+
     }
 
     DevAscendFunctionDupped DuplicateRoot(DevAscendFunction *func) {
@@ -720,6 +752,8 @@ private:
         auto devTaskInnerOutcastBudget = devProg->memBudget.tensor.devTaskInnerExclusiveOutcasts;
         devTaskInnerExclusiveOutcastsWsVerifier_.Init(baseAddr, devTaskInnerOutcastBudget);
         tensorAllocators_.devTaskInnerExclusiveOutcasts.InitTensorAllocator(baseAddr, devTaskInnerOutcastBudget);
+        DEV_ERROR("[InnerOutcast] Init: poolSize=%lu bytes, baseAddr=0x%lx,",
+        devTaskInnerOutcastBudget, baseAddr);
         DEV_TRACE_DEBUG(CtrlEvent(none(), WorkspaceInDeviceTaskOutcast(Range(baseAddr, baseAddr + devTaskInnerOutcastBudget))));
         baseAddr += devTaskInnerOutcastBudget;
 
