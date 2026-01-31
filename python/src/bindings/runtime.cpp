@@ -600,13 +600,23 @@ public:
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
             ctrlFlowCache);
 #endif
-        int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
-        ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
+        // int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
+        // ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
+
+        int ret = DeviceLauncher::LaunchAicpuKernelEsl(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
+        ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
     }
+
+    void LaunchEsl(KernelBinary *kernel, aclrtStream aicoreStream, std::vector<DeviceTensorData> &tensors,
+        uint8_t *ctrlFlowCache, int64_t *workspace) {
+            ret = DeviceLauncher::LaunchAicoreKernel(aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
+            ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
+            
+        }
 
     void EmulationLaunch(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors) {
         if (!isDebugMode) {
