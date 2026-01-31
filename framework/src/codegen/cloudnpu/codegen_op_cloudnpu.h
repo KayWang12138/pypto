@@ -290,6 +290,7 @@ private:
         std::vector<std::string> &gmShapeExpr, std::vector<std::string> &gmOffsetExpr) const;
     std::string PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0CParam &param) const;
 
+    std::pair<std::string, std::string> GetOuterInnerValueStr(const PrintMemCopyWithL1Param &param) const;
     std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param &param) const;
     std::string PrintMemCopyWithL1Static(const PrintMemCopyWithL1Param &param) const;
     std::string PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param &param) const;
