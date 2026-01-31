@@ -37,7 +37,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetSimConfig(KEY_BUILD_TASK_BASED_TOPO, false);
@@ -127,7 +127,7 @@ TEST_F(GraphTest, deepseek_qkvPre) {
 }
 
 TEST_F(GraphTest, TestAttentionPost) {
-    config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int b = 1;
     int n = 2;
     int s = 128;
@@ -164,8 +164,54 @@ TEST_F(GraphTest, TestAttentionPost) {
     }
 }
 
+TEST_F(GraphTest, Test_deepseekAttention_s_1) {
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+
+    int b = 2; //  32
+    int s = 1;
+    int s2 = 512;
+    int h = std::get<int>(deepseekConfig1["hiddenSize"]); // 256
+    int num_heads = std::get<int>(deepseekConfig1["numAttentionHeads"]);
+    int qLoraRank = std::get<int>(deepseekConfig1["qLoraRank"]);
+    int qkRopeHeadDim = std::get<int>(deepseekConfig1["qkRopeHeadDim"]); // 64
+    int kvLoraRank = std::get<int>(deepseekConfig1["kvLoraRank"]);         // 512
+    int vHeadDim = std::get<int>(deepseekConfig1["vHeadDim"]);
+    int qkNopeHeadDim = std::get<int>(deepseekConfig1["qkNopeHeadDim"]);
+    int q_head_dim = qkNopeHeadDim + qkRopeHeadDim;
+    Tensor hidden_states = Tensor(DT_BF16, {b, s, h}, "hidden_states");
+    Tensor atten_mask = Tensor(DT_FP32, {b, 1, s, s2}, "atten_mask");
+    Tensor position_ids = Tensor(DT_INT32, {b, s}, "position_ids");
+    Tensor cos = Tensor(DT_BF16, {s, qkRopeHeadDim}, "cos");
+    Tensor sin = Tensor(DT_BF16, {s, qkRopeHeadDim}, "sin");
+    Tensor kv_len = Tensor(DT_INT32, {1, 1}, "kv_len");
+    Tensor past_key_states = Tensor(DT_BF16, {b, 1, s2, kvLoraRank + qkRopeHeadDim}, "past_key_states");
+
+    AttentionW aw;
+    aw.qAProjW = Tensor(DT_BF16, {h, qLoraRank}, "qAProjW");
+    aw.qBProjW = Tensor(DT_BF16, {qLoraRank, num_heads * q_head_dim}, "qBProjW");
+    aw.kvAProjWithMqaW = Tensor(DT_BF16, {h, kvLoraRank + qkRopeHeadDim}, "kvAProjWithMqaW");
+    aw.kvBProjWK = Tensor(DT_BF16, {num_heads, qkNopeHeadDim, kvLoraRank}, "kvBProjWK");
+    aw.kvBProjWV = Tensor(DT_BF16, {num_heads, kvLoraRank, vHeadDim}, "kvBProjWV");
+    aw.oProjW = Tensor(DT_BF16, {num_heads * vHeadDim, h}, "oProjW");
+
+    RoPETileShapeConfig ropeTileConfig{
+        {32, 32},
+        {1, 32, 32},
+        {1, 1, 32, 32},
+        {1, 1, 32, 32, 2}
+    };
+
+    Tensor res;
+    DeepseekAttention deepseekAttention(deepseekConfig1, aw, 1);
+    ConfigManager::Instance();
+    FUNCTION("A") {
+        res = deepseekAttention.Forward(
+            hidden_states, atten_mask, position_ids, cos, sin, kv_len, past_key_states, ropeTileConfig);
+    }
+}
+
 TEST_F(GraphTest, Test_deepseekAttention_pre) {
-    config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int b = 2; //  32
     int s = 1;
