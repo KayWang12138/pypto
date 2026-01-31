@@ -29,7 +29,7 @@ import pytest
 import numpy as np
 import math
 import os
-from impl.cfa_pypto import cfa_attention
+from cfa_impl import cfa_attention
 
 np.random.seed(0)
 torch.manual_seed(0)
