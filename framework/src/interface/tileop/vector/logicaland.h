@@ -175,6 +175,7 @@ TILEOP void TLogicalAnd(T0 dst, T1 src1, T2 src2, T3 tmp) {
         remainCvtTile = CvtTile(1, remainAfterLoop, cvtAddr);
     }
 
+
     if (numLoop > 0) {
         pto::TEXPANDS(loopOneTile.Data(), 1.0);
         pto::TEXPANDS(loopZeroTile.Data(), 0.0);
