@@ -305,7 +305,7 @@ struct DevAscendProgram {
     }
 
     void ResetFromLaunch() {
-        memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
+        // memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
         controlFlowBinaryAddr = nullptr;
         runtimeDataRingBufferInited = false;
         workspaceSize = 0;
