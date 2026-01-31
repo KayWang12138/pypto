@@ -31,7 +31,7 @@ import numpy as np
 import math
 import os
 from torch._subclasses.fake_tensor import FakeTensor
-from impl.cfa_pypto import *
+from cfa_impl import *
 
 np.random.seed(0)
 torch.manual_seed(0)
