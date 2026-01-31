@@ -178,7 +178,7 @@ def check_input_shape_dtype(
     qr, idx_wq_b, x, weights_proj, cos, sin, hadamard, qr_scale, idx_wq_b_scale
 ):
     q_lora_rank = 1024
-    idx_nq = 32
+    idx_nq = 64
     head_dim = 128
     rope_dim = 64
     h = 4096
