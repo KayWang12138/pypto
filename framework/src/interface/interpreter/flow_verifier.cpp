@@ -94,7 +94,7 @@ bool FlowVerifier::VerifyResult(const std::string &key,
         opInfo[toIndex(OpInfoCsvHeader::verifyType)] = key;
         opInfo[toIndex(OpInfoCsvHeader::outputShape)] = functionInterpreter_->ShapeToString(tensorDataViewList[k]->GetShape());
         opInfo[toIndex(OpInfoCsvHeader::outputValidShape)] = functionInterpreter_->ShapeToString(tensorDataViewList[k]->GetValidShape());
-        opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = DataType2String(tensorDataViewList[k]->GetDataType()); 
+        opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = DataType2String(tensorDataViewList[k]->GetDataType());
         opInfo[toIndex(OpInfoCsvHeader::outputTensor)] = fileName;
         opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "PASS";
 
@@ -261,7 +261,7 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         try {
             captureExecution = functionInterpreter_->RunForPass(key, func, capture);
         } catch (std::exception &e) {
-            ALOG_ERROR_F("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s", 
+            ALOG_ERROR_F("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s",
                          func->GetMagicName().c_str(), passIdentifier.c_str(), passIndex, captureIndex, e.what());
             checkResult = false;
             continue;

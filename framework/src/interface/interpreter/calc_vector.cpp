@@ -429,7 +429,7 @@ void ExecuteOpCmps(ExecuteOperationContext *ctx) {
     auto iop_self = ctx->ioperandDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
-    
+
     auto operation = static_cast<CmpOperationType>(
         ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "cmp_operation")
     );
