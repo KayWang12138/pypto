@@ -1697,4 +1697,17 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
 
     return os.str();
 }
+
+std::string CodeGenOpCloudNPU::GenLoad3D() const {
+
+    
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<" << L0dtype << ", " << L1dtype << ">(" << dst_addr << ", " << src_addr << ", "
+        << mPos << ", " << kPos << ", " << padList << ", " << fmapH << ", " << fmapW  << ", " << filterH << ", " 
+        << filterW  << ", " << dilationH << ", " << dilationW << ", " << strideH << ", " << strideW << ", "
+        << channelSize << ", " << padValue << ", " << transpose << ", " << smallChannel << ", " << capacity << ", "
+        << c1 << ", " << c0 << ");\n";
+    return oss.str();
+}
 } // namespace npu::tile_fwk
