@@ -52,7 +52,7 @@ void CheckConvOperands(DataType outType, const Tensor &operand1, const Tensor &o
     CheckAttrShape(attrParam);
 
     CheckTileTiling(operand1, operand2, attrParam);
-    CheckL1SizeTiling(outType, operand2, attrParam);
+    CheckL1SizeTiling(outType);
     
 }
 
@@ -107,13 +107,10 @@ void CheckTileTiling(const Tensor &operand1, const Tensor &operand2, const Matmu
     if (isSetL0Tile){
         CheckTileTiling(operand2, attrParam);
     }
-   
 }
 
-CheckL1SizeTiling(DataType outType, ){
-   uint64_t l1Size = pipeConfig.l1SizeThreshold;
-    %lu %lu
-
+CheckL1SizeTiling(DataType outType){
+    uint64_t l1Size = pipeConfig.l1SizeThreshold;
     uint64_t tileHout   = convTile.tileL1Info.tileHout;
     uint64_t tileWout   = convTile.tileL1Info.tileWout;
 
@@ -136,12 +133,6 @@ CheckL1SizeTiling(DataType outType, ){
             << ", maxL1Size: " << MinL1LoadSize
             << "." << std::endl;
     });
-
-
-   
-
-
-
 }
 uint64_t ConvAlignB(uint64_t a, uint64_t b)
 {
@@ -311,7 +302,6 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
             << "]." << std::endl
     });
 
-
     OP_CHECK(true, {
             ASSERT(cinFmap % groups == 0)
             << "Cin = " << cinFmap
@@ -352,8 +342,7 @@ void CheckAttrShape(const Tensor &operand1, const Tensor &operand2, const convAt
     int64_t cinFmap =  operand1.GetShape()[2];
     int64_t cinWeight =  operand2.GetShape()[2];
     int64_t cout =  operand2.GetShape()[0];
-    CheckGroupsShape(cinFmap, cinWeight, cout, groups)
-
+    CheckGroupsShape(cinFmap, cinWeight, cout, groups);
 
     int64_t hin =  operand1.GetShape()[2];
     int64_t win =  operand1.GetShape()[3];
@@ -367,7 +356,6 @@ void CheckAttrShape(const Tensor &operand1, const Tensor &operand2, const convAt
     int64_t dilationW =  dilations[3];
     int64_t strideH =  strides[2];
     int64_t strideH =  strides[3];
-    
 
     int64_t Ho = ConvComputeHo(hin, kH, padTop, padBottom, dilationH, strideH);
     OP_CHECK(true, {
@@ -384,7 +372,6 @@ void CheckAttrShape(const Tensor &operand1, const Tensor &operand2, const convAt
         << ", expected range[1,  " << MAX_SIZE
         << "]." << std::endl
     });
-    
 }
 
 void CheckOperandShape(const Tensor &operand1, const Tensor &operand2)
@@ -424,9 +411,7 @@ void CheckOperandShape(const Tensor &operand1, const Tensor &operand2)
         << ", which must <=" << MAX_PAD_KERNEL
         << "." << std::endl
     });
-    
 }
-
 
 int64_t ConvComputeHo(int64_t hin, int64_t kH, int64_t padTop, int64_t padBottom, int64_t dilationH, int64_t strideH)
 {
@@ -445,7 +430,6 @@ int64_t ConvComputeWo(int64_t win, int64_t kW, int64_t padLeft, int64_t padRight
     int64_t cmpWo = (win + padLeft + padRight - dilationH * (hk - 1) - 1) / strideW + 1;
     return cmpWo;
 }
-
 
 void SetTensorOpAttr(Operation &op, const ConvAttrParam &convAttrParam)
 {
