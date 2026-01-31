@@ -93,5 +93,10 @@ TEST_F(TestCodegenDynRound, TestDynOpRound) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+    std::string res = GetResultFromCpp(*function);
+    std::string expect =
+        R"!!!(TFloor(ubTensor_10, ubTensor_11, ubTensor_8, 10);
+)!!!";
+    CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk

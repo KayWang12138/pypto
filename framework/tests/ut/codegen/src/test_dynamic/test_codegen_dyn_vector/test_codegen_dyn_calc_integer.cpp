@@ -93,7 +93,7 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpCeil) {
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TCeil<float>(ubTensor_1, ubTensor_1);
+        R"!!!(TCeil(ubTensor_1, ubTensor_1);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -138,7 +138,7 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpFloor) {
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TFloor<float>(ubTensor_1, ubTensor_1);
+        R"!!!(TFloor(ubTensor_1, ubTensor_1);
 )!!!";
     CheckStringExist(expect, res);
 }
@@ -183,7 +183,7 @@ TEST_F(TestCodegenDynCalcInteger, TestDynOpTrunc) {
     codeGen.GenCode(*function, {});
     std::string res = GetResultFromCpp(*function);
     std::string expect =
-        R"!!!(TTrunc<float>(ubTensor_1, ubTensor_1);
+        R"!!!(TTrunc(ubTensor_1, ubTensor_1);
 )!!!";
     CheckStringExist(expect, res);
 }
