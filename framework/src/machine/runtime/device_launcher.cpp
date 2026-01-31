@@ -243,9 +243,6 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     HOST_PERF_TRACE(TracePhase::RunDevRegistKernelBin);
 
     DataDumpInit();
-    // memcpy_s(kArgs.cfgdata, function->GetDyndevAttribute()->devProgBinary.size() * sizeof(uint8_t), 
-    //     function->GetDyndevAttribute()->devProgBinary.data(), function->GetDyndevAttribute()->devProgBinary.size() * sizeof(uint8_t));
-
     rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
     if (rc < 0) {
         return rc;
@@ -741,6 +738,76 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
         ret = rtAicpuKernelLaunchExWithArgs(
             rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", nrAicpu, &rtArgs, nullptr, schedStream, 0);
         devRunner.ReportHostProfInfo(startTime, nrAicpu, MSPROF_GE_TASK_TYPE_AI_CPU, false);
+        return ret;
+    }
+#else
+    (void)rtArgs;
+    (void)tripleStream;
+    (void)debugEnable;
+    return 0;
+#endif
+}
+
+extern "C" int DynTileFwkBackendKernelServer(void *targ);
+int DeviceLauncher::LaunchAicpuKernelEsl(rtAicpuArgsEx_t &rtArgs, bool tripleStream,
+                                      bool debugEnable, [[maybe_unused]]Function *function) {
+#ifdef BUILD_WITH_CANN
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    auto &devRunner = DeviceRunner::Get();
+    if (debugEnable) {
+        devRunner.SetDebugEnable();
+    }
+    int ret = 0;
+    auto args = (AiCpuArgs *)rtArgs.args;
+    const int nrAicpu = DeviceLauncher::GetDevProg(function)->devArgs.nrAicpu;
+    if (tripleStream) {
+        std::vector<std::thread> aicpus(nrAicpu + 2);
+        std::atomic<int> idx{0};
+        args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
+        for (int i = 0; i < nrAicpu + 2; i++) {
+            if (i == 2) {
+                args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
+            }
+            aicpus[i] = std::thread([&]() {
+                int tidx = idx++;
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                CPU_SET(tidx, &cpuset);
+                std::string name = "aicput" + std::to_string(tidx);
+                std::cout << "start thread: " << name << std::endl;
+                pthread_setname_np(pthread_self(), name.c_str());
+                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+                (void)DynTileFwkBackendKernelServer(&args->kArgs);
+            });
+        }
+        for (int i = 0; i < nrAicpu + 2; i++) {
+            if (aicpus[i].joinable()) {
+                aicpus[i].join();
+            }
+        }
+        return ret;
+    } else {
+        args->kArgs.parameter.runMode = RUN_UNIFIED_STREAM;
+        std::vector<std::thread> aicpus(nrAicpu + 2);
+        std::atomic<int> idx{0};
+        for (int i = 0; i < nrAicpu; i++) {
+            aicpus[i] = std::thread([&]() {
+                int tidx = idx++;
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                CPU_SET(tidx, &cpuset);
+                std::string name = "aicput" + std::to_string(tidx);
+                std::cout << "start thread: " << name << std::endl;
+                pthread_setname_np(pthread_self(), name.c_str());
+                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+                (void)DynTileFwkBackendKernelServer(args->kArgs);
+            });
+        }
+        for (int i = 0; i < nrAicpu + 2; i++) {
+            if (aicpus[i].joinable()) {
+                aicpus[i].join();
+            }
+        }
         return ret;
     }
 #else

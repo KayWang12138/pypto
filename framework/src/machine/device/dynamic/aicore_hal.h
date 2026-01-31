@@ -559,7 +559,7 @@ public:
 #ifdef __ESL_SIMULATION__
         uint64_t val = 0;
         busDirectWrite_(reinterpret_cast<uint64_t>(&args_[coreIdx]->shakeBuffer[0]), sizeof(uint64_t), &val, 0);
-        busDirectWrite_(reinterpret_cast<uint64_t>(&args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX]), sizeof(uint64_t), &val, 0);
+        // busDirectWrite_(reinterpret_cast<uint64_t>(&args_[coreIdx]->shakeBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_COREFUNC_DATA_INDEX]), sizeof(uint64_t), &val, 0);
         val = AICORE_SAY_GOODBYE;
         busDirectWrite_(reinterpret_cast<uint64_t>(&args_[coreIdx]->waveBufferCpuToCore[CPU_TO_CORE_SHAK_BUF_GOODBYE_INDEX]), sizeof(uint64_t), &val, 0);
 #endif
