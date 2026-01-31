@@ -3035,6 +3035,9 @@ void Function::UpdateOperandBeforeRemoveOp(Operation &op, const bool keepOutTens
             outputTensor->RemoveProducer(op);
             for (auto &producer : inputTensor->GetProducers()) {
                 outputTensor->AddProducer(*producer);
+                if (!(inputTensor->GetDynValidShape().empty())) {
+                    outputTensor->UpdateDynValidShape(inputTensor->GetDynValidShape());
+                }
                 producer->ReplaceOutputOperand(inputTensor, outputTensor);
             }
             inputTensor->GetProducers().clear();
