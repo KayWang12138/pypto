@@ -18,11 +18,139 @@
 #include <functional>
 #include <cxxabi.h>
 #include <securec.h>
+#include <fstream>
+#include <dlfcn.h>
+#include <mutex>
+#include <unordered_map>
 
 #include "error.h"
 #include "interface/utils/string_utils.h"
 
 namespace npu::tile_fwk {
+
+// Helper function to read a specific line from a source file
+static std::string ReadSourceLine(const std::string& filename, int lineno) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        return "";
+    }
+
+    std::string line;
+    int current_line = 0;
+    while (std::getline(file, line)) {
+        current_line++;
+        if (current_line == lineno) {
+            // Trim leading whitespace for display
+            size_t start = line.find_first_not_of(" \t");
+            if (start != std::string::npos) {
+                return line.substr(start);
+            }
+            return line;
+        }
+    }
+    return "";
+}
+
+// Structure to hold file location information
+struct FileLocation {
+    std::string filename;
+    int lineno;
+};
+
+// Cache for symbol resolution to avoid repeated addr2line calls
+static std::mutex locMapMutex;
+static std::unordered_map<void*, FileLocation> locMap;
+
+// Get file and line information from address using addr2line
+static FileLocation GetFileLineFromAddr2line(void* addr) {
+    // Check cache first
+    {
+        std::lock_guard<std::mutex> lock(locMapMutex);
+        auto it = locMap.find(addr);
+        if (it != locMap.end()) {
+            return it->second;
+        }
+    }
+
+    FileLocation loc{"", 0};
+
+    // Get library information
+    Dl_info info;
+    if (dladdr(addr, &info) == 0 || info.dli_fname == nullptr) {
+        return loc;
+    }
+
+    // Build addr2line command - use absolute address for executable
+    std::stringstream cmd;
+    cmd << "addr2line -e " << info.dli_fname << " -f -C -p " << addr << " 2>/dev/null";
+
+    FILE* fp = popen(cmd.str().c_str(), "r");
+    if (fp == nullptr) {
+        return loc;
+    }
+
+    char buffer[2048];
+    if (fgets(buffer, sizeof(buffer), fp) != nullptr) {
+        std::string output(buffer);
+
+        // Remove trailing newline
+        if (!output.empty() && output.back() == '\n') {
+            output.pop_back();
+        }
+
+        // Parse output format: "function at filename:lineno"
+        // or "function at filename:lineno:column"
+        size_t atPos = output.find(" at ");
+        if (atPos != std::string::npos) {
+            std::string location = output.substr(atPos + 4);
+
+            // Find the last colon for line number
+            size_t colonPos = location.rfind(':');
+            if (colonPos != std::string::npos) {
+                // Check if this is line:column format
+                size_t prevColonPos = location.rfind(':', colonPos - 1);
+                if (prevColonPos != std::string::npos) {
+                    // Has column number, use the previous colon
+                    loc.filename = location.substr(0, prevColonPos);
+                    try {
+                        std::string lineStr = location.substr(prevColonPos + 1, colonPos - prevColonPos - 1);
+                        loc.lineno = std::stoi(lineStr);
+                    } catch (...) {
+                        loc.lineno = 0;
+                    }
+                } else {
+                    // No column number
+                    loc.filename = location.substr(0, colonPos);
+                    try {
+                        loc.lineno = std::stoi(location.substr(colonPos + 1));
+                    } catch (...) {
+                        loc.lineno = 0;
+                    }
+                }
+            }
+        } else if (output.find("??:?") == std::string::npos && output.find(":") != std::string::npos) {
+            // Try alternate format: "filename:lineno"
+            size_t colonPos = output.rfind(':');
+            if (colonPos != std::string::npos) {
+                loc.filename = output.substr(0, colonPos);
+                try {
+                    loc.lineno = std::stoi(output.substr(colonPos + 1));
+                } catch (...) {
+                    loc.lineno = 0;
+                }
+            }
+        }
+    }
+    pclose(fp);
+
+    // Cache the result (even if empty, to avoid repeated failed lookups)
+    {
+        std::lock_guard<std::mutex> lock(locMapMutex);
+        locMap[addr] = loc;
+    }
+
+    return loc;
+}
 
 class BacktraceImpl : public LazyValue<std::string> {
 public:
@@ -34,7 +162,7 @@ public:
         callStack_.resize(nrFrames - skipFrames);
     }
 
-    void ParseFrame(std::stringstream &ss, char *line, bool &isPyptoFrame) const {
+    void ParseFrame(std::stringstream &ss, char *line, void* addr, bool &isPyptoFrame) const {
         auto funcName = strchr(line, '(');
         auto funcOffset = strchr(line, '+');
         auto libname = strrchr(line, '/');
@@ -59,7 +187,23 @@ public:
             /* deleter */ free);
         if (status == 0)
             funcName = demangled.get();
-        ss << libname << '(' << funcName << '+' << funcOffset << '\n';
+
+        // Try to get file and line information using addr2line
+        FileLocation loc = GetFileLineFromAddr2line(addr);
+
+        if (!loc.filename.empty() && loc.lineno > 0) {
+            // Python-style format: File "filename", line X
+            ss << " File \"" << loc.filename << "\", line " << loc.lineno << "\n";
+
+            // Display source code line if available
+            std::string sourceLine = ReadSourceLine(loc.filename, loc.lineno);
+            if (!sourceLine.empty()) {
+                ss << "   " << sourceLine << "\n";
+            }
+        } else {
+            // Fallback to traditional format if addr2line fails
+            ss << libname << '(' << funcName << '+' << funcOffset << '\n';
+        }
     }
 
     const std::string &Get() const {
@@ -69,9 +213,14 @@ public:
                 return "Backtrace Failed";
             }
             std::stringstream ss;
+
+            // Add Python-style traceback header
+            ss << "\nC++ Traceback (most recent call last):\n";
+
             bool isPyptoFrame = false;
-            for (size_t i = 0; i < callStack_.size(); i++) {
-                ParseFrame(ss, strings[i], isPyptoFrame);
+            // Reverse the frames to show most recent last (Python style)
+            for (int i = static_cast<int>(callStack_.size()) - 1; i >= 0; i--) {
+                ParseFrame(ss, strings[i], callStack_[i], isPyptoFrame);
             }
             free(strings);
             return ss.str();
