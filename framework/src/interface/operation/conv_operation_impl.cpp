@@ -104,13 +104,13 @@ void CheckTileTiling(const Tensor &inputTensor, const Tensor &weightTensor, cons
 
 CheckL1SizeTiling(DataType outType){
     int64_t l1Size = pipeConfig.l1SizeThreshold;
-    int64_t tileHout   = convTile.tileL1Info.tileHout;
-    int64_t tileWout   = convTile.tileL1Info.tileWout;
-    int64_t mL1   = tileHout * tileWout;
-    int64_t nL1   = convTile.tileL1Info.tileCout;
+    int64_t tileHout = convTile.tileL1Info.tileHout;
+    int64_t tileWout = convTile.tileL1Info.tileWout;
+    int64_t mL1 = tileHout * tileWout;
+    int64_t nL1 = convTile.tileL1Info.tileCout;
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
-    int64_t kH =  weightTensor.GetShape()[2];
-    int64_t kW =  weightTensor.GetShape()[3];
+    int64_t kH = weightTensor.GetShape()[2];
+    int64_t kW = weightTensor.GetShape()[3];
     int64_t kL1 = kH * kH * tileCinWeight;
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     int64_t MinL1LoadSize = ConvAlignB(mL1, NUM16)* ConvAlignB(kL1, k0) * BytesOf(outType) +
@@ -131,23 +131,23 @@ uint64_t ConvAlignB(uint64_t a, uint64_t b)
 }
 
 void CheckHoWoTiling(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
-    int64_t hin =  inputTensor.GetShape()[2];
-    int64_t win =  inputTensor.GetShape()[3];
-    int64_t kH =  weightTensor.GetShape()[2];
-    int64_t kW =  weightTensor.GetShape()[3];
+    int64_t hin = inputTensor.GetShape()[2];
+    int64_t win = inputTensor.GetShape()[3];
+    int64_t kH = weightTensor.GetShape()[2];
+    int64_t kW = weightTensor.GetShape()[3];
     std::vector<int64_t> paddings = attrParam.paddings;
     std::vector<int64_t> dilations = attrParam.dilations;
     std::vector<int64_t> strides = attrParam.strides;
-    int64_t padTop =  paddings[0];
-    int64_t padBottom =  paddings[1];
-    int64_t padLeft =  paddings[2];
-    int64_t padRight =  paddings[3];
-    int64_t dilationH =  dilations[2];
-    int64_t dilationW =  dilations[3];
-    int64_t strideH =  strides[2];
-    int64_t strideH =  strides[3];
-    int64_t tileHout   = convTile.tileL1Info.tileHout;
-    int64_t tileWout   = convTile.tileL1Info.tileWout;
+    int64_t padTop = paddings[0];
+    int64_t padBottom = paddings[1];
+    int64_t padLeft = paddings[2];
+    int64_t padRight = paddings[3];
+    int64_t dilationH = dilations[2];
+    int64_t dilationW = dilations[3];
+    int64_t strideH = strides[2];
+    int64_t strideH = strides[3];
+    int64_t tileHout = convTile.tileL1Info.tileHout;
+    int64_t tileWout = convTile.tileL1Info.tileWout;
     int64_t Ho = ConvComputeHo(hin, kH, padTop, padBottom, dilationH, strideH);
     int64_t Wo = ConvComputeWo(win, kW, padLeft, padRight, dilationW, strideW);
     OP_CHECK(true, {
@@ -171,8 +171,8 @@ void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrPara
     int64_t tileN = convTile.tileL0Info.tileN;
     int64_t tileK = convTile.tileL0Info.tileK;
 
-    int64_t tileHout   = convTile.tileL1Info.tileHout;
-    int64_t tileWout   = convTile.tileL1Info.tileWout;
+    int64_t tileHout = convTile.tileL1Info.tileHout;
+    int64_t tileWout = convTile.tileL1Info.tileWout;
     OP_CHECK(true, {
         ASSERT(tileM > 0 && tileM <= tileHout * tileWout)
             << "Invalid tileHin value: " << tileM
@@ -183,8 +183,8 @@ void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrPara
     });
 
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
-    int64_t kH =  weightTensor.GetShape()[2];
-    int64_t kW =  weightTensor.GetShape()[3];
+    int64_t kH = weightTensor.GetShape()[2];
+    int64_t kW = weightTensor.GetShape()[3];
     int64_t maxK = kH * kH * tileCinWeight;
     OP_CHECK(true, {
         ASSERT(tileK > 0 && tileK <= maxK)
@@ -196,7 +196,7 @@ void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrPara
             << " → maximum allowed = kH * kH * tileCinWeight" << std::endl;
     });
 
-    int tileCout   = convTile.tileL1Info.tileCout;
+    int tileCout = convTile.tileL1Info.tileCout;
     OP_CHECK(true, {
         ASSERT(tileN > 0 && tileN <= tileCout)
             << "Invalid tileHin value: " << tileN
@@ -320,22 +320,22 @@ void CheckAttrShape(const Tensor &inputTensor, const Tensor &weightTensor, const
     std::vector<int64_t> strides = attrParam.strides;
     CheckStrideShape(strides);
     int64_t groups = attrParam.groups;
-    int64_t cinFmap =  inputTensor.GetShape()[2];
-    int64_t cinWeight =  weightTensor.GetShape()[2];
-    int64_t cout =  weightTensor.GetShape()[0];
+    int64_t cinFmap = inputTensor.GetShape()[2];
+    int64_t cinWeight = weightTensor.GetShape()[2];
+    int64_t cout = weightTensor.GetShape()[0];
     CheckGroupsShape(cinFmap, cinWeight, cout, groups);
-    int64_t hin =  inputTensor.GetShape()[2];
-    int64_t win =  inputTensor.GetShape()[3];
-    int64_t kH =  weightTensor.GetShape()[2];
-    int64_t kW =  weightTensor.GetShape()[3];
-    int64_t padTop =  paddings[0];
-    int64_t padBottom =  paddings[1];
-    int64_t padLeft =  paddings[2];
-    int64_t padRight =  paddings[3];
-    int64_t dilationH =  dilations[2];
-    int64_t dilationW =  dilations[3];
-    int64_t strideH =  strides[2];
-    int64_t strideH =  strides[3];
+    int64_t hin = inputTensor.GetShape()[2];
+    int64_t win = inputTensor.GetShape()[3];
+    int64_t kH = weightTensor.GetShape()[2];
+    int64_t kW = weightTensor.GetShape()[3];
+    int64_t padTop = paddings[0];
+    int64_t padBottom = paddings[1];
+    int64_t padLeft = paddings[2];
+    int64_t padRight = paddings[3];
+    int64_t dilationH = dilations[2];
+    int64_t dilationW = dilations[3];
+    int64_t strideH = strides[2];
+    int64_t strideH = strides[3];
 
     int64_t Ho = ConvComputeHo(hin, kH, padTop, padBottom, dilationH, strideH);
     OP_CHECK(true, {
@@ -349,7 +349,7 @@ void CheckAttrShape(const Tensor &inputTensor, const Tensor &weightTensor, const
     OP_CHECK(true, {
             ASSERT(Wo <= MAX_SIZE)
         << "Invalid Wout value: " << Wout
-        << ", expected range[1,  " << MAX_SIZE
+        << ", expected range[1, " << MAX_SIZE
         << "]." << std::endl
     });
 }
