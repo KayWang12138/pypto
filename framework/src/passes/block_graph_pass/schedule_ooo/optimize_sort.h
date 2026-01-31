@@ -29,6 +29,7 @@ public:
     Function &function_;
 
     bool opFinish_{false};
+    std::unordered_map<int, int> initBufRefCountCache_;
     std::map<Operation*, std::map<MemoryType, int64_t>> recordBufferAllocate_;
     std::map<Operation*, std::pair<size_t, std::shared_ptr<std::vector<Operation*>>>> recordOpList_;
     std::map<Operation*, MemoryType> recordOpBuffer_;
@@ -82,8 +83,7 @@ public:
     void OpMemoryUpdate(Operation* op, size_t startIndex, std::shared_ptr<std::vector<Operation*>> curOpList,
         const std::map<MemoryType, int64_t> &curMemoryMap);
     const std::vector<int> &GetOpMemIds(Operation* op);
-    void ResetBufRefCountForOpList(const std::shared_ptr<std::vector<Operation*>> &curOpList);
-    Status ApplyOpRefCount(Operation* op);
+    Status ConsumeOpBuffers(Operation* op);
     Status AllocExecute(Operation* op, std::shared_ptr<std::vector<Operation*>> &curOpList,
         std::map<MemoryType, int64_t> &curMemoryMap, size_t &startIndex, bool &isContinue);
     Status OpListExecute(std::shared_ptr<std::vector<Operation*>> &curOpList, std::map<MemoryType, int64_t> &curMemoryMap,

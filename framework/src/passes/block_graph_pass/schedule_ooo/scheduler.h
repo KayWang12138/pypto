@@ -164,7 +164,7 @@ private:
     // 分核数据结构
     std::unordered_map<OpCoreType, std::map<int, std::map<npu::tile_fwk::MemoryType, BufferPool>>> bufferManagerMap;
 
-    std::unordered_map<int, int> bufRefCount;
+    std::unordered_map<int, int> bufRefCount_;
     std::unordered_map<MemoryType, std::map<int, IssueEntryPtr>> tensorOccupyMap;
     // tensor和其初始化时对应的alloc的core类型 memId-core类型
     std::unordered_map<int, std::pair<OpCoreType, int>> tensorAllocCoreMap;
