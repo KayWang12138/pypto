@@ -861,4 +861,38 @@ void SubfuncTopologyInfoTy::LoadJson(const Json &topoJson)
         UpdateEntry(ele["ext_type"], ele["ext_param_num"], ele["ext_params"].get<std::vector<int64_t>>());
     }
 }
+
+bool OpChecker::CalcTypeChecker::check(Operation *op) const {
+    if (conditions.empty()) return true;
+    OpCalcType currentType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
+    return std::find(conditions.begin(), conditions.end(), currentType) != conditions.end();
+}
+
+bool OpChecker::CoreTypeChecker::check(Operation *op) const {
+    if (conditions.empty()) return true;
+    OpCoreType currentType = OpcodeManager::Inst().GetCoreType(op->GetOpcode());
+    return std::find(conditions.begin(), conditions.end(), currentType) != conditions.end();
+}
+
+bool OpChecker::InputMemTypeChecker::check(Operation *op) const {
+    if (conditions.empty()) return true;
+    const std::vector<MemoryType> &currentType = OpcodeManager::Inst().GetInputsMemType(op->GetOpcode());
+    return std::any_of(
+        currentType.begin(), 
+        currentType.end(),
+        [this](const MemoryType &memType) {
+            return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
+        });
+}
+
+bool OpChecker::OutputMemTypeChecker::check(Operation *op) const {
+    if (conditions.empty()) return true;
+    const std::vector<MemoryType> &currentType = OpcodeManager::Inst().GetOutputsMemType(op->GetOpcode());
+    return std::any_of(
+        currentType.begin(), 
+        currentType.end(),
+        [this](const MemoryType &memType) {
+            return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
+        });
+}
 } // namespace npu::tile_fwk

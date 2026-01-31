@@ -538,11 +538,7 @@ public:
     public:
         CalcTypeChecker(std::vector<OpCalcType> calcTypes) : conditions(std::move(calcTypes)) {}
         CalcTypeChecker(OpCalcType calcType) : conditions({calcType}) {}
-        bool check(Operation *op) const override {
-            if (conditions.empty()) return true;
-            OpCalcType currentType = OpcodeManager::Inst().GetOpCalcType(op->GetOpcode());
-            return std::find(conditions.begin(), conditions.end(), currentType) != conditions.end();
-        }
+        bool check(Operation *op) const override;
     };
 
     class CoreTypeChecker : public BaseChecker {
@@ -550,11 +546,7 @@ public:
     public:
         CoreTypeChecker(std::vector<OpCoreType> coreTypes) : conditions(std::move(coreTypes)) {}
         CoreTypeChecker(OpCoreType coreType) : conditions({coreType}) {}
-        bool check(Operation *op) const override {
-            if (conditions.empty()) return true;
-            OpCoreType currentType = OpcodeManager::Inst().GetCoreType(op->GetOpcode());
-            return std::find(conditions.begin(), conditions.end(), currentType) != conditions.end();
-        }
+        bool check(Operation *op) const override;
     };
 
     class InputMemTypeChecker : public BaseChecker {
@@ -562,17 +554,7 @@ public:
     public:
         InputMemTypeChecker(std::vector<MemoryType> inputMemTypes) : conditions(std::move(inputMemTypes)) {}
         InputMemTypeChecker(MemoryType inputMemType) : conditions({inputMemType}) {}
-        // op预设的输入memoryType中存在满足预期的即返回true，否则返回false。
-        bool check(Operation *op) const override {
-            if (conditions.empty()) return true;
-            const std::vector<MemoryType> &currentType = OpcodeManager::Inst().GetInputsMemType(op->GetOpcode());
-            return std::any_of(
-                currentType.begin(), 
-                currentType.end(),
-                [this](const MemoryType &memType) {
-                    return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
-                });
-        }
+        bool check(Operation *op) const override;
     };
 
     class OutputMemTypeChecker : public BaseChecker {
@@ -580,17 +562,7 @@ public:
     public:
         OutputMemTypeChecker(std::vector<MemoryType> outputMemTypes) : conditions(std::move(outputMemTypes)) {}
         OutputMemTypeChecker(MemoryType outputMemType) : conditions({outputMemType}) {}
-        // op预设的输出memoryType中存在满足预期的即返回true，否则返回false。
-        bool check(Operation *op) const override {
-            if (conditions.empty()) return true;
-            const std::vector<MemoryType> &currentType = OpcodeManager::Inst().GetOutputsMemType(op->GetOpcode());
-            return std::any_of(
-                currentType.begin(), 
-                currentType.end(),
-                [this](const MemoryType &memType) {
-                    return std::find(conditions.begin(), conditions.end(), memType) != conditions.end();
-                });
-        }
+        bool check(Operation *op) const override;
     };
 
     template<typename...Checkers>
