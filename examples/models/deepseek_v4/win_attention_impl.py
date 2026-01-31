@@ -289,7 +289,7 @@ def sliding_win_atten_graph(q: torch.Tensor,
                         win_size: int,
                         mask: torch.Tensor,
                         cu_seqlens_q: torch.Tensor,
-)-> torch.Tensor:
+) -> torch.Tensor:
     atten_out = torch.ops.pypto.sliding_window_attention(q, ori_block_table, ori_kv, seqused_kv, \
                 sinks, win_size, mask, cu_seqlens_q)
     return atten_out
