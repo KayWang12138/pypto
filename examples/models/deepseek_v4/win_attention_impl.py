@@ -21,6 +21,7 @@ def check_args_tnd(
             kv_cache: torch.Tensor,
             seqused_kv: torch.Tensor,
             sinks: torch.Tensor,
+            win_size: int,
             cu_seqlens_q: torch.Tensor,
 ):
     assert q_tnd != None and block_table != None and kv_cache != None and seqused_kv != None and \
@@ -42,6 +43,8 @@ def check_args_tnd(
     assert seqused_kv.dtype == torch.int and seqused_kv.ndim == 1, \
         f"seqused_kv dtype is {seqused_kv.dtype}, ndim is {seqused_kv.ndim}"
 
+    assert win_size == 128, f"win_size is {win_size}"
+
     assert cu_seqlens_q.dtype == torch.int and cu_seqlens_q.ndim == 1 and \
         cu_seqlens_q.shape[0] == seqused_kv.shape[0] + 1, \
         f"cu_seqlens_q dtype is {cu_seqlens_q.dtype}, ndim is {cu_seqlens_q.ndim}, \
@@ -60,7 +63,6 @@ def check_args_tnd(
 def win_atten_main_tnd_mask(q_tnd, block_table, kv_cache, seqused_kv_list, sinks, \
     cu_seqlens_q, mask2, atten_out, win):
     pypto.experimental.set_operation_config(combine_axis=True)
-    win = 128
     t = q_tnd.shape[0]
     n_q = q_tnd.shape[1]
     d_q = q_tnd.shape[2]
@@ -235,7 +237,7 @@ def deepseekv4_win_atten(q: torch.Tensor,
                         mask: torch.Tensor,
                         cu_seqlens_q: torch.Tensor,
 ):
-    check_args_tnd(q, ori_block_table, ori_kv, seqused_kv, sinks, cu_seqlens_q)
+    check_args_tnd(q, ori_block_table, ori_kv, seqused_kv, sinks, win_size, cu_seqlens_q)
     atten_out = torch.empty([q.shape[0] * q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
 
     inputs = {
@@ -258,3 +260,47 @@ def deepseekv4_win_atten(q: torch.Tensor,
 
     atten_out = atten_out.reshape(q.shape)
     return atten_out
+
+
+pyptolib = torch.library.Library("pypto", "FRAGMENT")
+pyptolib.define("sliding_window_attention(Tensor q, Tensor ori_block_table, Tensor ori_kv, Tensor seqused_kv, \
+    Tensor sinks, int win_size, Tensor mask, Tensor cu_seqlens_q) -> (Tensor)")
+
+
+@torch.library.impl(pyptolib, "sliding_window_attention", "Meta")
+def sliding_window_attention(q, ori_block_table, ori_kv, seqused_kv, sinks, win_size, \
+    mask, cu_seqlens_q):
+    y = torch.empty(q.shape, dtype=q.dtype, device=q.device)
+    return y
+
+
+@torch.library.impl(pyptolib, "sliding_window_attention", "NPU")
+def sliding_window_attention(q, ori_block_table, ori_kv, seqused_kv, sinks, win_size, \
+    mask, cu_seqlens_q):
+    return deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv, sinks, win_size, \
+        mask, cu_seqlens_q)
+
+
+def sliding_win_atten_graph(q: torch.Tensor,
+                        ori_block_table: torch.Tensor,
+                        ori_kv: torch.Tensor,
+                        seqused_kv: torch.Tensor,
+                        sinks: torch.Tensor,
+                        win_size: int,
+                        mask: torch.Tensor,
+                        cu_seqlens_q: torch.Tensor,
+)-> torch.Tensor:
+    atten_out = torch.ops.pypto.sliding_window_attention(q, ori_block_table, ori_kv, seqused_kv, \
+                sinks, win_size, mask, cu_seqlens_q)
+    return atten_out
+
+
+def get_mask(s_q, n_q, device, block_size):
+    mask_left = torch.zeros((s_q * n_q, 128), dtype=torch.uint8, device=device)
+    mask_tail = torch.zeros((s_q * n_q, 128), dtype=torch.uint8, device=device)
+    row_indices = torch.arange(s_q, device=device).unsqueeze(1)
+    col_indices = torch.arange(block_size * 2, device=device).unsqueeze(0)
+    mask_right = (col_indices >= row_indices) & (col_indices < row_indices + 128).to(torch.uint8)
+    mask_right = mask_right.unsqueeze(1).expand(-1, n_q, -1).reshape(s_q * n_q, 256)
+    mask = torch.cat([mask_left, mask_right, mask_tail], -1).to(torch.bool)
+    return mask

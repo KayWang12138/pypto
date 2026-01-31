@@ -13,33 +13,13 @@
 import math
 import os
 import torch
-import pypto
-from win_attention_impl import deepseekv4_win_atten
-
-
-pyptolib = torch.library.Library("pypto", "FRAGMENT")
-pyptolib.define("win_attention(Tensor q, Tensor ori_block_table, Tensor ori_kv, Tensor seqused_kv, \
-    Tensor sinks, int win_size, Tensor mask, Tensor cu_seqlens_q) -> (Tensor)")
-
-
-@torch.library.impl(pyptolib, "win_attention", "Meta")
-def win_attention(q, ori_block_table, ori_kv, seqused_kv, sinks, win_size, \
-    mask, cu_seqlens_q):
-    y = torch.empty([q.shape[0], q.shape[1], q.shape[2]], dtype=q.dtype, device=q.device)
-    return y
-
-
-@torch.library.impl(pyptolib, "win_attention", "NPU")
-def win_attention(q, ori_block_table, ori_kv, seqused_kv, sinks, win_size, \
-    mask, cu_seqlens_q):
-    return deepseekv4_win_atten(q, ori_block_table, ori_kv, seqused_kv, sinks, win_size, \
-        mask, cu_seqlens_q)
+from win_attention_impl import deepseekv4_win_atten, get_mask
 
 
 class SWA(torch.nn.Module):
     def forward(self, q, ori_block_table, ori_kv, seqused_kv, sinks, win_size, \
         mask, cu_seqlens_q):
-        return torch.ops.pypto.win_attention(q, ori_block_table, ori_kv, seqused_kv, \
+        return torch.ops.pypto.sliding_window_attention(q, ori_block_table, ori_kv, seqused_kv, \
             sinks, win_size, mask, cu_seqlens_q)
 
 
@@ -51,17 +31,6 @@ def gen_uniform_data(data_shape, min_value, max_value, dtypes, device_id):
     if dtypes == torch.bool:
         return torch.randint(0, 2, size=data_shape, dtype=torch.bool, device=f'npu:{device_id}')
     return torch.rand(data_shape, dtype=dtypes, device=f'npu:{device_id}').uniform_(min_value, max_value)
-
-
-def get_mask(s_q, n_q, device_id, block_size):
-    mask_left = torch.zeros((s_q * n_q, 128), dtype=torch.uint8, device=f'npu:{device_id}')
-    mask_tail = torch.zeros((s_q * n_q, 128), dtype=torch.uint8, device=f'npu:{device_id}')
-    row_indices = torch.arange(s_q, device=f'npu:{device_id}').unsqueeze(1)
-    col_indices = torch.arange(block_size * 2, device=f'npu:{device_id}').unsqueeze(0)
-    mask_right = (col_indices >= row_indices) & (col_indices < row_indices + 128).to(torch.uint8)
-    mask_right = mask_right.unsqueeze(1).expand(-1, n_q, -1).reshape(s_q * n_q, 256)
-    mask = torch.cat([mask_left, mask_right, mask_tail], -1).to(torch.bool)
-    return mask
 
 
 def gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, seqused_kv_list, dtypes, device_id):
@@ -79,7 +48,6 @@ def gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, seqused_kv_list, 
 
     sinks = gen_uniform_data([n_q], -1, 1, torch.float32, device_id)
 
-    # gen q k v data
     q = gen_uniform_data(shape_q, -1, 1, new_dtype, device_id)
     q_tnd = q.reshape(t, n_q, d_q)
     kv_bsnd = gen_uniform_data(shape_kv, -1, 1, new_dtype, device_id)
@@ -88,13 +56,11 @@ def gen_win_attn_data_tnd(t, n_q, d_q, n_kv, d_kv, block_size, seqused_kv_list, 
         block_num_per_batch.append(math.ceil(actual_seq / block_size))
         block_num_min += math.ceil(actual_seq / block_size)
 
-    # gen block table
     block_table_shape = [b, math.ceil(s_kv_max / block_size)]
     block_num = block_num_min
     block_idx_list = torch.randperm(block_num, dtype=torch.int32)
     block_idx = 0
     
-    # invalid block_id set as -1
     block_table = [-1] * block_table_shape[1]
 
     block_table = torch.tile(torch.tensor(block_table, device=f'npu:{device_id}').\
@@ -177,7 +143,7 @@ def win_atten_calc_tnd(input_params_win_attn, seqused_kv_list, sinks, q_tnd, \
     return atten_out
 
 
-def test_win_atten_tnd_mask(allow_in_graph) -> None:
+def test_win_atten_tnd_mask(allow_in_graph = False) -> None:
 
     for b in [64]:
         s_val = 2
@@ -223,7 +189,6 @@ def test_win_atten_tnd_mask(allow_in_graph) -> None:
 
             atten_out = model(q_npu, ori_block_table_npu, ori_kv_npu, seqused_kv_list_tensor_npu, \
                 attn_sinks_npu, win_size, mask2_npu, cu_seqlens_q_tenor_npu)
-            pypto.runtime._device_synchronize()
 
         else:
             atten_out = deepseekv4_win_atten(q_tnd, block_table, kv_cache, seqused_kv_list_tensor, \
@@ -231,7 +196,7 @@ def test_win_atten_tnd_mask(allow_in_graph) -> None:
 
         golden = win_atten_calc_tnd(input_params_win_attn, seqused_kv_list, sinks, q_tnd, \
             kv_cache, block_table, cu_seqlens_q, device_id)
-        from utils.np_compare import detailed_allclose_manual as compare
+        from utils.compare import compare
         compare(golden, atten_out, "SWA tnd mask 版本", rtol=0.0078125, atol=0.0001)
 
 
