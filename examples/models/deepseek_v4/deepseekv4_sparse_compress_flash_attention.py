@@ -19,7 +19,7 @@ import torch_npu
 import pypto
 import logging
 from sparse_compress_flash_attention_impl \
-    import sparse_compress_flash_attention_p, SCFATileShapeConfig, npu_sparse_compress_flash_attention
+    import sparse_compress_flash_attention_kernel, SCFATileShapeConfig, npu_sparse_compress_flash_attention
 from utils.compare import compare
 
 
@@ -73,12 +73,11 @@ def gen_uniform_data(data_shape, min_value, max_value, dtype):
         return torch.randint(low=min_value, high=max_value, size=data_shape, dtype=dtype)
 
 
-def compute_attention_no_flash_prefill(input_data, params, s2_tile):
+def compute_attention_no_flash(input_data, params, s2_tile):
     """
     计算注意力机制，支持不同批次的序列长度不同
     使用PyTorch实现
     no flash 版本
-    prefill
     """
     q, compress_kv, origin_kv, topk_indices, block_table, actual_seq_q, actual_seq, origin_block_table, origin_actual_seq, atten_sink = input_data
     block_size, scalar, topk, d_v, win_size = params
@@ -290,7 +289,7 @@ def gen_sparse_compress_attention_golden(dtype, bn1n2s1, actual_seq_q, actual_se
     input_data = [q_tnd, compress_kv, origin_kv, topk_indices, block_table, actual_seq_q, actual_seq, origin_block_table, origin_actual_seq, atten_sink]
 
     s2_tile = 512
-    atten_out = compute_attention_no_flash_prefill(input_data, params, s2_tile)
+    atten_out = compute_attention_no_flash(input_data, params, s2_tile)
 
     # 4.dump 数据
     # data split to [nope + rope]
@@ -316,6 +315,9 @@ def get_case_config(case_name: str):
         ),
         "sfa_bf16_b1_s16_seq64K_p": (
             (1, 64, 1, 16), 0, [0, 16], [130] * 1, 4
+        ),
+        "sfa_bf16_b64_s2_seq8K_d": (
+            (64, 64, 1, 2), 0, [i * 2 for i in range(64 + 1)], [8192] * 64, 4
         ),
     }
     case_config = test_case_config.get(case_name)
@@ -374,8 +376,8 @@ def do_test_sparse_compress_attention_func(bn1n2s1, actual_seq, input_params, in
     print(*[f"{i.name}: {i.ori_shape} {i.dtype}" for i in pto_outputs], sep="\n")
     print("========================================================\n")
 
-    sparse_compress_flash_attention_p(*pto_inputs, *pto_outputs, n_q, n_kv, scalar,
-                                      topk, block_size, win_size, cmp_ratio, tile_config)
+    sparse_compress_flash_attention_kernel(*pto_inputs, *pto_outputs, n_q, n_kv, scalar,
+                                           topk, block_size, win_size, cmp_ratio, tile_config)
 
     pypto.runtime._device_synchronize()
     print("======================sfa compare====================")
@@ -471,9 +473,17 @@ def test_sfa_bf16_b1_s16_seq64K_p():
     do_test_sfa_entry("sfa_bf16_b1_s16_seq64K_p")
 
 
+def test_sfa_bf16_b64_s2_seq8K_d():
+    '''
+    scfa decode, mtp 1
+    '''
+    do_test_sfa_entry("sfa_bf16_b64_s2_seq8K_d")
+
+
 if __name__ == "__main__":
     logging.basicConfig(
         format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s: %(message)s',
         level=logging.INFO
     )
     test_sfa_bf16_b1_s256_seq64K_p()
+    test_sfa_bf16_b64_s2_seq8K_d()
