@@ -57,6 +57,34 @@ struct CubeTile {
 
     std::string ToString() const;
 };
+                  
+/**
+* @brief COnvTile tile for conv operation
+ *
+*/
+struct ConvTile {
+ 	struct TileL1Info {
+ 	    int64_t tileHin;
+ 	    int64_t tileHout;
+ 	    int64_t tileWin;
+ 	    int64_t tileWout;
+ 	    int64_t tileCinFmap;
+        int64_t tileCinWeight;
+ 	    int64_t tileCout;
+        int64_t tileN;
+    };
+ 	 
+ 	struct TileL0Info {
+ 	    int64_t tileM;
+ 	    int64_t tileN;
+ 	 };
+ 	 
+ 	TileL1Info tileL1Info;
+ 	TileL0Info tileL0Info;
+ 	bool setL0Tile{false};
+ 	 
+ 	bool valid() const;
+};
 
 /**
  * \brief DistTile tile for distributed operation
@@ -76,6 +104,7 @@ struct DistTile {
 enum class TileType {
     VEC,
     CUBE,
+    CONV,
     DIST,
     MAX,
 };
@@ -90,6 +119,7 @@ struct TileShape {
     TileShape(
         const std::vector<int64_t>& vTile,
         const CubeTile& cTile,
+        const ConvTile& convTile,
         const DistTile& dTile,
         const std::vector<int64_t>& mSize
     );
@@ -127,11 +157,19 @@ struct TileShape {
 
     /**
      * \brief Get the Cube Tile
-     *
-     * \return const std::vector<int64_t>&
      */
     const CubeTile &GetCubeTile() const { return cubeTile; }
     CubeTile &GetCubeTile() { return cubeTile; }
+
+    /**
+     * \brief Set the Conv Tile
+     */
+    void SetConvTile(const TileL1Info &tileL1Info, const TileL0Info &tileL0Info, bool setL0Tile = false) ;
+
+    /**
+     * \brief Get the Conv Tile
+     */
+    const ConvTile &GetConvTile() const { return convTile; }
 
     /**
      * \brief Set the Dist Tile
@@ -237,6 +275,7 @@ struct TileShape {
 private:
     VecTile vecTile;
     CubeTile cubeTile;
+    ConvTile convTile;
     DistTile distTile;
     std::vector<int64_t> matrixSize;
 };
