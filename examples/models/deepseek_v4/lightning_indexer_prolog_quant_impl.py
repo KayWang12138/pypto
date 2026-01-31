@@ -110,6 +110,8 @@ def quant_lightning_indexer_prolog_compute(
         idx_name="t_idx",
         unroll_list=unroll_list,
     ):
+        # use for perf optimization
+        pypto.experimental.set_operation_config(combine_axis=True)
         t_tile = unrollLength
         qr_in = pypto.view(qr, [t_tile, q_lora_rank], [t_idx, 0])
         qs_in = pypto.view(qr_scale, [t_tile, 1], [t_idx, 0])
@@ -174,7 +176,7 @@ def quant_lightning_indexer_prolog_compute(
     pass_options={
         "cube_nbuffer_mode": 2,
         "vec_nbuffer_mode": 2,
-        "cube_l1_reuse_setting": {-1: 2},
+        "cube_l1_reuse_setting": {-1: 2, 1: 0},
         "vec_nbuffer_setting": {1: 2},
     },
     runtime_options={
