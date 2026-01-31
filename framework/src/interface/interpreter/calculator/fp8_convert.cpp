@@ -25,8 +25,8 @@ namespace npu::tile_fwk {
 // Bit layout: [S][EEEE][MMM]. Special: 0x7F=NaN, 0x7E=+Inf, 0xFE=-Inf, 0xFF=NaN.
 static torch::Tensor Fp8E4M3ToFloat32(const torch::Tensor &self) {
     auto x = self.to(torch::kInt32);
-    auto sign = (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1)))
-                    .to(torch::kFloat32) * 2.0f - 1.0f;
+    auto sign = 1.0f - (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1)))
+                    .to(torch::kFloat32) * 2.0f;
     auto exp_bits = torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(3)), at::Scalar(0xF));
     auto mant_bits = torch::bitwise_and(x, at::Scalar(0x7));
 
@@ -58,8 +58,8 @@ static torch::Tensor Fp8E4M3ToFloat32(const torch::Tensor &self) {
 // Bit layout: [S][EEEEE][MM]. Special: 0x7F=NaN, 0x7C=+Inf, 0xFC=-Inf.
 static torch::Tensor Fp8E5M2ToFloat32(const torch::Tensor &self) {
     auto x = self.to(torch::kInt32);
-    auto sign = (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1)))
-                    .to(torch::kFloat32) * 2.0f - 1.0f;
+    auto sign = 1.0f - (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1)))
+                    .to(torch::kFloat32) * 2.0f;
     auto exp_bits = torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(2)), at::Scalar(0x1F));
     auto mant_bits = torch::bitwise_and(x, at::Scalar(0x3));
 
@@ -92,8 +92,8 @@ static torch::Tensor Fp8E5M2ToFloat32(const torch::Tensor &self) {
 // Value = (-1)^s * 2^(exp-63). All values are powers of 2.
 static torch::Tensor Fp8E8M0ToFloat32(const torch::Tensor &self) {
     auto x = self.to(torch::kInt32);
-    auto sign = (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1)))
-                    .to(torch::kFloat32) * 2.0f - 1.0f;
+    auto sign = 1.0f - (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1)))
+                    .to(torch::kFloat32) * 2.0f;
     auto exp_bits = torch::bitwise_and(x, at::Scalar(0x7F));
     auto exp_val = exp_bits.to(torch::kFloat32) - 63.0f;
     return sign * torch::pow(2.0f, exp_val);
