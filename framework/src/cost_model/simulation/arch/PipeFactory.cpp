@@ -54,11 +54,7 @@ namespace CostModel
             } else {
                 return CreatePipeSimulator("SimulatorA2A3");
             }
-        } else {
-            throw std::invalid_argument("unknown arch type " + archType);
-        }
-
-        if (archType == "A5") {
+        } else if (archType == "A5") {
  	        if (accLevel == 1) {
  	            return CreatePipeSimulatorFast<PostSimulatorA5>();
  	        }
