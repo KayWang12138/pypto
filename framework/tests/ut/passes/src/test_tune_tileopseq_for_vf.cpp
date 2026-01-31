@@ -36,8 +36,7 @@ public:
     void TearDown() override {}
 };
 
-std::vector<Operation> BuildGraphForTest(std::shared_ptr<Function> currFunctionPtr) {
-    std::vector<Operation> opList;
+void BuildGraphForTest(std::shared_ptr<Function> currFunctionPtr, std::vector<Operation *> &opListPtr) {
     std::vector<int64_t> shape = {16, 16};
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     tensor1->memoryrange.start = 0;
@@ -70,24 +69,17 @@ std::vector<Operation> BuildGraphForTest(std::shared_ptr<Function> currFunctionP
     tensor10->memoryrange.start = 90;
     tensor10->memoryrange.end = 100;
     auto &vecop1 = currFunctionPtr->AddRawOperation(Opcode::OP_EXP, {tensor1}, {tensor2});
-    vecop1->SetAIVCore(AIVCore::AIV0);
-    opList.emplace_back(vecop1);
+    opListPtr.emplace_back(&vecop1);
     auto &vecop2 = currFunctionPtr->AddRawOperation(Opcode::OP_SQRT, {tensor3}, {tensor4});
-    vecop2->SetAIVCore(AIVCore::AIV0);
-    opList.emplace_back(vecop2);
+    opListPtr.emplace_back(&vecop2);
     auto &vecop3 = currFunctionPtr->AddRawOperation(Opcode::OP_RECIPROCAL, {tensor5}, {tensor6});
-    vecop3->SetAIVCore(AIVCore::AIV0);
-    opList.emplace_back(vecop3);
-    auto &op1 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_IN, {tensor7}, {tensor8});
-    op1->SetAIVCore(AIVCore::AIV0);
-    opList.emplace_back(op1);
-    auto &op2 = currFunctionPtr->AddRawOperation(Opcode::OP_COPY_OUT, {tensor6}, {tensor9});
-    op2->SetAIVCore(AIVCore::AIV0);
-    opList.emplace_back(op2);
+    opListPtr.emplace_back(&vecop3);
+    auto &op1 = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_MOVEIN, {tensor7}, {tensor8});
+    opListPtr.emplace_back(&op1);
+    auto &op2 = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {tensor6}, {tensor9});
+    opListPtr.emplace_back(&op2);
     auto &vecop4 = currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {tensor8}, {tensor10});
-    vecop4->SetAIVCore(AIVCore::AIV0);
-    opList.emplace_back(vecop4);
-    return opList;
+    opListPtr.emplace_back(&vecop4);
 }
 
 TEST_F(TuneTileopseqForVFTest, TestMergeForTuneTileop) {
@@ -97,18 +89,39 @@ TEST_F(TuneTileopseqForVFTest, TestMergeForTuneTileop) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDepLeaf", "TestFindDepLeaf", rootFuncPtr.get());
     EXPECT_TRUE(currFunctionPtr != nullptr);
     rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
-    std::vector<Operation> opList = BuildGraphForTest(currFunctionPtr);
-    std::vector<std::shared_ptr<Operation>> opListPtr;
-    for (auto &op : opList) {
-        opListPtr.emplace_back(std::make_shared<Operation>(op));
-    }
-    currFunctionPtr->ScheduleBy(opListPtr, true);
+    std::vector<Operation *> opListPtr;
+    BuildGraphForTest(currFunctionPtr, opListPtr);
     TuneTileOpSeqForVF tuneTileop;
-    tuneTileop.RunOnFunction(*rootFuncPtr);
-    std::vector<Operation *> opListAfter(currFunctionPtr->Operations(false).DuplicatedOpList());
-    for (auto op : opListAfter) {
-        std::cout << op->GetOpMagic() << " " << op->GetOpcodeStr() << std::end;
-    }
+    PipeSync ps;
+    tuneTileop.opList_ = opListPtr;
+    tuneTileop.ChangeOpSeq(ps. false);
+    EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_TRANSPOSE_MOVEIN);
+    EXPECT_EQ(tuneTileop.opList_[5]->GetOpcode(), Opcode::OP_TRANSPOSE_MOVEOUT);
+}
+
+TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
+    // Build Graph
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDep", "TestFindDep", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestFindDepLeaf", "TestFindDepLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    std::vector<Operation *> opListPtr;
+    BuildGraphForTest(currFunctionPtr, opListPtr);
+    opListPtr[3]->GetIOperands()[0]->memoryrange.start = 50;
+    opListPtr[3]->GetIOperands()[0]->memoryrange.end = 60;
+    opListPtr[3]->GetOOperands()[0]->memoryrange.start = 60;
+    opListPtr[3]->GetOOperands()[0]->memoryrange.end = 70;
+    opListPtr[4]->GetIOperands()[0]->memoryrange.start = 60;
+    opListPtr[4]->GetIOperands()[0]->memoryrange.end = 70;
+    opListPtr[4]->GetOOperands()[0]->memoryrange.start = 70;
+    opListPtr[4]->GetOOperands()[0]->memoryrange.end = 80;
+    TuneTileOpSeqForVF tuneTileop;
+    PipeSync ps;
+    tuneTileop.opList_ = opListPtr;
+    tuneTileop.ChangeOpSeq(ps. false);
+    EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_EXP);
+    EXPECT_EQ(tuneTileop.opList_[5]->GetOpcode(), Opcode::OP_EXPAND);
 }
 
 } // namespace tile_fwk
