@@ -73,6 +73,19 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     ProcesSmallTileToLargeTile(function);
     ProcessLargeTileToSamllTile(function);
 
+    for (auto &op : function.Operations()) {
+        if (op.GetOpcode() == Opcode::OP_VIEW || op.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            auto &input = op.iOperand[0];
+            auto &output = op.oOperand[0];
+            if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && output->GetMemoryTypeOriginal() == MemoryType::MEM_L1 &&
+                output->Datatype() != DT_FP16 && output->Datatype() != DT_BF16) {
+                output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
+                APASS_LOG_DEBUG_F(Elements::Tensor, "Set tensor %d (output of &s[%d]) original mem type to ddr since datatype %d "
+                    "is not supported by l0c2l1", output->magic, op.GetOpcodeStr().c_str(), op.GetOpMagic(), output->Datatype());
+            }
+        }
+    }
+
     // 插入convert op
     Status insertionStatus = inserter.DoInsertion(function);
     if(insertionStatus != SUCCESS) {return insertionStatus;}
@@ -500,12 +513,21 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
         auto iOperand = op.GetIOperands().front();
         if(iOperand->GetMemoryTypeOriginal() == MEM_L0C) {
             bool isToL1 = true;
+            bool isToL0C = true;
             auto toBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
             for (const auto &[_, toBeType] : toBeMap) {
                 if (toBeType != MemoryType::MEM_L1) {
                     isToL1 = false;
-                    break;
+                    continue;
                 }
+                if (toBeType != MemoryType::MEM_L0C) {
+                    isToL0C = false;
+                    continue;
+                }
+            }
+            if (isToL0C) {
+                oOperand->SetMemoryTypeOriginal(MemoryType::MEM_L0C, true);
+                break;
             }
             if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape())){
                 oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
