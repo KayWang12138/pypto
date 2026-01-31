@@ -62,30 +62,30 @@ void BuildGraphForTest(std::shared_ptr<Function> &currFunctionPtr, std::vector<O
     auto &op1 = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_MOVEIN, {tensor1}, {tensor2});
     op1.cycleStart = 0;
     op1.cycleEnd = op1.cycleStart + op1.GetLatency();
-    std::cout << "op1 latency: " << op1.GetLatency() << std::endl;
     opListPtr.emplace_back(&op1);
     auto &setflag1 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_SRC, {input}, {output});
+    setflag1.syncQueue_ = {PipeType::PIPE_MTE2, PipeType::PIPE_V, CoreType::AIV, CoreType::AIV, 0};
     opListPtr.emplace_back(&setflag1);
     auto &vecop1 = currFunctionPtr->AddRawOperation(Opcode::OP_SQRT, {tensor3}, {tensor4});
-    vecop1.cycleStart = op1.cycleEnd + 10;
+    vecop1.cycleStart = 15;
     vecop1.cycleEnd = vecop1.cycleStart + vecop1.GetLatency();
-    std::cout << "vecop1 latency: " << vecop1.GetLatency() << std::endl;
     opListPtr.emplace_back(&vecop1);
     auto &setflag2 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_SRC, {input}, {output});
+    setflag2.syncQueue_ = {PipeType::PIPE_V, PipeType::PIPE_MTE3, CoreType::AIV, CoreType::AIV, 0};
     opListPtr.emplace_back(&setflag2);
     auto &waitflag1 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_DST, {input}, {output});
+    waitflag1.syncQueue_ = {PipeType::PIPE_MTE2, PipeType::PIPE_V, CoreType::AIV, CoreType::AIV, 0};
     opListPtr.emplace_back(&waitflag1);
     auto &vecop2 = currFunctionPtr->AddRawOperation(Opcode::OP_RECIPROCAL, {tensor2}, {tensor5});
-    vecop2.cycleStart = op1.cycleEnd + 10;
+    vecop2.cycleStart = 28;
     vecop2.cycleEnd = vecop2.cycleStart + vecop2.GetLatency();
-    std::cout << "vecop2 latency: " << vecop2.GetLatency() << std::endl;
     opListPtr.emplace_back(&vecop2);
     auto &waitflag2 = currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_DST, {input}, {output});
+    waitflag2.syncQueue_ = {PipeType::PIPE_V, PipeType::PIPE_MTE3, CoreType::AIV, CoreType::AIV, 0};
     opListPtr.emplace_back(&waitflag2);
     auto &op2 = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {tensor4}, {tensor6});
-    op2.cycleStart = vecop1.cycleEnd + 10;
+    op2.cycleStart = 42;
     op2.cycleEnd = op2.cycleStart + op2.GetLatency();
-    std::cout << "op2 latency: " << op2.GetLatency() << std::endl;
     opListPtr.emplace_back(&op2);
     currFunctionPtr->setOpMap.emplace(&setflag1, &vecop2);
     currFunctionPtr->setOpMap.emplace(&setflag2, &op2);
@@ -112,11 +112,10 @@ TEST_F(TuneSyncForVFTest, TestTuneSyncForVF) {
     for (auto &op : tuneSync.opList_) {
         op->SetAIVCore(AIVCore::AIV0);
     }
-    tuneSync.GenPipeOpMap(currFunctionPtr);
-    tuneSync.ChangeOpSeq(currFunctionPtr, false);
-    for (auto &op : tuneSync.opList_) {
-        std::cout << op->GetOpMagic() << " " << op->GetOpcodeStr() << std::endl;
-    }
+    tuneSync.GenPipeOpMap(currFunctionPtr.get());
+    tuneSync.ChangeOpSeq(currFunctionPtr.get(), false);
+    EXPECT_EQ(tuneSync.opList_[3]->GetOpcode(), Opcode::OP_SQRT);
+    EXPECT_EQ(tuneSync.opList_[4]->GetOpcode(), Opcode::OP_RECIPROCAL);
 }
 
 } // namespace tile_fwk
