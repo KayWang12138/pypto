@@ -426,3 +426,15 @@ TEST_F(CostModelTest, TestCreateA5Cache)
     CostModel::CachePacket packet;
     cacheImpl->Simulate(packet);
 }
+
+TEST_F(CostModelTest, TestA5ArchType)
+{
+    auto simulator =CostModel::PipeFactory::Create(CostModel::CorePipeType::PIPE_MTE_IN, "A5", 1);
+    EXPECT_TRUE(simulator != nullptr);
+}
+
+TEST_F(CostModelTest, TestA5AccLevel)
+{
+    auto simulator =CostModel::PipeFactory::Create(CostModel::CorePipeType::PIPE_MTE_IN, "A5", 2);
+    EXPECT_TRUE(simulator != nullptr);
+}
