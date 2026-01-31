@@ -315,6 +315,13 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
     DEV_VERBOSE_DEBUG("Submit stitch task");
     DEV_TRACE_DEBUG(DEvent(taskId, DActSubmit(stitchContext.Size())));
     AutoScopedPerf asp(PERF_EVT_SUBMIT_AICORE);
+
+    uint64_t allocatedBefore = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+    uint64_t freeBefore = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+    size_t stitchedCount = stitchContext.Size();
+    DEV_ERROR("[InnerOutcast] SubmitToAicore Before: taskId=%u, stitchedCount=%zu, withoutTail=%d, allocated=%lu, free=%lu",
+        taskId, stitchedCount, withoutTail, allocatedBefore, freeBefore);
+
     if (stitchContext.Empty()) {
         DEV_INFO("Stitch context is empty.");
         return ret;
@@ -358,7 +365,10 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
     stitchContext.Reset();
     slotContext.ClearDirty();
     PROF_STAGE_END(PERF_EVT_DEALLOCATE_WORKSPACE, "RecycleTensorWorkspace.after\n");
-
+    uint64_t allocatedAfter = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+    uint64_t freeAfter = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+    DEV_ERROR("[InnerOutcast] SubmitToAicore After Recycle: taskId=%u, allocated=%lu, free=%lu",
+        taskId, allocatedAfter, freeAfter);
     ProcessControlFlowCacheRecord(dynTask);
 
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_PUSH_TASK, "push.before\n");
@@ -439,7 +449,18 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
 
     DEV_TRACE_DEBUG(REvent(GetRuid(rootKey), currDevRootDup.SchemaGetExpressionTable()));
     // dyn rawshape size depend expresstable calculated
+    uint64_t allocatedBefore = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+    uint64_t freeBefore = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+    uint64_t capacity = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.Capacity();
+    uint32_t resetTimes = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.ResetTimes();
+    size_t stitchedCount = stitchContext.Size();
+    DEV_ERROR("[InnerOutcast] TryAllocate Before: rootKey=%lu, stitchedCount=%zu, allocated=%lu, free=%lu, capacity=%lu, resetTimes=%u",
+              rootKey, stitchedCount, allocatedBefore, freeBefore, capacity, resetTimes);
     while (!workspace.TryAllocateFunctionMemory(currDevRootDup, slotContext.GetSlotList())) {
+        uint64_t allocatedNow = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+        uint64_t freeNow = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+        DEV_ERROR("[InnerOutcast] Memory Insufficient: rootKey=%lu, stitchedCount=%zu, allocated=%lu, free=%lu, capacity=%lu, triggering SubmitToAicore",
+                rootKey, stitchedCount, allocatedNow, freeNow, capacity);
         // Failed to allocate, failed to stitch, submit existing stitched window to aicore and recycle memory
         // If nothing stitched, wait for aicore to finish tasks and release enough memory
         ret = SubmitToAicoreAndRecycleMemory(true);
@@ -447,8 +468,16 @@ void *DeviceExecuteContext::CallRootFunctionStitch(uint64_t rootKey) {
             return RUNTIME_FUNCKEY_ERROR;
         }
         DEV_INFO("[Stitch Finish] Memory Limit Exceeded.");
+         uint64_t allocatedAfter = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+         uint64_t freeAfter = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+         uint32_t resetTimesAfter = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.ResetTimes();
+         DEV_ERROR("[InnerOutcast] After SubmitToAicore: allocated=%lu, free=%lu, resetTimes=%u",
+              allocatedAfter, freeAfter, resetTimesAfter);
     }
-
+    uint64_t allocatedAfter = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.AllocatedSize();
+    uint64_t freeAfter = workspace.tensorAllocators_.devTaskInnerExclusiveOutcasts.FreeMemorySize();
+    DEV_ERROR("[InnerOutcast] TryAllocate Success: rootKey=%lu, allocated=%lu, free=%lu",
+        rootKey, allocatedAfter, freeAfter);
     if (AiCoreFree()) {
         ret = SubmitToAicoreAndRecycleMemory(false);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
