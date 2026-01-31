@@ -97,8 +97,7 @@ struct CompareTensorPtr {
     }
 };
 
-std::string DynloopFunctionPathNode::Dump() const
-{
+std::string DynloopFunctionPathNode::Dump() const {
     int indent = 2;
     std::ostringstream oss;
     std::function<void(const DynloopFunctionPathNode *, int)> dump =
@@ -305,13 +304,11 @@ bool Function::IsCube() const {
     return false;
 }
 
-OperationsViewer Function::OperationsAfterOOO()
-{
+OperationsViewer Function::OperationsAfterOOO() {
     return OperationsViewer(operationsAfterOOO_, opPositionAfterOOO_);
 }
 
-void Function::RecordOOOSeq()
-{
+void Function::RecordOOOSeq() {
     operationsAfterOOO_ = operations_;
     opPositionAfterOOO_ = opPosition_;
 }
@@ -818,8 +815,7 @@ void Function::OperationLoopCheck(const std::string &errorMsg) {
     }
 }
 
-bool Function::OperationLoopCheck()
-{
+bool Function::OperationLoopCheck() {
     std::unordered_map<Operation*, int> inLinkNum;
     std::unordered_set<Operation*> visitedOp;
     std::vector<Operation*> visitStack;
@@ -1198,8 +1194,7 @@ std::map<std::pair<int, int>, std::set<Operation *, LogicalTensor::CompareOp>> F
 void Function::ProducerMagicLookup(const Function *function, const LogicalTensorPtr &tensor,
                                    const std::set<Operation *, LogicalTensor::CompareOp> &producers,
                                    const int subGraphId, int &index, std::unordered_map<int, int> &magic2index,
-                                   std::stringstream &ss)
-{
+                                   std::stringstream &ss) {
     for (auto &op : producers) {
         if (subGraphId != INT32_MIN && op->GetSubgraphID() != subGraphId) {
             continue;
@@ -1249,8 +1244,7 @@ void Function::ProducerMagicLookup(const Function *function, const LogicalTensor
 
 void Function::MagicLookup(const Function *function, const std::vector<LogicalTensorPtr> &operand,
                            const int subGraphId, int &index, std::unordered_map<int, int> &magic2index,
-                           std::stringstream &ss)
-{
+                           std::stringstream &ss) {
     for (auto &t : operand) {
         if (magic2index.count(t->GetMagic()) && (function->inCastsSet_.count(t) == 0) &&
             t->GetProducers().size() != 0) {
@@ -1714,11 +1708,15 @@ void Function::CreateFromIncast(const std::shared_ptr<LogicalTensor> &symbol,
     auto validShape = originIncast->GetDynValidShape();
     if (validShape.empty()) {
         validShape = GetViewValidShape(symbol->GetDynValidShape(), originIncast->GetOffset(),
-            originIncast->GetDynOffset().empty() ? SymbolicScalar::FromConcrete(originIncast->GetOffset()) : originIncast->GetDynOffset(),
-                newIncast->GetShape());
+            originIncast->GetDynOffset().empty() ?
+                SymbolicScalar::FromConcrete(originIncast->GetOffset()) : originIncast->GetDynOffset(),
+            newIncast->GetShape());
     }
-    incastOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(originIncast->GetOffset(),
-        originIncast->GetDynOffset().empty() ? SymbolicScalar::FromConcrete(originIncast->GetOffset()) : originIncast->GetDynOffset(), validShape));
+    incastOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
+        originIncast->GetOffset(),
+        originIncast->GetDynOffset().empty() ?
+            SymbolicScalar::FromConcrete(originIncast->GetOffset()) : originIncast->GetDynOffset(),
+        validShape));
     newIncast->UpdateDynValidShape(validShape);
     newIncast->GetRawTensor()->UpdateDynRawShape(symbol->GetDynValidShape());
 }
