@@ -71,12 +71,12 @@ target_compile_options(tile_fwk_intf_pub
             -fno-common
             -fno-strict-aliasing
             # 放在最后
-            -Wno-return-type
-            -Wno-array-bounds
+            $<$<CXX_COMPILER_ID:GNU>:-Wreturn-type>
+            $<$<CXX_COMPILER_ID:GNU>:-Warray-bounds>
+            $<$<CXX_COMPILER_ID:GNU>:-Wunused-variable>
+            $<$<CXX_COMPILER_ID:GNU>:-Wunused-parameter>
             $<$<CXX_COMPILER_ID:GNU>:-Wno-maybe-uninitialized>
             $<$<CXX_COMPILER_ID:GNU>:-Wno-unused-but-set-variable>
-            -Wno-unused-variable
-            -Wno-unused-parameter
             -Wno-unused-result
             # Clang
             $<$<CXX_COMPILER_ID:Clang>:-Wno-mismatched-tags>
