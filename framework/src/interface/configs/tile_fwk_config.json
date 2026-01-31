@@ -127,6 +127,10 @@
                 },
                 "GraphPartition": {
                     "post_check": false
+                },
+                "OoOSchedule": {
+                    "pre_check": false,
+                    "post_check": false
                 }
             }
         }
