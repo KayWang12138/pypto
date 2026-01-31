@@ -46,14 +46,14 @@ inline bool SignalTileOp::PollCompleted() const
     return true;
 }
 
-int32_t ShmemWaitUntil::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager &aicoreManager)
+int32_t ShmemWaitUntil::PollCompleted(npu::tile_fwk::dynamic::AiCoreManager *aicoreManager)
 {
     return runingTaskQueue_.PollCompleted([&](SignalTileOp* task) {
-        if constexpr (!npu::tile_fwk::dynamic::IsDeviceMode()) {
-            (void)task;
-            return dynamic::DEVICE_MACHINE_OK;
+        if (aicoreManager == nullptr) {
+            DEV_ERROR("AicoreManager is nullptr");
+            return dynamic::DEVICE_MACHINE_ERROR;
         }
-        return aicoreManager.ProcessCompletedAicpuTask(task->taskId_);
+        return aicoreManager->ProcessCompletedAicpuTask(task->taskId_);
     });
 }
 
@@ -61,7 +61,7 @@ uint64_t ShmemWaitUntil::GetRawAddr(const uint64_t addr, const uint64_t dstRankI
 {
     uint64_t groupIndex = npu::tile_fwk::Distributed::GetVirtualAddrGroupIndex(addr);
     uint64_t offset = npu::tile_fwk::Distributed::GetVirtualAddrOffset(addr);
-    uint64_t memType = npu::tile_fwk::Distributed::GetVirtaulAddrMemType(addr);
+    uint64_t memType = npu::tile_fwk::Distributed::GetVirtualAddrMemType(addr);
     auto hcclOpParam = reinterpret_cast<TileOp::HcclCombinOpParam*>(hcclContextAddr_[groupIndex]);
     if (memType == 0) {
         return hcclOpParam->windowsIn[dstRankId] + offset;

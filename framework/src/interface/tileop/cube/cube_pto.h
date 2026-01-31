@@ -277,6 +277,9 @@ INLINE void TExtractL1ToL0(T &dst, U &src, const int64_t &offset0, const int64_t
         pto::TileRightCompact<typename T::Type, staticL0H, staticL0W, -1, -1>>;
     tileL1Tensor l1Tile(srcShape0, srcShape1);
     tileL0Tensor l0Tile(dstShape0, dstShape1);
+    if (std::is_same<typename tileL0Tensor::DType, float>::value && T::FORMAT == Hardware::L0A) {
+        l0Tile.SetKAligned(true);
+    }
     pto::TASSIGN(l1Tile, (uint64_t)src.GetAddr());
     pto::TASSIGN(l0Tile, (uint64_t)dst.GetAddr());
     pto::TEXTRACT(l0Tile, l1Tile, isTrans ? offset1 : offset0, isTrans ? offset0 : offset1);
@@ -451,8 +454,8 @@ INLINE void TStoreExecute(globalData dstGlobal, tileData srcL0C, V &fixbuf, uint
                 dstGlobal, srcL0C, fpData);
         }
     } else {
-        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone>(
-            dstGlobal, srcL0C);
+        pto::TSTORE<tileData, globalData, config::kIsAcc ? pto::AtomicType::AtomicAdd : pto::AtomicType::AtomicNone,
+            config::kReluMode == 0 ? pto::ReluPreMode::NoRelu : pto::ReluPreMode::NormalRelu>(dstGlobal, srcL0C);
     }
 }
 

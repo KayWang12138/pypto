@@ -82,7 +82,11 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_EXP, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_NEG, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_RSQRT, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_BITWISENOT, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_SQRT, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_CEIL, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_FLOOR, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_TRUNC, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_EXPAND, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ONEHOT, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_RECIPROCAL, [this]() { return GenUnaryOp(); }},
@@ -99,6 +103,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // unary with temp buffer
           {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_ROUND, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUMLINE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMAX_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -119,6 +124,14 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_PAIRMAX, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_POW, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_BITWISEAND, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_BITWISEOR, [this]() { return GenBinaryOp(); }},
+
+          // binary op: vector operations with tmp
+          {Opcode::OP_MOD, [this]() { return GenBinaryOpWithTmp(); }},
+          {Opcode::OP_BITWISERIGHTSHIFT, [this]() { return GenBinaryOpWithTmp(); }},
+          {Opcode::OP_BITWISELEFTSHIFT, [this]() { return GenBinaryOpWithTmp(); }},
+          {Opcode::OP_BITWISEXOR, [this]() { return GenBinaryOpWithTmp(); }},
 
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},
@@ -135,6 +148,16 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_BITWISEANDS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_BITWISEORS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_BITWISERIGHTSHIFTS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_BITWISELEFTSHIFTS, [this]() { return GenVectorScalarOp(); }},
+
+          // binary op: vector scalar with tmp
+          {Opcode::OP_MODS, [this]() { return GenVectorScalarOpWithTmp(); }},
+          {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
+          {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
+          {Opcode::OP_BITWISEXORS, [this]() { return GenVectorScalarOpWithTmp(); }},
 
           // binary op: vector scalar, scalar mode
           {Opcode::OP_S_ADDS, [this]() { return GenVectorScalarOpScalarMode(); }},

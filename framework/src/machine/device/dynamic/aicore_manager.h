@@ -673,7 +673,7 @@ private:
 
     inline int32_t SyncAicpuTaskFinish() {
         if (IsNeedProcAicpuTask()) {
-            auto ret = aicpuTaskManager_.SyncAicpuTaskFinish(*this);
+            auto ret = aicpuTaskManager_.SyncAicpuTaskFinish(this);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
                 return ret;
             }
@@ -907,7 +907,7 @@ private:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
-        return aicpuTaskManager_.TaskPoll(*this);
+        return aicpuTaskManager_.TaskPoll(this);
     }
 
     inline int32_t ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint32_t finTaskState, int coreIdx)  {
@@ -934,7 +934,7 @@ private:
     inline int32_t ResolveByRegVal(CoreType type, int coreIdx) {
         int32_t ret = DEVICE_MACHINE_OK;
         uint64_t finTaskRegVal = aicoreHal_.GetFinishedTask(coreIdx);
-        uint32_t aicpuCallCode = finTaskRegVal >> 32;
+        [[maybe_unused]] uint32_t aicpuCallCode = finTaskRegVal >> 32;
         uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
         uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
         DEV_VERBOSE_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate: %u.", coreIdx, finTaskId, finTaskState);
