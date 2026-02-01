@@ -142,7 +142,7 @@ static std::string CreateLogTopFolder() {
             res = CreateDir(folderPath);
         }
     }
-    folderPath = folderPath + "/" + "output_" + timestamp.str() + "_" + std::to_string(getpid());
+    folderPath = folderPath + "/output_" + timestamp.str() + "_" + std::to_string(getpid());
 
     res = CreateDir(folderPath);
     ASSERT(res) << "Failed to create directory: " << folderPath;
@@ -221,26 +221,51 @@ void ConfigManager::PassConfigsDebugInfo(
 
 /* Helper Functions */
 static std::map<std::string, std::function<void(PassConfigs &, const nlohmann::json &)>> g_assignPassConfigFns = {
-    {                 KEY_PRINT_GRAPH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.printGraph = node.get<bool>(); }},
-    {                 KEY_PRINT_PROGRAM,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.printProgram = node.get<bool>(); }},
-    {                 KEY_DUMP_GRAPH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpGraph = node.get<bool>(); }},
-    {                 KEY_DUMP_PASS_TIME_COST,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.dumpPassTimeCost = node.get<bool>(); }},
-    {                 KEY_PRE_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.preCheck = node.get<bool>(); }},
-    {                 KEY_POST_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.postCheck = node.get<bool>(); }},
-    {                 KEY_EXPECTED_VALUE_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.expectedValueCheck = node.get<bool>(); }},
-    {                 KEY_DISABLE_PASS,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.disablePass = node.get<bool>(); }},
-    {                 KEY_HEALTH_CHECK,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.healthCheck = node.get<bool>(); }},
-    {                 KEY_RESUME_PARH,
-     [](PassConfigs &configs, const nlohmann::json &node) { configs.resumePath = node.get<std::string>(); }},
+    { KEY_PRINT_GRAPH,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.printGraph = node.get<bool>();}
+    },
+    { KEY_PRINT_PROGRAM,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.printProgram = node.get<bool>();}
+    },
+    { KEY_DUMP_GRAPH,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.dumpGraph = node.get<bool>();}
+    },
+    { KEY_DUMP_PASS_TIME_COST,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.dumpPassTimeCost = node.get<bool>();}
+    },
+    { KEY_PRE_CHECK,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.preCheck = node.get<bool>();}
+    },
+    { KEY_POST_CHECK,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.postCheck = node.get<bool>();}
+    },
+    { KEY_EXPECTED_VALUE_CHECK,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.expectedValueCheck = node.get<bool>();}
+    },
+    { KEY_DISABLE_PASS,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.disablePass = node.get<bool>();}
+    },
+    { KEY_HEALTH_CHECK,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.healthCheck = node.get<bool>();}
+    },
+    { KEY_RESUME_PARH,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.resumePath = node.get<std::string>();}
+    },
+    { KEY_POST_CHECK,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.postCheck = node.get<bool>();}
+    },
+    { KEY_EXPECTED_VALUE_CHECK,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.expectedValueCheck = node.get<bool>();}
+    },
+    { KEY_DISABLE_PASS,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.disablePass = node.get<bool>();}
+    },
+    { KEY_HEALTH_CHECK,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.healthCheck = node.get<bool>();}
+    },
+    { KEY_RESUME_PARH,
+        [](PassConfigs &configs, const nlohmann::json &node) {configs.resumePath = node.get<std::string>();}
+    },
 };
 
 static PassConfigs InternalGetPassConfigs(const nlohmann::json &root, const GlobalPassConfigs *globalConfigs) {
