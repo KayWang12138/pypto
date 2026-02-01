@@ -57,3 +57,29 @@ TEST(FileTest, LoadFileTest) {
     data = LoadFile("");
     EXPECT_EQ(data.size(), 0);
 }
+
+TEST(FileTest, LoadFileReadSizeMismatchTest) {
+    const char* testFilePath = "/tmp/test_loadfile_read_mismatch.bin";
+
+    // 测试正常情况
+    std::vector<uint8_t> testData = {1, 2, 3, 4, 5};
+    SaveFile(testFilePath, testData);
+
+    std::vector<uint8_t> loadedData = LoadFile(testFilePath);
+    EXPECT_EQ(loadedData.size(), testData.size());
+    EXPECT_EQ(loadedData, testData);
+
+    DeleteFile(testFilePath);
+}
+
+TEST(FileTest, LoadFileEmptyFileTest) {
+    const char* testFilePath = "/tmp/test_loadfile_empty.bin";
+
+    // 测试空文件情况
+    SaveFile(testFilePath, std::vector<uint8_t>());
+
+    std::vector<uint8_t> loadedData = LoadFile(testFilePath);
+    EXPECT_EQ(loadedData.size(), 0);
+
+    DeleteFile(testFilePath);
+}
