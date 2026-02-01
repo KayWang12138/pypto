@@ -335,7 +335,12 @@ std::vector<uint8_t> LoadFile(const std::string &filePath) {
         int size = ftell(file);
         binary.resize(size);
         fseek(file, 0, SEEK_SET);
-        fread(binary.data(), 1, size, file);
+        size_t readSize = fread(binary.data(), 1, size, file);
+        if (readSize != static_cast<size_t>(size)) {
+            ALOG_WARN_F("Read file[%s] failed, expected %d bytes, actual read %zu bytes.",
+                        filePath.c_str(), size, readSize);
+            binary.clear();
+        }
         fclose(file);
     }
     return binary;

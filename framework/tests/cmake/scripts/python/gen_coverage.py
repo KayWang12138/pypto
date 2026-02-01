@@ -324,11 +324,11 @@ class GenCoverage:
         """生成完整的 html 报告
         """
         prefix = f"-p {self.src_root}" if self.src_root else ""
-        cmd = f'genhtml {cov_file} {prefix} -o {dest}'
+        cmd = f'genhtml {cov_file} {prefix} --hierarchical -o {dest}'
         if self.lcov_version_new:
             cmd += f" --rc check_data_consistency=0"  # 关闭数据一致性校验
             cmd += f" -j {self.job_num}"
-        ret = subprocess.run(cmd.split(), capture_output=True, check=True, encoding='utf-8')
+        ret = subprocess.run(cmd.split(), capture_output=True, check=False, encoding='utf-8')
         ret.check_returncode()
         logging.info("Generated %s coverage html report in %s, cmd: %s", scene, dest, cmd)
 
