@@ -130,7 +130,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         DevControlFlowCache* inputDevCtrlCache, const DeviceLauncherConfig &config) {
     bool isCapture = false;
     ALOG_INFO_F("Kernel Launch");
-
+    std::cout<<"Kernel Launch ----- "<<std::endl;
     HOST_PERF_TRACE(TracePhase::RunDeviceInit);
 
     if (cachedOperator == nullptr) { // st scene
