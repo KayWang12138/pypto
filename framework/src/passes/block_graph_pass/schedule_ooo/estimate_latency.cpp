@@ -42,9 +42,15 @@ Status LatencyEstimator::FreeBuffer(Operation* op) {
         }
         if (bufRefCount[memId] == 0) {
             auto freeMemSize = localBufferMap[memId]->size;
-            localMemoryCurrentSize[localBufferMap[memId]->memType] += freeMemSize;
-            APASS_LOG_DEBUG_F(Elements::Operation, "FreeBuffer memType: %d, currentSize %d, memId: %d.",
-                localBufferMap[memId]->memType, localMemoryCurrentSize[localBufferMap[memId]->memType], memId);
+            if (spillblockMemIds.find(memId) == spillblockMemIds.end()) {
+                localMemoryCurrentSize[localBufferMap[memId]->memType] += freeMemSize;
+                APASS_LOG_DEBUG_F(Elements::Operation, "FreeBuffer memType: %d, currentSize %d, memId: %d, freeMemSize: %d.",
+                    localBufferMap[memId]->memType, localMemoryCurrentSize[localBufferMap[memId]->memType], memId, freeMemSize);
+            } else {
+                APASS_LOG_DEBUG_F(Elements::Operation, "FreeBuffer memType: %d, memId: %d free in spillblock",
+                    localBufferMap[memId]->memType, memId);
+            }
+
             if (localMemoryCurrentSize[localBufferMap[memId]->memType] > localMemSize[localBufferMap[memId]->memType]
                 || localMemoryCurrentSize[localBufferMap[memId]->memType] < 0) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor [%d] failed.", memId);
@@ -188,6 +194,7 @@ Status LatencyEstimator::SpillOnBlock() {
 
     Operation* op = allocIssueQueue[spillMemType].Front();
     size_t needMemSize = GetInOutOperand(op)[0]->MemorySize();
+    spillblockMemIds.insert(GetInOutOperand(op)[0]->memoryrange.memId);
     localMemoryCurrentSize[spillMemType] += static_cast<long int>(needMemSize);
     if (localMemoryCurrentSize[spillMemType] < 0 || localMemoryCurrentSize[spillMemType] > localMemSize[spillMemType]){
         APASS_LOG_ERROR_F(Elements::Operation, "Buffer[%d] is valid. Please check", spillMemType);
