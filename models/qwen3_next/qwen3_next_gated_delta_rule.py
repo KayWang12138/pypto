@@ -274,19 +274,15 @@ def segs_chunk_gated_delta_rule(**kwargs):
         seg_s = 128
         pad_size = (chunk_size - s % chunk_size) % chunk_size
         pad_seq_length = s + pad_size
-        batch_query = F.pad(query[:, b_ofs:b_ofs + s], (0, 0, 0, pad_size))
-        batch_key = F.pad(key[:, b_ofs:b_ofs + s], (0, 0, 0, pad_size))
-        batch_value = F.pad(value[:, b_ofs:b_ofs + s], (0, 0, 0, pad_size))
-        batch_beta = F.pad(beta[:, b_ofs:b_ofs + s], (0, pad_size))
-        batch_g = F.pad(g[:, b_ofs:b_ofs + s], (0, pad_size))
+        batch_query, batch_key, batch_value = \
+            [F.pad(x[:, b_ofs:b_ofs + s], (0, 0, 0, pad_size)) for x in (query, key, value)]
+        batch_beta, batch_g = [F.pad(x[:, b_ofs:b_ofs + s], (0, pad_size)) for x in (beta, g)]
         result_list = []
         recurrent_state = initial_state[b_idx:b_idx + 1, ...]
         for s_idx in range(0, pad_seq_length, seg_s):
-            chunk_query = batch_query[:, s_idx:s_idx + seg_s, :].reshape(1, n, seg_s, d)
-            chunk_key = batch_key[:, s_idx:s_idx + seg_s, :].reshape(1, n, seg_s, d)
-            chunk_value = batch_value[:, s_idx:s_idx + seg_s, :].reshape(1, n, seg_s, d)
-            chunk_gate = batch_g[:, s_idx:s_idx + seg_s].reshape(1, n, seg_s)
-            chunk_beta = batch_beta[:, s_idx:s_idx + seg_s].reshape(1, n, seg_s)
+            chunk_query, chunk_key, chunk_value = \
+                [x[:, s_idx:s_idx + seg_s, :].reshape(1, n, seg_s, d) for x in (batch_query, batch_key, batch_value)]
+            chunk_gate, chunk_beta = [x[:, s_idx:s_idx + seg_s].reshape(1, n, seg_s) for x in (batch_g, batch_beta)]
             cur_attn, cur_state = segs_chunk_gated_delta_rule_sub(query=chunk_query, key=chunk_key, value=chunk_value,
                 g=chunk_gate, beta=chunk_beta, chunk_size=chunk_size, initial_state=recurrent_state,
                 output_final_state=output_final_state, use_qk_l2norm_in_kernel=use_qk_l2norm_in_kernel,)
@@ -299,12 +295,11 @@ def segs_chunk_gated_delta_rule(**kwargs):
 
 
 def segs_chunk_gated_delta_rule_sub_inverse(attn, chunk_size):
-    for i in range(1, chunk_size):
-        row = attn[..., i, :i].clone()
-        sub = attn[..., :i, :i].clone()
-        attn[..., i, :i] = row + (row.unsqueeze(-1) * sub).sum(-2)
-    attn = attn + torch.eye(chunk_size, dtype=attn.dtype, device=attn.device)
-    return attn
+    for index in range(1, chunk_size):
+        line = attn[..., index, :index].clone()
+        sub = attn[..., :index, :index].clone()
+        attn[..., index, :index] = line + (line.unsqueeze(-1) * sub).sum(-2)
+    return attn + torch.eye(chunk_size, dtype=attn.dtype, device=attn.device)
 
 
 def segs_chunk_gated_delta_rule_sub_cycle(**kwargs):
@@ -318,21 +313,21 @@ def segs_chunk_gated_delta_rule_sub_cycle(**kwargs):
     total_sequence_length = kwargs.get("total_sequence_length")
     chunk_size = kwargs.get("chunk_size")
 
-    core_attn_out = torch.zeros_like(value).to(query.device)
-    mask = torch.triu(torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device), diagonal=1)
+    core_attn = torch.zeros_like(value).to(query.device)
+    attn_mask = torch.triu(torch.ones(chunk_size, chunk_size, dtype=torch.bool, device=query.device), diagonal=1)
 
-    for i in range(0, total_sequence_length // chunk_size):
-        q_i, k_i, v_i = query[:, :, i], key[:, :, i], value[:, :, i]
-        attn = (q_i @ k_i.transpose(-1, -2) * decay_mask[:, :, i]).masked_fill_(mask, 0)
-        v_prime = (k_cumdecay[:, :, i]) @ last_recurrent_state
-        v_new = v_i - v_prime
-        attn_inter = (q_i * g[:, :, i, :, None].exp()) @ last_recurrent_state
-        core_attn_out[:, :, i] = attn_inter + attn @ v_new
+    for index in range(0, total_sequence_length // chunk_size):
+        q_index, k_index, v_index = query[:, :, index], key[:, :, index], value[:, :, index]
+        attn = (q_index @ k_index.transpose(-1, -2) * decay_mask[:, :, index]).masked_fill_(attn_mask, 0)
+        v_prime = (k_cumdecay[:, :, index]) @ last_recurrent_state
+        v_new = v_index - v_prime
+        attn_inter = (q_index * g[:, :, index, :, None].exp()) @ last_recurrent_state
+        core_attn[:, :, index] = attn_inter + attn @ v_new
         last_recurrent_state = (
-            last_recurrent_state * g[:, :, i, -1, None, None].exp()
-            + (k_i * (g[:, :, i, -1, None] - g[:, :, i]).exp()[..., None]).transpose(-1, -2) @ v_new
+            last_recurrent_state * g[:, :, index, -1, None, None].exp()
+            + (k_index * (g[:, :, index, -1, None] - g[:, :, index]).exp()[..., None]).transpose(-1, -2) @ v_new
         )
-    return core_attn_out, last_recurrent_state
+    return core_attn, last_recurrent_state
 
 
 def segs_chunk_gated_delta_rule_sub(**kwargs):
