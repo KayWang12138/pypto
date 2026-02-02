@@ -129,6 +129,7 @@ public:
                 count_++;
             }
             oss << "\n" << space << "All size:" << size_
+                << " failNum:" << failNum_
                 << " maxAbsDiff:" << maxAbsDiff
                 << " maxRelDiff:" << maxRelDiff
                 << " errorCount:" << errorCount_

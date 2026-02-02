@@ -287,6 +287,7 @@ def set_verify_options(*,
         pass_verify_pass_filter = None
     if pass_verify_error_tol is None or len(pass_verify_error_tol) != 2:
         pass_verify_error_tol = [1e-3, 1.5e-3]
+    pass_verify_error_tol = [float(x) for x in pass_verify_error_tol]
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(verify_options=options_dict)
 
