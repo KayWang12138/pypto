@@ -116,10 +116,6 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
         int copy_out_num = 0;
         for (const auto &updatedOperation : updatedOperations) {
             switch (updatedOperation.GetOpcode()){
-                case Opcode::OP_VIEW: {
-                    view_num++;
-                    break;
-                }
                 case Opcode::OP_COPY_IN: {
                     copy_in_num++;
                     break;
@@ -130,6 +126,10 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
                 }
                 case Opcode::OP_COPY_OUT: {
                     copy_out_num++;
+                    break;
+                }
+                case Opcode::OP_VIEW: {
+                    view_num++;
                     break;
                 }
                 default: break;
