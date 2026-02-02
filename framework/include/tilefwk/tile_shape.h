@@ -71,6 +71,7 @@ struct TileL1Info {
 struct TileL0Info {
     int64_t tileM;
     int64_t tileN;
+    int64_t tileK;
     };
 /**
  * @brief ConvTile tile for conv operation
