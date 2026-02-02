@@ -67,7 +67,7 @@ Tensor Ln(const Tensor &operand) {
 
 Tensor IsFinite(const Tensor &self) {
     DECLARE_TRACER();
-    RETURN_CALL(UnaryOperation<UnaryOpType::IS_FINITE>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+    RETURN_CALL(UnaryOperation<UnaryOpType::ISFINITE>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), DataType::DT_BOOL);
 }
 
 Tensor Rsqrt(const Tensor &self) {
@@ -250,7 +250,7 @@ void LnOperationTileFunc(Function &function, const TileShape &tileShape, const s
 void IsFiniteOperationTileFunc(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &iOperand,
     const std::vector<LogicalTensorPtr> &oOperand, [[maybe_unused]] const Operation &op) {
     UnaryOperationOperandCheck(iOperand, oOperand);
-    return TiledUnaryOperation<UnaryOpType::IS_FINITE>(function, tileShape, iOperand[0], oOperand[0]);
+    return TiledUnaryOperation<UnaryOpType::ISFINITE>(function, tileShape, iOperand[0], oOperand[0]);
 }
 
 void HubOperationTileFunc(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &iOperand,
