@@ -58,7 +58,6 @@ struct CubeTile {
 
     std::string ToString() const;
 };
-
 /**
  * @brief ConvTile tile for conv operation
  *
