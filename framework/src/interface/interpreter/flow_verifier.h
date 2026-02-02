@@ -82,8 +82,8 @@ public:
         void UpdateErrorCountThreshold() {
             errorCountThreshold_ = static_cast<int>((size_ - zeroCount_) * std::min(rtol_, atol_));
             size_t cnt_adj = static_cast<int>(std::pow((size_ - zeroCount_), 0.5)) / 2;
-            if (errorCountThreshold_ < cnt_adj && cnt_adj < 16) {
-                errorCountThreshold_ = cnt_adj;
+            if (errorCountThreshold_ == 0) {
+                errorCountThreshold_ = std::min(16, cnt_adj);
             }
         }
 
@@ -129,6 +129,7 @@ public:
                 count_++;
             }
             oss << "\n" << space << "All size:" << size_
+                << " failNum:" << failNum_
                 << " maxAbsDiff:" << maxAbsDiff
                 << " maxRelDiff:" << maxRelDiff
                 << " errorCount:" << errorCount_
