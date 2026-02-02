@@ -841,11 +841,9 @@ void ReplaceTensor::InsertAssembleCopy(Function &function) {
             visitedAssOps.insert(op.GetOpMagic());
             auto assembleIn = op.GetIOperands()[0];
             auto consumers = assembleIn->GetConsumers();
-            if (consumers.size() <= 1) { 
-                continue;
-            }
+
             for (auto &con : consumers) {
-                if (con->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                if (con->GetOpMagic() != op.GetOpMagic() && con->GetOpcode() == Opcode::OP_ASSEMBLE) {
                     visitedAssOps.insert(con->GetOpMagic());
                     needInsertCopyAssOps.insert(con);
                 }
