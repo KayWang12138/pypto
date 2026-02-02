@@ -185,6 +185,8 @@ void DumpValue(std::stringstream &os, const std::string &key, const Any &val, co
         os << '}';
     } else if (val.Type() == typeid(CubeTile)) {
         os << (AnyCast<CubeTile>(val).ToString());
+    } else if (val.Type() == typeid(ConvTile)) {
+        os << (AnyCast<ConvTile>(val).ToString());
     } else if (val.Type() == typeid(DistTile)) {
         os << (AnyCast<DistTile>(val).ToString());
     } else {
@@ -430,6 +432,7 @@ private:
         tileShape.Reset();
         root->AddValue("cube_tile_shapes", tileShape.GetCubeTile());
         root->AddValue("vec_tile_shapes", tileShape.GetVecTile().tile);
+        root->AddValue("conv_tile_shapes", tileShape.GetConvTile());
         root->AddValue("matrix_size", tileShape.GetMatrixSize());
         root->AddValue("dist_tile_shapes", tileShape.GetDistTile());
     }

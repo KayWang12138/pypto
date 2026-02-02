@@ -14,6 +14,7 @@
  */
 
 #include "pybind_common.h"
+#include "tilefwk/tilefwk_op.h"
 
 #include <vector>
 
@@ -362,15 +363,35 @@ void bind_operation(py::module &m) {
         "Matrix multiply with extend param.");
     m.def(
         "Conv",
-        [](DataType out_type, const Tensor &tensor_input, const Tensor &tensor_weight, const Tensor &tensor_bias,
-            const std::vector<int64_t> &strides, const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations,
-            const int64_t groups) {
-            return Conv::Conv(out_type, tensor_input, tensor_weight, tensor_bias, strides, paddings,
+        [](DataType out_type, const Tensor &tensor_input, const Tensor &tensor_weight, const std::vector<int64_t> &strides, 
+            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const int64_t groups) {
+            return Conv::Conv(out_type, tensor_input, tensor_weight, strides, paddings,
                 dilations, groups);
         },
-        py::arg("out_type"), py::arg("tensor_input"), py::arg("tensor_weight"), py::arg("tensor_bias"),
-        py::arg("strides"), py::arg("paddings"), py::arg("dilations"), py::arg("groups"),
+        py::arg("out_type"), py::arg("tensor_input"), py::arg("tensor_weight"), py::arg("strides"), 
+        py::arg("paddings"), py::arg("dilations"), py::arg("groups"),
         "Convolution forward with Transpose is false.");
+    py::class_<Conv::TileL1Info>(m, "TileL1Info")
+        .def(py::init<>())
+        .def(py::init<int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t>(), 
+            py::arg("tileHin"), py::arg("tileHout"),py::arg("tileWin"), py::arg("tileWout"),
+            py::arg("tileCinFmap"), py::arg("tileCinWeight"),py::arg("tileCout"), py::arg("tileN"))
+        .def_readwrite("tileHin", &Conv::TileL1Info::tileHin)
+        .def_readwrite("tileHout", &Conv::TileL1Info::tileHout)
+        .def_readwrite("tileWin", &Conv::TileL1Info::tileWin)
+        .def_readwrite("tileWout", &Conv::TileL1Info::tileWout)
+        .def_readwrite("tileCinFmap", &Conv::TileL1Info::tileCinFmap)
+        .def_readwrite("tileCinWeight", &Conv::TileL1Info::tileCinWeight)
+        .def_readwrite("tileCout", &Conv::TileL1Info::tileCout)
+        .def_readwrite("tileN", &Conv::TileL1Info::tileN);
+    py::class_<Conv::TileL0Info>(m, "TileL0Info")
+        .def(py::init<>())
+        .def(py::init<int64_t, int64_t, int64_t, int64_t>(), 
+            py::arg("tileH"), py::arg("tileW"), py::arg("tileK"),py::arg("tileN"))
+        .def_readwrite("tileH", &Conv::TileL0Info::tileH)
+        .def_readwrite("tileW", &Conv::TileL0Info::tileW)
+        .def_readwrite("tileK", &Conv::TileL0Info::tileK)
+        .def_readwrite("tileN", &Conv::TileL0Info::tileN);
     m.def(
         "BatchMatmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
