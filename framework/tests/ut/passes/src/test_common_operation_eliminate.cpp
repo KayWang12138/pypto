@@ -272,8 +272,8 @@ TEST_F(CommonOperationEliminateTest, TestShmemGetGm2UBChecker){
     EXPECT_EQ(G.SetOutCast({"out"}), true);
     Function *function = G.GetFunction();
     EXPECT_NE(function, nullptr);
-    CommonOperationEliminate Checker;
-    Status preCheckStatus = Checker.PreCheck(*function);
+    CommonOperationEliminate COE;
+    Status preCheckStatus = COE.PreCheck(*function);
     EXPECT_EQ(preCheckStatus, SUCCESS) << "COE Precheck failed for OP_SHMEM_GET_GM2UB!";
 }
 } // namespace tile_fwk
