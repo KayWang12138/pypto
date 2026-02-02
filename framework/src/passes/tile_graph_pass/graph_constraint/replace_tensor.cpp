@@ -83,7 +83,7 @@ bool ReplaceTensor::CheckReshapeConflict(const Operation& op, Function& function
     if (forOps.find(const_cast<Operation*>(&op)) != forOps.end()) {
         auto tensorOut = op.GetOOperands().front();
         if (function.IsFromOutCast(tensorOut)) {
-            return true;
+            return false;
         }
     }
     if (backOps.find(const_cast<Operation*>(&op)) != backOps.end()) {
@@ -840,6 +840,10 @@ void ReplaceTensor::InsertAssembleCopy(Function &function) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
             visitedAssOps.insert(op.GetOpMagic());
             auto assembleIn = op.GetIOperands()[0];
+            auto producers = assembleIn->GetProducers();
+            if ((!producers.empty()) && (*producers.begin())->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
+                continue;
+            }
             auto consumers = assembleIn->GetConsumers();
             int assembleOpCnt = 0;
             for (auto &con : consumers) {
