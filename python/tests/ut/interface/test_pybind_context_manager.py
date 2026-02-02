@@ -21,7 +21,7 @@ def test_pybind_context_manager():
     c = pypto.tensor(shape, dtype, "tensor_c")
 
     with pypto.function("fnc_name", a, b):
-        pypto.set_vec_tile_shapes(8, 8)
+        pypto.set_vec_tile_shapes(8, 16)
         c.move(pypto.add(a, b))
 
     assert isinstance(c, pypto.tensor)
