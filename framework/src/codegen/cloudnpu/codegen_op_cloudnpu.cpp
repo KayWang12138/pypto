@@ -46,11 +46,11 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {         Opcode::OP_L1_COPY_IN,           [this]() { return GenMemL1CopyIn(); }},
           {        Opcode::OP_L1_COPY_OUT,          [this]() { return GenMemL1CopyOut(); }},
           {       Opcode::OP_GATHER_IN_L1,            [this]() { return GenGatherInL1(); }},
-          {    Opcode::OP_L1_COPY_IN_CONV,       [this]() { return GenMemL1CopyInConv(); }},
+        //   {    Opcode::OP_L1_COPY_IN_CONV,       [this]() { return GenMemL1CopyInConv(); }},
 
           // L0C <-> GM
           {       Opcode::OP_L0C_COPY_OUT,         [this]() { return GenMemL0CCopyOut(); }},
-          {  Opcode::OP_L0C_COPY_OUT_CONV,      [this]() { return GenMemL1CopyOutConv(); }},
+        //   {  Opcode::OP_L0C_COPY_OUT_CONV,      [this]() { return GenMemL1CopyOutConv(); }},
 
           {          Opcode::OP_L0C_TO_L1,            [this]() { return GenMemL0CToL1(); }},
 
@@ -60,8 +60,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {        Opcode::OP_L1_TO_L0_BT,             [this]() { return GenMemL1ToL0(); }},
           {        Opcode::OP_L1_TO_L0_AT,             [this]() { return GenMemL1ToL0(); }},
           {           Opcode::OP_L1_TO_BT,             [this]() { return GenMemL1ToBt(); }},
-          {        Opcode::OP_LOAD3D_CONV,       [this]() { return GenMemL1ToL0Load3D(); }},
-          {        Opcode::OP_LOAD2D_CONV,       [this]() { return GenMemL1ToL0Load2D(); }},
+        //   {        Opcode::OP_LOAD3D_CONV,       [this]() { return GenMemL1ToL0Load3D(); }},
+        //   {        Opcode::OP_LOAD2D_CONV,       [this]() { return GenMemL1ToL0Load2D(); }},
 
           // load op
           {               Opcode::OP_LOAD,                [this]() { return GenLoadOp(); }},

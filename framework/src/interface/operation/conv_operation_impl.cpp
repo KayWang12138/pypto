@@ -48,7 +48,7 @@ void SetTensorOpAttr(Operation &op, const ConvAttrParam &convAttrParam)
     op.SetAttribute(CONV_PADDINGS_ATTR, convAttrParam.paddings);
     op.SetAttribute(CONV_STRIDES_ATTR, convAttrParam.strides);
     op.SetAttribute(CONV_DILATIONS_ATTR, convAttrParam.dilations);
-    op.SetAttribute(IS_MATRIX_NZ, true);
+    op.SetAttribute(IS_MATRIX_NZ, false);
     std::vector<int64_t> fmapOriShape = {1, 32, 8, 8};
     std::vector<int64_t> wegihtOriShape = {32, 32, 1, 1};
     op.SetAttribute(CONV_ORI_FMAP_SHAPE_ATTR, fmapOriShape);
@@ -62,12 +62,34 @@ Tensor ConstructTensorGraph(DataType dataType, const Tensor &inputTensor, const 
     Function *functionPtr = Program::GetInstance().GetCurrentFunction();
     OP_CHECK(true, { ASSERT(functionPtr != nullptr) << "functionPtr is nullptr." << std::endl; });
     std::vector<LogicalTensorPtr> operandVec = {inputTensor.GetStorage(), weightTensor.GetStorage()};
+    if (inputTensor.Dim() == 3 && weightTensor.Dim() == 3) {
+        // conv1d case, unsqueeze input to NC1W
+        std::vector<int64_t> fmap4DimShape{inputTensor.GetShape()[NCHW_N_IDX], inputTensor.GetShape()[NCHW_C_IDX],
+                                           1, inputTensor.GetShape()[NCHW_H_IDX]};
+        Tensor fmap4DimTensor(inputTensor.GetStorage()->Datatype(), fmap4DimShape, "", inputTensor.Format());
+        auto &reshapeFmapOp =
+            functionPtr->AddOperation(Opcode::OP_RESHAPE, {inputTensor.GetStorage()}, {fmap4DimTensor.GetStorage()});
+        std::vector<int64_t> weight4DimShape{weightTensor.GetShape()[NCHW_N_IDX], weightTensor.GetShape()[NCHW_C_IDX],
+                                             1, weightTensor.GetShape()[NCHW_H_IDX]};
+        Tensor weigth4DimTensor(weightTensor.GetStorage()->Datatype(), weight4DimShape, "", weightTensor.Format());
+        auto &reshapeWeightOp = functionPtr->AddOperation(Opcode::OP_RESHAPE, {weightTensor.GetStorage()}, {weigth4DimTensor.GetStorage()});
+        operandVec = {fmap4DimTensor.GetStorage(), weigth4DimTensor.GetStorage()};
+    }
     if (biasTensor.GetStorage() != nullptr) {
         convAttrParam.hasBias = true;
         operandVec.push_back(biasTensor.GetStorage());
     }
     auto &op = functionPtr->AddOperation(Opcode::OP_CONV, operandVec, {resTensor.GetStorage()});
     SetTensorOpAttr(op, convAttrParam);
+
+    if (inputTensor.Dim() == 3 && weightTensor.Dim() == 3) {
+        // conv1d case, squeeze output to NCL
+        std::vector<int64_t> res4DimShape{inputTensor.GetShape()[NCHW_N_IDX], weightTensor.GetShape()[NCHW_N_IDX],
+                                          1, 8};
+        Tensor res4DimTensor(resTensor.GetStorage()->Datatype(), res4DimShape, "", resTensor.Format());
+        auto &reshapeResOp = functionPtr->AddOperation(Opcode::OP_RESHAPE, {resTensor.GetStorage()}, {res4DimTensor.GetStorage()});
+        return res4DimTensor;
+    }
 
     return resTensor;
 }
@@ -213,13 +235,12 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstAL1Shape,
                                             SymbolicScalar::FromConcrete(dstAL1Shape),
                                             tensorGraphNodes.fmapTensorPtr->Format(), "aL1Tensor", NodeType::LOCAL);
-        dstAL1TensorPtr->UpdateDynValidShape(
-            GetViewValidShape(tensorGraphNodes.fmapTensorPtr->GetDynValidShape(), dstAL1Offset, {}, dstAL1Shape));
-        auto &viewOpAl1 = function.AddOperation(Opcode::OP_VIEW, {tensorGraphNodes.fmapTensorPtr}, {dstAL1TensorPtr});
+        dstAL1TensorPtr->UpdateDynValidShape({1, iterInfo.kAL1Size / convTileInfo.cin0, iterInfo.hinL1Size, iterInfo.winL1Size, convTileInfo.cin0});
+        auto &viewOpAl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.fmapTensorPtr}, {dstAL1TensorPtr});
         viewOpAl1.SetAttribute("IS_CONV", true);
         auto viewAttribute = std::make_shared<ViewOpAttribute>(dstAL1Offset, MemoryType::MEM_L1,
              SymbolicScalar::FromConcrete(dstAL1Offset), dstAL1TensorPtr->GetDynValidShape());
-        viewOpAl1.SetOpAttribute(viewAttribute);
+        // viewOpAl1.SetOpAttribute(viewAttribute);
         iterInfo.aL1UpadateFlag = false;
     }
 
@@ -253,13 +274,12 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL1Shape,
                                             SymbolicScalar::FromConcrete(dstBL1Shape),
                                             tensorGraphNodes.weightTensorPtr->Format(), "bL1Tensor", NodeType::LOCAL);
-        dstBL1TensorPtr->UpdateDynValidShape(
-            GetViewValidShape(tensorGraphNodes.weightTensorPtr->GetDynValidShape(), dstBL1Offset, {}, dstBL1Shape));
-        auto &viewOpBl1 = function.AddOperation(Opcode::OP_VIEW, {tensorGraphNodes.weightTensorPtr}, {dstBL1TensorPtr});
+        dstBL1TensorPtr->UpdateDynValidShape({iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / 16, 16, convTileInfo.cin0});
+        auto &viewOpBl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.weightTensorPtr}, {dstBL1TensorPtr});
         viewOpBl1.SetAttribute("IS_CONV", true);
         auto viewAttribute = std::make_shared<ViewOpAttribute>(dstBL1Offset, MemoryType::MEM_L1,
              SymbolicScalar::FromConcrete(dstBL1Offset), dstBL1TensorPtr->GetDynValidShape());
-        viewOpBl1.SetOpAttribute(viewAttribute);
+        // viewOpBl1.SetOpAttribute(viewAttribute);
         iterInfo.bL1UpadateFlag = false;
     }
     // load2d()
@@ -429,7 +449,8 @@ void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
             }
         }
     }
-    auto &viewOpRes = function.AddOperation(Opcode::OP_L0C_COPY_OUT_CONV, {resCl0TensorPtr}, {cTensorPtr});
+    auto &viewOpRes = function.AddOperation(Opcode::OP_L0C_COPY_OUT_CONV, {resCl0TensorPtr},
+                                            {tensorGraphNodes.resTensorPtr});
 }
 
 void IterOneBatchFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &convTileInfo,
@@ -488,13 +509,12 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
     // Check ConvTile Valid
     // infer hout, wout
     int64_t batchOut = inputTensor.GetShape()[NCHW_N_IDX];
-    int64_t c0 = ALIGN_SIZE_32 / BytesOf(outType);
-    int64_t co1 = weightTensor.GetShape()[FRACTALZ_CO1_IDX];
+    int64_t cout = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t hOut = 8;
     int64_t wOut = 8;
-    std::vector<int64_t> resTensorShape{batchOut, co1, hOut, wOut, c0};
+    std::vector<int64_t> resTensorShape{batchOut, cout, hOut, wOut};
     Tensor resTensor(outType, resTensorShape, "TensorC");
-    resTensor.GetStorage()->UpdateDynValidShape({batchOut, co1, hOut, wOut, c0});
+    resTensor.GetStorage()->UpdateDynValidShape({batchOut, cout, hOut, wOut});
     return ConstructTensorGraph(outType, inputTensor, weightTensor, biasTensor, resTensor, convAttrParam);
 }
 
