@@ -67,6 +67,9 @@ inline void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Reciprocal(out, self);
 }
+inline void ReLU(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->ReLU(out, self);
+}
 inline void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->BitwiseNot(out, self);
 }
