@@ -15,7 +15,6 @@
 #include <gtest/gtest.h>
 #include "tilefwk/platform.h"
 #include "passes/block_graph_pass/tune_sync_for_vf.h"
-#include "passes/block_graph_pass/insert_sync.h"
 #define private public
 
 namespace npu {
@@ -44,7 +43,6 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
-        Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
 };
