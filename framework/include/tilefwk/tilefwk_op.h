@@ -417,8 +417,8 @@ struct TileL1Info {
 };
 
 struct TileL0Info{
-    int64_t tileW{0};
     int64_t tileH{0};
+    int64_t tileW{0};
     int64_t tileK{0};
     int64_t tileN{0};
 
@@ -426,6 +426,12 @@ struct TileL0Info{
         : tileH(h), tileW(w), tileK(k), tileN(n) {}
         
     TileL0Info() = default;
+};
+
+enum class ReLuType : int64_t
+{
+    NoReLu = 0,
+    ReLu = 1
 };
 
 struct ConvExtendParam {
