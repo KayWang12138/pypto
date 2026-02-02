@@ -248,7 +248,7 @@ void CheckDimParam(const std::vector<int64_t>& vec, const std::string& name, int
     OP_CHECK(true, {
             ASSERT(vec.size() == expected_dim)
                 << "Input attr " << name << " dim: " << vec.size()
-                << " != " << expected_dim << ".";
+                << " != " << expected_dim << "." << std::endl;
     });
 }
 
@@ -322,7 +322,7 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
 
     int64_t Cout = biasTensor.GetShape()[0];
     OP_CHECK(true, {
-        ASSERT(biasTensor.GetShape()[i] == Cout)
+        ASSERT(biasTensor.GetShape()[0] == Cout)
         << "Input illegal bias shape:" << biasTensor.GetShape()[0]
         << ", which must euqal to Cout:" << Cout
         << "." << std::endl;
@@ -334,8 +334,8 @@ void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor
         << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.";
     });
     CheckOriginShape(inputTensor, weightTensor, biasTensor);
-    CheckOutputShape(inputTensor, weightTensor, biasTensor);
-    CheckAttrShape(outType, attrParam);
+    CheckOutputShape(inputTensor, weightTensor, attrParam);
+    CheckAttrShape(outType, inputTensor, weightTensor, attrParam);
     CheckTileTiling(inputTensor, weightTensor, attrParam);
     // CheckL1SizeTiling(outType, weightTensor);
 }
