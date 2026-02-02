@@ -108,8 +108,8 @@
                 "print_program": false,
                 "dump_graph": false,
                 "dump_pass_time_cost": true,
-                "pre_check": false,
-                "post_check": false,
+                "pre_check": true,
+                "post_check": true,
                 "expected_value_check": false,
                 "disable_pass": false,
                 "health_check": false
