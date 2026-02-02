@@ -29,6 +29,9 @@ Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
                 if (copyOpAttribute->IsCopyOut()) {
                     continue;
                 }
+                if (op->GetOpcode() == Opcode::OP_SHMEM_GET_GM2UB) {
+                    continue;
+                }
                 auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
                 (void)memType;
                 fromOffsetSize = fromOffset.size();
