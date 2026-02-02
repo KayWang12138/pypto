@@ -25,8 +25,9 @@ namespace npu::tile_fwk {
 // Bit layout: [S][EEEE][MMM]. Special: 0x7F=NaN, 0x7E=+Inf, 0xFE=-Inf, 0xFF=NaN.
 static torch::Tensor Fp8E4M3ToFloat32(const torch::Tensor &self) {
     auto x = self.to(torch::kInt32);
-    auto sign = 1.0f - (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1)))
-                    .to(torch::kFloat32) * 2.0f;
+    auto sign =
+        1.0f -
+        (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1))).to(torch::kFloat32) * 2.0f;
     auto exp_bits = torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(3)), at::Scalar(0xF));
     auto mant_bits = torch::bitwise_and(x, at::Scalar(0x7));
 
@@ -58,8 +59,9 @@ static torch::Tensor Fp8E4M3ToFloat32(const torch::Tensor &self) {
 // Bit layout: [S][EEEEE][MM]. Special: 0x7F=NaN, 0x7C=+Inf, 0xFC=-Inf.
 static torch::Tensor Fp8E5M2ToFloat32(const torch::Tensor &self) {
     auto x = self.to(torch::kInt32);
-    auto sign = 1.0f - (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1)))
-                    .to(torch::kFloat32) * 2.0f;
+    auto sign =
+        1.0f -
+        (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1))).to(torch::kFloat32) * 2.0f;
     auto exp_bits = torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(2)), at::Scalar(0x1F));
     auto mant_bits = torch::bitwise_and(x, at::Scalar(0x3));
 
@@ -92,8 +94,9 @@ static torch::Tensor Fp8E5M2ToFloat32(const torch::Tensor &self) {
 // Value = (-1)^s * 2^(exp-63). All values are powers of 2.
 static torch::Tensor Fp8E8M0ToFloat32(const torch::Tensor &self) {
     auto x = self.to(torch::kInt32);
-    auto sign = 1.0f - (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1)))
-                    .to(torch::kFloat32) * 2.0f;
+    auto sign =
+        1.0f -
+        (torch::bitwise_and(torch::bitwise_right_shift(x, at::Scalar(7)), at::Scalar(1))).to(torch::kFloat32) * 2.0f;
     auto exp_bits = torch::bitwise_and(x, at::Scalar(0x7F));
     auto exp_val = exp_bits.to(torch::kFloat32) - 63.0f;
     return sign * torch::pow(2.0f, exp_val);
@@ -105,25 +108,22 @@ torch::Tensor Fp8ToFloat32(const torch::Tensor &self, DataType actualType) {
     }
     switch (actualType) {
         case DT_FP8:
-        case DT_FP8E4M3:
-            return Fp8E4M3ToFloat32(self);
-        case DT_FP8E5M2:
-            return Fp8E5M2ToFloat32(self);
-        case DT_FP8E8M0:
-            return Fp8E8M0ToFloat32(self);
-        default:
-            return self.to(torch::kFloat32);
+        case DT_FP8E4M3: return Fp8E4M3ToFloat32(self);
+        case DT_FP8E5M2: return Fp8E5M2ToFloat32(self);
+        case DT_FP8E8M0: return Fp8E8M0ToFloat32(self);
+        default: return self.to(torch::kFloat32);
     }
 }
 
 // Float32 to FP8 E4M3. E4M3 range: [2^-9, 240]. Round to nearest, ties to even.
 static torch::Tensor Float32ToFp8E4M3(const torch::Tensor &self) {
+    std::cout << self << std::endl;
     auto x = self.to(torch::kFloat32).contiguous();
     auto flat = x.flatten();
     auto result = torch::empty_like(flat, torch::TensorOptions().dtype(torch::kUInt8));
-    constexpr float kMinSubnormal = 1.0f / 512.0f;   // 2^-9
-    constexpr float kMinNormal = 1.0f / 64.0f;       // 2^-6
-    constexpr float kMaxVal = 240.0f;                // max E4M3 normal
+    constexpr float kMinSubnormal = 1.0f / 512.0f; // 2^-9
+    constexpr float kMinNormal = 1.0f / 64.0f;     // 2^-6
+    constexpr float kMaxVal = 240.0f;              // max E4M3 normal
     auto ptr = flat.data_ptr<float>();
     auto out_ptr = result.data_ptr<uint8_t>();
     for (int64_t i = 0; i < flat.numel(); ++i) {
@@ -147,17 +147,21 @@ static torch::Tensor Float32ToFp8E4M3(const torch::Tensor &self) {
                 mant = std::clamp(mant, 1, 7);
                 enc = (sign << 7) | mant;
             } else {
-                float log2v = std::log2(absv);
-                int exp = static_cast<int>(std::round(log2v + 7.0f));
-                exp = std::clamp(exp, 1, 14);
-                float scale = std::exp2(static_cast<float>(exp - 7));
-                int mant = static_cast<int>(std::round((absv / scale - 1.0f) * 8.0f));
+                int exp_raw;
+                float frac = std::frexp(absv, &exp_raw); // absv = frac * 2^exp_raw, frac ∈ [0.5, 1)
+                float norm_mant = frac * 2.0f;           // ∈ [1, 2)
+                int unbiased_exp = exp_raw - 1;          // because absv = norm_mant * 2^(unbiased_exp)
+                int stored_exp = unbiased_exp + 7;
+                stored_exp = std::clamp(stored_exp, 1, 14);
+                int mant = static_cast<int>(std::round((norm_mant - 1.0f) * 8.0f));
                 mant = std::clamp(mant, 0, 7);
-                enc = (sign << 7) | (exp << 3) | mant;
+                enc = (sign << 7) | (stored_exp << 3) | mant;
             }
         }
         out_ptr[i] = enc;
     }
+    auto i = result.reshape(x.sizes());
+    std::cout << i << std::endl;
     return result.reshape(x.sizes());
 }
 
@@ -166,9 +170,9 @@ static torch::Tensor Float32ToFp8E5M2(const torch::Tensor &self) {
     auto x = self.to(torch::kFloat32).contiguous();
     auto flat = x.flatten();
     auto result = torch::empty_like(flat, torch::TensorOptions().dtype(torch::kUInt8));
-    constexpr float kMinSubnormal = 1.0f / 65536.0f;  // 2^-16
-    constexpr float kMinNormal = 1.0f / 16384.0f;     // 2^-14
-    constexpr float kMaxVal = 57344.0f;               // 2^15 * 1.75
+    constexpr float kMinSubnormal = 1.0f / 65536.0f; // 2^-16
+    constexpr float kMinNormal = 1.0f / 16384.0f;    // 2^-14
+    constexpr float kMaxVal = 57344.0f;              // 2^15 * 1.75
     auto ptr = flat.data_ptr<float>();
     auto out_ptr = result.data_ptr<uint8_t>();
     for (int64_t i = 0; i < flat.numel(); ++i) {
@@ -236,15 +240,11 @@ static torch::Tensor Float32ToFp8E8M0(const torch::Tensor &self) {
 torch::Tensor Float32ToFp8(const torch::Tensor &self, DataType actualType) {
     switch (actualType) {
         case DT_FP8:
-        case DT_FP8E4M3:
-            return Float32ToFp8E4M3(self);
-        case DT_FP8E5M2:
-            return Float32ToFp8E5M2(self);
-        case DT_FP8E8M0:
-            return Float32ToFp8E8M0(self);
-        default:
-            return self.to(torch::kUInt8);
+        case DT_FP8E4M3: return Float32ToFp8E4M3(self);
+        case DT_FP8E5M2: return Float32ToFp8E5M2(self);
+        case DT_FP8E8M0: return Float32ToFp8E8M0(self);
+        default: return self.to(torch::kUInt8);
     }
 }
 
-}  // namespace npu::tile_fwk
+} // namespace npu::tile_fwk

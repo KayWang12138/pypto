@@ -43,6 +43,14 @@ static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t
 #define ASSERT_ALLCLOSE_ATOL(lhs, rhs, atol) \
     ASSERT(calc::AllClose(lhs, rhs, atol, 1e-5)) << "lhs:\n" << lhs->ToString() << "\nrhs:\n" << rhs->ToString() << "\n"
 
+// Compare FP8 output with golden: Cast FP8 to FP32 first to avoid GetElement crash on FP8 (raw_tensor_data lacks FP8 support)
+#define ASSERT_FP8_ALLCLOSE_ATOL(fp8_out, golden, atol) \
+    do { \
+        auto _out_f32 = makeTensorData(DT_FP32, fp8_out->GetShape(), 0.0f); \
+        calc::Cast(_out_f32, fp8_out); \
+        ASSERT_ALLCLOSE_ATOL(_out_f32, golden, atol); \
+    } while (0)
+
 class InterpTypeConvertTest : public testing::Test {
 public:
     void SetUp() override {
@@ -113,6 +121,84 @@ TEST_F(InterpTypeConvertTest, Fp8SubnormalSameBitsDifferentFormats) {
     ASSERT_ALLCLOSE_ATOL(e5m2_out, golden_e5m2, 1e-10f); // 更小值，需更紧容差或用 rel tol
     ASSERT_ALLCLOSE_ATOL(e8m0_out, golden_e8m0, 1e-22f);
 }
+// ToOperand: Float32 -> FP8 encoding (used when writing calc results to FP8 storage).
+// Each operation: same binary input (0x55), verify for all three FP8 types. 0x55 decodes to:
+//   E4M3: 13.0,  E5M2: 80.0,  E8M0: 4194304
+TEST_F(InterpTypeConvertTest, Fp8_ToOperand) {
+    constexpr uint8_t kBits = 0x55;
+    const DataType fp8_types[] = {DT_FP8E4M3, DT_FP8E5M2, DT_FP8E8M0};
+    const float golden_per_type[3] = {13.0f, 80.0f, 4194304.0f};
+
+    // Cast: same FP32 input 2.0 -> E4M3/E5M2/E8M0 (output type varies)
+    // {
+    //     auto fp32_src = makeTensorData(DT_FP32, {4, 4}, 2.0f);
+    //     auto golden = makeTensorData(DT_FP32, {4, 4}, 2.0f);
+    //     for (DataType dtype : fp8_types) {
+    //         auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+    //         calc::Cast(out, fp32_src);
+    //         ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-1);
+    //     }
+    // }
+    // AddS: same binary 0x55 + 0 -> E4M3/E5M2/E8M0 (each format decodes 0x55 differently)
+    {
+        for (size_t i = 0; i < 3; ++i) {
+            std::cout << "loop: " << i << std::endl;
+            DataType dtype = fp8_types[i];
+            auto self = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kBits));
+            auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+            auto golden = makeTensorData(DT_FP32, {4, 4}, golden_per_type[i]);
+            calc::AddS(out, self, Element(DT_FP32, 0.0f));
+            ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-5);
+        }
+    }
+    // Neg: same binary 0x55 -> E4M3/E5M2/E8M0
+    {
+        for (size_t i = 0; i < 3; ++i) {
+            DataType dtype = fp8_types[i];
+            auto self = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kBits));
+            auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+            auto golden = makeTensorData(DT_FP32, {4, 4}, -golden_per_type[i]);
+            calc::Neg(out, self);
+            ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-5);
+        }
+    }
+    // Exp: same binary 0x55 -> E4M3/E5M2/E8M0
+    {
+        for (size_t i = 0; i < 3; ++i) {
+            DataType dtype = fp8_types[i];
+            auto self = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kBits));
+            auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+            auto golden = makeTensorData(DT_FP32, {4, 4}, std::exp(golden_per_type[i]));
+            calc::Exp(out, self);
+            ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-1);
+        }
+    }
+    // Sqrt: same FP32 input 4.0 -> E4M3/E5M2/E8M0
+    {
+        auto fp32_src = makeTensorData(DT_FP32, {4, 4}, 4.0f);
+        auto golden = makeTensorData(DT_FP32, {4, 4}, 2.0f);
+        for (DataType dtype : fp8_types) {
+            auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+            calc::Sqrt(out, fp32_src);
+            ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-1);
+        }
+    }
+    // Mul: same binary 0x55 * 0x01 -> E4M3/E5M2/E8M0 (0x01 decodes to 1/512, 1/65536, 2^(-62) resp.)
+    {
+        constexpr uint8_t kB = 0x01;
+        const float factor_per_type[3] = {1.0f / 512.0f, 1.0f / 65536.0f, std::exp2(-62.0f)};
+        for (size_t i = 0; i < 3; ++i) {
+            DataType dtype = fp8_types[i];
+            auto a = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kBits));
+            auto b = makeTensorData(dtype, {4, 4}, static_cast<uint8_t>(kB));
+            auto out = makeTensorData(dtype, {4, 4}, std::vector<uint8_t>(16, 0));
+            auto golden = makeTensorData(DT_FP32, {4, 4}, golden_per_type[i] * factor_per_type[i]);
+            calc::Mul(out, a, b);
+            ASSERT_FP8_ALLCLOSE_ATOL(out, golden, 1e-5);
+        }
+    }
+}
+
 // FP8 E4M3 special values: +0(0x00), -0(0x80), +Inf(0x7E), -Inf(0xFE), NaN(0x7F)
 TEST_F(InterpTypeConvertTest, Fp8SpecialValues) {
     struct {
