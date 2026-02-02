@@ -102,15 +102,15 @@
                 {
                     "name": "input0",
                     "shape": [
-                        4,
-                        10
+                        4096,
+                        512
                     ],
                     "dtype": "fp32",
                     "format": "ND",
                     "need_trans": false,
                     "data_range": {
-                        "min": -10,
-                        "max": 10
+                        "min": -10000,
+                        "max": 10000
                     }
                 }
             ],
@@ -118,8 +118,8 @@
                 {
                     "name": "output0",
                     "shape": [
-                        4,
-                        10
+                        4096,
+                        512
                     ],
                     "dtype": "fp32",
                     "format": "ND",
@@ -127,12 +127,12 @@
                 }
             ],
             "view_shape": [
-                2,
-                2
+                471,
+                13
             ],
             "tile_shape": [
-                2,
-                1
+                256,
+                64
             ],
             "params": {
                 "axis": 1,
@@ -149,15 +149,15 @@
                 {
                     "name": "input0",
                     "shape": [
-                        4,
-                        10
+                        256,
+                        7168
                     ],
                     "dtype": "fp32",
                     "format": "ND",
                     "need_trans": false,
                     "data_range": {
-                        "min": -10,
-                        "max": 10
+                        "min": -10000,
+                        "max": 10000
                     }
                 }
             ],
@@ -165,8 +165,8 @@
                 {
                     "name": "output0",
                     "shape": [
-                        4,
-                        10
+                        256,
+                        7168
                     ],
                     "dtype": "fp32",
                     "format": "ND",
@@ -174,15 +174,15 @@
                 }
             ],
             "view_shape": [
-                2,
-                2
+                75,
+                2534
             ],
             "tile_shape": [
-                2,
-                2
+                32,
+                512
             ],
             "params": {
-                "axis": 0,
+                "axis": -2,
                 "on_board": true,
                 "func_id": -1
             },
