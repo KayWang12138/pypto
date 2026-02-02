@@ -15,7 +15,7 @@ import sys
 from numpy.testing import assert_allclose
 import torch
 import numpy as np
-from deepseekv4_compressor_impl import compressor_graph
+from compressor_impl import compressor_graph
 
 
 np.random.seed(0)
