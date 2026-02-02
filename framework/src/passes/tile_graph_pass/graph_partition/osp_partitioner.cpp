@@ -17,9 +17,6 @@
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_check/iso_partitioner_checker.h"
 
-#include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.hpp"
-#include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
-#include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.hpp"
 #include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
 #include "passes/algorithms/osp/bsp/model/util/SetSchedule.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/BspLocking.hpp"
