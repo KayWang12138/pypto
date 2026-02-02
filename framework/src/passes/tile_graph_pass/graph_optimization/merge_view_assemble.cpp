@@ -24,6 +24,7 @@ namespace npu::tile_fwk {
 Status MergeViewAssemble::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start MergeViewAssemble.");
     Status status = mergeView.Initialize();
+    assembleOpToAppend_.clear();
     if (status != SUCCESS)
     {
         APASS_LOG_ERROR_F(Elements::Function, "MergeViewAssemble initialization failed.");
