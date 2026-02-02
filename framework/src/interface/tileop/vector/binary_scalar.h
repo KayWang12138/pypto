@@ -60,6 +60,10 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
         pto::TORS(dst, src0, src1);
         return;
     }
+
+    if constexpr (op == BinaryScalarOp::MOD) {
+        pto::TREMS(dst, src0, src1);
+    }
 }
 
 template <BinaryScalarOp op, typename T0, typename T1, typename Scalar>
@@ -133,6 +137,12 @@ TILEOP void TBitwiseOrS(T0 dst, T1 src0, Scalar src1) {
 #define OP_TILE_OP_MODS TModS
 template <typename Scalar, typename T0, typename T1, typename T2>
 TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
+    BinaryScalarCompute<BinaryScalarOp::MOD>(dst, src0, src1);
+}
+
+// #define OP_TILE_OP_MODS TModS
+template <typename Scalar, typename T0, typename T1, typename T2>
+TILEOP void TModS_origin(T0 dst, T1 src0, Scalar src1, T2 tmp) {
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     const auto src0Layout = src0.GetLayout();
