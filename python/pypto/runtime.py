@@ -11,6 +11,7 @@
 """
 """
 import os
+import time
 from contextlib import contextmanager
 from enum import IntEnum
 from typing import List, overload
@@ -159,6 +160,7 @@ class _JIT:
             self.runtime_options['stitch_cfgcache_size'] = 100000000
 
     def __call__(self, *args, **kwargs):
+        start_time = time.perf_counter()
         if len(args) < 1:
             raise ValueError("at least one tensor is required")
 
@@ -185,21 +187,35 @@ class _JIT:
             self.kernel_warmup(device, tensors, argtype, *args, **kwargs)
             kernel, ctrcache = self.get_cached_kernel(device, tensors, argtype, cfshape, *args, **kwargs)
             if run_mode == RunMode.NPU:
-                self.run_npu(device, kernel, ctrcache, start_args)
+                duration, duration2 = self.run_npu(device, kernel, ctrcache, start_args, start_time)
+                end_time1 = time.perf_counter()
+                duration1 = (end_time1 - start_time) * 1e6
+                print(f"------------ C++ host time(include call): {duration2:.2f} μs")
+                print(f"============ python call = [C++ host time(include call)] - [C++ function cost]")
+                print(f"------------ python host time(exl call): {duration:.2f} μs")
+                print(f"============ all python host time = [python call] + [python host time(exl call)]")
+                print(f"------------ python + c++ host time: {duration1:.2f} μs")
             else:
                 self.run_cpu(kernel, tensors)
 
     @staticmethod
-    def run_npu(device, kernel, ctrl_cache, start_args):
+    def run_npu(device, kernel, ctrl_cache, start_args, start_time):
         import torch
         with _change_device(device):
             if device.type == 'npu':
                 workspace_size = pypto_impl.GetWorkSpaceSize(kernel, start_args, [])
+                end_time = time.perf_counter()
+                duration = (end_time - start_time) * 1e6
+
                 workspace_tensor = torch.empty(workspace_size, dtype=torch.uint8, device=device)
+                start_time2 = time.perf_counter()
                 pypto_impl.OperatorDeviceRunOnceDataFromDevice(kernel,
                     start_args, [], _current_stream(), workspace_tensor.data_ptr(), ctrl_cache)
+                end_time2 = time.perf_counter()
+                duration2 = (end_time2 - start_time2) * 1e6
             else:
                 pypto_impl.DeviceRunOnceDataFromHost(start_args, [])
+        return duration, duration2
 
     @staticmethod
     def run_cpu(kernel, tensors):
