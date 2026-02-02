@@ -437,16 +437,16 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
     convTileInfo.orgWout = 8;
     if (convAttrParam.isInOutTensorNZ) {
         convTileInfo.orgCout = convAttrParam.oriweightShape[0];
-        convTileInfo.orgkh = convAttrParam.oriweightShape[2];
-        convTileInfo.orgkw = convAttrParam.oriweightShape[3];
+        convTileInfo.orgKh = convAttrParam.oriweightShape[2];
+        convTileInfo.orgKw = convAttrParam.oriweightShape[3];
         convTileInfo.orgCin = tensorGraphNodes.fmapTensorPtr->shape[1] * tensorGraphNodes.fmapTensorPtr->shape[4];
     } else {
         convTileInfo.orgCout = tensorGraphNodes.weightTensorPtr->shape[0];
-        convTileInfo.orgkh = tensorGraphNodes.weightTensorPtr->shape[2];
-        convTileInfo.orgkw = tensorGraphNodes.weightTensorPtr->shape[3];
+        convTileInfo.orgKh = tensorGraphNodes.weightTensorPtr->shape[2];
+        convTileInfo.orgKw = tensorGraphNodes.weightTensorPtr->shape[3];
         convTileInfo.orgCin = tensorGraphNodes.fmapTensorPtr->shape[1];
     }
-    convTileInfo.orgK = convTileInfo.orgCin * convTileInfo.orgkh * convTileInfo.orgkw;
+    convTileInfo.orgK = convTileInfo.orgCin * convTileInfo.orgKh * convTileInfo.orgKw;
     convTileInfo.orgHoutWout = convTileInfo.orgHout * convTileInfo.orgWout;
     // set tileshape info
     // auto &convTile = tileShape.GetConvTile();
@@ -704,7 +704,7 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
                 for (iterInfo.hL1OutOffset = 0; iterInfo.hL1OutOffset < convTileInfo.orgHout; iterInfo.hL1OutOffset += convTileInfo.hAL1Out) {
                     for (iterInfo.wL1OutOffset = 0; iterInfo.wL1OutOffset < convTileInfo.orgWout; iterInfo.wL1OutOffset += convTileInfo.wAL1Out) {
                         iterInfo.aL1UpadateFlag = true;
-                        // int64_t dilatedKernelH = (convTileInfo.orgkh - 1) * convAttrParam.dilations[0] + 1;
+                        // int64_t dilatedKernelH = (convTileInfo.orgKh - 1) * convAttrParam.dilations[0] + 1;
                         UpdateL1IterInfo(convTileInfo, iterInfo, convAttrParam);
                         // set res tile
                         // tileGraphNodes.resTensorPtr =
