@@ -53,10 +53,7 @@ public:
 TEST_F(TestCodegenForLoop, TestForLoop) {
     std::vector<int64_t> shape = {2, 2, 2, 8};
     std::vector<int64_t> tile_shape = {2, 2, 2, 8};
-    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
-        config::SetPassGlobalConfig(KEY_VF_OPT_MARK_FOR, false);
-        return;
-    }
+    Platform::Instance().GetSoc().SetNPUArch() == NPUArch::DAV_3510;
 
     TileShape::Current().SetVecTile(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
