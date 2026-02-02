@@ -20,16 +20,16 @@ namespace tile_fwk {
 Status CommonOperationEliminateChecker::DoPreCheck(Function &function) {
     ALOG_INFO_F("PreCheck for CommonOperationEliminate.");
     for (auto &op : function.Operations().DuplicatedOpList()) {
+        if (op->GetOpcode() == Opcode::OP_SHMEM_GET_GM2UB) {
+                continue;
+            }
         if (op->GetOpAttribute() != nullptr) {
             size_t fromOffsetSize = -1;
             if (auto viewOpAttribute = dynamic_cast<ViewOpAttribute*>(op->GetOpAttribute().get())) {
                 auto &fromOffset = viewOpAttribute->GetFromOffset();
-                fromOffsetSize = fromOffset.size();
+                fromOffsetSize = fromOffset.size(); 
             } else if (auto copyOpAttribute = dynamic_cast<CopyOpAttribute*>(op->GetOpAttribute().get())) {
                 if (copyOpAttribute->IsCopyOut()) {
-                    continue;
-                }
-                if (op->GetOpcode() == Opcode::OP_SHMEM_GET_GM2UB) {
                     continue;
                 }
                 auto [fromOffset, memType] = copyOpAttribute->GetCopyInAttr();
