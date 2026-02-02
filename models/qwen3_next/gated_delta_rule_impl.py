@@ -92,9 +92,9 @@ def pre_attn(
     key_beta = key_view_2d * beta_view  # [L,D]
     # kkt
     kkt = pypto.matmul(key_beta, key_view_2d, pypto.DT_FP32, b_trans=True)  # [L,L]
-    A = kkt * decay_mask * mask  # [L,L]
+    a = kkt * decay_mask * mask  # [L,L]
 
-    return gate_cum, decay_mask, A, key_beta
+    return gate_cum, decay_mask, a, key_beta
 
 
 def inverse_pto(attn: pypto.Tensor, eye: pypto.Tensor, size: int) -> pypto.Tensor:
@@ -128,13 +128,16 @@ def inverse_pto(attn: pypto.Tensor, eye: pypto.Tensor, size: int) -> pypto.Tenso
 
     attn_4_inv_list = []
     for i in range(4):
-        attn_4_inv_list.append(inverse_matmul(attn, attn_8_8_inv_list[i*2], attn_8_8_inv_list[i*2+1], min_length*i*2, min_length*i*2, min_length))
+        attn_4_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_8_8_inv_list[i*2],
+            attn_2_2_inv=attn_8_8_inv_list[i*2+1], x_ofs=min_length*i*2, y_ofs=min_length*i*2, m_len=min_length))
 
     attn_2_inv_list = []
     for i in range(2):
-        attn_2_inv_list.append(inverse_matmul(attn, attn_4_inv_list[i*2], attn_4_inv_list[i*2+1], min_length*i*4, min_length*i*4, min_length*2))
+        attn_2_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_4_inv_list[i*2],
+            attn_2_2_inv=attn_4_inv_list[i*2+1], x_ofs=min_length*i*4, y_ofs=min_length*i*4, m_len=min_length*2))
 
-    attn_inv = inverse_matmul(attn, attn_2_inv_list[0], attn_2_inv_list[1], 0, 0, min_length*4)
+    attn_inv = inverse_matmul(attn=attn, attn_1_1_inv=attn_2_inv_list[0],
+        attn_2_2_inv=attn_2_inv_list[1], x_ofs=0, y_ofs=0, m_len=min_length*4)
     return attn_inv
 
 
@@ -170,7 +173,7 @@ def inverse_pto_min_length(
 
     for i in range(2, row_num, 1):
         # Add 0.0 to enable attn_inv_cur to enter the UB in advance
-        attn_inv_cur = attn_inv_list[i - 1] + 0.0
+        attn_inv_cur = attn_inv_list.get(i - 1) + 0.0
         row = attn_dim1.view([1, col_num], [i, 0])
         row_expand = attn_dim0_trans.view([size * i, 1], [0, i])
         attn_inv_cur_reshape = attn_inv_cur.reshape([size * i, row_num])
@@ -181,19 +184,12 @@ def inverse_pto_min_length(
 
         attn_inv_list[i] = pypto.concat([attn_inv_cur, attn_update], dim=0)
 
-    res = attn_inv_list[row_num - 1] + eye
+    res = attn_inv_list.get(row_num - 1) + eye
 
     return res
 
 
-def inverse_matmul(
-    attn: pypto.Tensor,
-    attn_1_1_inv: pypto.Tensor,
-    attn_2_2_inv: pypto.Tensor,
-    x_ofs: int,
-    y_ofs: int,
-    len: int,
-) -> pypto.Tensor:
+def inverse_matmul(**kwargs) -> pypto.Tensor:
     """
     Calculate inverse of small matrix.
 
@@ -210,16 +206,23 @@ def inverse_matmul(
     ---------
     attn_inv: [len * 2, len * 2]
     """
+    attn = kwargs.get("attn")
+    attn_1_1_inv = kwargs.get("attn_1_1_inv")
+    attn_2_2_inv = kwargs.get("attn_2_2_inv")
+    x_ofs = kwargs.get("x_ofs")
+    y_ofs = kwargs.get("y_ofs")
+    m_len = kwargs.get("m_len")
+
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
 
-    attn_2_1 = attn.view([len, len], [x_ofs + len, y_ofs])
+    attn_2_1 = attn.view([m_len, m_len], [x_ofs + m_len, y_ofs])
 
     attn_2_1_inv = (attn_2_2_inv @ attn_2_1) @ attn_1_1_inv
 
-    attn_inv = pypto.tensor([len * 2, len * 2], dtype=attn_1_1_inv.dtype)
-    attn_inv[0:len, 0:len] = attn_1_1_inv
-    attn_inv[len : len * 2, 0:len] = attn_2_1_inv
-    attn_inv[len : len * 2, len : len * 2] = attn_2_2_inv
+    attn_inv = pypto.tensor([m_len * 2, m_len * 2], dtype=attn_1_1_inv.dtype)
+    attn_inv[0:m_len, 0:m_len] = attn_1_1_inv
+    attn_inv[m_len : m_len * 2, 0:m_len] = attn_2_1_inv
+    attn_inv[m_len : m_len * 2, m_len : m_len * 2] = attn_2_2_inv
 
     return attn_inv
 
@@ -261,16 +264,7 @@ def cal_value_and_key_cumdecay(
     return value_out, key_cum_out
 
 
-def recurrent_state_attn_all(
-    query: pypto.Tensor,
-    key: pypto.Tensor,
-    value: pypto.Tensor,
-    k_cumdecay: pypto.Tensor,
-    gate: pypto.Tensor,
-    state: pypto.Tensor,
-    decay_mask: pypto.Tensor,
-    tril: pypto.Tensor,
-) -> tuple[pypto.Tensor, pypto.Tensor]:
+def recurrent_state_attn_all(**kwargs) -> tuple[pypto.Tensor, pypto.Tensor]:
     """
     Calculate attention.
 
@@ -290,12 +284,21 @@ def recurrent_state_attn_all(
     chunk_attn_out: [L, D]
     state_new:[Dv, Dk]
     """
-    Dv = value.shape[-1]
-    L = gate.shape[0]
+    query = kwargs.get("query")
+    key = kwargs.get("key")
+    value = kwargs.get("value")
+    k_cumdecay = kwargs.get("k_cumdecay")
+    gate = kwargs.get("gate")
+    state = kwargs.get("state")
+    decay_mask = kwargs.get("decay_mask")
+    tril = kwargs.get("tril")
+
+    dv = value.shape[-1]
+    l = gate.shape[0]
     gate_exp = gate.exp()
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
     pypto.set_vec_tile_shapes(64, 128)
-    _last_gate_1 = gate[L - 1 : L, :]
+    _last_gate_1 = gate[l - 1 : l, :]
     kgexp = key * (_last_gate_1 - gate).exp()  # [L, Dk]
     qgexp = query * gate_exp
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [64, 64])
@@ -306,7 +309,7 @@ def recurrent_state_attn_all(
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
     temp_matmul_value = pypto.matmul(value, kgexp, pypto.DT_FP32, a_trans=True)  # [Dv, L] @ [L, Dk] = [L, Dk]
     attn = pypto.matmul(query, key, pypto.DT_FP32, b_trans=True)  # [L, Dk] @ [Dk, L] = [L, L]
-    _last_gate_2 = pypto.expand_clone(gate_exp[L-1:L, :], (Dv, 1))  # [Dv, 1]
+    _last_gate_2 = pypto.expand_clone(gate_exp[l-1:l, :], (dv, 1))  # [Dv, 1]
     final_state_1 = state * _last_gate_2
     state_new = final_state_1 + temp_matmul_value - temp_matmul_vprime
     attn_tmp = attn * decay_mask * tril  # [L, L]
@@ -323,22 +326,8 @@ def recurrent_state_attn_all(
         "stitch_function_num_initial": 128,
         "stitch_function_outcast_memory": 128 * 32,
     },
-    # debug_options={"runtime_debug_mode": 1},
 )
-def chunk_gated_delta_rule(
-    query,
-    key,
-    value,
-    beta,
-    gate,
-    states,
-    mask,
-    tril_mask,
-    eye,
-    act_seq_len,
-    core_attn_out,
-    last_state_data,
-):
+def chunk_gated_delta_rule(*args):
     """
     Chunk Gated Delta Rule fused operator.
 
@@ -361,51 +350,67 @@ def chunk_gated_delta_rule(
     core_attn_out : Output attention tensor, shape [T, Nv, D], dtype float32
     last_state_data : Output updated states, shape [B, Nv, D, D], dtype float32
     """
-    _, Nqk, D = query.shape
-    _, Nv, D = value.shape
-    B = states.shape[0]
-    L, L = mask.shape
-    group = Nv // Nqk
-    for b_idx in pypto.loop(B, name="LOOP_B_TND", idx_name="b_idx"):
-        S = act_seq_len[b_idx + 1] - act_seq_len[b_idx]
+    query = args[0]
+    key = args[1]
+    value = args[2]
+    beta = args[3]
+    gate = args[4]
+    states = args[5]
+    mask = args[6]
+    tril_mask = args[7]
+    eye = args[8]
+    act_seq_len = args[9]
+    core_attn_out = args[10]
+    last_state_data = args[11]
+
+    _, nqk, d = query.shape
+    _, nv, d = value.shape
+    b = states.shape[0]
+    l, l = mask.shape
+    group = nv // nqk
+    for b_idx in pypto.loop(b, name="LOOP_B_TND", idx_name="b_idx"):
+        s = act_seq_len[b_idx + 1] - act_seq_len[b_idx]
         b_ofs = act_seq_len[b_idx]
-        for nv_idx in pypto.loop(Nv, name="LOOP_Nv_TND", idx_name="nv_idx"):
+        for nv_idx in pypto.loop(nv, name="LOOP_Nv_TND", idx_name="nv_idx"):
             nqk_idx = nv_idx // group
             pypto.set_vec_tile_shapes(16, 16, 128, 128)
             last_state = states[b_idx, nv_idx]
-            for s_idx in pypto.loop(0, S, L, name="LOOP_S_TND", idx_name="s_idx"):
+            for s_idx in pypto.loop(0, s, l, name="LOOP_S_TND", idx_name="s_idx"):
                 bs_ofs = b_ofs + s_idx
-                actual_L = (S - s_idx).min(L)
+                actual_l = (s - s_idx).min(l)
                 ## view
-                query_view = pypto.view(query, [L, 1, D], [bs_ofs, nqk_idx, 0], valid_shape =[actual_L, 1, D])
-                key_view = pypto.view(key, [L, 1, D], [bs_ofs, nqk_idx, 0], valid_shape =[actual_L, 1, D])
-                value_view = pypto.view(value, [L, 1, D], [bs_ofs, nv_idx, 0], valid_shape =[actual_L, 1, D])
-                beta_view = pypto.view(beta, [L, 1], [bs_ofs, nv_idx], valid_shape =[actual_L, 1])
-                gate_view = pypto.view(gate, [L, 1], [bs_ofs, nv_idx], valid_shape =[actual_L, 1])
+                query_view = pypto.view(query, [l, 1, d], [bs_ofs, nqk_idx, 0], valid_shape=[actual_l, 1, d])
+                key_view = pypto.view(key, [l, 1, d], [bs_ofs, nqk_idx, 0], valid_shape=[actual_l, 1, d])
+                value_view = pypto.view(value, [l, 1, d], [bs_ofs, nv_idx, 0], valid_shape=[actual_l, 1, d])
+                beta_view = pypto.view(beta, [l, 1], [bs_ofs, nv_idx], valid_shape=[actual_l, 1])
+                gate_view = pypto.view(gate, [l, 1], [bs_ofs, nv_idx], valid_shape=[actual_l, 1])
 
                 pypto.set_vec_tile_shapes(128, 128, 128)
-                query_view_2d = pypto.reshape(query_view, [L, D], valid_shape=[actual_L, D])
-                key_view_2d = pypto.reshape(key_view, [L, D], valid_shape=[actual_L, D])
-                value_view_2d = pypto.reshape(value_view, [L, D], valid_shape=[actual_L, D])
+                query_view_2d = pypto.reshape(query_view, [l, d], valid_shape=[actual_l, d])
+                key_view_2d = pypto.reshape(key_view, [l, d], valid_shape=[actual_l, d])
+                value_view_2d = pypto.reshape(value_view, [l, d], valid_shape=[actual_l, d])
 
                 # compute
                 # qk_l2norm
                 query_norm, key_norm = l2norm(query_view_2d, key_view_2d)
-                scale = 1 / D**0.5
+                scale = 1 / d**0.5
                 query_scale = query_norm * scale
 
                 # kv_beta & g_cumsum & decay_mask & pre_attn
-                gate_cum, decay_mask, A_block, key_beta = pre_attn(gate_view, key_norm, beta_view, tril_mask, mask)
+                gate_cum, decay_mask, a_block, key_beta = pre_attn(gate_view, key_norm, beta_view, tril_mask, mask)
 
                 # inverse
-                A_block_inverse = inverse_pto(A_block, eye, 128)
+                a_block_inverse = inverse_pto(a_block, eye, 128)
 
                 # cal_value_and_keycumdecay
-                value_out, key_cum_out = cal_value_and_key_cumdecay(A_block_inverse, value_view_2d, beta_view, key_beta, gate_cum)
+                value_out, key_cum_out = cal_value_and_key_cumdecay(a_block_inverse, value_view_2d,
+                    beta_view, key_beta, gate_cum)
 
-                chunk_attn_out, cur_state = recurrent_state_attn_all(query_scale, key_norm, value_out, key_cum_out, gate_cum, last_state, decay_mask, tril_mask)
+                chunk_attn_out, cur_state = recurrent_state_attn_all(query=query_scale, key=key_norm, value=value_out,
+                    k_cumdecay=key_cum_out, gate=gate_cum, state=last_state, decay_mask=decay_mask, tril=tril_mask)
 
                 # assemble
+                pypto.set_vec_tile_shapes(16, 16, 128, 128)
                 last_state[:] = cur_state
-                core_attn_out[bs_ofs : bs_ofs + L, nv_idx] = chunk_attn_out
+                core_attn_out[bs_ofs : bs_ofs + l, nv_idx] = chunk_attn_out
                 last_state_data[b_idx, nv_idx] = last_state
