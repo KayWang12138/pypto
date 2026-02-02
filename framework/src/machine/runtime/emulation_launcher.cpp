@@ -65,7 +65,7 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
     ALOG_DEBUG_F("!!! Emulation Launch\n");
     DeviceKernelArgs kArgs;
     DeviceLauncher::DeviceInitDistributedContextToHost(function->GetDyndevAttribute()->commGroupNames,
- 	                                          function->GetDyndevAttribute()->devProgBinary);
+ 	    function->GetDyndevAttribute()->devProgBinary);
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
                                          ctrlCache, config, nullptr);
     DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
@@ -224,8 +224,10 @@ static void freeHostTensorData(const std::vector<DeviceTensorData> &hostDataList
 int EmulationLauncher::EmulationLaunchDeviceTensorData(Function *function,
     const std::vector<DeviceTensorData> &inDevList, const std::vector<DeviceTensorData> &outDevList,
     const DeviceLauncherConfig &config) {
+    DeviceLauncher::ChangeCaptureModeRelax();
     auto inList = toHostTensorData(inDevList, true);
     auto outList = toHostTensorData(outDevList, false);
+    DeviceLauncher::ChangeCaptureModeGlobal();
     int rc = EmulationLaunchOnceWithHostTensorData(function, inList, outList, nullptr, config);
     freeHostTensorData(inList);
     freeHostTensorData(outList);

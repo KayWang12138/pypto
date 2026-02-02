@@ -34,7 +34,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
 
     void TearDown() override {}
@@ -57,7 +57,10 @@ TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvert) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
     IntraSubgraphAdapter adapter;
+    EXPECT_EQ(adapter.PostCheck(*function), FAILED);
+    function->SetTotalSubGraphCount(2);
     adapter.RunOnFunction(*function);
+    EXPECT_EQ(adapter.PostCheck(*function), SUCCESS);
     const int opNum = 4;
     EXPECT_EQ(function->Operations().DuplicatedOpList().size(), opNum);
     const int copyOutIdx = 1;
@@ -85,7 +88,9 @@ TEST_F(IntraSubgraphAdapterTest, TestBoundaryConvertFailed) {
     Function *function = subGraph.GetFunction();
     EXPECT_NE(function, nullptr);
     IntraSubgraphAdapter adapter;
+    function->SetTotalSubGraphCount(2);
     EXPECT_EQ(adapter.RunOnFunction(*function), FAILED);
+    EXPECT_EQ(adapter.PostCheck(*function), FAILED);
 }
 
 TEST_F(IntraSubgraphAdapterTest, TestInnerConvert) {

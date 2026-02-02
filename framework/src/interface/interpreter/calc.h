@@ -46,11 +46,29 @@ inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Neg(out, self);
 }
+inline void Round(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int decimals) {
+    GetCalcOps()->Round(out, self, decimals);
+}
 inline void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Rsqrt(out, self);
 }
 inline void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Sqrt(out, self);
+}
+inline void Ceil(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Ceil(out, self);
+}
+inline void Floor(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Floor(out, self);
+}
+inline void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Trunc(out, self);
+}
+inline void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->Reciprocal(out, self);
+}
+inline void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->BitwiseNot(out, self);
 }
 inline void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Abs(out, self);
@@ -110,6 +128,15 @@ inline void DivS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 inline void FmodS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->FmodS(out, self, scalar, reverse);
 }
+inline void BitwiseAndS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+    GetCalcOps()->BitwiseAndS(out, self, scalar, reverse);
+}
+inline void BitwiseOrS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+    GetCalcOps()->BitwiseOrS(out, self, scalar, reverse);
+}
+inline void BitwiseXorS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
+    GetCalcOps()->BitwiseXorS(out, self, scalar, reverse);
+}
 inline void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Add(out, self, other);
 }
@@ -136,6 +163,33 @@ inline void MinS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 }
 inline void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
     GetCalcOps()->MaxS(out, self, scalar);
+}
+inline void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->BitwiseRightShift(out, self, other);
+}
+inline void BitwiseLeftShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->BitwiseLeftShift(out, self, other);
+}
+inline void BitwiseRightShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    GetCalcOps()->BitwiseRightShiftS(out, self, scalar);
+}
+inline void BitwiseLeftShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    GetCalcOps()->BitwiseLeftShiftS(out, self, scalar);
+}
+inline void SBitwiseRightShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
+    GetCalcOps()->SBitwiseRightShift(out, scalar, other);
+}
+inline void SBitwiseLeftShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
+    GetCalcOps()->SBitwiseLeftShift(out, scalar, other);
+}
+inline void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->BitwiseAnd(out, self, other);
+}
+inline void BitwiseOr(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->BitwiseOr(out, self, other);
+}
+inline void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->BitwiseXor(out, self, other);
 }
 /* used by reducc op, if shape are not same, need masked */
 inline void PairSum(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
@@ -188,6 +242,12 @@ inline void GatherElements(
 inline void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr src,
     LogicalTensorDataPtr indices, int axis, const Element &alpha = Element(DT_FP32, 1.0)) {
     GetCalcOps()->IndexAdd(out, self, src, indices, axis, alpha);
+}
+inline void TriU(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+    GetCalcOps()->TriU(out, in, diagonal);
+}
+inline void TriL(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+    GetCalcOps()->TriL(out, in, diagonal);
 }
 inline void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
     GetCalcOps()->CumSum(out, in, axis);

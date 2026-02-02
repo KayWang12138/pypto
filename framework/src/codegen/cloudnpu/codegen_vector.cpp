@@ -219,8 +219,7 @@ std::string CodeGenOpCloudNPU::PrintTransposeDataMoveLayout(const PrintTranspose
     std::vector<std::string> uselessVector0;
     std::vector<std::string> uselessVector1;
     std::vector<std::string> uselessVector2;
-    std::vector<std::string> gmOffsetExpr =
-        GetGmOffsetForTileTensor({param.gmIdx, param.localIdx, uselessVector0, uselessVector1, uselessVector2, false});
+    std::vector<std::string> gmOffsetExpr = GetGmOffsetForTileTensor(param.gmIdx);
     std::string coordCp = WrapParamByParentheses(gmOffsetExpr);
     int dim = static_cast<int>(rawShape[param.gmIdx].size());
     std::string coord = "Coord" + std::to_string(dim) + DIM + coordCp;
@@ -642,7 +641,7 @@ std::string CodeGenOpCloudNPU::PrintIndexPutDynamicUnaligned(const PrintIndexPut
     auto paramPack = GenParamIdxExprByIndex(ID0, dim, PREFIX_STR_RAW_SHAPE);
     FillIntVecWithDummyInHead<std::string>(paramPack, ID4 - dim, "1");
     bool accumulate = param.accumulate;
-    
+
     // template param
     std::vector<std::string> paramList;
     paramList.insert(paramList.end(), {dataTypeExpr[ID1], dataTypeExpr[ID3]});
@@ -691,7 +690,8 @@ std::string CodeGenOpCloudNPU::PrintIndexPutLayout(size_t indicesSize, bool accu
         }
     }
     std::ostringstream oss;
-    oss << tileOpName << "<" << accumulate << ", " << indicesSize << ">" << WrapParamByParentheses(paramList) << STMT_END;
+    oss << tileOpName << "<" << accumulate << ", " << indicesSize << ">" << WrapParamByParentheses(paramList)
+        << STMT_END;
     return oss.str();
 }
 
@@ -729,7 +729,8 @@ std::string CodeGenOpCloudNPU::GenIndexPutOp() const {
     return PrintIndexPut({dstVar, s1Var, s2Var, gmShape, src1RawShape, dataTypeExpr, accumulate});
 }
 
-std::string CodeGenOpCloudNPU::PrintRangeTileTensor(const std::string& startVal, const std::string& stepVal, const std::string& tileIdxExpr) const {
+std::string CodeGenOpCloudNPU::PrintRangeTileTensor(
+    const std::string &startVal, const std::string &stepVal, const std::string &tileIdxExpr) const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     auto dstValidShape = dynamicValidShape[ToUnderlying(MISOIdx::DST_IDX)];
     std::vector<std::string> paramList = {
@@ -964,6 +965,31 @@ std::string CodeGenOpCloudNPU::GenCumSumOp() const {
     }
 }
 
+std::string CodeGenOpCloudNPU::PrintTriULTileTensor(const std::string &diagonal, bool isUpper) const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::vector<std::string> paramList = {dstTensor, srcTensor, diagonal};
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << isUpper << ">" << WrapParamByParentheses(paramList) << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenTriULOp() const {
+    ASSERT(opAttrs.count(OpAttributeKey::dynScalar)) << "cannot get diagonal attr";
+    ASSERT(opAttrs.count(OpAttributeKey::isUpper)) << "cannot get isUpper attr";
+    auto scalarAny = opAttrs.at(OpAttributeKey::dynScalar);
+    ASSERT((scalarAny.HasValue()) && (scalarAny.Type() == typeid(SymbolicScalar)))
+        << npu::tile_fwk::AnyCast<SymbolicScalar>(scalarAny).IsValid() << "diagonal must have symbolic value.";
+    auto scalarExpr = npu::tile_fwk::AnyCast<SymbolicScalar>(scalarAny);
+    
+    std::string diagonal = "(int)(" + SymbolicExpressionTable::BuildExpression(scalarExpr) + ")";
+    bool isUpper = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OpAttributeKey::isUpper));
+
+    ASSERT(isSupportLayout) << "TriU or TriL only support TileTensor mode";
+    return PrintTriULTileTensor(diagonal, isUpper);
+}
+
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
     // Static only support 2Dim
     int dstRank = shape[ToUnderlying(MISOIdx::DST_IDX)].size();
@@ -1062,8 +1088,8 @@ std::string CodeGenOpCloudNPU::PrintScatterElementSTileTensor(const PrintScatter
     paramList.emplace_back(std::to_string(param.scatterMode));
     std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
     std::ostringstream oss;
-    oss << tileOpName << WrapParamByAngleBrackets(paramList) <<
-        "(" << dstTensor << ", " << src1Tensor << ", (" << scalarDtypeBuffer << ")" << scalarTmpBuffer << ");\n";
+    oss << tileOpName << WrapParamByAngleBrackets(paramList) << "(" << dstTensor << ", " << src1Tensor << ", ("
+        << scalarDtypeBuffer << ")" << scalarTmpBuffer << ");\n";
     return oss.str();
 }
 
@@ -1094,7 +1120,7 @@ std::string CodeGenOpCloudNPU::GenScatterElementSOp() const {
     const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src0DtypeStr, src1DtypeStr};
     if (isSupportLayout) {
         return PrintScatterElementSTileTensor(
-                {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
+            {axis, scatterMode, dstVar, src0Var, src1Var, dstRawShape, src1RawShape, dataTypeExpr});
     }
     if (isDynamicFunction) {
         return PrintScatterElementSOpDynamicUnaligned(
@@ -1157,8 +1183,8 @@ std::string CodeGenOpCloudNPU::PrintScatterTileTensor(const PrintScatterParam &p
     paramList.emplace_back(std::to_string(axis));
     paramList.emplace_back(std::to_string(param.scatterMode));
     std::ostringstream oss;
-    oss << tileOpName << WrapParamByAngleBrackets(paramList) <<
-        WrapParamByParentheses({dstTensor, src1Tensor, src2Tensor, tmpTensor}) << ";\n" ;
+    oss << tileOpName << WrapParamByAngleBrackets(paramList)
+        << WrapParamByParentheses({dstTensor, src1Tensor, src2Tensor, tmpTensor}) << ";\n";
     return oss.str();
 }
 
@@ -1188,7 +1214,7 @@ std::string CodeGenOpCloudNPU::GenScatterOp() const {
     const std::vector<std::string> dataTypeExpr = {dstDtypeStr, src1DtypeStr, src2DtypeStr};
     if (isSupportLayout) {
         return PrintScatterTileTensor(
-                {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
+            {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});
     }
     return PrintScatterOpDynamicUnaligned(
         {axis, scatterMode, dstVar, src1Var, src2Var, dstRawShape, src1RawShape, src2RawShape, dataTypeExpr});

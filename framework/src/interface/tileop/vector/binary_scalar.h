@@ -50,6 +50,16 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
         pto::TMINS(dst, src0, src1);
         return;
     }
+
+    if constexpr (op == BinaryScalarOp::BITWISEAND) {
+        pto::TANDS(dst, src0, src1);
+        return;
+    }
+
+    if constexpr (op == BinaryScalarOp::BITWISEOR) {
+        pto::TORS(dst, src0, src1);
+        return;
+    }
 }
 
 template <BinaryScalarOp op, typename T0, typename T1, typename Scalar>
@@ -61,9 +71,9 @@ TILEOP void BinaryScalarCompute(T0 dst, T1 src0, Scalar src1) {
 
     auto dstTile = PtoTile<T0>(dst);
     auto src0Tile = PtoTile<T1>(src0);
-    for (size_t n0Index = 0; n0Index < shape0; ++n0Index) {
-        for (size_t n1Index = 0; n1Index < shape1; ++n1Index) {
-            for (size_t n2Index = 0; n2Index < shape2; ++n2Index) {
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
                 auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
                 dstTile.Assign(dst, tileOffsets);
                 src0Tile.Assign(src0, tileOffsets);
@@ -108,6 +118,18 @@ TILEOP void TMinS(T0 dst, T1 src0, Scalar src1) {
     BinaryScalarCompute<BinaryScalarOp::MIN>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_BITWISEANDS TBitwiseAndS
+template <typename Scalar, typename T0, typename T1>
+TILEOP void TBitwiseAndS(T0 dst, T1 src0, Scalar src1) {
+    BinaryScalarCompute<BinaryScalarOp::BITWISEAND>(dst, src0, src1);
+}
+
+#define OP_TILE_OP_BITWISEORS TBitwiseOrS
+template <typename Scalar, typename T0, typename T1>
+TILEOP void TBitwiseOrS(T0 dst, T1 src0, Scalar src1) {
+    BinaryScalarCompute<BinaryScalarOp::BITWISEOR>(dst, src0, src1);
+}
+
 #define OP_TILE_OP_MODS TModS
 template <typename Scalar, typename T0, typename T1, typename T2>
 TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
@@ -145,9 +167,9 @@ TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
     Src0TileDefine src0Tile(dstShape3, dstShape4);
 
     using DstType = typename T0::Type;
-    for (size_t n0Index = 0; n0Index < dstShape0; ++n0Index) {
-        for (size_t n1Index = 0; n1Index < dstShape1; ++n1Index) {
-            for (size_t n2Index = 0; n2Index < dstShape2; ++n2Index) {
+    for (LoopVar n0Index = 0; n0Index < dstShape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < dstShape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < dstShape2; ++n2Index) {
                 auto dstOffset = n0Index * dstStride0 + n1Index * dstStride1 + n2Index * dstStride2;
                 auto src0Offset = n0Index * src0Stride0 + n1Index * src0Stride1 + n2Index * src0Stride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dataTypeSize));
@@ -210,5 +232,42 @@ TILEOP void TModS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
             }
         }
     }
+}
+
+template <BinaryScalarOp op, typename T0, typename T1, typename Scalar, typename T2>
+TILEOP void BinaryScalarTmpComputeImpl(T0 dst, T1 src0, Scalar src1, T2 tmp) {
+    if constexpr (op == BinaryScalarOp::BITWISEXOR) {
+        pto::TXORS(dst, src0, src1, tmp);
+        return;
+    }
+}
+
+template <BinaryScalarOp op, typename T0, typename T1, typename Scalar, typename T2>
+TILEOP void BinaryScalarTmpCompute(T0 dst, T1 src0, Scalar src1, T2 tmp) {
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+
+    auto dstTile = PtoTile<T0>(dst);
+    auto src0Tile = PtoTile<T1>(src0);
+    auto tmpTile = PtoTile<T2>(tmp);
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                src0Tile.Assign(src0, tileOffsets);
+                tmpTile.Assign(tmp, tileOffsets);
+                BinaryScalarTmpComputeImpl<op>(dstTile.Data(), src0Tile.Data(), src1, tmpTile.Data());
+            }
+        }
+    }
+}
+
+#define OP_TILE_OP_BITWISEXORS TBitwiseXorS
+template <typename Scalar, typename T0, typename T1, typename T2>
+TILEOP void TBitwiseXorS(T0 dst, T1 src0, Scalar src1, T2 tmp) {
+    BinaryScalarTmpCompute<BinaryScalarOp::BITWISEXOR>(dst, src0, src1, tmp);
 }
 #endif
