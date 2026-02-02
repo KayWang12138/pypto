@@ -36,6 +36,7 @@ enum class UnaryOpType {
     LN,
     HUB,
     BITWISENOT,
+    IS_FINITE,
 };
 
 template <UnaryOpType T>

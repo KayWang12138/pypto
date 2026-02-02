@@ -99,6 +99,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_ROWMINLINE, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ABS, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_LN, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_ISFINITE, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_BRCB, [this]() { return GenUnaryOp(); }},
 
           // unary with temp buffer
