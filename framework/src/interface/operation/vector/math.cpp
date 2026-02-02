@@ -138,19 +138,107 @@ Tensor Log(const Tensor &self, LogBaseType base) {
     return resTensorBeforeCast;
 }
 
-LogicalTensorPtr GenAllOneTensor(const Shape &shape, std::vector<SymbolicScalar> validShape, const DataType &dataType) {
-    auto result = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, 1.0),
-        SymbolicScalar(), DataType::DT_FP32, shape, validShape);
-    if (dataType != DataType::DT_FP32) {
+LogicalTensorPtr GenAllSameTensor(const Tensor &tensor, double value) {
+    auto result = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, value),
+        SymbolicScalar(), DataType::DT_FP32, tensor.GetShape(), tensor.GetValidShape());
+    if (tensor.GetDataType() != DataType::DT_FP32) {
         RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result.GetStorage(),
-            dataType, CastMode::CAST_NONE);
+            tensor.GetDataType(), CastMode::CAST_NONE);
     }
     return result.GetStorage();
 }
 
+Tensor IsIntCondition(const Tensor &tensor) {
+    auto abs = Abs(tensor);
+    auto floor = Floor(abs);
+    auto delta = Sub(abs, floor);
+    return Compare(delta, Element(DataType::DT_FP32, NUM_VALUE_0), OpType::EQ, OutType::BOOL);
+}
+
+Tensor IsOddCondition(const Tensor &tensor) {
+    auto mod = Fmod(tensor, Element(tensor.GetDataType(), NUM_VALUE_2));
+    return Compare(mod, Element(DataType::DT_FP32, NUM_VALUE_0), OpType::NE, OutType::BOOL);
+}
+
+Tensor CalcPowByOtherExponent(const Tensor &self, const Tensor &other) {
+    auto lnSelf = Ln(self);
+    auto exponent = Mul(lnSelf, other);
+    return Exp(exponent);
+}
+
+Tensor CalcPowByIntExponent(const Tensor &self, const Tensor &other) {
+    auto selfLessThanZero = Compare(self, Element(DataType::DT_FP32, NUM_VALUE_0), OpType::LT, OutType::BOOL);
+    auto otherIsOdd = IsOddCondition(other);
+    auto allOne = GenAllSameTensor(self, NUM_VALUE_1);
+    auto allNegOne = GenAllSameTensor(self, -NUM_VALUE_1);
+    auto sign = Where(selfLessThanZero, Where(otherIsOdd, allNegOne, allOne), allOne);
+    auto absSelf = Abs(self);
+    auto pow = CalcPowByOtherExponent(absSelf, other);
+    return Mul(sign, pow);
+}
+
+Tensor CalcPow(const Tensor &self, const Tensor &other) {
+    auto otherIsInt = IsIntCondition(other);
+    auto intExponentResult = CalcPowByIntExponent(self, other);
+    auto otherExponentResult = CalcPowByOtherExponent(self, other);
+    auto preCalc = Where(otherIsInt, intExponentResult, otherExponentResult);
+    auto selfEqualZero = Compare(self, Element(DataType::DT_FP32, NUM_VALUE_0), OpType::EQ, OutType::BOOL);
+    auto otherEqualZero = Compare(other, Element(DataType::DT_FP32, NUM_VALUE_0), OpType::EQ, OutType::BOOL);
+    auto otherLessThanZero = Compare(other, Element(DataType::DT_FP32, NUM_VALUE_0), OpType::LT, OutType::BOOL);
+    auto allZero = GenAllSameTensor(self, NUM_VALUE_0);
+    auto allOne = GenAllSameTensor(self, NUM_VALUE_1);
+    auto allInf = Div(allOne, allZero);
+    return Where(
+        otherEqualZero,
+        allOne, // other == 0 -> result is 1
+        Where(
+            selfEqualZero,
+            Where(
+                otherLessThanZero,
+                allInf, // other < 0 && self == 0 -> result is inf
+                allZero // other > 0 && self == 0 -> result is 0
+            ),
+            preCalc // other != 0 && self != 0 -> result is normal
+        )
+    );
+}
+
+Tensor Pow(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    auto selfSt = self.GetStorage();
+    auto otherSt = other.GetStorage();
+    if (selfSt->shape.size() != otherSt->shape.size()) {
+        std::vector<int> broadCastShape = GetBroadCastShape(selfSt, otherSt);
+        selfSt = BinaryOperationBroadCast(selfSt, broadCastShape);
+        otherSt = BinaryOperationBroadCast(otherSt, broadCastShape);
+    }
+    for (size_t i = 0, size = selfSt->shape.size(); i < size; ++i) {
+        if (selfSt->shape[i] != otherSt->shape[i]) {
+            if (selfSt->shape[i] == 1) {
+                selfSt = Expand(selfSt, otherSt->shape, otherSt->GetDynValidShape()).GetStorage();
+            } else if (otherSt->shape[i] == 1) {
+                otherSt = Expand(otherSt, selfSt->shape, selfSt->GetDynValidShape()).GetStorage();
+            }
+        }
+    }
+    DataType dataType = self.GetDataType();
+    if (dataType != DT_FP32) {
+        selfSt = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            selfSt, DataType::DT_FP32, CastMode::CAST_NONE);
+        otherSt = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            otherSt, DataType::DT_FP32, CastMode::CAST_NONE);
+    }
+    auto result = CalcPow(selfSt, otherSt).GetStorage();
+    if (dataType != DT_FP32) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result, dataType,
+            CastMode::CAST_NONE);
+    }
+    return result;
+}
+
 LogicalTensorPtr IntegerPow(const Tensor &self, int32_t intExponent) {
     // 快速幂
-    auto result = GenAllOneTensor(self.GetShape(), self.GetStorage()->GetDynValidShape(), self.GetDataType());
+    auto result = GenAllSameTensor(self, NUM_VALUE_1);
     auto current = CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(), self, result);
 
     while (intExponent != NUM_VALUE_0) {
@@ -175,16 +263,17 @@ LogicalTensorPtr GeneralPow(const Tensor &self, double exponent) {
     if (exponent - intExponent < NUM_VALUE_EPS) {
         result = IntegerPow(self, intExponent);
     } else {
-        auto exponents =
-            CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, exponent),
-                SymbolicScalar(), DataType::DT_FP32, self.GetShape(), self.GetStorage()->GetDynValidShape());
-        result =
-            CALL(BinaryOperation<BinaryOpType::POW>, *Program::GetInstance().GetCurrentFunction(), self, exponents);
+        auto lnSelf = CALL(UnaryOperation<UnaryOpType::LN>,
+            *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+        auto exponentLnSelf = CALL(BinaryOperationScalar<BinaryOpType::MUL>,
+            *Program::GetInstance().GetCurrentFunction(), lnSelf, Element(DataType::DT_FP32, exponent));
+        result = CALL(UnaryOperation<UnaryOpType::EXP>,
+            *Program::GetInstance().GetCurrentFunction(), exponentLnSelf);
     }
 
     // 指数小于零，结果取倒数
     if (expLessThanZero) {
-        auto oneTensor = GenAllOneTensor(self.GetShape(), self.GetStorage()->GetDynValidShape(), self.GetDataType());
+        auto oneTensor = GenAllSameTensor(self, NUM_VALUE_1);
         // 求倒数
         RETURN_CALL(
             BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(), oneTensor, result);
@@ -198,7 +287,7 @@ Tensor Pow(const Tensor &self, const Element &other) {
     double exponent = other.Cast<double>();
     // 指数为0，输出全1
     if (std::abs(exponent) < NUM_VALUE_EPS) {
-        return GenAllOneTensor(self.GetShape(), self.GetStorage()->GetDynValidShape(), self.GetDataType());
+        return GenAllSameTensor(self, NUM_VALUE_1);
     }
     Tensor castSelf = self;
     DataType dataType = self.GetDataType();
