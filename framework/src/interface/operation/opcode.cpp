@@ -251,6 +251,9 @@ void OpcodeManager::RegisterVectorUnary() {
     RegisterInfo(Opcode::OP_LN, OpCoreType::AIV, "LN", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tln", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_ISFINITE, OpCoreType::AIV, "ISFINITE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::Tisfinite", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
 }
 
 void OpcodeManager::RegisterVectorSort() {
