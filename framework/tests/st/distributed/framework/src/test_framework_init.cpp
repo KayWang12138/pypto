@@ -39,9 +39,9 @@ using MpiBarrierFunc = int(*)(MPI_Comm);
 using MpiAbortFunc = int (*)(MPI_Comm, int);
 using MpiFinalizeFunc = int (*)();
 
-const std::string MPI_LIB_PATH = "/usr/local/mpich/lib";
+const std::string MPI_LIB_PATH = "/usr/local/mpich-4.1.3/lib";
 const std::string MPI_LIB_NAME = "libmpi.so";
- 
+
 void* GetLibHandle()
 {
     static auto handle = []() {
@@ -61,7 +61,7 @@ struct FunctionConverter {
             void* from;
             FuncType to;
         } converter;
-        
+
         converter.from = ptr;
         return converter.to;
     }
@@ -75,7 +75,7 @@ auto GetFunction(const std::string& funcName) -> FuncType
         ALOG_ERROR("Failed to load MPI library");
         return nullptr;
     }
-    
+
     auto func = dlsym(handle, funcName.c_str());
     if (!func) {
         ALOG_ERROR("Failed to find function %s: %s", funcName.c_str(), dlerror());
@@ -98,7 +98,7 @@ void TestFrameworkInit(OpTestParam &testParam, HcomTestParam &hcomTestParam, int
     ASSERT(mpiBcast != nullptr);
     auto mpiBarrier = GetFunction<MpiBarrierFunc>("MPI_Barrier");
     ASSERT(mpiBarrier != nullptr);
-    
+
     mpiInit(NULL, NULL);
 
     // 获取当前进程在所属进程组的编号
@@ -166,7 +166,7 @@ void TestFrameworkDestroy(int32_t timeout)
     }
 }
 
-std::string getTimeStamp() 
+std::string getTimeStamp()
 {
     auto now = std::chrono::high_resolution_clock::now();
     auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
