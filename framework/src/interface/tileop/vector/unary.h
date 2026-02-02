@@ -51,6 +51,11 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
         pto::TNOT(dst, src);
         return;
     }
+    if constexpr (op == UnaryOp::ISFINITE) {
+        pto::TSUB(src, src, src);
+        pto::TCMP(dst, src, src, pto::CmpMode::EQ);
+        return;
+    }
 }
 
 template <UnaryOp op, typename T0, typename T1>
@@ -137,6 +142,12 @@ TILEOP void TRsqrt(T0 dst, T1 src) {
 template <typename T0, typename T1>
 TILEOP void TSqrt(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::SQRT>(dst, src);
+}
+
+#define OP_TILE_OP_ISFINITE TIsFinite
+template <typename T0, typename T1>
+TILEOP void TIsFinite(T0 dst, T1 src) {
+    UnaryCompute<UnaryOp::ISFINITE>(dst, src);
 }
 
 #define OP_TILE_OP_BRCB Tbrcb
