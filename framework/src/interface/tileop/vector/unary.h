@@ -53,6 +53,42 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
     }
 }
 
+template<typename T, typename IntB16Type, typename DstTile, typename SrcTile>
+TILEOP void IsFiniteComputeImpl(DstTile dst, SrcTile src) {
+    if constexpr !(std::is_same_v<T, float> || std::is_same_v<T, bfloat16_t> || std::is_same_v<T, bfloat16_t>) {
+        pto::TEXPANDS(dst, (DstTile::DType) 1);
+        return;
+    }
+
+    DstTile cmpMask = dst;
+    SrcTile buffer = src;
+    if constexpr (std::is_same_v<T, float>) {
+        // FP32
+        IntB16Type mask = 0x7F80;                         // 0111 1111 1000 0000 0000 0000 0000 0000
+        pto::TANDS(src, src, mask);
+        // CMPS dst should be uint8 and dst already be it, so we can reuse it.
+        // TODO: srcStride should be 2
+        pto::TCMPS(cmpMask, src, mask, pto::CmpMode::EQ);
+        // SELS need dst/src0/src1 to be same type, and it support 16-bit operation => IntB16Type
+        pto::TSELS(buffer, src, cmpMask, (IntB16Type) 0, 1);  // selectmode == 1 means we can deliver a scalar to calculate?
+        pto::TCVT(dst, buffer, pto::RoundMode::CAST_RINT);
+    } else if constexpr (std::is_same_v<T, bfloat16_t>) {
+        // BF16
+        IntB16Type mask = 0x7F80;                        // 0111 1111 1000 0000
+        pto::TANDS(src, src, mask);
+        pto::TCMPS(cmpMask, src, mask, pto::CmpMode::EQ);
+        pto::TSELS(buffer, src, cmpMask, (IntB16Type) 0, 1);  // selectmode == 1 means we can deliver a scalar to calculate?
+        pto::TCVT(dst, buffer, pto::RoundMode::CAST_RINT);
+    } else if constexpr (std::is_same_v<T, float16_t>) {
+        // FP16
+        IntB16Type mask = 0x7C00;                        // 0111 1100 0000 0000
+        pto::TANDS(src, src, mask);
+        pto::TCMPS(dst, src, mask, pto::CmpMode::EQ);
+        pto::TSELS(buffer, src, cmpMask, (IntB16Type) 0, 1);  // selectmode == 1 means we can deliver a scalar to calculate?
+        pto::TCVT(dst, buffer, pto::RoundMode::CAST_RINT);
+    }
+}
+
 template <UnaryOp op, typename T0, typename T1>
 TILEOP void UnaryCompute(T0 dst, T1 src) {
     if constexpr (TileOp::IsConstContinous<T0, T1>() == true) {
@@ -137,6 +173,48 @@ TILEOP void TRsqrt(T0 dst, T1 src) {
 template <typename T0, typename T1>
 TILEOP void TSqrt(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::SQRT>(dst, src);
+}
+
+#define OP_TILE_OP_ISFINITE TIsFinite
+template <typename DstTileTensor, typename SrcTileTensor>
+TILEOP void TIsFinite(DstTileTensor dst, SrcTileTensor src, BufferTileTensor buffer) {
+    using IntB16Type = int16_t;  // only support uint16_t or int16_t
+    constexpr int typeDecreaseRatio = sizeof(SrcTileTensor::Type) / sizeof(IntB16Type);
+    if constexpr (TileOp::IsConstContinous<DstTileTensor, SrcTileTensor>() == true) {
+        constexpr size_t tileH = GetMergedAxisIfNeed<SrcTileTensor, true>();
+        constexpr size_t tileW = TileOp::GetTensorTileShapeDim<SrcTileTensor, DIM_5TH, MAX_DIMS>() * typeDecreaseRatio;
+        constexpr int validH = GetValidHeight<SrcTileTensor, true>();
+        constexpr int validW = GetValidWidth<SrcTileTensor>() * typeDecreaseRatio;
+        using B16SrcTileTensor = pto::Tile<pto::TileType::Vec, IntB16Type, tileH, tileW, pto::BLayout::RowMajor, validH, validW>;
+        
+        auto dstTile = PtoTile<DstTileTensor, pto::BLayout::RowMajor, true>();
+        auto srcTile = PtoTile<B16SrcTileTensor, pto::BLayout::RowMajor, true>();
+        dstTile.Assign(dst);
+        srcTile.Assign(src);
+        IsFiniteComputeImpl<SrcTileTensor::Type, IntB16Type>(dstTile.Data(), srcTile.Data());
+        return;
+    }
+    constexpr size_t tileH = GetMergedAxisIfNeed<SrcTileTensor, false>();
+    constexpr size_t tileW = TileOp::GetTensorTileShapeDim<SrcTileTensor, DIM_5TH, MAX_DIMS>() * typeDecreaseRatio;
+    using B16SrcTileTensor = pto::Tile<pto::TileType::Vec, IntB16Type, tileH, tileW, pto::BLayout::RowMajor, -1, -1>;
+
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+
+    auto dstTile = PtoTile<DstTileTensor>(dst);
+    auto srcTile = PtoTile<B16SrcTileTensor>(src);
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                srcTile.Assign(src, tileOffsets);
+                IsFiniteComputeImpl<SrcTileTensor::Type, IntB16Type>(dstTile.Data(), srcTile.Data());
+            }
+        }
+    }
 }
 
 #define OP_TILE_OP_BRCB Tbrcb
