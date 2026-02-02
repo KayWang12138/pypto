@@ -179,36 +179,6 @@ def convert_operands_data(operands):
     return res
 
 
-def get_tensors_life_range(func_hash, func_hash_data):
-    tensors_life_range = dict()
-    tensors_life_data = dict()
-    if func_hash not in func_hash_data:
-        tensors_life_range['data'] = tensors_life_data
-        tensors_life_range['max_range'] = 0
-        return tensors_life_range
-    tensors = func_hash_data[func_hash]['tensors']
-    max_life_range = 0
-    tensors_life_range['data'] = tensors_life_data
-    tensors_life_range['max_range'] = max_life_range
-    if func_hash == '0':
-        return tensors_life_range
-    for tensor in tensors:
-        life_range = []
-        if 'life_range' not in tensor:
-            continue
-        it = tensor.get('life_range')
-        if it and it[0] == -1 and it[1] == -1:
-            continue
-        else:
-            life_range = it
-        tensors_life_data[tensor['magic']] = life_range
-        if len(life_range) > 0:
-            max_life_range = max(max_life_range, life_range[1])
-    tensors_life_range['data'] = tensors_life_data
-    tensors_life_range['max_range'] = max_life_range
-    return tensors_life_range
-
-
 def get_tensors(func_hash, func_hash_data):
     tensors_dict = dict()
     if func_hash not in func_hash_data:
