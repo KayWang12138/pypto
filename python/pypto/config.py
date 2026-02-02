@@ -202,7 +202,9 @@ def set_runtime_options(*,
                         stitch_cfgcache_size: Optional[int] = None,
                         triple_stream_sched: Optional[bool] = None,
                         run_mode: Optional[int] = None,
-                        valid_shape_optimize: Optional[int] = None
+                        valid_shape_optimize: Optional[int] = None,
+                        aicpu_advanced_time: Optional[int] = None,
+                        repeat_time: Optional[int] = None
                         ) -> None:
     """
     Set runtime options.
@@ -239,6 +241,12 @@ def set_runtime_options(*,
 
     valid_shape_optimize: int
         Dynamic validShape compilation optimization option.
+
+    aicpu_advanced_time: int
+        The advanced start time of AICPU, in microseconds.
+
+    repeat_time: int
+        Repeat count for single-operator execution.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(runtime_options=options_dict)
