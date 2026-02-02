@@ -22,7 +22,7 @@ def test_record_function():
     c = None
 
     with pypto.function("ADD", a, b):
-        pypto.set_vec_tile_shapes(8, 8)
+        pypto.set_vec_tile_shapes(8, 16)
         c = pypto.add(a, b)
 
     print(controller.dump())
@@ -38,7 +38,7 @@ def test_begin_inplaceadd_end_function():
     c = None
 
     with pypto.function("ADD_INPLACE", a, b):
-        pypto.set_vec_tile_shapes(8, 8)
+        pypto.set_vec_tile_shapes(8, 16)
         c = a + b
 
     print(controller.dump())
