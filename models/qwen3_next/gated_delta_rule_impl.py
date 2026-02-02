@@ -116,28 +116,28 @@ def inverse_pto(attn: pypto.Tensor, eye: pypto.Tensor, size: int) -> pypto.Tenso
 
     attn_8_8_list = []
     for i in range(8):
-        attn_8_8_list.append(attn.view([min_length, min_length], [min_length*i, min_length*i]) + 0.0)
+        attn_8_8_list.append(attn.view([min_length, min_length], [min_length * i, min_length * i]) + 0.0)
     attn_tmp_dim0 = pypto.concat(attn_8_8_list, dim=0)
     attn_tmp_dim1 = pypto.concat(attn_8_8_list, dim=1)
 
-    attn_tmp_dim1_inv = inverse_pto_min_length(attn_tmp_dim0, attn_tmp_dim1, eye, min_length, min_length*8)
+    attn_tmp_dim1_inv = inverse_pto_min_length(attn_tmp_dim0, attn_tmp_dim1, eye, min_length, min_length * 8)
 
     attn_8_8_inv_list = []
     for i in range(8):
-        attn_8_8_inv_list.append(attn_tmp_dim1_inv[:, min_length*i:min_length*(i+1)] + 0.0)
+        attn_8_8_inv_list.append(attn_tmp_dim1_inv[ : , min_length * i : min_length * (i + 1)] + 0.0)
 
     attn_4_inv_list = []
     for i in range(4):
-        attn_4_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_8_8_inv_list[i*2],
-            attn_2_2_inv=attn_8_8_inv_list[i*2+1], x_ofs=min_length*i*2, y_ofs=min_length*i*2, m_len=min_length))
+        attn_4_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_8_8_inv_list[i * 2],
+            attn_2_2_inv=attn_8_8_inv_list[i * 2 + 1], x_ofs=min_length * i * 2, y_ofs=min_length * i * 2, m_len=min_length))
 
     attn_2_inv_list = []
     for i in range(2):
-        attn_2_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_4_inv_list[i*2],
-            attn_2_2_inv=attn_4_inv_list[i*2+1], x_ofs=min_length*i*4, y_ofs=min_length*i*4, m_len=min_length*2))
+        attn_2_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_4_inv_list[i * 2],
+            attn_2_2_inv=attn_4_inv_list[i * 2 + 1], x_ofs=min_length * i * 4, y_ofs=min_length * i * 4, m_len=min_length * 2))
 
     attn_inv = inverse_matmul(attn=attn, attn_1_1_inv=attn_2_inv_list[0],
-        attn_2_2_inv=attn_2_inv_list[1], x_ofs=0, y_ofs=0, m_len=min_length*4)
+        attn_2_2_inv=attn_2_inv_list[1], x_ofs=0, y_ofs=0, m_len=min_length * 4)
     return attn_inv
 
 
@@ -220,8 +220,8 @@ def inverse_matmul(**kwargs) -> pypto.Tensor:
     attn_2_1_inv = (attn_2_2_inv @ attn_2_1) @ attn_1_1_inv
 
     attn_inv = pypto.tensor([m_len * 2, m_len * 2], dtype=attn_1_1_inv.dtype)
-    attn_inv[0:m_len, 0:m_len] = attn_1_1_inv
-    attn_inv[m_len : m_len * 2, 0:m_len] = attn_2_1_inv
+    attn_inv[0 : m_len, 0 : m_len] = attn_1_1_inv
+    attn_inv[m_len : m_len * 2, 0 : m_len] = attn_2_1_inv
     attn_inv[m_len : m_len * 2, m_len : m_len * 2] = attn_2_2_inv
 
     return attn_inv
@@ -298,7 +298,7 @@ def recurrent_state_attn_all(**kwargs) -> tuple[pypto.Tensor, pypto.Tensor]:
     gate_exp = gate.exp()
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
     pypto.set_vec_tile_shapes(64, 128)
-    _last_gate_1 = gate[l - 1 : l, :]
+    _last_gate_1 = gate[l - 1 : l, : ]
     kgexp = key * (_last_gate_1 - gate).exp()  # [L, Dk]
     qgexp = query * gate_exp
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [64, 64])
@@ -309,7 +309,7 @@ def recurrent_state_attn_all(**kwargs) -> tuple[pypto.Tensor, pypto.Tensor]:
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
     temp_matmul_value = pypto.matmul(value, kgexp, pypto.DT_FP32, a_trans=True)  # [Dv, L] @ [L, Dk] = [L, Dk]
     attn = pypto.matmul(query, key, pypto.DT_FP32, b_trans=True)  # [L, Dk] @ [Dk, L] = [L, L]
-    _last_gate_2 = pypto.expand_clone(gate_exp[l-1:l, :], (dv, 1))  # [Dv, 1]
+    _last_gate_2 = pypto.expand_clone(gate_exp[l - 1 : l, : ], (dv, 1))  # [Dv, 1]
     final_state_1 = state * _last_gate_2
     state_new = final_state_1 + temp_matmul_value - temp_matmul_vprime
     attn_tmp = attn * decay_mask * tril  # [L, L]
@@ -411,6 +411,6 @@ def chunk_gated_delta_rule(*args):
 
                 # assemble
                 pypto.set_vec_tile_shapes(16, 16, 128, 128)
-                last_state[:] = cur_state
+                last_state[ : ] = cur_state
                 core_attn_out[bs_ofs : bs_ofs + l, nv_idx] = chunk_attn_out
                 last_state_data[b_idx, nv_idx] = last_state
