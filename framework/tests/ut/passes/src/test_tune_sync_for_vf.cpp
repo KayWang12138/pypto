@@ -21,6 +21,7 @@ namespace npu {
 namespace tile_fwk {
 constexpr int TS_NUM3 = 3;
 constexpr int TS_NUM4 = 4;
+constexpr int TS_NUM5 = 5;
 constexpr int TS_NUM10 = 10;
 constexpr int TS_NUM20 = 20;
 constexpr int TS_NUM30 = 30;
@@ -127,6 +128,25 @@ TEST_F(TuneSyncForVFTest, TestTuneSyncForVF) {
     tuneSync.ChangeOpSeq(currFunctionPtr.get(), false);
     EXPECT_EQ(tuneSync.opList_[TS_NUM3]->GetOpcode(), Opcode::OP_SQRT);
     EXPECT_EQ(tuneSync.opList_[TS_NUM4]->GetOpcode(), Opcode::OP_RECIPROCAL);
+}
+
+TEST_F(TuneSyncForVFTest, TestMainSchedule) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainSchedule", "TestMainSchedule", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainScheduleLeaf", "TestMainScheduleLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    std::vector<std::shared_ptr<LogicalTensor>> input;
+    std::vector<std::shared_ptr<LogicalTensor>> output;
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {input}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MULACC_B, {input}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_SRC, {input}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_DST, {input}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_L1_COPY_UB, {input}, {output});
+    TuneSyncForVF tuneSync;
+    tuneSync.RunOnFunction(*rootFuncPtr.get());
+    std::vector<Operation *> opList(program.second->Operations(false).DuplicatedOpList());
+    EXPECT_EQ(opList.size(), TS_NUM5);
 }
 
 } // namespace tile_fwk
