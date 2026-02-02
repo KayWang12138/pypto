@@ -246,7 +246,7 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
 
 void CheckDimParam(const std::vector<int64_t>& vec, const std::string& name, int expected_dim) {
     OP_CHECK(true, {
-            ASSERT(vec.size() == expected_dim)
+            ASSERT(vec.size() == static_cast<size_t>(expected_dim))
                 << "Input attr " << name << " dim: " << vec.size()
                 << " != " << expected_dim << "." << std::endl;
     });
