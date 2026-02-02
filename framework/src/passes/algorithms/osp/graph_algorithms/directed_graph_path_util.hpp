@@ -36,12 +36,12 @@ std::vector<T> GetBottomNodeDistance(const GraphT &graph) {
     std::vector<T> bottomDistance(graph.NumVertices(), 0);
 
     const auto topOrder = GetTopOrder(graph);
-    for (std::size_t i = topOrder.size() - 1; i < topOrder.size(); i--) {
+    for (auto topRevIt = topOrder.crbegin(); topRevIt != topOrder.crend(); ++topRevIt) {
         T maxTemp = 0;
-        for (const auto &j : graph.Children(topOrder[i])) {
+        for (const auto &j : graph.Children(*topRevIt)) {
             maxTemp = std::max(maxTemp, bottomDistance[j] + 1);
         }
-        bottomDistance[topOrder[i]] = maxTemp;
+        bottomDistance[*topRevIt] = maxTemp;
     }
     return bottomDistance;
 }
@@ -52,8 +52,7 @@ std::vector<T> GetTopNodeDistance(const GraphT &graph) {
 
     std::vector<T> topDistance(graph.NumVertices(), 0);
 
-    const auto topOrder = GetTopOrder(graph);
-    for (const auto &vertex : topOrder) {
+    for (const auto &vertex : GetTopOrder(graph)) {
         T maxTemp = 0;
         for (const auto &j : graph.Parents(vertex)) {
             maxTemp = std::max(maxTemp, topDistance[j] + 1);

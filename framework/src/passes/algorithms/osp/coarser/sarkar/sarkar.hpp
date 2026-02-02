@@ -158,7 +158,10 @@ std::vector<VWorkwT<GraphTIn>> Sarkar<GraphTIn, GraphTOut>::GetBotDistance(VWork
                                                                            const GraphTIn &graph) const {
     std::vector<VWorkwT<GraphTIn>> botDist(graph.NumVertices(), 0);
 
-    for (const auto &vertex : GetTopOrderReverse<GraphTIn>(graph)) {
+    const auto topOrder = GetTopOrder<GraphTIn>(graph);
+    for (auto revTopIt = topOrder.crbegin(); revTopIt != topOrder.crend(); ++revTopIt) {
+        const auto &vertex = *revTopIt;
+
         VWorkwT<GraphTIn> maxTemp = 0;
 
         for (const auto &j : graph.Children(vertex)) {
