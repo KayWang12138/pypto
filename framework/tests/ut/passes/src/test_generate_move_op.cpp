@@ -278,6 +278,10 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
                     copy_in_num++;
                     break;
                 }
+                case Opcode::OP_VIEW: {
+                    view_num++;
+                    break;
+                }
                 case Opcode::OP_COPY_OUT: {
                     copy_out_num++;
                     break;
@@ -290,16 +294,12 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
                     assemble_num++;
                     break;
                 }
-                case Opcode::OP_VIEW: {
-                    view_num++;
-                    break;
-                }
                 default: break;
             }
         }
-        constexpr int expectedAssemble = 4;
         constexpr int expectedView = 0;
         constexpr int expectedCopyIn = 4;
+        constexpr int expectedAssemble = 4;
         constexpr int expectedCopyOut = 0;
         EXPECT_EQ(assemble_num, expectedAssemble) << "4 operations should be OP_ASSEMBLE";
         EXPECT_EQ(assemble_num, transpose_datamove_num) << "num of OP_ASSEMBLE and OP_TRANSPOSE_MOVEOUT should be equal";
