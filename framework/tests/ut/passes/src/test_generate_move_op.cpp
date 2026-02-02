@@ -116,16 +116,16 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
         int copy_out_num = 0;
         for (const auto &updatedOperation : updatedOperations) {
             switch (updatedOperation.GetOpcode()){
-                case Opcode::OP_ASSEMBLE: {
-                    assemble_num++;
-                    break;
-                }
                 case Opcode::OP_VIEW: {
                     view_num++;
                     break;
                 }
                 case Opcode::OP_COPY_IN: {
                     copy_in_num++;
+                    break;
+                }
+                case Opcode::OP_ASSEMBLE: {
+                    assemble_num++;
                     break;
                 }
                 case Opcode::OP_COPY_OUT: {
@@ -274,14 +274,6 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
         int transpose_datamove_num = 0;
         for (const auto &updatedOperation : updatedOperations) {
             switch (updatedOperation.GetOpcode()){
-                case Opcode::OP_ASSEMBLE: {
-                    assemble_num++;
-                    break;
-                }
-                case Opcode::OP_VIEW: {
-                    view_num++;
-                    break;
-                }
                 case Opcode::OP_COPY_IN: {
                     copy_in_num++;
                     break;
@@ -292,6 +284,14 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
                 }
                 case Opcode::OP_TRANSPOSE_MOVEOUT: {
                     transpose_datamove_num++;
+                    break;
+                }
+                case Opcode::OP_ASSEMBLE: {
+                    assemble_num++;
+                    break;
+                }
+                case Opcode::OP_VIEW: {
+                    view_num++;
                     break;
                 }
                 default: break;
@@ -357,12 +357,12 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
         int index_outcast_num = 0;
         for (const auto &updatedOperation : updatedOperations) {
             switch (updatedOperation.GetOpcode()){
-                case Opcode::OP_ASSEMBLE: {
-                    assemble_num++;
+                case Opcode::OP_INDEX_OUTCAST: {
+                    index_outcast_num++;
                     break;
                 }
-                case Opcode::OP_VIEW: {
-                    view_num++;
+                case Opcode::OP_ASSEMBLE: {
+                    assemble_num++;
                     break;
                 }
                 case Opcode::OP_COPY_IN: {
@@ -373,8 +373,8 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
                     copy_out_num++;
                     break;
                 }
-                case Opcode::OP_INDEX_OUTCAST: {
-                    index_outcast_num++;
+                case Opcode::OP_VIEW: {
+                    view_num++;
                     break;
                 }
                 default: break;
