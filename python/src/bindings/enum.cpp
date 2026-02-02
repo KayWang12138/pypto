@@ -40,6 +40,7 @@ void bind_enum(py::module &m){
         .value("DT_BOOL", DataType::DT_BOOL)
         .value("DT_DOUBLE", DataType::DT_DOUBLE)
         .value("DT_BOTTOM", DataType::DT_BOTTOM)
+        .export_values()
         .finalize();
 
     py::native_enum<NodeType>(m, "NodeType", "enum.IntEnum")
