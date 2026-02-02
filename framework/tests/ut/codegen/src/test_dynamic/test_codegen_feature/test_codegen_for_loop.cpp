@@ -53,7 +53,7 @@ public:
 TEST_F(TestCodegenForLoop, TestForLoop) {
     std::vector<int64_t> shape = {2, 2, 2, 8};
     std::vector<int64_t> tile_shape = {2, 2, 2, 8};
-    Platform::Instance().GetSoc().SetNPUArch() == NPUArch::DAV_3510;
+    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
 
     TileShape::Current().SetVecTile(tile_shape);
     Tensor input_a(DT_FP32, shape, "A");
