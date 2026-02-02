@@ -24,6 +24,7 @@
 #include "machine/utils/dynamic/dev_tensor_creator.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
+#include "machine/utils/barrier.h"
 
 #ifdef __USE_CUSTOM_CTRLFLOW__
 extern "C" __attribute__((visibility("default"))) void* GetCtrlFlowFunc();
@@ -184,8 +185,16 @@ public:
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
             devProg->RelocProgram(0, reinterpret_cast<uint64_t>(devProg), true);
+
+            RuntimeDataRingBufferHead *ringBufferHead = reinterpret_cast<RuntimeDataRingBufferHead *>(devProg->GetRuntimeDataList());
+            ringBufferHead->Initialize(devProg->GetDeviceRuntimeOffset().size, devProg->GetDeviceRuntimeOffset().count);
+
+            devProg->runtimeDataRingBufferInited = true;
             firstInit = true;
         }
+
+        memBarrier();
+
 #ifdef __USE_CUSTOM_CTRLFLOW__
         DEV_INFO("Use built in ctrl flow func.");
         devProg->controlFlowBinaryAddr = GetCtrlFlowFunc();
@@ -204,17 +213,16 @@ public:
         bool firstInit = InitDevProgram(devProg);
         PerfEnd(PERF_EVT_INIT);
 
-        RuntimeDataRingBufferHead *ringBufferHead = reinterpret_cast<RuntimeDataRingBufferHead *>(devProg->GetRuntimeDataList());
-        if (firstInit) {
-            ringBufferHead->Initialize(devProg->GetDeviceRuntimeOffset().size, devProg->GetDeviceRuntimeOffset().count);
-        }
+        RuntimeDataRingBufferHead *ringBufferHead = devProg->GetRuntimeDataList();
 
-        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(ringBufferHead->Allocate());
+        DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(ringBufferHead->AllocatePrepare());
 
         devStartArgs->syncFlag = 0;
         devStartArgs->InitProgram(devProg, reinterpret_cast<uint64_t>(devStartArgs));
         devStartArgs->devCtrlState.schAicpuNum = devProg->devArgs.scheCpuNum;
         devStartArgs->devCtrlState.taskCtrlIndex = 0;
+        devStartArgs->devScheState.threadIdx = CTRL_THREAD_INDEX;
+        devStartArgs->devScheState.finished = 0;
 
         devStartArgs_ = devStartArgs;
 
@@ -248,6 +256,8 @@ public:
                 reinterpret_cast<uint8_t *>(kargs->ctrlFlowCache) + ctrlFlowCacheBase->allCacheSize * ringBufferHead->GetIndexPendingIndex());
         }
         InitCtrlFlowCache(devProg, ctrlFlowCache, devStartArgs, firstInit);
+
+        ringBufferHead->AllocateSubmit();
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }
@@ -310,7 +320,6 @@ public:
     int EntryMain(DeviceKernelArgs *kargs) {
         int rc = ExecDyn(kargs);
         if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-            DEV_INFO("All schedule exited, destroy the machine.\n");
             return 0;
         }
         return -1;
