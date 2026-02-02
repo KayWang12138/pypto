@@ -218,21 +218,21 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
             ASSERT(groups > 0 && groups <= SHAPE_INNER_AXIS_MAX_SIZE)
             << "Invalid groups value: groups =" << groups
             << "expected range [1, " << SHAPE_INNER_AXIS_MAX_SIZE
-            << "]." << std::endl
+            << "]." << std::endl;
     });
 
     OP_CHECK(true, {
             ASSERT(cinFmap % groups == 0)
             << "Cin ( " << cinFmap
             << ") is not divisible by groups ( " << groups
-            << ");adjusting Cin to the nearest value such that Cin % groups == 0." << std::endl
+            << ");adjusting Cin to the nearest value such that Cin % groups == 0." << std::endl;
     });
 
     OP_CHECK(true, {
             ASSERT(Cout % groups == 0)
             << "Cout ( " << Cout
             << ") is not divisible by groups ( " << groups
-            << ");adjusting Cout to the nearest value such that Cout % groups == 0." << std::endl
+            << ");adjusting Cout to the nearest value such that Cout % groups == 0." << std::endl;
     });
 
     OP_CHECK(true, {
@@ -240,7 +240,7 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
             << "Fmap Cin ( " << cinFmap
             << ") != weight Cin ( " << cinWeight
             << ") * groups ( " << groups
-            << ")." << std::endl
+            << ")." << std::endl;
     });
 }
 
@@ -276,7 +276,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
         << "Weight shapes do not satisfy Load3D's limits: kh=" << kh
         << ", kw=" << kw
         << ", which must <=" << MAX_PAD_KERNEL
-        << "." << std::endl
+        << "." << std::endl;
     });
 
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
@@ -284,7 +284,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
         ASSERT(kh * kw * k0 <= SHAPE_INNER_AXIS_MAX_SIZE)
         << "Weight shapes do not satisfy Load3D's limits: kh*kw*k0=" << kh * kw * k0
         << ", which must <=" << MAX_PAD_KERNEL
-        << "." << std::endl
+        << "." << std::endl;
     });
 }
 
@@ -325,7 +325,7 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
         ASSERT(biasTensor.GetShape()[i] == Cout)
         << "Input illegal bias shape:" << biasTensor.GetShape()[0]
         << ", which must euqal to Cout:" << Cout
-        << "." << std::endl
+        << "." << std::endl;
     });
 }
 void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor, const ConvAttrParam &attrParam) {
