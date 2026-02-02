@@ -47,6 +47,8 @@
 #include "passes/block_graph_pass/copy_out_resolve.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/block_graph_pass/mix_subgraph_split.h"
+#include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
+#include "passes/block_graph_pass/tune_sync_for_vf.h"
 #include "passes/block_graph_pass/loopaxes_proc.h"
 #include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
 #include "passes/block_graph_pass/tune_sync_for_vf.h"
@@ -99,6 +101,8 @@ void RegPass() {
     REG_PASS(DuplicateOp);
     REG_PASS(AxisCombine);
     REG_PASS(InsertOpForViewAssemble);
+    REG_PASS(TuneTileOpSeqForVF);
+    REG_PASS(TuneSyncForVF);
     REG_PASS(LoopaxesProc);
     REG_PASS(TuneTileOpSeqForVF);
     REG_PASS(TuneSyncForVF);
@@ -123,7 +127,7 @@ void PassManager::RegDefaultStrategy() {
             {  "InsertOpForViewAssemble",    PassName::INSERT_OP_FOR_VIEWASSEMBLE},
             {                   "SplitK",                       PassName::SPLIT_K},
             {           "GraphPartition",               PassName::GRAPH_PARTITION},
-            {          "ReduceCopyMerge",             PassName::REDUCE_COPY_MERGE},
+            //{          "ReduceCopyMerge",             PassName::REDUCE_COPY_MERGE},
             {             "NBufferMerge",                PassName::N_BUFFER_MERGE},
             {       "L1CopyInReuseMerge",        PassName::L1_COPY_IN_REUSE_MERGE},
             {     "IntraSubgraphAdapter",        PassName::INTRA_SUBGRAPH_ADAPTER},
