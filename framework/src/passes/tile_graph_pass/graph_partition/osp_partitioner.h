@@ -15,23 +15,16 @@
 
 #ifndef PASS_OSP_PARTITIONER_H
 #define PASS_OSP_PARTITIONER_H
+
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.hpp"
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.hpp"
-#include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
-#include "passes/algorithms/osp/bsp/model/util/SetSchedule.hpp"
-#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/BspLocking.hpp"
-#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GrowLocalAutoCores.hpp"
-#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GreedyChildren.hpp"
-#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GreedyMetaScheduler.hpp"
-#include "passes/algorithms/osp/dag_divider/isomorphism_divider/IsomorphicSubgraphScheduler.hpp"
-#include "passes/algorithms/osp/dag_divider/isomorphism_divider/PrecomputedHashComputer.hpp"
-#include "passes/algorithms/osp/bsp/scheduler/LocalSearch/KernighanLin/kl_include.hpp"
-#include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.hpp"
+#include "passes/algorithms/osp/bsp/model/BspInstance.hpp"
+
 #include "tilefwk/platform.h"
 #include "supernode_graph_builder.h"
-//#include "passes/pass_config/pass_config_manager.h" where is this now?
 #include "passes/pass_interface/pass.h"
+
 #include <unordered_map>
 
 namespace npu::tile_fwk {

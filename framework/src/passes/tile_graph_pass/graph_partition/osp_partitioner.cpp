@@ -17,6 +17,20 @@
 #include "passes/pass_log/pass_log.h"
 #include "passes/pass_check/iso_partitioner_checker.h"
 
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/dag_vector_adapter.hpp"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
+#include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.hpp"
+#include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
+#include "passes/algorithms/osp/bsp/model/util/SetSchedule.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/BspLocking.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GrowLocalAutoCores.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GreedyChildren.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GreedyMetaScheduler.hpp"
+#include "passes/algorithms/osp/dag_divider/isomorphism_divider/IsomorphicSubgraphScheduler.hpp"
+#include "passes/algorithms/osp/dag_divider/isomorphism_divider/PrecomputedHashComputer.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/LocalSearch/KernighanLin/kl_include.hpp"
+#include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.hpp"
+
 #define MODULE_NAME "GraphPartition"
 
 using namespace npu::tile_fwk;
