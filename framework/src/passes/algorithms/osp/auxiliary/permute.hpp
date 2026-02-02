@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_PERMUTE_H
-#define PASS_OSP_PERMUTE_H
+#ifndef PASS_OSP_PERMUTE_HPP
+#define PASS_OSP_PERMUTE_HPP
 
 #include <type_traits>
 #include <utility>
@@ -40,4 +40,4 @@ void InversePermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm) {
 
 } // namespace osp
 } // namespace npu::tile_fwk
-#endif // PASS_OSP_PERMUTE_H
+#endif // PASS_OSP_PERMUTE_HPP

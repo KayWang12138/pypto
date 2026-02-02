@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_UNION_FIND_H
-#define PASS_OSP_UNION_FIND_H
+#ifndef PASS_OSP_UNION_FIND_HPP
+#define PASS_OSP_UNION_FIND_HPP
 
 #include <algorithm>
 #include <set>
@@ -253,4 +253,4 @@ void UnionFindUniverse<T, IndexT, WorkwT>::AddObject(const T &name, const WorkwT
 
 } // namespace osp
 } // namespace npu::tile_fwk
-#endif // PASS_OSP_UNION_FIND_H
+#endif // PASS_OSP_UNION_FIND_HPP

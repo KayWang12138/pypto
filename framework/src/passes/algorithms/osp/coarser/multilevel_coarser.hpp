@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_MULTILEVEL_COARSER_H
-#define PASS_OSP_MULTILEVEL_COARSER_H
+#ifndef PASS_OSP_MULTILEVEL_COARSER_HPP
+#define PASS_OSP_MULTILEVEL_COARSER_HPP
 
 #include <memory>
 #include <numeric>
@@ -221,4 +221,4 @@ void MultilevelCoarser<GraphT, GraphTCoarse>::AddIdentityContraction() {
 
 }    // end namespace osp
 }    // namespace npu::tile_fwk
-#endif    // PASS_OSP_MULTILEVEL_COARSER_H
+#endif    // PASS_OSP_MULTILEVEL_COARSER_HPP

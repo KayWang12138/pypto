@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_SARKAR_MUL_H
-#define PASS_OSP_SARKAR_MUL_H
+#ifndef PASS_OSP_SARKAR_MUL_HPP
+#define PASS_OSP_SARKAR_MUL_HPP
 
 #include "passes/algorithms/osp/auxiliary/balanced_coin_flips.hpp"
 #include "passes/algorithms/osp/coarser/multilevel_coarser.hpp"
@@ -344,4 +344,4 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunContractions() {
 
 }    // end namespace osp
 }    // namespace npu::tile_fwk
-#endif    // PASS_OSP_SARKAR_MUL_H
+#endif    // PASS_OSP_SARKAR_MUL_HPP

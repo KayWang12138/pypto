@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_COMPACT_SPARSE_GRAPH_H
-#define PASS_OSP_COMPACT_SPARSE_GRAPH_H
+#ifndef PASS_OSP_COMPACT_SPARSE_GRAPH_HPP
+#define PASS_OSP_COMPACT_SPARSE_GRAPH_HPP
 
 #include <algorithm>
 #include <iterator>
@@ -307,4 +307,4 @@ public:
 
 } // namespace osp
 } // namespace npu::tile_fwk
-#endif // PASS_OSP_COMPACT_SPARSE_GRAPH_H
+#endif // PASS_OSP_COMPACT_SPARSE_GRAPH_HPP

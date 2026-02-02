@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_SARKAR_H
-#define PASS_OSP_SARKAR_H
+#ifndef PASS_OSP_SARKAR_HPP
+#define PASS_OSP_SARKAR_HPP
 
 #include <algorithm>
 #include <limits>
@@ -1457,4 +1457,4 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
 
 }    // end namespace osp
 }    // namespace npu::tile_fwk
-#endif
+#endif // PASS_OSP_SARKAR_HPP

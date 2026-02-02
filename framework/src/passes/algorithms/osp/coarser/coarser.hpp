@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_COARSER_H
-#define PASS_OSP_COARSER_H
+#ifndef PASS_OSP_COARSER_HPP
+#define PASS_OSP_COARSER_HPP
 
 #include <algorithm>
 #include <set>
@@ -99,4 +99,4 @@ class CoarserGenExpansionMap : public Coarser<GraphTIn, GraphTOut> {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif    // PASS_OSP_COARSER_H
+#endif    // PASS_OSP_COARSER_HPP

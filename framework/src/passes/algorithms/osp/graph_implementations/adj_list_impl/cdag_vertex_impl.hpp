@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_CDAG_VERTEX_IMPL_H
-#define PASS_OSP_CDAG_VERTEX_IMPL_H
+#ifndef PASS_OSP_CDAG_VERTEX_IMPL_HPP
+#define PASS_OSP_CDAG_VERTEX_IMPL_HPP
 
 #include <cstddef>    // for std::size_t
 
@@ -85,4 +85,4 @@ using CDagVertexImplUnsigned = CDagVertexImpl<std::size_t, unsigned, unsigned, u
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif    // PASS_OSP_CDAG_VERTEX_IMPL_H
+#endif    // PASS_OSP_CDAG_VERTEX_IMPL_HPP

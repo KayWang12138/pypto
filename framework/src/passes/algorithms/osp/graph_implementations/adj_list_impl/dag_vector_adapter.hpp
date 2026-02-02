@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_DAG_VECTOR_ADAPTER_H
-#define PASS_OSP_DAG_VECTOR_ADAPTER_H
+#ifndef PASS_OSP_DAG_VECTOR_ADAPTER_HPP
+#define PASS_OSP_DAG_VECTOR_ADAPTER_HPP
 
 #include <vector>
 
@@ -206,4 +206,4 @@ static_assert(isComputationalDagTypedVerticesV<DagVectorAdapter<CDagVertexImplUn
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif    // PASS_OSP_DAG_VECTOR_ADAPTER_H
+#endif    // PASS_OSP_DAG_VECTOR_ADAPTER_HPP

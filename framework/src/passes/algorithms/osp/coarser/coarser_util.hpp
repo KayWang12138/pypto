@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_COARSER_UTIL_H
-#define PASS_OSP_COARSER_UTIL_H
+#ifndef PASS_OSP_COARSER_UTIL_HPP
+#define PASS_OSP_COARSER_UTIL_HPP
 
 #include <algorithm>
 #include <queue>
@@ -274,4 +274,4 @@ void ReorderExpansionMap(const GraphTIn &graph, std::vector<std::vector<VertexId
 } // end namespace coarser_util
 } // end namespace osp
 } // namespace npu::tile_fwk
-#endif // PASS_OSP_COARSER_UTIL_H
+#endif // PASS_OSP_COARSER_UTIL_HPP

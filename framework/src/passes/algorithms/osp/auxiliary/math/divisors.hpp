@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_MATH_H
-#define PASS_OSP_MATH_H
+#ifndef PASS_OSP_MATH_HPP
+#define PASS_OSP_MATH_HPP
 
 #include <cmath>
 #include <limits>
@@ -79,4 +79,4 @@ std::vector<IntegralType> DivisorsList(IntegralType num) {
 
 }    // end namespace osp
 }    // namespace npu::tile_fwk
-#endif   // PASS_OSP_MATH_H
+#endif   // PASS_OSP_MATH_HPP

@@ -13,8 +13,8 @@
  * \brief
  */
 
-#ifndef PASS_OSP_DIRECTED_GRAPH_PATH_UTIL_H
-#define PASS_OSP_DIRECTED_GRAPH_PATH_UTIL_H
+#ifndef PASS_OSP_DIRECTED_GRAPH_PATH_UTIL_HPP
+#define PASS_OSP_DIRECTED_GRAPH_PATH_UTIL_HPP
 
 #include <map>
 #include <queue>
@@ -65,4 +65,4 @@ std::vector<T> GetTopNodeDistance(const GraphT &graph) {
 
 }    // namespace osp
 }    // namespace npu::tile_fwk
-#endif    // PASS_OSP_DIRECTED_GRAPH_PATH_UTIL_H
+#endif    // PASS_OSP_DIRECTED_GRAPH_PATH_UTIL_HPP
