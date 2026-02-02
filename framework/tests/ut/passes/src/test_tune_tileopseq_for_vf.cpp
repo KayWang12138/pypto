@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 #include "tilefwk/platform.h"
 #include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
+#include "src/interface/configs/config_manager_ng.h"
 #define private public
 
 namespace npu {
