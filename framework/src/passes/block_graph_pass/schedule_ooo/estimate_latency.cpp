@@ -194,7 +194,7 @@ Status LatencyEstimator::SpillOnBlock() {
 
     Operation* op = allocIssueQueue[spillMemType].Front();
     size_t needMemSize = GetInOutOperandCached(op)[0]->MemorySize();
-    spillblockMemIds.insert(GetInOutOperand(op)[0]->memoryrange.memId);
+    spillblockMemIds.insert(GetInOutOperandCached(op)[0]->memoryrange.memId);
     localMemoryCurrentSize[spillMemType] += static_cast<long int>(needMemSize);
     if (localMemoryCurrentSize[spillMemType] < 0 || localMemoryCurrentSize[spillMemType] > localMemSize[spillMemType]){
         APASS_LOG_ERROR_F(Elements::Operation, "Buffer[%d] is valid. Please check", spillMemType);
