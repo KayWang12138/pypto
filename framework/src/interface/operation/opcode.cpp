@@ -251,6 +251,9 @@ void OpcodeManager::RegisterVectorUnary() {
     RegisterInfo(Opcode::OP_LN, OpCoreType::AIV, "LN", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tln", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_ISFINITE, OpCoreType::AIV, "ISFINITE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB, MemoryType::MEM_UB},
+        {"TileOp::Tisfinite", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
 }
 
 void OpcodeManager::RegisterVectorSort() {
@@ -905,6 +908,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {         Opcode::OP_L1_COPY_IN,          "TLoad"},
     {       Opcode::OP_L0C_COPY_OUT,         "TStore"},
     {       Opcode::OP_GATHER_IN_L1,    "TGatherInL1"},
+    {         Opcode::OP_ISFINITE,    "TIsFinite"},
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
