@@ -20,6 +20,7 @@
 #include "interface/tensor/logical_tensor.h"
 #include "interface/configs/config_manager.h"
 #include "passes/pass_interface/pass.h"
+#include "passes/pass_utils/merge_view.h"
 
 namespace npu::tile_fwk {
 class MergeViewAssemble : public Pass {
@@ -104,6 +105,7 @@ private:
     std::unordered_set<int> assembleWithoutAssembleConsumer_;
     std::vector<ViewOp> viewOpToAppend_;
     std::vector<AssembleOp> assembleOpToAppend_;
+    MergeView mergeView;
 };
 } // using namespace npu::tile_fwk
 #endif // PASS_MERGE_VIEW_ASSEMBLE_H_
