@@ -117,6 +117,7 @@ public:
     std::string PrintIndexOutCastTileTensor() const;
 
     std::string GenCumSumOp() const;
+    std::string GenTriULOp() const;
     std::string PrintGatherDynamicUnaligned() const;
     std::string PrintGatherLayout() const;
     std::string GenGatherOp() const;
@@ -290,10 +291,12 @@ private:
         std::vector<std::string> &gmShapeExpr, std::vector<std::string> &gmOffsetExpr) const;
     std::string PrintMemCopyWithL0CTileTensor(const PrintMemCopyWithL0CParam &param) const;
 
+    std::pair<std::string, std::string> GetOuterInnerValueStr(
+        unsigned gmIdx, const std::vector<int64_t> &gmShape) const;
     std::string PrintMemCopyWithL1(const PrintMemCopyWithL1Param &param) const;
     std::string PrintMemCopyWithL1Static(const PrintMemCopyWithL1Param &param) const;
     std::string PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL1Param &param) const;
-    std::string PrintL1CopyInTileTensor(const PrintMemCopyWithL1Param &param) const;
+    std::string PrintMemCopyWithL1TileTensor(const PrintMemCopyWithL1Param &param) const;
 
     std::string PrintMemCopyWithUB(PrintMemCopyWithUBParam &param) const;
     std::string PrintMemCopyWithUBStatic(const PrintMemCopyWithUBParam &param) const;
@@ -404,6 +407,8 @@ private:
     std::string PrintIndexPut(const PrintIndexPutParam &param) const;
     std::string PrintIndexPutLayout(size_t indicesSize, bool accumulate) const;
     std::string PrintIndexPutDynamicUnaligned(const PrintIndexPutParam &param) const;
+
+    std::string PrintTriULTileTensor(const std::string &diagonal, bool isUpper) const;
 
     std::string PrintCumSumDynamicUnaligned(const PrintCumSumParam &param) const;
     std::string PrintCumSumTileTensor(int axis) const;

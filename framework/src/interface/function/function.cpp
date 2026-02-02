@@ -97,8 +97,7 @@ struct CompareTensorPtr {
     }
 };
 
-std::string DynloopFunctionPathNode::Dump() const
-{
+std::string DynloopFunctionPathNode::Dump() const {
     int indent = 2;
     std::ostringstream oss;
     std::function<void(const DynloopFunctionPathNode *, int)> dump =
@@ -305,13 +304,11 @@ bool Function::IsCube() const {
     return false;
 }
 
-OperationsViewer Function::OperationsAfterOOO()
-{
+OperationsViewer Function::OperationsAfterOOO() {
     return OperationsViewer(operationsAfterOOO_, opPositionAfterOOO_);
 }
 
-void Function::RecordOOOSeq()
-{
+void Function::RecordOOOSeq() {
     operationsAfterOOO_ = operations_;
     opPositionAfterOOO_ = opPosition_;
 }
@@ -818,8 +815,7 @@ void Function::OperationLoopCheck(const std::string &errorMsg) {
     }
 }
 
-bool Function::OperationLoopCheck()
-{
+bool Function::OperationLoopCheck() {
     std::unordered_map<Operation*, int> inLinkNum;
     std::unordered_set<Operation*> visitedOp;
     std::vector<Operation*> visitStack;
@@ -2840,7 +2836,8 @@ void Function::NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicSca
 void Function::NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex) {
     bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
     for (auto &op : operations_) {
-        if (op->GetOpcode() == Opcode::OP_VEC_DUP || op->GetOpcode() == Opcode::OP_RANGE) {
+        if (op->GetOpcode() == Opcode::OP_VEC_DUP || op->GetOpcode() == Opcode::OP_RANGE ||
+            op->GetOpcode() == Opcode::OP_TRIUL) {
             if (op->HasAttr(OpAttributeKey::dynScalar)) {
                 SymbolicScalar dynScalar = op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
                 std::vector<SymbolicScalar> valueCoaList;

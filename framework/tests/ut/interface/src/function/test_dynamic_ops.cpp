@@ -29,7 +29,6 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         ProgramData::GetInstance().Reset();
-        config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
         if (!calc::IsVerifyEnabled()) {
             GTEST_SKIP() << "Verify not supported skip the verify test";
         }
@@ -609,7 +608,7 @@ TEST_F(DynamicOpsTest, MatmulAcc) {
 TEST_F(DynamicOpsTest, GetTensorData) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
-    config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     Tensor t0(DT_FP32, {32, 32}, "t0");
     Tensor out(DT_FP32, {64, 64}, "out");
@@ -705,6 +704,35 @@ TEST_F(DynamicOpsTest, Round) {
             (void)i;
             auto t0 = View(self, {b, n}, {0, 0});
             outValue = Round(t0, decimals);
+        }
+    }
+}
+
+TEST_F(DynamicOpsTest, TriU) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+    int64_t b = 8;
+    int64_t s = 8;
+    int64_t diagonal = 0;
+    Tensor input(DT_INT8, {b, s}, "input");
+    Tensor out(DT_INT8, {b, s}, "out");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<int8_t>(input, 1),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<int8_t>(out, 2),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateConstantTensor<int8_t>(out, 2),
+    });
+
+    FUNCTION("main", {input}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto t0 = View(input, {b, s}, {0, 0});
+            out = TriU(t0, diagonal);
         }
     }
 }

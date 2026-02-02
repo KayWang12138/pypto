@@ -42,8 +42,8 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
         IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
@@ -93,5 +93,10 @@ TEST_F(TestCodegenDynRound, TestDynOpRound) {
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
+    std::string res = GetResultFromCpp(*function);
+    std::string expect =
+        R"!!!(TRound<float>(ubTensor_3, ubTensor_4, ubTensor_1, 10);
+)!!!";
+    CheckStringExist(expect, res);
 }
 } // namespace npu::tile_fwk

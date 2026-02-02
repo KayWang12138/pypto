@@ -54,7 +54,7 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         config::SetPassGlobalConfig(KEY_VF_OPT_MARK_FOR, true);
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
         config::SetPlatformConfig("ENABLE_COST_MODEL", false);
     }
@@ -116,6 +116,9 @@ TEST_F(TestLoopaxesProcPass, LoopaxesProcUTest1) {
     currFunctionPtr->inCasts_.push_back(inCast1);
     currFunctionPtr->inCasts_.push_back(inCast2);
     currFunctionPtr->outCasts_.push_back(outCast);
+
+    (void) syncOp;
+    (void) reshape2;
 
     LoopaxesProc loopaxesprocpass;
     EXPECT_EQ(loopaxesprocpass.RunOnFunction(*rootFuncPtr), SUCCESS);
