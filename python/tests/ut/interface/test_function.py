@@ -24,7 +24,7 @@ def test_static_function():
     c = pypto.tensor(shape, dtype, "tensor_c")
 
     with pypto.function("ADD", a, b):
-        pypto.set_vec_tile_shapes(8, 8)
+        pypto.set_vec_tile_shapes(8, 16)
         c[:] = pypto.add(a, b)
 
     print(controller.dump())
