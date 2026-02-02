@@ -168,6 +168,8 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     devKernelArgs.nrAiv = 2;
     devKernelArgs.nrValidAic = 1;
     devKernelArgs.nrAicpu = 3;
+    config::SetOptionsNg<int64_t>(CFG_RUNTIME_DBEUG_MODE, 1);
+    InitMetaData(devKernelArgs);
     std::vector<void *> perfData;
     Metrics *metr = static_cast<Metrics*>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
     TaskStat taskStat;
