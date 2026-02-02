@@ -15,7 +15,7 @@
 #include <gtest/gtest.h>
 #include "tilefwk/platform.h"
 #include "passes/block_graph_pass/tune_sync_for_vf.h"
-#include "src/interface/configs/config_manager_ng.h"
+#include "passes/block_graph_pass/insert_sync.h"
 #define private public
 
 namespace npu {
