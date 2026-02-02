@@ -306,6 +306,16 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
     gather_golden<Config>(offsetsData, pageTableData, srcData, cfg, golden);
     std::cout << "simu finished" << std::endl;
 
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<float16>(src, srcData),
+        RawTensorData::CreateTensor<int32_t>(offsets, offsetsData),
+        RawTensorData::CreateTensor<float16>(unit, unitData),
+        RawTensorData::CreateTensor<int32_t>(pageTable, pageTableData)
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float16>(dst, 0),
+    });
+
     FUNCTION("test", {src, offsets, unit, pageTable}, {dst}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1)) {
             (void)sIdx;
@@ -340,16 +350,6 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
         }
     }
     std::cout << "compile finished" << std::endl;
-
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<float16>(src, srcData),
-        RawTensorData::CreateTensor<int32_t>(offsets, offsetsData),
-        RawTensorData::CreateTensor<float16>(unit, unitData),
-        RawTensorData::CreateTensor<int32_t>(pageTable, pageTableData)
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float16>(dst, 0),
-    });
 
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto out = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
