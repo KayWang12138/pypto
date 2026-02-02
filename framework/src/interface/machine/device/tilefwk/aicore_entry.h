@@ -31,7 +31,7 @@ namespace npu::tile_fwk {
 
 #define ENABLE_AICORE_PRINT 0
 
-#define ENABLE_AICORE_PERF_TRACE  0
+#define ENABLE_AICORE_PERF_TRACE  0 
 
 /* The DFX swimlane performance statistics use host pre-allocated memory mode, which avoids data collection during
    AICPU scheduling to minimize scheduling interference. However, each AICore only supports tracking up to
