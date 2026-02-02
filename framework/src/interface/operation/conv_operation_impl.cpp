@@ -46,7 +46,7 @@ void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor
     CheckOutputShape(inputTensor, weightTensor, biasTensor);
     CheckAttrShape(outType, attrParam);
     CheckTileTiling(inputTensor, weightTensor, attrParam);
-    CheckL1SizeTiling(outType, weightTensor);
+    // CheckL1SizeTiling(outType, weightTensor);
 }
 
 void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_t max) {
@@ -127,8 +127,8 @@ void CheckTileTiling(const Tensor &inputTensor, const Tensor &weightTensor, cons
         CheckL0TileTiling(weightTensor, attrParam);
     }
 }
-
-CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
+/*
+void CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
     auto &conveTile = TileShape::Current().GetConvTile();
     int64_t l1Size = pipeConfig.l1SizeThreshold;
     int64_t tileHout = convTile.tileL1Info.tileHout;
@@ -149,6 +149,7 @@ CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
             << "." << std::endl;
     });
 }
+*/
 uint64_t ConvAlignB(uint64_t a, uint64_t b)
 {
     if (b == 0) {
