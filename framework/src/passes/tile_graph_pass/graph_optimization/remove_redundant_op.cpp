@@ -113,8 +113,7 @@ Status RemoveRedundantOp::RunOnFunction(Function &function) {
     }
     MergeViewAssembleImpl MergeViewAssembleImpl;
     Status status = MergeViewAssembleImpl.Process(function);
-    if (status != SUCCESS)
-    {
+    if (status != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Merge assemble and view failed.");
         return status;
     }

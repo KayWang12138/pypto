@@ -102,7 +102,6 @@ Status MergeViewAssembleImpl::AppendMergedAssembleOperations(Function &function)
     for (auto &assembleOp : assembleOpToAppend_) {
         auto attr = std::make_shared<AssembleOpAttribute>(assembleOp.offset, assembleOp.dynOffset);
         if (!attr) {
-            ALOG_ERROR("Failed to create AssembleOpAttribute.");
             return FAILED;
         }
         auto &mergedAssembleOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assembleOp.input}, {assembleOp.output});
@@ -399,12 +398,10 @@ std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssembleIm
     for (size_t i = 0; i < chain.size(); ++i) {
         const auto &assemble = chain[i];
         if (!assemble) {
-            ALOG_ERROR("Null assemble operation in chain.");
             return {};
         }
         auto assembleOpAttribute = std::dynamic_pointer_cast<AssembleOpAttribute>(assemble->GetOpAttribute());
         if (!assembleOpAttribute) {
-            ALOG_ERROR("Failed to get AssembleOpAttribute.");
             return {};
         }
         if (i == 0) {
@@ -443,7 +440,6 @@ Status MergeViewAssembleImpl::EraseRedundantAssemble(Function &function) const {
     }
     for (auto &ele : redundantAssembles) {
         if (!ele) {
-            ALOG_ERROR("Null operation in redundantAssembles.");
             continue;
         }
         ele->SetAsDeleted();
