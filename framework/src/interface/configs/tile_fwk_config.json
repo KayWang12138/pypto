@@ -55,7 +55,7 @@
             "test_is_tig": false,
             "dump_source_location": true,
             "enable_checker": false,
-            "device_platform":"ASCEND_910B2",
+            "device_platform":"ASCEND_950PR_9579",
             "enable_prof_func": false,
             "enable_prof_aicore_time": false,
             "enable_prof_aicore_pmu": false
@@ -102,7 +102,7 @@
             "enable_pass_configs": true,
             "enable_cv_fuse": false,
             "pass_thread_num": 1,
-            "vf_opt_mark_for": false,
+            "vf_opt_mark_for": true,
             "default_pass_configs": {
                 "print_graph": false,
                 "print_program": false,
