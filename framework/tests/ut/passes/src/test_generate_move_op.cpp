@@ -211,12 +211,12 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
                 default: break;
             }
         }
-        constexpr int expectedAssemble = 0;
         constexpr int expectedView = 0;
+        constexpr int expectedAssemble = 0;
         constexpr int expectedCopyIn = 2;
         constexpr int expectedCopyOut = 1;
-        EXPECT_EQ(assemble_num, expectedAssemble) << "0 operations should be OP_ASSEMBLE";
         EXPECT_EQ(view_num, expectedView) << "0 operations should be OP_VIEW";
+        EXPECT_EQ(assemble_num, expectedAssemble) << "0 operations should be OP_ASSEMBLE";
         EXPECT_EQ(copy_in_num, expectedCopyIn) << "4 operations should be OP_COPY_IN";
         EXPECT_EQ(copy_out_num, expectedCopyOut) << "3 operations should be OP_COPY_OUT";
     }
