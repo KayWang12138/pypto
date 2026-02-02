@@ -684,8 +684,9 @@ void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntry
 }
 
 bool OoOScheduler::CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue) {
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr.find("L1_ALLOC") != std::string::npos &&
-        (spillIssue->tileOp.GetOpcodeStr().find("L0C_COPY_L1") != std::string::npos || spillIssue->tileOp.GetOpcodeStr().find("UB_COPY_L1") != std::string::npos)) {
+    auto spillOp = spillIssue->tileOp.GetOpcodeStr();
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
+        (spillOp.find("L0C_COPY_L1") != std::string::npos || spillOp.find("UB_COPY_L1") != std::string::npos)) {
         return false;
     }
     return true;
