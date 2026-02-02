@@ -41,6 +41,8 @@ struct DevCtrlState {
     uint32_t taskCtrlIndex{0};
 };
 
+#define CTRL_THREAD_INDEX 0
+
 struct DevScheState {
     /* state used by schedule */
     std::atomic<int> threadIdx{0};
@@ -136,11 +138,11 @@ public:
 
 static_assert(sizeof(DevStartArgs) < DEV_ARGS_SIZE, "dev start args is too large");
 
-static inline void RuntimeYield() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(0));
+static inline void RuntimeYield(uint64_t microseconds = 0) {
+    std::this_thread::sleep_for(std::chrono::microseconds(microseconds));
 }
 
-#define DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT 2
+#define DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT 4
 struct RuntimeDataRingBufferHead {
 public:
     void Initialize(uint64_t runtimeDataSize, uint64_t runtimeDataCount) {
@@ -156,13 +158,31 @@ public:
         return indexFinished_ + runtimeDataCount_ <= indexPending_;
     }
 
-    uint8_t *Allocate() {
+    bool Empty() const {
+        return indexFinished_ == indexPending_;
+    }
+
+    void AllocateWait() {
         while (Full()) {
             RuntimeYield();
         }
+    }
+
+    uint8_t *Allocate() {
+        AllocateWait();
+
         /* allocate next element from the ring buffer */
         uint64_t index = ++indexPending_;
         return GetRuntimeData(index);
+    }
+
+    uint8_t *AllocatePrepare() {
+        AllocateWait();
+        return GetRuntimeData(indexPending_ + 1);
+    }
+
+    void AllocateSubmit() {
+        ++indexPending_;
     }
 
     void Deallocate(uint8_t *ptr) {

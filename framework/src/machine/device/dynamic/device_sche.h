@@ -69,7 +69,6 @@ public:
             return DEVICE_MACHINE_ERROR;
         }
 
-        DEV_INFO("thread %d start .", threadIdx);
         if (static_cast<uint32_t>(threadIdx) >= args->scheCpuNum) {
             DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
@@ -159,7 +158,12 @@ struct DynMachineManager {
     int RunCtrl(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry, int threadIdx) {
         CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
         DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
+
+        DEV_INFO("ThreadCtrlEnter idx=%d", threadIdx);
+
         int ret = entry.kernelCtrlServer(static_cast<void*>(kargs));
+
+        DEV_INFO("ThreadCtrlLeave idx=%d ret=%d", threadIdx, ret);
         return ret;
     }
 
@@ -168,6 +172,8 @@ struct DynMachineManager {
 
         DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
         CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
+        DEV_INFO("ThreadScheEnter idx=%d", threadIdx);
+
         DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
             static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
             devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
@@ -181,6 +187,8 @@ struct DynMachineManager {
         DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(kargs->cfgdata);
         DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
         int ret = machine_.RunThread(schedIdx, devStartArgs, devArgs, schedIdx);
+
+        DEV_INFO("ThreadScheLeave idx=%d ret=%d", threadIdx, ret);
         if (ret != DEVICE_MACHINE_OK) {
             schRunFailed_ = true;
         }
@@ -202,7 +210,7 @@ struct DynMachineManager {
 #endif
     }
 
-    int Run(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
+    int RunUnifiedStream(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
         if (devArgs->scheCpuNum > devArgs->nrAicpu - 1) {
@@ -210,6 +218,9 @@ struct DynMachineManager {
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
         int threadIdx = threadIdx_++;
+
+        DEV_INFO("ThreadEnter idx=%d", threadIdx);
+
         uint64_t allocThreadCycle = GetCycles();
         if (devArgs->enableCtrl == 1 && threadIdx == 0) {
             ret = RunCtrl(kargs, entry, threadIdx);
@@ -221,7 +232,9 @@ struct DynMachineManager {
 
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, kargs->taskWastTime);
         PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx, allocThreadCycle);
-        DEV_INFO("ThreadIdx %d finished, ret %d .", threadIdx, ret);
+
+        DEV_INFO("ThreadLeave idx=%d ret=%d", threadIdx, ret);
+
         GetLogger().Flush();
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
         if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
@@ -337,7 +350,7 @@ struct DynMachineManager {
         DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         kargs->taskWastTime = GetCycles();
         Init(&devProg->devArgs);
-        int rc = Run(kargs, entry);
+        int rc = RunUnifiedStream(kargs, entry);
         if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_FINISHED) {
             RunPost(devProg);
             return DEVICE_MACHINE_OK;
@@ -346,22 +359,18 @@ struct DynMachineManager {
     }
 
     int EntrySplittedStreamCtrl(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
-        DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
-
         int ret = 0;
         constexpr int ctrlThreadIdx = 0;
         uint64_t ctrlStep = splittedInfo_.ctrlStep++;
         // ctrl start 2 threads: one for ctrl, one for registering signal
         if (ctrlStep % 2 == 0) {
+            DEV_INFO("ThreadEnter idx=%d round=%d", ctrlThreadIdx, (int)kargs->parameter.globalRound);
             ret = RunCtrlInitNoLock(kargs, entry);
             if (ret != 0) {
                 return ret;
             }
-
-            DevStartArgs *runtimeDataPending = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataPending());
-            splittedInfo_.CtrlUpdate(runtimeDataPending, ctrlThreadIdx, kargs->parameter.globalRound);
-
             ret = RunCtrl(kargs, entry, ctrlThreadIdx);
+            DEV_INFO("ThreadLeave idx=%d ret=%d", ctrlThreadIdx, ret);
         } else {
             SignalReg(entry);
         }
@@ -369,17 +378,24 @@ struct DynMachineManager {
     }
 
     int EntrySplittedStreamSche(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
-        splittedInfo_.ScheWait(kargs->parameter.globalRound);
+        DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+
+        splittedInfo_.ScheWait(devProg);
         // After wait, the devStartArgs should be ready.
 
-        DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
         DevStartArgs *runtimeDataCurrent = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
         int threadIdx = splittedInfo_.ScheUpdate(runtimeDataCurrent);
 
+        DEV_INFO("ThreadEnter idx=%d round=%d", threadIdx, (int)kargs->parameter.globalRound);
         int ret = RunSche(kargs, entry, threadIdx);
+        DEV_INFO("ThreadLeave idx=%d ret=%d", threadIdx, ret);
 
         if (splittedInfo_.ScheSync(runtimeDataCurrent, devProg->devArgs.scheCpuNum)) {
+            if (unlikely(!machine_.CheckAndResetReg())) {
+                DEV_WARN("Some registers force closed!");
+            }
             ReleaseRuntimeDataRingBuffer(devProg);
+            DEV_INFO("All schedule exited, destroy the machine.");
             return DEVICE_MACHINE_OK;
         }
         return ret;
@@ -423,18 +439,19 @@ struct DynMachineManager {
 
     struct SplittedInfo {
         std::atomic<uint64_t> ctrlStep{0};
-        std::atomic<uint64_t> currentRound;
+        std::atomic<uint64_t> currentRound{0};
 
-        void CtrlUpdate(DevStartArgs *devStartArgs, int ctrlThreadIdx, uint64_t globalRound) {
-            devStartArgs->devScheState.threadIdx = ctrlThreadIdx;
-            devStartArgs->devScheState.finished = 0;
+        void ScheWait(DevAscendProgram *devProg) {
+            while (unlikely(!devProg->runtimeDataRingBufferInited)) {
+                /* In the first launch, sche must wait for ctrl's ring buffer's initialization.
+                 * Otherwise, the ringBufferHead->Empty() is not legal. */
+                RuntimeYield(0);
+            }
 
-            currentRound = globalRound;
-        }
-
-        void ScheWait(uint64_t globalRound) {
-            while (currentRound < globalRound) {
-                RuntimeYield();
+            RuntimeDataRingBufferHead *ringBufferHead = devProg->GetRuntimeDataList();
+            while (unlikely(ringBufferHead->Empty())) {
+                /* Sche must wait until the current devStarArgs has been initialized. */
+                RuntimeYield(0);
             }
         }
 

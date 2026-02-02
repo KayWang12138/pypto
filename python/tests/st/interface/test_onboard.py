@@ -281,7 +281,7 @@ def infer_shape_kenrel1(a, b, c, eps):
         c[i:, 0:] = ta + tb
 
 
-def test_infer_shape(device, s=1, n=2, mix=False):
+def test_infer_shape(device, s=1, n=100, mix=False):
     # for b in [2048, 1024, 512, 256, 128, 64, 32]:
     for b in [32]:
 
@@ -315,9 +315,11 @@ def aclgraph_enable():
         g.capture_end()
     torch_npu.npu.current_stream().wait_stream(s)
     # 执行
-    g.replay()
-    stream = torch_npu.npu.current_stream()
-    stream.synchronize()
+
+    for k in range(100):
+        g.replay()
+        stream = torch_npu.npu.current_stream()
+        stream.synchronize()
     g.reset()
 
 
@@ -340,4 +342,4 @@ if __name__ == "__main__":
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    test_two_kernel(f'npu:{device_id}')
+    test_aclgraph(f'npu:{device_id}')

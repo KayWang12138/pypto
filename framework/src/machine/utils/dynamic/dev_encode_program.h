@@ -83,6 +83,7 @@ struct DevAscendProgram {
     } memBudget;
     DeviceRuntimeOffset deviceRuntimeOffset;
     const void *controlFlowBinaryAddr{nullptr};
+    std::atomic<bool> runtimeDataRingBufferInited{false};
     uint64_t hcclContext[HCCL_GROUP_NUM];
     uint64_t commGroupNum{0};
     uint16_t stitchFunctionNumInitial{0};
@@ -426,6 +427,7 @@ struct DevAscendProgram {
     void ResetFromLaunch() {
         memset_s(&devArgs, sizeof(devArgs), 0, sizeof(devArgs));
         controlFlowBinaryAddr = nullptr;
+        runtimeDataRingBufferInited = false;
         workspaceSize = 0;
         ctrlFlowCacheAnchor = nullptr;
         RelocProgram(reinterpret_cast<int64_t>(this), 0);
