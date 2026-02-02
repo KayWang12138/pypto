@@ -97,7 +97,7 @@ def cfa_attention(
         ori_block_table,
     )
     attention_out = torch.zeros([q.size(0) * q.size(1), q.size(2)], dtype=q.dtype, device=f'{q.device}')
-    unroll_list = [2, 1]
+    unroll_list = [32]
     inputs = {
         q: [0],
         cmp_kv: [0],
@@ -112,8 +112,6 @@ def cfa_attention(
     }
     pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in inputs.items()]
     pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in outputs.items()]
-    if unroll_list is None:
-        unroll_list = [32]
 
     c128_decode(*pto_inputs, *pto_outputs, cmp_ratio, unroll_list)
     attention_out = attention_out.reshape(q.shape)
@@ -209,16 +207,16 @@ def kernel(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_tabl
 
 @pypto.jit(
     runtime_options={"stitch_function_num_initial": 128,
-                     "stitch_function_outcast_memory": 512,
-                     "stitch_function_inner_memory": 512,
+                     "stitch_function_outcast_memory": 128,
+                     "stitch_function_inner_memory": 128,
                      "device_sched_mode": 1},
     
     # 当子图大小达到上界不允许与其他子图合并
     pass_options={
-                 "cube_l1_reuse_setting": {-1: 3},
+                 "cube_l1_reuse_setting": {-1: 2},
                   "cube_nbuffer_setting":{-1:2},
                   "vec_nbuffer_mode":2,
-                  "vec_nbuffer_setting": {-1:4, 0:1}}
+                  "vec_nbuffer_setting": {-1:4}}
 )
 def c128_decode(q, cmp_kv, sinks, cmp_block_table, seqused_kv, ori_kv, ori_block_table, \
               atten_out, cmp_ratio, unroll_list):
