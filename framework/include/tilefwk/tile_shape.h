@@ -58,6 +58,25 @@ struct CubeTile {
 
     std::string ToString() const;
 };
+<<<<<<< HEAD
+=======
+struct TileL1Info {
+        int64_t tileHin;
+        int64_t tileHout;
+        int64_t tileWin;
+        int64_t tileWout;
+        int64_t tileCinFmap;
+        int64_t tileCinWeight;
+        int64_t tileCout;
+        int64_t tileN;
+    };
+    
+struct TileL0Info {
+    int64_t tileM;
+    int64_t tileN;
+    int64_t tileK;
+    };
+>>>>>>> eeee299... operation check
 /**
  * @brief ConvTile tile for conv operation
  *
