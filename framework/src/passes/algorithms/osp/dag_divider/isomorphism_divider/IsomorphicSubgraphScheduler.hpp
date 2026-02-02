@@ -12,6 +12,10 @@
  * \file IsomorphicSubgraphScheduler.hpp
  * \brief
  */
+
+#ifndef OSP_ISOMORPHIC_SUBGRAPH_SCHEDULER_HPP
+#define OSP_ISOMORPHIC_SUBGRAPH_SCHEDULER_HPP
+
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -517,3 +521,5 @@ class IsomorphicSubgraphScheduler {
 
 }    // namespace osp
 } // namespace npu::tile_fwk
+
+#endif // OSP_ISOMORPHIC_SUBGRAPH_SCHEDULER_HPP
