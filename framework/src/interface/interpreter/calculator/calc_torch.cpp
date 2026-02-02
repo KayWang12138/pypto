@@ -275,6 +275,12 @@ static void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
+static void IsFinite(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::isfinite_out(tout, From(self));
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
 #define DEFINE_BINARY_S_OPS(Name, op_out)                                                                 \
     static void Name(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse) { \
         auto tout = From(out);                                                                            \
@@ -1707,6 +1713,7 @@ static struct CalcOps calcOps = {
     .WhereST = WhereST,
     .WhereSS = WhereSS,
     .Ln = Ln,
+    .IsFinite = IsFinite,
     .LogicalNot = LogicalNot,
     .Range = Range,
     .Compare = Compare,
