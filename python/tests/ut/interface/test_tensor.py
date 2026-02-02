@@ -52,7 +52,7 @@ def test_tensor_add_plus_op():
     b = pypto.tensor(shape, dtype, "tensor_b")
 
     with pypto.function("ADD", a, b):
-        pypto.set_vec_tile_shapes(8, 8)
+        pypto.set_vec_tile_shapes(8, 16)
         c = a + b
 
     assert c.shape == shape
@@ -65,7 +65,7 @@ def test_tensor_add_tensor_element():
     a = pypto.tensor(shape, dtype, "tensor_a")
 
     with pypto.function("ADD", a):
-        pypto.set_vec_tile_shapes(8, 8)
+        pypto.set_vec_tile_shapes(8, 16)
         c = a + 3.14
 
     assert c.shape == shape
@@ -78,7 +78,7 @@ def test_tensor_add_element_tensor():
     a = pypto.tensor(shape, dtype, "tensor_a")
 
     with pypto.function("ADD", a):
-        pypto.set_vec_tile_shapes(8, 8)
+        pypto.set_vec_tile_shapes(8, 16)
         c = 3.14 + a
 
     assert c.shape == shape
@@ -92,7 +92,7 @@ def test_tensor_sub_op():
     b = pypto.tensor(shape, dtype, "tensor_b")
 
     with pypto.function("SUB", a, b):
-        pypto.set_vec_tile_shapes(8, 8)
+        pypto.set_vec_tile_shapes(8, 16)
         c = a - b
 
     assert c.shape == shape
@@ -105,7 +105,7 @@ def test_tensor_subs_tensor_element():
     a = pypto.tensor(shape, dtype, "tensor_a")
 
     with pypto.function("SUBS", a):
-        pypto.set_vec_tile_shapes(8, 8)
+        pypto.set_vec_tile_shapes(8, 16)
         c = a - 3.14
         assert [x.concrete() for x in c.valid_shape] == shape
 
