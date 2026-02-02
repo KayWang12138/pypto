@@ -1282,7 +1282,23 @@ static std::vector<int64_t> CheckAndInferShape(const std::vector<int64_t> &oriSh
 }
 
 // batch MatMul优化pattern，不插入register copy
-bool MatchBatchMatMulPattern(const std::vector<int64_t> &inputShape, const std::vector<int64_t> &outputShape) {
+bool MatchBatchMatMulPattern(const Tensor &operand, const std::vector<int64_t> &inputShape, const std::vector<int64_t> &outputShape) {
+    std::unordered_set<Opcode> mulOpcode{
+        Opcode::OP_A_MUL_B,
+        Opcode::OP_A_MULACC_B,
+        Opcode::OP_A_MUL_BT,
+        Opcode::OP_A_MULACC_BT,
+        Opcode::OP_AT_MUL_B,
+        Opcode::OP_AT_MUL_BT,
+    };
+    auto producer = *operand.GetStorage()->GetProducers().begin();
+    auto consumer = *operand.GetStorage()->GetConsumers().begin();
+    bool mulPattern =
+        ((producer->GetOpcode() == Opcode::OP_VIEW && mulOpcode.find(consumer->GetOpcode()) != mulOpcode.end()) ||
+        (mulOpcode.find(producer->GetOpcode()) != mulOpcode.end() && consumer->GetOpcode() == Opcode::OP_ASSEMBLE));
+    if (!mulPattern) {
+        return false;
+    }
     constexpr size_t DIMENSIONS_2D = 2;
     constexpr size_t DIMENSIONS_3D = 3;
     constexpr size_t DIMENSIONS_4D = 4;
@@ -1348,7 +1364,7 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
         validShapeDefault = SymbolicScalar::FromConcrete(dstshape);
     }
     auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
-    if (ReshapeNeedCopy(operand) && !MatchBatchMatMulPattern(operand.GetShape(), dstshape)) {
+    if (ReshapeNeedCopy(operand) && !MatchBatchMatMulPattern(operand, operand.GetShape(), dstshape)) {
         Tensor copyOperand(operand.GetStorage()->Datatype(), operand.GetShape(), "", operand.Format());
         copyOperand.GetStorage()->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
         CALL(InnerAssign, *Program::GetInstance().GetCurrentFunction(), operand.GetStorage(),
