@@ -79,7 +79,11 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
         pto::TOR(dst, src0, src1);
         return;
     }
-        
+
+    if constexpr (op == BinaryOp::MOD) {
+        pto::TREM(dst, src0, src1);  // remember opcode.cpp OpAttributeKey::excludeBufferReuse
+        return;
+    }
 }
 
 template <BinaryOp op, TileOp::BroadcastOperand operand, typename T0, typename T1, typename T2>
@@ -164,9 +168,8 @@ TILEOP void TBitwiseOr(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::BITWISEOR, operand>(dst, src0, src1);
 }
 
-#define OP_TILE_OP_Mod TMod
 template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2,  typename T3>
-TILEOP void TMod(T0 dst, T1 src0, T2 src1, T3 tmp) {
+TILEOP void TModBrcb(T0 dst, T1 src0, T2 src1, T3 tmp) {
     constexpr size_t expectSize = 5;
     const auto dstLayout = dst.GetLayout();
     const auto src0Layout = src0.GetLayout();
@@ -302,6 +305,16 @@ TILEOP void TMod(T0 dst, T1 src0, T2 src1, T3 tmp) {
                 }
             }
         }
+    }
+}
+
+#define OP_TILE_OP_Mod TMod
+template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2,  typename T3>
+TILEOP void TMod(T0 dst, T1 src0, T2 src1, T3 tmp) {
+    if constexpr (operand == TileOp::BroadcastOperand::NONE) {
+        BinaryCompute<BinaryOp::MOD, operand>(dst, src0, src1);
+    } else {
+        TModBrcb<operand>(dst, src0, src1, tmp);
     }
 }
 
