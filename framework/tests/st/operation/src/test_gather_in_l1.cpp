@@ -252,6 +252,8 @@ class GatherInL1Test : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 
 template<typename Config>
 void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
     auto TotalSize = [](const Shape &shapes) {
         size_t res = 1;
         for (auto v : shapes) {
@@ -287,6 +289,7 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
     Tensor offsets(DT_INT32, offsetsShapes, "offsets");
     Tensor pageTable(DT_INT32, pageTableShapes, "pageTable");
     Tensor dst(DT_FP16, dstShapes, "dst");
+    Tensor golden(DT_FP16, dstShapes, "golden");
 
     std::string err;
     if (!validate_config<Config>(cfg, err)) {
@@ -302,8 +305,8 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
         unitData[i * unit.GetShape()[1] + i] = 1;
     }
     // 4. 用 pageattention 逻辑做 gather，生成 golden 结果
-    std::vector<typename Config::DataType> golden;
-    gather_golden<Config>(offsetsData, pageTableData, srcData, cfg, golden);
+    std::vector<typename Config::DataType> goldenData;
+    gather_golden<Config>(offsetsData, pageTableData, srcData, cfg, goldenData);
     std::cout << "simu finished" << std::endl;
 
     ProgramData::GetInstance().AppendInputs({
@@ -314,6 +317,9 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float16>(dst, 0),
+    });
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float16>(golden, goldenData),
     });
 
     FUNCTION("test", {src, offsets, unit, pageTable}, {dst}) {
@@ -356,15 +362,15 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
     int maxErrorPrintNum = 50;
     int curErrorPrintNum = 0;
     float eps = 1e-6f;
-    for (size_t i = 0; i < golden.size(); i++) {
+    for (size_t i = 0; i < goldenData.size(); i++) {
         auto actual = ((float16 *)out->data())[i];
-        auto expect = golden[i];
+        auto expect = goldenData[i];
         if (fabs(actual - expect) > eps && curErrorPrintNum < maxErrorPrintNum) {
             std::cout << i << ": output: " << actual << "; expect: " << expect << std::endl;
             curErrorPrintNum++;
         }
     }
-    EXPECT_TRUE(resultCmp(golden, (float16 *)out->data(), eps));
+    EXPECT_TRUE(resultCmp(goldenData, (float16 *)out->data(), eps));
 }
 
 TEST_F(GatherInL1Test, gather_in_a) {
