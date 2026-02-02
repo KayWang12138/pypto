@@ -274,20 +274,20 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
         int transpose_datamove_num = 0;
         for (const auto &updatedOperation : updatedOperations) {
             switch (updatedOperation.GetOpcode()){
-                case Opcode::OP_COPY_IN: {
-                    copy_in_num++;
-                    break;
-                }
                 case Opcode::OP_VIEW: {
                     view_num++;
                     break;
                 }
-                case Opcode::OP_COPY_OUT: {
-                    copy_out_num++;
+                case Opcode::OP_COPY_IN: {
+                    copy_in_num++;
                     break;
                 }
                 case Opcode::OP_TRANSPOSE_MOVEOUT: {
                     transpose_datamove_num++;
+                    break;
+                }
+                case Opcode::OP_COPY_OUT: {
+                    copy_out_num++;
                     break;
                 }
                 case Opcode::OP_ASSEMBLE: {
