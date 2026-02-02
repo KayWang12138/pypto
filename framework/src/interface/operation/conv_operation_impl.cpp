@@ -46,7 +46,7 @@ void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor
     CheckOutputShape(inputTensor, weightTensor, biasTensor);
     CheckAttrShape(outType, attrParam);
     CheckTileTiling(inputTensor, weightTensor, attrParam);
-    CheckL1SizeTiling(outType);
+    CheckL1SizeTiling(outType, weightTensor);
 }
 
 void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_t max) {
@@ -71,7 +71,7 @@ int64_t ConvComputeWo(int64_t win, int64_t kw, int64_t padLeft, int64_t padRight
     if (strideW == 0) {
         return 1;
     }
-    int64_t cmpWo = (win + padLeft + padRight - dilationH * (kw - 1) - 1) / strideW + 1;
+    int64_t cmpWo = (win + padLeft + padRight - dilationW * (kw - 1) - 1) / strideW + 1;
     return cmpWo;
 }
 
@@ -91,7 +91,7 @@ void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     int64_t dilationH = dilations[0];
     int64_t dilationW = dilations[1];
     int64_t strideH = strides[0];
-    int64_t strideH = strides[1];
+    int64_t strideW = strides[1];
 
     int64_t hout = ConvComputeHo(hin, kh, padTop, padBottom, dilationH, strideH);
     CheckValueRange(hout, "hout" , NUM1, MAX_SIZE);
@@ -128,7 +128,8 @@ void CheckTileTiling(const Tensor &inputTensor, const Tensor &weightTensor, cons
     }
 }
 
-CheckL1SizeTiling(DataType outType){
+CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
+    auto &conveTile = TileShape::Current().GetConvTile();
     int64_t l1Size = pipeConfig.l1SizeThreshold;
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
@@ -171,7 +172,8 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     int64_t dilationH = dilations[0];
     int64_t dilationW = dilations[1];
     int64_t strideH = strides[0];
-    int64_t strideH = strides[1];
+    int64_t strideW = strides[1];
+    auto &conveTile = TileShape::Current().GetConvTile();
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
     int64_t hout = ConvComputeHo(hin, kh, padTop, padBottom, dilationH, strideH);
@@ -181,6 +183,7 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
 }
 
 void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrParam) {
+    auto &conveTile = TileShape::Current().GetConvTile();
     int64_t tileM = convTile.tileL0Info.tileM;
     int64_t tileN = convTile.tileL0Info.tileN;
     int64_t tileK = convTile.tileL0Info.tileK;
@@ -252,7 +255,7 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
     });
 }
 
-void CheckDimParam(const std::vector<T>& vec, const std::string& name, int expected_dim) {               
+void CheckDimParam(const std::vector<int64_t>& vec, const std::string& name, int expected_dim) {
     OP_CHECK(true, {
             ASSERT(vec.size() == expected_dim)
                 << "Input attr " << name << " dim: " << vec.size()
