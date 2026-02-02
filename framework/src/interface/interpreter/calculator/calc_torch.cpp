@@ -215,6 +215,11 @@ static void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::log_out(tout, From(self));
 }
 
+static void IsFinite(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::isfinite_out(tout, From(self));
+}
+
 #define DEFINE_BINARY_S_OPS(Name, op_out)                                                                 \
     static void Name(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse) { \
         auto tout = From(out);                                                                            \

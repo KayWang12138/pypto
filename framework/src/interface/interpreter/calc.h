@@ -95,6 +95,9 @@ inline void WhereSS(
 inline void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Ln(out, self);
 }
+inline void IsFinite(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->IsFinite(out, self);
+}
 inline void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->LogicalNot(out, self);
 }
