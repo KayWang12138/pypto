@@ -1,4 +1,3 @@
-
 import math
 import torch
 import torch.nn.functional as F
@@ -765,9 +764,8 @@ def pypto_recurrence_backprop(
     term2 = pypto.matmul(q_eff, doc, pypto.DT_FP32, a_trans=True , b_trans=False) # [No BF16]
     term3 = pypto.matmul(w, dv_total, pypto.DT_FP32, a_trans=True , b_trans=False) # [No BF16]
     dS_final = term1 + term2 * scale_scalar - term3
-    dS_next = dS_in * 1.0
 
-    return dS_next, s_tok, dv_total, dS_final, gl_exp
+    return s_tok, dv_total, dS_final, gl_exp
 
 
 # ------------------------------------------------------
@@ -790,7 +788,7 @@ def pypto_compute_qkg_grads_dw_du(
 
     pypto.set_vec_tile_shapes(16, 16, 8, 8)
     tail_add2 = tail_add + gl_exp_1 * (S_before_in * dS_next_in).sum(dim=0, keepdim=True).sum(dim=-1, keepdim=True)
-    
+
     pypto.set_vec_tile_shapes(256, 128)
     dg_cum_tmp3 = dg_cum_tmp2 + one_hot_last * tail_add2 
     scaled_common_mask_decay = common_mask_decay * scale_scalar
@@ -1006,13 +1004,12 @@ def pypto_bsnd_gated_delta_rule_bwd(
                     # -----------------------------------------
                     # Module 4 pypto_recurrence_backprop
                     # -----------------------------------------
-                    dS_next, s_tok, dv_total, dS_final, gl_exp_1 = pypto_recurrence_backprop(kc, dS_2d, gl_1, g_cum_2d, dv0, qc, eg_2d, doc, scale_scalar, w_view_2d)
-                    dS_2d[:] = dS_final
-
+                    s_tok, dv_total, dS_final, gl_exp_1 = pypto_recurrence_backprop(kc, dS_2d, gl_1, g_cum_2d, dv0, qc, eg_2d, doc, scale_scalar, w_view_2d)
+                    
                     # -----------------------------------------
                     # Module 5 pypto_compute_qkg_grads_dw_du
                     # -----------------------------------------
-                    dq_c, dg_cum_final, dk_c_tmp, dw_final = pypto_compute_qkg_grads_dw_du(qc, kc, v_new_view_2d, doc, eg_2d, gl_exp_1, s_tok, dS_next, S_before_view_2d, qk, M_le_in, scale_scalar, dv_total, common_mask_decay)
+                    dq_c, dg_cum_final, dk_c_tmp, dw_final = pypto_compute_qkg_grads_dw_du(qc, kc, v_new_view_2d, doc, eg_2d, gl_exp_1, s_tok, dS_2d, S_before_view_2d, qk, M_le_in, scale_scalar, dv_total, common_mask_decay)
 
                     # -----------------------------------------
                     # Module 6 pypto_wy_repr_fused_updates
@@ -1024,7 +1021,10 @@ def pypto_bsnd_gated_delta_rule_bwd(
                     # -----------------------------------------
                     dg_raw_c, dq_raw_c, dk_raw_c = pypto_finalize_chunk_grads(C_rcum_in, dg_cum_out, qc, kc, q_rstd_2d, k_rstd_2d, dq_c, dk_c, use_qk_l2norm_in_kernel_cache)
 
+                    dS_2d[:] = dS_final
+
                     # Assemble
+                    pypto.set_vec_tile_shapes(16, 128, 128, 128)
                     dq_out[b_idx:b_idx+1, s_idx:s_idx+l, nqk_idx:nqk_idx+1, 0:] = dq_raw_c.reshape([1, l, 1, dim])
                     dk_out[b_idx:b_idx+1, s_idx:s_idx+l, nqk_idx:nqk_idx+1, 0:] = dk_raw_c.reshape([1, l, 1, dim])
                     dv_out[b_idx:b_idx+1, s_idx:s_idx+l, nv_idx:nv_idx+1, 0:] = dv_c.reshape([1, l, 1, dim])
