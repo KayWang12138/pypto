@@ -200,12 +200,12 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
                     view_num++;
                     break;
                 }
-                case Opcode::OP_COPY_IN: {
-                    copy_in_num++;
-                    break;
-                }
                 case Opcode::OP_COPY_OUT: {
                     copy_out_num++;
+                    break;
+                }
+                case Opcode::OP_COPY_IN: {
+                    copy_in_num++;
                     break;
                 }
                 default: break;
