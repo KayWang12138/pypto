@@ -26,50 +26,10 @@ namespace pypto {
 void bind_controller_config(py::module &m) {
     m.def("SetBuildStatic", [](const bool &value) { config::SetBuildStatic(value); }, py::arg("value"));
 
-    m.def(
-        "SetOption", [](const std::string &key, const std::string &value) { config::SetOption(key, value); },
-        py::arg("key"), py::arg("value"));
-    m.def(
-        "SetOption", [](const std::string &key, bool value) { config::SetOption(key, value); }, py::arg("key"),
-        py::arg("value"));
-    m.def(
-        "SetOption", [](const std::string &key, int64_t value) { config::SetOption(key, value); }, py::arg("key"),
-        py::arg("value"));
-    m.def(
-        "SetOption", [](const std::string &key, const std::vector<int64_t> &value) { config::SetOption(key, value); },
-        py::arg("key"), py::arg("value"));
-    m.def(
-        "SetOption", [](const std::string &key, const std::vector<std::string> &value) { config::SetOption(key, value); },
-        py::arg("key"), py::arg("value"));
-    m.def(
-        "SetOption",
-        [](const std::string &key, const std::map<int64_t, int64_t> &value) { config::SetOption(key, value); },
-        py::arg("key"), py::arg("value"));
+    m.def("ResetOptions", []() {
+        config::Reset();
+    });
 
-        m.def(
-        "GetOption",
-        [](const std::string &key) -> py::object {
-            if (config::IsType<int64_t>(key)) {
-                return py::cast(config::GetOption<int64_t>(key));
-            } else if (config::IsType<std::string>(key)) {
-                return py::cast(config::GetOption<std::string>(key));
-            } else if (config::IsType<bool>(key)) {
-                return py::cast(config::GetOption<bool>(key));
-            } else if (config::IsType<std::vector<int64_t>>(key)) {
-                return py::cast(config::GetOption<std::vector<int64_t>>(key));
-            } else if (config::IsType<std::vector<std::string>>(key)) {
-                return py::cast(config::GetOption<std::vector<std::string>>(key));
-            } else if (config::IsType<std::map<int64_t, int64_t>>(key)) {
-                return py::cast(config::GetOption<std::map<int64_t, int64_t>>(key));
-            } else {
-                return py::cast(std::nullopt);
-            }
-        },
-        py::arg("key"), "get config option");
-
-    m.def("Reset", []() { config::Reset(); });
-
-    m.def("GetOptions", []() -> py::object { return py::cast(config::GetOptions()); });
 
     m.def(
         "SetPrintOptions",
@@ -84,7 +44,8 @@ void bind_controller_config(py::module &m) {
         }, py::arg("label"), py::arg("filename"), py::arg("lineno"));
 
     m.def("IsVerifyEnabled", &calc::IsVerifyEnabled);
-    m.def("ResetLog", []() { ConfigManager::Instance().ResetLog(); });
+    m.def("LogTopFolder", []() { return py::cast(ConfigManager::Instance().LogTopFolder()); });
+    m.def("ResetLog", [](const std::string &path) { ConfigManager::Instance().ResetLog(path); });
 }
 
 
@@ -143,7 +104,6 @@ void bind_controller_function(py::module &m) {
             tensors.push_back(a.cast<Tensor &>());
         }
         Program::GetInstance().Reset();
-        config::Reset();
         Program::GetInstance().BeginFunction(FUNCTION_PREFIX + funcName, funcType, graphType, tensors);
     });
     m.def("EndFunction", [](const std::string &funcName, bool generateCall) {
@@ -234,6 +194,8 @@ std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict &
                     cpp_values[key] = value.cast<std::vector<int64_t>>();
                 } else if (py::isinstance<py::str>(lst[0])) {
                     cpp_values[key] = value.cast<std::vector<std::string>>();
+                } else if (py::isinstance<py::float_>(lst[0])) {
+                    cpp_values[key] = value.cast<std::vector<double>>();
                 } else {
                     throw py::type_error("Unsupported list element type for key: " + key);
                 }
@@ -310,6 +272,7 @@ py::object AnyToPyObject(const Any &val) {
         {typeid(std::string), [](const Any& a){ return py::cast(AnyCast<std::string>(a)); }},
         {typeid(std::vector<int64_t>), [](const Any& a){ return py::cast(AnyCast<std::vector<int64_t>>(a)); }},
         {typeid(std::vector<std::string>), [](const Any& a){ return py::cast(AnyCast<std::vector<std::string>>(a)); }},
+        {typeid(std::vector<double>), [](const Any& a){ return py::cast(AnyCast<std::vector<double>>(a)); }},
         {typeid(std::map<int64_t,int64_t>), [](const Any& a){ return py::cast(AnyCast<std::map<int64_t,int64_t>>(a)); }},
         {typeid(CubeTile), [](const Any& a){ return py::cast(AnyCast<CubeTile>(a)); }},
         {typeid(DistTile), [](const Any& a){ return py::str(AnyCast<DistTile>(a).ToString()); }},
@@ -323,9 +286,9 @@ py::object AnyToPyObject(const Any &val) {
 
 void bind_controller_scope_classes(py::module &m) {
     py::class_<ConfigScope, std::shared_ptr<ConfigScope>>(m, "ConfigScope")
-        .def("GetConfig",
+        .def("GetAnyConfig",
             [](const ConfigScope &scope, const std::string &key) -> py::object {
-                return AnyToPyObject(scope.GetConfig(key));
+                return AnyToPyObject(scope.GetAnyConfig(key));
             },
             py::arg("key"))
         .def("GetAllConfig",
@@ -372,18 +335,6 @@ void bind_controller_scope_classes(py::module &m) {
     .def("__str__",  [](const CubeTile &t) { return t.ToString(); });
 }
 
-
-void bind_operation_config(py::module &m) {
-    m.def("GetOperationConfig", [](const std::string &key, const bool &default_value) -> py::object {
-        bool result = ConfigManager::Instance().GetOperationConfig<bool>(key, default_value);
-        return py::cast(result);
-    }, py::arg("key"), py::arg("default_value"));
-
-    m.def("SetOperationConfig", [](const std::string &key, const bool &value) {
-            config::SetOperationConfig<bool>(key, value);
-        }, py::arg("key"), py::arg("value"));
-}
-
 void bind_controller(py::module &m) {
     bind_controller_config(m);
     bind_controller_set_tile(m);
@@ -392,7 +343,6 @@ void bind_controller(py::module &m) {
     bind_controller_utils(m);
     bind_controller_scope(m);
     bind_controller_scope_classes(m);
-    bind_operation_config(m);
 
     // disable cpp mode
     SourceLocation::SetCppMode(false);

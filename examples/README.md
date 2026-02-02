@@ -20,10 +20,10 @@
 4. **大模型算子实现？** 探索 [模型样例 (models)](models/)。
 
 ### 环境准备
-请参考[环境准备](../docs/context/prepare_environment.md)，完成基础环境搭建
+请参考[环境准备](../docs/install/prepare_environment.md)，完成基础环境搭建
 
 ### 软件安装 
-请参考[软件安装](../docs/context/build_and_install.md)，完成PyPTO软件安装
+请参考[软件安装](../docs/install/build_and_install.md)，完成PyPTO软件安装
 
 ### 运行前配置（可选）
 如需运行在真实NPU环境中，请参考如下配置
@@ -60,17 +60,17 @@ python3 examples/01_beginner/basic/basic_ops.py --run_mode sim
 ## 学习路径建议
 
 1. **第一阶段：夯实基础**
-   - [Hello World](hello_world/hello_world.py)
+   - [Hello World](00_hello_world/hello_world.py)
    - [01_beginner/basic](01_beginner/basic/README.md)
    - [01_beginner/compute](01_beginner/compute/README.md)
 
 2. **第二阶段：进阶组件**
-   - [02_intermediate/nn/layer_normalization](02_intermediate/nn/layer_normalization/README.md)
+   - [02_intermediate/nn/layer_normalization](02_intermediate/basic_nn/layer_normalization/README.md)
    - [02_intermediate/operators/softmax](02_intermediate/operators/softmax/README.md)
-   - [02_intermediate/nn/ffn](02_intermediate/nn/ffn/README.md)
+   - [02_intermediate/nn/ffn](02_intermediate/basic_nn/ffn/README.md)
 
 3. **第三阶段：深度实践**
-   - [03_advanced/nn/attention](03_advanced/nn/attention/README.md)
+   - [03_advanced/nn/attention](03_advanced/advanced_nn/attention/README.md)
    - [models/deepseek_v32_exp](models/deepseek_v32_exp/README.md)
    - [models/glm_v4_5](models/glm_v4_5/README.md)
 

@@ -88,7 +88,7 @@ def scaled_dot_product_attention_core(q: pypto.Tensor, k: pypto.Tensor, v: pypto
 
 
 def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: AttentionConfig, run_mode: str = "npu",
-                                 dynamic: bool = True) -> torch.Tensor:
+                                 dynamic: bool = True):
     if dynamic:
         bs = pypto.frontend.dynamic("bs")
     else:
@@ -108,7 +108,7 @@ def scaled_dot_product_attention(q_shape: tuple, k_shape: tuple, config: Attenti
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
     
-    @pypto.frontend.jit(host_options={"only_codegen": True}, runtime_options={"run_mode": mode})
+    @pypto.frontend.jit(runtime_options={"run_mode": mode})
     def scaled_dot_product_attention_kernel(
         q: pypto.Tensor((bs, head, q_len, dim), pypto.DT_FP32),
         k: pypto.Tensor((bs, head, kv_len, dim), pypto.DT_FP32),

@@ -23,6 +23,7 @@
 #include "test_common.h"
 #include "distributed_op_test_suite.h"
 #include "distributed_test_framework.h"
+#include <filesystem>
 
 namespace npu::tile_fwk::Distributed {
 
@@ -69,7 +70,7 @@ struct AllgatherFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestDynAllGather<T>(testParam);
+        Distributed::TestAllGather<T>(testParam);
     }
 };
 
@@ -77,7 +78,7 @@ struct ReducescatterFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestShmemReduceScatter<T>(testParam);
+        Distributed::TestReduceScatter<T>(testParam);
     }
 };
 
@@ -85,7 +86,7 @@ struct AllreduceFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestShmemAllReduce<T>(testParam);
+        Distributed::TestAllReduce<T>(testParam);
     }
 };
 
@@ -93,10 +94,17 @@ struct Allreduce_Add_AllreduceFunc {
     template <typename T>
     void operator()(OpTestParam &testParam) const
     {
-        Distributed::TestShmemAllReduceAddAllReduce<T>(testParam);
+        Distributed::TestAllReduceAddAllReduce<T>(testParam);
     }
 };
 
+struct MoeDistributedCombineFunc {
+    template <typename T>
+    void operator()(OpTestParam& testParam) const
+    {
+        Distributed::TestMoeDistributedCombine<T>(testParam);
+    }
+};
 
 // 注册所有算子
 void GegisterAllOps()
@@ -106,8 +114,9 @@ void GegisterAllOps()
     reg.RegisterOp("Reducescatter", ReducescatterFunc{});
     reg.RegisterOp("Allreduce", AllreduceFunc{});
     reg.RegisterOp("Allreduce_Add_Allreduce", Allreduce_Add_AllreduceFunc{});
-    reg.registry["MoeCombine"] = [](OpTestParam &testParam, const std::string&) {
-        Distributed::TestShmemMoeCombine(testParam);
+    reg.RegisterOp("MoeDistributedCombine", MoeDistributedCombineFunc{});
+    reg.registry["MoeDispatch"] = [](OpTestParam &testParam, const std::string&) {
+ 	    Distributed::TestShmemMoeDispatch(testParam);
     };
     reg.registry["Allgather_AttnPost_Reducescatter"] = [](OpTestParam &testParam, const std::string&) {
         Distributed::TestAllGatherAttentionPostReducescatter(testParam);
@@ -119,11 +128,22 @@ void GegisterAllOps()
 template <typename T>
 std::vector<T> GetOpMetaData(const std::string &op)
 {
-    auto caseFile = "../../../framework/tests/st/distributed/ops/test_case/" + op + "_st_test_cases.json";
+    std::string filename = op + "_st_test_cases.json";
+    std::filesystem::path caseFile;
+#ifdef TEST_CASE_RELATIVE_PATH
+    caseFile = std::filesystem::path(TEST_CASE_EXE_DIR) / TEST_CASE_RELATIVE_PATH / filename;
+#else
+    caseFile = "../../../framework/tests/st/distributed/ops/test_case/" + op + "_st_test_cases.json";
+#endif
+    if (!std::filesystem::exists(caseFile)) {
+        ALOG_ERROR_F("File not found: %s, absolute path: %s", caseFile.string().c_str(),
+            std::filesystem::absolute(caseFile).string().c_str());
+        return {};
+    }
     std::ifstream jsonFile(caseFile);
     if (!jsonFile.is_open()) {
-        std::cerr << "Failed to open JSON file for op " << op << ". "
-        << "Please check the path and ensure the file exists: " << caseFile << std::endl;
+        ALOG_ERROR_F("Failed to open JSON file for op %s. Path: %s", op.c_str(),
+            std::filesystem::absolute(caseFile).string().c_str());
         return {};
     }
     nlohmann::json jsonData = nlohmann::json::parse(jsonFile);
@@ -132,8 +152,8 @@ std::vector<T> GetOpMetaData(const std::string &op)
         testCaseList.emplace_back(tc);
     }
     if (testCaseList.empty()) {
-        std::cerr << "No test cases found in json for op: " << op << ". "
-        << "Please check the contents of: " << caseFile << std::endl;
+        ALOG_ERROR_F("No test cases found in json for op: %s. File: %s", op.c_str(),
+            std::filesystem::absolute(caseFile).string().c_str());
     }
     return testCaseList;
 }
@@ -201,7 +221,6 @@ INSTANTIATE_TEST_SUITE_P(TestAllgather, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("Allgather")));
 TEST_P(DistributedTest, TestAllgather)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
     RunDistributedTestGeneric("Allgather", GetParam().testData_);
 }
 
@@ -209,7 +228,6 @@ INSTANTIATE_TEST_SUITE_P(TestReducescatter, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("Reducescatter")));
 TEST_P(DistributedTest, TestReducescatter)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
     RunDistributedTestGeneric("Reducescatter", GetParam().testData_);
 }
 
@@ -217,23 +235,27 @@ INSTANTIATE_TEST_SUITE_P(TestAllreduce, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("Allreduce")));
 TEST_P(DistributedTest, TestAllreduce)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
     RunDistributedTestGeneric("Allreduce", GetParam().testData_);
 }
 
-INSTANTIATE_TEST_SUITE_P(TestMoeCombine, DistributedTest,
-    ::testing::ValuesIn(GetOpMetaData<OpMetaData>("MoeCombine")));
-TEST_P(DistributedTest, TestMoeCombine)
+INSTANTIATE_TEST_SUITE_P(TestMoeDispatch, DistributedTest,
+    ::testing::ValuesIn(GetOpMetaData<OpMetaData>("MoeDispatch")));
+TEST_P(DistributedTest, TestMoeDispatch)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
-    RunDistributedTestGeneric("MoeCombine", GetParam().testData_);
+    RunDistributedTestGeneric("MoeDispatch", GetParam().testData_);
+}
+
+INSTANTIATE_TEST_SUITE_P(TestMoeDistributedCombine, DistributedTest,
+    ::testing::ValuesIn(GetOpMetaData<OpMetaData>("MoeDistributedCombine")));
+TEST_P(DistributedTest, TestMoeDistributedCombine)
+{
+    RunDistributedTestGeneric("MoeDistributedCombine", GetParam().testData_);
 }
 
 INSTANTIATE_TEST_SUITE_P(TestAllreduce_Add_Allreduce, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("Allreduce_Add_Allreduce")));
 TEST_P(DistributedTest, TestAllreduce_Add_Allreduce)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
     RunDistributedTestGeneric("Allreduce_Add_Allreduce", GetParam().testData_);
 }
 
@@ -241,13 +263,11 @@ INSTANTIATE_TEST_SUITE_P(TestAllgather_AttnPost_Reducescatter, DistributedTest,
     ::testing::ValuesIn(GetOpMetaData<OpMetaData>("Allgather_AttnPost_Reducescatter")));
 TEST_P(DistributedTest, TestAllgather_AttnPost_Reducescatter)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
     RunDistributedTestGeneric("Allgather_AttnPost_Reducescatter", GetParam().testData_);
 }
 
 TEST_F(DistributedTest, shmem_allreduce_add_allreduce_bfloat16_256_102400_4)
 {
-    config::SetHostOption(ONLY_CODEGEN, true);
-    Distributed::TestShmemAllReduceAddAllReduce<bfloat16>(testParam);
+    Distributed::TestAllReduceAddAllReduce<bfloat16>(testParam);
 }
 } // namespace npu::tile_fwk::Distributed

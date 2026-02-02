@@ -43,20 +43,25 @@ function(PTO_Fwk_GTest_GenerateCoverage)
         find_program(LCOV lcov REQUIRED)
         get_filename_component(GenCoveragePy ${PTO_FWK_SRC_ROOT}/framework/tests/cmake/scripts/python/gen_coverage.py REALPATH)
         get_filename_component(GenCoverageDataDir "${PTO_FWK_BIN_ROOT}" REALPATH)
-        set(_Args "-s=${PTO_FWK_SRC_ROOT}" "-c=${GenCoverageDataDir}")
+        set(_Args "-s=${PTO_FWK_SRC_ROOT}" "-d=${GenCoverageDataDir}")
 
         get_target_property(GTest_GTest_Inc     GTest::gtest           INTERFACE_INCLUDE_DIRECTORIES)
         get_target_property(GTest_GTestMain_Inc GTest::gtest_main      INTERFACE_INCLUDE_DIRECTORIES)
         get_target_property(Json_Inc            json                   INTERFACE_INCLUDE_DIRECTORIES)
         set(Filter_Dirs
                 ${PTO_FWK_SRC_ROOT}/framework/tests
-                ${PTO_FWK_SRC_ROOT}/third_party
                 ${GTest_GTest_Inc}
                 ${GTest_GTestMain_Inc}
                 ${Json_Inc}
                 ${SYS_ROOT}
                 ${ARG_FILTER_DIRECTORIES}
         )
+        if (ENABLE_TORCH_VERIFIER)
+            list(APPEND Filter_Dirs ${PY3_MOD_TORCH_ROOT_PATH}/include)
+        endif ()
+        if (BUILD_WITH_CANN)
+            list(APPEND Filter_Dirs ${ASCEND_CANN_PACKAGE_PATH}/include)
+        endif ()
         foreach (_dir ${Filter_Dirs})
             list(APPEND _Args "-f=${_dir}")
         endforeach ()
@@ -214,6 +219,12 @@ function(PTO_Fwk_GTest_AddExe)
             PRIVATE
                 ${ARG_PRIVATE_INCLUDE_DIRECTORIES}
     )
+    target_compile_definitions(${ARG_TARGET}
+            PRIVATE
+                $<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>
+                $<$<BOOL:${ENABLE_UTEST}>:ENABLE_UTEST>
+                $<$<BOOL:${ENABLE_STEST}>:ENABLE_STEST>
+    )
     target_link_libraries(${ARG_TARGET}
             PRIVATE
                 GTest::gtest
@@ -247,6 +258,7 @@ function(PTO_Fwk_GTest_AddExe)
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/framework/src/cost_model/simulation/scripts/print_swim_lane.py" "${InstallScriptsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/profiling/function_json_convert.py" "${InstallScriptsDir}/"
             COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/profiling/parse_pipe_time_trace.py" "${InstallScriptsDir}/"
+            COMMAND ln -sf "${PTO_FWK_SRC_ROOT}/tools/scripts/machine_perf_trace.py" "${InstallScriptsDir}/"
             COMMENT "Soft link of scripts has been created at ${InstallScriptsDir}"
     )
     # 模拟头文件 Install 流程, 为便于调试, 使用创建软连接方式模拟安装

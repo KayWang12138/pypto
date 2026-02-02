@@ -19,6 +19,7 @@ DOWNLOAD_HDK=false
 DEVICE_TYPE=""
 INSTALL_PATH="/usr/local/Ascend"
 DOWNLOAD_DIR=$(dirname "$(dirname "$(dirname "$(readlink -f "$0")")")")/pypto_download
+QUIET=false
 
 DOWNLOADED_CANN_FILES=()
 INSTALL_CANN_FILES=()
@@ -63,6 +64,9 @@ SECUREC_URL="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/third_party_de
 
 CANN_TOOLKIT_URL_X86="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-toolkit_8.5.0_linux-x86_64.run"
 CANN_TOOLKIT_URL_ARM="https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/aarch64/Ascend-cann-toolkit_8.5.0_linux-aarch64.run"
+
+CANN_PTO_ISA_URL_X86="http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/release_version/ubuntu_x86/cann-pto-isa_linux-x86_64.run"
+CANN_PTO_ISA_URL_ARM="http://container-obsfs-filesystem.obs.cn-north-4.myhuaweicloud.com/package/cann/pto-isa/version_compile/master/release_version/ubuntu_aarch64/cann-pto-isa_linux-aarch64.run"
 
 CANN_DRIVER_URL_X86_910b="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Ascend-hdk-910b-npu-driver_25.3.rc1_linux-x86-64.run?response-content-type=application/octet-stream"
 CANN_DRIVER_URL_ARM_910b="https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/Ascend%20HDK/Ascend%20HDK%2025.3.RC1/Ascend-hdk-910b-npu-driver_25.3.rc1_linux-aarch64.run?response-content-type=application/octet-stream"
@@ -140,6 +144,11 @@ parse_arguments() {
                 fi
                 shift
                 ;;
+            --quiet)
+                QUIET=true
+                shift
+                ;;
+
             -h|--help)
                 help_flag=true
                 shift
@@ -199,6 +208,7 @@ Optional Options:
     --with-install-driver=<bool>    Download driver and firmware packages (true or false, default: false)
     --download-path=<path>          Download cann packages to specific dir path
     --install-path=<path>           Install cann packages to specific dir path
+    --quiet                         Run in quiet mode, automatically answer yes to all prompts
     -h | --help                     Show this help message
 EOF
 }
@@ -365,6 +375,19 @@ check_all_basic_dependencies() {
 prompt_yes_no() {
     local prompt="$1"
     local default="${2:-y}"
+    
+    # quiet mode:
+    if [ "$QUIET" = true ]; then
+        if [ "$default" = "y" ]; then
+            log_print "info" "$prompt [Y/n]: Y (auto-selected in quiet mode)"
+            return 0
+        else
+            log_print "info" "$prompt [y/N]: N (auto-selected in quiet mode)"
+            return 1
+        fi
+    fi
+    
+    # non-quiet mode：
     while true; do
         if [ "$default" = "y" ]; then
             read -p "$prompt [Y/n]: " -n 1 -r
@@ -535,6 +558,13 @@ get_package_url() {
                 *) echo "" ;;
             esac
             ;;
+        pto-isa)
+            case "$ARCH" in
+                x86) echo "$CANN_PTO_ISA_URL_X86" ;;
+                arm) echo "$CANN_PTO_ISA_URL_ARM" ;;
+                *) echo "" ;;
+            esac
+            ;;
         *)
             echo ""
             ;;
@@ -650,9 +680,9 @@ install_single_package() {
     local install_cmd=""
 
     if [[ "$filename" =~ "ops" ]]; then
-        install_cmd="$filename --install --force --install-path=$INSTALL_PATH "
+        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
     elif [[ "$filename" =~ "toolkit" ]]; then
-        install_cmd="$filename --full --force --install-path=$INSTALL_PATH "
+        install_cmd="$filename --quiet --install --force --install-path=$INSTALL_PATH "
     else
         install_cmd="$filename --full --install-path=$INSTALL_PATH "
     fi
@@ -803,9 +833,9 @@ download_cann_packages() {
     log_print "info" "Detected architecture: $ARCH"
 
     if [ "$DOWNLOAD_HDK" = true ]; then
-        log_print "info" "Download: CANN-Toolkit + CANN-ops + CANN-deiver + CANN-firmware"
+        log_print "info" "Download: CANN-Toolkit + CANN-ops + CANN-pto-isa + CANN-deiver + CANN-firmware"
     else
-        log_print "info" "Download: CANN-Toolkit + CANN-ops"
+        log_print "info" "Download: CANN-Toolkit + CANN-ops + CANN-pto-isa"
     fi
     echo
     
@@ -818,7 +848,7 @@ download_cann_packages() {
     log_print "info" "=============================================="
     
     local download_success=true
-    local download_target=("toolkit" "ops")
+    local download_target=("toolkit" "ops" "pto-isa")
     local pkg_count=1
     if [ "$DOWNLOAD_HDK" = true ]; then
         download_target+=("driver" "firmware")

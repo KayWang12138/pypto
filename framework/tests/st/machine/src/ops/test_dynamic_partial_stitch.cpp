@@ -26,7 +26,6 @@ class DynamicTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 
 TEST_F(DynamicTest, TestPartial) {
     SetInterpreterConfig();
-    config::SetHostOption(ONLY_CODEGEN, true);
 
     TileShape::Current().SetVecTile(16, 16);
 

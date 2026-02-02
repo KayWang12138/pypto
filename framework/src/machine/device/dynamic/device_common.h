@@ -25,11 +25,16 @@
 #include "tilefwk/aicpu_common.h"
 
 namespace npu::tile_fwk::dynamic {
+constexpr uint32_t MAX_MANAGER_AIV_NUM = 72;
+const uint32_t READY_ID_FIX_CACHE_NUM = 512;
+const uint32_t MAX_DAV_2210_SCHEDULE_AICPU_NUM = 3;
+inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum, ArchInfo archInfo) {
+    uint32_t maxScheCore = aiCpuNum - dynamic::MAX_OTHER_AICPU_NUM;
+    if (archInfo == ArchInfo::DAV_2201) {
+        maxScheCore = maxScheCore >= MAX_DAV_2210_SCHEDULE_AICPU_NUM ? MAX_DAV_2210_SCHEDULE_AICPU_NUM : maxScheCore;
+    }
 
-inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum) {
-    uint32_t maxScheCore = aiCpuNum - 2 >= dynamic::MAX_SCHEDULE_AICPU_NUM ?
-        dynamic::MAX_SCHEDULE_AICPU_NUM : aiCpuNum - 2; // 2 : 1 for controlFlow and 1 for singal reg
-    if (blockDim > (dynamic::MAX_SCHEDULE_AICPU_NUM - 1) * dynamic::MAX_MNG_AICORE_AVG_NUM) {
+    if (blockDim > (maxScheCore - 1) * dynamic::MAX_MNG_AICORE_AVG_NUM) {
         return maxScheCore;
     }
 
@@ -41,7 +46,20 @@ inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum) 
 }
 
 const uint32_t AICORE_TYPE_NUM = 2;
-const int DEVICE_MAX_AICPU_NUM = 5;
+const int DEVICE_MAX_AICPU_NUM = 7;
+
+struct SchduleContext {
+    uint64_t waitTaskCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t corePendReadyCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t coreRunReadyCnt_[AICORE_TYPE_NUM]{0,0};
+    uint32_t runReadyCoreIdx_[AICORE_TYPE_NUM][MAX_MANAGER_AIV_NUM];
+    uint32_t lastPendReadyCoreIdx_[AICORE_TYPE_NUM]{0,0};
+    uint64_t resolveHubCnt_{0};
+
+    uint32_t readyIds[AICORE_TYPE_NUM][READY_ID_FIX_CACHE_NUM];
+    uint32_t readyCount[AICORE_TYPE_NUM]{0,0};
+    uint32_t sendCnt_[AICORE_TYPE_NUM]{0,0};
+};
 
 struct DeviceTaskCtrl {
     int taskType{0};
@@ -81,11 +99,9 @@ struct DeviceTaskCtrl {
     }
 };
 
-#define ALIGN_UP(val, align)            (((val) + (align) - 1) & ~((align) - 1))
-
 const uint64_t DEV_ARGS_SIZE = 1024;  // sizeof(DevStartArgs) is enough, tmp for test GE graph
 constexpr uint32_t DEFAULT_QUEUE_SIZE = 64;
-const uint64_t DEVICE_TASK_CTRL_SIZE = ALIGN_UP((MAX_DEVICE_TASK_NUM * sizeof(DeviceTaskCtrl)), 512);
+const uint64_t DEVICE_TASK_CTRL_SIZE = AlignUp((MAX_DEVICE_TASK_NUM * sizeof(DeviceTaskCtrl)), 512);
 const uint64_t DEVICE_TASK_QUEUE_SIZE = sizeof(SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>);
 const uint64_t DEVICE_SHM_SIZE = DEV_ARGS_SIZE + DEVICE_TASK_CTRL_SIZE;
 } // namespace npu::tile_fwk

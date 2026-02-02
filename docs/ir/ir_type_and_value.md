@@ -5,6 +5,7 @@
 PTO-IR 的类型系统（Type System）和值系统（Value System）是 IR 的核心组成部分。类型系统描述了数据的结构（如形状、数据类型），值系统表示具体的值对象（如标量、张量、Tile）。
 
 类型与值的层次结构：
+
 ```
 Type (基类)
 ├── ScalarType (标量类型)
@@ -23,7 +24,8 @@ Value (基类)
 - `Tensor` → `TensorType`
 
 示例：
-```ir
+
+```text
 func.func @test_value(%input_3: tensor<[%b_1, 128], fp32>, %scale1_4: fp32) {
   statement.op {
     %const_0 = 0 : int64
@@ -39,6 +41,7 @@ func.func @test_value(%input_3: tensor<[%b_1, 128], fp32>, %scale1_4: fp32) {
 `DataType` 枚举定义了所有支持的基本数据类型。
 
 ### Syntax
+
 ```cpp
 enum class DataType {
     BOOL,
@@ -51,6 +54,7 @@ enum class DataType {
 ```
 
 ### 约束
+
 - 所有 Value 和 Type 必须关联一个有效的 DataType（不能是 BOTTOM 或 UNKNOWN，除非特殊情况）。
 
 ## Type 系统
@@ -62,6 +66,7 @@ Type 系统用于描述数据的结构信息。所有类型都继承自 `Type` �
 `Type` 是所有类型的基类，提供通用接口。
 
 #### 数据结构
+
 ```cpp
 class Type {
 public:
@@ -74,6 +79,7 @@ public:
 ```
 
 #### 关键方法
+
 - `GetDataType()`: 获取数据类型枚举值
 - `GetDataTypeSize()`: 获取数据类型的字节大小（静态方法和实例方法）
 - `GetTypeSize()`: 获取类型的总大小（标量 = 数据类型大小，Tile = 元素大小 × 元素数量）
@@ -84,7 +90,8 @@ public:
 `ScalarType` 表示标量类型（单个值）。
 
 #### Syntax
-```ir
+
+```text
 fp32
 int32
 bool
@@ -93,6 +100,7 @@ bool
 在 IR 中，标量类型直接显示为数据类型名称。
 
 #### 数据结构
+
 ```cpp
 class ScalarType : public Type {
 public:
@@ -103,6 +111,7 @@ public:
 ```
 
 #### 约束
+
 - 类型大小等于数据类型大小
 - 打印格式：数据类型名称（如 `fp32`、`int32`）
 
@@ -111,6 +120,7 @@ public:
 `TileType` 表示 Tile 类型（固定形状的多维数组）。
 
 #### Syntax
+
 ```ir
 tile<[16, 32], fp32>
 tile<[M, N], fp16>
@@ -119,6 +129,7 @@ tile<[M, N], fp16>
 在 IR 中，Tile 类型显示为 `tile<[shape], dtype>` 格式。
 
 #### 数据结构
+
 ```cpp
 class TileType : public Type {
 public:
@@ -130,6 +141,7 @@ public:
 ```
 
 #### 约束
+
 - 包含静态形状信息（`std::vector<size_t>`）
 - 类型大小 = 元素数据类型大小 × 所有维度的乘积
 - 打印格式：`tile<[shape], dtype>`（如 `tile<[16, 32], fp32>`）
@@ -139,7 +151,8 @@ public:
 `TensorType` 表示张量类型（动态形状）。
 
 #### Syntax
-```ir
+
+```text
 tensor<[%b_1, 128], fp32>
 tensor<[%M, %N, %K], fp16>
 ```
@@ -147,6 +160,7 @@ tensor<[%M, %N, %K], fp16>
 在 IR 中，Tensor 类型显示为 `tensor<[shape], dtype>` 格式，其中 shape 可以包含符号维度。
 
 #### 数据结构
+
 ```cpp
 class TensorType : public Type {
 public:
@@ -157,6 +171,7 @@ public:
 ```
 
 #### 约束
+
 - 形状信息存储在 Value 对象（Tensor）中，而不是 Type 中
 - 类型大小等于数据类型大小（形状在运行时确定）
 - 打印格式：数据类型名称（如 `fp32`），但完整的形状信息在 Value 中显示
@@ -193,7 +208,8 @@ enum class ScalarValueKind {
 `Value` 是所有值的基类。
 
 #### Syntax
-```ir
+
+```text
 %value_name_1 : type
 %input_3 : tensor<[%b_1, 128], fp32>
 %scale1_4 : fp32
@@ -202,6 +218,7 @@ enum class ScalarValueKind {
 在 IR 中，值显示为 `%{ssa_name} : {type}` 格式。
 
 #### 数据结构
+
 ```cpp
 class Value : public Object {
 public:
@@ -217,10 +234,12 @@ public:
 ```
 
 #### SSA 命名规则
+
 - 如果名称为空：`%{id}`
 - 如果名称非空：`%{name}_{id}`（如 `%input_3`、`%output_8`）
 
 #### 约束
+
 - 每个 Value 必须关联一个 Type 对象
 - 所有值遵循 SSA 形式，即每个值只能被赋值一次
 
@@ -229,7 +248,8 @@ public:
 `Scalar` 表示标量值，支持常量值和符号值。
 
 #### Syntax
-```ir
+
+```text
 %const_0 = 0 : int64
 %const_pi_13 = 3.14 : fp64
 %scale1_4 : fp32
@@ -241,6 +261,7 @@ public:
 - 符号标量显示为 `%name : {type}` 格式
 
 #### 数据结构
+
 ```cpp
 class Scalar : public Value {
 public:
@@ -264,6 +285,7 @@ public:
 ```
 
 #### 约束
+
 - 支持常量值和符号值
 - 常量值使用 `std::variant<bool, int, int64_t, size_t, double>` 存储
 - 打印规则：
@@ -275,7 +297,8 @@ public:
 `Tile` 表示 Tile 值（固定形状的多维数组）。
 
 #### Syntax
-```ir
+
+```text
 %tile_0 : tile<[16, 32], fp32>
 %tile_1 : tile<[M, N], fp16> {valid_shape=[%m, %n], strides=[32, 1], offset=0}
 ```
@@ -283,6 +306,7 @@ public:
 在 IR 中，Tile 值显示为 `%name : tile<[shape], dtype>` 格式，可能包含额外的属性信息。
 
 #### 数据结构
+
 ```cpp
 class Tile : public Value {
 public:
@@ -311,6 +335,7 @@ public:
 ```
 
 #### 约束
+
 - 形状信息存储在 Type（TileType）中
 - `validShapes_` 存储有效形状（Scalar 向量，支持符号维度）
 - 支持步长（strides）、起始偏移（startOffset）、内存对象（Memory）
@@ -321,7 +346,8 @@ public:
 `Tensor` 表示张量值（动态形状的多维数组）。
 
 #### Syntax
-```ir
+
+```text
 %input_3 : tensor<[%b_1, 128], fp32>
 %output_8 : tensor<[%b_1, 128], fp32>
 %tensor_0 : tensor<[%M, %N, %K], fp16>
@@ -330,6 +356,7 @@ public:
 在 IR 中，Tensor 值显示为 `%name : tensor<[shape], dtype>` 格式，其中 shape 可以包含符号维度。
 
 #### 数据结构
+
 ```cpp
 class Tensor : public Value {
 public:
@@ -350,6 +377,7 @@ public:
 ```
 
 #### 约束
+
 - 形状信息存储在 Value 对象中（`std::vector<Scalar>`），支持符号维度
 - 形状不在 Type 中，因为形状在运行时确定
 - 打印格式：`tensor<[shape], dtype>`（如 `tensor<[%b_1, 128], fp32>`）

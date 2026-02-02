@@ -698,7 +698,7 @@ Status PipeSync::PopFromQueue(IssueQueue &issueQ, std::vector<size_t> &poped, bo
 Status PipeSync::InjectWaitFlag(Function &function, size_t idx, std::vector<IndexOp> &syncedOpLog) {
     PipeCore currPipe = depOps_[idx].selfPipeCore;
     // serch the waitpipe of current op
-    uint64_t waitIdx = idx * SEQUENCE_IDX - HALF_SEQUENCE_IDX;
+    uint64_t waitIdx = idx == 0 ? 0 : idx * SEQUENCE_IDX - HALF_SEQUENCE_IDX;
     for (const auto &ele : depOps_[idx].waitPipe) {
         PipeCore setPipe = depOps_[ele].selfPipeCore;
         PipeCoreReal setPipeReal(setPipe.pipeEnd, setPipe.core);
@@ -1683,7 +1683,7 @@ Status InsertSync::InsertSyncMainLoop(Function *subGraphFunc) {
 // regist pass
 Status InsertSync::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start InsertSync.");
-    const unsigned hardwareConcurrency = config::GetPassGlobalConfig("pass_thread_num", 1);
+    const unsigned hardwareConcurrency = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 1);
     uint64_t index = 0;
     std::vector<std::pair<uint64_t, Function*>> subPrograms;
     for (auto &subProgram : function.rootFunc_->programs_) {

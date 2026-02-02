@@ -15,6 +15,7 @@ from functools import wraps
 
 from .enum import DataType, TileOpFormat
 from .tensor import Tensor
+from .pypto_impl import ir
 
 
 def _count_calls(func):
@@ -126,6 +127,9 @@ _dtype_dict = {
     "torch.int64": DataType.DT_INT64,
     "torch.uint64": DataType.DT_UINT64,
     "torch.bool": DataType.DT_BOOL,
+    "torch.hifloat8": DataType.DT_HF8,
+    "torch.float8_e4m3fn": DataType.DT_FP8E4M3,
+    "torch.float8_e5m2": DataType.DT_FP8E5M2,
 }
 
 
@@ -194,3 +198,14 @@ def _gen_pto_tensor(input_tensors):
         torch_tensors.append(torch_tensor)
         pto_tensors.append(pto_tensor)
     return pto_tensors, torch_tensors
+
+
+def ir_from_tensor(pto_tensor: Tensor):
+    tensor_shape = []
+    dim_num = 0
+    for ele in pto_tensor.shape:
+        dim = ir.Scalar(ir.DataType.int32, ele, "dim_" + str(dim_num))
+        tensor_shape.append(dim)
+        dim_num = dim_num + 1
+    return ir.Tensor(tensor_shape, ir.DataType(int(pto_tensor.dtype)), \
+        "_MACRO_" + pto_tensor.name, ir.Format((int(pto_tensor.format))))

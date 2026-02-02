@@ -44,7 +44,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
 
     void TearDown() override {}
@@ -91,7 +91,7 @@ TEST_F(SubgraphToFunctionTest, DifferentOffset) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TILE_DifferentOffset", "TILE_DifferentOffset", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
-    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "USE_MAX_FREQ_LABEL", true);
+    config::SetPassConfig("PVC2_OOO", "SubgraphToFunction", "use_max_freq_label", true);
 
     Program::GetInstance().InsertFuncToFunctionMap("TILE_DifferentOffset", currFunctionPtr);
 
@@ -390,10 +390,10 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     config::SetBuildStatic(true);
     FUNCTION("BATCHMATMUL", {matA, matB, matC})
     {
-        config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", true);
-        matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP32, matA, matB);
+        config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, true);
+        matC = npu::tile_fwk::Matrix::BatchMatmul(DT_FP32, matA, matB, false, false);
     }
-    config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", false);
+    config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, false);
     auto programJson = Program::GetInstance().DumpJson();
     auto currentFunctionPtr = Program::GetInstance().GetCurrentFunction();
     EXPECT_EQ(Program::GetInstance().FunctionMapSize(), 6);
@@ -532,13 +532,13 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1) {
         Tensor input_a(DT_FP32, input_shape, (uint8_t *)nullptr, "A");
         auto output = std::make_tuple(Tensor(DT_FP32, output_shape, nullptr, "npu_val"),
                                       Tensor(DT_FP32, output_shape, nullptr, "resDics"));
-        config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", true);
+        config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, true);
         config::SetBuildStatic(true);
         FUNCTION("TOPK_T", {input_a, std::get<0>(output), std::get<1>(output)}) {
             output = TopK(input_a, k, -1, isLargest);
         }
     }
-    config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", false);
+    config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, false);
 
     Json programJson = Program::GetInstance().DumpJson();
     Program::GetInstance().LoadJson(programJson);
@@ -550,7 +550,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1) {
     #ifndef PRIOR_SCHEDULING
     EXPECT_EQ(programJsonNew.dump(), programJsonNewNew.dump());
     #endif
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
 }
 
 TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
@@ -580,7 +580,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_1_cov) {
     Program::GetInstance().LoadJson(programJsonNew);
     Json programJsonNewNew = Program::GetInstance().DumpJson();
 
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
 }
 
 TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
@@ -613,7 +613,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
     for (auto s : actSeqs) {
         blockNum += CeilDiv(s, blockSize);
     }
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     PROGRAM("PageAttentionStatic") {
         Tensor qNope(DT_BF16, {b * sq * nq, dn}, (uint8_t *)nullptr, "qNope");
@@ -648,7 +648,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load_2) {
     #ifndef PRIOR_SCHEDULING
     EXPECT_EQ(programJsonNew.dump(), programJsonNewNew.dump());
     #endif
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_ALL_COMPLETE);
 }
 
 /*

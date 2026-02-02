@@ -24,13 +24,12 @@ class DyMla : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {};
 namespace {
 
 void pre() {
-    config::SetHostOption(ONLY_CODEGEN, true);
 
 }
 
 void performanceConfig() {
     config::SetPassOption(VEC_NBUFFER_MODE, 1);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }
@@ -169,7 +168,7 @@ void TestMlaPrologV2(const SimpleParams &params) {
             quantInputs.smoothScalesCq = smooth_cq;
         }
     }
-    config::SetPassConfig("PVC2_OOO", "InferMemoryConflict", "DISABLE_PASS", true);
+    config::SetPassConfig("PVC2_OOO", "InferMemoryConflict", KEY_DISABLE_PASS, true);
     MlaProlog(x, wDq, wUqQr, wUk, wDkvKr, gamma_cq, gamma_ckv, sin, cos, kv_len, kv_cache, kr_cache, quantInputs,
         ropeConfig, output_q, output_q_rope, output_kv_cache, output_kr_cache, 1e-5f, 1e-5f, params.cacheMode, splitK,
         isSmooth);

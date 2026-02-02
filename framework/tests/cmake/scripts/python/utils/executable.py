@@ -16,7 +16,7 @@ import subprocess
 import sys
 from datetime import timedelta, datetime, timezone
 from pathlib import Path
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, List
 
 
 class Executable:
@@ -30,7 +30,12 @@ class Executable:
         """
         self.file: Path = Path(file).resolve()
         self.envs: Dict[str, str] = envs if envs is not None else {}
-        self.timeout: Optional[int] = timeout
+        self.timeout: Optional[int] = None
+        env_timeout = os.environ.get("PYPTO_TESTS_CASE_EXECUTE_TIMEOUT", None)
+        if env_timeout:
+            self.timeout = int(env_timeout)
+        if timeout and timeout > 0:
+            self.timeout = timeout  # 参数设置优先级高于环境变量
 
     @property
     def brief(self) -> str:
@@ -38,17 +43,28 @@ class Executable:
         ubsan = "ON" if "UBSAN_OPTIONS" in self.envs.keys() else "OFF"
         return f"({self.file.name}) XSAN(ASAN:{asan} UBSAN:{ubsan})"
 
-    def run(self, gtest_filter: str,
+    def run(self, gtest_filter: Optional[str] = None, params: Optional[List[str]] = None, 
+            check: bool = False, capture_output: bool = True,
             envs: Optional[Dict[str, str]] = None) -> Tuple[subprocess.CompletedProcess, str, timedelta]:
-        """执行可执行文件
+        """
+        执行可执行文件
 
         :param gtest_filter: GTestFilter
+        :type gtest_filter: Optional[str]
+        :param params: 额外配置的命令参数
+        :type params: Optional[List[str]]
+        :param check: 透传至 subprocess.run 的 check 参数
+        :type check: bool
+        :param capture_output: 透传至 subprocess.run 的 capture_output 参数
+        :type capture_output: bool
         :param envs: 运行时额外需配置的环境变量
-        :return: subprocess.CompletedProcess 执行结果
-        :raise subprocess.TimeoutExpired: timeout 指定且执行超时
+        :type envs: Optional[Dict[str, str]]
+        :return: 返回值, 执行命令, 执行耗时
+        :rtype: Tuple[CompletedProcess, str, timedelta]
         """
-        cmd = (f"{sys.executable} " if self.file.name.endswith(".py") else "./") + f"{self.file.name} "
-        cmd += f"--gtest_filter={gtest_filter}"
+        cmd = (f"{sys.executable} " if self.file.name.endswith(".py") else "./") + f"{self.file.name}"
+        cmd += f" --gtest_filter={gtest_filter}" if gtest_filter else ""
+        cmd += (" " + " ".join(params)) if params else ""
         # 环境变量优先级: 函数参数指定 > 类内环境变量(命令行参数指定) > 系统内已有的
         envs = envs if envs is not None else {}
         act_env = os.environ.copy()  # 系统环境变量
@@ -57,5 +73,5 @@ class Executable:
         cwd = str(self.file.parent)
         ts = datetime.now(tz=timezone.utc)
         ret = subprocess.run(shlex.split(cmd), env=act_env, cwd=cwd, timeout=self.timeout,
-                             capture_output=True, check=False, text=True, encoding='utf-8')
+                             capture_output=capture_output, check=check, text=True, encoding='utf-8')
         return ret, cmd, datetime.now(tz=timezone.utc) - ts

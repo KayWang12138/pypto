@@ -30,7 +30,7 @@ def layer_norm_func():
 
 
 # jit scope 1
-@pypto.jit(host_options={"only_codegen": True},
+@pypto.jit(
         pass_options={"mg_copyin_upper_bound": 1048},
         )
 def set_scope_options(a, c, tiling=None):
@@ -44,7 +44,7 @@ def set_scope_options(a, c, tiling=None):
 
     for _ in pypto.loop(1, name="s0", idx_name="k"):
         c.move(pypto.add(a, 1.0))
-        assert True == get_options("host.only_codegen")
+        assert pypto.CompStage.ALL_COMPLETE.value == get_options("host.compile_stage")
 
         # 隐式 scope
         pypto.set_options(pass_options={"pg_upper_bound": 1024})
@@ -56,15 +56,14 @@ def set_scope_options(a, c, tiling=None):
 
         # 显式 scope
         with pypto.options("scope2",
-                            host_options={"only_codegen": True},
-                            pass_options={"cube_l1_reuse_mode": 1,
+                            pass_options={"cube_l1_reuse_mode": 0,
                                           "pg_upper_bound": 100,
                                           "cube_nbuffer_setting": {3: 4}},
                             vec_tile_shapes=[64, 64],
                             matrix_size=[64, 32],
                             cube_tile_shapes=[[16, 16], [256, 512, 128], [128, 128], True]
                             ): # scope 3
-            assert 1 == get_options("pass.cube_l1_reuse_mode")
+            assert 0 == get_options("pass.cube_l1_reuse_mode")
             assert 100 == get_options("pass.pg_upper_bound")
             assert {3: 4} == get_options("pass.cube_nbuffer_setting")
             assert [64, 64] == get_options("vec_tile_shapes")

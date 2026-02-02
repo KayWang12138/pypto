@@ -28,6 +28,7 @@
 
 namespace npu {
 namespace tile_fwk {
+const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
 // only save general gm input/output, not contain spill-out scene
 bool CodegenPreproc::IsNeedSave(const Operation &op) const {
     return OpcodeManager::Inst().IsCopyInOrOut(op.GetOpcode()) && (!op.IsNeedStackGM());
@@ -105,9 +106,9 @@ Status CodegenPreproc::ProcessAxis(Operation &op, std::vector<bool> attr, bool i
             CombineTailAxis(operands[i]->shape, shapeSize);
             CombineTailAxis(operands[i]->oriShape, shapeSize);
             CombineTailAxis(operands[i]->tensor->rawshape, shapeSize);
-            if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false)) {
+            if (forceCombineAxis) {
                 CombineLastAxis(operands[i]->dynValidShape_, shapeSize);
-            } 
+            }
         }
     }
     return SUCCESS;
@@ -120,9 +121,9 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 std::vector<bool> attrIn;
                 op.GetAttr(OP_ATTR_PREFIX + "input_combine_axis", attrIn);
                 op.SetAttribute(OpAttributeKey::inputCombineAxisDone, true);
-                if (ProcessAxis(op, attrIn, true) != SUCCESS) { 
+                if (ProcessAxis(op, attrIn, true) != SUCCESS) {
                     APASS_LOG_ERROR_F(Elements::Operation, "ForceCombineAxis failed at function ProcessAxis(input) for subProgram(%lu).", subProgram.first);
-                    return FAILED; 
+                    return FAILED;
                 }
                 if (op.GetOpcode() == Opcode::OP_COPY_OUT) {
                     op.SetAttribute(OpAttributeKey::outputCombineAxisDone, true);
@@ -134,9 +135,9 @@ Status CodegenPreproc::ForceCombineAxis(Function &func) const {
                 std::vector<bool> attrOut;
                 op.GetAttr(OP_ATTR_PREFIX + "output_combine_axis", attrOut);
                 op.SetAttribute(OpAttributeKey::outputCombineAxisDone, true);
-                if (ProcessAxis(op, attrOut, false) !=SUCCESS) { 
+                if (ProcessAxis(op, attrOut, false) !=SUCCESS) {
                     APASS_LOG_ERROR_F(Elements::Operation, "ForceCombineAxis failed at function ProcessAxis(out) for subProgram(%lu).", subProgram.first);
-                    return FAILED; 
+                    return FAILED;
                 }
                 if (op.GetOpcode() == Opcode::OP_COPY_IN) {
                     op.SetAttribute(OpAttributeKey::inputCombineAxisDone, true);
@@ -165,6 +166,22 @@ inline bool IsUBCopy(Operation& op) {
     return false;
 }
 
+bool ReduceNeedCombineAxis(const Operation &op) {
+    if (OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+        return true;
+    }
+    if (op.GetOpcode() == Opcode::OP_ROWSUMLINE) {
+        auto inputs = op.GetIOperands();
+        if (op.GetIOperands().size() != 1 || !op.HasAttr(REDUCE_AXIS)) {
+            return false;
+        }
+        auto axis = op.GetIntAttribute(REDUCE_AXIS);
+        int64_t shapeSize = static_cast<int64_t>(inputs.front()->shape.size());
+        return shapeSize != 1 && axis != (shapeSize - 2);
+    }
+    return false;
+}
+
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
     const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
     for (auto &subProgram : func.rootFunc_->programs_) {
@@ -173,9 +190,9 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
                 continue;
             }
             std::vector<bool> inputCombineAxis;
-            for (size_t i = 0; i < op.GetIOperands().size(); ++i) {
-                LogicalTensors operands = op.GetIOperands();
-                if (operands[i]->tensor->rawshape.back() == 1 && skipInputCombineOps.count(op.GetOpcode()) == 0) {
+            LogicalTensors inputs = op.GetIOperands();
+            for (size_t i = 0; i < inputs.size(); ++i) {
+                if (inputs[i]->tensor->rawshape.back() == 1 && skipInputCombineOps.count(op.GetOpcode()) == 0) {
                     inputCombineAxis.push_back(true);
                 } else {
                     inputCombineAxis.push_back(false);
@@ -183,9 +200,9 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             }
             op.SetAttr(OpAttributeKey::inputCombineAxis, inputCombineAxis);
             std::vector<bool> outputCombineAxis;
-            for (size_t i = 0; i < op.GetOOperands().size(); ++i) {
-                LogicalTensors operands = op.GetOOperands();
-                if (operands[i]->tensor->rawshape.back() == 1 && OpcodeManager::Inst().GetOpCalcType(op.GetOpcode()) != OpCalcType::REDUCE) {
+            auto outputs = op.GetOOperands();
+            for (size_t i = 0; i < outputs.size(); ++i) {
+                if (outputs[i]->tensor->rawshape.back() == 1 && ReduceNeedCombineAxis(op)) {
                     outputCombineAxis.push_back(true);
                 } else {
                     outputCombineAxis.push_back(false);
@@ -237,6 +254,8 @@ void CodegenPreproc::SetNeedAllocAttr(Function &function) {
 }
 
 Status CodegenPreproc::RunOnFunction(Function &function) {
+    combineAxis = function.paramConfigs_.combineAxis;
+    forceCombineAxis = function.paramConfigs_.forceCombineAxis;
     APASS_LOG_INFO_F(Elements::Operation, "===============================================================> Start CodegenPreproc.");
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW_TYPE) {
@@ -247,8 +266,8 @@ Status CodegenPreproc::RunOnFunction(Function &function) {
         APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function SaveGmTensorParamIdxToOp.");
         return FAILED;
     }
-    
-    if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
+
+    if (combineAxis) {
         if (ForceCombineAxisForAxisCombine(function) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "CodegenPreproc RunOnFunction failed at function ForceCombineAxisForAxisCombine.");
             return FAILED;

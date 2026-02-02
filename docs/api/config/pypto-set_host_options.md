@@ -14,7 +14,7 @@
 ## 函数原型
 
 ```python
-set_host_options(*, only_codegen: bool = None) -> None
+set_host_options(*, compile_stage: CompStage = pypto.CompStage.EXECUTE_GRAPH) -> None
 ```
 
 ## 参数说明
@@ -22,7 +22,7 @@ set_host_options(*, only_codegen: bool = None) -> None
 
 | 参数名          | 输入/输出 | 说明                                                                 |
 |-----------------|-----------|----------------------------------------------------------------------|
-| only_codegen    | 输入      | 含义：忽略静态的上板流程 <br> 说明：当值为True时，对于静态function用例，执行到代码生成阶段终止，不执行上板流程，当值为False时，代码生成之后正常执行上板流程。 <br> 类型：bool <br> 取值范围：{True, False} <br> 默认值：False |
+| compile_stage    | 输入      | 含义：控制编译执行的阶段 <br> 说明：<br> ALL_COMPLETE: 无影响，正常编译与运行; <br> TENSOR_GRAPH: 编译阶段，生成最终张量图后停止; <br> TILE_GRAPH: 编译阶段，生成最终分片图后终止；<br> EXECUTE_GRAPH: 编译阶段，生成最终执行图后终止；<br> CODEGEN_INSTRUCTION: 编译阶段，生成指令代码后终止；<br> CODEGEN_BINARY: 编译生成代码二进制后终止, 编译阶段结束。 <br> 取值范围: CompStage (ALL_COMPLETE/TENSOR_GRAPH/TILE_GRAPH/EXECUTE_GRAPH/CODEGEN_INSTRUCTION/CODEGEN_BINARY) <br> 默认值: ALL_COMPLETE |
 
 ## 返回值说明
 
@@ -36,6 +36,6 @@ void：Set方法无返回值。设置操作成功即生效。
 ## 调用示例
 
 ```python
-pypto.set_host_options(only_codegen=False)
+pypto.set_host_options(compile_stage=pypto.CompStage.EXECUTE_GRAPH)
 ```
 

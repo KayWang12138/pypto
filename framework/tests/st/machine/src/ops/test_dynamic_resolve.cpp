@@ -46,7 +46,7 @@ TEST_F(DynamicResolveTest, TestResolve) {
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 100 * 1024 * 1024);
     config::SetPassOption(SG_PG_LOWER_BOUND, 1024);
     config::SetPassOption(SG_PG_UPPER_BOUND, 1024);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 32);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 32}});
     config::SetPassOption(SG_PARALLEL_NUM, 2);
     config::SetPassOption(VEC_NBUFFER_MODE, 2);
     config::SetPassOption<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING, {{-1, 16}});
@@ -87,7 +87,7 @@ TEST_F(DynamicResolveTest, TestResolve) {
             std::vector<Tensor> tensorList;
             for (int j = 0; j < v64; j++) {
                 auto t = View(inputB, {v128, v128}, {0, v128 * j}); // <128 x 128 x FP32>
-                auto mm = Matrix::Matmul<false, true>(DataType::DT_FP32, inputA, t); // <64 x 128 x FP32>
+                auto mm = Matrix::Matmul(DataType::DT_FP32, inputA, t, false, true); // <64 x 128 x FP32>
                 tensorList.emplace_back(mm);
             }
             auto mmConcat = Cat(tensorList, -1); // <64 x (128 * 64) x FP32>
@@ -95,7 +95,7 @@ TEST_F(DynamicResolveTest, TestResolve) {
         }
     }
 
-    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction()));
+    EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), nullptr));
 
 #ifdef BUILD_WITH_CANN
     EXPECT_EQ(0, DeviceLauncher::DeviceRunOnce(Program::GetInstance().GetLastFunction()));

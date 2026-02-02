@@ -26,6 +26,7 @@ from pypto.converter import _torch_dtype_from
 from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
 from pypto.frontend.parser.parser import NestedFunctionMarker, Parser
+from pypto.runtime import _pto_verify_datas
 
 
 def _default_globals() -> dict[str, Any]:
@@ -225,8 +226,8 @@ class JitCallableWrapper:
 
         Returns
         -------
-        Union[torch.Tensor, tuple[torch.Tensor, ...]]
-            Output tensor(s).
+        Optional[Union[torch.Tensor, tuple[torch.Tensor, ...]]]
+            Output tensor(s), or None if the kernel has no return value.
         """
 
         # Validate that all arguments are tensors
@@ -267,15 +268,23 @@ class JitCallableWrapper:
                         f"{device} and {tensor.device}"
                     )
         else:
-            raise RuntimeError("pypto.frontend.jit requires at least one input tensor")
+            run_mode = self._runtime_options.get("run_mode", None)
+            if run_mode == pypto.RunMode.NPU:
+                if torch.npu.is_available():
+                    device = torch.device('npu', torch.npu.current_device())
+                else:
+                    raise RuntimeError("NPU is not available.")
+            elif run_mode == pypto.RunMode.SIM:
+                device = torch.device('cpu')
+            else:
+                raise RuntimeError(f"Invalid run mode: {run_mode}.")
 
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
         concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
-        self._compile_if_needed(concrete_input_shapes)
-        symbolic_dim_value_map = {}
         tmp_parser = self._create_parser()
         input_tensor_defs, output_tensor_defs = tmp_parser.get_signature()
+        symbolic_dim_value_map = {}
         symbolic_dim_value_map = tmp_parser.match_input_shapes(
             concrete_input_shapes, input_tensor_defs
         )
@@ -300,6 +309,8 @@ class JitCallableWrapper:
             out_tensor = torch.empty(shape, dtype=dtype, device=device)
             out_tensors.append(out_tensor)
 
+        self._compile_if_needed(concrete_input_shapes, in_tensors, out_tensors)
+
         # Execute the function using dispatch based on run mode
         def convert_tensors_with_metadata(torch_tensors, tensor_defs):
             """Convert torch tensors to pypto tensors with name and dynamic_axis metadata."""
@@ -317,6 +328,7 @@ class JitCallableWrapper:
                         torch_tensor,
                         name=name,
                         dynamic_axis=dynamic_axis if dynamic_axis else None,
+                        tensor_format=tensor_def.format,
                     )
                 )
             return pto_tensors
@@ -327,6 +339,8 @@ class JitCallableWrapper:
         self._dispatch_with_run_mode(pto_in_tensors + pto_out_tensors, [], device)
 
         # Return single tensor or tuple based on number of outputs
+        if not out_tensors:
+            return None
         if len(out_tensors) == 1:
             return out_tensors[0]
         return tuple(out_tensors)
@@ -485,6 +499,8 @@ class JitCallableWrapper:
     def _compile_if_needed(
         self,
         concrete_input_shapes: list[list[int]],
+        in_tensors: list[torch.Tensor],
+        out_tensors: list[torch.Tensor],
     ) -> None:
         """Compile the function on first call if not already compiled (lazy compilation).
 
@@ -516,6 +532,7 @@ class JitCallableWrapper:
 
         # Initialize backend for compilation
         pypto_impl.DeviceInit()
+        self._setup_verify_data(in_tensors, out_tensors)
         handler = pypto_impl.OperatorBegin()
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
@@ -531,11 +548,48 @@ class JitCallableWrapper:
         self._handler = handler
         self._is_compiled = True
 
+        # Reset golden data after compilation, similar to pypto.jit
+        _pto_verify_datas.reset()
+
+    def _setup_verify_data(
+        self,
+        in_tensors: list[torch.Tensor],
+        out_tensors: list[torch.Tensor],
+    ) -> None:
+        """Set verify input/output/golden data for pass-level verification.
+
+        This mirrors the behavior of pypto.runtime._JIT.compile:
+        - Copy current input/output from NPU to Host
+        - Use golden data pre-injected via set_verify_golden_data
+        - Call SetVerifyData to register all three to the underlying ProgramData
+        """
+        if not (
+            isinstance(self._verify_options, dict)
+            and self._verify_options.get("enable_pass_verify")
+        ):
+            return
+
+        # Copy NPU Tensor to CPU, then convert to pypto.Tensor for constructing DeviceTensorData
+        host_pto_tensors = [t.cpu() for t in in_tensors + out_tensors]
+        pypto_tensors: list[pypto.Tensor] = []
+        for t in host_pto_tensors:
+            pto_tensor = pypto.from_torch(t)
+            pypto_tensors.append(pto_tensor)
+
+        host_pto_t_datas = _pto_to_tensor_data(pypto_tensors)
+        # Use golden data pre-injected via set_verify_golden_data
+        pypto_impl.SetVerifyData(
+            host_pto_t_datas,
+            [],
+            _pto_verify_datas.get_data(),
+        )
+
     def _run(
         self,
         in_tensor_data: list[pypto_impl.DeviceTensorData],
         out_tensor_data: list[pypto_impl.DeviceTensorData],
         device: torch.device,
+        ctrl_cache: int = 0
     ) -> None:
         """Execute the compiled kernel on device with workspace allocation.
 
@@ -553,7 +607,8 @@ class JitCallableWrapper:
             Output tensor metadata for the backend.
         device : torch.device
             The device to execute on (must be NPU for this method).
-
+        ctrl_cache : int
+            Device control flow cache.
         Raises
         ------
         RuntimeError
@@ -570,6 +625,7 @@ class JitCallableWrapper:
             [],  # Mark all output tensors as inplace inputs
             torch.npu.current_stream().npu_stream,
             workspace_tensor.data_ptr(),
+            ctrl_cache
         )
         if runtime_error_msg != "":
             raise RuntimeError(runtime_error_msg)
@@ -633,19 +689,6 @@ class JitCallableWrapper:
         """
         _cost_model_run_once_data_from_host(in_tensors, out_tensors)
 
-    def _set_runtime_debug_mode(self) -> None:
-        """Enable runtime debug mode and profiling if configured.
-
-        Checks debug options for runtime_debug_mode flag and enables profiling
-        if debug mode is active. This allows collecting performance metrics and
-        detailed execution traces during kernel execution.
-        """
-        if self._debug_options is None:
-            self._debug_options = {}
-        if self._debug_options.get(
-            "runtime_debug_mode", 0
-        ) or pypto.get_debug_options().get("runtime_debug_mode", 0):
-            pypto.set_option("profile_enable", True)
 
     def _dispatch_with_run_mode(
         self,
@@ -673,7 +716,6 @@ class JitCallableWrapper:
         RuntimeError
             If NPU mode is selected but CANN environment is not configured.
         """
-        self._set_runtime_debug_mode()
         cann_is_configed = bool(os.environ.get("ASCEND_HOME_PATH"))
         run_mode = pypto.get_runtime_options().get("run_mode", 0)
         if run_mode == 0:  # NPU mode

@@ -13,9 +13,9 @@
  * \brief
  */
 
-#include <gtest/gtest.h>
 #include "operator/models/deepseek/page_attention.h"
 #include "interface/configs/config_manager.h"
+#include "test_cost_macro.h"
 
 using namespace npu::tile_fwk;
 
@@ -47,7 +47,7 @@ void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bloc
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
-            Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, ki);
+            Tensor t2 = Matrix::Matmul(DataType::DT_FP32, qi, ki, false, true);
             // conat((t0s + t1, t1)) @ concat (t0s, t1)^T
             Assemble(t2, {idx * s, 0}, out);
         }
@@ -55,7 +55,6 @@ void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bloc
 }
 
 TEST_F(DynamicPATest, TestDD) {
-    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 32);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
     std::vector<uint8_t> devProgBinary;
@@ -76,7 +75,6 @@ TEST_F(DynamicPATest, TestDD) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_unroll) {
-    config::SetHostOption(ONLY_CODEGEN, true);
     std::vector<uint8_t> devProgBinary;
 
     std::vector<int> input_param = {4, 1, 32, 1, 512, 64, 128, 32};
@@ -123,7 +121,6 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_unroll) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_low_lantency_pass_unroll) {
-    config::SetHostOption(ONLY_CODEGEN, true);
     std::vector<uint8_t> devProgBinary;
 
     std::vector<int> input_param = {1, 1, 128, 1, 512, 64, 256, 32};
@@ -169,9 +166,8 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_pass_unroll) {
         tileConfig, maxUnrollTimes);
 }
 
-TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll) {
-    config::SetHostOption(ONLY_CODEGEN, true);
-    config::SetPassDefaultConfig("print_graph", true);
+TEST_F_WITH_COST(DynamicPATest, dynamic_pa_low_lantency_manual_unroll, 96) {
+    config::SetPassDefaultConfig(KEY_PRINT_GRAPH, true);
     std::vector<uint8_t> devProgBinary;
 
     std::vector<int> input_param = {4, 1, 32, 1, 512, 64, 128, 32};
@@ -270,7 +266,6 @@ TEST_F(DynamicPATest, dynamic_pa_low_lantency_manual_unroll) {
 }
 
 TEST_F(DynamicPATest, dynamic_pa_high_throughput_only_batch_loop) {
-    config::SetHostOption(ONLY_CODEGEN, true);
     std::vector<uint8_t> devProgBinary;
 
     std::vector<int> input_param = {4, 1, 32, 1, 512, 64, 128, 32};

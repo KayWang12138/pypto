@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -31,10 +31,10 @@ message(STATUS "PTO_FWK_BIN_ROOT=${PTO_FWK_BIN_ROOT}")
 # 公开编译开关(build)
 option(BUILD_OPEN_PROJECT "Build in open scenario." ON)
 option(BUILD_WITH_CANN "Build with CANN." ON)  # Need to install CANN package and set corresponding environment variables.
-option(BUILD_WITH_CANN_SUB "Build with CANN Sub package" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
 option(ENABLE_GCOV "Enable GNU Coverage Instrumentation Tool" OFF)
+option(ENABLE_COMPILE_DEPENDENCY_CHECK "Enable compile dependency relation check" OFF)
 
 # 公开编译开关(Feature 特性级开关)
 option(ENABLE_FEATURE_PYTHON_FRONT_END "Enable Python Front-end" ON)
@@ -44,7 +44,6 @@ option(ENABLE_TORCH_VERIFIER "Flow verify with libtorch" OFF)
 # 公开编译开关(tests)
 option(ENABLE_TESTS_EXECUTE "Enable auto execute tests executable" OFF)
 option(ENABLE_TESTS_EXECUTE_PARALLEL "Auto execute tests executable parallel" OFF)
-option(ENABLE_TESTS_EXECUTE_PARALLEL_TIMEOUT "Auto execute tests executable parallel timeout" OFF)
 option(ENABLE_TESTS_EXECUTE_CHANGED_FILE "Specify tests changed file" OFF)
 option(ENABLE_UTEST "Enable UTest" OFF)
 option(ENABLE_UTEST_MODULE "Enable UTest Module compile and execute" OFF)
@@ -108,6 +107,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
             tile_fwk_runtime_stub
             tile_fwk_simulation
             tile_fwk_simulation_ca
+            tile_fwk_simulation_pv
     )
     if (BUILD_WITH_CANN)
         install(TARGETS tile_fwk_server LIBRARY DESTINATION "${PyPTO_WhlName}/lib")
@@ -146,6 +146,7 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 framework/src/cost_model/simulation/scripts/draw_pipe_swim_lane.py
                 tools/profiling/function_json_convert.py
                 tools/profiling/parse_pipe_time_trace.py
+                tools/scripts/machine_perf_trace.py
             DESTINATION ${PyPTO_WhlName}/lib/scripts
     )
 

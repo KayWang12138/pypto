@@ -65,7 +65,7 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                         Assemble(qr, {0, dN}, qi);
 
                         SymbolicScalar bS1Idx = bIdx * s1Sym + s1Idx;
-                        auto curTopKIndcies = View(topKIndcies, {1, curS2Tile}, {1, std::min(curSeq - s2Idx * curS2Tile, curS2Tile)}, {bS1Idx, s2Idx * curS2Tile}); 
+                        auto curTopKIndcies = View(topKIndcies, {1, curS2Tile}, {1, std::min(curSeq - s2Idx * curS2Tile, curS2Tile)}, {bS1Idx, s2Idx * curS2Tile});
                         auto curBlockTable = View(blockTable, {1, maxBlockNumPerBatch}, {bIdx, 0});
                         Tensor kn(dtype, {s2Tile, dN}, "kn");
                         if (knDtype == DataType::DT_INT8) {
@@ -99,7 +99,7 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                         Assemble(kn, {0, 0}, kj);
                         Assemble(kr, {0, dN}, kj);
                         auto kjView = View(kj, {curS2Tile, dN + dR}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN + dR}, {0, 0});
-                        auto sij = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kjView);
+                        auto sij = Matrix::Matmul(DataType::DT_FP32, qi, kjView, false, true);
 
                         // V1
                         config::SetSemanticLabel("Sa_Qkvec1");
@@ -124,10 +124,10 @@ void SelectedAttentionComputeV2(const Tensor &qNope, const Tensor &qRope, const 
                         Tensor q1(dtype, {curGTile, dN});
                         if (knDtype == DataType::DT_INT8) {
                             auto vj = View(kn, {curS2Tile, dN}, {std::min(curSeq - s2Idx * curS2Tile, curS2Tile), dN}, {0, 0});
-                            q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
+                            q1 = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
                         } else {
                             auto vj = experimental::GatherInL1<true, false>(kNope2D, curTopKIndcies, curBlockTable, blockSize, dN);
-                            q1 = Matrix::Matmul<false, false>(DataType::DT_FP32, tildaPijF16, vj);
+                            q1 = Matrix::Matmul(DataType::DT_FP32, tildaPijF16, vj, false, false);
                         }
                         IF (IsLoopBegin(s2Idx, 0)) {
                             auto oiTmp = q1;
@@ -187,7 +187,7 @@ void SelectedAttentionV2(const Tensor &qNope, const Tensor &qRope, const Tensor 
     const Tensor &kNopeScales, const Tensor &topKIndcies, const Tensor &blockTable, const Tensor &kvSlcActSeqs, const int nQ, const int nKv,
     const float softmaxScale, const int topk, const int blockSize, const int maxBlockNumPerBatch, Tensor &attentionOut, SaTileShapeConfig tileConfig) {
     FUNCTION("R2_SA_MAIN_V2", {qNope, qRope, kNope2D, kRope2D, kNopeScales, topKIndcies, blockTable, kvSlcActSeqs}, {attentionOut}) {
-        SelectedAttentionComputeV2(qNope, qRope, kNope2D, kRope2D, kNopeScales, topKIndcies, blockTable, kvSlcActSeqs, 
+        SelectedAttentionComputeV2(qNope, qRope, kNope2D, kRope2D, kNopeScales, topKIndcies, blockTable, kvSlcActSeqs,
                                 nQ, nKv, softmaxScale, topk, blockSize, maxBlockNumPerBatch, attentionOut, tileConfig);
     }
 }

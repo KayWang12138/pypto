@@ -37,7 +37,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
     void TearDown() override {}
 };
@@ -114,7 +114,7 @@ TEST_F(CommonOperationEliminateTest, EliminateRedundantCascadeOp) {
     EXPECT_NE(function, nullptr);
     CommonOperationEliminate COE;
     COE.Run(*function, "", "", 0);
-    const int validOpNum = 3;
+    const int validOpNum = 4;
     EXPECT_EQ(function->Operations().size(), validOpNum);
     std::shared_ptr<LogicalTensor> tensorPtr = G.GetTensor("t1");
     EXPECT_NE(tensorPtr, nullptr);

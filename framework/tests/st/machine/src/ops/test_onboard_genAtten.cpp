@@ -25,6 +25,7 @@
 #include "operator/models/nsa/gen_Attention.h"
 #include "test_dev_func_runner.h"
 #include "test_data_loader.h"
+#include "test_cost_macro.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -59,7 +60,6 @@ void GenAttentionCompute(TestDataLoader& data, GenAttenTileShapeConfig &tileConf
 template<typename T = npu::tile_fwk::float16>
 void genAtten(TestDataLoader& data, GenAttenTileShapeConfig &tileConfig) {
     SetInterpreterConfig();
-    config::SetHostOption(ONLY_CODEGEN, true);
     config::SetRuntimeOption(DEVICE_SCHED_MODE, static_cast<uint8_t>(MachineScheduleConfig::L2CACHE_AFFINITY_SCH));
 
     int b = std::get<int>(data.Param("b"));
@@ -83,7 +83,7 @@ void genAtten(TestDataLoader& data, GenAttenTileShapeConfig &tileConfig) {
 #endif
 }
 
-TEST_F(TestGenAtten, TestDynamicGenAtten_B_16_S1_1_FP16) {
+TEST_F_WITH_COST(TestGenAtten, TestDynamicGenAtten_B_16_S1_1_FP16, 11) {
     GenAttenTileShapeConfig tileConfig;
     const int dTileSize = NUM_512;
     const int nTileSize = NUM_128;

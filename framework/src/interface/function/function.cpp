@@ -97,8 +97,7 @@ struct CompareTensorPtr {
     }
 };
 
-std::string DynloopFunctionPathNode::Dump() const
-{
+std::string DynloopFunctionPathNode::Dump() const {
     int indent = 2;
     std::ostringstream oss;
     std::function<void(const DynloopFunctionPathNode *, int)> dump =
@@ -305,13 +304,11 @@ bool Function::IsCube() const {
     return false;
 }
 
-OperationsViewer Function::OperationsAfterOOO()
-{
+OperationsViewer Function::OperationsAfterOOO() {
     return OperationsViewer(operationsAfterOOO_, opPositionAfterOOO_);
 }
 
-void Function::RecordOOOSeq()
-{
+void Function::RecordOOOSeq() {
     operationsAfterOOO_ = operations_;
     opPositionAfterOOO_ = opPosition_;
 }
@@ -644,36 +641,38 @@ void Function::CleanRedundantOutCast() {
     CleanRedundantOutcast(removeRecord, getTensorDataRecord);
 }
 
+void Function::FillOriginInOutCast(std::vector<Operation *>& operationList) {
+    OrderedSet<LogicalTensorPtr> incasts;
+    OrderedSet<LogicalTensorPtr> outcasts;
+
+    for (auto &op : operationList) {
+        for (auto &iOperand : op->iOperand) {
+            bool shouldAddIncast = op->IsCall() ||
+                (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 &&
+                (&iOperand->BelongFunction() != this));
+            if (shouldAddIncast && incasts.Insert(iOperand)) {
+                AddOriginIncast(iOperand);
+            }
+        }
+
+        for (auto &oOperand : op->oOperand) {
+            bool shouldAddOutcast = op->IsCall() || oOperand->tensor->GetRefCount() > 0;
+            if (shouldAddOutcast && outcasts.Insert(oOperand)) {
+                AddOriginOutcast(oOperand);
+                ASSERT(incasts.count(oOperand) == 0)
+                    << "Error: Output operand " << oOperand->tensor->rawmagic
+                    << " is found in incasts. Operation: " << op->Dump();
+            }
+        }
+    }
+}
+
 FunctionCallArgs Function::EndFunction(const std::shared_ptr<TensorSlotScope> &scope) {
     // Deduce Incast and Outcast here, need by TENSOR_GRAPH & STATIC_TILE_GRAPH
     std::vector<Operation *> operationList = Operations(false).DuplicatedOpList();
     if (IsGraphType(GraphType::TENSOR_GRAPH) ||
         IsFunctionTypeAndGraphType(FunctionType::STATIC, GraphType::TILE_GRAPH)) {
-        OrderedSet<LogicalTensorPtr> incasts;
-        OrderedSet<LogicalTensorPtr> outcasts;
-
-        for (auto &op : operationList) {
-            for (auto &iOperand : op->iOperand) {
-                if (op->IsCall() || (tensorMap_.tensorMap_.count(iOperand->tensor->rawmagic) == 0 &&
-                   (&iOperand->BelongFunction() != this))) {
-                    incasts.Insert(iOperand);
-                }
-            }
-            for (auto &oOperand : op->oOperand) {
-                if (op->IsCall() || oOperand->tensor->GetRefCount() > 0) {
-                    outcasts.Insert(oOperand);
-                    ASSERT(incasts.count(oOperand) == 0)
-                        << "Error: Output operand " << oOperand->tensor->rawmagic
-                        << " is found in incasts. Operation: " << op->Dump();
-                }
-            }
-        }
-        for (const auto &incast : incasts) {
-            AddOriginIncast(incast);
-        }
-        for (const auto &outcast : outcasts) {
-            AddOriginOutcast(outcast);
-        }
+        FillOriginInOutCast(operationList);
     }
 
     LogicalTensors inArgumentList, outArgumentList;
@@ -816,8 +815,7 @@ void Function::OperationLoopCheck(const std::string &errorMsg) {
     }
 }
 
-bool Function::OperationLoopCheck()
-{
+bool Function::OperationLoopCheck() {
     std::unordered_map<Operation*, int> inLinkNum;
     std::unordered_set<Operation*> visitedOp;
     std::vector<Operation*> visitStack;
@@ -1686,7 +1684,7 @@ void Function::UpdateLinkMap(const std::shared_ptr<LogicalTensor> &oriLogicalTen
     }
 }
 
-std::pair<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> Function::CreateIncastTensor(const std::shared_ptr<LogicalTensor> &inArgument) {
+std::shared_ptr<LogicalTensor> Function::CreateIncastTensor(const std::shared_ptr<LogicalTensor> &inArgument) {
     auto idx = inCasts_.size();
     auto newSymbol = inArgument->tensor->GetSymbol();
     if (newSymbol == "") {
@@ -1699,7 +1697,7 @@ std::pair<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> Functi
     incastToInArgumentDict[incastSymbol] = inArgument;
 
     UpdateLinkMap(inArgument, incastSymbol);
-    return std::pair<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>>{incastSymbol, nullptr};
+    return incastSymbol;
 }
 
 void Function::CreateFromIncast(const std::shared_ptr<LogicalTensor> &symbol,
@@ -1772,12 +1770,11 @@ LogicalTensors Function::MakeIncasts(const std::shared_ptr<TensorSlotScope> &sco
             NodeType::LOCAL);
         inArgumentList.push_back(inArgument);
 
-        auto [incastSymbol, incastLocalBuf] = CreateIncastTensor(inArgument);
+        auto incastSymbol = CreateIncastTensor(inArgument);
         if (scope) {
             scope->incastToInArgumentDict[incastSymbol] = inArgument;
             scope->incastToInOriginalDict[incastSymbol].insert(sameRawIncasts.begin(), sameRawIncasts.end());
         }
-        (void)incastLocalBuf;
 
         std::map<ViewKey, std::shared_ptr<LogicalTensor>> newincastMap;
         for (auto &originIncast : sameRawIncasts) {
@@ -2077,7 +2074,7 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_opseed"] = opSeed_;
     funcDump["_rawid"] = IdGen<IdType::RAW_TENSOR>::Inst().CurId();
     funcDump["_funcid"] = IdGen<IdType::FUNCTION>::Inst().CurId();
-    funcDump["_l1_reuse_num"] = paramConfigs_.l1ReuseNum;
+    funcDump["_l1_reuse_mode"] = paramConfigs_.L1ReuseMode;
     funcDump["_cube_nbuffer_mode"] = paramConfigs_.cubeNBufferMode;
     funcDump["_sg_pg_upperbound"] = paramConfigs_.sgPgUpperBound;
     funcDump["_sg_pg_lowerbound"] = paramConfigs_.sgPgLowerBound;
@@ -2085,7 +2082,6 @@ Json Function::DumpJson(bool useTable) {
     funcDump["_sg_mg_copyin_upper_bound"] = paramConfigs_.sgMgCopyInUpperBound;
     funcDump["_vec_nbuffer_mode"] = paramConfigs_.vecNBuffermode;
     funcDump["_mg_vec_parallel_lb"] = paramConfigs_.mgVecParallelLb;
-    funcDump["_sg_cube_parallel_num"] = paramConfigs_.sgCubeParallelNum;
     funcDump["_pg_skip_partition"] = paramConfigs_.pgSkipPartition;
     funcDump["_total_subgraph_count"] = totalSubGraphCount_;
     funcDump["_ooo_preschedule_method"] = paramConfigs_.OoOPreScheduleMethod;
@@ -2398,7 +2394,7 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     IdGen<IdType::RAW_TENSOR>::Inst().SetId(rawid);
     int funcid = funcDump["_funcid"].get<int>();
     IdGen<IdType::FUNCTION>::Inst().SetId(funcid);
-    func->paramConfigs_.l1ReuseNum = funcDump["_l1_reuse_num"].get<int>();
+    func->paramConfigs_.L1ReuseMode = funcDump["_l1_reuse_mode"].get<int>();
     func->paramConfigs_.cubeNBufferMode = funcDump["_cube_nbuffer_mode"].get<int>();
     func->paramConfigs_.sgPgUpperBound = funcDump["_sg_pg_upperbound"].get<int>();
     func->paramConfigs_.sgPgLowerBound = funcDump["_sg_pg_lowerbound"].get<int>();
@@ -2406,7 +2402,6 @@ std::shared_ptr<Function> Function::LoadJson(Program &belongTo, const Json &func
     func->paramConfigs_.sgMgCopyInUpperBound = funcDump["_sg_mg_copyin_upper_bound"].get<int>();
     func->paramConfigs_.vecNBuffermode = funcDump["_vec_nbuffer_mode"].get<int>();
     func->paramConfigs_.mgVecParallelLb = funcDump["_mg_vec_parallel_lb"].get<int>();
-    func->paramConfigs_.sgCubeParallelNum = funcDump["_sg_cube_parallel_num"].get<int>();
     func->paramConfigs_.pgSkipPartition = funcDump["_pg_skip_partition"].get<bool>();
     auto subGraphCount = funcDump["_total_subgraph_count"].get<size_t>();
     func->SetTotalSubGraphCount(subGraphCount);
@@ -2841,7 +2836,8 @@ void Function::NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicSca
 void Function::NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex) {
     bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
     for (auto &op : operations_) {
-        if (op->GetOpcode() == Opcode::OP_VEC_DUP || op->GetOpcode() == Opcode::OP_RANGE) {
+        if (op->GetOpcode() == Opcode::OP_VEC_DUP || op->GetOpcode() == Opcode::OP_RANGE ||
+            op->GetOpcode() == Opcode::OP_TRIUL) {
             if (op->HasAttr(OpAttributeKey::dynScalar)) {
                 SymbolicScalar dynScalar = op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
                 std::vector<SymbolicScalar> valueCoaList;
@@ -3301,6 +3297,9 @@ void Function::SetCallOpSlot() {
     }
     std::vector<Function *> calleeList = GetCalleeFunctionList();
     for (auto callee: calleeList) {
+        if (callee == nullptr) {
+            continue;
+        }
         const std::shared_ptr<TensorSlotScope> calleeScope = callee->GetSlotScope();
         // callee incast -> call op iOperand, callee outcast -> call op oOperand
         UpdateOriIocastSlot(calleeScope);

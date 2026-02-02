@@ -28,7 +28,6 @@ class DynamicUnalignTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aiha
 public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostOption(ONLY_CODEGEN, true);
         TileShape::Current().SetVecTile(32, 32);
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32}, true);
         rtSetDevice(GetDeviceIdByEnvVar());
@@ -160,7 +159,7 @@ TEST_F(DynamicUnalignTest, test_mm_unalign) {
             Assemble(kn, {0, 0}, kj);
             Assemble(kr, {0, dN}, kj);
 
-            auto tmp = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, kj);
+            auto tmp = Matrix::Matmul(DataType::DT_FP32, qi, kj, false, true);
 
             Assemble(tmp, {batchId * nq * s1, 0}, out);
         }
@@ -224,10 +223,9 @@ TEST_F(DynamicUnalignTest, test_mm2_unalign) {
 
             Tensor qk0 = View(qk, {nq * s1, nk * s2}, {nq * s1, nk * curSeq}, {batchId * nq * s1, 0});
             Tensor v0 = View(v, {nk * s2, d}, {nk * curSeq, d}, {batchId * nk * s2, 0});
-            auto tmp = Matrix::Matmul<false, false>(DataType::DT_FP32, qk0, v0);
+            auto tmp = Matrix::Matmul(DataType::DT_FP32, qk0, v0, false, false);
 
             Assemble(tmp, {batchId * nq * s1, 0}, out);
-            // out = Matrix::Matmul<false, false>(DataType::DT_FP32, qk0, v0);
         }
     }
 

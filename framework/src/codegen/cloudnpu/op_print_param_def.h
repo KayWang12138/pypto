@@ -59,6 +59,16 @@ struct PrintIndexAddParam {
     const std::vector<std::string> &dataTypeExpr;
 };
 
+struct PrintIndexPutParam {
+    const std::string &dVar;
+    const std::string &s1Var;
+    const std::vector<std::string> &s2Var;
+    const std::vector<int64_t> &gmShape;
+    const std::vector<int64_t> &src1RawShape;
+    const std::vector<std::string> &dataTypeExpr;
+    const bool accumulate;
+};
+
 enum class WhereOpIdx : int { resIdx = 0, tempIdx, condIdx, src0Idx, src1Idx };
 struct WhereParam {
     std::vector<std::string> templateList;
@@ -79,6 +89,15 @@ struct PrintUnaryParam {
     const std::string &dVar;
     const std::string &srcDtypeStr;
     const std::string &dstDtypeStr;
+};
+
+struct PrintUnaryTmpParam {
+    const std::string &s0Var;
+    const std::string &dVar;
+    const std::string &tmpVar;
+    const std::string &srcDtypeStr;
+    const std::string &dstDtypeStr;
+    const std::string &tmpDtypeStr;
 };
 
 struct PrintUnaryTmpBuffParam {
@@ -146,6 +165,17 @@ struct PrintBinaryParam {
     const std::string &src0DtypeStr;
     const std::string &src1DtypeStr;
     const std::string &dstDtypeStr;
+};
+
+struct PrintBinaryTmpParam {
+    const std::string &s0Var;
+    const std::string &s1Var;
+    const std::string &dVar;
+    const std::string &tmpVar;
+    const std::string &src0DtypeStr;
+    const std::string &src1DtypeStr;
+    const std::string &dstDtypeStr;
+    const std::string &tmpDtypeStr;
 };
 
 struct PrintBinaryBrcParam {

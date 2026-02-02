@@ -39,6 +39,8 @@ public:
     SubgraphToFunction() : Pass("SubgraphToFunction") {}
     ~SubgraphToFunction() override = default;
     friend class MixSubgraphSplit;
+    friend class MixCallOperationBuilder; // 提供接口规避编译错误，后续整改
+    friend class MixDependencyAnalyzer;
 
     void SetupStaticProcessor() {
         staticProcessor_.SetNList(nLIST);
@@ -100,6 +102,10 @@ private:
     std::vector<SubfuncInvokeInfoTy> subFuncInvokeInfos;
     std::unordered_map<const Operation *, std::shared_ptr<OpAttribute>> viewToCopyInMapping_;
     static constexpr int kShapePlaceholderForParameterized = -2;
+
+    // block function 处理相关
+    Function* CreateRootFunc(Function &function);
+    Status HandleBlockCall(Function &function);
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SUGGRAPH_TO_FUNCTION_H_

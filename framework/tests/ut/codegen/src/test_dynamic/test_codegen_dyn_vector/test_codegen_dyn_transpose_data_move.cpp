@@ -40,8 +40,8 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-        config::SetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
     void TearDown() override {}
@@ -115,10 +115,9 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         config::SetBuildStatic(true);
-        config::SetHostOption(ONLY_CODEGEN, true);
         config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
     void TearDown() override {}

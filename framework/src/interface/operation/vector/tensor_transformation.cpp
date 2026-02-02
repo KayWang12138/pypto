@@ -208,6 +208,17 @@ Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vec
     }
 }
 
+void BroadcastOperandTensor(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
+                                      Function& function, const TileShape& tileShape) {
+    auto dstShape = result->shape;
+    if (operand->shape == dstShape) {
+        return;
+    }
+    auto expanded = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape);
+    Expand(function, tileShape, operand, {other}, expanded);
+    operand = expanded;
+}
+
 enum class TransposeOpType {
     TRANSPOSE_MOVEIN,
     TRANSPOSE_MOVEOUT,
@@ -303,7 +314,8 @@ void TensorInnerTranspose(
     int dim2 = (tmpShape.size() == 3) ? 1 : 2; // if input is 3 dims, dim2 = 1, otherwise dim2 = 2
     std::swap(tmpShape[dim1], tmpShape[dim2]);
     std::swap(newVecTileShape[dim1], newVecTileShape[dim2]);
-    auto moveInResult = std::make_shared<LogicalTensor>(function, self->Datatype(), tmpShape);
+    auto moveInResult =
+        std::make_shared<LogicalTensor>(function, self->Datatype(), tmpShape, SymbolicScalar::FromConcrete(tmpShape));
     auto &inOp = function.AddOperation(Opcode::OP_TRANSPOSE_MOVEIN, {self}, {moveInResult});
     inOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
     TileShape::Current().SetVecTile(newVecTileShape);
@@ -314,7 +326,8 @@ void TensorInnerTranspose(
     dim2 = (tmpShape.size() == 3) ? 2 : 3; // if input is 3 dims, dim2 = 2, otherwise dim2 = 3
     std::swap(tmpShape[dim1], tmpShape[dim2]);
     std::swap(newVecTileShape[dim1], newVecTileShape[dim2]);
-    auto vnchwconvResult = std::make_shared<LogicalTensor>(function, self->Datatype(), tmpShape);
+    auto vnchwconvResult =
+        std::make_shared<LogicalTensor>(function, self->Datatype(), tmpShape, SymbolicScalar::FromConcrete(tmpShape));
     auto &convOp = function.AddOperation(Opcode::OP_TRANSPOSE_VNCHWCONV, {moveInResult}, {vnchwconvResult});
     convOp.SetAttribute(OP_ATTR_PREFIX + "shape", std::vector<int>{dim1, dim2});
     TileShape::Current().SetVecTile(newVecTileShape);
@@ -565,6 +578,7 @@ Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode) {
 }
 
 void TensorInnerConcatNew(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
+    result->UpdateDynValidShape(operand->GetDynValidShape());
     function.AddOperation(Opcode::OP_REGISTER_COPY, {operand}, {result});
 }
 
@@ -584,10 +598,7 @@ void CheckCat(const std::vector<Tensor> &tensors, int axis) {
     ASSERT(
         std::find(CAT_SUPPORT_DATATYPES.begin(), CAT_SUPPORT_DATATYPES.end(), dataType) != CAT_SUPPORT_DATATYPES.end()) << "The datatype is not within the supported range";
 
-    if (axis < 0) {
-        axis = shapeSize + axis;
-    }
-    ASSERT(static_cast<size_t>(axis) < shapeSize) << "The axis should less than shape size";
+    CheckAxisRange(tensors[0], axis);
     for (auto tensor : tensors) {
         ASSERT(tensor.GetShape().size() == shapeSize) << "The shape size of all tensors should be equal";
         ASSERT(tensor.Format() == format) << "The format of all tensors should be equal";
@@ -611,9 +622,7 @@ Tensor Cat(const std::vector<Tensor> &tensors, int axis) {
 
     auto resultShape = tensors[0].GetShape();
     auto shapeSize = resultShape.size();
-    if (axis < 0) {
-        axis = shapeSize + axis;
-    }
+    CheckAxisRange(tensors[0], axis);
     int axisSize = 0;
     for (auto tensor : tensors) {
         axisSize += tensor.GetShape()[axis];

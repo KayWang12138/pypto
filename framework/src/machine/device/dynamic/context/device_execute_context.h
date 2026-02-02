@@ -59,6 +59,8 @@ struct DeviceExecuteContext {
     uint64_t duppedRootCount{0};
     bool controlFlowCacheActivated{false};
 
+    uint64_t shmemAddrOffset[2] = {0};
+
     bool DuppedRootCached();
 
     bool DuppedRootUpdateAndCachedAllSubmitted();
@@ -99,6 +101,8 @@ struct DeviceExecuteContext {
     static void DumpDeviceTask(uint64_t taskId, DynDeviceTask *deviceTask);
 
     int SubmitToAicoreAndRecycleMemory(bool withoutTail, bool isLastTask = false);
+
+    void ProcessControlFlowCacheRecord(DynDeviceTask *dynTask);
 
     schema::RUid GetRuid(uint64_t rootKey, bool afterAppend = false);
 

@@ -31,6 +31,7 @@ namespace tile_fwk {
 const int NUM_32 = 32;
 const int NUM_64 = 64;
 const int NUM_128 = 128;
+const int NUM_256 = 256;
 constexpr float F_1 = 1.0;
 constexpr float F_3 = 3.0;
 
@@ -43,9 +44,9 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-        config::SetPlatformConfig("TEST_IS_TIG", true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+        config::SetPlatformConfig(KEY_TEST_IS_TIG, true);
         Platform::Instance().ObtainPlatformInfo();
     }
     void TearDown() override {}
@@ -285,7 +286,7 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor kUpdate = Matrix::Matmul(out.GetDataType(), inputK, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
-            Tensor QKT = Matrix::Matmul<false, true>(out.GetDataType(), qUpdate, kUpdate); // (256 * 64) @ (64 * 256) = (256 * 256)
+            Tensor QKT = Matrix::Matmul(out.GetDataType(), qUpdate, kUpdate, false, true); // (256 * 64) @ (64 * 256) = (256 * 256)
             TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = Sub(QKT, Element(DataType::DT_FP32, F_3));
         }
@@ -343,7 +344,7 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
             Tensor kUpdate = Matrix::Matmul(out.GetDataType(), inputK, weight); // (256 * 128) @ (128 * 64) = (256 * 64)
             TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
-            Tensor QKT = Matrix::Matmul<false, true>(out.GetDataType(), qUpdate, kUpdate); // (256 * 64) @ (64 * 256) = (256 * 256)
+            Tensor QKT = Matrix::Matmul(out.GetDataType(), qUpdate, kUpdate, false, true); // (256 * 64) @ (64 * 256) = (256 * 256)
             TileShape::Current().SetVecTile(NUM_64, NUM_64);
             out = Add(QKT, Element(DataType::DT_FP32, F_1));
         }
@@ -379,6 +380,58 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
         }
         constexpr int expextedConvertNum = 32;
         EXPECT_EQ(convertNum, expextedConvertNum) << "32 operations should be Convert";
+    }
+}
+
+TEST_F(AssignMemoryTypeTest, TestCubeToVec) {
+    config::SetHostConfig(KEY_STRATEGY, "AssignMemoryTypeTestStrategy");
+    std::vector<int64_t> shape0 = {NUM_256, NUM_128};
+    std::vector<int64_t> shape1 = {NUM_128, NUM_64};
+    std::vector<int64_t> shape2 = {NUM_256, NUM_64};
+    PROGRAM("AssignMemoryTest") {
+        Tensor inputA1(DataType::DT_FP32, shape0, "A1");
+        Tensor inputB1(DataType::DT_FP32, shape1, "B1");
+        Tensor inputA2(DataType::DT_FP32, shape0, "A2");
+        Tensor inputB2(DataType::DT_FP32, shape1, "B2");
+        Tensor inputV1(DataType::DT_FP32, shape0, "B2");
+        Tensor inputV2(DataType::DT_FP32, shape0, "B2");
+        Tensor out(DataType::DT_FP32, shape2, "output");
+        SetHalfwayStrategy();
+        Function* originFunction = nullptr;
+        config::SetBuildStatic(true);
+        FUNCTION("TestCubeToVec", {inputA1, inputB1, inputA2, inputB2, inputV1, inputV2, out}) {
+            TileShape::Current().SetCubeTile({NUM_256, NUM_256}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+            Tensor C1 = Matrix::Matmul(out.GetDataType(), inputA1, inputB1); // (256 * 128) @ (128 * 64) = (256 * 64)
+            TileShape::Current().SetCubeTile({NUM_256, NUM_256}, {NUM_128, NUM_128}, {NUM_64, NUM_64});
+            Tensor C2 = Matrix::Matmul(out.GetDataType(), inputA2, inputB2); // (256 * 128) @ (128 * 64) = (256 * 64)
+            Assemble(C1, {0, 0}, inputV1);
+            Assemble(C2, {0, NUM_64}, inputV1);
+            TileShape::Current().SetVecTile(NUM_256, NUM_128);
+            out = Add(inputV1, inputV2);
+        }
+        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestCubeToVec"); // Tensor_{Function名字}
+        ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
+        int64_t beforeViewNum = 0;
+        for (const auto &op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_VIEW) {
+                ++beforeViewNum;
+            }
+        }
+        // Call the pass
+        AssignMemoryType assignMemoryType;
+        assignMemoryType.PreCheck(*originFunction);
+        assignMemoryType.RunOnFunction(*originFunction);
+        assignMemoryType.PostCheck(*originFunction);
+        // ================== Verify Pass Effect ==================
+        int64_t afterViewNum = 0;
+        for (const auto &op : originFunction->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_VIEW) {
+                ++afterViewNum;
+                auto viewOpAttr = std::dynamic_pointer_cast<ViewOpAttribute>(op.GetOpAttribute());
+                EXPECT_TRUE(viewOpAttr->GetTo() == MemoryType::MEM_L1 || viewOpAttr->GetTo() == MemoryType::MEM_UB) << "View to either l1 or ub";
+            }
+        }
+        EXPECT_EQ(afterViewNum, beforeViewNum + 1) << "Should insert one view after assemble and transfter data to DDR before to UB";
     }
 }
 

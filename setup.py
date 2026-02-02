@@ -189,10 +189,10 @@ class CMakeUserOption:
 
         排除 cmake pip 包的干扰
         """
-        # 拆分 PATH 环境变量为单个目录列表（排除空目录）
+        # 拆分 PATH 环境变量为单个目录列表(排除空目录)
         path_dir_lst = [d.strip() for d in os.environ.get("PATH", "").split(os.pathsep) if d.strip()]
 
-        # 遍历每个 PATH 目录，逐个调用 shutil.which 检查, 限定 shutil.which 只在当前单个目录下查找 cmake
+        # 遍历每个 PATH 目录, 逐个调用 shutil.which 检查, 限定 shutil.which 只在当前单个目录下查找 cmake
         valid_path_lst = []
         for path_dir in path_dir_lst:
             # 避免 PATH 环境变量中有重复的单元
@@ -275,7 +275,7 @@ class CMakeBuild(build_ext, CMakeUserOption, EditModeHelper):
 
     @staticmethod
     def _get_job_num(job_num: Optional[int], generator: Optional[str]) -> Optional[int]:
-        def_job_num = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 48)  # 48 为缺省最大核数
+        def_job_num = min(int(math.ceil(float(multiprocessing.cpu_count()) * 0.9)), 128)  # 128 为缺省最大核数
         def_job_num = None if generator and generator.lower() in ["ninja", ] else def_job_num  # ninja 由其自身决定缺省核数
         job_num = job_num if job_num and job_num > 0 else def_job_num
         return job_num
@@ -305,6 +305,8 @@ class CMakeBuild(build_ext, CMakeUserOption, EditModeHelper):
         logging.info("%s", self)
         # 源码根目录
         src = Path(__file__).parent.resolve()
+        env = os.environ.copy()
+        env["CCACHE_BASEDIR"] = str(src)  # 在 ccache 场景支持路径归一化
         # 准备构建目录, 使用扩展名创建唯一的构建目录
         build_dir = Path(self.build_temp).resolve()
         build_dir.mkdir(parents=True, exist_ok=True)
@@ -318,7 +320,7 @@ class CMakeBuild(build_ext, CMakeUserOption, EditModeHelper):
         cmd += f" -DPython3_EXECUTABLE={sys.executable} -DCMAKE_INSTALL_PREFIX={cmake_install_prefix}"
         cmd += f" {self.cmake_options}" if self.cmake_options else ""
         logging.info("CMake Configure, Cmd: %s", cmd)
-        ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
+        ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8', env=env)
         ret.check_returncode()
 
         # CMake Build
@@ -326,7 +328,7 @@ class CMakeBuild(build_ext, CMakeUserOption, EditModeHelper):
         cmd = f"{self.cmake} --build {build_dir}" + (f" -j {job_num}" if job_num else "")
         cmd += f" --verbose" if self.cmake_verbose else ""
         logging.info("CMake Build, Cmd: %s", cmd)
-        ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8')
+        ret = subprocess.run(shlex.split(cmd), capture_output=False, check=True, text=True, encoding='utf-8', env=env)
         ret.check_returncode()
 
         # CMake Install

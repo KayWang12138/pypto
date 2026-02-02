@@ -38,14 +38,15 @@ bool InsertCondition(const Opcode &code) {
     return false;
 }
 
-void AlignedIfNeed(int64_t &currentDim, int64_t &padValue) {
+Status AlignedIfNeed(int64_t &currentDim, int64_t &padValue) {
     if (padValue == 0) {
         APASS_LOG_ERROR_F(Elements::Config, "invalid pad base %d.", padValue);
-        return;
+        return FAILED;
     }
     if (currentDim % padValue != 0) {
         currentDim = (currentDim + padValue - 1) / padValue * padValue;
     }
+    return SUCCESS;
 }
 
 Status GetPaddingValue(const LogicalTensorPtr &tensor, int64_t &padValue) {
@@ -59,7 +60,7 @@ Status GetPaddingValue(const LogicalTensorPtr &tensor, int64_t &padValue) {
     return SUCCESS;
 }
 
-Status AlignBroadCastOpInputs(Function &function, Operation &op) {
+Status AlignBroadCastOpInputs([[maybe_unused]]Function &function, Operation &op) {
     auto inputTensor = op.GetIOperands();
     auto inTensor0 = inputTensor[0];
     auto inTensor1 = inputTensor[1];
@@ -70,19 +71,23 @@ Status AlignBroadCastOpInputs(Function &function, Operation &op) {
         auto srcTensor = inputTensor[idx];
         auto alignedShape = srcTensor->GetShape();
         if (alignedShape.back() == 1) {
-            int64_t padValue = 0;
-            if (GetPaddingValue(srcTensor, padValue) != SUCCESS) {
-                return FAILED;
+            if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510) {
+                int64_t padValue = 0;
+                if (GetPaddingValue(srcTensor, padValue) != SUCCESS) {
+                    return FAILED;
+                }
+                if (AlignedIfNeed(alignedShape.back(), padValue) != SUCCESS) {
+                    return FAILED;
+                }
+                auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
+                alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+                auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
+                brcb.UpdateSubgraphID(op.GetSubgraphID());
+                srcTensor->RemoveConsumer(op);
+                op.ReplaceIOperand(idx, alignedTensor);
+                inputTensor[idx] = alignedTensor;
             }
-            AlignedIfNeed(alignedShape.back(), padValue);
-            auto alignedTensor = std::make_shared<LogicalTensor>(function, srcTensor->Datatype(), alignedShape, srcTensor->Format());
-            alignedTensor->SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-            auto &brcb = function.AddRawOperation(Opcode::OP_BRCB, {srcTensor}, {alignedTensor});
-            brcb.UpdateSubgraphID(op.GetSubgraphID());
-            srcTensor->RemoveConsumer(op);
-            op.ReplaceIOperand(idx, alignedTensor);
             op.SetAttribute(OpAttributeKey::brcbIdx, static_cast<int64_t>(idx + 1));
-            inputTensor[idx] = alignedTensor;
         }
     }
     return SUCCESS;
@@ -102,7 +107,7 @@ Status AxisCombine::Process(Function &function) {
 
 Status AxisCombine::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start AxisCombine.");
-    if (!ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
+    if (!function.paramConfigs_.combineAxis) {
         APASS_LOG_INFO_F(Elements::Operation, "AxisCombine is skipped.");
         return SUCCESS;
     }

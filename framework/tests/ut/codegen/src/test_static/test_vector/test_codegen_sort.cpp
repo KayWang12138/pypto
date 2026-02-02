@@ -42,8 +42,8 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
         IdGen<IdType::CG_VAR_NAME>::Inst().SetId(DummyFuncMagic);
@@ -59,9 +59,9 @@ struct TopKParams {
     bool isLargest;
 };
 void TopKOnBoardFunc(TopKParams &params) {
-    config::SetHostOption(ONLY_CODEGEN, true);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetPassOption(CUBE_L1_REUSE_MODE, 0);
     config::SetBuildStatic(true);
 
     int32_t shape0 = params.shape0;
@@ -107,11 +107,11 @@ using UBTileTensorFP32Dim2_3 = TileTensor<float, StaticLayout2Dim<128, 128, 128,
 using UBTileTensorFP32Dim2_4 = TileTensor<float, StaticLayout2Dim<128, 64, 128, 64>, Hardware::UB>;
 using GMTileTensorFP32Dim2_2 = TileTensor<__gm__ float, DynLayout2Dim, Hardware::GM>;
 using UBTileTensorFP32Dim2_1 = TileTensor<float, StaticLayout2Dim<128, 32, 128, 32>, Hardware::UB>;
-GMTileTensorINT32Dim2_6 gmTensor_11((__gm__ int32_t*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
+GMTileTensorFP32Dim2_2 gmTensor_13((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
 UBTileTensorFP32Dim2_1 ubTensor_9((uint64_t)UB_S131072_E147456_T);
 UBTileTensorINT32Dim2_5 ubTensor_7((uint64_t)UB_S114688_E131072_T);
-GMTileTensorFP32Dim2_2 gmTensor_13((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 1)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
 UBTileTensorFP32Dim2_4 ubTensor_5((uint64_t)UB_S81920_E114688_T);
+GMTileTensorINT32Dim2_6 gmTensor_11((__gm__ int32_t*)((__gm__ GMTensorInfo*)(param) + 2)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
 UBTileTensorFP32Dim2_3 ubTensor_3((uint64_t)UB_S16384_E81920_T);
 GMTileTensorFP32Dim2_2 gmTensor_2((__gm__ float*)((__gm__ GMTensorInfo*)(param) + 0)->Addr, DynLayout2Dim(Shape2Dim(128, 32), Stride2Dim(32, 1)));
 UBTileTensorFP32Dim2_1 ubTensor_1((uint64_t)UB_S0_E16384_T);

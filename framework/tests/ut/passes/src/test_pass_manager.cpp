@@ -80,7 +80,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
     void TearDown() override {}
 };
@@ -183,7 +183,7 @@ TEST_F(PassManagerTest, TestPassDFX) {
     EXPECT_TRUE(IsPathExist(beforeJsonPath));
     EXPECT_TRUE(IsPathExist(beforeJsonPath));
     EXPECT_TRUE(IsPathExist(afterJsonPath));
-    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", "DISABLE_PASS", true);
+    config::SetPassConfig("TestPassDFX", "RemoveRedundantReshape", KEY_DISABLE_PASS, true);
     PassManager::Instance().RunPass(Program::GetInstance(), *function, "TestPassDFX");
 }
 }

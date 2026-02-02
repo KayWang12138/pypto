@@ -84,6 +84,8 @@ struct TypeInfo {
                     typeInfos.insert({prefix, typeid(std::vector<std::string>)});
                 } else if (jitem_type == "integer") {
                     typeInfos.insert({prefix, typeid(std::vector<int64_t>)});
+                } else if (jitem_type == "double") {
+                    typeInfos.insert({prefix, typeid(std::vector<double>)});
                 }
             } else if (type == "object") {
                 const std::string &typeHints = jdata["typeHints"];
@@ -119,10 +121,10 @@ struct TypeInfo {
     std::map<std::string, std::pair<int64_t, int64_t>> rangeInfos;
 };
 
-const Any &ConfigScope::GetConfig(const std::string &key) const {
+const Any &ConfigScope::GetAnyConfig(const std::string &key) const {
     if (values_.find(key) == values_.end()) {
         if (parent_) {
-            return parent_->GetConfig(key);
+            return parent_->GetAnyConfig(key);
         }
         throw std::runtime_error("Config " + key + " not found");
     }
@@ -158,37 +160,40 @@ ConfigScope::~ConfigScope() {
     }
 }
 
-void DumpValues(std::stringstream &os, const std::map<std::string, Any> &values,
-    const std::string &prefix) {
-    for (auto &[key, val] : values) {
-        os << prefix << key << ": ";
-        if (val.Type() == typeid(int64_t)) {
-            os << (AnyCast<int64_t>(val));
-        } else if (val.Type() == typeid(bool)) {
-            os << AnyCast<bool>(val);
-        } else if (val.Type() == typeid(std::string)) {
-            os << (AnyCast<std::string>(val));
-        } else if (val.Type() == typeid(std::vector<int64_t>)) {
-            os << (AnyCast<std::vector<int64_t>>(val));
-        } else if (val.Type() == typeid(std::vector<std::string>)) {
-            os << (AnyCast<std::vector<std::string>>(val));
-        } else if (val.Type() == typeid(std::map<int64_t, int64_t>)) {
-            os << '{';
-            bool is_first = true;
-            for (auto &[k, v] : AnyCast<std::map<int64_t, int64_t>>(val)) {
-                if (!is_first)
-                    os << ", ";
-                os << "{" << k << ", " << v << "}";
-                is_first = false;
-            }
-            os << '}';
-        } else if (val.Type() == typeid(CubeTile)) {
-            os << (AnyCast<CubeTile>(val).ToString());
-        } else if (val.Type() == typeid(DistTile)) {
-            os << (AnyCast<DistTile>(val).ToString());
-        } else {
-            os << "unknow type: " << val.Type().name();
+void DumpValue(std::stringstream &os, const std::string &key, const Any &val, const std::string &prefix) {
+    os << prefix << key << ": ";
+    if (val.Type() == typeid(int64_t)) {
+        os << (AnyCast<int64_t>(val));
+    } else if (val.Type() == typeid(bool)) {
+        os << AnyCast<bool>(val);
+    } else if (val.Type() == typeid(std::string)) {
+        os << (AnyCast<std::string>(val));
+    } else if (val.Type() == typeid(std::vector<int64_t>)) {
+        os << (AnyCast<std::vector<int64_t>>(val));
+    } else if (val.Type() == typeid(std::vector<std::string>)) {
+        os << (AnyCast<std::vector<std::string>>(val));
+    } else if (val.Type() == typeid(std::map<int64_t, int64_t>)) {
+        os << '{';
+        bool is_first = true;
+        for (auto &[k, v] : AnyCast<std::map<int64_t, int64_t>>(val)) {
+            if (!is_first)
+                os << ", ";
+            os << "{" << k << ", " << v << "}";
+            is_first = false;
         }
+        os << '}';
+    } else if (val.Type() == typeid(CubeTile)) {
+        os << (AnyCast<CubeTile>(val).ToString());
+    } else if (val.Type() == typeid(DistTile)) {
+        os << (AnyCast<DistTile>(val).ToString());
+    } else {
+        os << "unknow type: " << val.Type().name();
+    }
+}
+
+void DumpValues(std::stringstream &os, const std::map<std::string, Any> &values, const std::string &prefix) {
+    for (const auto &[key, val] : values) {
+        DumpValue(os, key, val, prefix);
         os << "\n";
     }
 }
@@ -234,20 +239,10 @@ const std::map<std::string, Any> ConfigScope::GetAllConfig() const{
 
 void ConfigScope::AddValue(const std::string &key, Any value) {
     std::lock_guard<std::mutex> lock(mtx);
-    if (value.Type() == typeid(int)) {
-        int intValue = AnyCast<int>(value);
-        int64_t newInt64Variable = static_cast<int64_t>(intValue);
-        values_[key] = Any(newInt64Variable);
-    } else if (value.Type() == typeid(const char*)) {
-        const char* charPointer = AnyCast<const char*>(value);
-        std::string stringValue(charPointer);
-        values_[key] = Any(stringValue);
-    } else {
-        values_[key] = value;
-    }
+    values_[key] = value;
 }
 
-void ConfigScope::UpdateValue(const std::string &key, Any value) {
+void ConfigScope::UpdateValueWithAny(const std::string &key, Any value) {
     if (!ConfigManagerNg::GetInstance().IsWithinRange(key, value)) {
         std::stringstream os("Option:");
         std::map<std::string, Any> node;
@@ -258,6 +253,9 @@ void ConfigScope::UpdateValue(const std::string &key, Any value) {
         os << "\n";
         throw std::runtime_error(os.str().c_str());
     }
+    std::stringstream oss;
+    DumpValue(oss, key, value, "");
+    ALOG_DEBUG_F("Set option successfully: %s ", oss.str().c_str());
     std::lock_guard<std::mutex> lock(mtx);
     values_[key] = value;
 }
@@ -290,7 +288,8 @@ struct ConfigManagerImpl {
     }
 
     bool IsWithinRange(const std::string &properties, const int64_t &value) const {
-        return IntervalJudge(value, typeInfo.rangeInfos.at(properties).first, typeInfo.rangeInfos.at(properties).second);
+        return IntervalJudge(value, typeInfo.rangeInfos.at(properties).first,
+                             typeInfo.rangeInfos.at(properties).second);
     }
 
     bool IsWithinRange(const std::string &properties, const std::map<int64_t, int64_t> &value) const {
@@ -332,7 +331,7 @@ struct ConfigManagerImpl {
             scope = scopes.top();
         }
         for (auto &it : values) {
-            scope->AddValue(it.first, it.second);
+            scope->UpdateValueWithAny(it.first, it.second);
         }
     }
 
@@ -396,6 +395,8 @@ private:
         } else if (jdata.is_array()) {
             if (typeInfo.Type(prefix) == typeid(std::vector<int64_t>)) {
                 root->AddValue(prefix, jdata.get<std::vector<int64_t>>());
+            } else if (typeInfo.Type(prefix) == typeid(std::vector<double>)) {
+                root->AddValue(prefix, jdata.get<std::vector<double>>());
             } else {
                 root->AddValue(prefix, jdata.get<std::vector<std::string>>());
             }
@@ -499,4 +500,34 @@ ConfigManagerNg &ConfigManagerNg::GetInstance() {
 }
 
 ConfigManagerNg::~ConfigManagerNg() = default;
+
+namespace config{
+
+template <typename T>
+void SetOptionsNg(const std::string &key, const T &value){
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
+}
+
+template void SetOptionsNg<bool>(const std::string &key, const bool &value);
+template void SetOptionsNg<int>(const std::string &key, const int &value);
+template void SetOptionsNg<double>(const std::string &key, const double &value);
+template void SetOptionsNg<std::string>(const std::string &key, const std::string &value);
+template void SetOptionsNg<long>(const std::string &key, const long &value);
+template void SetOptionsNg<uint8_t>(const std::string &key, const uint8_t &value);
+template void SetOptionsNg<std::map<int, int>>(const std::string &key, const std::map<int, int> &value);
+template void SetOptionsNg<std::map<long, long>>(const std::string &key, const std::map<long, long> &value);
+template void SetOptionsNg<std::vector<int>>(const std::string &key, const std::vector<int> &value);
+template void SetOptionsNg<std::vector<std::string>>(const std::string &key, const std::vector<std::string> &value);
+template void SetOptionsNg<std::vector<double>>(const std::string &key, const std::vector<double> &value);
+
+
+void Restore(std::shared_ptr<ConfigScope> config) {
+    ConfigManagerNg::GetInstance().PushScope(config);
+}
+
+std::shared_ptr<ConfigScope> Duplicate() {
+    return ConfigManagerNg::CurrentScope();
+}
+
+}
 } // namespace npu::tile_fwk

@@ -557,6 +557,45 @@ public:
             }
         }
     }
+
+    static uint64_t CalcMetadataItemPoolMemSize(const DevAscendProgram* devProg) {
+        size_t itemBlockSize = sizeof(ItemPool<RuntimeOutcastTensor>::ItemBlock);
+        DEV_DEBUG("itemBlockSize is: %zu, OutcastPoolSize is %u", 
+                   itemBlockSize, devProg->runtimeOutcastPoolSize);
+        uint64_t itemPoolMemSize = itemBlockSize * devProg->runtimeOutcastPoolSize;
+        return itemPoolMemSize;
+}
+
+    static uint64_t CalcMetadataVectorMemSize(const DevAscendProgram* devProg) {
+        // 1. symbolTable
+        uint64_t symbolTableCapacity = CalculateVectorCapacity(devProg->symbolTable.size());
+        uint64_t symbolTableMemory = symbolTableCapacity * sizeof(int64_t);
+        DEV_DEBUG("symbolTableMemory is %lu,", symbolTableMemory);
+        // 2. slotList_
+        uint64_t slotListCapacity = CalculateVectorCapacity(devProg->slotSize);
+        uint64_t slotListMemory = slotListCapacity * sizeof(DeviceExecuteSlot);
+        DEV_DEBUG("slotListMemory is %lu,", slotListMemory);
+        // 3. slotInfosInDecidingSlotMem_
+        uint64_t slotInfosCapacity = CalculateVectorCapacity(devProg->slotSize);
+        uint64_t slotInfosMemory = slotInfosCapacity * sizeof(ItemPoolIter); 
+        DEV_DEBUG("slotInfosMemory is %lu,", slotInfosMemory);
+        // 4. rtBoundaryOutcastToBeFree_
+        uint64_t boundaryOutcastToFreeListSize = CalculateVectorCapacity(devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
+        uint64_t boundaryOutcastToFreeMemory = boundaryOutcastToFreeListSize * sizeof(RuntimeOutcastTensor);
+        DEV_DEBUG("Memory of list for Boundary outcast to free is %lu,", boundaryOutcastToFreeMemory);
+        // total
+        uint64_t totalSetupVectorMemory = symbolTableMemory + slotListMemory + 
+                                          slotInfosMemory + boundaryOutcastToFreeMemory;
+        return totalSetupVectorMemory;
+    }
+
+    static uint64_t CalcMetadataSlotAllocatorMemSize(const DevAscendProgram* devProg) {
+        size_t blockHeaderSize = sizeof(WsSlotAllocator::BlockHeader);
+        uint64_t slotNum = devProg->memBudget.tensor.devTaskBoundaryOutcastNum;
+        DEV_DEBUG("slotNum of boundary outcast is %lu", slotNum);
+        return slotNum * blockHeaderSize;
+    }
+    
     uint32_t CalcSlabMemObjmaxSize () {
         uint32_t slabMemObjmaxSize = CalcAicpuMetaSlabAlloctorSlabMemObjmaxSize();
         DEV_DEBUG ("slabMemObjmaxSize is: %u", slabMemObjmaxSize);
@@ -719,6 +758,18 @@ private:
         return maxDevFuncDuppedSize_;
     }
 
+    /*计算使用vector的元数据的数据结构大小*/
+    static uint64_t CalculateVectorCapacity(uint64_t size) {
+        if (size == 0) {
+            return 0;
+        }
+        constexpr uint64_t MIN_CAPACITY = 8;
+        uint64_t capacity = std::max(MIN_CAPACITY, size);
+        // 向上取整到 2 的幂次
+        capacity = (capacity == 0) ? 0 : (1ULL << (64 - __builtin_clzll(capacity - 1)));
+        return capacity;
+    }
+
     /* 按照devicetask最大支持stitch阈值分配对象 */
     uint32_t DynFuncDataSlabMemObjSize() {
         return (sizeof(DynFuncHeader) + MAX_CACHED_FUNC_NUM * sizeof(DynFuncData));
@@ -740,15 +791,22 @@ private:
     uint32_t ReadyQueSlabMemObjSize() {
         return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
     }
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
+
     uint32_t WrapQueSlabMemObjSize() {
-        return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
+        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
+            return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
+        } else {
+            return 1;
+        }
     }
 
     uint32_t WrapTasklistSlabMemObjSize() {
-        return devProg_-> stitchFunctionsize * sizeof(uint32_t);
+        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
+            return devProg_-> stitchFunctionsize * sizeof(uint32_t);
+        } else {
+            return 1;
+        }
     }
-#endif
 
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
         &DeviceWorkspaceAllocator::DevFunctionDuppedSlabMemObjSize,
@@ -756,10 +814,8 @@ private:
         &DeviceWorkspaceAllocator::VecStitchListSLabMemObjSize,
         &DeviceWorkspaceAllocator::DynDevTaskSlabMemObjSize,
         &DeviceWorkspaceAllocator::ReadyQueSlabMemObjSize,
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
         &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
-#endif
         nullptr, // invalid type
         &DeviceWorkspaceAllocator::DuppedStitchSlabMemObjSize,
     };
@@ -790,7 +846,7 @@ private:
             allocNumOneSlab = realMaxAllocNum;
         }
         slabSize *= allocNumOneSlab;
-        return ALIGN_UP(slabSize, sizeof(uint64_t));
+        return AlignUp(slabSize, sizeof(uint64_t));
     }
 
     void InitAicpuStitchSlabAllocator(void* memBase, uint32_t totalSize) {

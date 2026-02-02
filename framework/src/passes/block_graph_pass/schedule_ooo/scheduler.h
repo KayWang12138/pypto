@@ -35,6 +35,11 @@ inline uint64_t CeilAlign(uint64_t a, int b) {
     return ((a + b - 1) / b) * b;
 }
 
+inline bool IsViewOp(const Operation& op) {
+    const auto opc = op.GetOpcode();
+    return opc == Opcode::OP_VIEW || opc == Opcode::OP_VIEW_TYPE;
+}
+
 using LocalBufferPtr = std::shared_ptr<LocalBuffer>;
 
 const std::unordered_set<Opcode> USE_LESS_OPS = {
@@ -60,6 +65,21 @@ const std::unordered_set<Opcode> COPY_IN_OPS = {
     Opcode::OP_UB_COPY_L1_ND
 };
 
+const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWARE_TWO = {
+    {OpCoreType::AIV, {0, 1}},
+    {OpCoreType::AIC, {0}}
+};
+
+const std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS_HARDWARE_ONE = {
+    {OpCoreType::AIV, {0}},
+    {OpCoreType::AIC, {0}}
+};
+
+const std::unordered_map<OpCoreType, std::pair<OpCoreType, int>> opCoreTypeMap {
+    {OpCoreType::AIV, std::make_pair(OpCoreType::AIV, 0)},
+    {OpCoreType::AIC, std::make_pair(OpCoreType::AIC, 0)}
+};
+
 struct IssueEntry {
     Operation &tileOp;
     int id{-1};
@@ -68,6 +88,7 @@ struct IssueEntry {
     bool isAlloc{false};
     bool isRetired{false};
     std::vector<Operation*> viewOps;
+    std::pair<OpCoreType, int> coreLocation;
 
     // 当前op的前序op
     std::unordered_set<int> predecessors;
@@ -136,13 +157,21 @@ private:
     std::vector<IssueEntryPtr> issueEntries;
     std::unordered_map<int, IssueEntryPtr> issueEntryMap;
 
+    std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS;
+
     std::unordered_map<int, LocalBufferPtr> localBufferMap;
-    std::unordered_map<npu::tile_fwk::MemoryType, BufferPool> bufferManagerMap;
+    // 分核数据结构
+    std::unordered_map<OpCoreType, std::map<int, std::map<npu::tile_fwk::MemoryType, BufferPool>>> bufferManagerMap;
+
     std::unordered_map<int, int> bufRefCount;
     std::unordered_map<MemoryType, std::map<int, IssueEntryPtr>> tensorOccupyMap;
+    // tensor和其初始化时对应的alloc的core类型 memId-core类型
+    std::unordered_map<int, std::pair<OpCoreType, int>> tensorAllocCoreMap;
 
-    std::map<MemoryType, IssueQueue> allocIssueQueue;
-    std::map<PipeType, IssueQueue> issueQueues;
+    std::unordered_map<OpCoreType, std::map<int, std::map<MemoryType, IssueQueue>>> allocIssueQueue;
+
+    std::unordered_map<OpCoreType, std::map<int, std::map<PipeType, IssueQueue>>> issueQueues;
+
     std::unordered_map<MemoryType, int64_t> localMemorySize;
 
     Function &function_;
@@ -151,6 +180,7 @@ private:
     int workspaceMemId{SYMBOL_STACK_BASE};
     uint64_t numTotalIssues{0};
     std::vector<Operation *> newOperations_;
+    std::vector<Operation *> operations_;
 
     bool issueFinish{false};
     std::map<IssueEntryPtr, std::map<MemoryType, int64_t>> recordBufferAllocate;
@@ -169,37 +199,48 @@ private:
     IssueEntryPtr rollBackNodeIssue{nullptr};
     int GetMaxDepthSimple(IssueEntryPtr issue);
     // scheduler
-    Status Init(const std::vector<Operation *> &operations);
+    Status Init(const std::vector<Operation *> &operations,
+        const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>(),
+        const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
+    Status InitIssueEntry(Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
+    void InitCoreConfig(const std::vector<Operation *> &operations);
+    Status InitIssueCoreType(IssueEntryPtr issue, Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
     void CalcBufferSize(LogicalTensors tensors, std::map<MemoryType, int64_t> &bufferSize, std::set<int> &memIdMap);
     Status InitDependencies();
+    void FindDependencies(IssueEntryPtr issue, std::unordered_map<Operation*, IssueEntryPtr> &op2IssueEntryMap);
     void AddDependency(IssueEntryPtr preIssue, IssueEntryPtr postIssue, bool isAlloc);
-    Status InitAllocDependencies(IssueEntryPtr issue, std::map<int, IssueEntryPtr> tensor2AllocMap);
+    Status InitAllocDependencies(IssueEntryPtr issue, std::unordered_map<int, IssueEntryPtr> &tensor2AllocMap);
     void InitLocalBuffer(LogicalTensorPtr oOperand, int memId);
     void InitLocalBufferForAxisCombine(LogicalTensorPtr oOperand, int memId);
     void InitBufRefCount();
     void UpdateBufRefCount(IssueEntryPtr issue, LogicalTensorPtr tensor);
     Status CheckAllocIssue();
+    void InitTensorCoreMap();
     void UpdateAllocMap(IssueEntryPtr issue, std::map<int, IssueEntryPtr> &tensorAllocMap);
     void InitIssueQueuesAndBufferManager();
 
     Status GenSpillSchedule();
     Status ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx);
     Status RetireIssue(IssueEntryPtr issue);
+    bool IsInissueEntries(Operation* op);
     Status ScheduleMainLoop();
     void LaunchReadyIssue();
+    Status RetireCoreIssue(OpCoreType coreType, int idx, uint64_t& commitCnt, int& nextCycle);
     Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle);
     Status RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitCnt);
     Status FreeBuffer(IssueEntryPtr issue);
     Status BufferAllocStage(uint64_t& commitCnt);
-    Status ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType, 
+    Status ExecuteAllocIssue(uint64_t &commitCnt, MemoryType memType,
         IssueQueue &pipe);
+    void HandleViewOp(IssueEntryPtr issue);
     Status LaunchIssueStage(int& nextCycle);
     Status AllocTensorMemRange(IssueEntryPtr issue);
     Status AllocViewTensorMemRange(Operation &operation);
     Status SpillOnBlock();
+    Status SpillOnCoreBlock(OpCoreType coreType, int idx);
     Status CheckAndUpdateLifecycle();
     
     void InsertIssueEntries(IssueEntryPtr insertIssue);
@@ -268,6 +309,7 @@ private:
 
     // gen spill
     Status GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx);
+    Status CanSpill(LocalBufferPtr allocBuffer, size_t &pcIdx);
     Status GenBufferSpill(IssueEntryPtr allocIssue);
     Status SelectSpillBuffers(LocalBufferPtr allocBuffer, IssueEntryPtr issue, 
         std::vector<int> &spillGroup, bool isGenSpill);
@@ -293,6 +335,7 @@ private:
     Status UpdateReloadIssueDepend(IssueEntryPtr reloadCopyin, IssueEntryPtr spillIssue, int spillMemId);
     Status UpdateRemainOpBufId(int oldMemId, int newMemId);
     void ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int newMemId);
+    void UpdateOpInternalSubgraphID(Operation &op, IssueEntryPtr issue);
     void UpdateOpAttr(Operation &op, int opLatency, LogicalTensorPtr spillTensor, std::vector<int64_t> offset,
         IssueEntryPtr spillIssue);
     Status UpdateTensorAttr(LogicalTensorPtr tensor, MemoryType memType, LogicalTensorPtr spillTensor, int spillMemId);
@@ -315,6 +358,7 @@ private:
     int64_t CalcWorkspaceOffset(std::vector<int64_t> shape, std::vector<int64_t> offset);
 
     // buffer rearrange
+    Status RearrangeBuffer(MemoryType memType, std::pair<OpCoreType, int> corePair);
     Status RearrangeBuffers(IssueEntryPtr issue, bool isGenSpillStage, bool &rearrangeUBBF16);
     Status GenRearrangeCopyOp(IssueEntryPtr issue, MemoryType memType, int memId, int &newMemId, bool &rearrangeUBBF16);
     Status UpdateMemId(int oldMemId, int newMemId);
@@ -325,7 +369,9 @@ private:
     Status GetMoveOpInTensor(Opcode moveOpcode, Operation &occupyOp, LogicalTensorPtr &inTensor, LogicalTensorPtr &moveFromTensor);
 
 public:
-    Status Schedule(const std::vector<Operation *> &operations);
+    Status Schedule(const std::vector<Operation *> &operations,
+        const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap = std::unordered_map<Operation*, std::pair<OpCoreType, int>>(),
+        const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
     OoOScheduler(Function &function, bool combineAxis=false) : function_(function), isCombineAxis_(combineAxis) {}
 
     std::vector<Operation *> GetNewOperations() { return newOperations_; }

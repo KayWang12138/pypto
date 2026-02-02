@@ -143,7 +143,7 @@ def create_different_tile_shapes_kernel(run_mode):
         print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
         out1[:] = pypto.matmul(x, y, x.dtype)
 
-        pypto.set_cube_tile_shapes([32, 32], [8, 64], [32, 128])
+        pypto.set_cube_tile_shapes([32, 32], [16, 64], [32, 128])
         print(f"pypto.get_cube_tile_shapes(): {pypto.get_cube_tile_shapes()}")
         out2[:] = pypto.matmul(x, y, x.dtype)
 
@@ -285,7 +285,8 @@ def create_vec_tile_kernel(shape, run_mode, set_shapes: tuple):
     return compute_with_vec_tile_shapes
 
 
-def compute_with_vec_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, set_shapes: tuple, run_mode:str = "npu", dynamic: bool = False) -> torch.Tensor:
+def compute_with_vec_tile_shapes_op(a: torch.Tensor, b: torch.Tensor, 
+        set_shapes: tuple, run_mode: str = "npu", dynamic: bool = False):
     if run_mode == "npu":
         mode = pypto.RunMode.NPU
     elif run_mode == "sim":
