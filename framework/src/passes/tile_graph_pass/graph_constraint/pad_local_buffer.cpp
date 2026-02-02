@@ -15,6 +15,7 @@
 
 #include "pad_local_buffer.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_utils/reschedule_utils.h"
 
 #define MODULE_NAME "PadLocalBuffer"
 
@@ -582,7 +583,10 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
         }
     }
     if (calcType == OpCalcType::BROADCAST) {
-        auto dimIdx = ProcessBroadcastForAxisCombine(in);
+        auto dimIdx = lastIdx;
+        if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && axisCombineMarker.IsTensorEnableAxisCombine(in)) {
+            dimIdx = ProcessBroadcastForAxisCombine(in);
+        }
         AlignedRawTensorIfNeed(in, dimIdx, paddingValue);
         return;
     }
@@ -594,7 +598,7 @@ void PadLocalBuffer::PadVectorForAxisCombine(Operation &op, LogicalTensorPtr &in
     }
     if (calcType == OpCalcType::ELMWISE || calcType == OpCalcType::MOVE_IN || calcType == OpCalcType::MOVE_OUT ||
             (producerOp != nullptr && OpcodeManager::Inst().GetOpCalcType(producerOp->GetOpcode()) == OpCalcType::BROADCAST)) {
-        if (op.GetOpcode() == Opcode::OP_EXPAND) {
+        if (op.GetOpcode() == Opcode::OP_EXPAND || !axisCombineMarker.IsTensorEnableAxisCombine(in)) {
             AlignedRawTensorIfNeed(in, lastIdx, paddingValue);
             return;
         }
@@ -614,6 +618,7 @@ Status PadLocalBuffer::RunOnFunction(Function &function) {
     combineAxis = function.paramConfigs_.combineAxis;
     forceCombineAxis = function.paramConfigs_.forceCombineAxis;
     if (combineAxis) {
+        axisCombineMarker.Run(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> Start PadLocalBuffer in COMBINE_AXIS mode.");
         DoPadding(function);
         APASS_LOG_INFO_F(Elements::Operation, "======> End PadLocalBuffer in COMBINE_AXIS mode.");
