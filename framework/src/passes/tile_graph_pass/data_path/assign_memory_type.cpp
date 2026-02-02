@@ -23,7 +23,7 @@
 #include "interface/configs/config_manager.h"
 #include "passes/pass_check/assign_memory_type_checker.h"
 #include "passes/pass_log/pass_log.h"
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/checker_utils.h"
 
 #define MODULE_NAME "AssignMemoryType"
 

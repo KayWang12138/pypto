@@ -17,8 +17,6 @@
 
 #include "interface/operation/operation.h"
 #include "interface/tensor/logical_tensor.h"
-#include "interface/operation/opcode.h"
-#include "tilefwk/data_type.h"
 
 namespace npu::tile_fwk {
 #define PRIOR_SCHEDULING // comment it to disable PriorScheduling pass
@@ -522,57 +520,6 @@ public:
             numel *= num;
         }
         return numel;
-    }
-};
-
-class OpChecker {
-public:
-    class BaseChecker {
-    public:
-        virtual bool check(Operation *op) const = 0;
-        virtual ~BaseChecker() = default;
-    };
-
-    class CalcTypeChecker : public BaseChecker {
-        std::vector<OpCalcType> conditions;
-    public:
-        CalcTypeChecker(std::vector<OpCalcType> calcTypes) : conditions(std::move(calcTypes)) {}
-        CalcTypeChecker(OpCalcType calcType) : conditions({calcType}) {}
-        bool check(Operation *op) const override;
-    };
-
-    class CoreTypeChecker : public BaseChecker {
-        std::vector<OpCoreType> conditions;
-    public:
-        CoreTypeChecker(std::vector<OpCoreType> coreTypes) : conditions(std::move(coreTypes)) {}
-        CoreTypeChecker(OpCoreType coreType) : conditions({coreType}) {}
-        bool check(Operation *op) const override;
-    };
-
-    class InputMemTypeChecker : public BaseChecker {
-        std::vector<MemoryType> conditions;
-    public:
-        InputMemTypeChecker(std::vector<MemoryType> inputMemTypes) : conditions(std::move(inputMemTypes)) {}
-        InputMemTypeChecker(MemoryType inputMemType) : conditions({inputMemType}) {}
-        bool check(Operation *op) const override;
-    };
-
-    class OutputMemTypeChecker : public BaseChecker {
-        std::vector<MemoryType> conditions;
-    public:
-        OutputMemTypeChecker(std::vector<MemoryType> outputMemTypes) : conditions(std::move(outputMemTypes)) {}
-        OutputMemTypeChecker(MemoryType outputMemType) : conditions({outputMemType}) {}
-        bool check(Operation *op) const override;
-    };
-
-    template<typename...Checkers>
-    static bool check(Operation *op, Checkers&&... checkers) {
-        return (checkers.check(op) && ...);
-    }
-
-    template<typename...Checkers>
-    static bool check(Operation &op, Checkers&&... checkers) {
-        return check(&op, std::forward<Checkers>(checkers)...);
     }
 };
 }

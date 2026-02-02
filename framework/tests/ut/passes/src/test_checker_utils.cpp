@@ -9,12 +9,12 @@
  */
 
 /*!
- * \file test_pass_utils.cpp
+ * \file test_checker_utils.cpp
  * \brief Unit test for pass utils.
  */
 
 #include <gtest/gtest.h>
-#include "passes/pass_utils/pass_utils.h"
+#include "passes/pass_utils/checker_utils.h"
 #include "interface/program/program.h"
 
 using namespace npu::tile_fwk;
@@ -25,7 +25,7 @@ const int NUM_8 = 8;
 const int NUM_16 = 16;
 const int NUM_32 = 32;
 
-class TestPassUtils : public ::testing::Test {
+class TestCheckerUtils : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
 
@@ -36,7 +36,7 @@ public:
     void TearDown() override {}
 };
 
-TEST_F(TestPassUtils, TestOpChecker) {
+TEST_F(TestCheckerUtils, TestOpChecker) {
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestOpChecker", "TestOpChecker", nullptr);
     EXPECT_TRUE(currFunctionPtr != nullptr);
     std::vector<int64_t> shape1 = {NUM_32, NUM_16};
