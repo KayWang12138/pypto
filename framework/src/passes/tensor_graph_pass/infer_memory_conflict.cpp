@@ -166,7 +166,7 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
 }
 
 // batch MatMul优化pattern，不插入register copy
-bool InferMemoryConflict::MatchReshapePattern(const Operation &reshape, const LogicalTensorPtr &reshapeIn,
+bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
                                             const LogicalTensorPtr &reshapeOut) {
     if (!reshapeIn || !reshapeOut) return false;
     std::unordered_set<Opcode> mulOpcode{
@@ -177,8 +177,11 @@ bool InferMemoryConflict::MatchReshapePattern(const Operation &reshape, const Lo
         Opcode::OP_AT_MUL_B,
         Opcode::OP_AT_MUL_BT,
     };
-    auto producer = *(reshape->GetProducers().begin());
-    auto consumer = *(reshape->GetConsumers().begin());
+    auto producer = *(reshapeIn->GetProducers().begin());
+    auto consumer = *(reshapeOut->GetConsumers().begin());
+    if (producer == nullptr || consumer == nullptr) {
+        return false;
+    }
     bool mulPattern =
         ((producer->GetOpcode() == Opcode::OP_VIEW && mulOpcode.find(consumer->GetOpcode()) != mulOpcode.end()) ||
         (mulOpcode.find(producer->GetOpcode()) != mulOpcode.end() && consumer->GetOpcode() == Opcode::OP_ASSEMBLE));
@@ -254,7 +257,7 @@ Status InferMemoryConflict::UpdateForwardTensor(Function &function, const Logica
         if (consumer->GetOpcode() == Opcode::OP_RESHAPE) {
             auto reshapeInput = consumer->GetIOperands().front();
             bool isInplace = consumer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (!MatchReshapePattern(consumer, reshapeInput, outputTensor) && !isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
+            if (!MatchReshapePattern(reshapeInput, outputTensor) && !isInplace && CheckRawShapeConflict(memoryInfo[curTensor], outputTensor)) {
                 preregcopys.insert(consumer);
                 continue;
             }
@@ -285,7 +288,7 @@ Status InferMemoryConflict::UpdateBackwardTensor(const LogicalTensorPtr &curTens
         auto reshapeOutput = producer->GetOOperands().front();
         if (producer->GetOpcode() == Opcode::OP_RESHAPE) {
             bool isInplace = producer->GetBoolAttribute(OP_ATTR_PREFIX + "isInplace");
-            if (!MatchReshapePattern(producer, inputTensor, reshapeOutput) && !isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
+            if (!MatchReshapePattern(inputTensor, reshapeOutput) && !isInplace && CheckRawShapeConflict(inputTensor, memoryInfo[curTensor])) {
                 postregcopys.insert(producer);
                 continue;
             }

@@ -1293,6 +1293,9 @@ bool MatchBatchMatMulPattern(const Tensor &operand, const std::vector<int64_t> &
     };
     auto producer = *operand.GetStorage()->GetProducers().begin();
     auto consumer = *operand.GetStorage()->GetConsumers().begin();
+    if (producer == nullptr || consumer == nullptr) {
+        return false;
+    }
     bool mulPattern =
         ((producer->GetOpcode() == Opcode::OP_VIEW && mulOpcode.find(consumer->GetOpcode()) != mulOpcode.end()) ||
         (mulOpcode.find(producer->GetOpcode()) != mulOpcode.end() && consumer->GetOpcode() == Opcode::OP_ASSEMBLE));
