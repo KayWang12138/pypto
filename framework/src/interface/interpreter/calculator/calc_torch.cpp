@@ -110,6 +110,27 @@ static void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::neg_out(tout, From(self));
 }
 
+static void Ceil(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::ceil_out(tout, From(self));
+}
+
+static void Floor(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::floor_out(tout, From(self));
+}
+
+static void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::trunc_out(tout, From(self));
+}
+
+static void Round(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int decimals) {
+    auto ret = From(out);
+    auto src = From(self);
+    ret.copy_(torch::round(src, decimals));
+}
+
 static void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::rsqrt_out(tout, From(self));
@@ -118,6 +139,16 @@ static void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 static void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::sqrt_out(tout, From(self));
+}
+
+static void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::reciprocal_out(tout, From(self));
+}
+
+static void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::bitwise_not_out(tout, From(self));
 }
 
 static void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
@@ -188,6 +219,9 @@ DEFINE_BINARY_S_OPS(SubS, sub_out)
 DEFINE_BINARY_S_OPS(MulS, mul_out)
 DEFINE_BINARY_S_OPS(DivS, div_out)
 DEFINE_BINARY_S_OPS(FmodS, fmod_out)
+DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
+DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
+DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
 
 static void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tself = From(self);
@@ -332,6 +366,50 @@ static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
     } else {
         torch::fmod_out(tout, tself, tother);
     }
+}
+static void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_and_out(tout, From(self), From(other));
+}
+
+static void BitwiseOr(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_or_out(tout, From(self), From(other));
+}
+
+static void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_xor_out(tout, From(self), From(other));
+}
+
+static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_right_shift_out(tout, From(self), From(other));
+}
+
+static void BitwiseLeftShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_left_shift_out(tout, From(self), From(other));
+}
+
+static void BitwiseRightShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    auto tout = From(out);
+    torch::bitwise_right_shift_out(tout, From(self), From(scalar));
+}
+
+static void BitwiseLeftShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    auto tout = From(out);
+    torch::bitwise_left_shift_out(tout, From(self), From(scalar));
+}
+
+static void SBitwiseRightShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_right_shift_out(tout, From(scalar), From(other));
+}
+
+static void SBitwiseLeftShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_left_shift_out(tout, From(scalar), From(other));
 }
 
 static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode) {
@@ -779,6 +857,20 @@ void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensor
     torch::index_add_out(output, inputSelf, axis, inputIndices, inputSrc, From(alpha));
 }
 
+void TriU(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+    torch::Tensor output = From(out);
+    torch::Tensor input = From(in);
+
+    torch::triu_out(output, input, diagonal);
+}
+
+void TriL(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+    torch::Tensor output = From(out);
+    torch::Tensor input = From(in);
+
+    torch::tril_out(output, input, diagonal);
+}
+
 void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
     torch::Tensor output = From(out);
     torch::Tensor input = From(in);
@@ -1179,6 +1271,7 @@ static void TopkSort(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outTemp
 }
 
 static void TopkMerge(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mergeSize) {
+    (void) mergeSize;
     auto tself = From(self);
     auto tout = From(out);
 
@@ -1350,6 +1443,12 @@ static struct CalcOps calcOps = {
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sqrt = Sqrt,
+    .Ceil = Ceil,
+    .Floor = Floor,
+    .Trunc = Trunc,
+    .Round = Round,
+    .Reciprocal = Reciprocal,
+    .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
     .WhereTT = WhereTT,
@@ -1367,11 +1466,17 @@ static struct CalcOps calcOps = {
     .MulS = MulS,
     .DivS = DivS,
     .FmodS = FmodS,
+    .BitwiseAndS = BitwiseAndS,
+    .BitwiseOrS = BitwiseOrS,
+    .BitwiseXorS = BitwiseXorS,
     .Add = Add,
     .Sub = Sub,
     .Mul = Mul,
     .Div = Div,
     .Fmod = Fmod,
+    .BitwiseAnd = BitwiseAnd,
+    .BitwiseOr = BitwiseOr,
+    .BitwiseXor = BitwiseXor,
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,
@@ -1392,6 +1497,8 @@ static struct CalcOps calcOps = {
     .Expand = Expand,
     .GatherElements = GatherElements,
     .IndexAdd = IndexAdd,
+    .TriU = TriU,
+    .TriL = TriL,
     .CumSum = CumSum,
     .IndexPut = IndexPut,
     .Reshape = Reshape,
@@ -1415,6 +1522,12 @@ static struct CalcOps calcOps = {
     .TopkExtract = TopkExtract,
     .Gather = Gather,
     .GatherINUB = GatherINUB,
+    .BitwiseRightShift = BitwiseRightShift,
+    .BitwiseLeftShift = BitwiseLeftShift,
+    .BitwiseRightShiftS = BitwiseRightShiftS,
+    .BitwiseLeftShiftS = BitwiseLeftShiftS,
+    .SBitwiseRightShift = SBitwiseRightShift,
+    .SBitwiseLeftShift = SBitwiseLeftShift,
 };
 
 extern "C" struct CalcOps *GetCalcOps() {

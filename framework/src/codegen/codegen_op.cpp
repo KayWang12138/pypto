@@ -69,7 +69,7 @@ void CodeGenOp::CombineAxis(const Operation &oper, int operandIdx, bool isInput,
         CombineLastTwoAxis(rawShape[operandIdx], dim);
         CombineLastTwoAxis(originShape[operandIdx], dim);
         CombineLastTwoAxis(dynamicValidShape[operandIdx], dim);
-        ALOG_INFO_F("op code %s, operanIdx: %d, after CombineAxis shape is %s, raw shape is %s, originShape is %s, "
+        ALOG_INFO_F("op code %s, operandIdx: %d, after CombineAxis shape is %s, raw shape is %s, originShape is %s, "
                     "dynamicValidShape is %s",
             oper.GetOpcodeStr().c_str(), operandIdx, IntVecToStr(shape[operandIdx]).c_str(),
             IntVecToStr(rawShape[operandIdx]).c_str(), IntVecToStr(originShape[operandIdx]).c_str(),
@@ -184,6 +184,16 @@ void CodeGenOp::UpdateScalarValue(const npu::tile_fwk::Operation &ops) {
     }
 }
 
+bool ShouldSkipIOperand(const std::shared_ptr<LogicalTensor> &tensor, const Operation &ops) {
+    Opcode opcode = ops.GetOpcode();
+    if (opcode == Opcode::OP_A_MUL_B || opcode == Opcode::OP_A_MULACC_B) {
+        bool isAcc = false;
+        ops.GetAttr(OP_ATTR_PREFIX + "gm_acc", isAcc);
+        return isAcc && tensor->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    }
+    return false;
+}
+
 void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
     ASSERT(ops.iOperand.size() + ops.oOperand.size() <= MAX_OPERANDS)
         << "can not support ops.iOperand.size: " << ops.iOperand.size()
@@ -205,9 +215,13 @@ void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
     opCodeStr = OpcodeManager::Inst().GetOpcodeStr(opCode);
 
     int operandIdx = 0;
+    int oOperandCnt = 0;
+    int iOperandCnt = 0;
+
     for (size_t i = 0; i < ops.oOperand.size(); ++i) {
         const auto &output = ops.oOperand[i];
         UpdateCodegenOpInfoByTensor(ops, false, output, operandIdx, i);
+        ++oOperandCnt;
     }
 
     // if no output like WriteRemote OP, set operandIdx=1 for input
@@ -217,10 +231,14 @@ void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
 
     for (size_t i = 0; i < ops.iOperand.size(); ++i) {
         const auto &input = ops.iOperand[i];
+        if (ShouldSkipIOperand(input, ops)) {
+            continue;
+        }
         UpdateCodegenOpInfoByTensor(ops, true, input, operandIdx, i);
+        ++iOperandCnt;
     }
 
-    operandCnt = ops.oOperand.size() + ops.iOperand.size();
+    operandCnt = oOperandCnt + iOperandCnt;
 
     GetGmParamIdx(ops);
     syncQueue = ops.syncQueue_;
@@ -235,7 +253,7 @@ void CodeGenOp::UpdateCodegenOpInfoByTensor(
     operandWithMagic[operandIdx] = tensor->GetMagic();
     dynamicOffset[operandIdx] = tensor->GetDynOffset();
     auto value = tensor->GetAttr<bool>("isPartialMem");
-    isPartialMem[operandIdx] = (value != nullptr) && (*value == true);
+    isPartialMem[operandIdx] = (value != nullptr) && (*value);
     UpdateShape(ops, *tensor, operandIdx, isInput, ioIdx);
     if (isInput) {
         UpdateOffsetForInput(ops, *tensor, operandIdx);
@@ -453,7 +471,17 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         return;
     }
 
-    if (oper.GetOpcode() == Opcode::OP_GATHER_IN_L1 || oper.GetOpcode() == Opcode::OP_GATHER_IN_UB) {
+    if (oper.GetOpcode() == Opcode::OP_GATHER_IN_L1) {
+        int ioAttrOffset = 0;
+        for (int i = 0; i < operandCnt; i++) {
+            if (operandType[i] == BUF_DDR) {
+                paramLocation[i] = oper.GetIOpAttrOffset(ioAttrOffset++);
+            }
+        }
+        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
+        return;
+    }
+    if (oper.GetOpcode() == Opcode::OP_GATHER_IN_UB) {
         paramLocation[ID0] = oper.GetIOpAttrOffset(ID0);
         paramLocation[ID1] = oper.GetIOpAttrOffset(ID1);
         paramLocation[ID2] = oper.GetIOpAttrOffset(ID2);

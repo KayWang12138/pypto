@@ -550,12 +550,32 @@ class Tensor:
         return pypto.sum(self, dim, keepdim)
 
     @source_location
+    def round(self, decimals: int = 0) -> 'Tensor':
+        return pypto.round(self, decimals)
+    
+    @source_location
     def rsqrt(self) -> 'Tensor':
         return pypto.rsqrt(self)
 
     @source_location
     def sqrt(self) -> 'Tensor':
         return pypto.sqrt(self)
+
+    @source_location
+    def ceil(self) -> 'Tensor':
+        return pypto.ceil(self)
+
+    @source_location
+    def floor(self) -> 'Tensor':
+        return pypto.floor(self)
+
+    @source_location
+    def trunc(self) -> 'Tensor':
+        return pypto.trunc(self)
+        
+    @source_location
+    def reciprocal(self) -> 'Tensor':
+        return pypto.reciprocal(self)
 
     @source_location
     def transpose(self, dim0: int, dim1: int) -> 'Tensor':
@@ -578,6 +598,14 @@ class Tensor:
     @source_location
     def cumsum(self: 'Tensor', dim: int) -> 'Tensor':
         return pypto.cumsum(self, dim)
+    
+    @source_location
+    def triu(self: 'Tensor', diagonal: 'int | SymbolicScalar') -> 'Tensor':
+        return pypto.triu(self, diagonal)
+
+    @source_location
+    def tril(self: 'Tensor', diagonal: 'int | SymbolicScalar') -> 'Tensor':
+        return pypto.tril(self, diagonal)
 
     @source_location
     def expand_clone(self, shape: List[int], *,

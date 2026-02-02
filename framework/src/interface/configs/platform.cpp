@@ -23,6 +23,7 @@ namespace npu::tile_fwk {
 const std::string version = "version";
 const std::string socVersionInfo = "SoC_version";
 const std::string npuArchInfo = "NpuArch";
+const std::string shortSocVer = "Short_SoC_version";
 const std::string socInfo = "SoCInfo";
 const std::string aiCoreCnt = "ai_core_cnt";
 const std::string cubeCoreCnt = "cube_core_cnt";
@@ -115,6 +116,11 @@ bool Die::SetMemoryPath(const std::vector<std::vector<std::string>>& dataPaths) 
     memoryGraph_.AddPath(MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR);
     memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR);
     memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_L1);
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_UB);
+        memoryGraph_.AddPath(MemoryType::MEM_UB, MemoryType::MEM_L1);
+        memoryGraph_.AddPath(MemoryType::MEM_L1, MemoryType::MEM_UB);
+    }
     for (const auto &pathDesc : dataPaths) {
         if (pathDesc.size() != 2U) {
             continue;
@@ -274,6 +280,9 @@ void Platform::LoadFromIni(const std::string &filePath) {
     if (parser.GetStringVal(version, socVersionInfo, socVersion) == SUCCESS) {
         GetSoc().SetSocVersion(socVersion);
     }
+    if (parser.GetStringVal(version, shortSocVer, archType) == SUCCESS) {
+        GetSoc().SetShortSocVersion(archType);
+    }
     if (parser.GetCCECVersion(versionInfo) == SUCCESS) {
         GetSoc().SetCCECVersion(versionInfo);
     }
@@ -309,7 +318,6 @@ void Platform::LoadFromIni(const std::string &filePath) {
     if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit) == SUCCESS) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
     }
-
     std::vector<std::vector<std::string>> dataPath;
     if (parser.GetDataPath(dataPath) == SUCCESS) {
         GetDie().SetMemoryPath(dataPath);

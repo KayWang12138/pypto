@@ -1873,7 +1873,7 @@ TEST_F(OnBoardTest, test_unary_operation_16_16_64_64_tileop_reciprocal) {
     PROGRAM("RECIPROCAL") {
         std::vector<int64_t> shape = {16, 16, 64, 64};
         void *x_ptr = readToDev(GetGoldenDir() + "/x.bin", capacity_16_16_64_64);
-        TileShape::Current().SetVecTile({8, 8, 16, 32});
+        TileShape::Current().SetVecTile({2, 8, 16, 16});
         Tensor input_a(DataType::DT_FP32, shape, (uint8_t *)x_ptr, "A");
         Tensor output(DataType::DT_FP32, shape, out_ptr, "C");
 
@@ -2558,7 +2558,6 @@ TEST_F(OnBoardTest, test_matmul_add_dynamic) {
     const int k = 256;
     const int n = 512;
     SetInterpreterConfig();
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
 
     Tensor tensor_a = Tensor(DataType::DT_FP16, {m, k}, "tensor_a", TileOpFormat::TILEOP_ND);
     Tensor tensor_b = Tensor(DataType::DT_FP16, {k, n}, "tensor_b", TileOpFormat::TILEOP_ND);
