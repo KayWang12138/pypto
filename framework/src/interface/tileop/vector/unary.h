@@ -41,6 +41,10 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
         pto::TABS(dst, src);
         return;
     }
+    if constexpr (op == UnaryOp::LN){
+        pto::TLOG(dst, src);
+        return;
+    }
 }
 
 template <UnaryOp op, typename T0, typename T1>
@@ -139,5 +143,11 @@ TILEOP void Tbrcb(T0 dst, T1 src) {
 template <typename T0, typename T1>
 TILEOP void TAbs(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::ABS>(dst, src);
+}
+
+#define OP_TILE_OP_TL Tlog
+template <typename T0, typename T1>
+TILEOP void Tlog(T0 dst, T1 src) {
+    UnaryCompute<UnaryOp::LN>(dst, src);
 }
 #endif
