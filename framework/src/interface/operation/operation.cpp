@@ -174,7 +174,8 @@ Operation::Operation(
                 auto dataType = iOperand[0]->Datatype();
                 auto lastAxis = vecTile.tile.back();
                 ASSERT((lastAxis * BytesOf(dataType)) % BLOCK_SIZE == 0)
-                    << "vec tile should be 32B align, but lastAxis is " << lastAxis;
+                    << "vec tile should be 32B align, but lastAxis is " << lastAxis
+                    << ", bytes of dtype is " << BytesOf(dataType);
             }
         }
         SetSemanticLabel(config::GetSemanticLabel());
