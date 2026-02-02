@@ -130,7 +130,7 @@ TEST_F(TuneSyncForVFTest, TestTuneSyncForVF) {
     EXPECT_EQ(tuneSync.opList_[TS_NUM4]->GetOpcode(), Opcode::OP_RECIPROCAL);
 }
 
-TEST_F(TuneSyncForVFTest, TestMainSchedule) {
+TEST_F(TuneSyncForVFTest, TestMainProcess) {
     auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainSchedule", "TestMainSchedule", nullptr);
     rootFuncPtr->rootFunc_ = rootFuncPtr.get();
     auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainScheduleLeaf", "TestMainScheduleLeaf", rootFuncPtr.get());
@@ -145,7 +145,9 @@ TEST_F(TuneSyncForVFTest, TestMainSchedule) {
     currFunctionPtr->AddRawOperation(Opcode::OP_L1_COPY_UB, {input}, {output});
     TuneSyncForVF tuneSync;
     tuneSync.RunOnFunction(*rootFuncPtr.get());
-    std::vector<Operation *> opList(program.second->Operations(false).DuplicatedOpList());
+    auto it = rootFuncPtr->rootFunc_->programs_.begin();
+    auto funcPtr = it->second;
+    std::vector<Operation *> opList(funcPtr->Operations(false).DuplicatedOpList());
     EXPECT_EQ(opList.size(), TS_NUM5);
 }
 

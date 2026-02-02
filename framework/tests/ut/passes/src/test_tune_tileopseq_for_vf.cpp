@@ -141,6 +141,27 @@ TEST_F(TuneTileopseqForVFTest, TestNotMergeForTuneTileop) {
     EXPECT_EQ(tuneTileop.opList_[TT_NUM5]->GetOpcode(), Opcode::OP_EXPAND);
 }
 
+TEST_F(TuneTileopseqForVFTest, TestMainProcess) {
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainProcess", "TestMainProcess", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestMainProcessLeaf", "TestMainProcessLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    std::vector<std::shared_ptr<LogicalTensor>> input;
+    std::vector<std::shared_ptr<LogicalTensor>> output;
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {input}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_A_MULACC_B, {input}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_SRC, {input}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_SYNC_DST, {input}, {output});
+    currFunctionPtr->AddRawOperation(Opcode::OP_L1_COPY_UB, {input}, {output});
+    TuneTileOpSeqForVF tuneSync;
+    tuneSync.RunOnFunction(*rootFuncPtr.get());
+    auto it = rootFuncPtr->rootFunc_->programs_.begin();
+    auto funcPtr = it->second;
+    std::vector<Operation *> opList(funcPtr->Operations(false).DuplicatedOpList());
+    EXPECT_EQ(opList.size(), TT_NUM5);
+}
+
 } // namespace tile_fwk
 } // namespace npu
 
