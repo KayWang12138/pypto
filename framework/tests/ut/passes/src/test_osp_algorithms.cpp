@@ -23,7 +23,7 @@
 
 #include "passes/algorithms/osp/auxiliary/datastructures/union_find.hpp"
 #include "passes/algorithms/osp/auxiliary/math/divisors.hpp"
-#include "passes/algorithms/osp/auxiliary/balanced_coin_flips.hpp"
+#include "passes/algorithms/osp/auxiliary/balanced_coin_flips.h"
 #include "passes/algorithms/osp/auxiliary/permute.hpp"
 #include "passes/algorithms/osp/bsp/model/BspArchitecture.hpp"
 

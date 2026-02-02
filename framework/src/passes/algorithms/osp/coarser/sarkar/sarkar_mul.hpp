@@ -16,7 +16,7 @@
 #ifndef PASS_OSP_SARKAR_MUL_HPP
 #define PASS_OSP_SARKAR_MUL_HPP
 
-#include "passes/algorithms/osp/auxiliary/balanced_coin_flips.hpp"
+#include "passes/algorithms/osp/auxiliary/balanced_coin_flips.h"
 #include "passes/algorithms/osp/coarser/multilevel_coarser.hpp"
 #include "passes/algorithms/osp/coarser/sarkar/sarkar.hpp"
 
