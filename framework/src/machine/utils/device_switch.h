@@ -42,10 +42,10 @@ namespace npu::tile_fwk {
 #define ENABLE_TMP_LOG 0
 
 // If enabled, performance evt statistics are recorded in the log.
-#define ENABLE_PERF_EVT 0
+#define ENABLE_PERF_EVT 0 
 
 // If enabled, performance trace statistics are recorded in the log.
-#define ENABLE_PERF_TRACE 0
+#define ENABLE_PERF_TRACE 0 
 
 /* When enabled, verbose log will be compiled.Because verbose logging is so extensive, having it compiled into the code
    can hurt performance, even when the logging feature is turned off.
