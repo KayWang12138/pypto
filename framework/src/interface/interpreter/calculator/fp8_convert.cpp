@@ -130,12 +130,16 @@ static torch::Tensor Float32ToFp8E4M3(const torch::Tensor &self) {
         float v = ptr[i];
         uint8_t enc = 0;
         if (std::isnan(v)) {
+            std::cout << 1 << std::endl;
             enc = 0x7F;
         } else if (std::isinf(v)) {
+            std::cout << 2 << std::endl;
             enc = (v < 0) ? 0xFE : 0x7E;
         } else if (std::fpclassify(v) == FP_ZERO) {
+            std::cout << 13 << std::endl;
             enc = (std::signbit(v) ? 0x80 : 0);
         } else {
+            std::cout << 4 << std::endl;
             float absv = std::fabs(v);
             int sign = std::signbit(v) ? 1 : 0;
             if (absv < kMinSubnormal) {
