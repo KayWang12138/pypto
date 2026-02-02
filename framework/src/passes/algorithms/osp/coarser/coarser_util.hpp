@@ -25,7 +25,6 @@
 #include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/constructable_computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/graph_traits.hpp"
-#include "passes/algorithms/osp/concepts/specific_graph_impl.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_edge_desc_util.hpp"
 
 namespace npu::tile_fwk {
