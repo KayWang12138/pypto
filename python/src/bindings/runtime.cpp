@@ -14,7 +14,8 @@
  */
 
 #include "pybind_common.h"
-
+#include <chrono>
+#include <iostream>
 #include <utility>
 #include <vector>
 #include "interface/interpreter/raw_tensor_data.h"
@@ -142,7 +143,11 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     [[maybe_unused]] const std::vector<DeviceTensorData> &inputs, [[maybe_unused]] const std::vector<DeviceTensorData> &outputs,
     [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData,
     [[maybe_unused]] py::int_ devCtrlCache) {
-
+    bool open_log = false;
+    auto start_time = std::chrono::high_resolution_clock::now();
+    if (!open_log) {
+        (void)start_time;
+    }
     if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
         return "";
     }
@@ -188,6 +193,11 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
 #endif
 
     HOST_PERF_EVT_END(EventPhase::RunDevice);
+    if (open_log) {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        std::cout << "------------ C++ function cost: " << duration << " us" << std::endl;
+    }
     return "";
 }
 
