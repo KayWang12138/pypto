@@ -182,7 +182,7 @@ def do_test_chunk_gated_delta_rule(case_name):
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    print(f"=== run test case: {case_name} ===")
+    # print(f"=== run test case: {case_name} ===")
 
     _, inputs_data, golden_data = gen_data(case_name)
 
@@ -219,7 +219,7 @@ def do_test_chunk_gated_delta_rule(case_name):
     compare(actual=outputs["final_state"].cpu(), expected=final_state_golden, name="final_state", rtol=1e-3,
         atol_abs=0, atol_rel=1e-3)
 
-    print(f"=== {case_name}: PASS ===")
+    # print(f"=== {case_name}: PASS ===")
 
 
 def compare(**kwargs):
@@ -239,8 +239,8 @@ def compare(**kwargs):
     out_of_tolerance = (diff > tolerance).sum().item()
     total = actual.numel()
 
-    print(f"  {name}: max_diff={max_diff:.6f}, mean_diff={mean_diff:.6f}, "
-          f"out_of_tolerance={out_of_tolerance}/{total}")
+    # print(f"  {name}: max_diff={max_diff:.6f}, mean_diff={mean_diff:.6f}, "
+    #       f"out_of_tolerance={out_of_tolerance}/{total}")
 
     if out_of_tolerance > 0:
         ratio = out_of_tolerance / total
@@ -281,27 +281,27 @@ def segs_chunk_gated_delta_rule(**kwargs):
         seg_s = 128
         pad_size = (chunk_size - s % chunk_size) % chunk_size
         pad_seq_length = s + pad_size
-        batch_query = F.pad(query[:, b_ofs : b_ofs + s], (0, 0, 0, pad_size))
-        batch_key = F.pad(key[:, b_ofs : b_ofs + s], (0, 0, 0, pad_size))
-        batch_value = F.pad(value[:, b_ofs : b_ofs + s], (0, 0, 0, pad_size))
-        batch_beta = F.pad(beta[:, b_ofs : b_ofs + s], (0, pad_size))
-        batch_g = F.pad(g[:, b_ofs : b_ofs + s], (0, pad_size))
+        batch_query = F.pad(query[:, b_ofs:b_ofs + s], (0, 0, 0, pad_size))
+        batch_key = F.pad(key[:, b_ofs:b_ofs + s], (0, 0, 0, pad_size))
+        batch_value = F.pad(value[:, b_ofs:b_ofs + s], (0, 0, 0, pad_size))
+        batch_beta = F.pad(beta[:, b_ofs:b_ofs + s], (0, pad_size))
+        batch_g = F.pad(g[:, b_ofs:b_ofs + s], (0, pad_size))
         result_list = []
-        recurrent_state = initial_state[b_idx : b_idx + 1, ...]
+        recurrent_state = initial_state[b_idx:b_idx + 1, ...]
         for s_idx in range(0, pad_seq_length, seg_s):
-            chunk_query = batch_query[:, s_idx : s_idx + seg_s, :].reshape(1, n, seg_s, d)
-            chunk_key = batch_key[:, s_idx : s_idx + seg_s, :].reshape(1, n, seg_s, d)
-            chunk_value = batch_value[:, s_idx : s_idx + seg_s, :].reshape(1, n, seg_s, d)
-            chunk_gate = batch_g[:, s_idx : s_idx + seg_s].reshape(1, n, seg_s)
-            chunk_beta = batch_beta[:, s_idx : s_idx + seg_s].reshape(1, n, seg_s)
+            chunk_query = batch_query[:, s_idx:s_idx + seg_s, :].reshape(1, n, seg_s, d)
+            chunk_key = batch_key[:, s_idx:s_idx + seg_s, :].reshape(1, n, seg_s, d)
+            chunk_value = batch_value[:, s_idx:s_idx + seg_s, :].reshape(1, n, seg_s, d)
+            chunk_gate = batch_g[:, s_idx:s_idx + seg_s].reshape(1, n, seg_s)
+            chunk_beta = batch_beta[:, s_idx:s_idx + seg_s].reshape(1, n, seg_s)
             cur_attn, cur_state = segs_chunk_gated_delta_rule_sub(query=chunk_query, key=chunk_key, value=chunk_value,
                 g=chunk_gate, beta=chunk_beta, chunk_size=chunk_size, initial_state=recurrent_state,
                 output_final_state=output_final_state, use_qk_l2norm_in_kernel=use_qk_l2norm_in_kernel,)
             result_list.append(cur_attn.squeeze(0))
             recurrent_state = cur_state
         batch_attn = torch.cat(result_list, dim=0)[:s]
-        final_attn[b_ofs : b_ofs + s] = batch_attn
-        final_state[b_idx : b_idx + 1, ...] = recurrent_state
+        final_attn[b_ofs:b_ofs + s] = batch_attn
+        final_state[b_idx:b_idx + 1, ...] = recurrent_state
     return final_attn, final_state
 
 
@@ -412,50 +412,43 @@ def segs_chunk_gated_delta_rule_sub(**kwargs):
 
 
 # ==================== Test Cases ====================
+# Test case: B:2, Nqk:2, Nv:4, S:4K
 def test_b2_nqk2_nv4_s4k():
-    """Test case: B=2, Nqk=2, Nv=4, S=4K"""
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s4k")
 
-
+# Test case: B:2, Nqk:4, Nv:8, S:4K
 @pytest.mark.skip(reason="large test case")
 def test_b2_nqk4_nv8_s4k():
-    """Test case: B=2, Nqk=4, Nv=8, S=4K"""
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b2_nqk4_nv8_s4k")
 
-
+# Test case: B:2, Nqk:2, Nv:4, S:8K
 @pytest.mark.skip(reason="large test case")
 def test_b2_nqk2_nv4_s8k():
-    """Test case: B=2, Nqk=2, Nv=4, S=8K"""
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s8k")
 
-
+# Test case: B:2, Nqk:4, Nv:8, S:8K
 @pytest.mark.skip(reason="large test case")
 def test_b2_nqk4_nv8_s8k():
-    """Test case: B=2, Nqk=4, Nv=8, S=8K"""
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b2_nqk4_nv8_s8k")
 
-
+# Test case: B:1, Nqk:16, Nv:32, S:32K
 @pytest.mark.skip(reason="large test case")
 def test_b1_nqk16_nv32_s32k():
-    """Test case: B=1, Nqk=16, Nv=32, S=32K"""
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b1_nqk16_nv32_s32k")
 
-
+# Test case: B:1, Nqk:2, Nv:4, S:256K
 @pytest.mark.skip(reason="large test case")
 def test_b1_nqk2_nv4_s256k():
-    """Test case: B=1, Nqk=2, Nv=4, S=256K"""
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b1_nqk2_nv4_s256k")
 
-
+# Test case: B:1, Nqk:2, Nv:4, S:512K
 @pytest.mark.skip(reason="large test case")
 def test_b1_nqk2_nv4_s512k():
-    """Test case: B=1, Nqk=2, Nv=4, S=512K"""
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b1_nqk2_nv4_s512k")
 
-
+# Test case: B:1, Nqk:2, Nv:4, S:1M
 @pytest.mark.skip(reason="large test case")
 def test_b1_nqk2_nv4_s1m():
-    """Test case: B=1, Nqk=2, Nv=4, S=1M"""
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b1_nqk2_nv4_s1m")
 
 
