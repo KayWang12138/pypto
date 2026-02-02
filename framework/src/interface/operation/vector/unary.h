@@ -36,7 +36,7 @@ enum class UnaryOpType {
     LN,
     HUB,
     BITWISENOT,
-    IS_FINITE,
+    ISFINITE,
 };
 
 template <UnaryOpType T>
@@ -52,6 +52,7 @@ std::string GetUnaryOpName() {
         case UnaryOpType::DUPLICATE: return "DUPLICATE";
         case UnaryOpType::ABS: return "ABS";
         case UnaryOpType::LN: return "LN";
+        case UnaryOpType::ISFINITE: return "ISFINITE";
         case UnaryOpType::HUB: return "HUB";
         case UnaryOpType::BITWISENOT: return "BITWISENOT";
         default: ASSERT(false && "unknown unary op type"); return "";
@@ -73,6 +74,7 @@ Opcode GetUnaryOpNameCode() {
         CASE(DUPLICATE);
         CASE(ABS);
         CASE(LN);
+        CASE(ISFINITE);
         CASE(HUB);
         CASE(BITWISENOT);
         default: ASSERT(false && "unknown unary op type");
