@@ -37,18 +37,6 @@ namespace Conv {
         } \
     } while (0)
 
-void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor, const ConvAttrParam &attrParam) {
-    OP_CHECK(true, {
-        ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16)
-        << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.";
-    });
-    CheckOriginShape(inputTensor, weightTensor, biasTensor);
-    CheckOutputShape(inputTensor, weightTensor, biasTensor);
-    CheckAttrShape(outType, attrParam);
-    CheckTileTiling(inputTensor, weightTensor, attrParam);
-    // CheckL1SizeTiling(outType, weightTensor);
-}
-
 void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_t max) {
     OP_CHECK(true, {
             ASSERT(value >= min && value <= max)
@@ -127,6 +115,13 @@ void CheckTileTiling(const Tensor &inputTensor, const Tensor &weightTensor, cons
         CheckL0TileTiling(weightTensor, attrParam);
     }
 }
+uint64_t ConvAlignB(uint64_t a, uint64_t b)
+{
+    if (b == 0) {
+        return 0;
+    }
+    return ((a + b - 1) / b) * b;
+}
 /*
 void CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
     auto &conveTile = TileShape::Current().GetConvTile();
@@ -150,13 +145,6 @@ void CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
     });
 }
 */
-uint64_t ConvAlignB(uint64_t a, uint64_t b)
-{
-    if (b == 0) {
-        return 0;
-    }
-    return ((a + b - 1) / b) * b;
-}
 
 void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
     int64_t hin = inputTensor.GetShape()[2];
@@ -339,6 +327,17 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
         << ", which must euqal to Cout:" << Cout
         << "." << std::endl
     });
+}
+void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor, const ConvAttrParam &attrParam) {
+    OP_CHECK(true, {
+        ASSERT(outType == DataType::DT_FP32 || outType == DataType::DT_FP16 || outType == DataType::DT_BF16)
+        << "Unsupported output data type. Only DT_FP32, DT_FP16, DT_BF16 are supported.";
+    });
+    CheckOriginShape(inputTensor, weightTensor, biasTensor);
+    CheckOutputShape(inputTensor, weightTensor, biasTensor);
+    CheckAttrShape(outType, attrParam);
+    CheckTileTiling(inputTensor, weightTensor, attrParam);
+    // CheckL1SizeTiling(outType, weightTensor);
 }
 
 void SetTensorOpAttr(Operation &op, const ConvAttrParam &convAttrParam)
