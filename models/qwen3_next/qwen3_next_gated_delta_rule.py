@@ -182,8 +182,6 @@ def do_test_chunk_gated_delta_rule(case_name):
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
 
-    # print(f"=== run test case: {case_name} ===")
-
     _, inputs_data, golden_data = gen_data(case_name)
 
     # Move inputs to NPU
@@ -219,8 +217,6 @@ def do_test_chunk_gated_delta_rule(case_name):
     compare(actual=outputs["final_state"].cpu(), expected=final_state_golden, name="final_state", rtol=1e-3,
         atol_abs=0, atol_rel=1e-3)
 
-    # print(f"=== {case_name}: PASS ===")
-
 
 def compare(**kwargs):
     """Compare two tensors with tolerance."""
@@ -238,9 +234,6 @@ def compare(**kwargs):
     tolerance = atol_abs + atol_rel * torch.abs(expected.float())
     out_of_tolerance = (diff > tolerance).sum().item()
     total = actual.numel()
-
-    # print(f"  {name}: max_diff={max_diff:.6f}, mean_diff={mean_diff:.6f}, "
-    #       f"out_of_tolerance={out_of_tolerance}/{total}")
 
     if out_of_tolerance > 0:
         ratio = out_of_tolerance / total
@@ -416,35 +409,42 @@ def segs_chunk_gated_delta_rule_sub(**kwargs):
 def test_b2_nqk2_nv4_s4k():
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s4k")
 
+
 # Test case: B:2, Nqk:4, Nv:8, S:4K
 @pytest.mark.skip(reason="large test case")
 def test_b2_nqk4_nv8_s4k():
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b2_nqk4_nv8_s4k")
+
 
 # Test case: B:2, Nqk:2, Nv:4, S:8K
 @pytest.mark.skip(reason="large test case")
 def test_b2_nqk2_nv4_s8k():
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s8k")
 
+
 # Test case: B:2, Nqk:4, Nv:8, S:8K
 @pytest.mark.skip(reason="large test case")
 def test_b2_nqk4_nv8_s8k():
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b2_nqk4_nv8_s8k")
+
 
 # Test case: B:1, Nqk:16, Nv:32, S:32K
 @pytest.mark.skip(reason="large test case")
 def test_b1_nqk16_nv32_s32k():
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b1_nqk16_nv32_s32k")
 
+
 # Test case: B:1, Nqk:2, Nv:4, S:256K
 @pytest.mark.skip(reason="large test case")
 def test_b1_nqk2_nv4_s256k():
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b1_nqk2_nv4_s256k")
 
+
 # Test case: B:1, Nqk:2, Nv:4, S:512K
 @pytest.mark.skip(reason="large test case")
 def test_b1_nqk2_nv4_s512k():
     do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b1_nqk2_nv4_s512k")
+
 
 # Test case: B:1, Nqk:2, Nv:4, S:1M
 @pytest.mark.skip(reason="large test case")
