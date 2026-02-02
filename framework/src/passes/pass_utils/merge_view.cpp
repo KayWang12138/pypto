@@ -23,7 +23,6 @@ namespace npu::tile_fwk {
 Status MergeView::MergeViewOp(Function &function) {
     Status status = Initialize();
     if (status != SUCCESS) {
-        // APASS_LOG_ERROR_F(Elements::Function, "MergeView initialization failed.");
         return status;
     }
     for (auto &op : function.Operations()) {
@@ -36,20 +35,16 @@ Status MergeView::MergeViewOp(Function &function) {
             processStatus = MergeViewChain(function, op, chain);
         }
         if (processStatus != SUCCESS) {
-            // APASS_LOG_ERROR_F(Elements::Operation, "ProcessView failed for operation %s[%d].%s",
-            //     op.GetOpcodeStr().c_str(), op.GetOpMagic(), GetFormatBacktrace(op).c_str());
             return processStatus;
         }
     }
     status = AppendMergedViewOperations(function);
     if (status != SUCCESS) {
-        // APASS_LOG_ERROR_F(Elements::Function, "AppendMergedViewOperations phase failed.");
         return status;
     }
     status = CleanUp(function);
     if (status != SUCCESS)
     {
-        // APASS_LOG_ERROR_F(Elements::Function, "Cleanup phase failed.");
         return status;
     }
     return SUCCESS;
@@ -57,7 +52,6 @@ Status MergeView::MergeViewOp(Function &function) {
 
 Status MergeView::Initialize() {
     visitedOp_.clear();
-    // APASS_LOG_INFO_F(Elements::Function, "===> Start MergeView.");
     viewOpToAppend_.clear();
     return SUCCESS;
 }
@@ -65,10 +59,6 @@ Status MergeView::Initialize() {
 Status MergeView::MergeViewChain(
     Function &function, Operation &operation, std::vector<Operation *> &chain) {
     auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(operation.GetOpAttribute());
-    // APASS_LOG_DEBUG_F(Elements::Operation, "Processing View operation %d, memory_to: %d, chain size: %zu.",
-    //             operation.GetOpMagic(),
-    //             viewOpAttribute ? static_cast<int>(viewOpAttribute->GetTo()) : -1,
-    //             chain.size());
     // 1. 初始化操作链
     InitOperationChain(operation, chain);
 
@@ -106,19 +96,16 @@ Status MergeView::ProcessConsumerChain(
     Operation *currentOp = chain.back();
     auto currentViewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(currentOp->GetOpAttribute());
     if (!currentViewAttr) {
-        // APASS_LOG_ERROR_F(Elements::Operation, "Failed to get current view attribute.%s", GetFormatBacktrace(*currentOp).c_str());
         return FAILED;
     }
     MemoryType currentMemType = currentViewAttr->GetTo();
     for (auto &op : consumers) {
         if (!op) {
-            // APASS_LOG_ERROR_F(Elements::Operation, "Null consumer operation found.%s", GetFormatBacktrace(*currentOp).c_str());
             return FAILED;
         }
         if (op->GetOpcode() == Opcode::OP_VIEW) {
             auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
             if (viewOpAttribute == nullptr) {
-                // APASS_LOG_ERROR_F(Elements::Operation, "View operation %d has null viewOpAttribute.", op->GetOpMagic());
                 return FAILED;
             }
             auto memory_to = viewOpAttribute->GetTo();
@@ -127,17 +114,10 @@ Status MergeView::ProcessConsumerChain(
             if (currentMemType == MemoryType::MEM_UNKNOWN) {
                 // unknown memType 可以向它之后的view合并
                 canMerge = true;
-                // APASS_LOG_DEBUG_F(Elements::Operation, "Current memType is UNKNOWN, can merge with the next view (memType: %d).", 
-                        //    static_cast<int>(memory_to));
-            } else if (currentMemType == memory_to) {
+            } else (currentMemType == memory_to) {
                 // 相同memType的view可以合并
                 canMerge = true;
-                // APASS_LOG_DEBUG_F(Elements::Operation, "Same memType (%d), can merge view operations.", static_cast<int>(currentMemType));
-            } else {
-                // 不相同memType的不能合并
-                // APASS_LOG_DEBUG_F(Elements::Operation, "Cannot merge view operations with different memory types: current=%d, next=%d.", 
-                        //    static_cast<int>(currentMemType), static_cast<int>(memory_to));
-            }
+            }   
             if (canMerge) {
                 chainEnd = false;
                 Status status = MergeViewChain(function, *op, chain);
@@ -161,25 +141,17 @@ Status MergeView::ProcessChainEnd(
     Operation *startOp = chain.front();
     Operation *endOp = chain.back();
     if (startOp->iOperand.empty()) {
-        // APASS_LOG_ERROR_F(Elements::Operation, "First operation in chain (opmagic: %d) has no input operands.%s",
-        //     startOp->GetOpMagic(), GetFormatBacktrace(*startOp).c_str());
         return FAILED;
     }
     if (endOp->oOperand.empty()) {
-        // APASS_LOG_ERROR_F(Elements::Operation, "Last operation in chain (opmagic: %d) has no output operands.%s",
-        //     endOp->GetOpMagic(), GetFormatBacktrace(*endOp).c_str());
         return FAILED;
     }
     auto &startTensor = startOp->iOperand.front();
     auto &endTensor = endOp->oOperand.front();
     if (!startTensor) {
-        // APASS_LOG_ERROR_F(Elements::Operation, "Null input tensor found for first operation in chain (opmagic: %d).%s",
-        //     startOp->GetOpMagic(), GetFormatBacktrace(*startOp).c_str());
         return FAILED;
     }
     if (!endTensor) {
-        // APASS_LOG_ERROR_F(Elements::Operation, "Null output tensor found for last operation in chain (opmagic: %d).%s",
-        //     endOp->GetOpMagic(), GetFormatBacktrace(*endOp).c_str());
         return FAILED;
     }
     std::vector<int64_t> newOffset;
@@ -195,8 +167,6 @@ Status MergeView::ProcessChainEnd(
     // 清理链尾
     endOp->oOperand.clear();
     function.GetTensorMap().Erase(endTensor);
-    // APASS_LOG_DEBUG_F(Elements::Operation, "Successfully processed view chain ending with opmagic: %d, chain size: %zu.", 
-    //             endOp->GetOpMagic(), chain.size());
     return SUCCESS;
 }
 
@@ -205,12 +175,10 @@ Status MergeView::CalculateMergedOffsets(const std::vector<Operation *> &chain, 
     for (size_t i = 0; i < chain.size(); ++i) {
         const auto &view = chain[i];
         if (!view) {
-            // APASS_LOG_ERROR_F(Elements::Operation, "Null view operation in chain.");
             return FAILED;
         }
         auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(view->GetOpAttribute());
         if (!viewOpAttribute) {
-            // APASS_LOG_ERROR_F(Elements::Operation, "Failed to get ViewOpAttribute.%s", GetFormatBacktrace(*view).c_str());
             return FAILED;
         }
         if (i == 0) {
@@ -242,8 +210,6 @@ void MergeView::RecordMergedViewOperation(Operation* lastViewOp, const std::shar
     // 获取最后一个VIEW的属性
     auto lastViewAttr = std::dynamic_pointer_cast<ViewOpAttribute>(lastViewOp->GetOpAttribute());
     if (!lastViewAttr) {
-        // APASS_LOG_ERROR_F(Elements::Operation, "Failed to get last ViewOpAttribute for opmagic: %d.%s", 
-        //             lastViewOp->GetOpMagic(), GetFormatBacktrace(*lastViewOp).c_str());
         return;
     }
     // 获取特定的 op_attr_copy_in_mode 属性
@@ -253,8 +219,6 @@ void MergeView::RecordMergedViewOperation(Operation* lastViewOp, const std::shar
     endTensor->GetProducers().clear();
     // 记录合并op
     viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode, std::move(copyInModeValue)});
-    // APASS_LOG_DEBUG_F(Elements::Operation, "Recorded merged view operation from opmagic: %d, hasCopyInMode: %d.", 
-    //             lastViewOp->GetOpMagic(), hasCopyInMode);
 }
 
 Status MergeView::AppendMergedViewOperations(Function &function) {
@@ -263,7 +227,6 @@ Status MergeView::AppendMergedViewOperations(Function &function) {
         auto attr = std::make_shared<ViewOpAttribute>(viewOp.offset, viewOp.toType, viewOp.dynOffset,
                      viewOp.dynValidShape);
         if (!attr) {
-            // APASS_LOG_ERROR_F(Elements::Operation, "Failed to create ViewOpAttribute.");
             return FAILED;
         }
         auto &mergedViewOp = function.AddRawOperation(Opcode::OP_VIEW, {viewOp.input}, {viewOp.output});
@@ -271,11 +234,9 @@ Status MergeView::AppendMergedViewOperations(Function &function) {
         // 继承op_attr_copy_in_mode属性
         if (viewOp.hasCopyInMode) {
             mergedViewOp.SetAttr("op_attr_copy_in_mode", viewOp.copyInModeValue); 
-            // APASS_LOG_DEBUG_F(Elements::Operation, "Inherited op_attr_copy_in_mode attribute for merged view operation.");
         }   
         viewOp.output->UpdateDynValidShape(viewOp.dynValidShape);    
     }
-    // APASS_LOG_DEBUG_F(Elements::Operation, "Appended %zu merged view operations.", viewOpToAppend_.size());
     return SUCCESS;
 }
 
@@ -286,7 +247,6 @@ Status MergeView::EraseRedundantAssemble(Function &function) const {
             continue;
         }
         if (op.iOperand.empty()) {
-            // APASS_LOG_ERROR_F(Elements::Operation, "Assemble operation with no input operands.%s", GetFormatBacktrace(op).c_str());
             return FAILED;
         }
         if (op.iOperand.front()->GetProducers().empty()) {
@@ -295,7 +255,6 @@ Status MergeView::EraseRedundantAssemble(Function &function) const {
     }
     for (auto &ele : redundantAssembles) {
         if (!ele) {
-            // APASS_LOG_ERROR_F(Elements::Operation, "Null operation in redundantAssembles.");
             continue;
         }
         ele->SetAsDeleted();
@@ -308,12 +267,10 @@ Status MergeView::CleanUp(Function &function) {
     Status status = EraseRedundantAssemble(function);
     if (status != SUCCESS)
     {
-        // APASS_LOG_ERROR_F(Elements::Function, "EraseRedundantAssemble failed.");
         return status;
     }
     DeadOperationEliminator eliminator;
     eliminator.EliminateOperation(function, false);
-    // APASS_LOG_INFO_F(Elements::Function, "===> End MergeViewAssemble.");
     return SUCCESS;
 }
 } // namespace
