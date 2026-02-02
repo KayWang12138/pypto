@@ -14,6 +14,7 @@
  */
 
 #include "pybind_common.h"
+#include "tilefwk/tilefwk_op.h"
 
 #include <utility>
 #include <vector>
@@ -93,6 +94,16 @@ void bind_controller_set_tile(py::module &m) {
     m.def("GetCubeTile", []() {
         auto cubeTile = TileShape::Current().GetCubeTile();
         return std::tuple(cubeTile.m, cubeTile.k, cubeTile.n, cubeTile.enableMultiDataLoad, cubeTile.enableSplitK);
+    });
+    m.def(
+        "SetConvTile",
+        [](const Conv::TileL1Info &tileL1Info, const Conv::TileL0Info &tileL0Info, bool setL0Tile) {
+            TileShape::Current().SetConvTile(tileL1Info, tileL0Info, setL0Tile);
+        },
+        py::arg("tileL1Info"), py::arg("tileL0Info"), py::arg("setL0Tile"), "Set conv tile shapes");
+    m.def("GetConvTile", []() {
+        auto convTile = TileShape::Current().GetConvTile();
+        return std::tuple(convTile.tileL1Info, convTile.tileL0Info, convTile.setL0Tile);
     });
 }
 
@@ -187,6 +198,8 @@ std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict &
             cpp_values[key] = value.cast<std::string>();
         } else if (py::isinstance<CubeTile>(value)) {
             cpp_values[key] = value.cast<CubeTile>();
+        } else if (py::isinstance<ConvTile>(value)) {
+            cpp_values[key] = value.cast<ConvTile>();
         } else if (py::isinstance<py::list>(value) || py::isinstance<py::tuple>(value)) {
             py::list lst = py::cast<py::list>(value);
             if (lst.size() > 0) {
@@ -275,6 +288,7 @@ py::object AnyToPyObject(const Any &val) {
         {typeid(std::vector<double>), [](const Any& a){ return py::cast(AnyCast<std::vector<double>>(a)); }},
         {typeid(std::map<int64_t,int64_t>), [](const Any& a){ return py::cast(AnyCast<std::map<int64_t,int64_t>>(a)); }},
         {typeid(CubeTile), [](const Any& a){ return py::cast(AnyCast<CubeTile>(a)); }},
+        {typeid(ConvTile), [](const Any& a){ return py::cast(AnyCast<ConvTile>(a)); }},
         {typeid(DistTile), [](const Any& a){ return py::str(AnyCast<DistTile>(a).ToString()); }},
     };
 
@@ -333,6 +347,22 @@ void bind_controller_scope_classes(py::module &m) {
     .def("ToString", &CubeTile::ToString)
     .def("__repr__", [](const CubeTile &t) { return t.ToString(); })
     .def("__str__",  [](const CubeTile &t) { return t.ToString(); });
+
+    py::class_<ConvTile>(m, "ConvTile")
+    .def(py::init<>())
+    .def(py::init<const Conv::TileL1Info&,
+                   const Conv::TileL0Info&,
+                   bool>(),
+         py::arg("tileL1Info"),
+         py::arg("tileL0Info"),
+         py::arg("setL0Tile") = false)
+    .def_readwrite("tileL1Info", &ConvTile::tileL1Info)
+    .def_readwrite("tileL0Info", &ConvTile::tileL0Info)
+    .def_readwrite("setL0Tile", &ConvTile::setL0Tile)
+    .def("valid", &ConvTile::valid)
+    .def("ToString", &ConvTile::ToString)
+    .def("__repr__", [](const ConvTile &t) { return t.ToString(); })
+    .def("__str__",  [](const ConvTile &t) { return t.ToString(); });
 }
 
 void bind_controller(py::module &m) {
