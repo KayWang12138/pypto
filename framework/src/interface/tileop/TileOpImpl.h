@@ -53,7 +53,10 @@
 #include "vector/logicaland.h"
 #include "vector/vector_dup.h"
 #include "vector/range.h"
+#include "vector/triul.h"
 #include "vector/onehot.h"
+#include "vector/index_outcast.h"
+#include "vector/bitwise_shift.h"
 #endif
 
 #endif

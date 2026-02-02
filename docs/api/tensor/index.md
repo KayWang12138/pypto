@@ -30,6 +30,7 @@ pypto-Tensor-move
 pypto-Tensor-mul
 pypto-Tensor-name
 pypto-Tensor-reshape
+pypto-Tensor-round
 pypto-Tensor-set_cache_policy
 pypto-Tensor-scatter
 pypto-Tensor-scatter_
@@ -40,11 +41,17 @@ pypto-Tensor-sigmoid
 pypto-Tensor-sin
 pypto-Tensor-softmax
 pypto-Tensor-sqrt
+pypto-Tensor-ceil
+pypto-Tensor-floor
+pypto-Tensor-trunc
 pypto-Tensor-sub
 pypto-Tensor-sum
 pypto-Tensor-topk
 pypto-Tensor-transpose
+pypto-Tensor-tril
+pypto-Tensor-triu
 pypto-Tensor-unsqueeze
 pypto-Tensor-view
 pypto-Tensor-where
 pypto-Tensor-getitem
+```

@@ -10,7 +10,7 @@
 
 /*!
  * \file test_mix_internal_components_analyzer.cpp
- * \brief Unit test for MixInternalComponentsAnalyzer 
+ * \brief Unit test for MixInternalComponentsAnalyzer
  */
 #include <gtest/gtest.h>
 #include "passes/block_graph_pass/mix_subgraph_split/mix_internal_components_analyzer.h"
@@ -75,7 +75,7 @@ namespace test_utils {
     void VerifyScopeOperands(const InternalComponentInfo& component, int expectedOpCount,
                              bool isCube, AIVCore expectedAivCore);
 
-    bool IsSyncOperation(const Operation* op); 
+    bool IsSyncOperation(const Operation* op);
 
     // 结果校验：L0C_COPY_UB算子的subBlockIdx属性
     void VerifyL0CCopyUbSubBlockIdx(Operation& copyUbOp, int64_t expectedSubBlockIdx);
@@ -90,7 +90,7 @@ public:
     static void SetUpTestCase() {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
@@ -281,7 +281,7 @@ TEST_F(MixInternalComponentsAnalyzerTest, TestSyncOpMerge_SyncSrc_Backward) {
     auto t1 = test_utils::CreateBasicTensor(*mixFuncPtr_);
     auto t2 = test_utils::CreateBasicTensor(*mixFuncPtr_);
     auto t3 = test_utils::CreateBasicTensor(*mixFuncPtr_);
-    auto& vecOp = test_utils::CreateVectorOp(*mixFuncPtr_, t1, t2, AIVCore::AIV0, MS_NUM0);
+    test_utils::CreateVectorOp(*mixFuncPtr_, t1, t2, AIVCore::AIV0, MS_NUM0);
     auto& syncSrcOp = test_utils::CreateSyncOp(*mixFuncPtr_, Opcode::OP_SYNC_SRC, t2, t3);
 
     // 2. 执行分析
@@ -302,7 +302,7 @@ TEST_F(MixInternalComponentsAnalyzerTest, TestSyncOpMerge_BarAll_Forward) {
     auto t2 = test_utils::CreateBasicTensor(*mixFuncPtr_);
     auto t3 = test_utils::CreateBasicTensor(*mixFuncPtr_);
     auto& barAllOp = test_utils::CreateSyncOp(*mixFuncPtr_, Opcode::OP_BAR_ALL, t1, t2);
-    auto& vecOp = test_utils::CreateVectorOp(*mixFuncPtr_, t2, t3, AIVCore::AIV1, MS_NUM2);
+    test_utils::CreateVectorOp(*mixFuncPtr_, t2, t3, AIVCore::AIV1, MS_NUM2);
 
     // 2. 执行分析
     std::vector<InternalComponentInfo> components;
@@ -321,7 +321,7 @@ TEST_F(MixInternalComponentsAnalyzerTest, TestSyncOpMerge_Phase2_CopyIn) {
     auto t1 = test_utils::CreateBasicTensor(*mixFuncPtr_);
     auto t2 = test_utils::CreateBasicTensor(*mixFuncPtr_);
     auto t3 = test_utils::CreateBasicTensor(*mixFuncPtr_);
-    auto& copyInOp = test_utils::CreateCopyInOp(*mixFuncPtr_, t1, t2, MS_NUM1);
+    test_utils::CreateCopyInOp(*mixFuncPtr_, t1, t2, MS_NUM1);
     auto& phase2Op = test_utils::CreateSyncOp(*mixFuncPtr_, Opcode::OP_PHASE2, t2, t3);
 
     // 2. 执行分析
@@ -343,7 +343,7 @@ TEST_F(MixInternalComponentsAnalyzerTest, TestCubeScope_WithL0CCopyUb_AIV1) {
     auto t2 = test_utils::CreateBasicTensor(*mixFuncPtr_);
     auto t3 = test_utils::CreateBasicTensor(*mixFuncPtr_);
     auto& copyUbOp = test_utils::CreateL0CCopyUbOp(*mixFuncPtr_, t1, t2, MS_NUM0);
-    auto& vecOp = test_utils::CreateVectorOp(*mixFuncPtr_, t2, t3, AIVCore::AIV1, MS_NUM1);
+    test_utils::CreateVectorOp(*mixFuncPtr_, t2, t3, AIVCore::AIV1, MS_NUM1);
 
     // 2. 执行分析
     std::vector<InternalComponentInfo> components;
