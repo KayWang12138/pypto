@@ -469,7 +469,7 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
         convTileInfo.orgKw = tensorGraphNodes.weightTensorPtr->shape[NCHW_W_IDX];
         convTileInfo.orgCin = tensorGraphNodes.fmapTensorPtr->shape[NCHW_C_IDX];
     }
-    convTileInfo.orgK = convTileInfo.orgCin * convTileInfo.orgkh * convTileInfo.orgkw;
+    convTileInfo.orgK = convTileInfo.orgCin * convTileInfo.orgKh * convTileInfo.orgKw;
     convTileInfo.orgHoutWout = convTileInfo.orgHout * convTileInfo.orgWout;
     // set tileshape info
     // auto &convTile = tileShape.GetConvTile();
