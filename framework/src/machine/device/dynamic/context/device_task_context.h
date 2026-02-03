@@ -50,8 +50,12 @@ private:
         const predcount_t *dupPredCountList, size_t funcIndex);
     int InitReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
         ReadyCoreFunctionQueue* queue[READY_QUEUE_SIZE]);
+    int InitDieReadyQueues(DynDeviceTask *dyntask, DevAscendProgram *devProg,
+        ReadyCoreFunctionQueue* dieAivQueue[DIE_NUM], ReadyCoreFunctionQueue* dieAicQueue[DIE_NUM]);
     void UpdateDeviceTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue, ReadyCoreFunctionQueue *aivQueue,
         ReadyCoreFunctionQueue *aicQueue, WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
+    void UpdateDeviceDieTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *dieAivQueue[DIE_NUM],
+        ReadyCoreFunctionQueue *dieAicQueue[DIE_NUM]);
     int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg,
         DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
 

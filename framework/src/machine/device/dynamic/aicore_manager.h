@@ -119,6 +119,10 @@ public:
         readyAicCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
         readyAicpuFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicpuFunctionQue);
+        for (int i = 0 ; i < DIE_NUM ; i++) {
+           readyDieAivFunctionQue_ =  reinterpret_cast<ReadyCoreFunctionQueue *>(dyntask->devTask.dieReadyFunctionQue.readyDieAivCoreFunctionQue[i]);
+           readyDieAicFunctionQue_ =  reinterpret_cast<ReadyCoreFunctionQueue *>(dyntask->devTask.dieReadyFunctionQue.readyDieAicCoreFunctionQue[i]);
+        }
         wrapManager_.Init(curDevTask_, context_->coreRunReadyCnt_, context_->runReadyCoreIdx_[CORE_IDX_AIV],
             context_->runReadyCoreIdx_[CORE_IDX_AIC], context_->corePendReadyCnt_, pendingIds_.data(),
             runningIds_.data(), aicValidNum_, [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);});
@@ -781,8 +785,9 @@ private:
             }
             wrapManager_.DispatchMixCoreTask();
         }
+        TryBatchSendTaskForDieQueue(type, coreIdxStart, coreIdxEnd);
         TryBatchSendTask(type, readyQue, coreIdxStart, coreIdxEnd);
-        if (enableFairSch_) {
+        if (enableFairSch_ || wrapManager_.GeIsMixArch()) {   // for die-to-die scheduling
             if (context_->coreRunReadyCnt_[static_cast<int>(type)] > 0)  {
                 AicpuIsIdle(type);
             } else {
@@ -875,6 +880,7 @@ private:
                     needSendCnt, aicStart_, aicEnd_, true);
             }
             DEV_VERBOSE_DEBUG("resolved new task, aic ready count: %u coretype:%u.", context_->readyCount[aicIndex], aicIndex);
+            PushDieReadyQue(context_->readyIds[aicIndex], context_->readyCount[aicIndex], CoreType::AIC);
             if (context_->readyCount[aicIndex] > 0) {
                 ret = PushReadyQue(readyAicCoreFunctionQue_, context_->readyIds[aicIndex], context_->readyCount[aicIndex]);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -891,6 +897,7 @@ private:
                     needSendCnt, aivStart_, aivEnd_, true);
             }
             DEV_VERBOSE_DEBUG("resolved new task, aiv ready count: %u coretype: %u.", context_->readyCount[aivIndex], aivIndex);
+            PushDieReadyQue(context_->readyIds[aivIndex], context_->readyCount[aivIndex], CoreType::AIV);
             if (context_->readyCount[aivIndex] > 0) {
                 ret = PushReadyQue(readyAivCoreFunctionQue_, context_->readyIds[aivIndex], context_->readyCount[aivIndex]);
                 if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1100,13 +1107,16 @@ private:
         }
 
         if (unlikely(context_->readyCount[coreType] == READY_ID_FIX_CACHE_NUM)) {
-            ReadyCoreFunctionQueue* readyQue =
-                coreType == static_cast<int>(CoreType::AIC) ?  readyAicCoreFunctionQue_ : readyAivCoreFunctionQue_;
-            ret = PushReadyQue(readyQue, context_->readyIds[coreType], context_->readyCount[coreType]);
-            if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                return ret;
+            PushDieReadyQue(context_->readyIds[coreType], context_->readyCount[coreType], coreType);
+            if (context_->readyCount[coreType] != 0) {
+                ReadyCoreFunctionQueue* readyQue =
+                    coreType == static_cast<int>(CoreType::AIC) ?  readyAicCoreFunctionQue_ : readyAivCoreFunctionQue_;
+                ret = PushReadyQue(readyQue, context_->readyIds[coreType], context_->readyCount[coreType]);
+                if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                    return ret;
+                }
+                context_->readyCount[coreType] = 0;
             }
-            context_->readyCount[coreType] = 0;
         }
         context_->readyIds[coreType][context_->readyCount[coreType]++] = taskId;
         return ret;
@@ -1680,6 +1690,8 @@ private:
     ReadyCoreFunctionQueue* readyAicCoreFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* readyAivCoreFunctionQue_{nullptr};
     ReadyCoreFunctionQueue* readyAicpuFunctionQue_{nullptr};
+    ReadyCoreFunctionQueue* readyDieAicFunctionQue_[DIE_NUM] = {nullptr};
+    ReadyCoreFunctionQueue* readyDieAivFunctionQue_[DIE_NUM] = {nullptr};
     WrapManager wrapManager_;
     SchduleContext * context_{nullptr};
 

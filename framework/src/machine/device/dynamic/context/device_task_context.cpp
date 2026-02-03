@@ -143,6 +143,10 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
     ReadyCoreFunctionQueue *aivQueue = queue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIV)];
     ReadyCoreFunctionQueue *aicQueue = queue[DynDeviceTask::GetReadyQueueIndexByCoreType(CoreType::AIC)];
 
+    ReadyCoreFunctionQueue *dieAivQueue[DIE_NUM] = {nullptr};
+    ReadyCoreFunctionQueue *dieAicQueue[DIE_NUM] = {nullptr};
+    if (InitDieReadyQueues(dyntask, devProg, dieAivQueue, dieAicQueue) != DEVICE_MACHINE_OK) {return DEVICE_MACHINE_ERROR;}
+
     bool isNeedWrap = IsNeedWrapProcess(dyntask, devProg);
     uint32_t *wrapTasklistAddr = isNeedWrap ? AllocWrapTasklist(dyntask) : nullptr;
     WrapInfoQueue *wrapQueue = isNeedWrap ? AllocWrapQueue(dyntask) : nullptr;
@@ -156,9 +160,9 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
         predcount_t *dupPredCountList = &duppedData->GetOperationCurrPredCount(0);
         auto &predInfo = duppedData->GetSource()->GetPredInfo();
         size_t totalZeroPredAIVBatchEnd = isNeedWrap ? 0 : predInfo.totalZeroPredAIV & ~0x7; // wrap doesnt support batch process
-        ProcessAivBatchTasks(aivQueue, totalZeroPredAIVBatchEnd, &duppedData->GetOperationCurrPredCount(0), funcIndex);
+        ProcessAivBatchTasks(aivQueue, totalZeroPredAIVBatchEnd, &duppedData->GetOperationCurrPredCount(0), funcIndex);  // 8个对齐，一次发8个，是不是因为一个线程最好是控制8个？？所以取了个8？？
 
-        for (size_t opIndex = totalZeroPredAIVBatchEnd; opIndex < predInfo.totalZeroPredAIV; ++opIndex) {
+        for (size_t opIndex = totalZeroPredAIVBatchEnd; opIndex < predInfo.totalZeroPredAIV; ++opIndex) {   // 剩余不到8个的，继续发
             if (likely(dupPredCountList[opIndex] == 0)) {
                 if (isNeedWrap && opWrapList[opIndex] != -1) {
                     ProcessWrapQueue(dyntask, MakeMixWrapID(funcIndex, static_cast<uint32_t>(opWrapList[opIndex])),
@@ -188,6 +192,7 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
     }
 
     UpdateDeviceTaskQueueInfo(dyntask, aicpuQueue, aivQueue, aicQueue, wrapQueue, wrapTasklistAddr);
+    UpdateDeviceDieTaskQueueInfo(dyntask, dieAivQueue, dieAicQueue);
     readyTaskNum += static_cast<uint64_t>(aivQueue->tail + aicQueue->tail + aicpuQueue->tail + wrapTaskNum);
     PerfEnd(PERF_EVT_READY_QUEUE_IN);
     return DEVICE_MACHINE_OK;
