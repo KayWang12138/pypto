@@ -22,6 +22,7 @@ file(GLOB _Interface_Srcs
         # Core infrastructure
         core/*.cpp
         ir/*.cpp
+        ir/transform/*.cpp
 
         # Operation
         operation/*.cpp
