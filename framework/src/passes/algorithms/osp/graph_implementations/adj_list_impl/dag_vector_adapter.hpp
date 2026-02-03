@@ -201,9 +201,6 @@ static_assert(hasVertexWeightsV<DagVectorAdapter<CDagVertexImplUnsigned>>,
 static_assert(isDirectedGraphV<DagVectorAdapter<CDagVertexImplUnsigned>>,
               "dag_vector_adapter must satisfy the directed_graph concept");
 
-static_assert(isComputationalDagTypedVerticesV<DagVectorAdapter<CDagVertexImplUnsigned>>,
-              "dag_vector_adapter must satisfy the is_computation_dag concept");
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif    // PASS_OSP_DAG_VECTOR_ADAPTER_HPP

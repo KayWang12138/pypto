@@ -90,7 +90,7 @@ class BspInstance {
      * @brief The type of the vectex types in the computational DAG.
      * If the DAG does not support vertex types, this is `unsigned`.
      */
-    using VertexTypeTOrDefault = std::conditional_t<isComputationalDagTypedVerticesV<GraphT>, VTypeT<GraphT>, unsigned>;
+    using VertexTypeTOrDefault = VTypeT<GraphT>;
     using ProcessorTypeT = unsigned;
 
   public:

@@ -274,9 +274,6 @@ static_assert(hasVertexWeightsV<ComputationalDagVectorImplDefUnsignedT>,
 static_assert(isDirectedGraphV<ComputationalDagVectorImplDefUnsignedT>,
               "ComputationalDagVectorImpl must satisfy the directed_graph concept");
 
-static_assert(isComputationalDagTypedVerticesV<ComputationalDagVectorImplDefUnsignedT>,
-              "ComputationalDagVectorImpl must satisfy the is_computation_dag concept");
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_COMPUTATIONAL_DAG_VECTOR_IMPL_HPP

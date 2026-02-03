@@ -130,56 +130,6 @@ struct IsComputationalDag<T, std::void_t<>> : std::conjunction<IsDirectedGraph<T
 template <typename T>
 inline constexpr bool isComputationalDagV = IsComputationalDag<T>::value;
 
-/**
- * @brief Concept for a computational DAG with typed vertices.
- *
- * Extends `is_computational_dag` by also requiring `has_typed_vertices`.
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct IsComputationalDagTypedVertices : std::false_type {};
-
-template <typename T>
-struct IsComputationalDagTypedVertices<T, std::void_t<>> : std::conjunction<IsComputationalDag<T>, HasTypedVertices<T>> {};
-
-template <typename T>
-inline constexpr bool isComputationalDagTypedVerticesV = IsComputationalDagTypedVertices<T>::value;
-
-/**
- * @brief Concept for a computational DAG that supports explicit edge descriptors.
- *
- * Extends `is_computational_dag` by requiring `is_directed_graph_edge_desc`,
- * allowing iteration over edges using explicit descriptors.
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct IsComputationalDagEdgeDesc : std::false_type {};
-
-template <typename T>
-struct IsComputationalDagEdgeDesc<T, std::void_t<>> : std::conjunction<IsDirectedGraphEdgeDesc<T>, IsComputationalDag<T>> {};
-
-template <typename T>
-inline constexpr bool isComputationalDagEdgeDescV = IsComputationalDagEdgeDesc<T>::value;
-
-/**
- * @brief Concept for a computational DAG with both typed vertices and edge descriptors.
- *
- * Combines `is_directed_graph_edge_desc` and `is_computational_dag_typed_vertices`.
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct IsComputationalDagTypedVerticesEdgeDesc : std::false_type {};
-
-template <typename T>
-struct IsComputationalDagTypedVerticesEdgeDesc<T, std::void_t<>>
-    : std::conjunction<IsDirectedGraphEdgeDesc<T>, IsComputationalDagTypedVertices<T>> {};
-
-template <typename T>
-inline constexpr bool isComputationalDagTypedVerticesEdgeDescV = IsComputationalDagTypedVerticesEdgeDesc<T>::value;
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif // OSP_COMPUTATIONAL_DAG_CONCEPT_HPP

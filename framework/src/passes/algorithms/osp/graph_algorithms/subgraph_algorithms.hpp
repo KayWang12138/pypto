@@ -47,15 +47,7 @@ std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>> CreateInducedSub
 
     for (const auto &node : selectedNodes) {
         localIdx[node] = dagOut.NumVertices();
-
-        if constexpr (isConstructableCdagTypedVertexV<GraphTOut> and hasTypedVerticesV<GraphTIn>) {
-            // add vertex with type
-            dagOut.AddVertex(
-                dag.VertexWorkWeight(node), dag.VertexCommWeight(node), dag.VertexMemWeight(node), dag.VertexType(node));
-        } else {
-            // add vertex without type
-            dagOut.AddVertex(dag.VertexWorkWeight(node), dag.VertexCommWeight(node), dag.VertexMemWeight(node));
-        }
+        dagOut.AddVertex(dag.VertexWorkWeight(node), dag.VertexCommWeight(node), dag.VertexMemWeight(node), dag.VertexType(node));
     }
 
     if constexpr (hasEdgeWeightsV<GraphTIn> and hasEdgeWeightsV<GraphTOut>) {

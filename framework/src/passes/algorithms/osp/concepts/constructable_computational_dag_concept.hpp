@@ -87,47 +87,6 @@ template <typename T>
 inline constexpr bool isConstructableCdagVertexV = IsConstructableCdagVertex<T>::value;
 
 /**
- * @brief Concept to check if vertex types are modifiable.
- *
- * Requires:
- * - `SetVertexType(v, type)`
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct IsModifiableCdagTypedVertex : std::false_type {};
-
-template <typename T>
-struct IsModifiableCdagTypedVertex<
-    T,
-    std::void_t<decltype(std::declval<T>().SetVertexType(std::declval<VertexIdxT<T>>(), std::declval<VTypeT<T>>()))>>
-    : std::conjunction<IsModifiableCdagVertex<T>, IsComputationalDagTypedVertices<T>> {};    // for default node type
-
-template <typename T>
-inline constexpr bool isModifiableCdagTypedVertexV = IsModifiableCdagTypedVertex<T>::value;
-
-/**
- * @brief Concept to check if typed vertices can be added.
- *
- * Requires:
- * - `AddVertex(work, comm, mem, type)`
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct IsConstructableCdagTypedVertex : std::false_type {};
-
-template <typename T>
-struct IsConstructableCdagTypedVertex<
-    T,
-    std::void_t<decltype(std::declval<T>().AddVertex(
-        std::declval<VWorkwT<T>>(), std::declval<VCommwT<T>>(), std::declval<VMemwT<T>>(), std::declval<VTypeT<T>>()))>>
-    : std::conjunction<IsConstructableCdagVertex<T>, IsModifiableCdagTypedVertex<T>> {};    // for default node type
-
-template <typename T>
-inline constexpr bool isConstructableCdagTypedVertexV = IsConstructableCdagTypedVertex<T>::value;
-
-/**
  * @brief Concept to check if edges can be added (unweighted).
  *
  * Requires:
@@ -147,46 +106,6 @@ struct IsConstructableCdagEdge<
 template <typename T>
 inline constexpr bool isConstructableCdagEdgeV = IsConstructableCdagEdge<T>::value;
 
-/**
- * @brief Concept to check if edge communication weights are modifiable.
- *
- * Requires:
- * - `SetEdgeCommWeight(edge, weight)`
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct IsModifiableCdagCommEdge : std::false_type {};
-
-template <typename T>
-struct IsModifiableCdagCommEdge<
-    T,
-    std::void_t<decltype(std::declval<T>().SetEdgeCommWeight(std::declval<EdgeDescT<T>>(), std::declval<ECommwT<T>>()))>>
-    : std::conjunction<IsComputationalDagEdgeDesc<T>> {};    // for default edge weight
-
-template <typename T>
-inline constexpr bool isModifiableCdagCommEdgeV = IsModifiableCdagCommEdge<T>::value;
-
-/**
- * @brief Concept to check if weighted edges can be added.
- *
- * Requires:
- * - `AddEdge(source, target, weight)`
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct IsConstructableCdagCommEdge : std::false_type {};
-
-template <typename T>
-struct IsConstructableCdagCommEdge<T,
-                                   std::void_t<decltype(std::declval<T>().AddEdge(
-                                       std::declval<VertexIdxT<T>>(), std::declval<VertexIdxT<T>>(), std::declval<ECommwT<T>>()))>>
-    : std::conjunction<IsConstructableCdagEdge<T>, IsComputationalDagEdgeDesc<T>, IsModifiableCdagCommEdge<T>> {
-};    // for default edge weight
-
-template <typename T>
-inline constexpr bool isConstructableCdagCommEdgeV = IsConstructableCdagCommEdge<T>::value;
 
 /**
  * @brief Concept for a fully constructable computational DAG.

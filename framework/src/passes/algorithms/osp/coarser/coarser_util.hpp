@@ -69,7 +69,6 @@ bool ConstructCoarseDag(
     static_assert(isDirectConstructableCdagV<GraphTOut> || isConstructableCdagV<GraphTOut>,
         "Out-Graph must be (directly) constructable.");
     static_assert(isModifiableCdagVertexV<GraphTOut>, "Out-Graph must have modifiable Vertices traits.");
-    static_assert(isModifiableCdagTypedVertexV<GraphTOut>, "Out-Graph must have modifiable vertex type.");
 
     if (vertexContractionMap.size() == 0) {
         coarsenedDag = GraphTOut();
