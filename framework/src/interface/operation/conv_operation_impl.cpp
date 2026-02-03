@@ -53,11 +53,11 @@ int64_t ConvComputeHo(const Tensor &inputTensor, const Tensor &weightTensor, con
     }
     std::vector<int64_t> paddings = attrParam.paddings;
     std::vector<int64_t> dilations = attrParam.dilations;
-    int64_t padTop = paddings[0];
-    int64_t padBottom = paddings[1];
+    int64_t padTop = paddings[PAD_TOP_INDEX];
+    int64_t padBottom = paddings[PAD_BOTTOM_INDEX];
     int64_t dilationH = dilations[0];
-    int64_t hin = inputTensor.GetShape()[2];
-    int64_t kh = weightTensor.GetShape()[2];
+    int64_t hin = inputTensor.GetShape()[NCHW_H_IDX];
+    int64_t kh = weightTensor.GetShape()[NCHW_H_IDX];
     int64_t cmpHo = (hin + padTop + padBottom - dilationH * (kh - 1) - 1) / strideH + 1;
     return cmpHo;
 }
@@ -71,28 +71,28 @@ int64_t ConvComputeWo(const Tensor &inputTensor, const Tensor &weightTensor, con
     std::vector<int64_t> paddings = attrParam.paddings;
     std::vector<int64_t> dilations = attrParam.dilations;
     int64_t dilationW = dilations[1];
-    int64_t padLeft = paddings[2];
-    int64_t padRight = paddings[3];
-    int64_t win = inputTensor.GetShape()[3];
-    int64_t kw = weightTensor.GetShape()[3];
+    int64_t padLeft = paddings[PAD_LEFT_INDEX];
+    int64_t padRight = paddings[PAD_RIGHT_INDEX];
+    int64_t win = inputTensor.GetShape()[NCHW_W_IDX];
+    int64_t kw = weightTensor.GetShape()[NCHW_W_IDX];
     int64_t cmpWo = (win + padLeft + padRight - dilationW * (kw - 1) - 1) / strideW + 1;
     return cmpWo;
 }
 void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam){
-    int64_t hout = ConvComputeHo(inputTensor, weightTensor, attrParam);
-    CheckValueRange(hout, "hout" , NUM1, MAX_SIZE);
+    int64_t hOut = ConvComputeHo(inputTensor, weightTensor, attrParam);
+    CheckValueRange(hOut, "hOut" , NUM1, MAX_SIZE);
     int64_t wout = ConvComputeWo(inputTensor, weightTensor, attrParam);
-    CheckValueRange(wout, "wout" , NUM1, MAX_SIZE);
+    CheckValueRange(wOut, "wOut" , NUM1, MAX_SIZE);
 }
 
 void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
-    int64_t hout = ConvComputeHo(inputTensor, weightTensor, attrParam);
-    int64_t wout = ConvComputeWo(inputTensor, weightTensor, attrParam);
-    CheckValueRange(tileHout, "tileHout" , NUM1, hout);
-    CheckValueRange(tileWout, "tileWout" , NUM1, wout);
+    int64_t hOut = ConvComputeHo(inputTensor, weightTensor, attrParam);
+    int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
+    CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
+    CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
 }
 
 void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrParam) {
@@ -113,8 +113,8 @@ void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrPara
     });
 
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
-    int64_t kh = weightTensor.GetShape()[2];
-    int64_t kw = weightTensor.GetShape()[3];
+    int64_t kh = weightTensor.GetShape()[NCHW_H_IDX];
+    int64_t kw = weightTensor.GetShape()[NCHW_W_IDX];
     int64_t maxK = kh * kh * tileCinWeight;
     OP_CHECK(true, {
         ASSERT(tileK > 0 && tileK <= maxK)
@@ -145,11 +145,11 @@ void CheckTileTiling(const Tensor &inputTensor, const Tensor &weightTensor, cons
     int64_t tileCout = convTile.tileL1Info.tileCout;
     int64_t tileBatch = convTile.tileL1Info.tileN;
 
-    int64_t batch = inputTensor.GetShape()[0];
-    int64_t cin = inputTensor.GetShape()[1];
-    int64_t hin = inputTensor.GetShape()[2];
-    int64_t win = inputTensor.GetShape()[3];
-    int64_t cout = weightTensor.GetShape()[0];
+    int64_t batch = inputTensor.GetShape()[NCHW_N_IDX];
+    int64_t cin = inputTensor.GetShape()[NCHW_C_IDX];
+    int64_t hin = inputTensor.GetShape()[NCHW_H_IDX];
+    int64_t win = inputTensor.GetShape()[NCHW_W_IDX];
+    int64_t cout = weightTensor.GetShape()[NCHW_N_IDX];
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
     CheckValueRange(tileBatch, "tileN", NUM1, batch);
     CheckValueRange(tileCinFmap, "tileCinFmap", NUM1, cin);
@@ -195,7 +195,7 @@ void CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
 */
 
 
-void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64_t Cout, const int64_t groups){
+void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64_t cout, const int64_t groups){
 
     OP_CHECK(true, {
             ASSERT(groups > 0 && groups <= SHAPE_INNER_AXIS_MAX_SIZE)
@@ -212,8 +212,8 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
     });
 
     OP_CHECK(true, {
-            ASSERT(Cout % groups == 0)
-            << "Cout ( " << Cout
+            ASSERT(cout % groups == 0)
+            << "Cout ( " << cout
             << ") is not divisible by groups ( " << groups
             << ");adjusting Cout to the nearest value such that Cout % groups == 0." << std::endl;
     });
@@ -252,8 +252,8 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
     CheckDimensionRange(attrParam.dilations, "dilations", NUM1, MAX_DILATION_STRIDE);
     CheckDimensionRange(attrParam.strides, "strides", NUM1, MAX_DILATION_STRIDE);
 
-    int64_t kh = weightTensor.GetShape()[2];
-    int64_t kw = weightTensor.GetShape()[3];
+    int64_t kh = weightTensor.GetShape()[NCHW_H_IDX];
+    int64_t kw = weightTensor.GetShape()[NCHW_W_IDX];
     OP_CHECK(true, {
         ASSERT(kh <= MAX_PAD_KERNEL && kw  <= MAX_PAD_KERNEL)
         << "Weight shapes do not satisfy Load3D's limits: kh=" << kh
@@ -278,16 +278,16 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
     CheckDimParam(attrParam.strides, "strides", NUM2);
 
     int64_t groups = attrParam.groups;
-    int64_t cinFmap = inputTensor.GetShape()[2];
-    int64_t cinWeight = weightTensor.GetShape()[2];
-    int64_t cout = weightTensor.GetShape()[0];
+    int64_t cinFmap = inputTensor.GetShape()[NCHW_C_IDX];
+    int64_t cinWeight = weightTensor.GetShape()[NCHW_C_IDX];
+    int64_t cout = weightTensor.GetShape()[NCHW_N_IDX];
 
     CheckGroupsShape(cinFmap, cinWeight, cout, groups);
     CheckLoad3dShape(outType, weightTensor, attrParam);
 
     std::vector<int64_t> paddings = attrParam.paddings;
-    int64_t kh = weightTensor.GetShape()[2];
-    int64_t kw = weightTensor.GetShape()[3];
+    int64_t kh = weightTensor.GetShape()[NCHW_H_IDX];
+    int64_t kw = weightTensor.GetShape()[NCHW_W_IDX];
     for (size_t i = 0; i < paddings.size(); ++i) {
         OP_CHECK(true, {
             ASSERT(paddings[i] <= kh && paddings[i] <= kw)
@@ -303,11 +303,11 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     CheckDimensionRange(inputTensor.GetShape(), "fmap", NUM1, MAX_SIZE);
     CheckDimensionRange(weightTensor.GetShape(), "weight", NUM1, MAX_SIZE);
 
-    int64_t Cout = biasTensor.GetShape()[0];
+    int64_t cout = biasTensor.GetShape()[NCHW_N_IDX];
     OP_CHECK(true, {
-        ASSERT(biasTensor.GetShape()[0] == Cout)
+        ASSERT(biasTensor.GetShape()[0] == cout)
         << "Input illegal bias shape:" << biasTensor.GetShape()[0]
-        << ", which must equal to Cout:" << Cout
+        << ", which must equal to Cout:" << cout
         << "." << std::endl;
     });
 }
@@ -790,12 +790,12 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
     ConvAttrParam convAttrParam(paddings, strides, dilations, groups);
     CheckConvOperands(outType, inputTensor, weightTensor, biasTensor, convAttrParam);
     int64_t batchOut = inputTensor.GetShape()[NCHW_N_IDX];
-    int64_t cout = weightTensor.GetShape()[NCHW_N_IDX];
+    int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t hOut = ConvComputeHo(inputTensor, weightTensor, convAttrParam);
     int64_t wOut = ConvComputeWo(inputTensor, weightTensor, convAttrParam);
-    std::vector<int64_t> resTensorShape{batchOut, cout, hOut, wOut};
+    std::vector<int64_t> resTensorShape{batchOut, cOut, hOut, wOut};
     Tensor resTensor(outType, resTensorShape, "TensorC");
-    resTensor.GetStorage()->UpdateDynValidShape({batchOut, cout, hOut, wOut});
+    resTensor.GetStorage()->UpdateDynValidShape({batchOut, cOut, hOut, wOut});
     return ConstructTensorGraph(outType, inputTensor, weightTensor, biasTensor, resTensor, convAttrParam);
 }
 
