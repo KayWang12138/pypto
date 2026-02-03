@@ -40,7 +40,7 @@ namespace Conv {
 void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_t max) {
     OP_CHECK(true, {
             ASSERT(value >= min && value <= max)
-            << "Invalid " << name << " value:" << value
+            << "Invalid " << name << " :" << value
             << ", expected range [" << min << "," << max << "]." << std::endl;
     });
 }
@@ -95,13 +95,29 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
 }
 
-void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrParam) {
+void CheckL0TileTiling(DataType outType, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileH = convTile.tileL0Info.tileH;
     int64_t tileW = convTile.tileL0Info.tileW;
     int64_t tileN = convTile.tileL0Info.tileN;
     int64_t tileK = convTile.tileL0Info.tileK;
 
+    OP_CHECK(true, {
+        ASSERT(tileK * BytesOf(outType) % ALIGN_SIZE_32 == 0)
+            << "Invalid tileK: " << tileK
+            << ", requires 32-byte alignment." << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(tileH * tileW % NUM16 == 0)
+            << "Invalid tileH: " << tileH
+            << ",tileW: " << tileW
+            << ", requires  tileH × tileW to be 16-element alignment." << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(tileN  % NUM16 == 0)
+            << "Invalid tileN: " << tileN
+            << ", requires 16-element alignment." << std::endl;
+    });
 
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
@@ -138,7 +154,7 @@ void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrPara
 
 }
 
-void CheckTileTiling(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
+void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
     auto convTile = TileShape::Current().GetConvTile();
     int64_t tileHin = convTile.tileL1Info.tileHin;
     int64_t tileWin = convTile.tileL1Info.tileWin;
@@ -162,7 +178,7 @@ void CheckTileTiling(const Tensor &inputTensor, const Tensor &weightTensor, cons
     CheckHowoTile(inputTensor, weightTensor, attrParam);
 
     if (convTile.setL0Tile){
-        CheckL0TileTiling(weightTensor, attrParam);
+        CheckL0TileTiling(outType, weightTensor, attrParam);
     }
 }
 uint64_t ConvAlignB(uint64_t a, uint64_t b)
@@ -201,7 +217,7 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
 
     OP_CHECK(true, {
             ASSERT(groups > 0 && groups <= SHAPE_INNER_AXIS_MAX_SIZE)
-            << "Invalid groups value: groups =" << groups
+            << "Invalid groups: " << groups
             << ", expected range [1," << SHAPE_INNER_AXIS_MAX_SIZE
             << "]." << std::endl;
     });
@@ -323,7 +339,7 @@ void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor
     CheckOriginShape(inputTensor, weightTensor, biasTensor);
     CheckOutputShape(inputTensor, weightTensor, attrParam);
     CheckAttrShape(outType, inputTensor, weightTensor, attrParam);
-    CheckTileTiling(inputTensor, weightTensor, attrParam);
+    CheckTileTiling(outType, inputTensor, weightTensor, attrParam);
     // CheckL1SizeTiling(outType, weightTensor);
 }
 
