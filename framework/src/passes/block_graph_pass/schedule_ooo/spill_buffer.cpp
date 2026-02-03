@@ -405,6 +405,7 @@ Status OoOScheduler::GetSpillTensor(IssueEntryPtr spillIssue, int spillMemId, Lo
 
 Status OoOScheduler::SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx,
     LocalBufferPtr allocBuffer, bool isGenSpill) {
+    APASS_LOG_INFO_F(Elements::Operation, "==================== begin SpillBuffer =====================");
     if (SpillOutBuffer(spillInfo, allocIssue, pcIdx, isGenSpill) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "SpillOutBuffer failed. %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
         return FAILED;
@@ -430,6 +431,7 @@ Status OoOScheduler::SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue,
             return FAILED;
         }
     }
+    APASS_LOG_INFO_F(Elements::Operation, "==================== end SpillBuffer =====================");
     return SUCCESS;
 }
 
@@ -620,6 +622,7 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, IssueEntryPtr all
 
 Status OoOScheduler::GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool isGenSpill,
     SpillInfo &spillInfo) {
+    APASS_LOG_INFO_F(Elements::Operation, "==================== begin GetSpillInfo =====================");
     auto spillIssue = GetSpillIssue(allocIssue, spillMemId, isGenSpill);
     if (spillIssue == nullptr) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find spill Tensor[%d] last write issue.", spillMemId);
@@ -636,11 +639,13 @@ Status OoOScheduler::GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool
     spillInfo.spillTensor_ = spillTensor;
     spillInfo.spillIssue_ = spillIssue;
     spillInfo.spillMemId_ = spillMemId;
+    APASS_LOG_INFO_F(Elements::Operation, "==================== end GetSpillInfo =====================");
     return SUCCESS;
 }
 
 Status OoOScheduler::SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int> spillGroup, size_t &pcIdx,
     LocalBufferPtr allocBuffer, bool isGenSpill) {
+    APASS_LOG_INFO_F(Elements::Operation, "==================== begin SpillMultiBuffer =====================");
     for (auto &spillMemId : spillGroup) {
         SpillInfo spillInfo;
         if (GetSpillInfo(allocIssue, spillMemId, isGenSpill, spillInfo) != SUCCESS) {
@@ -659,6 +664,7 @@ Status OoOScheduler::SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int>
             }
         }
     }
+    APASS_LOG_INFO_F(Elements::Operation, "==================== end SpillMultiBuffer =====================");
     return SUCCESS;
 }
 

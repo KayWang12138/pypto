@@ -150,7 +150,6 @@ struct SpillInfo {
     IssueEntryPtr spillIssue_;
     LogicalTensorPtr spillTensor_;
     LogicalTensorPtr ddrTensor_;
-    bool isMachineL1 = false;
 };
 
 class OoOScheduler {
