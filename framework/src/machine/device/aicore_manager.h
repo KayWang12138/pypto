@@ -31,6 +31,7 @@
 #include "aicore_dump.h"
 #include "interface/utils/common.h"
 #include "machine/device/dynamic/device_utils.h"
+#include "machine/utils/concurrent_queue/concurrent_queue.h"
 
 namespace npu::tile_fwk {
 const uint32_t REG_SPR_FAST_PATH_ENABLE = 0x18;
@@ -68,6 +69,7 @@ constexpr uint32_t NUM_THREE = 3;
 constexpr uint32_t NUM_THIRTY_TWO = 32;
 
 constexpr uint32_t DEFAULT_QUEUE_SIZE = 64;
+constexpr uint32_t MAX_LOCKFREE_QUEUE_SIZE = 4096;
 
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 struct TaskInfo {
@@ -144,6 +146,29 @@ public:
         });
         readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
+        
+        // Initialization is performed as a state machine, where the main thread takes on the main allocation operations
+        // Main scheduler branch
+        if (aicpuIdx_ == 1)
+        {
+          // 1) The main scheduler (CPUIdx == 1) allocates the lockfree queues and stores their address for others to use
+          curDevTask_->readyAicCoreFunctionLockFreeQue = (void*) new pypto::utils::ConcurrentQueue<aicoreFunction_t>(MAX_LOCKFREE_QUEUE_SIZE);
+          curDevTask_->readyAivCoreFunctionLockFreeQue = (void*) new pypto::utils::ConcurrentQueue<aicoreFunction_t>(MAX_LOCKFREE_QUEUE_SIZE);
+          
+          // 2) Advance the initialization state to 1
+          curDevTask_->initializationState = 1;
+        }
+        else // Non-main scheduler(s) branch
+        {
+          // 1) Wait until the initialization state advances
+          while(curDevTask_->initializationState != 1);
+        }
+
+        // Storing the address of the lock free queues locally
+        readyAicCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t> *)curDevTask_->readyAicCoreLockFreeFunctionQue;
+        readyAivCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t> *)curDevTask_->readyAivCoreLockFreeFunctionQue;
+
+        // if (readyAicCoreFunctionLockFreeQueue_ == nullptr) sleep(2);
     }
 
     inline void CountSendTask(uint64_t& sentAic, uint64_t& sentAiv) {
@@ -443,6 +468,10 @@ private:
     /* prepare aicore ready task list */
     StaticReadyCoreFunctionQueue *readyAicCoreFunctionQue_{nullptr};
     StaticReadyCoreFunctionQueue *readyAivCoreFunctionQue_{nullptr};
+
+    /* lock-free queues to prevent mutual exclusion when using multiple aicpu cores */
+    pypto::utils::ConcurrentQueue<aicoreFunction_t> *readyAicCoreFunctionLockFreeQueue_;
+    pypto::utils::ConcurrentQueue<aicoreFunction_t> *readyAivCoreFunctionLockFreeQueue_;
 
     AicoreDump aicoreDump_;
     int64_t dotStatus_{0};

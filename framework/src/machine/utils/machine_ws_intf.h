@@ -34,6 +34,9 @@ struct ReadyCoreFunctionQueue {
   uint64_t Size() { return tail - head;}
 };
 
+typedef uint64_t aicoreFunction_t;
+constexpr aicoreFunction_t aicoreNullFunction = 0xFFFFFFFFFFFFFFFFUL;
+
 struct StaticReadyCoreFunctionQueue {
   uint64_t head;
   uint64_t tail;

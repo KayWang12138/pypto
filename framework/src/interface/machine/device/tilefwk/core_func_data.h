@@ -124,6 +124,10 @@ struct DeviceTask {
     L2PreInfo l2Info;
     uint64_t costModelData;           // costmodel仿真时长
     uint64_t aicoreModel;             // costmodel aicore功能模型
+
+    volatile uint8_t initializationState; // Allows for initialization coordination among device scheduler (acts as a state machine)
+    void* readyAicCoreFunctionLockFreeQue; // Lock-free queues
+    void* readyAivCoreFunctionLockFreeQue; // Lock-free queues
 };
 
 // dfx 相关

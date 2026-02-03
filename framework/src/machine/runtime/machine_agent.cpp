@@ -428,6 +428,10 @@ void MachineAgent::FillDeviceTask(DeviceAgentTask *task, DeviceTask &devTask, Ma
     devTask.readyAivCoreFunctionQue = reinterpret_cast<uint64_t>(devInfo.readyAivQueGmAddr);
     (void)memcpy_s(&(devTask.readyAicpuFunctionQue), sizeof(uint64_t), &(devInfo.readyAicpuQueGmAddr), sizeof(uint8_t*));
     FillL2PrefetchInfo(task, devTask);
+
+    devTask.initializationState = 0; // Initial state is zero; it advances as initialization progresses
+    devTask.readyAicCoreFunctionLockFreeQue = nullptr; // The lock free queues are allocated at runtime
+    devTask.readyAivCoreFunctionLockFreeQue = nullptr; // The lock free queues are allocated at runtime
 }
 
 void MachineAgent::DumpDeviceTaskInfo(
