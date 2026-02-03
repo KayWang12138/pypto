@@ -23,7 +23,7 @@ class Analysis:
     def __init__(self, args):
         self.output: Path = Path(args.output[0]).resolve()
         self.interpreter_version: str = self._get_interpreter_version()
-        self.py_mod_pybind11_cmake_dir: str = self._get_py_mod_pybind11_dir()
+        self.py_mod_nanobind_cmake_dir: str = self._get_py_mod_nanobind_dir()
         self.py_mod_torch_version: str = ""
         self.py_mod_torch_root_dir: str = ""
         self.py_mod_torch_cmake_dir: str = ""
@@ -36,8 +36,8 @@ class Analysis:
         desc += f"\nEnviron"
         desc += f"\n  Output  : {self.output}"
         desc += f"\n  Python3 : {sys.executable} ({ver.major}.{ver.minor}.{ver.micro})"
-        desc += f"\n    pybind11"
-        desc += f"\n      CMake_Dir                 : {self.py_mod_pybind11_cmake_dir}"
+        desc += f"\n    nanobind"
+        desc += f"\n      CMake_Dir                 : {self.py_mod_nanobind_cmake_dir}"
         desc += f"\n    torch"
         desc += f"\n      Version                   : {self.py_mod_torch_version}"
         desc += f"\n      CMake_Dir                 : {self.py_mod_torch_cmake_dir}"
@@ -67,18 +67,18 @@ class Analysis:
         return f"{ver.major}.{ver.minor}"
 
     @staticmethod
-    def _get_py_mod_pybind11_dir() -> str:
-        """获取 pybind11_DIR, 以便外层 CMake 处理
+    def _get_py_mod_nanobind_dir() -> str:
+        """获取 nanobind_DIR, 以便外层 CMake 处理
 
-        :return: pybind11_DIR
+        :return: nanobind_DIR
         """
-        pybind11_dir = None
+        nanobind_dir = None
         try:
-            import pybind11
-            pybind11_dir = Path(pybind11.get_cmake_dir()).resolve()
+            import nanobind
+            nanobind_dir = Path(nanobind.cmake_dir()).resolve()
         except (ModuleNotFoundError or ImportError):
             pass
-        return str(pybind11_dir) if pybind11_dir else ""
+        return str(nanobind_dir) if nanobind_dir else ""
 
     def analysis(self):
         lines = [
@@ -87,16 +87,16 @@ class Analysis:
             '\nmessage(STATUS "PYTHON3_VERSION_ID=${PYTHON3_VERSION_ID}")',
             '\n',
         ]
-        if self.py_mod_pybind11_cmake_dir:
+        if self.py_mod_nanobind_cmake_dir:
             lines += [
-                f'\n# Python3 module pybind11',
-                f'\nget_filename_component(PY3_MOD_PYBIND11_CMAKE_DIR "{self.py_mod_pybind11_cmake_dir}" REALPATH)',
-                '\nmessage(STATUS "PY3_MOD_PYBIND11_CMAKE_DIR=${PY3_MOD_PYBIND11_CMAKE_DIR}")',
+                f'\n# Python3 module nanobind',
+                f'\nget_filename_component(PY3_MOD_NANOBIND_CMAKE_DIR "{self.py_mod_nanobind_cmake_dir}" REALPATH)',
+                '\nmessage(STATUS "PY3_MOD_NANOBIND_CMAKE_DIR=${PY3_MOD_NANOBIND_CMAKE_DIR}")',
                 '\n',
             ]
         if self.py_mod_torch_version:
             lines += [
-                f'\n# Python3 module pybind11',
+                f'\n# Python3 module torch',
                 f'\nset(PY3_MOD_TORCH_VERSION "{self.py_mod_torch_version}")',
                 f'\nget_filename_component(PY3_MOD_TORCH_ROOT_PATH "{self.py_mod_torch_root_dir}" REALPATH)',
                 f'\nget_filename_component(PY3_MOD_TORCH_CMAKE_DIR "{self.py_mod_torch_cmake_dir}" REALPATH)',

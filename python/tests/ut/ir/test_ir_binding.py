@@ -16,7 +16,7 @@ from pypto.pypto_impl import ir
 def _get_common_test_shape():
     """Helper function to create common test shape variables used across test functions."""
     tile_shape = [128, 128]
-    batch = ir.Scalar(ir.DataType.int32, None, "batch")
+    batch = ir.Scalar(ir.DataType.int32, 2, "batch")
     constant128 = ir.Scalar(ir.DataType.int64, 128, "const_128")
     tensor_shape = [batch, constant128]
     return tile_shape, batch, constant128, tensor_shape
@@ -41,7 +41,7 @@ def test_dtype():
         (ir.DataType.double, "float64", 64, 8, True),
     ]
     for (dtype, name, bit_cnt, byte_cnt, is_fp) in dtypes:
-        assert str(dtype) == f"DataType.{name}"
+        assert str(dtype) == f"{name}"
         assert dtype.bits() == bit_cnt
         assert dtype.bytes() == byte_cnt
         assert dtype.is_float() == is_fp
@@ -587,7 +587,7 @@ def test_broadcast_operations():
     input_y = builder.create_tile(ctx, tile_shape, ir.DataType.float, "input_y")
     output_tile = builder.create_tile(ctx, tile_shape, ir.DataType.float, "output_tile")
     temp_tensor = builder.create_tile(ctx, tile_shape, ir.DataType.float, "temp_tensor")
-    
+
     op_maximum = builder.create_broadcast_with_temp_op(
         ir.Opcode.OP_MAXIMUM, input_x, input_y, output_tile, temp_tensor
     )

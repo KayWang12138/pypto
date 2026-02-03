@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "pybind_common.h"
+#include "nb_common.h"
 
 using namespace npu::tile_fwk;
 
@@ -22,13 +22,13 @@ namespace pypto {
 /**
  * @brief Bind the Element class.
  *
- * @param m Pybind11 module
+ * @param m Nanobind module
  */
-void BindElement(py::module &m) {
-    py::class_<Element>(m, "Element")
-        .def(py::init<DataType, int64_t>(), py::arg("type"), py::arg("sData"))
-        .def(py::init<DataType, uint64_t>(), py::arg("type"), py::arg("uData"))
-        .def(py::init<DataType, double>(), py::arg("type"), py::arg("fData"))
+void BindElement(nb::module_ &m) {
+    nb::class_<Element>(m, "Element")
+        .def(nb::init<DataType, int64_t>(), nb::arg("type"), nb::arg("sData"))
+        .def(nb::init<DataType, uint64_t>(), nb::arg("type"), nb::arg("uData"))
+        .def(nb::init<DataType, double>(), nb::arg("type"), nb::arg("fData"))
         .def("_get_data_type", &Element::GetDataType)
         .def("_get_signed_data", &Element::GetSignedData)
         .def("_get_unsigned_data", &Element::GetUnsignedData)

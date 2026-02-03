@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "pybind_common.h"
+#include "nb_common.h"
 
 #include <utility>
 #include <vector>
@@ -97,7 +97,7 @@ std::string CostModelRunOnceDataFromHost(
     return "";
 }
 
-void BindCostModelRuntime(py::module &m) {
+void BindCostModelRuntime(nb::module_ &m) {
     m.def("CostModelRunOnceDataFromHost", &CostModelRunOnceDataFromHost);
 }
 } // namespace pypto

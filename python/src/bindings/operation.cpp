@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "pybind_common.h"
+#include "nb_common.h"
 
 #include <vector>
 
@@ -21,7 +21,7 @@ using namespace npu::tile_fwk;
 
 namespace pypto {
 constexpr const int SCATTER_UPDATE_DIM = -2;
-void bind_operation(py::module &m) {
+void BindOperation(nb::module_ &m) {
     m.def(
         "Add", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::Add(self, other); }, "Tensor add.");
     m.def(
@@ -40,31 +40,31 @@ void bind_operation(py::module &m) {
         "BitwiseXor", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::BitwiseXor(self, other); }, "Tensor bitwise xor.");
     m.def(
         "View",
-        [](const Tensor &operand, const std::vector<int64_t> &shapes, const py::sequence &offsets) {
+        [](const Tensor &operand, const std::vector<int64_t> &shapes, const nb::sequence &offsets) {
             bool has_symbolic = false;
             for (const auto &item : offsets) {
-                if (py::isinstance<SymbolicScalar>(item)) {
+                if (nb::isinstance<SymbolicScalar>(item)) {
                     has_symbolic = true;
                     break;
                 }
             }
             if (has_symbolic) {
                 std::vector<SymbolicScalar> symbolic_offsets;
-                symbolic_offsets.reserve(py::len(offsets));
+                symbolic_offsets.reserve(nb::len(offsets));
                 for (const auto &item : offsets) {
-                    symbolic_offsets.push_back(item.cast<SymbolicScalar>());
+                    symbolic_offsets.push_back(nb::cast<SymbolicScalar>(item));
                 }
                 return npu::tile_fwk::View(operand, shapes, symbolic_offsets);
             } else {
                 std::vector<int64_t> int_offsets;
-                int_offsets.reserve(py::len(offsets));
+                int_offsets.reserve(nb::len(offsets));
                 for (const auto &item : offsets) {
-                    int_offsets.push_back(item.cast<int64_t>());
+                    int_offsets.push_back(nb::cast<int64_t>(item));
                 }
                 return npu::tile_fwk::View(operand, shapes, int_offsets);
             }
         },
-        py::arg("operand"), py::arg("shapes"), py::arg("offsets"),
+        nb::arg("operand"), nb::arg("shapes"), nb::arg("offsets"),
         "Create a view of a tensor. The 'offsets' can contain symbolic scalars.");
     m.def(
         "View",
@@ -72,12 +72,12 @@ void bind_operation(py::module &m) {
             const std::vector<SymbolicScalar> &newOffsets) {
             return npu::tile_fwk::View(operand, shapes, newValidShapes, newOffsets);
         },
-        py::arg("operand"), py::arg("shapes"), py::arg("new_valid_shapes"), py::arg("new_offsets"),
+        nb::arg("operand"), nb::arg("shapes"), nb::arg("new_valid_shapes"), nb::arg("new_offsets"),
         "Tensor dview_pad.");
     m.def(
         "View",
         [](const Tensor &operand, const DataType dstDataType) { return npu::tile_fwk::View(operand, dstDataType); },
-        py::arg("operand"), py::arg("dstDataType"), "Tensor view_type.");
+        nb::arg("operand"), nb::arg("dstDataType"), "Tensor view_type.");
 
     m.def("Exp", [](const Tensor &self) { return npu::tile_fwk::Exp(self); }, "Tensor exp.");
 
@@ -88,8 +88,8 @@ void bind_operation(py::module &m) {
     m.def("Abs", [](const Tensor &self) { return npu::tile_fwk::Abs(self); }, "Tensor abs.");
     m.def("Reciprocal", [](const Tensor &operand) { return npu::tile_fwk::Reciprocal(operand); }, "Tensor reciprocal.");
     m.def(
-        "Round", [](const Tensor &self, int decimals) { return npu::tile_fwk::Round(self, decimals); }, py::arg("self"),
-        py::arg("decimals") = 0, "Tensor round.");
+        "Round", [](const Tensor &self, int decimals) { return npu::tile_fwk::Round(self, decimals); }, nb::arg("self"),
+        nb::arg("decimals") = 0, "Tensor round.");
     m.def("Rsqrt", [](const Tensor &self) { return npu::tile_fwk::Rsqrt(self); }, "Tensor rsqrt.");
     m.def("Sqrt", [](const Tensor &self) { return npu::tile_fwk::Sqrt(self); }, "Tensor sqrt.");
     m.def("Ceil", [](const Tensor &self) { return npu::tile_fwk::Ceil(self); }, "Tensor ceil.");
@@ -108,7 +108,7 @@ void bind_operation(py::module &m) {
         [](const Tensor &self, DataType dstDataType, CastMode mode) {
             return npu::tile_fwk::Cast(self, dstDataType, mode);
         },
-        py::arg("operand"), py::arg("new_data_type"), py::arg("mode") = CAST_NONE, "Tensor cast.");
+        nb::arg("operand"), nb::arg("new_data_type"), nb::arg("mode") = CAST_NONE, "Tensor cast.");
 
     m.def(
         "Add", [](const Tensor &self, const Element &other) { return npu::tile_fwk::Add(self, other); },
@@ -157,19 +157,19 @@ void bind_operation(py::module &m) {
         [](const Element &start, const Element &end, const Element &step) {
             return npu::tile_fwk::Range(start, end, step);
         },
-        py::arg("start"), py::arg("end"), py::arg("step"), "Tensor range.");
+        nb::arg("start"), nb::arg("end"), nb::arg("step"), "Tensor range.");
     m.def(
         "Amax",
         [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::Amax(operand, axis, keepDim); },
-        py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row max single.");
+        nb::arg("operand"), nb::arg("axis") = -1, nb::arg("keepDim") = false, "Tensor row max single.");
 
     m.def(
         "Sum", [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::Sum(operand, axis, keepDim); },
-        py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row sum single.");
+        nb::arg("operand"), nb::arg("axis") = -1, nb::arg("keepDim") = false, "Tensor row sum single.");
     m.def(
         "Amin",
         [](const Tensor &operand, int axis, bool keepDim) { return npu::tile_fwk::Amin(operand, axis, keepDim); },
-        py::arg("operand"), py::arg("axis") = -1, py::arg("keepDim") = false, "Tensor row min single.");
+        nb::arg("operand"), nb::arg("axis") = -1, nb::arg("keepDim") = false, "Tensor row min single.");
     m.def(
         "RowSumExpand", [](const Tensor &operand) { return npu::tile_fwk::RowSumExpand(operand); },
         "Tensor row sum expand.");
@@ -188,29 +188,29 @@ void bind_operation(py::module &m) {
         [](const Tensor &self, const Tensor &indices, const Element &src, int axis, ScatterMode reduce) {
             return npu::tile_fwk::Scatter(self, indices, src, axis, reduce);
         },
-        py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = ScatterMode::NONE,
+        nb::arg("self"), nb::arg("indices"), nb::arg("src"), nb::arg("axis"), nb::arg("reduce") = ScatterMode::NONE,
         "Tensor scatter element noninplace.");
     m.def(
         "Scatter",
         [](const Tensor &self, const Tensor &indices, const Tensor &src, int axis, ScatterMode reduce) {
             return npu::tile_fwk::Scatter(self, indices, src, axis, reduce);
         },
-        py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = ScatterMode::NONE,
+        nb::arg("self"), nb::arg("indices"), nb::arg("src"), nb::arg("axis"), nb::arg("reduce") = ScatterMode::NONE,
         "Tensor scatter noninplace.");
     m.def(
         "IndexAdd_",
         [](const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
             return npu::tile_fwk::IndexAdd_(self, src, indices, axis, alpha);
         },
-        py::arg("self"), py::arg("src"), py::arg("indices"), py::arg("axis"),
-        py::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor index add inplace.");
+        nb::arg("self"), nb::arg("src"), nb::arg("indices"), nb::arg("axis"),
+        nb::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor index add inplace.");
     m.def(
         "IndexAdd",
         [](const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
             return npu::tile_fwk::IndexAdd(self, src, indices, axis, alpha);
         },
-        py::arg("self"), py::arg("src"), py::arg("indices"), py::arg("axis"),
-        py::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor index add noninplace.");
+        nb::arg("self"), nb::arg("src"), nb::arg("indices"), nb::arg("axis"),
+        nb::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor index add noninplace.");
     m.def(
         "GatherElements",
         [](const Tensor &params, const Tensor &indices, int axis) {
@@ -229,47 +229,47 @@ void bind_operation(py::module &m) {
         [](const Element &src, DataType dType, std::vector<int64_t> dstShape, std::vector<SymbolicScalar> validShape) {
             return npu::tile_fwk::Full(src, dType, dstShape, validShape);
         },
-        py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
+        nb::arg("src"), nb::arg("dType"), nb::arg("dstShape"), nb::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor vector duplicate.");
     m.def(
         "Full",
         [](const SymbolicScalar &src, DataType dType, std::vector<int64_t> dstShape,
             std::vector<SymbolicScalar> validShape) { return npu::tile_fwk::Full(src, dType, dstShape, validShape); },
-        py::arg("src"), py::arg("dType"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
+        nb::arg("src"), nb::arg("dType"), nb::arg("dstShape"), nb::arg("validShape") = std::vector<SymbolicScalar>{},
         "Tensor vector duplicate.");
     m.def(
         "Load", [](const Tensor &src, const Tensor &offsets) { return npu::tile_fwk::Load(src, offsets); },
-        py::arg("src"), py::arg("offsets"), "Tensor load.");
+        nb::arg("src"), nb::arg("offsets"), "Tensor load.");
     m.def(
         "Reshape",
         [](const Tensor &input, const std::vector<int64_t> &dstShape, const std::vector<SymbolicScalar> validShape,
             const bool inplace) { return npu::tile_fwk::Reshape(input, dstShape, validShape, inplace); },
-        py::arg("input"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{},
-        py::arg("inplace") = false, "Tensor reshape.");
+        nb::arg("input"), nb::arg("dstShape"), nb::arg("validShape") = std::vector<SymbolicScalar>{},
+        nb::arg("inplace") = false, "Tensor reshape.");
     m.def(
         "Reshape",
         [](const Tensor &input, const std::vector<SymbolicScalar> &dstShape, const bool inplace) {
             return npu::tile_fwk::Reshape(input, dstShape, inplace);
         },
-        py::arg("input"), py::arg("dstShape"), py::arg("inplace"), "Tensor reshapeInplace.");
+        nb::arg("input"), nb::arg("dstShape"), nb::arg("inplace"), "Tensor reshapeInplace.");
     m.def(
         "ReshapeInplace", [](const Tensor &input, Tensor &dst) { npu::tile_fwk::Reshape(input, dst); },
-        py::arg("input"), py::arg("dst"), "Tensor reshapeInplace.");
+        nb::arg("input"), nb::arg("dst"), "Tensor reshapeInplace.");
     m.def(
-        "Assign", [](const Tensor &input) { return npu::tile_fwk::Assign(input); }, py::arg("input"), "Tensor clone.");
+        "Assign", [](const Tensor &input) { return npu::tile_fwk::Assign(input); }, nb::arg("input"), "Tensor clone.");
     m.def(
         "Reduce",
         [](const std::vector<Tensor> &aggregation, const ReduceMode &reduceMode) {
             return npu::tile_fwk::Reduce(aggregation, reduceMode);
         },
-        py::arg("aggregation"), py::arg("reduce_mode"), "Tensor reduce.");
+        nb::arg("aggregation"), nb::arg("reduce_mode"), "Tensor reduce.");
 
     m.def(
         "Maximum", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Maximum(left, right); },
-        py::arg("left"), py::arg("right"), "Tensor maximum.");
+        nb::arg("left"), nb::arg("right"), "Tensor maximum.");
     m.def(
         "Minimum", [](const Tensor &left, const Tensor &right) { return npu::tile_fwk::Minimum(left, right); },
-        py::arg("left"), py::arg("right"), "Tensor minimum.");
+        nb::arg("left"), nb::arg("right"), "Tensor minimum.");
     m.def(
         "Unsqueeze",
         [](const Tensor &old, int unsqueezeDimNum) { return npu::tile_fwk::Unsqueeze(old, unsqueezeDimNum); },
@@ -289,14 +289,14 @@ void bind_operation(py::module &m) {
         [](const Tensor &dst, const Tensor &index, const Tensor &src, int axis, std::string cacheMode, int chunkSize) {
             return npu::tile_fwk::ScatterUpdate(dst, index, src, axis, cacheMode, chunkSize);
         },
-        py::arg("dst"), py::arg("index"), py::arg("src"), py::arg("axis") = SCATTER_UPDATE_DIM,
-        py::arg("cacheMode") = "PA_BNSD", py::arg("chunkSize") = 1, "Tensor scatter update.");
+        nb::arg("dst"), nb::arg("index"), nb::arg("src"), nb::arg("axis") = SCATTER_UPDATE_DIM,
+        nb::arg("cacheMode") = "PA_BNSD", nb::arg("chunkSize") = 1, "Tensor scatter update.");
     m.def(
         "Expand",
         [](const Tensor &self, const std::vector<int64_t> &dstShape, std::vector<SymbolicScalar> validShape) {
             return npu::tile_fwk::Expand(self, dstShape, validShape);
         },
-        py::arg("self"), py::arg("dstShape"), py::arg("validShape") = std::vector<SymbolicScalar>{}, "Tensor expand.");
+        nb::arg("self"), nb::arg("dstShape"), nb::arg("validShape") = std::vector<SymbolicScalar>{}, "Tensor expand.");
     m.def(
         "NewCompact", [](const Tensor &operand) { return npu::tile_fwk::NewCompact(operand); }, "Tensor new compact.");
     m.def("LogicalNot", [](const Tensor &self) { return npu::tile_fwk::LogicalNot(self); }, "Tensor logical not.");
@@ -337,7 +337,7 @@ void bind_operation(py::module &m) {
         [](const Tensor &self, int k, int axis, bool islargest) {
             return npu::tile_fwk::TopK(self, k, axis, islargest);
         },
-        py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
+        nb::arg("operand"), nb::arg("k"), nb::arg("axis"), nb::arg("islargest") = true, "Tensor topk.");
 
     m.def(
         "Matmul",
@@ -345,13 +345,13 @@ void bind_operation(py::module &m) {
             bool c_matrix_nz) {
             return Matrix::Matmul(out_type, tensor_a, tensor_b, a_trans, b_trans, c_matrix_nz);
         },
-        py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
-        py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, "Matrix multiply.");
+        nb::arg("out_type"), nb::arg("tensor_a"), nb::arg("tensor_b"), nb::arg("a_trans") = false,
+        nb::arg("b_trans") = false, nb::arg("c_matrix_nz") = false, "Matrix multiply.");
 
-    py::class_<Matrix::MatmulExtendParam>(m, "MatmulExtendParam")
-        .def(py::init<>())
-        .def(py::init<Tensor, Tensor, float, Matrix::ReLuType>(), py::arg("bias_tensor"), py::arg("scale_tensor"),
-            py::arg("scale"), py::arg("relu_type"), "Matrix extend params.");
+    nb::class_<Matrix::MatmulExtendParam>(m, "MatmulExtendParam")
+        .def(nb::init<>())
+        .def(nb::init<Tensor, Tensor, float, Matrix::ReLuType>(), nb::arg("bias_tensor"), nb::arg("scale_tensor"),
+            nb::arg("scale"), nb::arg("relu_type"), "Matrix extend params.");
 
     m.def(
         "Matmul",
@@ -359,8 +359,8 @@ void bind_operation(py::module &m) {
             bool a_trans, bool b_trans, bool c_matrix_nz, const Matrix::MatmulExtendParam &extendParam) {
             return Matrix::Matmul(out_type, tensor_a, tensor_b, extendParam, a_trans, b_trans, c_matrix_nz);
         },
-        py::arg("out_type"), py::arg("tensor_a"), py::arg("tensor_b"), py::arg("a_trans") = false,
-        py::arg("b_trans") = false, py::arg("c_matrix_nz") = false, py::arg("extend_params"),
+        nb::arg("out_type"), nb::arg("tensor_a"), nb::arg("tensor_b"), nb::arg("a_trans") = false,
+        nb::arg("b_trans") = false, nb::arg("c_matrix_nz") = false, nb::arg("extend_params"),
         "Matrix multiply with extend param.");
     m.def(
         "BatchMatmul",
@@ -368,8 +368,8 @@ void bind_operation(py::module &m) {
             bool c_matrix_nz) {
             return Matrix::BatchMatmul(out_type, tensor_a, tensor_b, a_trans, b_trans, c_matrix_nz);
         },
-        py::arg("out_type"), py::arg("a"), py::arg("b"), py::arg("a_trans") = false, py::arg("b_trans") = false,
-        py::arg("c_matrix_nz") = false, "Batch matrix multiply.");
+        nb::arg("out_type"), nb::arg("a"), nb::arg("b"), nb::arg("a_trans") = false, nb::arg("b_trans") = false,
+        nb::arg("c_matrix_nz") = false, "Batch matrix multiply.");
     m.def(
         "gather_in_l1",
         [](const Tensor &src, const Tensor &indices, const Tensor &blockTable, int blockSize, int size,
@@ -385,88 +385,88 @@ void bind_operation(py::module &m) {
                 return experimental::GatherInL1<true, true>(src, indices, blockTable, blockSize, size);
             }
         },
-        py::arg("src"), py::arg("indices"), py::arg("blockTable"), py::arg("blockSize"), py::arg("size"),
-        py::arg("is_b_matrix"), py::arg("is_trans"), "gather load L1.");
+        nb::arg("src"), nb::arg("indices"), nb::arg("blockTable"), nb::arg("blockSize"), nb::arg("size"),
+        nb::arg("is_b_matrix"), nb::arg("is_trans"), "gather load L1.");
     m.def(
         "gather_in_ub",
         [](const Tensor &param, const Tensor &indices, const Tensor &blockTable, int blockSize, int axis) {
             return experimental::GatherInUB(param, indices, blockTable, blockSize, axis);
         },
-        py::arg("param"), py::arg("indices"), py::arg("blockTable"), py::arg("blockSize"), py::arg("axis"),
+        nb::arg("param"), nb::arg("indices"), nb::arg("blockTable"), nb::arg("blockSize"), nb::arg("axis"),
         "Tensor gather_in_ub");
     m.def(
         "TransposedBatchMatmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b) {
             return Matrix::TransposedBatchMatmul(out_type, tensor_a, tensor_b);
         },
-        py::arg("out_type"), py::arg("a"), py::arg("b"), "Transposed batch matrix multiply.");
+        nb::arg("out_type"), nb::arg("a"), nb::arg("b"), "Transposed batch matrix multiply.");
     m.def(
         "ArgSort",
         [](const Tensor &operand, int axis, bool is_largest = true) {
             return npu::tile_fwk::ArgSort(operand, axis, is_largest);
         },
-        py::arg("operand"), py::arg("axis"), py::arg("is_largest"), "Tensor sort.");
+        nb::arg("operand"), nb::arg("axis"), nb::arg("is_largest"), "Tensor sort.");
     m.def(
         "ScalarDivS",
         [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
             return npu::tile_fwk::ScalarDivS(operand, value, reverse_operand);
         },
-        py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar divs.");
+        nb::arg("operand"), nb::arg("value"), nb::arg("reverse_operand") = false, "Tensor scalar divs.");
     m.def(
         "ScalarAddS",
         [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
             return npu::tile_fwk::ScalarAddS(operand, value, reverse_operand);
         },
-        py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar adds.");
+        nb::arg("operand"), nb::arg("value"), nb::arg("reverse_operand") = false, "Tensor scalar adds.");
     m.def(
         "ScalarMaxS",
         [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
             return npu::tile_fwk::ScalarMaxS(operand, value, reverse_operand);
         },
-        py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar maxs.");
+        nb::arg("operand"), nb::arg("value"), nb::arg("reverse_operand") = false, "Tensor scalar maxs.");
     m.def(
         "ScalarSubS",
         [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
             return npu::tile_fwk::ScalarSubS(operand, value, reverse_operand);
         },
-        py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar subs.");
+        nb::arg("operand"), nb::arg("value"), nb::arg("reverse_operand") = false, "Tensor scalar subs.");
     m.def(
         "ScalarMulS",
         [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
             return npu::tile_fwk::ScalarMulS(operand, value, reverse_operand);
         },
-        py::arg("operand"), py::arg("value"), py::arg("reverse_operand") = false, "Tensor scalar muls.");
+        nb::arg("operand"), nb::arg("value"), nb::arg("reverse_operand") = false, "Tensor scalar muls.");
     m.def(
         "ScalarSub",
         [](const Tensor &operand1, const Tensor &operand2) { return npu::tile_fwk::ScalarSub(operand1, operand2); },
-        py::arg("operand1"), py::arg("operand2"), "Tensor scalar sub.");
+        nb::arg("operand1"), nb::arg("operand2"), "Tensor scalar sub.");
     m.def(
         "ScalarDiv",
         [](const Tensor &operand1, const Tensor &operand2) { return npu::tile_fwk::ScalarDiv(operand1, operand2); },
-        py::arg("operand1"), py::arg("operand2"), "Tensor scalar div.");
+        nb::arg("operand1"), nb::arg("operand2"), "Tensor scalar div.");
     m.def(
         "Maxpool",
         [](const Tensor &operand, const std::vector<int> &pools, const std::vector<int> &stride,
             const std::vector<int> &paddings) { return npu::tile_fwk::Maxpool(operand, pools, stride, paddings); },
-        py::arg("operand"), py::arg("pools"), py::arg("stride"), py::arg("paddings"), "Max pool.");
+        nb::arg("operand"), nb::arg("pools"), nb::arg("stride"), nb::arg("paddings"), "Max pool.");
     m.def(
         "Compare",
         [](const Tensor &self, const Tensor &other, OpType op, OutType mode) {
             return npu::tile_fwk::Compare(self, other, op, mode);
         },
-        py::arg("operand1"), py::arg("operand2"), py::arg("operation"), py::arg("mode"), "Tensor compare.");
+        nb::arg("operand1"), nb::arg("operand2"), nb::arg("operation"), nb::arg("mode"), "Tensor compare.");
     m.def(
         "Compare",
         [](const Tensor &self, const Element &other, OpType op, OutType mode) {
             return npu::tile_fwk::Compare(self, other, op, mode);
         },
-        py::arg("operand"), py::arg("scalar"), py::arg("operation"), py::arg("mode"), "Tensor compare.");
+        nb::arg("operand"), nb::arg("scalar"), nb::arg("operation"), nb::arg("mode"), "Tensor compare.");
     m.def(
         "Compare",
         [](const Element &self, const Tensor &other, OpType op, OutType mode) {
             return npu::tile_fwk::Compare(self, other, op, mode);
         },
-        py::arg("scalar"), py::arg("operand"), py::arg("operation"), py::arg("mode"), "Tensor compare.");
+        nb::arg("scalar"), nb::arg("operand"), nb::arg("operation"), nb::arg("mode"), "Tensor compare.");
     m.def(
         "Assemble",
         [](const std::vector<std::pair<Tensor, std::vector<SymbolicScalar>>> &inputs,
@@ -506,9 +506,9 @@ void bind_operation(py::module &m) {
         [](const Tensor &x, int idx_start) {
             auto result = npu::tile_fwk::TopKSort(x, idx_start);
             // return as a Python tuple (y, temp)
-            return py::make_tuple(std::get<0>(result), std::get<1>(result));
+            return nb::make_tuple(std::get<0>(result), std::get<1>(result));
         },
-        py::arg("x"), py::arg("idx_start"),
+        nb::arg("x"), nb::arg("idx_start"),
         "TopKSort(x, idx_start:int) -> (y, temp)\n"
         "Performs tiled Top-K sorting starting at a scalar index.\n"
         "Returns a tuple of (sorted_values, workspace_temp)."
@@ -518,9 +518,9 @@ void bind_operation(py::module &m) {
         "topk_sort",
         [](const Tensor &x, const SymbolicScalar &idx_start) {
             auto result = npu::tile_fwk::TopKSort(x, idx_start);
-            return py::make_tuple(std::get<0>(result), std::get<1>(result));
+            return nb::make_tuple(std::get<0>(result), std::get<1>(result));
         },
-        py::arg("x"), py::arg("idx_start"),
+        nb::arg("x"), nb::arg("idx_start"),
         "TopKSort(x, idx_start:SymbolicScalar) -> (y, temp)\n"
         "Performs tiled Top-K sorting with a symbolic starting index.\n"
         "Returns a tuple of (sorted_values, workspace_temp)."
@@ -531,7 +531,7 @@ void bind_operation(py::module &m) {
         [](const Tensor &x, int merge_size) {
             return npu::tile_fwk::TopKMerge(x, merge_size);
         },
-        py::arg("x"), py::arg("merge_size"),
+        nb::arg("x"), nb::arg("merge_size"),
         "TopKMerge(x, merge_size:int) -> y\n"
         "Merges partial Top-K results into a single tensor."
     );
@@ -541,7 +541,7 @@ void bind_operation(py::module &m) {
         [](const Tensor &x, int k, bool is_index) {
             return npu::tile_fwk::TopKExtract(x, k, is_index);
         },
-        py::arg("x"), py::arg("k"), py::arg("is_index") = false,
+        nb::arg("x"), nb::arg("k"), nb::arg("is_index") = false,
         "TopKExtract(x, k:int, is_index:bool=False) -> y\n"
         "Extracts the top-k values (or indices if is_index=True)."
     );
