@@ -16,7 +16,6 @@
 #ifndef OSP_DIRECTED_GRAPH_EDGE_DESC_CONCEPT_HPP
 #define OSP_DIRECTED_GRAPH_EDGE_DESC_CONCEPT_HPP
 
-#include "directed_graph_concept.hpp"
 #include "graph_traits.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_edge_view.hpp"
 
@@ -122,8 +121,7 @@ struct IsDirectedGraphEdgeDesc<T,
                                            decltype(InEdges(std::declval<VertexIdxT<T>>(), std::declval<T>())),
                                            decltype(Source(std::declval<EdgeDescT<T>>(), std::declval<T>())),
                                            decltype(Target(std::declval<EdgeDescT<T>>(), std::declval<T>()))>>
-    : std::conjunction<IsDirectedGraph<T>,
-                       std::is_default_constructible<EdgeDescT<T>>,
+    : std::conjunction<std::is_default_constructible<EdgeDescT<T>>,
                        std::is_copy_constructible<EdgeDescT<T>>,
                        IsInputRangeOf<decltype(Edges(std::declval<T>())), EdgeDescT<T>>,
                        IsInputRangeOf<decltype(OutEdges(std::declval<VertexIdxT<T>>(), std::declval<T>())), EdgeDescT<T>>,

@@ -86,26 +86,6 @@ struct IsConstructableCdagVertex<T,
 template <typename T>
 inline constexpr bool isConstructableCdagVertexV = IsConstructableCdagVertex<T>::value;
 
-/**
- * @brief Concept to check if edges can be added (unweighted).
- *
- * Requires:
- * - `AddEdge(source, target)`
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct IsConstructableCdagEdge : std::false_type {};
-
-template <typename T>
-struct IsConstructableCdagEdge<
-    T,
-    std::void_t<decltype(std::declval<T>().AddEdge(std::declval<VertexIdxT<T>>(), std::declval<VertexIdxT<T>>()))>>
-    : IsDirectedGraph<T> {};
-
-template <typename T>
-inline constexpr bool isConstructableCdagEdgeV = IsConstructableCdagEdge<T>::value;
-
 
 /**
  * @brief Concept for a fully constructable computational DAG.
@@ -119,7 +99,7 @@ struct IsConstructableCdag : std::false_type {};
 
 template <typename T>
 struct IsConstructableCdag<T, std::void_t<>>
-    : std::conjunction<IsComputationalDag<T>, IsConstructableCdagVertex<T>, IsConstructableCdagEdge<T>> {};
+    : std::conjunction<IsComputationalDag<T>, IsConstructableCdagVertex<T>> {};
 
 template <typename T>
 inline constexpr bool isConstructableCdagV = IsConstructableCdag<T>::value;

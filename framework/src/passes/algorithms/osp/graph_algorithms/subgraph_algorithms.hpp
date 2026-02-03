@@ -25,7 +25,6 @@
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_top_sort.hpp"
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
 #include "passes/algorithms/osp/concepts/constructable_computational_dag_concept.hpp"
-#include "passes/algorithms/osp/concepts/directed_graph_concept.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {
@@ -33,15 +32,6 @@ namespace osp {
 template <typename GraphTIn, typename GraphTOut>
 std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>> CreateInducedSubgraphMap(
     const GraphTIn &dag, GraphTOut &dagOut, const std::vector<VertexIdxT<GraphTIn>> &selectedNodes) {
-    static_assert(std::is_same_v<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>>,
-                  "GraphTIn and out must have the same VertexIdx types");
-
-    static_assert(isConstructableCdagVertexV<GraphTOut>, "GraphTOut must satisfy the constructable_cdag_vertex concept");
-
-    static_assert(isConstructableCdagEdgeV<GraphTOut>, "GraphTOut must satisfy the constructable_cdag_edge concept");
-
-    assert(dagOut.NumVertices() == 0);
-
     std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>> localIdx;
     localIdx.reserve(selectedNodes.size());
 

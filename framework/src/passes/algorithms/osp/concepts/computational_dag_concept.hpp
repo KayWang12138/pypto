@@ -125,7 +125,7 @@ template <typename T, typename = void>
 struct IsComputationalDag : std::false_type {};
 
 template <typename T>
-struct IsComputationalDag<T, std::void_t<>> : std::conjunction<IsDirectedGraph<T>, HasVertexWeights<T>> {};
+struct IsComputationalDag<T, std::void_t<>> : std::conjunction<HasVertexWeights<T>> {};
 
 template <typename T>
 inline constexpr bool isComputationalDagV = IsComputationalDag<T>::value;

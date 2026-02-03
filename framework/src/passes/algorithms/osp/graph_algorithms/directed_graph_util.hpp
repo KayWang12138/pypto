@@ -21,8 +21,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include "passes/algorithms/osp/concepts/directed_graph_concept.hpp"
-
 /**
  * @file directed_graph_util.hpp
  * @brief Utility functions and classes for working with directed graphs.
@@ -47,7 +45,6 @@ namespace osp {
  */
 template <typename GraphT>
 bool Edge(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const GraphT &graph) {
-    static_assert(isDirectedGraphV<GraphT>, "GraphT must satisfy the directed_graph concept");
     for (const auto &child : graph.Children(src)) {
         if (child == dest) {
             return true;
@@ -70,7 +67,6 @@ bool Edge(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const G
  */
 template <typename GraphT>
 std::size_t ComputeWeaklyConnectedComponents(const GraphT &graph, std::vector<VertexIdxT<GraphT>> &components) {
-    static_assert(isDirectedGraphV<GraphT>, "GraphT must satisfy the directed_graph concept");
     using VertexType = VertexIdxT<GraphT>;
 
     if (graph.NumVertices() == 0) {

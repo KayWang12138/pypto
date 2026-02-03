@@ -21,8 +21,6 @@
 #include <random>
 #include <vector>
 
-#include "passes/algorithms/osp/concepts/directed_graph_concept.hpp"
-
 namespace npu::tile_fwk {
 namespace osp {
 

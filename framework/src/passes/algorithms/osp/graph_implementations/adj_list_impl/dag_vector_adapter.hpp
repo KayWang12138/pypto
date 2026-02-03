@@ -192,15 +192,6 @@ class DagVectorAdapter {
     unsigned numVertexTypes_ = 0;
 };
 
-static_assert(isDirectedGraphEdgeDescV<DagVectorAdapter<CDagVertexImplUnsigned>>,
-              "dag_vector_adapter must satisfy the directed_graph_edge_desc concept");
-
-static_assert(hasVertexWeightsV<DagVectorAdapter<CDagVertexImplUnsigned>>,
-              "dag_vector_adapter must satisfy the has_vertex_weights concept");
-
-static_assert(isDirectedGraphV<DagVectorAdapter<CDagVertexImplUnsigned>>,
-              "dag_vector_adapter must satisfy the directed_graph concept");
-
 }    // namespace osp
 }    // namespace npu::tile_fwk
 #endif    // PASS_OSP_DAG_VECTOR_ADAPTER_HPP

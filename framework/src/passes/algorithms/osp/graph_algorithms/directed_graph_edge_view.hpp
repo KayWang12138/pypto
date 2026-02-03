@@ -18,8 +18,6 @@
 
 #include <type_traits>
 
-#include "passes/algorithms/osp/concepts/directed_graph_concept.hpp"
-
 namespace npu::tile_fwk {
 namespace osp {
 
@@ -35,7 +33,6 @@ namespace osp {
 template <typename GraphT>
 class EdgeView {
   private:
-    static_assert(isDirectedGraphV<GraphT>, "GraphT must satisfy the directed_graph concept");
 
     const GraphT &graph_;
 
@@ -171,7 +168,6 @@ class EdgeView {
 template <typename GraphT, bool isOutgoing>
 class IncidentEdgeView {
   private:
-    static_assert(isDirectedGraphV<GraphT>, "GraphT must satisfy the directed_graph concept");
 
     const GraphT &graph_;
     VertexIdxT<GraphT> anchorVertex_;

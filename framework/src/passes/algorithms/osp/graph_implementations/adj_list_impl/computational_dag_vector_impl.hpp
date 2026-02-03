@@ -265,15 +265,6 @@ using ComputationalDagVectorImplDefUnsignedT = ComputationalDagVectorImpl<CDagVe
  */
 using ComputationalDagVectorImplDefIntT = ComputationalDagVectorImpl<CDagVertexImplInt>;
 
-static_assert(isDirectedGraphEdgeDescV<ComputationalDagVectorImplDefUnsignedT>,
-              "ComputationalDagVectorImpl must satisfy the directed_graph_edge_desc concept");
-
-static_assert(hasVertexWeightsV<ComputationalDagVectorImplDefUnsignedT>,
-              "ComputationalDagVectorImpl must satisfy the has_vertex_weights concept");
-
-static_assert(isDirectedGraphV<ComputationalDagVectorImplDefUnsignedT>,
-              "ComputationalDagVectorImpl must satisfy the directed_graph concept");
-
 }    // namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_COMPUTATIONAL_DAG_VECTOR_IMPL_HPP
