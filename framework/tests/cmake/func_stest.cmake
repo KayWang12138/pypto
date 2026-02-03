@@ -294,6 +294,7 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     list(REMOVE_DUPLICATES PTO_Fwk_STestCaseLibraries)
     set(PTO_Fwk_Libraries
             tile_fwk_simulation_platform
+            tile_fwk_log
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler

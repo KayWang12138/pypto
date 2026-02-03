@@ -97,6 +97,7 @@ target_compile_options(tile_fwk_intf_pub
             -Werror
             # 依赖分析选项
             $<$<CXX_COMPILER_ID:GNU>:$<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:-MMD>>
+            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
 )
 target_link_directories(tile_fwk_intf_pub
         INTERFACE
