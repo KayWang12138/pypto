@@ -359,7 +359,7 @@ Status MixInternalComponentsAnalyzer::DetermineComponentType(const InternalCompo
     // 增加 iscube 属性一致性校验
     bool isConsistent = CheckAllCubeAttrConsistent(component);
     if (!isConsistent) {
-        ALOG_ERROR_F("[IsCubeAttr_CHECK] Component %zu has inconsistent isCube attribute!", component.suffix);
+        ALOG_ERROR_F("[IsCubeAttr_CHECK] Component %s has inconsistent isCube attribute!", component.suffix.c_str());
         return FAILED;
     }
     // 遍历所有非同步op，查找isCube属性
@@ -374,20 +374,20 @@ Status MixInternalComponentsAnalyzer::DetermineComponentType(const InternalCompo
         if (op->HasAttribute(OpAttributeKey::isCube)) {
             bool isCube = op->GetBoolAttribute(OpAttributeKey::isCube);
             if (isCube) {
-                ALOG_DEBUG_F("Component %zu determined as C_SCOPE (non-sync op %d has isCube=true)", 
-                            component.suffix, op->GetOpMagic());
+                ALOG_DEBUG_F("Component %s determined as C_SCOPE (non-sync op %d has isCube=true)", 
+                            component.suffix.c_str(), op->GetOpMagic());
                 componentType = ComponentType::C_SCOPE;
                 return SUCCESS;
             }
         }
-        ALOG_DEBUG_F("Component %zu determined as V_SCOPE (non-sync op %d has isCube=false or no isCube attr)", 
-                    component.suffix, op->GetOpMagic());
+        ALOG_DEBUG_F("Component %s determined as V_SCOPE (non-sync op %d has isCube=false or no isCube attr)", 
+                    component.suffix.c_str(), op->GetOpMagic());
         componentType = ComponentType::V_SCOPE;
         return SUCCESS;
     }
     // 如果所有操作都是同步操作
-    ALOG_DEBUG_F("Component %zu has only sync operations (%zu ops)", 
-                component.suffix, component.operations.size());
+    ALOG_DEBUG_F("Component %s has only sync operations (%s ops)", 
+                component.suffix.c_str(), component.operations.size());
     return FAILED;
 }
 
@@ -409,8 +409,8 @@ bool MixInternalComponentsAnalyzer::CheckAllCubeAttrConsistent(const InternalCom
             continue;
         }
         if (refIsCube != curIsCube) {
-            ALOG_ERROR_F("Component %zu has inconsistent isCube attribute! Error op magic=%d, opcode=%s.",
-                        component.suffix, op->GetOpMagic(), op->GetOpcodeStr().c_str());
+            ALOG_ERROR_F("Component %s has inconsistent isCube attribute! Error op magic=%d, opcode=%s.",
+                        component.suffix.c_str(), op->GetOpMagic(), op->GetOpcodeStr().c_str());
             return false;
         }
     }
