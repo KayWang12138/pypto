@@ -55,7 +55,7 @@ protected:
         auto folder = config::LogTopFolder() + "/test_json_dumo";
         CreateDir(folder);
         jsonFilePath = folder + "/test_json.json";
-        auto runFunc = Program::GetInstance().GetFunctionByRawName("TENSOR_AddFunction");
+        auto runFunc = Program::GetInstance().GetFunctionByRawName("PYPTO_AddFunction");
         if (runFunc == nullptr) {
             GTEST_SKIP() << "Get func empty.";
         }

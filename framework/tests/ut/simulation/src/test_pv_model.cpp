@@ -86,15 +86,15 @@ TEST(PvModelTest, TestDynImpl) {
 TEST(PvModelTest, TestDynCodegen) {
     std::string org = R"!!!(
 #include "TileOpImpl.h"
-[aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
+[aicore] void PYPTO_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
 }
 )!!!";
-    std::string srcFile("TENSOR_PATH0_4_0.cpp");
+    std::string srcFile("PYPTO_PATH0_4_0.cpp");
     std::ofstream ofs(srcFile);
     ofs << org;
     ofs.close();
 
-    std::string dstFile("TENSOR_PATH0_4_0_pvmodel.cpp");
+    std::string dstFile("PYPTO_PATH0_4_0_pvmodel.cpp");
     npu::tile_fwk::CopyFile(srcFile, dstFile);
     PvModelCodegen::AddKernelEntry(dstFile);
     std::ifstream file(dstFile);
@@ -104,16 +104,16 @@ TEST(PvModelTest, TestDynCodegen) {
     file.close();
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
-extern "C" [aicore] void TENSOR_PATH0_4_0(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
+extern "C" [aicore] void PYPTO_PATH0_4_0(CoreFuncParam* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam);
 
 
 extern "C" __global__ [aicore] void PvModelKernelEntry(__gm__ npu::tile_fwk::DynFuncData *funcData, __gm__ uint64_t *opAttrOffset) {
     CoreFuncParam param = {funcData, &funcData->opAttrs[opAttrOffset[0]], funcData->exprTbl};
-    TENSOR_PATH0_4_0(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->hcclContext, (__gm__ GMTensorInfo*)NULL);
+    PYPTO_PATH0_4_0(&param, funcData->stackWorkSpaceAddr, (__gm__ int64_t *)funcData->hcclContext, (__gm__ GMTensorInfo*)NULL);
 }
 
 
-[aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
+[aicore] void PYPTO_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
 }
 )!!!";
     EXPECT_EQ(expect, content);

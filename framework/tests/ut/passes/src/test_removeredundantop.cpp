@@ -339,7 +339,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest10) {
     ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
     outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &view = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor});
     view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset));
     auto &assemble = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
@@ -390,13 +390,13 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest11) {
     ubTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2, TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
     outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &view1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast1}, {ubTensor});
     view1.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset1));
     auto &view2 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast2}, {ubTensor});
     view2.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset2));
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast1);
     currFunctionPtr->inCasts_.push_back(inCast2);
     currFunctionPtr->outCasts_.push_back(outCast);
@@ -489,7 +489,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest1) {
         output2 = Exp(expand);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeEleven);
 
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
@@ -545,8 +545,8 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest2) {
         output2 = Exp(expand);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
-    
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase2");
+
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
         { "AssignMemoryType",  PassName::ASSIGN_MEMORY_TYPE},
         {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
@@ -596,7 +596,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest3) {
         output = Exp(input);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase3");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase3");
     int assemble_before = kNumZero;
     for (const auto &op : func->Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -609,7 +609,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest3) {
         {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
     });
     EXPECT_EQ(passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy"), SUCCESS);
-    
+
     // ================== Verify the effect of the Pass ==================
     int assemble_after = kNumZero;
     for (const auto &op : func->Operations()) {
@@ -910,7 +910,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpUTest17) {
     ubTensor2->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
     auto outCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape, TileOpFormat::TILEOP_ND, "outCast", NodeType::OUTCAST);
     outCast->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, false);
-    
+
     auto &view = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {inCast}, {ubTensor1});
     view.SetOpAttribute(std::make_shared<ViewOpAttribute>(offset));
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor1}, {ubTensor2});
@@ -972,7 +972,7 @@ TEST_F(TestRemoveRedundantOpPass, TestRemoveMoreAssembleSpecialCase) {
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor1}, {ubTensor3});
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {ubTensor2}, {ubTensor3});
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {ubTensor3}, {outCast});
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     RemoveRedundantOp RemoveRedundantOpPass;

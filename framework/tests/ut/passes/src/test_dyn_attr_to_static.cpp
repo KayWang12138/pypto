@@ -107,15 +107,15 @@ TEST_F(DynAttrToStaticTest, TestGetTensorData) {
     }
 
     // Call the pass
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_coa");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_test_coa");
     npu::tile_fwk::DynAttrToStatic passDynAttrToStatic;
     passDynAttrToStatic.RunOnFunction(*func);
 
     // ================== Verify Pass Effect TENSOR_loop ==================
 #if ENABLE_HIDDENLOOP
-    std::string loopPathFuncName = "TENSOR_loop_Unroll1_PATH0_hiddenfunc0";
+    std::string loopPathFuncName = "PYPTO_loop_Unroll1_PATH0_hiddenfunc0";
 #else
-    std::string loopPathFuncName = "TENSOR_loop_Unroll1_PATH0";
+    std::string loopPathFuncName = "PYPTO_loop_Unroll1_PATH0";
 #endif
     Function* loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
     Function* rootFunc = loopPathFunc->rootFunc_;
@@ -161,15 +161,15 @@ TEST_F(DynAttrToStaticTest, TestSetTensorData) {
     }
 
     // Call the pass
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_coa");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_test_coa");
     npu::tile_fwk::DynAttrToStatic passDynAttrToStatic;
     passDynAttrToStatic.RunOnFunction(*func);
 
     // ================== Verify Pass Effect TENSOR_Step1==================
 #if ENABLE_HIDDENLOOP
-    std::string loopPathFuncName = "TENSOR_Step1_Unroll1_PATH0_hiddenfunc0";
+    std::string loopPathFuncName = "PYPTO_Step1_Unroll1_PATH0_hiddenfunc0";
 #else
-    std::string loopPathFuncName = "TENSOR_Step1_Unroll1_PATH0";
+    std::string loopPathFuncName = "PYPTO_Step1_Unroll1_PATH0";
 #endif
     Function* loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
     Function* rootFunc = loopPathFunc->rootFunc_;
@@ -215,15 +215,15 @@ TEST_F(DynAttrToStaticTest, TestDynExpression) {
     }
 
     // Call the pass
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_test_coa");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_test_coa");
     npu::tile_fwk::DynAttrToStatic passDynAttrToStatic;
     passDynAttrToStatic.RunOnFunction(*func);
 
     // ================== Verify Pass Effect TENSOR_L0 ==================
 #if ENABLE_HIDDENLOOP
-    std::string loopPathFuncName = "TENSOR_L0_Unroll1_PATH0_hiddenfunc0";
+    std::string loopPathFuncName = "PYPTO_L0_Unroll1_PATH0_hiddenfunc0";
 #else
-    std::string loopPathFuncName = "TENSOR_L0_Unroll1_PATH0";
+    std::string loopPathFuncName = "PYPTO_L0_Unroll1_PATH0";
 #endif
     Function* loopPathFunc = Program::GetInstance().GetFunctionByRawName(loopPathFuncName);
     Function* rootFunc = loopPathFunc->rootFunc_;
@@ -304,7 +304,7 @@ TEST_F(DynAttrToStaticTest, IntBasicCases) {
     ASSERT_EQ(allGroups.size(), 1);
     std::vector<std::vector<size_t>> groups = {{0,1}, {2}};
     std::string output = checker.PrintIndexGroups(groups);
-    std::string expected = 
+    std::string expected =
         "\nALL Consistent Index Group:  {\n"
         "Consistent Index Group: 1{0, 1, }"
         "\n"

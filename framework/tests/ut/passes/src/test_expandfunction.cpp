@@ -137,7 +137,7 @@ TEST_F(TestExpandFunctionPass, TestCVSeperate2) {
     EXPECT_TRUE(currFunctionPtr != nullptr);
 
     std::vector<int64_t> tile_shape = {kNumExpFive, kNumExpFive};
-    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};    
+    std::vector<int64_t> shape = {kNumExpSix, kNumExpSix};
     TileShape::Current().SetVecTile(kNumExpFive, kNumExpFive);
     TileShape::Current().SetCubeTile({kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, {kNumExpFive, kNumExpFive}, false, false);
 
@@ -187,7 +187,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     currFunctionPtr->AddOperation(Opcode::OP_PAD, {inCast}, {ubTensor1});
     currFunctionPtr->AddOperation(Opcode::OP_NOP, {ubTensor1}, {ubTensor2});
     currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor2}, {outCast});
-    
+
     std::shared_ptr<Operation> pad_op, nop_op, view_op;
     for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
         auto op = currFunctionPtr->Operations().operations_[uIndex];
@@ -197,7 +197,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest2) {
     }
 
     view_op->SetOpAttribute(op_attr);
-    
+
     currFunctionPtr->inCasts_.push_back(inCast);
     currFunctionPtr->outCasts_.push_back(outCast);
     currFunctionPtr->SetGraphType(GraphType::TENSOR_GRAPH);
@@ -242,7 +242,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionUTest3) {
     std::vector<SymbolicScalar> symbol = {SymbolicScalar("sym")};
     auto op_attr = std::make_shared<AssembleOpAttribute>(toOffset, symbol);
     currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {inCast}, {outCast});
-    
+
     std::shared_ptr<Operation> assemble_op;
     for (uint32_t uIndex = 0; uIndex < currFunctionPtr->Operations().size(); ++uIndex){
         if (currFunctionPtr->Operations().operations_[uIndex]->GetOpcode() == Opcode::OP_ASSEMBLE) {
@@ -399,7 +399,7 @@ TEST_F(TestExpandFunctionPass, ExpandFunctionSTest1) {
         output = Exp(input);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeThree);
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
         {   "ExpandFunction",   PassName::EXPAND_FUNCTION},
@@ -474,7 +474,7 @@ void ConstructGraphST2() {
 TEST_F(TestExpandFunctionPass, ExpandFunctionSTest2) {
     PassManager &passManager = PassManager::Instance();
     ConstructGraphST2();
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase2");
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
         {   "ExpandFunction",   PassName::EXPAND_FUNCTION},
     });

@@ -89,7 +89,7 @@ TEST_F(InferMemoryConflictTest, TestInit) {
     assembleOp2.SetOpAttribute(assembleAttr2);
 
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
-    
+
     InferMemoryConflict pass;
     auto status = pass.Init(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
@@ -134,11 +134,11 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation1) {
     currFunctionPtr->outCasts_.push_back(output);
 
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
-    
+
     auto &assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp1.SetOpAttribute(assembleAttr1);
-    
+
     auto &viewOp = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr = std::make_shared<ViewOpAttribute>(offset);
     viewOp.SetOpAttribute(viewAttr);
@@ -173,7 +173,7 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation2) {
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset1, shape1);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape2);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset2, shape2);
-    
+
     ddrRawTensor1->memoryId = 0;
     ddrRawTensor2->memoryId = 1;
     ddrRawTensor1->SetSymbol("input1");
@@ -181,11 +181,11 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation2) {
 
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->outCasts_.push_back(output);
-    
+
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp.SetOpAttribute(assembleAttr);
-    
+
     auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T1});
     auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset1);
     viewOp1.SetOpAttribute(viewAttr1);
@@ -217,7 +217,7 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation3) {
     auto T = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset, shape);
-    
+
     ddrRawTensor1->SetSymbol("input");
     ddrRawTensor2->SetSymbol("output");
     ddrRawTensor1->memoryId = 0;
@@ -229,11 +229,11 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation3) {
     auto &viewOp1 = currFunctionPtr->AddOperation(Opcode::OP_VIEW, {input}, {T});
     auto viewAttr1 = std::make_shared<ViewOpAttribute>(offset);
     viewOp1.SetOpAttribute(viewAttr1);
-    
+
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp.SetOpAttribute(assembleAttr);
-    
+
     InferMemoryConflict pass;
     auto status = pass.Init(*currFunctionPtr);
     status = pass.ForwardPropagation(*currFunctionPtr);
@@ -261,13 +261,13 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation4) {
     auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
 
     std::vector<int64_t> offset = {NUM_ZERO, NUM_ZERO};
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape0);
 
     auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape0);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape0);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset, shape0);
-    
+
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset, shape0);
     ddrRawTensor1->SetSymbol("input");
     ddrRawTensor2->SetSymbol("output");
@@ -276,11 +276,11 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation4) {
     currFunctionPtr->outCasts_.push_back(output);
     currFunctionPtr->inCasts_.push_back(input);
     currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {tensor0, tensor2, input}, {tensor1});
-   
+
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {tensor1}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp.SetOpAttribute(assembleAttr);
-    
+
     InferMemoryConflict pass;
     auto status = pass.Init(*currFunctionPtr);
     status = pass.ForwardPropagation(*currFunctionPtr);
@@ -308,13 +308,13 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation5) {
 
     auto logicalTensor0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto logicalTensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape0);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset, shape0);
     auto logicalTensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape0);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape0);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset, shape0);
-    
+
     ddrRawTensor1->SetSymbol("input");
     ddrRawTensor2->SetSymbol("output");
     ddrRawTensor1->memoryId = 0;
@@ -324,9 +324,9 @@ TEST_F(InferMemoryConflictTest, TestForwardPropagation5) {
     currFunctionPtr->outCasts_.push_back(output);
 
     currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {logicalTensor0, logicalTensor2, input}, {logicalTensor1});
-   
+
     auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {logicalTensor1}, {output});
-    
+
     InferMemoryConflict pass;
     auto status = pass.Init(*currFunctionPtr);
     status = pass.ForwardPropagation(*currFunctionPtr);
@@ -359,7 +359,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation1) {
     auto output1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset1, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor3 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor3, offset2, shape2);
-    
+
     ddrRawTensor1->SetSymbol("input1");
     ddrRawTensor2->SetSymbol("output1");
     ddrRawTensor3->SetSymbol("output2");
@@ -376,7 +376,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation1) {
     viewOp.SetOpAttribute(viewAttr);
 
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {T1}, {T2});
-    
+
     auto &assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
     auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assembleOp1.SetOpAttribute(assembleAttr1);
@@ -384,7 +384,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation1) {
     auto &assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output2});
     auto assembleAttr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp2.SetOpAttribute(assembleAttr2);
-    
+
     InferMemoryConflict pass;
     auto status = pass.Init(*currFunctionPtr);
     status = pass.BackwardPropagation(*currFunctionPtr);
@@ -416,7 +416,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation2) {
     auto T3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape0);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset2, shape2);
-    
+
     ddrRawTensor1->SetSymbol("input");
     ddrRawTensor2->SetSymbol("output");
     ddrRawTensor1->memoryId = 0;
@@ -430,9 +430,9 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation2) {
     viewOp1.SetOpAttribute(viewAttr1);
 
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {T1}, {T2});
-    
+
     auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T2}, {T3});
-    
+
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T3}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp.SetOpAttribute(assembleAttr);
@@ -473,7 +473,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation3) {
     auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor3, offset2, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor4 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto output3 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor4, offset3, shape2);
-    
+
     ddrRawTensor1->SetSymbol("input");
     ddrRawTensor2->SetSymbol("output1");
     ddrRawTensor3->SetSymbol("output2");
@@ -493,7 +493,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation3) {
     viewOp1.SetOpAttribute(viewAttr1);
 
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {T1}, {T2});
-    
+
     auto &assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
     auto assembleAttr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assembleOp2.SetOpAttribute(assembleAttr2);
@@ -505,7 +505,7 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation3) {
     auto &assembleOp4 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output3});
     auto assembleAttr4 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset3);
     assembleOp4.SetOpAttribute(assembleAttr4);
-    
+
     InferMemoryConflict pass;
     auto status = pass.Init(*currFunctionPtr);
     status = pass.BackwardPropagation(*currFunctionPtr);
@@ -534,13 +534,13 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation4) {
 
     auto T0 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     auto T2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape0);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor1, offset, shape0);
     auto T1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape0);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape0);
     auto output1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset, shape0);
-    
+
     ddrRawTensor1->SetSymbol("input");
     ddrRawTensor2->SetSymbol("output1");
     ddrRawTensor1->memoryId = 0;
@@ -550,11 +550,11 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation4) {
     currFunctionPtr->outCasts_.push_back(output1);
 
     currFunctionPtr->AddOperation(Opcode::OP_INDEX_OUTCAST, {T0, T2, input}, {T1});
-   
+
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T1}, {output1});
     auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp.SetOpAttribute(assembleAttr1);
-    
+
     InferMemoryConflict pass;
     auto status = pass.Init(*currFunctionPtr);
     status = pass.BackwardPropagation(*currFunctionPtr);
@@ -586,13 +586,13 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation5) {
 
     auto T0 = std::make_shared<LogicalTensor>(*currFunctionPtr1, DT_FP32, shape2);
     auto T2 = std::make_shared<LogicalTensor>(*currFunctionPtr1, DT_FP32, shape1);
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor1 = std::make_shared<RawTensor>(DT_FP32, shape0);
     auto input = std::make_shared<LogicalTensor>(*currFunctionPtr1, ddrRawTensor1, offset1, shape2);
     auto T1 = std::make_shared<LogicalTensor>(*currFunctionPtr1, DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape3);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr1, ddrRawTensor2, offset2, shape4);
-    
+
     ddrRawTensor1->SetSymbol("input");
     ddrRawTensor2->SetSymbol("output");
     ddrRawTensor1->memoryId = 0;
@@ -602,9 +602,9 @@ TEST_F(InferMemoryConflictTest, TestBackwardPropagation5) {
     currFunctionPtr1->outCasts_.push_back(output);
 
     currFunctionPtr1->AddOperation(Opcode::OP_INDEX_OUTCAST, {T0, T2, input}, {T1});
-   
+
     auto &reshapeOp1 = currFunctionPtr1->AddOperation(Opcode::OP_RESHAPE, {T1}, {output});
-    
+
     InferMemoryConflict testPass;
     auto status = testPass.Init(*currFunctionPtr1);
     status = testPass.BackwardPropagation(*currFunctionPtr1);
@@ -645,11 +645,11 @@ TEST_F(InferMemoryConflictTest, TestBothPropagation1) {
     viewOperation.SetOpAttribute(viewAttr);
 
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
-    
+
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp.SetOpAttribute(assembleAttr);
-    
+
     InferMemoryConflict pass;
     auto status = pass.Init(*currFunctionPtr);
     status = pass.ForwardPropagation(*currFunctionPtr);
@@ -697,11 +697,11 @@ TEST_F(InferMemoryConflictTest, TestBothPropagation2) {
     viewOp2.SetOpAttribute(viewAttr2);
 
     auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
-    
+
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp.SetOpAttribute(assembleAttr);
-    
+
     InferMemoryConflict pass;
     auto status = pass.Init(*currFunctionPtr);
     status = pass.ForwardPropagation(*currFunctionPtr);
@@ -733,7 +733,7 @@ TEST_F(InferMemoryConflictTest, TestInsertCopys) {
     auto T1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto T2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape2);
-    
+
     ddrRawTensor1->SetSymbol("input1");
     ddrRawTensor2->SetSymbol("output");
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset2, shape2);
@@ -747,11 +747,11 @@ TEST_F(InferMemoryConflictTest, TestInsertCopys) {
     viewOp1.SetOpAttribute(viewAttr1);
 
     auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
-    
+
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp.SetOpAttribute(assembleAttr);
-    
+
     InferMemoryConflict pass;
     pass.preregcopys.insert(&reshapeOp);
     pass.postregcopys.insert(&reshapeOp);
@@ -801,7 +801,7 @@ TEST_F(InferMemoryConflictTest, STest1) {
     auto T2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset, shape);
-    
+
     ddrRawTensor1->SetSymbol("input");
     ddrRawTensor2->SetSymbol("output");
     ddrRawTensor1->memoryId = 0;
@@ -815,11 +815,11 @@ TEST_F(InferMemoryConflictTest, STest1) {
     viewOp.SetOpAttribute(viewAttr);
 
     currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T1}, {T2});
-    
+
     auto &assembleOp = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output});
     auto assembleAttr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assembleOp.SetOpAttribute(assembleAttr);
-    
+
     InferMemoryConflict pass;
     auto status = pass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
@@ -863,13 +863,13 @@ TEST_F(InferMemoryConflictTest, STest2) {
     auto T1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto T4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto T5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
-    
+
     auto T2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
     auto T3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
-    
+
     std::shared_ptr<RawTensor> ddrRawTensor2 = std::make_shared<RawTensor>(DT_FP32, shape2);
     auto output = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset2, shape2);
-    
+
     ddrRawTensor1->SetSymbol("input1");
     ddrRawTensor2->SetSymbol("output");
     ddrRawTensor1->memoryId = 0;
@@ -886,7 +886,7 @@ TEST_F(InferMemoryConflictTest, STest2) {
 
     auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {T2}, {T3});
     currFunctionPtr->AddOperation(Opcode::OP_EXP, {T3}, {output});
-    
+
     InferMemoryConflict pass;
     auto status = pass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
@@ -933,7 +933,7 @@ TEST_F(InferMemoryConflictTest, STest3) {
     auto output1 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor2, offset1, shape2);
     std::shared_ptr<RawTensor> ddrRawTensor3 = std::make_shared<RawTensor>(DT_FP32, shape1);
     auto output2 = std::make_shared<LogicalTensor>(*currFunctionPtr, ddrRawTensor3, offset2, shape2);
-    
+
     ddrRawTensor1->SetSymbol("input");
     ddrRawTensor2->SetSymbol("output1");
     ddrRawTensor3->SetSymbol("output2");
@@ -954,11 +954,11 @@ TEST_F(InferMemoryConflictTest, STest3) {
     auto &assembleOp1 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output1});
     auto assembleAttr1 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset1);
     assembleOp1.SetOpAttribute(assembleAttr1);
-    
+
     auto &assembleOp2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {T2}, {output2});
     auto assembleAttr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assembleOp2.SetOpAttribute(assembleAttr2);
-    
+
     InferMemoryConflict pass;
     auto status = pass.RunOnFunction(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
@@ -999,7 +999,7 @@ TEST_F(InferMemoryConflictTest, STest4) {
         auto b0 = Reshape(b, Shape{64, 256});
         out = Matrix::Matmul(DataType::DT_FP32, a0, b0, false, false);
     }
-    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_InferMemoryConflictTest");
+    Function *func = Program::GetInstance().GetFunctionByRawName("PYPTO_InferMemoryConflictTest");
     int cnt = 0;
     for (auto e : func->Operations().DuplicatedOpList()) {
         if (e->GetOpcode() == Opcode::OP_REGISTER_COPY) {
