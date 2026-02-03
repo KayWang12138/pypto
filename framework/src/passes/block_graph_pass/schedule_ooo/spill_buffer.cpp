@@ -486,7 +486,7 @@ LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperan
     return localTensor;
 }
 
-void OoOScheduler::UpdateAssembleSpillAttr(Operation newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder) {
+void OoOScheduler::UpdateAssembleSpillAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder) {
     UpdateOpInternalSubgraphID(newOp, allocIssue);
     IssueEntryPtr newIssue = std::make_shared<IssueEntry>(newOp, issueId);
     issueEntryMap[issueId++] = newIssue;
