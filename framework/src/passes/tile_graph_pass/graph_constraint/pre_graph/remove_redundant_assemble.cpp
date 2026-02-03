@@ -187,6 +187,7 @@ Status RemoveRedundantAssemble::ProcessView(Function &function) const {
             copyAttr->SetRawShape(OpImmediate::Specified(newRawShape));
         }
         reshapeOp.GetOOperands().front()->dynValidShape_ = SymbolicScalar::FromConcrete(newRawShape);
+        reshapeOp.SetAttr(OP_ATTR_PREFIX + "validShape", reshapeOp.GetOOperands().front()->dynValidShape_);
         reshapeOp.GetOOperands().front()->shape = newRawShape;
         reshapeOp.GetOOperands().front()->tensor->UpdateRawShape(newRawShape);
         reshapeOp.ReplaceIOperand(0, viewInput);
@@ -378,7 +379,6 @@ Status HandleDynOffsetForReshape(
         copyAttr->SetToOffset(newOffset);
     }
     producer->GetIOperands()[0]->tensor->UpdateRawShape(newRawShape);
-    producer->GetIOperands()[0]->dynValidShape_ = SymbolicScalar::FromConcrete(newRawShape);
     return SUCCESS;
 }
 
