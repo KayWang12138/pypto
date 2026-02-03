@@ -38,47 +38,12 @@ namespace osp {
  * These structs inherit from `std::true_type` if the specified member type exists in `T`,
  * otherwise they inherit from `std::false_type`.
  */
-template <typename T, typename = void>
-struct HasVertexIdxTmember : std::false_type {};
-
-template <typename T>
-struct HasVertexIdxTmember<T, std::void_t<typename T::VertexIdx>> : std::true_type {};
 
 template <typename T, typename = void>
 struct HasEdgeDescTmember : std::false_type {};
 
 template <typename T>
 struct HasEdgeDescTmember<T, std::void_t<typename T::DirectedEdgeDescriptor>> : std::true_type {};
-
-template <typename T, typename = void>
-struct HasVertexWorkWeightTmember : std::false_type {};
-
-template <typename T>
-struct HasVertexWorkWeightTmember<T, std::void_t<typename T::VertexWorkWeightType>> : std::true_type {};
-
-template <typename T, typename = void>
-struct HasVertexCommWeightTmember : std::false_type {};
-
-template <typename T>
-struct HasVertexCommWeightTmember<T, std::void_t<typename T::VertexCommWeightType>> : std::true_type {};
-
-template <typename T, typename = void>
-struct HasVertexMemWeightTmember : std::false_type {};
-
-template <typename T>
-struct HasVertexMemWeightTmember<T, std::void_t<typename T::VertexMemWeightType>> : std::true_type {};
-
-template <typename T, typename = void>
-struct HasVertexTypeTmember : std::false_type {};
-
-template <typename T>
-struct HasVertexTypeTmember<T, std::void_t<typename T::VertexTypeType>> : std::true_type {};
-
-template <typename T, typename = void>
-struct HasEdgeCommWeightTmember : std::false_type {};
-
-template <typename T>
-struct HasEdgeCommWeightTmember<T, std::void_t<typename T::EdgeCommWeightType>> : std::true_type {};
 
 /**
  * @brief Core traits for any directed graph type.
@@ -89,7 +54,6 @@ struct HasEdgeCommWeightTmember<T, std::void_t<typename T::EdgeCommWeightType>> 
  */
 template <typename T>
 struct DirectedGraphTraits {
-    static_assert(HasVertexIdxTmember<T>::value, "graph must have VertexIdx");
     using VertexIdx = typename T::VertexIdx;
 };
 
@@ -138,11 +102,6 @@ struct DirectedGraphEdgeDescTraitsHelper {
 };
 
 template <typename T>
-struct DirectedGraphEdgeDescTraitsHelper<T, true> {
-    using DirectedEdgeDescriptor = typename T::DirectedEdgeDescriptor;
-};
-
-template <typename T>
 struct DirectedGraphEdgeDescTraits {
     using DirectedEdgeDescriptor =
         typename DirectedGraphEdgeDescTraitsHelper<T, HasEdgeDescTmember<T>::value>::DirectedEdgeDescriptor;
@@ -163,10 +122,6 @@ using EdgeDescT = typename DirectedGraphEdgeDescTraits<T>::DirectedEdgeDescripto
  */
 template <typename T>
 struct ComputationalDagTraits {
-    static_assert(HasVertexWorkWeightTmember<T>::value, "cdag must have vertex work weight type");
-    static_assert(HasVertexCommWeightTmember<T>::value, "cdag must have vertex comm weight type");
-    static_assert(HasVertexMemWeightTmember<T>::value, "cdag must have vertex mem weight type");
-
     using VertexWorkWeightType = typename T::VertexWorkWeightType;
     using VertexCommWeightType = typename T::VertexCommWeightType;
     using VertexMemWeightType = typename T::VertexMemWeightType;
@@ -199,23 +154,6 @@ struct ComputationalDagTypedVerticesTraits<T, std::void_t<typename T::VertexType
 template <typename T>
 using VTypeT = typename ComputationalDagTypedVerticesTraits<T>::VertexTypeType;
 
-/**
- * @brief Traits to extract the edge communication weight type of a computational DAG, if defined.
- *
- * If the DAG defines `edge_comm_weight_type`, it is extracted; otherwise, `void` is used.
- */
-template <typename T, typename = void>
-struct ComputationalDagEdgeDescTraits {
-    using EdgeCommWeightType = void;
-};
-
-template <typename T>
-struct ComputationalDagEdgeDescTraits<T, std::void_t<typename T::EdgeCommWeightType>> {
-    using EdgeCommWeightType = typename T::EdgeCommWeightType;
-};
-
-template <typename T>
-using ECommwT = typename ComputationalDagEdgeDescTraits<T>::EdgeCommWeightType;
 
 // -----------------------------------------------------------------------------
 // Property Traits
