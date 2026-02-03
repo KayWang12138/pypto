@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
-from typing import List, Union, Optional, Tuple
+from typing import Union, Optional
 from enum import Enum
 from .. import pypto_impl
 from .._op_wrapper import op_wrapper
@@ -41,9 +41,9 @@ comm_config: Optional[CommConfig] = None
 def create_shmem_tensor(
     group_name: str, 
     world_size: int,
-    shape: List[int], 
+    shape: list[int], 
     dtype: DataType,
-) -> Tuple[Tensor, Signal]:
+) -> tuple[Tensor, Signal]:
     """Creates a symmetric tensor in shared memory.
 
     Parameters
@@ -124,11 +124,11 @@ def create_shmem_barrier_signal(
 @op_wrapper
 def shmem_put(
     src: Tensor,
-    offsets: List[Union[int, SymbolicScalar]],
+    offsets: list[Union[int, SymbolicScalar]],
     dst: Tensor,
     dst_rank: Union[int, SymbolicScalar],
     *,
-    pred_tokens: List[Tensor] = None,
+    pred_tokens: list[Tensor] = None,
     shmem_op: AtomicType = AtomicType.SET,
 ) -> Tensor:
     """Asynchronously sends local GM data to a remote GM.
@@ -174,11 +174,11 @@ def shmem_put(
 def shmem_get(
     src: Tensor,
     src_rank: Union[int, SymbolicScalar],
-    shape: List[int] = None,
-    offset: List[Union[int, SymbolicScalar]] = None,
+    shape: list[int] = None,
+    offset: list[Union[int, SymbolicScalar]] = None,
     *,
-    pred_tokens: List[Tensor] = None,
-    valid_shape: Optional[List[Union[int, SymbolicScalar]]] = None,
+    pred_tokens: list[Tensor] = None,
+    valid_shape: Optional[list[Union[int, SymbolicScalar]]] = None,
     shmem_op: AtomicType = AtomicType.SET, 
 ) -> Tensor:
     """Asynchronously fetches data from a remote GM to local GM.
@@ -229,10 +229,10 @@ def shmem_get(
 def shmem_signal(
     dst: Signal,
     dst_rank: Union[int, SymbolicScalar],
-    shape: List[int] = None,
-    offset: List[Union[int, SymbolicScalar]] = None,
+    shape: list[int] = None,
+    offset: list[Union[int, SymbolicScalar]] = None,
     *,
-    pred_tokens: List[Tensor] = None,
+    pred_tokens: list[Tensor] = None,
     shmem_op: AtomicType = AtomicType.SET,
 ) -> Tensor:
     """Writes a signal.
@@ -284,11 +284,11 @@ def shmem_signal(
 @op_wrapper
 def shmem_wait(
     src: Signal,
-    shape: List[int] = None,
-    offset: List[Union[int, SymbolicScalar]] = None,
+    shape: list[int] = None,
+    offset: list[Union[int, SymbolicScalar]] = None,
     cmp_value: int = 0,
     *,
-    pred_tokens: List[Tensor] = None,
+    pred_tokens: list[Tensor] = None,
     clear_flag: bool = False,
 ) -> Tensor:
     """Waits for a signal.
@@ -340,7 +340,7 @@ def shmem_wait(
 def shmem_barrier_all(
     src: Tensor,
     group: str,
-    pred_tokens: List[Tensor] = None,
+    pred_tokens: list[Tensor] = None,
 ) -> Tensor:
     """Synchronizes multiple devices within a communication group.
 
@@ -376,10 +376,10 @@ def shmem_barrier_all(
 @op_wrapper
 def shmem_clear(
     src: Tensor,
-    shape: List[int] = None,
-    offset: List[Union[int, SymbolicScalar]] = None,
+    shape: list[int] = None,
+    offset: list[Union[int, SymbolicScalar]] = None,
     *,
-    pred_tokens: List[Tensor] = None,
+    pred_tokens: list[Tensor] = None,
     is_signal: bool = False,
 ) -> Tensor:
     """Synchronizes multiple devices within a communication group by clearing shared memory tensors.
