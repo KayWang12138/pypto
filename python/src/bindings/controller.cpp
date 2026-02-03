@@ -374,7 +374,7 @@ void bind_controller_scope_classes(py::module &m) {
                    const Conv::TileL0Info&,
                    bool>(),
          py::arg("tileL1Info"),
-         py::arg("tileL0Info") = Conv::tileL0Info(),
+         py::arg("tileL0Info") = Conv::TileL0Info(),
          py::arg("setL0Tile") = false)
     .def_readwrite("tileL1Info", &ConvTile::tileL1Info)
     .def_readwrite("tileL0Info", &ConvTile::tileL0Info)
