@@ -172,5 +172,21 @@
         "framework/src/interface/tileop/"
       ]
     }
+  },
+  "libtile_fwk_log.so": {
+    "Source-Header": {
+      "Self": [
+        "framework/src/host_log"
+      ],
+      "Area": [
+      ],
+      "Include": [
+        "framework/include/"
+      ],
+      "WhiteList": [
+      ],
+      "BlackList": [
+      ]
+    }
   }
 }
