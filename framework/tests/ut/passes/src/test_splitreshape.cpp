@@ -1148,7 +1148,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     //Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumTwo, kNumTwo, kNumFour};
     std::vector<int64_t> reshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumFour};
-    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumEight};
     std::vector<int64_t> tiledorigShape = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumTwo};
 
@@ -1191,7 +1191,7 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
     //Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumFour, kNumTwo, kNumTwo};
     std::vector<int64_t> reshapeShape = {kNumFour, kNumFour};
-    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumEight};
     std::vector<int64_t> tiledorigShape = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumFour};
     std::vector<int64_t> tiledviewShape = {kNumTwo, kNumTwo};
@@ -1235,7 +1235,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
     //Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumTwo, kNumFour, kNumFour};
     std::vector<int64_t> reshapeShape = {kNumTwo, kNumFour, kNumTwo, kNumTwo};
-    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumEight};
     std::vector<int64_t> tiledassembleShape = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumTwo, kNumFour};
     std::vector<int64_t> tiledviewShape = {kNumTwo, kNumTwo, kNumTwo, kNumTwo};
@@ -1689,7 +1689,7 @@ namespace {
 TEST_F(TestSplitReshapePass, TestInheritAttribute) {
     std::vector<int64_t> origShape = {kNumFour, kNumTwo, kNumTwo};
     std::vector<int64_t> reshapeShape = {kNumFour, kNumFour};
-    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo};
+    std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumEight};
     std::vector<int64_t> tiledorigShape = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumFour};
     std::vector<int64_t> tiledviewShape = {kNumTwo, kNumTwo};
@@ -1762,8 +1762,8 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
     //Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumOne, kNumOne, kNumTwo, kNumEight};
     std::vector<int64_t> reshapeShape = {kNumOne, kExpFour};
-    std::vector<int64_t> tiledShape1 = {kNumTwo, kNumOne, kNumTwo, kNumFour};
-    std::vector<int64_t> tiledShape2 = {kNumOne, kNumFour};
+    std::vector<int64_t> tiledShape1 = {kNumTwo, kNumOne, kNumTwo, kNumEight};
+    std::vector<int64_t> tiledShape2 = {kNumOne, kNumEight};
 
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
@@ -1804,7 +1804,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
     //Define the shape of the Tensors
     std::vector<int64_t> origShape = {kExpSix, kNumSix};
     std::vector<int64_t> reshapeShape = {kNumNineSix, kNumFour};
-    std::vector<int64_t> tiledShape = {kExpFive, kNumTwo};
+    std::vector<int64_t> tiledShape = {kExpFive, kNumEight};
 
     TileShape::Current().SetVecTile(tiledShape);
     Tensor input(DT_FP32, origShape, "input");
@@ -1844,8 +1844,8 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
     //Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumEight, kNumEight};
     std::vector<int64_t> reshapeShape = {kExpFour, kNumFour};
-    std::vector<int64_t> tiledShape1 = {kNumTwo, kNumFour};
-    std::vector<int64_t> tiledShape2 = {kNumFour, kNumTwo};
+    std::vector<int64_t> tiledShape1 = {kNumTwo, kNumEight};
+    std::vector<int64_t> tiledShape2 = {kNumFour, kNumEight};
 
     Tensor input(DT_FP32, origShape, "input");
     Tensor output(DT_FP32, reshapeShape, "output");
@@ -1938,8 +1938,8 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
     //Define the shape of the Tensors
     std::vector<int64_t> origShape = {kNumOne, kExpFour};
     std::vector<int64_t> reshapeShape = {kNumOne, kNumOne, kNumTwo, kNumEight};
-    std::vector<int64_t> tiledShape1 = {kNumOne, kNumFour};
-    std::vector<int64_t> tiledShape2 = {kNumTwo, kNumOne, kNumTwo, kNumFour};
+    std::vector<int64_t> tiledShape1 = {kNumOne, kNumEight};
+    std::vector<int64_t> tiledShape2 = {kNumTwo, kNumOne, kNumTwo, kNumEight};
     std::vector<int64_t> tiledreshapeShape = {kNumOne, kNumFour};
     std::vector<int64_t> tiledassembleShape = {kNumOne, kNumOne, kNumOne, kNumFour};
     std::vector<int64_t> tiledviewShape = {kNumOne, kNumOne, kNumTwo, kNumFour};

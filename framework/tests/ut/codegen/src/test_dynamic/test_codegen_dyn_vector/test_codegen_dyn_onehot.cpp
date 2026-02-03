@@ -51,7 +51,8 @@ public:
 TEST_F(TestCodegenDynOneHot, OneHotLayout) {
     std::vector<int64_t> indicesShape = {32, 32};
     std::vector<int64_t> outputShape = {32, 32, 1};
-    TileShape::Current().SetVecTile(outputShape);
+    std::vector<int64_t> tileShape = {32, 32, 8};
+    TileShape::Current().SetVecTile(tileShape);
     Tensor inputStub(DT_INT32, indicesShape, "input");
     Tensor outputStub(DT_INT32, outputShape, "output");
     FUNCTION("ONEHOT", {inputStub, outputStub}) {
