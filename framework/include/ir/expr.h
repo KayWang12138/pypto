@@ -372,7 +372,7 @@ class Call : public Expr {
    * @return true if the kwarg exists
    */
   bool HasKwarg(const std::string& key) const {
-    for (const auto& [k, v] : kwargs_) {
+    for (const auto& [k, _] : kwargs_) {
       if (k == key) {
         return true;
       }
