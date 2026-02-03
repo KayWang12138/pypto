@@ -61,12 +61,23 @@ TEST_F(LoopUnrollIfTest, TestLoopUnrollWithIsLoopEnd) {
 
     Tensor accum(DT_FP32, {s, s}, "accum");
     Tensor output(DT_FP32, {s, s}, "output");
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
 
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(accum, 0.0f),
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+    });
+
+    // Calculate golden value:
+    // Loop runs n=5 times (i = 0, 1, 2, 3, 4)
+    // Last iteration (i=4): IsLoopEnd(4, 5) returns true, add 1.0
+    // Other iterations (i=0,1,2,3): IsLoopEnd returns false, add 2.0 each
+    // Total: 4 * 2.0 + 1 * 1.0 = 9.0
+    std::vector<float> goldenData(s * s, 9.0f);
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateTensor<float>(output, goldenData),
     });
 
     FUNCTION("main", {accum}, {output}) {
