@@ -28,6 +28,13 @@ enum class MixResourceType {
     MIX_1C2V = 2
 };
 
+enum class DieId {    // test
+    DIE_0 = 0,
+    DIE_1 = 1,
+    DIE_MIX = 2,
+    DIE_UNKNOW
+}
+
 inline void WrapInfoQueueLock(WrapInfoQueue* rq) {
     while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
     }
@@ -69,8 +76,18 @@ public:
     SendTaskToAiCoreFunc SendTaskToAiCore;
     bool isSupportMixSche {false};
 
+    // for die-to-die shchedule
+    ReadyCoreFunctionQueue* readyDieAicFunctionQue_[DIE_NUM] = {nullptr};
+    ReadyCoreFunctionQueue* readyDieAivFunctionQue_[DIE_NUM] = {nullptr};
+
     inline void InitArchInfo(ArchInfo info) {
         isSupportMixSche = (info == ArchInfo::DAV_3510);
+    }
+
+    inline DieId GetDieId(int scheCpuIdx, int scheCpuNum) {   // test
+        (void)scheCpuIdx;
+        (void)scheCpuNum;
+        return DieId::DIE_MIX;
     }
 
     inline void Init(DeviceTask* curDevTask, uint32_t* coreRunReadyCnt, uint32_t* runReadyCoreIdxZero,
@@ -103,6 +120,10 @@ public:
             free(wrapQueueForThread_.elem);
             wrapQueueForThread_.elem = nullptr;
         }
+    }
+
+    inline bool GeIsMixArch() {
+        return isSupportMixSche;
     }
 
     inline bool GetWrapCoreAvailable(int coreIdx) {
@@ -457,6 +478,33 @@ public:
                 wrapCoreStatus_[coreIdx] = 0;
             }
         }
+    }
+
+    // for die-to-die schedule
+    inline void SetDieReadyQueue(const struct DieReadyQueueData dieReadyFunctionQue) {
+        for (size_t i = 0 ; i < DIE_NUM ; i++) {
+           readyDieAivFunctionQue_[i] =  reinterpret_cast<ReadyCoreFunctionQueue *>(dieReadyFunctionQue.readyDieAivCoreFunctionQue[i]);
+           readyDieAicFunctionQue_[i] =  reinterpret_cast<ReadyCoreFunctionQueue *>(dieReadyFunctionQue.readyDieAicCoreFunctionQue[i]);
+        }
+    }
+
+    inline ReadyCoreFunctionQueue* GetDieReadyQueue(CoreType type, DieId dieId) {
+        ReadyCoreFunctionQueue* readyQueue = nullptr;
+        if (!isSupportMixSche || dieId == DieId::DIE_MIX || dieId == DieId::DIE_UNKNOW) {
+            return readyQueue;
+        }
+
+#ifdef SUPPORT_DIE_TO_DIE_SCHE
+        size_t dieIndex = static_cast<size_t>(dieId);
+        if (type == CoreType::AIC) {
+            readyQueue = readyDieAicFunctionQue_[dieIndex];
+        } else if (type == CoreType::AIV) {
+            readyQueue = readyDieAivFunctionQue_[dieIndex];
+        }
+#else
+        (void)type;
+#endif
+        return readyQueue;
     }
 };
 }
