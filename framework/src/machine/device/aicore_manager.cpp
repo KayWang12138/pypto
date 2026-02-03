@@ -91,10 +91,10 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 
         DEV_ERROR("[TraCR] Thread [%d] start tracr done. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
     } else {
-    //     DEV_ERROR("[TraCR] Thread [%d] waiting start of tracr. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
-    //     while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {}
+        DEV_ERROR("[TraCR] Thread [%d] waiting start of tracr. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
+        while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {}
 
-    //     INSTRUMENTATION_THREAD_INIT();
+        INSTRUMENTATION_THREAD_INIT();
     }
     DEV_ERROR("[TraCR] Thread [%d] tracr thread init [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
 
@@ -141,13 +141,13 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 
         INSTRUMENTATION_END();
     } else {
-//         INSTRUMENTATION_MARK_RESET(threadIdx);
+        INSTRUMENTATION_MARK_RESET(threadIdx);
         
-// #ifdef ENABLE_TRACR
-//         // This is for debugging
-//         DEV_ERROR("[TraCR] BTS: %s", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
-// #endif
-//         INSTRUMENTATION_THREAD_FINALIZE();
+#ifdef ENABLE_TRACR
+        // This is for debugging
+        DEV_ERROR("[TraCR] BTS: %s", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
+#endif
+        INSTRUMENTATION_THREAD_FINALIZE();
     }
 
     return ret;
