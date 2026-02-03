@@ -205,12 +205,11 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
     if (inputDims < MIN_DIMENSIONS || outputDims < MIN_DIMENSIONS || inputDims > MAX_DIMENSIONS || outputDims > MAX_DIMENSIONS) return false;
     
     // 验证总元素数是否相等（reshape的基本要求）
-    auto calculateTotalElements = [](const std::vector<int64_t>& shape) {
-        return std::accumulate(shape.begin(), shape.end(), int64_t{1}, std::multiplies<int64_t>());
-    };
-    
-    if (calculateTotalElements(inputShape) != calculateTotalElements(outputShape)) return false;
-    
+    if (std::accumulate(inputShape.begin(), inputShape.end(), int64_t{1}, std::multiplies<int64_t>()) !=
+        std::accumulate(outputShape.begin(), outputShape.end(), int64_t{1}, std::multiplies<int64_t>())) {
+        return false;
+    }
+
     // 编码维度对：输入维度在高位，输出维度在低位
     const uint32_t dimensionPair = (inputDims << 4) | outputDims;
     
