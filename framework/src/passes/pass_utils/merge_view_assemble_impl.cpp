@@ -16,25 +16,21 @@
 #include "merge_view_assemble_impl.h"
 #include "interface/operation/attribute.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
-#include "passes/pass_log/pass_log.h"
 
 namespace npu::tile_fwk {
 Status MergeViewAssembleImpl::Process(Function &function) {
     Status status = Initialize();
-    if (status != SUCCESS)
-    {   
+    if (status != SUCCESS) {   
         ALOG_ERROR("MergeViewAssembleImpl initialization failed.");
         return status;
     }
     status = ProcessOperations(function);
-    if (status != SUCCESS)
-    {   
+    if (status != SUCCESS) {   
         ALOG_ERROR("Processing operations failed.");
         return status;
     }
     status = CleanUp(function);
-    if (status != SUCCESS)
-    {   
+    if (status != SUCCESS) {   
         ALOG_ERROR("Cleanup phase failed.");
         return status;
     }
@@ -99,7 +95,7 @@ Status MergeViewAssembleImpl::AppendMergedViewOperations(Function &function) {
 }
 
 Status MergeViewAssembleImpl::AppendMergedAssembleOperations(Function &function) {
-    for (auto &assembleOp : assembleOpToAppend_) {
+    for (const auto &assembleOp : assembleOpToAppend_) {
         auto attr = std::make_shared<AssembleOpAttribute>(assembleOp.offset, assembleOp.dynOffset);
         if (!attr) {
             return FAILED;
@@ -176,17 +172,13 @@ Status MergeViewAssembleImpl::ProcessConsumerChain(
                 ALOG_ERROR("View operation has null viewOpAttribute.");
                 return FAILED;
             }
-            auto memory_to = viewOpAttribute->GetTo();
+            auto memoryTo = viewOpAttribute->GetTo();
             // 根据新的合并原则判断是否可以合并
             bool canMerge = false;
-            if (currentMemType == MemoryType::MEM_UNKNOWN) {
-                // unknown memType 可以向它之后的view合并
+            if (currentMemType == MemoryType::MEM_UNKNOWN || currentMemType == memoryTo) {
+                // 1.unknown memType 可以向它之后的view合并 2.相同memType的view可以合并
                 canMerge = true;
             } 
-            if (currentMemType == memory_to) {
-                // 相同memType的view可以合并
-                canMerge = true;
-            }
             if (canMerge) {
                 chainEnd = false;
                 Status status = MergeViewChain(function, *op, chain);

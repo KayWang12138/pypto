@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file merge_view_assemble.h
+ * \file merge_view_assemble_impl.h
  * \brief
  */
 
@@ -88,8 +88,6 @@ public:
 
     // Processing methods
     Status ProcessOperations(Function &function);
-    Status ProcessViewOperations(Function &function, Operation& op);
-    Status ProcessAssembleOperations(Function &function, Operation& op);
 
     // Operation appending methods
     Status AppendMergedViewOperations(Function &function);

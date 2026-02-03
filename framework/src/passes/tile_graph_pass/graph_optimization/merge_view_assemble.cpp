@@ -14,8 +14,6 @@
  */
 
 #include "merge_view_assemble.h"
-#include "interface/operation/attribute.h"
-#include "passes/pass_utils/dead_operation_eliminate.h"
 #include "passes/pass_utils/merge_view_assemble_impl.h"
 #include "passes/pass_log/pass_log.h"
 
@@ -26,8 +24,7 @@ Status MergeViewAssemble::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Function, "===> Start MergeViewAssemble.");
     MergeViewAssembleImpl MergeViewAssembleImpl;
     Status status = MergeViewAssembleImpl.Process(function);
-    if (status != SUCCESS)
-    {
+    if (status != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "Merge assemble and view failed.");
         return status;
     }
