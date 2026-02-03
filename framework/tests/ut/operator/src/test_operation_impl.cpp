@@ -589,7 +589,7 @@ TEST_F(OperationImplTest, test_Clip_FP32_VS) {
 }
 
 TEST_F(OperationImplTest, test_Clip_FP16_VS) {
-    float minValue = 1.0, maxValue = 10.0;
+    float minValue = 2.0, maxValue = 10.0;
     TileShape::Current().SetVecTile(8, 8, 16);
 
     Tensor src(DT_FP16, {8, 16, 16}, "src");
