@@ -40,21 +40,6 @@ public:
     void TearDown() override {}
 };
 
-template <typename T>
-static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t> &shape, const T &val) {
-    Tensor data(t, shape);
-    return std::make_shared<LogicalTensorData>(RawTensorData::CreateConstantTensor(data, val));
-}
-
-template <typename T>
-static LogicalTensorDataPtr makeTensorData(DataType t, const std::vector<int64_t> &shape, const std::vector<T> &vals) {
-    Tensor data(t, shape);
-    return std::make_shared<LogicalTensorData>(RawTensorData::CreateTensor(data, vals));
-}
-
-#define ASSERT_ALLCLOSE(self, other) \
-    ASSERT(calc::AllClose(self, other)) << "lhs:\n" << self->ToString() << "\nrhs:\n" << other->ToString() << "\n"
-
 TEST_F(LoopUnrollIfTest, TestLoopUnrollWithIsLoopEnd) {
     int s = 32;
     int n = 5;  // Loop length
