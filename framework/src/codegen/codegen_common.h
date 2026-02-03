@@ -41,6 +41,7 @@ const std::string CONN_COMMA = ", ";
 const std::string SEMICOLON = ";";
 const std::string SEMICOLON_BLANK = "; ";
 const std::string STMT_END = ";\n";
+const std::string SEMICOLON_END_LINE = ";\n";
 const std::string END_LINE = "\n";
 
 constexpr const int K_BYTES_OF16_BIT = 2;

@@ -184,6 +184,15 @@ Status SrcDstBufferMergeImpl::Run(Function &func) {
             if (CheckIgnoreScene(*oriOps[i])) {
                 continue;
             }
+            bool flag = false;
+            for (auto op : oriOps[i]->ProducerOps()) {
+                if (op->GetOpcode() == Opcode::OP_L0C_COPY_UB) {
+                    flag = true;
+                }
+            }
+            if (flag) {
+                continue;
+            }
             bool hasInplaced = false;
             if (CheckHasInplaced(*oriOps[i], *opList[i], replacedTensors, hasInplaced) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "CheckHasInplaced failed; Please check the CheckHasInplaced method.");
