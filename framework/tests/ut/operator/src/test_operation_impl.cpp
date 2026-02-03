@@ -539,7 +539,7 @@ TEST_F(OperationImplTest, TestIndexPut_) {
 }
 
 TEST_F(OperationImplTest, test_Expand_8_1_to_8_8) {
-    TileShape::Current().SetVecTile({4, 4});
+    TileShape::Current().SetVecTile({4, 8});
 
     Tensor operand1(DT_FP32, {8, 1}, "operand1");
     std::vector<int64_t> dstShape = {8, 8};
@@ -550,7 +550,7 @@ TEST_F(OperationImplTest, test_Expand_8_1_to_8_8) {
 }
 
 TEST_F(OperationImplTest, test_Expand_8_1_to_8_8_dyn) {
-    TileShape::Current().SetVecTile({3, 3});
+    TileShape::Current().SetVecTile({3, 8});
 
     Tensor operand1(DT_FP32, {8, 1}, "operand1");
     std::vector<int64_t> dstShape = {8, 8};
@@ -562,7 +562,7 @@ TEST_F(OperationImplTest, test_Expand_8_1_to_8_8_dyn) {
 
 TEST_F(OperationImplTest, test_Clip_FP16) {
     float minValue = 1.0, maxValue = 10.0;
-    TileShape::Current().SetVecTile(8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 16);
 
     Tensor src(DT_FP16, {8, 16, 16}, "src");
     Element min(DT_FP16, minValue);
@@ -590,7 +590,7 @@ TEST_F(OperationImplTest, test_Clip_FP32_VS) {
 
 TEST_F(OperationImplTest, test_Clip_FP16_VS) {
     float minValue = 1.0, maxValue = 10.0;
-    TileShape::Current().SetVecTile(8, 8, 8);
+    TileShape::Current().SetVecTile(8, 8, 16);
 
     Tensor src(DT_FP16, {8, 16, 16}, "src");
     Element min(DT_FP16, minValue);
@@ -679,7 +679,7 @@ TEST_F(OperationImplTest, test_ScatterTensor_FP16) {
 }
 
 TEST_F(OperationImplTest, test_Where) {
-    TileShape::Current().SetVecTile(8, 8);
+    TileShape::Current().SetVecTile(8, 32);
     Tensor condition(DT_UINT8, {8, 2}, "condition");
     Tensor input(DT_FP32, {8, 16}, "input");
     Tensor other(DT_FP32, {8, 16}, "other");
@@ -723,7 +723,7 @@ TEST_F(OperationImplTest, test_Fmod_Brcb) {
 }
 
 TEST_F(OperationImplTest, test_FmodS) {
-    TileShape::Current().SetVecTile({4, 4});
+    TileShape::Current().SetVecTile({4, 8});
     Tensor input0(DT_FP32, {8, 8}, "input0");
     float scalar = 10.0;
     Element input1(DT_FP32, scalar);
