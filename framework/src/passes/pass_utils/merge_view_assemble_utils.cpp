@@ -9,19 +9,26 @@
  */
 
 /*!
- * \file merge_view_assemble_impl.cpp
- * \brief Implementation of view and assemble operation merging
+ * \file merge_view_assemble_utils.cpp
+ * \brief utils of view and assemble operation merging
  */
 
-#include "merge_view_assemble_impl.h"
+#include "merge_view_assemble_utils.h"
 #include "interface/operation/attribute.h"
 #include "passes/pass_utils/dead_operation_eliminate.h"
 
 namespace npu::tile_fwk {
-Status MergeViewAssembleImpl::Process(Function &function) {
+
+Status MergeViewAssembleUtils::MergeViewAssemble(Function &function) {
+    MergeViewAssembleUtils MergeViewAssembleUtils;
+    Status status = MergeViewAssembleUtils.Process(function);
+    return status;
+}
+
+Status MergeViewAssembleUtils::Process(Function &function) {
     Status status = Initialize();
     if (status != SUCCESS) {   
-        ALOG_ERROR("MergeViewAssembleImpl initialization failed.");
+        ALOG_ERROR("MergeViewAssembleUtils initialization failed.");
         return status;
     }
     status = ProcessOperations(function);
@@ -37,14 +44,14 @@ Status MergeViewAssembleImpl::Process(Function &function) {
     return SUCCESS;
 }
 
-Status MergeViewAssembleImpl::Initialize() {
+Status MergeViewAssembleUtils::Initialize() {
     visitedOp_.clear();
     viewOpToAppend_.clear();
     assembleOpToAppend_.clear();
     return SUCCESS;
 }
 
-Status MergeViewAssembleImpl::ProcessOperations(Function &function) {
+Status MergeViewAssembleUtils::ProcessOperations(Function &function) {
     for (auto &op : function.Operations()) {
         if (visitedOp_.count(op.GetOpMagic()) != 0) {
             continue;
@@ -74,7 +81,7 @@ Status MergeViewAssembleImpl::ProcessOperations(Function &function) {
     return status;
 }
 
-Status MergeViewAssembleImpl::AppendMergedViewOperations(Function &function) {
+Status MergeViewAssembleUtils::AppendMergedViewOperations(Function &function) {
     /* Process View ops first to avoid View output being cleared in View-Assemble scenarios */
     for (auto &viewOp : viewOpToAppend_) {
         auto attr = std::make_shared<ViewOpAttribute>(viewOp.offset, viewOp.toType, viewOp.dynOffset,
@@ -94,7 +101,7 @@ Status MergeViewAssembleImpl::AppendMergedViewOperations(Function &function) {
     return SUCCESS;
 }
 
-Status MergeViewAssembleImpl::AppendMergedAssembleOperations(Function &function) {
+Status MergeViewAssembleUtils::AppendMergedAssembleOperations(Function &function) {
     for (const auto &assembleOp : assembleOpToAppend_) {
         auto attr = std::make_shared<AssembleOpAttribute>(assembleOp.offset, assembleOp.dynOffset);
         if (!attr) {
@@ -106,7 +113,7 @@ Status MergeViewAssembleImpl::AppendMergedAssembleOperations(Function &function)
     return SUCCESS;
 }
 
-Status MergeViewAssembleImpl::CleanUp(Function &function) {
+Status MergeViewAssembleUtils::CleanUp(Function &function) {
     Status status = EraseRedundantAssemble(function);
     if (status != SUCCESS)
     {   
@@ -118,7 +125,7 @@ Status MergeViewAssembleImpl::CleanUp(Function &function) {
     return SUCCESS;
 }
 
-Status MergeViewAssembleImpl::MergeViewChain(
+Status MergeViewAssembleUtils::MergeViewChain(
     Function &function, Operation &operation, std::vector<Operation *> &chain) {
     auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(operation.GetOpAttribute());
     // 1. 初始化操作链
@@ -140,13 +147,13 @@ Status MergeViewAssembleImpl::MergeViewChain(
     return SUCCESS;
 }
 
-void MergeViewAssembleImpl::InitOperationChain(Operation &operation, std::vector<Operation *> &chain)
+void MergeViewAssembleUtils::InitOperationChain(Operation &operation, std::vector<Operation *> &chain)
 {
     visitedOp_.insert(operation.opmagic);
     chain.emplace_back(&operation);
 }
 
-Status MergeViewAssembleImpl::ProcessConsumerChain(
+Status MergeViewAssembleUtils::ProcessConsumerChain(
     Function &function,
     const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
     std::vector<Operation *> &chain,
@@ -194,7 +201,7 @@ Status MergeViewAssembleImpl::ProcessConsumerChain(
     return SUCCESS;
 }
 
-Status MergeViewAssembleImpl::ProcessChainEnd(
+Status MergeViewAssembleUtils::ProcessChainEnd(
     Function &function,
     std::vector<Operation *> &chain)
 {
@@ -235,7 +242,7 @@ Status MergeViewAssembleImpl::ProcessChainEnd(
     return SUCCESS;
 }
 
-Status MergeViewAssembleImpl::CalculateMergedOffsets(const std::vector<Operation *> &chain, std::vector<int64_t> &newOffset,
+Status MergeViewAssembleUtils::CalculateMergedOffsets(const std::vector<Operation *> &chain, std::vector<int64_t> &newOffset,
     std::vector<SymbolicScalar> &newDynOffset, std::vector<SymbolicScalar> &newDynValidShape) {
     for (size_t i = 0; i < chain.size(); ++i) {
         const auto &view = chain[i];
@@ -271,7 +278,7 @@ Status MergeViewAssembleImpl::CalculateMergedOffsets(const std::vector<Operation
     return SUCCESS;
 }
 
-void MergeViewAssembleImpl::RecordMergedViewOperation(Operation* lastViewOp, const std::shared_ptr<LogicalTensor> &startTensor,
+void MergeViewAssembleUtils::RecordMergedViewOperation(Operation* lastViewOp, const std::shared_ptr<LogicalTensor> &startTensor,
     const std::shared_ptr<LogicalTensor> &endTensor, const std::vector<int64_t> &newOffset,
     const std::vector<SymbolicScalar> &newDynOffset, const std::vector<SymbolicScalar> &newDynValidShape) {
     // 获取最后一个VIEW的属性
@@ -288,7 +295,7 @@ void MergeViewAssembleImpl::RecordMergedViewOperation(Operation* lastViewOp, con
     viewOpToAppend_.emplace_back(ViewOp{startTensor, endTensor, newOffset, newDynOffset, newDynValidShape, lastViewAttr->GetTo(), hasCopyInMode, std::move(copyInModeValue)});
 }
 
-Status MergeViewAssembleImpl::MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain) {
+Status MergeViewAssembleUtils::MergeAssembleChain(Function &function, Operation &operation, std::vector<Operation *> &chain) {
     // 1. 初始化操作链
     InitAssembleChain(operation, chain);
 
@@ -321,7 +328,7 @@ Status MergeViewAssembleImpl::MergeAssembleChain(Function &function, Operation &
     return SUCCESS;
 }
 
-void MergeViewAssembleImpl::InitAssembleChain(
+void MergeViewAssembleUtils::InitAssembleChain(
     Operation &operation,
     std::vector<Operation *> &chain)
 {
@@ -329,7 +336,7 @@ void MergeViewAssembleImpl::InitAssembleChain(
     chain.emplace_back(&operation);
 }
 
-Status MergeViewAssembleImpl::ProcessAssembleConsumers(
+Status MergeViewAssembleUtils::ProcessAssembleConsumers(
     Function &function,
     const std::set<Operation*, LogicalTensor::CompareOp>& consumers,
     std::vector<Operation *> &chain,
@@ -357,7 +364,7 @@ Status MergeViewAssembleImpl::ProcessAssembleConsumers(
     return SUCCESS;
 }
 
-Status MergeViewAssembleImpl::ProcessAssembleChainEnd(
+Status MergeViewAssembleUtils::ProcessAssembleChainEnd(
     Function &function,
     std::vector<Operation *> &chain,
     Operation &operation)
@@ -383,7 +390,7 @@ Status MergeViewAssembleImpl::ProcessAssembleChainEnd(
     return SUCCESS;
 }
 
-std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssembleImpl::CalculateAssembleOffsets(
+std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssembleUtils::CalculateAssembleOffsets(
     const std::vector<Operation *> &chain, size_t offsetSize) {
     std::vector<int64_t> newOffset(offsetSize, 0);
     std::vector<SymbolicScalar> newDynOffset;
@@ -410,13 +417,13 @@ std::pair<std::vector<int64_t>, std::vector<SymbolicScalar>> MergeViewAssembleIm
     return {newOffset, newDynOffset};
 }
 
-void MergeViewAssembleImpl::RecordAssembleOperation(const std::shared_ptr<LogicalTensor> &input,
+void MergeViewAssembleUtils::RecordAssembleOperation(const std::shared_ptr<LogicalTensor> &input,
     const std::shared_ptr<LogicalTensor> &output, const std::vector<int64_t> &offset,
     const std::vector<SymbolicScalar> &dynOffset) {
     assembleOpToAppend_.emplace_back(AssembleOp{input, output, offset, dynOffset});
 }
 
-Status MergeViewAssembleImpl::EraseRedundantAssemble(Function &function) const {
+Status MergeViewAssembleUtils::EraseRedundantAssemble(Function &function) const {
     std::unordered_set<Operation *> redundantAssembles;
     for (auto &op : function.Operations(false)) {
         if (op.GetOpcode() !=  Opcode::OP_ASSEMBLE) {
