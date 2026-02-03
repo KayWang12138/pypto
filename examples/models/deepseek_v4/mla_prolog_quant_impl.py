@@ -510,11 +510,11 @@ def mla_prolog_v4(x, wq_a, wq_b, wkv, rmsnorm_gamma_cq, rmsnorm_gamma_ckv, cos, 
 
 @allow_in_graph
 def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
-    output_q_data = torch.zeros([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], \
+    output_q_data = torch.empty([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], \
         dtype=token_x.dtype, device=f'{token_x.device}')
-    output_kv_data = torch.zeros([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
-    output_qr_data = torch.zeros([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=f'{token_x.device}')
-    output_qr_scale_data = torch.zeros([token_x.size(0), 1], dtype=torch.float32, device=f'{token_x.device}')
+    output_kv_data = torch.empty([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    output_qr_data = torch.empty([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=f'{token_x.device}')
+    output_qr_scale_data = torch.empty([token_x.size(0), 1], dtype=torch.float32, device=f'{token_x.device}')
     check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, 
         wq_b_scale, output_q_data, output_kv_data, output_qr_data, output_qr_scale_data)
     if not isinstance(token_x, FakeTensor):
@@ -559,11 +559,11 @@ def mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gam
 
 
 pyptolib = torch.library.Library("pypto", "FRAGMENT")
-pyptolib.define("mla_prolog(Tensor token_x, Tensor wq_a, Tensor wq_b, Tensor wkv, Tensor rope_cos, Tensor rope_sin, \
+pyptolib.define("mla_prolog_quant(Tensor token_x, Tensor wq_a, Tensor wq_b, Tensor wkv, Tensor rope_cos, Tensor rope_sin, \
     Tensor gamma_cq, Tensor gamma_ckv, Tensor wq_b_scale) -> (Tensor, Tensor, Tensor, Tensor)")
 
-@torch.library.impl(pyptolib, "mla_prolog", "Meta")
-def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
+@torch.library.impl(pyptolib, "mla_prolog_quant", "Meta")
+def mla_prolog_quant(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
     q_out = torch.empty([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
     kv_out = torch.empty([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
     qr_out = torch.empty([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=token_x.device)
@@ -571,25 +571,10 @@ def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv
     return q_out, kv_out, qr_out, qr_scale_out
 
 
-@torch.library.impl(pyptolib, "mla_prolog", "NPU")
-def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
+@torch.library.impl(pyptolib, "mla_prolog_quant", "NPU")
+def mla_prolog_quant(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
     return mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale)
 
 
-class MLA_MODEL(torch.nn.Module):
-    def forward(self, token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
-        return torch.ops.pypto.mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale)
-
-
-def mla_aclgraph(inputs):
-    import torchair as tng
-    from torchair.configs.compiler_config import CompilerConfig
-    compiler_config = CompilerConfig()
-    compiler_config.mode = "reduce-overhead"
-    npu_backend = tng.get_npu_backend(compiler_config=compiler_config)
-    model = torch.compile(MLA_MODEL(), dynamic=False, fullgraph=True, backend=npu_backend)
-    
-    output_q_data, output_kv_data, output_qr_data, output_qr_scale_data = model(*inputs)
-    pypto.runtime._device_synchronize()
-
-    return output_q_data, output_kv_data, output_qr_data, output_qr_scale_data
+def mla_prolog_quant_pypto(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
+    return torch.ops.pypto.mla_prolog_quant(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale)

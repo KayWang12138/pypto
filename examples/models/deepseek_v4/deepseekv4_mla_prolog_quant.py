@@ -21,8 +21,8 @@ import torch_npu
 import pypto
 import logging
 import numpy as np
-from mla_prolog_quant_impl import mla_prolog_v4_in, mla_prolog_v4, MlaPrologV4Attrs, \
-            MlaTileConfigs, MlaPrologV4Configs, check_input_output_shape_dtype
+from mla_prolog_quant_impl import mla_prolog_v4, MlaPrologV4Attrs, \
+            MlaTileConfigs, MlaPrologV4Configs, check_input_output_shape_dtype, mla_prolog_quant_pypto
 from utils.compare import compare
 
 torch.manual_seed(5)
@@ -278,29 +278,9 @@ def convert_pypto_to_torch_type(pypto_type):
     else:
         raise ValueError(f"Unsupported pypto.DataType: {pypto_type}")
 
-
-pyptolib = torch.library.Library("pypto", "FRAGMENT")
-pyptolib.define("mla_prolog(Tensor token_x, Tensor wq_a, Tensor wq_b, Tensor wkv, Tensor rope_cos, Tensor rope_sin, \
-    Tensor gamma_cq, Tensor gamma_ckv, Tensor wq_b_scale) -> (Tensor, Tensor, Tensor, Tensor)")
-
-@torch.library.impl(pyptolib, "mla_prolog", "Meta")
-def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
-    q_out = torch.empty([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
-    kv_out = torch.empty([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=token_x.device)
-    qr_out = torch.empty([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=token_x.device)
-    qr_scale_out = torch.empty([token_x.size(0), 1], dtype=torch.float32, device=token_x.device)
-    return q_out, kv_out, qr_out, qr_scale_out
-
-
-@torch.library.impl(pyptolib, "mla_prolog", "NPU")
-def mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
-    return mla_prolog_v4_in(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale)
-
-
 class MLA_MODEL(torch.nn.Module):
     def forward(self, token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale):
-        return torch.ops.pypto.mla_prolog(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale)
-
+        return mla_prolog_quant_pypto(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale)
 
 def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     d_type = pypto.DataType.DT_FP16 if dtype == pypto.DataType.DT_FP16 else pypto.DataType.DT_BF16
@@ -346,7 +326,7 @@ def mla_prolog(params, input_tensors, golden_tensors, dtype, is_nz):
     gamma_ckv = input_tensors["gamma_ckv"].reshape(rmsnorm_gamma_ckv_shape).npu()
     wq_b_scale = input_tensors["wq_b_scale"].reshape(wq_b_scale_shape).npu()
     inputs = [token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale]
-
+    
     import torchair as tng
     from torchair.configs.compiler_config import CompilerConfig
     compiler_config = CompilerConfig()
@@ -419,10 +399,10 @@ def mla_prolog_eager(params, input_tensors, golden_tensors, dtype, is_nz, attrs,
     gamma_ckv = input_tensors["gamma_ckv"].reshape(rmsnorm_gamma_ckv_shape).npu()
     wq_b_scale = input_tensors["wq_b_scale"].reshape(wq_b_scale_shape).npu()
 
-    output_q_data = torch.zeros([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
-    output_kv_data = torch.zeros([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
-    output_qr_data = torch.zeros([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=f'{token_x.device}')
-    output_qr_scale_data = torch.zeros([token_x.size(0), 1], dtype=torch.float32, device=f'{token_x.device}')
+    output_q_data = torch.empty([token_x.size(0), wq_b.size(1) // gamma_ckv.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    output_kv_data = torch.empty([token_x.size(0), gamma_ckv.size(0)], dtype=token_x.dtype, device=f'{token_x.device}')
+    output_qr_data = torch.empty([token_x.size(0), gamma_cq.size(0)], dtype=torch.int8, device=f'{token_x.device}')
+    output_qr_scale_data = torch.empty([token_x.size(0), 1], dtype=torch.float32, device=f'{token_x.device}')
     check_input_output_shape_dtype(token_x, wq_a, wq_b, wkv, rope_cos, rope_sin, gamma_cq, gamma_ckv, wq_b_scale, 
                                     output_q_data, output_kv_data, output_qr_data, output_qr_scale_data)
     out_q = pypto.from_torch(output_q_data, dynamic_axis=[0], name="output_q")
