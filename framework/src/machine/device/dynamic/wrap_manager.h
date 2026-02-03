@@ -69,6 +69,8 @@ public:
 
     int aicValidNum_{0};
     int curDie0MaxCpuId_{0};
+    DieId dieId_{DIE_MIX};
+
     WrapInfoQueue* readyWrapCoreFunctionQue_{nullptr};
     // Queue managed by each thread, elem is wrapInfo's addr
     StaticReadyCoreFunctionQueue wrapQueueForThread_{0, 0, nullptr, 0};
@@ -77,9 +79,14 @@ public:
     SendTaskToAiCoreFunc SendTaskToAiCore;
     bool isSupportMixSche {false};
 
-    inline void InitDeviceInfo(DeviceArgs *deviceArgs) {
+    // for die-to-die shchedule
+    ReadyCoreFunctionQueue* readyDieAicFunctionQue_[DIE_NUM] = {nullptr};
+    ReadyCoreFunctionQueue* readyDieAivFunctionQue_[DIE_NUM] = {nullptr};
+
+    inline void InitDeviceInfo(DeviceArgs *deviceArgs, int schedIdx) {
         InitArchInfo(deviceArgs->archInfo);
         InitDieMaxCpuId(static_cast<int>(deviceArgs->scheCpuNum));
+        InitDieId(schedIdx, deviceArgs->scheCpuNum);
     }
 
     inline void InitArchInfo(ArchInfo info) {
@@ -88,6 +95,14 @@ public:
 
     inline void InitDieMaxCpuId(int scheCpuNum) {
         curDie0MaxCpuId_ = scheCpuNum >> 1;
+    }
+
+    inline void InitDieId(int schedIdx, int scheCpuNum) {
+        dieId_ = GetDieId(schedIdx, scheCpuNum);
+    }
+
+    inline DieId GetDieId() {
+        return dieId_;
     }
 
     inline DieId GetDieId(int scheCpuIdx, int scheCpuNum) {
@@ -125,6 +140,7 @@ public:
         wrapQueueForThread_.tail = 0;
         wrapQueueForThread_.elem = curDevTask_->mixTaskData.wrapIdNum == 0 ? nullptr :
             static_cast<uint64_t *>(malloc(curDevTask_->mixTaskData.wrapIdNum * sizeof(uint64_t)));
+        wrapManager_.SetDieReadyQueue(curDevTask->dieReadyFunctionQue);
     }
 
     inline void Deinit() {
@@ -133,6 +149,10 @@ public:
             free(wrapQueueForThread_.elem);
             wrapQueueForThread_.elem = nullptr;
         }
+    }
+
+    inline bool GetIsMixarch() {
+        return isSupportMixSche;
     }
 
     inline bool GetWrapCoreAvailable(int coreIdx) {
@@ -488,6 +508,39 @@ public:
                 wrapCoreStatus_[coreIdx] = 0;
             }
         }
+    }
+
+    // for die-to-die schedule
+    inline void SetDieReadyQueue(const struct DieReadyQueueData dieReadyFunctionQue) {
+        for (size_t i = 0 ; i < DIE_NUM ; i++) {
+           readyDieAivFunctionQue_[i] =  reinterpret_cast<ReadyCoreFunctionQueue *>(dieReadyFunctionQue.readyDieAivCoreFunctionQue[i]);
+           readyDieAicFunctionQue_[i] =  reinterpret_cast<ReadyCoreFunctionQueue *>(dieReadyFunctionQue.readyDieAicCoreFunctionQue[i]);
+        }
+    }
+
+    inline ReadyCoreFunctionQueue* GetDieReadyQueue(CoreType type, ReadyCoreFunctionQueue* defaultReadyQue) {
+        if (!GetIsMixarch() || dieId_ == DieId::DIE_MIX || dieId_ == DieId::DIE_UNKNOW) {
+            return defaultReadyQue;
+        }
+
+#ifdef SUPPORT_DIE_TO_DIE_SCHE
+        size_t dieIndex = static_cast<size_t>(dieId_);
+        ReadyCoreFunctionQueue* dieReadyQueue = nullptr;
+        switch(type) {
+            case CoreType::AIC:
+                dieReadyQueue = readyDieAicFunctionQue_[dieIndex];
+                break;
+            case CoreType::AIV:
+                dieReadyQueue = readyDieAivFunctionQue_[dieIndex];
+                break;
+            defalut:
+                break;
+        }
+        return (dieReadyQueue != nullptr) ? dieReadyQueue : defaultReadyQue;
+#else
+        (void)type;
+        return defaultReadyQue;
+#endif
     }
 };
 }
