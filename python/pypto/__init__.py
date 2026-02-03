@@ -67,7 +67,7 @@ from . import experimental
 from .config import *  # noqa
 from ._controller import *  # noqa
 from .converter import from_torch
-from .converter import ir_from_tensor
+# from .converter import ir_from_tensor  # Temporarily disabled - bindings/ir.cpp is not compiled
 from .enum import *  # noqa
 from .op import *  # noqa
 from .operation import *  # noqa

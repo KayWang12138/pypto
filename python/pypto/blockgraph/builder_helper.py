@@ -9,6 +9,21 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+BlockBuilderHelper - Temporarily Disabled
+
+This module is temporarily disabled because the IR module is not available.
+The bindings/ir.cpp file has been disabled in CMakeLists.txt.
+Please enable bindings/ir.cpp if you need this functionality.
+"""
+
+# Temporarily disabled - IR module is not available (bindings/ir.cpp is not compiled)
+raise ImportError(
+    "BlockBuilderHelper is temporarily disabled because the IR module is not available.\n"
+    "The bindings/ir.cpp file has been disabled in CMakeLists.txt.\n"
+    "Please enable bindings/ir.cpp if you need this functionality."
+)
+
+# Original code below is disabled - uncomment when IR module is re-enabled
 """
 from contextlib import contextmanager
 
@@ -590,4 +605,4 @@ class BlockBuilderHelper:
 
         op = builder_method(opcode, *args, out, call_type)
         self.builder.emit(self.ctx, op)
-        return op
+        return op"""
