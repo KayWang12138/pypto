@@ -56,11 +56,11 @@ TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos, in
 
 template <typename T, typename U>
 TILEOP void TLoad2D(T &dst, U &src, const uint16_t &indexRow, const uint16_t &indexCol, int c1hw, int n1, int n0, int c0, int kL0, int nL0) {
-    int bufferSize = C1HW * N * n0 * c0 * sizeof(U);
+    int bufferSize = c1hw * n1 * n0 * c0 * sizeof(U);
     using srcTensor = pto::ConvTile<pto::TileType::Mat, U, bufferSize, Layout::FRACTAL_Z, pto::ConvTileShape<c1hw, n1, n0, c0>>;
     srcTensor l1;
 
-    using dstTensor = pto::TileRight<T, kL0, nL0>
+    using dstTensor = pto::TileRight<T, kL0, nL0>;
     dstTensor l0;
 
     pto::TASSIGN(l1, (uint64_t)src.GetAddr());

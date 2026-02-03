@@ -1693,14 +1693,19 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     int64_t mL0 = fmapL0Shape[ID0]; // n * h * w
     int64_t kL0 = fmapL0Shape[ID1]; // c1 * c0
 
+    int64_t filterH, filterW;
+    GetAttr(ConvOpAttributeKey::filterH, &filterH);
+    GetAttr(ConvOpAttributeKey::filterW, &filterW);
+
     int64_t padLeft, padRight, padTop, padBottom, padValue;
     GetAttr(ConvOpAttributeKey::paddingLeft, &padLeft);
-    GetAttr(ConvOpAttributeKey::paddingLeft, &padRight);
-    GetAttr(ConvOpAttributeKey::paddingLeft, &padTop);
-    GetAttr(ConvOpAttributeKey::paddingLeft, &padBottom);
+    GetAttr(ConvOpAttributeKey::padRight, &padRight);
+    GetAttr(ConvOpAttributeKey::padTop, &padTop);
+    GetAttr(ConvOpAttributeKey::padBottom, &padBottom);
+    GetAttr(ConvOpAttributeKey::padValue, &padValue);
     int64_t strideH, strideW;
-    GetAttr(ConvOpAttributeKey::strideh, &strideH);
-    GetAttr(ConvOpAttributeKey::stridew, &strideW);
+    GetAttr(ConvOpAttributeKey::strideH, &strideH);
+    GetAttr(ConvOpAttributeKey::strideW, &strideW);
     int64_t dilationH, dilationW;
     GetAttr(ConvOpAttributeKey::dilationH, &dilationH);
     GetAttr(ConvOpAttributeKey::dilationW, &dilationW);
