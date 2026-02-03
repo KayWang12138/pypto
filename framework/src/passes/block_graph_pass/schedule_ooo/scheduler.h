@@ -352,6 +352,7 @@ private:
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr assemble, 
         LogicalTensorPtr assembleTensor, bool &isFirst);
+    void UpdateAssembleSpillAttr(Operation newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder);
     Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<IssueEntryPtr> &assembleList);
     Status UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer, LogicalTensorPtr assembleTensor);
     LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
