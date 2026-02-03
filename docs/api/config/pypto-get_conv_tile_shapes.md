@@ -9,7 +9,7 @@
 
 ## 功能说明
 
-获取cube计算中设置的TileShape大小、L1大包搬运功能以及多核切K功能的开关使能。
+获取conv计算中设置的TileShape大小以及L0TileInfo的开关使能。
 
 ## 函数原型
 
@@ -23,7 +23,7 @@ void
 
 ## 返回值说明
 
-返回包含m, k, n方向上的TileShape大小、是否开启L1的大包搬运功能以及是否开启多核切K功能。
+返回L0和L1上的TileShape大小、是否开启L0TileInfo的开关。
 
 ## 约束说明
 

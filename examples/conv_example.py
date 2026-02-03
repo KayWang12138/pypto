@@ -18,24 +18,6 @@ from pypto.symbolic_scalar import SymInt
 from pypto import pypto_impl
 
 
-tileL1Info = pypto_impl.TileL1Info(
-    tileHin=8,       
-    tileHout=4,       
-    tileWin=8,       
-    tileWout=4,      
-    tileCinFmap=32,  
-    tileCinWeight=32,
-    tileCout=64,     
-    tileN=1          
-)
-
-tileL0Info = pypto_impl.TileL0Info(
-    tileH=32,  
-    tileW=32,        
-    tileK=32,        
-    tileN=4          
-)
-
 def run_mm():
     device_id = int(os.environ.get("TILE_FWK_DEVICE_ID", 0))
     torch.npu.set_device(device_id)
@@ -52,9 +34,35 @@ def run_mm():
 
 @pypto.jit
 def conv_kernel(a, b, c, d):
-    # pypto.set_conv_tile_shapes()
+    pypto.set_conv_tile_shapes(
+        pypto_impl.TileL1Info(
+            tileHin=8,       
+            tileHout=4,       
+            tileWin=8,       
+            tileWout=4,      
+            tileCinFmap=32,  
+            tileCinWeight=32,
+            tileCout=64,     
+            tileN=1          
+        ),
+        pypto_impl.TileL0Info(
+            tileH=32,  
+            tileW=32,        
+            tileK=32,        
+            tileN=4          
+        )
+    )
+    conv_tile = pypto.get_conv_tile_shapes()
+    print(conv_tile)
+    print(f"TileL1Info: Hin={conv_tile[0].tileHin}, Hout={conv_tile[0].tileHout}," 
+          f" Win={conv_tile[0].tileWin}, Wout={conv_tile[0].tileWout},"
+          f" CinFmap={conv_tile[0].tileCinFmap}, CinWeight={conv_tile[0].tileCinWeight},"
+          f" Cout={conv_tile[0].tileCout}, N={conv_tile[0].tileN}")
+    print(f"TileL0Info: H={conv_tile[1].tileH}, W={conv_tile[1].tileW}, K={conv_tile[1].tileK}, N={conv_tile[1].tileN}")
+    print(f"SetL0Tile flag: {conv_tile[2]}")
     pypto.set_debug_options(compile_debug_mode=1)
-    d[:] = pypto.conv(a, b, pypto.DT_FP16, [1,1], [0,0,0,0], [1,1], 1) # 将x+1的结果写入函数参数y的原有内存空间
+    d[:] = pypto.conv(a, b, pypto.DT_FP16, [1,1], [0,0,0,0], [1,1], extend_params = {'bias_tensor': c}) # 将x+1的结果写入函数参数y的原有内存空间
+
 
 @pypto.jit
 def mm_kernel(A, B, C):

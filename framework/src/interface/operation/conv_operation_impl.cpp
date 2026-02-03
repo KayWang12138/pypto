@@ -781,9 +781,9 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape,
     }
 }
 
-Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor,
-            const std::vector<int64_t> &strides, const std::vector<int64_t> &paddings,
-            const std::vector<int64_t> &dilations, const int64_t groups)
+Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides, 
+            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam, 
+            const int64_t groups, bool transposed, const std::vector<int64_t> outputPaddings)
 {
     std::vector<int64_t> biasTensorShape{32};
     Tensor biasTensor(outType, biasTensorShape, "BiasTensor");
