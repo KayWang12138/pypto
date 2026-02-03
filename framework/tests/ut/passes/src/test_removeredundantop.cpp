@@ -493,6 +493,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest1) {
     EXPECT_EQ(func->Operations().size(), kSizeEleven);
 
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
+        { "AssignMemoryType",  PassName::ASSIGN_MEMORY_TYPE},
         {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy");
@@ -547,6 +548,7 @@ TEST_F(TestRemoveRedundantOpPass, RemoveRedundantOpSTest2) {
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
     
     passManager.RegisterStrategy("RemoveRedundantOpTestStrategy", {
+        { "AssignMemoryType",  PassName::ASSIGN_MEMORY_TYPE},
         {"RemoveRedundantOp", PassName::REMOVE_REDUNDANT_OP},
     });
     auto ret = passManager.RunPass(Program::GetInstance(), *func, "RemoveRedundantOpTestStrategy");
