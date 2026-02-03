@@ -523,20 +523,24 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
                 iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
                 OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
     spillCopyInOp.UpdateLatency(DEFAULT_LATENCY);
+    UpdateOpInternalSubgraphID(spillCopyInOp, allocIssue);
     IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(spillCopyInOp, issueId);
     issueEntryMap[issueId++] = spillInInst;
     spillInInst->reqMemIds = {assembleTensor->memoryrange.memId};
     spillInInst->execOrder = bufNextUseOrder++;
+    spillInInst->coreLocation = allocIssue->coreLocation;
     InsertIssueEntries(spillInInst);
     // assemble
     auto &assembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
     assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleAttr->GetFrom(), 
         assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset(), assembleAttr->GetFromDynValidShape()));
     assembleOp.UpdateLatency(1);
+    UpdateOpInternalSubgraphID(assembleOp, allocIssue);
     IssueEntryPtr assembleInst = std::make_shared<IssueEntry>(assembleOp, issueId);
     issueEntryMap[issueId++] = assembleInst;
     assembleInst->reqMemIds = {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId};
     assembleInst->execOrder = bufNextUseOrder;
+    assembleInst->coreLocation = allocIssue->coreLocation;
     InsertIssueEntries(assembleInst);
     return SUCCESS;
 }
