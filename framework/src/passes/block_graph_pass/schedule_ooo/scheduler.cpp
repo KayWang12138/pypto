@@ -150,9 +150,6 @@ Status OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue) {
     APASS_LOG_ERROR_F(Elements::Operation, "======== OoO Spill failed info ===========");
     APASS_LOG_ERROR_F(Elements::Operation, "Spill failed memoryType: %s. %s", 
         MemoryTypeToString(localBufferMap[allocIssue->reqMemIds[0]]->memType).c_str(), GetFormatBacktrace(allocIssue->tileOp).c_str());
-    if (localBufferMap[allocIssue->reqMemIds[0]]->memType == MemoryType::MEM_L1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "A5 is not support L1 spill.");
-    }
     if (localBufferMap.find(allocIssue->reqMemIds[0]) != localBufferMap.end()) {
         APASS_LOG_ERROR_F(Elements::Operation, "%s alloc buffer size: %lu. %s", allocIssue->GetOpInfo().c_str(), 
             localBufferMap[allocIssue->reqMemIds[0]]->size, GetFormatBacktrace(allocIssue->tileOp).c_str());
@@ -173,9 +170,6 @@ Status OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue) {
 void OoOScheduler::PrintSpillFailedInfo(IssueEntryPtr allocIssue, MemoryType bufferType) {
     APASS_LOG_ERROR_F(Elements::Operation, "======== OoO Spill failed info ===========");
     APASS_LOG_ERROR_F(Elements::Operation, "Spill failed memoryType: %s. %s", MemoryTypeToString(bufferType).c_str(), GetFormatBacktrace(allocIssue->tileOp).c_str());
-    if (bufferType == MemoryType::MEM_L1) {
-        APASS_LOG_ERROR_F(Elements::Operation, "A5 is not support L1 spill.");
-    }
     if (localBufferMap.find(allocIssue->reqMemIds[0]) != localBufferMap.end()) {
         APASS_LOG_ERROR_F(Elements::Operation, "---- alloc request ----");
         APASS_LOG_ERROR_F(Elements::Operation, "op:%s need buffer size: %lu. %s", allocIssue->GetOpInfo().c_str(),
@@ -319,7 +313,7 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
     MemoryType spillMemType;
     if (!allocIssueQueue[coreType][idx][MemoryType::MEM_UB].Empty()) {
         spillMemType = MemoryType::MEM_UB;
-    } else if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510  && !allocIssueQueue[coreType][idx][MemoryType::MEM_L1].Empty()) {
+    } else if (!allocIssueQueue[coreType][idx][MemoryType::MEM_L1].Empty()) {
         spillMemType = MemoryType::MEM_L1;
     } else {
         for (auto memType: allocIssueQueue[coreType][idx]) {
@@ -328,8 +322,8 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
             }
             PrintSpillFailedInfo(memType.second.Front(), memType.first);
         }
-        APASS_LOG_WARN_F(Elements::Operation, "Buffer[L1/L0A/B/C] is Full. Possible causes: incorrect memory reuse, memory fragmentation, lack alloc. "
-            "Please check tile shape, OOO spill failed info and alloc location.");
+        APASS_LOG_ERROR_F(Elements::Operation, "Buffer[L0A/B/C] is Full. Possible causes: incorrect memory reuse, memory fragmentation. "
+            "Please check tile shape and OOO spill failed info.");
         return FAILED;
     }
     if (GenBufferSpill(allocIssueQueue[coreType][idx][spillMemType].Front()) != SUCCESS) {
@@ -427,6 +421,9 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
                     continue;
                 }
                 IssueEntryPtr issue = pipe.PopFront();
+                //标注op的生命周期
+                issue->tileOp.cycleStart = clock;
+                issue->tileOp.cycleEnd = clock + issue->tileOp.GetLatency();
                 pipe.busy = true;
                 pipe.curIssue = issue;
                 pipe.curOpRetireCycle = clock + issue->tileOp.GetLatency();
@@ -563,9 +560,14 @@ Status OoOScheduler::RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitC
 
 Status OoOScheduler::RetireCoreIssue(OpCoreType coreType, int idx, uint64_t& commitCnt, int& nextCycle) {
     for (auto& [pipeType, pipe] : issueQueues[coreType][idx]) {
-        (void)pipeType;
         if (!pipe.busy) {
             continue;
+        }
+        if (!pipeEndTime.count(pipeType)) {
+            pipeEndTime.emplace(pipeType, pipe.curOpRetireCycle);
+        } else {
+            auto curEndTime = pipeEndTime[pipeType];
+            pipeEndTime[pipeType] = std::max(curEndTime, pipe.curOpRetireCycle);
         }
         if (pipe.curOpRetireCycle <= clock) {   // 如果该pipe内当前正在执行op，在clock的时刻已经执行完毕。
             IssueEntryPtr issue = pipe.curIssue;
@@ -748,7 +750,13 @@ void OoOScheduler::InitIssueQueuesAndBufferManager() {
     bufferManagerMap.clear();
     for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
         for (auto idx : idxVec) {
-            for (size_t i = 0; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
+            if (coreType == OpCoreType::AIV) {
+                allocIssueQueue[coreType][idx][MemoryType::MEM_UB] = IssueQueue();
+                bufferManagerMap[coreType][idx].insert({MemoryType::MEM_UB,
+                        BufferPool(MemoryType::MEM_UB, localMemorySize[MemoryType::MEM_UB])});
+                continue;
+            }
+            for (size_t i = 1; i < static_cast<int>(MemoryType::MEM_DEVICE_DDR); i++) {
                 allocIssueQueue[coreType][idx][static_cast<MemoryType>(i)] = IssueQueue();
                 if (localMemorySize.find(static_cast<MemoryType>(i)) != localMemorySize.end()) {
                     bufferManagerMap[coreType][idx].insert({static_cast<MemoryType>(i),
@@ -1168,6 +1176,7 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const 
     }
     PrintOpList(newOperations_);
     function_.SetStackWorkespaceSize(workspaceOffset);
+    function_.pipeEndTime = pipeEndTime;
     return SUCCESS;
 }
 
