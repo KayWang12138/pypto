@@ -239,9 +239,11 @@ Status OoOSchedule::RunOnFunction(Function &function) {
         }
         programRef.second = program.second;
     }
-    if (RecordLastUseMemory(function) == FAILED) {
-        APASS_LOG_ERROR_F(Elements::Function, "Run RecordLastUseMemory Failed.");
-        return FAILED;
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        if (RecordLastUseMemory(function) == FAILED) {
+            APASS_LOG_ERROR_F(Elements::Function, "Run RecordLastUseMemory Failed.");
+            return FAILED;
+        }
     }
     APASS_LOG_INFO_F(Elements::Operation, "=============== END 2CoreSplit ===============");
     return SUCCESS;
