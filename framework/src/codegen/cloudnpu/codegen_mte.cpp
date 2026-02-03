@@ -412,19 +412,18 @@ std::string CodeGenOpCloudNPU::PrintL0CToL1TileTensor() const {
     GetAttr(OP_ATTR_PREFIX + "relu_type", reluMode);
     std::string nzVar = "CopyOutMode::NZ2NZ";
     std::vector<std::string> storeConfigList = {nzVar, std::to_string(isAcc), std::to_string(reluMode)};
-    std::string storeConfig = PrintParams({"<", ">"}, storeConfigList, ", ");
+    std::string storeConfig = WrapParamByAngleBrackets(storeConfigList);
     npu::tile_fwk::Element scaleValue = npu::tile_fwk::Element(DataType::DT_UINT64, 0);
 
     GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
-    if ((!scaleValue.GetUnsignedData()) &&
-        ((operandDtype[ID1] == DT_INT32) && (operandDtype[ID0] == DT_FP16))) {
+    if ((!scaleValue.GetUnsignedData()) && ((operandDtype[ID1] == DT_INT32) && (operandDtype[ID0] == DT_FP16))) {
         src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
     }
     std::vector<std::string> tileOpParamList = {
         dstTensor, srcTensor, src1Tensor, coordDst, coordSrc, std::to_string(scaleValue.GetUnsignedData())};
     std::ostringstream oss;
     oss << tileOpName << "<" << "TileOp::TStoreConfig" << storeConfig << ">";
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << WrapParamByParentheses(tileOpParamList);
     oss << STMT_END;
     return oss.str();
 }
@@ -493,7 +492,7 @@ std::string CodeGenOpCloudNPU::GenUBToL1TileTensor() const {
 
     std::ostringstream oss;
     oss << tileOpName;
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << WrapParamByParentheses(tileOpParamList);
     oss << STMT_END;
     return oss.str();
 }
@@ -509,7 +508,7 @@ std::string CodeGenOpCloudNPU::GenUBToUBND2NZTileTensor() const {
 
     std::ostringstream oss;
     oss << tileOpName;
-    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << WrapParamByParentheses(tileOpParamList);
     oss << STMT_END;
     return oss.str();
 }
