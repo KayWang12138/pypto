@@ -922,9 +922,7 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
 }
 
 Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
-    APASS_LOG_DEBUG_F(Elements::Operation, "START: SPILL tensor.");
-    ASSERT(allocBuffer->memType == MemoryType::MEM_UB)
-    << "GenSpillOp Spill L1";
+    ASSERT(allocBuffer->memType == MemoryType::MEM_UB) << "GenSpillOp Spill L1";
     if (allocBuffer->memType != MemoryType::MEM_L1 && allocBuffer->memType != MemoryType::MEM_UB) {
         if (PrintSpillFailedInfo(issueEntries[pcIdx]) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "PrintSpillFailedInfo failed; Please check the PrintSpillFailedInfo method.");
@@ -971,8 +969,7 @@ Status OoOScheduler::GenSpillOp(LocalBufferPtr allocBuffer, size_t &pcIdx) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpillMultiBuffer failed!");
             return FAILED;
         }
-    }	
-    APASS_LOG_DEBUG_F(Elements::Operation, "END: SPILL tensor.");	
+    }
     return SUCCESS;	
 }
 
