@@ -184,6 +184,22 @@ const std::vector<int64_t> CONV3D_ATTR_DEFAULT_LIST = {1, 1, 1};
 const std::vector<int64_t> CONV2D_PAD_ATTR_DEFAULT_LIST = {0, 0, 0, 0};
 const std::vector<int64_t> CONV3D_PAD_ATTR_DEFAULT_LIST = {0, 0, 0, 0, 0, 0};
 
+class Im2ColOpAttributeKey {
+public:
+    static const std::string postK = "POST_K";
+    static const std::string postM = "POST_M";
+    static const std::string filterH = "FILTER_H";
+    static const std::string filterW = "FILTER_W";
+    static const std::string strideH = "STRIDE_H";
+    static const std::string strideW = "STRIDE_W";
+    static const std::string dilationH = "DILATION_H";
+    static const std::string dilationW = "DILATION_W";
+    static const std::string paddingLeft = "PAD_LEFT";
+    static const std::string paddingRight = "PAD_RIGHT";
+    static const std::string paddingTop = "PAD_TOP";
+    static const std::string paddingBottom = "PAD_BOTTOM";
+};
+
 struct ConvAttrParam {
     std::vector<int64_t> paddings = {0, 0, 0, 0};
     std::vector<int64_t> strides = {0, 0};

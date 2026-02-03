@@ -219,9 +219,58 @@ LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &ten
     return dstBiasBtTensorPtr;
 }
 
+void SetImg2ColAttr(Operation &load3dOpAl0, const ConvAttrParam &convAttrParam, ConvIterInfo &iterInfo)
+{
+    int64_t strideH = convAttrParam.strides[0];
+    int64_t strideW = convAttrParam.strides[1];
+    int64_t dilationH = convAttrParam.dilations[0];
+    int64_t dilationW = convAttrParam.dilations[1];
+    int64_t dilatedKernelH = (convAttrParam.oriweightShape[NCHW_H_IDX] - 1) * dilationH + 1;
+    int64_t dilatedKernelW = (convAttrParam.oriweightShape[NCHW_W_IDX] - 1) * dilationW + 1;
+    load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::strideH, strideH);
+    load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::strideW, strideW);
+    load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::dilationH, dilationH);
+    load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::dilationW, dilationW);
+    load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::filterH, convAttrParam.oriweightShape[NCHW_H_IDX]);
+    load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::filterW, convAttrParam.oriweightShape[NCHW_W_IDX]);
+    // cal H padding
+    if (iterInfo.hL1InOffset >= 0) {
+        load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::paddingTop, 0);
+    } else {
+        load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::paddingTop, 0 - iterInfo.hL1InOffset);
+    }
+    int64_t hinAL1Used = (iterInfo.houtL1Size - 1) * strideH + dilatedKernelH;
+    int64_t hinBottomPadOffset = iterInfo.hL1InOffset + hinAL1Used;
+    if (hinBottomPadOffset > convAttrParam.oriFmapShape[NCHW_H_IDX]) {
+        load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::paddingBottom,
+                                 hinBottomPadOffset - convAttrParam.oriFmapShape[NCHW_H_IDX]);
+    } else {
+        load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::paddingBottom, 0);
+    }
+    // cal W padding
+    if (iterInfo.wL1InOffset >= 0) {
+        load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::paddingLeft, 0);
+    } else {
+        load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::paddingLeft, 0 - iterInfo.wL1InOffset);
+    }
+    int64_t hinWL1Used = (iterInfo.woutL1Size - 1) * strideW + dilatedKernelW;
+    int64_t winRightPadOffset = iterInfo.wL1InOffset + winAL1Used;
+    if (winRightPadOffset > convAttrParam.oriFmapShape[NCHW_W_IDX]) {
+        load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::paddingRight,
+                                 winRightPadOffset - convAttrParam.oriFmapShape[NCHW_W_IDX]);
+    } else {
+        load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::paddingRight, 0);
+    }
+    // cal postm postk
+    int64_t mStartPt = iterInfo.hL0Offset * iterInfo.winL1Size + iterInfo.wL0Offset;
+    int64_t kStartPt = iterInfo.kL0Offset;
+    load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::postM, mStartPt);
+    load3dOpAl0.SetAttribute(Im2ColOpAttributeKey::postK, kStartPt);
+}
+
 LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &tensorGraphNodes,
                                    const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo,
-                                   LogicalTensorPtr &dstAL1TensorPtr)
+                                   LogicalTensorPtr &dstAL1TensorPtr, const ConvAttrParam &convAttrParam)
 {
     if (iterInfo.kL0Offset % convTileInfo.kAL1 == 0) {
         iterInfo.aL1UpadateFlag = true;
@@ -253,7 +302,8 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
                                         tensorGraphNodes.fmapTensorPtr->Format(), "aL0Tensor", NodeType::LOCAL);
     // dstAL1TensorPtr->UpdateDynValidShape(
     //     GetViewValidShape(operandVec[0]->GetDynValidShape(), dstAL1Offset, {}, dstAL1Shape));
-    auto &viewOpAl0 = function.AddOperation(Opcode::OP_LOAD3D_CONV, {dstAL1TensorPtr}, {dstAL0TensorPtr});
+    auto &load3dOpAl0 = function.AddOperation(Opcode::OP_LOAD3D_CONV, {dstAL1TensorPtr}, {dstAL0TensorPtr});
+    SetImg2ColAttr(load3dOpAl0, convAttrParam, iterInfo);
     return dstAL0TensorPtr;
 }
 
@@ -438,10 +488,10 @@ void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
                      iterInfo.kL0Offset += convTileInfo.kL0) {
                     UpdateL0IterInfo(convTileInfo, iterInfo);
                     // fmap and weight link
-                    tileGraphNodes.fmapTensorPtr =
-                        ConstructFmapTile(function, tensorGraphNodes, convTileInfo, iterInfo, fmapL1TensorPtr);
-                    tileGraphNodes.weightTensorPtr =
-                        ConstructWeightTile(function, tensorGraphNodes, convTileInfo, iterInfo, weightL1TensorPtr);
+                    tileGraphNodes.fmapTensorPtr = ConstructFmapTile(function, tensorGraphNodes, convTileInfo,
+                                                                     iterInfo, fmapL1TensorPtr, convAttrParam);
+                    tileGraphNodes.weightTensorPtr = ConstructWeightTile(function, tensorGraphNodes, convTileInfo,
+                                                                         iterInfo, weightL1TensorPtr);
                     // add mmad node
                     resCl0TensorPtr = DoMmad(function, convAttrParam, tensorGraphNodes, tileGraphNodes,
                                              convTileInfo, iterInfo);
