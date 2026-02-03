@@ -214,6 +214,8 @@ bool AiCoreManager::CheckTaskFinished(int coreIdx) {
         DfxProcAfterFinishTask(coreIdx, regLFinTaskId);
         pendingIds_[coreIdx] = AICORE_TASK_INIT;
         runningIds_[coreIdx] = AICORE_TASK_INIT;
+
+        INSTRUMENTATION_MARK_RESET(coreIdx);
     }
 
     return pendingIds_[coreIdx] == AICORE_TASK_INIT && runningIds_[coreIdx] == AICORE_TASK_INIT;
@@ -347,6 +349,8 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
     pendingIds_[coreIdx] = newTask;
     sendCnt_[static_cast<int>(type)]++;
 
+    INSTRUMENTATION_MARK_SET(coreIdx, 0, (uint32_t)newTask);
+
     DEV_DEBUG("Send task %lu, at core %d ,type:%d \n", newTask, coreIdx, static_cast<int>(type));
 }
 
@@ -459,6 +463,8 @@ void AiCoreManager::ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint3
         pendingIds_[coreIdx] = AICORE_TASK_INIT;
         corePendReadyCnt_[static_cast<int>(type)]++;
         runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
+
+        INSTRUMENTATION_MARK_RESET(coreIdx);
     }
 }
 
@@ -471,6 +477,8 @@ void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTask
     uint32_t tmpTaskId;
     if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
         DEV_DEBUG("PendingTask Finished.runningid:%lx\n", runningIds_[coreIdx]);
+
+        INSTRUMENTATION_MARK_RESET(coreIdx);
 
         tmpTaskId = runningIds_[coreIdx];
         runningIds_[coreIdx] = AICORE_TASK_INIT;
@@ -498,6 +506,9 @@ void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTask
     } else if (finTaskId == runningIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
         DEV_DEBUG("core index: %d, RuningTask Finished. pending: %lx, running: %lx\n",
             coreIdx, pendingIds_[coreIdx], runningIds_[coreIdx]);
+
+        INSTRUMENTATION_MARK_RESET(coreIdx);
+
         runningIds_[coreIdx] = AICORE_TASK_INIT;
         if (pendingIds_[coreIdx] == AICORE_TASK_INIT) {
             if (!SendTaskDirectlyWhenCoreRunReady(type, coreIdx)) {
