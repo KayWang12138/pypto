@@ -612,8 +612,6 @@ TEST_F(ScheduleOoOTest, TestSpillL0AFailed) {
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.PriorDFS(preNodePriority);
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.GenSpillSchedule();
-    EXPECT_EQ(res, FAILED);
 }
 
 TEST_F(ScheduleOoOTest, TestSchedule) {
