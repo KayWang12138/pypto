@@ -53,7 +53,7 @@ TEST_F(FunctionUtilsTest, TestCloneOperation) {
         output = Add(input, Element(DT_FP32, 1.0));
     }
 
-    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_main");
+    Function *func = Program::GetInstance().GetFunctionByRawName("PYPTO_main");
     ASSERT_NE(func, nullptr);
     for (const auto &op : func->Operations(false)) {
         if (op.GetOpcode() == Opcode::OP_ADDS) {

@@ -95,7 +95,7 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
         Json readData = LoadJsonFile(jsonFilePath);
         Program::GetInstance().LoadJson(readData);
 
-        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD");
+        originFunction = Program::GetInstance().GetFunctionByRawName("PYPTO_ADD");
 
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
         auto operations = originFunction->Operations();
@@ -107,7 +107,7 @@ TEST_F(GenerateMoveOpPassTest, AssembleViewToCopy) {
         generateMoveOp.RunOnFunction(*originFunction);
 
         // ================== Verify Pass Effect ==================
-        auto updatedOperations = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD")->Operations();
+        auto updatedOperations = Program::GetInstance().GetFunctionByRawName("PYPTO_ADD")->Operations();
         constexpr int expectedOperations = 4;
         EXPECT_EQ(updatedOperations.size(), expectedOperations) << "4 operations should remain View + Convert + Add + Assemble";
         int assemble_num = 0;
@@ -183,7 +183,7 @@ TEST_F(GenerateMoveOpPassTest, ConvertToCopy) {
         }
 
         // ================== Verify Pass Effect ==================
-        auto updatedOperations = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD")->Operations();
+        auto updatedOperations = Program::GetInstance().GetFunctionByRawName("PYPTO_ADD")->Operations();
         constexpr int expectedOperations = 6;
         EXPECT_EQ(updatedOperations.size(), expectedOperations) << "8 operations should remain View + Convert + Add + Assemble";
         int assemble_num = 0;
@@ -264,7 +264,7 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
         generateMoveOp.RunOnFunction(*originFunction);
 
         // ================== Verify Pass Effect ==================
-        auto updatedOperations = Program::GetInstance().GetFunctionByRawName("TENSOR_Tranpose")->Operations();
+        auto updatedOperations = Program::GetInstance().GetFunctionByRawName("PYPTO_Tranpose")->Operations();
         constexpr int expectedOperations = 12;
         EXPECT_EQ(updatedOperations.size(), expectedOperations) << "total 12 operations";
         int assemble_num = 0;
@@ -342,12 +342,12 @@ TEST_F(GenerateMoveOpPassTest, ScatterUpdate) {
             DumpJsonFile(programJson, jsonFilePath);
         }
 
-        Function* originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_ScatterUpdate");
+        Function* originFunction = Program::GetInstance().GetFunctionByRawName("PYPTO_ScatterUpdate");
         GenerateMoveOp generateMoveOp;
         generateMoveOp.RunOnFunction(*originFunction);
 
         // ================== Verify Pass Effect ==================
-        auto updatedOperations = Program::GetInstance().GetFunctionByRawName("TENSOR_ScatterUpdate")->Operations();
+        auto updatedOperations = Program::GetInstance().GetFunctionByRawName("PYPTO_ScatterUpdate")->Operations();
         constexpr int expectedOperations = 20;
         EXPECT_EQ(updatedOperations.size(), expectedOperations) << "total 16 operations";
         int assemble_num = 0;
@@ -613,7 +613,7 @@ TEST_F(GenerateMoveOpPassTest, ViewconnectAssemble) {
     // Validate the results
     int check_Op_inputsMemType = 0;
     for (auto &op : currFunctionPtr->Operations()) {
-        auto consumerOps = op.oOperand[0]->GetConsumers(); 
+        auto consumerOps = op.oOperand[0]->GetConsumers();
         for (auto childOp : consumerOps) {
             auto opcode = childOp->GetOpcode();
             const auto &inputsMemType = OpcodeManager::Inst().GetInputsMemType(opcode);

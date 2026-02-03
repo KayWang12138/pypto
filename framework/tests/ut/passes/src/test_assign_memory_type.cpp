@@ -233,7 +233,7 @@ TEST_F(AssignMemoryTypeTest, TestVecToCubeV2) {
             out = Add(mmRes, sumRes);
         }
 
-        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestVecToCubeV2"); // Tensor_{Function名字}
+        originFunction = Program::GetInstance().GetFunctionByRawName("PYPTO_TestVecToCubeV2"); // Tensor_{Function名字}
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
         std::vector<int64_t> beforeMagic;
         for (const auto &op : originFunction->Operations()) {
@@ -291,7 +291,7 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCube) {
             out = Sub(QKT, Element(DataType::DT_FP32, F_3));
         }
 
-        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestCubeToCube"); // Tensor_{Function名字}
+        originFunction = Program::GetInstance().GetFunctionByRawName("PYPTO_TestCubeToCube"); // Tensor_{Function名字}
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
         std::vector<int64_t> beforeMagic;
         for (const auto &op : originFunction->Operations()) {
@@ -349,7 +349,7 @@ TEST_F(AssignMemoryTypeTest, TestCubeToCubeV2) {
             out = Add(QKT, Element(DataType::DT_FP32, F_1));
         }
 
-        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestCubeToCubeV2"); // Tensor_{Function名字}
+        originFunction = Program::GetInstance().GetFunctionByRawName("PYPTO_TestCubeToCubeV2"); // Tensor_{Function名字}
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
         std::vector<int64_t> beforeMagic;
         for (const auto &op : originFunction->Operations()) {
@@ -409,7 +409,7 @@ TEST_F(AssignMemoryTypeTest, TestCubeToVec) {
             TileShape::Current().SetVecTile(NUM_256, NUM_128);
             out = Add(inputV1, inputV2);
         }
-        originFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_TestCubeToVec"); // Tensor_{Function名字}
+        originFunction = Program::GetInstance().GetFunctionByRawName("PYPTO_TestCubeToVec"); // Tensor_{Function名字}
         ASSERT_NE(originFunction, nullptr) << "当前函数指针为空";
         int64_t beforeViewNum = 0;
         for (const auto &op : originFunction->Operations()) {
@@ -788,7 +788,7 @@ void AssignViewTensorWithAttr (std::shared_ptr<Function> &currFunctionPtr) {
     auto viewAttribute8 =std::make_shared<ViewOpAttribute>(std::vector<int64_t>{0,0});
     viewAttribute8->SetToType(MemoryType::MEM_L0B);
     view_op8.SetOpAttribute(viewAttribute7);
-    
+
     currFunctionPtr->AddRawOperation(Opcode::OP_A_MUL_B, {view_out3,view_out4,view_out1,view_out2}, {output});
 
     currFunctionPtr->inCasts_.push_back(view_in1);
@@ -822,7 +822,7 @@ TEST_F(AssignMemoryTypeTest, TestViewWithAttr) {
     for (auto &op : currFunctionPtr->Operations()) {
         if (op.GetOpcode() == Opcode::OP_VIEW) {
             auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
-            MemoryType attrToType = viewOpAttribute->GetTo();   
+            MemoryType attrToType = viewOpAttribute->GetTo();
             auto output = op.GetOOperands().front();
             auto outputMemOri = output->GetMemoryTypeOriginal();
             auto outputMemTobe = output->GetMemoryTypeToBe();

@@ -188,7 +188,7 @@ def _torch_dtype_from(dtype: DataType) -> "torch.dtype":
 
 def _gen_pto_tensor(input_tensors):
     import torch
-    
+
     torch_tensors = []
     pto_tensors = []
     for t in input_tensors:

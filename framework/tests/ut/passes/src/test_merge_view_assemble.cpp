@@ -91,7 +91,7 @@ TEST_F(MergeViewAssembleTest, TestMergeViewAssemble) {
         Program::GetInstance().LoadJson(readData);
     }
 
-    Function* currentFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_AddFunction");
+    Function* currentFunction = Program::GetInstance().GetFunctionByRawName("PYPTO_AddFunction");
 
     MergeViewAssemble mergeViewAssemble;
     mergeViewAssemble.PreCheck(*currentFunction);

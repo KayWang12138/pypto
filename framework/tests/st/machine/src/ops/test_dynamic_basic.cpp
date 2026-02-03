@@ -349,7 +349,7 @@ TEST_F(DynamicBasicTest, TestTT) {
     Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
     Tensor out(DT_FP32, {n * s, s}, "out");
 
-    std::vector<std::string> funcName = {"TENSOR_main"};
+    std::vector<std::string> funcName = {"PYPTO_main"};
     config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t0, 1.0),
@@ -383,7 +383,7 @@ TEST_F(DynamicBasicTest, TestLocalTensor) {
     Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
     Tensor out(DT_FP32, {n * s, s}, "out");
 
-    std::vector<std::string> funcName = {"TENSOR_main"};
+    std::vector<std::string> funcName = {"PYPTO_main"};
     config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t0, 1.0),
@@ -425,7 +425,7 @@ TEST_F(DynamicBasicTest, TestLocalTempTensor) {
     Tensor t1(DT_FP32, {n * s, s}, "t1");  // [64 * 8, 64]
     Tensor out(DT_FP32, {n * s, s}, "out");
 
-    std::vector<std::string> funcName = {"TENSOR_main"};
+    std::vector<std::string> funcName = {"PYPTO_main"};
     config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateConstantTensor<float>(t0, 1.0),
@@ -708,7 +708,7 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(512, 512);
     TileShape::Current().SetCubeTile({128, 128}, {128, 128}, {128, 128});
-    std::vector<std::string> funcName = {"TENSOR_main"};
+    std::vector<std::string> funcName = {"PYPTO_main"};
     config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
     int vecLen = 16;
     int loopNum = 4;
@@ -759,7 +759,7 @@ TEST_F(DynamicBasicTest, TestInnerLoopOrder) {
         }
     }
 
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_main_2");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_main_2");
     EXPECT_NE(mainFunc, nullptr);
 
     // excute
@@ -885,7 +885,7 @@ namespace DynamicTest {
 TEST_F(DynamicBasicTest, TestLoopIfWithRank456) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(32, 32);   //设置Tileshape大小为32*32
-    std::vector<std::string> funcName = {"TENSOR_main"};
+    std::vector<std::string> funcName = {"PYPTO_main"};
     config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
 
     int s = 32;

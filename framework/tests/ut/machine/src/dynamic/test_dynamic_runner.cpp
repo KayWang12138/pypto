@@ -99,7 +99,7 @@ TEST_F(TestDynamicDeviceRunner, TestDynMachineAgent) {
         output = Add(inputA, inputB);
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD");
+    auto function = Program::GetInstance().GetFunctionByRawName("PYPTO_ADD");
     auto task_1 = std::make_shared<MachineTask>(0, function);
     DeviceAgentTask agentTask1(task_1);
     machinePipe.PipeProc(&agentTask1);
@@ -143,7 +143,7 @@ TEST_F(TestDynamicDeviceRunner, test_kernel_dump) {
         output = Add(inputA, inputB);
     }
 
-    auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD0");
+    auto function = Program::GetInstance().GetFunctionByRawName("PYPTO_ADD0");
     HostProf hostProf;
     hostProf.SetProfFunction(function);
     auto task_1 = std::make_shared<MachineTask>(0, function);

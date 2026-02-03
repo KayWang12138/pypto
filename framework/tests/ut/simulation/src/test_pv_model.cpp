@@ -89,12 +89,12 @@ TEST(PvModelTest, TestDynCodegen) {
 [aicore] void TENSOR_PATH0_4_0(CoreFuncParam *param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo *oriAddrParam) {
 }
 )!!!";
-    std::string srcFile("TENSOR_PATH0_4_0.cpp");
+    std::string srcFile("PYPTO_PATH0_4_0.cpp");
     std::ofstream ofs(srcFile);
     ofs << org;
     ofs.close();
 
-    std::string dstFile("TENSOR_PATH0_4_0_pvmodel.cpp");
+    std::string dstFile("PYPTO_PATH0_4_0_pvmodel.cpp");
     npu::tile_fwk::CopyFile(srcFile, dstFile);
     PvModelCodegen::AddKernelEntry(dstFile);
     std::ifstream file(dstFile);

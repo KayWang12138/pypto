@@ -87,7 +87,7 @@ TEST_F(DynamicReshapeTest, test_only_reshape) {
 
 TEST_F(DynamicReshapeTest, test_only_reshape2) {
     SetInterpreterConfig();
-    std::vector<std::string> funcName = {"TENSOR_MAIN_FUNC"};
+    std::vector<std::string> funcName = {"PYPTO_MAIN_FUNC"};
     config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
 
     int b = 2;
