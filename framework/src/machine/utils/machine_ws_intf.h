@@ -40,8 +40,43 @@ constexpr aicoreFunction_t aicoreNullFunction = 0xFFFFFFFFFFFFFFFFUL;
 struct StaticReadyCoreFunctionQueue {
   uint64_t head;
   uint64_t tail;
-  uint64_t* elem;
-  size_t lock;
+  aicoreFunction_t* elem;
+  size_t lock = 0;
+
+  inline void doLock()
+  {
+    while (!__sync_bool_compare_and_swap(&lock, 0, 1)) { }
+  }
+
+  inline void doUnlock()
+  {
+    while (!__sync_bool_compare_and_swap(&lock, 1, 0))  { }
+  }
+
+  inline bool isEmpty() const { return head == tail; }
+  inline uint64_t getSize() const { return tail - head; }
+
+  inline void push(const aicoreFunction_t function)
+  {
+    doLock();
+    elem[tail] = function;
+    tail++;
+    doUnlock();
+  } 
+
+  inline aicoreFunction_t pop()
+  {
+    aicoreFunction_t returnValue = aicoreNullFunction;
+    doLock();
+    if (isEmpty() == false)
+    {
+      returnValue = elem[head];
+      head++;
+    }
+    doUnlock();
+    return returnValue;
+  }
+
 };
 
 struct WrapInfo {

@@ -120,16 +120,6 @@ struct DeviceTaskCtrl {
     }
 };
 
-inline void ReadyQueueLock(StaticReadyCoreFunctionQueue *rq) {
-    while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
-    }
-}
-
-inline void ReadyQueueUnLock(StaticReadyCoreFunctionQueue *rq) {
-    while (!__sync_bool_compare_and_swap(&rq->lock, 1, 0)) {
-    }
-}
-
 void SdmaPrefetch(DeviceTask *devTask);
 
 class AiCoreManager {
@@ -165,10 +155,16 @@ public:
         }
 
         // Storing the address of the lock free queues locally
-        readyAicCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t> *)curDevTask_->readyAicCoreLockFreeFunctionQue;
-        readyAivCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t> *)curDevTask_->readyAivCoreLockFreeFunctionQue;
+        readyAicCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t> *)curDevTask_->readyAicCoreFunctionLockFreeQue;
+        readyAivCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t> *)curDevTask_->readyAivCoreFunctionLockFreeQue;
+    }
 
-        // if (readyAicCoreFunctionLockFreeQueue_ == nullptr) sleep(2);
+    inline void finalizeTaskData() {
+        if (aicpuIdx_ == 1)
+        {
+          delete readyAicCoreFunctionLockFreeQueue_;
+          delete readyAivCoreFunctionLockFreeQueue_;
+        }
     }
 
     inline void CountSendTask(uint64_t& sentAic, uint64_t& sentAiv) {
