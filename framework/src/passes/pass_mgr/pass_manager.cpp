@@ -18,9 +18,9 @@
 #include <cstdlib>
 #include <unistd.h>
 #include "interface/configs/config_manager.h"
-#include "interface/utils/file_utils.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_interface/pass_type.h"
+#include "passes/pass_utils/pass_log_util.h"
 #include "pass_registry.h"
 #include "interface/tensor/expected_value.h"
 #include "tilefwk/error.h"
@@ -51,34 +51,6 @@
 #include "passes/block_graph_pass/loopaxes_proc.h"
 
 namespace npu::tile_fwk {
-class PassLogUtil {
-public:
-    PassLogUtil(Pass &pass, Function &function, size_t passIndex) {
-        originLogOutPath_ = config::LogFile();
-        logFolder_ = pass.LogFolder(config::LogTopFolder(), passIndex);
-        logFilePath_ = logFolder_ + "/" + (pass.GetName() + function.GetMagicName() + ".log");
-        LoggerManager::FileLoggerReplace(originLogOutPath_, logFilePath_, true);
-    }
-    
-    ~PassLogUtil() {
-        LoggerManager::FileLoggerReplace(logFilePath_, originLogOutPath_, true);
-        if (!logFolder_.empty()) {
-            auto files = GetFiles(logFolder_, "");
-            if (files.empty()) {
-                (void)DeleteDir(logFolder_);
-            }
-        }
-    }
-    
-    PassLogUtil(const PassLogUtil &) = delete;
-    PassLogUtil &operator=(const PassLogUtil &) = delete;
-
-private:
-    std::string originLogOutPath_;
-    std::string logFilePath_;
-    std::string logFolder_;
-};
-
 PassManager &PassManager::Instance() {
     static PassManager instance;
     return instance;
