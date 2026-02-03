@@ -174,7 +174,7 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
         //跳过前端没有指定mem类型的view
         //适配L0C2L1通路，优先选择将view转化为L0C2L1，不满足场景后续转为ddr
         if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && out->GetMemoryTypeOriginal() == MemoryType::MEM_L1 &&
-            (out->GetDataType() == DT_BF16 || out->GetDataType() == DT_FP16)) {
+            (out->Datatype() == DT_BF16 || out->Datatype() == DT_FP16)) {
             inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_L0C);
         }
         return;
@@ -201,7 +201,7 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     if (input->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
         return;
     }
-    if (input->GetDataType() != DT_BF16 && input->GetDataType() != DT_FP16) {
+    if (input->Datatype() != DT_BF16 && input->Datatype() != DT_FP16) {
         return;
     }
     for (const auto &consumerOp : output->GetConsumers()) {
