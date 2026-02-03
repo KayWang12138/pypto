@@ -91,6 +91,6 @@ TEST_F(GenAttnUtTest, TestDynamicGenAttenTest_FP16_ut) {
     tileConfig.tileBSize = NUM_8;
     tileConfig.tileS1Size = 1;
     tileConfig.vec1TileShape = {1, 1, NUM_16, dTileSize};
-    tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_3};
+    tileConfig.vec2TileShape = {1, 1, nTileSize, NUM_16};
     genAtten<npu::tile_fwk::float16>(tileConfig);
 }
