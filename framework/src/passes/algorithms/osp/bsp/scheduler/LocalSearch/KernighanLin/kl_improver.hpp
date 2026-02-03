@@ -208,7 +208,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
     }
 
     inline void ProcessOtherStepsBestMove(const unsigned idx,
-                                          const unsigned nodeStep,
                                           const VertexType &node,
                                           const CostT affinityCurrentProcStep,
                                           CostT &maxGain,
@@ -241,7 +240,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
 
         unsigned idx = threadData.StartIdx(nodeStep);
         for (; idx < windowSize; idx++) {
-            ProcessOtherStepsBestMove(idx, nodeStep, node, affinityCurrentProcStep, maxGain, maxProc, maxStep, affinityTableNode);
+            ProcessOtherStepsBestMove(idx, node, affinityCurrentProcStep, maxGain, maxProc, maxStep, affinityTableNode);
         }
 
         if constexpr (moveToSameSuperStep) {
@@ -263,7 +262,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
 
         const unsigned bound = threadData.EndIdx(nodeStep);
         for (; idx < bound; idx++) {
-            ProcessOtherStepsBestMove(idx, nodeStep, node, affinityCurrentProcStep, maxGain, maxProc, maxStep, affinityTableNode);
+            ProcessOtherStepsBestMove(idx, node, affinityCurrentProcStep, maxGain, maxProc, maxStep, affinityTableNode);
         }
 
         return KlMove(node, maxGain, nodeProc, nodeStep, maxProc, nodeStep + maxStep - windowSize);

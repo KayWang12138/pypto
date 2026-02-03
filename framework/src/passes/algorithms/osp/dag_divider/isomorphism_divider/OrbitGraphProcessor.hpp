@@ -138,7 +138,6 @@ class OrbitGraphProcessor {
      * @param newSubgraphs The new set of subgraphs for the merged group.
      * @param currentCoarseGraph Reference to the current coarse graph to be updated.
      * @param currentGroups Reference to the groups vector to be updated.
-     * @param currentContractionMap Reference to the contraction map (unused in this optimized version).
      */
     void CommitMerge(VertexType u,
                      VertexType v,
@@ -146,8 +145,7 @@ class OrbitGraphProcessor {
                      const std::vector<VertexType> &groupRemap,
                      std::vector<std::vector<VertexType>> &&newSubgraphs,
                      ConstrGraphT &currentCoarseGraph,
-                     std::vector<Group> &currentGroups,
-                     std::vector<VertexType> &currentContractionMap) {
+                     std::vector<Group> &currentGroups) {
         currentCoarseGraph = std::move(nextCoarseGraph);
 
         // Update caches for new vertex indices
@@ -186,14 +184,12 @@ class OrbitGraphProcessor {
      * @param originalDag The original high-resolution DAG.
      * @param currentCoarseGraph Reference to the current coarse graph.
      * @param currentGroups Reference to the current groups.
-     * @param currentContractionMap Reference to the contraction map.
      * @param workThreshold The work weight threshold for merging.
      * @param pathThreshold The critical path weight threshold (default 0).
      */
     void MergeSmallOrbits(const GraphT &originalDag,
                           ConstrGraphT &currentCoarseGraph,
                           std::vector<Group> &currentGroups,
-                          std::vector<VertexType> &currentContractionMap,
                           const VWorkwT<ConstrGraphT> workThreshold,
                           const VWorkwT<ConstrGraphT> pathThreshold = 0) {
         bool changed = true;
@@ -256,8 +252,7 @@ class OrbitGraphProcessor {
                                 tempContractionMap,
                                 std::move(newSubgraphs),
                                 currentCoarseGraph,
-                                currentGroups,
-                                currentContractionMap);
+                                currentGroups);
 
                     changed = true;
                     break;
@@ -294,7 +289,6 @@ class OrbitGraphProcessor {
     void ContractEdgesAdpativeSym(const GraphT &originalDag,
                                   ConstrGraphT &currentCoarseGraph,
                                   std::vector<Group> &currentGroups,
-                                  std::vector<VertexType> &currentContractionMap,
                                   const bool mergeDifferentNodeTypes,
                                   const bool mergeBelowThreshold,
                                   const std::vector<VWorkwT<GraphT>> &lockThresholdPerType,
@@ -379,8 +373,7 @@ class OrbitGraphProcessor {
                             tempContractionMap,
                             std::move(newSubgraphs),
                             currentCoarseGraph,
-                            currentGroups,
-                            currentContractionMap);
+                            currentGroups);
 
                 changed = true;
                 break;
@@ -578,18 +571,18 @@ class OrbitGraphProcessor {
             const bool isLastLoop = (sym == symmetryLevelsToTest.back());
 
             nonViableEdgesCache_.clear();
-            ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, false, isLastLoop, lockThresholdPerType);
+            ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, false, isLastLoop, lockThresholdPerType);
 
             if (mergeDifferentNodeTypes_) {
-                ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, mergeDifferentNodeTypes_, isLastLoop, lockThresholdPerType);
+                ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, mergeDifferentNodeTypes_, isLastLoop, lockThresholdPerType);
             }
 
             nonViableCritPathEdgesCache_.clear();
-            ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, mergeDifferentNodeTypes_, isLastLoop, lockThresholdPerType, criticalPathThreshold_);
+            ContractEdgesAdpativeSym(originalDag, currentCoarseGraph, currentGroups, mergeDifferentNodeTypes_, isLastLoop, lockThresholdPerType, criticalPathThreshold_);
         }
 
         nonViableEdgesCache_.clear();
-        MergeSmallOrbits(originalDag, currentCoarseGraph, currentGroups, currentContractionMap, workThreshold_);
+        MergeSmallOrbits(originalDag, currentCoarseGraph, currentGroups, workThreshold_);
 
         // Rebuild contraction map from currentGroups
         currentContractionMap.assign(originalDag.NumVertices(), 0);

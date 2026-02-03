@@ -136,8 +136,6 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
                 VWorkwT<GraphT> weightLimit = 0;
                 VWorkwT<GraphT> totalWeightAssigned = 0;
 
-                bool earlyMemoryBreak = false;
-
                 // Processor 0
                 while (newAssignments[0].size() < limit) {
                     VertexIdx chosenNode = std::numeric_limits<VertexIdx>::max();

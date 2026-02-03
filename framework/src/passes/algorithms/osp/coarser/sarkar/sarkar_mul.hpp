@@ -246,14 +246,12 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLevelContractions(bool &change)
 template <typename GraphT, typename GraphTCoarse>
 ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunContractions(VWorkwT<GraphT> commCost) {
     ReturnStatus status = ReturnStatus::OSP_SUCCESS;
-    VertexIdxT<GraphT> diff = 0;
-
+    
     params_.commCost_ = commCost;
     UpdateParams();
 
     unsigned outerNoChange = 0;
     while (outerNoChange < mlParams_.maxNumIterationWithoutChanges_) {
-        unsigned innerNoChange = 0;
         bool outerChange = false;
 
         // Lines
