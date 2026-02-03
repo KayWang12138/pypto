@@ -472,7 +472,8 @@ class IsomorphicSubgraphScheduler {
 
             // Replicate the schedule pattern for ALL subgraphs in the group ---
             for (VertexIdxT<GraphT> i = 0; i < static_cast<VertexIdxT<GraphT>>(group.subgraphs_.size()); ++i) {
-                auto currentSubgraphVertices = group.subgraphs_[i];
+                auto currentSubgraphVerticesSorted = group.subgraphs_[i];
+                std::sort(currentSubgraphVerticesSorted.begin(), currentSubgraphVerticesSorted.end());
 
                 // Map from a vertex in the current subgraph to its corresponding local index (0, 1, ...) in the representative's schedule
                 std::unordered_map<VertexIdxT<GraphT>, VertexIdxT<ConstrGraphT>> currentVertexToRepLocalIdx;
@@ -481,12 +482,12 @@ class IsomorphicSubgraphScheduler {
                     currentVertexToRepLocalIdx = std::move(repGlobalToLocalMap);
                 } else {    // For other subgraphs, build the isomorphic mapping
                     ConstrGraphT currentSubgraphGraph;
-                    auto currentGlobalToLocalMap = CreateInducedSubgraphMap(
-                        instance.GetComputationalDag(), currentSubgraphGraph, currentSubgraphVertices);
+                    auto originalToLocalMap = CreateInducedSubgraphMap(
+                        instance.GetComputationalDag(), currentSubgraphGraph, currentSubgraphVerticesSorted);
 
-                    std::vector<VertexIdxT<GraphT>> currentLocalToGlobalMap(currentGlobalToLocalMap.size());
-                    for (const auto &[globalVertex, localVertex] : currentGlobalToLocalMap) {
-                        currentLocalToGlobalMap[localVertex] = globalVertex;
+                    std::vector<VertexIdxT<GraphT>> localToOriginal(currentSubgraphGraph.NumVertices());
+                    for (const auto &[orig, local] : originalToLocalMap) {
+                        localToOriginal[local] = orig;
                     }
 
                     MerkleHashComputer<ConstrGraphT> currentHasher(currentSubgraphGraph);
@@ -495,14 +496,14 @@ class IsomorphicSubgraphScheduler {
                         const auto &currentOrbitNodes = currentHasher.GetOrbitFromHash(hash);
                         for (size_t k = 0; k < repOrbitNodes.size(); ++k) {
                             // Map: current_subgraph_vertex -> representative_subgraph_local_idx
-                            currentVertexToRepLocalIdx[currentLocalToGlobalMap[currentOrbitNodes[k]]]
+                            currentVertexToRepLocalIdx[localToOriginal[currentOrbitNodes[k]]]
                                 = static_cast<VertexIdxT<ConstrGraphT>>(repOrbitNodes[k]);
                         }
                     }
                 }
 
                 // Apply the partition pattern
-                for (const auto &currentVertex : currentSubgraphVertices) {
+                for (const auto &currentVertex : currentSubgraphVerticesSorted) {
                     const auto repLocalIdx = currentVertexToRepLocalIdx.at(currentVertex);
                     auto spPair
                         = std::make_pair(bspSchedule.AssignedSuperstep(repLocalIdx), bspSchedule.AssignedProcessor(repLocalIdx));
