@@ -54,7 +54,7 @@ bool TuneTileOpSeqForVF::IsMergeable(std::unordered_set<Operation *> &moveFrontO
             if (groupNum == -1) {
                 moveFrontOp.insert(opList_[k]);
             } else {
-                if (!IsGroupMergeable(ps, left, k, groupNum, moveFrontOp)) {
+                if (!IsGroupMergeable(ps, left, k, groupNum)) {
                     return false;
                 }
                 moveFrontOp.insert(opList_[k]);
