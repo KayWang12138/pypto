@@ -23,9 +23,10 @@
 
 示例dockerfile基于ubuntu操作系统进行编写，不同操作系统略有差异请根据实际使用进行调整。
 使用前请根据操作系统及硬件类型指定 CANN_VERSION:<br>
-Ubuntu+A3 :ARG CANN_VERSION=8.5.0.alpha001-a3-ubuntu22.04-py3.11;	<br>
-Ubuntu+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-ubuntu22.04-py3.11;<br>
-openEuler+A2 :ARG CANN_VERSION=8.5.0.alpha001-910b-openeuler24.03-py3.11;<br>
+Ubuntu+A3 :ARG CANN_VERSION=8.5.0-a3-ubuntu22.04-py3.11;	<br>
+Ubuntu+A2 :ARG CANN_VERSION=8.5.0-910b-ubuntu22.04-py3.11;<br>
+openEuler+A3 :ARG CANN_VERSION=8.5.0-a3-openeuler24.03-py3.11;<br>
+openEuler+A2 :ARG CANN_VERSION=8.5.0-910b-openeuler24.03-py3.11;<br>
 根据CPU架构指定 TARGETPLATFORM：<br>
 x86_64: ARG TARGETPLATFORM=linux/amd64;<br>
 aarch64:ARG TARGETPLATFORM=linux/arm64;<br>
