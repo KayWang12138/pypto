@@ -15,6 +15,7 @@ from .. import pypto_impl
 from .._element import Element
 from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
+from ..symbolic_scalar import SymbolicScalar, SymInt
 
 
 @op_wrapper
@@ -585,6 +586,34 @@ def logical_and(input: Tensor, other: Tensor) -> Tensor:
 
 
 @op_wrapper
+def round(input: Tensor, decimals: int = 0) -> Tensor:
+    """Rounds elements of `input` to the nearest number of decimal places.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+    decimals : int
+        Number of decimal places to round to (default: 0).
+        If decimals is negative, it specifies the number of positions to the left of the decimal point.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise round.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 2], pypto.DT_FP32)
+    y = pypto.round(x, decimals=1)
+
+    Input x: [[1.21, 2.35], [3.65, 4.76]]
+    Output y: [[1.2, 2.4], [3.6, 4.8]]
+    """
+    return pypto_impl.Round(input, decimals)
+
+
+@op_wrapper
 def rsqrt(input: Tensor) -> Tensor:
     """Computes the element-wise reciprocal of the square-root of `input`
 
@@ -885,7 +914,6 @@ def cumsum(
     Examples
     ---------
     x = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
-    y = pypto.tensor([2, 3], pypto.data_type.DT_INT32) 
     dim = 0
     out = pypto.cumsum(x, dim)
     Input  x : [[0 1 2],
@@ -1020,3 +1048,69 @@ def bitwise_not(self: Tensor) -> Tensor:
 
     """
     return pypto_impl.BitwiseNot(self)
+
+
+@op_wrapper
+def triu(
+    input: Tensor,
+    diagonal: SymInt
+) -> Tensor:
+    """
+    Return the upper traingular part of a matrix or a banch of matrices `input`, the other elements of 
+    the result are set to 0.
+    Parameters
+    ---------
+    input: Tensor
+        The tensor to be calculated.
+    diagonal : SymInt
+        The diagonal to consider.
+    out: Tensor
+        The tensor after calculation.
+    Examples
+    ---------
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32) 
+    diagonal = 0
+    out = pypto.triu(x, diagonal)
+    Input  x : [[1 2 3],
+                [4 5 6],
+                [7 8 9]]
+    Output out:[[1 2 3],
+                [0 5 6],
+                [0 0 9]]
+    """
+    if isinstance(diagonal, int):
+        diagonal = SymbolicScalar(diagonal).base()
+    return pypto_impl.TriU(input, diagonal)
+
+
+@op_wrapper
+def tril(
+    input: Tensor,
+    diagonal: SymInt
+) -> Tensor:
+    """
+    Return the lower traingular part of a matrix or a banch of matrices `input`, the other elements of
+    the result are set to 0.
+    Parameters
+    ---------
+    input: Tensor
+        The tensor to be calculated.
+    diagonal : SymInt
+        The diagonal to consider.
+    out: Tensor
+        The tensor after calculation.
+    Examples
+    ---------
+    x = pypto.tensor([3, 3], pypto.data_type.DT_INT32) 
+    diagonal = 0
+    out = pypto.tril(x, diagonal)
+    Input  x : [[1 2 3],
+                [4 5 6],
+                [7 8 9]]
+    Output out:[[1 0 0],
+                [4 5 0],
+                [7 8 9]]
+    """
+    if isinstance(diagonal, int):
+        diagonal = SymbolicScalar(diagonal).base()
+    return pypto_impl.TriL(input, diagonal)

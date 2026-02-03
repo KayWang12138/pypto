@@ -52,6 +52,7 @@ struct CalcOps {
     void (*Ceil)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Floor)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Trunc)(LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*Round)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*Reciprocal)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*BitwiseNot)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Abs)(LogicalTensorDataPtr, LogicalTensorDataPtr);
@@ -110,6 +111,8 @@ struct CalcOps {
     void (*Expand)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*GatherElements)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*IndexAdd)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, const Element &);
+    void (*TriU)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
+    void (*TriL)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*CumSum)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*IndexPut)(LogicalTensorDataPtr, LogicalTensorDataPtr, std::vector<LogicalTensorDataPtr>, LogicalTensorDataPtr, bool);
 

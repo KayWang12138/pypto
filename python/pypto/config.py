@@ -19,9 +19,12 @@ from . import pypto_impl
 
 
 class CompStage(enum.Enum):
-    CODEGEN = 1
-    HOST = 2
-    FUNCTION = 3
+    ALL_COMPLETE = 0
+    TENSOR_GRAPH = 1
+    TILE_GRAPH = 2
+    EXECUTE_GRAPH = 3
+    CODEGEN_INSTRUCTION = 4
+    CODEGEN_BINARY = 5
 
 
 def set_print_options(*,
@@ -197,7 +200,8 @@ def set_runtime_options(*,
                         stitch_function_num_step: Optional[int] = None,
                         stitch_function_size: int = None,
                         stitch_cfgcache_size: Optional[int] = None,
-                        run_mode: Optional[int] = None
+                        run_mode: Optional[int] = None,
+                        valid_shape_optimize: Optional[int] = None
                         ) -> None:
     """
     Set runtime options.
@@ -231,6 +235,9 @@ def set_runtime_options(*,
 
     stitch_cfgcache_size: int
         The size of the control flow cache, in bytes.
+
+    valid_shape_optimize: int
+        Dynamic validShape compilation optimization option.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(runtime_options=options_dict)

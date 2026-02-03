@@ -46,6 +46,9 @@ inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Neg(out, self);
 }
+inline void Round(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int decimals) {
+    GetCalcOps()->Round(out, self, decimals);
+}
 inline void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Rsqrt(out, self);
 }
@@ -239,6 +242,12 @@ inline void GatherElements(
 inline void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr src,
     LogicalTensorDataPtr indices, int axis, const Element &alpha = Element(DT_FP32, 1.0)) {
     GetCalcOps()->IndexAdd(out, self, src, indices, axis, alpha);
+}
+inline void TriU(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+    GetCalcOps()->TriU(out, in, diagonal);
+}
+inline void TriL(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+    GetCalcOps()->TriL(out, in, diagonal);
 }
 inline void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
     GetCalcOps()->CumSum(out, in, axis);

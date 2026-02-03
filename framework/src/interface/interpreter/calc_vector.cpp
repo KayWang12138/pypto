@@ -249,6 +249,17 @@ void ExecuteOpTrunc(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TRUNC, Opcode::OP_TRUNC, ExecuteOpTrunc);
 
+void ExecuteOpRound(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &output = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+
+    int decimals = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "decimals");
+    calc::Round(output, input, decimals);
+}
+REGISTER_CALC_OP(OP_ROUND, Opcode::OP_ROUND, ExecuteOpRound);
+
 void ExecuteOpOneHot(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
@@ -472,6 +483,19 @@ void ExecuteOpIndexAdd(ExecuteOperationContext *ctx) {
     calc::IndexAdd(ret, self, src, indices, axis, alpha);
 }
 REGISTER_CALC_OP(OP_INDEX_ADD, Opcode::OP_INDEX_ADD, ExecuteOpIndexAdd);
+
+void ExecuteOpTri(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &output = ctx->ooperandInplaceDataViewList->at(0);
+    auto &input = ctx->ioperandDataViewList->at(0);
+
+    auto dia = ctx->op->GetElementAttribute(OpAttributeKey::dynScalar);
+    int diagonal = static_cast<int32_t>(dia.GetSignedData());
+    bool isUpper = ctx->op->GetBoolAttribute(OpAttributeKey::isUpper);
+    isUpper ? calc::TriU(output, input, diagonal) : calc::TriL(output, input, diagonal);
+}
+REGISTER_CALC_OP(OP_TRIUL, Opcode::OP_TRIUL, ExecuteOpTri);
 
 void ExecuteOpCumSum(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);

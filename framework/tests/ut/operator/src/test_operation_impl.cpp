@@ -31,7 +31,7 @@ public:
 
     void SetUp() override { 
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
 
     void TearDown() override {}
@@ -438,6 +438,19 @@ TEST_F(OperationImplTest, test_Range_INT32) {
     Tensor result;
     FUNCTION("TestRange") {
         result = Range(start, end, step);
+    }
+}
+
+TEST_F(OperationImplTest, Test_Round_FP32) {
+    PROGRAM("Round") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP32, shape, "operand1");
+        auto output = Tensor(DT_FP32, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Round_FP32") {
+            output = Round(input_a, 1);
+        }
     }
 }
 

@@ -152,6 +152,11 @@ stest:
       - TestFloor/FloorOperationTest.TestFloor/1
       - TestTrunc/TruncOperationTest.TestTrunc/0
       - TestTrunc/TruncOperationTest.TestTrunc/1
+      - TestRound/RoundOperationTest.TestRound/0
+      - TestRound/RoundOperationTest.TestRound/1
+      - TestRound/RoundOperationTest.TestRound/2
+      - TestRound/RoundOperationTest.TestRound/13
+      - TestRound/RoundOperationTest.TestRound/14
       - TestPows/PowsOperationTest.TestPows/12
       - TestPows/PowsOperationTest.TestPows/13
       - TestPows/PowsOperationTest.TestPows/14
@@ -198,6 +203,9 @@ stest:
       - TestMinimum/MinimumOperationTest.TestMinimum/19
       - TestMaximum/MaximumOperationTest.TestMaximum/19
       - TestClip/ClipOperationTest.TestClip/29
+      - TestTriU/TriUOperationTest.TestTriU/8
+      - TestTriU/TriUOperationTest.TestTriU/10
+      - TestTriL/TriLOperationTest.TestTriL/1
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/20
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/21
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
@@ -211,6 +219,9 @@ stest:
       - TestBitwiseOr/BitwiseOrOperationTest.TestBitwiseOr/1
       - TestBitwiseXor/BitwiseXorOperationTest.TestBitwiseXor/1
       - TestBitwiseNot/BitwiseNotOperationTest.TestBitwiseNot/2
+      - TestBitwiseAnds/BitwiseAndsOperationTest.TestBitwiseAnds/2
+      - TestBitwiseOrs/BitwiseOrsOperationTest.TestBitwiseOrs/2
+      - TestBitwiseXors/BitwiseXorsOperationTest.TestBitwiseXors/2
       # - GatherInL1Test.gather_in_a_unalign
       # - GatherInL1Test.gather_in_bt_with_valid_shape
       - GatherInUBTest.gather_in_a_

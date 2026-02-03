@@ -610,10 +610,10 @@ TEST_F(ScheduleOoOTest, TestSpillL0AFailed) {
     OoOScheduler ooOScheduler(*function);
     Status res = ooOScheduler.Init(function->Operations().DuplicatedOpList());
     EXPECT_EQ(res, SUCCESS);
-    res = ooOScheduler.SortOps();
+    res = ooOScheduler.PriorDFS(preNodePriority);
     EXPECT_EQ(res, SUCCESS);
     res = ooOScheduler.GenSpillSchedule();
-    EXPECT_EQ(res, SUCCESS);
+    EXPECT_EQ(res, FAILED);
 }
 
 TEST_F(ScheduleOoOTest, TestSchedule) {
@@ -1055,7 +1055,7 @@ TEST_F(ScheduleOoOTest, TestDelBufCount) {
 TEST_F(ScheduleOoOTest, TestDelBufCount_1) {
     Function function(Program::GetInstance(), "", "", nullptr);
     OoOScheduler oooSchedule(function);
-    oooSchedule.bufRefCount[1] = -1;
+    oooSchedule.bufRefCount_[1] = -1;
     oooSchedule.DelBufRefCount(1);
 }
 

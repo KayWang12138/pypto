@@ -155,17 +155,16 @@ struct SpillInfo {
 class OoOScheduler {
 private:
     std::vector<IssueEntryPtr> issueEntries;
+    std::unordered_set<int> issueEntriesOpMagic;
     std::unordered_map<int, IssueEntryPtr> issueEntryMap;
 
     std::unordered_map<OpCoreType, std::vector<int>> CORE_INIT_CONFIGS;
-
-    std::unordered_map<OpCoreType, std::unordered_map<int, bool>> usedCore;
 
     std::unordered_map<int, LocalBufferPtr> localBufferMap;
     // 分核数据结构
     std::unordered_map<OpCoreType, std::map<int, std::map<npu::tile_fwk::MemoryType, BufferPool>>> bufferManagerMap;
 
-    std::unordered_map<int, int> bufRefCount;
+    std::unordered_map<int, int> bufRefCount_;
     std::unordered_map<MemoryType, std::map<int, IssueEntryPtr>> tensorOccupyMap;
     // tensor和其初始化时对应的alloc的core类型 memId-core类型
     std::unordered_map<int, std::pair<OpCoreType, int>> tensorAllocCoreMap;
@@ -207,8 +206,6 @@ private:
     Status InitIssueEntry(Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     void InitCoreConfig(const std::vector<Operation *> &operations);
     Status InitIssueCoreType(IssueEntryPtr issue, Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
-    void InitUsedCore();
-    void UpdateUsedCore(IssueEntryPtr issue);
     void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);
     std::string dumpOpInfo(Operation &op);
@@ -229,11 +226,10 @@ private:
     Status GenSpillSchedule();
     Status ExecuteAllocIssue(IssueEntryPtr issue, size_t &pcIdx);
     Status RetireIssue(IssueEntryPtr issue);
-    bool IsInissueEntries(Operation* op);
-    Status InitMemWithoutAlloc();
+    bool IsInIssueEntries(Operation* op);
     Status ScheduleMainLoop();
     void LaunchReadyIssue();
-    Status RetireUsedCoreIssue(OpCoreType coreType, int idx, uint64_t& commitCnt, int& nextCycle);
+    Status RetireCoreIssue(OpCoreType coreType, int idx, uint64_t& commitCnt, int& nextCycle);
     Status RetireIssueStage(uint64_t& commitCnt, int& nextCycle);
     Status RetireOpAndAwakeSucc(IssueEntryPtr issue, uint64_t& commitCnt);
     Status FreeBuffer(IssueEntryPtr issue);
@@ -320,6 +316,7 @@ private:
     Status GetGroupNextUseOrder(std::vector<int> group, IssueEntryPtr allocIssue, 
         std::vector<int> &groupNextUseTime, std::unordered_map<int, size_t> &nextUseTimeCache, bool isGenSpill);
     IssueEntryPtr GetSpillIssue(IssueEntryPtr allocIssue, int memId, bool isGenSpill);
+    bool CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue);
     bool IsBelongSpillBlackList(IssueEntryPtr spillIssue, IssueEntryPtr issue);
     void FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntryPtr> &filterLtags);
     Status SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int> spillGroup, size_t &pcIdx, 
@@ -383,6 +380,7 @@ public:
     int clock{0};
     OoOSchedulerCheck oooCheck;
     bool isCombineAxis_{false};
+    std::unordered_map<PipeType, int> pipeEndTime;
 };
 } // namespace npu::tile_fwk
 #endif // PASS_SCHEDULER_H
