@@ -362,9 +362,9 @@ def npu_hc_pre(x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_
     ### check dtype
     check_input_output_shape_dtype(x, hc_fn, hc_scale, hc_base, hc_mult)
 
-    y = torch.zeros([x.size(0), x.size(2)], dtype=x.dtype, device=f'{x.device}')
-    post = torch.zeros([x.size(0), x.size(1)], dtype=hc_scale.dtype, device=f'{x.device}')
-    comb = torch.zeros([x.size(0), x.size(1), x.size(1)], dtype=hc_scale.dtype, device=f'{x.device}')
+    y = torch.empty([x.size(0), x.size(2)], dtype=x.dtype, device=f'{x.device}')
+    post = torch.empty([x.size(0), x.size(1)], dtype=hc_scale.dtype, device=f'{x.device}')
+    comb = torch.empty([x.size(0), x.size(1), x.size(1)], dtype=hc_scale.dtype, device=f'{x.device}')
 
     in_outs = {
         x: [0],
