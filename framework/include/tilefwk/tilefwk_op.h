@@ -452,7 +452,8 @@ struct ConvExtendParam {
 };
 
 Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides, 
-            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const int64_t groups);
+            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam, 
+            const int64_t groups = 1, bool transposed = false, const std::vector<int64_t> outputPaddings = std::vector<int64_t>());
 
 }
 

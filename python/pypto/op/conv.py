@@ -27,10 +27,11 @@ def conv(
     strides,
     paddings,
     dilations,
+    *,
     groups = 1,
     transposed = False,
     output_paddings = [],
-    extra_params = None
+    extend_params = None
 ) -> Tensor:
     """
     input: 支持1d/2d/3d 的大小的tensor规格输入，新增format NCL，NCHW，NCDHW（tf 框架对标的format NLC，NHWC，NDHWC）
@@ -42,15 +43,23 @@ def conv(
     groups：分组卷积参数
     transposed：反卷积flag
     output_paddings：transposed = true时被使用，反卷积输出的paddings配置参数
-    extra_params: dict，额外参数配置
+    extend_params: dict，额外参数配置
         -- bais：可选tensor，bias输入，shape大小[cout]
         -- scale：per_tensor场景下，dequant，quant，requant的scale参数值float
         -- scale_tensor：per_channel场景下，dequant，requant的scale tensor输入
         -- relu_type：fixpipe随路relu（normal relu, leakyrelu，prelu）
     """
-    __validate_inputs(input, weight, out_dtype, strides, paddings, dilations, groups)
+    __validate_inputs(
+        out_dtype, input, weight, strides, paddings, dilations, extend_params, groups, transposed, output_paddings
+    )
+    
+    if extend_params is not None:
+            extend_params = pypto_impl.ConvExtendParam(
+                **__convert_conv_extend_params(extend_params)
+            )
+
     return pypto_impl.Conv(
-        out_dtype, input, weight, strides, paddings, dilations, groups
+        out_dtype, input, weight, strides, paddings, dilations, extend_params, groups, transposed, output_paddings
     )
 
 
@@ -63,27 +72,17 @@ def __validate_type(value: Any, expect_type: Type, arg_name: str = "input") -> N
         )
 
 
-def __get_valid_shape(tensor):
-    return [SymbolicScalar.from_base(n) for n in tensor.GetValidShape()]
-
-
 def __validate_shape(input: Tensor, weight: Tensor, transposed: bool) -> None:
     input_dim = input.Dim()
     weight_dim = weight.Dim()
-    # bias_dim = bias.Dim() if bias is not None else None
     if input_dim != weight_dim or input_dim not in {3, 4 ,5}:
         raise RuntimeError(
             "Tensor dimension mismatch. Expect input_dim == weight_dim and both in [3, 4, 5], "
             f"got input_dim: {input_dim}, weight_dim: {weight_dim}."
         )
-    # if input_dim not in {3}:
-    #     raise RuntimeError(
-    #         "Tensor dimension not support. Expect input_dim == weight_dim and both in [3], "
-    #         f"got input_dim: {input_dim}, weight_dim: {weight_dim}."
-    #     )
 
 
-def __validate_inputs(input, weight, out_dtype, strides, paddings, dilations, groups) -> None:
+def __validate_inputs(out_dtype, input, weight, strides, paddings, dilations, extend_params, groups, transposed, output_paddings) -> None:
     __validate_type(input, pypto_impl.Tensor, "input")
     __validate_type(weight, pypto_impl.Tensor, "weight")
     __validate_type(out_dtype, DataType, "out_dtype")
@@ -91,6 +90,9 @@ def __validate_inputs(input, weight, out_dtype, strides, paddings, dilations, gr
     __validate_type(paddings, list, "paddings")
     __validate_type(dilations, list, "dilations")
     __validate_type(groups, int, "groups")
+    __validate_type(transposed, bool, "transposed")
+    __validate_type(output_paddings, list, "output_paddings")
+    __validate_type(extend_params, dict, "extend_params")
     __validate_shape(input, weight, False)
 
     if input.GetDataType() not in (pypto_impl.DataType.DT_BF16, pypto_impl.DataType.DT_FP16, pypto_impl.DataType.DT_FP32):
@@ -104,3 +106,11 @@ def __validate_inputs(input, weight, out_dtype, strides, paddings, dilations, gr
             "Weight tensor data type must in [bf16, fp16, fp32],"
             f"but Weight tensor got {input.GetDataType()}"
         )
+
+
+def __convert_conv_extend_params(extend_params) -> dict:
+    extend_params.setdefault('bias_tensor', pypto_impl.Tensor())
+    extend_params.setdefault('scale_tensor', pypto_impl.Tensor())
+    extend_params.setdefault('relu_type', pypto_impl.ConvReLuType.NO_RELU)
+    extend_params.setdefault('scale', 0.0)
+    return extend_params
