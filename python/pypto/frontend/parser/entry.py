@@ -264,8 +264,6 @@ class JitCallableWrapper:
                     "must be contiguous."
                 )
 
-        # Use output tensors from parser signature to allocate output tensors
-        out_tensors = []
 
         # Create output tensors with the same device as input tensors
         if in_tensors:
@@ -292,13 +290,20 @@ class JitCallableWrapper:
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
         concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
-        tmp_parser = self._create_parser()
-        input_tensor_defs, output_tensor_defs = tmp_parser.get_signature()
-        symbolic_dim_value_map = {}
-        symbolic_dim_value_map = tmp_parser.match_input_shapes(
+        cache_key = self._get_compilation_cache_key()
+        
+        if self._use_cache and cache_key is not None and cache_key in JitCallableWrapper._compilation_cache:
+            cached_result = JitCallableWrapper._compilation_cache[cache_key]
+            self._parser = cached_result["parser"]
+        else:
+            self._parser = self._create_parser()
+            
+        input_tensor_defs, output_tensor_defs = self._parser.get_signature()
+        symbolic_dim_value_map = self._parser.match_input_shapes(
             concrete_input_shapes, input_tensor_defs
         )
-
+        # Use output tensors from parser signature to allocate output tensors
+        out_tensors = []
         for out_tensor_def in output_tensor_defs:
             shape_list = []
             # Build shape by resolving symbolic dimensions from the output tensor definition
@@ -456,7 +461,13 @@ class JitCallableWrapper:
             # Use the source code as the primary key
             # For factory functions, each call creates a new code object,
             # so we need to use source code string instead
-            source_code = inspect.getsource(self._original_func)
+            code_obj = self._original_func.__code__
+            source_code = (
+                code_obj.co_code,      
+                code_obj.co_consts,    
+                code_obj.co_names,     
+                code_obj.co_varnames, 
+            )
 
             # Normalize shapes: replace dynamic dimensions with -1
             normalized_shapes = None
@@ -653,7 +664,6 @@ class JitCallableWrapper:
             return
 
         # Re-create parser for compilation
-        self._parser = self._create_parser()
         self._parser.parse()
 
         # Initialize backend for compilation
@@ -679,6 +689,7 @@ class JitCallableWrapper:
             JitCallableWrapper._compilation_cache[cache_key] = {
                 "pto_function": self._pto_function,
                 "handler": self._handler,
+                "parser": self._parser,
             }
 
         # Reset golden data after compilation, similar to pypto.jit
