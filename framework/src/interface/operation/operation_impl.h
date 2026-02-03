@@ -154,6 +154,16 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
 
 namespace Conv {
 
+constexpr const int NCHW_N_IDX = 0;
+constexpr const int NCHW_C_IDX = 1;
+constexpr const int NCHW_H_IDX = 2;
+constexpr const int NCHW_W_IDX = 3;
+constexpr const int NC1HWC0_C1_IDX = 1;
+constexpr const int FRACTALZ_CO1_IDX = 1;
+constexpr const int INPUT_FMAP_IDX = 0;
+constexpr const int INPUT_WEIGHT_IDX = 1;
+constexpr const int INPUT_BIAS_IDX = 2;
+
 const std::string OP_ATTR_PREFIX = "op_attr_";
 const std::string CONV_PADDINGS_ATTR = OP_ATTR_PREFIX + "paddings";
 const std::string CONV_DILATIONS_ATTR = OP_ATTR_PREFIX + "dilations";
@@ -169,8 +179,10 @@ const std::string A_MUL_B_ACT_M = OP_ATTR_PREFIX + "act_m";
 const std::string A_MUL_B_ACT_K = OP_ATTR_PREFIX + "act_k";
 const std::string A_MUL_B_ACT_N = OP_ATTR_PREFIX + "act_n";
 const std::string A_MUL_B_BIAS_ATTR = OP_ATTR_PREFIX + "has_bias";
-const std::vector<int64_t> CONV2D_ATTR_DEFAULT_LIST = {0, 0, 0, 0};
-const std::vector<int64_t> CONV3D_ATTR_DEFAULT_LIST = {0, 0, 0, 0, 0, 0};
+const std::vector<int64_t> CONV2D_ATTR_DEFAULT_LIST = {1, 1};
+const std::vector<int64_t> CONV3D_ATTR_DEFAULT_LIST = {1, 1, 1};
+const std::vector<int64_t> CONV2D_PAD_ATTR_DEFAULT_LIST = {0, 0, 0, 0};
+const std::vector<int64_t> CONV3D_PAD_ATTR_DEFAULT_LIST = {0, 0, 0, 0, 0, 0};
 
 struct ConvAttrParam {
     std::vector<int64_t> paddings = {0, 0, 0, 0};

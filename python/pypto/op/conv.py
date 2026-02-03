@@ -70,7 +70,7 @@ def __get_valid_shape(tensor):
 def __validate_shape(input: Tensor, weight: Tensor, transposed: bool) -> None:
     input_dim = input.Dim()
     weight_dim = weight.Dim()
-    bias_dim = bias.Dim() if bias is not None else None
+    # bias_dim = bias.Dim() if bias is not None else None
     if input_dim != weight_dim or input_dim not in {3, 4 ,5}:
         raise RuntimeError(
             "Tensor dimension mismatch. Expect input_dim == weight_dim and both in [3, 4, 5], "
