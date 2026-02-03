@@ -73,19 +73,6 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
     ProcesSmallTileToLargeTile(function);
     ProcessLargeTileToSamllTile(function);
 
-    for (auto &op : function.Operations()) {
-        if (op.GetOpcode() == Opcode::OP_VIEW || op.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            auto &input = op.iOperand[0];
-            auto &output = op.oOperand[0];
-            if (input->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && output->GetMemoryTypeOriginal() == MemoryType::MEM_L1 &&
-                output->Datatype() != DT_FP16 && output->Datatype() != DT_BF16) {
-                output->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR, true);
-                APASS_LOG_DEBUG_F(Elements::Tensor, "Set tensor %d (output of &s[%d]) original mem type to ddr since datatype %d "
-                    "is not supported by l0c2l1", output->magic, op.GetOpcodeStr().c_str(), op.GetOpMagic(), output->Datatype());
-            }
-        }
-    }
-
     // 插入convert op
     Status insertionStatus = inserter.DoInsertion(function);
     if(insertionStatus != SUCCESS) {return insertionStatus;}
@@ -186,7 +173,8 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     if(attrToType == MemoryType::MEM_UNKNOWN) {
         //跳过前端没有指定mem类型的view
         //适配L0C2L1通路，优先选择将view转化为L0C2L1，不满足场景后续转为ddr
-        if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && out->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && out->GetMemoryTypeOriginal() == MemoryType::MEM_L1 &&
+            (out->GetDataType() == DT_BF16 || out->GetDataType() == DT_FP16)) {
             inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_L0C);
         }
         return;
@@ -211,6 +199,9 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     auto input =operation.iOperand.front();
     auto output =operation.oOperand.front();
     if (input->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
+        return;
+    }
+    if (input->GetDataType() != DT_BF16 && input->GetDataType() != DT_FP16) {
         return;
     }
     for (const auto &consumerOp : output->GetConsumers()) {
