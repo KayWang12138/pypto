@@ -21,9 +21,11 @@
 #include "interface/configs/config_manager.h"
 #include "interface/utils/file_utils.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
+#include "interface/inner/pre_def.h"
 #include "calc.h"
 #include "tilefwk/data_type.h"
 #include "calc.h"
+
 namespace npu::tile_fwk {
 
 constexpr int DATATYPE_EIGHT = 8;
@@ -52,13 +54,15 @@ public:
     ScalarImmediateType EvaluateSymbolicScalar(const SymbolicScalar &ss) {
         return evaluateSymbol->EvaluateSymbolicScalar(ss);
     }
-    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset) {
-        return evaluateSymbol->EvaluateOffset(offset, dynOffset);
+    std::vector<int64_t> EvaluateOffset(const std::vector<int64_t> &offset, const std::vector<SymbolicScalar> &dynOffset, 
+            const std::vector<SymbolicScalar> &linearArgList = {}) {
+        return evaluateSymbol->EvaluateOffset(offset, dynOffset, linearArgList);
     }
     std::vector<int64_t> EvaluateOpImmediate(FunctionFrame *frame, const std::vector<OpImmediate> &opImmList);
 
-    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape) {
-        return evaluateSymbol->EvaluateValidShape(dynValidShape);
+    std::vector<int64_t> EvaluateValidShape(const std::vector<SymbolicScalar> &dynValidShape, 
+            const std::vector<SymbolicScalar> &linearArgList = {}) {
+        return evaluateSymbol->EvaluateValidShape(dynValidShape, linearArgList);
     }
 
     void ExecuteOperation(ExecuteOperationContext *ctx);
@@ -88,7 +92,7 @@ private:
             if (validShape == dataView->GetShape()) {
                 result.emplace_back(dataView);
             } else {
-                result.emplace_back(dataView->View(validShape, std::vector<int64_t>(validShape.size(), 0)));
+                result.emplace_back(dataView->View(validShape, dataView->GetOffset()));
             }
         }
         return result;
@@ -101,6 +105,9 @@ private:
 
     util::ThreadPool pool{0x2};
 };
+
+// LogTensorList 用於在執行 Operation 出錯時打印張量資訊
+void LogTensorList(const char *role, Operation *op, const LogicalTensors &tensors);
 
 #define REGISTER_CALC_OP(OpCoreStr, OpType, FuncName) \
 class OpCoreStr##ClacOpRegister { \

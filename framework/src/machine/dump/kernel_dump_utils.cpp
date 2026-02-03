@@ -16,12 +16,13 @@
 #include "machine/dump/kernel_dump_utils.h"
 #include <climits>
 #include <dlfcn.h>
+#include <nlohmann/json.hpp>
 #include "tilefwk/function.h"
+#include "tilefwk/platform.h"
 #include "interface/utils/file_utils.h"
 #include "interface/program/program.h"
 #include "machine/platform/platform_manager.h"
-#include "machine/utils/dynamic/dev_encode.h"
-#include <nlohmann/json.hpp>
+#include "machine/utils/dynamic/dev_encode_program.h"
 
 namespace npu::tile_fwk {
 namespace {
@@ -132,7 +133,7 @@ void KernelDumpUtils::DumpJsonFile(const DeviceAgentTask *deviceAgentTask, const
     binJson["binFileSuffix"] = KERNEL_BIN_FILE_SUFFIX;
     binJson["kernelName"] = "ast_main_0";
     binJson["coreType"] = "MIX";
-    binJson["blockDim"] = PlatformManager::Instance().GetAiCoreCnt();
+    binJson["blockDim"] = Platform::Instance().GetSoc().GetAICoreNum();
     binJson["magic"] = "RT_DEV_BINARY_MAGIC_ELF";
     binJson["dynamicParamMode"] = "floded_with_desc";
     uint64_t workspaceSize = deviceAgentTask->GetWorkSpaceSize() == 0 ? 1 : deviceAgentTask->GetWorkSpaceSize();

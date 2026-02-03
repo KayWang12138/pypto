@@ -427,11 +427,32 @@ Status SuperNodeGraphBuilder::BuildOpGraph(const std::vector<Operation*> &opList
     return SUCCESS;
 }
 
+inline bool IsL0cToL1MoveOp(Operation* op) {
+    return (op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) &&
+        op->GetOOperands().size() > 0 &&
+        op->GetIOperands().size() > 0 &&
+        op->GetIOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+        op->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1;
+}
+
 inline bool SuperNodeGraphBuilder::L1CopyInCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
                             int32_t i, std::vector<std::pair<int32_t, int32_t>> &mergePair)
 {
     if (i < 0 || i > static_cast<int32_t>(opList.size())) {
         return false;
+    }
+    if (IsL0cToL1MoveOp(opList[i])) {
+        for (auto outNode : operationInfo->outGraph_[i]) {
+            mergePair.emplace_back(outNode, i);
+            APASS_LOG_DEBUG_F(Elements::Operation, "Combine %d and %d(outNode) for L1 CopyIn in building SuperNode.",
+                opList[i]->GetOpMagic(), opList[outNode]->GetOpMagic());
+        }        
+        for (auto inNode : operationInfo->inGraph_[i]) {
+            mergePair.emplace_back(inNode, i);
+            APASS_LOG_DEBUG_F(Elements::Operation, "Combine %d and %d(inNode) for L1 CopyIn in building SuperNode.",
+                opList[i]->GetOpMagic(), opList[inNode]->GetOpMagic());
+        }
+        return true;
     }
     if (opList[i]->GetOOperands().size() > 0 &&
         (opList[i]->GetOOperands()[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1 ||
@@ -460,32 +481,25 @@ inline bool SuperNodeGraphBuilder::ConvertCombine(const std::shared_ptr<Operatio
     }
     std::shared_ptr<ConvertOpAttribute> attr  = std::static_pointer_cast<ConvertOpAttribute>(opList[i]->GetOpAttribute());
     if (attr == nullptr) {
-         APASS_LOG_WARN_F(Elements::Operation, "Convert Op %d has no ConvertOpAttribute.", opList[i]->GetOpMagic());
+        APASS_LOG_WARN_F(Elements::Operation, "Convert Op %d has no ConvertOpAttribute.", opList[i]->GetOpMagic());
         return true;
     }
     std::pair<MemoryType, MemoryType> convertPath = attr->GetConvertPath();
-    if (AICmem.count(convertPath.first) > 0 && AIVmem.count(convertPath.second) > 0) {
+    bool isAICtoAIV = (AICmem.count(convertPath.first) > 0 && AIVmem.count(convertPath.second) > 0);
+    bool isAIVtoAIC = (AIVmem.count(convertPath.first) > 0 && AICmem.count(convertPath.second) > 0);
+    if (isAICtoAIV || isAIVtoAIC) {
         for (auto inNode : operationInfo->inGraph_[i]) {
             mergePair.emplace_back(inNode, i);
         }
         return true;
     }
-    if (AIVmem.count(convertPath.first) > 0 && AICmem.count(convertPath.second) > 0) {
-        for (auto outNode : operationInfo->outGraph_[i]) {
-            mergePair.emplace_back(outNode, i);
-        }
-        return true;
+    for (auto inNode : operationInfo->inGraph_[i]) {
+        mergePair.emplace_back(inNode, i);
     }
-    if (opList[i]->GetOpcode() == Opcode::OP_CONVERT) {
-        for (auto inNode : operationInfo->inGraph_[i]) {
-            mergePair.emplace_back(inNode, i);
-        }
-        for (auto outNode : operationInfo->outGraph_[i]) {
-            mergePair.emplace_back(outNode, i);
-        }
-        return true;
+    for (auto outNode : operationInfo->outGraph_[i]) {
+        mergePair.emplace_back(outNode, i);
     }
-    return false;
+    return true;
 }
 
 inline bool SuperNodeGraphBuilder::AssembleCombine(const std::shared_ptr<OperationGraphInfo> operationInfo, std::vector<Operation*> &opList,
@@ -583,6 +597,25 @@ inline bool SuperNodeGraphBuilder::AssembleToCopyoutScene(Operation *op)
     return true;
 }
 
+inline void UpdateScopeId(std::vector<Operation*> &opList) {
+    for (size_t i = 0; i < opList.size(); i++) {
+        int targetScope = opList[i]->GetScopeId();
+        if (targetScope == DEFAULT_SCOPE_ID) {
+            continue;
+        }
+        for (auto &consumer : opList[i]->ConsumerOps()) {
+            if (consumer->GetScopeId() == -1 && consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                consumer->SetScopeId(targetScope);
+            }
+        }
+        for (auto &producer : opList[i]->ProducerOps()) {
+            if (producer->GetScopeId() == -1 && producer->GetOpcode() == Opcode::OP_VIEW) {
+                producer->SetScopeId(targetScope);
+            }
+        }
+    }
+}
+
 Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
 {
     std::vector<Operation*> &opList = operationInfo_->opList_;
@@ -591,6 +624,7 @@ Status SuperNodeGraphBuilder::BuildSuperNodeGraph()
         return FAILED;
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
+    UpdateScopeId(opList);
     for (size_t i = 0; i < opList.size(); i++) {
         auto targetScope = opList[i]->GetScopeId();
         if (targetScope == -1) {

@@ -23,12 +23,14 @@
 
 #include "tilefwk/error.h"
 #include "tilefwk/data_type.h"
-#include "tilefwk/aicore_data.h"
+#include "tilefwk/aicpu_common.h"
+#include "tilefwk/aikernel_data.h"
 #include "tilefwk/core_func_data.h"
 #include "interface/utils/common.h"
 #include "interface/schema/schema.h"
 #include "machine/utils/device_log.h"
 #include "machine/utils/device_switch.h"
+#include "machine/utils/dynamic/item_pool.h"
 
 namespace npu::tile_fwk::dynamic {
 using  int32v8 = int32_t __attribute__((vector_size(32)));
@@ -38,17 +40,11 @@ using  uint32v4 = uint32_t __attribute__((vector_size(16)));
 using  uint16v4 = uint16_t __attribute__((vector_size(8)));
 using  uint16v8 = uint16_t __attribute__((vector_size(16)));
 
+constexpr uint32_t IDENT_SIZE = 2;
+constexpr uint32_t IDENT2_SIZE = 4;
+constexpr uint32_t IDENT_SIZE_THREE = 3;
+
 /* please modify macros in aicore.cpp at the same time !!! */
-constexpr uint32_t TASKID_FUNC_BITS = 11;
-#define TASKID_FUNC_MASK ((1 << TASKID_FUNC_BITS) - 1)
-constexpr uint32_t TASKID_TASK_BITS = 20;
-#define TASKID_TASK_MASK ((1 << TASKID_TASK_BITS) - 1)
-constexpr uint32_t TASKID_SHIFT32 = 32;
-
-inline uint32_t MakeTaskID(uint32_t funcId, uint32_t taskId) {
-    return (funcId << TASKID_TASK_BITS) | taskId;
-}
-
 inline uint32_t MakeMixWrapID(uint32_t funcId, uint32_t wrapId) {
     return (funcId << TASKID_TASK_BITS) | wrapId;
 }
@@ -57,15 +53,7 @@ inline uint32_t MakeBatchTaskID(uint32_t batchNum) {
     return MakeTaskID(FUNC_ID_BATCH, batchNum);
 }
 
-inline uint32_t FuncID(uint32_t id) {
-    return id >> TASKID_TASK_BITS;
-}
-
 inline uint32_t FuncNum(uint32_t id) {
-    return id & TASKID_TASK_MASK;
-}
-
-inline uint32_t TaskID(uint32_t id) {
     return id & TASKID_TASK_MASK;
 }
 
@@ -77,7 +65,10 @@ inline bool IsTaskFinish(uint32_t id, uint32_t finValue) {
     return (id | AICORE_FIN_MASK) == finValue;
 }
 
-#define ALIGN_UP(val, align)            (((val) + (align) - 1) & ~((align) - 1))
+inline int64_t AlignUp(int64_t val, int64_t align)
+{
+    return (((val) + (align) - 1) & ~((align) - 1));
+}
 
 using uintdevptr_t = uint64_t;
 using intdevptr_t = int64_t;
@@ -88,12 +79,12 @@ inline void HostAssign(T *&ptr, uintdevptr_t offset) {
 }
 template <typename T>
 inline void DeviceReloc(T *&ptr, intdevptr_t shift) {
-    ptr = reinterpret_cast<T *>(reinterpret_cast<uintdevptr_t>(ptr) + shift);
+    ptr = reinterpret_cast<T *>(reinterpret_cast<intdevptr_t>(ptr) + shift);
 }
 template <typename T>
 inline void DeviceRelocMaybeNull(T *&ptr, intdevptr_t shift) {
     if (ptr != nullptr) {
-        ptr = reinterpret_cast<T *>(reinterpret_cast<uintdevptr_t>(ptr) + shift);
+        ptr = reinterpret_cast<T *>(reinterpret_cast<intdevptr_t>(ptr) + shift);
     }
 }
 
@@ -191,8 +182,8 @@ struct DevRelocVector {
         size_ = size;
         offset = reinterpret_cast<uintdevptr_t>(data_ + size);
     }
-    void DeviceRelocData(intdevptr_t shift) { DeviceReloc(data_, ALIGN_UP(shift, alignof(T))); }
-    void DeviceRelocDataMaybeNull(intdevptr_t shift) { DeviceRelocMaybeNull(data_, ALIGN_UP(shift, alignof(T))); }
+    void DeviceRelocData(intdevptr_t shift) { DeviceReloc(data_, AlignUp(shift, alignof(T))); }
+    void DeviceRelocDataMaybeNull(intdevptr_t shift) { DeviceRelocMaybeNull(data_, AlignUp(shift, alignof(T))); }
     uintdevptr_t End() const { return reinterpret_cast<uintdevptr_t>(data_ + size_); }
 
     static uint64_t ElementSize() { return sizeof(T); }
@@ -220,7 +211,7 @@ struct DevLocalVector {
     }
 
     void HostInitDataSizeOffset(uintdevptr_t &offset, size_t size) {
-        offset = ALIGN_UP(offset, alignof(T));
+        offset = AlignUp(offset, alignof(T));
         offset_ = offset;
         size_ = size;
         offset = offset_ + size_ * sizeof(T);
@@ -255,10 +246,8 @@ struct DevCceBinary {
     uint32_t coreType;
     uint32_t psgId;
     uint64_t funcHash;
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
     int32_t wrapVecId {-1};
     uint32_t mixResourceType {0};
-#endif
 };
 static_assert(sizeof(DynFuncBin) == sizeof(DevCceBinary));
 
@@ -294,16 +283,31 @@ static inline std::string Delim(bool cond, const std::string &delim) {
     return cond ? delim : "";
 }
 
+static inline std::string DumpByte(uint8_t byte) {
+    char buf[0x10];
+    (void)sprintf_s(buf, sizeof(buf), "0x%02x", byte);
+    return buf;
+}
+
+static inline std::string DumpShape(const DevShape &shape) {
+    std::ostringstream oss;
+    oss << "<";
+    for (int k = 0; k < shape.dimSize; k++) {
+        oss << Delim(k != 0, ",") << shape.dim[k];
+    }
+    oss << ">";
+    return oss.str();
+}
+
 struct AddressDescriptor {
     union {
         struct {
-            uint64_t outcastIdx : 32;
-            uint64_t dupIdx : 31; // in stitch window
-            uint64_t : 1;
+            uint64_t rtOutcastIter : 63;
+            uint64_t isRtOutcast : 1;
         };
         struct {
             uint64_t addr : 63;
-            uint64_t isAddress : 1;
+            uint64_t : 1;
         };
         struct {
             uint64_t cacheValue : 60;
@@ -311,10 +315,19 @@ struct AddressDescriptor {
         };
     };
 
-    static AddressDescriptor MakeAddress(uint64_t addr) {
+    static AddressDescriptor MakeFromAddress(uint64_t addr) {
         AddressDescriptor desc;
         desc.addr = addr;
-        desc.isAddress = 1;
+        desc.isRtOutcast = 0;
+        return desc;
+    }
+
+    static AddressDescriptor MakeFromRtOutcast(ItemPoolIter iter) {
+        DEV_ASSERT_MSG((iter & (1ULL << 63)) == 0,
+            "RtOutcast iterator %" PRId64 " exceeds maximum allowed value", iter);
+        AddressDescriptor desc;
+        desc.rtOutcastIter = iter;
+        desc.isRtOutcast = 1;
         return desc;
     }
 
@@ -325,19 +338,21 @@ struct AddressDescriptor {
         return desc;
     }
 
-    bool IsAddress() const { return isAddress; }
+    bool IsAddress() const { return !isRtOutcast; }
     uint64_t GetAddress() const {
-        if (!isAddress) {
-            DEV_ERROR("Attempt to get address when isAddress is false.");
-        }
-        DEV_ASSERT(isAddress);
+        DEV_ASSERT_MSG(IsAddress(),
+            "Attempt to get address from a non-address AddressDescriptor.");
         return addr;
     }
     uint64_t GetAddressValue() const { return addr; }
     bool IsNullAddress() const { return IsAddress() && addr == 0; }
 
-    explicit AddressDescriptor(uint64_t address = 0): addr(address) { isAddress = true; }
-    AddressDescriptor(int tdupIdx, int toutcastIdx): outcastIdx(toutcastIdx) , dupIdx(tdupIdx) { isAddress = false; }
+    bool IsRtOutcast() const { return isRtOutcast; }
+    ItemPoolIter GetRtOutcastIter() const {
+        DEV_ASSERT_MSG(IsRtOutcast(),
+            "Attempt to get runtime outcast iterator from a non-iterator AddressDescriptor.");
+        return rtOutcastIter;
+    }
 
 public:
     static std::string DumpAddress(uintdevptr_t addr, int width = 0) {
@@ -351,10 +366,10 @@ public:
     }
     std::string Dump() const {
         std::stringstream ss;
-        if (isAddress) {
+        if (IsAddress()) {
             ss << DumpAddress(addr);
         } else {
-            ss << "&&" << dupIdx << ":" << outcastIdx;
+            ss << "&&" << rtOutcastIter;
         }
         return ss.str();
     }

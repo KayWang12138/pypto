@@ -57,47 +57,38 @@ TILEOP void CopyGmToGmCore(__gm__ T* target, __ubuf__ T* buffer, __gm__ T* sourc
 
 template<typename TargetType, typename UBType, typename SourceType, uint32_t rowShape, uint32_t colShape,
     uint32_t srcStride, uint32_t bufferStride, uint32_t dstStride, AtomicType atomicType>
-TILEOP void CopyGmToGmBlock(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm__ SourceType* source) {
-    set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-    wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+TILEOP void CopyGmToGmBlock(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm__ SourceType* source, uint32_t eventId = EVENT_ID0) {
+    wait_flag(PIPE_MTE3, PIPE_S, eventId);
+    set_flag(PIPE_S, PIPE_MTE2, eventId);
+    wait_flag(PIPE_S, PIPE_MTE2, eventId);
     if constexpr (std::is_same_v<TargetType, SourceType>) {
         TileOp::UBCopyIn<SourceType, rowShape, colShape, bufferStride, srcStride>(buffer, source);
-        set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
-        if constexpr (atomicType == AtomicType::ADD) {
-            SetAttomicType<TargetType>();
-            set_atomic_add();
-        }
+        set_flag(PIPE_MTE2, PIPE_MTE3, eventId);
+        wait_flag(PIPE_MTE2, PIPE_MTE3, eventId);
         TileOp::UBCopyOut<TargetType, rowShape, colShape, dstStride, bufferStride>(target, buffer);
     } else {
-        uint64_t castAddr = AlignUp<uint64_t>(rowShape * colShape * sizeof(UBType), 32) / sizeof(UBType);
-        __ubuf__ float* castUb = (__ubuf__ float*)(buffer + castAddr);
-        uint64_t repeat = AlignUp<uint64_t>(rowShape * colShape * sizeof(float), 256) / 256;
+        uint64_t copyLen = rowShape * AlignUp<uint64_t>(colShape * sizeof(UBType), 32) / sizeof(UBType);
+        __ubuf__ float* castUb = (__ubuf__ float*)(buffer + copyLen);
+        uint64_t repeat = AlignUp<uint64_t>(copyLen * sizeof(float), 256) / 256;
         if constexpr (atomicType == AtomicType::ADD) {
             TileOp::UBCopyIn<SourceType, rowShape, colShape, bufferStride, srcStride>(buffer, source);
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+            set_flag(PIPE_MTE2, PIPE_V, eventId);
+            wait_flag(PIPE_MTE2, PIPE_V, eventId);
             Conv2FP32<UBType>(castUb, buffer, repeat, 1, 1, 8, 4);
-            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            set_atomic_f32();
-            set_atomic_add();
+            set_flag(PIPE_V, PIPE_MTE3, eventId);
+            wait_flag(PIPE_V, PIPE_MTE3, eventId);
             TileOp::UBCopyOut<TargetType, rowShape, colShape, dstStride, bufferStride>(target, castUb);
         } else if constexpr (atomicType == AtomicType::SET) {
             TileOp::UBCopyIn<SourceType, rowShape, colShape, bufferStride, srcStride>(castUb, source);
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+            set_flag(PIPE_MTE2, PIPE_V, eventId);
+            wait_flag(PIPE_MTE2, PIPE_V, eventId);
             DeConvFP32<UBType>(buffer, castUb, repeat, 1, 1, 4, 8);
-            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+            set_flag(PIPE_V, PIPE_MTE3, eventId);
+            wait_flag(PIPE_V, PIPE_MTE3, eventId);
             TileOp::UBCopyOut<TargetType, rowShape, colShape, dstStride, bufferStride>(target, buffer);
         }
     }
-    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    if constexpr (atomicType == AtomicType::ADD) {
-        set_atomic_none();
-    }
+    set_flag(PIPE_MTE3, PIPE_S, eventId);
 }
 
 template<typename TargetType, typename SourceType, uint32_t rowShape, uint32_t colShape,
@@ -118,24 +109,39 @@ TILEOP void CopyUbToGmBlock(__gm__ TargetType* target, __ubuf__ SourceType* sour
 }
 
 template<typename TargetType, typename SourceType, uint32_t rowShape, uint32_t colShape,
-    uint32_t srcStride, uint32_t bufferStride, uint32_t dstStride, AtomicType atomicType>
-TILEOP void CopyGmToUbBlock(__ubuf__ TargetType* target, __gm__ SourceType* source) {
-    set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-    wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-    TileOp::UBCopyIn<SourceType, rowShape, colShape, bufferStride, srcStride>(target, source);
-    set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+    uint32_t srcStride, uint32_t dstStride>
+TILEOP void CopyGmToUbBlock(__ubuf__ TargetType* target, __ubuf__ TargetType* buffer, __gm__ SourceType* source) {
+    if constexpr (std::is_same_v<TargetType, SourceType>) {
+        set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+        wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+        TileOp::UBCopyIn<SourceType, rowShape, colShape, dstStride, srcStride>(target, source);
+        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+    }
+    else {
+        __ubuf__ float* castUb = (__ubuf__ float*)buffer;
+        uint64_t repeat = AlignUp<uint64_t>(rowShape * colShape * sizeof(float), 256) / 256;
+        TileOp::UBCopyIn<SourceType, rowShape, colShape, dstStride, srcStride>(castUb, source);
+        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        DeConvFP32<TargetType>(target, castUb, repeat, 1, 1, 4, 8);
+        set_flag(PIPE_V, PIPE_S, EVENT_ID0);
+        wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+    }
 }
 
 template<typename TargetType, typename UBType, typename SourceType, uint32_t colFullBlockCount, uint32_t bufferRowShape,
     uint32_t bufferColShape, uint32_t colTailShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
-TILEOP void CopyGmToGmRow(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm__ SourceType* source) {
+TILEOP void CopyGmToGmRow(__gm__ TargetType* target, __ubuf__ UBType* bufferA, __ubuf__ UBType* bufferB, __gm__ SourceType* source, uint32_t eventId = EVENT_ID0) {
     uint32_t offset = 0;
+    __ubuf__ UBType* useBuffer = eventId == EVENT_ID0 ? bufferA : bufferB;
     for (uint32_t colIndex = 0; colIndex < colFullBlockCount; ++colIndex, offset += bufferColShape) {
-        CopyGmToGmBlock<TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, bufferColShape, dstStride, atomicType>(target + offset, buffer, source + offset);
+        CopyGmToGmBlock<TargetType, UBType, SourceType, bufferRowShape, bufferColShape, srcStride, bufferColShape, dstStride, atomicType>(target + offset, useBuffer, source + offset, eventId);
+        eventId = eventId == EVENT_ID0 ? EVENT_ID1 : EVENT_ID0;
+        useBuffer = eventId == EVENT_ID0 ? bufferA : bufferB;
     }
     if (colTailShape > 0) {
-        CopyGmToGmBlock<TargetType, UBType, SourceType, bufferRowShape, colTailShape, srcStride, bufferColShape, dstStride, atomicType>(target + offset, buffer, source + offset);
+        CopyGmToGmBlock<TargetType, UBType, SourceType, bufferRowShape, colTailShape, srcStride, bufferColShape, dstStride, atomicType>(target + offset, useBuffer, source + offset, eventId);
     }
 }
 
@@ -151,18 +157,6 @@ TILEOP void CopyUbToGmRow(__gm__ TargetType* target, __ubuf__ SourceType* source
     }
 }
 
-template<typename TargetType, typename SourceType, uint32_t colFullBlockCount, uint32_t bufferRowShape,
-    uint32_t bufferColShape, uint32_t colTailShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
-TILEOP void CopyGmToUbRow(__ubuf__ TargetType* target, __gm__ SourceType* source) {
-    uint32_t offset = 0;
-    for (uint32_t colIndex = 0; colIndex < colFullBlockCount; ++colIndex, offset += bufferColShape) {
-        CopyGmToUbBlock<TargetType, SourceType, bufferRowShape, bufferColShape, srcStride, bufferColShape, dstStride, atomicType>(target + offset, source + offset);
-    }
-    if (colTailShape > 0) {
-        CopyGmToUbBlock<TargetType, SourceType, bufferRowShape, colTailShape, srcStride, bufferColShape, dstStride, atomicType>(target + offset, source + offset);
-    }
-}
-
 template<typename TargetType, typename UBType, typename SourceType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape, uint32_t bufferColShape,
     uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
 TILEOP void CopyGmToGm(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm__ SourceType* source)
@@ -173,12 +167,28 @@ TILEOP void CopyGmToGm(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm_
     constexpr uint32_t colTailShape = tileColShape % bufferColShape;
     constexpr uint32_t srcRowStride = bufferRowShape * srcStride;
     constexpr uint32_t dstRowStride = bufferRowShape * dstStride;
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID1);
+    uint32_t eventId = EVENT_ID0;
+    uint32_t colLoopNum = colFullBlockCount + colTailShape > 0 ? 1 : 0;
+    uint32_t copyLen = bufferRowShape * AlignUp<uint32_t>(bufferColShape * sizeof(UBType), 32) / sizeof(UBType);
+    __ubuf__ UBType* bufferA = buffer;
+    __ubuf__ UBType* bufferB = buffer + copyLen;
+    if constexpr (!std::is_same_v<TargetType, SourceType>) { 
+        uint64_t castSize = AlignUp<uint64_t>(copyLen * sizeof(float), 256);
+        bufferB = bufferB + castSize / sizeof(UBType);
+    }
     for (uint32_t rowIndex = 0; rowIndex < rowFullBlockCount; ++rowIndex, source += srcRowStride, target += dstRowStride) {
-        CopyGmToGmRow<TargetType, UBType, SourceType, colFullBlockCount, bufferRowShape, bufferColShape, colTailShape, srcStride, dstStride, atomicType>(target, buffer, source);
+        CopyGmToGmRow<TargetType, UBType, SourceType, colFullBlockCount, bufferRowShape, bufferColShape, colTailShape, srcStride, dstStride, atomicType>(target, bufferA, bufferB, source, eventId);
+        if (colLoopNum % 2 == 1) {
+            eventId = eventId == EVENT_ID0 ? EVENT_ID1 : EVENT_ID0;
+        }
     }
     if (rowTailShape > 0) {
-        CopyGmToGmRow<TargetType, UBType, SourceType, colFullBlockCount, rowTailShape, bufferColShape, colTailShape, srcStride, dstStride, atomicType>(target, buffer, source);
+        CopyGmToGmRow<TargetType, UBType, SourceType, colFullBlockCount, rowTailShape, bufferColShape, colTailShape, srcStride, dstStride, atomicType>(target, bufferA, bufferB, source, eventId);
     }
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID1);
 }
 
 template<typename TargetType, typename SourceType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape, uint32_t bufferColShape,
@@ -199,28 +209,8 @@ TILEOP void CopyUbToGm(__gm__ TargetType* target, __ubuf__ SourceType* source)
     }
 }
 
-template<typename TargetType, typename SourceType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape, uint32_t bufferColShape,
-    uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
-TILEOP void CopyGmToUb(__ubuf__ TargetType* target, __gm__ SourceType* source)
-{
-    constexpr uint32_t rowFullBlockCount = tileRowShape / bufferRowShape;
-    constexpr uint32_t colFullBlockCount = tileColShape / bufferColShape;
-    constexpr uint32_t rowTailShape = tileRowShape % bufferRowShape;
-    constexpr uint32_t colTailShape = tileColShape % bufferColShape;
-    constexpr uint32_t srcRowStride = bufferRowShape * srcStride;
-    constexpr uint32_t dstRowStride = bufferRowShape * dstStride;
-    for (uint32_t rowIndex = 0; rowIndex < rowFullBlockCount; ++rowIndex, source += srcRowStride, target += dstRowStride) {
-        CopyGmToUbRow<TargetType, SourceType, colFullBlockCount, bufferRowShape, bufferColShape, colTailShape, srcStride, dstStride, atomicType>(target, source);
-    }
-    if (rowTailShape > 0) {
-        CopyGmToUbRow<TargetType, SourceType, colFullBlockCount, rowTailShape, bufferColShape, colTailShape, srcStride, dstStride, atomicType>(target, source);
-    }
-}
-
-template<typename T, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2, uint32_t shmemTensorRawShape3,
-    uint32_t bufferEleNum>
-TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t shmemTensorOffset0,
-    uint32_t shmemTensorOffset1, uint32_t shmemTensorOffset2, uint32_t shmemTensorOffset3, __gm__ int64_t *hcclContext)
+template<typename T, uint32_t bufferEleNum, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2, uint32_t shmemTensorRawShape3>
+TILEOP void ShmemClear(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr)
 {
     constexpr uint8_t repeat = sizeof(T) * bufferEleNum / VECTOR_INSTRUCTION_BYTE_SIZE;
     vector_dup(buffer, static_cast<T>(0), repeat, 1, 0, 8, 0);
@@ -228,10 +218,7 @@ TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t
     set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
     wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 
-    __gm__ T* shmemTensorAddr = MapVirtualAddr<T>(hcclContext, shmemTensorBaseAddr, shmemTensorOffset0) + 
-        shmemTensorRawShape3 * shmemTensorRawShape2 * shmemTensorOffset1 + shmemTensorRawShape3 * shmemTensorOffset2 +
-        shmemTensorOffset3;
-    constexpr uint32_t shmemTensorEleNum = shmemTensorRawShape3 * shmemTensorRawShape2 * shmemTensorRawShape1;
+    constexpr uint32_t shmemTensorEleNum = shmemTensorRawShape1 * shmemTensorRawShape2 * shmemTensorRawShape3;
     constexpr uint32_t fullChunkCount = shmemTensorEleNum / bufferEleNum;
     for (int32_t i = 0; i < fullChunkCount; i++) {
         UBCopyOut<T, 1, bufferEleNum, bufferEleNum, bufferEleNum>(shmemTensorAddr + bufferEleNum * i, buffer);
@@ -240,6 +227,38 @@ TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t
     if constexpr (tailEleNum != 0) {
         UBCopyOut<T, 1, tailEleNum, tailEleNum, tailEleNum>(shmemTensorAddr + bufferEleNum * fullChunkCount, buffer);
     }
+}
+
+template<typename T, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2, uint32_t shmemTensorRawShape3,
+    uint32_t bufferEleNum>
+TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t shmemTensorOffset0,
+    uint32_t shmemTensorOffset1, uint32_t shmemTensorOffset2, uint32_t shmemTensorOffset3, __gm__ int64_t *hcclContext)
+{
+    __gm__ T* shmemTensorAddr = MapVirtualAddr<T>(hcclContext, shmemTensorBaseAddr, shmemTensorOffset0) + 
+        shmemTensorRawShape3 * shmemTensorRawShape2 * shmemTensorOffset1 + shmemTensorRawShape3 * shmemTensorOffset2 +
+        shmemTensorOffset3;
+    ShmemClear<T, bufferEleNum, shmemTensorRawShape1, shmemTensorRawShape2, shmemTensorRawShape3>(buffer, shmemTensorAddr);
+}
+
+template<typename T, uint32_t worldSize, uint32_t stride, uint32_t signalMaxTileNum,
+    uint32_t bufferEleNum>
+TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t shmemTensorOffset0,
+    uint32_t shmemTensorOffset1, uint32_t shmemTensorOffset2, uint32_t shmemTensorOffset3, uint32_t shmemTensorOffset4, 
+    uint32_t shmemTensorRawShape0, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2,
+    uint32_t shmemTensorRawShape3, uint32_t shmemTensorRawShape4, uint32_t shmemTensorShape0, uint32_t shmemTensorShape1,
+    uint32_t shmemTensorShape2, uint32_t shmemTensorShape3, uint32_t shmemTensorShape4, __gm__ int64_t *hcclContext)
+{
+    int32_t tileIndex = (shmemTensorOffset3 / shmemTensorShape3) *
+        (shmemTensorRawShape4 / shmemTensorShape4 + (shmemTensorRawShape4 % shmemTensorShape4 == 0 ? 0 : 1)) +
+        (shmemTensorOffset4 / shmemTensorShape4);
+    int32_t rowTileNum = shmemTensorRawShape3 / shmemTensorShape3 + (shmemTensorRawShape3 % shmemTensorShape3 == 0 ? 0 : 1);
+    int32_t colTileNum = shmemTensorRawShape4 / shmemTensorShape4 + (shmemTensorRawShape4 % shmemTensorShape4 == 0 ? 0 : 1);
+    int32_t totalTileNum = rowTileNum * colTileNum;
+
+    __gm__ T* shmemTensorAddr = MapVirtualAddr<T>(hcclContext, shmemTensorBaseAddr, shmemTensorOffset0) + 
+        shmemTensorOffset0 * shmemTensorRawShape2 * totalTileNum * stride + (shmemTensorOffset2 * totalTileNum + tileIndex) * stride;
+
+    ShmemClear<T, bufferEleNum, worldSize, signalMaxTileNum, stride>(buffer, shmemTensorAddr);
 }
 
 template<typename NonShmemType, typename ShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
@@ -254,7 +273,14 @@ TILEOP void ShmemPut(__ubuf__ NonShmemType* buffer, __gm__ NonShmemType* nonShme
     __gm__ NonShmemType* nonShmemDataAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
     __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
         shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
+    if constexpr (atomicType == AtomicType::ADD) {
+        SetAttomicType<ShmemType>();
+        set_atomic_add();
+    }
     CopyGmToGm<ShmemType, NonShmemType, NonShmemType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(shmemDataAddr, buffer, nonShmemDataAddr);
+    if constexpr (atomicType == AtomicType::ADD) {
+        set_atomic_none();
+    }
 }
 
 template<typename InShmemType, typename OutShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
@@ -288,22 +314,33 @@ TILEOP void ShmemPutUb2Gm(__ubuf__ UBType* UBDataBaseAddr, __gm__ ShmemType* shm
     CopyUbToGm<ShmemType, UBType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(shmemDataAddr, UBDataAddr);
 }
 
-template<int64_t value, AtomicType atomicType, uint32_t rankShape>
-TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBaseAddr, uint32_t shmemSignalOffset0,
-    uint32_t shmemSignalOffset1, uint32_t shmemSignalOffset2, uint32_t shmemSignalOffset3,
-    uint32_t shmemSignalRawShape0, uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2,
-    uint32_t shmemSignalRawShape3, __gm__ int64_t *hcclContext)
+template<int64_t value, int32_t stride, int32_t tileRowShape, int32_t tileColShape, AtomicType atomicType>
+TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBaseAddr,
+    uint32_t shmemSignalOffset0, uint32_t shmemSignalOffset1, uint32_t shmemSignalOffset2, uint32_t shmemSignalOffset3, uint32_t shmemSignalOffset4,
+    uint32_t shmemSignalRawShape0, uint32_t shmemSignalRawShape1, uint32_t shmemSignalRawShape2, uint32_t shmemSignalRawShape3, uint32_t shmemSignalRawShape4,
+    uint32_t shmemSignalShape0, uint32_t shmemSignalShape1, uint32_t shmemSignalShape2, uint32_t shmemSignalShape3, uint32_t shmemSignalShape4, __gm__ int64_t *hcclContext)
 {
-    for (uint32_t rank = shmemSignalOffset0; rank < shmemSignalOffset0 + rankShape; rank++) {
-        __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rank) +
-            shmemSignalRawShape3 * shmemSignalRawShape2 * shmemSignalOffset1 + shmemSignalRawShape3 *
-            shmemSignalOffset2 + shmemSignalOffset3;
-        const uint16_t sid = 0;
-        const uint16_t nBurst = 1;
-        const uint16_t lenBurst = 1;
-        const uint16_t srcStride = 0;
-        const uint16_t dstStride = 0;
-        buffer[0] = value;
+    (void)shmemSignalRawShape0;
+    (void)shmemSignalRawShape1;
+    (void)shmemSignalShape1;
+    (void)shmemSignalShape2;
+    int32_t tileCols = (static_cast<int32_t>(shmemSignalRawShape4) + tileColShape - 1) / tileColShape;
+    int32_t tileRows = (static_cast<int32_t>(shmemSignalRawShape3) + tileRowShape - 1) / tileRowShape;
+    int32_t tileRow = static_cast<int32_t>(shmemSignalOffset3) / tileRowShape;
+    int32_t tileCol = static_cast<int32_t>(shmemSignalOffset4) / tileColShape;
+    int32_t tileIndex = tileRow * tileCols + tileCol;
+    int32_t totalTileNum = tileRows * tileCols;
+
+    for (uint32_t rankId = shmemSignalOffset0; rankId < shmemSignalOffset0 + shmemSignalShape0; rankId++) {
+        __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
+            static_cast<int32_t>(shmemSignalOffset1) * static_cast<int32_t>(shmemSignalRawShape2) * totalTileNum * stride +
+            (static_cast<int32_t>(shmemSignalOffset2) * totalTileNum + tileIndex) * stride;
+        constexpr uint16_t sid = 0;
+        constexpr uint16_t nBurst = 1;
+        constexpr uint16_t lenBurst = 1;
+        constexpr uint16_t srcStride = 0;
+        constexpr uint16_t dstStride = 0;
+        buffer[0] = static_cast<int32_t>(value);
         if constexpr (atomicType == AtomicType::ADD) {
             set_atomic_s32();
             set_atomic_add();
@@ -311,6 +348,8 @@ TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBas
         set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
         wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
         copy_ubuf_to_gm(shmemSignalAddr, buffer, sid, nBurst, lenBurst, dstStride, srcStride);
+        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
         if constexpr (atomicType == AtomicType::ADD) {
             set_atomic_none();
         }
@@ -334,17 +373,19 @@ TILEOP void ShmemGet(__gm__ NonShmemType* nonShmemDataBaseAddr, __ubuf__ NonShme
 
 template<typename UBType, typename ShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
     uint32_t bufferColShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
-TILEOP void ShmemGetGm2Ub(__ubuf__ UBType* UBDataBaseAddr, __gm__ ShmemType* shmemDataBaseAddr,
+TILEOP void ShmemGetGm2Ub(__ubuf__ UBType* UBDataBaseAddr, __ubuf__ UBType* buffer, __gm__ ShmemType* shmemDataBaseAddr,
     uint32_t UBDataOffset0, uint32_t UBDataOffset1, uint32_t UBDataRawShape0, uint32_t UBDataRawShape1,
     uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3,
     uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t shmemDataRawShape3, __gm__ int64_t *hcclContext)
-{
+{   
+    (void)tileRowShape;
+    (void)tileColShape;
     (void)UBDataRawShape0;
     (void)shmemDataRawShape0;
     __ubuf__ UBType* UBDataAddr = UBDataBaseAddr + UBDataOffset0 * UBDataRawShape1 + UBDataOffset1;
     __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
         shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
-    CopyGmToUb<UBType, ShmemType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(UBDataAddr, shmemDataAddr);
+    CopyGmToUbBlock<UBType, ShmemType, bufferRowShape, bufferColShape, srcStride, dstStride>(UBDataAddr, buffer, shmemDataAddr);
 }
 
 template<typename T, bool FP32Mode>

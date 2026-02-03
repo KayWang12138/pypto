@@ -243,9 +243,6 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
 
 [[maybe_unused]] void TensorReduceSingle(
     Function &function, const std::string &op, const Tensor &operand, Tensor &result, int axis) {
-    if (ConfigManager::Instance().GetOperationConfig("COMBINE_AXIS", false)) {
-        ConfigManager::Instance().SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
     ASSERT(op == "MAX" || op == "MIN" || op == "SUM" || op == "MAX_COMBINE_AXIS" || op == "SUM_COMBINE_AXIS")
         << "Not support op:" << op;
     ASSERT(operand.GetShape().size() == operand.GetStorage()->offset.size())
@@ -286,21 +283,21 @@ void TiledReduceSingle(Function &function, const TileShape &tileShape, const std
 Tensor Amax(const Tensor &self, int axis, bool keepDim) {
     DECLARE_TRACER();
     auto resultShape = self.GetShape();
-    axis = axis < 0 ? self.GetShape().size() + axis : axis;
+    CheckAxisRange(self, axis);
 
     resultShape[axis] = 1;
     std::vector<int64_t> outShape(resultShape.begin(), resultShape.end());
 
     const int lastDim = self.GetShape().size() - 1;
     const int alignNum = BLOCK_SIZE / BytesOf(self.GetStorage()->tensor->datatype);
-    auto &vecTile = TileShape::Current().GetVecTile();
+    auto vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
         ASSERT(vecTile[lastDim] % alignNum == 0) << "Amax op: the tileShape of last axis need to 32Byte align!";
     }
 
     Tensor result(self.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
-    if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
+    if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 &&
         shapeSize >= NUM2) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MAX_COMBINE_AXIS", self, result, axis);
     } else {
@@ -332,14 +329,14 @@ Tensor Amin(const Tensor &self, int axis, bool keepDim) {
 
     const int lastDim = self.GetShape().size() - 1;
     const int alignNum = BLOCK_SIZE / BytesOf(self.GetStorage()->tensor->datatype);
-    auto &vecTile = TileShape::Current().GetVecTile();
+    auto vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
         ASSERT(vecTile[lastDim] % alignNum == 0) << "Amin op: the tileShape of last axis need to 32Byte align!";
     }
 
     Tensor result(self.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
-    if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
+    if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 &&
         shapeSize >= NUM2 &&
         (resultShape[shapeSize - NUM2] % NUM_VALUE_8 == 0 && vecTile[vecTile.size() - NUM2] % NUM_VALUE_8 == 0)) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "MIN_COMBINE_AXIS", self, result, axis);
@@ -365,21 +362,21 @@ Tensor Amin(const Tensor &self, int axis, bool keepDim) {
 Tensor Sum(const Tensor &self, int axis, bool keepDim) {
     DECLARE_TRACER();
     auto resultShape = self.GetShape();
-    axis = axis < 0 ? self.GetShape().size() + axis : axis;
+    CheckAxisRange(self, axis);
 
     resultShape[axis] = 1;
     std::vector<int64_t> outShape(resultShape.begin(), resultShape.end());
 
     const int lastDim = self.GetShape().size() - 1;
     const int alignNum = BLOCK_SIZE / BytesOf(self.GetStorage()->tensor->datatype);
-    auto &vecTile = TileShape::Current().GetVecTile();
+    auto vecTile = TileShape::Current().GetVecTile();
     if (axis == lastDim) {
         ASSERT(vecTile[lastDim] % alignNum == 0) << "Sum op: the tileShape of last axis need to 32Byte align!";
     }
 
     Tensor result(self.GetStorage()->tensor->datatype, resultShape);
     int shapeSize = static_cast<int>(resultShape.size());
-    if (ConfigManager::Instance().GetOperationConfig("FORCE_COMBINE_AXIS", false) && axis == shapeSize - 1 &&
+    if (config::GetOperationOption<bool>(KEY_FORCE_COMBINE_AXIS) && axis == shapeSize - 1 &&
         shapeSize >= NUM2) {
         CALL(ReduceSingle, *Program::GetInstance().GetCurrentFunction(), "SUM_COMBINE_AXIS", self, result, axis);
     } else {

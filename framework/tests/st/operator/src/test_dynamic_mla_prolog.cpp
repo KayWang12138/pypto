@@ -16,6 +16,7 @@
 #include "test_dev_func_runner.h"
 #include "test_suite_stest_ops.h"
 #include "operator/models/deepseek/dynamic_mla.h"
+#include "test_cost_macro.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -39,7 +40,7 @@ struct TestShapeParams {
 
 void PerformanceConfig() {
     config::SetPassOption(VEC_NBUFFER_MODE, 1);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{3, 4}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }
@@ -64,7 +65,6 @@ template <typename T = npu::tile_fwk::float16,  typename wDtype = int8_t, bool i
     bool isSmooth = true, bool nz = true, bool usePrefetch = true>
 void TestDynamicMlaProlog(
     const TestShapeParams &params, const MlaTileConfig &tileConfig, std::string cacheMode = "PA_NZ") {
-    config::SetHostOption(ONLY_CODEGEN, true);
     SetInterpreterConfig();
 
     int b = params.b;
@@ -477,7 +477,7 @@ TEST_F(MlaPrologSTest, b32_s1_pa_nd_fp16_quant) {
     TestDynamicMlaProlog<npu::tile_fwk::float16, int8_t, false, true, true, false, true>(params, tileConfig, cacheMode);
 }
 
-TEST_F(MlaPrologSTest, b32_s2_pa_nd_fp16_quant) {
+TEST_F_WITH_COST(MlaPrologSTest, b32_s2_pa_nd_fp16_quant, 15) {
     // b, s, s2, n, h, qLoraRank, qkNopeHeadDim, qkRopeHeadDim, kvLoraRank, blockSize
     TestShapeParams params = {32, 2, 8192, 128, 7168, 1536, 128, 64, 512, 128};
     std::string cacheMode = "PA_BSND";

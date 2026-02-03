@@ -10,6 +10,7 @@
 # -----------------------------------------------------------------------------------------------------------
 """
 """
+import torch
 import pypto
 import pytest
 
@@ -29,6 +30,7 @@ def test_init_tensor():
     assert b.dtype == dtype
     assert b.name == "b"
     assert b.format == pypto.TileOpFormat.TILEOP_NZ
+    assert [x.concrete() if x.is_concrete() else x for x in b.valid_shape] == b.shape
     with pytest.raises(ValueError):
         # dynamic shape could not be compared
         assert b.shape == [-1, 32]
@@ -97,7 +99,6 @@ def test_tensor_sub_op():
     assert c.dtype == dtype
 
 
-@pytest.mark.skip(reason="Static not supported")
 def test_tensor_subs_tensor_element():
     dtype = pypto.DT_FP16
     shape = [8, 8]
@@ -106,6 +107,18 @@ def test_tensor_subs_tensor_element():
     with pypto.function("SUBS", a):
         pypto.set_vec_tile_shapes(8, 8)
         c = a - 3.14
+        assert [x.concrete() for x in c.valid_shape] == shape
 
     assert c.shape == shape
     assert c.dtype == dtype
+
+
+def test_tensor_nz_format():
+    a = pypto.from_torch(torch.randn((64, 64)), "a", tensor_format=pypto.TileOpFormat.TILEOP_NZ)
+    assert a.format == pypto.TileOpFormat.TILEOP_NZ
+
+    b = pypto.from_torch(torch.randn((64, 64)), "b")
+    assert b.format == pypto.TileOpFormat.TILEOP_ND
+
+    c = pypto.from_torch(torch.randn((64, 64)), "c", tensor_format=pypto.TileOpFormat.TILEOP_ND)
+    assert c.format == pypto.TileOpFormat.TILEOP_ND

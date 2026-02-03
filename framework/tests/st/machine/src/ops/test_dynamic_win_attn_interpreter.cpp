@@ -43,7 +43,6 @@ constexpr int NUM_1024 = 1024;
 
 template <typename T = npu::tile_fwk::float16>
 void TestWinAttenInterpreter(WinAttenTileShapeConfig& tileConfig) {
-    config::SetHostOption(ONLY_CODEGEN, true);
 
     SetInterpreterConfig();
 

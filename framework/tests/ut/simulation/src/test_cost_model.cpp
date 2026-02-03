@@ -25,6 +25,8 @@
 #include "cost_model/simulation/pv/PvModelFactory.h"
 #include "interface/configs/config_manager.h"
 #include "cost_model/simulation_ca/PipeSimulator.h"
+#include "cost_model/simulation/arch/PipeFactory.h"
+#include "cost_model/simulation/arch/CacheMachineImpl.h"
 
 using namespace npu::tile_fwk;
 
@@ -35,9 +37,9 @@ public:
     static void TearDownTestCase() {}
 
     void SetUp() override {
-        config::SetPlatformConfig("ENABLE_COST_MODEL", true);
-        config::SetSimConfig("BUILD_TASK_BASED_TOPO", true);
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, true);
+        config::SetSimConfig(KEY_BUILD_TASK_BASED_TOPO, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         Program::GetInstance().Reset();
     }
 
@@ -65,27 +67,6 @@ void RunLLamaLayerCostModel(const AttentionDims &dimsCfg, float threadhold = 0.0
     }
 }
 
-TEST_F(CostModelTest, TestComm)
-{
-    CostModelAgent costModelAgent;
-
-    ALOG_INFO("Init CostModel Communication Simulation.");
-    costModelAgent.costModel = std::make_shared<CostModel::CostModelInterface>();
-    std::vector<std::string> configs;
-    auto folder = config::LogTopFolder() + "/" + ("CostModelSimulationOutput");
-    configs.push_back("-o");
-    configs.push_back(folder);
-    configs.push_back("-m");
-    configs.push_back("1");
-    configs.push_back("-s");
-    configs.push_back("Worker.layerNum=5");
-    configs.push_back("-s");
-    configs.push_back("Worker.useFixedRandomSeed=true");
-    costModelAgent.costModel->BuildCostModel(configs);
-    costModelAgent.RunCostModel();
-    costModelAgent.TerminateCostModel();
-}
-
 void RunMatrixCostModel() {
     int bs = 1;
     int m = 32;
@@ -104,14 +85,14 @@ void RunMatrixCostModel() {
     config::SetBuildStatic(true);
     FUNCTION("BATCHMATMUL", {matA, matB, matC})
     {
-        config::SetPassConfig("PVC2_OOO", "OoOSchedule", "DISABLE_PASS", true);
-        matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP32, matA, matB);
+        config::SetPassConfig("PVC2_OOO", "OoOSchedule", KEY_DISABLE_PASS, true);
+        matC = npu::tile_fwk::Matrix::BatchMatmul(DT_FP32, matA, matB, false, false);
     }
 }
 
 void RunAttentionPostCostModel()
 {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int b = 1;
     int n = 2;
     int s = 128;
@@ -151,18 +132,18 @@ void RunAttentionPostCostModel()
 TEST_F(CostModelTest, TestAttentionPostAccuracy1)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunAttentionPostCostModel();
 }
 
 TEST_F(CostModelTest, TestAttentionPostAccuracyFromJson)
 {
-    config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+    config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     RunAttentionPostCostModel();
 
     std::string jPath = config::LogTopFolder() + "/program.json";
-    config::SetPlatformConfig("ENABLE_COST_MODEL", true);;
-    config::SetSimConfig("AGENT_JSON_PATH", jPath);
+    config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, true);
+    config::SetSimConfig(KEY_AGENT_JSON_PATH, jPath);
     CostModelAgent costModelAgent;
     costModelAgent.SubmitToCostModel(nullptr);
     costModelAgent.RunCostModel();
@@ -172,40 +153,40 @@ TEST_F(CostModelTest, TestAttentionPostAccuracyFromJson)
 TEST_F(CostModelTest, TestGenCalendarSchedule)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
-    std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
+    std::vector<std::string> arg = config::GetSimConfig(KEY_ARGS, std::vector<std::string>{});
     arg.emplace_back("Model.genCalendarScheduleCpp=true");
-    config::SetSimConfig("args", arg);
+    config::SetSimConfig(KEY_ARGS, arg);
     RunAttentionPostCostModel();
 }
 
 TEST_F(CostModelTest, TestAttentionPostCVMIXMode)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
-    std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
+    std::vector<std::string> arg = config::GetSimConfig(KEY_ARGS, std::vector<std::string>{});
     arg.emplace_back("Model.cubeVecMixMode=true");
-    config::SetSimConfig("args", arg);
+    config::SetSimConfig(KEY_ARGS, arg);
     RunAttentionPostCostModel();
 }
 
 TEST_F(CostModelTest, TestAttentionPostSimulationSchedule)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg;
     arg.emplace_back("Model.statisticReportToFile=true");
     arg.emplace_back("Model.deviceArch=A2A3");
     arg.emplace_back("Model.useOOOPassSeq=false");
-    config::SetSimConfig("args", arg);
+    config::SetSimConfig(KEY_ARGS, arg);
     RunAttentionPostCostModel();
 }
 
 TEST_F(CostModelTest, TestAttentionPostFunctional)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("SIM_MODE", int(CostModel::SimMode::EMULATOR));
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_SIM_MODE, int(CostModel::SimMode::EMULATOR));
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunAttentionPostCostModel();
 }
 
@@ -224,10 +205,10 @@ TEST_F(CostModelTest, TestErrorInput)
 TEST_F(CostModelTest, TestFixedLatencyTasks)
 {
     std::string jsonPath("./config/fixed_task_topo.json");
-    std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
+    std::vector<std::string> arg = config::GetSimConfig(KEY_ARGS, std::vector<std::string>{});
     arg.emplace_back("Model.simulationFixedLatencyTask=true");
     arg.emplace_back("Model.fixedLatencyTaskInfoPath=" + jsonPath);
-    config::SetSimConfig("args", arg);
+    config::SetSimConfig(KEY_ARGS, arg);
 
     CostModelAgent costModelAgent;
     costModelAgent.SubmitToCostModel(nullptr);
@@ -238,32 +219,32 @@ TEST_F(CostModelTest, TestFixedLatencyTasks)
 TEST_F(CostModelTest, TestAttentionPostAccuracy2)
 {
     int accuracylevel = 2;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunAttentionPostCostModel();
 }
 
 TEST_F(CostModelTest, TestAttentionPostAccuracy3)
 {
     int accuracylevel = 2;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     RunMatrixCostModel();
 }
 
 TEST_F(CostModelTest, TestAttentionPostL2Cache)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
     std::vector<std::string> arg;
     arg.emplace_back("Model.statisticReportToFile=false");
     arg.emplace_back("Model.deviceArch=A2A3");
     arg.emplace_back("Model.mteUseL2Cache=true");
-    config::SetSimConfig("args", arg);
+    config::SetSimConfig(KEY_ARGS, arg);
     RunAttentionPostCostModel();
 }
 
 TEST_F(CostModelTest, TestBuildBasedOnConfigs)
 {
-    ALOG_INFO("Init CostModel Communication Simulation.");
+    ALOG_INFO("Init CostModel Simulation.");
     std::string configPath("./config/test_config.conf");
     std::vector<std::string> configs;
     configs.push_back("--conf");
@@ -285,8 +266,8 @@ TEST_F(CostModelTest, TestBuildBasedOnConfigs)
 TEST_F(CostModelTest, TestCoreMachineDeadlock)
 {
     int accuracylevel = 1;
-    config::SetSimConfig("ACCURACY_LEVEL", accuracylevel);
-    std::vector<std::string> arg = config::GetSimConfig("args", std::vector<std::string>{});
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, accuracylevel);
+    std::vector<std::string> arg = config::GetSimConfig(KEY_ARGS, std::vector<std::string>{});
     arg.emplace_back("Model.testDeadLock=true");
     arg.emplace_back("Core.bufferBackPressure=true");
     arg.emplace_back("Pipe.ubSizeThreshold=256");
@@ -294,7 +275,7 @@ TEST_F(CostModelTest, TestCoreMachineDeadlock)
     arg.emplace_back("Pipe.l0aSizeThreshold=256");
     arg.emplace_back("Pipe.l0bSizeThreshold=256");
     arg.emplace_back("Pipe.l0cSizeThreshold=256");
-    config::SetSimConfig("args", arg);
+    config::SetSimConfig(KEY_ARGS, arg);
     RunAttentionPostCostModel();
 }
 
@@ -307,7 +288,7 @@ TEST_F(CostModelTest, TestReplaceGMStr)
 void RunCat()
 {
     TileShape::Current().SetVecTile(16, 6, 6, 16);
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {10, 10, 10, 10};
     std::vector<int64_t> shape2 = {20, 10, 10, 10};
@@ -331,18 +312,18 @@ TEST_F(CostModelTest, TestGlobalCalendar)
     arg.emplace_back("Model.fixedLatencyTaskInfoPath=" + inputPath);
     arg.emplace_back("Model.calendarFile=" + jsonPath);
     arg.emplace_back("Model.calendarMode=" +  std::to_string(static_cast<int>(calendarMode)));
-    config::SetSimConfig("args", arg);
+    config::SetSimConfig(KEY_ARGS, arg);
     RunCat();
 }
 
 TEST_F(CostModelTest, TestLeafFunctionMode)
 {
-    config::SetSimConfig("SIM_MODE", int(CostModel::SimMode::LEAF_FUNCTION));
-    config::SetSimConfig("ACCURACY_LEVEL", 1);
+    config::SetSimConfig(KEY_SIM_MODE, int(CostModel::SimMode::LEAF_FUNCTION));
+    config::SetSimConfig(KEY_ACCURACY_LEVEL, 1);
     std::vector<std::string> arg;
     arg.emplace_back("Model.deviceArch=A2A3");
     arg.emplace_back("Model.statisticReportToFile=false");
-    config::SetSimConfig("args", arg);
+    config::SetSimConfig(KEY_ARGS, arg);
     RunAttentionPostCostModel();
 }
 
@@ -354,8 +335,8 @@ public:
     static void TearDownTestCase() {}
 
     void SetUp() override {
-        cacheEnable = config::GetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
-        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, false);
+        cacheEnable = config::GetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, false);
+        config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, false);
         oriEnableAihacBackend = config::GetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
@@ -364,20 +345,20 @@ public:
     }
 
     void TearDown() override {
-        config::SetHostConfig(KEY_ENABLE_BINARY_CACHE, cacheEnable);
+        config::SetPassGlobalConfig(KEY_ENABLE_BINARY_CACHE, cacheEnable);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, oriEnableAihacBackend);
         ResetPVModelConfig();
     }
 
     void EnablePVModel(int level)
     {
-        oriPvLevel = config::GetSimConfig("PV_LEVEL", 0);
-        config::SetSimConfig("PV_LEVEL", level);
+        oriPvLevel = config::GetSimConfig(KEY_PV_LEVEL, 0);
+        config::SetSimConfig(KEY_PV_LEVEL, level);
     }
 
     void ResetPVModelConfig()
     {
-        config::SetSimConfig("PV_LEVEL", oriPvLevel);
+        config::SetSimConfig(KEY_PV_LEVEL, oriPvLevel);
     }
 
 protected:
@@ -400,7 +381,7 @@ void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Ten
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
-            Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, ki);
+            Tensor t2 = Matrix::Matmul(DataType::DT_FP32, qi, ki, false, true);
             // conat((t0s + t1, t1)) @ concat (t0s, t1)^T
             Assemble(t2, {idx * s, 0}, out);
         }
@@ -408,7 +389,6 @@ void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Ten
 }
 
 TEST_F(CostModelDynTest, TestDD) {
-    config::SetHostOption(ONLY_CODEGEN, true);
     constexpr int tilingX = 32;
     constexpr int tilingY = 32;
     TileShape::Current().SetVecTile(tilingX, tilingY);
@@ -433,4 +413,22 @@ TEST_F(CostModelDynTest, TestDD) {
     auto func = Program::GetInstance().GetLastFunction();
     auto pv = CostModel::PvModelFactory::CreateDyn();
     pv->Codegen(func);
+}
+
+TEST_F(CostModelTest, TestUnknownArchType)
+{
+    EXPECT_THROW(CostModel::PipeFactory::Create(CostModel::CorePipeType::PIPE_MTE_IN, "A0", 1), std::invalid_argument);
+}
+
+TEST_F(CostModelTest, TestCreateA5Cache)
+{
+    std::unique_ptr<CostModel::CacheMachineImpl> cacheImpl = CostModel::PipeFactory::CreateCache(CostModel::CacheType::L2CACHE, "A5");
+    CostModel::CachePacket packet;
+    cacheImpl->Simulate(packet);
+}
+
+TEST_F(CostModelTest, TestA5ArchType)
+{
+    auto simulator =CostModel::PipeFactory::Create(CostModel::CorePipeType::PIPE_MTE_IN, "A5", 1);
+    EXPECT_TRUE(simulator != nullptr);
 }

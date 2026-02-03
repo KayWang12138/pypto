@@ -27,8 +27,8 @@ enum BroadcastOperand : int64_t {
 };
 
 struct PrintScatterElemParam {
-    int axis;
-    int scatterMode;
+    const int axis;
+    const int scatterMode;
     const std::string &dVar;
     const std::string &s0Var;
     const std::string &s1Var;
@@ -38,8 +38,8 @@ struct PrintScatterElemParam {
 };
 
 struct PrintScatterParam {
-    int axis;
-    int scatterMode;
+    const int axis;
+    const int scatterMode;
     const std::string &dVar;
     const std::string &s1Var;
     const std::string &s2Var;
@@ -50,13 +50,23 @@ struct PrintScatterParam {
 };
 
 struct PrintIndexAddParam {
-    int axis;
+    const int axis;
     const std::string &dstVar;
     const std::string &srcVar;
     const std::string &indicesVar;
     std::vector<int64_t> &dstRawShape;
     std::vector<int64_t> &srcRawShape;
     const std::vector<std::string> &dataTypeExpr;
+};
+
+struct PrintIndexPutParam {
+    const std::string &dVar;
+    const std::string &s1Var;
+    const std::vector<std::string> &s2Var;
+    const std::vector<int64_t> &gmShape;
+    const std::vector<int64_t> &src1RawShape;
+    const std::vector<std::string> &dataTypeExpr;
+    const bool accumulate;
 };
 
 enum class WhereOpIdx : int { resIdx = 0, tempIdx, condIdx, src0Idx, src1Idx };
@@ -81,6 +91,15 @@ struct PrintUnaryParam {
     const std::string &dstDtypeStr;
 };
 
+struct PrintUnaryTmpParam {
+    const std::string &s0Var;
+    const std::string &dVar;
+    const std::string &tmpVar;
+    const std::string &srcDtypeStr;
+    const std::string &dstDtypeStr;
+    const std::string &tmpDtypeStr;
+};
+
 struct PrintUnaryTmpBuffParam {
     const std::string &s0Var;
     const std::string &tmpVar;
@@ -91,9 +110,9 @@ struct PrintUnaryTmpBuffParam {
 };
 
 struct PrintMemCopyWithL0CParam {
-    unsigned uf;
-    unsigned gmIdx;
-    unsigned localIdx;
+    const unsigned uf;
+    const unsigned gmIdx;
+    const unsigned localIdx;
     const std::vector<std::string> &addrTypeHead;
     const std::vector<std::string> &addrExpr;
     const std::vector<int64_t> &gmShape;
@@ -102,9 +121,9 @@ struct PrintMemCopyWithL0CParam {
 };
 
 struct PrintMemCopyWithL1Param {
-    unsigned uf;
-    unsigned gmIdx;
-    unsigned localIdx;
+    const unsigned uf;
+    const unsigned gmIdx;
+    const unsigned localIdx;
     const std::vector<std::string> &addrTypeHead;
     const std::vector<std::string> &addrExpr;
     const std::vector<int64_t> &gmShape;
@@ -113,12 +132,12 @@ struct PrintMemCopyWithL1Param {
 };
 
 struct PrintMemCopyWithUBParam {
-    unsigned gmIdx;
-    unsigned localIdx;
+    const unsigned gmIdx;
+    const unsigned localIdx;
     const std::vector<std::string> &addrTypeHead;
     std::vector<std::string> &addrExpr;
     std::vector<std::string> &dataTypeExpr;
-    bool isSpillIntoGM;
+    const bool isSpillIntoGM;
 };
 
 struct PrintGatherParam {
@@ -148,6 +167,17 @@ struct PrintBinaryParam {
     const std::string &dstDtypeStr;
 };
 
+struct PrintBinaryTmpParam {
+    const std::string &s0Var;
+    const std::string &s1Var;
+    const std::string &dVar;
+    const std::string &tmpVar;
+    const std::string &src0DtypeStr;
+    const std::string &src1DtypeStr;
+    const std::string &dstDtypeStr;
+    const std::string &tmpDtypeStr;
+};
+
 struct PrintBinaryBrcParam {
     const std::string &s0Var;
     const std::string &s1Var;
@@ -169,7 +199,7 @@ struct PrintTransposeDataMoveParam {
 };
 
 struct PrintGatherEleParam {
-    int axis;
+    const int axis;
     const std::string &dVar;
     const std::string &s0Var;
     const std::string &s1Var;
@@ -195,8 +225,8 @@ struct PrintIndexOutCastParam {
 };
 
 struct PrintCumSumParam {
-    int axis;
-    bool flag;
+    const int axis;
+    const bool flag;
     const std::string &dVar;
     const std::string &inputVar;
     std::vector<int64_t> &inputRawShape;

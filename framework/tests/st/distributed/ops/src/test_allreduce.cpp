@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include "distributed_op_test_suite.h"
 #include "distributed_op_test_common.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -24,11 +23,11 @@
 namespace npu::tile_fwk {
 namespace Distributed {
 
-template<typename T, bool useTwoShot>
-void TestShmemAllReduce(OpTestParam &testParam)
+template<typename T>
+void TestAllReduce(OpTestParam& testParam)
 {
-    constexpr size_t paramsSize = 3;
-    auto [row, col, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    constexpr size_t paramsSize = 6;
+    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
     DataType dType = GetDataTypeNum(typeNum);
 
     int32_t outSize = row * col;
@@ -37,47 +36,50 @@ void TestShmemAllReduce(OpTestParam &testParam)
     Tensor in(dType, shape, "in");
     Tensor out(dType, shape, "out");
 
-    std::vector<T> ipPtr = ReadToVector<T>(
+    std::vector<T> inPtr = ReadToVector<T>(
         GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, ipPtr),
+        RawTensorData::CreateTensor<T>(in, inPtr),
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(out),
     });
-    int32_t tileNum1 = 1;
-    int32_t tileNum2 = 1;
-    int32_t scatterRow = useTwoShot ? row / testParam.rankSize : row;
+    int32_t rowPerRank = row;
+    Shape shmemDataShape{1, rowPerRank, col};
+    if (useTwoShot) {
+        ASSERT(testParam.rankSize > 0) << "testParam.rankSize must be > 0, but got: " << testParam.rankSize;
+        rowPerRank /= testParam.rankSize;
+        shmemDataShape = {testParam.rankSize, rowPerRank, col};
+    }
     FUNCTION("ALLREDUCE", {in}, {out}) {
-        TileShape::Current().SetDistTile(
-            {scatterRow / tileNum1, tileNum1, scatterRow % tileNum1},
-            {col / tileNum2, tileNum2, col % tileNum2},
-            {1, testParam.rankSize, 0});
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        }
         if (useTwoShot) {
-            TwoShotShmemAllReduce(in, testParam.group, out);
+            TwoShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
         } else {
-            OneShotShmemAllReduce(in, testParam.group, out);
+            OneShotAllReduce(in, in, testParam.group, shmemData, shmemSignal, out);
         }
     }
-    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
-    DeviceLauncherConfig config;
-    config.runModel = false;
-    config.hcclContext = hcclContext;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-
+    RunTest();
     auto output = ProgramData::GetInstance().GetOutputData(0);
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, output->GetDevPtr(), testParam));
-}
-template void TestShmemAllReduce<int32_t, true>(OpTestParam &testParam);
-template void TestShmemAllReduce<int32_t, false>(OpTestParam &testParam);
-template void TestShmemAllReduce<float, true>(OpTestParam &testParam);
-template void TestShmemAllReduce<float, false>(OpTestParam &testParam);
-template void TestShmemAllReduce<float16, true>(OpTestParam &testParam);
-template void TestShmemAllReduce<float16, false>(OpTestParam &testParam);
-template void TestShmemAllReduce<bfloat16, true>(OpTestParam &testParam);
-template void TestShmemAllReduce<bfloat16, false>(OpTestParam &testParam);
 
-} // namespace Distributed
+}
+
+template void TestAllReduce<int32_t>(OpTestParam& testParam);
+template void TestAllReduce<float>(OpTestParam& testParam);
+template void TestAllReduce<float16>(OpTestParam& testParam);
+template void TestAllReduce<bfloat16>(OpTestParam& testParam);
+} // namespace Distributed 
 } // namespace npu::tile_fwk

@@ -136,8 +136,11 @@ Status BufferPool::MakeBufferSlice(LocalBufferPtr tensor, BufferSlice& newSlice)
     return SUCCESS;
 }
 
-void BufferPool::SelectHeadAndTail(bool &head, bool &tail, std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals) {
+void BufferPool::SelectHeadAndTail(LocalBufferPtr tensor, bool &head, bool &tail, std::map<uint64_t, std::map<uint64_t, uint64_t>> freeIntervals) {
     for (auto &interval : freeIntervals) {
+        if (interval.first < tensor->size) {
+            continue;
+        }
         for (auto &freeSpace : interval.second) {
             if (freeSpace.first == 0) {
                 head = true;
@@ -157,7 +160,7 @@ Status BufferPool::Allocate(LocalBufferPtr tensor) {
     if (tensor->memType == MemoryType::MEM_L0A || tensor->memType == MemoryType::MEM_L0B || tensor->memType == MemoryType::MEM_L0C) {
         bool headFree = false;
         bool tailFree = false;
-        SelectHeadAndTail(headFree, tailFree, freeIntervals);
+        SelectHeadAndTail(tensor, headFree, tailFree, freeIntervals);
         BufferSlice newSlice;
         if (headFree) {
             newSlice.offset = 0;
@@ -311,6 +314,38 @@ Status BufferPool::ModifyBufferRange(LocalBufferPtr localBuffer, size_t offset) 
     }
     return SUCCESS;
 }
+
+Status BufferPool::CompactBufferSlices() {
+    if (bufferSlices.empty()) {
+        return SUCCESS;
+    }
+    // 收集并按原 size 从大到小排序
+    std::vector<std::pair<uint32_t, BufferSlice>> items(bufferSlices.begin(), bufferSlices.end());
+    std::sort(items.begin(), items.end(),
+              [](const auto &a, const auto &b) {
+                  return a.second.size > b.second.size;
+              });
+
+    // 紧凑重排
+    uint64_t cursor = 0;
+    for (auto &it : items) {
+        if (cursor + it.second.size > memSize_) {
+            return FAILED;
+        }
+        it.second.offset = cursor;
+        cursor += it.second.size;
+    }
+
+    // 写回
+    for (const auto &it : items) {
+        bufferSlices[it.first].offset = it.second.offset;
+    }
+    if (CheckBufferSlicesOverlap()) {
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
 
 void BufferPool::PrintStatus() {
     ALOG_DEBUG_F("Buffer Status : ");

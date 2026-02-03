@@ -36,8 +36,8 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
     void TearDown() override {}
@@ -47,6 +47,7 @@ constexpr const int GATHER_SHAPE0 = 16;
 constexpr const int GATHER_SHAPE1 = 32;
 
 TEST_F(TestCodegenDynGather, TestGather) {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     constexpr const int S2 = 32;
     constexpr const int D = 64;
     constexpr const int B = 1;
@@ -70,27 +71,51 @@ TEST_F(TestCodegenDynGather, TestGather) {
             output = Gather(inputSrc0, inputSrc1, axis);
         }
     }
+#if ENABLE_HIDDENLOOP
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
-
+#else
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+#endif
     function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
     function->SetUnderDynamicFunction(true);
-    for (auto &subFunc : function->rootFunc_->programs_) {
-        for (auto &op : subFunc.second->Operations()) {
-            if (OpcodeManager::Inst().IsCopyIn(op.GetOpcode()) || OpcodeManager::Inst().IsCopyOut(op.GetOpcode())) {
-                if (IsCopyIn(op.GetOpcode()))
-                    op.SetIOpAttrOffset(0, 0);
-                else
-                    op.SetOOpAttrOffset(0, 0);
-                op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
-            }
+    npu::tile_fwk::CodeGenCtx ctx;
+    npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
+    codeGen.GenCode(*function, {});
+}
+TEST_F(TestCodegenDynGather, TestGatherLayout) {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    constexpr const int S2 = 32;
+    constexpr const int D = 64;
+    constexpr const int B = 1;
+    constexpr const int S = 32;
+    std::vector<int64_t> shape0 = {S2, D};
+    std::vector<int64_t> shape1 = {B, S};
+    int axis = 0;
+    std::vector<int64_t> shape2 = {B, S, D};
+
+    TileShape::Current().SetVecTile({1, GATHER_SHAPE0, GATHER_SHAPE1});
+
+    Tensor inputSrc0(DT_FP32, shape0, "x");
+    Tensor inputSrc1(DT_INT32, shape1, "indices");
+    Tensor output(DT_FP32, shape2, "output");
+
+    ConfigManager::Instance();
+    std::string funcName = "GATHER_T";
+    FUNCTION(funcName, {inputSrc0, inputSrc1, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Gather(inputSrc0, inputSrc1, axis);
         }
-        DynParamInfo fakeParam = {3, 0, 0, DynParamInfoType::VALID_SHAPE, 0, SymbolicScalar(), false, ""};
-        subFunc.second->dynParamTable_.emplace("sym_26_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_26_dim_1", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_27_dim_0", fakeParam);
-        subFunc.second->dynParamTable_.emplace("sym_27_dim_1", fakeParam);
     }
+#if ENABLE_HIDDENLOOP
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+#else
+    auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
+#endif
+    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    function->SetUnderDynamicFunction(true);
     npu::tile_fwk::CodeGenCtx ctx;
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});

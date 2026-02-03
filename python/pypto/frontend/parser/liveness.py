@@ -122,6 +122,16 @@ class LivenessAnalyzer(doc.NodeVisitor):
             self.visit(node.value)
         self._visit_assign_target(node.target, is_def=True)
 
+    def visit_aug_assign(self, node: doc.AugAssign):
+        """Visit augmented assignment."""
+        self.current_stmt_id = _get_node_id(node)
+        # Visit the value expression first to record uses
+        self.visit(node.value)
+        # Visit the target to record uses (for reading the current value)
+        self.visit(node.target)
+        # Then record definition on the target (for writing the new value)
+        self._visit_assign_target(node.target, is_def=True)
+
     def visit_for(self, node: doc.For):
         """Visit for loop."""
         stmt_id = _get_node_id(node)
@@ -139,9 +149,18 @@ class LivenessAnalyzer(doc.NodeVisitor):
         self.vars_defined_in_loop = set()
 
         # Loop variable is defined here
+        # Support both single variable and tuple unpacking
         if isinstance(node.target, doc.Name):
             self._record_var_def(node.target.id)
             self.exempt_vars.add(node.target.id)  # Loop vars not auto-deleted
+        elif isinstance(node.target, (doc.Tuple, doc.List)):
+            # Tuple unpacking: for x, y in iterator
+            for elt in node.target.elts:
+                if isinstance(elt, doc.Name):
+                    self._record_var_def(elt.id)
+                    self.exempt_vars.add(elt.id)  # Loop vars not auto-deleted
+                # Note: nested tuples in loop targets are not supported
+                # (e.g., for (x, (y, z)) in iterator is not allowed)
 
         # Visit body
         for stmt in node.body:
@@ -278,15 +297,21 @@ class LivenessAnalyzer(doc.NodeVisitor):
         If inside a loop scope, records the use at the loop level to ensure
         variables aren't deleted inside the loop body, UNLESS the variable
         was defined inside the loop (in which case it can be deleted per-iteration).
+
+        For variables defined outside loops but used inside nested loops,
+        uses the outermost loop's statement ID to ensure variables are not
+        deleted prematurely (e.g., in loop_unroll scenarios where the loop
+        is split into multiple blocks).
         """
         if self.current_stmt_id is not None:
             if var_name not in self.var_uses:
                 self.var_uses[var_name] = []
             # If we're inside a loop and the variable was defined OUTSIDE the loop,
-            # use the loop's statement ID to delete after loop exits.
-            # If defined INSIDE the loop, use actual statement ID to delete per-iteration.
+            # use the OUTERMOST loop's statement ID to delete after that loop exits.
+            # This ensures variables used in nested loops (especially loop_unroll) are
+            # not deleted prematurely when inner loops exit.
             if self.loop_scope_stack and var_name not in self.vars_defined_in_loop:
-                stmt_id = self.loop_scope_stack[-1]  # Use innermost loop scope
+                stmt_id = self.loop_scope_stack[0]  # Use outermost loop scope
             else:
                 stmt_id = self.current_stmt_id
             self.var_uses[var_name].append(stmt_id)

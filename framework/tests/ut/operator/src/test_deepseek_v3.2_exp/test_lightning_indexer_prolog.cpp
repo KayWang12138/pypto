@@ -13,9 +13,8 @@
  * \brief
  */
 
-#include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
-
+#include "test_cost_macro.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/tensor/logical_tensor.h"
@@ -71,12 +70,12 @@ static IndexerShapeParams ReadParams(const RopeTileShapeConfig &ropeTileConfigs,
 
 void PerformanceConfig() {
     config::SetPassOption(VEC_NBUFFER_MODE, 1);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }
 
-TEST_F(DynamicLightningIndexerPrologUtest, utest_lightning_indexer_prolog) {
+TEST_F_WITH_COST(DynamicLightningIndexerPrologUtest, utest_lightning_indexer_prolog, 60) {
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 256},
         { 32, 128, 128},
@@ -91,7 +90,6 @@ TEST_F(DynamicLightningIndexerPrologUtest, utest_lightning_indexer_prolog) {
 
     auto params = ReadParams(ropeTileConfigs, indexerConfigs, -1);
     PerformanceConfig();
-    config::SetHostOption(ONLY_CODEGEN, true);
 
     // inputs
     DataType dType = DT_BF16;

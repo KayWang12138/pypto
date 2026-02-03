@@ -34,9 +34,9 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "ExpandFunctionTestStrategy");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
     void TearDown() override {}
 };
@@ -44,7 +44,7 @@ public:
 TEST_F(TestExpandFunction, ExpandFunctionTest) {
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("ExpandFunctionTestStrategy", {
-        {   "RemoveRedundantReshape",   "RemoveRedundantReshape"},
+        {   "RemoveRedundantReshape",  PassName::REMOVE_REDUNDANT_RESHAPE},
     });
 
     std::vector<int64_t> shape{64, 64};

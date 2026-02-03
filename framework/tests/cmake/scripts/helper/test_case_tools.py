@@ -9,17 +9,27 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
+import math
 import pkgutil
-import re
 
 import numpy as np
 import torch
 
 
 def is_number(input_str: str):
-    return (
-        re.fullmatch("^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$", input_str) is not None
-    )
+    try:
+        num = float(input_str)
+        # not support parse inf nan in c++ json parser
+        return not math.isinf(num) and not math.isnan(num)
+    except ValueError:
+        return False
+
+
+def parse_number(input_str: str):
+    try:
+        return int(input_str)
+    except ValueError:
+        return float(input_str)
 
 
 def parse_list_str(input_str: str):
@@ -42,10 +52,8 @@ def parse_list_str(input_str: str):
         for sub_str in input_str.split(","):
             if not is_number(sub_str):
                 ret_list.append(sub_str)
-            elif "." in sub_str or "e" in sub_str or "E" in sub_str:
-                ret_list.append(float(sub_str))
             else:
-                ret_list.append(int(sub_str))
+                ret_list.append(parse_number(sub_str))
     return ret_list
 
 
@@ -93,14 +101,17 @@ def parse_dict_str(input_str: str):
     if input_str.startswith("{") and input_str.endswith("}"):
         input_str = input_str[1:-1]
 
-    key_values = input_str.split(',')
+    key_values = input_str.split(",")
     res = {}
     value_index = 0
     while value_index < len(key_values):
-        if ':' in key_values[value_index]:
-            key, value = key_values[value_index].split(':')
-            while value_index + 1 < len(key_values) and ':' not in key_values[value_index + 1]:
-                value += ',' + key_values[value_index + 1]
+        if ":" in key_values[value_index]:
+            key, value = key_values[value_index].split(":")
+            while (
+                value_index + 1 < len(key_values)
+                and ":" not in key_values[value_index + 1]
+            ):
+                value += "," + key_values[value_index + 1]
                 value_index += 1
             res[key] = value
         value_index += 1

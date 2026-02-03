@@ -27,6 +27,7 @@
 #include "machine/runtime/device_launcher.h"
 #include "cost_model/simulation/backend.h"
 #include "machine/runtime/host_prof.h"
+#include "machine/runtime/distributed_context.h"
 
 using namespace npu::tile_fwk::dynamic;
 
@@ -37,8 +38,8 @@ struct MemoryHelper {
 
     bool IsDevice() { return !isTest_; }
 
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
-        uint8_t *devPtr = AllocDev(size, nullptr);
+    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
+        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
         if (isTest_)
             memcpy_s(devPtr, size, data, size);
         else
@@ -74,21 +75,21 @@ struct MemoryHelper {
     }
 
     template <typename T>
-    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
-        (void)cachedDevAddrHolder;
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
+    T *CopyToDev(std::vector<T> data, uint8_t **cachedHolder) {
+        (void)cachedHolder;
+        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), nullptr);
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {
         if (data.GetDevPtr() == nullptr) {
-            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size());
+            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size(), nullptr);
             data.SetDevPtr(devPtr);
         }
         return data.GetDevPtr();
     }
 
-    void CopyFromDev(RawTensorData &t) {
-        CopyFromDev(t.data(), t.GetDevPtr(), t.size());
+    void CopyFromDev(RawTensorData &tensorData) {
+        CopyFromDev(tensorData.data(), tensorData.GetDevPtr(), tensorData.size());
     }
 
     uint64_t GetL2Offset() {
@@ -99,7 +100,6 @@ struct MemoryHelper {
 };
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
-extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
 extern "C" int PyptoKernelCtrlServer(void *targ);
 
 class DevFuncRunner : public DeviceLauncher {
@@ -144,10 +144,11 @@ private:
             uint64_t contextWorkspaceAddr = functionDevProg->controlFlowCache.contextWorkspaceAddr;
 
             functionDevProg->controlFlowCache.IncastOutcastAddrReloc(contextWorkspaceAddr, 0, nullptr);
-            functionDevProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr);
+            functionDevProg->controlFlowCache.RuntimeAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr, nullptr, nullptr);
             functionDevProg->controlFlowCache.RuntimeAddrRelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
             functionDevProg->controlFlowCache.TaskAddrRelocWorkspace(contextWorkspaceAddr, 0, nullptr);
-            functionDevProg->controlFlowCache.TaskAddrRelocProgram(reinterpret_cast<uint64_t>(functionDevProg), 0);
+            functionDevProg->controlFlowCache.TaskAddrRelocProgramAndCtrlCache(reinterpret_cast<uint64_t>(functionDevProg),
+                reinterpret_cast<uint64_t>(&functionDevProg->controlFlowCache), 0, 0);
             functionDevProg->ResetFromLaunch();
             functionDevProg->controlFlowCache.isActivated = true;
         }
@@ -168,11 +169,13 @@ private:
         if (!config_.runModel) {
             return;
         }
-        AstKernelArgs kArgs;
+        DeviceKernelArgs kArgs;
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
+        DeviceInitDistributedContextToHost(function_->GetDyndevAttribute()->commGroupNames,
+ 	        function_->GetDyndevAttribute()->devProgBinary);
+        DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
         for (int i = 0; i < (config_.controlFlowCache ? 1 : config_.repeatNum); i++) {
-            InitKernelInOuts(kArgs, inputs, outputs, true, {}, false);
+            InitKernelInOuts(kArgs, inputs, outputs, true, {});
             std::cout << "!!! Run CostModel " << i << "\n";
             RunCostModel(&kArgs);
             std::cout << "!!! Run TestModel " << i << "\n";
@@ -212,7 +215,7 @@ private:
         }
     }
 
-    void DumpTensorContents(const AstKernelArgs &kArgs,
+    void DumpTensorContents(const DeviceKernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
@@ -263,15 +266,16 @@ private:
             return;
         }
         CheckDeviceId();
-        AstKernelArgs kArgs;
+        DeviceKernelArgs kArgs;
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
+        DeviceInitDistributedContext(function_->GetDyndevAttribute()->commGroupNames,
+ 	        function_->GetDyndevAttribute()->devProgBinary);
+        DeviceInitTilingData(MemoryHelper(false), kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
         auto aicpuStream = machine::GetRA()->GetScheStream();
         auto aicoreStream = machine::GetRA()->GetStream();
         auto ctrlStream = config_.cpuSeparate ? machine::GetRA()->GetCtrlStream() : nullptr;
         for (int i = 0; i < config_.repeatNum; i++) {
-            InitKernelInOuts(kArgs, inputs, outputs, false, function_->GetDyndevAttribute()->disableL2List,
-                config_.isGETensorList);
+            InitKernelInOuts(kArgs, inputs, outputs, false, function_->GetDyndevAttribute()->disableL2List);
             rc = DeviceRunner::Get().DynamicRun(aicpuStream, ctrlStream, aicoreStream, 0, &kArgs, config_.blockdim, config_.aicpuNum);
             EXPECT_EQ(rc, 0);
             DeviceRunner::Get().SynchronizeDeviceToHostProfData();
@@ -285,15 +289,15 @@ private:
         }
     }
 
-    void RunCostModel(AstKernelArgs *kArgs) {
-        if (!config::GetPlatformConfig("ENABLE_DYN_COST_MODEL", true)) {
+    void RunCostModel(DeviceKernelArgs *kArgs) {
+        if (!config::GetPlatformConfig(KEY_ENABLE_DYN_COST_MODEL, true)) {
             return;
         }
         Function *function = Program::GetInstance().GetLastFunction();
         if (function == nullptr) {
             return;
         }
-        config::SetSimConfig("SIM_MODE", CostModel::SimMode::LEAF_FUNCTION);
+        config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::LEAF_FUNCTION);
         CostModelAgent costModelAgent;
         costModelAgent.SubmitLeafFunctionsToCostModel();
         costModelAgent.RunCostModel();
@@ -314,7 +318,7 @@ private:
         if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
             return;
         }
-        config::SetSimConfig("SIM_MODE", CostModel::SimMode::NORMAL);
+        config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::NORMAL);
         CostModelAgent costModelAgent;
 
         std::string path = config::LogTopFolder() + "/dyn_topo.txt";
@@ -322,28 +326,29 @@ private:
         costModelAgent.SubmitLeafFunctionsToCostModel();
         costModelAgent.RunCostModel();
         costModelAgent.TerminateCostModel();
+        ALOG_DEBUG_F("Finish Run DynCostMode which topo path is: %s", path.c_str());
     }
 
-    void RunTestMode(AstKernelArgs *kArgs) {
+    void RunTestMode(DeviceKernelArgs *kArgs) {
         (void) kArgs;
         std::thread aicpus[DEVICE_MAX_AICPU_NUM];
         std::atomic<int> idx{0};
         auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
-        auto rc0 = DynTileFwkBackendKernelServerInit(kArgs);
-        EXPECT_EQ(rc0, 0);
-        int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
+        size_t shmSize = DEVICE_TASK_CTRL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        (void)memset_s(reinterpret_cast<void*>(devProg->devArgs.taskQueue), shmSize, 0, shmSize);
+        auto threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
         threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
         for (int i = 0; i < threadNum; i++) {
             aicpus[i] = std::thread([&]() {
                 int tidx = idx++;
-                cpu_set_t cpuset;
-                CPU_ZERO(&cpuset);
-                CPU_SET(tidx, &cpuset);
+                cpu_set_t cpuSet;
+                CPU_ZERO(&cpuSet);
+                CPU_SET(tidx, &cpuSet);
                 char name[64];
                 sprintf(name, "aicput%d", tidx);
                 std::cout << "start thread: " << name << std::endl;
                 pthread_setname_np(pthread_self(), name);
-                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuSet);
                 auto rc = 0;
                 if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
                     rc = PyptoKernelCtrlServer(kArgs);
@@ -361,13 +366,12 @@ private:
         }
     }
 
-    void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
-        const std::vector<RawTensorDataPtr> &outputTensors, bool isTest, const std::vector<uint8_t>& disableL2List,
-        bool isGETensorList) {
+    void InitKernelInOuts(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+        const std::vector<RawTensorDataPtr> &outputTensors, bool isTest, const std::vector<uint8_t>& disableL2List) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
         std::tie(inputList, outputList) = BuildInputOutputFromHost(MemoryHelper(isTest), inputTensors, outputTensors);
-        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, disableL2List, isGETensorList);
+        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, disableL2List);
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
         return;

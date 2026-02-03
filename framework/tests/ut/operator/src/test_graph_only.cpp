@@ -37,10 +37,10 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "PVC2_OOO");
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
-        config::SetSimConfig("BUILD_TASK_BASED_TOPO", false);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+        config::SetSimConfig(KEY_BUILD_TASK_BASED_TOPO, false);
     }
 
     void TearDown() override {}
@@ -83,8 +83,8 @@ TEST_F(GraphTest, llama_1_1_512_128)
 
 TEST_F(GraphTest, llama_1_1_256_128_mix)
 {
-    config::SetPassConfig("PVC2_OOO", "PreGraphProcess", "PRE_CHECK", false);
-    config::SetPassConfig("PVC2_OOO", "PreGraphProcess", "POST_CHECK", false);
+    config::SetPassConfig("PVC2_OOO", "PreGraphProcess", KEY_PRE_CHECK, false);
+    config::SetPassConfig("PVC2_OOO", "PreGraphProcess", KEY_POST_CHECK, false);
     AttentionDims dimsCfg = {1, 1, 256, 128, DFT_SINGLE_M, DFT_SINGLE_N};
     RunLLamaLayerGraph(dimsCfg);
 }
@@ -127,7 +127,7 @@ TEST_F(GraphTest, deepseek_qkvPre) {
 }
 
 TEST_F(GraphTest, TestAttentionPost) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int b = 1;
     int n = 2;
     int s = 128;
@@ -165,7 +165,7 @@ TEST_F(GraphTest, TestAttentionPost) {
 }
 
 TEST_F(GraphTest, Test_deepseekAttention_s_1) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int b = 2; //  32
     int s = 1;
@@ -211,7 +211,7 @@ TEST_F(GraphTest, Test_deepseekAttention_s_1) {
 }
 
 TEST_F(GraphTest, Test_deepseekAttention_pre) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     int b = 2; //  32
     int s = 1;

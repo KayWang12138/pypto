@@ -13,9 +13,8 @@
  * \brief
  */
 
-#include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
-
+#include "test_cost_macro.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "interface/tensor/logical_tensor.h"
@@ -45,9 +44,8 @@ public:
 };
 
 void SetQuantPreConfig() {
-    config::SetHostOption(ONLY_CODEGEN, true);
     config::SetPassOption(VEC_NBUFFER_MODE, 1);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, NUM_4);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, NUM_2 * NUM_1024 * NUM_1024);
 }
@@ -84,8 +82,8 @@ void TestDeepSeekIndexerAttentionQuantUTest(DSIASimpleParams &params) {
     }
     params.blockNum = blockNum;
 
-    std::cout << "====input param==== b sq nq nkv dn dr blockNum blockSize topk: " 
-                << b << " " << s1 << " " << n1 << " " << n2 << " " << dn << " " << dr << " " << blockNum << " " << blockSize << " " << topk 
+    std::cout << "====input param==== b sq nq nkv dn dr blockNum blockSize topk: "
+                << b << " " << s1 << " " << n1 << " " << n2 << " " << dn << " " << dr << " " << blockNum << " " << blockSize << " " << topk
                 << std::endl;
 
     DataType dType = DT_BF16;
@@ -211,7 +209,6 @@ void TestDeepSeekIndexerAttentionQuantUTest(DSIASimpleParams &params) {
 }
 
 void test_common_ut(DSIASimpleParams params) {
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::CODEGEN_EXPRESSION_FUSION, true);
     params.topk = 2048;
     params.cacheMode = "PA_BSND";
 
@@ -243,7 +240,7 @@ void test_common_ut(DSIASimpleParams params) {
     TestDeepSeekIndexerAttentionQuantUTest(params);
 }
 
-TEST_F(DeepSeekIndexerAttentionQuantUTest, 4B_mtp_ut) {
+TEST_F_WITH_COST(DeepSeekIndexerAttentionQuantUTest, 4B_mtp_ut, 176) {
     DSIASimpleParams params = DSIASimpleParams::getDecodeParams();
     params.b = 4;
     params.s1 = 2;

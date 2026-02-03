@@ -54,6 +54,7 @@ def _load_shared_libs():
         ["libtile_fwk_runtime_stub.so", not use_cann, ],
         ["libtile_fwk_simulation.so", True, ],
         ["libtile_fwk_simulation_ca.so", True, ],
+        ["libtile_fwk_simulation_pv.so", use_cann, ],
     ]
     for desc in desc_lst:
         _load_shared_lib(_desc=desc)
@@ -66,13 +67,14 @@ from . import experimental
 from .config import *  # noqa
 from ._controller import *  # noqa
 from .converter import from_torch
+from .converter import ir_from_tensor
 from .enum import *  # noqa
 from .op import *  # noqa
 from .operation import *  # noqa
 from .operator import *  # noqa
 from .pass_config import *  # noqa
 from .cost_model import *  # noqa
-from ._utils import ceil, bytes_of
+from ._utils import ceildiv, bytes_of
 from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor

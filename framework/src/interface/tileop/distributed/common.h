@@ -28,7 +28,6 @@ struct CopyParams {
     uint16_t dstStride;
 };
 
-// 以下 ATOMIC_ADD_BLOCK_BYTE_SIZE 和 FLAG_BYTE_SIZE 的定义与 comm_wait_flag.h 中的定义一致
 constexpr uint32_t ATOMIC_ADD_BLOCK_BYTE_SIZE = 32; // AtomicAdd 每次操作 32B 的数据，对同一 32B 的数据进行 AtomicAdd 需要排队
 constexpr uint32_t FLAG_BYTE_SIZE = ATOMIC_ADD_BLOCK_BYTE_SIZE * 4; // 为了消除 AtomicAdd 并发，以 32B 为最小单位，视情况调节每个 flag 占用的字节数
 constexpr uint32_t MOE_COMBINE_SIGNAL_OFFSET = 512 / sizeof(int32_t); // 每 512B 放一个 signal，避免同地址访问性能下降
@@ -149,21 +148,21 @@ TILEOP uint64_t GetVirtualAddrBist(uint64_t val, uint64_t start, uint64_t end)
     return (((val) >> (start)) & ((1UL << ((end) - (start) + 1UL)) - 1UL));
 }
 
-TILEOP uint64_t GetVirtaulAddrOffset(uint64_t val)
+TILEOP uint64_t GetVirtualAddrOffset(uint64_t val)
 {
     constexpr uint64_t offsetStart = 0UL; 
     constexpr uint64_t offsetEnd = 57UL; 
     return GetVirtualAddrBist(val, offsetStart, offsetEnd);
 }
 
-TILEOP uint64_t GetVirtaulAddrGroupIndex(uint64_t val)
+TILEOP uint64_t GetVirtualAddrGroupIndex(uint64_t val)
 {
     constexpr uint64_t groupIndexStart = 58UL; 
     constexpr uint64_t groupIndexEnd = 59UL; 
     return GetVirtualAddrBist(val, groupIndexStart, groupIndexEnd);
 }
 
-TILEOP uint64_t GetVirtaulAddrMemType(uint64_t val)
+TILEOP uint64_t GetVirtualAddrMemType(uint64_t val)
 {
     constexpr uint64_t memTypeStart = 60UL; 
     constexpr uint64_t memTypeEnd = 61UL; 
@@ -173,9 +172,9 @@ TILEOP uint64_t GetVirtaulAddrMemType(uint64_t val)
 template<typename T>
 TILEOP __gm__ T* MapVirtualAddr(__gm__ int64_t *hcclContext, __gm__ T* vAddr, uint32_t dstRankId)
 {
-    auto groupIndex = GetVirtaulAddrGroupIndex((uint64_t)vAddr);
-    auto offset = GetVirtaulAddrOffset((uint64_t)vAddr);
-    auto memType = GetVirtaulAddrMemType((uint64_t)vAddr);
+    auto groupIndex = GetVirtualAddrGroupIndex((uint64_t)vAddr);
+    auto offset = GetVirtualAddrOffset((uint64_t)vAddr);
+    auto memType = GetVirtualAddrMemType((uint64_t)vAddr);
     if (memType == 0) {
         return (__gm__ T*)(((__gm__ TileOp::HcclCombinOpParam *)hcclContext[groupIndex])->windowsIn[dstRankId] + offset);
     } else {

@@ -36,8 +36,8 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         // skip pass, ut only execute model op code
         config::SetPassDefaultConfig(KEY_DISABLE_PASS, true);
     }
@@ -347,7 +347,6 @@ TEST_F(NSAUtest, nsa_b_16_fp16) {
 
 TEST_F(NSAUtest, nsa_b_16_fp16_debug) {
     NSAV1SimpleParams params = NSAV1SimpleParams::getDecodeParams();
-    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     std::vector<int> inputParams = {16, 1, 8192, 128, 1, 0, 0};
 
     params.b = inputParams[0]; // 16

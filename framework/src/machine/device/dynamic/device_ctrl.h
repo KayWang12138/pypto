@@ -21,7 +21,6 @@
 #include "device_utils.h"
 #include "device_perf.h"
 #include "machine/device/dynamic/context/device_execute_context.h"
-#include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/dev_tensor_creator.h"
 #include "machine/utils/machine_ws_intf.h"
 #include "machine/utils/device_log.h"
@@ -33,7 +32,7 @@ extern "C" __attribute__((visibility("default"))) void* GetCtrlFlowFunc();
 namespace npu::tile_fwk::dynamic {
 
 class DeviceCtrlMachine {
- public:
+public:
     void InitTaskCtrl(int idx, int type, uint64_t taskId, DeviceTask *devTask, DeviceExecuteContext *ctx) {
         if (ctx == nullptr) {
             DEV_ERROR("Init Task control failed, which ctx is null.");
@@ -52,6 +51,7 @@ class DeviceCtrlMachine {
         taskCtrl->runFlag.store(true, std::memory_order_relaxed);
         taskCtrl->runcnt.store(schAicpuNum_, std::memory_order_relaxed);
         taskCtrl->ctx = ctx;
+        taskCtrl->retCode = 0;
         devTask->aicoreModel = reinterpret_cast<uint64_t>(ctx->aicoreModel);
         if (ctx->costModelData != nullptr) {
             devTask->costModelData = reinterpret_cast<uint64_t>(ctx->costModelData);
@@ -114,13 +114,79 @@ class DeviceCtrlMachine {
         inspector_ = inspector;
     }
 
-    int InitDyn(AstKernelArgs *kargs) {
-        DEV_INFO("AscendCppDyInitTask begin");
-        auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
-        auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
+    void InitTaskPipeWithSched(DevAscendProgram *devProg) {
         taskctrl_ = reinterpret_cast<DeviceTaskCtrl *>(devProg->devArgs.taskCtrl);
         taskQueue_ = reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *>(devProg->devArgs.taskQueue);
+        for (uint32_t i = 0; i < MAX_DEVICE_TASK_NUM; i++) {
+            taskctrl_[i].retCode = 0;
+            taskctrl_[i].runFlag = 0;
+        }
+
+        for (uint32_t i = 0; i < devProg->devArgs.scheCpuNum; ++i) {
+            taskQueue_[i].ResetEmpty();
+        }
+    }
+
+    void InitCtrlFlowCache(DevAscendProgram *devProg, DevControlFlowCache *ctrlFlowCache, bool firstInit) {
+        auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
+        DevControlFlowCache* devCtrlFlowCache = nullptr;
+        devCtrlFlowCache = &devProg->controlFlowCache;
+        if (devProg->controlFlowCache.isRecording) {
+            DEV_INFO("Init dev program cache");
+            devProg->controlFlowCache.contextWorkspaceAddr = devArgs->contextWorkspaceAddr;
+        } else if (ctrlFlowCache != nullptr) {
+            DEV_INFO("Init independent anchor program cache %p.", ctrlFlowCache);
+            if (ctrlFlowCache->isRecording) {
+                DEV_ASSERT_MSG(!devProg->controlFlowCache.isRecording, "dev program ctr cache should not record");
+                ctrlFlowCache->contextWorkspaceAddr = devArgs->contextWorkspaceAddr;
+            } else {
+                DEV_ASSERT_MSG(!devProg->controlFlowCache.isActivated && ctrlFlowCache->isActivated,
+                        "should not active dev program cache and independent ctrl cache at same time");
+            }
+            devCtrlFlowCache = ctrlFlowCache;
+            if (devCtrlFlowCache->isActivated && !devCtrlFlowCache->isRelocMetaDev) {
+                DEV_INFO("ControlFlowCache: reloc meta cache");
+                devCtrlFlowCache->isRelocMetaDev = true;
+                devCtrlFlowCache->RelocMetaCache(0, reinterpret_cast<uint64_t>(devCtrlFlowCache));
+            }
+        }
+
+        DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devCtrlFlowCache->deviceTaskCount, (int)firstInit);
+
+        devProg->ctrlFlowCacheAnchor = devCtrlFlowCache;
+        if (devCtrlFlowCache->deviceTaskCount == 0) {
+            DEV_INFO("ControlFlowCache: cache have no devtask , ignore it");
+            return;
+        }
+
+        if (devCtrlFlowCache->IsActivatedPartialCache(devArgs)) {
+            DEV_INFO("ControlFlowCache: 1");
+            // Actual run
+            if (!devCtrlFlowCache->isRelocDataDev) {
+                devCtrlFlowCache->isRelocDataDev = true;
+                devCtrlFlowCache->TaskAddrRelocProgramAndCtrlCache(0, 0, reinterpret_cast<uint64_t>(devProg),
+                                                                reinterpret_cast<uint64_t>(devCtrlFlowCache));
+                devCtrlFlowCache->RuntimeAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
+            }
+
+            devCtrlFlowCache->IncastOutcastAddrRestore();
+            devCtrlFlowCache->IncastOutcastAddrReloc(0, devArgs->contextWorkspaceAddr, devArgs);
+            if (devCtrlFlowCache->workspaceAddr != devArgs->contextWorkspaceAddr) {
+                devCtrlFlowCache->workspaceAddr = devArgs->contextWorkspaceAddr;
+                devCtrlFlowCache->TaskAddrRestoreWorkspace();
+                devCtrlFlowCache->TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
+            }
+            devProg->ResetRerun();
+        }
+    }
+
+    int InitDyn(DeviceKernelArgs *kargs) {
+        DEV_INFO("AscendCppDyInitTask begin");
+
+        auto devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
+        auto devArgs = reinterpret_cast<DevStartArgs *>(devProg->devArgs.startArgsAddr);
         schAicpuNum_ = devProg->devArgs.scheCpuNum;
+        InitTaskPipeWithSched(devProg);
         PerfBegin(PERF_EVT_INIT);
         bool firstInit = false;
         if (devProg->controlFlowBinaryAddr == nullptr) {
@@ -137,23 +203,14 @@ class DeviceCtrlMachine {
         devArgs->controlFlowEntry = devProg->controlFlowBinaryAddr;
 
         PerfEnd(PERF_EVT_INIT);
-        DevTensorData *inputPtr = nullptr;
-        uint64_t inputSize = 0;
-        uint64_t outputSize = 0;
-        if (devProg->devArgs.isGETensorList == 1) {
-            inputPtr = PtrToPtr<DevStartArgs, DevTensorData>(devArgs + 1);
-            inputSize = DevAscendTensorDataCreator::Decode(kargs->inputs, devProg, 0, inputPtr);
-            auto outputPtr = inputPtr + inputSize;
-            outputSize = DevAscendTensorDataCreator::Decode(kargs->outputs, devProg, inputSize, outputPtr);
-        } else {
-            inputSize = *kargs->inputs;
-            outputSize = *(kargs->inputs + 1);
-            inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
-            DEV_INFO("Input/output size [%lu][%lu] tensor list ptr[%p].", inputSize, outputSize, inputPtr);
-        }
+        uint64_t inputSize = *kargs->inputs;
+        uint64_t outputSize = *(kargs->inputs + 1);
+        auto inputPtr = PtrToPtr<int64_t, DevTensorData>(kargs->inputs + TENSOR_INFO_OFFSET);
+        DEV_INFO("Input/output size [%lu][%lu] tensor list ptr[%p].", inputSize, outputSize, inputPtr);
         devArgs->devTensorList = inputPtr;
         devArgs->inputTensorSize = static_cast<uint64_t>(inputSize);
         devArgs->outputTensorSize = static_cast<uint64_t>(outputSize);
+
         devArgs->contextWorkspaceAddr = PtrToValue(kargs->workspace);
         devArgs->contextWorkspaceSize = devProg->workspaceSize;
         devArgs->devProg = devProg;
@@ -162,41 +219,22 @@ class DeviceCtrlMachine {
         devArgs->inputSymbolSize = 0;
         devArgs->hcclContextAddr = (uint64_t*)&devProg->hcclContext[0];
 
-        if (devProg->controlFlowCache.isRecording) {
-            devProg->controlFlowCache.contextWorkspaceAddr = devArgs->contextWorkspaceAddr;
-        }
-        DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devProg->controlFlowCache.deviceTaskCount, (int)firstInit);
-        if (devProg->controlFlowCache.deviceTaskCount != 0 &&
-                devProg->controlFlowCache.IsActivatedPartialCache(devArgs)) {
-            // Actual run
-            if (firstInit) {
-                devProg->controlFlowCache.TaskAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
-                devProg->controlFlowCache.RuntimeAddrRelocProgram(0, reinterpret_cast<uint64_t>(devProg));
-            }
-            devProg->controlFlowCache.IncastOutcastAddrRestore();
-            devProg->controlFlowCache.IncastOutcastAddrReloc(0, devArgs->contextWorkspaceAddr, devArgs);
-            if (devProg->controlFlowCache.workspaceAddr != devArgs->contextWorkspaceAddr) {
-                devProg->controlFlowCache.workspaceAddr = devArgs->contextWorkspaceAddr;
-                devProg->controlFlowCache.TaskAddrRestoreWorkspace();
-                devProg->controlFlowCache.TaskAddrRelocWorkspace(0, devArgs->contextWorkspaceAddr, devArgs);
-            }
-            devProg->ResetRerun();
-        }
+        InitCtrlFlowCache(devProg, reinterpret_cast<DevControlFlowCache*>(kargs->ctrlFlowCache), firstInit);
         DEV_INFO("AscendCppDyInitTask done.");
         return 0;
     }
 
-    int ExecDyn(npu::tile_fwk::AstKernelArgs *args) {
-        int ret = 0;
+    int ExecDyn(npu::tile_fwk::DeviceKernelArgs *args) {
         DEV_INFO("start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs *)devProg->devArgs.startArgsAddr;
+
         DeviceExecuteContext ctx(devStartArgs);
         ctx.costModelData = reinterpret_cast<CostModel::ModelData*>(args->costmodeldata);
         ctx.aicoreModel = args->aicoreModel;
         PerfBegin(PERF_EVT_EXEC_DYN);
         PerfBegin(PERF_EVT_CONTROL_FLOW_CALL);
-        ret = ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
+        int ret = ctx.GELaunch(devStartArgs, [this](DynDeviceTask *dynTask, DeviceExecuteContext *exeCtx) {
             if (unlikely(inspectorEntry_ != nullptr)) {
                 inspectorEntry_(inspector_, exeCtx, dynTask);
             }
@@ -217,7 +255,7 @@ class DeviceCtrlMachine {
         PerfBegin(PERF_EVT_STAGE_TASK_SYNC);
         ret = SyncTask(&ctx.taskContext);
         devStartArgs->syncFlag = 0;
-        PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, CTRL_CPU_THREAD_IDX);
+        PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, devProg->devArgs.scheCpuNum);
         PerfEnd(PERF_EVT_STAGE_TASK_SYNC);
         PerfEnd(PERF_EVT_EXEC_DYN);
 #if ENABLE_PERF_EVT
@@ -226,6 +264,33 @@ class DeviceCtrlMachine {
         PerfettoMgr::Instance().Dump("/tmp/perfetto.txt");
     #endif
         return ret;
+    }
+
+    int EntryInit(DeviceKernelArgs *kargs) {
+        PerfBegin(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
+#if DEBUG_PLOG && defined(__DEVICE__)
+        InitLogSwitch();
+#endif
+        if (kargs == nullptr) {
+            return -1;
+        }
+        if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->cfgdata == nullptr) {
+            DEV_ERROR("Args has null in inputs[%p] outputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
+                    kargs->outputs, kargs->workspace, kargs->cfgdata);
+            return -1;
+        }
+        InitDyn(kargs);
+        PerfEnd(PERF_EVT_DEVICE_MACHINE_INIT_DYN);
+        return 0;
+    }
+
+    int EntryMain(DeviceKernelArgs *kargs) {
+        int rc = ExecDyn(kargs);
+        if (rc == npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
+            DEV_INFO("All schedule exited, destroy the machine.\n");
+            return 0;
+        }
+        return -1;
     }
 
 private:

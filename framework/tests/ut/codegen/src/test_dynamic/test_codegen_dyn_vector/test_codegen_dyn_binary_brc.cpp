@@ -24,6 +24,7 @@
 #include "codegen/codegen.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/cloudnpu/codegen_cloudnpu.h"
+#include "codegen/cloudnpu/codegen_op_cloudnpu.h"
 #include "test_codegen_common.h"
 
 namespace npu::tile_fwk {
@@ -37,8 +38,8 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
     void TearDown() override {}
@@ -46,7 +47,7 @@ public:
 
 // mul (32, 512), (32, 1)
 TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
-    config::SetOperationConfig("FORCE_COMBINE_AXIS", true);
+    config::SetOperationOption(KEY_FORCE_COMBINE_AXIS, true);
     std::vector<int64_t> shape1 = {32, 512};
     std::vector<int64_t> shape2 = {32, 1};
     TileShape::Current().SetVecTile({32, 256});
@@ -93,4 +94,46 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
+
+TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic) {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    std::vector<int64_t> shape1 = {32, 256};
+    TileShape::Current().SetVecTile({32, 256});
+    Tensor input_a(DataType::DT_FP32, shape1, "A");
+    Tensor input_b(DataType::DT_FP32, shape1, "B");
+    Tensor output(DataType::DT_FP32, shape1, "C");
+    ConfigManager::Instance();
+
+    std::string funcName = "TestAddBrcTileTensorDynamic";
+    FUNCTION(funcName, {input_a, input_b, output}) {
+        LOOP(funcName, FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            output = Add(input_a, input_b);
+        }
+    }
+    auto function =
+        Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
+    function->SetFunctionType(FunctionType::DYNAMIC_LOOP_PATH);
+    function->SetUnderDynamicFunction(true);
+    for (auto &subFunc : function->rootFunc_->programs_) {
+        for (auto &op : subFunc.second->Operations()) {
+            if (op.GetOpcode() == Opcode::OP_ADD) {
+                op.SetAttribute(OpAttributeKey::brcbIdx, 1);
+                std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
+                CodeGenCtx ctx;
+                CodeGenCloudNPU cga(ctx);
+                cga.GenAllocForLocalBuffer(op, symbolManager);
+                CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
+                std::string res = cop.GenOpCode();
+                std::string expect =
+                    R"!!!(TAdd<TileOp::BroadcastOperand::LEFT_OPERAND>(ubTensor_0, ubTensor_0, ubTensor_2);
+)!!!";
+                EXPECT_EQ(res, expect);
+                break;
+            }
+        }
+    }
+}
+
 } // namespace npu::tile_fwk

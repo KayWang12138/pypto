@@ -33,7 +33,6 @@ using namespace npu::tile_fwk::dynamic;
 using namespace CostModel;
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
-extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
 
 struct MemoryH {
     MemoryH(bool isTest) : isTest_(isTest) {}
@@ -143,7 +142,7 @@ private:
             pv_->Codegen(func_);
 
             for (int i = 0; i < 1; i++) {
-                AstKernelArgs kArgs = BuildKernelArgs(inputs, outputs);
+                DeviceKernelArgs kArgs = BuildKernelArgs(inputs, outputs);
                 std::cout << "!!! Run CostModel " << i << "\n";
                 RunTestMode(&kArgs);
             }
@@ -172,7 +171,7 @@ private:
         return;
     }
 
-    void InitTilingData(AstKernelArgs *kArgs, bool isTest) {
+    void InitTilingData(DeviceKernelArgs *kArgs, bool isTest) {
         MemoryH h{isTest};
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t *>(devProg_.data()));
         devProg->devArgs.nrAic = 25;
@@ -184,22 +183,20 @@ private:
         std::cout << devProg->workspaceSize << std::endl;
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
         devProg->l2CacheOffset = machine::GetRA()->GetL2Offset();
+        AssignMetaAddr(devProg, h);
         kArgs->workspace = (int64_t *)h.AllocDev(devProg->workspaceSize);
         kArgs->cfgdata = (int64_t *)h.CopyToDev(devProg_);
         kArgs->machineConfig = devProg->devArgs.machineConfig;
         kArgs->toSubMachineConfig = devProg->devArgs.toSubMachineConfig;
-        AssignMetaAddr(devProg, h);
         return;
     }
 
-    void RunTestMode(AstKernelArgs *kArgs) {
+    void RunTestMode(DeviceKernelArgs *kArgs) {
         (void) kArgs;
         InitTilingData(kArgs, true);
         constexpr int threadNum = 6;
         std::thread aicpus[threadNum];
         std::atomic<int> idx{0};
-        auto rc0 = DynTileFwkBackendKernelServerInit(kArgs);
-        EXPECT_EQ(rc0, 0);
         for (int i = 0; i < threadNum; i++) {
             aicpus[i] = std::thread([&]() {
                 int tidx = idx++;
@@ -228,9 +225,9 @@ private:
         }
     }
 
-    AstKernelArgs BuildKernelArgs(const std::vector<RawTensorDataPtr> &inputs,
+    DeviceKernelArgs BuildKernelArgs(const std::vector<RawTensorDataPtr> &inputs,
         const std::vector<RawTensorDataPtr> &outputs) {
-        AstKernelArgs kArgs;
+        DeviceKernelArgs kArgs;
 
         auto buildInouts = [&](auto &tensorList) {
             std::vector<DevTensorData> geTensors;

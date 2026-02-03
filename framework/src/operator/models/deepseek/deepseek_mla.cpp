@@ -68,7 +68,7 @@ Tensor DeepseekAttention::Attention(Tensor q, Tensor kv, Tensor attenMask) {
         {std::min(NUM_128, s1), std::min(NUM_128, s1)}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
     // TileShape::Current().SetVecTile({NUM_128, NUM_64, NUM_128, NUM_64}); //  bmm接口增加一个config参数
     //  [b,n,s1, kvLoraRank + qkRopeHeadDim] * [b,1, kvLoraRank + qkRopeHeadDim, s2] = [b,n,s1,s2]
-    Tensor qk = Matrix::BatchMatmul<false, true>(dType, q, kv);
+    Tensor qk = Matrix::BatchMatmul(dType, q, kv, false, true);
     TileShape::Current().SetVecTile({1, 1, NUM_128, NUM_64});
     Tensor qkFp32 = Cast(qk, DataType::DT_FP32);
     qkFp32 = Mul(qkFp32, Element(DataType::DT_FP32, static_cast<double>(softmaxScale)));
@@ -253,7 +253,7 @@ std::vector<Tensor> DeepseekAttention::QkvPre2(Tensor hiddenStates, bool isQuant
     int tileM = std::min(NUM_16, m);
     TileShape::Current().SetCubeTile({tileM, tileM}, {NUM_256, NUM_256}, {NUM_128, NUM_128});
     // [b*s,h] * [h,qLoraRank] = [b*s,qLoraRank]
-    Tensor qAProj = Matrix::Matmul<false, false>(dType, input, qAProjW);  // bf16
+    Tensor qAProj = Matrix::Matmul(dType, input, qAProjW, false, false);  // bf16
 
     TileShape::Current().SetVecTile(std::min(NUM_16, bs), NUM_128);
     Tensor qAProjNorm = RmsNorm(qAProj);
@@ -268,12 +268,12 @@ std::vector<Tensor> DeepseekAttention::QkvPre2(Tensor hiddenStates, bool isQuant
         TileShape::Current().SetCubeTile({m, m}, {NUM_256, NUM_256}, {NUM_64, NUM_64});
     }
     // [b*s,qLoraRank] * [qLoraRank, N*qHeadDim] = [b*s, N*qHeadDim]
-    Tensor q = Matrix::Matmul<false, false>(dTypeQuantOut, qAProjNorm, qBProjW);  // bf16  // quant  A8W8O32  ->  bf16
+    Tensor q = Matrix::Matmul(dTypeQuantOut, qAProjNorm, qBProjW, false, false);  // bf16  // quant  A8W8O32  ->  bf16
     qkvPre2Res.emplace_back(q);
 
     TileShape::Current().SetCubeTile({m, m}, {NUM_256, NUM_256}, {NUM_64, NUM_64});
     // [b*s,h] * [h,kvLoraRank+qkRopeHeadDim] = [b*s,kvLoraRank+qkRopeHeadDim]
-    Tensor compressedKv = Matrix::Matmul<false, false>(dType, input, kvAProjWithMqaW);  // bf16
+    Tensor compressedKv = Matrix::Matmul(dType, input, kvAProjWithMqaW, false, false);  // bf16
     Tensor compressedKvRes = Reshape(compressedKv, {b, s, kvLoraRank + qkRopeHeadDim});
     qkvPre2Res.emplace_back(compressedKvRes);
 
@@ -297,7 +297,7 @@ std::tuple<Tensor, Tensor> DeepseekAttention::QkvPreFp32(Tensor hiddenStates) {
         {std::min(NUM_64, bs), std::min(NUM_64, bs)}, {NUM_256, NUM_256}, {NUM_128, NUM_128});
     // [b*s,h] * [h,qLoraRank] = [b*s,qLoraRank]
     // [NUM_32*1,NUM_256] * [NUM_256,NUM_512] = [NUM_32*1,NUM_512]
-    Tensor qAProjFp32 = Matrix::Matmul<false, false>(DataType::DT_FP32, input, qAProjW);  // fp32
+    Tensor qAProjFp32 = Matrix::Matmul(DataType::DT_FP32, input, qAProjW, false, false);  // fp32
 
     TileShape::Current().SetVecTile(NUM_32, NUM_128);
     Tensor qAProjNormFp32 = RmsNorm(qAProjFp32);  // fp32
@@ -310,14 +310,14 @@ std::tuple<Tensor, Tensor> DeepseekAttention::QkvPreFp32(Tensor hiddenStates) {
         {std::min(NUM_64, bs), std::min(NUM_64, bs)}, {NUM_256, NUM_256}, {NUM_64, NUM_64});
     // [b*s,qLoraRank] * [qLoraRank, N*qHeadDim] = [b*s, N*qHeadDim]
     // [NUM_32*1,NUM_512] * [NUM_512, 2*192] = [NUM_32*1, 2*192]
-    Tensor qFp32 = Matrix::Matmul<false, false>(DataType::DT_FP32, qAProjNorm, qBProjW);  // fp32
+    Tensor qFp32 = Matrix::Matmul(DataType::DT_FP32, qAProjNorm, qBProjW, false, false);  // fp32
     Tensor qRes = Reshape(qFp32, {b, s, numHeads, qHeadDim});
 
     TileShape::Current().SetCubeTile(
         {std::min(NUM_64, bs), std::min(NUM_64, bs)}, {NUM_256, NUM_256}, {NUM_64, NUM_64});
     // [b*s,h] * [h,kvLoraRank+qkRopeHeadDim] = [b*s,kvLoraRank+qkRopeHeadDim]
     // [NUM_32*1,NUM_256] * [NUM_256,NUM_512+NUM_64] = [NUM_32*1,NUM_512+NUM_64]
-    Tensor compressedKvFp32 = Matrix::Matmul<false, false>(DataType::DT_FP32, input, kvAProjWithMqaW);  // fp32
+    Tensor compressedKvFp32 = Matrix::Matmul(DataType::DT_FP32, input, kvAProjWithMqaW, false, false);  // fp32
     Tensor compressedKvRes = Reshape(compressedKvFp32, {b, s, kvLoraRank + qkRopeHeadDim});
 
     return std::tie(qRes, compressedKvRes);
@@ -688,7 +688,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
 
     Tensor cnts = Mul(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
-    cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
+    cnts = Scatter(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
     Tensor tokensPerExpert = Sum(cnts, 0, true);
 
@@ -740,11 +740,11 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
     for (auto n: outs.GetShape()){
         std::cout << "=outs.GetShape()" << n << std::endl;
     }
-    TileShape::Current().SetVecTile({NUM_128, NUM_128});
     // newX[idxs] = outs  -->index_put: (b*s*num_experts_per_tok, h)[b*s*num_experts_per_tok] =
     // (b*s*num_experts_per_tok, h)
-    auto newIdxs = Reshape(idxs, {1, idxs.GetShape(0)});
-    newX = IndexPut(newX, {newIdxs}, outs);
+    TileShape::Current().SetVecTile(NUM_16);
+    auto newIdxs = Reshape(idxs, {idxs.GetShape(0)});
+    IndexPut_(newX, {newIdxs}, outs);
 
     int newXSize = std::accumulate(
         newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });
@@ -783,7 +783,7 @@ Tensor DeepseekV2MoE::MoeInferSingleMlp(Tensor x, Tensor topkIds, Tensor topkWei
 
     Tensor cnts = Mul(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
-    cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
+    cnts = Scatter(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
     Tensor tokensPerExpert = Sum(cnts, 0, true);
 
@@ -847,7 +847,7 @@ Tensor DeepseekV2MoE::MoeInferSingleMlpQuant(Tensor x, Tensor topkIds, Tensor to
 
     Tensor cnts = Mul(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
-    cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
+    cnts = Scatter(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
     Tensor tokensPerExpert = Sum(cnts, 0, true);
 
@@ -912,7 +912,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
 
     Tensor cnts = Mul(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
-    cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
+    cnts = Scatter(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
     Tensor tokensPerExpert = Sum(cnts, 0, true);
 
@@ -967,8 +967,9 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, Tens
     TileShape::Current().SetVecTile({NUM_128, NUM_128});
     // newX[idxs] = outs  -->index_put: (b*s*numExpertsPerTok, h)[b*s*numExpertsPerTok] =
     // (b*s*numExpertsPerTok, h)
-    auto newIdxs = Reshape(idxs, {1, idxs.GetShape(0)});
-    newX = IndexPut(newX, {newIdxs}, outs);
+    auto newIdxs = Reshape(idxs, {idxs.GetShape(0)});
+    TileShape::Current().SetVecTile(NUM_16);
+    IndexPut_(newX, {newIdxs}, outs);
 
     int newXSize = std::accumulate(
         newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });
@@ -1006,7 +1007,7 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
 
     Tensor cnts = Mul(randoms, Element(DataType::DT_FP32, F_0)); // (b*s, nRoutedExperts)
 
-    cnts = Scatter_(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
+    cnts = Scatter(cnts, topkIds, Element(DataType::DT_FP32, F_1), 1); // (b*s, nRoutedExperts)
 
     Tensor tokensPerExpert = Sum(cnts, 0, true);
     // reduce 0维, (b*s, nRoutedExperts)->(nRoutedExperts)
@@ -1020,14 +1021,9 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
     // tokensPerExpertCpu = tokensPerExpert.cpu().numpy(); 手动设置规避动态图
     // 这里构造总大小为b*s*num_experts_per_tok的vector,模拟选择专家，执行256次Mlp计算
     std::vector<int> tokensPerExpertCpu(NUM_256, 0);
-    tokensPerExpertCpu[0] = sortedTokensShape[0] / NUM_8;
-    // tokensPerExpertCpu[1] = sortedTokensShape[0] / 8;
-    // tokensPerExpertCpu[2] = sortedTokensShape[0] / 8;
-    // tokensPerExpertCpu[3] = sortedTokensShape[0] / 8;
-    // tokensPerExpertCpu[4] = sortedTokensShape[0] / 8;
-    // tokensPerExpertCpu[5] = sortedTokensShape[0] / 8;
-    // tokensPerExpertCpu[6] = sortedTokensShape[0] / 8;
-    // tokensPerExpertCpu[7] = sortedTokensShape[0] / 8;
+    for (int i = 0; i < NUM_8; i++) {
+        tokensPerExpertCpu[i] = sortedTokensShape[0] / NUM_8;
+    }
 
     std::vector<Tensor> outputs;
     int startIdx = 0;
@@ -1054,8 +1050,9 @@ Tensor DeepseekV2MoE::MoeInfer(Tensor x, Tensor topkIds, Tensor topkWeight, int 
 
     // newX[idxs] = outs  -->index_put: (b*s*numExpertsPerTok, h)[b*s*numExpertsPerTok] =
     // (b*s*numExpertsPerTok, h)
-    auto newIdxs = Reshape(idxs, {1, idxs.GetShape(0)});
-    newX = IndexPut(newX, {newIdxs}, outs);
+    auto newIdxs = Reshape(idxs, {idxs.GetShape(0)});
+    TileShape::Current().SetVecTile(NUM_8);
+    IndexPut_(newX, {newIdxs}, outs);
 
     int newXSize = std::accumulate(
         newX.GetShape().begin(), newX.GetShape().end(), 1, [](const int &a, const int &b) { return a * b; });
@@ -1096,7 +1093,7 @@ std::tuple<Tensor, Tensor> MoEGate::Forward(const Tensor &hiddenStates) {
     int bs = hiddenStates.GetShape()[0];
 
     /* compute gating score */
-    auto logits = Matrix::Matmul<false, true>(DataType::DT_FP32, hiddenStates, weight); // [b*s,h] @ [nRoutedExperts,h].t -> [b*s,256]
+    auto logits = Matrix::Matmul(DataType::DT_FP32, hiddenStates, weight, false, true); // [b*s,h] @ [nRoutedExperts,h].t -> [b*s,256]
     auto scores = Sigmoid(logits);                          // [b*s,256]
 
     /* select top-k experts */
@@ -1120,7 +1117,7 @@ std::tuple<Tensor, Tensor> MoEGate::Forward(const Tensor &hiddenStates) {
     // groupMask = torch.zeros_like(groupScores)
     auto groupMask = Mul(groupScoresReshape, Element(DataType::DT_FP32, F_0)); // [b*s,8]
     // groupMask.scatter_(1, groupIdx, 1)
-    auto groupMaskScatter = Scatter_(groupMask, groupIdx, Element(DataType::DT_FP32, F_1), 1); // [b*s,8]
+    auto groupMaskScatter = Scatter(groupMask, groupIdx, Element(DataType::DT_FP32, F_1), 1); // [b*s,8]
     // scoreMask
     int dim0 = groupMaskScatter.GetShape()[0] * groupMaskScatter.GetShape()[1];
 
@@ -1158,14 +1155,14 @@ Tensor DeepseekV2MLP::Forward(Tensor x) {
     if (xShape.size() > NUM_2) {
         x = Reshape(x, {mSize, xShape[xShape.size() - 1]});
     }
-    const Tensor &gateProj = Matrix::Matmul<false, false>(DataType::DT_FP32, x, gateProjW);
+    const Tensor &gateProj = Matrix::Matmul(DataType::DT_FP32, x, gateProjW, false, false);
     // Silu
     const Tensor &gateSilu = Div(gateProj, Add(Exp(Mul(gateProj, Element(DataType::DT_FP32, F_NEGA_1))),
         Element(DataType::DT_FP32, F_1)));
-    const Tensor &upProj = Matrix::Matmul<false, false>(DataType::DT_FP32, x, upProjW);
+    const Tensor &upProj = Matrix::Matmul(DataType::DT_FP32, x, upProjW, false, false);
     const Tensor &mul = Mul(gateSilu, upProj);
     // (x.shape[:-1], intermediateSize) * (intermediateSize, hiddenSize) = (x.shape[:-1], hiddenSize)
-    Tensor downProj = Matrix::Matmul<false, false>(DataType::DT_FP32, mul, downProjW);
+    Tensor downProj = Matrix::Matmul(DataType::DT_FP32, mul, downProjW, false, false);
     if (xShape.size() > NUM_2) {
         downProj = Reshape(downProj, xShape);
     }
@@ -1175,7 +1172,7 @@ Tensor DeepseekV2MLP::Forward(Tensor x) {
 Tensor DeepseekV2MLP::Forward(Tensor x, Tensor ffnWeight1, Tensor ffnWeight2, Tensor ffnWeight3) {
     // static ffn
     auto castRes = Cast(x, DataType::DT_FP16);
-    auto gate = Matrix::Matmul<false, false>(DataType::DT_FP32, castRes, ffnWeight1);  // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
+    auto gate = Matrix::Matmul(DataType::DT_FP32, castRes, ffnWeight1, false, false);  // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
 
     // swish: x / (1 + e^(-x))
     auto swish = Mul(gate, Element(DataType::DT_FP32, F_NEGA_1));
@@ -1184,12 +1181,12 @@ Tensor DeepseekV2MLP::Forward(Tensor x, Tensor ffnWeight1, Tensor ffnWeight2, Te
     swish = Div(gate, swish);
 
     // upProj
-    auto up = Matrix::Matmul<false, false>(DataType::DT_FP32, castRes, ffnWeight2);  // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
+    auto up = Matrix::Matmul(DataType::DT_FP32, castRes, ffnWeight2, false, false);  // [b*s, n*d] [n*d, n*d*3] => [b*s, n*d*3]
     swish = Mul(swish, up);
     auto swishFp16 = Cast(swish, DataType::DT_FP16);
 
     // downProj
-    Tensor res = Matrix::Matmul<false, true>(DataType::DT_FP32, swishFp16, ffnWeight3);  // [b*s, n*d*3] [n*d, n*d*3]^T => [b*s, n*d]
+    Tensor res = Matrix::Matmul(DataType::DT_FP32, swishFp16, ffnWeight3, false, true);  // [b*s, n*d*3] [n*d, n*d*3]^T => [b*s, n*d]
 
     return res;
 }
@@ -1204,7 +1201,7 @@ Tensor DeepseekV2MLP::ForwardWithQuant(Tensor x, Tensor ffnWeight1, Tensor ffnWe
     Tensor castResScale = std::get<1>(normQuantRes);
     TileShape::Current().SetCubeTile({NUM_64, NUM_64}, {NUM_128, NUM_128}, {NUM_128, NUM_128});
 
-    auto gateInt32 = Matrix::Matmul<false, false>(DataType::DT_INT32, castRes, ffnWeight1);
+    auto gateInt32 = Matrix::Matmul(DataType::DT_INT32, castRes, ffnWeight1, false, false);
 
     // dequant: int32 -> fp32 -> *scale -> fp16/bf16
     auto gateTmpFp32 = Cast(gateInt32, DataType::DT_FP32);
@@ -1217,7 +1214,7 @@ Tensor DeepseekV2MLP::ForwardWithQuant(Tensor x, Tensor ffnWeight1, Tensor ffnWe
     swish = Add(swish, Element(DataType::DT_FP32, F_1));
     swish = Div(gate, swish);
 
-    auto upInt32 = Matrix::Matmul<false, false>(DataType::DT_INT32, castRes, ffnWeight2);
+    auto upInt32 = Matrix::Matmul(DataType::DT_INT32, castRes, ffnWeight2, false, false);
     // upProj
     auto upTmpFp32 = Cast(upInt32, DataType::DT_FP32);
     auto upTmpDequantPerToken = Mul(upTmpFp32, castResScale);
@@ -1232,7 +1229,7 @@ Tensor DeepseekV2MLP::ForwardWithQuant(Tensor x, Tensor ffnWeight1, Tensor ffnWe
     Tensor swishRes = std::get<0>(swishQuantRes);
     Tensor swishScale = std::get<1>(swishQuantRes);
 
-    Tensor resInt32 = Matrix::Matmul<false, true>(DataType::DT_INT32, swishRes, ffnWeight3);
+    Tensor resInt32 = Matrix::Matmul(DataType::DT_INT32, swishRes, ffnWeight3, false, true);
     auto resTmpFp32 = Cast(resInt32, DataType::DT_FP32);
     auto resTmpDequantPerToken = Mul(resTmpFp32, swishScale);
     Tensor ffnwight3ScaleTrans = Transpose(ffnwight3Scale, {0, 1});

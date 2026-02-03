@@ -29,9 +29,9 @@
 #include "interface/tensor/tensormap.h"
 #include "interface/tensor/tensor_slot.h"
 #include "interface/cache/hash.h"
-#include "interface/operation/distributed/tiling_manager.h"
 #include "passes/pass_utils/pass_utils.h"
 
+#include "ir/program.h"
 namespace npu::tile_fwk {
 constexpr int FUNCTION_MAX_INCASTS = 10000;
 
@@ -167,8 +167,11 @@ private:
 
 struct LeafFuncAttribute {
     std::string kernelName;    // 异构子图kernel函数名
-    std::string binPath;       // 异构子图二进制文件路径
+    std::string kernelNameMainBlock;    // 异构子图kernel函数名(运行时选择主尾块场景中的主块)
+    std::string binPath;                // 异构子图二进制文件路径
+    std::string binPathMainBlock;       // 异构子图二进制文件路径(运行时选择主尾块场景中的主块)
     std::string kernelDeclare; // 异构子图代码的kernel声明，用于后续整体调用
+    std::string kernelDeclareMainBlock; // 异构子图代码的kernel声明，用于后续整体调用(运行时选择主尾块场景中的主块)
     CoreType coreType{CoreType::INVALID};
     AIVCore aivCore{AIVCore::UNSPECIFIED};  // 表示Mix子图切完的vector子图放在AIV0核还是AIV1核，0=AIV0, 1=AIV1, -1=未指定
     int32_t mixId{-1};  // 表示哪些切完的leafFunction是从一个Mix子图切出来的
@@ -288,6 +291,7 @@ struct DynloopFunctionAttribute {
     std::vector<DynloopFunctionPathCondition> GenCondWithBeginEnd(const std::vector<DynloopFunctionPathCondition> &conds) const;
     bool IterationEnd(int unroll, Function *pathFunc, Operation *operation);
     bool AppendCond(const SymbolicScalar &cond, const std::string &file, int line);
+    bool GuessCondResult(const SymbolicScalar &cond, bool &result);
 private:
     void CreateCurrCond();
 };
@@ -434,8 +438,6 @@ struct DynParamInfo{
     std::string replacedSymbol;
 };
 struct ParamConfigs {
-    int l1ReuseNum{0};
-    int cubeNBufferNum{1};
     bool dynamicAlignedOps;
     int sgPgUpperBound{1};
     int sgPgLowerBound{1};
@@ -448,12 +450,14 @@ struct ParamConfigs {
     std::map<int64_t, int64_t> cubeNBufferSetting;
     std::string OoOPreScheduleMethod{"PriorDFS"};
     int vecNBuffermode{1};
+    int L1ReuseMode{0};
     int cubeNBufferMode{0};
     int mgVecParallelLb{48};
-    int sgCubeParallelNum{24};
     bool pgSkipPartition{false};
     std::map<int64_t, int64_t> vecNBufferSetting;
     int copyOutResolveCoalescing{0};
+    bool forceCombineAxis{false};
+    bool combineAxis{false};
 };
 
 struct FunctionParamInfo {
@@ -479,8 +483,14 @@ public:
     int opSeed_{FUNCTION_MAX_INCASTS};
     SubfuncTopologyInfoTy topoInfo_; // root function持有，对应1.0的SubgraphTopologyInfoTy
     std::map<uint64_t, Function*> programs_; // root function持有，所有异构的leaf function
+    pto::ProgramModulePtr programModule_ = nullptr;
     Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系
     ParamConfigs paramConfigs_;
+    // vf融合适配需要pass间传递的参数
+    std::unordered_map<PipeType, int> pipeEndTime; // function中每个pipe执行结束的时间
+    std::unordered_map<Operation *, Operation *> setOpMap;
+    std::unordered_map<Operation *, Operation *> waitOpMap;
+    std::vector<Operation *> oriOpList;
 
     Function(const Program &belongTo, const std::string &funcMagicName, const std::string &funcRawName,
         Function *parentFunc);
@@ -559,6 +569,15 @@ public:
 
     std::vector<std::vector<SymbolicScalar>> NormalizeCoa(
         std::vector<int> &iOffset, std::vector<int> &oOffset);
+    void NormalizeCoaForInCasts(std::vector<int> &iOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
+        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
+        const std::unordered_map<int, Operation *> &opmagicToOp);
+    void NormalizeCoaForOutCasts(std::vector<int> &oOffset, std::vector<std::vector<SymbolicScalar>> &coaLists,
+        int &coaIndex, std::unordered_map<LogicalTensorPtr, int> &processedOperands,
+        const std::unordered_map<int, Operation *> &opmagicToOp);
+    void NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex,
+        std::unordered_map<LogicalTensorPtr, int> &processedOperands);
+    void NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex);
     void GetOutcastSymbolicExpr(std::map<int, SymbolicScalar>& tabel);
 
     void DumpTopoFile(const std::string &fileName) const;
@@ -669,7 +688,6 @@ public:
     bool HasCallOperation();
     bool IsDynloop() const { return dynloopAttr_ != nullptr; }
     bool IsDyndev() const { return dyndevAttr_ != nullptr; }
-    std::shared_ptr<Distributed::TilingManager> &GetDistTilingManager() { return distTilingManager_; }
 
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> incastToInArgumentDict;
     std::unordered_map<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> outcastToOutArgumentDict;
@@ -866,7 +884,6 @@ private:
     std::shared_ptr<DynloopFunctionAttribute> dynloopAttr_;
     std::shared_ptr<DyndevFunctionAttribute> dyndevAttr_;
     std::shared_ptr<LeafFuncAttribute> leafFuncAttr_;
-    std::shared_ptr<Distributed::TilingManager> distTilingManager_ = std::make_shared<Distributed::TilingManager>();
     std::shared_ptr<TensorSlotScope> slotScope_;
 
     std::vector<Operation *> loopCallOrderGroup_;
@@ -882,8 +899,7 @@ private:
     void OpValidCheck(Operation &op) const;
     std::shared_ptr<LogicalTensor> ConnectWithOverlap(std::shared_ptr<LogicalTensor> iOperand);
     void RemoveOriginIncastConsumer(const std::shared_ptr<LogicalTensor> &originIncast) const;
-    std::pair<std::shared_ptr<LogicalTensor>, std::shared_ptr<LogicalTensor>> CreateIncastTensor(
-        const std::shared_ptr<LogicalTensor> &inArgument);
+    std::shared_ptr<LogicalTensor> CreateIncastTensor(const std::shared_ptr<LogicalTensor> &inArgument);
     void CreateFromIncast(const std::shared_ptr<LogicalTensor> &symbol, const std::shared_ptr<LogicalTensor> &newIncast,
                           const std::shared_ptr<LogicalTensor> &originIncast);
     void ReplaceMaybeParams(const std::shared_ptr<LogicalTensor> &newIncast,
@@ -910,6 +926,7 @@ private:
     void RefreshOpPosition();
     auto AnnotateOperation();
 
+    void FillOriginInOutCast(std::vector<Operation *> &operationList);
     void SetCallOpSlot();
     void UpdateOriIocastSlot(const std::shared_ptr<TensorSlotScope> scope);
     void DoMergeFunctionDupIncast();

@@ -13,10 +13,7 @@
  * \brief
  */
 
-#include "tilefwk/tilefwk.h"
-
 #include <sstream>
-#include <stdexcept>
 #include <iostream>
 #include <fstream>
 #include <unordered_set>
@@ -30,16 +27,12 @@
 #include "interface/function/function.h"
 #include "interface/interpreter/flow_verifier.h"
 #include "interface/machine/host/host_machine.h"
-#include "tilefwk/tilefwk.h"
-#include "interface/inner/tilefwk.h"
 #include "interface/program/program.h"
-#include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager_ng.h"
 
 namespace npu::tile_fwk {
 const std::string PROGRAM_ENTRY_FUNCTION_NAME = "PROGRAM_ENTRY";
-void GetEnv(const char * const envName, std::string &envValue)
-{
+void GetEnv(const char * const envName, std::string &envValue) {
     const size_t envValueMaxLen = 1024UL * 1024UL;
     const char * const envTemp = std::getenv(envName);
     if ((envTemp == nullptr) || (strnlen(envTemp, envValueMaxLen) >= envValueMaxLen)) {
@@ -107,17 +100,15 @@ Function *Program::GetFunctionByRawName(const std::string &rawName) const {
 }
 
 void Program::SetCurrentFunction(Function *function) {
-    if (function == nullptr) {
-        return;
+    if (function != nullptr) {
+        currentFunctionPtr_ = function;
+        currentFunctionMagicName_ = function->GetMagicName();
     }
-    currentFunctionPtr_ = function;
-    currentFunctionMagicName_ = function->GetMagicName();
 }
 
 void Program::CreateInitFunction() {
     currentFunctionMagicName_ = PROGRAM_ENTRY_FUNCTION_NAME;
-    auto newFunc =
-        std::make_shared<Function>(*this, currentFunctionMagicName_, currentFunctionMagicName_, nullptr);
+    auto newFunc = std::make_shared<Function>(*this, currentFunctionMagicName_, currentFunctionMagicName_, nullptr);
     newFunc->SetFunctionType(FunctionType::EAGER);
     currentFunctionPtr_ = newFunc.get();
     functionmap_.emplace(currentFunctionMagicName_, std::move(newFunc));
@@ -167,9 +158,21 @@ void Program::UpdateCompileTask() {
     HostMachine::GetInstance().SubAllStashedTask();
 }
 
+void Program::ClearEmptyHiddenFunction() {
+    std::vector<std::string> funcNames;
+    for (auto &[name, func] : functionmap_) {
+        if (func->IsHiddenFunction() && func->Operations(false).IsEmpty()) {
+            funcNames.push_back(name);
+        }
+    }
+    for (auto &name : funcNames) {
+        functionmap_.erase(name);
+    }
+}
+
 void SetParamConfig(Function* currentFunctionPtr_) {
     std::shared_ptr<ConfigScope> currentScope = ConfigManagerNg::GetInstance().CurrentScope();
-    currentFunctionPtr_->paramConfigs_.l1ReuseNum = currentScope->GetPassConfig<int>(CUBE_L1_REUSE_MODE);
+    currentFunctionPtr_->paramConfigs_.L1ReuseMode = currentScope->GetPassConfig<int>(CUBE_L1_REUSE_MODE);
     currentFunctionPtr_->paramConfigs_.cubeNBufferMode = currentScope->GetPassConfig<int>(CUBE_NBUFFER_MODE);
     currentFunctionPtr_->paramConfigs_.sgPgUpperBound = currentScope->GetPassConfig<int>(SG_PG_UPPER_BOUND);
     currentFunctionPtr_->paramConfigs_.sgPgLowerBound = currentScope->GetPassConfig<int>(SG_PG_LOWER_BOUND);
@@ -182,15 +185,16 @@ void SetParamConfig(Function* currentFunctionPtr_) {
     currentFunctionPtr_->paramConfigs_.cubeNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
     currentFunctionPtr_->paramConfigs_.vecNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
     currentFunctionPtr_->paramConfigs_.vecNBuffermode = currentScope->GetPassConfig<int>(VEC_NBUFFER_MODE);
-    currentFunctionPtr_->paramConfigs_.sgCubeParallelNum = currentScope->GetPassConfig<int>(SG_CUBE_PARALLEL_NUM);
     currentFunctionPtr_->paramConfigs_.mgVecParallelLb = currentScope->GetPassConfig<int>(MG_VEC_PARALLEL_LB);
     currentFunctionPtr_->paramConfigs_.pgSkipPartition = currentScope->GetPassConfig<bool>(PG_SKIP_PARTITION);
     currentFunctionPtr_->paramConfigs_.copyOutResolveCoalescing = currentScope->GetPassConfig<int>(COPYOUT_RESOLVE_COALESCING);
+    currentFunctionPtr_->paramConfigs_.combineAxis = currentScope->GetOperationConfig<bool>(KEY_COMBINE_AXIS);
+    currentFunctionPtr_->paramConfigs_.forceCombineAxis = currentScope->GetOperationConfig<bool>(KEY_FORCE_COMBINE_AXIS);
 }
 
 #if ENABLE_HIDDENLOOP
 void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, const std::string funcName) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH 
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
         && func->GetFunctionType() == funcType
         && !func->IsHiddenFunction()) {
         BeginFunction(funcName, FunctionType::DYNAMIC_LOOP_PATH, GraphType::TENSOR_GRAPH, {}, true);
@@ -198,9 +202,9 @@ void Program::BeginHiddenLoop(Function *func, const FunctionType &funcType, cons
 }
 
 void Program::EndHiddenLoop(Function *func, bool generateCall) {
-    if (func->GetGraphType() == GraphType::TENSOR_GRAPH 
-        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH 
-        && func->IsHiddenFunction() 
+    if (func->GetGraphType() == GraphType::TENSOR_GRAPH
+        && func->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH
+        && func->IsHiddenFunction()
         && !func->Parent().IsHiddenFunction()) {
         func->Parent().SetHiddenFunction(true);
         EndFunction(func->GetRawName(), generateCall);
@@ -231,8 +235,7 @@ bool Program::BeginFunction(const std::string &funcName,
 
     auto funcMagicName = funcName + "_" + std::to_string(IdGen<IdType::FUNCTION>::Inst().CurId());
     if (functionmap_.find(funcMagicName) == functionmap_.end()) { // new function
-        auto newFunc =
-            std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
+        auto newFunc = std::make_unique<Function>(*this, funcMagicName, funcName, currentFunctionPtr_);
         newFunc->SetFunctionType(funcType);
         newFunc->SetGraphType(graphType);
         newFunc->SetHiddenFunction(isHiddenFunction);
@@ -251,7 +254,7 @@ bool Program::BeginFunction(const std::string &funcName,
         currentFunctionPtr_->GetGraphType() != GraphType::EXECUTE_GRAPH) {
         GetTensorSlotManager()->BeginScope(currentFunctionPtr_);
     }
-    SetParamConfig(currentFunctionPtr_);
+
 
 #if ENABLE_HIDDENLOOP
     // Begin new hidden loop for the new function
@@ -281,7 +284,7 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
     auto funcArgs = currentFunctionPtr_->EndFunction(scope);
 
     currentFunctionPtr_->ComputeHash();
-    ALOG_DEBUG(currentFunctionPtr_->ComputeHash());
+    ALOG_DEBUG("The hash of current func is ", currentFunctionPtr_->ComputeHash());
     if (!generateCall) {
         return nullptr;
     }
@@ -294,7 +297,7 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
 
 // Helper function: Dump tensor graph if needed
 void Program::DumpTensorGraphIfNeeded(Function *result) {
-    if (config::GetPassDefaultConfig("print_graph", false) &&
+    if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) &&
         result->IsGraphType(GraphType::TENSOR_GRAPH)) {
         result->DumpJsonFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".json");
         result->DumpFile(config::LogTensorGraphFolder() + "/" + result->GetRawName() + ".tifwkgr");
@@ -309,7 +312,6 @@ void Program::HandleTaskSubmission(Function *result) {
                 HostMachine::GetInstance().StashTask(result);
             } else {
                 ALOG_INFO("Empty function: ", result->GetRawName(), ", skip stashing and removed");
-                functionmap_.erase(result->GetMagicName());
                 auto &scopes = GetTensorSlotManager()->scopeList;
                 scopes.erase(std::remove_if(scopes.begin(), scopes.end(),
                                  [result](const std::shared_ptr<TensorSlotScope> &scope) {
@@ -317,7 +319,7 @@ void Program::HandleTaskSubmission(Function *result) {
                                  }),
                     scopes.end());
             }
-        } else if (!config::GetPlatformConfig(KEY_ONLY_TENSOR_GRAPH, false)) {
+        } else {
             HostMachine::GetInstance().SubTask(result);
             HostMachine::GetInstance().WaitTaskFinish();
         }
@@ -351,6 +353,8 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     Operation *callop = FinishCurrentFunction(scope, generateCall);
     bool hit = QueryAndUpdateCurrentFunction();
     auto result = currentFunctionPtr_;
+
+    SetParamConfig(currentFunctionPtr_);
 
     DumpTensorGraphIfNeeded(result);
     PopStackAndUpdateCurrent();
@@ -436,8 +440,8 @@ void TraverAndDumpParent(Function *func, Json &progDump) {
 Json Program::DumpJson(Function *mainFunc) const {
     Json progDump;
     progDump["version"] = T_VERSION;
-    progDump["pass_thread_num"] = config::GetPassGlobalConfig("pass_thread_num", 1);
-    progDump["enable_cvfuse"] = config::GetPassGlobalConfig("enable_cv_fuse", false);
+    progDump["pass_thread_num"] = config::GetPassGlobalConfig(KEY_PASS_THREAD_NUM, 1);
+    progDump["enable_cvfuse"] = config::GetPassGlobalConfig(KEY_ENABLE_CV_FUSE, false);
     if (mainFunc == nullptr) {
         std::shared_ptr<npu::tile_fwk::Function> dyndevFunc = nullptr;
         std::vector<std::shared_ptr<npu::tile_fwk::Function>> rootFuncs;
@@ -690,32 +694,12 @@ bool Program::QueryAndUpdateCurrentFunction() {
         return false;
     } else {
         ASSERT(currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH));
-        auto cacheFunc = cacheValue->cacheFunction;
+        auto cacheFunc = cacheValue->GetFunction();
         functionmap_.erase(currentFunctionPtr_->GetMagicName());
         currentFunctionPtr_ = cacheFunc;
         currentFunctionMagicName_ = currentFunctionPtr_->GetMagicName();
         return true;
     }
-}
-
-/* submit to hostmachine , prepare compile */
-int Program::EndFunction(const bool isWaitTaskFinished)
-{
-    ASSERT(currentFunctionPtr_ != nullptr);
-    auto scope = GetTensorSlotManager()->EndScope();
-    auto funcArgs = currentFunctionPtr_->EndFunction(scope);
-    if (currentFunctionPtr_->HasParent()) {
-        auto &callop =
-            currentFunctionPtr_->Parent().AddOperation(Opcode::OP_CALL, funcArgs.iOperands, funcArgs.oOperands, false);
-        callop.SetOpAttribute(currentFunctionPtr_->CreateCallOpAttribute(funcArgs.argList, funcArgs.outIndexToExpr));
-        callop.SetOpOffset(funcArgs.iOpAttrOffset, funcArgs.oOpAttrOffset);
-    }
-    HostMachine::GetInstance().SubTask(currentFunctionPtr_);
-    if (isWaitTaskFinished) {
-        HostMachine::GetInstance().WaitTaskFinish();
-    }
-    ALOG_INFO("End func: name = ", currentFunctionPtr_->GetRawName());
-    return 0;
 }
 
 void Program::VerifyTensorGraph() {
@@ -752,427 +736,5 @@ std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr) {
     }
     ALOG_WARN("not find function ptr in function map");
     return nullptr;
-}
-
-void static MergeAllFuncDupIocast(Function* func) {
-    if(func == nullptr) {
-        auto rootFunc = Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME);
-        if (rootFunc != nullptr) {
-            auto calleeLists = rootFunc->GetCalleeFunctionList();
-            for (auto callee : calleeLists) {
-                MergeAllFuncDupIocast(callee);
-            }
-        }
-        return;
-    }
-
-    ALOG_INFO("Merge Duplicated Iocast for function :", func->GetMagicName());
-    auto calleeLists = func->GetCalleeFunctionList();
-    // leaf function has no duplicated tensor
-    if (calleeLists.size() == 0) {
-        return;
-    }
-
-    // 1.merge duplicated incast/outcast
-    func->MergeFunctionDupIocast();
-    // 2. remove useless view assemble op
-    func->RemoveCallOpViewAssemble();
-    if (config::GetPassDefaultConfig(KEY_PRINT_GRAPH, false) &&
-        func->IsGraphType(GraphType::TENSOR_GRAPH)) {
-        func->DumpJsonFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + "_remove_dup.json");
-        func->DumpFile(config::LogTensorGraphFolder() + "/" + func->GetRawName() + "_remove_dup.tifwkgr");
-    }
-
-    for (auto callee : calleeLists) {
-        MergeAllFuncDupIocast(callee);
-    }
-}
-
-void RecordFunc::RecordDynFuncInner(const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
-    const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
-    const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs) {
-        ASSERT(config::GetFunctionType() == FunctionType::DYNAMIC);
-
-#if ENABLE_HIDDENLOOP
-        recordLoopFunc_ = std::make_unique<RecordLoopFunc>(
-            funcName + "_loop",
-            FunctionType::DYNAMIC_LOOP,
-            funcName +"_unused_hidden_record_func_loop_idx",
-            LoopRange(1)
-        );
-#endif
-
-        Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
-
-        std::shared_ptr<TensorSlotManager> manager = Program::GetInstance().GetTensorSlotManager();
-        for (auto &param : startArgsInputTensorList) {
-            manager->MarkInput(param.get());
-        }
-        for (auto &param : startArgsOutputTensorList) {
-            manager->MarkOutput(param.get());
-        }
-        for (auto &param : inplaceArgs) {
-            manager->MarkInplace(param.first.get(), param.second.get());
-        }
-
-        dynFunc_ = Program::GetInstance().GetCurrentFunction();
-        dynFunc_->SetUnderDynamicFunction(true);
-        dynFunc_->SetSourceLocation(SourceLocation::GetLocation());
-
-        std::shared_ptr<DyndevFunctionAttribute> attr = std::make_shared<DyndevFunctionAttribute>();
-        attr->startArgsInputTensorList = startArgsInputTensorList;
-        attr->startArgsOutputTensorList = startArgsOutputTensorList;
-
-        attr->startArgsInputLogicalTensorList.resize(startArgsInputTensorList.size());
-        attr->startArgsOutputLogicalTensorList.resize(startArgsOutputTensorList.size());
-        for (size_t k = 0; k < startArgsInputTensorList.size(); k++) {
-            attr->startArgsInputLogicalTensorList[k] = startArgsInputTensorList[k].get().GetStorage(false);
-        }
-        for (size_t k = 0; k < startArgsOutputTensorList.size(); k++) {
-            attr->startArgsOutputLogicalTensorList[k] = startArgsOutputTensorList[k].get().GetStorage(false);
-        }
-
-        dynFunc_->SetDyndevAttribute(attr);
-        Program::GetInstance().SetCurrentDynamicFunction(dynFunc_);
-}
-
-RecordFunc::RecordFunc(const std::string &name) : funcName(FUNCTION_PREFIX + name) {
-    ConfigManager::Instance().ResetLog();
-    Program::GetInstance().BeginFunction(funcName, config::GetFunctionType());
-}
-
-RecordFunc::RecordFunc(const std::string &name,
-    const std::vector<std::reference_wrapper<const Tensor>> &explicitOpArgs)
-    : funcName(FUNCTION_PREFIX + name) {
-    // RecordFunc start with TENSOR_GRAPH
-    ConfigManager::Instance().ResetLog();
-    if (config::GetFunctionType() == FunctionType::DYNAMIC) {
-        RecordDynFuncInner(explicitOpArgs, {}, {});
-    } else {
-        Program::GetInstance().BeginFunction(funcName, config::GetFunctionType(), GraphType::TENSOR_GRAPH, explicitOpArgs);
-    }
-}
-
-RecordFunc::RecordFunc(const std::string &name,
-    const std::vector<std::reference_wrapper<const Tensor>> &startArgsInputTensorList,
-    const std::vector<std::reference_wrapper<const Tensor>> &startArgsOutputTensorList,
-    const std::vector<std::pair<std::reference_wrapper<const Tensor>, std::reference_wrapper<const Tensor>>> &inplaceArgs)
-    : funcName(FUNCTION_PREFIX + name) {
-    ConfigManager::Instance().ResetLog();
-    RecordDynFuncInner(startArgsInputTensorList, startArgsOutputTensorList, inplaceArgs);
-}
-
-inline bool IsVerifyEnable() {
-    return config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY);
-}
-
-void RecordFunc::EndFunction() {
-    if (recordLoopFunc_) {
-        recordLoopFunc_.reset();
-    }
-
-    if (IsVerifyEnable()) {
-        config::SetRunDataOption(KEY_FLOW_VERIFY_PATH, config::GetAbsoluteTopFolder() + "/verify");
-    }
-
-    // might raise exception in EndFunction, force isEnd_ is always set
-    Defer clean([this](){ isEnd_ = true;});
-    (void)Program::GetInstance().EndFunction(funcName);
-    if (dynFunc_) {
-        Program::GetInstance().SetLastFunction(dynFunc_);
-        if (dynFunc_->IsDyndev()) {
-            dynFunc_->CleanRedundantOutCast();
-            // Destructor GetTensorData small Tensor
-            auto attr = dynFunc_->GetDyndevAttribute();
-            attr->getTensorDataDescDict.clear();
-
-            dynFunc_->ApplyLoopCallOrderGroup();
-            if (config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY)) {
-                Program::GetInstance().VerifyTensorGraph();
-            }
-            MergeAllFuncDupIocast(nullptr);
-            PassManager::Instance().RunPass(Program::GetInstance(),
-                *Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME), "FunctionUnroll");
-            if (!config::GetPlatformConfig(npu::tile_fwk::KEY_ONLY_TENSOR_GRAPH, false)) {
-                Program::GetInstance().UpdateCompileTask();
-            }
-        }
-        Program::GetInstance().SetCurrentDynamicFunction(nullptr);
-        dynFunc_->SetUnderDynamicFunction(false);
-    }
-}
-
-RecordFunc::Iterator RecordFunc::begin() {
-    if (recordLoopFunc_) {
-        return Iterator(*this, recordLoopFunc_->begin());
-    }
-    return Iterator(*this);
-}
-
-RecordFunc::IteratorEnd RecordFunc::end() {
-    if (recordLoopFunc_) {
-        return IteratorEnd(*this, recordLoopFunc_->end());
-    }
-    return IteratorEnd(*this);
-}
-
-RecordFunc::Iterator RecordFunc::Iterator::operator++() {
-    if (!wrappedIter_.has_value()) {
-        cur_ = 1;
-        return *this;
-    }
-    ++(*wrappedIter_);
-    return *this;
-}
-
-bool RecordFunc::Iterator::operator!=(const IteratorEnd &rhs) {
-    if (!wrappedIter_.has_value()) {
-        return cur_ != 1;
-    }
-    ASSERT(rhs.wrappedEnd.has_value());
-    bool result = *wrappedIter_ != *rhs.wrappedEnd;
-    return result;
-}
-
-RecordLoopFunc::RecordLoopFunc(const std::string &name, FunctionType funcType, const std::string &iterName,
-    const LoopRange &range, const std::set<int> &unrollList, bool submitBeforeLoop)
-    : name_(FUNCTION_PREFIX + name),
-        iterName_(iterName),
-        loopRange_(std::make_shared<LoopRange>(range)),
-        submitBeforeLoop_(submitBeforeLoop),
-        funcType_(funcType) {
-    ASSERT(funcType == FunctionType::STATIC || funcType == FunctionType::DYNAMIC_LOOP);
-    Program::GetInstance().GetLoopStack().emplace_back(*this);
-
-    GenDefaultUnrollTimes(unrollList);
-    location_ = SourceLocation::GetLocation();
-}
-
-RecordLoopFunc::~RecordLoopFunc() {
-    Program::GetInstance().GetLoopStack().pop_back();
-}
-
-bool RecordLoopFunc::IterationEnd() {
-    auto result = Program::GetInstance().EndFunction(curPathFuncName_);
-    auto pathFunc = std::get<0>(result);
-    pathFunc->ApplyLoopCallOrderGroup();
-    Program::GetInstance().GetTensorSlotManager()->Restore();
-    auto isEnd = GetLoopAttr()->IterationEnd(CurUnrollTimes(), pathFunc, std::get<1>(result));
-    if (isEnd) {
-        endCount_ = 0;
-    }
-    return isEnd;
-}
-
-void RecordLoopFunc::BeginLoopFunction() {
-    auto loopFuncName = name_ + "_Unroll" + std::to_string(CurUnrollTimes());
-    Program::GetInstance().BeginFunction(loopFuncName, FunctionType::DYNAMIC_LOOP);
-    currentLoopFunc_ = Program::GetInstance().GetCurrentFunction();
-    ASSERT(currentLoopFunc_->InsertLoopIdxNameList(iterName_)) << "Forbid duplicate name of loop idx. It names " << iterName_;
-    auto currentStep = CurUnrollTimes() == 1 ? loopRange_->Step() : loopRange_->Step() * CurUnrollTimes();
-    if (rangeOfEaceUnroll_.empty()) {
-        std::shared_ptr<LoopRange> newRange = std::make_shared<LoopRange>(loopRange_->Begin(), loopRange_->End() / currentStep * currentStep, currentStep);
-        rangeOfEaceUnroll_.push_back(newRange);
-    } else {
-        auto prevRange = rangeOfEaceUnroll_.back();
-        std::shared_ptr<LoopRange> newRange = std::make_shared<LoopRange>(prevRange->End(), prevRange->End() + (loopRange_->End() - prevRange->End()) / currentStep * currentStep, currentStep);
-        rangeOfEaceUnroll_.push_back(newRange);
-    }
-    auto range = rangeOfEaceUnroll_.back();
-    range->End().AsIntermediateVariable();
-    auto attr = std::make_shared<DynloopFunctionAttribute>(iterName_, *range, *loopRange_, submitBeforeLoop_);
-    currentLoopFunc_->SetDynloopAttribute(attr);
-    currentLoopFunc_->SetSourceLocation(location_);
-}
-
-void RecordLoopFunc::EndLoopFunction() {
-    auto loopFuncName = name_ + "_Unroll" + std::to_string(CurUnrollTimes());
-    Program::GetInstance().EndFunction(loopFuncName);
-    currentLoopFunc_ = nullptr;
-}
-
-bool RecordLoopFunc::MatchUnrollTimes(int unrollTimes) {
-    ASSERT(unrollTimes > 0) << "unrollTimes must larger than zero!";
-    auto &curRlf = Program::GetInstance().GetLoopStack().back().get();
-    curRlf.customUnrollTimes_.emplace(unrollTimes);
-    if (!curRlf.hasManualUnroll_) {
-        curRlf.hasManualUnroll_ = true;
-        curRlf.dryRun_ = true;
-    }
-    if (curRlf.dryRun_) {
-        return false;
-    }
-    if (!curRlf.VisitedUnroll(unrollTimes)) {
-        curRlf.VisitUnroll(unrollTimes);
-    }
-    ASSERT(curRlf.StillHaveUnrollTimes());
-    if (curRlf.CurUnrollTimes() == unrollTimes) {
-        return true;
-    }
-
-    // if cur unrollTimes is not user defined, use unrollTimes = 1 to auto merge loop
-    if (curRlf.CurUnrollTimes() > 1 && !curRlf.CustomUnrollTimesMatched() && unrollTimes == 1) {
-        return true;
-    }
-    return false;
-}
-
-RecordLoopFunc::Iterator RecordLoopFunc::Iterator::operator++() {
-    if (rlf_.dryRun_) {
-        return *this;
-    }
-    if (!rlf_.CustomUnrollTimesMatched()) {
-        scalar_ = scalar_ + rlf_.LoopStep();
-        cur_++;
-    } else {
-        ASSERT(cur_ == 0);
-        scalar_ = scalar_ + rlf_.LoopStep() * rlf_.CurUnrollTimes();
-        cur_ += rlf_.CurUnrollTimes();
-    }
-
-    rlf_.IterationNext();
-    return *this;
-}
-
-bool RecordLoopFunc::Iterator::operator!=(const IteratorEnd &rhs) {
-    (void)rhs;
-    if (rlf_.dryRun_) {
-        rlf_.dryRun_ = false;
-        ASSERT(cur_ == 0);
-        if (rlf_.IsCustomUnrollTimes(rlf_.CurUnrollTimes())) {
-            scalar_.AsLoopEnd(true);
-        }
-        return true;
-    }
-    ASSERT(rlf_.StillHaveUnrollTimes());
-    if (cur_ < rlf_.CurUnrollTimes()) {
-        if (cur_ == 0) {
-            scalar_.AsLoopBegin(true);
-            rlf_.IterationBegin();
-            if (rlf_.IsCustomUnrollTimes(rlf_.CurUnrollTimes())) {
-                scalar_.AsLoopEnd(true);
-            }
-        }
-        if (cur_ + 1 == rlf_.CurUnrollTimes()) {
-            scalar_.AsLoopEnd(true);
-        }
-        return true;
-    }
-    ASSERT(cur_ == rlf_.CurUnrollTimes());
-    if (rlf_.IterationEnd()) {
-        rlf_.EndLoopFunction();
-        rlf_.NextUnrollTimes();
-        if (!rlf_.StillHaveUnrollTimes()) {
-            return false;
-        }
-    }
-    ASSERT(rlf_.StillHaveUnrollTimes());
-    cur_ = 0;
-    scalar_ = originalScalar_;
-    if (rlf_.LoopBegin().IsImmediate()) {
-        auto beginValue = std::static_pointer_cast<RawSymbolicImmediate>(rlf_.LoopBegin().Raw())->Immediate();
-        if (rlf_.LoopStep().IsImmediate() && rlf_.LoopEnd().IsImmediate()) {
-            auto endValue = std::static_pointer_cast<RawSymbolicImmediate>(rlf_.LoopEnd().Raw())->Immediate();
-            scalar_.Raw()->ResetValueGuesser(
-                ValueGuesser(NotLessThan(beginValue), NotGreaterThan(endValue - 1)));
-        } else {
-            scalar_.Raw()->ResetValueGuesser(ValueGuesser(NotLessThan(beginValue)));
-        }
-    } else {
-        scalar_.Raw()->ResetValueGuesser(ValueGuesser::Any());
-    }
-
-    scalar_.AsLoopBegin(true);
-    rlf_.IterationBegin();
-    if (rlf_.IsCustomUnrollTimes(rlf_.CurUnrollTimes()) || cur_ + 1 == rlf_.CurUnrollTimes()) {
-        scalar_.AsLoopEnd(true);
-    }
-    return true;
-}
-
-RecordLoopFunc::Iterator RecordLoopFunc::begin() {
-    if (loopRange_->Begin().ConcreteValid()) {
-        return {*this, SymbolicScalar(iterName_, NotLessThan(loopRange_->Begin().Concrete()))};
-    }
-    return {*this, SymbolicScalar(iterName_)};
-}
-
-RecordLoopFunc::IteratorEnd RecordLoopFunc::end() {
-    if (loopRange_->End().ConcreteValid()) {
-        if (funcType_ == FunctionType::STATIC) {
-            /* Static loop, expand all */
-            return {*this, SymbolicScalar(iterName_, NotGreaterThan(loopRange_->End().Concrete()))};
-        } else {
-            /* Runtime: Run only once */
-            return {*this, SymbolicScalar(iterName_, NotGreaterThan(loopRange_->End().Concrete()))};
-        }
-    }
-    return {*this, SymbolicScalar(iterName_)};
-}
-
-void RecordLoopFunc::IterationBegin() {
-    if (currentLoopFunc_ == nullptr) {
-        BeginLoopFunction();
-    }
-    curPathFuncName_ = name_ + "_Unroll" + std::to_string(CurUnrollTimes()) + GetLoopSuffix(endCount_++);
-    Program::GetInstance().GetTensorSlotManager()->Checkpoint();
-    Program::GetInstance().BeginFunction(curPathFuncName_, FunctionType::DYNAMIC_LOOP_PATH);
-    auto loopPathFunc = Program::GetInstance().GetCurrentFunction();
-    loopPathFunc->SetSourceLocation(location_);
-    GetLoopAttr()->IterationBegin();
-}
-
-void RecordLoopFunc::IterationNext() {
-    ASSERT(customUnrollTimes_.empty() || customUnrollTimes_.count(1) > 0) << "Must have unroll 1 if user defined custom unroll times.";
-}
-
-bool RecordLoopFunc::Condition(const SymbolicScalar &cond, const std::string &file, int line) {
-    bool result = GetLoopAttr()->AppendCond(cond, file, line);
-    ALOG_INFO(file, ":", line, "]: ", result);
-    return result;
-}
-
-void RecordLoopFunc::GenDefaultUnrollTimes(const std::set<int> &unrollList) {
-    unrollTimes_.clear();
-    visited_.clear();
-    if (config::GetPlatformConfig("ONLY_MANUAL_UNROLL", false) || unrollList.empty()) {
-        unrollTimes_.emplace(1);
-        visited_.emplace(1);
-    } else {
-        for (auto n : unrollList) {
-            unrollTimes_.emplace(n);
-            visited_.emplace(n);
-        }
-    }
-}
-
-void RecordLoopFunc::VisitUnroll(int unrollTimes) {
-    ASSERT(visited_.count(unrollTimes) == 0);
-    ASSERT(unrollTimes_.count(unrollTimes) == 0);
-    visited_.emplace(unrollTimes);
-    unrollTimes_.emplace(unrollTimes);
-}
-
-int RecordLoopFunc::CurUnrollTimes() const {
-    ASSERT(StillHaveUnrollTimes());
-    return *unrollTimes_.begin();
-}
-
-void RecordLoopFunc::NextUnrollTimes() {
-    ASSERT(StillHaveUnrollTimes());
-    unrollTimes_.erase(unrollTimes_.begin());
-}
-
-std::shared_ptr<DynloopFunctionAttribute> RecordLoopFunc::GetLoopAttr() {
-    return currentLoopFunc_->GetDynloopAttribute();
-}
-
-const SymbolicScalar &RecordLoopFunc::LoopBegin() const { return loopRange_->Begin(); }
-const SymbolicScalar &RecordLoopFunc::LoopStep() const { return loopRange_->Step(); }
-const SymbolicScalar &RecordLoopFunc::LoopEnd() const { return loopRange_->End(); }
-
-RecordIfBranch::operator bool() const {
-    bool cond = Program::GetInstance().GetLoopStack().back().get().Condition(cond_, file_, line_);
-    return cond;
 }
 } // namespace npu::tile_fwk

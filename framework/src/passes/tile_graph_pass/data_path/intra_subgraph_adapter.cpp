@@ -17,6 +17,7 @@
 #include "passes/pass_utils/graph_utils.h"
 #include "intra_subgraph_adapter.h"
 #include "passes/pass_log/pass_log.h"
+#include "passes/pass_check/intra_subgraph_adapter_checker.h"
 
 #define MODULE_NAME "IntraSubgraphAdapter"
 
@@ -199,6 +200,32 @@ Status IntraSubgraphAdapter::ProcessBoundaryTensor(Function &function, LogicalTe
     return SUCCESS;
 }
 
+bool IntraSubgraphAdapter::IsCrossCoreMoveOps(Operation *op) {
+    auto convertOpAttr = dynamic_cast<ConvertOpAttribute*>(op->GetOpAttribute().get());
+    auto copyOpAttr = dynamic_cast<CopyOpAttribute*>(op->GetOpAttribute().get());
+    if (convertOpAttr == nullptr && copyOpAttr == nullptr) {
+        return false;
+    }
+    std::unordered_set<MemoryType> AICTypeMemory{MemoryType::MEM_L1, MemoryType::MEM_L0A, MemoryType::MEM_L0B, MemoryType::MEM_L0C};
+    std::unordered_set<MemoryType> AIVTypeMemory{MemoryType::MEM_UB};
+    bool isFromAIC = false;
+    bool isFromAIV = false;
+    for (auto &iop : op->GetIOperands()) {
+        if (AICTypeMemory.count(iop->GetMemoryTypeToBe()) > 0) {
+            isFromAIC = true;
+        } else if (AIVTypeMemory.count(iop->GetMemoryTypeToBe()) > 0) {
+            isFromAIV = true;
+        }
+    }
+    for (auto &oop : op->GetOOperands()) {
+        if ((isFromAIV && AICTypeMemory.count(oop->GetMemoryTypeToBe()) > 0) ||
+                (isFromAIC && AIVTypeMemory.count(oop->GetMemoryTypeToBe()) > 0)) {
+            return true;
+        } 
+    }
+    return false;
+}
+
 Status IntraSubgraphAdapter::AdapteTensorProducers(Function &function, LogicalTensorPtr tensor) {
     if (tensor->GetProducers().size() > 1) {
         for (const Operation* producer : tensor->GetProducers()) {
@@ -220,8 +247,15 @@ Status IntraSubgraphAdapter::AdapteTensorProducers(Function &function, LogicalTe
         if (producer->GetOpcode() == Opcode::OP_ASSEMBLE) {
             APASS_LOG_DEBUG_F(Elements::Operation, "|---- Op Attr: %s", producer->Dump().c_str());
         }
-        if (crossCoreMoveOps.find(producer->GetOpcode()) != crossCoreMoveOps.end()) {
+        if (IsCrossCoreMoveOps(producer)) {
             producer->SetOpCode(Opcode::OP_COPY_OUT);
+            auto convertOpAttr = dynamic_cast<ConvertOpAttribute*>(producer->GetOpAttribute().get());
+            if (convertOpAttr != nullptr) {
+                std::vector<int64_t> offset(tensor->GetShape().size(), 0);
+ 	            producer->SetOpAttribute(std::make_shared<CopyOpAttribute>(convertOpAttr->GetConvertPath().first,
+ 	                OpImmediate::Specified(offset), OpImmediate::Specified(tensor->GetShape()),
+ 	                OpImmediate::Specified(tensor->GetRawTensor()->GetDynRawShape())));
+            }
             APASS_LOG_DEBUG_F(Elements::Operation, "change %s[%d] opcode to OP_COPY_OUT.", producer->GetOpcodeStr().c_str(), producer->GetOpMagic());
         }
         if (producer->GetOpcode() != Opcode::OP_ASSEMBLE && producer->GetOpcode() != Opcode::OP_COPY_OUT) {
@@ -240,16 +274,15 @@ Status IntraSubgraphAdapter::AdapteTensorConsumers(Function &function, LogicalTe
         if (consumer->GetOpcode() == Opcode::OP_VIEW) {
             APASS_LOG_DEBUG_F(Elements::Operation, "|---- Op Attr: %s", consumer->Dump().c_str());
         }
-        if (crossCoreMoveOps.find(consumer->GetOpcode()) != crossCoreMoveOps.end()) {
-            consumer->SetOpCode(Opcode::OP_COPY_IN);
-            APASS_LOG_DEBUG_F(Elements::Operation, "change %s[%d] opcode to OP_COPY_IN.", consumer->GetOpcodeStr().c_str(), consumer->GetOpMagic());
-            continue;
+        if (IsCrossCoreMoveOps(consumer)) {
+            APASS_LOG_ERROR_F(Elements::Operation, "%s[%d] : Crosscore move op should not exist at the front of a subgraph.",
+                              consumer->GetOpcodeStr().c_str(), consumer->GetOpMagic());
+ 	        return FAILED;
         }
         if (consumer->GetOpcode() != Opcode::OP_VIEW && consumer->GetOpcode() != Opcode::OP_COPY_IN) {
             consumerColor2OpsMap[consumer->GetSubgraphID()].push_back(consumer);
         }
     }
-
     for (auto& [color, consumers] : consumerColor2OpsMap) {
         (void)color;
         InsertOpBetween(function, Opcode::OP_VIEW, tensor, consumers);
@@ -375,5 +408,10 @@ LogicalTensors IntraSubgraphAdapter::CollectBoundaryTensors(Function &function) 
         }
     }
     return ret;
+}
+
+Status IntraSubgraphAdapter::PostCheck(Function &function) {
+    IntraSubgraphAdapterChecker checker;
+    return checker.DoPostCheck(function);
 }
 } // namespace npu::tile_fwk

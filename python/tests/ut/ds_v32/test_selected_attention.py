@@ -15,14 +15,11 @@ from typing import List
 import logging
 import pytest
 import pypto
+from conftest import duration_estimate
 
 
 SHAPE_DIM_0 = 0
 SHAPE_DIM_1 = 1
-
-
-def set_config():
-    pypto.set_host_options(only_codegen=True)
 
 
 @dataclass
@@ -480,9 +477,9 @@ def build_selected_args(cfg: SABuildConfig = SABuildConfig()):
     return args, meta
 
 
+@duration_estimate(21)
 def test_selected_attention_with_builder():
     logging.basicConfig(level=logging.INFO)
-    set_config()
     args, meta = build_selected_args()
     logging.info({"Sanity": meta})
     selected_attention_compute(args)

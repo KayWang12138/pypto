@@ -33,8 +33,8 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
-        config::SetPlatformConfig("ENABLE_COST_MODEL", false);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
+        config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     }
 
@@ -49,16 +49,16 @@ void TestScatterUpdate(std::vector<int64_t> tileShape) {
 
     PassManager &passManager = PassManager::Instance();
     passManager.RegisterStrategy("GenerateMoveOpPassTestStrategy",
-        {
-            {"RemoveRedundantReshape", "RemoveRedundantReshape"},
-            {        "ExpandFunction",         "ExpandFunction"},
-            {           "DuplicateOp",            "DuplicateOp"},
-            {     "MergeViewAssemble",      "MergeViewAssemble"},
-            {      "AssignMemoryType",       "AssignMemoryType"},
-            {"SplitLargeFanoutTensor", "SplitLargeFanoutTensor"},
-            {          "SplitReshape",           "SplitReshape"},
-            {     "RemoveRedundantOp",      "RemoveRedundantOp"},
-            {        "GenerateMoveOp",         "GenerateMoveOp"},
+    {
+            {"RemoveRedundantReshape",  PassName::REMOVE_REDUNDANT_RESHAPE},
+            {        "ExpandFunction",           PassName::EXPAND_FUNCTION},
+            {           "DuplicateOp",              PassName::DUPLICATE_OP},
+            {     "MergeViewAssemble",       PassName::MERGE_VIEW_ASSEMBLE},
+            {      "AssignMemoryType",        PassName::ASSIGN_MEMORY_TYPE},
+            {"SplitLargeFanoutTensor", PassName::SPLIT_LARGE_FANOUT_TENSOR},
+            {          "SplitReshape",             PassName::SPLIT_RESHAPE},
+            {     "RemoveRedundantOp",       PassName::REMOVE_REDUNDANT_OP},
+            {        "GenerateMoveOp",          PassName::GENERATE_MOVE_OP},
     });
 
     int h = 128, minusTwo = -2;
@@ -98,7 +98,7 @@ TEST_F(TestCodegenScatterUpdate, TestBatchMatmul) {
     std::string funcName = "BATCHMATMUL";
     config::SetBuildStatic(true);
     FUNCTION(funcName, {matA, matB, matC}) {
-        matC = npu::tile_fwk::Matrix::BatchMatmul<false, false>(DT_FP32, matA, matB);
+        matC = npu::tile_fwk::Matrix::BatchMatmul(DT_FP32, matA, matB, false, false);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     npu::tile_fwk::CodeGenCtx ctx;

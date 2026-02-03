@@ -21,8 +21,12 @@
 #include <unistd.h>
 #include <type_traits>
 #include <set>
+#include "interface/utils/file_utils.h"
+#include "interface/configs/config_manager_ng.h"
+#include "tilefwk/config.h"
+#include "tilefwk/function.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
+
 
 namespace npu::tile_fwk {
 using JsonExpcetion = nlohmann::json::exception;
@@ -32,44 +36,61 @@ const std::string KEY_STD_LOG_LEVEL = "STD_LOG_LEVEL";
 const std::string KEY_FILE_LOG_LEVEL = "FILE_LOG_LEVEL";
 const std::string KEY_GRAPH_FILE_TYPE = "GRAPH_FILE_TYPE";
 const std::string KEY_GRAPH_ONLY_DOT = "GRAPH_ONLY_DOT";
-const std::string KEY_ONLY_TENSOR_GRAPH = "ONLY_TENSOR_GRAPH";
-const std::string KEY_ONLY_HOST_COMPILE = "ONLY_HOST_COMPILE";
-const std::string KEY_ENABLE_COST_MODEL = "ENABLE_COST_MODEL";
+const std::string KEY_ENABLE_COST_MODEL = "enable_cost_model";
 const std::string KEY_ENABLE_DYN_FULL_COST_MODEL = "ENABLE_DYN_FULL_COST_MODEL";
-const std::string KEY_ENABLE_AIHAC_BACKEND = "ENABLE_AIHAC_BACKEND";
-const std::string KEY_ENABLE_CHECKER = "ENABLE_CHECKER";
-const std::string KEY_DUMP_SOURCE_LOCATION = "DUMP_SOURCE_LOCATION";
-const std::string KEY_ENABLE_PROF_FUNC = "ENABLE_PROF_FUNC";
-const std::string KEY_ENABLE_PROF_AICORE_TIME = "ENABLE_PROF_AICORE_TIME";
-const std::string KEY_ENABLE_PROF_AICORE_PMU = "ENABLE_PROF_AICORE_PMU";
+const std::string KEY_ENABLE_AIHAC_BACKEND = "enable_aihac_backend";
+const std::string KEY_ENABLE_CHECKER = "enable_checker";
+const std::string KEY_DUMP_SOURCE_LOCATION = "dump_source_location";
+const std::string KEY_ENABLE_PROF_FUNC = "enable_prof_func";
+const std::string KEY_ENABLE_PROF_AICORE_TIME = "enable_prof_aicore_time";
+const std::string KEY_ENABLE_PROF_AICORE_PMU = "enable_prof_aicore_pmu";
+const std::string KEY_ENABLE_DYN_COST_MODEL = "enable_dyn_cost_model";
+const std::string KEY_TEST_IS_TIG = "test_is_tig";
+
+/* Simulation KEYs */
+const std::string KEY_BUILD_TASK_BASED_TOPO = "build_task_based_topo";
+const std::string KEY_SIM_MODE = "sim_mode";
+const std::string KEY_ACCURACY_LEVEL = "accuracy_level";
+const std::string KEY_PV_LEVEL = "pv_run_level";
+const std::string KEY_DEBUG_SINGLE_FUNC = "debug_single_func";
+const std::string KEY_DEBUG_SINGLE_FUNCNAME = "leaf_function";
+const std::string KEY_DRAW_FUNCTION_GRAPH = "draw_function_graph";
+const std::string KEY_LOG_LEVEL = "log_level";
+const std::string KEY_EXECUTE_CYCLE_THRESHOLD = "timeout_threshold";
+const std::string KEY_JSON_PATH = "json_path";
+const std::string KEY_AGENT_JSON_PATH = "agent_json_path";
+const std::string KEY_ARGS = "args";
 
 /* Host KEYs */
-const std::string KEY_STRATEGY = "STRATEGY";
+const std::string KEY_STRATEGY = "strategy";
 const std::string KEY_ENABLE_BINARY_CACHE = "enable_binary_cache";
-const std::string KEY_ONLY_CODEGEN = "only_codegen";
 
 /* Pass KEYs */
 
 const std::string KEY_PRINT_GRAPH = "print_graph";
 const std::string KEY_PRINT_PROGRAM = "print_program";
 const std::string KEY_DUMP_GRAPH = "dump_graph";
-const std::string KEY_DUMP_PASS_TIME_COST = "DUMP_PASS_TIME_COST";
-const std::string KEY_PRE_CHECK = "PRE_CHECK";
-const std::string KEY_POST_CHECK = "POST_CHECK";
-const std::string KEY_EXPECTED_VALUE_CHECK = "EXPECTED_VALUE_CHECK";
-const std::string KEY_DISABLE_PASS = "DISABLE_PASS";
-const std::string KEY_HEALTH_CHECK = "HEALTH_CHECK";
+const std::string KEY_DUMP_PASS_TIME_COST = "dump_pass_time_cost";
+const std::string KEY_PRE_CHECK = "pre_check";
+const std::string KEY_POST_CHECK = "post_check";
+const std::string KEY_EXPECTED_VALUE_CHECK = "expected_value_check";
+const std::string KEY_DISABLE_PASS = "disable_pass";
+const std::string KEY_HEALTH_CHECK = "health_check";
 const std::string KEY_RESUME_PARH = "RESUME_PATH";
 const std::string KEY_EXEC_VERIFIER = "EXEC_VERIFIER";
 const std::string KEY_SET_SCOPE = "SCOPE";
+const std::string KEY_ENABLE_CV_FUSE = "enable_cv_fuse";
+const std::string KEY_PASS_THREAD_NUM = "pass_thread_num";
+const std::string KEY_VF_OPT_MARK_FOR = "vf_opt_mark_for";
 
 
 /* CodeGen KEYs */
 const std::string KEY_PARALLEL_COMPILE = "parallel_compile";
 const std::string KEY_FIXED_OUTPUT_PATH = "fixed_output_path"; // if true, dump cce to output directory
 const std::string KEY_FORCE_OVERWRITE = "force_overwrite"; // if true, don't dump cce when file exists
-const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "CODEGEN_SUPPORT_TILE_TENSOR";       // if true, gen code with layout mode
-const std::string KEY_CODEGEN_NEED_COMPILE = "CODEGEN_NEED_COMPILE";       // if true, gen code & compile code
+const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "codegen_support_tile_tensor";       // if true, gen code with layout mode
+const std::string KEY_CODEGEN_NEED_COMPILE = "codegen_need_compile";       // if true, gen code & compile code
+
 
 enum class DPlatform {
     ASCEND_910B1,
@@ -140,116 +161,81 @@ public:
 
     template <typename T>
     auto GetPlatformConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global_configs", "platform_configs", key}, defaultValue);
+        return GetConfig(json_, {"global", "platform", key}, defaultValue);
     }
 
     template <typename T>
     auto GetHostConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global_configs", "host_configs", key}, defaultValue);
+        return GetConfig(json_, {"global", "host", key}, defaultValue);
     }
 
-    template <typename T>
-    auto GetDeviceConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global_configs", "device_configs", key}, defaultValue);
-    }
-
-    template <typename T>
-    auto GetCoreConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global_configs", "core_configs", key}, defaultValue);
-    }
 
     template <typename T>
     auto GetSimConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global_configs", "simulation_configs", key}, defaultValue);
+        return GetConfig(json_, {"global", "simulation", key}, defaultValue);
     }
 
     template <typename T>
     auto GetCodeGenConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global_configs", "codegen_configs", key}, defaultValue);
-    }
-
-    template <typename T>
-    auto GetDistConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global_configs", "distributed_configs", key}, defaultValue);
+        return GetConfig(json_, {"global", "codegen", key}, defaultValue);
     }
 
     template <typename T>
     auto GetPassConfig(
         const std::string &strategy, const std::string &identifier, const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"strategies", strategy, identifier, key}, defaultValue);
+        return GetConfig(json_, {"global", "pass_strategies", strategy, identifier, key}, defaultValue);
     }
 
     template <typename T>
     auto GetPassDefaultConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"pass_global_configs", "default_pass_configs", key}, defaultValue);
+        return GetConfig(json_, {"global", "pass", "default_pass_configs", key}, defaultValue);
     }
 
     template <typename T>
     auto SetPassDefaultConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"pass_global_configs", "default_pass_configs", key}, value);
+        SetConfig(json_, {"global", "pass", "default_pass_configs", key}, value);
         RefreshGlobalPassCfg();
     }
 
     template <typename T>
     auto GetPassGlobalConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"pass_global_configs", key}, defaultValue);
+        return GetConfig(json_, {"global", "pass", key}, defaultValue);
     }
 
     template <typename T>
     auto SetPassGlobalConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"pass_global_configs", key}, value);
+        SetConfig(json_, {"global", "pass", key}, value);
         RefreshGlobalPassCfg();
     }
 
     template <typename T>
     void SetPlatformConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global_configs", "platform_configs", key}, value);
+        SetConfig(json_, {"global", "platform", key}, value);
     }
 
     template <typename T>
     void SetHostConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global_configs", "host_configs", key}, value);
-    }
-
-    template <typename T>
-    void SetDeviceConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global_configs", "device_configs", key}, value);
-    }
-
-    template <typename T>
-    void SetCoreConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global_configs", "core_configs", key}, value);
+        SetConfig(json_, {"global", "host", key}, value);
     }
 
     template <typename T>
     void SetSimConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global_configs", "simulation_configs", key}, value);
-    }
-
-    template <typename T>
-    void SetDistConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global_configs", "distributed_configs", key}, value);
+        SetConfig(json_, {"global", "simulation", key}, value);
     }
 
     template <typename T>
     void SetPassConfig(
         const std::string &strategy, const std::string &identifier, const std::string &key, const T &value) {
-        SetConfig(json_, {"strategies", strategy, identifier, key}, value);
-    }
-
-    template <typename T>
-    auto GetOperationConfig(const std::string &key, const T &defaultValue) {
-        return GetConfig(json_, {"global_configs", "operation_configs", key}, defaultValue);
-    }
-
-    template <typename T>
-    void SetOperationConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global_configs", "operation_configs", key}, value);
+        SetConfig(json_, {"global", "pass_strategies", strategy, identifier, key}, value);
     }
 
     template <typename T>
     void SetCodeGenConfig(const std::string &key, const T &value) {
-        SetConfig(json_, {"global_configs", "codegen_configs", key}, value);
+        SetConfig(json_, {"global", "codegen", key}, value);
+    }
+
+    const nlohmann::json* GetPrintOptions() {
+        return GetJsonNode(json_, {"global", "tensor_print"});
     }
 
     void Reset() { json_ = originJson_; }
@@ -260,7 +246,7 @@ public:
     const std::string &LogTopFolder();
     const std::string &LogTensorGraphFolder();
     const std::string &LogFile();
-    void ResetLog();
+    void ResetLog(const std::string &path = "");
 
 private:
     bool isInit_ = false;
@@ -300,6 +286,37 @@ private:
     }
 };
 
+// config.h
+
+/* Rundata KEYS */
+constexpr const char *KEY_RUNTYPE = "runtype";
+constexpr const char *KEY_PTO_CONFIG_FILE = "pto_config_file";
+constexpr const char *KEY_COMPUTE_GRAPH_PATH = "compute_graph_path";
+constexpr const char *KEY_AICPU_PERF_GRAPH_PATH = "aicpu_perf_path";
+constexpr const char *KEY_SWIM_GRAPH_PATH = "swim_graph_path";
+constexpr const char *KEY_FLOW_VERIFY_PATH = "flow_verify_path";
+constexpr const char *KEY_PROGRAM_PATH = "program_file";
+
+struct ConfigStorage;
+
+struct PrintOptions {
+    int edgeItems;
+    int precision;
+    int threshold;
+    int linewidth;
+};
+
+struct SemanticLabel {
+    std::string label;
+    std::string filename;
+    int lineno;
+
+    SemanticLabel(const std::string &tlabel, const char *tfilename, int tlineno)
+        : label(tlabel), filename(tfilename), lineno(tlineno) {}
+    SemanticLabel(const std::string &tlabel, const std::string &tfilename, int tlineno)
+        : label(tlabel), filename(tfilename), lineno(tlineno) {}
+};
+
 namespace config {
 template <typename T>
 auto GetPlatformConfig(const std::string &key, const T &defaultValue) {
@@ -311,15 +328,6 @@ auto GetHostConfig(const std::string &key, const T &defaultValue) {
     return ConfigManager::Instance().GetHostConfig(key, defaultValue);
 }
 
-template <typename T>
-auto GetDeviceConfig(const std::string &key, const T &defaultValue) {
-    return ConfigManager::Instance().GetDeviceConfig(key, defaultValue);
-}
-
-template <typename T>
-auto GetCoreConfig(const std::string &key, const T &defaultValue) {
-    return ConfigManager::Instance().GetCoreConfig(key, defaultValue);
-}
 
 template <typename T>
 auto GetPassConfig(
@@ -368,21 +376,6 @@ void SetHostConfig(const std::string &key, const T &value) {
 }
 
 template <typename T>
-void SetDeviceConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetDeviceConfig(key, value);
-}
-
-template <typename T>
-void SetCoreConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetCoreConfig(key, value);
-}
-
-template <typename T>
-void SetDistConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetDistConfig(key, value);
-}
-
-template <typename T>
 void SetPassConfig(const std::string &strategy, const std::string &identifier, const std::string &key, const T &value) {
     ConfigManager::Instance().SetPassConfig(strategy, identifier, key, value);
 }
@@ -393,26 +386,17 @@ void SetSimConfig(const std::string &key, const T &value) {
 }
 
 template <typename T>
-void SetOperationConfig(const std::string &key, const T &value) {
-    ConfigManager::Instance().SetOperationConfig(key, value);
-}
-
-template <typename T>
 void SetCodeGenConfig(const std::string &key, const T &value) {
     ConfigManager::Instance().SetCodeGenConfig(key, value);
 }
 
 inline DPlatform GetDevicePlatform() {
-    auto platform = ConfigManager::Instance().GetPlatformConfig("DEVICE_PLATFORM", "ASCEND_910B2");
+    auto platform = ConfigManager::Instance().GetPlatformConfig("device_platform", "ASCEND_910B2");
     return StringToDpaltform(platform);
 }
 
 inline const std::string GetAbsoluteTopFolder() {
-    constexpr size_t size = 1024;
-    char cwdBuf[size] = {};
-    std::string cwd = getcwd(cwdBuf, size);
-
-    return cwd + "/" + ConfigManager::Instance().LogTopFolder();
+    return RealPath(ConfigManager::Instance().LogTopFolder());
 }
 
 inline const std::string &LogTopFolder() {
@@ -437,9 +421,21 @@ inline std::string GetPassStrategy() {
 }
 
 inline bool UseTIG() {
-    return GetPassStrategy() == "TIG" || GetPassStrategy() == "PVC2_OOO" || GetPlatformConfig("TEST_IS_TIG", false) ||
+    return GetPassStrategy() == "TIG" || GetPassStrategy() == "PVC2_OOO" || GetPlatformConfig(KEY_TEST_IS_TIG, false) ||
            GetPassStrategy() == "DFS_OOO" || GetPassStrategy() == "BFS_DFS_OOO";
 }
+
+// config.h
+
+FunctionType GetFunctionType();
+
+std::shared_ptr<SemanticLabel> GetSemanticLabel();
+void SetSemanticLabel(std::shared_ptr<SemanticLabel> label);
+
+PrintOptions &GetPrintOptions();
+
+void SetRunDataOption(const std::string &key, const std::string &value);
+
 
 } // namespace config
 

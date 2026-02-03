@@ -25,7 +25,7 @@
 #include "interface/inner/any.h"
 #include "interface/inner/pre_def.h"
 #include "tilefwk/tilefwk_op.h"
-#include "interface/inner/config.h"
+#include "interface/configs/config_manager.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"
 #include "interface/utils/common.h"
@@ -66,7 +66,6 @@ public:
     static const std::string needAlloc;
     static const std::string dontTouch;
     static const std::string tag;
-    static const std::string commGroupInfo;
     static const std::string distTilingInfo;
     static const std::string sameInOut;
     static const std::string inputCombineAxis;
@@ -83,8 +82,16 @@ public:
     static const std::string startOffset;
     static const std::string distOpAttr;
     static const std::string subBlockIdx;
+    static const std::string accumulate;
+    static const std::string indicesSize;
     static const std::string brcbIdx;
     static const std::string quantFlag;
+    static const std::string loopGroup;
+    static const std::string loopAxes;
+    static const std::string loopGroupStart;
+    static const std::string loopGroupEnd;
+    static const std::string lastUse;
+    static const std::string isUpper;
 };
 
 
@@ -155,6 +162,7 @@ public:
     friend class Function;
     LogicalTensors iOperand; // Input operands (now actual objects, not shared_ptr)
     LogicalTensors oOperand; // Output operands (now actual objects, not shared_ptr)
+    LogicalTensors dependOperand; // Depend Operands
     int opmagic; // The magic number for the operation, default value -1
     int programFuncMagic_; // function magic of leafFunction
     int outcastRefcount{0};
@@ -274,9 +282,16 @@ public:
     [[nodiscard]] const LogicalTensors &GetOOperands() const { return oOperand; }
     LogicalTensors &GetOOperands() { return oOperand; }
 
+    [[nodiscard]] const LogicalTensors &GetDependOperands() const { return dependOperand; }
+    LogicalTensors &GetDependOperands() { return dependOperand; }
+
+    void AddDependOperand(LogicalTensorPtr dependoperand);
+
     size_t GetInputOperandSize() const { return iOperand.size(); }
 
     size_t GetOutputOperandSize() const { return oOperand.size(); }
+
+    size_t GetDependOperandSize() const { return dependOperand.size(); }
 
     LogicalTensorPtr GetInputOperand(const size_t index) const;
 
@@ -349,13 +364,15 @@ public:
         opAttribute_ = attr;
         static std::unordered_set<Opcode> copyOpAttrOpTypes{Opcode::OP_L1_COPY_IN, Opcode::OP_L1_COPY_OUT,
             Opcode::OP_COPY_IN, Opcode::OP_L0C_TO_L1, Opcode::OP_L1_TO_BT, Opcode::OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L1_TO_L0A,
-            Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_BT, Opcode::OP_COPY_OUT,
+            Opcode::OP_L1_TO_L0B, Opcode::OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_BT, Opcode::OP_UB_COPY_L1, Opcode::OP_COPY_OUT,
             Opcode::OP_RESHAPE_COPY_IN, Opcode::OP_RESHAPE_COPY_OUT, Opcode::OP_INDEX_OUTCAST,
-            Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_REMOTE_GATHER,
-            Opcode::OP_LOCAL_COPY_OUT, Opcode::OP_REMOTE_REDUCE, Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING,
+            Opcode::OP_INDEX_PUT,
+            Opcode::OP_TRANSPOSE_MOVEIN, Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_FFN_SCHED, Opcode::OP_FFN_BATCHING,
             Opcode::OP_FFN_COMBINEINFO, Opcode::OP_FFN_VALIDCNT, Opcode::OP_SHMEM_PUT, Opcode::OP_SHMEM_PUT_UB2GM,
             Opcode::OP_SHMEM_SIGNAL, Opcode::OP_SHMEM_GET, Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_REDUCE,
-            Opcode::OP_SHMEM_SET, Opcode::OP_SHMEM_MOE_COMBINE_SEND, Opcode::OP_SHMEM_MOE_COMBINE_RECEIVE,
+            Opcode::OP_SHMEM_SET,
+            Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
+            Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
             Opcode::OP_GATHER_IN_UB, Opcode::OP_COPY_TO_LOCAL_EXPERT};
         if (copyOpAttrOpTypes.count(opcode_) > 0) {
             ASSERT(std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
@@ -375,6 +392,7 @@ public:
                 ASSERT(std::dynamic_pointer_cast<AssembleOpAttribute>(opAttribute_) != nullptr ||
                        std::dynamic_pointer_cast<CopyOpAttribute>(opAttribute_) != nullptr);
                 break;
+            case Opcode::OP_BLOCK_CALL:
             case Opcode::OP_CALL: {
                 ASSERT(std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_) != nullptr);
                 break;
@@ -406,12 +424,13 @@ public:
     }
 
     const FunctionHash &GetCalleeHash() const {
-        ASSERT(IsCall() || opcode_ == Opcode::OP_CALL_NOT_EXPAND);
+        ASSERT(IsCall() || opcode_ == Opcode::OP_BLOCK_CALL);
         auto callop = std::dynamic_pointer_cast<CallOpAttribute>(opAttribute_);
         return callop->GetCalleeHash();
     }
 
     void EraseInput(const std::shared_ptr<LogicalTensor> &input);
+    void EraseDependTensor(const std::shared_ptr<LogicalTensor> &dependTensor);
     void ReplaceInput(const std::shared_ptr<LogicalTensor> &newInput, const std::shared_ptr<LogicalTensor> &oldInput);
     void ReplaceOutput(const std::shared_ptr<LogicalTensor> &newOutput, const std::shared_ptr<LogicalTensor> &oldOutput);
 
@@ -486,6 +505,18 @@ public:
     void SetOpOffset(const std::vector<int> &iOffset, const std::vector<int> &oOffset) {
         iOpAttrOffset = iOffset;
         oOpAttrOffset = oOffset;
+    }
+    std::vector<int>& GetIOpAttrOffsets() {
+        return iOpAttrOffset;
+    }
+    std::vector<int>& GetOOpAttrOffsets() {
+        return oOpAttrOffset;
+    }
+    const std::vector<int>& GetIOpAttrOffsets() const {
+        return iOpAttrOffset;
+    }
+    const std::vector<int>& GetOOpAttrOffsets() const {
+        return oOpAttrOffset;
     }
 
     std::vector<std::reference_wrapper<SymbolicScalar>> GetDynamicAttributeList();

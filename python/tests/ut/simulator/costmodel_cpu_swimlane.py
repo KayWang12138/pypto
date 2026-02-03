@@ -33,7 +33,7 @@ def safe_json_load(file_path):
     except json.JSONDecodeError as e:
         return None, f"Invalid json format: {e}"
     except PermissionError:
-        return None, "Permission Erro"
+        return None, "Permission Error"
     except Exception as e:
         return None, f"Load json fail, unknow error: {e}"
 
@@ -80,9 +80,7 @@ def softmax_core(input_tensor: pypto.tensor) -> pypto.tensor:
 
 @pypto.jit(
     runtime_options={
-        "cfgcache_device_task_num": 100,
-        "cfgcache_root_task_num": 100,
-        "cfgcache_leaf_task_num": 10000,
+        "stitch_cfgcache_size": 2100000,
         "run_mode": 1
     }
 )
@@ -166,8 +164,9 @@ def test_softmax():
     output_path = get_out_put_path()
     assert output_path
 
-    merged_swimlane, error = safe_json_load(os.path.join(output_path, 'CostModelSimulationOutput/merged_swimlane.json'))
-    assert not error
+    merged_swimlane_path = os.path.join(output_path, "CostModelSimulationOutput", "merged_swimlane.json")
+    merged_swimlane, error = safe_json_load(merged_swimlane_path)
+    assert not error, f"safe_json_load({merged_swimlane_path}): {error}"
 
 
 if __name__ == "__main__":

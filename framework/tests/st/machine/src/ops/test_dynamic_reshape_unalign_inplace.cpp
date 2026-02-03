@@ -26,7 +26,6 @@ class DynamicReshapeUnalignImplaceTest : public npu::tile_fwk::stest::TestSuite_
 public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostOption(ONLY_CODEGEN, true);
         rtSetDevice(GetDeviceIdByEnvVar());
     }
 };
@@ -181,7 +180,7 @@ TEST_F(DynamicReshapeUnalignImplaceTest, test_reshape_special) {
 TEST_F(DynamicReshapeUnalignImplaceTest, test_op_reshape_op) {
     SetInterpreterConfig();
     TileShape::Current().SetVecTile(1, 4, 32);
-    config::SetPassConfig("PVC2_OOO", "SplitReshape", "DISABLE_PASS", true);
+    config::SetPassConfig("PVC2_OOO", "SplitReshape", KEY_DISABLE_PASS, true);
 
     int b = 2;
     int sq = -1;

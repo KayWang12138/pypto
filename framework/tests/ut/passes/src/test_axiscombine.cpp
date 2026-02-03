@@ -10,7 +10,7 @@
 
 /*!
  * \file test_axiscombine.cpp
- * \brief 
+ * \brief
  */
 
 #include <gtest/gtest.h>
@@ -35,17 +35,17 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
     void TearDown() override {
     }
 };
-const Opcode BRCB = Opcode::OP_BRCB;
-std::string prefix = "brcb_idx";
+
 constexpr int64_t K_1 = 1;
 constexpr int64_t K_2 = 2;
 constexpr int64_t K_4 = 4;
 constexpr int64_t K_8 = 8;
+constexpr int64_t K_16 = 16;
 constexpr int64_t K_32 = 32;
 constexpr int64_t K_64 = 64;
 constexpr int64_t K_128 = 128;
@@ -57,21 +57,23 @@ TEST_F(TestAxisCombine, Test1) {
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {4,127}, "t3"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t1","t2"}, {"t3"}, "add", true), true);
     auto *rootFuncPtr = graph.GetFunction();
-    config::SetOperationConfig("COMBINE_AXIS", true);
+    rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     auto updatedOperations = rootFuncPtr->Operations();
     int64_t brcbCnt = 0;
     for (const auto &op : updatedOperations) {
-        if (op.GetOpcode() == BRCB) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
             ++brcbCnt;
-            if (op.HasAttr(prefix)) {
-                auto idx = op.GetIntAttribute(prefix) - 1;
-                auto tensor = op.GetIOperands()[idx];
-                EXPECT_TRUE(tensor != nullptr);
-                EXPECT_EQ(tensor->shape[0], K_4);
-                EXPECT_EQ(tensor->shape[1], K_8);
-            }
+            auto outputTensor = op.GetOOperands()[0];
+            EXPECT_TRUE(outputTensor->GetConsumers().size() != 0);
+        }
+        if (op.HasAttr(OpAttributeKey::brcbIdx)) {
+            auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
+            auto tensor = op.GetIOperands()[idx];
+            EXPECT_TRUE(tensor != nullptr);
+            EXPECT_EQ(tensor->shape[0], K_4);
+            EXPECT_EQ(tensor->shape[1], K_8);
         }
     }
     EXPECT_EQ(brcbCnt, K_1);
@@ -86,20 +88,22 @@ TEST_F(TestAxisCombine, Test2) {
     EXPECT_EQ(graph.AddOp(Opcode::OP_SUB, {"t1","t2"}, {"t3"}, "add", true), true);
     auto *rootFuncPtr = graph.GetFunction();
     AxisCombine pass;
-    config::SetOperationConfig("COMBINE_AXIS", true);
+    rootFuncPtr->paramConfigs_.combineAxis = true;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     auto updatedOperations = rootFuncPtr->Operations();
     int64_t cnt = 0;
     for (const auto &op : updatedOperations) {
-        if (op.GetOpcode() == BRCB) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
             ++cnt;
-            if (op.HasAttr(prefix)) {
-                auto idx = op.GetIntAttribute(prefix) - 1;
-                auto tensor = op.GetIOperands()[idx];
-                EXPECT_TRUE(tensor != nullptr);
-                EXPECT_EQ(tensor->shape[1], K_8);
-                EXPECT_EQ(tensor->shape[0], K_4);
-            }
+            auto outputTensor = op.GetOOperands()[0];
+            EXPECT_TRUE(outputTensor->GetConsumers().size() != 0);
+        }
+        if (op.HasAttr(OpAttributeKey::brcbIdx)) {
+            auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
+            auto tensor = op.GetIOperands()[idx];
+            EXPECT_TRUE(tensor != nullptr);
+            EXPECT_EQ(tensor->shape[1], K_8);
+            EXPECT_EQ(tensor->shape[0], K_4);
         }
     }
     EXPECT_EQ(cnt, K_1);
@@ -110,40 +114,42 @@ TEST_F(TestAxisCombine, Test3) {
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,128}, "t1"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,1}, "t2"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ROWMAX_SINGLE, {"t1"}, {"t2"}, "max", true), true);
-    
+
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,1}, "t3"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,1}, "t4"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t2","t3"}, {"t4"}, "add1", true), true);
-    
-    // left 
+
+    // left
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,16}, "t5"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {16,16}, "t6"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_ADD, {"t2","t5"}, {"t6"}, "add2", true), true);
-    
+
     auto *rootFuncPtr = graph.GetFunction();
-    config::SetOperationConfig("COMBINE_AXIS", true);
+    rootFuncPtr->paramConfigs_.combineAxis = true;
     AxisCombine pass;
     EXPECT_EQ(pass.RunOnFunction(*rootFuncPtr), SUCCESS);
     // ================== Verify Pass Effect ==================
     auto updatedOperations = rootFuncPtr->Operations();
     for (const auto &op : updatedOperations) {
-        if (op.GetOpcode() == BRCB) {
-            if (op.HasAttr(prefix)) {
-                auto idx = op.GetIntAttribute(prefix);
-                auto tensor = op.GetIOperands()[idx];
-                EXPECT_TRUE(tensor != nullptr);
-                EXPECT_EQ(tensor->shape[0], K_4);
-                EXPECT_EQ(tensor->shape[1], K_8);
-                EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[0], K_8);
-                EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[1], K_8);
-            }
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
+            auto outputTensor = op.GetOOperands()[0];
+            EXPECT_TRUE(outputTensor->GetConsumers().size() != 0);
+        }
+        if (op.HasAttr(OpAttributeKey::brcbIdx)) {
+            auto idx = op.GetIntAttribute(OpAttributeKey::brcbIdx) - 1;
+            auto tensor = op.GetIOperands()[idx];
+            EXPECT_TRUE(tensor != nullptr);
+            EXPECT_EQ(tensor->shape[0], K_16);
+            EXPECT_EQ(tensor->shape[1], K_8);
+            EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[0], K_16);
+            EXPECT_EQ(tensor->GetRawTensor()->GetRawShape()[1], K_8);
         }
     }
 }
 
 TEST_F(TestAxisCombine, TestDD) {
-    config::SetOperationConfig("COMBINE_AXIS", true);
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     TileShape::Current().SetVecTile(K_1, K_1, K_32, K_32);
     std::vector<int64_t> tshape = {K_2, K_2, K_64, K_64};

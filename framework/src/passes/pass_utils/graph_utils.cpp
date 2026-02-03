@@ -49,13 +49,22 @@ Operation &GraphUtils::AddViewOperation(Function &function, const ViewOp &view, 
 
 Operation &GraphUtils::AddAssembleOperation(Function &function, const AssembleOp &assemble, const std::vector<std::vector<SymbolicScalar>> &outDynShape) {
     auto &newOp = function.AddRawOperation(Opcode::OP_ASSEMBLE, {assemble.input}, {assemble.output});
+    if (assemble.originOp != nullptr) {
+        newOp.SetScopeId(assemble.originOp->GetScopeId());
+        newOp.CopyAttrFrom(*assemble.originOp, "");
+    }
     SetAssembleAttr(newOp, assemble);
     SetDynShape(&newOp, outDynShape);
     return newOp;
 }
 
-Operation &GraphUtils::AddReshapeOperation(Function &function, LogicalTensorPtr iOperand, const LogicalTensorPtr &oOperand, const std::vector<SymbolicScalar> &outDynShape) {
+Operation &GraphUtils::AddReshapeOperation(Function &function, const LogicalTensorPtr iOperand, const LogicalTensorPtr &oOperand,
+    const ReshapeOp &reshapeOp, const std::vector<SymbolicScalar> &outDynShape) {
     auto &newOp = function.AddOperation(Opcode::OP_RESHAPE, {iOperand}, {oOperand});
+    if (reshapeOp.originOpPtr != nullptr) {
+        newOp.SetScopeId(reshapeOp.originOpPtr->GetScopeId());
+        newOp.CopyAttrFrom(*reshapeOp.originOpPtr, "");
+    }
     if (outDynShape.empty()) {
         InferShapeRegistry::GetInstance().CallInferShapeFunc(&newOp);
         std::vector<SymbolicScalar> validShape;
@@ -126,6 +135,13 @@ void GraphUtils::SetAssembleAttr(Operation &op, const AssembleOp &assemble) {
     auto fromValidShape = assemble.input->GetDynValidShape();
     assembleOpAttribute->SetFromDynValidShape(fromValidShape);
     op.SetOpAttribute(assembleOpAttribute);
+}
+
+bool GraphUtils::IsCVMixPlatform() {
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        return true;
+    }
+    return false;
 }
 }
 }

@@ -64,7 +64,11 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
     int size = ftell(fbin);
     fseek(fbin, 0, SEEK_SET);
     std::vector<uint8_t> binary(size);
-    fread(binary.data(), 1, size, fbin);
+    size_t readSize = fread(binary.data(), 1, size, fbin);
+    if (readSize != static_cast<size_t>(size)) {
+        fclose(fbin);
+        return {};
+    }
     fclose(fbin);
     return binary;
 }
@@ -515,12 +519,6 @@ SymbolicScalar::SymbolicScalar(int64_t value)
 SymbolicScalar::SymbolicScalar(const std::string &name) : raw_(RawSymbolicSymbol::Create(name)) {}
 SymbolicScalar::SymbolicScalar(const std::string &name, int64_t value)
     : raw_(RawSymbolicSymbol::Create(name)), concreteValid_(true), concrete_(value) {}
-SymbolicScalar::SymbolicScalar(const std::string &name, NotLessThan minVal)
-    : raw_(RawSymbolicSymbol::Create(name, ValueGuesser(minVal))) {}
-SymbolicScalar::SymbolicScalar(const std::string &name, NotGreaterThan maxVal)
-    : raw_(RawSymbolicSymbol::Create(name, ValueGuesser(maxVal))) {}
-SymbolicScalar::SymbolicScalar(const std::string &name, NotLessThan minVal, NotGreaterThan maxVal)
-    : raw_(RawSymbolicSymbol::Create(name, ValueGuesser(minVal, maxVal))) {}
 SymbolicScalar::SymbolicScalar(RawSymbolicScalarPtr raw, int64_t concrete)
     : raw_(raw), concreteValid_(true), concrete_(concrete) {}
 SymbolicScalar::SymbolicScalar(RawSymbolicScalarPtr raw) : raw_(raw) {
@@ -548,11 +546,6 @@ std::vector<SymbolicScalar> SymbolicScalar::FromConcrete(const std::vector<int64
         result.push_back(SymbolicScalar(x));
     }
     return result;
-}
-
-void RawSymbolicScalar::ResetValueGuesser(ValueGuesser valueGuesser) {
-    ASSERT(valueGuesser.IsCalculated());
-    valueGuesser_ = valueGuesser;
 }
 
 static void LookupExpressionByOpcode(std::vector<RawSymbolicScalarPtr> &exprList, SymbolicOpcode opcode, const RawSymbolicScalarPtr &raw) {

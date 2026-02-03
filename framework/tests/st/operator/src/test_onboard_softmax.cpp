@@ -370,7 +370,6 @@ TEST_F(SoftmaxOnBoard, test_softmax_flash_attention) {
 }
 
 TEST_F(SoftmaxOnBoard, test_softmax_dyn) {
-    config::SetHostOption(ONLY_CODEGEN, true);
     // 设置输入输出shape
     std::vector<int64_t> shape = {32, 32, 1, 256};
     // 指定计算数据类型

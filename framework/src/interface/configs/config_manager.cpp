@@ -18,7 +18,9 @@
 #include <fstream>
 #include <cstdlib>
 #include <string>
-#include "interface/inner/config.h"
+#include <sstream>
+#include <shared_mutex>
+
 #include "interface/utils/common.h"
 #include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
@@ -70,6 +72,7 @@ Status ConfigManager::Initialize() {
     }
 
     config::SetRunDataOption(KEY_PTO_CONFIG_FILE, jsonFilePath);
+    config::SetRunDataOption(KEY_RUNTYPE, "npu");
     ASLOGI("Start to parse op_json_file %s", jsonFilePath.c_str());
     if (!ReadJsonFile(jsonFilePath, json_)) {
         ASLOGE("ReadJsonFile failed.");
@@ -91,10 +94,10 @@ Status ConfigManager::Initialize() {
                 if (jsonConfig.contains("global_configs")) {
                     const auto& genGlobal = jsonConfig["global_configs"];
                     if (genGlobal.contains("platform_configs") && !genGlobal["platform_configs"].empty()) {
-                        json_["global_configs"]["platform_configs"].update(genGlobal["platform_configs"]);
+                        json_["global"]["platform"].update(genGlobal["platform_configs"]);
                     }
                     if (genGlobal.contains("simulation_configs") && !genGlobal["simulation_configs"].empty()) {
-                        json_["global_configs"]["simulation_configs"].update(genGlobal["simulation_configs"]);
+                        json_["global"]["simulation"].update(genGlobal["simulation_configs"]);
                     }
                 }
             }
@@ -104,7 +107,7 @@ Status ConfigManager::Initialize() {
 
     originJson_ = json_;
 
-    if (auto *node = GetJsonChild(json_, "pass_global_configs")) {
+    if (auto *node = GetJsonNode(json_, {"global", "pass"})) {
         globalPassConfigs_ = InternalGetGlobalConfigs(*node);
     }
 
@@ -113,7 +116,7 @@ Status ConfigManager::Initialize() {
 }
 
 void ConfigManager::RefreshGlobalPassCfg() {
-    if (auto *node = GetJsonChild(json_, "pass_global_configs")) {
+    if (auto *node = GetJsonNode(json_, {"global", "pass"})) {
         globalPassConfigs_ = InternalGetGlobalConfigs(*node);
     }
 }
@@ -136,12 +139,14 @@ static std::string CreateLogTopFolder() {
         std::string envStr(envDir);
         if (!envStr.empty()) {
             folderPath = std::move(envStr);
+            res = CreateDir(folderPath);
         }
-    } else {
-        folderPath = folderPath + "/" + "output_" + timestamp.str() + "_" + std::to_string(getpid());
     }
+    folderPath = folderPath + "/output_" + timestamp.str() + "_" + std::to_string(getpid());
+
     res = CreateDir(folderPath);
     ASSERT(res) << "Failed to create directory: " << folderPath;
+    config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, RealPath(folderPath));
 
     return folderPath;
 }
@@ -157,7 +162,6 @@ const std::string &ConfigManager::LogTensorGraphFolder() {
     if (globalConfigs_.logTensorGraphFolder.empty()) {
         globalConfigs_.logTensorGraphFolder = LogTopFolder() + "/TensorGraph";
         CreateDir(globalConfigs_.logTensorGraphFolder);
-        config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, config::GetAbsoluteTopFolder() + "/TensorGraph");
     }
     return globalConfigs_.logTensorGraphFolder;
 }
@@ -169,15 +173,20 @@ const std::string &ConfigManager::LogFile() {
     return globalConfigs_.logFile;
 }
 
-void ConfigManager::ResetLog() {
-    globalConfigs_.logTopFolder = CreateLogTopFolder();
-    std::string newLogFile = LogTopFolder() + "/run.log";
+void ConfigManager::ResetLog(const std::string &path) {
+    std::string newLogFile;
+    if (path.empty()) {
+        globalConfigs_.logTopFolder = CreateLogTopFolder();
+        newLogFile = globalConfigs_.logTopFolder + "/run.log";
+    } else {
+        newLogFile = path + "/run.log";
+    }
     LoggerManager::FileLoggerReplace(globalConfigs_.logFile, newLogFile, true);
     globalConfigs_.logFile = std::move(newLogFile);
 }
 
 PassConfigs ConfigManager::GetPassConfigs(const std::string &strategy, const std::string &identifier) const {
-    auto *node = GetJsonNode(json_, {"strategies", strategy, identifier});
+    auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy, identifier});
     if (!node) {
         return globalPassConfigs_.defaultPassConfigs;
     }
@@ -186,7 +195,7 @@ PassConfigs ConfigManager::GetPassConfigs(const std::string &strategy, const std
 
 void ConfigManager::PassConfigsDebugInfo(
     const std::string &strategy, const std::vector<std::string> &identifiers) const {
-    auto *node = GetJsonNode(json_, {"strategies", strategy});
+    auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy});
     if (!node) {
         ALOG_INFO("[ConfigManager] Missing custom pass strategy <", strategy, "> configs. ",
                     "You may add your own custom strategy configs in 'tile_fwk_config.json'.");
@@ -267,4 +276,123 @@ static GlobalPassConfigs InternalGetGlobalConfigs(const nlohmann::json &globalCf
     }
     return configs;
 }
+
+struct RunDataDir {
+    std::string path;
+    std::string dName;
+
+    std::string montage() {
+        return path + "/" + dName;
+    }
+
+    bool empty() {
+        return (path.empty() || dName.empty());
+    }
+
+    void Reset() {
+        path.clear();
+        dName.clear();
+    }
+};
+
+struct ConfigStorage {
+    ConfigStorage() { Init(); }
+
+    void Init() {
+        auto res = ConfigManager::Instance().GetPrintOptions();
+        if (res != nullptr && res->is_object()) {
+            printOption.edgeItems = res->value("edgeitems", printOption.edgeItems);
+            printOption.precision = res->value("precision", printOption.precision);
+            printOption.threshold = res->value("threshold", printOption.threshold);
+            printOption.linewidth = res->value("linewidth", printOption.linewidth);
+        }
+        Reset();
+    }
+
+    void Reset() {
+        funcType = FunctionType::DYNAMIC;
+        semanticLabel = nullptr;
+        rundataDir.Reset();
+    }
+
+    FunctionType funcType;
+    std::shared_ptr<SemanticLabel> semanticLabel;
+    RunDataDir rundataDir;
+    PrintOptions printOption;
+};
+
+
+namespace config {
+
+static ConfigStorage g_config;
+std::shared_mutex g_rwlock;
+
+void Reset() {
+    g_config.Reset();
+    ConfigManagerNg::CurrentScope()->Clear();
+}
+
+void SetBuildStatic(bool isStatic) {
+    g_config.funcType = isStatic ? FunctionType::STATIC : FunctionType::DYNAMIC;
+}
+
+FunctionType GetFunctionType() {
+    return g_config.funcType;
+}
+
+void SetSemanticLabel(const std::string &label, const char *filename , int lineno) {
+    g_config.semanticLabel = std::make_shared<SemanticLabel>(label, filename, lineno);
+}
+
+void SetSemanticLabel(std::shared_ptr<SemanticLabel> label) {
+    g_config.semanticLabel = label;
+}
+
+std::shared_ptr<SemanticLabel> GetSemanticLabel() {
+    return g_config.semanticLabel;
+}
+
+constexpr int LIMIT_DIR_NUM_BEFORE_CREATE = 127;
+constexpr const char *PREFIX_RUNDATA = "rundata_";
+constexpr const char *ENV_VAR_PYPTO_HOME = "PYPTO_HOME";
+constexpr const char *ENV_VAR_HOME = "HOME";
+
+void CreateRunDataDir() {
+    std::string envStr = GetEnvVar(ENV_VAR_PYPTO_HOME);
+    std::string dir = envStr.empty() ? (GetEnvVar(ENV_VAR_HOME) + "/.pypto") : envStr;
+    g_config.rundataDir.path = dir + "/run";
+    RemoveOldestDirs(g_config.rundataDir.path, PREFIX_RUNDATA, LIMIT_DIR_NUM_BEFORE_CREATE);
+    auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::stringstream timestamp;
+    timestamp << std::put_time(std::localtime(&time), "%Y%m%d%H%M%S");
+    g_config.rundataDir.dName = PREFIX_RUNDATA + timestamp.str();
+    bool res = CreateMultiLevelDir(g_config.rundataDir.montage());
+    ASSERT(res) << "Failed to create directory: " << g_config.rundataDir.montage();
+}
+
+void SetRunDataOption(const std::string &key, const std::string &value) {
+    static nlohmann::json j;
+    std::shared_lock lock(g_rwlock);
+    j[key] = value;
+    auto dumpValue = j.dump(2);
+    if (g_config.rundataDir.empty()) {
+        CreateRunDataDir();
+    }
+    auto filename = g_config.rundataDir.montage() + "/rundata.json";
+    SaveFileSafe(filename, reinterpret_cast<uint8_t*>(dumpValue.data()), dumpValue.size());
+}
+
+
+void SetPrintOptions(int edgeItems, int precision, int threshold, int linewidth) {
+    g_config.printOption.edgeItems = edgeItems;
+    g_config.printOption.precision = precision;
+    g_config.printOption.threshold = threshold;
+    g_config.printOption.linewidth = linewidth;
+}
+
+PrintOptions &GetPrintOptions() {
+    return g_config.printOption;
+}
+
+} // namespace config
 } // namespace npu::tile_fwk

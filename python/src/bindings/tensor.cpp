@@ -89,6 +89,13 @@ void BindTensor(py::module &m) {
                 return t.GetShape();
             },
             "Get the shape of the tensor.")
+        .def("GetValidShape",
+            [] (const Tensor &t) -> std::vector<SymbolicScalar> {
+                if (t.IsEmpty()) {
+                    throw py::value_error("Empty tensor.");
+                }
+                return t.GetValidShape();
+            })
         .def("Move",
             [](Tensor &self, Tensor &other) -> Tensor& {
                 self = std::move(other);
@@ -180,14 +187,5 @@ void BindTensor(py::module &m) {
         },
         py::arg("value"), py::arg("offset"), py::arg("dst"),
         "Set the tensor data at the destination offset from the source value.");
-    m.def("MarkDynamic",
-        [](Tensor &t, int axis) {
-            if (t.IsEmpty()) {
-                throw py::value_error("Empty tensor.");
-            }
-            npu::tile_fwk::MarkDynamic(t, axis);
-        },
-        py::arg("tensor"), py::arg("axis"),
-        "Mark the input tensor as dynamic at the specified axis.");
 }
 } // namespace pypto

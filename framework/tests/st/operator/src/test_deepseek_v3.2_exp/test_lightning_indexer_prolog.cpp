@@ -25,6 +25,7 @@
 #include "machine/utils/dynamic/dev_encode.h"
 #include "operator/models/deepseek_v3.2_exp/lightning_indexer_prolog.h"
 #include "operator/models/deepseek_v3.2_exp/dsia_common.h"
+#include "test_cost_macro.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -35,7 +36,7 @@ namespace {
 
 void PerformanceConfig() {
     config::SetPassOption(VEC_NBUFFER_MODE, 1);
-    config::SetPassOption(CUBE_L1_REUSE_MODE, 4);
+    config::SetPassOption(CUBE_L1_REUSE_SETTING, std::map<int64_t, int64_t>{{-1, 4}});
     config::SetPassOption(CUBE_NBUFFER_SETTING, std::map<int64_t, int64_t>{{NUM_3, NUM_4}});
     config::SetPassOption(MG_COPYIN_UPPER_BOUND, 2 * 1024 * 1024);
 }
@@ -122,7 +123,6 @@ IndexerPrologOutputGolden<T> PrepareIndexerPrologOutputsGolden(const IndexerProl
 
 template <typename T = npu::tile_fwk::bfloat16, bool nz = true>
 void TesLightningIndexerProlog(const IndexerShapeParams &params) {
-    config::SetHostOption(ONLY_CODEGEN, true);
 
     // inputs
     DataType dType = (std::is_same<T, npu::tile_fwk::bfloat16>::value) ? DT_BF16 : DT_FP16;
@@ -197,7 +197,7 @@ TEST_F(LightningIndexerPrologSTest, bf16_indexer_prolog) {
     TesLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(params);
 }
 
-TEST_F(LightningIndexerPrologSTest, b48_s1_1_s2_8k) {
+TEST_F_WITH_COST(LightningIndexerPrologSTest, b48_s1_1_s2_8k, 26) {
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 256},
         { 32, 128, 128},
@@ -269,7 +269,7 @@ TEST_F(LightningIndexerPrologSTest, b40_s1_4_s2_8k) {
     TesLightningIndexerProlog<npu::tile_fwk::bfloat16, true>(params);
 }
 
-TEST_F(LightningIndexerPrologSTest, b4_s1_1_s2_64k) {
+TEST_F_WITH_COST(LightningIndexerPrologSTest, b4_s1_1_s2_64k, 26) {
     RopeTileShapeConfig ropeTileConfigs = {
         {128, 256},
         { 32, 128, 128},

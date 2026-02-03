@@ -14,6 +14,7 @@
  */
 
 #include <torch/torch.h>
+#include "tilefwk/error.h"
 #include "../calc_api.h"
 
 namespace npu::tile_fwk {
@@ -109,6 +110,27 @@ static void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     torch::neg_out(tout, From(self));
 }
 
+static void Ceil(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::ceil_out(tout, From(self));
+}
+
+static void Floor(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::floor_out(tout, From(self));
+}
+
+static void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::trunc_out(tout, From(self));
+}
+
+static void Round(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int decimals) {
+    auto ret = From(out);
+    auto src = From(self);
+    ret.copy_(torch::round(src, decimals));
+}
+
 static void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::rsqrt_out(tout, From(self));
@@ -117,6 +139,16 @@ static void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 static void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     torch::sqrt_out(tout, From(self));
+}
+
+static void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::reciprocal_out(tout, From(self));
+}
+
+static void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    torch::bitwise_not_out(tout, From(self));
 }
 
 static void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
@@ -186,25 +218,198 @@ DEFINE_BINARY_S_OPS(AddS, add_out)
 DEFINE_BINARY_S_OPS(SubS, sub_out)
 DEFINE_BINARY_S_OPS(MulS, mul_out)
 DEFINE_BINARY_S_OPS(DivS, div_out)
+DEFINE_BINARY_S_OPS(FmodS, fmod_out)
+DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
+DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
+DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
 
 static void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
     auto tout = From(out);
-    torch::add_out(tout, From(self), From(other));
+    
+    std::vector<int64_t> shape_self = tself.sizes().vec();
+    std::vector<int64_t> shape_other = tother.sizes().vec();
+
+    if (shape_self.size() == 2 && shape_other.size() == 2 &&
+        shape_self[0] == shape_other[0] && 
+        shape_self[1] != shape_other[1]) {
+        
+        if (shape_other[1] == 8) {
+            int64_t cols_self = shape_self[1];
+            int64_t cols_other = shape_other[1];
+            int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
+            auto tother_expanded = tother.repeat({1, repeat_times});
+            auto tother_final = tother_expanded.index(
+                {torch::indexing::Slice(), 
+                 torch::indexing::Slice(0, cols_self)});
+            torch::add_out(tout, tself, tother_final);
+        } else {
+            torch::add_out(tout, tself, tother);
+        }
+    } else {
+        torch::add_out(tout, tself, tother);
+    }
 }
 
 static void Sub(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
     auto tout = From(out);
-    torch::sub_out(tout, From(self), From(other));
+    
+    std::vector<int64_t> shape_self = tself.sizes().vec();
+    std::vector<int64_t> shape_other = tother.sizes().vec();
+
+    if (shape_self.size() == 2 && shape_other.size() == 2 &&
+        shape_self[0] == shape_other[0] && 
+        shape_self[1] != shape_other[1]) {
+        
+        if (shape_other[1] == 8) {
+            int64_t cols_self = shape_self[1];
+            int64_t cols_other = shape_other[1];
+            int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
+            auto tother_expanded = tother.repeat({1, repeat_times});
+            auto tother_final = tother_expanded.index(
+                {torch::indexing::Slice(), 
+                 torch::indexing::Slice(0, cols_self)});
+            torch::sub_out(tout, tself, tother_final);
+        } else {
+            torch::sub_out(tout, tself, tother);
+        }
+    } else {
+        torch::sub_out(tout, tself, tother);
+    }
 }
 
 static void Mul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
     auto tout = From(out);
-    torch::mul_out(tout, From(self), From(other));
+    
+    std::vector<int64_t> shape_self = tself.sizes().vec();
+    std::vector<int64_t> shape_other = tother.sizes().vec();
+
+    if (shape_self.size() == 2 && shape_other.size() == 2 &&
+        shape_self[0] == shape_other[0] && 
+        shape_self[1] != shape_other[1]) {
+        
+        if (shape_other[1] == 8) {
+            int64_t cols_self = shape_self[1];
+            int64_t cols_other = shape_other[1];
+            int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
+            auto tother_expanded = tother.repeat({1, repeat_times});
+            auto tother_final = tother_expanded.index(
+                {torch::indexing::Slice(), 
+                 torch::indexing::Slice(0, cols_self)});
+            torch::mul_out(tout, tself, tother_final);
+        } else {
+            torch::mul_out(tout, tself, tother);
+        }
+    } else {
+        torch::mul_out(tout, tself, tother);
+    }
 }
 
 static void Div(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
     auto tout = From(out);
-    torch::div_out(tout, From(self), From(other));
+    
+    std::vector<int64_t> shape_self = tself.sizes().vec();
+    std::vector<int64_t> shape_other = tother.sizes().vec();
+
+    if (shape_self.size() == 2 && shape_other.size() == 2 &&
+        shape_self[0] == shape_other[0] && 
+        shape_self[1] != shape_other[1]) {
+        
+        if (shape_other[1] == 8) {
+            int64_t cols_self = shape_self[1];
+            int64_t cols_other = shape_other[1];
+            int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
+            auto tother_expanded = tother.repeat({1, repeat_times});
+            auto tother_final = tother_expanded.index(
+                {torch::indexing::Slice(), 
+                 torch::indexing::Slice(0, cols_self)});
+            torch::div_out(tout, tself, tother_final);
+        } else {
+            torch::div_out(tout, tself, tother);
+        }
+    } else {
+        torch::div_out(tout, tself, tother);
+    }
+}
+
+static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
+    auto tout = From(out);
+    
+    std::vector<int64_t> shape_self = tself.sizes().vec();
+    std::vector<int64_t> shape_other = tother.sizes().vec();
+
+    if (shape_self.size() == 2 && shape_other.size() == 2 &&
+        shape_self[0] == shape_other[0] && 
+        shape_self[1] != shape_other[1]) {
+        
+        if (shape_other[1] == 8) {
+            int64_t cols_self = shape_self[1];
+            int64_t cols_other = shape_other[1];
+            int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
+            auto tother_expanded = tother.repeat({1, repeat_times});
+            auto tother_final = tother_expanded.index(
+                {torch::indexing::Slice(), 
+                 torch::indexing::Slice(0, cols_self)});
+            torch::fmod_out(tout, tself, tother_final);
+        } else {
+            torch::fmod_out(tout, tself, tother);
+        }
+    } else {
+        torch::fmod_out(tout, tself, tother);
+    }
+}
+static void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_and_out(tout, From(self), From(other));
+}
+
+static void BitwiseOr(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_or_out(tout, From(self), From(other));
+}
+
+static void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_xor_out(tout, From(self), From(other));
+}
+
+static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_right_shift_out(tout, From(self), From(other));
+}
+
+static void BitwiseLeftShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_left_shift_out(tout, From(self), From(other));
+}
+
+static void BitwiseRightShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    auto tout = From(out);
+    torch::bitwise_right_shift_out(tout, From(self), From(scalar));
+}
+
+static void BitwiseLeftShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    auto tout = From(out);
+    torch::bitwise_left_shift_out(tout, From(self), From(scalar));
+}
+
+static void SBitwiseRightShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_right_shift_out(tout, From(scalar), From(other));
+}
+
+static void SBitwiseLeftShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::bitwise_left_shift_out(tout, From(scalar), From(other));
 }
 
 static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode) {
@@ -226,13 +431,61 @@ static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode m
 }
 
 static void Min(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
     auto tout = From(out);
-    torch::min_out(tout, From(self), From(other));
+    
+    std::vector<int64_t> shape_self = tself.sizes().vec();
+    std::vector<int64_t> shape_other = tother.sizes().vec();
+
+    if (shape_self.size() == 2 && shape_other.size() == 2 &&
+        shape_self[0] == shape_other[0] && 
+        shape_self[1] != shape_other[1]) {
+        
+        if (shape_other[1] == 8) {
+            int64_t cols_self = shape_self[1];
+            int64_t cols_other = shape_other[1];
+            int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
+            auto tother_expanded = tother.repeat({1, repeat_times});
+            auto tother_final = tother_expanded.index(
+                {torch::indexing::Slice(), 
+                 torch::indexing::Slice(0, cols_self)});
+            torch::min_out(tout, tself, tother_final);
+        } else {
+            torch::min_out(tout, tself, tother);
+        }
+    } else {
+        torch::min_out(tout, tself, tother);
+    }
 }
 
 static void Max(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
     auto tout = From(out);
-    torch::max_out(tout, From(self), From(other));
+    
+    std::vector<int64_t> shape_self = tself.sizes().vec();
+    std::vector<int64_t> shape_other = tother.sizes().vec();
+
+    if (shape_self.size() == 2 && shape_other.size() == 2 &&
+        shape_self[0] == shape_other[0] && 
+        shape_self[1] != shape_other[1]) {
+        
+        if (shape_other[1] == 8) {
+            int64_t cols_self = shape_self[1];
+            int64_t cols_other = shape_other[1];
+            int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
+            auto tother_expanded = tother.repeat({1, repeat_times});
+            auto tother_final = tother_expanded.index(
+                {torch::indexing::Slice(), 
+                 torch::indexing::Slice(0, cols_self)});
+            torch::max_out(tout, tself, tother_final);
+        } else {
+            torch::max_out(tout, tself, tother);
+        }
+    } else {
+        torch::max_out(tout, tself, tother);
+    }
 }
 
 static void MinS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &elem) {
@@ -246,48 +499,58 @@ static void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 }
 
 static void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
+    auto tmp = torch::arange(From(start), From(end), From(step));
+    int64_t expected_numel = 1;
+    for (int64_t dim : out->GetShape()) {
+        expected_numel *= dim;
+    }
+    ASSERT(tmp.numel() == expected_numel) << "Range numel mismatch: generated " << tmp.numel() << ", expected " << expected_numel;
     auto tout = From(out);
-    torch::range_out(tout, From(start), From(end), From(step));
+    tout.copy_(tmp);
 }
 
-static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
-             CmpOperationType operation, CmpModeType mode) {
+template <typename T>
+static void CompareImpl(LogicalTensorDataPtr out, const torch::Tensor& tself, const T& other_op,
+                        CmpOperationType operation, CmpModeType mode) {
     auto tout = From(out);
-    auto tself = From(self);
-    auto tother = From(other);
     torch::Tensor tmp_result;
     switch (operation) {
         case CmpOperationType::EQ:
-            tmp_result = torch::eq(tself, tother);
+            tmp_result = torch::eq(tself, other_op);
             break;
         case CmpOperationType::NE:
-            tmp_result = torch::ne(tself, tother);
+            tmp_result = torch::ne(tself, other_op);
             break;
         case CmpOperationType::LT:
-            tmp_result = torch::lt(tself, tother);
+            tmp_result = torch::lt(tself, other_op);
             break;
         case CmpOperationType::LE:
-            tmp_result = torch::le(tself, tother);
+            tmp_result = torch::le(tself, other_op);
             break;
         case CmpOperationType::GT:
-            tmp_result = torch::gt(tself, tother);
+            tmp_result = torch::gt(tself, other_op);
             break;
         case CmpOperationType::GE:
-            tmp_result = torch::ge(tself, tother);
+            tmp_result = torch::ge(tself, other_op);
             break;
         default:
             ASSERT(false) << "Unsupported compare type";
             break;
     }
+
     if (mode == CmpModeType::BIT) {
         if (tmp_result.dim() > 0) {
             int64_t last_dim = tmp_result.size(-1);
             ASSERT(last_dim % NUM_VALUE_8 == 0) << "Last dimension must be divisible by 8 in BIT mode";
+            
             auto shape = tmp_result.sizes().vec();
             shape.back() = last_dim / NUM_VALUE_8;
+            
             torch::Tensor packed = torch::empty(shape, torch::kUInt8);
-            auto tmp_data = tmp_result.data_ptr<bool>();
+            auto tmp_result_contig = tmp_result.contiguous();
+            auto tmp_data = tmp_result_contig.data_ptr<bool>();
             auto packed_data = packed.data_ptr<uint8_t>();
+            
             const int64_t num_elements = tmp_result.numel();
             for (int64_t i = 0; i < num_elements / NUM_VALUE_8; ++i) {
                 uint8_t byte = 0;
@@ -303,6 +566,16 @@ static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     } else {
         tout.copy_(tmp_result);
     }
+}
+
+static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
+             CmpOperationType operation, CmpModeType mode) {
+    CompareImpl(out, From(self), From(other), operation, mode);
+}
+
+static void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &elem,
+             CmpOperationType operation, CmpModeType mode) {
+    CompareImpl(out, From(self), From(elem), operation, mode);
 }
 
 #define DEFINE_BINARY_PAIR_OPS(Name, bop)                                                              \
@@ -481,6 +754,93 @@ void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensor
     tout = tout.view(outSize);
     tout.copy_(gathered.reshape(outSize));
 }
+void GatherINUBGolden(torch::Tensor &out, const torch::Tensor &params, const torch::Tensor &indices,
+    const torch::Tensor &pageTable, int64_t blockSize, int64_t axis) {
+    // ---- 基本约束：只做 CPU，不考虑 CUDA ----
+    TORCH_CHECK(params.is_cpu() && indices.is_cpu() && pageTable.is_cpu() && out.is_cpu(),
+        "CPU-only: params/indices/pageTable/out must all be on CPU.");
+
+    // ---- axis：严格等价你 golden（token 维），只允许 axis==0 ----
+    if (axis < 0)
+        axis += params.dim();
+    TORCH_CHECK(axis == 0, "Only axis==0 is supported to match the original golden logic.");
+    TORCH_CHECK(blockSize > 0, "blockSize must be > 0.");
+
+    // ---- 形状严格限制：indices/pageTable 只能是 [1, a] ----
+    TORCH_CHECK(params.dim() == 2, "params must be [num_buffer_tokens, hidden_dim]");
+    TORCH_CHECK(indices.dim() == 2 && indices.size(0) == 1, "indices must be [1, topk_count]");
+    TORCH_CHECK(pageTable.dim() == 2 && pageTable.size(0) == 1, "pageTable must be [1, num_logical_blocks]");
+    TORCH_CHECK(out.dim() == 2, "out must be [topk_count, hidden_dim]");
+
+    const int64_t hidden_dim = params.size(1);
+    const int64_t topk_count = indices.size(1);
+    const int64_t num_logical_blocks = pageTable.size(1);
+
+    TORCH_CHECK(out.size(0) == topk_count && out.size(1) == hidden_dim, "out must have shape [topk_count, hidden_dim]");
+
+    // ---- dtype：indices/pageTable 必须是整数；统一转 int64（不转 params）----
+    TORCH_CHECK(
+        indices.scalar_type() == at::kInt || indices.scalar_type() == at::kLong, "indices must be int32 or int64");
+    TORCH_CHECK(pageTable.scalar_type() == at::kInt || pageTable.scalar_type() == at::kLong,
+        "pageTable must be int32 or int64");
+
+    // out/params dtype 必须一致（index_select 不会帮你做 dtype cast）
+    TORCH_CHECK(out.scalar_type() == params.scalar_type(), "out and params must have the same dtype");
+
+    // ---- 1) logical indices: [topk] int64 ----
+    at::Tensor logical = indices.reshape({-1}).to(at::kLong);
+
+    // ---- logical 越界检查： [0, num_logical_blocks * blockSize) ----
+    const int64_t total_logical_tokens = num_logical_blocks * blockSize;
+    TORCH_CHECK(total_logical_tokens >= 0, "total_logical_tokens overflow?");
+    TORCH_CHECK(logical.ge(0).all().item<bool>(), "logical_index < 0 exists in indices");
+    TORCH_CHECK(logical.lt(total_logical_tokens).all().item<bool>(),
+        "logical_index out of range: must be < num_logical_blocks * blockSize");
+
+    // ---- 2) pageTable: [num_logical_blocks] int64 ----
+    at::Tensor pt = pageTable.reshape({-1}).to(at::kLong);
+    TORCH_CHECK(pt.numel() == num_logical_blocks, "pageTable numel mismatch");
+
+    // ---- 3) compute physical indices (完全等价 golden) ----
+    // logical_block = logical / blockSize
+    // offset        = logical % blockSize
+    // physical_blk  = pt[logical_block]
+    // physical      = physical_blk * blockSize + offset
+    at::Tensor logical_block = logical.floor_divide(blockSize); // trunc div for int64
+    at::Tensor offset = logical.remainder(blockSize);  // same as % for non-negative
+
+    // 逻辑块 id 范围检查（其实 logical 已经检查过，这里更保险）
+    TORCH_CHECK(logical_block.ge(0).all().item<bool>(), "logical_block_id < 0 exists");
+    TORCH_CHECK(logical_block.lt(num_logical_blocks).all().item<bool>(), "logical_block_id out of range for pageTable");
+
+    at::Tensor physical_block = pt.index_select(0, logical_block);
+    at::Tensor physical = physical_block.mul(blockSize).add(offset); // int64
+
+    // ---- physical 越界检查：[0, num_buffer_tokens) ----
+    TORCH_CHECK(physical.ge(0).all().item<bool>(), "physical_index < 0 exists");
+
+    // ---- 4) index_select gather: params[physical, :] -> [topk, hidden_dim] ----
+    at::Tensor selected = params.index_select(0, physical); // dtype 跟 params 一样
+
+    // 写到 out（不要求 out contiguous；copy_ 会处理）
+    out.copy_(selected);
+}
+static torch::Tensor From4GatherINUB(LogicalTensorDataPtr data) {
+    RawTensorDataPtr raw = data->GetData();
+    auto tensor = torch::from_blob(raw->data(), raw->GetShape(), FromDataType(raw->GetDataType()));
+    auto view = tensor.as_strided({raw->GetShape()[0],data->GetShape()[1]}, raw->GetStride(), data->GetStorageOffset());
+    if (data->IsAxisCombine())
+        view = view.transpose_(-1, AXIS_TO_LAST);
+    return view;
+}
+void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
+    LogicalTensorDataPtr pageTable, int64_t blockSize, int64_t axis) {
+    auto tout = From(out);
+    auto tparams = From4GatherINUB(params);
+    auto tindices = From(indices);
+    auto tpageTable = From(pageTable);
+    GatherINUBGolden(tout, tparams, tindices, tpageTable, blockSize, axis);
+}
 
 void GatherElements(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis) {
     auto ret = From(out);
@@ -495,6 +855,35 @@ void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensor
     torch::Tensor inputSrc = From(src);
     torch::Tensor inputIndices = From(indices);
     torch::index_add_out(output, inputSelf, axis, inputIndices, inputSrc, From(alpha));
+}
+
+void TriU(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+    torch::Tensor output = From(out);
+    torch::Tensor input = From(in);
+
+    torch::triu_out(output, input, diagonal);
+}
+
+void TriL(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+    torch::Tensor output = From(out);
+    torch::Tensor input = From(in);
+
+    torch::tril_out(output, input, diagonal);
+}
+
+void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
+    torch::Tensor output = From(out);
+    torch::Tensor input = From(in);
+
+    torch::cumsum_out(output, input, axis);
+}
+
+void IndexPut(LogicalTensorDataPtr out, LogicalTensorDataPtr self, std::vector<LogicalTensorDataPtr> indices, LogicalTensorDataPtr values, bool accumulate) {
+    c10::List<c10::optional<at::Tensor>> indicesList;
+    for (const auto idx : indices) {
+        indicesList.push_back(From(idx));
+    }
+    From(out) = torch::index_put(From(self), indicesList, From(values), accumulate);
 }
 
 static void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans) {
@@ -529,7 +918,17 @@ static void RowMinSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, in
     From(out) = std::get<0>(ret);
 }
 
+static void RowMinLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto ret = torch::min(From(self), dim, true);
+    From(out) = std::get<0>(ret);
+}
+
 static void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto ret = torch::max(From(self), dim, true);
+    From(out) = std::get<0>(ret);
+}
+
+static void RowMaxLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
     auto ret = torch::max(From(self), dim, true);
     From(out) = std::get<0>(ret);
 }
@@ -700,9 +1099,6 @@ static void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t ax
     ASSERT(tself.size(axis) % MERGE_SORT_NUM == 0) <<
         "Expected self.size(axis) after preprocessing to be divisible by 4, but got " << tself.size(axis);
 
-    const int64_t maxk = tself.size(axis) / MERGE_SORT_NUM;
-    ASSERT(k > 0 && k <= maxk) << "Expected k to be in (0, " << maxk << "], but got " << k;
-
     std::vector<int64_t>newShape;
     newShape.reserve(tselfHalf.dim() + 1);
     for (int64_t i = 0; i < tselfHalf.dim(); ++i) {
@@ -740,6 +1136,204 @@ static void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t ax
     dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
 }
 
+static void TiledMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr src1, LogicalTensorDataPtr src2,
+    LogicalTensorDataPtr src3, LogicalTensorDataPtr src4, int validBit, int kvalue) {
+    auto self1 = From(src1);
+    auto self2 = From(src2);
+    auto self3 = From(src3);
+    auto self4 = From(src4);
+    auto tout = From(out);
+    constexpr int SORT_NUM_TWO = 2;
+    constexpr int SORT_NUM_THREE = 3;
+    constexpr int SORT_NUM_FOUR = 4;
+    torch::Tensor tself;
+    if (validBit == SORT_NUM_TWO) {
+        tself = torch::cat({self1, self2}, -1);
+    } else if (validBit == SORT_NUM_THREE) {
+        tself = torch::cat({self1, self2, self3}, -1);
+    } else if (validBit == SORT_NUM_FOUR) {
+        tself = torch::cat({self1, self2, self3, self4}, -1);
+    }
+    constexpr int ACTUAL_VALID_RATIO = 2;
+    auto axis = tself.dim() - 1;
+
+    std::vector<int64_t>newShape;
+    newShape.reserve(tself.dim() + 1);
+    for (int64_t i = 0; i < tself.dim(); ++i) {
+        if (i == axis) {
+            newShape.push_back(tself.size(axis) / ACTUAL_VALID_RATIO);
+            newShape.push_back(SORT_NUM_TWO);
+        } else {
+            newShape.push_back(tself.size(i));
+        }
+    }
+    auto tselfGrouped = tself.reshape(torch::IntArrayRef(newShape));
+    torch::Tensor sortedIndices;
+    std::tie(std::ignore, sortedIndices) = tselfGrouped.select(-1, 0).sort(axis, true);
+
+    std::vector<int64_t>indexShape;
+    for (int64_t i = 0; i < sortedIndices.dim(); ++i) {
+        indexShape.push_back(sortedIndices.size(i));
+    }
+    indexShape.push_back(SORT_NUM_TWO);
+    auto expanded_indices = sortedIndices.unsqueeze(-1).expand(torch::IntArrayRef(indexShape));
+    auto sortedGroups = tselfGrouped.gather(axis, expanded_indices);
+    auto indicesk = torch::arange(kvalue, torch::dtype(torch::kLong));
+    auto topkGroups = sortedGroups.index_select(axis, indicesk);
+
+    std::vector<int64_t> dstShape;
+    dstShape.reserve(topkGroups.dim() - 1);
+    for (int64_t i = 0; i < topkGroups.dim(); ++i) {
+        if (i == axis) {
+            dstShape.push_back(SORT_NUM_TWO * kvalue);
+        } else if (i !=axis + 1) {
+            dstShape.push_back(topkGroups.size(i));
+        }
+    }
+    torch::Tensor dstSubview = View(tout, dstShape, {0, 0});
+    dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
+}
+
+static void TopK(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outIndex,
+                 LogicalTensorDataPtr self, int k, int axis, bool descending) {
+    auto tself = From(self);
+    auto toutValue = From(outValue);
+    auto toutIndex = From(outIndex);
+    axis = axis < 0 ? (axis + tself.dim()) : axis;
+    torch::Tensor tempIdxInt64 = torch::zeros(toutValue.sizes().vec(), torch::kInt64);
+    torch::topk_out(toutValue, tempIdxInt64, tself, k, axis, descending);
+    auto tempIdxInt32 = tempIdxInt64.to(torch::kInt32);
+    toutIndex.copy_(tempIdxInt32);
+}
+
+static void TopkSort(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outTemp,
+                     LogicalTensorDataPtr self, int startIndex) {
+    auto tself = From(self);
+    auto toutValue = From(outValue);
+    auto toutTemp = From(outTemp);
+
+    constexpr int GROUP_SIZE = 32;
+    int axis = tself.dim() - 1;
+
+    // 1. Generate indices starting from startIndex*len
+    int64_t len = tself.size(axis);
+    int64_t baseIdx = startIndex * len;
+    auto indices = torch::arange(baseIdx, baseIdx + len, 1, torch::dtype(torch::kFloat));
+    std::vector<int64_t> indexShape(tself.dim(), 1);
+    indexShape[axis] = len;
+    indices = indices.reshape(indexShape).broadcast_to(tself.sizes());
+
+    // 2. Align to GROUP_SIZE (32)
+    auto tselfAlignShape = tself.sizes().vec();
+    int64_t alignedLen = (len + GROUP_SIZE - 1) / GROUP_SIZE * GROUP_SIZE;
+    tselfAlignShape[axis] = alignedLen;
+
+    float padValue = -1.0f / 0.0f;  // Negative infinity for descending sort
+    auto valuesAlign = torch::full(tselfAlignShape, padValue, tself.dtype());
+    torch::Tensor valueView = View(valuesAlign, tself.sizes().vec(), {0, 0});
+    valueView.copy_(tself);
+
+    auto indicesAlign = torch::full(tselfAlignShape, padValue, torch::kFloat);
+    torch::Tensor indexView = View(indicesAlign, indices.sizes().vec(), {0, 0});
+    indexView.copy_(indices);
+
+    // 3. Group and sort (every 32 elements)
+    std::vector<int64_t> groupShape;
+    for (int64_t i = 0; i < valuesAlign.dim(); ++i) {
+        if (i == axis) {
+            groupShape.push_back(alignedLen / GROUP_SIZE);
+            groupShape.push_back(GROUP_SIZE);
+        } else {
+            groupShape.push_back(valuesAlign.size(i));
+        }
+    }
+
+    auto valsGrouped = valuesAlign.reshape(torch::IntArrayRef(groupShape));
+    auto idxsGrouped = indicesAlign.reshape(torch::IntArrayRef(groupShape));
+
+    torch::Tensor sortIdx;
+    std::tie(valsGrouped, sortIdx) = valsGrouped.sort(axis + 1, true);  // Descending
+    idxsGrouped = idxsGrouped.gather(axis + 1, sortIdx);
+
+    // 4. Flatten
+    valsGrouped = valsGrouped.flatten(axis, axis + 1);
+    idxsGrouped = idxsGrouped.flatten(axis, axis + 1);
+
+    // 5. Create pack: [v0, i0, v1, i1, ...]
+    auto stacked = torch::stack({valsGrouped, idxsGrouped}, -1);  // [..., len, 2]
+    auto packed = stacked.flatten(axis, -1);  // [..., len*2]
+
+    // 6. Output
+    torch::Tensor tempView = View(toutTemp, packed.sizes().vec(), {0, 0});
+    tempView.copy_(packed);
+    torch::Tensor valView = View(toutValue, packed.sizes().vec(), {0, 0});
+    valView.copy_(packed);
+}
+
+static void TopkMerge(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mergeSize) {
+    (void) mergeSize;
+    auto tself = From(self);
+    auto tout = From(out);
+
+    int axis = tself.dim() - 1;
+
+    // Input is pack format: [v0, i0, v1, i1, ...]
+    // mergeSize: number of already-sorted packs
+    // Note: Current implementation uses global sort for simplicity (sufficient for precision verification)
+    (void)mergeSize;  // Suppress unused parameter warning
+
+    // Extract all values (even positions)
+    auto evenIndices = torch::arange(0, tself.size(axis), 2, torch::dtype(torch::kLong));
+    auto values = tself.index_select(axis, evenIndices);
+
+    // Global sort to get pack order
+    torch::Tensor sortIndices;
+    std::tie(std::ignore, sortIndices) = values.sort(axis, true);  // Descending
+
+    // Build actual element indices (each pack occupies 2 positions)
+    auto packIdx0 = sortIndices * 2;      // value position
+    auto packIdx1 = packIdx0 + 1;         // index position
+    // Stack and flatten to 1D vector for index_select
+    auto allIndices = torch::stack({packIdx0.flatten(), packIdx1.flatten()}, 1).flatten();
+
+    // Rearrange packs
+    auto sorted = tself.index_select(axis, allIndices);
+
+    torch::Tensor outView = View(tout, sorted.sizes().vec(), {0, 0});
+    outView.copy_(sorted);
+}
+
+static void TopkExtract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int k, bool isIndex) {
+    auto tself = From(self);
+    auto tout = From(out);
+
+    int axis = tself.dim() - 1;
+
+    // Input is pack format: [v0, i0, v1, i1, ...]
+    // isIndex=false: extract first k values (even positions: 0, 2, 4, ...)
+    // isIndex=true:  extract first k indices (odd positions: 1, 3, 5, ...)
+
+    int startOffset = isIndex ? 1 : 0;  // index starts from 1, value from 0
+    int stride = 2;                      // Values and indices are interleaved in pack
+
+    // Generate extraction indices: startOffset, startOffset+2, startOffset+4, ..., startOffset+2*(k-1)
+    auto indices = torch::arange(startOffset, startOffset + k * stride, stride, torch::dtype(torch::kLong));
+
+    // Extract
+    auto extracted = tself.index_select(axis, indices);
+
+    // If extracting indices, convert to INT32
+    if (isIndex) {
+        extracted = extracted.to(torch::kInt);
+    }
+
+    // Reshape to [1, k] (according to output shape in operation_impl.cpp)
+    extracted = extracted.reshape({1, k});
+
+    torch::Tensor outView = View(tout, extracted.sizes().vec(), {0, 0});
+    outView.copy_(extracted);
+}
+
 bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, torch::Tensor &indices,
     torch::Tensor &ret, int blockSize) {
     bool flag = false;
@@ -752,7 +1346,7 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
     if (ret.dim() == 2) { // 2 dim
         int64_t srcIdx = i * s + j;
         if ((dataIdx < 0 || dataIdx >= ret.size(0)) || (srcIdx < 0 || srcIdx >= src.size(0))) {
-            ALOG_ERROR_F("index out of range. i:%d, j:%d, dst_idx:%d, srcIdx:%d\n", i, j, dataIdx, srcIdx);
+            printf("index out of range. i:%ld, j:%ld, dst_idx:%ld, srcIdx:%ld\n", i, j, dataIdx, srcIdx);
             return flag;
         }
         ret[dataIdx] = src[srcIdx];
@@ -761,7 +1355,7 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
         int64_t bIdx = dataIdx / blockSize;
         int64_t sIdx = dataIdx % blockSize;
         if ((bIdx < 0 || bIdx >= ret.size(0)) || (sIdx < 0 || sIdx >= ret.size(1))) {
-            ALOG_ERROR_F("index out of range. i:%d, j:%d, dst_idx:%d, blockSize:%d\n", i, j, dataIdx, blockSize);
+            printf("index out of range. i:%ld, j:%ld, dst_idx:%ld, blockSize:%d\n", i, j, dataIdx, blockSize);
             return flag;
         }
         ret[bIdx][sIdx] = src[i][j];
@@ -771,12 +1365,14 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
     return flag;
 }
 
-static void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, int axis,
-    std::string cacheMode, int blockSize) {
+static void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, LogicalTensorDataPtr dst, int axis,
+   std::string cacheMode, int blockSize) {
     (void)axis;
     (void)cacheMode;
 
+    auto inplace = From(dst);
     auto ret = From(out);
+    ret.copy_(inplace);
     auto src = From(self);
     auto indices = From(index);
 
@@ -798,8 +1394,8 @@ static void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, L
 
 static const std::vector<std::string> scatterModeString = {"add", "multiply"};
 
-static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, const Element &src,
-    int axis, int reduce) {
+static void ScatterElement(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
+    const Element &src, int axis, int reduce) {
     auto output = From(out);
     auto inputSelf = From(self);
     auto inputIndices = From(index);
@@ -811,6 +1407,34 @@ static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     }
 }
 
+static void Brcb(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tself = From(self);
+    auto tout = From(out);
+    
+    std::vector<int64_t> input_shape = tself.sizes().vec();
+    std::vector<int64_t> output_shape = tout.sizes().vec();
+    
+    int64_t M = input_shape[0];
+    int64_t N = output_shape[1]; 
+    auto first_col = tself.index({torch::indexing::Slice(), 0}); 
+    auto expanded = first_col.unsqueeze(1).expand({M, N}); 
+    tout.copy_(expanded);
+}
+    
+static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
+    LogicalTensorDataPtr src, int axis, int reduce) {
+    auto output = From(out);
+    auto inputSelf = From(self);
+    auto inputIndices = From(index);
+    auto inputSrc = From(src);
+
+    if (reduce == 0) {
+        From(out) = torch::scatter(inputSelf, axis, inputIndices, inputSrc);
+    } else {
+        From(out) = torch::scatter(inputSelf, axis, inputIndices, inputSrc, scatterModeString.at(reduce - 1));
+    }
+}
+
 static struct CalcOps calcOps = {
     .Random = Random,
     .AllClose = AllClose,
@@ -819,7 +1443,14 @@ static struct CalcOps calcOps = {
     .Neg = Neg,
     .Rsqrt = Rsqrt,
     .Sqrt = Sqrt,
+    .Ceil = Ceil,
+    .Floor = Floor,
+    .Trunc = Trunc,
+    .Round = Round,
+    .Reciprocal = Reciprocal,
+    .BitwiseNot = BitwiseNot,
     .Abs = Abs,
+    .Brcb = Brcb,
     .WhereTT = WhereTT,
     .WhereTS = WhereTS,
     .WhereST = WhereST,
@@ -828,15 +1459,24 @@ static struct CalcOps calcOps = {
     .LogicalNot = LogicalNot,
     .Range = Range,
     .Compare = Compare,
+    .Cmps = Cmps,
     .LogicalAnd = LogicalAnd,
     .AddS = AddS,
     .SubS = SubS,
     .MulS = MulS,
     .DivS = DivS,
+    .FmodS = FmodS,
+    .BitwiseAndS = BitwiseAndS,
+    .BitwiseOrS = BitwiseOrS,
+    .BitwiseXorS = BitwiseXorS,
     .Add = Add,
     .Sub = Sub,
     .Mul = Mul,
     .Div = Div,
+    .Fmod = Fmod,
+    .BitwiseAnd = BitwiseAnd,
+    .BitwiseOr = BitwiseOr,
+    .BitwiseXor = BitwiseXor,
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,
@@ -850,25 +1490,44 @@ static struct CalcOps calcOps = {
     .RowSumSingle = RowSumSingle,
     .RowMinSingle = RowMinSingle,
     .RowMaxSingle = RowMaxSingle,
+    .RowMinLine = RowMinLine,
+    .RowMaxLine = RowMaxLine,
     .OneHot = OneHot,
     .ExpandS = ExpandS,
     .Expand = Expand,
     .GatherElements = GatherElements,
     .IndexAdd = IndexAdd,
+    .TriU = TriU,
+    .TriL = TriL,
+    .CumSum = CumSum,
+    .IndexPut = IndexPut,
     .Reshape = Reshape,
     .Permute = Permute,
     .Transpose = Transpose,
     .ReduceAcc = ReduceAcc,
     .Copy = Copy,
     .ScatterUpdate = ScatterUpdate,
+    .ScatterElement = ScatterElement,
     .Scatter = Scatter,
     .FormatND2NZ = FormatND2NZ,
     .FormatNZ2ND = FormatNZ2ND,
     .MatMul = MatMul,
     .BitSort = BitSort,
+    .TiledMrgSort = TiledMrgSort,
     .Extract = Extract,
     .Topk = Topk,
+    .TopK = TopK,
+    .TopkSort = TopkSort,
+    .TopkMerge = TopkMerge,
+    .TopkExtract = TopkExtract,
     .Gather = Gather,
+    .GatherINUB = GatherINUB,
+    .BitwiseRightShift = BitwiseRightShift,
+    .BitwiseLeftShift = BitwiseLeftShift,
+    .BitwiseRightShiftS = BitwiseRightShiftS,
+    .BitwiseLeftShiftS = BitwiseLeftShiftS,
+    .SBitwiseRightShift = SBitwiseRightShift,
+    .SBitwiseLeftShift = SBitwiseLeftShift,
 };
 
 extern "C" struct CalcOps *GetCalcOps() {

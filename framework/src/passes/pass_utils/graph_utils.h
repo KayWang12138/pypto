@@ -22,6 +22,7 @@
 #include "interface/function/function.h"
 #include "interface/tensor/logical_tensor.h"
 #include "pass_common_defs.h"
+#include "tilefwk/platform.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -68,10 +69,14 @@ public:
     /**
      * @brief Add an assemble operation.
      *        Update the AssembleOpAttribute of the assemble operation. The fromDynValidShape value is set by the DynValidShape of input.
+     *        Inherit the operation attribute and scopeId when given an origin assemble op.
      *        Set the DynValidShape of the output.
      *
      * @param function the target function for the assemble operation.
-     * @param assemble AssembleOp, indicating the input, output, toOffset, from 
+     * @param assemble AssembleOp, indicating the basic information of the added assemble operation.
+     *                 The information includes the memoryType of assemble OpAttribute, assemble offset, input and output of assemble.
+     *                 The information also indicates the origin assemble op (if exist) that the added operation
+     *                 should inherit attribute and scope id from.
      * @param outDynShape the DynValidShape of each output. The default value is {}.
      *                    If outDynShape is empty, uses SetDynShape to calculate the DynValidShape of each output.
      *                    The AssembleOpAttribute does not require dynamic attributes for output, so the SetDynShape is executed at last. 
@@ -81,16 +86,20 @@ public:
     /**
      * @brief Add a reshape operation.
      *        Set the DynValidShape of the output.
+     *        Inherit the operation attribute and scope id when given a legal origin reshape operation pointer.
      *        Update the op_attr_validShape of the reshape operation by the DynValidShape of output.
      *
      * @param function the target function for the reshape operation.
      * @param iOperand LogicalTensorPtr, indicating the input of the op
      * @param oOperand LogicalTensorPtr, indicating the output of the op
+     * @param originOp Pointer of operation, indicating an origin operation the added reshape operation should inherit attribute and scopeId from.
+     *                 Skip inherit attribute and scopeId if the pointer is nullptr.
      * @param outDynShape the DynValidShape of the output and the value of op_attr_validShape. The default value is {}.
      *                    If outDynShape is empty, uses CallInferShapeFunc to calculate the DynValidShape.
      * @return the operation to be added
      */
-    static Operation &AddReshapeOperation(Function &function, LogicalTensorPtr iOperand, const LogicalTensorPtr &oOperand, const std::vector<SymbolicScalar> &outDynShape = {});
+    static Operation &AddReshapeOperation(Function &function, const LogicalTensorPtr iOperand, const LogicalTensorPtr &oOperand,
+        const ReshapeOp &reshapeOp, const std::vector<SymbolicScalar> &outDynShape = {});
     /**
      * @brief Add a copyin operation.
      *        Update the CopyOpAttribute of the copyin operation by the CopyInOutOp object.
@@ -169,6 +178,10 @@ public:
      * @param copy AssembleOp, consisting of input, output, fromtype, toOffset.
      */
     static void SetAssembleAttr(Operation &op, const AssembleOp &assemble);
+    /**
+     * @brief Determine it is a CV seperate or CV mix platform.
+     */
+    static bool IsCVMixPlatform();
 };
 }
 }

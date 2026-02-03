@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <execinfo.h>
 #include "securec.h"
+#include "tilefwk/aikernel_define.h"
 #include "machine/utils/device_switch.h"
 #ifdef __DEVICE__
 #include "dlog_pub.h"
@@ -186,6 +187,40 @@ inline bool IsDebugMode() {
     return g_isLogEnableDebug;
 }
 
+template<typename... Args>
+inline void DeviceLogSplitDebug([[maybe_unused]] const std::string& mode_name,
+                                const char* func, const char* format, Args... args)
+    {
+        if (!IsLogEnableDebug()) {
+            return;
+        }
+        constexpr size_t MAX_LOG_CHUNK = 824;
+        char *formatted_str = nullptr;
+        int len = asprintf(&formatted_str, format, args...);
+        if (len < 0 || formatted_str == nullptr) {
+            return;
+        }
+        std::string log_content(formatted_str);
+        free(formatted_str);
+        // 分段输出
+        if (log_content.size() <= MAX_LOG_CHUNK) {
+            dlog_debug(AICPU, "%lu %s\n%s", GET_TID(), func, log_content.c_str());
+        } else {
+            size_t start = 0;
+            int segment_num = 0;
+            size_t total_len = log_content.size();
+            size_t total_segments = (total_len + MAX_LOG_CHUNK - 1) / MAX_LOG_CHUNK;
+            while (start < total_len) {
+                size_t chunk_size = (total_len - start > MAX_LOG_CHUNK) ? MAX_LOG_CHUNK : total_len - start;
+                std::string segment = log_content.substr(start, chunk_size);
+                dlog_debug(AICPU, "%lu %s [Segment %d/%lu]\n%s",
+                           GET_TID(), func, segment_num + 1, total_segments, segment.c_str());
+                start += chunk_size;
+                segment_num++;
+            }
+        }
+    }
+
 #define D_DEV_LOGD(MODE_NAME, fmt, ...)                                               \
   do {                                                                                \
       if (IsLogEnableDebug()) {                                                  \
@@ -214,6 +249,13 @@ inline bool IsDebugMode() {
       }                                                                               \
   } while(false)
 
+#define D_DEV_LOGD_SPLIT(MODE_NAME, fmt, ...)                                         \
+    do {                                                                                \
+        if (IsLogEnableDebug()) {                                                       \
+            DeviceLogSplitDebug(MODE_NAME, __FUNCTION__, fmt, ##__VA_ARGS__);             \
+        }                                                                               \
+    } while (false)
+
 #define DEV_VERBOSE_DEBUG(fmt, args...)                                  \
   do {                                                                  \
     if constexpr (IsCompileVerboseLog())  {                          \
@@ -224,6 +266,7 @@ inline bool IsDebugMode() {
 #define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_ERROR(fmt, args...) D_DEV_LOGE(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
+#define DEV_DEBUG_SPLIT(fmt, args...) D_DEV_LOGD_SPLIT(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 
 #define DEV_ASSERT_MSG(expr, fmt, args...)                              \
     do {                                                                \
@@ -240,16 +283,6 @@ inline bool IsDebugMode() {
             assert(0);                                                  \
         }                                                               \
     } while (0)
-
-#define DEV_DEBUG_ASSERT(expr)                                                      \
-    do {                                                                            \
-        if (!(expr)) {                                                              \
-            DEV_ERROR("Assertion failed at %s:%d (%s)", __FILE__, __LINE__, #expr); \
-            assert(0);                                                              \
-        }                                                                           \
-    } while (0)
-
-#define DEV_DEBUG_ASSERT_MSG(expr, fmt, args...) DEV_ASSERT_MSG(expr, fmt, ##args)
 
 #define DEV_MEM_DUMP(fmt, args...)
 
@@ -289,6 +322,12 @@ inline bool IsDebugMode() {
             GetLogger().Log(LOG_LEVEL_ERROR, __FILE__, __LINE__, fmt, ##args); \
         } \
     } while (0)
+#define DEV_DEBUG_SPLIT(fmt, args...) \
+    do { \
+        if (IsLogEnableDebug()) { \
+            GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, fmt, ##args); \
+        } \
+    } while (0)
 
 #if DEBUG_MEM_DUMP_LEVEL != DEBUG_MEM_DUMP_DISABLE
 #define DEV_MEM_DUMP(fmt, args...) GetLogger().Log(LOG_LEVEL_DEBUG, "/memdump", 0, "[WsMem Statistics] " fmt, ##args)
@@ -314,9 +353,6 @@ inline bool IsDebugMode() {
         }                                                                      \
     } while (0)
 
-
-#define DEV_DEBUG_ASSERT(expr) DEV_ASSERT(expr)
-#define DEV_DEBUG_ASSERT_MSG(expr, fmt, args...) DEV_ASSERT_MSG(expr, fmt, ##args)
 #endif // DEBUG_PLOG
 
 #define BACKTRACE_STACK_COUNT 64

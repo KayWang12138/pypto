@@ -38,6 +38,8 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
     const Tensor *kScale, const Tensor &weights, const Tensor &actSeqKey, const Tensor &blockTable, Tensor &topkRes,
     const int selectedCount, IndexerTile tileConfig, const std::set<int> &unrollList, Tensor *tmpOut,
     Tensor *topkValue) {
+    // 下面的逻辑涉及核内Assemble，但TILE TENSOR的实现暂不支持核内Assemble，因此先走非TILE TENSOR的逻辑
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     /*
     <no quant>
     query: [B, S1, indexN1, indexD], bf16
@@ -122,7 +124,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
 
                         TileShape::Current().SetCubeTile(
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, false);
-                        auto mmRes = Matrix::Matmul<false, true>(DataType::DT_FP32, curQ, curK); // (group, blockSize)
+                        auto mmRes = Matrix::Matmul(DataType::DT_FP32, curQ, curK, false, true); // (group, blockSize)
                         concatSrcs.emplace_back(mmRes); // Matches tile size, no extra Assign needed (?)
                     }
 
@@ -162,7 +164,7 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                         TileShape::Current().SetCubeTile(
                             {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, false);
 
-                        auto mmRes = Matrix::Matmul<false, true>(DataType::DT_INT32, curQ, curK); // (group, blockSize)
+                        auto mmRes = Matrix::Matmul(DataType::DT_INT32, curQ, curK, false, true); // (group, blockSize)
                         mmResQuantConcatSrcs.emplace_back(mmRes);
 
                         auto curKScale =
@@ -224,132 +226,91 @@ void LightningIndexerTopkImpl(const Tensor &query, const Tensor &key, bool isQua
                     TileShape::Current().SetVecTile({1, tileSize});
                     LOOP("2K_LOOP", FunctionType::DYNAMIC_LOOP, unused, LoopRange(lengthIsLE2K)) {
                         (void)unused;
+                        TileShape::Current().SetVecTile({1, length2K});
                         Tensor padX2K(xdtype, {1, length2K}, "padX2K");
-                        config::SetPassOption(PG_SKIP_PARTITION, true);
-                        LOOP("2K_PAD", FunctionType::DYNAMIC_LOOP, unused1, LoopRange(1)) {
-                            (void)unused1;
-                            TileShape::Current().SetVecTile({1, length2K});
-                            auto ax = View(localSum, {1, length2K}, {1, effSeq}, {0, 0});
-                            auto bx = Full(Element(xdtype, padValue), xdtype, {1, length2K}, {1, length2K - effSeq});
-                            Assemble(Assign(ax), {0, 0}, padX2K);
-                            Assemble(bx, {0, effSeq}, padX2K);
-                        }
-                        config::SetPassOption(PG_SKIP_PARTITION, false);
-                        LOOP("2K_TOPK", FunctionType::DYNAMIC_LOOP, unused2, LoopRange(1)) {
-                            (void)unused2;
-                            auto [resValue, resIdx] = TopK(View(padX2K, {1, length2K}, {0, 0}), selectedCount, 1);
-                            TileShape::Current().SetVecTile(tileConfig.addsTile);
-                            auto topk4D = Reshape(
-                                View(resIdx, {1, selectedCount}, {1, effSeq}, {0, 0}), {1, 1, 1, selectedCount}, {1, 1, 1, effSeq});
-                            Assemble(Assign(topk4D), {bIdx, s1Idx, n2Idx, 0}, topkRes);
-                            auto topkIndicesPad = Full(Element(idxdtype, padIdxValue), idxdtype, {1, 1, 1, selectedCount},
-                                {1, 1, 1, selectedCount - effSeq});
-                            Assemble(topkIndicesPad, {bIdx, s1Idx, n2Idx, effSeq}, topkRes);
 
-                            if (topkValue != nullptr) {
-                                auto topk4DValue = Reshape(View(resValue, {1, selectedCount}, {1, effSeq}, {0, 0}),
-                                    {1, 1, 1, selectedCount}, {1, 1, 1, effSeq});
-                                Assemble(Assign(topk4DValue), {bIdx, s1Idx, n2Idx, 0}, *topkValue);
-                                auto topkValuePad = Full(Element(DT_FP32, padValue), DT_FP32, {1, 1, 1, selectedCount},
-                                    {1, 1, 1, selectedCount - effSeq});
-                                Assemble(topkValuePad, {bIdx, s1Idx, n2Idx, effSeq}, *topkValue);
-                            }
-                            TileShape::Current().SetVecTile({1, tileSize});
+                        auto ax = View(localSum, {1, length2K}, {1, effSeq}, {0, 0});
+                        auto bx = Full(Element(xdtype, padValue), xdtype, {1, length2K}, {1, length2K - effSeq});
+                        Assemble({{Assign(ax), {0, 0}}, {bx, {0, effSeq}}}, padX2K, true);
+                        auto [resValue, resIdx] = TopK(padX2K, selectedCount, 1);
+                        TileShape::Current().SetVecTile(tileConfig.addsTile);
+                        auto topk4D = Reshape(
+                            View(resIdx, {1, selectedCount}, {1, effSeq}, {0, 0}), {1, 1, 1, selectedCount}, {1, 1, 1, effSeq});
+                        auto topkIndicesPad = Full(
+                            Element(idxdtype, padIdxValue), idxdtype, {1, 1, 1, selectedCount}, {1, 1, 1, selectedCount - effSeq});
+                        Assemble({{topk4D, {bIdx, s1Idx, n2Idx, 0}}, {topkIndicesPad, {bIdx, s1Idx, n2Idx, effSeq}}}, topkRes, true);
+
+                        if (topkValue != nullptr) {
+                            auto topk4DValue = Reshape(View(resValue, {1, selectedCount}, {1, effSeq}, {0, 0}),
+                                {1, 1, 1, selectedCount}, {1, 1, 1, effSeq});
+                            auto topkValuePad = Full(
+                                Element(DT_FP32, padValue), DT_FP32, {1, 1, 1, selectedCount}, {1, 1, 1, selectedCount - effSeq});
+                            Assemble({{topk4DValue, {bIdx, s1Idx, n2Idx, 0}}, {topkValuePad, {bIdx, s1Idx, n2Idx, effSeq}}}, *topkValue, true);
                         }
+                        TileShape::Current().SetVecTile({1, tileSize});
                     }
 
                     auto lengthIsLE8K = effSeq <= length8K;
                     auto lengthIsGT8K = effSeq > length8K;
                     LOOP("8K_LOOP", FunctionType::DYNAMIC_LOOP, unused, LoopRange(lengthIsGT2K * lengthIsLE8K)) {
-                        UNUSED(unused);
-                        Tensor padX8K(xdtype, {1, length8K}, "padX8K");
-                        config::SetPassOption(PG_SKIP_PARTITION, true);
-                        LOOP("8K_PAD", FunctionType::DYNAMIC_LOOP, unused0, LoopRange(1)) {
-                            UNUSED(unused0);
-                            TileShape::Current().SetVecTile({1, tileSize});
-                            auto ax = View(localSum, {1, length8K}, {1, effSeq}, {0, 0});
-                            auto bx = Full(Element(xdtype, padValue), xdtype, {1, length8K}, {1, length8K - effSeq});
-                            Assemble(Assign(ax), {0, 0}, padX8K);
-                            Assemble(bx, {0, effSeq}, padX8K);
-                        }
-                        config::SetPassOption(PG_SKIP_PARTITION, false);
-
+                        (void)unused;
                         TileShape::Current().SetVecTile({1, tileSize});
-                        LOOP("8K_TOPK", FunctionType::DYNAMIC_LOOP, unused1, LoopRange(1)) {
-                            UNUSED(unused1);
-                            auto [resValue, resIdx] = TopK(View(padX8K, {1, length8K}, {0, 0}), selectedCount, 1);
+                        Tensor padX8K(xdtype, {1, length8K}, "padX8K");
+                        auto ax = View(localSum, {1, length8K}, {1, effSeq}, {0, 0});
+                        auto bx = Full(Element(xdtype, padValue), xdtype, {1, length8K}, {1, length8K - effSeq});
+                        Assemble({{Assign(ax), {0, 0}}, {bx, {0, effSeq}}}, padX8K, true);
+                        auto [resValue, resIdx] = TopK(padX8K, selectedCount, 1);
+                        TileShape::Current().SetVecTile(tileConfig.addsTile);
+                        auto topk4D = Reshape(resIdx, {1, 1, 1, selectedCount});
+                        Assemble({{topk4D, {bIdx, s1Idx, n2Idx, 0}}}, topkRes);
+                        if (topkValue != nullptr) {
                             TileShape::Current().SetVecTile(tileConfig.addsTile);
-                            auto topk4D = Reshape(resIdx, {1, 1, 1, selectedCount});
-                            Assemble(Assign(topk4D), {bIdx, s1Idx, n2Idx, 0}, topkRes);
-                            if (topkValue != nullptr) {
-                                TileShape::Current().SetVecTile(tileConfig.addsTile);
-                                auto topk4DValue = Reshape(resValue, {1, 1, 1, selectedCount});
-                                Assemble(Assign(topk4DValue), {bIdx, s1Idx, n2Idx, 0}, *topkValue);
-                            }
-                            TileShape::Current().SetVecTile({1, tileSize});
+                            auto topk4DValue = Reshape(resValue, {1, 1, 1, selectedCount});
+                            Assemble({{topk4DValue, {bIdx, s1Idx, n2Idx, 0}}}, *topkValue);
                         }
+                        TileShape::Current().SetVecTile({1, tileSize});
                     }
 
                     auto lengthIsLE64K = effSeq <= length64K;
                     auto lengthIsGT64K = effSeq > length64K;
                     LOOP("64K_LOOP", FunctionType::DYNAMIC_LOOP, unused, LoopRange(lengthIsGT8K * lengthIsLE64K)) {
                         UNUSED(unused);
-                        Tensor padX64K(xdtype, {1, length64K}, "padX64K");
-                        config::SetPassOption(PG_SKIP_PARTITION, true);
-                        LOOP("64K_PAD", FunctionType::DYNAMIC_LOOP, unused0, LoopRange(1)) {
-                            UNUSED(unused0);
-                            TileShape::Current().SetVecTile({1, tileSize});
-                            auto ax = View(localSum, {1, length64K}, {1, effSeq}, {0, 0});
-                            auto bx = Full(Element(xdtype, padValue), xdtype, {1, length64K}, {1, length64K - effSeq});
-                            Assemble(Assign(ax), {0, 0}, padX64K);
-                            Assemble(bx, {0, effSeq}, padX64K);
-                        }
-                        config::SetPassOption(PG_SKIP_PARTITION, false);
-
                         TileShape::Current().SetVecTile({1, tileSize});
-                        LOOP("64K_TOPK", FunctionType::DYNAMIC_LOOP, unused1, LoopRange(1)) {
-                            UNUSED(unused1);
-                            auto [resValue, resIdx] = TopK(View(padX64K, {1, length64K}, {0, 0}), selectedCount, 1);
+                        Tensor padX64K(xdtype, {1, length64K}, "padX64K");
+                        auto ax = View(localSum, {1, length64K}, {1, effSeq}, {0, 0});
+                        auto bx = Full(Element(xdtype, padValue), xdtype, {1, length64K}, {1, length64K - effSeq});
+                        Assemble({{Assign(ax), {0, 0}}, {bx, {0, effSeq}}}, padX64K, true);
+
+                        auto [resValue, resIdx] = TopK(padX64K, selectedCount, 1);
+                        TileShape::Current().SetVecTile(tileConfig.addsTile);
+                        auto topk4D = Reshape(resIdx, {1, 1, 1, selectedCount});
+                        Assemble({{topk4D, {bIdx, s1Idx, n2Idx, 0}}}, topkRes);
+                        if (topkValue != nullptr) {
                             TileShape::Current().SetVecTile(tileConfig.addsTile);
-                            auto topk4D = Reshape(resIdx, {1, 1, 1, selectedCount});
-                            Assemble(Assign(topk4D), {bIdx, s1Idx, n2Idx, 0}, topkRes);
-                            if (topkValue != nullptr) {
-                                TileShape::Current().SetVecTile(tileConfig.addsTile);
-                                auto topk4DValue = Reshape(resValue, {1, 1, 1, selectedCount});
-                                Assemble(Assign(topk4DValue), {bIdx, s1Idx, n2Idx, 0}, *topkValue);
-                            }
-                            TileShape::Current().SetVecTile({1, tileSize});
+                            auto topk4DValue = Reshape(resValue, {1, 1, 1, selectedCount});
+                            Assemble({{topk4DValue, {bIdx, s1Idx, n2Idx, 0}}}, *topkValue);
                         }
+                        TileShape::Current().SetVecTile({1, tileSize});
                     }
 
                     LOOP("128K_LOOP", FunctionType::DYNAMIC_LOOP, unused, LoopRange(lengthIsGT64K)) {
                         UNUSED(unused);
-                        Tensor padX128K(xdtype, {1, length128K}, "padX128K");
-                        config::SetPassOption(PG_SKIP_PARTITION, true);
-                        LOOP("128K_PAD", FunctionType::DYNAMIC_LOOP, unused0, LoopRange(1)) {
-                            UNUSED(unused0);
-                            TileShape::Current().SetVecTile({1, tileSize});
-                            auto ax = View(localSum, {1, length128K}, {1, effSeq}, {0, 0});
-                            auto bx = Full(Element(xdtype, padValue), xdtype, {1, length128K}, {1, length128K - effSeq});
-                            Assemble(Assign(ax), {0, 0}, padX128K);
-                            Assemble(bx, {0, effSeq}, padX128K);
-                        }
-                        config::SetPassOption(PG_SKIP_PARTITION, false);
-
                         TileShape::Current().SetVecTile({1, tileSize});
-                        LOOP("128K_TOPK", FunctionType::DYNAMIC_LOOP, unused1, LoopRange(1)) {
-                            UNUSED(unused1);
-                            auto [resValue, resIdx] = TopK(View(padX128K, {1, length128K}, {0, 0}), selectedCount, 1);
+                        Tensor padX128K(xdtype, {1, length128K}, "padX128K");
+                        auto ax = View(localSum, {1, length128K}, {1, effSeq}, {0, 0});
+                        auto bx = Full(Element(xdtype, padValue), xdtype, {1, length128K}, {1, length128K - effSeq});
+                        Assemble({{Assign(ax), {0, 0}}, {bx, {0, effSeq}}}, padX128K, true);
+
+                        auto [resValue, resIdx] = TopK(padX128K, selectedCount, 1);
+                        TileShape::Current().SetVecTile(tileConfig.addsTile);
+                        auto topk4D = Reshape(resIdx, {1, 1, 1, selectedCount});
+                        Assemble({{topk4D, {bIdx, s1Idx, n2Idx, 0}}}, topkRes);
+                        if (topkValue != nullptr) {
                             TileShape::Current().SetVecTile(tileConfig.addsTile);
-                            auto topk4D = Reshape(resIdx, {1, 1, 1, selectedCount});
-                            Assemble(Assign(topk4D), {bIdx, s1Idx, n2Idx, 0}, topkRes);
-                            if (topkValue != nullptr) {
-                                TileShape::Current().SetVecTile(tileConfig.addsTile);
-                                auto topk4DValue = Reshape(resValue, {1, 1, 1, selectedCount});
-                                Assemble(Assign(topk4DValue), {bIdx, s1Idx, n2Idx, 0}, *topkValue);
-                            }
-                            TileShape::Current().SetVecTile({1, tileSize});
+                            auto topk4DValue = Reshape(resValue, {1, 1, 1, selectedCount});
+                            Assemble({{topk4DValue, {bIdx, s1Idx, n2Idx, 0}}}, *topkValue);
                         }
+                        TileShape::Current().SetVecTile({1, tileSize});
                     }
                 }
             }
@@ -377,8 +338,6 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
     topkRes: [t, 1, selectedCount], int32
     */
 
-    // tile config set
-    config::SetCodeGenOption("codegen_expression_fusion", true); // dynamic symbolic compute
     // graph fuse thresold
     config::SetPassOption("mg_copyin_upper_bound", configs.mgCopyInUpperBound);
     config::SetPassOption("pg_upper_bound", configs.pgUpperBound);
@@ -469,16 +428,16 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
                                 {c1Tile[0], c1Tile[1]}, {c1Tile[2], c1Tile[3]}, {c1Tile[4], c1Tile[5]}, false);
                             if (false) {
                                 // use fixpipe
-                                auto qkDot = Matrix::Matmul<false, true>(DataType::DT_FP16, curQ, kBlock,
-                                    configs.extendParam); // (s1Tile * idxNHeads, blockSize)
+                                auto qkDot = Matrix::Matmul(DataType::DT_FP16, curQ, kBlock,
+                                    configs.extendParam, false, true); // (s1Tile * idxNHeads, blockSize)
                                 firstMmCollect.emplace_back(qkDot);
                                 if (firstMm != nullptr) {
                                     Assemble(qkDot, {qOffset, idxInBlock * blockSize},
                                         *firstMm); // (s1Tile * idxNHeads, blockSize)
                                 }
                             } else {
-                                auto qkDot = Matrix::Matmul<false, true>(
-                                    DataType::DT_INT32, curQ, kBlock); // (s1Tile * idxNHeads, blockSize)
+                                auto qkDot = Matrix::Matmul(
+                                    DataType::DT_INT32, curQ, kBlock, false, true); // (s1Tile * idxNHeads, blockSize)
                                 TileShape::Current().SetVecTile(s1Tile * idxNHeads, blockSize);
                                 qkDot = Cast(qkDot, DT_FP32);
                                 qkDot = Maximum(qkDot, Element(DT_FP32, 0.0f));
@@ -510,8 +469,8 @@ void LightningIndexerImpl(const Tensor &idxQuery, const Tensor &idxQueryScale, c
                             {s1Tile, idxNHeads, std::min(unrollLoop * blockSize, validCatShape)});
                         TileShape::Current().SetCubeTile(
                             {c2Tile[0], c2Tile[1]}, {c2Tile[2], c2Tile[3]}, {c2Tile[4], c2Tile[5]}, false);
-                        auto wQk = Matrix::BatchMatmul<false, false>(
-                            DT_FP32, wScale, qk3D); // (s1Tile, 1, unrollLoop * blockSize);
+                        auto wQk = Matrix::BatchMatmul(
+                            DT_FP32, wScale, qk3D, false, false); // (s1Tile, 1, unrollLoop * blockSize);
                         auto secondMm = Reshape(wQk, {s1Tile, unrollLoop * blockSize},
                             {s1Tile, std::min(unrollLoop * blockSize, validCatShape)});
 

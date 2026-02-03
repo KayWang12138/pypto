@@ -13,7 +13,6 @@
  * \brief
  */
 
-#include "distributed_op_test_suite.h"
 #include "distributed_op_test_common.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -25,55 +24,52 @@ namespace npu::tile_fwk {
 namespace Distributed {
 
 template<typename T>
-void TestDynAllGather(OpTestParam &testParam)
+void TestAllGather(OpTestParam& testParam)
 {
-    constexpr size_t paramsSize = 3;
-    auto [M, N, typeNum] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
+    constexpr size_t paramsSize = 5;
+    auto [row, col, typeNum, tileRow, tileCol] = GetParams<paramsSize>(GetGoldenDir() + "/params.bin");
 
     DataType dType = GetDataTypeNum(typeNum);
 
-    int32_t outSize = M * N * testParam.rankSize;
+    int32_t outSize = row * col * testParam.rankSize;
 
-    Shape shape{M, N};
-    Shape outShape{testParam.rankSize * M, N};
+    Shape shape{row, col};
+    Shape outShape{testParam.rankSize * row, col};
     Tensor in(dType, shape, "in");
-    Tensor barrierDummy(DT_INT32, {1, 1}, "barrierDummy");
     Tensor out(dType, outShape, "out");
 
     std::vector<T> inPtr = ReadToVector<T>(GetGoldenDir() + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", shape);
-
-    int32_t tileNum1 = 8;
-    int32_t tileNum2 = 8;
-    FUNCTION("ALLGATHER", {in, barrierDummy}, {out}) {
-        TileShape::Current().SetDistTile(
-            {M / tileNum1, tileNum1, M % tileNum1},
-            {N / tileNum2, tileNum2, N % tileNum2},
-            {1, testParam.rankSize, 0});
-        ShmemAllGather(in, barrierDummy, testParam.group, out);
+    
+    Shape shmemDataShape{testParam.rankSize, row, col};
+    FUNCTION("ALLGATHER", {in}, {out}) {
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(testParam.group, testParam.rankSize, dType, shmemDataShape, shmemData);
+            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        }
+        AllGather(in, in, testParam.group, shmemData, shmemSignal, out);
     }
 
     ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<T>(in, inPtr),
-        RawTensorData::CreateTensorZero(barrierDummy)
+        RawTensorData::CreateTensor<T>(in, inPtr)
     });
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateTensorZero(out)
     });
 
-    auto dynAttr = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
-    auto hcclContext = GetHcclContext(dynAttr->commGroupNames);
-    DeviceLauncherConfig config;
-    config.runModel = false;
-    config.hcclContext = hcclContext;
-    DevFuncRunner::Run(Program::GetInstance().GetLastFunction(), config);
-
+    RunTest();
     auto outPtr = ProgramData::GetInstance().GetOutputData(0)->GetDevPtr();
     EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, "/output_rank_", outSize, outPtr, testParam));
+
 }
-template void TestDynAllGather<int32_t>(OpTestParam &testParam);
-template void TestDynAllGather<float>(OpTestParam &testParam);
-template void TestDynAllGather<float16>(OpTestParam &testParam);
-template void TestDynAllGather<bfloat16>(OpTestParam &testParam);
+
+template void TestAllGather<int32_t>(OpTestParam& testParam);
+template void TestAllGather<float>(OpTestParam& testParam);
+template void TestAllGather<float16>(OpTestParam& testParam);
+template void TestAllGather<bfloat16>(OpTestParam& testParam);
 
 } // namespace Distributed
 } // namespace npu::tile_fwk

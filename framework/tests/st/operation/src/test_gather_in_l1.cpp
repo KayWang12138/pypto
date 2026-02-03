@@ -242,11 +242,10 @@ struct NSASimpleParams {
 class GatherInL1Test : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
     void SetUp() override {
         TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostOption(ONLY_CODEGEN, true);
         rtSetDevice(GetDeviceIdByEnvVar());
     }
     void TearDown() override {
-        config::SetHostOption(ONLY_CODEGEN, false);
+        config::SetHostOption(COMPILE_STAGE, 0);
         TestSuite_STest_Ops_Aihac::TearDown();
     }
 };
@@ -327,15 +326,15 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
                     dst = Matrix::Matmul(DT_FP16, a, dynUnit);
                 } else {
                     auto a = experimental::GatherInL1<false, true>(dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
-                    dst = Matrix::Matmul<true, false>(DT_FP16, a, dynUnit);
+                    dst = Matrix::Matmul(DT_FP16, a, dynUnit, true, false);
                 }
             } else {
                 if (!isTrans) {
                     auto b = experimental::GatherInL1<true, false>(dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
-                    dst = Matrix::Matmul<false, false>(DT_FP16, dynUnit, b);
+                    dst = Matrix::Matmul(DT_FP16, dynUnit, b, false, false);
                 } else {
                     auto b = experimental::GatherInL1<true, true>(dynSrc, dynOffsets, pageTable, cfg.block_size, cfg.hidden_dim);
-                    dst = Matrix::Matmul<false, true>(DT_FP16, dynUnit, b);
+                    dst = Matrix::Matmul(DT_FP16, dynUnit, b, false, true);
                 }
             }
         }

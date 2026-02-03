@@ -16,7 +16,6 @@ add_subdirectory(framework)
 set(_Target ${PTO_Fwk_STestNamePrefix}_distributed)
 file(GLOB_RECURSE _Sources src/*.cpp)
 set(_PrivateLinkLibraries
-        tile_fwk_passes
         tile_fwk_interface
         tile_fwk_codegen
         tile_fwk_compiler
@@ -32,6 +31,21 @@ PTO_Fwk_GTest_AddExe(
         PRIVATE_LINK_LIBRARIES  ${_PrivateLinkLibraries}
 )
 
+set(TEST_CASE_SRC_DIR "${PTO_FWK_SRC_ROOT}/framework/tests/st/distributed/ops/test_case")
+set(TEST_CASE_DST_DIR "$<TARGET_FILE_DIR:${_Target}>/test_case")
+
+add_custom_command(TARGET ${_Target} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${TEST_CASE_SRC_DIR}"
+        "${TEST_CASE_DST_DIR}"
+    COMMENT "Copying test case data files to output directory..."
+    VERBATIM
+)
+target_compile_definitions(${_Target} PRIVATE
+    TEST_CASE_RELATIVE_PATH="test_case"
+    TEST_CASE_EXE_DIR="${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+)
+
 # PyPTO, 依赖 CI 任务拆分, 先通过依赖确保上板顺序
 if (TARGET ${PTO_Fwk_STestNamePrefix}_python)
     message(STATUS "Add Dependencies ${_Target} -> ${PTO_Fwk_STestNamePrefix}_python")
@@ -39,19 +53,18 @@ if (TARGET ${PTO_Fwk_STestNamePrefix}_python)
 endif ()
 
 # 用例可执行程序(执行)
-# aicpuWaitFlag_single_test_reduce_scatter_int32_32_32_4 "4"
-# aicpuWaitFlag和aiv两方式_单Tensor和多Tensor_算子名称_数据类型_row_col_卡数 卡数
 set(_DistributedGTestCaseFilterConfig
-        "DistributedTest.shmem_all_gather_int32_128_256_4" "4"
-        "DistributedTest.shmem_reduce_scatter_int32_128_256_4" "4"
-        "DistributedTest.shmem_reduce_scatter_float16_128_256_4" "4"
-        "DistributedTest.shmem_reduce_scatter_bfloat16_32_32_4" "4"
-        "DistributedTest.shmem_all_reduce_int32_64_256_4" "4"
-        "DistributedTest.shmem_all_reduce_bfloat16_50_256_4" "4"
-        "DistributedTest.shmem_moe_combine_bfloat16_8_5120_0_160_8_4" "4"
-        "DistributedTest.shmem_moe_combine_bfloat16_256_5120_0_160_8_4" "4"
-        "DistributedTest.shmem_allgather_attn_post_reducescatter_bfloat16_64_1_32_256_128_128_4" "4"
-        "DistributedTest.shmem_allreduce_add_allreduce_bfloat16_256_102400_4" "4"
+        # "TestAllgather/DistributedTest.TestAllgather/0" "4"
+        # "TestAllreduce/DistributedTest.TestAllreduce/0" "4"
+        # "TestAllreduce/DistributedTest.TestAllreduce/1" "4"
+        # "TestMoeDispatch/DistributedTest.TestMoeDispatch/0" "4"
+        # "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/0" "4"
+        # "TestMoeDistributedCombine/DistributedTest.TestMoeDistributedCombine/1" "4"
+        # "TestReducescatter/DistributedTest.TestReducescatter/0" "4"
+        # "TestReducescatter/DistributedTest.TestReducescatter/1" "4"
+        # "TestReducescatter/DistributedTest.TestReducescatter/2" "4"
+        # "TestAllgather_AttnPost_Reducescatter/DistributedTest.TestAllgather_AttnPost_Reducescatter/0" "4"
+        # "TestAllreduce_Add_Allreduce/DistributedTest.TestAllreduce_Add_Allreduce/0" "4"
 )
 set(_LdLibrariesExt
         tile_fwk_compiler
@@ -67,3 +80,4 @@ PTO_Fwk_STest_Distributed_RunExe(
        GTEST_FILTER_CONFIG     ${_DistributedGTestCaseFilterConfig}
        GOLDEN_SCRIPT_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/ops/script
 )
+

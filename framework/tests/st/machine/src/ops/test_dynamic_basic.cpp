@@ -33,7 +33,6 @@ class DynamicBasicTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac 
 public:
     void SetUp() override {
         npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac::SetUp();
-        config::SetHostOption(ONLY_CODEGEN, true);
         TileShape::Current().SetVecTile(32, 32);
         TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
         rtSetDevice(GetDeviceIdByEnvVar());
@@ -145,7 +144,7 @@ void TestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Tensor &bloc
             Assemble(t0s, {0, 0}, ki);
             Assemble(t1, {0, s}, ki);
 
-            Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, qi, ki);
+            Tensor t2 = Matrix::Matmul(DataType::DT_FP32, qi, ki, false, true);
             // conat((t0s + t1, t1)) @ concat (t0s, t1)^T
             Assemble(t2, {idx * s, 0}, out);
         }
@@ -270,7 +269,6 @@ TEST_F(DynamicBasicTest, HiddenLoopConditionMixedMulLoops) {
 
 TEST_F(DynamicBasicTest, TestDD) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     int s = 32;
     int n = 8;
     Tensor t0(DT_FP32, {n * s, s}, "t0");  // [32*8, 32]
@@ -547,7 +545,7 @@ TEST_F(DynamicBasicTest, DynamicRawShape) {
     FUNCTION("main", {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, idx, LoopRange(GetInputShape(out, 0) / s)) {
             Tensor t0s = View(t0, {s, s}, {idx * s, 0});
-            Tensor t2 = Matrix::Matmul<false, true>(DataType::DT_FP32, t0s, t1);
+            Tensor t2 = Matrix::Matmul(DataType::DT_FP32, t0s, t1, false, true);
             Assemble(t2, {idx * s, 0}, out);
         }
     }
@@ -1034,7 +1032,6 @@ TEST_F(DynamicBasicTest, TestGetTensorData) {
 
 TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -1118,7 +1115,6 @@ TEST_F(DynamicBasicTest, TestGetTensorDataCrossFunction) {
 
 TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -1199,7 +1195,6 @@ TEST_F(DynamicBasicTest, TestGetTensorDataUnalign) {
 TEST_F(DynamicBasicTest, TestGetTensorDataExpr) {
     SetInterpreterConfig();
     int tiling = 32;
-    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
     TileShape::Current().SetVecTile(tiling, tiling);
     TileShape::Current().SetCubeTile({tiling, tiling}, {tiling, tiling}, {tiling, tiling});
@@ -1355,7 +1350,6 @@ TEST_F(DynamicBasicTest, TestSetTensorData) {
 
 TEST_F(DynamicBasicTest, TestSetTensorDataExpr) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);
@@ -1438,7 +1432,6 @@ TEST_F(DynamicBasicTest, TestGetTensorDataAndDup) {
 
 TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
     SetInterpreterConfig();
-    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
 
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);
@@ -1482,8 +1475,6 @@ TEST_F(DynamicBasicTest, TestGetAndSetTensorDataExpr) {
 }
 
 TEST_F(DynamicBasicTest, TestSelectAttention) {
-    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
-
     int tiling = 32;
     TileShape::Current().SetVecTile(tiling, tiling, tiling);
 
@@ -1565,7 +1556,7 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
             LOOP("Step2", FunctionType::DYNAMIC_LOOP, j, LoopRange(n), {}, true) {
                 LOOP("loop1", FunctionType::DYNAMIC_LOOP, _, LoopRange(1), {}, true) {
                     (void)_;
-                    auto matmul = Matrix::Matmul<false, true>(DataType::DT_FP32, r0, r1);
+                    auto matmul = Matrix::Matmul(DataType::DT_FP32, r0, r1, false, true);
                     auto d1 = Div(matmul, Element(dtype, (float)n));
                     auto d2 = Div(d1, Element(dtype, (float)n));
                     IF (i == 0) {
@@ -1591,7 +1582,6 @@ TEST_F(DynamicBasicTest, TestSelectAttention) {
 
 TEST_F(DynamicBasicTest, TestGetTensorDataSymbolicValue) {
     config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
-    config::SetCodeGenOption(CODEGEN_EXPRESSION_FUSION, true);
     int n = 4;
     int loopCount = 4;
     int NUM_2 = 2;

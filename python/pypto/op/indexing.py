@@ -14,6 +14,8 @@ from .. import pypto_impl
 from ..enum import ScatterMode
 from .._op_wrapper import op_wrapper
 from ..tensor import Tensor
+from .._element import Element
+from ..tensor import Tensor
 
 
 @op_wrapper
@@ -103,6 +105,71 @@ def index_add(
 
 
 @op_wrapper
+def index_put_(
+    input: Tensor, indices: tuple, values: Tensor, accumulate: bool = False
+    ) -> None:
+    """
+    Puts values from the tensor `values` into the tensor `input` using the 
+    indices specified in `indices`(which is a tuple of Tensors).
+
+    With different numbers of tensors in indices, this function specified output as:
+    input[indices[0][i], ...] = values[i, ...]                      # with 1 tensor in indices
+    input[indices[0][i], indices[1][i], ...] = values[i, ...]       # with 2 tensors in indices
+    input[indices[0][i], ..., indices[k][i], ...] = values[i, ...]  # with k tensors in indices
+
+    Parameters
+    ----------
+    input : Tensor
+        Source tensor that needs to be updated in place.
+    indices : a tuple of 1-dimensional Tensor(s)
+        The i-th 1-dimensional tensor represents the index along the 
+        i-th dimension in `input`, with a dtype of either int64 or int32. 
+        Broadcasting is not currently supported, and each 1-dimensional
+        tensor must have the same length.
+    values : Tensor
+        Tensor of the same dtype as self. Broadcasting is not currently 
+        supported. The size of the first dimension of `values` must be
+        the same as the length of the 1-dimensional tensors in `indices`.
+        All other dimensions must match `input`.
+    accumulate : bool
+        Specify whether to accumulate into `input`. Specifically, when
+        `indices` contain duplicate elements, the behavior is undefined.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    RuntimeError
+        If any value in the i-th 1-dimensional tensor of `indices` exceed
+        the range [0, input.shape[i - 1]].
+
+    Examples
+    --------
+    x = pypto.tensor([4, 2], pypto.DT_FP32)
+    indices = (pypto.tensor([3], pypto.DT_INT32), )
+    values = pypto.tensor([3, 2], pypto.DT_FP32)
+
+    input x:  [[0 0],
+               [0 0],
+               [0 0],
+               [0 0]]
+      indices: [0 1 3]
+       values: [[1 1],
+               [2 2],
+               [3 3]]
+
+    updated x: [[1 1],
+               [2 2],
+               [0 0],
+               [3 3]]
+    """
+    indices_list = list(indices)
+    pypto_impl.IndexPut_(input, indices_list, values, accumulate)
+
+
+@op_wrapper
 def gather(input: Tensor, dim: int, index: Tensor) -> Tensor:
     """
     Gather elements from `input` along `dim` according to `index`.
@@ -158,6 +225,52 @@ def gather(input: Tensor, dim: int, index: Tensor) -> Tensor:
     """
 
     return pypto_impl.GatherElements(input, index, dim)
+
+
+@op_wrapper
+def index_select(input: Tensor, dim: int, index: Tensor) -> Tensor:
+    """
+    Gathers slices from `param` along a single axis `dim` using `indices`.
+    param ∈ {S₀xS₁x…xS_{n-1}}, indices ∈ {I₀xI₁x…xI_{m-1}}.
+
+    Output shape
+    out.shape = (S₀,…,S_{dim-1}, I₀,…,I_{m-1}, S_{dim+1},…,S_{n-1}).
+    That is, the dimension `S_dim` in `param` is replaced by the full shape of `indices`, 
+    while all other dimensions of `param` are preserved.
+
+    For any multi-indices
+    i = (i₀,…,i_{m-1}), t = (t₀,…,t_{n-2}),
+    out[i, t] = param[t₀,…,t_{dim-1}, indices[i], t_{dim},…,t_{n-2}].
+    Parameters
+    ----------
+    input : Tensor
+    2-4-D tensor of shape (S0, S1, …, Sn-1) that provides the source values to gather from.
+
+    index : Tensor (integer type)
+    1-2-D integer tensor of shape (I0, I1); every entry must satisfy 0 ≤ value < S_dim.
+
+    dim : int
+    int axis in the range -n ≤ dim < n along which to gather; negative values are interpreted as dim + n.
+
+    Examples
+    --------
+    x = pypto.tensor([3, 4], pypto.DT_FP32)
+    indices = pypto.tensor([2,], pypto.DT_INT32)
+    out0 = pypto.index_select(x, 0, indices)
+    out1 = pypto.index_select(x, 1, indices)
+
+    Input x:       [[ 0.1427,  0.0231, -0.5414, -1.0009],
+                    [-0.4664,  0.2647, -0.1228, -1.1068],
+                    [-1.1734, -0.6571,  0.7230, -0.6004]]
+    Input indices:  [0, 2]
+    Output out1 :  [[ 0.1427,  0.0231, -0.5414, -1.0009],
+                    [-1.1734, -0.6571,  0.7230, -0.6004]]
+    Output out2 :  [[ 0.1427, -0.5414],
+                    [-0.4664, -0.1228],
+                    [-1.1734,  0.7230]]
+    """
+
+    return pypto_impl.index_select(input, dim, index)
 
 
 @op_wrapper
@@ -302,7 +415,8 @@ def get_scatter_mode(reduce: str):
 
 
 @op_wrapper
-def scatter_(input: Tensor, dim: int, index: Tensor, src: float, *, reduce: str = None) -> Tensor:
+def scatter_(
+    input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
     """Write all values from the value 'src' into 'input' at the indices specified in the 'index' tensor.
 
     This function calculates the formula:
@@ -319,8 +433,8 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: float, *, reduce: str 
         The axis along which to index.
     index : Tensor
         The indices of elements to scatter.
-    src : float
-        The scalar value to scatter.
+    src : Tensor or Element
+        The Tensor or Element to scatter.
 
     Returns
     -------
@@ -332,6 +446,7 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: float, *, reduce: str 
     RuntimeError
         If the dimension of 'index' is not equal to the dimension of 'input'.
         If the index.size(d) > input.size(d)
+        If the index.size(d) > src.size(d) when src is Tensor and d != dim 
         If the value of 'input[i][j][k]' is bigger than the shape size of the dimension of 'input'.
 
     See Also
@@ -355,11 +470,18 @@ def scatter_(input: Tensor, dim: int, index: Tensor, src: float, *, reduce: str 
                 [0   2.0 0 0 0]]
     """
     scatter_mode = get_scatter_mode(reduce)
-    return pypto_impl.Scatter_(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode)
+    if isinstance(src, float):
+        input.Move(pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode))
+        return input
+    input.Move(pypto_impl.Scatter(input, index, src, dim, scatter_mode))
+    return input
 
 
 @op_wrapper
-def scatter(input: Tensor, dim: int, index: Tensor, src: float, *, reduce: str = None) -> Tensor:
+def scatter(
+    input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tensor], *, reduce: str = None) -> Tensor:
     """Out-of-place version of 'scatter_'."""
     scatter_mode = get_scatter_mode(reduce)
-    return pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode)
+    if isinstance(src, float):
+        return pypto_impl.Scatter(input, index, pypto_impl.Element(input.dtype, src), dim, scatter_mode)
+    return pypto_impl.Scatter(input, index, src, dim, scatter_mode)

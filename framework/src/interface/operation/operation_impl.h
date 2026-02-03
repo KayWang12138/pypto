@@ -19,7 +19,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "interface/inner/config.h"
+#include "interface/configs/config_manager.h"
 #include "opcode.h"
 #include "tilefwk/tensor.h"
 #include "tilefwk/tile_shape.h"
@@ -137,17 +137,18 @@ struct MatmulAttrParam {
     bool transA = false;
     bool transB = false;
     bool gmAccumulationFlag = false;
+    bool isCMatrixNZ = false;
+
+    MatmulAttrParam() = default;
+
+    MatmulAttrParam(bool isATrans, bool isBTrans, bool cMatrixNZ) {
+        transA = isATrans;
+        transB = isBTrans;
+        isCMatrixNZ = cMatrixNZ;
+    }
 };
 
 void ConstructTileGraph(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &operandVec,
                         const LogicalTensorPtr &cTensorPtr, const Operation &op);
 }  // namespace Matrix
-
-std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
-
-std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);
-
-Tensor TopKExtract(const Tensor &x, int k, bool isIndex);
-
-Tensor TopKMerge(const Tensor &x, int mergeSize);
 }  // namespace npu::tile_fwk

@@ -19,9 +19,8 @@
 #define CORE_FUNC_DATA_H
 
 #include <cstdint>
-#include "tilefwk/aicore_data.h"
+#include "tilefwk/aikernel_data.h"
 
-inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
 inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
 constexpr int MAX_DIMS = 8;
 using taskid_t = uint32_t;
@@ -73,7 +72,7 @@ struct CoreFunctionData {
     uint64_t coreFunctionWsAddr; // 指针指向CoreFunctionWsAddr结构体列表
     uint64_t stackWorkSpaceAddr;
     uint64_t stackWorkSpaceSize;
-    uint64_t hcclContextAddr[DIST_COMM_GROUP_NUM] {0};
+    uint64_t hcclContextAddr[HCCL_GROUP_NUM] {0};
     uint64_t commGroupNum {0};
 };
 
@@ -104,6 +103,14 @@ struct L2PreInfo {
     uint64_t prefetchAddrs[MAX_PREFETCH_NUM];
 };
 
+struct MixTaskData {
+    uint64_t readyWrapCoreFunctionQue; // 指针指向WrapInfoQueue 结构
+    uint64_t wrapTasklist; // 指针指向tasklist数组
+    uint64_t wrapIdNum; // 包含的有效wrapId个数
+    uint64_t opWrapList[MAX_CACHED_FUNC_NUM]; // 指针数组，指向每个function的callop对应的wrapId
+    uint64_t opWrapTaskNumList[MAX_CACHED_FUNC_NUM]; // 指针数组，指向每个function的callop对应的wrapTaskNum
+};
+
 // host machine 发给device machine的task数据
 // 暂时放在此位置
 struct DeviceTask {
@@ -112,13 +119,7 @@ struct DeviceTask {
     uint64_t readyAicCoreFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
     uint64_t readyAivCoreFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
     uint64_t readyAicpuFunctionQue; // 指针指向ReadyCoreFunctionQueue 结构
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
-    uint64_t readyWrapCoreFunctionQue; // 指针指向WrapInfoqQueue 结构
-    uint64_t wrapTasklist; // 指针指向tasklist数组
-    uint64_t wrapIdNum; // 包含的有效wrapId个数
-    uint64_t opWrapList[MAX_CACHED_FUNC_NUM]; // 指针数组，指向每个function的callop对应的wrapId
-    uint64_t opWrapTaskNumList[MAX_CACHED_FUNC_NUM]; // 指针数组，指向每个function的callop对应的wrapTaskNum
-#endif
+    MixTaskData mixTaskData; // mix调度相关信息
     CoreFunctionData coreFuncData;
     L2PreInfo l2Info;
     uint64_t costModelData;           // costmodel仿真时长
@@ -160,34 +161,6 @@ struct BaseArgs {
 #pragma pack ()
 
 using predcount_t = uint16_t;
-
-struct DynFuncBin {
-    uint32_t coreType;
-    uint32_t psgId;
-    uint64_t funcHash;
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
-    int32_t wrapVecId {-1};
-    uint32_t mixResourceType {0};
-#endif
-};
-
-struct DynFuncHeader {
-    uint64_t seqNo;
-    uint32_t funcNum;
-    uint32_t funcSize;
-    __gm__ DynFuncBin *cceBinary;
-
-    uint64_t GetIndex() {
-        return seqNo;
-    }
-
-    inline DynFuncData &At(int index) {
-        return (reinterpret_cast<DynFuncData *>(this + 1))[index];
-    }
-    inline uint32_t Size() {
-        return funcNum;
-    }
-};
 
 #pragma pack ()
 

@@ -8,11 +8,14 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-""" """
+"""PyPTO"""
 import struct
+from typing import Any, Type
 
 from .. import pypto_impl
 from .._op_wrapper import op_wrapper
+from ..enum import DataType
+from ..symbolic_scalar import SymbolicScalar
 from ..tensor import Tensor
 
 
@@ -28,124 +31,165 @@ def matmul(
     extend_params=None
 ) -> Tensor:
     """
-    Supports two forms of matrix multiplication computation:
-    (1) Performs a matrix multiplication of the matrices `input` and `mat2`
-    (2) Performs a batch matrix-matrix multiplication of the matrices `input` and `mat2`
+    Performs matrix multiplication with support for batched operations, broadcasting, transposition, and extended
+    features like bias addition and dequantization.
 
-    `input` and `mat2` support 2-D or 3-D or 4-D tensors each containing the same number of matrices.
-    If `input` is a (n x k) tensor, `mat2` is a (k x m) tensor, output will be a (m x n) tensor.
-    If `input` is a (b x n x k) tensor, `mat2` is a (b x k x m) tensor, output will be a (b x m x n) tensor.
+    Supports two primary computation modes:
+    1.  Standard matrix multiplication of two matrices.
+    2.  Batched matrix-matrix multiplication.
 
-    NOTES:
-    If `input` of `mat2` is 3-D or 4-D, this function support broadcast.
-    For example, if `input` is a (1 x n x k)tensor and `mat2` is a (b x k x m) tensor, the batch dimensions are (1)
-    and (b), and the matrix dimensions are (n x k) and (k x m). output will be a (b x m x n) tensor.
+    `input` and `mat2` can be 2-D, 3-D, or 4-D tensors, each containing the same number of matrices.
+    - If `input` is (n x k) and `mat2` is (k x m), output is (n x m).
+    - If `input` is (b x n x k) and `mat2` is (b x k x m), output is (b x n x m).
+
+    Note: Broadcasting is supported for 3-D or 4-D tensors.
+    Example: If `input` is (1 x n x k) and `mat2` is (b x k x m), output will be (b x n x m).
 
     Parameters
-    --------
+    ----------
     input : Tensor
-        the left matrix to be matrix multiplied.
+        The left operand matrix.
     mat2 : Tensor
-        the right matrix to be matrix multiplied.
-    out_dtye : dtype
-        the dtype of the output tensor.
+        The right operand matrix.
+    out_dtype : dtype
+        The data type of the output tensor.
 
     Keyword Arguments
-    --------
-    a_trans : bool
-        whether to transpose the left matrix. Default is False.
-    b_trans : bool
-        whether to transpose the right matrix. Default is False.
-    c_matrix_nz : bool
-        whether output matrix is in NZ format. Default is False.
-    extend_params: dict
-        the extend features of matrix multiplication computation:
-        (1) bias: adds a learnable bias to the output.
-        keyword arguments: 'bias_tensor': Tensor
-        (2) Dequantization: C = DEQF16(ReLu(A @ B))
-        keyword arguments: 'scale_tensor': Tensor, 'scale': float, 'relu_type': ReLuType
+    ----------
+    a_trans : bool, default=False
+        If True, transpose the left matrix (`input`) before multiplication.
+    b_trans : bool, default=False
+        If True, transpose the right matrix (`mat2`) before multiplication.
+    c_matrix_nz : bool, default=False
+        If True, output the result matrix in NZ (non-zero) format.
+    extend_params : dict, optional
+        A dictionary specifying extended computation features:
+        - 'bias_tensor': Tensor
+            Adds a learnable bias to the output: C = A @ B + bias.
+        - 'scale': float
+            For dequantization: C = DEQF16(ReLU(A @ B)) * scale.
+        - 'scale_tensor': Tensor
+            For dequantization with a per-channel scale: C = DEQF16(ReLU(A @ B)) * scale_tensor.
+        - 'relu_type': ReLuType
+            Type of ReLU activation to apply before dequantization (e.g., ReLuType.RELU).
 
     Returns
-    --------
+    -------
     Tensor
-        A new Tensor containing the matrix multiplied result.
+        A new tensor containing the matrix multiplication result.
 
-    Raise
-    --------
+    Raises
+    ------
     RuntimeError
-        If the dimensions of matrix `input` and `mat2` are not equal and greater than 4-D or less than 2-D.
+        If input dimensions are invalid (<2-D or >4-D), or if matrix dimensions are incompatible.
 
     Examples
     --------
-    # matrix x matrix
+    # Standard matrix multiplication
     a = pypto.tensor((16, 32), pypto.DT_BF16, "tensor_a")
     b = pypto.tensor((32, 64), pypto.DT_BF16, "tensor_b")
     pypto.matmul(a, b, pypto.DT_BF16)
 
-
-    # batched matrix multiplication
+    # Batched matrix multiplication
     a = pypto.tensor((2, 16, 32), pypto.DT_FP16, "tensor_a")
     b = pypto.tensor((2, 32, 16), pypto.DT_FP16, "tensor_b")
     pypto.matmul(a, b, pypto.DT_FP16)
 
-
-    # batched matrix multiplication with broadcast
+    # Batched multiplication with broadcasting
     a = pypto.tensor((1, 32, 64), pypto.DT_FP32, "tensor_a")
     b = pypto.tensor((3, 64, 16), pypto.DT_FP32, "tensor_b")
     pypto.matmul(a, b, pypto.DT_FP32)
 
-    # matrix multiplication with bias
+    # With bias addition
     a = pypto.tensor((16, 32), pypto.DT_FP16, "tensor_a")
     b = pypto.tensor((32, 64), pypto.DT_FP16, "tensor_b")
     bias = pypto.tensor((1, 64), pypto.DT_FP16, "tensor_bias")
     extend_params = {'bias_tensor': bias}
-    pypto.matmul(a, b, pypto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
+    pypto.matmul(a, b, pypto.DT_BF16, extend_params=extend_params)
 
-    # matrix multiplication with dequantization(scale)
+    # With dequantization (scale)
     a = pypto.tensor((16, 32), pypto.DT_INT8, "tensor_a")
     b = pypto.tensor((32, 64), pypto.DT_INT8, "tensor_b")
     extend_params = {'scale': 0.2}
-    pypto.matmul(a, b, pypto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
+    pypto.matmul(a, b, pypto.DT_BF16, extend_params=extend_params)
 
-    # matrix multiplication with dequantization(scale && relu)
+    # With dequantization (scale & ReLU)
     a = pypto.tensor((16, 32), pypto.DT_INT8, "tensor_a")
     b = pypto.tensor((32, 64), pypto.DT_INT8, "tensor_b")
     extend_params = {'scale': 0.2, 'relu_type': pypto.ReLuType.RELU}
-    pypto.matmul(a, b, pypto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
+    pypto.matmul(a, b, pypto.DT_BF16, extend_params=extend_params)
 
-    # matrix multiplication with dequantization(scale_tensor && relu)
+    # With dequantization (scale_tensor & ReLU)
     a = pypto.tensor((16, 32), pypto.DT_INT8, "tensor_a")
     b = pypto.tensor((32, 64), pypto.DT_INT8, "tensor_b")
     scale_tensor = pypto.tensor((1, 64), pypto.DT_UINT64, "tensor_scale")
     extend_params = {'scale_tensor': scale_tensor, 'relu_type': pypto.ReLuType.RELU}
-    pypto.matmul(a, b, pypto.DT_BF16, a_trans=False, b_trans=False, c_matrix_nz=False, extend_params=extend_params)
+    pypto.matmul(a, b, pypto.DT_BF16, extend_params=extend_params)
     """
-    input_dim = input.Dim()
-    mat2_dim = mat2.Dim()
-    check_data_valid(input, mat2, c_matrix_nz)
-    if input_dim == mat2_dim == 2:
-        if (extend_params is None) or (not extend_params):
-            return pypto_impl.Matmul(
-                out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
-            )
-        else:
+    __validate_inputs(input, mat2, out_dtype, [a_trans, b_trans, c_matrix_nz, extend_params])
+    if input.Dim() == 2:
+        if extend_params is not None:
             extend_params = pypto_impl.MatmulExtendParam(
-                **convert_matmul_extend_params(extend_params)
+                **__convert_matmul_extend_params(extend_params)
             )
             return pypto_impl.Matmul(
                 out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz, extend_params
             )
-    elif (input_dim == mat2_dim == 3) or (input_dim == mat2_dim == 4):
+        else:
+            return pypto_impl.Matmul(
+                out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
+            )
+    else:
         return pypto_impl.BatchMatmul(
             out_dtype, input, mat2, a_trans, b_trans, c_matrix_nz
         )
-    else:
-        raise RuntimeError(
-            "input dim and mat dim must equals, which only support 2-D/3-D/4-D currently"
+
+
+def __validate_type(value: Any, expect_type: Type, arg_name: str = "input") -> None:
+    if value is None:
+        return
+    if not isinstance(value, expect_type):
+        raise TypeError(
+            f"Argument '{arg_name}' must be of type {expect_type.__name__}, but got {type(value).__name__}."
         )
 
 
-def check_data_valid(input_tensor1, input_tensor2, is_out_nz):
+def __get_valid_shape(tensor):
+    return [SymbolicScalar.from_base(n) for n in tensor.GetValidShape()]
+
+
+def __validate_shape(input_tensor1: Tensor, input_tensor2: Tensor, a_trans: bool, b_trans: bool) -> None:
+    input_dim = input_tensor1.Dim()
+    mat2_dim = input_tensor2.Dim()
+    if input_dim != mat2_dim or input_dim not in {2, 3, 4}:
+        raise RuntimeError(
+            "Tensor dimension mismatch. Expect input_dim == mat2_dim and both in [2, 3, 4], "
+            f"got input_dim: {input_dim}, mat2_dim: {mat2_dim}."
+        )
+
+    input_valid_shape = __get_valid_shape(input_tensor1)
+    mat2_valid_shape = __get_valid_shape(input_tensor2)
+    m_dim, ka_dim = (input_valid_shape[-2], input_valid_shape[-1]) if not a_trans else \
+        (input_valid_shape[-1], input_valid_shape[-2])
+    kb_dim, n_dim = (mat2_valid_shape[-2], mat2_valid_shape[-1]) if not b_trans else \
+        (mat2_valid_shape[-1], mat2_valid_shape[-2])
+    if ka_dim.is_concrete() and kb_dim.is_concrete() and ka_dim != kb_dim:
+        raise RuntimeError(
+            "K-dimension valid shape mismatch. "
+            f"Got input valid shape: {input_valid_shape}, mat2 valid shape: {mat2_valid_shape}, "
+            f"a_trans: {a_trans}, b_trans: {b_trans}."
+        )
+
+
+def __validate_inputs(input_tensor1, input_tensor2, out_dtype, optional_param) -> None:
+    a_trans, b_trans, is_out_nz, extend_params = optional_param
+    __validate_type(out_dtype, DataType, "out_dtype")
+    __validate_type(a_trans, bool, "a_trans")
+    __validate_type(b_trans, bool, "b_trans")
+    __validate_type(is_out_nz, bool, "is_out_nz")
+    __validate_type(extend_params, dict, "extend_params")
+    __validate_shape(input_tensor1, input_tensor2, a_trans, b_trans)
+
     if is_out_nz:
         raise ValueError("Output tensor do not support NZ currently.")
     input1_valid = input_tensor1.GetDataType() == pypto_impl.DataType.DT_FP32 \
@@ -156,9 +200,13 @@ def check_data_valid(input_tensor1, input_tensor2, is_out_nz):
         raise ValueError("Input tensor with DT_FP32 must use ND format, NZ format is not support currently.")
     if input_tensor1.GetDataType() != input_tensor2.GetDataType():
         raise ValueError("All input tensors must have the same data type")
+    if input_tensor1.Dim() != 2 and extend_params is not None:
+        raise RuntimeError(
+            "extend_params is not supported for batched matrix multiplication."
+        )
 
 
-def convert_matmul_extend_params(extend_params) -> dict:
+def __convert_matmul_extend_params(extend_params) -> dict:
     extend_params.setdefault('bias_tensor', pypto_impl.Tensor())
     extend_params.setdefault('scale_tensor', pypto_impl.Tensor())
     extend_params.setdefault('relu_type', pypto_impl.ReLuType.NO_RELU)

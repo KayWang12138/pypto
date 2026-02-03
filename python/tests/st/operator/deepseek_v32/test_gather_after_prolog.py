@@ -17,6 +17,7 @@ import torch
 import pytest
 
 import pypto
+from conftest import duration_estimate
 
 
 def gather_after_prolog_graph(
@@ -58,8 +59,8 @@ def gather_after_prolog_graph(
                         kr_slc_block = pypto.view(k_rope_cache, [1, dr], [slc_block_idx * block_size + tail, 0])
 
                         pypto.set_semantic_label("gather1")
-                        kv_slc_block_fp32 = pypto.cast(kv_slc_block, pypto.DataType.DT_FP32)
-                        kr_slc_block_fp32 = pypto.cast(kr_slc_block, pypto.DataType.DT_FP32)
+                        kv_slc_block_fp32 = pypto.cast(kv_slc_block, pypto.DT_FP32)
+                        kr_slc_block_fp32 = pypto.cast(kr_slc_block, pypto.DT_FP32)
 
                         pypto.set_semantic_label("gather2")
                         kv_slc_block_fp16 = pypto.cast(kv_slc_block_fp32, gather_res.dtype)
@@ -183,6 +184,7 @@ def compare(t: torch.Tensor, t_ref: torch.Tensor):
     torch.testing.assert_close(t, t_ref, rtol=0.0, atol=0.0)
 
 
+@duration_estimate(33)
 def test_gather():
     topk = 2048
     block_size = 128

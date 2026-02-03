@@ -95,7 +95,8 @@ std::string GetTypeForB16B32(const DataType &dtype);
 
 inline std::string GetPipeId(PipeType queue) {
     auto res = PIPE_ID.find(queue);
-    return res == PIPE_ID.end() ? "" : res->second;
+    ASSERT(res != PIPE_ID.end()) << "can not find pipe id: " << ToUnderlying(queue);
+    return res->second;
 }
 
 inline std::string GetTileOpName(Opcode opCode) {
@@ -106,6 +107,15 @@ inline std::string GetTileOpName(Opcode opCode) {
 std::string GetAddrTypeByOperandType(OperandType type);
 
 int64_t CalcLinearOffset(const std::vector<int64_t> &shape, const std::vector<int64_t> &offset);
+
+template <typename T>
+void FillParamWithInput(std::vector<std::string> &paramList, const std::vector<T> &input, int start, int count) {
+    for (int i = start; i < count; ++i) {
+        paramList.emplace_back(ToStringHelper(input[i]));
+    }
+}
+
+void PrintIndent(std::ostringstream &os, int scopeLevel);
 
 } // namespace npu::tile_fwk
 #endif

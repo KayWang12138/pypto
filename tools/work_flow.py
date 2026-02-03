@@ -9,6 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """
+This is a subscript of build_ci.py
 """
 import os
 from pathlib import Path
@@ -40,7 +41,7 @@ def ini(path, prof, pe):
         real_pe = pe
     else:
         assert False, f'Current {prof} is invalid, only support[1, 2]'
-
+    level = "l2"
     env = {
         "PROFILER_SAMPLECONFIG": "{"
                                      + f"\"stars_acsq_task\":\"off\","
@@ -72,7 +73,7 @@ def find_file_and_get_parent_dirs(target_file, search_dir='.'):
 
 
 def work_flow_plot(path, level, pe):
-    path_pro = find_file_and_get_parent_dirs("aicpu.data.0.slice_0", path)
+    path_pro = find_file_and_get_parent_dirs("aicpu.data.*", path)
     cmd_rm = f'rm -rf {str(path)}/PROF*'
     if len(path_pro) < 1:
         subprocess.run(cmd_rm, shell=True, capture_output=False, check=True, text=True, encoding='utf-8')
@@ -81,11 +82,11 @@ def work_flow_plot(path, level, pe):
     if not save_path.exists():
         os.makedirs(save_path)
     print(save_path)
-    cmd = f"python3 ./tools/tilefwk_prof_data_parser.py -p {path_pro[0]} --output={str(save_path)} -t"
+    cmd = f"python3 ./tools/profiling/tilefwk_prof_data_parser.py -p {path_pro[0]} --output={str(save_path)} -t"
     print(cmd)
     subprocess.run(cmd, shell=True, capture_output=False, check=True, text=True, encoding='utf-8')
     if level == 2:
-        cmd = f"python3 ./tools/tilefwk_pmu_to_csv.py -p {path_pro[0]} --output={str(save_path)} -pe={pe}"
+        cmd = f"python3 ./tools/profiling/tilefwk_pmu_to_csv.py -p {path_pro[0]} --output={str(save_path)} -pe={pe}"
         print(cmd)
         subprocess.run(cmd, shell=True, capture_output=False, check=True, text=True, encoding='utf-8')
     #删除Prof落盘日志，避免有干扰

@@ -22,17 +22,20 @@
 #include "interface/configs/config_manager.h"
 #include "interface/utils/common.h"
 #include "interface/utils/file_utils.h"
+#include "interface/utils/op_info_manager.h"
 #include "machine/dump/kernel_dump_utils.h"
-#include "machine/host/machine_compiler.h"
+#include "machine/compile/machine_compiler.h"
 #include "machine/cache_manager/cache_manager.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/host/device_agent_task.h"
-#include "kernel/aicore_compiler.h"
-#include "interface/utils/op_info_manager.h"
+#include "machine/compile/aicore_compiler.h"
+#include "machine/compile/compile_control_bin.h"
 #include "tilefwk/comm_group_recorder.h"
 #include "passes/pass_mgr/pass_manager.h"
-#include "compile_control_bin.h"
+#include "ir/program.h"
+#include "ir/function.h"
 #include "tilefwk/op_registry.h"
+#include "main_block.h"
 #include <dlfcn.h>
 
 using namespace npu::tile_fwk::dynamic;
@@ -69,21 +72,49 @@ static void InitSocVersion(std::string &socVersion) {
     ALOG_WARN_F("InitSocVersion requires BUILD_WITH_CANN.");
 }
 
+extern "C" std::string GetPlatformFile(const std::string &socVersion) {
+    #ifdef PROCESSOR_SUBPATH
+        const char *configSubpath = PROCESSOR_SUBPATH;
+    #else
+        const char *configSubpath = "";
+    #endif
+    const char *configRelativePath = "data/platform_config/";
+
+    ALOG_INFO_F("Get Soc version [%s].", socVersion.c_str());
+    if (socVersion.empty()) {
+        return "";
+    }
+    // get platform file path
+    const char *envPath = std::getenv("ASCEND_HOME_PATH");
+    if (envPath == nullptr) {
+        ALOG_WARN_F("Env[ASCEND_HOME_PATH] is not existed or empty.");
+        return "";
+    }
+    ALOG_INFO_F("Get Env[ASCEND_HOME_PATH] is [%s].", std::string(envPath).c_str());
+    std::string platformConfDir = std::string(envPath) + "/" + std::string(configSubpath) + "/" + configRelativePath;
+    if (RealPath(platformConfDir).empty()) {
+        platformConfDir = std::string(envPath) + "/" + configRelativePath;
+    }
+    ALOG_INFO_F("Get platformConfDir [%s].", platformConfDir.c_str());
+    std::string platformFile = platformConfDir + socVersion + ".ini";
+    ALOG_INFO_F("Get platformFile [%s].", platformFile.c_str());
+    if (RealPath(platformFile).empty()) {
+        return "";
+    }
+    return platformFile;
+}
+
 extern "C" std::string GetPlatformInfo() {
     std::string socVersion;
+    ALOG_DEBUG_F("Start InitSocVersion.");
     InitSocVersion(socVersion);
 #ifdef BUILD_WITH_CANN
     if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) == CFG_RUN_MODE_SIM) {
         ALOG_WARN("GetPlatformInfo: run in SIM mode, platform info not available.");
         return "";
     }
-
-    if (!PlatformManager::Instance().Initialize(socVersion)) {
-        ALOG_WARN_F("Failed to get platform info for SoC version %s.", socVersion.c_str());
-        return "";
-    }
-
-    return PlatformManager::Instance().GetFilePath();
+    ALOG_DEBUG_F("GetPlatformFile by %s.", socVersion.c_str());
+    return GetPlatformFile(socVersion);
 #else
     ALOG_WARN_F("GetPlatformInfo requires BUILD_WITH_CANN.");
     return "";
@@ -91,11 +122,11 @@ extern "C" std::string GetPlatformInfo() {
 }
 
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
-    if (config::GetPlatformConfig(KEY_ONLY_HOST_COMPILE, false)) {
-        ALOG_INFO("draw graph switch enabled, push finish queue.");
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) >= CS_TENSOR_GRAPH &&
+        config::GetHostOption<int64_t>(COMPILE_STAGE) <= CS_EXECUTE_GRAPH) {
+        ALOG_INFO("Compile stage terminates after execution graph generation.");
         return 0;
     }
-    config::SetRunDataOption(KEY_RUNTYPE, "npu");
     auto deviceMachineTask = std::make_shared<MachineTask>(task->GetTaskId(), task->GetFunction());
     deviceMachineTask->SetCacheReuseType(task->GetCacheReuseType());
     deviceMachineTask->SetCacheKey(task->GetCacheKey());
@@ -103,7 +134,6 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
     auto function = deviceAgentTask->compileTask->GetFunction();
     deviceAgentTask->SetAsync(false);
     deviceAgentTask->SetOpOriginArgsInfo(function->GetOpOriginArgsInfo());
-    deviceAgentTask->compileInfo.distTilingManager = function->GetDistTilingManager();
     deviceAgentTask->compileInfo.commGroups = npu::tile_fwk::Distributed::CommGroupRecorder::GetInstance().Output();
     std::string kernelPath;
     // recover task info and bin
@@ -118,11 +148,10 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
             CalcFunctionInvokeWorkespace(nullptr, function, deviceAgentTask->compileInfo);
         }
 
-        deviceAgentTask->compileInfo.PrintDistributed();
         deviceAgentTask->compileInfo.workSpaceStackSize = function->GetStackWorkespaceSize();
 
-        if (function->IsFunctionType({FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, 
-            FunctionType::DYNAMIC_LOOP_PATH}) && config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
+        if (function->IsFunctionType(
+                {FunctionType::DYNAMIC, FunctionType::DYNAMIC_LOOP, FunctionType::DYNAMIC_LOOP_PATH})) {
             if (function->GetGraphType() == GraphType::TILE_GRAPH) {
                 // When expression fusion, don't need tile graph codegen.
                 return 0;
@@ -140,25 +169,10 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         // save compile result on disk
         CacheManager::Instance().SaveTaskFile(deviceAgentTask.get());
     }
-
-    if (config::GetHostOption<bool>(ONLY_CODEGEN)) {
-        ALOG_INFO("only gen code switch enabled, push finish queue.");
-        // only static use gDeviceAgentTaskPtr; when dynamic, delete deviceMachineTask
-        return 0;
+    if (function->IsFunctionType(FunctionType::STATIC)) {
+        gDeviceAgentTaskPtr = deviceAgentTask;
     }
-
-    gDeviceAgentTaskPtr = deviceAgentTask;
     return 0;
-}
-
-static std::string GetEmitPath(const std::string &name) {
-    std::string dirPath;
-    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(KEY_FIXED_OUTPUT_PATH, false)) {
-        dirPath = name;
-    } else {
-        dirPath = config::LogTopFolder() + "/" + name;
-    }
-    return dirPath;
 }
 
 static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *func) {
@@ -177,6 +191,7 @@ static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *fun
     return calleeList;
 }
 
+static void HandleExecuteGraph(FunctionCache &cache, Linker &linker, Function *func);
 static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *func) {
     if (func->IsDynloop()) {
         auto dynloopAttr = func->GetDynloopAttribute();
@@ -206,25 +221,7 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
         Function *root = func->GetRootFunction();
         FindAllExpression(cache, linker, root);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
-        ALOG_INFO("Compile root:", func->Dump());
-        for (auto &callopAttr : func->GetCallopAttrList()) {
-            for (auto &arg : callopAttr->GetLinearArgList()) {
-                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
-            }
-            auto hash = callopAttr->GetCalleeHash();
-            Function *leafFunc = cache.GetCacheFunction(hash);
-            FindAllExpression(cache, linker, leafFunc);
-        }
-        for (auto &incast : func->inCasts_) {
-            for (auto  &arg : incast->GetRawTensor()->GetDynRawShape()) {
-                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
-            }
-        }
-        for (auto &outcast : func->outCasts_) {
-            for (auto  &arg : outcast->GetRawTensor()->GetDynRawShape()) {
-                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
-            }
-        }
+        HandleExecuteGraph(cache, linker, func);
     } else if (func->GetGraphType() == GraphType::BLOCK_GRAPH) {
         for (auto &op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_VEC_DUP) {
@@ -237,6 +234,37 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
     } else {
         ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(func->GetFunctionType());
     }
+}
+
+static void HandleExecuteGraph(FunctionCache &cache, Linker &linker, Function *func)
+{
+    ALOG_INFO("Compile root:", func->Dump());
+    MainBlockCondBulider builder;
+    builder.CollectCallopMainBlockConds(func);
+    for (auto &callopAttr : func->GetCallopAttrList()) {
+        for (auto &arg : callopAttr->GetLinearArgList()) {
+            linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+        }
+        auto hash = callopAttr->GetCalleeHash();
+        Function *leafFunc = cache.GetCacheFunction(hash);
+        if (leafFunc == nullptr) {
+            continue;
+        }
+        builder.CollectCoaMainBlockConds(callopAttr->GetArgList());
+        FindAllExpression(cache, linker, leafFunc);
+    }
+    for (auto &incast : func->inCasts_) {
+        for (auto  &arg : incast->GetRawTensor()->GetDynRawShape()) {
+            linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+        }
+    }
+    for (auto &outcast : func->outCasts_) {
+        for (auto  &arg : outcast->GetRawTensor()->GetDynRawShape()) {
+            linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+        }
+    }
+    SymbolicScalar cond = builder.BuildMainBlockExpression();
+    linker.SetMainBlockExpressionForDevRootCoa(func, cond);
 }
 
 static void AlignUpTo(std::vector<uint8_t> &code, int align, uint8_t padding) {
@@ -352,7 +380,6 @@ static void SimplifySlots(DyndevFunctionAttribute *attr, std::unordered_map<int,
 
         ASSERT(inoutLink.ioslotDict.count(devTile))<<"Function pointer "<<devTile->GetMagicName()<<" not found in ioslotDict";
         IncastOutcastSlot &ioslot = inoutLink.ioslotDict[devTile];
-
         for (auto &outcastSlots : ioslot.outcastSlot) {
             ASSERT(!outcastSlots.empty()) << "devTile: " << devTile->GetMagicName();
             bool outcastSlotFound = false;
@@ -422,7 +449,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             << "#define __TILE_FWK_AICPU__ 1\n"
             << "#include <stdint.h>\n"
             << "#include \"" << expName << "\"\n"
-            << "#include \"tilefwk/aicore_data.h\"\n"
+            << "#include \"tilefwk/aikernel_data.h\"\n"
             << "#include \"tilefwk/aicpu_runtime.h\"\n"
             << "#include \"tilefwk/aicpu_distributed.h\"\n";
         expressionOss
@@ -450,6 +477,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
         for (auto &callee : GetCalleeList(cache, func)) {
             BuildControlFlow(cache, linker, sectionName, callee, slotIdxMapping, group, rootTileDict, controlFlowOss, expressionOss, indent + 1, expName);
         }
+	    controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_CACHESTOP); // Notify cache stop \n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "RUNTIME_RootStitch(RUNTIME_FUNCKEY_FINISH); // Notify finish \n";
         controlFlowOss << std::setw((indent + 1) * TABSIZE) << ' ' << "return 0;\n";
         controlFlowOss << "}\n";
@@ -670,8 +698,10 @@ std::vector<SymbolicExpressionTable *> GetAllExpressionTable(DyndevFunctionAttri
 }
 
 static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAscendFunctionParam,
-    std::map<uint64_t, Function *> &leafDict, std::shared_ptr<DyndevFunctionAttribute> attr) {
-    attr->cceCodeInfo.resize(leafDict.size() + 1);
+    std::map<uint64_t, Function *> &leafDict,
+    std::map<uint64_t, std::shared_ptr<pto::Function>> irLeafDict,
+     std::shared_ptr<DyndevFunctionAttribute> attr) {
+    attr->cceCodeInfo.resize(leafDict.size() + irLeafDict.size() + 1);
     /* cceIdx 0 for dummy callop */
     attr->cceCodeInfo[0].coreType = static_cast<uint32_t>(CoreType::HUB);
     attr->cceCodeInfo[0].psgId = 0;
@@ -682,7 +712,6 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
     for (auto &[hash, leaf] : leafDict) {
       auto leafFuncAttr = leaf->GetLeafFuncAttribute();
       ASSERT(leafFuncAttr != nullptr)<<"leafFuncAttr is null\n";
-
       encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
       attr->devLeafIndex2Hash[leafIndex] = hash;
       ALOG_INFO("Dyndev.codegen: [", leafIndex, "] hash=", hash, " binpath=", leafFuncAttr->binPath);
@@ -692,11 +721,28 @@ static void ConstructCodeInfo(struct EncodeDevAscendFunctionParam &encodeDevAsce
       attr->cceCodeInfo[leafIndex].psgId = leaf->GetProgramId();
       attr->cceCodeInfo[leafIndex].funcHash = hash;
       attr->cceCodeInfo[leafIndex].aicpuLeafCode = leafFuncAttr->aicpuLeafCode;
-#ifdef SUPPORT_MIX_SUBGRAPH_SCHE
       attr->cceCodeInfo[leafIndex].wrapVecId = static_cast<int32_t>(leafFuncAttr->aivCore);
       attr->cceCodeInfo[leafIndex].mixResourceType = static_cast<uint32_t>(leafFuncAttr->mixResourceType);
-#endif
       leafIndex++;
+    }
+
+    for (auto &[hash, leaf] : irLeafDict) {
+        encodeDevAscendFunctionParam.calleeHashIndexDict[hash] = leafIndex;
+        attr->devLeafIndex2Hash[leafIndex] = hash;
+        auto blockLeaf = std::dynamic_pointer_cast<pto::BlockFunction>(leaf);
+        if (blockLeaf == nullptr) {
+            ALOG_ERROR_F("block leaf is nullptr, func name %s", leaf->GetName().c_str());
+            continue;
+        }
+        auto leafAttr = blockLeaf->GetLeafFuncAttribute();
+        if (leafAttr == nullptr) {
+            ALOG_ERROR_F("LeafFuncAttribute is nullptr, func name %s", leaf->GetName().c_str());
+            continue;
+        }
+        attr->cceCodeInfo[leafIndex].coreType = static_cast<uint32_t>(leafAttr->coreType);
+        attr->cceCodeInfo[leafIndex].psgId = blockLeaf->GetID();
+        attr->cceCodeInfo[leafIndex].funcHash = hash;
+        leafIndex++;
     }
     encodeDevAscendFunctionParam.cceCodeInfoList = attr->cceCodeInfo;
     return;
@@ -802,13 +848,10 @@ static void CompileControlFlow(const std::string &aicpuDirPath,
 
 static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[maybe_unused]] const std::string &ccePath,
                                   std::string &kernelPath) {
-    if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
-        PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph");
-    }
+    ASSERT((PassManager::Instance().RunPass(Program::GetInstance(), *function, "ExecuteGraph") == SUCCESS));
 
     std::shared_ptr<DyndevFunctionAttribute> attr = function->GetDyndevAttribute();
     ASSERT(attr != nullptr)<<"DyndevFunctionAttribute is nullptr\n";
-
     Linker linker(attr->symbolTable, attr->funcGroup, attr->exprTableDictGroup);
     FindAllExpression(cache, linker, function);
 
@@ -884,17 +927,16 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         attr->devControlFlowBinary = std::vector<uint8_t>{0xd4, 0x20, 0x00, 0x00};
     }
     AlignUpTo(attr->devControlFlowBinary, 0x8, 0);
-
     std::map<uint64_t, Function *> leafDict;
+    std::map<uint64_t, std::shared_ptr<pto::Function>> irLeafDict;
     for (auto &devRoot : attr->funcGroup.devRootList) {
-        if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
-            Function *devTile = attr->rootTileDict[devRoot];
-            config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, devTile->paramConfigs_.dynamicAlignedOps);
-            npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
-            npu::tile_fwk::CodeGen codeGen(codeGenCtx);
-            codeGen.GenCode(*devTile, {});
-        }
-
+        Function *devTile = attr->rootTileDict[devRoot];
+        config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, devTile->paramConfigs_.dynamicAlignedOps);
+        npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
+        npu::tile_fwk::CodeGen codeGen(codeGenCtx);
+        codeGen.GenCode(*devTile, {});
+        MainBlockCondBulider builder;
+        builder.Gencode(devTile, {});
         for (auto &[psgId, leaf] : devRoot->programs_) {
             (void)psgId;
             auto hash = leaf->GetFunctionHash().GetHash();
@@ -905,15 +947,30 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
                 ALOG_ERROR(" Duplicate func hash ", hash, " name ", leaf->GetRawName());
             }
         }
+        if (devRoot->programModule_ != nullptr) {
+            auto callOps = devRoot->Operations();
+            for (size_t i = 0; i < devRoot->programModule_->GetFunctions().size(); i++) {
+                auto hash = callOps[i].GetCalleeHash().GetHash();
+                auto leaf = devRoot->programModule_->GetFunctions()[i];
+                if (!irLeafDict.count(hash)) {
+                    irLeafDict[hash] = leaf;
+                    ALOG_INFO("Dyndev.codegen: ", leaf->GetName());
+                } else {
+                    ALOG_ERROR("Duplicate func hash ", hash, " name ", leaf->GetName());
+                }
+            }
+        }
     }
 
     struct EncodeDevAscendFunctionParam encodeDevAscendFunctionParam = {};
-    ConstructCodeInfo(encodeDevAscendFunctionParam, leafDict, attr);
+    ConstructCodeInfo(encodeDevAscendFunctionParam, leafDict, irLeafDict, attr);
 
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
 #ifdef BUILD_WITH_CANN
-    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM &&
+        config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
+
         int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
                                     ccePath, function->GetFunctionHash().Data(), kernelPath);
         if (ret != 0) {
@@ -934,7 +991,6 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         Function *devTile = attr->rootTileDict[devRoot];
         ASSERT(attr->inoutLink.ioslotDict.count(devTile))<<"devTile not found in rootTileDict";
         IncastOutcastSlot *slot = &attr->inoutLink.ioslotDict[devTile];
-
         encodeDevAscendFunctionParam.symbolTable = linker.GetSymbolTable();
         if (linker.GetExpressionTableDictGroup().devRootCoaDict.count(devRoot) != 0) {
             encodeDevAscendFunctionParam.expressionTable = &linker.GetExpressionTableDictGroup().devRootCoaDict.find(devRoot)->second;
@@ -942,10 +998,8 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         encodeDevAscendFunctionParam.devRoot = devRoot;
         encodeDevAscendFunctionParam.slot = slot;
         EncodeOutcastProperty(encodeDevAscendFunctionParam, &attr->inoutLink, slot);
-
         uint64_t size = 0;
         EncodeDevAscendFunction(function, encodeDevAscendFunctionParam, size, nullptr);
-
         attr->devEncodeList[devRootKey].resize(size);
         DevAscendFunction *funcBin = reinterpret_cast<DevAscendFunction *>(&attr->devEncodeList[devRootKey][0]);
         funcBin->rootHash = devRoot->GetFunctionHash().GetHash();
@@ -969,7 +1023,6 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
             attr->startArgsSymbolHandlerList.emplace_back(symbolHandlerIndexDict.find(name)->second, index);
         }
     }
-
     // save dev prog binary
     SetDyndevProgBinary(function);
 }
@@ -979,16 +1032,15 @@ MachineTask *GenCode(
     std::string &kernelPath) {
     npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
     npu::tile_fwk::CreateMultiLevelDir(codeGenCtx.cceDir);
-
     npu::tile_fwk::CodeGen codeGen(codeGenCtx);
     auto function = task->GetFunction();
     /* each leafFunction inside is compiled to a standalone object file.
      * the filepath of the object file is updated to the binPath_ member.
      */
     if (function->GetGraphType() == GraphType::TILE_GRAPH) {
-        if (config::GetCodeGenOption<bool>(CODEGEN_EXPRESSION_FUSION)) {
-            codeGen.GenCode(*function, invokeParaOffset);
-        }
+        codeGen.GenCode(*function, invokeParaOffset);
+        MainBlockCondBulider builder;
+        builder.Gencode(function, invokeParaOffset);
     } else {
         if (function->IsFunctionType(FunctionType::DYNAMIC)) {
             std::string cce_path = RealPath(codeGenCtx.cceDir) + "/";

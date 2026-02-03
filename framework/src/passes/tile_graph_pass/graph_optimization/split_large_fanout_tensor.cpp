@@ -134,6 +134,30 @@ void SplitLargeFanoutTensor::CollectOverlaps(Function &function, LogicalTensorPt
     }
 }
 
+// 根据原有assembleOp增加新的assembleOp。寻找原assembleOp时，由于tensor->assemble->largeTensor中assemble可以不唯一并指向其他tensor，
+// 或assemble位置为其他种类op(op_view)。所以需要找到largeTensor的生产者op来确认。
+Status AddNewAssembleOp(Function &function, LogicalTensorPtr overlap, LogicalTensorPtr largeTensor, Offset lcmTileOffset, LogicalTensorPtr &newTensor) {
+    Operation *oldAssembleOp = nullptr;
+    for (const auto &consumerOp : overlap->GetConsumers()) {
+        for (auto tensorPtr : consumerOp->GetOOperands()) {
+            if (tensorPtr == largeTensor) {
+                oldAssembleOp = consumerOp;
+                auto oldAssembleOpAttr = dynamic_cast<AssembleOpAttribute *>(oldAssembleOp->GetOpAttribute().get());
+                Shape newAssembleOffset = oldAssembleOpAttr->GetToOffset();
+                for (size_t j = 0; j < newAssembleOffset.size(); j++) {
+                    newAssembleOffset[j] -= lcmTileOffset[j];
+                }
+                auto newAssembleOp = AssembleOp{overlap->GetMemoryTypeOriginal(), newAssembleOffset, overlap, newTensor};
+                GraphUtils::AddAssembleOperation(function, newAssembleOp);
+                return SUCCESS;
+            }
+        }
+    }
+    APASS_LOG_WARN_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d], skip.",
+        overlap->GetMagic(), largeTensor->GetMagic());
+    return FAILED;
+}
+
 // 对于一对一、一对多场景创建新的AssembleOp和Tensor
 void SplitLargeFanoutTensor::CreateOpFor1toM(Function &function, LogicalTensorPtr largeTensor, Shape lcmTileShape, Offset lcmTileOffset,
     LogicalTensors overlaps, LogicalTensors dualOverlaps) {
@@ -146,14 +170,9 @@ void SplitLargeFanoutTensor::CreateOpFor1toM(Function &function, LogicalTensorPt
             auto newTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(),
                 lcmTileShape, largeTensor->Format());
             auto overlap = overlaps[0];
-            auto oldAssembleOp = *overlap->GetConsumers().begin();
-            auto oldAssembleOpAttr = dynamic_cast<AssembleOpAttribute *>(oldAssembleOp->GetOpAttribute().get());
-            Shape newAssembleOffset = oldAssembleOpAttr->GetToOffset();
-            for (size_t j = 0; j < newAssembleOffset.size(); j++) {
-                newAssembleOffset[j] -= lcmTileOffset[j];
+            if (AddNewAssembleOp(function, overlap, largeTensor, lcmTileOffset, newTensor) != SUCCESS) {
+                continue;
             }
-            auto newAssembleOp = AssembleOp{overlap->GetMemoryTypeOriginal(), newAssembleOffset, overlap, newTensor};
-            GraphUtils::AddAssembleOperation(function, newAssembleOp);
             auto assembleOp = *newTensor->GetProducers().begin();
             APASS_LOG_INFO_F(Elements::Operation, "In one-to-multiple situation, create an AssembleOp[%d], input is a "
                 "overlap[%d], output is a newTensor[%d].", assembleOp->GetOpMagic(), overlap->GetMagic(), newTensor->GetMagic());
@@ -177,28 +196,9 @@ void SplitLargeFanoutTensor::CreateOpForMtoM(Function &function, LogicalTensorPt
     auto newTensor = std::make_shared<LogicalTensor>(function, largeTensor->Datatype(),
         lcmTileShape, largeTensor->Format());
     for (const auto &overlap : overlaps) {
-        // 由于tensor->assemble->largeTensor中assemble可以不唯一并指向其他tensor，或assemble位置为其他种类op(op_view)。所以需要找到largeTensor的生产者op
-        Operation *oldAssembleOp = nullptr;
-        for (const auto &consumerOp : overlap->GetConsumers()) {
-            for (auto tensorPtr : consumerOp->GetOOperands()) {
-                if (tensorPtr == largeTensor) {
-                    oldAssembleOp = consumerOp;
-                }
-            }
-        }
-        if (oldAssembleOp == nullptr) {
-            APASS_LOG_DEBUG_F(Elements::Operation, "No valid assemble op found between tensor[%d] and tensor[%d], skip.",
-                overlap->GetMagic(), largeTensor->GetMagic());
+        if (AddNewAssembleOp(function, overlap, largeTensor, lcmTileOffset, newTensor) != SUCCESS) {
             continue;
         }
-
-        auto oldAssembleOpAttr = dynamic_cast<AssembleOpAttribute *>(oldAssembleOp->GetOpAttribute().get());
-        Shape newAssembleOffset = oldAssembleOpAttr->GetToOffset();
-        for (size_t j = 0; j < newAssembleOffset.size(); j++) {
-            newAssembleOffset[j] -= lcmTileOffset[j];
-        }
-        auto newAssembleOp = AssembleOp{overlap->GetMemoryTypeOriginal(), newAssembleOffset, overlap, newTensor};
-        GraphUtils::AddAssembleOperation(function, newAssembleOp);
         auto assembleOp = *newTensor->GetProducers().begin();
         APASS_LOG_INFO_F(Elements::Operation, "In multiple-to-multiple situation, create an AssembleOp[%d], "
             "input is a overlap[%d], output is a newTensor[%d].", assembleOp->GetOpMagic(), overlap->GetMagic(), newTensor->GetMagic());
@@ -336,15 +336,31 @@ void SplitLargeFanoutTensor::CollectLargeTensorToInfo(const LogicalTensorPtr &la
 
 void SplitLargeFanoutTensor::CollectLargeTensorFromInfo(const LogicalTensorPtr &largeTensor) {
     for (const auto &viewOp : largeTensor->GetConsumers()) {
+        if (viewOp->GetOpcode() != Opcode::OP_VIEW) {
+            continue;
+        }
         // 收集outputs
         auto output = viewOp->GetOOperands().front();
         if (fromInfoMap.count(largeTensor->tensor->rawmagic) == 0) {
             fromInfoMap.insert({largeTensor->tensor->rawmagic, {}});
         }
         auto opAttr = dynamic_cast<ViewOpAttribute *>(viewOp->GetOpAttribute().get());
-        if (opAttr != nullptr) {
-            fromInfoMap[largeTensor->tensor->rawmagic].emplace_back(output, opAttr->GetFromOffset());
+        if (opAttr == nullptr) { // 不可能为空，否则有问题
+            continue;
         }
+        if (!opAttr->GetFromDynOffset().empty()) {
+            bool hasDynOffset = false;
+            for (auto dynOffset : opAttr->GetFromDynOffset()) {
+                if (!dynOffset.ConcreteValid()) {
+                    hasDynOffset = true;
+                    break;
+                }
+            }
+            if (hasDynOffset) { // 当View存在动态offset时，无法进行split，因为不知道会用哪些Assemble
+                continue;
+            }
+        }
+        fromInfoMap[largeTensor->tensor->rawmagic].emplace_back(output, opAttr->GetFromOffset());
         // 收集outputs的shape
         if (fromShapes.count(largeTensor) == 0) {
             fromShapes.insert({largeTensor, {}});
@@ -418,20 +434,22 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
                     APASS_LOG_INFO_F(Elements::Tensor, "Calculate LCM shape failed, don't cal LcmShape.");
                     continue;
                 }
-                // 当lcmTile的每个维度都大于等于largeTensor时, 仍会聚合到同样大小的Tensor, 因此不做处理
-                bool unsplit = std::equal(lcmShape.begin(), lcmShape.end(), largeTensor->shape.begin(),
-                    [](int lcmDim, int largeTensorDim) { return lcmDim >= largeTensorDim; });
-                if (unsplit) {
+                // 当lcmTile的某一维度大于largeTensor时，修改为与largeTensor相等
+                for (size_t i = 0; i < lcmShape.size(); i++) {
+                    lcmShape[i] = std::min(lcmShape[i], largeTensor->GetShape()[i]);
+                }
+                // 当lcmTile的每个维度都等于largeTensor时, 仍会聚合到同样大小的Tensor, 因此不做处理
+                if (lcmShape == largeTensor->GetShape()) {
                     APASS_LOG_INFO_F(Elements::Tensor, "Skip SplitLargeTensor for magic[%d] since shape to assemble (lcmShape) equals "
-                        "or is larger than the largeTensor's shape.", largeTensor->GetMagic());
+                        "the largeTensor's shape.", largeTensor->GetMagic());
                     continue;
                 }
-                // 当lcmTile的shape小于largeTensor时, 开始尝试拆分
-                APASS_LOG_INFO_F(Elements::Tensor, "Try to split, large tensor magic is %d.", largeTensor->GetMagic());
                 lcmShapes.insert(lcmShape);
             }
         }
         for (const auto &lcmShape : lcmShapes) {
+            // 当lcmTile的shape小于largeTensor时, 开始尝试拆分
+            APASS_LOG_INFO_F(Elements::Tensor, "Try to split, large tensor magic is %d.", largeTensor->GetMagic());
             TryToSplitLargeTensor(function, lcmShape, largeTensor);
         }
     }

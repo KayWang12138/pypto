@@ -16,7 +16,6 @@
 #pragma once
 #include "interface/machine/host/machine_task.h"
 #include "interface/cache/function_cache.h"
-#include "machine/platform/platform_manager.h"
 namespace npu::tile_fwk {
 MachineTask *GenCode(
     MachineTask *task, const std::map<uint64_t, std::list<InvokeParaOffset>> &invokeParaOffset, FunctionCache &cache,
@@ -94,6 +93,11 @@ struct Linker {
         exprTable.SetElementKeyOnce(key);
         exprTable.SetTitleOnce(GetTitle(func));
     }
+
+    void SetMainBlockExpressionForDevRootCoa(Function *func, const SymbolicScalar &ss) {
+ 	    auto &exprTable = exprTableDictGroup_.devRootCoaDict[func];
+ 	    exprTable.mainBlockScalar_ = ss;
+ 	}
 
     SymbolicExpressionTable *LookupDevRootCoa(Function *func) {
         if (exprTableDictGroup_.devRootCoaDict.count(func)) {

@@ -247,20 +247,21 @@ int OoOScheduler::GetNodePriority(std::unordered_map<Opcode, int> preNodePriorit
     return prior;
 }
 
-int OoOScheduler::GetMaxDepthSimple(IssueEntryPtr issue) {
-    if (issue->predecessors.empty()) {
-        return 1;
+int OoOScheduler::GetDepth(IssueEntryPtr issue) {
+    auto it = depthCache_.find(issue);
+    if (it != depthCache_.end()) {
+        return it->second;
     }
 
     int maxDepth = 0;
-    for (const auto& pre : issue->predecessors) {
-        auto preIssue = issueEntryMap[pre];
-        int depth = GetMaxDepthSimple(preIssue);
-        if (depth > maxDepth) {
-            maxDepth = depth;
-        }
+    for (const auto& preId : issue->predecessors) {
+        auto preIssue = issueEntryMap[preId];
+        maxDepth = std::max(maxDepth, GetDepth(preIssue));
     }
-    return maxDepth + 1;
+
+    int depth = maxDepth + 1;
+    depthCache_[issue] = depth;
+    return depth;
 }
 
 void OoOScheduler::QueueNotReadyPreNode(IssueEntryPtr curIssue, std::map<IssueEntryPtr, bool>& visited,
@@ -278,8 +279,8 @@ void OoOScheduler::QueueNotReadyPreNode(IssueEntryPtr curIssue, std::map<IssueEn
         if (priorA != priorB) {
             return priorA < priorB;
         } else {
-            int depA = GetMaxDepthSimple(a);
-            int depB = GetMaxDepthSimple(b);
+            int depA = GetDepth(a);
+            int depB = GetDepth(b);
             if (depA == depB) {
                 return a->execOrder < b->execOrder;
             }
@@ -573,7 +574,7 @@ Status OoOScheduler::UpdateOOperandPreDependence(size_t startIndex, std::vector<
 // 回溯后，将队列 startIndex 位置之后的 issue 的 visitedIssue 状态还原回 false
 void OoOScheduler::RecoverSymbol(size_t startIndex, std::vector<IssueEntryPtr> curIssueEntries) {
     APASS_LOG_DEBUG_F(Elements::Operation, "RecoverSymbol  startIdx: %d, curIssue: %s", startIndex, curIssueEntries[startIndex]->GetOpInfo().c_str());
-    bufRefCount = recordBufRefCount[curIssueEntries[startIndex]];
+    bufRefCount_ = recordBufRefCount[curIssueEntries[startIndex]];
     for (size_t i = 0; i < curIssueEntries.size(); i++) {
         if (i > startIndex) {
             visitedIssue[curIssueEntries[i]] = false;
@@ -699,7 +700,7 @@ Status OoOScheduler::RetireIssueBuffer(std::map<MemoryType, int64_t> &curMemoryM
             APASS_LOG_ERROR_F(Elements::Operation, "DelBufRefCount tensor[%d] failed.", memId);
             return FAILED;
         }
-        if (bufRefCount[memId] == 0) {
+        if (bufRefCount_[memId] == 0) {
             APASS_LOG_DEBUG_F(Elements::Operation, "Start to free memory:");
             if (ModifyBuffer(curMemoryMap, localBufferMap[memId]->memType, localBufferMap[memId]->size, false) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Free tensor[%d] failed.", memId);
@@ -715,7 +716,7 @@ void OoOScheduler::issueMemoryUpdate(IssueEntryPtr issue, size_t startIndex, std
     recordIssueEntries[issue] = make_pair(startIndex, curIssueEntries);
     recordBufferAllocate[issue] = curMemoryMap;
     recordIssueBuffer[issue] = issue->tileOp.GetOutputOperand(0)->GetMemoryTypeOriginal();
-    recordBufRefCount[issue] = bufRefCount;
+    recordBufRefCount[issue] = bufRefCount_;
 }
 
 Status OoOScheduler::AllocExecute(IssueEntryPtr issue, std::vector<IssueEntryPtr> &curIssueEntries,

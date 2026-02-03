@@ -155,10 +155,6 @@ TEST_F(DynamicFunctionTest, TestSymbolic) {
             a.AsIntermediateVariable();
             EXPECT_TRUE(a.IsIntermediateVariable());
         }
-        {
-            auto x = SymbolicScalar("x", NotLessThan(1), NotGreaterThan(2));
-            EXPECT_TRUE(x.IsSymbol());
-        }
     }
 }
 
@@ -216,7 +212,7 @@ TEST_F(DynamicFunctionTest, MopCall) {
 }
 
 TEST_F(DynamicFunctionTest, TestLoopRange) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     TileShape::Current().SetVecTile(16, 16);
 
     std::vector<int64_t> shape{16, 64};
@@ -262,7 +258,7 @@ TEST_F(DynamicFunctionTest, TestLoopRange) {
 }
 
 TEST_F(DynamicFunctionTest, TestOnlyExpression) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     TileShape::Current().SetVecTile(16, 16);
 
     std::vector<int64_t> shape{16, 64};
@@ -296,7 +292,7 @@ TEST_F(DynamicFunctionTest, TestOnlyExpression) {
 }
 
 TEST_F(DynamicFunctionTest, TestOnlySymbol) {
-    config::SetPlatformConfig(KEY_ONLY_HOST_COMPILE, true);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     TileShape::Current().SetVecTile(1, 64);
 
     std::vector<int64_t> shape{4, 64};
@@ -440,7 +436,6 @@ void TestStaticLoopStatic(const Tensor &t0, const Tensor &t1, const Tensor &t2, 
 }
 
 TEST_F(DynamicFunctionTest, TestStaticLoopStatic) {
-    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 32);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
@@ -807,7 +802,7 @@ void HiddenLoopWithIf(Tensor &t0, Tensor &t1, Tensor &out){
         //         (void)idx1;
                 out = Add(t0,t1);
         //     }
-            IF(SymbolicScalar(0) < CONDITION_THRESHOLD) {
+            IF(SymbolicScalar(0) < SymbolicScalar("x")) {
                 LOOP("L02", FunctionType::DYNAMIC_LOOP, _, LoopRange(SECOND_LOOP_COUNT)) {
                     (void)_;
                     t0 = Add(t0, t1);
@@ -899,7 +894,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
         //     (void)_;
             // LOOP("L01",FunctionType::DYNAMIC_LOOP,idx1,LoopRange(1)){
             //     (void)idx1;
-                IF(SymbolicScalar(0) < CONDITION_THRESHOLD){
+                IF(SymbolicScalar(0) < SymbolicScalar("x")){
                     t0 = Add(t1,t1);
                 }ELSE{
                     t0 = Add(t2,t2);
@@ -911,12 +906,14 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
             }
             // LOOP("L03",FunctionType::DYNAMIC_LOOP,idx3,LoopRange(1)){
             //     (void)idx3;
-                IF(SymbolicScalar(0) < CONDITION_THRESHOLD){
+                IF(SymbolicScalar(0) < SymbolicScalar("x")){
                     t3 = Mul(t0,t2);
                 }ELSE{
                     t3 = Sub(t0,t2);
                 }
-                out = Sub(t3, t0);
+                if (SymbolicScalar(0) < 1) {
+                    out = Sub(t3, t0);
+                }
             //}
         //  }
     }
@@ -927,7 +924,8 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
 
     auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
     EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
-    EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 2); // one hidden loop has four paths
+    // const and duplicate cond will be optimized
+    EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 2);
 
     int idx = 0;
     std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10",
@@ -960,7 +958,7 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIfComplex){
     FUNCTION("Main", {t0, t1, t2, t3, t4}, {out}) {
         // LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
         //    (void)i;
-            IF(SymbolicScalar(0) < CONDITION_THRESHOLD) {
+            IF(SymbolicScalar(0) < SymbolicScalar("x")) {
                 t0 = Add(t1, t1);
             } ELSE {
                 t0 = Add(t2, t2);
@@ -1007,7 +1005,6 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIfComplex){
 #endif
 
 TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
-    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(32, 32, 32);
     TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
 
@@ -1038,7 +1035,6 @@ TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim3) {
 }
 
 TEST_F(DynamicFunctionTest, TestGetInputDataInt32Dim4) {
-    config::SetHostOption(ONLY_CODEGEN, true);
     TileShape::Current().SetVecTile(16, 16, 16, 16);
 
     int s = 16;

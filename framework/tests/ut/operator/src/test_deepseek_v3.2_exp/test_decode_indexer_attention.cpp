@@ -13,11 +13,10 @@
  * \brief
  */
 
-#include "gtest/gtest.h"
 #include "tilefwk/tilefwk_op.h"
-
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
+#include "test_cost_macro.h"
 #include "interface/tensor/logical_tensor.h"
 #include "interface/tensor/raw_tensor.h"
 #include "interface/interpreter/raw_tensor_data.h"
@@ -41,7 +40,6 @@ public:
 };
 
 void SetPreConfig() {
-    config::SetHostOption(ONLY_CODEGEN, true);
 }
 
 struct TensorWithData {
@@ -194,9 +192,8 @@ void TestDecodeIndexerAttentionSTest(DSIASimpleParams &params) {
         params);
 }
 
-TEST_F(DecodeIndexerAttentionUtest, utest_decode_indexer_attention) {
+TEST_F_WITH_COST(DecodeIndexerAttentionUtest, utest_decode_indexer_attention, 154) {
     int paramsSize = 7;
-    ConfigManager::Instance().SetCodeGenConfig(npu::tile_fwk::CODEGEN_EXPRESSION_FUSION, true);
     std::vector<int> inputParams(paramsSize);
     auto params = DSIASimpleParams::getDecodeParams();
     params.b = NUM_1;

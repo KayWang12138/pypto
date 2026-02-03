@@ -22,6 +22,8 @@
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
 #include "machine/host/device_agent_task.h"
+#include "cost_model/simulation/pv/PvModel.h"
+#include "cost_model/simulation/pv/PvModelFactory.h"
 #include "machine/device/dynamic/costmodel_utils.h"
 #include "machine/runtime/machine_agent.h"
 #include "machine/runtime/device_launcher.h"
@@ -29,8 +31,7 @@
 #include "machine/runtime/host_prof.h"
 
 
-namespace npu::tile_fwk::dynamic{
-
+namespace npu::tile_fwk::dynamic {
 class HostAgentStub {
 public:
     HostAgentStub(HostAgentStub &other) = delete;
@@ -87,22 +88,39 @@ struct MemoryHelper {
 
     bool IsDevice() { return !isTest_; }
 
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size) {
+    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
+        (void)cachedDevAddrHolder;
         auto ptr = npu::tile_fwk::dynamic::HostAgentStub::GetAgent()->AllocHostAddr(size);
         memcpy_s(ptr, size, data, size);
         return ptr;
     }
 
-    void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
-        if (isTest_) {
-            memcpy_s(data, size, devPtr, size);
+    template <typename T>
+    T *CopyToDev(std::vector<T> data) {
+        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
+    }
+
+    template <typename T>
+    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
+        (void)cachedDevAddrHolder;
+        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), nullptr);
+    }
+
+    uint8_t *CopyToDev(RawTensorData &data) {
+        if (data.GetDevPtr() == nullptr) {
+            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size(), nullptr);
+            data.SetDevPtr(devPtr);
         }
+        return data.GetDevPtr();
+    }
+
+    void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
+        memcpy_s(data, size, devPtr, size);
     }
 
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        uint8_t *devPtr = nullptr;
-        devPtr = npu::tile_fwk::dynamic::HostAgentStub::GetAgent()->AllocHostAddr(size);
+        uint8_t *devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
         return devPtr;
     }
 
@@ -111,20 +129,6 @@ struct MemoryHelper {
         uint8_t *devPtr = AllocDev(size, nullptr);
         memset_s(devPtr, size, 0, size);
         return devPtr;
-    }
-
-    template <typename T>
-    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
-        (void)cachedDevAddrHolder;
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
-    }
-
-    uint8_t *CopyToDev(RawTensorData &data) {
-        if (data.GetDevPtr() == nullptr) {
-            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size());
-            data.SetDevPtr(devPtr);
-        }
-        return data.GetDevPtr();
     }
 
     void CopyFromDev(RawTensorData &t) {
@@ -138,8 +142,30 @@ struct MemoryHelper {
     bool isTest_{true};
 };
 
+class AiCorePvModelImpl : public CostModel::AiCoreModel {
+private:
+    std::shared_ptr<CostModel::DynPvModel> pv_;
+    std::unordered_map<int, uint64_t> funcdata_;
+    std::mutex mtx_;
+
+public:
+    explicit AiCorePvModelImpl(std::shared_ptr<CostModel::DynPvModel> pv) : pv_(pv) {
+    }
+
+    void InitData(int coreIdx, int64_t funcdata) {
+        std::lock_guard<std::mutex> lock(mtx_);
+        funcdata_[coreIdx] = funcdata;
+    }
+
+    void SendTask(int coreIdx, uint64_t taskId) {
+        auto funcdata = funcdata_[coreIdx];
+        DynFuncHeader *header = reinterpret_cast<DynFuncHeader*>(funcdata);
+        DynFuncData *data = reinterpret_cast<DynFuncData*>(header + 1);
+        pv_->Run(data, coreIdx, FuncID(taskId), TaskID(taskId));
+    }
+};
+
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
-extern "C" int DynTileFwkBackendKernelServerInit(void *targ);
 extern "C" int PyptoKernelCtrlServer(void *targ);
 
 class CostModelLauncher : public DeviceLauncher {
@@ -161,7 +187,8 @@ public:
     }
 
 private:
-    CostModelLauncher(Function *function, const DeviceLauncherConfig &config) : function_(function), config_(config) {}
+    CostModelLauncher(Function *function, const DeviceLauncherConfig &config) : function_(function), config_(config) {
+    }
 
     void RunDynamic(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs) {
         if (function_ == nullptr || function_->GetDyndevAttribute() == nullptr) {
@@ -182,17 +209,21 @@ private:
         if (!config_.runModel) {
             return;
         }
-        AstKernelArgs kArgs;
+        DeviceKernelArgs kArgs;
         config_.onBoard = false;
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, config_, nullptr);
+        DeviceInitDistributedContextToHost(function_->GetDyndevAttribute()->commGroupNames,
+ 	        function_->GetDyndevAttribute()->devProgBinary);  
+        DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         std::cout << "Run CostModel " << "\n";
         RunCostModel(&kArgs);
         std::cout << "Run TestModel " << "\n";
-        RunTestMode(&kArgs);
+        RunTestMode(&kArgs, DEVICE_MAX_AICPU_NUM);
         std::cout << "Run DynCostModel " << "\n";
         RunDynCostModel();
+        std::cout << "Run PvModel " << "\n";
+        RunPvModel(kArgs, inputs, outputs);
     }
 
     bool IsDumpTensorEnable() const {
@@ -225,7 +256,7 @@ private:
         }
     }
 
-    void DumpTensorContents(const AstKernelArgs &kArgs,
+    void DumpTensorContents(const DeviceKernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
@@ -267,15 +298,15 @@ private:
         fout.close();
     }
 
-    void RunCostModel(AstKernelArgs *kArgs) {
-        if (!config::GetPlatformConfig("ENABLE_DYN_COST_MODEL", true)) {
+    void RunCostModel(DeviceKernelArgs *kArgs) {
+        if (!config::GetPlatformConfig(KEY_ENABLE_DYN_COST_MODEL, true)) {
             return;
         }
         Function *function = Program::GetInstance().GetLastFunction();
         if (function == nullptr) {
             return;
         }
-        config::SetSimConfig("SIM_MODE", CostModel::SimMode::LEAF_FUNCTION);
+        config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::LEAF_FUNCTION);
         CostModelAgent costModelAgent;
         costModelAgent.SubmitLeafFunctionsToCostModel();
         costModelAgent.RunCostModel();
@@ -296,7 +327,8 @@ private:
         if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
             return;
         }
-        config::SetSimConfig("SIM_MODE", CostModel::SimMode::NORMAL);
+        config::SetSimConfig(KEY_SIM_MODE, CostModel::SimMode::NORMAL);
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         CostModelAgent costModelAgent;
 
         std::string path = config::LogTopFolder() + "/dyn_topo.txt";
@@ -306,13 +338,113 @@ private:
         costModelAgent.TerminateCostModel();
     }
 
-    void RunTestMode(AstKernelArgs *kArgs) {
+    void RunPvModel(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs)
+    {
+        if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM || std::getenv("ASCEND_HOME_PATH") == nullptr) {
+            return;
+        }
+        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+        try {
+            pv_ = CostModel::PvModelFactory::CreateDyn();
+            pv_->InitPv();
+        } catch (const std::runtime_error &e) {
+            std::cerr<< "pv init fail." << std::endl;
+            return;
+        }
+        
+        model_ = std::make_shared<AiCorePvModelImpl>(pv_);
+        const int maxCpuNum = 6;
+        pv_->Codegen(function_);
+        BuildPvKernelArgs(kArgs, inputs, outputs);
+        RunTestMode(&kArgs, maxCpuNum);
+        SetDevPtr(inputs, outputs);
+        CopyFromDev(inputs, outputs);
+    }
+
+    void BuildPvKernelArgs(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs)
+    {
+        MemoryHelper devMem{true};
+        auto buildInouts = [&](auto &tensorList, DevTensorData* tensorData) {
+            for (auto &t : tensorList) {
+                if (t) {
+                    auto addrs = reinterpret_cast<uint64_t>(pv_->CopyTensorToDev((uint8_t *)t->data(), t->size()));
+                    DevAscendTensorDataCreator::Init(tensorData, addrs, t->GetShape().data(), t->GetShape().size());
+                } else {
+                    std::vector<int> shape;
+                    DevAscendTensorDataCreator::Init(tensorData, 0UL, shape.data(), shape.size());
+                }
+                tensorData++;
+            }
+            return;
+        };
+
+        std::vector<uint8_t> &devProgData = function_->GetDyndevAttribute()->devProgBinary;
+        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+
+        devProg->devArgs.nrAicpu = 6;
+        devProg->devArgs.nrValidAic = 24;
+        devProg->devArgs.startArgsAddr = (uint64_t)pv_->AllocWorkspaceDev(DEV_ARGS_SIZE);
+        devProg->workspaceSize = devProg->memBudget.Total();
+        devProg->devArgs.scheCpuNum = 1;
+        AssignMetaAddr(kArgs, devMem, devProg, nullptr);
+        for (auto &input: inputs) {
+            if (input)
+                input->SetDevPtr(nullptr);
+        }
+        for (auto &output: outputs) {
+            if (output)
+                output->SetDevPtr(nullptr);
+        }
+        size_t tensorSize = (inputs.size() + outputs.size()) * sizeof(DevTensorData) + 2 * sizeof(uint64_t);
+        std::vector<uint8_t> tensorInfo(tensorSize);
+        auto data = reinterpret_cast<uint64_t*>(tensorInfo.data());
+        *data = inputs.size();
+        data++;
+        *data = outputs.size();
+        data++;
+        auto dataPtr = reinterpret_cast<DevTensorData*>(data);
+        buildInouts(inputs, dataPtr);
+        dataPtr += inputs.size();
+        buildInouts(outputs, dataPtr);
+        kArgs.inputs = (int64_t *)pv_->CopyToDev(tensorInfo.data(), tensorSize);
+        kArgs.outputs = kArgs.inputs + 1;
+        kArgs.workspace = (int64_t *)pv_->AllocWorkspaceDev(devProg->workspaceSize);
+        kArgs.cfgdata = (int64_t *)pv_->CopyToDev(devProgData.data(), devProgData.size());
+        kArgs.aicoreModel = model_.get();
+    }
+
+    void SetDevPtr(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs)
+    {
+        auto setDevPtr = [&](auto &tensorList) {
+            for (uint i = 0; i < tensorList.size(); i++) {
+                int index = pv_->GetOutIndex(i, tensorList.size());
+                tensorList[i]->SetDevPtr(reinterpret_cast<uint8_t *>(pv_->GetDataHostPtr(index)));
+            }
+        };
+        setDevPtr(inputs);
+        setDevPtr(outputs);
+    }
+
+    void CopyFromDev(const std::vector<RawTensorDataPtr> &inputs, const std::vector<RawTensorDataPtr> &outputs)
+    {
+        auto copyFromDev = [&](auto &tensorList) {
+            for (auto &tensor : tensorList) {
+                if (tensor)
+                    pv_->CopyFromDev(tensor->data(), tensor->GetDevPtr(), tensor->size());
+            }
+        };
+
+        copyFromDev(inputs);
+        copyFromDev(outputs);
+    }
+
+    void RunTestMode(DeviceKernelArgs *kArgs, int maxCpuNum) {
         (void) kArgs;
-        const int BUFFER_SIZE_64 = 64;
-        std::thread aicpus[DEVICE_MAX_AICPU_NUM];
+        std::vector<std::thread> aicpus(maxCpuNum);
         std::atomic<int> idx{0};
         auto *devProg = (DevAscendProgram *)(kArgs->cfgdata);
-        (void)DynTileFwkBackendKernelServerInit(kArgs);
+        size_t shmSize = DEVICE_TASK_CTRL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        (void)memset_s(reinterpret_cast<void*>(devProg->devArgs.taskQueue), shmSize, 0, shmSize);
         int threadNum = static_cast<int>(devProg->devArgs.nrAicpu);
         threadNum = (devProg->devArgs.enableCtrl == 1) ? threadNum : threadNum + 1;
         for (int i = 0; i < threadNum; i++) {
@@ -321,10 +453,9 @@ private:
                 cpu_set_t cpuset;
                 CPU_ZERO(&cpuset);
                 CPU_SET(tidx, &cpuset);
-                char name[BUFFER_SIZE_64];
-                (void)sprintf_s(name, sizeof(name), "aicput%d", tidx);
+                std::string name = "aicput" + std::to_string(tidx);
                 std::cout << "start thread: " << name << std::endl;
-                pthread_setname_np(pthread_self(), name);
+                pthread_setname_np(pthread_self(), name.c_str());
                 pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
                 if ((devProg->devArgs.enableCtrl == 0) && (uint32_t)tidx == devProg->devArgs.scheCpuNum) {
                     (void)PyptoKernelCtrlServer(kArgs);
@@ -341,12 +472,12 @@ private:
         }
     }
 
-    void InitKernelInOuts(AstKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
+    void InitKernelInOuts(DeviceKernelArgs &kArgs, const std::vector<RawTensorDataPtr> &inputTensors,
         const std::vector<RawTensorDataPtr> &outputTensors, bool isTest) {
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
         std::tie(inputList, outputList) = BuildInputOutputFromHost(MemoryHelper(isTest), inputTensors, outputTensors);
-        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, {}, false);
+        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, {});
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
     }
@@ -354,5 +485,7 @@ private:
 private:
     Function *function_;
     DeviceLauncherConfig config_;
+    std::shared_ptr<CostModel::DynPvModel> pv_;
+    std::shared_ptr<CostModel::AiCoreModel> model_;
 }; // CostModelLauncher
 } // npu::tile_fwk::dynamic
