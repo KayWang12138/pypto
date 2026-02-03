@@ -17,6 +17,7 @@ pypto-bitwise_or
 pypto-bitwise_right_shift
 pypto-bitwise_xor
 pypto-cast
+pypto-cast
 pypto-ceil
 pypto-clip
 pypto-clone
