@@ -315,6 +315,8 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
         spillMemType = MemoryType::MEM_UB;
     } else if (!allocIssueQueue[coreType][idx][MemoryType::MEM_L1].Empty()) {
         spillMemType = MemoryType::MEM_L1;
+        ASSERT(spillMemType == MemoryType::MEM_L1)
+        << "SpillOnCoreBlock Spill L1";
     } else {
         for (auto memType: allocIssueQueue[coreType][idx]) {
             if (memType.second.Empty()) {
