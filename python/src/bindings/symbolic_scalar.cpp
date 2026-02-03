@@ -13,30 +13,30 @@
  * \brief
  */
 
-#include "pybind_common.h"
+#include "nb_common.h"
 
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void BindSymbolicScalar(py::module &m) {
-    py::class_<SymbolicScalar> _SymbolicScalar(m, "SymbolicScalar");
+void BindSymbolicScalar(nb::module_ &m) {
+    nb::class_<SymbolicScalar> _SymbolicScalar(m, "SymbolicScalar");
 
     _SymbolicScalar
-        .def(py::init<>())
-        .def(py::init<const SymbolicScalar &>(), py::arg("val"))
-        .def(py::init<std::string>(), py::arg("name"))
-        .def(py::init<std::int64_t>(), py::arg("value"))
-        .def(py::init<std::string, int64_t>(), py::arg("name"), py::arg("value"));
+        .def(nb::init<>())
+        .def(nb::init<const SymbolicScalar &>(), nb::arg("val"))
+        .def(nb::init<std::string>(), nb::arg("name"))
+        .def(nb::init<std::int64_t>(), nb::arg("value"))
+        .def(nb::init<std::string, int64_t>(), nb::arg("name"), nb::arg("value"));
 
-    py::implicitly_convertible<int64_t, SymbolicScalar>();
-    py::implicitly_convertible<int, SymbolicScalar>();
+    nb::implicitly_convertible<int64_t, SymbolicScalar>();
+    nb::implicitly_convertible<int, SymbolicScalar>();
 
     _SymbolicScalar.def("IsImmediate", &SymbolicScalar::IsImmediate)
         .def("IsSymbol", &SymbolicScalar::IsSymbol)
         .def("IsExpression", &SymbolicScalar::IsExpression)
         .def("IsValid", &SymbolicScalar::IsValid)
         .def("ConcreteValid", &SymbolicScalar::ConcreteValid)
-        .def("Concrete", py::overload_cast<>(&SymbolicScalar::Concrete, py::const_))
+        .def("Concrete", nb::overload_cast<>(&SymbolicScalar::Concrete, nb::const_))
         .def("Eq", &SymbolicScalar::Eq) // Total ordering / comparisons
         .def("Ne", &SymbolicScalar::Ne)
         .def("Lt", &SymbolicScalar::Lt)
@@ -58,8 +58,8 @@ void BindSymbolicScalar(py::module &m) {
         .def("AsIntermediateVariable", &SymbolicScalar::AsIntermediateVariable)
         .def("IsIntermediateVariable", &SymbolicScalar::IsIntermediateVariable)
         .def("Dump", &SymbolicScalar::Dump)
-        .def("Min", &SymbolicScalar::Min, py::arg("other"))
-        .def("Max", &SymbolicScalar::Max, py::arg("other"));
+        .def("Min", &SymbolicScalar::Min, nb::arg("other"))
+        .def("Max", &SymbolicScalar::Max, nb::arg("other"));
 
     _SymbolicScalar
         .def("Pos", &SymbolicScalar::Pos)

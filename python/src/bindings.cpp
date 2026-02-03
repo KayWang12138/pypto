@@ -13,23 +13,23 @@
  * \brief
  */
 
-#include "pybind_common.h"
+#include "nb_common.h"
 #include "bindings/bindings.h"
 
 using namespace npu::tile_fwk;
 
 namespace pypto {
-PYBIND11_MODULE(pypto_impl, m) {
+NB_MODULE(pypto_impl, m) {
     m.doc() = "PyPTO";
-    bind_enum(m);
+    BindEnum(m);
     BindElement(m);
     BindTensor(m);
     BindSymbolicScalar(m);
-    bind_controller(m);
-    bind_operation(m);
+    BindController(m);
+    BindOperation(m);
     BindRuntime(m);
     BindCostModelRuntime(m);
-    bind_pass(m);
+    BindPass(m);
     BindFunction(m);
     BindIr(m);
 };

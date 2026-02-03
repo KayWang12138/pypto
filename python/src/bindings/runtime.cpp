@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "pybind_common.h"
+#include "nb_common.h"
 
 #include <utility>
 #include <vector>
@@ -138,10 +138,10 @@ std::string DeviceRunOnceDataFromHost(
     return "";
 }
 
-std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ pythonOperatorPython,
+std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] nb::int_ pythonOperatorPython,
     [[maybe_unused]] const std::vector<DeviceTensorData> &inputs, [[maybe_unused]] const std::vector<DeviceTensorData> &outputs,
-    [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData,
-    [[maybe_unused]] py::int_ devCtrlCache) {
+    [[maybe_unused]] nb::int_ incomingStreamPython, [[maybe_unused]] nb::int_ workspaceData,
+    [[maybe_unused]] nb::int_ devCtrlCache) {
 
     if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
         return "";
@@ -200,7 +200,7 @@ uint64_t GetWorkSpaceSize(uintptr_t opAddr, const std::vector<DeviceTensorData> 
     return 0;
 }
 
-std::string OperatorDeviceSynchronize(py::int_ incomingStreamPython) {
+std::string OperatorDeviceSynchronize(nb::int_ incomingStreamPython) {
     auto incomingStream = static_cast<uintptr_t>(incomingStreamPython);
     if (incomingStream == 0) {
         return "invalid incoming stream";
@@ -280,7 +280,7 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
     return 0;
 }
 
-void BindRuntime(py::module &m) {
+void BindRuntime(nb::module_ &m) {
     m.def("DeviceInit", &DeviceInit);
     m.def("DeviceFini", &DeviceFini);
     m.def("DeviceRunOnceDataFromHost", &DeviceRunOnceDataFromHost);
@@ -294,9 +294,9 @@ void BindRuntime(py::module &m) {
     m.def("CopyToHost", &CopyToHost);
     m.def("CopyToDev", &CopyToDev);
 
-    py::class_<DeviceTensorData>(m, "DeviceTensorData")
-        .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),
-            py::arg("shape"))
+    nb::class_<DeviceTensorData>(m, "DeviceTensorData")
+        .def(nb::init<DataType, uintptr_t, const std::vector<int64_t> &>(), nb::arg("dtype"), nb::arg("addr"),
+            nb::arg("shape"))
         .def("GetDataPtr", &DeviceTensorData::GetAddr)
         .def("GetShape", &DeviceTensorData::GetShape)
         .def("GetDataType", &DeviceTensorData::GetDataType);

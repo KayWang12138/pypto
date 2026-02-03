@@ -168,8 +168,8 @@ def block_function_add(args):
         ubt1.set_memory_param(0x10000, ir.MemSpaceKind.UB, 0x10000)
 
         # Copy输入
-        block.ub_copy_in(args[0], {offset0, constant0}, ubt0)
-        block.ub_copy_in(args[1], {offset0, constant0}, ubt1)
+        block.ub_copy_in(args[0], [offset0, constant0], ubt0)
+        block.ub_copy_in(args[1], [offset0, constant0], ubt1)
 
         # 插入同步 MTE2_TO_V
         block.call_scalar(pipe_mte2, pipe_v, event_id0, out=void_value, call_type="set_flag")
@@ -183,7 +183,7 @@ def block_function_add(args):
         block.call_scalar(pipe_v, pipe_mte3, event_id0, out=void_value, call_type="wait_flag")
 
         # Copy到Gm
-        block.ub_copy_out(ubt0, {offset0, constant0}, args[2])
+        block.ub_copy_out(ubt0, [offset0, constant0], args[2])
         block.create_return([constant0])
     return func
 

@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <pybind11/pybind11.h>
 
 #include <atomic>
 #include <iostream>
@@ -25,12 +24,16 @@
 #include <unordered_set>
 #include <vector>
 
-#include "Python.h"
-#include "pybind11/chrono.h"
-#include "pybind11/complex.h"
-#include "pybind11/functional.h"
-#include "pybind11/operators.h"
-#include "pybind11/stl.h"
+#include <Python.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/array.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/vector.h>
+#include <nanobind/stl/map.h>
+#include <nanobind/stl/set.h>
+#include <nanobind/stl/unordered_map.h>
+#include <nanobind/stl/shared_ptr.h>
+#include <nanobind/make_iterator.h>
 
 #include "tilefwk/tilefwk_op.h"
 #include "tilefwk/tensor.h"
@@ -42,4 +45,4 @@
 #include "interface/interpreter/calc.h"
 #include "interface/configs/config_manager_ng.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;

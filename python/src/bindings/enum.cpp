@@ -13,13 +13,14 @@
  * \brief
  */
 
-#include "pybind_common.h"
+#include <nanobind/nanobind.h>
+#include "nb_common.h"
 
 using namespace npu::tile_fwk;
 
 namespace pypto {
-void bind_enum(py::module &m){
-    py::enum_<DataType>(m, "DataType")
+void BindEnum(nb::module_ &m){
+    nb::enum_<DataType>(m, "DataType", nb::is_arithmetic())
         .value("DT_INT4", DataType::DT_INT4)
         .value("DT_INT8", DataType::DT_INT8)
         .value("DT_INT16", DataType::DT_INT16)
@@ -42,34 +43,34 @@ void bind_enum(py::module &m){
         .value("DT_BOTTOM", DataType::DT_BOTTOM)
         .export_values();
 
-    py::enum_<NodeType>(m, "NodeType")
+    nb::enum_<NodeType>(m, "NodeType", nb::is_arithmetic())
         .value("LOCAL", NodeType::LOCAL)
         .value("INCAST", NodeType::INCAST)
         .value("OUTCAST", NodeType::OUTCAST)
         .export_values();
 
-    py::enum_<TileOpFormat>(m, "TileOpFormat")
+    nb::enum_<TileOpFormat>(m, "TileOpFormat", nb::is_arithmetic())
         .value("TILEOP_ND", TileOpFormat::TILEOP_ND)
         .value("TILEOP_NZ", TileOpFormat::TILEOP_NZ)
         .value("TILEOP_FORMAT_NUM", TileOpFormat::TILEOP_FORMAT_NUM)
         .export_values();
 
-    py::enum_<CachePolicy>(m, "CachePolicy")
+    nb::enum_<CachePolicy>(m, "CachePolicy", nb::is_arithmetic())
         .value("NONE_CACHEABLE", CachePolicy::NONE_CACHEABLE)
         .value("MAX_NUM", CachePolicy::MAX_NUM)
         .export_values();
 
-    py::enum_<ReduceMode>(m, "ReduceMode")
+    nb::enum_<ReduceMode>(m, "ReduceMode", nb::is_arithmetic())
         .value("ATOMIC_ADD", ReduceMode::ATOMIC_ADD)
         .export_values();
 
-    py::enum_<ScatterMode>(m, "ScatterMode")
+    nb::enum_<ScatterMode>(m, "ScatterMode", nb::is_arithmetic())
         .value("NONE", ScatterMode::NONE)
         .value("ADD", ScatterMode::ADD)
         .value("MULTIPLY", ScatterMode::MULTIPLY)
         .export_values();
 
-    py::enum_<MemoryType>(m, "MemoryType")
+    nb::enum_<MemoryType>(m, "MemoryType", nb::is_arithmetic())
         .value("MEM_UB", MemoryType::MEM_UB)
         .value("MEM_L1", MemoryType::MEM_L1)
         .value("MEM_L0A", MemoryType::MEM_L0A)
@@ -84,7 +85,7 @@ void bind_enum(py::module &m){
         .value("MEM_UNKNOWN", MemoryType::MEM_UNKNOWN)
         .export_values();
 
-    py::enum_<FunctionType>(m, "FunctionType")
+     nb::enum_<FunctionType>(m, "FunctionType", nb::is_arithmetic())
         .value("EAGER", FunctionType::EAGER)
         .value("STATIC", FunctionType::STATIC)
         .value("DYNAMIC", FunctionType::DYNAMIC)
@@ -94,7 +95,7 @@ void bind_enum(py::module &m){
         .value("MAX", FunctionType::MAX)
         .export_values();
 
-    py::enum_<GraphType>(m, "GraphType")
+     nb::enum_<GraphType>(m, "GraphType", nb::is_arithmetic())
         .value("TENSOR_GRAPH", GraphType::TENSOR_GRAPH)
         .value("TILE_GRAPH", GraphType::TILE_GRAPH)
         .value("EXECUTE_GRAPH", GraphType::EXECUTE_GRAPH)
@@ -103,7 +104,7 @@ void bind_enum(py::module &m){
         .value("INVALID", GraphType::INVALID)
         .export_values();
 
-    py::enum_<CastMode>(m, "CastMode")
+     nb::enum_<CastMode>(m, "CastMode", nb::is_arithmetic())
         .value("CAST_NONE", CastMode::CAST_NONE)
         .value("CAST_RINT", CastMode::CAST_RINT)
         .value("CAST_ROUND", CastMode::CAST_ROUND)
@@ -113,14 +114,14 @@ void bind_enum(py::module &m){
         .value("CAST_ODD", CastMode::CAST_ODD)
         .export_values();
 
-    py::enum_<TileType>(m, "TileType")
+     nb::enum_<TileType>(m, "TileType", nb::is_arithmetic())
         .value("VEC", TileType::VEC)
         .value("CUBE", TileType::CUBE)
         .value("DIST", TileType::DIST)
         .value("MAX", TileType::MAX)
         .export_values();
 
-    py::enum_<OpType>(m, "OpType")
+     nb::enum_<OpType>(m, "OpType", nb::is_arithmetic())
         .value("EQ", OpType::EQ)
         .value("NE", OpType::NE)
         .value("LT", OpType::LT)
@@ -129,17 +130,17 @@ void bind_enum(py::module &m){
         .value("GE", OpType::GE)
         .export_values();
 
-    py::enum_<OutType>(m, "OutType")
+     nb::enum_<OutType>(m, "OutType", nb::is_arithmetic())
         .value("BOOL", OutType::BOOL)
         .value("BIT", OutType::BIT)
         .export_values();
 
-    py::enum_<Matrix::ReLuType>(m, "ReLuType")
+     nb::enum_<Matrix::ReLuType>(m, "ReLuType", nb::is_arithmetic())
         .value("NO_RELU", Matrix::ReLuType::NoReLu)
         .value("RELU", Matrix::ReLuType::ReLu)
         .export_values();
 
-    py::enum_<LogBaseType>(m, "LogBaseType")
+     nb::enum_<LogBaseType>(m, "LogBaseType", nb::is_arithmetic())
         .value("LOG_E", LogBaseType::LOG_E)
         .value("LOG_2", LogBaseType::LOG_2)
         .value("LOG_10", LogBaseType::LOG_10)

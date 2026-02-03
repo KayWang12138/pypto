@@ -8,20 +8,19 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-pybind11_add_module(pypto_impl
-        MODULE
-            pybind11.cpp
-            bindings/enum.cpp
-            bindings/element.cpp
-            bindings/tensor.cpp
-            bindings/symbolic_scalar.cpp
-            bindings/controller.cpp
-            bindings/operation.cpp
-            bindings/runtime.cpp
-            bindings/cost_model.cpp
-            bindings/pass_config.cpp
-            bindings/function.cpp
-            bindings/ir.cpp
+nanobind_add_module(pypto_impl NB_SUPPRESS_WARNINGS
+        bindings.cpp
+        bindings/enum.cpp
+        bindings/element.cpp
+        bindings/tensor.cpp
+        bindings/symbolic_scalar.cpp
+        bindings/controller.cpp
+        bindings/operation.cpp
+        bindings/runtime.cpp
+        bindings/cost_model.cpp
+        bindings/pass_config.cpp
+        bindings/function.cpp
+        bindings/ir.cpp
 )
 target_include_directories(pypto_impl
         PRIVATE  # 使用 CANN 场景依赖

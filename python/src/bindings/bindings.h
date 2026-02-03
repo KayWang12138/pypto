@@ -15,19 +15,19 @@
 
 #pragma once
 
-#include <pybind11/pybind11.h>
+#include <nanobind/nanobind.h>
 
-namespace py = pybind11;
+namespace nb = nanobind;
 namespace pypto {
-void bind_enum(py::module &m);
-void BindElement(py::module &m);
-void BindTensor(py::module &m);
-void BindSymbolicScalar(py::module &m);
-void bind_controller(py::module &m);
-void bind_operation(py::module &m);
-void BindRuntime(py::module &m);
-void BindCostModelRuntime(py::module &m);
-void bind_pass(py::module &m);
-void BindFunction(py::module &m);
-void BindIr(py::module &m);
+void BindEnum(nb::module_ &m);
+void BindElement(nb::module_ &m);
+void BindTensor(nb::module_ &m);
+void BindSymbolicScalar(nb::module_ &m);
+void BindController(nb::module_ &m);
+void BindOperation(nb::module_ &m);
+void BindRuntime(nb::module_ &m);
+void BindCostModelRuntime(nb::module_ &m);
+void BindPass(nb::module_ &m);
+void BindFunction(nb::module_ &m);
+void BindIr(nb::module_ &m);
 } // namespace pypto

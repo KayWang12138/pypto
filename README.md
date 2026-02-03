@@ -80,7 +80,7 @@ PyPTO提供了丰富的示例代码，涵盖从基础操作到复杂模型实现
 │
 ├── python/                     # Python源码
 │   ├── pypto/                  # Python包源码根目录
-│   ├── src/                    # pybind11源码根目录
+│   ├── src/                    # nanobind源码根目录
 │   └── tests/                  # Python测试用例源码（UTest, STest）
 │
 ├── framework/                  # C++源码根目录
