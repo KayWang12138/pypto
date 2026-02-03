@@ -44,72 +44,55 @@ void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_
             << ", expected range [" << min << ", " << max << "]." << std::endl;
     });
 }
-
-int64_t ConvComputeHo(int64_t hin, int64_t kh, int64_t padTop, int64_t padBottom, int64_t dilationH, int64_t strideH)
+int64_t ConvComputeHo(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
+    std::vector<int64_t> strides = attrParam.strides;
+    int64_t strideH = strides[0];
     if (strideH == 0) {
         return 1;
     }
+    std::vector<int64_t> paddings = attrParam.paddings;
+    std::vector<int64_t> dilations = attrParam.dilations;
+    int64_t padTop = paddings[0];
+    int64_t padBottom = paddings[1];
+    int64_t dilationH = dilations[0];
+    int64_t hin = inputTensor.GetShape()[2];
+    int64_t kh = weightTensor.GetShape()[2];
     int64_t cmpHo = (hin + padTop + padBottom - dilationH * (kh - 1) - 1) / strideH + 1;
     return cmpHo;
 }
-
-int64_t ConvComputeWo(int64_t win, int64_t kw, int64_t padLeft, int64_t padRight, int64_t dilationW, int64_t strideW)
+int64_t ConvComputeWo(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
+    std::vector<int64_t> strides = attrParam.strides;
+    int64_t strideW = strides[1];
     if (strideW == 0) {
         return 1;
     }
+    std::vector<int64_t> paddings = attrParam.paddings;
+    std::vector<int64_t> dilations = attrParam.dilations;
+    int64_t dilationW = dilations[1];
+    int64_t padLeft = paddings[2];
+    int64_t padRight = paddings[3];
+    int64_t win = inputTensor.GetShape()[3];
+    int64_t kw = weightTensor.GetShape()[3];
     int64_t cmpWo = (win + padLeft + padRight - dilationW * (kw - 1) - 1) / strideW + 1;
     return cmpWo;
 }
-
 void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam){
-    std::vector<int64_t> paddings = attrParam.paddings;
-    std::vector<int64_t> dilations = attrParam.dilations;
-    std::vector<int64_t> strides = attrParam.strides;
-
-    int64_t hin = inputTensor.GetShape()[2];
-    int64_t win = inputTensor.GetShape()[3];
-    int64_t kh = weightTensor.GetShape()[2];
-    int64_t kw = weightTensor.GetShape()[3];
-    int64_t padTop = paddings[0];
-    int64_t padBottom = paddings[1];
-    int64_t padLeft = paddings[2];
-    int64_t padRight = paddings[3];
-    int64_t dilationH = dilations[0];
-    int64_t dilationW = dilations[1];
-    int64_t strideH = strides[0];
-    int64_t strideW = strides[1];
-
-    int64_t hout = ConvComputeHo(hin, kh, padTop, padBottom, dilationH, strideH);
+    int64_t hout = ConvComputeHo(inputTensor, weightTensor, attrParam);
     CheckValueRange(hout, "hout" , NUM1, MAX_SIZE);
-    int64_t wout = ConvComputeWo(win, kw, padLeft, padRight, dilationW, strideW);
+    int64_t wout = ConvComputeWo(inputTensor, weightTensor, attrParam);
     CheckValueRange(wout, "wout" , NUM1, MAX_SIZE);
 }
 
 void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
-    int64_t hin = inputTensor.GetShape()[2];
-    int64_t win = inputTensor.GetShape()[3];
-    int64_t kh = weightTensor.GetShape()[2];
-    int64_t kw = weightTensor.GetShape()[3];
-    std::vector<int64_t> paddings = attrParam.paddings;
-    std::vector<int64_t> dilations = attrParam.dilations;
-    std::vector<int64_t> strides = attrParam.strides;
-    int64_t padTop = paddings[0];
-    int64_t padBottom = paddings[1];
-    int64_t padLeft = paddings[2];
-    int64_t padRight = paddings[3];
-    int64_t dilationH = dilations[0];
-    int64_t dilationW = dilations[1];
-    int64_t strideH = strides[0];
-    int64_t strideW = strides[1];
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
-    int64_t hout = ConvComputeHo(hin, kh, padTop, padBottom, dilationH, strideH);
-    int64_t wout = ConvComputeWo(win, kw, padLeft, padRight, dilationW, strideW);
-    CheckValueRange(hout, "tileHout" , NUM1, hout);
-    CheckValueRange(wout, "tileWout" , NUM1, wout);
+    int64_t hout = ConvComputeHo(inputTensor, weightTensor, attrParam);
+    int64_t wout = ConvComputeWo(inputTensor, weightTensor, attrParam);
+    CheckValueRange(tileHout, "tileHout" , NUM1, hout);
+    CheckValueRange(tileWout, "tileWout" , NUM1, wout);
 }
 
 void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrParam) {
@@ -324,7 +307,7 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     OP_CHECK(true, {
         ASSERT(biasTensor.GetShape()[0] == Cout)
         << "Input illegal bias shape:" << biasTensor.GetShape()[0]
-        << ", which must euqal to Cout:" << Cout
+        << ", which must equal to Cout:" << Cout
         << "." << std::endl;
     });
 }
@@ -806,13 +789,10 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
     Tensor biasTensor(outType, biasTensorShape, "BiasTensor");
     ConvAttrParam convAttrParam(paddings, strides, dilations, groups);
     CheckConvOperands(outType, inputTensor, weightTensor, biasTensor, convAttrParam);
-    // auto &convTile = TileShape::Current().GetConvTile();
-    // Check ConvTile Valid
-    // infer hout, wout
     int64_t batchOut = inputTensor.GetShape()[NCHW_N_IDX];
     int64_t cout = weightTensor.GetShape()[NCHW_N_IDX];
-    int64_t hOut = 8;
-    int64_t wOut = 8;
+    int64_t hOut = ConvComputeHo(inputTensor, weightTensor, convAttrParam);
+    int64_t wOut = ConvComputeWo(inputTensor, weightTensor, convAttrParam);
     std::vector<int64_t> resTensorShape{batchOut, cout, hOut, wOut};
     Tensor resTensor(outType, resTensorShape, "TensorC");
     resTensor.GetStorage()->UpdateDynValidShape({batchOut, cout, hOut, wOut});
