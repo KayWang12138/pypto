@@ -48,10 +48,10 @@ inline void WrapInfoQueueUnLock(WrapInfoQueue* rq) {
         return ret;  \
     }
 
-class WrapManager {
+class MixManager {
 public:
-    ~WrapManager(){};
-    WrapManager(){};
+    ~MixManager(){};
+    MixManager(){};
 
     DeviceTask* curDevTask_;
     uint32_t* coreRunReadyCnt_;
@@ -68,6 +68,10 @@ public:
     uint32_t wrapCoreStatus_[MAX_AICORE_NUM]{0};
     SendTaskToAiCoreFunc SendTaskToAiCore;
     bool isSupportMixSche {false};
+
+    // for die-to-die shchedule
+    ReadyCoreFunctionQueue* readyDieAicFunctionQue_[DIE_NUM] = {nullptr};
+    ReadyCoreFunctionQueue* readyDieAivFunctionQue_[DIE_NUM] = {nullptr};
 
     inline void InitArchInfo(ArchInfo info) {
         isSupportMixSche = (info == ArchInfo::DAV_3510);
@@ -103,6 +107,10 @@ public:
             free(wrapQueueForThread_.elem);
             wrapQueueForThread_.elem = nullptr;
         }
+    }
+
+    inline bool GeIsMixArch() {
+        return isSupportMixSche;
     }
 
     inline bool GetWrapCoreAvailable(int coreIdx) {
@@ -458,5 +466,63 @@ public:
             }
         }
     }
+
+    // for die-to-die schedule
+    inline void SetDieReadyQueue(const struct DieReadyQueueData dieReadyFunctionQue) {
+        for (int i = 0 ; i < DIE_NUM ; i++) {
+           readyDieAivFunctionQue_ =  reinterpret_cast<ReadyCoreFunctionQueue *>(dieReadyFunctionQue.readyDieAivCoreFunctionQue[i]);
+           readyDieAicFunctionQue_ =  reinterpret_cast<ReadyCoreFunctionQueue *>(dieReadyFunctionQue.readyDieAicCoreFunctionQue[i]);
+        }
+    }
+
+    inline ReadyCoreFunctionQueue* GetDieReadyQueue(CoreType type, int dieId) {
+        ReadyCoreFunctionQueue* readyQueue;
+        if (coreType == static_cast<int>(CoreType::AIC)) {
+            readyQueue = readyDieAicFunctionQue_[dieId];
+        } else {
+            readyQueue = readyDieAivFunctionQue_[dieId];
+        }
+        return readyQueue;
+    }
+
+    /*inline void TryBatchSendTaskForDieQueue(CoreType type, int dieId, int coreIdxStart, int coreIdxEnd) {
+        if (!GeIsMixArch()) {
+            return ;
+        }
+        ReadyCoreFunctionQueue* readyQueue = GetDieReadyQueue(type, dieId);
+        TryBatchSendTask(CoreType::AIC, readyQueue, coreIdxStart, coreIdxEnd);
+    }*/
+
+    /*inline bool IsExistOtherAicpuIdleOneDie(CoreType type, int schedIdx, int aicpuNum) {
+        int idx = (schedIdx + 1) % aicpuNum;
+        while (idx != schedIdx) {
+            if (getDieId(schedIdx) == getDieId(idx)) {
+                if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][idx].load(std::memory_order_relaxed) == true){
+                    return true;
+                }
+            }
+            idx = (idx + 1) % aicpuNum;
+        }
+        return false;
+    }*/
+
+    /*inline int32_t PushDieReadyQue(bool isAicpuIdle, void *idList, uint32_t &idCnt, CoreType type) const {
+        if (!GeIsMixArch() || !isAicpuIdle) {
+            return DEVICE_MACHINE_OK;
+        }
+
+        if (!IsExistOtherAicpuIdleOneDie(type) || (idCnt == 0)) {
+            DEV_VERBOSE_DEBUG("there is no idle aicpu to use or idCnt is zero, idCnt:%u", idCnt);
+            return DEVICE_MACHINE_OK;
+        }
+        int32_t ret = DEVICE_MACHINE_OK;
+        ReadyCoreFunctionQueue* readyQueue = GetDieReadyQueue(type, dieId);
+        ret = PushReadyQue(readyQueue, idList, idCnt);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return ret;
+        }
+        idCnt = 0;
+        return ret;
+    }*/
 };
 }
