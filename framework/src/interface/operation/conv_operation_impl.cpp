@@ -81,7 +81,7 @@ int64_t ConvComputeWo(const Tensor &inputTensor, const Tensor &weightTensor, con
 void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam){
     int64_t hOut = ConvComputeHo(inputTensor, weightTensor, attrParam);
     CheckValueRange(hOut, "hOut" , NUM1, MAX_SIZE);
-    int64_t wout = ConvComputeWo(inputTensor, weightTensor, attrParam);
+    int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
     CheckValueRange(wOut, "wOut" , NUM1, MAX_SIZE);
 }
 
