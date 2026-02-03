@@ -100,7 +100,7 @@ TEST_F(RemoveRedundantOpTest, TestIntermediateOutcast) {
         output_add = Add(output, Element(DataType::DT_FP32, 0.0));
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_RemoveRedundantOpFunction");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_RemoveRedundantOpFunction");
     npu::tile_fwk::RemoveRedundantOp removeRedundantOp;
     auto oriOpList = func->Operations(true);
     EXPECT_EQ(oriOpList.size(), 15) << "Before the Pass, there should be 15 operations";
@@ -158,7 +158,7 @@ TEST_F(RemoveRedundantOpTest, TestInternalAssembleView) {
         output = Add(tmp, Element(DataType::DT_FP32, 3.0));
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_RemoveRedundantOpFunction");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_RemoveRedundantOpFunction");
     npu::tile_fwk::RemoveRedundantOp removeRedundantOp;
     auto oriOpList = func->Operations(true);
     int ori_view_count = 0;

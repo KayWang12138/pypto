@@ -71,7 +71,7 @@ TEST_F(FunctionCoverageTest, ConverageCase1) {
     }
     std::cout << "Dump program: " << Program::GetInstance().Dump() << std::endl;
 
-    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_ConverageFunc1");
+    Function *func = Program::GetInstance().GetFunctionByRawName("PYPTO_ConverageFunc1");
     ASSERT_NE(func, nullptr);
     SubfuncInvokeInfoTy::TensorParamPackTy tensorParam;
 
@@ -115,7 +115,7 @@ TEST_F(FunctionCoverageTest, ConverageCase2) {
         Tensor in6 = Exp(in5);
         output = Mul(in3, in6);
     }
-    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_ConverageFunc1");
+    Function *func = Program::GetInstance().GetFunctionByRawName("PYPTO_ConverageFunc1");
     ASSERT_NE(func, nullptr);
 
     // GetParamIndex
@@ -146,7 +146,7 @@ TEST_F(FunctionCoverageTest, ConverageCase3) {
         Tensor in6 = Exp(in5);
         output = Mul(in3, in6);
     }
-    Function *func = Program::GetInstance().GetFunctionByRawName("TENSOR_ConverageFunc");
+    Function *func = Program::GetInstance().GetFunctionByRawName("PYPTO_ConverageFunc");
     ASSERT_NE(func, nullptr);
 
     // GetParamIndex
@@ -206,7 +206,7 @@ TEST_F(FunctionCoverageTest, TestReuseTensorCase1) {
         output = Exp(in4);
     }
 
-    const Function *const_func = Program::GetInstance().GetFunctionByRawName("TENSOR_R1");
+    const Function *const_func = Program::GetInstance().GetFunctionByRawName("PYPTO_R1");
     ASSERT_NE(const_func, nullptr);
     Function *func = const_cast<Function *>(const_func);
     ASSERT_NE(func, nullptr);
@@ -265,7 +265,7 @@ TEST_F(FunctionCoverageTest, TestFunctionHash) {
         output = Exp(in4);
     }
 
-    const Function *const_func = Program::GetInstance().GetFunctionByRawName("TENSOR_R2");
+    const Function *const_func = Program::GetInstance().GetFunctionByRawName("PYPTO_R2");
     ASSERT_NE(const_func, nullptr);
     Function *func = const_cast<Function *>(const_func);
     ASSERT_NE(func, nullptr);

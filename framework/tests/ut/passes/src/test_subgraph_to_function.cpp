@@ -401,7 +401,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
     EXPECT_EQ(currentFunctionPtr->Operations().size(), 1);
     EXPECT_EQ(currentFunctionPtr->GetRawName(), "PROGRAM_ENTRY");
 
-    auto batchMatmulFunc = Program::GetInstance().GetFunctionByRawName("TENSOR_BATCHMATMUL");
+    auto batchMatmulFunc = Program::GetInstance().GetFunctionByRawName("PYPTO_BATCHMATMUL");
     #ifndef PRIOR_SCHEDULING
     EXPECT_EQ(batchMatmulFunc->Operations().size(), 9);
     #endif
@@ -471,7 +471,7 @@ TEST_F(SubgraphToFunctionTest, test_json_dump_and_load)
             EXPECT_EQ(*(callOpAttr->invokeInfo_), invokeInfo10003);
         }
     }
-    batchMatmulFunc = Program::GetInstance().GetFunctionByRawName("TENSOR_BATCHMATMUL");
+    batchMatmulFunc = Program::GetInstance().GetFunctionByRawName("PYPTO_BATCHMATMUL");
     #ifndef PRIOR_SCHEDULING
     EXPECT_EQ(batchMatmulFunc->Operations().size(), 9);
     #endif
@@ -660,7 +660,7 @@ void InitGraphBuilder (ComputationalGraphBuilder &G, std::vector<int64_t> tileSh
     // 1. 定义张量和操作
     std::vector<std::string> tensorNames = {"input", "view1_out", "view2_out", "add_out", "final_out"};
     std::vector<Opcode> opCodes = {
-        Opcode::OP_VIEW, 
+        Opcode::OP_VIEW,
         Opcode::OP_VIEW,
         Opcode::OP_ADD,
         Opcode::OP_ABS

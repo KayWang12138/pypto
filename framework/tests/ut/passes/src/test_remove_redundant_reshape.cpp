@@ -75,7 +75,7 @@ TEST_F(RemoveRedundantReshapeTest, TestSameInputOutputShape) {
     }
 
     // Print and draw the graph
-    Function* currentFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_ReshapeFunction");
+    Function* currentFunction = Program::GetInstance().GetFunctionByRawName("PYPTO_ReshapeFunction");
     printf("Function name is %s\n", currentFunction->GetMagicName().c_str());
     // ================== Verify Pass Effect ==================
     auto updated_operations = currentFunction->Operations();
@@ -125,7 +125,7 @@ TEST_F(RemoveRedundantReshapeTest, TestReshapeChain) {
     }
 
     // Print and draw the graph
-    Function* currentFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_ReshapeChainFunction");
+    Function* currentFunction = Program::GetInstance().GetFunctionByRawName("PYPTO_ReshapeChainFunction");
 
     // ================== Verify the effect of the Pass ==================
     auto updated_operations = currentFunction->Operations();
@@ -188,7 +188,7 @@ TEST_F(RemoveRedundantReshapeTest, TestReplaceInput) {
     }
 
     // Print and draw the graph
-    Function* currentFunction = Program::GetInstance().GetFunctionByRawName("TENSOR_ReplaceInputFunction");
+    Function* currentFunction = Program::GetInstance().GetFunctionByRawName("PYPTO_ReplaceInputFunction");
     auto updated_operations = currentFunction->Operations();
 
     Operation* first_reshape_op = nullptr;

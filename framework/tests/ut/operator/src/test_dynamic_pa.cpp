@@ -212,7 +212,7 @@ TEST_F_WITH_COST(DynamicPATest, dynamic_pa_low_lantency_manual_unroll, 96) {
     PageAttentionWithManualUnroll(qNope, kNopeCache, vNopeCache, qRope, kRopeCache, blockTable, actSeqs, blockSize, softmaxScale, paOut,
         tileConfig, maxUnrollTimes);
 
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_main_2");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_main_2");
     EXPECT_NE(mainFunc, nullptr);
     EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(), 1);
     auto loopFunc1 = mainFunc->GetCalleeFunctionList().front();
