@@ -215,6 +215,11 @@ public:
     void PushTask(DeviceTaskCtrl *taskCtrl) { taskQueue_.Enqueue(taskCtrl); }
 
 private:
+
+    uint32_t startTask(CoreType type, uint64_t *newTask, int coreIdxStart, int coreIdxEnd);
+
+    uint64_t taskSchedulingLoop(CoreType type, StaticReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd);
+
     void DumpTaskProf();
 
     void ProfStop();
@@ -239,7 +244,7 @@ private:
 
     void AddTask(int coreIdx, uint64_t taskId);
 
-    void PushReadyQue(StaticReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const;
+    void PushReadyQue(StaticReadyCoreFunctionQueue *readyQue, aicoreFunction_t *idList, uint32_t idCnt) const;
 
     void ResolveDepForAllAiCore(CoreType type, StaticReadyCoreFunctionQueue *readyQue, int coreIdxStart, int coreIdxEnd);
 
