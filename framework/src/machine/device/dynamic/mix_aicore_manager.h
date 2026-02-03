@@ -48,10 +48,10 @@ inline void WrapInfoQueueUnLock(WrapInfoQueue* rq) {
         return ret;  \
     }
 
-class WrapManager {
+class MixManager {
 public:
-    ~WrapManager(){};
-    WrapManager(){};
+    ~MixManager(){};
+    MixManager(){};
 
     DeviceTask* curDevTask_;
     uint32_t* coreRunReadyCnt_;
@@ -68,6 +68,10 @@ public:
     uint32_t wrapCoreStatus_[MAX_AICORE_NUM]{0};
     SendTaskToAiCoreFunc SendTaskToAiCore;
     bool isSupportMixSche {false};
+
+    // for die-to-die shchedule
+    ReadyCoreFunctionQueue* readyDieAicFunctionQue_[DIE_NUM] = {nullptr};
+    ReadyCoreFunctionQueue* readyDieAivFunctionQue_[DIE_NUM] = {nullptr};
 
     inline void InitArchInfo(ArchInfo info) {
         isSupportMixSche = (info == ArchInfo::DAV_3510);
@@ -103,6 +107,10 @@ public:
             free(wrapQueueForThread_.elem);
             wrapQueueForThread_.elem = nullptr;
         }
+    }
+
+    inline bool GeIsMixArch() {
+        return isSupportMixSche;
     }
 
     inline bool GetWrapCoreAvailable(int coreIdx) {
@@ -457,6 +465,29 @@ public:
                 wrapCoreStatus_[coreIdx] = 0;
             }
         }
+    }
+
+    // for die-to-die schedule
+    inline void SetDieReadyQueue(const struct DieReadyQueueData dieReadyFunctionQue) {
+        for (size_t i = 0 ; i < DIE_NUM ; i++) {
+           readyDieAivFunctionQue_[i] =  reinterpret_cast<ReadyCoreFunctionQueue *>(dieReadyFunctionQue.readyDieAivCoreFunctionQue[i]);
+           readyDieAicFunctionQue_[i] =  reinterpret_cast<ReadyCoreFunctionQueue *>(dieReadyFunctionQue.readyDieAicCoreFunctionQue[i]);
+        }
+    }
+
+    inline ReadyCoreFunctionQueue* GetDieReadyQueue(CoreType type, DieId dieId) {
+        ReadyCoreFunctionQueue* readyQueue = nullptr;
+        if (!isSupportMixSche || dieId == DIE_MIX || dieId == DIE_UNKNOW) {
+            return readyQueue;
+        }
+
+        size_t dieIndex = static_cast<size_t>(dieId);
+        if (type == CoreType::AIC) {
+            readyQueue = readyDieAicFunctionQue_[dieIndex];
+        } else if (type == CoreType::AIV) {
+            readyQueue = readyDieAivFunctionQue_[dieIndex];
+        }
+        return readyQueue;
     }
 };
 }
