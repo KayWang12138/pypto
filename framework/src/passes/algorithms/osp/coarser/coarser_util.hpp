@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "passes/algorithms/osp/auxiliary/permute.hpp"
-#include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/constructable_computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/graph_traits.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_edge_desc_util.hpp"

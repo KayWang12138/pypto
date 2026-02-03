@@ -19,7 +19,6 @@
 #include <vector>
 
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/cdag_vertex_impl.hpp"
-#include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/graph_implementations/integral_range.hpp"
 
 namespace npu::tile_fwk {

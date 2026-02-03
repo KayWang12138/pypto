@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "cdag_vertex_impl.hpp"
-#include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/directed_graph_edge_desc_concept.hpp"
 #include "passes/algorithms/osp/graph_algorithms/computational_dag_construction_util.hpp"
 #include "passes/algorithms/osp/graph_implementations/integral_range.hpp"

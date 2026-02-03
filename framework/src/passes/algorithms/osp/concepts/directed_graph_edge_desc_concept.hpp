@@ -21,18 +21,8 @@
 
 /**
  * @file directed_graph_edge_desc_concept.hpp
- * @brief Concepts and default implementations for edge descriptors in directed graphs.
- *
- * This file extends the basic directed graph concepts to support edge descriptors.
- * It provides default implementations for accessing source/target vertices from edges
- * and defines the `is_directed_graph_edge_desc` concept to check if a graph type
- * properly supports edge descriptors and edge iteration.
- *
- * Note: If a graph implementation satisfies `directed_graph_concept`, OSP automatically
- * adds the edge descriptor API on top using `directed_edge` as the default edge descriptor.
- * The mechanics for this are implemented in `directed_graph_edge_view.hpp`.
+ * @brief Default implementations for edge descriptors in directed graphs.
  */
-
 namespace npu::tile_fwk {
 namespace osp {
 

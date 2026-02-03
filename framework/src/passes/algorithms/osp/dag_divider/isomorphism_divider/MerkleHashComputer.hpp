@@ -27,7 +27,6 @@
 #include "interface/utils/common.h"
 
 #include "passes/algorithms/osp/auxiliary/hash_util.hpp"
-#include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/dag_divider/isomorphism_divider/HashComputer.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_top_sort.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"

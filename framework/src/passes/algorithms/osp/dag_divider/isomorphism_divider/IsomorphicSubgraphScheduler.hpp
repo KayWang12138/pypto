@@ -237,24 +237,20 @@ class IsomorphicSubgraphScheduler {
                 // Determine if the group consists of a single node type
                 bool isSingleTypeGroup = true;
                 VTypeT<GraphT> commonNodeType = 0;
-
-                if constexpr (hasTypedVerticesV<GraphT>) {
-                    if (!group.subgraphs_.empty() && !group.subgraphs_[0].empty()) {
-                        commonNodeType = instance.GetComputationalDag().VertexType(group.subgraphs_[0][0]);
-                        const auto &repSubgraph = group.subgraphs_[0];
-                        for (const auto &vertex : repSubgraph) {
-                            if (instance.GetComputationalDag().VertexType(vertex) != commonNodeType) {
-                                isSingleTypeGroup = false;
-                                break;
-                            }
+                
+                if (!group.subgraphs_.empty() && !group.subgraphs_[0].empty()) {
+                    commonNodeType = instance.GetComputationalDag().VertexType(group.subgraphs_[0][0]);
+                    const auto &repSubgraph = group.subgraphs_[0];
+                    for (const auto &vertex : repSubgraph) {
+                        if (instance.GetComputationalDag().VertexType(vertex) != commonNodeType) {
+                            isSingleTypeGroup = false;
+                            break;
                         }
-                    } else {
-                        isSingleTypeGroup = false;
                     }
                 } else {
                     isSingleTypeGroup = false;
                 }
-
+                
                 if (isSingleTypeGroup) {
                     // Dynamically determine min_proc_type_count based on compatible processors for this type
                     unsigned minCompatibleProcessors = std::numeric_limits<unsigned>::max();

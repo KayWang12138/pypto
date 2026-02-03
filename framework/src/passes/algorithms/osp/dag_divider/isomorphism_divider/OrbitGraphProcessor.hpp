@@ -194,13 +194,11 @@ class OrbitGraphProcessor {
             changed = false;
             for (const auto u : currentCoarseGraph.Vertices()) {
                 for (const auto v : currentCoarseGraph.Children(u)) {
-                    if constexpr (hasTypedVerticesV<ConstrGraphT>) {
-                        if (not mergeDifferentNodeTypes_) {
-                            if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
-                                continue;
-                            }
+                    if (not mergeDifferentNodeTypes_) {
+                        if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
+                            continue;
                         }
-                    }
+                    }                    
 
                     if (nonViableEdgesCache_.count({u, v}) || nonViableCritPathEdgesCache_.count({u, v})) {
                         continue;
@@ -301,14 +299,12 @@ class OrbitGraphProcessor {
                     continue;
                 }
 
-                if constexpr (hasTypedVerticesV<ConstrGraphT>) {
-                    if (not mergeDifferentNodeTypes) {
-                        if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
-                            continue;
-                        }
+                if (not mergeDifferentNodeTypes) {
+                    if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
+                        continue;
                     }
                 }
-
+                
                 if ((vertexPoset[u] + 1 != vertexPoset[v]) && (vertexBotPoset[u] != 1 + vertexBotPoset[v])) {
                     continue;
                 }
@@ -335,7 +331,7 @@ class OrbitGraphProcessor {
 
                 VTypeT<GraphT> uType = 0;
                 VTypeT<GraphT> vType = 0;
-                if (not mergeDifferentNodeTypes && hasTypedVerticesV<GraphT>) {
+                if (not mergeDifferentNodeTypes) {
                     uType = currentCoarseGraph.VertexType(u);
                     vType = currentCoarseGraph.VertexType(v);
                 }
@@ -441,7 +437,7 @@ class OrbitGraphProcessor {
                 orbitWork += dag.VertexWorkWeight(v);
             }
 
-            if (not mergeDifferentNodeTypes_ && hasTypedVerticesV<GraphT>) {
+            if (not mergeDifferentNodeTypes_) {
                 workPerVertexType[dag.VertexType(vertices[0])] += orbitWork;
             } else {
                 workPerVertexType[0] += orbitWork;

@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "passes/algorithms/osp/bsp/model/cost/LazyCommunicationCost.hpp"
-#include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {

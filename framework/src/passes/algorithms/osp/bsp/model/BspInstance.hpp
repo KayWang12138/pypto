@@ -19,7 +19,6 @@
 #include <iostream>
 
 #include "BspArchitecture.hpp"
-#include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/graph_algorithms/computational_dag_construction_util.hpp"
 #include "passes/algorithms/osp/graph_algorithms/computational_dag_util.hpp"
 

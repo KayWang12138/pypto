@@ -19,7 +19,6 @@
 #include <numeric>
 
 #include "directed_graph_top_sort.hpp"
-#include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {

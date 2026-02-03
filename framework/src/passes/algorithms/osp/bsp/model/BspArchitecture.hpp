@@ -23,7 +23,6 @@
 #include <stdexcept>
 #include <vector>
 
-#include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/graph_traits.hpp"
 #include "passes/algorithms/osp/graph_implementations/integral_range.hpp"
 

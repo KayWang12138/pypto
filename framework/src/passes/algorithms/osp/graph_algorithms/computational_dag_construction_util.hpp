@@ -16,7 +16,6 @@
 #ifndef OSP_COMPUTATIONAL_DAG_CONSTRUCTION_UTIL_HPP
 #define OSP_COMPUTATIONAL_DAG_CONSTRUCTION_UTIL_HPP
 
-#include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/constructable_computational_dag_concept.hpp"
 
 namespace npu::tile_fwk {
@@ -42,12 +41,7 @@ void ConstructComputationalDag(const GraphFrom &from, GraphTo &to) {
     vertexMap.reserve(from.NumVertices());
 
     for (const auto &vIdx : from.Vertices()) {
-        if constexpr (hasTypedVerticesV<GraphFrom> and hasTypedVerticesV<GraphTo>) {
-            vertexMap.push_back(to.AddVertex(
-                from.VertexWorkWeight(vIdx), from.VertexCommWeight(vIdx), from.VertexMemWeight(vIdx), from.VertexType(vIdx)));
-        } else {
-            vertexMap.push_back(to.AddVertex(from.VertexWorkWeight(vIdx), from.VertexCommWeight(vIdx), from.VertexMemWeight(vIdx)));
-        }
+        vertexMap.push_back(to.AddVertex(from.VertexWorkWeight(vIdx), from.VertexCommWeight(vIdx), from.VertexMemWeight(vIdx), from.VertexType(vIdx)));
     }
 
     for (const auto &v : from.Vertices()) {

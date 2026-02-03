@@ -17,7 +17,6 @@
 #define OSP_CONSTRUCTABLE_COMPUTATIONAL_DAG_CONCEPT_HPP
 
 #include <set>
-#include "computational_dag_concept.hpp"
 
 /**
  * @file constructable_computational_dag_concept.hpp

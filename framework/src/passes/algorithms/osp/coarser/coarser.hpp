@@ -21,7 +21,6 @@
 #include <vector>
 
 #include "passes/algorithms/osp/coarser/coarser_util.hpp"
-#include "passes/algorithms/osp/concepts/computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/constructable_computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/graph_traits.hpp"
 
