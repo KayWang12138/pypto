@@ -84,11 +84,14 @@ Status DuplicateOpChecker::PostCheckView(const Operation &op) {
             op.opmagic, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
-        if (oOperand->GetConsumers().size() > kNumTwo) {
+        if (oOperand->GetConsumers().size() > kNumOne) {
+            APASS_LOG_ERROR_F(Elements::Operation,
+                "View output operand[%d] exceeded consumer limit (expected 1, got %d)", oOperand->magic,
+                oOperand->GetConsumers().size());
             return FAILED;
         }
         auto consumers = oOperand->GetConsumers();
-        uint32_t ConsumerNum = kNumZero;
+        uint32_t consumerNum = kNumZero;
         for (auto &consumer : consumers) {
             if (consumer == nullptr) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
@@ -97,9 +100,9 @@ Status DuplicateOpChecker::PostCheckView(const Operation &op) {
             if (consumer->GetOpcode() == Opcode::OP_VIEW) {
                 continue;
             }
-            ConsumerNum++;
+            consumerNum++;
         }
-        if (ConsumerNum == kNumTwo) {
+        if (consumerNum == kNumTwo) {
             APASS_LOG_ERROR_F(Elements::Operation, "There can not be more than one non-view node among its consumers for op[%d].%s", op.opmagic, GetFormatBacktrace(op).c_str());
             return FAILED;
         }
