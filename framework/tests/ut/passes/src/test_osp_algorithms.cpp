@@ -764,6 +764,7 @@ TEST_F(OspAlgorithmTest, TestIntegralRange) {
     const std::size_t length0 = 0U;
     for (const auto val : IntegralRange(length0)) {
         EXPECT_TRUE(false);
+        EXPECT_EQ(val, 100U);
     }
 
     const std::size_t length147 = 147U;
@@ -777,6 +778,7 @@ TEST_F(OspAlgorithmTest, TestIntegralRange) {
     const std::size_t end67 = 67U;
     for (const auto val : IntegralRange(start67, end67)) {
         EXPECT_TRUE(false);
+        EXPECT_EQ(val, 100U);
     }
 
     std::size_t start134 = 67U;

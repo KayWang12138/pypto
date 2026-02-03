@@ -246,7 +246,7 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLevelContractions(bool &change)
 template <typename GraphT, typename GraphTCoarse>
 ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunContractions(VWorkwT<GraphT> commCost) {
     ReturnStatus status = ReturnStatus::OSP_SUCCESS;
-    
+
     params_.commCost_ = commCost;
     UpdateParams();
 
