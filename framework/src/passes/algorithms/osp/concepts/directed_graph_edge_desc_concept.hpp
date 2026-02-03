@@ -62,11 +62,6 @@ inline EdgeView<GraphT> Edges(const GraphT &graph) {
 
 /**
  * @brief Get a view of outgoing edges from a vertex.
- *
- * @tparam GraphT The graph type.
- * @param u The source vertex index.
- * @param graph The graph instance.
- * @return An `out_edge_view` allowing iteration over outgoing edges from `u`.
  */
 template <typename GraphT>
 inline OutEdgeView<GraphT> OutEdges(VertexIdxT<GraphT> u, const GraphT &graph) {
@@ -75,11 +70,6 @@ inline OutEdgeView<GraphT> OutEdges(VertexIdxT<GraphT> u, const GraphT &graph) {
 
 /**
  * @brief Get a view of incoming edges to a vertex.
- *
- * @tparam GraphT The graph type.
- * @param v The target vertex index.
- * @param graph The graph instance.
- * @return An `in_edge_view` allowing iteration over incoming edges to `v`.
  */
 template <typename GraphT>
 inline InEdgeView<GraphT> InEdges(VertexIdxT<GraphT> v, const GraphT &graph) {

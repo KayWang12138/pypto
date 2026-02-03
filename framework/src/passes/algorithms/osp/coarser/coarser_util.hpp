@@ -64,11 +64,8 @@ template <typename GraphTIn, class GraphTOut, typename VWorkAccMethod = AccSum<V
     typename VCommAccMethod = AccSum<VCommwT<GraphTIn>>, typename VMemAccMethod = AccSum<VMemwT<GraphTIn>>>
 bool ConstructCoarseDag(
     const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) {
-    static_assert(isComputationalDagV<GraphTIn>, "In-Graph must be computational dag");
-    static_assert(isComputationalDagV<GraphTOut>, "Out-Graph must be computational dag");
     static_assert(isDirectConstructableCdagV<GraphTOut> || isConstructableCdagV<GraphTOut>,
         "Out-Graph must be (directly) constructable.");
-    static_assert(isModifiableCdagVertexV<GraphTOut>, "Out-Graph must have modifiable Vertices traits.");
 
     if (vertexContractionMap.size() == 0) {
         coarsenedDag = GraphTOut();

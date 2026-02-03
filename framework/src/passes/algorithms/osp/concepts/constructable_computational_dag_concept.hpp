@@ -55,8 +55,7 @@ struct IsModifiableCdagVertex<
     std::void_t<decltype(std::declval<T>().SetVertexWorkWeight(std::declval<VertexIdxT<T>>(), std::declval<VWorkwT<T>>())),
                 decltype(std::declval<T>().SetVertexCommWeight(std::declval<VertexIdxT<T>>(), std::declval<VCommwT<T>>())),
                 decltype(std::declval<T>().SetVertexMemWeight(std::declval<VertexIdxT<T>>(), std::declval<VMemwT<T>>()))>>
-    : std::conjunction<IsComputationalDag<T>,
-                       std::is_default_constructible<T>,
+    : std::conjunction<std::is_default_constructible<T>,
                        std::is_copy_constructible<T>,
                        std::is_move_constructible<T>,
                        std::is_copy_assignable<T>,
@@ -99,7 +98,7 @@ struct IsConstructableCdag : std::false_type {};
 
 template <typename T>
 struct IsConstructableCdag<T, std::void_t<>>
-    : std::conjunction<IsComputationalDag<T>, IsConstructableCdagVertex<T>> {};
+    : std::conjunction<IsConstructableCdagVertex<T>> {};
 
 template <typename T>
 inline constexpr bool isConstructableCdagV = IsConstructableCdag<T>::value;

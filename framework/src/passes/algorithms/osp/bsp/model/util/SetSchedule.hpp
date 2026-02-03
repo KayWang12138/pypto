@@ -31,8 +31,6 @@ namespace osp {
  */
 template <typename GraphT>
 class SetSchedule {
-    static_assert(isComputationalDagV<GraphT>, "SetSchedule can only be used with computational DAGs.");
-
   private:
     using VertexIdx = VertexIdxT<GraphT>;
 

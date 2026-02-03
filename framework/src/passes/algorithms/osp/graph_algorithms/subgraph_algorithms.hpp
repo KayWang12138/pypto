@@ -39,28 +39,15 @@ std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>> CreateInducedSub
         localIdx[node] = dagOut.NumVertices();
         dagOut.AddVertex(dag.VertexWorkWeight(node), dag.VertexCommWeight(node), dag.VertexMemWeight(node), dag.VertexType(node));
     }
-
-    if constexpr (hasEdgeWeightsV<GraphTIn> and hasEdgeWeightsV<GraphTOut>) {
-        // add edges with edge comm weights
-        for (const auto &node : selectedNodes) {
-            for (const auto &inEdge : InEdges(node, dag)) {
-                const auto &pred = Source(inEdge, dag);
-                if (localIdx.count(pred)) {
-                    dagOut.AddEdge(localIdx[pred], localIdx[node], dag.EdgeCommWeight(inEdge));
-                }
-            }
-        }
-
-    } else {
-        // add edges without edge comm weights
-        for (const auto &node : selectedNodes) {
-            for (const auto &pred : dag.Parents(node)) {
-                if (localIdx.count(pred)) {
-                    dagOut.AddEdge(localIdx[pred], localIdx[node]);
-                }
+    
+    for (const auto &node : selectedNodes) {
+        for (const auto &pred : dag.Parents(node)) {
+            if (localIdx.count(pred)) {
+                dagOut.AddEdge(localIdx[pred], localIdx[node]);
             }
         }
     }
+    
 
     return localIdx;
 }

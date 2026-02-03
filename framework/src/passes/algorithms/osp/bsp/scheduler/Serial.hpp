@@ -108,9 +108,7 @@ class Serial : public Scheduler<GraphT> {
                 bool scheduled = false;
 
                 unsigned vType = 0;
-                if constexpr (hasTypedVerticesV<GraphT>) {
-                    vType = dag.VertexType(v);
-                }
+                vType = dag.VertexType(v);                
 
                 for (const auto &p : nodeTypeCompatibleProcessors[vType]) {
                     bool parentsCompatible = true;

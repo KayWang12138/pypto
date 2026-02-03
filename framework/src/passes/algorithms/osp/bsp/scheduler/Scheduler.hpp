@@ -36,8 +36,6 @@ namespace osp {
  */
 template <typename GraphT>
 class Scheduler {
-    static_assert(isComputationalDagV<GraphT>, "Scheduler can only be used with computational DAGs.");
-
   public:
 
     Scheduler() = default;

@@ -51,18 +51,16 @@ class CompatibleProcessorRange {
      */
     void Initialize(const BspInstance<GraphT> &inst) {
         instance_ = &inst;
-
-        if constexpr (hasTypedVerticesV<GraphT>) {
-            typeProcessorIdx_.assign(inst.GetComputationalDag().NumVertexTypes(), {});
-
-            for (VTypeT<GraphT> vType = 0; vType < inst.GetComputationalDag().NumVertexTypes(); vType++) {
-                for (unsigned proc = 0; proc < inst.NumberOfProcessors(); proc++) {
-                    if (inst.IsCompatibleType(vType, inst.ProcessorType(proc))) {
-                        typeProcessorIdx_[vType].push_back(proc);
-                    }
+  
+        typeProcessorIdx_.assign(inst.GetComputationalDag().NumVertexTypes(), {});
+        for (VTypeT<GraphT> vType = 0; vType < inst.GetComputationalDag().NumVertexTypes(); vType++) {
+            for (unsigned proc = 0; proc < inst.NumberOfProcessors(); proc++) {
+                if (inst.IsCompatibleType(vType, inst.ProcessorType(proc))) {
+                    typeProcessorIdx_[vType].push_back(proc);
                 }
             }
         }
+        
     }
 
     /**
@@ -72,11 +70,7 @@ class CompatibleProcessorRange {
      * @return A const reference to a vector of compatible processor indices.
      */
     [[nodiscard]] const auto &CompatibleProcessorsType(const VTypeT<GraphT> type) const {
-        if constexpr (hasTypedVerticesV<GraphT>) {
-            return typeProcessorIdx_[type];
-        } else {
-            return instance_->Processors();
-        }
+        return typeProcessorIdx_[type];
     }
 
     /**

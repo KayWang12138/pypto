@@ -48,10 +48,6 @@ namespace osp {
  */
 template <typename GraphT>
 class BspSchedule {
-    static_assert(isComputationalDagV<GraphT>, "BspSchedule can only be used with computational DAGs.");
-    static_assert(std::is_same_v<VWorkwT<GraphT>, VCommwT<GraphT>>,
-                  "BspSchedule requires work and comm. weights to have the same type.");
-
   protected:
     using VertexIdx = VertexIdxT<GraphT>;
 

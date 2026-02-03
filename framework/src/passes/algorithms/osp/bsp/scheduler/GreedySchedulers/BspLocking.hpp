@@ -43,8 +43,6 @@ namespace osp {
 
 template <typename GraphT>
 class BspLocking : public Scheduler<GraphT> {
-    static_assert(isComputationalDagV<GraphT>, "BspLocking can only be used with computational DAGs.");
-
   private:
     using VertexType = VertexIdxT<GraphT>;
     using Priority = std::tuple<int, unsigned, VertexType>;

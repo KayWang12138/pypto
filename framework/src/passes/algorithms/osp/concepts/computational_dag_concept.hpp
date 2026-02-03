@@ -41,31 +41,6 @@ namespace npu::tile_fwk {
 namespace osp {
 
 /**
- * @brief Concept to check if a graph has vertex weights.
- *
- * Requires validation of:
- * - `VertexWorkWeight(v)`: Returns arithmetic type.
- * - `VertexCommWeight(v)`: Returns arithmetic type.
- * - `VertexMemWeight(v)`: Returns arithmetic type.
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct HasVertexWeights : std::false_type {};
-
-template <typename T>
-struct HasVertexWeights<T,
-                        std::void_t<decltype(std::declval<T>().VertexWorkWeight(std::declval<VertexIdxT<T>>())),
-                                    decltype(std::declval<T>().VertexCommWeight(std::declval<VertexIdxT<T>>())),
-                                    decltype(std::declval<T>().VertexMemWeight(std::declval<VertexIdxT<T>>()))>>
-    : std::conjunction<std::is_arithmetic<decltype(std::declval<T>().VertexWorkWeight(std::declval<VertexIdxT<T>>()))>,
-                       std::is_arithmetic<decltype(std::declval<T>().VertexCommWeight(std::declval<VertexIdxT<T>>()))>,
-                       std::is_arithmetic<decltype(std::declval<T>().VertexMemWeight(std::declval<VertexIdxT<T>>()))>> {};
-
-template <typename T>
-inline constexpr bool hasVertexWeightsV = HasVertexWeights<T>::value;
-
-/**
  * @brief Concept to check if a graph has typed vertices.
  *
  * Requires validation of:
@@ -89,45 +64,6 @@ struct HasTypedVertices<
 
 template <typename T>
 inline constexpr bool hasTypedVerticesV = HasTypedVertices<T>::value;
-
-/**
- * @brief Concept to check if edges have communication weights.
- *
- * Requires:
- * - The graph must satisfy `is_directed_graph_edge_desc` (supports edge descriptors).
- * - `EdgeCommWeight(e)`: Returns an arithmetic type for a given edge descriptor `e`.
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct HasEdgeWeights : std::false_type {};
-
-template <typename T>
-struct HasEdgeWeights<T,
-                      std::void_t<typename DirectedGraphEdgeDescTraits<T>::DirectedEdgeDescriptor,
-                                  decltype(std::declval<T>().EdgeCommWeight(std::declval<EdgeDescT<T>>()))>>
-    : std::conjunction<std::is_arithmetic<decltype(std::declval<T>().EdgeCommWeight(std::declval<EdgeDescT<T>>()))>> {};
-
-template <typename T>
-inline constexpr bool hasEdgeWeightsV = HasEdgeWeights<T>::value;
-
-/**
- * @brief Concept for a basic computational DAG.
- *
- * A computational DAG must:
- * - Be a directed graph (`is_directed_graph`).
- * - Have mandatory vertex weights (`has_vertex_weights`): work, communication, and memory.
- *
- * @tparam T The graph type.
- */
-template <typename T, typename = void>
-struct IsComputationalDag : std::false_type {};
-
-template <typename T>
-struct IsComputationalDag<T, std::void_t<>> : std::conjunction<HasVertexWeights<T>> {};
-
-template <typename T>
-inline constexpr bool isComputationalDagV = IsComputationalDag<T>::value;
 
 }    // namespace osp
 }    // namespace npu::tile_fwk

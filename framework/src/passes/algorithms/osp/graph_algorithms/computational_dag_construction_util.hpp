@@ -50,17 +50,11 @@ void ConstructComputationalDag(const GraphFrom &from, GraphTo &to) {
         }
     }
 
-    if constexpr (hasEdgeWeightsV<GraphFrom> and hasEdgeWeightsV<GraphTo>) {
-        for (const auto &e : Edges(from)) {
-            to.AddEdge(vertexMap[Source(e, from)], vertexMap[Target(e, from)], from.EdgeCommWeight(e));
+    for (const auto &v : from.Vertices()) {
+        for (const auto &child : from.Children(v)) {
+            to.AddEdge(vertexMap[v], vertexMap[child]);
         }
-    } else {
-        for (const auto &v : from.Vertices()) {
-            for (const auto &child : from.Children(v)) {
-                to.AddEdge(vertexMap[v], vertexMap[child]);
-            }
-        }
-    }
+    }    
 }
 
 }    // namespace osp

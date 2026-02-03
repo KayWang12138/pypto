@@ -75,8 +75,6 @@ enum class MemoryConstraintType {
  */
 template <typename GraphT>
 class BspArchitecture {
-    static_assert(isComputationalDagV<GraphT>, "BspArchitecture can only be used with computational DAGs.");
-
   private:
     /** @brief The number of processors in the architecture. Must be at least 1. */
     unsigned numberOfProcessors_;

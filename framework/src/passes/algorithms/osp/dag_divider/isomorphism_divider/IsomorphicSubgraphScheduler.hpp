@@ -52,12 +52,6 @@ namespace osp {
  */
 template <typename GraphT, typename ConstrGraphT>
 class IsomorphicSubgraphScheduler {
-    static_assert(isComputationalDagV<GraphT>, "Graph must be a computational DAG");
-    static_assert(isComputationalDagV<ConstrGraphT>, "ConstrGraphT must be a computational DAG");
-    static_assert(isConstructableCdagV<ConstrGraphT>, "ConstrGraphT must satisfy the constructable_cdag_vertex concept");
-    static_assert(std::is_same_v<VertexIdxT<GraphT>, VertexIdxT<ConstrGraphT>>,
-                  "GraphT and ConstrGraphT must have the same VertexIdx types");
-
   private:
     const HashComputer<VertexIdxT<GraphT>> *hashComputer_;
 
