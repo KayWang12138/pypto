@@ -105,6 +105,10 @@ public:
         }
     }
 
+    inline bool GeIsMixArch() {
+        return isSupportMixSche;
+    }
+
     inline bool GetWrapCoreAvailable(int coreIdx) {
         RETURN_RET_IF_NOT(isSupportMixSche, true);
         return wrapCoreStatus_[coreIdx] == 0;
@@ -457,6 +461,65 @@ public:
                 wrapCoreStatus_[coreIdx] = 0;
             }
         }
+    }
+};
+
+class class WrapManager {
+public:
+    ~WrapManager(){};
+    WrapManager(){};
+
+    inline void TryBatchSendTaskForDieQueue(CoreType type, int coreIdxStart, int coreIdxEnd) {
+        ReadyCoreFunctionQueue* readyQueue;
+        int idx = schedIdx_;  //线程id
+        int dieId =  getDieId(idx);
+        if (coreType == static_cast<int>(CoreType::AIC)) {
+            readyQueue = readyDieAicFunctionQue_[dieId];
+        } else {
+            readyQueue = readyDieAivFunctionQue_[dieId];
+        }
+
+        TryBatchSendTask(CoreType::AIC, readyQueue, coreIdxStart, coreIdxEnd);
+    }
+
+    inline bool IsExistOtherAicpuIdleOneDie(CoreType type) {
+        int idx = (schedIdx_ + 1) % aicpuNum_;
+        while (idx != schedIdx_) {
+            if (getDieId(schedIdx_) == getDieId(idx)) {
+                if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][idx].load(std::memory_order_relaxed) == true){
+                    return true;
+                }
+            }
+            idx = (idx + 1) % aicpuNum_;
+        }
+        return false;
+    }
+
+    inline int32_t PushDieReadyQue(void *idList, uint32_t &idCnt, CoreType type) const {
+        if (!GeIsMixArch()) {
+            return DEVICE_MACHINE_OK;
+        }
+
+        if (!IsExistOtherAicpuIdleOneDie(type) || (idCnt == 0)) {
+            DEV_VERBOSE_DEBUG("there is no idle aicpu to use or idCnt is zero, idCnt:%u", idCnt);
+            return DEVICE_MACHINE_OK;
+        }
+        int32_t ret = DEVICE_MACHINE_OK;
+        ReadyCoreFunctionQueue* readyQue;
+        int idx = schedIdx_;  //线程id
+        int dieId =  getDieId(idx);
+        if (coreType == static_cast<int>(CoreType::AIC)) {
+            readyQue = readyDieAicFunctionQue_[dieId];
+        } else {
+            readyQue = readyDieAivFunctionQue_[dieId];
+        }
+
+        ret = PushReadyQue(readyQue, idList, idCnt);
+        if (unlikely(ret != DEVICE_MACHINE_OK)) {
+            return ret;
+        }
+        idCnt = 0;
+        return ret;
     }
 };
 }
