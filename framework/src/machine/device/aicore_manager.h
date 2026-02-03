@@ -122,6 +122,9 @@ struct DeviceTaskCtrl {
 
 void SdmaPrefetch(DeviceTask *devTask);
 
+// Type to use for task queues
+typedef StaticReadyCoreFunctionQueue taskQueue;
+
 class AiCoreManager {
 public:
     AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager){};
@@ -134,16 +137,16 @@ public:
             volatile int64_t *funcData = &args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
             *funcData = reinterpret_cast<int64_t>(&curDevTask_->coreFuncData);
         });
-        readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
-        readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
+        readyAicCoreFunctionQue_ = reinterpret_cast<taskQueue *>(curDevTask_->readyAicCoreFunctionQue);
+        readyAivCoreFunctionQue_ = reinterpret_cast<taskQueue *>(curDevTask_->readyAivCoreFunctionQue);
         
         // Initialization is performed as a state machine, where the main thread takes on the main allocation operations
         // Main scheduler branch
         if (aicpuIdx_ == 1)
         {
           // 1) The main scheduler (CPUIdx == 1) allocates the lockfree queues and stores their address for others to use
-          curDevTask_->readyAicCoreFunctionLockFreeQue = (void*) new pypto::utils::ConcurrentQueue<aicoreFunction_t>(MAX_LOCKFREE_QUEUE_SIZE);
-          curDevTask_->readyAivCoreFunctionLockFreeQue = (void*) new pypto::utils::ConcurrentQueue<aicoreFunction_t>(MAX_LOCKFREE_QUEUE_SIZE);
+          curDevTask_->readyAicCoreFunctionLockFreeQue = (void*) new pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>(MAX_LOCKFREE_QUEUE_SIZE);
+          curDevTask_->readyAivCoreFunctionLockFreeQue = (void*) new pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>(MAX_LOCKFREE_QUEUE_SIZE);
           
           // 2) Advance the initialization state to 1
           curDevTask_->initializationState = 1;
@@ -155,8 +158,8 @@ public:
         }
 
         // Storing the address of the lock free queues locally
-        readyAicCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t> *)curDevTask_->readyAicCoreFunctionLockFreeQue;
-        readyAivCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t> *)curDevTask_->readyAivCoreFunctionLockFreeQue;
+        readyAicCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction> *)curDevTask_->readyAicCoreFunctionLockFreeQue;
+        readyAivCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction> *)curDevTask_->readyAivCoreFunctionLockFreeQue;
     }
 
     inline void finalizeTaskData() {
@@ -218,7 +221,7 @@ private:
 
     uint32_t startTask(CoreType type, uint64_t *newTask, int coreIdxStart, int coreIdxEnd);
 
-    uint64_t taskSchedulingLoop(CoreType type, StaticReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd);
+    uint64_t taskSchedulingLoop(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd);
 
     void DumpTaskProf();
 
@@ -232,11 +235,11 @@ private:
 
     int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
 
-    uint64_t TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd);
+    uint64_t TryBatchSendTask(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd);
 
     uint32_t BatchSendTask(CoreType type, uint64_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd, bool isLifo);
 
-    uint64_t DispatchAiCoreTask(CoreType type, StaticReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd);
+    uint64_t DispatchAiCoreTask(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd);
 
     void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask);
 
@@ -244,9 +247,9 @@ private:
 
     void AddTask(int coreIdx, uint64_t taskId);
 
-    void PushReadyQue(StaticReadyCoreFunctionQueue *readyQue, aicoreFunction_t *idList, uint32_t idCnt) const;
+    void PushReadyQue(taskQueue *readyQue, aicoreFunction_t *idList, uint32_t idCnt) const;
 
-    void ResolveDepForAllAiCore(CoreType type, StaticReadyCoreFunctionQueue *readyQue, int coreIdxStart, int coreIdxEnd);
+    void ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd);
 
     void BatchPushReadyQueue();
 
@@ -467,12 +470,12 @@ private:
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> taskQueue_;
 
     /* prepare aicore ready task list */
-    StaticReadyCoreFunctionQueue *readyAicCoreFunctionQue_{nullptr};
-    StaticReadyCoreFunctionQueue *readyAivCoreFunctionQue_{nullptr};
+    taskQueue *readyAicCoreFunctionQue_{nullptr};
+    taskQueue *readyAivCoreFunctionQue_{nullptr};
 
     /* lock-free queues to prevent mutual exclusion when using multiple aicpu cores */
-    pypto::utils::ConcurrentQueue<aicoreFunction_t> *readyAicCoreFunctionLockFreeQueue_;
-    pypto::utils::ConcurrentQueue<aicoreFunction_t> *readyAivCoreFunctionLockFreeQueue_;
+    pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction> *readyAicCoreFunctionLockFreeQueue_;
+    pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction> *readyAivCoreFunctionLockFreeQueue_;
 
     AicoreDump aicoreDump_;
     int64_t dotStatus_{0};

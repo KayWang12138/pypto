@@ -194,7 +194,7 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd) {
     return 0;
 }
 
-uint64_t AiCoreManager::taskSchedulingLoop(CoreType type, StaticReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd)
+uint64_t AiCoreManager::taskSchedulingLoop(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd)
 {
     // check other aicpu if idle, Prioritize remaining tasks for scheduling by other AICPUs
     if (coreRunReadyCnt_[static_cast<int>(type)] == 0 && IsExistOtherAicpuIdle(type))
@@ -234,11 +234,11 @@ uint32_t AiCoreManager::startTask(CoreType type, uint64_t *newTask, int coreIdxS
     return 1;
 }
 
-uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, StaticReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd)
+uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd)
 {
     uint64_t taskCount = taskSchedulingLoop(type, readyQue, coreIdxStart, coreIdxEnd);
     if (waitTaskCnt_[static_cast<int>(type)] > 0) {
-        ResolveDepForAllAiCore(type, readyQue, coreIdxStart, coreIdxEnd);
+        ResolveDepForAllAiCore(type, coreIdxStart, coreIdxEnd);
         taskCount += taskSchedulingLoop(type, readyQue, coreIdxStart, coreIdxEnd);
     }
     if (coreRunReadyCnt_[static_cast<int>(type)] > 0)  {
@@ -269,13 +269,12 @@ void AiCoreManager::AddTask(int coreIdx, uint64_t taskId) {
     }
 }
 
-void AiCoreManager::PushReadyQue(StaticReadyCoreFunctionQueue *readyQue, aicoreFunction_t *idList, uint32_t idCnt) const {
+void AiCoreManager::PushReadyQue(taskQueue *readyQue, aicoreFunction_t *idList, uint32_t idCnt) const {
     for (uint32_t i = 0; i < idCnt; i++) readyQue->push(idList[i]);
 }
 
-void AiCoreManager::ResolveDepForAllAiCore(CoreType type, StaticReadyCoreFunctionQueue *readyQue, int coreIdxStart, int coreIdxEnd)
+void AiCoreManager::ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd)
 {
-    (void)readyQue;
     for (int i = coreIdxStart; i < coreIdxEnd; i++) {
         if (IsNoTaskDispatch(i)) {
             continue;

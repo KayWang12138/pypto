@@ -31,7 +31,7 @@ using lockFreeQueue_t = atomic_queue::AtomicQueueB<T>;
  *
  * @tparam T Represents a item type to be stored in the queue
  */
-template <class P>
+template <class P, P D>
 class ConcurrentQueue
 {
   public:
@@ -42,7 +42,7 @@ class ConcurrentQueue
    * \param[in] maxEntries Indicates the maximum amount of entries
   */
   ConcurrentQueue(const size_t maxEntries)
-    : _queue(new lockFreeQueue_t<P *>(maxEntries))
+    : _queue(new lockFreeQueue_t<P>(maxEntries))
   {}
 
   ~ConcurrentQueue() { delete _queue; }
@@ -59,9 +59,9 @@ class ConcurrentQueue
    *
    * \return The until-now front object of the queue.
    */
-  inline P *pop()
+  inline P pop()
   {
-    P *obj = NULL;
+    P obj = D;
 
     // Poping next object from the lock-free queue
     _queue->try_pop(obj);
@@ -95,7 +95,7 @@ class ConcurrentQueue
   /**
    * Internal implementation of the concurrent queue
    */
-  lockFreeQueue_t<P *> *_queue;
+  lockFreeQueue_t<P> *_queue;
 };
 
 } // namespace
