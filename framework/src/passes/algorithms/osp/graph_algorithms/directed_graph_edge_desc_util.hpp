@@ -27,8 +27,6 @@ namespace osp {
 
 template <typename GraphT>
 std::pair<EdgeDescT<GraphT>, bool> EdgeDesc(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const GraphT &graph) {
-    static_assert(isDirectedGraphEdgeDescV<GraphT>, "GraphT must satisfy the directed_graph edge desc concept");
-
     for (const auto &edge : OutEdges(src, graph)) {
         if (Target(edge, graph) == dest) {
             return {edge, true};

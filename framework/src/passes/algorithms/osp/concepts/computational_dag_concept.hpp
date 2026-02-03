@@ -106,8 +106,7 @@ template <typename T>
 struct HasEdgeWeights<T,
                       std::void_t<typename DirectedGraphEdgeDescTraits<T>::DirectedEdgeDescriptor,
                                   decltype(std::declval<T>().EdgeCommWeight(std::declval<EdgeDescT<T>>()))>>
-    : std::conjunction<std::is_arithmetic<decltype(std::declval<T>().EdgeCommWeight(std::declval<EdgeDescT<T>>()))>,
-                       IsDirectedGraphEdgeDesc<T>> {};
+    : std::conjunction<std::is_arithmetic<decltype(std::declval<T>().EdgeCommWeight(std::declval<EdgeDescT<T>>()))>> {};
 
 template <typename T>
 inline constexpr bool hasEdgeWeightsV = HasEdgeWeights<T>::value;

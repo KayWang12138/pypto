@@ -17,8 +17,6 @@
 #ifndef OSP_GRAPH_TRAITS_HPP
 #define OSP_GRAPH_TRAITS_HPP
 
-#include "iterator_concepts.hpp"
-
 #include "interface/utils/common.h"
 
 /**

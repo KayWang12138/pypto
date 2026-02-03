@@ -26,12 +26,7 @@ namespace osp {
 
 template <typename GraphT>
 VWorkwT<GraphT> CriticalPathWeight(const GraphT &graph) {
-    static_assert(isDirectedGraphEdgeDescV<GraphT>, "GraphT must satisfy the directed_graph concept");
-    static_assert(hasVertexWeightsV<GraphT>, "GraphT must have vertex weights");
-
-    if (graph.NumVertices() == 0) {
-        return 0;
-    }
+    if (graph.NumVertices() == 0) {return 0; }
 
     std::vector<VWorkwT<GraphT>> topLength(graph.NumVertices(), 0);
     VWorkwT<GraphT> criticalPathWeight = 0;
@@ -44,7 +39,6 @@ VWorkwT<GraphT> CriticalPathWeight(const GraphT &graph) {
         }
 
         topLength[node] = maxTemp + graph.VertexWorkWeight(node);
-
         if (topLength[node] > criticalPathWeight) {
             criticalPathWeight = topLength[node];
         }
