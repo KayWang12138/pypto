@@ -190,7 +190,7 @@ def get_cube_tile_shapes() -> Tuple[List[int], List[int], List[int], bool, bool]
 
 
 def set_conv_tile_shapes(tileL1Info: pypto_impl.TileL1Info, tileL0Info: pypto_impl.TileL0Info = None):
-    """ set the tile shapes in cube computation
+    """ set the tile shapes in conv computation
 
     This operation sets the value of the tile shapes
     in each dimension in cube computation of left and right matrix,
@@ -198,7 +198,7 @@ def set_conv_tile_shapes(tileL1Info: pypto_impl.TileL1Info, tileL0Info: pypto_im
 
     Parameters
     ----------
-    m: List[int]
+    tileL1Info: List[int]
         the value of the tile shape in m dimension.
         The length of the list must be 2.
 
@@ -229,8 +229,11 @@ def set_conv_tile_shapes(tileL1Info: pypto_impl.TileL1Info, tileL0Info: pypto_im
     [[16, 16], [256, 512], [128, 128], True]
 
     """
-    # implementation
-    setL0Tile = False
+    if tileL0Info is None:
+        tileL0Info = pypto_impl.TileL0Info()
+        setL0Tile = False
+    else:
+        setL0Tile = True
     conv_tile = ConvTile(tileL1Info, tileL0Info, setL0Tile)
     pypto_impl.SetScope({"conv_tile_shapes": conv_tile.impl()})
 
