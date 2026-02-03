@@ -19,6 +19,7 @@ target_include_directories(tile_fwk_simulation_platform
 )
 target_link_libraries(tile_fwk_simulation_platform
         PRIVATE
+            $<$<BOOL:${ENABLE_COMPILE_DEPENDENCY_CHECK}>:tile_fwk_utils>
             intf_pub_cxx17
             tile_fwk_intf_pub
             c_sec
