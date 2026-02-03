@@ -310,7 +310,7 @@ TEST_F(PreGraphTest, TestAssemble) {
     }
 
     // Call the pass
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_TestAssign");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_TestAssign");
     npu::tile_fwk::PreGraphProcess preGraphPass;
     preGraphPass.PreCheck(*func);
     preGraphPass.RunOnFunction(*func);
@@ -369,7 +369,7 @@ config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
 
     // Call the pass
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_PreGraphFunction");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_PreGraphFunction");
     npu::tile_fwk::PreGraphProcess preGraphPass;
     preGraphPass.PreCheck(*func);
     preGraphPass.RunOnFunction(*func);
@@ -812,7 +812,7 @@ TEST_F(PreGraphTest, TestProcessReshape) {
     G.AddOp(Opcode::OP_RESHAPE, {"t3"}, {"t4"}, "RESHAPE2");
     G.AddOp(Opcode::OP_COPY_IN, {"t2"}, {"t5"}, "COPY_IN1");
     G.AddOp(Opcode::OP_COPY_IN, {"t2"}, {"t6"}, "COPY_IN2");
-    
+
     // set incast and outcast
     G.SetInCast({"t1"});
 
@@ -821,7 +821,7 @@ TEST_F(PreGraphTest, TestProcessReshape) {
     EXPECT_NE(function, nullptr);
     PreGraphProcess passLocal;
     EXPECT_EQ(passLocal.Run(*function, "", "", 0), SUCCESS);
-    
+
     // check after pass
     auto opList = function->Operations();
     int64_t viewCnt = 0;

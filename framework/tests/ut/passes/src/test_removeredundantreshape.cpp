@@ -278,7 +278,7 @@ TEST_F(TestRemoveRedundantReshapePass, RemoveRedundantReshapeSTest1) {
         output2 = Reshape(exp2, shape2);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase1");
     EXPECT_EQ(func->Operations().size(), kSizeThirteen);
 
     passManager.RegisterStrategy("RemoveRedundantReshapeTestStrategy", {
