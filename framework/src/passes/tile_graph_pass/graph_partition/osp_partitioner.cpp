@@ -102,7 +102,7 @@ Status OspPartitioner::PartitionGraph(Function &function)
 Status OspPartitioner::RunOspPartition(Function &function)
 {
     Status status = FAILED;
-    std::vector<osp::VertexIdxT<GraphType>> vertexContractionMap;
+    std::vector<VertType> vertexContractionMap;
     CoarseGraphType coarseGraph;
 
     switch (ospMode_)
@@ -148,13 +148,13 @@ Status OspPartitioner::RunOspPartition(Function &function)
     return status;
 }
 
-Status OspPartitioner::RunSarkar(const GraphType &graph, CoarseGraphType &coarseGraph, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap)
+Status OspPartitioner::RunSarkar(const GraphType &graph, CoarseGraphType &coarseGraph, std::vector<VertType> &vertexContractionMap)
 {
-    osp::sarkar_params::MulParameters< osp::VWorkwT<GraphType> > params;
+    osp::sarkar_params::MulParameters<WorkType> params;
     params.seed_ = 1729U;
     params.geomDecay_ = 0.875;
     params.leniency_ = 0.005;
-    params.commCostVec_ = std::vector<osp::VWorkwT<GraphType>>({1, 2, 5, 10, 20, 50, 100, 200, 500, 1000});
+    params.commCostVec_ = std::vector<WorkType>({1, 2, 5, 10, 20, 50, 100, 200, 500, 1000});
     params.maxWeight_ = archParameters_.partitionWorkUpperBound_;
     params.smallWeightThreshold_ = archParameters_.partitionWorkLowerBound_; 
     params.maxNumIterationWithoutChanges_ = 3U;
@@ -172,7 +172,7 @@ Status OspPartitioner::RunSarkar(const GraphType &graph, CoarseGraphType &coarse
     return SUCCESS;
 }
 
-Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap) {
+Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<VertType> &vertexContractionMap) {
     osp::GrowLocalAutoCores<ConstrGraphType> growlocal;
     osp::BspLocking<ConstrGraphType> locking;
     osp::GreedyChildren<ConstrGraphType> children;
@@ -203,7 +203,7 @@ Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, 
     return SUCCESS;
 }
 
-Status OspPartitioner::UpdatePartitionResult(Function &function, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap) 
+Status OspPartitioner::UpdatePartitionResult(Function &function, std::vector<VertType> &vertexContractionMap) 
 {
     int32_t numColors = 0;
     for (size_t i = 0; i < vertexContractionMap.size(); ++i) {
@@ -231,8 +231,8 @@ void OspPartitioner::SetVertexCommMemWeight(GraphType &graph, int32_t vertex)
     }
 
     const auto &operators = superNodeInfo_->node2Op_[vertex]; 
-    osp::VCommwT<GraphType> commWeight = 10;
-    osp::VMemwT<GraphType> memWeight = 10;
+    WorkType commWeight = 10;
+    WorkType memWeight = 10;
 
     for (const auto &op : operators) {
         const auto operInfo = operationInfo_->opList_[op];
@@ -241,7 +241,7 @@ void OspPartitioner::SetVertexCommMemWeight(GraphType &graph, int32_t vertex)
         if (isView) {
             for (auto &inputLogicalTensor : operationInfo_->opList_[op]->GetIOperands()) {
                 const size_t memorySize = inputLogicalTensor->MemorySize();
-                memWeight += static_cast<osp::VMemwT<GraphType>>(memorySize);
+                memWeight += static_cast<WorkType>(memorySize);
             }
         }
 
@@ -257,13 +257,13 @@ void OspPartitioner::SetVertexCommMemWeight(GraphType &graph, int32_t vertex)
                 }
 
                 const size_t memorySize = outputLogicalTensor->MemorySize();
-                commWeight += static_cast<osp::VCommwT<GraphType>>(memorySize);
+                commWeight += static_cast<WorkType>(memorySize);
                 break;
             }
         }
     }
     graph.SetVertexMemWeight(vertex, memWeight);
-    graph.SetVertexCommWeight(vertex, static_cast<osp::VCommwT<GraphType>>(commWeight * archParameters_.commCorrectionFactor_));
+    graph.SetVertexCommWeight(vertex, static_cast<WorkType>(commWeight * archParameters_.commCorrectionFactor_));
 }
 
 Status OspPartitioner::ConstructDagCVSplit(GraphType &graph)
@@ -311,19 +311,19 @@ void OspPartitioner::ConstructBspArchCVSplit(osp::BspArchitecture<GraphType> &bs
     const size_t numAiScalarCores = Platform::Instance().GetSoc().GetAICPUNum();
 
     const size_t numCores = numCubeCores + numVectorCores + numAiScalarCores;
-    std::vector<osp::VTypeT<GraphType>> procTypes(numCores);
-    std::vector<osp::VWorkwT<GraphType>> procMemoryBound(numCores);
+    std::vector<VTypeType> procTypes(numCores);
+    std::vector<WorkType> procMemoryBound(numCores);
     
     for (size_t i = 0; i < numCores; i++) {
         if (i < numCubeCores) { // Cube Cores
             procTypes[i] = GetOspCoreTypeSplit(OpCoreType::AIC);
-            procMemoryBound[i] = static_cast<osp::VWorkwT<GraphType>>( Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L1) );
+            procMemoryBound[i] = static_cast<WorkType>( Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L1) );
         } else if (i < numCubeCores + numVectorCores) { // Vector Cores
             procTypes[i] = GetOspCoreTypeSplit(OpCoreType::AIV);
-            procMemoryBound[i] = static_cast<osp::VWorkwT<GraphType>>( Platform::Instance().GetAIVCore().GetMemorySize(MemoryType::MEM_UB) );
+            procMemoryBound[i] = static_cast<WorkType>( Platform::Instance().GetAIVCore().GetMemorySize(MemoryType::MEM_UB) );
         } else { // AI Scalar Cores
             procTypes[i] = GetOspCoreTypeSplit(OpCoreType::AICPU);
-            procMemoryBound[i] = std::numeric_limits< osp::VWorkwT<GraphType> >::max();
+            procMemoryBound[i] = std::numeric_limits< WorkType >::max();
         }
     }
     bspArch.SetProcessorsWithTypes(procTypes);
@@ -346,8 +346,8 @@ Status OspPartitioner::ConstructBspArchCVMix(osp::BspArchitecture<GraphType> &bs
     const size_t numCores = (numCubeCores != 0U ? numCubeCores : numVectorCores) + numAiScalarCores;
     const size_t numVecPerCube = (numCubeCores != 0U ? numVectorCores / numCubeCores : 1U);
 
-    std::vector<osp::VTypeT<GraphType>> procTypes(numCores);
-    std::vector<osp::VWorkwT<GraphType>> procMemoryBound(numCores);
+    std::vector<VTypeType> procTypes(numCores);
+    std::vector<WorkType> procMemoryBound(numCores);
 
     const size_t cubeVecMemoryBound = ((numCubeCores != 0U ? 1U : 0U)) * Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L1)
                                     + (numVecPerCube * Platform::Instance().GetAIVCore().GetMemorySize(MemoryType::MEM_UB));
@@ -355,10 +355,10 @@ Status OspPartitioner::ConstructBspArchCVMix(osp::BspArchitecture<GraphType> &bs
     for (size_t i = 0; i < numCores; i++) {
         if (i < numCubeCores) { // Cube Vector Core Mix
             procTypes[i] = GetOspCoreTypeMix(OpCoreType::AIC);
-            procMemoryBound[i] = static_cast<osp::VWorkwT<GraphType>>( cubeVecMemoryBound );
+            procMemoryBound[i] = static_cast<WorkType>( cubeVecMemoryBound );
         } else { // AI Scalar Cores
             procTypes[i] = GetOspCoreTypeMix(OpCoreType::AICPU);
-            procMemoryBound[i] = std::numeric_limits< osp::VWorkwT<GraphType> >::max();
+            procMemoryBound[i] = std::numeric_limits< WorkType >::max();
         }
     }
     
@@ -472,5 +472,23 @@ Status OspPartitioner::BuildHashValues()
     for (int32_t i = 0; i < numNode; i++) {
         superNodeInfo_->hash2NodeMap_[superNodeInfo_->nodeHashList_[i]].push_back(i);
     }
+    return SUCCESS;
+}
+
+Status OspPartitioner::SetParameter(const Function &function) {
+    const auto pgUpperBound = function.paramConfigs_.sgPgUpperBound;
+    if (pgUpperBound < 0) {
+        APASS_LOG_ERROR_F(Elements::Config, "Illegal pgUpperBound: %d; Parameter pgUpperBound must be non-negative.", pgUpperBound);
+        return FAILED;
+    }
+    archParameters_.partitionWorkUpperBound_ = pgUpperBound;
+
+    const auto pgLowerBound = function.paramConfigs_.sgPgLowerBound;
+    if (pgLowerBound < 0) {
+        APASS_LOG_ERROR_F(Elements::Config, "Illegal pgLowerBound: %d; Parameter pgLowerBound must be non-negative.", pgLowerBound);
+        return FAILED;
+    }
+    archParameters_.partitionWorkLowerBound_ = pgLowerBound;
+
     return SUCCESS;
 }

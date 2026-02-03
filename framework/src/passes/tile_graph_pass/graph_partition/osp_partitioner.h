@@ -29,13 +29,13 @@
 
 namespace npu::tile_fwk {
 
-template<typename GraphT>
+template<typename WorkType>
 struct ArchParameters {
-    osp::VWorkwT<GraphT> commCost_  = 1;
-    osp::VWorkwT<GraphT> synchCost_ = 8000;
+    WorkType commCost_  = 1;
+    WorkType synchCost_ = 8000;
     double commCorrectionFactor_ = 0.01;
-    osp::VWorkwT<GraphT> partitionWorkUpperBound_ = std::numeric_limits<osp::VWorkwT<GraphT>>::max();
-    osp::VWorkwT<GraphT> partitionWorkLowerBound_ = std::numeric_limits<osp::VWorkwT<GraphT>>::lowest();
+    WorkType partitionWorkUpperBound_ = std::numeric_limits<WorkType>::max();
+    WorkType partitionWorkLowerBound_ = std::numeric_limits<WorkType>::lowest();
 };
 
 enum class OspMode {
@@ -71,7 +71,7 @@ class OspPartitioner : public SuperNodeGraphBuilder {
     };
 
     // Parameters
-    ArchParameters<GraphType> archParameters_;
+    ArchParameters<WorkType> archParameters_;
     OspMode ospMode_;
 
     // Init
@@ -92,11 +92,11 @@ class OspPartitioner : public SuperNodeGraphBuilder {
     
     // Run OSP Partition
     Status RunOspPartition(Function &function);
-    Status UpdatePartitionResult(Function &function, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap);
+    Status UpdatePartitionResult(Function &function, std::vector<VertType> &vertexContractionMap);
 
     // Algorithms
-    Status RunSarkar(const GraphType &graph, CoarseGraphType &coarseGraph, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap);
-    Status RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<osp::VertexIdxT<GraphType>> &vertexContractionMap);
+    Status RunSarkar(const GraphType &graph, CoarseGraphType &coarseGraph, std::vector<VertType> &vertexContractionMap);
+    Status RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<VertType> &vertexContractionMap);
     
     // Helpers
     uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const override ;
@@ -104,13 +104,10 @@ class OspPartitioner : public SuperNodeGraphBuilder {
 
 public:    
     OspPartitioner(OspMode mode) : ospMode_(mode) {};
-    inline void SetParameter(const Function &function) {
-            archParameters_.partitionWorkUpperBound_ = function.paramConfigs_.sgPgUpperBound;
-            archParameters_.partitionWorkLowerBound_ = function.paramConfigs_.sgPgLowerBound;
-    }
     ~OspPartitioner() = default;
+
+    Status SetParameter(const Function &function);
     Status PartitionGraph(Function &function);
-    ArchParameters<GraphType> &GetArchParameters() { return archParameters_; };
 };
 
 }  // namespace npu::tile_fwk

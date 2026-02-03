@@ -63,14 +63,16 @@ Status GraphPartition::RunOnFunction(Function &function)
         }
 
         OspPartitioner partitioner(mode);
-        partitioner.SetParameter(function);
-        APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartitionOSP.");
+        if (partitioner.SetParameter(function) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Config, "Set parameters of GraphPartition failed.");
+        }
         
         if (partitioner.PartitionGraph(function) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Function, "GraphPartitionOSP failed.");
             return FAILED;
         }
-        
+
+        APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartitionOSP.");        
         return SUCCESS;
     } else {
         APASS_LOG_ERROR_F(Elements::Operation, "Invalid partition mode.");
