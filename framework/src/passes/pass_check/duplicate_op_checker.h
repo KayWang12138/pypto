@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file Duplciate_op_checker.h
+ * \file duplciate_op_checker.h
  * \brief
  */
 
