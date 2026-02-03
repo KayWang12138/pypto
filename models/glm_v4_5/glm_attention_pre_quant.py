@@ -468,7 +468,7 @@ def quant_attention_pre(bs, hidden_size, total_head_size, head_size, q_size, kv_
             k[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = k_res
             v[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = v_res
             residual[bs_idx * pypto.symbolic_scalar(bs_tile):, 0:] = residual_bf16
-
+    torch_npu.npu.synchronize()
     return quant_attention_pre_kernel
 
 
