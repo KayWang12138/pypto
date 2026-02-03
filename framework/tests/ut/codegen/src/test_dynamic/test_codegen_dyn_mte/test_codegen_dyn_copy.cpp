@@ -303,7 +303,7 @@ TEST_F(TestCodegenDynCopy, TestGatherInL1TileTensor) {
     auto &gatherL1Op = function->AddOperation(Opcode::OP_GATHER_IN_L1, inputs, outputs);
     gatherL1Op.SetAttribute("GmTensorParamIdxInCallFunc", 0);
     int64_t blocksize{0};
-    gatherL1Op.SetAttribute("op_attr_blocksize", blocksize);
+    gatherL1Op.SetAttribute(OpAttributeKey::blockSize, blocksize);
     gatherL1Op.SetAttribute(OpAttributeKey::startOffset, blocksize);
     gatherL1Op.SetOOpAttrOffset(0, 0);
     std::shared_ptr<SymbolManager> symbolManager = std::make_shared<SymbolManager>();
