@@ -108,7 +108,7 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
     assemble_op2.SetOpAttribute(assemble_Attr2);
 
     currFunctionPtr->AddOperation(Opcode::OP_COPY_OUT, {input3}, {copyTensor});
-    
+
     auto &assemble_op3 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {copyTensor}, {ubTensor});
     auto assemble_Attr3 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset3);
     assemble_op3.SetOpAttribute(assemble_Attr3);
@@ -1162,8 +1162,8 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
         output = Exp(reshape);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
-    
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase1");
+
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
     CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
 
@@ -1206,7 +1206,7 @@ TEST_F(TestSplitReshapePass, TestBeCoveredSTest) {
         output = Exp(reshape);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase2");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase2");
 
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
     CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeFour, false, {}, kNumOne});
@@ -1250,7 +1250,7 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedWithallSTest) {
         output = Exp(reshape);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase3");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase3");
 
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
     CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeFour, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
@@ -1703,7 +1703,7 @@ TEST_F(TestSplitReshapePass, TestInheritAttribute) {
         output = Exp(reshape);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase4");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase4");
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
     for (auto &op : func->Operations()) {
         op.SetScopeId(scopeId);
@@ -1776,7 +1776,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase1) {
         output = Exp(reshape);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase5");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase5");
 
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
     int OpNum = CheckOpNum(func, kNumOne);
@@ -1816,7 +1816,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase2) {
         output = Exp(reshape);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase6");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase6");
 
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
 
@@ -1858,7 +1858,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
         output = Exp(reshape);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase7");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase7");
 
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
 
@@ -1955,7 +1955,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase5) {
         output = Exp(reshape);
     }
 
-    Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase8");
+    Function* func = Program::GetInstance().GetFunctionByRawName("PYPTO_STCase8");
 
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
     int OpNum = CheckOpNum(func, kNumOne);

@@ -69,7 +69,7 @@ TEST_F(SubgraphToFunctionCheckTest, TestPrePostCheck) {
         temp2 = Mul(temp2, a);
         c2 = Sub(temp2, b);
     }
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_SimpleTest_2");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_SimpleTest_2");
     EXPECT_NE(mainFunc, nullptr);
     ALOG_INFO_F("Pre/Post check test completed");
 }

@@ -91,7 +91,7 @@ TEST_F(TestGlobalMemoryReuse, test_connection_matrix) {
         attenOutput = atten.AttentionPost2(attnPostIn);
     }
     attenOutput.GetDataType();
-    auto function= Program::GetInstance().GetFunctionByRawName("TENSOR_AttentionPost");
+    auto function= Program::GetInstance().GetFunctionByRawName("PYPTO_AttentionPost");
     ASSERT_NE(function, nullptr);
     auto rootFunc = function->rootFunc_;
     auto callOps = rootFunc->Operations();

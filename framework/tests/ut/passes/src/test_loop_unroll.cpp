@@ -41,7 +41,7 @@ public:
         config::SetHostConfig(KEY_STRATEGY, "FunctionUnroll");
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetHostOption(COMPILE_STAGE, CS_TENSOR_GRAPH);
-        std::vector<std::string> funcName = {"TENSOR_main"};
+        std::vector<std::string> funcName = {"PYPTO_main"};
         config::SetPassConfig("FunctionUnroll", "LoopUnroll", "CONVERT_TO_STATIC", funcName);
         int s = 32;
         TileShape::Current().SetVecTile(s, s);

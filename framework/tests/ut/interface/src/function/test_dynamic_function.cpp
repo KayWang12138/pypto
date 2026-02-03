@@ -169,7 +169,7 @@ TEST_F(DynamicFunctionTest, TestDynOffset) {
         v.GetStorage()->UpdateOffset(TensorOffset(offset, dynoffset));
     }
 
-    auto func = Program::GetInstance().GetFunctionByRawName("TENSOR_main");
+    auto func = Program::GetInstance().GetFunctionByRawName("PYPTO_main");
     Tensor t(DT_FP32, {4, 4}, "t0");
     t.GetStorage()->UpdateOffset(TensorOffset(offset, dynoffset));
     auto tt = LogicalTensor::LoadJson(*func, {}, t.GetStorage()->DumpJson());
@@ -280,9 +280,9 @@ TEST_F(DynamicFunctionTest, TestOnlyExpression) {
     }
 
 #if ENABLE_HIDDENLOOP
-    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_D3_Unroll1_PATH0_hiddenfunc0_root_11");
+    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_D3_Unroll1_PATH0_hiddenfunc0_root_11");
 #else
-    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_D3_Unroll1_PATH0_root_5");
+    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_D3_Unroll1_PATH0_root_5");
 #endif
     EXPECT_NE(rootFunc, nullptr);
     EXPECT_EQ(rootFunc->GetCallopAttrList().size(), 1);
@@ -312,9 +312,9 @@ TEST_F(DynamicFunctionTest, TestOnlySymbol) {
         }
     }
 #if ENABLE_HIDDENLOOP
-    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_DynSymbol_Unroll1_PATH0_hiddenfunc0_root_11");
+    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_DynSymbol_Unroll1_PATH0_hiddenfunc0_root_11");
 #else
-    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_DynSymbol_Unroll1_PATH0_root_5");
+    auto rootFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_DynSymbol_Unroll1_PATH0_root_5");
 #endif
     EXPECT_NE(rootFunc, nullptr);
     EXPECT_EQ(rootFunc->GetCallopAttrList().size(), 1);
@@ -623,9 +623,9 @@ TEST_F(DynamicFunctionTest, TestLoopWithRank) {
     TestLoopWithRank(t0, r0, out, s, maxUnrollTimes);
 
 #if ENABLE_HIDDENLOOP
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_TENSOR_main_loop_Unroll1_PATH0_4");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_PYPTO_main_loop_Unroll1_PATH0_4");
 #else
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_main_2");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_main_2");
 #endif
     EXPECT_NE(mainFunc, nullptr);
     EXPECT_EQ(mainFunc->GetCallopAttrList().size(), 6);
@@ -667,9 +667,9 @@ TEST_F(DynamicFunctionTest, TestLoopIfWithRank) {
     TestLoopIfWithRank(t0, r0, out, s, maxUnrollTimes);
 
 #if ENABLE_HIDDENLOOP
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_TENSOR_main_loop_Unroll1_PATH0_4");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_PYPTO_main_loop_Unroll1_PATH0_4");
 #else
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_main_2");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_main_2");
 #endif
     EXPECT_NE(mainFunc, nullptr);
     EXPECT_EQ(mainFunc->GetCallopAttrList().size(), 6);
@@ -715,9 +715,9 @@ TEST_F(DynamicFunctionTest, TestLoopWithManualRank) {
     TestLoopWithManualRank(t0, r0, out, s, maxUnrollTimes);
 
 #if ENABLE_HIDDENLOOP
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_TENSOR_main_loop_Unroll1_PATH0_4");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_PYPTO_main_loop_Unroll1_PATH0_4");
 #else
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_main_2");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_main_2");
 #endif
     EXPECT_NE(mainFunc, nullptr);
     EXPECT_EQ(mainFunc->GetCallopAttrList().size(), 7);
@@ -773,23 +773,23 @@ TEST_F(DynamicFunctionTest, HiddenLoop){
         // }
     }
 
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2"); // outest function
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_Main_2"); // outest function
     EXPECT_NE(mainFunc, nullptr);
     EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(),1); // one hidden loop
 
     auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
-    EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
+    EXPECT_EQ(outerLoopFunc->GetMagicName(), "PYPTO_PYPTO_Main_loop_Unroll1_3");
     EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 1);
 
     auto innerLoopFunc1 = outerLoopFunc->GetCalleeFunctionList()[0];
-    std::vector<std::string> LoopPathFuncNames1 = {"TENSOR_L01_Unroll1_6","TENSOR_TENSOR_Main_loop_Unroll1_PATH0_hiddenfunc1_9"};
+    std::vector<std::string> LoopPathFuncNames1 = {"PYPTO_L01_Unroll1_6","PYPTO_PYPTO_Main_loop_Unroll1_PATH0_hiddenfunc1_9"};
     int idx = 0;
     for (auto &LoopPathFuc1 : innerLoopFunc1->GetCalleeFunctionList()) {
         ALOG_INFO("LoopPathFuc: ", LoopPathFuc1->GetMagicName());
         EXPECT_EQ(LoopPathFuc1->GetMagicName(), LoopPathFuncNames1[idx++]);
     }
 
-    auto innerLoopFunc2 = Program::GetInstance().GetFunctionByMagicName("TENSOR_L01_Unroll1_PATH0_7"); // one of the innermost loops
+    auto innerLoopFunc2 = Program::GetInstance().GetFunctionByMagicName("PYPTO_L01_Unroll1_PATH0_7"); // one of the innermost loops
     EXPECT_NE(innerLoopFunc2, nullptr);
     EXPECT_EQ(innerLoopFunc2->GetCalleeFunctionList().size(),1); // Excessive hidden loop
 }
@@ -832,45 +832,45 @@ TEST_F(DynamicFunctionTest, HiddenLoopWithIf){
 
     HiddenLoopWithIf(t0, t1, out);
 
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_Main_2");
     EXPECT_NE(mainFunc, nullptr);
     EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(),1); // one hidden loop
 
     auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
-    EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
+    EXPECT_EQ(outerLoopFunc->GetMagicName(), "PYPTO_PYPTO_Main_loop_Unroll1_3");
     EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 2); // one hidden loop has two path
 
     int idx1 = 0;
-    std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10"};
+    std::vector<std::string> LoopPathFuncNames = {"PYPTO_PYPTO_Main_loop_Unroll1_PATH0_4", "PYPTO_PYPTO_Main_loop_Unroll1_PATH1_10"};
     for (auto &LoopPathFuc : outerLoopFunc->GetCalleeFunctionList()) {
         ALOG_INFO("LoopPathFuc: ", LoopPathFuc->GetMagicName());
         EXPECT_EQ(LoopPathFuc->GetMagicName(), LoopPathFuncNames[idx1++]);
         EXPECT_EQ(LoopPathFuc->GetCalleeFunctionList().size(), 2);
     }
 
-    auto innerLoopFunc1 = Program::GetInstance().GetFunctionByMagicName("TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10");
+    auto innerLoopFunc1 = Program::GetInstance().GetFunctionByMagicName("PYPTO_PYPTO_Main_loop_Unroll1_PATH1_10");
     EXPECT_NE(innerLoopFunc1, nullptr);
     EXPECT_EQ(innerLoopFunc1->GetCalleeFunctionList().size(),2);
 
     int idx2 = 0;
-    std::vector<std::string> innerLoopPathFuncNames1 = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH1_hiddenfunc0_11", "TENSOR_L02_Unroll1_12"};
+    std::vector<std::string> innerLoopPathFuncNames1 = {"PYPTO_PYPTO_Main_loop_Unroll1_PATH1_hiddenfunc0_11", "PYPTO_L02_Unroll1_12"};
     for (auto &innerLoopPathFuc : innerLoopFunc1->GetCalleeFunctionList()) {
         ALOG_INFO("LoopPathFuc: ", innerLoopPathFuc->GetMagicName());
         EXPECT_EQ(innerLoopPathFuc->GetMagicName(), innerLoopPathFuncNames1[idx2++]);
     }
 
-    auto innerLoopFunc2 = Program::GetInstance().GetFunctionByMagicName("TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4");
+    auto innerLoopFunc2 = Program::GetInstance().GetFunctionByMagicName("PYPTO_PYPTO_Main_loop_Unroll1_PATH0_4");
     EXPECT_NE(innerLoopFunc2, nullptr);
     EXPECT_EQ(innerLoopFunc2->GetCalleeFunctionList().size(),2);
 
     int idx3 = 0;
-    std::vector<std::string> innerLoopPathFuncNames2 = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_hiddenfunc0_5", "TENSOR_L03_Unroll1_6"};
+    std::vector<std::string> innerLoopPathFuncNames2 = {"PYPTO_PYPTO_Main_loop_Unroll1_PATH0_hiddenfunc0_5", "PYPTO_L03_Unroll1_6"};
     for (auto &innerLoopPathFuc : innerLoopFunc2->GetCalleeFunctionList()) {
         ALOG_INFO("LoopPathFuc: ", innerLoopPathFuc->GetMagicName());
         EXPECT_EQ(innerLoopPathFuc->GetMagicName(), innerLoopPathFuncNames2[idx3++]);
     }
 
-    auto innerLoopFunc3 = Program::GetInstance().GetFunctionByMagicName("TENSOR_L02_Unroll1_PATH0_13");
+    auto innerLoopFunc3 = Program::GetInstance().GetFunctionByMagicName("PYPTO_L02_Unroll1_PATH0_13");
     EXPECT_NE(innerLoopFunc3, nullptr);
     EXPECT_EQ(innerLoopFunc3->GetCalleeFunctionList().size(),1); // Excessive hidden loop
 }
@@ -918,25 +918,25 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIf){
         //  }
     }
 
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2");
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_Main_2");
     EXPECT_NE(mainFunc, nullptr);
     EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(),1); // one hidden loop
 
     auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
-    EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
+    EXPECT_EQ(outerLoopFunc->GetMagicName(), "PYPTO_PYPTO_Main_loop_Unroll1_3");
     // const and duplicate cond will be optimized
     EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 2);
 
     int idx = 0;
-    std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_10",
-        "TENSOR_TENSOR_Main_loop_Unroll1_PATH2_16","TENSOR_TENSOR_Main_loop_Unroll1_PATH3_22"};
+    std::vector<std::string> LoopPathFuncNames = {"PYPTO_PYPTO_Main_loop_Unroll1_PATH0_4", "PYPTO_PYPTO_Main_loop_Unroll1_PATH1_10",
+        "PYPTO_PYPTO_Main_loop_Unroll1_PATH2_16","PYPTO_PYPTO_Main_loop_Unroll1_PATH3_22"};
     for (auto &LoopPathFuc : outerLoopFunc->GetCalleeFunctionList()) {
         ALOG_INFO("LoopPathFuc: ", LoopPathFuc->GetMagicName());
         EXPECT_EQ(LoopPathFuc->GetMagicName(), LoopPathFuncNames[idx++]);
         EXPECT_EQ(LoopPathFuc->GetCalleeFunctionList().size(), 3);
     }
 
-    auto innerLoopFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_L02_Unroll1_PATH0_7");
+    auto innerLoopFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_L02_Unroll1_PATH0_7");
     EXPECT_NE(innerLoopFunc, nullptr);
     EXPECT_EQ(innerLoopFunc->GetCalleeFunctionList().size(),1); // Excessive hidden loop
 }
@@ -982,23 +982,23 @@ TEST_F(DynamicFunctionTest, HiddenLoopNestedWithIfComplex){
       //  }
     }
 
-    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_Main_2");// outest function
+    auto mainFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_Main_2");// outest function
     EXPECT_NE(mainFunc, nullptr);
     EXPECT_EQ(mainFunc->GetCalleeFunctionList().size(),1); // one hidden loop
 
     auto outerLoopFunc=mainFunc->GetCalleeFunctionList()[0];
-    EXPECT_EQ(outerLoopFunc->GetMagicName(), "TENSOR_TENSOR_Main_loop_Unroll1_3");
+    EXPECT_EQ(outerLoopFunc->GetMagicName(), "PYPTO_PYPTO_Main_loop_Unroll1_3");
     EXPECT_EQ(outerLoopFunc->GetCalleeFunctionList().size(), 2); // one hidden loop has two paths
 
     int idx = 0;
-    std::vector<std::string> LoopPathFuncNames = {"TENSOR_TENSOR_Main_loop_Unroll1_PATH0_4", "TENSOR_TENSOR_Main_loop_Unroll1_PATH1_14"};
+    std::vector<std::string> LoopPathFuncNames = {"PYPTO_PYPTO_Main_loop_Unroll1_PATH0_4", "PYPTO_PYPTO_Main_loop_Unroll1_PATH1_14"};
     for (auto &LoopPathFuc : outerLoopFunc->GetCalleeFunctionList()) {
         ALOG_INFO("LoopPathFuc: ", LoopPathFuc->GetMagicName());
         EXPECT_EQ(LoopPathFuc->GetMagicName(), LoopPathFuncNames[idx++]);
         EXPECT_EQ(LoopPathFuc->GetCalleeFunctionList().size(), 5);
     }
 
-    auto innerLoopFunc = Program::GetInstance().GetFunctionByMagicName("TENSOR_L02_Unroll1_PATH0_7");
+    auto innerLoopFunc = Program::GetInstance().GetFunctionByMagicName("PYPTO_L02_Unroll1_PATH0_7");
     EXPECT_NE(innerLoopFunc, nullptr);
     EXPECT_EQ(innerLoopFunc->GetCalleeFunctionList().size(),1); // Excessive hidden loop
 }
