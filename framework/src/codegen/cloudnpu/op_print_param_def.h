@@ -121,6 +121,8 @@ struct PrintMemCopyWithL0CParam {
 };
 
 struct PrintMemCopyWithL1Param {
+    const bool isCopyLocalToGM;
+    const bool isSpillIntoGM;
     const unsigned uf;
     const unsigned gmIdx;
     const unsigned localIdx;
