@@ -311,13 +311,13 @@ Status OoOScheduler::CheckAndUpdateLifecycle() {
 }
 
 Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
+    APASS_LOG_INFO_F(Elements::Operation, "==================== begin SpillOnCoreBlock =====================");
     MemoryType spillMemType;
     if (!allocIssueQueue[coreType][idx][MemoryType::MEM_UB].Empty()) {
         spillMemType = MemoryType::MEM_UB;
     } else if (!allocIssueQueue[coreType][idx][MemoryType::MEM_L1].Empty()) {
         spillMemType = MemoryType::MEM_L1;
-        ASSERT(spillMemType == MemoryType::MEM_UB)
-        << "SpillOnCoreBlock Spill L1";
+        ASSERT(spillMemType == MemoryType::MEM_UB) << "SpillOnCoreBlock Spill L1";
     } else {
         for (auto memType: allocIssueQueue[coreType][idx]) {
             if (memType.second.Empty()) {
@@ -333,6 +333,7 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx) {
         APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at GenBufferSpill.");
         return FAILED;
     }
+    APASS_LOG_INFO_F(Elements::Operation, "==================== end SpillOnCoreBlock =====================");
     return SUCCESS;
 }
 
@@ -419,6 +420,7 @@ void OoOScheduler::HandleViewOp(IssueEntryPtr issue) {
 
 Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
     // issue from all pipes
+    APASS_LOG_INFO_F(Elements::Operation, "==================== begin LaunchIssueStage =====================");
     for (auto [coreType, idxVec] : CORE_INIT_CONFIGS) {
         for (auto idx : idxVec) {
             for (auto &[pipeType, pipe] : issueQueues[coreType][idx]) {
@@ -444,6 +446,7 @@ Status OoOScheduler::LaunchIssueStage(int& nextCycle) {
             }
         }
     }
+    APASS_LOG_INFO_F(Elements::Operation, "==================== end LaunchIssueStage =====================");
     return SUCCESS;
 }
 
