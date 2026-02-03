@@ -99,7 +99,7 @@ void GenAttn(Tensor &gatingScore, Tensor &cmpAtten, Tensor &selAtten, Tensor &wi
             auto cmpAttenFP32Tile = Cast(cmpAttenTile, DT_FP32);
             auto selAttenFP32Tile = Cast(selAttenTile, DT_FP32);
             auto winAttenFP32Tile = Cast(winAttenTile, DT_FP32);
-            TileShape::Current().SetVecTile(1, 1, nDimSize, NUM_3);
+            TileShape::Current().SetVecTile(1, 1, nDimSize, NUM_16);
             auto gatingScoreTile = View(gatingScore, {tileB, tileS, nDimSize, NUM_3},
                 {actualBSize, actualsSize, nDimSize, NUM_3}, {bOffset, sOffset, 0, 0});
             auto gatingScoreFP32 = Cast(gatingScoreTile, DT_FP32);
