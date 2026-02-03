@@ -23,7 +23,6 @@ output_tools
 dvcTestPlatform
 output
 summary
-log
 tmp
 
 kernel_meta
