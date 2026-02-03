@@ -163,6 +163,10 @@ constexpr const int FRACTALZ_CO1_IDX = 1;
 constexpr const int INPUT_FMAP_IDX = 0;
 constexpr const int INPUT_WEIGHT_IDX = 1;
 constexpr const int INPUT_BIAS_IDX = 2;
+constexpr uint32_t PAD_TOP_INDEX = 0;
+constexpr uint32_t PAD_BOTTOM_INDEX = 1;
+constexpr uint32_t PAD_LEFT_INDEX = 2;
+constexpr uint32_t PAD_RIGHT_INDEX = 3;
 
 const std::string OP_ATTR_PREFIX = "op_attr_";
 const std::string CONV_PADDINGS_ATTR = OP_ATTR_PREFIX + "paddings";
