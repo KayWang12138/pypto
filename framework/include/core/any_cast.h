@@ -81,7 +81,7 @@ inline std::string DemangleTypeName(const char* mangled_name) {
  *   // "Invalid type for kwarg key: value, expected int, but got std::string"
  */
 template <typename T>
-T AnyCast(const std::any& value, const std::string& context = "") {
+T AnyCast(const std::any& value, [[maybe_unused]] const std::string& context = "") {
   try {
     return std::any_cast<T>(value);
   } catch (const std::bad_any_cast& e) {
@@ -107,7 +107,7 @@ T AnyCast(const std::any& value, const std::string& context = "") {
  *   const std::string& str = AnyCastRef<std::string>(val);
  */
 template <typename T>
-const T& AnyCastRef(const std::any& value, const std::string& context = "") {
+const T& AnyCastRef(const std::any& value, [[maybe_unused]] const std::string& context = "") {
   try {
     return std::any_cast<const T&>(value);
   } catch (const std::bad_any_cast& e) {
