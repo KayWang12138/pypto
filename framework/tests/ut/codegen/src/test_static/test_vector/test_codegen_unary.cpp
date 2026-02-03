@@ -240,7 +240,6 @@ TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor) {
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(TExpand<2>(ubTensor_3, ubTensor_1);
 )!!!";
-    // CheckStringExist(expect, res);
 }
 
 TEST_F(TestCodegenUnary, ExpandDim2Axis0) {
