@@ -134,11 +134,11 @@ bool MatchReshapePattern(const LogicalTensorPtr &reshapeInput, const LogicalTens
     return removeAllOnes(inputShape) == removeAllOnes(outputShape);
 }
 
-void UpdateReshapeShape(Operation &reshapeOp, const Shape &newRawShape) {
+void RemoveRedundantAssemble::UpdateReshapeShape(Operation &reshapeOp, const Shape &newRawShape) const {
     reshapeOp.GetOOperands().front()->dynValidShape_ = SymbolicScalar::FromConcrete(newRawShape);
     reshapeOp.SetAttr(OP_ATTR_PREFIX + "validShape", reshapeOp.GetOOperands().front()->dynValidShape_);
     reshapeOp.GetOOperands().front()->shape = newRawShape;
-    reshapeOp.GetOOperands().front()->tensor->UpdateRawShape(newRawShape); 
+    reshapeOp.GetOOperands().front()->tensor->UpdateRawShape(newRawShape);
 }
 
 /*

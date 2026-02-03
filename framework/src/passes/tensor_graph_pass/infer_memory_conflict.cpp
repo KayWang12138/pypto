@@ -27,10 +27,6 @@ constexpr size_t MAX_DIMENSIONS = 4;
 constexpr size_t DIMENSIONS_2D = 2;
 constexpr size_t DIMENSIONS_3D = 3;
 constexpr size_t DIMENSIONS_4D = 4;
-std::unordered_set<Opcode> mulOpcode{
-    Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, Opcode::OP_A_MUL_BT,
-    Opcode::OP_A_MULACC_BT, Opcode::OP_AT_MUL_B, Opcode::OP_AT_MUL_BT,
-};
 
 uint32_t GetPowerOfTwo(uint32_t cur) {
     uint32_t ret = 1;
@@ -176,15 +172,17 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     return true;
 }
 
-bool MulPattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
     auto producer = *(reshapeIn->GetProducers().begin());
     auto consumer = *(reshapeOut->GetConsumers().begin());
     if (producer == nullptr || consumer == nullptr) {
         return false;
     }
     bool mulPattern =
-        ((producer->GetOpcode() == Opcode::OP_VIEW && mulOpcode.find(consumer->GetOpcode()) != mulOpcode.end()) ||
-        (mulOpcode.find(producer->GetOpcode()) != mulOpcode.end() && consumer->GetOpcode() == Opcode::OP_ASSEMBLE));
+        ((producer->GetOpcode() == Opcode::OP_VIEW &&
+          OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) ||
+         (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL && 
+          consumer->GetOpcode() == Opcode::OP_ASSEMBLE));
 
     return mulPattern;
 }
@@ -193,7 +191,7 @@ bool MulPattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &resha
 bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
     if (!reshapeIn || !reshapeOut) return false;
 
-    if (!MulPattern(reshapeIn, reshapeOut)) {
+    if (!MatMulPattern(reshapeIn, reshapeOut)) {
         return false;
     }
 
