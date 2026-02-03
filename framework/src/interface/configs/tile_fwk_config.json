@@ -120,6 +120,22 @@
                 "ExpandFunction": {
                     "expected_value_check": false
                 },
+                "AssignMemoryType": {
+                    "PRE_CHECK": true,
+                    "POST_CHECK": true
+                },
+                "SplitLargeFanoutTensor": {
+                    "PRE_CHECK": true,
+                    "POST_CHECK": true
+                },
+                "SplitRawTensor": {
+                    "PRE_CHECK": true,
+                    "POST_CHECK": true
+                },
+                "SplitReshape": {
+                    "PRE_CHECK": true,
+                    "POST_CHECK": true
+                },
                 "SubgraphToFunction": {
                     "pre_check": false,
                     "post_check": false,

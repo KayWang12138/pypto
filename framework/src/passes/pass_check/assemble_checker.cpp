@@ -22,6 +22,32 @@
 
 namespace npu {
 namespace tile_fwk {
+// assemble存在dynOffset和输入存在dynValidShape场景暂不判断。
+Status CheckDynSkip(const LogicalTensorPtr &outputTensor, bool &needSkip) {
+    for (const auto &producerOp : outputTensor->GetProducers()){
+        if (producerOp->GetOpcode() != Opcode::OP_ASSEMBLE) {
+            needSkip = true;
+            return SUCCESS;
+        }
+        auto assembleOpAttr = std::dynamic_pointer_cast<AssembleOpAttribute>(producerOp->GetOpAttribute());
+        if (assembleOpAttr) {
+            if (assembleOpAttr->GetToDynOffset().size() != 0) {
+                needSkip = true;
+                return SUCCESS;
+            }
+        } else {
+            APASS_LOG_ERROR_F(Elements::Tensor, "%s[%d] has no valid assembleOpAttribute; Please check.",
+                producerOp->GetOpcodeStr().c_str(), producerOp->GetOpMagic());
+            return FAILED;
+        }
+        auto input = producerOp->iOperand.front();
+        if (input->GetDynValidShape().size() != 0) {
+            needSkip = true;
+            return SUCCESS;
+        }
+    }
+    return SUCCESS;
+}
 /*
     在input->assemble->output的场景中，通过校验input之间是否每个轴都存在重叠来判断，input间是否存在覆盖output中同一数据块的情况。
     这种重叠可能由于两块数据到达时间不同，导致覆盖顺序不确定进而导致不确定的行为
@@ -32,8 +58,15 @@ Status AssembleChecker::CheckAssembleOverlap(Function &function) {
     };
     for (const auto &tMap : function.GetTensorMap().tensorMap_) {
         for (const auto &outputTensor : tMap.second) {
-            if (outputTensor->GetProducers().size() == 0 ||
-                (*outputTensor->GetProducers().begin())->GetOpcode() != Opcode::OP_ASSEMBLE){
+            if (outputTensor->GetProducers().size() == 0){
+                continue;
+            }
+            bool dynSkip = false;
+            if (CheckDynSkip(outputTensor, dynSkip) == FAILED) {
+                return FAILED;
+            } 
+
+            if (dynSkip) {
                 continue;
             }
             coveredAreas_.clear();
