@@ -249,6 +249,7 @@ void OoOScheduler::PrintOpList(std::vector<Operation *> operations) {
             APASS_LOG_INFO_F(Elements::Operation, "%s[%d]", op->GetOpcodeStr().c_str(), op->GetOpMagic()); 
         }
     }
+    APASS_LOG_INFO_F(Elements::Operation, "after ==================== OP_LIST =====================");
 }
 
 void OoOScheduler::InsertIssueEntries(IssueEntryPtr insertIssue) {
@@ -348,6 +349,7 @@ Status OoOScheduler::SpillOnCoreBlock(OpCoreType coreType, int idx, bool &didSpi
 }
 
 Status OoOScheduler::SpillOnBlock() {
+    APASS_LOG_INFO_F(Elements::Operation, "==================== begin SpillOnBlock =====================");
     bool didSpill = false;
     for (const auto &[coreType, idxVec] : CORE_INIT_CONFIGS) {
         for (auto idx : idxVec) {
@@ -360,6 +362,7 @@ Status OoOScheduler::SpillOnBlock() {
         APASS_LOG_ERROR_F(Elements::Operation, "SpillOnBlock failed at all coreType.");
         return FAILED;
     }
+    APASS_LOG_INFO_F(Elements::Operation, "==================== end SpillOnBlock =====================");
     return SUCCESS;
 }
 
@@ -647,11 +650,13 @@ Status OoOScheduler::ScheduleMainLoop() {
             APASS_LOG_ERROR_F(Elements::Operation, "RetireIssueStage failed.");
             return FAILED;
         }
+        APASS_LOG_DEBUG_F(Elements::Operation, "   clock: %d", clock);
         // Buffer Allocation Stage : 分配buffer。对于所有类型的buffer，按顺序执行alloc指令，并激活后续已经就绪的op。不断执行alloc直到buffer被占满为止。
         if (BufferAllocStage(commitCnt) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "BufferAllocStage failed.");
             return FAILED;
         }
+        APASS_LOG_DEBUG_F(Elements::Operation, "   clock: %d", clock);
         // Launch Stage ：检查idle的pipe中是否有已经就绪的指令。如果有，则执行该指令，并更新pipe的状态为busy。
         if (LaunchIssueStage(nextCycle) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "LaunchIssueStage failed.");
@@ -661,6 +666,7 @@ Status OoOScheduler::ScheduleMainLoop() {
             isAllRetired = true;
             break;
         }
+        APASS_LOG_DEBUG_F(Elements::Operation, "   clock: %d", clock);
         // 如果nextCycle为-1，说明每个pipe都处于idle的状态，判断出现阻塞。需要spill调整内存
         if (nextCycle == -1) {
             if (SpillOnBlock() != SUCCESS) {
@@ -670,6 +676,7 @@ Status OoOScheduler::ScheduleMainLoop() {
         } else {
             clock = nextCycle;
         }
+        APASS_LOG_DEBUG_F(Elements::Operation, "     clock: %d", clock);
     }
     LOG_SCOPE_END(tScheduleMainLoop);
     return SUCCESS;
@@ -684,6 +691,7 @@ Status OoOScheduler::RetireIssue(IssueEntryPtr issue) {
         }
         if (bufRefCount_[memId] == 0) {
         // 加载时的核信息
+            APASS_LOG_DEBUG_F(Elements::Operation, "     bufRefCount_[memId]: %d", bufRefCount_[memId]);
             auto corePair =  tensorAllocCoreMap[memId];
             if (bufferManagerMap[corePair.first][corePair.second][localBufferMap[memId]->memType].Free(localBufferMap[memId]->id) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Tensor, "Free tensor[%d] failed.", memId); 
@@ -720,7 +728,7 @@ Status OoOScheduler::GenSpillSchedule() {
     LOG_SCOPE_BEGIN(tGenSpillSchedule, Elements::Function, "GenSpillSchedule");
     while (pcIdx < issueEntries.size()) {
         auto issue = issueEntries[pcIdx];
-        APASS_LOG_DEBUG_F(Elements::Operation, "Launch %s", issue->GetOpInfo().c_str());
+        APASS_LOG_DEBUG_F(Elements::Operation, "Launch %s, pcIdx %d", issue->GetOpInfo().c_str(), pcIdx);
         if (issue->isAlloc) {
             if (ExecuteAllocIssue(issue, pcIdx) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "ExecuteAllocIssue failed! %s", GetFormatBacktrace(issue->tileOp).c_str()); 
@@ -843,7 +851,7 @@ Status OoOScheduler::InitLocalBuffer(LogicalTensorPtr oOperand, int memId) {
         localBufferMap[memId] = std::make_shared<LocalBuffer>(
             memId, oOperand->tensor->GetRawDataSize(), oOperand->GetMemoryTypeOriginal());
     } else {
-        localBufferMap[memId]->size = 
+        localBufferMap[memId]->size =
             std::max(localBufferMap[memId]->size, static_cast<uint64_t>(oOperand->tensor->GetRawDataSize()));
     }
     return SUCCESS;
