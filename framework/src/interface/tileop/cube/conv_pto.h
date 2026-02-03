@@ -24,7 +24,7 @@ template <typename T, typename U>
 TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos, int n, int c1, uint16_t fmapH, uint16_t fmapW, int c0, 
                     uint8_t padLeft, uint8_t padRight, uint8_t padTop, uint8_t padBottom, uint16_t filterH, uint16_t filterW, 
                     uint8_t dilationH, uint8_t dilationW, uint8_t strideH, uint8_t strideW, T padValue, int mL0, int kL0) {
-    // 构造 convCfg
+
     pto::Img2colTileConfig<T> convCfg;
     convCfg.fmapH = fmapH;
     convCfg.fmapW = fmapW;
@@ -41,21 +41,31 @@ TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos, in
     convCfg.padList[2] = padTop;
     convCfg.padList[3] = padBottom;
     
-    // 构造 ConvTileData
     int bufferSize = n * c1 * fmapH * fmapW * c0 * sizeof(U);
     using srcTensor = pto::ConvTile<pto::TileType::Mat, U, bufferSize, Layout::NC1HWC0, pto::ConvTileShape<n, c1, fmapH, fmapW, c0>>;
     srcTensor l1;
 
-    // 构造 TileData
-    using dstTensor = pto::TileLeft<T, mL0, kL0, mL0, kL0>
+    using dstTensor = pto::TileLeft<T, mL0, kL0>
     dstTensor l0;
 
-    // 地址赋值
     pto::TASSIGN(l1, (uint64_t)src.GetAddr());
     pto::TASSIGN(l0, (uint64_t)dst.GetAddr());
-    // 指令调用
     pto::TSETFMATRIX(&convCfg);
     pto::TIMG2COL<dstTensor, srcTensor, SetFmatrixMode::FMATRIX_A_MANUAL, U>(dst, src, *mPos, *kPos, &convcfg);
+}
+
+template <typename T, typename U>
+TILEOP void TLoad2D(T &dst, U &src, const uint16_t &indexRow, const uint16_t &indexCol, int c1hw, int n1, int n0, int c0, int kL0, int nL0) {
+    int bufferSize = C1HW * N * n0 * c0 * sizeof(U);
+    using srcTensor = pto::ConvTile<pto::TileType::Mat, U, bufferSize, Layout::FRACTAL_Z, pto::ConvTileShape<c1hw, n1, n0, c0>>;
+    srcTensor l1;
+
+    using dstTensor = pto::TileRight<T, kL0, nL0>
+    dstTensor l0;
+
+    pto::TASSIGN(l1, (uint64_t)src.GetAddr());
+    pto::TASSIGN(l0, (uint64_t)dst.GetAddr());
+    pto::TEXTRACT<dstTensor, srcTensor>(dst, src, *indexRow, *indexCol);
 }
 
 } // namespace TileOp

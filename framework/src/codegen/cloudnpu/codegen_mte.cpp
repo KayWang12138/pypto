@@ -1671,16 +1671,79 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
     return os.str();
 }
 
-std::string CodeGenOpCloudNPU::GenLoad3D() const {
+std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+    std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
 
-    
+    std::vector<int64_t> fmapL1Shape = this->rawShape[ID1];
+    ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL1Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL1Shape).c_str());
+    ASSERT(fmapL1Shape.size() == SHAPE_DIM5) << "GenMemL1ToL0Load3D fmap only support 5-dim!";
+    int64_t n = fmapL1Shape[ID0];
+    int64_t c1 = fmapL1Shape[ID1];
+    int64_t h = fmapL1Shape[ID2];
+    int64_t w = fmapL1Shape[ID3];
+    int64_t c0 = fmapL1Shape[ID4];
+
+    // attrs
+    std::vector<int64_t> fmapL0Shape = this->rawShape[ID0];
+    ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL0Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL0Shape).c_str());
+    ASSERT(fmapL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
+    int64_t mL0 = fmapL0Shape[ID0]; // n * h * w
+    int64_t kL0 = fmapL0Shape[ID1]; // c1 * c0
+
+    int64_t padLeft, padRight, padTop, padBottom, padValue;
+    GetAttr(ConvOpAttributeKey::paddingLeft, &padLeft);
+    GetAttr(ConvOpAttributeKey::paddingLeft, &padRight);
+    GetAttr(ConvOpAttributeKey::paddingLeft, &padTop);
+    GetAttr(ConvOpAttributeKey::paddingLeft, &padBottom);
+    int64_t strideH, strideW;
+    GetAttr(ConvOpAttributeKey::strideh, &strideH);
+    GetAttr(ConvOpAttributeKey::stridew, &strideW);
+    int64_t dilationH, dilationW;
+    GetAttr(ConvOpAttributeKey::dilationH, &dilationH);
+    GetAttr(ConvOpAttributeKey::dilationW, &dilationW);
+    int64_t mPos, kPos;
+    GetAttr(ConvOpAttributeKey::mPos, &mPos);
+    GetAttr(ConvOpAttributeKey::kPos, &kPos);
 
     std::ostringstream oss;
-    oss << tileOpName.c_str() << "<" << L0dtype << ", " << L1dtype << ">(" << dst_addr << ", " << src_addr << ", "
-        << mPos << ", " << kPos << ", " << n << ", " << c1 << ", " << fmapH  << ", " << fmapW << ", " << c0 << ", "
+    oss << tileOpName.c_str() << "<" << dstDtypeStr << ", " << srcDtypeStr << ">(" << dstVar << ", " << srcVar << ", "
+        << mPos << ", " << kPos << ", " << n << ", " << c1 << ", " << h  << ", " << w << ", " << c0 << ", "
         << padLeft  << ", " << padRight << ", " << padTop << ", " << padBottom << ", " << filterH << ", "
         << filterW  << ", " << dilationH << ", " << dilationW << ", " << strideH << ", " << strideW << ", "
         << padValue << ", " << mL0 << ", " << kL0 << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
+    std::string L0dtype = DataType2CCEStr(operandDtype[ID0]);
+    std::string L1dtype = DataType2CCEStr(operandDtype[ID1]);
+    std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    
+    std::vector<int64_t> weightL1Shape = this->rawShape[ID1];
+    ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL1Shape is %s", tileOpName.c_str(), IntVecToStr(weightL1Shape).c_str());
+    ASSERT(weightL1Shape.size() == SHAPE_DIM4) << "GenMemL1ToL0Load2D weight only support 4-dim!";
+    int64_t c1hw = weightL1Shape[ID0];
+    int64_t n1 = weightL1Shape[ID1];
+    int64_t n0 = weightL1Shape[ID2];
+    int64_t c0 = weightL1Shape[ID3];
+
+    std::vector<int64_t> weightL0Shape = this->rawShape[ID0];
+    ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL0Shape is %s", tileOpName.c_str(), IntVecToStr(weightL0Shape).c_str());
+    ASSERT(weightL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load2D L0 weight only support 2-dim!";
+    int64_t kL0 = weightL0Shape[ID0]; // c1hw*c0
+    int64_t nL0 = weightL0Shape[ID1]; // n1*n0
+
+    int64_t kPos, nPos;
+    GetAttr(ConvOpAttributeKey::kPos, &kPos);
+    GetAttr(ConvOpAttributeKey::nPos, &nPos);
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<" << L0dtype << ", " << L1dtype << ">(" << dstVar << ", " << srcVar << ", "
+        << kPos << ", " << nPos << ", " << c1hw << ", " << n1 << ", " << n0 << ", " << c0 << ", " << kL0 << ", " << nL0 << ");\n";
     return oss.str();
 }
 } // namespace npu::tile_fwk
