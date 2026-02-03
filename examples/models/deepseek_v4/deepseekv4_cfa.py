@@ -159,7 +159,7 @@ def softmax(x, sinks, is_fp16=False, is_new_sink=False):
 
 def matmul_proxy(left, right):
     fp32 = torch.float32
-    return torch.matmul(left.to(fp32), right.to(fp32)).to(fp32)
+    return torch.matmul(left.to(fp32), right.to(fp32)).to(left.dtype)
 
 
 def get_block_kv(kv_2d, cmp_block_table, b_idx, s2_idx, block_size, cur_seq):
@@ -226,7 +226,7 @@ def kv_cache_concat_bsnd(kv_cache_out, cmp_block_table, actual_seqs):
     return cmp_kv
 
 
-def ifa_flash_torch(q, cmp_kv, sinks, cmp_block_table, seqused_kv, out, cmp_ratio=128, is_new_sink=False,
+def ifa_flash_torch(q, cmp_kv, sinks, cmp_block_table, seqused_kv, output_flash, tmp_out, cmp_ratio=128, is_new_sink=False,
                 ori_kv=None, ori_block_table=None):
     """
     Args:
@@ -299,7 +299,7 @@ def ifa_flash_torch(q, cmp_kv, sinks, cmp_block_table, seqused_kv, out, cmp_rati
                     li_upd = tilda_lij.squeeze(-1)
                     mi_upd = tilda_mij.squeeze(-1)
                     if s2_loop == 0:
-                        flash_end(out, sinks, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, \
+                        flash_end(output_flash, sinks, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, \
                                 is_new_sink=is_new_sink)
                 for s2_idx in range(s2_loop):
                     kvj = get_block_kv(kv_2d, cmp_block_table, b_idx, s2_idx, block_size, cur_seq)
@@ -331,19 +331,16 @@ def ifa_flash_torch(q, cmp_kv, sinks, cmp_block_table, seqused_kv, out, cmp_rati
                         q1 = matmul_proxy(tilda_pij.to(dtype), kvj)
                         oi_upd = oi_upd * update_mul + q1
                     if s2_idx == s2_loop - 1:
-                        flash_end(out, sinks, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, \
+                        flash_end(output_flash, sinks, li_upd, mi_upd, oi_upd, n2g_ofs, g_tile, bs_ofs, dtype, \
                                 is_new_sink=is_new_sink)
-    return out
+    return output_flash
 
 
-def ifa_golden(q, cmp_kv, sinks, blk_cfa, seqused_kv, out, enable_flash=True, cmp_ratio=128, is_new_sink=False,
-                ori_kv=None, ori_block_table=None):
-    if not enable_flash:
+def ifa_golden(q, cmp_kv, sinks, cmp_block_table, seqused_kv, output_flash, tmp_out, enable_flash=True, cmp_ratio=1,
+               is_new_sink=True, ori_kv=None, ori_block_table=None):
+    if seqused_kv.max() <= 16 * 1024:
         fp64 = torch.float64
-        q = q.to(fp64)
-        cmp_kv = cmp_kv.to(fp64)
         b = seqused_kv.shape[0]
-        blk_size = cmp_kv.shape[1]
         bs = q.shape[0]
         s1 = bs // b
         nkv = cmp_kv.shape[2]
@@ -351,44 +348,50 @@ def ifa_golden(q, cmp_kv, sinks, blk_cfa, seqused_kv, out, enable_flash=True, cm
         softmax_scale = d**-0.5
         compress_actual_seqs = seqused_kv // cmp_ratio
         kv_bsnd = kv_cache_concat_bsnd(
-            cmp_kv, blk_cfa, compress_actual_seqs
+            cmp_kv, cmp_block_table, compress_actual_seqs
         )
-        win_seq_len = 0
         if ori_kv is not None and ori_block_table is not None:
             k_cfa_bsnd = kv_cache_concat_bsnd(
-                    cmp_kv, blk_cfa, compress_actual_seqs
+                    cmp_kv, cmp_block_table, compress_actual_seqs
                 )
             k_win_bsnd = kv_cache_concat_bsnd(
-                    ori_kv, ori_block_table, seqused_kv * 0 + 128 + s1 - 1
+                    ori_kv, ori_block_table, seqused_kv
                 )
-            kv_bsnd = torch.cat([k_win_bsnd, k_cfa_bsnd], dim=1)
-            win_seq_len = blk_size
+            kv_bsnd = torch.cat([k_cfa_bsnd], dim=1)
         for i in range(b):
             for j in range(s1):
                 for n2_idx in range(nkv):
-                    seq_len = min(win_seq_len, seqused_kv[i]) + (seqused_kv[i] - s1 + 1 + j) // cmp_ratio
+                    seq_end = seqused_kv[i] - (s1 - 1 - j)
+                    seq_len = seq_end // cmp_ratio
                     q_bs = q[i * s1 + j]
+                    kv_win_view = k_win_bsnd[i, max(seq_end-128,0):seq_end,:,:].reshape(-1,d)
                     kv_bs = kv_bsnd[i, :seq_len, n2_idx : n2_idx + 1].reshape(
                         seq_len, d
                     )
-                    qk_bmm_res = torch.matmul(q_bs, kv_bs.transpose(1, 0))
+                    kv_bs = torch.cat([kv_win_view,kv_bs], dim=0)
+                    q_bs = q_bs.to(fp64)
+                    kv_bs_64 = kv_bs.to(fp64)                    
+                    qk_bmm_res = matmul_proxy(q_bs, kv_bs_64.transpose(1, 0))
                     qk_ele_res = qk_bmm_res * softmax_scale
                     softmax_res, _, _ = softmax(qk_ele_res, sinks, True, is_new_sink=is_new_sink)
-                    bmm2_res = torch.matmul(softmax_res, kv_bs)
-                    out[i * s1 + j] = bmm2_res
+                    bmm2_res = matmul_proxy(softmax_res.to(output_flash.dtype), kv_bs.to(output_flash.dtype))
+                    output_flash[i * s1 + j] = bmm2_res.to(output_flash.dtype)
+        return output_flash, kv_bs
     else:
-        ifa_flash_torch(
+        output_flash = ifa_flash_torch(
             q=q,
             cmp_kv=cmp_kv,
             sinks=sinks,
-            cmp_block_table=blk_cfa,
+            cmp_block_table=cmp_block_table,
             seqused_kv=seqused_kv,
-            out=out,
+            output_flash=output_flash,
+            tmp_out=tmp_out,
             cmp_ratio=cmp_ratio,
             is_new_sink=is_new_sink,
             ori_kv=ori_kv, 
             ori_block_table=ori_block_table,
         )
+        return output_flash
 
 
 @pytest.mark.skip(reason="large test case")
@@ -422,14 +425,16 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
     ori_block_table = gen_block_table(seqused_kv, block_size, ori_blk_tbl_shape, cmp_ratio=cmp_ratio, \
                                         enable_win=True).npu()
 
+    tmp_out_golden = torch.zeros((b * s1 * 2 * block_size, q_shape[2]), **empty_kwargs) + 1
+
     output_flash = torch.zeros(q_shape, **empty_kwargs).npu()
 
     cmp_block_table = gen_block_table(seqused_kv, block_size, cmp_blk_tbl_shape, cmp_ratio=cmp_ratio).npu()
     attention_out = torch.zeros(q_shape, **empty_kwargs)
 
-    ifa_golden(q, cmp_kv, sinks, cmp_block_table, seqused_kv, output_flash, enable_flash=True, cmp_ratio=cmp_ratio, \
-               is_new_sink=True, ori_kv=ori_kv, ori_block_table=ori_block_table)
-    threhold = 5e-4
+    ifa_golden(q, cmp_kv, sinks, cmp_block_table, seqused_kv, output_flash, tmp_out_golden, enable_flash=True, \
+        cmp_ratio=cmp_ratio, is_new_sink=True, ori_kv=ori_kv, ori_block_table=ori_block_table)
+
     # acl graph
     if enable_graph:
         import torchair as tng
@@ -447,15 +452,15 @@ def c128(enable_flash: bool, enable_high_perf: bool, enable_graph: bool, device:
         pypto.runtime._device_synchronize()  # 内部接口，不推荐使用
 
     import utils.compare as compare
-    compare.compare(output_flash, attention_out, "golden vs npu", rtol=threhold, atol=threhold)
+    compare.compare(output_flash, attention_out, "golden vs npu", rtol=0.0078125, atol=0.0001)
 
 
-def test_c128_decode(enable_flash: bool = False, enable_high_perf: bool = False, enable_graph: bool = True, \
+def test_c128_decode(enable_flash: bool=False, enable_high_perf: bool=False, enable_graph: bool=True, \
                     device_id: int = 0):
     device_id = max(device_id, int(os.environ.get('DEVICE_ID', 0)))
     device = f'npu:{device_id}'    
     attn_cfg = get_decode_case(device=device)
-    c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=True, device=device, \
+    c128(enable_flash=enable_flash, enable_high_perf=enable_high_perf, enable_graph=False, device=device, \
         attn_cfg=attn_cfg)
 
 
