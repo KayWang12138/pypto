@@ -40,8 +40,8 @@ namespace Conv {
 void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_t max) {
     OP_CHECK(true, {
             ASSERT(value >= min && value <= max)
-            << "Invalid " << name << " value: " << value
-            << ", expected range [" << min << ", " << max << "]." << std::endl;
+            << "Invalid " << name << " value:" << value
+            << ", expected range [" << min << "," << max << "]." << std::endl;
     });
 }
 int64_t ConvComputeHo(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
@@ -97,15 +97,17 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
 
 void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrParam) {
     auto &convTile = TileShape::Current().GetConvTile();
-    int64_t tileM = convTile.tileL0Info.tileH;
+    int64_t tileH = convTile.tileL0Info.tileH;
+    int64_t tileW = convTile.tileL0Info.tileW;
     int64_t tileN = convTile.tileL0Info.tileN;
     int64_t tileK = convTile.tileL0Info.tileK;
+
 
     int64_t tileHout = convTile.tileL1Info.tileHout;
     int64_t tileWout = convTile.tileL1Info.tileWout;
     OP_CHECK(true, {
-        ASSERT(tileM > 0 && tileM <= tileHout * tileWout)
-            << "Invalid tileHin value: " << tileM
+        ASSERT(tileH > 0 && tileH <= tileHout * tileWout)
+            << "Invalid tileHin value: " << tileH
             << ",expected range [1, " << tileHout * tileWout
             << ".Current tileHout= " << tileHout
             << ", tileWout=" << tileWout
@@ -200,49 +202,50 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
     OP_CHECK(true, {
             ASSERT(groups > 0 && groups <= SHAPE_INNER_AXIS_MAX_SIZE)
             << "Invalid groups value: groups =" << groups
-            << "expected range [1, " << SHAPE_INNER_AXIS_MAX_SIZE
+            << ", expected range [1," << SHAPE_INNER_AXIS_MAX_SIZE
             << "]." << std::endl;
     });
 
     OP_CHECK(true, {
             ASSERT(cinFmap % groups == 0)
             << "Cin ( " << cinFmap
-            << ") is not divisible by groups ( " << groups
-            << ");adjusting Cin to the nearest value such that Cin % groups == 0." << std::endl;
+            << " ) is not divisible by groups ( " << groups
+            << " );adjusting Cin to the nearest value such that Cin % groups == 0." << std::endl;
     });
 
     OP_CHECK(true, {
             ASSERT(cout % groups == 0)
             << "Cout ( " << cout
-            << ") is not divisible by groups ( " << groups
-            << ");adjusting Cout to the nearest value such that Cout % groups == 0." << std::endl;
+            << " ) is not divisible by groups ( " << groups
+            << " );adjusting Cout to the nearest value such that Cout % groups == 0." << std::endl;
     });
 
     OP_CHECK(true, {
             ASSERT(cinFmap == cinWeight * groups)
             << "Fmap Cin ( " << cinFmap
-            << ") != weight Cin ( " << cinWeight
-            << ") * groups ( " << groups
-            << ")." << std::endl;
+            << " ) != weight Cin ( " << cinWeight
+            << " ) * groups ( " << groups
+            << " )." << std::endl;
     });
 }
 
-void CheckDimParam(const std::vector<int64_t>& vec, const std::string& name, int expected_dim) {
+void CheckDimParam(const std::vector<int64_t>& vec, const std::string& name, int expectedDim) {
     OP_CHECK(true, {
-            ASSERT(vec.size() == static_cast<size_t>(expected_dim))
+            ASSERT(vec.size() == static_cast<size_t>(expectedDim))
                 << "Input attr " << name << " dim: " << vec.size()
-                << " != " << expected_dim << "." << std::endl;
+                << " != " << expectedDim << "." << std::endl;
     });
 }
 
-void CheckDimensionRange(const std::vector<int64_t>& vec, const std::string& name, int min_val, int max_val) {
+void CheckDimensionRange(const std::vector<int64_t>& vec, const std::string& name, int minVal, int maxVal) {
     for (size_t i = 0; i < vec.size(); ++i) {
         OP_CHECK(true, {
-            ASSERT(vec[i] >= min_val && vec[i] <= max_val)
+            ASSERT(vec[i] >= minVal && vec[i] <= maxVal)
                 << "The value of the " << i
                 << "-th dimension of " << name
-                << " must be in the range [ " << min_val 
-                << "," << max_val << "]." << std::endl;
+                << " must be in the range [" << minVal
+                << "," << maxVal << "].Current value:" << vec[i]
+                << "." << std::endl;
         });
     }
 }
@@ -292,8 +295,9 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
         OP_CHECK(true, {
             ASSERT(paddings[i] <= kh && paddings[i] <= kw)
                 << "The value of the " << i
-                << "-th dimension of paddings must be <= kh ( " << kh 
-                << ") and <= kw (" << kw << ")." << std::endl;
+                << "-th dimension of paddings must be <= kh (" << kh
+                << ") and <= kw (" << kw << ").Current value:" << paddings[i]
+                << "." << std::endl;
         });
     }
 }
