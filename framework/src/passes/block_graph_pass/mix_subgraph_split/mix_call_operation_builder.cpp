@@ -309,13 +309,13 @@ bool MixCallOperationBuilder::FindIOpAttrOffsetFromIncast(const SubfuncInvokeInf
         }
         int offset = GetOffsetFromOp(in.opMagic, in.operandIdx, leafFunc, false);
         if (offset == -1) {
-            ALOG_ERROR_F("Failed to get offset for incast (opmagic=%d, idx=%d)!",
+            ALOG_ERROR_F("Failed to get offset for incast (op=%d, idx=%d)!",
                          in.opMagic, in.operandIdx);
             continue;
         }
         extractInfo.iOffsets.push_back(offset);
         extractInfo.processedTensors.insert(in.tensor);
-        ALOG_DEBUG_F("Incast (opmagic=%d, idx=%d) -> original offset=%d",
+        ALOG_DEBUG_F("Incast (op=%d, idx=%d) -> original offset=%d",
                      in.opMagic, in.operandIdx, offset);
     }
     return true;
@@ -332,13 +332,13 @@ bool MixCallOperationBuilder::FindOOpAttrOffsetFromOutcast(const SubfuncInvokeIn
         }
         int offset = GetOffsetFromOp(out.opMagic, out.operandIdx, leafFunc, true);
         if (offset == -1) {
-            ALOG_ERROR_F("Failed to get offset for outcast (opmagic=%d, idx=%d)!",
+            ALOG_ERROR_F("Failed to get offset for outcast (op=%d, idx=%d)!",
                          out.opMagic, out.operandIdx);
             continue;
         }
         extractInfo.oOffsets.push_back(offset);
         extractInfo.processedTensors.insert(out.tensor);
-        ALOG_DEBUG_F("Outcast (opmagic=%d, idx=%d) -> original offset=%d",
+        ALOG_DEBUG_F("Outcast (op=%d, idx=%d) -> original offset=%d",
                      out.opMagic, out.operandIdx, offset);
     }
     return true;
