@@ -21,6 +21,17 @@
 namespace npu {
 namespace tile_fwk {
 namespace {
+// 常量定义
+constexpr size_t MIN_DIMENSIONS = 2;
+constexpr size_t MAX_DIMENSIONS = 4;
+constexpr size_t DIMENSIONS_2D = 2;
+constexpr size_t DIMENSIONS_3D = 3;
+constexpr size_t DIMENSIONS_4D = 4;
+std::unordered_set<Opcode> mulOpcode{
+    Opcode::OP_A_MUL_B, Opcode::OP_A_MULACC_B, Opcode::OP_A_MUL_BT,
+    Opcode::OP_A_MULACC_BT, Opcode::OP_AT_MUL_B, Opcode::OP_AT_MUL_BT,
+};
+
 uint32_t GetPowerOfTwo(uint32_t cur) {
     uint32_t ret = 1;
     while (ret < cur) {
@@ -165,18 +176,7 @@ bool InferMemoryConflict::IsValidTileShape(const Operation &op) const {
     return true;
 }
 
-// batch MatMul优化pattern，不插入register copy
-bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
-                                            const LogicalTensorPtr &reshapeOut) {
-    if (!reshapeIn || !reshapeOut) return false;
-    std::unordered_set<Opcode> mulOpcode{
-        Opcode::OP_A_MUL_B,
-        Opcode::OP_A_MULACC_B,
-        Opcode::OP_A_MUL_BT,
-        Opcode::OP_A_MULACC_BT,
-        Opcode::OP_AT_MUL_B,
-        Opcode::OP_AT_MUL_BT,
-    };
+bool MulPattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
     auto producer = *(reshapeIn->GetProducers().begin());
     auto consumer = *(reshapeOut->GetConsumers().begin());
     if (producer == nullptr || consumer == nullptr) {
@@ -185,30 +185,28 @@ bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn,
     bool mulPattern =
         ((producer->GetOpcode() == Opcode::OP_VIEW && mulOpcode.find(consumer->GetOpcode()) != mulOpcode.end()) ||
         (mulOpcode.find(producer->GetOpcode()) != mulOpcode.end() && consumer->GetOpcode() == Opcode::OP_ASSEMBLE));
-    if (!mulPattern) {
+
+    return mulPattern;
+}
+
+// batch MatMul优化pattern，不插入register copy
+bool InferMemoryConflict::MatchReshapePattern(const LogicalTensorPtr &reshapeIn, const LogicalTensorPtr &reshapeOut) {
+    if (!reshapeIn || !reshapeOut) return false;
+
+    if (!MulPattern(reshapeIn, reshapeOut)) {
         return false;
     }
+
     const auto &inputShape = reshapeIn->GetShape();
     const auto &outputShape = reshapeOut->GetShape();
     const size_t inputDims = inputShape.size();
     const size_t outputDims = outputShape.size();
     
-    // 常量定义
-    constexpr size_t MIN_DIMENSIONS = 2;
-    constexpr size_t MAX_DIMENSIONS = 4;
-    constexpr size_t DIMENSIONS_2D = 2;
-    constexpr size_t DIMENSIONS_3D = 3;
-    constexpr size_t DIMENSIONS_4D = 4;
-    
     if (inputDims < MIN_DIMENSIONS || outputDims < MIN_DIMENSIONS || inputDims > MAX_DIMENSIONS || outputDims > MAX_DIMENSIONS) return false;
     
     // 验证总元素数是否相等（reshape的基本要求）
     auto calculateTotalElements = [](const std::vector<int64_t>& shape) {
-        int64_t total = 1;
-        for (const auto& dim : shape) {
-            total *= dim;
-        }
-        return total;
+        return std::accumulate(shape.begin(), shape.end(), int64_t{1}, std::multiplies<int64_t>());
     };
     
     if (calculateTotalElements(inputShape) != calculateTotalElements(outputShape)) return false;
