@@ -174,7 +174,7 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
             Tensor kNopeScale = std::get<1>(kNopeQuantRes);
             TileShape::Current().SetVecTile(32, 4, kvLoraRank / 4); // 32, 4
             kNope2D = Reshape(kNopeQuant, {tileBS, kvLoraRank});
-            kScale2D = Reshape(kNopeScale, {tileBS / 4, 4}); // 4
+            kScale2D = Reshape(kNopeScale, {tileBS / 4, 16}); // 4
         }
 
         Tensor krCache2D(krCache.GetDataType(), {blockNum * blockSize * n2, qkRopeHeadDim});

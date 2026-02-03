@@ -44,6 +44,7 @@ static const size_t kSizeZero = 0UL;
 static const size_t kSizeOne = 1UL;
 static const size_t kSizeTwo = 2UL;
 static const size_t kSizeFour = 4UL;
+static const size_t kSizeEight = 8UL;
 
 class TestSplitReshapePass : public ::testing::Test {
 public:
@@ -1146,11 +1147,11 @@ exp -> {2,2,2} -> assemble -> reshape -> {2,2,1,2} -> view -> {2,2,1,2} -> exp -
 */
 TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     //Define the shape of the Tensors
-    std::vector<int64_t> origShape = {kNumTwo, kNumTwo, kNumFour};
-    std::vector<int64_t> reshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumFour};
+    std::vector<int64_t> origShape = {kNumTwo, kNumTwo, kExpFour};
+    std::vector<int64_t> reshapeShape = {kNumTwo, kNumTwo, kNumOne, kExpFour};
     std::vector<int64_t> tiledShape = {kNumTwo, kNumTwo, kNumTwo, kNumEight};
-    std::vector<int64_t> tiledorigShape = {kNumTwo, kNumTwo, kNumTwo};
-    std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumTwo};
+    std::vector<int64_t> tiledorigShape = {kNumTwo, kNumTwo, kNumEight};
+    std::vector<int64_t> tiledreshapeShape = {kNumTwo, kNumTwo, kNumOne, kNumEight};
 
     TileShape::Current().SetVecTile(tiledShape);
     Tensor input(DT_FP32, origShape, "input");
@@ -1165,10 +1166,10 @@ TEST_F(TestSplitReshapePass, TestPerfectlyMatchedSTest) {
     Function* func = Program::GetInstance().GetFunctionByRawName("TENSOR_STCase1");
     
     RunPassStra(*func, PassName::EXPAND_FUNCTION);
-    CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeTwo, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
+    CheckOpReshape(func, CheckReshapeStruct{origShape, kSizeEight, false, {}, reshapeShape, kSizeTwo, false, {}, kNumOne});
 
     RunPassStra(*func, PassName::SPLIT_RESHAPE);
-    CheckOpReshape(func, CheckReshapeStruct{tiledorigShape, kSizeOne, false, {}, tiledreshapeShape, kSizeOne, false, {}, kNumTwo});
+    CheckOpReshape(func, CheckReshapeStruct{tiledorigShape, kSizeFour, false, {}, tiledreshapeShape, kSizeOne, false, {}, kNumTwo});
 }
 
 /*
@@ -1864,7 +1865,7 @@ TEST_F(TestSplitReshapePass, TestExceptionCase3) {
 
     CheckOpNum(func, kNumOne);
     RunPassStra(*func, PassName::SPLIT_RESHAPE);
-    CheckOpNum(func, kNumOne);
+    CheckOpNum(func, kNumFour);
 }
 
 /*
