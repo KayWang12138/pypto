@@ -114,7 +114,7 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
 
 void CheckL0TileTiling(const Tensor &weightTensor, const ConvAttrParam &attrParam) {
     auto &convTile = TileShape::Current().GetConvTile();
-    int64_t tileM = convTile.tileL0Info.tileM;
+    int64_t tileM = convTile.tileL0Info.tileH;
     int64_t tileN = convTile.tileL0Info.tileN;
     int64_t tileK = convTile.tileL0Info.tileK;
 
@@ -290,9 +290,9 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
 
 void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam){
 
-    CheckDimParam(attrParam.paddings, "paddings", NUM2);
+    CheckDimParam(attrParam.paddings, "paddings", NUM4);
     CheckDimParam(attrParam.dilations, "dilations", NUM2);
-    CheckDimParam(attrParam.strides, "strides", NUM4);
+    CheckDimParam(attrParam.strides, "strides", NUM2);
 
     int64_t groups = attrParam.groups;
     int64_t cinFmap = inputTensor.GetShape()[2];
