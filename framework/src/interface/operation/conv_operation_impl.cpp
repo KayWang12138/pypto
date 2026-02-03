@@ -798,10 +798,12 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape,
     }
 }
 
-Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor,
+Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor,
             const std::vector<int64_t> &strides, const std::vector<int64_t> &paddings,
             const std::vector<int64_t> &dilations, const int64_t groups)
 {
+    std::vector<int64_t> biasTensorShape{32};
+    Tensor biasTensor(outType, biasTensorShape, "BiasTensor");
     ConvAttrParam convAttrParam(paddings, strides, dilations, groups);
     CheckConvOperands(outType, inputTensor, weightTensor, biasTensor, convAttrParam);
     // auto &convTile = TileShape::Current().GetConvTile();
