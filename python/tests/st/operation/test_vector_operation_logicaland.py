@@ -33,7 +33,7 @@ def test_tensor_add():
     ]
     output_tensors = [{"name": "C", "shape": original_shape, "dtype": "bool"}]
     view_shape = (16, 16)
-    tile_shape = (16, 16)
+    tile_shape = (32, 32)
     test_case = LogicalAndTestCase(
         0,
         "LogicalAnd_test_0",

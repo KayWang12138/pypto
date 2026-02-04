@@ -19,7 +19,7 @@ def compile_stage(comp_stage):
         runtime_options={"run_mode": 1}
     )
     def compile_func(a, b, c):
-        pypto.set_vec_tile_shapes(4, 4)
+        pypto.set_vec_tile_shapes(4, 8)
         c[:] = a + b
 
     a = torch.ones((4, 4), dtype=torch.float32) * 2

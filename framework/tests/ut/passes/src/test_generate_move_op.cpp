@@ -228,7 +228,7 @@ TEST_F(GenerateMoveOpPassTest, Transpose) {
         Tensor a(DT_FP32, shape, "a");
         Tensor a_trans(DT_FP32, shape, "a_trans");
 
-        constexpr int dim0 = 1, dim1 = 16, dim2 = 16, dim3 = 2;
+        constexpr int dim0 = 1, dim1 = 16, dim2 = 16, dim3 = 8;
         TileShape::Current().SetVecTile(dim0, dim1, dim2, dim3);
 
         PassManager &passManager = PassManager::Instance();
@@ -677,7 +677,7 @@ TEST_F(GenerateMoveOpPassTest, ProcessUB2L1FullCoverage) {
         Tensor b(DT_FP32, ndShape, "b");
 
         // 设置TileShape（模拟真实场景）
-        TileShape::Current().SetVecTile(2, 30, 15, 1);
+        TileShape::Current().SetVecTile(2, 30, 15, 8);
 
         // 注册基础Pass策略（模拟真实流程）
         PassManager &passManager = PassManager::Instance();
@@ -742,7 +742,7 @@ TEST_F(GenerateMoveOpPassTest, CreateMoveOpForViewUB2L1) {
         Tensor a(DT_FP32, shape, "a");
         Tensor b(DT_FP32, shape, "b");
 
-        TileShape::Current().SetVecTile(2, 30, 15, 1);
+        TileShape::Current().SetVecTile(2, 30, 15, 8);
 
         // 注册Pass策略
         PassManager &passManager = PassManager::Instance();
@@ -800,7 +800,7 @@ TEST_F(GenerateMoveOpPassTest, ProcessUB2L1NonNDFormat) {
         Tensor a(DT_FP32, nzShape, "a");
         Tensor b(DT_FP32, nzShape, "b");
 
-        TileShape::Current().SetVecTile(2, 32, 16, 1);
+        TileShape::Current().SetVecTile(2, 32, 16, 8);
 
         FUNCTION("ProcessUB2L1NonNDFunc") {
             b = View(a, nzShape, {0,0,0});
