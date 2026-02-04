@@ -32,6 +32,21 @@
 namespace npu::tile_fwk {
 namespace osp {
 
+template <typename T>
+using VertexIdxT = typename T::VertexIdx;
+
+template <typename T>
+using VWorkwT = typename T::VertexWorkWeightType;
+
+template <typename T>
+using VCommwT = typename T::VertexCommWeightType;
+
+template <typename T>
+using VMemwT = typename T::VertexMemWeightType;
+
+template <typename T>
+using VTypeT = typename T::VertexTypeType;
+
 /**
  * @brief Traits to check for the existence of specific type members.
  *
@@ -44,24 +59,6 @@ struct HasEdgeDescTmember : std::false_type {};
 
 template <typename T>
 struct HasEdgeDescTmember<T, std::void_t<typename T::DirectedEdgeDescriptor>> : std::true_type {};
-
-/**
- * @brief Core traits for any directed graph type.
- *
- * Requires that the graph type `T` defines a `VertexIdx` type member.
- *
- * @tparam T The graph type.
- */
-template <typename T>
-struct DirectedGraphTraits {
-    using VertexIdx = typename T::VertexIdx;
-};
-
-/**
- * @brief Alias to easily access the vertex index type of a graph.
- */
-template <typename T>
-using VertexIdxT = typename DirectedGraphTraits<T>::VertexIdx;
 
 /**
  * @brief A default edge descriptor for directed graphs.
@@ -109,51 +106,6 @@ struct DirectedGraphEdgeDescTraits {
 
 template <typename T>
 using EdgeDescT = typename DirectedGraphEdgeDescTraits<T>::DirectedEdgeDescriptor;
-
-/**
- * @brief Traits for computational Directed Acyclic Graphs (DAGs).
- *
- * Computational DAGs extend basic graphs by adding requirements for weight types:
- * - `VertexWorkWeightType`: Represents computational cost of a task.
- * - `VertexCommWeightType`: Represents data size/communication cost.
- * - `VertexMemWeightType`: Represents memory usage of a task.
- *
- * @tparam T The computational DAG type.
- */
-template <typename T>
-struct ComputationalDagTraits {
-    using VertexWorkWeightType = typename T::VertexWorkWeightType;
-    using VertexCommWeightType = typename T::VertexCommWeightType;
-    using VertexMemWeightType = typename T::VertexMemWeightType;
-};
-
-template <typename T>
-using VWorkwT = typename ComputationalDagTraits<T>::VertexWorkWeightType;
-
-template <typename T>
-using VCommwT = typename ComputationalDagTraits<T>::VertexCommWeightType;
-
-template <typename T>
-using VMemwT = typename ComputationalDagTraits<T>::VertexMemWeightType;
-
-/**
- * @brief Traits to extract the vertex type of a computational DAG, if defined.
- *
- * If the DAG defines `VertexTypeType`, it is extracted; otherwise, `void` is used.
- */
-template <typename T, typename = void>
-struct ComputationalDagTypedVerticesTraits {
-    using VertexTypeType = void;
-};
-
-template <typename T>
-struct ComputationalDagTypedVerticesTraits<T, std::void_t<typename T::VertexTypeType>> {
-    using VertexTypeType = typename T::VertexTypeType;
-};
-
-template <typename T>
-using VTypeT = typename ComputationalDagTypedVerticesTraits<T>::VertexTypeType;
-
 
 // -----------------------------------------------------------------------------
 // Property Traits
