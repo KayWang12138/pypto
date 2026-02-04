@@ -694,7 +694,7 @@ private:
         if (options.contains("stitch_cfgcache_size")) {
             stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
         }
-        if (py::hasattr(module, "debug_options")) {
+        if (!module.attr("debug_options").is_none()) {
             auto debugOptions = module.attr("debug_options").cast<py::dict>();
             if (debugOptions.contains("runtime_debug_mode")) {
                 isDebugMode = debugOptions["runtime_debug_mode"].cast<int64_t>() == CFG_DEBUG_ALL;
