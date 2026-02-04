@@ -20,12 +20,6 @@
 #include "ir/scalar_expr.h"
 #include "ir/stmt.h"
 
-#ifndef INTERNAL_CHECK
-#define INTERNAL_CHECK(expr) \
-  if (!(expr)) throw std::logic_error(std::string("Check failed: " #expr " at ") + __FILE__ + ":" + std::to_string(__LINE__)); \
-  std::ostringstream() /* Allow chaining with << */
-#endif
-
 namespace pypto {
 namespace ir {
 
@@ -479,6 +473,20 @@ void IRPrinter::VisitProgram(const ProgramPtr& program) {
     VisitFunction(func);
     first = false;
   }
+}
+
+std::string PythonPrint(const IRNodePtr& node, const std::string& prefix) {
+  // Minimal implementation to satisfy linker
+  (void)node;
+  (void)prefix;
+  return "";
+}
+
+std::string PythonPrint(const TypePtr& type, const std::string& prefix) {
+  // Minimal implementation to satisfy linker
+  (void)type;
+  (void)prefix;
+  return "";
 }
 
 }  // namespace ir
