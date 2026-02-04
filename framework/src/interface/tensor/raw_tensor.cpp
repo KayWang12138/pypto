@@ -120,7 +120,7 @@ void RawTensor::AddRefCount(int value) {
 
 int64_t RawTensor::GetRawDataSize() const {
     int64_t shapeSize = GetRawShapeSize();
-    return shapeSize >= 0 ? shapeSize * BytesOf(datatype) : INT64_MAX;
+    return shapeSize >= 0 ? shapeSize * BytesOf(datatype) : INT32_MAX;
 }
 
 int64_t RawTensor::GetRawShapeSize() const {
