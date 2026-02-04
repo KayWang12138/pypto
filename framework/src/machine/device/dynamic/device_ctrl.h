@@ -152,6 +152,8 @@ public:
 
         DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devCtrlFlowCache->deviceTaskCount, (int)firstInit);
 
+        /* Currently, sche does not use ctrlFlowCacheAnchor, so that we could record it in devProgram.
+         * However, it should be moved into the execute context. */
         devProg->ctrlFlowCacheAnchor = devCtrlFlowCache;
         if (devCtrlFlowCache->deviceTaskCount == 0) {
             DEV_INFO("ControlFlowCache: cache have no devtask , ignore it");
@@ -305,9 +307,9 @@ public:
         if (kargs == nullptr) {
             return -1;
         }
-        if (kargs->inputs == nullptr || kargs->outputs == nullptr || kargs->cfgdata == nullptr) {
-            DEV_ERROR("Args has null in inputs[%p] outputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
-                    kargs->outputs, kargs->workspace, kargs->cfgdata);
+        if (kargs->inputs == nullptr || kargs->cfgdata == nullptr) {
+            DEV_ERROR("Args has null in inputs[%p] work[%p] or cfg[%p].\n", kargs->inputs,
+                    kargs->workspace, kargs->cfgdata);
             return -1;
         }
         InitDyn(kargs);
