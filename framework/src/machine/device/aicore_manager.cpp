@@ -142,18 +142,14 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         DEV_ERROR("[TraCR] Finish dump TraCR trace.");
 
         // Add custom channel names
-        nlohmann::json markerTypes;
+        nlohmann::json markerTypes = nlohmann::json::array();
         for(int i = 0; i < aicNum_; ++i) {
-            std::string idx = std::to_string(i);
-            std::string ChannelName = "AICube_" + idx;
-            markerTypes[idx] = ChannelName;
+            markerTypes.push_back("AICube_" + std::to_string(i));
         }
         for(int i = 0; i < aivNum_; ++i) {
-            std::string ChannelName = "AIVector_" + std::to_string(i);
-            std::string idx = std::to_string(aicNum_ + i);
-            markerTypes[idx] = ChannelName;
+            markerTypes.push_back("AIVector_" + std::to_string(i));
         }
-        markerTypes[std::to_string(aicNum_ + aivNum_)] = "INVALID";
+        markerTypes.push_back("INVALID");
 
         INSTRUMENTATION_ADD_CHANNEL_NAMES(markerTypes);
 
