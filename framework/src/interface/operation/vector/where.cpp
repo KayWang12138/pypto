@@ -261,6 +261,7 @@ std::vector<int64_t> GetBroadCastShapeReturnInt64_t(LogicalTensorPtr &operand1, 
     return broadCastShape;
 }
 
+
 std::vector<int64_t> GetBroadCastShape(
     LogicalTensorPtr &operand1, LogicalTensorPtr &operand2, LogicalTensorPtr &operand3) {
     std::vector<int64_t> opShape1(operand1->shape);
