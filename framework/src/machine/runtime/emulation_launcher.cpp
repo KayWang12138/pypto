@@ -17,6 +17,7 @@
 
 #include <thread>
 #include "machine/host/backend.h"
+#include "machine/runtime/device_launcher.h"
 
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 
@@ -65,12 +66,11 @@ int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
         DevControlFlowCache* ctrlCache, const DeviceLauncherConfig &config) {
     ALOG_DEBUG_F("!!! Emulation Launch\n");
     DeviceKernelArgs kArgs;
-    DeviceLauncher::DeviceInitDistributedContextToHost(function->GetDyndevAttribute()->commGroupNames,
- 	    function->GetDyndevAttribute()->devProgBinary);
-    DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
-                                         ctrlCache, config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
-        function->GetDyndevAttribute()->disableL2List);
+    auto dynAttr = function->GetDyndevAttribute();
+    auto devProg = DeviceLauncher::GetDevProg(function);
+    DeviceLauncher::DeviceInitDistributedContextToHost(dynAttr->commGroupNames, devProg);
+    DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, dynAttr->devProgBinary, ctrlCache, config, nullptr);
+    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList, dynAttr->disableL2List);
     int rc = EmulationLaunchOnce(kArgs);
     return rc;
 }
@@ -115,16 +115,14 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
         CachedOperator *cachedOperator,  DevControlFlowCache **outCtrlFlowCache,
         const DeviceLauncherConfig &config) {
     (void)cachedOperator;
-    std::vector<uint8_t> &devProgData = DeviceLauncher::GetDevProg(function);
-    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+    auto dynAttr = function->GetDyndevAttribute();
+    DevAscendProgram *devProg = DeviceLauncher::GetDevProg(function);
     DevControlFlowCache* hostCtrlFlowCache = CreateHostCtrlFlowCache(devProg, function);
     hostCtrlFlowCache->isRecording = true;
     DeviceKernelArgs kArgs;
-    DeviceLauncher::DeviceInitDistributedContextToHost(function->GetDyndevAttribute()->commGroupNames,
- 	         function->GetDyndevAttribute()->devProgBinary);
-    DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, devProgData, hostCtrlFlowCache, config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList,
-        function->GetDyndevAttribute()->disableL2List);
+    DeviceLauncher::DeviceInitDistributedContextToHost(dynAttr->commGroupNames, devProg);
+    DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, dynAttr->devProgBinary, hostCtrlFlowCache, config, nullptr);
+    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList, dynAttr->disableL2List);
     int rc = EmulationLaunchOnce(kArgs);
 
     hostCtrlFlowCache->isRecording = false;
