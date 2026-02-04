@@ -96,13 +96,12 @@ public:
     static constexpr uint32_t kDefaultAicNum = 25;
     static constexpr uint32_t kDefaultAivNum = 50;
     static constexpr uint32_t kDefaultTensorinfoSize = 16384;
-    static std::vector<uint8_t>& GetDevProg(Function *func) {
-        return func->GetDyndevAttribute()->devProgBinary;
+    static DevAscendProgram *GetDevProg(Function *func) {
+        return reinterpret_cast<DevAscendProgram *>(func->GetDyndevAttribute()->devProgBinary.data());
     }
 
     static bool HasInplaceArgs(Function *function) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function).data()));
-        return devProg->outputInplaceSlotList.size() != 0;
+        return GetDevProg(function)->outputInplaceSlotList.size() != 0;
     }
 
     static void DeviceLauncherConfigFillDeviceInfo(const DeviceLauncherConfig &config) {
@@ -218,8 +217,7 @@ public:
         devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
     }
 
-    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, DevAscendProgram *devProg) {
         ASSERT(devProg->commGroupNum == hcclContext.size())
             << "commGroupNum mismatch. commGroupNum = "
             <<devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
@@ -231,24 +229,21 @@ public:
         }
     }
 
-     static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames,
-        const std::vector<uint8_t> &devProgData) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+     static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames, DevAscendProgram *devProg) {
         if (devProg->hcclContext[0] != 0) {
             return;
         }
         auto hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
-        PrepareHcclContext(hcclContext, devProgData);
+        PrepareHcclContext(hcclContext, devProg);
     }
 
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
-        const std::vector<uint8_t> &devProgData) {
+        DevAscendProgram *devProg) {
         auto hcclContext = DistributedContext::GetHcclContext(groupNames);
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
             return;
         }
-        PrepareHcclContext(hcclContext, devProgData);
+        PrepareHcclContext(hcclContext, devProg);
     }
 
     template<typename DeviceMemoryTy>
@@ -266,10 +261,16 @@ public:
         kArgs.ctrlFlowCache = reinterpret_cast<int64_t*>(ctrlFlowCache);
     }
 
-    static int InitAicpuTaskInfo() {
-        AiCpuArgs initArgs;
-        return memcpy_s(tensorInfo_.data(), sizeof(AiCpuArgs), &initArgs, sizeof(AiCpuArgs));
+    static void InitAicpuTaskInfo() {
+        static bool inited = false;
+        if (!inited) {
+            AiCpuArgs initArgs;
+            (void)memcpy_s(tensorInfo_.data(), sizeof(AiCpuArgs), &initArgs, sizeof(AiCpuArgs));
+            inited = true;
+        }
     }
+
+    static void FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, DeviceKernelArgs &kargs);
 
     /*
      *  inputs          |  inputSize  |
@@ -308,11 +309,7 @@ public:
         if (unlikely(allSize > tensorInfo_.size())) {
             tensorInfo_.resize(allSize);
         }
-        static auto ret = InitAicpuTaskInfo();
-        if (unlikely(ret != 0)) {
-            ALOG_ERROR_F("Copy aicpu task info failed!");
-            return;
-        }
+        InitAicpuTaskInfo();
         auto data = reinterpret_cast<uint64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
         *data = inputList.size();
         data++;
