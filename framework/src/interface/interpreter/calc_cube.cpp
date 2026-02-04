@@ -27,19 +27,23 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
     auto lhs = ctx->ioperandDataViewList->at(0);
     auto rhs = ctx->ioperandDataViewList->at(1);
-
+    auto bias = (ctx->op->HasAttr(Matrix::A_MUL_B_BIAS_ATTR)) ? ctx->ioperandDataViewList->at(2) : nullptr;
     auto &cubeTile = ctx->op->GetTileShape().GetCubeTile();
     int k1 = cubeTile.k[1];
     int k2 = cubeTile.k[2];
     int kStep = std::gcd(k1, k2);
-    bool transA = (ctx->op->HasAttr(Matrix::A_MUL_B_TRANS_A)) ? ctx->op->GetBoolAttribute(Matrix::A_MUL_B_TRANS_A) : false;
-    bool transB = (ctx->op->HasAttr(Matrix::A_MUL_B_TRANS_B)) ? ctx->op->GetBoolAttribute(Matrix::A_MUL_B_TRANS_B) : false;
+    bool transA =
+        (ctx->op->HasAttr(Matrix::A_MUL_B_TRANS_A)) ? ctx->op->GetBoolAttribute(Matrix::A_MUL_B_TRANS_A) : false;
+    bool transB =
+        (ctx->op->HasAttr(Matrix::A_MUL_B_TRANS_B)) ? ctx->op->GetBoolAttribute(Matrix::A_MUL_B_TRANS_B) : false;
     MatMulParam param = {transA, transB, kStep};
     switch (ctx->op->GetOpcode()) {
-        case Opcode::OP_A_MUL_B: calc::MatMul(ret, lhs, rhs, param); break;
+        case Opcode::OP_A_MUL_B: {
+            calc::MatMul(ret, lhs, rhs, bias, param);
+        } break;
         case Opcode::OP_A_MULACC_B: {
-            ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
             auto acc = ctx->ioperandDataViewList->at(2);
+            ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
             calc::AccMatMul(ret, lhs, rhs, acc, param);
         } break;
         default: ASSERT(false); break;
@@ -61,6 +65,7 @@ REGISTER_CALC_OP(OP_L0A_ALLOC, Opcode::OP_L0A_ALLOC, ExecuteOpAlloc);
 REGISTER_CALC_OP(OP_L0B_ALLOC, Opcode::OP_L0B_ALLOC, ExecuteOpAlloc);
 REGISTER_CALC_OP(OP_L0C_ALLOC, Opcode::OP_L0C_ALLOC, ExecuteOpAlloc);
 REGISTER_CALC_OP(OP_L1_ALLOC, Opcode::OP_L1_ALLOC, ExecuteOpAlloc);
+REGISTER_CALC_OP(OP_BT_ALLOC, Opcode::OP_BT_ALLOC, ExecuteOpAlloc);
 
 void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -69,11 +74,27 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     auto &oper = ctx->ioperandDataViewList->at(0);
     Opcode opCode = ctx->op->GetOpcode();
     bool trans = opCode == Opcode::OP_L1_TO_L0_BT || opCode == Opcode::OP_L1_TO_L0_AT;
-    calc::Copy(ret, oper, trans);
+    if (opCode == Opcode::OP_L0C_TO_L1) {
+        auto copyin = std::static_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute()); // 获取attr
+        std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetShape());
+        std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
+        std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToOffset());
+        if (oper->GetShape()[0] > ret->GetShape()[0] || oper->GetShape()[1] > ret->GetShape()[1]) {
+            auto tt = oper->View(ret->GetShape(), fromOffset);
+            calc::Copy(ret, tt);
+        } else {
+            auto tt = ret->View(oper->GetShape(), toOffset);
+            calc::Copy(tt, oper);
+        }
+    } else {
+        calc::Copy(ret, oper, trans);
+    }
 }
 REGISTER_CALC_OP(OP_L1_TO_L0A, Opcode::OP_L1_TO_L0A, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_AT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0_BT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_CONVERT, Opcode::OP_CONVERT, ExecuteDuplicate);
-}
+REGISTER_CALC_OP(OP_L1_TO_BT, Opcode::OP_L1_TO_BT, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, ExecuteDuplicate);
+} // namespace npu::tile_fwk
