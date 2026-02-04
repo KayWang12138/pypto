@@ -27,7 +27,7 @@ def test_vector_operation_where():
     n, m = int(tiling * 2.3), int(tiling * 2.7)
     shape = (n, m)
     view_shape = (16, 16)
-    tile_shape = (8, 8)
+    tile_shape = (8, 32)
     pypto.runtime._device_init()
     condition = pypto.tensor(shape, pypto.DT_BOOL, "WHERE_TENSOR_cond")
     input_base = pypto.tensor(shape, dtype, "WHERE_TENSOR_input")

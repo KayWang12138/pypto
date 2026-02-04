@@ -92,7 +92,7 @@ def test_index_add_onboard():
     b1 = 7
     s1 = 8
     b2 = 9
-    s2 = 4
+    s2 = 8
     alpha = 1.3
     indexadd_para = IndexaAddParamInfo(0, alpha, b1, s1, b2, s2)
 

@@ -28,7 +28,7 @@ def test_sigmoid_shape_dim():
     x = pypto.tensor(x_shape, dtype)
 
     with pypto.function("SIGMOID_SHAPE", x):
-        pypto.set_vec_tile_shapes(4, 4)
+        pypto.set_vec_tile_shapes(4, 8)
         res = pypto.sigmoid(x)
         torch_case_tensor = torch.randn((4, 4), dtype = torch.float32)
         torch_case_res = torch.sigmoid(torch_case_tensor)
@@ -46,7 +46,7 @@ def test_sigmoid_FP32():
 
     with pypto.function("SIGMOID_CONTENT_FP32", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4)
+            pypto.set_vec_tile_shapes(4, 8)
             res.move(pypto.sigmoid(x))
 
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100
@@ -73,7 +73,7 @@ def test_sigmoid_FP16():
 
     with pypto.function("SIGMOID_CONTENT_FP16", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4)
+            pypto.set_vec_tile_shapes(4, 16)
             res.move(pypto.sigmoid(x))
 
     x_tensor = torch.rand(4, 4, dtype=torch.float16) * 200 - 100
@@ -99,7 +99,7 @@ def test_tensor_sigmoid_FP32():
 
     with pypto.function("TENSOR_SIGMOID_CONTENT_FP32", x, res):
         for _ in pypto.loop(1, name="LOOP_L0", idx_name="a_idx"):
-            pypto.set_vec_tile_shapes(4, 4)
+            pypto.set_vec_tile_shapes(4, 8)
             res.move(x.sigmoid())
 
     x_tensor = torch.rand(4, 4, dtype=torch.float32) * 200 - 100

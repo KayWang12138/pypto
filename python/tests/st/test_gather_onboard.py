@@ -31,7 +31,7 @@ def test_gather_onboard():
     src_shape = (b, s)
     index_shape = (idx0, idx1)
     view_shape = (b, 4)
-    tile_shape = (b, 4)
+    tile_shape = (b, 8)
 
     pypto.runtime._device_init()
 

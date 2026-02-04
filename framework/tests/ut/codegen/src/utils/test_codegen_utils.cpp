@@ -11,7 +11,7 @@
 #include "test_codegen_utils.h"
 
 #include <iostream>
-
+#include <regex>
 #include "gtest/gtest.h"
 
 #include "interface/configs/config_manager.h"
@@ -65,6 +65,15 @@ std::string GetResultFromCpp(const Function &function) {
 void CheckStringExist(const std::string &target, const std::string &content) {
     bool res = content.find(target) != std::string::npos;
     EXPECT_TRUE(res) << "target: \n" << target << "\n\n ---- not found in content ---- \n\n" << content << std::endl;
+}
+
+void CheckStringRegexMatch(const std::string &patternStr, const std::string &content) {
+    std::regex pattern(patternStr);
+    std::smatch match;
+    bool isMatch = std::regex_search(content, match, pattern);
+    EXPECT_TRUE(isMatch) << "target: \n"
+                         << patternStr << "\n\n ---- not found in content ---- \n\n"
+                         << content << std::endl;
 }
 
 } // namespace npu::tile_fwk
