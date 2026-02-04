@@ -90,6 +90,7 @@ struct CalcOps {
     void (*PairSum)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*PairMax)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*PairMin)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
+    void (*PairProd)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
 
     void (*Min)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Max)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
@@ -103,9 +104,11 @@ struct CalcOps {
     void (*RowSumSingle)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*RowMinSingle)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*RowMaxSingle)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
+    void (*RowProdSingle)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
 
     void (*RowMinLine)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*RowMaxLine)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
+    void (*RowProdLine)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
 
     void (*OneHot)(LogicalTensorDataPtr, LogicalTensorDataPtr, int);
     void (*ExpandS)(LogicalTensorDataPtr, const Element &);

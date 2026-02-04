@@ -204,6 +204,9 @@ inline void PairMax(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
 inline void PairMin(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->PairMin(out, self, other);
 }
+inline void PairProd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->PairProd(out, self, other);
+}
 inline void RowSumExpand(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
     GetCalcOps()->RowSumExpand(out, self, dim);
 }
@@ -228,7 +231,12 @@ inline void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, in
 inline void RowMaxLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
     GetCalcOps()->RowMaxLine(out, self, dim);
 }
-
+inline void RowProdSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    GetCalcOps()->RowProdSingle(out, self, dim);
+}
+inline void RowProdLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    GetCalcOps()->RowProdLine(out, self, dim);
+}
 inline void OneHot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int numClasses) {
     GetCalcOps()->OneHot(out, self, numClasses);
 }
