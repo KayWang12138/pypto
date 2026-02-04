@@ -260,9 +260,9 @@ bool RawSymbolicScalar::IsExpressionCall(const std::string &calleeName) const {
 }
 
 std::string RawSymbolicScalar::Dump() const {
-    std::string buf;
+    std::stringstream buf;
     DumpBuffer(buf);
-    return buf;
+    return buf.str();
 }
 
 static void DumpSymbolicScalar(const RawSymbolicScalarPtr &raw, Json &jarray) {
@@ -467,11 +467,11 @@ SymbolicScalar SymbolicScalar::operator()(const std::vector<SymbolicScalar> &arg
 }
 
 std::string SymbolicScalar::Dump() const {
-    std::string buf;
+    std::stringstream buf;
     if (raw_) {
         raw_->DumpBuffer(buf);
     }
-    return buf;
+    return buf.str();
 }
 
 bool SymbolicScalar::IsImmediate() const {

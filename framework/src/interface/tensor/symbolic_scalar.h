@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <set>
@@ -124,7 +125,7 @@ public:
 private:
     friend class SymbolicScalar;
     friend class RawSymbolicExpression;
-    virtual void DumpBuffer(std::string &buffer) const = 0;
+    virtual void DumpBuffer(std::ostream &buffer) const = 0;
 
     bool intermediateVariable_{false};
 };
@@ -147,7 +148,7 @@ public:
     }
 
 private:
-    void DumpBuffer(std::string &buffer) const override { buffer += std::to_string(immediate_); }
+    void DumpBuffer(std::ostream &buffer) const override { buffer << immediate_; }
 
     ScalarImmediateType immediate_;
 };
@@ -169,7 +170,7 @@ public:
     static RawSymbolicScalarPtr Create(const std::string &name) { return std::make_shared<RawSymbolicSymbol>(name); }
 
 private:
-    void DumpBuffer(std::string &buffer) const override { buffer += name_; }
+    void DumpBuffer(std::ostream &buffer) const override { buffer << name_; }
 
     std::string name_;
 };
@@ -468,57 +469,57 @@ public:
     }
 
 private:
-    void DumpBuffer(std::string &buffer) const override {
+    void DumpBuffer(std::ostream &buffer) const override {
         if (SymbolicOpcode::T_UOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_UOP_END) {
-            buffer += "(";
-            buffer += GetSymbolicCalcOpcode(opcode_);
+            buffer << "(";
+            buffer << GetSymbolicCalcOpcode(opcode_);
             operandList_[0]->DumpBuffer(buffer);
-            buffer += ")";
+            buffer << ")";
         } else if (SymbolicOpcode::T_BOP_BEGIN <= opcode_ && opcode_ < SymbolicOpcode::T_BOP_END) {
             if (opcode_ == SymbolicOpcode::T_BOP_MAX) {
-                buffer += "RUNTIME_Max(";
+                buffer << "RUNTIME_Max(";
                 operandList_[0]->DumpBuffer(buffer);
-                buffer += ", ";
+                buffer << ", ";
                 operandList_[1]->DumpBuffer(buffer);
-                buffer += ")";
+                buffer << ")";
             } else if (opcode_ == SymbolicOpcode::T_BOP_MIN) {
-                buffer += "RUNTIME_Min(";
+                buffer << "RUNTIME_Min(";
                 operandList_[0]->DumpBuffer(buffer);
-                buffer += ", ";
+                buffer << ", ";
                 operandList_[1]->DumpBuffer(buffer);
-                buffer += ")";
+                buffer << ")";
             } else if (opcode_ == SymbolicOpcode::T_BOP_EQ) {
-                buffer += "RUNTIME_Eq(";
+                buffer << "RUNTIME_Eq(";
                 operandList_[0]->DumpBuffer(buffer);
-                buffer += ", ";
+                buffer << ", ";
                 operandList_[1]->DumpBuffer(buffer);
-                buffer += ")";
+                buffer << ")";
             } else if (opcode_ == SymbolicOpcode::T_BOP_NE) {
-                buffer += "RUNTIME_Ne(";
+                buffer << "RUNTIME_Ne(";
                 operandList_[0]->DumpBuffer(buffer);
-                buffer += ", ";
+                buffer << ", ";
                 operandList_[1]->DumpBuffer(buffer);
-                buffer += ")";
+                buffer << ")";
             } else {
-                buffer += "(";
+                buffer << "(";
                 for (size_t i = 0; i < operandList_.size(); i++) {
                     if (i != 0) {
-                        buffer += GetSymbolicCalcOpcode(opcode_);
+                        buffer << GetSymbolicCalcOpcode(opcode_);
                     }
                     operandList_[i]->DumpBuffer(buffer);
                 }
-                buffer += ")";
+                buffer << ")";
             }
         } else if (opcode_ == SymbolicOpcode::T_MOP_CALL) {
             operandList_[0]->DumpBuffer(buffer);
-            buffer += "(";
+            buffer << "(";
             for (size_t i = 1; i < operandList_.size(); i++) {
                 if (i != 1) {
-                    buffer += ",";
+                    buffer << ",";
                 }
                 operandList_[i]->DumpBuffer(buffer);
             }
-            buffer += ")";
+            buffer << ")";
         }
     }
 
