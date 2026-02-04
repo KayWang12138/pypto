@@ -95,12 +95,13 @@ Status MixCallOperationBuilder::CreateCallOpInRootFunction(Function& rootFunc,
     std::vector<LogicalTensorPtr> newIOperands;
     std::vector<LogicalTensorPtr> newOOperands;
     // 用于跟踪已经处理过的tensor
-    std::set<LogicalTensorPtr> processedTensors;
+    std::set<LogicalTensorPtr> processedIncasts;
+    std::set<LogicalTensorPtr> processedOutcasts;
     // 处理直接外部依赖的IOperands
     ALOG_INFO_F("===> FindIOperandsAndOOperands start.");
-    FindNewIOperandsInOriginalIncast(originalIOperands, originalIncasts, invokeInfo, newIOperands, processedTensors);
+    FindNewIOperandsInOriginalIncast(originalIOperands, originalIncasts, invokeInfo, newIOperands, processedIncasts);
     // 处理直接外部依赖的OOperands
-    FindNewOOperandsInOriginalOutcast(originalOOperands, originalOutcasts, invokeInfo, newOOperands, processedTensors);
+    FindNewOOperandsInOriginalOutcast(originalOOperands, originalOutcasts, invokeInfo, newOOperands, processedOutcasts);
     // 获取传播依赖后的实际incast/outcast
     auto actualIncasts = leafFunc.GetIncast();
     auto actualOutcasts = leafFunc.GetOutcast();
@@ -108,7 +109,8 @@ Status MixCallOperationBuilder::CreateCallOpInRootFunction(Function& rootFunc,
     FindNewIOperandsAndOOperandsInPropagateInOutcast(originalIOperands, originalOOperands,
                                                      originalIncasts, originalOutcasts,
                                                      actualIncasts, actualOutcasts,
-                                                     newIOperands, newOOperands, processedTensors);
+                                                     newIOperands, newOOperands,
+                                                     processedIncasts, processedOutcasts);
     ALOG_INFO_F("===> FindIOperandsAndOOperands end.");
     auto& callOp = rootFunc.AddRawOperation(Opcode::OP_CALL, newIOperands, newOOperands, false);
     ALOG_INFO_F("Created operands for new callOp %d: %zu inputs, %zu outputs",
@@ -130,7 +132,7 @@ void MixCallOperationBuilder::FindNewIOperandsInOriginalIncast(
     const std::vector<std::shared_ptr<LogicalTensor>>& originalIncasts,
     const SubfuncInvokeInfoTy& invokeInfo,
     std::vector<LogicalTensorPtr>& newIOperands,
-    std::set<LogicalTensorPtr>& processedTensors) const
+    std::set<LogicalTensorPtr>& processedIncasts) const
 {
     // 为incast构建新的iOperands
     for (const auto& incastParam : invokeInfo.GetIncastTensorParamList()) {
@@ -138,7 +140,7 @@ void MixCallOperationBuilder::FindNewIOperandsInOriginalIncast(
         int originalIndex = FindTensorIndexInList(tensorMagic, originalIncasts);
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalIOperands.size())) {
             newIOperands.push_back(originalIOperands[originalIndex]);
-            processedTensors.insert(incastParam.tensor);
+            processedIncasts.insert(incastParam.tensor);
             ALOG_DEBUG_F("  Found: tensor magic=%d -> original iOperand[%d] (tensor magic=%d)",
                          tensorMagic, originalIndex, originalIOperands[originalIndex]->magic);
         }
@@ -152,7 +154,7 @@ void MixCallOperationBuilder::FindNewIOperandsInOriginalIncast(
         int originalIndex = FindTensorIndexInList(tensorMagic, originalIncasts);
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalIOperands.size())) {
             newIOperands.push_back(originalIOperands[originalIndex]);
-            processedTensors.insert(tensorParam.tensor);
+            processedIncasts.insert(tensorParam.tensor);
             ALOG_DEBUG_F("  Found: global input tensor magic=%d -> original iOperand[%d]",
                          tensorMagic, originalIndex);
         }
@@ -165,7 +167,7 @@ void MixCallOperationBuilder::FindNewOOperandsInOriginalOutcast(
     const std::vector<std::shared_ptr<LogicalTensor>>& originalOutcasts,
     const SubfuncInvokeInfoTy& invokeInfo,
     std::vector<LogicalTensorPtr>& newOOperands,
-    std::set<LogicalTensorPtr>& processedTensors) const
+    std::set<LogicalTensorPtr>& processedOutcasts) const
 {
     // 为outcast构建新的oOperands
     for (const auto& outcastParam : invokeInfo.GetOutcastTensorParamList()) {
@@ -173,7 +175,7 @@ void MixCallOperationBuilder::FindNewOOperandsInOriginalOutcast(
         int originalIndex = FindTensorIndexInList(tensorMagic, originalOutcasts);
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalOOperands.size())) {
             newOOperands.push_back(originalOOperands[originalIndex]);
-            processedTensors.insert(outcastParam.tensor);
+            processedOutcasts.insert(outcastParam.tensor);
             ALOG_DEBUG_F("  Found: tensor magic=%d -> original oOperand[%d] (tensor magic=%d)",
                          tensorMagic, originalIndex, originalOOperands[originalIndex]->magic);
         }
@@ -187,7 +189,7 @@ void MixCallOperationBuilder::FindNewOOperandsInOriginalOutcast(
         int originalIndex = FindTensorIndexInList(tensorMagic, originalOutcasts);
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalOOperands.size())) {
             newOOperands.push_back(originalOOperands[originalIndex]);
-            processedTensors.insert(tensorParam.tensor);
+            processedOutcasts.insert(tensorParam.tensor);
             ALOG_DEBUG_F("  Found: global output tensor magic=%d -> original oOperand[%d]",
                          tensorMagic, originalIndex);
         }
@@ -204,12 +206,13 @@ void MixCallOperationBuilder::FindNewIOperandsAndOOperandsInPropagateInOutcast(
     const std::vector<std::shared_ptr<LogicalTensor>>& actualOutcasts,
     std::vector<LogicalTensorPtr>& newIOperands,
     std::vector<LogicalTensorPtr>& newOOperands,
-    std::set<LogicalTensorPtr>& processedTensors) const
+    std::set<LogicalTensorPtr>& processedIncasts,
+    std::set<LogicalTensorPtr>& processedOutcasts) const
 {
     // 处理传播的incast
     for (const auto& incast : actualIncasts) {
         // 检查是否已经在之前的列表中处理过
-        if (processedTensors.count(incast) > 0) {
+        if (processedIncasts.count(incast) > 0) {
             ALOG_DEBUG_F("  Propagated incast tensor magic=%d already processed, skipping", incast->magic);
             continue;
         }
@@ -225,7 +228,7 @@ void MixCallOperationBuilder::FindNewIOperandsAndOOperandsInPropagateInOutcast(
     }
     // 处理传播的outcast
     for (const auto& outcast : actualOutcasts) {
-        if (processedTensors.count(outcast) > 0) {
+        if (processedOutcasts.count(outcast) > 0) {
             ALOG_DEBUG_F("  Propagated outcast tensor magic=%d already processed, skipping", outcast->magic);
             continue;
         }

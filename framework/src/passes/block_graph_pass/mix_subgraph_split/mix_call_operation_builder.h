@@ -64,13 +64,13 @@ private:
         const std::vector<std::shared_ptr<LogicalTensor>>& originalIncasts,
         const SubfuncInvokeInfoTy& invokeInfo,
         std::vector<LogicalTensorPtr>& newIOperands,
-        std::set<LogicalTensorPtr>& processedTensors) const;
+        std::set<LogicalTensorPtr>& processedIncasts) const;
     void FindNewOOperandsInOriginalOutcast(
         const std::vector<LogicalTensorPtr>& originalOOperands,
         const std::vector<std::shared_ptr<LogicalTensor>>& originalOutcasts,
         const SubfuncInvokeInfoTy& invokeInfo,
         std::vector<LogicalTensorPtr>& newOOperands,
-        std::set<LogicalTensorPtr>& processedTensors) const;
+        std::set<LogicalTensorPtr>& processedOutcasts) const;
     void FindNewIOperandsAndOOperandsInPropagateInOutcast(
         const std::vector<LogicalTensorPtr>& originalIOperands,
         const std::vector<LogicalTensorPtr>& originalOOperands,
@@ -80,7 +80,8 @@ private:
         const std::vector<std::shared_ptr<LogicalTensor>>& actualOutcasts,
         std::vector<LogicalTensorPtr>& newIOperands,
         std::vector<LogicalTensorPtr>& newOOperands,
-        std::set<LogicalTensorPtr>& processedTensors) const;
+        std::set<LogicalTensorPtr>& processedIncasts,
+        std::set<LogicalTensorPtr>& processedOutcasts) const;
     int FindTensorIndexInList(int tensorMagic, const std::vector<LogicalTensorPtr>& tensorList) const;
     // 参数提取函数
     void FindIOpAttrOffsetAndOOpAttrOffset(Function& leafFunc,
