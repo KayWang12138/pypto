@@ -494,7 +494,7 @@ struct DevControlFlowCache {
         uint64_t addr = desc.GetAddressValue();
         if (cacheInputOutputDict.count(addr)) {
             resultDesc = cacheInputOutputDict[addr];
-        } else if (addr & (1UL << 62)) {
+        } else if (addr & (1UL << 58)) {
             resultDesc = AddressDescriptor::MakeCache(ADDRESS_CACHE_KIND_COMM, addr);
         } else {
             relocWorkspace.Reloc(addr);

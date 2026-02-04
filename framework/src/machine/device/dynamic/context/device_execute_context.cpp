@@ -556,7 +556,7 @@ void *DeviceExecuteContext::DeviceExecuteRuntimeCallShmemAllocator(void *ctx_, u
     uint64_t memType = (value >> 60) & 0x3;
     uint64_t size = value & ((1ULL << 60) - 1);
     constexpr uint64_t memTypeCount = 2;
-    constexpr uint64_t OFFSET_BITS = 58UL;
+    constexpr uint64_t OFFSET_BITS = 54UL;
     constexpr uint64_t GROUP_BITS = 2UL;
     constexpr uint64_t MEMTYPE_BITS = 2UL;
     constexpr uint64_t GROUP_SHIFT = OFFSET_BITS;
