@@ -97,6 +97,7 @@ void ProcessForNotExpandOp(Function &function, Operation &op) {
     auto &newOp = function.AddOperation(op.GetOpcode(), op.GetIOperands(), op.GetOOperands());
     newOp.SetOpAttribute(op.GetOpAttribute());
     newOp.CopyAttrFrom(op, OP_EMUOP_PREFIX);
+    newOp.SetScopeId(op.GetScopeId());
     if (op.HasAttribute(OpAttributeKey::inplaceIdx)) {
         newOp.SetAttribute(OpAttributeKey::inplaceIdx, op.GetIntAttribute(OpAttributeKey::inplaceIdx));
     }
