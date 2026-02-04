@@ -600,6 +600,7 @@ static void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 DEFINE_BINARY_PAIR_OPS(Sum, add_out)
 DEFINE_BINARY_PAIR_OPS(Max, max_out)
 DEFINE_BINARY_PAIR_OPS(Min, min_out)
+DEFINE_BINARY_PAIR_OPS(Prod, mul_out)
 
 std::vector<int64_t> GenAxesForTranspose(const int64_t offset, const std::vector<int64_t>& base) {
     std::vector<int64_t> axes;
@@ -936,6 +937,16 @@ static void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, in
 static void RowMaxLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
     auto ret = torch::max(From(self), dim, true);
     From(out) = std::get<0>(ret);
+}
+
+static void RowProdSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto tout = From(out);
+    torch::prod_out(tout, From(self), {dim}, true);
+}
+
+static void RowProdLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+    auto tout = From(out);
+    torch::prod_out(tout, From(self), {dim}, true);
 }
 
 static void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
@@ -1543,6 +1554,7 @@ static struct CalcOps calcOps = {
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,
+    .PairProd = PairProd,
     .Min = Min,
     .Max = Max,
     .MinS = MinS,
@@ -1553,8 +1565,10 @@ static struct CalcOps calcOps = {
     .RowSumSingle = RowSumSingle,
     .RowMinSingle = RowMinSingle,
     .RowMaxSingle = RowMaxSingle,
+    .RowProdSingle = RowProdSingle,
     .RowMinLine = RowMinLine,
     .RowMaxLine = RowMaxLine,
+    .RowProdLine = RowProdLine,
     .OneHot = OneHot,
     .ExpandS = ExpandS,
     .Expand = Expand,
