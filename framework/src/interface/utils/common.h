@@ -526,14 +526,10 @@ inline std::string GetEnvVar(const std::string &varName, bool trim = true, bool 
     return value;
 }
 
-// 判断环境变量 PTO_DATADUMP_ENABLE 是否为 true
-inline bool IsPtoDataDumpEnabled() {
-    static const bool result = []() {
-        std::string value = GetEnvVar("PTO_DATADUMP_ENABLE", true, true);
-        return (value == "true");
-    }();
-
-    return result;
+// 判断环境变量 AST_DATADUMP_PATH 是否为 true
+inline bool IsAstDataDumpEnabled() {
+    std::string value = GetEnvVar("AST_DATADUMP_PATH", true, true);
+    return (value == "true");
 }
 
 // 向上取整除法
@@ -595,4 +591,8 @@ private:
     uint64_t startTime;
 };
 
+template <typename T>
+inline bool HasNegativeNum(const std::vector<T> &vec) {
+    return std::any_of(vec.begin(), vec.end(), [](T num) { return num < 0; });
+}
 } // namespace npu::tile_fwk
