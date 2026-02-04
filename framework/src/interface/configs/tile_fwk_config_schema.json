@@ -49,7 +49,7 @@
                             "value": "Iso",
                             "label": {
                                 "zh": "",
-                                "en": "Iso graph partitionier"
+                                "en": "Fuses tile kernels based on isomorphism detection."
                             }
                         },
                         {
@@ -63,7 +63,7 @@
                             "value": "OspBsp",
                             "label": {
                                 "zh": "",
-                                "en": "OspBsp graph partitionier"
+                                "en": "Fuses tile kernels based on the BSP model for parallel computation and isomorphism detection."
                             }
                         }
                     ]
