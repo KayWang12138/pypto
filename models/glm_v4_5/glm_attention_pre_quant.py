@@ -587,6 +587,7 @@ def test_quant_attention_pre():
                         rtol=0.0078125, atol=0.0001)
         logging.info("PASS")
 
+    torch_npu.npu.config.allow_internal_format = False
 
 @allow_in_graph
 def attention_pre_quant(
