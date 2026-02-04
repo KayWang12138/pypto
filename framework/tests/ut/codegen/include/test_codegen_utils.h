@@ -53,6 +53,7 @@ std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info
 std::string GetResultFromCpp(const Function &function);
 
 void CheckStringExist(const std::string &expect, const std::string &result);
+void CheckStringRegexMatch(const std::string &patternStr, const std::string &content);
 
 } // namespace npu::tile_fwk
 

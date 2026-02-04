@@ -238,8 +238,8 @@ Function &TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
 TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor) {
     Function &func = TestExpandBody({1, 22}, {22, 22}, {2, 8}, "ExpandDim2Axis0TileTensor", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TExpand<2>(ubTensor_3, ubTensor_1);
-)!!!";
+    std::string expect = R"(TExpand<2>\(ubTensor_\d+, ubTensor_\d+);\)";
+    
 }
 
 TEST_F(TestCodegenUnary, ExpandDim2Axis0) {
