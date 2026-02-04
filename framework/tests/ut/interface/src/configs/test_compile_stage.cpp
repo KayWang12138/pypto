@@ -34,7 +34,7 @@ public:
 };
 
 TEST_F(TestConfigRunmode, COMPILE_STAGE_TENSOR_GRAPH) {
-    const std::vector<int64_t> shape = {4, 4};
+    const std::vector<int64_t> shape = {4, 8};
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
@@ -46,7 +46,7 @@ TEST_F(TestConfigRunmode, COMPILE_STAGE_TENSOR_GRAPH) {
 }
 
 TEST_F(TestConfigRunmode, COMPILE_STAGE_TILE_GRAPH) {
-    const std::vector<int64_t> shape = {4, 4};
+    const std::vector<int64_t> shape = {4, 8};
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
@@ -58,7 +58,7 @@ TEST_F(TestConfigRunmode, COMPILE_STAGE_TILE_GRAPH) {
 }
 
 TEST_F(TestConfigRunmode, COMPILE_STAGE_EXECUTION_GRAPH) {
-    const std::vector<int64_t> shape = {4, 4};
+    const std::vector<int64_t> shape = {4, 8};
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
@@ -70,7 +70,7 @@ TEST_F(TestConfigRunmode, COMPILE_STAGE_EXECUTION_GRAPH) {
 }
 
 TEST_F(TestConfigRunmode, COMPILE_STAGE_CODEGEN_INSTRUCTION) {
-    const std::vector<int64_t> shape = {4, 4};
+    const std::vector<int64_t> shape = {4, 8};
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
@@ -82,7 +82,7 @@ TEST_F(TestConfigRunmode, COMPILE_STAGE_CODEGEN_INSTRUCTION) {
 }
 
 TEST_F(TestConfigRunmode, COMPILE_STAGE_CODEGEN_BINARY) {
-    const std::vector<int64_t> shape = {4, 4};
+    const std::vector<int64_t> shape = {4, 8};
     TileShape::Current().SetVecTile(shape);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");

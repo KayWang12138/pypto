@@ -119,12 +119,12 @@ def process_main_loop_interation(
                                     group_unit])
 
     # amax
-    pypto.set_vec_tile_shapes(view_first, num_expert_group, group_unit)
+    pypto.set_vec_tile_shapes(view_first, num_expert_group * 8, group_unit)
     max1 = pypto.amax(r1, -1, False)
     group_weight = max1
 
     # topk
-    pypto.set_vec_tile_shapes(view_first, num_expert_group)
+    pypto.set_vec_tile_shapes(view_first, num_expert_group * 16)
     _, topk_group_indices = pypto.topk(group_weight, topk_group, -1, True)  # (2, topk_group) int32
 
     # zeros -> full(0)
@@ -164,7 +164,7 @@ def process_main_loop_interation(
     tw_gather = pypto.gather(topk_weights, 1, topk_ids)  # (bs, 8)
 
     # sum & div
-    pypto.set_vec_tile_shapes(view_first, topk)
+    pypto.set_vec_tile_shapes(view_first, topk * 4)
     if pypto.symbolic_scalar(renormalize_flag):
         # sum
         denominator = pypto.sum(tw_gather, -1, True)  # (bs, 1)

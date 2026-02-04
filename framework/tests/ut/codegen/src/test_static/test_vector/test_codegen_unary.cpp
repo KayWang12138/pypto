@@ -236,15 +236,14 @@ Function &TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
 }
 
 TEST_F(TestCodegenUnary, ExpandDim2Axis0TileTensor) {
-    Function &func = TestExpandBody({1, 22}, {22, 22}, {2, 2}, "ExpandDim2Axis0TileTensor", true);
+    Function &func = TestExpandBody({1, 22}, {22, 22}, {2, 8}, "ExpandDim2Axis0TileTensor", true);
     std::string res = GetResultFromCpp(func);
-    std::string expect = R"!!!(TExpand<2>(ubTensor_3, ubTensor_1);
-)!!!";
-    CheckStringExist(expect, res);
+    std::string expect = R"(TExpand<2>\(ubTensor_\d+, ubTensor_\d+);\)";
+    CheckStringRegexMatch(expect, res);
 }
 
 TEST_F(TestCodegenUnary, ExpandDim2Axis0) {
-    TestExpandBody({1, 22}, {22, 22}, {2, 2}, "ExpandDim2Axis0");
+    TestExpandBody({1, 22}, {22, 22}, {2, 8}, "ExpandDim2Axis0");
 }
 
 TEST_F(TestCodegenUnary, ExpandDim4Axis0) {
@@ -272,15 +271,15 @@ void TestRowSumBody(std::vector<int64_t> shape, std::vector<int64_t> outShape, s
 }
 
 TEST_F(TestCodegenUnary, RowSumDim4Axis2) {
-    TestRowSumBody({3, 2, 8, 255}, {3, 2, 1, 255}, {2, 8, 8, 255}, "ROWSUMAXIS2", 2);
+    TestRowSumBody({3, 2, 8, 255}, {3, 2, 1, 255}, {2, 8, 8, 256}, "ROWSUMAXIS2", 2);
 }
 
 TEST_F(TestCodegenUnary, RowSumDim3Axis1) {
-    TestRowSumBody({2, 8, 255}, {2, 1, 255}, {8, 8, 255}, "ROWSUMAXIS1", 1);
+    TestRowSumBody({2, 8, 255}, {2, 1, 255}, {8, 8, 256}, "ROWSUMAXIS1", 1);
 }
 
 TEST_F(TestCodegenUnary, RowSumDim2Axis0) {
-    TestRowSumBody({8, 255}, {1, 255}, {8, 255}, "ROWSUMAXIS0", 0);
+    TestRowSumBody({8, 255}, {1, 255}, {8, 256}, "ROWSUMAXIS0", 0);
 }
 
 TEST_F(TestCodegenUnary, TestVecDup) {

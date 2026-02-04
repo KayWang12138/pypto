@@ -50,12 +50,12 @@ public:
 
 TEST_F(TestCodegenDynOneHot, OneHotLayout) {
     std::vector<int64_t> indicesShape = {32, 32};
-    std::vector<int64_t> outputShape = {32, 32, 1};
+    std::vector<int64_t> outputShape = {32, 32, 8};
     TileShape::Current().SetVecTile(outputShape);
     Tensor inputStub(DT_INT32, indicesShape, "input");
     Tensor outputStub(DT_INT32, outputShape, "output");
     FUNCTION("ONEHOT", {inputStub, outputStub}) {
-        outputStub = OneHot(inputStub, 1);
+        outputStub = OneHot(inputStub, 8);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + "ONEHOT");
     npu::tile_fwk::CodeGenCtx ctx;

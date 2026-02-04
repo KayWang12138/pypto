@@ -174,7 +174,7 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
             Tensor kNopeScale = std::get<1>(kNopeQuantRes);
             TileShape::Current().SetVecTile(32, 4, kvLoraRank / 4); // 32, 4
             kNope2D = Reshape(kNopeQuant, {tileBS, kvLoraRank});
-            kScale2D = Reshape(kNopeScale, {tileBS, 4}); // 4
+            kScale2D = Reshape(kNopeScale, {tileBS / 4, 16}); // 4
         }
 
         Tensor krCache2D(krCache.GetDataType(), {blockNum * blockSize * n2, qkRopeHeadDim});
@@ -201,7 +201,7 @@ void MlaPrologQuantV32Compute(const Tensor &tokenX, const Tensor &wDq, const Ten
             kvCacheOut2D = ScatterUpdate(kvCache2D, index, kNope2D, -2, layoutKey, blockSize); // -2
             // kScaleCache: [blockNum, blockSize, n2, 4]
             config::SetSemanticLabel("ScatterUpdate_kScaleCache");
-            TileShape::Current().SetVecTile(32, 4); // 32, 4
+            TileShape::Current().SetVecTile(32, 16); // 32, 4
             kScaleCacheOut2D = ScatterUpdate(kScaleCache2D, index, kScale2D, -2, layoutKey, 4); // -2, 4
         }
 

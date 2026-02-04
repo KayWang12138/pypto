@@ -324,7 +324,7 @@ TEST_F(FunctionTest, TestExpTensorFunctionDim2) {
 }
 
 TEST_F(FunctionTest, TestSin) {
-    TileShape::Current().SetVecTile({1, 1, 4, 4});
+    TileShape::Current().SetVecTile({1, 1, 4, 16});
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {1, 2, 8, 8};
@@ -340,7 +340,7 @@ TEST_F(FunctionTest, TestSin) {
 }
 
 TEST_F(FunctionTest, TestCos) {
-    TileShape::Current().SetVecTile({1, 1, 4, 4});
+    TileShape::Current().SetVecTile({1, 1, 4, 8});
     config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {1, 2, 8, 8};
