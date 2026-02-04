@@ -18,6 +18,8 @@
 #include "machine/host/backend.h"
 #include "machine/runtime/host_prof.h"
 #include "machine/host/perf_analysis.h"
+#include "interface/utils/op_info_manager.h"
+
 namespace npu::tile_fwk::dynamic {
 namespace {
     constexpr uint32_t kMinDefaultDim = 20;
@@ -124,6 +126,13 @@ int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStre
     return 0;
 }
 
+void DeviceLauncher::FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, DeviceKernelArgs &kargs) {
+    DeviceLauncherConfig config;
+    CachedOperator cache;
+    DeviceLauncherConfigFillDeviceInfo(config);
+    DeviceInitTilingData(DeviceMemoryUtils(), kargs, devProgData, nullptr, config, &cache);
+}
+
 int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
@@ -165,20 +174,19 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
             cachedOperator = DeviceRunCacheOperatorGet(function);
         }
     }
+
+    auto dynAttr = function->GetDyndevAttribute();
     CheckDeviceId();
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
+    DeviceInitDistributedContext(dynAttr->commGroupNames, GetDevProg(function));
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
-
-    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
-        inputDevCtrlCache, config, cachedOperator);
-
+    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, function->GetDyndevAttribute()->disableL2List);
+    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, dynAttr->disableL2List);
 
     HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 
@@ -408,4 +416,156 @@ uint8_t* CopyHostToDev(uint8_t* data, uint64_t size) {
 #endif
 }
 
+DeviceGuard::DeviceGuard(int32_t devId) : nDevId(devId) {
+#ifdef BUILD_WITH_CANN
+    (void)rtGetDevice(&oDevId);
+    if (nDevId != oDevId) {
+        rtSetDevice(nDevId);
+    }
+#endif
+}
+
+DeviceGuard::~DeviceGuard() {
+#ifdef BUILD_WITH_CANN
+    if (nDevId != oDevId) {
+        rtSetDevice(oDevId);
+    }
+#endif
+}
+
+AclModeGuard::AclModeGuard(aclmdlRICaptureMode tmode) : mode(tmode) {
+#ifdef BUILD_WITH_CANN
+    aclmdlRICaptureThreadExchangeMode(&mode);
+#endif
+}
+AclModeGuard::~AclModeGuard() {
+#ifdef BUILD_WITH_CANN
+    aclmdlRICaptureThreadExchangeMode(&mode);
+#endif
+}
+
+uint8_t *DeviceLauncher::CopyControlFlowCache(DevControlFlowCache *ctrlCache) {
+#ifdef BUILD_WITH_CANN
+    uint8_t *devCache = nullptr;
+    auto cacheSize = ctrlCache->allCacheSize;
+    auto bufNum = DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT;
+
+    int ret = rtMalloc((void **)&devCache, cacheSize * bufNum, RT_MEMORY_HBM, 0);
+    if (devCache == nullptr) {
+        ALOG_ERROR("control flow cache malloc failed");
+        return nullptr;
+    }
+
+    for (int i = 0; i < bufNum; ++i) {
+        ret = rtMemcpy(devCache + i * cacheSize, cacheSize, ctrlCache, cacheSize, RT_MEMCPY_HOST_TO_DEVICE);
+        if (ret != 0) {
+            ALOG_ERROR("control flow cache memcpy failed", ret);
+            rtFree(devCache);
+            return nullptr;
+        }
+    }
+    return devCache;
+#else
+    (void)ctrlCache;
+    return nullptr;
+#endif
+}
+
+void DeviceLauncher::FreeControlFlowCache(uint8_t *ctrlCache) {
+#ifdef BUILD_WITH_CANN
+    if (ctrlCache != nullptr) {
+        rtFree(ctrlCache);
+    }
+#else
+    (void)ctrlCache;
+#endif
+}
+
+bool DeviceLauncher::AddAicpuStream(
+    aclrtStream aicoreStream, aclrtStream ctrlStream, aclrtStream schedtream, bool tripleStream) {
+#ifdef BUILD_WITH_CANN
+    aclmdlRI rtModel;
+    aclmdlRICaptureStatus status = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    auto ret = aclmdlRICaptureGetInfo(aicoreStream, &status, &rtModel);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        return false;
+    } else if (ret != ACL_SUCCESS) {
+        ALOG_ERROR("get capture info failed: ", ret);
+        return false;
+    }
+    if (status == aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
+        if (tripleStream) {
+            rtStreamAddToModel(ctrlStream, rtModel);
+        }
+        rtStreamAddToModel(schedtream, rtModel);
+        return true;
+    }
+    return false;
+#else
+    (void)aicoreStream;
+    (void)ctrlStream;
+    (void)schedtream;
+    (void)tripleStream;
+    return false;
+#endif
+}
+
+void *DeviceLauncher::RegisterKernelBin(const std::vector<uint8_t> &kernelBinary) {
+#ifdef BUILD_WITH_CANN
+    void *hdl = nullptr;
+    rtDevBinary_t binary = {
+        .magic = RT_DEV_BINARY_MAGIC_ELF,
+        .version = 0,
+        .data = kernelBinary.data(),
+        .length = kernelBinary.size(),
+    };
+
+    int ret = rtRegisterAllKernel(&binary, &hdl);
+    if (ret != RT_ERROR_NONE) {
+        ALOG_ERROR("register kernel failed, ret: %d", ret);
+    }
+    return hdl;
+#else
+    (void)kernelBinary;
+    return nullptr;
+#endif
+}
+
+void DeviceLauncher::UnregisterKernelBin(void *hdl) {
+#ifdef BUILD_WITH_CANN
+    int ret = rtDevBinaryUnRegister(hdl);
+    if (ret != RT_ERROR_NONE) {
+        ALOG_ERROR("unregister kernel failed, ret: %d", ret);
+    }
+#else
+    (void)hdl;
+#endif
+}
+
+int DeviceLauncher::LaunchAicpuKernel(aclrtStream aicpuStream, rtAicpuArgsEx_t &rtArgs, uint32_t blockDim) {
+#ifdef BUILD_WITH_CANN
+    return rtAicpuKernelLaunchExWithArgs(
+        rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", blockDim, &rtArgs, nullptr, aicpuStream, 0);
+#else
+    (void)aicpuStream;
+    (void)rtArgs;
+    (void)blockDim;
+    return 0;
+#endif
+}
+
+int DeviceLauncher::LaunchAicoreKernel(
+    aclrtStream aicoreStream, void *kernel, uint32_t blockDim, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg) {
+#ifdef BUILD_WITH_CANN
+    auto tilingKey = OpInfoManager::GetInstance().GetOpTilingKey();
+    return rtKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
+#else
+    (void)aicoreStream;
+    (void)kernel;
+    (void)blockDim;
+    (void)rtArgs;
+    (void)rtTaskCfg;
+    return 0;
+#endif
+}
 }
