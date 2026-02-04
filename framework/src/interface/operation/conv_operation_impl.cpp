@@ -126,6 +126,33 @@ void CheckL0TileTiling(DataType outType, const Tensor &weightTensor, const ConvA
             << "Invalid tileN: " << tileN
             << ", requires 16-element alignment." << std::endl;
     });
+
+    Platform& platform = Platform::Instance();
+    platform.ObtainPlatformInfo();
+    size_t l0aSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0A);
+    size_t l0bSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0B);
+    size_t l0cSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0C);
+    OP_CHECK(true, {
+        ASSERT(tileK * tileH * tileW * BytesOf(outType) <= l0aSize)
+            << "Shape does not satisfy L0A load constraints, tileH:" << tileH
+            << ", tileW:" << tileW << ", tileK:" << tileK
+            << ", which satisfy tileH × tileW × tileK × dtypesize ≤ l0aSize( " << l0aSize
+            << " )." << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(tileK * tileN * BytesOf(outType) <= l0bSize)
+            << "Shape does not satisfy L0B load constraints, tileK:" << tileK
+            << ", tileN:" << tileN
+            << ", which satisfy tileK × tileN × dtypesize ≤ l0bSize( " << l0bSize
+            << " )." << std::endl;
+    });
+    OP_CHECK(true, {
+        ASSERT(tileN * tileH * tileW * BytesOf(DataType::DT_FP32) <= l0cSize)
+            << "Shape does not satisfy L0C load constraints, tileH:" << tileH
+            << ", tileW:" << tileW << ", tileN:" << tileN
+            << ", which satisfy tileH × tileW × tileN × dtypesize(FP32) ≤ l0cSize( " << l0cSize
+            << " )." << std::endl;
+    });
 }
 
 void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
@@ -297,6 +324,9 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     CheckDimensionRange(inputTensor.GetShape(), "fmap", NUM1, MAX_SIZE);
     CheckDimensionRange(weightTensor.GetShape(), "weight", NUM1, MAX_SIZE);
 
+    if (biasTensor.IsEmpty()) {
+        return;
+    }
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     if (biasTensor.IsEmpty()) {
         return;
