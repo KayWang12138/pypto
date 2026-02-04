@@ -25,6 +25,7 @@
 #include "operation_impl.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"
+#include "tilefwk/platform.h"
 
 namespace npu {
 namespace tile_fwk {
