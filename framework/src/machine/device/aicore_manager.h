@@ -69,7 +69,6 @@ constexpr uint32_t NUM_THREE = 3;
 constexpr uint32_t NUM_THIRTY_TWO = 32;
 
 constexpr uint32_t DEFAULT_QUEUE_SIZE = 64;
-constexpr uint32_t MAX_LOCKFREE_QUEUE_SIZE = 4096;
 
 constexpr int32_t AICORE_COREID_MASK = 0x0FFF;
 struct TaskInfo {
@@ -140,26 +139,38 @@ public:
         readyAicCoreFunctionQue_ = reinterpret_cast<taskQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<taskQueue *>(curDevTask_->readyAivCoreFunctionQue);
         
+        // Getting the number of tasks to run per each core type
+        const auto aicCoreTaskCount = readyAicCoreFunctionQue_->getSize();
+        const auto aivCoreTaskCount = readyAivCoreFunctionQue_->getSize();
+
         // Initialization is performed as a state machine, where the main thread takes on the main allocation operations
+        
         // Main scheduler branch
         if (aicpuIdx_ == 1)
         {
-          // 1) The main scheduler (CPUIdx == 1) allocates the lockfree queues and stores their address for others to use
-          curDevTask_->readyAicCoreFunctionLockFreeQue = (void*) new pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>(MAX_LOCKFREE_QUEUE_SIZE);
-          curDevTask_->readyAivCoreFunctionLockFreeQue = (void*) new pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>(MAX_LOCKFREE_QUEUE_SIZE);
-          
-          // 2) Advance the initialization state to 1
-          curDevTask_->initializationState = 1;
+          // Allocates the lockfree queues and stores their address for others to use
+          curDevTask_->readyAicCoreFunctionLockFreeQue = (void*) new pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>(aicCoreTaskCount);
+          curDevTask_->readyAivCoreFunctionLockFreeQue = (void*) new pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>(aivCoreTaskCount);
         }
         else // Non-main scheduler(s) branch
         {
-          // 1) Wait until the initialization state advances
+          // Wait until the initialization state advances
           while(curDevTask_->initializationState != 1);
         }
 
         // Storing the address of the lock free queues locally
         readyAicCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction> *)curDevTask_->readyAicCoreFunctionLockFreeQue;
         readyAivCoreFunctionLockFreeQueue_ = (pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction> *)curDevTask_->readyAivCoreFunctionLockFreeQue;
+
+        // Now start filling the lockfree queues
+        if (aicpuIdx_ == 1)
+        {
+          for (size_t i = 0; i < aicCoreTaskCount; i++) readyAicCoreFunctionLockFreeQueue_->push(readyAicCoreFunctionQue_->elem[i]);
+          for (size_t i = 0; i < aivCoreTaskCount; i++) readyAivCoreFunctionLockFreeQueue_->push(readyAivCoreFunctionQue_->elem[i]);
+
+          // Advance the initialization state to 1
+          curDevTask_->initializationState = 1;
+        }
     }
 
     inline void finalizeTaskData() {

@@ -52,7 +52,7 @@ class ConcurrentQueue
    *
    * \param[in] obj The object to push into the queue.
    */
-  inline void push(P *obj) { _queue->push(obj); }
+  inline void push(P obj) { _queue->push(obj); }
 
   /**
    * Function to pop an object from the queue. Poping removes an object from the front of the queue and returns it to the caller. This is a thread-safe lock-free operation
