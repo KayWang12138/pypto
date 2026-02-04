@@ -258,7 +258,8 @@ public:
             ctrlFlowCache = ctrlFlowCacheBase;
         } else {
             ctrlFlowCache = reinterpret_cast<DevControlFlowCache *>(
-                reinterpret_cast<uint8_t *>(kargs->ctrlFlowCache) + ctrlFlowCacheBase->allCacheSize * ringBufferHead->GetIndexPending());
+                reinterpret_cast<uint8_t *>(kargs->ctrlFlowCache) +
+                ctrlFlowCacheBase->allCacheSize * ringBufferHead->GetIndexPendingIndex());
         }
         InitCtrlFlowCache(devProg, ctrlFlowCache, devStartArgs, firstInit);
 
