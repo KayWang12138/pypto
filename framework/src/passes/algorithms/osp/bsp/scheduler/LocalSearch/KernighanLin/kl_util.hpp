@@ -266,22 +266,6 @@ struct VertexSelectionStrategy {
         std::shuffle(permutation_.begin(), permutation_.end(), *gen_);
     }
 
-    void AddNeighboursToSelection(VertexIdxT<GraphT> node, ContainerT &nodes, const unsigned startStep, const unsigned endStep) {
-        for (const auto parent : graph_->Parents(node)) {
-            const unsigned parentStep = activeSchedule_->AssignedSuperstep(parent);
-            if (parentStep >= startStep && parentStep <= endStep) {
-                nodes.Insert(parent);
-            }
-        }
-
-        for (const auto child : graph_->Children(node)) {
-            const unsigned childStep = activeSchedule_->AssignedSuperstep(child);
-            if (childStep >= startStep && childStep <= endStep) {
-                nodes.Insert(child);
-            }
-        }
-    }
-
     inline void SelectActiveNodes(ContainerT &nodeSelection, const unsigned startStep, const unsigned endStep) {
         if (strategyCounter_ < 3) {
             SelectNodesPermutationThreshold(selectionThreshold_, nodeSelection);

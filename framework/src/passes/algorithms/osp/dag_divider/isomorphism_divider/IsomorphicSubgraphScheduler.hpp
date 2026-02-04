@@ -60,10 +60,10 @@ class IsomorphicSubgraphScheduler {
     unsigned maxGroupSize_ = 0;
     VWorkwT<ConstrGraphT> workThreshold_ = 10;
     VWorkwT<ConstrGraphT> criticalPathThreshold_ = 10;
-    double orbitLockRatio_ = 0.4;
+    double orbitLockRatio_ = 0.5;
     double naturalBreaksCountPercentage_ = 0.1;
-    bool mergeDifferentNodeTypes_ = true;
-    bool allowUseTrimmedScheduler_ = true;
+    bool mergeDifferentNodeTypes_ = false;
+    bool allowUseTrimmedScheduler_ = false;
     bool useMaxBsp_ = false;
 
 

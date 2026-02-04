@@ -52,59 +52,6 @@ std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>> CreateInducedSub
     return localIdx;
 }
 
-// template <typename GraphTIn, typename VertT, typename EdgeT, typename WorkWeightType, typename CommWeightType, typename MemWeightType, typename VertexTypeTemplateType>
-// std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTIn>> CreateInducedSubgraphMap(
-//     const GraphTIn &dag,
-//     CompactSparseGraph<true, true, true, true, true, VertT, EdgeT, WorkWeightType, CommWeightType, MemWeightType, VertexTypeTemplateType>
-//         &dagOut,
-//     const std::vector<VertexIdxT<GraphTIn>> &selectedNodes) {
-//     using GraphTOut
-//         = CompactSparseGraph<true, true, true, true, true, VertT, EdgeT, WorkWeightType, CommWeightType, MemWeightType, VertexTypeTemplateType>;
-
-//     static_assert(std::is_same_v<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>>,
-//                   "GraphTIn and out must have the same VertexIdx types");
-
-//     const std::vector<VertexIdxT<GraphTIn>> topOrder = GetTopOrder(dag);
-//     std::vector<VertexIdxT<GraphTIn>> topOrderPosition(topOrder.size());
-//     for (VertexIdxT<GraphTIn> pos = 0; pos < dag.NumVertices(); ++pos) {
-//         topOrderPosition[topOrder[pos]] = pos;
-//     }
-
-//     auto topCmp = [&topOrderPosition](const VertexIdxT<GraphTIn> &lhs, const VertexIdxT<GraphTIn> &rhs) {
-//         return topOrderPosition[lhs] < topOrderPosition[rhs];
-//     };
-
-//     std::set<VertexIdxT<GraphTIn>, decltype(topCmp)> selectedVerticesOrdered(selectedNodes.begin(), selectedNodes.end(), topCmp);
-
-//     std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTIn>> localIdx;
-//     localIdx.reserve(selectedNodes.size());
-
-//     VertexIdxT<GraphTIn> nodeCntr = 0;
-//     for (const auto &node : selectedVerticesOrdered) {
-//         localIdx[node] = nodeCntr++;
-//     }
-
-//     std::vector<std::pair<VertexIdxT<GraphTIn>, VertexIdxT<GraphTIn>>> edges;
-//     for (const auto &node : selectedVerticesOrdered) {
-//         for (const auto &chld : dag.Children(node)) {
-//             if (selectedVerticesOrdered.find(chld) != selectedVerticesOrdered.end()) {
-//                 edges.emplace_back(localIdx.at(node), localIdx.at(chld));
-//             }
-//         }
-//     }
-
-//     dagOut = GraphTOut(nodeCntr, edges);
-
-//     for (const auto &[oriVert, outVert] : localIdx) {
-//         dagOut.SetVertexWorkWeight(outVert, dag.VertexWorkWeight(oriVert));
-//         dagOut.SetVertexCommWeight(outVert, dag.VertexCommWeight(oriVert));
-//         dagOut.SetVertexMemWeight(outVert, dag.VertexMemWeight(oriVert));
-//         dagOut.SetVertexType(outVert, dag.VertexType(oriVert));
-//     }
-
-//     return localIdx;
-// }
-
 }    // end namespace osp
 } // namespace npu::tile_fwk
 #endif // OSP_SUBGRAPH_ALGORITHMS_HPP

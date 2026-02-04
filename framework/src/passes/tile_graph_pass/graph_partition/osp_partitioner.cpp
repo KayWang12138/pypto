@@ -195,10 +195,6 @@ Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, 
     osp::IsomorphicSubgraphScheduler<GraphType, ConstrGraphType> isoScheduler(scheduler, hashComputer);
     isoScheduler.SetWorkThreshold(200);
     isoScheduler.SetCriticalPathThreshold(500);
-    isoScheduler.SetOrbitLockRatio(0.5);
-    isoScheduler.SetMergeDifferentTypes(false);
-    isoScheduler.SetAllowTrimmedScheduler(false);
-    isoScheduler.SetUseMaxBsp(false);
     vertexContractionMap = isoScheduler.ComputePartition(bspInst);  
     return SUCCESS;
 }

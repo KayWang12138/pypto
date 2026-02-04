@@ -356,7 +356,7 @@ class BspArchitecture {
      * @param proc The processor index.
      * @return The memory bound.
      */
-    [[nodiscard]] VMemwT<GraphT> (const unsigned proc) const { return memoryBound_[proc]; }
+    [[nodiscard]] VMemwT<GraphT> MemoryBound(const unsigned proc) const { return memoryBound_[proc]; }
 
     /**
      * @brief Returns the maximum memory bound over all processors.
