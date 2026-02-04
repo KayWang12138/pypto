@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <cstring>
 #include <map>
 #include <memory>
 #include <optional>
@@ -31,18 +32,6 @@
 #include "ir/transform/printer.h"
 #include "ir/transform/transformers.h"
 #include "ir/type.h"
-
-#ifndef INTERNAL_CHECK
-#define INTERNAL_CHECK(expr) \
-  if (!(expr)) throw std::logic_error(std::string("Check failed: " #expr " at ") + __FILE__ + ":" + std::to_string(__LINE__)); \
-  std::ostringstream() /* Allow chaining with << */
-#endif
-
-#ifndef INTERNAL_UNREACHABLE
-#define INTERNAL_UNREACHABLE \
-  if (true) throw std::logic_error(std::string("Unreachable code at ") + __FILE__ + ":" + std::to_string(__LINE__)); \
-  std::ostringstream() /* Allow chaining with << */
-#endif
 
 namespace pypto {
 namespace ir {
@@ -234,7 +223,9 @@ class StructuralEqualImpl {
   }
 
   result_type VisitLeafField(const double& lhs, const double& rhs) {
-    if (lhs != rhs) {
+    // Use memcmp for bit-level comparison to avoid -Werror=float-equal
+    // This ensures exact structural equality including special values (NaN, Inf, +0.0 vs -0.0)
+    if (std::memcmp(&lhs, &rhs, sizeof(double)) != 0) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
         msg << "double value mismatch (" << lhs << " != " << rhs << ")";
@@ -325,8 +316,10 @@ class StructuralEqualImpl {
         values_equal = (AnyCast<std::string>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
                         AnyCast<std::string>(rhs_val, "comparing kwarg: " + lhs[i].first));
       } else if (lhs_val.type() == typeid(double)) {
-        values_equal = (AnyCast<double>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                        AnyCast<double>(rhs_val, "comparing kwarg: " + lhs[i].first));
+        // Use memcmp for bit-level comparison to avoid -Werror=float-equal
+        double lhs_double = AnyCast<double>(lhs_val, "comparing kwarg: " + lhs[i].first);
+        double rhs_double = AnyCast<double>(rhs_val, "comparing kwarg: " + lhs[i].first);
+        values_equal = (std::memcmp(&lhs_double, &rhs_double, sizeof(double)) == 0);
       } else if (lhs_val.type() == typeid(DataType)) {
         values_equal = (AnyCast<DataType>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
                         AnyCast<DataType>(rhs_val, "comparing kwarg: " + lhs[i].first));
@@ -375,7 +368,7 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField(const Span& lhs, const Span& rhs) const {
+  result_type VisitLeafField([[maybe_unused]] const Span& lhs, [[maybe_unused]] const Span& rhs) const {
     INTERNAL_UNREACHABLE << "structural_equal should not visit Span field";
     return true;  // Never reached
   }
