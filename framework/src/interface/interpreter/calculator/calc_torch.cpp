@@ -382,6 +382,38 @@ static void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logi
     torch::bitwise_xor_out(tout, From(self), From(other));
 }
 
+static void ColExpandExpDif(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
+    auto tout = From(out);
+    
+    std::vector<int64_t> shape_self = tself.sizes().vec();
+    std::vector<int64_t> shape_other = tother.sizes().vec();
+
+    if (shape_self.size() == 2 && shape_other.size() == 2 &&
+        shape_self[0] == shape_other[0] && 
+        shape_self[1] != shape_other[1]) {
+        
+        if (shape_other[1] == 8) {
+            int64_t cols_self = shape_self[1];
+            int64_t cols_other = shape_other[1];
+            int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
+            auto tother_expanded = tother.repeat({1, repeat_times});
+            auto tother_final = tother_expanded.index(
+                {torch::indexing::Slice(), 
+                 torch::indexing::Slice(0, cols_self)});
+            torch::sub_out(tout, tself, tother_final);
+            torch::exp_out(tout, tout);
+        } else {
+            torch::sub_out(tout, tself, tother);
+            torch::exp_out(tout, tout);
+        }
+    } else {
+        torch::sub_out(tout, tself, tother);
+        torch::exp_out(tout, tout);
+    }
+}
+
 static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tout = From(out);
     torch::bitwise_right_shift_out(tout, From(self), From(other));
@@ -1477,6 +1509,7 @@ static struct CalcOps calcOps = {
     .BitwiseAnd = BitwiseAnd,
     .BitwiseOr = BitwiseOr,
     .BitwiseXor = BitwiseXor,
+    .ColExpandExpDif = ColExpandExpDif,
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,

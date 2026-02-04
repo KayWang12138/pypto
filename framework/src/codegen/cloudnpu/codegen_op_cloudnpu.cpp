@@ -126,6 +126,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_POW, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_BITWISEAND, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_BITWISEOR, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_COLEXPANDEXPDIF, [this]() { return GenBinaryOp(); }},
 
           // binary op: vector operations with tmp
           {Opcode::OP_MOD, [this]() { return GenBinaryOpWithTmp(); }},
