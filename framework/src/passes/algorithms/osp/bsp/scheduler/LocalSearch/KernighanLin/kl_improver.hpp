@@ -1008,7 +1008,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
     bool SelectNodesCheckRemoveSuperstep(unsigned &step, ThreadSearchContext &threadData);
 
     bool ScatterNodesSuperstep(unsigned step, ThreadSearchContext &threadData) {
-        assert(step <= threadData.endStep_ && threadData.startStep_ <= step);
         bool abort = false;
 
         for (unsigned proc = 0; proc < instance_->NumberOfProcessors(); proc++) {

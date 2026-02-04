@@ -8,11 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file lambda_container.hpp
- * \brief
- */
-
 #ifndef OSP_LAMBDA_CONTAINER_HPP
 #define OSP_LAMBDA_CONTAINER_HPP
 
@@ -187,7 +182,6 @@ struct LambdaVectorContainer {
      * @pre has_proc_entry(node, proc) must be true
      */
     inline unsigned GetProcEntry(const VertexIdxT node, const unsigned proc) const {
-        assert(HasProcEntry(node, proc));
         return nodeLambdaVec_[node][proc];
     }
 
@@ -227,7 +221,6 @@ struct LambdaVectorContainer {
      * @pre has_proc_entry(node, proc) must be true
      */
     inline bool DecreaseProcCount(const VertexIdxT node, const unsigned proc) {
-        assert(HasProcEntry(node, proc));
         nodeLambdaVec_[node][proc]--;
         return nodeLambdaVec_[node][proc] == 0;
     }

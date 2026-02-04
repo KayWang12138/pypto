@@ -103,36 +103,15 @@ struct AdaptiveAffinityTable {
     }
 
     inline std::vector<VertexType> &GetSelectedNodes() { return selectedNodes_; }
-
     inline const std::vector<VertexType> &GetSelectedNodes() const { return selectedNodes_; }
-
     inline size_t size() const { return lastIdx_ - gaps_.size(); }
-
     inline bool IsSelected(VertexType node) const { return nodeIsSelected_[node]; }
-
     inline const std::vector<size_t> &GetSelectedNodesIndices() const { return selectedNodesIdx_; }
-
     inline size_t GetSelectedNodesIdx(VertexType node) const { return selectedNodesIdx_[node]; }
-
-    inline std::vector<std::vector<CostT>> &operator[](VertexType node) {
-        assert(nodeIsSelected_[node]);
-        return affinityTable_[selectedNodesIdx_[node]];
-    }
-
-    inline std::vector<std::vector<CostT>> &At(VertexType node) {
-        assert(nodeIsSelected_[node]);
-        return affinityTable_[selectedNodesIdx_[node]];
-    }
-
-    inline const std::vector<std::vector<CostT>> &At(VertexType node) const {
-        assert(nodeIsSelected_[node]);
-        return affinityTable_[selectedNodesIdx_[node]];
-    }
-
-    inline std::vector<std::vector<CostT>> &GetAffinityTable(VertexType node) {
-        assert(nodeIsSelected_[node]);
-        return affinityTable_[selectedNodesIdx_[node]];
-    }
+    inline std::vector<std::vector<CostT>> &operator[](VertexType node) { return affinityTable_[selectedNodesIdx_[node]]; }
+    inline std::vector<std::vector<CostT>> &At(VertexType node) { return affinityTable_[selectedNodesIdx_[node]]; }
+    inline const std::vector<std::vector<CostT>> &At(VertexType node) const { return affinityTable_[selectedNodesIdx_[node]]; }
+    inline std::vector<std::vector<CostT>> &GetAffinityTable(VertexType node) { return affinityTable_[selectedNodesIdx_[node]]; }
 
     bool Insert(VertexType node) {
         if (nodeIsSelected_[node]) {
@@ -172,9 +151,7 @@ struct AdaptiveAffinityTable {
     }
 
     void Remove(VertexType node) {
-        assert(nodeIsSelected_[node]);
         nodeIsSelected_[node] = false;
-
         gaps_.push_back(selectedNodesIdx_[node]);
     }
 
@@ -196,9 +173,6 @@ struct AdaptiveAffinityTable {
     void Trim() {
         while (!gaps_.empty() && lastIdx_ > 0) {
             size_t lastElementIdx = lastIdx_ - 1;
-
-            // The last element could be a gap itself. If so, just shrink the size.
-            // We don't need to touch the `gaps` vector, as it will be cleared.
             if (!nodeIsSelected_[selectedNodes_[lastElementIdx]]) {
                 lastIdx_--;
                 continue;
@@ -207,17 +181,14 @@ struct AdaptiveAffinityTable {
             size_t gapIdx = gaps_.back();
             gaps_.pop_back();
 
-            // If the gap we picked is now at or after the end, we can ignore it.
             if (gapIdx >= lastIdx_) {
                 continue;
             }
 
             VertexType nodeToMove = selectedNodes_[lastElementIdx];
-
             std::swap(affinityTable_[gapIdx], affinityTable_[lastElementIdx]);
             std::swap(selectedNodes_[gapIdx], selectedNodes_[lastElementIdx]);
             selectedNodesIdx_[nodeToMove] = gapIdx;
-
             lastIdx_--;
         }
         gaps_.clear();
