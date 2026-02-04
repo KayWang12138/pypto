@@ -19,6 +19,7 @@ from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 from utils.np_compare import detailed_allclose_manual as compare
 import utils.golden.attn_golden as attn_golden
+import pytest
 
 
 np.random.seed(0)
