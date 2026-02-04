@@ -218,10 +218,8 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
 
     Tensor input1(DT_INT32, {n, n}, "A"); Tensor input2(DT_INT32, {n, n}, "B"); Tensor output(DT_INT32, {n, n}, "O");
 
-    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateConstantTensor<int32_t>(input1, 1),
-                                             RawTensorData::CreateConstantTensor<int32_t>(input2, 2),});
+    ProgramData::GetInstance().AppendInputs({RawTensorData::CreateConstantTensor<int32_t>(input1, 1), RawTensorData::CreateConstantTensor<int32_t>(input2, 2),});
     ProgramData::GetInstance().AppendOutputs({RawTensorData::CreateConstantTensor<int32_t>(output, 0),});
-
 
     // 17 root func in total
     FUNCTION("main", {input1, input2}, {output}) {
@@ -231,7 +229,7 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
                 auto a = View(input1, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
                 auto b = View(input2, {tiling, tiling}, std::vector<SymbolicScalar>({i * tiling, j * tiling}));
                 Assemble(Add(a, b), {i * tiling, j * tiling}, sum);
-            }
+            }ßß
         }
         LOOP("Use", FunctionType::DYNAMIC_LOOP, _, LoopRange(1)) {
             (void)_;
@@ -268,6 +266,10 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
 
     EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), ctrolCache, config));
 
+    if (ctrolCache != nullptr) {
+        free(ctrolCache);
+        ctrolCache = nullptr;
+    }
 }
 
 TEST_F(ControlFlowTest, TestMainBlock) {
