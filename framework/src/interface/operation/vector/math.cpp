@@ -383,6 +383,7 @@ struct CumSumPara {
     const bool flag;
 };
 
+
 void InnerTiledCumSum(size_t cur, Function &function, const TileShape &tileShape, const CumSumPara &cumSumPara,
     CumSumTileInfoPara &cumSumTileInfo) {
     const LogicalTensorPtr &input = cumSumPara.Input;
