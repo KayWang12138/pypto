@@ -123,7 +123,7 @@ void CheckL0TileTiling(DataType outType, const Tensor &weightTensor, const ConvA
             << ", requires 32-byte alignment." << std::endl;
     });
     OP_CHECK(true, {
-        ASSERT(tileN  % NUM16 == 0)
+        ASSERT(tileN % NUM16 == 0)
             << "Invalid tileN: " << tileN
             << ", requires 16-element alignment." << std::endl;
     });
