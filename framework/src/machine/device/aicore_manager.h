@@ -230,7 +230,7 @@ public:
 
 private:
 
-    uint32_t startTask(CoreType type, uint64_t *newTask, int coreIdxStart, int coreIdxEnd);
+    uint32_t startTask(CoreType type, uint64_t newTask, int coreIdxStart, int coreIdxEnd);
 
     uint64_t taskSchedulingLoop(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd);
 

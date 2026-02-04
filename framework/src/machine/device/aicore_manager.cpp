@@ -212,15 +212,15 @@ uint64_t AiCoreManager::taskSchedulingLoop(CoreType type, taskQueue* readyQue, i
     uint64_t taskIdx = readyQue->pop();
     if (taskIdx == aicoreNullFunction) return 0;
 
-    startTask(type, &readyQue->elem[taskIdx], coreIdxStart, coreIdxEnd);
+    startTask(type, taskIdx, coreIdxStart, coreIdxEnd);
 
     return 1;
 }
 
-uint32_t AiCoreManager::startTask(CoreType type, uint64_t *newTask, int coreIdxStart, int coreIdxEnd)
+uint32_t AiCoreManager::startTask(CoreType type, uint64_t newTask, int coreIdxStart, int coreIdxEnd)
 {
     DEV_DEBUG("  ## send task use runready core %u \n",  runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)] - 1]);
-    SendTaskToAiCore(type,  runReadyCoreIdx_[static_cast<int>(type)][--coreRunReadyCnt_[static_cast<int>(type)]], newTask[0]);
+    SendTaskToAiCore(type,  runReadyCoreIdx_[static_cast<int>(type)][--coreRunReadyCnt_[static_cast<int>(type)]], newTask);
 
     corePendReadyCnt_[static_cast<int>(type)]--;
 
@@ -293,7 +293,7 @@ void AiCoreManager::BatchPushReadyQueue() {
     uint32_t aivIndex = static_cast<uint32_t>(CoreType::AIV);
     if (readyCount[aicIndex] > 0) {
         if (SEND_TASK_IMMEDIATELY_SWITCH) {
-            uint32_t sendCnt = startTask(CoreType::AIC, static_cast<uint64_t*>(readyIds[aicIndex]), aicStart_, aicEnd_);
+            uint32_t sendCnt = startTask(CoreType::AIC, readyIds[aicIndex][0], aicStart_, aicEnd_);
             readyCount[aicIndex] += sendCnt;
         }
         DEV_DEBUG("resolved new task, aic ready count: %lu coretype:%u\n", readyCount[aicIndex], aicIndex);
@@ -305,7 +305,7 @@ void AiCoreManager::BatchPushReadyQueue() {
 
     if (readyCount[aivIndex] > 0) {
         if (SEND_TASK_IMMEDIATELY_SWITCH) {
-            uint32_t sendCnt = startTask(CoreType::AIV,  static_cast<uint64_t*>(readyIds[aivIndex]), aivStart_, aivEnd_);
+            uint32_t sendCnt = startTask(CoreType::AIV, readyIds[aivIndex][0], aivStart_, aivEnd_);
             readyCount[aivIndex] += sendCnt;
         }
         DEV_DEBUG("resolved new task, aiv ready count: %lu coretype:%u\n", readyCount[aivIndex], aivIndex);
