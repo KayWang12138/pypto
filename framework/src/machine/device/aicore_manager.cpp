@@ -17,6 +17,8 @@
 
 #include "aicore_manager.h"
 
+uint16_t running_task_id;
+
 namespace npu::tile_fwk {
 void SdmaPrefetch(DeviceTask *devTask) {
     if (devTask == nullptr || devTask->l2Info.prefetchNum == 0) {
@@ -89,6 +91,8 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 
         INSTRUMENTATION_START("/tmp/");
 
+        running_task_id = INSTRUMENTATION_MARK_ADD(MARK_COLOR_GREEN, "Running a Task");
+
         DEV_ERROR("[TraCR] Thread [%d] start tracr done. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
     } else {
         DEV_ERROR("[TraCR] Thread [%d] waiting start of tracr. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
@@ -126,8 +130,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     DEV_ERROR("[TraCR] Begin dump TraCR trace.");
     if (threadIdx == 1) {
 
-        INSTRUMENTATION_MARK_RESET(threadIdx);
-
         while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {}
 
 #ifdef ENABLE_TRACR
@@ -139,9 +141,24 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 
         DEV_ERROR("[TraCR] Finish dump TraCR trace.");
 
+        // Add custom channel names
+        nlohmann::json markerTypes;
+        for(int i = 0; i < aicNum_; ++i) {
+            std::string idx = std::to_string(i);
+            std::string ChannelName = "AICube_" + idx;
+            markerTypes[idx] = ChannelName;
+        }
+        for(int i = 0; i < aivNum_; ++i) {
+            std::string ChannelName = "AIVector_" + std::to_string(i);
+            std::string idx = std::to_string(aicNum_ + i);
+            markerTypes[idx] = ChannelName;
+        }
+        markerTypes[std::to_string(aicNum_ + aivNum_)] = "INVALID";
+
+        INSTRUMENTATION_ADD_CHANNEL_NAMES(markerTypes);
+
         INSTRUMENTATION_END();
     } else {
-        INSTRUMENTATION_MARK_RESET(threadIdx);
         
 #ifdef ENABLE_TRACR
         // This is for debugging
@@ -349,7 +366,7 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
     pendingIds_[coreIdx] = newTask;
     sendCnt_[static_cast<int>(type)]++;
 
-    INSTRUMENTATION_MARK_SET(coreIdx, 0, (uint32_t)newTask);
+    INSTRUMENTATION_MARK_SET(coreIdx, running_task_id, (uint32_t)newTask);
 
     DEV_DEBUG("Send task %lu, at core %d ,type:%d \n", newTask, coreIdx, static_cast<int>(type));
 }
