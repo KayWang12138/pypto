@@ -265,6 +265,118 @@ TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t
     ShmemClear<T, bufferEleNum, worldSize, signalMaxTileNum, stride>(buffer, shmemTensorAddr);
 }
 
+// Type aliases for Shmem operations
+using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
+using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
+
+template<typename T, uint32_t RowShape, uint32_t ColShape>
+using ShmemGlobalTensor = pto::GlobalTensor<T, ShapeDyn, StrideDyn, pto::Layout::ND>;
+
+template<typename T, uint32_t RowShape, uint32_t ColShape>
+using ShmemUbTile = pto::Tile<pto::TileType::Vec, T, RowShape, ColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
+
+// Operation type for ShmemCopyCore
+enum class ShmemOp { PUT, GET };
+
+// Core function for ShmemPut and ShmemGet operations with row chunking
+template<ShmemOp op, typename SrcType, typename DstType, uint32_t tileRowShape, uint32_t tileColShape,
+    uint32_t bufferRowShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType, typename BufferType>
+TILEOP void ShmemCopyCore(__ubuf__ BufferType* buffer, __gm__ SrcType* srcAddr, __gm__ DstType* dstAddr) {
+    // Calculate chunk parameters
+    constexpr uint32_t maxTileRows = 4095;
+    constexpr uint32_t effectiveBufferRows = bufferRowShape < maxTileRows ? bufferRowShape : maxTileRows;
+    constexpr uint32_t chunkRowShape = tileRowShape < effectiveBufferRows ? tileRowShape : effectiveBufferRows;
+    constexpr uint32_t rowChunkCount = (tileRowShape + chunkRowShape - 1) / chunkRowShape;
+    constexpr bool needTypeConversion = !std::is_same_v<SrcType, DstType>;
+    
+    // Calculate buffer offset for type conversion
+    constexpr uint32_t bufferLen = bufferRowShape * AlignUp<uint32_t>(tileColShape * sizeof(BufferType), 32) / sizeof(BufferType);
+    using ConvertedBufferType = std::conditional_t<op == ShmemOp::PUT, __ubuf__ DstType*, __ubuf__ SrcType*>;
+    auto convertedBuffer = reinterpret_cast<ConvertedBufferType>(buffer + (needTypeConversion ? bufferLen : 0));
+    
+    __gm__ SrcType* currentSrcAddr = srcAddr;
+    __gm__ DstType* currentDstAddr = dstAddr;
+    
+    for (uint32_t chunkIdx = 0; chunkIdx < rowChunkCount; ++chunkIdx) {
+        uint32_t remainingRows = tileRowShape - chunkIdx * chunkRowShape;
+        if (remainingRows == 0) break;
+        uint32_t currentChunkRows = (remainingRows < chunkRowShape) ? remainingRows : chunkRowShape;
+        
+        // Wait for previous chunk completion when doing type conversion
+        if constexpr (needTypeConversion) {
+            if (chunkIdx > 0) {
+                wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+                set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+                wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+            }
+        }
+        
+        // Create shape and stride descriptors
+        ShapeDyn shape(1, 1, 1, currentChunkRows, tileColShape);
+        StrideDyn srcStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, srcStride, 1);
+        StrideDyn dstStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, dstStride, 1);
+        
+        ShmemGlobalTensor<SrcType, chunkRowShape, tileColShape> srcGlobal(currentSrcAddr, shape, srcStrideDyn);
+        ShmemGlobalTensor<DstType, chunkRowShape, tileColShape> dstGlobal(currentDstAddr, shape, dstStrideDyn);
+        
+        if constexpr (!needTypeConversion) {
+            // Same type: use TPUT/TGET directly
+            ShmemUbTile<BufferType, chunkRowShape, tileColShape> ubTile(currentChunkRows, tileColShape);
+            pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
+            
+            if constexpr (op == ShmemOp::PUT) {
+                if constexpr (atomicType == AtomicType::ADD) {
+                    pto::comm::TPUT<pto::AtomicType::AtomicAdd>(dstGlobal, srcGlobal, ubTile);
+                } else {
+                    pto::comm::TPUT<pto::AtomicType::AtomicNone>(dstGlobal, srcGlobal, ubTile);
+                }
+            } else {
+                pto::comm::TGET(dstGlobal, srcGlobal, ubTile);
+            }
+        } else {
+            // Different types: need TLOAD + TCVT + TSTORE
+            ShmemUbTile<SrcType, chunkRowShape, tileColShape> srcTile(currentChunkRows, tileColShape);
+            ShmemUbTile<DstType, chunkRowShape, tileColShape> dstTile(currentChunkRows, tileColShape);
+            
+            if constexpr (op == ShmemOp::PUT) {
+                pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(buffer));
+                pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(convertedBuffer));
+            } else {
+                pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(convertedBuffer));
+                pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(buffer));
+            }
+            
+            // Load source data
+            pto::TLOAD(srcTile, srcGlobal);
+            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+            
+            // Type conversion
+            pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
+            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+            
+            // Store converted data
+            if constexpr (atomicType == AtomicType::ADD) {
+                pto::TSTORE<decltype(dstTile), decltype(dstGlobal), pto::AtomicType::AtomicAdd>(dstGlobal, dstTile);
+            } else {
+                pto::TSTORE<decltype(dstTile), decltype(dstGlobal), pto::AtomicType::AtomicNone>(dstGlobal, dstTile);
+            }
+            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+            set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+        }
+        
+        currentSrcAddr += currentChunkRows * srcStride;
+        currentDstAddr += currentChunkRows * dstStride;
+    }
+    
+    // Final synchronization for type conversion path
+    if constexpr (needTypeConversion) {
+        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    }
+}
+
 template<typename NonShmemType, typename ShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
     uint32_t bufferColShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
 TILEOP void ShmemPut(__ubuf__ NonShmemType* buffer, __gm__ NonShmemType* nonShmemDataBaseAddr, __gm__ ShmemType* shmemDataBaseAddr,
@@ -274,116 +386,13 @@ TILEOP void ShmemPut(__ubuf__ NonShmemType* buffer, __gm__ NonShmemType* nonShme
 {
     (void)nonShmemDataRawShape0;
     (void)shmemDataRawShape0;
-    __gm__ NonShmemType* nonShmemDataAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
-    __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+    
+    __gm__ NonShmemType* srcAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
+    __gm__ ShmemType* dstAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
         shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
-
-    if constexpr (std::is_same_v<NonShmemType, ShmemType>) {
-        constexpr uint32_t maxTileRows = 4095;
-        constexpr uint32_t effectiveBufferRows = bufferRowShape < maxTileRows ? bufferRowShape : maxTileRows;
-        constexpr uint32_t chunkRowShape = tileRowShape < effectiveBufferRows ? tileRowShape : effectiveBufferRows;
-        constexpr uint32_t rowChunkCount = (tileRowShape + chunkRowShape - 1) / chunkRowShape;
-        
-        using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using SrcGlobal = pto::GlobalTensor<NonShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using DstGlobal = pto::GlobalTensor<ShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using UbTile = pto::Tile<pto::TileType::Vec, NonShmemType, chunkRowShape, tileColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
-
-        __gm__ NonShmemType* currentSrcAddr = nonShmemDataAddr;
-        __gm__ ShmemType* currentDstAddr = shmemDataAddr;
-        
-        for (uint32_t chunkIdx = 0; chunkIdx < rowChunkCount; ++chunkIdx) {
-            uint32_t remainingRows = tileRowShape - chunkIdx * chunkRowShape;
-            if (remainingRows == 0) break;
-            uint32_t currentChunkRows = (remainingRows < chunkRowShape) ? remainingRows : chunkRowShape;
-            
-            ShapeDyn shape(1, 1, 1, currentChunkRows, tileColShape);
-            StrideDyn srcStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, srcStride, 1);
-            StrideDyn dstStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, dstStride, 1);
-
-            SrcGlobal srcG(currentSrcAddr, shape, srcStrideDyn);
-            DstGlobal dstG(currentDstAddr, shape, dstStrideDyn);
-            UbTile ubTile(currentChunkRows, tileColShape);
-            pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
-
-            if constexpr (atomicType == AtomicType::ADD) {
-                pto::comm::TPUT<pto::AtomicType::AtomicAdd>(dstG, srcG, ubTile);
-            } else {
-                pto::comm::TPUT<pto::AtomicType::AtomicNone>(dstG, srcG, ubTile);
-            }
-            
-            currentSrcAddr += currentChunkRows * srcStride;
-            currentDstAddr += currentChunkRows * dstStride;
-        }
-    } else {
-        constexpr uint32_t maxTileRows = 4095;
-        constexpr uint32_t effectiveBufferRows = bufferRowShape < maxTileRows ? bufferRowShape : maxTileRows;
-        constexpr uint32_t chunkRowShape = tileRowShape < effectiveBufferRows ? tileRowShape : effectiveBufferRows;
-        constexpr uint32_t rowChunkCount = (tileRowShape + chunkRowShape - 1) / chunkRowShape;
-        
-        constexpr uint32_t minCopyLenForDst = (bufferRowShape * tileColShape * sizeof(ShmemType) + sizeof(NonShmemType) - 1) / sizeof(NonShmemType);
-        constexpr uint32_t copyLenForSrc = bufferRowShape * AlignUp<uint32_t>(tileColShape * sizeof(NonShmemType), 32) / sizeof(NonShmemType);
-        constexpr uint32_t copyLen = copyLenForSrc > minCopyLenForDst ? copyLenForSrc : minCopyLenForDst;
-        __ubuf__ ShmemType* convertedBuffer = reinterpret_cast<__ubuf__ ShmemType*>(buffer + copyLen);
-        
-        using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using SrcGlobal = pto::GlobalTensor<NonShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using DstGlobal = pto::GlobalTensor<ShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using SrcTile = pto::Tile<pto::TileType::Vec, NonShmemType, chunkRowShape, tileColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
-        using DstTile = pto::Tile<pto::TileType::Vec, ShmemType, chunkRowShape, tileColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
-
-        __gm__ NonShmemType* currentSrcAddr = nonShmemDataAddr;
-        __gm__ ShmemType* currentDstAddr = shmemDataAddr;
-        
-        for (uint32_t chunkIdx = 0; chunkIdx < rowChunkCount; ++chunkIdx) {
-            uint32_t remainingRows = tileRowShape - chunkIdx * chunkRowShape;
-            if (remainingRows == 0) break;
-            uint32_t currentChunkRows = (remainingRows < chunkRowShape) ? remainingRows : chunkRowShape;
-            
-            if (chunkIdx > 0) {
-                wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-                set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-                wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-            }
-            
-            ShapeDyn shape(1, 1, 1, currentChunkRows, tileColShape);
-            StrideDyn srcStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, srcStride, 1);
-            StrideDyn dstStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, dstStride, 1);
-
-            SrcGlobal srcG(currentSrcAddr, shape, srcStrideDyn);
-            DstGlobal dstG(currentDstAddr, shape, dstStrideDyn);
-            
-            SrcTile srcTile(currentChunkRows, tileColShape);
-            DstTile dstTile(currentChunkRows, tileColShape);
-            
-            pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(buffer));
-            pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(convertedBuffer));
-            
-            pto::TLOAD(srcTile, srcG);
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            
-            pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
-            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            
-            if constexpr (atomicType == AtomicType::ADD) {
-                pto::TSTORE<DstTile, DstGlobal, pto::AtomicType::AtomicAdd>(dstG, dstTile);
-            } else {
-                pto::TSTORE<DstTile, DstGlobal, pto::AtomicType::AtomicNone>(dstG, dstTile);
-            }
-            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-            
-            currentSrcAddr += currentChunkRows * srcStride;
-            currentDstAddr += currentChunkRows * dstStride;
-        }
-        
-        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    }
+    
+    ShmemCopyCore<ShmemOp::PUT, NonShmemType, ShmemType, tileRowShape, tileColShape, bufferRowShape, srcStride, dstStride, atomicType>(
+        buffer, srcAddr, dstAddr);
 }
 
 template<typename InShmemType, typename OutShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
@@ -396,117 +405,14 @@ TILEOP void ShmemPut(__ubuf__ InShmemType* buffer, __gm__ InShmemType* inShmemDa
 {
     (void)inShmemDataRawShape0;
     (void)shmemDataRawShape0;
-    __gm__ InShmemType* inShmemDataAddr = MapVirtualAddr<InShmemType>(hcclContext, inShmemDataBaseAddr, inShmemDataOffset0) + inShmemDataOffset1 * inShmemDataRawShape2 * inShmemDataRawShape3 +
-        inShmemDataOffset2 * inShmemDataRawShape3 + inShmemDataOffset3;
-    __gm__ OutShmemType* shmemDataAddr = MapVirtualAddr<OutShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) + shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 +
-        shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
-
-    if constexpr (std::is_same_v<InShmemType, OutShmemType>) {
-        constexpr uint32_t maxTileRows = 4095;
-        constexpr uint32_t effectiveBufferRows = bufferRowShape < maxTileRows ? bufferRowShape : maxTileRows;
-        constexpr uint32_t chunkRowShape = tileRowShape < effectiveBufferRows ? tileRowShape : effectiveBufferRows;
-        constexpr uint32_t rowChunkCount = (tileRowShape + chunkRowShape - 1) / chunkRowShape;
-        
-        using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using SrcGlobal = pto::GlobalTensor<InShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using DstGlobal = pto::GlobalTensor<OutShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using UbTile = pto::Tile<pto::TileType::Vec, InShmemType, chunkRowShape, tileColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
-
-        __gm__ InShmemType* currentSrcAddr = inShmemDataAddr;
-        __gm__ OutShmemType* currentDstAddr = shmemDataAddr;
-        
-        for (uint32_t chunkIdx = 0; chunkIdx < rowChunkCount; ++chunkIdx) {
-            uint32_t remainingRows = tileRowShape - chunkIdx * chunkRowShape;
-            if (remainingRows == 0) break;
-            uint32_t currentChunkRows = (remainingRows < chunkRowShape) ? remainingRows : chunkRowShape;
-            
-            ShapeDyn shape(1, 1, 1, currentChunkRows, tileColShape);
-            StrideDyn srcStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, srcStride, 1);
-            StrideDyn dstStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, dstStride, 1);
-
-            SrcGlobal srcG(currentSrcAddr, shape, srcStrideDyn);
-            DstGlobal dstG(currentDstAddr, shape, dstStrideDyn);
-            UbTile ubTile(currentChunkRows, tileColShape);
-            pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
-
-            if constexpr (atomicType == AtomicType::ADD) {
-                pto::comm::TPUT<pto::AtomicType::AtomicAdd>(dstG, srcG, ubTile);
-            } else {
-                pto::comm::TPUT<pto::AtomicType::AtomicNone>(dstG, srcG, ubTile);
-            }
-            
-            currentSrcAddr += currentChunkRows * srcStride;
-            currentDstAddr += currentChunkRows * dstStride;
-        }
-    } else {
-        constexpr uint32_t maxTileRows = 4095;
-        constexpr uint32_t effectiveBufferRows = bufferRowShape < maxTileRows ? bufferRowShape : maxTileRows;
-        constexpr uint32_t chunkRowShape = tileRowShape < effectiveBufferRows ? tileRowShape : effectiveBufferRows;
-        constexpr uint32_t rowChunkCount = (tileRowShape + chunkRowShape - 1) / chunkRowShape;
-        
-        constexpr uint32_t minCopyLenForDst = (bufferRowShape * tileColShape * sizeof(OutShmemType) + sizeof(InShmemType) - 1) / sizeof(InShmemType);
-        constexpr uint32_t copyLenForSrc = bufferRowShape * AlignUp<uint32_t>(tileColShape * sizeof(InShmemType), 32) / sizeof(InShmemType);
-        constexpr uint32_t copyLen = copyLenForSrc > minCopyLenForDst ? copyLenForSrc : minCopyLenForDst;
-        __ubuf__ OutShmemType* convertedBuffer = reinterpret_cast<__ubuf__ OutShmemType*>(buffer + copyLen);
-        
-        using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using SrcGlobal = pto::GlobalTensor<InShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using DstGlobal = pto::GlobalTensor<OutShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using SrcTile = pto::Tile<pto::TileType::Vec, InShmemType, chunkRowShape, tileColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
-        using DstTile = pto::Tile<pto::TileType::Vec, OutShmemType, chunkRowShape, tileColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
-
-        __gm__ InShmemType* currentSrcAddr = inShmemDataAddr;
-        __gm__ OutShmemType* currentDstAddr = shmemDataAddr;
-        
-        for (uint32_t chunkIdx = 0; chunkIdx < rowChunkCount; ++chunkIdx) {
-            uint32_t remainingRows = tileRowShape - chunkIdx * chunkRowShape;
-            if (remainingRows == 0) break;
-            uint32_t currentChunkRows = (remainingRows < chunkRowShape) ? remainingRows : chunkRowShape;
-            
-            if (chunkIdx > 0) {
-                wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-                set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-                wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-            }
-            
-            ShapeDyn shape(1, 1, 1, currentChunkRows, tileColShape);
-            StrideDyn srcStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, srcStride, 1);
-            StrideDyn dstStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, dstStride, 1);
-
-            SrcGlobal srcG(currentSrcAddr, shape, srcStrideDyn);
-            DstGlobal dstG(currentDstAddr, shape, dstStrideDyn);
-            
-            SrcTile srcTile(currentChunkRows, tileColShape);
-            DstTile dstTile(currentChunkRows, tileColShape);
-            
-            pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(buffer));
-            pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(convertedBuffer));
-            
-            pto::TLOAD(srcTile, srcG);
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            
-            pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
-            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            
-            if constexpr (atomicType == AtomicType::ADD) {
-                pto::TSTORE<DstTile, DstGlobal, pto::AtomicType::AtomicAdd>(dstG, dstTile);
-            } else {
-                pto::TSTORE<DstTile, DstGlobal, pto::AtomicType::AtomicNone>(dstG, dstTile);
-            }
-            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-            
-            currentSrcAddr += currentChunkRows * srcStride;
-            currentDstAddr += currentChunkRows * dstStride;
-        }
-        
-        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    }
+    
+    __gm__ InShmemType* srcAddr = MapVirtualAddr<InShmemType>(hcclContext, inShmemDataBaseAddr, inShmemDataOffset0) +
+        inShmemDataOffset1 * inShmemDataRawShape2 * inShmemDataRawShape3 + inShmemDataOffset2 * inShmemDataRawShape3 + inShmemDataOffset3;
+    __gm__ OutShmemType* dstAddr = MapVirtualAddr<OutShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+        shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
+    
+    ShmemCopyCore<ShmemOp::PUT, InShmemType, OutShmemType, tileRowShape, tileColShape, bufferRowShape, srcStride, dstStride, atomicType>(
+        buffer, srcAddr, dstAddr);
 }
 
 template<typename UBType, typename ShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
@@ -533,6 +439,7 @@ TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBas
     (void)shmemSignalRawShape1;
     (void)shmemSignalShape1;
     (void)shmemSignalShape2;
+    
     int32_t tileCols = (static_cast<int32_t>(shmemSignalRawShape4) + tileColShape - 1) / tileColShape;
     int32_t tileRows = (static_cast<int32_t>(shmemSignalRawShape3) + tileRowShape - 1) / tileRowShape;
     int32_t tileRow = static_cast<int32_t>(shmemSignalOffset3) / tileRowShape;
@@ -540,29 +447,39 @@ TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBas
     int32_t tileIndex = tileRow * tileCols + tileCol;
     int32_t totalTileNum = tileRows * tileCols;
 
+    // Set signal value in buffer
+    buffer[0] = static_cast<int32_t>(value);
+    
+    // Use 1x8 tile shape to meet 32-byte alignment requirement (8 * sizeof(int32_t) = 32)
+    constexpr uint32_t signalColShape = 8;
+    ShmemUbTile<int32_t, 1, signalColShape> signalTile(1, 1);
+    pto::TASSIGN(signalTile, reinterpret_cast<uintptr_t>(buffer));
+    
+    // Synchronize before writing
+    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    
     for (uint32_t rankId = shmemSignalOffset0; rankId < shmemSignalOffset0 + shmemSignalShape0; rankId++) {
         __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
             static_cast<int32_t>(shmemSignalOffset1) * static_cast<int32_t>(shmemSignalRawShape2) * totalTileNum * stride +
             (static_cast<int32_t>(shmemSignalOffset2) * totalTileNum + tileIndex) * stride;
-        constexpr uint16_t sid = 0;
-        constexpr uint16_t nBurst = 1;
-        constexpr uint16_t lenBurst = 1;
-        constexpr uint16_t srcStride = 0;
-        constexpr uint16_t dstStride = 0;
-        buffer[0] = static_cast<int32_t>(value);
+        
+        // Create GlobalTensor for destination
+        ShapeDyn signalShape(1, 1, 1, 1, 1);
+        StrideDyn signalStride(1, 1, 1, 1, 1);
+        ShmemGlobalTensor<int32_t, 1, signalColShape> signalGlobal(shmemSignalAddr, signalShape, signalStride);
+        
+        // Store signal with atomic operation
         if constexpr (atomicType == AtomicType::ADD) {
-            set_atomic_s32();
-            set_atomic_add();
-        }
-        set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-        copy_ubuf_to_gm(shmemSignalAddr, buffer, sid, nBurst, lenBurst, dstStride, srcStride);
-        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-        if constexpr (atomicType == AtomicType::ADD) {
-            set_atomic_none();
+            pto::TSTORE<decltype(signalTile), decltype(signalGlobal), pto::AtomicType::AtomicAdd>(signalGlobal, signalTile);
+        } else {
+            pto::TSTORE<decltype(signalTile), decltype(signalGlobal), pto::AtomicType::AtomicNone>(signalGlobal, signalTile);
         }
     }
+    
+    // Synchronize after writing
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
 }
 
 template<typename NonShmemType, typename ShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
@@ -574,114 +491,13 @@ TILEOP void ShmemGet(__gm__ NonShmemType* nonShmemDataBaseAddr, __ubuf__ NonShme
 {
     (void)nonShmemDataRawShape0;
     (void)shmemDataRawShape0;
-    __gm__ NonShmemType* nonShmemDataAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
-    __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+    
+    __gm__ NonShmemType* dstAddr = nonShmemDataBaseAddr + nonShmemDataOffset0 * nonShmemDataRawShape1 + nonShmemDataOffset1;
+    __gm__ ShmemType* srcAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
         shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
-
-    if constexpr (std::is_same_v<NonShmemType, ShmemType>) {
-        constexpr uint32_t maxTileRows = 4095;
-        constexpr uint32_t effectiveBufferRows = bufferRowShape < maxTileRows ? bufferRowShape : maxTileRows;
-        constexpr uint32_t chunkRowShape = tileRowShape < effectiveBufferRows ? tileRowShape : effectiveBufferRows;
-        constexpr uint32_t rowChunkCount = (tileRowShape + chunkRowShape - 1) / chunkRowShape;
-        
-        using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using SrcGlobal = pto::GlobalTensor<ShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using DstGlobal = pto::GlobalTensor<NonShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using UbTile = pto::Tile<pto::TileType::Vec, NonShmemType, chunkRowShape, tileColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
-
-        __gm__ ShmemType* currentSrcAddr = shmemDataAddr;
-        __gm__ NonShmemType* currentDstAddr = nonShmemDataAddr;
-        
-        for (uint32_t chunkIdx = 0; chunkIdx < rowChunkCount; ++chunkIdx) {
-            uint32_t remainingRows = tileRowShape - chunkIdx * chunkRowShape;
-            if (remainingRows == 0) break;
-            uint32_t currentChunkRows = (remainingRows < chunkRowShape) ? remainingRows : chunkRowShape;
-            
-            ShapeDyn shape(1, 1, 1, currentChunkRows, tileColShape);
-            StrideDyn srcStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, srcStride, 1);
-            StrideDyn dstStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, dstStride, 1);
-
-            SrcGlobal srcG(currentSrcAddr, shape, srcStrideDyn);
-            DstGlobal dstG(currentDstAddr, shape, dstStrideDyn);
-            UbTile ubTile(currentChunkRows, tileColShape);
-            pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
-
-            pto::comm::TGET(dstG, srcG, ubTile);
-            
-            currentSrcAddr += currentChunkRows * srcStride;
-            currentDstAddr += currentChunkRows * dstStride;
-        }
-    } else {
-        constexpr uint32_t maxTileRows = 4095;
-        constexpr uint32_t effectiveBufferRows = bufferRowShape < maxTileRows ? bufferRowShape : maxTileRows;
-        constexpr uint32_t chunkRowShape = tileRowShape < effectiveBufferRows ? tileRowShape : effectiveBufferRows;
-        constexpr uint32_t rowChunkCount = (tileRowShape + chunkRowShape - 1) / chunkRowShape;
-        
-        constexpr uint32_t minCopyLenForSrc = (bufferRowShape * tileColShape * sizeof(ShmemType) + sizeof(NonShmemType) - 1) / sizeof(NonShmemType);
-        constexpr uint32_t copyLenForDst = bufferRowShape * AlignUp<uint32_t>(tileColShape * sizeof(NonShmemType), 32) / sizeof(NonShmemType);
-        constexpr uint32_t copyLen = copyLenForDst > minCopyLenForSrc ? copyLenForDst : minCopyLenForSrc;
-        
-        __ubuf__ ShmemType* tempBuffer = reinterpret_cast<__ubuf__ ShmemType*>(buffer + copyLen);
-        
-        using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-        using SrcGlobal = pto::GlobalTensor<ShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using DstGlobal = pto::GlobalTensor<NonShmemType, ShapeDyn, StrideDyn, pto::Layout::ND>;
-        using SrcTile = pto::Tile<pto::TileType::Vec, ShmemType, chunkRowShape, tileColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
-        using DstTile = pto::Tile<pto::TileType::Vec, NonShmemType, chunkRowShape, tileColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
-
-        __gm__ ShmemType* currentSrcAddr = shmemDataAddr;
-        __gm__ NonShmemType* currentDstAddr = nonShmemDataAddr;
-        
-        for (uint32_t chunkIdx = 0; chunkIdx < rowChunkCount; ++chunkIdx) {
-            uint32_t remainingRows = tileRowShape - chunkIdx * chunkRowShape;
-            if (remainingRows == 0) break;
-            uint32_t currentChunkRows = (remainingRows < chunkRowShape) ? remainingRows : chunkRowShape;
-            
-            if (chunkIdx > 0) {
-                wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-                set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-                wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-            }
-            
-            ShapeDyn shape(1, 1, 1, currentChunkRows, tileColShape);
-            StrideDyn srcStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, srcStride, 1);
-            StrideDyn dstStrideDyn(currentChunkRows, currentChunkRows, currentChunkRows, dstStride, 1);
-
-            SrcGlobal srcG(currentSrcAddr, shape, srcStrideDyn);
-            DstGlobal dstG(currentDstAddr, shape, dstStrideDyn);
-            
-            SrcTile srcTile(currentChunkRows, tileColShape);
-            DstTile dstTile(currentChunkRows, tileColShape);
-            
-            pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(buffer));
-            pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(tempBuffer));
-            
-            pto::TLOAD(srcTile, srcG);
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            
-            pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
-            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            
-            // Step 3: Store converted data with atomic operation
-            if constexpr (atomicType == AtomicType::ADD) {
-                pto::TSTORE<DstTile, DstGlobal, pto::AtomicType::AtomicAdd>(dstG, dstTile);
-            } else {
-                pto::TSTORE<DstTile, DstGlobal, pto::AtomicType::AtomicNone>(dstG, dstTile);
-            }
-            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-            
-            currentSrcAddr += currentChunkRows * srcStride;
-            currentDstAddr += currentChunkRows * dstStride;
-        }
-        
-        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    }
+    
+    ShmemCopyCore<ShmemOp::GET, ShmemType, NonShmemType, tileRowShape, tileColShape, bufferRowShape, srcStride, dstStride, atomicType>(
+        buffer, srcAddr, dstAddr);
 }
 
 template<typename UBType, typename ShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
