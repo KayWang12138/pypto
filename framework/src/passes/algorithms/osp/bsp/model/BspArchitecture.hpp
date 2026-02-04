@@ -356,7 +356,7 @@ class BspArchitecture {
      * @param proc The processor index.
      * @return The memory bound.
      */
-    [[nodiscard]] VMemwT<GraphT> MemoryBound(const unsigned proc) const { return memoryBound_[proc]; }
+    [[nodiscard]] VMemwT<GraphT> (const unsigned proc) const { return memoryBound_[proc]; }
 
     /**
      * @brief Returns the maximum memory bound over all processors.
@@ -453,16 +453,6 @@ class BspArchitecture {
      * @return The processor type.
      */
     [[nodiscard]] VTypeT<GraphT> ProcessorType(const unsigned p1) const { return processorTypes_[p1]; }
-
-    /**
-     * @brief Sets the type of a specific processor. Performs bounds checking.
-     * @param p1 The processor index.
-     * @param type The new processor type.
-     */
-    void SetProcessorType(const unsigned p1, const VTypeT<GraphT> type) {
-        processorTypes_.at(p1) = type;
-        numberOfProcessorTypes_ = std::max(numberOfProcessorTypes_, type + 1U);
-    }
 
     /**
      * @brief Returns the count of processors for each type.
