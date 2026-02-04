@@ -47,6 +47,7 @@ def test_device_run_data_from_host_numpy():
 
     golden = 11 * a_tensor
 
+    assert torch.allclose(golden, b_tensor, atol=1e-5)
     pypto.runtime._device_fini()
 
 
