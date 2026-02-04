@@ -186,18 +186,19 @@ const std::vector<int64_t> CONV3D_PAD_ATTR_DEFAULT_LIST = {0, 0, 0, 0, 0, 0};
 
 class Im2ColOpAttributeKey {
 public:
-    static const std::string postK = "POST_K";
-    static const std::string postM = "POST_M";
-    static const std::string filterH = "FILTER_H";
-    static const std::string filterW = "FILTER_W";
-    static const std::string strideH = "STRIDE_H";
-    static const std::string strideW = "STRIDE_W";
-    static const std::string dilationH = "DILATION_H";
-    static const std::string dilationW = "DILATION_W";
-    static const std::string paddingLeft = "PAD_LEFT";
-    static const std::string paddingRight = "PAD_RIGHT";
-    static const std::string paddingTop = "PAD_TOP";
-    static const std::string paddingBottom = "PAD_BOTTOM";
+    static const std::string postK;
+    static const std::string postM;
+    static const std::string filterH;
+    static const std::string filterW;
+    static const std::string strideH;
+    static const std::string strideW;
+    static const std::string dilationH;
+    static const std::string dilationW;
+    static const std::string paddingLeft;
+    static const std::string paddingRight;
+    static const std::string paddingTop;
+    static const std::string paddingBottom;
+    static const std::string padValue;
 };
 
 struct ConvAttrParam {
@@ -244,6 +245,8 @@ struct ConvTileInfo {
     int64_t orgCin = 0;
     int64_t orgKw = 0;
     int64_t orgK = 0;
+    int64_t kPerGroup = 0;
+    int64_t coutPerGroup = 0;
     int64_t kAL1 = 0;
     int64_t kBL1 = 0;
     int64_t nBL1 = 0;
