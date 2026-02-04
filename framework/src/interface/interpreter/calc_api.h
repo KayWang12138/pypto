@@ -132,7 +132,7 @@ struct CalcOps {
     void (*FormatND2NZ)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*FormatNZ2ND)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*Fixpipe)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, uint64_t, int);
-    void (*MatMul)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, MatMulParam &);
+    void (*MatMul)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, MatMulParam &);
 
     void (*BitSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool);
     void (*TiledMrgSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, int);
