@@ -321,6 +321,14 @@ void bind_operation(py::module &m) {
         "Tensor concat.");
     m.def("cumsum", [](const Tensor &input, int axis) { return npu::tile_fwk::CumSum(input, axis); }, "Tensor cumsum.");
     m.def(
+        "TriU",
+        [](const Tensor &input, const SymbolicScalar &diagonal) { return npu::tile_fwk::TriU(input, diagonal); },
+        "Tensor triu.");
+    m.def(
+        "TriL",
+        [](const Tensor &input, const SymbolicScalar &diagonal) { return npu::tile_fwk::TriL(input, diagonal); },
+        "Tensor tril.");
+    m.def(
         "Pad",
         [](const Tensor &old, const std::vector<int64_t> &newShape) { return npu::tile_fwk::Pad(old, newShape); },
         "Tensor pad.");
@@ -370,6 +378,17 @@ void bind_operation(py::module &m) {
         py::arg("paddings"), py::arg("dilations"), py::arg("extend_params"), py::arg("groups") = 1,
         py::arg("transposed") = false, py::arg("output_paddings") = std::vector<int64_t>(),
         "Convolution forward with extend param.");
+    m.def(
+        "Conv",
+        [](DataType out_type, const Tensor &tensor_input, const Tensor &tensor_weight, const Tensor &tensor_bias,
+            const std::vector<int64_t> &strides, const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations,
+            const int64_t groups) {
+            return Conv::Conv(out_type, tensor_input, tensor_weight, tensor_bias, strides, paddings,
+                dilations, groups);
+        },
+        py::arg("out_type"), py::arg("tensor_input"), py::arg("tensor_weight"), py::arg("tensor_bias"),
+        py::arg("strides"), py::arg("paddings"), py::arg("dilations"), py::arg("groups"),
+        "Convolution forward with Transpose is false.");
     m.def(
         "BatchMatmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
