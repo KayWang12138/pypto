@@ -124,6 +124,13 @@ int DeviceLauncher::RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStre
     return 0;
 }
 
+void DeviceLauncher::FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, DeviceKernelArgs &kargs) {
+    DeviceLauncherConfig config;
+    CachedOperator cache;
+    DeviceLauncherConfigFillDeviceInfo(config);
+    DeviceInitTilingData(DeviceMemoryUtils(), kargs, devProgData, nullptr, config, &cache);
+}
+
 int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
         rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
@@ -165,20 +172,19 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
             cachedOperator = DeviceRunCacheOperatorGet(function);
         }
     }
+
+    auto dynAttr = function->GetDyndevAttribute();
     CheckDeviceId();
     DeviceKernelArgs kArgs;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
+    DeviceInitDistributedContext(dynAttr->commGroupNames, GetDevProg(function));
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
-
-    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
-        inputDevCtrlCache, config, cachedOperator);
-
+    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, function->GetDyndevAttribute()->disableL2List);
+    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, dynAttr->disableL2List);
 
     HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 
