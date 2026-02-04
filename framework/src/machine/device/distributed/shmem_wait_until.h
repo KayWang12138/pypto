@@ -24,14 +24,14 @@
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::Distributed {
-constexpr int32_t ATTR_INDEX_OFFSET_ONE = 1;
-constexpr int32_t ATTR_INDEX_OFFSET_THREE = 3;
-constexpr int32_t ATTR_INDEX_OFFSET_FOUR = 4;
+constexpr int32_t ATTR_STRIDE_OFFSET = 1;
+constexpr int32_t ATTR_TILEROW_OFFSET = 3;
+constexpr int32_t ATTR_TILECOL_OFFSET = 4;
 struct SignalTileOp {
     void Init(uint64_t taskId, int32_t* addr, int32_t expectedSum, bool resetSignal) {
-        taskId_ = taskId;	 
-        addr_ = addr; 
-        expectedSum_ = expectedSum; 
+        taskId_ = taskId;
+        addr_ = addr;
+        expectedSum_ = expectedSum;
         resetSignal_ = resetSignal;
     }
     bool PollCompleted() const;
@@ -195,9 +195,9 @@ public:
         TensorInfo info = ShmemWaitUntil::GetTensorInfo(taskId, aicpuCode);
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
-        int32_t stride = aicpuCode[paramInfo_.attrIndex + ATTR_INDEX_OFFSET_ONE];
-        int32_t tileRowShape = aicpuCode[paramInfo_.attrIndex + ATTR_INDEX_OFFSET_THREE];
-        int32_t tileColShape = aicpuCode[paramInfo_.attrIndex + ATTR_INDEX_OFFSET_FOUR];
+        int32_t stride = aicpuCode[paramInfo_.attrIndex + ATTR_STRIDE_OFFSET];
+        int32_t tileRowShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILEROW_OFFSET];
+        int32_t tileColShape = aicpuCode[paramInfo_.attrIndex + ATTR_TILECOL_OFFSET];
 
         int32_t tileCols = (paramInfo_.rawShapeCol + tileColShape - 1) / tileColShape;
         int32_t tileRows = (paramInfo_.rawShapeRow + tileRowShape - 1) / tileRowShape;
