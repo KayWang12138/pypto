@@ -37,6 +37,10 @@ Status ReduceCopyMerge::RunOnFunction(Function &function) {
         APASS_LOG_INFO_F(Elements::Operation, "Platform not support CV mix graph, skip ReduceCopy Pass.");
         return SUCCESS;
     }
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+        APASS_LOG_INFO_F(Elements::Function, "Current platform does not support mix graph.");
+        return SUCCESS;
+    }
     ReduceCopyRunner runner;
     const double lowerBound = 0.1;
     const double upperBound = 10.0;
