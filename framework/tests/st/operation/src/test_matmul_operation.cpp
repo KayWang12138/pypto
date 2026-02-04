@@ -61,37 +61,50 @@ static Tensor CallMatmulOpWithL0C2L1AndScale(const Tensor &tensorA, const Tensor
         outDtype, tensorA, tensorB, matmulExtendParam, transInform.at(0), transInform.at(1), isCMatrixNz);
 }
 
+std::tuple<Tensor, Tensor, Tensor> BuildL0C2L1ViewTensors(const std::vector<Tensor> &inputs,
+    const MatmulOpFuncArgs *args,
+    const std::tuple<SymbolicScalar, SymbolicScalar, SymbolicScalar, SymbolicScalar, SymbolicScalar> &dims,
+    const SymbolicScalar &mIdx) {
+    auto [mDim, kDim, nDim, tensorcMdim, tensorcNdim] = dims;
+    Tensor tensorL0c2L1;
+    if (args->param_.l0c2l1IsTrans) {
+        tensorL0c2L1 = View(inputs[l0cToL1Index], {tensorcNdim, tensorcMdim}, {tensorcNdim, tensorcMdim}, {0, 0});
+    } else {
+        tensorL0c2L1 = View(inputs[l0cToL1Index], {tensorcMdim, tensorcNdim}, {tensorcMdim, tensorcNdim}, {0, 0});
+    }
+    Tensor tensorA;
+    Tensor tensorB;
+    if (args->param_.transB) {
+        tensorB = View(inputs[1], {nDim, kDim}, {nDim, kDim}, {0, 0});
+    } else {
+        tensorB = View(inputs[1], {kDim, nDim}, {kDim, nDim}, {0, 0});
+    }
+    if (args->param_.transA) {
+        tensorA = View(inputs[0], {kDim, mDim}, {kDim, mDim}, {0, 0});
+    } else {
+        tensorA = View(inputs[0], {mDim, kDim}, {mDim, kDim}, {mIdx, 0});
+    }
+    return {tensorL0c2L1, tensorB, tensorA};
+}
+
 static void MatmulOperationExeFuncNoSplitWithL0C2L1(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const MatmulOpFuncArgs *>(opArgs);
     SymbolicScalar mDim = args->param_.transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
     SymbolicScalar kDim = args->param_.transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
     SymbolicScalar nDim = args->param_.transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
-    SymbolicScalar tensorcMdim = args->param_.l0c2l1IsTrans ? inputs[l0cToL1Index].GetShape()[1] : inputs[l0cToL1Index].GetShape()[0];
-    SymbolicScalar tensorcNdim = args->param_.l0c2l1IsTrans ? inputs[l0cToL1Index].GetShape()[0] : inputs[l0cToL1Index].GetShape()[1];
-
-    FUNCTION("testNoSplit", {inputs[0], inputs[1], inputs[scaleIndex], inputs[biasIndex], inputs[l0cToL1Index]}, {outputs[0]}) {
+    SymbolicScalar tensorcMdim =
+        args->param_.l0c2l1IsTrans ? inputs[l0cToL1Index].GetShape()[1] : inputs[l0cToL1Index].GetShape()[0];
+    SymbolicScalar tensorcNdim =
+        args->param_.l0c2l1IsTrans ? inputs[l0cToL1Index].GetShape()[0] : inputs[l0cToL1Index].GetShape()[1];
+    FUNCTION("testNoSplit", {inputs[0], inputs[1], inputs[scaleIndex], inputs[biasIndex], inputs[l0cToL1Index]},
+        {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
-            Tensor tensorL0c2L1;
-            if (args->param_.l0c2l1IsTrans) {
-                // 2: l0c2l1的tensor的index
-                tensorL0c2L1 = View(inputs[l0cToL1Index], {tensorcNdim, tensorcMdim}, {tensorcNdim, tensorcMdim}, {0, 0});
-            } else {
-                // 2: l0c2l1的tensor的index
-                tensorL0c2L1 = View(inputs[l0cToL1Index], {tensorcMdim, tensorcNdim}, {tensorcMdim, tensorcNdim}, {0, 0});
-            }
-            Tensor tensorB;
-            if (args->param_.transB) {
-                tensorB = View(inputs[1], {nDim, kDim}, {nDim, kDim}, {0, 0});
-            } else {
-                tensorB = View(inputs[1], {kDim, nDim}, {kDim, nDim}, {0, 0});
-            }
-            Tensor tensorA;
-            if (args->param_.transA) {
-                tensorA = View(inputs[0], {kDim, mDim}, {kDim, mDim}, {0, 0});
-            } else {
-                tensorA = View(inputs[0], {mDim, kDim}, {mDim, kDim}, {mIdx, 0});
-            }
+            TileShape::Current().SetCubeTile({args->tileShape_[0][0], args->tileShape_[0][1]},
+                {args->tileShape_[1][0], args->tileShape_[1][1]}, {args->tileShape_[2][0], args->tileShape_[2][1]},
+                true, args->param_.enableKSplit);
+            auto dims = std::make_tuple(mDim, kDim, nDim, tensorcMdim, tensorcNdim);
+            auto [tensorL0c2L1, tensorB, tensorA] = BuildL0C2L1ViewTensors(inputs, args, dims, mIdx);
             Matrix::MatmulExtendParam param;
             param.scaleValue = args->param_.scaleValue;
             param.reluType = static_cast<Matrix::ReLuType>(args->param_.reluTypeInt);
@@ -101,14 +114,20 @@ static void MatmulOperationExeFuncNoSplitWithL0C2L1(
             if (args->param_.hasScale) {
                 param.scaleTensor = View(inputs[scaleIndex], {1, nDim}, {1, nDim}, {0, 0});
             }
-            Tensor tensorTmp = CallMatmulOpWithL0C2L1AndScale(tensorA, tensorB, {args->param_.transA, args->param_.transB}, args->param_.l0c2l1IsNz,
-                args->param_.outDtype, param);
+            Tensor tensorTmp = CallMatmulOpWithL0C2L1AndScale(tensorA, tensorB,
+                {args->param_.transA, args->param_.transB}, args->param_.l0c2l1IsNz, args->param_.outDtype, param);
+            TileShape::Current().SetCubeTile({args->param_.l0c2l1TileShape[0][0], args->param_.l0c2l1TileShape[0][1]},
+                {args->param_.l0c2l1TileShape[1][0], args->param_.l0c2l1TileShape[1][1]},
+                {args->param_.l0c2l1TileShape[2][0], args->param_.l0c2l1TileShape[2][1]}, true,
+                args->param_.enableKSplit);
             if (args->param_.l0c2l1AsLeftMatrix) {
-                outputs[0] = CallMatmulOpWithL0C2L1(
-                    tensorL0c2L1, tensorTmp, {args->param_.l0c2l1IsTrans, args->param_.l0c2l1TmpIsTrans}, args->param_.isCMatrixNz, args->param_.outDtype);
+                outputs[0] = CallMatmulOpWithL0C2L1(tensorL0c2L1, tensorTmp,
+                    {args->param_.l0c2l1IsTrans, args->param_.l0c2l1TmpIsTrans}, args->param_.isCMatrixNz,
+                    args->param_.outDtype);
             } else {
-                outputs[0] = CallMatmulOpWithL0C2L1(
-                    tensorTmp, tensorL0c2L1, {args->param_.l0c2l1TmpIsTrans, args->param_.l0c2l1IsTrans}, args->param_.isCMatrixNz, args->param_.outDtype);
+                outputs[0] = CallMatmulOpWithL0C2L1(tensorTmp, tensorL0c2L1,
+                    {args->param_.l0c2l1TmpIsTrans, args->param_.l0c2l1IsTrans}, args->param_.isCMatrixNz,
+                    args->param_.outDtype);
             }
         }
     }
@@ -122,32 +141,32 @@ static void MatmulOperationExeFuncNoSplit(
     float scaleValue = args->param_.scaleValue;
     int reluTypeInt = args->param_.reluTypeInt;
     Matrix::ReLuType reluType = static_cast<Matrix::ReLuType>(reluTypeInt);
-    SymbolicScalar mDim = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
-    SymbolicScalar kDim = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
-    SymbolicScalar nDim = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
+    SymbolicScalar mDimNoSplit = transA ? inputs[0].GetShape()[1] : inputs[0].GetShape()[0];
+    SymbolicScalar kDimNoSplit = transA ? inputs[0].GetShape()[0] : inputs[0].GetShape()[1];
+    SymbolicScalar nDimNoSplit = transB ? inputs[1].GetShape()[0] : inputs[1].GetShape()[1];
 
     FUNCTION("testNoSplit", {inputs[0], inputs[1], inputs[scaleIndex], inputs[biasIndex]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(1)) {
             Tensor tensorA;
             if (transA) {
-                tensorA = View(inputs[0], {kDim, mDim}, {kDim, mDim}, {0, 0});
+                tensorA = View(inputs[0], {kDimNoSplit, mDimNoSplit}, {kDimNoSplit, mDimNoSplit}, {0, 0});
             } else {
-                tensorA = View(inputs[0], {mDim, kDim}, {mDim, kDim}, {mIdx, 0});
+                tensorA = View(inputs[0], {mDimNoSplit, kDimNoSplit}, {mDimNoSplit, kDimNoSplit}, {mIdx, 0});
             }
             Tensor tensorB;
             if (transB) {
-                tensorB = View(inputs[1], {nDim, kDim}, {nDim, kDim}, {0, 0});
+                tensorB = View(inputs[1], {nDimNoSplit, kDimNoSplit}, {nDimNoSplit, kDimNoSplit}, {0, 0});
             } else {
-                tensorB = View(inputs[1], {kDim, nDim}, {kDim, nDim}, {0, 0});
+                tensorB = View(inputs[1], {kDimNoSplit, nDimNoSplit}, {kDimNoSplit, nDimNoSplit}, {0, 0});
             }
             Matrix::MatmulExtendParam param;
             param.scaleValue = scaleValue;
             param.reluType = reluType;
             if (args->param_.hasScale) {
-                param.scaleTensor = View(inputs[scaleIndex], {1, nDim}, {1, nDim}, {0, 0});
+                param.scaleTensor = View(inputs[scaleIndex], {1, nDimNoSplit}, {1, nDimNoSplit}, {0, 0});
             }
             if (args->param_.hasBias) {
-                param.biasTensor = View(inputs[biasIndex], {1, nDim}, {1, nDim}, {0, 0});
+                param.biasTensor = View(inputs[biasIndex], {1, nDimNoSplit}, {1, nDimNoSplit}, {0, 0});
             }
             outputs[0] = CallMatmulOp(tensorA, tensorB, args->param_, param);
         }
@@ -169,6 +188,12 @@ static void MatmulOperationExeFuncSplitM(
 
     FUNCTION("testMSplit", {inputs[0], inputs[1], inputs[scaleIndex], inputs[biasIndex]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, CeilDivSymbolicScalar(mDim, mView), 1)) {
+            Tensor tensorB;
+            if (transB) {
+                tensorB = View(inputs[1], {nDim, kDim}, {nDim, kDim}, {0, 0});
+            } else {
+                tensorB = View(inputs[1], {kDim, nDim}, {kDim, nDim}, {0, 0});
+            }
             Tensor tensorA;
             if (transA) {
                 tensorA =
@@ -176,12 +201,6 @@ static void MatmulOperationExeFuncSplitM(
             } else {
                 tensorA =
                     View(inputs[0], {mView, kDim}, {std::min(mDim - mView * mIdx, mView), kDim}, {mIdx * mView, 0});
-            }
-            Tensor tensorB;
-            if (transB) {
-                tensorB = View(inputs[1], {nDim, kDim}, {nDim, kDim}, {0, 0});
-            } else {
-                tensorB = View(inputs[1], {kDim, nDim}, {kDim, nDim}, {0, 0});
             }
             Matrix::MatmulExtendParam param;
             if (args->param_.hasBias) {
@@ -214,11 +233,6 @@ static void MatmulOperationExeFuncSplitN(
     FUNCTION("testNSplit", {inputs[0], inputs[1], inputs[scaleIndex], inputs[biasIndex]}, {outputs[0]}) {
         LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, CeilDivSymbolicScalar(nDim, nView), 1)) {
             Tensor tensorA;
-            if (transA) {
-                tensorA = View(inputs[0], {kDim, mDim}, {kDim, mDim}, {0, 0});
-            } else {
-                tensorA = View(inputs[0], {mDim, kDim}, {mDim, kDim}, {0, 0});
-            }
             Tensor tensorB;
             if (transB) {
                 tensorB =
@@ -226,6 +240,11 @@ static void MatmulOperationExeFuncSplitN(
             } else {
                 tensorB =
                     View(inputs[1], {kDim, nView}, {kDim, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
+            }
+            if (transA) {
+                tensorA = View(inputs[0], {kDim, mDim}, {kDim, mDim}, {0, 0});
+            } else {
+                tensorA = View(inputs[0], {mDim, kDim}, {mDim, kDim}, {0, 0});
             }
             Matrix::MatmulExtendParam param;
             param.reluType = reluType;
@@ -261,21 +280,21 @@ static void MatmulOperationExeFuncSplitMN(
     FUNCTION("testMNSplit", {inputs[0], inputs[1], inputs[scaleIndex], inputs[biasIndex]}, {outputs[0]}) {
         LOOP("mLoop", FunctionType::DYNAMIC_LOOP, mIdx, LoopRange(0, CeilDivSymbolicScalar(mDim, mView), 1)) {
             LOOP("nLoop", FunctionType::DYNAMIC_LOOP, nIdx, LoopRange(0, CeilDivSymbolicScalar(nDim, nView), 1)) {
+                Tensor tensorB;
                 Tensor tensorA;
                 if (transA) {
-                    tensorA = View(
-                        inputs[0], {kDim, mView}, {kDim, std::min(mDim - mView * mIdx, mView)}, {0, mIdx * mView});
+                    tensorA =
+                        View(inputs[0], {kDim, mView}, {kDim, std::min(mDim - mView * mIdx, mView)}, {0, mIdx * mView});
                 } else {
-                    tensorA = View(
-                        inputs[0], {mView, kDim}, {std::min(mDim - mView * mIdx, mView), kDim}, {mIdx * mView, 0});
+                    tensorA =
+                        View(inputs[0], {mView, kDim}, {std::min(mDim - mView * mIdx, mView), kDim}, {mIdx * mView, 0});
                 }
-                Tensor tensorB;
                 if (transB) {
-                    tensorB = View(
-                        inputs[1], {nView, kDim}, {std::min(nDim - nIdx * nView, nView), kDim}, {nIdx * nView, 0});
+                    tensorB =
+                        View(inputs[1], {nView, kDim}, {std::min(nDim - nIdx * nView, nView), kDim}, {nIdx * nView, 0});
                 } else {
-                    tensorB = View(
-                        inputs[1], {kDim, nView}, {kDim, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
+                    tensorB =
+                        View(inputs[1], {kDim, nView}, {kDim, std::min(nDim - nIdx * nView, nView)}, {0, nIdx * nView});
                 }
                 Matrix::MatmulExtendParam param;
                 if (args->param_.hasScale) {
@@ -310,6 +329,7 @@ static void MatmulOperationExeFunc(
                                          {args->tileShape_[2][0], args->tileShape_[2][1]}, true, args->param_.enableKSplit);
     }
 
+
     const size_t MM_VIEW_SHAPE_DIM = 2;
     ASSERT(args->viewShape_.size() == MM_VIEW_SHAPE_DIM);
     const int64_t mView = args->viewShape_[0];
@@ -328,17 +348,20 @@ static void MatmulOperationExeFunc(
     }
 }
 
-static void CheckBTransNZUnaligned(bool transB, bool isCMatrixNz, const Tensor &b, const Tensor &c) {
+static void CheckBTransNZUnaligned(const MatmulOpFuncArgs &args, TestCaseDesc &testCase, Tensor &l0c2L1Tensor) {
     constexpr int blockAlignBytes = 32;
-    ASSERT(BytesOf(c.GetDataType()) != 0)
-        << "wrong data type";
-    int innerNum = blockAlignBytes / BytesOf(c.GetDataType());
-    SymbolicScalar bN = transB ? b.GetShape()[0] : b.GetShape()[1];
-    SymbolicScalar cN = c.GetShape()[1];
-    bool nNotEqualCase = !transB && isCMatrixNz && cN % innerNum == 0;
-    // (N, K)输入，NZ输出是，由于ND2NZ指令无法在N轴补零，最终NPU输出在N轴可能存在脏数据，暂不支持。
-    ASSERT(bN == cN || nNotEqualCase)
-        << "N, K shape for NZ output format with N unaligned is not supported";
+    ASSERT(BytesOf(testCase.outputTensors[0].GetDataType()) != 0) << "wrong data type";
+    int innerNum = blockAlignBytes / BytesOf(testCase.outputTensors[0].GetDataType());
+    int cN = testCase.outputTensors[0].GetShape()[1];
+    if (args.param_.l0c2l1AsLeftMatrix) {
+        int bN = args.param_.transB ? testCase.inputTensors[1].GetShape()[0] : testCase.inputTensors[1].GetShape()[1];
+        bool nNotEqualCase = args.param_.isCMatrixNz && cN % innerNum == 0;
+        ASSERT(bN == cN || nNotEqualCase) << "N, K shape for NZ output format with N unaligned is not supported";
+    } else {
+        int bN = args.param_.l0c2l1IsTrans ? l0c2L1Tensor.GetShape()[0] : l0c2L1Tensor.GetShape()[1];
+        bool nNotEqualCase = !args.param_.l0c2l1IsTrans && args.param_.isCMatrixNz && cN % innerNum == 0;
+        ASSERT(bN == cN || nNotEqualCase) << "N, K shape for NZ output format with N unaligned is not supported";
+    }
 }
 
 class MatmulOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<MatmulOpMetaData> {};
@@ -376,10 +399,9 @@ TEST_P(MatmulOperationTest, TestMatmul) {
         Tensor l0c2L1Tensor = GetParamTensor(test_data, "l0c2l1_tensor");
         testCase.inputTensors.push_back(l0c2L1Tensor);
         testCase.inputPaths.push_back(GetGoldenDir() + "/" + l0c2L1Tensor.GetStorage()->Symbol() + ".bin");
+        CheckBTransNZUnaligned(args, testCase, l0c2L1Tensor);
     }
     testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
-    CheckBTransNZUnaligned(
-        args.param_.transB, args.param_.isCMatrixNz, testCase.inputTensors[1], testCase.outputTensors[0]);
     if (args.param_.enableKSplit) {
         TestExecutor::setGMNotClear();
     }
@@ -419,8 +441,6 @@ TEST_P(MatmulVerifyOperationTest, TestMatmulVerify) {
         }
     }
     testCase.goldenPaths = {GetGoldenDir() + "/" + testCase.outputTensors[0].GetStorage()->Symbol() + ".bin"};
-    CheckBTransNZUnaligned(
-        args.param_.transB, args.param_.isCMatrixNz, testCase.inputTensors[1], testCase.outputTensors[0]);
     TestFlowVerifier::runTest(testCase);
 }
 } // namespace
