@@ -25,36 +25,84 @@
 #include "acl/acl.h"
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* mc2Tiling, void** commContext);
 #endif
+
 constexpr uint32_t COMM_IS_NOT_SET_DEVICE = 0;
 constexpr uint32_t COMM_MESH = 0b1u;
-TileOp::CommContext g_hostAddr[npu::tile_fwk::DIST_COMM_GROUP_NUM];
-std::unordered_map<std::string, uint64_t> g_context; //key: groupname, value: deviceHcclContext
+constexpr uint32_t WINDATA_INDEX = 0;
+constexpr uint32_t WINSTATUS_INDEX = 1;
+constexpr uint32_t WINDEBUG_INDEX = 2;
+std::unordered_map<std::string, pair<uint64_t, uint64_t>> g_context; //key: groupname, value: deviceCommContext hostCommContext
 
 namespace npu::tile_fwk::dynamic {
-std::vector<uint64_t> DistributedContext::GetCommContextToHost([[maybe_unused]] const std::vector<std::string> &groupNames)
-{
-#ifdef BUILD_WITH_CANN
-    std::vector<uint64_t> devAddrs = GetCommContext(groupNames);
-    std::vector<uint64_t> host_context;
-    ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
-    for (size_t groupIndex = 0; groupIndex < groupNames.size(); groupIndex++) {
-        (void)rtMemcpy(&g_hostAddr[groupIndex], sizeof(g_hostAddr[groupIndex]), (uint8_t *)devAddrs[0], sizeof(g_hostAddr[groupIndex]),
-            RT_MEMCPY_DEVICE_TO_HOST);
-        host_context.push_back((uint64_t)(&g_hostAddr[groupIndex]));
-    }
-    return host_context;
-#endif
-    return {};
+
+template<typename T>
+static void FillCommCtxAttr(TileOp::CommContext *ctxHost, T *hcclParamhost) {
+    return;
+}
+
+template<>
+static void FillCommCtxAttr<npu::tile_fwk::HcclCombinOpParam>(TileOp::CommContext *ctxHost, npu::tile_fwk::HcclCombinOpParam *hcclParamhost) {
+    ctxHost->rankId = hcclParamhost->rankId;
+    ctxHost->rankNum = hcclParamhost->rankNum;
+    ctxHost->statusIndex = hcclParamhost->rankNum;
+    ctxHost->debugIndex = hcclParamhost->rankNum * 2;
+    ctxHost->winDataSize = hcclParamhost->winSize;
+    ctxHost->winStatusSize = hcclParamhost->winExpSize;
+    ctxHost->winDebugSize = hcclParamhost->winSize;
+    ctxHost->totalWinNum = hcclParamhost->rankNum * WIN_TYPE_NUM;
+    return;
+}
+
+template<>
+static void FillCommCtxAttr<npu::tile_fwk::HcclOpResParamHead>(TileOp::CommContext *ctxHost, npu::tile_fwk::HcclOpResParamHead *hcclParamhost) {
+    ctxHost->rankId = hcclParamhost->localUsrRankId;
+    ctxHost->rankNum = hcclParamhost->rankSize;
+    ctxHost->statusIndex = hcclParamhost->rankSize;
+    ctxHost->debugIndex = hcclParamhost->rankSize * 2;
+    ctxHost->winDataSize = hcclParamhost->winSize;
+    ctxHost->winStatusSize = hcclParamhost->winSize;
+    ctxHost->winDebugSize = hcclParamhost->winExpSize;
+    ctxHost->totalWinNum = hcclParamhost->rankSize * WIN_TYPE_NUM;
+    return;
+}
+
+template<typename T>
+static void FillCommCtxWinArr(TileOp::CommContext *ctxHost, T *hcclParamhost) {
+    return;
+}
+
+template<>
+static void FillCommCtxWinArr<npu::tile_fwk::HcclCombinOpParam>(TileOp::CommContext *ctxHost, npu::tile_fwk::HcclCombinOpParam *hcclParamhost) {
+    ctxHost->winAddr[i + (WINDATA_INDEX * ctxHost->rankNum)] = hcclParamhost->windowsIn[i];
+    ctxHost->winAddr[i + (WINSTATUS_INDEX * ctxHost->rankNum)] = hcclParamhost->windowsExp[i];
+    ctxHost->winAddr[i + (WINDEBUG_INDEX * ctxHost->rankNum)] = hcclParamhost->windowsOut[i];
+    return;
+}
+
+template<>
+static void FillCommCtxWinArr<npu::tile_fwk::HcclOpResParamHead>(TileOp::CommContext *ctxHost, npu::tile_fwk::HcclRankRelationResV2 *hcclParamhost) {
+    ctxHost->winAddr[i + (WINDATA_INDEX * ctxHost->rankNum)] = hcclParamhost->localWindowsIn;
+    ctxHost->winAddr[i + (WINSTATUS_INDEX * ctxHost->rankNum)] = hcclParamhost->localWindowsExp;
+    ctxHost->winAddr[i + (WINDEBUG_INDEX * ctxHost->rankNum)] = hcclParamhost->localWindowsOut;
+    return;
+}
+
+template<>
+static void FillCommCtxWinArr<npu::tile_fwk::HcclRankRelationResV2>(TileOp::CommContext *ctxHost, npu::tile_fwk::HcclRankRelationResV2 *hcclParamhost) {
+    ctxHost->winAddr[i + (WINDATA_INDEX * ctxHost->rankNum)] = hcclParamhost->windowsIn;
+    ctxHost->winAddr[i + (WINSTATUS_INDEX * ctxHost->rankNum)] = hcclParamhost->windowsExp;
+    ctxHost->winAddr[i + (WINDEBUG_INDEX * ctxHost->rankNum)] = hcclParamhost->windowsOut;
+    return;
 }
 
 template<ResType T>
-uint64_t DistributedContext::AllocCommContext([[maybe_unused]] uint64_t ctxAddr) 
+uint64_t DistributedContext::AllocCommContext([[maybe_unused]] const uint64_t &ctxAddr, [[maybe_unused]]const std::string &groupName) 
 {
     return 0;
 }
 
 template<>
-uint64_t DistributedContext::AllocCommContext<ResType::MESH>([[maybe_unused]] uint64_t ctxAddr)
+uint64_t DistributedContext::AllocCommContext<ResType::MESH>([[maybe_unused]] const uint64_t &ctxAddr, [[maybe_unused]]const std::string &groupName)
 {
 #ifdef BUILD_WITH_CANN
     npu::tile_fwk::HcclCombinOpParam *hcclParamDevice = (npu::tile_fwk::HcclCombinOpParam *)ctxAddr;
@@ -75,23 +123,25 @@ uint64_t DistributedContext::AllocCommContext<ResType::MESH>([[maybe_unused]] ui
     TileOp::CommContext *ctxHost = 
             (TileOp::CommContext *)machine::GetRuntimeHostAgent()->AllocHostAddr(commCtxSize);
     ASSERT(ctxHost != nullptr);
-    TileOp::CommContext *ctxDevice = nullptr;
-    machine::GetRA()->AllocDevAddr((uint8_t **)&ctxDevice, commCtxSize);
-    ASSERT(ctxDevice != nullptr);
     FillCommCtxAttr<npu::tile_fwk::HcclCombinOpParam>(ctxHost, hcclParamhost);
     for (uint32_t i = 0; i < ctxHost->rankNum; i++) {
         FillCommCtxWinArr<npu::tile_fwk::HcclCombinOpParam>(i, ctxHost, hcclParamhost);
     }
+    TileOp::CommContext *ctxDevice = nullptr;
+    machine::GetRA()->AllocDevAddr((uint8_t **)&ctxDevice, commCtxSize);
+    ASSERT(ctxDevice != nullptr);
     aclrtMemcpy(ctxDevice, sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankNum * WIN_TYPE_NUM,
                 ctxHost, sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankNum * WIN_TYPE_NUM,
                 ACL_MEMCPY_HOST_TO_DEVICE);
+    g_context[groupName].first = (uint64_t)ctxDevice;
+    g_context[groupName].second = (uint64_t)ctxHost;
     return (uint64_t)ctxDevice;
 #endif
     return 0;
 }
 
 template<>
-uint64_t DistributedContext::AllocCommContext<ResType::RING>([[maybe_unused]] uint64_t ctxAddr)
+uint64_t DistributedContext::AllocCommContext<ResType::RING>([[maybe_unused]] const uint64_t &ctxAddr, [[maybe_unused]]const std::string &groupName)
 {
 #ifdef BUILD_WITH_CANN
     npu::tile_fwk::HcclOpResParam *hcclParam = (npu::tile_fwk::HcclOpResParam *)ctxAddr;
@@ -115,9 +165,6 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING>([[maybe_unused]] ui
     size_t commCtxSize = sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankSize * WIN_TYPE_NUM;
     TileOp::CommContext *ctxHost = (TileOp::CommContext *)machine::GetRuntimeHostAgent()->AllocHostAddr(commCtxSize);
     ASSERT(ctxHost != nullptr);
-    TileOp::CommContext *ctxDevice = nullptr;
-    machine::GetRA()->AllocDevAddr((uint8_t **)&ctxDevice, commCtxSize);
-    ASSERT(ctxDevice != nullptr);
     FillCommCtxAttr<npu::tile_fwk::HcclOpResParamHead>(ctxHost, hcclParamhost);
     for (uint64_t i = 0; i < hcclParamhost->rankSize; i++) {
         if (i == hcclParamhost->localUsrRankId) {
@@ -133,9 +180,14 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING>([[maybe_unused]] ui
                 (void *)remoteResDevicePtr, sizeof(npu::tile_fwk::HcclRankRelationResV2), ACL_MEMCPY_DEVICE_TO_HOST);
         FillCommCtxWinArr<npu::tile_fwk::HcclRankRelationResV2>(i, ctxHost, &remoteParam);
     }
+    TileOp::CommContext *ctxDevice = nullptr;
+    machine::GetRA()->AllocDevAddr((uint8_t **)&ctxDevice, commCtxSize);
+    ASSERT(ctxDevice != nullptr);
     aclrtMemcpy(ctxDevice, sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankSize * WIN_TYPE_NUM, 
                 ctxHost, sizeof(TileOp::CommContext) + sizeof(uint64_t) * hcclParamhost->rankSize * WIN_TYPE_NUM,
                 ACL_MEMCPY_HOST_TO_DEVICE);
+    g_context[groupName].first = (uint64_t)ctxDevice;
+    g_context[groupName].second = (uint64_t)ctxHost;
     return (uint64_t)ctxDevice;
 #endif
     return 0;
@@ -144,14 +196,15 @@ uint64_t DistributedContext::AllocCommContext<ResType::RING>([[maybe_unused]] ui
 std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const std::vector<std::string> &groupNames)
 {
 #ifdef BUILD_WITH_CANN
-    CommTopo topoRet;
-    if(groupNames.size() != 0) {
-        const char *group = groupNames[0].c_str();
-        ASSERT(HcomGetL0TopoTypeEx(group, &topoRet, COMM_IS_NOT_SET_DEVICE) == HCCL_SUCCESS);
+    if (groupNames.size() == 0) {
+        return {};
     }
+    CommTopo topoRet;
+    const char *group = groupNames[0].c_str();
+    ASSERT(HcomGetL0TopoTypeEx(group, &topoRet, COMM_IS_NOT_SET_DEVICE) == HCCL_SUCCESS);
     uint32_t topoType = static_cast<uint32_t>(topoRet);
     std::shared_ptr<TilingStructBase> tilingStruct;
-    if(topoType == COMM_MESH) {
+    if (topoType == COMM_MESH) {
         tilingStruct = std::make_shared<TilingStruct>();
     } else {
         tilingStruct = std::make_shared<TilingStructV2>();
@@ -160,8 +213,8 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
     ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
     for (size_t groupIndex = 0; groupIndex < groupNames.size(); ++groupIndex) {
         auto groupName = groupNames[groupIndex];
-        if (g_context.find(groupName) != g_context.end()) {
-            commContext[groupIndex] = g_context[groupName];
+        if (g_context.find(groupName) != g_context.end()) { // 检查context缓存
+            commContext[groupIndex] = g_context[groupName].first;
             continue;
         }
         HcclComm commHandle = nullptr;
@@ -177,9 +230,23 @@ std::vector<uint64_t> DistributedContext::GetCommContext([[maybe_unused]] const 
         } else {
             commContext[groupIndex] = AllocCommContext<ResType::RING>(commContext[groupIndex]);
         }
-        g_context[groupName] = commContext[groupIndex];
     }
     return commContext;
+#endif
+    return {};
+}
+
+std::vector<uint64_t> DistributedContext::GetCommContextToHost([[maybe_unused]] const std::vector<std::string> &groupNames)
+{
+#ifdef BUILD_WITH_CANN
+    std::vector<uint64_t> devAddrs = GetCommContext(groupNames);
+    std::vector<uint64_t> host_context;
+    ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
+    for (size_t groupIndex = 0; groupIndex < groupNames.size(); groupIndex++) {
+        std::string groupName = groupNames[groupIndex];
+        host_context.push_back((uint64_t)g_context[groupName].second);
+    }
+    return host_context;
 #endif
     return {};
 }
