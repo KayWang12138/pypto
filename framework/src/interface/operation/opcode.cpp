@@ -869,6 +869,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {         Opcode::OP_BITWISEORS,    "TBitwiseOrS"},
     {        Opcode::OP_BITWISEXORS,   "TBitwiseXorS"},
     {         Opcode::OP_BITWISENOT,    "TBitwiseNot"},
+    {         Opcode::OP_LN,             "TLog"      },
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
