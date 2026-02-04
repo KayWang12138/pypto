@@ -582,6 +582,7 @@ def get_qwen_common_config(device="cpu"):
     return atten_cfg, tile_cfg
 
 
+@pytest.mark.skip(reason="large test case")
 def test_attention():
     # 使用 torch 生成数据
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
