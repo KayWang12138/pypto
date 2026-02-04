@@ -1,4 +1,4 @@
-from .runtime import *
+from .jit import *
 from .compiler import *
 
 
@@ -10,7 +10,7 @@ def TestKernelFunction():
 @jit
 def TestJITFunction():
     print("This is a test JIT function.")
-    TestKernelFunction().launch()
+    TestKernelFunction()
     return
 
 

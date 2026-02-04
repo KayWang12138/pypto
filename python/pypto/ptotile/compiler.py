@@ -299,4 +299,4 @@ class CompileCallable:
         # TODO: Preprocess the function if not already preprocessed
 
         # TODO: 生成中间IR、并调用ptoas进行编译
-        return generate_mlir()
+        return 
