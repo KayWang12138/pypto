@@ -268,6 +268,11 @@ TEST_F(ControlFlowTest, CtrlFlowPartialCache) {
 
     EXPECT_EQ(0, EmulationLauncher::EmulationRunOnce(Program::GetInstance().GetLastFunction(), ctrolCache, config));
 
+    if (ctrolCache != nullptr) {
+        free(ctrolCache);
+        ctrolCache = nullptr;
+    }
+
 }
 
 TEST_F(ControlFlowTest, TestMainBlock) {
