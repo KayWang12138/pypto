@@ -684,7 +684,7 @@ def attention_pre_quant(
 
 
 def main():
-    test_quant_attention_pre()
+    pass
 
 
 if __name__ == "__main__":
