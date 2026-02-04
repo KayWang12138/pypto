@@ -53,6 +53,39 @@ bool Edge(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const G
     return false;
 }
 
+template <typename GraphT>
+VWorkwT<GraphT> CriticalPathWeight(const GraphT &graph) {
+    if (graph.NumVertices() == 0) {return 0; }
+
+    std::vector<VWorkwT<GraphT>> topLength(graph.NumVertices(), 0);
+    VWorkwT<GraphT> criticalPathWeight = 0;
+
+    // calculating lenght of longest path
+    for (const auto &node : GetTopOrder(graph)) {
+        VWorkwT<GraphT> maxTemp = 0;
+        for (const auto &parent : graph.Parents(node)) {
+            maxTemp = std::max(maxTemp, topLength[parent]);
+        }
+
+        topLength[node] = maxTemp + graph.VertexWorkWeight(node);
+        if (topLength[node] > criticalPathWeight) {
+            criticalPathWeight = topLength[node];
+        }
+    }
+
+    return criticalPathWeight;
+}
+
+template <typename GraphT>
+std::pair<EdgeDescT<GraphT>, bool> EdgeDesc(const VertexIdxT<GraphT> &src, const VertexIdxT<GraphT> &dest, const GraphT &graph) {
+    for (const auto &edge : OutEdges(src, graph)) {
+        if (Target(edge, graph) == dest) {
+            return {edge, true};
+        }
+    }
+    return {EdgeDescT<GraphT>(), false};
+}
+
 /**
  * @brief Computes the weakly connected components of a directed graph.
  *

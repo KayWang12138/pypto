@@ -20,7 +20,7 @@
 
 #include "BspArchitecture.hpp"
 #include "passes/algorithms/osp/graph_algorithms/computational_dag_construction_util.hpp"
-#include "passes/algorithms/osp/graph_algorithms/computational_dag_util.hpp"
+#include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {

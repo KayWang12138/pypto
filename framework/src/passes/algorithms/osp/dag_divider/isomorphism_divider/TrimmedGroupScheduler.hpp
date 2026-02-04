@@ -21,7 +21,7 @@
 #include <vector>
 
 #include "passes/algorithms/osp/bsp/scheduler/Scheduler.hpp"
-#include "passes/algorithms/osp/graph_algorithms/computational_dag_util.hpp"
+#include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 #include "passes/algorithms/osp/graph_algorithms/subgraph_algorithms.hpp"
 
 namespace npu::tile_fwk {

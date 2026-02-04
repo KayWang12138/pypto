@@ -31,7 +31,6 @@
 #include "passes/algorithms/osp/auxiliary/datastructures/heaps/PairingHeap.hpp"
 #include "passes/algorithms/osp/bsp/model/util/CompatibleProcessorRange.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/ImprovementScheduler.hpp"
-#include "passes/algorithms/osp/graph_algorithms/directed_graph_edge_desc_util.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 
 namespace npu::tile_fwk {
