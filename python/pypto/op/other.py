@@ -138,3 +138,47 @@ def one_hot(input: Tensor, num_classes: int) -> Tensor:
     if num_classes <= 0:
         raise RuntimeError("num_classes must be a positive integer")
     return pypto_impl.OneHot(input, num_classes)
+
+@op_wrapper
+def expand_exp_dif(input: Tensor, other: Tensor) -> Tensor:
+    """Computes the exp dif of `input` and `other`.
+
+    This function calculates the formula: `out = e ** (input - other)`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The first input tensor.
+    other : Tensor
+        The second input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise exp dif.
+
+    Raises
+    ------
+    RuntimeError
+        If the last axis and second last axis of `other` are both not 1.
+
+    Examples
+    --------
+    x = pypto.tensor([2, 3], pypto.DT_FP32)
+    y = pypto.tensor([2, 3], pypto.DT_FP32)
+    out1 = pypto.sub(a, b)
+
+    Input x:      [[9.0 9.0 9.0],
+                   [9.0 9.0 9.0]]
+    Input y:      [[1.0 2.0 3.0],
+                   [1.0 2.0 3.0]]
+    Output out1 : [[8.0 7.0 6.0],
+                   [8.0 7.0 6.0]]
+
+    # Using a scalar and alpha
+    c = pypto.sub(x, 2.0, alpha=3) # Computes x - 2 * 3
+
+    Output c:[[3.0 3.0 3.0],
+              [3.0 3.0 3.0]]
+    """
+    return pypto_impl.ExpandExpDif(input, other)
