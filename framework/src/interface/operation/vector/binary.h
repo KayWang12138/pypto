@@ -53,6 +53,7 @@ enum class BinaryOpType {
     BITWISEAND,
     BITWISEOR,
     BITWISEXOR,
+    EXPANDEXPDIF,
     COPYSIGN,
     GCD,
 };
@@ -81,6 +82,7 @@ std::string GetBinaryOpName() {
         case BinaryOpType::BITWISEAND: return "BITWISEAND";
         case BinaryOpType::BITWISEOR: return "BITWISEOR";
         case BinaryOpType::BITWISEXOR: return "BITWISEXOR";
+        case BinaryOpType::EXPANDEXPDIF: return "EXPANDEXPDIF";
         case BinaryOpType::COPYSIGN: return "COPYSIGN";
         case BinaryOpType::GCD: return "GCD";
         default: ASSERT(false && "unknown binary op type"); return "";
@@ -153,6 +155,7 @@ Opcode GetBinaryOpNameCode() {
         CASE(BITWISEAND);
         CASE(BITWISEOR);
         CASE(BITWISEXOR);
+        CASE(EXPANDEXPDIF);
         CASE(COPYSIGN);
         CASE(GCD);
         default: ASSERT(false && "unknown binary op type");
