@@ -22,13 +22,12 @@ import sys
 import time
 import argparse
 import logging
-import pytest
 from typing import Optional, Tuple, List, Dict, Any
 
 import torch
 from numpy.testing import assert_allclose
+import pytest
 
-# Import the main module
 from sum_lstm import sum_lstm, LstmConfig
 
 BATCH_SIZE = 32

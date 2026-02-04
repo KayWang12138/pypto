@@ -30,28 +30,6 @@ D_GATE = 4096
 D_GATE_4 = 16384
 
 
-def get_device_id():
-    """
-    Get and validate TILE_FWK_DEVICE_ID from environment variable.
-
-    Returns:
-        int: The device ID if valid, None otherwise.
-    """
-    if 'TILE_FWK_DEVICE_ID' not in os.environ:
-        logging.info("If no NPU environment is available, set --run_mode sim to run in simulation mode;")
-        logging.info("otherwise, set the environment variable TILE_FWK_DEVICE_ID.")
-        logging.info("Please set it before running this example:")
-        logging.info("  export TILE_FWK_DEVICE_ID=0")
-        return None
-
-    try:
-        device_id = int(os.environ['TILE_FWK_DEVICE_ID'])
-        return device_id
-    except ValueError:
-        logging.error(f"ERROR: TILE_FWK_DEVICE_ID must be an integer, got: {os.environ['TILE_FWK_DEVICE_ID']}")
-        return None
-
-
 @dataclass
 class LstmConfig:
     """Hyperparameters for LSTM."""
