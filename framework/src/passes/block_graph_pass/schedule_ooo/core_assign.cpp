@@ -346,16 +346,12 @@ void TaskSpliter::BuildOpGraph() {
         opMagicToIdx_[opList_[i]->GetOpMagic()] = i;
         opCoreTypes_[i] = OpcodeManager::Inst().GetCoreType(opList_[i]->GetOpcode()) == OpCoreType::AIC ?
                          ScheduleCoreType::AIC : ScheduleCoreType::AIV;
-    }
-    for (int i = 0; i < opNum; i++) {
-        if (opList_[i]->GetOpcode() == Opcode::OP_COPY_IN) {
-            auto nextOp = *opList_[i]->ConsumerOps().begin();
-            opCoreTypes_[i] = opCoreTypes_[opMagicToIdx_[nextOp->GetOpMagic()]];
+        if (opList_[i]->HasAttribute(OpAttributeKey::isCube)) {
+            bool isCube = opList_[i]->GetBoolAttribute(OpAttributeKey::isCube);
+            opCoreTypes_[i] = isCube ? ScheduleCoreType::AIC : ScheduleCoreType::AIV;
         }
-        else if (opList_[i]->GetOpcode() == Opcode::OP_COPY_OUT) {
-            auto prevOp = *opList_[i]->ProducerOps().begin();
-            opCoreTypes_[i] = opCoreTypes_[opMagicToIdx_[prevOp->GetOpMagic()]];
-        }
+        APASS_LOG_DEBUG_F(Elements::Operation, "Mark %s[%d] as %s core type.", opList_[i]->GetOpcodeStr().c_str(), opList_[i]->GetOpMagic(),
+            opCoreTypes_[i] == ScheduleCoreType::AIC ? "AIC" : "AIV");
     }
     APASS_LOG_INFO_F(Elements::Operation, "Mark core type finished.");
     opInGraph_.resize(opNum);
