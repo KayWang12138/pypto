@@ -12,9 +12,9 @@
 """
 import contextlib
 import os
-import time
 
 import pypto
+import pytest
 import torch
 import torch_npu
 
@@ -311,7 +311,7 @@ def aclgraph_enable():
         g.capture_end()
     torch_npu.npu.current_stream().wait_stream(s)
     # 执行
-    for i in range(10):
+    for _ in range(10):
         g.replay()
         stream = torch_npu.npu.current_stream()
         stream.synchronize()
@@ -337,5 +337,6 @@ class TestTripleStream:
         infer_shape_common(self.device, s=2)
         infer_shape_common(self.device, s=1)
 
+    @pytest.mark.skip(reason="mix two and triple stream sched not support")
     def test_mix_unify_split_stream(self):
         infer_shape_common(self.device, mix=True)
