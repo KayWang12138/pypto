@@ -10,15 +10,10 @@
 
 message(STATUS "Compiling the TraCR post processing script 'tracr_process' in: ${CMAKE_CURRENT_BINARY_DIR}/output/bin")
 
+# Paraver format configuration file
 configure_file(
     ${CMAKE_CURRENT_LIST_DIR}/paraver/state.cfg
     ${CMAKE_CURRENT_BINARY_DIR}/output/bin/state.cfg
-    COPYONLY
-)
-
-configure_file(
-    ${CMAKE_CURRENT_LIST_DIR}/custom_info.json
-    ${CMAKE_CURRENT_BINARY_DIR}/output/bin/custom_info.json
     COPYONLY
 )
 
