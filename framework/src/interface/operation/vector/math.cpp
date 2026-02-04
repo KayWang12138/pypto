@@ -138,6 +138,60 @@ Tensor Log(const Tensor &self, LogBaseType base) {
     return resTensorBeforeCast;
 }
 
+DataType GetPowRealResultDataType(DataType selfType, DataType otherType) {
+    if (selfType == DT_INT32) {
+        return otherType;
+    }
+    if (otherType == DT_INT32) {
+        return selfType;
+    }
+    if (selfType == DT_BF16) {
+        return otherType == DT_FP16 ? DT_FP32 : otherType;
+    }
+    if (otherType == DT_BF16) {
+        return selfType == DT_FP16 ? DT_FP32 : selfType;
+    }
+    return selfType == DT_FP16 && otherType == DT_FP16 ? DT_FP16 : DT_FP32;
+}
+
+DataType GetPowCalcResultDataType(DataType selfType, DataType otherType) {
+    if (selfType == DT_INT32 && otherType == DT_INT32) {
+        return DT_INT32;
+    }
+    return DT_FP32;
+}
+
+LogicalTensorPtr CastToResultType(const LogicalTensorPtr &tensor, DataType originType, DataType resultType) {
+    if (originType == resultType) {
+        return tensor;
+    }
+    RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), tensor,
+            resultType, CastMode::CAST_NONE);
+}
+
+LogicalTensorPtr TensorPowOperation(Function &function, const LogicalTensorPtr &self,
+    const LogicalTensorPtr &other, DataType resultType) {
+    auto result = std::make_shared<LogicalTensor>(function, resultType, self->shape, self->GetDynValidShape());
+    function.AddOperation(Opcode::OP_POW, {self, other}, {result});
+    return result;
+}
+
+Tensor Pow(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    DataType selfType = self.GetDataType();
+    DataType otherType = other.GetDataType();
+    DataType realResultType = GetPowRealResultDataType(selfType, otherType);
+    DataType calcResultType = GetPowCalcResultDataType(selfType, otherType);
+    auto selfSt = CastToResultType(self.GetStorage(), selfType, calcResultType);
+    auto otherSt = CastToResultType(other.GetStorage(), otherType, calcResultType);
+    auto result = CALL(PowOperation, *Program::GetInstance().GetCurrentFunction(), selfSt, otherSt, calcResultType);
+    if (realResultType != calcResultType) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result,
+            realResultType, CastMode::CAST_NONE);
+    }
+    return result;
+}
+
 LogicalTensorPtr GenAllOneTensor(const Shape &shape, std::vector<SymbolicScalar> validShape, const DataType &dataType) {
     auto result = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, 1.0),
         SymbolicScalar(), DataType::DT_FP32, shape, validShape);
@@ -175,11 +229,12 @@ LogicalTensorPtr GeneralPow(const Tensor &self, double exponent) {
     if (exponent - intExponent < NUM_VALUE_EPS) {
         result = IntegerPow(self, intExponent);
     } else {
-        auto exponents =
-            CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, exponent),
-                SymbolicScalar(), DataType::DT_FP32, self.GetShape(), self.GetStorage()->GetDynValidShape());
-        result =
-            CALL(BinaryOperation<BinaryOpType::POW>, *Program::GetInstance().GetCurrentFunction(), self, exponents);
+        auto lnSelf = CALL(UnaryOperation<UnaryOpType::LN>,
+            *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+        auto exponentLnSelf = CALL(BinaryOperationScalar<BinaryOpType::MUL>,
+            *Program::GetInstance().GetCurrentFunction(), lnSelf, Element(DataType::DT_FP32, exponent));
+        result = CALL(UnaryOperation<UnaryOpType::EXP>,
+            *Program::GetInstance().GetCurrentFunction(), exponentLnSelf);
     }
 
     // 指数小于零，结果取倒数
