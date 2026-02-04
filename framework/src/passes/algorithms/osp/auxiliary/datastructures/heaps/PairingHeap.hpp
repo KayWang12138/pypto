@@ -246,7 +246,6 @@ class PairingHeap {
      */
     void Push(const Key &key, const Value &value) {
         Node *newNode = new Node{key, value};
-        // emplace and check for success to avoid a separate lookup with contains()
         const auto pair = nodeMap_.emplace(key, newNode);
         const bool &success = pair.second;
         if (!success) {
@@ -263,9 +262,7 @@ class PairingHeap {
      * @throws std::out_of_range If the heap is empty.
      */
     [[nodiscard]] const Key &Top() const {
-        if (IsEmpty()) {
-            throw std::out_of_range("Heap is empty.");
-        }
+        if (IsEmpty()) { throw std::out_of_range("Heap is empty.");  }
         return root_->key_;
     }
 
@@ -322,8 +319,6 @@ class PairingHeap {
                 }
                 root_ = Meld(root_, node);
             } else {
-                // The root's value increased, it might not be the minimum anymore.
-                // We can treat it as if we popped it and re-inserted it, without the delete/new.
                 Node *oldRoot = root_;
                 root_ = MultipassMerge(oldRoot->child_);
                 oldRoot->child_ = nullptr;
@@ -332,7 +327,6 @@ class PairingHeap {
         } else {
             node->value_ = newValue;
         }
-        // If values are equal, do nothing.
     }
 
     /**
@@ -353,8 +347,6 @@ class PairingHeap {
         }
 
         Cut(nodeToErase);
-
-        // Merge its children into the main heap
         if (nodeToErase->child_) {
             root_ = Meld(root_, MultipassMerge(nodeToErase->child_));
             nodeToErase->child_ = nullptr;
@@ -383,11 +375,8 @@ class PairingHeap {
      * @brief Removes all elements from the heap.
      */
     void Clear() {
-        if (!root_) {
-            return;
-        }
+        if (!root_) { return; }
 
-        // Iterative post-order traversal to delete all nodes
         std::vector<Node *> toVisit;
         if (numElements_ > 0) {
             toVisit.reserve(numElements_);

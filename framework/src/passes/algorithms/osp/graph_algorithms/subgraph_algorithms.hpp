@@ -46,8 +46,7 @@ std::unordered_map<VertexIdxT<GraphTIn>, VertexIdxT<GraphTOut>> CreateInducedSub
                 dagOut.AddEdge(localIdx[pred], localIdx[node]);
             }
         }
-    }
-    
+    }   
 
     return localIdx;
 }
