@@ -48,75 +48,6 @@ TILEOP void DeConvFP32(__ubuf__ T* dst, __ubuf__ float* src, uint8_t repeat, uin
     }
 }
 
-template<typename TargetType, typename SourceType, uint32_t rowShape, uint32_t colShape,
-    uint32_t srcStride, uint32_t bufferStride, uint32_t dstStride, AtomicType atomicType>
-TILEOP void CopyUbToGmBlock(__gm__ TargetType* target, __ubuf__ SourceType* source) {
-    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-    if constexpr (atomicType == AtomicType::ADD) {
-        SetAttomicType<TargetType>();
-        set_atomic_add();
-    }
-    TileOp::UBCopyOut<TargetType, rowShape, colShape, dstStride, bufferStride>(target, source);
-    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    if constexpr (atomicType == AtomicType::ADD) {
-        set_atomic_none();
-    }
-}
-
-template<typename TargetType, typename SourceType, uint32_t rowShape, uint32_t colShape,
-    uint32_t srcStride, uint32_t dstStride>
-TILEOP void CopyGmToUbBlock(__ubuf__ TargetType* target, __ubuf__ TargetType* buffer, __gm__ SourceType* source) {
-    if constexpr (std::is_same_v<TargetType, SourceType>) {
-        set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-        wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-        TileOp::UBCopyIn<SourceType, rowShape, colShape, dstStride, srcStride>(target, source);
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-    }
-    else {
-        __ubuf__ float* castUb = (__ubuf__ float*)buffer;
-        uint64_t repeat = AlignUp<uint64_t>(rowShape * colShape * sizeof(float), 256) / 256;
-        TileOp::UBCopyIn<SourceType, rowShape, colShape, dstStride, srcStride>(castUb, source);
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        DeConvFP32<TargetType>(target, castUb, repeat, 1, 1, 4, 8);
-        set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
-    }
-}
-
-template<typename TargetType, typename SourceType, uint32_t colFullBlockCount, uint32_t bufferRowShape,
-    uint32_t bufferColShape, uint32_t colTailShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
-TILEOP void CopyUbToGmRow(__gm__ TargetType* target, __ubuf__ SourceType* source) {
-    uint32_t offset = 0;
-    for (uint32_t colIndex = 0; colIndex < colFullBlockCount; ++colIndex, offset += bufferColShape) {
-        CopyUbToGmBlock<TargetType, SourceType, bufferRowShape, bufferColShape, srcStride, bufferColShape, dstStride, atomicType>(target + offset, source + offset);
-    }
-    if (colTailShape > 0) {
-        CopyUbToGmBlock<TargetType, SourceType, bufferRowShape, colTailShape, srcStride, bufferColShape, dstStride, atomicType>(target + offset, source + offset);
-    }
-}
-
-template<typename TargetType, typename SourceType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape, uint32_t bufferColShape,
-    uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
-TILEOP void CopyUbToGm(__gm__ TargetType* target, __ubuf__ SourceType* source)
-{
-    constexpr uint32_t rowFullBlockCount = tileRowShape / bufferRowShape;
-    constexpr uint32_t colFullBlockCount = tileColShape / bufferColShape;
-    constexpr uint32_t rowTailShape = tileRowShape % bufferRowShape;
-    constexpr uint32_t colTailShape = tileColShape % bufferColShape;
-    constexpr uint32_t srcRowStride = bufferRowShape * srcStride;
-    constexpr uint32_t dstRowStride = bufferRowShape * dstStride;
-    for (uint32_t rowIndex = 0; rowIndex < rowFullBlockCount; ++rowIndex, source += srcRowStride, target += dstRowStride) {
-        CopyUbToGmRow<TargetType, SourceType, colFullBlockCount, bufferRowShape, bufferColShape, colTailShape, srcStride, dstStride, atomicType>(target, source);
-    }
-    if (rowTailShape > 0) {
-        CopyUbToGmRow<TargetType, SourceType, colFullBlockCount, rowTailShape, bufferColShape, colTailShape, srcStride, dstStride, atomicType>(target, source);
-    }
-}
-
 template<typename T, uint32_t bufferEleNum, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2, uint32_t shmemTensorRawShape3>
 TILEOP void ShmemClear(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr)
 {
@@ -327,10 +258,29 @@ TILEOP void ShmemPutUb2Gm(__ubuf__ UBType* UBDataBaseAddr, __gm__ ShmemType* shm
 {
     (void)UBDataRawShape0;
     (void)shmemDataRawShape0;
-    __ubuf__ UBType* UBDataAddr = UBDataBaseAddr + UBDataOffset0 * UBDataRawShape1 + UBDataOffset1;
-    __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) + shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 +
-        shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
-    CopyUbToGm<ShmemType, UBType, tileRowShape, tileColShape, bufferRowShape, bufferColShape, srcStride, dstStride, atomicType>(shmemDataAddr, UBDataAddr);
+    (void)bufferColShape;
+    
+    __ubuf__ UBType* ubAddr = UBDataBaseAddr + UBDataOffset0 * UBDataRawShape1 + UBDataOffset1;
+    __gm__ ShmemType* gmAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+        shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
+    
+    ShapeDyn shape(1, 1, 1, tileRowShape, tileColShape);
+    StrideDyn strideDyn(tileRowShape, tileRowShape, tileRowShape, dstStride, 1);
+    ShmemGlobalTensor<ShmemType, tileRowShape, tileColShape> gmTensor(gmAddr, shape, strideDyn);
+    ShmemUbTile<UBType, tileRowShape, tileColShape> ubTile(tileRowShape, tileColShape);
+    pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(ubAddr));
+    
+    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    
+    if constexpr (atomicType == AtomicType::ADD) {
+        pto::TSTORE<decltype(ubTile), decltype(gmTensor), pto::AtomicType::AtomicAdd>(gmTensor, ubTile);
+    } else {
+        pto::TSTORE<decltype(ubTile), decltype(gmTensor), pto::AtomicType::AtomicNone>(gmTensor, ubTile);
+    }
+    
+    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
 }
 
 template<int64_t value, int32_t stride, int32_t tileRowShape, int32_t tileColShape, AtomicType atomicType>
@@ -410,15 +360,30 @@ TILEOP void ShmemGetGm2Ub(__ubuf__ UBType* UBDataBaseAddr, __ubuf__ UBType* buff
     uint32_t UBDataOffset0, uint32_t UBDataOffset1, uint32_t UBDataRawShape0, uint32_t UBDataRawShape1,
     uint32_t shmemDataOffset0, uint32_t shmemDataOffset1, uint32_t shmemDataOffset2, uint32_t shmemDataOffset3,
     uint32_t shmemDataRawShape0, uint32_t shmemDataRawShape1, uint32_t shmemDataRawShape2, uint32_t shmemDataRawShape3, __gm__ int64_t *hcclContext)
-{   
+{
     (void)tileRowShape;
     (void)tileColShape;
     (void)UBDataRawShape0;
     (void)shmemDataRawShape0;
-    __ubuf__ UBType* UBDataAddr = UBDataBaseAddr + UBDataOffset0 * UBDataRawShape1 + UBDataOffset1;
-    __gm__ ShmemType* shmemDataAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
+    (void)buffer;
+    
+    __ubuf__ UBType* ubAddr = UBDataBaseAddr + UBDataOffset0 * UBDataRawShape1 + UBDataOffset1;
+    __gm__ ShmemType* gmAddr = MapVirtualAddr<ShmemType>(hcclContext, shmemDataBaseAddr, shmemDataOffset0) +
         shmemDataOffset1 * shmemDataRawShape2 * shmemDataRawShape3 + shmemDataOffset2 * shmemDataRawShape3 + shmemDataOffset3;
-    CopyGmToUbBlock<UBType, ShmemType, bufferRowShape, bufferColShape, srcStride, dstStride>(UBDataAddr, buffer, shmemDataAddr);
+    
+    ShapeDyn shape(1, 1, 1, bufferRowShape, bufferColShape);
+    StrideDyn strideDyn(bufferRowShape, bufferRowShape, bufferRowShape, srcStride, 1);
+    ShmemGlobalTensor<ShmemType, bufferRowShape, bufferColShape> gmTensor(gmAddr, shape, strideDyn);
+    ShmemUbTile<UBType, bufferRowShape, bufferColShape> ubTile(bufferRowShape, bufferColShape);
+    pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(ubAddr));
+    
+    set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+    wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+    
+    pto::TLOAD(ubTile, gmTensor);
+    
+    set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+    wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
 }
 
 template<typename T, bool FP32Mode>
