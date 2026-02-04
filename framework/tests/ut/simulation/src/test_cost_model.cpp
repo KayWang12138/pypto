@@ -25,6 +25,8 @@
 #include "cost_model/simulation/pv/PvModelFactory.h"
 #include "interface/configs/config_manager.h"
 #include "cost_model/simulation_ca/PipeSimulator.h"
+#include "cost_model/simulation/arch/PipeFactory.h"
+#include "cost_model/simulation/arch/CacheMachineImpl.h"
 
 using namespace npu::tile_fwk;
 
@@ -37,7 +39,7 @@ public:
     void SetUp() override {
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, true);
         config::SetSimConfig(KEY_BUILD_TASK_BASED_TOPO, true);
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         Program::GetInstance().Reset();
     }
 
@@ -90,7 +92,7 @@ void RunMatrixCostModel() {
 
 void RunAttentionPostCostModel()
 {
-    config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     int b = 1;
     int n = 2;
     int s = 128;
@@ -286,7 +288,7 @@ TEST_F(CostModelTest, TestReplaceGMStr)
 void RunCat()
 {
     TileShape::Current().SetVecTile(16, 6, 6, 16);
-    config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+    config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
 
     std::vector<int64_t> shape1 = {10, 10, 10, 10};
     std::vector<int64_t> shape2 = {20, 10, 10, 10};
@@ -387,7 +389,6 @@ void CostModelTestLoopViewAssemble(const Tensor &t0, const Tensor &t1, const Ten
 }
 
 TEST_F(CostModelDynTest, TestDD) {
-    config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     constexpr int tilingX = 32;
     constexpr int tilingY = 32;
     TileShape::Current().SetVecTile(tilingX, tilingY);
@@ -412,4 +413,22 @@ TEST_F(CostModelDynTest, TestDD) {
     auto func = Program::GetInstance().GetLastFunction();
     auto pv = CostModel::PvModelFactory::CreateDyn();
     pv->Codegen(func);
+}
+
+TEST_F(CostModelTest, TestUnknownArchType)
+{
+    EXPECT_THROW(CostModel::PipeFactory::Create(CostModel::CorePipeType::PIPE_MTE_IN, "A0", 1), std::invalid_argument);
+}
+
+TEST_F(CostModelTest, TestCreateA5Cache)
+{
+    std::unique_ptr<CostModel::CacheMachineImpl> cacheImpl = CostModel::PipeFactory::CreateCache(CostModel::CacheType::L2CACHE, "A5");
+    CostModel::CachePacket packet;
+    cacheImpl->Simulate(packet);
+}
+
+TEST_F(CostModelTest, TestA5ArchType)
+{
+    auto simulator =CostModel::PipeFactory::Create(CostModel::CorePipeType::PIPE_MTE_IN, "A5", 1);
+    EXPECT_TRUE(simulator != nullptr);
 }

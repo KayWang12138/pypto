@@ -91,6 +91,15 @@ struct PrintUnaryParam {
     const std::string &dstDtypeStr;
 };
 
+struct PrintUnaryTmpParam {
+    const std::string &s0Var;
+    const std::string &dVar;
+    const std::string &tmpVar;
+    const std::string &srcDtypeStr;
+    const std::string &dstDtypeStr;
+    const std::string &tmpDtypeStr;
+};
+
 struct PrintUnaryTmpBuffParam {
     const std::string &s0Var;
     const std::string &tmpVar;
@@ -107,7 +116,7 @@ struct PrintMemCopyWithL0CParam {
     const std::vector<std::string> &addrTypeHead;
     const std::vector<std::string> &addrExpr;
     const std::vector<int64_t> &gmShape;
-    const std::vector<int64_t> &tileShapeForMT;
+    const std::vector<int64_t> &localRawShape;
     const std::vector<std::string> &dataTypeExpr;
 };
 
@@ -118,7 +127,7 @@ struct PrintMemCopyWithL1Param {
     const std::vector<std::string> &addrTypeHead;
     const std::vector<std::string> &addrExpr;
     const std::vector<int64_t> &gmShape;
-    const std::vector<int64_t> &tileShapeForMT;
+    const std::vector<int64_t> &localRawShape;
     const std::vector<std::string> &dataTypeExpr;
 };
 
@@ -156,6 +165,17 @@ struct PrintBinaryParam {
     const std::string &src0DtypeStr;
     const std::string &src1DtypeStr;
     const std::string &dstDtypeStr;
+};
+
+struct PrintBinaryTmpParam {
+    const std::string &s0Var;
+    const std::string &s1Var;
+    const std::string &dVar;
+    const std::string &tmpVar;
+    const std::string &src0DtypeStr;
+    const std::string &src1DtypeStr;
+    const std::string &dstDtypeStr;
+    const std::string &tmpDtypeStr;
 };
 
 struct PrintBinaryBrcParam {

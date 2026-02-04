@@ -193,10 +193,18 @@ public:
         const int32_t expectedSum = info.expectedSum;
         const bool resetSignal = info.resetSignal;
         int32_t stride = aicpuCode[paramInfo_.attrIndex + 1];
-        int32_t tileIndex = aicpuCode[paramInfo_.attrIndex + 3];
-        int32_t totalTileNum = aicpuCode[paramInfo_.attrIndex + 4];
+        int32_t tileRowShape = aicpuCode[paramInfo_.attrIndex + 3];
+        int32_t tileColShape = aicpuCode[paramInfo_.attrIndex + 4];
+
+        int32_t tileCols = (paramInfo_.rawShapeCol + tileColShape - 1) / tileColShape;
+        int32_t tileRows = (paramInfo_.rawShapeRow + tileRowShape - 1) / tileRowShape;
+        int32_t tileRow = info.offset[SHMEM_DIM_ROW] / tileRowShape;
+        int32_t tileCol = info.offset[SHMEM_DIM_COL] / tileColShape;
+        int32_t tileIndex = tileRow * tileCols + tileCol;
+        int32_t totalTileNum = tileRows * tileCols;
+
         // info.offset[1]代表src的rankId=offset[1]的shmemSignal版图, info.offset[2]代表srcRankId, info.offset[3]代表row offset, info.offset[4]代表col offset
-        DEV_DEBUG("ShmemWaitUntil::EnqueueOp offset1=%u, offset2=%u, offset3=%u,  offset4=%u, shape3=%u, shape4=%u, rawShape3=%u, rawShape4=%u, tileIndex=%d, totalTileNum=%d", 
+        DEV_DEBUG("ShmemWaitUntil::EnqueueOp offset1=%u, offset2=%u, offset3=%u,  offset4=%u, shape3=%u, shape4=%u, rawShape3=%u, rawShape4=%u, tileIndex=%d, totalTileNum=%d",
             info.offset[SRC_SHMEM_SIGNAL_ID], info.offset[SRC_RANK_ID], info.offset[SHMEM_DIM_ROW], info.offset[SHMEM_DIM_COL],
             paramInfo_.tileShapeRow, paramInfo_.tileShapeCol, paramInfo_.rawShapeRow, paramInfo_.rawShapeCol, tileIndex, totalTileNum);
 
@@ -205,7 +213,7 @@ public:
         return hashMap_.InsertTask(taskId, addr, expectedSum, resetSignal);
     }
 
-    int32_t PollCompleted(npu::tile_fwk::dynamic::AiCoreManager &aiCoreManager);
+    int32_t PollCompleted(npu::tile_fwk::dynamic::AiCoreManager *aiCoreManager);
 
     CircularQueue runingTaskQueue_;
 

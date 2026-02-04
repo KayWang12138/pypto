@@ -965,6 +965,31 @@ std::string CodeGenOpCloudNPU::GenCumSumOp() const {
     }
 }
 
+std::string CodeGenOpCloudNPU::PrintTriULTileTensor(const std::string &diagonal, bool isUpper) const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::vector<std::string> paramList = {dstTensor, srcTensor, diagonal};
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << isUpper << ">" << WrapParamByParentheses(paramList) << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenTriULOp() const {
+    ASSERT(opAttrs.count(OpAttributeKey::dynScalar)) << "cannot get diagonal attr";
+    ASSERT(opAttrs.count(OpAttributeKey::isUpper)) << "cannot get isUpper attr";
+    auto scalarAny = opAttrs.at(OpAttributeKey::dynScalar);
+    ASSERT((scalarAny.HasValue()) && (scalarAny.Type() == typeid(SymbolicScalar)))
+        << npu::tile_fwk::AnyCast<SymbolicScalar>(scalarAny).IsValid() << "diagonal must have symbolic value.";
+    auto scalarExpr = npu::tile_fwk::AnyCast<SymbolicScalar>(scalarAny);
+    
+    std::string diagonal = "(int)(" + SymbolicExpressionTable::BuildExpression(scalarExpr) + ")";
+    bool isUpper = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OpAttributeKey::isUpper));
+
+    ASSERT(isSupportLayout) << "TriU or TriL only support TileTensor mode";
+    return PrintTriULTileTensor(diagonal, isUpper);
+}
+
 std::string CodeGenOpCloudNPU::PrintScatterElementSOpStatic(const PrintScatterElemParam &param) const {
     // Static only support 2Dim
     int dstRank = shape[ToUnderlying(MISOIdx::DST_IDX)].size();
@@ -1633,37 +1658,5 @@ std::string CodeGenOpCloudNPU::GenLogicalAndOp() const {
        << "(" << tiloOpCallParam << ");\n";
 
     return os.str();
-}
-
-std::string CodeGenOpCloudNPU::PrintBitwiseShiftTensor() const {
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
-    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
-    std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC1_IDX));
-    std::vector<std::string> paramList = {dstTensor, srcTensor, src1Tensor, tmpTensor};
-    std::ostringstream oss;
-    oss << tileOpName;
-    oss << WrapParamByParentheses(paramList) << ";\n";
-    return oss.str();
-}
-
-std::string CodeGenOpCloudNPU::GenBitwiseShiftOp() const {
-    ASSERT(isSupportLayout) << "BitwiseShift only support tile tensor";
-    return PrintBitwiseShiftTensor();
-}
-
-std::string CodeGenOpCloudNPU::PrintBitwiseShiftScalar() const {
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
-    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
-    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
-    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
-    std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor << ", " << scalarTmpBuffer << ", " << srcTensor << ", " << tmpTensor << ");\n";
-    return oss.str();
-}
-
-std::string CodeGenOpCloudNPU::GenBitwiseShiftScalarOp() const {
-    ASSERT(isSupportLayout) << "BitwiseShift only support tile tensor";
-    return PrintBitwiseShiftScalar();
 }
 } // namespace npu::tile_fwk
