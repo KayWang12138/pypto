@@ -423,7 +423,8 @@ class OrbitGraphProcessor {
         workPerVertexType.resize(mergeDifferentNodeTypes_ ? 1U : dag.NumVertexTypes(), 0);
 
         std::map<size_t, size_t> orbitSizeCounts;
-        for (const auto &[hash, vertices] : orbits) {
+        for (const auto &orbit : orbits) {
+            const auto &vertices = orbit.second;
             const size_t orbitSize = vertices.size();
 
             if (orbitSize == 1U) {
@@ -460,7 +461,8 @@ class OrbitGraphProcessor {
         minSymmetry_ = 2;
 
         size_t totalOrbitGroups = 0;
-        for (const auto &[size, count] : orbitSizeCounts) {
+        for (const auto &sizeCount : orbitSizeCounts) {
+            const size_t &count = sizeCount.second;
             totalOrbitGroups += count;
         }
         size_t countThreshold = static_cast<size_t>(static_cast<double>(totalOrbitGroups) * naturalBreaksCountPercentage_);
@@ -470,7 +472,8 @@ class OrbitGraphProcessor {
 
         std::vector<size_t> sortedSizes;
         sortedSizes.reserve(orbitSizeCounts.size());
-        for (const auto &[size, count] : orbitSizeCounts) {
+        for (const auto &sizeCont : orbitSizeCounts) {
+            const size_t &size = sizeCont.first;
             sortedSizes.push_back(size);
         }
         std::sort(sortedSizes.rbegin(), sortedSizes.rend());    // Sort descending
