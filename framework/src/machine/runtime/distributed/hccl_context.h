@@ -226,6 +226,73 @@ struct HcclCombinOpParam {
     uint64_t ibverbsData = 0; // TransportDeviceNormalIbverbsData数组的首地址
     uint64_t ibverbsDataSize = 0; // TransportDeviceNormalIbverbsData数组的字节长度
 };
+
+#pragma pack(push, 8)
+struct Mc2ServerCfg {
+    uint32_t version = 0;
+    uint8_t debugMode = 0;
+    uint8_t sendArgIndex = 0;
+    uint8_t recvArgIndex = 0;
+    uint8_t commOutArgIndex = 0;
+    uint8_t reserved[8] = {};
+};
+#pragma pack(pop)
+
+#pragma pack(push, 8)
+struct Mc2HcommCfg {
+    uint8_t skipLocalRankCopy = 0;
+    uint8_t skipBufferWindowCopy = 0;
+    uint8_t stepSize = 0;
+    char reserved[13] = {};
+    char groupName[128] = {};
+    char algConfig[128] = {};
+    uint32_t opType = 0;
+    uint32_t reduceType = 0;
+};
+#pragma pack(pop)
+
+struct Mc2CommConfig {
+    uint32_t version;
+    uint32_t hcommCnt;
+    struct Mc2ServerCfg serverCfg;
+    struct Mc2HcommCfg hcommCfg;
+};
+
+constexpr uint32_t INIT_TILING_VERSION = 100U;
+constexpr uint32_t MAX_CC_TILING_NUM = 8U;
+struct Mc2InitTilingInner {
+    uint32_t version;
+    uint32_t mc2HcommCnt;
+    uint32_t offset[MAX_CC_TILING_NUM];
+    uint8_t debugMode;
+    uint8_t preparePosition;
+    uint16_t queueNum;
+    uint16_t commBlockNum;
+    uint8_t devType;
+    char reserved[17];
+};
+
+constexpr uint32_t GROUP_NAME_SIZE = 128U;
+constexpr uint32_t ALG_CONFIG_SIZE = 128U;
+struct Mc2cCTilingInner {
+    uint8_t skipLocalRankCopy;
+    uint8_t skipBufferWindowCopy;
+    uint8_t stepSize;
+    uint8_t version;
+    char reserved[9];
+    uint8_t commEngine;
+    uint8_t srcDataType;
+    uint8_t dstDataType;
+    char groupName[GROUP_NAME_SIZE];
+    char algConfig[ALG_CONFIG_SIZE];
+    uint32_t opType;
+    uint32_t reduceType;
+};
+
+struct Mc2CommConfigV2 {
+    Mc2InitTilingInner init;
+    Mc2cCTilingInner inner;
+};
 } //namespace npu::tile_fwk
 
 #endif
