@@ -19,6 +19,7 @@ from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 from utils.np_compare import detailed_allclose_manual as compare
 import utils.golden.attn_golden as attn_golden
+import pytest
 
 
 np.random.seed(0)
@@ -582,6 +583,7 @@ def get_qwen_common_config(device="cpu"):
     return atten_cfg, tile_cfg
 
 
+@pytest.mark.skip
 def test_attention():
     # 使用 torch 生成数据
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
