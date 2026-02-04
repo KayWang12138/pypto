@@ -21,6 +21,7 @@
 #include <memory>
 #include <unordered_map>
 #include <map>
+#include <climits>
 #include "tilefwk/core_func_data.h"
 #include "function_cache.h"
 #include "interface/utils/common.h"
@@ -61,6 +62,12 @@ struct IdListKeyHash {
 class TopoProcessor {
 public:
     TopoProcessor(std::shared_ptr<CoreFunctionTopoCache> topoData, uint64_t topoNum) : srcTopoData_(topoData), srcTopoNum_(topoNum) {}
+
+    ~TopoProcessor() {
+        for (auto &items : newTopoIdToNewTopo_) {
+            delete[] reinterpret_cast<uint8_t*>(items.second);
+        }
+    }
 
     /* 合并批量依赖处理 */
     std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t> MergeBatchDepend(uint64_t batchDependNum, uint32_t mergeNum) {
@@ -128,7 +135,7 @@ private:
         memcpy_s(virtualTopo, size, static_cast<uint8_t*>(static_cast<void*>(oldTopo)), size);
         virtualTopo->coreType = static_cast<uint64_t>(isPure ? MachineType::VIRTUAL_PURE : MachineType::VIRTUAL_MIX);
         virtualTopo->psgId = 0xFFFFFFFF; // invalid psgid
-        virtualTopo->readyCount = (-1) * oldTopoVec.size();
+        virtualTopo->readyCount = INT32_MAX * static_cast<int64_t>(oldTopoVec.size());
         newTopoIdToNewTopo_[virtualTopoId] = virtualTopo;
         ALOG_DEBUG_F("[TopoProcessor]new virtual topo %lu , readycount:%ld", virtualTopoId, virtualTopo->readyCount);
         for (uint64_t i = 0; i < oldTopo->depNum; i++) {
