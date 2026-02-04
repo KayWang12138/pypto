@@ -221,7 +221,7 @@ void MixCallOperationBuilder::FindNewIOperandsAndOOperandsInPropagateInOutcast(
         int originalIndex = FindTensorIndexInList(tensorMagic, originalIncasts);
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalIOperands.size())) {
             newIOperands.push_back(originalIOperands[originalIndex]);
-            processedTensors.insert(incast);
+            processedIncasts.insert(incast);
             ALOG_DEBUG_F("    Found: propagated incast tensor magic=%d -> original iOperand[%d]",
                          tensorMagic, originalIndex);
         }
@@ -237,7 +237,7 @@ void MixCallOperationBuilder::FindNewIOperandsAndOOperandsInPropagateInOutcast(
         int originalIndex = FindTensorIndexInList(tensorMagic, originalOutcasts);
         if (originalIndex >= 0 && originalIndex < static_cast<int>(originalOOperands.size())) {
             newOOperands.push_back(originalOOperands[originalIndex]);
-            processedTensors.insert(outcast);
+            processedOutcasts.insert(outcast);
             ALOG_DEBUG_F("    Found: propagated outcast tensor magic=%d -> original oOperand[%d]",
                          tensorMagic, originalIndex);
         }
