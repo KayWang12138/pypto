@@ -141,7 +141,8 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             function.AddOperation(
                 GetBinaryOpNameCode<T, false, true>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
         } else {
-            if (GetBinaryOpNameCode<T, false, false>() == Opcode::OP_BITWISEXOR) {
+            if (GetBinaryOpNameCode<T, false, false>() == Opcode::OP_BITWISEXOR ||
+                GetBinaryOpNameCode<T, false, false>() == Opcode::OP_POW) {
                 std::vector<int64_t> tmpShape(resultTileInfo.shape);
                 auto alignSize = BLOCK_SIZE / BytesOf(result->Datatype());
                 tmpShape[resultTileInfo.shape.size() - 1] = 

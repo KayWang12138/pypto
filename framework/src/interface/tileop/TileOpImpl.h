@@ -49,6 +49,7 @@
 #include "vector/cumsum.h"
 #include "vector/extract.h"
 #include "vector/pair_binary.h"
+#include "vector/pow.h"
 #include "vector/where.h"
 #include "vector/logicaland.h"
 #include "vector/vector_dup.h"
