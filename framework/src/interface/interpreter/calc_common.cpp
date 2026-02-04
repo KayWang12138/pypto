@@ -16,6 +16,7 @@
 #include "interface/interpreter/function.h"
 #include "interface/utils/log.h"
 #include "interface/interpreter/operation.h"
+#include "interface/operation/operation_impl.h"
 
 namespace npu::tile_fwk {
 void ExecuteOpAssemble(ExecuteOperationContext *ctx) {
@@ -79,6 +80,17 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
     auto oopValid = std::make_shared<LogicalTensorData>(oop->GetData(), iopShape, toOffset);
 
     if (from == MemoryType::MEM_L0C) {
+        // fixpipe
+        if (iop->GetDataType() == DataType::DT_INT32 && oop->GetDataType() == DataType::DT_FP16) {
+            uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
+            int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
+            LogicalTensorDataPtr scalePtr = nullptr;
+            if (ctx->ioperandDataViewList->size() > 1) {
+                scalePtr = ctx->ioperandDataViewList->at(1);
+            }
+            calc::Fixpipe(oopValid, iop, scalePtr, scale, relu);
+            return;
+        }
         if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "atomic_add")) {
             calc::Add(oopValid, iop, oopValid);
         } else {

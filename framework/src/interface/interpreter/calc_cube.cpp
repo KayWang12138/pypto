@@ -34,12 +34,25 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
     int kStep = std::gcd(k1, k2);
     bool transA = (ctx->op->HasAttr(Matrix::A_MUL_B_TRANS_A)) ? ctx->op->GetBoolAttribute(Matrix::A_MUL_B_TRANS_A) : false;
     bool transB = (ctx->op->HasAttr(Matrix::A_MUL_B_TRANS_B)) ? ctx->op->GetBoolAttribute(Matrix::A_MUL_B_TRANS_B) : false;
-    MatMulParam param = {transA, transB, kStep};
+    uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
+    int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
+    LogicalTensorDataPtr scalePtr = nullptr;
+    if (lhs->GetDataType() == DataType::DT_INT8 && ret->GetDataType() == DataType::DT_FP16 && scale == 0) {
+        for (int idx = 0; idx < (int) ctx->ioperandDataViewList->size(); idx++) {
+            if (ctx->ioperandDataViewList->at(idx)->GetDataType() == DataType::DT_UINT64) {
+                scalePtr = ctx->ioperandDataViewList->at(idx);
+            }
+        }
+    }
+    MatMulParam param = {transA, transB, kStep, scale, relu, scalePtr};
     switch (ctx->op->GetOpcode()) {
         case Opcode::OP_A_MUL_B: calc::MatMul(ret, lhs, rhs, param); break;
         case Opcode::OP_A_MULACC_B: {
             ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
             auto acc = ctx->ioperandDataViewList->at(2);
+            if (lhs->GetDataType() == DataType::DT_INT8 && acc->GetDataType() == DataType::DT_FP32) {
+                throw std::runtime_error("pass customized part, cannot to restore the computation logic.");
+            }
             calc::AccMatMul(ret, lhs, rhs, acc, param);
         } break;
         default: ASSERT(false); break;
@@ -61,6 +74,7 @@ REGISTER_CALC_OP(OP_L0A_ALLOC, Opcode::OP_L0A_ALLOC, ExecuteOpAlloc);
 REGISTER_CALC_OP(OP_L0B_ALLOC, Opcode::OP_L0B_ALLOC, ExecuteOpAlloc);
 REGISTER_CALC_OP(OP_L0C_ALLOC, Opcode::OP_L0C_ALLOC, ExecuteOpAlloc);
 REGISTER_CALC_OP(OP_L1_ALLOC, Opcode::OP_L1_ALLOC, ExecuteOpAlloc);
+REGISTER_CALC_OP(OP_FIX_ALLOC, Opcode::OP_FIX_ALLOC, ExecuteOpAlloc);
 
 void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -76,4 +90,5 @@ REGISTER_CALC_OP(OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_AT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0_BT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_CONVERT, Opcode::OP_CONVERT, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L1_TO_FIX_QUANT_PRE, ExecuteDuplicate);
 }
