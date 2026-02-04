@@ -139,6 +139,9 @@ class PTOTestCaseRunner(TestCaseRunner):
             )
             for output_tensor in self._output_tensors
         ]
+    
+    def gen_view_shape(shape, view_shape):
+        return tuple(0 if dim == 1 else view_shape[index] for index, dim in shape)
 
     def exec_dyn_func(self, input_tensors: list, output_tensors: list):
         loop_range_tuple = self.gen_loop_range_tuple()
@@ -163,12 +166,11 @@ class PTOTestCaseRunner(TestCaseRunner):
             f"index_{index} * {self._view_shape[index]}"
             for index, _ in enumerate(loop_range_tuple)
         ]
-        for index, _ in enumerate(input_tensors):
+        for index, tensor in enumerate(input_tensors):
             function += prefix
-            function += f"input_{index} = pypto.view(input_tensors[{index}], {self._view_shape}, ["
-            for offset in view_offset:
-                function += offset + ", "
-            function += "])\n"
+            view_shape = [min(dim, view_dim) for dim, view_dim in zip(tensor.shape, self._view_shape)]
+            view_offset = [0 if dim == 0 else offset for dim, offset in zip(tensor.shape, view_offset)]
+            function += f"input_{index} = pypto.view(input_tensors[{index}], {view_shape}, {view_offset})\n"
             function += prefix + f"input_data.append(input_{index})\n"
         function += prefix + f"res = []\n"
         function += prefix + f"for _ in enumerate(output_tensors):\n"
