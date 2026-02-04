@@ -62,6 +62,12 @@ class TopoProcessor {
 public:
     TopoProcessor(std::shared_ptr<CoreFunctionTopoCache> topoData, uint64_t topoNum) : srcTopoData_(topoData), srcTopoNum_(topoNum) {}
 
+    ~TopoProcessor() {
+        for (auto &items : newTopoIdToNewTopo_) {
+            delete[] reinterpret_cast<uint8_t*>(items.second);
+        }
+    }
+
     /* 合并批量依赖处理 */
     std::tuple<std::shared_ptr<CoreFunctionTopoCache>, uint64_t> MergeBatchDepend(uint64_t batchDependNum, uint32_t mergeNum) {
         ParseOldTopo(batchDependNum);
