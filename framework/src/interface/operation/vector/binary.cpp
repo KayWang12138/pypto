@@ -262,6 +262,18 @@ Tensor BitwiseXor(const Tensor &self, const Tensor &other) {
     RETURN_CALL(BinaryOperation<BinaryOpType::BITWISEXOR>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
+Tensor ColExpandExpDif(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(BinaryOperation<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(), self, other);
+}
+
+Tensor RowExpandExpDif(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(BinaryOperation<BinaryOpType::SUB>, *Program::GetInstance().GetCurrentFunction(), self, other);
+}
+
 template <BinaryOpType T>
 void TiledBinaryOperationScalar(Function &function, const TileShape &tileShape, size_t cur, LogicalInput &input1,
     Element &value, const LogicalTensorPtr &result, TileInfo &resultTileInfo, bool reverseOperand) {
@@ -606,6 +618,8 @@ REGISTER_OPERATION_TILED_FUNC(OP_MOD, Opcode::OP_MOD, BinaryOperationTileFunc<Bi
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEAND, Opcode::OP_BITWISEAND, BinaryOperationTileFunc<BinaryOpType::BITWISEAND>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEOR, Opcode::OP_BITWISEOR, BinaryOperationTileFunc<BinaryOpType::BITWISEOR>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, BinaryOperationTileFunc<BinaryOpType::BITWISEXOR>);
+REGISTER_OPERATION_TILED_FUNC(OP_COLEXPANDEXPDIF, Opcode::OP_COLEXPANDEXPDIF, BinaryOperationTileFunc<BinaryOpType::COLEXPANDEXPDIF>);
+REGISTER_OPERATION_TILED_FUNC(OP_ROWEXPANDEXPDIF, Opcode::OP_ROWEXPANDEXPDIF, BinaryOperationTileFunc<BinaryOpType::ROWEXPANDEXPDIF>);
 
 REGISTER_OPERATION_TILED_FUNC(OP_ADDS, Opcode::OP_ADDS, BinaryOperationScalarTileFunc<BinaryOpType::ADD>);
 REGISTER_OPERATION_TILED_FUNC(OP_SUBS, Opcode::OP_SUBS, BinaryOperationScalarTileFunc<BinaryOpType::SUB>);
