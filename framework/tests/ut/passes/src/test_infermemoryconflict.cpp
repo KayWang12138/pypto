@@ -981,6 +981,11 @@ TEST_F(InferMemoryConflictTest, STest3) {
     EXPECT_EQ(*(newTensorOut->GetConsumers().begin()), &assembleOp2);
 }
 
+/*
+STest4
+view->reshape->matmul
+优化场景不插入 registery copy
+*/
 TEST_F(InferMemoryConflictTest, STest4) {
     PassManager &passManager = PassManager::Instance();
     Tensor in0(DT_FP32, Shape{3, 128, 64}, "in0");
@@ -989,7 +994,7 @@ TEST_F(InferMemoryConflictTest, STest4) {
     TileShape::Current().SetCubeTile({NUM_128, NUM_128}, {NUM_64, NUM_64}, {NUM_128, NUM_128});
     FUNCTION("InferMemoryConflictTest") {
         auto a = View(in0, Shape{1, 128, 64}, {0, 0, 0});
-        auto b = View(in1, Shape{1, 64, 256}, {32, 0, 32});
+        auto b = View(in1, Shape{1, 64, 256}, {0, 0, 0});
         auto a0 = Reshape(a, Shape{128, 64});
         auto b0 = Reshape(b, Shape{64, 256});
         out = Matrix::Matmul(DataType::DT_FP32, a0, b0, false, false);
