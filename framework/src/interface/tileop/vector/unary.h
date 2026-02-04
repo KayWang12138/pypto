@@ -161,9 +161,9 @@ TILEOP void TBitwiseNot(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::BITWISENOT>(dst, src);
 }
 
-#define OP_TILE_OP_TL Tlog
+#define OP_TILE_OP_TL TLog
 template <typename T0, typename T1>
-TILEOP void Tlog(T0 dst, T1 src) {
+TILEOP void TLog(T0 dst, T1 src) {
     UnaryCompute<UnaryOp::LN>(dst, src);
 }
 
