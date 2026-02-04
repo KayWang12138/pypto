@@ -467,6 +467,7 @@ void IRPrinter::VisitProgram(const ProgramPtr& program) {
   // The map is already sorted by GlobalVar name, ensuring deterministic output
   bool first = true;
   for (const auto& [gvar, func] : program->functions_) {
+    (void)gvar;  // Suppress unused variable warning
     if (!first) {
       stream_ << "\n\n";
     }
