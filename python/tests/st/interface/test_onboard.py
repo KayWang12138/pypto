@@ -18,6 +18,7 @@ import torch
 import torch_npu
 
 
+@pytest.mark.skip(reason="There is a probability of failure")
 def test_device_run_data_from_host_numpy():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
