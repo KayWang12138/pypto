@@ -329,9 +329,6 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
         return;
     }
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
-    if (biasTensor.IsEmpty()) {
-        return;
-    }
     OP_CHECK(true, {
         ASSERT(biasTensor.GetShape()[0] == cOut)
         << "Input illegal bias shape:" << biasTensor.GetShape()[0]
