@@ -379,6 +379,12 @@ static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
         torch::fmod_out(tout, tself, tother);
     }
 }
+
+static void Pow(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    torch::pow_out(tout, From(self), From(other));
+}
+
 static void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tout = From(out);
     torch::bitwise_and_out(tout, From(self), From(other));
@@ -1554,6 +1560,7 @@ static struct CalcOps calcOps = {
     .Mul = Mul,
     .Div = Div,
     .Fmod = Fmod,
+    .Pow = Pow,
     .BitwiseAnd = BitwiseAnd,
     .BitwiseOr = BitwiseOr,
     .BitwiseXor = BitwiseXor,
