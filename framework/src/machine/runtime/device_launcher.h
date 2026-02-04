@@ -38,6 +38,16 @@
 #include "tilefwk/platform.h"
 #include "machine/runtime/distributed_context.h"
 
+#ifndef BUILD_WITH_CANN
+enum aclmdlRICaptureMode {};
+using rtStream_t = uint64_t;
+using aclmdlRI = void *;
+using aclrtStream = void *;
+typedef struct tagRtArgsEx rtArgsEx_t;
+typedef struct tagRtAicpuArgsEx rtAicpuArgsEx_t;
+typedef struct tagRtTaskCfgInfo rtTaskCfgInfo_t;
+#endif
+
 namespace npu::tile_fwk::dynamic {
 
 struct AiCpuArgs {
@@ -96,13 +106,12 @@ public:
     static constexpr uint32_t kDefaultAicNum = 25;
     static constexpr uint32_t kDefaultAivNum = 50;
     static constexpr uint32_t kDefaultTensorinfoSize = 16384;
-    static std::vector<uint8_t>& GetDevProg(Function *func) {
-        return func->GetDyndevAttribute()->devProgBinary;
+    static DevAscendProgram *GetDevProg(Function *func) {
+        return reinterpret_cast<DevAscendProgram *>(func->GetDyndevAttribute()->devProgBinary.data());
     }
 
     static bool HasInplaceArgs(Function *function) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function).data()));
-        return devProg->outputInplaceSlotList.size() != 0;
+        return GetDevProg(function)->outputInplaceSlotList.size() != 0;
     }
 
     static void DeviceLauncherConfigFillDeviceInfo(const DeviceLauncherConfig &config) {
@@ -218,8 +227,7 @@ public:
         devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
     }
 
-    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+    static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, DevAscendProgram *devProg) {
         ASSERT(devProg->commGroupNum == hcclContext.size())
             << "commGroupNum mismatch. commGroupNum = "
             <<devProg->commGroupNum << ", hcclContext size = " << hcclContext.size();
@@ -231,24 +239,21 @@ public:
         }
     }
 
-     static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames,
-        const std::vector<uint8_t> &devProgData) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
+     static void DeviceInitDistributedContextToHost(const std::vector<std::string> &groupNames, DevAscendProgram *devProg) {
         if (devProg->hcclContext[0] != 0) {
             return;
         }
         auto hcclContext = DistributedContext::GetHcclContextToHost(groupNames);
-        PrepareHcclContext(hcclContext, devProgData);
+        PrepareHcclContext(hcclContext, devProg);
     }
 
     static void DeviceInitDistributedContext(const std::vector<std::string> &groupNames,
-        const std::vector<uint8_t> &devProgData) {
+        DevAscendProgram *devProg) {
         auto hcclContext = DistributedContext::GetHcclContext(groupNames);
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
         if ((hcclContext.size() == 0) || (devProg->hcclContext[0] == hcclContext[0])) {
             return;
         }
-        PrepareHcclContext(hcclContext, devProgData);
+        PrepareHcclContext(hcclContext, devProg);
     }
 
     template<typename DeviceMemoryTy>
@@ -266,9 +271,13 @@ public:
         kArgs.ctrlFlowCache = reinterpret_cast<int64_t*>(ctrlFlowCache);
     }
 
-    static int InitAicpuTaskInfo() {
-        AiCpuArgs initArgs;
-        return memcpy_s(tensorInfo_.data(), sizeof(AiCpuArgs), &initArgs, sizeof(AiCpuArgs));
+    static void InitAicpuTaskInfo() {
+        static bool inited = false;
+        if (!inited) {
+            AiCpuArgs initArgs;
+            (void)memcpy_s(tensorInfo_.data(), sizeof(AiCpuArgs), &initArgs, sizeof(AiCpuArgs));
+            inited = true;
+        }
     }
 
     /*
@@ -308,11 +317,7 @@ public:
         if (unlikely(allSize > tensorInfo_.size())) {
             tensorInfo_.resize(allSize);
         }
-        static auto ret = InitAicpuTaskInfo();
-        if (unlikely(ret != 0)) {
-            ALOG_ERROR_F("Copy aicpu task info failed!");
-            return;
-        }
+        InitAicpuTaskInfo();
         auto data = reinterpret_cast<uint64_t*>(tensorInfo_.data() + sizeof(AiCpuArgs));
         *data = inputList.size();
         data++;
@@ -394,56 +399,31 @@ public:
 
     static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
 #else
-using aclmdlRICaptureMode = uint32_t;
-using rtStream_t = uint64_t;
-using aclmdlRI = void *;
-    static void ChangeCaptureModeRelax() {
-        return;
-    }
-    static void ChangeCaptureModeGlobal() {
-        return;
-    }
-    static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture) {
-        (void)aicoreStream;
-        (void)rtModel;
-        (void)isCapture;
-        return 0;
-    }
-    static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool &isCapture) {
-        (void)aicoreStream;
-        (void)aicpuStream;
-        (void)isCapture;
-        return 0;
-    }
-    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream, bool isCapture) {
-        (void)aicoreStream;
-        (void)aicpuStream;
-        (void)isCapture;
-        return 0;
-    }
-    static int DeviceLaunchOnceWithDeviceTensorData(
-            Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator, uintptr_t workspacePtr,
-            const DeviceLauncherConfig &config = DeviceLauncherConfig()) {
-        (void)function;
-        (void)inputList;
-        (void)outputList;
-        (void)aicpuStream;
-        (void)aicoreStream;
-        (void)streamSynchronize;
-        (void)cachedOperator;
-        (void)workspacePtr;
+    static void ChangeCaptureModeRelax() {}
+    static void ChangeCaptureModeGlobal() {}
+    static int GetStreamCaptureInfo(rtStream_t, aclmdlRI &, bool &) { return 0; }
+    static int SetCaptureStream(rtStream_t, rtStream_t, bool &) { return 0; }
+    static int RunWithProfile(rtStream_t, rtStream_t, bool) { return 0; }
+    static int DeviceLaunchOnceWithDeviceTensorData(Function *, const std::vector<DeviceTensorData> &,
+        const std::vector<DeviceTensorData> &, rtStream_t, rtStream_t, bool, CachedOperator *, uintptr_t,
+        const DeviceLauncherConfig &config = DeviceLauncherConfig()) {
         (void)config;
         return 0;
     }
-
-    static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream) {
-        (void)aicoreStream;
-        (void)aicpuStream;
-        return 0;
-    }
+    static int DeviceSynchronize(rtStream_t, rtStream_t) { return 0; }
 #endif
-    static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+    static void FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, DeviceKernelArgs &kargs);
+    static int64_t GetL2Offset();
+    static uint8_t *CopyControlFlowCache(DevControlFlowCache *ctrlCache);
+    static void FreeControlFlowCache(uint8_t *ctrlCache);
+    static void *RegisterKernelBin(const std::vector<uint8_t> &kernelBinary);
+    static void UnregisterKernelBin(void *hdl);
+    static bool AddAicpuStream(aclrtStream aicoreStream, bool tripleStream);
+    static int LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable);
+    static int LaunchAicoreKernel(
+        aclrtStream aicoreStream, void *kernel, rtArgsEx_t &rtArgs, rtTaskCfgInfo_t &rtTaskCfg, bool debugEnable);
+    static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr,
+        const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static void DeviceRunCacheKernelEnable(Function *func, bool enabled);
     static bool DeviceRunCacheKernelEnable(Function *func);
@@ -453,7 +433,25 @@ using aclmdlRI = void *;
  public:
     static std::vector<uint8_t> tensorInfo_;
 };
+
 void DataDumpInit();
 void DataDumpUnInit();
+
+class DeviceGuard {
+public:
+    DeviceGuard(int32_t devId);
+    ~DeviceGuard();
+private:
+    int32_t oDevId{0};
+    int32_t nDevId{0};
+};
+
+class AclModeGuard {
+public:
+    AclModeGuard(aclmdlRICaptureMode tmode);
+    ~AclModeGuard();
+private:
+    aclmdlRICaptureMode mode;
+};
 }
 #endif//SRC_MACHINE_DEVICE_LAUNCHER_H

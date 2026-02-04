@@ -211,10 +211,10 @@ private:
         }
         DeviceKernelArgs kArgs;
         config_.onBoard = false;
+        auto dynAttr = function_->GetDyndevAttribute();
         DeviceLauncherConfigFillDeviceInfo(config_);
-        DeviceInitDistributedContextToHost(function_->GetDyndevAttribute()->commGroupNames,
- 	        function_->GetDyndevAttribute()->devProgBinary);
-        DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
+        DeviceInitDistributedContextToHost(dynAttr->commGroupNames, GetDevProg(function_));
+        DeviceInitTilingData(MemoryHelper(true), kArgs, dynAttr->devProgBinary, nullptr, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         std::cout << "Run CostModel " << "\n";
         RunCostModel(&kArgs);
@@ -227,8 +227,7 @@ private:
     }
 
     bool IsDumpTensorEnable() const {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
-        return devProg->memBudget.debug.dumpTensor != 0;
+        return GetDevProg(function_)->memBudget.debug.dumpTensor != 0;
     }
 
     static void DumpDevDataBinary(std::ostream &os, const uint8_t *hostData, uint64_t size, const uint8_t *devptr) {
@@ -259,7 +258,7 @@ private:
     void DumpTensorContents(const DeviceKernelArgs &kArgs,
                             const std::vector<RawTensorDataPtr> &inputs,
                             const std::vector<RawTensorDataPtr> &outputs) {
-        auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(GetDevProg(function_).data()));
+        auto *devProg = GetDevProg(function_);
         uint8_t *dumpTensorWsPtr = reinterpret_cast<uint8_t *>(kArgs.workspace) + devProg->memBudget.tensor.Total() + devProg->memBudget.metadata.Total();
         uint64_t dumpTensorWsUsed = 0;
         ALOG_ERROR_F("[DumpTensor] dumpTensorWsPtr=%p, memory used=%lu\n", dumpTensorWsPtr, dumpTensorWsUsed);
