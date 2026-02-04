@@ -33,23 +33,23 @@ def run_mm():
 
 
 @pypto.jit
-def conv_kernel(a, b, c, d):
+def conv_kernel(a, b, d):
     pypto.set_conv_tile_shapes(
         pypto_impl.TileL1Info(
-            tileHin=8,       
-            tileHout=4,       
-            tileWin=8,       
-            tileWout=4,      
-            tileCinFmap=32,  
-            tileCinWeight=32,
-            tileCout=64,     
-            tileN=1          
+            tileHin=4,
+            tileHout=4,
+            tileWin=8,
+            tileWout=8,
+            tileCinFmap=32,
+            tileCinWeight=48,
+            tileCout=16,
+            tileN=1
         ),
         pypto_impl.TileL0Info(
-            tileH=32,  
-            tileW=32,        
-            tileK=32,        
-            tileN=4          
+            tileH=4,
+            tileW=8,
+            tileK=16,
+            tileN=16
         )
     )
     conv_tile = pypto.get_conv_tile_shapes()
@@ -61,7 +61,7 @@ def conv_kernel(a, b, c, d):
     print(f"TileL0Info: H={conv_tile[1].tileH}, W={conv_tile[1].tileW}, K={conv_tile[1].tileK}, N={conv_tile[1].tileN}")
     print(f"SetL0Tile flag: {conv_tile[2]}")
     pypto.set_debug_options(compile_debug_mode=1)
-    d[:] = pypto.conv(a, b, pypto.DT_FP16, [1,1], [0,0,0,0], [1,1], extend_params = {'bias_tensor': c}) # 将x+1的结果写入函数参数y的原有内存空间
+    d[:] = pypto.conv(a, b, pypto.DT_FP16, [1,1], [0,0,0,0], [1,1], extend_params = {})
 
 
 @pypto.jit
@@ -98,10 +98,10 @@ def conv1d_a5_test():
 
 def conv2d_a5_test():
     torch.npu.set_device(0)
-    a = torch.ones([1, 32, 8, 8], dtype=torch.float16)
-    b = torch.ones([32, 32, 1, 1], dtype=torch.float16)
+    a = torch.ones([1, 96, 8, 8], dtype=torch.float16)
+    b = torch.ones([32, 96, 1, 1], dtype=torch.float16)
     c = torch.ones([32], dtype=torch.float16)
     d = torch.empty([1, 32, 8, 8], dtype=torch.float16)
-    conv_kernel(pypto.from_torch(a), pypto.from_torch(b), pypto.from_torch(c), pypto.from_torch(d))
+    conv_kernel(pypto.from_torch(a), pypto.from_torch(b), pypto.from_torch(d))
 
 conv2d_a5_test()
