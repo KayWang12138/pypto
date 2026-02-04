@@ -612,6 +612,8 @@ class CheckLogger<ExceptionType, true> {
  *
  * Usage: INTERNAL_CHECK(condition) << "error message";
  */
+#define INTERNAL_CHECK(expr) \
+  pypto::CheckLogger<std::logic_error>(static_cast<bool>(expr), #expr, __FILE__, __LINE__)
 
 /**
  * @brief Mark a code path as unreachable and throw ValueError if reached
@@ -624,6 +626,8 @@ class CheckLogger<ExceptionType, true> {
  *
  * Usage: INTERNAL_UNREACHABLE << "optional message";
  */
+#define INTERNAL_UNREACHABLE \
+  pypto::CheckLogger<std::logic_error, true>(false, "unreachable", __FILE__, __LINE__)
 
 }  // namespace pypto
 
