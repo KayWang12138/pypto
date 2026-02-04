@@ -13,6 +13,7 @@
  * \brief
  */
 
+#include "utils/string_utils.h"
 #include "interface/interpreter/function.h"
 #include "interface/utils/log.h"
 #include "interface/interpreter/operation.h"

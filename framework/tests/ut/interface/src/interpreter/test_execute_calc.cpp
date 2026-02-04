@@ -37,6 +37,7 @@ public:
     void TearDown() override {}
 };
 
+//測試帶有髒數據的Reshape操作
 TEST_F(CalcCommonTest, UnalignedReshape) {
     // 创建 Function 和 Operation,構造一個虛擬的ExecuteOperationContext
     auto func = std::make_shared<Function>(Program::GetInstance(), "TestUnalignedReshape", "TestUnalignedReshape", nullptr);
