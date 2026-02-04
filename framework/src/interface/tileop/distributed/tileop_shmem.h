@@ -25,6 +25,22 @@
 #include "pto/comm/pto_comm_inst.hpp"
 #include "pto/common/type.hpp"
 
+// Pipe synchronization macros
+#define PIPE_SYNC(from, to) \
+    do { \
+        set_flag(from, to, EVENT_ID0); \
+        wait_flag(from, to, EVENT_ID0); \
+    } while(0)
+
+#define PIPE_SYNC_V_MTE3()   PIPE_SYNC(PIPE_V, PIPE_MTE3)
+#define PIPE_SYNC_MTE2_V()   PIPE_SYNC(PIPE_MTE2, PIPE_V)
+#define PIPE_SYNC_MTE2_S()   PIPE_SYNC(PIPE_MTE2, PIPE_S)
+#define PIPE_SYNC_MTE3_S()   PIPE_SYNC(PIPE_MTE3, PIPE_S)
+#define PIPE_SYNC_S_MTE2()   PIPE_SYNC(PIPE_S, PIPE_MTE2)
+#define PIPE_SYNC_S_MTE3()   PIPE_SYNC(PIPE_S, PIPE_MTE3)
+#define PIPE_SYNC_V_S()      PIPE_SYNC(PIPE_V, PIPE_S)
+#define PIPE_SYNC_MTE3_MTE2() PIPE_SYNC(PIPE_MTE3, PIPE_MTE2)
+
 namespace TileOp::Distributed {
 template<typename T>
 TILEOP void Conv2FP32(__ubuf__ float* dst, __ubuf__ T* src, uint8_t repeat, uint16_t dstBlockStride,
@@ -53,9 +69,7 @@ TILEOP void ShmemClear(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr)
 {
     constexpr uint8_t repeat = sizeof(T) * bufferEleNum / VECTOR_INSTRUCTION_BYTE_SIZE;
     vector_dup(buffer, static_cast<T>(0), repeat, 1, 0, 8, 0);
-
-    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    PIPE_SYNC_V_MTE3();
 
     constexpr uint32_t shmemTensorEleNum = shmemTensorRawShape1 * shmemTensorRawShape2 * shmemTensorRawShape3;
     constexpr uint32_t fullChunkCount = shmemTensorEleNum / bufferEleNum;
@@ -141,8 +155,7 @@ TILEOP void ShmemCopyCore(__ubuf__ BufferType* buffer, __gm__ SrcType* srcAddr, 
         if constexpr (needTypeConversion) {
             if (chunkIdx > 0) {
                 wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-                set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-                wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+                PIPE_SYNC_S_MTE2();
             }
         }
         
@@ -183,13 +196,11 @@ TILEOP void ShmemCopyCore(__ubuf__ BufferType* buffer, __gm__ SrcType* srcAddr, 
             
             // Load source data
             pto::TLOAD(srcTile, srcGlobal);
-            set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+            PIPE_SYNC_MTE2_V();
             
             // Type conversion
             pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
-            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+            PIPE_SYNC_V_MTE3();
             
             // Store converted data
             if constexpr (atomicType == AtomicType::ADD) {
@@ -197,8 +208,7 @@ TILEOP void ShmemCopyCore(__ubuf__ BufferType* buffer, __gm__ SrcType* srcAddr, 
             } else {
                 pto::TSTORE<decltype(dstTile), decltype(dstGlobal), pto::AtomicType::AtomicNone>(dstGlobal, dstTile);
             }
-            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+            PIPE_SYNC_MTE3_MTE2();
             set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
         }
         
@@ -270,8 +280,7 @@ TILEOP void ShmemPutUb2Gm(__ubuf__ UBType* UBDataBaseAddr, __gm__ ShmemType* shm
     ShmemUbTile<UBType, tileRowShape, tileColShape> ubTile(tileRowShape, tileColShape);
     pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(ubAddr));
     
-    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    PIPE_SYNC_S_MTE3();
     
     if constexpr (atomicType == AtomicType::ADD) {
         pto::TSTORE<decltype(ubTile), decltype(gmTensor), pto::AtomicType::AtomicAdd>(gmTensor, ubTile);
@@ -279,8 +288,7 @@ TILEOP void ShmemPutUb2Gm(__ubuf__ UBType* UBDataBaseAddr, __gm__ ShmemType* shm
         pto::TSTORE<decltype(ubTile), decltype(gmTensor), pto::AtomicType::AtomicNone>(gmTensor, ubTile);
     }
     
-    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    PIPE_SYNC_MTE3_S();
 }
 
 template<int64_t value, int32_t stride, int32_t tileRowShape, int32_t tileColShape, AtomicType atomicType>
@@ -310,8 +318,7 @@ TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBas
     pto::TASSIGN(signalTile, reinterpret_cast<uintptr_t>(buffer));
     
     // Synchronize before writing
-    set_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
-    wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID0);
+    PIPE_SYNC_S_MTE3();
     
     for (uint32_t rankId = shmemSignalOffset0; rankId < shmemSignalOffset0 + shmemSignalShape0; rankId++) {
         __gm__ int32_t* shmemSignalAddr = MapVirtualAddr<int32_t>(hcclContext, shmemSignalBaseAddr, rankId) +
@@ -332,8 +339,7 @@ TILEOP void ShmemSignal(__ubuf__ int32_t* buffer, __gm__ int32_t* shmemSignalBas
     }
     
     // Synchronize after writing
-    set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+    PIPE_SYNC_MTE3_S();
 }
 
 template<typename NonShmemType, typename ShmemType, uint32_t tileRowShape, uint32_t tileColShape, uint32_t bufferRowShape,
@@ -377,13 +383,11 @@ TILEOP void ShmemGetGm2Ub(__ubuf__ UBType* UBDataBaseAddr, __ubuf__ UBType* buff
     ShmemUbTile<UBType, bufferRowShape, bufferColShape> ubTile(bufferRowShape, bufferColShape);
     pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(ubAddr));
     
-    set_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
-    wait_flag(PIPE_S, PIPE_MTE2, EVENT_ID0);
+    PIPE_SYNC_S_MTE2();
     
     pto::TLOAD(ubTile, gmTensor);
     
-    set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-    wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+    PIPE_SYNC_MTE2_S();
 }
 
 template<typename T, bool FP32Mode>
@@ -398,8 +402,7 @@ struct ShmemReduceProcess<T, true> {
         __ubuf__ float* sumUb = (__ubuf__ float*)(ubTensor + row * col);
 
         copy_gm_to_ubuf(copyUb, x, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+        PIPE_SYNC_MTE2_S();
 
         uint64_t repeat = row * col * sizeof(float) / 256;
         uint64_t offset = 256 / sizeof(float);
@@ -407,8 +410,7 @@ struct ShmemReduceProcess<T, true> {
         __ubuf__ float* dst = sumUb;
         for (uint64_t i = 0; i < repeat; i++) {
             Conv2FP32<T>(dst, src, 1, 1, 1, 8, 8);
-            set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+            PIPE_SYNC_V_S();
             src += offset;
             dst += offset;
         }
@@ -425,15 +427,13 @@ struct ShmemReduceProcess<T, true> {
         __ubuf__ T* dst = copyUb;
         for (uint64_t i = 0; i < repeat; i++) {
             DeConvFP32<T>(dst, src, 1, 1, 1, 8, 8);
-            set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+            PIPE_SYNC_V_S();
             src += offset;
             dst += offset;
         }
 
         copy_ubuf_to_gm(out, copyUb, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
-        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+        PIPE_SYNC_MTE3_S();
     }
 
     TILEOP void ShmemReduceAdd(__gm__ T* x, __ubuf__ T* ubTensor, int64_t row, int64_t col, CopyParams params)
@@ -443,8 +443,7 @@ struct ShmemReduceProcess<T, true> {
         __ubuf__ float* tempUb = sumUb + row * col;
 
         copy_gm_to_ubuf(copyUb, x, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+        PIPE_SYNC_MTE2_S();
 
         uint64_t repeat = row * col * sizeof(float) / 256;
         uint64_t offset = 256 / sizeof(float);
@@ -454,8 +453,7 @@ struct ShmemReduceProcess<T, true> {
             Conv2FP32<T>(tempUb, src, 1, 1, 1, 8, 8);
             pipe_barrier(PIPE_V);
             vadd(dst, tempUb, dst, 1, 1, 1, 1, 8, 8, 8);
-            set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+            PIPE_SYNC_V_S();
             src += offset;
             dst += offset;
         }
@@ -467,15 +465,13 @@ struct ShmemReduceProcess<T, false> {
     TILEOP void ShmemReduceCopyIn(__gm__ T* x, __ubuf__ T* ubTensor, int64_t row, int64_t col, CopyParams params)
     {
         copy_gm_to_ubuf(ubTensor, x, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+        PIPE_SYNC_MTE2_S();
     }
 
     TILEOP void ShmemReduceCopyOut(__gm__ T* out, __ubuf__ T* ubTensor, int64_t row, int64_t col, CopyParams params)
     {
         copy_ubuf_to_gm(out, ubTensor, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
-        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID0);
+        PIPE_SYNC_MTE3_S();
     }
 
     TILEOP void ShmemReduceAdd(__gm__ T* x, __ubuf__ T* ubTensor, int64_t row, int64_t col, CopyParams params)
@@ -484,8 +480,7 @@ struct ShmemReduceProcess<T, false> {
         __ubuf__ T* copyUb = ubTensor + row * col;
 
         copy_gm_to_ubuf(copyUb, x, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
+        PIPE_SYNC_MTE2_S();
 
         uint64_t repeat = row * col * sizeof(float) / 256;
         uint64_t offset = 256 / sizeof(float);
@@ -493,8 +488,7 @@ struct ShmemReduceProcess<T, false> {
         __ubuf__ T* dst = sumUb;
         for (uint64_t i = 0; i < repeat; i++) {
             vadd(dst, src, dst, 1, 1, 1, 1, 8, 8, 8);
-            set_flag(PIPE_V, PIPE_S, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_S, EVENT_ID0);
+            PIPE_SYNC_V_S();
             src += offset;
             dst += offset;
         }
