@@ -58,9 +58,14 @@ def conv(
                 **__convert_conv_extend_params(extend_params)
             )
 
-    return pypto_impl.Conv(
-        out_dtype, input, weight, strides, paddings, dilations, extend_params, groups, transposed, output_paddings
-    )
+    if not transposed:
+        return pypto_impl.Conv(
+            out_dtype, input, weight, strides, paddings, dilations, extend_params, groups
+        )
+    else:
+        raise RuntimeError(
+            "Conv transpose true is not supported yet."
+        )
 
 
 def __validate_type(value: Any, expect_type: Type, arg_name: str = "input") -> None:

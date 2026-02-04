@@ -368,13 +368,12 @@ void bind_operation(py::module &m) {
         "Conv",
         [](DataType out_type, const Tensor &tensor_input, const Tensor &tensor_weight, const std::vector<int64_t> &strides, 
             const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const Conv::ConvExtendParam& extendParam, 
-            const int64_t groups, bool transposed, const std::vector<int64_t> outputPaddings) {
+            const int64_t groups) {
             return Conv::Conv(out_type, tensor_input, tensor_weight, strides, paddings,
-                dilations, extendParam, groups, transposed, outputPaddings);
+                dilations, extendParam, groups);
         },
         py::arg("out_type"), py::arg("tensor_input"), py::arg("tensor_weight"), py::arg("strides"), 
         py::arg("paddings"), py::arg("dilations"), py::arg("extend_params"), py::arg("groups") = 1,
-        py::arg("transposed") = false, py::arg("output_paddings") = std::vector<int64_t>(),
         "Convolution forward with extend param.");
     m.def(
         "Conv",
