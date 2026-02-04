@@ -148,6 +148,27 @@ LogicalTensorPtr GenAllOneTensor(const Shape &shape, std::vector<SymbolicScalar>
     return result.GetStorage();
 }
 
+Tensor Pow(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    auto selfSt = self.GetStorage();
+    auto otherSt = other.GetStorage();
+    DataType dataType = self.GetDataType();
+    if (dataType != DT_FP32) {
+        selfSt = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            selfSt, DataType::DT_FP32, CastMode::CAST_NONE);
+        otherSt = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            otherSt, DataType::DT_FP32, CastMode::CAST_NONE);
+    }
+    auto result = std::make_shared<LogicalTensor>(function, selfSt->Datatype(), selfSt->shape, selfSt->dynValidShape_);
+    auto tmp = std::make_shared<LogicalTensor>(function, selfSt->Datatype(), selfSt->shape, selfSt->dynValidShape_);
+    function.AddOperation(Opcode::OP_POW, {selfSt, otherSt}, {result, tmp});
+    if (dataType != DT_FP32) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(), result, dataType,
+            CastMode::CAST_NONE);
+    }
+    return result;
+}
+
 LogicalTensorPtr IntegerPow(const Tensor &self, int32_t intExponent) {
     // 快速幂
     auto result = GenAllOneTensor(self.GetShape(), self.GetStorage()->GetDynValidShape(), self.GetDataType());
@@ -175,11 +196,12 @@ LogicalTensorPtr GeneralPow(const Tensor &self, double exponent) {
     if (exponent - intExponent < NUM_VALUE_EPS) {
         result = IntegerPow(self, intExponent);
     } else {
-        auto exponents =
-            CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, exponent),
-                SymbolicScalar(), DataType::DT_FP32, self.GetShape(), self.GetStorage()->GetDynValidShape());
-        result =
-            CALL(BinaryOperation<BinaryOpType::POW>, *Program::GetInstance().GetCurrentFunction(), self, exponents);
+        auto lnSelf = CALL(UnaryOperation<UnaryOpType::LN>,
+            *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+        auto exponentLnSelf = CALL(BinaryOperationScalar<BinaryOpType::MUL>,
+            *Program::GetInstance().GetCurrentFunction(), lnSelf, Element(DataType::DT_FP32, exponent));
+        result = CALL(UnaryOperation<UnaryOpType::EXP>,
+            *Program::GetInstance().GetCurrentFunction(), exponentLnSelf);
     }
 
     // 指数小于零，结果取倒数
