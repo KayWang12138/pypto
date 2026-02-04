@@ -568,6 +568,19 @@ static void BitwiseXor(const TensorData &out, const TensorData &self, const Tens
     ToOperand(tout.second, tout.first, out.dtype);
 }
 
+static void ExpandExpDif(const TensorData &out, const TensorData &self, const TensorData &other) {
+    auto tself = From(self);
+    auto tother = From(other);
+    auto tout = From(out);
+    
+    auto shape = tself.second.sizes().vec();
+    auto expand = tother.second.expand(torch::IntArrayRef(shape));
+
+    torch::sub_out(tout.second, tself.second, expand);
+    torch::exp_out(tout.second, tout.second);
+    ToOperand(tout.second, tout.first, out.dtype);
+}
+
 static void CopySign(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     auto tself = From(self);
@@ -1946,6 +1959,7 @@ static struct CalcOps calcOps = {
     .BitwiseAnd = BitwiseAnd,
     .BitwiseOr = BitwiseOr,
     .BitwiseXor = BitwiseXor,
+    .ExpandExpDif = ExpandExpDif,
     .CopySign = CopySign,
     .Gcd = Gcd,
     .PairSum = PairSum,
