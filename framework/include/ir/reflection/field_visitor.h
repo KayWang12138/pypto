@@ -19,8 +19,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "pypto/core/logging.h"
-#include "pypto/ir/reflection/field_traits.h"
+#include "core/logging.h"
+#include "ir/reflection/field_traits.h"
 
 #ifndef INTERNAL_UNREACHABLE
 #define INTERNAL_UNREACHABLE \

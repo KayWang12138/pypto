@@ -24,6 +24,7 @@
 #include <string>
 
 namespace pypto {
+namespace ir {
 
 /**
  * @brief Data type representation for PyPTO
@@ -284,6 +285,7 @@ inline constexpr DataType DataType::BF16 = DataType(kBf16Code);
 inline constexpr DataType DataType::HF4 = DataType(kHf4Code);
 inline constexpr DataType DataType::HF8 = DataType(kHf8Code);
 
+}  // namespace ir
 }  // namespace pypto
 
 #endif  // PYPTO_CORE_DTYPE_H_

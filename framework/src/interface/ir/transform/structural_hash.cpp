@@ -30,18 +30,6 @@
 #include "ir/stmt.h"
 #include "ir/type.h"
 
-#ifndef INTERNAL_CHECK
-#define INTERNAL_CHECK(expr) \
-  if (!(expr)) throw std::logic_error(std::string("Check failed: " #expr " at ") + __FILE__ + ":" + std::to_string(__LINE__)); \
-  std::ostringstream() /* Allow chaining with << */
-#endif
-
-#ifndef INTERNAL_UNREACHABLE
-#define INTERNAL_UNREACHABLE \
-  if (true) throw std::logic_error(std::string("Unreachable code at ") + __FILE__ + ":" + std::to_string(__LINE__)); \
-  std::ostringstream() /* Allow chaining with << */
-#endif
-
 namespace pypto {
 namespace ir {
 
@@ -197,7 +185,7 @@ class StructuralHasher {
     return h;
   }
 
-  result_type VisitLeafField(const Span& field) {
+  result_type VisitLeafField([[maybe_unused]] const Span& field) {
     INTERNAL_UNREACHABLE << "structural_hash should not visit Span field";
   }
 
