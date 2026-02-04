@@ -131,10 +131,8 @@ enum class ShmemOp { PUT, GET };
 template<ShmemOp op, typename SrcType, typename DstType, uint32_t tileRowShape, uint32_t tileColShape,
     uint32_t bufferRowShape, uint32_t srcStride, uint32_t dstStride, AtomicType atomicType, typename BufferType>
 TILEOP void ShmemCopyCore(__ubuf__ BufferType* buffer, __gm__ SrcType* srcAddr, __gm__ DstType* dstAddr) {
-    // Calculate chunk parameters
-    constexpr uint32_t maxTileRows = 4095;
-    constexpr uint32_t effectiveBufferRows = bufferRowShape < maxTileRows ? bufferRowShape : maxTileRows;
-    constexpr uint32_t chunkRowShape = tileRowShape < effectiveBufferRows ? tileRowShape : effectiveBufferRows;
+    // Calculate chunk parameters - directly use bufferRowShape for chunking
+    constexpr uint32_t chunkRowShape = tileRowShape < bufferRowShape ? tileRowShape : bufferRowShape;
     constexpr uint32_t rowChunkCount = (tileRowShape + chunkRowShape - 1) / chunkRowShape;
     constexpr bool needTypeConversion = !std::is_same_v<SrcType, DstType>;
     
