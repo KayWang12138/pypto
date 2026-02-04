@@ -31,8 +31,8 @@
 #include "machine/device/dynamic/device_utils.h"
 
 namespace npu::tile_fwk::Distributed {
-constexpr int32_t AICPU_ATTR_INDEX_ZERO = 2;
-constexpr int32_t AICPU_ATTR_INDEX_ONE = 3;
+constexpr int32_t AICPU_ATTR_DIM_INDEX = 2;
+constexpr int32_t AICPU_ATTR_RAW_INDEX = 3;
 inline bool SignalTileOp::PollCompleted() const
 {
     if constexpr (!npu::tile_fwk::dynamic::IsDeviceMode()) {
@@ -77,16 +77,16 @@ TensorInfo ShmemWaitUntil::GetTensorInfo(uint64_t taskId, const npu::tile_fwk::d
     auto opAttrs = &funcData.opAttrs[funcData.opAtrrOffsets[opIndex]];
     auto expressionTable = funcData.exprTbl;
 
-    int32_t index = aicpuCode[paramInfo_.inIndex + AICPU_ATTR_INDEX_ONE]; // ShmemWaitUntil注册registerInfo中ShmemTensor位于第2个输入位，因此dim、offset位于2和3号位
+    int32_t index = aicpuCode[paramInfo_.inIndex + AICPU_ATTR_RAW_INDEX]; // ShmemWaitUntil注册registerInfo中ShmemTensor位于第2个输入位，因此dim、offset位于2和3号位
     TensorInfo info;
     info.rawIndex = GetCoa(index, opAttrs, expressionTable);
     ++index; // 跳过 rawIndex
-    info.dim = aicpuCode[paramInfo_.inIndex + AICPU_ATTR_INDEX_ZERO];
+    info.dim = aicpuCode[paramInfo_.inIndex + AICPU_ATTR_DIM_INDEX];
     info.offset = GetCoaVector(index, info.dim, opAttrs, expressionTable);
     const uint32_t dstRankId = info.offset[0];
 
     info.expectedSum = aicpuCode[paramInfo_.attrIndex];
-    info.resetSignal = aicpuCode[paramInfo_.attrIndex + AICPU_ATTR_INDEX_ZERO];
+    info.resetSignal = aicpuCode[paramInfo_.attrIndex + AICPU_ATTR_DIM_INDEX];
     auto desc = &funcData.rawTensorDesc[info.rawIndex];
     info.rawAddr = ShmemWaitUntil::GetRawAddr(funcData.rawTensorAddr[desc->offsetOrIndex], dstRankId);
     return info;
