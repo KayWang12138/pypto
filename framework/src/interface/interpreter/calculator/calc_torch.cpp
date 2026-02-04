@@ -382,6 +382,18 @@ static void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logi
     torch::bitwise_xor_out(tout, From(self), From(other));
 }
 
+static void ExpandExpDif(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tself = From(self);
+    auto tother = From(other);
+    auto tout = From(out);
+    
+    auto shape = tself.sizes().vec();
+    auto expand = tother.expand(torch::IntArrayRef(shape));
+
+    torch::sub_out(tout, tself, expand);
+    torch::exp_out(tout, tout);
+}
+
 static void CopySign(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tout = From(out);
     torch::copysign_out(tout, From(self), From(other));
@@ -1539,6 +1551,7 @@ static struct CalcOps calcOps = {
     .BitwiseAnd = BitwiseAnd,
     .BitwiseOr = BitwiseOr,
     .BitwiseXor = BitwiseXor,
+    .ExpandExpDif = ExpandExpDif,
     .CopySign = CopySign,
     .PairSum = PairSum,
     .PairMax = PairMax,
