@@ -289,7 +289,7 @@ void CheckOriginShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     CheckDimensionRange(inputTensor.GetShape(), "fmap", NUM1, MAX_SIZE);
     CheckDimensionRange(weightTensor.GetShape(), "weight", NUM1, MAX_SIZE);
 
-    int64_t cOut = biasTensor.GetShape()[NCHW_N_IDX];
+    int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     OP_CHECK(true, {
         ASSERT(biasTensor.GetShape()[0] == cOut)
         << "Input illegal bias shape:" << biasTensor.GetShape()[0]
@@ -771,8 +771,7 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
             const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam, 
             const int64_t groups, bool transposed, const std::vector<int64_t> outputPaddings)
 {
-    std::vector<int64_t> biasTensorShape{32};
-    Tensor biasTensor(outType, biasTensorShape, "BiasTensor");
+    const Tensor& biasTensor = extendParam.biasTensor;
     ConvAttrParam convAttrParam(paddings, strides, dilations, groups);
     CheckConvOperands(outType, inputTensor, weightTensor, biasTensor, convAttrParam);
     int64_t batchOut = inputTensor.GetShape()[NCHW_N_IDX];
