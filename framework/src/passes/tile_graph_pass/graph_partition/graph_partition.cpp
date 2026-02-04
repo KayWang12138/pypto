@@ -52,13 +52,13 @@ Status GraphPartition::RunOnFunction(Function &function)
 
         APASS_LOG_INFO_F(Elements::Function, "===> End GraphPartition.");
         return SUCCESS;
-    } else if (partitionMode.find("Osp") != std::string::npos)  {
-        APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition, %s", partitionMode.c_str());
+    } else if ((partitionMode == "OspSarkar") || (partitionMode == "OspBsp"))  {
+        APASS_LOG_INFO_F(Elements::Function, "===> Start GraphPartition. Mode: %s", partitionMode.c_str());
         OspMode mode{OspMode::SARKAR};
 
-        if (partitionMode.find("Sarkar") != std::string::npos) {
+        if (partitionMode == "OspSarkar") {
             mode = OspMode::SARKAR;
-        } else if (partitionMode.find("Bsp") != std::string::npos) {
+        } else if (partitionMode == "OspBsp") {
             mode = OspMode::MERKLEBSP;
         }
 
