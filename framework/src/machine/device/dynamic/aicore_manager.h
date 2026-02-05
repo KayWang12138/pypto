@@ -1657,7 +1657,7 @@ private:
     }
 
     inline bool IsNeedProcAicpuTask() {
-        return aicpuIdx_ == 2;
+        return aicpuIdx_ == 1;
     }
 
 private:
