@@ -29,7 +29,8 @@ TEST_F(RuntimeDataTest, AllocateDeallocate) {
     const uint64_t count = 0x4;
     EXPECT_EQ(sizeof(RuntimeDataRingBufferHead) + size * count, RuntimeDataRingBufferHead::GetRingBufferSize(rawSize, count));
 
-    RuntimeDataRingBufferHead head;
+    std::vector<uint8_t> buf(rawSize + sizeof(RuntimeDataRingBufferHead));
+    auto &head = *reinterpret_cast<RuntimeDataRingBufferHead*>(buf.data());
     head.Initialize(rawSize, count);
     EXPECT_EQ(head.Allocate(), head.GetRuntimeData() + size);
     EXPECT_EQ(0x1, head.GetIndexPending());
@@ -54,7 +55,9 @@ TEST_F(RuntimeDataTest, AllocateDeallocate) {
 TEST_F(RuntimeDataTest, FullAndAllocate) {
     const uint64_t size = 0x10;
     const uint64_t count = 0x2;
-    RuntimeDataRingBufferHead head;
+
+    std::vector<uint8_t> buf(size + sizeof(RuntimeDataRingBufferHead));
+    auto &head = *reinterpret_cast<RuntimeDataRingBufferHead*>(buf.data());
     head.Initialize(size, count);
     EXPECT_EQ(head.Allocate(), head.GetRuntimeData(0x1));
     EXPECT_EQ(0x1, head.GetIndexPending());
