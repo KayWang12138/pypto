@@ -429,4 +429,4 @@ def chunk_gated_delta_rule(query, key, value, beta, gate, states, mask,
                     core_attn_out[bs_ofs:bs_ofs + l, nv_idx] = chunk_attn_out
                     last_state_data[b_idx, nv_idx] = last_state
 
-    return kernel(query, key, value, beta, gate, states, mask, tril_mask, eye, act_seq_len, core_attn_out, last_state_data)
+    kernel(query, key, value, beta, gate, states, mask, tril_mask, eye, act_seq_len, core_attn_out, last_state_data)
