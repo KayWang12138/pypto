@@ -16,6 +16,7 @@
 #include "interface/interpreter/function.h"
 #include "interface/utils/log.h"
 #include "interface/interpreter/operation.h"
+#include <limits>
 
 namespace npu::tile_fwk {
 
@@ -111,6 +112,23 @@ void ExecuteOpVecDup(ExecuteOperationContext *ctx) {
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
+    // When the output dtype is FP32, clamp the scalar into finite FP32 range
+    auto retDtype = ret->GetDataType();
+    switch (retDtype) {
+        case DT_FP32: {
+            double data = element.GetFloatData();
+            constexpr double kMaxF32 = static_cast<double>(std::numeric_limits<float>::max());
+            if (data > kMaxF32) {
+                data = kMaxF32;
+            } else if (data < -kMaxF32) {
+                data = -kMaxF32;
+            }
+            element = Element(DT_FP32, data);
+            break;
+        }
+        default:
+            break;
+    }
     calc::ExpandS(ret, element);
 }
 REGISTER_CALC_OP(OP_VEC_DUP, Opcode::OP_VEC_DUP, ExecuteOpVecDup);
