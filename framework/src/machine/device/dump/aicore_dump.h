@@ -62,8 +62,8 @@ struct DumpTensorInfo {
 };
 
 struct DumpTensorData {
-    int32_t datasize{4};
-    uint64_t dataAddr;
+    uint64_t datasize{4};
+    uint64_t data;
     std::uint8_t dataByte;
     uint64_t dataOffset{0};
 
@@ -75,7 +75,7 @@ struct DumpTensorData {
                 TraverseAllAhapeIndexCombinations(shape, stride, offset, idx + 1, dims, newAddr);
             }
         } else {
-            auto ret = memcpy_s(reinterpret_cast<uint8_t *>(dataAddr) + dataOffset, shape[idx] * dataByte,
+            auto ret = memcpy_s(reinterpret_cast<uint8_t *>(data) + dataOffset, shape[idx] * dataByte,
                         reinterpret_cast<const uint8_t *>(tensorAddr) + offset[idx] * dataByte, shape[idx] * dataByte);
             if (ret != 0) {
                 DEV_ERROR("memcpy_s failed, ret is %d.", ret);
@@ -90,6 +90,9 @@ struct DumpTensorData {
         for (int32_t i = 0; i < info.dims; i++) {
             datasize *= info.shape[i];
         }
+        if (datasize > DEV_DUMP_DATA_SIZE) {
+            return;
+        }
 
         uint64_t stride[DEV_SHAPE_DIM_MAX];
         stride[info.dims - 1] = 1;
@@ -98,12 +101,12 @@ struct DumpTensorData {
             stride[k] = stride[k + 1] * info.rawShape[k + 1];
         }
 
-        dataAddr = dataAddr;
+        data = dataAddr;
         TraverseAllAhapeIndexCombinations(info.shape, stride, info.offset, 0, info.dims, info.tensorAddr);
     }
 
     int GetDumpSize() const {
-        DEV_DEBUG("Tensorinfo size is %zu, Tensor data size %d.", sizeof(DumpTensorInfo), datasize);
+        DEV_DEBUG("Tensorinfo size is %zu, Tensor data size %lu.", sizeof(DumpTensorInfo), datasize);
         return datasize;
     }
 
@@ -170,6 +173,10 @@ public:
         bool isLast) {
         DumpTensorData dumpTensorData(dumpTensorInfo, dataAddr);
         dataSize_ = dumpTensorData.GetDumpSize();
+        if (dataSize_ > DEV_DUMP_DATA_SIZE) {
+            DEV_WARN("Tensor data size %lu is larger than dump size %lu.", dataSize_, DEV_DUMP_DATA_SIZE);
+            return;
+        }
         bool ret = DumpData(ideSession, fileName, reinterpret_cast<uint8_t *>(&dumpTensorInfo),
             dumpTensorInfo.headSize, isLast);
         if (!ret) {
@@ -254,15 +261,12 @@ public:
         int32_t tensorNum = (iOinfo == "input") ? func->GetOperationIOperandSize(opIdx) : 
             func->GetOperationOOperandSize(opIdx);
         
-        uint32_t deviceid = 0;
-        drvGetLocalDevIDByHostDevID(deviceId_, &deviceid);
-        DEV_WARN("Current host deviceid is %u, devicedeviceId is %u.", deviceId_, deviceid);
         std::string dumpPath = "output/dump_tensor/device_" + std::to_string(deviceId_) + "/";
         // ip: port only matches parameter rules with code, without communication funciton
         const std::string privateInfo =
-            "127.0.0.1:22118;" + std::to_string(deviceid) + ";" + std::to_string(hostPid_);
+            "127.0.0.1:22118;" + std::to_string(deviceId_) + ";" + std::to_string(hostPid_);
         const IDE_SESSION ideSession = IdeDumpStart(privateInfo.c_str()); // 建立通道过程 device
-        DEV_DEBUG("Current pid is %d, privateInfo is %s.", (int)hostPid_, privateInfo.c_str());
+        DEV_DEBUG("Current pid is %d, deviceId is %u, privateInfo is %s.", (int)hostPid_, deviceId_, privateInfo.c_str());
 
         if (ideSession == nullptr) {
             DEV_WARN("Created ideSession failed.");

@@ -195,12 +195,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
 
     HOST_PERF_TRACE(TracePhase::RunDevRegistKernelBin);
 
-    if (IsPtoDataDumpEnabled()) {
-        int sf = AdxDataDumpServerInit();
-        if (sf != 0) {
-            ALOG_ERROR_F("ERROR AdxDataDumpServerInit failed \n");
-        }
-    }
+    DataDumpInit();
     rc = DeviceRunner::Get().DynamicLaunch(aicpuStream, nullptr, aicoreStream, 0, &kArgs, config.blockdim, config.aicpuNum);
     if (rc < 0) {
         return rc;
@@ -215,13 +210,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     ALOG_INFO_F("finish Kernel Launch.");
 
     HOST_PERF_TRACE(TracePhase::RunDevRunProfile);
-    if (IsPtoDataDumpEnabled()) {
-        ALOG_DEBUG_F("DataDumpServerInit is called \n");
-        int res = AdxDataDumpServerUnInit();
-        if (res != 0) {
-            ALOG_ERROR_F("AdxDataDumpServerUnInit is failed %d \n", rc);
-        }
-    }
+    DataDumpUnInit();
     return rc;
 }
 
@@ -395,6 +384,26 @@ ExportedOperator *ExportedOperatorBegin() {
 
 void ExportedOperatorEnd(ExportedOperator *op) {
     op->ResetFunction(Program::GetInstance().GetLastFunction());
+}
+
+void DataDumpInit() {
+    if (IsPtoDataDumpEnabled()) {
+        ALOG_DEBUG_F("DataDumpServerInit is called \n");
+        int sf = AdxDataDumpServerInit();
+        if (sf != 0) {
+            ALOG_ERROR_F("ERROR AdxDataDumpServerInit failed \n");
+        }
+    }
+}
+
+void DataDumpUnInit() {
+    if (IsPtoDataDumpEnabled()) {
+        ALOG_DEBUG_F("DataDumpServerUnInit is called \n");
+        int res = AdxDataDumpServerUnInit();
+        if (res != 0) {
+            ALOG_ERROR_F("AdxDataDumpServerUnInit is failed %d \n", rc);
+        }
+    }
 }
 
 void CopyDevToHost(const DeviceTensorData &devTensor, DeviceTensorData &hostTensor) {
