@@ -113,6 +113,12 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     int64_t tileWout = convTile.tileL1Info.tileWout;
     int64_t hOut = ConvComputeHo(inputTensor, weightTensor, attrParam);
     int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
+    if (wOut % 16 != 0) {
+        OP_CHECK(true, {
+            ASSERT(tileHout == 1)
+                << "When wout is not a multiple of 16, tileHout should be 1." << std::endl;
+        });
+    }
     CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
     CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
     checkAlignment(tileWout, NUM16, "tileWout");
