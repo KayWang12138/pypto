@@ -103,8 +103,7 @@ void checkAlignment(int64_t value, int64_t alignment, const std::string& valueNa
         OP_CHECK(true, {
             ASSERT(value % alignment == 0)
                 << "Invalid " << valueName << ": " << value
-                << ", requires " << alignment << "-element alignment."
-                << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
+                << ", requires " << alignment << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
         });
 }
 void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
