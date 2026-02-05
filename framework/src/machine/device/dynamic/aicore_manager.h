@@ -327,6 +327,7 @@ public:
                  aicpuIdx_, ret, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
     }
 
+<<<<<<< HEAD
     inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
         DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
@@ -335,6 +336,16 @@ public:
         DEV_DEBUG("Schedule run init succ");
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
+=======
+    inline int Run(int threadIdx, DeviceArgs *deviceArgs) {
+        int ret = DEVICE_MACHINE_OK;
+        DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
+        Init(threadIdx, deviceArgs);
+        PerfMtTrace(PERF_TRACE_INIT, threadIdx);
+        DEV_DEBUG("Schedule run init succ");
+        DeviceTaskCtrl *taskCtrl = nullptr;
+        taskQueue_ = &(reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>*>(deviceArgs->taskQueue)[threadIdx]);
+>>>>>>> 337f559ac (fix(machine): Revert remove alloc thread idx)
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
@@ -346,6 +357,10 @@ public:
                 }
                 return ret;
             }
+<<<<<<< HEAD
+=======
+            auto devStartArgs = reinterpret_cast<DevStartArgs *>(deviceArgs->startArgsAddr);
+>>>>>>> 337f559ac (fix(machine): Revert remove alloc thread idx)
             devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
@@ -1294,8 +1309,8 @@ private:
     }
 
     inline bool IsExistOtherAicpuIdle(CoreType type) {
-        int idx = (schedIdx_ + 1) % aicpuNum_;
-        while (idx != schedIdx_) {
+        int idx = (aicpuIdx_ + 1) % aicpuNum_;
+        while (idx != aicpuIdx_) {
             if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][idx].load(std::memory_order_relaxed) == true){
                 return true;
             }
@@ -1305,23 +1320,22 @@ private:
     }
 
     inline void AicpuIsBusy(CoreType type) {
-        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_] != false) {
-            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_].store(false, std::memory_order_relaxed);
+        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_] != false) {
+            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_].store(false, std::memory_order_relaxed);
         }
     }
 
     inline void AicpuIsIdle(CoreType type) {
-        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_] != true) {
-            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_].store(true, std::memory_order_relaxed);
+        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_] != true) {
+            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_].store(true, std::memory_order_relaxed);
         }
     }
 
-    inline void Init(int threadIdx, DevStartArgs *startArgs, DeviceArgs *deviceArgs, int schedIdx) {
+    inline void Init(int threadIdx, DeviceArgs *deviceArgs) {
         aicNum_ = static_cast<int32_t>(deviceArgs->nrAic);
         aivNum_ = static_cast<int32_t>(deviceArgs->nrAiv);
         aicpuNum_ = deviceArgs->scheCpuNum;
         aicpuIdx_ = threadIdx;
-        schedIdx_ = schedIdx;
         aicValidNum_ = deviceArgs->nrValidAic;
         aicoreHal_.Init(deviceArgs, &aicoreProf_);
         validGetPgMask_ = deviceArgs->validGetPgMask;
@@ -1337,7 +1351,7 @@ private:
 
         wrapManager_.InitArchInfo(deviceArgs->archInfo);
 #if ENABLE_TENSOR_DUMP
-        aicoreDump_.Init(startArgs, schedIdx);
+        aicoreDump_.Init(deviceArgs, threadIdx - 1);
 #endif
 
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
@@ -1525,8 +1539,8 @@ private:
             end = start + perCpu + ((idx < remain) ? 1 : 0);
         };
 
-        f(aicValidNum_, schedIdx_, aicpuNum_, aicStart_, aicEnd_);
-        f(AIV_NUM_PER_AI_CORE * aicValidNum_, schedIdx_, aicpuNum_, aivStart_, aivEnd_);
+        f(aicValidNum_, aicpuIdx_, aicpuNum_, aicStart_, aicEnd_);
+        f(AIV_NUM_PER_AI_CORE * aicValidNum_, aicpuIdx_, aicpuNum_, aivStart_, aivEnd_);
         aivStart_ += aicValidNum_;
         aivEnd_ += aicValidNum_;
 
@@ -1654,7 +1668,7 @@ private:
     }
 
     inline bool IsNeedProcAicpuTask() {
-        return aicpuIdx_ == 2;
+        return aicpuIdx_ == 1;
     }
 
 private:
