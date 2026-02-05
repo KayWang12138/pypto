@@ -189,7 +189,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           // cumsum
           {Opcode::OP_CUM_SUM, [this]() { return GenCumSumOp(); }},
 
-          //triUL
+          // triUL
           {Opcode::OP_TRIUL, [this]() { return GenTriULOp(); }},
 
           // vector where
@@ -556,7 +556,10 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
         }
     }
     UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, shapeInLoop);
-    tileTensor.localBufOffset = offset[paramIdx];
+    
+    if (!offset[paramIdx].empty()) {
+        tileTensor.localBufOffset = offset[paramIdx];
+    }
 
     return tileTensor;
 }
@@ -742,8 +745,8 @@ std::string CodeGenOpCloudNPU::GenOpCode() const {
     return ret;
 }
 
-std::string CodeGenOpCloudNPU::GetLastUse() const{
-    if(!opAttrs.count(OpAttributeKey::lastUse)){
+std::string CodeGenOpCloudNPU::GetLastUse() const {
+    if (!opAttrs.count(OpAttributeKey::lastUse)) {
         return "";
     }
     std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
