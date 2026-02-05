@@ -18,6 +18,7 @@
 #include <string>
 #include <mutex>
 #include <queue>
+#include <cstdarg>
 
 namespace tile::fwk {
 enum class LogLevel {
