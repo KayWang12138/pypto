@@ -1230,11 +1230,12 @@ void Function::ProducerMagicLookup(const Function *function, const LogicalTensor
             ss << op->GetTileShape().ToString();
         }
         if (op->GetOpAttribute() != nullptr) {
+            bool isNeedDumpCopyInAttr = !function->IsFunctionType(FunctionType::DYNAMIC_LOOP_PATH) && IsCopyIn(op->GetOpcode());
             if (op->GetOpcode() == Opcode::OP_ASSEMBLE) {
                 if (!op->oOperand[0]->isSubGraphBoundary) {
                     ss << " " << op->GetOpAttribute()->Dump();
                 }
-            } else if ((!function->IsFunctionType(FunctionType::DYNAMIC_LOOP_PATH) && IsCopyIn(op->GetOpcode())) || (!IsCopyIn(op->GetOpcode()) && !IsCopyOut(op->GetOpcode())) ||
+            } else if (isNeedDumpCopyInAttr || (!IsCopyIn(op->GetOpcode()) && !IsCopyOut(op->GetOpcode())) ||
                 function->GetGraphType() != GraphType::BLOCK_GRAPH) {
                 ss << " " << op->GetOpAttribute()->Dump();
             }
