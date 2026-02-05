@@ -36,10 +36,10 @@
 #include "machine/utils/device_log.h"
 #include "machine/device/dynamic/aicore_prof.h"
 #include "machine/device/dynamic/aicore_hal.h"
-#include "machine/device/dynamic/aicore_dump.h"
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/device/dynamic/wrap_manager.h"
+#include "machine/device/dump/aicore_dump.h"
 
 namespace npu::tile_fwk::dynamic {
 

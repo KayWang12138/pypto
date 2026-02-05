@@ -22,11 +22,7 @@
 #include "machine/utils/device_log.h"
 
 namespace npu::tile_fwk::dynamic {
-static std::mutex dumpLock;
-constexpr int LOCAL_INCAST = 1;
-constexpr int LOCAL_OUTCAST = 0;
-constexpr int DUMP_INCAST = 2;
-constexpr int DUMP_OUTCAST = 3;
+constexpr uint64_t DEV_DUMP_DATA_SIZE = 2 * 1024 * 1024;
 using IDE_SESSION = void *;
 enum IdeErrorT {};
 extern "C" {
@@ -79,14 +75,16 @@ struct DumpTensorData {
                 TraverseAllAhapeIndexCombinations(shape, stride, offset, idx + 1, dims, newAddr);
             }
         } else {
-            (void)memcpy_s(reinterpret_cast<uint8_t *>(data) + dataOffset, shape[idx] * dataByte,
+            auto ret = memcpy_s(reinterpret_cast<uint8_t *>(data) + dataOffset, shape[idx] * dataByte,
                         reinterpret_cast<const uint8_t *>(tensorAddr) + offset[idx] * dataByte, shape[idx] * dataByte);
+            if (ret != 0) {
+                DEV_ERROR("memcpy_s failed, ret is %d.", ret);
+            }
             dataOffset = dataOffset + shape[idx] * dataByte;
         }
     }
 
     DumpTensorData(DumpTensorInfo info) {
-        std::lock_guard<std::mutex> lock(dumpLock);
         dataByte = BytesOf(static_cast<DataType>(info.dataType));
         datasize = dataByte;
         for (int32_t i = 0; i < info.dims; i++) {
@@ -117,6 +115,19 @@ public:
     AicoreDump(){};
     ~AicoreDump(){};
     uint64_t dataSize_{0};
+    void Init(DeviceArgs *deviceArgs, int schedIdx) {
+        SetHostPid(deviceArgs->hostPid);
+        if (enableDump_) {
+            deviceId_ = deviceArgs->deviceId;
+            uint64_t baseAddr = reinterpret_cast<DevStartArgs *>(deviceArgs->startArgsAddr)->contextWorkspaceAddr;
+            DevAscendProgram *devProg = reinterpret_cast<DevStartArgs *>(deviceArgs->startArgsAddr)->devProg;
+            baseAddr += devProg->memBudget.aicoreSpilled + devProg->memBudget.tensor.Total() + devProg->memBudget.debug.dumpTensor;
+
+            dataAddr = baseAddr + schedIdx * DEV_DUMP_DATA_SIZE;
+            DEV_DEBUG("dataAddr is %p.", dataAddr);
+        }
+
+    }
     void DumpInit(int32_t taskId, int32_t coreId, int64_t execStart = 0, int64_t execEnd = 0) {
         taskId_ = taskId;
         coreId_ = coreId;
@@ -125,12 +136,12 @@ public:
         timeStamp_ = GetTimeMonotonic();
     }
 
-    void SetHostPid(uint32_t hostPid){ 
+    void SetHostPid(uint32_t hostPid) { 
         hostPid_ = hostPid;
         DEV_DEBUG("hostPid is %u.", hostPid_);
         enableDump_ = (hostPid_ != 0);
     }
-    void SetDeviceId(uint32_t devId){ deviceId_ = devId; }
+    void SetDeviceId(uint32_t devId) { deviceId_ = devId; }
     bool IsEnableDump() const { return enableDump_; }
 
     inline bool DumpData(const IDE_SESSION &ideSession, std::string &fileName, unsigned char *dataBuf,
@@ -157,12 +168,12 @@ public:
         bool ret = DumpData(ideSession, fileName, reinterpret_cast<uint8_t *>(&dumpTensorInfo),
             dumpTensorInfo.headSize, isLast);
         if (!ret) {
-            DEV_WARN("Dump Tensor info not successful.");
+            DEV_ERROR("Dump Tensor info not successful.");
             return;
         }
         ret = DumpData(ideSession, fileName, reinterpret_cast<uint8_t *>(dumpTensorData.data), dataSize_, isLast);
         if (!ret) {
-            DEV_WARN("Dump Tensor data not successful.");
+            DEV_ERROR("Dump Tensor data not successful.");
             return;
         }
     }
@@ -278,6 +289,7 @@ private:
     uint32_t deviceId_{0};
     uint32_t hostPid_{0};
     uint64_t timeStamp_{0};
+    uint64_t dataAddr;
     bool enableDump_{false};
 };
 } // namespace npu::tile_fwk

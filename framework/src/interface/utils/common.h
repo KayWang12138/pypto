@@ -519,8 +519,12 @@ inline std::string GetEnvVar(const std::string &varName, bool trim = true, bool 
 
 // 判断环境变量 PTO_DATADUMP_ENABLE 是否为 true
 inline bool IsPtoDataDumpEnabled() {
-    std::string value = GetEnvVar("PTO_DATADUMP_ENABLE", true, true);
-    return (value == "true");
+    static const bool result = []() {
+        std::string value = GetEnvVar("PTO_DATADUMP_ENABLE", true, true);
+        return (value == "true");
+    }();
+
+    return result;
 }
 
 // 向上取整除法
