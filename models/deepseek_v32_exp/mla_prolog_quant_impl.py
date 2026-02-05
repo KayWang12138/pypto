@@ -702,7 +702,7 @@ def mla_prolog_quant_compute(
         pypto.set_vec_tile_shapes(32, 1, 1, kv_lora_rank)
         kv_cache_out[:] = pypto.scatter_update(kv_cache, -2, index, k_nope_4d)
         pypto.set_semantic_label("ScatterUpdate_kScaleCache")
-        pypto.set_vec_tile_shapes(32, 1, 1, 4)
+        pypto.set_vec_tile_shapes(32, 1, 1, 16)
         k_scale_cache_out[:] = pypto.scatter_update(k_scale_cache, -2, index, k_scale_4d)
 
 

@@ -104,7 +104,7 @@ def select_experts_glm(hidden_states, residual, weight, bias_input, mm_weight, e
         group_weight = max1
 
         # topk
-        pypto.set_vec_tile_shapes(view_first, num_expert_group)
+        pypto.set_vec_tile_shapes(view_first, num_expert_group * 16)
         _, topk_group_indices = pypto.topk(group_weight, topk_group, -1, True)  # (2, topk_group) int32
 
         # zeros0 -> full(0)
@@ -113,7 +113,7 @@ def select_experts_glm(hidden_states, residual, weight, bias_input, mm_weight, e
                                                     num_expert_group])  # (16, 1)
 
         # # scatter
-        pypto.set_vec_tile_shapes(view_first, num_expert_group)  # 尾轴不能切
+        pypto.set_vec_tile_shapes(view_first, num_expert_group * 16)  # 尾轴不能切
         topk_group_mask_scatter_trans = pypto.scatter_(topk_group_mask, 1, topk_group_indices, 1.0)
 
         # unsqueeze
@@ -121,7 +121,7 @@ def select_experts_glm(hidden_states, residual, weight, bias_input, mm_weight, e
         twm_unsqueeze = pypto.unsqueeze(topk_group_mask_scatter_trans, -1)  # (bs, neg, 1) fp32
 
         # expand
-        pypto.set_vec_tile_shapes(view_first, num_expert_group, 1)
+        pypto.set_vec_tile_shapes(view_first, num_expert_group, 16)
         twm_expand = pypto.expand_clone(twm_unsqueeze, [view_shape[0], num_expert_group, group_unit],
                                         valid_shape=[(bs - bs_idx * view_shape[0]).min(view_shape[0]),
                                                         num_expert_group, group_unit])
@@ -148,7 +148,7 @@ def select_experts_glm(hidden_states, residual, weight, bias_input, mm_weight, e
         tw_gather = pypto.gather(original_topk_weights, 1, topk_ids)  # (bs, 8)
 
         # sum & div
-        pypto.set_vec_tile_shapes(view_first, topk)
+        pypto.set_vec_tile_shapes(view_first, topk * 4)
         if pypto.cond(pypto.symbolic_scalar(renormalize_flag)):
             # sum
             denominator = pypto.sum(tw_gather, -1, True)  # (bs, 1)

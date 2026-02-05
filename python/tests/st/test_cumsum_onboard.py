@@ -23,7 +23,7 @@ def test_cumsum_onboard():
     torch.npu.set_device(device_id)
     shape = (10, 10)
     view_shape = (10, 4)
-    tile_shape = (10, 4)
+    tile_shape = (10, 8)
     pypto.runtime._device_init()
 
     input1 = pypto.tensor(shape, pypto.DT_INT32, "pypto_TENSOR_input1")

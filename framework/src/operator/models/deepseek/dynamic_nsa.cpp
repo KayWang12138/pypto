@@ -79,7 +79,7 @@ void GenSlc(const Tensor &x, Tensor &trans0res, Tensor &reduce0res, Tensor &tran
         "main", {x}, {trans0res, reduce0res, trans1res, reduce1res, topkInd, topkVal, out}) {
         LOOP("LOOP_L0_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sLoop, 1), {}, true) {
             SymbolicScalar sOfs = sIdx * tileS2;
-            TileShape::Current().SetVecTile({1, 4, s_cmp});
+            TileShape::Current().SetVecTile({1, 4, int((s_cmp + 15) / 16) * 16});
             auto viewer = View(x, {n2, g, s_cmp}, {0, 0, sOfs});
             auto input32 = Cast(viewer, DataType::DT_FP32); // 1,128,511
             auto tmpTrans = Transpose(input32, {1, 2});     // 1,511,128

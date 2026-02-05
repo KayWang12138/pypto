@@ -194,7 +194,7 @@ def moe_fusion_kernel(hidden_states_shape, mm_weight_shape, e_score_bias_shape, 
             group_weight = max1
 
             # topk
-            pypto.set_vec_tile_shapes(view_first, num_expert_group)
+            pypto.set_vec_tile_shapes(view_first, int((num_expert_group + 7) / 8) * 8)
             _, topk_group_indices = pypto.topk(group_weight, topk_group, -1, True)  # (2, topk_group) int32
 
             # zeros -> full(0)
