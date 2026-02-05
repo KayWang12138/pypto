@@ -28,7 +28,7 @@ from . import convert
 @dataclass
 class KernelConfig:
     """内核配置"""
-    compile_options: str
+    compile_options: Dict
 
 
 class KernelLauncher:
@@ -90,6 +90,8 @@ def _call_meta_and_capture_env(meta_fn):
     """Run meta_fn() and capture its local namespace (for types etc.). Returns (return_value, env dict)."""
     env = {}
 
+    if meta_fn is None:
+        return None, env
     def trace(frame, event, arg):
         if event == "return":
             env.clear()
@@ -257,7 +259,7 @@ def jit(target: str = None, optimize: bool = True, cache: bool = True,
         return decorator
 
 
-def kernel(options="", *dargs, **kwargs):
+def kernel(options=None, meta_data=None, *dargs, **kwargs):
     """
     @pto.kernel 装饰器: 标记函数为device上执行的函数,需要映射成ptoas编译器支持的mlir
 
@@ -277,7 +279,7 @@ def kernel(options="", *dargs, **kwargs):
 
     def decorator(kernel_fn):
         name = kernel_fn.__name__
-        signature = inspect.signature(f)
+        signature = inspect.signature(kernel_fn)
         compiled_func = None
         # 创建内核配置
         config = KernelConfig(

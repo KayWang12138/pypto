@@ -1,13 +1,13 @@
-from .jit import *
-from .compiler import *
+from ptodsl.jit import *
+from ptodsl.compiler import *
 
 
-@kernel
+@kernel()
 def TestKernelFunction():
     print("This is a test kernel function.")
     return
 
-@jit
+@jit()
 def TestJITFunction():
     print("This is a test JIT function.")
     TestKernelFunction()
