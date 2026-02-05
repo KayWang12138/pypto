@@ -205,7 +205,6 @@ private:
         const std::unordered_map<OpCoreType, std::vector<int>> fixCoreConfig = CORE_INIT_CONFIGS_HARDWARE_ONE);
     Status InitIssueEntry(Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     void InitCoreConfig(const std::vector<Operation *> &operations);
-    void SetOpAIVCore(IssueEntryPtr issue);
     Status InitIssueCoreType(IssueEntryPtr issue, Operation* op, const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap);
     void InitMemorySize();
     Status CheckOpBufferSize(Operation *op);

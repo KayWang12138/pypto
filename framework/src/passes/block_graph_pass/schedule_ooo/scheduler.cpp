@@ -237,7 +237,17 @@ Status OoOScheduler::DelBufRefCount(const int memId) {
 
 void OoOScheduler::PrintOpList(std::vector<Operation *> operations) {
     APASS_LOG_INFO_F(Elements::Operation, "==================== OP_LIST =====================");
+    bool needMark = false;
+    if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 || !IsMixGraph(operations)) {
+        needMark = true;
+    }
     for (auto &op : operations) {
+        if (needMark) {
+            bool isCubeComponent = op->HasAttribute(OpAttributeKey::isCube) && op->GetBoolAttribute(OpAttributeKey::isCube);
+            if (!isCubeComponent) {
+                op->SetAIVCore(AIVCore::AIV0);
+            }
+        }
         if (!op->oOperand.empty()) {
             APASS_LOG_INFO_F(Elements::Operation, "%s[%d], range[%zu, %zu]", op->GetOpcodeStr().c_str(), 
                 op->GetOpMagic(), op->oOperand[0]->memoryrange.start, op->oOperand[0]->memoryrange.end);
@@ -998,13 +1008,6 @@ void OoOScheduler::InitTensorCoreMap() {
     }
 }
 
-void OoOScheduler::SetOpAIVCore(IssueEntryPtr issue) {
-    issue->tileOp.SetAIVCore(AIVCore::AIV0);
-    for (auto viewOp : issue->viewOps) {
-        viewOp->SetAIVCore(AIVCore::AIV0);
-    }
-}
-
 Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
     const std::unordered_map<Operation*, std::pair<OpCoreType, int>> &opCoreMap) {
     if (!opCoreMap.empty()) {
@@ -1017,13 +1020,11 @@ Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
     }
     if (op->GetCoreType() == CoreType::AIV) {
         issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
-        SetOpAIVCore(issue);
         return SUCCESS;
     }
     // 对 ANY 类型进行处理
     if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
         issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
-        SetOpAIVCore(issue);
         return SUCCESS;
     }
     if (op->GetOutputOperand(0)->GetMemoryTypeOriginal() <= MemoryType::MEM_BT) {
@@ -1037,7 +1038,6 @@ Status OoOScheduler::InitIssueCoreType(IssueEntryPtr issue, Operation* op,
         }
         if (op->GetInputOperand(0)->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
             issue->coreLocation = opCoreTypeMap.at(OpCoreType::AIV);
-            SetOpAIVCore(issue);
             return SUCCESS;
         }
         if (op->GetInputOperand(0)->GetMemoryTypeOriginal() <= MemoryType::MEM_BT) {
