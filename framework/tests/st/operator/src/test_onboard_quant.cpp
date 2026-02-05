@@ -329,6 +329,7 @@ void TestQuantMM3D(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
         Tensor matScaleW(DataType::DT_FP32, shapeScaleW, (uint8_t *)matScaleW_ptr, "MatScaleW");
         Tensor matRes(DataType::DT_BF16, shapeRes, matRes_ptr, "MatRes");
         config::SetBuildStatic(true);
+        config::SetPassOption(VEC_NBUFFER_MODE, 0);
         FUNCTION("QUANTMM", {matA, matW, matScaleW, matRes}) {
             matRes = npu::tile_fwk::Matrix::QuantMM(matA, matW, matScaleW);
         }
@@ -337,14 +338,14 @@ void TestQuantMM3D(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
 
     std::vector<dstType> res(capacityRes);
     machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), matRes_ptr, outputSize);
-    std::vector<dstType> golden(capacityRes);
-    readInput(GetGoldenDir() + "/quant_mm_golden.bin", golden);
-    std::vector<srcAType> a(capacityA);
-    readInput(GetGoldenDir() + "/quant_mm_a.bin", a);
     std::vector<srcWType> w(capacityW);
     readInput(GetGoldenDir() + "/quant_mm_w.bin", w);
     std::vector<srcScaleWType> scaleW(capacityScaleW);
     readInput(GetGoldenDir() + "/quant_mm_scale_w.bin", scaleW);
+    std::vector<dstType> golden(capacityRes);
+    readInput(GetGoldenDir() + "/quant_mm_golden.bin", golden);
+    std::vector<srcAType> a(capacityA);
+    readInput(GetGoldenDir() + "/quant_mm_a.bin", a);
 
     int ret = resultCmp(golden, res, 0.001f);
     EXPECT_EQ(ret, true);
