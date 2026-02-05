@@ -30,7 +30,7 @@ namespace npu::tile_fwk::dynamic {
 #define INVALID_STITCH_IDX      (static_cast<uint32_t>(-1))
 
 constexpr size_t READY_QUEUE_SIZE = 3UL;
-inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
+inline constexpr size_t MAX_CACHED_FUNC_NUM = 1024;
 
 struct ReadyQueueCache {
     uint32_t coreFunctionCnt;
@@ -210,7 +210,7 @@ struct DevControlFlowCache {
         isRecordingStopped = true;
     }
 
-    void Init(void *dyndevAttrPtr, uint64_t cacheSize, uint64_t runtimeOutcastPoolSize, uint64_t &initOffset);
+    void Init(void *dyndevAttrPtr, uint64_t cacheSize, uint64_t runtimeOutcastPoolSize, uint64_t &initOffset, uint16_t stitchFunctionNum);
     uint64_t GetSize() const { return reinterpret_cast<uintptr_t>(ctrlFlowLastField.End()) - reinterpret_cast<uintptr_t>(this); }
 
 #define CFGCACHE_ALIGN      8

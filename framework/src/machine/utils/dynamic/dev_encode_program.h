@@ -421,6 +421,6 @@ private:
     void InitControlFlowCache(
             uintdevptr_t &initOffset,
             const std::shared_ptr<DyndevFunctionAttribute> &dyndevAttr,
-            bool fillContent);
+            bool fillContent, uint16_t stitchFunctionNum);
 };
 }
