@@ -86,6 +86,8 @@ enum class Opcode {
     OP_MUL,
     OP_DIV,
     OP_MOD,
+    OP_GCD,
+    OP_GCD_BRC,
     OP_ADD_BRC,
     OP_SUB_BRC,
     OP_MUL_BRC,
