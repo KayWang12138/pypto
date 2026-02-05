@@ -126,7 +126,7 @@ public:
             baseAddr += devProg->memBudget.aicoreSpilled + devProg->memBudget.tensor.Total() + devProg->memBudget.debug.dumpTensor;
 
             dataAddr = baseAddr + schedIdx * DEV_DUMP_DATA_SIZE;
-            DEV_DEBUG("dataAddr is %p.", dataAddr);
+            DEV_DEBUG("dataAddr is %lu.", dataAddr);
         }
     }
 

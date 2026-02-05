@@ -1002,7 +1002,7 @@ public:
         slotDataViewDict_ = slotDataViewDict;
         outputSlotSet_ = outputSlotSet;
         for (auto &[slot, tileOpFormat]: slotTileOpFormatDict) {
-            if (tileOpFormat == TileOpFormat::TILEOP_NZ && !outputSlotSet_.count(slot)) {
+            if (tileOpFormat == TileOpFormat::TILEOP_NZ) {
                 ASSERT(slotDataViewDict_.count(slot));
                 auto dataView = slotDataViewDict_[slot];
                 auto inputIndex = findInputIndex(dataView);
