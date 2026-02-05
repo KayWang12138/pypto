@@ -143,7 +143,6 @@ void OoOScheduler::UpdateOpAttr(
         }
     }
     op.UpdateLatency(opLatency);
-    UpdateOpInternalSubgraphID(op, spillIssue);
 }
 
 void OoOScheduler::ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int newMemId) {
@@ -217,6 +216,10 @@ Status OoOScheduler::UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntry
     InsertIssueEntries(reloadAlloc);
     reloadCopyin->execOrder = bufNextUseOrder;
     InsertIssueEntries(reloadCopyin);
+    reloadAlloc->coreLocation = allocIssue->coreLocation;
+    reloadCopyin->coreLocation = allocIssue->coreLocation;
+    UpdateOpInternalSubgraphID(reloadAlloc->tileOp, allocIssue);
+    UpdateOpInternalSubgraphID(reloadCopyin->tileOp, allocIssue);
     if (UpdateReloadIssueDepend(reloadCopyin, spillIssue, spillMemId) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueDepend failed. %s", GetFormatBacktrace(reloadCopyin->tileOp).c_str());
         return FAILED;
@@ -273,10 +276,8 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
 
     // 初始化OP_COPY_IN/OP_ALLOC的issueEntry
     IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
-    spillAllocInst->coreLocation = spillIssue->coreLocation;
     issueEntryMap[issueId++] = spillAllocInst;
     IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(spillCopyInOp, issueId);
-    spillInInst->coreLocation = spillIssue->coreLocation;
     issueEntryMap[issueId++] = spillInInst;
     if (spillAllocInst == nullptr || spillInInst == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Create OP_COPY_IN/OP_ALLOC issueEntry failed!");
@@ -355,7 +356,13 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     spillCopyout->predecessors.insert(spillIssue->id);
     spillIssue->successors.insert(spillCopyout->id);
     spillCopyout->isRetired = true;
-    spillCopyout->coreLocation = spillIssue->coreLocation;
+    for (auto preId : spillIssue->predecessors) {
+        auto issue = issueEntryMap[preId];
+        if (issue->isAlloc) {
+            spillCopyout->coreLocation = issue->coreLocation;
+            UpdateOpInternalSubgraphID(spillCopyout->tileOp, issue);
+        }
+    }
     APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_OUT: %s.", spillCopyout->GetOpInfo().c_str());
     return SUCCESS;
 }
@@ -374,11 +381,14 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
                 auto actualSpillIssue = issueEntryMap[preId];
             }
         }
+        if (actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
+            APASS_LOG_ERROR_F(Elements::Operation, "A5 L1 Spill: actualSpillIssue is copy_in.");
+            return FAILED;
+        }
         if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
             return FAILED;
         }
-        // TODO 确认插入位置
         bufLastUseOrder = GetBufLastUseOrder(issue, actualSpillTensor->memoryrange.memId);
     } else {
         if (CreateSpillCopyout(spillInfo.spillIssue_, spillInfo.spillTensor_, spillInfo.spillMemId_,
