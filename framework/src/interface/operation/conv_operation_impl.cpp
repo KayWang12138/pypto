@@ -201,7 +201,7 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
 
     checkDivisible(cin, tileCinFmap, "Cin", "tileCinFmap");
     checkDivisible(cin, tileCinWeight, "Cin", "tileCinWeight");
-
+    int64_t tileWout = convTile.tileL1Info.tileWout;
     OP_CHECK(true, {
         ASSERT(tileWout % NUM16 == 0)
             << "Invalid tileWout: " << tileWout
