@@ -28,7 +28,6 @@ void bind_controller_config(py::module &m) {
 
     m.def("ResetOptions", []() {
         config::Reset();
-        ConfigManagerNg::GetInstance().SetScope(std::map<std::string, Any>({{"host.compile_stage", (int64_t)GEN_KERNEL_CODE}}));
     });
 
 
@@ -38,70 +37,6 @@ void bind_controller_config(py::module &m) {
             config::SetPrintOptions(edgeItems, precision, threshold, linewidth);
         },
         py::arg("edgeItems"), py::arg("precision"), py::arg("threshold"), py::arg("linewidth"));
-
-    m.def(
-        "SetExperimentalOption",
-        [](const std::string &key, const py::object &value) {
-            if (py::isinstance<py::bool_>(value)) {
-                config::experimental::SetOption(key, value.cast<bool>());
-                return;
-            }
-            if (py::isinstance<py::int_>(value)) {
-                config::experimental::SetOption(key, value.cast<int64_t>());
-                return;
-            }
-            if (py::isinstance<py::str>(value)) {
-                config::experimental::SetOption(key, value.cast<std::string>());
-                return;
-            }
-            if (py::isinstance<py::list>(value) || py::isinstance<py::tuple>(value)) {
-                py::sequence seq = value.cast<py::sequence>();
-                if (seq.size() == 0) {
-                    if (key.find("group_name") != std::string::npos) {
-                        config::experimental::SetOption(key, std::vector<std::string>{});
-                    } else {
-                        config::experimental::SetOption(key, std::vector<int64_t>{});
-                    }
-                    return;
-                }
-                bool all_int = true;
-                bool all_str = true;
-                for (auto item : seq) {
-                    all_int = all_int && py::isinstance<py::int_>(item);
-                    all_str = all_str && py::isinstance<py::str>(item);
-                }
-                if (all_int) {
-                    std::vector<int64_t> vals;
-                    vals.reserve(seq.size());
-                    for (auto item : seq) {
-                        vals.push_back(py::cast<int64_t>(item));
-                    }
-                    config::experimental::SetOption(key, vals);
-                    return;
-                }
-                if (all_str) {
-                    std::vector<std::string> vals;
-                    vals.reserve(seq.size());
-                    for (auto item : seq) {
-                        vals.emplace_back(py::cast<std::string>(item));
-                    }
-                    config::experimental::SetOption(key, vals);
-                    return;
-                }
-            }
-            if (py::isinstance<py::dict>(value)) {
-                std::map<int64_t, int64_t> vals;
-                auto dict = value.cast<py::dict>();
-                for (auto item : dict) {
-                    vals[py::cast<int64_t>(item.first)] = py::cast<int64_t>(item.second);
-                }
-                config::experimental::SetOption(key, vals);
-                return;
-            }
-            throw py::type_error("Unsupported experimental config type.");
-        },
-        py::arg("key"),
-        py::arg("value"));
 
     m.def("SetSemanticLabel",
         [](const std::string &label, const std::string &filename, int lineno) {
@@ -293,6 +228,8 @@ std::map<std::string, npu::tile_fwk::Any> ConvertPyDictToCppMap(const py::dict &
                     cpp_values[key] = value.cast<std::vector<int64_t>>();
                 } else if (py::isinstance<py::str>(lst[0])) {
                     cpp_values[key] = value.cast<std::vector<std::string>>();
+                } else if (py::isinstance<py::float_>(lst[0])) {
+                    cpp_values[key] = value.cast<std::vector<double>>();
                 } else {
                     throw py::type_error("Unsupported list element type for key: " + key);
                 }
@@ -369,6 +306,7 @@ py::object AnyToPyObject(const Any &val) {
         {typeid(std::string), [](const Any& a){ return py::cast(AnyCast<std::string>(a)); }},
         {typeid(std::vector<int64_t>), [](const Any& a){ return py::cast(AnyCast<std::vector<int64_t>>(a)); }},
         {typeid(std::vector<std::string>), [](const Any& a){ return py::cast(AnyCast<std::vector<std::string>>(a)); }},
+        {typeid(std::vector<double>), [](const Any& a){ return py::cast(AnyCast<std::vector<double>>(a)); }},
         {typeid(std::map<int64_t,int64_t>), [](const Any& a){ return py::cast(AnyCast<std::map<int64_t,int64_t>>(a)); }},
         {typeid(CubeTile), [](const Any& a){ return py::cast(AnyCast<CubeTile>(a)); }},
         {typeid(DistTile), [](const Any& a){ return py::str(AnyCast<DistTile>(a).ToString()); }},
@@ -442,7 +380,5 @@ void bind_controller(py::module &m) {
 
     // disable cpp mode
     SourceLocation::SetCppMode(false);
-    // set default compile stage to codegen
-    ConfigManagerNg::GetInstance().SetScope(std::map<std::string, Any>({{"host.compile_stage", (int64_t)GEN_KERNEL_CODE}}));
 }
 } // namespace pypto

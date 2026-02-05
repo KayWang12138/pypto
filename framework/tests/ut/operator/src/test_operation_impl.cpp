@@ -31,7 +31,7 @@ public:
 
     void SetUp() override { 
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
     }
 
     void TearDown() override {}
@@ -441,6 +441,19 @@ TEST_F(OperationImplTest, test_Range_INT32) {
     }
 }
 
+TEST_F(OperationImplTest, Test_Round_FP32) {
+    PROGRAM("Round") {
+        std::vector<int64_t> shape = {128, 32};
+        TileShape::Current().SetVecTile({128, 32});
+        Tensor input_a(DT_FP32, shape, "operand1");
+        auto output = Tensor(DT_FP32, shape, "res");
+        config::SetBuildStatic(true);
+        FUNCTION("Round_FP32") {
+            output = Round(input_a, 1);
+        }
+    }
+}
+
 TEST_F(OperationImplTest, test_Rsqrt_FP16) {
     constexpr int TILE_SHAPE = 32;
     constexpr int SHAPE = 128;
@@ -461,6 +474,50 @@ TEST_F(OperationImplTest, test_Rsqrt_FP32) {
     FUNCTION("TestRsqrt") {
         result = Rsqrt(operand1);
     }
+}
+
+TEST_F(OperationImplTest, test_Ceil_FP32) {
+    constexpr int TILE_SHAPE = 32;
+    constexpr int SHAPE = 128;
+    TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
+    Tensor operand1(DT_FP32, {SHAPE, SHAPE}, "operand1");
+    Tensor result;
+    FUNCTION("TestCeil") {
+        result = Ceil(operand1);
+    }
+}
+
+TEST_F(OperationImplTest, test_Floor_FP32) {
+    constexpr int TILE_SHAPE = 32;
+    constexpr int SHAPE = 128;
+    TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
+    Tensor operand1(DT_FP32, {SHAPE, SHAPE}, "operand1");
+    Tensor result;
+    FUNCTION("TestFloor") {
+        result = Floor(operand1);
+    }
+}
+
+TEST_F(OperationImplTest, test_Trunc_FP32) {
+    constexpr int TILE_SHAPE = 32;
+    constexpr int SHAPE = 128;
+    TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
+    Tensor operand1(DT_FP32, {SHAPE, SHAPE}, "operand1");
+    Tensor result;
+    FUNCTION("TestTrunc") {
+        result = Trunc(operand1);
+    }
+}
+
+ TEST_F(OperationImplTest, test_Reciprocal_FP32) {
+ 	     constexpr int TILE_SHAPE = 32;
+ 	     constexpr int SHAPE = 128;
+ 	     TileShape::Current().SetVecTile(TILE_SHAPE, TILE_SHAPE);
+ 	     Tensor operand1(DT_FP32, {SHAPE, SHAPE}, "operand1");
+ 	     Tensor result;
+ 	     FUNCTION("TestReciprocal") {
+ 	         result = Reciprocal(operand1);
+ 	     }
 }
 
 TEST_F(OperationImplTest, TestIndexPut_) {
@@ -643,6 +700,39 @@ TEST_F(OperationImplTest, test_Add_Brcb) {
     }
 }
 
+TEST_F(OperationImplTest, test_Fmod) {
+    TileShape::Current().SetVecTile(16, 16);
+    Tensor input0(DT_FP32, {16, 16}, "input0");
+    Tensor input1(DT_FP32, {16, 16}, "input1");
+    Tensor result;
+    config::SetOperationOption(KEY_COMBINE_AXIS, false);
+    FUNCTION("TestFmod") {
+        result = Fmod(input0, input1);
+    }
+}
+
+TEST_F(OperationImplTest, test_Fmod_Brcb) {
+    TileShape::Current().SetVecTile(16, 16);
+    Tensor input0(DT_FP32, {16, 16}, "input0");
+    Tensor input1(DT_FP32, {16, 1}, "input1");
+    Tensor result;
+    config::SetOperationOption(KEY_COMBINE_AXIS, true);
+    FUNCTION("TestFmodBrcb") {
+        result = Fmod(input0, input1);
+    }
+}
+
+TEST_F(OperationImplTest, test_FmodS) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor input0(DT_FP32, {8, 8}, "input0");
+    float scalar = 10.0;
+    Element input1(DT_FP32, scalar);
+    Tensor result;
+    FUNCTION("TestFmodS") {
+        result = Fmod(input0, input1);
+    }
+}
+
 TEST_F(OperationImplTest, Test_TopK_01) {
     std::vector<int64_t> inputShape = {1, 16384};
     std::vector<int64_t> outputShape = {1, 2048};
@@ -684,5 +774,89 @@ TEST_F(OperationImplTest, Test_TopK_04) {
     auto output = std::make_tuple(Tensor(DT_FP32, outputShape, "res"), Tensor(DT_FP32, outputShape, "resDics"));
     FUNCTION("TOPK_T") {
         output = TopK(input_a, 2048, -1);
+    }
+}
+
+TEST_F(OperationImplTest, Test_BitwiseRightShift) {
+    TileShape::Current().SetVecTile({16, 16});
+    Tensor self(DT_INT16, {16, 16}, "self");
+    Tensor other(DT_INT16, {16, 16}, "other");
+    Tensor result;
+    FUNCTION("TestBitwiseRightShift") {
+        result = BitwiseRightShift(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, Test_BitwiseRightShift_brc) {
+    TileShape::Current().SetVecTile({16, 16});
+    Tensor self(DT_INT16, {16, 16}, "self");
+    Tensor other(DT_INT16, {1, 16}, "other");
+    Tensor result;
+    FUNCTION("TestBitwiseRightShift") {
+        result = BitwiseRightShift(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, Test_BitwiseRightShifts) {
+    TileShape::Current().SetVecTile({16, 16});
+    Tensor self(DT_INT16, {16, 16}, "self");
+    int scalar = 1;
+    Element other(DT_INT16, scalar);
+    Tensor result;
+    FUNCTION("TestBitwiseRightShift") {
+        result = BitwiseRightShift(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, Test_SBitwiseRightShift) {
+    TileShape::Current().SetVecTile({16, 16});
+    int scalar = 1;
+    Element self(DT_INT16, scalar);
+    Tensor other(DT_INT16, {16, 16}, "self");
+    Tensor result;
+    FUNCTION("TestBitwiseRightShift") {
+        result = BitwiseRightShift(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, Test_BitwiseLeftShift) {
+    TileShape::Current().SetVecTile({16, 16});
+    Tensor self(DT_INT16, {16, 16}, "self");
+    Tensor other(DT_INT16, {16, 16}, "other");
+    Tensor result;
+    FUNCTION("TestBitwiseLeftShift") {
+        result = BitwiseLeftShift(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, Test_BitwiseLeftShift_brc) {
+    TileShape::Current().SetVecTile({16, 16});
+    Tensor self(DT_INT16, {1, 16}, "self");
+    Tensor other(DT_INT16, {16, 16}, "other");
+    Tensor result;
+    FUNCTION("TestBitwiseLeftShift") {
+        result = BitwiseLeftShift(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, Test_BitwiseLeftShifts) {
+    TileShape::Current().SetVecTile({16, 16});
+    Tensor self(DT_INT16, {16, 16}, "self");
+    int scalar = 1;
+    Element other(DT_INT16, scalar);
+    Tensor result;
+    FUNCTION("TestBitwiseLeftShift") {
+        result = BitwiseLeftShift(self, other);
+    }
+}
+
+TEST_F(OperationImplTest, Test_SBitwiseLeftShift) {
+    TileShape::Current().SetVecTile({16, 16});
+    int scalar = 1;
+    Element self(DT_INT16, scalar);
+    Tensor other(DT_INT16, {16, 16}, "self");
+    Tensor result;
+    FUNCTION("TestBitwiseLeftShift") {
+        result = BitwiseLeftShift(self, other);
     }
 }

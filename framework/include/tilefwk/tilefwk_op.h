@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -127,8 +127,13 @@ Tensor Cast(const Tensor &self, DataType dstDataType, CastMode mode = CAST_NONE)
 
 Tensor Exp(const Tensor &self);
 Tensor Neg(const Tensor &self);
+Tensor Round(const Tensor &self, const int &decimals = 0);
 Tensor Rsqrt(const Tensor &self);
+Tensor BitwiseNot(const Tensor &self);
 Tensor Sqrt(const Tensor &self);
+Tensor Ceil(const Tensor &self);
+Tensor Floor(const Tensor &self);
+Tensor Trunc(const Tensor &self);
 Tensor Reciprocal(const Tensor &operand);
 Tensor Abs(const Tensor &self);
 Tensor Ln(const Tensor &operand);
@@ -160,8 +165,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
     ScatterMode reduce = ScatterMode::NONE);
 void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate = false);
-Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});
-Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});
+Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element(DT_FP32, 1.0f));
 Tensor RowSumExpand(const Tensor &operand);
 Tensor RowMaxExpand(const Tensor &operand);
 
@@ -175,18 +179,33 @@ Tensor Add(const Tensor &self, const Tensor &other);
 Tensor Sub(const Tensor &self, const Tensor &other);
 Tensor Div(const Tensor &self, const Tensor &other);
 Tensor Mul(const Tensor &self, const Tensor &other);
+Tensor Fmod(const Tensor &self, const Tensor &other);
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2);
 Tensor Minimum(const Tensor &operand1, const Tensor &operand2);
+Tensor BitwiseAnd(const Tensor &self, const Tensor &other);
+Tensor BitwiseOr(const Tensor &self, const Tensor &other);
+Tensor BitwiseXor(const Tensor &self, const Tensor &other);
 Tensor Add(const Tensor &self, const Element &other);
 Tensor Sub(const Tensor &self, const Element &other);
 Tensor Div(const Tensor &self, const Element &other);
 Tensor Mul(const Tensor &self, const Element &other);
+Tensor Fmod(const Tensor &self, const Element &other);
+Tensor BitwiseAnd(const Tensor &self, const Element &other);
+Tensor BitwiseOr(const Tensor &self, const Element &other);
+Tensor BitwiseXor(const Tensor &self, const Element &other);
 Tensor Minimum(const Tensor &operand1, const Element &operand2);
 Tensor Maximum(const Tensor &operand1, const Element &operand2);
 Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode);
 Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode);
 Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode);
 Tensor Pow(const Tensor &self, const Element &other);
+
+Tensor BitwiseRightShift(const Tensor &self, const Tensor &other);
+Tensor BitwiseRightShift(const Tensor &self, const Element &other);
+Tensor BitwiseRightShift(const Element &self, const Tensor &other);
+Tensor BitwiseLeftShift(const Tensor &self, const Tensor &other);
+Tensor BitwiseLeftShift(const Tensor &self, const Element &other);
+Tensor BitwiseLeftShift(const Element &self, const Tensor &other);
 
 Tensor Where(const Tensor &condition, const Tensor &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Tensor &input, const Element &other);
@@ -265,6 +284,8 @@ Tensor ScalarMulS(const Tensor &operand, const Element &value, bool reverseOpera
 Tensor ScalarSub(const Tensor &operand1, const Tensor &operand2);
 Tensor ScalarDiv(const Tensor &operand1, const Tensor &operand2);
 Tensor CumSum(const Tensor &input, const int &axis);
+Tensor TriU(const Tensor &input, const SymbolicScalar &diagonal);
+Tensor TriL(const Tensor &input, const SymbolicScalar &diagonal);
 struct PaTileShapeConfig {
     int headNumQTile;
     std::array<int, TILE_VEC_DIMS> v0TileShape;
@@ -399,7 +420,7 @@ void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tens
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
     Tensor& shmemSignal, Tensor& out);
-void ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize, Tensor& out);
+Tensor ShmemBarrier(const Tensor& predToken, Tensor& shmemSignal, const char* group, uint32_t worldSize);
 Tensor ShmemDataSet(const Tensor& predToken, const Tensor& shmemData);
 Tensor ShmemSignalSet(const Tensor& predToken, const Tensor& shmemSignal);
 void ReduceScatter(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize,
@@ -418,16 +439,16 @@ void MoeDistributedCombine(const Tensor& expandX, const Tensor& assistInfoForCom
 void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
     const Tensor& expertScales, const char* group, uint32_t epWorldSize, uint32_t moeExpertNum,
     uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& out);
-void CreateShmemData(const char *group, int64_t worldSize, DataType dataType,
-    const Shape &shape, Tensor &shmemTensor, uint64_t memType = 0);
-void CreateShmemSignal(const char *group, Tensor &shmemData, Tensor &shmemSignal);
-Tensor ShmemPut(const Tensor& in, const Tensor& shmemDataTile, const Tensor& barrierDummy,
+void CreateShmemData(const char* group, int64_t worldSize, DataType dataType,
+    const Shape& shape, Tensor& shmemTensor, uint64_t memType = 0);
+void CreateShmemSignal(const char* group, Tensor& shmemData, Tensor& shmemSignal);
+Tensor ShmemPut(const Tensor& predToken, const Tensor& in, const Tensor& shmemData,
     AtomicType atomicType = AtomicType::SET);
-Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy, int tileCount,
+Tensor ShmemPutUb2Gm(const Tensor &in, const Tensor &shmemDataTile, const Tensor &barrierDummy,
     AtomicType atomicType = AtomicType::SET);
-Tensor ShmemSignal(const Tensor& dummy, const Tensor& shmemSignalTile, AtomicType atomicType);
-Tensor WaitUntil(const Tensor& dummyIn, const Tensor& shmemSignalTile, int32_t expectedSum, bool resetSignal = false);
-Tensor ShmemGet(const Tensor& dummy, const Tensor& shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
+Tensor ShmemSignal(const Tensor& predToken, const Tensor& shmemSignal, AtomicType atomicType = AtomicType::SET);
+Tensor WaitUntil(const Tensor& predToken, const Tensor& shmemSignal, int32_t expectedSum, bool resetSignal = false);
+Tensor ShmemGet(const Tensor& predToken, const Tensor& shmemData, DataType nonShmemDataType = DataType::DT_BOTTOM,
     AtomicType atomicType = AtomicType::SET);
 Tensor ShmemGetGm2Ub(const Tensor &dummy, const Tensor &shmemDataTile, DataType nonShmemDataType = DataType::DT_BOTTOM,
     AtomicType atomicType = AtomicType::SET);
@@ -437,4 +458,5 @@ std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, int idxStart);
 std::tuple<Tensor, Tensor> TopKSort(const Tensor &x, const SymbolicScalar &idxStart);
 Tensor TopKExtract(const Tensor &x, int k, bool isIndex);
 Tensor TopKMerge(const Tensor &x, int mergeSize);
+Tensor Nop(const std::vector<Tensor> &inTensors);
 } // namespace npu::tile_fwk

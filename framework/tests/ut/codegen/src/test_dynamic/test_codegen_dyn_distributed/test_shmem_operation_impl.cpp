@@ -17,6 +17,7 @@
 #include <string>
 
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
@@ -50,6 +51,19 @@ private:
         return shmemDataType;
     }
 
+    std::string getTimeStamp() 
+    {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        auto us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count() % 1000000;
+
+        std::stringstream timestamp;
+        timestamp << std::put_time(std::localtime(&time), "%Y%m%d_%H%M%S");
+        constexpr int NUM_SIX = 6;
+        timestamp << "_" << std::setw(NUM_SIX) << std::setfill('0') << us;
+        return timestamp.str();
+    }
+
 public:
     static void SetUpTestCase() {}
 
@@ -59,8 +73,10 @@ public:
     {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(getpid());
+        setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
     }
 
     void TearDown() override {}
@@ -224,7 +240,7 @@ TEST_F(TestDistributedShmemImpl, TestShmemBarrier)
         Tensor predToken(DT_INT32, {1, 1}, "predToken");
         LOOP(functionName, FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
             (void) index;
-            ShmemBarrier(predToken, shmemSignal, group, worldSize, out);
+            out = ShmemBarrier(predToken, shmemSignal, group, worldSize);
         }
     }
 
@@ -257,5 +273,4 @@ TEST_F(TestDistributedShmemImpl, TestShmemGetGm2Ub)
     npu::tile_fwk::CodeGenCloudNPU codeGen(ctx);
     codeGen.GenCode(*function, {});
 }
-
 }

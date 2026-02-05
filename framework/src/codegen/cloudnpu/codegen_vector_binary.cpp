@@ -18,7 +18,6 @@
 #include "codegen_op_cloudnpu.h"
 #include "securec.h"
 #include "codegen/utils/codegen_utils.h"
-#include "codegen/symbol_mgr/codegen_symbol.h"
 
 namespace npu::tile_fwk {
 std::string GetBrcOprandIdxStr(int64_t brcbOperandIdx) {
@@ -153,6 +152,10 @@ std::string CodeGenOpCloudNPU::PrintBinaryTileTensor() const {
 
     std::vector<std::string> templateParamList;
     int64_t brcOperandIdx = 0;
+    std::string lastUse = GetLastUse();
+    if(!lastUse.empty()){
+        templateParamList.emplace_back(lastUse);
+    }
     if (GetAttr(OpAttributeKey::brcbIdx, brcOperandIdx)) {
         templateParamList.emplace_back(GetBrcOprandIdxStr(brcOperandIdx));
     }
@@ -202,6 +205,36 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
         s1Var += "+" + GetOperandStartOffset(ID2).Dump();
     }
     return PrintBinary({s0Var, s1Var, dVar, src0DtypeStr, src1DtypeStr, dstDtypeStr});
+}
+
+std::string CodeGenOpCloudNPU::GenBinaryOpWithTmp() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC1_IDX));
+    std::vector<std::string> tileOpCallParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
+    std::ostringstream oss;
+    oss << tileOpName;
+    oss << WrapParamByParentheses(tileOpCallParamList) << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenVectorScalarOpWithTmp() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::string srcScalar;
+    if (extOperandVal.IsFloat()) {
+        srcScalar = FormatFloat(extOperandVal.Cast<float>());
+    } else if (extOperandVal.IsUnsigned()||extOperandVal.IsSigned()) {
+        srcScalar = std::visit([](const auto& val) -> std::string {
+            return std::to_string(val);},extOperandVal.GetVariantData());
+    }
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, srcScalar, tmpTensor};
+
+    std::ostringstream oss;
+    oss << tileOpName << WrapParamByParentheses(tileOpParamList) << STMT_END;
+    return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::PrintBinaryBrcStatic(const PrintBinaryBrcParam &param) const {
@@ -441,11 +474,18 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
 
-    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
-
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, scalarTmpBuffer};
+    std::vector<std::string> templateParamList;
     std::ostringstream oss;
-    oss << tileOpName << "<" << dstDtypeStr << ">"
-        << "(" << dstTensor << ", " << srcTensor << ", " << scalarTmpBuffer << ");\n";
+    std::string lastUse = GetLastUse();
+    if (!lastUse.empty()) {
+        templateParamList.emplace_back(lastUse);
+    }
+    templateParamList.emplace_back(dstDtypeStr);
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets(templateParamList);
+    oss << WrapParamByParentheses(tileOpParamList);
+    oss << ";\n";
     return oss.str();
 }
 

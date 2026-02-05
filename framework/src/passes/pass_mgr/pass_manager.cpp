@@ -47,6 +47,9 @@
 #include "passes/block_graph_pass/copy_out_resolve.h"
 #include "passes/block_graph_pass/dyn_attr_to_static.h"
 #include "passes/block_graph_pass/mix_subgraph_split.h"
+#include "passes/block_graph_pass/loopaxes_proc.h"
+#include "passes/block_graph_pass/tune_tileopseq_for_vf.h"
+#include "passes/block_graph_pass/tune_sync_for_vf.h"
 
 namespace npu::tile_fwk {
 PassManager &PassManager::Instance() {
@@ -96,6 +99,9 @@ void RegPass() {
     REG_PASS(DuplicateOp);
     REG_PASS(AxisCombine);
     REG_PASS(InsertOpForViewAssemble);
+    REG_PASS(LoopaxesProc);
+    REG_PASS(TuneTileOpSeqForVF);
+    REG_PASS(TuneSyncForVF);
 }
 
 void PassManager::RegDefaultStrategy() {
@@ -134,11 +140,14 @@ void PassManager::RegDefaultStrategy() {
             {        "SrcDstBufferMerge",          PassName::SRC_DST_BUFFER_MERGE},
             {                 "AddAlloc",                     PassName::ADD_ALLOC},
             {              "OoOSchedule",                  PassName::OOO_SCHEDULE},
+            {       "TuneTileOpSeqForVF",        PassName::TUNE_TILEOP_SEQ_FOR_VF},
             {        "GlobalMemoryReuse",           PassName::GLOBAL_MEMORY_REUSE},
             {              "RemoveAlloc",                  PassName::REMOVE_ALLOC},
             {           "CopyOutResolve",              PassName::COPY_OUT_RESOLVE},
             {               "InsertSync",                   PassName::INSERT_SYNC},
+            {            "TuneSyncForVF",              PassName::TUNE_SYNC_FOR_VF},
             {         "MixSubgraphSplit",            PassName::MIX_SUBGRAPH_SPLIT},
+            {             "LoopaxesProc",             PassName::LOOPAXES_PROC},
             {           "CodegenPreproc",               PassName::CODEGEN_PREPROC},
     });
     RegisterStrategy(
@@ -225,6 +234,27 @@ std::string PassManager::GetResumePath(const std::string &strategy) {
     return "";
 }
 
+static bool ShouldTerminateAtStage(const std::string &identifier) {
+    static const std::unordered_map<std::string, int64_t> kPassToStageMap = {
+            {"ExpandFunction", CS_TENSOR_GRAPH},
+            {"SubgraphToFunction", CS_TILE_GRAPH},
+    };
+    auto it = kPassToStageMap.find(identifier);
+    if (it != kPassToStageMap.end() && it->second == config::GetHostOption<int64_t>(COMPILE_STAGE)) {
+        ALOG_INFO_F("Compile stage terminates after %s.", identifier.c_str());
+        return true;
+    }
+    return false;
+}
+
+static void LogPassRuntime(const std::string &identifier, Program &program, Function &function,
+    const std::chrono::time_point<std::chrono::high_resolution_clock> &start) {
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    ALOG_INFO_F("Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(),
+        program.Name().c_str(), function.GetMagicName().c_str(), duration.count());
+}
+
 Status PassManager::RunPass(Program &program, Function &function, const std::string &strategy) const {
     Platform::Instance().ObtainPlatformInfo();
     auto strategyPasses = GetStrategyPasses(strategy);
@@ -234,6 +264,9 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
     ConfigManager::Instance().PassConfigsDebugInfo(strategy, identifiers);
     for (size_t i = startIdx; i < strategyPasses.size(); i++) {
         const auto &identifier = strategyPasses[i].identifier;
+        if (ShouldTerminateAtStage(identifier)) {
+            return SUCCESS;
+        }
         const auto &passName = strategyPasses[i].passName;
         auto pass = PassRegistry::GetInstance().CreatePass(PassNameStr(passName));
         if (pass == nullptr) {
@@ -260,10 +293,7 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
             return FAILED;
         }
         if (passDfxCfg.dumpPassTimeCost) {
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-            ALOG_INFO_F("Runtime of pass %s for program %s function %s is %ld us.", identifier.c_str(), program.Name().c_str(),
-                function.GetMagicName().c_str(), duration.count());
+            LogPassRuntime(identifier, program, function, start);
         }
         if (config::GetVerifyOption<bool>(KEY_ENABLE_PASS_VERIFY)) {
             Program::GetInstance().VerifyPass(&function, i, identifier);

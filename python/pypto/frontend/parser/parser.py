@@ -1221,6 +1221,14 @@ class Parser(doc.NodeVisitor):
         else:
             func_obj = func_value
 
+        # Check if the function is a builtin function or a function without source code.
+        if inspect.isbuiltin(func_obj) or inspect.isbuiltin(func_value):
+            return _NESTED_CALL_UNHANDLED
+
+        # Also check if it's a builtin function by checking the module
+        if hasattr(func_obj, '__module__') and func_obj.__module__ == 'builtins':
+            return _NESTED_CALL_UNHANDLED
+
         # Merge closure/global variables of the target function to allow resolving
         # free variables used inside the nested function body.
         env_vars = self._collect_function_environment(func_obj)
@@ -1230,10 +1238,9 @@ class Parser(doc.NodeVisitor):
         # Dynamically obtain the FunctionDef AST of the callee; fail fast if unavailable.
         func_def_node = self._get_function_def_from_func(func_obj)
         if func_def_node is None:
-            raise ParserError(
-                node,
-                ValueError(f"Failed to obtain AST for function '{func_name}'."),
-            )
+            # If we cannot get the AST for non-builtin functions, it might be a C extension
+            # or other callable that doesn't have Python source code. Let the evaluator handle it.
+            return _NESTED_CALL_UNHANDLED
 
         # If callee is a normal function, ensure it is decorated as nested; otherwise, bail out.
         if not isinstance(func_value, NestedFunctionMarker):
@@ -1400,53 +1407,139 @@ class Parser(doc.NodeVisitor):
                 ),
             )
 
-        # Extract the loop variable name
-        if not isinstance(node.target, doc.Name):
-            raise ParserError(
-                node.target,
-                TypeError(
-                    f"Loop variable must be a simple name, but got {type(node.target).__name__}."
-                ),
-            )
-        loop_var_name = node.target.id
+        # Extract loop variable information
+        loop_vars = self._extract_loop_variables(node.target)
 
-        # Try to evaluate the iterator expression (e.g., range(10))
-        # This works even with symbolic values in range bounds because
-        # Python's range() is lazily evaluated
+        # Evaluate iterator expression
         iter_expr = self._eval_expr(node.iter)
 
-        # Support range() calls - extract start, stop, step parameters
-        # These parameters can be concrete values or symbolic expressions
-        iterator = None
+        # Handle different iterator types
         if isinstance(iter_expr, range):
-            # Extract start, stop, step from range object
-            start = iter_expr.start
-            stop = iter_expr.stop
-            step = iter_expr.step
-            iterator = pypto.loop(
-                start, stop, step, name="Dynamic", idx_name=loop_var_name
-            )
+            iter_expr = self._convert_range_iterator(node, iter_expr)
+
+        if isinstance(iter_expr, (list, tuple)):
+            self._handle_list_tuple_iterator(node, iter_expr, loop_vars)
         elif isinstance(iter_expr, Iterator):
-            iterator = iter_expr
+            self._handle_pto_iterator(node, iter_expr, loop_vars)
         else:
             raise ParserError(
                 node.iter,
                 TypeError(
-                    f"Loop iterator must be a range object or Iterator, but got {type(iter_expr).__name__}."
+                    f"Loop iterator must be range  Iterator, or list/tuple, but got {type(iter_expr).__name__}."
                 ),
             )
 
-        # Create the loop using pypto.loop, which generates the appropriate IR for iteration.
-        # The loop variable is created by the pypto.loop iterator and added to the context
-        # so it can be used within the loop body.
-        # Create a new frame for the loop body scope
+    def _extract_loop_variables(self, target: doc.expr) -> tuple[bool, str, list[str]]:
+        """Extract loop variable information from target expression.
+
+        Returns
+        -------
+        tuple[bool, str, list[str]]
+            (is_tuple_unpack, loop_var_name, target_names)
+        """
+        is_tuple_unpack = isinstance(target, (doc.Tuple, doc.List))
+
+        if isinstance(target, doc.Name):
+            loop_var_name = target.id
+            target_names = [loop_var_name]
+        elif is_tuple_unpack:
+            target_names = []
+            for elt in target.elts:
+                if not isinstance(elt, doc.Name):
+                    raise ParserError(
+                        elt,
+                        TypeError(
+                            f"Tuple unpacking in for loop only supports simple names, "
+                            f"but got {type(elt).__name__}."
+                        ),
+                    )
+                target_names.append(elt.id)
+            loop_var_name = None  # Not used for tuple unpacking
+        else:
+            raise ParserError(
+                target,
+                TypeError(
+                    f"Loop variable must be a simple name or tuple/list for unpacking, "
+                    f"but got {type(target).__name__}."
+                ),
+            )
+
+        return is_tuple_unpack, loop_var_name, target_names
+
+    def _convert_range_iterator(self, node: doc.For, range_expr: range) -> list:
+        """Convert range object to list for unified processing."""
+        if isinstance(range_expr.start, SymbolicScalar) or \
+            isinstance(range_expr.stop, SymbolicScalar) or \
+            isinstance(range_expr.step, SymbolicScalar):
+            raise ParserError(
+                node,
+                TypeError(
+                    f"range() not support symbolic scalar yet, "
+                    f"try use pypto.loop"
+                ),
+            )
+
+        return list(range(range_expr.start, range_expr.stop, range_expr.step))
+
+    def _handle_list_tuple_iterator(self, node: doc.For, iter_expr: Union[list, tuple],
+                                   loop_vars: tuple[bool, str, list[str]]) -> None:
+        """Handle list/tuple iterators by unrolling at compile time."""
+        is_tuple_unpack, loop_var_name, target_names = loop_vars
+
+        if len(iter_expr) == 0:
+            raise ParserError(
+                node.iter,
+                ValueError("Empty list/tuple cannot be used as loop iterator."),
+            )
+
+        # Validate tuple unpacking compatibility
+        if is_tuple_unpack and len(iter_expr) != len(target_names):
+            raise ParserError(
+                node.target,
+                ValueError(
+                    f"Cannot unpack {len(iter_expr)} values into {len(target_names)} targets."
+                ),
+            )
+
+        # Unroll the loop at compile time
         with self.context.with_frame():
-            # The loop variable is yielded by the iterator
-            for loop_var in iterator:
-                # Add the loop variable to the context
-                self.context.add(loop_var_name, loop_var)
-                # Visit the loop body
+            for item in iter_expr:
+                self._assign_loop_variable(node.target, item, is_tuple_unpack, loop_var_name, target_names)
                 self._visit_body(node.body)
+
+    def _handle_pto_iterator(self, node: doc.For, iterator: Iterator,
+                            loop_vars: tuple[bool, str, list[str]]) -> None:
+        """Handle PTO iterators with traditional loop processing."""
+        is_tuple_unpack, loop_var_name, target_names = loop_vars
+
+        with self.context.with_frame():
+            for loop_var in iterator:
+                self._assign_loop_variable(node.target, loop_var, is_tuple_unpack, loop_var_name, target_names)
+                self._visit_body(node.body)
+
+    def _assign_loop_variable(self, target: doc.expr, value: Any, is_tuple_unpack: bool,
+                             loop_var_name: str, target_names: list[str]) -> None:
+        """Assign loop variable value to context."""
+        if is_tuple_unpack:
+            # Tuple unpacking validation and assignment
+            if not isinstance(value, (tuple, list)):
+                raise ParserError(
+                    target,
+                    TypeError(
+                        f"Expected tuple/list for unpacking, got {type(value).__name__}."
+                    ),
+                )
+            if len(value) != len(target_names):
+                raise ParserError(
+                    target,
+                    ValueError(
+                        f"Cannot unpack {len(value)} values into {len(target_names)} targets."
+                    ),
+                )
+            self._assign_target(target, value)
+        else:
+            # Single variable assignment
+            self.context.add(loop_var_name, value)
 
     def _assign_target(self, target: doc.expr, expr: Any) -> None:
         """Helper method to assign an expression to a target.
@@ -1577,7 +1670,7 @@ class Parser(doc.NodeVisitor):
         """
         # Evaluate the value expression first
         value_expr = self._eval_expr(node.value)
-        
+
         # Handle different target types
         if isinstance(node.target, doc.Name):
             # For Name targets (e.g., out += y), get the value directly from context
@@ -1593,7 +1686,7 @@ class Parser(doc.NodeVisitor):
             # For Subscript targets (e.g., a[i] += y), evaluate the tensor and slice/index
             tensor = self._eval_expr(node.target.value)
             slice_obj = self._eval_expr(node.target.slice)
-            
+
             # Get the current value from the subscript
             target_value = tensor[slice_obj]
         else:
@@ -1835,3 +1928,53 @@ class Parser(doc.NodeVisitor):
             vars_to_delete = self.delete_after[stmt_id]
             self.context.mark_for_deletion(vars_to_delete)
             self.context.cleanup_marked()
+
+    def _visit_assert(self, node: doc.Assert) -> None:
+        """The general assert visiting method.
+
+        Parameters
+        ----------
+        node : doc.Assert
+            The doc AST assert node.
+
+        Returns
+        -------
+        res : None
+            The visiting result. None.
+
+        Raises
+        ------
+        ParserError
+            If the assert condition can be statically evaluated to False.
+
+        Note
+        ----
+        Assert node structure:
+            test: expr
+            msg: Optional[expr]
+
+        This implementation provides true assertion capability:
+        - For statically evaluable conditions, checks at compile time
+        - For dynamic conditions, generates runtime assertion code
+        """
+        # Evaluate the assert condition
+        test_result = self._visit_expr(node.test)
+
+        # Prepare the error message
+        if node.msg:
+            msg_result = self._visit_expr(node.msg)
+            error_msg = str(msg_result) if msg_result is not None else "Assertion failed"
+        else:
+            error_msg = "Assertion failed"
+
+        try:
+            if not bool(test_result):
+                raise ParserError(node, f"AssertionError: {error_msg}")
+        except (TypeError, ValueError) as e:
+            raise ParserError(
+                TypeError(
+                    node,
+                    f"Cannot convert assert condition of type "
+                    f"{type(test_result).__name__} to boolean."
+                ),
+            ) from e

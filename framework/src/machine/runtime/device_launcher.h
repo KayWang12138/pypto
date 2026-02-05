@@ -19,6 +19,10 @@
 #include <cstdint>
 #include <cinttypes>
 
+#ifdef BUILD_WITH_CANN
+#include "machine/runtime/device_runner.h"
+#endif
+
 #include "machine/runtime/device_launcher_binding.h"
 #include "interface/configs/config_manager.h"
 #include "interface/function/function.h"
@@ -123,15 +127,20 @@ public:
     static void AssignMetaAddr(DeviceKernelArgs &kArgs, DeviceMemoryTy devMem, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
         uint64_t generalSize = devProg->memBudget.metadata.general;
         uint64_t stitchPoolSize = devProg->memBudget.metadata.stitchPool;
-        size_t shmSize = DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum +
-            generalSize + stitchPoolSize;
-        uint64_t shmAddr = (uint64_t)devMem.AllocDev(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
-        devProg->devArgs.startArgsAddr = shmAddr;
-        shmAddr += DEV_ARGS_SIZE;
-        devProg->devArgs.taskCtrl = shmAddr;
-        shmAddr += DEVICE_TASK_CTRL_SIZE;
-        devProg->devArgs.taskQueue = shmAddr;
-        shmAddr += DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        size_t shmSize = generalSize + stitchPoolSize;
+        uint64_t shmAddr = 0U;
+        if (devMem.IsDevice()) {
+            shmAddr = (uint64_t)devMem.AllocDev(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
+        } else {
+            shmSize += (DEVICE_SHM_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum);
+            shmAddr = (uint64_t)devMem.AllocDev(shmSize, CachedOperator::GetMetaDataDevAddrHolder(cachedOperator));
+            devProg->devArgs.startArgsAddr = shmAddr;
+            shmAddr += DEV_ARGS_SIZE;
+            devProg->devArgs.taskCtrl = shmAddr;
+            shmAddr += DEVICE_TASK_CTRL_SIZE;
+            devProg->devArgs.taskQueue = shmAddr;
+            shmAddr += DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+        }
         devProg->devArgs.generalAddr = shmAddr;
         kArgs.opMetaAddrs.generalAddr = shmAddr;
         shmAddr += generalSize;
@@ -143,9 +152,10 @@ public:
     }
 
     // Prepare device program scheduling and memory budget related args (keeps <= 50 lines)
-    static void PrepareDevProgArgs(DevAscendProgram *devProg, DeviceLauncherConfig &config) {
+    static void PrepareDevProgArgs(DevAscendProgram *devProg, DeviceLauncherConfig &config,
+                                  [[maybe_unused]]bool isDevice) {
         ASSERT(config.blockdim != 0) << "Invalid blockdim: " << config.blockdim << ", must not be zero";
-
+        devProg->devArgs.taskId = 0;
         devProg->devArgs.nrAic = kDefaultAicNum;
         devProg->devArgs.nrAiv = kDefaultAivNum;
         devProg->devArgs.nrValidAic = config.blockdim;
@@ -156,8 +166,13 @@ public:
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
         config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
         devProg->devArgs.nrAicpu = config.aicpuNum;
+#ifdef BUILD_WITH_CANN
+        if (isDevice) {
+            devProg->devArgs.validGetPgMask = DeviceRunner::Get().GetValidGetPgMask();
+        }
+#endif
+        devProg->devArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
         ALOG_DEBUG_F("Set aicore blockdim:%d aicpu blockdim:%d.", config.blockdim, config.aicpuNum);
-        devProg->devArgs.taskType = DEVICE_TASK_TYPE_DYN;
 
         devProg->devArgs.enableCtrl = 1; // need set 0 if use custom cpu launch ctrl cpu
         if (config.dynWorkspaceSize != 0) {
@@ -166,7 +181,11 @@ public:
                 static_cast<int64_t>(devProg->memBudget.tensor.maxDynamicAssembleOutcastMem),
                 AlignUp(config.dynWorkspaceSize, TENSOR_ADDR_ALIGNMENT));
         }
-
+#ifdef BUILD_WITH_CANN
+        if (isDevice) {
+            DeviceRunner::Get().InitMetaData(devProg->devArgs);
+        }
+#endif
         devProg->workspaceSize = devProg->memBudget.Total();
         ALOG_INFO_F("workspaceSize=%lu, tensor=%lu, metadata=%lu, aicoreSpillen=%lu, debug.DumpTensor=%lu",
             devProg->workspaceSize, devProg->memBudget.tensor.Total(), devProg->memBudget.metadata.Total(),
@@ -180,7 +199,7 @@ public:
     // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
     template<typename DeviceMemoryTy>
     static void FillKernelMeta(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
-            const std::vector<uint8_t> &devProgData, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+            const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
         if (config.workspaceAddr) {
@@ -188,7 +207,7 @@ public:
         } else if (kArgs.workspace == nullptr && (devProg->workspaceSize != 0)) {
             kArgs.workspace = (int64_t *)devMem.AllocDev(devProg->workspaceSize, CachedOperator::GetWorkspaceDevAddrHolder(cachedOperator));
         }
-        if (devProg->controlFlowCache.isRecording && !devMem.IsDevice()) {
+        if (isCtrlCacheRecording) {
             kArgs.cfgdata = (int64_t *)devProg;
         } else if (CachedOperator::GetCfgDataDevAddrHolder(cachedOperator) && *CachedOperator::GetCfgDataDevAddrHolder(cachedOperator)) {
             /* Already copied, do not copy again. */
@@ -206,6 +225,7 @@ public:
         if (config::GetPlatformConfig(KEY_ENABLE_PROF_AICORE_PMU, false)) {
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
         }
+        devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
     }
 
     static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
@@ -243,12 +263,17 @@ public:
 
     template<typename DeviceMemoryTy>
     static void DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
-            const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
+            DevControlFlowCache* ctrlFlowCache, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         auto &mutableConfig = const_cast<DeviceLauncherConfig &>(config);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
-        PrepareDevProgArgs(devProg, mutableConfig);
+        PrepareDevProgArgs(devProg, mutableConfig, devMem.IsDevice());
         // Fill all metadata and kernel args
-        FillKernelMeta(devMem, kArgs, devProg, devProgData, config, cachedOperator);
+        bool isCtrlCacheRecording  = false;
+        if (!devMem.IsDevice()) {
+            isCtrlCacheRecording =  ctrlFlowCache != nullptr ? ctrlFlowCache->IsRecording() : devProg->controlFlowCache.IsRecording();
+        }
+        FillKernelMeta(devMem, kArgs, devProg, devProgData, isCtrlCacheRecording, config, cachedOperator);
+        kArgs.ctrlFlowCache = reinterpret_cast<int64_t*>(ctrlFlowCache);
     }
 
     static int InitAicpuTaskInfo() {
@@ -365,13 +390,16 @@ public:
     }
 
 #ifdef BUILD_WITH_CANN
-    static void ChangeCaptureMode();
+    static void ChangeCaptureModeRelax();
+    static void ChangeCaptureModeGlobal();
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture);
     static int SetCaptureStream(rtStream_t aicoreStream, rtStream_t aicpuStream, bool &isCapture);
-    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream);
+    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream, bool isCapture);
     static int DeviceLaunchOnceWithDeviceTensorData(
-            Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize, CachedOperator *cachedOperator,
+            Function *function, const std::vector<DeviceTensorData> &inputList,
+            const std::vector<DeviceTensorData> &outputList,
+            rtStream_t aicpuStream, rtStream_t aicoreStream, bool streamSynchronize,
+            CachedOperator *cachedOperator, DevControlFlowCache* ctrlCache = nullptr,
             const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static int DeviceSynchronize(rtStream_t aicpuStream, rtStream_t aicoreStream);
@@ -379,7 +407,10 @@ public:
 using aclmdlRICaptureMode = uint32_t;
 using rtStream_t = uint64_t;
 using aclmdlRI = void *;
-    static void ChangeCaptureMode() {
+    static void ChangeCaptureModeRelax() {
+        return;
+    }
+    static void ChangeCaptureModeGlobal() {
         return;
     }
     static int GetStreamCaptureInfo(rtStream_t aicoreStream, aclmdlRI &rtModel, bool &isCapture) {
@@ -394,9 +425,10 @@ using aclmdlRI = void *;
         (void)isCapture;
         return 0;
     }
-    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream) {
+    static int RunWithProfile(rtStream_t aicoreStream, rtStream_t aicpuStream, bool isCapture) {
         (void)aicoreStream;
         (void)aicpuStream;
+        (void)isCapture;
         return 0;
     }
     static int DeviceLaunchOnceWithDeviceTensorData(
@@ -421,12 +453,13 @@ using aclmdlRI = void *;
         return 0;
     }
 #endif
-    static int DeviceRunOnce(Function *function, const DeviceLauncherConfig &config = DeviceLauncherConfig());
+    static int DeviceRunOnce(Function *function, DevControlFlowCache* hostCtrlCache = nullptr, const DeviceLauncherConfig &config = DeviceLauncherConfig());
 
     static void DeviceRunCacheKernelEnable(Function *func, bool enabled);
     static bool DeviceRunCacheKernelEnable(Function *func);
     static void DeviceRunCacheKernelSet(Function *func, uint8_t *devProg);
     static uint8_t *DeviceRunCacheKernelGet(Function *func);
+    static CachedOperator* DeviceRunCacheOperatorGet(Function *func);
  public:
     static std::vector<uint8_t> tensorInfo_;
 };

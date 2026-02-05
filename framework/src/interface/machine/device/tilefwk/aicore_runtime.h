@@ -18,16 +18,22 @@
 
 #include <cstdint>
 
-#include "tilefwk/aicore_data.h"
+#include "tilefwk/aikernel_data.h"
+#include "tilefwk/aikernel_runtime.h"
 #include "tileop/distributed/hccl_context.h"
 
 #ifndef __TILE_FWK_HOST__
-INLINE __gm__ void *tilefwk_shmem_ptr(__gm__ void *ptr, int pe) {
+#ifndef TILEFWK_SHMEM_PTR_DEFINED
+__attribute__((always_inline)) __aicore__ inline __gm__ void *tilefwk_shmem_ptr(__gm__ void *ptr, int pe) {
     (void)pe;
     return ptr;
 }
 #define shmem_ptr tilefwk_shmem_ptr
+#define TILEFWK_SHMEM_PTR_DEFINED
 #endif
+#endif
+
+using CoreFuncParam = npu::tile_fwk::CoreFuncParam;
 
 #define CACHELINE_SIZE_FOR_B32 128
 #define CACHELINE_SIZE_FOR_B64 64
@@ -205,20 +211,6 @@ INLINE uint64_t GetLengthPrivate(volatile RingBuffer<T, SIZE> *Q) {
     return (Q->rear - Q->front + Q->MAX_SIZE) % Q->MAX_SIZE;
 }
 
-struct LogContext;
-
-struct CoreFuncParam {
-    __gm__ npu::tile_fwk::DynFuncData *funcData;
-    __gm__ uint64_t *opAttrs;
-    __gm__ uint64_t *exprTbl;
-    uint32_t taskId;
-    LogContext *ctx;
-};
-
-#define TASKID_TASK_BITS 20
-#define FuncID(id)       (id >> TASKID_TASK_BITS)
-#define TaskID(id)       (id & ((1 << TASKID_TASK_BITS) - 1))
-
 #define SYM_VALUE_LEN 63
 #define SYM_VALUE_MASK ((1UL << SYM_VALUE_LEN) - 1)
 #define SYM_IS_EXPR(val) (val & (1UL << SYM_VALUE_LEN))
@@ -226,7 +218,7 @@ struct CoreFuncParam {
 
 #define RAW_TENSOR_ADDR_MASK ((1UL << 63) - 1)
 
-INLINE __gm__ npu::tile_fwk::DevStartArgsBase *RuntimeGetStartArgs(CoreFuncParam *param) {
+INLINE __gm__ npu::tile_fwk::DevStartArgsBase *AiCoreRuntimeGetStartArgs(CoreFuncParam *param) {
     auto func = param->funcData;
     auto startArgs = func->startArgs;
     return startArgs;
@@ -351,6 +343,7 @@ INLINE uint64_t RUNTIME_Ne(uint64_t input1, uint64_t input2) {
 }
 
 INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
+    UNUSED(ctx);
     dcci((__gm__ uint32_t *)address, ENTIRE_DATA_CACHE, CACHELINE_OUT);
     return *(__gm__ uint32_t *)(address);
 }
@@ -359,9 +352,6 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
 #define RUNTIME_GetTensorDataInt32Dim3(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
 #define RUNTIME_GetTensorDataInt32Dim4(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
 #define RUNTIME_GetTensorDataInt32Dim5(index, ioType, ioTypeIndex, address, ...)    GetTensorDataInt32(param, address)
-
-#define RuntimeGetInputShapeDim(input, n) ((input)->shape.dim[(n)])
-#define RUNTIME_GetInputShapeDim(inputIndex, n) RuntimeGetInputShapeDim(&(RuntimeGetStartArgs(param))->devTensorList[(inputIndex)], (n))
 
 #define RUNTIME_COA_GET_PARAM_OFFSET(dim, base, idx)                                GET_PARAM_OFFSET_BY_IDX(param, 0, base, dim, idx)
 #define RUNTIME_COA_GET_PARAM_VALID_SHAPE(dim, base, idx)                           GET_PARAM_VALID_SHAPE_BY_IDX(param, 0, base, dim, idx)
@@ -380,31 +370,12 @@ INLINE uint32_t GetTensorDataInt32(CoreFuncParam *ctx, uint64_t address) {
 #define RUNTIME_COA_GET_PARAM_MAYBE_CONST_1(value, idx)           value
 #define RUNTIME_COA_GET_PARAM_MAYBE_CONST(isConst, value, idx)    RUNTIME_COA_GET_PARAM_MAYBE_CONST_##isConst(value, idx)
 
-#define RuntimeGetInputDataInt32Dim1(input, off0) (((int32_t *)(input)->address)[(off0)])
-#define RuntimeGetInputDataInt32Dim2(input, off0, off1) \
-    (((int32_t *)(input)->address)[(off0) * (input)->shape.dim[1] + (off1)])
-#define RuntimeGetInputDataInt32Dim3(input, off0, off1, off2) \
-    (((int32_t *)(input)->address)[(off0) * (input)->shape.dim[1] * (input)->shape.dim[2] + (off1) * (input)->shape.dim[2] + (off2)])
-#define RuntimeGetInputDataInt32Dim4(input, off0, off1, off2, off3) \
-    (((int32_t *)(input)->address)[(((off0) * (input)->shape.dim[1] + (off1)) * (input)->shape.dim[2] + (off2)) * (input)->shape.dim[3] + (off3)])
-
-#define RUNTIME_GetInputDataInt32Dim1(inputIndex, off0) \
-    RuntimeGetInputDataInt32Dim1(&(RuntimeGetStartArgs(param))->devTensorList[(inputIndex)], (off0))
-#define RUNTIME_GetInputDataInt32Dim2(inputIndex, off0, off1) \
-    RuntimeGetInputDataInt32Dim2(&(RuntimeGetStartArgs(param))->devTensorList[(inputIndex)], (off0), (off1))
-#define RUNTIME_GetInputDataInt32Dim3(inputIndex, off0, off1, off2) \
-    RuntimeGetInputDataInt32Dim3(&(RuntimeGetStartArgs(param))->devTensorList[(inputIndex)], (off0), (off1), (off2))
-#define RUNTIME_GetInputDataInt32Dim4(inputIndex, off0, off1, off2, off3) \
-    RuntimeGetInputDataInt32Dim4(&(RuntimeGetStartArgs(param))->devTensorList[(inputIndex)], (off0), (off1), (off2), (off3))
-
 #define RUNTIME_TensorExtract(type, mem, dst, src) \
     do { \
         pipe_barrier(PIPE_ALL); \
         *(mem type *)(dst) = *(mem type *)(src); \
         pipe_barrier(PIPE_ALL); \
     } while(0)
-
-#define RUNTIME_GetSymbol(idx)          (param->exprTbl[idx])
 
 #define RT_float32          float
 #define RT_int64            int64_t

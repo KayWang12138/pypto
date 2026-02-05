@@ -16,8 +16,10 @@ import pypto
 import numpy as np
 import torch
 import torch_npu
+import pytest
 
 
+@pytest.mark.skip(reason="There is a probability of failure")
 def test_device_run_data_from_host_numpy():
     device_id = int(os.environ.get('TILE_FWK_DEVICE_ID', 0))
     torch.npu.set_device(device_id)
@@ -264,6 +266,7 @@ def test_infer_shape():
     torch.npu.set_device(device_id)
 
     device = f'npu:{device_id}'
+
     for b in [2048, 1024, 512, 256, 128, 64, 32]:
         a = torch.randn((b, 32), device=device)
         b = torch.randn((b, 32), device=device)

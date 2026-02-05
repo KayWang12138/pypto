@@ -269,6 +269,31 @@
                             }
                         }
                     ]
+                },
+                "valid_shape_optimize": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "动态图编译优化选项",
+                        "en": "Dynamic validShape compilation optimization option"
+                    },
+                    "minimum": 0,
+                    "maximum": 1,
+                    "options": [
+                        {
+                            "value": 0,
+                            "label": {
+                                "zh": "默认值，所有块采用动态图进行编译",
+                                "en": "Defalut value, all blocks are compiled using dynamic shape"
+                            }
+                        },
+                        {
+                            "value": 1,
+                            "label": {
+                                "zh": "主块采用静态图编译，尾块采用动态图编译",
+                                "en": "The main block is compiled using static shape, and the tile block is compiled using dynamic shape"
+                            }
+                        }
+                    ]
                 }
             }
         },
@@ -282,7 +307,7 @@
                 "compile_stage": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 3,
+                    "maximum": 5,
                     "label": {
                         "zh": "控制编译执行的阶段",
                         "en": "Set the stage of compile."
@@ -338,6 +363,16 @@
                     "type": "array",
                     "items": {
                         "type": "string"
+                    },
+                    "label": {
+                        "zh": "...",
+                        "en": "..."
+                    }
+                },
+                "pass_verify_error_tol": {
+                    "type": "array",
+                    "items": {
+                        "type": "double"
                     },
                     "label": {
                         "zh": "...",
@@ -413,22 +448,22 @@
         "operation": {
             "type": "object",
             "label": {
-                "zh": "...",
-                "en": "..."
+                "zh": "operation相关配置",
+                "en": "Operation-related configuration"
             },
             "properties": {
                 "force_combine_axis": {
                     "type": "boolean",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "broadcast inline 早期版本，有很多功能约束，后续会逐步下线，请保持默认值",
+                        "en": "The early version of broadcast inline has many functional constraints and will be gradually offline in the future. Please keep the default value."
                     }
                 },
                 "combine_axis": {
                     "type": "boolean",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "在代码生成阶段实现尾轴broadcast inline",
+                        "en": "Implement tail axis broadcast inline during code generation phase."
                     }
                 }
             }

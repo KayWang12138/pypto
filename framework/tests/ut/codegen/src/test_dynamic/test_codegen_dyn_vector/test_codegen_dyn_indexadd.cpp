@@ -34,7 +34,7 @@ public:
         Program::GetInstance().Reset();
         config::Reset();
         config::SetBuildStatic(true);
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
     }
@@ -63,7 +63,7 @@ TEST_F(TestCodegenDynIndexAdd, TestIndexAdd) {
     ConfigManager::Instance();
     std::string funcName = "IndexAdd";
     FUNCTION(funcName, {inputSrc0, inputSrc1, inputIndex, output}) {
-        output = IndexAdd_(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
+        output = IndexAdd(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     npu::tile_fwk::CodeGenCtx ctx;
@@ -92,7 +92,7 @@ TEST_F(TestCodegenDynIndexAdd, TestIndexAddLayout) {
     ConfigManager::Instance();
     std::string funcName = "IndexAddLayout";
     FUNCTION(funcName, {inputSrc0, inputSrc1, inputIndex, output}) {
-        output = IndexAdd_(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
+        output = IndexAdd(inputSrc0, inputSrc1, inputIndex, axis, alphaVal);
     }
     auto function = Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName);
     npu::tile_fwk::CodeGenCtx ctx;

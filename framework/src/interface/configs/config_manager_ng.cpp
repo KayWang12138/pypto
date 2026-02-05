@@ -84,6 +84,8 @@ struct TypeInfo {
                     typeInfos.insert({prefix, typeid(std::vector<std::string>)});
                 } else if (jitem_type == "integer") {
                     typeInfos.insert({prefix, typeid(std::vector<int64_t>)});
+                } else if (jitem_type == "double") {
+                    typeInfos.insert({prefix, typeid(std::vector<double>)});
                 }
             } else if (type == "object") {
                 const std::string &typeHints = jdata["typeHints"];
@@ -187,13 +189,12 @@ void DumpValue(std::stringstream &os, const std::string &key, const Any &val, co
     } else {
         os << "unknow type: " << val.Type().name();
     }
-    os << "\n";
 }
 
-void DumpValues(std::stringstream &os, const std::map<std::string, Any> &values,
-                const std::string &prefix) {
+void DumpValues(std::stringstream &os, const std::map<std::string, Any> &values, const std::string &prefix) {
     for (const auto &[key, val] : values) {
         DumpValue(os, key, val, prefix);
+        os << "\n";
     }
 }
 
@@ -287,7 +288,8 @@ struct ConfigManagerImpl {
     }
 
     bool IsWithinRange(const std::string &properties, const int64_t &value) const {
-        return IntervalJudge(value, typeInfo.rangeInfos.at(properties).first, typeInfo.rangeInfos.at(properties).second);
+        return IntervalJudge(value, typeInfo.rangeInfos.at(properties).first,
+                             typeInfo.rangeInfos.at(properties).second);
     }
 
     bool IsWithinRange(const std::string &properties, const std::map<int64_t, int64_t> &value) const {
@@ -393,6 +395,8 @@ private:
         } else if (jdata.is_array()) {
             if (typeInfo.Type(prefix) == typeid(std::vector<int64_t>)) {
                 root->AddValue(prefix, jdata.get<std::vector<int64_t>>());
+            } else if (typeInfo.Type(prefix) == typeid(std::vector<double>)) {
+                root->AddValue(prefix, jdata.get<std::vector<double>>());
             } else {
                 root->AddValue(prefix, jdata.get<std::vector<std::string>>());
             }
@@ -497,4 +501,33 @@ ConfigManagerNg &ConfigManagerNg::GetInstance() {
 
 ConfigManagerNg::~ConfigManagerNg() = default;
 
+namespace config{
+
+template <typename T>
+void SetOptionsNg(const std::string &key, const T &value){
+    ConfigManagerNg::CurrentScope()->UpdateValue(key, value);
+}
+
+template void SetOptionsNg<bool>(const std::string &key, const bool &value);
+template void SetOptionsNg<int>(const std::string &key, const int &value);
+template void SetOptionsNg<double>(const std::string &key, const double &value);
+template void SetOptionsNg<std::string>(const std::string &key, const std::string &value);
+template void SetOptionsNg<long>(const std::string &key, const long &value);
+template void SetOptionsNg<uint8_t>(const std::string &key, const uint8_t &value);
+template void SetOptionsNg<std::map<int, int>>(const std::string &key, const std::map<int, int> &value);
+template void SetOptionsNg<std::map<long, long>>(const std::string &key, const std::map<long, long> &value);
+template void SetOptionsNg<std::vector<int>>(const std::string &key, const std::vector<int> &value);
+template void SetOptionsNg<std::vector<std::string>>(const std::string &key, const std::vector<std::string> &value);
+template void SetOptionsNg<std::vector<double>>(const std::string &key, const std::vector<double> &value);
+
+
+void Restore(std::shared_ptr<ConfigScope> config) {
+    ConfigManagerNg::GetInstance().PushScope(config);
+}
+
+std::shared_ptr<ConfigScope> Duplicate() {
+    return ConfigManagerNg::CurrentScope();
+}
+
+}
 } // namespace npu::tile_fwk

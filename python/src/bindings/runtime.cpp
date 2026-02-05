@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
 #include <dlfcn.h>
 #include <iostream>
 #include <initializer_list>
@@ -35,10 +36,10 @@
 #include <vector>
 #include "tilefwk/tile_shape.h"
 #include "interface/interpreter/raw_tensor_data.h"
-#include "interface/inner/config.h"
 #include "interface/tileop/distributed/hccl_context.h"
 #include "machine/runtime/device_launcher_binding.h"
 #include "machine/runtime/emulation_launcher.h"
+#include "machine/host/perf_analysis.h"
 #include "machine/runtime/mc2_tiling.h"
 #ifdef BUILD_WITH_CANN
 #include "hccl/hccl.h"
@@ -1017,10 +1018,8 @@ void SetVerifyData(const std::vector<DeviceTensorData> &inputs,
     }
 }
 
-std::string DeviceRunOnceDataFromHost(
-    const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
-    ProgramData::GetInstance().Reset();
-    Function *func = Program::GetInstance().GetLastFunction();
+static std::string ValidateFunctionAndIO(Function *func, const std::vector<DeviceTensorData> &inputs,
+                                   const std::vector<DeviceTensorData> &outputs) {
     if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
         return "Invalid function format";
     }
@@ -1043,7 +1042,11 @@ std::string DeviceRunOnceDataFromHost(
     if (inputSize != inputs.size() || outputSize != outputs.size()) {
         return "mismatch input/output";
     }
+    return "";
+}
 
+static void InitializeInputOutputData(const std::vector<DeviceTensorData> &inputs,
+                               const std::vector<DeviceTensorData> &outputs) {
     for (size_t i = 0; i < inputs.size(); i++) {
         auto rawData = RawTensorData::CreateTensor(inputs[i].GetDataType(), inputs[i].GetShape(), (uint8_t *)inputs[i].GetAddr());
         ProgramData::GetInstance().AppendInput(rawData);
@@ -1052,13 +1055,39 @@ std::string DeviceRunOnceDataFromHost(
         auto rawData = std::make_shared<RawTensorData>(outputs[i].GetDataType(), outputs[i].GetShape());
         ProgramData::GetInstance().AppendOutput(rawData);
     }
+}
 
-    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func) != 0) {
+std::string DeviceRunOnceDataFromHost(
+    const std::vector<DeviceTensorData> &inputs, const std::vector<DeviceTensorData> &outputs) {
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
+        return "";
+    }
+    ProgramData::GetInstance().Reset();
+    Function *func = Program::GetInstance().GetLastFunction();
+    auto errorMsg = ValidateFunctionAndIO(func, inputs, outputs);
+    if (!errorMsg.empty()) {
+        return errorMsg;
+    }
+
+    InitializeInputOutputData(inputs, outputs);
+
+    DevControlFlowCache* hostCache = nullptr;
+    if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
+        DeviceLauncherConfig config;
+        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+        EmulationLauncher::BuildControlFlowCache(func, inputs, outputs, &hostCache, config);
+    }
+
+    if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1 && EmulationLauncher::EmulationRunOnce(func, hostCache) != 0) {
         return "emulation run failed";
     }
 
-    if (DeviceRunOnce(func) != 0) {
+    if (DeviceRunOnce(func, reinterpret_cast<uint8_t*>(hostCache)) != 0) {
         return "device run failed";
+    }
+
+    if (hostCache) {
+        free(hostCache);
     }
 
     for (size_t i = 0; i < outputs.size(); i++) {
@@ -1077,7 +1106,15 @@ std::string DeviceRunOnceDataFromHost(
 
 std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ pythonOperatorPython,
     [[maybe_unused]] const std::vector<DeviceTensorData> &inputs, [[maybe_unused]] const std::vector<DeviceTensorData> &outputs,
-    [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData) {
+    [[maybe_unused]] py::int_ incomingStreamPython, [[maybe_unused]] py::int_ workspaceData,
+    [[maybe_unused]] py::int_ devCtrlCache) {
+
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_ALL_COMPLETE) {
+        return "";
+    }
+    HOST_PERF_TRACE_START();
+    HOST_PERF_EVT_BEGIN(EventPhase::RunDevice);
+
 #ifdef BUILD_WITH_CANN
     auto opAddr = static_cast<uintptr_t>(pythonOperatorPython);
     if (opAddr == 0) {
@@ -1086,16 +1123,13 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
 
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     Function *func = op->GetFunction();
-    if (!func->IsFunctionTypeAndGraphType(FunctionType::DYNAMIC, GraphType::TENSOR_GRAPH)) {
-        return "Invalid function format";
+    auto errorMsg = ValidateFunctionAndIO(func, inputs, outputs);
+    if (!errorMsg.empty()) {
+        return errorMsg;
     }
-
     auto attr = func->GetDyndevAttribute();
-    if (attr == nullptr) {
-        return "Invalid function format";
-    }
     bool debugHccl = (std::getenv("PYPTO_HCCL_DEBUG") != nullptr);
-    if (debugHccl) {
+    if (debugHccl && attr != nullptr) {
         FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
         if (commLog != nullptr) {
             fprintf(commLog, "[pypto] device commGroupNames size=%zu\n", attr->commGroupNames.size());
@@ -1104,12 +1138,6 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
             }
             fclose(commLog);
         }
-    }
-
-    auto inputSize = attr->startArgsInputLogicalTensorList.size();
-    auto outputSize = attr->startArgsOutputLogicalTensorList.size();
-    if (inputSize != inputs.size() || outputSize != outputs.size()) {
-        return "mismatch input/output";
     }
 
     if (config::GetDebugOption<int>(CFG_RUNTIME_DBEUG_MODE) == 1) {
@@ -1129,10 +1157,36 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     auto aicpuStream = DeviceGetAicpuStream();
     auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
     auto launcherConfig = DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr);
+    auto ctrlCache = static_cast<uintptr_t>(devCtrlCache);
     std::vector<int64_t> hcclHandles;
     std::vector<std::string> hcclGroupNames;
-    bool hasHandles = config::experimental::GetOption("distributed.hccl_handle", hcclHandles);
-    bool hasNames = config::experimental::GetOption("distributed.hccl_group_name", hcclGroupNames);
+    bool hasHandles = false;
+    bool hasNames = false;
+    auto globalScope = ConfigManagerNg::GetInstance().GlobalScope();
+    if (globalScope != nullptr) {
+        if (globalScope->HasConfig("global.distributed.hccl_handle")) {
+            try {
+                hcclHandles = globalScope->GetConfigAllType<std::vector<int64_t>>(
+                    "global.distributed.hccl_handle");
+                hasHandles = true;
+            } catch (const std::exception &e) {
+                if (debugHccl) {
+                    ShmemLog("[pypto] read global.distributed.hccl_handle failed: %s\n", e.what());
+                }
+            }
+        }
+        if (globalScope->HasConfig("global.distributed.hccl_group_name")) {
+            try {
+                hcclGroupNames = globalScope->GetConfigAllType<std::vector<std::string>>(
+                    "global.distributed.hccl_group_name");
+                hasNames = true;
+            } catch (const std::exception &e) {
+                if (debugHccl) {
+                    ShmemLog("[pypto] read global.distributed.hccl_group_name failed: %s\n", e.what());
+                }
+            }
+        }
+    }
     if (debugHccl) {
         FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
         if (commLog != nullptr) {
@@ -1174,13 +1228,14 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
         }
         launcherConfig.hcclContext = hcclContext;
     }
-    int rc =
-        ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs, aicpuStream, aicoreStream, false,
-            launcherConfig);
+    int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs,
+        aicpuStream, aicoreStream, false, reinterpret_cast<uint8_t *>(ctrlCache), launcherConfig);
     if (rc < 0) {
         return "device run failed";
     }
 #endif
+
+    HOST_PERF_EVT_END(EventPhase::RunDevice);
     return "";
 }
 
@@ -1283,23 +1338,52 @@ uintptr_t OperatorBegin() {
 std::string OperatorEnd(uintptr_t opAddr) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
     ExportedOperatorEnd(op);
-
     return "";
 }
 
-std::string BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
-        const std::vector<DeviceTensorData> &outputList) {
+int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputList,
+        const std::vector<DeviceTensorData> &outputList, [[maybe_unused]] bool isCapturing) {
     ExportedOperator *op = reinterpret_cast<ExportedOperator *>(opAddr);
-
     if (config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE) != 0) {
         DeviceLauncherConfig config;
         DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
-        if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(), inputList, outputList, config) != 0) {
-            return "control flow cache failed";
+        uint8_t* ctrlCache = op->FindCtrlFlowCache(inputList, outputList);
+        if (ctrlCache == nullptr) {
+            HOST_PERF_EVT_BEGIN(EventPhase::BuildCtrlFlowCache);
+            DevControlFlowCache* hostCache = nullptr;
+            if (EmulationLauncher::BuildControlFlowCache(op->GetFunction(),
+                inputList, outputList, &hostCache, config) != 0) {
+                return 0;
+            }
+
+#ifdef BUILD_WITH_CANN
+            if (isCapturing) {
+                ChangeCaptureModeRelax();
+            }
+
+            if (hostCache) {
+                ctrlCache = CopyHostToDev(reinterpret_cast<uint8_t*>(hostCache),
+                    reinterpret_cast<DevControlFlowCache*>(hostCache)->allCacheSize);
+                free(hostCache);
+            }
+
+            if (isCapturing) {
+                ChangeCaptureModeGlobal();
+            }
+#else
+            ctrlCache = reinterpret_cast<uint8_t*>(hostCache);
+#endif
+
+            if (ctrlCache) {
+                op->InsertCtrlFlowCache(inputList, outputList, ctrlCache);
+            }
+            HOST_PERF_EVT_END(EventPhase::BuildCtrlFlowCache);
         }
+
+        return ctrlCache == nullptr ? 0 : reinterpret_cast<int64_t>(ctrlCache);
     }
 
-    return "";
+    return 0;
 }
 
 void BindRuntime(py::module &m) {

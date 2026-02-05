@@ -38,6 +38,7 @@ enum class BinaryOpType {
     DIV_BRC,
     MAX_BRC,
     MIN_BRC,
+    MOD_BRC,
     S_ADD,
     S_SUB,
     S_MUL,
@@ -47,6 +48,10 @@ enum class BinaryOpType {
     MAXIMUM,
     MINIMUM,
     CMP,
+    MOD,
+    BITWISEAND,
+    BITWISEOR,
+    BITWISEXOR,
 };
 
 template <BinaryOpType T>
@@ -61,6 +66,17 @@ std::string GetBinaryOpName() {
         case BinaryOpType::MAXIMUM: return "MAXIMUM";
         case BinaryOpType::MINIMUM: return "MINIMUM";
         case BinaryOpType::POW: return "POW";
+        case BinaryOpType::MOD:return "MOD";
+        case BinaryOpType::CMP:return "CMP";
+        case BinaryOpType::S_ADD: return "S_ADD";
+        case BinaryOpType::S_SUB: return "S_SUB";
+        case BinaryOpType::S_MUL: return "S_MUL";
+        case BinaryOpType::S_DIV: return "S_DIV";
+        case BinaryOpType::S_MAX: return "S_MAX";
+        case BinaryOpType::S_MIN: return "S_MIN";
+        case BinaryOpType::BITWISEAND: return "BITWISEAND";
+        case BinaryOpType::BITWISEOR: return "BITWISEOR";
+        case BinaryOpType::BITWISEXOR: return "BITWISEXOR";
         default: ASSERT(false && "unknown binary op type"); return "";
     }
 }
@@ -77,12 +93,16 @@ Opcode GetBinaryOpNameCode() {
             CASE(DIV);
             CASE(MAX);
             CASE(MIN);
+            CASE(MOD);
             CASE(S_ADD);
             CASE(S_SUB);
             CASE(S_MUL);
             CASE(S_DIV);
             CASE(S_MAX);
             CASE(S_MIN);
+            CASE(BITWISEAND);
+            CASE(BITWISEOR);
+            CASE(BITWISEXOR);
             default: ASSERT(false && "unknown binary op type");
         }
 #undef CASE
@@ -119,6 +139,10 @@ Opcode GetBinaryOpNameCode() {
         CASE(MAXIMUM);
         CASE(MINIMUM);
         CASE(POW);
+        CASE(MOD);
+        CASE(BITWISEAND);
+        CASE(BITWISEOR);
+        CASE(BITWISEXOR);
         default: ASSERT(false && "unknown binary op type");
     }
 #undef CASE
@@ -131,7 +155,7 @@ void BinaryOperationOperandCheck(
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand);
 void CheckBinaryInputTensors(const LogicalTensorPtr &tensor1, const LogicalTensorPtr &tensor2, std::string &op);
 
-// OP_ADD OP_SUB OP_MUL OP_DIV OP_MAX
+// OP_ADD OP_SUB OP_MUL OP_DIV OP_MAX OP_BITWISEAND OP_BITWISEOR OP_BITWISEXOR
 template <BinaryOpType T>
 LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand1, const Tensor &operand2) {
     auto oprandT1 = operand1.GetStorage();
@@ -161,7 +185,7 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
     return result;
 }
 
-// OP_ADDS OP_SUBS OP_MULS OP_DIVS OP_MAXS OP_MINS
+// OP_ADDS OP_SUBS OP_MULS OP_DIVS OP_MAXS OP_MINS OP_BITWISEANDS OP_BITWISEORS OP_BITWISEXORS
 template <BinaryOpType T>
 LogicalTensorPtr TensorBinaryOperationScalar(Function &function, LogicalTensorPtr operand1, const Element &value) {
     auto opName = GetBinaryOpName<T>();

@@ -24,7 +24,7 @@
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* mc2Tiling, void** commContext);
 #endif
 namespace {  
-TileOp::HcclCombinOpParam g_hostAddr[DIST_COMM_GROUP_NUM];
+TileOp::HcclCombinOpParam g_hostAddr[npu::tile_fwk::DIST_COMM_GROUP_NUM];
 std::unordered_map<std::string, uint64_t> g_context; //key: groupname, value: deviceHcclContext
 
 }
@@ -34,7 +34,7 @@ std::vector<uint64_t> DistributedContext::GetHcclContextToHost(const std::vector
 #ifdef BUILD_WITH_CANN
     std::vector<uint64_t> devAddrs = GetHcclContext(groupNames);
     std::vector<uint64_t> host_context;
-    ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
+    ASSERT(groupNames.size() <= npu::tile_fwk::DIST_COMM_GROUP_NUM);
     for (size_t groupIndex = 0; groupIndex < groupNames.size(); groupIndex++) {
         (void)rtMemcpy(&g_hostAddr[groupIndex], sizeof(g_hostAddr[groupIndex]),
             (uint8_t *)devAddrs[groupIndex], sizeof(g_hostAddr[groupIndex]), RT_MEMCPY_DEVICE_TO_HOST);
@@ -50,7 +50,7 @@ std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::
 {
 #ifdef BUILD_WITH_CANN
     std::vector<uint64_t> hcclContext(groupNames.size(), 0);
-    ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
+    ASSERT(groupNames.size() <= npu::tile_fwk::DIST_COMM_GROUP_NUM);
     for (size_t groupIndex = 0; groupIndex < groupNames.size(); ++groupIndex) {
         auto groupName = groupNames[groupIndex];
         if (g_context.find(groupName) != g_context.end()) {

@@ -42,7 +42,8 @@ private:
     bool NeedInsertCopy(LogicalTensorPtr &assembleOut);
     void InsertViewAssemble(Function &function, Operation *viewOp, Operation *assembleOp);
 
-    std::set<LogicalTensorPtr> assembleOutSet_;
+    std::unordered_set<LogicalTensorPtr> assembleOutSet_;
+    std::unordered_set<LogicalTensorPtr> notProcessOut_;
     std::vector<std::pair<Operation*, Operation*>> recordOpPair_;
 };
 } // namespace tile_fwk

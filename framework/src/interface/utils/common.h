@@ -37,11 +37,18 @@
 
 namespace npu::tile_fwk {
 using Status = uint32_t;
+
+#ifdef __clang__
+#define __NO_UBSAN __attribute__((no_sanitize("unsigned-integer-overflow")))
+#else
+#define __NO_UBSAN
+#endif
+
 #define SUCCESS 0
 #define FAILED 1
 #define CACHELINE_SIZE_FOR_B64 64
 
-inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
+constexpr uint32_t DIST_COMM_GROUP_NUM = 2;
 
 constexpr const int NUM2 = 2;
 constexpr const int NUM4 = 4;
@@ -86,6 +93,8 @@ inline constexpr uint64_t KIBI = 1024;
 inline constexpr uint64_t MEBI = UINT64_C(1024) * 1024;
 inline constexpr uint64_t GIBI = UINT64_C(1024) * 1024 * 1024;
 
+constexpr const int INVALID_LOOP_GROUPID = -1;
+
 inline int64_t AlignUp(int64_t value, int64_t alignment) {
     if (alignment == 0) {
         return value;
@@ -99,7 +108,7 @@ inline constexpr std::underlying_type_t<T> ToUnderlying(T value) {
 }
 
 template <typename T>
-inline void HashCombine(std::size_t &seed, const T &val) {
+inline void HashCombine(std::size_t &seed, const T &val) __NO_UBSAN {
     seed ^= std::hash<T>()(val) + 0x9e3779b9 + (seed << 0x6) + (seed >> 0x2);
 }
 
@@ -131,7 +140,9 @@ enum OperandType {
     BUF_DDR = 7,
     BUF_REG = 8,
     SCALAR = 9,
-    TOTAL_BUF_TYPE = 9
+    BUF_L0AMX = 10,
+    BUF_L0BMX = 11,
+    TOTAL_BUF_TYPE,
 };
 
 inline std::string OperandTypeToStr(OperandType t) {

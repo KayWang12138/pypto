@@ -35,6 +35,7 @@
 #include "ir/program.h"
 #include "ir/function.h"
 #include "tilefwk/op_registry.h"
+#include "main_block.h"
 #include <dlfcn.h>
 
 using namespace npu::tile_fwk::dynamic;
@@ -121,8 +122,9 @@ extern "C" std::string GetPlatformInfo() {
 }
 
 extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
-    if (config::GetHostOption<int64_t>(COMPILE_STAGE) == HOST_COMPILE_END) {
-        ALOG_INFO("draw graph switch enabled, push finish queue.");
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) >= CS_TENSOR_GRAPH &&
+        config::GetHostOption<int64_t>(COMPILE_STAGE) <= CS_EXECUTE_GRAPH) {
+        ALOG_INFO("Compile stage terminates after execution graph generation.");
         return 0;
     }
     auto deviceMachineTask = std::make_shared<MachineTask>(task->GetTaskId(), task->GetFunction());
@@ -167,25 +169,10 @@ extern "C" int32_t Execute(MachineTask *task, FunctionCache &cache) {
         // save compile result on disk
         CacheManager::Instance().SaveTaskFile(deviceAgentTask.get());
     }
-
-    if (config::GetHostOption<int64_t>(COMPILE_STAGE) == GEN_KERNEL_CODE) {
-        ALOG_INFO("only gen code switch enabled, push finish queue.");
-        // only static use gDeviceAgentTaskPtr; when dynamic, delete deviceMachineTask
-        return 0;
+    if (function->IsFunctionType(FunctionType::STATIC)) {
+        gDeviceAgentTaskPtr = deviceAgentTask;
     }
-
-    gDeviceAgentTaskPtr = deviceAgentTask;
     return 0;
-}
-
-static std::string GetEmitPath(const std::string &name) {
-    std::string dirPath;
-    if (npu::tile_fwk::ConfigManager::Instance().GetCodeGenConfig(KEY_FIXED_OUTPUT_PATH, false)) {
-        dirPath = name;
-    } else {
-        dirPath = config::LogTopFolder() + "/" + name;
-    }
-    return dirPath;
 }
 
 static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *func) {
@@ -204,6 +191,7 @@ static std::vector<Function *> GetCalleeList(FunctionCache &cache, Function *fun
     return calleeList;
 }
 
+static void HandleExecuteGraph(FunctionCache &cache, Linker &linker, Function *func);
 static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *func) {
     if (func->IsDynloop()) {
         auto dynloopAttr = func->GetDynloopAttribute();
@@ -233,28 +221,7 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
         Function *root = func->GetRootFunction();
         FindAllExpression(cache, linker, root);
     } else if (func->GetGraphType() == GraphType::EXECUTE_GRAPH) {
-        ALOG_INFO("Compile root:", func->Dump());
-        for (auto &callopAttr : func->GetCallopAttrList()) {
-            for (auto &arg : callopAttr->GetLinearArgList()) {
-                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
-            }
-            auto hash = callopAttr->GetCalleeHash();
-            Function *leafFunc = cache.GetCacheFunction(hash);
-            if (leafFunc == nullptr) {
-                continue;
-            }
-            FindAllExpression(cache, linker, leafFunc);
-        }
-        for (auto &incast : func->inCasts_) {
-            for (auto  &arg : incast->GetRawTensor()->GetDynRawShape()) {
-                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
-            }
-        }
-        for (auto &outcast : func->outCasts_) {
-            for (auto  &arg : outcast->GetRawTensor()->GetDynRawShape()) {
-                linker.AddPrimaryExpressionForDevRootCoa(func, arg);
-            }
-        }
+        HandleExecuteGraph(cache, linker, func);
     } else if (func->GetGraphType() == GraphType::BLOCK_GRAPH) {
         for (auto &op : func->Operations()) {
             if (op.GetOpcode() == Opcode::OP_VEC_DUP) {
@@ -267,6 +234,37 @@ static void FindAllExpression(FunctionCache &cache, Linker &linker, Function *fu
     } else {
         ASSERT(false) << "Impossible function type: " << GetFunctionTypeNameDict().Find(func->GetFunctionType());
     }
+}
+
+static void HandleExecuteGraph(FunctionCache &cache, Linker &linker, Function *func)
+{
+    ALOG_INFO("Compile root:", func->Dump());
+    MainBlockCondBulider builder;
+    builder.CollectCallopMainBlockConds(func);
+    for (auto &callopAttr : func->GetCallopAttrList()) {
+        for (auto &arg : callopAttr->GetLinearArgList()) {
+            linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+        }
+        auto hash = callopAttr->GetCalleeHash();
+        Function *leafFunc = cache.GetCacheFunction(hash);
+        if (leafFunc == nullptr) {
+            continue;
+        }
+        builder.CollectCoaMainBlockConds(callopAttr->GetArgList());
+        FindAllExpression(cache, linker, leafFunc);
+    }
+    for (auto &incast : func->inCasts_) {
+        for (auto  &arg : incast->GetRawTensor()->GetDynRawShape()) {
+            linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+        }
+    }
+    for (auto &outcast : func->outCasts_) {
+        for (auto  &arg : outcast->GetRawTensor()->GetDynRawShape()) {
+            linker.AddPrimaryExpressionForDevRootCoa(func, arg);
+        }
+    }
+    SymbolicScalar cond = builder.BuildMainBlockExpression();
+    linker.SetMainBlockExpressionForDevRootCoa(func, cond);
 }
 
 static void AlignUpTo(std::vector<uint8_t> &code, int align, uint8_t padding) {
@@ -451,7 +449,7 @@ static void BuildControlFlow(FunctionCache &cache, Linker &linker, const std::st
             << "#define __TILE_FWK_AICPU__ 1\n"
             << "#include <stdint.h>\n"
             << "#include \"" << expName << "\"\n"
-            << "#include \"tilefwk/aicore_data.h\"\n"
+            << "#include \"tilefwk/aikernel_data.h\"\n"
             << "#include \"tilefwk/aicpu_runtime.h\"\n"
             << "#include \"tilefwk/aicpu_distributed.h\"\n";
         expressionOss
@@ -937,7 +935,8 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
         npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
         npu::tile_fwk::CodeGen codeGen(codeGenCtx);
         codeGen.GenCode(*devTile, {});
-
+        MainBlockCondBulider builder;
+        builder.Gencode(devTile, {});
         for (auto &[psgId, leaf] : devRoot->programs_) {
             (void)psgId;
             auto hash = leaf->GetFunctionHash().GetHash();
@@ -969,7 +968,9 @@ static void CompileDyndevFunction(Function *function, FunctionCache &cache, [[ma
     encodeDevAscendFunctionParam.inoutLink = &attr->inoutLink;
 
 #ifdef BUILD_WITH_CANN
-    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM) {
+    if (config::GetRuntimeOption<int64_t>(CFG_RUN_MODE) != CFG_RUN_MODE_SIM &&
+        config::GetHostOption<int64_t>(COMPILE_STAGE) != CS_CODEGEN_INSTRUCTION) {
+
         int ret = CompileAICoreKernel(leafDict, encodeDevAscendFunctionParam,
                                     ccePath, function->GetFunctionHash().Data(), kernelPath);
         if (ret != 0) {
@@ -1031,7 +1032,6 @@ MachineTask *GenCode(
     std::string &kernelPath) {
     npu::tile_fwk::CodeGenCtx codeGenCtx("", GetEmitPath("kernel_aicore"));
     npu::tile_fwk::CreateMultiLevelDir(codeGenCtx.cceDir);
-
     npu::tile_fwk::CodeGen codeGen(codeGenCtx);
     auto function = task->GetFunction();
     /* each leafFunction inside is compiled to a standalone object file.
@@ -1039,6 +1039,8 @@ MachineTask *GenCode(
      */
     if (function->GetGraphType() == GraphType::TILE_GRAPH) {
         codeGen.GenCode(*function, invokeParaOffset);
+        MainBlockCondBulider builder;
+        builder.Gencode(function, invokeParaOffset);
     } else {
         if (function->IsFunctionType(FunctionType::DYNAMIC)) {
             std::string cce_path = RealPath(codeGenCtx.cceDir) + "/";

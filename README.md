@@ -2,7 +2,7 @@
 
 ## 🔥最新动态
 
-- [2025/12]PyPTO项目首次上线。
+- 2025/12：PyPTO项目首次上线。
 
 ## 🚀概述
 
@@ -30,10 +30,10 @@ PyPTO提供了丰富的示例代码，涵盖从基础操作到复杂模型实现
 
 ### 大模型实现样例
 
-- [DeepSeekV3.2 SFA](https://gitcode.com/cann/pypto/blob/master/examples/models/deepseek_v32_exp/deepseekv32_sparse_flash_attention_quant.py) -稀疏Flash Attention量化实现
-- [DeepSeekV3.2 MLA-PROLOG](https://gitcode.com/cann/pypto/blob/master/examples/models/deepseek_v32_exp/deepseekv32_mla_indexer_prolog_quant.py) -MLA Indexer Prolog量化实现
-- [GLM V4.5 Attention](https://gitcode.com/cann/pypto/blob/master/examples/models/glm_v4_5/glm_attention.py) -GLM注意力机制实现
-- [GLM V4.5 ExpertsSelector](https://gitcode.com/cann/pypto/blob/master/examples/models/glm_v4_5/glm_select_experts.py) -GLM专家选择器实现
+- [DeepSeekV3.2 SFA](https://gitcode.com/cann/pypto/blob/master/models/deepseek_v32_exp/deepseekv32_sparse_flash_attention_quant.py) -稀疏Flash Attention量化实现
+- [DeepSeekV3.2 MLA-PROLOG](https://gitcode.com/cann/pypto/blob/master/models/deepseek_v32_exp/deepseekv32_mla_indexer_prolog_quant.py) -MLA Indexer Prolog量化实现
+- [GLM V4.5 Attention](https://gitcode.com/cann/pypto/blob/master/models/glm_v4_5/glm_attention.py) -GLM注意力机制实现
+- [GLM V4.5 ExpertsSelector](https://gitcode.com/cann/pypto/blob/master/models/glm_v4_5/glm_select_experts.py) -GLM专家选择器实现
 
 ### 学习路径
 
@@ -42,7 +42,8 @@ PyPTO提供了丰富的示例代码，涵盖从基础操作到复杂模型实现
 - [beginner/](https://gitcode.com/cann/pypto/blob/master/examples/01_beginner)：基础操作示例，帮助初学者快速上手PyPTO编程
 - [intermediate/](https://gitcode.com/cann/pypto/blob/master/examples/02_intermediate)：中级示例，包括自定义操作、神经网络模块等
 - [advanced/](https://gitcode.com/cann/pypto/blob/master/examples/03_advanced)：高级示例，包括复杂模式和多函数组合
-- [models/](https://gitcode.com/cann/pypto/blob/master/examples/models)：完整的大模型实现样例，供快速移植和部署
+
+在 [models/](https://gitcode.com/cann/pypto/blob/master/models)目录下，我们提供了部分大模型实现样例，供快速移植和部署
 
 这些示例可以帮助开发者学习如何编写PyPTO算子，从简单的Tensor操作到复杂的模型网络实现。
 
@@ -57,12 +58,13 @@ PyPTO提供了丰富的示例代码，涵盖从基础操作到复杂模型实现
 ## 📖文档资源
 
 若您希望深入体验项目功能并修改源码，请访问如下文档获取详细教程。
-- **[docs](https://gitcode.com/cann/pypto/blob/master/docs/)**：当前发布版本的详细文档，包括编程指南、API参考，贡献指南等
-- **[示例代码](https://gitcode.com/cann/pypto/blob/master/examples/)**：丰富的示例代码，从基础到高级应用
+- [文档中心](https://pypto.gitcode.com) ：当前发布版本的详细文档，包括编程指南、API参考，贡献指南等
+- [示例代码](https://gitcode.com/cann/pypto/blob/master/examples/)：丰富的示例代码，从基础到高级应用
 
 ## 🔍目录结构
 
 关键目录如下:
+
 ```
 ├── docs/                       # 文档资源
 │   ├── api/                    # API参考文档
@@ -72,8 +74,9 @@ PyPTO提供了丰富的示例代码，涵盖从基础操作到复杂模型实现
 ├── examples/                   # 示例代码
 │   ├── 01_beginner/            # 初级示例
 │   ├── 02_intermediate/        # 中级示例
-│   ├── 03_advanced/            # 高级示例
-│   └── models/                 # 模型实现示例
+│   └── 03_advanced/            # 高级示例
+│
+├── models/                     # 模型实现示例
 │
 ├── python/                     # Python源码
 │   ├── pypto/                  # Python包源码根目录

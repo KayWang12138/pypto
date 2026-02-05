@@ -21,7 +21,7 @@
 
 #include "test_cost_model.h"
 #include "test_suite_stest_ops.h"
-#include "interface/inner/config.h"
+#include "interface/configs/config_manager.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "test_dev_func_runner.h"
@@ -90,7 +90,6 @@ public:
 private:
     static inline bool gmClearFlag = true;
     static void init() {
-        config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     }
 
     static void verifyOpResults(const TestCaseDesc& testCase) {
@@ -235,8 +234,6 @@ private:
     static void init() {
         config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
         config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
-
-        config::SetHostOption(COMPILE_STAGE, GEN_KERNEL_CODE);
     }
 
     static void verifyOpResults(const TestCaseDesc& testCase) {

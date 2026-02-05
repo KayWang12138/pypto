@@ -55,15 +55,18 @@ constexpr const char *STITCH_FUNCTION_NUM_STEP = "stitch_function_num_step";
 constexpr const char *STITCH_FUNCTION_SIZE = "stitch_function_size";
 constexpr const char *STITCH_CFGCACHE_SIZE = "stitch_cfgcache_size";
 constexpr const char *CFG_RUN_MODE = "run_mode";
+constexpr const char *CFG_VALID_SHAPE_OPTIMIZE = "valid_shape_optimize";
 const int64_t CFG_RUN_MODE_NPU = 0;
 const int64_t CFG_RUN_MODE_SIM = 1;
 
 // host
 constexpr const char *COMPILE_STAGE = "compile_stage";
-constexpr const int ALL_COMPLETE = 0;
-constexpr const int GEN_KERNEL_CODE = 1;
-constexpr const int HOST_COMPILE_END = 2;
-constexpr const int GEN_TENSOR_GRAPH = 3;
+const int64_t CS_ALL_COMPLETE = 0;
+const int64_t CS_TENSOR_GRAPH = 1;
+const int64_t CS_TILE_GRAPH = 2;
+const int64_t CS_EXECUTE_GRAPH = 3;
+const int64_t CS_CODEGEN_INSTRUCTION = 4;
+const int64_t CS_CODEGEN_BINARY = 5;
 
 // codegen
 constexpr const char *SUPPORT_DYNAMIC_ALIGNED = "support_dynamic_aligned";
@@ -75,6 +78,7 @@ const std::string KEY_ENABLE_PASS_VERIFY = "enable_pass_verify";
 const std::string KEY_PASS_VERIFY_SAVE_TENSOR = "pass_verify_save_tensor";
 const std::string KEY_PASS_VERIFY_SAVE_TENSOR_DIR = "pass_verify_save_tensor_dir";
 const std::string KEY_PASS_VERIFY_FILTER = "pass_verify_pass_filter";
+const std::string KEY_PASS_VERIFY_ERROR_TOL = "pass_verify_error_tol";
 
 // debug
 constexpr const char *CFG_COMPILE_DBEUG_MODE = "compile_debug_mode";

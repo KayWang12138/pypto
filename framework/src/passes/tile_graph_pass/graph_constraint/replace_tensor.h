@@ -129,7 +129,7 @@ private:
     bool CheckInplace(const Operation &op);
 
     std::unordered_map<LogicalTensorPtr, int> BuildTensorOrderIndexMap(Function &function);
-    Status FindBaseTensor(Function &function, std::unordered_map<LogicalTensorPtr, int> &tensorToOderIndex, LogicalTensors &group, LogicalTensorPtr &baseTensor);
+    Status FindBaseTensor(Function &function, const std::unordered_map<LogicalTensorPtr, int> &tensorToOderIndex, LogicalTensors &group, LogicalTensorPtr &baseTensor);
     Status ProcessHubOp(Function &function);
     void ProcessHubAssembleOp(Function &function, Operation &hubOp, Operation &assembleOp, 
                              std::shared_ptr<LogicalTensor> hubInput, std::shared_ptr<LogicalTensor> hubOutput);
@@ -162,6 +162,10 @@ private:
     Status BackUpdateAssemble(Operation *op);
 
     Status MarkTensorAsPartialMem(Function &function);
+
+    void InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
+    void InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
+    void InsertAssembleCopy(Function &function);
 
     std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
     std::queue<LogicalTensorPtr> backRoots;

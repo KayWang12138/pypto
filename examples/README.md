@@ -17,13 +17,13 @@
 1. **初次使用？** 请从 [初级样例 (01_beginner)](01_beginner/README.md) 开始。
 2. **构建神经网络？** 参考 [中级样例 (02_intermediate)](02_intermediate/README.md)。
 3. **探索高级模式？** 查阅 [高级样例 (03_advanced)](03_advanced/README.md)。
-4. **大模型算子实现？** 探索 [模型样例 (models)](models/)。
+4. **大模型算子实现？** 探索 [模型样例 (models)](../models/)。
 
 ### 环境准备
-请参考[环境准备](../docs/context/prepare_environment.md)，完成基础环境搭建
+请参考[环境准备](../docs/install/prepare_environment.md)，完成基础环境搭建
 
-### 软件安装 
-请参考[软件安装](../docs/context/build_and_install.md)，完成PyPTO软件安装
+### 软件安装
+请参考[软件安装](../docs/install/build_and_install.md)，完成PyPTO软件安装
 
 ### 运行前配置（可选）
 如需运行在真实NPU环境中，请参考如下配置
@@ -65,14 +65,14 @@ python3 examples/01_beginner/basic/basic_ops.py --run_mode sim
    - [01_beginner/compute](01_beginner/compute/README.md)
 
 2. **第二阶段：进阶组件**
-   - [02_intermediate/nn/layer_normalization](02_intermediate/nn/layer_normalization/README.md)
+   - [02_intermediate/nn/layer_normalization](02_intermediate/basic_nn/layer_normalization/README.md)
    - [02_intermediate/operators/softmax](02_intermediate/operators/softmax/README.md)
-   - [02_intermediate/nn/ffn](02_intermediate/nn/ffn/README.md)
+   - [02_intermediate/nn/ffn](02_intermediate/basic_nn/ffn/README.md)
 
 3. **第三阶段：深度实践**
-   - [03_advanced/nn/attention](03_advanced/nn/attention/README.md)
-   - [models/deepseek_v32_exp](models/deepseek_v32_exp/README.md)
-   - [models/glm_v4_5](models/glm_v4_5/README.md)
+   - [03_advanced/nn/attention](03_advanced/advanced_nn/attention/README.md)
+   - [models/deepseek_v32_exp](../models/deepseek_v32_exp/README.md)
+   - [models/glm_v4_5](../models/glm_v4_5/README.md)
 
 ---
 

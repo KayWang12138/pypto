@@ -338,8 +338,6 @@ void MoeDistributedCombineValidate(const Tensor& expandX, const Tensor& assistIn
     (void)sharedExpertRankNum;
 
     int32_t batchSize = expertScales.GetShape(0);
-    int32_t topK = expertScales.GetShape(1);
-    int32_t hiddenSize = expandX.GetShape(1);
 
     MoeDistributedCombineValidateExpandX(expandX, expertScales, epWorldSize, moeExpertNum);
     MoeDistributedCombineValidateAssistInfoForCombine(assistInfoForCombine, expandX);
@@ -434,7 +432,7 @@ void MoeDistributedCombineV2(const Tensor& expandX, const Tensor& assistInfoForC
         Tensor shmemDataTile = View(shmemData, {1, 1, 1, hiddenSize}, {rankId, 0, topK * tokenId + kOffset, 0});
         TileShape::Current().SetVecTile({1, hiddenSize});
         Tensor predToken(DT_INT32, {1, 1}, "predToken");
-        Tensor shmemPutOut = ShmemPut(expandXTile, shmemDataTile, predToken);
+        Tensor shmemPutOut = ShmemPut(predToken, expandXTile, shmemDataTile);
 
         Tensor shmemSignalTile = View(shmemSignal, {1, 1, 1, 1, hiddenSize}, {rankId, 0, 0, tokenId, 0});
         Tensor shmemSignalOut = ShmemSignal(shmemPutOut, shmemSignalTile, AtomicType::ADD);

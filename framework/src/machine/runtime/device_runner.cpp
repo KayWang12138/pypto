@@ -12,7 +12,6 @@
  * \file device_runner.cpp
  * \brief
  */
-
 #ifdef BUILD_WITH_CANN
 #include "machine/runtime/device_runner.h"
 #include <algorithm>
@@ -41,6 +40,7 @@
 #include "machine/runtime/device_error_tracking.h"
 #include "nlohmann/json.hpp"
 #include "dump_device_perf.h"
+#include "machine/host/perf_analysis.h"
 
 using json = nlohmann::json;
 extern char _binary_kernel_o_start[];
@@ -48,14 +48,6 @@ extern char _binary_kernel_o_end[];
 
 constexpr int32_t AICORE_ADDR_TYPE = 2; // nocache Addr type for aicore/aicpu map
 constexpr int32_t PMU_ADDR_TYPE = 3;    // nGnRnE Addr type for Geting pmuInfo
-// pmu event type
-constexpr int32_t ARITHMETIC_UTILIZATION = 1;
-constexpr int32_t PIPE_UTILIZATION = 2;
-constexpr int32_t MEMORY = 4;
-constexpr int32_t MEMORY_L0 = 5;
-constexpr int32_t RESOURCE_CONFLICT_RATION = 6;
-constexpr int32_t MEMORY_UB = 7;
-constexpr int32_t L2_CACHE = 8;
 constexpr int32_t PATH_LENGTH = 64;
 constexpr uint32_t LOG_BUF_SIZE = 64 * 1024;
 bool g_IsFirstInit = false;
@@ -102,64 +94,49 @@ void *DeviceRunner::DevAlloc(int size) {
     return devPtr;
 }
 
-void DeviceRunner::SetPmuEventType(int32_t &profPmuType) {
-    // 按照环境变量设置的数值，获取pmu事件类型
-    switch (profPmuType) {
-        case  ARITHMETIC_UTILIZATION:
-            pmuEvtType_ = {0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x0};
-            break;
-        case PIPE_UTILIZATION:
-            pmuEvtType_ = {0x08, 0x0a, 0x09, 0x0b, 0x0c, 0x0d, 0x55, 0x54};
-            break;
-        case MEMORY:
-            pmuEvtType_ = {0x15, 0x16, 0x31, 0x32, 0x0f, 0x10, 0x12, 0x13};
-            break;
-        case MEMORY_L0:
-            pmuEvtType_ = {0x1b, 0x1c, 0x21, 0x22, 0x27, 0x28, 0x0, 0x0};
-            break;
-        case RESOURCE_CONFLICT_RATION:
-            pmuEvtType_ = {0x64, 0x65, 0x66, 0x0, 0x0, 0x0, 0x0, 0x0};
-            break;
-        case MEMORY_UB:
-            pmuEvtType_ = {0x3d, 0x10, 0x13, 0x3e, 0x43, 0x44, 0x37, 0x38};
-            break;
-        case L2_CACHE:
-            pmuEvtType_ = {0x500, 0x502, 0x504, 0x506, 0x508, 0x50a, 0x0, 0x0};
-            break;
-        default:
-            ALOG_WARN_F("Invalid profPmuType %d, only support [1,2,4,5,6,7,8].\n", profPmuType);
-    }
-}
-
-void DeviceRunner::GetPmuEventType() {
-    // 获取pmu事件类型环境变量获取方式
-    std::string eventTypeStr = GetEnvVar("PROF_PMU_EVENT_TYPE");
-    if (eventTypeStr.empty()) {
-        ALOG_WARN_F("Dont support PROF_PMU_EVENT_TYPE env, use default pmu event type PIPE_UTILIZATION.\n");
-        eventTypeStr = "2";
-    }
-    int32_t profPmuType = std::stoi(eventTypeStr);
-    SetPmuEventType(profPmuType);
-}
-
 void DeviceRunner::InitDynamicArgs(DeviceArgs &args) {
     devArgs_ = reinterpret_cast<DeviceArgs *>(DevAlloc(sizeof(DeviceArgs)));
     rtMemcpy(reinterpret_cast<void *>(devArgs_), sizeof(DeviceArgs), &args, sizeof(DeviceArgs),
         RT_MEMCPY_HOST_TO_DEVICE);
 
-    for (uint64_t i = 0; i < args.nrAic + args.nrAiv; i++) {
+    for (uint64_t i = 0; i < args.nrAic + args.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         perfData_.push_back(DevAlloc(MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics)));
     }
 }
 
 void DeviceRunner::ResetPerData() {
     auto size = MAX_DFX_TASK_NUM_PER_CORE * sizeof(TaskStat) + sizeof(Metrics);
-    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+    for (uint64_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         int rc = rtMemset(perfData_[i], size, 0, size);
         if (rc != 0) {
             ALOG_WARN_F("CoreId %lu, rtMemSet failed, rc: %d", i, rc);
         }
     }
+}
+
+void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
+    auto shmAddr = args_.startArgsAddr;
+    devArgs.startArgsAddr = shmAddr;
+    shmAddr += dynamic::DEV_ARGS_SIZE;
+    devArgs.taskCtrl = shmAddr;
+    shmAddr += dynamic::DEVICE_TASK_CTRL_SIZE;
+    devArgs.taskQueue = shmAddr;
+    devArgs.sharedBuffer = args_.sharedBuffer;
+    devArgs.coreRegAddr = args_.coreRegAddr;
+    devArgs.nrAic = args_.nrAic;
+    devArgs.nrAiv = args_.nrAiv;
+    devArgs.corePmuRegAddr = args_.corePmuRegAddr;
+    devArgs.corePmuAddr = args_.corePmuAddr;
+    devArgs.taskWastTime = args_.taskWastTime;
+    devArgs.pmuEventAddr = args_.pmuEventAddr;
+    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
+        args_.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(DevAlloc(sizeof(MetricPerf)));
+        if (args_.aicpuPerfAddr == 0) {
+            ALOG_WARN_F("Aicpu per addr malloc failed");
+        }
+    }
+    devArgs.aicpuPerfAddr = args_.aicpuPerfAddr;
+    InitAiCpuSoBin(devArgs);
 }
 
 int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu) {
@@ -171,7 +148,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     blockDim_ = dynamic::GetCfgBlockdim();
     args.nrValidAic = blockDim_;
     args.nrAicpu = aicpuNum_;
-    int nrCore = regs.size();
+    int nrCore = regs.size() + AICPU_NUM_OF_RUN_AICPU_TASKS;
     args.sharedBuffer = reinterpret_cast<uint64_t>(DevAlloc(nrCore * SHARED_BUFFER_SIZE));
     args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
@@ -182,13 +159,12 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.startArgsAddr = shmAddr;
     args.taskCtrl = shmAddr + dynamic::DEV_ARGS_SIZE;
     args.taskQueue = shmAddr + dynamic::DEV_ARGS_SIZE + dynamic::DEVICE_TASK_CTRL_SIZE;
-    pmuEvtType_.resize(PMU_EVENT_TYPE_MAX, 0x0);
+    PmuCommon::InitPmuEventType(args.archInfo, pmuEvtType_);
     args.pmuEventAddr = reinterpret_cast<uint64_t>(DevAlloc(pmuEvtType_.size() * sizeof(int64_t)));
 
     if (args.sharedBuffer == 0 || args.coreRegAddr == 0 || args.corePmuAddr == 0 || args.corePmuRegAddr == 0) {
         return -1;
     }
-    GetPmuEventType();
     size_t size = nrCore * sizeof(uint64_t);
     rtMemcpy(reinterpret_cast<void *>(args.coreRegAddr), size, regs.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
     rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), size, regsPmu.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
@@ -203,6 +179,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
 
 int DeviceRunner::InitDeviceArgs(DeviceArgs &args) {
     hostProf_.RegHostProf();
+
     addressMappingTable_[ArchInfo::DAV_2201] = [&args](std::vector<int64_t>& regs, std::vector<int64_t>& regsPmu) {
         std::vector<int64_t> aiv;
         std::vector<int64_t> aic;
@@ -254,6 +231,11 @@ uint64_t DeviceRunner::GetTasksTime() const {
     return buffer;
 }
 
+    
+bool DeviceRunner::GetValidGetPgMask() const {
+    return machine::GetRA()->GetValidGetPgMask();
+}
+
 int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t taskId, uint64_t taskData, int taskType) {
     int rc;
 
@@ -284,7 +266,7 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
 
 int DeviceRunner::LaunchAiCore(rtStream_t aicoreStream, int taskType) {
     struct Args {
-        int64_t *syncAddr = nullptr;
+        int64_t *ctrlFlowCache = nullptr;
         int64_t *inputs = nullptr;
         int64_t *outputs = nullptr;
         int64_t *workspace = nullptr;
@@ -338,7 +320,7 @@ int DeviceRunner::LaunchAiCpu(
 }
 
 void DeviceRunner::AllocDfxMetricMemory() {
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
+    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
         KernelArgs kernelArgs;
         memset_s(&kernelArgs, sizeof(kernelArgs), 0, sizeof(kernelArgs));
         kernelArgs.shakeBuffer[SHAK_BUF_DFX_DATA_INDEX] =
@@ -371,7 +353,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
 #if PROF_DFX_HOST_PREPARE_MEMORY_MODE
     AllocDfxMetricMemory();
 #else
-    int size = (args_.nrAic + args_.nrAiv) * SHARED_BUFFER_SIZE;
+    int size = (args_.nrAic + args_.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS) * SHARED_BUFFER_SIZE;
     rtMemset(reinterpret_cast<void *>(args_.sharedBuffer), size, 0, size);
 #endif
 
@@ -382,11 +364,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
         return rc;
     }
 
-    if (!g_IsFirstInit) {
-        InitAiCpuSoBin();
-    }
-    g_IsFirstInit = true;
-
+    InitAiCpuSoBin(args_);
     rc = LaunchAiCpu(aicpuStream, taskId, taskData, taskType);
     if (rc < 0) {
         ALOG_INFO_F("launch aicpu failed %d\n", rc);
@@ -399,7 +377,7 @@ int DeviceRunner::RunAsync(rtStream_t aicpuStream, rtStream_t aicoreStream, int6
 void DeviceRunner::Dump() {
     ALOG_INFO_F("======== aicore status ========");
 
-    int coreNum = args_.nrAic + args_.nrAiv;
+    int coreNum = args_.nrAic + args_.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS;
     uint64_t size = coreNum * SHARED_BUFFER_SIZE;
     std::vector<uint64_t> buffer(size / sizeof(uint64_t));
     int rc =
@@ -493,7 +471,11 @@ int DeviceRunner::launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *k
         rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
 }
 
-void DeviceRunner::InitAiCpuSoBin() {
+void DeviceRunner::InitAiCpuSoBin(DeviceArgs &devArgs) {
+    if (g_IsFirstInit) {
+        return;
+    }
+    g_IsFirstInit = true;
     std::vector<char> buffer;
     std::string fileName = GetCurrentSharedLibPath() + "/libtilefwk_backend_server.so";
     if (!ReadBytesFromFile(fileName, buffer)) {
@@ -504,9 +486,10 @@ void DeviceRunner::InitAiCpuSoBin() {
     auto dAicpuData = DevAlloc(aicpuDataLength);
     rtMemcpy(dAicpuData, aicpuDataLength, reinterpret_cast<void *>(buffer.data()),
              aicpuDataLength, RT_MEMCPY_HOST_TO_DEVICE);
-    args_.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
-    args_.aicpuSoLen = buffer.size();
-    args_.deviceId = GetLogDeviceId();
+    devArgs.aicpuSoBin = reinterpret_cast<uint64_t>(dAicpuData);
+    devArgs.aicpuSoLen = buffer.size();
+    devArgs.deviceId = GetLogDeviceId();
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitAicpuSo);
 }
 
 int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArgs *kArgs) {
@@ -534,20 +517,15 @@ int DeviceRunner::launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArg
 
 int DeviceRunner::RunPrepare() {
     int ret = 0;
-    for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv; i++) {
-        auto preCoreShareadBufferAddr = (reinterpret_cast<uint8_t *>(args_.sharedBuffer +
-                                         sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE;
-        ret = rtMemcpy(preCoreShareadBufferAddr,
+    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL || ENABLE_PERF_TRACE == 1 || PMU_COLLECT == 1) {
+        for (uint32_t i = 0; i < args_.nrAic + args_.nrAiv + AICPU_NUM_OF_RUN_AICPU_TASKS; i++) {
+           auto preCoreShareadBufferAddr = (reinterpret_cast<uint8_t *>(args_.sharedBuffer +
+                                            sizeof(uint64_t) * SHAK_BUF_DFX_DATA_INDEX)) + i * SHARED_BUFFER_SIZE;
+            ret = rtMemcpy(preCoreShareadBufferAddr,
                        sizeof(uint64_t),
                        reinterpret_cast<uint8_t *>(&perfData_[i]),
                        sizeof(uint64_t),
                        RT_MEMCPY_HOST_TO_DEVICE);
-    }
-        
-    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
-        args_.aicpuPerfAddr = npu::tile_fwk::dynamic::PtrToValue(DevAlloc(sizeof(MetricPerf)));
-        if (args_.aicpuPerfAddr == 0) {
-            ALOG_WARN_F("Aicpu per addr malloc failed");
         }
     }
     return ret;
@@ -609,6 +587,9 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
         ReportHostProfInfo(startTime, 1, MSPROF_GE_TASK_TYPE_AI_CPU);
         initFlag_ = true;
     }
+
+    HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAicpuInit);
+
     startTime = MsprofSysCycleTime();
     auto rc = launchDynamicAiCpu(aicpuStream, kernelArgs);
     if (rc < 0) {
@@ -617,6 +598,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
     }
     ReportHostProfInfo(startTime, aicpuNum_, MSPROF_GE_TASK_TYPE_AI_CPU);
 
+    HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAicpuRun);
+
     startTime = MsprofSysCycleTime();
     rc = launchDynamicAiCore(aicoreStream, kernelArgs);
     if (rc < 0) {
@@ -624,6 +607,8 @@ int DeviceRunner::DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreS
         return rc;
     }
     ReportHostProfInfo(startTime, blockdim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
+
+    HOST_PERF_TRACE(TracePhase::RunDevKernelLaunchAIcore);
     return rc;
 }
 
@@ -674,38 +659,15 @@ int DeviceRunner::DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlS
     return rc;
 }
 
-void DeviceRunner::PrepareLaunchArgs(DeviceArgs &localArgs, DeviceKernelArgs *kernelArgs, int64_t taskId, int blockdim, int launchAicpuNum) {
-    localArgs.taskId = taskId;
-    localArgs.taskType = DEVICE_TASK_TYPE_DYN;
-    lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
-    localArgs.machineConfig = kernelArgs->machineConfig;
-    localArgs.toSubMachineConfig = kernelArgs->toSubMachineConfig;
-    localArgs.nrValidAic = blockdim;
-    localArgs.nrAicpu = launchAicpuNum;
-    blockDim_ = blockdim;
-    aicpuNum_ = launchAicpuNum;
-    localArgs.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockdim, aicpuNum_, args_.archInfo);
-    localArgs.validGetPgMask = machine::GetRA()->GetValidGetPgMask();
-    localArgs.disableSync = config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_NO_DEVICE_TENSOR_DEPEND ? 1 : 0;
-    localArgs.generalAddr = kernelArgs->opMetaAddrs.generalAddr;
-    localArgs.stitchPoolAddr = kernelArgs->opMetaAddrs.stitchPoolAddr;
-
-    // for dump perfInfo update device args
-    args_.nrValidAic = localArgs.nrValidAic;
-    args_.nrAicpu = localArgs.nrAicpu;
-    args_.scheCpuNum = localArgs.scheCpuNum;
-}
-
-int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, int64_t taskId,
-    DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
+int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream,
+    [[maybe_unused]] int64_t taskId, DeviceKernelArgs *kernelArgs, int blockdim, int launchAicpuNum) {
     if (kernelArgs == nullptr) {
         return -1;
     }
     InitializeErrorCallback();
-    if (!g_IsFirstInit) {
-        InitAiCpuSoBin();
-    }
-    g_IsFirstInit = true;
+    
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitErrCallBack);
+
     #ifdef BUILD_WITH_NEW_CANN
     if (!g_IsNullLaunched) {
         auto ret = LoadAicpuOp::GetInstance().LaunchBuiltInOp(aicpuStream, kernelArgs, 1, "PyptoNull");
@@ -713,22 +675,23 @@ int DeviceRunner::DynamicLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, r
             ALOG_ERROR_F("launch built null failed");
             return ret;
         }
+        g_IsNullLaunched = true;
     }
-    g_IsNullLaunched = true;
     #endif
     int rc = RunPrepare();
     if (rc < 0) {
-        ALOG_ERROR_F("Prepare failed %d\n", rc);
+        ALOG_ERROR_F("Prepare failed.");
         return rc;
     }
-    auto localArgs = args_;
-    localArgs.enableCtrl = ctrlStream == nullptr ? 1 : 0; // need set 0 if use custom cpu launch ctrl cpu
-    PrepareLaunchArgs(localArgs, kernelArgs, taskId, blockdim, launchAicpuNum);
-    rc = rtMemcpy(kernelArgs->cfgdata, sizeof(localArgs), &localArgs, sizeof(localArgs), RT_MEMCPY_HOST_TO_DEVICE);
-    if (rc != 0) {
-        ALOG_ERROR_F("Copy args failed %p rc %d\n", kernelArgs->cfgdata, rc);
-        return rc;
-    }
+    HOST_PERF_TRACE(TracePhase::RunDevKernelInitRunPrepare);
+
+    lastLaunchToSubMachineConfig_ = kernelArgs->toSubMachineConfig;
+    blockDim_ = blockdim;
+    aicpuNum_ = launchAicpuNum;
+    // for dump perfInfo update device args 
+    args_.nrValidAic = blockdim; 
+    args_.nrAicpu = launchAicpuNum; 
+    args_.scheCpuNum = dynamic::CalcSchAicpuNumByBlockDim(blockDim_, aicpuNum_, args_.archInfo);
     ExchangeCaputerMode(isCapture_);
     if (ctrlStream == nullptr) {
         return DynamicKernelLaunch(aicpuStream, aicoreStream, kernelArgs, blockDim_);
@@ -773,7 +736,7 @@ void DeviceRunner::SetBinData(const std::vector<uint8_t> &binBuf) {
   return;
 }
 
-int DeviceRunner::RegisterKernelBin(void **hdl) {
+int DeviceRunner::RegisterKernelBin(void **hdl, std::vector<uint8_t> *funcBinBuf) {
     if (*hdl) {
         binHdl_ = *hdl;
         ALOG_DEBUG_F("RegisterKernelBin reuse cache.");
@@ -781,9 +744,10 @@ int DeviceRunner::RegisterKernelBin(void **hdl) {
     }
     void *bin = nullptr;
     size_t binSize = 0;
-    if (g_binBuf.size() != 0) {
-        bin = g_binBuf.data();
-        binSize = g_binBuf.size();
+    std::vector<uint8_t> *binBuf = (funcBinBuf == nullptr) ? &g_binBuf : funcBinBuf;
+    if (binBuf->size() != 0) {
+        bin = binBuf->data();
+        binSize = binBuf->size();
         ALOG_DEBUG_F("Reg dynamic bin size %zu.", binSize);
     } else {
         bin = _binary_kernel_o_start;
@@ -822,4 +786,22 @@ int DeviceRunner::Init(void) {
     return 0;
 }
 } // namespace npu::tile_fwk
+
+#else // stub
+
+#include "machine/runtime/device_runner.h"
+
+namespace npu::tile_fwk {
+DeviceRunner &DeviceRunner::Get() {
+    static DeviceRunner runner;
+    return runner;
+}
+void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
+    (void)devArgs;
+}
+bool DeviceRunner::GetValidGetPgMask() const {
+    return true;
+}
+}
+
 #endif // BUILD_WITH_CANN

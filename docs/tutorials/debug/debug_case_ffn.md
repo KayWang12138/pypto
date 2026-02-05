@@ -4,7 +4,7 @@
 
 ffn\_shared\_expert\_quant算子对应GLM4.5网络中MoE共享专家的计算逻辑，包含symmetric\_quantization\_per\_token、matmul、dequant\_dynamic和swiglu，用于进行单个共享专家的量化前向传播计算，通过在不同任务或数据流之间复用同一组权重参数，以学习通用的特征表示，同时减少模型的参数总量。
 
-下面通过该算子介绍功能调试的大致步骤，完整样例请参考：[glm_ffn_shared_expert_quant](../../../examples/models/glm_v4_5/glm_ffn_shared_expert_quant.py)。
+下面通过该算子介绍功能调试的大致步骤，完整样例请参考：[glm_ffn_shared_expert_quant](../../../models/glm_v4_5/glm_ffn_shared_expert_quant.py)。
 
 ## 问题定位
 
@@ -12,8 +12,8 @@ ffn\_shared\_expert\_quant算子对应GLM4.5网络中MoE共享专家的计算逻
 
 首先可以通过查看Tensor Graph进行问题的定位，主要步骤如下：
 
-1.  按照[开启调试模式](NPU上板调试.md)所述步骤开启调试模式，重新运行用例后获取ffn\_shared\_expert\_quant算子计算图。
-2.  按照[查看计算图](NPU上板调试.md)所述，使用PyPTO Toolkit可视化工具打开Tensor Graph阶段的计算图文件，例如：Before\_004\_ExpandFunction\_TENSOR\_share\_loop\_idx\_Unroll1\_PATH0\_4.json：
+1.  按照[开启调试模式](debug.md)所述步骤开启调试模式，重新运行用例后获取ffn\_shared\_expert\_quant算子计算图。
+2.  按照[查看计算图](debug.md)所述，使用PyPTO Toolkit可视化工具打开Tensor Graph阶段的计算图文件，例如：Before\_004\_ExpandFunction\_TENSOR\_share\_loop\_idx\_Unroll1\_PATH0\_4.json：
 
     ![](../figures/zh-cn_image_0000002500534720.png)
 

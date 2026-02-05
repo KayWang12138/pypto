@@ -19,9 +19,8 @@
 #define CORE_FUNC_DATA_H
 
 #include <cstdint>
-#include "tilefwk/aicore_data.h"
+#include "tilefwk/aikernel_data.h"
 
-inline constexpr uint32_t DIST_COMM_GROUP_NUM = 8;
 inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
 constexpr int MAX_DIMS = 8;
 using taskid_t = uint32_t;
@@ -73,7 +72,7 @@ struct CoreFunctionData {
     uint64_t coreFunctionWsAddr; // 指针指向CoreFunctionWsAddr结构体列表
     uint64_t stackWorkSpaceAddr;
     uint64_t stackWorkSpaceSize;
-    uint64_t hcclContextAddr[DIST_COMM_GROUP_NUM] {0};
+    uint64_t hcclContextAddr[HCCL_GROUP_NUM] {0};
     uint64_t commGroupNum {0};
 };
 
@@ -162,32 +161,6 @@ struct BaseArgs {
 #pragma pack ()
 
 using predcount_t = uint16_t;
-
-struct DynFuncBin {
-    uint32_t coreType;
-    uint32_t psgId;
-    uint64_t funcHash;
-    int32_t wrapVecId {-1};
-    uint32_t mixResourceType {0};
-};
-
-struct DynFuncHeader {
-    uint64_t seqNo;
-    uint32_t funcNum;
-    uint32_t funcSize;
-    __gm__ DynFuncBin *cceBinary;
-
-    uint64_t GetIndex() {
-        return seqNo;
-    }
-
-    inline DynFuncData &At(int index) {
-        return (reinterpret_cast<DynFuncData *>(this + 1))[index];
-    }
-    inline uint32_t Size() {
-        return funcNum;
-    }
-};
 
 #pragma pack ()
 

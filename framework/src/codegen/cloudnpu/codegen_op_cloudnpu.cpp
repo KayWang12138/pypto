@@ -22,6 +22,14 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
+std::unordered_map<Opcode, std::set<int>> SKIP_PROC_PRARAM_IDX_IN_LOOP = {
+    // scene: reduce for last axis
+    // Parameter at 1st index (after numbering by CodeGenOp::Init) is used as temp buffer which is reused in loop body.
+    {Opcode::OP_ROWSUM_SINGLE, {ID1}},
+    {Opcode::OP_ROWMAX_SINGLE, {ID1}},
+    {Opcode::OP_ROWMIN_SINGLE, {ID1}},
+};
+
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbolManager, FunctionType funcType,
     const std::map<int, int> &locToOffset, bool isUnderDynamicFunc, bool isMainBlk)
     : CodeGenOp(symbolManager, funcType, locToOffset, isUnderDynamicFunc, isMainBlk),
@@ -36,6 +44,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {             Opcode::OP_GATHER,              [this]() { return GenGatherOp(); }},
           // L1 <-> GM/BT/L1
           {         Opcode::OP_L1_COPY_IN,           [this]() { return GenMemL1CopyIn(); }},
+          { Opcode::OP_L1_COPY_IN_A_SCALE,           [this]() { return GenMemL1CopyIn(); }},
+          { Opcode::OP_L1_COPY_IN_B_SCALE,           [this]() { return GenMemL1CopyIn(); }},
           {        Opcode::OP_L1_COPY_OUT,          [this]() { return GenMemL1CopyOut(); }},
           {       Opcode::OP_GATHER_IN_L1,            [this]() { return GenGatherInL1(); }},
 
@@ -49,6 +59,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {          Opcode::OP_L1_TO_L0B,             [this]() { return GenMemL1ToL0(); }},
           {        Opcode::OP_L1_TO_L0_BT,             [this]() { return GenMemL1ToL0(); }},
           {        Opcode::OP_L1_TO_L0_AT,             [this]() { return GenMemL1ToL0(); }},
+          {    Opcode::OP_L1_TO_L0A_SCALE,             [this]() { return GenMemL1ToL0(); }},
+          {    Opcode::OP_L1_TO_L0B_SCALE,             [this]() { return GenMemL1ToL0(); }},
           {           Opcode::OP_L1_TO_BT,             [this]() { return GenMemL1ToBt(); }},
 
           // load op
@@ -74,7 +86,11 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_EXP, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_NEG, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_RSQRT, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_BITWISENOT, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_SQRT, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_CEIL, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_FLOOR, [this]() { return GenUnaryOp(); }},
+          {Opcode::OP_TRUNC, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_EXPAND, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_ONEHOT, [this]() { return GenUnaryOp(); }},
           {Opcode::OP_RECIPROCAL, [this]() { return GenUnaryOp(); }},
@@ -91,6 +107,7 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // unary with temp buffer
           {Opcode::OP_COMPACT, [this]() { return GenUnaryOpWithTmpBuff(); }},
+          {Opcode::OP_ROUND, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUMLINE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWSUM_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
           {Opcode::OP_ROWMAX_SINGLE, [this]() { return GenUnaryOpWithTmpBuff(); }},
@@ -111,6 +128,14 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_PAIRMAX, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_PAIRMIN, [this]() { return GenBinaryOp(); }},
           {Opcode::OP_POW, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_BITWISEAND, [this]() { return GenBinaryOp(); }},
+          {Opcode::OP_BITWISEOR, [this]() { return GenBinaryOp(); }},
+
+          // binary op: vector operations with tmp
+          {Opcode::OP_MOD, [this]() { return GenBinaryOpWithTmp(); }},
+          {Opcode::OP_BITWISERIGHTSHIFT, [this]() { return GenBinaryOpWithTmp(); }},
+          {Opcode::OP_BITWISELEFTSHIFT, [this]() { return GenBinaryOpWithTmp(); }},
+          {Opcode::OP_BITWISEXOR, [this]() { return GenBinaryOpWithTmp(); }},
 
           // binary op: broadcast associated vector
           {Opcode::OP_ADD_BRC, [this]() { return GenBinaryWithBrc(); }},
@@ -127,6 +152,16 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_DIVS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MAXS, [this]() { return GenVectorScalarOp(); }},
           {Opcode::OP_MINS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_BITWISEANDS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_BITWISEORS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_BITWISERIGHTSHIFTS, [this]() { return GenVectorScalarOp(); }},
+          {Opcode::OP_BITWISELEFTSHIFTS, [this]() { return GenVectorScalarOp(); }},
+
+          // binary op: vector scalar with tmp
+          {Opcode::OP_MODS, [this]() { return GenVectorScalarOpWithTmp(); }},
+          {Opcode::OP_SBITWISERIGHTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
+          {Opcode::OP_SBITWISELEFTSHIFT, [this]() { return GenVectorScalarOpWithTmp(); }},
+          {Opcode::OP_BITWISEXORS, [this]() { return GenVectorScalarOpWithTmp(); }},
 
           // binary op: vector scalar, scalar mode
           {Opcode::OP_S_ADDS, [this]() { return GenVectorScalarOpScalarMode(); }},
@@ -153,6 +188,9 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 
           // cumsum
           {Opcode::OP_CUM_SUM, [this]() { return GenCumSumOp(); }},
+
+          //triUL
+          {Opcode::OP_TRIUL, [this]() { return GenTriULOp(); }},
 
           // vector where
           {Opcode::OP_WHERE_SS, [this]() { return GenWhereOp(); }},
@@ -244,8 +282,10 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
 CodeGenOpCloudNPU::CodeGenOpCloudNPU(const CodeGenOpCloudNPUCtx &ctx)
     : CodeGenOpCloudNPU(ctx.symbolManager, ctx.topFunc.GetFunctionType(), ctx.locToOffset,
           ctx.topFunc.IsUnderDynamicFunction(), ctx.isMainBlock) {
+    forBlkMgr_ = ctx.forBlockManager;
     CodeGenOp::Init(ctx.operation);
     UpdateTileTensorInfo();
+    UpdateLoopInfo();
 }
 void CodeGenOpCloudNPU::InitOpsGenMap() {
     InitScalaOpsMap();
@@ -437,15 +477,22 @@ std::vector<std::string> CodeGenOpCloudNPU::BuildStride(const std::vector<int64_
     return res;
 }
 
-void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(int paramIdx, TileTensor &tileTensor, bool isSpillToGm) {
-    tileTensor.rawShape = rawShape[paramIdx];
+void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(
+    int paramIdx, TileTensor &tileTensor, bool isSpillToGm, const ShapeInLoop &shapeInLoop) {
+    auto newOriginShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.originShape : originShape[paramIdx];
+    auto newRawShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.rawShape : rawShape[paramIdx];
+    auto newDynValidShape = shapeInLoop.loopDepth > 0 ? shapeInLoop.dynamicValidShape : dynamicValidShape[paramIdx];
+    ALOG_INFO_F("newOriginShape is %s, newRawShape is %s, newDynValidShape is %s", IntVecToStr(newOriginShape).c_str(),
+        IntVecToStr(newRawShape).c_str(), IntVecToStr(newDynValidShape).c_str());
+
+    tileTensor.rawShape = newRawShape;
 
     // ---- static ----
     if (functionType == FunctionType::STATIC) {
-        for (auto s : originShape[paramIdx]) {
+        for (auto s : newOriginShape) {
             tileTensor.shape.emplace_back(std::to_string(s));
         }
-        tileTensor.stride = BuildStride(rawShape[paramIdx]);
+        tileTensor.stride = BuildStride(newRawShape);
         return;
     }
 
@@ -465,19 +512,29 @@ void CodeGenOpCloudNPU::UpdateTileTensorShapeAndStride(int paramIdx, TileTensor 
     }
 
     // local tensor
-    for (const auto &s : dynamicValidShape[paramIdx]) {
+
+    for (const auto &s : newDynValidShape) {
         tileTensor.shape.emplace_back(SymbolicExpressionTable::BuildExpression(s));
     }
-    tileTensor.stride = BuildStride(rawShape[paramIdx]);
+    tileTensor.stride = BuildStride(newRawShape);
 }
 
-TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &usingType) {
+TileTensor CodeGenOpCloudNPU::BuildTileTensor(
+    int paramIdx, const std::string &usingType, const ShapeInLoop &shapeInLoop) {
     bool isSpillToGm = operand[paramIdx] == SYMBOL_STACK_BASE;
 
     TileTensor tileTensor;
     tileTensor.isStatic = functionType == FunctionType::STATIC;
     tileTensor.magic = operandWithMagic[paramIdx];
-    tileTensor.dim = tileTensor.isStatic ? originShape[paramIdx].size() : dynamicValidShape[paramIdx].size();
+    tileTensor.shapeInLoop = shapeInLoop;
+
+    if (tileTensor.isStatic) {
+        tileTensor.dim = shapeInLoop.loopDepth > 0 ? shapeInLoop.originShape.size() : originShape[paramIdx].size();
+    } else {
+        tileTensor.dim =
+            shapeInLoop.loopDepth > 0 ? shapeInLoop.dynamicValidShape.size() : dynamicValidShape[paramIdx].size();
+    }
+
     tileTensor.dtype = operandDtype[paramIdx];
     tileTensor.bufType = operandType[paramIdx];
 
@@ -488,10 +545,17 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(int paramIdx, const std::string &u
     }
 
     tileTensor.usingType = usingType;
+
     tileTensor.tensorName = BUFFER_TYPE_TO_PREFIX_LC.at(tileTensor.bufType) + "Tensor_" +
                             std::to_string(IdGen<IdType::CG_VAR_NAME>::Inst().NewId());
-
-    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm);
+    if (shapeInLoop.loopDepth != 0) {
+        std::string tensorName = tensorNames_[paramIdx];
+        if (!tensorName.empty()) {
+            tensorName.append("_low").append(std::to_string(tileTensor.dim)).append("DimInLoop");
+            tileTensor.tensorName = tensorName;
+        }
+    }
+    UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, shapeInLoop);
     tileTensor.localBufOffset = offset[paramIdx];
 
     return tileTensor;
@@ -533,8 +597,76 @@ void CodeGenOpCloudNPU::UpdateTileTensorInfo() {
             originShape[i], rawShape[i], functionType == FunctionType::STATIC};
         std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
         TileTensor tileTensor = BuildTileTensor(i, usingType);
-        sm->AddTileTensor(tileTensor);
+        std::string tensorName = sm->AddTileTensor(tileTensor);
+        tensorNames_[i] = tensorName;
     }
+}
+
+bool CodeGenOpCloudNPU::ShouldSkipProcInLoop(int paramIdx) {
+    auto iter = SKIP_PROC_PRARAM_IDX_IN_LOOP.find(opCode);
+    if (iter == SKIP_PROC_PRARAM_IDX_IN_LOOP.end()) {
+        return false;
+    }
+    return iter->second.find(paramIdx) != iter->second.end();
+}
+
+std::vector<SymbolicScalar> CodeGenOpCloudNPU::GetLoopAxes() {
+    std::vector<SymbolicScalar> loopAxes;
+    GetAttr(OpAttributeKey::loopAxes, loopAxes);
+
+    if (!isMainBlock) {
+        return loopAxes;
+    }
+    // use dst shape as loop axes in main block
+    std::vector<SymbolicScalar> newLoopAxes;
+    for (size_t i = 0; i < loopAxes.size(); ++i) {
+        SymbolicScalar axis = isDynamicFunction ? dynamicValidShape[0][i] : SymbolicScalar(originShape[0][i]);
+        newLoopAxes.emplace_back(axis);
+    }
+
+    return newLoopAxes;
+}
+
+void CodeGenOpCloudNPU::UpdateLoopInfo() {
+    if (SUPPORT_VF_FUSE_OPS.find(opCode) == SUPPORT_VF_FUSE_OPS.end()) {
+        return;
+    }
+
+    std::vector<SymbolicScalar> loopAxes = GetLoopAxes();
+    if (loopAxes.empty()) {
+        return;
+    }
+
+    bool isLoopStart{false};
+    if (GetAttr(OpAttributeKey::loopGroupStart, isLoopStart) && isLoopStart) {
+        forBlkMgr_->LoopStart();
+        forBlkMgr_->UpdateAxesList(loopAxes);
+    }
+
+    // Add TileTensor info in loop
+    ALOG_INFO_F("opCode %s has loopAxes: %s", opCodeStr.c_str(), IntVecToStr(loopAxes).c_str());
+    size_t loopDepth = loopAxes.size();
+    for (int i = 0; i < operandCnt; ++i) {
+        if (ShouldSkipProcInLoop(i)) {
+            continue;
+        }
+        ShapeInLoop shapeInLoop = BuildShapeInLoop(i, loopDepth);
+        ALOG_INFO_F("shapeInLoop: loopDepth is %d newOriginShape is %s, newRawShape is %s, newDynValidShape is %s",
+            loopDepth, IntVecToStr(shapeInLoop.originShape).c_str(), IntVecToStr(shapeInLoop.rawShape).c_str(),
+            IntVecToStr(shapeInLoop.dynamicValidShape).c_str());
+        TileTensorUsing tileTensorUsing{operandDtype[i], operandType[i], static_cast<int>(shapeInLoop.rawShape.size()),
+            shapeInLoop.originShape, shapeInLoop.rawShape, functionType == FunctionType::STATIC};
+        std::string usingType = sm->AddTileTensorUsing(tileTensorUsing);
+        TileTensor tileTensor = BuildTileTensor(i, usingType, shapeInLoop);
+        forBlkMgr_->AddTensorInLoopBody(tensorNames_[i], tileTensor);
+    }
+}
+
+ShapeInLoop CodeGenOpCloudNPU::BuildShapeInLoop(int paramIdx, size_t loopDepth) {
+    auto newOriginShape = GetShapeInLoop(originShape[paramIdx], loopDepth);
+    auto newRawShape = GetShapeInLoop(rawShape[paramIdx], loopDepth);
+    auto newDynValidShape = GetShapeInLoop<SymbolicScalar>(dynamicValidShape[paramIdx], loopDepth);
+    return {loopDepth, newOriginShape, newRawShape, newDynValidShape};
 }
 
 std::string CodeGenOpCloudNPU::PrintCoord(size_t dim, const std::string &coord) const {
@@ -554,20 +686,73 @@ void CodeGenOpCloudNPU::FillParamWithShapeExceptFirst(
 }
 
 std::string CodeGenOpCloudNPU::QueryTileTensorNameByIdx(int paramIdx) const {
-    std::vector<TileTensor> res = sm->QueryTileTensorByMagic(operandWithMagic[paramIdx]);
+    std::vector<TileTensor> res;
+    if (forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop()) {
+        res = sm->QueryTileTensorInLoopByMagic(operandWithMagic[paramIdx]);
+        // some tensor in loop is reused same tensor out of loop
+        if (res.empty()) {
+            res = sm->QueryTileTensorByMagic(operandWithMagic[paramIdx]);
+        }
+    } else {
+        res = sm->QueryTileTensorByMagic(operandWithMagic[paramIdx]);
+    }
+
     if (res.size() == 1) {
         return res[0].tensorName;
     }
+    ALOG_INFO_F("paramIdx is %d, tensor magic is %d, res size is %d", paramIdx, operandWithMagic[paramIdx], res.size());
 
     for (const auto &tileTensor : res) {
+        auto targetRawShape =
+            forBlkMgr_ != nullptr && forBlkMgr_->IsInLoop() ? tileTensor.shapeInLoop.rawShape : rawShape[paramIdx];
         // Currently only support additional comparison of rawShape
-        if (tileTensor.rawShape == rawShape[paramIdx]) {
+        if (tileTensor.rawShape == targetRawShape) {
             return tileTensor.tensorName;
         }
     }
 
-    ASSERT(false) << "paramIdx " << paramIdx << ", tensor magic " << operandWithMagic[paramIdx] << " is not found !!! ";
+    ASSERT(false) << "paramIdx " << paramIdx << ", tensor magic " << operandWithMagic[paramIdx]
+                  << " is not found !!! res size is " << res.size();
     return "";
+}
+std::string CodeGenOpCloudNPU::GenOpCode() const {
+    std::string ret;
+    auto iter = opsGenMap_.find(opCode);
+    if (iter != opsGenMap_.end()) {
+        ret = iter->second();
+    } else {
+        // To aid in testing, do not use ASSERT.
+        return std::string{"CAN NOT HANDLE OP: " + opCodeStr};
+    }
+
+    if (forBlkMgr_ == nullptr || !forBlkMgr_->IsInLoop()) {
+        return ret;
+    }
+
+    forBlkMgr_->AddOpInLoopBody(ret);
+
+    bool isLoopEnd{false};
+    GetAttr(OpAttributeKey::loopGroupEnd, isLoopEnd);
+    if (!isLoopEnd) {
+        return "";
+    }
+
+    ret = forBlkMgr_->Print();
+    forBlkMgr_->OutLoop();
+    return ret;
+}
+
+std::string CodeGenOpCloudNPU::GetLastUse() const{
+    if(!opAttrs.count(OpAttributeKey::lastUse)){
+        return "";
+    }
+    std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
+    int valSize = val.size();
+    ASSERT(valSize != 0) << "GetLastUse error!!!";
+    std::ostringstream oss;
+    oss << "LastUse" << valSize << "Dim";
+    oss << WrapParamByAngleBrackets(val);
+    return oss.str();
 }
 
 } // namespace npu::tile_fwk

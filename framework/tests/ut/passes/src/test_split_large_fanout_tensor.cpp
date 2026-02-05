@@ -40,7 +40,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "SplitLargeFanoutTensorTestStrategy");
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
@@ -547,7 +547,7 @@ TEST_F(SplitLargeFanoutTensorTest, MtoM) {
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
-            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(RUNTIME_Max(0, (c*RUNTIME_Ne(c, 0))), ((c+64)*RUNTIME_Ne(c, 0)))");
+            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(RUNTIME_Max(0, c), ((c+64)*RUNTIME_Ne(c, 0)))");
         }
     }
 }
@@ -865,7 +865,7 @@ TEST_F(SplitLargeFanoutTensorTest, PerfectlyMatchWithAll_Full) {
             auto input = op.GetIOperands().front();
             auto inputDynShape = input->GetDynValidShape();
             EXPECT_EQ(inputDynShape.size(), NUM_2);
-            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(RUNTIME_Max(0, (a*RUNTIME_Ne(a, 0))), ((a+8)*RUNTIME_Ne(a, 0)))");
+            EXPECT_EQ(inputDynShape[0].Dump(), "RUNTIME_Max(RUNTIME_Max(0, a), ((a+8)*RUNTIME_Ne(a, 0)))");
         }
     }
 }

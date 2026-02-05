@@ -15,7 +15,9 @@
 
 #include "gtest/gtest.h"
 #include <iostream>
+#include <sstream>
 #include <vector>
+#include <climits>
 #include "interface/tensor/logical_tensor.h"
 #include "passes/pass_utils/pass_utils.h"
 #include "tilefwk/tilefwk.h"
@@ -612,7 +614,7 @@ TEST_F(FunctionWithPass, AssignMax_int32) {
 
 TEST_F(FunctionWithPass, AssignMin_int32) {
     npu::tile_fwk::float16 fp;
-    int32_t iVal = -0x80000000;
+    int32_t iVal = INT32_MIN;
     fp = iVal;
     // 预期结果根据具体计算确定
     EXPECT_NE(fp.value, 0);
@@ -883,9 +885,9 @@ TEST_F(FunctionWithPass, DumpBuffer) {
     RawSymbolicScalarPtr operand2 = std::make_shared<RawSymbolicImmediate>(3);
     RawSymbolicExpression expr(SymbolicOpcode::T_BOP_ADD, {operand1, operand2});
 
-    std::string buffer;
+    std::stringstream buffer;
     expr.DumpBuffer(buffer);
-    EXPECT_EQ(buffer, "(5+3)");
+    EXPECT_EQ(buffer.str(), "(5+3)");
 }
 
 TEST_F(FunctionWithPass, CalculateHashTest) {
