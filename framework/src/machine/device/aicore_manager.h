@@ -170,6 +170,12 @@ public:
           for (size_t i = 0; i < aicCoreTaskCount; i++) readyAicCoreFunctionLockFreeQueue_->push(readyAicCoreFunctionQue_->elem[i]);
           for (size_t i = 0; i < aivCoreTaskCount; i++) readyAivCoreFunctionLockFreeQueue_->push(readyAivCoreFunctionQue_->elem[i]);
 
+        //   for (size_t i = 0; i < aicCoreTaskCount; i++) readyAicCoreFunctionLockFreeQueue_->pop();
+        //   for (size_t i = 0; i < aivCoreTaskCount; i++) readyAivCoreFunctionLockFreeQueue_->pop();
+
+        //   for (size_t i = 0; i < aicCoreTaskCount; i++) readyAicCoreFunctionQue_->push(readyAicCoreFunctionLockFreeQueue_->pop());
+        //   for (size_t i = 0; i < aivCoreTaskCount; i++) readyAivCoreFunctionQue_->push(readyAivCoreFunctionLockFreeQueue_->pop());
+
           // Advance the initialization state to 1
           curDevTask_->initializationState = 1;
         }
