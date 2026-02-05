@@ -56,8 +56,8 @@ template <CopyInMode mode, typename Coord, typename T, typename U>
 TILEOP void TLoad(T &dst, U &src, const Coord &coord, const int64_t &curH, const int64_t &curW) {
     constexpr auto shapeSize = Std::tuple_size<typename T::Shape>::value;
     static_assert(shapeSize == SHAPE_DIM2 && Std::tuple_size<Coord>::value == SHAPE_DIM2, "Shape Size should be 2 Dim");
-    uint16_t offset0 = coord.GetValue();
-    uint16_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
+    int64_t offset0 = coord.GetValue();
+    int64_t offset1 = static_cast<const Std::tuple<size_t> &>(coord).GetValue();
 
     static_assert(T::FORMAT == Hardware::L1 && U::FORMAT == Hardware::GM,
         "[TLoad Error]: Dst format shoulde be L1 and Src format shoulde be GM");
