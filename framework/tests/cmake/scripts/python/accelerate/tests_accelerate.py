@@ -8,7 +8,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-"""GTest 执行加速
+"""Tests 执行加速
 """
 import argparse
 import dataclasses
@@ -58,7 +58,7 @@ class ArgsGTestFilterListAction(argparse.Action):
         setattr(namespace, self.dest, case_list)
 
 
-class GTestAccelerate(ABC):
+class TestsAccelerate(ABC):
     """GTest 加速
     """
 
@@ -377,8 +377,8 @@ class GTestAccelerate(ABC):
 
         # 用例执行参数, 执行行为控制参数
         self.exe: Executable = Executable(file=args.target[0], envs=args.envs, timeout=args.timeout_case)
-        self.exe_params: List[GTestAccelerate.ExecParam] = []
-        self.exe_result: GTestAccelerate.ExecResult = GTestAccelerate.ExecResult(cntr_name=cntr_name)
+        self.exe_params: List[TestsAccelerate.ExecParam] = []
+        self.exe_result: TestsAccelerate.ExecResult = TestsAccelerate.ExecResult(cntr_name=cntr_name)
         self.exe_timeout: Optional[int] = args.timeout
         self.exe_halt_on_error: bool = args.halt_on_error  # 失败时终止后续 Case 执行
 
@@ -549,12 +549,12 @@ class GTestAccelerate(ABC):
 
     @staticmethod
     def _move(src: JoinableQueue, dst: JoinableQueue):
-        GTestAccelerate._set_process_desc()
-        ctx = GTestAccelerate.MoveContext(src=src, dst=dst)
+        TestsAccelerate._set_process_desc()
+        ctx = TestsAccelerate.MoveContext(src=src, dst=dst)
         while True:
             if not ctx.move():
                 break
-        logging.info("%s Exist, Move %s elements.", GTestAccelerate._get_process_desc(), ctx.ele_count)
+        logging.info("%s Exist, Move %s elements.", TestsAccelerate._get_process_desc(), ctx.ele_count)
 
     @staticmethod
     def _get_process_desc() -> str:
@@ -565,7 +565,7 @@ class GTestAccelerate(ABC):
     def _set_process_desc():
         try:
             import setproctitle
-            setproctitle.setproctitle(GTestAccelerate._get_process_desc())
+            setproctitle.setproctitle(TestsAccelerate._get_process_desc())
         except ModuleNotFoundError:
             pass
 
@@ -865,7 +865,7 @@ class GTestAccelerate(ABC):
         """
         self._set_process_desc()
         self._cntr_set_cpu_affinity(cntr_id=cntr_id)
-        ctx = GTestAccelerate.CntrContext(cntr_id=cntr_id, exec_param=exec_param)
+        ctx = TestsAccelerate.CntrContext(cntr_id=cntr_id, exec_param=exec_param)
         try:
             time.sleep(delay)
             while not self.cntr_terminate_event.is_set():
@@ -988,7 +988,7 @@ class GTestAccelerate(ABC):
         :param gtest_filter: GTestFilter
         """
         self._set_process_desc()
-        ctx = GTestAccelerate.CaseContext(cntr_id=cntr_id, exec_param=param, gtest_filter=gtest_filter)
+        ctx = TestsAccelerate.CaseContext(cntr_id=cntr_id, exec_param=param, gtest_filter=gtest_filter)
         run_desc = f"Run {self.mark}{self.exe.brief} GTestFilter({gtest_filter})"
         try:
             logging.info("%s[%s] [BGN] %s", self.cntr_name, cntr_id, run_desc)
