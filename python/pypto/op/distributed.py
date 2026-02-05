@@ -165,7 +165,10 @@ def shmem_put(
         shmem_op=pypto.AtomicType.SET,
     )
     """
-    dummy = pypto_impl.Nop(pred_tokens)
+    if len(pred_tokens) == 1:
+        dummy = pred_tokens[0]
+    else:
+        dummy = pypto_impl.Nop(pred_tokens)
     dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, [dst_rank] + offsets)
     return pypto_impl.ShmemPut(dummy, src, dst_tile, shmem_op)
 
@@ -220,7 +223,10 @@ def shmem_get(
         shmem_op=pypto.AtomicType.SET,
     )
     """
-    dummy = pypto_impl.Nop(pred_tokens)
+    if len(pred_tokens) == 1:
+        dummy = pred_tokens[0]
+    else:
+        dummy = pypto_impl.Nop(pred_tokens)
     src_tile = pypto_impl.View(src, [1] + shape, [src_rank] + offset)
     return pypto_impl.ShmemGet(dummy, src_tile)
 
@@ -269,16 +275,13 @@ def shmem_signal(
         shmem_op=pypto.AtomicType.SET,
     )
     """
-    # if len(shapes) > 1:
-    #     raise ValueError(f"Currently not supporting shapes list size > 1 (current size: {len(shape)})")
-    dummy = pypto_impl.Nop(pred_tokens)
-    out_dummys = []
-
-    # for idx, shape in enumerate(shape):
+    if len(pred_tokens) == 1:
+        dummy = pred_tokens[0]
+    else:
+        dummy = pypto_impl.Nop(pred_tokens)
     dst_tile = pypto_impl.View(dst, [1, 1] + shape, [dst_rank, dst_rank] + offset)
     out_dummy = pypto_impl.ShmemSignal(dummy, dst_tile, shmem_op)
-    out_dummys.append(out_dummy)
-    return pypto_impl.Nop(out_dummys)
+    return out_dummy
 
 
 @op_wrapper
@@ -324,16 +327,10 @@ def shmem_wait(
         clear_flag,
     )
     """
-    # if len(shapes) > 1:
-    #     raise ValueError(f"Currently not supporting shapes list size > 1 (current size: {len(shapes)})")
     dummy = pypto_impl.Nop(pred_tokens)
-    out_dummys = []
-
-    # for idx, shape in enumerate(shapes):
     src_tile = pypto_impl.View(src, [1, 1] + shape, [comm_config.my_pe, comm_config.my_pe] + offset)
     out_dummy = pypto_impl.WaitUntil(dummy, src_tile, cmp_value, clear_flag)
-    out_dummys.append(out_dummy)
-    return pypto_impl.Nop(out_dummys)
+    return out_dummy
 
 
 @op_wrapper
@@ -369,7 +366,10 @@ def shmem_barrier_all(
         pred_tokens,
     )
     """
-    dummy = pypto_impl.Nop(pred_tokens)
+    if len(pred_tokens) == 1:
+        dummy = pred_tokens[0]
+    else:
+        dummy = pypto_impl.Nop(pred_tokens)
     return pypto_impl.ShmemBarrier(dummy, src, group, comm_config.world_size)
 
 
@@ -421,7 +421,10 @@ def shmem_clear(
         True,
     )
     """
-    dummy = pypto_impl.Nop(pred_tokens)
+    if len(pred_tokens) == 1:
+        dummy = pred_tokens[0]
+    else:
+        dummy = pypto_impl.Nop(pred_tokens)
     if is_signal:
         src_tile = pypto_impl.View(src, [1, 1] + shape, [comm_config.my_pe, 0] + offset)
         out_dummy = pypto_impl.ShmemSignalSet(dummy, src_tile)

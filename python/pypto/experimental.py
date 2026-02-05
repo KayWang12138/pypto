@@ -213,7 +213,10 @@ def shmem_store(
         shmem_op=pypto.AtomicType.SET,
     )
     """
-    dummy = pypto_impl.Nop(pred_tokens)
+    if len(pred_tokens) == 1:
+        dummy = pred_tokens[0]
+    else:
+        dummy = pypto_impl.Nop(pred_tokens)
     dst_tile = pypto_impl.View(dst, [1, 1] + src.shape, [dst_rank] + offsets)
     return pypto_impl.ShmemPutUb2Gm(src, dst_tile, dummy, shmem_op)
 
@@ -275,6 +278,9 @@ def shmem_load(
     The tile is now in UB and can be used directly for computation
     result = pypto.exp(tile)
     """
-    dummy = pypto_impl.Nop(pred_tokens)
+    if len(pred_tokens) == 1:
+        dummy = pred_tokens[0]
+    else:
+        dummy = pypto_impl.Nop(pred_tokens)
     src_tile = pypto_impl.View(src, [1] + shape, [src_rank] + offset)
     return pypto_impl.ShmemGetGm2Ub(dummy, src_tile)
