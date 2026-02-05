@@ -1001,7 +1001,7 @@ void OoOScheduler::InitTensorCoreMap() {
 void OoOScheduler::SetOpAIVCore(IssueEntryPtr issue) {
     issue->tileOp.SetAIVCore(AIVCore::AIV0);
     for (auto viewOp : issue->viewOps) {
-        viewOp.SetAIVCore(AIVCore::AIV0);
+        viewOp->SetAIVCore(AIVCore::AIV0);
     }
 }
 
