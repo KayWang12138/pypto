@@ -576,6 +576,27 @@ static void SBitwiseLeftShift(LogicalTensorDataPtr out, const Element &scalar, L
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
+static void Gcd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tother = From(other);
+    torch::gcd_out(tout.second, tself.second, tother.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
+static void GcdS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tdata = torch::tensor(0);
+    if (out->GetData()->GetDataType() == DataType::DT_UINT8) {
+        tdata = torch::tensor(static_cast<uint8_t>(scalar.GetUnsignedData()), torch::dtype(torch::kUInt8));
+    } else {
+        tdata = torch::tensor(scalar.GetSignedData());
+    }
+    torch::gcd_out(tout.second, tself.second, tdata);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
 static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode) {
     auto tout = From(out);
     auto tself = From(self);
@@ -1866,6 +1887,7 @@ static struct CalcOps calcOps = {
     .BitwiseAndS = BitwiseAndS,
     .BitwiseOrS = BitwiseOrS,
     .BitwiseXorS = BitwiseXorS,
+    .GcdS = GcdS,
     .Add = Add,
     .Sub = Sub,
     .Mul = Mul,
@@ -1876,6 +1898,7 @@ static struct CalcOps calcOps = {
     .BitwiseOr = BitwiseOr,
     .BitwiseXor = BitwiseXor,
     .CopySign = CopySign,
+    .Gcd = Gcd,
     .PairSum = PairSum,
     .PairMax = PairMax,
     .PairMin = PairMin,
