@@ -2167,7 +2167,7 @@ static void ProcessExclusiveOutcast(DevAscendFunction *devFunc, size_t outIdx, s
 // Helper: process a single DevAscendFunction's outcasts and update slot/memory accumulators
 static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFunc, std::vector<SlotInfo> &slots,
                                        uint64_t &maxExclusiveOutcastMem, uint64_t &maxRootInnerMem,
-                                       uint64_t &maxDevTaskInnerExclusiveOutcastMem, uint64_t &maxPerCoreSpilledMem) {
+                                       uint64_t &maxDevTaskInnerExclusiveOutcastMem, uint64_t &maxPerCoreSpilledMem, uint16_t stitchFunctionNum) {
     for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
         if (IsInputOutputSlot(slots, devFunc, i)) {
             continue;
@@ -2185,9 +2185,9 @@ static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFun
 
     int unroll = ParseUnrollTimes(devFunc->GetRawName());
     uint64_t funcRootInnerMem = CalcUnrolledRootBudget(
-        devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
+        devFunc->rootInnerTensorWsMemoryRequirement, unroll, stitchFunctionNum);
     uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
-        devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
+        devFunc->exclusiveOutcastWsMemoryRequirement, unroll, stitchFunctionNum);
 
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
     maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
@@ -2220,7 +2220,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func, DevAscendProgra
     for (auto &&devEncodeData : devProg.devEncodeList) {
         DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
         ProcessDevFunctionOutcasts(func, devFunc, slots, maxExclusiveOutcastMem, maxRootInnerMem,
-                                   maxDevTaskInnerExclusiveOutcastMem, maxPerCoreSpilledMem);
+                                   maxDevTaskInnerExclusiveOutcastMem, maxPerCoreSpilledMem, devProg.stitchFunctionNumInitial);
     }
 
     auto [maxStaticAssembleOutcastMem, maxDynamicAssembleOutcastMem] = ComputeAssembleOutcastMem(slots);
@@ -2333,6 +2333,9 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * maxCoreNum;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->stitchFunctionNumInitial = func->paramConfigs_.stitchFunctionNumInitial_;
+        if (base->stitchFunctionNumInitial > MAX_CACHED_FUNC_NUM) {
+            base->stitchFunctionNumInitial = MAX_CACHED_FUNC_NUM;
+        }
         base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
         base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         base->memBudget.metadata.general = CalcGeneralMetadataSlotWorkspace(base);
