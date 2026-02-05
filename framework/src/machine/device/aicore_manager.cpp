@@ -281,7 +281,7 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int 
         }
         ResolveByRegVal(type, i, GetFinishedTask(i));
 
-        if (readyAicCoreFunctionQue_->isEmpty() || readyAivCoreFunctionQue_->isEmpty()) BatchPushReadyQueue();
+        if (readyAicCoreFunctionQue_->wasEmpty() || readyAivCoreFunctionQue_->wasEmpty()) BatchPushReadyQueue();
     }
 
     BatchPushReadyQueue();

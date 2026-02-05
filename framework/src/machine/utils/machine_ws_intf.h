@@ -52,8 +52,10 @@ struct StaticReadyCoreFunctionQueue {
     while (!__sync_bool_compare_and_swap(&lock, 1, 0))  { }
   }
 
-  inline bool isEmpty() const { return head == tail; }
-  inline uint64_t getSize() const { return tail - head; }
+  // The use of past tense in these functions obeys to the fact that they are not (and cannot be) concurrency-safe
+  // Therefore, the return value could have changed by the time it is returned
+  inline bool wasEmpty() const { return head == tail; }
+  inline uint64_t wasSize() const { return tail - head; }
 
   inline void push(const aicoreFunction_t function)
   {
@@ -67,7 +69,7 @@ struct StaticReadyCoreFunctionQueue {
   {
     aicoreFunction_t returnValue = aicoreNullFunction;
     doLock();
-    if (isEmpty() == false)
+    if (wasEmpty() == false)
     {
       returnValue = elem[head];
       head++;

@@ -140,8 +140,8 @@ public:
         readyAivCoreFunctionQue_ = reinterpret_cast<taskQueue *>(curDevTask_->readyAivCoreFunctionQue);
         
         // Getting the number of tasks to run per each core type
-        const auto aicCoreTaskCount = readyAicCoreFunctionQue_->getSize();
-        const auto aivCoreTaskCount = readyAivCoreFunctionQue_->getSize();
+        const auto aicCoreTaskCount = readyAicCoreFunctionQue_->wasSize();
+        const auto aivCoreTaskCount = readyAivCoreFunctionQue_->wasSize();
 
         // Initialization is performed as a state machine, where the main thread takes on the main allocation operations
         
