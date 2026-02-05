@@ -748,7 +748,7 @@ void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopy
     LogicalTensor copyOutOutput(function, input->Datatype(), copyShape);
     copyOutOutput.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     auto copyOutOutputPtr = std::make_shared<LogicalTensor>(std::move(copyOutOutput));
-    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {input}, {copyOutOutputPtr});
+    auto &copyOutOp = function.AddRawOperation(Opcode::OP_COPY_OUT, {input}, {copyOutOutputPtr});
 
     copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         input->GetMemoryTypeOriginal(),
@@ -761,7 +761,7 @@ void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopy
     LogicalTensor CopyInOutput(function, input->Datatype(), copyShape);
     CopyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     auto CopyInOutputPtr = std::make_shared<LogicalTensor>(std::move(CopyInOutput));
-    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyOutOutputPtr}, {CopyInOutputPtr});
+    auto &copyInOp = function.AddRawOperation(Opcode::OP_COPY_IN, {copyOutOutputPtr}, {CopyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(offset),
         input->GetMemoryTypeOriginal(),
@@ -805,23 +805,38 @@ void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCop
     needInsertCopyAssOp->ReplaceInput(copyOutOutputPtr, input);
 }
 
+void ReplaceTensor::FindNeedToCopyAssemble(std::unordered_set<Operation*> &needInsertCopyAssOps, std::unordered_set<int> &visitedAssOps, Operation &op) {
+    visitedAssOps.insert(op.GetOpMagic());
+    auto assembleIn = op.GetIOperands()[0];
+    auto producers = assembleIn->GetProducers();
+    if ((!producers.empty()) && (*producers.begin())->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
+        return;
+    }
+    auto consumers = assembleIn->GetConsumers();
+    int assembleOutMagic = op.GetOOperands()[0]->GetMagic();
+    bool sameAssembleOut = true;
+    for (auto &con : consumers) {
+        if (con->GetOpcode() ==  Opcode::OP_ASSEMBLE && con->GetOOperands()[0]->GetMagic() != assembleOutMagic) {
+            sameAssembleOut = false;
+            break;
+        }
+    }
+    if (!sameAssembleOut) {
+        for (auto &con : consumers) {
+            if (con->GetOpMagic() != op.GetOpMagic() && con->GetOpcode() == Opcode::OP_ASSEMBLE) {
+                visitedAssOps.insert(con->GetOpMagic());
+                needInsertCopyAssOps.insert(con);
+            }
+        }
+    }
+}
+
 void ReplaceTensor::InsertAssembleCopy(Function &function) {
     std::unordered_set<int> visitedAssOps;
     std::unordered_set<Operation*> needInsertCopyAssOps;
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
-            visitedAssOps.insert(op.GetOpMagic());
-            auto assembleIn = op.GetIOperands()[0];
-            auto consumers = assembleIn->GetConsumers();
-            if (consumers.size() <= 1) { 
-                continue;
-            }
-            for (auto &con : consumers) {
-                if (con->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                    visitedAssOps.insert(con->GetOpMagic());
-                    needInsertCopyAssOps.insert(con);
-                }
-            }
+            FindNeedToCopyAssemble(needInsertCopyAssOps, visitedAssOps, op);
         }
     }
     for (auto &needInsertCopyAssOp : needInsertCopyAssOps) {
