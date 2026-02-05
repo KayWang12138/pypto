@@ -33,44 +33,44 @@ struct GcdOpMetaData {
     nlohmann::json test_data_;
 };
 
-
-
-
 static void GcdOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const GcdOpFuncArgs *>(opArgs);
 
     FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
+        SymbolicScalar firstDim = inputs[0].GetShape()[0];
+        SymbolicScalar secondDim = inputs[0].GetShape()[1];
+        const int firstViewShape = args->viewShape_[0];
+        const int secondViewShape = args->viewShape_[1];
 
-        const int bloop = CeilDiv(noAxisDims[0], noAxisViewShapes[0]);
-        const int bloop = CeilDiv(noAxisDims[0], noAxisViewShapes[0]);
-        LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
-            std::vector<SymbolicScalar> indices = {bIdx};
-            indices.insert(indices.begin() + axis, 0);
-            const std::vector<int64_t> tensorViewShape = GetGcdViewShape(inputs[0], args->viewShape_, axis);
+        const int bloop = CeilDiv(firstDim, firstViewShape);
+        const int sloop = CeilDiv(secondDim, secondViewShape);
 
-            SymbolicScalar validShape0 = std::min(
-                SymbolicScalar(inputs[0].GetShape()[0]) - indices[0] * tensorViewShape[0], tensorViewShape[0]);
-            SymbolicScalar validShape1 = std::min(
-                SymbolicScalar(inputs[0].GetShape()[1]) - indices[1] * tensorViewShape[1], tensorViewShape[1]);
-            auto tileTensor = View(inputs[0], tensorViewShape, {validShape0, validShape1},
-                {indices[0] * tensorViewShape[0], indices[1] * tensorViewShape[1]});
+        LOOP("LOOP_L0_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
+            LOOP("LOOP_L1_sIdx", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, sloop, 1)) {
+                Tensor tileTensor0;
+                Tensor tileTensor1;
 
-            TileShape::Current().SetVecTile(args->tileShape_);
-            auto res = Gcd(tileTensor, );
-            Assemble(res, {indices[0] * args->viewShape_[0], indices[1] * args->viewShape_[1]}, outputs[0]);
+                tileTensor0 = View(inputs[0], {firstViewShape, secondViewShape},
+                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                    {bIdx * firstViewShape, sIdx * secondViewShape});
+                tileTensor1 = View(inputs[1], {firstViewShape, secondViewShape},
+                    {std::min(firstDim - bIdx * firstViewShape, firstViewShape),
+                        std::min(secondDim - sIdx * secondViewShape, secondViewShape)},
+                    {bIdx * firstViewShape, sIdx * secondViewShape});
+                TileShape::Current().SetVecTile(args->tileShape_);
+                auto res = Gcd(tileTensor0, tileTensor1);
+                Assemble(res, {bIdx * firstViewShape, sIdx * secondViewShape}, outputs[0]);
+            }
         }
     }
 }
 
-
-
 class GcdOperationTest : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac_param<GcdOpMetaData> {};
 
 INSTANTIATE_TEST_SUITE_P(TestGcd, GcdOperationTest,
-    ::testing::ValuesIn(GetOpMetaData<GcdOpMetaData>(
-        {GcdOperationExeFuncDoubleCut},
-        "Gcd")));
+    ::testing::ValuesIn(GetOpMetaData<GcdOpMetaData>({GcdOperationExeFuncDoubleCut}, "Gcd")));
 
 TEST_P(GcdOperationTest, TestGcd) {
     auto test_data = GetParam().test_data_;
