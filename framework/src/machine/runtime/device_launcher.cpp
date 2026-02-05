@@ -388,6 +388,10 @@ void ExportedOperatorEnd(ExportedOperator *op) {
 
 void DataDumpInit() {
     if (IsPtoDataDumpEnabled()) {
+        if (!AdxDataDumpServerInit) {
+            ALOG_ERROR_F("AdxDataDumpServerInit function not found.");
+            return;
+        }
         ALOG_DEBUG_F("DataDumpServerInit is called \n");
         int sf = AdxDataDumpServerInit();
         if (sf != 0) {
@@ -398,9 +402,13 @@ void DataDumpInit() {
 
 void DataDumpUnInit() {
     if (IsPtoDataDumpEnabled()) {
+        if (!AdxDataDumpServerUnInit) {
+            ALOG_ERROR_F("AdxDataDumpServerUnInit function not found.");
+            return;
+        }
         ALOG_DEBUG_F("DataDumpServerUnInit is called \n");
-        int res = AdxDataDumpServerUnInit();
-        if (res != 0) {
+        int sf = AdxDataDumpServerUnInit();
+        if (sf != 0) {
             ALOG_ERROR_F("AdxDataDumpServerUnInit is failed %d \n", rc);
         }
     }
