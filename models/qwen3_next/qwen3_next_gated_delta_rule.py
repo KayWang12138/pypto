@@ -155,7 +155,7 @@ def gen_zero_tensor(t):
 
 def pypto_chunk_gated_delta_rule_dyn(inputs: dict, outputs: dict):
     """Dynamic wrapper for PyPTO chunk gated delta rule."""
-    outputs["core_attn_out"] = chunk_gated_delta_rule(
+    chunk_gated_delta_rule(
         inputs["query"], inputs["key"], inputs["value"], inputs["beta"], inputs["gate"], 
         inputs["states"], inputs["mask"], inputs["tril_mask"], inputs["eye"], inputs["act_seq_len"], 
         outputs["core_attn_out"], outputs["final_state"]
