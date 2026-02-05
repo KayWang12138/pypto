@@ -106,6 +106,14 @@ struct MoeDistributedCombineFunc {
     }
 };
 
+struct MoeDistributedDispatchFunc {
+    template <typename T>
+    void operator()(OpTestParam& testParam) const
+    {
+        Distributed::TestShmemMoeDispatch<T>(testParam);
+    }
+};
+
 // 注册所有算子
 void GegisterAllOps()
 {
@@ -115,9 +123,7 @@ void GegisterAllOps()
     reg.RegisterOp("Allreduce", AllreduceFunc{});
     reg.RegisterOp("Allreduce_Add_Allreduce", Allreduce_Add_AllreduceFunc{});
     reg.RegisterOp("MoeDistributedCombine", MoeDistributedCombineFunc{});
-    reg.registry["MoeDispatch"] = [](OpTestParam &testParam, const std::string&) {
- 	    Distributed::TestShmemMoeDispatch(testParam);
-    };
+    reg.RegisterOp("MoeDispatch", MoeDistributedDispatchFunc{});
     reg.registry["Allgather_AttnPost_Reducescatter"] = [](OpTestParam &testParam, const std::string&) {
         Distributed::TestAllGatherAttentionPostReducescatter(testParam);
     };
