@@ -115,6 +115,40 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
     devProg->ResetFromLaunch();
 }
 
+TEST_F(TestDevEncode, test_dev_workspace_size) {
+    config::SetRuntimeOption(STITCH_FUNCTION_NUM, NUM_64);
+    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
+    TileShape::Current().SetVecTile(32, 32);
+    TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
+    constexpr int LOOP_COUNT_INNER = 4;
+    int s = 32;
+    Tensor t0(DT_FP32, {s, s}, "t0");
+    Tensor t1(DT_FP32, {s, s}, "t1");
+    Tensor t2(DT_FP32, {s, s}, "t2");
+    Tensor out(DT_FP32, {LOOP_COUNT_INNER * s, s}, "out");
+
+    //clc
+    FUNCTION("main", {t0, t1, t2}, {out}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT_INNER)) {
+            auto temp = Add(t0, t0);
+            SymbolicScalar s_min = std::ternary(i < 2, i, i + 1);
+
+            IF(s_min == i){
+                temp = Add(temp, t1);
+            }
+            ELSE IF(s_min == i + 1){
+                temp = Add(temp, t2);
+            }
+            Assemble(temp, {i * s, 0}, out);
+        }
+    }
+    std::shared_ptr<DyndevFunctionAttribute> funcDynDev = Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+    ASSERT_NE(funcDynDev, nullptr);
+    DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(funcDynDev->devProgBinary.data());
+    ASSERT_NE(devProg, nullptr);
+    EXPECT_EQ(devProg->stitchFunctionNumInitial, NUM_64);
+}
+
 TEST_F(TestDevEncode, test_dev_func_dupped) {
     DevAscendRawTensor rawTensor;
     std::vector<std::string> lines;
