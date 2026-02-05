@@ -145,6 +145,9 @@ inline void DivS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Elem
 inline void FmodS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->FmodS(out, self, scalar, reverse);
 }
+inline void GcdS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+    GetCalcOps()->GcdS(out, self, scalar);
+}
 inline void BitwiseAndS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse = false) {
     GetCalcOps()->BitwiseAndS(out, self, scalar, reverse);
 }
@@ -171,6 +174,9 @@ inline void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
 }
 inline void Pow(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Pow(out, self, other);
+}
+inline void Gcd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->Gcd(out, self, other);
 }
 inline void Min(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->Min(out, self, other);
