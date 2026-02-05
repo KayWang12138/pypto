@@ -63,7 +63,7 @@ struct DumpTensorInfo {
 
 struct DumpTensorData {
     int32_t datasize{4};
-    void *data;
+    uint64_t dataAddr;
     std::uint8_t dataByte;
     uint64_t dataOffset{0};
 
@@ -75,7 +75,7 @@ struct DumpTensorData {
                 TraverseAllAhapeIndexCombinations(shape, stride, offset, idx + 1, dims, newAddr);
             }
         } else {
-            auto ret = memcpy_s(reinterpret_cast<uint8_t *>(data) + dataOffset, shape[idx] * dataByte,
+            auto ret = memcpy_s(reinterpret_cast<uint8_t *>(dataAddr) + dataOffset, shape[idx] * dataByte,
                         reinterpret_cast<const uint8_t *>(tensorAddr) + offset[idx] * dataByte, shape[idx] * dataByte);
             if (ret != 0) {
                 DEV_ERROR("memcpy_s failed, ret is %d.", ret);
@@ -84,7 +84,7 @@ struct DumpTensorData {
         }
     }
 
-    DumpTensorData(DumpTensorInfo info) {
+    DumpTensorData(DumpTensorInfo info, uint64_t dataAddr) {
         dataByte = BytesOf(static_cast<DataType>(info.dataType));
         datasize = dataByte;
         for (int32_t i = 0; i < info.dims; i++) {
@@ -98,7 +98,7 @@ struct DumpTensorData {
             stride[k] = stride[k + 1] * info.rawShape[k + 1];
         }
 
-        data = malloc(datasize);
+        dataAddr = dataAddr;
         TraverseAllAhapeIndexCombinations(info.shape, stride, info.offset, 0, info.dims, info.tensorAddr);
     }
 
@@ -107,7 +107,6 @@ struct DumpTensorData {
         return datasize;
     }
 
-    ~DumpTensorData() { free(data); }
 };
 
 class AicoreDump {
@@ -126,8 +125,15 @@ public:
             dataAddr = baseAddr + schedIdx * DEV_DUMP_DATA_SIZE;
             DEV_DEBUG("dataAddr is %p.", dataAddr);
         }
-
     }
+
+    void DoDump(DeviceTask* devTask, std::string iOinfo, int32_t taskId, int32_t coreId, int64_t execStart = 0, int64_t execEnd = 0) {
+        if (IsEnableDump()) {
+            DumpInit(taskId, coreId, execStart, execEnd);
+            DoDump(devTask, iOinfo);
+        }
+    }
+
     void DumpInit(int32_t taskId, int32_t coreId, int64_t execStart = 0, int64_t execEnd = 0) {
         taskId_ = taskId;
         coreId_ = coreId;
@@ -141,7 +147,6 @@ public:
         DEV_DEBUG("hostPid is %u.", hostPid_);
         enableDump_ = (hostPid_ != 0);
     }
-    void SetDeviceId(uint32_t devId) { deviceId_ = devId; }
     bool IsEnableDump() const { return enableDump_; }
 
     inline bool DumpData(const IDE_SESSION &ideSession, std::string &fileName, unsigned char *dataBuf,
@@ -163,7 +168,7 @@ public:
 
     void Dump(const IDE_SESSION &ideSession, DumpTensorInfo dumpTensorInfo, std::string &fileName,
         bool isLast) {
-        DumpTensorData dumpTensorData(dumpTensorInfo);
+        DumpTensorData dumpTensorData(dumpTensorInfo, dataAddr);
         dataSize_ = dumpTensorData.GetDumpSize();
         bool ret = DumpData(ideSession, fileName, reinterpret_cast<uint8_t *>(&dumpTensorInfo),
             dumpTensorInfo.headSize, isLast);

@@ -800,10 +800,7 @@ private:
 
 #if ENABLE_TENSOR_DUMP
         // dump input tensor
-        if (aicoreDump_.IsEnableDump()) {
-            aicoreDump_.DumpInit(newTask, GetPhyIdByBlockId(coreIdx));
-            aicoreDump_.DoDump(curDevTask_, "input");
-        }
+        aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
 #endif
         aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
         pendingIds_[coreIdx] = newTask;
@@ -1342,8 +1339,7 @@ private:
 
         wrapManager_.InitArchInfo(deviceArgs->archInfo);
 #if ENABLE_TENSOR_DUMP
-        aicoreDump_.SetHostPid(deviceArgs->hostPid);
-        aicoreDump_.SetDeviceId(deviceArgs->deviceId);
+        aicoreDump_.Init(deviceArgs, schedIdx);
 #endif
 
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
@@ -1646,10 +1642,7 @@ private:
 
 #if ENABLE_TENSOR_DUMP
         // dump output tensor
-        if (aicoreDump_.IsEnableDump()) {
-            aicoreDump_.DumpInit(taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
-            aicoreDump_.DoDump(curDevTask_, "output");
-        }
+        aicoreDump_.DoDump(curDevTask_, "output", taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
 #endif
 
         DEV_IF_VERBOSE_DEBUG {
