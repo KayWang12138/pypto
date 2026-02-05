@@ -17,8 +17,7 @@ including the parse function and JIT decorator.
 
 import inspect
 import os
-from typing import Any, Callable, Optional, Union
-
+from typing import Any, Callable, Optional, Union, List
 import pypto
 import torch
 from pypto import pypto_impl
@@ -111,6 +110,34 @@ def _pto_to_tensor_data(
         )
         datas.append(data)
     return datas
+
+
+def _is_current_stream_capturing():
+    return torch.npu.is_current_stream_capturing()
+
+
+class _ControlflowShape:
+    """Represents the shape information for control flow caching.
+    Attributes
+    ----------
+    shapes : list[list[int]]
+        List of tensor shapes, each represented as a list of integers.
+    hash : int
+        Precomputed hash value for fast equality checks.
+    """
+    
+    def __init__(self, shapes=None):
+        self.shapes = [list(shape) for shape in shapes]
+        self.hash = hash(tuple([tuple(shape) for shape in shapes]))
+
+    def __eq__(self, other: '_ControlflowShape') -> bool:
+        return (self.hash == other.hash) and (self.shapes == other.shapes)
+
+    def __hash__(self):
+        return self.hash
+
+    def __str__(self):
+        return str(self.shapes)
 
 
 class JitCallableWrapper:
@@ -288,7 +315,7 @@ class JitCallableWrapper:
                 device = torch.device('cpu')
             else:
                 raise RuntimeError(f"Invalid run mode: {run_mode}.")
-
+        self._set_run_mode()
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
         concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
@@ -347,7 +374,8 @@ class JitCallableWrapper:
         pto_in_tensors = convert_tensors_with_metadata(in_tensors, input_tensor_defs)
         pto_out_tensors = convert_tensors_with_metadata(out_tensors, output_tensor_defs)
 
-        self._dispatch_with_run_mode(pto_in_tensors + pto_out_tensors, [], device)
+        cfcache = self._get_controflow_cache(pto_in_tensors, device)
+        self._dispatch_with_run_mode(pto_in_tensors + pto_out_tensors, [], device, cfcache)
 
         # Return single tensor or tuple based on number of outputs
         if not out_tensors:
@@ -377,6 +405,7 @@ class JitCallableWrapper:
             The backend runtime handler, or None if not yet compiled (lazy mode).
         """
         return self._handler
+
 
     @staticmethod
     def _get_func_nonlocals(func: Callable) -> dict[str, Any]:
@@ -421,6 +450,50 @@ class JitCallableWrapper:
                     if "empty" not in str(err):
                         raise
         return nonlocal_vars
+    
+
+    def _get_controlflow_shape(self, tensors: List[pypto.Tensor]):
+        """Determine the controlflow shape for caching based on tensor shapes.
+
+        Parameters
+        ----------
+        tensors : List[pypto.Tensor]
+            List of input tensors whose shapes are used to construct the control flow shape.
+
+        Returns
+        -------
+        Optional[_ControlflowShape]
+        """
+        if self._runtime_options.get('stitch_cfgcache_size', 0):
+            return _ControlflowShape([t.ori_shape for t in tensors])
+        else:
+            return None
+
+
+    def _get_controflow_cache(self, pto_in_tensors: List[pypto.Tensor], device):
+        """Build a controlflow cache for NPU execution.
+        Parameters
+        ----------
+        pto_in_tensors : List[pypto.Tensor]
+            List of input PTO tensors used to derive the control flow shape.
+        device : torch.device
+            The target device for execution (must be NPU).
+
+        Returns
+        -------
+        Optional[Any]
+            A control flow cache object if the device is NPU, otherwise None.
+        """
+        cfshape = self._get_controlflow_shape(pto_in_tensors)
+        if cfshape is None:
+            return None
+        if device.type == 'npu':
+            cfdata = [pypto_impl.DeviceTensorData(t.dtype, 0, shape) for t, shape 
+                      in zip(pto_in_tensors, cfshape.shapes)]
+            cfcache = pypto_impl.BuildCache(self._handler, cfdata, [], _is_current_stream_capturing())
+            return cfcache
+        return None
+
 
     def _get_compilation_cache_key(
         self,
@@ -582,7 +655,6 @@ class JitCallableWrapper:
         - verify options (verification settings)
         - debug options (debugging settings)
         """
-        self._set_run_mode()
         if self._codegen_options:
             pypto.set_codegen_options(**self._codegen_options)
         if self._host_options:
@@ -769,6 +841,7 @@ class JitCallableWrapper:
         in_tensors: list[pypto.Tensor],
         out_tensors: list[pypto.Tensor],
         device: torch.device,
+        ctrl_cache: int = 0
     ) -> None:
         """Execute on NPU hardware with automatic device switching.
 
@@ -798,7 +871,7 @@ class JitCallableWrapper:
             ori_device = torch.npu.current_device()
             if device.index != ori_device:
                 torch.npu.set_device(device.index)
-                self._run(in_tensor_data, out_tensor_data, device)
+                self._run(in_tensor_data, out_tensor_data, device, ctrl_cache)
                 torch.npu.set_device(ori_device)
             else:
                 self._run(in_tensor_data, out_tensor_data, device)
@@ -829,6 +902,7 @@ class JitCallableWrapper:
         in_tensors: list[pypto.Tensor],
         out_tensors: list[pypto.Tensor],
         device: torch.device,
+        ctrl_cache: int = 0
     ) -> None:
         """Dispatch kernel execution based on configured run mode (NPU or SIM).
 
@@ -850,14 +924,9 @@ class JitCallableWrapper:
         RuntimeError
             If NPU mode is selected but CANN environment is not configured.
         """
-        cann_is_configed = bool(os.environ.get("ASCEND_HOME_PATH"))
-        run_mode = pypto.get_runtime_options().get("run_mode", 0)
+        run_mode = self._runtime_options.get("run_mode", 0)
         if run_mode == 0:  # NPU mode
-            if not cann_is_configed:
-                raise RuntimeError(
-                    "Please source cann environment while run mode is NPU."
-                )
-            self._run_with_npu(in_tensors, out_tensors, device)
+            self._run_with_npu(in_tensors, out_tensors, device, ctrl_cache)
         else:  # SIM mode
             self._run_with_cpu(in_tensors, out_tensors)
 
