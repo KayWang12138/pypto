@@ -251,9 +251,11 @@ class GatherInL1Test : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 };
 
 template<typename Config>
-void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
-    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
-    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+void BasicGatherTest(Config &cfg, bool isB, bool isTrans, bool verify) {
+    if (verify) {
+        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    }
     auto TotalSize = [](const Shape &shapes) {
         size_t res = 1;
         for (auto v : shapes) {
@@ -318,9 +320,11 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
     ProgramData::GetInstance().AppendOutputs({
         RawTensorData::CreateConstantTensor<float16>(dst, 0),
     });
-    ProgramData::GetInstance().AppendGoldens({
-        RawTensorData::CreateTensor<float16>(golden, goldenData),
-    });
+    if (verify) {
+        ProgramData::GetInstance().AppendGoldens({
+            RawTensorData::CreateTensor<float16>(golden, goldenData),
+        });
+    }
 
     FUNCTION("test", {src, offsets, unit, pageTable}, {dst}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1)) {
@@ -381,5 +385,16 @@ TEST_F(GatherInL1Test, gather_in_a) {
     cfg.num_buffer_tokens = 32; // buffer token 维度（物理 token 容量）
     cfg.hidden_dim = 4;         // 隐藏维度大小
     cfg.block_size = 4;         // 每个块的 token 数
-    BasicGatherTest(cfg, false, false);
+    BasicGatherTest(cfg, false, false, false);
+}
+
+TEST_F(GatherInL1Test, gather_in_a_verify) {
+    using Config = PageAttentionTestConfig<int32_t, float16>;
+    Config cfg;
+    cfg.topk_count = 8;         //topk结果
+    cfg.num_logical_blocks = 3; // 逻辑块个数
+    cfg.num_buffer_tokens = 32; // buffer token 维度（物理 token 容量）
+    cfg.hidden_dim = 4;         // 隐藏维度大小
+    cfg.block_size = 4;         // 每个块的 token 数
+    BasicGatherTest(cfg, false, false, true);
 }
