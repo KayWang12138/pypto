@@ -647,7 +647,7 @@ class JitCallableWrapper:
 
         This method implements the lazy compilation strategy where parsing and compilation
         are deferred until the first function invocation. This allows:
-        1. Dynamic shape binding based on actual input shapes
+        1. Runtime output shape resolution based on actual input shapes
         2. Cost model evaluation before compilation
         3. Avoiding backend initialization during module load
 
@@ -663,15 +663,15 @@ class JitCallableWrapper:
            a. Create parser and parse the function AST
            b. Initialize backend (DeviceInit, OperatorBegin)
            c. Apply configuration options
-           d. Bind dynamic dimensions from concrete input shapes
-           e. Execute parsing to generate PTO IR
+           d. Bind symbolic dims to runtime input shapes
+           e. Execute parsing to generate PTO IR (symbolic dims preserved)
            f. Finalize compilation (OperatorEnd)
            g. Store result in global cache
 
         Parameters
         ----------
         concrete_input_shapes : list[list[int]]
-            The actual shapes of input tensors, used to bind dynamic dimensions.
+            The actual shapes of input tensors, used for runtime output allocation.
         in_tensors : list[torch.Tensor]
             Input tensors for verification setup.
         out_tensors : list[torch.Tensor]
@@ -704,9 +704,8 @@ class JitCallableWrapper:
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
         self._set_config_option()
 
-        # Bind dynamic dimensions from concrete inputs
-        if concrete_input_shapes:
-            self._parser.bind_dynamic_dims_from_inputs(concrete_input_shapes)
+        # Bind symbolic dims to runtime input shapes so dynamic axes stay dynamic.
+        self._parser.bind_dynamic_dims_to_input_tensors()
 
         # Execute the deferred parsing (happens on first __call__)
         self._pto_function = self._parser.execute()
