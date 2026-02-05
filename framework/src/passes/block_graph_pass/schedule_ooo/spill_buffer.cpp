@@ -109,7 +109,7 @@ Status OoOScheduler::UpdateTensorAttr(
         int rawMagic = tensor->GetRawTensor()->GetRawMagic();
         tensor->memoryrange.memId = rawMagic;
         localBufferMap[rawMagic] = std::make_shared<LocalBuffer>(
-            rawMagic, ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), tensor->GetMemoryTypeOriginal());
+            rawMagic, tensor->tensor->GetRawDataSize(), tensor->GetMemoryTypeOriginal());
         if (localBufferMap[rawMagic] == nullptr) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Init Tensor[%d] localBuffer failed.", rawMagic);
             return FAILED;
@@ -321,7 +321,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     int spillMemId, IssueEntryPtr &spillCopyout) {
     // 创建spill搬出所需的DDR rawtensor/tensor
     std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->GetShape(),
+        std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->tensor->rawshape,
         TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE);
     if (ddrRawTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR raw tensor failed!");
@@ -574,7 +574,7 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         return FAILED;
     }
 
-    LogicalTensorPtr assembleTensor = std::make_shared<LogicalTensor>(function_, 
+    LogicalTensorPtr assembleTensor = std::make_shared<LogicalTensor>(function_,
         spillInfo.spillTensor_->Datatype(), spillInfo.spillTensor_->shape, spillInfo.spillTensor_->Format());
     if (assembleTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Create assemble tensor failed!");
