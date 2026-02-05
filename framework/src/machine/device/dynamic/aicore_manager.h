@@ -326,14 +326,14 @@ public:
                  aicpuIdx_, ret, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
     }
 
-    inline int Run(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
+    inline int Run(int threadIdx, DeviceArgs *deviceArgs) {
         int ret = DEVICE_MACHINE_OK;
         DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
-        Init(threadIdx, deviceArgs, schedIdx);
+        Init(threadIdx, deviceArgs);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DEV_DEBUG("Schedule run init succ");
         DeviceTaskCtrl *taskCtrl = nullptr;
-        taskQueue_ = &(reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>*>(deviceArgs->taskQueue)[schedIdx_]);
+        taskQueue_ = &(reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>*>(deviceArgs->taskQueue)[threadIdx]);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
@@ -345,7 +345,8 @@ public:
                 }
                 return ret;
             }
-            reinterpret_cast<DevStartArgs *>(deviceArgs->startArgsAddr)->syncFlag = 1;
+            auto devStartArgs = reinterpret_cast<DevStartArgs *>(deviceArgs->startArgsAddr);
+            devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
         DEV_DEBUG("Schedule run start succ");
@@ -1296,8 +1297,8 @@ private:
     }
 
     inline bool IsExistOtherAicpuIdle(CoreType type) {
-        int idx = (schedIdx_ + 1) % aicpuNum_;
-        while (idx != schedIdx_) {
+        int idx = (aicpuIdx_ + 1) % aicpuNum_;
+        while (idx != aicpuIdx_) {
             if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][idx].load(std::memory_order_relaxed) == true){
                 return true;
             }
@@ -1307,18 +1308,18 @@ private:
     }
 
     inline void AicpuIsBusy(CoreType type) {
-        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_] != false) {
-            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_].store(false, std::memory_order_relaxed);
+        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_] != false) {
+            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_].store(false, std::memory_order_relaxed);
         }
     }
 
     inline void AicpuIsIdle(CoreType type) {
-        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_] != true) {
-            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][schedIdx_].store(true, std::memory_order_relaxed);
+        if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_] != true) {
+            curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][aicpuIdx_].store(true, std::memory_order_relaxed);
         }
     }
 
-    inline void Init(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
+    inline void Init(int threadIdx, DeviceArgs *deviceArgs) {
         aicNum_ = static_cast<int32_t>(deviceArgs->nrAic);
         aivNum_ = static_cast<int32_t>(deviceArgs->nrAiv);
         aicpuNum_ = deviceArgs->scheCpuNum;
