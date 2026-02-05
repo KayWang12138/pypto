@@ -329,7 +329,6 @@ void TestQuantMM3D(std::vector<int64_t>& shapeA, std::vector<int64_t>& shapeW) {
         Tensor matScaleW(DataType::DT_FP32, shapeScaleW, (uint8_t *)matScaleW_ptr, "MatScaleW");
         Tensor matRes(DataType::DT_BF16, shapeRes, matRes_ptr, "MatRes");
         config::SetBuildStatic(true);
-        config::SetPassOption(VEC_NBUFFER_MODE, 0);
         FUNCTION("QUANTMM", {matA, matW, matScaleW, matRes}) {
             matRes = npu::tile_fwk::Matrix::QuantMM(matA, matW, matScaleW);
         }
