@@ -131,12 +131,12 @@ Status InsertOpForViewAssemble::JudgedViewAssemble(Function &function) {
                 assembleOutSet_.insert(op.GetOOperands()[0]);
                 APASS_LOG_INFO_F(Elements::Operation, "assembleOutSet_ insert oOperand %d", op.GetOOperands()[0]->GetMagic());
             }
-        } else {
-            if (prodOp->GetOpcode() == Opcode::OP_VIEW && assembleOutSet_.find(op.GetOOperands()[0]) == assembleOutSet_.end() &&
+            continue;
+        }
+        if (prodOp->GetOpcode() == Opcode::OP_VIEW && assembleOutSet_.find(op.GetOOperands()[0]) == assembleOutSet_.end() &&
             prodOp->GetIOperands()[0]->GetMemoryTypeOriginal() == prodOp->GetOOperands()[0]->GetMemoryTypeOriginal()) {
-                assembleOutSet_.insert(op.GetOOperands()[0]);
-                APASS_LOG_INFO_F(Elements::Operation, "assembleOutSet_ insert oOperand %d", op.GetOOperands()[0]->GetMagic());
-            }
+            assembleOutSet_.insert(op.GetOOperands()[0]);
+            APASS_LOG_INFO_F(Elements::Operation, "assembleOutSet_ insert oOperand %d", op.GetOOperands()[0]->GetMagic());
         }
     }
     for (auto assembleOut : assembleOutSet_) {
