@@ -119,10 +119,10 @@ Status OoOScheduler::UpdateTensorAttr(
     return SUCCESS;
 }
 
-void OoOScheduler::UpdateOpInternalSubgraphID(Operation &op, IssueEntryPtr issue) {
+void OoOScheduler::UpdateOpInternalSubgraphID(IssueEntryPtr newIssue, IssueEntryPtr issue) {
     if (issue->tileOp.GetInternalSubgraphID() != NOT_IN_SUBGRAPH) {
-        op.UpdateInternalSubgraphID(issue->tileOp.GetInternalSubgraphID());
-        op.SetAIVCore(issue->tileOp.GetAIVCore());
+        newIssue->tileOp.UpdateInternalSubgraphID(issue->tileOp.GetInternalSubgraphID());
+        newIssue->tileOp.SetAIVCore(issue->tileOp.GetAIVCore());
     }
 }
 
@@ -143,7 +143,6 @@ void OoOScheduler::UpdateOpAttr(
         }
     }
     op.UpdateLatency(opLatency);
-    UpdateOpInternalSubgraphID(op, spillIssue);
 }
 
 void OoOScheduler::ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int newMemId) {
@@ -278,6 +277,15 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(spillCopyInOp, issueId);
     spillInInst->coreLocation = spillIssue->coreLocation;
     issueEntryMap[issueId++] = spillInInst;
+    for (auto preId : spillIssue->predecessors) {
+        auto issue = issueEntryMap[preId];
+        if (issue->isAlloc) {
+            spillAllocInst->coreLocation = issue->coreLocation;
+            spillInInst->coreLocation = issue->coreLocation;
+            UpdateOpInternalSubgraphID(spillAllocInst, issue);
+            UpdateOpInternalSubgraphID(spillInInst, issue);
+        }
+    }
     if (spillAllocInst == nullptr || spillInInst == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Create OP_COPY_IN/OP_ALLOC issueEntry failed!");
         return FAILED;
@@ -355,7 +363,13 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     spillCopyout->predecessors.insert(spillIssue->id);
     spillIssue->successors.insert(spillCopyout->id);
     spillCopyout->isRetired = true;
-    spillCopyout->coreLocation = spillIssue->coreLocation;
+    for (auto preId : spillIssue->predecessors) {
+        auto issue = issueEntryMap[preId];
+        if (issue->isAlloc) {
+            spillCopyout->coreLocation = issue->coreLocation;
+            UpdateOpInternalSubgraphID(spillCopyout, issue);
+        }
+    }
     APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_OUT: %s.", spillCopyout->GetOpInfo().c_str());
     return SUCCESS;
 }
@@ -501,12 +515,12 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         Opcode allocOp = assembleTensor->GetMemoryTypeToBe() == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
         auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
         spillAllocOp.UpdateLatency(1);
-        UpdateOpInternalSubgraphID(spillAllocOp, allocIssue);
         IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
         issueEntryMap[issueId++] = spillAllocInst;
         spillAllocInst->reqMemIds = {assembleTensor->memoryrange.memId};
         spillAllocInst->execOrder = bufNextUseOrder++;
         spillAllocInst->coreLocation = allocIssue->coreLocation;
+        UpdateOpInternalSubgraphID(spillAllocInst, allocIssue);
         InsertIssueEntries(spillAllocInst);
         isFirst = false;
     }
@@ -527,6 +541,8 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
     issueEntryMap[issueId++] = spillInInst;
     spillInInst->reqMemIds = {assembleTensor->memoryrange.memId};
     spillInInst->execOrder = bufNextUseOrder++;
+    spillInInst->coreLocation = allocIssue->coreLocation;
+    UpdateOpInternalSubgraphID(spillInInst, allocIssue);
     InsertIssueEntries(spillInInst);
     // assemble
     auto &assembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
@@ -537,6 +553,8 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
     issueEntryMap[issueId++] = assembleInst;
     assembleInst->reqMemIds = {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId};
     assembleInst->execOrder = bufNextUseOrder;
+    assembleInst->coreLocation = allocIssue->coreLocation;
+    UpdateOpInternalSubgraphID(assembleInst, allocIssue);
     InsertIssueEntries(assembleInst);
     return SUCCESS;
 }
