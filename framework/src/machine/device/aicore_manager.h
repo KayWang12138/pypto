@@ -122,7 +122,9 @@ struct DeviceTaskCtrl {
 void SdmaPrefetch(DeviceTask *devTask);
 
 // Type to use for task queues
+// typedef pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction> taskQueue;
 typedef StaticReadyCoreFunctionQueue taskQueue;
+
 
 class AiCoreManager {
 public:
