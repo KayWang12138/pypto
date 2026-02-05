@@ -409,7 +409,7 @@ void DataDumpUnInit() {
         ALOG_DEBUG_F("DataDumpServerUnInit is called \n");
         int sf = AdxDataDumpServerUnInit();
         if (sf != 0) {
-            ALOG_ERROR_F("AdxDataDumpServerUnInit is failed %d \n", rc);
+            ALOG_ERROR_F("AdxDataDumpServerUnInit is failed %d \n", sf);
         }
     }
 }

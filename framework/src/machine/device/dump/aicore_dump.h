@@ -29,7 +29,6 @@ extern "C" {
 __attribute__((weak)) IDE_SESSION IdeDumpStart(const char *privInfo);
 __attribute__((weak)) IdeErrorT IdeDumpData(IDE_SESSION session, const struct IdeDumpChunk *dumpChunk);
 __attribute__((weak)) IdeErrorT IdeDumpEnd(IDE_SESSION session);
-__attribute__((weak)) IdeErrorT drvGetLocalDevIDByHostDevID(uint32_t host_dev_id, uint32_t *local_dev_id);
 };
 
 struct IdeDumpChunk {
@@ -260,6 +259,10 @@ public:
         auto opIdx = TaskID(taskId_);
         int32_t tensorNum = (iOinfo == "input") ? func->GetOperationIOperandSize(opIdx) : 
             func->GetOperationOOperandSize(opIdx);
+        if (!IdeDumpStart || !IdeDumpData || !IdeDumpEnd) {
+            DEV_ERROR("IdeDumpStart, IdeDumpData, IdeDumpEnd function not found.");
+            return;
+        }
         
         std::string dumpPath = "output/dump_tensor/device_" + std::to_string(deviceId_) + "/";
         // ip: port only matches parameter rules with code, without communication funciton
