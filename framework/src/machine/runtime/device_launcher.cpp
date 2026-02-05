@@ -171,14 +171,14 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     DeviceInitDistributedContext(function->GetDyndevAttribute()->commGroupNames, function->GetDyndevAttribute()->devProgBinary);
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
-
-    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
+    DeviceMemoryUtils devMemoryUtilis;
+    DeviceInitTilingData(devMemoryUtilis, kArgs, function->GetDyndevAttribute()->devProgBinary,
         inputDevCtrlCache, config, cachedOperator);
 
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, function->GetDyndevAttribute()->disableL2List);
+    DeviceInitKernelInOuts(devMemoryUtilis, kArgs, inputList, outputList, function->GetDyndevAttribute()->disableL2List);
 
     HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 

@@ -120,7 +120,7 @@ struct MemoryHelper {
 
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
-        uint8_t *devPtr = machine::GetRuntimeHostAgent()->AllocHostAddr(size);
+        uint8_t *devPtr = npu::tile_fwk::dynamic::HostAgentStub::GetAgent()->AllocHostAddr(size);
         return devPtr;
     }
 
@@ -213,8 +213,9 @@ private:
         config_.onBoard = false;
         DeviceLauncherConfigFillDeviceInfo(config_);
         DeviceInitDistributedContextToHost(function_->GetDyndevAttribute()->commGroupNames,
- 	        function_->GetDyndevAttribute()->devProgBinary);  
-        DeviceInitTilingData(MemoryHelper(true), kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
+ 	        function_->GetDyndevAttribute()->devProgBinary); 
+        MemoryHelper  memoryHelper(true);
+        DeviceInitTilingData(memoryHelper, kArgs, function_->GetDyndevAttribute()->devProgBinary, nullptr, config_, nullptr);
         InitKernelInOuts(kArgs, inputs, outputs, true);
         std::cout << "Run CostModel " << "\n";
         RunCostModel(&kArgs);
@@ -477,7 +478,8 @@ private:
         std::vector<DeviceTensorData> inputList;
         std::vector<DeviceTensorData> outputList;
         std::tie(inputList, outputList) = BuildInputOutputFromHost(MemoryHelper(isTest), inputTensors, outputTensors);
-        DeviceInitKernelInOuts(MemoryHelper(isTest), kArgs, inputList, outputList, {});
+        MemoryHelper memoryHelper(isTest);
+        DeviceInitKernelInOuts(memoryHelper, kArgs, inputList, outputList, {});
         ALOG_INFO_F("Inputs %p outputs %p workspace %p cfgdata %p", kArgs.inputs, kArgs.outputs, kArgs.workspace,
             kArgs.cfgdata);
     }
