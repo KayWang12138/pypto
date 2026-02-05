@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -36,15 +36,10 @@
 #include <execinfo.h>
 #include "interface/utils/log.h"
 #include "interface/utils/common.h"
-#include "interface/configs/config_manager.h"
+#include "interface/inner/config.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/platform.h"
-
-#ifdef BUILD_WITH_CANN
-#include "acl/acl.h"
-#include "runtime/rt.h"
-#include "runtime/rt_preload_task.h"
-#endif
+#include "memory_pool.h"
 
 constexpr int ADDR_MAP_TYPE_REG_AIC_CTRL = 2;
 constexpr int ADDR_MAP_TYPE_REG_AIC_PMU_CTRL = 3;
@@ -181,19 +176,7 @@ inline void CheckDeviceId() {
         ALOG_ERROR_F("fail get device id, check if set device id");
         return;
     }
- }
-
-struct HugePageDesc {
-    uint8_t *baseAddr;
-    size_t allSize;
-    size_t current;
-    HugePageDesc(uint8_t *addr, size_t size) : baseAddr(addr), allSize(size), current(0) {}
-};
-
-inline size_t MemSizeAlign(const size_t bytes, const uint32_t aligns = 512U) {
-    const size_t alignSize = (aligns == 0U) ? sizeof(uintptr_t) : aligns;
-    return (((bytes + alignSize) - 1U) / alignSize) * alignSize;
-}
+}  
 
 inline int32_t GetUserDeviceId() {
     int32_t userDeviceId = 0;
@@ -210,56 +193,30 @@ inline int32_t GetLogDeviceId() {
     return logicDeviceId;
 }
 
-inline constexpr uint32_t ONG_GB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE1G_PAGE_ONLY;
-inline constexpr size_t ONT_GB_SIZE = 1024 * 1024 * 1024;
-inline constexpr uint32_t TWO_MB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POLICY_HUGE_PAGE_FIRST;
-
 class RuntimeAgentMemory {
 public:
-    void AllocDevAddr(uint8_t **devAddr, uint64_t size, bool tmpAddr = false) {
-        auto alignSize = MemSizeAlign(size);
-        ALOG_INFO_F("RuntimeAgent::Alloc size[%lu] with align size[%lu].", size, alignSize);
-        if (TryGetHugePageMem(devAddr, alignSize, tmpAddr)) {
-            return;
-        }
-        size_t allocSize = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
-        int res = rtMalloc((void **)devAddr, allocSize, ONG_GB_HUGE_PAGE_FLAGS, 0);
-        if (res != 0) {
-            ALOG_WARN_F("1G page mem alloc failed, turn to 2M page.\n");
-            res = rtMalloc((void **)devAddr, alignSize, TWO_MB_HUGE_PAGE_FLAGS, 0);
-            if (res != 0) {
-                ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
-                return;
-            }
-            if (tmpAddr) {
-                allocatedTmpDevAddr.emplace_back(*devAddr);
-            } else {
-                allocatedDevAddr.emplace_back(*devAddr);
-            }
-            ALOG_INFO_F("AllocDevAddr %p size is %lu", *devAddr, size);
-            return;
-        }
-        if (tmpAddr) {
-            allocatedTmpDevAddr.emplace_back(*devAddr);
-            tmpHugePageVec.emplace_back(HugePageDesc(*devAddr, allocSize));
+    void AllocDevAddr(uint8_t **devAddr, uint64_t size) {
+        bool success = memPool_.AllocDevAddr(devAddr, size);
+        
+        if (!success) {
+            ALOG_ERROR_F("RuntimeAgentMemory: AllocDevAddr failed for size %lu", size);
+            *devAddr = nullptr;
         } else {
-            allocatedDevAddr.emplace_back(*devAddr);
-            hugePageVec.emplace_back(HugePageDesc(*devAddr, allocSize));
+            ALOG_INFO_F("RuntimeAgentMemory: Alloc success %p", *devAddr);
         }
-        if (!TryGetHugePageMem(devAddr, alignSize, tmpAddr)) {
-            ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
-            return;
-        }
-        ALOG_INFO_F("Alloc 1G page mem %p size is %lu.", *devAddr, allocSize);
-        return;
     }
 
-    bool IsHugePageMemory(uint8_t *devAddr) const {
-        for (auto &hugepage : hugePageVec) {
-            if (devAddr >= hugepage.baseAddr && devAddr < hugepage.baseAddr + hugepage.allSize)
-                return true;
-        }
-        return false;
+    void FreeDevAddr(uint8_t *devAddr) {
+        if (!devAddr) return; 
+        memPool_.FreeDevAddr(devAddr);
+    }
+
+    void DynamicRecycle() {
+        memPool_.DynamicRecycle();
+    }
+
+    void PrintPoolStatus() {
+        memPool_.PrintPoolStatus();
     }
 
     static void CopyToDev(uint8_t *devDstAddr, uint8_t *hostSrcAddr, uint64_t size) {
@@ -281,43 +238,13 @@ public:
     bool GetValidGetPgMask() const {
         return validGetPgMask;
     }
-
-    void FreeTmpMemory() {
-        for (uint8_t *addr : allocatedTmpDevAddr) {
-            rtFree(addr);
-        }
-        allocatedTmpDevAddr.clear();
-        tmpHugePageVec.clear();
-    }
-
 protected:
     void DestroyMemory() {
-        for (uint8_t *addr : allocatedDevAddr) {
-            rtFree(addr);
-        }
-        allocatedDevAddr.clear();
-        hugePageVec.clear();
-        FreeTmpMemory();
+        memPool_.DestroyPool();
     }
 private:
-    bool TryGetHugePageMem(uint8_t **devAddr, uint64_t alignSize, bool tmpAddr) {
-        std::vector<HugePageDesc> &pageVec = tmpAddr ? tmpHugePageVec : hugePageVec;
-        for (size_t i = 0; i < pageVec.size(); ++i) {
-            if (pageVec[i].current + alignSize <= pageVec[i].allSize) {
-                *devAddr = pageVec[i].baseAddr + pageVec[i].current;
-                pageVec[i].current += alignSize;
-                ALOG_INFO_F("HugePage Mem get with size:%u addr:%p.", alignSize, *devAddr);
-                return true;
-            }
-        }
-        return false;
-    }
-private:
+    DevMemoryPool memPool_;
     bool validGetPgMask = true;
-    std::vector<HugePageDesc> hugePageVec;
-    std::vector<HugePageDesc> tmpHugePageVec;
-    std::vector<uint8_t *> allocatedDevAddr;
-    std::vector<uint8_t *> allocatedTmpDevAddr;
 };
 
 class RuntimeAgentStream {
@@ -386,11 +313,9 @@ public:
 #endif
     }
 
-    void FreeTensor(uint8_t *devAddr) const {
-        ALOG_DEBUG_F("RuntimeAgent::FreeTensor");
-        if (IsHugePageMemory(devAddr))
-            return;
-        rtFree(devAddr);
+    void FreeTensor(uint8_t *devAddr) {
+        ALOG_DEBUG_F("RuntimeAgent::FreeTensor %p", devAddr);
+        this->FreeDevAddr(devAddr);
     }
 
     void Finalize() {
