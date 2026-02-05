@@ -89,7 +89,7 @@ void TopKOnBoardFunc(TopKParams &params) {
     std::string expect = R"!!!(#include "TileOpImpl.h"
 
 
-// funcHash: 9622810300601126008
+// funcHash: 17439136257815218973
 
 extern "C" [aicore] void TENSOR_TOPK_T_TILETENSOR_2_0_4503599627370496(__gm__ GMTensorInfo* param, int64_t GMStackBase, __gm__ int64_t *hcclContext, __gm__ GMTensorInfo* oriAddrParam) {
 float __ubuf__ *UB_S0_E16384 = (float __ubuf__ *)get_imm(0x0); // size: 0x4000
