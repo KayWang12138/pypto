@@ -379,6 +379,17 @@ public:
         return ret;
     }
 
+    inline DieId GetDieId(DeviceArgs *deviceArgs) {
+        int maxCpuId = static_cast<int>(deviceArgs->launchAicpu);
+        int die0MaxCpuid = maxCpuId >> 1;
+
+        if (schedIdx_ < die0MaxCpuid) {
+            return DieId::DIE_0;
+        } else {
+            return DieId::DIE_1;
+        }
+    }
+
     int32_t ProcessCompletedAicpuTask(uint64_t taskId) {
         int32_t ret = ResolveDepDyn(taskId);
         if (unlikely(ret != DEVICE_MACHINE_OK)) {

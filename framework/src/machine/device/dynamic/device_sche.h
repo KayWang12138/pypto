@@ -271,7 +271,9 @@ struct DynMachineManager {
         } else if (threadIdx > 0 && threadIdx <= static_cast<int>(devArgs->launchScheCpuNum)) {
             ret = RunSche(kargs, entry, threadIdx);
         } else {
-            SignalReg(entry);
+            if (devArgs->archInfo == ArchInfo::DAV_2210) {
+                SignalReg(entry);
+            }
         }
 
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, kargs->taskWastTime);
@@ -296,6 +298,11 @@ struct DynMachineManager {
         if (devArgs->aicpuPerfAddr != 0) {
             PerfEvtMgr::Instance().SetIsOpenProf(true, devArgs->aicpuPerfAddr);
         }
+
+        if (devArgs->archInfo == ArchInfo::DAV_3510) {
+            SignalReg(entry);   // DAV_3510 don't use independent thread
+        }
+
         int ret = entry.kernelCtrlServerInit(kargs);
         return ret;
     }
