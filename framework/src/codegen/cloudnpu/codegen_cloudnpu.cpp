@@ -526,6 +526,7 @@ void CodeGenCloudNPU::BuildExtraOptions(std::ostringstream &oss, const std::stri
         << "-mllvm -cce-aicore-function-stack-size=0x8000 "
         << "-mllvm -cce-aicore-record-overflow=false "
         << "-mllvm -cce-aicore-addr-transform "
+        << "--cce-simd-vf-fusion=false "
         << "-mllvm -cce-aicore-dcci-insert-for-scalar=false ";
     AppendVFLLVMParams(oss);   
     oss << compileOptions << " ";
