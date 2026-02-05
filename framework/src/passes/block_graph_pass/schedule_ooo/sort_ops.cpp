@@ -490,7 +490,10 @@ Status OoOScheduler::RollBack(size_t &startIndex,
         for (auto issue : curIssueEntries) {
             visitedIssue[issue] = false;
         }
-        InitBufRefCount();
+        if (InitBufRefCount() != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "InitBufRefCount failed at RollBack!");
+            return FAILED;
+        }
         return SUCCESS;
     }
     APASS_LOG_ERROR_F(Elements::Operation, "RollBack Failed");
@@ -801,7 +804,10 @@ Status OoOScheduler::ExecuteIssue() {
     }
     issueEntries = curIssueEntries;
     // 初始化修改了的 refcount
-    InitBufRefCount();
+    if (InitBufRefCount() != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "InitBufRefCount failed at ExecuteIssue!");
+        return FAILED;
+    }
     if (InitDependencies() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "InitDependencies failed!");
         return FAILED;
