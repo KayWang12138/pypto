@@ -60,7 +60,9 @@ public:
     std::string GenCVSyncWaitOp() const;
     std::string GenMemL1ToBt() const;
     std::string GenMemL1CopyIn() const;
+    std::string GenMemL1CopyInConv() const;
     std::string GenMemL1CopyOut() const;
+    std::string GenMemL1CopyOutConv() const;
     std::string GenMemL1ToFB() const;
     std::string GenMemL0CCopyOut() const;
     std::string GenMemL0CToL1() const;
