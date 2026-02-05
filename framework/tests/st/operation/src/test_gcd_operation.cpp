@@ -40,8 +40,9 @@ static void GcdOperationExeFuncDoubleCut(
     const std::vector<Tensor> &inputs, std::vector<Tensor> &outputs, const OpFuncArgs *opArgs) {
     auto args = static_cast<const GcdOpFuncArgs *>(opArgs);
 
-    FUNCTION("main", {inputs[0]}, {outputs[0]}) {
+    FUNCTION("main", {inputs[0], inputs[1]}, {outputs[0]}) {
 
+        const int bloop = CeilDiv(noAxisDims[0], noAxisViewShapes[0]);
         const int bloop = CeilDiv(noAxisDims[0], noAxisViewShapes[0]);
         LOOP("LOOP_L1_bIdx", FunctionType::DYNAMIC_LOOP, bIdx, LoopRange(0, bloop, 1)) {
             std::vector<SymbolicScalar> indices = {bIdx};
