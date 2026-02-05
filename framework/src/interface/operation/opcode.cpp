@@ -61,6 +61,9 @@ void OpcodeManager::RegisterVectorBinary() {
     RegisterInfo(Opcode::OP_MIN_BRC, OpCoreType::AIV, "MIN_BRC", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tminbrc", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
+    RegisterInfo(Opcode::OP_GCD_BRC, OpCoreType::AIV, "GCD_BRC", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB}, {"TileOp::TGcdbrc", PIPE_V, PIPE_V, CoreType::AIV}, 
+        OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis});
     RegisterInfo(Opcode::OP_ADD, OpCoreType::AIV, "ADD", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tadd", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis},
         TileShapeVerifier::Verify);
@@ -96,6 +99,9 @@ void OpcodeManager::RegisterVectorBinary() {
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_COPYSIGN, OpCoreType::AIV, "COPYSIGN", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tcopysign", PIPE_V, PIPE_V, CoreType::AIV}, 
+        OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_GCD, OpCoreType::AIV, "GCD", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB}, {"TileOp::TGcd", PIPE_V, PIPE_V, CoreType::AIV}, 
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_S_ADD, OpCoreType::AIV, "S_ADD", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::TSadd", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST,
@@ -818,6 +824,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {   Opcode::OP_TRANSPOSE_MOVEIN,   "TTransMoveIn"},
     {  Opcode::OP_TRANSPOSE_MOVEOUT,  "TTransMoveOut"},
     {          Opcode::OP_INDEX_PUT,      "TIndexPut"},
+    {                Opcode::OP_GCD,           "TGcd"},
     {                Opcode::OP_ADD,           "TAdd"},
     {            Opcode::OP_CUM_SUM,        "TCumSum"},
     {                Opcode::OP_SUB,           "TSub"},
@@ -926,6 +933,7 @@ std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
     Opcode::OP_ROWMIN_SINGLE,
     Opcode::OP_CAST,
     Opcode::OP_EXPAND,
+    Opcode::OP_GCD,
 };
 
 std::unordered_set<Opcode> SKIP_OPCODE_FOR_CODEGEN = {
