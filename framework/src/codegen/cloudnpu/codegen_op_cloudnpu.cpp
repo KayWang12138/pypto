@@ -44,6 +44,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {             Opcode::OP_GATHER,              [this]() { return GenGatherOp(); }},
           // L1 <-> GM/BT/L1
           {         Opcode::OP_L1_COPY_IN,           [this]() { return GenMemL1CopyIn(); }},
+          { Opcode::OP_L1_COPY_IN_A_SCALE,           [this]() { return GenMemL1CopyIn(); }},
+          { Opcode::OP_L1_COPY_IN_B_SCALE,           [this]() { return GenMemL1CopyIn(); }},
           {        Opcode::OP_L1_COPY_OUT,          [this]() { return GenMemL1CopyOut(); }},
           {       Opcode::OP_GATHER_IN_L1,            [this]() { return GenGatherInL1(); }},
 
@@ -57,6 +59,8 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {          Opcode::OP_L1_TO_L0B,             [this]() { return GenMemL1ToL0(); }},
           {        Opcode::OP_L1_TO_L0_BT,             [this]() { return GenMemL1ToL0(); }},
           {        Opcode::OP_L1_TO_L0_AT,             [this]() { return GenMemL1ToL0(); }},
+          {    Opcode::OP_L1_TO_L0A_SCALE,             [this]() { return GenMemL1ToL0(); }},
+          {    Opcode::OP_L1_TO_L0B_SCALE,             [this]() { return GenMemL1ToL0(); }},
           {           Opcode::OP_L1_TO_BT,             [this]() { return GenMemL1ToBt(); }},
 
           // load op
@@ -736,6 +740,19 @@ std::string CodeGenOpCloudNPU::GenOpCode() const {
     ret = forBlkMgr_->Print();
     forBlkMgr_->OutLoop();
     return ret;
+}
+
+std::string CodeGenOpCloudNPU::GetLastUse() const{
+    if(!opAttrs.count(OpAttributeKey::lastUse)){
+        return "";
+    }
+    std::vector<int64_t> val = GetVectorIntAttribute(OpAttributeKey::lastUse);
+    int valSize = val.size();
+    ASSERT(valSize != 0) << "GetLastUse error!!!";
+    std::ostringstream oss;
+    oss << "LastUse" << valSize << "Dim";
+    oss << WrapParamByAngleBrackets(val);
+    return oss.str();
 }
 
 } // namespace npu::tile_fwk
