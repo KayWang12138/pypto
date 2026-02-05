@@ -601,7 +601,7 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
         auto startTime = MsprofSysCycleTime();
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_CTRL;
         ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 2, &rtArgs, nullptr, ctrlStream, 0);
+            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 1, &rtArgs, nullptr, ctrlStream, 0);
         devRunner.ReportHostProfInfo(startTime, 2, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         if (ret != RT_ERROR_NONE) {
             return ret;
@@ -609,7 +609,7 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
         args->kArgs.parameter.runMode = RUN_SPLITTED_STREAM_SCHE;
         startTime = MsprofSysCycleTime();
         ret = rtAicpuKernelLaunchExWithArgs(
-            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 3, &rtArgs, nullptr, schedStream, 0);
+            rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_DYN_AICPU", 4, &rtArgs, nullptr, schedStream, 0);
         devRunner.ReportHostProfInfo(startTime, 3, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         return ret;
     } else {
