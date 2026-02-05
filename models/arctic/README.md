@@ -10,7 +10,7 @@ sum_lstm算子是Arctic-Inference框架中基于LSTM的speculator的核心机制
 - **状态更新**: 通过遗忘门和输入门更新细胞状态
 - **输出生成**: 通过输出门控制最终的隐藏状态输出
 
-该算子主要用于序列预测和生成任务中的speculative decoding，加速大语言模型的推理过程。</content>
+该算子主要用于序列预测和生成任务中的speculative decoding，加速大语言模型的推理过程。
 
 ## 数学公式
 
@@ -100,7 +100,3 @@ def sum_lstm_kernel(
 
 ## 调用示例
 - 算子源码执行参考[test_sum_lstm.py](test_sum_lstm.py)
-
-
-
-
