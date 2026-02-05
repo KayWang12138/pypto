@@ -1905,12 +1905,20 @@ struct ControlFlowCacheFactor {
 };
 
 static int EstimatedStitchingCount() {
+    uint16_t stitchNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
+    if (stitchNum > 0) {
+        return stitchNum <= MAX_CACHED_FUNC_NUM ? stitchNum : MAX_CACHED_FUNC_NUM;
+    }
     int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_OUTCAST_MEMORY);
     ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_OUTCAST_MEMORY: " << value << ", must be greater than 0";
     return value;
 }
 
 static int WorkspaceRecyclePeriod() {
+    uint16_t stitchNum = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
+    if (stitchNum > 0) {
+        return stitchNum <= MAX_CACHED_FUNC_NUM ? stitchNum : MAX_CACHED_FUNC_NUM;
+    }
     int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_INNER_MEMORY);
     ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_INNER_MEMORY: " << value << ", must be greater than 0";
     return value;
@@ -2333,6 +2341,10 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * maxCoreNum;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
         base->stitchFunctionNumInitial = func->paramConfigs_.stitchFunctionNumInitial_;
+        uint16_t value = config::GetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM);
+        if (value > 0) {
+            base->stitchFunctionNumInitial = value;
+        }
         base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
         base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         base->memBudget.metadata.general = CalcGeneralMetadataSlotWorkspace(base);
