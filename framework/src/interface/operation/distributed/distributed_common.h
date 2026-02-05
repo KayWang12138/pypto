@@ -109,19 +109,19 @@ inline bool checkValidInput(const Tensor &input, uint64_t dim, DataType dType, i
         return false;
     }
     if (input.Dim() != dim) {
-        assertResult = "Distributed constraint violated: " + input.GetName() + " dim must be " + std::to_string(dim) + ".";
+        assertResult = "Distributed constraint violated: " + input.GetName() + " dim must be " + std::to_string(dim) + ", but got " +  std::to_string(input.Dim());
         return false;
     }
     if (input.GetDataType() != dType) {
-        assertResult = "Distributed constraint violated: " + input.GetName() + " dataType is not valid.";
+        assertResult = "Distributed constraint violated: " + input.GetName() + " dataType must be " + DataType2String(dType) + ", but got " + DataType2String(input.GetDataType());
         return false;
     }
     if (input.GetShape(0) != row) {
-        assertResult = "Distributed constraint violated: " + input.GetName() + " row must be " + std::to_string(row) + ".";
+        assertResult = "Distributed constraint violated: " + input.GetName() + " row must be " + std::to_string(row) + ", but got " + std::to_string(input.GetShape(0));
         return false;
     }
     if (input.Dim() != 1 && input.GetShape(1) != col) {
-        assertResult = "Distributed constraint violated: " + input.GetName() + " col must be " + std::to_string(col) + ".";
+        assertResult = "Distributed constraint violated: " + input.GetName() + " col must be " + std::to_string(col) + ", but got " + std::to_string(input.GetShape(1));
         return false;
     }
     return true;
