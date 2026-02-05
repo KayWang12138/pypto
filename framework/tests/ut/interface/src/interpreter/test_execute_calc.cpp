@@ -79,25 +79,17 @@ TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble) {
 
     std::vector<int64_t> outputShape = {2, 2};
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outputShape);
-
-    // 創建 OP_VEC_DUP，沒有輸入 tensor，只有輸出
     auto &vecDupOp = func->AddOperation(Opcode::OP_VEC_DUP, {}, {outputTensor});
-
-    // 構造一個極大的負 double 作為 scalar attribute，模擬 gdb 中觀察到的場景
     double largeNegDouble = -std::numeric_limits<double>::max();
     Element scalar(DT_DOUBLE, largeNegDouble);
     vecDupOp.SetAttribute(OpAttributeKey::scalar, scalar);
-
-    // 準備輸出數據緩衝區
     Tensor outputTensorData(DT_FP32, outputShape);
     auto outputData = RawTensorData::CreateConstantTensor(outputTensorData, 0.0f);
     auto outputDataView = std::make_shared<LogicalTensorData>(outputData);
-
     auto inoutDataPair = std::make_shared<FunctionIODataPair>();
     FunctionFrame frame(func.get(), nullptr, nullptr, inoutDataPair, 0);
     OperationInterpreter opInter;
-
-    std::vector<LogicalTensorDataPtr> ioperandDataViewList; // 無輸入
+    std::vector<LogicalTensorDataPtr> ioperandDataViewList; 
     std::vector<LogicalTensorDataPtr> ooperandInplaceDataViewList = {outputDataView};
 
     ExecuteOperationContext ctx = {
