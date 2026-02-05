@@ -48,6 +48,7 @@ source_suffix = {
 myst_enable_extensions = [
     "colon_fence",  # 支持 ``` 代码块
     "deflist",      # 支持定义列表
+    "dollarmath",   # 支持美元数学公式
 ]
 
 # 语言改为中文
