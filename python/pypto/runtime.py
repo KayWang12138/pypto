@@ -113,18 +113,11 @@ class _JIT:
     def __call__(self, *args, **kwargs):
         if len(args) < 1:
             raise ValueError("at least one tensor is required")
+        self.kwargs = kwargs
         if self.run_mode == RunMode.NPU:
-            self.kwargs = kwargs
             pypto_impl.LaunchKernel(self, _current_stream(), *args)
         else:
-            self.run_cpu(*args, **kwargs)
-
-    @staticmethod
-    def run_cpu(*args, **kwargs):
-        # call cost_model interface
-        from .cost_model import _cost_model_run_once_data_from_host
-        tensors = [item for item in args if isinstance(item, pypto.Tensor)]
-        _cost_model_run_once_data_from_host(tensors, [])
+            self.run_cpu(*args)
 
     @staticmethod
     def verify_end():
@@ -174,6 +167,16 @@ class _JIT:
                 "Please source cann environment while run mode is NPU.")
         self.runtime_options["run_mode"] = int(run_mode)
         return RunMode(run_mode)
+
+    def run_cpu(self, *args):
+        # call cost_model interface
+        from .cost_model import _cost_model_run_once_data_from_host
+        tensors = [item for item in args if isinstance(item, pypto.Tensor)]
+        with pypto.options("jit_scope"):
+            self._set_config_option()
+            pypto_impl.DeviceInit()
+            self.compile(args)
+            _cost_model_run_once_data_from_host(tensors, [])
 
     def _set_config_option(self):
         if isinstance(self.codegen_options, dict):
