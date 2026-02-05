@@ -14,16 +14,20 @@
  */
 
 #include <fstream>
-#include "ini_parser.h"
+#include "internal_parser.h"
 #include "tilefwk/platform.h"
-#include "interface/utils/file_utils.h"
 #include "cost_model/simulation_platform/platform.h"
 
+#ifdef BUILD_WITH_CANN
+#include "runtime/rt.h"
+#endif
+
 namespace npu::tile_fwk {
+const uint32_t kMaxLength = 50;
 const std::string version = "version";
-const std::string socVersionInfo = "SoC_version";
+const std::string socVersionInfo = "Soc_version";
+const std::string shortSocVersion = "Short_SoC_version";
 const std::string npuArchInfo = "NpuArch";
-const std::string shortSocVer = "Short_SoC_version";
 const std::string socInfo = "SoCInfo";
 const std::string aiCoreCnt = "ai_core_cnt";
 const std::string cubeCoreCnt = "cube_core_cnt";
@@ -35,47 +39,16 @@ const std::string l0bSize = "l0_b_size";
 const std::string l0cSize = "l0_c_size";
 const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
+const std::string iniFile = "platformInfo.ini";
 const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"1001", NPUArch::DAV_1001},
     {"2201", NPUArch::DAV_2201},
     {"3510", NPUArch::DAV_3510},
 };
 
-const std::unordered_map<std::string, SocVersion> socVersionMap = {
-    {"Ascend910B1", SocVersion::ASCEND_910B1},
-};
-
-// helper function
-MemoryType StringToMemoryType(const std::string& memType) {
-    const std::unordered_map<std::string, MemoryType> memTypeMap = {
-        {"out", MemoryType::MEM_DEVICE_DDR},
-        {"l1", MemoryType::MEM_L1},
-        {"l0a", MemoryType::MEM_L0A},
-        {"l0b", MemoryType::MEM_L0B},
-        {"l0c", MemoryType::MEM_L0C},
-        {"ub", MemoryType::MEM_UB},
-        {"bt", MemoryType::MEM_BT}
-    };
-    auto it = memTypeMap.find(memType);
-    if (it != memTypeMap.end()) {
-        return it->second;
-    }
-    return MemoryType::MEM_UNKNOWN;
-}
-
-SocVersion StringToSocVersion(const std::string& soc_version) {
-    auto it = socVersionMap.find(soc_version);
-    if (it != socVersionMap.end()) {
-        ALOG_DEBUG_F("Set SocVersion as %s.", soc_version.c_str());
-        return it->second;
-    }
-    return SocVersion::ASCEND_910B1;
-}
-
 NPUArch StringToNPUArch(const std::string& npuArch) {
     auto it = npuArchMap.find(npuArch);
     if (it != npuArchMap.end()) {
-        ALOG_DEBUG_F("Set NpuArch as %s.", npuArch.c_str());
         return it->second;
     }
     return NPUArch::DAV_2201;
@@ -110,25 +83,10 @@ size_t Die::GetMemoryLimit(MemoryType type) const {
     return aic_limit == 0 ? aiv_limit : aic_limit;
 }
 
-bool Die::SetMemoryPath(const std::vector<std::vector<std::string>>& dataPaths) {
-    // 目前已知包含DDR到UB的数据通路，L0C到DDR/L1的通路，但指令有缺失，所以先打桩
-    memoryGraph_.AddPath(MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB);
-    memoryGraph_.AddPath(MemoryType::MEM_UB, MemoryType::MEM_DEVICE_DDR);
-    memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR);
-    memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_L1);
-    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
-        memoryGraph_.AddPath(MemoryType::MEM_L0C, MemoryType::MEM_UB);
-        memoryGraph_.AddPath(MemoryType::MEM_UB, MemoryType::MEM_L1);
-        memoryGraph_.AddPath(MemoryType::MEM_L1, MemoryType::MEM_UB);
-    }
+bool Die::SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths) {
     for (const auto &pathDesc : dataPaths) {
-        if (pathDesc.size() != 2U) {
-            continue;
-        }
-        MemoryType from = StringToMemoryType(pathDesc[0]);
-        MemoryType to = StringToMemoryType(pathDesc[1]);
-        if (from != MemoryType::MEM_UNKNOWN && to != MemoryType::MEM_UNKNOWN) {
-            memoryGraph_.AddPath(from, to);
+        if (pathDesc.first != MemoryType::MEM_UNKNOWN && pathDesc.second != MemoryType::MEM_UNKNOWN) {
+            memoryGraph_.AddPath(pathDesc.first, pathDesc.second);
         }
     }
     return true;
@@ -147,8 +105,13 @@ void SoC::SetNPUArch(const std::string& versionStr) {
     version_ = StringToNPUArch(versionStr);
 }
 
-void SoC::SetSocVersion(const std::string& versionStr) {
-    soc_version_ = StringToSocVersion(versionStr);
+size_t SoC::GetAICPUNum() const {
+   uint32_t cpuNum = 0;
+    if (rtGetAiCpuCount(&cpuNum) == 0) {
+        return static_cast<size_t>(cpuNum);
+    } else {
+        return ai_cpu_cnt_;
+    }
 }
 
 void SoC::SetCoreVersion(const std::unordered_map<std::string, std::string>& ver) {
@@ -268,70 +231,72 @@ Platform &Platform::Instance() {
     return instance;
 }
 
-void Platform::LoadFromIni(const std::string &filePath) {
-    npu::tile_fwk::INIParser parser;
-    parser.Initialize(filePath);
-    std::string socVersion;
+void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     std::string archType;
+    std::string socVersion;
     std::unordered_map<std::string, std::string> versionInfo;
-    if (parser.GetStringVal(version, npuArchInfo, archType) == SUCCESS) {
+    if (parser.GetStringVal(version, npuArchInfo, archType)) {
         GetSoc().SetNPUArch(archType);
     }
-    if (parser.GetStringVal(version, socVersionInfo, socVersion) == SUCCESS) {
-        GetSoc().SetSocVersion(socVersion);
+    if (parser.GetStringVal(version, shortSocVersion, socVersion)) {
+        GetSoc().SetShortSocVersion(socVersion);
     }
-    if (parser.GetStringVal(version, shortSocVer, archType) == SUCCESS) {
-        GetSoc().SetShortSocVersion(archType);
-    }
-    if (parser.GetCCECVersion(versionInfo) == SUCCESS) {
+    if (parser.GetCCECVersion(versionInfo)) {
         GetSoc().SetCCECVersion(versionInfo);
     }
-    if (parser.GetCoreVersion(versionInfo) == SUCCESS) {
+    if (parser.GetCoreVersion(versionInfo)) {
         GetSoc().SetCoreVersion(versionInfo);
     }
     size_t coreNum;
-    if (parser.GetSizeVal(socInfo, aiCoreCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, aiCoreCnt, coreNum)) {
         GetSoc().SetAICoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, cubeCoreCnt, coreNum)) {
         GetSoc().SetAICCoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, vectorCoreCnt, coreNum)) {
         GetSoc().SetAIVCoreNum(coreNum);
     }
-    if (parser.GetSizeVal(socInfo, aiCpuCnt, coreNum) == SUCCESS) {
+    if (parser.GetSizeVal(socInfo, aiCpuCnt, coreNum)) {
         GetSoc().SetAICPUNum(coreNum);
     }
     size_t memoryLimit;
-    if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l0aSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0A, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l0bSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0B, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l0cSize, memoryLimit)) {
         GetAICCore().AddMemory(MemoryInfo(MemoryType::MEM_L0C, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, l1Size, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_L1, memoryLimit));
     }
-    if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit) == SUCCESS) {
+    if (parser.GetSizeVal(aiCoreSpec, ubSize, memoryLimit)) {
         GetAIVCore().AddMemory(MemoryInfo(MemoryType::MEM_UB, memoryLimit));
-    }
-    std::vector<std::vector<std::string>> dataPath;
-    if (parser.GetDataPath(dataPath) == SUCCESS) {
-        GetDie().SetMemoryPath(dataPath);
     }
 }
 
 void Platform::ObtainPlatformInfo() {
     std::string srcPath;
-    srcPath = HostMachine::GetInstance().GetPlatformInfo();
-    if (srcPath.empty()) {
-        ALOG_WARN_F("Cannot obtain ini from the device, using default ini file.");
+    char socVer[kMaxLength] = {0};
+    if (rtGetSocVersion(socVer, kMaxLength) == 0) {
+        std::string socVersion = std::string(socVer);
+        npu::tile_fwk::CmdParser cmdparser;
+        LoadPlatformInfo(cmdparser);
+    } else {
         CostModel::CostModelPlatform costModelPlatform;
         costModelPlatform.GetCostModelPlatformRealPath(srcPath);
+        npu::tile_fwk::INIParser iniparser;
+        iniparser.Initialize(srcPath);
+        LoadPlatformInfo(iniparser);
     }
-    LoadFromIni(srcPath);
+    std::vector<std::pair<MemoryType, MemoryType>> dataPath;
+    InternalParser internalParser = InternalParser(NPUArchToString(GetSoc().GetNPUArch()));
+    internalParser.LoadInternalInfo();
+    if (internalParser.GetDataPath(dataPath)) {
+        GetDie().SetMemoryPath(dataPath);
+    }
 }
 }

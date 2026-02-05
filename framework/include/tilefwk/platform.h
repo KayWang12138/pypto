@@ -25,7 +25,6 @@
 #include <memory>
 #include <unordered_map>
 #include "data_type.h"
-#include "interface/machine/host/host_machine.h"
 
 namespace npu::tile_fwk {
 std::string ToJsonString(const std::string& s);
@@ -91,6 +90,40 @@ struct MemoryGraph {
         std::vector<MemoryType> &paths) const;
     bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
     void Reset();
+};
+
+class PlatformParser {
+  public:
+    PlatformParser() = default;
+    virtual ~PlatformParser() {}
+    virtual bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const = 0;
+    
+    bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
+    bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
+    bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const;
+    bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
+    bool FilterDirections(const std::string& value, std::string &part) const;
+    bool FilterDataPath(const std::string& part, std::string &from, std::string &to) const;
+};
+
+class INIParser : public PlatformParser {
+  public:
+    INIParser() = default;
+    ~INIParser() = default;
+    bool Initialize(const std::string &iniFilePath); 
+
+    bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
+  private:
+    bool ReadINIFile(const std::string& filepath);
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> data_;
+};
+
+class CmdParser : public PlatformParser {
+  public:
+    CmdParser() = default;
+    ~CmdParser() = default;
+
+    bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
 };
 
 class Inst {
@@ -268,7 +301,7 @@ public:
     void SetMemDeviceDDRSize(size_t size) { mem_device_ddr_size_ = size; }
     void SetMemHost1Size(size_t size)     { mem_host1_size_      = size; }
 
-    bool SetMemoryPath(const std::vector<std::vector<std::string>>& dataPaths);
+    bool SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths);
     bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
 
     std::string Dump() const {
@@ -297,23 +330,12 @@ public:
     AivCore& GetAIVCore() { return core_wrap_.GetAIVCore(); }
 };
 
-enum class SocVersion{
-    ASCEND_910B1
-};
-
 enum class NPUArch{
     DAV_1001 = 1001,
     DAV_2201 = 2201,
     DAV_3510 = 3510,
     DAV_UNKNOWN
 };
-
-inline std::string SocVersionToString(SocVersion soc_version) {
-    switch (soc_version) {
-        case SocVersion::ASCEND_910B1: return "Ascend910B1";
-        default: return "Ascend910B1";
-    }
-}
 
 inline std::string NPUArchToString(NPUArch npu_arch) {
     switch (npu_arch) {
@@ -327,7 +349,6 @@ inline std::string NPUArchToString(NPUArch npu_arch) {
 class SoC {
 private:
     Die die_;
-    SocVersion soc_version_;
     NPUArch version_;
     std::string short_soc_ver_;
     size_t dies_cnt_;
@@ -337,8 +358,6 @@ private:
     size_t ai_cpu_cnt_;
 public:
     void SetDie(const Die& die) { die_ = die; }
-    void SetSocVersion(SocVersion soc_version) {soc_version_ = soc_version; }
-    void SetSocVersion(const std::string& soc_version);
     void SetNPUArch(NPUArch version) { version_ = version; }
     void SetNPUArch(const std::string& version);
     void SetShortSocVersion(const std::string& version) { short_soc_ver_ = version;}
@@ -347,7 +366,6 @@ public:
     void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
 
     Die& GetDies() { return die_; }
-    SocVersion GetSocVersion() const { return soc_version_; }
     NPUArch GetNPUArch() const { return version_; }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetShortSocVersion() const { return short_soc_ver_; }
@@ -355,7 +373,7 @@ public:
     std::string GetCCECVersion(std::string CoreType);
 
     // SOCINFO
-    size_t GetAICPUNum() const { return ai_cpu_cnt_; }
+    size_t GetAICPUNum() const;
     size_t GetAICoreNum() const { return ai_core_cnt_; }
     size_t GetAICCoreNum() const { return cube_core_cnt_; }
     size_t GetAIVCoreNum() const { return vector_core_cnt_; }
@@ -375,7 +393,7 @@ public:
         std::stringstream ss;
         ss << "{\n";
         ss << "SOC_INFO : {\n";
-        ss << "    \"SOC_VERSION\" : " << static_cast<int>(soc_version_) << ",\n";
+        ss << "    \"SHORT_SOC_VERSION\" : " << short_soc_ver_ << ",\n";
         ss << "    \"NPU_ARCH\" : " << static_cast<int>(version_) << ",\n";
         ss << "    \"DIES_NUM\" : " << dies_cnt_ << ",\n";
         ss << "    \"AI_CPU_NUM\" : " << ai_cpu_cnt_ << ",\n";
@@ -415,7 +433,7 @@ public:
 class Host{};
 
 class Platform {
-private:   
+private:
     Cluster cluster_;
     Host host_;
     size_t cluster_cnt_;
@@ -441,6 +459,7 @@ public:
     AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
     
     void LoadFromIni(const std::string &filePath);
+    void LoadPlatformInfo(const PlatformParser &parser);
     void ObtainPlatformInfo();
 
     std::string Dump() {
