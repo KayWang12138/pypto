@@ -1307,3 +1307,14 @@ def cbrt(self: Tensor) -> Tensor:
     Output y:[[2, -2]]
     """
     return copysign(pow(abs(self), 1.0 / 3.0), self)
+
+
+@op_wrapper
+def gcd(
+    input: Tensor,
+    other: Union[Tensor, int]
+) -> Tensor:
+    if isinstance(other, pypto_impl.Tensor):
+        return pypto_impl.Gcd(input, other)
+    else:
+        return pypto_impl.Gcd(input, pypto_impl.Element(input.dtype, other))
