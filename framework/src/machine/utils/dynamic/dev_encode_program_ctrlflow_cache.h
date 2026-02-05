@@ -30,7 +30,8 @@ namespace npu::tile_fwk::dynamic {
 #define INVALID_STITCH_IDX      (static_cast<uint32_t>(-1))
 
 constexpr size_t READY_QUEUE_SIZE = 3UL;
-inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
+inline constexpr size_t MAX_CACHED_FUNC_NUM = 1024;
+inline constexpr size_t DEFAULT_CACHED_FUNC_NUM = 128;
 
 struct ReadyQueueCache {
     uint32_t coreFunctionCnt;

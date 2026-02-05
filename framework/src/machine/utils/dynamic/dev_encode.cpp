@@ -1904,27 +1904,21 @@ struct ControlFlowCacheFactor {
       : name(name_), deviceElementFactor(device), rootElementFactor(root), leafElementFactor(leaf) {}
 };
 
-static int EstimatedStitchingCount() {
-    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_OUTCAST_MEMORY);
-    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_OUTCAST_MEMORY: " << value << ", must be greater than 0";
-    return value;
-}
-
-static int WorkspaceRecyclePeriod() {
-    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_INNER_MEMORY);
-    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_INNER_MEMORY: " << value << ", must be greater than 0";
-    return value;
-}
-
-void DevAscendProgram::InitControlFlowCache(
-        uintdevptr_t &initOffset,
-        const std::shared_ptr<DyndevFunctionAttribute> &dyndevAttr,
-        bool fillContent) {
+void DevAscendProgram::InitControlFlowCache(uintdevptr_t &initOffset,
+        const std::shared_ptr<DyndevFunctionAttribute> &dyndevAttr, bool fillContent) {
     (void)fillContent;
-
     ctrlFlowCacheSize = config::GetRuntimeOption<int64_t>(STITCH_CFGCACHE_SIZE);
     controlFlowCache.Init(dyndevAttr.get(), ctrlFlowCacheSize, runtimeOutcastPoolSize, initOffset);
 }
+
+ static int StitchFunctionNum() { 
+    int value = config::GetRuntimeOption<int>(STITCH_FUNCTION_NUM_INITIAL); 
+    ASSERT(value > 0) << "Invalid value for STITCH_FUNCTION_NUM_INITIAL: " << value << ", must be greater than 0"; 
+    if (value > MAX_CACHED_FUNC_NUM) {
+        return MAX_CACHED_FUNC_NUM;
+    }
+    return value; 
+ }
 
 struct EncodeDevAscendProgramInfo {
     Function *func;
@@ -2167,7 +2161,7 @@ static void ProcessExclusiveOutcast(DevAscendFunction *devFunc, size_t outIdx, s
 // Helper: process a single DevAscendFunction's outcasts and update slot/memory accumulators
 static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFunc, std::vector<SlotInfo> &slots,
                                        uint64_t &maxExclusiveOutcastMem, uint64_t &maxRootInnerMem,
-                                       uint64_t &maxDevTaskInnerExclusiveOutcastMem, uint64_t &maxPerCoreSpilledMem) {
+                                       uint64_t &maxDevTaskInnerExclusiveOutcastMem, uint64_t &maxPerCoreSpilledMem, uint16_t stitchFunctionNum) {
     for (size_t i = 0; i < devFunc->GetOutcastSize(); i++) {
         if (IsInputOutputSlot(slots, devFunc, i)) {
             continue;
@@ -2185,9 +2179,9 @@ static void ProcessDevFunctionOutcasts(Function *func, DevAscendFunction *devFun
 
     int unroll = ParseUnrollTimes(devFunc->GetRawName());
     uint64_t funcRootInnerMem = CalcUnrolledRootBudget(
-        devFunc->rootInnerTensorWsMemoryRequirement, unroll, WorkspaceRecyclePeriod());
+        devFunc->rootInnerTensorWsMemoryRequirement, unroll, stitchFunctionNum);
     uint64_t funcDevTaskInnerExclusiveOutcastMem = CalcUnrolledRootBudget(
-        devFunc->exclusiveOutcastWsMemoryRequirement, unroll, EstimatedStitchingCount());
+        devFunc->exclusiveOutcastWsMemoryRequirement, unroll, stitchFunctionNum);
 
     maxRootInnerMem = std::max(maxRootInnerMem, funcRootInnerMem);
     maxDevTaskInnerExclusiveOutcastMem = std::max(maxDevTaskInnerExclusiveOutcastMem, funcDevTaskInnerExclusiveOutcastMem);
@@ -2220,7 +2214,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func, DevAscendProgra
     for (auto &&devEncodeData : devProg.devEncodeList) {
         DevAscendFunction *devFunc = reinterpret_cast<DevAscendFunction *>(devEncodeData.Data());
         ProcessDevFunctionOutcasts(func, devFunc, slots, maxExclusiveOutcastMem, maxRootInnerMem,
-                                   maxDevTaskInnerExclusiveOutcastMem, maxPerCoreSpilledMem);
+                                   maxDevTaskInnerExclusiveOutcastMem, maxPerCoreSpilledMem, devProg.stitchFunctionNumInitial);
     }
 
     auto [maxStaticAssembleOutcastMem, maxDynamicAssembleOutcastMem] = ComputeAssembleOutcastMem(slots);
@@ -2238,7 +2232,7 @@ static TensorWorkspaceResult CalcTensorWorkspace(Function *func, DevAscendProgra
         return slot.kindSet.Count(RuntimeSlotKind::ASSEMBLE_OUTCAST);
     });
     res.devTaskBoundaryOutcastNum = res.totalExclusiveOutcastSlot * SLOTS_NEED_ALLOC_SIZE +
-        res.totalAssembleOutcastSlot * std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM);
+        res.totalAssembleOutcastSlot * devProg.stitchFunctionNumInitial;
 
     res.perCoreSpilledMem = AlignUp(maxPerCoreSpilledMem, TENSOR_ADDR_ALIGNMENT);
 
@@ -2332,7 +2326,7 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         int32_t maxCoreNum = Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 ? MAX_AICORE_NUM_3510 : MAX_AICORE_NUM_2210;
         base->memBudget.aicoreSpilled = tensorWsRes.perCoreSpilledMem * maxCoreNum;
         base->devArgs.machineConfig = func->paramConfigs_.machineConfig_;
-        base->stitchFunctionNumInitial = func->paramConfigs_.stitchFunctionNumInitial_;
+        base->stitchFunctionNumInitial = StitchFunctionNum();
         base->stitchFunctionNumStep = func->paramConfigs_.stitchFunctionNumStep_;
         base->stitchFunctionsize = config::GetRuntimeOption<uint32_t>(STITCH_FUNCTION_SIZE);
         base->memBudget.metadata.general = CalcGeneralMetadataSlotWorkspace(base);
@@ -2350,8 +2344,7 @@ void DevControlFlowCache::Init(void *dyndevAttrPtr,
     initOffset = AlignUp(initOffset, alignof(DevTensorData));
     inputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsInputTensorList.size());
     outputTensorDataList.HostInitDataSizeOffset(initOffset, dyndevAttr->startArgsOutputTensorList.size());
-
-    uint64_t slottedCount = dyndevAttr->inoutLink.totalSlot * (std::min(EstimatedStitchingCount(), (int)MAX_CACHED_FUNC_NUM) + SLOTS_NEED_ALLOC_SIZE);
+    uint64_t slottedCount = dyndevAttr->inoutLink.totalSlot * (StitchFunctionNum() + SLOTS_NEED_ALLOC_SIZE);
     runtimeBackup.workspace.tensorAllocators.slottedOutcastsBlockList.HostInitDataSizeOffset(initOffset, slottedCount);
 
     runtimeBackup.slotContext.slotList.HostInitDataSizeOffset(initOffset, dyndevAttr->inoutLink.totalSlot);
