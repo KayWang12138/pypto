@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <unistd.h>
+#include <sys/syscall.h>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
@@ -32,17 +33,22 @@ constexpr const char *kEnvProcessLogPath = "ASCEND_PROCESS_LOG_PATH";
 constexpr const char *kModuleName = "PYPTO";
 constexpr const char *kLogFilePrefix = "pypto-log-";
 
+const std::string kLogLevelNoneStr = "NONE";
 const std::map<LogLevel, std::string> logLevelStrMap = {
-    {LogLevel::NONE, "NONE"},
     {LogLevel::DEBUG, "DEBUG"},
     {LogLevel::INFO, "INFO"},
     {LogLevel::WARN, "WARN"},
     {LogLevel::ERROR, "ERROR"}
 };
 
+inline uint64_t GetTid() {
+    thread_local static uint64_t tid = static_cast<uint64_t>(syscall(__NR_gettid));
+    return tid;
+}
+
 const std::string& GetLogLevelStr(const LogLevel logLevel) {
     const auto iter = logLevelStrMap.find(logLevel);
-    return iter != logLevelStrMap.end() ? iter->second : logLevelStrMap.begin()->second;
+    return iter != logLevelStrMap.end() ? iter->second : kLogLevelNoneStr;
 }
 
 std::string GetCurrentTime() {
@@ -103,23 +109,25 @@ void LogManager::ConstructMessage(const LogLevel logLevel, const char *fmt, va_l
     if (ret < 0) {
         std::cerr << "Constrcut message failed: " << ret << std::endl;
     }
-    logMsg.length = std::strlen(logMsg.msg);
+    logMsg.length += static_cast<size_t>(ret);
+
     ConstructMsgTail(logMsg);
 }
 
 void LogManager::ConstructMsgHeader(const LogLevel logLevel, LogMsg &logMsg) {
-    int ret = snprintf_s(logMsg.msg, kMsgMaxLen, kMsgMaxLen - 1, "[%s] %s:%s ",
-                         GetLogLevelStr(logLevel).c_str(), kModuleName, GetCurrentTime().c_str());
+    int ret = snprintf_s(logMsg.msg, kMsgMaxLen, kMsgMaxLen - 1, "[%s] %s(%lu):%s ",
+                         GetLogLevelStr(logLevel).c_str(), kModuleName, GetTid(), GetCurrentTime().c_str());
     if (ret < 0) {
         std::cerr << "Construct log msg hader failed: " << ret << std::endl;
     }
-    logMsg.length = std::strlen(logMsg.msg);
+    logMsg.length = static_cast<size_t>(ret);
 }
 
 void LogManager::ConstructMsgTail(LogMsg &logMsg) {
     if (logMsg.msg[logMsg.length - 1] != '\n') {
         if (logMsg.length < kMsgMaxLen) {
             logMsg.msg[logMsg.length] = '\n';
+            logMsg.length++;
         } else {
             logMsg.msg[kMsgMaxLen - 1] = '\n';
         }
@@ -147,6 +155,6 @@ void LogManager::WriteToStdOut(const LogMsg &logMsg) {
 }
 
 void LogManager::WriteToFile(const LogMsg &logMsg) {
-
+    (void)logMsg;
 }
 }

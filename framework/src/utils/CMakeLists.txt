@@ -8,12 +8,13 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-file(GLOB _Log_Srcs
+file(GLOB _Utils_Log_Srcs
         log_api.cpp
-        log_manager.cpp)
+        log_manager.cpp
+        dlog_handler.cpp)
 
 add_library(tile_fwk_utils SHARED)
-target_sources(tile_fwk_utils PRIVATE ${_Log_Srcs})
+target_sources(tile_fwk_utils PRIVATE ${_Utils_Log_Srcs})
 target_include_directories(tile_fwk_utils
         PUBLIC  # 编译 CANN 场景依赖
             $<BUILD_INTERFACE:$<$<NOT:$<BOOL:${BUILD_OPEN_PROJECT}>>:${TOP_DIR}/inc>>
@@ -22,14 +23,6 @@ target_include_directories(tile_fwk_utils
             $<BUILD_INTERFACE:$<$<AND:$<BOOL:${BUILD_OPEN_PROJECT}>,$<BOOL:${BUILD_WITH_CANN}>>:${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base>>
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}
-)
-target_compile_definitions(tile_fwk_utils
-        PRIVATE
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:BUILD_WITH_CANN>>
-)
-target_link_directories(tile_fwk_utils
-        PUBLIC
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:${ASCEND_CANN_PACKAGE_PATH}/lib64>>
 )
 target_link_libraries(tile_fwk_utils
         PRIVATE

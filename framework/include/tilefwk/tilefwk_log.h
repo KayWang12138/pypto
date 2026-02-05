@@ -16,13 +16,13 @@
 #pragma once
 
 #include <sys/syscall.h>
-#include <unistd.h>
 #include <cstdint>
-#include <cstdlib>
 
-#if defined(BUILD_WITH_CANN) || defined(__DEVICE__)
+#ifdef __DEVICE__
 #include "dlog_pub.h"
+const int32_t PYPTO_MOD_ID = FE;
 #else
+const int32_t PYPTO_MOD_ID = 39;
 #define DLOG_DEBUG 0x0
 #define DLOG_INFO  0x1
 #define DLOG_WARN  0x2
@@ -30,54 +30,34 @@
 #define DLOG_NULL  0x4
 #endif
 
-inline uint64_t GetTid() {
-    thread_local static uint64_t tid = static_cast<uint64_t>(syscall(__NR_gettid));
-    return tid;
-}
-
 // only using slog inside device
-#ifndef __DEVICE__
-inline bool IsSlogEnable()
-{
-    return std::getenv("ASCEND_HOME_PATH") != nullptr;
-}
-
-namespace tile::fwk {
-bool PyptoCheckLogLevel(const int32_t logLevel);
-void PyptoLogRecord(const int32_t logLevel, const char *fmt, ...);
-}
-
-#define PYPTO_RECORD_TKLOG(level, fmt, ...)                                                                                       \
-    do {                                                                                                                          \
-        if (tile::fwk::PyptoCheckLogLevel(level)) {                                                                             \
-            tile::fwk::PyptoLogRecord(level, "[%s:%d] %lu %s:" fmt, __FILE__, __LINE__, GetTid(), __FUNCTION__, ##__VA_ARGS__); \
-        }                                                                                                                         \
+#ifdef __DEVICE__
+#define PYPTO_LOG_INNER(level, fmt, ...)                                                                          \
+    do {                                                                                                          \
+        if (CheckLogLevel(PYPTO_MOD_ID, level) == 1) {                                                            \
+            DlogRecord(PYPTO_MOD_ID, level, "[%s:%d][%s]:" fmt, __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \
+        }                                                                                                         \
     } while (0)
 
-#endif
-
-#if defined(BUILD_WITH_CANN) || defined(__DEVICE__)
-#define PYPTO_RECORD_SLOG(level, fmt, ...)                                                                              \
-    do {                                                                                                                \
-        if (CheckLogLevel(FE, level) == 1) {                                                                         \
-            DlogRecord(FE, level, "[%s:%d] %lu %s:" fmt, __FILE__, __LINE__, GetTid(), __FUNCTION__, ##__VA_ARGS__); \
-        }                                                                                                               \
-    } while (0)
-#endif
-
-#if defined(__DEVICE__)
-#define PYPTO_LOG_INNER(level, fmt, ...) PYPTO_RECORD_SLOG(level, fmt, ##__VA_ARGS__)
-#elif !defined(BUILD_WITH_CANN)
-#define PYPTO_LOG_INNER(level, fmt, ...) PYPTO_RECORD_TKLOG(level, fmt, ##__VA_ARGS__)
 #else
-#define PYPTO_LOG_INNER(level, fmt, ...)                    \
-    do {                                                    \
-        if (IsSlogEnable()) {                                 \
-            PYPTO_RECORD_SLOG(level, fmt, ##__VA_ARGS__);   \
-        } else {                                            \
-            PYPTO_RECORD_TKLOG(level, fmt, ##__VA_ARGS__);  \
-        }                                                   \
+class PyptoLogFuncInstance {
+public:
+    PyptoLogFuncInstance();
+    ~PyptoLogFuncInstance();
+    int32_t(*checkLevel)(int32_t, int32_t);
+    void(*record)(int32_t, int32_t, const char *, ...);
+};
+inline PyptoLogFuncInstance logFuncInst;
+
+#define PYPTO_LOG_INNER(level, fmt, ...)                                                                                      \
+    do {                                                                                                                      \
+        if (logFuncInst.checkLevel != nullptr && logFuncInst.logRecord != nullptr) {                                          \
+            if (logFuncInst.checkLevel(PYPTO_MOD_ID, level)) {                                                                \
+                logFuncInst.record(PYPTO_MOD_ID, level, "[%s:%d][%s]:" fmt, __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \
+            }                                                                                                                 \
+        }                                                                                                                     \
     } while (0)
+
 #endif
 
 #define PYPTO_LOGD(...) PYPTO_LOG_INNER(DLOG_DEBUG, __VA_ARGS__)

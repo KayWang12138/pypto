@@ -14,10 +14,11 @@
  */
 
 #include <map>
-#include <stdarg.h>
+#include <cstdarg>
 
 #include "tilefwk/tilefwk_log.h"
 #include "log_manager.h"
+#include "dlog_handler.h"
 
 namespace tile::fwk {
 namespace {
@@ -33,17 +34,33 @@ LogLevel GetLogLevel(const int32_t logLevel) {
 }
 }
 
-bool PyptoCheckLogLevel(const int32_t logLevel) {
-    return LogManager::Instance().CheckLevel(GetLogLevel(logLevel));
+int32_t PyptoCheckLogLevel(int32_t moduleId, int32_t logLevel) {
+    (void)moduleId;
+    return LogManager::Instance().CheckLevel(GetLogLevel(logLevel)) ? 1 : 0;
 }
 
-void PyptoLogRecord(const int32_t logLevel, const char *fmt, ...) {
-    if (!PyptoCheckLogLevel(logLevel)) {
-        return;
-    }
+void PyptoLogRecord(int32_t moduleId, int32_t logLevel, const char *fmt, ...) {
+    (void)moduleId;
     va_list list;
     va_start(list, fmt);
     LogManager::Instance().Record(GetLogLevel(logLevel), fmt, list);
     va_end(list);
 }
 }
+
+#ifndef __DEVICE__
+PyptoLogFuncInstance::PyptoLogFuncInstance() {
+    if (tile::fwk::DLogHandler::Instance().IsAvailable()) {
+        checkLevel = tile::fwk::DLogHandler::Instance().checkLevelFunc_;
+        record = tile::fwk::DLogHandler::Instance().logRecordFunc_;
+    } else {
+        checkLevel = tile::fwk::PyptoCheckLogLevel;
+        record = tile::fwk::PyptoLogRecord;
+    }
+}
+
+PyptoLogFuncInstance::~PyptoLogFuncInstance() {
+    checkLevel = nullptr;
+    record= nullptr;
+}
+#endif
