@@ -317,6 +317,9 @@ class TestsExecuteParam(CMakeParam):
     auto_execute_parallel: bool = False  # 用例并行执行
     case_execute_timeout: Optional[int] = None  # 用例执行时, 单个用例超时时长
     case_execute_cpu_rank_size: Optional[int] = None  # 用例并行执行时, CPU 亲和性 Rank Size
+    dump_case_duration_json: Optional[Path] = None  # 用例耗时缓存文件路径
+    dump_case_duration_max_num: Optional[int] = None  # 用例耗时缓存最大数量
+    dump_case_duration_min_secends: Optional[int] = None  # 用例耗时缓存最小秒数
 
     def __init__(self, args):
         self.changed_file = None if not args.changed_files else Path(args.changed_files).resolve()
@@ -325,6 +328,10 @@ class TestsExecuteParam(CMakeParam):
         timeout = args.case_execute_timeout
         self.case_execute_timeout = timeout if timeout and timeout > 0 else None  # 单个用例执行超时时长
         self.case_execute_cpu_rank_size = args.cpu_rank_size
+        duration_json = args.dump_case_duration_json
+        self.dump_case_duration_json = Path(duration_json).resolve() if duration_json else None
+        self.dump_case_duration_max_num = args.dump_case_duration_max_num
+        self.dump_case_duration_min_secends = args.dump_case_duration_min_secends
 
     @property
     def ci_model(self) -> bool:
@@ -341,6 +348,12 @@ class TestsExecuteParam(CMakeParam):
                             help="Case execute timeout.")
         parser.add_argument("--cpu_rank_size", nargs="?", type=int, default=None,
                             help="Specify the rank size for CPU affinity grouping.")
+        parser.add_argument("--dump_case_duration_json", nargs="?", type=Path, default=None,
+                            help="Specify the path to the case duration json cache file.")
+        parser.add_argument("--dump_case_duration_max_num", nargs="?", type=int, default=None,
+                            help="Maximum number of cases to dump to duration json cache.")
+        parser.add_argument("--dump_case_duration_min_secends", nargs="?", type=int, default=None,
+                            help="Minimum duration (in seconds) for cases to dump to duration json cache.")
 
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         cmd = self._cfg_require(opt="ENABLE_TESTS_EXECUTE", ctr=self.auto_execute)
@@ -555,6 +568,10 @@ class TestsParam(CMakeParam):
             desc += f"\n                       Auto : {self.exec.auto_execute}"
             desc += f"\n                   Parallel : {self.exec.auto_execute_parallel}"
             desc += f"\n                CaseTimeout : {self.exec.case_execute_timeout}"
+            desc += f"\n        CaseDuration"
+            desc += f"\n                       Json : {self.exec.dump_case_duration_json}"
+            desc += f"\n                     MaxNum : {self.exec.dump_case_duration_max_num}"
+            desc += f"\n                     MinSec : {self.exec.dump_case_duration_min_secends}"
             if self.utest.enable:
                 desc += f"\n    Utest"
                 desc += f"\n                     Enable : {self.utest.enable}"
@@ -914,6 +931,16 @@ class BuildCtrl(CMakeParam):
             rank_size = tests_exec.case_execute_cpu_rank_size
             if rank_size and rank_size > 0:
                 env["PYPTO_TESTS_CASE_EXECUTE_CPU_RANK_SIZE"] = str(rank_size)
+            # Dump case duration json
+            duration_json = tests_exec.dump_case_duration_json
+            if duration_json:
+                env["PYPTO_TESTS_DUMP_CASE_DURATION_JSON"] = str(duration_json)
+            max_num = tests_exec.dump_case_duration_max_num
+            if max_num and max_num > 0:
+                env["PYPTO_TESTS_DUMP_CASE_DURATION_MAX_NUM"] = str(max_num)
+            min_sec = tests_exec.dump_case_duration_min_secends
+            if min_sec and min_sec > 0:
+                env["PYPTO_TESTS_DUMP_CASE_DURATION_MIN_SECONDS"] = str(min_sec)
         return env
 
     def pip_install(self, whl: Path, dest: Optional[Path] = None, opt: str = "",
