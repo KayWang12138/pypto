@@ -188,7 +188,6 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t tileCout = convTile.tileL1Info.tileCout;
     int64_t tileBatch = convTile.tileL1Info.tileN;
 
-    int64_t batch = inputTensor.GetShape()[NCHW_N_IDX];
     int64_t cin = inputTensor.GetShape()[NCHW_C_IDX];
     int64_t hin = inputTensor.GetShape()[NCHW_H_IDX];
     int64_t win = inputTensor.GetShape()[NCHW_W_IDX];
@@ -204,8 +203,8 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     checkDivisible(cin, tileCinWeight, "Cin", "tileCinWeight");
 
     OP_CHECK(true, {
-        ASSERT(tileWout % NUM16 == 0 && tileWout == Wout)
-            << "Invalid tileK: " << tileK
+        ASSERT(tileWout % NUM16 == 0)
+            << "Invalid tileWout: " << tileWout
             << ", requires 16-element alignment when ." << std::endl;
     });
     int64_t kh = weightTensor.GetShape()[NCHW_H_IDX];
