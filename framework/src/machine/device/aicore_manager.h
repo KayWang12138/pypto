@@ -138,8 +138,8 @@ public:
             volatile int64_t *funcData = &args_[coreIdx]->shakeBuffer[SHAK_BUF_COREFUNC_DATA_INDEX];
             *funcData = reinterpret_cast<int64_t>(&curDevTask_->coreFuncData);
         });
-        readyAicCoreFunctionQue_ = reinterpret_cast<taskQueue *>(curDevTask_->readyAicCoreFunctionQue);
-        readyAivCoreFunctionQue_ = reinterpret_cast<taskQueue *>(curDevTask_->readyAivCoreFunctionQue);
+        readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
+        readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
         
         // Getting the number of tasks to run per each core type
         const auto aicCoreTaskCount = readyAicCoreFunctionQue_->wasSize();
