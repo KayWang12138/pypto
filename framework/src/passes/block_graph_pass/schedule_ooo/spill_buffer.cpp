@@ -361,31 +361,47 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
 }
 
 Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, size_t &pcIdx, bool isGenSpill) {
-    if (spillInfo.spillIssue_->tileOp.GetOpcodeStr().find("COPY_IN") == std::string::npos) {
-        IssueEntryPtr spillCopyout = nullptr;
+    if (spillInfo.spillIssue_->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
+        spillInfo.ddrTensor_ = spillInfo.spillIssue_->tileOp.GetInputOperand(0);
+        return SUCCESS;
+    }
+    IssueEntryPtr spillCopyout = nullptr;
+    int bufLastUseOrder = -1;
+    if (spillInfo.isSpecialL1_) {
+        auto actualSpillTensor = spillInfo.spillIssue_->tileOp.GetInputOperand(0);
+        for (auto &preId : spillInfo.spillIssue_->predecessors) {
+            if (!issueEntryMap[preId]->isAlloc) {
+                auto actualSpillIssue = issueEntryMap[preId];
+            }
+        }
+        if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
+            return FAILED;
+        }
+        // TODO 确认插入位置
+        bufLastUseOrder = GetBufLastUseOrder(issue, actualSpillTensor->memoryrange.memId);
+    } else {
         if (CreateSpillCopyout(spillInfo.spillIssue_, spillInfo.spillTensor_, spillInfo.spillMemId_,
-            spillCopyout) != SUCCESS) {
+        spillCopyout) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed! %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
             return FAILED;
         }
-        int bufLastUseOrder = GetBufLastUseOrder(issue, spillInfo.spillMemId_);
-        if (bufLastUseOrder == -1) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find spill Tensor[%d] last used order.", spillInfo.spillMemId_);
-            return FAILED;
-        }
-        spillCopyout->execOrder = bufLastUseOrder + 1;
-        InsertIssueEntries(spillCopyout);
-        if (isGenSpill) {
-            pcIdx++;
-            numTotalIssues++;
-        } else {
-            newOperations_.push_back(&(spillCopyout->tileOp));
-            APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s", spillCopyout->GetOpInfo().c_str());
-        }
-        spillInfo.ddrTensor_ = spillCopyout->tileOp.GetOutputOperand(0);
-    } else {
-        spillInfo.ddrTensor_ = spillInfo.spillIssue_->tileOp.GetInputOperand(0);
+        bufLastUseOrder = GetBufLastUseOrder(issue, spillInfo.spillMemId_);
     }
+    if (bufLastUseOrder == -1) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find spill Tensor[%d] last used order.", spillInfo.spillMemId_);
+        return FAILED;
+    }
+    spillCopyout->execOrder = bufLastUseOrder + 1;
+    InsertIssueEntries(spillCopyout);
+    if (isGenSpill) {
+        pcIdx++;
+        numTotalIssues++;
+    } else {
+        newOperations_.push_back(&(spillCopyout->tileOp));
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s", spillCopyout->GetOpInfo().c_str());
+    }
+    spillInfo.ddrTensor_ = spillCopyout->tileOp.GetOutputOperand(0);
     return SUCCESS;
 }
 
@@ -632,6 +648,9 @@ Status OoOScheduler::GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool
     spillInfo.spillTensor_ = spillTensor;
     spillInfo.spillIssue_ = spillIssue;
     spillInfo.spillMemId_ = spillMemId;
+    if (!CheckMachineAndL1(spillIssue, allocIssue)) {
+        spillInfo.isSpecialL1_ = true;
+    }
     return SUCCESS;
 }
 
