@@ -108,6 +108,12 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
     CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
     CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
+
+    OP_CHECK(true, {
+        ASSERT(tileWout % NUM16 == 0 && tileWout == wOut)
+        << "Invalid tileWout: " << tileWout
+        << ", requires 16-element alignment when tileWout != Wout." << std::endl;
+    });
 }
 
 void checkAlignment(int64_t value, int64_t alignment, const std::string& valueName, bool isByte = false) {
@@ -119,7 +125,7 @@ void checkAlignment(int64_t value, int64_t alignment, const std::string& valueNa
         });
 }
 
-void CheckL0TileTiling(DataType outType, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
+void CheckL0TileTiling(DataType outType) {
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileH = convTile.tileL0Info.tileH;
     int64_t tileW = convTile.tileL0Info.tileW;
@@ -157,7 +163,23 @@ void CheckL0TileTiling(DataType outType, const Tensor &weightTensor, const ConvA
             << " )." << std::endl;
     });
 }
-
+void checkDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName) {
+    OP_CHECK(true, {
+            ASSERT(value % divisor == 0)
+            << "The value of " << divisorName << " ( " << divisor
+            << " ) does not divide "<< valueName
+            << " ( " << value << " ). Adjusting " << divisorName 
+            << " to the nearest value such that "<< valueName 
+            << " % " << divisorName << " == 0." << std::endl;
+    });
+}
+int64_t ConvAlignB(int64_t a, int64_t b)
+{
+    if (b == 0) {
+        return 0;
+    }
+    return ((a + b - 1) / b) * b;
+}
 void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
     auto convTile = TileShape::Current().GetConvTile();
     int64_t tileHin = convTile.tileL1Info.tileHin;
@@ -187,7 +209,8 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
             << "Invalid tileK: " << tileK
             << ", requires 16-element alignment when ." << std::endl;
     });
-
+    int64_t kh = weightTensor.GetShape()[NCHW_H_IDX];
+    int64_t kw = weightTensor.GetShape()[NCHW_W_IDX];
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     OP_CHECK(true, {
         ASSERT(ConvAlignB(tileCinFmap, NUM16) * kh * kw % k0 == 0)
@@ -203,15 +226,8 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     });
 
     if (convTile.setL0Tile){
-        CheckL0TileTiling(outType, weightTensor, attrParam);
+        CheckL0TileTiling(outType);
     }
-}
-int64_t ConvAlignB(int64_t a, int64_t b)
-{
-    if (b == 0) {
-        return 0;
-    }
-    return ((a + b - 1) / b) * b;
 }
 /*
 void CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
@@ -236,17 +252,6 @@ void CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
     });
 }
 */
-
-void checkDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName) {
-    OP_CHECK(true, {
-            ASSERT(value % divisor == 0)
-            << "The value of " << divisorName << " ( " << divisor
-            << " ) does not divide "<< valueName
-            << " ( " << value << " ). Adjusting " << divisorName 
-            << " to the nearest value such that "<< valueName 
-            << " % " << divisorName << " == 0." << std::endl;
-    });
-}
 
 void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64_t cOut, const int64_t groups){
     CheckValueRange(groups, "groups", NUM1, SHAPE_INNER_AXIS_MAX_SIZE);
