@@ -334,7 +334,6 @@ void SetTensorOpAttr(Operation &op, const LogicalTensorPtr &inputTensor, const L
     op.SetAttribute(CONV_STRIDES_ATTR, convAttrParam.strides);
     op.SetAttribute(CONV_DILATIONS_ATTR, convAttrParam.dilations);
     op.SetAttribute(CONV_3D_FLAG, convAttrParam.isConv3D);
-    op.SetAttribute(IS_MATRIX_NZ, false);
     op.SetAttribute(CONV_ORI_FMAP_SHAPE_ATTR, inputTensor->GetShape());
     op.SetAttribute(CONV_ORI_WEIGHT_SHAPE_ATTR, weightTensor->GetShape());
     op.SetAttribute(CONV_ORI_RES_SHAPE_ATTR, resTensor->GetShape());
@@ -370,7 +369,7 @@ Tensor ConstructTensorGraph(DataType dataType, const Tensor &inputTensor, const 
     if (inputTensor.Dim() == CONV1D_INPUT_DIM && weightTensor.Dim() == CONV1D_INPUT_DIM) {
         // conv1d case, squeeze output to NCL
         std::vector<int64_t> res4DimShape{inputTensor.GetShape()[NCHW_N_IDX], weightTensor.GetShape()[NCHW_N_IDX],
-                                          1, 8};
+                                          1, resTensor.GetShape()[-1]};
         Tensor res4DimTensor(resTensor.GetStorage()->Datatype(), res4DimShape, "", resTensor.Format());
         operandVecOut = {res4DimTensor.GetStorage()};
     }
@@ -393,7 +392,7 @@ void SetConvAttrParam(const Operation &op, ConvAttrParam &convAttrParam)
         convAttrParam.isConv3D ? CONV3D_ATTR_DEFAULT_LIST : CONV2D_ATTR_DEFAULT_LIST;
     convAttrParam.groups = (op.HasAttr(CONV_GROUPS_ATTR)) ? op.GetIntAttribute(CONV_GROUPS_ATTR) : 1;
     convAttrParam.hasBias = (op.HasAttr(CONV_BIAS_ATTR)) ? op.GetBoolAttribute(CONV_BIAS_ATTR) : false;
-    convAttrParam.isInOutTensorNZ = (op.HasAttr(IS_MATRIX_NZ)) ? op.GetBoolAttribute(IS_MATRIX_NZ) : false;
+    convAttrParam.isInOutTensorNZ = false;
     OP_CHECK(true, {
         ASSERT(op.HasAttr(CONV_ORI_FMAP_SHAPE_ATTR))
         << "Conv ori fmapshape should be set when InOut Tensor NZ mode." << std::endl;
@@ -437,20 +436,30 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
                       const ConvAttrParam &convAttrParam, ConvTileInfo &convTileInfo)
 {
     // set org shape
-    convTileInfo.orgBatch = convAttrParam.oriFmapShape[NCHW_N_IDX];
-    convTileInfo.orgHin = convAttrParam.oriFmapShape[NCHW_H_IDX];
-    convTileInfo.orgWin = convAttrParam.oriFmapShape[NCHW_W_IDX];
-    convTileInfo.orgHout = convAttrParam.oriResShape[NCHW_H_IDX];
-    convTileInfo.orgWout = convAttrParam.oriResShape[NCHW_W_IDX];
+    convTileInfo.orgBatch = convAttrParam.isConv3D ?
+        convAttrParam.oriFmapShape[NCDHW_N_IDX] : convAttrParam.oriFmapShape[NCHW_N_IDX];
+    convTileInfo.orgHin = convAttrParam.isConv3D ?
+        convAttrParam.oriFmapShape[NCDHW_H_IDX] : convAttrParam.oriFmapShape[NCHW_H_IDX];
+    convTileInfo.orgWin = convAttrParam.isConv3D ?
+        convAttrParam.oriFmapShape[NCDHW_W_IDX] : convAttrParam.oriFmapShape[NCHW_W_IDX];
+    convTileInfo.orgCin = convAttrParam.isConv3D ?
+        convAttrParam.oriFmapShape[NCDHW_C_IDX] : convAttrParam.oriFmapShape[NCHW_C_IDX];
+    convTileInfo.orgHout = convAttrParam.isConv3D ?
+        convAttrParam.oriResShape[NCDHW_H_IDX] : convAttrParam.oriResShape[NCHW_H_IDX];
+    convTileInfo.orgWout = convAttrParam.isConv3D ?
+        convAttrParam.oriResShape[NCDHW_W_IDX] : convAttrParam.oriResShape[NCHW_W_IDX];
+    convTileInfo.orgDout = convAttrParam.isConv3D ? convAttrParam.oriResShape[NCDHW_D_IDX] : 1;
     convTileInfo.cin0 = ALIGN_SIZE_32 / BytesOf(tensorGraphNodes.fmapTensorPtr->Datatype());
-    convTileInfo.orgCout = convAttrParam.oriWeightShape[NCHW_N_IDX];
-    convTileInfo.orgKh = convAttrParam.oriWeightShape[NCHW_H_IDX];
-    convTileInfo.orgKw = convAttrParam.oriWeightShape[NCHW_W_IDX];
-    convTileInfo.orgCin = convAttrParam.oriFmapShape[NCHW_C_IDX];
+    convTileInfo.orgCout = convAttrParam.isConv3D ?
+        convAttrParam.oriWeightShape[NCDHW_N_IDX] : convAttrParam.oriWeightShape[NCHW_N_IDX];
+    convTileInfo.orgKh = convAttrParam.isConv3D ?
+        convAttrParam.oriWeightShape[NCDHW_H_IDX] : convAttrParam.oriWeightShape[NCHW_H_IDX];
+    convTileInfo.orgKw = convAttrParam.isConv3D ?
+        convAttrParam.oriWeightShape[NCDHW_W_IDX] : convAttrParam.oriWeightShape[NCHW_W_IDX];
     int64_t cinPerGroup = convTileInfo.orgCin / convAttrParam.groups;
     convTileInfo.orgHoutWout = convTileInfo.orgHout * convTileInfo.orgWout;
-    convTileInfo.kPerGroup = (ConvAlignB(cinPerGroup, convTileInfo.cin0) *
-        convTileInfo.orgKh * convTileInfo.orgKw) / convAttrParam.groups;
+    convTileInfo.kPerGroup = ConvAlignB(cinPerGroup, convTileInfo.cin0) *
+        convTileInfo.orgKh * convTileInfo.orgKw;
     convTileInfo.coutPerGroup = convTileInfo.orgCout / convAttrParam.groups;
     // set tileshape info
     auto &convTile = tileShape.GetConvTile();
@@ -470,28 +479,26 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
 LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &tensorGraphNodes,
                                    const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo)
 {
-    std::vector<int64_t> dstBiasL1Shape = std::vector<int64_t>{ConvAlignB(iterInfo.nL0Size, 16)};
+    std::vector<int64_t> dstBiasL1Shape = std::vector<int64_t>{ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
     std::vector<int64_t> dstBiasL1Offset = std::vector<int64_t>{iterInfo.nL0Offset};
     LogicalTensorPtr dstBiasl1TensorPtr =
         std::make_shared<LogicalTensor>(function, tensorGraphNodes.biasTensorPtr->Datatype(),
                                         dstBiasL1Shape, SymbolicScalar::FromConcrete(dstBiasL1Shape),
                                         tensorGraphNodes.biasTensorPtr->Format(), "biasL1Tensor", NodeType::LOCAL);
-    dstBiasl1TensorPtr->UpdateDynValidShape(
-        GetViewValidShape(tensorGraphNodes.biasTensorPtr->GetDynValidShape(), dstBiasL1Offset, {}, dstBiasL1Shape));
+    dstBiasl1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstBiasL1Shape));
     auto &viewOpBiasL1 = function.AddOperation(Opcode::OP_VIEW, {tensorGraphNodes.biasTensorPtr},
                                                {dstBiasl1TensorPtr});
     auto viewAttributeBiasL1 = std::make_shared<ViewOpAttribute>(dstBiasL1Offset, MemoryType::MEM_L1,
             SymbolicScalar::FromConcrete(dstBiasL1Offset), dstBiasl1TensorPtr->GetDynValidShape());
     viewOpBiasL1.SetOpAttribute(viewAttributeBiasL1);
 
-    std::vector<int64_t> dstBiasBtShape = std::vector<int64_t>{ConvAlignB(iterInfo.nL0Size, 16)};
+    std::vector<int64_t> dstBiasBtShape = std::vector<int64_t>{ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
     std::vector<int64_t> dstBiasBtOffset = std::vector<int64_t>{0};
     LogicalTensorPtr dstBiasBtTensorPtr =
         std::make_shared<LogicalTensor>(function, tensorGraphNodes.biasTensorPtr->Datatype(), dstBiasBtShape,
                                         SymbolicScalar::FromConcrete(dstBiasBtShape),
                                         tensorGraphNodes.biasTensorPtr->Format(), "biasBtTensor", NodeType::LOCAL);
-    dstBiasBtTensorPtr->UpdateDynValidShape(
-        GetViewValidShape(dstBiasl1TensorPtr->GetDynValidShape(), dstBiasBtOffset, {}, dstBiasBtShape));
+    dstBiasBtTensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstBiasBtShape));
     auto &viewOpBiasBt = function.AddOperation(Opcode::OP_VIEW, {dstBiasl1TensorPtr}, {dstBiasBtTensorPtr});
     auto viewAttributeBiasBt = std::make_shared<ViewOpAttribute>(dstBiasBtOffset, MemoryType::MEM_BT,
             SymbolicScalar::FromConcrete(dstBiasBtOffset), dstBiasBtTensorPtr->GetDynValidShape());
@@ -564,13 +571,15 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
         iterInfo.kAL1Size = std::min(convTileInfo.kPerGroup - iterInfo.kL0Offset, convTileInfo.kAL1);
         std::vector<int64_t> dstAL1Shape = std::vector<int64_t>{1, iterInfo.kAL1Size / convTileInfo.cin0,
             iterInfo.hinL1Size, iterInfo.winL1Size, convTileInfo.cin0};
-        // std::vector<int64_t> dstAL1Offset = std::vector<int64_t>{iterInfo.batchOffset, 0 , 0, 0, 0};
+        if (convAttrParam.isConv3D) {
+            dstAL1Shape = std::vector<int64_t>{1, iterInfo.dkL1Size, iterInfo.kAL1Size / convTileInfo.cin0,
+                iterInfo.hinL1Size, iterInfo.winL1Size, convTileInfo.cin0};
+        }
         dstAL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstAL1Shape,
                                             SymbolicScalar::FromConcrete(dstAL1Shape),
                                             tensorGraphNodes.fmapTensorPtr->Format(), "aL1Tensor", NodeType::LOCAL);
-        dstAL1TensorPtr->UpdateDynValidShape({1, iterInfo.kAL1Size / convTileInfo.cin0, iterInfo.hinL1Size,
-            iterInfo.winL1Size, convTileInfo.cin0});
+        dstAL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstAL1Shape));
         auto &copyInOpAl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.fmapTensorPtr},
                                                   {dstAL1TensorPtr});
         copyInOpAl1.SetAttribute("is_fmap", true);
@@ -579,13 +588,13 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
 
     // 二层展开
     // load3dv2()
-    std::vector<int64_t> dstAL0Shape = std::vector<int64_t>{ConvAlignB(iterInfo.mL0Size, 16), iterInfo.kL0Size};
+    std::vector<int64_t> dstAL0Shape =
+        std::vector<int64_t>{ConvAlignB(iterInfo.mL0Size, MKN_M_VALUE), iterInfo.kL0Size};
     LogicalTensorPtr dstAL0TensorPtr =
         std::make_shared<LogicalTensor>(function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstAL0Shape,
                                         SymbolicScalar::FromConcrete(dstAL0Shape),
                                         tensorGraphNodes.fmapTensorPtr->Format(), "aL0Tensor", NodeType::LOCAL);
-    // dstAL1TensorPtr->UpdateDynValidShape(
-    //     GetViewValidShape(operandVec[0]->GetDynValidShape(), dstAL1Offset, {}, dstAL1Shape));
+    dstAL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstAL0Shape));
     auto &load3dOpAl0 = function.AddOperation(Opcode::OP_LOAD3D_CONV, {dstAL1TensorPtr}, {dstAL0TensorPtr});
     SetImg2ColAttr(load3dOpAl0, convAttrParam, iterInfo, convTileInfo);
     return dstAL0TensorPtr;
@@ -593,7 +602,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
 
 LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &tensorGraphNodes,
                                      const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo,
-                                     LogicalTensorPtr &dstBL1TensorPtr)
+                                     LogicalTensorPtr &dstBL1TensorPtr, const ConvAttrParam &convAttrParam)
 {
     if (iterInfo.kL0Offset % convTileInfo.kBL1 == 0) {
         iterInfo.bL1UpadateFlag = true;
@@ -601,25 +610,32 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
     // L1层级 Weight 展开
     if (iterInfo.bL1UpadateFlag) {
         iterInfo.kBL1Size = std::min(convTileInfo.kPerGroup - iterInfo.kL0Offset, convTileInfo.kBL1);
-        std::vector<int64_t> dstBL1Shape = std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / 16, 16, convTileInfo.cin0};
-        std::vector<int64_t> dstBL1Offset = std::vector<int64_t>{iterInfo.kL0Offset / 16, iterInfo.nL0Offset / 16, 0, 0};
+        std::vector<int64_t> dstBL1Shape =
+            std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / MKN_N_VALUE,
+                                 MKN_N_VALUE, convTileInfo.cin0};
+        if (convAttrParam.isConv3D) {
+            dstBL1Shape = 
+                std::vector<int64_t>{iterInfo.dkL1Size * iterInfo.kBL1Size / convTileInfo.cin0,
+                                     iterInfo.nL1Size / MKN_N_VALUE, MKN_N_VALUE, convTileInfo.cin0};
+        }
         dstBL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL1Shape,
                                             SymbolicScalar::FromConcrete(dstBL1Shape),
                                             tensorGraphNodes.weightTensorPtr->Format(), "bL1Tensor", NodeType::LOCAL);
-        dstBL1TensorPtr->UpdateDynValidShape({iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / 16, 16, convTileInfo.cin0});
-        auto &copyInOpBl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.weightTensorPtr}, {dstBL1TensorPtr});
+        dstBL1TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstBL1Shape));
+        auto &copyInOpBl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.weightTensorPtr},
+                                                  {dstBL1TensorPtr});
         copyInOpBl1.SetAttribute("is_fmap", false);
         iterInfo.bL1UpadateFlag = false;
     }
     // load2d()
-    std::vector<int64_t> dstBL0Shape = std::vector<int64_t>{iterInfo.kL0Size, ConvAlignB(iterInfo.nL0Size, 16)};
+    std::vector<int64_t> dstBL0Shape =
+        std::vector<int64_t>{iterInfo.kL0Size, ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
     LogicalTensorPtr dstBL0TensorPtr =
         std::make_shared<LogicalTensor>(function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL0Shape,
                                         SymbolicScalar::FromConcrete(dstBL0Shape),
                                         tensorGraphNodes.weightTensorPtr->Format(), "bL0Tensor", NodeType::LOCAL);
-    // dstAL1TensorPtr->UpdateDynValidShape(
-    //     GetViewValidShape(operandVec[0]->GetDynValidShape(), dstAL1Offset, {}, dstAL1Shape));
+    dstBL0TensorPtr->UpdateDynValidShape(SymbolicScalar::FromConcrete(dstBL0Shape));
     auto &load2dOpBl0 = function.AddOperation(Opcode::OP_LOAD2D_CONV, {dstBL1TensorPtr}, {dstBL0TensorPtr});
     load2dOpBl0.SetAttribute("postK", iterInfo.kL0Offset % convTileInfo.kBL1);
     load2dOpBl0.SetAttribute("postN", iterInfo.nL0Offset);
@@ -675,15 +691,12 @@ LogicalTensorPtr DoMmad(Function &function, const ConvAttrParam &convAttrParam, 
     if (iterInfo.isLastK) {
         mmadOutputs = {tileGraphNodes.resTensorPtr};
     } else {
-        std::vector<int64_t> cL0PartialSumShape = {ConvAlignB(iterInfo.mL0Size, 16), ConvAlignB(iterInfo.nL0Size, 16)};
+        std::vector<int64_t> cL0PartialSumShape =
+            {ConvAlignB(iterInfo.mL0Size, MKN_M_VALUE), ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
         tileGraphNodes.cL0PartialSumPtr = 
             std::make_shared<LogicalTensor>(function, DataType::DT_FP32, cL0PartialSumShape,
                                             SymbolicScalar::FromConcrete(cL0PartialSumShape),
                                             TileOpFormat::TILEOP_NZ, "cL0PartialSumTensor", NodeType::LOCAL);
-        // if (CheckValidShape(tileGraphNodes.aTensorPtr) && CheckValidShape(tileGraphNodes.bTensorPtr)) {
-        //     tileGraphNodes.cL0PartialSumPtr->UpdateDynValidShape(
-        //         {tileGraphNodes.aTensorPtr->GetDynValidShape()[0], tileGraphNodes.bTensorPtr->GetDynValidShape()[1]});
-        // }
         tileGraphNodes.cL0PartialSumPtr->UpdateDynValidShape({iterInfo.mL0Size, iterInfo.nL0Size});
         mmadOutputs = {tileGraphNodes.cL0PartialSumPtr};
     }
@@ -755,13 +768,13 @@ void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
                 if (convTileInfo.wL0 == convTileInfo.wAL1Out) {
                     iterInfo.mL0Size =
                         std::min(iterInfo.houtL1Size * iterInfo.woutL1Size - iterInfo.hL0Offset * iterInfo.woutL1Size,
-                                 convTileInfo.hL0 * convTileInfo.wL0); // 需要对齐
+                                 convTileInfo.hL0 * convTileInfo.wL0);
                 } else {
                     iterInfo.mL0Size = std::min(iterInfo.woutL1Size - iterInfo.wL0Offset, convTileInfo.wL0);
                 }
                 // set res tile
-                std::vector<int64_t> dstCL0Shape =
-                    std::vector<int64_t>{ConvAlignB(iterInfo.mL0Size, 16), ConvAlignB(iterInfo.nL0Size, 16)};
+                std::vector<int64_t> dstCL0Shape = std::vector<int64_t>{ConvAlignB(iterInfo.mL0Size, MKN_M_VALUE),
+                                                                        ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
                 tileGraphNodes.resTensorPtr =
                     std::make_shared<LogicalTensor>(function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstCL0Shape,
                                                     SymbolicScalar::FromConcrete(dstCL0Shape),
@@ -774,7 +787,7 @@ void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
                     tileGraphNodes.fmapTensorPtr = ConstructFmapTile(function, tensorGraphNodes, convTileInfo,
                                                                      iterInfo, fmapL1TensorPtr, convAttrParam);
                     tileGraphNodes.weightTensorPtr = ConstructWeightTile(function, tensorGraphNodes, convTileInfo,
-                                                                         iterInfo, weightL1TensorPtr);
+                                                                         iterInfo, weightL1TensorPtr, convAttrParam);
                     // add mmad node
                     resCl0TensorPtr = DoMmad(function, convAttrParam, tensorGraphNodes, tileGraphNodes,
                                              convTileInfo, iterInfo);
@@ -793,18 +806,20 @@ void IterOneBatchFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
                       const ConvAttrParam &convAttrParam, const ConvGraphNodes &tensorGraphNodes,
                       ConvGraphNodes &tileGraphNodes)
 {
-    for (iterInfo.nL1Offset = 0; iterInfo.nL1Offset < convTileInfo.coutPerGroup;
-         iterInfo.nL1Offset += convTileInfo.nBL1) {
-        iterInfo.bL1UpadateFlag = true;
-        for (iterInfo.hL1OutOffset = 0; iterInfo.hL1OutOffset < convTileInfo.orgHout;
-             iterInfo.hL1OutOffset += convTileInfo.hAL1Out) {
-            for (iterInfo.wL1OutOffset = 0; iterInfo.wL1OutOffset < convTileInfo.orgWout;
-                 iterInfo.wL1OutOffset += convTileInfo.wAL1Out) {
-                iterInfo.aL1UpadateFlag = true;
-                // int64_t dilatedKernelH = (convTileInfo.orgKh - 1) * convAttrParam.dilations[0] + 1;
-                UpdateL1IterInfo(convTileInfo, iterInfo, convAttrParam);
-                // iterate L0 buffer expand
-                IterL0ExpandFunc(function, iterInfo, convTileInfo, convAttrParam, tensorGraphNodes, tileGraphNodes);
+    for (iterInfo.doL1Offset = 0; iterInfo.doL1Offset < convTileInfo.orgDout; iterInfo.doL1Offset +=1) {
+        for (iterInfo.nL1Offset = 0; iterInfo.nL1Offset < convTileInfo.coutPerGroup;
+            iterInfo.nL1Offset += convTileInfo.nBL1) {
+            iterInfo.bL1UpadateFlag = true;
+            for (iterInfo.hL1OutOffset = 0; iterInfo.hL1OutOffset < convTileInfo.orgHout;
+                iterInfo.hL1OutOffset += convTileInfo.hAL1Out) {
+                for (iterInfo.wL1OutOffset = 0; iterInfo.wL1OutOffset < convTileInfo.orgWout;
+                    iterInfo.wL1OutOffset += convTileInfo.wAL1Out) {
+                    iterInfo.aL1UpadateFlag = true;
+                    UpdateL1IterInfo(convTileInfo, iterInfo, convAttrParam);
+                    // iterate L0 buffer expand
+                    IterL0ExpandFunc(function, iterInfo, convTileInfo, convAttrParam,
+                                     tensorGraphNodes, tileGraphNodes);
+                }
             }
         }
     }
@@ -851,7 +866,7 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
         resTensorShape = {batchOut, cOut, wOut};
     }
     Tensor resTensor(outType, resTensorShape, "TensorC");
-    // resTensor.GetStorage()->UpdateDynValidShape(resTensorShape);
+    resTensor.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(resTensorShape));
     return ConstructTensorGraph(outType, inputTensor, weightTensor, biasTensor, resTensor, convAttrParam);
 }
 
