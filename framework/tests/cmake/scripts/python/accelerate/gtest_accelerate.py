@@ -505,7 +505,7 @@ class GTestAccelerate(ABC):
             return args.dump_case_duration_json.resolve()
 
         # 从环境变量获取
-        env_json_path = os.environ.get("PYPTO_TESTS_CASE_DURATION_JSON", None)
+        env_json_path = os.environ.get("PYPTO_TESTS_DUMP_CASE_DURATION_JSON", None)
         if env_json_path:
             return Path(env_json_path).resolve()
 
@@ -523,7 +523,7 @@ class GTestAccelerate(ABC):
             return args.dump_case_duration_max_num
 
         # 从环境变量获取
-        env_max_num = os.environ.get("PYPTO_TESTS_CASE_DURATION_MAX_NUM", None)
+        env_max_num = os.environ.get("PYPTO_TESTS_DUMP_CASE_DURATION_MAX_NUM", None)
         if env_max_num:
             return int(env_max_num)
 
@@ -540,7 +540,7 @@ class GTestAccelerate(ABC):
             return float(args.dump_case_duration_min_secends)
 
         # 从环境变量获取
-        env_min_sec = os.environ.get("PYPTO_TESTS_CASE_DURATION_MIN_SEC", None)
+        env_min_sec = os.environ.get("PYPTO_TESTS_DUMP_CASE_DURATION_MIN_SECONDS", None)
         if env_min_sec:
             return float(env_min_sec)
 
