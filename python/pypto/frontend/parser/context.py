@@ -152,6 +152,12 @@ class Context:
     ) -> None:
         """Register or update a variable in the current context frame.
 
+        This method handles variable assignment and updates across nested scopes.
+        When updating a variable that exists in an outer frame (e.g., in a loop body),
+        it updates the outer frame's value rather than creating a new variable in the
+        current frame. This ensures Python-like scoping behavior where loop bodies can
+        modify outer variables.
+
         Parameters
         ----------
         var : str
@@ -162,11 +168,55 @@ class Context:
             The AST node for this variable, used for error reporting.
         allow_update : bool
             Whether updates to existing variables in the current frame are permitted.
+
+        Behavior
+        --------
+        1. If variable exists in current frame: update its value directly.
+        2. If variable exists in outer frame(s): update the innermost visible outer variable.
+        3. If variable doesn't exist: create it in the current frame.
         """
         if allow_update and var in self.frames[-1].vars:
-            # Modify existing variable value
+            # Case 1: Variable exists in current frame - update directly
+            # The value stack's top element corresponds to the current frame
             self.name2value[var][-1] = value
+        elif allow_update:
+            # Case 2: Variable not in current frame - check outer frames
+            # This handles scenarios like: num_batch *= dim_size in a loop body
+            # where num_batch is defined in an outer scope
+            # 
+            # Python scoping rule: Update the innermost visible outer variable
+            # (the first variable found when searching from inner to outer)
+            # This matches Python's behavior where inner scopes can modify outer variables
+            num_frames = len(self.frames)
+            if num_frames > 1:
+                # Search from innermost outer frame to outermost frame
+                # We update the first (innermost visible) frame containing the variable
+                # This matches Python's scoping: inner scopes modify the nearest outer variable
+                for i in range(num_frames - 2, -1, -1):  # From innermost to outermost outer frame
+                    if var in self.frames[i].vars:
+                        # Found the innermost visible outer frame containing var
+                        # Calculate value_index: count how many frames up to frame i contain var
+                        value_index = 0
+                        for j in range(i + 1):
+                            if var in self.frames[j].vars:
+                                value_index += 1
+                        # Update the value at the correct index in the value stack
+                        if value_index > 0 and value_index <= len(self.name2value[var]):
+                            self.name2value[var][value_index - 1] = value
+                        else:
+                            # Safety check: value stack should always be in sync with frames
+                            # This should never happen in normal operation
+                            raise RuntimeError(
+                                f"Value stack out of sync: variable '{var}' exists in frame {i} "
+                                f"but value stack has only {len(self.name2value[var])} entries"
+                            )
+                        # Update innermost visible outer frame and return (don't create new variable)
+                        return
+            # Case 3: Variable doesn't exist in any frame - create in current frame
+            self.frames[-1].add(var, node)
+            self.name2value[var].append(value)
         else:
+            # Case 4: allow_update=False - always create new variable (no updates allowed)
             self.frames[-1].add(var, node)
             self.name2value[var].append(value)
 
