@@ -64,6 +64,16 @@ TILEOP void DeConvFP32(__ubuf__ T* dst, __ubuf__ float* src, uint8_t repeat, uin
     }
 }
 
+// Type aliases for Shmem operations
+using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
+using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
+
+template<typename T, uint32_t RowShape, uint32_t ColShape>
+using ShmemGlobalTensor = pto::GlobalTensor<T, ShapeDyn, StrideDyn, pto::Layout::ND>;
+
+template<typename T, uint32_t RowShape, uint32_t ColShape>
+using ShmemUbTile = pto::Tile<pto::TileType::Vec, T, RowShape, ColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
+
 template<typename T, uint32_t bufferEleNum, uint32_t shmemTensorRawShape1, uint32_t shmemTensorRawShape2, uint32_t shmemTensorRawShape3>
 TILEOP void ShmemClear(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr)
 {
@@ -73,12 +83,28 @@ TILEOP void ShmemClear(__ubuf__ T* buffer, __gm__ T* shmemTensorAddr)
 
     constexpr uint32_t shmemTensorEleNum = shmemTensorRawShape1 * shmemTensorRawShape2 * shmemTensorRawShape3;
     constexpr uint32_t fullChunkCount = shmemTensorEleNum / bufferEleNum;
+
+    // Use pto instructions to copy buffer to GM
+    ShmemUbTile<T, 1, bufferEleNum> ubTile(1, bufferEleNum);
+    pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
+
     for (int32_t i = 0; i < fullChunkCount; i++) {
-        UBCopyOut<T, 1, bufferEleNum, bufferEleNum, bufferEleNum>(shmemTensorAddr + bufferEleNum * i, buffer);
+        __gm__ T* dstAddr = shmemTensorAddr + bufferEleNum * i;
+        ShapeDyn shape(1, 1, 1, 1, bufferEleNum);
+        StrideDyn strideDyn(1, 1, 1, bufferEleNum, 1);
+        ShmemGlobalTensor<T, 1, bufferEleNum> gmTensor(dstAddr, shape, strideDyn);
+        pto::TSTORE<decltype(ubTile), decltype(gmTensor), pto::AtomicType::AtomicNone>(gmTensor, ubTile);
     }
+
     constexpr uint32_t tailEleNum = shmemTensorEleNum % bufferEleNum;
     if constexpr (tailEleNum != 0) {
-        UBCopyOut<T, 1, tailEleNum, tailEleNum, tailEleNum>(shmemTensorAddr + bufferEleNum * fullChunkCount, buffer);
+        __gm__ T* tailDstAddr = shmemTensorAddr + bufferEleNum * fullChunkCount;
+        ShapeDyn tailShape(1, 1, 1, 1, tailEleNum);
+        StrideDyn tailStrideDyn(1, 1, 1, tailEleNum, 1);
+        ShmemGlobalTensor<T, 1, tailEleNum> tailGmTensor(tailDstAddr, tailShape, tailStrideDyn);
+        ShmemUbTile<T, 1, tailEleNum> tailUbTile(1, tailEleNum);
+        pto::TASSIGN(tailUbTile, reinterpret_cast<uintptr_t>(buffer));
+        pto::TSTORE<decltype(tailUbTile), decltype(tailGmTensor), pto::AtomicType::AtomicNone>(tailGmTensor, tailUbTile);
     }
 }
 
@@ -113,16 +139,6 @@ TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t
 
     ShmemClear<T, bufferEleNum, worldSize, signalMaxTileNum, stride>(buffer, shmemTensorAddr);
 }
-
-// Type aliases for Shmem operations
-using ShapeDyn = pto::Shape<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-using StrideDyn = pto::Stride<pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC, pto::DYNAMIC>;
-
-template<typename T, uint32_t RowShape, uint32_t ColShape>
-using ShmemGlobalTensor = pto::GlobalTensor<T, ShapeDyn, StrideDyn, pto::Layout::ND>;
-
-template<typename T, uint32_t RowShape, uint32_t ColShape>
-using ShmemUbTile = pto::Tile<pto::TileType::Vec, T, RowShape, ColShape, pto::BLayout::RowMajor, pto::DYNAMIC, pto::DYNAMIC>;
 
 // Operation type for ShmemCopyCore
 enum class ShmemOp { PUT, GET };
@@ -394,12 +410,20 @@ struct ShmemReduceProcess {};
 // 类模板部分特化
 template<typename T>
 struct ShmemReduceProcess<T, true> {
+    template<int64_t rowShape, int64_t colShape>
     TILEOP void ShmemReduceCopyIn(__gm__ T* x, __ubuf__ T* ubTensor, int64_t row, int64_t col, CopyParams params)
     {
         __ubuf__ T* copyUb = ubTensor;
         __ubuf__ float* sumUb = (__ubuf__ float*)(ubTensor + row * col);
 
-        copy_gm_to_ubuf(copyUb, x, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
+        ShapeDyn shape(1, 1, 1, rowShape, colShape);
+        StrideDyn srcStrideDyn(rowShape, rowShape, rowShape, params.srcStride + colShape, 1);
+        ShmemGlobalTensor<T, rowShape, colShape> gmTensor(x, shape, srcStrideDyn);
+        ShmemUbTile<T, rowShape, colShape> ubTile(rowShape, colShape);
+        pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(copyUb));
+
+        PIPE_SYNC_S_MTE2();
+        pto::TLOAD(ubTile, gmTensor);
         PIPE_SYNC_MTE2_S();
 
         uint64_t repeat = row * col * sizeof(float) / 256;
@@ -414,6 +438,7 @@ struct ShmemReduceProcess<T, true> {
         }
     }
 
+    template<int64_t rowShape, int64_t colShape>
     TILEOP void ShmemReduceCopyOut(__gm__ T* out, __ubuf__ T* ubTensor, int64_t row, int64_t col, CopyParams params)
     {
         __ubuf__ T* copyUb = ubTensor;
@@ -430,17 +455,32 @@ struct ShmemReduceProcess<T, true> {
             dst += offset;
         }
 
-        copy_ubuf_to_gm(out, copyUb, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
+        ShapeDyn shapeOut(1, 1, 1, rowShape, colShape);
+        StrideDyn dstStrideDyn(rowShape, rowShape, rowShape, params.dstStride + colShape, 1);
+        ShmemGlobalTensor<T, rowShape, colShape> gmTensorOut(out, shapeOut, dstStrideDyn);
+        ShmemUbTile<T, rowShape, colShape> ubTileOut(rowShape, colShape);
+        pto::TASSIGN(ubTileOut, reinterpret_cast<uintptr_t>(copyUb));
+
+        PIPE_SYNC_S_MTE3();
+        pto::TSTORE<decltype(ubTileOut), decltype(gmTensorOut), pto::AtomicType::AtomicNone>(gmTensorOut, ubTileOut);
         PIPE_SYNC_MTE3_S();
     }
 
+    template<int64_t rowShape, int64_t colShape>
     TILEOP void ShmemReduceAdd(__gm__ T* x, __ubuf__ T* ubTensor, int64_t row, int64_t col, CopyParams params)
     {
         __ubuf__ T* copyUb = ubTensor;
         __ubuf__ float* sumUb = (__ubuf__ float*)(ubTensor + row * col);
         __ubuf__ float* tempUb = sumUb + row * col;
 
-        copy_gm_to_ubuf(copyUb, x, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
+        ShapeDyn shapeAdd(1, 1, 1, rowShape, colShape);
+        StrideDyn srcStrideDynAdd(rowShape, rowShape, rowShape, params.srcStride + colShape, 1);
+        ShmemGlobalTensor<T, rowShape, colShape> gmTensorAdd(x, shapeAdd, srcStrideDynAdd);
+        ShmemUbTile<T, rowShape, colShape> ubTileAdd(rowShape, colShape);
+        pto::TASSIGN(ubTileAdd, reinterpret_cast<uintptr_t>(copyUb));
+
+        PIPE_SYNC_S_MTE2();
+        pto::TLOAD(ubTileAdd, gmTensorAdd);
         PIPE_SYNC_MTE2_S();
 
         uint64_t repeat = row * col * sizeof(float) / 256;
@@ -460,24 +500,48 @@ struct ShmemReduceProcess<T, true> {
 
 template<typename T>
 struct ShmemReduceProcess<T, false> {
+    template<int64_t rowShape, int64_t colShape>
     TILEOP void ShmemReduceCopyIn(__gm__ T* x, __ubuf__ T* ubTensor, int64_t row, int64_t col, CopyParams params)
     {
-        copy_gm_to_ubuf(ubTensor, x, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
+        ShapeDyn shape(1, 1, 1, rowShape, colShape);
+        StrideDyn srcStrideDyn(rowShape, rowShape, rowShape, params.srcStride + colShape, 1);
+        ShmemGlobalTensor<T, rowShape, colShape> gmTensor(x, shape, srcStrideDyn);
+        ShmemUbTile<T, rowShape, colShape> ubTile(rowShape, colShape);
+        pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(ubTensor));
+
+        PIPE_SYNC_S_MTE2();
+        pto::TLOAD(ubTile, gmTensor);
         PIPE_SYNC_MTE2_S();
     }
 
+    template<int64_t rowShape, int64_t colShape>
     TILEOP void ShmemReduceCopyOut(__gm__ T* out, __ubuf__ T* ubTensor, int64_t row, int64_t col, CopyParams params)
     {
-        copy_ubuf_to_gm(out, ubTensor, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
+        ShapeDyn shape(1, 1, 1, rowShape, colShape);
+        StrideDyn dstStrideDyn(rowShape, rowShape, rowShape, params.dstStride + colShape, 1);
+        ShmemGlobalTensor<T, rowShape, colShape> gmTensor(out, shape, dstStrideDyn);
+        ShmemUbTile<T, rowShape, colShape> ubTile(rowShape, colShape);
+        pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(ubTensor));
+
+        PIPE_SYNC_S_MTE3();
+        pto::TSTORE<decltype(ubTile), decltype(gmTensor), pto::AtomicType::AtomicNone>(gmTensor, ubTile);
         PIPE_SYNC_MTE3_S();
     }
 
+    template<int64_t rowShape, int64_t colShape>
     TILEOP void ShmemReduceAdd(__gm__ T* x, __ubuf__ T* ubTensor, int64_t row, int64_t col, CopyParams params)
     {
         __ubuf__ T* sumUb = ubTensor;
         __ubuf__ T* copyUb = ubTensor + row * col;
 
-        copy_gm_to_ubuf(copyUb, x, 0, params.nBurst, params.lenBurst, params.srcStride, params.dstStride);
+        ShapeDyn shape(1, 1, 1, rowShape, colShape);
+        StrideDyn srcStrideDyn(rowShape, rowShape, rowShape, params.srcStride + colShape, 1);
+        ShmemGlobalTensor<T, rowShape, colShape> gmTensor(x, shape, srcStrideDyn);
+        ShmemUbTile<T, rowShape, colShape> ubTile(rowShape, colShape);
+        pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(copyUb));
+
+        PIPE_SYNC_S_MTE2();
+        pto::TLOAD(ubTile, gmTensor);
         PIPE_SYNC_MTE2_S();
 
         uint64_t repeat = row * col * sizeof(float) / 256;
@@ -523,12 +587,12 @@ TILEOP void ShmemReduce(__gm__ T* out, __ubuf__ T* ubTensor, __gm__ T* in, __gm_
             x = shmData + (uint64_t)rankId * rowPerRank * colPerRank;
         }
         if (rankId == 0) {
-            ShmemReduceProcess<T, FP32Mode>::ShmemReduceCopyIn(x, ubTensor, row, col, copyInParams);
+            ShmemReduceProcess<T, FP32Mode>::template ShmemReduceCopyIn<row, col>(x, ubTensor, row, col, copyInParams);
         } else {
-            ShmemReduceProcess<T, FP32Mode>::ShmemReduceAdd(x, ubTensor, row, col, copyInParams);
+            ShmemReduceProcess<T, FP32Mode>::template ShmemReduceAdd<row, col>(x, ubTensor, row, col, copyInParams);
         }
     }
-    ShmemReduceProcess<T, FP32Mode>::ShmemReduceCopyOut(out, ubTensor, row, col, copyOutParams);
+    ShmemReduceProcess<T, FP32Mode>::template ShmemReduceCopyOut<row, col>(out, ubTensor, row, col, copyOutParams);
 }
 
 } // namespace TileOp::Distributed
