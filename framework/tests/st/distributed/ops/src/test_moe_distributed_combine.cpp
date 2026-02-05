@@ -32,7 +32,7 @@ void TestMoeDistributedCombine(OpTestParam& testParam)
 
     int64_t row = std::min(topK * batchSize * testParam.rankSize, batchSize * moeExpertNum);
     Shape inShape{row, hiddenSize};
-    Shape combineInfoShape{row, 3};
+    Shape combineInfoShape{row, 64};
     Shape recvCountsShape{1};
     Shape scaleShape{batchSize, topK};
     Shape outShape{batchSize, hiddenSize};

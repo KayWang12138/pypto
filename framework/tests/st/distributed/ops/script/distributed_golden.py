@@ -282,7 +282,11 @@ def generate_moe_dispatch_input_data(case: MoeCase, save_dir: Path) \
 
 
 def generate_combine_info_tensor(rank_id: int, token_id: int, k_offset: int) -> torch.Tensor:
-    return torch.tensor([rank_id, token_id, k_offset], dtype=torch.int32).unsqueeze(0)
+    combineInfo =  torch.zeros(64, dtype=torch.int32)
+    combineInfo[0] = rank_id
+    combineInfo[1] = token_id
+    combineInfo[2] = k_offset
+    return combineInfo.unsqueeze(0)
 
 
 def get_shared_expert_rank_id(case: MoeCase, rank_id: int) -> int:
@@ -364,7 +368,7 @@ def collect_and_save(
     routed_expert_capacity = get_routed_expert_capacity(case)
     for rank_id in range(case.rank_size):
         fixed_shape_y = torch.zeros((row, case.hidden_size), dtype=case.dtype)
-        fixed_shape_combine_info = torch.full((row, 3), -1, dtype=torch.int32)
+        fixed_shape_combine_info = torch.zeros((row, 64), dtype=torch.int32)
         valid_count = torch.zeros([routed_expert_capacity], dtype=torch.int32)
         y_offset, combine_info_offset = 0, 0
         for expert_offset in range(routed_expert_capacity):
