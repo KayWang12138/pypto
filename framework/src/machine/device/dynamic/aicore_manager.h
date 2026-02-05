@@ -330,7 +330,7 @@ public:
     inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
         DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
-        Init(threadIdx, devStartArgs, deviceArgs, schedIdx);
+        Init(threadIdx, devStartArgs, deviceArgs, scheIdx);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DEV_DEBUG("Schedule run init succ");
         DeviceTaskCtrl *taskCtrl = nullptr;
@@ -1337,7 +1337,7 @@ private:
 
         wrapManager_.InitArchInfo(deviceArgs->archInfo);
 #if ENABLE_TENSOR_DUMP
-        aicoreDump_.Init(startArgs, schedIdx);
+        aicoreDump_.Init(startArgs, threadIdx - 1);
 #endif
 
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
@@ -1654,7 +1654,7 @@ private:
     }
 
     inline bool IsNeedProcAicpuTask() {
-        return aicpuIdx_ == 2;
+        return aicpuIdx_ == 1;
     }
 
 private:
