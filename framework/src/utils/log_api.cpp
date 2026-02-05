@@ -18,6 +18,7 @@
 
 #include "tilefwk/tilefwk_log.h"
 #include "log_manager.h"
+#include "dlog_handler.h"
 
 namespace tile::fwk {
 namespace {
@@ -34,7 +35,11 @@ LogLevel GetLogLevel(const int32_t logLevel) {
 }
 
 bool PyptoCheckLogLevel(const int32_t logLevel) {
-    return LogManager::Instance().CheckLevel(GetLogLevel(logLevel));
+    if (DLogHandler::Instance().Enable()) {
+        return DLogHandler::Instance().CheckLogLevel(logLevel);
+    } else {
+        return LogManager::Instance().CheckLevel(GetLogLevel(logLevel));
+    }
 }
 
 void PyptoLogRecord(const int32_t logLevel, const char *fmt, ...) {
@@ -43,7 +48,11 @@ void PyptoLogRecord(const int32_t logLevel, const char *fmt, ...) {
     }
     va_list list;
     va_start(list, fmt);
-    LogManager::Instance().Record(GetLogLevel(logLevel), fmt, list);
+    if (DLogHandler::Instance().Enable()) {
+        DLogHandler::Instance().LogRecord(logLevel, fmt, list);
+    } else {
+        LogManager::Instance().Record(GetLogLevel(logLevel), fmt, list);
+    }
     va_end(list);
 }
 }
