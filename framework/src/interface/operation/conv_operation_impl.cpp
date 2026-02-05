@@ -111,23 +111,25 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
 }
 
+void checkAlignment(int64_t value, int64_t alignment, const std::string& valueName, bool isByte = false) {
+        OP_CHECK(true, {
+            ASSERT(value % alignment == 0)
+                << "Invalid " << valueName << ": " << value
+                << ", requires " << alignment << "-element alignment."
+                << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
+        });
+}
+
 void CheckL0TileTiling(DataType outType, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileH = convTile.tileL0Info.tileH;
     int64_t tileW = convTile.tileL0Info.tileW;
     int64_t tileN = convTile.tileL0Info.tileN;
     int64_t tileK = convTile.tileL0Info.tileK;
-
-    OP_CHECK(true, {
-        ASSERT(tileK * BytesOf(outType) % ALIGN_SIZE_32 == 0)
-            << "Invalid tileK: " << tileK
-            << ", requires 32-byte alignment." << std::endl;
-    });
-    OP_CHECK(true, {
-        ASSERT(tileN % NUM16 == 0)
-            << "Invalid tileN: " << tileN
-            << ", requires 16-element alignment." << std::endl;
-    });
+    int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
+    checkAlignment(tileK , k0, "tileK", true);
+    checkAlignment(tileN, NUM16, "tileN");
+    checkAlignment(tileW, NUM16, "tileW");
 
     Platform& platform = Platform::Instance();
     platform.ObtainPlatformInfo();
@@ -138,48 +140,21 @@ void CheckL0TileTiling(DataType outType, const Tensor &weightTensor, const ConvA
         ASSERT(tileK * tileH * tileW * BytesOf(outType) <= l0aSize)
             << "Shape does not satisfy L0A load constraints, tileH:" << tileH
             << ", tileW:" << tileW << ", tileK:" << tileK
-            << ", which satisfy tileH × tileW × tileK × dtypesize ≤ l0aSize( " << l0aSize
+            << ", which must satisfy tileH × tileW × tileK × dtypesize ≤ l0aSize( " << l0aSize
             << " )." << std::endl;
     });
     OP_CHECK(true, {
         ASSERT(tileK * tileN * BytesOf(outType) <= l0bSize)
             << "Shape does not satisfy L0B load constraints, tileK:" << tileK
             << ", tileN:" << tileN
-            << ", which satisfy tileK × tileN × dtypesize ≤ l0bSize( " << l0bSize
+            << ", which must satisfy tileK × tileN × dtypesize ≤ l0bSize( " << l0bSize
             << " )." << std::endl;
     });
     OP_CHECK(true, {
         ASSERT(tileN * tileH * tileW * BytesOf(DataType::DT_FP32) <= l0cSize)
             << "Shape does not satisfy L0C load constraints, tileH:" << tileH
             << ", tileW:" << tileW << ", tileN:" << tileN
-            << ", which satisfy tileH × tileW × tileN × dtypesize(FP32) ≤ l0cSize( " << l0cSize
-            << " )." << std::endl;
-    });
-
-    Platform& platform = Platform::Instance();
-    platform.ObtainPlatformInfo();
-    size_t l0aSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0A);
-    size_t l0bSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0B);
-    size_t l0cSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0C);
-    OP_CHECK(true, {
-        ASSERT(tileK * tileH * tileW * BytesOf(outType) <= l0aSize)
-            << "Shape does not satisfy L0A load constraints, tileH:" << tileH
-            << ", tileW:" << tileW << ", tileK:" << tileK
-            << ", which satisfy tileH × tileW × tileK × dtypesize ≤ l0aSize( " << l0aSize
-            << " )." << std::endl;
-    });
-    OP_CHECK(true, {
-        ASSERT(tileK * tileN * BytesOf(outType) <= l0bSize)
-            << "Shape does not satisfy L0B load constraints, tileK:" << tileK
-            << ", tileN:" << tileN
-            << ", which satisfy tileK × tileN × dtypesize ≤ l0bSize( " << l0bSize
-            << " )." << std::endl;
-    });
-    OP_CHECK(true, {
-        ASSERT(tileN * tileH * tileW * BytesOf(DataType::DT_FP32) <= l0cSize)
-            << "Shape does not satisfy L0C load constraints, tileH:" << tileH
-            << ", tileW:" << tileW << ", tileN:" << tileN
-            << ", which satisfy tileH × tileW × tileN × dtypesize(FP32) ≤ l0cSize( " << l0cSize
+            << ", which must satisfy tileH × tileW × tileN × dtypesize(FP32) ≤ l0cSize( " << l0cSize
             << " )." << std::endl;
     });
 }
@@ -200,12 +175,33 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
     CheckValueRange(tileBatch, "tileN", NUM1, batch);
-    CheckValueRange(tileCinFmap, "tileCinFmap", NUM1, cin);
-    CheckValueRange(tileCinWeight, "tileCinWeight", NUM1, cin);
     CheckValueRange(tileWin, "tileWin", NUM1, win);
     CheckValueRange(tileCout, "tileCout", NUM1, cOut);
 
     CheckHowoTile(inputTensor, weightTensor, attrParam);
+
+    checkDivisible(cin, tileCinFmap, "Cin", "tileCinFmap");
+    checkDivisible(cin, tileCinWeight, "Cin", "tileCinWeight");
+
+    OP_CHECK(true, {
+        ASSERT(tileWout % NUM16 == 0 && tileWout == Wout)
+            << "Invalid tileK: " << tileK
+            << ", requires 16-element alignment when ." << std::endl;
+    });
+
+    int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
+    OP_CHECK(true, {
+        ASSERT(ConvAlignB(tileCinFmap, NUM16) * kh * kw % k0 == 0)
+            << "Shape does not satisfy KAL1 constraints, tileCinFmap:" << tileCinFmap
+            << ", C0:" << NUM16 << ", hk:" << kh << ", hw:" << kw << ", K0 = 32 bytes / btypesize:" << k0
+            << ", which must satisfy ceil(tileCinFmap / C0) × C0 × kh × kw % K0 ==0." << std::endl;
+    });
+        OP_CHECK(true, {
+        ASSERT(ConvAlignB(tileCinWeight, NUM16) * kh * kw % k0 == 0)
+            << "Shape does not satisfy KBL1 constraints, tileCinFmap:" << tileCinWeight
+            << ", C0:" << NUM16 << ", hk:" << kh << ", hw:" << kw << ", K0 = 32 bytes / btypesize:" << k0
+            << ", which must satisfy ceil(tileCinWeight / C0) × C0 × kh × kw % K0 ==0." << std::endl;
+    });
 
     if (convTile.setL0Tile){
         CheckL0TileTiling(outType, weightTensor, attrParam);
@@ -242,29 +238,22 @@ void CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
 }
 */
 
+void checkDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName) {
+    OP_CHECK(true, {
+            ASSERT(value % divisor == 0)
+            << "The value of " << divisorName << " ( " << divisor
+            << " ) does not divide "<< valueName
+            << " ( " << value << " ). Adjusting " << divisorName 
+            << " to the nearest value such that "<< valueName 
+            << " % " << divisorName << " == 0." << std::endl;
+    });
+}
 
 void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64_t cOut, const int64_t groups){
+    CheckValueRange(groups, "groups", NUM1, SHAPE_INNER_AXIS_MAX_SIZE);
 
-    OP_CHECK(true, {
-            ASSERT(groups > 0 && groups <= SHAPE_INNER_AXIS_MAX_SIZE)
-            << "Invalid groups: " << groups
-            << ", expected range [1," << SHAPE_INNER_AXIS_MAX_SIZE
-            << "]." << std::endl;
-    });
-
-    OP_CHECK(true, {
-            ASSERT(cinFmap % groups == 0)
-            << "Cin ( " << cinFmap
-            << " ) is not divisible by groups ( " << groups
-            << " );adjusting Cin to the nearest value such that Cin % groups == 0." << std::endl;
-    });
-
-    OP_CHECK(true, {
-            ASSERT(cOut % groups == 0)
-            << "Cout ( " << cOut
-            << " ) is not divisible by groups ( " << groups
-            << " );adjusting Cout to the nearest value such that Cout % groups == 0." << std::endl;
-    });
+    checkDivisible(cinFmap, groups, "Cin", "groups");
+    checkDivisible(cOut, groups, "Cout", "groups");
 
     OP_CHECK(true, {
             ASSERT(cinFmap == cinWeight * groups)
