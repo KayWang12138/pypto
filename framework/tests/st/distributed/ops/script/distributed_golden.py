@@ -294,8 +294,14 @@ def generate_moe_dispatch_input_data(case: MoeCase, save_dir: Path) \
     return x_list, routed_expert_ids_list
 
 
-def generate_combine_info_tensor(rank_id: int, token_id: int, k_offset: int) -> torch.Tensor:
-    return torch.tensor([rank_id, token_id, k_offset], dtype=torch.int32).unsqueeze(0)
+def generate_combine_info_tensor(rank_id: int, token_id: int, k_offset: int, generate_combine: bool) -> torch.Tensor:
+    dispatch_info_row = 64
+    combine_cols = 3 if generate_combine else dispatch_info_row
+    combineInfo =  torch.zeros(combine_cols, dtype=torch.int32)
+    combineInfo[dispatch_info_row - 3] = rank_id
+    combineInfo[dispatch_info_row - 2] = token_id
+    combineInfo[dispatch_info_row - 1] = k_offset
+    return combineInfo.unsqueeze(0)
 
 
 def get_shared_expert_rank_id(case: MoeCase, rank_id: int) -> int:
@@ -310,6 +316,7 @@ def send_to_shared_experts(
     x_list: List[torch.Tensor],
     y_list: List[List[List[torch.Tensor]]],
     combine_info_list: List[List[List[torch.Tensor]]],
+    generate_combine: bool,
 ) -> None:
     expert_offset = 0
     for rank_id in range(case.world_size):
@@ -319,7 +326,7 @@ def send_to_shared_experts(
             token = x[token_id].unsqueeze(0)
             y_list[target_shared_expert_rank_id][expert_offset].append(token)
             combine_info_list[target_shared_expert_rank_id][expert_offset].append(
-                generate_combine_info_tensor(rank_id, token_id, case.top_k),
+                generate_combine_info_tensor(rank_id, token_id, case.top_k, generate_combine),
             )
 
 
@@ -342,6 +349,7 @@ def send_to_routed_experts(
     routed_expert_ids_list: List[torch.Tensor],
     y_list: List[List[List[torch.Tensor]]],
     combine_info_list: List[List[List[torch.Tensor]]],
+    generate_combine: bool,
 ) -> None:
     for source_rank_id in range(case.world_size):
         x = x_list[source_rank_id]
@@ -354,7 +362,7 @@ def send_to_routed_experts(
                     get_routed_expert_rank_id_and_expert_offset(case, target_routed_expert_id)
                 y_list[target_routed_expert_rank_id][expert_offset].append(token)
                 combine_info_list[target_routed_expert_rank_id][expert_offset].append(
-                    generate_combine_info_tensor(source_rank_id, token_id, k_offset),
+                    generate_combine_info_tensor(source_rank_id, token_id, k_offset, generate_combine),
                 )
 
 
@@ -372,12 +380,14 @@ def collect_and_save(
     y_list: List[List[List[torch.Tensor]]],
     combine_info_list: List[List[List[torch.Tensor]]],
     save_dir: Path,
+    combine_generate: bool,
 ) -> None:
     row = get_dispatch_output_row(case)
     routed_expert_capacity = get_routed_expert_capacity(case)
+    combine_cols = 3 if combine_generate else 64
     for rank_id in range(case.world_size):
         fixed_shape_y = torch.zeros((row, case.hidden_size), dtype=case.dtype)
-        fixed_shape_combine_info = torch.full((row, 3), -1, dtype=torch.int32)
+        fixed_shape_combine_info = torch.zeros((row, combine_cols), dtype=torch.int32)
         valid_count = torch.zeros([routed_expert_capacity], dtype=torch.int32)
         y_offset, combine_info_offset = 0, 0
         for expert_offset in range(routed_expert_capacity):
@@ -398,7 +408,7 @@ def collect_and_save(
         save_tensor(recv_counts_tensor, save_dir / f'recv_counts_rank_{rank_id}.bin')
 
 
-def generate_moe_dispatch_case(case: MoeCase, save_dir: Path) -> None:
+def generate_moe_dispatch_case(case: MoeCase, save_dir: Path, combine_generate: bool) -> None:
     params = (case.batch_size, case.hidden_size, case.routed_expert_num, case.top_k, get_dtype_num(case.dtype))
     save_params(params, save_dir)
 
@@ -408,9 +418,9 @@ def generate_moe_dispatch_case(case: MoeCase, save_dir: Path) -> None:
     y_list = [[[] for _ in range(routed_expert_capacity)] for _ in range(case.world_size)]
     combine_info_list = [[[] for _ in range(routed_expert_capacity)] for _ in range(case.world_size)]
     if case.shared_expert_num > 0:
-        send_to_shared_experts(case, x_list, y_list, combine_info_list)
-    send_to_routed_experts(case, x_list, routed_expert_ids_list, y_list, combine_info_list)
-    collect_and_save(case, y_list, combine_info_list, save_dir)
+        send_to_shared_experts(case, x_list, y_list, combine_info_list, combine_generate)
+    send_to_routed_experts(case, x_list, routed_expert_ids_list, y_list, combine_info_list, combine_generate)
+    collect_and_save(case, y_list, combine_info_list, save_dir, combine_generate)
 
 
 def get_moe_distributed_combine_input_data(dispatch_save_dir: Path, case: MoeCase) \
