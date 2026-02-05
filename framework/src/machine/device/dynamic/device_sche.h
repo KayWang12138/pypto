@@ -70,7 +70,7 @@ public:
             return DEVICE_MACHINE_ERROR;
         }
 
-        if (static_cast<uint32_t>(threadIdx) >= args->scheCpuNum) {
+        if (static_cast<uint32_t>(schedIdx) > args->scheCpuNum) {
             DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
         }
@@ -131,6 +131,7 @@ private:
 #endif
 };
 
+constexpr int CPUS_PER_CLUSTER = 4;
 static constexpr uint64_t SIGNAL_DELAY_SECONDS = 2;
 
 struct DynMachineManager {
@@ -139,6 +140,35 @@ struct DynMachineManager {
         int (*kernelCtrlServerInit)(void *targ);
         int (*kernelCtrlServer)(void *targ);
     };
+
+    int allocThreadIdx(int nrAicpu, uint32_t scheCpuNum, std::atomic<int> &threadIdx) { 
+        if (scheCpuNum == 1) { 
+            return threadIdx++; 
+        } 
+        int cpu = sched_getcpu(); 
+        cpumask_.fetch_or(1 << cpu, std::memory_order_release); 
+        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != nrAicpu) { 
+            sched_yield(); 
+        } 
+        auto maskval = cpumask_.load(std::memory_order_relaxed); 
+        int cpuoff = 0; 
+        int clus_id = -1; 
+        for (int index = 0; index < static_cast<int>(sizeof(uint64_t)); ++index) { 
+            int mask = (maskval >> cpuoff) & 0xF; 
+            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= static_cast<int>(scheCpuNum)) { 
+                clus_id = index; 
+                break; 
+            } 
+            cpuoff += CPUS_PER_CLUSTER; 
+        } 
+        if (clus_id == -1) { 
+            return threadIdx++; 
+        } 
+        if (cpu < cpuoff || cpu >= (cpuoff + CPUS_PER_CLUSTER)) { 
+            return -1; 
+        } 
+        return threadIdx++; 
+    }
 
     void SignalReg(const KernelCtrlEntry &entry) {
         DEV_INFO("Exception SignalReg.");
@@ -181,13 +211,13 @@ struct DynMachineManager {
         DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
             devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
         DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
-        int schedIdx = threadIdx - 1;
 
-        SchduleContext local_context;
-        machine_.SetStachSchduleContext(schedIdx, &local_context);
+        SchduleContext localContext;
+        int schedIdx = threadIdx;
+        machine_.SetStachSchduleContext(schedIdx, &localContext);
         DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(kargs->cfgdata);
         DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
-        int ret = machine_.RunThread(schedIdx, devStartArgs, devArgs, schedIdx);
+        int ret = machine_.RunThread(threadIdx, devStartArgs, devArgs, schedIdx);
 
         DEV_INFO("ThreadScheLeave idx=%d ret=%d", threadIdx, ret);
         if (ret != DEVICE_MACHINE_OK) {
@@ -218,17 +248,19 @@ struct DynMachineManager {
             DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        int threadIdx = threadIdx_++;
-
-        DEV_INFO("ThreadEnter idx=%d", threadIdx);
-
+        int threadIdx = allocThreadIdx(devArgs->nrAicpu, devArgs->scheCpuNum, threadIdx_);	 
         uint64_t allocThreadCycle = GetCycles();
-        if (devArgs->enableCtrl == 1 && threadIdx == 0) {
-            ret = RunCtrl(kargs, entry, threadIdx);
-        } else if (threadIdx > 0 && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {
-            ret = RunSche(kargs, entry, threadIdx);
+
+        if ((threadIdx != -1) && threadIdx < static_cast<int>(devArgs->scheCpuNum)) {	 
+             ret = RunSche(kargs, entry, threadIdx);
         } else {
-            SignalReg(entry);
+            threadIdx = ctrlcpuIdx_.fetch_add(1);	 
+            DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType)); 
+            if (devArgs->enableCtrl == 1 && threadIdx == static_cast<int>(devArgs->scheCpuNum)) { 
+                ret = RunCtrl(kargs, entry, threadIdx);
+            } else { 
+                SignalReg(entry); 
+            }
         }
 
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, kargs->taskWastTime);
@@ -370,13 +402,13 @@ struct DynMachineManager {
         uint64_t ctrlStep = splittedInfo_.ctrlStep++;
         // ctrl start 2 threads: one for ctrl, one for registering signal
         if (ctrlStep % 2 == 0) {
-            DEV_INFO("ThreadEnter idx=%d round=%d", ctrlThreadIdx, (int)kargs->parameter.globalRound);
+            DEV_INFO("CtrlThreadEnter idx=%d round=%d", ctrlThreadIdx, (int)kargs->parameter.globalRound);
             ret = RunCtrlInitNoLock(kargs, entry);
             if (ret != 0) {
                 return ret;
             }
             ret = RunCtrl(kargs, entry, ctrlThreadIdx);
-            DEV_INFO("ThreadLeave idx=%d ret=%d", ctrlThreadIdx, ret);
+            DEV_INFO("CtrlThreadLeave idx=%d ret=%d", ctrlThreadIdx, ret);
         } else {
             SignalReg(entry);
         }
@@ -390,19 +422,22 @@ struct DynMachineManager {
         // After wait, the devStartArgs should be ready.
 
         DevStartArgs *runtimeDataCurrent = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
-        int threadIdx = splittedInfo_.ScheUpdate(runtimeDataCurrent);
+        auto devArgs = devProg->devArgs;
+        int threadIdx = allocThreadIdx(devArgs.nrAicpu - 1, devArgs.scheCpuNum, runtimeDataCurrent->devScheState.threadIdx);
+        int ret = DEVICE_MACHINE_OK;
+        if (threadIdx != -1 && threadIdx < devArgs.scheCpuNum) {
+            DEV_INFO("SchedThreadEnter idx=%d round=%d", threadIdx, (int)kargs->parameter.globalRound);
+            ret = RunSche(kargs, entry, threadIdx);
+            DEV_INFO("SchedThreadLeave idx=%d ret=%d", threadIdx, ret);
 
-        DEV_INFO("ThreadEnter idx=%d round=%d", threadIdx, (int)kargs->parameter.globalRound);
-        int ret = RunSche(kargs, entry, threadIdx);
-        DEV_INFO("ThreadLeave idx=%d ret=%d", threadIdx, ret);
-
-        if (splittedInfo_.ScheSync(runtimeDataCurrent, devProg->devArgs.scheCpuNum)) {
-            if (unlikely(!machine_.CheckAndResetReg())) {
-                DEV_WARN("Some registers force closed!");
+            if (splittedInfo_.ScheSync(runtimeDataCurrent, devProg->devArgs.scheCpuNum)) {
+                if (unlikely(!machine_.CheckAndResetReg())) {
+                    DEV_WARN("Some registers force closed!");
+                }
+                ReleaseRuntimeDataRingBuffer(devProg);
+                DEV_INFO("All schedule exited, destroy the machine.");
+                return DEVICE_MACHINE_OK;
             }
-            ReleaseRuntimeDataRingBuffer(devProg);
-            DEV_INFO("All schedule exited, destroy the machine.");
-            return DEVICE_MACHINE_OK;
         }
         return ret;
     }
@@ -459,11 +494,6 @@ struct DynMachineManager {
                 /* Sche must wait until the current devStarArgs has been initialized. */
                 RuntimeYield(0);
             }
-        }
-
-        int ScheUpdate(DevStartArgs *devStartArgs) {
-            int scheThreadIdx = ++devStartArgs->devScheState.threadIdx;
-            return scheThreadIdx;
         }
 
         bool ScheSync(DevStartArgs *devStartArgs, int schNum) {
