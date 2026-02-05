@@ -34,6 +34,7 @@ template<typename T>
 void TestReduceScatter(OpTestParam &testParam);
 template<typename T>
 void TestAllReduce(OpTestParam &testParam);
+template<typename T>
 void TestShmemMoeDispatch(OpTestParam &testParam);
 template<typename T>
 void TestAllReduceAddAllReduce(OpTestParam &testParam);
