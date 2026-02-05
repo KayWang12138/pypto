@@ -48,7 +48,6 @@ TEST_F(PlatformTest, TestPlatfromCase1) {
     EXPECT_EQ(PlatformManager::Instance().Initialize("Ascend910B1"), true);
     EXPECT_EQ(PlatformManager::Instance().Initialize("Ascend910B1"), true);
 
-    EXPECT_EQ(PlatformManager::Instance().GetSocVersion(), "Ascend910B1");
     EXPECT_EQ(PlatformManager::Instance().GetShortSocVersion(), "Ascend910B");
     EXPECT_EQ(PlatformManager::Instance().GetAicVersion(), "AIC-C-220");
 

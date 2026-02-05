@@ -14,9 +14,6 @@
  */
 
 #pragma once
-#ifndef LOG_H
-#define LOG_H
-
 #include <memory>
 #include <vector>
 #include <string>
@@ -276,5 +273,3 @@ public:
 
 #define ASLOGI ALOG_INFO_F
 #define ASLOGE ALOG_ERROR_F
-
-#endif
