@@ -100,7 +100,14 @@ void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, con
     int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
     CheckValueRange(wOut, "wOut" , NUM1, MAX_SIZE);
 }
-
+void checkAlignment(int64_t value, int64_t alignment, const std::string& valueName, bool isByte = false) {
+        OP_CHECK(true, {
+            ASSERT(value % alignment == 0)
+                << "Invalid " << valueName << ": " << value
+                << ", requires " << alignment << "-element alignment."
+                << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
+        });
+}
 void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam) {
     auto &convTile = TileShape::Current().GetConvTile();
     int64_t tileHout = convTile.tileL1Info.tileHout;
@@ -109,21 +116,7 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
     CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
     CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
-
-    OP_CHECK(true, {
-        ASSERT(tileWout % NUM16 == 0 && tileWout == wOut)
-        << "Invalid tileWout: " << tileWout
-        << ", requires 16-element alignment when tileWout != Wout." << std::endl;
-    });
-}
-
-void checkAlignment(int64_t value, int64_t alignment, const std::string& valueName, bool isByte = false) {
-        OP_CHECK(true, {
-            ASSERT(value % alignment == 0)
-                << "Invalid " << valueName << ": " << value
-                << ", requires " << alignment << "-element alignment."
-                << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
-        });
+    checkAlignment(tileWout, NUM16, "tileWout");
 }
 
 void CheckL0TileTiling(DataType outType) {
@@ -196,7 +189,7 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t win = inputTensor.GetShape()[NCHW_W_IDX];
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
-    CheckValueRange(tileBatch, "tileN", NUM1, batch);
+    CheckValueRange(tileBatch, "tileN", NUM1, NUM1);
     CheckValueRange(tileWin, "tileWin", NUM1, win);
     CheckValueRange(tileCout, "tileCout", NUM1, cOut);
 
