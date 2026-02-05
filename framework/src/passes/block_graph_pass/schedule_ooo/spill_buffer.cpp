@@ -109,7 +109,7 @@ Status OoOScheduler::UpdateTensorAttr(
         int rawMagic = tensor->GetRawTensor()->GetRawMagic();
         tensor->memoryrange.memId = rawMagic;
         localBufferMap[rawMagic] = std::make_shared<LocalBuffer>(
-            rawMagic, ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), tensor->GetMemoryTypeOriginal());
+            rawMagic, tensor->tensor->GetRawDataSize(), tensor->GetMemoryTypeOriginal());
         if (localBufferMap[rawMagic] == nullptr) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Init Tensor[%d] localBuffer failed.", rawMagic);
             return FAILED;
@@ -248,7 +248,7 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
     MemoryType memType = spillTensor->GetMemoryTypeOriginal();
     // 创建将spill搬出数据搬回OP_COPY_IN的tensor
     LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(
-            function_, spillTensor->Datatype(), spillTensor->shape, spillTensor->Format());
+            function_, spillTensor->Datatype(), spillTensor->tensor->rawshape, spillTensor->Format());
     if (localTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Create local tensor failed!");
         return FAILED;
@@ -321,7 +321,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     int spillMemId, IssueEntryPtr &spillCopyout) {
     // 创建spill搬出所需的DDR rawtensor/tensor
     std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->GetShape(),
+        std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->tensor->rawshape,
         TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE);
     if (ddrRawTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR raw tensor failed!");
@@ -474,7 +474,7 @@ int64_t OoOScheduler::CalcWorkspaceOffset(std::vector<int64_t> shape, std::vecto
 LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
     SpillInfo &spillInfo, std::shared_ptr<AssembleOpAttribute> assembleAttr) {
     LogicalTensorPtr localTensor = std::make_shared<LogicalTensor>(
-        function_, iOperand->Datatype(), iOperand->shape, iOperand->Format());
+        function_, iOperand->Datatype(), iOperand->tensor->rawshape, iOperand->Format());
     localTensor->SetMemoryTypeToBe(assembleTensor->GetMemoryTypeToBe());
     localTensor->SetMemoryTypeOriginal(assembleTensor->GetMemoryTypeOriginal());
     localTensor->oriShape = iOperand->shape;
@@ -574,8 +574,8 @@ Status OoOScheduler::SpillAssembleBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         return FAILED;
     }
 
-    LogicalTensorPtr assembleTensor = std::make_shared<LogicalTensor>(function_, 
-        spillInfo.spillTensor_->Datatype(), spillInfo.spillTensor_->shape, spillInfo.spillTensor_->Format());
+    LogicalTensorPtr assembleTensor = std::make_shared<LogicalTensor>(function_,
+        spillInfo.spillTensor_->Datatype(), spillInfo.spillTensor_->tensor->rawshape, spillInfo.spillTensor_->Format());
     if (assembleTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Create assemble tensor failed!");
         return FAILED;
