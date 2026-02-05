@@ -440,4 +440,6 @@ def attention_golden(
     q_r = q_r.view(bs, -1, d)
     attn_out = torch.zeros(q_r.shape, dtype=q_r.dtype).to(device=q_r.device)
     ifa_golden(q_r, key_cache, value_cache, block_tables, actual_seq_lens, attn_out, is_high_precision=False)
-    return attn_out, residual
+    attn_out = q_r
+    print("#################################", slot_mapping)
+    return attn_out, residual, key_cache
