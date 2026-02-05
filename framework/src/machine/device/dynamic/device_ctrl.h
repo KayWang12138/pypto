@@ -226,7 +226,7 @@ public:
         devStartArgs->InitProgram(devProg, reinterpret_cast<uint64_t>(devStartArgs));
         devStartArgs->devCtrlState.schAicpuNum = devProg->devArgs.scheCpuNum;
         devStartArgs->devCtrlState.taskCtrlIndex = 0;
-        devStartArgs->devScheState.threadIdx = CTRL_THREAD_INDEX;
+        devStartArgs->devScheState.threadIdx = CTRL_THREAD_INDEX + 1;
         devStartArgs->devScheState.finished = 0;
 
         devStartArgs_ = devStartArgs;
