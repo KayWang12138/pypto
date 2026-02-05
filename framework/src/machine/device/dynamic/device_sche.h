@@ -50,8 +50,8 @@ public:
         }
     }
 
-    void SetStachSchduleContext(int schedIdx, SchduleContext* context) {
-        aicoreManager_[schedIdx]->SetSchduleContext(context);
+    void SetStachSchduleContext(int threadIdx, SchduleContext* context) {
+        aicoreManager_[threadIdx]->SetSchduleContext(context);
     }
 
     bool CheckAndResetReg(){
@@ -71,14 +71,14 @@ public:
         }
 
         DEV_INFO("thread %d start .", threadIdx);
-        if (static_cast<uint32_t>(threadIdx) > args->scheCpuNum) {
+        if (static_cast<uint32_t>(threadIdx) >= args->scheCpuNum) {
             DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
         }
 #if ENABLE_AICORE_PRINT
-        aicoreManager_[schedIdx]->InitLogger(logManager.logger);
+        aicoreManager_[threadIdx]->InitLogger(logManager.logger);
 #endif
-        ret = aicoreManager_[schedIdx]->Run(threadIdx, args, schedIdx);
+        ret = aicoreManager_[threadIdx]->Run(threadIdx, args, schedIdx);
         DEV_INFO("thread  %d end , ret = %d", threadIdx, ret);
         return ret;
     }
@@ -132,6 +132,7 @@ private:
 #endif
 };
 
+constexpr int CPUS_PER_CLUSTER = 4;
 static constexpr uint64_t SIGNAL_DELAY_SECONDS = 2;
 
 struct DynMachineManager {
@@ -140,6 +141,35 @@ struct DynMachineManager {
         int (*kernelCtrlServerInit)(void *targ);
         int (*kernelCtrlServer)(void *targ);
     };
+
+    int allocThreadIdx(int nrAicpu, uint32_t scheCpuNum) { 
+        if (scheCpuNum == 1) { 
+            return threadIdx_++; 
+        } 
+        int cpu = sched_getcpu(); 
+        cpumask_.fetch_or(1 << cpu, std::memory_order_release); 
+        while (__builtin_popcount(cpumask_.load(std::memory_order_acquire)) != nrAicpu) { 
+            sched_yield(); 
+        } 
+        auto maskval = cpumask_.load(std::memory_order_relaxed); 
+        int cpuoff = 0; 
+        int clus_id = -1; 
+        for (int index = 0; index < static_cast<int>(sizeof(uint64_t)); ++index) { 
+            int mask = (maskval >> cpuoff) & 0xF; 
+            if (__builtin_popcount(static_cast<uint32_t>(mask)) >= static_cast<int>(scheCpuNum)) { 
+                clus_id = index; 
+                break; 
+            } 
+            cpuoff += CPUS_PER_CLUSTER; 
+        } 
+        if (clus_id == -1) { 
+            return threadIdx_++; 
+        } 
+        if (cpu < cpuoff || cpu >= (cpuoff + CPUS_PER_CLUSTER)) { 
+            return -1; 
+        } 
+        return threadIdx_++; 
+    }
 
     void SignalReg(const KernelCtrlEntry &entry) {
         DEV_INFO("Exception SignalReg.");
@@ -165,28 +195,29 @@ struct DynMachineManager {
             DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        int threadIdx = threadIdx_++;
+        int threadIdx = allocThreadIdx(devArgs->nrAicpu, devArgs->scheCpuNum);	 
         uint64_t allocThreadCycle = GetCycles();
-        if (devArgs->enableCtrl == 1 && threadIdx == 0) {
-            CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
-            DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
-            ret = entry.kernelCtrlServer(static_cast<void*>(args));
-        } else if (threadIdx > 0 && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {
-            CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
-            DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
-                static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,
-                devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);
-            DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,
-                devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);
-            DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));
-            int schedIdx = threadIdx - 1;
-            machine_.SetStachSchduleContext(schedIdx, &local_context);
-            ret = machine_.Run(threadIdx, devArgs, schedIdx);
-            if (ret != DEVICE_MACHINE_OK) {
-                schRunFailed_ = true;
-            }
+
+        if ((threadIdx != -1) && threadIdx < static_cast<int>(devArgs->scheCpuNum)) {
+            CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);	 
+             DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",	 
+                 static_cast<int>(devArgs->taskType), threadIdx, devArgs->nrAic,	 
+                 devArgs->nrAiv, devArgs->nrAicpu, devArgs->nrValidAic);	 
+             DEV_INFO("devQueueAddr %lx, sharedBuffer %lx coreRegAddr %lx corePmuAdr %lx .", devArgs->devQueueAddr,	 
+                 devArgs->sharedBuffer, devArgs->coreRegAddr, devArgs->corePmuAddr);	 
+             DEV_TRACE_DEBUG(schema::ScheEvent(threadIdx, schema::ThreadStart()));	 
+             machine_.SetStachSchduleContext(threadIdx, &local_context);	 
+             ret = machine_.Run(threadIdx, devArgs);
         } else {
-            SignalReg(entry);
+            threadIdx = ctrlcpuIdx_.fetch_add(1);	 
+            DEV_INFO("TaskType %d.",  static_cast<int>(devArgs->taskType)); 
+            if (devArgs->enableCtrl == 1 && threadIdx == static_cast<int>(devArgs->scheCpuNum)) { 
+                CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0); 
+                DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart())); 
+                ret = entry.kernelCtrlServer(static_cast<void*>(args));
+            } else { 
+                SignalReg(); 
+            }
         }
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, args->taskWastTime);
         PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx, allocThreadCycle);
