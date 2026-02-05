@@ -32,6 +32,8 @@ inline uint32_t CalcSchAicpuNumByBlockDim(uint32_t blockDim, uint32_t aiCpuNum, 
     uint32_t maxScheCore = aiCpuNum - dynamic::MAX_OTHER_AICPU_NUM;
     if (archInfo == ArchInfo::DAV_2201) {
         maxScheCore = maxScheCore >= MAX_DAV_2210_SCHEDULE_AICPU_NUM ? MAX_DAV_2210_SCHEDULE_AICPU_NUM : maxScheCore;
+    } else if (archInfo == ArchInfo::DAV_3510) {
+        maxScheCore += 1;   // DAV_3510 no singal thread
     }
 
     if (blockDim > (maxScheCore - 1) * dynamic::MAX_MNG_AICORE_AVG_NUM) {

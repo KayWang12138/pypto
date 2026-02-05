@@ -224,7 +224,9 @@ struct DynMachineManager {
             machine_.SetStachSchduleContext(schedIdx, &local_context);
             ret = machine_.Run(threadIdx, devArgs, schedIdx);
         } else {
-            SignalReg(entry);
+            if (devArgs->archInfo == ArchInfo::DAV_2210) {
+                SignalReg(entry);
+            }
         }
         PerfMtTrace(PERF_TRACE_BEGIN, threadIdx, args->taskWastTime);
         PerfMtTrace(PERF_TRACE_ALLOC_THREAD_ID, threadIdx, allocThreadCycle);
@@ -251,6 +253,10 @@ struct DynMachineManager {
             PerfEvtMgr::Instance().SetIsOpenProf(true, devArgs->aicpuPerfAddr);
         }
         auto ret = entry.kernelCtrlServerInit(kargs);
+
+        if (devArgs->archInfo == ArchInfo::DAV_3510) {
+            SignalReg(entry);   // DAV_3510 don't use independent thread
+        }
         initCtrl_.store(true);
         mutex_.unlock();
         return ret;

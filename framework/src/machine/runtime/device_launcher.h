@@ -164,12 +164,14 @@ public:
 
         int aiCpuNum = static_cast<int>(Platform::Instance().GetSoc().GetAICPUNum()) - 1;
         devProg->devArgs.scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, aiCpuNum, devProg->devArgs.archInfo);
-        config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
-        devProg->devArgs.nrAicpu = config.aicpuNum;
         if (devProg->devArgs.archInfo == ArchInfo::DAV_3510) {
-            devProg->devArgs.launchScheCpuNum = aiCpuNum - dynamic::MAX_OTHER_AICPU_NUM;
+            config.aicpuNum = devProg->devArgs.scheCpuNum + 1;
+            devProg->devArgs.nrAicpu = config.aicpuNum;
+            devProg->devArgs.launchScheCpuNum = aiCpuNum - 1;
             devProg->devArgs.launchAicpu = aiCpuNum;
         } else {
+            config.aicpuNum = devProg->devArgs.scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
+            devProg->devArgs.nrAicpu = config.aicpuNum;
             devProg->devArgs.launchScheCpuNum = devProg->devArgs.scheCpuNum;
             devProg->devArgs.launchAicpu = devProg->devArgs.nrAicpu;
         }

@@ -61,6 +61,12 @@ enum class ArchInfo {
     DAV_UNKNOWN
 };
 
+enum class DieId {
+    DIE_0 = 0,
+    DIE_1 = 1,
+    DIE_MIX
+};
+
 #define DEVICE_TASK_STOP 0x7FFFFFFE
 
 #define DEVICE_TASK_TYPE_STATIC  0
