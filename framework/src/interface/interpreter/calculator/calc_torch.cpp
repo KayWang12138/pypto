@@ -99,6 +99,7 @@ static std::pair<torch::Tensor, torch::Tensor> From(LogicalTensorDataPtr data) {
     if (ScalarDataType == torch::kUInt8) {
         actualView = Fp8ToFloat32(view, raw->GetDataType());
     }
+    // view == actualView if ScalarDataType != torch::kUInt8
     return {view, actualView};
 }
 
@@ -133,7 +134,9 @@ static void Random(LogicalTensorDataPtr out) {
 static void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     auto tself = From(self);
+    std::cout << "self: " << tself.second << std::endl;
     torch::exp_out(tout.second, tself.second);
+    std::cout << "out: " << tout.second << std::endl;
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
@@ -166,9 +169,10 @@ static void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 }
 
 static void Round(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int decimals) {
-    auto ret = From(out);
-    auto src = From(self);
-    ret.copy_(torch::round(src, decimals));
+    auto tout = From(out);
+    auto tself = From(self);
+    tout.second.copy_(torch::round(tself.second, decimals));
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
@@ -194,7 +198,9 @@ static void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 
 static void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
-    torch::bitwise_not_out(tout, From(self));
+    auto tself = From(self);
+    torch::bitwise_not_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
@@ -434,58 +440,42 @@ static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
-static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tout = From(out);
     auto tself = From(self);
     auto tother = From(other);
-    auto tout = From(out);
-    
-    std::vector<int64_t> shape_self = tself.sizes().vec();
-    std::vector<int64_t> shape_other = tother.sizes().vec();
-
-    if (shape_self.size() == 2 && shape_other.size() == 2 &&
-        shape_self[0] == shape_other[0] && 
-        shape_self[1] != shape_other[1]) {
-        
-        if (shape_other[1] == 8) {
-            int64_t cols_self = shape_self[1];
-            int64_t cols_other = shape_other[1];
-            int64_t repeat_times = (cols_self + cols_other - 1) / cols_other;
-            auto tother_expanded = tother.repeat({1, repeat_times});
-            auto tother_final = tother_expanded.index(
-                {torch::indexing::Slice(), 
-                 torch::indexing::Slice(0, cols_self)});
-            torch::fmod_out(tout, tself, tother_final);
-        } else {
-            torch::fmod_out(tout, tself, tother);
-        }
-    } else {
-        torch::fmod_out(tout, tself, tother);
-    }
-}
-static void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
-    auto tout = From(out);
-    torch::bitwise_and_out(tout, From(self), From(other));
+    torch::bitwise_and_out(tout.second, tself.second, tother.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void BitwiseOr(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tout = From(out);
-    torch::bitwise_or_out(tout, From(self), From(other));
+    auto tself = From(self);
+    auto tother = From(other);
+    torch::bitwise_or_out(tout.second, tself.second, tother.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tout = From(out);
-    torch::bitwise_xor_out(tout, From(self), From(other));
+    auto tself = From(self);
+    auto tother = From(other);
+    torch::bitwise_xor_out(tout.second, tself.second, tother.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void CopySign(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tout = From(out);
-    torch::copysign_out(tout, From(self), From(other));
+    auto tself = From(self);
+    auto tother = From(other);
+    torch::copysign_out(tout.second, tself.second, tother.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tout = From(out);
-    torch::bitwise_right_shift_out(tout, From(self), From(other));
+    auto tself = From(self);
+    auto tother = From(other);
     torch::bitwise_right_shift_out(tout.second, tself.second, tother.second);
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
@@ -997,17 +987,19 @@ void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensor
 }
 
 void TriU(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
-    torch::Tensor output = From(out);
-    torch::Tensor input = From(in);
+    auto output = From(out);
+    auto input = From(in);
 
-    torch::triu_out(output, input, diagonal);
+    torch::triu_out(output.second, input.second, diagonal);
+    ToOperand(output.second, output.first, out->GetData()->GetDataType());
 }
 
 void TriL(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
-    torch::Tensor output = From(out);
-    torch::Tensor input = From(in);
+    auto output = From(out);
+    auto input = From(in);
 
-    torch::tril_out(output, input, diagonal);
+    torch::tril_out(output.second, input.second, diagonal);
+    ToOperand(output.second, output.first, out->GetData()->GetDataType());
 }
 
 void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
