@@ -24,6 +24,7 @@
 
 #include <tracr/tracr.hpp>
 
+#include "machine/utils/dynamic/dev_start_args.h"
 #include "securec.h"
 #include "device_common.h"
 #include "tilefwk/config.h"
@@ -42,6 +43,7 @@
 #include "machine/device/dynamic/aicpu_task_manager.h"
 #include "machine/device/dynamic/device_utils.h"
 #include "machine/device/dynamic/wrap_manager.h"
+#include "machine/device/dump/aicore_dump.h"
 
 namespace npu::tile_fwk::dynamic {
 
@@ -333,15 +335,15 @@ public:
                  aicpuIdx_, ret, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
     }
 
-    inline int Run(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
+    inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
         DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
-        Init(threadIdx, deviceArgs, schedIdx);
+        Init(threadIdx, devStartArgs, deviceArgs, schedIdx);
         INSTRUMENTATION_MARK_SET(threadIdx, PERF_TRACE_INIT, 0);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
         DEV_DEBUG("Schedule run init succ");
         DeviceTaskCtrl *taskCtrl = nullptr;
-        taskQueue_ = &(reinterpret_cast<SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE>*>(deviceArgs->taskQueue)[schedIdx_]);
+        taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
             ret = HandShake();
             INSTRUMENTATION_MARK_SET(threadIdx, PERF_TRACE_CORE_HAND_SHAKE, 0);
@@ -354,7 +356,7 @@ public:
                 }
                 return ret;
             }
-            reinterpret_cast<DevStartArgs *>(deviceArgs->startArgsAddr)->syncFlag = 1;
+            devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
         DEV_DEBUG("Schedule run start succ");
@@ -518,9 +520,6 @@ private:
     inline bool PreFetchNextDevTask() {
         preFetchNextDevTaskCtrl_ = nullptr;
         preFetchSuccess_ = taskQueue_->TryDequeue(preFetchNextDevTaskCtrl_);
-
-        DEV_INFO("Prefetch next dev task : success:%d, devtaskid:%lu.",
-            preFetchSuccess_, preFetchNextDevTaskCtrl_ != nullptr ? preFetchNextDevTaskCtrl_->taskId : INVALID_DEV_TASK_ID);
         return preFetchSuccess_;
     }
 
@@ -815,6 +814,11 @@ private:
         DEV_TRACE_DEBUG(LEvent(
             LUid(curTaskCtrl_->taskId, FuncID(newTask), GetRootIndex(newTask), TaskID(newTask), GetLeafIndex(newTask)),
             LActStart(coreIdx)));
+
+#if ENABLE_TENSOR_DUMP
+        // dump input tensor
+        aicoreDump_.DoDump(curDevTask_, "input", newTask, GetPhyIdByBlockId(coreIdx));
+#endif
         aicoreHal_.SetReadyQueue(coreIdx, (newTask + 1) & 0xFFFFFFFF);
         pendingIds_[coreIdx] = newTask;
         pendingResolveIndexList_[coreIdx] = 0;
@@ -1333,7 +1337,7 @@ private:
         }
     }
 
-    inline void Init(int threadIdx, DeviceArgs *deviceArgs, int schedIdx) {
+    inline void Init(int threadIdx, DevStartArgs *startArgs, DeviceArgs *deviceArgs, int schedIdx) {
         aicNum_ = static_cast<int32_t>(deviceArgs->nrAic);
         aivNum_ = static_cast<int32_t>(deviceArgs->nrAiv);
         aicpuNum_ = deviceArgs->scheCpuNum;
@@ -1353,6 +1357,10 @@ private:
         }
 
         wrapManager_.InitArchInfo(deviceArgs->archInfo);
+#if ENABLE_TENSOR_DUMP
+        aicoreDump_.Init(startArgs, schedIdx);
+#endif
+
         if (deviceArgs->machineConfig != static_cast<uint8_t>(MachineScheduleConfig::DEFAULT_SCH)) {
             if (aicpuNum_ > 1) {
                 enableFairSch_ = static_cast<uint8_t>(deviceArgs->machineConfig) &
@@ -1651,6 +1659,11 @@ private:
         aicoreProf_.ProfGet(coreIdx, stat->subGraphId, stat->taskId, const_cast<TaskStat*>(stat));
 #endif
 
+#if ENABLE_TENSOR_DUMP
+        // dump output tensor
+        aicoreDump_.DoDump(curDevTask_, "output", taskId, GetPhyIdByBlockId(coreIdx), stat->execStart, stat->execEnd);
+#endif
+
         DEV_IF_VERBOSE_DEBUG {
             recvFinTask_[coreIdx].push_back(TaskInfo(coreIdx, taskId));
         }
@@ -1712,6 +1725,7 @@ private:
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> *taskQueue_{nullptr};
     AicpuTaskManager &aicpuTaskManager_;
     AiCoreProf aicoreProf_;
+    AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
     bool isSendStop{false};
 
