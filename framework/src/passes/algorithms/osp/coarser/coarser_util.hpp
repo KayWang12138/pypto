@@ -21,13 +21,29 @@
 #include <set>
 #include <vector>
 
-#include "passes/algorithms/osp/auxiliary/permute.hpp"
+
 #include "passes/algorithms/osp/concepts/constructable_computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/graph_traits.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {
+
+template <typename T, typename Ind>
+void InversePermuteInplace(std::vector<T> &vec, std::vector<Ind> &perm) {
+    static_assert(std::is_integral_v<Ind>);
+    static_assert(std::is_unsigned_v<Ind>);
+
+    for (Ind i = 0; i < perm.size(); ++i) {
+        Ind j = i;
+        while (i != perm[i]) {
+            std::swap(vec[j], vec[perm[i]]);
+            j = perm[i];
+            std::swap(perm[j], perm[i]);
+        }
+    }
+}
+
 namespace coarser_util {
 
 template <typename GraphTOut>

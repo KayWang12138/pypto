@@ -23,9 +23,10 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include <cmath>
+#include <type_traits>
 
 #include "passes/algorithms/osp/auxiliary/datastructures/union_find.hpp"
-#include "passes/algorithms/osp/auxiliary/math/divisors.hpp"
 #include "passes/algorithms/osp/coarser/coarser.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_path_util.hpp"
 
@@ -33,6 +34,59 @@
 
 namespace npu::tile_fwk {
 namespace osp {
+
+template <typename IntegralType>
+IntegralType IntSqrtFloor(IntegralType num) {
+    static_assert(std::is_integral_v<IntegralType>);
+    if (num <= 0) {
+        return 0;
+    }
+
+    constexpr IntegralType numberTwo = 2;
+    constexpr IntegralType numberFour = numberTwo * numberTwo;
+    IntegralType sqrt = 1;
+    IntegralType numCopy = num;
+    while (numCopy >= numberFour) {
+        sqrt *= numberTwo;
+        numCopy /= numberFour;
+    }
+    IntegralType power2 = sqrt / numberTwo;
+    while (power2 > 0) {
+        IntegralType sum = sqrt + power2;
+        if (sum * sum <= num) {
+            sqrt = sum;
+        }
+        power2 /= numberTwo;
+    }
+
+    return sqrt;
+}
+
+template <typename IntegralType>
+std::vector<IntegralType> DivisorsList(IntegralType num) {
+    static_assert(std::is_integral_v<IntegralType>);
+    if (num == 0) {
+        return std::vector<IntegralType>({0});
+    } else if (num < 0) {
+        return std::vector<IntegralType>();
+    }
+
+    std::vector<IntegralType> divs;
+
+    const IntegralType ub = IntSqrtFloor<IntegralType>(num);
+    for (IntegralType div = 1; div <= ub; ++div) {
+        if (num % div == 0) {
+            divs.emplace_back(div);
+        }
+    }
+    constexpr std::size_t numberTwo = 2U;
+    const std::size_t beginIndx = divs.back() * divs.back() == num ? divs.size() - numberTwo : divs.size() - 1U;
+    for (std::size_t indx = beginIndx; indx != std::numeric_limits<std::size_t>::max(); --indx) {
+        divs.emplace_back(num / divs[indx]);
+    }
+
+    return divs;
+}
 
 namespace sarkar_params {
 

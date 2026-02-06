@@ -25,14 +25,30 @@
 #include <vector>
 
 #include "interface/utils/common.h"
-
-#include "passes/algorithms/osp/auxiliary/hash_util.hpp"
 #include "passes/algorithms/osp/dag_divider/isomorphism_divider/HashComputer.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_top_sort.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
 
 namespace npu::tile_fwk {
 namespace osp {
+
+template <typename VertexType, std::size_t defautlVal = 11U>
+struct UniformNodeHashFunc {
+    using ResultType = std::size_t;
+
+    constexpr ResultType operator()(const VertexType &) { return defautlVal; }
+};
+
+template <typename VertexType>
+struct VectorNodeHashFunc {
+    const std::vector<std::size_t> &nodeHashes_;
+
+    VectorNodeHashFunc(const std::vector<std::size_t> &nodeHashes) : nodeHashes_(nodeHashes) {}
+
+    using ResultType = std::size_t;
+
+    ResultType operator()(const VertexType &v) const { return nodeHashes_[v]; }
+};
 
 /**
  * @class MerkleHashComputer
