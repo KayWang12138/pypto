@@ -14,7 +14,6 @@
  */
 
 #pragma once
-#define PATH_MAX 4096
 #include <dlfcn.h>
 #include <sys/stat.h>
 
@@ -24,16 +23,12 @@ inline std::string RealPath(const std::string &path) {
     std::string res;
     if (path.empty()) {	
         return res;	
-    }	
-    if (path.size() >= PATH_MAX) {	
-        return res;	
-    }	
+    }
     char resolvedPath[PATH_MAX] = {0x00};
-    if (realpath(path.c_str(), resolvedPath) != nullptr) {
-        return std::string(resolvedPath);
-    } else {
+    if (realpath(path.c_str(), resolvedPath) == nullptr) {
         return res;
     }
+    return std::string(resolvedPath);
 }
 
 inline bool FileExist(const std::string &filePath) {
