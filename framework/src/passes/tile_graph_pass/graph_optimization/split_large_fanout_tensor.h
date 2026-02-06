@@ -29,19 +29,14 @@
 namespace npu::tile_fwk {
 struct ShapeDimComparator {
     bool operator()(const Shape& a, const Shape& b) const {
-        // 按字典序比较，如果维度不同，按维度大小比较
         if (a.size() != b.size()) {
             return a.size() < b.size();
         }
-        
-        // 维度相同，逐个比较元素
         for (size_t i = 0; i < a.size(); ++i) {
             if (a[i] != b[i]) {
                 return a[i] < b[i];
             }
         }
-        
-        // 完全相等的情况，返回false（set会认为这是重复的）
         return false;
     }
 };

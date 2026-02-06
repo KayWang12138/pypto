@@ -415,16 +415,6 @@ bool SplitLargeFanoutTensor::HasDuplicateToTile(std::vector<std::pair<LogicalTen
     return false;
 }
 
-void insertShapeIfNotDup(std::multiset<Shape, ShapeComparator>& set, const Shape& shape) {
-    auto range = set.equal_range(shape);
-    for (auto it = range.first; it != range.second; ++it) {
-        if (*it == shape) {
-            return;
-        }
-    }
-    set.insert(shape);
-}
-
 // 遍历所有的大tensor, 对前后不同的tileShape计算lcmShape, 并尝试拆分
 void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
     for (const auto &largeTensor : largeTensors) {
@@ -454,7 +444,13 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
                         "the largeTensor's shape.", largeTensor->GetMagic());
                     continue;
                 }
-                insertShapeIfNotDup(tileShapes, lcmShape);
+                auto range = tileShapes.equal_range(lcmShape);
+                for (auto it = range.first; it != range.second; ++it) {
+                    if (*it == lcmShape) {
+                        break;
+                    }
+                }
+                tileShapes.insert(lcmShape);
             }
         }
         for (const auto &tileShape : tileShapes) {
