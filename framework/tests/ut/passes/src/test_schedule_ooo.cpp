@@ -1725,7 +1725,7 @@ void SetInternalSubgraphIDAndAIVCore(IssueEntryPtr issue, int id) {
     }
 }
 
-void SetAttribute(ComputationalGraphBuilder subGraph, OoOScheduler &oooSchedule, IssueEntryPtr ubCopyL1, IssueEntryPtr alloc3, IssueEntryPtr copyin2) {
+void SetAttribute(ComputationalGraphBuilder &subGraph, OoOScheduler &oooSchedule, IssueEntryPtr &ubCopyL1, IssueEntryPtr &alloc3, IssueEntryPtr &copyin2) {
     IssueEntryPtr adds = GetIssueEntry("ADDS", subGraph, oooSchedule);
     ubCopyL1 = GetIssueEntry("UB_COPY_L1", subGraph, oooSchedule);
     IssueEntryPtr copyin1 = GetIssueEntry("COPY_IN1", subGraph, oooSchedule);
