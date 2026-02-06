@@ -17,6 +17,7 @@
 #include "interface/utils/file_utils.h"
 #include "machine/platform/platform_manager.h"
 #include "tilefwk/platform.h"
+#include "platform/parser/internal_parser.h"
 
 using namespace npu::tile_fwk;
 
@@ -89,8 +90,11 @@ TEST_F(PlatformTest, TestPlatfromCase1) {
 }
 
 TEST_F(PlatformTest, TestPlatformA5Stub) {
-    Platform::Instance().GetSoc().SetNPUArch(NPUArch::DAV_3510);
-    Platform::Instance().GetDie().SetMemoryPath({});
+    std::vector<std::pair<MemoryType, MemoryType>> dataPath;
+    InternalParser internalParser = InternalParser(NPUArchToString(NPUArch::DAV_3510));
+    internalParser.LoadInternalInfo();
+    EXPECT_TRUE(internalParser.GetDataPath(dataPath));
+    Platform::Instance().GetDie().SetMemoryPath(dataPath);
     std::vector<MemoryType> path;
     const int Num2 = 2;
     Platform::Instance().GetDie().FindNearestPath(MemoryType::MEM_L0C, MemoryType::MEM_UB, path);
