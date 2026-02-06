@@ -194,7 +194,7 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd) {
     return 0;
 }
 
-uint64_t AiCoreManager::taskSchedulingLoop(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd)
+uint64_t AiCoreManager::taskSchedulingLoop(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd)
 {
     // check other aicpu if idle, Prioritize remaining tasks for scheduling by other AICPUs
     if (coreRunReadyCnt_[static_cast<int>(type)] == 0 && IsExistOtherAicpuIdle(type))
@@ -234,7 +234,7 @@ uint32_t AiCoreManager::startTask(CoreType type, uint64_t newTask, int coreIdxSt
     return 1;
 }
 
-uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd)
+uint64_t AiCoreManager::DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd)
 {
     uint64_t taskCount = taskSchedulingLoop(type, readyQue, coreIdxStart, coreIdxEnd);
     if (waitTaskCnt_[static_cast<int>(type)] > 0) {
@@ -269,7 +269,7 @@ void AiCoreManager::AddTask(int coreIdx, uint64_t taskId) {
     }
 }
 
-void AiCoreManager::PushReadyQue(taskQueue *readyQue, aicoreFunction_t *idList, uint32_t idCnt) const {
+void AiCoreManager::PushReadyQue(taskQueue_t *readyQue, aicoreFunction_t *idList, uint32_t idCnt) const {
     for (uint32_t i = 0; i < idCnt; i++) readyQue->push(idList[i]);
 }
 
@@ -281,7 +281,7 @@ void AiCoreManager::ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int 
         }
         ResolveByRegVal(type, i, GetFinishedTask(i));
 
-        if (readyAicCoreFunctionQue_->wasEmpty() || readyAivCoreFunctionQue_->wasEmpty()) BatchPushReadyQueue();
+        if (readyAicCoreFunctionLockFreeQueue_->wasEmpty() || readyAivCoreFunctionLockFreeQueue_->wasEmpty()) BatchPushReadyQueue();
     }
 
     BatchPushReadyQueue();
@@ -298,7 +298,7 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         DEV_DEBUG("resolved new task, aic ready count: %lu coretype:%u\n", readyCount[aicIndex], aicIndex);
         if (readyCount[aicIndex] > 0) {
-            PushReadyQue(readyAicCoreFunctionQue_, readyIds[aicIndex], readyCount[aicIndex]);
+            PushReadyQue(readyAicCoreFunctionLockFreeQueue_, readyIds[aicIndex], readyCount[aicIndex]);
         }
         readyCount[aicIndex] = 0;
     }
@@ -310,20 +310,20 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         DEV_DEBUG("resolved new task, aiv ready count: %lu coretype:%u\n", readyCount[aivIndex], aivIndex);
         if (readyCount[aivIndex] > 0) {
-            PushReadyQue(readyAivCoreFunctionQue_, readyIds[aivIndex], readyCount[aivIndex]);
+            PushReadyQue(readyAivCoreFunctionLockFreeQueue_, readyIds[aivIndex], readyCount[aivIndex]);
         }
         readyCount[aivIndex] = 0;
     }
 
     if (readyIdsExtend[aicIndex].size() > 0) {
         DEV_DEBUG("resolved new task, extend aic ready count: %lu, coretype:%u\n", readyIdsExtend[aicIndex].size(), aicIndex);
-        PushReadyQue(readyAicCoreFunctionQue_, readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
+        PushReadyQue(readyAicCoreFunctionLockFreeQueue_, readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
         readyIdsExtend[aicIndex].clear();
     }
 
     if (readyIdsExtend[aivIndex].size() > 0) {
         DEV_DEBUG("resolved new task, extend aiv ready count: %lu, coretype:%u\n", readyIdsExtend[aivIndex].size(), aivIndex);
-        PushReadyQue(readyAivCoreFunctionQue_, readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
+        PushReadyQue(readyAivCoreFunctionLockFreeQueue_, readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
         readyIdsExtend[aivIndex].clear();
     }
 }

@@ -122,8 +122,7 @@ struct DeviceTaskCtrl {
 void SdmaPrefetch(DeviceTask *devTask);
 
 // Type to use for task queues
-// typedef pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction> taskQueue;
-typedef StaticReadyCoreFunctionQueue taskQueue;
+typedef pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction> taskQueue_t;
 
 
 class AiCoreManager {
@@ -167,14 +166,8 @@ public:
         // Now start filling the lockfree queues
         if (aicpuIdx_ == 1)
         {
-          for (size_t i = 0; i < aicCoreTaskCount; i++) readyAicCoreFunctionLockFreeQueue_->push(readyAicCoreFunctionQue_->elem[i]);
-          for (size_t i = 0; i < aivCoreTaskCount; i++) readyAivCoreFunctionLockFreeQueue_->push(readyAivCoreFunctionQue_->elem[i]);
-
-        //   for (size_t i = 0; i < aicCoreTaskCount; i++) readyAicCoreFunctionLockFreeQueue_->pop();
-        //   for (size_t i = 0; i < aivCoreTaskCount; i++) readyAivCoreFunctionLockFreeQueue_->pop();
-
-        //   for (size_t i = 0; i < aicCoreTaskCount; i++) readyAicCoreFunctionQue_->push(readyAicCoreFunctionLockFreeQueue_->pop());
-        //   for (size_t i = 0; i < aivCoreTaskCount; i++) readyAivCoreFunctionQue_->push(readyAivCoreFunctionLockFreeQueue_->pop());
+          for (size_t i = 0; i < aicCoreTaskCount; i++) readyAicCoreFunctionLockFreeQueue_->push(readyAicCoreFunctionQue_->pop());
+          for (size_t i = 0; i < aivCoreTaskCount; i++) readyAivCoreFunctionLockFreeQueue_->push(readyAivCoreFunctionQue_->pop());
 
           // Advance the initialization state to 1
           curDevTask_->initializationState = 1;
@@ -202,9 +195,9 @@ public:
     inline void RunCoreTask(DeviceTaskCtrl *taskCtrl) {
         uint64_t sentAic = 0;
         uint64_t sentAiv = 0;
-        DispatchAiCoreTask(CoreType::AIC, readyAicCoreFunctionQue_, aicStart_, aicEnd_);
+        DispatchAiCoreTask(CoreType::AIC, readyAicCoreFunctionLockFreeQueue_, aicStart_, aicEnd_);
         CountSendTask(sentAic, sentAiv);
-        DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionQue_, aivStart_, aivEnd_);
+        DispatchAiCoreTask(CoreType::AIV, readyAivCoreFunctionLockFreeQueue_, aivStart_, aivEnd_);
         CountSendTask(sentAic, sentAiv);
         uint64_t sentAicpu = 0UL;
         if constexpr (enableAicpuTask) {
@@ -240,7 +233,7 @@ private:
 
     uint32_t startTask(CoreType type, uint64_t newTask, int coreIdxStart, int coreIdxEnd);
 
-    uint64_t taskSchedulingLoop(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd);
+    uint64_t taskSchedulingLoop(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd);
 
     void DumpTaskProf();
 
@@ -254,11 +247,11 @@ private:
 
     int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
 
-    uint64_t TryBatchSendTask(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd);
+    uint64_t TryBatchSendTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd);
 
     uint32_t BatchSendTask(CoreType type, uint64_t *newTask, uint32_t taskCount, int coreIdxStart, int coreIdxEnd, bool isLifo);
 
-    uint64_t DispatchAiCoreTask(CoreType type, taskQueue* readyQue, int coreIdxStart, int coreIdxEnd);
+    uint64_t DispatchAiCoreTask(CoreType type, taskQueue_t* readyQue, int coreIdxStart, int coreIdxEnd);
 
     void SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTask);
 
@@ -266,7 +259,7 @@ private:
 
     void AddTask(int coreIdx, uint64_t taskId);
 
-    void PushReadyQue(taskQueue *readyQue, aicoreFunction_t *idList, uint32_t idCnt) const;
+    void PushReadyQue(taskQueue_t *readyQue, aicoreFunction_t *idList, uint32_t idCnt) const;
 
     void ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd);
 
@@ -489,8 +482,8 @@ private:
     SPSCQueue<DeviceTaskCtrl *, DEFAULT_QUEUE_SIZE> taskQueue_;
 
     /* prepare aicore ready task list */
-    taskQueue *readyAicCoreFunctionQue_{nullptr};
-    taskQueue *readyAivCoreFunctionQue_{nullptr};
+    StaticReadyCoreFunctionQueue *readyAicCoreFunctionQue_{nullptr};
+    StaticReadyCoreFunctionQueue *readyAivCoreFunctionQue_{nullptr};
 
     /* lock-free queues to prevent mutual exclusion when using multiple aicpu cores */
     pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction> *readyAicCoreFunctionLockFreeQueue_;

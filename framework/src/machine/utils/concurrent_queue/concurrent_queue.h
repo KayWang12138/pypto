@@ -18,20 +18,15 @@ namespace pypto::utils
 {
 
 /**
- * Templated Lockfree queue definition
- */
-template <class T>
-using lockFreeQueue_t = atomic_queue::AtomicQueueB<T>;
-
-/**
  * @brief Generic class type for concurrent queues
  *
  * Abstracts away the implementation of a concurrent queue, providing thread-safety access.
  * It also attempts to provide low overhead accesses by avoiding the need of mutex mechanisms, in favor of atomics.
  *
  * @tparam T Represents a item type to be stored in the queue
+ * @tparam D Represents the NIL value; meant to signify no more elements contained in the queue
  */
-template <class P, P D>
+template <class T, T D>
 class ConcurrentQueue
 {
   public:
@@ -42,7 +37,7 @@ class ConcurrentQueue
    * \param[in] maxEntries Indicates the maximum amount of entries
   */
   ConcurrentQueue(const size_t maxEntries)
-    : _queue(new lockFreeQueue_t<P>(maxEntries))
+    : _queue(new atomic_queue::AtomicQueueB<T, std::allocator<T>, D>(maxEntries))
   {}
 
   ~ConcurrentQueue() { delete _queue; }
@@ -52,16 +47,16 @@ class ConcurrentQueue
    *
    * \param[in] obj The object to push into the queue.
    */
-  inline void push(P obj) { _queue->push(obj); }
+  inline void push(T obj) { _queue->push(obj); }
 
   /**
    * Function to pop an object from the queue. Poping removes an object from the front of the queue and returns it to the caller. This is a thread-safe lock-free operation
    *
    * \return The until-now front object of the queue.
    */
-  inline P pop()
+  inline T pop()
   {
-    P obj = D;
+    T obj = D;
 
     // Poping next object from the lock-free queue
     _queue->try_pop(obj);
@@ -95,7 +90,7 @@ class ConcurrentQueue
   /**
    * Internal implementation of the concurrent queue
    */
-  lockFreeQueue_t<P> *_queue;
+  atomic_queue::AtomicQueueB<T, std::allocator<T>, D> *_queue;
 };
 
 } // namespace
