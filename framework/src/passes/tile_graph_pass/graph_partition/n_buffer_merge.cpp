@@ -522,7 +522,7 @@ Status NBufferMerge::NBufferMergeProcess(Function &func) {
 
 Status NBufferMerge::CheckVecNBufferSettingForManualMerge() {
     if (vecNBufferSetting.size() == 0) {
-        APASS_LOG_ERROR_F(Elements::Config, "VEC_NBUFFER_MODE is manually set to 2; Please set vecNBufferSetting to non-empty.");
+        APASS_LOG_ERROR_F(Elements::Config, "VEC_NBUFFER_MODE is manually set to %d; Please set vecNBufferSetting to non-empty.", vecNBuffermode);
         return FAILED;
     }
     for (const auto& pair : vecNBufferSetting) {
