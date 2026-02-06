@@ -316,7 +316,7 @@ namespace CostModel
             shape.emplace_back(dstTile->shape);
         }
 
-        ASSERT(!shape.empty() && !shape[0].empty() && "shape is invalid");
+        ASSERT(!shape.empty() && !shape[0].empty()) << "[simulation]: " << "shape is invalid";
 
         int shapeSize = GetMinShapeSize(shape);
         int shapeCnt = GetShapeCntSize(shape);

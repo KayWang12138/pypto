@@ -240,7 +240,8 @@ void PipeMachine::ProcessTileOp()
         if (tileOp->specialOp) {
             latency = 1;
         }
-        ASSERT(latency > 0);
+        ASSERT(latency > 0) << "[simulation]: latency must be greater than 0. latency=" 
+            << latency << " taskId=" << tileOp->taskId;
         if (l2cacheMachine) {
             if (pipeType == CostModel::CorePipeType::PIPE_MTE_IN) {
                 latency = INT_MAX;

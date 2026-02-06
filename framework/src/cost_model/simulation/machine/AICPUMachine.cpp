@@ -280,7 +280,7 @@ void AICPUMachine::ResolveDependence(const std::shared_ptr<CoreMachine> &core, u
     }
     task = taskIt->second;
     successors = task->successors;  // 复制successors以减少持锁时间
-    ASSERT(task->status == true);
+    ASSERT(task->status == true) << "[simulation]: " << "task status is false. taskId=" << task->taskId;
     RecordDependency(task);
 
     // 如果没有successor，则不需要解依赖耗时

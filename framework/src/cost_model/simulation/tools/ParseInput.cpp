@@ -377,7 +377,9 @@ void ParseInput::BuildFunction(std::shared_ptr<CostModel::SimSys> sim, npu::tile
         func->tileOps.emplace_back(tileOp);
         func->tileOpMap[tileOp->magic] = tileOp;
     }
-    ASSERT(hasCall || func->opSequenceAfterOOO_.size() == 0 || (func->tileOps.size() == func->opSequenceAfterOOO_.size()));
+    ASSERT(hasCall || func->opSequenceAfterOOO_.size() == 0 || (func->tileOps.size() == func->opSequenceAfterOOO_.size()))
+        << "[simulation]: " << "hasCall=" << hasCall << " func->opSequenceAfterOOO_.size=" << func->opSequenceAfterOOO_.size()
+        << " func->tileOps.size=" << func->tileOps.size();
     if (sim->config.useOOOPassSeq) {
         GetTileAllocSeq(parentFunc->Operations().DuplicatedOpList(), func);
     }
@@ -482,7 +484,8 @@ void ParseInput::ParseFunction(std::shared_ptr<CostModel::SimSys> sim,
 {
     if (topoFromRootFunc) {
         sim->enableExpectValue = true;
-        ASSERT(inputFuncs.size() == 1);
+        ASSERT(inputFuncs.size() == 1) << "[simulation]: inputFuncs.size is not equals to 1."
+            << "inputFuncs.size=" << inputFuncs.size();
         for (const auto &rootFunction : inputFuncs) {
             if (sim->pvLevel != PVModelLevel::PV_NON) {
                 sim->pv->Submit(rootFunction, &PvData::Instance(), static_cast<int>(sim->pvLevel), sim->outdir);
@@ -634,7 +637,8 @@ void ParseInput::ParseCalendarJson(std::shared_ptr<CostModel::SimSys> sim, const
                     {task["taskId"].get<int>(), std::stoull(task["functionHash"].get<std::string>())});
                 taskId = task["taskId"].get<int>();
                 if (sim->config.calendarMode == static_cast<uint64_t>(CalendarMode::GLOBAL_COUNTER)) {
-                    ASSERT(waitVector.size() == 1 && "task has two wait in calendar global counter");
+                    ASSERT(waitVector.size() == 1) << "[simulation]: task has two wait in calendar global counter."
+                        << "waitVector.size=" << waitVector.size();
                     sim->taskFirstSetMap[taskId] = waitVector[0].second + 1;
                 }
                 waitVector.clear();
@@ -690,7 +694,7 @@ void ParseInput::ParseFixedLatencyTask(std::shared_ptr<CostModel::SimSys> sim, s
         double exeTime = item["execTime"].get<double>();
         entry.fixedLatency = true;
         entry.fixedLatencyVal = static_cast<uint64_t>(std::trunc(exeTime * cycleConvert));
-        ASSERT(entry.fixedLatencyVal > 0);
+        ASSERT(entry.fixedLatencyVal > 0) << "[simulation]: " << "entry.fixedLatencyVal=" << entry.fixedLatencyVal;
         std::string machineType = item["coreType"];
         entry.mType = ToMachineType(machineType);
         leafMachineTypeMap[funcName] = entry.mType;
