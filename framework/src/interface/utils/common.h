@@ -157,6 +157,8 @@ inline std::string OperandTypeToStr(OperandType t) {
         {BUF_REG,    "REG"},
         { SCALAR, "SCALAR"},
         { BUF_BT, "BiasTable"},
+        {BUF_L0AMX,"L0A_MX"},
+        {BUF_L0BMX,"L0B_MX"},
     };
 
     if (strMap.count(t)) {
