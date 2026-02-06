@@ -92,3 +92,16 @@ TEST_F(TestConfigRunmode, COMPILE_STAGE_CODEGEN_BINARY) {
         output = Add(inputA, inputB);
     }
 }
+
+TEST_F(TestConfigRunmode, COMPILE_VF) {
+    config::SetPassGlobalConfig(KEY_ENABLE_VF, true);
+    const std::vector<int64_t> shape = {4, 4};
+    TileShape::Current().SetVecTile(shape);
+    Tensor inputA(DT_FP32, shape, "A");
+    Tensor inputB(DT_FP32, shape, "B");
+    Tensor output(DT_FP32, shape, "C");
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_BINARY);
+    FUNCTION("ADD", {inputA, inputB, output}) {
+        output = Add(inputA, inputB);
+    }
+}
