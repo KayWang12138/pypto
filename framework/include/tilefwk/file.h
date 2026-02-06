@@ -16,6 +16,7 @@
 #pragma once
 #include <dlfcn.h>
 #include <sys/stat.h>
+#define PATH_MAX 4096
 
 namespace npu {
 namespace tile_fwk {
