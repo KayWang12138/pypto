@@ -844,11 +844,8 @@ void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTe
 
 void GatherINL1Golden(torch::Tensor &out, const torch::Tensor &params, const torch::Tensor &indices,
     const torch::Tensor &pageTable, int64_t blockSize) {
-    const int64_t hidden_dim = params.size(1);
-    const int64_t topk_count = indices.size(1);
     const int64_t num_logical_blocks = pageTable.size(1);
     torch::Tensor logical = indices.reshape({-1}).to(torch::kLong);
-    const int64_t total_logical_tokens = num_logical_blocks * blockSize;
     torch::Tensor pt = pageTable.reshape({-1}).to(torch::kLong);
     torch::Tensor logical_block = logical.floor_divide(blockSize);
     torch::Tensor offset = logical.remainder(blockSize);
