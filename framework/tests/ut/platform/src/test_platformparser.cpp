@@ -19,6 +19,22 @@
 #include "interface/utils/file_utils.h"
 
 using namespace npu::tile_fwk;
+const std::string archInfo = "ArchInfo";
+const std::string version = "version";
+const std::string socInfo = "SoCInfo";
+const std::string aiCoreSpec = "AICoreSpec";
+const std::string shortSocVer = "Short_SoC_version";
+const std::string aiCoreCnt = "ai_core_cnt";
+const std::string cubeCoreCnt = "cube_core_cnt";
+const std::string vectorCoreCnt = "vector_core_cnt";
+const std::string aiCpuCnt = "ai_cpu_cnt";
+const std::string l0aSize = "l0_a_size";
+const std::string l0bSize = "l0_b_size";
+const std::string l0cSize = "l0_c_size";
+const std::string l1Size = "l1_size";
+const std::string ubSize = "ub_size";
+const std::string aic = "AIC";
+const std::string aiv = "AIV";
 
 class TestPlatformParser : public testing::Test {
 public:
@@ -37,20 +53,6 @@ public:
 };
 
 TEST_F(TestPlatformParser, TestParser) {
-    const std::string archInfo = "ArchInfo";
-    const std::string version = "version";
-    const std::string socInfo = "SoCInfo";
-    const std::string aiCoreSpec = "AICoreSpec";
-    const std::string shortSocVer = "Short_SoC_version";
-    const std::string aiCoreCnt = "ai_core_cnt";
-    const std::string cubeCoreCnt = "cube_core_cnt";
-    const std::string vectorCoreCnt = "vector_core_cnt";
-    const std::string aiCpuCnt = "ai_cpu_cnt";
-    const std::string l0aSize = "l0_a_size";
-    const std::string l0bSize = "l0_b_size";
-    const std::string l0cSize = "l0_c_size";
-    const std::string l1Size = "l1_size";
-    const std::string ubSize = "ub_size";
     const size_t expectAICoreCnt = 28UL;
     const size_t expectCubeCoreCnt = 28UL;
     const size_t expectVectorCoreCnt = 56UL;
@@ -100,8 +102,6 @@ TEST_F(TestPlatformParser, TestParser) {
 }
 
 TEST_F(TestPlatformParser, TestObtainPlatformInfo) {
-    const std::string aic = "AIC";
-    const std::string aiv = "AIV";
     const size_t expectAICoreCnt = 24UL;
     const size_t expectCubeCoreCnt = 24UL;
     const size_t expectVectorCoreCnt = 48UL;
