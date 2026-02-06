@@ -60,6 +60,11 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
         pto::TORS(dst, src0, src1);
         return;
     }
+
+    if constexpr (op == BinaryScalarOp::REMS) {
+        pto::TREMS(dst, src0, src1);
+        return;
+    }
 }
 
 template <BinaryScalarOp op, typename T0, typename T1, typename Scalar>
@@ -116,6 +121,35 @@ TILEOP void TMaxS(T0 dst, T1 src0, Scalar src1) {
 template <typename Scalar, typename T0, typename T1>
 TILEOP void TMinS(T0 dst, T1 src0, Scalar src1) {
     BinaryScalarCompute<BinaryScalarOp::MIN>(dst, src0, src1);
+}
+
+#define OP_TILE_OP_REMS TRemainderS
+template <typename Scalar, typename reverseOperand, typename T0, typename T1>
+TILEOP void TRemainderS(T0 dst, T1 src0, Scalar src1) {
+    if (!reverseOperand) {
+        BinaryScalarCompute<BinaryScalarOp::REMS>(dst, src0, src1);
+        return;
+    }
+    const auto dstLayout = dst.GetLayout();
+    auto shape0 = dstLayout.template GetShapeDim<DIM_1ST, MAX_DIMS>();
+    auto shape1 = dstLayout.template GetShapeDim<DIM_2ND, MAX_DIMS>();
+    auto shape2 = dstLayout.template GetShapeDim<DIM_3RD, MAX_DIMS>();
+    auto dstTile = PtoTile<T0>(dst);
+    auto src0Tile = PtoTile<T1>(src0);
+    for (LoopVar n0Index = 0; n0Index < shape0; ++n0Index) {
+        for (LoopVar n1Index = 0; n1Index < shape1; ++n1Index) {
+            for (LoopVar n2Index = 0; n2Index < shape2; ++n2Index) {
+                auto tileOffsets = TileOffset(n0Index, n1Index, n2Index);
+                dstTile.Assign(dst, tileOffsets);
+                src0Tile.Assign(src0, tileOffsets);
+                pto::TEXPANDS(dstTile, src1);
+                #ifdef __DAV_V220
+                pipe_barrier(PIPE_V);
+                #endif
+                pto::TREMS(dst, dst, src0);
+            }
+        }
+    }
 }
 
 #define OP_TILE_OP_BITWISEANDS TBitwiseAndS

@@ -73,6 +73,9 @@ void OpcodeManager::RegisterVectorBinary() {
     RegisterInfo(Opcode::OP_DIV, OpCoreType::AIV, "DIV", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tdiv", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis},
         TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_REM, OpCoreType::AIV, "REM", {MemoryType::MEM_UB, MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TRemainder", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis},
+        TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_MAXIMUM, OpCoreType::AIV, "MAXIMUM", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::Tmax", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::BROADCAST,
         {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
@@ -142,6 +145,14 @@ void OpcodeManager::RegisterVectorBinary() {
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
             OpAttributeKey::inputCombineAxis, OpAttributeKey::outputCombineAxis},
         TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_REMS, OpCoreType::AIV, "REMS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TRemainderS", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
+            OpAttributeKey::outputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_REM_RS, OpCoreType::AIV, "REM_RS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::TRemainderS", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
+        {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OpAttributeKey::inputCombineAxis,
+            OpAttributeKey::outputCombineAxis, OpAttributeKey::excludeBufferReuse}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_BITWISERIGHTSHIFTS, OpCoreType::AIV, "BITWISERIGHTSHIFTS", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
         {"TileOp::Tbitwiserightshifts", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::ELMWISE,
         {OpAttributeKey::scalar, OP_ATTR_PREFIX + "reverseOperand", OP_ATTR_PREFIX + "reverseOperand",
@@ -804,6 +815,9 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {                Opcode::OP_DIV,           "TDiv"},
     {                Opcode::OP_MOD,           "TMod"},
     {                Opcode::OP_MUL,           "TMul"},
+    {                Opcode::OP_REM,     "TRemainder"},
+    {               Opcode::OP_REMS,    "TRemainderS"},
+    {             Opcode::OP_REM_RS,    "TRemainderS"},
     {          Opcode::OP_INDEX_ADD,      "TIndexAdd"},
     {     Opcode::OP_GATHER_ELEMENT, "TgatherElement"},
     {             Opcode::OP_GATHER,        "Tgather"},

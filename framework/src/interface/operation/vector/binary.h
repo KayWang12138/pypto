@@ -49,6 +49,8 @@ enum class BinaryOpType {
     MINIMUM,
     CMP,
     MOD,
+    REM,
+    REM_R,
     BITWISEAND,
     BITWISEOR,
     BITWISEXOR,
@@ -67,6 +69,8 @@ std::string GetBinaryOpName() {
         case BinaryOpType::MINIMUM: return "MINIMUM";
         case BinaryOpType::POW: return "POW";
         case BinaryOpType::MOD:return "MOD";
+        case BinaryOpType::REM:return "REM";
+        case BinaryOpType::REM_R:return "REM_R";
         case BinaryOpType::CMP:return "CMP";
         case BinaryOpType::S_ADD: return "S_ADD";
         case BinaryOpType::S_SUB: return "S_SUB";
@@ -94,6 +98,8 @@ Opcode GetBinaryOpNameCode() {
             CASE(MAX);
             CASE(MIN);
             CASE(MOD);
+            CASE(REM);
+            CASE(REM_R);
             CASE(S_ADD);
             CASE(S_SUB);
             CASE(S_MUL);
@@ -140,6 +146,7 @@ Opcode GetBinaryOpNameCode() {
         CASE(MINIMUM);
         CASE(POW);
         CASE(MOD);
+        CASE(REM);
         CASE(BITWISEAND);
         CASE(BITWISEOR);
         CASE(BITWISEXOR);
@@ -161,18 +168,18 @@ LogicalTensorPtr TensorBinaryOperation(Function &function, const Tensor &operand
     auto oprandT1 = operand1.GetStorage();
     auto oprandT2 = operand2.GetStorage();
     if (oprandT1->shape.size() != oprandT2->shape.size()) {
-        std::vector<int> broadCastShape = GetBroadCastShape(oprandT1, oprandT2);
+        std::vector<int> broadCastShape = GetBroadCastShape(oprandT1, oprandT2); // 只有维数不同时才广播
         oprandT1 = BinaryOperationBroadCast(oprandT1, broadCastShape);
         oprandT2 = BinaryOperationBroadCast(oprandT2, broadCastShape);
     }
     auto opName = GetBinaryOpName<T>();
-    CheckBinaryInputTensors(oprandT1, oprandT2, opName);
+    CheckBinaryInputTensors(oprandT1, oprandT2, opName); //检查数据类型、形状大小
 
     std::vector<SymbolicScalar> resultValidShape;
     std::vector<int64_t> resultShape = BinaryOperationResultShape(oprandT1, oprandT2);
     if ((!oprandT1->GetDynValidShape().empty()) && (!oprandT2->GetDynValidShape().empty())) {
         for (size_t i = 0; i < resultShape.size(); ++i) {
-            if (resultShape[i] == oprandT1->shape[i]) {
+            if (resultShape[i] == oprandT1->shape[i]) { //resultvalidshape更新到最大shape
                 resultValidShape.push_back(operand1.GetStorage()->GetDynValidShape()[i]);
             } else {
                 resultValidShape.push_back(operand2.GetStorage()->GetDynValidShape()[i]);
