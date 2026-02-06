@@ -551,6 +551,69 @@ TILEOP void MoeCombineFFNSiLUFusionDispatch(
     }
 }
 
+template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
+TILEOP void MoeCombineFFNFusedRunCrossCore(
+    MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape>& ctx,
+    __gm__ T* workspace,
+    __ubuf__ float* mulFp32Buffer,
+    int64_t rowOffset)
+{
+    uint32_t expertIdx = 0;
+#if defined(__DAV_C220_VEC__)
+    const uint64_t M = ctx.rowShape;
+    const uint64_t N = intermediateSize;
+
+    MoeCombineFFNFusedAIV<T, topK, colShape, paddedColShape, intermediateSize>(ctx, expertIdx);
+    PYPTO_SYNC_ALL();
+    PYPTO_CROSS_CORE_SET(0x2, PIPE_MTE3, expertIdx + 1);
+
+    PYPTO_CROSS_CORE_WAIT(0x2, FFN_SILU_FLAG_OFFSET + expertIdx);
+
+    uint64_t combineSize = static_cast<uint64_t>(ctx.rowShape) * colShape;
+    __gm__ T* gateResultPtr = workspace + combineSize;
+    __gm__ T* upResultPtr = gateResultPtr + M * N;
+    __gm__ T* intermediatePtr = upResultPtr + M * N;
+
+    MoeCombineFFNSiLUFusionDispatch<T>(
+        intermediatePtr, gateResultPtr, upResultPtr, mulFp32Buffer, M * N);
+
+    PYPTO_SYNC_ALL();
+    PYPTO_CROSS_CORE_SET(0x2, PIPE_MTE3, FFN_SILU_FLAG_OFFSET + expertIdx + 1);
+#else
+    (void)workspace;
+    (void)mulFp32Buffer;
+#endif
+
+#if defined(__DAV_C220_CUBE__)
+    PYPTO_CROSS_CORE_WAIT(0x2, expertIdx + 1);
+    MoeCombineFFNFusedAIC<T, topK, colShape, paddedColShape, intermediateSize>(
+        ctx, expertIdx, static_cast<uint32_t>(rowOffset), ctx.rowShape);
+#else
+    (void)rowOffset;
+#endif
+}
+
+template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
+TILEOP void MoeCombineFFNFusedRunSingleCore(
+    MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape>& ctx,
+    int64_t rowOffset)
+{
+    uint32_t expertIdx = 0;
+#if defined(__DAV_C220_VEC__)
+    // No cross-core sync support: keep serial execution and only run combine on vector cores.
+    MoeCombineFFNFusedAIV<T, topK, colShape, paddedColShape, intermediateSize>(ctx, expertIdx);
+#elif defined(__DAV_C220_CUBE__)
+    // No cross-core sync support: cube core runs combine first, then runs single-core FFN.
+    MoeCombineFFNFusedAIV<T, topK, colShape, paddedColShape, intermediateSize>(ctx, expertIdx);
+    MoeCombineFFNFusedAICSingleCore<T, topK, colShape, paddedColShape, intermediateSize>(
+        ctx, static_cast<uint32_t>(rowOffset), ctx.rowShape);
+#else
+    (void)ctx;
+    (void)rowOffset;
+    (void)expertIdx;
+#endif
+}
+
 template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
 TILEOP void MoeCombineFFNFusedKernel(
     __gm__ T* ffnOutput,
@@ -590,46 +653,11 @@ TILEOP void MoeCombineFFNFusedKernel(
     ctx.rowShape = rowShape;
     ctx.intermediateSize = intermediateSize;
 
-    const uint64_t M = rowShape;
-    const uint64_t N = intermediateSize;
-
-    uint32_t expertIdx = 0;
 #if PYPTO_FFN_FUSED_CROSS_CORE
-#if defined(__DAV_C220_VEC__)
-    MoeCombineFFNFusedAIV<T, topK, colShape, paddedColShape, intermediateSize>(ctx, expertIdx);
-    PYPTO_SYNC_ALL();
-    PYPTO_CROSS_CORE_SET(0x2, PIPE_MTE3, expertIdx + 1);
-
-    PYPTO_CROSS_CORE_WAIT(0x2, FFN_SILU_FLAG_OFFSET + expertIdx);
-
-    uint64_t combineSize = static_cast<uint64_t>(rowShape) * colShape;
-    __gm__ T* gateResultPtr = workspace + combineSize;
-    __gm__ T* upResultPtr = gateResultPtr + M * N;
-    __gm__ T* intermediatePtr = upResultPtr + M * N;
-
-    MoeCombineFFNSiLUFusionDispatch<T>(
-        intermediatePtr, gateResultPtr, upResultPtr, mulFp32Buffer, M * N);
-
-    PYPTO_SYNC_ALL();
-    PYPTO_CROSS_CORE_SET(0x2, PIPE_MTE3, FFN_SILU_FLAG_OFFSET + expertIdx + 1);
-#endif
-#if defined(__DAV_C220_CUBE__)
-    PYPTO_CROSS_CORE_WAIT(0x2, expertIdx + 1);
-    MoeCombineFFNFusedAIC<T, topK, colShape, paddedColShape, intermediateSize>(
-        ctx, expertIdx, static_cast<uint32_t>(rowOffset), rowShape);
-#endif
+    MoeCombineFFNFusedRunCrossCore<T, topK, colShape, paddedColShape, intermediateSize>(
+        ctx, workspace, mulFp32Buffer, rowOffset);
 #else
-#if defined(__DAV_C220_VEC__) || defined(__DAV_C220_CUBE__)
-    MoeCombineFFNFusedAIV<T, topK, colShape, paddedColShape, intermediateSize>(ctx, expertIdx);
-#endif
-#if defined(__DAV_C220_CUBE__)
-    MoeCombineFFNFusedAICSingleCore<T, topK, colShape, paddedColShape, intermediateSize>(
-        ctx, static_cast<uint32_t>(rowOffset), rowShape);
-#else
-    (void)M;
-    (void)N;
-    (void)expertIdx;
-#endif
+    MoeCombineFFNFusedRunSingleCore<T, topK, colShape, paddedColShape, intermediateSize>(ctx, rowOffset);
 #endif
 }
 
