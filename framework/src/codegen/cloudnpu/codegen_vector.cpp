@@ -1574,6 +1574,42 @@ std::string CodeGenOpCloudNPU::GenCmpOp() const {
     return oss.str();
 }
 
+
+std::string CodeGenOpCloudNPU::PrintHypotTileTensor() const {
+    // 定义 Tensor 索引，参考 Cmp 和 BitwiseShift 的逻辑
+    // 带有 tmp buffer 的二元算子通常布局: Dst(0), Tmp(1), Src0(2), Src1(3)
+    enum class TensorIdx : int { dstIdx = 0, tmpIdx, src0Idx, src1Idx };
+    
+    // 根据索引查询生成的 TileTensor 变量名
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::dstIdx));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::tmpIdx));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::src0Idx));
+    std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::src1Idx));
+
+    // 构建调用参数列表
+    // 注意：顺序必须与 hypot.h 中的 THypot(dst, src0, src1, tmpbuf) 保持一致
+    std::vector<std::string> tileOpParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
+
+    std::ostringstream oss;
+    oss << tileOpName; // 输出算子名称，例如 "THypot"
+    
+    // Hypot 算子不需要像 Cmp 那样传递 <cmpOp, mode> 等模板参数
+    // 数据类型 T 会由编译器根据传入的 TileTensor 类型自动推导
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << STMT_END; // 输出 ";\n"
+    
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenHypotOp() const {
+    // 参考 GenBitwiseShiftOp 的实现风格
+    // 由于 hypot.h 中的实现严重依赖 TileTensor 的接口 (如 GetLayout, GetAddr)，
+    // 这里强制要求开启 Layout 支持。如果未来需要支持 Raw Buffer 模式，需重写 Kernel 适配。
+    ASSERT(isSupportLayout) << "Hypot only support tile tensor";
+    
+    return PrintHypotTileTensor();
+}
+
 std::string CodeGenOpCloudNPU::PrintLogicalAndTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
