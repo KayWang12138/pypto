@@ -25,7 +25,7 @@ inline std::string RealPath(const std::string &path) {
     if (path.empty()) {	
         return res;	
     }	
-    if (path.size() >= PATH_MAX) {	
+    if (path.size() >= BUFFERSIZE) {	
         return res;	
     }	
     char resovedPath[BUFFERSIZE] = {0x00};
