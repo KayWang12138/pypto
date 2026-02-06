@@ -13,93 +13,12 @@
  * \brief
  */
 
-#include <limits>
-#include <fstream>
-#include "tilefwk/file.h"
-#include "tilefwk/platform.h"
-
-#ifdef BUILD_WITH_CANN
-#include "runtime/rt.h"
-#endif
+#include "platform_parser.h"
 
 namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
-const std::string platformConfigEnv = "PLATFORM_CONFIG_PATH";
 const std::string version = "version";
-const std::string instrinsicMap = "AICoreintrinsicDtypeMap";
-const std::string aic = "AIC";
-const std::string aiv = "AIV";
-const std::string aicVersion = "AIC_version";
-const std::string aivVersion = "AIV_version";
-const std::string ccecAicVersion = "CCEC_AIC_version";
-const std::string ccecAivVersion = "CCEC_AIV_version";
-const std::string ccecCubeVersion = "CCEC_CUBE_version";
-const std::string ccecVectorVersion = "CCEC_VECTOR_version";
-
-bool PlatformParser::FilterCCECVersion(const std::string& key, std::string &coreType) const {
-    const std::string prefix = "CCEC_";
-    const std::string suffix = "_version";
-    const size_t prefixLen = prefix.length();
-    const size_t suffixLen = suffix.length();
-    if (key.length() >= (prefixLen + suffixLen) &&
-        key.substr(0, prefixLen) == prefix &&
-        key.substr(key.length() - suffixLen) == suffix) {
-        coreType = key.substr(prefixLen, key.length() - prefixLen - suffixLen);
-        return true;
-    } else {
-        return false;
-    }
-}
-
-bool PlatformParser::GetSizeVal(const std::string& column, const std::string& key, size_t& val) const {
-    std::string valStr;
-    const size_t max_size_t = std::numeric_limits<size_t>::max();
-    if (!GetStringVal(column, key, valStr)) {
-        return false;
-    }
-    val = 0UL;
-
-    constexpr int    kRadix10    = 10;
-    constexpr int    kMaxDigit10 = kRadix10 - 1;
-
-    for (const char &c : valStr) {
-        int digit = c - '0';
-        if (digit < 0 || digit > kMaxDigit10) {
-            return false;
-        }
-        if (val > (max_size_t - digit) / kRadix10) {
-            return false;
-        }
-        val = val * kRadix10 + digit;
-    }
-    return true;
-}
-
-bool PlatformParser::GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const {
-    const std::vector<std::string> ccecVersions = {ccecAicVersion, ccecAivVersion, ccecCubeVersion, ccecVectorVersion};
-    ccecVersion.clear();
-    std::string coreType;
-    std::string versionVal;
-    for (const auto &curVersion : ccecVersions) {
-        if (FilterCCECVersion(curVersion, coreType) && GetStringVal(version, curVersion, versionVal)) {
-            ccecVersion[coreType] = versionVal;
-        }
-    }
-    return true;
-}
-
-bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const {
-    curVersion.clear();
-    std::string versionVal;
-    if (GetStringVal(version, aicVersion, versionVal)) {
-        curVersion[aic] = versionVal;
-    }
-    if (GetStringVal(version, aivVersion, versionVal)) {
-        curVersion[aiv] = versionVal;
-    }
-    return true;
-}
 
 bool INIParser::Initialize(const std::string &iniFilePath) {
     if (!ReadINIFile(iniFilePath)) {

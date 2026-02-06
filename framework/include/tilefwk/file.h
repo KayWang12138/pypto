@@ -21,25 +21,19 @@
 namespace npu {
 namespace tile_fwk {
 inline std::string RealPath(const std::string &path) {
-    if (path.empty()) {
-        return "";
-    }
-    if (path.size() >= PATH_MAX) {
-        return "";
-    }
-
-    // PATH_MAX is the system marco, indicate the maximum length for file path
-    // pclint check one param in stack can not exceed 1K bytes
-    char resovedPath[PATH_MAX] = {0x00};
-
     std::string res;
-
-    // path not exists or not allowed to read return nullptr
-    // path exists and readable, return the resoved path
-    if (realpath(path.c_str(), resovedPath) != nullptr) {
-        res = resovedPath;
+    if (path.empty()) {	
+        return res;	
+    }	
+    if (path.size() >= PATH_MAX) {	
+        return res;	
+    }	
+    char resolvedPath[PATH_MAX] = {0x00};
+    if (realpath(path.c_str(), resolvedPath) != nullptr) {
+        return std::string(resolvedPath);
+    } else {
+        return res;
     }
-    return res;
 }
 
 inline bool FileExist(const std::string &filePath) {
