@@ -343,8 +343,8 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 void Platform::ObtainPlatformInfo() {
     std::string srcPath;
     int ret = 1;
-#ifdef BUILD_WITH_CANN
     char socVer[kMaxLength] = {0};
+#ifdef BUILD_WITH_CANN
     ret = rtGetSocVersion(socVer, kMaxLength);
 #endif
     if (ret == 1) {
