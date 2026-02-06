@@ -38,6 +38,7 @@
 #include <vector>
 
 #include "securec.h"
+#include "core/error.h"
 
 namespace pypto {
 
