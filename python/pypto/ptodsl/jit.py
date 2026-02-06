@@ -252,8 +252,6 @@ def jit(target: str = None, optimize: bool = True, cache: bool = True,
             #     return _compiled_cache[name](*args, **kwargs_)
             
             # 否则回退到Python执行
-            print(f"[pto] Warning: JIT function '{name}' not compiled, "
-                  f"falling back to Python execution")
             return f(*args, **kwargs_)
         
         return wrapper

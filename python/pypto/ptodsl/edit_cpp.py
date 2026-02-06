@@ -117,7 +117,6 @@ def convert(content: str) -> str:
         ):
             out.append("\n")
             out.append(MACRO_IF)
-            out.append("  set_mask_norm();\n")
 
         # Find "  return;" or "  return ;" to insert #else/#endif before it
         if return_line_index < 0 and re.match(r"^\s*return\s*;\s*$", line_no_newline):
