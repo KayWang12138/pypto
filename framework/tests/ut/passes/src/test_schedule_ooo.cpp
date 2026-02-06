@@ -1691,4 +1691,44 @@ TEST_F(ScheduleOoOTest, TestOoO1C2V) {
     EXPECT_EQ(op4->GetInternalSubgraphID(), 2);
 }
 
+TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
+    ComputationalGraphBuilder subGraph;
+    std::vector<std::string> tensorL1Names{"t1", "t2"};
+    std::vector<MemoryType> tensorL1MemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1};
+    std::vector<std::string> tensorNames{"UB1", "UB2", "L0A1", "L0A2", "DDR1", "DDR2"};
+    std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
+        MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
+
+    std::vector<Opcode> opCodes{Opcode::OP_L1_ALLOC, Opcode::OP_L1_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_UB_ALLOC, Opcode::OP_L0A_ALLOC,
+        Opcode::OP_L0A_ALLOC, Opcode::OP_ADDS, Opcode::OP_UB_COPY_L1, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN, Opcode::OP_COPY_IN,
+        Opcode::OP_COPY_OUT, Opcode::OP_COPY_OUT};
+
+    std::vector<std::vector<std::string>> ioperands{{}, {}, {}, {}, {}, {}, {"UB1"}, {"UB2"}, {"t1"}, {"t1"}, {"L0A1"}, {"t2"}, {"L0A2"}};
+    std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}, {"UB1"}, {"UB2"}, {"L0A1"}, {"L0A2"},
+        {"UB2"}, {"t1"}, {"L0A1"}, {"L0A2"}, {"t2"}, {"DDR1"}, {"DDR2"}};
+    std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "UB_Alloc1", "UB_Alloc2", "L0A_Alloc1", "L0A_Alloc2",
+    "ADDS", "UB_COPY_L1", "COPY_IN1", "COPY_IN2", "COPY_IN3", "COPY_OUT1", "COPY_OUT2"};
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 512}, tensorL1MemTypes, tensorL1Names, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
+    EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
+    Function *function = subGraph.GetFunction();
+    OptimizeSort optimizeSort(function->Operations().DuplicatedOpList(), *function);
+    Status res = optimizeSort.SortOps();
+    EXPECT_EQ(res, SUCCESS);
+    auto opList = optimizeSort.operations;
+    OoOScheduler oooSchedule(*function);
+    res = oooSchedule.init(opList);
+    EXPECT_EQ(oooSchedule.issueEntries.size(), 13);
+    EXPECT_NE(GetIssueEntry("COPY_IN2", subGraph, ooOScheduler), nullptr);
+    EXPECT_NE(GetIssueEntry("UB_COPY_L1", subGraph, ooOScheduler), nullptr);
+    IssueEntryPtr issue1 = GetIssueEntry("COPY_IN2", subGraph, ooOScheduler);
+    IssueEntryPtr issue2 = GetIssueEntry("UB_COPY_L1", subGraph, ooOScheduler);
+    EXPECT_EQ(oooSchedule.issueEntryMap[issue->predecessors[1], issue2);
+    EXPECT_EQ(res, SUCCESS);
+    res = oooSchedule.GenSpillSchedule();
+    EXPECT_EQ(res, SUCCESS);
+    EXPECT_NE(oooSchedule.issueEntryMap[issue->predecessors[1], issue2);
+    EXPECT_EQ(oooSchedule.issueEntries.size(), 16);
+}
+
 } // namespace npu::tile_fwk

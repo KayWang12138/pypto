@@ -369,7 +369,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
 
 Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr spillCopyout, int &bufLastUseOrder) {
     auto spillIssue = spillInfo.spillIssue_;
-    if (spillIssue->tileOp.find("L0C_COPY_L1") == std::string::npos || spillIssue->tileOp.find("UB_COPY_L1") == std::string::npos) {
+    if (spillIssue->tileOp.GetOpcodeStr().find("L0C_COPY_L1") == std::string::npos || spillIssue->tileOp.GetOpcodeStr().find("UB_COPY_L1") == std::string::npos) {
         APASS_LOG_ERROR_F(Elements::Operation, "spillIssue %s is not COPY_IN/UB_COPY_L1/UB_COPY_L1 in A5 L1 spill", spillIssue->GetOpInfo().c_str());
         return FAILED;
     }
@@ -530,7 +530,7 @@ LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperan
     return localTensor;
 }
 
-void OoOScheduler::UpdateAssembleSpillAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder) {
+void OoOScheduler::UpdateAssembleSpillAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue) {
     UpdateOpInternalSubgraphID(newOp, allocIssue);
     IssueEntryPtr newIssue = std::make_shared<IssueEntry>(newOp, issueId);
     issueEntryMap[issueId++] = newIssue;
@@ -555,7 +555,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         Opcode allocOp = assembleTensor->GetMemoryTypeToBe() == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
         auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
         spillAllocOp.UpdateLatency(1);
-        UpdateAssembleSpillAttr(spillAllocOp, {assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder);
+        UpdateAssembleSpillAttr(spillAllocOp, {assembleTensor->memoryrange.memId}, allocIssue);
         isFirst = false;
     }
     // copyin
@@ -571,13 +571,14 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
                 iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
                 OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
     spillCopyInOp.UpdateLatency(DEFAULT_LATENCY);
-    UpdateAssembleSpillAttr(spillCopyInOp, {assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder);
+    UpdateAssembleSpillAttr(spillCopyInOp, {assembleTensor->memoryrange.memId}, allocIssue);
     // assemble
     auto &assembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
     assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleAttr->GetFrom(), 
         assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset(), assembleAttr->GetFromDynValidShape()));
     assembleOp.UpdateLatency(1);
-    UpdateAssembleSpillAttr(assembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder);
+    UpdateAssembleSpillAttr(assembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId}, allocIssue);
+    bufNextUseOrder--;
     return SUCCESS;
 }
 
@@ -734,7 +735,7 @@ void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntry
 bool OoOScheduler::CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue) {
     auto spillOp = spillIssue->tileOp.GetOpcodeStr();
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
-        (spillOp.find("L0C_COPY_L1") != std::string::npos || spillOp.find("UB_COPY_L1") != std::string::npos)) {
+        (spillOp.find("COPY_IN") != std::string::npos || spillOp.find("L0C_COPY_L1") != std::string::npos || spillOp.find("UB_COPY_L1") != std::string::npos)) {
         return false;
     }
     return true;
