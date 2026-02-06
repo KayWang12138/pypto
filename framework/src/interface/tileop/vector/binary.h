@@ -105,6 +105,11 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     }
 }
 
+if constexpr (op == BinaryOp::REM) {
+        pto::TREM(dst, src0, src1);
+        return;
+}  
+
 template <BinaryOp op, TileOp::BroadcastOperand operand, typename LastUse, typename T0, typename T1, typename T2>
 TILEOP void BinaryCompute(T0 dst, T1 src0, T2 src1) {
     constexpr auto shapeSize = Std::tuple_size<typename T0::Shape>::value;
@@ -177,9 +182,22 @@ TILEOP void TMax(T0 dst, T1 src0, T2 src1) {
 }
 
 #define OP_TILE_OP_MIN TMin
+#define OP_TILE_OP_MIN TMin
 template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
     BinaryCompute<BinaryOp::MIN, operand, LastUse>(dst, src0, src1);
+}
+
+#define OP_TILE_OP_MIN TRem
+template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+TILEOP void TMin(T0 dst, T1 src0, T2 src1) {
+    BinaryCompute<BinaryOp::MIN, operand, LastUse>(dst, src0, src1);
+}
+
+#define OP_TILE_OP_MIN TRem
+template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+TILEOP void TRemainder(T0 dst, T1 src0, T2 src1) {
+    BinaryCompute<BinaryOp::REM, operand, LastUse>(dst, src0, src1);
 }
 
 #define OP_TILE_OP_BITWISEAND TBitwiseAnd
