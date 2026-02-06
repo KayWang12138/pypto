@@ -367,16 +367,21 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     return SUCCESS;
 }
 
-Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr spillCopyout, int &bufLastUseOrder) {
-    auto actualSpillTensor = spillInfo.spillIssue_->tileOp.GetInputOperand(0);
+Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr spillCopyout, int &bufLastUseOrder) {
+    auto spillIssue = spillInfo.spillIssue_;
+    if (spillIssue->tileOp.find("L0C_COPY_L1") == std::string::npos || spillIssue->tileOp.find("UB_COPY_L1") == std::string::npos) {
+        APASS_LOG_ERROR_F(Elements::Operation, "spillIssue %s is not COPY_IN/UB_COPY_L1/UB_COPY_L1 in A5 L1 spill", spillIssue->GetOpInfo().c_str());
+        return FAILED;
+    }
+    auto actualSpillTensor = spillIssue->tileOp.GetInputOperand(0);
     IssueEntryPtr actualSpillIssue = nullptr;
-    for (auto &preId : spillInfo.spillIssue_->predecessors) {
+    for (auto &preId : spillIssue->predecessors) {
         if (!issueEntryMap[preId]->isAlloc) {
             actualSpillIssue = issueEntryMap[preId];
         }
     }
     if (actualSpillIssue == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ActualSpillIssue is nullptr. Please check the preceding dependencies of spillIssue %s ", spillInfo.spillIssue_->GetOpInfo().c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "ActualSpillIssue is nullptr. Please check the preceding dependencies of spillIssue %s ", spillIssue->GetOpInfo().c_str());
         return FAILED;
     }
     if (actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
@@ -384,10 +389,10 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr 
         return FAILED;
     }
     if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(spillIssue->tileOp).c_str());
         return FAILED;
     }
-    bufLastUseOrder = GetBufLastUseOrder(issue, actualSpillTensor->memoryrange.memId);
+    bufLastUseOrder = GetBufLastUseOrder(allocIssue, actualSpillTensor->memoryrange.memId);
     return SUCCESS;
 }
 
@@ -399,7 +404,7 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
     IssueEntryPtr spillCopyout = nullptr;
     int bufLastUseOrder = -1;
     if (spillInfo.isSpecialL1_) {
-        if (CreateSpecialL1Copyout(spillInfo, spillCopyout, bufLastUseOrder) != SUCCESS) {
+        if (CreateSpecialL1Copyout(spillInfo, issue, spillCopyout, bufLastUseOrder) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "SpecialL1 CreateSpillCopyout failed!");
             return FAILED;
         }
@@ -671,7 +676,8 @@ Status OoOScheduler::GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool
     spillInfo.spillTensor_ = spillTensor;
     spillInfo.spillIssue_ = spillIssue;
     spillInfo.spillMemId_ = spillMemId;
-    if (!CheckMachineAndL1(spillIssue, allocIssue)) {
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
+        spillIssue->tileOp.GetOpcodeStr().find("COPY_IN") == std::string::npos) {
         spillInfo.isSpecialL1_ = true;
     }
     return SUCCESS;
@@ -686,7 +692,7 @@ Status OoOScheduler::SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int>
             return FAILED;
         }
         if (spillInfo.spillIssue_->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
-            if (allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
+            if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Failed to spill %d in L1 spill. SpillIssue is assemble op.", spillMemId);
                 return FAILED;
             }
