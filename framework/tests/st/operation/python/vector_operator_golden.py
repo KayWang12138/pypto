@@ -24,6 +24,7 @@ import random
 import numpy as np
 import torch
 import torch.nn.functional as F
+import torch._prims as prims
 import copy
 
 g_src_root: Path = Path(Path(__file__).parent, "../../../../").resolve()
@@ -2012,6 +2013,39 @@ def scatter_tensor_golden_func(inputs, config: dict):
 def gen_scatter_tensor_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("ScatterTensor", scatter_tensor_golden_func, output, case_index)
+
+
+# @TestCaseLoader.reg_params_handler(ops=["Var"])
+# def params_axis_reduce_func(params: dict):
+#     params["axis"] = int(params.get("axis"))
+#     params["reduce"] = "" if params["reduce"] is None else params["reduce"]
+#     return params
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestVar/VarOperationTest.TestVar",
+    ]
+)
+def gen_var_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs, config: dict):
+        params = config.get("params")
+        axis = params["axis"]
+        output_tensors_type = config["output_tensors"][0]["dtype"]
+        inputdata_type = get_dtype_by_name(output_tensors_type)
+        if inputdata_type == bfloat16:
+            inputs_tensors = [
+                torch.as_tensor(x.astype(np.float32)).to(torch.bfloat16) for x in inputs
+            ]
+        else:
+            inputs_tensors = [torch.as_tensor(x) for x in inputs]
+        res = torch.cat(inputs_tensors, dim=axis)
+        if inputdata_type == bfloat16:
+            res = res.to(torch.float32).numpy().astype(bfloat16)
+            return [res]
+        return [res.numpy()]
+
+    return gen_op_golden("Var", scatter_tensor_golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(
