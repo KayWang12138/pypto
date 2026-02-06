@@ -775,7 +775,7 @@ void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopy
     LogicalTensor copyOutOutput(function, input->Datatype(), copyShape);
     copyOutOutput.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     auto copyOutOutputPtr = std::make_shared<LogicalTensor>(std::move(copyOutOutput));
-    auto &copyOutOp = function.AddRawOperation(Opcode::OP_COPY_OUT, {input}, {copyOutOutputPtr});
+    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {input}, {copyOutOutputPtr});
 
     copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         input->GetMemoryTypeOriginal(),
@@ -788,7 +788,7 @@ void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopy
     LogicalTensor CopyInOutput(function, input->Datatype(), copyShape);
     CopyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
     auto CopyInOutputPtr = std::make_shared<LogicalTensor>(std::move(CopyInOutput));
-    auto &copyInOp = function.AddRawOperation(Opcode::OP_COPY_IN, {copyOutOutputPtr}, {CopyInOutputPtr});
+    auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyOutOutputPtr}, {CopyInOutputPtr});
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(offset),
         input->GetMemoryTypeOriginal(),
