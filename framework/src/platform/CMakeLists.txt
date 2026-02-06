@@ -8,8 +8,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-file(GLOB_RECURSE _Platform_Srcs *.cpp)
-file(GLOB _Interface_Srcs
+file(GLOB _Platform_Srcs
         *.cpp
         parser/*.cpp
         simulation_platform/*.cpp
