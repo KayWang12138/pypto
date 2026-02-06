@@ -72,7 +72,6 @@ target_compile_definitions(tile_fwk_platform_stub
 )
 target_link_libraries(tile_fwk_platform_stub
         PUBLIC
-            $<BUILD_INTERFACE:$<$<AND:$<NOT:$<BOOL:${ENABLE_UTEST}>>,$<BOOL:${BUILD_WITH_CANN}>>:hcomm>>
  	        $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_UTEST}>:hccl_stubs>>
         PRIVATE
             intf_pub_cxx17
