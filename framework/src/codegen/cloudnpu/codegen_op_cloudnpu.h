@@ -91,7 +91,7 @@ public:
     std::string GenVectorScalarOp() const;
     std::string GenBinaryOpWithTmp() const;
     std::string GenVectorScalarOpWithTmp() const;
-
+    std::string PrintVectorReverseScalarTileTensor() const;
     std::string GenCubeOpMatmul() const;
     std::string GenCubeOpMatmulAcc() const;
 
@@ -387,7 +387,7 @@ private:
     std::string PrintIndexOutCastDynamicUnaligned(const PrintIndexOutCastParam &param) const;
 
     std::string PrintExpandDynamicUnaligned(const PrintUnaryParam &param, int expandAxis) const;
-    std::string PrintExpandLayout(int expandAxis) const;
+    std::string PrintExpandLayout(const int expandAxis) const;
     std::string PrintExpand(const std::string &s0Var, const std::string &dVar, const std::string &srcDtypeStr,
         const std::string &dstDtypeStr) const;
     std::string PrintOneHot(const PrintUnaryParam &param) const;
@@ -416,7 +416,7 @@ private:
     std::string PrintCastDynamicUnaligned(const PrintUnaryParam &param) const;
     std::string PrintCastTileTensor() const;
     std::string PrintReduceCombine(const PrintUnaryTmpBuffParam &param) const;
-    std::string PrintVectorScalarTileTensor(const PrintUnaryParam &param) const;
+    std::string PrintVectorScalarTileTensor() const;
     std::string PrintVectorScalarOpDynamicUnalign(const PrintUnaryParam &param) const;
     std::string PrintMemL1ToL0TileTensor() const;
     std::string PrintMatmulTileTensor(bool isAcc) const;

@@ -218,6 +218,10 @@ stest:
       - TestTriU/TriUOperationTest.TestTriU/8
       - TestTriU/TriUOperationTest.TestTriU/10
       - TestTriL/TriLOperationTest.TestTriL/1
+      - TestRemainder/RemainderOperationTest.TestRemainder/1
+      - TestRemainder/RemainderOperationTest.TestRemainder/2
+      - TestRemainderS/RemainderSOperationTest.TestRemainderS/3
+      - TestRemainderRS/RemainderSOperationTest.TestRemainderRS/10
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/20
       - TestIndexAdd/IndexAddOperationTest.TestIndexAdd/21
       - TestLogicalAnd/LogicalAndOperationTest.TestLogicalAnd/0
