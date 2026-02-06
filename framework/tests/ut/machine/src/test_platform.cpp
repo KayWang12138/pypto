@@ -74,22 +74,6 @@ TEST_F(PlatformTest, TestPlatfromCase1) {
     EXPECT_EQ(PlatformManager::Instance().GetAiCoreL2ReadRate(), 110);
     EXPECT_EQ(PlatformManager::Instance().GetAiCoreL2WriteRate(), 86);
 
-    for (const auto &pair : PlatformManager::Instance().GetAiCoreIntrinsicDtypeMap()) {
-        std::cout << pair.first << " : ";
-        for (const std::string &item : pair.second) {
-            std::cout << item << " ";
-        }
-        std::cout << std::endl;
-    }
-
-    for (const auto &pair : PlatformManager::Instance().GetVectorCoreIntrinsicDtypeMap()) {
-        std::cout << pair.first << " : ";
-        for (const std::string &item : pair.second) {
-            std::cout << item << " ";
-        }
-        std::cout << std::endl;
-    }
-
     std::vector<std::string> aicoreDtypeVec;
     EXPECT_EQ(PlatformManager::Instance().GetAiCoreIntrinsicDtype("", aicoreDtypeVec), false);
     EXPECT_EQ(PlatformManager::Instance().GetAiCoreIntrinsicDtype("vhwconv", aicoreDtypeVec), false);
