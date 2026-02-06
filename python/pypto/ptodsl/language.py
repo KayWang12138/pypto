@@ -57,11 +57,11 @@ def PtrType(dtype):
 
 
 def TensorType(rank=2, dtype=None):
-    return pto.TensorViewType.get(shape_or_rank=rank, element_type=dtype)
+    return pto.TensorViewType.get(rank=rank, element_type=dtype)
 
 
 def SubTensorType(shape, dtype):
-    return pto.PartitionTensorViewType.get(shape=shape, element_type=dtype)
+    return pto.TileViewType.get(shape=shape, element_type=dtype)
 
 
 def TileBufConfig(blayout="RowMajor", slayout="NoneBox", s_fractal_size=512, pad="Null"):
@@ -97,9 +97,10 @@ def as_tensor(tensor_type, ptr, shape, strides):
 
 
 def slice_view(subtensor_type, source, offsets, sizes):
-    return pto.PartitionViewOp(
-        subtensor_type, source=source, offsets=offsets, sizes=sizes
-    ).result
+    # return pto.PartitionViewOp(
+    #     subtensor_type, source=source, offsets=offsets, sizes=sizes
+    # ).result
+    return pto.SubViewOp(subtensor_type, source=source, offsets=offsets, sizes=sizes).result
 
 
 def alloc_tile(tile_type):
