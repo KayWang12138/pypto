@@ -17,7 +17,7 @@
  * and several specialized error types that mirror Python's exception hierarchy.
  *
  * Key features:
- * - Automatic stack trace capture using libbacktrace
+ * - Automatic stack trace capture using execinfo.h and addr2line
  * - Multiple error types for different error categories
  * - Formatted stack trace output for debugging
  * - Integration with standard C++ exception mechanisms
@@ -47,6 +47,8 @@ namespace ir {
 struct StackFrame {
   std::string function;  // Name of the function at this stack frame
   std::string filename;  // Source file path where the function is defined
+  std::string libname;   // Library name (e.g., "libc.so.6" or executable name)
+  std::string offset;    // Offset within the function (e.g., "+0x30")
   int lineno;            // Line number in the source file
   uintptr_t pc;          // Program counter (instruction pointer) value
 
@@ -74,11 +76,11 @@ struct StackFrame {
  * @brief Singleton class for capturing and formatting stack traces
  *
  * This class provides facilities for capturing the current execution stack
- * using libbacktrace and formatting it for display. It uses a singleton pattern
- * to ensure a single backtrace_state instance is shared across the application.
+ * using execinfo.h and addr2line, and formatting it for display. It uses a
+ * singleton pattern to ensure consistent behavior across the application.
  *
- * Thread-safety: The GetInstance() method is thread-safe, but CaptureStackTrace()
- * should be called with care in multi-threaded contexts.
+ * Thread-safety: The GetInstance() method is thread-safe, and CaptureStackTrace()
+ * uses thread-safe caching for symbol resolution.
  */
 class Backtrace {
  public:
@@ -110,7 +112,7 @@ class Backtrace {
   static std::string FormatStackTrace(const std::vector<StackFrame>& frames);
 
  public:
-  /// Constructor initializes the backtrace state
+  /// Constructor (no initialization needed for execinfo-based implementation)
   Backtrace();
 
   /// Destructor (default implementation)
@@ -119,28 +121,6 @@ class Backtrace {
   // Prevent copying to maintain singleton pattern
   Backtrace(const Backtrace&) = delete;
   Backtrace& operator=(const Backtrace&) = delete;
-
- private:
-  backtrace_state* state_;  ///< libbacktrace state object for stack walking
-
-  /**
-   * @brief Error callback for libbacktrace
-   * @param data User data pointer
-   * @param msg Error message from libbacktrace
-   * @param errnum Error number
-   */
-  static void ErrorCallback(void* data, const char* msg, int errnum);
-
-  /**
-   * @brief Full callback for libbacktrace stack walking
-   * @param data User data pointer (vector of StackFrame objects)
-   * @param pc Program counter value
-   * @param filename Source file name
-   * @param lineno Line number in source file
-   * @param function Function name
-   * @return 0 to continue walking, non-zero to stop
-   */
-  static int FullCallback(void* data, uintptr_t pc, const char* filename, int lineno, const char* function);
 };
 
 /**
