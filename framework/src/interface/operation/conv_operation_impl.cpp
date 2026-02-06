@@ -456,6 +456,7 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
         convAttrParam.oriWeightShape[NCDHW_H_IDX] : convAttrParam.oriWeightShape[NCHW_H_IDX];
     convTileInfo.orgKw = convAttrParam.isConv3D ?
         convAttrParam.oriWeightShape[NCDHW_W_IDX] : convAttrParam.oriWeightShape[NCHW_W_IDX];
+    convTileInfo.orgKd = convAttrParam.isConv3D ? convAttrParam.oriWeightShape[NCDHW_D_IDX] : 1;
     int64_t cinPerGroup = convTileInfo.orgCin / convAttrParam.groups;
     convTileInfo.orgHoutWout = convTileInfo.orgHout * convTileInfo.orgWout;
     convTileInfo.kPerGroup = ConvAlignB(cinPerGroup, convTileInfo.cin0) *
@@ -572,8 +573,8 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
         std::vector<int64_t> dstAL1Shape = std::vector<int64_t>{1, iterInfo.kAL1Size / convTileInfo.cin0,
             iterInfo.hinL1Size, iterInfo.winL1Size, convTileInfo.cin0};
         if (convAttrParam.isConv3D) {
-            dstAL1Shape = std::vector<int64_t>{1, iterInfo.dkL1Size, iterInfo.kAL1Size / convTileInfo.cin0,
-                iterInfo.hinL1Size, iterInfo.winL1Size, convTileInfo.cin0};
+            dstAL1Shape = std::vector<int64_t>{1, iterInfo.dkL1Size, cin1L1Size, iterInfo.hinL1Size,
+                                               iterInfo.winL1Size, convTileInfo.cin0};
         }
         dstAL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstAL1Shape,
@@ -614,9 +615,13 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
             std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / MKN_N_VALUE,
                                  MKN_N_VALUE, convTileInfo.cin0};
         if (convAttrParam.isConv3D) {
+            iterInfo.dkL1Size = 1;
             dstBL1Shape = 
-                std::vector<int64_t>{iterInfo.dkL1Size * iterInfo.kBL1Size / convTileInfo.cin0,
-                                     iterInfo.nL1Size / MKN_N_VALUE, MKN_N_VALUE, convTileInfo.cin0};
+                std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / MKN_N_VALUE,
+                                     MKN_N_VALUE, convTileInfo.cin0};
+            if (iterInfo.kBL1Size > (convTileInfo.kPerGroup / convTileInfo.orgKd)) {
+                iterInfo.dkL1Size = iterInfo.kBL1Size / (convTileInfo.kPerGroup / convTileInfo.orgKd);
+            }
         }
         dstBL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL1Shape,
@@ -745,6 +750,21 @@ void UpdateL0IterInfo(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo)
     iterInfo.kL0Size = convTileInfo.kL0;
     iterInfo.isFirstK = iterInfo.kL0Offset == 0 ? true : false;
     iterInfo.isLastK = iterInfo.kL0Offset + convTileInfo.kL0 >= convTileInfo.kPerGroup ? true : false;
+    // cal dk in L1, not support dk = 0 now, kerneld <= padd
+    if (convAttrParam.isConv3D) {
+        iterInfo.dkAL1Size = 1;
+        int64_t cinL1Size = convTileInfo.kPerGroup / (convTileInfo.orgKh * convTileInfo.orgKw);
+        if (iterInfo.kAL1Size > (convTileInfo.kPerGroup / convTileInfo.orgKd)) {
+            cinL1Size = convTileInfo.kPerGroup / convTileInfo.orgKd;
+            iterInfo.dkAL1Size = iterInfo.kAL1Size / cinL1Size;
+        }
+        int64_t dinL1Offset = iterInfo.doL1Offset * convAttrParam.strides[2] - convAttrParam.paddings[4];
+        if (dinL1Offset < 0) {
+            int64_t tmpKd = ConvAlignB(-dinL1Offset, convAttrParam.dilations[2]) / convAttrParam.dilations[2];
+            tmpKd = tmpKd > iterInfo.dkAL1Size ? iterInfo.dkAL1Size : tmpKd;
+            iterInfo.dkAL1Size -= tmpKd;
+        }
+    }
 }
 
 void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &convTileInfo,

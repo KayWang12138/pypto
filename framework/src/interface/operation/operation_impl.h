@@ -257,8 +257,9 @@ struct ConvTileInfo {
     int64_t orgWout = 0;
     int64_t orgHoutWout = 0;
     int64_t orgKh = 0;
-    int64_t orgCin = 0;
     int64_t orgKw = 0;
+    int64_t orgKd = 0;
+    int64_t orgCin = 0;
     int64_t kPerGroup = 0;
     int64_t coutPerGroup = 0;
     int64_t kAL1 = 0;
@@ -283,7 +284,8 @@ struct ConvIterInfo {
     int64_t hL1OutOffset = 0;
     int64_t wL1InOffset = 0;
     int64_t wL1OutOffset = 0;
-    int64_t dkL1Size = 0;
+    int64_t dkAL1Size = 0;
+    int64_t dkBL1Size = 0;
     int64_t nL1Offset = 0;
     int64_t hL0Offset = 0;
     int64_t wL0Offset = 0;
