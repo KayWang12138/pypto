@@ -100,7 +100,7 @@ def slice_view(subtensor_type, source, offsets, sizes):
     # return pto.PartitionViewOp(
     #     subtensor_type, source=source, offsets=offsets, sizes=sizes
     # ).result
-    return pto.SubViewOp(subtensor_type, source=source, offsets=offsets, sizes=sizes).result
+    return pto.SubviewOp(subtensor_type, source=source, offsets=offsets, sizes=sizes).result
 
 
 def alloc_tile(tile_type):
