@@ -43,11 +43,6 @@ TILEOP void SendToRoutingExpert(__gm__ int32_t *syncTensor, __ubuf__ T *tokenBuf
     const int32_t tokenQuantAlign32 = AlignUp<int32_t>(hOutSize , 32) / sizeof(int32_t);
     __ubuf__ int32_t *tmpTokenBuffer = reinterpret_cast<__ubuf__ int32_t *>(tokenBuffer);
 
-    if (tRowOffset == 0 && tColOffset == 0) {
-        syncTensor[0] = 0;
-        pipe_barrier(PIPE_ALL);
-    }
-
     int32_t combineInfoOffset = 32;
     for (int32_t row = tRowOffset; row < tRowOffset + tRowShape; ++row) {
         copy_gm_to_ubuf(tokenBuffer, token + row * axisH, 0, 1, hOutSize / 32, 0, 0);
@@ -75,10 +70,6 @@ TILEOP void SendToRoutingExpert(__gm__ int32_t *syncTensor, __ubuf__ T *tokenBuf
         }
         set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
         wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-    }
-    if (tRowOffset == 0 && tColOffset == 0) {
-        pipe_barrier(PIPE_ALL);
-        syncTensor[0] = 1;
     }
 }
 
@@ -150,13 +141,6 @@ TILEOP void DispatchSetFlag(__gm__ int32_t *syncDummy, __ubuf__ int32_t *statusT
     (void) shmemFlagRawShape0;
     __gm__ HcclCombinOpParam *winContext = (__gm__ HcclCombinOpParam *)(hcclContext[groupIndex]);
     int32_t localUsrRankId = static_cast<int32_t>(winContext->rankId);
-    uint32_t syncVal = 0;
-    do {
-        copy_gm_to_ubuf(statusTensor, syncTensor, 0, 1, 1, 0, 0);
-        set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-        syncVal = static_cast<uint32_t>(statusTensor[0]);
-    } while (syncVal == 0U);
     constexpr int32_t expertTblSize = bs * topK;
     constexpr int32_t lenBurst = AlignUp<int32_t>(expertTblSize * sizeof(int32_t), 32) / 32;
     copy_gm_to_ubuf(expertTableUb, expertTable, 0, 1, lenBurst, 0, 0);
