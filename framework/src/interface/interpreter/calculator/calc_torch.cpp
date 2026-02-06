@@ -1549,6 +1549,7 @@ static struct CalcOps calcOps = {
     .TopkExtract = TopkExtract,
     .Gather = Gather,
     .GatherINUB = GatherINUB,
+    .GatherINL1 = GatherINL1,
     .BitwiseRightShift = BitwiseRightShift,
     .BitwiseLeftShift = BitwiseLeftShift,
     .BitwiseRightShiftS = BitwiseRightShiftS,
