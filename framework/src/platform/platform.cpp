@@ -165,7 +165,11 @@ void SoC::SetNPUArch(const std::string& versionStr) {
 
 size_t SoC::GetAICPUNum() const {
    uint32_t cpuNum = 0;
-    if (rtGetAiCpuCount(&cpuNum) == 0) {
+   int ret = 1;
+#ifdef BUILD_WITH_CANN
+    ret = rtGetAiCpuCount(&cpuNum);
+#endif
+    if (ret == 0) {
         return static_cast<size_t>(cpuNum);
     } else {
         return ai_cpu_cnt_;
@@ -338,8 +342,12 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 
 void Platform::ObtainPlatformInfo() {
     std::string srcPath;
+    int ret = 1;
+#ifdef BUILD_WITH_CANN
     char socVer[kMaxLength] = {0};
-    if (rtGetSocVersion(socVer, kMaxLength) == 0) {
+    ret = rtGetSocVersion(socVer, kMaxLength);
+#endif
+    if (ret == 1) {
         std::string socVersion = std::string(socVer);
         npu::tile_fwk::CmdParser cmdparser;
         LoadPlatformInfo(cmdparser);
