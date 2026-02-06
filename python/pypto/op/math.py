@@ -358,6 +358,60 @@ def lrelu(other: Tensor, negative_slope: Union[float, Element] = 0.01) -> Tensor
 
 
 @op_wrapper
+def remainder(input: Union[Tensor, int, float], other: Union[Tensor, int, float]) -> Tensor:
+    """Computes the element-wise remainder of `input` divided by `other`.
+
+    This function calculates the formula: `out = input - floor(input.div(other)) * other`.
+    It supports broadcasting between the input tensors.
+
+    Parameters
+    ----------
+    input : Tensor or Number
+        The first input tensor.
+    other : Tensor or Number
+        The second input tensor or a scalar to remainder operation.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise remainder.
+
+    Raises
+    ------
+    RuntimeError
+        If the two tensors are not broadcastable to a common shape.
+        If `other` has a scalar value of zero, a RuntimeError is raised.
+
+    See Also
+    --------
+    fmod : The modulus operation.
+
+    Examples
+    --------
+    a = pypto.tensor([1, 3], pypto.DT_FP32)
+    b = pypto.tensor([1, 3], pypto.DT_FP32)
+    out = pypto.remainder(a, b)
+
+    Input a:    [[7.0 8.0 9.0]]
+    Input b:    [[-3.0 -3.0 -3.0]]
+    Output out: [[-2.0 -1.0 0.0]]
+    """
+    if isinstance(input, pypto_impl.Tensor):
+        if isinstance(other, pypto_impl.Tensor):
+            return pypto_impl.Remainder(input, other)
+        if isinstance(other, float):
+            return pypto_impl.Remainder(input, pypto_impl.Element(DataType.DT_FP32, other))
+        if isinstance(other, int):
+            return pypto_impl.Remainder(input, pypto_impl.Element(DataType.DT_INT32, other))
+    if isinstance(other, pypto_impl.Tensor):
+        if isinstance(input, int):
+            return pypto_impl.Remainder(pypto_impl.Element(DataType.DT_INT32, input), other)
+        if isinstance(input, float):
+            return pypto_impl.Remainder(pypto_impl.Element(DataType.DT_FP32, input), other)
+    raise TypeError(f"Unsupported operand types for remainder: {type(input)} and {type(other)}")
+
+
+@op_wrapper
 def bitwise_and(self: Tensor, other: Union[Tensor, int]) -> Tensor:
     """Computes the element-wise bitwise AND of `self` and `other`.
 

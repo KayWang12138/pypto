@@ -2011,6 +2011,62 @@ def gen_indexadd_op_golden(
     return gen_op_golden("IndexAdd", indexadd_golden_func, output, case_index)
 
 
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestRemainder/RemainderOperationTest.TestRemainder"
+    ]
+)
+def gen_remainder_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+
+    def remainder_golden_func(inputs: list, config: dict):
+        self = from_numpy(inputs[0])
+        other = from_numpy(inputs[1])
+        res = torch.remainder(self, other)
+        return [to_numpy(res)]
+    return gen_op_golden("Remainder", remainder_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestRemainderS/RemainderSOperationTest.TestRemainderS"
+    ]
+)
+def gen_remainders_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+
+    def remainders_golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        other = params["scalar"]
+        self = from_numpy(inputs[0])
+        res = torch.remainder(self, other)
+        return [to_numpy(res)]
+    return gen_op_golden("RemainderS", remainders_golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestRemainderRS/RemainderRSOperationTest.TestRemainderRS"
+    ]
+)
+def gen_remainderrs_op_golden(
+    case_name: str, output: Path, case_index: int = None
+) -> bool:
+    logging.debug("Case(%s), Golden creating...", case_name)
+
+    def remainders_golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        self = params["scalar"]
+        other = from_numpy(inputs[0])
+        res = torch.remainder(self, other)
+        return [to_numpy(res)]
+    return gen_op_golden("RemainderRS", remainders_golden_func, output, case_index)
+
+
 def indexput_dfs(indices_range, deep, max_count, cur_indices, all_indices):
     if deep == max_count:
         all_indices.append([i for i in cur_indices])
