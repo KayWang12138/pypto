@@ -367,9 +367,9 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     return SUCCESS;
 }
 
-Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr spillCopyout, int &bufLastUseOrder) {
+Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder) {
     auto spillIssue = spillInfo.spillIssue_;
-    if (spillIssue->tileOp.GetOpcodeStr().find("L0C_COPY_L1") == std::string::npos || spillIssue->tileOp.GetOpcodeStr().find("UB_COPY_L1") == std::string::npos) {
+    if (spillIssue->tileOp.GetOpcodeStr().find("L0C_COPY_L1") == std::string::npos && spillIssue->tileOp.GetOpcodeStr().find("UB_COPY_L1") == std::string::npos) {
         APASS_LOG_ERROR_F(Elements::Operation, "spillIssue %s is not COPY_IN/UB_COPY_L1/UB_COPY_L1 in A5 L1 spill", spillIssue->GetOpInfo().c_str());
         return FAILED;
     }
