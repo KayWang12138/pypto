@@ -55,6 +55,16 @@ dim1: 3
 
 预留的临时空间为：t0 \* t1 \* align\(t2, 16\) \* align\(t3, 32 / sizeof\(DT\_FP32\)\)
 
+## TileShape设置示例
+
+TileShape维度应和输入input一致。
+
+如输入intput shape为[m, n, p]， dim0为1， dim1为2，输出为[m, p, n], TileShape设置为[m1, n1, p1], 则m1, n1, p1分别用于切分m, n, p轴。
+
+```python
+pypto.set_vec_tile_shapes(m1, n1, p1)
+```
+
 ## 调用示例
 
 ```python
