@@ -5,8 +5,8 @@
         "pass": {
             "type": "object",
             "label": {
-                "zh": "...",
-                "en": "..."
+                "zh": "通过编译Pass实现计算图到执行图的转换链路，同时提供可扩展的编译与优化能力，实现差异化的优化效果。",
+                "en": "Compilation Pass enable the transformation pipeline from computational graph to execution graph, while providing extensible compilation and optimization capabilities to achieve differentiated optimization effects."
             },
             "properties": {
                 "pg_parallel_lower_bound": {
@@ -128,8 +128,8 @@
                 "copyout_resolve_coalescing": {
                     "type": "integer",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "手动控制片上内存拷贝输出优化策略。置0时关闭合并优化；非0时筛选离散copyout指令，合并为连续大粒度操作并完成地址规整。",
+                        "en": "Manual control for on-chip copyout optimization. 0 disables merging; non-zero values aggregate discrete copyout instructions into continuous large-grain operations with address regularization."
                     },
                     "minimum": 0,
                     "maximum": 1000000
@@ -300,8 +300,8 @@
         "host": {
             "type": "object",
             "label": {
-                "zh": "...",
-                "en": "..."
+                "zh": "主机端相关参数集合，包含运行管控、资源调度与通信规则配置。",
+                "en": "A collection of host related parameters, including operation control, resource scheduling and communication rule configurations."
             },
             "properties": {
                 "compile_stage": {
@@ -556,12 +556,16 @@
                 },
                 "host": {
                     "type": "object",
+                    "label": {
+                        "zh": "主机端相关参数集合，包含运行管控、资源调度与通信规则配置。",
+                        "en": "A collection of host-related parameters, including operation control, resource scheduling and communication rule configurations."
+                    },
                     "properties": {
                         "strategy": {
                             "type": "string",
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "主机端运行调度策略。",
+                                "en": "Host Operation and Scheduling Strategy."
                             }
                         }
                     }
@@ -830,110 +834,134 @@
                 "pass": {
                     "type": "object",
                     "label": {
-                        "zh": "...",
-                        "en": "..."
+                        "zh": "通过编译Pass实现计算图到执行图的转换链路，同时提供可扩展的编译与优化能力，实现差异化的优化效果。",
+                        "en": "Compilation Passes enable the transformation pipeline from computational graph to execution graph, while providing extensible compilation and optimization capabilities to achieve differentiated optimization effects."
                     },
                     "properties": {
                         "enable_binary_cache": {
                             "type": "boolean",
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "启用二进制缓存，复用预编译产物以加速构建。",
+                                "en": "Enable binary cache to reuse pre-built artifacts and accelerate builds."
                             }
                         },
                         "enable_pass_configs": {
                             "type": "boolean",
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "启用Pass模块专属配置加载，生效该模块相关参数。",
+                                "en": "Enable loading of dedicated configurations for the Pass module to activate its related parameters."
                             }
                         },
                         "enable_cv_fuse": {
                             "type": "boolean",
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "启用 CV 融合优化功能。",
+                                "en": "Enable CV feature fusion to aggregate multi-branch features and improve model accuracy."
                             }
                         },
                         "pass_thread_num": {
                             "type": "integer",
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "设置Pass模块的工作线程数量，控制模块并发处理能力。",
+                                "en": "Set the number of worker threads for the Pass module to control its concurrent processing capability."
                             },
                             "minimum": 1
+                        },
+                        "vf_opt_mark_for": {
+                            "type": "boolean",
+                            "label": {
+                                "zh": "启用for循环标记能力，支撑VF融合优化流程执行。",
+                                "en": "Activate the for-loop marking functionality to guarantee the execution of the VF fusion optimization workflow."
+                            }
                         },
                         "default_pass_configs": {
                             "type": "object",
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "定义 Pass 模块的系统默认配置集，无自定义配置时自动生效。",
+                                "en": "Define the system default configuration set for the Pass module, which takes effect automatically without custom configurations."
                             },
                             "properties": {
                                 "print_graph": {
                                     "type": "boolean",
                                     "label": {
-                                        "zh": "...",
-                                        "en": "..."
+                                        "zh": "启用计算图IR打印功能，启用后输出计算图的中间表示结构、节点关系等调试信息。",
+                                        "en": " A configuration switch that controls whether to enable the computation graph IR printing function, which outputs debugging information such as intermediate representation structure and node relationships of the computation graph when enabled."
                                     }
                                 },
                                 "print_program": {
                                     "type": "boolean",
                                     "label": {
-                                        "zh": "...",
-                                        "en": "..."
+                                        "zh": "启用框架计算图打印功能，把所有算子抽象为统一CallOp的程序中间表示，导出为包含函数输入输出依赖关系的标准JSON文件。",
+                                        "en": "Enable the framework's computation graph printing feature, export the program intermediate representation with all operators abstracted into unified CallOp as a standard JSON file that contains function-level input-output dependency relationships."
                                     }
                                 },
                                 "dump_graph": {
                                     "type": "boolean",
                                     "label": {
-                                        "zh": "...",
-                                        "en": "..."
+                                        "zh": "启用计算图序列化转储功能，独立编译Pass的计算图结构与节点信息导出为独立JSON文件。",
+                                        "en": "Enables the serialization and dumping of computation graphs. When enabled, the computation graph structure and node information for each independent compilation pass are exported as separate JSON files."
                                     }
                                 },
                                 "dump_pass_time_cost": {
                                     "type": "boolean",
                                     "label": {
-                                        "zh": "...",
-                                        "en": "..."
+                                        "zh": "启用编译Pass耗时统计转储功能，导出各独立编译Pass的执行耗时数据。",
+                                        "en": "Enable the compilation pass time cost statistics and dumping function, and export the execution time cost data of each independent compilation pass."
                                     }
                                 },
                                 "pre_check": {
                                     "type": "boolean",
                                     "label": {
-                                        "zh": "...",
-                                        "en": "..."
+                                        "zh": "启用前置校验功能，启用后在核心流程执行前完成参数合法性、格式规范、依赖完整性等前置检查。",
+                                        "en": "Enable the pre-check function. Once enabled, it will perform pre-checks such as parameter validity, format compliance, and dependency integrity before executing core processes."
                                     }
                                 },
                                 "post_check": {
                                     "type": "boolean",
                                     "label": {
-                                        "zh": "...",
-                                        "en": "..."
+                                        "zh": "启用后置校验功能，启用后在核心流程执行完成后，完成参数合法性、格式规范、依赖完整性等后置校验。",
+                                        "en": "Enable the post-check function; perform validity, format, and dependency integrity checks after core process execution."
                                     }
                                 },
                                 "expected_value_check": {
                                     "type": "boolean",
                                     "label": {
-                                        "zh": "...",
-                                        "en": "..."
+                                        "zh": "启用期望值校验功能，在核心流程执行前完成输入参数、中间结果的固定值、范围、枚举校验。",
+                                        "en": "Enable the expected value check function; perform validity checks on fixed values, ranges, and enumerations for input parameters and intermediate results before core process execution."
                                     }
                                 },
                                 "disable_pass": {
                                     "type": "boolean",
                                     "label": {
-                                        "zh": "...",
-                                        "en": "..."
+                                        "zh": "启用编译Pass模块的禁用开关，禁用目标编译Pass模块的执行，使该Pass不参与编译优化流程。",
+                                        "en": "Enable the disable switch for the compilation pass module to disable the execution of the target compilation pass, excluding it from the compilation and optimization workflow."
                                     }
                                 },
                                 "health_check": {
                                     "type": "boolean",
                                     "label": {
-                                        "zh": "...",
-                                        "en": "..."
+                                        "zh": "启用运行态健康检查功能，对系统资源、依赖服务、核心组件状态进行检测。",
+                                        "en": "Enable the runtime health check function; it will inspect system resources, dependent services, and core component status to identify runtime exceptions and fault risks."
+                                    }
+                                },
+                                "use_max_freq_label": {
+                                    "type": "boolean",
+                                    "label": {
+                                        "zh": "启用最高频标签统一标记功能，子图转函数时复用全局最高频标签。",
+                                        "en": "Enable the runtime health check function; it will inspect system resources, dependent services, and core component status to identify runtime exceptions and fault risks."
                                     }
                                 }
                             }
+
+                        }
+                    }
+                },
+                "pass_strategies": {
+                    "PVC2_OOO":{
+                        "type": "object",
+                        "label": {
+                            "zh": "PVC2_OOO调度策略。",
+                            "en": "PVC2_OOO Pass Scheduling Strategy."
                         }
                     }
                 }
