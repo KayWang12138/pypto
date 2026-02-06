@@ -253,10 +253,8 @@ class _JIT:
             del rlf
         pypto_impl.OperatorEnd(handler)
 
-        # flowverify begin
+        # flowverify end
         self.verify_end()
-        # suspicious code?
-        pypto_impl.ResetLog(pypto_impl.LogTopFolder())
         return handler
 
     def set_run_mode(self):

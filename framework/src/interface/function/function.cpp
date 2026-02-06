@@ -90,13 +90,6 @@ std::vector<Operation *> OperationsViewer::DuplicatedOpList() const {
     return opList;
 }
 
-struct CompareTensorPtr {
-    bool operator()(const std::shared_ptr<LogicalTensor> &a,
-                    const std::shared_ptr<LogicalTensor> &b) const {
-        return a->offset < b->offset;
-    }
-};
-
 std::string DynloopFunctionPathNode::Dump() const {
     int indent = 2;
     std::ostringstream oss;
