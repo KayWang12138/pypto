@@ -367,6 +367,30 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     return SUCCESS;
 }
 
+Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr spillCopyout, int &bufLastUseOrder) {
+    auto actualSpillTensor = spillInfo.spillIssue_->tileOp.GetInputOperand(0);
+    IssueEntryPtr actualSpillIssue = nullptr;
+    for (auto &preId : spillInfo.spillIssue_->predecessors) {
+        if (!issueEntryMap[preId]->isAlloc) {
+            actualSpillIssue = issueEntryMap[preId];
+        }
+    }
+    if (actualSpillIssue == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "ActualSpillIssue is nullptr. Please check the preceding dependencies of spillIssue %s ", spillInfo.spillIssue_->GetOpInfo().c_str());
+        return FAILED;
+    }
+    if (actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
+        APASS_LOG_ERROR_F(Elements::Operation, "A5 L1 Spill failed: actualSpillIssue is copy_in.");
+        return FAILED;
+    }
+    if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
+        return FAILED;
+    }
+    bufLastUseOrder = GetBufLastUseOrder(issue, actualSpillTensor->memoryrange.memId);
+    return SUCCESS;
+}
+
 Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, size_t &pcIdx, bool isGenSpill) {
     if (spillInfo.spillIssue_->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
         spillInfo.ddrTensor_ = spillInfo.spillIssue_->tileOp.GetInputOperand(0);
@@ -375,22 +399,10 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
     IssueEntryPtr spillCopyout = nullptr;
     int bufLastUseOrder = -1;
     if (spillInfo.isSpecialL1_) {
-        auto actualSpillTensor = spillInfo.spillIssue_->tileOp.GetInputOperand(0);
-        IssueEntryPtr actualSpillIssue = nullptr;
-        for (auto &preId : spillInfo.spillIssue_->predecessors) {
-            if (!issueEntryMap[preId]->isAlloc) {
-                actualSpillIssue = issueEntryMap[preId];
-            }
-        }
-        if (actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
-            APASS_LOG_ERROR_F(Elements::Operation, "A5 L1 Spill failed: actualSpillIssue is copy_in.");
+        if (CreateSpecialL1Copyout(spillInfo, spillCopyout, bufLastUseOrder) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SpecialL1 CreateSpillCopyout failed!");
             return FAILED;
         }
-        if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout) != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
-            return FAILED;
-        }
-        bufLastUseOrder = GetBufLastUseOrder(issue, actualSpillTensor->memoryrange.memId);
     } else {
         if (CreateSpillCopyout(spillInfo.spillIssue_, spillInfo.spillTensor_, spillInfo.spillMemId_,
         spillCopyout) != SUCCESS) {
@@ -725,7 +737,7 @@ bool OoOScheduler::CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr all
 bool OoOScheduler::IsBelongSpillBlackList(IssueEntryPtr spillIssue, IssueEntryPtr issue) {
     std::set<IssueEntryPtr> filterLtags;
     FindFilterLtags(issue, filterLtags);
-    if (spillIssue->isAlloc || filterLtags.count(spillIssue) != 0 || !CheckMachineAndL1(spillIssue, issue)) {
+    if (spillIssue->isAlloc || filterLtags.count(spillIssue) != 0) {
         return true;
     }
     return false;
