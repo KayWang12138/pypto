@@ -117,7 +117,6 @@ torch::Tensor Fp8ToFloat32(const torch::Tensor &self, DataType actualType) {
 
 // Float32 to FP8 E4M3. E4M3 range: [2^-9, 240]. Round to nearest, ties to even.
 static torch::Tensor Float32ToFp8E4M3(const torch::Tensor &self) {
-    std::cout << self << std::endl;
     auto x = self.to(torch::kFloat32).contiguous();
     auto flat = x.flatten();
     auto result = torch::empty_like(flat, torch::TensorOptions().dtype(torch::kUInt8));
@@ -165,7 +164,6 @@ static torch::Tensor Float32ToFp8E4M3(const torch::Tensor &self) {
         out_ptr[i] = enc;
     }
     auto i = result.reshape(x.sizes());
-    std::cout << i << std::endl;
     return result.reshape(x.sizes());
 }
 
