@@ -362,6 +362,12 @@ Status HandleDynOffsetForReshape(
         return SUCCESS;
     }
     auto &assembleOutShape = assembleOp.GetOOperands()[0]->tensor->rawshape;
+    for (size_t dim = 0; dim < oriBackUp->shape.size(); dim++) {
+        if (oriBackUp->shape[dim] == 0){
+            APASS_LOG_ERROR_F(Elements::Tensor, "shape[%zu] of Tensor[%d] is zero", dim, oriBackUp->GetMagic());
+            return FAILED;
+        }
+    }
     if (!CalculateNewRawShape(producer->GetIOperands()[0]->shape, assembleOutShape, newRawShape)) {
         return SUCCESS;
     }
