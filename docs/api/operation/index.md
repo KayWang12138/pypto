@@ -19,6 +19,7 @@ pypto-experimental-load
 pypto-experimental-set_operation_config
 pypto-experimental-get_operation_config
 pypto-full
+pypto-hypot
 pypto-gather
 pypto-log
 pypto-logical_not
@@ -27,6 +28,7 @@ pypto-maximum
 pypto-mul
 pypto-neg
 pypto-reshape
+pypto-relu
 pypto-rms_norm
 pypto-rsqrt
 pypto-scatter_update
