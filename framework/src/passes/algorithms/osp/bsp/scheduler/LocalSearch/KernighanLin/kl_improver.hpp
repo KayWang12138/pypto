@@ -1079,12 +1079,8 @@ class KlImprover : public ImprovementScheduler<GraphT> {
     }
 
   public:
-    KlImprover() : ImprovementScheduler<GraphT>() {
-        std::random_device rd;
-        gen_ = std::mt19937(rd());
-    }
 
-    explicit KlImprover(unsigned seed) : ImprovementScheduler<GraphT>() { gen_ = std::mt19937(seed); }
+    KlImprover(unsigned seed = 42) : ImprovementScheduler<GraphT>() { gen_ = std::mt19937(seed); }
 
     virtual ~KlImprover() = default;
 

@@ -20,8 +20,10 @@
 #include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GreedyMetaScheduler.hpp"
 #include "passes/algorithms/osp/dag_divider/isomorphism_divider/IsomorphicSubgraphScheduler.hpp"
 #include "passes/algorithms/osp/dag_divider/isomorphism_divider/PrecomputedHashComputer.hpp"
-#include "passes/algorithms/osp/bsp/scheduler/LocalSearch/KernighanLin/kl_include.hpp"
 #include "passes/algorithms/osp/coarser/sarkar/sarkar_mul.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/LocalSearch/KernighanLin/comm_cost_modules/kl_hyper_total_comm_cost.hpp"
+#include "passes/algorithms/osp/bsp/scheduler/LocalSearch/KernighanLin/kl_improver.hpp"
+
 
 #define MODULE_NAME "GraphPartition"
 
@@ -171,8 +173,8 @@ Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, 
     osp::GrowLocalAutoCores<ConstrGraphType> growlocal;
     osp::BspLocking<ConstrGraphType> locking;
     osp::GreedyChildren<ConstrGraphType> children;
-    
-    osp::KlTotalLambdaCommImprover<ConstrGraphType> kl(42);
+        
+    osp::KlImprover<ConstrGraphType, osp::KlHyperTotalCommCostFunction<ConstrGraphType, double, 1>, 1, double> kl;
     kl.SetSuperstepRemoveStrengthParameter(1.0);
     kl.SetTimeQualityParameter(1.0);
     

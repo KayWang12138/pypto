@@ -58,17 +58,7 @@ class Serial : public Scheduler<GraphT> {
         const auto &arch = instance.GetArchitecture();
 
         // Select one processor of each type
-        std::vector<unsigned> chosenProcs;
-        if (arch.GetNumberOfProcessorTypes() > 0) {
-            std::vector<bool> typeSeen(arch.GetNumberOfProcessorTypes(), false);
-            for (unsigned p = 0; p < arch.NumberOfProcessors(); ++p) {
-                if (!typeSeen[arch.ProcessorType(p)]) {
-                    chosenProcs.push_back(p);
-                    typeSeen[arch.ProcessorType(p)] = true;
-                }
-            }
-        }
-
+        const std::vector<unsigned> chosenProcs = SelectProcessor(arch);
         if (chosenProcs.empty()) {
             return ReturnStatus::OSP_ERROR;
         }
@@ -101,7 +91,8 @@ class Serial : public Scheduler<GraphT> {
         unsigned currentSuperstep = 0;
 
         while (scheduledNodesCount < numVertices) {
-            while (not readyNodes.empty()) {
+            while (not readyNodes.empty()) {  
+
                 VertexIdxT<GraphT> v = readyNodes.front();
                 readyNodes.pop_front();
 
@@ -149,6 +140,25 @@ class Serial : public Scheduler<GraphT> {
         schedule.SetNumberOfSupersteps(currentSuperstep + 1);
         return ReturnStatus::OSP_SUCCESS;
     }
+
+
+    private: 
+
+    std::vector<unsigned>  SelectProcessor(const BspArchitecture<GraphT> &arch) {
+        std::vector<unsigned> chosenProcs;
+        if (arch.GetNumberOfProcessorTypes() > 0) {
+            std::vector<bool> typeSeen(arch.GetNumberOfProcessorTypes(), false);
+            for (unsigned p = 0; p < arch.NumberOfProcessors(); ++p) {
+                if (!typeSeen[arch.ProcessorType(p)]) {
+                    chosenProcs.push_back(p);
+                    typeSeen[arch.ProcessorType(p)] = true;
+                }
+            }
+        }
+        return chosenProcs;
+    }
+
+
 };
 
 }    // namespace osp
