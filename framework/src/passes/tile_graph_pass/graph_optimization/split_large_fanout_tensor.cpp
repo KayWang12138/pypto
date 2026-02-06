@@ -417,7 +417,7 @@ bool SplitLargeFanoutTensor::HasDuplicateToTile(std::vector<std::pair<LogicalTen
 
 void insertShapeIfNotDup(std::multiset<Shape, ShapeComparator>& set, const Shape& shape) {
     auto range = set.equal_range(shape);
-    for (auto it = range.first; it != tange.send; ++it) {
+    for (auto it = range.first; it != range.second; ++it) {
         if (*it == shape) {
             return;
         }
@@ -471,13 +471,27 @@ void SplitLargeFanoutTensor::SplitLargeTensor(Function &function) {
     }
 }
 
-void SplitLargeFanoutTensor::TryToSplitLargeTensor(Function &function, const Shape &lcmShape, const LogicalTensorPtr &largeTensor) {
-    std::vector<Shape> lcmTileOffsets;
+void SplitLargeFanoutTensor::GetOffsets(std::set<Shape, ShapeDimComparator> &lcmTileOffsets, const Shape &lcmShape, const LogicalTensorPtr &largeTensor) {
     Shape current(lcmShape.size());
+    // 处理toShapes中的offset
     for (const auto &offset : toShapes[largeTensor]) {
-        GenerateOffset(largeTensor->shape, offset, current, lcmTileOffsets, 0);
+        std::vector<Shape> tempOffsets;
+        GenerateOffset(largeTensor->shape, offset, current, tempOffsets, 0);
+        for (const auto& tempOffset : tempOffsets) {
+            lcmTileOffsets.insert(tempOffset);
+        }
     }
-    GenerateOffset(largeTensor->shape, lcmShape, current, lcmTileOffsets, 0);
+    // 处理lcmShape
+    std::vector<Shape> tempOffsets;
+    GenerateOffset(largeTensor->shape, lcmShape, current, tempOffsets, 0);
+    for (const auto& offset : tempOffsets) {
+        lcmTileOffsets.insert(offset);
+    }
+}
+
+void SplitLargeFanoutTensor::TryToSplitLargeTensor(Function &function, const Shape &lcmShape, const LogicalTensorPtr &largeTensor) {
+    std::set<Shape, ShapeDimComparator> lcmTileOffsets;  // 直接使用set
+    GetOffsets(lcmTileOffsets, lcmShape, largeTensor);
     APASS_LOG_INFO_F(Elements::Operation, "LcmTile num: %d.", lcmTileOffsets.size());
     for (const auto &lcmTileOffset : lcmTileOffsets) {
         // 更新实际的lcmTileShape, 仅在尾块时会有变小的情况

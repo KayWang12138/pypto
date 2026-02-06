@@ -27,6 +27,24 @@
 #include "passes/pass_utils/pass_utils.h"
 
 namespace npu::tile_fwk {
+struct ShapeDimComparator {
+    bool operator()(const Shape& a, const Shape& b) const {
+        // 按字典序比较，如果维度不同，按维度大小比较
+        if (a.size() != b.size()) {
+            return a.size() < b.size();
+        }
+        
+        // 维度相同，逐个比较元素
+        for (size_t i = 0; i < a.size(); ++i) {
+            if (a[i] != b[i]) {
+                return a[i] < b[i];
+            }
+        }
+        
+        // 完全相等的情况，返回false（set会认为这是重复的）
+        return false;
+    }
+};
 /*
  * SplitLargeFanoutTensor:
  本pass主要用于处理assemble被多个消费者消费时，如果每人都消费的是部分数据，因为assemble导致需要等待全部数据产生，影响并行度的问题
@@ -74,6 +92,7 @@ private:
         std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos);
     bool HasDuplicateToTile(std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos);
     void TryToSplitLargeTensor(Function &function, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
+    void GetOffsets(std::set<Shape, ShapeDimComparator> &lcmTileOffsets, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
     std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> toInfoMap;
     std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> fromInfoMap;
     std::unordered_set<LogicalTensorPtr> largeTensors;
