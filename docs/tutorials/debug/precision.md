@@ -345,7 +345,7 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 1. 计算告警数量容忍度阈值 $tolcount = count_{picked} * \min(rtol, atol)$
 1. 若 $tolcount$ 为 0，则修正为 $tolcount = min\left(16, \frac{\sqrt{count_{picked}}}{2}\right)$
 1. 逐元素获取 $A_{pick}$、$B_{pick}$ 中的数据对 $a_i$、$b_i$
-    * 统计满足公式 $|a_i - b_i| > \left(\frac{(|a_i| + |b_i|) * rtol}{2} + atol\right)$ 的个数，记为 $count_{warn}$
-    * 统计满足公式 $|a_i - b_i| > \left(\left(\frac{(|a_i| + |b_i|) * rtol}{2} + atol\right) * 128\right)$ 的个数，记为 $count_{fail}$
+    * 统计满足公式 $|a_i - b_i| > \left(\frac{|a_i| + |b_i|}{2} * rtol + atol\right)$ 的个数，记为 $count_{warn}$
+    * 统计满足公式 $|a_i - b_i| > \left(\left(\frac{|a_i| + |b_i|}{2} * rtol + atol\right) * 128\right)$ 的个数，记为 $count_{fail}$
 1. 结果判断：当满足以下条件时认定两组数据的误差在接受范围内，否则误差存在异常
     * $(count_{fail} > 0) \lor (count_{warn} > tolcount)$
