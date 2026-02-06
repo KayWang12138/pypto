@@ -9,6 +9,11 @@
 # -----------------------------------------------------------------------------------------------------------
 
 file(GLOB_RECURSE _Platform_Srcs *.cpp)
+file(GLOB _Interface_Srcs
+        *.cpp
+        parser/*.cpp
+        simulation_platform/*.cpp
+)
 add_library(tile_fwk_platform SHARED)
 target_sources(tile_fwk_platform PRIVATE ${_Platform_Srcs})
 target_include_directories(tile_fwk_platform

@@ -5,7 +5,6 @@
         "framework/src/platform/"
       ],
       "Area": [
-        "framework/src/cost_model/simulation_platform/"
       ],
       "Include": [
         "framework/include/"
@@ -44,7 +43,6 @@
       "Area": [
         "framework/src/operator/",
         "framework/src/passes/",
-        "framework/src/cost_model/simulation_platform/",
         "framework/src/platform/"
       ],
       "Include": [
@@ -135,22 +133,6 @@
       ],
       "BlackList": [
         "framework/src/interface/tileop/"
-      ]
-    }
-  },
-  "libtile_fwk_simulation_platform.so": {
-    "Source-Header": {
-      "Self": [
-        "framework/src/cost_model/simulation_platform/"
-      ],
-      "Area": [
-      ],
-      "Include": [
-        "framework/include/"
-      ],
-      "WhiteList": [
-      ],
-      "BlackList": [
       ]
     }
   },

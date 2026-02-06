@@ -27,7 +27,6 @@
 #include "data_type.h"
 
 namespace npu::tile_fwk {
-std::string ToJsonString(const std::string& s);
 
 struct CacheInfo {
     size_t l2Size;
@@ -104,26 +103,6 @@ class PlatformParser {
     bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
     bool FilterDirections(const std::string& value, std::string &part) const;
     bool FilterDataPath(const std::string& part, std::string &from, std::string &to) const;
-};
-
-class INIParser : public PlatformParser {
-  public:
-    INIParser() = default;
-    ~INIParser() = default;
-    bool Initialize(const std::string &iniFilePath); 
-
-    bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
-  private:
-    bool ReadINIFile(const std::string& filepath);
-    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> data_;
-};
-
-class CmdParser : public PlatformParser {
-  public:
-    CmdParser() = default;
-    ~CmdParser() = default;
-
-    bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const override;
 };
 
 class Inst {
@@ -458,7 +437,6 @@ public:
     AicCore& GetAICCore() { return GetCoreWrap().GetAICCore(); }
     AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
     
-    void LoadFromIni(const std::string &filePath);
     void LoadPlatformInfo(const PlatformParser &parser);
     void ObtainPlatformInfo();
 
