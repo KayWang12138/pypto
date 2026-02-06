@@ -947,14 +947,14 @@ bool ReadyQueue::Empty() const
 
 int ReadyQueue::Front()
 {
-    ASSERT(!readyQueue.empty());
+    ASSERT(!readyQueue.empty()) << "[simulation]: " << "readyQueue is empty";
     int idx = readyQueue.front();
     return idx;
 }
 
 int ReadyQueue::Pop()
 {
-    ASSERT(!readyQueue.empty());
+    ASSERT(!readyQueue.empty()) << "[simulation]: " << "readyQueue is empty";
     int idx = readyQueue.front();
     readyQueue.pop_front();
     return idx;

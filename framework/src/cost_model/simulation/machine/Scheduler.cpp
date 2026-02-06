@@ -98,7 +98,7 @@ void Scheduler::SortTile(std::unordered_map<int, TilePtr> &tiles, std::unordered
     if (queue.empty()) {
         MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][Scheduler][SortTile] ", "ERROR", __FILE__, ":", __LINE__,
                   " Sort Tile Alloc not find output nodes");
-        ASSERT(0);
+        ASSERT(false) << "[simulation]: Sort Tile Alloc not find output nodes";
     }
 
     // Merge And Sort outcast
