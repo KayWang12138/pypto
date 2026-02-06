@@ -87,7 +87,9 @@ bool InternalParser::LoadInternalInfo() {
     bool currentSoc = true;
     while (std::getline(file, line)) {
         trimLine = trim(line);
-        if (trimLine.empty() || !currentSoc) {
+        if (trimLine.find("}") != std::string::npos) {
+            currentSoc = true;
+        } else if (trimLine.empty() || !currentSoc) {
             continue;
         }
         if (trimLine.find("]") != std::string::npos) {
@@ -99,9 +101,7 @@ bool InternalParser::LoadInternalInfo() {
             }
         } else if (trimLine.find("[") != std::string::npos) {
             section = trim(trimLine.substr(0, trimLine.find(':')));
-        } else if (trimLine.find("}") != std::string::npos) {
-            currentSoc = true;
-        } else {
+        } else if (trimLine.find("}") == std::string::npos) {
             info += trimLine;
         }
     }
