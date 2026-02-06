@@ -530,7 +530,7 @@ LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperan
     return localTensor;
 }
 
-void OoOScheduler::UpdateAssembleSpillAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue) {
+void OoOScheduler::UpdateAssembleSpillAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder) {
     UpdateOpInternalSubgraphID(newOp, allocIssue);
     IssueEntryPtr newIssue = std::make_shared<IssueEntry>(newOp, issueId);
     issueEntryMap[issueId++] = newIssue;
@@ -555,7 +555,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         Opcode allocOp = assembleTensor->GetMemoryTypeToBe() == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
         auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
         spillAllocOp.UpdateLatency(1);
-        UpdateAssembleSpillAttr(spillAllocOp, {assembleTensor->memoryrange.memId}, allocIssue);
+        UpdateAssembleSpillAttr(spillAllocOp, {assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder);
         isFirst = false;
     }
     // copyin
@@ -571,14 +571,13 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
                 iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
                 OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
     spillCopyInOp.UpdateLatency(DEFAULT_LATENCY);
-    UpdateAssembleSpillAttr(spillCopyInOp, {assembleTensor->memoryrange.memId}, allocIssue);
+    UpdateAssembleSpillAttr(spillCopyInOp, {assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder);
     // assemble
     auto &assembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
     assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleAttr->GetFrom(), 
         assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset(), assembleAttr->GetFromDynValidShape()));
     assembleOp.UpdateLatency(1);
-    UpdateAssembleSpillAttr(assembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId}, allocIssue);
-    bufNextUseOrder--;
+    UpdateAssembleSpillAttr(assembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder);
     return SUCCESS;
 }
 
