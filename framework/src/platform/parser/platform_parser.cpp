@@ -79,13 +79,16 @@ bool INIParser::GetStringVal(const std::string& column, const std::string& key, 
 }
 
 bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
-    char charVal[kMaxLength] = {0};
 #ifdef BUILD_WITH_CANN
+    char charVal[kMaxLength] = {0};
     if (rtGetSocSpec(column.c_str(), key.c_str(), charVal, kMaxLength) == 0) {
         val = std::string(charVal);
         return true;
     }
 #endif
+    (void)column;
+    (void)key;
+    (void)val;
     return false;
 }
 
