@@ -23,7 +23,7 @@ import torch
 
 from . import _jit_functions, _kernel_functions
 from . import ir_builder, register_function
-from . import convert
+from ptodsl.edit_cpp import convert
 
 @dataclass
 class KernelConfig:
@@ -112,10 +112,11 @@ def pto_meta_data(f):
     return f
 
 def compile_module(module, clean_up=True, timeout=20):
-    ir_path = "./temp.pto"  # TODO: use Python `tempfile` module
-    raw_cpp_path = "./temp_generated.cpp"
-    edited_cpp_path = "./temp_edited.cpp"
-    lib_path = "./temp_lib.so"
+    Path("./build").mkdir(parents=True, exist_ok=True)
+    ir_path = "./build/temp.pto"  # TODO: use Python `tempfile` module
+    raw_cpp_path = "./build/temp_generated.cpp"
+    edited_cpp_path = "./build/temp_edited.cpp"
+    lib_path = "./build/temp_lib.so"
 
     # step 1, Python -> IR
     with open(ir_path, "w") as f:
@@ -137,7 +138,8 @@ def compile_module(module, clean_up=True, timeout=20):
 
     # Step 4, cpp -> so
     PTO_LIB_PATH = os.environ["PTO_LIB_PATH"]
-
+    ASCEND_HOME_PATH = os.environ.get("ASCEND_HOME_PATH")
+    LD_LIB_PATH = ASCEND_HOME_PATH + "/lib64/"
     flags = [
         "-fPIC",
         "-shared",
@@ -150,7 +152,7 @@ def compile_module(module, clean_up=True, timeout=20):
     ]
 
     subprocess.run(
-        ["bisheng", *flags, edited_cpp_path, "-o", lib_path],
+        ["bisheng", *flags, edited_cpp_path, "-L", LD_LIB_PATH, "-lruntime", "-o", lib_path],
         timeout=timeout
     )
 
@@ -318,7 +320,7 @@ def kernel(options=None, meta_data=None, *dargs, **kwargs):
                     register_function(kernel_with_env)
                 lib_path = compile_module(module)
                 compiled_func = load_lib(lib_path)
-            return compiled_func(*args, **kwargs)
+            return compiled_func
         wrapper.set_name_prefix = name
         return wrapper
     
