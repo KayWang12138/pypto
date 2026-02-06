@@ -269,6 +269,49 @@ Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum) {
     return Reshape(old, newShape, validShape);
 }
 
+Tensor Squeeze(const Tensor &input, const std::vector<int> &dim)
+{
+    DECLARE_TRACER();
+    Shape dstShape;
+    Shape oriShape = input.GetShape();
+    size_t shapeSize = oriShape.size();
+    std::vector<SymbolicScalar> validShape;
+    for (auto shape : input.GetStorage()->GetDynValidShape()){
+        validShape.push_back(shape);
+    }
+
+    ASSERT(!validShape.empty()) << "The input validshape should not be empty.";
+    ASSERT(shapeSize <= SHAPE_DIM4 && shapeSize >= SHAPE_DIM2) << "The input dimension only support 2~4. Cur dimension"
+        " is " << shapeSize;
+    if (dim.empty()) {
+        for (auto i : oriShape) {
+            if (i != 1) {
+                dstShape.push_back(i);
+            }
+        }
+    } else {
+        ASSERT(dim.size() <= shapeSize) <<  << "The dim.size <= input.dim is not matched. dim.size is " << 
+            dim.size() << ", input.dim is " << shapeSize;
+        for (int i : dim) {
+            ASSERT(dim.size() <= shapeSize) << "dim " << i << " appears multiple times in dim";
+            ASSERT(i < static_cast<int>(shapeSize) && i >= -(static_cast<int>(shapeSize))) << "dim " << i <<
+                " in dim is out of range";
+        }
+        for (int i : dim) {
+            int innerDim = (i < 0) ? i + static_cast<int>(shapeSize) : i;
+            if (oriShape[innerDim] != 1) {
+                dstShape.push_back(oriShape[innerDim]);
+            }
+        }
+    }
+
+    if (dstShape.empty()) {
+        return input;
+    } else {
+        return Reshape(input, dstShape, validShape);
+    }
+}
+
 void TensorInnerAssign(Function &function, const LogicalTensorPtr &operand, const LogicalTensorPtr &result) {
     function.AddOperation(Opcode::OP_REGISTER_COPY, {operand}, {result});
 }
