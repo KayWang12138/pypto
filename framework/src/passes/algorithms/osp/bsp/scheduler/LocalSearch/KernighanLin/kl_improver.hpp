@@ -419,34 +419,12 @@ class KlImprover : public ImprovementScheduler<GraphT> {
 
         } else {
             const unsigned nodeProc = activeSchedule_.AssignedProcessor(node);
-            ProcessWorkUpdateStep(node,
-                                  nodeStep,
-                                  nodeProc,
-                                  vertexWeight,
-                                  move.fromStep_,
-                                  move.fromProc_,
-                                  graph_->VertexWorkWeight(move.node_),
-                                  prevWorkData.fromStepMaxWork_,
-                                  prevWorkData.fromStepSecondMaxWork_,
-                                  prevWorkData.fromStepMaxWorkProcessorCount_,
-                                  updateInfo.updateFromStep_,
-                                  updateInfo.updateEntireFromStep_,
-                                  updateInfo.fullUpdate_,
-                                  affinityTableNode);
-            ProcessWorkUpdateStep(node,
-                                  nodeStep,
-                                  nodeProc,
-                                  vertexWeight,
-                                  move.toStep_,
-                                  move.toProc_,
-                                  -graph_->VertexWorkWeight(move.node_),
-                                  prevWorkData.toStepMaxWork_,
-                                  prevWorkData.toStepSecondMaxWork_,
-                                  prevWorkData.toStepMaxWorkProcessorCount_,
-                                  updateInfo.updateToStep_,
-                                  updateInfo.updateEntireToStep_,
-                                  updateInfo.fullUpdate_,
-                                  affinityTableNode);
+            ProcessWorkUpdateStep(node, nodeStep, nodeProc, vertexWeight, move.fromStep_, move.fromProc_, graph_->VertexWorkWeight(move.node_),
+                                  prevWorkData.fromStepMaxWork_, prevWorkData.fromStepSecondMaxWork_, prevWorkData.fromStepMaxWorkProcessorCount_,
+                                  updateInfo.updateFromStep_, updateInfo.updateEntireFromStep_, updateInfo.fullUpdate_, affinityTableNode);
+            ProcessWorkUpdateStep(node, nodeStep, nodeProc, vertexWeight, move.toStep_, move.toProc_, -graph_->VertexWorkWeight(move.node_),
+                                  prevWorkData.toStepMaxWork_, prevWorkData.toStepSecondMaxWork_, prevWorkData.toStepMaxWorkProcessorCount_,
+                                  updateInfo.updateToStep_, updateInfo.updateEntireToStep_, updateInfo.fullUpdate_, affinityTableNode);
         }
 
         return updateInfo;
@@ -807,106 +785,10 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                                  std::vector<VertexType> &newNodes,
                                  const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
                                  const typename CommCostFunctionT::PreMoveCommDataT &prevCommData) {
-        if constexpr (CommCostFunctionT::isMaxCommCostFunction_) {
-            commCostF_.UpdateNodeCommAffinity(
-                bestMove,
-                threadData,
-                threadData.rewardPenaltyStrat_.penalty_,
-                threadData.rewardPenaltyStrat_.reward_,
-                recomputeMaxGain,
-                newNodes);    // this only updated reward/penalty, collects newNodes, and fills recomputeMaxGain
-
-            // Determine the steps where max/second_max/max_count for work/comm changed
-            std::unordered_set<unsigned> changedSteps;
-
-            // Check work changes for fromStep
-            if (bestMove.fromStep_ == bestMove.toStep_) {
-                // Same step - check if max/second_max changed
-                const auto currentMax = activeSchedule_.GetStepMaxWork(bestMove.fromStep_);
-                const auto currentSecondMax = activeSchedule_.GetStepSecondMaxWork(bestMove.fromStep_);
-                const auto currentCount = activeSchedule_.GetStepMaxWorkProcessorCount()[bestMove.fromStep_];
-                if (currentMax != prevWorkData.fromStepMaxWork_ || currentSecondMax != prevWorkData.fromStepSecondMaxWork_
-                    || currentCount != prevWorkData.fromStepMaxWorkProcessorCount_) {
-                    changedSteps.insert(bestMove.fromStep_);
-                }
-            } else {
-                // Different steps - check both
-                const auto currentFromMax = activeSchedule_.GetStepMaxWork(bestMove.fromStep_);
-                const auto currentFromSecondMax = activeSchedule_.GetStepSecondMaxWork(bestMove.fromStep_);
-                const auto currentFromCount = activeSchedule_.GetStepMaxWorkProcessorCount()[bestMove.fromStep_];
-                if (currentFromMax != prevWorkData.fromStepMaxWork_ || currentFromSecondMax != prevWorkData.fromStepSecondMaxWork_
-                    || currentFromCount != prevWorkData.fromStepMaxWorkProcessorCount_) {
-                    changedSteps.insert(bestMove.fromStep_);
-                }
-
-                const auto currentToMax = activeSchedule_.GetStepMaxWork(bestMove.toStep_);
-                const auto currentToSecondMax = activeSchedule_.GetStepSecondMaxWork(bestMove.toStep_);
-                const auto currentToCount = activeSchedule_.GetStepMaxWorkProcessorCount()[bestMove.toStep_];
-                if (currentToMax != prevWorkData.toStepMaxWork_ || currentToSecondMax != prevWorkData.toStepSecondMaxWork_
-                    || currentToCount != prevWorkData.toStepMaxWorkProcessorCount_) {
-                    changedSteps.insert(bestMove.toStep_);
-                }
-            }
-
-            for (const auto &[step, stepInfo] : prevCommData.stepData_) {
-                // typename CommCostFunctionT::PreMoveCommDataT::StepInfo currentInfo;
-                // Query current values
-                const auto currentMax = commCostF_.commDs_.StepMaxComm(step);
-                const auto currentSecondMax = commCostF_.commDs_.StepSecondMaxComm(step);
-                const auto currentCount = commCostF_.commDs_.StepMaxCommCount(step);
-
-                if (currentMax != stepInfo.maxComm_ || currentSecondMax != stepInfo.secondMaxComm_
-                    || currentCount != stepInfo.maxCommCount_) {
-                    changedSteps.insert(step);
-                }
-            }
-
-            // Recompute affinities for all active nodes
-            const size_t activeCount = threadData.affinityTable_.size();
-            for (size_t i = 0; i < activeCount; ++i) {
-                const VertexType node = threadData.affinityTable_.GetSelectedNodes()[i];
-
-                // Determine if this node needs affinity recomputation
-                // A node needs recomputation if it's in or adjacent to changed steps
-                const unsigned nodeStep = activeSchedule_.AssignedSuperstep(node);
-
-                // Calculate window bounds for this node once
-                const int nodeLowerBound = static_cast<int>(nodeStep) - static_cast<int>(windowSize);
-                const unsigned nodeUpperBound = nodeStep + windowSize;
-
-                bool needsUpdate = false;
-                // Check if any changed step falls within the node's window
-                for (unsigned step : changedSteps) {
-                    if (static_cast<int>(step) >= nodeLowerBound && step <= nodeUpperBound) {
-                        needsUpdate = true;
-                        break;
-                    }
-                }
-
-                if (needsUpdate) {
-                    auto &affinityTableNode = threadData.affinityTable_.GetAffinityTable(node);
-
-                    // Reset affinity table entries to zero
-                    const unsigned numProcs = activeSchedule_.GetInstance().NumberOfProcessors();
-                    for (unsigned p = 0; p < numProcs; ++p) {
-                        for (unsigned idx = 0; idx < affinityTableNode[p].size(); ++idx) {
-                            affinityTableNode[p][idx] = 0;
-                        }
-                    }
-
-                    ComputeNodeAffinities(node, affinityTableNode, threadData);
-                    recomputeMaxGain[node] = KlGainUpdateInfo(node, true);
-                }
-            }
-        } else {
-            UpdateNodeWorkAffinity(threadData.affinityTable_, bestMove, prevWorkData, recomputeMaxGain);
-            commCostF_.UpdateNodeCommAffinity(bestMove,
-                                              threadData,
-                                              threadData.rewardPenaltyStrat_.penalty_,
-                                              threadData.rewardPenaltyStrat_.reward_,
-                                              recomputeMaxGain,
-                                              newNodes);
-        }
+        UpdateNodeWorkAffinity(threadData.affinityTable_, bestMove, prevWorkData, recomputeMaxGain);
+        commCostF_.UpdateNodeCommAffinity(bestMove, threadData, threadData.rewardPenaltyStrat_.penalty_,
+                                            threadData.rewardPenaltyStrat_.reward_, recomputeMaxGain, newNodes);
+        
     }
 
     inline bool BlockedEdgeStrategy(VertexType node, std::vector<VertexType> &unlockNodes, ThreadSearchContext &threadData) {

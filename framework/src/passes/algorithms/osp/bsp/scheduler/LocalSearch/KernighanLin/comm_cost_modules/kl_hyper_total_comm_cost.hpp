@@ -29,13 +29,9 @@ struct KlHyperTotalCommCostFunction {
     using KlMove = KlMoveStruct<CostT, VertexType>;
     using KlGainUpdateInfo = KlUpdateInfo<VertexType>;
 
-    constexpr static unsigned windowRange_ = 2 * windowSize + 1;
-    constexpr static bool isMaxCommCostFunction_ = false;
-
+    constexpr static unsigned windowRange_ = 2 * windowSize + 1;    
     KlActiveSchedule<GraphT, CostT> *activeSchedule_;
-
     CompatibleProcessorRange<GraphT> *procRange_;
-
     const GraphT *graph_;
     const BspInstance<GraphT> *instance_;
 
