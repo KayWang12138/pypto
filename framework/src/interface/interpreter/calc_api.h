@@ -66,6 +66,7 @@ struct CalcOps {
     void (*Range)(LogicalTensorDataPtr, const Element &, const Element &, const Element &);
     void (*Compare)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, CmpOperationType, CmpModeType);
     void (*Cmps)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, CmpOperationType, CmpModeType);
+    void (*Hypot)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*LogicalAnd)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr);
 
     void (*AddS)(LogicalTensorDataPtr, LogicalTensorDataPtr, const Element &, bool);
