@@ -32,23 +32,15 @@
 #endif
 #endif
 
-#if defined(PYPTO_USE_ASCENDC_BLOCK_SYNC)
+#ifndef __TILE_FWK_HOST__
+#if !defined(PYPTO_USE_ASCENDC_BLOCK_SYNC)
+#error "moe_combine_ffn_fused requires AscendC block sync support"
+#endif
+#endif
+
 #define PYPTO_CROSS_CORE_SET(mode, pipe, flag) AscendC::CrossCoreSetFlag<mode, pipe>(flag)
 #define PYPTO_CROSS_CORE_WAIT(mode, flag) AscendC::CrossCoreWaitFlag<mode>(flag)
 #define PYPTO_SYNC_ALL() AscendC::SyncAll<true>()
-#else
-#define PYPTO_CROSS_CORE_SET(mode, pipe, flag) ((void)(flag))
-#define PYPTO_CROSS_CORE_WAIT(mode, flag) ((void)(flag))
-#define PYPTO_SYNC_ALL() do { } while (0)
-#endif
-
-#ifndef PYPTO_FFN_FUSED_CROSS_CORE
-#if defined(PYPTO_USE_ASCENDC_BLOCK_SYNC)
-#define PYPTO_FFN_FUSED_CROSS_CORE 1
-#else
-#define PYPTO_FFN_FUSED_CROSS_CORE 0
-#endif
-#endif
 
 #ifdef SUPPORT_TILE_TENSOR
 using pto::TileLeft;
@@ -593,27 +585,6 @@ TILEOP void MoeCombineFFNFusedRunCrossCore(
 #endif
 }
 
-template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
-TILEOP void MoeCombineFFNFusedRunSingleCore(
-    MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape>& ctx,
-    int64_t rowOffset)
-{
-    uint32_t expertIdx = 0;
-#if defined(__DAV_C220_VEC__)
-    // No cross-core sync support: keep serial execution and only run combine on vector cores.
-    MoeCombineFFNFusedAIV<T, topK, colShape, paddedColShape, intermediateSize>(ctx, expertIdx);
-#elif defined(__DAV_C220_CUBE__)
-    // No cross-core sync support: cube core runs combine first, then runs single-core FFN.
-    MoeCombineFFNFusedAIV<T, topK, colShape, paddedColShape, intermediateSize>(ctx, expertIdx);
-    MoeCombineFFNFusedAICSingleCore<T, topK, colShape, paddedColShape, intermediateSize>(
-        ctx, static_cast<uint32_t>(rowOffset), ctx.rowShape);
-#else
-    (void)ctx;
-    (void)rowOffset;
-    (void)expertIdx;
-#endif
-}
-
 template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
 TILEOP void MoeCombineFFNFusedKernel(
     __gm__ T* ffnOutput,
@@ -653,12 +624,8 @@ TILEOP void MoeCombineFFNFusedKernel(
     ctx.rowShape = rowShape;
     ctx.intermediateSize = intermediateSize;
 
-#if PYPTO_FFN_FUSED_CROSS_CORE
     MoeCombineFFNFusedRunCrossCore<T, topK, colShape, paddedColShape, intermediateSize>(
         ctx, workspace, mulFp32Buffer, rowOffset);
-#else
-    MoeCombineFFNFusedRunSingleCore<T, topK, colShape, paddedColShape, intermediateSize>(ctx, rowOffset);
-#endif
 }
 
 #endif // !__TILE_FWK_HOST__

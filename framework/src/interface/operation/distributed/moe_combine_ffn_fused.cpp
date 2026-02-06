@@ -28,7 +28,6 @@
 #include "tilefwk/tensor.h"
 #include "tilefwk/tilefwk.h"
 
-#include <cstdlib>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -167,69 +166,6 @@ void MoeDistributedCombineFfnFused(const Tensor& expandX, const Tensor& assistIn
     int32_t topK = expertScales.GetShape(1);
     int32_t hiddenSize = expandX.GetShape(1);
     int32_t intermediateSize = GetFfnIntermediateSize(ffnWeight, hiddenSize);
-
-    const char* forceFallbackEnv = std::getenv("PYPTO_FORCE_MOE_FFN_FUSED_FALLBACK");
-    const char* disableFallbackEnv = std::getenv("PYPTO_DISABLE_MOE_FFN_FUSED_FALLBACK");
-    bool forceFallback = (forceFallbackEnv != nullptr && std::string(forceFallbackEnv) == "1");
-    bool disableFallback = (disableFallbackEnv != nullptr && std::string(disableFallbackEnv) == "1");
-    bool isDav2201 = (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_2201);
-    bool useFallback = !disableFallback && (forceFallback || isDav2201);
-    if (isDav2201 && disableFallback) {
-        ALOG_WARN("MoeCombineFfnFused: DAV_2201 does not support the mixed AIV/AIC fused kernel; "
-                  "forcing fallback path.");
-        useFallback = true;
-    }
-    if (useFallback) {
-        Tensor combineOut(expandX.GetDataType(), {batchSize, hiddenSize}, "combineOut");
-        MoeDistributedCombine(expandX, assistInfoForCombine, recvCounts, expertScales, group, epWorldSize,
-            moeExpertNum, sharedExpertNum, sharedExpertRankNum, combineOut);
-
-        auto setCubeTile = [](int64_t kSize, int64_t nSize) {
-            constexpr int64_t kTileLimit = 64;
-            constexpr int64_t nTileLimit = 64;
-            int64_t kTile = AlignUp(std::min(kSize, kTileLimit), 16L);
-            int64_t nTile = AlignUp(std::min(nSize, nTileLimit), 16L);
-            int64_t mTile = 16;
-            TileShape::Current().SetCubeTile({mTile, mTile}, {kTile, kTile}, {nTile, nTile});
-        };
-        auto setVecTile1D = [](int64_t length) {
-            constexpr int64_t tileLimit = 1024;
-            int64_t tile = AlignUp(std::min(length, tileLimit), 16L);
-            TileShape::Current().SetVecTile({tile});
-        };
-        auto setVecTile2D = [](int64_t lastDim) {
-            int64_t tile = AlignUp(lastDim, 16L);
-            TileShape::Current().SetVecTile({1, tile});
-        };
-
-        int64_t weightStride = static_cast<int64_t>(hiddenSize) * intermediateSize;
-        auto gateWeightFlat = View(ffnWeight, {weightStride}, {0});
-        auto upWeightFlat = View(ffnWeight, {weightStride}, {weightStride});
-        auto downWeightFlat = View(ffnWeight, {weightStride}, {2LL * weightStride});
-        setVecTile1D(weightStride);
-        auto gateWeight = Reshape(gateWeightFlat, {hiddenSize, intermediateSize});
-        auto upWeight = Reshape(upWeightFlat, {hiddenSize, intermediateSize});
-        auto downWeight = Reshape(downWeightFlat, {intermediateSize, hiddenSize});
-        setVecTile2D(std::max<int64_t>(hiddenSize, intermediateSize));
-        auto combineFp32 = Cast(combineOut, DT_FP32);
-        auto gateWeightFp32 = Cast(gateWeight, DT_FP32);
-        auto upWeightFp32 = Cast(upWeight, DT_FP32);
-        auto downWeightFp32 = Cast(downWeight, DT_FP32);
-
-        setCubeTile(hiddenSize, intermediateSize);
-        auto gateFp32 = Matrix::Matmul(DT_FP32, combineFp32, gateWeightFp32);
-        auto upFp32 = Matrix::Matmul(DT_FP32, combineFp32, upWeightFp32);
-        auto negGate = Neg(gateFp32);
-        auto expNegGate = Exp(negGate);
-        auto denom = Add(expNegGate, Element(DT_FP32, 1.0f));
-        auto silu = Div(gateFp32, denom);
-        auto interFp32 = Mul(silu, upFp32);
-        setCubeTile(intermediateSize, hiddenSize);
-        auto outFp32 = Matrix::Matmul(DT_FP32, interFp32, downWeightFp32);
-        setVecTile2D(hiddenSize);
-        out = Cast(outFp32, expandX.GetDataType());
-        return;
-    }
 
     int32_t shmemDataRow = topK * batchSize;
     Shape shmemDataShape = {1, shmemDataRow, hiddenSize};
