@@ -61,8 +61,8 @@ def TestJITFunction():
     relu_executor(x, y)
     torch.npu.synchronize()
     y_ref = torch.nn.functional.relu(x)
-    max_error = (y - y_ref).abs().max().item()
-    print(f"Max error: {max_error}")
+    print(f"npu_result: {y}")
+    print(f"golden: {y_ref}")
     return
 
 

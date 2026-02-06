@@ -111,7 +111,7 @@ def pto_meta_data(f):
     """Decorator that marks a function as the meta-data provider (types, config) for jit_compile."""
     return f
 
-def compile_module(module, clean_up=True, timeout=20):
+def compile_module(module, clean_up=False, timeout=20):
     Path("./build").mkdir(parents=True, exist_ok=True)
     ir_path = "./build/temp.pto"  # TODO: use Python `tempfile` module
     raw_cpp_path = "./build/temp_generated.cpp"
@@ -168,7 +168,7 @@ def torch_to_ctypes(tensor):
     return ctypes.c_void_p(tensor.data_ptr())
 
 
-def load_lib(lib_path, clean_up=True):
+def load_lib(lib_path, clean_up=False):
     import torch_npu
 
     lib = ctypes.CDLL(lib_path)
@@ -176,19 +176,22 @@ def load_lib(lib_path, clean_up=True):
     default_block_dim = 1  # TODO: extend kernel to multi-core
 
     def func_wrapper(
-        x,
-        y,
+        *tensors,
         block_dim=default_block_dim,
         stream=None
     ):
+        for i, t in enumerate(tensors):
+            if not isinstance(t, torch.Tensor):
+                raise TypeError(f"argument{i} must be torch.Tensor, real type is: {type(t)}")
+            
         if stream is None:
             stream = torch.npu.current_stream()
+        ptrs = [torch_to_ctypes(t) for t in tensors]
         # TODO (important): matching call signature to arg list information in Python `build_module`
         lib.call_kernel(
             block_dim,
             stream._as_parameter_,
-            torch_to_ctypes(x),
-            torch_to_ctypes(y)
+            *ptrs
         )
 
     if clean_up:
