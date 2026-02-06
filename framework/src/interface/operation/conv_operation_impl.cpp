@@ -235,7 +235,7 @@ uint64_t Conv2DInferHiL1(uint64_t inputHoL1, uint64_t khDilated, uint64_t hi, ui
     }
     return tmpHiL1;
 }
-void CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
+void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const Tensor &biasTensor, ConvAttrParam &attrParam){
     auto convTile = TileShape::Current().GetConvTile();
     uint64_t l1Size = Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L0A);
     int64_t kh = weightTensor.GetShape()[2];
