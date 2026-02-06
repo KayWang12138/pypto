@@ -482,6 +482,10 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam
         templateParamList.emplace_back(lastUse);
     }
     templateParamList.emplace_back(dstDtypeStr);
+    if(opAttrs.count(OpAttributeKey::reverseOperand)){
+        bool reverseOperand = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OpAttributeKey::reverseOperand));
+        templateParamList.emplace_back(std::to_string(reverseOperand));
+    }
     oss << tileOpName;
     oss << WrapParamByAngleBrackets(templateParamList);
     oss << WrapParamByParentheses(tileOpParamList);
