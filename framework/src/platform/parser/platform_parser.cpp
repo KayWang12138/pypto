@@ -18,17 +18,7 @@
 namespace npu {
 namespace tile_fwk {
 const uint32_t kMaxLength = 50;
-const std::string platformConfigEnv = "PLATFORM_CONFIG_PATH";
 const std::string version = "version";
-const std::string instrinsicMap = "AICoreintrinsicDtypeMap";
-const std::string aic = "AIC";
-const std::string aiv = "AIV";
-const std::string aicVersion = "AIC_version";
-const std::string aivVersion = "AIV_version";
-const std::string ccecAicVersion = "CCEC_AIC_version";
-const std::string ccecAivVersion = "CCEC_AIV_version";
-const std::string ccecCubeVersion = "CCEC_CUBE_version";
-const std::string ccecVectorVersion = "CCEC_VECTOR_version";
 
 bool INIParser::Initialize(const std::string &iniFilePath) {
     if (!ReadINIFile(iniFilePath)) {

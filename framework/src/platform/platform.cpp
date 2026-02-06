@@ -36,6 +36,14 @@ const std::string l0bSize = "l0_b_size";
 const std::string l0cSize = "l0_c_size";
 const std::string l1Size = "l1_size";
 const std::string ubSize = "ub_size";
+const std::string aic = "AIC";
+const std::string aiv = "AIV";
+const std::string aicVersion = "AIC_version";
+const std::string aivVersion = "AIV_version";
+const std::string ccecAicVersion = "CCEC_AIC_version";
+const std::string ccecAivVersion = "CCEC_AIV_version";
+const std::string ccecCubeVersion = "CCEC_CUBE_version";
+const std::string ccecVectorVersion = "CCEC_VECTOR_version";
 const std::string iniFile = "platformInfo.ini";
 const std::unordered_map<std::string, NPUArch> npuArchMap = {
     {"1001", NPUArch::DAV_1001},
