@@ -1181,8 +1181,9 @@ TEST_F(TestPadLocalBuffer, axiscombineEnable) {
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,16}, MemoryType::MEM_UB, "t2"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_EXPAND, {"t1"}, {"t2"}, "expand", true), true);
     graph.GetOp("expand")->SetAttribute(OP_ATTR_PREFIX + "EXPANDDIM", 0);
-
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,1}, MemoryType::MEM_DEVICE_DDR, "gm"), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24,1}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"gm"}, {"t3"}, "copyin", true), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24, 16}, MemoryType::MEM_UB, "t4"), true);
     EXPECT_EQ(graph.AddOp(Opcode::OP_DIV, {"t2","t3"}, {"t4"}, "div", true), true);
     EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {24, 1}, MemoryType::MEM_UB, "t5"), true);
