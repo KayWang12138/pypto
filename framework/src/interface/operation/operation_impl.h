@@ -46,8 +46,12 @@ const std::string A_MUL_B_ACT_M = OP_ATTR_PREFIX + "act_m";
 const std::string A_MUL_B_ACT_K = OP_ATTR_PREFIX + "act_k";
 const std::string A_MUL_B_ACT_N = OP_ATTR_PREFIX + "act_n";
 const std::string A_MUL_B_TRANS_A = OP_ATTR_PREFIX + "trans_a";
+const std::string A_MUL_B_SCALE_A_COPY_IN_MODE = OP_ATTR_PREFIX + "scale_a_copy_in_mode";
 const std::string A_MUL_B_TRANS_B = OP_ATTR_PREFIX + "trans_b";
+const std::string A_MUL_B_SCALE_B_COPY_IN_MODE = OP_ATTR_PREFIX + "scale_b_copy_in_mode";
 const std::string A_MUL_B_GM_ACC = OP_ATTR_PREFIX + "gm_acc";
+const std::string A_MUL_B_MX_ATTR = OP_ATTR_PREFIX + "is_mx";
+const std::string COPY_IN_L1_PADDING_MODE = OP_ATTR_PREFIX + "copy_in_l1_padding_mode";
 const std::string L1_TO_L0_TRANSPOSE = OP_ATTR_PREFIX + "l1_to_l0_transpose";
 const std::string L1_TO_L0_OFFSET = OP_ATTR_PREFIX + "l1_to_l0_offset";
 const std::string L1_TO_L0_TILE = OP_ATTR_PREFIX + "l1_to_l0_tile";
@@ -60,7 +64,15 @@ const std::string A_MUL_B_VECTOR_QUANT_FLAG = OP_ATTR_PREFIX + "vector_quant_fla
 
 enum class CopyInMode : int64_t {
     ND2ND = 0,
-    ND2NZ = 1
+    ND2NZ = 1,
+    NZ2NZ = 2,
+    DN2NZ = 3
+};
+
+enum class PaddingMode : int64_t {
+    NO_PADDING = 0,
+    PADDING_OUTER = 1,
+    PADDING_INNER = 2
 };
 
 struct MatmulTensorInfo {
@@ -118,12 +130,29 @@ struct MatmulIterInfo {
 
 struct MatmulGraphNodes {
     LogicalTensorPtr aTensorPtr = nullptr;
+    LogicalTensorPtr aScaleTensorPtr = nullptr;
     LogicalTensorPtr bTensorPtr = nullptr;
+    LogicalTensorPtr bScaleTensorPtr = nullptr;
     LogicalTensorPtr gmAccumulationTensorPtr = nullptr;
     LogicalTensorPtr biasTensorPtr = nullptr;
     LogicalTensorPtr scaleTensorPtr = nullptr;
     LogicalTensorPtr cL0PartialSumPtr = nullptr;
     LogicalTensorPtr outTensorPtr = nullptr;
+
+    MatmulGraphNodes() = default;
+
+    MatmulGraphNodes(LogicalTensorPtr aTensorIn, LogicalTensorPtr bTensorIn)
+        : aTensorPtr(aTensorIn), bTensorPtr(bTensorIn){};
+
+    MatmulGraphNodes(LogicalTensorPtr aTensorIn, LogicalTensorPtr bTensorIn, LogicalTensorPtr gmAccumulationTensorIn)
+        : aTensorPtr(aTensorIn), bTensorPtr(bTensorIn), gmAccumulationTensorPtr(gmAccumulationTensorIn){};
+
+    MatmulGraphNodes(LogicalTensorPtr aTensorIn, LogicalTensorPtr aScaleTensorIn, LogicalTensorPtr bTensorIn,
+        LogicalTensorPtr bScaleTensorIn)
+        : aTensorPtr(aTensorIn),
+          aScaleTensorPtr(aScaleTensorIn),
+          bTensorPtr(bTensorIn),
+          bScaleTensorPtr(bScaleTensorIn){};
 };
 
 struct MatmulAttrParam {
@@ -135,7 +164,10 @@ struct MatmulAttrParam {
     bool hasBias = false;
     bool hasScale = false;
     bool transA = false;
+    bool transAScale = false;
     bool transB = false;
+    bool transBScale = false;
+    bool hasMXScale = false;
     bool gmAccumulationFlag = false;
     bool isCMatrixNZ = false;
 
@@ -145,6 +177,15 @@ struct MatmulAttrParam {
         transA = isATrans;
         transB = isBTrans;
         isCMatrixNZ = cMatrixNZ;
+    }
+
+    MatmulAttrParam(bool isATrans, bool isAScaleTrans, bool isBTrans, bool isBScaleTrans, bool cMatrixNZ)
+        : transA(isATrans),
+          transAScale(isAScaleTrans),
+          transB(isBTrans),
+          transBScale(isBScaleTrans),
+          isCMatrixNZ(cMatrixNZ) {
+        hasMXScale = true;
     }
 };
 
