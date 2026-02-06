@@ -46,10 +46,13 @@ target_include_directories(tile_fwk_interface
         PUBLIC
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
+if (TARGET tile_fwk_platform)
+    target_link_libraries(tile_fwk_interface PUBLIC tile_fwk_platform)
+else ()
+    target_link_libraries(tile_fwk_interface PUBLIC tile_fwk_platform_stub)
+endif()
 target_link_libraries(tile_fwk_interface
         PUBLIC
-            $<BUILD_INTERFACE:$<$<BOOL:${BUILD_WITH_CANN}>:tile_fwk_platform>>
-            $<BUILD_INTERFACE:$<$<NOT:$<BOOL:${BUILD_WITH_CANN}>>:tile_fwk_platform_stub>>
             $<BUILD_INTERFACE:json>
             $<BUILD_INTERFACE:c_sec>
         PRIVATE
