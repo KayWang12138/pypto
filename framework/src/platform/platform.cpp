@@ -14,13 +14,10 @@
  */
 
 #include <fstream>
-#include "internal_parser.h"
 #include "tilefwk/platform.h"
-#include "simulation_platform/platform.h"
-
-#ifdef BUILD_WITH_CANN
-#include "runtime/rt.h"
-#endif
+#include "parser/internal_parser.h"
+#include "parser/platform_parser.h"
+#include "simulation_platform/simulation_platform.h"
 
 namespace npu::tile_fwk {
 const uint32_t kMaxLength = 50;
@@ -339,8 +336,8 @@ void Platform::ObtainPlatformInfo() {
         npu::tile_fwk::CmdParser cmdparser;
         LoadPlatformInfo(cmdparser);
     } else {
-        CostModel::CostModelPlatform costModelPlatform;
-        costModelPlatform.GetCostModelPlatformRealPath(srcPath);
+        SimulationPlatform simulationPlatform;
+        simulationPlatform.GetCostModelPlatformRealPath(srcPath);
         npu::tile_fwk::INIParser iniparser;
         iniparser.Initialize(srcPath);
         LoadPlatformInfo(iniparser);
