@@ -223,6 +223,7 @@ Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vec
 
 Tensor Sin(Tensor operand);
 Tensor Cos(Tensor operand);
+Tensor Variance(Tensor &input, const std::vector<int> &dim, float correction);
 Tensor Softmax(const Tensor &operand);
 Tensor RmsNorm(const Tensor &operand);
 Tensor RmsNorm(const Tensor &operand, const Tensor &gamma, float epsilon = 1e-05f);

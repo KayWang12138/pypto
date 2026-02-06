@@ -703,6 +703,73 @@ void LogicAndOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledLogicalAndOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
 }
 
+static void VarianceParamVaildCheck(Tensor &input, const std::vector<int> &dim)
+{
+    Datatype dtype = input.GetDataType();
+    Shape shape = input.GetShape();
+    uint64_t shapeSize = shape.size();
+
+    ASSERT(shapeSize <= SHAPE_DIM5) << "The shape.size() only support 1~5";
+    ASSERT((dtype == DT_FP32) || (dtype == DT_FP16) || (dtype == DT_BF16)) << "The datatype is only support float";
+    for (uint64_t i = 0; i < shapeSize; i++) {
+        ASSERT(shape[i] > 0) << "The input shape should > 0";
+    }
+    
+    if (dim.empty()) {
+        for (uint64_t i = 0; i < shapeSize; i++) {
+            dim.push_back(static_cast<int>(i));
+        }
+    }
+    std::set<int> dupDimSet(dim.begin(), dim.end());
+
+    ASSERT(dupDimSet.size() == dim.size()) << "There is duplicates elements in dim";
+    ASSERT(dim.size() <= shapeSize) << "The dim.size() should <= input.size()";
+    for (size_t i = 0; i < dim.size(); i++) {
+        ASSERT(dim[i] < static_cast<int>(shapeSize) && dim[i] > -(static_cast<int>(shapeSize))) <<
+            "The value in dim is out of range";
+        if (dim[i] < 0) {
+            dim[i] = dim[i] + static_cast<int>(shapeSize);
+        }
+    }
+}
+
+Tensor Variance(Tensor &input, const std::vector<int> &dim, float correction)
+{
+    VarianceParamVaildCheck(input, dim);
+
+    Datatype dtype = input.GetDataType();
+    Shape shape = input.GetShape();
+    auto castInput = Tensor(DT_FP32, shape);
+    if (dtype == DT_FP16 || dtype == DT_BF16) {
+        castInput = Cast(input, DT_FP32, CAST_NONE);
+    } else {
+        castInput = input;
+    }
+
+    int calcN = 1;
+    auto res = castInput;
+    for (size_t i = 0; i < dim.size(); i++) {
+        calcN *= static_cast<int>(shape[dim[i]]);
+        res = Sum(res, dim[i], true);
+    }
+    res = Div(sumOp, Element(DT_FP32, static_cast<float>(calcN)));
+
+    Shape dstShape = res.GetShape();
+    for (size_t i = 0; i < dim.size(); i++) {
+        dstShape[dim[i]] = shape[dim[i]];
+        res = Expand(res, dstShape);
+    }
+
+    res = Sub(castInput, res);
+    res = Mul(res, res);
+    for (size_t i = 0; i < dim.size(); i++) {
+        res = Sum(res, dim[i], (i == dim.size() - 1) ? false : true);
+    }
+    res = Div(res, Element(DT_FP32, static_cast<float>(calcN) - correction));
+
+    return res;
+}
+
 Tensor TensorRound(Function &function, const LogicalTensorPtr &self, const int &decimals = 0) {
     auto result =
         std::make_shared<LogicalTensor>(function, self->Datatype(), self->GetShape(), self->GetDynValidShape());
