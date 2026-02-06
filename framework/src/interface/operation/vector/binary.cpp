@@ -150,7 +150,7 @@ template <BinaryOpType T>
 void TiledBinaryOperation(Function &function, const TileShape &tileShape, LogicalTensorPtr operand1,
     LogicalTensorPtr operand2, const LogicalTensorPtr &result) {
     CheckBinOpOperandsValid(operand1, operand2);
-    bool withBrc = CallBrcBinOp(operand1, operand2) &&
+    bool withBrc = CallBrcBinOp(operand1, operand2) && //尾轴一个为1一个为n，就是true
                    (function.paramConfigs_.forceCombineAxis ||
                        function.paramConfigs_.combineAxis);
     // nolast brc will be inline
@@ -197,6 +197,11 @@ Tensor Div(const Tensor &self, const Tensor &other) {
 Tensor Fmod(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperation<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(), self, other);
+}
+
+Tensor Remainder(const Tensor &self, const Tensor &other) {
+    DECLARE_TRACER();
+    RETURN_CALL(BinaryOperation<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(), self, other);
 }
 
 Tensor Maximum(const Tensor &operand1, const Tensor &operand2) {
@@ -303,6 +308,7 @@ Tensor Fmod(const Tensor &self, const Element &other) {
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::MOD>, *Program::GetInstance().GetCurrentFunction(),
         self.GetStorage(), other);
 }
+
 Tensor BitwiseAnd(const Tensor &self, const Element &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperationScalar<BinaryOpType::BITWISEAND>, *Program::GetInstance().GetCurrentFunction(),
@@ -377,6 +383,36 @@ void TiledBinaryOperationAllScalar(Function &function, const TileShape &tileShap
     TileInfo resultTileInfo(result->shape.size(), result->offset.size());
     auto input1 = LogicalInput{operand1, tileInfo1};
     TiledBinaryOperationAllScalar<T>(function, tileShape, 0, input1, value, result, resultTileInfo, reverseOperand);
+}
+
+Tensor Remainder(const Tensor &self, const Element &other) {
+    DECLARE_TRACER();
+    auto selfDtype = self.GetDataType();
+    Tensor castSelf = self;
+    Element other_ = other;
+    if ((selfDtype == DT_INT16 || selfDtype == DT_INT32) && other.GetDataType() == DT_FP32) {
+        castSelf = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            self.GetStorage(), DT_FP32, CastMode::CAST_NONE);
+    } else {
+        other_ = Element(selfDtype, other.Cast<float>());
+    }
+    RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::REM>, *Program::GetInstance().GetCurrentFunction(), castSelf,
+        other_, false);
+}
+
+Tensor Remainder(const Element &self, const Tensor &other) {
+    DECLARE_TRACER();
+    auto otherDtype = other.GetDataType();
+    Tensor castOther = other;
+    Element self_ = self;
+    if ((otherDtype == DT_INT16 || otherDtype == DT_INT32) && self.GetDataType() == DT_FP32) {
+        castOther = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            other.GetStorage(), DT_FP32, CastMode::CAST_NONE);
+    } else {
+        self_ = Element(otherDtype, self.Cast<float>());
+    }
+    RETURN_CALL(BinaryOperationAllScalar<BinaryOpType::REMR>, *Program::GetInstance().GetCurrentFunction(), castOther,
+        self_, true);
 }
 
 Tensor ScalarAddS(const Tensor &operand, const Element &value, bool reverseOperand) {
@@ -561,6 +597,7 @@ REGISTER_OPERATION_TILED_FUNC(OP_MAXIMUM, Opcode::OP_MAXIMUM, BinaryOperationTil
 REGISTER_OPERATION_TILED_FUNC(OP_MINIMUM, Opcode::OP_MINIMUM, BinaryOperationTileFunc<BinaryOpType::MINIMUM>);
 REGISTER_OPERATION_TILED_FUNC(OP_POW, Opcode::OP_POW, BinaryOperationTileFunc<BinaryOpType::POW>);
 REGISTER_OPERATION_TILED_FUNC(OP_MOD, Opcode::OP_MOD, BinaryOperationTileFunc<BinaryOpType::MOD>);
+REGISTER_OPERATION_TILED_FUNC(OP_REM, Opcode::OP_REM, BinaryOperationTileFunc<BinaryOpType::REM>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEAND, Opcode::OP_BITWISEAND, BinaryOperationTileFunc<BinaryOpType::BITWISEAND>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEOR, Opcode::OP_BITWISEOR, BinaryOperationTileFunc<BinaryOpType::BITWISEOR>);
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, BinaryOperationTileFunc<BinaryOpType::BITWISEXOR>);
@@ -583,6 +620,8 @@ REGISTER_OPERATION_TILED_FUNC(OP_S_MULS, Opcode::OP_S_MULS, BinaryOperationAllSc
 REGISTER_OPERATION_TILED_FUNC(OP_S_DIVS, Opcode::OP_S_DIVS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_DIV>);
 REGISTER_OPERATION_TILED_FUNC(OP_S_MAXS, Opcode::OP_S_MAXS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_MAX>);
 REGISTER_OPERATION_TILED_FUNC(OP_S_MINS, Opcode::OP_S_MINS, BinaryOperationAllScalarResTileFunc<BinaryOpType::S_MIN>);
+REGISTER_OPERATION_TILED_FUNC(OP_REMRS, Opcode::OP_REMRS, BinaryOperationAllScalarResTileFunc<BinaryOpType::REMR>);
+REGISTER_OPERATION_TILED_FUNC(OP_REMS, Opcode::OP_REMS, BinaryOperationAllScalarResTileFunc<BinaryOpType::REM>);
 
 REGISTER_OPERATION_TILED_FUNC(OP_S_ADD, Opcode::OP_S_ADD, BinaryOperationAllScalarTileFunc<BinaryOpType::S_ADD>);
 REGISTER_OPERATION_TILED_FUNC(OP_S_SUB, Opcode::OP_S_SUB, BinaryOperationAllScalarTileFunc<BinaryOpType::S_SUB>);
