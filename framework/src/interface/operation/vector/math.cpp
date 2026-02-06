@@ -703,6 +703,54 @@ void LogicAndOperationTileFunc(Function &function, const TileShape &tileShape,
     TiledLogicalAndOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
 }
 
+static void VarianceParamVaildCheck(Tensor &input, const std::vector<int> &dim)
+{
+    Datatype dtype = input.GetDataType();
+    uint64_t shapeSize = input.Dim();
+    ASSERT(shapeSize <= SHAPE_DIM5) << "The shape.size() only support 1~5";
+    ASSERT((dtype == DT_FP32) || (dtype == DT_FP16) || (dtype == DT_BF16)) << "The datatype is only support float";
+
+    if (dim.empty()) {
+        for (uint64_t i = 0; i < shapeSize; i++) {
+            dim.push_back(static_cast<int>(i));
+        }
+    }
+    std::set<int> dupDimSet(dim.begin(), dim.end());
+
+    ASSERT(dupDimSet.size() == dim.size()) << "There is duplicates elements in dim";
+    ASSERT(dim.size() <= shapeSize) << "The dim.size() should <= input.size()";
+    for (size_t i = 0; i < dim.size(); i++) {
+        ASSERT(dim[i] < static_cast<int>(shapeSize) && dim[i] > -(static_cast<int>(shapeSize))) <<
+            "The value in dim is out of range";
+        if (dim[i] < 0) {
+            dim[i] = dim[i] + static_cast<int>(shapeSize);
+        }
+    }
+}
+
+Tensor Variance(Tensor &input, const std::vector<int> &dim, float correction)
+{
+    VarianceParamVaildCheck(input, dim);
+
+    Datatype dtype = input.GetDataType();
+    auto castInput = Tensor(DT_FP32, input.GetShape());
+    if (dtype == DT_FP16 || dtype == DT_BF16) {
+        castInput = Cast(input, DT_FP32, CAST_NONE);
+    } else {
+        castInput = input;
+    }
+
+    int64_t calcN = 1;
+    auto sumOp = castInput;
+    for (size_t i = 0; i < dim.size(); i++) {
+        calcN *= dim[i];
+        sumOp = Sum(sumOp, dim[i], true);
+    }
+    auto mean = Div(sumOp, calcN);
+
+
+}
+
 Tensor TensorRound(Function &function, const LogicalTensorPtr &self, const int &decimals = 0) {
     auto result =
         std::make_shared<LogicalTensor>(function, self->Datatype(), self->GetShape(), self->GetDynValidShape());
