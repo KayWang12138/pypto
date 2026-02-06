@@ -150,6 +150,7 @@ struct SpillInfo {
     IssueEntryPtr spillIssue_;
     LogicalTensorPtr spillTensor_;
     LogicalTensorPtr ddrTensor_;
+    // A5 中 L1-spill 且 前序节点是 L0C/L1_COPY_L1 时 为 true
     bool isSpecialL1_{false};
 };
 

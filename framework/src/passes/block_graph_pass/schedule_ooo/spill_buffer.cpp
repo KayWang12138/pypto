@@ -376,13 +376,14 @@ Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, s
     int bufLastUseOrder = -1;
     if (spillInfo.isSpecialL1_) {
         auto actualSpillTensor = spillInfo.spillIssue_->tileOp.GetInputOperand(0);
+        IssueEntryPtr actualSpillIssue = nullptr;
         for (auto &preId : spillInfo.spillIssue_->predecessors) {
             if (!issueEntryMap[preId]->isAlloc) {
-                auto actualSpillIssue = issueEntryMap[preId];
+                actualSpillIssue = issueEntryMap[preId];
             }
         }
         if (actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
-            APASS_LOG_ERROR_F(Elements::Operation, "A5 L1 Spill: actualSpillIssue is copy_in.");
+            APASS_LOG_ERROR_F(Elements::Operation, "A5 L1 Spill failed: actualSpillIssue is copy_in.");
             return FAILED;
         }
         if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout) != SUCCESS) {
@@ -673,6 +674,10 @@ Status OoOScheduler::SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int>
             return FAILED;
         }
         if (spillInfo.spillIssue_->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            if (allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Failed to spill %d in L1 spill. SpillIssue is assemble op.", spillMemId);
+                return FAILED;
+            }
             if (SpillAssembleBuffer(spillInfo, allocIssue, pcIdx, allocBuffer, isGenSpill) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "SpillAssembleBuffer[%d] failed.", spillMemId);
                 return FAILED;
