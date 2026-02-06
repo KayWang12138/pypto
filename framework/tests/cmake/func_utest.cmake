@@ -156,8 +156,8 @@ function(PTO_Fwk_UTest_AddExe_RunExe)
             $<$<BOOL:${BUILD_WITH_CANN}>:${PTO_Fwk_UTestNamePrefix}_stubs>
             # 基本依赖
             # Interface 内 HostMachine 存在 dlopen 逻辑, 此处增加对应库连接, 触发相关 so 被添加到可执行程序依赖中
-            $<$<BOOL:${BUILD_WITH_CANN}>:tile_fwk_platform
-            $<$<NOT:$<BOOL:${BUILD_WITH_CANN}>>:tile_fwk_platform_stub
+            tile_fwk_platform
+            tile_fwk_platform_stub
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler
