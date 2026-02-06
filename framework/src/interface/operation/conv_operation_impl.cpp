@@ -226,29 +226,55 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
         CheckL0TileTiling(outType);
     }
 }
-/*
+uint64_t Conv2DInferHiL1(uint64_t inputHoL1, uint64_t khDilated, uint64_t hi, uint64_t strideH)
+{
+    uint64_t tmpHiL1 = (inputHoL1 - 1) * strideH + khDilated;
+    if (tmpHiL1 > hi) {
+        tmpHiL1 = hi;
+    }
+    return tmpHiL1;
+}
 void CheckL1SizeTiling(DataType outType, const Tensor &weightTensor){
-    auto &convTile = TileShape::Current().GetConvTile();
-    int64_t l1Size = pipeConfig.l1SizeThreshold;
-    int64_t tileHout = convTile.tileL1Info.tileHout;
-    int64_t tileWout = convTile.tileL1Info.tileWout;
-    int64_t mL1 = tileHout * tileWout;
-    int64_t nL1 = convTile.tileL1Info.tileCout;
-    int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
+    auto convTile = TileShape::Current().GetConvTile();
+    uint64_t l1Size = Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L0A);
     int64_t kh = weightTensor.GetShape()[2];
     int64_t kw = weightTensor.GetShape()[3];
-    int64_t kL1 = kh * kh * tileCinWeight;
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
-    int64_t MinL1LoadSize = ConvAlignB(mL1, NUM16)* ConvAlignB(kL1, k0) * BytesOf(outType) +
-                ConvAlignB(nL1, NUM16) * ConvAlignB(kL1, k0) * BytesOf(outType);
+    std::vector<int64_t> strides = attrParam.strides;
+    std::vector<int64_t> dilations = attrParam.dilations;
+    int64_t strideH = strides[0];
+    int64_t strideW = strides[1];
+    int64_t dilationH = dilations[0];
+    int64_t dilationW = dilations[1];
+    int64_t hin = inputTensor.GetShape()[NCHW_H_IDX];
+    int64_t win = inputTensor.GetShape()[NCHW_W_IDX];
+
+    uint64_t biasL1Size = 0;
+    uint64_t nBL1min = NUM16;
+    if (!biasTensor.IsEmpty()) {
+        biasL1Size = ConvAlignB(nBL1min * BytesOf(outType), ALIGN_SIZE_32);
+    }
+    uint64_t kBL1min = k0 * kh * kw;
+    uint64_t weightL1Size = ConvAlignB(kBL1min * nBL1min * BytesOf(outType), ALIGN_SIZE_32);
+    uint64_t inputL1Size = 0;
+    uint64_t m0 = NUM16;
+    uint64_t wo = ConvComputeWo(inputTensor, weightTensor, attrParam);
+    uint64_t hoAL1min = wo < m0 ? (m0 + wo - 1) / wo : 1;
+    uint64_t khDilated = (kh - 1) * dilationH + 1;
+    uint64_t hiAL1min = Conv2DInferHiL1(hoAL1min, khDilated, hin, strideH);
+    uint64_t kAL1min = k0;
+    uint64_t woAL1min = m0;
+    uint64_t kwDilated = (kw - 1) * dilationW + 1;
+    uint64_t wiAL1min = Conv2DInferHiL1(woAL1min, kwDilated, win, strideW);
+    inputL1Size = ConvAlignB(hiAL1min * wiAL1min * kAL1min * BytesOf(outType), ALIGN_SIZE_32);
+    uint64_t minL1LoadSize = biasL1Size + inputL1Size + weightL1Size;
     OP_CHECK(true, {
-        ASSERT(MinL1LoadSize <= l1Size)
+        ASSERT(minL1LoadSize <= l1Size)
             << "MinL1LoadSize > L1size, current L1size: " << l1Size
-            << ", maxL1Size: " << MinL1LoadSize
+            << ", maxL1Size: " << minL1LoadSize
             << "." << std::endl;
     });
 }
-*/
 
 void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64_t cOut, const int64_t groups){
     CheckValueRange(groups, "groups", NUM1, SHAPE_INNER_AXIS_MAX_SIZE);
@@ -305,7 +331,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
     OP_CHECK(true, {
         ASSERT(kh * kw * k0 <= SHAPE_INNER_AXIS_MAX_SIZE)
         << "Weight shapes do not satisfy Load3D's limits: kh*kw*k0=" << kh * kw * k0
-        << ", which must <=" << MAX_PAD_KERNEL
+        << ", which must <=" << SHAPE_INNER_AXIS_MAX_SIZE
         << "." << std::endl;
     });
 }
@@ -368,7 +394,7 @@ void CheckConvOperands(DataType outType, const Tensor &inputTensor, const Tensor
     CheckOutputShape(inputTensor, weightTensor, attrParam);
     CheckAttrShape(outType, inputTensor, weightTensor, attrParam);
     CheckTileTiling(outType, inputTensor, weightTensor, attrParam);
-    // CheckL1SizeTiling(outType, weightTensor);
+    CheckL1SizeTiling(outType, inputTensor, weightTensor, biasTensor, attrParam);
 }
 
 void SetTensorOpAttr(Operation &op, const LogicalTensorPtr &inputTensor, const LogicalTensorPtr &weightTensor,
