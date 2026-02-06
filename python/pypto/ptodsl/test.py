@@ -21,7 +21,7 @@ def meta_data():
 @kernel(None, meta_data)
 def relu_kernel(x_ptr: "ptr_type", y_ptr: "ptr_type"):
     c0 = pto.const(0)
-    c1 = pto.onst(1)
+    c1 = pto.const(1)
     c32 = pto.const(32)
 
     tv0 = pto.as_tensor(tensor_type, ptr=x_ptr, shape=[c32, c32], strides=[c32, c1])
