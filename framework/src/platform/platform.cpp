@@ -345,7 +345,7 @@ void Platform::ObtainPlatformInfo() {
         LoadPlatformInfo(cmdparser);
     } else {
         SimulationPlatform simulationPlatform;
-        simulationPlatform.GetCostModelPlatformRealPath(srcPath);
+        simulationPlatform.GetSimulationPlatformRealPath(srcPath);
         npu::tile_fwk::INIParser iniparser;
         iniparser.Initialize(srcPath);
         LoadPlatformInfo(iniparser);
