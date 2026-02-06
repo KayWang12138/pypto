@@ -29,12 +29,11 @@ inline std::string RealPath(const std::string &path) {
         return res;	
     }	
     char resovedPath[BUFFERSIZE] = {0x00};
-    if (realpath(path.c_str(), resovedPath) == nullptr) {
+    if (realpath(path.c_str(), resovedPath) != nullptr) {
+        return std::string(resovedPath);
+    } else {
         return res;
     }
-    resovedPath[BUFFERSIZE - 1] = '\\0';
-    res = resovedPath;
-    return res;
 }
 
 inline bool FileExist(const std::string &filePath) {
