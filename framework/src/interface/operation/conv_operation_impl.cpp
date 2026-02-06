@@ -230,14 +230,14 @@ void CheckKAL1Constraint(int64_t tileCin, int64_t kh, int64_t kw, int64_t kd, in
             << "Shape does not satisfy " << opName << " constraints, "
             << "tileCin: " << tileCin << ", C0: " << C0 << ", kh: " << kh << ", kw: " << kw;
             if (isConv3D) {
-            s   td::cout << ", kd: " << kd;
+            std::cout << ", kd: " << kd;
             }
             std::cout << ", K0 = 32 bytes / btypesize: " << k0
             << ", must satisfy: ceil(tileCin / C0) × C0 × kh × kw";
             if (isConv3D) {
                 std::cout << " × kd";
             }
-            td::cout << " % K0 == 0" << std::endl;
+            std::cout << " % K0 == 0" << std::endl;
     });
 }
 void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
