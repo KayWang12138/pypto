@@ -238,6 +238,8 @@ inline std::string MemoryTypeToString(MemoryType mt) {
         case MEM_L1: return "MEM_L1";
         case MEM_L0A: return "MEM_L0A";
         case MEM_L0B: return "MEM_L0B";
+        case MEM_L0AMX: return "MEM_L0AMX";
+        case MEM_L0BMX: return "MEM_L0BMX";
         case MEM_L0C: return "MEM_L0C";
         case MEM_L2: return "MEM_L2";
         case MEM_L3: return "MEM_L3";
@@ -265,6 +267,8 @@ inline std::string MemoryTypeToString(MemoryType mt) {
         case MEM_L1: return "L1";
         case MEM_L0A: return "L0A";
         case MEM_L0B: return "L0B";
+        case MEM_L0AMX: return "L0AMX";
+        case MEM_L0BMX: return "L0BMX";
         case MEM_L0C: return "L0C";
         case MEM_L2: return "L2";
         case MEM_L3: return "L3";
