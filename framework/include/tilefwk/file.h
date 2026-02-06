@@ -14,7 +14,7 @@
  */
 
 #pragma once
-#define PATH_MAX 4096
+#define BUFFERSIZE 4096
 #include <dlfcn.h>
 #include <sys/stat.h>
 
@@ -28,11 +28,12 @@ inline std::string RealPath(const std::string &path) {
     if (path.size() >= PATH_MAX) {	
         return res;	
     }	
-    char resovedPath[PATH_MAX] = {0x00};
-    char resovedPath[PATH_MAX - 1] = '\\0';
-    if (realpath(path.c_str(), resovedPath) != nullptr) {
-        res = resovedPath;
+    char resovedPath[BUFFERSIZE] = {0x00};
+    if (realpath(path.c_str(), resovedPath) == nullptr) {
+        return res;
     }
+    resovedPath[BUFFERSIZE - 1] = '\\0';
+    res = resovedPath;
     return res;
 }
 
