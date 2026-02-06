@@ -37,6 +37,7 @@ pypto-experimental-transposed_batchmatmul
 pypto-floor
 pypto-fmod
 pypto-full
+pypto-hypot
 pypto-gather
 pypto-ge
 pypto-gt
@@ -59,6 +60,7 @@ pypto-one_hot
 pypto-pow
 pypto-reciprocal
 pypto-reshape
+pypto-relu
 pypto-rms_norm
 pypto-round
 pypto-rsqrt
