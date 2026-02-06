@@ -46,7 +46,8 @@ std::unordered_map<Opcode, int> preNodePriority = {
             {Opcode::OP_L0C_COPY_UB, 2}, {Opcode::OP_UB_COPY_L1, 2},
             // 最后访问其它计算节点（其它节点默认的优先级为10）。
         };
-
+constexpr int ID_ZERO = 0;
+constexpr int ID_ONE = 1;
 class ScheduleOoOTest : public ::testing::Test {
 public:
     static void SetUpTestCase() {}
@@ -80,6 +81,14 @@ void SetTensorAttr(LogicalTensorPtr tensor, MemoryType memType, int memId) {
 
 void SetAllocAttr(Operation &alloc, int latency) {
     alloc.UpdateLatency(latency);
+}
+
+void SetCoreLocation(IssueEntryPtr issue, std::pair<OpCoreType, int> corePair, int id) {
+    issue->coreLocation = corePair;
+    issue->tileOp.UpdateInternalSubgraphID(id);
+    if (corePair.first == OpCoreType::AIV) {
+        issue->tileOp.SetAIVCore(AIVCore::AIV0);
+    }
 }
 
 LogicalTensorPtr CreateTensor(Function &currFunction, DataType dateType, std::vector<int64_t> shape, MemoryType memType, int memId) {
@@ -1746,14 +1755,38 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
     res = oooSchedule.init(opList);
     EXPECT_EQ(oooSchedule.issueEntries.size(), 13);
     EXPECT_NE(GetIssueEntry("COPY_IN2", subGraph, ooOScheduler), nullptr);
-    EXPECT_NE(GetIssueEntry("UB_COPY_L1", subGraph, ooOScheduler), nullptr);
-    IssueEntryPtr issue1 = GetIssueEntry("COPY_IN2", subGraph, ooOScheduler);
-    IssueEntryPtr issue2 = GetIssueEntry("UB_COPY_L1", subGraph, ooOScheduler);
-    EXPECT_EQ(oooSchedule.issueEntryMap[issue->predecessors[1], issue2);
+    IssueEntryPtr adds = GetIssueEntry("ADDS", subGraph, ooOScheduler);
+    IssueEntryPtr ubCopyL1 = GetIssueEntry("UB_COPY_L1", subGraph, ooOScheduler);
+    IssueEntryPtr copyin1 = GetIssueEntry("COPY_IN1", subGraph, ooOScheduler);
+    IssueEntryPtr copyin2 = GetIssueEntry("COPY_IN2", subGraph, ooOScheduler);
+    IssueEntryPtr alloc1 = GetIssueEntry("UB_Alloc2", subGraph, ooOScheduler);
+    IssueEntryPtr alloc2 = GetIssueEntry("L1_Alloc1", subGraph, ooOScheduler);
+    IssueEntryPtr alloc3 = GetIssueEntry("L1_Alloc2", subGraph, ooOScheduler);
+    auto coreAIC = opCoreTypeMap.at(OpCoreType::AIC);
+    auto coreAIV = opCoreTypeMap.at(OpCoreType::AIV);
+    SetCoreLocation(adds, coreAIV, ID_ZERO);
+    SetCoreLocation(ubCopyL1, coreAIV, ID_ZERO);
+    SetCoreLocation(alloc1, coreAIV, ID_ZERO);
+
+    SetCoreLocation(alloc2, coreAIC, ID_ONE);
+    SetCoreLocation(alloc3, coreAIC, ID_ONE);
+    EXPECT_EQ(oooSchedule.issueEntryMap[issue->predecessors[1]], issue2);
     EXPECT_EQ(res, SUCCESS);
-    res = oooSchedule.GenSpillSchedule();
+    auto localBuffer1 = oooSchedule.localBufferMap[0];
+    auto localBuffer2 = oooSchedule.localBufferMap[1];
+    oooSchedule.bufferManagerMap[coreAIC.first][coreAIC.second][MemoryType::MEM_L1].Allocate(localBuffer1);
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_L1].emplace(0, copyin1);
+
+    SpillInfo spillInfo;
+    spillInfo.spillMemId_ = 0;
+    spillInfo.spillIssue_ = ubCopyL1;
+    spillInfo.spillTensor_ = ubCopyL1->tileOp.GetOutputOperand(0);
+    spillInfo.ddrTensor_ = nullptr;
+    spillInfo.isSpecialL1_ = true;
+
+    res = oooSchedule.SpillBuffer(spillInfo, alloc3, 7, localBuffer2, true);
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_NE(oooSchedule.issueEntryMap[issue->predecessors[1], issue2);
+    EXPECT_NE(oooSchedule.issueEntryMap[issue->predecessors[1]], issue2);
     EXPECT_EQ(oooSchedule.issueEntries.size(), 16);
 }
 
