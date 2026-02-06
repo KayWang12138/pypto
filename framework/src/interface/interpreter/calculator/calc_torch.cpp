@@ -134,9 +134,7 @@ static void Random(LogicalTensorDataPtr out) {
 static void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     auto tself = From(self);
-    std::cout << "self: " << tself.second << std::endl;
     torch::exp_out(tout.second, tself.second);
-    std::cout << "out: " << tout.second << std::endl;
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
@@ -1141,7 +1139,7 @@ static void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t
     constexpr int DIM_SIZE_TWO = 2;
     axis = axis < 0?(axis + tself.second.dim()):axis;
 
-    std::vector<int64_t> viewOffset(tself.dim(), 0);
+    std::vector<int64_t> viewOffset(tself.second.dim(), 0);
     const int64_t groupSize = 32;
     auto tselfAlignShape = tself.second.sizes().vec();
     tselfAlignShape[axis] = (tself.second.size(axis) + groupSize - 1) / groupSize * groupSize;
@@ -1188,7 +1186,7 @@ static void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t
     }
 
     auto tres = sortedGroups.reshape(torch::IntArrayRef(dstShape));
-    torch::Tensor expanded = torch::cat({tres, torch::zeros_like(tself)}, axis);
+    torch::Tensor expanded = torch::cat({tres, torch::zeros_like(tself.second)}, axis);
     torch::Tensor dstSubview = View(tout.second, expanded.sizes().vec(), viewOffset);
     dstSubview.copy_(expanded);
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
@@ -1211,9 +1209,9 @@ static void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod
     auto tout = From(out);
     constexpr int INDICE_STEP = 2;
 
-    std::vector<int64_t> viewOffset(tself.dim(), 0);
+    std::vector<int64_t> viewOffset(tself.second.dim(), 0);
     int dim = tself.second.dim() - 1;
-    if (tself.size(dim) == 0) {
+    if (tself.second.size(dim) == 0) {
         return;
     }
     auto indices = torch::arange(
@@ -1513,21 +1511,21 @@ void TwoTileMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tself = From(self);
     auto tout = From(out);
     constexpr int SIZE_TWO = 2;
-    int axis = tself.dim() - 1;
+    int axis = tself.second.dim() - 1;
 
-    std::vector<int64_t> viewOffset(tself.dim(), 0);
+    std::vector<int64_t> viewOffset(tself.second.dim(), 0);
     std::vector<int64_t> newShape;
-    newShape.reserve(tself.dim() + 1);
-    for (int64_t i = 0; i < tself.dim(); i ++ ) {
+    newShape.reserve(tself.second.dim() + 1);
+    for (int64_t i = 0; i < tself.second.dim(); i ++ ) {
         if (i == axis) {
-            newShape.push_back(tself.size(axis) / SIZE_TWO);
+            newShape.push_back(tself.second.size(axis) / SIZE_TWO);
             newShape.push_back(SIZE_TWO);
         } else {
-            newShape.push_back(tself.size(i));
+            newShape.push_back(tself.second.size(i));
         }
     }
 
-    auto tselfGrouped = tself.reshape(torch::IntArrayRef(newShape));
+    auto tselfGrouped = tself.second.reshape(torch::IntArrayRef(newShape));
     torch::Tensor sortedIndices;
     std::tie(std::ignore, sortedIndices) = tselfGrouped.select(-1, 0).sort(axis, true);
 
@@ -1541,48 +1539,51 @@ void TwoTileMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto sortedGroups = tselfGrouped.gather(axis, expanded_indices);
 
     std::vector<int64_t> dstShape;
-    for (int64_t i = 0; i < tself.dim(); i ++ ) {
-        dstShape.push_back(tself.size(i));
+    for (int64_t i = 0; i < tself.second.dim(); i ++ ) {
+        dstShape.push_back(tself.second.size(i));
     }
-    torch::Tensor dstSubview = View(tout, dstShape, viewOffset);
+    torch::Tensor dstSubview = View(tout.second, dstShape, viewOffset);
     dstSubview.copy_(sortedGroups.reshape(torch::IntArrayRef(dstShape)));
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, LogicalTensorDataPtr self, int64_t axis, bool descending) {
     auto tself = From(self);
     auto tvalue = From(value);
     auto tindex = From(index);
-    auto [sortValue, sortIndex] = tself.sort(axis, descending);
-    std::vector<int64_t> viewOffset(tself.dim(), 0);
+    auto [sortValue, sortIndex] = tself.second.sort(axis, descending);
+    std::vector<int64_t> viewOffset(tself.second.dim(), 0);
     std::vector<int64_t> dstShape;
-    for (int64_t i = 0; i < tvalue.dim(); i ++ ) {
-        dstShape.push_back(tvalue.size(i));
+    for (int64_t i = 0; i < tvalue.second.dim(); i ++ ) {
+        dstShape.push_back(tvalue.second.size(i));
     }
-    torch::Tensor outValue = View(tvalue, dstShape, viewOffset);
-    torch::Tensor outIndex = View(tindex, dstShape, viewOffset);
+    torch::Tensor outValue = View(tvalue.second, dstShape, viewOffset);
+    torch::Tensor outIndex = View(tindex.second, dstShape, viewOffset);
     outValue.copy_(sortValue);
     outIndex.copy_(sortIndex);
+    ToOperand(tvalue.second, tvalue.first, value->GetData()->GetDataType());
+    ToOperand(tindex.second, tindex.first, index->GetData()->GetDataType());
 }
 
 void TwoTileMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tself = From(self);
     auto tout = From(out);
     constexpr int SIZE_TWO = 2;
-    int axis = tself.dim() - 1;
+    int axis = tself.second.dim() - 1;
 
-    std::vector<int64_t> viewOffset(tself.dim(), 0);
+    std::vector<int64_t> viewOffset(tself.second.dim(), 0);
     std::vector<int64_t> newShape;
-    newShape.reserve(tself.dim() + 1);
-    for (int64_t i = 0; i < tself.dim(); i ++ ) {
+    newShape.reserve(tself.second.dim() + 1);
+    for (int64_t i = 0; i < tself.second.dim(); i ++ ) {
         if (i == axis) {
-            newShape.push_back(tself.size(axis) / SIZE_TWO);
+            newShape.push_back(tself.second.size(axis) / SIZE_TWO);
             newShape.push_back(SIZE_TWO);
         } else {
-            newShape.push_back(tself.size(i));
+            newShape.push_back(tself.second.size(i));
         }
     }
 
-    auto tselfGrouped = tself.reshape(torch::IntArrayRef(newShape));
+    auto tselfGrouped = tself.second.reshape(torch::IntArrayRef(newShape));
     torch::Tensor sortedIndices;
     std::tie(std::ignore, sortedIndices) = tselfGrouped.select(-1, 0).sort(axis, true);
 
@@ -1596,28 +1597,30 @@ void TwoTileMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto sortedGroups = tselfGrouped.gather(axis, expanded_indices);
 
     std::vector<int64_t> dstShape;
-    for (int64_t i = 0; i < tself.dim(); i ++ ) {
-        dstShape.push_back(tself.size(i));
+    for (int64_t i = 0; i < tself.second.dim(); i ++ ) {
+        dstShape.push_back(tself.second.size(i));
     }
-    torch::Tensor dstSubview = View(tout, dstShape, viewOffset);
+    torch::Tensor dstSubview = View(tout.second, dstShape, viewOffset);
     dstSubview.copy_(sortedGroups.reshape(torch::IntArrayRef(dstShape)));
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, LogicalTensorDataPtr self, int64_t axis, bool descending) {
     auto tself = From(self);
     auto tvalue = From(value);
     auto tindex = From(index);
-    auto [sortValue, sortIndex] = tself.sort(axis, descending);
-    std::vector<int64_t> viewOffset(tself.dim(), 0);
+    auto [sortValue, sortIndex] = tself.second.sort(axis, descending);
+    std::vector<int64_t> viewOffset(tself.second.dim(), 0);
     std::vector<int64_t> dstShape;
-    for (int64_t i = 0; i < tvalue.dim(); i ++ ) {
-        dstShape.push_back(tvalue.size(i));
+    for (int64_t i = 0; i < tvalue.second.dim(); i ++ ) {
+        dstShape.push_back(tvalue.second.size(i));
     }
-    torch::Tensor outValue = View(tvalue, dstShape, viewOffset);
-    torch::Tensor outIndex = View(tindex, dstShape, viewOffset);
+    torch::Tensor outValue = View(tvalue.second, dstShape, viewOffset);
+    torch::Tensor outIndex = View(tindex.second, dstShape, viewOffset);
     outValue.copy_(sortValue);
     outIndex.copy_(sortIndex);
-    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+    ToOperand(tvalue.second, tvalue.first, value->GetData()->GetDataType());
+    ToOperand(tindex.second, tindex.first, index->GetData()->GetDataType());
 }
 
 bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, torch::Tensor &indices,
