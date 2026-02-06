@@ -191,6 +191,9 @@ inline void BitwiseOr(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logic
 inline void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->BitwiseXor(out, self, other);
 }
+inline void CopySign(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    GetCalcOps()->CopySign(out, self, other);
+}
 /* used by reducc op, if shape are not same, need masked */
 inline void PairSum(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     GetCalcOps()->PairSum(out, self, other);
@@ -285,8 +288,8 @@ inline void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     LogicalTensorDataPtr src, int axis, int reduce) {
     GetCalcOps()->Scatter(out, self, index, src, axis, reduce);
 }
-inline void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending) {
-    GetCalcOps()->BitSort(out, self, axis, descending);
+inline void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending, int64_t offset) {
+    GetCalcOps()->BitSort(out, self, axis, descending, offset);
 }
 inline void TiledMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr src1, LogicalTensorDataPtr src2, 
     LogicalTensorDataPtr src3, LogicalTensorDataPtr src4, int validBit, int kvalue) {
@@ -323,6 +326,14 @@ inline void TopkMerge(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int m
 
 inline void TopkExtract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int k, bool isIndex) {
     GetCalcOps()->TopkExtract(out, self, k, isIndex);
+}
+
+inline void TwoTileMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    GetCalcOps()->TwoTileMrgSort(out, self);
+}
+
+inline void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, LogicalTensorDataPtr self, int64_t axis, bool descending) {
+    GetCalcOps()->Sort(value, index, self, axis, descending);
 }
 
 // matmul

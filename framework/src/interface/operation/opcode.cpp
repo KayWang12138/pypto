@@ -94,6 +94,9 @@ void OpcodeManager::RegisterVectorBinary() {
     RegisterInfo(Opcode::OP_BITWISEXOR, OpCoreType::AIV, "BITWISEXOR", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TbitwiseXor", PIPE_V, PIPE_V, CoreType::AIV}, 
         OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
+    RegisterInfo(Opcode::OP_COPYSIGN, OpCoreType::AIV, "COPYSIGN", {MemoryType::MEM_UB, MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::Tcopysign", PIPE_V, PIPE_V, CoreType::AIV}, 
+        OpCalcType::BROADCAST, {OpAttributeKey::inputCombineAxis}, TileShapeVerifier::Verify);
     RegisterInfo(Opcode::OP_S_ADD, OpCoreType::AIV, "S_ADD", {MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB}, {"TileOp::TSadd", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::BROADCAST,
         {OpAttributeKey::inputCombineAxis});
@@ -270,6 +273,16 @@ void OpcodeManager::RegisterVectorSort() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TiledMrgSort", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::OTHER, {OP_ATTR_PREFIX + "validBit", OP_ATTR_PREFIX + "kvalue"});
+    RegisterInfo(Opcode::OP_TWOTILEMRGSORT, OpCoreType::ANY, "TWOTILEMRGSORT", {MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB}, {"TileOp::TwoTileMrgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, 
+        {OpAttributeKey::excludeBufferReuse, OP_ATTR_PREFIX + "firstShape"});
+    RegisterInfo(Opcode::OP_EXTRACT_SINGLE, OpCoreType::ANY, "EXTRACTSINGLE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::ExtractSingle", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "makeMode"});
+    RegisterInfo(Opcode::OP_SORT_UB, OpCoreType::ANY, "SORTUB", {MemoryType::MEM_DEVICE_DDR}, 
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {"TileOp::SortUB", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order"});
+        
 
     // parallel sort
     RegisterInfo(Opcode::OP_SORT, OpCoreType::AIV, "SORT", {MemoryType::MEM_UB},
@@ -620,6 +633,14 @@ void OpcodeManager::RegisterCube() {
     RegisterInfo(Opcode::OP_GATHER_IN_L1, OpCoreType::ANY, "GATHER_IN_L1",
         {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {MemoryType::MEM_L1},
         {"TileOp::GatherInL1", PIPE_MTE2, PIPE_MTE2, CoreType::AIC}, OpCalcType::OTHER, {OpAttributeKey::startOffset});
+    RegisterInfo(Opcode::OP_L1_COPY_IN_A_SCALE, OpCoreType::AIC, "L1_COPY_IN_A_SCALE", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_L1}, {"TileOp::TLoadAMX", PIPE_MTE2, PIPE_MTE2, CoreType::AIC}, OpCalcType::MOVE_IN);
+    RegisterInfo(Opcode::OP_L1_COPY_IN_B_SCALE, OpCoreType::AIC, "L1_COPY_IN_B_SCALE", {MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_L1}, {"TileOp::TLoadAMX", PIPE_MTE2, PIPE_MTE2, CoreType::AIC}, OpCalcType::MOVE_IN);
+    RegisterInfo(Opcode::OP_L1_TO_L0A_SCALE, OpCoreType::AIC, "L1_TO_L0A_SCALE", {MemoryType::MEM_L1},
+        {MemoryType::MEM_L0AMX}, {"TileOp::TEXtractMX", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
+    RegisterInfo(Opcode::OP_L1_TO_L0B_SCALE, OpCoreType::AIC, "L1_TO_L0B_SCALE", {MemoryType::MEM_L1},
+        {MemoryType::MEM_L0BMX}, {"TileOp::TEXtractMX", PIPE_MTE1, PIPE_MTE1, CoreType::AIC}, OpCalcType::MOVE_LOCAL);
 }
 
 void OpcodeManager::RegisterDistribute() {
@@ -870,6 +891,7 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {         Opcode::OP_BITWISEORS,    "TBitwiseOrS"},
     {        Opcode::OP_BITWISEXORS,   "TBitwiseXorS"},
     {         Opcode::OP_BITWISENOT,    "TBitwiseNot"},
+    {           Opcode::OP_COPYSIGN,      "TCopysign"},
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
