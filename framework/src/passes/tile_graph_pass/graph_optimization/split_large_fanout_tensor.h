@@ -92,7 +92,7 @@ private:
         std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos);
     bool HasDuplicateToTile(std::vector<std::pair<LogicalTensorPtr, Offset>> toTensorInfos);
     void TryToSplitLargeTensor(Function &function, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
-    void GetOffsets(std::set<Shape, ShapeDimComparator> &lcmTileOffsets, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
+    void GetOffsets(std::set<Shape, ShapeDimComparator> &tileOffsets, const Shape &lcmShape, const LogicalTensorPtr &largeTensor);
     std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> toInfoMap;
     std::unordered_map<int, std::vector<std::pair<LogicalTensorPtr, Offset>>> fromInfoMap;
     std::unordered_set<LogicalTensorPtr> largeTensors;
