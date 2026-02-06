@@ -1742,6 +1742,11 @@ void SetAttribute(ComputationalGraphBuilder subGraph, OoOScheduler &oooSchedule,
     alloc2->isRetired = true;
     alloc7->isRetired = true;
     copyin2->isRetired = true;
+
+    auto localBuffer1 = oooSchedule.localBufferMap[0];
+    auto coreAIC = opCoreTypeMap.at(OpCoreType::AIC);
+    oooSchedule.bufferManagerMap[coreAIC.first][coreAIC.second][MemoryType::MEM_L1].Allocate(localBuffer1);
+    oooSchedule.tensorOccupyMap[MemoryType::MEM_L1].emplace(0, copyin2);
 }
 
 TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
@@ -1772,16 +1777,12 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
     OoOScheduler oooSchedule(*function);
     res = oooSchedule.Init(opList);
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_EQ(oooSchedule.issueEntries.size(), 15);
+    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetOpcodeStr(), "L0A_ALLOC");
     IssueEntryPtr ubCopyL1 = nullptr;
     IssueEntryPtr alloc3 = nullptr;
     IssueEntryPtr copyin2 = nullptr;
     SetAttribute(subGraph, oooSchedule, ubCopyL1, alloc3, copyin2);
-    auto localBuffer1 = oooSchedule.localBufferMap[0];
     auto localBuffer2 = oooSchedule.localBufferMap[1];
-    auto coreAIC = opCoreTypeMap.at(OpCoreType::AIC);
-    oooSchedule.bufferManagerMap[coreAIC.first][coreAIC.second][MemoryType::MEM_L1].Allocate(localBuffer1);
-    oooSchedule.tensorOccupyMap[MemoryType::MEM_L1].emplace(0, copyin2);
 
     SpillInfo spillInfo;
     spillInfo.spillMemId_ = 0;
@@ -1793,6 +1794,13 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
     res = oooSchedule.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer2, true);
     EXPECT_EQ(res, SUCCESS);
     EXPECT_EQ(oooSchedule.issueEntries.size(), 18);
+    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetOpcodeStr(), "COPY_OUT");
+    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetInternalSubgraphID(), 0);
+    EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetAIVCore(), AIVCore::AIV0);
+    EXPECT_EQ(oooSchedule.issueEntries[12]->tileOp.GetOpcodeStr(), "L1_ALLOC");
+    EXPECT_EQ(oooSchedule.issueEntries[13]->tileOp.GetOpcodeStr(), "COPY_IN");
+    EXPECT_EQ(oooSchedule.issueEntries[12]->tileOp.GetInternalSubgraphID(), 1);
+    EXPECT_EQ(oooSchedule.issueEntries[13]->tileOp.GetAIVCore(), AIVCore::UNSPECIFIED);
 }
 
 } // namespace npu::tile_fwk
