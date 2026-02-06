@@ -216,6 +216,7 @@ LogicalTensorPtr TensorCompareOperationScalar(Function& function, const Element&
         converted_value = Element(DataType::DT_FP32, val);
     }
 
+
     return TensorCompareOperationScalar(function, operand1, converted_value, operation, mode);
 }
 
