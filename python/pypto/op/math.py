@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
-from typing import Optional, Union
+from typing import Optional, Union, List, Tuple
 
 from .. import pypto_impl
 from .._element import Element
@@ -1184,3 +1184,42 @@ def copysign(input: Tensor, other: Tensor) -> Tensor:
                 [7 -8  9]]
     """
     return pypto_impl.CopySign(input, other)
+
+
+@op_wrapper
+def var(
+    input: Tensor, 
+    dim: Union[int, List[int], Tuple[int]] = None,
+    *, 
+    correction: float = 1, 
+    keepdim: bool = False
+) -> Tensor:
+    """
+
+    """
+    innerDim = None
+    if isinstance(dim, int):
+        innerDim = [dim]
+    elif dim is None or len(dim) == 0:
+        innerDim = []
+    elif isinstance(dim, (list, tuple)):
+        innerDim = list(dim)
+    else:
+        raise TypeError(f"the type of dim is not supported. 'int' or 'Lise[int]' or 'Tuple[int]' is needed.")
+
+    return pypto_impl.Var(input, innerDim, correction, keepdim)
+
+
+@op_wrapper
+def var(
+    input: Tensor,
+    dim: List[int],
+    correction: float
+) -> Tensor:
+    """
+
+    """
+    if not isinstance(dim, list):
+        raise TypeError(f"the type of dim is not supported. Lise[int] is needed.")
+
+    return pypto_impl.Var(input, dim, correction, False)
