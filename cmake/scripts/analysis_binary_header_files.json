@@ -1,4 +1,21 @@
 {
+  "libtile_fwk_platform.so": {
+    "Source-Header": {
+      "Self": [
+        "framework/src/platform/"
+      ],
+      "Area": [
+        "framework/src/cost_model/simulation_platform/"
+      ],
+      "Include": [
+        "framework/include/"
+      ],
+      "WhiteList": [
+      ],
+      "BlackList": [
+      ]
+    }
+  },
   "libtile_fwk_operator.so": {
     "Source-Header": {
       "Self": [
@@ -6,7 +23,8 @@
       ],
       "Area": [
         "framework/src/interface/",
-        "framework/src/passes/"
+        "framework/src/passes/",
+        "framework/src/platform/"
       ],
       "Include": [
         "framework/include/"
@@ -26,7 +44,8 @@
       "Area": [
         "framework/src/operator/",
         "framework/src/passes/",
-        "framework/src/cost_model/simulation_platform/"
+        "framework/src/cost_model/simulation_platform/",
+        "framework/src/platform/"
       ],
       "Include": [
         "framework/include/"
@@ -45,7 +64,8 @@
       ],
       "Area": [
         "framework/src/interface/",
-        "framework/src/passes/"
+        "framework/src/passes/",
+        "framework/src/platform/"
       ],
       "Include": [
         "framework/include/"
@@ -64,7 +84,8 @@
       "Area": [
         "framework/src/interface/",
         "framework/src/passes/",
-        "framework/src/codegen/"
+        "framework/src/codegen/",
+        "framework/src/platform/"
       ],
       "Include": [
         "framework/include/"
@@ -85,7 +106,8 @@
         "framework/src/interface/",
         "framework/src/passes/",
         "framework/src/machine/",
-        "framework/src/cost_model/simulation"
+        "framework/src/cost_model/simulation",
+        "framework/src/platform/"
       ],
       "Include": [
         "framework/include/"
@@ -103,7 +125,8 @@
       ],
       "Area": [
         "framework/src/interface/",
-        "framework/src/passes/"
+        "framework/src/passes/",
+        "framework/src/platform/"
       ],
       "Include": [
         "framework/include/"
@@ -140,7 +163,8 @@
         "framework/src/interface/",
         "framework/src/passes/",
         "framework/src/codegen/",
-        "framework/src/cost_model/simulation/"
+        "framework/src/cost_model/simulation/",
+        "framework/src/platform/"
       ],
       "Include": [
         "framework/include/"
@@ -161,7 +185,8 @@
         "framework/src/interface/",
         "framework/src/passes/",
         "framework/src/codegen/",
-        "framework/src/cost_model/simulation/"
+        "framework/src/cost_model/simulation/",
+        "framework/src/platform/"
       ],
       "Include": [
         "framework/include/"
