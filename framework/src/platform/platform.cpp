@@ -341,17 +341,17 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 void Platform::ObtainPlatformInfo() {
-    std::string srcPath;
     int ret = 1;
-    char socVer[kMaxLength] = {0};
+    char socVer[kMaxLength] = {0x00};
 #ifdef BUILD_WITH_CANN
     ret = rtGetSocVersion(socVer, kMaxLength);
 #endif
-    if (ret == 1) {
+    if (ret == 0) {
         std::string socVersion = std::string(socVer);
         npu::tile_fwk::CmdParser cmdparser;
         LoadPlatformInfo(cmdparser);
     } else {
+        std::string srcPath;
         SimulationPlatform simulationPlatform;
         simulationPlatform.GetSimulationPlatformRealPath(srcPath);
         npu::tile_fwk::INIParser iniparser;
