@@ -62,24 +62,22 @@ void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_
 }
 int64_t ConvComputeHo(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
-    uint32_t index = 0;
-    uint32_t indexDim = NCHW_H_IDX;
+    uint32_t indexH = NCHW_H_IDX;
     if (attrParam.isConv3D) {
-        index = 1;
-        indexDim = NCDHW_H_IDX;
+        indexH = NCDHW_H_IDX;
     }
     std::vector<int64_t> strides = attrParam.strides;
-    int64_t strideH = strides[index];
+    int64_t strideH = strides[PAD_STRIDE_H];
     if (strideH == 0) {
         return 1;
     }
     std::vector<int64_t> paddings = attrParam.paddings;
     std::vector<int64_t> dilations = attrParam.dilations;
-    int64_t padTop = paddings[index * 2];
-    int64_t padBottom = paddings[index * 2 + 1];
-    int64_t dilationH = dilations[index];
-    int64_t hin = inputTensor.GetShape()[indexDim];
-    int64_t kh = weightTensor.GetShape()[indexDim];
+    int64_t padTop = paddings[PAD_TOP_INDEX];
+    int64_t padBottom = paddings[PAD_BOTTOM_INDEX];
+    int64_t dilationH = dilations[PAD_STRIDE_H];
+    int64_t hin = inputTensor.GetShape()[indexH];
+    int64_t kh = weightTensor.GetShape()[indexH];
     int64_t cmpHo = (hin + padTop + padBottom - dilationH * (kh - 1) - 1) / strideH + 1;
     return cmpHo;
 }
@@ -88,11 +86,9 @@ int64_t ConvComputeWo(const Tensor &inputTensor, const Tensor &weightTensor, con
     if (attrParam.isConv1D) {
         return 1;
     }
-    uint32_t index = 1;
-    uint32_t indexDim = NCHW_W_IDX;
+    uint32_t indexW= NCHW_W_IDX;
     if (attrParam.isConv3D) {
-        index = 2;
-        indexDim = NCDHW_W_IDX;
+        indexW = NCDHW_W_IDX;
     }
     std::vector<int64_t> strides = attrParam.strides;
     int64_t strideW = strides[index];
@@ -101,26 +97,26 @@ int64_t ConvComputeWo(const Tensor &inputTensor, const Tensor &weightTensor, con
     }
     std::vector<int64_t> paddings = attrParam.paddings;
     std::vector<int64_t> dilations = attrParam.dilations;
-    int64_t dilationW = dilations[index];
-    int64_t padLeft = paddings[index * 2];
-    int64_t padRight = paddings[index * 2 + 1];
-    int64_t win = inputTensor.GetShape()[indexDim];
-    int64_t kw = weightTensor.GetShape()[indexDim];
+    int64_t dilationW = dilations[PAD_STRIDE_W];
+    int64_t padLeft = paddings[PAD_LEFT_INDEX];
+    int64_t padRight = paddings[PAD_RIGHT_INDEX];
+    int64_t win = inputTensor.GetShape()[indexW];
+    int64_t kw = weightTensor.GetShape()[indexW];
     int64_t cmpWo = (win + padLeft + padRight - dilationW * (kw - 1) - 1) / strideW + 1;
     return cmpWo;
 }
 int64_t ConvComputeDo(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
     std::vector<int64_t> strides = attrParam.strides;
-    int64_t strideD = strides[0];
+    int64_t strideD = strides[PAD_STRIDE_D];
     if (strideD == 0) {
         return 1;
     }
     std::vector<int64_t> paddings = attrParam.paddings;
     std::vector<int64_t> dilations = attrParam.dilations;
-    int64_t padHead = paddings[SHAPE_DIM0];
-    int64_t padTail = paddings[SHAPE_DIM1];
-    int64_t dilationD = dilations[0];
+    int64_t padHead = paddings[PAD_HEAD_INDEX];
+    int64_t padTail = paddings[PAD_TAIL_INDEX];
+    int64_t dilationD = dilations[PAD_STRIDE_D];
     int64_t din = inputTensor.GetShape()[NCDHW_D_IDX];
     int64_t kd = weightTensor.GetShape()[NCDHW_D_IDX];//NCHW或者NCDHW
     int64_t cmpDo = (din + padHead + padTail - dilationD * (kd - 1) - 1) / strideD + 1;
@@ -300,11 +296,9 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     uint64_t l1Size = Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L0A);
     uint32_t indexH = NCHW_H_IDX;
     uint32_t indexW = NCHW_W_IDX;
-    uint32_t index = 0;
     if (attrParam.isConv3D) {
         indexH = NCDHW_H_IDX;
         indexW = NCDHW_W_IDX;
-        index = 1;
     }
     int64_t kh = weightTensor.GetShape()[indexH];
     int64_t hin = inputTensor.GetShape()[indexH];
@@ -317,10 +311,10 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     std::vector<int64_t> strides = attrParam.strides;
     std::vector<int64_t> dilations = attrParam.dilations;
-    int64_t strideH = strides[index];
-    int64_t strideW = strides[index + 1];
-    int64_t dilationH = dilations[index];
-    int64_t dilationW = dilations[index + 1];
+    int64_t strideH = strides[PAD_STRIDE_H];
+    int64_t strideW = strides[PAD_STRIDE_W];
+    int64_t dilationH = dilations[PAD_STRIDE_H];
+    int64_t dilationW = dilations[PAD_STRIDE_W];
 
     uint64_t biasL1Size = 0;
     uint64_t nBL1min = NUM16;
@@ -503,7 +497,7 @@ void SetTensorOpAttr(Operation &op, const LogicalTensorPtr &inputTensor, const L
     op.SetAttribute(CONV_ORI_RES_SHAPE_ATTR, resTensor->GetShape());
 }
 
-Tensor ConstructTensorGraph(DataType dataType, const Tensor &inputTensor, const Tensor &weightTensor,
+Tensor ConstructTensorGraph(const Tensor &inputTensor, const Tensor &weightTensor,
                             const Tensor &biasTensor, const Tensor &resTensor, ConvAttrParam &convAttrParam)
 {
     // add Conv node
@@ -516,13 +510,9 @@ Tensor ConstructTensorGraph(DataType dataType, const Tensor &inputTensor, const 
         std::vector<int64_t> fmap4DimShape{inputTensor.GetShape()[NCHW_N_IDX], inputTensor.GetShape()[NCHW_C_IDX],
                                            1, inputTensor.GetShape()[NCHW_H_IDX]};
         Tensor fmap4DimTensor(inputTensor.GetStorage()->Datatype(), fmap4DimShape, "", inputTensor.Format());
-        auto &reshapeFmapOp =
-            functionPtr->AddOperation(Opcode::OP_RESHAPE, {inputTensor.GetStorage()}, {fmap4DimTensor.GetStorage()});
         std::vector<int64_t> weight4DimShape{weightTensor.GetShape()[NCHW_N_IDX], weightTensor.GetShape()[NCHW_C_IDX],
                                              1, weightTensor.GetShape()[NCHW_H_IDX]};
         Tensor weigth4DimTensor(weightTensor.GetStorage()->Datatype(), weight4DimShape, "", weightTensor.Format());
-        auto &reshapeWeightOp = functionPtr->AddOperation(Opcode::OP_RESHAPE, {weightTensor.GetStorage()},
-                                                          {weigth4DimTensor.GetStorage()});
         operandVecIn = {fmap4DimTensor.GetStorage(), weigth4DimTensor.GetStorage()};
     }
     if (!biasTensor.IsEmpty()) {
@@ -539,9 +529,6 @@ Tensor ConstructTensorGraph(DataType dataType, const Tensor &inputTensor, const 
     }
     auto &op = functionPtr->AddOperation(Opcode::OP_CONV, operandVecIn, operandVecOut);
     SetTensorOpAttr(op, operandVecIn[INPUT_FMAP_IDX], operandVecIn[INPUT_WEIGHT_IDX], operandVecOut[0], convAttrParam);
-    if (inputTensor.Dim() == CONV1D_INPUT_DIM && weightTensor.Dim() == CONV1D_INPUT_DIM) {
-        auto &reshapeResOp = functionPtr->AddOperation(Opcode::OP_RESHAPE, operandVecOut, {resTensor.GetStorage()});
-    }
     return resTensor;
 }
 
@@ -642,8 +629,7 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
     convTileInfo.nL0 = convTile.tileL0Info.tileN;
 }
 
-LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &tensorGraphNodes,
-                                   const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo)
+LogicalTensorPtr ConstructBiasTile(Function &function, const ConvGraphNodes &tensorGraphNodes, ConvIterInfo &iterInfo)
 {
     std::vector<int64_t> dstBiasL1Shape = std::vector<int64_t>{ConvAlignB(iterInfo.nL0Size, MKN_N_VALUE)};
     std::vector<int64_t> dstBiasL1Offset = std::vector<int64_t>{iterInfo.nL0Offset};
@@ -973,7 +959,7 @@ void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
         // bias 载入
         if (convAttrParam.hasBias) {
             // get bias in bt tile for mmad
-            tileGraphNodes.biasTensorPtr = ConstructBiasTile(function, tensorGraphNodes, convTileInfo, iterInfo);
+            tileGraphNodes.biasTensorPtr = ConstructBiasTile(function, tensorGraphNodes, iterInfo);
         }
         for (iterInfo.hL0Offset = 0; iterInfo.hL0Offset < iterInfo.houtL1Size;
              iterInfo.hL0Offset += convTileInfo.hL0) {
@@ -1068,9 +1054,17 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
             const std::vector<int64_t> &strides, const std::vector<int64_t> &paddings,
             const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam, const int64_t groups)
 {
+    std::vector<int64_t> finalPaddings = paddings;
+    std::vector<int64_t> finalDilations = dilations;
+    std::vector<int64_t> finalStrides = strides;
+    if (inputTensor.Dim() == CONV3D_INPUT_DIM && weightTensor.Dim() == CONV3D_INPUT_DIM) {
+        finalDilations = rotateVector(dilations, 1);
+        finalStrides = rotateVector(strides, 1);
+        finalPaddings = rotateVector(paddings, 2);
+    }
     const Tensor& biasTensor = extendParam.biasTensor;
     ConvAttrParam convAttrParam(paddings, strides, dilations, groups);
-    CheckConvOperands(outType, inputTensor, weightTensor, biasTensor, convAttrParam);
+   ConvAttrParam convAttrParam(finalPaddings, finalStrides, finalDilations, groups);
     int64_t batchOut = inputTensor.GetShape()[NCHW_N_IDX];
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t hOut = ConvComputeHo(inputTensor, weightTensor, convAttrParam);
