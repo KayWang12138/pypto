@@ -174,6 +174,11 @@ constexpr uint32_t PAD_TOP_INDEX = 0;
 constexpr uint32_t PAD_BOTTOM_INDEX = 1;
 constexpr uint32_t PAD_LEFT_INDEX = 2;
 constexpr uint32_t PAD_RIGHT_INDEX = 3;
+constexpr uint32_t PAD_HEAD_INDEX = 4;
+constexpr uint32_t PAD_TAIL_INDEX = 5;
+constexpr uint32_t PAD_STRIDE_H = 0;
+constexpr uint32_t PAD_STRIDE_W = 1;
+constexpr uint32_t PAD_STRIDE_D = 2;
 
 const std::string OP_ATTR_PREFIX = "op_attr_";
 const std::string CONV_PADDINGS_ATTR = OP_ATTR_PREFIX + "paddings";
