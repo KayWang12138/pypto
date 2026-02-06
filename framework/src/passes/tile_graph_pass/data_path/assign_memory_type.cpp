@@ -64,8 +64,8 @@ Status AssignMemoryType::RunOnFunction(Function &function) {
         AssignSpecialOpMemtype(op, infoBufferSize);
     }
     if (infoBufferSize) {
-        const size_t UB_SIZE_THRESHOLD = static_cast<size_t>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * 0.35);
-        const size_t L1_SIZE_THRESHOLD = Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) / 2;
+        const size_t UB_SIZE_THRESHOLD = static_cast<size_t>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD);
+        const size_t L1_SIZE_THRESHOLD = static_cast<size_t>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) * L1_THRESHOLD);
         APASS_LOG_INFO_F(Elements::Operation, "UB buffer size threshold %zu, L1 buffer size threshold %zu.",
             UB_SIZE_THRESHOLD, L1_SIZE_THRESHOLD);
     }
@@ -165,6 +165,18 @@ void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr 
         }
     }
 }
+
+// 输入必须是BF16或FP16，同时矩阵必须是第一轴（外轴）16元素对齐，第二周（内轴）32B对齐
+bool FitL0C2L1(const LogicalTensorPtr &inputTensor){
+    auto shape = inputTensor->GetShape();
+    if (shape.size() != MATMUL_DIM_NUM) {
+        return false;
+    }
+    auto dim2Size = shape[1] * BytesOf(inputTensor->Datatype());
+    return (inputTensor->Datatype() == DT_BF16 || inputTensor->Datatype() == DT_FP16) &&
+        (shape[0] % L0C2L1_DIM1_SHAPE_RESTICT == 0) && (dim2Size % L0C2L1_DIM2_BYTE_RESTICT ==0);
+}
+
 void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
     MemoryType attrToType = viewOpAttribute->GetTo();
@@ -174,7 +186,7 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
         //跳过前端没有指定mem类型的view
         //适配L0C2L1通路，优先选择将view转化为L0C2L1，不满足场景后续转为ddr
         if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && out->GetMemoryTypeOriginal() == MemoryType::MEM_L1 &&
-            (out->Datatype() == DT_BF16 || out->Datatype() == DT_FP16)) {
+            FitL0C2L1(in)) {
             inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_L0C);
         }
         return;
@@ -201,7 +213,7 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     if (input->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
         return;
     }
-    if (input->Datatype() != DT_BF16 && input->Datatype() != DT_FP16) {
+    if (!FitL0C2L1(input)) {
         return;
     }
     for (const auto &consumerOp : output->GetConsumers()) {
@@ -229,7 +241,7 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
 }
 
 void AssignMemoryType::AssignMemtypeForSplitReshape(Operation &op, const LogicalTensorPtr &input, const LogicalTensorPtr &output) {
-    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * 0.35);
+    const int UB_SIZE_THRESHOLD = static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD);
     // 如果reshape前序是Assemble后接View，是SplitReshape处理的Reshape
     auto &producers = input->GetProducers();
     auto &consumers = output->GetConsumers();
@@ -337,9 +349,9 @@ void AssignMemoryType::AssignSpecialOpMemtype(Operation &op, bool &infoBufferSiz
 
 void AssignMemoryType::UpdateOverSizedLocalBuffer(Operation &operation) {
     const int UB_SIZE_THRESHOLD =
-        static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * 0.35);
+        static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_UB) * UB_THRESHOLD);
     const int L1_SIZE_THRESHOLD =
-        static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) * 0.5);
+        static_cast<int>(Platform::Instance().GetDie().GetMemoryLimit(MemoryType::MEM_L1) * L1_THRESHOLD);
 
     auto assembleOut = operation.GetOOperands().front();
     auto memType = assembleOut->GetMemoryTypeOriginal();
@@ -506,23 +518,12 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
         auto iOperand = op.GetIOperands().front();
         if(iOperand->GetMemoryTypeOriginal() == MEM_L0C) {
             bool isToL1 = true;
-            bool isToL0C = true;
             auto toBeMap = inserter.GetMemoryTypeFromTensorTobeMap(oOperand);
             for (const auto &[_, toBeType] : toBeMap) {
                 if (toBeType != MemoryType::MEM_L1) {
                     isToL1 = false;
-                    continue;
+                    break;
                 }
-                if (toBeType != MemoryType::MEM_L0C) {
-                    isToL0C = false;
-                    continue;
-                }
-            }
-            if (isToL0C) {
-                oOperand->SetMemoryTypeOriginal(MemoryType::MEM_L0C, true);
-                APASS_LOG_DEBUG_F(Elements::Tensor, "Set tensor %d original memory type "
-                    "to L0C since all toBeMap towards MEM_L0C", oOperand->magic);
-                break;
             }
             if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape())){
                 oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
