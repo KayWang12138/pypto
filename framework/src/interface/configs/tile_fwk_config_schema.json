@@ -9,15 +9,6 @@
                 "en": "..."
             },
             "properties": {
-                "pg_parallel_lower_bound": {
-                    "type": "integer",
-                    "label": {
-                        "zh": "合图参数，用于配置相同结构子图的最小并行度。当某个相同结构的子图数小于该值时不做合并。",
-                        "en": "Graph merging parameter, used to configure the minimum parallelism of subgraphs with identical structures. Merging is not performed when the number of subgraphs with the same structure is less than this value."
-                    },
-                    "minimum": 0,
-                    "maximum": 2147483647
-                },
                 "pg_upper_bound": {
                     "type": "integer",
                     "label": {

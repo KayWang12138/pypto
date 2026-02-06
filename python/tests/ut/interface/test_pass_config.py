@@ -44,7 +44,6 @@ def test_pass_option():
         "pg_skip_partition": True,
         "pg_upper_bound": 2,
         "pg_lower_bound": 3,
-        "pg_parallel_lower_bound": 4,
         "sg_set_scope": 5,
         "mg_vec_parallel_lb": 6,
         "vec_nbuffer_mode": 2,

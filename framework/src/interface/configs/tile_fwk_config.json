@@ -1,6 +1,5 @@
 {
     "pass": {
-        "pg_parallel_lower_bound": 20,
         "pg_upper_bound": 10000,
         "pg_lower_bound": 512,
         "cube_l1_reuse_mode": 1,

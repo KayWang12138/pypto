@@ -57,7 +57,6 @@ def set_pass_options(*,
                      pg_skip_partition: Optional[bool] = None,
                      pg_upper_bound: Optional[int] = None,
                      pg_lower_bound: Optional[int] = None,
-                     pg_parallel_lower_bound: Optional[int] = None,
                      mg_vec_parallel_lb: Optional[int] = None,
                      vec_nbuffer_mode: Optional[int] = None,
                      vec_nbuffer_setting: Optional[Dict[int, int]] = None,
@@ -83,10 +82,6 @@ def set_pass_options(*,
     pg_lower_bound : int
         Merged graph parameter, used to configure
         the lower bound of subgraph size.
-
-    pg_parallel_lower_bound : int
-        Merged graph parameter, used to configure
-        the minimum parallelism of subgraphs with the same structure.
 
     mg_vec_parallel_lb : int
         Merged graph parameter, used to configure
