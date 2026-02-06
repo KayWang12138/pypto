@@ -115,16 +115,6 @@ static std::pair<torch::Tensor, torch::Tensor> From(LogicalTensorDataPtr data) {
     return {view, actualView};
 }
 
-// static torch::Tensor From(LogicalTensorDataPtr data) {
-//     RawTensorDataPtr raw = data->GetData();
-//     auto ScalarDataType = FromDataType(raw->GetDataType());
-//     auto tensor = torch::from_blob(raw->data(), raw->GetShape(), ScalarDataType);
-//     auto view = tensor.as_strided(data->GetShape(), raw->GetStride(), data->GetStorageOffset());
-//     if (data->IsAxisCombine())
-//         view = view.transpose_(-1, AXIS_TO_LAST);
-//     return view;
-// }
-
 static torch::Tensor View(const torch::Tensor &self, const std::vector<int64_t> &shape, const std::vector<int64_t> &offset) {
     int64_t storageOffset = self.storage_offset();
     for (size_t dim = 0; dim < offset.size(); dim++) {
