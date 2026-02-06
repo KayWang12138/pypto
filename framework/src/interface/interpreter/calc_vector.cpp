@@ -24,7 +24,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
     if (opcode == Opcode::OP_ADD_BRC || opcode == Opcode::OP_SUB_BRC || opcode == Opcode::OP_MUL_BRC ||
         opcode == Opcode::OP_DIV_BRC) {
         ASSERT(ctx->ooperandInplaceDataViewList->size() == SIZE_TWO);
-    } else if (opcode == Opcode::OP_BITWISEXOR) {
+    } else if (opcode == Opcode::OP_BITWISEXOR || opcode == Opcode::OP_COPYSIGN) {
         ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     } else {
         ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
@@ -58,6 +58,7 @@ void ExecuteOpBinary(ExecuteOperationContext *ctx) {
         case Opcode::OP_BITWISEAND: calc::BitwiseAnd(ret, lhs, rhs); break;
         case Opcode::OP_BITWISEOR: calc::BitwiseOr(ret, lhs, rhs); break;
         case Opcode::OP_BITWISEXOR: calc::BitwiseXor(ret, lhs, rhs); break;
+        case Opcode::OP_COPYSIGN: calc::CopySign(ret, lhs, rhs); break;
         default: ASSERT(false);
     }
 }
@@ -83,6 +84,7 @@ REGISTER_CALC_OP(OP_MINIMUM, Opcode::OP_MINIMUM, ExecuteOpBinary<Opcode::OP_S_MI
 REGISTER_CALC_OP(OP_BITWISEAND, Opcode::OP_BITWISEAND, ExecuteOpBinary<Opcode::OP_BITWISEAND>);
 REGISTER_CALC_OP(OP_BITWISEOR, Opcode::OP_BITWISEOR, ExecuteOpBinary<Opcode::OP_BITWISEOR>);
 REGISTER_CALC_OP(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, ExecuteOpBinary<Opcode::OP_BITWISEXOR>);
+REGISTER_CALC_OP(OP_COPYSIGN, Opcode::OP_COPYSIGN, ExecuteOpBinary<Opcode::OP_COPYSIGN>);
 
 void ExecuteOpFmod(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
@@ -291,11 +293,15 @@ void ExecuteOpTransposeMoveOut(ExecuteOperationContext *ctx) {
         std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetShape());
         if (ctx->op->GetOpcode() == Opcode::OP_TRANSPOSE_MOVEOUT) {
             std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetToOffset());
-            auto oopCopy = oop->View(shape, toOffset);
+            std::vector<int64_t> iopShape = iop->GetShape();
+            std::swap(iopShape[axises[0]], iopShape[axises[1]]);
+            auto oopCopy = std::make_shared<LogicalTensorData>(oop->GetData(), iopShape, toOffset);
             return calc::Transpose(oopCopy, iop, axises[0], axises[1]);
         } else {
             std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyoutAttr->GetFromOffset());
-            auto iopCopy = iop->View(shape, fromOffset);
+            std::vector<int64_t> oopShape = oop->GetShape();
+            std::swap(oopShape[axises[0]], oopShape[axises[1]]);
+            auto iopCopy = std::make_shared<LogicalTensorData>(iop->GetData(), oopShape, fromOffset);
             return calc::Transpose(oop, iopCopy, axises[0], axises[1]);
         }
     }
@@ -449,6 +455,7 @@ void ExecuteOpExtract(ExecuteOperationContext *ctx) {
     calc::Extract(oop, src, maskMode, descending);
 }
 REGISTER_CALC_OP(OP_EXTRACT, Opcode::OP_EXTRACT, ExecuteOpExtract);
+REGISTER_CALC_OP(OP_EXTRACT_SINGLE, Opcode::OP_EXTRACT_SINGLE, ExecuteOpExtract);
 
 void ExecuteOpGather(ExecuteOperationContext *ctx) {
     auto output = ctx->ooperandInplaceDataViewList->at(0);
@@ -463,7 +470,7 @@ void ExecuteOpGatherINUB(ExecuteOperationContext *ctx) {
     auto parmas = ctx->ioperandDataViewList->at(0);
     auto indices = ctx->ioperandDataViewList->at(1);
     auto pageTable = ctx->ioperandDataViewList->at(2);
-    int blocksize = ctx->op->GetIntAttribute("op_attr_blocksize");
+    int blocksize = ctx->op->GetIntAttribute(OpAttributeKey::blockSize);
     calc::GatherINUB(output, parmas, indices, pageTable, blocksize, -2);
 }
 REGISTER_CALC_OP(OP_GATHER_IN_UB, Opcode::OP_GATHER_IN_UB, ExecuteOpGatherINUB);
@@ -535,6 +542,23 @@ void ExecuteOpMrgSort(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_MRGSORT, Opcode::OP_MRGSORT, ExecuteOpMrgSort);
 
+void ExecuteOpTwoTileMrgSort(ExecuteOperationContext *ctx) {
+    auto src = ctx->ioperandDataViewList->at(0);
+    auto oop = ctx->ooperandInplaceDataViewList->at(0);
+    calc::TwoTileMrgSort(oop, src);
+}
+REGISTER_CALC_OP(OP_TWOTILEMRGSORT, Opcode::OP_TWOTILEMRGSORT, ExecuteOpTwoTileMrgSort);
+
+void ExecuteOpSort(ExecuteOperationContext *ctx) {
+    auto src = ctx->ioperandDataViewList->at(0);
+    auto value = ctx->ooperandInplaceDataViewList->at(0);
+    auto index = ctx->ooperandInplaceDataViewList->at(1);
+    auto axis = ctx->op->GetIntAttribute("op_attr_axis");
+    int descending = ctx->op->GetIntAttribute("op_attr_order");
+    calc::Sort(value, index, src, axis, descending);
+}
+REGISTER_CALC_OP(OP_SORT_UB, Opcode::OP_SORT_UB, ExecuteOpSort);
+
 void ExecuteOpTopK(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ioperandDataViewList->size() == 1);
     auto outValue = ctx->ooperandInplaceDataViewList->at(0);
@@ -553,7 +577,8 @@ void ExecuteOpBitSort(ExecuteOperationContext *ctx) {
     auto src = ctx->ioperandDataViewList->at(0);
     auto topk_axis = ctx->op->GetIntAttribute("op_attr_axis");
     int descending = ctx->op->GetIntAttribute("op_attr_order");
-    calc::BitSort(oop, src, topk_axis, descending);
+    int offset = ctx->op->GetIntAttribute("op_attr_offset");
+    calc::BitSort(oop, src, topk_axis, descending, offset);
 }
 REGISTER_CALC_OP(OP_BITSORT, Opcode::OP_BITSORT, ExecuteOpBitSort);
 

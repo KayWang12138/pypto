@@ -165,8 +165,7 @@ Tensor Scatter(const Tensor &self, const Tensor &indices, const Element &src, in
 Tensor Scatter(const Tensor &self, const Tensor &indices, const Tensor &src, int axis,
     ScatterMode reduce = ScatterMode::NONE);
 void IndexPut_(Tensor &self, const std::vector<Tensor> &indices, const Tensor &values, bool accumulate = false);
-Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});
-Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element{DT_FP32, 1.0});
+Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha = Element(DT_FP32, 1.0f));
 Tensor RowSumExpand(const Tensor &operand);
 Tensor RowMaxExpand(const Tensor &operand);
 
@@ -200,6 +199,7 @@ Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode)
 Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode);
 Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode);
 Tensor Pow(const Tensor &self, const Element &other);
+Tensor CopySign(const Tensor &self, const Tensor &other);
 
 Tensor BitwiseRightShift(const Tensor &self, const Tensor &other);
 Tensor BitwiseRightShift(const Tensor &self, const Element &other);
@@ -240,7 +240,7 @@ Tensor Clip(const Tensor &self, const Tensor &min = {}, const Tensor &max = {});
 Tensor Clip(const Tensor &self, const Element &min = {}, const Element &max = {});
 
 std::tuple<Tensor, Tensor> TopK(const Tensor &self, int k, int axis = -1, bool isLargest = true);
-Tensor ArgSort(const Tensor &operand, int axis, bool isLargest = true);
+Tensor ArgSort(const Tensor &self, int axis = -1, bool descending = false);
 
 /**
  * @brief Sort a tensor with shape (1, n) along the last dimension, n must be orders of 2.

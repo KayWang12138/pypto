@@ -36,9 +36,18 @@ using namespace npu::tile_fwk;
 namespace {
 
 void CheckFwkOpTileShape(const VecTile &vecTile, const std::shared_ptr<LogicalTensor> &tensor) {
-    ASSERT(vecTile.size() >= tensor->GetShape().size()) << "FwkOp tile shape's dim is less than  input's dim. ";
+    const auto& tensorShape = tensor->GetShape();
+    ASSERT(vecTile.size() >= tensorShape.size()) << "FwkOp tile shape dimension mismatch! "
+                                                    << "Tile dims: " << vecTile.size() << ", "
+                                                    << "Tensor dims: " << tensorShape.size() << ", "
+                                                    << "Dump tensor: " << tensor->Dump();
+
     DataType dataType = tensor->Datatype();
-    ASSERT(vecTile[vecTile.size() - 1] * BytesOf(dataType) % BLOCK_SIZE == 0) << "FwkOp tile shape's last dim is not align.";
+    size_t lastDimBytes = vecTile[vecTile.size() - 1] * BytesOf(dataType);
+    ASSERT(lastDimBytes % BLOCK_SIZE == 0) << "FwkOp tile shape's last dim is not aligned. "
+                                            << "Last dim bytes: " << lastDimBytes << ", "
+                                            << "BLOCK_SIZE: " << BLOCK_SIZE << ", "
+                                            << "Dump tensor: " << tensor->Dump();
 }
 
 void TiledAssemble(Function &function, const TileShape &tileShape, size_t cur, Input &input,
@@ -1288,7 +1297,7 @@ bool MatchBatchMatMulPattern(const std::vector<int64_t> &inputShape, const std::
     constexpr size_t DIMENSIONS_4D = 4;
     // 定义所有有效的模式：{input_size, output_size, 验证函数}
     using Validator = std::function<bool(const std::vector<int64_t>&, const std::vector<int64_t>&)>;
-    
+
     static const std::vector<std::pair<std::pair<size_t, size_t>, Validator>> patterns = {
         {{DIMENSIONS_3D, DIMENSIONS_2D}, [](const auto& in, const auto& out) {
             return in[0] == 1 && in[1] == out[0] && in[2] == out[1];
@@ -1303,15 +1312,15 @@ bool MatchBatchMatMulPattern(const std::vector<int64_t> &inputShape, const std::
             return out[0] == 1 && out[1] == 1 && in[0] == out[2] && in[1] == out[3];
         }}
     };
-    
+
     for (const auto& [sizes, validator] : patterns) {
-        if (inputShape.size() == sizes.first && 
+        if (inputShape.size() == sizes.first &&
             outputShape.size() == sizes.second &&
             validator(inputShape, outputShape)) {
             return true;
         }
     }
-    
+
     return false;
 }
 
@@ -1405,7 +1414,7 @@ void TiledGatherInUB(Function &function, const TileShape &tileShape, const Logic
             auto resultTile = result->View(function, {shape0, shape1}, {i, j});
             auto &op =
                 function.AddOperation(Opcode::OP_GATHER_IN_UB, {paramTile, indicesTile, blockTableTile}, {resultTile});
-            op.SetAttribute(OP_ATTR_PREFIX + "blocksize", blockSize);
+            op.SetAttribute(OpAttributeKey::blockSize, blockSize);
             (void)op;
         }
     }
@@ -1431,7 +1440,7 @@ Tensor experimental::GatherInUB(
     }
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_GATHER_IN_UB,
         {params.GetStorage(), indices.GetStorage(), blockTable.GetStorage()}, {result.GetStorage()});
-    op.SetAttribute(OP_ATTR_PREFIX + "blocksize", blockSize);
+    op.SetAttribute(OpAttributeKey::blockSize, blockSize);
     (void)op;
     return result;
 }
@@ -1477,7 +1486,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         case Opcode::OP_GATHER_IN_UB: {
-            int blocksize = op.GetIntAttribute(OP_ATTR_PREFIX + "blocksize");
+            int blocksize = op.GetIntAttribute(OpAttributeKey::blockSize);
             TiledGatherInUB(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], blocksize);
             break;
         }
@@ -1642,7 +1651,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         default: {
-            ASLOGE("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
+            ALOG_ERROR_F("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
             ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();
         }
     }
