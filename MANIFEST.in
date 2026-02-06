@@ -52,4 +52,3 @@ include tools/profiling/parse_pipe_time_trace.py
 include tools/scripts/machine_perf_trace.py
 
 recursive-include framework/src/machine/tracr *
-recursive-include tools/tracr *
