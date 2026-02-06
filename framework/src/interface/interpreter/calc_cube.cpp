@@ -26,7 +26,7 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
     auto lhs = ctx->ioperandDataViewList->at(0);
     auto rhs = ctx->ioperandDataViewList->at(1);
-    auto bias = (ctx->op->HasAttr(Matrix::A_MUL_B_BIAS_ATTR)) ? ctx->ioperandDataViewList->at(2) : nullptr;
+    auto bias = (ctx->op->GetBoolAttribute(Matrix::A_MUL_B_BIAS_ATTR)) ? ctx->ioperandDataViewList->at(2) : nullptr;
     auto &cubeTile = ctx->op->GetTileShape().GetCubeTile();
     int k1 = cubeTile.k[1];
     int k2 = cubeTile.k[2];
