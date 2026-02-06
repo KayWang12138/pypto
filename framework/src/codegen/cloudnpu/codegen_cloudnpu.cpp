@@ -513,6 +513,14 @@ void CodeGenCloudNPU::BuildLLVMParams(std::ostringstream &oss) const {
         << "-mllvm -cce-aicore-record-overflow=false "
         << "-mllvm -cce-aicore-addr-transform "
         << "-mllvm -cce-aicore-dcci-insert-for-scalar=false ";
+    if (config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
+        oss << "--enable-pto-tile-fusion "
+            << "-mllvm --tile-fusion-skip-shape-inference=true "
+            << "-mllvm --tile-fusion-skip-reduceop-fusion=false "
+            << "-mllvm --tile-fusion-skip-legality-check=false "
+            << "-Rpass=tile-fusion "
+            << "-Rpass-missed=tile-fusion ";
+    }
 }
 
 std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
