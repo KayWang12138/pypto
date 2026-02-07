@@ -587,13 +587,13 @@ def chunk_gated_delta_rule(query, key, value, beta, gate, states, mask,
 def chunk_gated_delta_rule_unaligned(query, key, value, beta, gate, states, mask, tril_mask, 
     eye, act_seq_len, core_attn_out, last_state_data):
     
-    t = pypto.frontend.dynamic("t")
-    query_shape = (t, query.shape[1], query.shape[2])
-    key_shape = (t, key.shape[1], key.shape[2])
-    value_shape = (t, value.shape[1], value.shape[2])
-    beta_shape = (t, beta.shape[1])
-    gate_shape = (t, gate.shape[1])
-    core_attn_out_shape = (t, core_attn_out.shape[1], core_attn_out.shape[2])
+    t_unaligned = pypto.frontend.dynamic("t")
+    query_shape = (t_unaligned, query.shape[1], query.shape[2])
+    key_shape = (t_unaligned, key.shape[1], key.shape[2])
+    value_shape = (t_unaligned, value.shape[1], value.shape[2])
+    beta_shape = (t_unaligned, beta.shape[1])
+    gate_shape = (t_unaligned, gate.shape[1])
+    core_attn_out_shape = (t_unaligned, core_attn_out.shape[1], core_attn_out.shape[2])
     
     @pypto.frontend.jit(
         runtime_options={
