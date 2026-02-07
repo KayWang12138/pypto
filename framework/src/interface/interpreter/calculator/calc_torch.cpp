@@ -147,6 +147,13 @@ static void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
+static void Sign(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::sign_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
 static void Ceil(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -1692,6 +1699,7 @@ static struct CalcOps calcOps = {
     .Exp = Exp,
     .Neg = Neg,
     .Rsqrt = Rsqrt,
+    .Sign = Sign,
     .Sqrt = Sqrt,
     .Ceil = Ceil,
     .Floor = Floor,
