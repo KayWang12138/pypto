@@ -185,11 +185,13 @@ std::string TestLogicalBody(Opcode opcode) {
 }
 
 TEST_F(TestCodegenDynLogical, LogicalAndTileTensor) {
-    TestLogicalBody(Opcode::OP_LOGICALAND);
+    std::string tmp = TestLogicalBody(Opcode::OP_LOGICALAND);
+    std::cout << tmp << std::endl;
 }
 
 TEST_F(TestCodegenDynLogical, LogicalNotTileTensor) {
-    TestLogicalBody(Opcode::OP_LOGICALNOT);
+    std::string tmp = TestLogicalBody(Opcode::OP_LOGICALNOT);
+    std::cout << tmp << std::endl;
 }
 
 } // namespace npu::tile_fwk
