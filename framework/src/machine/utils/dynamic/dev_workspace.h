@@ -795,19 +795,11 @@ private:
     }
 
     uint32_t WrapQueSlabMemObjSize() {
-        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
-            return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
-        } else {
-            return 1;
-        }
+        return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
     }
 
     uint32_t WrapTasklistSlabMemObjSize() {
-        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
-            return devProg_-> stitchFunctionsize * sizeof(uint32_t);
-        } else {
-            return 1;
-        }
+        return devProg_-> stitchFunctionsize * sizeof(uint32_t);
     }
 
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
