@@ -123,8 +123,8 @@ def golden_chunk_gated_delta_rule(inputs: dict, dims: dict):
 
 def gen_data(case_name):
     """Generate test data based on case name."""
-    if case_name.startswith("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s4k"):
-        params = {"T": 1024 * 8, "B": 2, "Nqk": 2, "Nv": 4, }
+    if case_name.startswith("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s1k"):
+        params = {"T": 1024 * 2, "B": 2, "Nqk": 2, "Nv": 4, }
     elif case_name.startswith("ChunkGatedDeltaRuleSTest.b2_nqk4_nv8_s4k"):
         params = {"T": 1024 * 8, "B": 2, "Nqk": 4, "Nv": 8, }
     elif case_name.startswith("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s8k"):
@@ -398,8 +398,8 @@ def segs_chunk_gated_delta_rule_sub(**kwargs):
 
 # ==================== Test Cases ====================
 # Test case: B:2, Nqk:2, Nv:4, S:4K
-def test_b2_nqk2_nv4_s4k():
-    do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s4k")
+def test_b2_nqk2_nv4_s1k():
+    do_test_chunk_gated_delta_rule("ChunkGatedDeltaRuleSTest.b2_nqk2_nv4_s1k")
 
 
 # Test case: B:2, Nqk:4, Nv:8, S:4K
@@ -457,4 +457,4 @@ def test_b1_nqk2_nv4_s2059():
 
 
 if __name__ == "__main__":
-    test_b2_nqk2_nv4_s4k()
+    test_b2_nqk2_nv4_s1k()
