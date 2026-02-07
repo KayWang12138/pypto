@@ -448,6 +448,7 @@ void SetConvShapeInfo(const TileShape &tileShape, const ConvGraphNodes &tensorGr
         convAttrParam.oriResShape[NCDHW_H_IDX] : convAttrParam.oriResShape[NCHW_H_IDX];
     convTileInfo.orgWout = convAttrParam.isConv3D ?
         convAttrParam.oriResShape[NCDHW_W_IDX] : convAttrParam.oriResShape[NCHW_W_IDX];
+    convTileInfo.orgDin = convAttrParam.isConv3D ? convAttrParam.oriFmapShape[NCDHW_D_IDX] : 1;
     convTileInfo.orgDout = convAttrParam.isConv3D ? convAttrParam.oriResShape[NCDHW_D_IDX] : 1;
     convTileInfo.cin0 = ALIGN_SIZE_32 / BytesOf(tensorGraphNodes.fmapTensorPtr->Datatype());
     convTileInfo.orgCout = convAttrParam.isConv3D ?
@@ -569,12 +570,21 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
     }
     // L1层级 Fmap 展开
     if (iterInfo.aL1UpadateFlag) {
-        iterInfo.kAL1Size = std::min(convTileInfo.kPerGroup - iterInfo.kL0Offset, convTileInfo.kAL1);
+        iterInfo.kAL1Size =
+            std::min((convTileInfo.kPerGroup * iterInfo.dkL1Size - iterInfo.kL0Offset), convTileInfo.kAL1);
         std::vector<int64_t> dstAL1Shape = std::vector<int64_t>{1, iterInfo.kAL1Size / convTileInfo.cin0,
             iterInfo.hinL1Size, iterInfo.winL1Size, convTileInfo.cin0};
+        int64_t srcCinOffset =
+            (iterInfo.kL0Offset % convTileInfo.kPerGroup) / (convTileInfo.orgKh * convTileInfo.orgKw);
         if (convAttrParam.isConv3D) {
-            dstAL1Shape = std::vector<int64_t>{1, iterInfo.dkL1Size, cin1L1Size, iterInfo.hinL1Size,
-                                               iterInfo.winL1Size, convTileInfo.cin0};
+            iterInfo.dkAL1Size = 1;
+            if (iterInfo.kAL1Size > convTileInfo.kPerGroup) {
+                srcCinOffset = 0;
+                iterInfo.dkAL1Size = iterInfo.kAL1Size / convTileInfo.kPerGroup;
+            }
+            dstAL1Shape = std::vector<int64_t>{1, iterInfo.dkAL1Size,
+                                               iterInfo.kAL1Size / (iterInfo.dkAL1Size * convTileInfo.cin0),
+                                               iterInfo.hinL1Size, iterInfo.winL1Size, convTileInfo.cin0};
         }
         dstAL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.fmapTensorPtr->Datatype(), dstAL1Shape,
@@ -584,6 +594,14 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
         auto &copyInOpAl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.fmapTensorPtr},
                                                   {dstAL1TensorPtr});
         copyInOpAl1.SetAttribute("is_fmap", true);
+        copyInOpAl1.SetAttribute("src_d_offset", iterInfo.dinL1Offset + (iterInfo.kL0Offset / convTileInfo.kPerGroup) *
+                                 convAttrParam.dilations[2]);
+        copyInOpAl1.SetAttribute("src_d_stride", convAttrParam.dilations[2]);
+        copyInOpAl1.SetAttribute("src_n_offset", iterInfo.batchOffset);
+        copyInOpAl1.SetAttribute("src_h_offset", iterInfo.hL1InOffset);
+        copyInOpAl1.SetAttribute("src_w_offset", iterInfo.wL1InOffset);
+        copyInOpAl1.SetAttribute("src_c_offset", iterInfo.groupOffset * (convTileInfo.orgCin / convAttrParam.groups) +
+                                 srcCinOffset);
         iterInfo.aL1UpadateFlag = false;
     }
 
@@ -610,18 +628,22 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
     }
     // L1层级 Weight 展开
     if (iterInfo.bL1UpadateFlag) {
-        iterInfo.kBL1Size = std::min(convTileInfo.kPerGroup - iterInfo.kL0Offset, convTileInfo.kBL1);
+        iterInfo.kBL1Size =
+            std::min(convTileInfo.kPerGroup * iterInfo.dkL1Size - iterInfo.kL0Offset, convTileInfo.kBL1);
         std::vector<int64_t> dstBL1Shape =
             std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / MKN_N_VALUE,
                                  MKN_N_VALUE, convTileInfo.cin0};
+        int64_t srcCinOffset =
+            (iterInfo.kL0Offset % convTileInfo.kPerGroup) / (convTileInfo.orgKh * convTileInfo.orgKw);
         if (convAttrParam.isConv3D) {
-            iterInfo.dkL1Size = 1;
+            iterInfo.dkBL1Size = 1;
+            if (iterInfo.kBL1Size > convTileInfo.kPerGroup) {
+                srcCinOffset = 0;
+                iterInfo.dkBL1Size = iterInfo.kBL1Size / convTileInfo.kPerGroup;
+            }
             dstBL1Shape = 
                 std::vector<int64_t>{iterInfo.kBL1Size / convTileInfo.cin0, iterInfo.nL1Size / MKN_N_VALUE,
                                      MKN_N_VALUE, convTileInfo.cin0};
-            if (iterInfo.kBL1Size > (convTileInfo.kPerGroup / convTileInfo.orgKd)) {
-                iterInfo.dkL1Size = iterInfo.kBL1Size / (convTileInfo.kPerGroup / convTileInfo.orgKd);
-            }
         }
         dstBL1TensorPtr =
             std::make_shared<LogicalTensor>(function, tensorGraphNodes.weightTensorPtr->Datatype(), dstBL1Shape,
@@ -631,6 +653,10 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
         auto &copyInOpBl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.weightTensorPtr},
                                                   {dstBL1TensorPtr});
         copyInOpBl1.SetAttribute("is_fmap", false);
+        copyInOpAl1.SetAttribute("src_c_offset", srcCinOffset);
+        copyInOpAl1.SetAttribute("src_d_offset", (convTileInfo.orgKd - iterInfo.dkL1Size) +
+                                 (iterInfo.kL0Offset / convTileInfo.kPerGroup));
+        copyInOpAl1.SetAttribute("src_n_offset", iterInfo.groupOffset * iterInfo.coutPerGroup + iterInfo.coutOffset);
         iterInfo.bL1UpadateFlag = false;
     }
     // load2d()
@@ -742,6 +768,24 @@ void UpdateL1IterInfo(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo, 
     iterInfo.woutL1Size = std::min(convTileInfo.orgWout - iterInfo.wL1OutOffset, convTileInfo.wAL1Out);
     // cal nL1Size
     iterInfo.nL1Size = std::min(convTileInfo.coutPerGroup - iterInfo.nL1Offset, convTileInfo.nBL1);
+    // cal dk in L1, not support dk in L1 = 0 now, kerneld <= padd
+    iterInfo.dkL1Size = 1;
+    if (convAttrParam.isConv3D) {
+        iterInfo.dkL1Size = convTileInfo.orgKd;
+        iterInfo.dinL1Offset = iterInfo.doL1Offset * convAttrParam.strides[2] - convAttrParam.paddings[4];
+        int64_t srcDkOffset = iterInfo.dinL1Offset;
+        if (iterInfo.dinL1Offset < 0) {
+            int64_t tmpKd = ConvAlignB(-iterInfo.dinL1Offset, convAttrParam.dilations[2]) / convAttrParam.dilations[2];
+            iterInfo.dkL1Size -= tmpKd;
+            srcDkOffset = iterInfo.dinL1Offset + tmpKd * convAttrParam.dilations[2];
+        }
+        int64_t kdL1EndOffset = iterInfo.dinL1Offset + (convTileInfo.orgKd - 1) * convAttrParam.dilations[2] + 1;
+        if (kdL1EndOffset > convTileInfo.orgDin) {
+            int64_t tmpKd = ConvAlignB(kdL1EndOffset - convTileInfo.orgDin, convAttrParam.dilations[2]) / convAttrParam.dilations[2];
+            iterInfo.dkL1Size -= tmpKd;
+        }
+        iterInfo.dinL1Offset = srcDkOffset;
+    }
 }
 
 void UpdateL0IterInfo(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo)
@@ -750,21 +794,6 @@ void UpdateL0IterInfo(const ConvTileInfo &convTileInfo, ConvIterInfo &iterInfo)
     iterInfo.kL0Size = convTileInfo.kL0;
     iterInfo.isFirstK = iterInfo.kL0Offset == 0 ? true : false;
     iterInfo.isLastK = iterInfo.kL0Offset + convTileInfo.kL0 >= convTileInfo.kPerGroup ? true : false;
-    // cal dk in L1, not support dk = 0 now, kerneld <= padd
-    if (convAttrParam.isConv3D) {
-        iterInfo.dkAL1Size = 1;
-        int64_t cinL1Size = convTileInfo.kPerGroup / (convTileInfo.orgKh * convTileInfo.orgKw);
-        if (iterInfo.kAL1Size > (convTileInfo.kPerGroup / convTileInfo.orgKd)) {
-            cinL1Size = convTileInfo.kPerGroup / convTileInfo.orgKd;
-            iterInfo.dkAL1Size = iterInfo.kAL1Size / cinL1Size;
-        }
-        int64_t dinL1Offset = iterInfo.doL1Offset * convAttrParam.strides[2] - convAttrParam.paddings[4];
-        if (dinL1Offset < 0) {
-            int64_t tmpKd = ConvAlignB(-dinL1Offset, convAttrParam.dilations[2]) / convAttrParam.dilations[2];
-            tmpKd = tmpKd > iterInfo.dkAL1Size ? iterInfo.dkAL1Size : tmpKd;
-            iterInfo.dkAL1Size -= tmpKd;
-        }
-    }
 }
 
 void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &convTileInfo,
@@ -800,7 +829,7 @@ void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
                                                     SymbolicScalar::FromConcrete(dstCL0Shape),
                                                     tensorGraphNodes.fmapTensorPtr->Format(), "cL0Tensor",
                                                     NodeType::LOCAL);
-                for (iterInfo.kL0Offset = 0; iterInfo.kL0Offset < convTileInfo.kPerGroup;
+                for (iterInfo.kL0Offset = 0; iterInfo.kL0Offset < convTileInfo.kPerGroup * iterInfo.dkL1Size;
                      iterInfo.kL0Offset += convTileInfo.kL0) {
                     UpdateL0IterInfo(convTileInfo, iterInfo);
                     // fmap and weight link
@@ -863,16 +892,16 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape,
     // set tile graph node info
     ConvGraphNodes tileGraphNodes;
 
-    for (int64_t groupIdx = 0; groupIdx < convAttrParam.groups; groupIdx += 1) {
+    for (int64_t iterInfo.groupOffset = 0; iterInfo.groupOffset < convAttrParam.groups; iterInfo.groupOffset += 1) {
         for (iterInfo.batchOffset = 0; iterInfo.batchOffset < convTileInfo.orgBatch; iterInfo.batchOffset += 1) {
             IterOneBatchFunc(function, iterInfo, convTileInfo, convAttrParam, tensorGraphNodes, tileGraphNodes);
         }
     }
 }
 
-Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides, 
-            const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam, 
-            const int64_t groups)
+Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor,
+            const std::vector<int64_t> &strides, const std::vector<int64_t> &paddings,
+            const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam, const int64_t groups)
 {
     const Tensor& biasTensor = extendParam.biasTensor;
     ConvAttrParam convAttrParam(paddings, strides, dilations, groups);

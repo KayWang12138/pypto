@@ -250,6 +250,7 @@ struct ConvGraphNodes {
 struct ConvTileInfo {
     int64_t orgBatch = 0;
     int64_t orgCout = 0;
+    int64_t orgDin = 0;
     int64_t orgDout = 0;
     int64_t orgHin = 0;
     int64_t orgWin = 0;
@@ -277,13 +278,16 @@ struct ConvTileInfo {
 };
 
 struct ConvIterInfo {
+    int64_t groupOffset = 0;
     int64_t batchOffset = 0;
+    int64_t dinL1Offset = 0;
     int64_t doL1Offset = 0;
     int64_t coutOffset = 0;
     int64_t hL1InOffset = 0;
     int64_t hL1OutOffset = 0;
     int64_t wL1InOffset = 0;
     int64_t wL1OutOffset = 0;
+    int64_t dkL1Size = 0;
     int64_t dkAL1Size = 0;
     int64_t dkBL1Size = 0;
     int64_t nL1Offset = 0;
