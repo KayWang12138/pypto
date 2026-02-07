@@ -798,7 +798,7 @@ private:
         if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
             return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t);
         } else {
-            return 1;
+            return 0;
         }
     }
 
@@ -806,7 +806,7 @@ private:
         if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
             return devProg_-> stitchFunctionsize * sizeof(uint32_t);
         } else {
-            return 1;
+            return 0;
         }
     }
 
