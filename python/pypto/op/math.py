@@ -837,7 +837,102 @@ def log(input: Tensor) -> Tensor:
     """
 
     return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_E)
+@op_wrapper
+def log2(input: Tensor) -> Tensor:
+    """Computes the element-wise base-2 logarithm of `input`.
 
+    This function calculates the formula: `out = log_2(input)`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor. Must be positive (input > 0).
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise base-2 logarithm.
+
+    See Also
+    --------
+    log : Natural logarithm (base e).
+    log10 : Base-10 logarithm.
+    sqrt : Element-wise square-root.
+
+    Examples
+    --------
+    >>> x = pypto.tensor([1.0, 2.0, 4.0], pypto.DT_FP32)
+    >>> y = pypto.log2(x)
+    # Input x: [1.0     2.0     4.0]
+    # Output y: [0.0000 1.0000 2.0000]
+    """
+    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_2)
+@op_wrapper
+def log10(input: Tensor) -> Tensor:
+    """Computes the element-wise base-10 logarithm of `input`.
+
+    This function calculates the formula: `out = log_10(input)`.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor. Must be positive (input > 0).
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise base-10 logarithm.
+
+    See Also
+    --------
+    log : Natural logarithm (base e).
+    log2 : Base-2 logarithm.
+    sqrt : Element-wise square-root.
+
+    Examples
+    --------
+    >>> x = pypto.tensor([1.0, 10.0, 100.0], pypto.DT_FP32)
+    >>> y = pypto.log10(x)
+    # Input x: [1.0      10.0     100.0]
+    # Output y: [0.0000   1.0000   2.0000]
+    """
+    return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_10)
+
+@op_wrapper
+def log1p(input: Tensor) -> Tensor:
+    """Computes the element-wise natural logarithm of (1 + input).
+
+    This function calculates the formula: `out = log(1 + input)`, where `log`
+    denotes the natural logarithm (base e). It is mathematically equivalent to
+    `log(input + 1)`, but this implementation uses the standard expression.
+    
+    For numerical stability with very small values of `input` (e.g., near zero),
+    a dedicated low-level `log1p` kernel is recommended in future versions.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor. Must satisfy `input > -1` for real-valued output
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise natural logarithm of (1 + input).
+
+    See Also
+    --------
+    log : Element-wise natural logarithm.
+    sqrt : Element-wise square-root.
+
+    Examples
+    --------
+    >>> x = pypto.tensor([0.0, 1.0, 2.0], pypto.DT_FP32)
+    >>> y = pypto.log1p(x)
+    >>> print(y)
+    # Input x: [0.0     1.0     2.0]
+    # Output y: [0.0000 0.6931 1.0986]
+    """
+    return pypto_impl.Log(input + 1, pypto_impl.LogBaseType.LOG_E)
 
 @op_wrapper
 def clip(
@@ -1114,3 +1209,33 @@ def tril(
     if isinstance(diagonal, int):
         diagonal = SymbolicScalar(diagonal).base()
     return pypto_impl.TriL(input, diagonal)
+
+
+@op_wrapper
+def copysign(input: Tensor, other: Tensor) -> Tensor:
+    """
+    Create a new floating-point tensor with the magnitude of input and the sign of other, elementwise.
+    Parameters
+    ---------
+    input: Tensor
+        The tensor of magnitudes.
+    other : Tensor
+         The tensor that contains value(s) whose signbit(s) are applied to the magnitudes in input.
+    out: Tensor
+        The output tensor.
+    Examples
+    ---------
+    x = pypto.tensor([3, 3], pypto.data_type.DT_FP32)
+    y = pypto.tensor([3, 3], pypto.data_type.DT_FP32)
+    out = pypto.copysign(x, y)
+    Input  x : [[1 -2  3],
+                [4  5 -6],
+                [-7 8  9]]
+    Input  y : [[-1 6 -8],
+                [1 -1  0],
+                [7 -8  9]]
+    Output out:[[-1 2 -3],
+                [4 -5  6],
+                [7 -8  9]]
+    """
+    return pypto_impl.CopySign(input, other)
