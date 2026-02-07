@@ -203,7 +203,7 @@ static torch::Tensor Float32ToFp8E5M2(const torch::Tensor &self) {
                 exp = std::clamp(exp, 1, 30);
                 float scale = std::exp2(static_cast<float>(exp - 15));
                 int mant = 0;
-                if (scale != 0.0f) {
+                if (scale > 0.0f) {
                     mant = static_cast<int>(std::round((absv / scale - 1.0f) * 4.0f));
                     mant = std::clamp(mant, 0, 3);
                 }
