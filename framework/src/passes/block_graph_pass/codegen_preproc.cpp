@@ -191,7 +191,7 @@ Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
             if (OpcodeManager::Inst().GetCoreType(op.GetOpcode()) != OpCoreType::AIV && !IsUBCopy(op)) {
                 continue;
             }
-            if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && skipInputCombineOps3510.count(op.GetOpcode())) {
+            if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && skipInputCombineOps3510.count(op.GetOpcode())) {
                 continue;
             }
             std::vector<bool> inputCombineAxis;
