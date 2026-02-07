@@ -164,42 +164,19 @@ def pypto_chunk_gated_delta_rule_dyn(dims, inputs: dict, outputs: dict):
     l = dims["L"]
     act_seq_len = inputs["act_seq_len"]
 
-    input_tensors = {
-        inputs["query"]: [0],
-        inputs["key"]: [0],
-        inputs["value"]: [0],
-        inputs["beta"]: [0],
-        inputs["gate"]: [0],
-        inputs["states"]: [],
-        inputs["mask"]: [],
-        inputs["tril_mask"]: [],
-        inputs["eye_data"]: [],
-        inputs["act_seq_len"]: [0],
-    }
-    input_unaligned_tensors = {
-        inputs["query"]: [0],
-        inputs["key"]: [0],
-        inputs["value"]: [0],
-        inputs["beta"]: [0],
-        inputs["gate"]: [0],
-        inputs["states"]: [],
-        inputs["mask"]: [],
-        inputs["tril_mask"]: [],
-        inputs["eye_data_unaligned"]: [],
-        inputs["act_seq_len"]: [0],
-    }
-    output_tensors = {
-        outputs["core_attn_out"]: [0],
-        outputs["final_state"]: [],
-    }
-    pto_outputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in output_tensors.items()]
-    
     if (act_seq_len % l != 0).any():
-        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_unaligned_tensors.items()]
-        chunk_gated_delta_rule_unaligned(*pto_inputs, *pto_outputs)
+        chunk_gated_delta_rule_unaligned(
+        inputs["query"], inputs["key"], inputs["value"], inputs["beta"], inputs["gate"], 
+        inputs["states"], inputs["mask"], inputs["tril_mask"], inputs["eye_data_unaligned"], inputs["act_seq_len"], 
+        outputs["core_attn_out"], outputs["final_state"]
+    )
     else:
-        pto_inputs = [pypto.from_torch(tensor, dynamic_axis=axis) for tensor, axis in input_tensors.items()]
-        chunk_gated_delta_rule(*pto_inputs, *pto_outputs)
+        chunk_gated_delta_rule(
+        inputs["query"], inputs["key"], inputs["value"], inputs["beta"], inputs["gate"], 
+        inputs["states"], inputs["mask"], inputs["tril_mask"], inputs["eye_data"], inputs["act_seq_len"], 
+        outputs["core_attn_out"], outputs["final_state"]
+    )
+    
     torch_npu.npu.synchronize()
 
 
