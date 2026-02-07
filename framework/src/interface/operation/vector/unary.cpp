@@ -59,6 +59,12 @@ Tensor Exp(const Tensor &self) {
     RETURN_CALL(UnaryOperation<UnaryOpType::EXP>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
 }
 
+Tensor Sign(const Tensor &self) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(UnaryOperation<UnaryOpType::SIGN>, *Program::GetInstance().GetCurrentFunction(), self.GetStorage());
+}
+
 Tensor Ln(const Tensor &operand) {
     DECLARE_TRACER();
 
@@ -181,6 +187,12 @@ void ExpOperationTileFunc(Function &function, const TileShape &tileShape, const 
     return TiledUnaryOperation<UnaryOpType::EXP>(function, tileShape, iOperand[0], oOperand[0]);
 }
 
+void SignOperationTileFunc(Function &function, const TileShape &tileShape, const std::vector<LogicalTensorPtr> &iOperand,
+    const std::vector<LogicalTensorPtr> &oOperand, [[maybe_unused]] const Operation &op) {
+    UnaryOperationOperandCheck(iOperand, oOperand);
+    return TiledUnaryOperation<UnaryOpType::SIGN>(function, tileShape, iOperand[0], oOperand[0]);
+}
+
 void RsqrtOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
     [[maybe_unused]] const Operation &op) {
@@ -259,5 +271,6 @@ REGISTER_OPERATION_TILED_FUNC(OP_RECIPROCAL, Opcode::OP_RECIPROCAL, ReciprocalOp
 REGISTER_OPERATION_TILED_FUNC(OP_ABS, Opcode::OP_ABS, AbsOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_LN, Opcode::OP_LN, LnOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_HUB, Opcode::OP_HUB, HubOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_SIGN, Opcode::OP_SIGN, SignOperationTileFunc);
 
 } // namespace npu::tile_fwk
