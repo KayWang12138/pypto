@@ -463,6 +463,32 @@ def exp(input: Tensor) -> Tensor:
     """
     return pypto_impl.Exp(input)
 
+@op_wrapper
+def sign(input: Tensor) -> Tensor:
+    """Computes the element-wise exponential of `input`.
+
+    This function return a tensor with the signs of the elements of input.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise exponential.
+
+    Examples
+    --------
+    x = pypto.tensor([3], pypto.DT_FP32)
+    y = pypto.sign(x)
+
+    Input x: [-5.0    0.0    5.0    10.0]
+    Output y:[-1.    0.    1.    1.]
+    """
+    return pypto_impl.Sign(input)
+
 
 @op_wrapper
 def abs(a: Tensor) -> Tensor:
