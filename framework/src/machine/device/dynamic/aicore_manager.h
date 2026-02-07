@@ -1136,7 +1136,7 @@ private:
         return timeCost;
     }
 
-    inline int32_t ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop) {
+    inline int32_t ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop, int coreIdx = 0) {
         int32_t ret = DEVICE_MACHINE_OK;
         auto &duppedData = dyntask->GetDynFuncDataCacheList()[origfunc].duppedData;
         auto &stitchList = duppedData->GetOperationStitch(origop);
@@ -1154,13 +1154,15 @@ private:
                     auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
                     auto coreType = cceBinary[callList[opIndex]].coreType;
                     if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
-                        ret = ResolveDepDyn(id);
+                        ret = ResolveDepDyn(id, 0, coreIdx);
                         if (unlikely(ret != DEVICE_MACHINE_OK)) {
                             return ret;
                         }
                         context_->resolveHubCnt_++;
                     } else if (coreType == static_cast<int>(MachineType::AICPU)){
                         PushAicpuTaskQueue(id);
+                    } else if (wrapManager_.IsBindedWrapId(id)) {
+                        wrapManager_.ResolveDepForMixCore(id);
                     } else {
                         ret = PushReadyTask(static_cast<int>(coreType), id);
                         if (unlikely(ret != DEVICE_MACHINE_OK)) {
@@ -1235,7 +1237,7 @@ private:
             }
         }
 
-        ret = ResolveDynStitched(dyntask, funcId, opIndex);
+        ret = ResolveDynStitched(dyntask, funcId, opIndex, coreIdx);
         return ret;
     }
 
@@ -1269,6 +1271,8 @@ private:
                     context_->resolveHubCnt_++;
                 } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))){
                     PushAicpuTaskQueue(id);
+                } else if (wrapManager_.IsBindedWrapId(id)) {
+                    wrapManager_.ResolveDepForMixCore(id);
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
                     if (unlikely(ret != DEVICE_MACHINE_OK)) {
