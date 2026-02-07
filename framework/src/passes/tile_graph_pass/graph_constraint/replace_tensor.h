@@ -163,8 +163,8 @@ private:
 
     Status MarkTensorAsPartialMem(Function &function);
 
-    void InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
-    void InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
+    void InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input, std::unordered_map<int, Offset>& recordOffset, LogicalTensorPtr &assembleOut);
+    void InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input, std::unordered_map<int, Offset>& recordOffset);
     void InsertAssembleCopy(Function &function);
 
     std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
