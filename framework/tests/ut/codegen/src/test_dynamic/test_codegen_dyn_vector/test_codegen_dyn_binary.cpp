@@ -403,6 +403,7 @@ TEST_F(TestCodegenDynBinary, TestAddTileTensor) {
     CodeGenCloudNPU cga(ctx);
     cga.GenAllocForLocalBuffer(op, symbolManager);
     CodeGenOpCloudNPU cop({symbolManager, *function, *function->rootFunc_->programs_[0], op, {}});
-    cop.GenOpCode();
+    std::string tmp = cop.GenOpCode();
+    std::cout << tmp << std::endl;
 }
 } // namespace npu::tile_fwk

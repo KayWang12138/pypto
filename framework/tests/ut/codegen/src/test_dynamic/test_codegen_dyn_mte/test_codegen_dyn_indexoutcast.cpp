@@ -163,7 +163,8 @@ TEST_F(TestCodegenDynIndexOutCast, TestIndexOutTileTensor) {
 
     cop.Init(indexoutOp);
     cop.UpdateTileTensorInfo();
-    cop.GenOpCode();
+    std::string tmp = cop.GenOpCode();
+    std::cout << tmp << std::endl;
 }
 
 TEST_F(TestCodegenDynIndexOutCast, DynIndexOutUnaligned) {
