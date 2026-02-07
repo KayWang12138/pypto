@@ -34,10 +34,10 @@ static torch::ScalarType FromDataType(DataType t) {
         case DT_FP16: return torch::kFloat16;
         case DT_FP32: return torch::kFloat32;
         case DT_BF16: return torch::kBFloat16;
-        case DT_UINT8: return torch::kUInt8;
-        case DT_UINT16: return torch::kUInt16;
-        case DT_UINT32: return torch::kUInt32;
-        case DT_UINT64: return torch::kUInt64;
+        case DT_UINT8: return torch::kInt8;
+        case DT_UINT16: return torch::kInt16;
+        case DT_UINT32: return torch::kInt32;
+        case DT_UINT64: return torch::kInt64;
         case DT_BOOL: return torch::kBool;
         case DT_DOUBLE: return torch::kDouble;
         case DT_INT4:
@@ -1670,11 +1670,11 @@ static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
         inputIndices = inputIndices.to(torch::kInt64);
     }
     if (reduce == 0) {
-        auto res = torch::scatter(inputSelf.second, axis, inputIndices.second, inputSrc.second);
-        ToOperand(res, output.first, out->GetData()->GetDataType());
+        output.second = torch::scatter(inputSelf.second, axis, inputIndices.second, inputSrc.second);
+        ToOperand(output.second, output.first, out->GetData()->GetDataType());
     } else {
-        auto res = torch::scatter(inputSelf.second, axis, inputIndices.second, inputSrc.second, scatterModeString.at(reduce - 1));
-        ToOperand(res, output.first, out->GetData()->GetDataType());
+        output.second = torch::scatter(inputSelf.second, axis, inputIndices.second, inputSrc.second, scatterModeString.at(reduce - 1));
+        ToOperand(output.second, output.first, out->GetData()->GetDataType());
     }
 }
 
