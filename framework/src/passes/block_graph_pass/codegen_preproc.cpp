@@ -184,9 +184,14 @@ bool ReduceNeedCombineAxis(const Operation &op) {
 
 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
     const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
+    const std::unordered_set<Opcode> skipInputCombineOps3510 = {Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
+        Opcode::OP_DIV, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM};
     for (auto &subProgram : func.rootFunc_->programs_) {
         for (auto &op : subProgram.second->Operations(false)) {
             if (OpcodeManager::Inst().GetCoreType(op.GetOpcode()) != OpCoreType::AIV && !IsUBCopy(op)) {
+                continue;
+            }
+            if (Platform::Instance().GetSoc().GetNPUArch() != NPUArch::DAV_3510 && skipInputCombineOps3510.count(op.GetOpcode())) {
                 continue;
             }
             std::vector<bool> inputCombineAxis;
