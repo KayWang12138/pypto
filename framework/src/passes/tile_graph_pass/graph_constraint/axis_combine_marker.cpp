@@ -211,11 +211,10 @@ void AxisCombineMarker::UpdateOpACEnableForward(uint16_t opIdx) {
 void AxisCombineMarker::UpdateOpACEnableBackward(uint16_t opIdx) {
     auto op = opList_[opIdx];
     auto outputTensor = op->GetOOperands()[0];
-    auto inputTensor0 = op->GetIOperands()[0];
     if (OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::ELMWISE ||
         OpcodeManager::Inst().GetOpCalcType(op->GetOpcode()) == OpCalcType::BROADCAST ||
         ((op->GetOpcode() == Opcode::OP_VIEW || op->GetOpcode() == Opcode::OP_ASSEMBLE) &&
-          outputTensor->GetShape().back() == inputTensor0->GetShape().back())) {
+          outputTensor->GetShape().back() == op->GetIOperands()[0]->GetShape().back())) {
         if (tensorStatus_[outputTensor] == AxisReorderStatus::DISABLE) {
             for (auto inputTensor : op->GetIOperands()) {
                 tensorStatus_[inputTensor] = AxisReorderStatus::DISABLE;
