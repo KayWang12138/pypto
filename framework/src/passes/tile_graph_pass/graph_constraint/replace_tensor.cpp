@@ -208,13 +208,15 @@ void ReplaceTensor::UniteTensor(Function &function, UnionFind &uf) {
             if (inplaceOpMap.find(op.GetOpcode()) != inplaceOpMap.end()) {
                 for (const auto &pair : inplaceOpMap.at(op.GetOpcode())) {
                     uf.Unite(op.GetInputOperand(pair.first), op.GetOutputOperand(pair.second));
-                    APASS_LOG_INFO_F(Elements::Operation, "Unite %s op[%d] iOperand %d and oOperand %d.",
-                                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetIOperands()[0]->GetMagic(), op.GetOOperands()[0]->GetMagic());
+                    APASS_LOG_INFO_F(Elements::Operation, "Unite %s op[%d] iOperand %d size %d and oOperand %d size %d.",
+                                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetIOperands()[0]->GetMagic(), op.GetIOperands().size(),
+                                        op.GetOOperands()[0]->GetMagic(), op.GetOOperands().size());
                 }
             } else {
                 uf.Unite(op.GetIOperands().front(), op.GetOOperands().front());
-                APASS_LOG_INFO_F(Elements::Operation, "Unite %s op[%d] iOperand %d and oOperand %d.",
-                                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetIOperands()[0]->GetMagic(), op.GetOOperands()[0]->GetMagic());
+                APASS_LOG_INFO_F(Elements::Operation, "Unite %s op[%d] iOperand %d size %d and oOperand %d size %d.",
+                                     op.GetOpcodeStr().c_str(), op.GetOpMagic(), op.GetIOperands()[0]->GetMagic(), op.GetIOperands().size(),
+                                        op.GetOOperands()[0]->GetMagic(), op.GetOOperands().size());
             }
         }
         if (op.HasAttribute(OpAttributeKey::inplaceIdx)) {
@@ -371,6 +373,7 @@ Status ReplaceTensor::ForwardAssemble(Operation *op, LogicalTensorPtr &rootTenso
         }
         return SUCCESS;
     } else {
+        forRoots.push(assembleOut);
         backRoots.push(assembleOut);
         return SUCCESS;
     }
@@ -740,31 +743,61 @@ std::unordered_map<LogicalTensorPtr, int> ReplaceTensor::BuildTensorOrderIndexMa
     return tensorToOrderIndex;
 }
 
-void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input) {
+void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input,
+        std::unordered_map<int, Offset>& recordOffset, LogicalTensorPtr &assembleOut) {
     auto copyShape = input->GetShape();
     auto copyDynShape = input->GetDynValidShape();
     Offset offset(copyShape.size(), 0);
 
-    LogicalTensor copyOutOutput(function, input->Datatype(), copyShape);
+    for (auto ss : copyDynShape) {
+        std::cout << "validShape: " << ss.Dump() << std::endl;
+    }
+    // auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(needInsertCopyAssOp->GetOpAttribute());
+    // auto copyOffset = assembleAttr->GetToOffset();
+    LogicalTensor viewTensor(function, input->Datatype(), copyShape, copyDynShape);
+    viewTensor.UpdateOffset(offset);
+    viewTensor.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    auto viewTensorPtr = std::make_shared<LogicalTensor>(std::move(viewTensor));
+    std::vector<SymbolicScalar> dynOffset;
+    for (auto value : recordOffset[input->GetMagic()]) {
+        dynOffset.push_back(SymbolicScalar(value));
+    }
+    auto& viewOp = function.AddOperation(Opcode::OP_VIEW, {assembleOut}, {viewTensorPtr});
+    viewOp.SetOpAttribute(std::make_shared<ViewOpAttribute>(
+        recordOffset[input->GetMagic()],
+        MemoryType::MEM_UB,
+        dynOffset,
+        copyDynShape));
+
+    viewOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
+    LogicalTensor copyOutOutput(function, input->Datatype(), copyShape, copyDynShape);
+    std::cout << "input magic: " << input->GetMagic() << std::endl; 
+    copyOutOutput.UpdateOffset(offset);
     copyOutOutput.SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
     auto copyOutOutputPtr = std::make_shared<LogicalTensor>(std::move(copyOutOutput));
-    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {input}, {copyOutOutputPtr});
-
-    copyOutOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
+    auto &copyOutOp = function.AddOperation(Opcode::OP_COPY_OUT, {viewTensorPtr}, {copyOutOutputPtr});
+    auto copyOutAttr = std::make_shared<CopyOpAttribute>(
         input->GetMemoryTypeOriginal(),
         OpImmediate::Specified(offset),
         OpImmediate::Specified(copyShape),
+        OpImmediate::Specified(copyShape),
         OpImmediate::Specified(copyDynShape)
-    ));
+    );
+    // auto useOffset = recordOffset[input->GetMagic()];
+    // copyOutAttr->SetFromOffset(OpImmediate::Specified(useOffset));
+    copyOutOp.SetOpAttribute(copyOutAttr);
     copyOutOp.UpdateSubgraphID(needInsertCopyAssOp->GetSubgraphID());
 
-    LogicalTensor CopyInOutput(function, input->Datatype(), copyShape);
-    CopyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
-    auto CopyInOutputPtr = std::make_shared<LogicalTensor>(std::move(CopyInOutput));
+    LogicalTensor copyInOutput(function, input->Datatype(), copyShape, copyDynShape);
+    copyInOutput.SetMemoryTypeBoth(MemoryType::MEM_UB, true);
+    // CopyInOutput.UpdateOffset(recordOffset[input->GetMagic()]);
+    auto CopyInOutputPtr = std::make_shared<LogicalTensor>(std::move(copyInOutput));
     auto &copyInOp = function.AddOperation(Opcode::OP_COPY_IN, {copyOutOutputPtr}, {CopyInOutputPtr});
+    // recordOffset[input->GetMagic()]
     copyInOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(offset),
         input->GetMemoryTypeOriginal(),
+        OpImmediate::Specified(copyShape),
         OpImmediate::Specified(copyShape),
         OpImmediate::Specified(copyDynShape)
     ));
@@ -773,7 +806,8 @@ void ReplaceTensor::InsertCopyUBOp(Function &function, Operation *needInsertCopy
     needInsertCopyAssOp->ReplaceInput(CopyInOutputPtr, input);
 }
 
-void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input) {
+void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input, std::unordered_map<int, Offset>& recordOffset) {
+    (void) recordOffset;
     auto copyShape = input->GetShape();
     auto copyDynShape = input->GetDynValidShape();
     Offset offset(copyShape.size(), 0);
@@ -805,38 +839,169 @@ void ReplaceTensor::InsertCopyDDROp(Function &function, Operation *needInsertCop
     needInsertCopyAssOp->ReplaceInput(copyOutOutputPtr, input);
 }
 
+void SortedProducer1(std::vector<Operation*>& sortedProducers) {
+    std::sort(sortedProducers.begin(), sortedProducers.end(),
+        [](const Operation* op1, const Operation* op2) {
+            const auto& iOp1 = op1->GetIOperands();
+            const auto& iOp2 = op2->GetIOperands();
+            size_t minLen = std::min(iOp1.size(), iOp2.size());
+            for (size_t i = 0; i < minLen; ++i) {
+                LogicalTensorPtr ptr1 = iOp1[i];
+                LogicalTensorPtr ptr2 = iOp2[i];
+                if (ptr1 != ptr2) {
+                    return ptr1 < ptr2;
+                }
+            }
+            if (iOp1.size() != iOp2.size()) {
+                return iOp1.size() < iOp2.size();
+            }
+            std::stringstream ss1, ss2;
+            for (const auto &attr : OpcodeManager::Inst().GetAttrs(op1->GetOpcode())) {
+                ss1 << " attr: [" << attr << " : " << op1->DumpAttr(attr) << "]";
+            }
+            for (const auto &attr : OpcodeManager::Inst().GetAttrs(op2->GetOpcode())) {
+                ss2 << " attr: [" << attr << " : " << op2->DumpAttr(attr) << "]";
+            }
+        return ss1.str() < ss2.str();
+    });
+}
+
+unsigned long ComputeHash1(std::vector<Operation*> producers, LogicalTensorPtr curTensor) {
+    std::vector<std::string> opStrList;
+    std::stringstream ss;
+    std::vector<Operation*> sortedProducers = producers;
+    SortedProducer1(sortedProducers);
+    for (const auto& op: sortedProducers) {
+        if (op == nullptr) {
+            continue;
+        }
+        ss.str(""), ss.clear();
+        ss << op->GetOpcodeStr(true);
+        for (const auto& iOperands: op->GetIOperands()) {
+            if (iOperands == nullptr || iOperands->tensor == nullptr) {
+                continue;
+            }
+            ss << "[i";
+            ss << "$" << iOperands->tensor->DumpSSA(false, false);
+            ss << iOperands->DumpType();
+            ss << "(";
+            for (size_t i = 0; i < iOperands->offset.size(); ++i) {
+                ss << iOperands->offset[i];
+                if (i != iOperands->offset.size() - 1) {
+                    ss << ", ";
+                }
+            }
+            if (curTensor && !curTensor->GetDynValidShape().empty()) {
+                std::string shapeStr;
+                for (size_t i = 0; i < curTensor->GetDynValidShape().size(); i++) {
+                    shapeStr += curTensor->GetDynValidShape()[i].Dump();                
+                }
+                ss << "[" << shapeStr << "]";
+            }
+            ss << ")";
+            ss << "]";
+        }
+        if (op->GetOpAttribute() != nullptr) {
+            ss << " " << op->GetOpAttribute()->Dump();
+        }
+        for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
+            ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
+        }
+        ss << "id" << op->GetSubgraphID();
+        opStrList.emplace_back(ss.str());
+    }
+    ss.str(""), ss.clear();
+    for (const auto& str: opStrList) {
+        ss << str;
+    }
+    std::hash<std::string> hasher;
+    return hasher(ss.str());
+}
+
 void ReplaceTensor::InsertAssembleCopy(Function &function) {
     std::unordered_set<int> visitedAssOps;
-    std::unordered_set<Operation*> needInsertCopyAssOps;
+    std::unordered_map<int, LogicalTensorPtr> needInsertCopyAssOps;
+    std::unordered_map<int, Offset> recordOffset;
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() == Opcode::OP_ASSEMBLE && (!visitedAssOps.count(op.GetOpMagic()))) {
-            visitedAssOps.insert(op.GetOpMagic());
+            std::cout << "op magic" << op.GetOpMagic() << std::endl;
+            // visitedAssOps.insert(op.GetOpMagic());
             auto assembleIn = op.GetIOperands()[0];
             auto consumers = assembleIn->GetConsumers();
             if (consumers.size() <= 1) { 
                 continue;
             }
+            std::unordered_set<LogicalTensorPtr> allAssembleOuts;
             for (auto &con : consumers) {
                 if (con->GetOpcode() == Opcode::OP_ASSEMBLE) {
-                    visitedAssOps.insert(con->GetOpMagic());
-                    needInsertCopyAssOps.insert(con);
+                    LogicalTensorPtr assembleOut = con->GetOOperands()[0];
+                    allAssembleOuts.insert(assembleOut);
+                }
+            }
+            std::cout << "allAssembleOuts.size(): " << allAssembleOuts.size() << std::endl;
+            std::unordered_set<unsigned long> hashes;
+            for (auto assOut : allAssembleOuts) {
+                std::vector<Operation*> prodVec(assOut->GetProducers().begin(), assOut->GetProducers().end());
+                unsigned long hashRes = ComputeHash1(prodVec, assOut);
+                hashes.insert(hashRes);
+            }
+            std::cout << "hash size: " << hashes.size() << std::endl;
+            LogicalTensorPtr flagAssembleOut = nullptr;
+            if (hashes.size() == 1) {
+                continue;
+            } else if (hashes.size() > 1){
+                bool isFirstFlag = true;
+                for(auto assOut : allAssembleOuts) {
+                    if (isFirstFlag){
+                        isFirstFlag = false;
+                        // auto assembleOp = *assOut->GetProducers().begin();
+                        // auto assembleInput = op.GetIOperands().front();
+                        flagAssembleOut = assOut;
+                        auto assembleAttr = std::static_pointer_cast<AssembleOpAttribute>(op.GetOpAttribute());
+                        recordOffset[assembleIn->GetMagic()] = assembleAttr->GetToOffset();
+                        std::cout << "assembleInput->GetMagic() " << assembleIn->GetMagic() << " offset shape: " << assembleAttr->GetToOffset() << std::endl;
+                        continue;
+                    }
+                    for (auto pro : assOut->GetProducers()) {
+                        if (pro->GetIOperands()[0]->GetMagic() == assembleIn->GetMagic()) {
+                            visitedAssOps.insert(pro->GetOpMagic());
+                            std::cout << "insert opmagic: " << pro->GetOpMagic() << std::endl;
+                            needInsertCopyAssOps[pro->GetOpMagic()] = flagAssembleOut;
+                        }
+                        // visitedAssOps.insert(pro->GetOpMagic());
+                        // needInsertCopyAssOps.insert(pro->GetOpMagic());
+                    }
                 }
             }
         }
     }
-    for (auto &needInsertCopyAssOp : needInsertCopyAssOps) {
-        auto input = needInsertCopyAssOp->GetIOperands()[0];
-        if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
-            InsertCopyUBOp(function, needInsertCopyAssOp, input);
-        } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
-            InsertCopyDDROp(function, needInsertCopyAssOp, input);
+    // for(auto opMagic : needInsertCopyAssOps) {
+    //     std::cout << "needcopy opMagic: " << opMagic << std::endl;
+    // }
+    for (auto &op : function.Operations()) {
+        if (needInsertCopyAssOps.count(op.GetOpMagic())) {
+            auto input = op.GetIOperands()[0];
+            if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+                InsertCopyUBOp(function, &op, input, recordOffset, needInsertCopyAssOps[op.GetOpMagic()]);
+            } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+                InsertCopyDDROp(function, &op, input, recordOffset);
+            }
         }
     }
+    // for (auto &needInsertCopyAssOp : needInsertCopyAssOps) {
+    //     auto input = needInsertCopyAssOp->GetIOperands()[0];
+    //     if (input->GetMemoryTypeOriginal() == MemoryType::MEM_UB) {
+    //         InsertCopyUBOp(function, needInsertCopyAssOp, input);
+    //     } else if (input->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR) {
+    //         InsertCopyDDROp(function, needInsertCopyAssOp, input);
+    //     }
+    // }
 }
 
 Status ReplaceTensor::RunOnFunction(Function &function) {
     APASS_LOG_INFO_F(Elements::Operation, "===> Start ReplaceTensor.");
     InsertAssembleCopy(function);
+    function.DumpJsonFile("/home/m00896683/pypto/insert.json");
     auto tensorToOrderIndex = BuildTensorOrderIndexMap(function);
     UnionFind uf(tensorToOrderIndex);
     UniteTensor(function, uf);
@@ -846,9 +1011,14 @@ Status ReplaceTensor::RunOnFunction(Function &function) {
         if (group.size() == 1) {
             continue;
         }
+        for (auto it : group) {
+            APASS_LOG_INFO_F(Elements::Operation, "tensor magic: %d", it->GetMagic());
+        }
+        APASS_LOG_INFO_F(Elements::Operation, "end");
         if (FindBaseTensor(function, tensorToOrderIndex, group, baseTensor) == FAILED || baseTensor == nullptr) {
             return FAILED;
         }
+        APASS_LOG_INFO_F(Elements::Operation, "baseTensor: %d", baseTensor->GetMagic());
         backRoots.push(baseTensor);
         forRoots.push(baseTensor);
         while (!forRoots.empty() || !backRoots.empty()) {
