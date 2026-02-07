@@ -185,7 +185,7 @@ def inverse_pto(**kwargs) -> pypto.Tensor:
     for i in range(4):
         attn_4_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_8_8_inv_list[i * 2], 
             attn_2_2_inv=attn_8_8_inv_list[i * 2 + 1], x_ofs=min_length * i * 2, y_ofs=min_length * i * 2, 
-                            m_len=min_length, zero_tensor=zeros_16))
+            m_len=min_length, zero_tensor=zeros_16))
         
     attn_2_inv_list = []
     for i in range(2):
@@ -358,14 +358,15 @@ def inverse_pto_min_length_unaligned(
 
     pypto.set_pass_options(sg_set_scope=1)
     for i in range(2, min_length, 1):
+        attn_inv_cur = attn_inv_list.get(i - 1) + 0.0
         row = attn_initial.view([1, min_length], [i, 0])
         row_expand = attn_transpose.view([i, 1], [0, i])
-        prod = (row_expand * attn_inv_list[i - 1]).sum(0, keepdim=True)
+        prod = (row_expand * attn_inv_cur).sum(0, keepdim=True)
         attn_update = row + prod
 
-        attn_inv_list[i] = pypto.concat([attn_inv_list[i - 1], attn_update], dim=0)
+        attn_inv_list[i] = pypto.concat([attn_inv_cur, attn_update], dim=0)
 
-    res = attn_inv_list[min_length - 1] + eye
+    res = attn_inv_list.get(min_length - 1) + eye
     pypto.set_pass_options(sg_set_scope=-1)
 
     return res
@@ -583,8 +584,8 @@ def chunk_gated_delta_rule(query, key, value, beta, gate, states, mask,
         act_seq_len, core_attn_out, last_state_data)
 
 
-def chunk_gated_delta_rule_unaligned(query, key, value, beta, gate, states, mask, 
-    tril_mask, eye, act_seq_len, core_attn_out, last_state_data):
+def chunk_gated_delta_rule_unaligned(query, key, value, beta, gate, states, mask, tril_mask, 
+    eye, act_seq_len, core_attn_out, last_state_data):
     
     t = pypto.frontend.dynamic("t")
     query_shape = (t, query.shape[1], query.shape[2])
@@ -676,11 +677,11 @@ def chunk_gated_delta_rule_unaligned(query, key, value, beta, gate, states, mask
                     # kv_beta & g_cumsum & decay_mask & pre_attn
                     mask_view = pypto.view(mask, [l, l], [0, 0], valid_shape=[actual_l, actual_l])
                     tril_mask_view = pypto.view(tril_mask, [l, l], [0, 0], valid_shape=[actual_l, actual_l])
-                    gate_cum, decay_mask, A_block, key_beta = pre_attn_unaligned(gate_view, key_norm, beta_view,
-                                                            tril_mask_view, mask_view)
+                    gate_cum, decay_mask, a_block, key_beta = pre_attn_unaligned(gate_view, key_norm, beta_view,
+                                                                tril_mask_view, mask_view)
                     
                     # inverse
-                    a_block_view = pypto.view(A_block, [l, l], [0, 0], valid_shape=[actual_l, actual_l])
+                    a_block_view = pypto.view(a_block, [l, l], [0, 0], valid_shape=[actual_l, actual_l])
                     a_block_inverse_aligned = inverse_pto_unaligned(a_block_view, eye, 128)
                     pypto.set_vec_tile_shapes(128, 128)
                     a_block_inverse = pypto.view(a_block_inverse_aligned, [l, l], [0, 0], 
