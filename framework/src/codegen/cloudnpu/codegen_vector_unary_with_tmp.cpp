@@ -449,6 +449,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }
 
+    if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV) {
+        return PrintVnchwconvTileTensor();
+    }
+
     if (opCode == Opcode::OP_ROUND) {
         return PrintRound();
     }
