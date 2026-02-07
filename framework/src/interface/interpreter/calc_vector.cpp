@@ -110,7 +110,7 @@ void ExecuteOpVecDup(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 0);
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
-    auto element = Element(DT_FP32, 0);
+    auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
     auto actualElement = Element(ret->GetDataType(), element.GetFloatData());
     calc::ExpandS(ret, actualElement);
