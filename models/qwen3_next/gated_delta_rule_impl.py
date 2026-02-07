@@ -171,29 +171,29 @@ def inverse_pto(**kwargs) -> pypto.Tensor:
 
     attn_8_8_list = []
     for i in range(8):
-        attn_8_8_list.append(attn.view([min_length, min_length], [min_length*i, min_length*i]) + 0.0)
+        attn_8_8_list.append(attn.view([min_length, min_length], [min_length * i, min_length * i]) + 0.0)
     attn_tmp_dim0 = pypto.concat(attn_8_8_list, dim=0)
     attn_tmp_dim1 = pypto.concat(attn_8_8_list, dim=1)
 
-    attn_tmp_dim1_inv = inverse_pto_min_length(attn_tmp_dim0, attn_tmp_dim1, eye, min_length, min_length*8)
+    attn_tmp_dim1_inv = inverse_pto_min_length(attn_tmp_dim0, attn_tmp_dim1, eye, min_length, min_length * 8)
     
     attn_8_8_inv_list = []
     for i in range(8):
-        attn_8_8_inv_list.append(attn_tmp_dim1_inv[:, min_length*i:min_length*(i+1)] + 0.0)
+        attn_8_8_inv_list.append(attn_tmp_dim1_inv[:, min_length * i:min_length * (i + 1)] + 0.0)
 
     attn_4_inv_list = []
     for i in range(4):
-        attn_4_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_8_8_inv_list[i*2], 
-            attn_2_2_inv=attn_8_8_inv_list[i*2+1], x_ofs=min_length*i*2, y_ofs=min_length*i*2, m_len=min_length,
+        attn_4_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_8_8_inv_list[i * 2], 
+            attn_2_2_inv=attn_8_8_inv_list[i * 2 + 1], x_ofs=min_length * i * 2, y_ofs=min_length * i * 2, m_len=min_length,
             zero_tensor=zeros_16))
         
     attn_2_inv_list = []
     for i in range(2):
-        attn_2_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_4_inv_list[i*2], 
-            attn_2_2_inv=attn_4_inv_list[i*2+1], x_ofs=min_length*i*4, y_ofs=min_length*i*4, m_len=min_length*2,
+        attn_2_inv_list.append(inverse_matmul(attn=attn, attn_1_1_inv=attn_4_inv_list[i * 2], 
+            attn_2_2_inv=attn_4_inv_list[i * 2 + 1], x_ofs=min_length * i * 4, y_ofs=min_length * i * 4, m_len=min_length * 2,
             zero_tensor=zeros_32))
     attn_inv = inverse_matmul(attn=attn, attn_1_1_inv=attn_2_inv_list[0], 
-        attn_2_2_inv=attn_2_inv_list[1], x_ofs=0, y_ofs=0, m_len=min_length*4, zero_tensor=zeros_64)
+        attn_2_2_inv=attn_2_inv_list[1], x_ofs=0, y_ofs=0, m_len=min_length * 4, zero_tensor=zeros_64)
     return attn_inv
 
 
@@ -699,6 +699,6 @@ def chunk_gated_delta_rule_unaligned(query, key, value, beta, gate, states, mask
                     pypto.assemble(chunk_attn_out_16_reshaped, [bs_ofs, nv_idx, 0], core_attn_out)
                     pypto.set_vec_tile_shapes(16, 16, 128, 128)
                     last_state_data[b_idx, nv_idx] = last_state
-                    
+
     kernel(query, key, value, beta, gate, states, mask, tril_mask, eye, 
         act_seq_len, core_attn_out, last_state_data)
