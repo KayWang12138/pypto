@@ -36,6 +36,7 @@ enum class UnaryOpType {
     LN,
     HUB,
     BITWISENOT,
+    SIGN,
 };
 
 template <UnaryOpType T>
@@ -53,6 +54,7 @@ std::string GetUnaryOpName() {
         case UnaryOpType::LN: return "LN";
         case UnaryOpType::HUB: return "HUB";
         case UnaryOpType::BITWISENOT: return "BITWISENOT";
+        case UnaryOpType::SIGN: return "SIGN";
         default: ASSERT(false && "unknown unary op type"); return "";
     }
 }
@@ -74,6 +76,7 @@ Opcode GetUnaryOpNameCode() {
         CASE(LN);
         CASE(HUB);
         CASE(BITWISENOT);
+        CASE(SIGN);
         default: ASSERT(false && "unknown unary op type");
     }
 #undef CASE
