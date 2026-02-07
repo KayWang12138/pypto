@@ -358,7 +358,7 @@ def inverse_pto_min_length_unaligned(
 
     pypto.set_pass_options(sg_set_scope=1)
     for i in range(2, min_length, 1):
-        attn_inv_cur = attn_inv_list.get(i - 1) + 0.0
+        attn_inv_cur = attn_inv_list.get(i - 1)
         row = attn_initial.view([1, min_length], [i, 0])
         row_expand = attn_transpose.view([i, 1], [0, i])
         prod = (row_expand * attn_inv_cur).sum(0, keepdim=True)
