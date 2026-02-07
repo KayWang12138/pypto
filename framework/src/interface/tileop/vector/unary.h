@@ -54,7 +54,7 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
         return;
     }
     if constexpr (op == UnaryOp::RELU) {
-        pto::TMAXS(dst, src, 0.0f);
+        PTO_WITH_LAST_USE(pto::TMAXS(dst, src, 0.0f), n1, n2);
         return;
     }
 }
