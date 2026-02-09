@@ -13,7 +13,6 @@
 
 #include <map>
 #include <memory>
-#include <ostream>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -28,23 +27,19 @@ namespace pypto {
 namespace ir {
 
 /**
- * @brief Program definition (Temporary stub implementation)
- *
- * This is a minimal placeholder to maintain compilation compatibility with
- * structural_hash, structural_equal, and printer implementations.
- * Will be replaced with actual implementation from new IR.
+ * @brief Program definition
  *
  * Represents a complete program with functions mapped by GlobalVar references.
+ * Programs are immutable IR nodes.
+ *
  * Functions are stored in a sorted map (by GlobalVar name) to ensure deterministic
  * ordering for structural equality and hashing.
+ *
+ * @note The GlobalVar name must match the function name and be unique within the program.
+ *       Validation of this constraint may be added in future passes.
  */
 class Program : public IRNode {
  public:
-  /**
-   * @brief Default constructor - creates an empty program
-   */
-  Program() : IRNode(Span("", -1, -1)) {}
-
   /**
    * @brief Create a program from a map of GlobalVars to Functions
    *
@@ -52,8 +47,7 @@ class Program : public IRNode {
    * @param name Program name (optional)
    * @param span Source location
    */
-  Program(std::map<GlobalVarPtr, FunctionPtr, GlobalVarPtrLess> functions, std::string name = "",
-          Span span = Span("", -1, -1))
+  Program(std::map<GlobalVarPtr, FunctionPtr, GlobalVarPtrLess> functions, std::string name, Span span)
       : IRNode(std::move(span)), name_(std::move(name)), functions_(std::move(functions)) {}
 
   /**
@@ -66,22 +60,29 @@ class Program : public IRNode {
    * @param name Program name (optional)
    * @param span Source location
    */
-  Program(const std::vector<FunctionPtr>& functions, std::string name = "", Span span = Span("", -1, -1))
-      : IRNode(std::move(span)), name_(std::move(name)) {
-    for (const auto& func : functions) {
-      if (func && !func->name_.empty()) {
-        auto global_var = std::make_shared<const GlobalVar>(func->name_);
-        functions_.emplace(global_var, func);
-      }
-    }
-  }
+  Program(const std::vector<FunctionPtr>& functions, std::string name, Span span);
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Program; }
   [[nodiscard]] std::string TypeName() const override { return "Program"; }
 
   /**
-   * @brief Get field descriptors for reflection-based visitation
+   * @brief Get a function by name
    *
-   * This enables structural_hash, structural_equal, and printer to work correctly.
+   * @param name Function name to look up
+   * @return Shared pointer to the function, or nullptr if not found
+   */
+  [[nodiscard]] FunctionPtr GetFunction(const std::string& name) const;
+
+  /**
+   * @brief Get a GlobalVar by name
+   *
+   * @param name GlobalVar name to look up
+   * @return Shared pointer to the GlobalVar, or nullptr if not found
+   */
+  [[nodiscard]] GlobalVarPtr GetGlobalVar(const std::string& name) const;
+
+  /**
+   * @brief Get field descriptors for reflection-based visitation
    *
    * @return Tuple of field descriptors (name as IGNORE field, functions as USUAL field)
    */
@@ -100,43 +101,5 @@ using ProgramPtr = std::shared_ptr<const Program>;
 
 }  // namespace ir
 }  // namespace pypto
-
-// Legacy namespace for backward compatibility
-namespace pto {
-
-// Forward declaration
-class Function;
-class BlockFunction;
-
-/**
- * @brief Temporary stub for ProgramModule (Legacy)
- * This is a minimal placeholder to maintain compilation compatibility
- * Will be replaced with actual implementation from new IR
- */
-class ProgramModule {
- public:
-  explicit ProgramModule(std::string name) : name_(std::move(name)) {}
-
-  const std::string& GetName() const { return name_; }
-
-  // Stub methods - will be replaced with actual implementation
-  std::vector<std::shared_ptr<Function>> GetFunctions() const { return functions_; }
-
-  void AddFunction(std::shared_ptr<Function> func) { functions_.push_back(func); }
-
-  // Stub print operator
-  friend std::ostream& operator<<(std::ostream& os, const ProgramModule& pm) {
-    os << "ProgramModule(stub): " << pm.name_;
-    return os;
-  }
-
- private:
-  std::string name_;
-  std::vector<std::shared_ptr<Function>> functions_;
-};
-
-using ProgramModulePtr = std::shared_ptr<ProgramModule>;
-
-}  // namespace pto
 
 #endif  // PYPTO_IR_PROGRAM_H_

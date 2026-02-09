@@ -23,6 +23,90 @@ namespace pypto {
 namespace ir {
 
 /**
+ * @brief Kind enumeration for all IR node types
+ *
+ * Used for efficient type checking and casting without RTTI overhead.
+ * Each concrete IR node class has a unique Kind value.
+ */
+enum class ObjectKind {
+  // Base kinds (abstract base classes)
+  IRNode,
+  Expr,
+  Stmt,
+  Type,
+
+  // Expression kinds
+  Var,
+  IterArg,
+  MemRef,
+  Call,
+  MakeTuple,
+  TupleGetItemExpr,
+  ConstInt,
+  ConstFloat,
+  ConstBool,
+
+  // Binary expression kinds
+  Add,
+  Sub,
+  Mul,
+  FloorDiv,
+  FloorMod,
+  FloatDiv,
+  Min,
+  Max,
+  Pow,
+  Eq,
+  Ne,
+  Lt,
+  Le,
+  Gt,
+  Ge,
+  And,
+  Or,
+  Xor,
+  BitAnd,
+  BitOr,
+  BitXor,
+  BitShiftLeft,
+  BitShiftRight,
+
+  // Unary expression kinds
+  Abs,
+  Neg,
+  Not,
+  BitNot,
+  Cast,
+
+  // Statement kinds
+  AssignStmt,
+  IfStmt,
+  YieldStmt,
+  ReturnStmt,
+  ForStmt,
+  SeqStmts,
+  OpStmts,
+  EvalStmt,
+
+  // Type kinds
+  UnknownType,
+  MemRefType,
+  ScalarType,
+  ShapedType,
+  TensorType,
+  TileType,
+  TupleType,
+
+  // Other IR node kinds
+  Function,
+  Program,
+
+  // Op kinds
+  Op,
+  GlobalVar
+};
+
+/**
  * @brief Base class for all IR nodes
  *
  * Abstract base providing common functionality for all IR nodes.
@@ -36,6 +120,13 @@ class IRNode {
   // Disable copying and moving to enforce immutability
   IRNode(IRNode&&) = delete;
   IRNode& operator=(IRNode&&) = delete;
+
+  /**
+   * @brief Get the Kind of this IR node
+   *
+   * @return The ObjectKind enum value identifying the concrete type
+   */
+  [[nodiscard]] virtual ObjectKind GetKind() const = 0;
 
   /**
    * @brief Get the type name of this IR node
@@ -72,6 +163,39 @@ inline bool operator==(const IRNodePtr& lhs, const IRNodePtr& rhs) { return lhs.
  * @return true if pointers reference different objects
  */
 inline bool operator!=(const IRNodePtr& lhs, const IRNodePtr& rhs) { return !(lhs == rhs); }
+
+// Forward declarations for KindTrait specializations
+// (Actual specializations will be added after the concrete types are defined)
+template <typename T>
+struct KindTrait;
+
+// SFINAE helpers to detect trait type
+namespace detail {
+// Detect if KindTrait<T> has a 'kind' member (concrete type)
+template <typename T, typename = void>
+struct HasSingleKind : std::false_type {};
+
+template <typename T>
+struct HasSingleKind<T, std::void_t<decltype(KindTrait<T>::kind)>> : std::true_type {};
+
+// Detect if KindTrait<T> has a 'kinds' member (base class)
+template <typename T, typename = void>
+struct HasKindArray : std::false_type {};
+
+template <typename T>
+struct HasKindArray<T, std::void_t<decltype(KindTrait<T>::kinds)>> : std::true_type {};
+
+// Check if kind is in array (compile-time)
+template <typename T>
+constexpr bool IsKindInArray(ObjectKind kind) {
+  for (size_t i = 0; i < KindTrait<T>::count; ++i) {
+    if (KindTrait<T>::kinds[i] == kind) {
+      return true;
+    }
+  }
+  return false;
+}
+}  // namespace detail
 
 }  // namespace ir
 }  // namespace pypto

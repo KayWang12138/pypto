@@ -11,6 +11,8 @@
 
 #include "ir/transform/base/visitor.h"
 
+#include "core/logging.h"
+#include "ir/kind_traits.h"
 #include "ir/scalar_expr.h"
 #include "ir/stmt.h"
 #include "ir/type.h"
@@ -18,115 +20,202 @@
 namespace pypto {
 namespace ir {
 
-void IRVisitor::VisitExpr(const ExprPtr& expr) {
-  ExprFunctor<void>::VisitExpr(expr);
-}
+void IRVisitor::VisitExpr(const ExprPtr& expr) { ExprFunctor<void>::VisitExpr(expr); }
 
-void IRVisitor::VisitStmt(const StmtPtr& stmt) {
-  StmtFunctor<void>::VisitStmt(stmt);
-}
+void IRVisitor::VisitStmt(const StmtPtr& stmt) { StmtFunctor<void>::VisitStmt(stmt); }
 
 // Leaf nodes - no children to visit
 void IRVisitor::VisitExpr_(const VarPtr& op) {
-  (void)op;
+  // Visit type if it's a TensorType (to visit shape expressions)
+  if (auto tensor_type = As<TensorType>(op->GetType())) {
+    for (const auto& dim : tensor_type->shape_) {
+      VisitExpr(dim);
+    }
+  }
 }
 
 void IRVisitor::VisitExpr_(const IterArgPtr& op) {
-  (void)op;
+  // Visit initValue as Expr
+  INTERNAL_CHECK(op->initValue_) << "IterArg has null initValue";
+  VisitExpr(op->initValue_);
+  // Also visit type if it's a TensorType (inherited from Var)
+  if (auto tensor_type = As<TensorType>(op->GetType())) {
+    for (const auto& dim : tensor_type->shape_) {
+      VisitExpr(dim);
+    }
+  }
 }
 
-void IRVisitor::VisitExpr_(const ConstIntPtr& op) {
-  (void)op;
+void IRVisitor::VisitExpr_(const MemRefPtr& /*op*/) {
+  // MemRef is a Var with MemRefType, no additional children to visit
+  // The type is MemRefType which has no sub-expressions
 }
 
-void IRVisitor::VisitExpr_(const ConstFloatPtr& op) {
-  (void)op;
+void IRVisitor::VisitExpr_(const ConstIntPtr& /*op*/) {
+  // Leaf node, no children to visit
 }
 
-void IRVisitor::VisitExpr_(const ConstBoolPtr& op) {
-  (void)op;
+void IRVisitor::VisitExpr_(const ConstFloatPtr& /*op*/) {
+  // Leaf node, no children to visit
+}
+
+void IRVisitor::VisitExpr_(const ConstBoolPtr& /*op*/) {
+  // Leaf node, no children to visit
 }
 
 void IRVisitor::VisitExpr_(const CallPtr& op) {
-  (void)op;
+  // Visit all arguments
+  for (size_t i = 0; i < op->args_.size(); ++i) {
+    INTERNAL_CHECK(op->args_[i]) << "Call has null argument at index " << i;
+    VisitExpr(op->args_[i]);
+  }
+}
+
+void IRVisitor::VisitExpr_(const MakeTuplePtr& op) {
+  // Visit all element expressions
+  for (size_t i = 0; i < op->elements_.size(); ++i) {
+    INTERNAL_CHECK(op->elements_[i]) << "MakeTuple has null element at index " << i;
+    VisitExpr(op->elements_[i]);
+  }
 }
 
 void IRVisitor::VisitExpr_(const TupleGetItemExprPtr& op) {
-  (void)op;
+  // Visit the tuple expression
+  INTERNAL_CHECK(op->tuple_) << "TupleGetItemExpr has null tuple";
+  VisitExpr(op->tuple_);
 }
 
-// Helper methods for binary and unary operations
-void IRVisitor::VisitBinaryOp_(const BinaryExprPtr& op) {
-  (void)op;
-}
-
-void IRVisitor::VisitUnaryOp_(const UnaryExprPtr& op) {
-  (void)op;
-}
+// Macro to generate binary visitor with null checks
+#define DEFINE_BINARY_VISITOR(OpType)                                \
+  void IRVisitor::VisitExpr_(const OpType##Ptr& op) {                \
+    INTERNAL_CHECK(op->left_) << #OpType " has null left operand";   \
+    INTERNAL_CHECK(op->right_) << #OpType " has null right operand"; \
+    VisitExpr(op->left_);                                            \
+    VisitExpr(op->right_);                                           \
+  }
 
 // Binary operations
-void IRVisitor::VisitExpr_(const AddPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const SubPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const MulPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const FloorDivPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const FloorModPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const FloatDivPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const MinPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const MaxPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const PowPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const EqPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const NePtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const LtPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const LePtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const GtPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const GePtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const AndPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const OrPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const XorPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const BitAndPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const BitOrPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const BitXorPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const BitShiftLeftPtr& op) { VisitBinaryOp_(op); }
-void IRVisitor::VisitExpr_(const BitShiftRightPtr& op) { VisitBinaryOp_(op); }
+DEFINE_BINARY_VISITOR(Add)
+DEFINE_BINARY_VISITOR(Sub)
+DEFINE_BINARY_VISITOR(Mul)
+DEFINE_BINARY_VISITOR(FloorDiv)
+DEFINE_BINARY_VISITOR(FloorMod)
+DEFINE_BINARY_VISITOR(FloatDiv)
+DEFINE_BINARY_VISITOR(Min)
+DEFINE_BINARY_VISITOR(Max)
+DEFINE_BINARY_VISITOR(Pow)
+DEFINE_BINARY_VISITOR(Eq)
+DEFINE_BINARY_VISITOR(Ne)
+DEFINE_BINARY_VISITOR(Lt)
+DEFINE_BINARY_VISITOR(Le)
+DEFINE_BINARY_VISITOR(Gt)
+DEFINE_BINARY_VISITOR(Ge)
+DEFINE_BINARY_VISITOR(And)
+DEFINE_BINARY_VISITOR(Or)
+DEFINE_BINARY_VISITOR(Xor)
+DEFINE_BINARY_VISITOR(BitAnd)
+DEFINE_BINARY_VISITOR(BitOr)
+DEFINE_BINARY_VISITOR(BitXor)
+DEFINE_BINARY_VISITOR(BitShiftLeft)
+DEFINE_BINARY_VISITOR(BitShiftRight)
+
+#undef DEFINE_BINARY_VISITOR
+
+// Macro to generate unary visitor with null checks
+#define DEFINE_UNARY_VISITOR(OpType)                             \
+  void IRVisitor::VisitExpr_(const OpType##Ptr& op) {            \
+    INTERNAL_CHECK(op->operand_) << #OpType " has null operand"; \
+    VisitExpr(op->operand_);                                     \
+  }
 
 // Unary operations
-void IRVisitor::VisitExpr_(const AbsPtr& op) { VisitUnaryOp_(op); }
-void IRVisitor::VisitExpr_(const NegPtr& op) { VisitUnaryOp_(op); }
-void IRVisitor::VisitExpr_(const NotPtr& op) { VisitUnaryOp_(op); }
-void IRVisitor::VisitExpr_(const BitNotPtr& op) { VisitUnaryOp_(op); }
-void IRVisitor::VisitExpr_(const CastPtr& op) { VisitUnaryOp_(op); }
+DEFINE_UNARY_VISITOR(Abs)
+DEFINE_UNARY_VISITOR(Neg)
+DEFINE_UNARY_VISITOR(Not)
+DEFINE_UNARY_VISITOR(BitNot)
+DEFINE_UNARY_VISITOR(Cast)
+
+#undef DEFINE_UNARY_VISITOR
 
 // Statement types
 void IRVisitor::VisitStmt_(const AssignStmtPtr& op) {
-  (void)op;
+  INTERNAL_CHECK(op->var_) << "AssignStmt has null var";
+  INTERNAL_CHECK(op->value_) << "AssignStmt has null value";
+  VisitExpr(op->var_);
+  VisitExpr(op->value_);
 }
 
 void IRVisitor::VisitStmt_(const IfStmtPtr& op) {
-  (void)op;
+  INTERNAL_CHECK(op->condition_) << "IfStmt has null condition";
+  VisitExpr(op->condition_);
+  INTERNAL_CHECK(op->then_body_) << "IfStmt has null then_body";
+  VisitStmt(op->then_body_);
+  if (op->else_body_.has_value()) {
+    INTERNAL_CHECK(*op->else_body_) << "IfStmt has null else_body";
+    VisitStmt(*op->else_body_);
+  }
+  for (size_t i = 0; i < op->return_vars_.size(); ++i) {
+    INTERNAL_CHECK(op->return_vars_[i]) << "IfStmt has null return_vars at index " << i;
+    VisitExpr(op->return_vars_[i]);
+  }
 }
 
 void IRVisitor::VisitStmt_(const YieldStmtPtr& op) {
-  (void)op;
+  for (size_t i = 0; i < op->value_.size(); ++i) {
+    INTERNAL_CHECK(op->value_[i]) << "YieldStmt has null value at index " << i;
+    VisitExpr(op->value_[i]);
+  }
 }
 
 void IRVisitor::VisitStmt_(const ReturnStmtPtr& op) {
-  (void)op;
+  for (size_t i = 0; i < op->value_.size(); ++i) {
+    INTERNAL_CHECK(op->value_[i]) << "ReturnStmt has null value at index " << i;
+    VisitExpr(op->value_[i]);
+  }
 }
 
 void IRVisitor::VisitStmt_(const ForStmtPtr& op) {
-  (void)op;
+  INTERNAL_CHECK(op->loop_var_) << "ForStmt has null loop_var";
+  INTERNAL_CHECK(op->start_) << "ForStmt has null start";
+  INTERNAL_CHECK(op->stop_) << "ForStmt has null stop";
+  INTERNAL_CHECK(op->step_) << "ForStmt has null step";
+  VisitExpr(op->loop_var_);
+  VisitExpr(op->start_);
+  VisitExpr(op->stop_);
+  VisitExpr(op->step_);
+  for (size_t i = 0; i < op->iter_args_.size(); ++i) {
+    INTERNAL_CHECK(op->iter_args_[i]) << "ForStmt has null iter_args at index " << i;
+    VisitExpr(op->iter_args_[i]);
+  }
+  INTERNAL_CHECK(op->body_) << "ForStmt has null body";
+  VisitStmt(op->body_);
+  for (size_t i = 0; i < op->return_vars_.size(); ++i) {
+    INTERNAL_CHECK(op->return_vars_[i]) << "ForStmt has null return_vars at index " << i;
+    VisitExpr(op->return_vars_[i]);
+  }
 }
 
 void IRVisitor::VisitStmt_(const SeqStmtsPtr& op) {
-  (void)op;
+  for (size_t i = 0; i < op->stmts_.size(); ++i) {
+    INTERNAL_CHECK(op->stmts_[i]) << "SeqStmts has null statement at index " << i;
+    VisitStmt(op->stmts_[i]);
+  }
 }
 
 void IRVisitor::VisitStmt_(const OpStmtsPtr& op) {
-  (void)op;
+  for (size_t i = 0; i < op->stmts_.size(); ++i) {
+    INTERNAL_CHECK(op->stmts_[i]) << "OpStmts has null statement at index " << i;
+    VisitStmt(op->stmts_[i]);
+  }
 }
 
-void IRVisitor::VisitStmt_(const StmtPtr& op) {
-  (void)op;
+void IRVisitor::VisitStmt_(const EvalStmtPtr& op) {
+  INTERNAL_CHECK(op->expr_) << "EvalStmt has null expr";
+  VisitExpr(op->expr_);
+}
+
+void IRVisitor::VisitStmt_(const StmtPtr& /*op*/) {
+  // Base Stmt has no children to visit
 }
 
 }  // namespace ir

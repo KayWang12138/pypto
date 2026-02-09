@@ -13,6 +13,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <string>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -21,8 +22,8 @@
 #include "core/any_cast.h"
 #include "core/logging.h"
 #include "ir/core.h"
-#include "ir/expr.h"
 #include "ir/function.h"
+#include "ir/kind_traits.h"
 #include "ir/memref.h"
 #include "ir/program.h"
 #include "ir/reflection/field_visitor.h"
@@ -118,6 +119,10 @@ class StructuralHasher {
 
   result_type VisitLeafField(const int& field) { return static_cast<result_type>(std::hash<int>{}(field)); }
 
+  result_type VisitLeafField(const int64_t& field) {
+    return static_cast<result_type>(std::hash<int64_t>{}(field));
+  }
+
   result_type VisitLeafField(const uint64_t& field) {
     return static_cast<result_type>(std::hash<uint64_t>{}(field));
   }
@@ -136,6 +141,10 @@ class StructuralHasher {
 
   result_type VisitLeafField(const DataType& field) {
     return static_cast<result_type>(std::hash<uint8_t>{}(field.Code()));
+  }
+
+  result_type VisitLeafField(const FunctionType& field) {
+    return static_cast<result_type>(std::hash<uint8_t>{}(static_cast<uint8_t>(field)));
   }
 
   result_type VisitLeafField(const MemorySpace& field) {
@@ -177,7 +186,7 @@ class StructuralHasher {
       } else if (value.type() == typeid(DataType)) {
         h = hash_combine(h, std::hash<uint8_t>{}(AnyCast<DataType>(value, "hashing kwarg: " + key).Code()));
       } else {
-        throw std::logic_error("Invalid kwarg type for key: " + key +
+        throw TypeError("Invalid kwarg type for key: " + key +
                         ", expected int, bool, std::string, double, float, or DataType, but got " +
                         DemangleTypeName(value.type().name()));
       }
@@ -185,8 +194,9 @@ class StructuralHasher {
     return h;
   }
 
-  result_type VisitLeafField([[maybe_unused]] const Span& field) {
+  result_type VisitLeafField(const Span& /*field*/) {
     INTERNAL_UNREACHABLE << "structural_hash should not visit Span field";
+    return 0;  // Never reached, but suppresses -Werror=return-type
   }
 
   template <typename Desc>
@@ -242,16 +252,16 @@ StructuralHasher::result_type StructuralHasher::HashVar(const VarPtr& op) {
 StructuralHasher::result_type StructuralHasher::HashType(const TypePtr& type) {
   INTERNAL_CHECK(type) << "structural_hash encountered null TypePtr";
   result_type h = static_cast<result_type>(std::hash<std::string>{}(type->TypeName()));
-  if (auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(type)) {
+  if (auto scalar_type = As<ScalarType>(type)) {
     h = hash_combine(h, static_cast<result_type>(std::hash<uint8_t>{}(scalar_type->dtype_.Code())));
-  } else if (auto tensor_type = std::dynamic_pointer_cast<const TensorType>(type)) {
+  } else if (auto tensor_type = As<TensorType>(type)) {
     h = hash_combine(h, static_cast<result_type>(std::hash<uint8_t>{}(tensor_type->dtype_.Code())));
     h = hash_combine(h, static_cast<result_type>(tensor_type->shape_.size()));
     for (const auto& dim : tensor_type->shape_) {
       INTERNAL_CHECK(dim) << "structural_hash encountered null shape dimension in TypePtr";
       h = hash_combine(h, HashNode(dim));
     }
-  } else if (auto tile_type = std::dynamic_pointer_cast<const TileType>(type)) {
+  } else if (auto tile_type = As<TileType>(type)) {
     // Hash dtype
     h = hash_combine(h, static_cast<result_type>(std::hash<uint8_t>{}(tile_type->dtype_.Code())));
     // Hash shape size and dimensions
@@ -282,13 +292,13 @@ StructuralHasher::result_type StructuralHasher::HashType(const TypePtr& type) {
     } else {
       h = hash_combine(h, static_cast<result_type>(0));  // indicate absence
     }
-  } else if (auto tuple_type = std::dynamic_pointer_cast<const TupleType>(type)) {
+  } else if (auto tuple_type = As<TupleType>(type)) {
     h = hash_combine(h, static_cast<result_type>(tuple_type->types_.size()));
     for (const auto& t : tuple_type->types_) {
       INTERNAL_CHECK(t) << "structural_hash encountered null type in TupleType";
       h = hash_combine(h, HashType(t));
     }
-  } else if (std::dynamic_pointer_cast<const UnknownType>(type)) {
+  } else if (IsA<UnknownType>(type)) {
     // UnknownType has no fields, so only hash the type name (already done above)
   } else {
     INTERNAL_CHECK(false) << "HashType encountered unhandled Type: " << type->TypeName();
@@ -298,7 +308,15 @@ StructuralHasher::result_type StructuralHasher::HashType(const TypePtr& type) {
 
 // Type dispatch macro
 #define HASH_DISPATCH(Type)                                                                      \
-  if (auto p = std::dynamic_pointer_cast<const Type>(node)) {                                    \
+  if (auto p = As<Type>(node)) {                                                                 \
+    INTERNAL_CHECK(dispatched == false) << "HashNodeImpl already dispatched for type " << #Type; \
+    hash_value = HashNodeImpl(p);                                                                \
+    dispatched = true;                                                                           \
+  }
+
+// Dispatch macro for abstract base classes
+#define HASH_DISPATCH_BASE(Type)                                                                 \
+  if (auto p = As<Type>(node)) {                                                                 \
     INTERNAL_CHECK(dispatched == false) << "HashNodeImpl already dispatched for type " << #Type; \
     hash_value = HashNodeImpl(p);                                                                \
     dispatched = true;                                                                           \
@@ -315,14 +333,20 @@ StructuralHasher::result_type StructuralHasher::HashNode(const IRNodePtr& node) 
   result_type hash_value = 0;
   bool dispatched = false;
 
+  // IterArg needs special handling: dispatch for fields, then add Var mapping
+  HASH_DISPATCH(IterArg)
   HASH_DISPATCH(Var)
   HASH_DISPATCH(ConstInt)
   HASH_DISPATCH(ConstFloat)
   HASH_DISPATCH(ConstBool)
   HASH_DISPATCH(Call)
+  HASH_DISPATCH(MakeTuple)
   HASH_DISPATCH(TupleGetItemExpr)
-  HASH_DISPATCH(BinaryExpr)
-  HASH_DISPATCH(UnaryExpr)
+
+  // BinaryExpr and UnaryExpr are abstract base classes, use dynamic_pointer_cast
+  HASH_DISPATCH_BASE(BinaryExpr)
+  HASH_DISPATCH_BASE(UnaryExpr)
+
   HASH_DISPATCH(AssignStmt)
   HASH_DISPATCH(IfStmt)
   HASH_DISPATCH(YieldStmt)
@@ -330,30 +354,38 @@ StructuralHasher::result_type StructuralHasher::HashNode(const IRNodePtr& node) 
   HASH_DISPATCH(ForStmt)
   HASH_DISPATCH(SeqStmts)
   HASH_DISPATCH(OpStmts)
+  HASH_DISPATCH(EvalStmt)
   HASH_DISPATCH(Function)
   HASH_DISPATCH(Program)
 
-  // Free Var types that may be mapped to other free vars
-  if (auto var = std::dynamic_pointer_cast<const Var>(node)) {
+  // Free Var types (including IterArg) that may be mapped to other free vars
+  // Note: IterArg has already been dispatched above for field hashing,
+  // here we add the variable-specific hash
+  if (auto iter_arg = As<IterArg>(node)) {
     if (enable_auto_mapping_) {
-      // Auto-mapping: map Var pointers to sequential IDs for structural comparison
       hash_value = hash_combine(hash_value, free_var_counter_++);
     } else {
-      // Without auto-mapping: hash the VarPtr itself (pointer-based)
+      // Hash based on pointer for unique instances
+      hash_value = hash_combine(hash_value, static_cast<result_type>(std::hash<IterArgPtr>{}(iter_arg)));
+    }
+  } else if (auto var = As<Var>(node)) {
+    if (enable_auto_mapping_) {
+      hash_value = hash_combine(hash_value, free_var_counter_++);
+    } else {
       hash_value = hash_combine(hash_value, static_cast<result_type>(std::hash<VarPtr>{}(var)));
     }
   }
 
   if (!dispatched) {
     // Unknown IR node type
-    throw std::logic_error("Unknown IR node type in StructuralHasher::HashNode");
-  } else {
-    hash_value_map_.emplace(node, hash_value);
-    return hash_value;
+    throw TypeError("Unknown IR node type in StructuralHasher::HashNode");
   }
+  hash_value_map_.emplace(node, hash_value);
+  return hash_value;
 }
 
 #undef HASH_DISPATCH
+#undef HASH_DISPATCH_BASE
 
 // Public API
 uint64_t structural_hash(const IRNodePtr& node, bool enable_auto_mapping) {

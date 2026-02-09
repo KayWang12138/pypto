@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORM_BASE_VISITOR_H_
-#define PYPTO_IR_TRANSFORM_BASE_VISITOR_H_
+#ifndef PYPTO_IR_TRANSFORMS_BASE_VISITOR_H_
+#define PYPTO_IR_TRANSFORMS_BASE_VISITOR_H_
 
 #include "ir/stmt.h"
 #include "ir/transform/base/functor.h"
@@ -35,10 +35,12 @@ class IRVisitor : public IRFunctor<void> {
   // Leaf nodes - no children to visit
   void VisitExpr_(const VarPtr& op) override;
   void VisitExpr_(const IterArgPtr& op) override;
+  void VisitExpr_(const MemRefPtr& op) override;
   void VisitExpr_(const ConstIntPtr& op) override;
   void VisitExpr_(const ConstFloatPtr& op) override;
   void VisitExpr_(const ConstBoolPtr& op) override;
   void VisitExpr_(const CallPtr& op) override;
+  void VisitExpr_(const MakeTuplePtr& op) override;
   void VisitExpr_(const TupleGetItemExprPtr& op) override;
 
   // Binary operations - visit left and right children
@@ -81,6 +83,7 @@ class IRVisitor : public IRFunctor<void> {
   void VisitStmt_(const ForStmtPtr& op) override;
   void VisitStmt_(const SeqStmtsPtr& op) override;
   void VisitStmt_(const OpStmtsPtr& op) override;
+  void VisitStmt_(const EvalStmtPtr& op) override;
   void VisitStmt_(const StmtPtr& op) override;
 
  private:
@@ -98,4 +101,4 @@ class IRVisitor : public IRFunctor<void> {
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_TRANSFORM_BASE_VISITOR_H_
+#endif  // PYPTO_IR_TRANSFORMS_BASE_VISITOR_H_

@@ -80,6 +80,7 @@ include(cmake/intf.cmake)
 include(cmake/third_party/nlohmann_json/nlohmann_json.cmake)
 include(cmake/third_party/libboundscheck/libboundscheck.cmake)
 include(cmake/third_party/googletest/googletest.cmake)
+include(cmake/third_party/msgpack/msgpack.cmake)
 
 
 ########################################################################################################################

@@ -26,6 +26,9 @@
 #include <any>
 #include <string>
 #include <typeinfo>
+
+#include "core/error.h"
+
 namespace pypto {
 
 /**
@@ -81,11 +84,23 @@ inline std::string DemangleTypeName(const char* mangled_name) {
  *   // "Invalid type for kwarg key: value, expected int, but got std::string"
  */
 template <typename T>
-T AnyCast(const std::any& value, [[maybe_unused]] const std::string& context = "") {
+T AnyCast(const std::any& value, const std::string& context = "") {
   try {
     return std::any_cast<T>(value);
   } catch (const std::bad_any_cast& e) {
-    throw;
+    std::string expected_type = DemangleTypeName(typeid(T).name());
+    std::string actual_type = DemangleTypeName(value.type().name());
+    std::string error_msg = "Invalid type";
+    if (!context.empty()) {
+      error_msg += " for ";
+      error_msg += context;
+    }
+    error_msg += ", expected ";
+    error_msg += expected_type;
+    error_msg += ", but got ";
+    error_msg += actual_type;
+    throw ir::TypeError(error_msg);
+    __builtin_unreachable();
   }
 }
 
@@ -107,11 +122,23 @@ T AnyCast(const std::any& value, [[maybe_unused]] const std::string& context = "
  *   const std::string& str = AnyCastRef<std::string>(val);
  */
 template <typename T>
-const T& AnyCastRef(const std::any& value, [[maybe_unused]] const std::string& context = "") {
+const T& AnyCastRef(const std::any& value, const std::string& context = "") {
   try {
     return std::any_cast<const T&>(value);
   } catch (const std::bad_any_cast& e) {
-    throw;
+    std::string expected_type = DemangleTypeName(typeid(T).name());
+    std::string actual_type = DemangleTypeName(value.type().name());
+    std::string error_msg = "Invalid type";
+    if (!context.empty()) {
+      error_msg += " for ";
+      error_msg += context;
+    }
+    error_msg += ", expected ";
+    error_msg += expected_type;
+    error_msg += ", but got ";
+    error_msg += actual_type;
+    throw ir::TypeError(error_msg);
+    __builtin_unreachable();
   }
 }
 

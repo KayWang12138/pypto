@@ -28,7 +28,6 @@ namespace ir {
 // Forward declarations for friend classes
 class IRVisitor;
 class IRMutator;
-class IRPrinter;
 
 /**
  * @brief Base class for all statements in the IR
@@ -79,6 +78,7 @@ class AssignStmt : public Stmt {
   AssignStmt(VarPtr var, ExprPtr value, Span span)
       : Stmt(std::move(span)), var_(std::move(var)), value_(std::move(value)) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::AssignStmt; }
   [[nodiscard]] std::string TypeName() const override { return "AssignStmt"; }
 
   /**
@@ -120,6 +120,7 @@ class IfStmt : public Stmt {
         else_body_(std::move(else_body)),
         return_vars_(std::move(return_vars)) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::IfStmt; }
   [[nodiscard]] std::string TypeName() const override { return "IfStmt"; }
 
   /**
@@ -167,6 +168,7 @@ class YieldStmt : public Stmt {
    */
   explicit YieldStmt(Span span) : Stmt(std::move(span)), value_() {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::YieldStmt; }
   [[nodiscard]] std::string TypeName() const override { return "YieldStmt"; }
 
   /**
@@ -208,6 +210,7 @@ class ReturnStmt : public Stmt {
    */
   explicit ReturnStmt(Span span) : Stmt(std::move(span)), value_() {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ReturnStmt; }
   [[nodiscard]] std::string TypeName() const override { return "ReturnStmt"; }
 
   /**
@@ -234,8 +237,8 @@ using ReturnStmtPtr = std::shared_ptr<const ReturnStmt>;
  * **Basic loop:** for loop_var in range(start, stop, step): body
  *
  * **Loop with iteration arguments:**
- * for loop_var, (iter_arg1, iter_arg2) in pi.range(start, stop, step, init_values=[...]):
- *     iter_arg1, iter_arg2 = pi.yield(new_val1, new_val2)
+ * for loop_var, (iter_arg1, iter_arg2) in pl.range(start, stop, step, init_values=[...]):
+ *     iter_arg1, iter_arg2 = pl.yield_(new_val1, new_val2)
  * return_var1 = iter_arg1
  * return_var2 = iter_arg2
  *
@@ -271,6 +274,7 @@ class ForStmt : public Stmt {
         body_(std::move(body)),
         return_vars_(std::move(return_vars)) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ForStmt; }
   [[nodiscard]] std::string TypeName() const override { return "ForStmt"; }
 
   /**
@@ -317,6 +321,7 @@ class SeqStmts : public Stmt {
    */
   SeqStmts(std::vector<StmtPtr> stmts, Span span) : Stmt(std::move(span)), stmts_(std::move(stmts)) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::SeqStmts; }
   [[nodiscard]] std::string TypeName() const override { return "SeqStmts"; }
 
   /**
@@ -338,19 +343,24 @@ using SeqStmtsPtr = std::shared_ptr<const SeqStmts>;
 /**
  * @brief Operation statements
  *
- * Represents a sequence of assignment statements: assign1; assign2; ... assignN
- * where stmts is a list of assignment statements.
+ * Represents a sequence of assignment and/or evaluation statements.
+ * This is used to group operations that should be treated as a unit,
+ * such as a block of tensor operations with optional synchronization calls.
+ *
+ * OpStmts only accepts AssignStmt and EvalStmt types. An error will be raised
+ * at construction time if other statement types are provided.
  */
 class OpStmts : public Stmt {
  public:
   /**
    * @brief Create an operation statements
    *
-   * @param stmts List of assignment statements
+   * @param stmts List of assignment and/or evaluation statements
    * @param span Source location
    */
-  OpStmts(std::vector<AssignStmtPtr> stmts, Span span) : Stmt(std::move(span)), stmts_(std::move(stmts)) {}
+  OpStmts(std::vector<StmtPtr> stmts, Span span);
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::OpStmts; }
   [[nodiscard]] std::string TypeName() const override { return "OpStmts"; }
 
   /**
@@ -364,10 +374,47 @@ class OpStmts : public Stmt {
   }
 
  public:
-  std::vector<AssignStmtPtr> stmts_;  // List of assignment statements
+  std::vector<StmtPtr> stmts_;  // List of assignment and/or evaluation statements
 };
 
 using OpStmtsPtr = std::shared_ptr<const OpStmts>;
+
+/**
+ * @brief Evaluation statement
+ *
+ * Represents an expression executed as a statement: expr
+ * where expr is an expression (typically a Call).
+ * This is used for expressions that have side effects but no return value
+ * (or return value is ignored).
+ */
+class EvalStmt : public Stmt {
+ public:
+  /**
+   * @brief Create an evaluation statement
+   *
+   * @param expr Expression to execute
+   * @param span Source location
+   */
+  EvalStmt(ExprPtr expr, Span span) : Stmt(std::move(span)), expr_(std::move(expr)) {}
+
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::EvalStmt; }
+  [[nodiscard]] std::string TypeName() const override { return "EvalStmt"; }
+
+  /**
+   * @brief Get field descriptors for reflection-based visitation
+   *
+   * @return Tuple of field descriptors (expr as USUAL field)
+   */
+  static constexpr auto GetFieldDescriptors() {
+    return std::tuple_cat(Stmt::GetFieldDescriptors(),
+                          std::make_tuple(reflection::UsualField(&EvalStmt::expr_, "expr")));
+  }
+
+ public:
+  ExprPtr expr_;  // Expression
+};
+
+using EvalStmtPtr = std::shared_ptr<const EvalStmt>;
 
 }  // namespace ir
 }  // namespace pypto
