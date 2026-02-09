@@ -14,8 +14,10 @@
  */
 
 #include "aicore_manager.h"
+#include <chrono>
 
 namespace npu::tile_fwk {
+
 void SdmaPrefetch(DeviceTask *devTask) {
     if (devTask == nullptr || devTask->l2Info.prefetchNum == 0) {
       return;
@@ -46,7 +48,10 @@ void SdmaPrefetch(DeviceTask *devTask) {
 int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     int ret = 0;
     DEV_INFO("receive new task %lu\n", taskCtrl->taskId);
+    DEV_ERROR("<< Signature Debug >>\n");
     InitTaskData(taskCtrl);
+
+    const auto t0 = std::chrono::high_resolution_clock::now();
 
     RunCoreTask(taskCtrl);
     if (aicpuIdx_ == 1) {
@@ -75,6 +80,11 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
             (void)aicpuTaskManager_.TaskProcess();
         }
     }
+
+    const auto tf = std::chrono::high_resolution_clock::now();
+    const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
+    if (aicpuIdx_ == 1) DEV_ERROR("Running Time: %ldns", ns);
+
     return ret;
 }
 
