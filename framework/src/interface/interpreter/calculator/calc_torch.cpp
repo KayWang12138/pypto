@@ -663,7 +663,7 @@ static void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     From(out).copy_(View(tself, out->GetShape(), offset));
 }
 
-static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const torch::Tensor &rhs, int64_t kstep) {
+static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const torch::Tensor &rhs, const torch::Tensor &bias, int64_t kstep) {
     auto shapeL = lhs.sizes().vec();
     auto shapeR = rhs.sizes().vec();
     auto offsetL = std::vector<int64_t>(shapeL.size(), 0);
@@ -671,20 +671,24 @@ static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const tor
     int64_t kdimL = shapeL.size() - 1;
     int64_t kdimR = shapeR.size() - 0x2;
     int64_t k = shapeL[kdimL];
-
+    auto biasShape = bias.sizes().vec();
     for (int64_t offset = 0; offset < k; offset += kstep) {
         shapeL[kdimL] = std::min(kstep, k - offset);
         shapeR[kdimR] = std::min(kstep, k - offset);
         offsetL[kdimL] = offset;
         offsetR[kdimR] = offset;
+        auto biasoff = offsetR;
         auto viewL = View(lhs, shapeL, offsetL);
         auto viewR = View(rhs, shapeR, offsetR);
         out.add_(torch::matmul(viewL, viewR));
     }
+    if(biasShape.size() == 2){
+        out.add_(bias);
+    }
 }
 
-static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc,
-            MatMulParam &param) {
+static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr bias, 
+    LogicalTensorDataPtr acc, MatMulParam &param) {
     auto tout = From(out);
     auto dtype = tout.scalar_type();
     auto calcType = dtype;
@@ -695,6 +699,10 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
 
     auto tself = From(self);
     auto tother = From(other);
+    torch::Tensor bias_tensor;
+    if(bias != nullptr){
+        bias_tensor = From(bias);
+    }
     if (acc) {
         tout.copy_(From(acc));
     } else {
@@ -713,9 +721,13 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
         tother = tother.to(calcType);
     }
     if (!param.kStep || param.kStep == self->GetShape(-1)) {
-        tout.add_(torch::matmul(tself, tother));
+        if(bias != nullptr){
+            tout.add_(torch::matmul(tself, tother) + bias_tensor);
+        }else{
+            tout.add_(torch::matmul(tself, tother));
+        }
     } else {
-        MatmulSplitK(tout, tself, tother, param.kStep);
+        MatmulSplitK(tout, tself, tother, bias_tensor, param.kStep);
     }
     if (calcType != dtype) {
         From(out) = tout.to(dtype);
