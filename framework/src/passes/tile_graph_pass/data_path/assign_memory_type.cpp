@@ -448,7 +448,8 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
             viewOpAttribute->SetToType(tensor->GetMemoryTypeOriginal());
             continue;
         }
-        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
+            outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1 && FitL0C2L1(tensor)) {
             inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0C);
             viewOpAttribute->SetToType(outputTensor->GetMemoryTypeOriginal());
             continue;
