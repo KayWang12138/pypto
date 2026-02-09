@@ -382,15 +382,11 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr 
             actualSpillIssue = issueEntryMap[preId];
         }
     }
-    if (actualSpillIssue == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ActualSpillIssue is nullptr. Please check the preceding dependencies of spillIssue %s ", spillIssue->GetOpInfo().c_str());
+    if (actualSpillIssue == nullptr || actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
+        APASS_LOG_ERROR_F(Elements::Operation, "A5 L1 Spill failed: actualSpillIssue is nullptr/copy_in. Please check the dependencies");
         return FAILED;
     }
     APASS_LOG_DEBUG_F(Elements::Operation, "actualSpillIssue %s", actualSpillIssue->GetOpInfo().c_str());
-    if (actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
-        APASS_LOG_ERROR_F(Elements::Operation, "A5 L1 Spill failed: actualSpillIssue is copy_in.");
-        return FAILED;
-    }
     if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill!");
         return FAILED;
