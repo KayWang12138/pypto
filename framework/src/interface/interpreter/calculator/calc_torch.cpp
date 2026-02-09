@@ -86,11 +86,10 @@ static at::Scalar From(const Element &elem) {
     return at::Scalar();
 }
 
-static torch::Tensor From(LogicalTensorDataPtr data) {
-    RawTensorDataPtr raw = data->GetData();
-    auto tensor = torch::from_blob(raw->data(), raw->GetShape(), FromDataType(raw->GetDataType()));
-    auto view = tensor.as_strided(data->GetShape(), raw->GetStride(), data->GetStorageOffset());
-    if (data->IsAxisCombine())
+static torch::Tensor From(const TensorData &data) {
+    auto tensor = torch::from_blob(data.dataPtr, data.rawShape, FromDataType(data.dtype));
+    auto view = tensor.as_strided(data.shape, data.stride, data.storageOffset);
+    if (data.isAxisCombine)
         view = view.transpose_(-1, AXIS_TO_LAST);
     return view;
 }
@@ -103,82 +102,82 @@ static torch::Tensor View(const torch::Tensor &self, const std::vector<int64_t> 
     return self.as_strided(shape, self.strides(), storageOffset);
 }
 
-static bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, double atol, double rtol) {
+static bool AllClose(const TensorData &self, const TensorData &other, double atol, double rtol) {
     return From(self).allclose(From(other), atol, rtol);
 }
 
-static void Random(LogicalTensorDataPtr out) {
+static void Random(const TensorData &out) {
     auto tout = From(out);
     torch::rand_out(tout, tout.sizes());
 }
 
-static void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Exp(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::exp_out(tout, From(self));
 }
 
-static void Neg(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Neg(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::neg_out(tout, From(self));
 }
 
-static void Ceil(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Ceil(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::ceil_out(tout, From(self));
 }
 
-static void Floor(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Floor(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::floor_out(tout, From(self));
 }
 
-static void Trunc(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Trunc(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::trunc_out(tout, From(self));
 }
 
-static void Round(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int decimals) {
+static void Round(const TensorData &out, const TensorData &self, int decimals) {
     auto ret = From(out);
     auto src = From(self);
     ret.copy_(torch::round(src, decimals));
 }
 
-static void Rsqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Rsqrt(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::rsqrt_out(tout, From(self));
 }
 
-static void Sqrt(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Sqrt(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::sqrt_out(tout, From(self));
 }
 
-static void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Reciprocal(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::reciprocal_out(tout, From(self));
 }
 
-static void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void BitwiseNot(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::bitwise_not_out(tout, From(self));
 }
 
-static void LogicalNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void LogicalNot(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::logical_not_out(tout, From(self));
 }
 
-static void LogicalAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void LogicalAnd(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     torch::logical_and_out(tout, From(self), From(other));
 }
 
-static void Abs(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Abs(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::abs_out(tout, From(self));
 }
 
-static void WhereTT(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, LogicalTensorDataPtr input, LogicalTensorDataPtr other) {
+static void WhereTT(const TensorData &out, const TensorData &condition, const TensorData &input, const TensorData &other) {
     torch::Tensor tout = From(out);
     torch::Tensor tcondition = From(condition);
     torch::Tensor tinput = From(input);
@@ -186,7 +185,7 @@ static void WhereTT(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, Lo
     torch::where_out(tout, tcondition, tinput, tother);
 }
 
-static void WhereTS(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, LogicalTensorDataPtr input, const Element &other) {
+static void WhereTS(const TensorData &out, const TensorData &condition, const TensorData &input, const Element &other) {
     torch::Tensor tout = From(out);
     torch::Tensor tcondition = From(condition);
     torch::Tensor tinput = From(input);
@@ -194,7 +193,7 @@ static void WhereTS(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, Lo
     torch::where_out(tout, tcondition, tinput, tother);
 }
 
-static void WhereST(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, const Element &input, LogicalTensorDataPtr other) {
+static void WhereST(const TensorData &out, const TensorData &condition, const Element &input, const TensorData &other) {
     torch::Tensor tout = From(out);
     torch::Tensor tcondition = From(condition);
     torch::Tensor tinput = torch::tensor(static_cast<float>(input.GetFloatData()), torch::kFloat32);
@@ -202,7 +201,7 @@ static void WhereST(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, co
     torch::where_out(tout, tcondition, tinput, tother);
 }
 
-static void WhereSS(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, const Element &input, const Element &other) {
+static void WhereSS(const TensorData &out, const TensorData &condition, const Element &input, const Element &other) {
     torch::Tensor tout = From(out);
     torch::Tensor tcondition = From(condition);
     torch::Tensor tinput = torch::tensor(static_cast<float>(input.GetFloatData()), torch::kFloat32);
@@ -210,16 +209,16 @@ static void WhereSS(LogicalTensorDataPtr out, LogicalTensorDataPtr condition, co
     torch::where_out(tout, tcondition, tinput, tother);
 }
 
-static void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Ln(const TensorData &out, const TensorData &self) {
     auto tout = From(out);
     torch::log_out(tout, From(self));
 }
 
 #define DEFINE_BINARY_S_OPS(Name, op_out)                                                                 \
-    static void Name(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar, bool reverse) { \
+    static void Name(const TensorData &out, const TensorData &self, const Element &scalar, bool reverse) { \
         auto tout = From(out);                                                                            \
         if (reverse) {                                                                                    \
-            torch::full_out(tout, out->GetShape(), From(scalar));                              \
+            torch::full_out(tout, out.shape, From(scalar));                              \
             torch::op_out(tout, tout, From(self));                                                        \
         } else {                                                                                          \
             torch::op_out(tout, From(self), From(scalar));                                                \
@@ -235,7 +234,7 @@ DEFINE_BINARY_S_OPS(BitwiseAndS, bitwise_and_out)
 DEFINE_BINARY_S_OPS(BitwiseOrS, bitwise_or_out)
 DEFINE_BINARY_S_OPS(BitwiseXorS, bitwise_xor_out)
 
-static void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void Add(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
@@ -264,7 +263,7 @@ static void Add(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     }
 }
 
-static void Sub(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void Sub(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
@@ -293,7 +292,7 @@ static void Sub(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     }
 }
 
-static void Mul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void Mul(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
@@ -322,7 +321,7 @@ static void Mul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     }
 }
 
-static void Div(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void Div(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
@@ -351,7 +350,7 @@ static void Div(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     }
 }
 
-static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void Fmod(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
@@ -379,57 +378,57 @@ static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
         torch::fmod_out(tout, tself, tother);
     }
 }
-static void BitwiseAnd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void BitwiseAnd(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     torch::bitwise_and_out(tout, From(self), From(other));
 }
 
-static void BitwiseOr(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void BitwiseOr(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     torch::bitwise_or_out(tout, From(self), From(other));
 }
 
-static void BitwiseXor(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void BitwiseXor(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     torch::bitwise_xor_out(tout, From(self), From(other));
 }
 
-static void CopySign(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void CopySign(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     torch::copysign_out(tout, From(self), From(other));
 }
 
-static void BitwiseRightShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void BitwiseRightShift(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     torch::bitwise_right_shift_out(tout, From(self), From(other));
 }
 
-static void BitwiseLeftShift(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void BitwiseLeftShift(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tout = From(out);
     torch::bitwise_left_shift_out(tout, From(self), From(other));
 }
 
-static void BitwiseRightShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+static void BitwiseRightShiftS(const TensorData &out, const TensorData &self, const Element &scalar) {
     auto tout = From(out);
     torch::bitwise_right_shift_out(tout, From(self), From(scalar));
 }
 
-static void BitwiseLeftShiftS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &scalar) {
+static void BitwiseLeftShiftS(const TensorData &out, const TensorData &self, const Element &scalar) {
     auto tout = From(out);
     torch::bitwise_left_shift_out(tout, From(self), From(scalar));
 }
 
-static void SBitwiseRightShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
+static void SBitwiseRightShift(const TensorData &out, const Element &scalar, const TensorData &other) {
     auto tout = From(out);
     torch::bitwise_right_shift_out(tout, From(scalar), From(other));
 }
 
-static void SBitwiseLeftShift(LogicalTensorDataPtr out, const Element &scalar, LogicalTensorDataPtr other) {
+static void SBitwiseLeftShift(const TensorData &out, const Element &scalar, const TensorData &other) {
     auto tout = From(out);
     torch::bitwise_left_shift_out(tout, From(scalar), From(other));
 }
 
-static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode) {
+static void Cast(const TensorData &out, const TensorData &self, CastMode mode) {
     if (mode == CastMode::CAST_ROUND) {
         From(out) = From(self).round();
     } else if (mode == CastMode::CAST_FLOOR) {
@@ -439,7 +438,7 @@ static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode m
     } else if (mode == CastMode::CAST_TRUNC) {
         From(out) = From(self).trunc();
     } else {
-        if (IsFloat(out->GetDataType())) {
+        if (IsFloat(out.dtype)) {
             From(out) = From(self);
         } else {
             From(out) = From(self).round();
@@ -447,7 +446,7 @@ static void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode m
     }
 }
 
-static void Min(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void Min(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
@@ -476,7 +475,7 @@ static void Min(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     }
 }
 
-static void Max(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+static void Max(const TensorData &out, const TensorData &self, const TensorData &other) {
     auto tself = From(self);
     auto tother = From(other);
     auto tout = From(out);
@@ -505,20 +504,20 @@ static void Max(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTens
     }
 }
 
-static void MinS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &elem) {
+static void MinS(const TensorData &out, const TensorData &self, const Element &elem) {
     auto tout = From(out);
     torch::clamp_max_out(tout, From(self), From(elem));
 }
 
-static void MaxS(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &elem) {
+static void MaxS(const TensorData &out, const TensorData &self, const Element &elem) {
     auto tout = From(out);
     torch::clamp_min_out(tout, From(self), From(elem));
 }
 
-static void Range(LogicalTensorDataPtr out, const Element &start, const Element &end, const Element &step) {
+static void Range(const TensorData &out, const Element &start, const Element &end, const Element &step) {
     auto tmp = torch::arange(From(start), From(end), From(step));
     int64_t expected_numel = 1;
-    for (int64_t dim : out->GetShape()) {
+    for (int64_t dim : out.shape) {
         expected_numel *= dim;
     }
     ASSERT(tmp.numel() == expected_numel) << "Range numel mismatch: generated " << tmp.numel() << ", expected " << expected_numel;
@@ -527,7 +526,7 @@ static void Range(LogicalTensorDataPtr out, const Element &start, const Element 
 }
 
 template <typename T>
-static void CompareImpl(LogicalTensorDataPtr out, const torch::Tensor& tself, const T& other_op,
+static void CompareImpl(const TensorData &out, const torch::Tensor& tself, const T& other_op,
                         CmpOperationType operation, CmpModeType mode) {
     auto tout = From(out);
     torch::Tensor tmp_result;
@@ -585,27 +584,27 @@ static void CompareImpl(LogicalTensorDataPtr out, const torch::Tensor& tself, co
     }
 }
 
-static void Compare(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
+static void Compare(const TensorData &out, const TensorData &self, const TensorData &other,
              CmpOperationType operation, CmpModeType mode) {
     CompareImpl(out, From(self), From(other), operation, mode);
 }
 
-static void Cmps(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &elem,
+static void Cmps(const TensorData &out, const TensorData &self, const Element &elem,
              CmpOperationType operation, CmpModeType mode) {
     CompareImpl(out, From(self), From(elem), operation, mode);
 }
 
 #define DEFINE_BINARY_PAIR_OPS(Name, bop)                                                              \
-    static void Pair##Name(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) { \
+    static void Pair##Name(const TensorData &out, const TensorData &self, const TensorData &other) { \
         auto big = self, small = other;                                                                \
-        if (self->GetShape() < other->GetShape()) {                                                    \
+        if (self.shape < other.shape) {                                                                \
             big = other, small = self;                                                                 \
         }                                                                                              \
         auto tout = From(out);                                                                         \
-        std::vector<int64_t> offset(self->GetShape().size(), 0);                                       \
-        auto tbig = View(tout, big->GetShape(), offset);                                    \
+        std::vector<int64_t> offset(self.shape.size(), 0);                                             \
+        auto tbig = View(tout, big.shape, offset);                                                     \
         tbig.copy_(From(big));                                                                         \
-        auto tsmall = View(tout, small->GetShape(), offset);                                \
+        auto tsmall = View(tout, small.shape, offset);                                                 \
         torch::bop(tsmall, tsmall, From(small));                                                       \
     }
 
@@ -628,8 +627,8 @@ static inline int64_t alignup(int64_t x, int64_t align) {
     return (x + (align - 1)) & ~(align - 1);
 }
 
-static void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
-    auto &shape = self->GetShape();
+static void FormatND2NZ(const TensorData &out, const TensorData &self) {
+    auto &shape = self.shape;
     ASSERT(shape.size() >= 0x2) << "Input tensor must have at least 2 dimensions";
 
     int64_t ndim = shape.size();
@@ -637,7 +636,7 @@ static void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     int64_t m0 = 16; // m0 16
     int64_t padm = alignup(m, m0);
     int64_t n = shape[ndim - 1];
-    int64_t n0 = BLOCK_SIZE / BytesOf(self->GetDataType());
+    int64_t n0 = BLOCK_SIZE / BytesOf(self.dtype);
     int64_t padn = alignup(n, n0);
     int64_t n1 = padn / n0;
 
@@ -657,14 +656,14 @@ static void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     From(out).copy_(tself);
 }
 
-static void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
-    auto &shape = self->GetShape();
+static void FormatNZ2ND(const TensorData &out, const TensorData &self) {
+    auto &shape = self.shape;
     ASSERT(shape.size() >= 0x2) << "Input tensor must have at least 2 dimensions";
 
     auto tself = From(self); // [b, m1*m0, n1*n0]
     int64_t ndim = shape.size();
     int64_t m = shape[ndim - 0x2];
-    int64_t n0 = BLOCK_SIZE / BytesOf(self->GetDataType());
+    int64_t n0 = BLOCK_SIZE / BytesOf(self.dtype);
     int64_t n1 = shape[ndim - 1] / n0;
 
     tself = tself.reshape({-1, n1, m, n0});  // [b, n1, m1*m0, n0]
@@ -672,7 +671,7 @@ static void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     tself = tself.reshape(shape);            // [b, m1*m0, n1*n0]
 
     std::vector<int64_t> offset(ndim, 0);
-    From(out).copy_(View(tself, out->GetShape(), offset));
+    From(out).copy_(View(tself, out.shape, offset));
 }
 
 static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const torch::Tensor &rhs, int64_t kstep) {
@@ -695,7 +694,7 @@ static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const tor
     }
 }
 
-static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc,
+static void MatMul(const TensorData &out, const TensorData &self, const TensorData &other, const TensorData *acc,
             MatMulParam &param) {
     auto tout = From(out);
     auto dtype = tout.scalar_type();
@@ -708,7 +707,7 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
     auto tself = From(self);
     auto tother = From(other);
     if (acc) {
-        tout.copy_(From(acc));
+        tout.copy_(From(*acc));
     } else {
         tout.zero_();
     }
@@ -724,7 +723,7 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
     if (tother.scalar_type() != calcType) {
         tother = tother.to(calcType);
     }
-    if (!param.kStep || param.kStep == self->GetShape(-1)) {
+    if (!param.kStep || param.kStep == self.shape[self.shape.size() - 1]) {
         tout.add_(torch::matmul(tself, tother));
     } else {
         MatmulSplitK(tout, tself, tother, param.kStep);
@@ -734,30 +733,30 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
     }
 }
 
-void OneHot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int numClasses) {
+void OneHot(const TensorData &out, const TensorData &self, int numClasses) {
     auto ret = From(out);
     auto src = From(self);
     ret.copy_(torch::nn::functional::one_hot(src.to(torch::kInt64), numClasses));
 }
 
-static void ExpandS(LogicalTensorDataPtr out, const Element &elem) {
+static void ExpandS(const TensorData &out, const Element &elem) {
     auto tout = From(out);
-    torch::full_out(tout, out->GetShape(), From(elem));
+    torch::full_out(tout, out.shape, From(elem));
 }
 
-static void Expand(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Expand(const TensorData &out, const TensorData &self) {
     auto tself = From(self);
-    if (self->GetShape(-1) != out->GetShape(-1) && self->GetShape(-1) != 1) {
+    if (self.shape[self.shape.size() - 1] != out.shape[self.shape.size() - 1] && self.shape[self.shape.size() - 1] != 1) {
         // possible block align
         tself = tself.slice(tself.dim() - 1, 0, 1);
     }
     From(out) = tself;
 }
-void Gather(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int64_t axis) {
+void Gather(const TensorData &out, const TensorData &params, const TensorData &indices, int64_t axis) {
     auto tout = From(out);
     auto tparams = From(params);
     auto tindices = From(indices);
-    auto paramsRank = params->GetShape().size();
+    auto paramsRank = params.shape.size();
     if (axis < 0) {
         axis += paramsRank;
     }
@@ -842,16 +841,15 @@ void GatherINUBGolden(torch::Tensor &out, const torch::Tensor &params, const tor
     // 写到 out（不要求 out contiguous；copy_ 会处理）
     out.copy_(selected);
 }
-static torch::Tensor From4GatherINUB(LogicalTensorDataPtr data) {
-    RawTensorDataPtr raw = data->GetData();
-    auto tensor = torch::from_blob(raw->data(), raw->GetShape(), FromDataType(raw->GetDataType()));
-    auto view = tensor.as_strided({raw->GetShape()[0],data->GetShape()[1]}, raw->GetStride(), data->GetStorageOffset());
-    if (data->IsAxisCombine())
+static torch::Tensor From4GatherINUB(const TensorData &data) {
+    auto tensor = torch::from_blob(data.dataPtr, data.rawShape, FromDataType(data.dtype));
+    auto view = tensor.as_strided({data.shape[0], data.shape[1]}, data.stride, data.storageOffset);
+    if (data.isAxisCombine)
         view = view.transpose_(-1, AXIS_TO_LAST);
     return view;
 }
-void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
-    LogicalTensorDataPtr pageTable, int64_t blockSize, int64_t axis) {
+void GatherINUB(const TensorData &out, const TensorData &params, const TensorData &indices,
+    const TensorData &pageTable, int64_t blockSize, int64_t axis) {
     auto tout = From(out);
     auto tparams = From4GatherINUB(params);
     auto tindices = From(indices);
@@ -859,14 +857,14 @@ void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTe
     GatherINUBGolden(tout, tparams, tindices, tpageTable, blockSize, axis);
 }
 
-void GatherElements(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis) {
+void GatherElements(const TensorData &out, const TensorData &params, const TensorData &indices, int axis) {
     auto ret = From(out);
     auto src = From(params);
     auto index = From(indices).to(torch::kInt64);
     torch::gather_out(ret, src, axis, index);
 }
 
-void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr src, LogicalTensorDataPtr indices, int axis, const Element &alpha) {
+void IndexAdd(const TensorData &out, const TensorData &self, const TensorData &src, const TensorData &indices, int axis, const Element &alpha) {
     torch::Tensor output = From(out);
     torch::Tensor inputSelf = From(self);
     torch::Tensor inputSrc = From(src);
@@ -874,28 +872,28 @@ void IndexAdd(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensor
     torch::index_add_out(output, inputSelf, axis, inputIndices, inputSrc, From(alpha));
 }
 
-void TriU(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+void TriU(const TensorData &out, const TensorData &in, int diagonal) {
     torch::Tensor output = From(out);
     torch::Tensor input = From(in);
 
     torch::triu_out(output, input, diagonal);
 }
 
-void TriL(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int diagonal) {
+void TriL(const TensorData &out, const TensorData &in, int diagonal) {
     torch::Tensor output = From(out);
     torch::Tensor input = From(in);
 
     torch::tril_out(output, input, diagonal);
 }
 
-void CumSum(LogicalTensorDataPtr out, LogicalTensorDataPtr in, int axis) {
+void CumSum(const TensorData &out, const TensorData &in, int axis) {
     torch::Tensor output = From(out);
     torch::Tensor input = From(in);
 
     torch::cumsum_out(output, input, axis);
 }
 
-void IndexPut(LogicalTensorDataPtr out, LogicalTensorDataPtr self, std::vector<LogicalTensorDataPtr> indices, LogicalTensorDataPtr values, bool accumulate) {
+void IndexPut(const TensorData &out, const TensorData &self, const std::vector<TensorData> &indices, const TensorData &values, bool accumulate) {
     c10::List<c10::optional<at::Tensor>> indicesList;
     for (const auto idx : indices) {
         indicesList.push_back(From(idx));
@@ -903,7 +901,7 @@ void IndexPut(LogicalTensorDataPtr out, LogicalTensorDataPtr self, std::vector<L
     From(out) = torch::index_put(From(self), indicesList, From(values), accumulate);
 }
 
-static void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans) {
+static void Copy(const TensorData &out, const TensorData &self, bool trans) {
     if (trans) {
         From(out) = From(self).transpose_(-1, AXIS_TO_LAST);
     } else {
@@ -911,60 +909,60 @@ static void Copy(LogicalTensorDataPtr out, LogicalTensorDataPtr self, bool trans
     }
 }
 
-static void RowSumExpand(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+static void RowSumExpand(const TensorData &out, const TensorData &self, int dim) {
     From(out) = torch::sum(From(self), {dim}, true);
 }
 
-static void RowSumSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+static void RowSumSingle(const TensorData &out, const TensorData &self, int dim) {
     auto tout = From(out);
     torch::sum_out(tout, From(self), {dim}, true);
 }
 
-static void RowMinExpand(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+static void RowMinExpand(const TensorData &out, const TensorData &self, int dim) {
     auto ret = torch::min(From(self), dim, true);
     From(out) = std::get<0>(ret);
 }
 
-static void RowMaxExpand(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+static void RowMaxExpand(const TensorData &out, const TensorData &self, int dim) {
     auto ret = torch::max(From(self), dim, true);
     From(out) = std::get<0>(ret);
 }
 
-static void RowMinSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+static void RowMinSingle(const TensorData &out, const TensorData &self, int dim) {
     auto ret = torch::min(From(self), dim, true);
     From(out) = std::get<0>(ret);
 }
 
-static void RowMinLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+static void RowMinLine(const TensorData &out, const TensorData &self, int dim) {
     auto ret = torch::min(From(self), dim, true);
     From(out) = std::get<0>(ret);
 }
 
-static void RowMaxSingle(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+static void RowMaxSingle(const TensorData &out, const TensorData &self, int dim) {
     auto ret = torch::max(From(self), dim, true);
     From(out) = std::get<0>(ret);
 }
 
-static void RowMaxLine(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int dim) {
+static void RowMaxLine(const TensorData &out, const TensorData &self, int dim) {
     auto ret = torch::max(From(self), dim, true);
     From(out) = std::get<0>(ret);
 }
 
-static void Reshape(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
-    From(out) = torch::reshape(From(self), out->GetShape());
+static void Reshape(const TensorData &out, const TensorData &self) {
+    From(out) = torch::reshape(From(self), out.shape);
 }
 
-static void Transpose(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t dim0, int64_t dim1) {
+static void Transpose(const TensorData &out, const TensorData &self, int64_t dim0, int64_t dim1) {
     auto tout = From(out);
     torch::transpose_copy_out(tout, From(self), dim0, dim1);
 }
 
-void Permute(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const std::vector<int64_t> &dim) {
+void Permute(const TensorData &out, const TensorData &self, const std::vector<int64_t> &dim) {
     auto tout = From(out);
     torch::permute_copy_out(tout, From(self), dim);
 }
 
-static void ReduceAcc(LogicalTensorDataPtr out, const std::vector<LogicalTensorDataPtr> &tdatas) {
+static void ReduceAcc(const TensorData &out, const std::vector<TensorData> &tdatas) {
     auto tout = From(out);
     std::vector<torch::Tensor> tensors;
     for (auto &tdata : tdatas) {
@@ -1061,7 +1059,7 @@ static void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t
  * @param descending Indicate whether the obtained k values are the maximum or minimum k values,
  *                   and true returns the maximum k values
  */
-static void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod, bool descending) {
+static void Extract(const TensorData &out, const TensorData &self, int mod, bool descending) {
     auto tself = From(self);
     auto tout = From(out);
     constexpr int INDICE_STEP = 2;
@@ -1104,7 +1102,7 @@ static void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod
  * @param descending Indicate whether the obtained k values are the maximum or minimum k values,
  *                   and true returns the maximum k values
  */
-static void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, int64_t k, bool descending) {
+static void Topk(const TensorData &out, const TensorData &self, int64_t axis, int64_t k, bool descending) {
     auto tself = From(self);
     auto tout = From(out);
     constexpr int DIM_SIZE_TWO = 2;
@@ -1157,8 +1155,8 @@ static void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t ax
     dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
 }
 
-static void TiledMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr src1, LogicalTensorDataPtr src2,
-    LogicalTensorDataPtr src3, LogicalTensorDataPtr src4, int validBit, int kvalue) {
+static void TiledMrgSort(const TensorData &out, const TensorData &src1, const TensorData &src2,
+    const TensorData &src3, const TensorData &src4, int validBit, int kvalue) {
     auto self1 = From(src1);
     auto self2 = From(src2);
     auto self3 = From(src3);
@@ -1215,8 +1213,8 @@ static void TiledMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr src1, Lo
     dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
 }
 
-static void TopK(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outIndex,
-                 LogicalTensorDataPtr self, int k, int axis, bool descending) {
+static void TopK(const TensorData &outValue, const TensorData &outIndex,
+                 const TensorData &self, int k, int axis, bool descending) {
     auto tself = From(self);
     auto toutValue = From(outValue);
     auto toutIndex = From(outIndex);
@@ -1227,8 +1225,8 @@ static void TopK(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outIndex,
     toutIndex.copy_(tempIdxInt32);
 }
 
-static void TopkSort(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outTemp,
-                     LogicalTensorDataPtr self, int startIndex) {
+static void TopkSort(const TensorData &outValue, const TensorData &outTemp,
+                     const TensorData &self, int startIndex) {
     auto tself = From(self);
     auto toutValue = From(outValue);
     auto toutTemp = From(outTemp);
@@ -1291,7 +1289,7 @@ static void TopkSort(LogicalTensorDataPtr outValue, LogicalTensorDataPtr outTemp
     valView.copy_(packed);
 }
 
-static void TopkMerge(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mergeSize) {
+static void TopkMerge(const TensorData &out, const TensorData &self, int mergeSize) {
     (void) mergeSize;
     auto tself = From(self);
     auto tout = From(out);
@@ -1324,7 +1322,7 @@ static void TopkMerge(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int m
     outView.copy_(sorted);
 }
 
-static void TopkExtract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int k, bool isIndex) {
+static void TopkExtract(const TensorData &out, const TensorData &self, int k, bool isIndex) {
     auto tself = From(self);
     auto tout = From(out);
 
@@ -1355,7 +1353,7 @@ static void TopkExtract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int
     outView.copy_(extracted);
 }
 
-void TwoTileMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+void TwoTileMrgSort(const TensorData &out, const TensorData &self) {
     auto tself = From(self);
     auto tout = From(out);
     constexpr int SIZE_TWO = 2;
@@ -1394,7 +1392,7 @@ void TwoTileMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     dstSubview.copy_(sortedGroups.reshape(torch::IntArrayRef(dstShape)));
 }
 
-void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, LogicalTensorDataPtr self, int64_t axis, bool descending) {
+void Sort(const TensorData &value, const TensorData &index, const TensorData &self, int64_t axis, bool descending) {
     auto tself = From(self);
     auto tvalue = From(value);
     auto tindex = From(index);
@@ -1439,7 +1437,7 @@ bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, to
     return flag;
 }
 
-static void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index, LogicalTensorDataPtr dst, int axis,
+static void ScatterUpdate(const TensorData &out, const TensorData &self, const TensorData &index, const TensorData &dst, int axis,
    std::string cacheMode, int blockSize) {
     (void)axis;
     (void)cacheMode;
@@ -1468,7 +1466,7 @@ static void ScatterUpdate(LogicalTensorDataPtr out, LogicalTensorDataPtr self, L
 
 static const std::vector<std::string> scatterModeString = {"add", "multiply"};
 
-static void ScatterElement(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
+static void ScatterElement(const TensorData &out, const TensorData &self, const TensorData &index,
     const Element &src, int axis, int reduce) {
     auto output = From(out);
     auto inputSelf = From(self);
@@ -1484,7 +1482,7 @@ static void ScatterElement(LogicalTensorDataPtr out, LogicalTensorDataPtr self, 
     }
 }
 
-static void Brcb(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+static void Brcb(const TensorData &out, const TensorData &self) {
     auto tself = From(self);
     auto tout = From(out);
     
@@ -1498,8 +1496,8 @@ static void Brcb(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     tout.copy_(expanded);
 }
     
-static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr index,
-    LogicalTensorDataPtr src, int axis, int reduce) {
+static void Scatter(const TensorData &out, const TensorData &self, const TensorData &index,
+    const TensorData &src, int axis, int reduce) {
     auto output = From(out);
     auto inputSelf = From(self);
     auto inputIndices = From(index);
