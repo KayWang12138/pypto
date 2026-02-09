@@ -22,7 +22,7 @@ SHAPE = (32, 32, 1, 64)
 TILE_SHAPES = (1, 16, 1, 64)
 
 @pypto_op_kernel(kernel_name="add_kernel", tile_shapes=TILE_SHAPES, support_dynamic_aligned=True, version=1,
-            incl_src=True, incl_binary=True, incl_ir=True)
+                incl_src=True, incl_binary=True, incl_ir=True)
 def add_kernel_py(t0, t1, t2):
     print("Goes through add_kernel")
 
@@ -85,7 +85,7 @@ def add_pypto_calc_workspace(x0_shape, x1_shape):
 @pypto_op_onnx_symbolic(pypto_op_kernel=add_kernel_py)
 def add_pypto_onnx_symbolic(g, x0, x1, run_mode=0, op_context={}):
     # 这些将是onnx内部的属性
-    node = g.op(f"{DOMAIN}::{OP_TYPE}", x0, x1, run_mode, **op_context)
+    node = g.op(f"{DOMAIN}::{OP_TYPE__ADD}", x0, x1, run_mode, **op_context)
     node.setType(x0.type())
     return node
 

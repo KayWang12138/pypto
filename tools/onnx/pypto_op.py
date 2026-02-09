@@ -60,8 +60,8 @@ def pypto_op_kernel(*, kernel_name, incl_src=False, incl_binary=False, incl_ir=F
                 meta_local[_META_KEY__KERNEL_SOURCE_ZIP] = b64
         fn.__pypto_meta__ = meta_local
         fn.__pypto_options__ = {
-            _OPTIONS_KEY__INCL_BINARY: incl_binary,
-            _OPTIONS_KEY__INCL_IR: incl_ir,
+            _OPTIONS_KEY__INCL_BINARY : incl_binary,
+            _OPTIONS_KEY__INCL_IR : incl_ir,
         }
         return fn
     return decorator

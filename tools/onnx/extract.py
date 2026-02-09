@@ -17,7 +17,6 @@ def extract_node_from_onnx(
             return node
     raise ValueError(f"No node found for {domain}::{op_type}")
 
-
 def _extract_attr_from_onnx_node(
     onnx_node: onnx.NodeProto,
     attr_names: Union[list[str], tuple[str]], #extract any of these
@@ -35,7 +34,7 @@ def _extract_attr_from_onnx_node(
     return attr
 
 def _extract_string_from_onnx_node(
-    onnx_node: onnx.NodeProto
+    onnx_node: onnx.NodeProto,
     attr_name: str,
 ):
     attr = _extract_attr_from_onnx_node(
@@ -56,7 +55,7 @@ def _extract_zip_from_onnx_node(
     b64_attr_name: str,
     out_dir: Union[str, None] = None,
 ):
-    b64_attr = _extract_attr_from_onnx_node(
+    b64 = _extract_string_from_onnx_node(
         onnx_node=onnx_node,
         attr_name=b64_attr_name,
     )
@@ -109,6 +108,6 @@ def extract_kernel_ir_from_onnx_node(onnx_node: onnx.NodeProto, out_dir: str):
     return _extract_zip_from_onnx_node(
         onnx_node=onnx_node,
         b64_attr_name=pypto_op._META_KEY__KERNEL_IR_ZIP,
-        outdir=out_dir,
+        out_dir=out_dir,
     )
 

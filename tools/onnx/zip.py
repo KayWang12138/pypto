@@ -24,7 +24,7 @@ def zip_source_file_to_b64(fn):
 
 def zip_kernel_dir_to_b64(kernel_dir: str):
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf: # is allowZip64 required ?
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf: # is allowZip64 required ?
         for root, dirs, files in os.walk(kernel_dir):
             if not "kernel" in root:
                 dirs[:] = [d for d in dirs if d.startswith("kernel")]
