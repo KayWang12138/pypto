@@ -58,8 +58,7 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
         opsInputInt8 = op.GetIOperands()[0]->tensor->GetDataType() == DataType::DT_INT8;
     }
 
-    if (in->tensor->GetDataType() == DataType::DT_INT8 || in->tensor->GetDataType() == DataType::DT_FP8E5M2 ||
-        in->tensor->GetDataType() == DataType::DT_FP8E4M3 || (matmulOp && opsInputInt8)) {
+    if (in->tensor->GetDataType() == DataType::DT_INT8 || (matmulOp && opsInputInt8)) {
         // 检查op的输入数据类型是不是int8类型或者in的数据类型是否为int8
         // 包括matmul系列和GM->L1->L0系列
         return true;
@@ -410,9 +409,6 @@ void PadLocalBuffer::DoPadding(Function &function) {
             }
             visited.emplace(in);
             if (IsMatmul(in)) {
-                // if (op.GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
-                //     continue;
-                // }
                 PadMatmul(op, in);
                 continue;
             }
