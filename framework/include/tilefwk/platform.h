@@ -78,17 +78,21 @@ enum class InstCategory {
 struct MemoryNode {
     MemoryType type;
     std::set<MemoryType> dests;
-    void AddDest(const std::shared_ptr<MemoryNode> &to);
+    void AddDest(const std::shared_ptr<MemoryNode> &to) {
+        dests.insert({to->type});
+    }
 };
 
 struct MemoryGraph {
     std::map<MemoryType, std::shared_ptr<MemoryNode>> nodes;
-    void AddPath(MemoryType from, MemoryType to);
-    std::shared_ptr<MemoryNode> GetNode(MemoryType type);
-    void DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node, std::vector<MemoryType> &candidate,
+    extern void AddPath(MemoryType from, MemoryType to);
+    extern std::shared_ptr<MemoryNode> GetNode(MemoryType type);
+    extern void DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node, std::vector<MemoryType> &candidate,
         std::vector<MemoryType> &paths) const;
-    bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
-    void Reset();
+    extern bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
+    void Reset(){
+        nodes.clear();
+    }
 };
 
 class PlatformParser {
@@ -97,13 +101,10 @@ class PlatformParser {
     virtual ~PlatformParser() {}
     virtual bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const = 0;
     
-    bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
-    bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
-    bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const;
-    bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
-    bool FilterDirections(const std::string& value, std::string &part) const;
-    bool FilterDataPath(const std::string& part, std::string &from, std::string &to) const;
-};
+    extern bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
+    extern bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
+    extern bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const;
+    extern bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
 
 class Inst {
 public:
@@ -139,7 +140,7 @@ public:
     std::string GetVersion() const { return version; }
     std::string GetCCECVersion() const { return ccec_version; }
     size_t GetNum() const { return num_; }
-    size_t GetMemorySize(MemoryType type) const;
+    extern size_t GetMemorySize(MemoryType type) const;
 };
 
 class AivCore : public Core{
@@ -275,13 +276,13 @@ public:
     size_t GetMemHost1Size() const { return mem_host1_size_; }
     size_t GetCoreWrapNum() const { return core_wrap_cnt_; }
 
-    size_t GetMemoryLimit(MemoryType type) const;
+    extern size_t GetMemoryLimit(MemoryType type) const;
 
     void SetMemDeviceDDRSize(size_t size) { mem_device_ddr_size_ = size; }
     void SetMemHost1Size(size_t size)     { mem_host1_size_      = size; }
 
-    bool SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths);
-    bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
+    extern bool SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths);
+    extern bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
 
     std::string Dump() const {
         std::stringstream ss;
@@ -338,21 +339,21 @@ private:
 public:
     void SetDie(const Die& die) { die_ = die; }
     void SetNPUArch(NPUArch version) { version_ = version; }
-    void SetNPUArch(const std::string& version);
+    void SetNPUArch(const std::string& version) { version_ = StringToNPUArch(versionStr); }
     void SetShortSocVersion(const std::string& version) { short_soc_ver_ = version;}
     void SetDiesNum(size_t cnt) { dies_cnt_ = cnt; }
-    void SetCoreVersion(const std::unordered_map<std::string, std::string>& ver);
-    void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
+    extern void SetCoreVersion(const std::unordered_map<std::string, std::string>& ver);
+    extern void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
 
     Die& GetDies() { return die_; }
     NPUArch GetNPUArch() const { return version_; }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetShortSocVersion() const { return short_soc_ver_; }
-    std::string GetCoreVersion(std::string CoreType);
-    std::string GetCCECVersion(std::string CoreType);
+    extern std::string GetCoreVersion(std::string CoreType);
+    extern std::string GetCCECVersion(std::string CoreType);
 
     // SOCINFO
-    size_t GetAICPUNum() const;
+    extern size_t GetAICPUNum() const;
     size_t GetAICoreNum() const { return ai_core_cnt_; }
     size_t GetAICCoreNum() const { return cube_core_cnt_; }
     size_t GetAIVCoreNum() const { return vector_core_cnt_; }
@@ -418,7 +419,10 @@ private:
     size_t cluster_cnt_;
     size_t host_cnt_;
 public:
-    static Platform &Instance();
+    static Platform &Instance() {
+        static Platform instance;
+        return instance;
+    }
 
     void SetCluster(const Cluster& cluster) { cluster_ = cluster; }
     void SetHost(const Host& host) { host_ = host; }
@@ -437,50 +441,50 @@ public:
     AicCore& GetAICCore() { return GetCoreWrap().GetAICCore(); }
     AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
     
-    void LoadPlatformInfo(const PlatformParser &parser);
-    void ObtainPlatformInfo();
+    extern void LoadPlatformInfo(const PlatformParser &parser);
+    extern void ObtainPlatformInfo();
 
     std::string Dump() {
-    std::ostringstream ss;
-    ss << "{\n";
+        std::ostringstream ss;
+        ss << "{\n";
 
-    // 1. Platform
-    ss << "  \"PLATFORM_INFO\" : {\n";
-    ss << "    \"CLUSTER_NUM\" : " << cluster_cnt_ << ",\n";
-    ss << "    \"HOST_NUM\" : " << host_cnt_ << "\n";
-    ss << "  },\n";
+        // 1. Platform
+        ss << "  \"PLATFORM_INFO\" : {\n";
+        ss << "    \"CLUSTER_NUM\" : " << cluster_cnt_ << ",\n";
+        ss << "    \"HOST_NUM\" : " << host_cnt_ << "\n";
+        ss << "  },\n";
 
-    auto appendInlineObject = [&](const std::string &child_dump, bool with_trailing_comma) {
-        constexpr size_t kLeftWrapLen  = std::char_traits<char>::length("{");
-        constexpr size_t kRightWrapLen = std::char_traits<char>::length("}");
-        if (child_dump.size() <= kLeftWrapLen + kRightWrapLen) {
-            return; 
-        }
-        const size_t inner_len = child_dump.size() - kLeftWrapLen - kRightWrapLen;
-        ss.write(child_dump.data() + kLeftWrapLen, static_cast<std::streamsize>(inner_len));
-        ss << (with_trailing_comma ? ",\n" : "\n");
-    };
+        auto appendInlineObject = [&](const std::string &child_dump, bool with_trailing_comma) {
+            constexpr size_t kLeftWrapLen  = std::char_traits<char>::length("{");
+            constexpr size_t kRightWrapLen = std::char_traits<char>::length("}");
+            if (child_dump.size() <= kLeftWrapLen + kRightWrapLen) {
+                return; 
+            }
+            const size_t inner_len = child_dump.size() - kLeftWrapLen - kRightWrapLen;
+            ss.write(child_dump.data() + kLeftWrapLen, static_cast<std::streamsize>(inner_len));
+            ss << (with_trailing_comma ? ",\n" : "\n");
+        };
 
-    // 2. Cluster
-    appendInlineObject(cluster_.Dump(), true);
+        // 2. Cluster
+        appendInlineObject(cluster_.Dump(), true);
 
-    // 3. SoC
-    appendInlineObject(GetSoc().Dump(), true);
+        // 3. SoC
+        appendInlineObject(GetSoc().Dump(), true);
 
-    // 4. Die
-    appendInlineObject(GetDie().Dump(), true);
+        // 4. Die
+        appendInlineObject(GetDie().Dump(), true);
 
-    // 5. CoreWrap
-    appendInlineObject(GetCoreWrap().Dump(), true);
+        // 5. CoreWrap
+        appendInlineObject(GetCoreWrap().Dump(), true);
 
-    // 6. AIVCore
-    appendInlineObject(GetAIVCore().Dump(), true);
+        // 6. AIVCore
+        appendInlineObject(GetAIVCore().Dump(), true);
 
-    // 7. AICCore
-    appendInlineObject(GetAICCore().Dump(), false);
+        // 7. AICCore
+        appendInlineObject(GetAICCore().Dump(), false);
 
-    ss << "}\n";
-    return ss.str();
-}
+        ss << "}\n";
+        return ss.str();
+    }
 };
 } // namespace npu::tile_fwk

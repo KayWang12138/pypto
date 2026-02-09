@@ -159,10 +159,6 @@ bool Die::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType
     return false;
 }
 
-void SoC::SetNPUArch(const std::string& versionStr) {
-    version_ = StringToNPUArch(versionStr);
-}
-
 size_t SoC::GetAICPUNum() const {
    uint32_t cpuNum = 0;
    int ret = 1;
@@ -214,10 +210,6 @@ std::string SoC::GetCCECVersion(std::string CoreType) {
     } else {
         return "UNKNOWN_CORE";
     }
-}
-
-void MemoryNode::AddDest(const std::shared_ptr<MemoryNode> &to) {
-    dests.insert({to->type});
 }
 
 void MemoryGraph::AddPath(MemoryType from, MemoryType to) {
@@ -282,15 +274,6 @@ bool MemoryGraph::FindNearestPath(MemoryType from, MemoryType to, std::vector<Me
     const auto it = nodes.find(from);
     DFS(to, it->second, candidate, paths);
     return true;
-}
-
-void MemoryGraph::Reset() {
-    nodes.clear();
-}
-
-Platform &Platform::Instance() {
-    static Platform instance;
-    return instance;
 }
 
 void Platform::LoadPlatformInfo(const PlatformParser &parser) {
