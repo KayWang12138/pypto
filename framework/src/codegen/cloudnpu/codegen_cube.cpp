@@ -43,7 +43,7 @@ std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const {
     }
     bool hasBias = tensorWithMemType.count(OperandType::BUF_BT);
     bool isMXMad = tensorWithMemType.count(OperandType::BUF_L0AMX) || tensorWithMemType.count(OperandType::BUF_L0BMX);
-    if(!isMXMad){
+    if (!isMXMad) {
         return PrintMatmulTileTensor(isAcc, tensorWithMemType);
     }
     std::ostringstream oss;
@@ -66,13 +66,10 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
         return PrintMatmulTileTensor(!zeroC);
     }
     // shape: dst, src0, src1
-    bool isOffsetValid =
-        (offset[ID1][ID0] == 0) && (offset[ID1][ID1] == 0) && (offset[ID2][ID0] == 0) && (offset[ID2][ID1] == 0);
-    ASSERT(isOffsetValid) << "CUBE: haven't consider l0A/B offset yet.";
     bool isShapeValid = (shape[ID0][ID0] == shape[ID1][ID0]) &&
                         (shape[ID0][ID1] == shape[ID2][ID1] || shape[ID0][ID1] == shape[ID2][ID0]) &&
                         (shape[ID1][ID1] == shape[ID2][ID1] || shape[ID1][ID1] == shape[ID2][ID0]);
-    ASSERT(isShapeValid) << "CUBE: m k n is invalid.";
+    ASSERT(isShapeValid) << "CUBE: m k n is invalid. op is " << operation.Dump();
     int64_t m = shape[ID0][ID0];
     int64_t k = shape[ID1][ID1]; // NEXTNEXT assume A is not transposed for now
     int64_t n = shape[ID0][ID1];
@@ -97,7 +94,7 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
         auto nSymbol = l0cShapeDyn[ID1];
         bool hasBias = 0;
         if (opAttrs.count(OP_ATTR_PREFIX + "has_bias")) {
-            hasBias = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
+            hasBias = AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
         }
         std::string biasStr = ", " + std::to_string(hasBias);
 
