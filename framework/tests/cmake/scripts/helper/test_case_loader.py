@@ -44,6 +44,7 @@ class TestCaseCreator:
             "BatchMatmul",
             "MatmulVerify",
             "BatchMatmulVerify",
+            "MXMatmul",
         ):
             return
         params["transA"] = matmulparam.trans_list[0]
