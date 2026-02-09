@@ -12,7 +12,7 @@ import argparse
 
 from tools.onnx.export import export_to_onnx
 from tools.onnx.extract import *
-from tools.onnx_infer import *
+from tools.onnx.infer import *
 from tools.onnx.pypto_op import *
 
 NPU_DEVICE_ID = 1
@@ -22,7 +22,7 @@ SHAPE = (32, 32, 1, 64)
 TILE_SHAPES = (1, 16, 1, 64)
 
 @pypto_op_kernel(kernel_name="add_kernel", tile_shapes=TILE_SHAPES, support_dynamic_aligned=True, version=1,
-        incl_src=True, incl_binary=True, incl_ir=True)
+            incl_src=True, incl_binary=True, incl_ir=True)
 def add_kernel_py(t0, t1, t2):
     print("Goes through add_kernel")
 
@@ -150,16 +150,16 @@ def demo_load(models_dir: str):
     node = extract_node_from_onnx(
         onnx_model=m,
         domain=DOMAIN,
-        op_type=OP_TYPE__AD,
+        op_type=OP_TYPE__ADD,
     )
 
     kernel_format = extract_kernel_format_from_onnx_node(node)
-    pypto_meta = extarct_pypto_meta_from_onnx_node(node)
+    pypto_meta = extract_pypto_meta_from_onnx_node(node)
 
     print(f"kernel_format:\t{kernel_format}")
     print(f"pypto_meta:\t{pypto_meta}")
 
-    print("\n------------------\n")
+    print("\n----------------\n")
 
     infer_shape_source = extract_infer_shape_source_from_onnx_node(node)
     calc_workspace_source = extract_calc_workspace_source_from_onnx_node(node)
@@ -168,21 +168,21 @@ def demo_load(models_dir: str):
     x0_shape = SHAPE
     x1_shape = SHAPE
 
-    print("infer_shape() source:\n{infer_shape_source}")
+    print(f"infer_shape() source:\n{infer_shape_source}")
     infer_shape = register_infer_shape_fn(infer_shape_source, namespace=namespace)
     print(f"infer_shape() call:\t{infer_shape(x0_shape, x1_shape)}\n")
 
-    print("calc_workspace() source:\n{calc_workspace_source}")
+    print(f"calc_workspace() source:\n{calc_workspace_source}")
     calc_workspace = register_calc_workspace_fn(calc_workspace_source, namespace=namespace)
-    print(f"calc_workspace() call:\t{calc_workspace(x0_shape, x1_shape)}\n")
+    print(f"calc_workspace() call:\t{calc_workspace(x0_shape, x1_shape)}")
 
-    print("\n------------------\n")
+    print("\n----------------\n")
 
     if kernel_format == KERNEL_FORMAT__SOURCE or kernel_format == KERNEL_FORMAT__MULTI:
         try:
             kernel_source_zip_meta = extract_kernel_source_from_onnx_node(
                 onnx_node=node,
-                out_dir=f"{models_dir}/extracted_onnx_src".
+                out_dir=f"{models_dir}/extracted_onnx_src",
             )
             print(f"src_zip:\t{kernel_source_zip_meta}")
         except:
@@ -193,7 +193,7 @@ def demo_load(models_dir: str):
         try:
             kernel_binary_zip_meta = extract_kernel_binary_from_onnx_node(
                 onnx_node=node,
-                out_dir=f"{models_dir}/extracted_onnx_binary".
+                out_dir=f"{models_dir}/extracted_onnx_binary",
             )
             print(f"binary_zip:\t{kernel_binary_zip_meta}")
         except:
@@ -204,7 +204,7 @@ def demo_load(models_dir: str):
         try:
             kernel_ir_zip_meta = extract_kernel_ir_from_onnx_node(
                 onnx_node=node,
-                out_dir=f"{models_dir}/extracted_onnx_ir".
+                out_dir=f"{models_dir}/extracted_onnx_ir",
             )
             print(f"ir_zip:\t{kernel_ir_zip_meta}")
         except:
@@ -224,8 +224,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.mode == "export":
-        example_export(args.models_dir, force_cpu=args.force_cpu, force_sim=args.force_sim)
+        demo_export(args.models_dir, force_cpu=args.force_cpu, force_sim=args.force_sim)
     elif args.mode == "load":
-        example_load(args.models_dir)
+        demo_load(args.models_dir)
     else:
         raise ValueError(f"Invalid mode: {args.mode}")

@@ -19,12 +19,14 @@ _META_KEY__KERNEL_BINARY_ZIP = "kernel_binary_zip"
 _META_KEY__KERNEL_IR_ZIP = "kernel_ir_zip"
 
 _META_KEY__INFER_SHAPE_SOURCE = "infer_shape_source"
-_META_KEY__INFER_CALC_WORKSPACE = "calc_workspace_source"
+_META_KEY__CALC_WORKSPACE_SOURCE = "calc_workspace_source"
+
+_META_KEY__META_JSON = "meta_json"
 
 _OPTIONS_KEY__INCL_BINARY = "incl_binary"
 _OPTIONS_KEY__INCL_IR = "incl_ir"
 
-def _unwrap_decorated_func_source(source: str)
+def _unwrap_decorated_func_source(source: str):
     return source[source.find("def "):] # a bit ugly, check if there're better options
 
 def _unwrap_decorated_func_name(name: str):
@@ -37,7 +39,7 @@ def _get_renamed_func_source(func, new_func_name: str):
 
 # 通过@pypto_op装饰器输出pypto算子相关信息
 def pypto_op_kernel(*, kernel_name, incl_src=False, incl_binary=False, incl_ir=False, **meta):
-    def _derive_kernel_format()
+    def _derive_kernel_format():
         n_formats = int(incl_src) + int(incl_binary) + int(incl_ir)
         if n_formats > 1:
             return KERNEL_FORMAT__MULTI
@@ -58,8 +60,8 @@ def pypto_op_kernel(*, kernel_name, incl_src=False, incl_binary=False, incl_ir=F
                 meta_local[_META_KEY__KERNEL_SOURCE_ZIP] = b64
         fn.__pypto_meta__ = meta_local
         fn.__pypto_options__ = {
-            _OPTIONS_KEY_INCL_BINARY: incl_binary,
-            _OPTIONS_KEY_INCL_IR: incl_ir,
+            _OPTIONS_KEY__INCL_BINARY: incl_binary,
+            _OPTIONS_KEY__INCL_IR: incl_ir,
         }
         return fn
     return decorator
@@ -75,8 +77,8 @@ def pypto_op_calc_workspace(*, pypto_op_kernel):
     def decorator(fn):
         # can pass func names as separate attributes instead of renaming if needed later
         pypto_op_kernel.__pypto_meta__[_META_KEY__CALC_WORKSPACE_SOURCE] = _get_renamed_func_source(fn, _FUNC_NAME__CALC_WORKSPACE)
-       return fn
-   return decorator
+        return fn
+    return decorator
 
 def pypto_op_onnx_symbolic(*, pypto_op_kernel):
     def decorator(fn):

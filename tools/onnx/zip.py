@@ -6,11 +6,11 @@ import zipfile
 
 from pathlib import Path
 
-def _zip_file_to_b64(file_path: str)
+def _zip_file_to_b64(file_path: str):
     file_path = Path(file_path)
 
     buf = io.BytesIO()
-    with zipfile.Zipfile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(file_path.name, file_path.read_bytes())
 
     b64 = base64.b64encode(buf.getvalue()).decode("ascii")
@@ -24,7 +24,7 @@ def zip_source_file_to_b64(fn):
 
 def zip_kernel_dir_to_b64(kernel_dir: str):
     buf = io.BytesIO()
-    with zipfile.Zipfile(buf, "w", zipfile.ZIP_DEFLATED) as zf: # is allowZip64 required ?
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf: # is allowZip64 required ?
         for root, dirs, files in os.walk(kernel_dir):
             if not "kernel" in root:
                 dirs[:] = [d for d in dirs if d.startswith("kernel")]
@@ -38,7 +38,7 @@ def zip_kernel_dir_to_b64(kernel_dir: str):
     b64 = base64.b64encode(buf.getvalue()).decode("ascii")
     return b64
 
-def zip_pto_file_to_b64(pto_path: str)
+def zip_pto_file_to_b64(pto_path: str):
     return _zip_file_to_b64(pto_path)
 
 def unzip_b64_to_dir(b64: str, out_dir: str):

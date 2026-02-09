@@ -29,4 +29,4 @@ def find_kernel_pto_path(kernel_name):
                 raise OSError(f"No IR was found in {kernel_subdir} directory")
             return pto_path
 
-    return OSError(f"No IRs were found for kernel {kernel_name}")
+    raise OSError(f"No IRs were found for kernel {kernel_name}")
