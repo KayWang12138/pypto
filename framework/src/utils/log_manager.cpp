@@ -33,6 +33,7 @@ constexpr const char *kEnvGlobalLogEvent = "ASCEND_GLOBAL_EVENT_ENABLE";
 constexpr const char *kEnvProcessLogPath = "ASCEND_PROCESS_LOG_PATH";
 constexpr const char *kModuleName = "PYPTO";
 constexpr const char *kLogFilePrefix = "pypto-log-";
+constexpr const char *kLogFileSuffix = ".log";
 constexpr const char *kModulePrefix = "PYPTO=";
 
 const std::string kLogLevelNoneStr = "NONE";
@@ -202,5 +203,19 @@ void LogManager::WriteToStdOut(const LogMsg &logMsg) {
     if (ret < 0) {
         std::cerr << "Cannot write to stdout: " << ret << std::endl;
     }
+}
+
+void LogManager::WriteToFile(const LogMsg &logMsg) {
+    if (!currentFileStream_.is_open()) {
+        // init log file stream
+        currentFileStream_.open(filePath_, std::ios_base::app);
+    }
+    // write log into file
+
+    // check log
+}
+
+std::string LogManager::NewLogFileName() {
+
 }
 }
