@@ -18,6 +18,8 @@
 #include <signal.h>
 #include <sys/ucontext.h>
 
+#include <tracr/tracr.hpp>
+
 #include "device_common.h"
 #include "aicore_manager.h"
 #include "aicore_constants.h"
@@ -230,7 +232,52 @@ struct DynMachineManager {
         if (devArgs->enableCtrl == 1 && threadIdx == 0) {
             ret = RunCtrl(kargs, entry, threadIdx);
         } else if (threadIdx > 0 && threadIdx <= static_cast<int>(devArgs->scheCpuNum)) {
+
+/* TraCR Instrumentation */
+            DEV_ERROR("[TraCR] TraCR active[%d,%ld]? %d", threadIdx, syscall(SYS_gettid), INSTRUMENTATION_ACTIVE);
+            if (threadIdx == 1) {
+                DEV_ERROR("[TraCR] Thread [%d] start tracr? [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
+
+                INSTRUMENTATION_START("/tmp/");
+
+                DEV_ERROR("[TraCR] Thread [%d] start tracr done. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
+            } else {
+                DEV_ERROR("[TraCR] Thread [%d] waiting start of tracr. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
+                while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {}
+
+                INSTRUMENTATION_THREAD_INIT();
+            }
+            DEV_ERROR("[TraCR] Thread [%d] tracr thread init [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
+
             ret = RunSche(kargs, entry, threadIdx);
+
+            /* TraCR Instrumentation */
+            DEV_ERROR("[TraCR] Begin dump TraCR trace.");
+            if (threadIdx == 1) {
+
+                INSTRUMENTATION_MARK_RESET(threadIdx);
+
+                while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {}
+
+#ifdef ENABLE_TRACR
+                // This is for debugging
+                DEV_ERROR("[TraCR] JSON: %s", INSTRUMENTATION_GET_JSON_STR().c_str());
+
+                DEV_ERROR("[TraCR] BTS: %s", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
+#endif
+
+                DEV_ERROR("[TraCR] Finish dump TraCR trace.");
+
+                INSTRUMENTATION_END();
+            } else {
+                INSTRUMENTATION_MARK_RESET(threadIdx);
+                
+#ifdef ENABLE_TRACR
+                // This is for debugging
+                DEV_ERROR("[TraCR] BTS: %s", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
+#endif
+                INSTRUMENTATION_THREAD_FINALIZE();
+            }
         } else {
             SignalReg(entry);
         }

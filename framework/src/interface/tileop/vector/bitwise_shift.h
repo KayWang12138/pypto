@@ -36,12 +36,12 @@ TILEOP void BitwiseShiftComputeImpl(T0 dst, T1 src0, T2 src1) {
 template <BitwiseShiftOp op, typename T0, typename T1, typename Scalar>
 TILEOP void BitwiseShiftScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
     if constexpr (op == BitwiseShiftOp::BITWISERIGHTSHIFT) {
-        pto::TSHRS(dst, src0, src1);
+        pto::TSHR(dst, src0, src1);
         return;
     }
 
     if constexpr (op == BitwiseShiftOp::BITWISELEFTSHIFT) {
-        pto::TSHLS(dst, src0, src1);
+        pto::TSHL(dst, src0, src1);
         return;
     }
 }
@@ -60,7 +60,7 @@ TILEOP void GetValidShiftTile(T &dst, U &src1, V &tmp) {
     #ifdef __DAV_V220
         pipe_barrier(PIPE_V);
     #endif
-    pto::TSHRS(tmp, tmp, MAX_SHIFT_NUM);
+    pto::TSHR(tmp, tmp, MAX_SHIFT_NUM);
     #ifdef __DAV_V220
         pipe_barrier(PIPE_V);
     #endif
