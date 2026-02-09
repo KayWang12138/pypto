@@ -63,7 +63,7 @@ private:
     Status CheckVecNBufferSettingForManualMerge();
     Status MergeProcessForMulityInOut(const OperationsViewer &opOriList,
                         const std::map<uint64_t, std::vector<int>> &hashMap,
-                        std::map<uint64_t, size_t> &hashMergeNum,
+                        const std::map<uint64_t, size_t> &hashMergeNum,
                         std::vector<uint64_t> &hashColor);
 private:
     int color_{0};

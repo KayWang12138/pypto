@@ -57,9 +57,9 @@ void DFSVisit(int preColor,
     }
 }
 
-void DFSSortUtils::DFSSortColor(int color,
-                                std::vector<std::vector<int>> &inColor,
-                                std::vector<std::vector<int>> &outColor,
+void DFSSortUtils::DFSSortColor(const int color,
+                                const std::vector<std::vector<int>> &inColor,
+                                const std::vector<std::vector<int>> &outColor,
                                 std::unordered_map<int, int> &dfsColorOrder) {
     std::unordered_set<int> visited;
     for (int preColor = 0; preColor < color; preColor++) {
