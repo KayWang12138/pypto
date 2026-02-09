@@ -84,8 +84,8 @@ class FunctionPassImpl : public PassImpl {
     std::vector<FunctionPtr> transformed_functions;
     transformed_functions.reserve(program->functions_.size());
 
-    for (const auto& [global_var, func] : program->functions_) {
-      FunctionPtr transformed_func = transform_(func);
+    for (const auto& entry : program->functions_) {
+      FunctionPtr transformed_func = transform_(entry.second);
       transformed_functions.push_back(transformed_func);
     }
 
