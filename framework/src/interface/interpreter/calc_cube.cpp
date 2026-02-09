@@ -87,14 +87,30 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     auto copyin = std::static_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute()); // 获取attr
     std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
     if (opCode == Opcode::OP_L0C_TO_L1) {
+        // fixpipe
+        bool quant = oper->GetDataType() == DataType::DT_INT32 && ret->GetDataType() == DataType::DT_FP16;
+        if (quant) {
+            uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
+            int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
+            LogicalTensorDataPtr scalePtr = nullptr;
+            if (ctx->ioperandDataViewList->size() > 1) {
+                scalePtr = ctx->ioperandDataViewList->at(1);
+            }
+        }
         std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetShape());
         std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToOffset());
         if (oper->GetShape()[0] > ret->GetShape()[0] || oper->GetShape()[1] > ret->GetShape()[1]) {
             auto iop = oper->View(ret->GetShape(), fromOffset);
             calc::Copy(ret, iop);
+            if (quant) {
+                calc::Fixpipe(ret, iop, scalePtr, scale, relu);
+            }
         } else {
             auto iop = ret->View(oper->GetShape(), toOffset);
             calc::Copy(iop, oper);
+            if (quant) {
+                calc::Fixpipe(ret, oper, scalePtr, scale, relu);
+            }
         }
     } else {
         auto iop = oper->View(ret->GetShape(), fromOffset);
@@ -110,3 +126,5 @@ REGISTER_CALC_OP(OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L1_TO_FIX_QUANT_PRE, Execute
 REGISTER_CALC_OP(OP_L1_TO_BT, Opcode::OP_L1_TO_BT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, ExecuteDuplicate);
 } // namespace npu::tile_fwk
+
+        
