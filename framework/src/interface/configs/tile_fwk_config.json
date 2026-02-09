@@ -133,10 +133,6 @@
                 "InferDynShape": {
                     "pre_check": true,
                     "post_check": true
-                },
-                "OoOSchedule": {
-                    "pre_check": true,
-                    "post_check": true
                 }
             }
         }
