@@ -217,7 +217,8 @@ std::vector<StmtPtr> CreateAllocStatements(
   alloc_stmts.reserve(memref_pairs.size());
 
   // Create alloc statements in order (already sorted by address)
-  for (const auto& [old_memref_ptr, new_memref] : memref_pairs) {
+  for (const auto& memref_pair : memref_pairs) {
+    const auto& new_memref = memref_pair.second;
     // Create block.alloc operation with all MemRef fields as arguments
     auto alloc_op = std::make_shared<Op>("block.alloc");
 

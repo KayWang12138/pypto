@@ -16,15 +16,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "core/error.h"
-#include "core/logging.h"
-#include "ir/function.h"
-#include "ir/kind_traits.h"
-#include "ir/stmt.h"
-#include "ir/transform/base/visitor.h"
-#include "ir/transform/passes.h"
-#include "ir/transform/verification_error.h"
-#include "ir/transform/verifier.h"
+#include "ir/transform/verify_pass_common.h"
 
 namespace pypto {
 namespace ir {
