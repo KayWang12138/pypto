@@ -221,7 +221,6 @@ public:
         if (rc != DEVICE_MACHINE_OK) {
             ret = rc;
         }
-        INSTRUMENTATION_MARK_RESET(aicpuIdx_);
         PerfMtEnd(PERF_EVT_SYNC_AICORE, aicpuIdx_);
         DEV_DEBUG("aicpu %d proc finish send all task,aic: %lu, aiv: %lu, aicpu: %lu, sync finish ret: %d.",
             aicpuIdx_, procAicCoreFunctionCnt_, procAivCoreFunctionCnt_, procAicpuFunctionCnt_, ret);
@@ -376,11 +375,9 @@ public:
             INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_RCV, 0);
             PerfMtTrace(PERF_TRACE_DEV_TASK_RCV, aicpuIdx_);
             PROF_STAGE_BEGIN_MTSAFE(PERF_EVT_STAGE_SCHEDULE, threadIdx, "dispatch.before\n");
-            INSTRUMENTATION_MARK_SET(threadIdx, PERF_EVT_RUN_TASK, 0);
             PerfMtBegin(PERF_EVT_RUN_TASK, threadIdx);
             ret = RunTask(taskCtrl);
             lastDevTaskFinCycle = GetCycles();
-            INSTRUMENTATION_MARK_RESET(threadIdx);
             PerfMtEnd(PERF_EVT_RUN_TASK, threadIdx);
             DEV_DEBUG("Run task finish taskid=%d ret %d.", curTaskId_, ret);
             if (ret != 0)
@@ -715,7 +712,6 @@ private:
             DEV_VERBOSE_DEBUG("AiCpud:%d, can not send task currently. ready Core: %u.", aicpuIdx_, ready);
             return 0;
         }
-        INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_EVT_SEND_AIC_TASK, 0);
         PerfMtBegin(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
         uint32_t readyId[MAX_MANAGER_AIV_NUM];
         ReadyQueueLock(readyQue);
@@ -725,7 +721,6 @@ private:
         if (taskCount == 0) {
             DEV_VERBOSE_DEBUG("AiCpud:%u, taskCount is zero", head);
             ReadyQueueUnLock(readyQue);
-            INSTRUMENTATION_MARK_RESET(aicpuIdx_);
             PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
             return 0;
         }
@@ -743,7 +738,6 @@ private:
             taskCount, coreIdxStart, coreIdxEnd, isRealLifo);
         DEV_VERBOSE_DEBUG("core ready cnt: %u", context_->corePendReadyCnt_[static_cast<int>(type)]);
         firstLock[static_cast<int>(type)] = false;
-        INSTRUMENTATION_MARK_RESET(aicpuIdx_);
         PerfMtEnd(PERF_EVT_SEND_AIC_TASK, aicpuIdx_);
         return taskCount;
     }
@@ -860,7 +854,6 @@ private:
     }
     inline int32_t ResolveDepForAllAiCore(CoreType type, int coreIdxStart, int coreIdxEnd) {
         int32_t ret = DEVICE_MACHINE_OK;
-        INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_EVT_RESOLVE_DEPENDENCE, 0);
         PerfMtBegin(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
         for (int i = coreIdxStart; i < coreIdxEnd; i++) {
             if ((runningIds_[i] != AICORE_TASK_INIT || pendingIds_[i] != AICORE_TASK_INIT)) {
@@ -884,7 +877,6 @@ private:
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             return ret;
         }
-        INSTRUMENTATION_MARK_RESET(aicpuIdx_);
         PerfMtEnd(static_cast<int>(PERF_EVT_RESOLVE_DEPENDENCE), aicpuIdx_);
         return ret;
     }
@@ -1157,7 +1149,7 @@ private:
         return timeCost;
     }
 
-    inline int32_t ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop) {
+    inline int32_t ResolveDynStitched(DynDeviceTask *dyntask, int origfunc, int origop, int coreIdx = 0) {
         int32_t ret = DEVICE_MACHINE_OK;
         auto &duppedData = dyntask->GetDynFuncDataCacheList()[origfunc].duppedData;
         auto &stitchList = duppedData->GetOperationStitch(origop);
@@ -1170,23 +1162,28 @@ private:
                 auto funcId = FuncID(id);
                 auto opIndex = TaskID(id);
                 auto predCounts = dyntask->dynFuncDataCacheList[funcId].predCount;
-                if (predCounts[opIndex] == 1 ||
-                    __atomic_sub_fetch(&predCounts[opIndex], 1, __ATOMIC_RELAXED) == 0) {
-                    auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
-                    auto coreType = cceBinary[callList[opIndex]].coreType;
-                    if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
-                        ret = ResolveDepDyn(id);
-                        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                            return ret;
-                        }
-                        context_->resolveHubCnt_++;
-                    } else if (coreType == static_cast<int>(MachineType::AICPU)){
-                        PushAicpuTaskQueue(id);
-                    } else {
-                        ret = PushReadyTask(static_cast<int>(coreType), id);
-                        if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                            return ret;
-                        }
+                bool needProcess = predCounts[opIndex] == 1 ||
+                    __atomic_sub_fetch(&predCounts[opIndex], 1, __ATOMIC_RELAXED) == 0;
+                if (!needProcess) {
+                    continue;
+                }
+
+                auto callList = dyntask->dynFuncDataCacheList[funcId].calleeList;
+                auto coreType = cceBinary[callList[opIndex]].coreType;
+                if (unlikely(coreType == static_cast<int>(CoreType::HUB))) {
+                    ret = ResolveDepDyn(id, 0, coreIdx);
+                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                        return ret;
+                    }
+                    context_->resolveHubCnt_++;
+                } else if (coreType == static_cast<int>(MachineType::AICPU)){
+                    PushAicpuTaskQueue(id);
+                } else if (wrapManager_.IsBindedWrapId(id)) {
+                    wrapManager_.ResolveDepForMixCore(id);
+                } else {
+                    ret = PushReadyTask(static_cast<int>(coreType), id);
+                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
+                        return ret;
                     }
                 }
             }
@@ -1249,14 +1246,12 @@ private:
                     wrapManager_.ResolveDepForMixCore(id);
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
-                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                        return ret;
-                    }
+                    if (unlikely(ret != DEVICE_MACHINE_OK)) {return ret;}
                 }
             }
         }
 
-        ret = ResolveDynStitched(dyntask, funcId, opIndex);
+        ret = ResolveDynStitched(dyntask, funcId, opIndex, coreIdx);
         return ret;
     }
 
@@ -1288,13 +1283,13 @@ private:
                         return ret;
                     }
                     context_->resolveHubCnt_++;
+                } else if (wrapManager_.IsBindedWrapId(id)) {
+                    wrapManager_.ResolveDepForMixCore(id);
                 } else if (unlikely(coreType == static_cast<int>(MachineType::AICPU))){
                     PushAicpuTaskQueue(id);
                 } else {
                     ret = PushReadyTask(static_cast<int>(coreType), id);
-                    if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                        return ret;
-                    }
+                    if (unlikely(ret != DEVICE_MACHINE_OK)) {return ret;}
                 }
             }
         }
