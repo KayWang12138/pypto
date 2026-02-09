@@ -138,6 +138,61 @@ Tensor Log(const Tensor &self, LogBaseType base) {
     return resTensorBeforeCast;
 }
 
+
+LogicalTensorPtr Log1p(const Tensor &self) {
+    DECLARE_TRACER();
+    ASSERT(self.GetStorage()->tensor->datatype == DataType::DT_BF16 ||
+           self.GetStorage()->tensor->datatype == DataType::DT_FP16 ||
+           self.GetStorage()->tensor->datatype == DataType::DT_FP32)
+        << "The datatype is not supported";
+    //cast
+    auto operandCast = Tensor(DataType::DT_FP32, self.GetShape());
+    if (self.GetStorage()->tensor->datatype == DataType::DT_FP16 || self.GetStorage()->tensor->datatype == DataType::DT_BF16) {
+        operandCast = CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            self.GetStorage(), DataType::DT_FP32, CastMode::CAST_NONE);
+    } else {
+        operandCast = self;
+    }
+
+    auto tAddOne = CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(),
+                        operandCast.GetStorage(), Element(DataType::DT_FP32, 1.0f));
+    // Step 3: dSubOne = tAddOne - 1.0    
+    auto dSubOne = CALL(BinaryOperationScalar<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(),
+                        tAddOne.GetStorage(), Element(DataType::DT_FP32, -1.0f));
+    // Step 4: rDivide = operandCast / dSubOne
+    auto rDivide = CALL(BinaryOperation<BinaryOpType::DIV>, *Program::GetInstance().GetCurrentFunction(),
+                        operandCast.GetStorage(), dSubOne.GetStorage());
+
+    // Step 5: lLog = ln(tAddOne)
+    auto lLog = 
+        CALL(UnaryOperation<UnaryOpType::LN>, *Program::GetInstance().GetCurrentFunction(), tAddOne.GetStorage());
+    // Step 6: yRaw = lLog * rDivide
+    auto yRaw = CALL(BinaryOperation<BinaryOpType::MUL>, *Program::GetInstance().GetCurrentFunction(),
+                     lLog.GetStorage(), rDivide.GetStorage());
+    // Step 7: maskEqOne = (tAddOne == 1.0)
+    auto maskEqOne = CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(),
+                          tAddOne.GetStorage(), Element(DataType::DT_FP32, 1.0f), BOOL, EQ);
+    auto maskEqInf = CALL(CompareOperation, *Program::GetInstance().GetCurrentFunction(),
+                          tAddOne.GetStorage(), Element(DataType::DT_FP32, INFINITY), BOOL, EQ);
+
+    auto ySelect = CALL(WhereOperation, *Program::GetInstance().GetCurrentFunction(), maskEqOne,
+                        operandCast, yRaw);
+    ySelect = CALL(WhereOperation, *Program::GetInstance().GetCurrentFunction(), maskEqInf,
+                        Element(DataType::DT_FP32, INFINITY), ySelect);
+    //cast结果                  
+    auto resTensorBeforeCast = Tensor(DataType::DT_FP32, self.GetShape());
+    resTensorBeforeCast = ySelect;
+
+    if (self.GetStorage()->tensor->datatype == DataType::DT_FP16) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            resTensorBeforeCast.GetStorage(), DataType::DT_FP16, CastMode::CAST_NONE);
+    } else if (self.GetStorage()->tensor->datatype == DataType::DT_BF16) {
+        RETURN_CALL(CastOperation<CastOpType::CAST>, *Program::GetInstance().GetCurrentFunction(),
+            resTensorBeforeCast.GetStorage(), DataType::DT_BF16, CastMode::CAST_NONE);
+    }
+    return resTensorBeforeCast;
+} 
+
 LogicalTensorPtr GenAllOneTensor(const Shape &shape, std::vector<SymbolicScalar> validShape, const DataType &dataType) {
     auto result = CALL(FullOperation, *Program::GetInstance().GetCurrentFunction(), Element(DataType::DT_FP32, 1.0),
         SymbolicScalar(), DataType::DT_FP32, shape, validShape);

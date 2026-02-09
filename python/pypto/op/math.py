@@ -856,8 +856,6 @@ def log2(input: Tensor) -> Tensor:
 
     See Also
     --------
-    log : Natural logarithm (base e).
-    log10 : Base-10 logarithm.
     sqrt : Element-wise square-root.
 
     Examples
@@ -868,7 +866,7 @@ def log2(input: Tensor) -> Tensor:
     # Output y: [0.0000 1.0000 2.0000]
     """
     return pypto_impl.Log(input, pypto_impl.LogBaseType.LOG_2)
-    
+
 @op_wrapper
 def log10(input: Tensor) -> Tensor:
     """Computes the element-wise base-10 logarithm of `input`.
@@ -887,8 +885,6 @@ def log10(input: Tensor) -> Tensor:
 
     See Also
     --------
-    log : Natural logarithm (base e).
-    log2 : Base-2 logarithm.
     sqrt : Element-wise square-root.
 
     Examples
@@ -905,16 +901,12 @@ def log1p(input: Tensor) -> Tensor:
     """Computes the element-wise natural logarithm of (1 + input).
 
     This function calculates the formula: `out = log(1 + input)`, where `log`
-    denotes the natural logarithm (base e). It is mathematically equivalent to
-    `log(input + 1)`, but this implementation uses the standard expression.
-    
-    For numerical stability with very small values of `input` (e.g., near zero),
-    a dedicated low-level `log1p` kernel is recommended in future versions.
+    denotes the natural logarithm (base e).
 
     Parameters
     ----------
     input : Tensor
-        The input tensor. Must satisfy `input > -1` for real-valued output
+        The input tensor. Must satisfy `input > -1`.
 
     Returns
     -------
@@ -924,17 +916,16 @@ def log1p(input: Tensor) -> Tensor:
     See Also
     --------
     log : Element-wise natural logarithm.
-    sqrt : Element-wise square-root.
+    add : Element-wise addition.
 
     Examples
     --------
     >>> x = pypto.tensor([0.0, 1.0, 2.0], pypto.DT_FP32)
     >>> y = pypto.log1p(x)
-    >>> print(y)
     # Input x: [0.0     1.0     2.0]
     # Output y: [0.0000 0.6931 1.0986]
     """
-    return pypto_impl.Log(input + 1, pypto_impl.LogBaseType.LOG_E)
+    return pypto_impl.Log1p(input)
 
 @op_wrapper
 def clip(
