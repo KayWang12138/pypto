@@ -1820,7 +1820,7 @@ TEST_F(ScheduleOoOTest, TestL1SpillBufferFailed) {
     std::vector<std::vector<std::string>> ooperands{{"t1"}, {"t2"}, {"t3"}, {"UB2"}, {"L0A1"}, {"L0A2"},
         {"UB2"}, {"t1"}, {"L0A1"}, {"L0A2"}, {"t2"}, {"t3"}, {"DDR1"}, {"DDR2"}};
     std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "L1_Alloc3", "UB_Alloc2", "L0A_Alloc1", "L0A_Alloc2",
-    "COPY_IN3", "UB_COPY_L1", "COPY_IN1", "COPY_IN2", "COPY_IN3", "COPY_IN4", "COPY_OUT1", "COPY_OUT2"};
+    "COPY_IN5", "UB_COPY_L1", "COPY_IN1", "COPY_IN2", "COPY_IN3", "COPY_IN4", "COPY_OUT1", "COPY_OUT2"};
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 512}, tensorL1Types, tensorL1, 0), true);
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
