@@ -143,7 +143,6 @@ void OoOScheduler::UpdateOpAttr(
         }
     }
     op.UpdateLatency(opLatency);
-    UpdateOpInternalSubgraphID(op, spillIssue);
 }
 
 void OoOScheduler::ReplaceTensorMemId(IssueEntryPtr &issue, int oldMemId, int newMemId) {
@@ -217,6 +216,10 @@ Status OoOScheduler::UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntry
     InsertIssueEntries(reloadAlloc);
     reloadCopyin->execOrder = bufNextUseOrder;
     InsertIssueEntries(reloadCopyin);
+    reloadAlloc->coreLocation = allocIssue->coreLocation;
+    reloadCopyin->coreLocation = allocIssue->coreLocation;
+    UpdateOpInternalSubgraphID(reloadAlloc->tileOp, allocIssue);
+    UpdateOpInternalSubgraphID(reloadCopyin->tileOp, allocIssue);
     if (UpdateReloadIssueDepend(reloadCopyin, spillIssue, spillMemId) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "UpdateReloadIssueDepend failed. %s", GetFormatBacktrace(reloadCopyin->tileOp).c_str());
         return FAILED;
@@ -273,10 +276,8 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
 
     // 初始化OP_COPY_IN/OP_ALLOC的issueEntry
     IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
-    spillAllocInst->coreLocation = spillIssue->coreLocation;
     issueEntryMap[issueId++] = spillAllocInst;
     IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(spillCopyInOp, issueId);
-    spillInInst->coreLocation = spillIssue->coreLocation;
     issueEntryMap[issueId++] = spillInInst;
     if (spillAllocInst == nullptr || spillInInst == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation, "Create OP_COPY_IN/OP_ALLOC issueEntry failed!");
@@ -355,37 +356,83 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     spillCopyout->predecessors.insert(spillIssue->id);
     spillIssue->successors.insert(spillCopyout->id);
     spillCopyout->isRetired = true;
-    spillCopyout->coreLocation = spillIssue->coreLocation;
+    for (auto preId : spillIssue->predecessors) {
+        auto issue = issueEntryMap[preId];
+        if (issue->isAlloc) {
+            spillCopyout->coreLocation = issue->coreLocation;
+            UpdateOpInternalSubgraphID(spillCopyout->tileOp, issue);
+        }
+    }
     APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_OUT: %s.", spillCopyout->GetOpInfo().c_str());
     return SUCCESS;
 }
 
+Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder) {
+    auto spillIssue = spillInfo.spillIssue_;
+    APASS_LOG_DEBUG_F(Elements::Operation, "isSpecialL1_ is true. Start L1 spillout in A5", spillIssue->GetOpInfo().c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "spillIssue %s", spillIssue->GetOpInfo().c_str());
+    if (spillIssue->tileOp.GetOpcodeStr().find("L0C_COPY_L1") == std::string::npos && spillIssue->tileOp.GetOpcodeStr().find("UB_COPY_L1") == std::string::npos) {
+        APASS_LOG_ERROR_F(Elements::Operation, "spillIssue %s is not COPY_IN/UB_COPY_L1/UB_COPY_L1 in A5 L1 spill", spillIssue->GetOpInfo().c_str());
+        return FAILED;
+    }
+    auto actualSpillTensor = spillIssue->tileOp.GetInputOperand(0);
+    IssueEntryPtr actualSpillIssue = nullptr;
+    for (auto &preId : spillIssue->predecessors) {
+        if (!issueEntryMap[preId]->isAlloc) {
+            actualSpillIssue = issueEntryMap[preId];
+        }
+    }
+    if (actualSpillIssue == nullptr) {
+        APASS_LOG_ERROR_F(Elements::Operation, "ActualSpillIssue is nullptr. Please check the preceding dependencies of spillIssue %s ", spillIssue->GetOpInfo().c_str());
+        return FAILED;
+    }
+    APASS_LOG_DEBUG_F(Elements::Operation, "actualSpillIssue %s", actualSpillIssue->GetOpInfo().c_str());
+    if (actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
+        APASS_LOG_ERROR_F(Elements::Operation, "A5 L1 Spill failed: actualSpillIssue is copy_in.");
+        return FAILED;
+    }
+    if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill!");
+        return FAILED;
+    }
+    bufLastUseOrder = GetBufLastUseOrder(allocIssue, actualSpillTensor->memoryrange.memId);
+    return SUCCESS;
+}
+
 Status OoOScheduler::SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, size_t &pcIdx, bool isGenSpill) {
-    if (spillInfo.spillIssue_->tileOp.GetOpcodeStr().find("COPY_IN") == std::string::npos) {
-        IssueEntryPtr spillCopyout = nullptr;
+    if (spillInfo.spillIssue_->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
+        spillInfo.ddrTensor_ = spillInfo.spillIssue_->tileOp.GetInputOperand(0);
+        return SUCCESS;
+    }
+    IssueEntryPtr spillCopyout = nullptr;
+    int bufLastUseOrder = -1;
+    if (spillInfo.isSpecialL1_) {
+        if (CreateSpecialL1Copyout(spillInfo, issue, spillCopyout, bufLastUseOrder) != SUCCESS) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SpecialL1 CreateSpillCopyout failed!");
+            return FAILED;
+        }
+    } else {
         if (CreateSpillCopyout(spillInfo.spillIssue_, spillInfo.spillTensor_, spillInfo.spillMemId_,
-            spillCopyout) != SUCCESS) {
+        spillCopyout) != SUCCESS) {
             APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed! %s", GetFormatBacktrace(spillInfo.spillIssue_->tileOp).c_str());
             return FAILED;
         }
-        int bufLastUseOrder = GetBufLastUseOrder(issue, spillInfo.spillMemId_);
-        if (bufLastUseOrder == -1) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find spill Tensor[%d] last used order.", spillInfo.spillMemId_);
-            return FAILED;
-        }
-        spillCopyout->execOrder = bufLastUseOrder + 1;
-        InsertIssueEntries(spillCopyout);
-        if (isGenSpill) {
-            pcIdx++;
-            numTotalIssues++;
-        } else {
-            newOperations_.push_back(&(spillCopyout->tileOp));
-            APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s", spillCopyout->GetOpInfo().c_str());
-        }
-        spillInfo.ddrTensor_ = spillCopyout->tileOp.GetOutputOperand(0);
-    } else {
-        spillInfo.ddrTensor_ = spillInfo.spillIssue_->tileOp.GetInputOperand(0);
+        bufLastUseOrder = GetBufLastUseOrder(issue, spillInfo.spillMemId_);
     }
+    if (bufLastUseOrder == -1) {
+        APASS_LOG_ERROR_F(Elements::Tensor, "Cannot find spill Tensor[%d] last used order.", spillInfo.spillMemId_);
+        return FAILED;
+    }
+    spillCopyout->execOrder = bufLastUseOrder + 1;
+    InsertIssueEntries(spillCopyout);
+    if (isGenSpill) {
+        pcIdx++;
+        numTotalIssues++;
+    } else {
+        newOperations_.push_back(&(spillCopyout->tileOp));
+        APASS_LOG_DEBUG_F(Elements::Operation, "Insert: %s", spillCopyout->GetOpInfo().c_str());
+    }
+    spillInfo.ddrTensor_ = spillCopyout->tileOp.GetOutputOperand(0);
     return SUCCESS;
 }
 
@@ -486,6 +533,16 @@ LogicalTensorPtr OoOScheduler::CreateAssemblePartTensor(LogicalTensorPtr iOperan
     return localTensor;
 }
 
+void OoOScheduler::UpdateAssembleSpillAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder) {
+    UpdateOpInternalSubgraphID(newOp, allocIssue);
+    IssueEntryPtr newIssue = std::make_shared<IssueEntry>(newOp, issueId);
+    issueEntryMap[issueId++] = newIssue;
+    newIssue->reqMemIds = memIds;
+    newIssue->execOrder = bufNextUseOrder++;
+    newIssue->coreLocation = allocIssue->coreLocation;
+    InsertIssueEntries(newIssue);
+}
+
 Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr assemble, 
     LogicalTensorPtr assembleTensor, bool &isFirst) {
     auto iOperand = assemble->tileOp.GetInputOperand(0);
@@ -501,13 +558,7 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
         Opcode allocOp = assembleTensor->GetMemoryTypeToBe() == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
         auto &spillAllocOp = function_.AddRawOperation(allocOp, {}, {localTensor});
         spillAllocOp.UpdateLatency(1);
-        UpdateOpInternalSubgraphID(spillAllocOp, allocIssue);
-        IssueEntryPtr spillAllocInst = std::make_shared<IssueEntry>(spillAllocOp, issueId);
-        issueEntryMap[issueId++] = spillAllocInst;
-        spillAllocInst->reqMemIds = {assembleTensor->memoryrange.memId};
-        spillAllocInst->execOrder = bufNextUseOrder++;
-        spillAllocInst->coreLocation = allocIssue->coreLocation;
-        InsertIssueEntries(spillAllocInst);
+        UpdateAssembleSpillAttr(spillAllocOp, {assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder);
         isFirst = false;
     }
     // copyin
@@ -523,21 +574,13 @@ Status OoOScheduler::SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr all
                 iOperand->GetMemoryTypeOriginal(), OpImmediate::Specified(iOperand->GetShape()),
                 OpImmediate::Specified(assembleTensor->tensor->GetDynRawShape())));
     spillCopyInOp.UpdateLatency(DEFAULT_LATENCY);
-    IssueEntryPtr spillInInst = std::make_shared<IssueEntry>(spillCopyInOp, issueId);
-    issueEntryMap[issueId++] = spillInInst;
-    spillInInst->reqMemIds = {assembleTensor->memoryrange.memId};
-    spillInInst->execOrder = bufNextUseOrder++;
-    InsertIssueEntries(spillInInst);
+    UpdateAssembleSpillAttr(spillCopyInOp, {assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder);
     // assemble
     auto &assembleOp = function_.AddRawOperation(Opcode::OP_ASSEMBLE, {localTensor}, {assembleTensor});
     assembleOp.SetOpAttribute(std::make_shared<AssembleOpAttribute>(assembleAttr->GetFrom(), 
         assembleAttr->GetToOffset(), assembleAttr->GetToDynOffset(), assembleAttr->GetFromDynValidShape()));
     assembleOp.UpdateLatency(1);
-    IssueEntryPtr assembleInst = std::make_shared<IssueEntry>(assembleOp, issueId);
-    issueEntryMap[issueId++] = assembleInst;
-    assembleInst->reqMemIds = {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId};
-    assembleInst->execOrder = bufNextUseOrder;
-    InsertIssueEntries(assembleInst);
+    UpdateAssembleSpillAttr(assembleOp, {assembleTensor->memoryrange.memId, assembleTensor->memoryrange.memId}, allocIssue, bufNextUseOrder);
     return SUCCESS;
 }
 
@@ -636,6 +679,10 @@ Status OoOScheduler::GetSpillInfo(IssueEntryPtr allocIssue, int spillMemId, bool
     spillInfo.spillTensor_ = spillTensor;
     spillInfo.spillIssue_ = spillIssue;
     spillInfo.spillMemId_ = spillMemId;
+    if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
+        spillIssue->tileOp.GetOpcodeStr().find("COPY_IN") == std::string::npos) {
+        spillInfo.isSpecialL1_ = true;
+    }
     return SUCCESS;
 }
 
@@ -648,6 +695,10 @@ Status OoOScheduler::SpillMultiBuffer(IssueEntryPtr allocIssue, std::vector<int>
             return FAILED;
         }
         if (spillInfo.spillIssue_->tileOp.GetOpcode() == Opcode::OP_ASSEMBLE) {
+            if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos) {
+                APASS_LOG_ERROR_F(Elements::Operation, "Failed to spill %d in L1 spill. SpillIssue is assemble op.", spillMemId);
+                return FAILED;
+            }
             if (SpillAssembleBuffer(spillInfo, allocIssue, pcIdx, allocBuffer, isGenSpill) != SUCCESS) {
                 APASS_LOG_ERROR_F(Elements::Operation, "SpillAssembleBuffer[%d] failed.", spillMemId);
                 return FAILED;
@@ -686,7 +737,7 @@ void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntry
 bool OoOScheduler::CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue) {
     auto spillOp = spillIssue->tileOp.GetOpcodeStr();
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
-        (spillOp.find("L0C_COPY_L1") != std::string::npos || spillOp.find("UB_COPY_L1") != std::string::npos)) {
+        (spillOp.find("COPY_IN") == std::string::npos && spillOp.find("L0C_COPY_L1") == std::string::npos && spillOp.find("UB_COPY_L1") == std::string::npos)) {
         return false;
     }
     return true;
