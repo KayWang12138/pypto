@@ -72,7 +72,7 @@ struct PerfData {
     uint64_t maxTimeNs{0};
     uint64_t minTimeNs{UINT64_MAX};
     std::string name;
-    uint64_t ignoreHeaderCnt{0};
+    uint64_t ignoreHeaderCnt{5};
     
     PerfData() : totalTimeNs(0), count(0), maxTimeNs(0), minTimeNs(UINT64_MAX) {}
     
@@ -97,7 +97,7 @@ struct PerfData {
     }
 };
 
-#define HOST_PERF_SWITCH 0
+#define HOST_PERF_SWITCH 0 
 #if HOST_PERF_SWITCH
 #define HOST_PERF_TRACE_START() PerfAnalysis::Get().TraceStart()
 #define HOST_PERF_TRACE(type) PerfAnalysis::Get().Trace(type)
