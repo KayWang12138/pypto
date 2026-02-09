@@ -340,12 +340,13 @@ PyPTO在计算图编译的各Pass阶段拥有完整的中间表示，可翻译�
 工具基于以下过程对误差结果进行判断：
 
 1. 给定两组元素个数相同的数据 $A$、$B$
-1. 给定判断误差表现时使用的相对差异容差 $rtol$，绝对差异容差 $atol$
-1. 逐元素统计 $A$、$B$ 中绝对值之和不为 0 的数量，记为 $count_{picked}$，并分别选取满足条件的元素到集合 $A_{pick}$、$B_{pick}$
-1. 计算告警数量容忍度阈值 $tolcount = count_{picked} * \min(rtol, atol)$
-1. 若 $tolcount$ 为 0，则修正为 $tolcount = min\left(16, \frac{\sqrt{count_{picked}}}{2}\right)$
-1. 逐元素获取 $A_{pick}$、$B_{pick}$ 中的数据对 $a_i$、$b_i$
+2. 给定判断误差表现时使用的相对差异容差 $rtol$，绝对差异容差 $atol$
+3. 逐元素统计 $A$、$B$ 中绝对值之和不为 0 的数量，记为 $count_{picked}$，并分别选取满足条件的元素到集合 $A_{pick}$、$B_{pick}$
+4. 计算告警数量容忍度阈值 $tolcount = count_{picked} * \min(rtol, atol)$
+5. 若 $tolcount$ 为 0，则修正为 $tolcount = min\left(16, \frac{\sqrt{count_{picked}}}{2}\right)$
+6. 逐元素获取 $A_{pick}$、$B_{pick}$ 中的数据对 $a_i$、$b_i$
     * 统计满足公式 $|a_i - b_i| > \left(\frac{|a_i| + |b_i|}{2} * rtol + atol\right)$ 的个数，记为 $count_{warn}$
     * 统计满足公式 $|a_i - b_i| > \left(\left(\frac{|a_i| + |b_i|}{2} * rtol + atol\right) * 128\right)$ 的个数，记为 $count_{fail}$
-1. 结果判断：当满足以下条件时认定两组数据的误差在接受范围内，否则误差存在异常
+      + （注：此处系数 128 为经验值，在多数情况下当误差超过两个数量级时认为属于计算错误。）
+7. 结果判断：当满足以下条件时认定两组数据的误差存在异常，否则误差在接受范围内
     * $(count_{fail} > 0) \lor (count_{warn} > tolcount)$
