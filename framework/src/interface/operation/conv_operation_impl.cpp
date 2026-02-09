@@ -989,7 +989,6 @@ std::vector<int64_t> rotateVector(const std::vector<int64_t>& input, size_t shif
     std::rotate(result.begin(), result.begin() + shift, result.end());
     return result;
 }
-}
 Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides, 
             const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam, 
             const int64_t groups)
@@ -1003,8 +1002,8 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
         finalPaddings = rotateVector(paddings, 2);
     }
     const Tensor& biasTensor = extendParam.biasTensor;
-    ConvAttrParam convAttrParam(paddings, strides, dilations, groups);
-   ConvAttrParam convAttrParam(finalPaddings, finalStrides, finalDilations, groups);
+    // ConvAttrParam convAttrParam(paddings, strides, dilations, groups);
+    ConvAttrParam convAttrParam(finalPaddings, finalStrides, finalDilations, groups);
     int64_t batchOut = inputTensor.GetShape()[NCHW_N_IDX];
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t hOut = ConvComputeHo(inputTensor, weightTensor, convAttrParam);
@@ -1019,4 +1018,5 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
 }
 
 } //namespace Conv
+}
 }
