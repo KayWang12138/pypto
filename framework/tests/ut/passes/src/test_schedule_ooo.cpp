@@ -1806,8 +1806,8 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
 
 TEST_F(ScheduleOoOTest, TestL1SpillBufferFailed) {
     ComputationalGraphBuilder subGraph;
-    std::vector<std::string> tensorL1Names{"t1", "t2", "t3"};
-    std::vector<MemoryType> tensorL1MemTypes{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1};
+    std::vector<std::string> tensorL1{"t1", "t2", "t3"};
+    std::vector<MemoryType> tensorL1Types{MemoryType::MEM_L1, MemoryType::MEM_L1, MemoryType::MEM_L1};
     std::vector<std::string> tensorNames{"DDR", "UB2", "L0A1", "L0A2", "DDR1", "DDR2"};
     std::vector<MemoryType> tensorMemTypes{MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_L0A, MemoryType::MEM_L0A,
         MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR};
@@ -1821,15 +1821,15 @@ TEST_F(ScheduleOoOTest, TestL1SpillBufferFailed) {
         {"UB2"}, {"t1"}, {"L0A1"}, {"L0A2"}, {"t2"}, {"t3"}, {"DDR1"}, {"DDR2"}};
     std::vector<std::string> opNames{"L1_Alloc1", "L1_Alloc2", "L1_Alloc3", "UB_Alloc2", "L0A_Alloc1", "L0A_Alloc2",
     "COPY_IN3", "UB_COPY_L1", "COPY_IN1", "COPY_IN2", "COPY_IN3", "COPY_IN4", "COPY_OUT1", "COPY_OUT2"};
-    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 512}, tensorL1MemTypes, tensorL1Names, 0), true);
+    EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {256, 512}, tensorL1Types, tensorL1, 0), true);
     EXPECT_EQ(subGraph.AddTensors(DataType::DT_FP32, {16, 16}, tensorMemTypes, tensorNames, 0), true);
     EXPECT_EQ(subGraph.AddOps(opCodes, ioperands, ooperands, opNames, true), true);
     Function *function = subGraph.GetFunction();
-    OptimizeSort optimizeSort(function->Operations().DuplicatedOpList(), *function);
-    Status res = optimizeSort.SortOps();
+    OptimizeSort ooosort(function->Operations().DuplicatedOpList(), *function);
+    Status res = ooosort.SortOps();
     EXPECT_EQ(res, SUCCESS);
-    auto opList = optimizeSort.operations;
     OoOScheduler oooSchedule(*function);
+    auto opList = ooosort.operations;
     res = oooSchedule.Init(opList);
     EXPECT_EQ(res, SUCCESS);
     IssueEntryPtr ubCopyL1 = GetIssueEntry("UB_COPY_L1", subGraph, oooSchedule);
