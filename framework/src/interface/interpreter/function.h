@@ -258,6 +258,7 @@ enum class OpInfoCsvHeader {
     num = 0,
     rootFuncID,
     funcID,
+    passName,
     verifyType,
     loopInfo,
     opMagic,
@@ -270,6 +271,7 @@ enum class OpInfoCsvHeader {
     inputDtype,
     inputTensors,
     outputShape,
+    tensorOffset,
     outputValidShape,
     outputDynValidShape,
     outputDtype,
@@ -303,9 +305,9 @@ struct FunctionInterpreter {
 
         std::string dumpFilePath = dumpPath + "verify_result.csv";
         execResultFile = fopen(dumpFilePath.c_str(), "w");
-        std::vector<std::string> csvHeader = {"No.", "rootFuncID", "funcID", "verifyType", "LoopInfo", "opMagic", "opCode", 
+        std::vector<std::string> csvHeader = {"No.", "rootFuncID", "funcID", "passName", "verifyType", "LoopInfo", "opMagic", "opCode", 
             "rawTensorMagic", "tensorMagic", "offset", "inputShape", "inputValidShape", "inputDtype", "inputTensors", 
-            "outputShape", "outputValidShape", "outputDynValidShape", "outputDtype",
+            "outputShape", "tensorOffset", "outputValidShape", "outputDynValidShape", "outputDtype",
             "outputTensor", "verifyResult", "maxAbsDiff", "maxRelDiff", "errorCount", "errorRatio"};
         WriteCsvRow(csvHeader);
     }
@@ -330,6 +332,8 @@ struct FunctionInterpreter {
     FILE *execResultFile{nullptr};
     FILE *execDumpStyleFile{nullptr};
     std::string execDumpFuncKey;
+    std::string execDumpPassFilter;
+    std::string execDumpFunPath;
     std::vector<ElementDump> execDumpElementList;
     std::vector<std::shared_ptr<FunctionFrame>> execDumpStack;
     int frameCount{0};
