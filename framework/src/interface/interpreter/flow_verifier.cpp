@@ -186,6 +186,8 @@ void FlowVerifier::VerifyTensorGraph(Function *entry,
     functionInterpreter_ = std::make_shared<FunctionInterpreter>();
     functionInterpreter_->Initialize(entry, inoutDataViewList);
     functionInterpreter_->verifyType = VerifyType::TENSOR_GRAPH;
+    functionInterpreter_->execDumpPassFilter = "tensor_graph";
+    functionInterpreter_->execDumpFunPath = "tensor_graph";
     UpdateInterpreterCache();
 
     if (config::GetVerifyOption<bool>(KEY_PASS_VERIFY_SAVE_TENSOR)) {
@@ -227,6 +229,8 @@ static std::string ToString(const T &val, size_t totalSize) {
 void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &passIdentifier) {
     functionInterpreter_->verifyType = VerifyType::PASS;
     functionInterpreter_->passIndex = passIndex;
+    functionInterpreter_->execDumpPassFilter = "pass_" + ToString(passIndex, 2) + "_" + passIdentifier;
+    functionInterpreter_->execDumpFunPath = "function_" + func->GetMagicName();
     UpdateInterpreterCache();
     if (controlFlowExecution_->executionListDict.count(func) == 0) {
         return;
@@ -249,8 +253,7 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         functionInterpreter_->DumpSetLevelTensor();
     }
     for (size_t captureIndex = 0; captureIndex < captureList.size(); captureIndex++) {
-        const std::string key = "function_" + func->GetMagicName() + ".pass_" + ToString(passIndex, 2) + "_" +
-                                passIdentifier;
+        const std::string key = functionInterpreter_->execDumpPassFilter + "/" + functionInterpreter_->execDumpFunPath;
         ALOG_INFO(key, ": Verify");
         functionInterpreter_->captureIndex = captureIndex;
 
