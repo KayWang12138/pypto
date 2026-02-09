@@ -49,6 +49,10 @@
 constexpr int ADDR_MAP_TYPE_REG_AIC_CTRL = 2;
 constexpr int ADDR_MAP_TYPE_REG_AIC_PMU_CTRL = 3;
 
+static constexpr uint64_t SENTINEL_VALUE = 0xDEADBEEFDEADBEEF;
+static constexpr uint32_t SENTINEL_NUM = 64;
+static constexpr uint32_t SENTINEL_MEM_SIZE = 512;
+
 struct AddrMapInPara {
     unsigned int addr_type;
     unsigned int devid;
@@ -86,15 +90,18 @@ struct res_map_info {
 };
 
 namespace npu::tile_fwk {
+void backtracePrint(int count = 1000) {
+    std::vector<void*> backtraceStack(count);
+    int backtraceStackCount = backtrace(backtraceStack.data(), static_cast<int>(backtraceStack.size()));
+    char **backtraceSymbolList = backtrace_symbols(backtraceStack.data(), backtraceStackCount);
+    for (int i = 0; i < backtraceStackCount; i++) {
+        ALOG_INFO_F("backtrace frame[%d]: %s", i, backtraceSymbolList[i]);
+    }
+    free(backtraceSymbolList);
+}
 
 class RuntimeHostAgentMemory {
 public:
-    void backtracePrint(int count = 1000) {
-        std::vector<void*> backtraceStack(count);
-        int backtraceStackCount = backtrace(backtraceStack.data(), static_cast<int>(backtraceStack.size()));
-        char **backtraceSymbolList = backtrace_symbols(backtraceStack.data(), backtraceStackCount);
-        free(backtraceSymbolList);
-    }
 #define DEVICE_ALLOC_ALIGN 512
     uint8_t* AllocHostAddr(uint64_t size, bool cached = true, bool simuDevAlign = true) {
         if (size == 0) {
@@ -216,10 +223,30 @@ inline constexpr uint32_t TWO_MB_HUGE_PAGE_FLAGS = RT_MEMORY_HBM | RT_MEMORY_POL
 
 class RuntimeAgentMemory {
 public:
+    RuntimeAgentMemory() {
+        needMemCheck_ = (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL);
+        needMemCheck_ = true;
+        sentinel_vec_ = std::vector<uint64_t>(SENTINEL_NUM, SENTINEL_VALUE);
+        ALOG_ERROR_F("needMemCheck_ %d.", needMemCheck_);
+    }
+    void PutSentinelAddr(uint8_t *baseAddr, uint64_t baseSize) {
+        if (needMemCheck_) {
+            uint8_t *sentinelAddr = baseAddr + baseSize;
+            if (rtMemcpy(sentinelAddr, SENTINEL_MEM_SIZE, sentinel_vec_.data(), SENTINEL_MEM_SIZE, RT_MEMCPY_HOST_TO_DEVICE) != 0) {
+                ALOG_WARN_F("Memory copy sentinel value failed! Do not check memory.");
+                return;
+            }
+            ALOG_ERROR_F("Base addr add %p with sentinelAddr %p.", baseAddr, sentinelAddr);
+            sentinelValMap_[baseAddr].push_back(sentinelAddr);
+        }
+    }
     void AllocDevAddr(uint8_t **devAddr, uint64_t size, bool tmpAddr = false) {
         auto alignSize = MemSizeAlign(size);
+        if (needMemCheck_) {
+            alignSize += SENTINEL_MEM_SIZE;
+        }
         ALOG_INFO_F("RuntimeAgent::Alloc size[%lu] with align size[%lu].", size, alignSize);
-        if (TryGetHugePageMem(devAddr, alignSize, tmpAddr)) {
+        if (TryGetHugePageMem(devAddr, size, alignSize, tmpAddr)) {
             return;
         }
         size_t allocSize = ((alignSize - 1) / ONT_GB_SIZE + 1) * ONT_GB_SIZE;
@@ -237,6 +264,7 @@ public:
                 allocatedDevAddr.emplace_back(*devAddr);
             }
             ALOG_INFO_F("AllocDevAddr %p size is %lu", *devAddr, size);
+            PutSentinelAddr(*devAddr, size);
             return;
         }
         if (tmpAddr) {
@@ -246,12 +274,50 @@ public:
             allocatedDevAddr.emplace_back(*devAddr);
             hugePageVec.emplace_back(HugePageDesc(*devAddr, allocSize));
         }
-        if (!TryGetHugePageMem(devAddr, alignSize, tmpAddr)) {
+        if (!TryGetHugePageMem(devAddr, size, alignSize, tmpAddr)) {
             ALOG_ERROR_F("RuntimeAgent::AllocDevAddr failed for size %lu", size);
             return;
         }
         ALOG_INFO_F("Alloc 1G page mem %p size is %lu.", *devAddr, allocSize);
+        if (needMemCheck_) {
+            backtracePrint();
+        }
         return;
+    }
+    void RemoveSentinelAddr(uint8_t *baseAddr) {
+        sentinelValMap_.erase(baseAddr);
+    }
+    // Check sentinel values for memory corruption
+    bool CheckSentinels() {
+        if (!needMemCheck_) {
+            return true;
+        }
+        std::vector<uint64_t> sentinelVal(SENTINEL_NUM, 0);
+        bool allGood = true;
+        for (auto &iter : sentinelValMap_) {
+            auto &sentinelVec = iter.second;
+            for (auto sentinelAddr : sentinelVec) {
+                if (rtMemcpy(sentinelVal.data(), SENTINEL_MEM_SIZE, sentinelAddr, SENTINEL_MEM_SIZE, RT_MEMCPY_DEVICE_TO_HOST) != 0) {
+                    ALOG_WARN_F("Memory copy D2H failed! Do not check memory.");
+                    return true;
+                }
+                bool good = true;
+                for (uint32_t i = 0; i < SENTINEL_NUM; i++) {
+                    if (sentinelVal[i] != SENTINEL_VALUE) {
+                        ALOG_ERROR_F("Sentinel check failed at address %p: expected 0x%lx, got 0x%lx", 
+                                    sentinelAddr + i * sizeof(uint64_t), SENTINEL_VALUE, sentinelVal[i]);
+                        allGood = false;
+                        good = false;
+                    }
+                }
+                if (good) {
+                    ALOG_INFO_F("SentinelAddr %p check passed", sentinelAddr);
+                } else {
+                    ALOG_ERROR_F("SentinelAddr %p check failed", sentinelAddr);
+                }
+            }
+        }
+        return allGood;
     }
 
     bool IsHugePageMemory(uint8_t *devAddr) const {
@@ -283,8 +349,10 @@ public:
     }
 
     void FreeTmpMemory() {
+        (void)CheckSentinels();
         for (uint8_t *addr : allocatedTmpDevAddr) {
             rtFree(addr);
+            RemoveSentinelAddr(addr);
         }
         allocatedTmpDevAddr.clear();
         tmpHugePageVec.clear();
@@ -292,19 +360,23 @@ public:
 
 protected:
     void DestroyMemory() {
+        (void)CheckSentinels();
         for (uint8_t *addr : allocatedDevAddr) {
             rtFree(addr);
+            RemoveSentinelAddr(addr);
         }
         allocatedDevAddr.clear();
         hugePageVec.clear();
         FreeTmpMemory();
+        sentinelValMap_.clear();
     }
 private:
-    bool TryGetHugePageMem(uint8_t **devAddr, uint64_t alignSize, bool tmpAddr) {
+    bool TryGetHugePageMem(uint8_t **devAddr, uint64_t oriSize, uint64_t alignSize, bool tmpAddr) {
         std::vector<HugePageDesc> &pageVec = tmpAddr ? tmpHugePageVec : hugePageVec;
         for (size_t i = 0; i < pageVec.size(); ++i) {
             if (pageVec[i].current + alignSize <= pageVec[i].allSize) {
                 *devAddr = pageVec[i].baseAddr + pageVec[i].current;
+                PutSentinelAddr(pageVec[i].baseAddr, pageVec[i].current + oriSize);
                 pageVec[i].current += alignSize;
                 ALOG_INFO_F("HugePage Mem get with size:%u addr:%p.", alignSize, *devAddr);
                 return true;
@@ -314,6 +386,10 @@ private:
     }
 private:
     bool validGetPgMask = true;
+    bool needMemCheck_{false};
+    std::vector<uint64_t> sentinel_vec_;
+    std::unordered_map<uint8_t *, std::vector<uint8_t *>> sentinelValMap_;
+    std::vector<uint8_t *> sentinelAddrs_;
     std::vector<HugePageDesc> hugePageVec;
     std::vector<HugePageDesc> tmpHugePageVec;
     std::vector<uint8_t *> allocatedDevAddr;
