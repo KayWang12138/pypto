@@ -38,22 +38,6 @@ struct MemoryHelper {
 
     bool IsDevice() { return !isTest_; }
 
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
-        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        if (isTest_)
-            memcpy_s(devPtr, size, data, size);
-        else
-            rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
-        return devPtr;
-    }
-
-    void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
-        if (isTest_)
-            memcpy_s(data, size, devPtr, size);
-        else
-            rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
-    }
-
     uint8_t *AllocDev(size_t size, uint8_t **cachedDevAddrHolder) {
         (void)cachedDevAddrHolder;
         uint8_t *devPtr = nullptr;
@@ -62,6 +46,41 @@ struct MemoryHelper {
         else
             machine::GetRA()->AllocDevAddr(&devPtr, size);
         return devPtr;
+    }
+
+    // 修改: 增加返回 int 的 CopyToDev 接口，适配 DeviceLauncher
+    int CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder, uint8_t **outPtr) {
+        uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
+        if (isTest_) {
+            int ret = memcpy_s(devPtr, size, data, size);
+            if (ret != 0) {
+                ALOG_ERROR_F("CopyToDev failed, ret = %d", ret);
+                return ret;
+            }
+        } else {
+            int ret = rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+            if (ret != ACL_RT_SUCCESS) {
+                ALOG_ERROR_F("CopyToDev failed, ret = %d", ret);
+                return ret;
+            }
+        }
+        if (outPtr) {
+            *outPtr = devPtr;
+        }
+        return 0;
+    }
+
+    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
+        uint8_t* ptr = nullptr;
+        CopyToDev(data, size, cachedDevAddrHolder, &ptr);
+        return ptr;
+    }
+
+    void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {
+        if (isTest_)
+            memcpy_s(data, size, devPtr, size);
+        else
+            rtMemcpy(data, size, devPtr, size, RT_MEMCPY_DEVICE_TO_HOST);
     }
 
     uint8_t *AllocZero(uint64_t size, uint8_t **cachedDevAddrHolder) {
@@ -75,17 +94,34 @@ struct MemoryHelper {
     }
 
     template <typename T>
+    int CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder, T **outPtr) {
+        return CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), cachedDevAddrHolder, (uint8_t **)outPtr);
+    }
+
+    template <typename T>
     T *CopyToDev(std::vector<T> data, uint8_t **cachedHolder) {
-        (void)cachedHolder;
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), nullptr);
+        T* ptr = nullptr;
+        CopyToDev(data, cachedHolder, &ptr);
+        return ptr;
+    }
+
+    int CopyToDev(RawTensorData &data, uint8_t **outPtr) {
+        if (data.GetDevPtr() == nullptr) {
+            uint8_t* devPtr = nullptr;
+            int ret = CopyToDev((uint8_t *)data.data(), data.size(), nullptr, &devPtr);
+            if (ret != 0) return ret;
+            data.SetDevPtr(devPtr);
+        }
+        if (outPtr) {
+            *outPtr = data.GetDevPtr();
+        }
+        return 0;
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {
-        if (data.GetDevPtr() == nullptr) {
-            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size(), nullptr);
-            data.SetDevPtr(devPtr);
-        }
-        return data.GetDevPtr();
+        uint8_t* ptr = nullptr;
+        CopyToDev(data, &ptr);
+        return ptr;
     }
 
     void CopyFromDev(RawTensorData &tensorData) {
