@@ -221,7 +221,7 @@ bool Program::BeginFunction(const std::string &funcName,
     bool isHiddenFunction) {
     if (currentFunctionPtr_->IsFlattening() && (funcType == FunctionType::STATIC && (graphType == GraphType::TENSOR_GRAPH || graphType == GraphType::TILE_GRAPH))) {
         // Static function's subfunction should be ignored
-        ASSERT(funcName != currentFunctionPtr_->GetRawName());
+        CHECK(funcName != currentFunctionPtr_->GetRawName());
         return false;
     }
 
@@ -595,6 +595,7 @@ void Program::DumpJsonFile(const std::string &fileName, Function *mainFunc) {
     }
 
     std::ofstream file(filePath);
+    ASSERT(file.is_open()) << "Failed to open file: " << filePath;
     file << DumpJson(mainFunc).dump(1) << std::endl;
     file.close();
 }
