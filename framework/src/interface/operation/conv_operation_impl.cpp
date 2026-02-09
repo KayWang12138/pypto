@@ -51,12 +51,16 @@ const std::string Im2ColOpAttributeKey::paddingRight = "PAD_RIGHT";
 const std::string Im2ColOpAttributeKey::paddingTop = "PAD_TOP";
 const std::string Im2ColOpAttributeKey::paddingBottom = "PAD_BOTTOM";
 const std::string Im2ColOpAttributeKey::padValue = "PAD_VALUE";
-
+std::vector<int64_t> rotateVector(const std::vector<int64_t>& input, size_t shift) {
+    std::vector<int64_t> result = input;
+    std::rotate(result.begin(), result.begin() + shift, result.end());
+    return result;
+}
 void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_t max)
 {
     OP_CHECK(true, {
             ASSERT(value >= min && value <= max)
-            << "Invalid " << name << " :" << value
+            << "Invalid " << name << ":" << value
             << ", expected range [" << min << "," << max << "]." << std::endl;
     });
 }
@@ -137,7 +141,7 @@ void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueNa
 {
         OP_CHECK(true, {
             ASSERT(value % alignment == 0)
-                << "Invalid " << valueName << ": " << value
+                << "Invalid " << valueName << ":" << value
                 << ", requires " << alignment << (isByte ? "-byte alignment." : "-element alignment.") << std::endl;
         });
 }
@@ -155,8 +159,8 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
         });
     }
     CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
+    CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
     if (!attrParam.isConv1D) {
-        CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
         CheckAlignment(tileWout, NUM16, "tileWout");
     }
 }
@@ -198,9 +202,9 @@ void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName
 {
     OP_CHECK(true, {
             ASSERT(value % divisor == 0)
-            << "The value of " << divisorName << " ( " << divisor
-            << " ) does not divide "<< valueName
-            << " ( " << value << " ). Adjusting " << divisorName 
+            << "The value of " << divisorName << " (" << divisor
+            << ") does not divide "<< valueName
+            << "(" << value << "). Adjusting " << divisorName 
             << " to the nearest value such that "<< valueName 
             << " % " << divisorName << " == 0." << std::endl;
     });
@@ -319,10 +323,10 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
 
     OP_CHECK(true, {
             ASSERT(cinFmap == cinWeight * groups)
-            << "Fmap Cin ( " << cinFmap
-            << " ) != weight Cin ( " << cinWeight
-            << " ) * groups ( " << groups
-            << " )." << std::endl;
+            << "Fmap Cin (" << cinFmap
+            << ") != weight Cin (" << cinWeight
+            << ") * groups (" << groups
+            << ")." << std::endl;
     });
 }
 
@@ -351,9 +355,17 @@ void CheckDimensionRange(const std::vector<int64_t>& vec, const std::string& nam
 
 void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
-    CheckDimensionRange(attrParam.paddings, "paddings", 0, MAX_PAD_KERNEL);
-    CheckDimensionRange(attrParam.dilations, "dilations", NUM1, MAX_DILATION_STRIDE);
-    CheckDimensionRange(attrParam.strides, "strides", NUM1, MAX_DILATION_STRIDE);
+    std::vector<int64_t> paddings = attrParam.paddings;
+    std::vector<int64_t> dilations = attrParam.dilations;
+    std::vector<int64_t> strides = attrParam.strides;
+    if (attrParam.isConv3D) {
+        paddings = rotateVector(paddings, 4);
+        dilations = rotateVector(dilations, 2);
+        strides = rotateVector(strides, 2);
+    }
+    CheckDimensionRange(paddings, "paddings", 0, MAX_PAD_KERNEL);
+    CheckDimensionRange(dilations, "dilations", NUM1, MAX_DILATION_STRIDE);
+    CheckDimensionRange(strides, "strides", NUM1, MAX_DILATION_STRIDE);
 
     uint32_t indexH = NCHW_H_IDX;
     uint32_t indexW = NCHW_W_IDX;
@@ -385,8 +397,10 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
 
 void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
+    std::vector<int64_t> paddings = attrParam.paddings;
     uint32_t index = NUM2;
     if (attrParam.isConv3D) {
+        paddings = rotateVector(paddings, 4);
         index = CONV3D_INPUT_DIM - 2;
     } else if (attrParam.isConv1D) {
         index = 1;
@@ -398,7 +412,6 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
     int64_t cinFmap = inputTensor.GetShape()[NCHW_C_IDX];
     int64_t cinWeight = weightTensor.GetShape()[NCHW_C_IDX];
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
-    std::vector<int64_t> paddings = attrParam.paddings;
     for (size_t i = 0; i < paddings.size() / 2; ++i) {
         int weightVal = weightTensor.GetShape()[i + 2];
         int paddingLeft = paddings[i * 2];
@@ -950,11 +963,6 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape,
             IterOneBatchFunc(function, iterInfo, convTileInfo, convAttrParam, tensorGraphNodes, tileGraphNodes);
         }
     }
-}
-std::vector<int64_t> rotateVector(const std::vector<int64_t>& input, size_t shift) {
-    std::vector<int64_t> result = input;
-    std::rotate(result.begin(), result.begin() + shift, result.end());
-    return result;
 }
 Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const std::vector<int64_t> &strides, 
             const std::vector<int64_t> &paddings, const std::vector<int64_t> &dilations, const ConvExtendParam &extendParam, 
