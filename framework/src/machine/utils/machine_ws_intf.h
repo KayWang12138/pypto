@@ -38,7 +38,22 @@ struct StaticReadyCoreFunctionQueue {
   uint64_t head;
   uint64_t tail;
   uint64_t* elem;
-  size_t lock;
+  size_t _lock = 0;
+
+  // The use of past tense in these functions obeys to the fact that they are not (and cannot be) concurrency-safe
+  // Therefore, the return value could have changed by the time it is returned
+  inline bool wasEmpty() const { return head == tail; }
+  inline uint64_t wasSize() const { return tail - head; }
+
+  inline void lock() {
+     while (!__sync_bool_compare_and_swap(&_lock, 0, 1)) {
+    }
+  }
+
+  inline void unlock() {
+      while (!__sync_bool_compare_and_swap(&_lock, 1, 0)) {
+    }
+  }
 };
 
 struct WrapInfo {

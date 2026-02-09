@@ -118,16 +118,6 @@ struct DeviceTaskCtrl {
     }
 };
 
-inline void ReadyQueueLock(StaticReadyCoreFunctionQueue *rq) {
-    while (!__sync_bool_compare_and_swap(&rq->lock, 0, 1)) {
-    }
-}
-
-inline void ReadyQueueUnLock(StaticReadyCoreFunctionQueue *rq) {
-    while (!__sync_bool_compare_and_swap(&rq->lock, 1, 0)) {
-    }
-}
-
 void SdmaPrefetch(DeviceTask *devTask);
 
 class AiCoreManager {

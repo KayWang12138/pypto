@@ -56,10 +56,10 @@ public:
 
     // 每个AICPU都会调用
     inline void TaskEnqueue(uint64_t taskId) {
-        ReadyQueueLock();
+        readyQueue_->lock();
         readyQueue_->elem[readyQueue_->tail] = taskId;
         readyQueue_->tail += 1;
-        ReadyQueueUnLock();
+        readyQueue_->unlock();
     }
 
     // 仅AICPU_0会调用
@@ -73,11 +73,11 @@ public:
 
     // 仅AICPU_0会调用
     inline uint64_t  TaskProcess() {
-        ReadyQueueLock();
+        readyQueue_->lock();
         uint64_t taskIdx = readyQueue_->head;
         uint64_t taskCount = readyQueue_->tail - readyQueue_->head;
         readyQueue_->head += taskCount;
-        ReadyQueueUnLock();
+        readyQueue_->unlock();
 
         for (uint32_t i = 0; i < taskCount; ++i) {
             TaskDispatch(readyQueue_->elem[taskIdx + i]);
@@ -94,22 +94,13 @@ public:
     }
 
     inline bool Finished() {
-        ReadyQueueLock();
+        readyQueue_->lock();
         auto fin = readyQueue_->head == readyQueue_->tail;
-        ReadyQueueUnLock();
+        readyQueue_->unlock();
         return fin;
     }
 
 private:
-    inline void ReadyQueueLock() {
-        while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 0, 1))
-            ;
-    }
-
-    inline void ReadyQueueUnLock() {
-        while (!__sync_bool_compare_and_swap(&readyQueue_->lock, 1, 0))
-            ;
-    }
 
     inline void TaskDispatch(uint64_t elem) {
         auto topo = reinterpret_cast<CoreFunctionTopo *>(funcInfo_[elem].topoAddr);

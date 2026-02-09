@@ -222,12 +222,12 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
         return 0;
     }
     uint64_t readyId[MAX_MANAGER_AIV_NUM];
-    ReadyQueueLock(readyQue);
+    readyQue->lock();
     uint64_t taskIdx = readyQue->head;
     uint64_t taskCount = std::min(ready, readyQue->tail - readyQue->head);
     if (taskCount == 0) {
         DEV_DEBUG("AiCpud:%d, taskCount is zero \n", aicpuIdx_);
-        ReadyQueueUnLock(readyQue);
+        readyQue->unlock();
         return 0;
     }
     if (READY_QUE_LIFO_SWITCH && !firstLock[static_cast<int>(type)]) {
@@ -237,7 +237,7 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
     } else {
         readyQue->head += taskCount;
     }
-    ReadyQueueUnLock((readyQue));
+    readyQue->unlock();
     DEV_DEBUG("AiCpud:%d, pop all new task count: %lu \n", aicpuIdx_, taskCount);
     BatchSendTask(type, (READY_QUE_LIFO_SWITCH && !firstLock[static_cast<int>(type)])? readyId : &readyQue->elem[taskIdx],
         taskCount, coreIdxStart, coreIdxEnd, READY_QUE_LIFO_SWITCH);
@@ -324,11 +324,11 @@ void AiCoreManager::AddTask(int coreIdx, uint64_t taskId) {
 }
 
 void AiCoreManager::PushReadyQue(StaticReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
-    ReadyQueueLock(readyQue);
+    readyQue->lock();
     memcpy_s(
         &readyQue->elem[readyQue->tail], idCnt * sizeof(uint64_t), (uint8_t *)idList, idCnt * sizeof(uint64_t));
     readyQue->tail += idCnt;
-    ReadyQueueUnLock(readyQue);
+    readyQue->unlock();
 }
 
 void AiCoreManager::ResolveDepForAllAiCore(
