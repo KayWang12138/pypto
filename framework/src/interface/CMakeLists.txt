@@ -22,6 +22,14 @@ file(GLOB _Interface_Srcs
         # Core infrastructure
         core/*.cpp
         ir/*.cpp
+        ir/op/*.cpp
+        ir/op/block_ops/batch_matmul.cpp
+        ir/op/block_ops/broadcast.cpp
+        ir/op/block_ops/reduction.cpp
+        ir/op/block_ops/transform.cpp
+        ir/op/tensor_ops/*.cpp
+        # ir/op/sync_ops/*.cpp  # Depends on codegen/cce (not available)
+        ir/serialization/*.cpp
         ir/transform/*.cpp
 
         # Operation
@@ -56,12 +64,11 @@ target_link_libraries(tile_fwk_interface
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
+            msgpackc-cxx
             dl
             Threads::Threads
             tile_fwk_simulation_platform
-            # libbacktrace  # Temporarily commented out
 )
-# add_dependencies(tile_fwk_interface libbacktrace)  # Temporarily commented out
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
 

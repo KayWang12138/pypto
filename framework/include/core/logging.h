@@ -37,8 +37,8 @@
 #include <utility>
 #include <vector>
 
-#include "securec.h"
 #include "core/error.h"
+#include "securec.h"
 
 namespace pypto {
 
@@ -401,7 +401,10 @@ class Logger {
       auto epoch = now.time_since_epoch();
       auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(epoch).count() % 1000;
       sprintf_s(buf, sizeof(buf), "%03d %c | ", static_cast<int>(ms), MSG[static_cast<int>(level)]);
+
       Log(buf);
+      // Uncomment the following line to include function and line number in logs:
+      // Log(func + ":" + std::to_string(line) + " | ");
     }
   }
 

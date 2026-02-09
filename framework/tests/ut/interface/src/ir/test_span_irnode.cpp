@@ -19,6 +19,7 @@
 #include <string>
 
 #include "ir/core.h"
+#include "ir/scalar_expr.h"
 
 namespace pypto {
 namespace ir {
@@ -87,44 +88,43 @@ TEST(IRCoreTest, TestSpanSingleCharacter) {
 }
 
 TEST(IRCoreTest, TestIRNodeBasic) {
-    // Test basic IRNode functionality
+    // Test basic IRNode functionality via ConstInt (IRNode is now abstract)
     Span span("test.py", 1, 0, 1, 10);
-    IRNode node(span);
+    auto node = std::make_shared<ConstInt>(42, DataType::INT32, span);
 
-    ASSERT_EQ(node.span_.filename_, span.filename_);
-    ASSERT_EQ(node.span_.begin_line_, span.begin_line_);
+    ASSERT_EQ(node->span_.filename_, span.filename_);
+    ASSERT_EQ(node->span_.begin_line_, span.begin_line_);
 }
 
 TEST(IRCoreTest, TestIRNodeTypeName) {
-    // Test IRNode TypeName() method
+    // Test IRNode TypeName() method via ConstInt
     Span span("test.py", 1, 0, 1, 10);
-    IRNode node(span);
+    auto node = std::make_shared<ConstInt>(42, DataType::INT32, span);
 
-    std::string type_name = node.TypeName();
-    ASSERT_EQ(type_name, "IRNode");
+    std::string type_name = node->TypeName();
+    ASSERT_EQ(type_name, "ConstInt");
 }
 
 TEST(IRCoreTest, TestIRNodeWithUnknownSpan) {
-    // Test IRNode with unknown span
-    IRNode node(Span::unknown());
+    // Test IRNode with unknown span via ConstInt
+    auto node = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
 
-    ASSERT_FALSE(node.span_.is_valid());
-    ASSERT_EQ(node.TypeName(), "IRNode");
+    ASSERT_FALSE(node->span_.is_valid());
 }
 
 TEST(IRCoreTest, TestMultipleIRNodes) {
-    // Test creating multiple IRNode instances
+    // Test creating multiple IRNode instances via ConstInt
     Span span1("file1.py", 1, 0, 1, 10);
     Span span2("file2.py", 5, 5, 5, 15);
     Span span3("file3.py", 10, 0, 12, 0);
 
-    IRNode node1(span1);
-    IRNode node2(span2);
-    IRNode node3(span3);
+    auto node1 = std::make_shared<ConstInt>(1, DataType::INT32, span1);
+    auto node2 = std::make_shared<ConstInt>(2, DataType::INT32, span2);
+    auto node3 = std::make_shared<ConstInt>(3, DataType::INT32, span3);
 
-    ASSERT_EQ(node1.span_.filename_, "file1.py");
-    ASSERT_EQ(node2.span_.filename_, "file2.py");
-    ASSERT_EQ(node3.span_.filename_, "file3.py");
+    ASSERT_EQ(node1->span_.filename_, "file1.py");
+    ASSERT_EQ(node2->span_.filename_, "file2.py");
+    ASSERT_EQ(node3->span_.filename_, "file3.py");
 }
 
 TEST(IRCoreTest, TestSpanCopy) {
@@ -154,12 +154,12 @@ TEST(IRCoreTest, TestSpanComparison) {
 }
 
 TEST(IRCoreTest, TestIRNodeSharedPtr) {
-    // Test IRNode with shared_ptr
+    // Test IRNode with shared_ptr via ConstInt
     Span span("test.py", 1, 0, 1, 10);
-    auto node = std::make_shared<IRNode>(span);
+    auto node = std::make_shared<ConstInt>(42, DataType::INT32, span);
 
     ASSERT_NE(node, nullptr);
-    ASSERT_EQ(node->TypeName(), "IRNode");
+    ASSERT_EQ(node->TypeName(), "ConstInt");
     ASSERT_EQ(node->span_.filename_, "test.py");
 }
 
