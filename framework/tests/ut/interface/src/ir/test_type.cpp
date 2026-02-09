@@ -30,10 +30,10 @@ namespace ir {
 // ============================================================================
 
 TEST(IRTypeTest, TestTypeBasic) {
-  // Test base Type class
-  auto type = std::make_shared<Type>();
+  // Test base Type class via UnknownType (Type is abstract with pure virtual GetKind)
+  auto type = std::make_shared<UnknownType>();
   ASSERT_NE(type, nullptr);
-  ASSERT_EQ(type->TypeName(), "Type");
+  ASSERT_EQ(type->TypeName(), "UnknownType");
 }
 
 // ============================================================================
@@ -147,13 +147,13 @@ TEST(IRTypeTest, TestShapedTypeWithMemRef) {
   std::vector<ExprPtr> shape = {dim1};
 
   auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::unknown());
-  MemRef memref(MemorySpace::UB, addr, 1024);
+  MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::UB, addr, 1024, 0);
 
   auto shaped_type = std::make_shared<ShapedType>(DataType::INT32, shape, memref);
   ASSERT_NE(shaped_type, nullptr);
   ASSERT_TRUE(shaped_type->memref_.has_value());
-  ASSERT_EQ(shaped_type->memref_->memory_space_, MemorySpace::UB);
-  ASSERT_EQ(shaped_type->memref_->size_, 1024);
+  ASSERT_EQ((*shaped_type->memref_)->memory_space_, MemorySpace::UB);
+  ASSERT_EQ((*shaped_type->memref_)->size_, 1024);
 }
 
 // ============================================================================
@@ -202,12 +202,12 @@ TEST(IRTypeTest, TestTensorTypeWithMemRef) {
   std::vector<ExprPtr> shape = {dim};
 
   auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::unknown());
-  MemRef memref(MemorySpace::DDR, addr, 400);
+  MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::DDR, addr, 400, 0);
 
   auto tensor_type = std::make_shared<TensorType>(shape, DataType::INT32, memref);
   ASSERT_NE(tensor_type, nullptr);
   ASSERT_TRUE(tensor_type->memref_.has_value());
-  ASSERT_EQ(tensor_type->memref_->memory_space_, MemorySpace::DDR);
+  ASSERT_EQ((*tensor_type->memref_)->memory_space_, MemorySpace::DDR);
 }
 
 // ============================================================================
@@ -245,12 +245,12 @@ TEST(IRTypeTest, TestTileTypeWithMemRef) {
   std::vector<ExprPtr> shape = {dim1, dim2};
 
   auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::unknown());
-  MemRef memref(MemorySpace::L0A, addr, 512);
+  MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::L0A, addr, 512, 0);
 
   auto tile_type = std::make_shared<TileType>(shape, DataType::FP32, memref);
   ASSERT_NE(tile_type, nullptr);
   ASSERT_TRUE(tile_type->memref_.has_value());
-  ASSERT_EQ(tile_type->memref_->memory_space_, MemorySpace::L0A);
+  ASSERT_EQ((*tile_type->memref_)->memory_space_, MemorySpace::L0A);
 }
 
 TEST(IRTypeTest, TestTileTypeWithTileView) {
@@ -260,7 +260,7 @@ TEST(IRTypeTest, TestTileTypeWithTileView) {
   std::vector<ExprPtr> shape = {dim1, dim2};
 
   auto addr = std::make_shared<ConstInt>(0, DataType::INT64, Span::unknown());
-  MemRef memref(MemorySpace::L0C, addr, 512);
+  MemRefPtr memref = std::make_shared<MemRef>(MemorySpace::L0C, addr, 512, 0);
 
   auto valid_dim1 = std::make_shared<ConstInt>(8, DataType::INT32, Span::unknown());
   auto valid_dim2 = std::make_shared<ConstInt>(8, DataType::INT32, Span::unknown());
@@ -278,13 +278,16 @@ TEST(IRTypeTest, TestTileTypeWithTileView) {
 }
 
 TEST(IRTypeTest, TestTileTypeInvalidDimensions) {
-  // Test that TileType with more than 2 dimensions throws exception
+  // Test that TileType with more than 2 dimensions can be created
+  // (dimension limit is now enforced at code generation level, not type level)
   auto dim1 = std::make_shared<ConstInt>(16, DataType::INT32, Span::unknown());
   auto dim2 = std::make_shared<ConstInt>(16, DataType::INT32, Span::unknown());
   auto dim3 = std::make_shared<ConstInt>(16, DataType::INT32, Span::unknown());
   std::vector<ExprPtr> shape = {dim1, dim2, dim3};
 
-  ASSERT_THROW({ auto tile_type = std::make_shared<TileType>(shape, DataType::FP32); }, std::logic_error);
+  auto tile_type = std::make_shared<TileType>(shape, DataType::FP32);
+  ASSERT_NE(tile_type, nullptr);
+  ASSERT_EQ(tile_type->shape_.size(), 3);
 }
 
 // ============================================================================
