@@ -474,7 +474,7 @@ TEST_F(PreGraphTest, TestTransposeDatamoveExp) {
     outInnerTemp->SetMemoryTypeBoth(MemoryType::MEM_DEVICE_DDR, true);
 
     G.SetInCast({"input"});
-    G.SetOutCast({"output"});
+    G.SetOutCast({"output", "output2"});
     Function *function = G.GetFunction();
     const int SUBGRAPH_NUM = 8;
     function->SetTotalSubGraphCount(SUBGRAPH_NUM);
