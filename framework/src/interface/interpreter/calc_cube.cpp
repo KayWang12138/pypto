@@ -89,13 +89,11 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     if (opCode == Opcode::OP_L0C_TO_L1) {
         // fixpipe
         bool quant = oper->GetDataType() == DataType::DT_INT32 && ret->GetDataType() == DataType::DT_FP16;
-        if (quant) {
-            uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
-            int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
-            LogicalTensorDataPtr scalePtr = nullptr;
-            if (ctx->ioperandDataViewList->size() > 1) {
-                scalePtr = ctx->ioperandDataViewList->at(1);
-            }
+        uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
+        int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
+        LogicalTensorDataPtr scalePtr = nullptr;
+        if (ctx->ioperandDataViewList->size() > 1) {
+            scalePtr = ctx->ioperandDataViewList->at(1);
         }
         std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetShape());
         std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToOffset());
