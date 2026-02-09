@@ -78,6 +78,7 @@ constexpr const int SHAPE_DIM3 = 3;
 constexpr const int SHAPE_DIM4 = 4;
 constexpr const int SHAPE_DIM5 = 5;
 constexpr const int ALIGN_SIZE_512 = 512;
+constexpr const int ALIGN_SIZE_64 = 64;
 constexpr const int ALIGN_SIZE_32 = 32;
 constexpr const int ALIGN_SIZE_16 = 16;
 constexpr const int VNCHWCONV_REPEAT = 16;

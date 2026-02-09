@@ -78,6 +78,12 @@ enum class CopyOutMode : int64_t
     ND2ND = 2
 };
 
+enum class PaddingMode : int64_t {
+    NO_PADDING = 0,
+    PADDING_OUTER = 1,
+    PADDING_INNER = 2
+};
+
 enum class ReLuType : int64_t
 {
     NoReLu = 0,
