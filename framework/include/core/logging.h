@@ -403,8 +403,6 @@ class Logger {
       sprintf_s(buf, sizeof(buf), "%03d %c | ", static_cast<int>(ms), MSG[static_cast<int>(level)]);
 
       Log(buf);
-      // Uncomment the following line to include function and line number in logs:
-      // Log(func + ":" + std::to_string(line) + " | ");
     }
   }
 

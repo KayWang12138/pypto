@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <cstring>
 #include <map>
 #include <memory>
 #include <optional>
@@ -234,10 +235,7 @@ class StructuralEqualImpl {
   }
 
   result_type VisitLeafField(const double& lhs, const double& rhs) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
-    if (lhs != rhs) {
-#pragma GCC diagnostic pop
+    if (std::memcmp(&lhs, &rhs, sizeof(double)) != 0) {
       if constexpr (AssertMode) {
         std::ostringstream msg;
         msg << "double value mismatch (" << lhs << " != " << rhs << ")";
@@ -341,11 +339,9 @@ class StructuralEqualImpl {
         values_equal = (AnyCast<std::string>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
                         AnyCast<std::string>(rhs_val, "comparing kwarg: " + lhs[i].first));
       } else if (lhs_val.type() == typeid(double)) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wfloat-equal"
-        values_equal = (AnyCast<double>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
-                        AnyCast<double>(rhs_val, "comparing kwarg: " + lhs[i].first));
-#pragma GCC diagnostic pop
+        double lhs_double = AnyCast<double>(lhs_val, "comparing kwarg: " + lhs[i].first);
+        double rhs_double = AnyCast<double>(rhs_val, "comparing kwarg: " + lhs[i].first);
+        values_equal = (std::memcmp(&lhs_double, &rhs_double, sizeof(double)) == 0);
       } else if (lhs_val.type() == typeid(DataType)) {
         values_equal = (AnyCast<DataType>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
                         AnyCast<DataType>(rhs_val, "comparing kwarg: " + lhs[i].first));
