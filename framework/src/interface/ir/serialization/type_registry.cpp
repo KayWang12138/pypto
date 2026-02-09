@@ -26,8 +26,8 @@ TypeRegistry& TypeRegistry::Instance() {
 }
 
 void TypeRegistry::Register(const std::string& type_name, DeserializerFunc func) {
-  auto [it, inserted] = registry_.insert({type_name, std::move(func)});
-  if (!inserted) {
+  auto result = registry_.insert({type_name, std::move(func)});
+  if (!result.second) {
     throw RuntimeError("Type already registered: " + type_name);
   }
 }

@@ -18,6 +18,7 @@
 #include "core/logging.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
+#include "ir/op_utils.h"
 #include "ir/type.h"
 #include "ir/type_inference.h"
 
@@ -73,15 +74,7 @@ TypePtr DeduceBlockBatchMatMulType(const std::vector<ExprPtr>& args,
   ExprPtr n_dim = rhs_shape[rhs_ndim - 1];
 
   // Try to verify K dimensions match if they are constant
-  auto k_lhs_const = As<ConstInt>(k_dim_lhs);
-  auto k_rhs_const = As<ConstInt>(k_dim_rhs);
-
-  if (k_lhs_const && k_rhs_const) {
-    INTERNAL_CHECK(k_lhs_const->value_ == k_rhs_const->value_)
-        << "The operator " << op_name
-        << " requires matching inner dimensions, but got lhs K=" << k_lhs_const->value_
-        << " and rhs K=" << k_rhs_const->value_;
-  }
+  VerifyKDimensionsMatch(k_dim_lhs, k_dim_rhs, op_name);
 
   // Handle batch dimensions
   std::vector<ExprPtr> output_shape;

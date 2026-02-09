@@ -65,6 +65,30 @@ inline std::string DemangleTypeName(const char* mangled_name) {
 }
 
 /**
+ * @brief Build a type mismatch error message and throw TypeError
+ *
+ * @param expected_type_name Mangled name of the expected type (from typeid().name())
+ * @param actual_type_name Mangled name of the actual type (from value.type().name())
+ * @param context Optional context string for error messages
+ * @throws TypeError with detailed type information
+ */
+[[noreturn]] inline void ThrowAnyCastError(const char* expected_type_name, const char* actual_type_name,
+                                           const std::string& context) {
+  std::string expected_type = DemangleTypeName(expected_type_name);
+  std::string actual_type = DemangleTypeName(actual_type_name);
+  std::string error_msg = "Invalid type";
+  if (!context.empty()) {
+    error_msg += " for ";
+    error_msg += context;
+  }
+  error_msg += ", expected ";
+  error_msg += expected_type;
+  error_msg += ", but got ";
+  error_msg += actual_type;
+  throw ir::TypeError(error_msg);
+}
+
+/**
  * @brief Cast std::any to type T with enhanced error reporting
  *
  * This function wraps std::any_cast and provides detailed error messages
@@ -87,20 +111,8 @@ template <typename T>
 T AnyCast(const std::any& value, const std::string& context = "") {
   try {
     return std::any_cast<T>(value);
-  } catch (const std::bad_any_cast& e) {
-    std::string expected_type = DemangleTypeName(typeid(T).name());
-    std::string actual_type = DemangleTypeName(value.type().name());
-    std::string error_msg = "Invalid type";
-    if (!context.empty()) {
-      error_msg += " for ";
-      error_msg += context;
-    }
-    error_msg += ", expected ";
-    error_msg += expected_type;
-    error_msg += ", but got ";
-    error_msg += actual_type;
-    throw ir::TypeError(error_msg);
-    __builtin_unreachable();
+  } catch (const std::bad_any_cast&) {
+    ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
   }
 }
 
@@ -125,20 +137,8 @@ template <typename T>
 const T& AnyCastRef(const std::any& value, const std::string& context = "") {
   try {
     return std::any_cast<const T&>(value);
-  } catch (const std::bad_any_cast& e) {
-    std::string expected_type = DemangleTypeName(typeid(T).name());
-    std::string actual_type = DemangleTypeName(value.type().name());
-    std::string error_msg = "Invalid type";
-    if (!context.empty()) {
-      error_msg += " for ";
-      error_msg += context;
-    }
-    error_msg += ", expected ";
-    error_msg += expected_type;
-    error_msg += ", but got ";
-    error_msg += actual_type;
-    throw ir::TypeError(error_msg);
-    __builtin_unreachable();
+  } catch (const std::bad_any_cast&) {
+    ThrowAnyCastError(typeid(T).name(), value.type().name(), context);
   }
 }
 

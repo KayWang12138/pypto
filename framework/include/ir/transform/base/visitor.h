@@ -32,59 +32,7 @@ class IRVisitor : public IRFunctor<void> {
   void VisitStmt(const StmtPtr& stmt) override;
 
  protected:
-  // Leaf nodes - no children to visit
-  void VisitExpr_(const VarPtr& op) override;
-  void VisitExpr_(const IterArgPtr& op) override;
-  void VisitExpr_(const MemRefPtr& op) override;
-  void VisitExpr_(const ConstIntPtr& op) override;
-  void VisitExpr_(const ConstFloatPtr& op) override;
-  void VisitExpr_(const ConstBoolPtr& op) override;
-  void VisitExpr_(const CallPtr& op) override;
-  void VisitExpr_(const MakeTuplePtr& op) override;
-  void VisitExpr_(const TupleGetItemExprPtr& op) override;
-
-  // Binary operations - visit left and right children
-  void VisitExpr_(const AddPtr& op) override;
-  void VisitExpr_(const SubPtr& op) override;
-  void VisitExpr_(const MulPtr& op) override;
-  void VisitExpr_(const FloorDivPtr& op) override;
-  void VisitExpr_(const FloorModPtr& op) override;
-  void VisitExpr_(const FloatDivPtr& op) override;
-  void VisitExpr_(const MinPtr& op) override;
-  void VisitExpr_(const MaxPtr& op) override;
-  void VisitExpr_(const PowPtr& op) override;
-  void VisitExpr_(const EqPtr& op) override;
-  void VisitExpr_(const NePtr& op) override;
-  void VisitExpr_(const LtPtr& op) override;
-  void VisitExpr_(const LePtr& op) override;
-  void VisitExpr_(const GtPtr& op) override;
-  void VisitExpr_(const GePtr& op) override;
-  void VisitExpr_(const AndPtr& op) override;
-  void VisitExpr_(const OrPtr& op) override;
-  void VisitExpr_(const XorPtr& op) override;
-  void VisitExpr_(const BitAndPtr& op) override;
-  void VisitExpr_(const BitOrPtr& op) override;
-  void VisitExpr_(const BitXorPtr& op) override;
-  void VisitExpr_(const BitShiftLeftPtr& op) override;
-  void VisitExpr_(const BitShiftRightPtr& op) override;
-
-  // Unary operations - visit operand
-  void VisitExpr_(const AbsPtr& op) override;
-  void VisitExpr_(const NegPtr& op) override;
-  void VisitExpr_(const NotPtr& op) override;
-  void VisitExpr_(const BitNotPtr& op) override;
-  void VisitExpr_(const CastPtr& op) override;
-
-  // Statement types
-  void VisitStmt_(const AssignStmtPtr& op) override;
-  void VisitStmt_(const IfStmtPtr& op) override;
-  void VisitStmt_(const YieldStmtPtr& op) override;
-  void VisitStmt_(const ReturnStmtPtr& op) override;
-  void VisitStmt_(const ForStmtPtr& op) override;
-  void VisitStmt_(const SeqStmtsPtr& op) override;
-  void VisitStmt_(const OpStmtsPtr& op) override;
-  void VisitStmt_(const EvalStmtPtr& op) override;
-  void VisitStmt_(const StmtPtr& op) override;
+  PYPTO_DECLARE_ALL_VISITOR_OVERRIDES
 
  private:
   /**

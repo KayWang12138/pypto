@@ -324,20 +324,24 @@ static IRNodePtr DeserializeIfStmt(const msgpack::object& fields_obj, msgpack::z
   return std::make_shared<IfStmt>(condition, then_body, else_body, return_vars, span);
 }
 
+// Helper: deserialize a msgpack array field into a vector of ExprPtr
+static std::vector<ExprPtr> DeserializeExprArray(const msgpack::object& array_obj, msgpack::zone& zone,
+                                                  DeserializerContext& ctx) {
+  std::vector<ExprPtr> result;
+  if (array_obj.type == msgpack::type::ARRAY) {
+    for (uint32_t i = 0; i < array_obj.via.array.size; ++i) {
+      result.push_back(
+          std::static_pointer_cast<const Expr>(ctx.DeserializeNode(array_obj.via.array.ptr[i], zone)));
+    }
+  }
+  return result;
+}
+
 // Deserialize YieldStmt
 static IRNodePtr DeserializeYieldStmt(const msgpack::object& fields_obj, msgpack::zone& zone,
                                       DeserializerContext& ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
-
-  std::vector<ExprPtr> value;
-  auto value_obj = GET_FIELD_OBJ("value");
-  if (value_obj.type == msgpack::type::ARRAY) {
-    for (uint32_t i = 0; i < value_obj.via.array.size; ++i) {
-      value.push_back(
-          std::static_pointer_cast<const Expr>(ctx.DeserializeNode(value_obj.via.array.ptr[i], zone)));
-    }
-  }
-
+  auto value = DeserializeExprArray(GET_FIELD_OBJ("value"), zone, ctx);
   return std::make_shared<YieldStmt>(value, span);
 }
 
@@ -345,16 +349,7 @@ static IRNodePtr DeserializeYieldStmt(const msgpack::object& fields_obj, msgpack
 static IRNodePtr DeserializeReturnStmt(const msgpack::object& fields_obj, msgpack::zone& zone,
                                        DeserializerContext& ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
-
-  std::vector<ExprPtr> value;
-  auto value_obj = GET_FIELD_OBJ("value");
-  if (value_obj.type == msgpack::type::ARRAY) {
-    for (uint32_t i = 0; i < value_obj.via.array.size; ++i) {
-      value.push_back(
-          std::static_pointer_cast<const Expr>(ctx.DeserializeNode(value_obj.via.array.ptr[i], zone)));
-    }
-  }
-
+  auto value = DeserializeExprArray(GET_FIELD_OBJ("value"), zone, ctx);
   return std::make_shared<ReturnStmt>(value, span);
 }
 
@@ -391,20 +386,24 @@ static IRNodePtr DeserializeForStmt(const msgpack::object& fields_obj, msgpack::
   return std::make_shared<ForStmt>(loop_var, start, stop, step, iter_args, body, return_vars, span);
 }
 
+// Helper: deserialize a msgpack array field into a vector of StmtPtr
+static std::vector<StmtPtr> DeserializeStmtArray(const msgpack::object& array_obj, msgpack::zone& zone,
+                                                  DeserializerContext& ctx) {
+  std::vector<StmtPtr> result;
+  if (array_obj.type == msgpack::type::ARRAY) {
+    for (uint32_t i = 0; i < array_obj.via.array.size; ++i) {
+      result.push_back(
+          std::static_pointer_cast<const Stmt>(ctx.DeserializeNode(array_obj.via.array.ptr[i], zone)));
+    }
+  }
+  return result;
+}
+
 // Deserialize SeqStmts
 static IRNodePtr DeserializeSeqStmts(const msgpack::object& fields_obj, msgpack::zone& zone,
                                      DeserializerContext& ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
-
-  std::vector<StmtPtr> stmts;
-  auto stmts_obj = GET_FIELD_OBJ("stmts");
-  if (stmts_obj.type == msgpack::type::ARRAY) {
-    for (uint32_t i = 0; i < stmts_obj.via.array.size; ++i) {
-      stmts.push_back(
-          std::static_pointer_cast<const Stmt>(ctx.DeserializeNode(stmts_obj.via.array.ptr[i], zone)));
-    }
-  }
-
+  auto stmts = DeserializeStmtArray(GET_FIELD_OBJ("stmts"), zone, ctx);
   return std::make_shared<SeqStmts>(stmts, span);
 }
 
@@ -412,16 +411,7 @@ static IRNodePtr DeserializeSeqStmts(const msgpack::object& fields_obj, msgpack:
 static IRNodePtr DeserializeOpStmts(const msgpack::object& fields_obj, msgpack::zone& zone,
                                     DeserializerContext& ctx) {
   auto span = ctx.DeserializeSpan(GET_FIELD_OBJ("span"));
-
-  std::vector<StmtPtr> stmts;
-  auto stmts_obj = GET_FIELD_OBJ("stmts");
-  if (stmts_obj.type == msgpack::type::ARRAY) {
-    for (uint32_t i = 0; i < stmts_obj.via.array.size; ++i) {
-      stmts.push_back(
-          std::static_pointer_cast<const Stmt>(ctx.DeserializeNode(stmts_obj.via.array.ptr[i], zone)));
-    }
-  }
-
+  auto stmts = DeserializeStmtArray(GET_FIELD_OBJ("stmts"), zone, ctx);
   return std::make_shared<OpStmts>(stmts, span);
 }
 

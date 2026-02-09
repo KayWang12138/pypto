@@ -22,14 +22,6 @@
 namespace pypto {
 namespace ir {
 
-// Forward declarations of built-in rules (implemented in their respective files)
-class SSAVerifyRule;
-class TypeCheckRule;
-
-// External rule instances - these are defined in verify_ssa_pass.cpp and type_check_pass.cpp
-extern VerifyRulePtr CreateSSAVerifyRule();
-extern VerifyRulePtr CreateTypeCheckRule();
-
 IRVerifier::IRVerifier() = default;
 
 void IRVerifier::AddRule(VerifyRulePtr rule) {
@@ -61,7 +53,8 @@ std::vector<Diagnostic> IRVerifier::Verify(const ProgramPtr& program) const {
 
   // Run all enabled rules on all functions
   // program->functions_ is a map from GlobalVar to Function
-  for (const auto& [global_var, func] : program->functions_) {
+  for (const auto& entry : program->functions_) {
+    const auto& func = entry.second;
     if (!func) {
       continue;
     }

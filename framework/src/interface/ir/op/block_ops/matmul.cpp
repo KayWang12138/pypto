@@ -19,6 +19,7 @@
 #include "ir/expr.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
+#include "ir/op_utils.h"
 #include "ir/pipe.h"
 #include "ir/scalar_expr.h"
 #include "ir/type.h"
@@ -102,15 +103,7 @@ TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr>& args,
   ExprPtr n_dim = rhs_shape[1];
 
   // Try to verify K dimensions match if they are constant
-  auto k_lhs_const = As<ConstInt>(k_dim_lhs);
-  auto k_rhs_const = As<ConstInt>(k_dim_rhs);
-
-  if (k_lhs_const && k_rhs_const) {
-    INTERNAL_CHECK(k_lhs_const->value_ == k_rhs_const->value_)
-        << "The operator " << op_name
-        << " requires matching inner dimensions, but got lhs K=" << k_lhs_const->value_
-        << " and rhs K=" << k_rhs_const->value_;
-  }
+  VerifyKDimensionsMatch(k_dim_lhs, k_dim_rhs, op_name);
 
   // Promote data types
   auto result_dtype = PromoteDataTypes(lhs_type->dtype_, rhs_type->dtype_);
@@ -164,8 +157,6 @@ TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr>& args,
   auto m_lhs_const = As<ConstInt>(lhs_shape[0]);
   auto n_acc_const = As<ConstInt>(n_dim_acc);
   auto n_rhs_const = As<ConstInt>(rhs_shape[1]);
-  auto k_lhs_const = As<ConstInt>(lhs_shape[1]);
-  auto k_rhs_const = As<ConstInt>(rhs_shape[0]);
 
   if (m_acc_const && m_lhs_const) {
     INTERNAL_CHECK(m_acc_const->value_ == m_lhs_const->value_)
@@ -181,12 +172,7 @@ TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr>& args,
         << " and rhs N=" << n_rhs_const->value_;
   }
 
-  if (k_lhs_const && k_rhs_const) {
-    INTERNAL_CHECK(k_lhs_const->value_ == k_rhs_const->value_)
-        << "The operator " << op_name
-        << " requires matching K dimensions, but got lhs K=" << k_lhs_const->value_
-        << " and rhs K=" << k_rhs_const->value_;
-  }
+  VerifyKDimensionsMatch(lhs_shape[1], rhs_shape[0], op_name);
 
   // Promote data types
   auto lhs_rhs_dtype = PromoteDataTypes(lhs_type->dtype_, rhs_type->dtype_);

@@ -26,6 +26,7 @@
 #include "ir/expr.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
+#include "ir/op_utils.h"
 #include "ir/pipe.h"
 #include "ir/scalar_expr.h"
 #include "ir/type.h"
@@ -33,6 +34,21 @@
 
 namespace pypto {
 namespace ir {
+
+// Helper: compute stride expression for a TensorType (last dimension size, or "1" for 1D)
+static std::string ComputeTensorStrideExpr(const std::shared_ptr<const TensorType>& tensor_type,
+                                           codegen::CCECodegen& codegen) {
+  if (tensor_type->shape_.size() == 1) {
+    return "1";
+  }
+  return codegen.GetExprAsCode(tensor_type->shape_[tensor_type->shape_.size() - 1]);
+}
+
+// Helper: compute linear offset string from row/col offsets and stride
+static std::string ComputeLinearOffset(const std::string& row_offset, const std::string& col_offset,
+                                       const std::string& stride_expr) {
+  return row_offset + " * " + stride_expr + " + " + col_offset;
+}
 
 // ============================================================================
 // CCE Codegen for block.load
@@ -53,14 +69,8 @@ CCECodegenFunc MakeBlockLoadCodegenCCE() {
     INTERNAL_CHECK(src_tensor_type != nullptr) << "block.load source must be TensorType";
     INTERNAL_CHECK(src_tensor_type->shape_.size() >= 1) << "Tensor must be at least 1D";
 
-    std::string stride_expr;
-    if (src_tensor_type->shape_.size() == 1) {
-      stride_expr = "1";
-    } else {
-      stride_expr = codegen.GetExprAsCode(src_tensor_type->shape_[src_tensor_type->shape_.size() - 1]);
-    }
-
-    std::string offset = row_offset + " * " + stride_expr + " + " + col_offset;
+    std::string stride_expr = ComputeTensorStrideExpr(src_tensor_type, codegen);
+    std::string offset = ComputeLinearOffset(row_offset, col_offset, stride_expr);
     std::string raw_ptr = codegen.GetPointer(src_tensor_var);
     std::string var_name = codegen.GetCurrentResultTarget();
 
@@ -91,14 +101,8 @@ CCECodegenFunc MakeBlockStoreCodegenCCE() {
     INTERNAL_CHECK(dst_tensor_type != nullptr) << "block.store destination must be TensorType";
     INTERNAL_CHECK(dst_tensor_type->shape_.size() >= 1) << "Tensor must be at least 1D";
 
-    std::string stride_expr;
-    if (dst_tensor_type->shape_.size() == 1) {
-      stride_expr = "1";
-    } else {
-      stride_expr = codegen.GetExprAsCode(dst_tensor_type->shape_[dst_tensor_type->shape_.size() - 1]);
-    }
-
-    std::string offset = row_offset + " * " + stride_expr + " + " + col_offset;
+    std::string stride_expr = ComputeTensorStrideExpr(dst_tensor_type, codegen);
+    std::string offset = ComputeLinearOffset(row_offset, col_offset, stride_expr);
     std::string raw_ptr = codegen.GetPointer(dst_tensor_var);
     std::string var_name = codegen.GetCurrentResultTarget();
 
@@ -245,21 +249,6 @@ PTOCodegenFunc MakeBlockAllocCodegenPTO() {
     (void)codegen;
     return "";  // No MLIR emission - pto.alloc_tile generated from MemRefs in TileTypes
   };
-}
-
-// Helper to get kwargs value with default (uses vector to preserve order)
-template <typename T>
-T GetKwarg(const std::vector<std::pair<std::string, std::any>>& kwargs, const std::string& key,
-           const std::optional<T>& default_value = std::nullopt) {
-  for (const auto& [k, v] : kwargs) {
-    if (k == key) {
-      return AnyCast<T>(v, "kwarg key: " + key);
-    }
-  }
-  if (default_value) {
-    return *default_value;
-  }
-  throw ValueError("Missing kwarg: " + key);
 }
 
 TypePtr DeduceBlockGetBlockIdxType(const std::vector<ExprPtr>& args,

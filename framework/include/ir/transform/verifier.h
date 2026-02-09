@@ -184,6 +184,12 @@ class IRVerifier {
   std::unordered_set<std::string> disabled_rules_;  ///< Names of disabled rules
 };
 
+/// Factory function to create SSA verification rule (defined in verify_ssa_pass.cpp)
+VerifyRulePtr CreateSSAVerifyRule();
+
+/// Factory function to create type check verification rule (defined in type_check_pass.cpp)
+VerifyRulePtr CreateTypeCheckRule();
+
 }  // namespace ir
 }  // namespace pypto
 

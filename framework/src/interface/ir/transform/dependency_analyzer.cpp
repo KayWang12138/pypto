@@ -292,6 +292,23 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
     }
   };
 
+  // Helper: add RAW dependencies for all read variables
+  auto AddRAWDependencies = [&](const std::set<VarPtr>& read_vars, const StmtPtr& consumer_stmt) {
+    for (const auto& read_var : read_vars) {
+      std::string var_name = read_var->name_;
+      if (last_write.count(var_name)) {
+        DependencyEdge edge;
+        edge.producer = last_write[var_name];
+        edge.consumer = consumer_stmt;
+        edge.variable = read_var;
+        edge.type = DependencyEdge::RAW;
+        edge.producer_pipe = GetPipeTypeFromStmt(last_write[var_name]);
+        edge.consumer_pipe = GetPipeTypeFromStmt(consumer_stmt);
+        dependencies.push_back(edge);
+      }
+    }
+  };
+
   // Process each statement in the block
   for (const auto& stmt : block.statements) {
     VarCollector collector;
@@ -305,19 +322,7 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
       collector.VisitExpr(assign->value_);
 
       // Check for RAW dependencies (Read-After-Write)
-      for (const auto& read_var : collector.read_vars) {
-        std::string var_name = read_var->name_;
-        if (last_write.count(var_name)) {
-          DependencyEdge edge;
-          edge.producer = last_write[var_name];
-          edge.consumer = stmt;
-          edge.variable = read_var;
-          edge.type = DependencyEdge::RAW;
-          edge.producer_pipe = GetPipeTypeFromStmt(last_write[var_name]);
-          edge.consumer_pipe = GetPipeTypeFromStmt(stmt);
-          dependencies.push_back(edge);
-        }
-      }
+      AddRAWDependencies(collector.read_vars, stmt);
 
       // Check for WAR dependencies (Write-After-Read)
       std::string def_name = def_var->name_;
@@ -359,19 +364,7 @@ std::vector<DependencyEdge> DependencyAnalyzer::AnalyzeBlockDependencies(const B
       collector.VisitExpr(eval_stmt->expr_);
 
       // Check for RAW dependencies
-      for (const auto& read_var : collector.read_vars) {
-        std::string var_name = read_var->name_;
-        if (last_write.count(var_name)) {
-          DependencyEdge edge;
-          edge.producer = last_write[var_name];
-          edge.consumer = stmt;
-          edge.variable = read_var;
-          edge.type = DependencyEdge::RAW;
-          edge.producer_pipe = GetPipeTypeFromStmt(last_write[var_name]);
-          edge.consumer_pipe = GetPipeTypeFromStmt(stmt);
-          dependencies.push_back(edge);
-        }
-      }
+      AddRAWDependencies(collector.read_vars, stmt);
 
       // Record reads
       for (const auto& read_var : collector.read_vars) {

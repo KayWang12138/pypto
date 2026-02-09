@@ -133,59 +133,7 @@ class IRPythonPrinter : public IRVisitor {
   std::string Print(const TypePtr& type);
 
  protected:
-  // Expression visitors
-  void VisitExpr_(const VarPtr& op) override;
-  void VisitExpr_(const IterArgPtr& op) override;
-  void VisitExpr_(const MemRefPtr& op) override;
-  void VisitExpr_(const ConstIntPtr& op) override;
-  void VisitExpr_(const ConstFloatPtr& op) override;
-  void VisitExpr_(const ConstBoolPtr& op) override;
-  void VisitExpr_(const CallPtr& op) override;
-  void VisitExpr_(const MakeTuplePtr& op) override;
-  void VisitExpr_(const TupleGetItemExprPtr& op) override;
-
-  // Binary operations
-  void VisitExpr_(const AddPtr& op) override;
-  void VisitExpr_(const SubPtr& op) override;
-  void VisitExpr_(const MulPtr& op) override;
-  void VisitExpr_(const FloorDivPtr& op) override;
-  void VisitExpr_(const FloorModPtr& op) override;
-  void VisitExpr_(const FloatDivPtr& op) override;
-  void VisitExpr_(const MinPtr& op) override;
-  void VisitExpr_(const MaxPtr& op) override;
-  void VisitExpr_(const PowPtr& op) override;
-  void VisitExpr_(const EqPtr& op) override;
-  void VisitExpr_(const NePtr& op) override;
-  void VisitExpr_(const LtPtr& op) override;
-  void VisitExpr_(const LePtr& op) override;
-  void VisitExpr_(const GtPtr& op) override;
-  void VisitExpr_(const GePtr& op) override;
-  void VisitExpr_(const AndPtr& op) override;
-  void VisitExpr_(const OrPtr& op) override;
-  void VisitExpr_(const XorPtr& op) override;
-  void VisitExpr_(const BitAndPtr& op) override;
-  void VisitExpr_(const BitOrPtr& op) override;
-  void VisitExpr_(const BitXorPtr& op) override;
-  void VisitExpr_(const BitShiftLeftPtr& op) override;
-  void VisitExpr_(const BitShiftRightPtr& op) override;
-
-  // Unary operations
-  void VisitExpr_(const AbsPtr& op) override;
-  void VisitExpr_(const NegPtr& op) override;
-  void VisitExpr_(const NotPtr& op) override;
-  void VisitExpr_(const BitNotPtr& op) override;
-  void VisitExpr_(const CastPtr& op) override;
-
-  // Statement visitors
-  void VisitStmt_(const AssignStmtPtr& op) override;
-  void VisitStmt_(const IfStmtPtr& op) override;
-  void VisitStmt_(const YieldStmtPtr& op) override;
-  void VisitStmt_(const ReturnStmtPtr& op) override;
-  void VisitStmt_(const ForStmtPtr& op) override;
-  void VisitStmt_(const SeqStmtsPtr& op) override;
-  void VisitStmt_(const OpStmtsPtr& op) override;
-  void VisitStmt_(const EvalStmtPtr& op) override;
-  void VisitStmt_(const StmtPtr& op) override;
+  PYPTO_DECLARE_ALL_VISITOR_OVERRIDES
 
   // Function and program visitors
   void VisitFunction(const FunctionPtr& func);
@@ -207,6 +155,12 @@ class IRPythonPrinter : public IRVisitor {
 
   // Statement body visitor in program context (for self.method() call printing)
   void VisitStmtInProgramContext(const StmtPtr& stmt, const ProgramPtr& program);
+
+  // Print return type annotation for a function
+  void PrintReturnTypeAnnotation(const FunctionPtr& func);
+
+  // Print function body with yield-to-return conversion
+  void PrintBodyWithYieldToReturn(const StmtPtr& body);
 
   // Binary/unary operator helpers (reuse precedence logic)
   void PrintBinaryOp(const BinaryExprPtr& op, const char* op_symbol);
@@ -788,6 +742,59 @@ void IRPythonPrinter::VisitStmtBody(const StmtPtr& body, const std::vector<VarPt
   }
 }
 
+void IRPythonPrinter::PrintReturnTypeAnnotation(const FunctionPtr& func) {
+  if (!func->return_types_.empty()) {
+    stream_ << " -> ";
+    if (func->return_types_.size() == 1) {
+      stream_ << Print(func->return_types_[0]);
+    } else {
+      stream_ << "tuple[";
+      for (size_t i = 0; i < func->return_types_.size(); ++i) {
+        if (i > 0) stream_ << ", ";
+        stream_ << Print(func->return_types_[i]);
+      }
+      stream_ << "]";
+    }
+  }
+}
+
+void IRPythonPrinter::PrintBodyWithYieldToReturn(const StmtPtr& body) {
+  if (!body) return;
+  if (auto seq_stmts = As<SeqStmts>(body)) {
+    for (size_t i = 0; i < seq_stmts->stmts_.size(); ++i) {
+      stream_ << GetIndent();
+      // Convert yield to return in function context
+      if (auto yield_stmt = As<YieldStmt>(seq_stmts->stmts_[i])) {
+        stream_ << "return";
+        if (!yield_stmt->value_.empty()) {
+          stream_ << " ";
+          for (size_t j = 0; j < yield_stmt->value_.size(); ++j) {
+            if (j > 0) stream_ << ", ";
+            VisitExpr(yield_stmt->value_[j]);
+          }
+        }
+      } else {
+        VisitStmt(seq_stmts->stmts_[i]);
+      }
+      if (i < seq_stmts->stmts_.size() - 1) {
+        stream_ << "\n";
+      }
+    }
+  } else if (auto yield_stmt = As<YieldStmt>(body)) {
+    stream_ << GetIndent() << "return";
+    if (!yield_stmt->value_.empty()) {
+      stream_ << " ";
+      for (size_t i = 0; i < yield_stmt->value_.size(); ++i) {
+        if (i > 0) stream_ << ", ";
+        VisitExpr(yield_stmt->value_[i]);
+      }
+    }
+  } else {
+    stream_ << GetIndent();
+    VisitStmt(body);
+  }
+}
+
 void IRPythonPrinter::VisitFunction(const FunctionPtr& func) {
   // Print decorator with type parameter if not opaque
   stream_ << "@" << prefix_ << ".function";
@@ -805,60 +812,13 @@ void IRPythonPrinter::VisitFunction(const FunctionPtr& func) {
 
   stream_ << ")";
 
-  // Print return type annotation
-  if (!func->return_types_.empty()) {
-    stream_ << " -> ";
-    if (func->return_types_.size() == 1) {
-      stream_ << Print(func->return_types_[0]);
-    } else {
-      stream_ << "tuple[";
-      for (size_t i = 0; i < func->return_types_.size(); ++i) {
-        if (i > 0) stream_ << ", ";
-        stream_ << Print(func->return_types_[i]);
-      }
-      stream_ << "]";
-    }
-  }
+  PrintReturnTypeAnnotation(func);
 
   stream_ << ":\n";
 
   // Print body - convert yield to return in function context
   IncreaseIndent();
-  if (func->body_) {
-    if (auto seq_stmts = As<SeqStmts>(func->body_)) {
-      for (size_t i = 0; i < seq_stmts->stmts_.size(); ++i) {
-        stream_ << GetIndent();
-        // Convert yield to return in function context
-        if (auto yield_stmt = As<YieldStmt>(seq_stmts->stmts_[i])) {
-          stream_ << "return";
-          if (!yield_stmt->value_.empty()) {
-            stream_ << " ";
-            for (size_t j = 0; j < yield_stmt->value_.size(); ++j) {
-              if (j > 0) stream_ << ", ";
-              VisitExpr(yield_stmt->value_[j]);
-            }
-          }
-        } else {
-          VisitStmt(seq_stmts->stmts_[i]);
-        }
-        if (i < seq_stmts->stmts_.size() - 1) {
-          stream_ << "\n";
-        }
-      }
-    } else if (auto yield_stmt = As<YieldStmt>(func->body_)) {
-      stream_ << GetIndent() << "return";
-      if (!yield_stmt->value_.empty()) {
-        stream_ << " ";
-        for (size_t i = 0; i < yield_stmt->value_.size(); ++i) {
-          if (i > 0) stream_ << ", ";
-          VisitExpr(yield_stmt->value_[i]);
-        }
-      }
-    } else {
-      stream_ << GetIndent();
-      VisitStmt(func->body_);
-    }
-  }
+  PrintBodyWithYieldToReturn(func->body_);
   DecreaseIndent();
 }
 
@@ -928,8 +888,8 @@ static std::vector<std::pair<GlobalVarPtr, FunctionPtr>> TopologicalSortFunction
   };
 
   // Visit all functions
-  for (const auto& [gvar, func] : functions) {
-    if (!dfs(gvar)) {
+  for (const auto& entry : functions) {
+    if (!dfs(entry.first)) {
       // Cycle detected, fall back to original order
       sorted.clear();
       for (const auto& pair : functions) {
@@ -964,7 +924,8 @@ void IRPythonPrinter::VisitProgram(const ProgramPtr& program) {
 
   // Print each function as a method
   bool first = true;
-  for (const auto& [gvar, func] : sorted_functions) {
+  for (const auto& sorted_entry : sorted_functions) {
+    const auto& func = sorted_entry.second;
     if (!first) {
       stream_ << "\n";  // Blank line between functions
     }
@@ -984,20 +945,7 @@ void IRPythonPrinter::VisitProgram(const ProgramPtr& program) {
 
     stream_ << ")";
 
-    // Print return type annotation
-    if (!func->return_types_.empty()) {
-      stream_ << " -> ";
-      if (func->return_types_.size() == 1) {
-        stream_ << Print(func->return_types_[0]);
-      } else {
-        stream_ << "tuple[";
-        for (size_t i = 0; i < func->return_types_.size(); ++i) {
-          if (i > 0) stream_ << ", ";
-          stream_ << Print(func->return_types_[i]);
-        }
-        stream_ << "]";
-      }
-    }
+    PrintReturnTypeAnnotation(func);
 
     stream_ << ":\n";
 
@@ -1017,41 +965,7 @@ void IRPythonPrinter::VisitStmtInProgramContext(const StmtPtr& stmt, const Progr
   current_program_ = program;
 
   // Visit statement (will affect how Call expressions are printed)
-  if (stmt) {
-    if (auto seq_stmts = As<SeqStmts>(stmt)) {
-      for (size_t i = 0; i < seq_stmts->stmts_.size(); ++i) {
-        stream_ << GetIndent();
-        // Convert yield to return in function context
-        if (auto yield_stmt = As<YieldStmt>(seq_stmts->stmts_[i])) {
-          stream_ << "return";
-          if (!yield_stmt->value_.empty()) {
-            stream_ << " ";
-            for (size_t j = 0; j < yield_stmt->value_.size(); ++j) {
-              if (j > 0) stream_ << ", ";
-              VisitExpr(yield_stmt->value_[j]);
-            }
-          }
-        } else {
-          VisitStmt(seq_stmts->stmts_[i]);
-        }
-        if (i < seq_stmts->stmts_.size() - 1) {
-          stream_ << "\n";
-        }
-      }
-    } else if (auto yield_stmt = As<YieldStmt>(stmt)) {
-      stream_ << GetIndent() << "return";
-      if (!yield_stmt->value_.empty()) {
-        stream_ << " ";
-        for (size_t i = 0; i < yield_stmt->value_.size(); ++i) {
-          if (i > 0) stream_ << ", ";
-          VisitExpr(yield_stmt->value_[i]);
-        }
-      }
-    } else {
-      stream_ << GetIndent();
-      VisitStmt(stmt);
-    }
-  }
+  PrintBodyWithYieldToReturn(stmt);
 
   // Restore previous context
   current_program_ = prev_program;
