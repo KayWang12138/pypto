@@ -53,6 +53,7 @@ enum class BinaryOpType {
     BITWISEOR,
     BITWISEXOR,
     COPYSIGN,
+    CMPS,
 };
 
 template <BinaryOpType T>
