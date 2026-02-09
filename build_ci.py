@@ -167,6 +167,7 @@ class BuildParam(CMakeParam):
     asan: bool = False  # 使能 AddressSanitizer
     ubsan: bool = False  # 使能 UndefinedBehaviorSanitizer
     gcov: bool = False  # 使能 GNU Coverage
+    gcov_incr: bool = False  # 使能增量覆盖率 GCov 计算
     clang_install_path: Optional[Path] = None  # Clang 安装位置
     compile_dependency_check: bool = False  # 使能编译依赖关系检查
     # Build
@@ -181,6 +182,7 @@ class BuildParam(CMakeParam):
         self.asan = args.asan
         self.ubsan = args.ubsan
         self.gcov = args.gcov
+        self.gcov_incr = args.gcov_increment
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
         self.compile_dependency_check = args.compile_dependency_check
 
@@ -192,7 +194,7 @@ class BuildParam(CMakeParam):
         desc += f"\n                  BuildType : {self.build_type}"
         desc += f"\n                       ASan : {self.asan}"
         desc += f"\n                      UbSan : {self.ubsan}"
-        desc += f"\n                       GCov : {self.gcov}"
+        desc += f"\n                       GCov : {self.gcov}, Increment: {self.gcov_incr}"
         desc += f"\n           ClangInstallPath : {self.clang_install_path}"
         desc += f"\n            CompileDepCheck : {self.compile_dependency_check}"
         desc += f"\n        Build"
@@ -214,6 +216,8 @@ class BuildParam(CMakeParam):
                             help="Enable UndefinedBehaviorSanitizer.")
         parser.add_argument("--gcov", action="store_true", default=False,
                             help="Enable GNU Coverage Instrumentation Tool.")
+        parser.add_argument("--gcov_increment", action="store_true", default=False,
+                            help="Enable increment coverage calculation based on latest commit.")
         parser.add_argument("--clang", nargs="?", type=str, default="",
                             help="Specify clang install path, such as /usr/bin/clang")
         parser.add_argument("--compile_dependency_check", action="store_true", default=False,
@@ -313,6 +317,9 @@ class TestsExecuteParam(CMakeParam):
     auto_execute_parallel: bool = False  # 用例并行执行
     case_execute_timeout: Optional[int] = None  # 用例执行时, 单个用例超时时长
     case_execute_cpu_rank_size: Optional[int] = None  # 用例并行执行时, CPU 亲和性 Rank Size
+    dump_case_duration_json: Optional[Path] = None  # 用例耗时缓存文件路径
+    dump_case_duration_max_num: Optional[int] = None  # 用例耗时缓存最大数量
+    dump_case_duration_min_secends: Optional[int] = None  # 用例耗时缓存最小秒数
 
     def __init__(self, args):
         self.changed_file = None if not args.changed_files else Path(args.changed_files).resolve()
@@ -321,6 +328,22 @@ class TestsExecuteParam(CMakeParam):
         timeout = args.case_execute_timeout
         self.case_execute_timeout = timeout if timeout and timeout > 0 else None  # 单个用例执行超时时长
         self.case_execute_cpu_rank_size = args.cpu_rank_size
+        duration_json = args.dump_case_duration_json
+        self.dump_case_duration_json = Path(duration_json).resolve() if duration_json else None
+        self.dump_case_duration_max_num = args.dump_case_duration_max_num
+        self.dump_case_duration_min_secends = args.dump_case_duration_min_secends
+
+    def __str__(self) -> str:
+        desc = f"\n    Execute"
+        desc += f"\n               Changed File : {self.changed_file}"
+        desc += f"\n                       Auto : {self.auto_execute}"
+        desc += f"\n                   Parallel : {self.auto_execute_parallel}"
+        desc += f"\n                CaseTimeout : {self.case_execute_timeout}"
+        desc += f"\n        CaseDuration"
+        desc += f"\n                       Json : {self.dump_case_duration_json}"
+        desc += f"\n                     MaxNum : {self.dump_case_duration_max_num}"
+        desc += f"\n                     MinSec : {self.dump_case_duration_min_secends}"
+        return desc
 
     @property
     def ci_model(self) -> bool:
@@ -337,6 +360,12 @@ class TestsExecuteParam(CMakeParam):
                             help="Case execute timeout.")
         parser.add_argument("--cpu_rank_size", nargs="?", type=int, default=None,
                             help="Specify the rank size for CPU affinity grouping.")
+        parser.add_argument("--dump_case_duration_json", nargs="?", type=Path, default=None,
+                            help="Specify the path to the case duration json cache file.")
+        parser.add_argument("--dump_case_duration_max_num", nargs="?", type=int, default=None,
+                            help="Maximum number of cases to dump to duration json cache.")
+        parser.add_argument("--dump_case_duration_min_secends", nargs="?", type=int, default=None,
+                            help="Minimum duration (in seconds) for cases to dump to duration json cache.")
 
     def get_cfg_cmd(self, ext: Optional[Any] = None) -> str:
         cmd = self._cfg_require(opt="ENABLE_TESTS_EXECUTE", ctr=self.auto_execute)
@@ -543,55 +572,51 @@ class TestsParam(CMakeParam):
         self.example: TestsFilterParam = TestsFilterParam(argv=args.example)
 
     def __str__(self):
-        desc = ""
-        if self.enable:
-            desc += f"\nTests"
-            desc += f"\n    Execute"
-            desc += f"\n               Changed File : {self.exec.changed_file}"
-            desc += f"\n                       Auto : {self.exec.auto_execute}"
-            desc += f"\n                   Parallel : {self.exec.auto_execute_parallel}"
-            desc += f"\n                CaseTimeout : {self.exec.case_execute_timeout}"
-            if self.utest.enable:
-                desc += f"\n    Utest"
-                desc += f"\n                     Enable : {self.utest.enable}"
-                desc += f"\n                     Filter : {self.utest.filter_str}"
-            if self.stest.enable or self.stest_distributed.enable:
-                desc += f"\n    Golden"
-                desc += f"\n                      Clean : {self.golden.clean}"
-                desc += f"\n                       Path : {self.golden.path}"
-                desc += f"\n    Stest Execute"
-                desc += f"\n                     Device : {self.stest_exec.auto_execute_device_id}"
-                desc += f"\n                   DumpJson : {self.stest_exec.dump_json}"
-                desc += f"\n         Interpreter Config : {self.stest_exec.interpreter_config}"
-                desc += f"\n        Enable Binary Cache : {self.stest_exec.enable_binary_cache}"
-            if self.stest.enable:
-                desc += f"\n    Stest"
-                desc += f"\n                     Enable : {self.stest.enable}"
-                desc += f"\n                     Filter : {self.stest.filter_str}"
-                desc += f"\n                     Group  : {self.stest_group.filter_str}"
-                if self.stest_tools.prof_enable:
-                    desc += f"\n        Tools"
-                    desc += f"\n              Case Csv File : {self.stest_tools.cases_csv_file}"
-                    desc += f"\n             Intercept Flag : {self.stest_tools.intercept_flag}"
-                    desc += f"\n               Output Clean : {self.stest_tools.output_clean}"
-                    desc += f"\n        Tools Profiling"
-                    desc += f"\n                     Enable : {self.stest_tools.prof_enable}"
-                    desc += f"\n                      Level : {self.stest_tools.prof_level}"
-                    desc += f"\n                Warn Up Cnt : {self.stest_tools.prof_warn_up_cnt}"
-                    desc += f"\n                    Try Cnt : {self.stest_tools.prof_try_cnt}"
-                    desc += f"\n                    Max Cnt : {self.stest_tools.prof_max_cnt}"
-            if self.stest_distributed.enable:
-                desc += f"\n    Stest Distributed"
-                desc += f"\n                     Enable : {self.stest_distributed.enable}"
-                desc += f"\n                     Filter : {self.stest_distributed.filter_str}"
-            if self.models.enable:
-                desc += f"\n    Models"
-                desc += f"\n                     Enable : {self.models.enable}"
-                desc += f"\n                     Filter : {self.models.filter_str}"
-            if self.example.enable:
-                desc += f"\n    Example"
-                desc += f"\n                     Enable : {self.example.enable}"
-                desc += f"\n                     Filter : {self.example.filter_str}"
+        if not self.enable:
+            return ""
+        desc = f"\nTests"
+        desc += f"{self.exec}"
+        if self.utest.enable:
+            desc += f"\n    Utest"
+            desc += f"\n                     Enable : {self.utest.enable}"
+            desc += f"\n                     Filter : {self.utest.filter_str}"
+        if self.stest.enable or self.stest_distributed.enable:
+            desc += f"\n    Golden"
+            desc += f"\n                      Clean : {self.golden.clean}"
+            desc += f"\n                       Path : {self.golden.path}"
+            desc += f"\n    Stest Execute"
+            desc += f"\n                     Device : {self.stest_exec.auto_execute_device_id}"
+            desc += f"\n                   DumpJson : {self.stest_exec.dump_json}"
+            desc += f"\n         Interpreter Config : {self.stest_exec.interpreter_config}"
+            desc += f"\n        Enable Binary Cache : {self.stest_exec.enable_binary_cache}"
+        if self.stest.enable:
+            desc += f"\n    Stest"
+            desc += f"\n                     Enable : {self.stest.enable}"
+            desc += f"\n                     Filter : {self.stest.filter_str}"
+            desc += f"\n                     Group  : {self.stest_group.filter_str}"
+            if self.stest_tools.prof_enable:
+                desc += f"\n        Tools"
+                desc += f"\n              Case Csv File : {self.stest_tools.cases_csv_file}"
+                desc += f"\n             Intercept Flag : {self.stest_tools.intercept_flag}"
+                desc += f"\n               Output Clean : {self.stest_tools.output_clean}"
+                desc += f"\n        Tools Profiling"
+                desc += f"\n                     Enable : {self.stest_tools.prof_enable}"
+                desc += f"\n                      Level : {self.stest_tools.prof_level}"
+                desc += f"\n                Warn Up Cnt : {self.stest_tools.prof_warn_up_cnt}"
+                desc += f"\n                    Try Cnt : {self.stest_tools.prof_try_cnt}"
+                desc += f"\n                    Max Cnt : {self.stest_tools.prof_max_cnt}"
+        if self.stest_distributed.enable:
+            desc += f"\n    Stest Distributed"
+            desc += f"\n                     Enable : {self.stest_distributed.enable}"
+            desc += f"\n                     Filter : {self.stest_distributed.filter_str}"
+        if self.models.enable:
+            desc += f"\n    Models"
+            desc += f"\n                     Enable : {self.models.enable}"
+            desc += f"\n                     Filter : {self.models.filter_str}"
+        if self.example.enable:
+            desc += f"\n    Example"
+            desc += f"\n                     Enable : {self.example.enable}"
+            desc += f"\n                     Filter : {self.example.filter_str}"
         return desc
 
     @property
@@ -899,6 +924,8 @@ class BuildCtrl(CMakeParam):
         env = {}
         if self.build.job_num:
             env["PYPTO_TESTS_PARALLEL_NUM"] = str(self.build.job_num)
+        if self.build.gcov_incr:
+            env["PYPTO_BUILD_GCOV_INCREMENT"] = "True"
         # Tests exec
         tests_exec = self.tests.exec
         if tests_exec.auto_execute:
@@ -908,6 +935,16 @@ class BuildCtrl(CMakeParam):
             rank_size = tests_exec.case_execute_cpu_rank_size
             if rank_size and rank_size > 0:
                 env["PYPTO_TESTS_CASE_EXECUTE_CPU_RANK_SIZE"] = str(rank_size)
+            # Dump case duration json
+            duration_json = tests_exec.dump_case_duration_json
+            if duration_json:
+                env["PYPTO_TESTS_DUMP_CASE_DURATION_JSON"] = str(duration_json)
+            max_num = tests_exec.dump_case_duration_max_num
+            if max_num and max_num > 0:
+                env["PYPTO_TESTS_DUMP_CASE_DURATION_MAX_NUM"] = str(max_num)
+            min_sec = tests_exec.dump_case_duration_min_secends
+            if min_sec and min_sec > 0:
+                env["PYPTO_TESTS_DUMP_CASE_DURATION_MIN_SECONDS"] = str(min_sec)
         return env
 
     def pip_install(self, whl: Path, dest: Optional[Path] = None, opt: str = "",
@@ -1089,6 +1126,12 @@ class BuildCtrl(CMakeParam):
                                                     (self.tests.stest, "python/tests/st")],
                                  ext=ext_str)
 
+        # 执行用例, Examples
+        dev_ext_comma = ",".join(f"{d}" for d in dev_lst)
+        self.py_run_examples(dist=dist, tests=self.tests.example,
+                             def_filter=str(Path(self.src_root, "examples")),
+                             dev_ext_comma=dev_ext_comma, n_workers=n_workers)
+
     def py_tests_run_pytest(self, dist: Optional[Path], params: List[Tuple[TestsFilterParam, str]], ext: str = ""):
         """
         调用 pytest 执行用例
@@ -1110,6 +1153,44 @@ class BuildCtrl(CMakeParam):
             return
         # 执行 pytest
         self._py_tests_run_pytest(dist=dist, filter_str=filter_str, ext=ext)
+
+    def py_run_examples(self, dist: Optional[Path], tests: TestsFilterParam, def_filter: str,
+                        dev_ext_comma: str = "0", n_workers: str = "auto"):
+        if not tests.enable:
+            return
+        if not self.tests.exec.auto_execute:
+            return
+        # filter 处理
+        filter_str = tests.get_filter_str(def_filter=def_filter).replace(',', ' ')
+
+        # 根据 backend_type 决定执行模式
+        origin_env = os.environ.copy()
+        update_env = {}
+        if dist:
+            ori_env_python_path = origin_env.get(self._PYTHONPATH, "")
+            act_env_python_path = f"{dist}:{ori_env_python_path}" if ori_env_python_path else f"{dist}"
+            update_env.update({self._PYTHONPATH: act_env_python_path})
+
+        # 获取 case_timeout 参数
+        case_timeout = self.tests.exec.case_execute_timeout
+        timeout_arg = f" --timeout {case_timeout}" if case_timeout and case_timeout > 0 else ""
+
+        if self.feature.backend_type == "npu":
+            # NPU 模式
+            cmd = f"{sys.executable} examples/validate_examples.py -t {filter_str} -d {dev_ext_comma}{timeout_arg}"
+            logging.info("examples --run_mode npu, Cmd: %s", cmd)
+            ret, duration = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)
+            ret.check_returncode()
+            logging.info("examples --run_mode npu, Cmd: %s, Duration %s sec", cmd, duration)
+        else:
+            # SIM 模式
+            n_workers_val = int(n_workers) if n_workers != "auto" else 16
+            cmd = f"{sys.executable} examples/validate_examples.py -t {filter_str} \
+                  --run_mode sim -w {n_workers_val}{timeout_arg} --no-serial-fallback"
+            logging.info("examples --run_mode sim, Cmd: %s", cmd)
+            ret, duration = self.run_build_cmd(cmd=cmd, check=True, update_env=update_env)
+            ret.check_returncode()
+            logging.info("examples --run_mode sim, Cmd: %s, Duration %s sec", cmd, duration)
 
     def _py_tests_run_pytest(self, dist: Optional[Path], filter_str: str, ext: str = ""):
         if not self.tests.exec.auto_execute:

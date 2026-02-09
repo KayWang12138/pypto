@@ -26,6 +26,7 @@ from pypto.converter import _torch_dtype_from
 from pypto.cost_model import _cost_model_run_once_data_from_host
 from pypto.frontend.parser.diagnostics import Source
 from pypto.frontend.parser.parser import NestedFunctionMarker, Parser
+from pypto.runtime import _pto_verify_datas
 
 
 def _default_globals() -> dict[str, Any]:
@@ -148,7 +149,12 @@ class JitCallableWrapper:
         Options for verification.
     _debug_options : Optional[dict[str, Any]]
         Options for debugging (including runtime_debug_mode).
+    _use_cache : bool
+        Whether to use compilation caching. If False, force recompilation.
     """
+
+    # Global compilation cache
+    _compilation_cache: dict[tuple, dict[str, Any]] = {}
 
     def __init__(
         self,
@@ -162,6 +168,7 @@ class JitCallableWrapper:
         verify_options: Optional[dict[str, Any]] = None,
         debug_options: Optional[dict[str, Any]] = None,
         captured_locals: Optional[dict[str, Any]] = None,
+        use_cache: bool = True,
     ):
         """Initialize the JIT callable wrapper.
 
@@ -185,6 +192,9 @@ class JitCallableWrapper:
             Options for verification during compilation.
         debug_options : Optional[dict[str, Any]], optional
             Options for debugging (e.g., runtime_debug_mode).
+        use_cache : bool, optional
+            Whether to use compilation caching. If False, force recompilation.
+            Defaults to True.
         """
         self._pto_function = pto_function
         self._original_func = original_func
@@ -194,6 +204,7 @@ class JitCallableWrapper:
         self._captured_locals = (
             None if captured_locals is None else dict(captured_locals)
         )
+        self._use_cache = use_cache
 
         # Handling options
         self._codegen_options = (
@@ -253,8 +264,6 @@ class JitCallableWrapper:
                     "must be contiguous."
                 )
 
-        # Use output tensors from parser signature to allocate output tensors
-        out_tensors = []
 
         # Create output tensors with the same device as input tensors
         if in_tensors:
@@ -281,14 +290,20 @@ class JitCallableWrapper:
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
         concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
-        self._compile_if_needed(concrete_input_shapes)
-        symbolic_dim_value_map = {}
-        tmp_parser = self._create_parser()
-        input_tensor_defs, output_tensor_defs = tmp_parser.get_signature()
-        symbolic_dim_value_map = tmp_parser.match_input_shapes(
+        input_tensor_defs = self.get_signature_high_performance(self._original_func)
+        cache_key = self._get_compilation_cache_key(input_tensor_defs, concrete_input_shapes)
+        if self._use_cache and cache_key is not None and cache_key in JitCallableWrapper._compilation_cache:
+            cached_result = JitCallableWrapper._compilation_cache[cache_key]
+            self._parser = cached_result["parser"]
+        else:
+            self._parser = self._create_parser()
+            
+        input_tensor_defs, output_tensor_defs = self._parser.get_signature()
+        symbolic_dim_value_map = self._parser.match_input_shapes(
             concrete_input_shapes, input_tensor_defs
         )
-
+        # Use output tensors from parser signature to allocate output tensors
+        out_tensors = []
         for out_tensor_def in output_tensor_defs:
             shape_list = []
             # Build shape by resolving symbolic dimensions from the output tensor definition
@@ -309,6 +324,8 @@ class JitCallableWrapper:
             out_tensor = torch.empty(shape, dtype=dtype, device=device)
             out_tensors.append(out_tensor)
 
+        self._compile_if_needed(concrete_input_shapes, in_tensors, out_tensors, input_tensor_defs)
+
         # Execute the function using dispatch based on run mode
         def convert_tensors_with_metadata(torch_tensors, tensor_defs):
             """Convert torch tensors to pypto tensors with name and dynamic_axis metadata."""
@@ -327,6 +344,7 @@ class JitCallableWrapper:
                         name=name,
                         dynamic_axis=dynamic_axis if dynamic_axis else None,
                         tensor_format=tensor_def.format,
+                        dtype=tensor_def.dtype,
                     )
                 )
             return pto_tensors
@@ -364,6 +382,34 @@ class JitCallableWrapper:
             The backend runtime handler, or None if not yet compiled (lazy mode).
         """
         return self._handler
+
+
+    @staticmethod
+    def get_signature_high_performance(func: Callable) -> list[pypto.Tensor]:
+        """Quickly extract function signature inputs.
+
+        Parameters
+        ----------
+        func : Callable
+            The function to analyze.
+
+        Returns
+        -------
+        res : list[pypto.Tensor]
+            List of parameter annotations (tensor definitions).
+        """
+        code = func.__code__
+        annotations = func.__annotations__ or {}
+        argcount = code.co_argcount
+        param_names = code.co_varnames[:argcount]
+        
+        tensor_list = [
+            annotations.get(param_name)
+            for param_name in param_names
+            if annotations.get(param_name) is not None
+        ]
+        return tensor_list
+
 
     @staticmethod
     def _get_func_nonlocals(func: Callable) -> dict[str, Any]:
@@ -408,6 +454,102 @@ class JitCallableWrapper:
                     if "empty" not in str(err):
                         raise
         return nonlocal_vars
+
+    def _get_compilation_cache_key(
+        self,
+        input_tensor_defs: Optional[list] = None,
+        concrete_input_shapes: Optional[list[list[int]]] = None,
+    ) -> Optional[tuple]:
+        """Generate a cache key for compiled functions.
+
+        This enables automatic caching of compilation results for factory function patterns.
+        Functions with identical source code, input shapes, and options can reuse compilation
+        results, avoiding redundant compilation overhead.
+
+        The cache key is generated based on:
+        1. Source code
+        2. Normalized input shapes (dynamic dimensions replaced with -1)
+        3. Compilation options
+        4. Closure variables (nonlocals captured by the function)
+
+        Parameters
+        ----------
+        input_tensor_defs : Optional[list], optional
+            Tensor definitions from the parser signature, containing shape information
+            that may include SymbolicScalar for dynamic dimensions.
+        concrete_input_shapes : Optional[list[list[int]]], optional
+            Actual concrete shapes of input tensors at runtime.
+
+        Returns
+        -------
+        Optional[tuple]
+            A hashable cache key, or None if caching is not applicable.
+            The key consists of: (source_code, normalized_shapes, options_hash, closure_hash)
+        """
+        try:
+            # Use the source code as the primary key
+            # For factory functions, each call creates a new code object,
+            # so we need to use source code string instead
+            code_obj = self._original_func.__code__
+            # Using __code__ attributes directly for performance instead of source code string
+            source_code = (
+                code_obj.co_code,      
+                code_obj.co_consts,    
+                code_obj.co_names,     
+                code_obj.co_varnames, 
+            )
+
+            # Normalize shapes: replace dynamic dimensions with -1
+            normalized_shapes = None
+            if input_tensor_defs is not None and concrete_input_shapes is not None:
+                normalized_shapes = []
+                for tensor_def, concrete_shape in zip(input_tensor_defs, concrete_input_shapes):
+                    normalized_shape = []
+                    for dim, concrete_dim in zip(tensor_def.shape, concrete_shape):
+                        if isinstance(dim, pypto.SymbolicScalar):
+                            # Dynamic dimension: use -1 as placeholder
+                            normalized_shape.append(-1)
+                        else:
+                            # Static dimension: use concrete value
+                            normalized_shape.append(concrete_dim)
+                    normalized_shapes.append(tuple(normalized_shape))
+                normalized_shapes = tuple(normalized_shapes)
+
+            # Create a hashable representation of options
+            def make_hashable(obj):
+                """Convert dict/list to hashable tuple representation."""
+                if obj is None:
+                    return None
+                if isinstance(obj, dict):
+                    return tuple(sorted((k, make_hashable(v)) for k, v in obj.items()))
+                if isinstance(obj, (list, tuple)):
+                    return tuple(make_hashable(item) for item in obj)
+                if isinstance(obj, (str, int, float, bool)):
+                    return obj
+                # For non-hashable types, use their string representation
+                return str(obj)
+
+            options_hash = (
+                make_hashable(self._codegen_options),
+                make_hashable(self._host_options),
+                make_hashable(self._pass_options),
+                make_hashable(self._runtime_options),
+                make_hashable(self._verify_options),
+                make_hashable(self._debug_options),
+            )
+
+            # Include closure variables in the cache key
+            # This ensures that functions with different closure variable values
+            # (e.g., different offsets in assemble_wrapper) don't incorrectly share
+            # the same cached compilation result
+            closure_vars = self._get_func_nonlocals(self._original_func)
+            closure_hash = make_hashable(closure_vars) if closure_vars else None
+
+            return (source_code, normalized_shapes, options_hash, closure_hash)
+        except (OSError, TypeError):
+            # If we can't generate a cache key (e.g., source not available),
+            # disable caching for this function
+            return None
 
     def _set_run_mode(self) -> None:
         """Configure the runtime execution mode (NPU or SIM).
@@ -497,6 +639,9 @@ class JitCallableWrapper:
     def _compile_if_needed(
         self,
         concrete_input_shapes: list[list[int]],
+        in_tensors: list[torch.Tensor],
+        out_tensors: list[torch.Tensor],
+        input_tensor_defs: Optional[list] = None,
     ) -> None:
         """Compile the function on first call if not already compiled (lazy compilation).
 
@@ -506,28 +651,54 @@ class JitCallableWrapper:
         2. Cost model evaluation before compilation
         3. Avoiding backend initialization during module load
 
+        Additionally, it uses a global compilation cache to reuse compilation results
+        for functions with identical source code, input shapes, and options. This is
+        particularly useful for factory function patterns where the same function is created
+        multiple times with identical implementations.
+
         The compilation process:
-        1. Create parser and parse the function AST
-        2. Initialize backend (DeviceInit, OperatorBegin)
-        3. Apply configuration options
-        4. Bind dynamic dimensions from concrete input shapes
-        5. Execute parsing to generate PTO IR
-        6. Finalize compilation (OperatorEnd)
+        1. Check global cache for existing compilation result (based on source code + shapes)
+        2. If cache hit, reuse the compiled function and handler
+        3. If cache miss:
+           a. Create parser and parse the function AST
+           b. Initialize backend (DeviceInit, OperatorBegin)
+           c. Apply configuration options
+           d. Bind dynamic dimensions from concrete input shapes
+           e. Execute parsing to generate PTO IR
+           f. Finalize compilation (OperatorEnd)
+           g. Store result in global cache
 
         Parameters
         ----------
         concrete_input_shapes : list[list[int]]
             The actual shapes of input tensors, used to bind dynamic dimensions.
+        in_tensors : list[torch.Tensor]
+            Input tensors for verification setup.
+        out_tensors : list[torch.Tensor]
+            Output tensors for verification setup.
+        input_tensor_defs : Optional[list], optional
+            Tensor definitions from the parser signature, containing shape information
+            that may include SymbolicScalar for dynamic dimensions. Used to generate
+            cache keys based on normalized shapes.
         """
         if self._is_compiled:
             return
 
+        # Try to get from compilation cache (only if caching is enabled)
+        cache_key = self._get_compilation_cache_key(input_tensor_defs, concrete_input_shapes)
+        if self._use_cache and cache_key is not None and cache_key in JitCallableWrapper._compilation_cache:
+            cached_result = JitCallableWrapper._compilation_cache[cache_key]
+            self._pto_function = cached_result["pto_function"]
+            self._handler = cached_result["handler"]
+            self._is_compiled = True
+            return
+
         # Re-create parser for compilation
-        self._parser = self._create_parser()
         self._parser.parse()
 
         # Initialize backend for compilation
         pypto_impl.DeviceInit()
+        self._setup_verify_data(in_tensors, out_tensors)
         handler = pypto_impl.OperatorBegin()
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
@@ -542,6 +713,50 @@ class JitCallableWrapper:
         pypto_impl.OperatorEnd(handler)
         self._handler = handler
         self._is_compiled = True
+
+        # Store in global cache for future reuse (only if caching is enabled)
+        if self._use_cache and cache_key is not None:
+            JitCallableWrapper._compilation_cache[cache_key] = {
+                "pto_function": self._pto_function,
+                "handler": self._handler,
+                "parser": self._parser,
+            }
+
+        # Reset golden data after compilation, similar to pypto.jit
+        _pto_verify_datas.reset()
+
+    def _setup_verify_data(
+        self,
+        in_tensors: list[torch.Tensor],
+        out_tensors: list[torch.Tensor],
+    ) -> None:
+        """Set verify input/output/golden data for pass-level verification.
+
+        This mirrors the behavior of pypto.runtime._JIT.compile:
+        - Copy current input/output from NPU to Host
+        - Use golden data pre-injected via set_verify_golden_data
+        - Call SetVerifyData to register all three to the underlying ProgramData
+        """
+        if not (
+            isinstance(self._verify_options, dict)
+            and self._verify_options.get("enable_pass_verify")
+        ):
+            return
+
+        # Copy NPU Tensor to CPU, then convert to pypto.Tensor for constructing DeviceTensorData
+        host_pto_tensors = [t.cpu() for t in in_tensors + out_tensors]
+        pypto_tensors: list[pypto.Tensor] = []
+        for t in host_pto_tensors:
+            pto_tensor = pypto.from_torch(t)
+            pypto_tensors.append(pto_tensor)
+
+        host_pto_t_datas = _pto_to_tensor_data(pypto_tensors)
+        # Use golden data pre-injected via set_verify_golden_data
+        pypto_impl.SetVerifyData(
+            host_pto_t_datas,
+            [],
+            _pto_verify_datas.get_data(),
+        )
 
     def _run(
         self,
@@ -751,6 +966,7 @@ def jit(
     runtime_options: Optional[dict[str, Any]] = None,
     verify_options: Optional[dict[str, Any]] = None,
     debug_options: Optional[dict[str, Any]] = None,
+    use_cache: bool = True,
 ) -> Union[Callable, Callable[[Callable], JitCallableWrapper]]:
     """JIT decorator for compiling Python functions to PTO IR.
 
@@ -776,6 +992,9 @@ def jit(
         Options to configure the verify.
     debug_options : Optional[dict[str, Any]], optional
         Options to configure the debug.
+    use_cache : bool, optional
+        Whether to use compilation caching. If False, force recompilation
+        even if a cached version exists. Defaults to True.
 
     Returns
     -------
@@ -833,6 +1052,7 @@ def jit(
             verify_options=verify_options,
             debug_options=debug_options,
             captured_locals=captured_locals,
+            use_cache=use_cache,
         )
         return wrapper
 

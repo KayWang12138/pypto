@@ -38,7 +38,7 @@ private:
     Status FindReplaced(const Operation &oriOps, const Operation &ops,
         std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors, bool& hasFound);
     void NotFindReplacedProcess(const Operation &ops,
-        std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
+        const std::unordered_map<int, std::shared_ptr<LogicalTensor>> &replacedTensors);
     bool CheckAssembleReuse(const LogicalTensorPtr &outOperand);
     bool CanSrcDstReuse(const Operation &ops, std::shared_ptr<LogicalTensor> iOperand, std::shared_ptr<LogicalTensor> oOperand);
     bool IsL1ToL0Transfer(const Operation& op);
@@ -50,7 +50,7 @@ private:
         LogicalTensorPtr needReplacedTensor, bool& hasFound);
 
     std::map<int, std::set<int>> tensorConsumers_;
-    std::map<int, int> tensorMaxSize_;
+    std::map<int, int64_t> tensorMaxSize_;
     std::set<int> hasReusedL0Tensors_;
 };
 

@@ -97,8 +97,7 @@ struct CompareTensorPtr {
     }
 };
 
-std::string DynloopFunctionPathNode::Dump() const
-{
+std::string DynloopFunctionPathNode::Dump() const {
     int indent = 2;
     std::ostringstream oss;
     std::function<void(const DynloopFunctionPathNode *, int)> dump =
@@ -180,7 +179,7 @@ std::vector<DynloopFunctionPathCondition> DynloopFunctionAttribute::GenCondWithB
             std::vector<RawSymbolicScalarPtr> operandList{
                 expr->OperandList()[0],
                 expr->OperandList()[1],
-                RawSymbolicExpression::CreateBopSub(expr->OperandList()[2], loopRange.Step().Raw())
+                RawSymbolicExpression::CreateBopSub(expr->OperandList()[2], originalRange.Step().Raw())
             };
             auto newExpr = std::make_shared<RawSymbolicExpression>(SymbolicOpcode::T_MOP_CALL, operandList);
             cond.cond_ = SymbolicScalar(newExpr);
@@ -305,13 +304,11 @@ bool Function::IsCube() const {
     return false;
 }
 
-OperationsViewer Function::OperationsAfterOOO()
-{
+OperationsViewer Function::OperationsAfterOOO() {
     return OperationsViewer(operationsAfterOOO_, opPositionAfterOOO_);
 }
 
-void Function::RecordOOOSeq()
-{
+void Function::RecordOOOSeq() {
     operationsAfterOOO_ = operations_;
     opPositionAfterOOO_ = opPosition_;
 }
@@ -818,8 +815,7 @@ void Function::OperationLoopCheck(const std::string &errorMsg) {
     }
 }
 
-bool Function::OperationLoopCheck()
-{
+bool Function::OperationLoopCheck() {
     std::unordered_map<Operation*, int> inLinkNum;
     std::unordered_set<Operation*> visitedOp;
     std::vector<Operation*> visitStack;
@@ -1837,7 +1833,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
     std::map<std::shared_ptr<RawTensor>, std::shared_ptr<LogicalTensor>> rawToOutcast;
     size_t oOperandIndex = 0;
     for (const auto &originOutcast : originOutCasts_) {
-        ASLOGI("originOut cast name %d %d", originOutcast->magic, originOutcast->GetRawMagic());
+        ALOG_INFO_F("originOut cast name %d %d", originOutcast->magic, originOutcast->GetRawMagic());
         outcastWithSameRaw[originOutcast->tensor->rawmagic].emplace_back(originOutcast);
         if (appearedRawOutcasts.count(originOutcast->tensor->rawmagic) != 0) {
             ++oOperandIndex;
@@ -1853,7 +1849,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         ++oOperandIndex;
     }
 
-    ASLOGI("raw out cast number %zu", rawOutcasts.size());
+    ALOG_INFO_F("raw out cast number %zu", rawOutcasts.size());
     for (const auto &rawOutcast : rawOutcasts) {
         auto &sameRawOutcasts = outcastWithSameRaw[rawOutcast->rawmagic];
         std::vector<int64_t> nonOffsets(rawOutcast->rawshape.size(), 0);
@@ -1886,7 +1882,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         std::vector<std::vector<int64_t>> newOutcastOffsets;
         std::vector<std::shared_ptr<LogicalTensor>> iOperand;
         std::vector<std::shared_ptr<LogicalTensor>> oOperand = {rawSymbol};
-        ASLOGI("same raw out cast number %zu", sameRawOutcasts.size());
+        ALOG_INFO_F("same raw out cast number %zu", sameRawOutcasts.size());
 
         std::shared_ptr<LogicalTensor> newOutcast = nullptr;
         for (auto &originOutcast : sameRawOutcasts) {
@@ -2840,7 +2836,8 @@ void Function::NormalizeCoaForNormalOperands(std::vector<std::vector<SymbolicSca
 void Function::NormalizeCoaForSpecialInfo(std::vector<std::vector<SymbolicScalar>> &coaLists, int &coaIndex) {
     bool valueToIndex = parent_->GetFunctionType() == FunctionType::DYNAMIC_LOOP_PATH;
     for (auto &op : operations_) {
-        if (op->GetOpcode() == Opcode::OP_VEC_DUP || op->GetOpcode() == Opcode::OP_RANGE) {
+        if (op->GetOpcode() == Opcode::OP_VEC_DUP || op->GetOpcode() == Opcode::OP_RANGE ||
+            op->GetOpcode() == Opcode::OP_TRIUL) {
             if (op->HasAttr(OpAttributeKey::dynScalar)) {
                 SymbolicScalar dynScalar = op->GetSymbolicScalarAttribute(OpAttributeKey::dynScalar);
                 std::vector<SymbolicScalar> valueCoaList;
@@ -3101,7 +3098,7 @@ bool Function::TensorReuse(const LogicalTensorPtr &dstTensor, const LogicalTenso
     }
     if (dstTensor->Datatype() != srcTensor->Datatype() ||
         dstTensor->tensor->GetRawShapeSize() != srcTensor->tensor->GetRawShapeSize()) {
-        ASLOGI("Data type or raw shape size of src and dst tensor is not same.");
+        ALOG_INFO_F("Data type or raw shape size of src and dst tensor is not same.");
         return false;
     }
 

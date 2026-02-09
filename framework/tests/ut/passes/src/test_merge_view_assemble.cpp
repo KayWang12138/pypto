@@ -40,7 +40,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "ViewAssembleTestStrategy");
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
@@ -950,6 +950,26 @@ TEST_F(MergeViewAssembleTest, MergeViewWithAttr) {
         }
     }
     EXPECT_EQ(view_count_after_pass, NUM2);
+}
+
+TEST_F(MergeViewAssembleTest, TestPreCheck) {
+    auto currFunctionPtr =
+        std::make_shared<Function>(Program::GetInstance(), "TestMergeViewAssemble", "TestMergeViewAssemble", nullptr);
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+
+    std::vector<int64_t> shape1 = {8, 4};
+    std::vector<int64_t> shape2 = {1, 8, 4};
+    auto inCast = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape1);
+    auto ubTensor = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape2);
+
+    currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {inCast}, {ubTensor});
+    currFunctionPtr->AddOperation(Opcode::OP_VIEW, {ubTensor}, {});
+
+    currFunctionPtr->inCasts_.push_back(inCast);
+
+    MergeViewAssemble mergeViewAssemble;
+    Status status = mergeViewAssemble.PreCheck(*currFunctionPtr);
+    EXPECT_EQ(status, FAILED);
 }
 } // namespace tile_fwk
 } // namespace npu

@@ -91,6 +91,8 @@ public:
     static const std::string loopGroupStart;
     static const std::string loopGroupEnd;
     static const std::string lastUse;
+    static const std::string isUpper;
+    static const std::string blockSize;
 };
 
 

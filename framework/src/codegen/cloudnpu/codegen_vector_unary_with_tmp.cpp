@@ -156,7 +156,14 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxisTileTensor() const {
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
     std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor << ", " << src0Tensor << ", " << tmpTensor << ");\n";
+    std::vector<std::string> templateParamList;
+    std::string lastUse = GetLastUse();
+    oss << tileOpName;
+    if (!lastUse.empty()) {
+        oss << WrapParamByAngleBrackets({lastUse});
+    }
+    oss << WrapParamByParentheses({dstTensor, src0Tensor, tmpTensor});
+    oss << ";\n";
     return oss.str();
 }
 
@@ -277,6 +284,23 @@ std::string CodeGenOpCloudNPU::PrintCompactStatic(const PrintUnaryTmpBuffParam &
 
 std::string CodeGenOpCloudNPU::PrintCompact(const PrintUnaryTmpBuffParam &param) const {
     return PrintCompactStatic(param);
+}
+
+std::string CodeGenOpCloudNPU::PrintRoundLayout() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<float>" << "(" << dstTensor << ", " << tmpTensor << ", " << srcTensor << ", "
+        << scalarTmpBuffer << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintRound() const {
+    ASSERT(isSupportLayout) << "Round only support tile tensor";
+    return PrintRoundLayout();
 }
 
 std::string CodeGenOpCloudNPU::PrintRowSumlineStatic(const PrintUnaryTmpBuffParam &param) const {
@@ -420,6 +444,10 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
     char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
     if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV) {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
+    }
+
+    if (opCode == Opcode::OP_ROUND) {
+        return PrintRound();
     }
 
     if (opCode == Opcode::OP_ROWSUMLINE) {

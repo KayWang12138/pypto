@@ -42,7 +42,17 @@ index_add_(input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Uni
 
 4. input.shape和source.shape的dim轴viewshape不可切，要求viewshape\[dim\]\>=max\(input.shape\[dim\], source.shape\[dim\]\)，其余维度的Shape大小不做限制；
 
-4. TileShape的维度与result相同，用于切分input和source，TileShape\[dim\] = viewshape\[dim\]，所有输入和输出的TileShape大小总和不能超过UB内存的大小。
+5. TileShape的维度与result相同，用于切分input和source，TileShape\[dim\] = viewshape\[dim\]，所有输入和输出的TileShape大小总和不能超过UB内存的大小。
+
+## TileShape设置示例
+
+TileShape维度应和输出一致。
+
+如输入input为[m, n, p], dim为1，输入source为[m, t, p]，输入index为[t]，输出为[m, n, p], TileShape设置为[m1, t1, p1], 则m1, p1分别用于切分m, p轴。 n轴，t轴不可切，必须保证n轴t轴全载。
+
+```python
+pypto.set_vec_tile_shapes(m1, t1, p1)
+```
 
 ## 调用示例
 

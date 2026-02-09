@@ -37,7 +37,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
 
@@ -147,8 +147,6 @@ std::string TestLogicalBody(Opcode opcode) {
     TileShape::Current().SetVecTile(shape);
     config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    InsertTileTensorOp(Opcode::OP_LOGICALAND, "TLogicalAnd");
-    InsertTileTensorOp(Opcode::OP_LOGICALNOT, "TLogicalNot");
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");

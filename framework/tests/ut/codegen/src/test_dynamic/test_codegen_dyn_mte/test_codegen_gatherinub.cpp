@@ -37,7 +37,7 @@ public:
         const constexpr int DummyFuncMagic = 1;
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         IdGen<IdType::FUNCTION>::Inst().SetId(DummyFuncMagic);
@@ -96,6 +96,17 @@ void GatherInUBUT(Config &cfg) {
     codeGen.GenCode(*function, {});
 }
 TEST_F(TestCodegenGatherInUB, gather_in_a_) {
+    using Config = PageAttentionTestConfig<int32_t, float16>;
+    Config cfg;
+    cfg.topk_count = 8;         // topk结果
+    cfg.num_logical_blocks = 3; // 逻辑块个数
+    cfg.num_buffer_tokens = 32; // buffer token 维度（物理 token 容量）
+    cfg.hidden_dim = 4;         // 隐藏维度大小
+    cfg.block_size = 4;         // 每个块的 token 数
+    GatherInUBUT(cfg);
+}
+TEST_F(TestCodegenGatherInUB, gather_in_a_tile_tensor) {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     using Config = PageAttentionTestConfig<int32_t, float16>;
     Config cfg;
     cfg.topk_count = 8;         // topk结果

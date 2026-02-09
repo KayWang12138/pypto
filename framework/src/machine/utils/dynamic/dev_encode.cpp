@@ -15,6 +15,7 @@
 #include "tilefwk/platform.h"
 #include "machine/utils/dynamic/dev_encode.h"
 #include "machine/utils/dynamic/dev_workspace.h"
+#include "machine/host/main_block.h"
 
 #include "interface/operation/attribute.h"
 #include "interface/tensor/logical_tensor.h"
@@ -435,6 +436,16 @@ void DevAscendFunction::InitTensor(
     }
 }
 
+static int GetCceIndex(const std::unordered_map<uint64_t, int> &calleeHashIndexDict,
+    const std::shared_ptr<CallOpAttribute> &callop)
+{
+    int cceIndex = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+    if (config::GetRuntimeOption<int64_t>(CFG_VALID_SHAPE_OPTIMIZE) == 1) {
+        cceIndex = std::max(0, cceIndex * MAIN_BLOCK_SIZE - 1);
+    }
+    return cceIndex;
+}
+
 void DevAscendFunction::InitOperation(
         uintdevptr_t &initOffset,
         const SymbolicExpressionTable *expressionTable,
@@ -538,7 +549,7 @@ void DevAscendFunction::InitOperation(
             auto callArgs = callop->GetLinearArgList();
             int opStaticAttrSize = callArgs.size();
             staticField.attrList.AssignRangeOffsetSize(operationAttrList_, staticAttributeSize, opStaticAttrSize);
-            At(staticField.attrList, 0) = calleeHashIndexDict.at(callop->GetCalleeHash().GetHash());
+            At(staticField.attrList, 0) = GetCceIndex(calleeHashIndexDict, callop);
             for (size_t k = CALLOP_ARG_ATTR_BASE_INDEX; k < (size_t)opStaticAttrSize; k++) {
                 int fillValue = 0;
                 if (callArgs[k].IsImmediate()) {
@@ -1928,6 +1939,7 @@ struct EncodeDevAscendProgramInfo {
 
     void Init(DevAscendProgram *devProg, bool fillContent) {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(devProg->data);
+        devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
         devProg->runtimeOutcastPoolSize = dyndevAttr->inoutLink.totalSlot * (MAX_CACHED_FUNC_NUM + 1);
         devProg->assembleSlotSize = dyndevAttr->inoutLink.assembleSlotIndexList.size();
@@ -2297,6 +2309,15 @@ static uint64_t DumpTensorWorkspace() {
 #endif
 }
 
+static uint64_t LeafDumpWorkspace() {
+    if (IsPtoDataDumpEnabled()){
+        static constexpr uint64_t LEAFDUMP_WORKSPACE = 12 * MEBI;
+        return LEAFDUMP_WORKSPACE;
+    } else {
+        return 0;
+    }
+}
+
 void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *base) {
     EncodeDevAscendProgramInfo encodeInfo(func);
 
@@ -2328,6 +2349,7 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.metadata.general += CalcGeneralMetadataSlabWorkspace(base);
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
         base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
+        base->memBudget.debug.leafDump = LeafDumpWorkspace();
 
         func->GetDyndevAttribute()->maxDynamicAssembleOutcastMem = tensorWsRes.maxDynamicAssembleOutcastMem;
     }

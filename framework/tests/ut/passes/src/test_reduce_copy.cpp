@@ -37,7 +37,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetHostConfig(KEY_STRATEGY, "ReduceCopyTestStrategy");
         Platform::Instance().ObtainPlatformInfo();
     }
@@ -106,8 +106,8 @@ TEST_F(ReduceCopyTest, TestCase0) {
     const double upperBound = 10.0;
     runner.mergeThresholds = {{lowerBound, upperBound}};
     EXPECT_EQ(runner.ReduceCopy(*function), SUCCESS);
-    const int Num2 = 2;
-    EXPECT_EQ(function->GetTotalSubGraphCount(), Num2);
+    const int Num6 = 6;
+    EXPECT_EQ(function->GetTotalSubGraphCount(), Num6);
 }
 
 void BuildConnectMatmul(ComputationalGraphBuilder &G, int brId, std::vector<std::string>& incasts,

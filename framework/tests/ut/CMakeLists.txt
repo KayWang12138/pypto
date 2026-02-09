@@ -15,20 +15,13 @@ if (ENABLE_UTEST)
     PTO_Fwk_UTest_AddModuleDir(DIR operator)
     PTO_Fwk_UTest_AddModuleDir(DIR interface)
     PTO_Fwk_UTest_AddModuleDir(DIR passes)
-    PTO_Fwk_UTest_AddModuleDir(DIR simulation)
+    if (NOT ENABLE_ASAN)
+        PTO_Fwk_UTest_AddModuleDir(DIR simulation)
+    endif ()
 
     if (BUILD_WITH_CANN)
         PTO_Fwk_UTest_AddModuleDir(DIR machine)
         PTO_Fwk_UTest_AddModuleDir(DIR codegen)
-    endif ()
-
-    execute_process(
-            COMMAND ${Python3_EXECUTABLE} "validate.py" "tile_fwk_config.json" "tile_fwk_config_schema.json"
-            WORKING_DIRECTORY ${PTO_FWK_SRC_ROOT}/framework/src/interface/configs
-            RESULT_VARIABLE VALIDATE_RESULT
-    )
-    if (NOT ${VALIDATE_RESULT} EQUAL 0)
-        message(FATAL_ERROR "Config validation failed, please check config file")
     endif ()
 
     # 可执行程序

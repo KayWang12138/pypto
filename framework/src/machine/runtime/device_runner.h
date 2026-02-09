@@ -24,12 +24,13 @@
 #include <sys/file.h>
 #include "tilefwk/platform.h"
 #include "machine/runtime/host_prof.h"
+#include "machine/utils/machine_ws_intf.h"
 
 #ifdef BUILD_WITH_CANN
 #include <runtime/rt.h>
 #include <acl/acl_rt.h>
-#include "machine/utils/machine_ws_intf.h"
-constexpr int PMU_EVENT_TYPE_MAX = 8;
+#include "machine/runtime/pmu_common.h"
+
 constexpr int CORE_DEFAULT_NUM = 70;
 namespace npu::tile_fwk {
 struct FileLock {
@@ -70,14 +71,20 @@ public:
         isCapture_ = isCapture;
     }
 
+    void SetDebugEnable();
     void ResetPerData();
     void DumpAiCoreExecutionTimeData();
     void DumpAiCorePmuData();
     void SynchronizeDeviceToHostProfData();
+    void InitMetaData(DeviceArgs &devArgs);
+    void InitAiCpuSoBin(DeviceArgs &devArgs);
+    bool GetValidGetPgMask() const;
+    void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
 
 private:
     DeviceRunner() = default;
     void *DevAlloc(int size);
+    void GetModuleLogLevel(DeviceArgs &args);
     int InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu);
     int InitDeviceArgs(DeviceArgs &args);
     int Init();
@@ -86,8 +93,6 @@ private:
     int LaunchAiCore(rtStream_t aicoreStream, int taskType);
     void Dump();
     void AllocDfxMetricMemory();
-    void SetPmuEventType(int32_t &profPmuType);
-    void GetPmuEventType();
     /**************DynamicFunction**************/
     int launchDynamicAiCore(rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs);
     int launchDynamicAiCpu(rtStream_t aicpuStream, DeviceKernelArgs *kArgs);
@@ -95,12 +100,10 @@ private:
     int RunPreSync(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int RunPost(rtStream_t aicpuStream, rtStream_t aicoreStream);
     int launchDynamicAiCpuInit(rtStream_t aicpuStream, DeviceKernelArgs *kArgs);
-    void InitAiCpuSoBin();
-    void ReportHostProfInfo(uint64_t startTime, uint32_t blockDim, uint16_t taskType, bool isCore = false);
+    int InitAicpuServer();
     int DynamicKernelLaunch(rtStream_t aicpuStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
     int DynamicSeparateLaunch(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream, DeviceKernelArgs *kernelArgs, int blockdim);
     int ConstrutDeviceArgs(DeviceArgs &args, const std::vector<int64_t> &regs, const std::vector<int64_t> &regsPmu);
-    void PrepareLaunchArgs(DeviceArgs &localArgs, DeviceKernelArgs *kernelArgs, int64_t taskId, int blockdim, int launchAicpuNum);
 private:
     int devId_;
     int aicpuNum_{5};
@@ -123,10 +126,7 @@ private:
 namespace npu::tile_fwk {
 class DeviceRunner {
 public:
-    static DeviceRunner &Get() {
-        static DeviceRunner runner;
-        return runner;
-    }
+    static DeviceRunner &Get();
     int Run(void *stream, int64_t taskId, uint64_t taskData) {
         (void)stream;
         (void)taskId;
@@ -139,6 +139,8 @@ public:
         (void)taskData;
         return 0;
     }
+    void InitMetaData(DeviceArgs &devArgs);
+    bool GetValidGetPgMask() const;
     HostProf &GetHostProfInstance() {
         return hostProf_;
     }

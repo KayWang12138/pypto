@@ -19,9 +19,12 @@ from . import pypto_impl
 
 
 class CompStage(enum.Enum):
-    CODEGEN = 1
-    HOST = 2
-    FUNCTION = 3
+    ALL_COMPLETE = 0
+    TENSOR_GRAPH = 1
+    TILE_GRAPH = 2
+    EXECUTE_GRAPH = 3
+    CODEGEN_INSTRUCTION = 4
+    CODEGEN_BINARY = 5
 
 
 def set_print_options(*,
@@ -197,7 +200,9 @@ def set_runtime_options(*,
                         stitch_function_num_step: Optional[int] = None,
                         stitch_function_size: int = None,
                         stitch_cfgcache_size: Optional[int] = None,
-                        run_mode: Optional[int] = None
+                        triple_stream_sched: Optional[bool] = None,
+                        run_mode: Optional[int] = None,
+                        valid_shape_optimize: Optional[int] = None
                         ) -> None:
     """
     Set runtime options.
@@ -231,6 +236,9 @@ def set_runtime_options(*,
 
     stitch_cfgcache_size: int
         The size of the control flow cache, in bytes.
+
+    valid_shape_optimize: int
+        Dynamic validShape compilation optimization option.
     """
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(runtime_options=options_dict)
@@ -254,6 +262,7 @@ def set_verify_options(*,
                        pass_verify_save_tensor: Optional[bool] = None,
                        pass_verify_save_tensor_dir: Optional[str] = None,
                        pass_verify_pass_filter: Optional[List[str]] = None,
+                       pass_verify_error_tol: Optional[List[float]] = None,
                        ) -> None:
     """
     Set verify options.
@@ -271,9 +280,15 @@ def set_verify_options(*,
 
     pass_verify_pass_filter : List
         Filting pass to verify.
+
+    pass_verify_error_tol : List
+        Customize atol and rtol.
     """
     if pass_verify_pass_filter == []:
         pass_verify_pass_filter = None
+    if pass_verify_error_tol is None or len(pass_verify_error_tol) != 2:
+        pass_verify_error_tol = [1e-3, 1e-3]
+    pass_verify_error_tol = [float(x) for x in pass_verify_error_tol]
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(verify_options=options_dict)
 

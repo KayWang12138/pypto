@@ -21,7 +21,7 @@ namespace npu::tile_fwk {
 std::shared_ptr<LogicalTensor> CreateLogicalTensor(const LogicalTensorInfo &info) {
     if (info.memType == MemoryType::MEM_DEVICE_DDR) {
         std::shared_ptr<RawTensor> ddrRawTensor =
-            std::make_shared<RawTensor>(info.dType, info.shape, TileOpFormat::TILEOP_ND, info.tensorName);
+            std::make_shared<RawTensor>(info.dType, info.shape, TileOpFormat::TILEOP_ND, info.tensorName, info.magic);
         std::vector<int64_t> offset = std::vector<int64_t>(info.shape.size(), 0);
         auto ddrTensor = std::make_shared<LogicalTensor>(info.function, ddrRawTensor, offset, info.shape);
         ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
@@ -62,9 +62,9 @@ std::string GetResultFromCpp(const Function &function) {
     return res;
 }
 
-void CheckStringExist(const std::string &expect, const std::string &result) {
-    bool res = result.find(expect) != std::string::npos;
-    EXPECT_TRUE(res) << "expect: \n" << expect << "\n\n ---- not found in result ---- \n\n" << result << std::endl;
+void CheckStringExist(const std::string &target, const std::string &content) {
+    bool res = content.find(target) != std::string::npos;
+    EXPECT_TRUE(res) << "target: \n" << target << "\n\n ---- not found in content ---- \n\n" << content << std::endl;
 }
 
 } // namespace npu::tile_fwk

@@ -46,7 +46,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
         IdGen<IdType::CG_USING_NAME>::Inst().SetId(DummyFuncMagic);
@@ -281,4 +281,25 @@ TEST_F(TestCodegenDynSort, TestDynTopkExract) {
     TestTopkBody(Opcode::OP_TOPK_EXTRACT, expect);
 }
 
+TEST_F(TestCodegenDynSort, TestDynTwoTileMrgSort) {
+    auto param = prepareSortParamForUT(Opcode::OP_TWOTILEMRGSORT);
+    param.op->SetAttribute(OP_ATTR_PREFIX + "firstshape", 32);
+
+    std::string res = generateCodeForOp(param.op);
+    std::string expect = 
+        R"!!!(TileOp::DynTwoTileMrgSort<float, 1, 1, 64, 64, 1, 1, 64, 64, 32>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
+
+TEST_F(TestCodegenDynSort, TestDynExtractSingle) {
+    auto param = prepareSortParamForUT(Opcode::OP_EXTRACT_SINGLE);
+    param.op->SetAttribute(OP_ATTR_PREFIX + "order", 1);
+    param.op->SetAttribute(OP_ATTR_PREFIX + "maskmode", 0);
+    std::string res = generateCodeForOp(param.op);
+    std::string expect = 
+        R"!!!(TileOp::DynExtractSingle<float, float, 1, 1, 64, 64, 1, 1, 64, 64, 0, 1>((__ubuf__ float*)UB_S0_E0, (__ubuf__ float*)UB_S0_E0, 1, 1, 64, 64);
+)!!!";
+    EXPECT_EQ(res, expect);
+}
 } // namespace npu::tile_fwk

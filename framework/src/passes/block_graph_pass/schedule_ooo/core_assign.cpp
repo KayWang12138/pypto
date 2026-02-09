@@ -22,6 +22,8 @@
 
 namespace npu::tile_fwk {
 
+constexpr int64_t NEGATIVE_ONE = -1;
+
 inline std::string ScheduleCoreTypeToString(ScheduleCoreType coreType) {
     if (coreType == ScheduleCoreType::AIC) {
         return "AIC";
@@ -288,6 +290,31 @@ void CoreScheduler::Schedule(TaskGraph &taskGraph, int bruteForceThreshold) {
     }
 }
 
+// Alloc op需要与其同级的op处于同一个子图中, Convert的alloc应跟随其后op
+void TaskSpliter::BuildSameLayerConnectionWithBack() {
+    for (size_t i = 0; i < opList_.size(); i++) {
+        if (ALLOC_OPCODE.count(opList_[i]->GetOpcode()) == 0) {
+            continue;
+        }
+    ScheduleCoreType srcCoreType = opCoreTypes_[i];
+    APASS_LOG_DEBUG_F(Elements::Operation, "Found alloc op %s[%d].", opList_[i]->GetOpcodeStr().c_str(), opList_[i]->GetOpMagic());
+        for (auto & oop : opList_[i]->GetOOperands()) {
+            for (auto &sameLayerOpPtr : oop->GetProducers()) {
+                int dstOpMagic = sameLayerOpPtr->GetOpMagic();
+                if (opMagicToIdx_.count(dstOpMagic) == 0) {
+                    continue;
+                }
+                if (opCoreTypes_[opMagicToIdx_[dstOpMagic]] != srcCoreType) {
+                    continue;
+                }
+            APASS_LOG_DEBUG_F(Elements::Operation, "-- add %s[%d] to same layer connection because of the alloc op.",
+                sameLayerOpPtr->GetOpcodeStr().c_str(), sameLayerOpPtr->GetOpMagic());
+            sameLayerConnection_.push_back({i, opMagicToIdx_[sameLayerOpPtr->GetOpMagic()]});
+            }
+        }
+    }
+}
+
 // Alloc op需要与其同级的op处于同一个子图中, Convert的alloc应跟随其前op
 void TaskSpliter::BuildSameLayerConnectionWithFront() {
     for (size_t i = 0; i < opList_.size(); i++) {
@@ -329,6 +356,12 @@ void TaskSpliter::BuildOpGraph() {
             auto prevOp = *opList_[i]->ProducerOps().begin();
             opCoreTypes_[i] = opCoreTypes_[opMagicToIdx_[prevOp->GetOpMagic()]];
         }
+        if (opList_[i]->HasAttribute(OpAttributeKey::isCube)) {
+            bool isCube = opList_[i]->GetBoolAttribute(OpAttributeKey::isCube);
+            opCoreTypes_[i] = isCube ? ScheduleCoreType::AIC : ScheduleCoreType::AIV;
+        }
+        APASS_LOG_DEBUG_F(Elements::Operation, "Mark %s[%d] as %s core type.", opList_[i]->GetOpcodeStr().c_str(), opList_[i]->GetOpMagic(),
+            opCoreTypes_[i] == ScheduleCoreType::AIC ? "AIC" : "AIV");
     }
     APASS_LOG_INFO_F(Elements::Operation, "Mark core type finished.");
     opInGraph_.resize(opNum);
@@ -351,7 +384,7 @@ void TaskSpliter::SplitGraph(const std::vector<Operation *> &opList) {
     APASS_LOG_INFO_F(Elements::Operation, "Start to split mix graph with op num %d.", opList.size());
     opList_ = opList;
     BuildOpGraph();
-    BuildSameLayerConnectionWithFront();
+    BuildSameLayerConnectionWithBack();
     std::vector<int> clusterIds;
     std::vector<ScheduleCoreType> clusterCoreTypes;
     int clusterNum = BuildCluster(clusterIds, clusterCoreTypes);
@@ -729,11 +762,25 @@ void TaskSpliter::MergeTaskByTargetCoreType() {
 void TaskSpliter::MarkInternalSubgraphID() {
     std::unordered_map<TargetCoreType, AIVCore> targetMap{{TargetCoreType::AIC, AIVCore::UNSPECIFIED},
         {TargetCoreType::UNKNOWN, AIVCore::UNSPECIFIED}, {TargetCoreType::AIV0, AIVCore::AIV0}, {TargetCoreType::AIV1, AIVCore::AIV1}};
+    std::unordered_map<TargetCoreType, int> subGraphIdMap{{TargetCoreType::AIC, NEGATIVE_ONE},
+        {TargetCoreType::AIV0, NEGATIVE_ONE}, {TargetCoreType::AIV1, NEGATIVE_ONE}, {TargetCoreType::UNKNOWN, NEGATIVE_ONE}};
+    int id = 0;
     for (auto &task : taskGraph_.tasks) {
+        if (task.targetCoreType == TargetCoreType::UNKNOWN) {
+            APASS_LOG_ERROR_F(Elements::Operation, "task %d coreType is unknow", task.idx);
+        }
         AIVCore targetType = targetMap[task.targetCoreType];
+        if (subGraphIdMap[task.targetCoreType] == NEGATIVE_ONE) {
+            subGraphIdMap[task.targetCoreType] = id++;
+        }
         for (auto opPtr : task.opList_) {
             opPtr->SetAIVCore(targetType);
-            opPtr->UpdateInternalSubgraphID(task.idx);
+        }
+    }
+    for (auto &task : taskGraph_.tasks) {
+        auto subGraphId = subGraphIdMap[task.targetCoreType];
+        for (auto opPtr : task.opList_) {
+            opPtr->UpdateInternalSubgraphID(subGraphId);
         }
     }
 }

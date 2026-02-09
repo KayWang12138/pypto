@@ -23,7 +23,6 @@
 #include "interface/configs/config_manager.h"
 
 namespace npu::tile_fwk {
-
 void Expand(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,
     const std::vector<LogicalTensorPtr> &other, const LogicalTensorPtr &result);
 void ExpandWithResultValidShape(Function &function, const TileShape &tileShape, const LogicalTensorPtr &operand,

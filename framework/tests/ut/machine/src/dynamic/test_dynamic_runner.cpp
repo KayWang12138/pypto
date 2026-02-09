@@ -17,6 +17,7 @@
 #include "machine/runtime/device_runner.h"
 #include "machine/runtime/machine_agent.h"
 #include "machine/runtime/device_launcher.h"
+#include "machine/runtime/host_prof.h"
 #include "interface/tensor/logical_tensor.h"
 #include "tilefwk/tilefwk.h"
 #include "tilefwk/platform.h"
@@ -47,7 +48,7 @@ public:
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
-        config::SetHostOption(COMPILE_STAGE, HOST_COMPILE_END);
+        config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
         Platform::Instance().ObtainPlatformInfo();
     }
@@ -143,6 +144,8 @@ TEST_F(TestDynamicDeviceRunner, test_kernel_dump) {
     }
 
     auto function = Program::GetInstance().GetFunctionByRawName("TENSOR_ADD0");
+    HostProf hostProf;
+    hostProf.SetProfFunction(function);
     auto task_1 = std::make_shared<MachineTask>(0, function);
     auto deviceMachineTask = std::make_shared<MachineTask>(task_1->GetTaskId(), task_1->GetFunction());
     auto deviceAgentTask = std::make_shared<DeviceAgentTask>(deviceMachineTask);
@@ -165,6 +168,9 @@ TEST_F(TestDynamicDeviceRunner, test_dump_device_perf) {
     devKernelArgs.nrAiv = 2;
     devKernelArgs.nrValidAic = 1;
     devKernelArgs.nrAicpu = 3;
+    config::SetOptionsNg<int64_t>("debug.runtime_debug_mode", 1);
+    npu::tile_fwk::DeviceRunner::Get().InitMetaData(devKernelArgs);
+    EXPECT_NE(devKernelArgs.aicpuPerfAddr, 0);
     std::vector<void *> perfData;
     Metrics *metr = static_cast<Metrics*>(malloc(sizeof(Metrics) + sizeof(TaskStat)));
     TaskStat taskStat;
