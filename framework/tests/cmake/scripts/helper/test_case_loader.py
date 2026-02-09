@@ -24,6 +24,7 @@ from test_case_tools import parse_list_str, str_to_bool
 @dataclass
 class MatmulParam:
     trans_list: list
+    scale_trans_list: list
     input_format_list: list
     output_format_list: list
     row_data: dict
@@ -44,10 +45,13 @@ class TestCaseCreator:
             "BatchMatmul",
             "MatmulVerify",
             "BatchMatmulVerify",
+            "MXMatmul",
         ):
             return
         params["transA"] = matmulparam.trans_list[0]
         params["transB"] = matmulparam.trans_list[1]
+        params["scaleTransA"] = matmulparam.trans_list[0]
+        params["scaleTransB"] = matmulparam.trans_list[1]
         params["isAMatrixNz"] = matmulparam.input_format_list[0] == "NZ"
         params["isBMatrixNz"] = matmulparam.input_format_list[1] == "NZ"
         params["isCMatrixNz"] = matmulparam.output_format_list[0] == "NZ"
@@ -75,6 +79,10 @@ class TestCaseCreator:
         input_trans = parse_list_str(input_trans)
         input_trans = [str_to_bool(item) for item in input_trans]
 
+        scale_trans = data.pop("scale_trans", str([False] * len(input_shape)))
+        scale_trans = parse_list_str(scale_trans)
+        scale_trans = [str_to_bool(item) for item in scale_trans]
+
         input_tensors = []
         for idx, dim in enumerate(input_shape):
             input_tensors.append(
@@ -85,6 +93,7 @@ class TestCaseCreator:
                     data_range=data_range[idx],
                     tensor_format=input_format_list[idx],
                     need_trans=input_trans[idx],
+                    need_scale_trans=scale_trans[idx],
                 )
             )
 
@@ -139,6 +148,7 @@ class TestCaseCreator:
             is_k_split = str_to_bool(enable_k_split)
         matmulparam = MatmulParam(
             [tensor.need_trans for tensor in input_tensors],
+            [tensor.need_scale_trans for tensor in input_tensors],
             [tensor.tensor_format for tensor in input_tensors],
             [tensor.tensor_format for tensor in output_tensors],
             row_data,
@@ -334,7 +344,7 @@ class TestCaseLoader:
             test_cases = self.__process_file_to_json(self._path, self._json_path, cur_index)
             all_test_cases.extend(test_cases)
         return all_test_cases
-    
+
     def __process_file_to_json(self, file_path: str, json_path: str, cur_index: int) -> List[dict]:
         data_frame = FileReader(file_path, self._op, self._index_range, self._json_path).run()
         if data_frame is None or len(data_frame) == 0:
