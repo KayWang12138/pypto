@@ -52,20 +52,25 @@ struct DeviceMemoryUtils {
         (void)rtMemset(devPtr, size, 0, size);
         return devPtr;
     }
-
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
+//还没分配好devPtr，先分配，再copy
+    int CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder, uint8_t **outPtr) {
         uint8_t *devPtr = AllocDev(size, cachedDevAddrHolder);
-        rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
-        return devPtr;
+        rtError_t ret = rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
+        if (ret != 0) {
+            std::cerr << "CopyToDev failed, ret: " << ret << std::endl;
+            return ret;
+        }
+        *outPtr = devPtr;
+        return ret;
     }
-
+//已经分配好了devPtr，直接copy
     void CopyToDev(uint8_t *devPtr, uint8_t *data, uint64_t size) {
         rtMemcpy(devPtr, size, data, size, RT_MEMCPY_HOST_TO_DEVICE);
     }
 
     template <typename T>
-    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), cachedDevAddrHolder);
+    int CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder, T **outPtr) {
+        return CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), cachedDevAddrHolder, static_cast<uint8_t **>(outPtr));
     }
 
     void CopyFromDev(uint8_t *data, uint8_t *devPtr, uint64_t size) {

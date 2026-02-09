@@ -198,7 +198,7 @@ public:
 
     // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
     template<typename DeviceMemoryTy>
-    static void FillKernelMeta(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
+    static int FillKernelMeta(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
             const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         AssignMetaAddr(kArgs, devMem, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
@@ -213,7 +213,13 @@ public:
             /* Already copied, do not copy again. */
             kArgs.cfgdata = (int64_t *)*CachedOperator::GetCfgDataDevAddrHolder(cachedOperator);
         } else {
-            kArgs.cfgdata = (int64_t *)devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator));
+            uint8_t *cfgdataPtr = nullptr;
+            int ret = devMem.CopyToDev(devProgData, CachedOperator::GetCfgDataDevAddrHolder(cachedOperator), &cfgdataPtr);
+            if (ret != 0) {
+                std::cerr << "CopyToDev failed, ret: " << ret << std::endl;
+                return ret;
+            }
+            kArgs.cfgdata = (int64_t *)cfgdataPtr;
         }
         kArgs.machineConfig = devProg->devArgs.machineConfig;
         if (config::GetPlatformConfig(KEY_ENABLE_PROF_FUNC, false)) {
@@ -226,6 +232,7 @@ public:
             kArgs.toSubMachineConfig.profConfig.Add(ProfConfig::AICORE_PMU);
         }
         devProg->devArgs.toSubMachineConfig = kArgs.toSubMachineConfig;
+        return 0;
     }
 
     static void PrepareHcclContext(const std::vector<uint64_t> &hcclContext, const std::vector<uint8_t> &devProgData) {
@@ -262,7 +269,7 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
+    static int DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
             DevControlFlowCache* ctrlFlowCache, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         auto &mutableConfig = const_cast<DeviceLauncherConfig &>(config);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
@@ -272,8 +279,13 @@ public:
         if (!devMem.IsDevice()) {
             isCtrlCacheRecording =  ctrlFlowCache != nullptr ? ctrlFlowCache->IsRecording() : devProg->controlFlowCache.IsRecording();
         }
-        FillKernelMeta(devMem, kArgs, devProg, devProgData, isCtrlCacheRecording, config, cachedOperator);
+        int ret = FillKernelMeta(devMem, kArgs, devProg, devProgData, isCtrlCacheRecording, config, cachedOperator);
+        if (ret != 0) {
+            std::cerr << "FillKernelMeta failed, ret: " << ret << std::endl;
+            return ret;
+        }
         kArgs.ctrlFlowCache = reinterpret_cast<int64_t*>(ctrlFlowCache);
+        return 0;
     }
 
     static int InitAicpuTaskInfo() {

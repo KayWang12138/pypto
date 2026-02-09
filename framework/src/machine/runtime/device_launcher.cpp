@@ -176,8 +176,12 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
 
-    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
+    rc = DeviceInitTilingData(DeviceMemoryUtils(), kArgs, function->GetDyndevAttribute()->devProgBinary,
         inputDevCtrlCache, config, cachedOperator);
+    if (rc != 0) {
+        std::cerr << "DeviceInitTilingData failed, ret: " << rc << std::endl;
+        return rc;
+    }
 
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
@@ -233,7 +237,11 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
     uint8_t* devCtrlCache = nullptr;
     DeviceMemoryUtils devMemory(false);
     if (hostCtrlCache) {
-        devCtrlCache = devMemory.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->allCacheSize, nullptr);
+        int ret = devMemory.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->allCacheSize, nullptr, &devCtrlCache);
+        if (ret != 0) {
+            ALOG_ERROR_F("Copy hostCtrlCache to dev failed, ret: %d", ret);
+            return ret;
+        }
     }
 
     int rc = DeviceLaunchOnceWithDeviceTensorData(function, inputDeviceDataList, outputDeviceDataList,
@@ -434,7 +442,13 @@ void CopyHostToDev(const DeviceTensorData &devTensor, DeviceTensorData &hostTens
 
 uint8_t* CopyHostToDev(uint8_t* data, uint64_t size) {
 #ifdef BUILD_WITH_CANN
-    return DeviceMemoryUtils(false).CopyToDev((uint8_t *)data, size, nullptr);
+    uint8_t* devPtr = nullptr;
+    int ret = DeviceMemoryUtils(false).CopyToDev((uint8_t *)data, size, nullptr, &devPtr);
+    if (ret != 0) {
+        ALOG_ERROR_F("Copy host data to dev failed, ret: %d", ret);
+        return nullptr;
+    }
+    return devPtr;
 #else
     (void)data;
     (void)size;

@@ -88,28 +88,41 @@ struct MemoryHelper {
 
     bool IsDevice() { return !isTest_; }
 
-    uint8_t *CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder) {
+    int CopyToDev(uint8_t *data, uint64_t size, uint8_t **cachedDevAddrHolder, uint8_t **outPtr) {
         (void)cachedDevAddrHolder;
         auto ptr = npu::tile_fwk::dynamic::HostAgentStub::GetAgent()->AllocHostAddr(size);
-        memcpy_s(ptr, size, data, size);
-        return ptr;
+        int ret = memcpy_s(ptr, size, data, size);
+        if (ret != 0) {
+            ALOG_ERROR_F("Copy to dev failed, ret: %d", ret);
+            return ret;
+        }
+        *outPtr = ptr;
+        return 0;
     }
 
     template <typename T>
     T *CopyToDev(std::vector<T> data) {
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T));
+        T *devPtr = nullptr;
+        CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), reinterpret_cast<uint8_t **>(&devPtr));
+        return devPtr;
     }
 
     template <typename T>
-    T *CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder) {
+    int CopyToDev(std::vector<T> data, uint8_t **cachedDevAddrHolder, T **outPtr) {
         (void)cachedDevAddrHolder;
-        return (T *)CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), nullptr);
+        return CopyToDev((uint8_t *)data.data(), data.size() * sizeof(T), nullptr, static_cast<uint8_t **>(outPtr));
     }
 
     uint8_t *CopyToDev(RawTensorData &data) {
         if (data.GetDevPtr() == nullptr) {
-            auto devPtr = CopyToDev((uint8_t *)data.data(), data.size(), nullptr);
-            data.SetDevPtr(devPtr);
+            uint8_t* devPtr = nullptr;
+            int ret = CopyToDev((uint8_t *)data.data(), data.size(), nullptr, &devPtr);
+            if (ret == 0) {
+                data.SetDevPtr(devPtr);
+            } else {
+                 ALOG_ERROR_F("CopyToDev for RawTensorData failed, ret: %d", ret);
+                 return nullptr;
+            }
         }
         return data.GetDevPtr();
     }
