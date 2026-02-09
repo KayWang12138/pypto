@@ -30,6 +30,12 @@ from torch._dynamo import allow_in_graph
 import pypto
 from utils.get_format import get_format
 
+current_py_path = os.path.abspath(__file__)
+print("当前脚本绝对路径：", current_py_path)
+print("pypto包路径：", pypto.__file__)
+from measure_time import TimeMeasurer
+repeat = 1
+timer = TimeMeasurer(init_index=0)
 
 def check_args(
     router_logits: torch.Tensor,
@@ -368,6 +374,11 @@ def select_experts(
     shapes = [router_logits.shape, e_score_correction_bias.shape, (bs, top_k), (bs, top_k), \
             renormalize, topk_group, num_expert_group]
     inputs = [router_logits, e_score_correction_bias, topk_weights, topk_ids]
+    # select_experts_kernel(*shapes)(*inputs)
+    timer.measure_execution_time(func_a, [shapes, inputs], dynamic_shape=bs)
+    timer.measure_execution_time(func_a, [shapes, inputs], "相同shape再调用一次", dynamic_shape=bs)
+
+def func_a(shapes, inputs):
     select_experts_kernel(*shapes)(*inputs)
 
 
@@ -376,4 +387,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    for i in range(repeat):
+        main()

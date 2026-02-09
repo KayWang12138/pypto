@@ -21,6 +21,12 @@ import pypto
 from utils.get_format import get_format
 from glm_ffn_common_interface import symmetric_quantization_per_token, dequant_dynamic, swiglu
 
+current_py_path = os.path.abspath(__file__)
+print("当前脚本绝对路径：", current_py_path)
+print("pypto包路径：", pypto.__file__)
+from measure_time import TimeMeasurer
+repeat = 1
+timer = TimeMeasurer(init_index=0)
 
 def check_cond(cond, msg):
     if not cond:
@@ -296,7 +302,7 @@ def test_moe_fusion():
 
     # 2. 构造多种shape，测试动态case
     torch.manual_seed(0)
-    for bs in [32, 16]:
+    for bs in [16, 16]:
         # 3. 准备测试数据
         hidden_states = torch.rand((bs, hidden_size), dtype=x_dtype, device=f'npu:{device_id}') * 0.05
         weight_gate_upper_tensor = torch.rand((hidden_size, intermediate_size * 2),
@@ -446,6 +452,10 @@ def moe_fusion(
     inputs = [hidden_states, gate_weight, e_score_bias, w13, w13_scale, 
                 w2, w2_scale, topk_weights, topk_ids, ffn_res]
 
+    timer.measure_execution_time(func_a, [shapes, inputs], dynamic_shape=bs)
+    # timer.measure_execution_time(func_a, [shapes, inputs], "相同shape再调用一次", dynamic_shape=bs)
+
+def func_a(shapes, inputs):
     moe_fusion_kernel(*shapes)(*inputs)
 
 
@@ -487,4 +497,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    for _ in range(repeat):
+        main()
+    

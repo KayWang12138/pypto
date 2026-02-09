@@ -28,6 +28,44 @@ from torch._subclasses.fake_tensor import FakeTensor
 from torch._dynamo import allow_in_graph
 import pypto
 from utils.get_format import get_format
+import time
+# 初始化全局索引变量
+repeat = 5
+global index
+index = 0  # 可以根据你的需求设置初始值
+
+def measure_execution_time(func, args, desc="",*, dynamic_shape = -1):
+    """
+    测量函数执行耗时并打印详细信息
+    
+    参数:
+        func: 要执行并计时的函数
+        args: 传递给函数的参数元组
+        exec_index: 当前执行次数的索引
+        desc: 执行描述（用于区分多次执行）
+    """
+    
+    global index
+    
+
+    # 记录开始时间并打印执行信息
+    start_time = time.perf_counter()
+    print(f"开始第：{index} 次")
+    if (dynamic_shape != -1):
+        print(f"动态shape: {dynamic_shape}")
+    if desc != "":
+        print(desc)
+    # 执行目标函数
+    
+    func(*args)
+    
+    # 计算耗时并打印结果
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"结束第：{index} 次")
+    print(f"耗时: {elapsed_time:.6f} 秒")
+    print()
+    index+=1
 
 
 def check_args(
@@ -180,12 +218,18 @@ def gate(
     bs, h_num = hidden_states.shape
     ne = gate_weight.shape[0]
     params = [bs, ne, h_num]
-    select_experts_mm(*params)(*inputs)
+    # select_experts_mm(*params)(*inputs)
+    measure_execution_time(func_a, [params, inputs], dynamic_shape=bs)
 
+    measure_execution_time(func_a, [params, inputs], "相同shape再调用一次", dynamic_shape=bs)
+
+def func_a(params, inputs):
+    select_experts_mm(*params)(*inputs)
 
 def main():
     test_select_experts_mm()
 
 
 if __name__ == "__main__":
-    main()
+    for i in range(repeat):
+        main()

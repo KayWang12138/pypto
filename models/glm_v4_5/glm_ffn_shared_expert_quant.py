@@ -31,7 +31,12 @@ from torch._dynamo import allow_in_graph
 import pypto
 from utils.get_format import get_format
 
-
+current_py_path = os.path.abspath(__file__)
+print("当前脚本绝对路径：", current_py_path)
+print("pypto包路径：", pypto.__file__)
+from measure_time import TimeMeasurer
+repeat = 5
+timer = TimeMeasurer(init_index=0)
 def check_args(
     hidden_states,
     w13,
@@ -291,6 +296,14 @@ def ffn_shared_expert_quant(
 
     shapes = [hidden_states.shape, w13.shape, w13_scale.shape, w2.shape, w2_scale.shape, ffn_res.shape]
     inputs = [hidden_states, w13, w13_scale, w2, w2_scale, ffn_res]
+    
+
+    # select_experts_mm(*params)(*inputs)
+    timer.measure_execution_time(func_a, [shapes, inputs], dynamic_shape=hidden_states.shape[0])
+
+    timer.measure_execution_time(func_a, [shapes, inputs], "相同shape再调用一次", dynamic_shape=hidden_states.shape[0])
+
+def func_a(shapes, inputs):
     share_expert_moe_main(*shapes)(*inputs)
 
 
@@ -321,4 +334,6 @@ def test_ffn_share() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    for i in range(repeat):
+        main()
+    

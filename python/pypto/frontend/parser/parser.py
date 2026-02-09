@@ -176,8 +176,8 @@ class Parser(doc.NodeVisitor):
         return self
 
     @_catch_parser_errors
+    @staticmethod  
     def match_input_shapes(
-        self,
         input_shapes: list[list[int]],
         input_tensor_defs: Optional[list[pypto.Tensor]] = None,
     ) -> dict[str, int]:
@@ -202,8 +202,6 @@ class Parser(doc.NodeVisitor):
         dim_value_map = {}
 
         # Get the signature to know which inputs have symbolic dimensions
-        if input_tensor_defs is None:
-            input_tensor_defs, _ = self.get_signature()
 
         def _assign_dim_value(dim: pypto.SymbolicScalar, actual_value: int) -> None:
             if dim_value_map.get(str(dim), actual_value) != actual_value:
@@ -241,7 +239,8 @@ class Parser(doc.NodeVisitor):
 
         """
 
-        self._bound_dim_values = self.match_input_shapes(inputs)
+        input_tensor_defs, output_tensor_defs = self.get_signature()
+        self._bound_dim_values = Parser.match_input_shapes(inputs, [*input_tensor_defs, *output_tensor_defs] )
 
     @_catch_parser_errors
     def get_signature(
