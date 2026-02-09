@@ -606,7 +606,7 @@ private:
     void InitConfigOptions(py::object &module) {
         auto options = module.attr("runtime_options").cast<py::dict>();
         if (options.contains("triple_stream_sched")) {
-            tripleStream = options["triple_stream_sched"].cast<bool>();
+            tripleStream = true;
         }
         if (options.contains("stitch_cfgcache_size")) {
             stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
