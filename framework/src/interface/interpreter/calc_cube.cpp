@@ -85,8 +85,15 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     Opcode opCode = ctx->op->GetOpcode();
     bool trans = opCode == Opcode::OP_L1_TO_L0_BT || opCode == Opcode::OP_L1_TO_L0_AT;
     auto copyin = std::static_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute()); // 获取attr
-    std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
-    if (opCode == Opcode::OP_L0C_TO_L1) {
+    if (opCode == Opcode::OP_L1_TO_L0A || opCode == Opcode::OP_L1_TO_L0B || opCode == Opcode::OP_L1_TO_L0_AT || opCode == Opcode::OP_L1_TO_L0_BT) {
+        if (copyin == nullptr) {
+            calc::Copy(ret, oper, trans);
+            return;
+        }
+        std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
+        auto iop = oper->View(ret->GetShape(), fromOffset);
+        calc::Copy(ret, iop, trans);
+    } else if (opCode == Opcode::OP_L0C_TO_L1) {
         // fixpipe
         bool quant = oper->GetDataType() == DataType::DT_INT32 && ret->GetDataType() == DataType::DT_FP16;
         uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
@@ -96,6 +103,7 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
             scalePtr = ctx->ioperandDataViewList->at(1);
         }
         std::vector<int64_t> shape = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetShape());
+        std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
         std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToOffset());
         if (oper->GetShape()[0] > ret->GetShape()[0] || oper->GetShape()[1] > ret->GetShape()[1]) {
             auto iop = oper->View(ret->GetShape(), fromOffset);
@@ -114,8 +122,7 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
             }
         }
     } else {
-        auto iop = oper->View(ret->GetShape(), fromOffset);
-        calc::Copy(ret, iop, trans);
+        calc::Copy(ret, oper, trans);
     }
 }
 REGISTER_CALC_OP(OP_L1_TO_L0A, Opcode::OP_L1_TO_L0A, ExecuteDuplicate);
