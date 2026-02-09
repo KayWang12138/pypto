@@ -81,7 +81,7 @@ TEST_F(CalcCommonTest, VecDupClampFp32FromLargeDouble) {
     auto outputTensor = std::make_shared<LogicalTensor>(*func, DT_FP32, outputShape);
     auto &vecDupOp = func->AddOperation(Opcode::OP_VEC_DUP, {}, {outputTensor});
     double largeNegDouble = -std::numeric_limits<double>::max();
-    Element scalar(DT_DOUBLE, largeNegDouble);
+    Element scalar(DT_FP32, largeNegDouble);
     vecDupOp.SetAttribute(OpAttributeKey::scalar, scalar);
     Tensor outputTensorData(DT_FP32, outputShape);
     auto outputData = RawTensorData::CreateConstantTensor(outputTensorData, 0.0f);

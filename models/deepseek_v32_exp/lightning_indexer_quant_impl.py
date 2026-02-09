@@ -319,7 +319,8 @@ def lightning_indexer_decode_compute(
     "stitch_function_outcast_memory": 4096,
     "stitch_function_num_initial": 128,
     "device_sched_mode": 1
-    }
+    },
+    verify_options={"enable_pass_verify": True}
 )
 def lightning_indexer_decode(
     idx_query: pypto.tensor,

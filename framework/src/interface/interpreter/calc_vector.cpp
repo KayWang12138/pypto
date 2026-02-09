@@ -112,8 +112,7 @@ void ExecuteOpVecDup(ExecuteOperationContext *ctx) {
     auto &ret = ctx->ooperandInplaceDataViewList->at(0);
     auto element = Element(DT_FP32, 0.0f);
     ctx->op->GetAttr(OpAttributeKey::scalar, element);
-    auto actualElement = Element(ret->GetDataType(), element.GetFloatData());
-    calc::ExpandS(ret, actualElement);
+    calc::ExpandS(ret, element);
 }
 REGISTER_CALC_OP(OP_VEC_DUP, Opcode::OP_VEC_DUP, ExecuteOpVecDup);
 
