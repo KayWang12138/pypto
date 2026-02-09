@@ -457,12 +457,18 @@ bool LogicalTensor::Overlap(const std::shared_ptr<LogicalTensor> &other) const {
     return true;
 }
 
+<<<<<<< Updated upstream
 int64_t LogicalTensor::GetDataSize() const {
     if (HasNegativeNum<int64_t>(shape)) {
         return INT64_MAX;
     }
     int64_t shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     return shapeSize * BytesOf(tensor->GetDataType());
+=======
+int LogicalTensor::GetDataSize() const {
+    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+    return shapeSize >= 0 ? shapeSize * BytesOf(tensor->GetDataType()) : INT_MAX;
+>>>>>>> Stashed changes
 }
 
 bool LogicalTensor::CompareOp::operator()(const Operation *a, const Operation *b) const {
