@@ -369,6 +369,8 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
 
 Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder) {
     auto spillIssue = spillInfo.spillIssue_;
+    APASS_LOG_DEBUG_F(Elements::Operation, "isSpecialL1_ is true. Start L1 spillout in A5", spillIssue->GetOpInfo().c_str());
+    APASS_LOG_DEBUG_F(Elements::Operation, "spillIssue %s", spillIssue->GetOpInfo().c_str());
     if (spillIssue->tileOp.GetOpcodeStr().find("L0C_COPY_L1") == std::string::npos && spillIssue->tileOp.GetOpcodeStr().find("UB_COPY_L1") == std::string::npos) {
         APASS_LOG_ERROR_F(Elements::Operation, "spillIssue %s is not COPY_IN/UB_COPY_L1/UB_COPY_L1 in A5 L1 spill", spillIssue->GetOpInfo().c_str());
         return FAILED;
@@ -384,12 +386,13 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr 
         APASS_LOG_ERROR_F(Elements::Operation, "ActualSpillIssue is nullptr. Please check the preceding dependencies of spillIssue %s ", spillIssue->GetOpInfo().c_str());
         return FAILED;
     }
+    APASS_LOG_DEBUG_F(Elements::Operation, "actualSpillIssue %s", actualSpillIssue->GetOpInfo().c_str());
     if (actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
         APASS_LOG_ERROR_F(Elements::Operation, "A5 L1 Spill failed: actualSpillIssue is copy_in.");
         return FAILED;
     }
     if (CreateSpillCopyout(actualSpillIssue, actualSpillTensor, actualSpillTensor->memoryrange.memId, spillCopyout) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill! %s", GetFormatBacktrace(spillIssue->tileOp).c_str());
+        APASS_LOG_ERROR_F(Elements::Operation, "CreateSpillCopyout failed for specialL1 spill!");
         return FAILED;
     }
     bufLastUseOrder = GetBufLastUseOrder(allocIssue, actualSpillTensor->memoryrange.memId);
