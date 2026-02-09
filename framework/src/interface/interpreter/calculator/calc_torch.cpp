@@ -847,6 +847,34 @@ void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTe
     GatherINUBGolden(tout, tparams, tindices, tpageTable, blockSize, axis);
 }
 
+void GatherINL1Golden(torch::Tensor &out, const torch::Tensor &params, const torch::Tensor &indices,
+    const torch::Tensor &pageTable, int64_t blockSize) {
+    torch::Tensor logical = indices.reshape({-1}).to(torch::kLong);
+    torch::Tensor pt = pageTable.reshape({-1}).to(torch::kLong);
+    torch::Tensor logical_block = logical.floor_divide(blockSize);
+    torch::Tensor offset = logical.remainder(blockSize);
+    torch::Tensor physical_block = torch::index_select(pt, 0, logical_block);
+    torch::Tensor physical = physical_block.mul(blockSize).add(offset);
+    torch::Tensor selected = torch::index_select(params, 0, physical);
+    out.copy_(selected);
+}
+static torch::Tensor FromGatherINL1(LogicalTensorDataPtr data) {
+    RawTensorDataPtr raw = data->GetData();
+    auto tensor = torch::from_blob(raw->data(), raw->GetShape(), FromDataType(raw->GetDataType()));
+    auto view = tensor.as_strided({raw->GetShape()[0],data->GetShape()[1]}, raw->GetStride(), data->GetStorageOffset());
+    if (data->IsAxisCombine())
+        view = view.transpose_(-1, AXIS_TO_LAST);
+    return view;
+}
+void GatherINL1(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
+    LogicalTensorDataPtr pageTable, int64_t blockSize) {
+    auto tout = From(out);
+    auto tparams = FromGatherINL1(params);
+    auto tindices = From(indices);
+    auto tpageTable = From(pageTable);
+    GatherINL1Golden(tout, tparams, tindices, tpageTable, blockSize);
+}
+
 void GatherElements(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis) {
     auto ret = From(out);
     auto src = From(params);
@@ -1587,6 +1615,7 @@ static struct CalcOps calcOps = {
     .Sort = Sort,
     .Gather = Gather,
     .GatherINUB = GatherINUB,
+    .GatherINL1 = GatherINL1,
     .BitwiseRightShift = BitwiseRightShift,
     .BitwiseLeftShift = BitwiseLeftShift,
     .BitwiseRightShiftS = BitwiseRightShiftS,
