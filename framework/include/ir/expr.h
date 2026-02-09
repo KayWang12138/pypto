@@ -13,7 +13,7 @@
 
 #include <any>
 #include <memory>
-#include <stdexcept>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -24,8 +24,10 @@
 
 #include "core/any_cast.h"
 #include "core/dtype.h"
+#include "core/error.h"
 #include "ir/core.h"
 #include "ir/memref.h"
+#include "ir/pipe.h"
 #include "ir/reflection/field_traits.h"
 #include "ir/type.h"
 
@@ -116,12 +118,12 @@ class Op {
    *
    * @param key Kwarg key
    * @return type_index of the expected type
-   * @throws pypto::ValueError if kwarg is not registered
+   * @throws ValueError if kwarg is not registered
    */
   [[nodiscard]] std::type_index GetAttrType(const std::string& key) const {
     auto it = attrs_.find(key);
     if (it == attrs_.end()) {
-      throw std::invalid_argument("Attribute '" + key + "' not found in operator '" + name_ + "'");
+      throw ValueError("Attribute '" + key + "' not found in operator '" + name_ + "'");
     }
     return it->second;
   }
@@ -155,8 +157,26 @@ class Op {
    */
   [[nodiscard]] const std::unordered_map<std::string, std::type_index>& GetAttrs() const { return attrs_; }
 
+  /**
+   * @brief Set the pipeline type for this operator
+   *
+   * @param pipe Pipeline type (e.g., MTE2, V)
+   */
+  void SetPipe(PipeType pipe) const { pipe_ = pipe; }
+
+  /**
+   * @brief Get the pipeline type for this operator
+   *
+   * @return Optional pipeline type (nullopt if not set)
+   */
+  [[nodiscard]] std::optional<PipeType> GetPipe() const { return pipe_; }
+
+  [[nodiscard]] virtual ObjectKind GetKind() const { return ObjectKind::Op; }
+  [[nodiscard]] virtual std::string TypeName() const { return "Op"; }
+
  private:
   mutable std::unordered_map<std::string, std::type_index> attrs_;  ///< Kwarg schema (key -> type)
+  mutable std::optional<PipeType> pipe_;                            ///< Pipeline type
 };
 
 using OpPtr = std::shared_ptr<const Op>;
@@ -172,6 +192,8 @@ class GlobalVar : public Op {
  public:
   explicit GlobalVar(std::string name) : Op(std::move(name)) {}
   ~GlobalVar() override = default;
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::GlobalVar; }
+  [[nodiscard]] std::string TypeName() const override { return "GlobalVar"; }
 };
 
 using GlobalVarPtr = std::shared_ptr<const GlobalVar>;
@@ -208,6 +230,7 @@ class Var : public Expr {
   Var(std::string name, TypePtr type, Span span)
       : Expr(std::move(span), std::move(type)), name_(std::move(name)) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Var; }
   [[nodiscard]] std::string TypeName() const override { return "Var"; }
 
   /**
@@ -242,8 +265,8 @@ using VarPtr = std::shared_ptr<const Var>;
  * 4. Capture final value in ForStmt's return_vars
  *
  * @example
- * // for i, (sum,) in pi.range(0, n, 1, init_values=[0]):
- * //     sum = pi.yield(sum + i)
+ * // for i, (sum,) in pl.range(0, n, 1, init_values=[0]):
+ * //     sum = pl.yield_(sum + i)
  * // sum_final = sum
  * auto sum_iter = std::make_shared<IterArg>("sum", type, init_val, span);
  * auto sum_final = std::make_shared<Var>("sum_final", type, span);
@@ -271,6 +294,7 @@ class IterArg : public Var {
   IterArg(std::string name, TypePtr type, ExprPtr initValue, Span span)
       : Var(std::move(name), std::move(type), std::move(span)), initValue_(std::move(initValue)) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::IterArg; }
   [[nodiscard]] std::string TypeName() const override { return "IterArg"; }
 
   /**
@@ -285,6 +309,56 @@ class IterArg : public Var {
 };
 
 using IterArgPtr = std::shared_ptr<const IterArg>;
+
+/**
+ * @brief Memory reference variable for shaped types (tensor and tile)
+ *
+ * Represents a memory allocation with metadata (space, address, size, id).
+ * Inherits from Var, making it a first-class IR expression that can be
+ * declared and referenced like other variables.
+ *
+ * Memory references have auto-generated names based on their ID (e.g., "mem_123")
+ * and MemRefType as their type.
+ */
+class MemRef : public Var {
+ public:
+  MemorySpace memory_space_;  ///< Memory space (DDR, UB, L1, etc.)
+  ExprPtr addr_;              ///< Starting address expression
+  uint64_t size_;             ///< Size in bytes (64-bit unsigned)
+  uint64_t id_;               ///< Unique identifier (used for name generation)
+
+  /**
+   * @brief Constructor with all parameters including explicit ID
+   *
+   * Generates a variable name from the ID (e.g., "mem_123") and creates
+   * a MemRefType for the type. Calls Var constructor with these values.
+   *
+   * @param memory_space Memory space (DDR, UB, L1, etc.)
+   * @param addr Starting address expression
+   * @param size Size in bytes
+   * @param id Unique identifier (used to generate variable name)
+   * @param span Source location (defaults to Span::unknown())
+   */
+  MemRef(MemorySpace memory_space, ExprPtr addr, uint64_t size, uint64_t id, Span span = Span::unknown());
+
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::MemRef; }
+  [[nodiscard]] std::string TypeName() const override { return "MemRef"; }
+
+  /**
+   * @brief Get field descriptors for reflection-based visitation
+   *
+   * @return Tuple of field descriptors
+   */
+  static constexpr auto GetFieldDescriptors() {
+    return std::tuple_cat(Var::GetFieldDescriptors(),
+                          std::make_tuple(reflection::UsualField(&MemRef::memory_space_, "memory_space"),
+                                          reflection::UsualField(&MemRef::addr_, "addr"),
+                                          reflection::UsualField(&MemRef::size_, "size"),
+                                          reflection::UsualField(&MemRef::id_, "id")));
+  }
+};
+
+// MemRefPtr is already declared in memref.h, just reuse it here
 
 /**
  * @brief Function call expression
@@ -371,15 +445,16 @@ class Call : public Expr {
    * @param key Kwarg key
    * @return true if the kwarg exists
    */
-  bool HasKwarg(const std::string& key) const {
-    for (const auto& kv : kwargs_) {
-      if (kv.first == key) {
+  [[nodiscard]] bool HasKwarg(const std::string& key) const {
+    for (const auto& [k, v] : kwargs_) {
+      if (k == key) {
         return true;
       }
     }
     return false;
   }
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::Call; }
   [[nodiscard]] std::string TypeName() const override { return "Call"; }
 
   /**
@@ -396,6 +471,40 @@ class Call : public Expr {
 };
 
 using CallPtr = std::shared_ptr<const Call>;
+
+/**
+ * @brief Expression to create a tuple from multiple expressions
+ *
+ * Takes a list of expressions and creates a tuple value.
+ * The result type is TupleType containing the types of all input expressions.
+ */
+class MakeTuple : public Expr {
+ public:
+  std::vector<ExprPtr> elements_;  // Elements of the tuple
+
+  /**
+   * @brief Create a tuple construction expression
+   *
+   * @param elements Expressions to be tuple elements
+   * @param span Source location
+   */
+  MakeTuple(std::vector<ExprPtr> elements, Span span);
+
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::MakeTuple; }
+  [[nodiscard]] std::string TypeName() const override { return "MakeTuple"; }
+
+  /**
+   * @brief Get field descriptors for reflection-based visitation
+   *
+   * @return Tuple of field descriptors
+   */
+  static constexpr auto GetFieldDescriptors() {
+    return std::tuple_cat(Expr::GetFieldDescriptors(),
+                          std::make_tuple(reflection::UsualField(&MakeTuple::elements_, "elements")));
+  }
+};
+
+using MakeTuplePtr = std::shared_ptr<const MakeTuple>;
 
 /**
  * @brief Tuple element access expression
@@ -417,6 +526,7 @@ class TupleGetItemExpr : public Expr {
    */
   TupleGetItemExpr(ExprPtr tuple, int index, Span span);
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::TupleGetItemExpr; }
   [[nodiscard]] std::string TypeName() const override { return "TupleGetItemExpr"; }
 
   /**

@@ -13,8 +13,6 @@
 
 #include <memory>
 #include <optional>
-#include <sstream>
-#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -22,14 +20,9 @@
 
 #include "core/dtype.h"
 #include "core/logging.h"
+#include "ir/core.h"
 #include "ir/memref.h"
 #include "ir/reflection/field_traits.h"
-
-#ifndef CHECK
-#define CHECK(expr) \
-  if (!(expr)) throw std::logic_error(std::string("Check failed: " #expr " at ") + __FILE__ + ":" + std::to_string(__LINE__)); \
-  std::ostringstream() /* Allow chaining with << */
-#endif
 
 namespace pypto {
 namespace ir {
@@ -47,6 +40,13 @@ using ExprPtr = std::shared_ptr<const Expr>;
 class Type {
  public:
   virtual ~Type() = default;
+
+  /**
+   * @brief Get the Kind of this type
+   *
+   * @return The ObjectKind enum value identifying the concrete type
+   */
+  [[nodiscard]] virtual ObjectKind GetKind() const = 0;
 
   /**
    * @brief Get the type name of this type
@@ -73,6 +73,7 @@ class UnknownType : public Type {
    */
   UnknownType() = default;
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::UnknownType; }
   [[nodiscard]] std::string TypeName() const override { return "UnknownType"; }
 
   static constexpr auto GetFieldDescriptors() { return Type::GetFieldDescriptors(); }
@@ -106,6 +107,7 @@ class ScalarType : public Type {
    */
   explicit ScalarType(DataType dtype) : dtype_(dtype) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ScalarType; }
   [[nodiscard]] std::string TypeName() const override { return "ScalarType"; }
 
   static constexpr auto GetFieldDescriptors() {
@@ -136,14 +138,14 @@ struct TileView {
   /**
    * @brief Constructor with all parameters
    *
-   * @param valid_shape_arg Valid shape dimensions
-   * @param stride_arg Stride for each dimension
-   * @param start_offset_arg Starting offset
+   * @param valid_shape Valid shape dimensions
+   * @param stride Stride for each dimension
+   * @param start_offset Starting offset
    */
-  TileView(std::vector<ExprPtr> valid_shape_arg, std::vector<ExprPtr> stride_arg, ExprPtr start_offset_arg)
-      : valid_shape(std::move(valid_shape_arg)),
-        stride(std::move(stride_arg)),
-        start_offset(std::move(start_offset_arg)) {}
+  TileView(std::vector<ExprPtr> valid_shape_in, std::vector<ExprPtr> stride_in, ExprPtr start_offset_in)
+      : valid_shape(std::move(valid_shape_in)),
+        stride(std::move(stride_in)),
+        start_offset(std::move(start_offset_in)) {}
 
   /**
    * @brief Get field descriptors for reflection-based visitation
@@ -165,9 +167,9 @@ struct TileView {
  */
 class ShapedType : public Type {
  public:
-  DataType dtype_;                ///< Element data type
-  std::vector<ExprPtr> shape_;    ///< Shape dimensions (symbolic or constant)
-  std::optional<MemRef> memref_;  ///< Optional memory reference
+  DataType dtype_;                   ///< Element data type
+  std::vector<ExprPtr> shape_;       ///< Shape dimensions (symbolic or constant)
+  std::optional<MemRefPtr> memref_;  ///< Optional memory reference (shared pointer)
 
   /**
    * @brief Create a shaped type without memory reference
@@ -179,15 +181,34 @@ class ShapedType : public Type {
       : dtype_(dtype), shape_(std::move(shape)), memref_(std::nullopt) {}
 
   /**
-   * @brief Create a shaped type with memory reference
+   * @brief Create a shaped type with constant shape
    *
    * @param dtype Element data type
    * @param shape Shape dimensions
-   * @param memref Memory reference
    */
-  ShapedType(DataType dtype, std::vector<ExprPtr> shape, std::optional<MemRef> memref)
+  ShapedType(DataType dtype, const std::vector<int64_t>& shape, std::optional<MemRefPtr> memref);
+
+  /**
+   * @brief Create a shaped type with memory reference (shared_ptr)
+   *
+   * @param dtype Element data type
+   * @param shape Shape dimensions
+   * @param memref Memory reference (shared pointer)
+   */
+  ShapedType(DataType dtype, std::vector<ExprPtr> shape, MemRefPtr memref)
       : dtype_(dtype), shape_(std::move(shape)), memref_(std::move(memref)) {}
 
+  /**
+   * @brief Create a shaped type with optional memory reference (shared_ptr)
+   *
+   * @param dtype Element data type
+   * @param shape Shape dimensions
+   * @param memref Optional memory reference (shared pointer)
+   */
+  ShapedType(DataType dtype, std::vector<ExprPtr> shape, std::optional<MemRefPtr> memref)
+      : dtype_(dtype), shape_(std::move(shape)), memref_(std::move(memref)) {}
+
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ShapedType; }
   [[nodiscard]] std::string TypeName() const override { return "ShapedType"; }
 
   static constexpr auto GetFieldDescriptors() {
@@ -216,15 +237,35 @@ class TensorType : public ShapedType {
   TensorType(std::vector<ExprPtr> shape, DataType dtype) : ShapedType(dtype, std::move(shape)) {}
 
   /**
-   * @brief Create a tensor type with memory reference
+   * @brief Create a tensor type with memory reference (shared_ptr)
    *
    * @param shape Shape dimensions
    * @param dtype Element data type
-   * @param memref Memory reference
+   * @param memref Memory reference (shared pointer)
    */
-  TensorType(std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRef> memref)
+  TensorType(std::vector<ExprPtr> shape, DataType dtype, MemRefPtr memref)
       : ShapedType(dtype, std::move(shape), std::move(memref)) {}
 
+  /**
+   * @brief Create a tensor type with constant shape
+   *
+   * @param shape Shape dimensions
+   * @param dtype Element data type
+   */
+  TensorType(const std::vector<int64_t>& shape, DataType dtype, std::optional<MemRefPtr> memref)
+      : ShapedType(dtype, shape, std::move(memref)) {}
+
+  /**
+   * @brief Create a tensor type with optional memory reference (shared_ptr)
+   *
+   * @param shape Shape dimensions
+   * @param dtype Element data type
+   * @param memref Optional memory reference (shared pointer)
+   */
+  TensorType(std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRefPtr> memref)
+      : ShapedType(dtype, std::move(shape), std::move(memref)) {}
+
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::TensorType; }
   [[nodiscard]] std::string TypeName() const override { return "TensorType"; }
 
   static constexpr auto GetFieldDescriptors() { return ShapedType::GetFieldDescriptors(); }
@@ -235,8 +276,9 @@ using TensorTypePtr = std::shared_ptr<const TensorType>;
 /**
  * @brief Tile type representation
  *
- * Represents a tile type (2D tensor with at most 2 dimensions).
- * Tiles are used for hardware-optimized operations on 2D data structures.
+ * Represents a tile type (multi-dimensional tensor).
+ * Tiles are used for hardware-optimized operations on multi-dimensional data structures.
+ * Note: Code generation currently only supports up to 2D tiles.
  */
 class TileType : public ShapedType {
  public:
@@ -245,43 +287,70 @@ class TileType : public ShapedType {
   /**
    * @brief Create a tile type without memory reference or tile view
    *
-   * @param shape Shape dimensions (must have at most 2 dimensions)
+   * @param shape Shape dimensions (supports multi-dimensional tensors)
    * @param dtype Element data type
-   * @throws std::invalid_argument if shape has more than 2 dimensions
    */
   TileType(std::vector<ExprPtr> shape, DataType dtype)
-      : ShapedType(dtype, std::move(shape)), tile_view_(std::nullopt) {
-    CHECK(shape_.size() <= 2) << "TileType can have at most 2 dimensions, got " << shape_.size();
-  }
+      : ShapedType(dtype, std::move(shape)), tile_view_(std::nullopt) {}
 
   /**
-   * @brief Create a tile type with memory reference
+   * @brief Create a tile type with memory reference (shared_ptr)
    *
-   * @param shape Shape dimensions (must have at most 2 dimensions)
+   * @param shape Shape dimensions (supports multi-dimensional tensors)
    * @param dtype Element data type
-   * @param memref Memory reference
-   * @throws std::invalid_argument if shape has more than 2 dimensions
+   * @param memref Memory reference (shared pointer)
    */
-  TileType(std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRef> memref)
+  TileType(std::vector<ExprPtr> shape, DataType dtype, MemRefPtr memref)
+      : ShapedType(dtype, std::move(shape), std::move(memref)), tile_view_(std::nullopt) {}
+
+  /**
+   * @brief Create a tile type with optional memory reference (shared_ptr)
+   *
+   * @param shape Shape dimensions (supports multi-dimensional tensors)
+   * @param dtype Element data type
+   * @param memref Optional memory reference (shared pointer)
+   */
+  TileType(std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRefPtr> memref)
       : ShapedType(dtype, std::move(shape), std::move(memref)), tile_view_(std::nullopt) {
-    CHECK(shape_.size() <= 2) << "TileType can have at most 2 dimensions, got " << shape_.size();
+    // No dimension limit at type level; code generation may have constraints
   }
 
   /**
-   * @brief Create a tile type with memory reference and tile view
+   * @brief Create a tile type with constant shape
    *
-   * @param shape Shape dimensions (must have at most 2 dimensions)
+   * @param shape Shape dimensions (supports multi-dimensional tensors)
    * @param dtype Element data type
-   * @param memref Memory reference
-   * @param tile_view Tile view information
-   * @throws std::invalid_argument if shape has more than 2 dimensions
+   * @param memref Optional memory reference (shared pointer)
+   * @param tile_view Optional tile view information
    */
-  TileType(std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRef> memref,
+  TileType(const std::vector<int64_t>& shape, DataType dtype, std::optional<MemRefPtr> memref,
            std::optional<TileView> tile_view)
-      : ShapedType(dtype, std::move(shape), std::move(memref)), tile_view_(std::move(tile_view)) {
-    CHECK(shape_.size() <= 2) << "TileType can have at most 2 dimensions, got " << shape_.size();
-  }
+      : ShapedType(dtype, shape, std::move(memref)), tile_view_(std::move(tile_view)) {}
 
+  /**
+   * @brief Create a tile type with memory reference and tile view (shared_ptr)
+   *
+   * @param shape Shape dimensions (supports multi-dimensional tensors)
+   * @param dtype Element data type
+   * @param memref Memory reference (shared pointer)
+   * @param tile_view Tile view information
+   */
+  TileType(std::vector<ExprPtr> shape, DataType dtype, MemRefPtr memref, std::optional<TileView> tile_view)
+      : ShapedType(dtype, std::move(shape), std::move(memref)), tile_view_(std::move(tile_view)) {}
+
+  /**
+   * @brief Create a tile type with optional memory reference and tile view (shared_ptr)
+   *
+   * @param shape Shape dimensions (supports multi-dimensional tensors)
+   * @param dtype Element data type
+   * @param memref Optional memory reference (shared pointer)
+   * @param tile_view Tile view information
+   */
+  TileType(std::vector<ExprPtr> shape, DataType dtype, std::optional<MemRefPtr> memref,
+           std::optional<TileView> tile_view)
+      : ShapedType(dtype, std::move(shape), std::move(memref)), tile_view_(std::move(tile_view)) {}
+
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::TileType; }
   [[nodiscard]] std::string TypeName() const override { return "TileType"; }
 
   static constexpr auto GetFieldDescriptors() {
@@ -309,6 +378,7 @@ class TupleType : public Type {
    */
   explicit TupleType(std::vector<TypePtr> types) : types_(std::move(types)) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::TupleType; }
   [[nodiscard]] std::string TypeName() const override { return "TupleType"; }
 
   static constexpr auto GetFieldDescriptors() {
@@ -318,6 +388,37 @@ class TupleType : public Type {
 };
 
 using TupleTypePtr = std::shared_ptr<const TupleType>;
+
+/**
+ * @brief Memory reference type representation
+ *
+ * Represents a memory reference type for shaped data (tensors and tiles).
+ * Used as the type for MemRef variables.
+ */
+class MemRefType : public Type {
+ public:
+  /**
+   * @brief Create a memory reference type
+   */
+  MemRefType() = default;
+
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::MemRefType; }
+  [[nodiscard]] std::string TypeName() const override { return "MemRefType"; }
+
+  static constexpr auto GetFieldDescriptors() { return Type::GetFieldDescriptors(); }
+};
+
+using MemRefTypePtr = std::shared_ptr<const MemRefType>;
+
+/**
+ * @brief Get a shared pointer to the singleton MemRefType instance
+ *
+ * @return Shared pointer to MemRefType
+ */
+inline MemRefTypePtr GetMemRefType() {
+  static const auto memref_type = std::make_shared<MemRefType>();
+  return memref_type;
+}
 
 }  // namespace ir
 }  // namespace pypto

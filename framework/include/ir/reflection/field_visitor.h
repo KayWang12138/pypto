@@ -14,19 +14,11 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <sstream>
-#include <stdexcept>
 #include <type_traits>
 #include <vector>
 
 #include "core/logging.h"
 #include "ir/reflection/field_traits.h"
-
-#ifndef INTERNAL_UNREACHABLE
-#define INTERNAL_UNREACHABLE \
-  if (true) throw std::logic_error(std::string("Unreachable code at ") + __FILE__ + ":" + std::to_string(__LINE__)); \
-  std::ostringstream() /* Allow chaining with << */
-#endif
 
 namespace pypto {
 namespace ir {
