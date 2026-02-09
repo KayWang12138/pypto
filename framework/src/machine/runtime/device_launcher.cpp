@@ -206,6 +206,7 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     }
     if (streamSynchronize) {
         rc = DeviceRunner::Get().DynamicLaunchSynchronize(aicpuStream, nullptr, aicoreStream);
+        ASSERT(machine::GetRA()->CheckAllSentinels());
     }
     ALOG_INFO_F("finish Kernel Launch.");
 
@@ -640,6 +641,7 @@ int DeviceLauncher::LaunchAicoreKernel(
     devRunner.ReportHostProfInfo(startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
     if (debugEnable) {
         devRunner.SynchronizeDeviceToHostProfData();
+        ASSERT(machine::GetRA()->CheckAllSentinels());
     }
     return ret;
 #else
