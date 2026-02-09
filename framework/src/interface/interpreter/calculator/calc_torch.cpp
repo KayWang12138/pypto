@@ -701,7 +701,7 @@ static void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
         tout.relu_();
     }
     if (scale != 0) {
-        uint32_t low32 = static_cast<uint32_t>(scale & 0xFFFFFFFF);
+        uint32_t low32 = static_cast<uint32_t>(scale & 0xFFFFE000);
         float scaleValue = 0.0;
         memcpy_s(&scaleValue, sizeof(float), &low32, sizeof(float));
         tout.mul_(scaleValue);

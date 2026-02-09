@@ -109,15 +109,17 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
             if (scalePtr != nullptr) {
                 auto scaleOp = scalePtr->View({1, ret->GetShape()[1]}, {0, fromOffset[1]});
             }
-            calc::Copy(ret, iop);
             if (quant) {
-                calc::Fixpipe(ret, iop, scalePtr, scale, relu);
+                calc::Fixpipe(ret, iop, scaleOp, scale, relu);
+            } else {
+                calc::Copy(ret, iop);
             }
         } else {
             auto iop = ret->View(oper->GetShape(), toOffset);
-            calc::Copy(iop, oper);
             if (quant) {
                 calc::Fixpipe(ret, oper, scalePtr, scale, relu);
+            } else {
+                calc::Copy(ret, iop);
             }
         }
     } else {
