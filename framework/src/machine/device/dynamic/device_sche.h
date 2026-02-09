@@ -161,7 +161,6 @@ struct DynMachineManager {
     }
 
     int RunCtrl(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry, int threadIdx) {
-        CreateLogFile(LogType::LOG_TYPE_CONTROLLER, 0);
         DEV_TRACE_DEBUG(schema::CtrlEvent(threadIdx, schema::ThreadStart()));
 
         DEV_INFO("ThreadCtrlEnter idx=%d", threadIdx);
@@ -176,7 +175,6 @@ struct DynMachineManager {
         UNUSED(entry);
 
         DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
-        CreateLogFile(LogType::LOG_TYPE_SCHEDULER, threadIdx);
         DEV_INFO("ThreadScheEnter idx=%d", threadIdx);
 
         DEV_INFO("TaskType %d threadIdx %d aicNum %u aivNum %u aicpuNum %u validAicNum %u .",
@@ -240,7 +238,6 @@ struct DynMachineManager {
 
         DEV_INFO("ThreadLeave idx=%d ret=%d", threadIdx, ret);
 
-        GetLogger().Flush();
         PerfMtTrace(PERF_TRACE_EXIT, threadIdx);
         if (++finished_ == static_cast<std::atomic<int>>(devArgs->nrAicpu)) {
             LastFinishThreadIdx_ = threadIdx;

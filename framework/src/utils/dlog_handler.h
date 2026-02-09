@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+* Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -9,24 +9,26 @@
  */
 
 /*!
- * \file device_log.cpp
+ * \file dlog_handler.h
  * \brief
  */
 
-#include "machine/utils/device_log.h"
-namespace npu::tile_fwk {
-#ifdef __DEVICE__
-bool g_isLogEnableDebug = false;
-bool g_isLogEnableInfo = false;
-bool g_isLogEnableWarn = false;
-bool g_isLogEnableError = false;
+#pragma once
 
-void InitLogSwitch() {
-    g_isLogEnableDebug = CheckLogLevel(AICPU, DLOG_DEBUG);
-    g_isLogEnableInfo = CheckLogLevel(AICPU, DLOG_INFO);
-    g_isLogEnableWarn = CheckLogLevel(AICPU, DLOG_WARN);
-    g_isLogEnableError = CheckLogLevel(AICPU, DLOG_ERROR);
+#include <cstdint>
 
+namespace tile::fwk {
+class DLogHandler {
+public:
+    static DLogHandler &Instance();
+    bool IsAvailable() const { return checkLevelFunc_ != nullptr && logRecordFunc_ != nullptr; }
+    int32_t(*checkLevelFunc_)(int32_t, int32_t);
+    void(*logRecordFunc_)(int32_t, int32_t, const char *, ...);
+
+private:
+    DLogHandler();
+    ~DLogHandler();
+    void CloseHandle();
+    void *handle_{nullptr};
+};
 }
-#endif
-} // namespace npu::tile_fwk
