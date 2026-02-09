@@ -11,6 +11,7 @@
 """
 """
 import os
+import time
 from contextlib import contextmanager
 from enum import IntEnum
 from typing import List, overload
@@ -111,6 +112,8 @@ class _JIT:
         self.kmodule = pypto_impl.KernelModule(self)
 
     def __call__(self, *args, **kwargs):
+        open_log = False
+        start_time = time.perf_counter()
         if len(args) < 1:
             raise ValueError("at least one tensor is required")
         self.kwargs = kwargs
