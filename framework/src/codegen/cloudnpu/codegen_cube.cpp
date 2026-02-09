@@ -97,7 +97,7 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
         auto nSymbol = l0cShapeDyn[ID1];
         bool hasBias = 0;
         if (opAttrs.count(OP_ATTR_PREFIX + "has_bias")) {
-            hasBias = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
+            hasBias = AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
         }
         std::string biasStr = ", " + std::to_string(hasBias);
 
