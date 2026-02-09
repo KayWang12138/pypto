@@ -314,7 +314,7 @@ def ifa_func(q_shape, kv_shape, block_table_shape):
     ):
 
         # 1. 添加支持动态的config
-        pypto.experimental.set_operation_options(combine_axis=True)
+        # pypto.experimental.set_operation_options(combine_axis=True)
 
         atten_cfg, tile_cfg = get_qwen_common_config()
         softmax_scale = atten_cfg.softmax_scale
@@ -523,6 +523,7 @@ def IFA(atten_cfg):
     assert_allclose(np.array(attention_output.cpu().flatten().tolist()),
                     np.array(out_torch.cpu().flatten().tolist()),
                     rtol=0.0078125, atol=0.0001)
+    print("compare success")
 
 
 @pytest.mark.skip(reason="large test case")
