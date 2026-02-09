@@ -535,7 +535,7 @@ TEST_F(AssignMemoryTypeTest, InValidOpPattern) {
     std::stringstream ss;
     ss << "After_AssignMemoryType";
 
-    std::string josnFilePath = "/config/pass/json/assign_mem_type_invalidpattern.json";
+    std::string josnFilePath = "./config/pass/json/assign_mem_type_invalidpattern.json";
     currFunctionPtr->DumpJsonFile(josnFilePath);
 
     // Validate the results
@@ -629,7 +629,7 @@ TEST_F(AssignMemoryTypeTest, ViewReshape) {
     std::stringstream ss;
     ss << "After_AssignMemoryType";
 
-    std::string josnFilePath = "/config/pass/json/assign_mem_type_invalidpattern.json";
+    std::string josnFilePath = "./config/pass/json/assign_mem_type_invalidpattern.json";
     currFunctionPtr->DumpJsonFile(josnFilePath);
 
     // Validate the results
