@@ -34,6 +34,49 @@ from torch._dynamo import allow_in_graph
 import pypto
 from utils.get_format import get_format
 
+import time
+# 初始化全局索引变量
+repeat = 5
+global index
+index = 0  # 可以根据你的需求设置初始值
+
+def measure_execution_time(func, args, desc="",*, dynamic_shape = -1):
+    """
+    测量函数执行耗时并打印详细信息
+    
+    参数:
+        func: 要执行并计时的函数
+        args: 传递给函数的参数元组
+        exec_index: 当前执行次数的索引
+        desc: 执行描述（用于区分多次执行）
+    """
+    
+    global index
+    
+
+    # 记录开始时间并打印执行信息
+    start_time = time.perf_counter()
+    print(f"开始第：{index} 次")
+    if (dynamic_shape != -1):
+        print(f"动态shape: {dynamic_shape}")
+    if desc != "":
+        print(desc)
+    # 执行目标函数
+    
+    func(*args)
+    
+    # 计算耗时并打印结果
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"结束第：{index} 次")
+    print(f"耗时: {elapsed_time:.6f} 秒")
+    print()
+    index+=1
+    
+    # 返回耗时，方便后续统计（可选）
+    return elapsed_time
+
+
 np.random.seed(0)
 torch.manual_seed(0)
 np.set_printoptions(formatter={'float': '{:.6f}'.format})
@@ -590,7 +633,13 @@ def attention(
     block_table_shape = block_tables.shape
     shapes = [q_shape, kv_shape, block_table_shape]
     inputs = [query, key_cache, value_cache, block_tables, actual_seqs, attn_res]
+
+    measure_execution_time(func_a, [shapes, inputs])
+    measure_execution_time(func_a, [shapes, inputs], "相同shape再调用一次")
+
+def func_a(shapes, inputs):
     ifa_func(*shapes)(*inputs)
 
 if __name__ == "__main__":
-    test_ifa()
+    for i in range(repeat):
+        test_ifa()

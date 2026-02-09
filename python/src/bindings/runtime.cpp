@@ -722,6 +722,7 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
 
     auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
     auto kbinary = kmodule->GetKernelBinary(tensors);
+    std::cout << "LaunchKernel::kbinary::" << kbinary <<std::endl;
     if (kbinary == nullptr) {
         Program::GetInstance().Reset();
         // Set capture mode to relaxed to support rtmemcpy / rtmemset
