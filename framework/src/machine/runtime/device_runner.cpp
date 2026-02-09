@@ -315,6 +315,7 @@ int DeviceRunner::LaunchAiCore(rtStream_t aicoreStream, int taskType) {
 
 int DeviceRunner::LaunchAiCpu(
     const rtStream_t aicpuStream, const uint64_t taskId, const uint64_t taskData, int taskType) const {
+    printf("[TraCR] hello\n");
     struct Args {
         DeviceArgs devArgs;
         const char kernelName[32] = {"StaticTileFwkKernelServer"};
@@ -327,12 +328,33 @@ int DeviceRunner::LaunchAiCpu(
     args.devArgs.taskId = taskId;
     args.devArgs.taskData = taskData;
 
+    auto* devTask = new DeviceTask{};  // value-initialized → zeroed
+    args.devArgs.taskData = reinterpret_cast<uint64_t>(devTask);
+
     rtAicpuArgsEx_t rtArgs;
     memset_s(&rtArgs, sizeof(rtArgs), 0, sizeof(rtArgs));
     rtArgs.args = &args;
     rtArgs.argsSize = sizeof(args);
     rtArgs.kernelNameAddrOffset = offsetof(struct Args, kernelName);
     rtArgs.soNameAddrOffset = offsetof(struct Args, soName);
+
+    auto& tracrData_ = devTask->tracrData;
+    
+    printf("[TraCR] sizeof tracer traces container: %lu\n", sizeof(tracrData_.tracr_payloads));
+
+    memset_s(&tracrData_.tracr_payloads, sizeof(tracrData_.tracr_payloads), 0, sizeof(tracrData_.tracr_payloads));
+
+    printf("[TraCR] sizeof tracer traces container: %lu\n", sizeof(tracrData_.tracr_payloads));
+
+
+    unsigned __int128 v = tracrData_.tracr_payloads[0];
+
+    uint64_t hi = (uint64_t)(v >> 64);
+    uint64_t lo = (uint64_t)v;
+
+    printf("[TraCR] first payload: 0x%016lx%016lx\n", hi, lo);
+
+
     return rtAicpuKernelLaunchExWithArgs(
         rtKernelType_t::KERNEL_TYPE_AICPU_KFC, "AST_AICPU", aicpuNum_, &rtArgs, nullptr, aicpuStream, 0);
 }
