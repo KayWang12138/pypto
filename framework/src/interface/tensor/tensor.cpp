@@ -52,7 +52,7 @@ Tensor::Tensor(std::shared_ptr<LogicalTensor> s) : storage_(std::move(s)), index
 static std::vector<SymbolicScalar> ToDynShape(const std::string &tname, const Shape &shape) {
     auto dynShape = SymbolicScalar::FromConcrete(shape);
     for (size_t dim = 0; dim < shape.size(); dim++) {
-        ASSERT(shape[dim] >= -1) << "Invalid shape " << shape[dim];
+        CHECK(shape[dim] >= -1) << "Invalid shape " << shape[dim];
         if (shape[dim] == -1) {
             auto name = SymbolHandler::GetNameByHandlerId(SymbolHandlerId::GetInputShapeDim);
             auto handler = SymbolicScalar(AddRuntimePrefix(name));
@@ -134,7 +134,7 @@ namespace tile_fwk {
 void AssignTensorData(Tensor &lhs, const Tensor &rhs) {
     if (lhs.GetData() != nullptr) {
         if (rhs.GetData() != nullptr) {
-            ASSERT(lhs.GetData() == rhs.GetData());
+            CHECK(lhs.GetData() == rhs.GetData()) << "Prohibit self-assignment.";
         }
     } else {
         lhs.SetData(rhs.GetData());
@@ -419,7 +419,7 @@ static std::vector<std::reference_wrapper<const Tensor>>::iterator FindTensor (
 
 constexpr int MAX_GET_TENSOR_DATA_DIM = 4;
 SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> &offset) {
-    ASSERT(t.GetDataType() == DT_INT32);
+    CHECK(t.GetDataType() == DT_INT32);
     auto funcPtr = Program::GetInstance().GetCurrentDynamicFunction();
     if (funcPtr) {
         auto inputTensorList = funcPtr->GetDyndevAttribute()->startArgsInputTensorList;
@@ -428,14 +428,14 @@ SymbolicScalar GetTensorData(const Tensor &t, const std::vector<SymbolicScalar> 
         }
     }
 
-    ASSERT(offset.size() <= MAX_GET_TENSOR_DATA_DIM);
+    CHECK(offset.size() <= MAX_GET_TENSOR_DATA_DIM);
     SymbolHandlerId handlerId = static_cast<SymbolHandlerId>(static_cast<int>(SymbolHandlerId::GetTensorDataInt32Dim1) + offset.size() - 1) ;
     return DoGetTensorDataInt32(handlerId, t, offset);
 }
 
 static
 void DoSetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &t) {
-    ASSERT(t.GetShape().size() == off.size()) << "Mismatch dimen:" << t.GetShape().size() << " vs " << off.size() << "\n";
+    CHECK(t.GetShape().size() == off.size()) << "Mismatch dimen:" << t.GetShape().size() << " vs " << off.size() << "\n";
     Program::GetInstance().GetTensorSlotManager()->TensorWrite(t);
 
     auto currDynFunc = Program::GetInstance().GetCurrentDynamicFunction();
@@ -447,7 +447,7 @@ void DoSetTensorDataInt32(const SymbolicScalar &v, const std::vector<SymbolicSca
 }
 
 void SetTensorData(const SymbolicScalar &v, const std::vector<SymbolicScalar> &off, Tensor &dst) {
-    ASSERT(dst.GetDataType() == DT_INT32);
+    CHECK(dst.GetDataType() == DT_INT32);
     return DoSetTensorDataInt32(v, off, dst);
 }
 
