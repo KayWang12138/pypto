@@ -653,10 +653,11 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
         auto &copyInOpBl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.weightTensorPtr},
                                                   {dstBL1TensorPtr});
         copyInOpBl1.SetAttribute("is_fmap", false);
-        copyInOpAl1.SetAttribute("src_c_offset", srcCinOffset);
-        copyInOpAl1.SetAttribute("src_d_offset", (convTileInfo.orgKd - iterInfo.dkL1Size) +
+        copyInOpBl1.SetAttribute("src_c_offset", srcCinOffset);
+        copyInOpBl1.SetAttribute("src_d_offset", (convTileInfo.orgKd - iterInfo.dkL1Size) +
                                  (iterInfo.kL0Offset / convTileInfo.kPerGroup));
-        copyInOpAl1.SetAttribute("src_n_offset", iterInfo.groupOffset * iterInfo.coutPerGroup + iterInfo.coutOffset);
+        copyInOpBl1.SetAttribute("src_n_offset",
+                                 iterInfo.groupOffset * convTileInfo.coutPerGroup + iterInfo.coutOffset);
         iterInfo.bL1UpadateFlag = false;
     }
     // load2d()
@@ -892,7 +893,7 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape,
     // set tile graph node info
     ConvGraphNodes tileGraphNodes;
 
-    for (int64_t iterInfo.groupOffset = 0; iterInfo.groupOffset < convAttrParam.groups; iterInfo.groupOffset += 1) {
+    for (iterInfo.groupOffset = 0; iterInfo.groupOffset < convAttrParam.groups; iterInfo.groupOffset += 1) {
         for (iterInfo.batchOffset = 0; iterInfo.batchOffset < convTileInfo.orgBatch; iterInfo.batchOffset += 1) {
             IterOneBatchFunc(function, iterInfo, convTileInfo, convAttrParam, tensorGraphNodes, tileGraphNodes);
         }
