@@ -10,9 +10,9 @@
 ## 函数原型
 
 ```python
-tril(self, diagonal: Union[int, SymbolicScalar]) -> Tensor:
+tril_(self, diagonal: Union[int, SymbolicScalar]) -> Tensor:
 ```
 
 ## 详细说明
 
-请参见[pypto.tril](../operation/pypto-tril.md)。
+tril的原地操作方法，请参见[pypto.Tensor.tril](pypto-Tensor-tril.md)。

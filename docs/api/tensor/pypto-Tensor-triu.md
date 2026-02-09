@@ -10,7 +10,7 @@
 ## 函数原型
 
 ```python
-triu(input: Tensor, diagonal: Union[int, SymbolicScalar]) -> Tensor:
+triu(self, diagonal: Union[int, SymbolicScalar]) -> Tensor:
 ```
 
 ## 详细说明
