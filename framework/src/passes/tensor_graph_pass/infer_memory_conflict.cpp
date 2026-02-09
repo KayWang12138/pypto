@@ -178,13 +178,16 @@ bool InferMemoryConflict::MatMulPattern(const LogicalTensorPtr &reshapeIn, const
     if (producer == nullptr || consumer == nullptr) {
         return false;
     }
-    bool mulPattern =
-        ((producer->GetOpcode() == Opcode::OP_VIEW &&
-          OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) ||
-         (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL && 
-          consumer->GetOpcode() == Opcode::OP_ASSEMBLE));
-
-    return mulPattern;
+    if (producer->GetOpcode() == Opcode::OP_VIEW &&
+        OpcodeManager::Inst().GetOpCalcType(consumer->GetOpcode()) == OpCalcType::MATMUL) {
+        auto matmulIn = consumer->GetIOperands().front();
+        return matmulIn->GetProducers().size() == 1;
+    } else if (OpcodeManager::Inst().GetOpCalcType(producer->GetOpcode()) == OpCalcType::MATMUL &&
+               consumer->GetOpcode() == Opcode::OP_ASSEMBLE) {
+        auto matmulOut = producer->GetOOperands().front();
+        return matmulOut->GetConsumers().size() == 1;
+    }
+    return false;
 }
 
 // batch MatMul优化pattern，不插入register copy
