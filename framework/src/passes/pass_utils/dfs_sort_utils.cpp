@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ void DFSVisit(int preColor,
               std::unordered_set<int> &visited,
               std::unordered_map<int, int> &dfsColorOrder) {
     std::vector<int> visitStack{preColor};
-    std::unordered_set<int> inStack;
+    std::unordered_set<int> pushedStackColorSet;
     while (visitStack.size() > 0) {
         int currColor = visitStack.back();
         if (visited.count(currColor) > 0) {
@@ -34,7 +34,7 @@ void DFSVisit(int preColor,
         for (int pred : inColor[currColor]) {
             if (visited.count(pred) == 0) {
                 visitStack.push_back(pred);
-                inStack.insert(pred);
+                pushedStackColorSet.insert(pred);
                 allVisited = false;
                 break;
             }
@@ -49,9 +49,9 @@ void DFSVisit(int preColor,
         auto s = outColor[currColor];
         for (auto it = s.rbegin(); it != s.rend(); ++it) {
             auto succ = *it;
-            if (visited.count(succ) == 0 && inStack.count(succ) == 0) {
+            if (visited.count(succ) == 0 && pushedStackColorSet.count(succ) == 0) {
                 visitStack.push_back(succ);
-                inStack.insert(succ);
+                pushedStackColorSet.insert(succ);
             }
         }
     }
