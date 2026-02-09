@@ -201,7 +201,8 @@ std::map<VarPtr, VarPtr> IdentifyReuseOpportunities(const std::vector<LifetimeIn
   }
 
   // For each memory space, find reuse opportunities
-  for (auto& [space, indices] : groups) {
+  for (auto& group : groups) {
+    auto& indices = group.second;
     // Greedy matching: for each variable, try to reuse from previous variables
     for (size_t i = 1; i < indices.size(); i++) {
       size_t curr_idx = indices[i];

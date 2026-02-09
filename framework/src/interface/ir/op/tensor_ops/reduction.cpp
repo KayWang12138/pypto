@@ -17,24 +17,13 @@
 #include "core/logging.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
+#include "ir/op_utils.h"
 #include "ir/scalar_expr.h"
 #include "ir/type.h"
 #include "ir/type_inference.h"
 
 namespace pypto {
 namespace ir {
-
-// Helper to get kwargs value with default (uses vector to preserve order)
-template <typename T>
-T GetKwarg(const std::vector<std::pair<std::string, std::any>>& kwargs, const std::string& key,
-           const T& default_value = T{}) {
-  for (const auto& [k, v] : kwargs) {
-    if (k == key) {
-      return AnyCast<T>(v, "kwarg key: " + key);
-    }
-  }
-  return default_value;
-}
 
 TypePtr DeduceTensorReductionType(const std::vector<ExprPtr>& args,
                                   const std::vector<std::pair<std::string, std::any>>& kwargs,
