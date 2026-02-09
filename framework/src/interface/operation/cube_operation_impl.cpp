@@ -634,15 +634,15 @@ void CheckOperandShape(const Tensor &operand1, const Tensor &operand2)
     }
 }
 
-void CheckL1L0Tile(const int64_t L0Tile, const int64_t L1Tile, const std::string L0TileName, const std::string L1TileName) 
+void CheckL1L0Tile(const int64_t L0Tile, const int64_t L1Tile, const std::string L0TileName, const std::string L1TileName)
 {
     OP_CHECK(true, {
-        ASSERT(L0Tile != 0) 
+        ASSERT(L0Tile != 0)
             << "Current " << L0TileName << ": " << L0Tile
             << ", Requirement: " << L0TileName << " cannot be zero." << std::endl;
     });
     OP_CHECK(true, {
-        ASSERT(L0Tile <= L1Tile && L1Tile % L0Tile == 0) 
+        ASSERT(L0Tile <= L1Tile && L1Tile % L0Tile == 0)
             << "Current " << L0TileName << ": " << L0Tile << ", " << L1TileName << ": " << L1Tile
             << ", Requirement: " << L0TileName << " <= " << L1TileName << " && "
             << L1TileName << " % " << L0TileName << " == 0" << std::endl;
@@ -1208,12 +1208,6 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
     MatmulIterInfo iterInfo;
     // tile graph中的数据节点
     MatmulGraphNodes tileGraphNodes;
-
-    auto &cubeTile = tileShape.GetCubeTile();
-    if (!cubeTile.enableMultiDataLoad) {
-        Deprecate::TiledInnerAMulB(function, tileShape, operandVec, cTensorPtr, attrParam);
-        return;
-    }
 
     for (iterInfo.nOffset = 0; iterInfo.nOffset < tileInfo.nView; iterInfo.nOffset += tileInfo.tileNL0) {
         iterInfo.nL0Size = std::min(tileInfo.nView - iterInfo.nOffset, tileInfo.tileNL0);
