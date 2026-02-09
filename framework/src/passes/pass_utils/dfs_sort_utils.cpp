@@ -18,8 +18,8 @@
 namespace npu {
 namespace tile_fwk {
 void DFSVisit(int preColor, 
-              std::vector<std::vector<int>> &inColor,
-              std::vector<std::vector<int>> &outColor,
+              const std::vector<std::vector<int>> &inColor,
+              const std::vector<std::vector<int>> &outColor,
               std::unordered_set<int> &visited,
               std::unordered_map<int, int> &dfsColorOrder) {
     std::vector<int> visitStack{preColor};

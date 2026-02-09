@@ -398,7 +398,7 @@ void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
     }
 }
 
-Status NBufferMerge::MergeProcessForMulityInOut(const OperationsViewer &opOriList, std::map<uint64_t, std::vector<int>> &hashMap, 
+Status NBufferMerge::MergeProcessForMulityInOut(const OperationsViewer &opOriList, const std::map<uint64_t, std::vector<int>> &hashMap, 
     std::map<uint64_t, size_t> &hashMergeNum, std::vector<uint64_t> &hashColor) {
     std::vector<uint64_t> hashMapKeys;
     for (const auto &entry : hashMap) {
@@ -410,8 +410,10 @@ Status NBufferMerge::MergeProcessForMulityInOut(const OperationsViewer &opOriLis
         for(int hashMapKeyIdx = st; hashMapKeyIdx < et; hashMapKeyIdx++) {
             uint64_t colorHashValue = hashMapKeys[hashMapKeyIdx];
             if (colorHashValue == 0) continue;
-            std::vector<int> colorValues = hashMap[colorHashValue];
-            if(colorValues.empty()) continue;
+            auto it = hashMap.find(colorHashValue);
+            if (it == hashMap.end()) continue;
+            std::vector<int> colorValues = it->second;
+            if (colorValues.empty()) continue;
             std::vector<std::vector<int>> sortedColors;
             sortedColors.push_back(colorValues);
             size_t numDBMerge =

@@ -62,7 +62,7 @@ private:
     std::map<uint64_t, size_t> SetNumDB(std::map<uint64_t, std::vector<int>> &hashMap);
     Status CheckVecNBufferSettingForManualMerge();
     Status MergeProcessForMulityInOut(const OperationsViewer &opOriList,
-                        std::map<uint64_t, std::vector<int>> &hashMap,
+                        const std::map<uint64_t, std::vector<int>> &hashMap,
                         std::map<uint64_t, size_t> &hashMergeNum,
                         std::vector<uint64_t> &hashColor);
 private:
