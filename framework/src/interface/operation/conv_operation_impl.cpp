@@ -26,7 +26,6 @@
 #include "tilefwk/data_type.h"
 #include "tilefwk/tile_shape.h"
 #include "tilefwk/platform.h"
-#include "tilefwk/platform.h"
 
 namespace npu {
 namespace tile_fwk {
@@ -92,7 +91,7 @@ int64_t ConvComputeWo(const Tensor &inputTensor, const Tensor &weightTensor, con
         indexW = NCDHW_W_IDX;
     }
     std::vector<int64_t> strides = attrParam.strides;
-    int64_t strideW = strides[index];
+    int64_t strideW = strides[PAD_STRIDE_W];
     if (strideW == 0) {
         return 1;
     }
@@ -1020,5 +1019,4 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
 }
 
 } //namespace Conv
-}
 }
