@@ -20,6 +20,7 @@
 
 #include "core/dtype.h"
 #include "ir/expr.h"
+#include "ir/scalar_expr.h"
 #include "ir/type.h"
 
 namespace pypto {
@@ -30,26 +31,25 @@ namespace ir {
 // ============================================================================
 
 TEST(ExprBasicTest, TestExprBasicConstructor) {
-  // Test basic Expr construction
-  auto expr = std::make_shared<Expr>(Span::unknown());
+  // Test basic Expr construction via ConstInt (Expr is abstract with pure virtual GetKind)
+  auto expr = std::make_shared<ConstInt>(0, DataType::INT32, Span::unknown());
   ASSERT_NE(expr, nullptr);
-  ASSERT_EQ(expr->TypeName(), "Expr");
+  ASSERT_EQ(expr->TypeName(), "ConstInt");
 }
 
 TEST(ExprBasicTest, TestExprWithType) {
-  // Test Expr with explicit type
-  auto type = std::make_shared<ScalarType>(DataType::INT32);
-  auto expr = std::make_shared<Expr>(Span::unknown(), type);
+  // Test Expr with explicit type via ConstInt
+  auto expr = std::make_shared<ConstInt>(42, DataType::INT32, Span::unknown());
   ASSERT_NE(expr, nullptr);
   ASSERT_EQ(expr->GetType()->TypeName(), "ScalarType");
 }
 
 TEST(ExprBasicTest, TestExprGetType) {
-  // Test Expr GetType method
-  auto expr = std::make_shared<Expr>(Span::unknown());
+  // Test Expr GetType method via ConstFloat
+  auto expr = std::make_shared<ConstFloat>(3.14, DataType::FP32, Span::unknown());
   auto type = expr->GetType();
   ASSERT_NE(type, nullptr);
-  ASSERT_EQ(type->TypeName(), "UnknownType");
+  ASSERT_EQ(type->TypeName(), "ScalarType");
 }
 
 // ============================================================================

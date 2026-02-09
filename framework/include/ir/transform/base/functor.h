@@ -8,12 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef PYPTO_IR_TRANSFORM_BASE_FUNCTOR_H_
-#define PYPTO_IR_TRANSFORM_BASE_FUNCTOR_H_
+#ifndef PYPTO_IR_TRANSFORMS_BASE_FUNCTOR_H_
+#define PYPTO_IR_TRANSFORMS_BASE_FUNCTOR_H_
 
-#include <stdexcept>
 #include <utility>
 
+#include "core/error.h"
+#include "ir/kind_traits.h"
 #include "ir/scalar_expr.h"
 #include "ir/stmt.h"
 
@@ -49,10 +50,12 @@ class ExprFunctor {
   // Leaf nodes
   virtual R VisitExpr_(const VarPtr& op, Args... args) = 0;
   virtual R VisitExpr_(const IterArgPtr& op, Args... args) = 0;
+  virtual R VisitExpr_(const MemRefPtr& op, Args... args) = 0;
   virtual R VisitExpr_(const ConstIntPtr& op, Args... args) = 0;
   virtual R VisitExpr_(const ConstFloatPtr& op, Args... args) = 0;
   virtual R VisitExpr_(const ConstBoolPtr& op, Args... args) = 0;
   virtual R VisitExpr_(const CallPtr& op, Args... args) = 0;
+  virtual R VisitExpr_(const MakeTuplePtr& op, Args... args) = 0;
   virtual R VisitExpr_(const TupleGetItemExprPtr& op, Args... args) = 0;
 
   // Binary operations (22 types)
@@ -89,21 +92,23 @@ class ExprFunctor {
 };
 
 // Macro to dispatch based on expression type
-#define EXPR_FUNCTOR_DISPATCH(OpType)                            \
-  if (auto op = std::dynamic_pointer_cast<const OpType>(expr)) { \
-    return VisitExpr_(op, std::forward<Args>(args)...);          \
+#define EXPR_FUNCTOR_DISPATCH(OpType)                   \
+  if (auto op = As<OpType>(expr)) {                     \
+    return VisitExpr_(op, std::forward<Args>(args)...); \
   }
 
 template <typename R, typename... Args>
 R ExprFunctor<R, Args...>::VisitExpr(const ExprPtr& expr, Args... args) {
   // Leaf nodes
-  // Note: IterArg must be checked before Var since IterArg inherits from Var
+  // Note: IterArg and MemRef must be checked before Var since they inherit from Var
   EXPR_FUNCTOR_DISPATCH(IterArg);
+  EXPR_FUNCTOR_DISPATCH(MemRef);
   EXPR_FUNCTOR_DISPATCH(Var);
   EXPR_FUNCTOR_DISPATCH(ConstInt);
   EXPR_FUNCTOR_DISPATCH(ConstFloat);
   EXPR_FUNCTOR_DISPATCH(ConstBool);
   EXPR_FUNCTOR_DISPATCH(Call);
+  EXPR_FUNCTOR_DISPATCH(MakeTuple);
   EXPR_FUNCTOR_DISPATCH(TupleGetItemExpr);
 
   // Binary operations
@@ -139,7 +144,7 @@ R ExprFunctor<R, Args...>::VisitExpr(const ExprPtr& expr, Args... args) {
   EXPR_FUNCTOR_DISPATCH(Cast);
 
   // Should never reach here if all types are handled
-  throw std::logic_error("Unknown expression type in ExprFunctor::VisitExpr");
+  throw TypeError("Unknown expression type in ExprFunctor::VisitExpr");
 }
 
 #undef EXPR_FUNCTOR_DISPATCH
@@ -178,13 +183,14 @@ class StmtFunctor {
   virtual R VisitStmt_(const ForStmtPtr& op, Args... args) = 0;
   virtual R VisitStmt_(const SeqStmtsPtr& op, Args... args) = 0;
   virtual R VisitStmt_(const OpStmtsPtr& op, Args... args) = 0;
+  virtual R VisitStmt_(const EvalStmtPtr& op, Args... args) = 0;
   virtual R VisitStmt_(const StmtPtr& op, Args... args) = 0;
 };
 
 // Macro to dispatch based on statement type
-#define STMT_FUNCTOR_DISPATCH(OpType)                            \
-  if (auto op = std::dynamic_pointer_cast<const OpType>(stmt)) { \
-    return VisitStmt_(op, std::forward<Args>(args)...);          \
+#define STMT_FUNCTOR_DISPATCH(OpType)                   \
+  if (auto op = As<OpType>(stmt)) {                     \
+    return VisitStmt_(op, std::forward<Args>(args)...); \
   }
 
 template <typename R, typename... Args>
@@ -197,10 +203,10 @@ R StmtFunctor<R, Args...>::VisitStmt(const StmtPtr& stmt, Args... args) {
   STMT_FUNCTOR_DISPATCH(ForStmt);
   STMT_FUNCTOR_DISPATCH(SeqStmts);
   STMT_FUNCTOR_DISPATCH(OpStmts);
-  STMT_FUNCTOR_DISPATCH(Stmt);
+  STMT_FUNCTOR_DISPATCH(EvalStmt);
 
   // Should never reach here if all types are handled
-  throw std::logic_error("Unknown statement type in StmtFunctor::VisitStmt");
+  throw TypeError("Unknown statement type in StmtFunctor::VisitStmt");
 }
 
 #undef STMT_FUNCTOR_DISPATCH
@@ -229,16 +235,16 @@ class IRFunctor : public ExprFunctor<R, Args...>, public StmtFunctor<R, Args...>
    * @return Result of visiting the IR node
    */
   R VisitIRNode(const IRNodePtr& node, Args... args) {
-    if (auto expr = std::dynamic_pointer_cast<const Expr>(node)) {
+    if (auto expr = As<Expr>(node)) {
       return ExprFunctor<R, Args...>::VisitExpr(expr, std::forward<Args>(args)...);
-    } else if (auto stmt = std::dynamic_pointer_cast<const Stmt>(node)) {
+    } else if (auto stmt = As<Stmt>(node)) {
       return StmtFunctor<R, Args...>::VisitStmt(stmt, std::forward<Args>(args)...);
     }
-    throw std::logic_error("Unknown IR node type in IRFunctor::VisitIRNode");
+    throw TypeError("Unknown IR node type in IRFunctor::VisitIRNode");
   }
 };
 
 }  // namespace ir
 }  // namespace pypto
 
-#endif  // PYPTO_IR_TRANSFORM_BASE_FUNCTOR_H_
+#endif  // PYPTO_IR_TRANSFORMS_BASE_FUNCTOR_H_

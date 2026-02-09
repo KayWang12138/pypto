@@ -10,30 +10,40 @@
 
 #include "ir/expr.h"
 
-#include <sstream>
-#include <stdexcept>
+#include <memory>
 #include <utility>
+#include <vector>
 
+#include "core/error.h"
+#include "core/logging.h"
+#include "ir/kind_traits.h"
 #include "ir/type.h"
-
-#ifndef CHECK
-#define CHECK(expr) \
-  if (!(expr)) throw std::logic_error(std::string("Check failed: " #expr " at ") + __FILE__ + ":" + std::to_string(__LINE__)); \
-  std::ostringstream() /* Allow chaining with << */
-#endif
 
 namespace pypto {
 namespace ir {
 
+MakeTuple::MakeTuple(std::vector<ExprPtr> elements, Span span)
+    : Expr(std::move(span)), elements_(std::move(elements)) {
+  // Collect types from all element expressions
+  std::vector<TypePtr> element_types;
+  element_types.reserve(elements_.size());
+  for (const auto& elem : elements_) {
+    element_types.push_back(elem->GetType());
+  }
+
+  // Set result type to TupleType
+  type_ = std::make_shared<TupleType>(std::move(element_types));
+}
+
 TupleGetItemExpr::TupleGetItemExpr(ExprPtr tuple, int index, Span span)
     : Expr(std::move(span)), tuple_(std::move(tuple)), index_(index) {
   // Type checking: tuple must have TupleType
-  auto tuple_type = std::dynamic_pointer_cast<const TupleType>(tuple_->GetType());
-  CHECK(tuple_type) << "TupleGetItemExpr requires tuple to have TupleType, got "
-                    << tuple_->GetType()->TypeName();
+  auto tuple_type = As<TupleType>(tuple_->GetType());
+  INTERNAL_CHECK(tuple_type) << "TupleGetItemExpr requires tuple to have TupleType, got "
+                             << tuple_->GetType()->TypeName();
 
   // Bounds checking
-  CHECK(index >= 0 && index < static_cast<int>(tuple_type->types_.size()))
+  INTERNAL_CHECK(index >= 0 && index < static_cast<int>(tuple_type->types_.size()))
       << "TupleGetItemExpr index " << index << " out of bounds for tuple with " << tuple_type->types_.size()
       << " elements";
 
