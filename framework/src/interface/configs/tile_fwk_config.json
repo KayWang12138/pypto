@@ -125,6 +125,18 @@
                     "pre_check": false,
                     "post_check": false,
                     "use_max_freq_label": true
+                },
+                "ReplaceTensor": {
+                    "pre_check": true,
+                    "post_check": true
+                },
+                "InferDynShape": {
+                    "pre_check": true,
+                    "post_check": true
+                },
+                "OoOSchedule": {
+                    "pre_check": true,
+                    "post_check": true
                 }
             }
         }
