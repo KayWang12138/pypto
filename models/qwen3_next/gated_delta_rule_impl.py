@@ -533,7 +533,7 @@ def chunk_gated_delta_rule(query, key, value, beta, gate, states, mask,
                 nqk_idx = nv_idx // group
                 pypto.set_vec_tile_shapes(16, 16, 128, 128)
                 last_state = states[b_idx, nv_idx]
-                for s_idx in pypto.loop(0, s, l, name="LOOP_S_TND", idx_name="s_idx", unroll_list=[16, 1]):
+                for s_idx in pypto.loop(0, s, l, name="LOOP_S_TND", idx_name="s_idx"):
                     bs_ofs = b_ofs + s_idx
                     actual_l = (s - s_idx).min(l)
                     ## view
@@ -653,7 +653,7 @@ def chunk_gated_delta_rule_unaligned(query, key, value, beta, gate, states, mask
                 nqk_idx = nv_idx // group
                 pypto.set_vec_tile_shapes(16, 16, 128, 128)
                 last_state = states[b_idx, nv_idx]
-                for s_idx in pypto.loop(0, s, l, name="LOOP_S_TND", idx_name="s_idx", unroll_list=[16, 1]):
+                for s_idx in pypto.loop(0, s, l, name="LOOP_S_TND", idx_name="s_idx"):
                     bs_ofs = b_ofs + s_idx
                     actual_l = (s - s_idx).min(l)
                     ## view
