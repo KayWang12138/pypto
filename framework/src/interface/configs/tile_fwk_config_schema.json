@@ -47,7 +47,7 @@
                 },
                 "cube_l1_reuse_setting": {
                     "type": "object",
-                    "typeHints": "intmap"                                       ,
+                    "typeHints": "intmap",
                     "label": {
                         "zh": "合图参数，用于配置结构相同且重复搬运同一GM数据的子图合并数量。该参数适用于含有CUBE计算的子图合并。",
                         "en": "Graph merging parameter, used to configure the merging count of subgraphs with identical structures that repeatedly transfer the same GM data. This parameter is applicable to the merging of subgraphs involving CUBE computation."
