@@ -373,7 +373,7 @@ void NBufferMerge::MergePingPong(std::vector<std::vector<int>> &sortedColors,
     for (auto &input2Color : sortedColors) {
         APASS_LOG_DEBUG_F(Elements::Operation, "NBuffer %d Number of subgraphs %d SubGraphIDs %s", numDBmerge, input2Color.size(), IntVecToStr(input2Color).c_str());
         if (vecNBuffermode == autoMulityInOutMerge ||  vecNBuffermode == manualMulityInOutMerge) {
-            std::sort(input2Color.begin(), input2Color.end(), [&](int x, int y) { return dfsColorOrder[x] < dfsColorOrder[y]; });
+            std::sort(input2Color.begin(), input2Color.end(), [&](int x, int y) { return dfsColorOrder_[x] < dfsColorOrder_[y]; });
         }
         for (size_t i = 0; i < input2Color.size(); i++) {
             if (numDBmerge == 0) {
@@ -404,7 +404,7 @@ Status NBufferMerge::MergeProcessForMulityInOut(const OperationsViewer &opOriLis
     for (const auto &entry : hashMap) {
         hashMapKeys.push_back(entry.first);
     }
-    DFSSortUtils::DFSSortColor(color_, inColor_, outColor_, dfsColorOrder);
+    DFSSortUtils::DFSSortColor(color_, inColor_, outColor_, dfsColorOrder_);
     ParallelTool::Instance().Parallel_for(0, hashMapKeys.size(),1,[&](int st,int et,int tid) {
         (void) tid;
         for(int hashMapKeyIdx = st; hashMapKeyIdx < et; hashMapKeyIdx++) {

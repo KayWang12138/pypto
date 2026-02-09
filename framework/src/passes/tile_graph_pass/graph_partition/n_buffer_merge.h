@@ -72,7 +72,7 @@ private:
     std::vector<std::vector<int>> inColor_;
     std::vector<std::vector<int>> outColor_;
     std::vector<std::vector<int>> colorNode_;
-    std::unordered_map<int, int> dfsColorOrder;
+    std::unordered_map<int, int> dfsColorOrder_;
     std::vector<int> colorCycles_;
     int vecNBuffermode;
     int mgVecParallelLb;
