@@ -42,6 +42,15 @@ inline SymbolicScalar CeilDivSymbolicScalar(SymbolicScalar a, int b) {
     return (a + b - 1) / b;
 }
 
+template <typename T>
+T CeilAlign(T num_1, T num_2)
+{
+    if (num_2 == 0) {
+        return 0;
+    }
+    return (num_1 + num_2 - 1) / num_2 * num_2;
+}
+
 using OpFunc = std::function<void(
     const std::vector<Tensor>&,
     std::vector<Tensor>&,
@@ -348,6 +357,7 @@ static DataType GetDataType(const std::string &name) {
         {"double", DataType::DT_DOUBLE},
         {"fp8e4m3", DataType::DT_FP8E4M3},
         {"fp8e5m2", DataType::DT_FP8E5M2},
+        {"hif8", DataType::DT_HF8},
     };
     if (name_to_dtype.find(name) == name_to_dtype.end()) {
         ALOG_ERROR << "Not support type " << name << " yet, return fp32 as default.";
@@ -388,6 +398,36 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
             std::cout << "Create NZ Tensors" << std::endl;
             tensors.push_back(Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ));
         }
+    }
+    return tensors;
+}
+
+[[maybe_unused]] static std::vector<Tensor> GetMXMatmulTensors(const nlohmann::json &json_data, const std::string key) {
+    std::cout << "Create MXMatmul Tensors For " << json_data << std::endl;
+    std::vector<Tensor> tensors = GetMatmulTensors(json_data, key);
+    int64_t index = 0;
+    for (const auto &tensor_config : json_data.at(key)) {
+        auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
+        bool isTrans = tensor_config.at("need_trans").get<bool>();
+        if(index == 0) {
+            if (isTrans) {
+                int64_t kScale = CeilAlign(shape[0], 64);
+                tensors.push_back(Tensor(DataType::DT_FP8E8M0, {kScale / 64, shape[1], 2}, "scale_tensor0"));
+            } else {
+                int64_t kScale = CeilAlign(shape[1], 64);
+                tensors.push_back(Tensor(DataType::DT_FP8E8M0, {shape[0], kScale / 64, 2}, "scale_tensor0"));
+            }
+        } else {
+            if (isTrans) {
+                int64_t kScale = CeilAlign(shape[1], 64);
+                tensors.push_back(Tensor(DataType::DT_FP8E8M0, {shape[0], kScale / 64, 2}, "scale_tensor1"));
+            } else {
+                int64_t kScale = CeilAlign(shape[0], 64);
+                tensors.push_back(Tensor(DataType::DT_FP8E8M0, {kScale / 64, shape[1], 2}, "scale_tensor1"));
+            }
+        }
+        std::cout << "Create Scale Tensors" << std::endl;
+        ++index;
     }
     return tensors;
 }
