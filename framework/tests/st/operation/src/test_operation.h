@@ -61,6 +61,8 @@ struct TestCaseDesc {
 struct MatmulTestCaseParam {
     bool transA = false;
     bool transB = false;
+    bool scaleTransA = false;
+    bool scaleTransB = false;
     bool isAMatrixNz = false;
     bool isBMatrixNz = false;
     bool isCMatrixNz = false;
@@ -348,6 +350,7 @@ static DataType GetDataType(const std::string &name) {
         {"double", DataType::DT_DOUBLE},
         {"fp8e4m3", DataType::DT_FP8E4M3},
         {"fp8e5m2", DataType::DT_FP8E5M2},
+        {"hif8", DataType::DT_HF8},
     };
     if (name_to_dtype.find(name) == name_to_dtype.end()) {
         ALOG_ERROR << "Not support type " << name << " yet, return fp32 as default.";
@@ -388,6 +391,45 @@ static std::vector<Tensor> GetTensors(const nlohmann::json &json_data, bool is_i
             std::cout << "Create NZ Tensors" << std::endl;
             tensors.push_back(Tensor(dtype, shape, name, TileOpFormat::TILEOP_NZ));
         }
+    }
+    return tensors;
+}
+
+[[maybe_unused]] static std::vector<Tensor> GetMXMatmulTensors(const nlohmann::json &json_data, const std::string key) {
+    std::cout << "Create MXMatmul Tensors For " << json_data << std::endl;
+    std::vector<Tensor> tensors = GetMatmulTensors(json_data, key);
+    int64_t index = 0;
+    int64_t align_64 = 64;
+    int64_t dim_2 = 2;
+    for (const auto &tensor_config : json_data.at(key)) {
+        auto shape = tensor_config.at("shape").get<std::vector<int64_t>>();
+        bool isTrans = tensor_config.at("need_trans").get<bool>();
+        bool isScaleTrans = tensor_config.at("need_scale_trans").get<bool>();
+        if(index == 0) {
+            if (isTrans) {
+                swap(shape[0], shape[1]);
+            }
+            if (isScaleTrans) {
+                int64_t kScale = (shape[1] + align_64 - 1) / align_64;
+                tensors.push_back(Tensor(DataType::DT_FP8E8M0, {kScale, shape[0], dim_2}, "scale_tensor0"));
+            } else {
+                int64_t kScale = (shape[1] + align_64 - 1) / align_64;
+                tensors.push_back(Tensor(DataType::DT_FP8E8M0, {shape[0], kScale, dim_2}, "scale_tensor0"));
+            }
+        } else {
+            if (isTrans) {
+                swap(shape[0], shape[1]);
+            }
+            if (isScaleTrans) {
+                int64_t kScale = (shape[0] + align_64 - 1) / align_64;
+                tensors.push_back(Tensor(DataType::DT_FP8E8M0, {shape[1], kScale, dim_2}, "scale_tensor1"));
+            } else {
+                int64_t kScale = (shape[0] + align_64 - 1) / align_64;
+                tensors.push_back(Tensor(DataType::DT_FP8E8M0, {kScale, shape[1], dim_2}, "scale_tensor1"));
+            }
+        }
+        std::cout << "Create Scale Tensors" << std::endl;
+        ++index;
     }
     return tensors;
 }
@@ -473,6 +515,8 @@ T2 GetMapValByName(const std::map<T1, T2> &map_data, const T1 &name) {
     MatmulTestCaseParam param;
     param.transA = json_data.at("input_tensors")[0].at("need_trans");
     param.transB = json_data.at("input_tensors")[1].at("need_trans");
+    param.scaleTransA = json_data.at("input_tensors")[0].at("need_scale_trans");
+    param.scaleTransB = json_data.at("input_tensors")[1].at("need_scale_trans");
     param.isAMatrixNz = json_data.at("input_tensors")[0].at("format") == "NZ";
     param.isBMatrixNz = json_data.at("input_tensors")[1].at("format") == "NZ";
     param.isCMatrixNz = json_data.at("output_tensors")[0].at("format") == "NZ";
