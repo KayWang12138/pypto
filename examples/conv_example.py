@@ -37,9 +37,9 @@ def conv_kernel(a, b, d):
     pypto.set_conv_tile_shapes(
         pypto_impl.TileL1Info(
             tileHin=4,
-            tileHout=4,
+            tileHout=1,
             tileWin=8,
-            tileWout=8,
+            tileWout=16,
             tileCinFmap=32,
             tileCinWeight=48,
             tileCout=16,
@@ -47,7 +47,7 @@ def conv_kernel(a, b, d):
         ),
         pypto_impl.TileL0Info(
             tileH=4,
-            tileW=8,
+            tileW=16,
             tileK=16,
             tileN=16
         )
@@ -107,7 +107,7 @@ def conv2d_a5_test():
 
 def conv3d_a5_test():
     torch.npu.set_device(0)
-    a = torch.ones([1, 96, 1, 8, 8], dtype=torch.float16)
+    a = torch.ones([1, 96, 1, 16, 1], dtype=torch.float16)
     b = torch.ones([32, 96, 1, 1, 1], dtype=torch.float16)
     c = torch.ones([32], dtype=torch.float16)
     d = torch.empty([1, 32, 1, 8, 8], dtype=torch.float16)

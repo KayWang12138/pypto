@@ -133,7 +133,7 @@ void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, con
         CheckValueRange(dOut, "dOut" , NUM1, MAX_SIZE);
     }
 }
-void checkAlignment(int64_t value, int64_t alignment, const std::string& valueName, bool isByte = false)
+void CheckAlignment(int64_t value, int64_t alignment, const std::string& valueName, bool isByte = false)
 {
         OP_CHECK(true, {
             ASSERT(value % alignment == 0)
@@ -157,10 +157,10 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
     if (!attrParam.isConv1D) {
         CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
-        checkAlignment(tileWout, NUM16, "tileWout");
+        CheckAlignment(tileWout, NUM16, "tileWout");
     }
 }
-void validateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dtypeSize, size_t cacheSize, const std::string& cacheName,
+void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dtypeSize, size_t cacheSize, const std::string& cacheName,
     const std::string& dim1Name, const std::string& dim2Name, const std::string& dim3Name)
 {
     OP_CHECK(true, {
@@ -181,20 +181,20 @@ void CheckL0TileTiling(DataType outType)
     int64_t tileN = convTile.tileL0Info.tileN;
     int64_t tileK = convTile.tileL0Info.tileK;
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
-    checkAlignment(tileK , k0, "tileK", true);
-    checkAlignment(tileN, NUM16, "tileN");
-    checkAlignment(tileW, NUM16, "tileW");
+    CheckAlignment(tileK , k0, "tileK", true);
+    CheckAlignment(tileN, NUM16, "tileN");
+    CheckAlignment(tileW, NUM16, "tileW");
 
     Platform& platform = Platform::Instance();
     platform.ObtainPlatformInfo();
     size_t l0aSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0A);
     size_t l0bSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0B);
     size_t l0cSize = platform.GetAICCore().GetMemorySize(MemoryType::MEM_L0C);
-    validateL0Constraint(tileH, tileW, tileK, BytesOf(outType), l0aSize, "L0A", "tileH", "tileW", "tileK");
-    validateL0Constraint(tileK, tileN, 1, BytesOf(outType), l0bSize, "L0B", "tileK", "tileN", "");
-    validateL0Constraint(tileH, tileW, tileN, BytesOf(DataType::DT_FP32), l0cSize, "L0C", "tileH", "tileW", "tileN");
+    ValidateL0Constraint(tileH, tileW, tileK, BytesOf(outType), l0aSize, "L0A", "tileH", "tileW", "tileK");
+    ValidateL0Constraint(tileK, tileN, 1, BytesOf(outType), l0bSize, "L0B", "tileK", "tileN", "");
+    ValidateL0Constraint(tileH, tileW, tileN, BytesOf(DataType::DT_FP32), l0cSize, "L0C", "tileH", "tileW", "tileN");
 }
-void checkDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName)
+void CheckDivisible(int64_t value, int64_t divisor, const std::string& valueName, const std::string& divisorName)
 {
     OP_CHECK(true, {
             ASSERT(value % divisor == 0)
@@ -211,29 +211,6 @@ int64_t ConvAlignB(int64_t a, int64_t b)
         return 0;
     }
     return ((a + b - 1) / b) * b;
-}
-void CheckKAL1Constraint(int64_t tileCin, int64_t kh, int64_t kw, int64_t kd, int64_t k0, const std::string& opName, bool isConv3D = false)
-{
-    const int64_t C0 = NUM16;
-    int64_t aligned_tileCin = ConvAlignB(tileCin, C0);
-    int64_t total_elements = aligned_tileCin * kh * kw;
-    if (isConv3D) {
-        total_elements *= kd;
-    }
-    OP_CHECK(true, {
-        ASSERT(total_elements % k0 == 0)
-            << "Shape does not satisfy " << opName << " constraints, "
-            << "tileCin: " << tileCin << ", C0: " << C0 << ", kh: " << kh << ", kw: " << kw;
-            if (isConv3D) {
-            std::cout << ", kd: " << kd;
-            }
-            std::cout << ", K0 = 32 bytes / btypesize: " << k0
-            << ", must satisfy: ceil(tileCin / C0) × C0 × kh × kw";
-            if (isConv3D) {
-                std::cout << " × kd";
-            }
-            std::cout << " % K0 == 0" << std::endl;
-    });
 }
 void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
@@ -253,10 +230,8 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t cin = inputTensor.GetShape()[NCHW_C_IDX];
     int64_t hin = inputTensor.GetShape()[indexH];
     int64_t win = 1;
-    int64_t kw = 1;
     if (!attrParam.isConv1D) {
         win = inputTensor.GetShape()[indexW];
-        kw =weightTensor.GetShape()[indexW];
     }
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
@@ -266,18 +241,10 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
 
     CheckHowoTile(inputTensor, weightTensor, attrParam);
 
-    checkDivisible(cin, tileCinFmap, "Cin", "tileCinFmap");
-    checkDivisible(cin, tileCinWeight, "Cin", "tileCinWeight");
-    int64_t kh = weightTensor.GetShape()[NCHW_H_IDX];
-    int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
-    if (attrParam.isConv3D) {
-        int64_t kd = weightTensor.GetShape()[NCDHW_D_IDX];
-        CheckKAL1Constraint(tileCinFmap, kh, kw, kd, k0, "KAL1", true);
-        CheckKAL1Constraint(tileCinWeight, kh, kw, kd, k0, "KBL1", false);
-    } else {
-        CheckKAL1Constraint(tileCinFmap, kh, kw, 1, k0, "KAL1");
-        CheckKAL1Constraint(tileCinWeight, kh, kw, 1, k0, "KBL1");
-    }
+    CheckDivisible(ConvAlignB(cin, NUM16), tileCinFmap, "ceil(Cin / C0) × C0", "tileCinFmap");
+    CheckDivisible(ConvAlignB(cin, NUM16), tileCinWeight, "ceil(Cin / C0) × C0", "tileCinWeight");
+    CheckAlignment(tileCinFmap, NUM16, "tileCinFmap");
+    CheckAlignment(tileCinWeight, NUM16, "tileCinWeight");
     if (convTile.setL0Tile){
         CheckL0TileTiling(outType);
     }
@@ -347,8 +314,8 @@ void CheckGroupsShape(const int64_t cinFmap, const int64_t cinWeight,const int64
 {
     CheckValueRange(groups, "groups", NUM1, SHAPE_INNER_AXIS_MAX_SIZE);
 
-    checkDivisible(cinFmap, groups, "Cin", "groups");
-    checkDivisible(cOut, groups, "Cout", "groups");
+    CheckDivisible(cinFmap, groups, "Cin", "groups");
+    CheckDivisible(cOut, groups, "Cout", "groups");
 
     OP_CHECK(true, {
             ASSERT(cinFmap == cinWeight * groups)
@@ -418,9 +385,9 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
 
 void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
-    uint32_t index = 2;
+    uint32_t index = NUM2;
     if (attrParam.isConv3D) {
-        index = 3;
+        index = CONV3D_INPUT_DIM - 2;
     } else if (attrParam.isConv1D) {
         index = 1;
     }
@@ -996,7 +963,7 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
     std::vector<int64_t> finalPaddings = paddings;
     std::vector<int64_t> finalDilations = dilations;
     std::vector<int64_t> finalStrides = strides;
-    if (inputTensor.Dim() == CONV3D_INPUT_DIM && weightTensor.Dim() == CONV3D_INPUT_DIM) {
+    if (dilations.size() == CONV3D_INPUT_DIM - 2 && strides.size() == CONV3D_INPUT_DIM - 2 && paddings.size() == NUM6) {
         finalDilations = rotateVector(dilations, 1);
         finalStrides = rotateVector(strides, 1);
         finalPaddings = rotateVector(paddings, 2);
@@ -1004,6 +971,7 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
     const Tensor& biasTensor = extendParam.biasTensor;
     // ConvAttrParam convAttrParam(paddings, strides, dilations, groups);
     ConvAttrParam convAttrParam(finalPaddings, finalStrides, finalDilations, groups);
+    CheckConvOperands(outType, inputTensor, weightTensor, biasTensor, convAttrParam);
     int64_t batchOut = inputTensor.GetShape()[NCHW_N_IDX];
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
     int64_t hOut = ConvComputeHo(inputTensor, weightTensor, convAttrParam);
