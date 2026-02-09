@@ -12,7 +12,6 @@
 #define PYPTO_IR_SCALAR_EXPR_H_
 
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -22,12 +21,13 @@
 #include "ir/expr.h"
 #include "ir/reflection/field_traits.h"
 #include "ir/type.h"
+#include "core/logging.h"
 
 namespace pypto {
 namespace ir {
 
 // Forward declaration for visitor pattern
-// Implementation in ir/transform/base/visitor.h
+// Implementation in pypto/ir/transform/base/visitor.h
 class IRVisitor;
 
 // Forward declaration for Op (defined in expr.h)
@@ -76,7 +76,7 @@ using ScalarExprPtr = std::shared_ptr<const ScalarExpr>;
  */
 class ConstInt : public Expr {
  public:
-  const int value_;  // Numeric constant value (immutable)
+  const int64_t value_;  // Numeric constant value (immutable)
 
   /**
    * @brief Create a constant expression
@@ -84,9 +84,10 @@ class ConstInt : public Expr {
    * @param value Numeric value
    * @param span Source location
    */
-  ConstInt(int value, DataType dtype, Span span)
+  ConstInt(int64_t value, DataType dtype, Span span)
       : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), value_(value) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ConstInt; }
   [[nodiscard]] std::string TypeName() const override { return "ConstInt"; }
 
   /**
@@ -100,6 +101,8 @@ class ConstInt : public Expr {
   }
 
   [[nodiscard]] DataType dtype() const {
+    // Note: Must use dynamic_pointer_cast here because this header is included before
+    // the TypePtr overload of As<> is defined in kind_traits.h
     auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(GetType());
     INTERNAL_CHECK(scalar_type) << "ConstInt is expected to have ScalarType type, but got " +
                                        GetType()->TypeName();
@@ -128,6 +131,7 @@ class ConstFloat : public Expr {
   ConstFloat(double value, DataType dtype, Span span)
       : Expr(std::move(span), std::make_shared<ScalarType>(dtype)), value_(value) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ConstFloat; }
   [[nodiscard]] std::string TypeName() const override { return "ConstFloat"; }
 
   /**
@@ -141,6 +145,8 @@ class ConstFloat : public Expr {
   }
 
   [[nodiscard]] DataType dtype() const {
+    // Note: Must use dynamic_pointer_cast here because this header is included before
+    // the TypePtr overload of As<> is defined in kind_traits.h
     auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(GetType());
     INTERNAL_CHECK(scalar_type) << "ConstFloat is expected to have ScalarType type, but got " +
                                        GetType()->TypeName();
@@ -168,6 +174,7 @@ class ConstBool : public Expr {
   ConstBool(bool value, Span span)
       : Expr(std::move(span), std::make_shared<ScalarType>(DataType::BOOL)), value_(value) {}
 
+  [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::ConstBool; }
   [[nodiscard]] std::string TypeName() const override { return "ConstBool"; }
 
   /**
@@ -223,6 +230,7 @@ using BinaryExprPtr = std::shared_ptr<const BinaryExpr>;
    public:                                                                                    \
     OpName(ExprPtr left, ExprPtr right, DataType dtype, Span span)                            \
         : BinaryExpr(std::move(left), std::move(right), std::move(dtype), std::move(span)) {} \
+    [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::OpName; }          \
     [[nodiscard]] std::string TypeName() const override { return #OpName; }                   \
   };                                                                                          \
                                                                                               \
@@ -277,15 +285,16 @@ using UnaryExprPtr = std::shared_ptr<const UnaryExpr>;
 // Macro to define unary expression node classes
 // Usage: DEFINE_UNARY_EXPR_NODE(Neg, "Negation expression (-operand)")
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
-#define DEFINE_UNARY_EXPR_NODE(OpName, Description)                         \
-  /* Description */                                                         \
-  class OpName : public UnaryExpr {                                         \
-   public:                                                                  \
-    OpName(ExprPtr operand, DataType dtype, Span span)                      \
-        : UnaryExpr(std::move(operand), dtype, std::move(span)) {}          \
-    [[nodiscard]] std::string TypeName() const override { return #OpName; } \
-  };                                                                        \
-                                                                            \
+#define DEFINE_UNARY_EXPR_NODE(OpName, Description)                                  \
+  /* Description */                                                                  \
+  class OpName : public UnaryExpr {                                                  \
+   public:                                                                           \
+    OpName(ExprPtr operand, DataType dtype, Span span)                               \
+        : UnaryExpr(std::move(operand), dtype, std::move(span)) {}                   \
+    [[nodiscard]] ObjectKind GetKind() const override { return ObjectKind::OpName; } \
+    [[nodiscard]] std::string TypeName() const override { return #OpName; }          \
+  };                                                                                 \
+                                                                                     \
   using OpName##Ptr = std::shared_ptr<const OpName>;
 
 DEFINE_UNARY_EXPR_NODE(Abs, "Absolute value expression (abs(operand))")
@@ -302,13 +311,15 @@ DEFINE_UNARY_EXPR_NODE(Cast, "Cast expression (cast operand to dtype)")
  *
  * @param expr Expression to extract dtype from
  * @return DataType of the expression
- * @throws pypto::TypeError if expr is not a scalar expression or scalar var
+ * @throws TypeError if expr is not a scalar expression or scalar var
  */
 inline DataType GetScalarDtype(const ExprPtr& expr) {
+  // Note: Must use dynamic_pointer_cast here because this header is included before
+  // the TypePtr overload of As<> is defined in kind_traits.h
   if (auto scalar_type = std::dynamic_pointer_cast<const ScalarType>(expr->GetType())) {
     return scalar_type->dtype_;
   } else {
-    throw std::invalid_argument("Expression must be ScalarExpr or Var with ScalarType, got " + expr->TypeName() +
+    throw TypeError("Expression must be ScalarExpr or Var with ScalarType, got " + expr->TypeName() +
                     " with type " + expr->GetType()->TypeName());
   }
 }
@@ -327,18 +338,18 @@ inline ScalarCategory GetNumericCategory(const DataType& dtype, const std::strin
   if (dtype.IsInt()) {
     return ScalarCategory::kInt;
   }
-  throw std::invalid_argument("Operator '" + op_name + "' requires numeric scalar dtype, got " + dtype.ToString());
+  throw TypeError("Operator '" + op_name + "' requires numeric scalar dtype, got " + dtype.ToString());
 }
 
 inline DataType PromoteSameCategoryDtype(const DataType& left_dtype, const DataType& right_dtype,
                                          const std::string& op_name) {
   if (IsBoolDtype(left_dtype) || IsBoolDtype(right_dtype)) {
-    throw std::invalid_argument("Operator '" + op_name + "' does not accept bool dtype");
+    throw TypeError("Operator '" + op_name + "' does not accept bool dtype");
   }
   auto left_category = GetNumericCategory(left_dtype, op_name);
   auto right_category = GetNumericCategory(right_dtype, op_name);
   if (left_category != right_category) {
-    throw std::invalid_argument("Operator '" + op_name + "' requires same numeric dtype category, got " +
+    throw TypeError("Operator '" + op_name + "' requires same numeric dtype category, got " +
                     left_dtype.ToString() + " and " + right_dtype.ToString());
   }
   size_t left_bits = left_dtype.GetBit();
@@ -379,7 +390,7 @@ inline BinaryOperands PromoteIntBinaryOperands(const ExprPtr& left, const ExprPt
   DataType left_dtype = GetScalarDtype(left);
   DataType right_dtype = GetScalarDtype(right);
   if (!left_dtype.IsInt() || !right_dtype.IsInt()) {
-    throw std::invalid_argument("Operator '" + op_name + "' requires integer dtype, got " + left_dtype.ToString() +
+    throw TypeError("Operator '" + op_name + "' requires integer dtype, got " + left_dtype.ToString() +
                     " and " + right_dtype.ToString());
   }
   DataType promoted_dtype = PromoteSameCategoryDtype(left_dtype, right_dtype, op_name);
@@ -493,7 +504,7 @@ inline ExprPtr MakeNeg(const ExprPtr& operand, const Span& span = Span::unknown(
 inline ExprPtr MakeBitNot(const ExprPtr& operand, const Span& span = Span::unknown()) {
   DataType dtype = GetScalarDtype(operand);
   if (!dtype.IsInt()) {
-    throw std::invalid_argument("Operator 'bit_not' requires integer dtype, got " + dtype.ToString());
+    throw TypeError("Operator 'bit_not' requires integer dtype, got " + dtype.ToString());
   }
   return std::make_shared<BitNot>(operand, dtype, span);
 }

@@ -8,12 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <cstring>
 #include <map>
 #include <memory>
 #include <optional>
-#include <sstream>
-#include <stdexcept>
+#include <string>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -24,13 +22,14 @@
 #include "ir/core.h"
 #include "ir/expr.h"
 #include "ir/function.h"
+#include "ir/kind_traits.h"
 #include "ir/memref.h"
 #include "ir/program.h"
 #include "ir/reflection/field_visitor.h"
 #include "ir/scalar_expr.h"
 #include "ir/stmt.h"
 #include "ir/transform/printer.h"
-#include "ir/transform/transformers.h"
+#include "ir/transform/structural_comparison.h"
 #include "ir/type.h"
 
 namespace pypto {
@@ -210,6 +209,18 @@ class StructuralEqualImpl {
     return true;
   }
 
+  result_type VisitLeafField(const int64_t& lhs, const int64_t& rhs) {
+    if (lhs != rhs) {
+      if constexpr (AssertMode) {
+        std::ostringstream msg;
+        msg << "int64_t value mismatch (" << lhs << " != " << rhs << ")";
+        ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
+      }
+      return false;
+    }
+    return true;
+  }
+
   result_type VisitLeafField(const uint64_t& lhs, const uint64_t& rhs) {
     if (lhs != rhs) {
       if constexpr (AssertMode) {
@@ -223,9 +234,10 @@ class StructuralEqualImpl {
   }
 
   result_type VisitLeafField(const double& lhs, const double& rhs) {
-    // Use memcmp for bit-level comparison to avoid -Werror=float-equal
-    // This ensures exact structural equality including special values (NaN, Inf, +0.0 vs -0.0)
-    if (std::memcmp(&lhs, &rhs, sizeof(double)) != 0) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+    if (lhs != rhs) {
+#pragma GCC diagnostic pop
       if constexpr (AssertMode) {
         std::ostringstream msg;
         msg << "double value mismatch (" << lhs << " != " << rhs << ")";
@@ -265,6 +277,19 @@ class StructuralEqualImpl {
       if constexpr (AssertMode) {
         std::ostringstream msg;
         msg << "DataType mismatch (" << lhs.ToString() << " != " << rhs.ToString() << ")";
+        ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
+      }
+      return false;
+    }
+    return true;
+  }
+
+  result_type VisitLeafField(const FunctionType& lhs, const FunctionType& rhs) {
+    if (lhs != rhs) {
+      if constexpr (AssertMode) {
+        std::ostringstream msg;
+        msg << "FunctionType mismatch (" << FunctionTypeToString(lhs) << " != " << FunctionTypeToString(rhs)
+            << ")";
         ThrowMismatch(msg.str(), IRNodePtr(), IRNodePtr(), "", "");
       }
       return false;
@@ -316,10 +341,11 @@ class StructuralEqualImpl {
         values_equal = (AnyCast<std::string>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
                         AnyCast<std::string>(rhs_val, "comparing kwarg: " + lhs[i].first));
       } else if (lhs_val.type() == typeid(double)) {
-        // Use memcmp for bit-level comparison to avoid -Werror=float-equal
-        double lhs_double = AnyCast<double>(lhs_val, "comparing kwarg: " + lhs[i].first);
-        double rhs_double = AnyCast<double>(rhs_val, "comparing kwarg: " + lhs[i].first);
-        values_equal = (std::memcmp(&lhs_double, &rhs_double, sizeof(double)) == 0);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+        values_equal = (AnyCast<double>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
+                        AnyCast<double>(rhs_val, "comparing kwarg: " + lhs[i].first));
+#pragma GCC diagnostic pop
       } else if (lhs_val.type() == typeid(DataType)) {
         values_equal = (AnyCast<DataType>(lhs_val, "comparing kwarg: " + lhs[i].first) ==
                         AnyCast<DataType>(rhs_val, "comparing kwarg: " + lhs[i].first));
@@ -368,7 +394,7 @@ class StructuralEqualImpl {
     return true;
   }
 
-  result_type VisitLeafField([[maybe_unused]] const Span& lhs, [[maybe_unused]] const Span& rhs) const {
+  result_type VisitLeafField(const Span& /*lhs*/, const Span& /*rhs*/) const {
     INTERNAL_UNREACHABLE << "structural_equal should not visit Span field";
     return true;  // Never reached
   }
@@ -401,6 +427,7 @@ class StructuralEqualImpl {
  private:
   bool Equal(const IRNodePtr& lhs, const IRNodePtr& rhs);
   bool EqualVar(const VarPtr& lhs, const VarPtr& rhs);
+  bool EqualIterArg(const IterArgPtr& lhs, const IterArgPtr& rhs);
   bool EqualType(const TypePtr& lhs, const TypePtr& rhs);
 
   /**
@@ -447,7 +474,7 @@ class StructuralEqualImpl {
       if (lhs || rhs) {
         msg << "Left-hand side:\n";
         if (lhs) {
-          std::string lhs_str = PythonPrint(lhs, "pi");
+          std::string lhs_str = PythonPrint(lhs, "pl");
           std::istringstream iss(lhs_str);
           std::string line;
           while (std::getline(iss, line)) {
@@ -459,7 +486,7 @@ class StructuralEqualImpl {
 
         msg << "\nRight-hand side:\n";
         if (rhs) {
-          std::string rhs_str = PythonPrint(rhs, "pi");
+          std::string rhs_str = PythonPrint(rhs, "pl");
           std::istringstream iss(rhs_str);
           std::string line;
           while (std::getline(iss, line)) {
@@ -475,7 +502,7 @@ class StructuralEqualImpl {
       }
 
       msg << "Reason: " << reason;
-      throw std::invalid_argument(msg.str());
+      throw ValueError(msg.str());
     }
   }
 
@@ -486,12 +513,23 @@ class StructuralEqualImpl {
 };
 
 // Type dispatch macro for generic field-based comparison
-#define EQUAL_DISPATCH(Type)                                                              \
-  if (auto lhs_##Type = std::dynamic_pointer_cast<const Type>(lhs)) {                     \
-    if constexpr (AssertMode) path_.emplace_back(#Type);                                  \
-    bool result = EqualWithFields(lhs_##Type, std::static_pointer_cast<const Type>(rhs)); \
-    if constexpr (AssertMode) path_.pop_back();                                           \
-    return result;                                                                        \
+#define EQUAL_DISPATCH(Type)                                             \
+  if (auto lhs_##Type = As<Type>(lhs)) {                                 \
+    if constexpr (AssertMode) path_.emplace_back(#Type);                 \
+    auto rhs_##Type = As<Type>(rhs);                                     \
+    bool result = rhs_##Type && EqualWithFields(lhs_##Type, rhs_##Type); \
+    if constexpr (AssertMode) path_.pop_back();                          \
+    return result;                                                       \
+  }
+
+// Dispatch macro for abstract base classes
+#define EQUAL_DISPATCH_BASE(Type)                                        \
+  if (auto lhs_##Type = As<Type>(lhs)) {                                 \
+    if constexpr (AssertMode) path_.emplace_back(#Type);                 \
+    auto rhs_##Type = As<Type>(rhs);                                     \
+    bool result = rhs_##Type && EqualWithFields(lhs_##Type, rhs_##Type); \
+    if constexpr (AssertMode) path_.pop_back();                          \
+    return result;                                                       \
   }
 
 template <bool AssertMode>
@@ -512,7 +550,15 @@ bool StructuralEqualImpl<AssertMode>::Equal(const IRNodePtr& lhs, const IRNodePt
     return false;
   }
 
-  if (auto lhs_var = std::dynamic_pointer_cast<const Var>(lhs)) {
+  // Check IterArg before Var (IterArg inherits from Var)
+  if (auto lhs_iter = As<IterArg>(lhs)) {
+    if constexpr (AssertMode) path_.emplace_back("IterArg");
+    bool result = EqualIterArg(lhs_iter, std::static_pointer_cast<const IterArg>(rhs));
+    if constexpr (AssertMode) path_.pop_back();
+    return result;
+  }
+
+  if (auto lhs_var = As<Var>(lhs)) {
     if constexpr (AssertMode) path_.emplace_back("Var");
     bool result = EqualVar(lhs_var, std::static_pointer_cast<const Var>(rhs));
     if constexpr (AssertMode) path_.pop_back();
@@ -524,9 +570,13 @@ bool StructuralEqualImpl<AssertMode>::Equal(const IRNodePtr& lhs, const IRNodePt
   EQUAL_DISPATCH(ConstFloat)
   EQUAL_DISPATCH(ConstBool)
   EQUAL_DISPATCH(Call)
+  EQUAL_DISPATCH(MakeTuple)
   EQUAL_DISPATCH(TupleGetItemExpr)
-  EQUAL_DISPATCH(BinaryExpr)
-  EQUAL_DISPATCH(UnaryExpr)
+
+  // BinaryExpr and UnaryExpr are abstract base classes, use dynamic_pointer_cast
+  EQUAL_DISPATCH_BASE(BinaryExpr)
+  EQUAL_DISPATCH_BASE(UnaryExpr)
+
   EQUAL_DISPATCH(AssignStmt)
   EQUAL_DISPATCH(IfStmt)
   EQUAL_DISPATCH(YieldStmt)
@@ -534,13 +584,15 @@ bool StructuralEqualImpl<AssertMode>::Equal(const IRNodePtr& lhs, const IRNodePt
   EQUAL_DISPATCH(ForStmt)
   EQUAL_DISPATCH(SeqStmts)
   EQUAL_DISPATCH(OpStmts)
+  EQUAL_DISPATCH(EvalStmt)
   EQUAL_DISPATCH(Function)
   EQUAL_DISPATCH(Program)
 
-  throw std::logic_error("Unknown IR node type in StructuralEqualImpl::Equal");
+  throw TypeError("Unknown IR node type in StructuralEqualImpl::Equal: " + lhs->TypeName());
 }
 
 #undef EQUAL_DISPATCH
+#undef EQUAL_DISPATCH_BASE
 
 template <bool AssertMode>
 bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePtr& rhs) {
@@ -553,8 +605,8 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
     return false;
   }
 
-  if (auto lhs_scalar = std::dynamic_pointer_cast<const ScalarType>(lhs)) {
-    auto rhs_scalar = std::dynamic_pointer_cast<const ScalarType>(rhs);
+  if (auto lhs_scalar = As<ScalarType>(lhs)) {
+    auto rhs_scalar = As<ScalarType>(rhs);
     if (!rhs_scalar) {
       if constexpr (AssertMode) {
         ThrowMismatch("Type cast failed for ScalarType", IRNodePtr(), IRNodePtr(), "", "");
@@ -571,8 +623,8 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
       return false;
     }
     return true;
-  } else if (auto lhs_tensor = std::dynamic_pointer_cast<const TensorType>(lhs)) {
-    auto rhs_tensor = std::dynamic_pointer_cast<const TensorType>(rhs);
+  } else if (auto lhs_tensor = As<TensorType>(lhs)) {
+    auto rhs_tensor = As<TensorType>(rhs);
     if (!rhs_tensor) {
       if constexpr (AssertMode) {
         ThrowMismatch("Type cast failed for TensorType", IRNodePtr(), IRNodePtr(), "", "");
@@ -601,8 +653,8 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
       if (!Equal(lhs_tensor->shape_[i], rhs_tensor->shape_[i])) return false;
     }
     return true;
-  } else if (auto lhs_tile = std::dynamic_pointer_cast<const TileType>(lhs)) {
-    auto rhs_tile = std::dynamic_pointer_cast<const TileType>(rhs);
+  } else if (auto lhs_tile = As<TileType>(lhs)) {
+    auto rhs_tile = As<TileType>(rhs);
     if (!rhs_tile) {
       if constexpr (AssertMode) {
         ThrowMismatch("Type cast failed for TileType", IRNodePtr(), IRNodePtr(), "", "");
@@ -672,8 +724,8 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
       if (!Equal(lhs_tv.start_offset, rhs_tv.start_offset)) return false;
     }
     return true;
-  } else if (auto lhs_tuple = std::dynamic_pointer_cast<const TupleType>(lhs)) {
-    auto rhs_tuple = std::dynamic_pointer_cast<const TupleType>(rhs);
+  } else if (auto lhs_tuple = As<TupleType>(lhs)) {
+    auto rhs_tuple = As<TupleType>(rhs);
     if (!rhs_tuple) {
       if constexpr (AssertMode) {
         ThrowMismatch("Type cast failed for TupleType", IRNodePtr(), IRNodePtr(), "", "");
@@ -693,7 +745,7 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
       if (!EqualType(lhs_tuple->types_[i], rhs_tuple->types_[i])) return false;
     }
     return true;
-  } else if (std::dynamic_pointer_cast<const UnknownType>(lhs)) {
+  } else if (IsA<UnknownType>(lhs)) {
     return true;
   }
 
@@ -770,6 +822,25 @@ bool StructuralEqualImpl<AssertMode>::EqualVar(const VarPtr& lhs, const VarPtr& 
 
   lhs_to_rhs_var_map_[lhs] = rhs;
   rhs_to_lhs_var_map_[rhs] = lhs;
+  return true;
+}
+
+template <bool AssertMode>
+bool StructuralEqualImpl<AssertMode>::EqualIterArg(const IterArgPtr& lhs, const IterArgPtr& rhs) {
+  // 1. First, compare as Var (handles variable mapping)
+  if (!EqualVar(lhs, rhs)) {
+    return false;
+  }
+
+  // 2. Then, compare IterArg-specific field: initValue_
+  if (!Equal(lhs->initValue_, rhs->initValue_)) {
+    if constexpr (AssertMode) {
+      ThrowMismatch("IterArg initValue mismatch", std::static_pointer_cast<const IRNode>(lhs),
+                    std::static_pointer_cast<const IRNode>(rhs));
+    }
+    return false;
+  }
+
   return true;
 }
 
