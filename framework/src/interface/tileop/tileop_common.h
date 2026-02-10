@@ -67,14 +67,16 @@ enum class CopyInMode : int64_t
 {
     ND2ND = 0,
     ND2NZ = 1,
-    NZ2NZ = 2
+    NZ2NZ = 2,
+    DN2NZ = 3
 };
 
 enum class CopyOutMode : int64_t
 {
     NZ2ND = 0,
     NZ2NZ = 1,
-    ND2ND = 2
+    ND2ND = 2,
+    NZ2DN = 3
 };
 
 enum class ReLuType : int64_t

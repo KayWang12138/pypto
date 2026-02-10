@@ -48,11 +48,11 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           { Opcode::OP_L1_COPY_IN_B_SCALE,           [this]() { return GenMemL1CopyIn(); }},
           {        Opcode::OP_L1_COPY_OUT,          [this]() { return GenMemL1CopyOut(); }},
           {       Opcode::OP_GATHER_IN_L1,            [this]() { return GenGatherInL1(); }},
-        //   {    Opcode::OP_L1_COPY_IN_CONV,       [this]() { return GenMemL1CopyInConv(); }},
+          {    Opcode::OP_L1_COPY_IN_CONV,       [this]() { return GenMemL1CopyInConv(); }},
 
           // L0C <-> GM
           {       Opcode::OP_L0C_COPY_OUT,         [this]() { return GenMemL0CCopyOut(); }},
-        //   {  Opcode::OP_L0C_COPY_OUT_CONV,      [this]() { return GenMemL1CopyOutConv(); }},
+          {  Opcode::OP_L0C_COPY_OUT_CONV,      [this]() { return GenMemL1CopyOutConv(); }},
 
           {          Opcode::OP_L0C_TO_L1,            [this]() { return GenMemL0CToL1(); }},
 
