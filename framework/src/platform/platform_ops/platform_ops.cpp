@@ -22,7 +22,7 @@
 namespace npu::tile_fwk {
 const uint32_t kMaxLength = 50;
 
-bool GetrtSocSpec(const std::string& column, const std::string& key, std::string& val) {
+extern "C" bool GetrtSocSpec(const std::string& column, const std::string& key, std::string& val) {
 #ifdef BUILD_WITH_CANN
     char charVal[kMaxLength] = {0};
     if (rtGetSocSpec(column.c_str(), key.c_str(), charVal, kMaxLength) == 0) {
@@ -36,7 +36,7 @@ bool GetrtSocSpec(const std::string& column, const std::string& key, std::string
     return false;
 }
 
-bool GetrtAICPUNum(size_t &aiCpuNum) {
+extern "C" bool GetrtAICPUNum(size_t &aiCpuNum) {
    uint32_t cpuNum = 0;
    int ret = 1;
 #ifdef BUILD_WITH_CANN
@@ -50,7 +50,7 @@ bool GetrtAICPUNum(size_t &aiCpuNum) {
     }
 }
 
-bool GetrtSocVersion(std::string& socVerString) {
+extern "C" bool GetrtSocVersion(std::string& socVerString) {
     int ret = 1;
     char socVer[kMaxLength] = {0x00};
 #ifdef BUILD_WITH_CANN
