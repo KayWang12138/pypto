@@ -82,7 +82,7 @@ void TestWhereBody(const Opcode opCode, const std::string &caseName,
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     }
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     config::SetBuildStatic(true);
 
     std::vector<int64_t> shape = {64, 64};
