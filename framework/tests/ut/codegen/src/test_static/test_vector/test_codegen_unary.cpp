@@ -104,7 +104,7 @@ void TestTransposeVnchwconvBody(std::vector<int64_t> shape, std::vector<int64_t>
     bool isSupportTileTensor = false) {
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     }
     TileShape::Current().SetVecTile(tileShape);
     Tensor input(DT_FP32, shape, "input");
@@ -157,7 +157,7 @@ Function &TestFullBody(
     std::vector<int64_t> shape, std::vector<int64_t> tileShape, std::string name, bool isSupportTileTensor = false) {
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     }
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_FP32, shape, "A");
@@ -186,7 +186,7 @@ Function &TestCastBody(std::vector<int64_t> shape, std::vector<int64_t> outShape
     std::string name, bool isSupportTileTensor = false) {
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     }
     TileShape::Current().SetVecTile(tileShape);
     Tensor input_a(DT_INT32, shape, "A");
@@ -217,7 +217,7 @@ Function &TestExpandBody(std::vector<int64_t> shape, std::vector<int64_t> outSha
     std::string name, bool isSupportTileTensor = false) {
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     } else {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     }

@@ -99,7 +99,7 @@ TEST_F(TestCodegenDynRange, RangeTileTensor) {
     auto shapeImme = OpImmediate::Specified(rangeShape);
     TileShape::Current().SetVecTile(rangeShape);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     
     Tensor inputA(DT_FP32, rangeShape, "A");
     Tensor inputB(DT_FP32, rangeShape, "B");
