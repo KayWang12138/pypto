@@ -23,7 +23,8 @@ namespace tile_fwk {
 struct ExtractInfo {
     std::vector<int>& iOffsets;
     std::vector<int>& oOffsets;
-    std::set<LogicalTensorPtr>& processedTensors;
+    std::set<LogicalTensorPtr>& processedIncasts;
+    std::set<LogicalTensorPtr>& processedOutcasts;
 };
 
 struct CallOpCreationInfo {

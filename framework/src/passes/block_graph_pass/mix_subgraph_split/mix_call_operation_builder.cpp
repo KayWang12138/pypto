@@ -274,9 +274,10 @@ void MixCallOperationBuilder::FindIOpAttrOffsetAndOOpAttrOffset(
     ALOG_INFO_F("===> FindIOpAttrOffsetAndOOpAttrOffset start.");
     ALOG_DEBUG_F("Leaf function %s has %zu actual incasts, %zu actual outcasts after dependency propagation",
                  leafFunc.GetRawName().c_str(), actualIncasts.size(), actualOutcasts.size());
-    std::set<LogicalTensorPtr> processedTensors;
+    std::set<LogicalTensorPtr> processedIncasts;
+    std::set<LogicalTensorPtr> processedOutcasts;
     // 处理直接参数（在原始invokeInfo中能找到的）
-    ExtractInfo extractInfo{iOffsets, oOffsets, processedTensors};
+    ExtractInfo extractInfo{iOffsets, oOffsets, processedIncasts, processedOutcasts};
     // 使用invokeInfo中预先构造的incast信息
     if (!FindIOpAttrOffsetFromIncast(invokeInfo, leafFunc, extractInfo)) {
         return;
@@ -317,7 +318,7 @@ bool MixCallOperationBuilder::FindIOpAttrOffsetFromIncast(const SubfuncInvokeInf
             continue;
         }
         extractInfo.iOffsets.push_back(offset);
-        extractInfo.processedTensors.insert(in.tensor);
+        extractInfo.processedIncasts.insert(in.tensor);
         ALOG_DEBUG_F("Incast (op=%d, idx=%d) -> original offset=%d",
                      in.opMagic, in.operandIdx, offset);
     }
@@ -340,7 +341,7 @@ bool MixCallOperationBuilder::FindOOpAttrOffsetFromOutcast(const SubfuncInvokeIn
             continue;
         }
         extractInfo.oOffsets.push_back(offset);
-        extractInfo.processedTensors.insert(out.tensor);
+        extractInfo.processedOutcasts.insert(out.tensor);
         ALOG_DEBUG_F("Outcast (op=%d, idx=%d) -> original offset=%d",
                      out.opMagic, out.operandIdx, offset);
     }
@@ -390,14 +391,15 @@ bool MixCallOperationBuilder::FindIOOpAttrOffsetGlobalTensor(const SubfuncInvoke
         }
         if (tensor.isOutputToGM) {
             extractInfo.oOffsets.push_back(offset);
+            extractInfo.processedOutcasts.insert(tensor.tensor);
             ALOG_DEBUG_F("Global tensor -> Outcast: opmagic=%d, idx=%d -> oOpAttrOffset=%d",
                          tensor.opMagic, tensor.operandIdx, offset);
         } else {
             extractInfo.iOffsets.push_back(offset);
+            extractInfo.processedIncasts.insert(tensor.tensor);
             ALOG_DEBUG_F("Global tensor -> Incast: opmagic=%d, idx=%d -> iOpAttrOffset=%d",
                          tensor.opMagic, tensor.operandIdx, offset);
         }
-        extractInfo.processedTensors.insert(tensor.tensor);
     }
     return true;
 }
@@ -409,7 +411,7 @@ bool MixCallOperationBuilder::FindIOpAttrOffsetFromActualIncasts(
 {
     // 然后处理传播依赖添加的参数（在actualIncasts中但不在InvokeInfo中）
     for (const auto& incast : actualIncasts) {
-        if (incast == nullptr || extractInfo.processedTensors.count(incast) > 0) {
+        if (incast == nullptr || extractInfo.processedIncasts.count(incast) > 0) {
             continue;
         }
 
@@ -421,7 +423,7 @@ bool MixCallOperationBuilder::FindIOpAttrOffsetFromActualIncasts(
             return false;  // 直接报错返回
         }
         extractInfo.iOffsets.push_back(offset);
-        extractInfo.processedTensors.insert(incast);
+        extractInfo.processedIncasts.insert(incast);
         ALOG_DEBUG_F("Extracted propagated incast: tensor rawmagic = %d, offset = %d",
                      incast->GetRawMagic(), offset);
     }
@@ -435,7 +437,7 @@ bool MixCallOperationBuilder::FindOOpAttrOffsetFromActualOutcasts(
 {
     // 处理传播依赖添加的outcast参数（在actualOutcasts中但不在InvokeInfo中）
     for (const auto& outcast : actualOutcasts) {
-        if (outcast == nullptr || extractInfo.processedTensors.count(outcast) > 0) {
+        if (outcast == nullptr || extractInfo.processedOutcasts.count(outcast) > 0) {
             continue;
         }
         auto shape = outcast->GetShape();
@@ -449,7 +451,7 @@ bool MixCallOperationBuilder::FindOOpAttrOffsetFromActualOutcasts(
             return false;  // 直接报错返回
         }
         extractInfo.oOffsets.push_back(offset);
-        extractInfo.processedTensors.insert(outcast);
+        extractInfo.processedOutcasts.insert(outcast);
         ALOG_DEBUG_F("Extracted propagated outcast: tensor rawmagic = %d -> original offset = %d",
                         outcast->GetRawMagic(), offset);
     }
