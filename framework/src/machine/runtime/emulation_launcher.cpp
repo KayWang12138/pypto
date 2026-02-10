@@ -22,7 +22,6 @@
 extern "C" int DynTileFwkBackendKernelServer(void *targ);
 
 namespace npu::tile_fwk::dynamic {
-
 static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
     constexpr int threadNum = 6;
     std::thread aicpuThreadList[threadNum];
@@ -63,14 +62,14 @@ static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
 
 int EmulationLauncher::EmulationLaunchOnceWithHostTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-        DevControlFlowCache* ctrlCache, const DeviceLauncherConfig &config) {
+        DevControlFlowCache* ctrlCache, EmulationMemoryUtils& memUtils, const DeviceLauncherConfig &config) {
     ALOG_DEBUG_F("!!! Emulation Launch\n");
     DeviceKernelArgs kArgs;
     auto dynAttr = function->GetDyndevAttribute();
     auto devProg = DeviceLauncher::GetDevProg(function);
     DeviceLauncher::DeviceInitDistributedContextToHost(dynAttr->commGroupNames, devProg);
-    DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, dynAttr->devProgBinary, ctrlCache, config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList, dynAttr->disableL2List);
+    DeviceLauncher::DeviceInitTilingData(memUtils, kArgs, dynAttr->devProgBinary, ctrlCache, config, nullptr);
+    DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List);
     int rc = EmulationLaunchOnce(kArgs);
     return rc;
 }
@@ -80,26 +79,35 @@ int EmulationLauncher::EmulationRunOnce(Function *function, DevControlFlowCache*
     auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
-    std::tie(inputDeviceDataList, outputDeviceDataList) = DeviceLauncher::BuildInputOutputFromHost(EmulationMemoryUtils(), inputDataList, outputDataList);
+    EmulationMemoryUtils memUtils;
+    std::tie(inputDeviceDataList, outputDeviceDataList) = DeviceLauncher::BuildInputOutputFromHost(memUtils, inputDataList, outputDataList);
     DevControlFlowCache* launchCtrlFlowCache = nullptr;
-    if (inputCtrlCache) {
-        launchCtrlFlowCache = reinterpret_cast<DevControlFlowCache*>(RuntimeHostAgent::GetAgent()->AllocHostAddr(inputCtrlCache->allCacheSize, false, false));
+    std::unique_ptr<uint8_t[]> launchCtrlPtr;
+    if (inputCtrlCache != nullptr) {
+        launchCtrlPtr = std::make_unique<uint8_t[]>(inputCtrlCache->allCacheSize);
+        launchCtrlFlowCache = reinterpret_cast<DevControlFlowCache*>(launchCtrlPtr.get());
         if (launchCtrlFlowCache) {
             memcpy_s(launchCtrlFlowCache, inputCtrlCache->allCacheSize, inputCtrlCache, inputCtrlCache->allCacheSize);
         }
     }
-    int rc = EmulationLaunchOnceWithHostTensorData(function, inputDeviceDataList, outputDeviceDataList, launchCtrlFlowCache, config);
-    RuntimeHostAgent::GetAgent()->Free(reinterpret_cast<uint8_t*>(launchCtrlFlowCache));
+    int rc = EmulationLaunchOnceWithHostTensorData(function, inputDeviceDataList, outputDeviceDataList, launchCtrlFlowCache, memUtils, config);
     return rc;
 }
 
-DevControlFlowCache* EmulationLauncher::CreateHostCtrlFlowCache(DevAscendProgram *devProg, Function *function) {
+std::unique_ptr<uint8_t[]> EmulationLauncher::CreateHostCtrlFlowCache(DevAscendProgram *devProg, Function *function) {
     DevControlFlowCache encodeCtrlCache;
     uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(encodeCtrlCache.data);
     encodeCtrlCache.Init(function->GetDyndevAttribute().get(),
         devProg->ctrlFlowCacheSize, devProg->runtimeOutcastPoolSize, initOffset);
     uint32_t ctrlCacheAllocSize = encodeCtrlCache.GetSize();
-    DevControlFlowCache* hostCtrlFlowCache = reinterpret_cast<DevControlFlowCache*>(RuntimeHostAgent::GetAgent()->AllocHostAddr(ctrlCacheAllocSize, false, false));
+
+    auto uniquePtr = std::make_unique<uint8_t[]>(ctrlCacheAllocSize);
+    uint8_t* rawPtr = uniquePtr.get();
+    if (rawPtr == nullptr) {
+        return nullptr;
+    }
+
+    DevControlFlowCache* hostCtrlFlowCache = reinterpret_cast<DevControlFlowCache*>(rawPtr);
     if (hostCtrlFlowCache == nullptr) {
         return nullptr;
     }
@@ -107,22 +115,27 @@ DevControlFlowCache* EmulationLauncher::CreateHostCtrlFlowCache(DevAscendProgram
     initOffset = reinterpret_cast<uintdevptr_t>(hostCtrlFlowCache->data);
     hostCtrlFlowCache->Init(function->GetDyndevAttribute().get(),
         devProg->ctrlFlowCacheSize, devProg->runtimeOutcastPoolSize, initOffset);
-    return hostCtrlFlowCache;
+    return uniquePtr;
 }
 
 int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
         Function *function, const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
-        CachedOperator *cachedOperator,  DevControlFlowCache **outCtrlFlowCache,
+        CachedOperator *cachedOperator,  DevControlFlowCache **outCtrlFlowCache, EmulationMemoryUtils& memUtils,
         const DeviceLauncherConfig &config) {
     (void)cachedOperator;
     auto dynAttr = function->GetDyndevAttribute();
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(function);
-    DevControlFlowCache* hostCtrlFlowCache = CreateHostCtrlFlowCache(devProg, function);
+    std::unique_ptr<uint8_t[]> hostBuffer = CreateHostCtrlFlowCache(devProg, function);
+    if (hostBuffer == nullptr) {
+        ALOG_ERROR_F("Failed to allocate control flow cache");
+        return -1;
+    }
+    DevControlFlowCache* hostCtrlFlowCache = reinterpret_cast<DevControlFlowCache*>(hostBuffer.get());
     hostCtrlFlowCache->isRecording = true;
     DeviceKernelArgs kArgs;
     DeviceLauncher::DeviceInitDistributedContextToHost(dynAttr->commGroupNames, devProg);
-    DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, dynAttr->devProgBinary, hostCtrlFlowCache, config, nullptr);
-    DeviceLauncher::DeviceInitKernelInOuts(EmulationMemoryUtils(), kArgs, inputList, outputList, dynAttr->disableL2List);
+    DeviceLauncher::DeviceInitTilingData(memUtils, kArgs, dynAttr->devProgBinary, hostCtrlFlowCache, config, nullptr);
+    DeviceLauncher::DeviceInitKernelInOuts(memUtils, kArgs, inputList, outputList, dynAttr->disableL2List);
     int rc = EmulationLaunchOnce(kArgs);
 
     hostCtrlFlowCache->isRecording = false;
@@ -137,19 +150,19 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     devProg->ctrlFlowCacheAnchor = nullptr;
     devProg->ResetFromLaunch();
     if (outCtrlFlowCache) {
-        *outCtrlFlowCache = hostCtrlFlowCache;
+        *outCtrlFlowCache = reinterpret_cast<DevControlFlowCache*>(hostBuffer.release());
     }
     return rc;
 }
 
-int EmulationLauncher::BuildControlFlowCache(Function *function, DevControlFlowCache **outCtrlFlowCache,
+int EmulationLauncher::BuildControlFlowCache(Function *function, DevControlFlowCache **outCtrlFlowCache, EmulationMemoryUtils& memUtils,
                                              const DeviceLauncherConfig &config) {
     auto &inputDataList = ProgramData::GetInstance().GetInputDataList();
     auto &outputDataList = ProgramData::GetInstance().GetOutputDataList();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
-    std::tie(inputDeviceDataList, outputDeviceDataList) = DeviceLauncher::BuildInputOutputFromHost(EmulationMemoryUtils(), inputDataList, outputDataList);
-    return BuildControlFlowCacheWithEmulationTensorData(function, inputDeviceDataList, outputDeviceDataList, nullptr, outCtrlFlowCache, config);
+    std::tie(inputDeviceDataList, outputDeviceDataList) = DeviceLauncher::BuildInputOutputFromHost(memUtils, inputDataList, outputDataList);
+    return BuildControlFlowCacheWithEmulationTensorData(function, inputDeviceDataList, outputDeviceDataList, nullptr, outCtrlFlowCache, memUtils, config);
 }
 
 int EmulationLauncher::BuildControlFlowCache(
@@ -179,10 +192,10 @@ int EmulationLauncher::BuildControlFlowCache(
         return ss.str();
     };
     ALOG_INFO_F("!!! Emulation ControlFlowCache shape {%s}\n", getShapeString(inputList).c_str());
-
+    EmulationMemoryUtils memUtils;
     /* python front end use inputs/output as unified tensors, outputList is always null */
     if (inputList.size() == 0 && outputList.size() == 0) {
-        return BuildControlFlowCache(function, outCtrlFlowCache, config);
+        return BuildControlFlowCache(function, outCtrlFlowCache, memUtils, config);
     } else {
         std::vector<DeviceTensorData> inputDeviceDataList;
         std::vector<DeviceTensorData> outputDeviceDataList;
@@ -195,7 +208,7 @@ int EmulationLauncher::BuildControlFlowCache(
             outputDeviceDataList.emplace_back(output.GetDataType(), CONTROL_FLOW_CACHE_BASE_ADDR + index * CONTROL_FLOW_CACHE_TENSOR_SIZE, output.GetShape());
             index++;
         }
-        return BuildControlFlowCacheWithEmulationTensorData(function, inputDeviceDataList, outputDeviceDataList, nullptr, outCtrlFlowCache, config);
+        return BuildControlFlowCacheWithEmulationTensorData(function, inputDeviceDataList, outputDeviceDataList, nullptr, outCtrlFlowCache, memUtils, config);
     }
 }
 
@@ -223,11 +236,12 @@ static void freeHostTensorData(const std::vector<DeviceTensorData> &hostDataList
 int EmulationLauncher::EmulationLaunchDeviceTensorData(Function *function,
     const std::vector<DeviceTensorData> &inDevList, const std::vector<DeviceTensorData> &outDevList,
     const DeviceLauncherConfig &config) {
-    DeviceLauncher::ChangeCaptureModeRelax();
+    EmulationMemoryUtils memUtils;
+    DeviceLauncher::ChangeCaptureModeRelax(); 
     auto inList = toHostTensorData(inDevList, true);
     auto outList = toHostTensorData(outDevList, false);
     DeviceLauncher::ChangeCaptureModeGlobal();
-    int rc = EmulationLaunchOnceWithHostTensorData(function, inList, outList, nullptr, config);
+    int rc = EmulationLaunchOnceWithHostTensorData(function, inList, outList, nullptr, memUtils, config);
     freeHostTensorData(inList);
     freeHostTensorData(outList);
     return rc;
