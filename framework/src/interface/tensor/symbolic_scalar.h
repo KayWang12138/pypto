@@ -713,7 +713,7 @@ struct SymbolicExpressionTable {
 
     void NormalizeForSymbolTable(const SymbolicSymbolTable &symbolTable) {
         primaryExpressionSet.Clear();
-        primaryExpressionSet.Insert(mainBlockScalar_.Raw());
+        // primaryExpressionSet.Insert(mainBlockScalar_.Raw());
         auto symTable = symbolTable.GetSymbolTable();
         auto symExprTable = symbolTable.GetSymbolTableDict();
         ASSERT(symTable.size() == symExprTable.size());
