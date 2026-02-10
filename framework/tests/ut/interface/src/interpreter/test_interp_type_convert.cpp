@@ -62,64 +62,107 @@ public:
     }
 };
 
-// 0x55 = 0101 0101: same 8 bits, different interpretations per format:
-//   E4M3 [S][EEEE][MMM]: S=0, E=1010=10, M=101=5 -> 2^(10-7)*(1+5/8) = 13.0
-//   E5M2 [S][EEEEE][MM]: S=0, E=10101=21, M=01=1 -> 2^(21-15)*(1+1/4) = 80.0
-//   E8M0 [S][EEEEEEE]:   S=0, E=1010101=85 -> 2^(85-63) = 4194304
 TEST_F(InterpTypeConvertTest, Fp8SameBitsDifferentFormats) {
-    constexpr uint8_t kBits = 0x55;
+    // A few representative encodings with the *same* 8 bits across formats,
+    // but interpreted differently by E4M3/E5M2/E8M0.
+    //
+    // 0x55 = 0101 0101:
+    //   E4M3 [S][EEEE][MMM]: S=0, E=1010=10, M=101=5 -> 2^(10-7)*(1+5/8) = 13.0
+    //   E5M2 [S][EEEEE][MM]: S=0, E=10101=21, M=01=1 -> 2^(21-15)*(1+1/4) = 80.0
+    //   E8M0 [S][EEEEEEE]:   S=0, E=1010101=85      -> 2^(85-63) = 4194304
+    //
+    // 0x38 = 0011 1000:
+    //   E4M3: exp=7, mant=0 -> 2^(7-7)*(1+0) = 1.0
+    //   E5M2: exp=14, mant=0 -> 2^(14-15)*(1+0) = 0.5
+    //   E8M0: exp=56        -> 2^(56-63) = 2^(-7)
+    //
+    // 0xA0 = 1010 0000:
+    //   E4M3: sign=-, exp=4, mant=0  -> -2^(4-7)  = -2^(-3)  = -0.125
+    //   E5M2: sign=-, exp=8, mant=0  -> -2^(8-15) = -2^(-7)
+    //   E8M0: sign=-, exp=32         -> -2^(32-63) = -2^(-31)
+    struct {
+        uint8_t bits;
+        float expect_e4m3;
+        float expect_e5m2;
+        float expect_e8m0;
+    } cases[] = {
+        {0x55, 13.0f, 80.0f, 4194304.0f},
+        {0x38, 1.0f, 0.5f, std::exp2(-7.0f)},
+        {0xA0, -0.125f, -std::exp2(-7.0f), -std::exp2(-31.0f)},
+    };
 
-    auto e4m3_src = makeTensorData(DT_FP8E4M3, {4}, static_cast<uint8_t>(kBits));
-    auto e5m2_src = makeTensorData(DT_FP8E5M2, {4}, static_cast<uint8_t>(kBits));
-    auto e8m0_src = makeTensorData(DT_FP8E8M0, {4}, static_cast<uint8_t>(kBits));
+    for (const auto &c : cases) {
+        auto e4m3_src = makeTensorData(DT_FP8E4M3, {4}, static_cast<uint8_t>(c.bits));
+        auto e5m2_src = makeTensorData(DT_FP8E5M2, {4}, static_cast<uint8_t>(c.bits));
+        auto e8m0_src = makeTensorData(DT_FP8E8M0, {4}, static_cast<uint8_t>(c.bits));
 
-    auto e4m3_out = makeTensorData(DT_FP32, {4}, 0.0f);
-    auto e5m2_out = makeTensorData(DT_FP32, {4}, 0.0f);
-    auto e8m0_out = makeTensorData(DT_FP32, {4}, 0.0f);
+        auto e4m3_out = makeTensorData(DT_FP32, {4}, 0.0f);
+        auto e5m2_out = makeTensorData(DT_FP32, {4}, 0.0f);
+        auto e8m0_out = makeTensorData(DT_FP32, {4}, 0.0f);
 
-    calc::Cast(e4m3_out, e4m3_src);
-    calc::Cast(e5m2_out, e5m2_src);
-    calc::Cast(e8m0_out, e8m0_src);
+        calc::Cast(e4m3_out, e4m3_src);
+        calc::Cast(e5m2_out, e5m2_src);
+        calc::Cast(e8m0_out, e8m0_src);
 
-    auto golden_e4m3 = makeTensorData(DT_FP32, {4}, 13.0f);
-    auto golden_e5m2 = makeTensorData(DT_FP32, {4}, 80.0f);
-    auto golden_e8m0 = makeTensorData(DT_FP32, {4}, 4194304.0f);
+        auto golden_e4m3 = makeTensorData(DT_FP32, {4}, c.expect_e4m3);
+        auto golden_e5m2 = makeTensorData(DT_FP32, {4}, c.expect_e5m2);
+        auto golden_e8m0 = makeTensorData(DT_FP32, {4}, c.expect_e8m0);
 
-    ASSERT_ALLCLOSE_ATOL(e4m3_out, golden_e4m3, 1e-6f);
-    ASSERT_ALLCLOSE_ATOL(e5m2_out, golden_e5m2, 1e-6f);
-    ASSERT_ALLCLOSE_ATOL(e8m0_out, golden_e8m0, 1e-6f);
+        ASSERT_ALLCLOSE_ATOL(e4m3_out, golden_e4m3, 1e-6f);
+        ASSERT_ALLCLOSE_ATOL(e5m2_out, golden_e5m2, 1e-6f);
+        ASSERT_ALLCLOSE_ATOL(e8m0_out, golden_e8m0, 1e-6f);
+    }
 }
 
-// 0x01 = 0000 0001: same 8 bits, interpreted as subnormal in E4M3/E5M2
-//   E4M3 [S][EEEE][MMM]: S=0, E=0000=0, M=001=1 -> 2^(-6) * (1/8) = 1/512 ≈ 0.001953125
-//   E5M2 [S][EEEEE][MM]: S=0, E=00000=0, M=01=1 -> 2^(-14) * (1/4) = 1/65536 ≈ 0.000015258789
-//   E8M0 [S][EEEEEEEE]:  S=0, E=00000001=1 -> 2^(1-63) = 2^(-62) ≈ 2.1684e-19 (normal, not subnormal)
 TEST_F(InterpTypeConvertTest, Fp8SubnormalSameBitsDifferentFormats) {
-    constexpr uint8_t kBits = 0x01;
+    // Encodings where E4M3/E5M2 see subnormals but E8M0 still sees normal powers of 2.
+    //
+    // 0x01 = 0000 0001:
+    //   E4M3: S=0, E=0, M=1 ->  1/512
+    //   E5M2: S=0, E=0, M=1 ->  1/65536
+    //   E8M0: S=0, exp=1    ->  2^(-62)
+    //
+    // 0x02 = 0000 0010:
+    //   E4M3: S=0, E=0, M=2 ->  2/512  = 1/256
+    //   E5M2: S=0, E=0, M=2 ->  2/65536 = 1/32768
+    //   E8M0: S=0, exp=2    ->  2^(-61)
+    //
+    // 0x81 = 1000 0001:
+    //   E4M3: S=1, E=0, M=1 -> -1/512
+    //   E5M2: S=1, E=0, M=1 -> -1/65536
+    //   E8M0: S=1, exp=1    -> -2^(-62)
+    struct {
+        uint8_t bits;
+        float expect_e4m3;
+        float expect_e5m2;
+        float expect_e8m0;
+    } cases[] = {
+        {0x01,  1.0f / 512.0f,   1.0f / 65536.0f,  std::exp2(-62.0f)},
+        {0x02,  2.0f / 512.0f,   2.0f / 65536.0f,  std::exp2(-61.0f)},
+        {0x81, -1.0f / 512.0f,  -1.0f / 65536.0f, -std::exp2(-62.0f)},
+    };
 
-    auto e4m3_src = makeTensorData(DT_FP8E4M3, {4}, static_cast<uint8_t>(kBits));
-    auto e5m2_src = makeTensorData(DT_FP8E5M2, {4}, static_cast<uint8_t>(kBits));
-    auto e8m0_src = makeTensorData(DT_FP8E8M0, {4}, static_cast<uint8_t>(kBits));
+    for (const auto &c : cases) {
+        auto e4m3_src = makeTensorData(DT_FP8E4M3, {4}, static_cast<uint8_t>(c.bits));
+        auto e5m2_src = makeTensorData(DT_FP8E5M2, {4}, static_cast<uint8_t>(c.bits));
+        auto e8m0_src = makeTensorData(DT_FP8E8M0, {4}, static_cast<uint8_t>(c.bits));
 
-    auto e4m3_out = makeTensorData(DT_FP32, {4}, 0.0f);
-    auto e5m2_out = makeTensorData(DT_FP32, {4}, 0.0f);
-    auto e8m0_out = makeTensorData(DT_FP32, {4}, 0.0f);
+        auto e4m3_out = makeTensorData(DT_FP32, {4}, 0.0f);
+        auto e5m2_out = makeTensorData(DT_FP32, {4}, 0.0f);
+        auto e8m0_out = makeTensorData(DT_FP32, {4}, 0.0f);
 
-    calc::Cast(e4m3_out, e4m3_src);
-    calc::Cast(e5m2_out, e5m2_src);
-    calc::Cast(e8m0_out, e8m0_src);
+        calc::Cast(e4m3_out, e4m3_src);
+        calc::Cast(e5m2_out, e5m2_src);
+        calc::Cast(e8m0_out, e8m0_src);
 
-    const float e4m3_golden = 1.0f / 512.0f;           // ≈ 0.001953125f
-    const float e5m2_golden = 1.0f / 65536.0f;         // ≈ 0.000015258789f
-    const float e8m0_golden = std::exp2(-62.0f);       // ≈ 2.1684043e-19f
+        auto golden_e4m3 = makeTensorData(DT_FP32, {4}, c.expect_e4m3);
+        auto golden_e5m2 = makeTensorData(DT_FP32, {4}, c.expect_e5m2);
+        auto golden_e8m0 = makeTensorData(DT_FP32, {4}, c.expect_e8m0);
 
-    auto golden_e4m3 = makeTensorData(DT_FP32, {4}, e4m3_golden);
-    auto golden_e5m2 = makeTensorData(DT_FP32, {4}, e5m2_golden);
-    auto golden_e8m0 = makeTensorData(DT_FP32, {4}, e8m0_golden);
-
-    ASSERT_ALLCLOSE_ATOL(e4m3_out, golden_e4m3, 1e-8f);
-    ASSERT_ALLCLOSE_ATOL(e5m2_out, golden_e5m2, 1e-10f); // 更小值，需更紧容差或用 rel tol
-    ASSERT_ALLCLOSE_ATOL(e8m0_out, golden_e8m0, 1e-22f);
+        ASSERT_ALLCLOSE_ATOL(e4m3_out, golden_e4m3, 1e-8f);
+        ASSERT_ALLCLOSE_ATOL(e5m2_out, golden_e5m2, 1e-10f); // 更小值，需更紧容差或用 rel tol
+        ASSERT_ALLCLOSE_ATOL(e8m0_out, golden_e8m0, 1e-22f);
+    }
 }
 // ToOperand: Float32 -> FP8 encoding (used when writing calc results to FP8 storage).
 // Each operation: same binary input (0x55), verify for all three FP8 types. 0x55 decodes to:
