@@ -37,7 +37,7 @@ def conv_kernel(a, b, d):
     pypto.set_conv_tile_shapes(
         pypto_impl.TileL1Info(
             tileHin=4,
-            tileHout=4,
+            tileHout=1,
             tileWin=8,
             tileWout=8,
             tileCinFmap=16,
@@ -61,7 +61,8 @@ def conv_kernel(a, b, d):
     print(f"TileL0Info: H={conv_tile[1].tileH}, W={conv_tile[1].tileW}, K={conv_tile[1].tileK}, N={conv_tile[1].tileN}")
     print(f"SetL0Tile flag: {conv_tile[2]}")
     pypto.set_debug_options(compile_debug_mode=1)
-    d[:] = pypto.conv(a, b, pypto.DT_FP16, [1,1], [0,0,0,0], [1,1], extend_params = {})
+    #d[:] = pypto.conv(a, b, pypto.DT_FP16, [1,1], [0,0,0,0], [1,1], extend_params = {'bias_tensor': c})
+    d[:] = pypto.conv(a, b, pypto.DT_FP16, [1,2,3], [1,2,3,4,5,6], [1,4,5], extend_params = {})
 
 
 @pypto.jit
@@ -104,4 +105,12 @@ def conv2d_a5_test():
     d = torch.empty([1, 32, 8, 8], dtype=torch.float16)
     conv_kernel(pypto.from_torch(a), pypto.from_torch(b), pypto.from_torch(d))
 
-conv2d_a5_test()
+def conv3d_a5_test():
+    torch.npu.set_device(0)
+    a = torch.ones([1, 96, 1, 16, 1], dtype=torch.float16)
+    b = torch.ones([32, 96, 1, 1, 1], dtype=torch.float16)
+    c = torch.ones([32], dtype=torch.float16)
+    d = torch.empty([1, 32, 1, 8, 8], dtype=torch.float16)
+    conv_kernel(pypto.from_torch(a), pypto.from_torch(b), pypto.from_torch(d))
+
+conv3d_a5_test()
