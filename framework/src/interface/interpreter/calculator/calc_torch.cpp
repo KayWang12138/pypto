@@ -1633,7 +1633,7 @@ static void ScatterElement(LogicalTensorDataPtr out, LogicalTensorDataPtr self, 
     auto inputIndices = From(index);
 
     if (index->GetDataType() == DT_INT32) {
-        inputIndices = inputIndices.to(torch::kInt64);
+        inputIndices.second = inputIndices.second.to(torch::kInt64);
     }
     if (reduce == 0) {
         auto res = torch::scatter(inputSelf.second, axis, inputIndices.second, From(src));
@@ -1667,7 +1667,7 @@ static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     auto inputSrc = From(src);
 
     if (index->GetDataType() == DT_INT32) {
-        inputIndices = inputIndices.to(torch::kInt64);
+        inputIndices.second = inputIndices.second.to(torch::kInt64);
     }
     if (reduce == 0) {
         output.second = torch::scatter(inputSelf.second, axis, inputIndices.second, inputSrc.second);

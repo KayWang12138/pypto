@@ -124,7 +124,7 @@ TEST_F(InterpTypeConvertTest, Fp8SubnormalSameBitsDifferentFormats) {
 // ToOperand: Float32 -> FP8 encoding (used when writing calc results to FP8 storage).
 // Each operation: same binary input (0x55), verify for all three FP8 types. 0x55 decodes to:
 //   E4M3: 13.0,  E5M2: 80.0,  E8M0: 4194304
-TEST_F(InterpTypeConvertTest, Fp8_ToOperand) {
+TEST_F(InterpTypeConvertTest, Fp8ToOperand) {
     constexpr uint8_t kBits = 0x55;
     const DataType fp8_types[] = {DT_FP8E4M3, DT_FP8E5M2, DT_FP8E8M0};
     const float golden_per_type[3] = {13.0f, 80.0f, 4194304.0f};
@@ -187,8 +187,8 @@ TEST_F(InterpTypeConvertTest, Fp8_ToOperand) {
     }
 }
 
-// FP8 E4M3 special values: +0(0x00), -0(0x80), +Inf(0x7E), -Inf(0xFE), NaN(0x7F)
-TEST_F(InterpTypeConvertTest, Fp8SpecialValues) {
+// FP8 E4M3 special values: +0(0x00), -0(0x80), +Max(0x7E), -Max(0xFE), Max alias(0x7F)
+TEST_F(InterpTypeConvertTest, Fp8E4M3SpecialValues) {
     struct {
         uint8_t enc;
         float expected;
@@ -196,9 +196,9 @@ TEST_F(InterpTypeConvertTest, Fp8SpecialValues) {
     } cases[] = {
         {0x00, 0.0f, false},
         {0x80, -0.0f, false},
-        {0x7E, std::numeric_limits<float>::infinity(), false},
-        {0xFE, -std::numeric_limits<float>::infinity(), false},
-        {0x7F, 0.0f, true},
+        {0x7E, 240.0f, false},
+        {0xFE, -240.0f, false},
+        {0x7F, 240.0f, false},
     };
 
     for (const auto &c : cases) {
@@ -217,4 +217,45 @@ TEST_F(InterpTypeConvertTest, Fp8SpecialValues) {
     }
 }
 
-}  // namespace npu::tile_fwk
+// FP8 E5M2 special values: +0(0x00), -0(0x80), +Inf(0x7C), -Inf(0xFC), NaN(0x7F)
+TEST_F(InterpTypeConvertTest, Fp8E5M2SpecialValues) {
+    struct {
+        uint8_t enc;
+        float expected;
+        bool is_nan;
+        bool is_inf;
+    } cases[] = {
+        {0x00, 0.0f, false, false},
+        {0x80, -0.0f, false, false},
+        {0x7C, std::numeric_limits<float>::infinity(), false, true},   // +Inf
+        {0xFC, -std::numeric_limits<float>::infinity(), false, true},  // -Inf
+        {0x7F, 0.0f, true, false},                                     // NaN
+    };
+
+    for (const auto &c : cases) {
+        auto src = makeTensorData(DT_FP8E5M2, {4}, static_cast<uint8_t>(c.enc));
+        auto out = makeTensorData(DT_FP32, {4}, 0.0f);
+        calc::Cast(out, src);
+
+        if (c.is_nan) {
+            for (int64_t i = 0; i < 4; ++i) {
+                ASSERT(std::isnan(out->Get<float>(i))) << "expected NaN at index " << i;
+            }
+        } else if (c.is_inf) {
+            for (int64_t i = 0; i < 4; ++i) {
+                float v = out->Get<float>(i);
+                ASSERT(std::isinf(v)) << "expected Inf at index " << i;
+                if (c.expected > 0.0f) {
+                    ASSERT(v > 0.0f) << "expected +Inf at index " << i;
+                } else {
+                    ASSERT(v < 0.0f) << "expected -Inf at index " << i;
+                }
+            }
+        } else {
+            auto golden = makeTensorData(DT_FP32, {4}, c.expected);
+            ASSERT_ALLCLOSE(out, golden);
+        }
+    }
+}
+}
+
