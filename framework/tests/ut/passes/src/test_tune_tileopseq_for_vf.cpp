@@ -43,6 +43,7 @@ public:
         config::Reset();
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
+        config::SetPassGlobalConfig(KEY_ENABLE_VF, true);
     }
     void TearDown() override {}
 };
@@ -160,6 +161,60 @@ TEST_F(TuneTileopseqForVFTest, TestMainProcess) {
     auto funcPtr = it->second;
     std::vector<Operation *> opList(funcPtr->Operations(false).DuplicatedOpList());
     EXPECT_EQ(opList.size(), TT_NUM5);
+}
+
+void BuildGraphForNonGroup(std::shared_ptr<Function> currFunctionPtr, std::vector<Operation *> &opListPtr) {
+    std::vector<int64_t> shape = {TT_NUM16, TT_NUM16};
+    auto tensor1 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor1->memoryrange.start = TT_NUM40;
+    tensor1->memoryrange.end = TT_NUM50;
+    auto tensor2 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor2->memoryrange.start = TT_NUM50;
+    tensor2->memoryrange.end = TT_NUM60;
+    auto tensor3 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor3->memoryrange.start = TT_NUM60;
+    tensor3->memoryrange.end = TT_NUM70;
+    auto tensor4 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor4->memoryrange.start = TT_NUM70;
+    tensor4->memoryrange.end = TT_NUM80;
+    auto tensor5 = std::make_shared<LogicalTensor>(*currFunctionPtr, DT_FP32, shape);
+    tensor5->memoryrange.start = TT_NUM90;
+    tensor5->memoryrange.end = TT_NUM100;
+    auto &vecop1 = currFunctionPtr->AddRawOperation(Opcode::OP_RECIPROCAL, {tensor1}, {tensor2});
+    opListPtr.emplace_back(&vecop1);
+    auto &op1 = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_MOVEIN, {tensor2}, {tensor3});
+    opListPtr.emplace_back(&op1);
+    auto &op2 = currFunctionPtr->AddRawOperation(Opcode::OP_TRANSPOSE_MOVEOUT, {tensor3}, {tensor4});
+    opListPtr.emplace_back(&op2);
+    auto &vecop2 = currFunctionPtr->AddRawOperation(Opcode::OP_EXPAND, {tensor4}, {tensor5});
+    opListPtr.emplace_back(&vecop2);
+}
+
+TEST_F(TuneTileopseqForVFTest, TestNonGroupCase) {
+    // Build Graph
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestNonGroup", "TestNonGroup", nullptr);
+    rootFuncPtr->rootFunc_ = rootFuncPtr.get();
+    auto currFunctionPtr = std::make_shared<Function>(Program::GetInstance(), "TestNonGroupLeaf", "TestNonGroupLeaf", rootFuncPtr.get());
+    EXPECT_TRUE(currFunctionPtr != nullptr);
+    rootFuncPtr->rootFunc_->programs_.emplace(currFunctionPtr->GetFuncMagic(), currFunctionPtr.get());
+    std::vector<Operation *> opListPtr;
+    BuildGraphForNonGroup(currFunctionPtr, opListPtr);
+    TuneTileOpSeqForVF tuneTileop;
+    PipeSync ps;
+    tuneTileop.opList_ = opListPtr;
+    for (auto &op : tuneTileop.opList_) {
+        op->SetAIVCore(AIVCore::AIV0);
+    }
+    tuneTileop.ChangeOpSeq(ps, false);
+    EXPECT_EQ(tuneTileop.opList_[0]->GetOpcode(), Opcode::OP_RECIPROCAL);
+    EXPECT_EQ(tuneTileop.opList_[3]->GetOpcode(), Opcode::OP_EXPAND);
+}
+
+TEST_F(TuneTileopseqForVFTest, TestSkip) {
+    config::SetPassGlobalConfig(KEY_ENABLE_VF, false);
+    auto rootFuncPtr = std::make_shared<Function>(Program::GetInstance(), "TestSkip", "TestSkip", nullptr);
+    TuneTileOpSeqForVF tuneSync;
+    EXPECT_EQ(tuneSync.RunOnFunction(*rootFuncPtr.get()), SUCCESS);
 }
 
 } // namespace tile_fwk

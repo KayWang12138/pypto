@@ -703,7 +703,9 @@ def gen_matmulverify_op_golden(
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul",
-    ]
+    ],
+    version=0,
+    timeout=0
 )
 def gen_batchmatmul_op_golden(
     case_name: str, output: Path, case_index: int = None
@@ -1534,6 +1536,8 @@ def gen_numpy_op_golden(case_name: str, output: Path, case_index: int = None) ->
         if inputdata_type == bfloat16:
             result = torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float32)
             return [result.numpy().astype(bfloat16)]
+        elif inputdata_type == np.int16:
+            return [torch.arange(np.int16(start), np.int16(end), np.int16(step), dtype=torch.int16).numpy()]
         elif inputdata_type == np.float16:
             return [torch.arange(np.float32(start), np.float32(end), np.float32(step), dtype=torch.float16).numpy()]
         elif inputdata_type == np.float32:
@@ -1793,18 +1797,6 @@ def gen_indexadd_op_golden(
 ) -> bool:
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("IndexAdd", indexadd_golden_func, output, case_index)
-
-
-@GoldenRegister.reg_golden_func(
-    case_names=[
-        "TestIndexAdd_/IndexAdd_OperationTest.TestIndexAdd_",
-    ]
-)
-def gen_indexadd__op_golden(
-    case_name: str, output: Path, case_index: int = None
-) -> bool:
-    logging.debug("Case(%s), Golden creating...", case_name)
-    return gen_op_golden("IndexAdd_", indexadd_golden_func, output, case_index)
 
 
 def indexput_dfs(indices_range, deep, max_count, cur_indices, all_indices):
@@ -2214,6 +2206,31 @@ def gen_clip_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Clip", golden_func, output, case_index)
 
+
+@TestCaseLoader.reg_params_handler(ops=["ArgSort"])
+def topk_params_func(params: dict):
+    params["dims"] = parse_list_str(params.get("dims"))
+    params["descending"] = [bool(x) for x in parse_list_str(params.get("descending"))]
+    return params
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        'TestArgSort/ArgSortOperationTest.TestArgSort'
+    ]
+)
+def gen_argsort_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        x = torch.from_numpy(inputs[0])
+        dims = params["dims"]
+        descending = params["descending"]
+        idx = torch.argsort(x, dim=dims[0], descending=descending[0], stable=True)
+        return [idx.numpy()]
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("ArgSort", golden_func, output, case_index)
+
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestBitwiseRightShift/BitwiseRightShiftOperationTest.TestBitwiseRightShift",
@@ -2317,6 +2334,22 @@ def gen_s_bitwise_left_shift_op_golden(case_name: str, output: Path, case_index:
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("SBitwiseLeftShift", golden_func, output, case_index)
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestCopySign/CopySignOperationTest.TestCopySign",
+    ]
+)
+def gen_bitwise_right_shift_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        x0 = from_numpy(inputs[0])
+        x1 = from_numpy(inputs[1])
+        y = torch.copysign(x0, x1)
+        return [to_numpy(y)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("CopySign", golden_func, output, case_index)
 
 
 def main() -> bool:

@@ -75,6 +75,7 @@ const std::string OpAttributeKey::loopGroupStart = "LOOP_GROUP_START";
 const std::string OpAttributeKey::loopGroupEnd = "LOOP_GROUP_END";
 const std::string OpAttributeKey::lastUse = "last_use";
 const std::string OpAttributeKey::isUpper = "is_upper";
+const std::string OpAttributeKey::blockSize = "block_size";
 
 const std::string ConvOpAttributeKey::cin = "CIN";
 const std::string ConvOpAttributeKey::cout = "COUT";
@@ -162,18 +163,15 @@ Operation::Operation(
     if (function_->IsGraphType({GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
         tileShape_ = TileShape::Current();
         if (coreType_ == CoreType::AIC) {
-            // ASSERT(tileShape_.GetCubeTile().valid())
-            //     << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
+            auto &cubeTile = tileShape_.GetCubeTile();
+            auto &convTile = tileShape_.GetConvTile();
+            ASSERT(cubeTile.valid() || convTile.valid())
+                << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
         }
         OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(opcode);
         if (coreType_ == CoreType::AIV && calcType != OpCalcType::DISTRIBUTED) {
             auto &vecTile = tileShape_.GetVecTile();
             ASSERT(vecTile.valid()) << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
-            if (iOperands.size()) {
-                auto dataType = iOperands[0]->Datatype();
-                auto lastAxis = vecTile.tile.back();
-                ASSERT((lastAxis * BytesOf(dataType)) % BLOCK_SIZE == 0) << "vec tile should be 32B align";
-            }
         }
         SetSemanticLabel(config::GetSemanticLabel());
         location_ = SourceLocation::GetLocation();

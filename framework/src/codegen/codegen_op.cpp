@@ -143,7 +143,7 @@ void CodeGenOp::UpdateOffsetForInput(const Operation &oper, const LogicalTensor 
     bool cubeMDLCondition = cubeMDLOpCode.count(opCode) && (attr != nullptr);
     bool useAttrShapeOffsetForInputGM = OpcodeManager::Inst().IsCopyIn(opCode);
     if (cubeMDLCondition || (useAttrShapeOffsetForInputGM && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR)) {
-        // only used for 1. L1 Copy; 2. spilling into gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
+        // only used for 1. L1 Copy; 2. spilling to gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
         ALOG_INFO_F("start update offset for GM input");
         ASSERT(attr != nullptr) << ": missing OpAttr in copy in op: \n" << oper.Dump();
         UpdateOffsetValueFromAttr(attr->GetCopyInAttr().first, operandIdx);
@@ -161,7 +161,7 @@ void CodeGenOp::UpdateOffsetForOutput(const Operation &oper, const LogicalTensor
     bool cubeMDLCondition = cubeMDLOutOpCode.count(opCode) && (attr != nullptr);
     if (cubeMDLCondition ||
         (useAttrShapeOffsetForOutputGM && logicalTensor.GetMemoryTypeOriginal() == MEM_DEVICE_DDR)) {
-        // only used for 1. L1 Copy; 2. spilling into gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
+        // only used for 1. L1 Copy; 2. spilling to gm scene(e.g., ooo spilling); 3. matmul Multi-Data Load scene.
         ALOG_INFO_F("start update offset for GM output");
         ASSERT(attr != nullptr) << ": missing OpAttr in copy in op: \n" << oper.Dump();
         UpdateOffsetValueFromAttr(attr->GetCopyOutAttr().second, operandIdx);
@@ -172,7 +172,7 @@ void CodeGenOp::UpdateOffsetForOutput(const Operation &oper, const LogicalTensor
     ALOG_INFO_F("UpdateOffsetForInput offset is %s", IntVecToStr(offset[operandIdx]).c_str());
 }
 
-void CodeGenOp::UpdateScalarValue(const npu::tile_fwk::Operation &ops) {
+void CodeGenOp::UpdateScalarValue(const Operation &ops) {
     if (ops.HasAttr(OpAttributeKey::scalar)) {
         extOperandVal = ops.GetElementAttribute(OpAttributeKey::scalar);
     }
@@ -194,15 +194,14 @@ bool ShouldSkipIOperand(const std::shared_ptr<LogicalTensor> &tensor, const Oper
     return false;
 }
 
-void CodeGenOp::Init(const npu::tile_fwk::Operation &ops) {
+void CodeGenOp::Init(const Operation &ops) {
     ASSERT(ops.iOperand.size() + ops.oOperand.size() <= MAX_OPERANDS)
         << "can not support ops.iOperand.size: " << ops.iOperand.size()
         << ", ops.oOperand.size: " << ops.oOperand.size();
 
     isDynamicFunction = functionType == FunctionType::DYNAMIC_LOOP_PATH;
     isSupportDynamicAligned = config::GetCodeGenOption<bool>(SUPPORT_DYNAMIC_ALIGNED);
-    ALOG_INFO_F(
-        "%s: init CodeGenOp from npu::tile_fwk::Operation, isDynamicFunction is %d, isSupportDynamicAligned is %d",
+    ALOG_INFO_F("%s: init CodeGenOp from Operation, isDynamicFunction is %d, isSupportDynamicAligned is %d",
         __FUNCTION__, isDynamicFunction, isSupportDynamicAligned);
 
     UpdateTileOpInfo(ops);
@@ -268,7 +267,7 @@ void CodeGenOp::UpdateCodegenOpInfoByTensor(
     ++operandIdx;
 }
 
-void CodeGenOp::UpdateOpAttribute(const npu::tile_fwk::Operation &ops) {
+void CodeGenOp::UpdateOpAttribute(const Operation &ops) {
     opAttrs = ops.GetAllAttr();
     isInputForceCombineAxis = ops.HasAttr(OpAttributeKey::inputCombineAxis);
 
@@ -286,11 +285,11 @@ std::string CodeGenOp::GenOpAttr(bool hasExistingParam) const {
             continue;
         }
         if (kv.second.Type() == typeid(int64_t)) {
-            attrList.push_back(std::to_string(npu::tile_fwk::AnyCast<int64_t>(kv.second)));
+            attrList.push_back(std::to_string(AnyCast<int64_t>(kv.second)));
         } else if (kv.second.Type() == typeid(bool)) {
-            attrList.push_back(std::to_string(npu::tile_fwk::AnyCast<bool>(kv.second)));
+            attrList.push_back(std::to_string(AnyCast<bool>(kv.second)));
         } else if (kv.second.Type() == typeid(std::vector<int64_t>)) {
-            auto vec = npu::tile_fwk::AnyCast<std::vector<int64_t>>(kv.second);
+            auto vec = AnyCast<std::vector<int64_t>>(kv.second);
             for (auto v : vec) {
                 attrList.push_back(std::to_string(v));
             }
@@ -391,23 +390,23 @@ void CodeGenOp::UpdateTileOpInfo(const Operation &ops) {
         "enter tileOpName is %s, opcode = %s", tileOpName.c_str(), OpcodeManager::Inst().GetOpcodeStr(opCode).c_str());
 
     if (opCode == Opcode::OP_COPY_IN && !ops.oOperand.empty()) {
-        npu::tile_fwk::MemoryType memtype = ops.oOperand[0]->GetMemoryTypeOriginal();
-        if (memtype == npu::tile_fwk::MemoryType::MEM_UB) {
+        MemoryType memtype = ops.oOperand[0]->GetMemoryTypeOriginal();
+        if (memtype == MemoryType::MEM_UB) {
             tileOpName = "TileOp::UBCopyIn";
             opCode = Opcode::OP_UB_COPY_IN;
-        } else if (memtype == npu::tile_fwk::MemoryType::MEM_L1) {
+        } else if (memtype == MemoryType::MEM_L1) {
             tileOpName = "TileOp::L1CopyIn";
             opCode = Opcode::OP_L1_COPY_IN;
         }
     } else if (opCode == Opcode::OP_COPY_OUT && !ops.iOperand.empty()) {
-        npu::tile_fwk::MemoryType memtype = ops.iOperand[0]->GetMemoryTypeOriginal();
-        if (memtype == npu::tile_fwk::MemoryType::MEM_UB) {
+        MemoryType memtype = ops.iOperand[0]->GetMemoryTypeOriginal();
+        if (memtype == MemoryType::MEM_UB) {
             tileOpName = "TileOp::UBCopyOut";
             opCode = Opcode::OP_UB_COPY_OUT;
-        } else if (memtype == npu::tile_fwk::MemoryType::MEM_L1) {
+        } else if (memtype == MemoryType::MEM_L1) {
             tileOpName = "TileOp::L1CopyOut";
             opCode = Opcode::OP_L1_COPY_OUT;
-        } else if (memtype == npu::tile_fwk::MemoryType::MEM_L0C) {
+        } else if (memtype == MemoryType::MEM_L0C) {
             tileOpName = "TileOp::L0CCopyOut";
             opCode = Opcode::OP_L0C_COPY_OUT;
         }
@@ -431,7 +430,7 @@ void CodeGenOp::UpdateTileOpInfo(const Operation &ops) {
         OpcodeManager::Inst().GetOpcodeStr(opCode).c_str());
 }
 
-void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
+void CodeGenOp::GetGmParamIdx(const Operation &oper) {
     if (!isUnderDynamicFunction || oper.IsNeedStackGM()) {
         auto inParamLocSize = oper.inParamLocation_.size();
         auto outParamLocSize = oper.outParamLocation_.size();
@@ -471,7 +470,7 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         return;
     }
 
-    if (oper.GetOpcode() == Opcode::OP_GATHER_IN_L1) {
+    if (oper.GetOpcode() == Opcode::OP_GATHER_IN_L1 || oper.GetOpcode() == Opcode::OP_GATHER_IN_UB) {
         int ioAttrOffset = 0;
         for (int i = 0; i < operandCnt; i++) {
             if (operandType[i] == BUF_DDR) {
@@ -481,13 +480,7 @@ void CodeGenOp::GetGmParamIdx(const npu::tile_fwk::Operation &oper) {
         GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
         return;
     }
-    if (oper.GetOpcode() == Opcode::OP_GATHER_IN_UB) {
-        paramLocation[ID0] = oper.GetIOpAttrOffset(ID0);
-        paramLocation[ID1] = oper.GetIOpAttrOffset(ID1);
-        paramLocation[ID2] = oper.GetIOpAttrOffset(ID2);
-        GmTensorParamIdxInCallFunc = oper.GetIntAttribute("GmTensorParamIdxInCallFunc");
-        return;
-    }
+
     if (oper.GetOpcode() == Opcode::OP_GATHER) {
         paramLocation[ID1] = oper.GetIOpAttrOffset(0);
         paramLocation[ID2] = oper.GetIOpAttrOffset(1);

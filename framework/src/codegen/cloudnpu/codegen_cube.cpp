@@ -19,23 +19,45 @@
 #include "securec.h"
 
 namespace npu::tile_fwk {
-std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const {
-    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-    std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC1_IDX));
-
+std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(
+    bool isAcc, std::unordered_map<OperandType, std::string> &tensorWithMemType) const {
     std::ostringstream oss;
-    if (opAttrs.count(OP_ATTR_PREFIX + "has_bias")) {
-        bool hasBias = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
-        if (hasBias) {
-            std::string biasTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC2_IDX));
-            oss << tileOpName << "(" << dstTensor << ", " << src0Tensor << ", " << src1Tensor << ", " << biasTensor
-                << ");\n";
-            return oss.str();
-        }
+    bool hasBias = tensorWithMemType.count(OperandType::BUF_BT);
+    std::vector<std::string> paramList = {tensorWithMemType[OperandType::BUF_L0C],
+        tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0B]};
+    oss << tileOpName;
+    if (hasBias) {
+        paramList.emplace_back(tensorWithMemType[OperandType::BUF_BT]);
+        oss << WrapParamByParentheses(paramList) << ";\n";
+        return oss.str();
     }
-    oss << tileOpName << "<" << std::to_string(isAcc) << ">" << "(" << dstTensor << ", " << src0Tensor << ", "
-        << src1Tensor << ");\n";
+    oss << WrapParamByAngleBrackets({std::to_string(isAcc)});
+    oss << WrapParamByParentheses(paramList) << ";\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::PrintMatmulTileTensor(bool isAcc) const {
+    std::unordered_map<OperandType, std::string> tensorWithMemType;
+    for (int i = 0; i < operandCnt; i++) {
+        tensorWithMemType.emplace(operandType[i], QueryTileTensorNameByIdx(i));
+    }
+    bool hasBias = tensorWithMemType.count(OperandType::BUF_BT);
+    bool isMXMad = tensorWithMemType.count(OperandType::BUF_L0AMX) || tensorWithMemType.count(OperandType::BUF_L0BMX);
+    if (!isMXMad) {
+        return PrintMatmulTileTensor(isAcc, tensorWithMemType);
+    }
+    std::ostringstream oss;
+    std::vector<std::string> mxParamList = {tensorWithMemType[OperandType::BUF_L0C],
+        tensorWithMemType[OperandType::BUF_L0A], tensorWithMemType[OperandType::BUF_L0AMX],
+        tensorWithMemType[OperandType::BUF_L0B], tensorWithMemType[OperandType::BUF_L0BMX]};
+    oss << "MatmulMX";
+    if (hasBias) {
+        mxParamList.emplace_back(tensorWithMemType[OperandType::BUF_BT]);
+        oss << WrapParamByParentheses(mxParamList) << ";\n";
+        return oss.str();
+    }
+    oss << WrapParamByAngleBrackets({std::to_string(isAcc)});
+    oss << WrapParamByParentheses(mxParamList) << ";\n";
     return oss.str();
 }
 
@@ -44,9 +66,6 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
         return PrintMatmulTileTensor(!zeroC);
     }
     // shape: dst, src0, src1
-    bool isOffsetValid =
-        (offset[ID1][ID0] == 0) && (offset[ID1][ID1] == 0) && (offset[ID2][ID0] == 0) && (offset[ID2][ID1] == 0);
-    ASSERT(isOffsetValid) << "CUBE: haven't consider l0A/B offset yet.";
     bool isShapeValid = (shape[ID0][ID0] == shape[ID1][ID0]) &&
                         (shape[ID0][ID1] == shape[ID2][ID1] || shape[ID0][ID1] == shape[ID2][ID0]) &&
                         (shape[ID1][ID1] == shape[ID2][ID1] || shape[ID1][ID1] == shape[ID2][ID0]);
@@ -75,7 +94,7 @@ std::string CodeGenOpCloudNPU::GenCubeOp(bool zeroC) const {
         auto nSymbol = l0cShapeDyn[ID1];
         bool hasBias = 0;
         if (opAttrs.count(OP_ATTR_PREFIX + "has_bias")) {
-            hasBias = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
+            hasBias = AnyCast<bool>(opAttrs.at(OP_ATTR_PREFIX + "has_bias"));
         }
         std::string biasStr = ", " + std::to_string(hasBias);
 

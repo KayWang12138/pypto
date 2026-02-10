@@ -13,7 +13,7 @@
         "sg_set_scope": -1,
         "cube_l1_reuse_setting": [],
         "cube_nbuffer_setting": [],
-        "vec_nbuffer_setting":[]
+        "vec_nbuffer_setting": []
     },
     "runtime": {
         "device_sched_mode": 0,
@@ -23,6 +23,7 @@
         "stitch_function_num_step": 0,
         "stitch_cfgcache_size": 0,
         "stitch_function_size": 20000,
+        "triple_stream_sched": false,
         "run_mode": 0,
         "valid_shape_optimize": 0
     },
@@ -37,7 +38,7 @@
         "pass_verify_save_tensor": false,
         "pass_verify_save_tensor_dir": "",
         "pass_verify_pass_filter": [],
-        "pass_verify_error_tol": [1e-3, 1.5e-3]
+        "pass_verify_error_tol": [1e-3, 1e-3]
     },
     "debug": {
         "compile_debug_mode": 0,
@@ -103,6 +104,7 @@
             "enable_cv_fuse": false,
             "pass_thread_num": 1,
             "vf_opt_mark_for": false,
+            "enable_vf": false,
             "default_pass_configs": {
                 "print_graph": false,
                 "print_program": false,
@@ -112,7 +114,8 @@
                 "post_check": false,
                 "expected_value_check": false,
                 "disable_pass": false,
-                "health_check": false
+                "health_check": false,
+                "use_max_freq_label": false
             }
         },
         "pass_strategies": {

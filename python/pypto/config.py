@@ -200,6 +200,7 @@ def set_runtime_options(*,
                         stitch_function_num_step: Optional[int] = None,
                         stitch_function_size: int = None,
                         stitch_cfgcache_size: Optional[int] = None,
+                        triple_stream_sched: Optional[bool] = None,
                         run_mode: Optional[int] = None,
                         valid_shape_optimize: Optional[int] = None
                         ) -> None:
@@ -286,7 +287,8 @@ def set_verify_options(*,
     if pass_verify_pass_filter == []:
         pass_verify_pass_filter = None
     if pass_verify_error_tol is None or len(pass_verify_error_tol) != 2:
-        pass_verify_error_tol = [1e-3, 1.5e-3]
+        pass_verify_error_tol = [1e-3, 1e-3]
+    pass_verify_error_tol = [float(x) for x in pass_verify_error_tol]
     options_dict = {k: v for k, v in locals().items() if v is not None}
     set_options(verify_options=options_dict)
 

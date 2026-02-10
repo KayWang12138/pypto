@@ -1939,6 +1939,7 @@ struct EncodeDevAscendProgramInfo {
 
     void Init(DevAscendProgram *devProg, bool fillContent) {
         uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(devProg->data);
+        devProg->devArgs.archInfo = static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch());
         devProg->slotSize = dyndevAttr->inoutLink.totalSlot;
         devProg->runtimeOutcastPoolSize = dyndevAttr->inoutLink.totalSlot * (MAX_CACHED_FUNC_NUM + 1);
         devProg->assembleSlotSize = dyndevAttr->inoutLink.assembleSlotIndexList.size();
@@ -2308,6 +2309,15 @@ static uint64_t DumpTensorWorkspace() {
 #endif
 }
 
+static uint64_t LeafDumpWorkspace() {
+    if (IsPtoDataDumpEnabled()){
+        static constexpr uint64_t LEAFDUMP_WORKSPACE = 12 * MEBI;
+        return LEAFDUMP_WORKSPACE;
+    } else {
+        return 0;
+    }
+}
+
 void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *base) {
     EncodeDevAscendProgramInfo encodeInfo(func);
 
@@ -2339,6 +2349,7 @@ void EncodeDevAscendProgram(Function *func, uint64_t &offset, DevAscendProgram *
         base->memBudget.metadata.general += CalcGeneralMetadataSlabWorkspace(base);
         base->memBudget.metadata.stitchPool = CalcStitchWorkspace(*base);
         base->memBudget.debug.dumpTensor = DumpTensorWorkspace();
+        base->memBudget.debug.leafDump = LeafDumpWorkspace();
 
         func->GetDyndevAttribute()->maxDynamicAssembleOutcastMem = tensorWsRes.maxDynamicAssembleOutcastMem;
     }

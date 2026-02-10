@@ -1353,10 +1353,17 @@ Tensor Reshape(const Tensor &operand, const std::vector<int64_t> &dstshape, cons
         return operand;
     }
     std::vector<SymbolicScalar> validShapeDefault = validShape;
-    if (validShape.empty()) {
-        validShapeDefault = SymbolicScalar::FromConcrete(dstshape);
-    }
     auto newShape = CheckAndInferShape(operand.GetShape(), dstshape);
+    if (validShape.empty()) {
+        validShapeDefault = SymbolicScalar::FromConcrete(newShape);
+    } else {
+        for (auto validShapeItem : validShape) {
+            if (validShapeItem.IsImmediate() && validShapeItem == -1) {
+                ASSERT(false) << "Not supported: validShape contains -1";
+            }
+        }
+    }
+
     if (ReshapeNeedCopy(operand) && !MatchBatchMatMulPattern(operand.GetShape(), dstshape)) {
         Tensor copyOperand(operand.GetStorage()->Datatype(), operand.GetShape(), "", operand.Format());
         copyOperand.GetStorage()->UpdateDynValidShape(operand.GetStorage()->GetDynValidShape());
@@ -1414,7 +1421,7 @@ void TiledGatherInUB(Function &function, const TileShape &tileShape, const Logic
             auto resultTile = result->View(function, {shape0, shape1}, {i, j});
             auto &op =
                 function.AddOperation(Opcode::OP_GATHER_IN_UB, {paramTile, indicesTile, blockTableTile}, {resultTile});
-            op.SetAttribute(OP_ATTR_PREFIX + "blocksize", blockSize);
+            op.SetAttribute(OpAttributeKey::blockSize, blockSize);
             (void)op;
         }
     }
@@ -1440,7 +1447,7 @@ Tensor experimental::GatherInUB(
     }
     auto &op = Program::GetInstance().GetCurrentFunction()->AddOperation(Opcode::OP_GATHER_IN_UB,
         {params.GetStorage(), indices.GetStorage(), blockTable.GetStorage()}, {result.GetStorage()});
-    op.SetAttribute(OP_ATTR_PREFIX + "blocksize", blockSize);
+    op.SetAttribute(OpAttributeKey::blockSize, blockSize);
     (void)op;
     return result;
 }
@@ -1486,7 +1493,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         case Opcode::OP_GATHER_IN_UB: {
-            int blocksize = op.GetIntAttribute(OP_ATTR_PREFIX + "blocksize");
+            int blocksize = op.GetIntAttribute(OpAttributeKey::blockSize);
             TiledGatherInUB(function, tileShape, iOperand[0], iOperand[1], iOperand[2], oOperand[0], blocksize);
             break;
         }
@@ -1655,7 +1662,7 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             break;
         }
         default: {
-            ASLOGE("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
+            ALOG_ERROR_F("Unsupported opcode %d, opmagic is %d", static_cast<int>(opCode), op.GetOpMagic());
             ASSERT(false) << "Unsupported opcode " << static_cast<int>(opCode) << ", opmagic is " << op.GetOpMagic();
         }
     }

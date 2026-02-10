@@ -53,6 +53,7 @@ constexpr uint32_t DIST_COMM_GROUP_NUM = 2;
 constexpr const int NUM2 = 2;
 constexpr const int NUM4 = 4;
 constexpr const int NUM1 = 1;
+constexpr const int NUM6 = 6;
 constexpr const int NUM150 = 150;
 constexpr const int NUM16 = 16;
 
@@ -143,7 +144,9 @@ enum OperandType {
     BUF_DDR = 7,
     BUF_REG = 8,
     SCALAR = 9,
-    TOTAL_BUF_TYPE = 9
+    BUF_L0AMX = 10,
+    BUF_L0BMX = 11,
+    TOTAL_BUF_TYPE,
 };
 
 inline std::string OperandTypeToStr(OperandType t) {
@@ -527,10 +530,14 @@ inline std::string GetEnvVar(const std::string &varName, bool trim = true, bool 
     return value;
 }
 
-// 判断环境变量 AST_DATADUMP_PATH 是否为 true
-inline bool IsAstDataDumpEnabled() {
-    std::string value = GetEnvVar("AST_DATADUMP_PATH", true, true);
-    return (value == "true");
+// 判断环境变量 PTO_DATADUMP_ENABLE 是否为 true
+inline bool IsPtoDataDumpEnabled() {
+    static const bool result = []() {
+        std::string value = GetEnvVar("PTO_DATADUMP_ENABLE", true, true);
+        return (value == "true");
+    }();
+
+    return result;
 }
 
 // 向上取整除法
@@ -592,4 +599,8 @@ private:
     uint64_t startTime;
 };
 
+template <typename T>
+inline bool HasNegativeNum(const std::vector<T> &vec) {
+    return std::any_of(vec.begin(), vec.end(), [](T num) { return num < 0; });
+}
 } // namespace npu::tile_fwk

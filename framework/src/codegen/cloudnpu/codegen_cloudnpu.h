@@ -119,6 +119,7 @@ public:
         const std::shared_ptr<SymbolManager> &sm, const std::shared_ptr<LogicalTensor> &tensor) const;
     std::string GenAllocForLocalBuffer(const Operation &op, const std::shared_ptr<SymbolManager> &sm) const;
     std::string GetCoreArch(const CompileInfo &compileInfo) const;
+    static void AppendVFLLVMParams(std::ostringstream &oss);
 
 private:
     std::string GenFuncBodyBefore(
@@ -135,16 +136,16 @@ private:
     void DumpCCE(const std::string &name, const std::string &code) const;
 
     void DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
-    std::string BuildCompileOptions(const CompileInfo &compileInfo, const std::string &compileOptions) const;
+    void BuildArchOptions(std::ostringstream &oss, const CompileInfo &compileInfo) const;
     void BuildIncludes(std::ostringstream &oss) const;
-    void BuildLLVMParams(std::ostringstream &oss) const;
+    void BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const;
 
     std::string GenAlloc(const std::shared_ptr<SymbolManager> &manager, BufferType bufferType,
-        npu::tile_fwk::DataType dataType, const npu::tile_fwk::TileRange &range) const;
+        DataType dataType, const TileRange &range) const;
 
     std::string GetParamType(const Function &func, bool isUnderDynFunc) const;
 
-    std::string GenDynParamForExpr(const npu::tile_fwk::Function &func) const;
+    std::string GenDynParamForExpr(const Function &func) const;
 
     bool HandleForAICpuSubFunc(Function &subFunc);
 

@@ -154,6 +154,7 @@ struct FunctionFrame {
         const std::vector<int64_t> &rawShape, DataType dtype,
         const std::shared_ptr<LogicalTensor> &inplaceTensor = nullptr) {
         if (tensorDataViewDict.count(tensor)) {
+            tensorDataViewDict[tensor]->UpdateValidShape(validShape);
             return tensorDataViewDict[tensor];
         }
 
@@ -259,6 +260,7 @@ enum class OpInfoCsvHeader {
     rootFuncID,
     funcID,
     verifyType,
+    callopMagic,
     loopInfo,
     opMagic,
     opCode,
@@ -303,8 +305,8 @@ struct FunctionInterpreter {
 
         std::string dumpFilePath = dumpPath + "verify_result.csv";
         execResultFile = fopen(dumpFilePath.c_str(), "w");
-        std::vector<std::string> csvHeader = {"No.", "rootFuncID", "funcID", "verifyType", "LoopInfo", "opMagic", "opCode", 
-            "rawTensorMagic", "tensorMagic", "offset", "inputShape", "inputValidShape", "inputDtype", "inputTensors", 
+        std::vector<std::string> csvHeader = {"No.", "rootFuncID", "funcID", "verifyType", "callopMagic", "loopInfo", "opMagic",
+            "opCode", "rawTensorMagic", "tensorMagic", "offset", "inputShape", "inputValidShape", "inputDtype", "inputTensors", 
             "outputShape", "outputValidShape", "outputDynValidShape", "outputDtype",
             "outputTensor", "verifyResult", "maxAbsDiff", "maxRelDiff", "errorCount", "errorRatio"};
         WriteCsvRow(csvHeader);
@@ -506,8 +508,8 @@ struct FunctionInterpreter {
             ASSERT(opAttr != nullptr);
             Offset iopOffsets = iOpDataList[index]->GetOffset();
             Offset viewOffsets = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset());
-            auto validShape = EvaluateValidShape(oop->GetDynValidShape());
-            auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape());
+            auto validShape = EvaluateValidShape(oop->GetDynValidShape(), (frame.callopAttr != nullptr) ? frame.callopAttr->GetLinearArgList() : std::vector<SymbolicScalar>{});
+            auto rawShape = EvaluateValidShape(oop->GetRawTensor()->GetDynRawShape(), (frame.callopAttr != nullptr) ? frame.callopAttr->GetLinearArgList() : std::vector<SymbolicScalar>{});
             std::shared_ptr<LogicalTensorData> ret;
             if (IsViewInplace(iop, oop)) {
                 ret = frame.AllocateDataView(oop, viewOffsets, validShape, rawShape, oop->GetRawTensor()->GetDataType(), iop);
@@ -1001,7 +1003,7 @@ public:
         slotDataViewDict_ = slotDataViewDict;
         outputSlotSet_ = outputSlotSet;
         for (auto &[slot, tileOpFormat]: slotTileOpFormatDict) {
-            if (tileOpFormat == TileOpFormat::TILEOP_NZ && !outputSlotSet_.count(slot)) {
+            if (tileOpFormat == TileOpFormat::TILEOP_NZ) {
                 ASSERT(slotDataViewDict_.count(slot));
                 auto dataView = slotDataViewDict_[slot];
                 auto inputIndex = findInputIndex(dataView);

@@ -198,19 +198,12 @@ void bind_operation(py::module &m) {
         py::arg("self"), py::arg("indices"), py::arg("src"), py::arg("axis"), py::arg("reduce") = ScatterMode::NONE,
         "Tensor scatter noninplace.");
     m.def(
-        "IndexAdd_",
-        [](const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
-            return npu::tile_fwk::IndexAdd_(self, src, indices, axis, alpha);
-        },
-        py::arg("self"), py::arg("src"), py::arg("indices"), py::arg("axis"),
-        py::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor index add inplace.");
-    m.def(
         "IndexAdd",
         [](const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
             return npu::tile_fwk::IndexAdd(self, src, indices, axis, alpha);
         },
         py::arg("self"), py::arg("src"), py::arg("indices"), py::arg("axis"),
-        py::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor index add noninplace.");
+        py::arg("alpha") = npu::tile_fwk::Element(DT_FP32, 1.0), "Tensor add with index.");
     m.def(
         "GatherElements",
         [](const Tensor &params, const Tensor &indices, int axis) {
@@ -338,7 +331,12 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::TopK(self, k, axis, islargest);
         },
         py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
-
+    m.def(
+        "ArgSort",
+        [](const Tensor &self, int axis, bool descending) {
+            return npu::tile_fwk::ArgSort(self, axis, descending);
+        },
+        py::arg("operand"), py::arg("axis"), py::arg("descending") = false, "Tensor argsort.");
     m.def(
         "Matmul",
         [](DataType out_type, const Tensor &tensor_a, const Tensor &tensor_b, bool a_trans, bool b_trans,
@@ -415,12 +413,6 @@ void bind_operation(py::module &m) {
             return Matrix::TransposedBatchMatmul(out_type, tensor_a, tensor_b);
         },
         py::arg("out_type"), py::arg("a"), py::arg("b"), "Transposed batch matrix multiply.");
-    m.def(
-        "ArgSort",
-        [](const Tensor &operand, int axis, bool is_largest = true) {
-            return npu::tile_fwk::ArgSort(operand, axis, is_largest);
-        },
-        py::arg("operand"), py::arg("axis"), py::arg("is_largest"), "Tensor sort.");
     m.def(
         "ScalarDivS",
         [](const Tensor &operand, const Element &value, bool reverse_operand = false) {
@@ -560,5 +552,8 @@ void bind_operation(py::module &m) {
         "TopKExtract(x, k:int, is_index:bool=False) -> y\n"
         "Extracts the top-k values (or indices if is_index=True)."
     );
+
+    m.def(
+        "CopySign", [](const Tensor &self, const Tensor &other) { return npu::tile_fwk::CopySign(self, other); }, "Tensor copysign.");
 }
 } // namespace pypto
