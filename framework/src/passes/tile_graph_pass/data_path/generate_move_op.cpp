@@ -74,7 +74,13 @@ Status GenerateMoveOp::CreateMoveOpForView(Function &function, Operation &op) co
             return SUCCESS;
         }
         if ((!isGmOutput)) {
-            op.SetOpCode(Opcode::OP_COPY_IN);
+            // 检查是否有IS_CONV属性，如果有则转换为OP_L1_COPY_IN_CONV
+            bool isConv = false;
+            if (op.GetAttr<bool>("IS_CONV", isConv) && isConv) {
+                op.SetOpCode(Opcode::OP_L1_COPY_IN_CONV);
+            } else {
+                op.SetOpCode(Opcode::OP_COPY_IN);
+            }
             SetCopyAttr(op,viewOpAttribute);
         }
     }else if(op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {

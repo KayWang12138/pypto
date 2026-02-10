@@ -914,6 +914,10 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {         Opcode::OP_L1_COPY_IN,          "TLoad"},
     {       Opcode::OP_L0C_COPY_OUT,         "TStore"},
     {       Opcode::OP_GATHER_IN_L1,    "TGatherInL1"},
+    {    Opcode::OP_L1_COPY_IN_CONV,      "TLoadConv"},
+    {        Opcode::OP_LOAD3D_CONV,        "TLoad3D"},
+    {        Opcode::OP_LOAD2D_CONV,        "TLoad2D"},
+    {  Opcode::OP_L0C_COPY_OUT_CONV,     "TStoreConv"},
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
