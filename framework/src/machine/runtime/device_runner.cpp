@@ -430,9 +430,7 @@ void DeviceRunner::DumpAiCorePmuData() {
 }
 
 void DeviceRunner::SynchronizeDeviceToHostProfData() {
-    if (lastLaunchToSubMachineConfig_.profConfig.Contains(ProfConfig::AICORE_TIME)) {
-        DumpAiCoreExecutionTimeData();
-    }
+    DumpAiCoreExecutionTimeData();
 }
 
 int DeviceRunner::DynamicLaunchSynchronize(rtStream_t aicpuStream, rtStream_t ctrlStream, rtStream_t aicoreStream) {
