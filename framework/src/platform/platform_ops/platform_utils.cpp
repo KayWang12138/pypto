@@ -9,7 +9,7 @@
  */
 
 /*!
- * \file platform.cpp
+ * \file platform_ops.cpp
  * \brief
  */
 
