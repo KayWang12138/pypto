@@ -27,6 +27,9 @@
 #include "data_type.h"
 
 namespace npu::tile_fwk {
+extern bool GetSocSpcString(const std::string& column, const std::string& key, std::string& val);
+extern bool GetrtSocVersion(std::string& socVerString);
+extern size_t GetrtAICPUNum(size_t &cpuNum);
 
 struct CacheInfo {
     size_t l2Size;
@@ -105,7 +108,7 @@ class PlatformParser {
     bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
     bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const;
     bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
-}
+};
 
 class Inst {
 public:
@@ -339,7 +342,7 @@ private:
 public:
     void SetDie(const Die& die) { die_ = die; }
     void SetNPUArch(NPUArch version) { version_ = version; }
-    void SetNPUArch(const std::string& version) { version_ = StringToNPUArch(versionStr); }
+    void SetNPUArch(const std::string& version) { version_ = StringToNPUArch(version); }
     void SetShortSocVersion(const std::string& version) { short_soc_ver_ = version;}
     void SetDiesNum(size_t cnt) { dies_cnt_ = cnt; }
     void SetCoreVersion(const std::unordered_map<std::string, std::string>& ver);
@@ -353,7 +356,13 @@ public:
     std::string GetCCECVersion(std::string CoreType);
 
     // SOCINFO
-    size_t GetAICPUNum() const { return GetrtAICPUNum(); }
+    size_t GetAICPUNum() const {
+        size_t aiCpuNum;
+        if (GetrtAICPUNum(aiCpuNum)) {
+            return aiCpuNum;
+        }
+        return ai_cpu_cnt_;
+    }
     size_t GetAICoreNum() const { return ai_core_cnt_; }
     size_t GetAICCoreNum() const { return cube_core_cnt_; }
     size_t GetAIVCoreNum() const { return vector_core_cnt_; }
@@ -487,8 +496,4 @@ public:
         return ss.str();
     }
 };
-
-extern bool GetSocSpcString(const std::string& column, const std::string& key, std::string& val);
-extern bool GetrtSocVersion(std::string& socVerString);
-extern size_t GetrtAICPUNum();
 } // namespace npu::tile_fwk

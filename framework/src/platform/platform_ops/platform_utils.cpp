@@ -37,7 +37,7 @@ bool GetSocSpcString(const std::string& column, const std::string& key, std::str
     return false;
 }
 
-size_t GetrtAICPUNum() {
+bool GetrtAICPUNum(size_t &cpuNum) {
    uint32_t cpuNum = 0;
    int ret = 1;
 #ifdef BUILD_WITH_CANN
@@ -45,8 +45,9 @@ size_t GetrtAICPUNum() {
 #endif
     if (ret == 0) {
         return static_cast<size_t>(cpuNum);
+        return true;
     } else {
-        return ai_cpu_cnt_;
+        return false;
     }
 }
 
