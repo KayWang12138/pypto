@@ -97,7 +97,7 @@ TEST_F(TestCodegenDynBinaryBrc, TestMulDynamic) {
 
 TEST_F(TestCodegenDynBinaryBrc, TestAddBrcTileTensorDynamic) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     std::vector<int64_t> shape1 = {32, 256};
     TileShape::Current().SetVecTile({32, 256});
     Tensor input_a(DataType::DT_FP32, shape1, "A");
