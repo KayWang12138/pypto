@@ -45,6 +45,14 @@ struct StaticReadyCoreFunctionQueue {
   inline bool wasEmpty() const { return head == tail; }
   inline uint64_t wasSize() const { return tail - head; }
 
+  inline std::pair<uint64_t*, size_t> pop(const size_t n = 1)
+  {
+    const auto curHead = head;
+    const size_t count = std::min(n, wasSize());
+    head += count;
+    return { &elem[curHead], count };
+  }
+
   inline void lock() {
      while (!__sync_bool_compare_and_swap(&_lock, 0, 1)) {
     }
@@ -72,7 +80,7 @@ struct WrapInfoQueue {
   uint32_t capacity;
   WrapInfo* elem;
   size_t lock;
-  uint64_t Size() { return tail - head;}
+  uint64_t Size() { return tail - head; }
 };
 
 inline void ReadyQueueLock(ReadyCoreFunctionQueue* rq) {
