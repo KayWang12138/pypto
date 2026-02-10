@@ -1465,6 +1465,99 @@ std::string CodeGenOpCloudNPU::GenGatherInL1() const {
     std::string ostring(buffer);
     return ostring;
 }
+
+std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
+    std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::SRC0_IDX));
+    std::string srcTensor = sm->QueryTileTensorByBufVarName(gmVarName);
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    int64_t copyInMode = -1;
+    std::string copyInModeStr = "";
+    const int64_t ND2NZ = 1;
+    const int64_t NZ2NZ = 2;
+    const int64_t DN2NZ = 3;
+    auto ret = GetAttr("COPY_IN_MODE", copyInMode);
+    ASSERT(ret && copyInMode >= ND2NZ && copyInMode <= DN2NZ) << "Check CopyInMode failed";
+    if (copyInMode == ND2NZ) {
+        copyInModeStr = "CopyInMode::ND2NZ";
+    } else if (copyInMode == NZ2NZ) {
+        copyInModeStr = "CopyInMode::NZ2NZ";
+    } else if (copyInMode == DN2NZ) {
+        copyInModeStr = "CopyInMode::DN2NZ";
+    }
+
+    uint8_t isInput = 0;
+    int64_t offset0 = 0;
+    int64_t offset1 = 0;
+    int64_t offset2 = 0;
+    int64_t offset3 = 0;
+    int64_t offset4 = 0;
+    int64_t kL1 = 0;
+    GetAttr("is_fmap", isInput);
+    GetAttr("OFFSET0", offset0);
+    GetAttr("OFFSET1", offset1);
+    GetAttr("OFFSET2", offset2);
+    if (isInput) {
+        GetAttr("OFFSET3", offset3);
+        GetAttr("OFFSET4", offset4);
+    } else {
+        GetAttr("KL1", kL1);
+    }
+    
+    std::vector<std::string> tileOpParamList = 
+        {dstTensor, srcTensor, std::to_string(offset0), std::to_string(offset1), std::to_string(offset2),
+         std::to_string(offset3), std::to_string(offset4), std::to_string(kL1), std::to_string(isInput)};
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << copyInModeStr << ">";
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << STMT_END;
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenMemL1CopyOutConv() const {
+    std::string gmVarName = GenGmParamVar(ToUnderlying(MISOIdx::DST_IDX));
+    std::string dstTensor = sm->QueryTileTensorByBufVarName(gmVarName);
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    int64_t copyOutMode = -1;
+    std::string copyOutModeStr = "";
+    const int64_t NZ2ND = 0;
+    const int64_t NZ2NZ = 1;
+    const int64_t NZ2DN = 2;
+    auto ret = GetAttr("COPY_OUT_MODE", copyOutMode);
+    ASSERT(ret && copyOutMode >= NZ2ND && copyOutMode <= NZ2DN) << "Check CopyOutMode failed";
+    if (copyOutMode == NZ2ND) {
+        copyOutModeStr = "CopyOutMode::NZ2ND";
+    } else if (copyOutMode == NZ2NZ) {
+        copyOutModeStr = "CopyOutMode::NZ2NZ";
+    } else if (copyOutMode == NZ2DN) {
+        copyOutModeStr = "CopyOutMode::NZ2DN";
+    }
+
+    int64_t offset0 = 0;
+    int64_t offset1 = 0;
+    int64_t offset2 = 0;
+    int64_t offset3 = 0;
+    int64_t offset4 = 0;
+    int64_t offset5 = 0;
+    int64_t offset6 = 0;
+    GetAttr("OFFSET0", offset0);
+    GetAttr("OFFSET1", offset1);
+    GetAttr("OFFSET2", offset2);
+    GetAttr("OFFSET3", offset3);
+    GetAttr("OFFSET4", offset4);
+    GetAttr("OFFSET5", offset5);
+    GetAttr("OFFSET6", offset6);
+    std::vector<std::string> tileOpParamList = {dstTensor, srcTensor, std::to_string(offset0), std::to_string(offset1),
+        std::to_string(offset2), std::to_string(offset3), std::to_string(offset4), std::to_string(offset5),
+        std::to_string(offset6)};
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << copyOutModeStr << ">";
+    oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
+    oss << STMT_END;
+    return oss.str();
+}
+
 /**
  * 辅助函数，对 axis 参数进行归一化
  * example:
