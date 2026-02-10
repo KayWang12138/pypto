@@ -23,6 +23,7 @@ namespace npu::tile_fwk {
 
 constexpr int64_t MAX_L0A_SIZE = 64 * 1024;
 constexpr int64_t MAX_L0C_SIZE = 128 * 1024;
+constexpr int64_t MAX_L0MX_SIZE = 2 * 1024;
 constexpr int64_t MAX_BT_SIZE = 1 * 1024;
 constexpr int64_t MAX_FIX_SIZE = 1 * 1024;
 constexpr int64_t MAX_FIX_QUANT_PRE_SIZE = 1 * 2048;
@@ -1144,6 +1145,8 @@ Status OoOScheduler::Init(const std::vector<Operation *> &operations, const std:
 
 void OoOScheduler::InitMemorySize() {
     localMemorySize = {
+        {MemoryType::MEM_L0AMX, MAX_L0MX_SIZE},
+        {MemoryType::MEM_L0BMX, MAX_L0MX_SIZE},
         {MemoryType::MEM_L0A, MAX_L0A_SIZE},
         {MemoryType::MEM_L0C, MAX_L0C_SIZE},
         {MemoryType::MEM_BT, MAX_BT_SIZE},
@@ -1183,6 +1186,33 @@ Status OoOScheduler::Schedule(const std::vector<Operation *> &operations, const 
     if (CheckAndUpdateLifecycle() != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Operation, "CheckAndUpdateLifecycle failed!");
         return FAILED;
+    }
+    for (size_t i = 0; i < operations.size(); i++) {
+        if (operations[i]->GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
+            auto l0MxOut = operations[i]->GetOOperands()[0];
+            auto consOp = *l0MxOut->GetConsumers().begin();
+            LogicalTensorPtr l0ATensor, l0BTensor, l0AMXTensor, l0BMXTensor;
+            for (auto &l0Tensor : consOp->GetIOperands()) {
+                if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
+                    l0ATensor = l0Tensor;
+                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
+                    l0BTensor = l0Tensor;
+                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) {
+                    l0AMXTensor = l0Tensor;
+                } else if (l0Tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
+                    l0BMXTensor = l0Tensor;
+                }
+            }
+            l02L0MXMap_[l0ATensor] = l0AMXTensor;
+            l02L0MXMap_[l0BTensor] = l0BMXTensor;
+        }
+    }
+    for (auto &entry : l02L0MXMap_) {
+        auto l0Tensor = entry.first;
+        auto l0MXTensor = entry.second;
+        int l0MemID = l0Tensor->memoryrange.memId;
+        int l0MemMXID = l0MXTensor->memoryrange.memId;
+        l0MXTensor->memoryrange = TileRange(localBufferMap[l0MemID]->start >> 4, localBufferMap[l0MemID]->end >> 4, l0MemMXID);
     }
     PrintOpList(newOperations_);
     function_.SetStackWorkespaceSize(workspaceOffset);
