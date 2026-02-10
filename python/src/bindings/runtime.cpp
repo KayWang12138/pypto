@@ -262,7 +262,7 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
 
             if (hostCache) {
                 ctrlCache = CopyHostToDev(reinterpret_cast<uint8_t*>(hostCache),
-                    reinterpret_cast<DevControlFlowCache*>(hostCache)->allCacheSize);
+                    reinterpret_cast<DevControlFlowCache*>(hostCache)->usedCacheSize);
                 free(hostCache);
             }
 
