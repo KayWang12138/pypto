@@ -455,6 +455,16 @@ static void Hypot(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTe
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
+static void PReLU(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr weight) {
+    auto tself = From(self);
+    auto tweight = From(weight);
+    auto tout = From(out);
+    
+    auto result = torch::where(tself.second >= 0, tself.second, tweight.second * tself.second);
+    tout.second.copy_(result);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
 static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
     auto tself = From(self);
     auto tother = From(other);
@@ -1849,6 +1859,7 @@ static struct CalcOps calcOps = {
     .Compare = Compare,
     .Cmps = Cmps,
     .Hypot = Hypot,
+    .PReLU = PReLU,
     .LogicalAnd = LogicalAnd,
     .AddS = AddS,
     .SubS = SubS,
