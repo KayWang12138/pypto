@@ -44,6 +44,7 @@
 #include "vector/logicalnot.h"
 #include "vector/compare.h"
 #include "vector/hypot.h"
+#include "vector/prelu.h"
 #include "vector/gather.h"
 #include "vector/indexadd.h"
 #include "vector/scatter.h"
