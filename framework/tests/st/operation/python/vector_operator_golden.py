@@ -1021,6 +1021,28 @@ def gen_hypot_op_golden(case_name: str, output: Path, case_index: int = None) ->
 
 @GoldenRegister.reg_golden_func(
     case_names=[
+        "TestPReLU/PReLUOperationTest.TestPReLU",
+    ]
+)
+def gen_prelu_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    def golden_func(inputs: list, _config: dict):
+        x = inputs[0]
+        weight = inputs[1]
+        is_bfloat16 = x.dtype == bfloat16
+        if is_bfloat16:
+            x = x.astype(np.float32)
+            weight = weight.astype(np.float32)
+        result = np.where(x >= 0, x, weight * x)
+        if is_bfloat16:
+            result = result.astype(bfloat16)
+        return [result]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("PReLU", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
         "TestFmod/FmodOperationTest.TestFmod",
     ]
 )
