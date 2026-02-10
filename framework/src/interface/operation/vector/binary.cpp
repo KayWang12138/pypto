@@ -171,6 +171,102 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, Logica
     TiledBinaryOperation<T>(function, tileShape, 0, input1, input2, result, resultTileInfo, withBrc);
 }
 
+void TiledPReLUOperation(
+    Function &function, const TileShape &tileShape, size_t cur, Input &input, Input &weight, const LogicalTensorPtr &result) {
+    if (cur == input.tensor.GetShape().size()) {
+        auto tile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto weightTile = weight.tensor.GetStorage()->View(function, weight.tileInfo.shape, weight.tileInfo.offset);
+        auto resultTile = result->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        int axis = 5 - cur + 1;
+        constexpr size_t ALIGN_SIZE = 32;
+        auto inputDataType = input.tensor.GetStorage()->Datatype();
+        int64_t tmpSize = ALIGN_SIZE / BytesOf(inputDataType);
+        if (axis == 4) {
+            tmpSize = (input.tileInfo.shape[cur - 1] + ALIGN_SIZE - 1) / ALIGN_SIZE * ALIGN_SIZE;
+        }
+        std::vector<int64_t> tmpShape({tmpSize});
+        auto tmpTensor = std::make_shared<LogicalTensor>(function, inputDataType, tmpShape);
+        auto &op = function.AddOperation(Opcode::OP_PRELU, {tile, weightTile}, {resultTile, tmpTensor});
+        op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
+        return;
+    }
+    auto &vecTile = tileShape.GetVecTile();
+    
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - i, vecTile[cur]);
+        input.tileInfo.offset[cur] = i;
+        if (cur == 1) {
+            weight.tileInfo.shape[0] = std::min(weight.tensor.GetShape()[0] - i, vecTile[cur]);
+            weight.tileInfo.offset[0] = i;
+        }
+        TiledPReLUOperation(function, tileShape, cur + 1, input, weight, result);
+    }
+}
+
+void TiledPReLUOperation(
+    Function &function, const TileShape &tileShape, const LogicalTensorPtr &input, const LogicalTensorPtr &weight, const LogicalTensorPtr &result) {
+    ASSERT(input->shape.size() == input->offset.size()) << "The shape size of input and offset must be equal";
+    ASSERT(weight->shape.size() == weight->offset.size()) << "The shape size of weight and offset must be equal";
+
+    TileInfo inputTileInfo(input->shape.size(), input->offset.size());
+    TileInfo weightTileInfo(weight->shape.size(), weight->offset.size());
+    auto inputArg = Input{input, inputTileInfo};
+    auto weightArg = Input{weight, weightTileInfo};
+    TiledPReLUOperation(function, tileShape, 0, inputArg, weightArg, result);
+}
+
+void PReLUOperationOperandCheck(
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand) {
+    ASSERT(iOperand.size() == 2) << "The input operand size should be 2";
+    ASSERT(oOperand.size() == 1) << "The output operand size should be 1";
+    
+    auto input = iOperand[0];
+    auto weight = iOperand[1];
+    
+    ASSERT(input->Datatype() == weight->Datatype()) 
+        << "The input and weight should have the same data type";
+    
+    ASSERT(input->shape.size() >= 2 && input->shape.size() <= 4) 
+        << "The input shape dimension should be in range [2, 4]";
+    
+    ASSERT(weight->shape.size() == 1) 
+        << "The weight should be 1-dimensional";
+    
+    ASSERT(weight->shape[0] == input->shape[1]) 
+        << "The weight size should equal to input's second dimension";
+    
+    int64_t inputSize = 1;
+    for (size_t i = 0; i < input->shape.size(); ++i) {
+        inputSize *= input->shape[i];
+    }
+    ASSERT(inputSize <= INT32_MAX) << "The input shape size should not exceed INT32_MAX";
+    
+    int64_t weightSize = weight->shape[0];
+    ASSERT(weightSize <= INT32_MAX) << "The weight shape size should not exceed INT32_MAX";
+}
+
+void PReLUOperationTileFunc(Function &function, const TileShape &tileShape,
+    const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand,
+    [[maybe_unused]] const Operation &op) {
+    PReLUOperationOperandCheck(iOperand, oOperand);
+    TiledPReLUOperation(function, tileShape, iOperand[0], iOperand[1], oOperand[0]);
+}
+
+LogicalTensorPtr TensorPReLUOperation(Function &function, const Tensor &self, const Tensor &weight) {
+    auto selfTensor = self.GetStorage();
+    auto weightTensor = weight.GetStorage();
+    
+    auto result = std::make_shared<LogicalTensor>(function, selfTensor->Datatype(), selfTensor->shape, selfTensor->GetDynValidShape());
+    function.AddOperation(Opcode::OP_PRELU, {selfTensor, weightTensor}, {result});
+    return result;
+}
+
+Tensor PReLU(const Tensor &self, const Tensor &weight) {
+    DECLARE_TRACER();
+
+    RETURN_CALL(PReLUOperation, *Program::GetInstance().GetCurrentFunction(), self, weight);
+}
+
 Tensor Add(const Tensor &self, const Tensor &other) {
     DECLARE_TRACER();
     RETURN_CALL(BinaryOperation<BinaryOpType::ADD>, *Program::GetInstance().GetCurrentFunction(), self, other);
@@ -587,6 +683,7 @@ REGISTER_OPERATION_TILED_FUNC(OP_BITWISEOR, Opcode::OP_BITWISEOR, BinaryOperatio
 REGISTER_OPERATION_TILED_FUNC(OP_BITWISEXOR, Opcode::OP_BITWISEXOR, BinaryOperationTileFunc<BinaryOpType::BITWISEXOR>);
 REGISTER_OPERATION_TILED_FUNC(OP_COPYSIGN, Opcode::OP_COPYSIGN, BinaryOperationTileFunc<BinaryOpType::COPYSIGN>);
 REGISTER_OPERATION_TILED_FUNC(OP_GCD, Opcode::OP_GCD, BinaryOperationTileFunc<BinaryOpType::GCD>);
+REGISTER_OPERATION_TILED_FUNC(OP_PRELU, Opcode::OP_PRELU, PReLUOperationTileFunc);
 
 REGISTER_OPERATION_TILED_FUNC(OP_ADDS, Opcode::OP_ADDS, BinaryOperationScalarTileFunc<BinaryOpType::ADD>);
 REGISTER_OPERATION_TILED_FUNC(OP_SUBS, Opcode::OP_SUBS, BinaryOperationScalarTileFunc<BinaryOpType::SUB>);
