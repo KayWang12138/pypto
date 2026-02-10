@@ -137,6 +137,7 @@ Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) 
         } else {
             op.SetOpCode(Opcode::OP_L1_TO_L0A);
         }
+        op.SetCoreType(CoreType::AIC);
         SetCopyAttr(op,viewOpAttribute);
     } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
         //case3: VIEW转L0B/L0BT
@@ -146,21 +147,26 @@ Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) 
         } else {
             op.SetOpCode(Opcode::OP_L1_TO_L0B);
         }
+        op.SetCoreType(CoreType::AIC);
         SetCopyAttr(op,viewOpAttribute);
     } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) {
         op.SetOpCode(Opcode::OP_L1_TO_L0A_SCALE);
+        op.SetCoreType(CoreType::AIC);
         auto input = op.GetIOperands()[0];
         auto prodOp = *input->GetProducers().begin();
         if (prodOp->GetOpcode() == Opcode::OP_COPY_IN && input->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_A_SCALE);
+            prodOp->SetCoreType(CoreType::AIC);
         }
         SetCopyAttr(op,viewOpAttribute);
     } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
         op.SetOpCode(Opcode::OP_L1_TO_L0B_SCALE);
+        op.SetCoreType(CoreType::AIC);
         auto input = op.GetIOperands()[0];
         auto prodOp = *input->GetProducers().begin();
         if (prodOp->GetOpcode() == Opcode::OP_COPY_IN && input->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
             prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_B_SCALE);
+            prodOp->SetCoreType(CoreType::AIC);
         }
         SetCopyAttr(op,viewOpAttribute);
     } else {
