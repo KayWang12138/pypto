@@ -89,6 +89,9 @@ unsigned long ComputeHash(const std::vector <Operation*>& producers, LogicalTens
         if (op->GetOpAttribute() != nullptr) {
             ss << " " << op->GetOpAttribute()->Dump();
         }
+        if (!op->DumpAttr().empty()) {
+            ss << " " << op->DumpAttr();
+        }
         for (const auto &attr : OpcodeManager::Inst().GetAttrs(op->GetOpcode())) {
             ss << " attr: [" << attr << " : " << op->DumpAttr(attr) << "]";
         }
