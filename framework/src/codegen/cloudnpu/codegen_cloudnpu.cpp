@@ -519,6 +519,7 @@ void CodeGenCloudNPU::AppendVFLLVMParams(std::ostringstream &oss) {
             << "-mllvm --tile-fusion-skip-reduceop-fusion=false "
             << "-mllvm --tile-fusion-skip-legality-check=false "
             << "-Rpass=tile-fusion "
+            << "--cce-simd-vf-fusion=false "
             << "-Rpass-missed=tile-fusion ";
     }
 }
