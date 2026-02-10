@@ -683,19 +683,36 @@ TILEOP void TGatherInL1(DstT dst, SrcT src, BlockT block, OffsetT offset, SrcCoo
     constexpr auto staticL1W = Std::tuple_element<shapeSize - 1, typename DstT::TileShape>::type::value;
     using shapeDim2 = pto::Shape<1, 1, 1, 1, -1>;
     using strideDim2 = pto::Stride<1, 1, 1, -1, -1>;
-    using globalData = pto::GlobalTensor<typename SrcT::Type, shapeDim2, strideDim2, pto::Layout::ND>;
-    for (int64_t i = 0; i < dstShape0; i++) {
-        uint64_t gatherOffset = offset.GetAddr()[i + offsetsStartOffset];
-        gatherOffset = CalaOffset2PageAttention<uint64_t, typename BlockT::Type, blockSize>(
-            block.GetAddr() + GMBlockTableOffset, gatherOffset);
-        globalData src0Global(
-            (__gm__ typename SrcT::Type *)(src.GetAddr() + gatherOffset * srcShape1 + srcColumnStartOffset),
-            shapeDim2(staticL1W), strideDim2(srcStride0, srcStride1));
-        using tileData = pto::Tile<pto::TileType::Mat, typename DstT::Type, staticL1H, staticL1W,
-            pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor>;
-        tileData dstL1(dstShape0, dstShape1);
-        pto::TASSIGN(dstL1, (uint64_t)((__cbuf__ typename DstT::Type *)dst.GetAddr() + i * c0Size));
-        pto::TLOAD(dstL1, src0Global);
+    if (dstShape1 % c0Size > 0) {
+        using globalData = pto::GlobalTensor<typename SrcT::Type, shapeDim2, strideDim2, pto::Layout::ND>;
+        for (int64_t i = 0; i < dstShape0; i++) {
+            uint64_t gatherOffset = offset.GetAddr()[i + offsetsStartOffset];
+            gatherOffset = CalaOffset2PageAttention<uint64_t, typename BlockT::Type, blockSize>(
+                block.GetAddr() + GMBlockTableOffset, gatherOffset);
+            globalData src0Global(
+                (__gm__ typename SrcT::Type *)(src.GetAddr() + gatherOffset * srcShape1 + srcColumnStartOffset),
+                shapeDim2(staticL1W), strideDim2(srcStride0, srcStride1));
+            using tileData = pto::Tile<pto::TileType::Mat, typename DstT::Type, staticL1H, staticL1W,
+                pto::BLayout::ColMajor, -1, -1, pto::SLayout::RowMajor>;
+            tileData dstL1(dstShape0, dstShape1);
+            pto::TASSIGN(dstL1, (uint64_t)((__cbuf__ typename DstT::Type *)dst.GetAddr() + i * c0Size));
+            pto::TLOAD(dstL1, src0Global);
+        }
+    } else {
+        using globalData = pto::GlobalTensor<typename SrcT::Type, pto::Shape<1, 1, 1, -1, -1>, strideDim2, pto::Layout::ND>;
+        for (int64_t i = 0; i < dstShape0; i++) {
+            uint64_t gatherOffset = offset.GetAddr()[i + offsetsStartOffset];
+            gatherOffset = CalaOffset2PageAttention<uint64_t, typename BlockT::Type, blockSize>(
+                block.GetAddr() + GMBlockTableOffset, gatherOffset);
+            globalData src0Global(
+                (__gm__ typename SrcT::Type *)(src.GetAddr() + gatherOffset * srcShape1 + srcColumnStartOffset),
+                pto::Shape<1, 1, 1, -1, -1>(dstShape1 / c0Size, c0Size), strideDim2(c0Size, 1));
+            using tileData = pto::Tile<pto::TileType::Mat, typename DstT::Type, staticL1W / c0Size, staticL1H * c0Size,
+                pto::BLayout::RowMajor, -1, -1>;
+            tileData dstL1(dstShape1 / c0Size, c0Size);
+            pto::TASSIGN(dstL1, (uint64_t)((__cbuf__ typename DstT::Type *)dst.GetAddr() + i * c0Size));
+            pto::TLOAD(dstL1, src0Global);
+        }
     }
 }
 } // namespace TileOp
