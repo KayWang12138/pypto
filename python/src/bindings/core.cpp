@@ -8,35 +8,18 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file bindings.h
- * \brief
- */
-
-#pragma once
-
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+#include "bindings.h"
 
 namespace py = pybind11;
+
 namespace pypto {
 
-void BindErrors(py::module_ &m);
-void BindCore(py::module_ &m);
-void BindTesting(py::module_ &m);
-void BindIR(py::module_ &m);
-void BindIRBuilder(py::module_ &m);
-void BindPass(py::module_ &m);
-void BindLogging(py::module_ &m);
+void BindCore(py::module_ & /*m*/) {
+  // Core bindings
+  // Note: DataType is bound in BindFramework() as it comes from the framework layer
+}
 
-// Tilefwk bindings
-void bind_enum(py::module &m);
-void BindElement(py::module &m);
-void BindTensor(py::module &m);
-void BindSymbolicScalar(py::module &m);
-void bind_controller(py::module &m);
-void bind_operation(py::module &m);
-void BindRuntime(py::module &m);
-void BindCostModelRuntime(py::module &m);
-void bind_pass(py::module &m);
-void BindFunction(py::module &m);
 } // namespace pypto
