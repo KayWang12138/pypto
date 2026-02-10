@@ -133,7 +133,7 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void AssignMetaAddr(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
+    static void AssignMetaAddr(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg, CachedOperator *cachedOperator) {
         (void)kArgs;
 
         FillDeviceRuntimeOffset(devProg, DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT);
@@ -197,7 +197,7 @@ public:
 
     // Fill metadata and kArgs (templated because it uses DeviceMemoryTy) (keeps <= 50 lines)
     template<typename DeviceMemoryTy>
-    static void FillKernelMeta(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
+    static void FillKernelMeta(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs, DevAscendProgram *devProg,
             const std::vector<uint8_t> &devProgData, bool isCtrlCacheRecording, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         AssignMetaAddr(devMem, kArgs, devProg, cachedOperator);
         devProg->l2CacheOffset = devMem.GetL2Offset();
@@ -257,7 +257,7 @@ public:
     }
 
     template<typename DeviceMemoryTy>
-    static void DeviceInitTilingData(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
+    static void DeviceInitTilingData(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs, const std::vector<uint8_t> &devProgData,
             DevControlFlowCache* ctrlFlowCache, const DeviceLauncherConfig &config, CachedOperator *cachedOperator) {
         auto &mutableConfig = const_cast<DeviceLauncherConfig &>(config);
         auto *devProg = reinterpret_cast<DevAscendProgram *>(const_cast<uint8_t*>(devProgData.data()));
@@ -291,7 +291,7 @@ public:
      *                  |     ...     |
      */
     template<typename DeviceMemoryTy>
-    static void DeviceInitKernelInOuts(DeviceMemoryTy devMem, DeviceKernelArgs &kArgs,
+    static void DeviceInitKernelInOuts(DeviceMemoryTy& devMem, DeviceKernelArgs &kArgs,
             const std::vector<DeviceTensorData> &inputList, const std::vector<DeviceTensorData> &outputList,
             const std::vector<uint8_t>& disableL2List) {
         size_t l2InfoSize = disableL2List.size();
@@ -341,7 +341,7 @@ public:
 
     template<typename DeviceMemoryTy>
     static std::pair<std::vector<DeviceTensorData>, std::vector<DeviceTensorData>> BuildInputOutputFromHost(
-            DeviceMemoryTy devMem,
+            DeviceMemoryTy& devMem,
             const std::vector<RawTensorDataPtr> &inputDataList,
             const std::vector<RawTensorDataPtr> &outputDataList) {
         std::vector<DeviceTensorData> inputDeviceDataList;
