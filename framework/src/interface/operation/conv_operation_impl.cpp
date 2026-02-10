@@ -40,6 +40,7 @@ namespace Conv {
 
 const std::string Im2ColOpAttributeKey::postK = "POST_K";
 const std::string Im2ColOpAttributeKey::postM = "POST_M";
+const std::string Im2ColOpAttributeKey::postN = "POST_N";
 const std::string Im2ColOpAttributeKey::filterH = "FILTER_H";
 const std::string Im2ColOpAttributeKey::filterW = "FILTER_W";
 const std::string Im2ColOpAttributeKey::strideH = "STRIDE_H";

@@ -23,6 +23,7 @@
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
+#include "interface/operation/operation_impl.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

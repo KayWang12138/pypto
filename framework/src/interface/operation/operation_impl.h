@@ -163,7 +163,11 @@ constexpr const int NCDHW_C_IDX = 1;
 constexpr const int NCDHW_D_IDX = 2;
 constexpr const int NCDHW_H_IDX = 3;
 constexpr const int NCDHW_W_IDX = 4;
+constexpr const int NC1HWC0_N_IDX = 1;
 constexpr const int NC1HWC0_C1_IDX = 1;
+constexpr const int NC1HWC0_H_IDX = 2;
+constexpr const int NC1HWC0_W_IDX = 3;
+constexpr const int NC1HWC0_C0_IDX = 4;
 constexpr const int FRACTALZ_CO1_IDX = 1;
 constexpr const int INPUT_FMAP_IDX = 0;
 constexpr const int INPUT_WEIGHT_IDX = 1;
@@ -206,6 +210,7 @@ class Im2ColOpAttributeKey {
 public:
     static const std::string postK;
     static const std::string postM;
+    static const std::string postN;
     static const std::string filterH;
     static const std::string filterW;
     static const std::string strideH;
