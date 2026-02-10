@@ -51,23 +51,13 @@ target_link_libraries(tile_fwk_interface
             $<BUILD_INTERFACE:json>
             $<BUILD_INTERFACE:c_sec>
         PRIVATE
+            tile_fwk_platform
             intf_pub_cxx17
             tile_fwk_intf_pub
 
             dl
             Threads::Threads
 )
-
-find_library(
-    PLATFORM_SO
-    NAMES tile_fwk_platform
-    PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib
-)
-if (PLATFORM_SO)
-    target_link_options(tile_fwk_interface PRIVATE ${PLATFORM_SO})
-else ()
-    target_link_libraries(tile_fwk_interface PRIVATE tile_fwk_platform_stub)
-endif ()
 
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)

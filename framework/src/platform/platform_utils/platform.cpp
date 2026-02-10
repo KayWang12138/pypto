@@ -20,7 +20,6 @@
 #include "simulation_platform/simulation_platform.h"
 
 namespace npu::tile_fwk {
-const uint32_t kMaxLength = 50;
 const std::string version = "version";
 const std::string socVersionInfo = "Soc_version";
 const std::string shortSocVersion = "Short_SoC_version";
@@ -57,6 +56,30 @@ NPUArch StringToNPUArch(const std::string& npuArch) {
         return it->second;
     }
     return NPUArch::DAV_2201;
+}
+
+void *GetSymbol(const char *sym) {
+    void *ptr = nullptr;
+    std::string soPath = "libtile_fwk_platform_ops.so";
+    std::string stubPath = "libtile_fwk_platform_ops_stubs.so";
+    void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
+    void* stubhandle = dlopen(stubPath.c_str(), RTLD_LAZY);
+    if (handle != nullptr) {
+        ptr = dlsym(handle, sym);
+    }
+    if (ptr == nullptr) {
+        ptr = dlsym(stubhandle, sym);
+    }
+    return ptr;
+}
+
+std::shared_ptr<PvModel> Create() {
+    
+    std::string funcName = "CreatePvModelImpl" + arch;
+    auto createFunc = (CreateFunc)(dlsym(handle, funcName.c_str()));
+
+    // 创建对象并返回
+    return createFunc();
 }
 
 bool PlatformParser::FilterCCECVersion(const std::string& key, std::string &coreType) const {
@@ -123,6 +146,20 @@ bool PlatformParser::GetCoreVersion(std::unordered_map<std::string, std::string>
     return true;
 }
 
+bool CmdParser::GetStringVal(const std::string& column, const std::string& key, std::string& val) const {
+    using GetSocSpecFunc = bool (*)(const std::string &, const std::string &, std::string &);
+    std::string socSpecFuncName = "GetrtSocSpec";
+    auto socSpecFunc = (GetSocSpecFunc)GetSymbol(socSpecFuncName.c_str());
+    if (socSpecFunc(column, key, val)) {
+        return true;
+    }
+    (void)column;
+    (void)key;
+    (void)val;
+    return false;
+}
+
+
 size_t Core::GetMemorySize(MemoryType type) const {
     auto it = memories_.find(type);
     if (it != memories_.end()) {
@@ -159,18 +196,13 @@ bool Die::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType
     return false;
 }
 
-void SoC::SetNPUArch(const std::string& versionStr) {
-    version_ = StringToNPUArch(versionStr);
-}
-
-size_t SoC::GetAICPUNum() const {
-   uint32_t cpuNum = 0;
-   int ret = 1;
-#ifdef BUILD_WITH_CANN
-    ret = rtGetAiCpuCount(&cpuNum);
-#endif
-    if (ret == 0) {
-        return static_cast<size_t>(cpuNum);
+size_t Soc::GetAICPUNum() const {
+    size_t rtAiCpuNum;
+    using GetAiCpuNumFunc = bool (*)(size_t &);
+    std::string AiCpuNumFuncName = "GetrtAICPUNum";
+    auto socVerFunc = (GetAiCpuNumFunc)GetSymbol(AiCpuNumFuncName.c_str());
+    if (socVerFunc(rtAiCpuNum)) {
+        return rtAiCpuNum;
     } else {
         return ai_cpu_cnt_;
     }
@@ -214,10 +246,6 @@ std::string SoC::GetCCECVersion(std::string CoreType) {
     } else {
         return "UNKNOWN_CORE";
     }
-}
-
-void MemoryNode::AddDest(const std::shared_ptr<MemoryNode> &to) {
-    dests.insert({to->type});
 }
 
 void MemoryGraph::AddPath(MemoryType from, MemoryType to) {
@@ -284,15 +312,6 @@ bool MemoryGraph::FindNearestPath(MemoryType from, MemoryType to, std::vector<Me
     return true;
 }
 
-void MemoryGraph::Reset() {
-    nodes.clear();
-}
-
-Platform &Platform::Instance() {
-    static Platform instance;
-    return instance;
-}
-
 void Platform::LoadPlatformInfo(const PlatformParser &parser) {
     std::string archType;
     std::string socVersion;
@@ -341,13 +360,11 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 void Platform::ObtainPlatformInfo() {
-    int ret = 1;
-    char socVer[kMaxLength] = {0x00};
-#ifdef BUILD_WITH_CANN
-    ret = rtGetSocVersion(socVer, kMaxLength);
-#endif
-    if (ret == 0) {
-        std::string socVersion = std::string(socVer);
+    std::string socVersion;
+    using GetSocVerFunc = bool (*)(std::string &);
+    std::string socVerFuncName = "GetrtSocVersion";
+    auto socVerFunc = (GetSocVerFunc)GetSymbol(socVerFuncName.c_str());
+    if (socVerFunc(socVersion)) {
         npu::tile_fwk::CmdParser cmdparser;
         LoadPlatformInfo(cmdparser);
     } else {
