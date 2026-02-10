@@ -37,6 +37,7 @@ using Json = nlohmann::json;
 namespace npu::tile_fwk {
 
 constexpr int INVALID_SCALAR_IMMEDIATE = -1;
+constexpr int MAIN_BLOCK_INDEX = 1;
 constexpr const char* const SPECIAL_SYMBOL_NAME_RUNTIME_PREFIX = "RUNTIME_";
 constexpr const char* const SPECIAL_SYMBOL_NAME_RUNTIME_COA_PREFIX = "RUNTIME_COA_";
 constexpr const char* const SPECIAL_SYMBOL_NAME_ARG_PREFIX = "ARG_";
@@ -663,7 +664,7 @@ struct SymbolicSymbolTable {
         for (size_t index = 0; index < GetSymbolTable().size(); index++) {
             std::string name = GetSymbolTable()[index];
             oss << "\n"
-                << "#define INDEX_" << name << " " << index << "\n"
+                << "#define INDEX_" << name << " " << index + MAIN_BLOCK_INDEX << "\n"      // inserted the mainBlock expression at position 0 of the expressionSet
                 << "#define VALUE_" << name << " (RUNTIME_GetSymbol(INDEX_" << name << "))\n";
         }
         return oss.str();
