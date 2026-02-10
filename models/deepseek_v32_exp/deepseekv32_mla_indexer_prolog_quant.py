@@ -845,41 +845,62 @@ def do_test(case_name, params, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, 
     logging.debug(f'=== run test case: {case_name} ===')
     inputs, outputs, goldens = gen_test_data(params)
 
-    dynamic_dict = {
-        'x': [0],
-        'cos': [0],
-        'sin': [0],
-        'kv_cache': [0],
-        'kr_cache': [0],
-        'kv_quant_scale_cache': [0],
-        'cache_index': [0],
-        'idx_k_cache': [0],
-        'idx_k_scale_cache': [0],
-    }
-    pto_inputs = convert_torch_tensor(inputs, dynamic_dict, 'IN_')
+    pto_inputs = [
+        inputs["x"],
+        inputs["w_dq"],
+        inputs["w_uqqr"],
+        inputs["w_qb_scale"],
+        inputs["w_uk"],
+        inputs["w_dkvkr"],
+        inputs["gamma_cq"],
+        inputs["gamma_ckv"],
+        inputs["cos"],
+        inputs["sin"],
+        inputs["cache_index"],
+        inputs["kv_cache"],
+        inputs["kr_cache"],
+        inputs["kv_quant_scale_cache"],
+        inputs["w_idx_qb_nz"],
+        inputs["w_idx_qb_scale"],
+        inputs["w_idx_k_nz"],
+        inputs["w_idx_proj_nz"],
+        inputs["layer_norm_gamma"],
+        inputs["layer_norm_beta"],
+        inputs["hadamard_q"],
+        inputs["hadamard_k"],
+        inputs["idx_k_cache"],
+        inputs["idx_k_scale_cache"],
+    ]
+    pto_outputs = [
+        outputs["q_nope"],
+        outputs["q_rope"],
+        outputs["kv_cache_out"],
+        outputs["kr_cache_out"],
+        outputs["kv_quant_scale_cache_out"],
+        outputs["q_int8"],
+        outputs["q_scale"],
+        outputs["idx_k_cache_out"],
+        outputs["idx_k_scale_cache_out"],
+        outputs["weights"]
+    ]
+    h = params["h"]
+    n_q = params["n1"]
+    q_lora_rank = params["q_lora_rank"]
+    kv_lora_rank = params["kv_lora_rank"]
+    qk_nope_head_dim = params["qk_nope_head_dim"]
+    qk_rope_head_dim = params["qk_rope_head_dim"]
+    idx_n_heads = params["idx_n_heads"]
+    idx_head_dim = params["idx_head_dim"]
 
-    dynamic_dict = {
-        'q_nope': [0],
-        'q_rope': [0],
-        'kv_cache_out': [0],
-        'kr_cache_out': [0],
-        'kv_quant_scale_cache_out': [0],
-        'q_int8': [0],
-        'q_scale': [0],
-        'idx_k_cache_out': [0],
-        'idx_k_scale_cache_out': [0],
-        'weights': [0],
-    }
-
-    pto_outputs = convert_torch_tensor(outputs, dynamic_dict, 'OUT_')
     import mla_indexer_prolog_quant_impl as mla_lp_quant
     if is_prefill:
         fun = mla_lp_quant.mla_indexer_prolog_quant_p
     else:
         fun = mla_lp_quant.mla_indexer_prolog_quant_d
 
-    fun(*pto_inputs, *pto_outputs, mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode,
-        mla_tile_config, ip_attrs, ip_configs, rope_tile_shape)
+    fun(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, qk_rope_head_dim, idx_n_heads, idx_head_dim, 
+        mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
+        ip_attrs, ip_configs, rope_tile_shape)(*pto_inputs, *pto_outputs)
     torch_npu.npu.synchronize()
     check(case_name, outputs, goldens)
 
