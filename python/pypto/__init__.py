@@ -79,6 +79,12 @@ from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 from .functions import Function, get_last_function, get_current_function
 
+# Import new IR modules
+from . import pypto_impl
+ir = pypto_impl.ir
+passes = pypto_impl.passes
+testing = pypto_impl.testing
+
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
 
