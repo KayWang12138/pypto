@@ -176,8 +176,8 @@ class Parser(doc.NodeVisitor):
         return self
 
     @_catch_parser_errors
+    @staticmethod  
     def match_input_shapes(
-        self,
         input_shapes: list[list[int]],
         input_tensor_defs: Optional[list[pypto.Tensor]] = None,
     ) -> dict[str, int]:
@@ -202,8 +202,6 @@ class Parser(doc.NodeVisitor):
         dim_value_map = {}
 
         # Get the signature to know which inputs have symbolic dimensions
-        if input_tensor_defs is None:
-            input_tensor_defs, _ = self.get_signature()
 
         def _assign_dim_value(dim: pypto.SymbolicScalar, actual_value: int) -> None:
             if dim_value_map.get(str(dim), actual_value) != actual_value:
@@ -226,7 +224,7 @@ class Parser(doc.NodeVisitor):
                 raise TypeError(
                     f"Invalid input shape type: {type(actual_input_shape)}, expected list"
                 )
-
+        print("match_input_shapes: ", dim_value_map)
         return dim_value_map
 
     @_catch_parser_errors
@@ -241,7 +239,11 @@ class Parser(doc.NodeVisitor):
 
         """
 
-        self._bound_dim_values = self.match_input_shapes(inputs)
+        input_tensor_defs, output_tensor_defs = self.get_signature()
+        print("inputs: ", inputs)
+        print("input_tensor_defs, output_tensor_defs:", input_tensor_defs, output_tensor_defs)
+        self._bound_dim_values = Parser.match_input_shapes(inputs, [*input_tensor_defs, *output_tensor_defs])
+        print("bind_dynamic_dims_from_inputs:self._bound_dim_values:", self._bound_dim_values)
 
     @_catch_parser_errors
     def get_signature(
@@ -582,10 +584,15 @@ class Parser(doc.NodeVisitor):
         This enables the parser to work with concrete shapes during IR generation
         while maintaining symbolic dimensions in the function signature.
         """
+        print("enter: _apply_bound_dim_values_to_context_frame")
         if not self._bound_dim_values:
+            print("return: not self._bound_dim_values:")
             return
         if not self.context.frames:
+            print("return: not self.context.frames:")
             return
+        
+        print("start: _apply_bound_dim_values_to_context_frame")
 
         current_frame = self.context.frames[-1]
         for var_name in list(current_frame.vars):
