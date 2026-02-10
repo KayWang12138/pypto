@@ -210,6 +210,28 @@ TEST_F(OperationImplTest, test_Hypot_FP16) {
     }
 }
 
+TEST_F(OperationImplTest, test_PReLU_FP32) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP32, {8, 8}, "operand1");
+    Tensor weight(DT_FP32, {8}, "weight");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestPReLU") {
+        result = PReLU(operand1, weight);
+    }
+}
+
+TEST_F(OperationImplTest, test_PReLU_FP16) {
+    TileShape::Current().SetVecTile({4, 4});
+    Tensor operand1(DT_FP16, {8, 8}, "operand1");
+    Tensor weight(DT_FP16, {8}, "weight");
+    std::vector<int64_t> dstShape = {8, 8};
+    Tensor result;
+    FUNCTION("TestPReLU") {
+        result = PReLU(operand1, weight);
+    }
+}
+
 TEST_F(OperationImplTest, Test_IndexAdd_BF16) {
     float scalar = 1.2f;
     int axis = 0;
