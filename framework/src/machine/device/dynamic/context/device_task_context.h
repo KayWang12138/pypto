@@ -60,7 +60,7 @@ private:
     WrapInfoQueue* AllocWrapQueue(DynDeviceTask *dyntask);
     void ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId, int funcIndex, size_t opIndex,
         WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
-    bool IsNeedWrapProcess(DynDeviceTask *dyntask, DevAscendProgram *devProg);
+    bool InitWrapProcess(DynDeviceTask *dyntask, DevAscendProgram *devProg);
 
     inline void doResolve(DynDeviceTask *dyntask, int coreType, size_t funcIdx, size_t succIdx, predcount_t *predList) {
         predList[succIdx] -= 1;
