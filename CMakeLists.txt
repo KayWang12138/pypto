@@ -136,8 +136,8 @@ if (ENABLE_FEATURE_PYTHON_FRONT_END AND BUILD_OPEN_PROJECT)
                 framework/src/interface/configs/tile_fwk_config.json
                 framework/src/interface/configs/tile_fwk_types.json
                 framework/src/interface/configs/tile_fwk_config_schema.json
-                framework/src/platform/simulation_platform/platform_config/A2A3.ini
-                framework/src/platform/parser/platforminfo.ini
+                framework/src/platform/platform_utils/simulation_platform/platform_config/A2A3.ini
+                framework/src/platform/platform_utils/parser/platforminfo.ini
             DESTINATION ${PyPTO_WhlName}/lib/configs
     )
 
