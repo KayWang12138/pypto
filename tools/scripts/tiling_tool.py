@@ -169,7 +169,7 @@ def check_json(json_config):
             for name in line_param_names:
                 if name in param_names:
                     raise NameError(f"Name \"{name}\" in json config are same " \
-                                    f"for lines {param_names[name]} and {line_conf["line"]}")
+                                    f"for lines {param_names['name']} and {line_conf['line']}")
                 param_names[name] = line_conf["line"] 
 
 
@@ -258,7 +258,7 @@ def run_test(json_config, result_folder):
 
     device_number = json_config["device_number"]  
     
-    run_command = f"python build_ci.py -j=32 -s={test} -d={device_number} tools profiling" \
+    run_command = f"python build_ci.py -j=32 -s={test} --frontend=cpp -d={device_number} tools profiling" \
                 f" --prof_try_cnt={json_config['prof_try_cnt']} --prof_max_cnt={json_config['max_cnt']}" \
                 f" --prof_warn_up_cnt={json_config['warn_up_cnt']}"
 
@@ -374,29 +374,51 @@ def remove_worst_combination(result_folder_path, results):
     shutil.rmtree(result_folder_path + f"/{worst_comb_name}", ignore_errors=True)
 
 
-def generate_coverage(json_config, pattern="TileShape::Current().SetCubeTile("):
-    test = json_config["test_name"]
-    device_number = json_config["device_number"]
-    build_folder = json_config["build_folder"]
+def getline_with_text(file, pattern):
+    with open(file, "r") as f:
+        line_num = 1
+        for line in f.readlines():
+            if pattern in line:
+                return line_num 
+            line_num += 1
+    return None
 
-    run_command = f"python build_ci.py -j=32 -s={test} -d={device_number} --clean --gcov"
-    env = dict(os.environ)
 
-    print("Run build for coverage...")
-    test = subprocess.run(run_command.split(), env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print("Build finished!")
+def enable_heuristic_pass():
+    src = "framework/src/passes/pass_interface/pass_type.h"
+    make_backup(src)
+    line = getline_with_text(src, "NOT_DEFINED")
+    replace_line(src, line-2, "SET_HEURISTIC_TILE_SHAPES,")
+    line = getline_with_text(src, "switch (name)")
+    replace_line(src, line-1, "case PassName::SET_HEURISTIC_TILE_SHAPES: return \"SetHeuristicTileShapes\";")
 
-    cmd = ['find', build_folder, '-name', '*.gcda']
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    src = "framework/src/passes/pass_mgr/pass_manager.cpp"
+    make_backup(src)
+    line = getline_with_text(src, "#include \"passes/tensor_graph_pass/loop_unroll.h\"")
+    replace_line(src, line-1, "#include \"passes/tensor_graph_pass/set_heuristic_tile_shapes.h\"")
+    line = getline_with_text(src, "void RegPass()")
+    replace_line(src, line-1, "REG_PASS(SetHeuristicTileShapes);")
+    line = getline_with_text(src, "PassName::AUTO_CAST")
+    replace_line(src, line-1, "{   \"SetHeuristicTileShapes\",    PassName::SET_HEURISTIC_TILE_SHAPES},")
 
+
+def disable_heuristic_pass():
+    restore_backup("framework/src/passes/pass_interface/pass_type.h")
+    restore_backup("framework/src/passes/pass_mgr/pass_manager.cpp")
+
+def is_pass_enabled():
+    bakcup1_exist = os.path.isfile("framework/src/passes/pass_interface/pass_type.h.backup")
+    backup2_exist = os.path.isfile("framework/src/passes/pass_mgr/pass_manager.cpp")
+    pass_enabled =  bakcup1_exist and backup2_exist
+    return pass_enabled
+
+def parse_coverage(pattern):
+    print(f"Search {pattern} inside coverage files ... ")
     number_of_parameters = 0 
-    print("Start processing coverage files...")
-
-    answer = set()
-    for gcda_file in result.stdout.splitlines():
-        coverage = subprocess.run(["gcov", gcda_file, "-t"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    with open("full_coverage.txt", "r") as f:
+        answer = set()
         path_to_source = ""
-        for line in coverage.stdout.splitlines():
+        for line in f.readlines():
             gcov_line = line.split(":")
             if len(gcov_line) >= 3: # is not a system string in coverage file
                 if gcov_line[2] == "Source":
@@ -404,31 +426,298 @@ def generate_coverage(json_config, pattern="TileShape::Current().SetCubeTile("):
                 if pattern in line and gcov_line[0].strip().isnumeric():
                     answer.add((gcov_line[1], path_to_source.strip()))
                     number_of_parameters += 1
+    coverage_info = []
 
-    for line, file in answer:
-        print(f"line: {line} file: {file}")
-    print("Number of parameters:", len(answer))    
+    for line, path in answer:
+        coverage_info.append({"line":line, "file": path})
 
+    print(f"Number of tiles: {number_of_parameters}")
+    return coverage_info 
+
+
+def generate_json_cpp(test_name, device_number):
+    choice = None 
+    while choice not in ("g", "s"):
+        choice = input("Parse tiles from test with gcov or semantic labels? (g/s/help): ")
+        if choice == "help":
+            print("If you select extract tiles from gcov, we run test and found all lines \nSetCubeTile and SetVecTile in source code which was executed during test run\n")
+            print("If you select from semantic labels, we parse only tiles \nwhich have SemanticLabels inside source code, and also you recieve possible initial values in config.json")
+
+    if choice == "g":
+        run_command = f"python3 build_ci.py --frontend=cpp -j=32 -s={test_name} -d={device_number} --gcov --clean"
+        print(run_command)
+        env = dict(os.environ)
+
+        log_path = f"{os.getcwd()}/tiling.log"
+        print(f"Run build: {log_path}")
+
+        with open(log_path, "w") as f:
+            test = subprocess.run(run_command.split(), stdout = f, stderr = subprocess.STDOUT, env=env)
+        
+        cmd = ["find", "build", "-name", "*.gcda"]
+        result = subprocess.run(cmd, capture_output = True, text = True)
+
+        if not result.stdout.splitlines():
+            raise RuntimeError(f".gcda files not generated! Please check logs: {log_path}")
+        
+        coverage_log = f"{os.getcwd()}/full_coverage.txt"
+        for gcda_file in result.stdout.splitlines():
+            with open(coverage_log, "a+") as f:
+                coverage = subprocess.run(["gcov", gcda_file, "-t"],
+                                        stdout = f, stderr = f, text = True)
+        print(f"Coverage results: {coverage_log}")
+        print("Build coverage finished!!!")
+
+        cube_coverage = parse_coverage(pattern = "TileShape::Current().SetCubeTile(")
+        cube_coverage.sort(key = lambda x: x["line"])
+
+        vec_coverage = parse_coverage(pattern = "TileShape::Current().SetVecTile(")
+        vec_coverage.sort(key = lambda x: x["line"])
+
+        files = dict()
+
+        for i in range(len(cube_coverage)):
+            line_conf = dict()
+            variable_name = "cubtile_"+str(i)
+            format_string = "TileShape::Current().SetCubeTile({{ {var[0]}, {var[1]} }}," \
+            "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
+
+            line_conf["line"] = cube_coverage[i]["line"]
+            line_conf["string"] = format_string.replace("var", variable_name)
+            line_conf[variable_name] = "Please set list of your tiles [[128, 128, 128, 128, 128, 128]] or matmul shape (Matmul_fp16_32_7168_576)"
+
+            filename = cube_coverage[i]["file"]
+            print(filename)
+            if filename not in files.keys():
+                files[filename] = [line_conf]
+            else:
+                files[filename].append(line_conf)
+        
+        for i in range(len(vec_coverage)):
+            line_conf = dict()
+            variable_name = "vectile_" + str(i)
+            format_string = "TileShape::Current().SetVecTile({{ {var[0]}, {var[1]} }}, " \
+            "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
+
+            line_conf["line"] = vec_coverage[i]["line"]
+            line_conf["string"] = format_string.replace("var", variable_name)
+            line_conf[variable_name] = "Please set list of your tiles [[128, 128, 128, 128, 128, 128]]"
+
+            filename = vec_coverage[i]["file"]
+            print(filename)
+
+            if filename not in files.keys():
+                files[filename] = [line_conf]
+            else:
+                files[filename].append(line_conf)
+        
+        files_conf = []
+        for filename in files.keys():
+            files_conf.append({filename : files[filename]})
+        
+        json_config = {
+            "build_folder": os.getcwd(),
+            "device_number": device_number,
+            "test_name": test_name,
+            "results_folder" : "tune_results",
+            "warn_up_cnt" : 1,
+            "max_cnt": 5,
+            "prof_try_cnt": 5,
+            "save_best_k" : 100,
+            "files" : files_conf
+        }
+
+        with open("config.json", "w") as f:
+            json.dump(json_config, f, ensure_ascii = False, indent = 4)
+        print(f"Config saved: {os.path.abspath('config.json')}")
+
+        if files_conf:
+            os.remove("full_coverage.txt")
+            
+    elif choice == "s":
+        if not is_pass_enabled():
+            enable_heuristic_pass()
+
+        run_command = f"python3 build_ci.py --frontend=cpp -j=32 -s={test_name} -d={device_number}"
+        print(run_command)
+        env = dict(os.environ)
+
+        log_path = f"{os.getcwd()}/tiling.log"
+        print(f"Run build: {log_path}")
+
+        with open(log_path, "w") as f:
+            test = subprocess.run(run_command.split(), stdout = f, stderr = subprocess.STDOUT, env=env)
+
+        generated_json_by_pass = get_newest_folder("build/output/bin/output") + "/semantic_labels_tiles.json"
+
+        with open(generated_json_by_pass, "r") as f:
+            tiles_json = json.load(f)
+        
+        files = dict()
+        for label, info in tiles_json.items():
+            filename = info["filename"]
+        
+            line_conf = dict()
+
+
+            format_string = "TileShape::Current().SetVecTile({{ {var[0]}, {var[1]} }}, " \
+            "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
+
+            if info["type"] == "CubeTile":
+                format_string = "TileShape::Current().SetCubeTile({{ {var[0]}, {var[1]} }}," \
+                "{{ {var[2]}, {var[3]} }}, {{ {var[4]}, {var[5]} }}, true);"
+
+            line_conf["string"] = format_string.replace("var", label)
+            line_conf["line"] = info["line_num"]
+            line_conf[label] = [info["tile"]]
+
+            if info["filename"] not in files.keys():
+                files[filename] = [line_conf]
+            else:
+                files[filename].append(line_conf)
+
+
+        files_conf = []
+        for filename in files.keys():
+            files_conf.append({filename : files[filename]})
+
+        json_config = {
+            "build_folder": os.getcwd(),
+            "device_number": device_number,
+            "test_name": test_name,
+            "results_folder" : "tune_results",
+            "warn_up_cnt" : 1,
+            "max_cnt": 5,
+            "prof_try_cnt": 5,
+            "save_best_k" : 100,
+            "files" : files_conf
+        }
+
+        with open("config.json", "w") as f:
+            json.dump(json_config, f, ensure_ascii = False, indent = 4)
+        print(f"Config saved: {os.path.abspath('config.json')}")
+
+def generate_json_python(test_name, device_number):
+    if not is_pass_enabled():
+        enable_heuristic_pass()
+    
+    run_command = f"python3 build_ci.py -j 32 -d {device_number} -f python3 -s python/tests/st/{test_name}"
+    log_path = f"{os.getcwd()}/tiling.log"
+    print(f"Build logs: {log_path}")
+
+    env = dict(os.environ)
+    with open(log_path, "w") as f:
+        test = subprocess.run(run_command.split(),
+                            stdout = f, 
+                            stderr = subprocess.STDOUT, 
+                            env = env)
+    disable_heuristic_pass()
+
+    generated_json_by_pass = get_newest_folder("output") + "/python_tiles.json"
+
+    with open(generated_json_by_pass, "r") as f:
+        tiles_json = json.load(f)
+    
+    files = dict()
+
+    vector_tile_id = 0
+    cube_tile_id = 0
+
+    for operation_name, info in tiles_json.items():
+        variable_name = "vectile_"+str(vector_tile_id)
+        format_string = ""
+
+        if info["type"] == "CubeTile":
+            format_string = "TileShape::Current().SetCubeTile({{ "
+            variable_name = "cubtile_"+str(cube_tile_id)
+            cube_tile_id += 1
+            for i in range(0, len(info["tile"]), 2):
+                format_string += f"{{ {variable_name}["+str(i)+ f"], {variable_name}["+str(i+1)+"] }, "
+        else:
+            format_string = "Tileshape::Current().SetVecTile({{"
+            vector_tile_id += 1
+
+            for i in range(len(info["tile"])):
+                format_string += f" {{{variable_name}["+str(i)+"]},"
+            
+            format_string += format_string[:-2] + " }}, true);"
+
+        line_conf = dict()
+        line_conf["line"] = info["line"]
+        line_conf["string"] = format_string
+        line_conf[variable_name] = [info["tile"]]
+
+        filename = info["file"]
+        if filename not in files.keys():
+            files[filename] = [line_conf]
+        else:
+            files[filename].append(line_conf)
+
+    files_conf = []
+    for filename in files.keys():
+        files_conf.append({filename: files[filename]})
+
+    json_config = {
+        "build_folder": os.getcwd(),
+        "device_number": device_number,
+        "test_name": test_name,
+        "results_folder": "measurements",
+        "warn_up_cnt": 1,
+        "max_cnt": 5,
+        "prof_try_cnt": 5,
+        "save_best_k" : 100,
+        "files" : files_conf
+    }
+
+    with open("config.json", "w") as f:
+        json.dump(json_config, f, ensure_ascii = False, indent = 4)
+    
+    print(f"Config saved: {os.path.abspath('config.json')}")
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description = 
+        'Iterate through the vector and cube tiles in the specified test and measure performance \n' \
+        'To specify which tiles and tile values to iterate through, use config.json \n' \
+        'Generate config.json by command: \n\n' \
+        'python tools/scripts/tiling_tool.py --test TESTCASE_NAME --frontend {cpp, python} -d DEVICE_NUMBER \n\n' \
+        'To start the iteration: \n\n' \
+        'python tools/scripts/tiling_tool.py --json_path /path/to/config.json', 
+        formatter_class = argparse.RawTextHelpFormatter)
 
-    parser.add_argument("json_path", 
+    parser.add_argument("-d",
+                        default = 0,
+                        help="device number for generating inintal config.json")
+
+    parser.add_argument("--test",
+                        help="testcase name",
+                        type=str)
+
+    parser.add_argument("--frontend", 
+                        help="Test frontend",
+                        choices=["python", "cpp"])
+
+    parser.add_argument("--json_path", 
                         help="path to config.json where described tiling configs", 
                         type=str)
     
-    parser.add_argument("--coverage",
-                        action="store_true",
-                        help="display lines in the files that match SetCubeTile, and were executed when the test was run")
     args = parser.parse_args()
+
+    if args.json_path is None:
+        if args.test is None:
+            raise RuntimeError("Parameter --test not specified")
+        
+        if args.frontend is None:
+            raise RuntimeError("Parameter --frontend not specified")
+        
+        if args.frontend == "cpp":
+            generate_json_cpp(args.test, args.d)
+        if args.frontend == "python":
+            generate_json_python(args.test, args.d)
+   
+        quit()
 
     with open(args.json_path) as f:
         json_config = json.load(f)
-
-        if args.coverage:
-            generate_coverage(json_config)
-            quit()
-
         preproc_json(json_config)
 
         comb_id = 0
