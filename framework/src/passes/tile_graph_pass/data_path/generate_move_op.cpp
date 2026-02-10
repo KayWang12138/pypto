@@ -64,7 +64,7 @@ bool GenerateMoveOp::HasSpecificConsumer(const Operation &op) const {
     return false;
 }
 
-Status GenerateMoveOp::CreateMoveOpForView(Function &function, Operation &op) const {
+Status GenerateMoveOp::A23CreateMoveOpForView(Function &function, Operation &op) const {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
     bool isGmInput = op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
     bool isGmOutput = op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
@@ -115,6 +115,71 @@ Status GenerateMoveOp::CreateMoveOpForView(Function &function, Operation &op) co
     }
     return SUCCESS;
 }
+
+Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) const {
+    auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(op.GetOpAttribute().get());
+    bool isGmInput = op.iOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    bool isGmOutput = op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
+    if (isGmInput) {
+        //case1: VIEW转copyIn
+        if (isGmOutput && HasSpecificConsumer(op)) {
+            return SUCCESS;
+        }
+        if ((!isGmOutput)) {
+            op.SetOpCode(Opcode::OP_COPY_IN);
+            SetCopyAttr(op,viewOpAttribute);
+        }
+    } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
+        //case2: VIEW转L0A/L0AT
+        auto isTrans = (op.HasAttr("op_attr_l1_to_l0_transpose")) ? op.GetBoolAttribute("op_attr_l1_to_l0_transpose") : 0;
+        if(isTrans) {
+            op.SetOpCode(Opcode::OP_L1_TO_L0_AT);
+        } else {
+            op.SetOpCode(Opcode::OP_L1_TO_L0A);
+        }
+        SetCopyAttr(op,viewOpAttribute);
+    } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) {
+        //case3: VIEW转L0B/L0BT
+    auto isTrans = (op.HasAttr("op_attr_l1_to_l0_transpose")) ? op.GetBoolAttribute("op_attr_l1_to_l0_transpose") : 0;
+        if (isTrans) {
+            op.SetOpCode(Opcode::OP_L1_TO_L0_BT);
+        } else {
+            op.SetOpCode(Opcode::OP_L1_TO_L0B);
+        }
+        SetCopyAttr(op,viewOpAttribute);
+    } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) {
+        op.SetOpCode(Opcode::OP_L1_TO_L0A_SCALE);
+        auto input = op.GetIOperands()[0];
+        auto prodOp = *input->GetProducers().begin();
+        if (prodOp->GetOpcode() == Opcode::OP_COPY_IN && input->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_A_SCALE);
+        }
+        SetCopyAttr(op,viewOpAttribute);
+    } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX) {
+        op.SetOpCode(Opcode::OP_L1_TO_L0B_SCALE);
+        auto input = op.GetIOperands()[0];
+        auto prodOp = *input->GetProducers().begin();
+        if (prodOp->GetOpcode() == Opcode::OP_COPY_IN && input->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+            prodOp->SetOpCode(Opcode::OP_L1_COPY_IN_B_SCALE);
+        }
+        SetCopyAttr(op,viewOpAttribute);
+    } else {
+        //case4: VIEW转其他搬运op
+        auto from = op.iOperand.front()->GetMemoryTypeOriginal();
+        auto to = op.oOperand.front()->GetMemoryTypeOriginal();
+        if (from == to) {
+            return SUCCESS;
+        }
+        Status status = SetOpcodeByMemPath(op,from,to);
+        if (op.GetOpcode() == Opcode::OP_UB_COPY_L1) {
+            ProcessUB2L1(function, op);
+        } 
+        if (status != SUCCESS) {return status;}
+        SetCopyAttr(op,viewOpAttribute);
+    }
+    return SUCCESS;
+}
+
 void GenerateMoveOp::SetCopyAttr(Operation &op,ViewOpAttribute *viewOpAttribute) const {
     auto copyAttr = std::make_shared<CopyOpAttribute>(
         OpImmediate::Specified(viewOpAttribute->GetFromTensorOffset()),
@@ -241,7 +306,12 @@ Status GenerateMoveOp::CreateMoveOp(Function &function) const {
                 break;
             }
             case Opcode::OP_VIEW: {
-                Status status = CreateMoveOpForView(function, op);
+                if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510) {
+                    Status status = A5CreateMoveOpForView(function, op);
+                    if(status != SUCCESS) {return status;}
+                    break;
+                }
+                Status status = A23CreateMoveOpForView(function, op);
                 if(status != SUCCESS) {return status;}
                 break;
             }
