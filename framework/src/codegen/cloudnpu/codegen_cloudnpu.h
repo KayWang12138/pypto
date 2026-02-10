@@ -44,11 +44,6 @@ public:
 
     std::string GetBinAbsPath() const { return binAbsPath_; }
     void SetBinAbsPath(const std::string &binAbsPath) { binAbsPath_ = binAbsPath; }
-    static bool IsNeedCompileCCE() {
-        bool isNeedCompile = ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, true);
-        return isNeedCompile;
-    }
-
     void SetKernelName(const std::string &kernelName) { kernelName_ = kernelName; }
     std::string GetKernelName() const { return kernelName_; }
     void SetFuncDeclare(const std::string &funcDeclare) { funcDeclare_ = funcDeclare; }
@@ -140,8 +135,8 @@ private:
     void BuildIncludes(std::ostringstream &oss) const;
     void BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const;
 
-    std::string GenAlloc(const std::shared_ptr<SymbolManager> &manager, BufferType bufferType,
-        DataType dataType, const TileRange &range) const;
+    std::string GenAlloc(const std::shared_ptr<SymbolManager> &manager, BufferType bufferType, DataType dataType,
+        const TileRange &range) const;
 
     std::string GetParamType(const Function &func, bool isUnderDynFunc) const;
 

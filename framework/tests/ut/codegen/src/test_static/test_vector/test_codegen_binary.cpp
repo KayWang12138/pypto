@@ -116,7 +116,7 @@ TEST_F(TestCodegenBinary, TestCodegenAddSDim4) {
 
 TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     TileShape::Current().SetVecTile(1, 1, 16, 16);
     std::vector<int64_t> shape = {1, 1, 16, 16};
     Tensor input_a(DT_FP32, shape, "A");

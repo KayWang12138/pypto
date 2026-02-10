@@ -49,7 +49,7 @@ public:
 
 TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     InsertTileTensorOp(Opcode::OP_A_MUL_B, "Matmul");
 
     std::vector<int64_t> shape = {64, 64};
@@ -104,7 +104,7 @@ TEST_F(TestCodegenDynMM, TestDynMatmulTileTensor) {
 
 TEST_F(TestCodegenDynMM, TestMatmulMXTileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     InsertTileTensorOp(Opcode::OP_A_MUL_B, "Matmul");
     std::vector<int64_t> mxShape = {64, 64};
     std::vector<int64_t> shapeBias = {1, 64};
