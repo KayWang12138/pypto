@@ -52,6 +52,7 @@ class LogicalTensor : public AttrHolder {
 public:
     bool isSubGraphBoundary;
     int subGraphID{NOT_IN_SUBGRAPH};
+    bool isGlobal{false};
 
     std::shared_ptr<RawTensor> tensor;
     Offset offset;
@@ -116,6 +117,8 @@ public:
     bool IsDummy() const;
     void SetIsDummy(bool dummy = true);
 
+    bool IsGlobal() const { return isGlobal; }
+    void SetIsGlobal(bool global = true) { isGlobal = global; }
     int GetSubgraphID() const { return subGraphID; }
     void UpdateSubgraphID(int subgraphID) { subGraphID = subgraphID; }
 
