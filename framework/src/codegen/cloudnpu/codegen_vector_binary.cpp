@@ -471,9 +471,15 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam
     std::string scalarTmpBuffer = FormatFloat(extOperandVal.Cast<float>());
 
     std::vector<std::string> tileOpParamList = {dstTensor, srcTensor};
+    std::vector<std::string> templateParamList = {dstDtypeStr};
 
     std::ostringstream oss;
-    oss << tileOpName << "<" << dstDtypeStr << ">"
+    if(opAttrs.count(OpAttributeKey::reverseOperand)){
+        bool reverseOperand = npu::tile_fwk::AnyCast<bool>(opAttrs.at(OpAttributeKey::reverseOperand));
+        templateParamList.emplace_back(std::to_string(reverseOperand));
+    }
+    std::string templateParamStr = JoinString(templateParamList, CONN_COMMA);
+    oss << tileOpName << "<" << templateParamStr << ">"
         << "(" << dstTensor << ", " << srcTensor << ", " << scalarTmpBuffer << ");\n";
     return oss.str();
 }
