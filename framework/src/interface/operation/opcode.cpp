@@ -899,7 +899,6 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {         Opcode::OP_BITWISEORS,    "TBitwiseOrS"},
     {        Opcode::OP_BITWISEXORS,   "TBitwiseXorS"},
     {         Opcode::OP_BITWISENOT,    "TBitwiseNot"},
-<<<<<<< HEAD
     {           Opcode::OP_COPYSIGN,      "TCopysign"},
     {          Opcode::OP_L1_TO_L0A,       "TExtract"},
     {          Opcode::OP_L1_TO_L0B,       "TExtract"},
@@ -915,17 +914,10 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {         Opcode::OP_L1_COPY_IN,          "TLoad"},
     {       Opcode::OP_L0C_COPY_OUT,         "TStore"},
     {       Opcode::OP_GATHER_IN_L1,    "TGatherInL1"},
-=======
-    {         Opcode::OP_L1_COPY_IN,          "TLoad"},
->>>>>>> 25683b0613c3566d0659fde93494543ac43d6003
     {    Opcode::OP_L1_COPY_IN_CONV,      "TLoadConv"},
     {        Opcode::OP_LOAD3D_CONV,        "TLoad3D"},
     {        Opcode::OP_LOAD2D_CONV,        "TLoad2D"},
     {  Opcode::OP_L0C_COPY_OUT_CONV,     "TStoreConv"},
-<<<<<<< HEAD
-=======
-    {           Opcode::OP_L1_TO_BT,       "TExtract"},
->>>>>>> 25683b0613c3566d0659fde93494543ac43d6003
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{
