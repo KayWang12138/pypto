@@ -106,10 +106,11 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
         std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToOffset());
         if (oper->GetShape()[0] > ret->GetShape()[0] || oper->GetShape()[1] > ret->GetShape()[1]) {
             auto iop = oper->View(ret->GetShape(), fromOffset);
-            if (scalePtr != nullptr) {
-                auto scaleOp = scalePtr->View({1, ret->GetShape()[1]}, {0, fromOffset[1]});
-            }
             if (quant) {
+                LogicalTensorDataPtr scaleOp = nullptr;
+                if (scalePtr != nullptr) {
+                    scaleOp = scalePtr->View({1, ret->GetShape()[1]}, {0, fromOffset[1]});
+                }
                 calc::Fixpipe(ret, iop, scaleOp, scale, relu);
             } else {
                 calc::Copy(ret, iop);
