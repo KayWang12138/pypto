@@ -55,10 +55,8 @@ void ExecuteOpView(ExecuteOperationContext *ctx) {
     if (oop->GetData() == iop->GetData()) {
         return;
     }
-    bool trans = (ctx->op->HasAttr(Matrix::L1_TO_L0_TRANSPOSE)) ? 
-        ctx->op->GetBoolAttribute(Matrix::L1_TO_L0_TRANSPOSE) : false;
     auto ret = iop->View(oop->GetShape(), offset);
-    calc::Copy(oop, ret, trans);
+    calc::Copy(oop, ret);
 }
 REGISTER_CALC_OP(OP_VIEW, Opcode::OP_VIEW, ExecuteOpView);
 
