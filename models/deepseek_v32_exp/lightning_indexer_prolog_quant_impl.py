@@ -384,7 +384,10 @@ def lightning_indexer_prolog_quant(x_shape, q_norm_shape, q_norm_scale_shape, w_
                       "cube_l1_reuse_setting": configs.cube_l1_reuse_setting,
                       "mg_copyin_upper_bound": configs.mg_copyin_upper_bound,
                       "pg_upper_bound": configs.pg_upper_bound},
-        runtime_options={"device_sched_mode": 1}
+        runtime_options={"stitch_function_inner_memory": 512,
+                        "stitch_function_outcast_memory": 512,
+                        "stitch_function_num_initial": 128,
+                        "device_sched_mode": 1}
     )
     def kernel(
         x_in: pypto.Tensor(x_shape, pypto.DT_BF16),

@@ -36,7 +36,7 @@ class LightningIndexerConfigs:
     vec_merge_mode = 2
     vec_nbuffer_setting = {
         -1: 16
-    }
+    }   
     # tile params
     s1_tile = 2
     topk_tile = 16384
