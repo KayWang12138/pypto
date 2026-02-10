@@ -188,13 +188,16 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     MemoryType attrToType = viewOpAttribute->GetTo();
     auto out = operation.GetOOperands().front();
     auto in = operation.iOperand.front();
+    //适配L0C2L1通路，当满足条件时view的输入的tobe设为L0C，否则设置为DDR
+    if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && out->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
+        if (FitL0C2L1(in)){
+            inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_L0C);
+        } else {
+            inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_DEVICE_DDR);
+        }
+    }
     if(attrToType == MemoryType::MEM_UNKNOWN) {
         //跳过前端没有指定mem类型的view
-        //适配L0C2L1通路，优先选择将view转化为L0C2L1，不满足场景后续转为ddr
-        if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && out->GetMemoryTypeOriginal() == MemoryType::MEM_L1 &&
-            FitL0C2L1(in)) {
-            inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_L0C);
-        }
         return;
     }
     //将view的输出tensor的memory ori和tobe类型设置为view上指定的mem类型
@@ -226,7 +229,7 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
         auto consumerOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(consumerOp->GetOpAttribute());
         // 大包搬运场景：assemble后接view且view的toAttr为L1
         // 非大包搬运场景：assemble后的op预期输入为L1
-        if (consumerOpAttribute) {
+        if (consumerOpAttribute && consumerOpAttribute->GetTo() != MemoryType::MEM_UNKNOWN) {
             if (consumerOpAttribute->GetTo() != MemoryType::MEM_L1) {
                 return;
             }
@@ -533,7 +536,14 @@ void AssignMemoryType::ProcesSmallTileToLargeTile(Function &function) {
                     break;
                 }
             }
-            if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape())){
+            bool isConsumerOutputMultiple = true;
+            for (auto &consumerOp : oOperand->GetConsumers()) {
+                if (consumerOp->GetOpcode() == Opcode::OP_VIEW && !IsDimMultiple(consumerOp->GetOOperands().front()->GetShape(), iOperand->GetShape())) {
+                    isConsumerOutputMultiple = false;
+                    break;
+                }
+            }
+            if (!isToL1 || !IsDimMultiple(oOperand->GetShape(), iOperand->GetShape()) || !isConsumerOutputMultiple){
                 oOperand->SetMemoryTypeOriginal(MEM_DEVICE_DDR, true);
                 APASS_LOG_DEBUG_F(Elements::Tensor, "Set tensor %d original memory type "
                     "to DDR since not towards L1 or not multipule dimensions.", oOperand->magic);
