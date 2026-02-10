@@ -104,10 +104,11 @@ Status OoOSchedule::AdvanceAlloc(std::vector<Operation*> &opList, Operation* op,
             if (allocIndex > index) {
                 APASS_LOG_DEBUG_F(Elements::Operation, "alloc index: %d, op index: %d", allocIndex, index);
                 std::rotate(opList.begin() + index, opList.begin() + allocIndex, opList.begin() + allocIndex + 1);
+                index++;
+                return SUCCESS;
             }
         }
     }
-    index++;
     return SUCCESS;
 }
 
