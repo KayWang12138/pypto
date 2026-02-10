@@ -663,7 +663,7 @@ struct SymbolicSymbolTable {
         for (size_t index = 0; index < GetSymbolTable().size(); index++) {
             std::string name = GetSymbolTable()[index];
             oss << "\n"
-                << "#define INDEX_" << name << " " << index << "\n"
+                << "#define INDEX_" << name << " " << index + MAIN_BLOCK_INDEX << "\n"
                 << "#define VALUE_" << name << " (RUNTIME_GetSymbol(INDEX_" << name << "))\n";
         }
         return oss.str();
