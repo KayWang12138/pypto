@@ -61,6 +61,7 @@ public:
     uint32_t* runningIds_;
 
     int aicValidNum_{0};
+    int schedIdx_{0};
     WrapInfoQueue* readyWrapCoreFunctionQue_{nullptr};
     // Queue managed by each thread, elem is wrapInfo's addr
     StaticReadyCoreFunctionQueue wrapQueueForThread_{0, 0, nullptr, 0};
@@ -75,7 +76,7 @@ public:
 
     inline void Init(DeviceTask* curDevTask, uint32_t* coreRunReadyCnt, uint32_t* runReadyCoreIdxZero,
         uint32_t* runReadyCoreIdxOne, uint32_t* corePendReadyCnt, uint32_t* pendingIds, uint32_t* runningIds,
-        int aicValidNum, SendTaskToAiCoreFunc func) {
+        int aicValidNum, SendTaskToAiCoreFunc func, int schedIdx) {
         RETURN_NULL_IF_NOT(isSupportMixSche);
         curDevTask_ = curDevTask;
         coreRunReadyCnt_ = coreRunReadyCnt;
@@ -87,6 +88,7 @@ public:
         runningIds_ = runningIds;
 
         aicValidNum_ = aicValidNum;
+        schedIdx_ = schedIdx;
         SendTaskToAiCore = func;
         readyWrapCoreFunctionQue_ = reinterpret_cast<WrapInfoQueue *>(curDevTask_->mixTaskData.readyWrapCoreFunctionQue);
         wrapTasklist_ = reinterpret_cast<uint32_t *>(curDevTask_->mixTaskData.wrapTasklist);
@@ -94,15 +96,7 @@ public:
         wrapQueueForThread_.head = 0;
         wrapQueueForThread_.tail = 0;
         wrapQueueForThread_.elem = curDevTask_->mixTaskData.wrapIdNum == 0 ? nullptr :
-            static_cast<uint64_t *>(malloc(curDevTask_->mixTaskData.wrapIdNum * sizeof(uint64_t)));
-    }
-
-    inline void Deinit() {
-        RETURN_NULL_IF_NOT(isSupportMixSche);
-        if (wrapQueueForThread_.elem != nullptr) {
-            free(wrapQueueForThread_.elem);
-            wrapQueueForThread_.elem = nullptr;
-        }
+            static_cast<uint64_t *>(curDevTask_->mixTaskData.wrapQueueThread[schedIdx]);
     }
 
     inline bool GetWrapCoreAvailable(int coreIdx) {

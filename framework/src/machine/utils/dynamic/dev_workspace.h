@@ -810,6 +810,14 @@ private:
         }
     }
 
+    uint32_t WrapQueThreadSlabMemObjSize() {
+        if (devProg_->devArgs.archInfo == ArchInfo::DAV_3510) {
+            return sizeof(ReadyCoreFunctionQueue) + devProg_-> stitchFunctionsize * sizeof(uint32_t) * MAX_SCHEDULE_AICPU_NUM;
+        } else {
+            return 1;
+        }
+    }
+
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
         &DeviceWorkspaceAllocator::DevFunctionDuppedSlabMemObjSize,
         &DeviceWorkspaceAllocator::DynFuncDataSlabMemObjSize,
@@ -818,6 +826,7 @@ private:
         &DeviceWorkspaceAllocator::ReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
+        &DeviceWorkspaceAllocator::WrapQueThreadSlabMemObjSize,
         nullptr, // invalid type
         &DeviceWorkspaceAllocator::DuppedStitchSlabMemObjSize,
     };

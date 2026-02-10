@@ -83,7 +83,16 @@ bool DeviceTaskContext::IsNeedWrapProcess(DynDeviceTask *dyntask, DevAscendProgr
     for (size_t funcIndex = 0; funcIndex < dyntask->dynFuncDataCacheListSize; ++funcIndex) {
         dyntask->devTask.mixTaskData.wrapIdNum += dyntask->dynFuncDataCacheList[funcIndex].devFunc->wrapIdNum_;
     }
-    return dyntask->devTask.mixTaskData.wrapIdNum > 0;
+    if (dyntask->devTask.mixTaskData.wrapIdNum > 0) {
+        for (uint32_t i = 0; i < MAX_SCHEDULE_AICPU_NUM; i++) {
+            uint32_t size = dyntask->devTask.mixTaskData.wrapIdNum * sizeof(uint64_t);
+            WsAllocation qalloc = ControlFlowAllocateSlab(devProg_, size, workspace_->SlabAlloc(size, WsAicpuSlabMemType::WRAP_QUEUE_THREAD));
+            dyntask->devTask.mixTaskData.wrapQueueThread[i] = qalloc.ptr;
+        }
+        return true;
+    } else {
+        return false
+    }
 }
 
 }
