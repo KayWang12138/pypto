@@ -209,7 +209,8 @@ function(PTO_Fwk_STest_AddExe_RunExe)
     execute_process(COMMAND touch ${_Sources})
     list(REMOVE_DUPLICATES PTO_Fwk_STestCaseLibraries)
     set(PTO_Fwk_Libraries
-            tile_fwk_simulation_platform
+            tile_fwk_platform
+            tile_fwk_platform_ops
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler

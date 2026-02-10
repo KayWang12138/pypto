@@ -51,13 +51,14 @@ target_link_libraries(tile_fwk_interface
             $<BUILD_INTERFACE:json>
             $<BUILD_INTERFACE:c_sec>
         PRIVATE
+            tile_fwk_platform
             intf_pub_cxx17
             tile_fwk_intf_pub
 
             dl
             Threads::Threads
-            tile_fwk_simulation_platform
 )
+
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_interface)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_interface)
 
