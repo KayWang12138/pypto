@@ -84,14 +84,21 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     Opcode opCode = ctx->op->GetOpcode();
     bool trans = opCode == Opcode::OP_L1_TO_L0_BT || opCode == Opcode::OP_L1_TO_L0_AT;
     auto copyin = std::static_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute()); // 获取attr
-    if (opCode == Opcode::OP_L1_TO_L0A || opCode == Opcode::OP_L1_TO_L0B || opCode == Opcode::OP_L1_TO_L0_AT || opCode == Opcode::OP_L1_TO_L0_BT) {
+    if (opCode == Opcode::OP_L1_TO_L0A || opCode == Opcode::OP_L1_TO_L0B || opCode == Opcode::OP_L1_TO_L0_AT ||
+        opCode == Opcode::OP_L1_TO_L0_BT) {
         if (copyin == nullptr) {
             calc::Copy(ret, oper, trans);
             return;
         }
         std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
-        auto iop = oper->View(ret->GetShape(), fromOffset);
-        calc::Copy(ret, iop, trans);
+        if (trans) {
+            std::vector<int64_t> oop_trans = {ret->GetShape()[1], ret->GetShape()[0]};
+            auto iop = oper->View(oop_trans, fromOffset);
+            calc::Copy(ret, iop, trans);
+        } else {
+            auto iop = oper->View(ret->GetShape(), fromOffset);
+            calc::Copy(ret, iop, trans);
+        }
     } else if (opCode == Opcode::OP_L0C_TO_L1) {
         // fixpipe
         bool quant = oper->GetDataType() == DataType::DT_INT32 && ret->GetDataType() == DataType::DT_FP16;
