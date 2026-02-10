@@ -408,7 +408,7 @@ int CheckInjectStr(const char cmdStr[], size_t strLen) {
 }
 
 void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
-    if (!compileInfo.IsNeedCompileCCE() || config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
         ALOG_INFO("Compile stage terminates after codegen instruction.");
         return;
     }
@@ -512,7 +512,7 @@ void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
     }
 }
 
-void CodeGenCloudNPU::AppendVFLLVMParams(std::ostringstream &oss) {
+void CodeGenCloudNPU::AppendVFOptions(std::ostringstream &oss) {
     if (config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
         oss << "--enable-pto-tile-fusion "
             << "-mllvm --tile-fusion-skip-shape-inference=true "
@@ -529,7 +529,7 @@ void CodeGenCloudNPU::BuildExtraOptions(std::ostringstream &oss, const std::stri
         << "-mllvm -cce-aicore-record-overflow=false "
         << "-mllvm -cce-aicore-addr-transform "
         << "-mllvm -cce-aicore-dcci-insert-for-scalar=false ";
-    AppendVFLLVMParams(oss);   
+    AppendVFOptions(oss);
     oss << compileOptions << " ";
 }
 
