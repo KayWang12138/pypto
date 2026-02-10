@@ -572,5 +572,7 @@ void bind_operation(py::module &m) {
 
     m.def(
         "isfinite", [](const Tensor &self) { return npu::tile_fwk::IsFinite(self); }, "Judge whether the value is inf/nan/-inf. If it is, the value will be false.");
+    m.def(
+        "PReLU", [](const Tensor &self, const Tensor &weight) { return npu::tile_fwk::PReLU(self, weight); }, "Tensor prelu.");
 }
 } // namespace pypto
