@@ -477,7 +477,7 @@ void SetTensorOpAttr(Operation &op, const LogicalTensorPtr &inputTensor, const L
     op.SetAttribute(CONV_ORI_RES_SHAPE_ATTR, resTensor->GetShape());
 }
 
-Tensor ConstructTensorGraph(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor,
+Tensor ConstructTensorGraph(const Tensor &inputTensor, const Tensor &weightTensor,
                             const Tensor &biasTensor, const Tensor &resTensor, ConvAttrParam &convAttrParam)
 {
     // add Conv node
@@ -1055,7 +1055,7 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
     }
     Tensor resTensor(outType, resTensorShape, "TensorC");
     resTensor.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(resTensorShape));
-    return ConstructTensorGraph(outType, inputTensor, weightTensor, biasTensor, resTensor, convAttrParam);
+    return ConstructTensorGraph(inputTensor, weightTensor, biasTensor, resTensor, convAttrParam);
 }
 
 } //namespace Conv
