@@ -57,8 +57,7 @@ public:
     // 每个AICPU都会调用
     inline void TaskEnqueue(uint64_t taskId) {
         readyQueue_->lock();
-        readyQueue_->elem[readyQueue_->tail] = taskId;
-        readyQueue_->tail += 1;
+        readyQueue_->push(&taskId);
         readyQueue_->unlock();
     }
 
@@ -74,15 +73,16 @@ public:
     // 仅AICPU_0会调用
     inline uint64_t  TaskProcess() {
         readyQueue_->lock();
-        uint64_t taskIdx = readyQueue_->head;
-        uint64_t taskCount = readyQueue_->tail - readyQueue_->head;
-        readyQueue_->head += taskCount;
+        auto taskSet = readyQueue_->pop(readyQueue_->wasSize());
         readyQueue_->unlock();
 
-        for (uint32_t i = 0; i < taskCount; ++i) {
-            TaskDispatch(readyQueue_->elem[taskIdx + i]);
+        const uint64_t* taskSetAddress = taskSet.first;
+        const size_t taskSetCount = taskSet.second;
+        for (uint32_t i = 0; i < taskSetCount; ++i) {
+            TaskDispatch(taskSetAddress[i]);
         }
-        return taskCount;
+
+        return taskSetCount;
     }
 
     inline std::vector<uint64_t> TaskPoll() {
@@ -95,7 +95,7 @@ public:
 
     inline bool Finished() {
         readyQueue_->lock();
-        auto fin = readyQueue_->head == readyQueue_->tail;
+        auto fin = readyQueue_->wasEmpty();
         readyQueue_->unlock();
         return fin;
     }

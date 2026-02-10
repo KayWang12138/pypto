@@ -72,6 +72,7 @@ class StaticReadyCoreFunctionQueue {
 
   inline void setBuffer(uint64_t* const buffer) { elem = buffer; }
   inline void setCapacity(const size_t capacity) { _capacity = capacity; }
+  inline void setCount(const size_t count) { tail = count; head = 0; }
 
   inline uint64_t* getBuffer() const { return elem; }
 

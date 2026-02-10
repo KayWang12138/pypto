@@ -359,9 +359,8 @@ int MachineAgent::PrepareReadyCoreFunction(DeviceAgentTask *task) {
 
     auto funcSetQue = [](uint8_t *elm, uint8_t *que, uint64_t elmCnt) {
         StaticReadyCoreFunctionQueue rq;
-        rq.head = 0;
-        rq.tail = elmCnt;
-        rq.elem = reinterpret_cast<uint64_t *>(elm);
+        rq.setCount(elmCnt);
+        rq.setBuffer(reinterpret_cast<uint64_t *>(elm));
         machine::GetRA()->CopyToDev(que, reinterpret_cast<uint8_t *>(&rq), sizeof(rq));
         ALOG_INFO_F("[DEVICE AGENT] set que ready function cnt: %lu", elmCnt);
     };
