@@ -32,37 +32,51 @@ def run_mm():
         print(res.shape)
 
 
-@pypto.jit
-def conv_kernel(a, b, d):
-    pypto.set_conv_tile_shapes(
-        pypto_impl.TileL1Info(
-            tileHin=4,
-            tileHout=1,
-            tileWin=8,
-            tileWout=8,
-            tileCinFmap=16,
-            tileCinWeight=32,
-            tileCout=16,
-            tileN=1
-        ),
-        pypto_impl.TileL0Info(
-            tileH=2,
-            tileW=8,
-            tileK=16,
-            tileN=16
+def create_conv_kernel(fmap_shape, weight_shape, out_shape, run_mode = "npu"):
+    if run_mode == "npu":
+        mode = pypto.RunMode.NPU
+    elif run_mode == "sim":
+        mode = pypto.RunMode.SIM
+    else:
+        raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
+
+    @pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.NPU}, debug_options={"compile_debug_mode": 1})
+    def conv_kernel(
+        a: pypto.Tensor(fmap_shape, pypto.DT_FP16),
+        b: pypto.Tensor(weight_shape, pypto.DT_FP16)
+    ) -> pypto.Tensor(out_shape, pypto.DT_FP16):
+        pypto.set_conv_tile_shapes(
+            pypto_impl.TileL1Info(
+                tileHin=4,
+                tileHout=4,
+                tileWin=16,
+                tileWout=16,
+                tileCinFmap=16,
+                tileCinWeight=32,
+                tileCout=16,
+                tileN=1
+            ),
+            pypto_impl.TileL0Info(
+                tileH=4,
+                tileW=16,
+                tileK=16,
+                tileN=16
+            )
         )
-    )
-    conv_tile = pypto.get_conv_tile_shapes()
-    print(conv_tile)
-    print(f"TileL1Info: Hin={conv_tile[0].tileHin}, Hout={conv_tile[0].tileHout}," 
-          f" Win={conv_tile[0].tileWin}, Wout={conv_tile[0].tileWout},"
-          f" CinFmap={conv_tile[0].tileCinFmap}, CinWeight={conv_tile[0].tileCinWeight},"
-          f" Cout={conv_tile[0].tileCout}, N={conv_tile[0].tileN}")
-    print(f"TileL0Info: H={conv_tile[1].tileH}, W={conv_tile[1].tileW}, K={conv_tile[1].tileK}, N={conv_tile[1].tileN}")
-    print(f"SetL0Tile flag: {conv_tile[2]}")
-    pypto.set_debug_options(compile_debug_mode=1)
-    #d[:] = pypto.conv(a, b, pypto.DT_FP16, [1,1], [0,0,0,0], [1,1], extend_params = {'bias_tensor': c})
-    d[:] = pypto.conv(a, b, pypto.DT_FP16, [1,2,3], [1,2,3,4,5,6], [1,4,5], extend_params = {})
+        conv_tile = pypto.get_conv_tile_shapes()
+        print(conv_tile)
+        print(f"TileL1Info: Hin={conv_tile[0].tileHin}, Hout={conv_tile[0].tileHout}," 
+            f" Win={conv_tile[0].tileWin}, Wout={conv_tile[0].tileWout},"
+            f" CinFmap={conv_tile[0].tileCinFmap}, CinWeight={conv_tile[0].tileCinWeight},"
+            f" Cout={conv_tile[0].tileCout}, N={conv_tile[0].tileN}")
+        print(f"TileL0Info: H={conv_tile[1].tileH}, W={conv_tile[1].tileW}, K={conv_tile[1].tileK}, N={conv_tile[1].tileN}")
+        print(f"SetL0Tile flag: {conv_tile[2]}")
+        # d = pypto.conv(a, b, pypto.DT_FP16, [1], [0,0], [1], extend_params = {})
+        d = pypto.conv(a, b, pypto.DT_FP16, [1,1], [0,0,0,0], [1,1], extend_params = {})
+        # d = pypto.conv(a, b, pypto.DT_FP16, [1,1,1], [0,0,0,0,0,0], [1,1,1], extend_params = {})
+        return d
+
+    return conv_kernel
 
 
 @pypto.jit
@@ -90,27 +104,39 @@ def mm_test():
 
 def conv1d_a5_test():
     torch.npu.set_device(0)
-    a = torch.ones([1, 32, 8], dtype=torch.float16)
-    b = torch.ones([32, 32, 1], dtype=torch.float16)
-    c = torch.ones([32], dtype=torch.float16)
-    d = torch.empty([1, 32, 8], dtype=torch.float16)
-    conv_kernel(pypto.from_torch(a), pypto.from_torch(b), pypto.from_torch(c), pypto.from_torch(d))
+    run_mode = "npu"
+    fmap_shape = (1, 32, 16)
+    weight_shape = (32, 32, 1)
+    bias_shape = (32)
+    out_shape = (1, 32, 16)
+    a = torch.rand(fmap_shape, dtype=torch.float16)
+    b = torch.rand(weight_shape, dtype=torch.float16)
+    c = torch.rand(bias_shape, dtype=torch.float16)
+    create_conv_kernel(fmap_shape, weight_shape, out_shape, run_mode)(a, b)
 
 
 def conv2d_a5_test():
     torch.npu.set_device(0)
-    a = torch.ones([1, 32, 8, 8], dtype=torch.float16)
-    b = torch.ones([32, 32, 1, 1], dtype=torch.float16)
-    c = torch.ones([32], dtype=torch.float16)
-    d = torch.empty([1, 32, 8, 8], dtype=torch.float16)
-    conv_kernel(pypto.from_torch(a), pypto.from_torch(b), pypto.from_torch(d))
+    run_mode = "npu"
+    fmap_shape = (1, 32, 8, 16)
+    weight_shape = (32, 32, 1, 1)
+    bias_shape = (32)
+    out_shape = (1, 32, 8, 16)
+    a = torch.rand(fmap_shape, dtype=torch.float16, device=run_mode)
+    b = torch.rand(weight_shape, dtype=torch.float16, device=run_mode)
+    c = torch.rand(bias_shape, dtype=torch.float16, device=run_mode)
+    create_conv_kernel(fmap_shape, weight_shape, out_shape, run_mode)(a, b)
 
 def conv3d_a5_test():
     torch.npu.set_device(0)
-    a = torch.ones([1, 96, 1, 16, 1], dtype=torch.float16)
-    b = torch.ones([32, 96, 1, 1, 1], dtype=torch.float16)
-    c = torch.ones([32], dtype=torch.float16)
-    d = torch.empty([1, 32, 1, 8, 8], dtype=torch.float16)
-    conv_kernel(pypto.from_torch(a), pypto.from_torch(b), pypto.from_torch(d))
+    run_mode = "npu"
+    fmap_shape = (1, 96, 2, 16, 16)
+    weight_shape = (32, 96, 1, 1, 1)
+    bias_shape = (32)
+    out_shape = (1, 32, 2, 16, 16)
+    a = torch.rand(fmap_shape, dtype=torch.float16)
+    b = torch.rand(weight_shape, dtype=torch.float16)
+    c = torch.rand(bias_shape, dtype=torch.float16)
+    create_conv_kernel(fmap_shape, weight_shape, out_shape, run_mode)(a, b)
 
-conv3d_a5_test()
+conv2d_a5_test()
