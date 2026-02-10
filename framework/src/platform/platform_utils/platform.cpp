@@ -158,6 +158,10 @@ bool Die::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType
     return false;
 }
 
+void SoC::SetNPUArch(const std::string& versionStr) {
+    version_ = StringToNPUArch(versionStr);
+}
+
 void SoC::SetCoreVersion(const std::unordered_map<std::string, std::string>& ver) {
     for (const auto &pair : ver) {
         if (pair.first == "AIC") {

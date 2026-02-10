@@ -38,13 +38,13 @@ bool GetSocSpcString(const std::string& column, const std::string& key, std::str
 }
 
 bool GetrtAICPUNum(size_t &cpuNum) {
-   uint32_t cpuNum = 0;
+   uint32_t rtCpuNum = 0;
    int ret = 1;
 #ifdef BUILD_WITH_CANN
-    ret = rtGetAiCpuCount(&cpuNum);
+    ret = rtGetAiCpuCount(&rtCpuNum);
 #endif
     if (ret == 0) {
-        return static_cast<size_t>(cpuNum);
+        cpuNum = static_cast<size_t>(rtCpuNum);
         return true;
     } else {
         return false;

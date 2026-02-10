@@ -29,7 +29,7 @@
 namespace npu::tile_fwk {
 extern bool GetSocSpcString(const std::string& column, const std::string& key, std::string& val);
 extern bool GetrtSocVersion(std::string& socVerString);
-extern size_t GetrtAICPUNum(size_t &cpuNum);
+extern bool GetrtAICPUNum(size_t &cpuNum);
 
 struct CacheInfo {
     size_t l2Size;
@@ -342,7 +342,7 @@ private:
 public:
     void SetDie(const Die& die) { die_ = die; }
     void SetNPUArch(NPUArch version) { version_ = version; }
-    void SetNPUArch(const std::string& version) { version_ = StringToNPUArch(version); }
+    void SetNPUArch(const std::string& version);
     void SetShortSocVersion(const std::string& version) { short_soc_ver_ = version;}
     void SetDiesNum(size_t cnt) { dies_cnt_ = cnt; }
     void SetCoreVersion(const std::unordered_map<std::string, std::string>& ver);
