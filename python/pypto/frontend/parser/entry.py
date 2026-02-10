@@ -156,6 +156,32 @@ class JitCallableWrapper:
     # Global compilation cache
     _compilation_cache: dict[tuple, dict[str, Any]] = {}
 
+    _dtype_dict = {
+        "torch.int8": pypto.DataType.DT_INT8,
+        "torch.int16": pypto.DataType.DT_INT16,
+        "torch.short": pypto.DataType.DT_INT16,
+        "torch.int32": pypto.DataType.DT_INT32,
+        "torch.int": pypto.DataType.DT_INT32,
+        "torch.int64": pypto.DataType.DT_INT64,
+        "torch.long": pypto.DataType.DT_INT64,
+
+        "torch.float16": pypto.DataType.DT_FP16,
+        "torch.half": pypto.DataType.DT_FP16,
+        "torch.float32": pypto.DataType.DT_FP32,
+        "torch.float": pypto.DataType.DT_FP32,
+        
+        "torch.bfloat16": pypto.DataType.DT_BF16,
+        "torch.float8_e4m3fn": pypto.DataType.DT_FP8E4M3,
+        "torch.float8_e5m2": pypto.DataType.DT_FP8E5M2,
+
+        "torch.uint8": pypto.DataType.DT_UINT8,
+        "torch.uint16": pypto.DataType.DT_UINT16,
+        "torch.uint32": pypto.DataType.DT_UINT32,
+        "torch.uint64": pypto.DataType.DT_UINT64,
+
+        "torch.bool": pypto.DataType.DT_BOOL,
+    }
+
     def __init__(
         self,
         pto_function: Optional[pypto.Function],
@@ -299,6 +325,9 @@ class JitCallableWrapper:
             self._parser = self._create_parser()
             
         input_tensor_defs, output_tensor_defs = self._parser.get_signature()
+
+        self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
+
         symbolic_dim_value_map = self._parser.match_input_shapes(
             concrete_input_shapes, input_tensor_defs
         )
@@ -455,6 +484,37 @@ class JitCallableWrapper:
                         raise
         return nonlocal_vars
 
+    def _check_input_defs_match_tensors(self, in_tensors: list, input_tensor_defs: list[pypto.Tensor]) -> None:
+        """Check if the input tensor definitions match the input tensors.
+        """
+
+        # Check the number of input tensors and input tensor definitions
+        if len(in_tensors) != len(input_tensor_defs):
+            raise RuntimeError(f"There are {len(in_tensors)} input tensor(s), \
+                but {len(input_tensor_defs)} input tensor definition(s).")
+        
+        def ordinal(n):
+            suffix = ['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]
+            if 11 <= n % 100 <= 13:
+                suffix = 'th'
+            return f"{n}{suffix}"
+        idx = 0
+        for in_tensor, input_tensor_def in zip(in_tensors, input_tensor_defs):
+            idx += 1
+            # Check the shape of input tensors and input tensor definitions
+            if len(in_tensor.shape) != len(input_tensor_def.shape):
+                raise ValueError(f"The number of dimensions of {ordinal(idx)} input tensor {in_tensor.shape} \
+                    does not match the number of dimensions of input tensor definition {input_tensor_def.shape}.")
+            for i, dim in enumerate(input_tensor_def.shape):
+                if isinstance(dim, int) and in_tensor.shape[i] != dim:
+                    raise ValueError(f"The shape of {ordinal(idx)} input tensor {in_tensor.shape} \
+                        does not match the shape of input tensor definition {input_tensor_def.shape}.")
+            
+            # Check the dtype of input tensors and input tensor definitions
+            if self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
+                raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
+                    does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
+
     def _get_compilation_cache_key(
         self,
         input_tensor_defs: Optional[list] = None,
@@ -538,14 +598,9 @@ class JitCallableWrapper:
                 make_hashable(self._debug_options),
             )
 
-            # Include closure variables in the cache key
-            # This ensures that functions with different closure variable values
-            # (e.g., different offsets in assemble_wrapper) don't incorrectly share
-            # the same cached compilation result
-            closure_vars = self._get_func_nonlocals(self._original_func)
-            closure_hash = make_hashable(closure_vars) if closure_vars else None
+            captured_locals_hash = make_hashable(self._captured_locals) if self._captured_locals else None
 
-            return (source_code, normalized_shapes, options_hash, closure_hash)
+            return (source_code, normalized_shapes, options_hash, captured_locals_hash)
         except (OSError, TypeError):
             # If we can't generate a cache key (e.g., source not available),
             # disable caching for this function

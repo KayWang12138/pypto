@@ -81,7 +81,7 @@ class Tensor:
 
         # Negative index
         a = pypto.tensor((4, 4), pypto.DT_FP32)
-        b = pypto.tensor(2), pypto.DT_FP32)
+        b = pypto.tensor((2), pypto.DT_FP32)
         a[-1, -3:-1] = b # equivalent to a[3, 1:3]
 
         # Ellipsis index
@@ -604,20 +604,20 @@ class Tensor:
         return pypto.cumsum(self, dim)
 
     @source_location
-    def triu(self: 'Tensor', diagonal: 'int | SymbolicScalar') -> 'Tensor':
+    def triu(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
         return pypto.triu(self, diagonal)
 
     @source_location
-    def triu_(self: 'Tensor', diagonal: 'int | SymbolicScalar') -> 'Tensor':
+    def triu_(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
         self.move(pypto.triu(self, diagonal))
         return self
 
     @source_location
-    def tril(self: 'Tensor', diagonal: 'int | SymbolicScalar') -> 'Tensor':
+    def tril(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
         return pypto.tril(self, diagonal)
 
     @source_location
-    def tril_(self: 'Tensor', diagonal: 'int | SymbolicScalar') -> 'Tensor':
+    def tril_(self: 'Tensor', diagonal: 'int | SymbolicScalar' = 0) -> 'Tensor':
         self.move(pypto.tril(self, diagonal))
         return self
 
