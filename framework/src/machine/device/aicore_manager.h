@@ -208,8 +208,6 @@ private:
 
     void AddTask(int coreIdx, uint64_t taskId);
 
-    void PushReadyQue(StaticReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const;
-
     void ResolveDepForAllAiCore(CoreType type, StaticReadyCoreFunctionQueue *readyQue, int coreIdxStart, int coreIdxEnd);
 
     void BatchPushReadyQueue();

@@ -316,14 +316,6 @@ void AiCoreManager::AddTask(int coreIdx, uint64_t taskId) {
     }
 }
 
-void AiCoreManager::PushReadyQue(StaticReadyCoreFunctionQueue *readyQue, void *idList, uint32_t idCnt) const {
-    readyQue->lock();
-    memcpy_s(
-        &readyQue->elem[readyQue->tail], idCnt * sizeof(uint64_t), (uint8_t *)idList, idCnt * sizeof(uint64_t));
-    readyQue->tail += idCnt;
-    readyQue->unlock();
-}
-
 void AiCoreManager::ResolveDepForAllAiCore(
     CoreType type, StaticReadyCoreFunctionQueue *readyQue, int coreIdxStart, int coreIdxEnd) {
     (void)readyQue;
@@ -353,7 +345,7 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         DEV_DEBUG("resolved new task, aic ready count: %lu coretype:%u\n", readyCount[aicIndex], aicIndex);
         if (readyCount[aicIndex] > 0) {
-            PushReadyQue(readyAicCoreFunctionQue_, readyIds[aicIndex], readyCount[aicIndex]);
+            readyAicCoreFunctionQue_->push(readyIds[aicIndex], readyCount[aicIndex]);
         }
         readyCount[aicIndex] = 0;
     }
@@ -366,7 +358,7 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         DEV_DEBUG("resolved new task, aiv ready count: %lu coretype:%u\n", readyCount[aivIndex], aivIndex);
         if (readyCount[aivIndex] > 0) {
-            PushReadyQue(readyAivCoreFunctionQue_, readyIds[aivIndex], readyCount[aivIndex]);
+            readyAivCoreFunctionQue_->push(readyIds[aivIndex], readyCount[aivIndex]);
         }
         readyCount[aivIndex] = 0;
     }
@@ -374,14 +366,14 @@ void AiCoreManager::BatchPushReadyQueue() {
     if (readyIdsExtend[aicIndex].size() > 0) {
         DEV_DEBUG("resolved new task, extend aic ready count: %lu, coretype:%u\n", readyIdsExtend[aicIndex].size(),
             aicIndex);
-        PushReadyQue(readyAicCoreFunctionQue_, readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
+        readyAicCoreFunctionQue_->push(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
         readyIdsExtend[aicIndex].clear();
     }
 
     if (readyIdsExtend[aivIndex].size() > 0) {
         DEV_DEBUG("resolved new task, extend aiv ready count: %lu, coretype:%u\n", readyIdsExtend[aivIndex].size(),
             aivIndex);
-        PushReadyQue(readyAivCoreFunctionQue_, readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
+        readyAivCoreFunctionQue_->push(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
         readyIdsExtend[aivIndex].clear();
     }
 }

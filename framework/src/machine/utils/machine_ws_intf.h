@@ -34,12 +34,10 @@ struct ReadyCoreFunctionQueue {
   uint64_t Size() { return tail - head;}
 };
 
-struct StaticReadyCoreFunctionQueue {
-  uint64_t head;
-  uint64_t tail;
-  uint64_t* elem;
-  size_t _lock = 0;
+class StaticReadyCoreFunctionQueue {
 
+  public: 
+  
   // The use of past tense in these functions obeys to the fact that they are not (and cannot be) concurrency-safe
   // Therefore, the return value could have changed by the time it is returned
   inline bool wasEmpty() const { return head == tail; }
@@ -53,6 +51,15 @@ struct StaticReadyCoreFunctionQueue {
     return { &elem[curHead], count };
   }
 
+  inline void push(uint64_t* const input, const size_t count = 1)
+  {
+    lock();
+    memcpy_s(&elem[tail], count * sizeof(uint64_t), input, count * sizeof(uint64_t));
+    tail += count;
+    unlock();
+  }
+
+
   inline void lock() {
      while (!__sync_bool_compare_and_swap(&_lock, 0, 1)) {
     }
@@ -62,7 +69,29 @@ struct StaticReadyCoreFunctionQueue {
       while (!__sync_bool_compare_and_swap(&_lock, 1, 0)) {
     }
   }
+
+  inline void setBuffer(uint64_t* const buffer) { elem = buffer; }
+  inline void setCapacity(const size_t capacity) { _capacity = capacity; }
+
+  inline uint64_t* getBuffer() const { return elem; }
+
+  private: 
+
+  size_t head = 0;
+  size_t tail = 0;
+  uint64_t* elem = nullptr;
+  size_t _capacity = 0;
+  size_t _lock = 0;
 };
+
+// Added this structure to separate concerns between the static and dynamic schedulers.
+struct StaticWrapQueue {
+  uint64_t head;
+  uint64_t tail;
+  uint64_t* elem;
+  size_t lock;
+};
+
 
 struct WrapInfo {
     uint32_t wrapId;
@@ -80,7 +109,7 @@ struct WrapInfoQueue {
   uint32_t capacity;
   WrapInfo* elem;
   size_t lock;
-  uint64_t Size() { return tail - head; }
+  uint64_t Size() { return tail - head;}
 };
 
 inline void ReadyQueueLock(ReadyCoreFunctionQueue* rq) {

@@ -63,7 +63,7 @@ public:
     int aicValidNum_{0};
     WrapInfoQueue* readyWrapCoreFunctionQue_{nullptr};
     // Queue managed by each thread, elem is wrapInfo's addr
-    StaticReadyCoreFunctionQueue wrapQueueForThread_{0, 0, nullptr, 0};
+    StaticWrapQueue wrapQueueForThread_{0, 0, nullptr, 0};
     uint32_t* wrapTasklist_{nullptr};
     uint32_t wrapCoreStatus_[MAX_AICORE_NUM]{0};
     SendTaskToAiCoreFunc SendTaskToAiCore;
