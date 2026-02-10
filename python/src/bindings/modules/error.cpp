@@ -11,7 +11,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "bindings.h"
+#include "../bindings.h"
 #include "core/error.h"
 
 namespace py = pybind11;

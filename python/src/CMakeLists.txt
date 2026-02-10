@@ -11,13 +11,13 @@
 pybind11_add_module(pypto_impl
         MODULE
             pybind11.cpp
-            bindings/error.cpp
-            bindings/core.cpp
-            bindings/logging.cpp
-            bindings/testing.cpp
-            bindings/ir.cpp
-            bindings/ir_builder.cpp
-            bindings/passes.cpp
+            bindings/modules/error.cpp
+            bindings/modules/core.cpp
+            bindings/modules/logging.cpp
+            bindings/modules/testing.cpp
+            bindings/modules/ir.cpp
+            bindings/modules/ir_builder.cpp
+            bindings/modules/passes.cpp
             bindings/enum.cpp
             bindings/element.cpp
             bindings/tensor.cpp

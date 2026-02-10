@@ -13,7 +13,7 @@
 
 #include <vector>
 
-#include "bindings.h"
+#include "../bindings.h"
 #include "ir/builder.h"
 #include "ir/core.h"
 #include "ir/expr.h"

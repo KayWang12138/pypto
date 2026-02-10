@@ -18,7 +18,7 @@
 #include <tuple>
 #include <vector>
 
-#include "bindings.h"
+#include "../bindings.h"
 #include "core/any_cast.h"
 #include "core/common.h"
 #include "core/error.h"
@@ -37,41 +37,12 @@
 #include "ir/transform/printer.h"
 #include "ir/transform/structural_comparison.h"
 #include "ir/type.h"
-#include "tilefwk/data_type.h"
 
 namespace py = pybind11;
 
 namespace pypto {
 
 using namespace pypto::ir;  // NOLINT(build/namespaces)
-using FwkDataType = npu::tile_fwk::DataType;  // Framework DataType enum
-
-// Convert framework DataType enum to IR DataType class
-inline DataType ConvertDataType(FwkDataType fwk_dtype) {
-  switch (fwk_dtype) {
-    case FwkDataType::DT_BOOL: return DataType::BOOL;
-    case FwkDataType::DT_INT4: return DataType::INT4;
-    case FwkDataType::DT_INT8: return DataType::INT8;
-    case FwkDataType::DT_INT16: return DataType::INT16;
-    case FwkDataType::DT_INT32: return DataType::INT32;
-    case FwkDataType::DT_INT64: return DataType::INT64;
-    case FwkDataType::DT_UINT8: return DataType::UINT8;
-    case FwkDataType::DT_UINT16: return DataType::UINT16;
-    case FwkDataType::DT_UINT32: return DataType::UINT32;
-    case FwkDataType::DT_UINT64: return DataType::UINT64;
-    case FwkDataType::DT_FP8: return DataType::FP8;
-    case FwkDataType::DT_FP8E4M3: return DataType::FP8E4M3FN;
-    case FwkDataType::DT_FP8E5M2: return DataType::FP8E5M2;
-    case FwkDataType::DT_FP16: return DataType::FP16;
-    case FwkDataType::DT_FP32: return DataType::FP32;
-    case FwkDataType::DT_BF16: return DataType::BF16;
-    case FwkDataType::DT_HF4: return DataType::HF4;
-    case FwkDataType::DT_HF8: return DataType::HF8;
-    case FwkDataType::DT_DOUBLE: return DataType::FP32;  // Map DOUBLE to FP32 for now
-    default:
-      throw std::runtime_error("Unsupported DataType conversion");
-  }
-}
 
 template <typename T>
 bool TryConvertAnyToPy(const std::any &value, py::object &out) {
@@ -114,9 +85,8 @@ std::vector<std::pair<std::string, std::any>> ConvertKwargsDict(const py::dict &
     std::string key = py::cast<std::string>(item.first);
     py::handle val = item.second;
 
-    if (py::isinstance<FwkDataType>(val)) {
-      // Convert framework DataType enum to IR DataType class
-      kwargs.emplace_back(key, ConvertDataType(py::cast<FwkDataType>(val)));
+    if (py::isinstance<DataType>(val)) {
+      kwargs.emplace_back(key, py::cast<DataType>(val));
     } else if (py::isinstance<py::bool_>(val)) {
       kwargs.emplace_back(key, py::cast<bool>(val));
     } else if (py::isinstance<py::int_>(val)) {
@@ -178,9 +148,7 @@ void BindIR(py::module_ &m) {
   BindFields<UnknownType>(unknown_type_class);
 
   auto scalar_type_class = py::class_<ScalarType, Type, std::shared_ptr<ScalarType>>(ir, "ScalarType");
-  scalar_type_class.def(py::init([](FwkDataType dtype) {
-    return std::make_shared<ScalarType>(ConvertDataType(dtype));
-  }), py::arg("dtype"));
+  scalar_type_class.def(py::init<DataType>(), py::arg("dtype"));
   BindFields<ScalarType>(scalar_type_class);
 
   // IRNode
@@ -207,30 +175,27 @@ void BindIR(py::module_ &m) {
 
   // TensorType
   auto tensor_type_class = py::class_<TensorType, ShapedType, std::shared_ptr<TensorType>>(ir, "TensorType");
-  tensor_type_class.def(py::init([](const std::vector<ExprPtr> &shape, FwkDataType dtype, std::optional<MemRefPtr> memref) {
-    return std::make_shared<TensorType>(shape, ConvertDataType(dtype), memref);
-  }), py::arg("shape"), py::arg("dtype"), py::arg("memref") = py::none());
-  tensor_type_class.def(py::init([](const std::vector<int64_t> &shape, FwkDataType dtype, std::optional<MemRefPtr> memref) {
-    return std::make_shared<TensorType>(shape, ConvertDataType(dtype), memref);
-  }), py::arg("shape"), py::arg("dtype"), py::arg("memref") = py::none());
+  tensor_type_class.def(py::init<const std::vector<ExprPtr> &, DataType, std::optional<MemRefPtr>>(),
+      py::arg("shape"), py::arg("dtype"), py::arg("memref") = py::none());
+  tensor_type_class.def(py::init<const std::vector<int64_t> &, DataType, std::optional<MemRefPtr>>(),
+      py::arg("shape"), py::arg("dtype"), py::arg("memref") = py::none());
   BindFields<TensorType>(tensor_type_class);
 
   // TileType
   auto tile_type_class = py::class_<TileType, ShapedType, std::shared_ptr<TileType>>(ir, "TileType");
-  tile_type_class.def(py::init([](const std::vector<ExprPtr> &shape, FwkDataType dtype,
-                                   std::optional<MemRefPtr> memref, std::optional<TileView> tile_view) {
-    return std::make_shared<TileType>(shape, ConvertDataType(dtype), memref, tile_view);
-  }), py::arg("shape"), py::arg("dtype"), py::arg("memref") = py::none(), py::arg("tile_view") = py::none());
-  tile_type_class.def(py::init([](const std::vector<int64_t> &shape, FwkDataType dtype,
-                                   std::optional<MemRefPtr> memref, std::optional<TileView> tile_view) {
-    return std::make_shared<TileType>(shape, ConvertDataType(dtype), memref, tile_view);
-  }), py::arg("shape"), py::arg("dtype"), py::arg("memref") = py::none(), py::arg("tile_view") = py::none());
+  tile_type_class.def(py::init<const std::vector<ExprPtr> &, DataType,
+                                std::optional<MemRefPtr>, std::optional<TileView>>(),
+      py::arg("shape"), py::arg("dtype"), py::arg("memref") = py::none(), py::arg("tile_view") = py::none());
+  tile_type_class.def(py::init<const std::vector<int64_t> &, DataType,
+                                std::optional<MemRefPtr>, std::optional<TileView>>(),
+      py::arg("shape"), py::arg("dtype"), py::arg("memref") = py::none(), py::arg("tile_view") = py::none());
   BindFields<TileType>(tile_type_class);
 
   // TupleType
   auto tuple_type_class = py::class_<TupleType, Type, std::shared_ptr<TupleType>>(ir, "TupleType");
   tuple_type_class.def(py::init<const std::vector<TypePtr> &>(), py::arg("types"));
   BindFields<TupleType>(tuple_type_class);
+
   // Enums
   py::enum_<MemorySpace>(ir, "MemorySpace")
       .value("DDR", MemorySpace::DDR)
@@ -285,6 +250,7 @@ void BindIR(py::module_ &m) {
   ir.def("get_op",
       [](const std::string &op_name) { return OpRegistry::GetInstance().GetOp(op_name); },
       py::arg("op_name"));
+
   // Var
   auto var_class = py::class_<Var, Expr, std::shared_ptr<Var>>(ir, "Var");
   var_class.def(py::init<const std::string &, const TypePtr &, const Span &>(),
@@ -309,17 +275,15 @@ void BindIR(py::module_ &m) {
 
   // ConstInt
   auto constint_class = py::class_<ConstInt, Expr, std::shared_ptr<ConstInt>>(ir, "ConstInt");
-  constint_class.def(py::init([](int64_t value, FwkDataType dtype, const Span &span) {
-    return std::make_shared<ConstInt>(value, ConvertDataType(dtype), span);
-  }), py::arg("value"), py::arg("dtype"), py::arg("span"));
+  constint_class.def(py::init<int64_t, DataType, const Span &>(),
+      py::arg("value"), py::arg("dtype"), py::arg("span"));
   BindFields<ConstInt>(constint_class);
   constint_class.def_property_readonly("dtype", &ConstInt::dtype);
 
   // ConstFloat
   auto constfloat_class = py::class_<ConstFloat, Expr, std::shared_ptr<ConstFloat>>(ir, "ConstFloat");
-  constfloat_class.def(py::init([](double value, FwkDataType dtype, const Span &span) {
-    return std::make_shared<ConstFloat>(value, ConvertDataType(dtype), span);
-  }), py::arg("value"), py::arg("dtype"), py::arg("span"));
+  constfloat_class.def(py::init<double, DataType, const Span &>(),
+      py::arg("value"), py::arg("dtype"), py::arg("span"));
   BindFields<ConstFloat>(constfloat_class);
   constfloat_class.def_property_readonly("dtype", &ConstFloat::dtype);
 
@@ -328,6 +292,7 @@ void BindIR(py::module_ &m) {
   constbool_class.def(py::init<bool, const Span &>(), py::arg("value"), py::arg("span"));
   BindFields<ConstBool>(constbool_class);
   constbool_class.def_property_readonly("dtype", &ConstBool::dtype);
+
   // Call
   auto call_class = py::class_<Call, Expr, std::shared_ptr<Call>>(ir, "Call");
   call_class.def(py::init<const OpPtr &, const std::vector<ExprPtr> &, const Span &>(),
@@ -364,6 +329,7 @@ void BindIR(py::module_ &m) {
     }
     return result;
   });
+
   // MakeTuple
   auto make_tuple_class = py::class_<MakeTuple, Expr, std::shared_ptr<MakeTuple>>(ir, "MakeTuple");
   make_tuple_class.def(py::init<const std::vector<ExprPtr> &, const Span &>(),
@@ -386,9 +352,8 @@ void BindIR(py::module_ &m) {
 
 #define BIND_BINARY_EXPR(OpName, Description)                                                  \
   py::class_<OpName, BinaryExpr, std::shared_ptr<OpName>>(ir, #OpName, Description)            \
-      .def(py::init([](const ExprPtr &left, const ExprPtr &right, FwkDataType dtype, const Span &span) { \
-        return std::make_shared<OpName>(left, right, ConvertDataType(dtype), span); \
-      }), py::arg("left"), py::arg("right"), py::arg("dtype"), py::arg("span"));
+      .def(py::init<const ExprPtr &, const ExprPtr &, DataType, const Span &>(),               \
+           py::arg("left"), py::arg("right"), py::arg("dtype"), py::arg("span"));
 
   BIND_BINARY_EXPR(Add, "Addition expression")
   BIND_BINARY_EXPR(Sub, "Subtraction expression")
@@ -415,11 +380,11 @@ void BindIR(py::module_ &m) {
   BIND_BINARY_EXPR(BitShiftRight, "Bitwise right shift expression")
 
 #undef BIND_BINARY_EXPR
+
 #define BIND_UNARY_EXPR(OpName, Description)                                                        \
   py::class_<OpName, UnaryExpr, std::shared_ptr<OpName>>(ir, #OpName, Description)                  \
-      .def(py::init([](const ExprPtr &operand, FwkDataType dtype, const Span &span) { \
-        return std::make_shared<OpName>(operand, ConvertDataType(dtype), span); \
-      }), py::arg("operand"), py::arg("dtype"), py::arg("span"));
+      .def(py::init<const ExprPtr &, DataType, const Span &>(),                                     \
+           py::arg("operand"), py::arg("dtype"), py::arg("span"));
 
   BIND_UNARY_EXPR(Abs, "Absolute value expression")
   BIND_UNARY_EXPR(Neg, "Negation expression")
@@ -446,6 +411,7 @@ void BindIR(py::module_ &m) {
   ir.def("assert_structural_equal",
          static_cast<void (*)(const TypePtr &, const TypePtr &, bool)>(&assert_structural_equal),
          py::arg("lhs"), py::arg("rhs"), py::arg("enable_auto_mapping") = false);
+
   // Serialization
   ir.def("serialize", [](const IRNodePtr &node) {
     auto data = serialization::Serialize(node);
@@ -487,6 +453,7 @@ void BindIR(py::module_ &m) {
                         py::arg("value"), py::arg("span"));
   return_stmt_class.def(py::init<const Span &>(), py::arg("span"));
   BindFields<ReturnStmt>(return_stmt_class);
+
   auto for_stmt_class = py::class_<ForStmt, Stmt, std::shared_ptr<ForStmt>>(ir, "ForStmt");
   for_stmt_class.def(
       py::init<const VarPtr &, const ExprPtr &, const ExprPtr &, const ExprPtr &, const std::vector<IterArgPtr> &,
@@ -523,6 +490,7 @@ void BindIR(py::module_ &m) {
                      py::arg("name"), py::arg("params"), py::arg("return_types"), py::arg("body"),
                      py::arg("span"), py::arg("type") = FunctionType::Opaque);
   BindFields<Function>(function_class);
+
   // Program
   auto program_class = py::class_<Program, IRNode, std::shared_ptr<Program>>(ir, "Program");
   program_class.def(py::init<const std::vector<FunctionPtr> &, const std::string &, const Span &>(),
