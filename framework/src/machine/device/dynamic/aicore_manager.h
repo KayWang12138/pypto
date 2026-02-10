@@ -123,7 +123,7 @@ public:
         readyAicpuFunctionQue_ = reinterpret_cast<ReadyCoreFunctionQueue *>(curDevTask_->readyAicpuFunctionQue);
         wrapManager_.Init(curDevTask_, context_->coreRunReadyCnt_, context_->runReadyCoreIdx_[CORE_IDX_AIV],
             context_->runReadyCoreIdx_[CORE_IDX_AIC], context_->corePendReadyCnt_, pendingIds_.data(),
-            runningIds_.data(), aicValidNum_, [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);});
+            runningIds_.data(), aicValidNum_, [&](CoreType coreType, int arg1, uint64_t arg2) {SendTaskToAiCore(coreType, arg1, arg2);}, schedIdx_);
     }
 
     void CountSendTask(uint64_t &sentAic, uint64_t &sentAiv) {
@@ -190,7 +190,6 @@ public:
 
     inline int RunTask(DeviceTaskCtrl *taskCtrl) {
         auto ret = ExecuteTask(taskCtrl);
-        wrapManager_.Deinit();
         if (unlikely(ret != DEVICE_MACHINE_OK)) {
             DEV_ERROR("Aicpu %d proc finish %lu %lu %lu, but timeout !.", aicpuIdx_,
                 taskCtrl->finishedFunctionCnt.load(), curDevTask_->coreFunctionCnt, taskCtrl->taskId);
