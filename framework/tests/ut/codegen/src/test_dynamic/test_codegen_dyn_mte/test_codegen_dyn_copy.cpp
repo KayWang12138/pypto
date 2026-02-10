@@ -161,7 +161,7 @@ std::string TestL1CopyInBody(
     if (isTileTensor) {
         InsertTileTensorOp(Opcode::OP_L1_COPY_IN, "TLoad");
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     }
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
@@ -267,7 +267,7 @@ TEST_F(TestCodegenDynCopy, TestGatherInL1TileTensor) {
     TileShape::Current().SetVecTile(gatherShape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     InsertTileTensorOp(Opcode::OP_GATHER_IN_L1, "TGatherInL1");
     Tensor inputA(DT_FP32, gatherShape, "A");
     Tensor inputB(DT_FP32, gatherShape, "B");
@@ -360,14 +360,14 @@ void TestMatmulMteBody(Opcode opcode, MemoryType inType, MemoryType outType, boo
         InsertTileTensorOp(Opcode::OP_L1_TO_BT, "TExtract");
         InsertTileTensorOp(Opcode::OP_L1_TO_L0A, "TExtract");
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     }
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
@@ -457,7 +457,7 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     InsertTileTensorOp(Opcode::OP_UB_COPY_L1, "TExtract");
     InsertTileTensorOp(Opcode::OP_UB_COPY_ND2NZ, "TMoveND2NZ");
     InsertTileTensorOp(Opcode::OP_L0C_TO_L1, "TExtract");

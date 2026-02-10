@@ -150,7 +150,7 @@ TEST_F(TestCodegenDynCmp, CmpTileTensor) {
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
