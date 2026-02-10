@@ -119,6 +119,7 @@ int EmulationLauncher::BuildControlFlowCacheWithEmulationTensorData(
     DevAscendProgram *devProg = DeviceLauncher::GetDevProg(function);
     DevControlFlowCache* hostCtrlFlowCache = CreateHostCtrlFlowCache(devProg, function);
     hostCtrlFlowCache->isRecording = true;
+    hostCtrlFlowCache->isCacheOriginShape = config.isCacheOriginShape;
     DeviceKernelArgs kArgs;
     DeviceLauncher::DeviceInitDistributedContextToHost(dynAttr->commGroupNames, devProg);
     DeviceLauncher::DeviceInitTilingData(EmulationMemoryUtils(), kArgs, dynAttr->devProgBinary, hostCtrlFlowCache, config, nullptr);

@@ -168,6 +168,8 @@ struct DevControlFlowCache {
     bool isRelocMetaDev{false};
     /* reloc data at device */
     bool isRelocDataDev{false};
+    /* cache shape is origin or infer shape */
+    bool isCacheOriginShape{true};
     /* Filled in caching */
     DevRelocVector<DevTensorData> inputTensorDataList;
     /* Filled in caching */
@@ -206,6 +208,10 @@ struct DevControlFlowCache {
 
     bool inline IsRecordingStopped() const {
         return isRecordingStopped;
+    }
+
+    bool inline IsCacheOriginShape() const {
+        return isCacheOriginShape;
     }
 
     void inline StopRecording() {
