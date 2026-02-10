@@ -431,6 +431,10 @@ class Tensor:
         return pypto.hypot(self, other)
 
     @source_location
+    def prelu(self, weight: 'Tensor') -> 'Tensor':
+        return pypto.prelu(self, weight)
+
+    @source_location
     def div(self, other: 'Tensor | int | float') -> 'Tensor':
         return pypto.div(self, other)
 
