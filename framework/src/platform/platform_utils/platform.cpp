@@ -60,8 +60,8 @@ NPUArch StringToNPUArch(const std::string& npuArch) {
 
 void *GetSymbol(const char *sym) {
     void *ptr = nullptr;
-    std::string soPath = "libtile_fwk_platform_ops.so";
-    std::string stubPath = "libtile_fwk_platform_ops_stubs.so";
+    std::string soPath = GetCurrentSharedLibPath() + "/libtile_fwk_platform_ops.so";
+    std::string stubPath = GetCurrentSharedLibPath() + "/libtile_fwk_platform_ops_stub.so";
     void* handle = dlopen(soPath.c_str(), RTLD_LAZY);
     void* stubhandle = dlopen(stubPath.c_str(), RTLD_LAZY);
     if (handle != nullptr) {
