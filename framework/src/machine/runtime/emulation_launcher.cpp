@@ -30,6 +30,8 @@ static int EmulationLaunchOnce(DeviceKernelArgs &kArgs) {
     std::atomic<int> idx{0};
     auto *devProg = (DevAscendProgram *)(kArgs.cfgdata);
     size_t shmSize = DEVICE_TASK_CTRL_POOL_SIZE + DEVICE_TASK_QUEUE_SIZE * devProg->devArgs.scheCpuNum;
+    std::vector<int64_t> shmMem(shmSize / sizeof(int64_t));
+    devProg->devArgs.runtimeDataRingBufferAddr = (uint64_t)shmMem.data();
     auto deviceTaskCtrlPoolAddr = devProg->GetRuntimeDataList()->GetRuntimeData() + DEV_ARGS_SIZE;
     (void)memset_s(reinterpret_cast<void*>(deviceTaskCtrlPoolAddr), shmSize, 0, shmSize);
     for (int i = 0; i < static_cast<int>(devProg->devArgs.nrAicpu); i++) {
