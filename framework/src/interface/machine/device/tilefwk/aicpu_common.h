@@ -19,6 +19,10 @@
 #include <cstdint>
 #include "aicpu_perf.h"
 
+constexpr uint32_t MAX_SCHEDULE_AICPU_NUM = 5;          // 真正负责调度aicore的最大aicpu个数
+constexpr uint32_t MAX_OTHER_AICPU_NUM = 2; // 除调度cpu以外的其它aicpu数量
+constexpr uint32_t MAX_USED_AICPU_NUM = MAX_SCHEDULE_AICPU_NUM + MAX_OTHER_AICPU_NUM;
+
 const uint64_t AICORE_TASK_INIT = 0xFFFFFFFF;
 const uint64_t AICORE_TASK_STOP = 0x7FFFFFF0;
 const uint64_t AICORE_FUNC_STOP = 0x7FFFFFE0;
@@ -231,9 +235,9 @@ struct Metrics {
 };
 
 struct MetricPerf {
-    uint64_t perfAicpuTrace[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::PERF_TRACE_MAX] = {{0}};
-    uint64_t perfAicpuTraceDevTask[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM][npu::tile_fwk::dynamic::PERF_TRACE_COUNT_DEVTASK_MAX_NUM] = {{{0}}}; // 每个devTask 的对应type的数据
-    uint8_t perfAicpuTraceDevTaskCnt[npu::tile_fwk::dynamic::MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM] = {{0}};
+    uint64_t perfAicpuTrace[MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::PERF_TRACE_MAX] = {{0}};
+    uint64_t perfAicpuTraceDevTask[MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM][npu::tile_fwk::dynamic::PERF_TRACE_COUNT_DEVTASK_MAX_NUM] = {{{0}}}; // 每个devTask 的对应type的数据
+    uint8_t perfAicpuTraceDevTaskCnt[MAX_USED_AICPU_NUM][npu::tile_fwk::dynamic::DEVTASK_PERF_TYPE_NUM] = {{0}};
 };
 
 inline const char *AicorePerfTraceName[] = {
