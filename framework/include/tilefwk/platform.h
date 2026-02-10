@@ -106,7 +106,7 @@ class PlatformParser {
     bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
     bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const;
     bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
-}
+};
 
 class Inst {
 public:
@@ -340,7 +340,7 @@ private:
 public:
     void SetDie(const Die& die) { die_ = die; }
     void SetNPUArch(NPUArch version) { version_ = version; }
-    void SetNPUArch(const std::string& version) { version_ = StringToNPUArch(versionStr); }
+    void SetNPUArch(const std::string& version);
     void SetShortSocVersion(const std::string& version) { short_soc_ver_ = version;}
     void SetDiesNum(size_t cnt) { dies_cnt_ = cnt; }
     void SetCoreVersion(const std::unordered_map<std::string, std::string>& ver);

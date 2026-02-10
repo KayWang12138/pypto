@@ -73,15 +73,6 @@ void *GetSymbol(const char *sym) {
     return ptr;
 }
 
-std::shared_ptr<PvModel> Create() {
-    
-    std::string funcName = "CreatePvModelImpl" + arch;
-    auto createFunc = (CreateFunc)(dlsym(handle, funcName.c_str()));
-
-    // 创建对象并返回
-    return createFunc();
-}
-
 bool PlatformParser::FilterCCECVersion(const std::string& key, std::string &coreType) const {
     const std::string prefix = "CCEC_";
     const std::string suffix = "_version";
@@ -194,6 +185,10 @@ bool Die::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType
     }
     paths.clear();
     return false;
+}
+
+void Soc::SetNPUArch(const std::string& versionStr) {
+    version_ = StringToNPUArch(versionStr);
 }
 
 size_t Soc::GetAICPUNum() const {
