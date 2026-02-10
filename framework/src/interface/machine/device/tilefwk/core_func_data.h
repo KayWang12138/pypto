@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include "tilefwk/aikernel_data.h"
+#include "tilefwk/aicpu_common.h"
 
 inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
 constexpr int MAX_DIMS = 8;
@@ -111,6 +112,7 @@ struct MixTaskData {
     uint64_t wrapIdNum; // 包含的有效wrapId个数
     uint64_t opWrapList[MAX_CACHED_FUNC_NUM]; // 指针数组，指向每个function的callop对应的wrapId
     uint64_t opWrapTaskNumList[MAX_CACHED_FUNC_NUM]; // 指针数组，指向每个function的callop对应的wrapTaskNum
+    uint64_t wrapQueueThread[MAX_SCHEDULE_AICPU_NUM];
 };
 
 // host machine 发给device machine的task数据
