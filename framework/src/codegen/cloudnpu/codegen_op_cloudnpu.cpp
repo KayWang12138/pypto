@@ -218,6 +218,9 @@ CodeGenOpCloudNPU::CodeGenOpCloudNPU(const std::shared_ptr<SymbolManager> &symbo
           {Opcode::OP_SORT, [this]() { return GenSortOp(); }},
           {Opcode::OP_COMPARE_SWAP, [this]() { return GenCompareAndSwapOp(); }},
           {Opcode::OP_MERGE, [this]() { return GenMergeOp(); }},
+
+          {Opcode::OP_TWOTILEMRGSORT, [this]() { return GenTwoTileMrgSort(); }},
+          {Opcode::OP_EXTRACT_SINGLE, [this]() { return GenExtractSingleOp(); }},
       }),
       cubeOps_({
           // matmul
@@ -557,10 +560,8 @@ TileTensor CodeGenOpCloudNPU::BuildTileTensor(
         }
     }
     UpdateTileTensorShapeAndStride(paramIdx, tileTensor, isSpillToGm, shapeInLoop);
-    
-    if (!offset[paramIdx].empty()) {
-        tileTensor.localBufOffset = offset[paramIdx];
-    }
+
+    tileTensor.localBufOffset = offset[paramIdx];
 
     return tileTensor;
 }

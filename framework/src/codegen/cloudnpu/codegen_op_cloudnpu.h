@@ -143,6 +143,9 @@ public:
     std::string GenTopKMergeOp() const;
     std::string GenTopKExtractOp() const;
 
+    std::string GenTwoTileMrgSort() const;
+    std::string GenExtractSingleOp() const;
+
     std::string GenParamsStr(const std::unordered_set<int32_t> &skipOperands = {}) const;
 
     std::string GenDistOp() const;
@@ -214,10 +217,10 @@ private:
             return false;
         }
         if (it->second.Type() == typeid(T)) {
-            value = npu::tile_fwk::AnyCast<T>(it->second);
+            value = AnyCast<T>(it->second);
             return true;
         }
-        ALOG_ERROR_F("Type mismatch: %s != %s", it->second.Type().name(), typeid(T).name());
+        ALOG_ERROR_F("Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(), it->second.Type().name(), typeid(T).name());
         return false;
     }
 
@@ -352,6 +355,7 @@ private:
     std::string PrintBitSortStatic(const SortParam &param) const;
     std::string PrintMrgSortDynamicUnaligned(const SortParam &param) const;
     std::string PrintMrgSortStatic(const SortParam &param) const;
+    std::string PrintSortUBDynamicUnaligned(bool containDstType) const;
 
     std::string PrintBinaryStatic(const PrintBinaryParam &param) const;
     std::string PrintBinaryDynamicUnaligned(const PrintBinaryParam &param) const;

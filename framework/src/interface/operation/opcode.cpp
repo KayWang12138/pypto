@@ -273,6 +273,16 @@ void OpcodeManager::RegisterVectorSort() {
         {MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {MemoryType::MEM_UB, MemoryType::MEM_UB}, {"TileOp::TiledMrgSort", PIPE_V, PIPE_V, CoreType::AIV},
         OpCalcType::OTHER, {OP_ATTR_PREFIX + "validBit", OP_ATTR_PREFIX + "kvalue"});
+    RegisterInfo(Opcode::OP_TWOTILEMRGSORT, OpCoreType::ANY, "TWOTILEMRGSORT", {MemoryType::MEM_UB}, 
+        {MemoryType::MEM_UB}, {"TileOp::TwoTileMrgSort", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER, 
+        {OpAttributeKey::excludeBufferReuse, OP_ATTR_PREFIX + "firstShape"});
+    RegisterInfo(Opcode::OP_EXTRACT_SINGLE, OpCoreType::ANY, "EXTRACTSINGLE", {MemoryType::MEM_UB}, {MemoryType::MEM_UB},
+        {"TileOp::ExtractSingle", PIPE_V, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OP_ATTR_PREFIX + "order", OP_ATTR_PREFIX + "makeMode"});
+    RegisterInfo(Opcode::OP_SORT_UB, OpCoreType::ANY, "SORTUB", {MemoryType::MEM_DEVICE_DDR}, 
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR}, {"TileOp::SortUB", PIPE_S, PIPE_V, CoreType::AIV}, OpCalcType::OTHER,
+        {OP_ATTR_PREFIX + "axis", OP_ATTR_PREFIX + "order"});
+        
 
     // parallel sort
     RegisterInfo(Opcode::OP_SORT, OpCoreType::AIV, "SORT", {MemoryType::MEM_UB},
@@ -863,7 +873,6 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {            Opcode::OP_PAIRMAX,       "TPairMax"},
     {            Opcode::OP_PAIRMIN,       "TPairMin"},
     {             Opcode::OP_ONEHOT,        "TOneHot"},
-    {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
     {            Opcode::OP_VEC_DUP,        "TVecDup"},
     {              Opcode::OP_RANGE,         "TRange"},
     {               Opcode::OP_BRCB,          "Tbrcb"},
@@ -882,6 +891,20 @@ std::unordered_map<Opcode, std::string> SUPPORT_TILETENSOR_OPS{
     {        Opcode::OP_BITWISEXORS,   "TBitwiseXorS"},
     {         Opcode::OP_BITWISENOT,    "TBitwiseNot"},
     {           Opcode::OP_COPYSIGN,      "TCopysign"},
+    {          Opcode::OP_L1_TO_L0A,       "TExtract"},
+    {          Opcode::OP_L1_TO_L0B,       "TExtract"},
+    {        Opcode::OP_L1_TO_L0_AT,       "TExtract"},
+    {        Opcode::OP_L1_TO_L0_BT,       "TExtract"},
+    {            Opcode::OP_A_MUL_B,        "TMatmul"},
+    {         Opcode::OP_A_MULACC_B,        "TMatmul"},
+    {Opcode::OP_L1_TO_FIX_QUANT_PRE,       "TExtract"},
+    {           Opcode::OP_L1_TO_BT,       "TExtract"},
+    {         Opcode::OP_UB_COPY_L1,       "TExtract"},
+    {        Opcode::OP_L0C_COPY_UB,       "TExtract"},
+    {      Opcode::OP_UB_COPY_ND2NZ,     "TMoveND2NZ"},
+    {         Opcode::OP_L1_COPY_IN,          "TLoad"},
+    {       Opcode::OP_L0C_COPY_OUT,         "TStore"},
+    {       Opcode::OP_GATHER_IN_L1,    "TGatherInL1"},
 };
 
 std::unordered_set<Opcode> SUPPORT_VF_FUSE_OPS{

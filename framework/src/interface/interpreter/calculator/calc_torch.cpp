@@ -14,6 +14,7 @@
  */
 
 #include <torch/torch.h>
+#include <limits>
 #include "tilefwk/error.h"
 #include "../calc_api.h"
 
@@ -57,9 +58,20 @@ static at::Scalar From(const Element &elem) {
         case DT_INT32:
         case DT_INT64: return at::Scalar(elem.GetSignedData());
         case DT_FP16:
-        case DT_FP32:
         case DT_BF16:
-        case DT_DOUBLE: return at::Scalar(elem.GetFloatData());
+        case DT_DOUBLE:
+            return at::Scalar(elem.GetFloatData());
+        case DT_FP32: {
+            // Clamp FP32 scalar into finite FP32 range to avoid INF
+            double data = elem.GetFloatData();
+            constexpr double kMaxF32 = static_cast<double>(std::numeric_limits<float>::max());
+            if (data > kMaxF32) {
+                data = kMaxF32;
+            } else if (data < -kMaxF32) {
+                data = -kMaxF32;
+            }
+            return at::Scalar(static_cast<float>(data));
+        }
         case DT_UINT8:
         case DT_UINT16:
         case DT_UINT32:
@@ -979,24 +991,25 @@ static void ReduceAcc(LogicalTensorDataPtr out, const std::vector<LogicalTensorD
  * @param axis Indicate on which axis of self for grouping and sorting
  * @param descending Indicate whether the sorting direction is ascending or descending
  */
-static void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending) {
+static void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, bool descending, int64_t offset) {
     auto tself = From(self);
     auto tout = From(out);
     constexpr int DIM_SIZE_TWO = 2;
-    axis = axis < 0?(axis + tself.dim()):axis;
+    axis = axis < 0 ? (axis + tself.dim()) : axis;
 
+    std::vector<int64_t> viewOffset(tself.dim(), 0);
     const int64_t groupSize = 32;
     auto tselfAlignShape = tself.sizes().vec();
     tselfAlignShape[axis] = (tself.size(axis) + groupSize - 1) / groupSize * groupSize;
     float padValue = descending ? (-1.0f / 0.0f) : (1.0f / 0.0f);
     auto tselfAlign = torch::full(tselfAlignShape, padValue);
-    torch::Tensor tselfAlignSubview = View(tselfAlign, tself.sizes().vec(), {0, 0});
+    torch::Tensor tselfAlignSubview = View(tselfAlign, tself.sizes().vec(), viewOffset);
     tselfAlignSubview.copy_(tself);
     if (!descending) {
         tselfAlign.neg_();
     }
 
-    auto indices = torch::arange(0, tselfAlign.size(axis), 1, torch::dtype(torch::kLong));
+    auto indices = torch::arange(0, tselfAlign.size(axis), 1, torch::dtype(torch::kLong)) + offset;
     std::vector<int64_t> indexShape(tselfAlign.dim(), 1);
     indexShape[axis] = tselfAlign.size(axis);
     indices = indices.reshape(indexShape).broadcast_to(tselfAlign.sizes());
@@ -1031,8 +1044,8 @@ static void BitSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t
     }
 
     auto tres = sortedGroups.reshape(torch::IntArrayRef(dstShape));
-    torch::Tensor expanded = torch::cat({tres, torch::zeros_like(tres)}, axis);
-    torch::Tensor dstSubview = View(tout, expanded.sizes().vec(), {0, 0});
+    torch::Tensor expanded = torch::cat({tres, torch::zeros_like(tself)}, axis);
+    torch::Tensor dstSubview = View(tout, expanded.sizes().vec(), viewOffset);
     dstSubview.copy_(expanded);
 }
 
@@ -1053,14 +1066,18 @@ static void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod
     auto tout = From(out);
     constexpr int INDICE_STEP = 2;
 
+    std::vector<int64_t> viewOffset(tself.dim(), 0);
     int dim = tself.dim() - 1;
+    if (tself.size(dim) == 0) {
+        return;
+    }
     auto indices = torch::arange(
         (mod == 1?1:0),
         tself.size(dim),
         INDICE_STEP,
         torch::dtype(torch::kLong)
     );
-    torch::Tensor selfSubview = View(tself.index_select(dim, indices), tout.sizes().vec(), {0, 0});
+    torch::Tensor selfSubview = View(tself.index_select(dim, indices), tout.sizes().vec(), viewOffset);
     tout.copy_(selfSubview);
 
     if (!descending && mod == 0) {
@@ -1090,19 +1107,18 @@ static void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod
 static void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t axis, int64_t k, bool descending) {
     auto tself = From(self);
     auto tout = From(out);
-    constexpr int MERGE_SORT_NUM = 4;
     constexpr int DIM_SIZE_TWO = 2;
     constexpr int ACTUAL_VALID_RATIO = 2;
     (void)descending;
-    axis = axis < 0?(axis + tself.dim()):axis;
-    auto sliceIndices = torch::arange(tself.size(axis) / ACTUAL_VALID_RATIO, torch::dtype(torch::kLong));
+    axis = axis < 0 ? (axis + tself.dim()) : axis;
+    int actShape = tself.size(axis) - (tself.size(axis) + 31) / 32 * 32 / 3 * 2;
+    auto sliceIndices = torch::arange(actShape * 2, torch::dtype(torch::kLong));
     auto tselfHalf = tself.index_select(axis, sliceIndices);
 
     ASSERT(axis >= 0 && axis < tselfHalf.dim()) <<
         "axis" << axis << " is out of bounds for tensor of dimension " << tselfHalf.dim();
 
-    ASSERT(tself.size(axis) % MERGE_SORT_NUM == 0) <<
-        "Expected self.size(axis) after preprocessing to be divisible by 4, but got " << tself.size(axis);
+    std::vector<int64_t> viewOffset(tself.dim(), 0);
 
     std::vector<int64_t>newShape;
     newShape.reserve(tselfHalf.dim() + 1);
@@ -1137,7 +1153,7 @@ static void Topk(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int64_t ax
             dstShape.push_back(topkGroups.size(i));
         }
     }
-    torch::Tensor dstSubview = View(tout, dstShape, {0, 0});
+    torch::Tensor dstSubview = View(tout, dstShape, viewOffset);
     dstSubview.copy_(topkGroups.reshape(torch::IntArrayRef(dstShape)));
 }
 
@@ -1339,6 +1355,61 @@ static void TopkExtract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int
     outView.copy_(extracted);
 }
 
+void TwoTileMrgSort(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tself = From(self);
+    auto tout = From(out);
+    constexpr int SIZE_TWO = 2;
+    int axis = tself.dim() - 1;
+
+    std::vector<int64_t> viewOffset(tself.dim(), 0);
+    std::vector<int64_t> newShape;
+    newShape.reserve(tself.dim() + 1);
+    for (int64_t i = 0; i < tself.dim(); i ++ ) {
+        if (i == axis) {
+            newShape.push_back(tself.size(axis) / SIZE_TWO);
+            newShape.push_back(SIZE_TWO);
+        } else {
+            newShape.push_back(tself.size(i));
+        }
+    }
+
+    auto tselfGrouped = tself.reshape(torch::IntArrayRef(newShape));
+    torch::Tensor sortedIndices;
+    std::tie(std::ignore, sortedIndices) = tselfGrouped.select(-1, 0).sort(axis, true);
+
+    std::vector<int64_t> indexShape;
+    for (int64_t i = 0; i < sortedIndices.dim(); i ++ ) {
+        indexShape.push_back(sortedIndices.size(i));
+    }
+    indexShape.push_back(SIZE_TWO);
+
+    auto expanded_indices = sortedIndices.unsqueeze(-1).expand(torch::IntArrayRef(indexShape));
+    auto sortedGroups = tselfGrouped.gather(axis, expanded_indices);
+
+    std::vector<int64_t> dstShape;
+    for (int64_t i = 0; i < tself.dim(); i ++ ) {
+        dstShape.push_back(tself.size(i));
+    }
+    torch::Tensor dstSubview = View(tout, dstShape, viewOffset);
+    dstSubview.copy_(sortedGroups.reshape(torch::IntArrayRef(dstShape)));
+}
+
+void Sort(LogicalTensorDataPtr value, LogicalTensorDataPtr index, LogicalTensorDataPtr self, int64_t axis, bool descending) {
+    auto tself = From(self);
+    auto tvalue = From(value);
+    auto tindex = From(index);
+    auto [sortValue, sortIndex] = tself.sort(axis, descending);
+    std::vector<int64_t> viewOffset(tself.dim(), 0);
+    std::vector<int64_t> dstShape;
+    for (int64_t i = 0; i < tvalue.dim(); i ++ ) {
+        dstShape.push_back(tvalue.size(i));
+    }
+    torch::Tensor outValue = View(tvalue, dstShape, viewOffset);
+    torch::Tensor outIndex = View(tindex, dstShape, viewOffset);
+    outValue.copy_(sortValue);
+    outIndex.copy_(sortIndex);
+}
+
 bool ScatterDateCopy(const std::vector<int64_t> &loopIdx, torch::Tensor &src, torch::Tensor &indices,
     torch::Tensor &ret, int blockSize) {
     bool flag = false;
@@ -1403,6 +1474,9 @@ static void ScatterElement(LogicalTensorDataPtr out, LogicalTensorDataPtr self, 
     auto inputSelf = From(self);
     auto inputIndices = From(index);
 
+    if (index->GetDataType() == DT_INT32) {
+        inputIndices = inputIndices.to(torch::kInt64);
+    }
     if (reduce == 0) {
         From(out) = torch::scatter(inputSelf, axis, inputIndices, From(src));
     } else {
@@ -1431,6 +1505,9 @@ static void Scatter(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
     auto inputIndices = From(index);
     auto inputSrc = From(src);
 
+    if (index->GetDataType() == DT_INT32) {
+        inputIndices = inputIndices.to(torch::kInt64);
+    }
     if (reduce == 0) {
         From(out) = torch::scatter(inputSelf, axis, inputIndices, inputSrc);
     } else {
@@ -1524,6 +1601,8 @@ static struct CalcOps calcOps = {
     .TopkSort = TopkSort,
     .TopkMerge = TopkMerge,
     .TopkExtract = TopkExtract,
+    .TwoTileMrgSort = TwoTileMrgSort,
+    .Sort = Sort,
     .Gather = Gather,
     .GatherINUB = GatherINUB,
     .BitwiseRightShift = BitwiseRightShift,

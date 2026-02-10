@@ -125,7 +125,8 @@ std::string CodeGenCloudNPU::GenLimitValue(FloatSaturateStatus &fs) const {
 std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) const {
     OperationsViewer operationList = subFunc.Operations(false);
     if (operationList.IsEmpty()) {
-        ALOG_ERROR("operationList is empty");
+        ALOG_ERROR("operationList from PASS is empty, func magic name: %s, func hash: %s",
+            subFunc.GetMagicName().c_str(), subFunc.GetFunctionHash().c_str());
         return {};
     }
 
@@ -153,7 +154,8 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         // update fs
         cop.UpdateSaturateStatus(fs);
         std::string tileOpSourceCode = cop.GenOpCode();
-        ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos) << "gen op invalid" << op.Dump();
+        ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
+            << "Generate code of op failed, op is " << op.Dump();
 
         allocSourceRegion += allocSourceCode;
 
@@ -330,8 +332,8 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
     const std::shared_ptr<SymbolManager> &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
-        ALOG_ERROR_F("%s: invalid memory type(%d) of tensor tensor: ", __FUNCTION__, static_cast<size_t>(memType));
-        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
+        ALOG_ERROR_F("%s: memory type(%d) of tensor from PASS is invalid, tensor is: %s", __FUNCTION__,
+            static_cast<size_t>(memType), tensor->Dump().c_str());
         return std::nullopt;
     }
 
@@ -473,11 +475,10 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
     return "";
 }
 
-std::string CodeGenCloudNPU::BuildCompileOptions(
-    const CompileInfo &compileInfo, const std::string &compileOptions) const {
+void CodeGenCloudNPU::BuildArchOptions(std::ostringstream &oss, const CompileInfo &compileInfo) const {
     const std::string corePredefine = compileInfo.IsCube() ? "-D__AIC__" : "-D__AIV__";
 
-    std::vector<std::string> compileOpts{compileOptions, corePredefine};
+    std::vector<std::string> compileOpts{corePredefine};
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
         compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
     }
@@ -489,8 +490,12 @@ std::string CodeGenCloudNPU::BuildCompileOptions(
         compileOpts.emplace_back("-DREGISTER_BASE");
     }
 
+    compileOpts.emplace_back("--cce-aicore-only");
+    std::string coreArch = GetCoreArch(compileInfo);
+    compileOpts.emplace_back("--cce-aicore-arch=" + coreArch);
+
     std::string allCompileOpts = JoinString(compileOpts, " ");
-    return allCompileOpts;
+    oss << allCompileOpts << " ";
 }
 
 void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
@@ -507,12 +512,25 @@ void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
     }
 }
 
-void CodeGenCloudNPU::BuildLLVMParams(std::ostringstream &oss) const {
+void CodeGenCloudNPU::AppendVFLLVMParams(std::ostringstream &oss) {
+    if (config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
+        oss << "--enable-pto-tile-fusion "
+            << "-mllvm --tile-fusion-skip-shape-inference=true "
+            << "-mllvm --tile-fusion-skip-reduceop-fusion=false "
+            << "-mllvm --tile-fusion-skip-legality-check=false "
+            << "-Rpass=tile-fusion "
+            << "-Rpass-missed=tile-fusion ";
+    }
+}
+
+void CodeGenCloudNPU::BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const {
     oss << "-mllvm -cce-aicore-stack-size=0x8000 "
         << "-mllvm -cce-aicore-function-stack-size=0x8000 "
         << "-mllvm -cce-aicore-record-overflow=false "
         << "-mllvm -cce-aicore-addr-transform "
         << "-mllvm -cce-aicore-dcci-insert-for-scalar=false ";
+    AppendVFLLVMParams(oss);   
+    oss << compileOptions << " ";
 }
 
 std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
@@ -526,20 +544,14 @@ std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
 
 std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
     const CompileInfo &compileInfo, const std::string &compileOptions) const {
+    std::ostringstream oss;
+    oss << "bisheng -c -O3 -g -x cce -std=c++17 ";
+    BuildArchOptions(oss, compileInfo);
+    BuildIncludes(oss);
+    BuildExtraOptions(oss, compileOptions);
+
     const std::string srcFile = compileInfo.GetCCEAbsPath();
     const std::string objFile = compileInfo.GetBinAbsPath();
-
-    std::string coreArch = GetCoreArch(compileInfo);
-    std::string allCompileOpts = BuildCompileOptions(compileInfo, compileOptions);
-
-    std::ostringstream oss;
-    oss << "bisheng " << allCompileOpts << " -c -O3 -g -x cce -std=c++17 "
-        << "--cce-aicore-only "
-        << "--cce-aicore-arch=" << coreArch << " ";
-
-    BuildIncludes(oss);
-    BuildLLVMParams(oss);
-
     oss << "-o " << objFile << " " << srcFile;
 
     std::string ccecCmd = oss.str();
@@ -551,7 +563,7 @@ std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
 
     ret = std::system(ccecCmd.c_str());
     if (ret != 0) {
-        ALOG_ERROR_F("CompileCce ccec failed %d: %s", ret, ccecCmd.c_str());
+        ALOG_ERROR_F("Compile cce kernel failed, ret = %d\ncompile cmd is:\n %s", ret, ccecCmd.c_str());
     }
 
     return {ret, ccecCmd};
@@ -581,12 +593,11 @@ void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
         code.push_back(dimShape);
     }
     // 编码waitUntil的attr属性
-    std::map<std::string, npu::tile_fwk::Any> map = op.GetAllAttribute();
+    std::map<std::string, Any> map = op.GetAllAttribute();
     auto it = map.find(OpAttributeKey::distOpAttr);
     std::vector<int64_t> attrs;
     if (it != map.end()) {
-        npu::tile_fwk::Distributed::DistOpAttr distOpAttr =
-            npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::DistOpAttr>(it->second);
+        Distributed::DistOpAttr distOpAttr = AnyCast<Distributed::DistOpAttr>(it->second);
         attrs = distOpAttr.aicpuOpParams;
     }
     if (attrs.size() != 0) {
