@@ -1,4 +1,3 @@
-
 import math
 import torch
 import torch.nn.functional as F
@@ -680,21 +679,18 @@ def pypto_slice_chunk_inputs(
     ):
 
     pypto.set_vec_tile_shapes(16, 128, 128, 128)
-    query_used_view = pypto.view(q_norm_cache, [1, L, 1, D], [b_idx, s_idx, nqk_idx, 0], valid_shape =[1, actual_L, 1, D])
-    key_used_view = pypto.view(k_norm_cache, [1, L, 1, D], [b_idx, s_idx, nqk_idx, 0], valid_shape =[1, actual_L, 1, D])
+    query_used_view = pypto.view(q_norm_cache, [1, 1, L, D], [b_idx, 0, s_idx, 0], valid_shape =[1, 1, actual_L, D]) #bnsd
+    key_used_view = pypto.view(k_norm_cache, [1, 1, L, D], [b_idx, 0, s_idx, 0], valid_shape =[1, 1, actual_L, D]) #bnsd
+
     value_view = pypto.view(v_in, [1, L, 1, D], [b_idx, s_idx, nv_idx, 0], valid_shape =[1, actual_L, 1, D])
     do_view =  pypto.view(do_in, [1, L, 1, D], [b_idx, s_idx, nv_idx, 0], valid_shape =[1, actual_L, 1, D])
-
-    qc = pypto.reshape(query_used_view, [L, D], valid_shape=[actual_L, D])  #[L(BT), D]
-    kc = pypto.reshape(key_used_view, [L, D], valid_shape=[actual_L, D]) #[L(BT), D]
     vc = pypto.reshape(value_view, [L, D], valid_shape=[actual_L, D]) #[L(BT), D]
     doc = pypto.reshape(do_view, [L, D], valid_shape=[actual_L, D]) #[L(BT), D]
 
     pypto.set_vec_tile_shapes(16, 128, 128)
-    betac_view = pypto.view(beta_in, [1, L, 1], [b_idx, s_idx, nv_idx], valid_shape =[1, actual_L, 1]) #[1, L(BT), 1]
-    gc_raw_view = pypto.view(g_raw_in, [1, L, 1], [b_idx, s_idx, nv_idx], valid_shape =[1, actual_L, 1]) #[1, L(BT), 1]
-    betac = pypto.reshape(betac_view, [L, 1], valid_shape=[actual_L, 1])
-    gc_raw = pypto.reshape(gc_raw_view, [L, 1], valid_shape=[actual_L, 1])
+    gc_raw_view = pypto.view(g_raw_in, [1, 1, L], [b_idx, 0, s_idx], valid_shape =[1, 1, actual_L]) #[1, L(BT), 1]
+    betac_view = pypto.view(beta_in, [1, 1, L], [b_idx, 0, s_idx], valid_shape =[1, 1, actual_L]) #[1, L(BT), 1]
+    betac = betac_view[0,0,:].unsqueeze(-1)
 
     cache_idx = (b_idx * H + nv_idx) * NT + rev_idx
     A_view = pypto.view(A_cache, [1, L, L], [cache_idx, 0, 0])
@@ -702,22 +698,25 @@ def pypto_slice_chunk_inputs(
     S_before_view = pypto.view(S_before_cache, [1, D, D], [cache_idx, 0, 0])
     v_new_view = pypto.view(v_new_cache, [1, L, D], [cache_idx, 0, 0])
 
-    A_view_2d = pypto.reshape(A_view, [L, L])
-    w_view_2d = pypto.reshape(w_view, [L, D])
-    S_before_view_2d = pypto.reshape(S_before_view, [D, D])
-    v_new_view_2d = pypto.reshape(v_new_view, [L, D])
+    A_view_2d = A_view[0]
+    w_view_2d = w_view[0]
+    S_before_view_2d = S_before_view[0]
+    v_new_view_2d = v_new_view[0]
 
-    return qc, kc, vc, doc, betac, gc_raw, A_view_2d, w_view_2d, S_before_view_2d, v_new_view_2d
+    return query_used_view, key_used_view, vc, doc, betac, gc_raw_view, A_view_2d, w_view_2d, S_before_view_2d, v_new_view_2d, 
 
 
 # ------------------------------------------------------
 # Module 2 on PyPTO
 # ------------------------------------------------------
-def pypto_g_and_decay_kernel(gc_raw_col, C_cum):
-    BT = gc_raw_col.shape[0]
-    pypto.set_vec_tile_shapes(256, 128)
+def pypto_g_and_decay_kernel(gc_raw_3d, C_cum_3d):
+    BT = gc_raw_3d.shape[-1]
+    pypto.set_vec_tile_shapes(16, 256, 128)
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
-    g_cum_col = pypto.matmul(C_cum, gc_raw_col, pypto.DT_FP32)
+    g_cum_col_3d = pypto.matmul(C_cum_3d, gc_raw_3d, pypto.DT_FP32, b_trans=True)
+    g_cum_col = g_cum_col_3d[0,:]
+
+    pypto.set_vec_tile_shapes(256, 128)
     eg_col = pypto.exp(g_cum_col)
     gl_1 = g_cum_col.view([1, 1], [BT - 1, 0])
     diff = g_cum_col - g_cum_col.transpose(0, 1)
@@ -732,15 +731,21 @@ def pypto_g_and_decay_kernel(gc_raw_col, C_cum):
 def pypto_local_attn_dv0_kernel(
     qc_in, kc_in, doc_in, decay_in, M_le_in, scale_scalar
 ):
+    pypto.set_vec_tile_shapes(16,16,256, 128)
+    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
+
+    qk_4d = pypto.matmul(qc_in, kc_in, pypto.DT_FP32, a_trans=False, b_trans=True) # [1,1,L,L]
+    kkt_4d = pypto.matmul(kc_in, kc_in, pypto.DT_FP32, a_trans=False, b_trans=True)
+    qk = qk_4d[0,0,:]
+    kkt = kkt_4d[0,0,:]
+
     pypto.set_vec_tile_shapes(256, 128)
-    pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])    
-    qk = pypto.matmul(qc_in, kc_in, pypto.DT_FP32, a_trans=False, b_trans=True)
     common_mask_decay = decay_in * M_le_in
     A_local = qk * common_mask_decay
     dv0 = pypto.matmul(A_local, doc_in, pypto.DT_FP32, a_trans=True, b_trans=False)
     dv0 = dv0 * scale_scalar
 
-    return qk, dv0, common_mask_decay
+    return qk, dv0, common_mask_decay, kkt
 
 
 # ------------------------------------------------------
@@ -753,10 +758,8 @@ def pypto_recurrence_backprop(
     K, V = dS_in.shape
     pypto.set_vec_tile_shapes(256, 128)
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
-    gl_expand = pypto.expand_clone(gl, [BT,1])
-    s_tok = pypto.exp(gl_expand - g_cum)
-    s_tok_expand = pypto.expand_clone(s_tok, [BT,V])
-    dv_state = pypto.matmul(kc, dS_in, pypto.DT_FP32, b_trans=False) * s_tok_expand # [BT,V] # [No BF16]
+    s_tok = pypto.exp(gl - g_cum)
+    dv_state = pypto.matmul(kc, dS_in, pypto.DT_FP32, b_trans=False) * s_tok
     dv_total = dv_state + dv0
     q_eff = qc * eg
     gl_exp = pypto.exp(gl)
@@ -765,9 +768,8 @@ def pypto_recurrence_backprop(
     term2 = pypto.matmul(q_eff, doc, pypto.DT_FP32, a_trans=True , b_trans=False) # [No BF16]
     term3 = pypto.matmul(w, dv_total, pypto.DT_FP32, a_trans=True , b_trans=False) # [No BF16]
     dS_final = term1 + term2 * scale_scalar - term3
-    dS_next = dS_in * 1.0
 
-    return dS_next, s_tok, dv_total, dS_final, gl_exp
+    return s_tok, dv_total, dS_final, gl_exp
 
 
 # ------------------------------------------------------
@@ -788,9 +790,9 @@ def pypto_compute_qkg_grads_dw_du(
     one_hot_last = M_le_in[:, -1:]
     tail_add = scalar.sum(dim=0, keepdim=True)
 
-    pypto.set_vec_tile_shapes(16, 16, 8, 8)
+    pypto.set_vec_tile_shapes(64, 64, 32, 32)
     tail_add2 = tail_add + gl_exp_1 * (S_before_in * dS_next_in).sum(dim=0, keepdim=True).sum(dim=-1, keepdim=True)
-    
+
     pypto.set_vec_tile_shapes(256, 128)
     dg_cum_tmp3 = dg_cum_tmp2 + one_hot_last * tail_add2 
     scaled_common_mask_decay = common_mask_decay * scale_scalar
@@ -802,7 +804,7 @@ def pypto_compute_qkg_grads_dw_du(
     dk_c = dk_state + dk_c_term1
     dAA_tmp = dq_c_term1 * qk_in
 
-    pypto.set_vec_tile_shapes(16, 16, 8, 8)    
+    pypto.set_vec_tile_shapes(64, 64, 32, 32)    
     dg_cum_term4 = dAA_tmp.sum(dim=-1) - dAA_tmp.sum(dim=-2)
     dg_cum_final = dg_cum_tmp3 + dg_cum_term4.unsqueeze(-1)
 
@@ -813,7 +815,7 @@ def pypto_compute_qkg_grads_dw_du(
 # Module 6 on PyPTO
 # ------------------------------------------------------
 def pypto_wy_repr_fused_updates(
-    vc, betac, kc, eg, du, dw,A, M_lt, decay, dk_c_in, dg_cum,
+    vc, betac, kc, eg, du, dw,A, M_lt, decay, dk_c_in, dg_cum, kkt
 ):  
     pypto.set_vec_tile_shapes(256, 128)
     pypto.set_cube_tile_shapes([128, 128], [128, 128], [128, 128])
@@ -833,7 +835,6 @@ def pypto_wy_repr_fused_updates(
     dL_term1 = pypto.matmul(dA, A, pypto.DT_FP32, a_trans=False, b_trans=True)
     dL_tmp = pypto.matmul(A, dL_term1, pypto.DT_FP32, a_trans=True, b_trans=False)
     dL = (dL_tmp * -1.0) * M_lt
-    kkt = pypto.matmul(kc, kc, pypto.DT_FP32, a_trans=False, b_trans=True)
     db_c = db_c_tmp2 + (dL * (kkt * decay)).sum(-1, keepdim=True)
     mmat = dL * betac * decay
 
@@ -858,6 +859,7 @@ def pypto_l2norm_bwd_qk(
     pypto.set_vec_tile_shapes(256, 128)
     dot_q = (dyq * yq).sum(-1, keepdim=True)
     dot_k = (dyk * yk).sum(-1, keepdim=True)
+    
     dq = dyq * rstd_yq - dot_q * yq * rstd_yq
     dk = dyk * rstd_yk - dot_k * yk * rstd_yk
     return dq, dk
@@ -919,22 +921,22 @@ def pypto_bsnd_gated_delta_rule_bwd(
     )
     def gated_delta_rule_bwd_kernel(
             v_in: pypto.Tensor((batch, seq, nv, dim), pypto.DT_FP32),
-            g_raw_in: pypto.Tensor((batch, seq, nv), pypto.DT_FP32),
-            beta_in: pypto.Tensor((batch, seq, nv), pypto.DT_FP32),
+            g_raw_in: pypto.Tensor((batch, nv, seq), pypto.DT_FP32),
+            beta_in: pypto.Tensor((batch, nv, seq), pypto.DT_FP32),
             do_in: pypto.Tensor((batch, seq, nv, dim), pypto.DT_FP32),
             dht_in: pypto.Tensor((batch, nv, dim, dim), pypto.DT_FP32),
             M_le_in: pypto.Tensor((l,l), pypto.DT_FP32),
             M_lt_in: pypto.Tensor((l,l), pypto.DT_FP32), 
-            C_cum_in: pypto.Tensor((l,l), pypto.DT_FP32),
+            C_cum_in_3d: pypto.Tensor((1, l,l), pypto.DT_FP32),
             C_rcum_in: pypto.Tensor((l,l), pypto.DT_FP32),
             A_cache: pypto.Tensor((batch*nv*chunks, l, l), pypto.DT_FP32),
             w_cache: pypto.Tensor((batch*nv*chunks, l, dim), pypto.DT_FP32),
             v_new_cache: pypto.Tensor((batch*nv*chunks, l, dim), pypto.DT_FP32),
             S_before_cache: pypto.Tensor((batch*nv*chunks, dim, dim), pypto.DT_FP32),
-            q_norm_cache: pypto.Tensor((batch, seq, nqk, dim), pypto.DT_FP32),
-            k_norm_cache: pypto.Tensor((batch, seq, nqk, dim), pypto.DT_FP32),
-            q_rstd_cache: pypto.Tensor((batch, seq, nqk), pypto.DT_FP32),
-            k_rstd_cache: pypto.Tensor((batch, seq, nqk), pypto.DT_FP32),
+            q_norm_cache: pypto.Tensor((batch, nqk, seq, dim), pypto.DT_FP32),
+            k_norm_cache: pypto.Tensor((batch, nqk, seq, dim), pypto.DT_FP32),
+            q_rstd_cache: pypto.Tensor((batch, nqk, seq), pypto.DT_FP32),
+            k_rstd_cache: pypto.Tensor((batch, nqk, seq), pypto.DT_FP32),
             use_qk_l2norm_in_kernel_cache: pypto.Tensor((1,), pypto.DT_INT32),
         ) -> (
             pypto.tensor((batch, seq, nqk, dim), pypto.DT_FP32),
@@ -978,16 +980,16 @@ def pypto_bsnd_gated_delta_rule_bwd(
                     # -----------------------------------------
                     # Preprocess
                     # -----------------------------------------
-                    pypto.set_vec_tile_shapes(16, 128, 128)
-                    q_rstd_view = pypto.view(q_rstd_cache, [1, l, 1], [b_idx, s_idx, nqk_idx], valid_shape =[1, actual_L, 1])
-                    k_rstd_view = pypto.view(k_rstd_cache, [1, l, 1], [b_idx, s_idx, nqk_idx], valid_shape =[1, actual_L, 1])
-                    q_rstd_2d = pypto.reshape(q_rstd_view, [l, 1], valid_shape=[actual_L, 1])  #[L(BT), D]
-                    k_rstd_2d = pypto.reshape(k_rstd_view, [l, 1], valid_shape=[actual_L, 1])  #[L(BT), D]
+                    pypto.set_vec_tile_shapes(16, 16, 128)
+                    q_rstd_view = pypto.view(q_rstd_cache, [1, 1, l], [b_idx, 0, s_idx], valid_shape =[1, 1, actual_L])
+                    k_rstd_view = pypto.view(k_rstd_cache, [1, 1, l], [b_idx, 0, s_idx], valid_shape =[1, 1, actual_L])
+                    q_rstd_2d = q_rstd_view[0,0,:].unsqueeze(-1)
+                    k_rstd_2d = k_rstd_view[0,0,:].unsqueeze(-1)
                     
                     # -----------------------------------------
                     # Module 1 pto_slice_chunk_inputs_kernel
                     # -----------------------------------------
-                    qc, kc, vc, doc, betac, gc_raw, A_view_2d, w_view_2d, S_before_view_2d, v_new_view_2d = pypto_slice_chunk_inputs(
+                    query_used_4d, key_used_4d, vc, doc, betac, gc_raw_3d, A_view_2d, w_view_2d, S_before_view_2d, v_new_view_2d,  = pypto_slice_chunk_inputs(
                         q_norm_cache, k_norm_cache, v_in, beta_in, g_raw_in, do_in,
                         A_cache, w_cache, S_before_cache, v_new_cache,
                         l, dim, b_idx, s_idx, rev_idx, nv_idx, nqk_idx, actual_L, nv, dyn_chunks
@@ -996,40 +998,44 @@ def pypto_bsnd_gated_delta_rule_bwd(
                     # -----------------------------------------
                     # Module 2 pto_g_and_decay_kernel
                     # -----------------------------------------
-                    g_cum_2d, eg_2d, gl_1, decay_2d = pypto_g_and_decay_kernel(gc_raw, C_cum_in)
+                    g_cum_2d, eg_2d, gl_1, decay_2d = pypto_g_and_decay_kernel(gc_raw_3d, C_cum_in_3d)
 
                     # -----------------------------------------
                     # Module 3 pto_local_attn_dv0_kernel
                     # -----------------------------------------
-                    qk, dv0, common_mask_decay = pypto_local_attn_dv0_kernel(qc, kc, doc, decay_2d, M_le_in, scale_scalar)
+                    qk, dv0, common_mask_decay, kkt = pypto_local_attn_dv0_kernel(query_used_4d, key_used_4d, doc, decay_2d, M_le_in, scale_scalar)
+                    qc = pypto.reshape(query_used_4d, [l, dim], inplace=False)  #[L(BT), D]
+                    kc = pypto.reshape(key_used_4d, [l, dim], inplace=False) #[L(BT), D]
 
                     # -----------------------------------------
                     # Module 4 pypto_recurrence_backprop
                     # -----------------------------------------
-                    dS_next, s_tok, dv_total, dS_final, gl_exp_1 = pypto_recurrence_backprop(kc, dS_2d, gl_1, g_cum_2d, dv0, qc, eg_2d, doc, scale_scalar, w_view_2d)
-                    dS_2d[:] = dS_final
-
+                    s_tok, dv_total, dS_final, gl_exp_1 = pypto_recurrence_backprop(kc, dS_2d, gl_1, g_cum_2d, dv0, qc, eg_2d, doc, scale_scalar, w_view_2d)
+                    
                     # -----------------------------------------
                     # Module 5 pypto_compute_qkg_grads_dw_du
                     # -----------------------------------------
-                    dq_c, dg_cum_final, dk_c_tmp, dw_final = pypto_compute_qkg_grads_dw_du(qc, kc, v_new_view_2d, doc, eg_2d, gl_exp_1, s_tok, dS_next, S_before_view_2d, qk, M_le_in, scale_scalar, dv_total, common_mask_decay)
+                    dq_c, dg_cum_final, dk_c_tmp, dw_final = pypto_compute_qkg_grads_dw_du(qc, kc, v_new_view_2d, doc, eg_2d, gl_exp_1, s_tok, dS_2d, S_before_view_2d, qk, M_le_in, scale_scalar, dv_total, common_mask_decay)
 
                     # -----------------------------------------
                     # Module 6 pypto_wy_repr_fused_updates
                     # -----------------------------------------
-                    dv_c, db_c, dk_c, dg_cum_out = pypto_wy_repr_fused_updates(vc, betac, kc, eg_2d, dv_total, dw_final, A_view_2d, M_lt_in, decay_2d, dk_c_tmp, dg_cum_final)
+                    dv_c, db_c, dk_c, dg_cum_out = pypto_wy_repr_fused_updates(vc, betac, kc, eg_2d, dv_total, dw_final, A_view_2d, M_lt_in, decay_2d, dk_c_tmp, dg_cum_final, kkt)
 
                     # -----------------------------------------
                     # Module 7 pypto_finalize_chunk_grads
                     # -----------------------------------------
                     dg_raw_c, dq_raw_c, dk_raw_c = pypto_finalize_chunk_grads(C_rcum_in, dg_cum_out, qc, kc, q_rstd_2d, k_rstd_2d, dq_c, dk_c, use_qk_l2norm_in_kernel_cache)
 
+                    dS_2d[:] = dS_final
+
                     # Assemble
+                    pypto.set_vec_tile_shapes(16, 128, 16, 128)
                     dq_out[b_idx:b_idx+1, s_idx:s_idx+l, nqk_idx:nqk_idx+1, 0:] = dq_raw_c.reshape([1, l, 1, dim])
                     dk_out[b_idx:b_idx+1, s_idx:s_idx+l, nqk_idx:nqk_idx+1, 0:] = dk_raw_c.reshape([1, l, 1, dim])
                     dv_out[b_idx:b_idx+1, s_idx:s_idx+l, nv_idx:nv_idx+1, 0:] = dv_c.reshape([1, l, 1, dim])
-                    db_out[b_idx:b_idx+1, s_idx:s_idx+l, nv_idx:nv_idx+1] = db_c.reshape([1, l, 1])
-                    dg_raw_out[b_idx:b_idx+1, s_idx:s_idx+l, nv_idx:nv_idx+1] = dg_raw_c.reshape([1, l, 1])
+                    db_out[b_idx:b_idx+1, s_idx:s_idx+l, nv_idx:nv_idx+1] = db_c.unsqueeze(0)
+                    dg_raw_out[b_idx:b_idx+1, s_idx:s_idx+l, nv_idx:nv_idx+1] = dg_raw_c.unsqueeze(0)
 
                 dh0_out[b_idx:b_idx+1, nv_idx:nv_idx+1, 0:, 0:] = dS_2d.reshape([1, 1, dim, dim])
             
@@ -1082,7 +1088,7 @@ def pypto_function(
 
 def main():
     torch.manual_seed(0)
-    device_id = 6
+    device_id = 3
     torch.npu.set_device(device_id)
     run_mode = 'npu'
     device = f'{run_mode}:{device_id}'
@@ -1095,7 +1101,6 @@ def main():
     D = 128
     act_seq_len = [S]
     B = len(act_seq_len)
-    # B, T, H, K, V = 2, 256, 2, 32, 32
     BT = 64
     assert S % BT == 0
 
@@ -1158,14 +1163,40 @@ def main():
             l2_eps=eps,
         )
 
+
+    cache_for_pypto = {
+        "A": cache['A'],
+        "w": cache['w'],
+        "u": cache['u'],
+        "v_new": cache['v_new'],
+        "S_before": cache['S_before'],
+        "use_qk_l2norm_in_kernel": cache['use_qk_l2norm_in_kernel'],
+        "q_norm": cache['q_norm'].reshape([B, Nqk, S, D]).contiguous(), # bnsd
+        "k_norm": cache['k_norm'].reshape([B, Nqk, S, D]).contiguous(), # bnsd
+        "q_rstd": cache['q_rstd'].reshape([B, Nqk, S]).contiguous(),
+        "k_rstd": cache['k_rstd'].reshape([B, Nqk, S]).contiguous(),
+        "scale": cache['scale'],
+        "BT": BT,
+        "final_state": cache['final_state'],
+    }
+    C_cum_3d = C_cum.unsqueeze(0).to(dtype) 
+    gate_for_pypto = g_raw.transpose(1,2).contiguous()
+    beta_for_pypto = beta.transpose(1,2).contiguous()
+    print('>>> Reshaped for PyPTO Run')
+    print('beta_for_pypto (B,N,S) ', beta_for_pypto.shape)
+    print('gate_for_pypto (B,N,S)', gate_for_pypto.shape)
+    print('q_norm (B,N,S,D)', cache_for_pypto['q_norm'].shape)
+    print('k_norm (B,N,S,D)', cache_for_pypto['k_norm'].shape)
+    print('q_rstd (B,N,S)', cache_for_pypto['q_rstd'].shape)
+    print('k_rstd (B,N,S)', cache_for_pypto['k_rstd'].shape)
     with torch.no_grad():
         pto_dq, pto_dk, pto_dv, pto_db, pto_dg_raw, pto_dh0  = pypto_function(
             q=q.detach(), k=k.detach(), v=v.detach(),
-            g_raw=g_raw.detach(), beta=beta.detach(),
+            g_raw=gate_for_pypto.detach(), beta=beta_for_pypto.detach(),
             initial_state=initial_state.detach(),
             do=do_bsnd.detach(), dht=dht_bsnd.detach(),
-            cache=cache,
-            I=I, M_le=M_le, M_lt=M_lt, C_cum=C_cum, C_rcum=C_rcum,
+            cache=cache_for_pypto,
+            I=I, M_le=M_le, M_lt=M_lt, C_cum=C_cum_3d, C_rcum=C_rcum,
             act_seq_len=act_seq_len,
             run_mode=run_mode
         )
