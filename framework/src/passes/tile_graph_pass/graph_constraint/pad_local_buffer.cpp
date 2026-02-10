@@ -432,10 +432,10 @@ void PadLocalBuffer::DoPadding(Function &function) {
             auto &in = op.iOperand[i];
             if (visited.count(in) != 0) continue;
             visited.emplace(in);
-            if (IsMatmul(in)) {
-                PadMatmul(op, in);
-                continue;
-            }
+            // if (IsMatmul(in)) {
+            //     PadMatmul(op, in);
+            //     continue;
+            // }
             if (!IsVector(in) || in->tensor->GetRawDataSize() == 0) continue;
             if (function.paramConfigs_.combineAxis) {
                 PadVectorForAxisCombine(op, in, visitedRaw);
