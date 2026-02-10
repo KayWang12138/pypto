@@ -81,6 +81,16 @@ std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDe
                 int consumerID = consumer->GetInternalSubgraphID();
                 if (producerInternalID != consumerID) {
                     dependencies[producerInternalID].insert(consumerID);
+                    // 标记logicalTensor为isGlobal
+                    oOperand->SetIsGlobal(true);
+                    ALOG_DEBUG_F("Marked tensor as isGLOBAL: tensor rawmagic%d, "
+                            "producer internalID=%d -> consumer internalID=%d, "
+                            "via %s -> %s",
+                            oOperand->GetRawMagic(), 
+                            producerInternalID,
+                            consumerID,
+                            op.GetOpcodeStr().c_str(),
+                            consumer->GetOpcodeStr().c_str());
                 }
             }
         }
