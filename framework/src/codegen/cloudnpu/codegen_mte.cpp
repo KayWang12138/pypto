@@ -1772,19 +1772,19 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     paramList.emplace_back(srcVar);
 
     uint16_t mPos, kPos;
-    GetAttr(Conv::Im2ColOpAttributeKey::postM, &mPos);
-    GetAttr(Conv::Im2ColOpAttributeKey::postK, &kPos);
+    GetAttr(Conv::Im2ColOpAttributeKey::postM, mPos);
+    GetAttr(Conv::Im2ColOpAttributeKey::postK, kPos);
     paramList.emplace_back(mPos);
     paramList.emplace_back(kPos);
 
     std::vector<int64_t> fmapL1Shape = this->rawShape[ID1];
     ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL1Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL1Shape).c_str());
     ASSERT(fmapL1Shape.size() == SHAPE_DIM5) << "GenMemL1ToL0Load3D fmap only support 5-dim!";
-    int64_t n = fmapL1Shape[ID0];
-    int64_t c1 = fmapL1Shape[ID1];
-    int64_t h = fmapL1Shape[ID2];
-    int64_t w = fmapL1Shape[ID3];
-    int64_t c0 = fmapL1Shape[ID4];
+    int64_t n = fmapL1Shape[Conv::NC1HWC0_N_IDX];
+    int64_t c1 = fmapL1Shape[Conv::NC1HWC0_C1_IDX];
+    int64_t h = fmapL1Shape[Conv::NC1HWC0_H_IDX];
+    int64_t w = fmapL1Shape[Conv::NC1HWC0_W_IDX];
+    int64_t c0 = fmapL1Shape[Conv::NC1HWC0_C0_IDX];
     paramList.emplace_back(n);
     paramList.emplace_back(c1);  
     paramList.emplace_back(h);
@@ -1792,11 +1792,11 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     paramList.emplace_back(c0); 
 
     uint8_t padLeft, padRight, padTop, padBottom, padValue;
-    GetAttr(Conv::Im2ColOpAttributeKey::paddingLeft, &padLeft);
-    GetAttr(Conv::Im2ColOpAttributeKey::padRight, &padRight);
-    GetAttr(Conv::Im2ColOpAttributeKey::padTop, &padTop);
-    GetAttr(Conv::Im2ColOpAttributeKey::padBottom, &padBottom);
-    GetAttr(Conv::Im2ColOpAttributeKey::padValue, &padValue);
+    GetAttr(Conv::Im2ColOpAttributeKey::paddingLeft, padLeft);
+    GetAttr(Conv::Im2ColOpAttributeKey::padRight, padRight);
+    GetAttr(Conv::Im2ColOpAttributeKey::padTop, padTop);
+    GetAttr(Conv::Im2ColOpAttributeKey::padBottom, padBottom);
+    GetAttr(Conv::Im2ColOpAttributeKey::padValue, padValue);
     paramList.emplace_back(padLeft);
     paramList.emplace_back(padRight);  
     paramList.emplace_back(padTop);
@@ -1804,20 +1804,20 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
     paramList.emplace_back(padValue);
 
     uint16_t filterH, filterW;
-    GetAttr(Conv::Im2ColOpAttributeKey::filterH, &filterH);
-    GetAttr(Conv::Im2ColOpAttributeKey::filterW, &filterW);
+    GetAttr(Conv::Im2ColOpAttributeKey::filterH, filterH);
+    GetAttr(Conv::Im2ColOpAttributeKey::filterW, filterW);
     paramList.emplace_back(filterH);
     paramList.emplace_back(filterW);  
 
     uint8_t dilationH, dilationW;
-    GetAttr(Conv::Im2ColOpAttributeKey::dilationH, &dilationH);
-    GetAttr(Conv::Im2ColOpAttributeKey::dilationW, &dilationW);
+    GetAttr(Conv::Im2ColOpAttributeKey::dilationH, dilationH);
+    GetAttr(Conv::Im2ColOpAttributeKey::dilationW, dilationW);
     paramList.emplace_back(dilationH);
     paramList.emplace_back(dilationW);
 
     uint8_t strideH, strideW;
-    GetAttr(Conv::Im2ColOpAttributeKey::strideH, &strideH);
-    GetAttr(Conv::Im2ColOpAttributeKey::strideW, &strideW);
+    GetAttr(Conv::Im2ColOpAttributeKey::strideH, strideH);
+    GetAttr(Conv::Im2ColOpAttributeKey::strideW, strideW);
     paramList.emplace_back(strideH);
     paramList.emplace_back(strideW);
 
@@ -1849,8 +1849,8 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
     paramList.emplace_back(srcVar);
 
     uint16_t kPos, nPos;
-    GetAttr(Conv::Im2ColOpAttributeKey::kPos, &kPos);
-    GetAttr(Conv::Im2ColOpAttributeKey::nPos, &nPos);
+    GetAttr(Conv::Im2ColOpAttributeKey::postK, kPos);
+    GetAttr(Conv::Im2ColOpAttributeKey::postN, nPos);
     paramList.emplace_back(kPos);  
     paramList.emplace_back(nPos);    
 
