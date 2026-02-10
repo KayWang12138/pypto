@@ -118,9 +118,9 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
         } else {
             auto iop = ret->View(oper->GetShape(), toOffset);
             if (quant) {
-                calc::Fixpipe(ret, oper, scalePtr, scale, relu);
+                calc::Fixpipe(iop, oper, scalePtr, scale, relu);
             } else {
-                calc::Copy(ret, iop);
+                calc::Copy(iop, oper);
             }
         }
     } else {
