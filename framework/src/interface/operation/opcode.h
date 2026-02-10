@@ -125,6 +125,7 @@ enum class Opcode {
     OP_CMP,
     OP_CMPS,
     OP_HYPOT,
+    OP_PRELU,
     OP_WHERE_TT,
     OP_WHERE_TS,
     OP_WHERE_ST,
@@ -578,7 +579,7 @@ const std::unordered_set<Opcode> CUM_SUM_OPS{Opcode::OP_CUM_SUM};
 const std::unordered_set<Opcode> SUPPORT_DYNAMIC_UNALIGNED_OPS{Opcode::OP_RANGE, Opcode::OP_TRANSPOSE_VNCHWCONV,
     Opcode::OP_GATHER_ELEMENT, Opcode::OP_INDEX_ADD, Opcode::OP_CUM_SUM, Opcode::OP_TRIUL, Opcode::OP_COPY_IN, Opcode::OP_UB_COPY_IN,
     Opcode::OP_L1_COPY_IN, Opcode::OP_COPY_OUT, Opcode::OP_UB_COPY_OUT, Opcode::OP_L1_COPY_OUT, Opcode::OP_L0C_COPY_OUT,
-    Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
+    Opcode::OP_TRANSPOSE_MOVEOUT, Opcode::OP_INDEX_OUTCAST, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,Opcode::OP_PRELU,
     Opcode::OP_DIV, Opcode::OP_EXP, Opcode::OP_NEG, Opcode::OP_LN, Opcode::OP_HUB, Opcode::OP_ABS, Opcode::OP_RSQRT, Opcode::OP_RELU,
     Opcode::OP_CEIL, Opcode::OP_FLOOR, Opcode::OP_TRUNC, Opcode::OP_SQRT, Opcode::OP_RECIPROCAL, Opcode::OP_CAST, Opcode::OP_ISFINITE,
     Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS, Opcode::OP_DIVS, Opcode::OP_MAXS, Opcode::OP_MINS,
@@ -607,7 +608,7 @@ const std::unordered_set<Opcode> UNSUPPORT_BF16_OPS{Opcode::OP_EXP, Opcode::OP_R
     Opcode::OP_S_MAXS, Opcode::OP_S_MINS, Opcode::OP_NEG, Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV,
     Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_ADD_BRC, Opcode::OP_SUB_BRC, Opcode::OP_MUL_BRC,
     Opcode::OP_DIV_BRC, Opcode::OP_MAX_BRC, Opcode::OP_MIN_BRC, Opcode::OP_S_ADD, Opcode::OP_S_SUB, Opcode::OP_S_MUL,
-    Opcode::OP_S_DIV, Opcode::OP_S_MAX, Opcode::OP_S_MIN,Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS,
+    Opcode::OP_S_DIV, Opcode::OP_S_MAX, Opcode::OP_S_MIN,Opcode::OP_WHERE_TT, Opcode::OP_WHERE_TS, Opcode::OP_PRELU,
     Opcode::OP_WHERE_ST, Opcode::OP_WHERE_SS, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_ROWEXPMAX,
     Opcode::OP_ROWEXPSUM, Opcode::OP_ROWSUMLINE, Opcode::OP_ROWMAXLINE, Opcode::OP_ROWMINLINE, Opcode::OP_ROWMAX_SINGLE,
     Opcode::OP_ROWMIN_SINGLE, Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_COMBINE_AXIS_SINGLE, Opcode::OP_SIGN,
@@ -646,7 +647,7 @@ const std::unordered_set<Opcode> LASTUSE_OPS{Opcode::OP_ADD, Opcode::OP_SUB, Opc
     Opcode::OP_CONVERT, Opcode::OP_EXPAND, Opcode::OP_ROWEXPMAX, Opcode::OP_ROWMAX, Opcode::OP_ROWSUM, Opcode::OP_CAST,
     Opcode::OP_ROWSUM_SINGLE, Opcode::OP_ROWMAX_SINGLE, Opcode::OP_ROWMIN_SINGLE, Opcode::OP_DIVS, Opcode::OP_ABS,
     Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM, Opcode::OP_BITWISEAND, Opcode::OP_BITWISEOR, Opcode::OP_BITWISEANDS,
-    Opcode::OP_BITWISEORS, Opcode::OP_RELU, Opcode::OP_MODS, Opcode::OP_MOD, Opcode::OP_SIGN};
+    Opcode::OP_BITWISEORS, Opcode::OP_RELU, Opcode::OP_MODS, Opcode::OP_MOD, Opcode::OP_SIGN, Opcode::OP_PRELU};
 
 inline bool IsAllocOpCode(Opcode opCode) {
     return (ALLOC_OPCODE.count(opCode) != 0);
