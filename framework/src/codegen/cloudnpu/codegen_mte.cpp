@@ -1759,4 +1759,126 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
     ASSERT(false) << "Gather operator does not support static graph";
     return "";
 }
+
+std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+
+    std::vector<std::variant<std::string, uint8_t, uint16_t, int, int64_t>> paramList;
+
+    std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    paramList.emplace_back(dstVar);
+    paramList.emplace_back(srcVar);
+
+    uint16_t mPos, kPos;
+    GetAttr(Conv::Im2ColOpAttributeKey::postM, mPos);
+    GetAttr(Conv::Im2ColOpAttributeKey::postK, kPos);
+    paramList.emplace_back(mPos);
+    paramList.emplace_back(kPos);
+
+    std::vector<int64_t> fmapL1Shape = this->rawShape[ID1];
+    ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL1Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL1Shape).c_str());
+    ASSERT(fmapL1Shape.size() == SHAPE_DIM5) << "GenMemL1ToL0Load3D fmap only support 5-dim!";
+    int64_t n = fmapL1Shape[Conv::NC1HWC0_N_IDX];
+    int64_t c1 = fmapL1Shape[Conv::NC1HWC0_C1_IDX];
+    int64_t h = fmapL1Shape[Conv::NC1HWC0_H_IDX];
+    int64_t w = fmapL1Shape[Conv::NC1HWC0_W_IDX];
+    int64_t c0 = fmapL1Shape[Conv::NC1HWC0_C0_IDX];
+    paramList.emplace_back(n);
+    paramList.emplace_back(c1);  
+    paramList.emplace_back(h);
+    paramList.emplace_back(w);  
+    paramList.emplace_back(c0); 
+
+    uint8_t padLeft, padRight, padTop, padBottom, padValue;
+    GetAttr(Conv::Im2ColOpAttributeKey::paddingLeft, padLeft);
+    GetAttr(Conv::Im2ColOpAttributeKey::padRight, padRight);
+    GetAttr(Conv::Im2ColOpAttributeKey::padTop, padTop);
+    GetAttr(Conv::Im2ColOpAttributeKey::padBottom, padBottom);
+    GetAttr(Conv::Im2ColOpAttributeKey::padValue, padValue);
+    paramList.emplace_back(padLeft);
+    paramList.emplace_back(padRight);  
+    paramList.emplace_back(padTop);
+    paramList.emplace_back(padBottom);  
+    paramList.emplace_back(padValue);
+
+    uint16_t filterH, filterW;
+    GetAttr(Conv::Im2ColOpAttributeKey::filterH, filterH);
+    GetAttr(Conv::Im2ColOpAttributeKey::filterW, filterW);
+    paramList.emplace_back(filterH);
+    paramList.emplace_back(filterW);  
+
+    uint8_t dilationH, dilationW;
+    GetAttr(Conv::Im2ColOpAttributeKey::dilationH, dilationH);
+    GetAttr(Conv::Im2ColOpAttributeKey::dilationW, dilationW);
+    paramList.emplace_back(dilationH);
+    paramList.emplace_back(dilationW);
+
+    uint8_t strideH, strideW;
+    GetAttr(Conv::Im2ColOpAttributeKey::strideH, strideH);
+    GetAttr(Conv::Im2ColOpAttributeKey::strideW, strideW);
+    paramList.emplace_back(strideH);
+    paramList.emplace_back(strideW);
+
+    std::vector<int64_t> fmapL0Shape = this->rawShape[ID0];
+    ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL0Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL0Shape).c_str());
+    ASSERT(fmapL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
+    int64_t mL0 = fmapL0Shape[ID0]; // n * h * w
+    int64_t kL0 = fmapL0Shape[ID1]; // c1 * c0
+    paramList.emplace_back(mL0);
+    paramList.emplace_back(kL0);
+
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<" << dstDtypeStr << ", " << srcDtypeStr << ">(" 
+        << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+
+    std::vector<std::variant<std::string, uint16_t, int, int64_t>> paramList;
+
+    std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    paramList.emplace_back(dstVar);
+    paramList.emplace_back(srcVar);
+
+    uint16_t kPos, nPos;
+    GetAttr(Conv::Im2ColOpAttributeKey::postK, kPos);
+    GetAttr(Conv::Im2ColOpAttributeKey::postN, nPos);
+    paramList.emplace_back(kPos);  
+    paramList.emplace_back(nPos);    
+
+    std::vector<int64_t> weightL1Shape = this->rawShape[ID1];
+    ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL1Shape is %s", tileOpName.c_str(), IntVecToStr(weightL1Shape).c_str());
+    ASSERT(weightL1Shape.size() == SHAPE_DIM4) << "GenMemL1ToL0Load2D weight only support 4-dim!";
+    int64_t c1hw = weightL1Shape[ID0];
+    int64_t n1 = weightL1Shape[ID1];
+    int64_t n0 = weightL1Shape[ID2];
+    int64_t c0 = weightL1Shape[ID3];
+    paramList.emplace_back(c1hw);  
+    paramList.emplace_back(n1); 
+    paramList.emplace_back(n0);  
+    paramList.emplace_back(c0); 
+
+    std::vector<int64_t> weightL0Shape = this->rawShape[ID0];
+    ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL0Shape is %s", tileOpName.c_str(), IntVecToStr(weightL0Shape).c_str());
+    ASSERT(weightL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load2D L0 weight only support 2-dim!";
+    int64_t kL0 = weightL0Shape[ID0]; // c1hw*c0
+    int64_t nL0 = weightL0Shape[ID1]; // n1*n0
+    paramList.emplace_back(kL0);  
+    paramList.emplace_back(nL0); 
+
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<" << dstDtypeStr << ", " << srcDtypeStr << ">(" 
+        << tiloOpCallParam << ");\n";
+    return oss.str();
+}
 } // namespace npu::tile_fwk
