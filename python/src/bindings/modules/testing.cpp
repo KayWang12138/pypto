@@ -13,7 +13,7 @@
 
 #include <string>
 
-#include "bindings.h"
+#include "../bindings.h"
 #include "core/error.h"
 
 namespace py = pybind11;
