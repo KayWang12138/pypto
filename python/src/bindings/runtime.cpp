@@ -262,7 +262,7 @@ int64_t BuildCache(uintptr_t opAddr, const std::vector<DeviceTensorData> &inputL
 
             if (hostCache) {
                 ctrlCache = CopyHostToDev(reinterpret_cast<uint8_t*>(hostCache),
-                    reinterpret_cast<DevControlFlowCache*>(hostCache)->allCacheSize);
+                    reinterpret_cast<DevControlFlowCache*>(hostCache)->usedCacheSize);
                 free(hostCache);
             }
 
@@ -366,7 +366,28 @@ public:
         }
 
         auto ctrlCachePtr = std::unique_ptr<uint8_t>((uint8_t *)ctrlCache);
+<<<<<<< HEAD
         uint8_t *devCache = DeviceLauncher::CopyControlFlowCache(ctrlCache);
+=======
+        uint8_t *devCache = nullptr;
+        auto cacheSize = ctrlCache->usedCacheSize;
+        auto bufNum = DEFAULT_RUNTIME_DATA_RING_BUFFER_COUNT;
+
+        ret = rtMalloc((void **)&devCache, cacheSize * bufNum, RT_MEMORY_HBM, 0);
+        if (devCache == nullptr) {
+            ALOG_ERROR("control flow cache malloc failed");
+            return nullptr;
+        }
+
+        for (int i = 0; i < bufNum; ++i) {
+            ret = rtMemcpy(devCache + i * cacheSize, cacheSize, ctrlCache, cacheSize, RT_MEMCPY_HOST_TO_DEVICE);
+            if (ret != 0) {
+                ALOG_ERROR("control flow cache memcpy failed", ret);
+                rtFree(devCache);
+                return nullptr;
+            }
+        }
+>>>>>>> c0dbb0329... fix(machine): support used cache size
 #if ENABALE_VERBOSE_LOG
         std::stringstream ss;
         for (auto &t : inputs) {
