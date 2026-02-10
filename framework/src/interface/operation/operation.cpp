@@ -163,10 +163,15 @@ Operation::Operation(
     if (function_->IsGraphType({GraphType::TENSOR_GRAPH, GraphType::TILE_GRAPH})) {
         tileShape_ = TileShape::Current();
         if (coreType_ == CoreType::AIC) {
+<<<<<<< HEAD
             auto &cubeTile = tileShape_.GetCubeTile();
             auto &convTile = tileShape_.GetConvTile();
             ASSERT(cubeTile.valid() || convTile.valid())
                 << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
+=======
+            // ASSERT(tileShape_.GetCubeTile().valid())
+            //     << "op [" << OpcodeManager::Inst().GetOpcodeStr(opcode) << "]tile shape not set";
+>>>>>>> 25683b0613c3566d0659fde93494543ac43d6003
         }
         OpCalcType calcType = OpcodeManager::Inst().GetOpCalcType(opcode);
         if (coreType_ == CoreType::AIV && calcType != OpCalcType::DISTRIBUTED) {
