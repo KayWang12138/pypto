@@ -134,149 +134,168 @@ torch::Tensor Fp8ToFloat32(const torch::Tensor &self, DataType actualType) {
 
 // Float32 to FP8 E4M3. E4M3 value range is approximately [2^-9, 240].
 // Implements round-to-nearest with ties-to-even under the decode defined in Fp8E4M3ToFloat32.
+static inline uint8_t EncodeFloatToFp8E4M3(float v)
+{
+    constexpr float kMinSubnormal = 1.0f / 512.0f; // 2^-9: smallest positive subnormal (mant=1, exp=0)
+    constexpr float kMinNormal = 1.0f / 64.0f;     // 2^-6: exp=1, mant=0
+    constexpr float kMaxVal = 240.0f;              // max finite value produced by Fp8E4M3ToFloat32
+
+    if (std::isnan(v) || std::isinf(v)) {
+        int sign = std::signbit(v) ? 1 : 0;
+        return static_cast<uint8_t>((sign << 7) | 0x7E);
+    }
+
+    if (std::fpclassify(v) == FP_ZERO) {
+        // Preserve signed zero in the encoding.
+        return static_cast<uint8_t>(std::signbit(v) ? 0x80 : 0x00);
+    }
+
+    float absv = std::fabs(v);
+    int sign = std::signbit(v) ? 1 : 0;
+
+    // Underflow to signed zero.
+    if (absv < kMinSubnormal) {
+        return static_cast<uint8_t>(sign << 7);
+    }
+
+    // Handle large magnitudes (including very large finite and infinities) by saturation.
+    if (absv >= kMaxVal) {
+        return static_cast<uint8_t>((sign << 7) | 0x7E);
+    }
+
+    // Subnormal region [kMinSubnormal, kMinNormal).
+    if (absv < kMinNormal) {
+        // Values are mant * 2^-9, mant = 1..7.
+        float mant_scaled = absv / kMinSubnormal; // in [1, 8)
+        if (mant_scaled < 0.0f) {
+            mant_scaled = 0.0f;
+        }
+        int mant = RoundToNearestEvenFloatPos(mant_scaled);
+        if (mant <= 0) {
+            // Round down to zero.
+            return static_cast<uint8_t>(sign << 7);
+        }
+        if (mant >= 8) {
+            // Rounded up to the smallest normal value: exp=1, mant=0 -> kMinNormal.
+            uint8_t exp_bits = 1;
+            uint8_t mant_bits = 0;
+            return static_cast<uint8_t>((sign << 7) | (exp_bits << 3) | mant_bits);
+        }
+        // Proper subnormal.
+        return static_cast<uint8_t>((sign << 7) | mant);
+    }
+
+    // Normal numbers: value = 2^(exp-7) * (1 + mant/8), exp in [1,14], mant in [0,7].
+    int exp_raw;
+    float frac = std::frexp(absv, &exp_raw); // absv = frac * 2^exp_raw, frac in [0.5,1)
+    float norm_mant = frac * 2.0f;           // in [1,2)
+    int unbiased_exp = exp_raw - 1;          // because absv = norm_mant * 2^(unbiased_exp)
+    int stored_exp = unbiased_exp + 7;       // add FP8 E4M3 bias
+
+    float mant_scaled = (norm_mant - 1.0f) * 8.0f; // ideally in [0,8)
+    if (mant_scaled < 0.0f) {
+        mant_scaled = 0.0f;
+    }
+    int mant = RoundToNearestEvenFloatPos(mant_scaled); // 0..8 (8 means carry)
+
+    if (mant >= 8) {
+        // Carry into exponent.
+        mant = 0;
+        stored_exp += 1;
+    }
+
+    if (stored_exp >= 15) {
+        // Exponent overflow: encode as saturating max value (exp=15 region).
+        return static_cast<uint8_t>((sign << 7) | 0x7E);
+    }
+
+    if (stored_exp <= 0) {
+        // Underflow from normal into subnormal: recompute in subnormal grid.
+        float scaled = absv / kMinSubnormal;
+        if (scaled < 0.0f) {
+            scaled = 0.0f;
+        }
+        int sub_mant = RoundToNearestEvenFloatPos(scaled);
+        if (sub_mant <= 0) {
+            return static_cast<uint8_t>(sign << 7);
+        }
+        if (sub_mant >= 8) {
+            uint8_t exp_bits = 1;
+            uint8_t mant_bits = 0;
+            return static_cast<uint8_t>((sign << 7) | (exp_bits << 3) | mant_bits);
+        }
+        return static_cast<uint8_t>((sign << 7) | sub_mant);
+    }
+
+    uint8_t exp_bits = static_cast<uint8_t>(stored_exp & 0xF);
+    uint8_t mant_bits = static_cast<uint8_t>(mant & 0x7);
+    return static_cast<uint8_t>((sign << 7) | (exp_bits << 3) | mant_bits);
+}
+
 static torch::Tensor Float32ToFp8E4M3(const torch::Tensor &self) {
     auto x = self.to(torch::kFloat32).contiguous();
     auto flat = x.flatten();
     auto result = torch::empty_like(flat, torch::TensorOptions().dtype(torch::kUInt8));
-    constexpr float kMinSubnormal = 1.0f / 512.0f; // 2^-9: smallest positive subnormal (mant=1, exp=0)
-    constexpr float kMinNormal = 1.0f / 64.0f;     // 2^-6: exp=1, mant=0
-    constexpr float kMaxVal = 240.0f;              // max finite value produced by Fp8E4M3ToFloat32
     auto ptr = flat.data_ptr<float>();
     auto out_ptr = result.data_ptr<uint8_t>();
+
     for (int64_t i = 0; i < flat.numel(); ++i) {
-        float v = ptr[i];
-        uint8_t enc = 0;
-        if (std::isnan(v) || std::isinf(v)) {
-            int sign = std::signbit(v) ? 1 : 0;
-            enc = static_cast<uint8_t>((sign << 7) | 0x7E);
-        } else if (std::fpclassify(v) == FP_ZERO) {
-            // Preserve signed zero in the encoding.
-            enc = static_cast<uint8_t>(std::signbit(v) ? 0x80 : 0x00);
-        } else {
-            float absv = std::fabs(v);
-            int sign = std::signbit(v) ? 1 : 0;
-            // Underflow to signed zero.
-            if (absv < kMinSubnormal) {
-                enc = static_cast<uint8_t>(sign << 7);
-            } else {
-                // Handle large magnitudes (including very large finite and infinities) by saturation.
-                if (absv >= kMaxVal) {
-                    enc = static_cast<uint8_t>((sign << 7) | 0x7E);
-                } else if (absv < kMinNormal) {
-                    // Subnormal region [kMinSubnormal, kMinNormal).
-                    // Values are mant * 2^-9, mant = 1..7.
-                    float mant_scaled = absv / kMinSubnormal; // in [1, 8)
-                    if (mant_scaled < 0.0f) {
-                        mant_scaled = 0.0f;
-                    }
-                    int mant = RoundToNearestEvenFloatPos(mant_scaled);
-                    if (mant <= 0) {
-                        // Round down to zero.
-                        enc = static_cast<uint8_t>(sign << 7);
-                    } else if (mant >= 8) {
-                        // Rounded up to the smallest normal value: exp=1, mant=0 -> kMinNormal.
-                        uint8_t exp_bits = 1;
-                        uint8_t mant_bits = 0;
-                        enc = static_cast<uint8_t>((sign << 7) | (exp_bits << 3) | mant_bits);
-                    } else {
-                        // Proper subnormal.
-                        enc = static_cast<uint8_t>((sign << 7) | mant);
-                    }
-                } else {
-                    // Normal numbers: value = 2^(exp-7) * (1 + mant/8), exp in [1,14], mant in [0,7].
-                    int exp_raw;
-                    float frac = std::frexp(absv, &exp_raw); // absv = frac * 2^exp_raw, frac in [0.5,1)
-                    float norm_mant = frac * 2.0f;           // in [1,2)
-                    int unbiased_exp = exp_raw - 1;          // because absv = norm_mant * 2^(unbiased_exp)
-                    int stored_exp = unbiased_exp + 7;       // add FP8 E4M3 bias
-
-                    float mant_scaled = (norm_mant - 1.0f) * 8.0f; // ideally in [0,8)
-                    if (mant_scaled < 0.0f) {
-                        mant_scaled = 0.0f;
-                    }
-                    int mant = RoundToNearestEvenFloatPos(mant_scaled); // 0..8 (8 means carry)
-
-                    if (mant >= 8) {
-                        // Carry into exponent.
-                        mant = 0;
-                        stored_exp += 1;
-                    }
-                    if (stored_exp >= 15) {
-                        // Exponent overflow: encode as saturating max value (exp=15 region).
-                        enc = static_cast<uint8_t>((sign << 7) | 0x7E);
-                    } else if (stored_exp <= 0) {
-                        // Underflow from normal into subnormal: recompute in subnormal grid.
-                        float scaled = absv / kMinSubnormal;
-                        if (scaled < 0.0f) {
-                            scaled = 0.0f;
-                        }
-                        int sub_mant = RoundToNearestEvenFloatPos(scaled);
-                        if (sub_mant <= 0) {
-                            enc = static_cast<uint8_t>(sign << 7);
-                        } else if (sub_mant >= 8) {
-                            uint8_t exp_bits = 1;
-                            uint8_t mant_bits = 0;
-                            enc = static_cast<uint8_t>((sign << 7) | (exp_bits << 3) | mant_bits);
-                        } else {
-                            enc = static_cast<uint8_t>((sign << 7) | sub_mant);
-                        }
-                    } else {
-                        uint8_t exp_bits = static_cast<uint8_t>(stored_exp & 0xF);
-                        uint8_t mant_bits = static_cast<uint8_t>(mant & 0x7);
-                        enc = static_cast<uint8_t>((sign << 7) | (exp_bits << 3) | mant_bits);
-                    }
-                }
-            }
-        }
-        out_ptr[i] = enc;
+        out_ptr[i] = EncodeFloatToFp8E4M3(ptr[i]);
     }
 
     return result.reshape(x.sizes());
 }
 
 // Float32 to FP8 E5M2. E5M2 range: [2^-16, 57344]. Round to nearest.
+static inline uint8_t EncodeFloatToFp8E5M2(float v)
+{
+    constexpr float kMinSubnormal = 1.0f / 65536.0f; // 2^-16
+    constexpr float kMinNormal = 1.0f / 16384.0f;    // 2^-14
+    constexpr float kMaxVal = 57344.0f;              // 2^15 * 1.75
+    if (std::isnan(v)) {
+        return 0x7F;
+    }
+    if (std::isinf(v)) {
+        return static_cast<uint8_t>((v < 0) ? 0xFC : 0x7C);
+    }
+    if (std::fpclassify(v) == FP_ZERO) {
+        return static_cast<uint8_t>(std::signbit(v) ? 0x80 : 0x00);
+    }
+    float absv = std::fabs(v);
+    int sign = std::signbit(v) ? 1 : 0;
+    if (absv < kMinSubnormal) {
+        // Underflow to signed zero.
+        return static_cast<uint8_t>(sign << 7);
+    }
+    if (absv > kMaxVal) {
+        // Saturate to signed infinity encoding region.
+        return static_cast<uint8_t>((sign << 7) | 0x7C);
+    }
+    if (absv < kMinNormal) {
+        // Subnormal region [kMinSubnormal, kMinNormal).
+        int mant = static_cast<int>(std::round(absv / kMinSubnormal));
+        mant = std::clamp(mant, 1, 3);
+        return static_cast<uint8_t>((sign << 7) | mant);
+    }
+    // Normal numbers.
+    float log2v = std::log2(absv);
+    int exp = static_cast<int>(std::round(log2v + 15.0f));
+    exp = std::clamp(exp, 1, 30);
+    float scale = std::exp2(static_cast<float>(exp - 15));
+    float scale_safe = (scale > 0.0f) ? scale : 1.0f;
+    int mant = static_cast<int>(std::round((absv / scale_safe - 1.0f) * 4.0f));
+    mant = std::clamp(mant, 0, 3);
+    return static_cast<uint8_t>((sign << 7) | (exp << 2) | mant);
+}
 static torch::Tensor Float32ToFp8E5M2(const torch::Tensor &self) {
     auto x = self.to(torch::kFloat32).contiguous();
     auto flat = x.flatten();
     auto result = torch::empty_like(flat, torch::TensorOptions().dtype(torch::kUInt8));
-    constexpr float kMinSubnormal = 1.0f / 65536.0f; // 2^-16
-    constexpr float kMinNormal = 1.0f / 16384.0f;    // 2^-14
-    constexpr float kMaxVal = 57344.0f;              // 2^15 * 1.75
     auto ptr = flat.data_ptr<float>();
     auto out_ptr = result.data_ptr<uint8_t>();
+
     for (int64_t i = 0; i < flat.numel(); ++i) {
-        float v = ptr[i];
-        uint8_t enc = 0;
-        if (std::isnan(v)) {
-            enc = 0x7F;
-        } else if (std::isinf(v)) {
-            enc = (v < 0) ? 0xFC : 0x7C;
-        } else if (std::fpclassify(v) == FP_ZERO) {
-            enc = (std::signbit(v) ? 0x80 : 0);
-        } else {
-            float absv = std::fabs(v);
-            int sign = std::signbit(v) ? 1 : 0;
-            if (absv < kMinSubnormal) {
-                enc = sign << 7;
-            } else if (absv > kMaxVal) {
-                enc = (sign << 7) | 0x7C;
-            } else if (absv < kMinNormal) {
-                int mant = static_cast<int>(std::round(absv / kMinSubnormal));
-                mant = std::clamp(mant, 1, 3);
-                enc = (sign << 7) | mant;
-            } else {
-                float log2v = std::log2(absv);
-                int exp = static_cast<int>(std::round(log2v + 15.0f));
-                exp = std::clamp(exp, 1, 30);
-                float scale = std::exp2(static_cast<float>(exp - 15));
-                // Avoid division by zero: use scale only when strictly positive.
-                float scale_safe = (scale > 0.0f) ? scale : 1.0f;
-                int mant = static_cast<int>(std::round((absv / scale_safe - 1.0f) * 4.0f));
-                mant = std::clamp(mant, 0, 3);
-                enc = (sign << 7) | (exp << 2) | mant;
-            }
-        }
-        out_ptr[i] = enc;
+        out_ptr[i] = EncodeFloatToFp8E5M2(ptr[i]);
     }
     return result.reshape(x.sizes());
 }
