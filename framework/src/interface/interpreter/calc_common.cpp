@@ -55,7 +55,8 @@ void ExecuteOpView(ExecuteOperationContext *ctx) {
     if (oop->GetData() == iop->GetData()) {
         return;
     }
-    bool trans = (ctx->op->HasAttr(Matrix::L1_TO_L0_TRANSPOSE)) ? ctx->op->GetBoolAttribute(MATRIX::L1_TO_L0_TRANSPOSE) : false;
+    bool trans = (ctx->op->HasAttr(Matrix::L1_TO_L0_TRANSPOSE)) ? 
+        ctx->op->GetBoolAttribute(Matrix::L1_TO_L0_TRANSPOSE) : false;
     auto ret = iop->View(oop->GetShape(), offset);
     calc::Copy(oop, ret, trans);
 }
@@ -84,8 +85,10 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
     if (from == MemoryType::MEM_L0C) {
         // fixpipe
         if (iop->GetDataType() == DataType::DT_INT32 && oop->GetDataType() == DataType::DT_FP16) {
-            uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
-            int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
+            uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? 
+                ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
+            int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? 
+                ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
             LogicalTensorDataPtr scalePtr = nullptr;
             if (ctx->ioperandDataViewList->size() > 1) {
                 scalePtr = ctx->ioperandDataViewList->at(1);
