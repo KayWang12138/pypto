@@ -96,6 +96,7 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
             #ifdef __DAV_V220
             pipe_barrier(PIPE_V);
             #endif
+            
             pto::TROWEXPANDSUB(dst, src0, dst);
         }
         return;
