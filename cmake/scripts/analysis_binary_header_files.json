@@ -15,10 +15,26 @@
       ]
     }
   },
-  "libtile_fwk_platform_stub.so": {
+  "libtile_fwk_platform_utils.so": {
     "Source-Header": {
       "Self": [
-        "framework/src/platform/"
+        "framework/src/platform/platform_utils/"
+      ],
+      "Area": [
+      ],
+      "Include": [
+        "framework/include/"
+      ],
+      "WhiteList": [
+      ],
+      "BlackList": [
+      ]
+    }
+  },
+  "libtile_fwk_platform_utils_stub.so": {
+    "Source-Header": {
+      "Self": [
+        "framework/src/platform/platform_utils/"
       ],
       "Area": [
       ],

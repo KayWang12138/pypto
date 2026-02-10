@@ -20,7 +20,6 @@
 #include "simulation_platform/simulation_platform.h"
 
 namespace npu::tile_fwk {
-const uint32_t kMaxLength = 50;
 const std::string version = "version";
 const std::string socVersionInfo = "Soc_version";
 const std::string shortSocVersion = "Short_SoC_version";
@@ -157,19 +156,6 @@ bool Die::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType
     }
     paths.clear();
     return false;
-}
-
-size_t SoC::GetAICPUNum() const {
-   uint32_t cpuNum = 0;
-   int ret = 1;
-#ifdef BUILD_WITH_CANN
-    ret = rtGetAiCpuCount(&cpuNum);
-#endif
-    if (ret == 0) {
-        return static_cast<size_t>(cpuNum);
-    } else {
-        return ai_cpu_cnt_;
-    }
 }
 
 void SoC::SetCoreVersion(const std::unordered_map<std::string, std::string>& ver) {
@@ -324,13 +310,8 @@ void Platform::LoadPlatformInfo(const PlatformParser &parser) {
 }
 
 void Platform::ObtainPlatformInfo() {
-    int ret = 1;
-    char socVer[kMaxLength] = {0x00};
-#ifdef BUILD_WITH_CANN
-    ret = rtGetSocVersion(socVer, kMaxLength);
-#endif
-    if (ret == 0) {
-        std::string socVersion = std::string(socVer);
+    std::string socVersion;
+    if (GetrtSocVersion(socVersion)) {
         npu::tile_fwk::CmdParser cmdparser;
         LoadPlatformInfo(cmdparser);
     } else {

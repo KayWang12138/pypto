@@ -53,6 +53,7 @@ target_link_libraries(tile_fwk_interface
         PRIVATE
             intf_pub_cxx17
             tile_fwk_intf_pub
+            tile_fwk_platform
 
             dl
             Threads::Threads

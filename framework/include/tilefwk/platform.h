@@ -85,11 +85,11 @@ struct MemoryNode {
 
 struct MemoryGraph {
     std::map<MemoryType, std::shared_ptr<MemoryNode>> nodes;
-    extern void AddPath(MemoryType from, MemoryType to);
-    extern std::shared_ptr<MemoryNode> GetNode(MemoryType type);
-    extern void DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node, std::vector<MemoryType> &candidate,
+    void AddPath(MemoryType from, MemoryType to);
+    std::shared_ptr<MemoryNode> GetNode(MemoryType type);
+    void DFS(MemoryType target, const std::shared_ptr<MemoryNode> &node, std::vector<MemoryType> &candidate,
         std::vector<MemoryType> &paths) const;
-    extern bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
+    bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
     void Reset(){
         nodes.clear();
     }
@@ -101,10 +101,11 @@ class PlatformParser {
     virtual ~PlatformParser() {}
     virtual bool GetStringVal(const std::string& column, const std::string& key, std::string& val) const = 0;
     
-    extern bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
-    extern bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
-    extern bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const;
-    extern bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
+    bool GetSizeVal(const std::string& column, const std::string& key, size_t& val) const;
+    bool GetCCECVersion(std::unordered_map<std::string, std::string>& ccecVersion) const;
+    bool GetCoreVersion(std::unordered_map<std::string, std::string>& curVersion) const;
+    bool FilterCCECVersion(const std::string& key, std::string &coreType) const;
+}
 
 class Inst {
 public:
@@ -118,7 +119,6 @@ public:
     std::vector<InstVariant> variants;   // "|"后面的datatype
     InstCategory category = InstCategory::Unknown;
 };
-
 
 class Core {
 protected:
@@ -140,7 +140,7 @@ public:
     std::string GetVersion() const { return version; }
     std::string GetCCECVersion() const { return ccec_version; }
     size_t GetNum() const { return num_; }
-    extern size_t GetMemorySize(MemoryType type) const;
+    size_t GetMemorySize(MemoryType type) const;
 };
 
 class AivCore : public Core{
@@ -276,13 +276,13 @@ public:
     size_t GetMemHost1Size() const { return mem_host1_size_; }
     size_t GetCoreWrapNum() const { return core_wrap_cnt_; }
 
-    extern size_t GetMemoryLimit(MemoryType type) const;
+    size_t GetMemoryLimit(MemoryType type) const;
 
     void SetMemDeviceDDRSize(size_t size) { mem_device_ddr_size_ = size; }
     void SetMemHost1Size(size_t size)     { mem_host1_size_      = size; }
 
-    extern bool SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths);
-    extern bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
+    bool SetMemoryPath(const std::vector<std::pair<MemoryType, MemoryType>>& dataPaths);
+    bool FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType> &paths) const;
 
     std::string Dump() const {
         std::stringstream ss;
@@ -342,18 +342,18 @@ public:
     void SetNPUArch(const std::string& version) { version_ = StringToNPUArch(versionStr); }
     void SetShortSocVersion(const std::string& version) { short_soc_ver_ = version;}
     void SetDiesNum(size_t cnt) { dies_cnt_ = cnt; }
-    extern void SetCoreVersion(const std::unordered_map<std::string, std::string>& ver);
-    extern void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
+    void SetCoreVersion(const std::unordered_map<std::string, std::string>& ver);
+    void SetCCECVersion(const std::unordered_map<std::string, std::string>& ver);
 
     Die& GetDies() { return die_; }
     NPUArch GetNPUArch() const { return version_; }
     size_t GetDiesNum() const { return dies_cnt_; }
     std::string GetShortSocVersion() const { return short_soc_ver_; }
-    extern std::string GetCoreVersion(std::string CoreType);
-    extern std::string GetCCECVersion(std::string CoreType);
+    std::string GetCoreVersion(std::string CoreType);
+    std::string GetCCECVersion(std::string CoreType);
 
     // SOCINFO
-    extern size_t GetAICPUNum() const;
+    size_t GetAICPUNum() const { return GetrtAICPUNum(); }
     size_t GetAICoreNum() const { return ai_core_cnt_; }
     size_t GetAICCoreNum() const { return cube_core_cnt_; }
     size_t GetAIVCoreNum() const { return vector_core_cnt_; }
@@ -441,8 +441,8 @@ public:
     AicCore& GetAICCore() { return GetCoreWrap().GetAICCore(); }
     AivCore& GetAIVCore() { return GetCoreWrap().GetAIVCore(); }
     
-    extern void LoadPlatformInfo(const PlatformParser &parser);
-    extern void ObtainPlatformInfo();
+    void LoadPlatformInfo(const PlatformParser &parser);
+    void ObtainPlatformInfo();
 
     std::string Dump() {
         std::ostringstream ss;
@@ -487,4 +487,8 @@ public:
         return ss.str();
     }
 };
+
+extern bool GetSocSpcString(const std::string& column, const std::string& key, std::string& val);
+extern bool GetrtSocVersion(std::string& socVerString);
+extern size_t GetrtAICPUNum();
 } // namespace npu::tile_fwk
