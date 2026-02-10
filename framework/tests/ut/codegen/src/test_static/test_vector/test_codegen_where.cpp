@@ -30,17 +30,14 @@
 namespace npu::tile_fwk {
 class TestCodegenWhere : public ::testing::Test {
 public:
-    static void SetUpTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
-    }
+    static void SetUpTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false); }
 
-    static void TearDownTestCase() {
-        config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    }
+    static void TearDownTestCase() { config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true); }
 
     void SetUp() override {
         Program::GetInstance().Reset();
         config::Reset();
+        config::SetBuildStatic(true);
         config::SetHostOption(COMPILE_STAGE, CS_EXECUTE_GRAPH);
         config::SetPlatformConfig(KEY_ENABLE_COST_MODEL, false);
     }
@@ -77,13 +74,11 @@ Operation &GetWhereOp(Function *function, Opcode opCode, const LogicalTensors &i
     return op;
 }
 
-void TestWhereBody(const Opcode opCode, const std::string &caseName,
-                   const std::string &expect, bool isSupportTileTensor = false) {
+void TestWhereBody(
+    const Opcode opCode, const std::string &caseName, const std::string &expect, bool isSupportTileTensor = false) {
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
     }
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
-    config::SetBuildStatic(true);
 
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
@@ -162,21 +157,21 @@ TEST_F(TestCodegenWhere, TestOpWhereSS_TileTensor) {
 
 TEST_F(TestCodegenWhere, TestOpWhereST_TileTensor) {
     std::string expect =
-        R"!!!(TWhereST(ubTensor_0, ubTensor_0, ubTensor_0, float(1), ubTensor_0);
+        R"!!!(TWhereST(ubTensor_3, ubTensor_3, ubTensor_3, float(1), ubTensor_3);
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_ST, "TestOpWhereST", expect, true);
 }
 
 TEST_F(TestCodegenWhere, TestOpWhereTS_TileTensor) {
     std::string expect =
-        R"!!!(TWhereTS(ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0, float(1));
+        R"!!!(TWhereTS(ubTensor_7, ubTensor_7, ubTensor_7, ubTensor_7, float(1));
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_TS, "TestOpWhereTS", expect, true);
 }
 
 TEST_F(TestCodegenWhere, TestOpWhereTT_TileTensor) {
     std::string expect =
-        R"!!!(TWhereTT(ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0, ubTensor_0);
+        R"!!!(TWhereTT(ubTensor_11, ubTensor_11, ubTensor_11, ubTensor_11, ubTensor_11);
 )!!!";
     TestWhereBody(Opcode::OP_WHERE_TT, "TestOpWhereTT", expect, true);
 }
