@@ -477,7 +477,7 @@ void SetTensorOpAttr(Operation &op, const LogicalTensorPtr &inputTensor, const L
     op.SetAttribute(CONV_ORI_RES_SHAPE_ATTR, resTensor->GetShape());
 }
 
-Tensor ConstructTensorGraph(const Tensor &inputTensor, const Tensor &weightTensor,
+Tensor ConstructTensorGraph(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor,
                             const Tensor &biasTensor, const Tensor &resTensor, ConvAttrParam &convAttrParam)
 {
     // add Conv node
