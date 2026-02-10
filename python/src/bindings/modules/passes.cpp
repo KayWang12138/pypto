@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-#include "bindings.h"
+#include "../bindings.h"
 #include "core/error.h"
 #include "ir/transform/passes.h"
 #include "ir/transform/verification_error.h"
