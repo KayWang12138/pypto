@@ -17,7 +17,7 @@
 #include "interface/utils/file_utils.h"
 #include "machine/platform/platform_manager.h"
 #include "tilefwk/platform.h"
-#include "platform/parser/internal_parser.h"
+#include "platform/platform_utils/parser/internal_parser.h"
 
 using namespace npu::tile_fwk;
 

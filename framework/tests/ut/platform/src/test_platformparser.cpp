@@ -15,7 +15,7 @@
 
 #include "gtest/gtest.h"
 #include "tilefwk/platform.h"
-#include "platform/parser/platform_parser.h"
+#include "platform/platform_utils/parser/platform_parser.h"
 
 using namespace npu::tile_fwk;
 const std::string archInfo = "ArchInfo";
