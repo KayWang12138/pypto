@@ -1609,6 +1609,28 @@ std::string CodeGenOpCloudNPU::GenHypotOp() const {
     return PrintHypotTileTensor();
 }
 
+std::string CodeGenOpCloudNPU::PrintPreluTileTensor() const {
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
+    std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
+    std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC0_IDX));
+    std::string src1Tensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::SRC1_IDX));
+
+    int64_t axis = 1;
+    GetAttr(OP_ATTR_PREFIX + "axis", axis);
+
+    std::vector<std::string> tileOpParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
+
+    std::ostringstream oss;
+    oss << tileOpName << "<" << axis << ">" << WrapParamByParentheses(tileOpParamList) << STMT_END;
+    
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenPreluOp() const {
+    ASSERT(isSupportLayout) << "PReLU only support tile tensor";
+    return PrintPreluTileTensor();
+}
+
 std::string CodeGenOpCloudNPU::PrintLogicalAndTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));
