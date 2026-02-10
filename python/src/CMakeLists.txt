@@ -11,6 +11,13 @@
 pybind11_add_module(pypto_impl
         MODULE
             pybind11.cpp
+            bindings/error.cpp
+            bindings/core.cpp
+            bindings/logging.cpp
+            bindings/testing.cpp
+            bindings/ir.cpp
+            bindings/ir_builder.cpp
+            bindings/passes.cpp
             bindings/enum.cpp
             bindings/element.cpp
             bindings/tensor.cpp
@@ -42,10 +49,9 @@ target_compile_definitions(pypto_impl
 # 所依赖的本项目 so 均在 pypto 包 __init__.py 中加载, 此处不再 link
 target_link_libraries(pypto_impl
         PRIVATE
-            json
-            c_sec
             intf_pub_cxx17
             tile_fwk_intf_pub
+            msgpackc-cxx
 )
 if (TARGET c_sec_shared)
     add_dependencies(pypto_impl c_sec_shared)
