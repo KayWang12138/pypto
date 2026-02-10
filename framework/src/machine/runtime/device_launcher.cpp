@@ -178,11 +178,12 @@ int DeviceLauncher::DeviceLaunchOnceWithDeviceTensorData(
     DeviceInitDistributedContext(dynAttr->commGroupNames, GetDevProg(function));
 
     HOST_PERF_TRACE(TracePhase::RunDevEnvReady);
-    DeviceInitTilingData(DeviceMemoryUtils(), kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
+    DeviceMemoryUtils devMemoryUtilis;
+    DeviceInitTilingData(devMemoryUtilis, kArgs, dynAttr->devProgBinary, inputDevCtrlCache, config, cachedOperator);
     HOST_PERF_TRACE(TracePhase::RunDevInitTiling);
 
     DeviceRunCacheKernelSet(function, (uint8_t *)kArgs.cfgdata);
-    DeviceInitKernelInOuts(DeviceMemoryUtils(), kArgs, inputList, outputList, dynAttr->disableL2List);
+    DeviceInitKernelInOuts(devMemoryUtilis, kArgs, inputList, outputList, dynAttr->disableL2List);
 
     HOST_PERF_TRACE(TracePhase::RunDevInitInOutTensor);
 
@@ -228,10 +229,10 @@ int DeviceLauncher::DeviceRunOnce(Function *function, DevControlFlowCache* hostC
     auto aicoreStream = machine::GetRA()->GetStream();
     std::vector<DeviceTensorData> inputDeviceDataList;
     std::vector<DeviceTensorData> outputDeviceDataList;
-    std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(DeviceMemoryUtils(), inputDataList, outputDataList);
+    DeviceMemoryUtilis devMemory(false);
+    std::tie(inputDeviceDataList, outputDeviceDataList) = BuildInputOutputFromHost(devMemory, inputDataList, outputDataList);
 
     uint8_t* devCtrlCache = nullptr;
-    DeviceMemoryUtils devMemory(false);
     if (hostCtrlCache) {
         devCtrlCache = devMemory.CopyToDev(reinterpret_cast<uint8_t *>(hostCtrlCache), hostCtrlCache->allCacheSize, nullptr);
     }
@@ -475,7 +476,8 @@ void DeviceLauncher::FillDeviceKernelArgs(std::vector<uint8_t> &devProgData, Dev
     DeviceLauncherConfig config;
     CachedOperator cache;
     DeviceLauncherConfigFillDeviceInfo(config);
-    DeviceInitTilingData(DeviceMemoryUtils(), kargs, devProgData, nullptr, config, &cache);
+    DeviceMemoryUtils deviceMemoryUtils;
+    DeviceInitTilingData(deviceMemoryUtils, kargs, devProgData, nullptr, config, &cache);
 #else
     (void)devProgData;
     (void)kargs;
