@@ -92,6 +92,14 @@ def device_run(is_run_add, device_id):
     output_path = get_out_put_path()
     assert output_path
 
+    out_path = pypto.pypto_impl.LogTopFolder()
+
+    check_list = ["program.json", "dyn_topo.txt", "topo.json", "merged_swimlane.json",
+        "aicpu_dev_pref.json", "machine_runtime_operator_trace.json", "tilefwk_L1_prof_data.json"]
+    file_list = [os.path.join(output_path, d) for d in check_list]
+    for file_path in file_list:
+        assert os.path.exists(file_path)
+
 
 def test_debug_mode():
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
