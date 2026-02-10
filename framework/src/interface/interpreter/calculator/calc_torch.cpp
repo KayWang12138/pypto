@@ -769,7 +769,7 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
             tout.relu_();
         }
         if (param.scale != 0) {
-            uint32_t low32 = static_cast<uint32_t>(param.scale & 0xFFFFFFFF);
+            uint32_t low32 = static_cast<uint32_t>(param.scale & 0xFFFFE000);
             float scaleValue = 0.0;
             memcpy_s(&scaleValue, sizeof(float), &low32, sizeof(float));
             tout.mul_(scaleValue);
