@@ -187,11 +187,11 @@ bool Die::FindNearestPath(MemoryType from, MemoryType to, std::vector<MemoryType
     return false;
 }
 
-void Soc::SetNPUArch(const std::string& versionStr) {
+void SoC::SetNPUArch(const std::string& versionStr) {
     version_ = StringToNPUArch(versionStr);
 }
 
-size_t Soc::GetAICPUNum() const {
+size_t SoC::GetAICPUNum() const {
     size_t rtAiCpuNum;
     using GetAiCpuNumFunc = bool (*)(size_t &);
     std::string AiCpuNumFuncName = "GetrtAICPUNum";
