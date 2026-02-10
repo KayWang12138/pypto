@@ -8,32 +8,18 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file pybind11.cpp
- * \brief
- */
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
-#include "pybind_common.h"
-#include "bindings/bindings.h"
+#include "bindings.h"
+
+namespace py = pybind11;
 
 namespace pypto {
-PYBIND11_MODULE(pypto_impl, m) {
-    m.doc() = "PyPTO";
 
-    BindErrors(m);
-    
-    // Bind tilefwk enums and types first
-    bind_enum(m);
-    BindElement(m);
-    BindTensor(m);
-    BindSymbolicScalar(m);
-    bind_controller(m);
-    bind_operation(m);
-    BindRuntime(m);
-    BindCostModelRuntime(m);
-    bind_pass(m);
-    BindFunction(m);
-    BindDistributed(m);
-    BindPlatform(m);
-};
+void BindCore(py::module_ & /*m*/) {
+  // Core bindings
+  // Note: DataType is bound in BindFramework() as it comes from the framework layer
+}
+
 } // namespace pypto
