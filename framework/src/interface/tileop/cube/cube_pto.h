@@ -712,7 +712,7 @@ TILEOP void TGatherInL1(DstT dst, SrcT src, BlockT block, OffsetT offset, SrcCoo
             pto::BLayout::RowMajor, -1, -1>;
         // 这里需要采用性能更高的ND2ND的搬运方式。
         // GM上将(1, dstShape1)的数据，转变为(dstShape1 / c0Size, c0Size)。
-        // L1上将(staticL1H, staticL1W, 16, c0Size)的NZ数据，对每c0Size列做展平为一行，得到(staticL1W / c0Size, staticL1H * c0Size)。
+        // L1上将(staticL1H, staticL1W, 16, c0Size)的NZ数据，对每c0Size列做展平为一行，得到(staticL1W / c0Size, staticL1H * c0Size)的ND格式。
         // 那么L1上有效数据就是(dstShape1 / c0Size, c0Size)。
         GatherExecute<blockSize, globalData, tileData>(dst, src, block, offset, offsetsStartOffset, srcColumnStartOffset, GMBlockTableOffset,
             dstShape1 / c0Size, c0Size, c0Size, 1, dstShape1 / c0Size, c0Size, srcShape1, dstShape0, c0Size);
