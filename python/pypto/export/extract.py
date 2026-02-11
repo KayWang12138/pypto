@@ -5,7 +5,7 @@ import onnx
 from typing import Union
 
 import tools.onnx.pypto_op as pypto_op
-from tools.onnx.zip import unzip_b64_to_dir
+from tools.onnx.zip import _unzip_b64_to_dir
 
 def extract_node_from_onnx(
     onnx_model: str,
@@ -29,7 +29,7 @@ def _extract_attr_from_onnx_node(
             attr = attrs[name]
             break
     if attr is None:
-        raise KeyError(f"Could not find any of {attr_names} in {domain}::{op_type}")
+        raise KeyError(f"Could not find any of {attr_names} in onnx node")
 
     return attr
 
@@ -61,7 +61,7 @@ def _extract_zip_from_onnx_node(
     )
 
     op_out_dir = os.path.join(out_dir, onnx_node.op_type)
-    zip_meta = unzip_b64_to_dir(b64, op_out_dir)
+    zip_meta = _unzip_b64_to_dir(b64, op_out_dir)
 
     return zip_meta
 

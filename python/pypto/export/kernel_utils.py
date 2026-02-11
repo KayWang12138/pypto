@@ -3,7 +3,7 @@ import os
 ROOT_KERNEL_BINARIES_DIR = "output"
 ROOT_KERNEL_IR_DIR = "/home/p84341448/n84434144_nikita/pypto_ir/build_output/" # TODO update after pypto ir repo is merged to cann/pypto
 
-def find_kernel_binary_path(kernel_name):
+def _find_kernel_binary_path(kernel_name):
     kernels = os.listdir(ROOT_KERNEL_BINARIES_DIR)
     kernels.sort(reverse=True)
 
@@ -18,7 +18,7 @@ def find_kernel_binary_path(kernel_name):
 
     raise OSError(f"No binaries were found for kernel {kernel_name}") # OSError or ValueError ?
 
-def find_kernel_pto_path(kernel_name):
+def _find_kernel_pto_path(kernel_name):
     kernels = os.listdir(ROOT_KERNEL_IR_DIR)
     kernels.sort(reverse=True)
 
