@@ -1054,6 +1054,10 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
     if (convAttrParam.isConv1D) {
         resTensorShape = {batchOut, cOut, wOut};
     }
+    if (convAttrParam.isConv3D) {
+        int64_t dOut = ConvComputeDo(inputTensor, weightTensor, convAttrParam);
+        resTensorShape = {batchOut, cOut, dOut, hOut, wOut};
+    }
     Tensor resTensor(outType, resTensorShape, "TensorC");
     resTensor.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(resTensorShape));
     return ConstructTensorGraph(inputTensor, weightTensor, biasTensor, resTensor, convAttrParam);
