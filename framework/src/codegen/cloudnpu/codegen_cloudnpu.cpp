@@ -16,6 +16,8 @@
 #include "codegen_op_cloudnpu.h"
 
 #include <cstring>
+#include <fstream>
+#include <error.h>
 
 #include "interface/utils/log.h"
 #include "codegen/utils/parallel_execute.h"
@@ -268,7 +270,7 @@ void CodeGenCloudNPU::GenCode(
             GenFuncEnd(leafKernelFunc);
 #ifdef BUILD_WITH_CANN
             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
-                DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc.str());
+                DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc);
                 DoCompileCCE(compileInfo, "");
             }
 #endif
@@ -313,16 +315,31 @@ bool CodeGenCloudNPU::IsNeedDumpCCE(const std::string &inputFile) const {
     return true;
 }
 
-void CodeGenCloudNPU::DumpCCE(const std::string &fileName, const std::string &code) const {
+void CodeGenCloudNPU::DumpCCE(const std::string &fileName, std::ostringstream &oss) const {
     if (!IsNeedDumpCCE(fileName)) {
         return;
     }
 
-    std::ofstream file;
-    file.open(fileName);
-    file << code;
-    bool ret = !file.fail();
-    ASSERT(ret) << "Dump cce code failed!!";
+    std::ofstream cceFile;
+    try {
+        // 开启异常：failbit/badbit 触发 std::ofstream::failure 异常
+        cceFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+        cceFile.open(fileName, std::ios::out);
+
+        cceFile << oss.str();
+
+        cceFile.flush();
+        cceFile.close();
+    } catch (const std::ofstream::failure &e) {
+        // 捕获所有文件操作错误，打印具体原因
+        ALOG_ERROR_F("CCE file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
+        // 容错处理：如删除空文件、返回错误码
+        if (cceFile.is_open()) {
+            cceFile.close();
+        }
+        std::remove(fileName.c_str()); // 删除写入失败的残缺文件
+        return;
+    }
 }
 
 std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
