@@ -75,7 +75,7 @@ bool OoOScheduleChecker::PreCheckOpInfo(const Operation *op) {
         APASS_LOG_WARN_F(Elements::Operation, "%s[%d] Op latency is not 1, OoOSchedule Precheck warning!", op->GetOpcodeStr().c_str(), op->GetOpMagic());
     }
     // 检查输出不在DDR上的Op
-    if (op->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+    if (op->GetOOperands()[0]->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
         // 输入tensor的memid要与输出tensor的memid保持一致
         int memId = op->GetOOperands()[0]->memoryrange.memId;
         for (auto inTensor : op->GetIOperands()) {
@@ -239,7 +239,7 @@ bool OoOScheduleChecker::PostCheckLocalTensor(const LogicalTensorPtr tensor, con
 
 bool OoOScheduleChecker::PostCheckGlobalTensor(const LogicalTensorPtr tensor, const int programIdx) {
     MemoryType memType = tensor->GetMemoryTypeOriginal();
-    if (memType == MemoryType::MEM_DEVICE_DDR && !(tensor->isSubGraphBoundary)) {
+    if (memType >= MemoryType::MEM_DEVICE_DDR && !(tensor->isSubGraphBoundary)) {
         if (tensor->memoryrange.memId == -1) {
             APASS_LOG_ERROR_F(Elements::Operation, "Program %d: %d global tensor memid is -1, OoOSchedule Postcheck failed!", programIdx, tensor->GetMagic());
             return false;

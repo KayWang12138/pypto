@@ -34,6 +34,8 @@ constexpr uint32_t LEFT_SHIFT32 = 32;
 constexpr int64_t CUBE_PAD_VALUE = 16;
 constexpr int64_t CUBE_PAD_INT8_VALUE = 32;
 constexpr int64_t BT_PAD_BASE = 64;
+constexpr int64_t mxHighAxis = 0;
+constexpr int64_t mxLowAxis = 1;
 const std::vector<bool> AXIS_COMBINED = {true};
 const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
 const int64_t BRCB_SECOND_LAST_BASE = 8;
@@ -59,8 +61,7 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
         opsInputInt8 = op.GetIOperands()[0]->tensor->GetDataType() == DataType::DT_INT8;
     }
 
-    if (in->tensor->GetDataType() == DataType::DT_INT8 ||
-        (matmulOp && opsInputInt8)) {
+    if (in->tensor->GetDataType() == DataType::DT_INT8 || (matmulOp && opsInputInt8)) {
         // 检查op的输入数据类型是不是int8类型或者in的数据类型是否为int8
         // 包括matmul系列和GM->L1->L0系列
         return true;
@@ -125,6 +126,17 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     第二种：iOperands (dtype:int8) -> Matmul系列(A_MUL_B, AT_MUL_B, A_MUL_BT, AT_MUL_BT, A_MULACC_B) -> in (dtype:fp16/int32) -> iOperands (dtype:fp16/int32) -> COPY_OUT
     这种情况是COPY_OUT需要根据in的producer的iOperands来进行判断，所以会需要获取到in的producer的iOperands的数据类型。
     */
+    if (op.GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE) {
+        in->shape[mxHighAxis] = Pad(in->shape[mxHighAxis], CUBE_PAD_INT8_VALUE);
+        in->tensor->oriRawshape = in->tensor->rawshape;
+        in->tensor->rawshape[mxHighAxis] = Pad(in->tensor->oriRawshape[mxHighAxis], CUBE_PAD_INT8_VALUE);
+        return;
+    } else if (op.GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
+        in->shape[mxLowAxis] = Pad(in->shape[mxLowAxis], CUBE_PAD_INT8_VALUE);
+        in->tensor->oriRawshape = in->tensor->rawshape;
+        in->tensor->rawshape[mxLowAxis] = Pad(in->tensor->oriRawshape[mxLowAxis], CUBE_PAD_INT8_VALUE);
+        return;
+    }
     if (isL1ConvertScene) {
         /*
         输入带bias或fixpipe场景，切分tileShape为[1, N]，在L1_TO_BT和L1_TO_FIX_QUANT_PRE时，BT统一为FP32，BT BUFFER要求64B对齐，FixPipe为uint64，FB BUFFER为128B对齐，均要求N满足16元素对齐，否则会出现address misalign异常
@@ -391,7 +403,9 @@ bool PadLocalBuffer::IsMatmul(const LogicalTensorPtr &tensor) const {
         (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0B) ||
         (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C) ||
         (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_FIX_QUANT_PRE) ||
-        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_BT)) {
+        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_BT) ||
+        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0AMX) ||
+        (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0BMX)) {
         return true;
     }
     return false;
