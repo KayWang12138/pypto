@@ -87,21 +87,14 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     /* TraCR Instrumentation */
     DEV_ERROR("[TraCR] TraCR active[%d,%ld]? %d", threadIdx, syscall(SYS_gettid), INSTRUMENTATION_ACTIVE);
     if (threadIdx == 1) {
-        DEV_ERROR("[TraCR] Thread [%d] start tracr? [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
-
         INSTRUMENTATION_START("/tmp/");
 
         running_task_id = INSTRUMENTATION_MARK_ADD(MARK_COLOR_GREEN, "Running a Task");
-
-        DEV_ERROR("[TraCR] Thread [%d] start tracr done. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
     } else {
-        DEV_ERROR("[TraCR] Thread [%d] waiting start of tracr. [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
         while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {}
 
         INSTRUMENTATION_THREAD_INIT();
     }
-    DEV_ERROR("[TraCR] Thread [%d] tracr thread init [%d, %d]", threadIdx, INSTRUMENTATION_IS_PROC_READY(), INSTRUMENTATION_NUM_TRACR_THREADS());
-
 
     Init(threadIdx, deviceArgs);
 
@@ -127,24 +120,9 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
 
     /* TraCR Instrumentation */
-    DEV_ERROR("[TraCR] Begin dump TraCR trace.");
     if (threadIdx == 1) {
 
         while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {}
-
-        DEV_ERROR("[TraCR] Finish dump TraCR trace.");
-
-        // Add custom channel names
-        nlohmann::json markerTypes = nlohmann::json::array();
-        for(int i = 0; i < aicNum_; ++i) {
-            markerTypes.push_back("AICube_" + std::to_string(i));
-        }
-        for(int i = 0; i < aivNum_; ++i) {
-            markerTypes.push_back("AIVector_" + std::to_string(i));
-        }
-        markerTypes.push_back("INVALID");
-
-        INSTRUMENTATION_ADD_CHANNEL_NAMES(markerTypes);
 
         INSTRUMENTATION_END();
     } else {
