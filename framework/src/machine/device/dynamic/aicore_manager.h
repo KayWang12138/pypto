@@ -1371,17 +1371,6 @@ private:
             (void *)aicoreHal_.GetSharedBuffer(), static_cast<uint8_t>(deviceArgs->machineConfig));
     }
 
-    inline int HandShakeByGm() {
-        int rc = ForEachManageAicoreWithRet([this](int coreIdx) -> int {
-            int ret = aicoreHal_.HandShakeByGm(coreIdx, dotStatus_);
-            DEV_VERBOSE_DEBUG("coreidx %d handshake by gm phycorid %d.",
-                coreIdx, aicoreHal_.GetPhyIdByBlockId(coreIdx));
-            return ret;
-        });
-
-        return rc;
-    }
-
     inline void HandShakeTryPreFetchDevTask(bool &needSendAic, bool &needSendAiv) {
         if (!preFetchSuccess_ && PreFetchNextDevTask()) {
             preFetchNextDevTaskCtrl_->isFirstDevTask = true;
