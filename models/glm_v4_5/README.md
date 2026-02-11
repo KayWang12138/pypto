@@ -238,19 +238,19 @@ def gate(
 ## 数学公式
 
 $
-\text{topk_weights} = \text{topk_weights} + \text{e_score_bias}
+\text{topk\_weights} = \text{topk\_weights} + \text{e\_score\_bias}
 $
 
 $
-\text{topk_weights} = \text{group_top_k}(\text{topk_weights, num_expert_group, topk_group})
+\text{topk\_weights} = \text{group\_top\_k}(\text{topk\_weights, num\_expert\_group, topk\_group})
 $
 
 $
-\text{topk_ids} = \text{topk}(\text{topk_weights, top_k})\text{topk_weights}
+\text{topk\_ids} = \text{topk}(\text{topk\_weights, top\_k})\text{topk\_weights}
 $
 
 $
-\text{topk_weights} = \text{renormalize}(\text{topk_weights})
+\text{topk\_weights} = \text{renormalize}(\text{topk\_weights})
 $
 
 
@@ -362,7 +362,7 @@ def ffn_shared_expert_quant(
 
 ## 功能说明
 
-`attention_fusion` 算子
+`attention_fusion` 算子是 `attention_fusion` 和 `attention_fusion` 的深度协同融合版本。不仅继承了前序算子的所有优势，更通过端到端的算子级融合，打破模块间的数据搬运壁垒，实现从输入到输出的全链路高效执行。
 
 ## 数学公式
 
@@ -493,44 +493,44 @@ def attention(
 
 ## 功能说明
 
-`moe_fusion` 算子
+`moe_fusion` 算子是 `gate` 、 `select_experts` 和 `ffn_shared_expert_quant` 的深度协同融合版本，目的是实现低延迟的MoE推理。
 
 ## 数学公式
 
 $
-\text{topk_weights} = \text{topk_weights} + \text{e_score_bias}
+\text{topk\_weights} = \text{topk\_weights} + \text{e\_score\_bias}
 $
 
 $
-\text{topk_weights} = \text{group_top_k}(\text{topk_weights, num_expert_group, topk_group})
+\text{topk\_weights} = \text{group\_top\_k}(\text{topk\_weights, num\_expert\_group, topk\_group})
 $
 
 $
-\text{topk_ids} = \text{topk}(\text{topk_weights, top_k})\text{topk_weights}
+\text{topk\_ids} = \text{topk}(\text{topk\_weights, top\_k})\text{topk\_weights}
 $
 
 $
-\text{topk_weights} = \text{renormalize}(\text{topk_weights})
+\text{topk\_weights} = \text{renormalize}(\text{topk\_weights})
 $
 
 $
-\text{hidden_states_quant}, \text{hidden_states_scale} = \text{quant}(\text{hidden_states})
+\text{hidden\_states\_quant}, \text{hidden\_states\_scale} = \text{quant}(\text{hidden\_states})
 $
 
 $
-\text{swiglu_out} = \text{swiglu}((\text{hidden_states_quant} @ \text{w13}) \odot \text{hidden_states_scale} \odot \text{w13_scale})
+\text{swiglu\_out} = \text{swiglu}((\text{hidden\_states\_quant} @ \text{w13}) \odot \text{hidden\_states\_scale} \odot \text{w13\_scale})
 $
 
 $
-\text{down_proj_quant}, \text{down_proj_scale} = \text{quant}(\text{swiglu_out})
+\text{down\_proj\_quant}, \text{down\_proj\_scale} = \text{quant}(\text{swiglu\_out})
 $
 
 $
-\text{ffn_res} = (\text{down_proj_quant} @ \text{w2}) \odot \text{down_proj_scale} \odot \text{w2_scale}
+\text{ffn\_res} = (\text{down\_proj\_quant} @ \text{w2}) \odot \text{down\_proj\_scale} \odot \text{w2\_scale}
 $
 
 $
-\text{gate_out} = \text{hidden_states} @ \text{weight}
+\text{gate\_out} = \text{hidden\_states} @ \text{weight}
 $
 
 ## 函数原型
