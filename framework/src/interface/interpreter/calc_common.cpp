@@ -69,10 +69,12 @@ void ExecuteOpView(ExecuteOperationContext *ctx) {
 REGISTER_CALC_OP(OP_VIEW, Opcode::OP_VIEW, ExecuteOpView);
 
 void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
+    ASSERT(ctx != nullptr && ctx->op != nullptr);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() <= NUM_VALUE_2);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop = ctx->ioperandDataViewList->at(0);
+    ASSERT(iop != nullptr && oop != nullptr);
 
     auto copyout = std::static_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute());
     auto [from, toOffsetAttr] = copyout->GetCopyOutAttr();
@@ -87,7 +89,7 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
 
     bool axisCombine = ctx->op->GetBoolAttribute("input_combine_axis");
     auto oopValid = std::make_shared<LogicalTensorData>(oop->GetData(), iopShape, toOffset);
-
+    ASSERT(oopValid != nullptr);
     if (from == MemoryType::MEM_L0C) {
         // fixpipe
         if (iop->GetDataType() == DataType::DT_INT32 && oop->GetDataType() == DataType::DT_FP16) {

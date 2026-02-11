@@ -22,6 +22,7 @@
 namespace npu::tile_fwk {
 
 void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
+    ASSERT(ctx != nullptr && ctx->op != nullptr);
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     auto ret = ctx->ooperandInplaceDataViewList->at(0);
     auto lhs = ctx->ioperandDataViewList->at(0);
@@ -37,7 +38,7 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
     int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
     LogicalTensorDataPtr scalePtr = nullptr;
     if (lhs->GetDataType() == DataType::DT_INT8 && ret->GetDataType() == DataType::DT_FP16 && scale == 0) {
-        for (int idx = 0; idx < (int) ctx->ioperandDataViewList->size(); idx++) {
+        for (size_t idx = 0; idx < ctx->ioperandDataViewList->size(); idx++) {
             if (ctx->ioperandDataViewList->at(idx)->GetDataType() == DataType::DT_UINT64) {
                 scalePtr = ctx->ioperandDataViewList->at(idx);
             }
@@ -101,6 +102,8 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
         }
     } else if (opCode == Opcode::OP_L0C_TO_L1) {
         // fixpipe
+        ASSERT(oper != nullptr && ret != nullptr);
+        ASSERT(oper->GetShape().size() > 1 && ret->GetShape.size() > 1);
         bool quant = oper->GetDataType() == DataType::DT_INT32 && ret->GetDataType() == DataType::DT_FP16;
         uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
         int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;

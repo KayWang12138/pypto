@@ -677,12 +677,11 @@ static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const tor
         shapeR[kdimR] = std::min(kstep, k - offset);
         offsetL[kdimL] = offset;
         offsetR[kdimR] = offset;
-        auto biasoff = offsetR;
         auto viewL = View(lhs, shapeL, offsetL);
         auto viewR = View(rhs, shapeR, offsetR);
         out.add_(torch::matmul(viewL, viewR));
     }
-    if(biasShape.size() == 2){
+    if (biasShape.size() == 2) {
         out.add_(bias);
     }
 }
@@ -707,14 +706,14 @@ static void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
         tout.mul_(scaleValue);
     } else {
         auto scaleTensor = From(scalePtr);
-        auto scale_u32 = scaleTensor.to(torch::kInt32);
-        auto* u32_data = scale_u32.data_ptr<int32_t>();
-        auto scale_f32 = torch::from_blob(
-            reinterpret_cast<float*>(u32_data),
-            scale_u32.sizes(),
+        auto scaleU32 = scaleTensor.to(torch::kInt32);
+        auto* u32Data = scaleU32.data_ptr<int32_t>();
+        auto scaleF32 = torch::from_blob(
+            reinterpret_cast<float*>(u32Data),
+            scaleU32.sizes(),
             torch::TensorOptions().dtype(torch::kFloat32)
         ).clone();
-        tout.mul_(scale_f32);
+        tout.mul_(scaleF32);
     }
     if (calcType != dtype) {
         From(out) = tout.to(dtype);
@@ -734,7 +733,7 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
     auto tself = From(self);
     auto tother = From(other);
     torch::Tensor bias_tensor;
-    if(bias != nullptr){
+    if (bias != nullptr) {
         bias_tensor = From(bias);
     }
     if (acc) {
@@ -755,9 +754,9 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
         tother = tother.to(calcType);
     }
     if (!param.kStep || param.kStep == self->GetShape(-1)) {
-        if(bias != nullptr){
+        if (bias != nullptr) {
             tout.add_(torch::matmul(tself, tother) + bias_tensor);
-        }else{
+        } else {
             tout.add_(torch::matmul(tself, tother));
         }
     } else {
@@ -775,14 +774,14 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
             tout.mul_(scaleValue);
         } else {
             auto scaleTensor = From(param.scalePtr);
-            auto scale_u32 = scaleTensor.to(torch::kInt32);
-            auto* u32_data = scale_u32.data_ptr<int32_t>();
-            auto scale_f32 = torch::from_blob(
-                reinterpret_cast<float*>(u32_data),
-                scale_u32.sizes(),
+            auto scaleU32 = scaleTensor.to(torch::kInt32);
+            auto* u32Data = scaleU32.data_ptr<int32_t>();
+            auto scaleF32 = torch::from_blob(
+                reinterpret_cast<float*>(u32Data),
+                scaleU32.sizes(),
                 torch::TensorOptions().dtype(torch::kFloat32)
             ).clone();
-            tout.mul_(scale_f32);
+            tout.mul_(scaleF32);
         }
     }
     if (calcType != dtype) {

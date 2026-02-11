@@ -41,7 +41,10 @@ inline void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode m
     GetCalcOps()->Cast(out, self, mode);
 }
 inline void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
-    GetCalcOps()->Fixpipe(out, self, scalePtr, scale, relu);
+    CalcOps *ops = GetCalcOps();
+    if (ops != nullptr) {
+        ops->Fixpipe(out, self, scalePtr, scale, relu);
+    }
 }
 inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Exp(out, self);
