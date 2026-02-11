@@ -38,27 +38,13 @@ Status OspPartitioner::BuildSuperNodeGraph()
     }
     std::vector<std::pair<int32_t, int32_t>> mergePair;
     for (size_t i = 0; i < opList.size(); i++) {
-        if (ConvertCombine(operationInfo_, opList, i, mergePair)) {
-            continue;
-        }
-        if (L1CopyInCombine(operationInfo_, opList, i, mergePair)) {
-            continue;
-        }
-        if (AssembleCombine(operationInfo_, opList, i, mergePair)) {
-            continue;
-        }
-        if (CopyOutCombine(operationInfo_, opList, i, mergePair, false)) {
-            continue;
-        }
-        if (CopyInCombine(operationInfo_, opList, i, mergePair)) {
-            continue;
-        }
-        if (MulAccCombine(operationInfo_, opList, i, mergePair)) {
-            continue;
-        }
-        if (ExpandCombine(operationInfo_, opList, i, mergePair)) {
-            continue;
-        }
+        if (ConvertCombine(operationInfo_, opList, i, mergePair)) continue;
+        if (L1CopyInCombine(operationInfo_, opList, i, mergePair)) continue;
+        if (AssembleCombine(operationInfo_, opList, i, mergePair)) continue;
+        if (CopyOutCombine(operationInfo_, opList, i, mergePair, false)) continue;
+        if (CopyInCombine(operationInfo_, opList, i, mergePair)) continue;
+        if (MulAccCombine(operationInfo_, opList, i, mergePair)) continue;
+        if (ExpandCombine(operationInfo_, opList, i, mergePair)) continue;
     }
     superNodeInfo_ = std::make_shared<NodeGraphInfo>();
     if (superNodeInfo_ == nullptr) {
