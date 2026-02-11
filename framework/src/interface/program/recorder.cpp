@@ -15,6 +15,7 @@
 
 #include "interface/configs/config_manager.h"
 #include "interface/utils/log.h"
+#include "interface/compiler_monitor/monitor_manager.h"
 #include "passes/pass_mgr/pass_manager.h"
 
 namespace npu::tile_fwk {
@@ -158,9 +159,13 @@ void RecordFunc::EndFunction() {
                 Program::GetInstance().VerifyTensorGraph();
             }
             MergeAllFuncDupIocast(nullptr);
+
+            // Compiler Monitor: TensorGraphPass phase
+            MonitorManager::Instance().StartStage("TensorGraphPass");
             PassManager::Instance().RunPass(Program::GetInstance(),
                 *Program::GetInstance().GetFunctionByMagicName(PROGRAM_ENTRY_FUNCTION_NAME), "FunctionUnroll");
             Program::GetInstance().UpdateCompileTask();
+            MonitorManager::Instance().EndStage();
         }
         Program::GetInstance().SetCurrentDynamicFunction(nullptr);
         dynFunc_->SetUnderDynamicFunction(false);
