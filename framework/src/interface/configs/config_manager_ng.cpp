@@ -103,8 +103,10 @@ struct TypeInfo {
                     rangeInfos.insert({prefix + "_val", {minBound, maxBound}});
                 }
             } else {
-                ALOG_ERROR("invalid type: ", type, " at ", prefix);
+                ALOG_ERROR_F("invalid type: %s at %s", type.c_str(), prefix.c_str());
             }
+        } else {
+            ALOG_ERROR_F("Label<%s> field['type', 'properties'] not found in tile_fwk_config_schema.json", prefix.c_str());
         }
     }
 
