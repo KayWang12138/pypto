@@ -48,7 +48,6 @@ add_library(tile_fwk_server SHARED)
 
 ### Including TraCR if enabled
 message(STATUS "building TraCR? '${BUILD_TRACR}' for tile_fwk_server")
-
 tracr_enable(tile_fwk_server)
 ###
 
