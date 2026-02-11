@@ -805,6 +805,9 @@ TEST_F(PreGraphTest, TestProcessReshape) {
     G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t4");
     G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t5");
     G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "t6");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "o1");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "o2");
+    G.AddTensor(DataType::DT_FP16, {16, 1, 128, 128}, "o3");
 
     // add op
     G.AddOp(Opcode::OP_RESHAPE, {"t1"}, {"t2"}, "RESHAPE1");
@@ -812,9 +815,13 @@ TEST_F(PreGraphTest, TestProcessReshape) {
     G.AddOp(Opcode::OP_RESHAPE, {"t3"}, {"t4"}, "RESHAPE2");
     G.AddOp(Opcode::OP_COPY_IN, {"t2"}, {"t5"}, "COPY_IN1");
     G.AddOp(Opcode::OP_COPY_IN, {"t2"}, {"t6"}, "COPY_IN2");
-    
+    G.AddOp(Opcode::OP_ABS, {"t5"}, {"o1"}, "ABS1");
+    G.AddOp(Opcode::OP_ABS, {"t6"}, {"o2"}, "ABS2");
+    G.AddOp(Opcode::OP_ABS, {"t4"}, {"o3"}, "ABS3");
+
     // set incast and outcast
     G.SetInCast({"t1"});
+    G.SetOutCast({"o1", "o2", "o3"});
 
     // run pass
     Function *function = G.GetFunction();
