@@ -21,7 +21,6 @@
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
 #include "ir/op_utils.h"
-#include "ir/pipe.h"
 #include "ir/scalar_expr.h"
 #include "ir/type.h"
 
@@ -32,11 +31,11 @@ TypePtr DeduceBlockReductionType(const std::vector<ExprPtr>& args,
                                  const std::vector<std::pair<std::string, std::any>>& kwargs,
                                  const std::string& op_name) {
   // block.sum and block.max require 1 argument (tile) and 2 attributes (axis, keepdim)
-  INTERNAL_CHECK(args.size() == 1) << "The operator " << op_name << " requires 1 argument, but got " << args.size();
+  CHECK(args.size() == 1) << "The operator " << op_name << " requires 1 argument, but got " << args.size();
 
   // First argument must be TileType
   auto tile_type = As<TileType>(args[0]->GetType());
-  INTERNAL_CHECK(tile_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  CHECK(tile_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Get the input shape
@@ -52,7 +51,7 @@ TypePtr DeduceBlockReductionType(const std::vector<ExprPtr>& args,
     // Negative axis: convert to positive
     axis_value = static_cast<int>(input_ndim) + axis_value;
   }
-  INTERNAL_CHECK(axis_value >= 0 && static_cast<int64_t>(axis_value) < input_ndim)
+  CHECK(axis_value >= 0 && static_cast<int64_t>(axis_value) < input_ndim)
       << "The operator " << op_name << " axis " << axis_value << " is out of range for shape with "
       << input_ndim << " dimensions";
   reduce_axes.insert(static_cast<int64_t>(axis_value));
@@ -101,11 +100,11 @@ TypePtr DeduceBlockRowReductionType(const std::vector<ExprPtr>& args,
                                     const std::vector<std::pair<std::string, std::any>>& /*kwargs*/,
                                     const std::string& op_name) {
   // block.row_max and block.row_sum require 1 argument (tile)
-  INTERNAL_CHECK(args.size() == 1) << "The operator " << op_name << " requires 1 argument, but got " << args.size();
+  CHECK(args.size() == 1) << "The operator " << op_name << " requires 1 argument, but got " << args.size();
 
   // First argument must be TileType
   auto tile_type = As<TileType>(args[0]->GetType());
-  INTERNAL_CHECK(tile_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  CHECK(tile_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Get the input shape
@@ -113,7 +112,7 @@ TypePtr DeduceBlockRowReductionType(const std::vector<ExprPtr>& args,
   int64_t input_ndim = static_cast<int64_t>(input_shape.size());
 
   // Row reduction requires at least 2D tile (operates on the last dimension)
-  INTERNAL_CHECK(input_ndim >= 2) << "The operator " << op_name << " requires at least a 2D tile, but got "
+  CHECK(input_ndim >= 2) << "The operator " << op_name << " requires at least a 2D tile, but got "
                          << input_ndim << " dimensions";
 
   // Output shape is [...batch_dims, rows, 1] - reduce along the last axis (columns) with keepdim=True
@@ -131,7 +130,6 @@ TypePtr DeduceBlockRowReductionType(const std::vector<ExprPtr>& args,
 REGISTER_OP("block.sum")
     .set_op_category("BlockOp")
     .set_description("Sum reduction of a tile along specified axis")
-    .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
     .set_attr<int>("axis")
     .set_attr<bool>("keepdim")
@@ -143,13 +141,24 @@ REGISTER_OP("block.sum")
 REGISTER_OP("block.max")
     .set_op_category("BlockOp")
     .set_description("Max reduction of a tile along specified axis")
-    .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
     .set_attr<int>("axis")
     .set_attr<bool>("keepdim")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockReductionType(args, kwargs, "block.max");
+    });
+
+REGISTER_OP("block.min")
+    .set_op_category("BlockOp")
+    .set_description("Min reduction of a tile along specified axis")
+    .set_pipe(PipeType::V)
+    .add_argument("tile", "Input tile (TileType)")
+    .set_attr<int>("axis")
+    .set_attr<bool>("keepdim")
+    .f_deduce_type([](const std::vector<ExprPtr>& args,
+                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+      return DeduceBlockReductionType(args, kwargs, "block.min");
     });
 
 REGISTER_OP("block.row_max")
@@ -170,6 +179,16 @@ REGISTER_OP("block.row_sum")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockRowReductionType(args, kwargs, "block.row_sum");
+    });
+
+REGISTER_OP("block.row_min")
+    .set_op_category("BlockOp")
+    .set_description("Row-wise min reduction of a 2D tile (output shape: [rows, 1])")
+    .set_pipe(PipeType::V)
+    .add_argument("tile", "Input tile (TileType, 2D)")
+    .f_deduce_type([](const std::vector<ExprPtr>& args,
+                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+      return DeduceBlockRowReductionType(args, kwargs, "block.row_min");
     });
 
 }  // namespace ir
