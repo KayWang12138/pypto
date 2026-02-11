@@ -113,13 +113,6 @@ struct MixTaskData {
     uint64_t opWrapTaskNumList[MAX_CACHED_FUNC_NUM]; // 指针数组，指向每个function的callop对应的wrapTaskNum
 };
 
-constexpr size_t tracr_capacity = 1<<20;
-constexpr size_t num_scheduler_threads = 3;
-
-struct TracrData {
-    __uint128_t tracr_payloads[num_scheduler_threads * tracr_capacity];
-};
-
 // host machine 发给device machine的task数据
 // 暂时放在此位置
 struct DeviceTask {
@@ -133,7 +126,6 @@ struct DeviceTask {
     L2PreInfo l2Info;
     uint64_t costModelData;           // costmodel仿真时长
     uint64_t aicoreModel;             // costmodel aicore功能模型
-    TracrData tracrData;              // TraCR Data handler to pass back to the host
 };
 
 // dfx 相关

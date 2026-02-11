@@ -127,27 +127,10 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
 
     /* TraCR Instrumentation */
-
-    auto devTask = reinterpret_cast<DeviceTask *>(deviceArgs->taskData);
-    auto& tracrData_ = devTask->tracrData;
-
     DEV_ERROR("[TraCR] Begin dump TraCR trace.");
     if (threadIdx == 1) {
 
         while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {}
-
-#ifdef ENABLE_TRACR
-        // This is for debugging
-        DEV_ERROR("[TraCR] JSON: %s", INSTRUMENTATION_GET_JSON_STR().c_str());
-
-        DEV_ERROR("[TraCR] BTS: %s", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
-#endif
-
-        std::memcpy(
-            &tracrData_.tracr_payloads[(threadIdx - 1) * CAPACITY],
-            tracrThread->_traces.data(),
-            CAPACITY * sizeof(Payload)
-        );
 
         DEV_ERROR("[TraCR] Finish dump TraCR trace.");
 
@@ -165,18 +148,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
 
         INSTRUMENTATION_END();
     } else {
-        
-#ifdef ENABLE_TRACR
-        // This is for debugging
-        DEV_ERROR("[TraCR] BTS: %s", INSTRUMENTATION_GET_THREAD_TRACE_STR().c_str());
-#endif
-
-        std::memcpy(
-            &tracrData_.tracr_payloads[(threadIdx - 1) * CAPACITY],
-            tracrThread->_traces.data(),
-            CAPACITY * sizeof(Payload)
-        );
-
         INSTRUMENTATION_THREAD_FINALIZE();
     }
 

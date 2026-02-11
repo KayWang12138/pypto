@@ -47,13 +47,11 @@ namespace npu::tile_fwk {
 #define DEV_IF_VERBOSE_DEBUG                                            \
     if constexpr (IsCompileVerboseLog())
 
+#if ENABLE_TMP_LOG == 0
 #define DEBUG_PLOG 1
-
-// #if ENABLE_TMP_LOG == 0
-// #define DEBUG_PLOG 1
-// #else
-// #define DEBUG_PLOG 0
-// #endif/*DEBUG_PLOG*/
+#else
+#define DEBUG_PLOG 0
+#endif/*DEBUG_PLOG*/
 
 inline constexpr bool IsCompileVerboseLog() {
 #if ENABLE_COMPILE_VERBOSE_LOG
@@ -163,14 +161,10 @@ extern bool g_isLogEnableWarn;
 extern bool g_isLogEnableError;
 
 #if DEBUG_PLOG && defined(__DEVICE__)
-// static inline bool IsLogEnableDebug() { return g_isLogEnableDebug; }
-// static inline bool IsLogEnableInfo() { return g_isLogEnableInfo; }
-// static inline bool IsLogEnableWarn() { return g_isLogEnableWarn; }
-// static inline bool IsLogEnableError() { return g_isLogEnableError; }
-static inline bool IsLogEnableDebug() { return true; }
-static inline bool IsLogEnableInfo() { return true; }
-static inline bool IsLogEnableWarn() { return true; }
-static inline bool IsLogEnableError() { return true; }
+static inline bool IsLogEnableDebug() { return g_isLogEnableDebug; }
+static inline bool IsLogEnableInfo() { return g_isLogEnableInfo; }
+static inline bool IsLogEnableWarn() { return g_isLogEnableWarn; }
+static inline bool IsLogEnableError() { return g_isLogEnableError; }
 #else
 #if ENABLE_TMP_LOG
 static inline bool IsLogEnableDebug() { return true; }

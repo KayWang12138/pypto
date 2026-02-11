@@ -23,10 +23,10 @@ bool g_isLogEnableError = false;
 
 void InitLogSwitch() {
 #if DEBUG_PLOG && defined(__DEVICE__)
-    // g_isLogEnableDebug = CheckLogLevel(AICPU, DLOG_DEBUG);
-    // g_isLogEnableInfo = CheckLogLevel(AICPU, DLOG_INFO);
-    // g_isLogEnableWarn = CheckLogLevel(AICPU, DLOG_WARN);
-    // g_isLogEnableError = CheckLogLevel(AICPU, DLOG_ERROR);
+    g_isLogEnableDebug = CheckLogLevel(AICPU, DLOG_DEBUG);
+    g_isLogEnableInfo = CheckLogLevel(AICPU, DLOG_INFO);
+    g_isLogEnableWarn = CheckLogLevel(AICPU, DLOG_WARN);
+    g_isLogEnableError = CheckLogLevel(AICPU, DLOG_ERROR);
 #endif
 }
 
