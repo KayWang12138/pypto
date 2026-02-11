@@ -66,10 +66,10 @@ void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_
 }
 int64_t ConvComputeHo(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
-    uint32_t indexH = NCHW_H_IDX;
-    if (attrParam.isConv3D) {
-        indexH = NCDHW_H_IDX;
+    if (attrParam.isConv1D) {
+        return 1;
     }
+    uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
     std::vector<int64_t> strides = attrParam.strides;
     int64_t strideH = strides[PAD_STRIDE_H];
     if (strideH == 0) {
@@ -87,23 +87,19 @@ int64_t ConvComputeHo(const Tensor &inputTensor, const Tensor &weightTensor, con
 }
 int64_t ConvComputeWo(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
-    if (attrParam.isConv1D) {
-        return 1;
-    }
-    uint32_t indexW= NCHW_W_IDX;
-    if (attrParam.isConv3D) {
-        indexW = NCDHW_W_IDX;
-    }
+    uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
+    uint32_t indexAttr = attrParam.isConv1D ? PAD_STRIDE_H : PAD_STRIDE_W;
+
     std::vector<int64_t> strides = attrParam.strides;
-    int64_t strideW = strides[PAD_STRIDE_W];
+    int64_t strideW = strides[indexAttr];
     if (strideW == 0) {
         return 1;
     }
     std::vector<int64_t> paddings = attrParam.paddings;
     std::vector<int64_t> dilations = attrParam.dilations;
-    int64_t dilationW = dilations[PAD_STRIDE_W];
-    int64_t padLeft = paddings[PAD_LEFT_INDEX];
-    int64_t padRight = paddings[PAD_RIGHT_INDEX];
+    int64_t dilationW = dilations[indexAttr];
+    int64_t padLeft = paddings[2 * indexAttr];
+    int64_t padRight = paddings[2* indexAttr + 1];
     int64_t win = inputTensor.GetShape()[indexW];
     int64_t kw = weightTensor.GetShape()[indexW];
     int64_t cmpWo = (win + padLeft + padRight - dilationW * (kw - 1) - 1) / strideW + 1;
@@ -160,9 +156,7 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     }
     CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
     CheckValueRange(tileWout, "tileWout" , NUM1, wOut);
-    if (!attrParam.isConv1D) {
-        CheckAlignment(tileWout, NUM16, "tileWout");
-    }
+    CheckAlignment(tileWout, NUM16, "tileWout");
 }
 void ValidateL0Constraint(int64_t tile1, int64_t tile2, int64_t tile3, size_t dtypeSize, size_t cacheSize, const std::string& cacheName,
     const std::string& dim1Name, const std::string& dim2Name, const std::string& dim3Name)
@@ -225,19 +219,14 @@ void CheckTileTiling(DataType outType, const Tensor &inputTensor, const Tensor &
     int64_t tileCinWeight = convTile.tileL1Info.tileCinWeight;
     int64_t tileCout = convTile.tileL1Info.tileCout;
     int64_t tileBatch = convTile.tileL1Info.tileN;
-    uint32_t indexH = NCHW_H_IDX;
-    uint32_t indexW = NCHW_W_IDX;
-    if (attrParam.isConv3D) {
-        indexH = NCDHW_H_IDX;
-        indexW = NCDHW_W_IDX;
-    }
+
+    uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
+    uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
     int64_t cin = inputTensor.GetShape()[NCHW_C_IDX];
-    int64_t hin = inputTensor.GetShape()[indexH];
-    int64_t win = 1;
-    if (!attrParam.isConv1D) {
-        win = inputTensor.GetShape()[indexW];
-    }
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
+    int64_t hin = attrParam.isConv1D ? 1 : inputTensor.GetShape()[indexH];
+    int64_t win = inputTensor.GetShape()[indexW];
+
     CheckValueRange(tileHin, "tileHin", NUM1, hin);
     CheckValueRange(tileBatch, "tileN", NUM1, NUM1);
     CheckValueRange(tileWin, "tileWin", NUM1, win);
@@ -265,27 +254,22 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
 {
     auto convTile = TileShape::Current().GetConvTile();
     uint64_t l1Size = Platform::Instance().GetAICCore().GetMemorySize(MemoryType::MEM_L0A);
-    uint32_t indexH = NCHW_H_IDX;
-    uint32_t indexW = NCHW_W_IDX;
-    if (attrParam.isConv3D) {
-        indexH = NCDHW_H_IDX;
-        indexW = NCDHW_W_IDX;
-    }
-    int64_t kh = weightTensor.GetShape()[indexH];
-    int64_t hin = inputTensor.GetShape()[indexH];
-    int64_t kw = 1;
-    int64_t win = 1;
-    if (!attrParam.isConv1D) {
-        kw = weightTensor.GetShape()[indexW];
-        win = inputTensor.GetShape()[indexW];
-    }
+    uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
+    uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
+
+    int64_t kh = attrParam.isConv1D ? 1 : weightTensor.GetShape()[indexH];
+    int64_t hin = attrParam.isConv1D ? 1 : inputTensor.GetShape()[indexH];
+    int64_t kw = weightTensor.GetShape()[indexW];
+    int64_t win = inputTensor.GetShape()[indexW];
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
+
     std::vector<int64_t> strides = attrParam.strides;
     std::vector<int64_t> dilations = attrParam.dilations;
-    int64_t strideH = strides[PAD_STRIDE_H];
-    int64_t strideW = strides[PAD_STRIDE_W];
-    int64_t dilationH = dilations[PAD_STRIDE_H];
-    int64_t dilationW = dilations[PAD_STRIDE_W];
+    uint32_t indexAttrW = attrParam.isConv1D ? PAD_STRIDE_H : PAD_STRIDE_W;
+    int64_t strideH = attrParam.isConv1D ? 1 : strides[PAD_STRIDE_H];
+    int64_t strideW = strides[indexAttrW];
+    int64_t dilationH = attrParam.isConv1D ? 1 : dilations[PAD_STRIDE_H];
+    int64_t dilationW = dilations[indexAttrW];
 
     uint64_t biasL1Size = 0;
     uint64_t nBL1min = NUM16;
@@ -367,23 +351,17 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
     CheckDimensionRange(dilations, "dilations", NUM1, MAX_DILATION_STRIDE);
     CheckDimensionRange(strides, "strides", NUM1, MAX_DILATION_STRIDE);
 
-    uint32_t indexH = NCHW_H_IDX;
-    uint32_t indexW = NCHW_W_IDX;
-    if (attrParam.isConv3D) {
-        indexH = NCDHW_H_IDX;
-        indexW = NCDHW_W_IDX;
-    }
-    int64_t kh = weightTensor.GetShape()[indexH];
-    int64_t kw = 1;
-    if (!attrParam.isConv1D) {
-        kw = weightTensor.GetShape()[indexW];
-    }
+    uint32_t indexH = attrParam.isConv3D ? NCDHW_H_IDX : NCHW_H_IDX;
+    uint32_t indexW = attrParam.isConv3D ? NCDHW_W_IDX : (attrParam.isConv1D ? NCHW_H_IDX : NCHW_W_IDX);
+    int64_t kw = weightTensor.GetShape()[indexW];
+    int64_t kh = attrParam.isConv1D ? 1 : weightTensor.GetShape()[indexH];
     OP_CHECK(true, {
         ASSERT(kh <= MAX_PAD_KERNEL && kw  <= MAX_PAD_KERNEL)
-        << "Weight shapes do not satisfy Load3D's limits: kh=" << kh
-        << ", kw=" << kw
-        << ", which must <=" << MAX_PAD_KERNEL
-        << "." << std::endl;
+            << "Weight shapes do not satisfy Load3D's"
+            << (attrParam.isConv1D ? " limit: kw=" : " limits: kh=")
+            << (attrParam.isConv1D ? kw : kh)
+            << (attrParam.isConv1D ? "" : ", kw=" + std::to_string(kw))
+            << ", which must <= " << MAX_PAD_KERNEL << "." << std::endl;>>
     });
 
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
@@ -398,13 +376,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
 void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
     std::vector<int64_t> paddings = attrParam.paddings;
-    uint32_t index = NUM2;
-    if (attrParam.isConv3D) {
-        paddings = rotateVector(paddings, 4);
-        index = CONV3D_INPUT_DIM - 2;
-    } else if (attrParam.isConv1D) {
-        index = 1;
-    }
+    uint32_t index = attrParam.isConv3D ? SHAPE_DIM3 : (attrParam.isConv1D ? SHAPE_DIM1 : SHAPE_DIM2);
     CheckDimParam(attrParam.paddings, "paddings", index * 2);
     CheckDimParam(attrParam.dilations, "dilations", index);
     CheckDimParam(attrParam.strides, "strides", index);
@@ -412,6 +384,10 @@ void CheckAttrShape(DataType outType, const Tensor &inputTensor, const Tensor &w
     int64_t cinFmap = inputTensor.GetShape()[NCHW_C_IDX];
     int64_t cinWeight = weightTensor.GetShape()[NCHW_C_IDX];
     int64_t cOut = weightTensor.GetShape()[NCHW_N_IDX];
+
+    if (attrParam.isConv3D) {
+        paddings = rotateVector(paddings, 4);
+    }
     for (size_t i = 0; i < paddings.size() / 2; ++i) {
         int weightVal = weightTensor.GetShape()[i + 2];
         int paddingLeft = paddings[i * 2];

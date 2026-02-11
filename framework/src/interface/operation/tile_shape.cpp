@@ -41,6 +41,19 @@ std::string CubeTile::ToString() const {
 }
 
 bool ConvTile::valid() const {
+    if (tileL1Info.tileHin <= 0 || tileL1Info.tileHout <= 0 ||
+        tileL1Info.tileWin <= 0 || tileL1Info.tileWout <= 0 ||
+        tileL1Info.tileCinFmap <= 0 || tileL1Info.tileCinWeight <= 0 ||
+        tileL1Info.tileCout <= 0 || tileL1Info.tileN <= 0) {
+        return false;
+    }
+
+    if (setL0Tile) {
+        if (tileL0Info.tileH <= 0 || tileL0Info.tileW <= 0 ||
+            tileL0Info.tileK <= 0 || tileL0Info.tileN <= 0) {
+            return false;
+        }
+    }
     return true;
 }
 
