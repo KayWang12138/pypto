@@ -83,6 +83,29 @@ from .functions import Function, get_last_function, get_current_function
 # Import frontend after all other imports to avoid circular imports
 from . import frontend
 
+# Import compiler monitor API
+from . import compiler_monitor as _compiler_monitor
+from .compiler_monitor import (
+    set_compiler_monitor_options,
+    initialize_monitor,
+    shutdown_monitor,
+    TimeoutAction,
+    StageMode,
+    COARSE_STAGES,
+    set_monitor_quiet_mode,
+    set_monitor_aggressive_mode,
+    set_monitor_warn_only,
+)
+
 
 tensor = Tensor
 symbolic_scalar = SymbolicScalar
+
+# Auto-initialize compiler monitor when pypto is imported
+# This ensures monitoring starts as early as possible
+try:
+    # This triggers Monitor initialization (handled by std::call_once in MonitorManager::Instance())
+    # It's safe to call even if already initialized
+    initialize_monitor()
+except Exception:
+    pass  # Fail silently if monitor initialization fails

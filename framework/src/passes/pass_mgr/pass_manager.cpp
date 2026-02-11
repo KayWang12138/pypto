@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <unistd.h>
 #include "interface/configs/config_manager.h"
+#include "interface/compiler_monitor/monitor_manager.h"
 #include "passes/pass_interface/pass.h"
 #include "passes/pass_interface/pass_type.h"
 #include "passes/pass_utils/pass_log_util.h"
@@ -282,8 +283,17 @@ Status PassManager::RunPass(Program &program, Function &function, const std::str
         }
         pass->SetPassConfigs(passDfxCfg);
         ALOG_INFO_F("[PassManager] Apply pass <%s> on function: %s.", identifier.c_str(), function.GetMagicName().c_str());
+
+        // Compiler Monitor: Start monitoring this individual pass (fine-grained mode)
+        MonitorManager::Instance().StartStage("Pass_" + identifier);
+
         auto start = std::chrono::high_resolution_clock::now();
-        if (pass->Run(function, strategy, identifier, i) != SUCCESS) {
+        Status result = pass->Run(function, strategy, identifier, i);
+
+        // Compiler Monitor: End monitoring this pass
+        MonitorManager::Instance().EndStage();
+
+        if (result != SUCCESS) {
             ALOG_ERROR_F("Run pass <%s> failed.", identifier.c_str());
             return FAILED;
         }

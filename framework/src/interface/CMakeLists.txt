@@ -37,6 +37,15 @@ file(GLOB _Interface_Srcs
 
 add_library(tile_fwk_interface SHARED)
 target_sources(tile_fwk_interface PRIVATE ${_Interface_Srcs})
+
+# Monitor sources
+add_subdirectory(compiler_monitor)
+target_sources(tile_fwk_interface PRIVATE
+    ${PARENT_INTERFACE_SOURCES}
+)
+
+# Remove the variable to avoid warnings in parent scope
+unset(PARENT_INTERFACE_SOURCES)
 target_compile_definitions(tile_fwk_interface
         PRIVATE
             $<$<BOOL:${ENABLE_TESTS}>:SRCPATH="${PTO_FWK_SRC_ROOT}">
