@@ -80,7 +80,6 @@ public:
     std::string GenGatherInUB() const;
     std::string PrintGatherInUBDynamicUnaligned() const;
     std::string PrintGatherInUBLayout() const;
-    
 
     std::string GenUnaryOp() const;
     std::string GenUnaryOpWithTmpBuff() const;
@@ -220,7 +219,8 @@ private:
             value = AnyCast<T>(it->second);
             return true;
         }
-        CODEGEN_LOGE("Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(), it->second.Type().name(), typeid(T).name());
+        CODEGEN_LOGE("Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(), it->second.Type().name(),
+            typeid(T).name());
         return false;
     }
 
@@ -459,8 +459,16 @@ private:
 
     std::string PrintCoord(size_t dim, const std::string &coord) const;
     std::string PrintTensorForCopyBetweenGM(unsigned operandIdx, unsigned gmIdx, const std::string &gmVarName) const;
-    void FillParamWithFullShape(std::vector<std::string> &paramList, const std::vector<int64_t> &input) const;
-    void FillParamWithShapeExceptFirst(std::vector<std::string> &paramList, const std::vector<int64_t> &input) const;
+    template <typename T>
+    void CodeGenOpCloudNPU::FillParamWithFullShape(
+        std::vector<std::string> &paramList, const std::vector<T> &input) const {
+        FillParamWithInput(paramList, input, 0, input.size());
+    }
+    template <typename T>
+    void CodeGenOpCloudNPU::FillParamWithShapeExceptFirst(
+        std::vector<std::string> &paramList, const std::vector<T> &input) const {
+        FillParamWithInput(paramList, input, 1, input.size());
+    }
 
     const std::unordered_map<Opcode, std::function<std::string()>> mteFixPipeOps_;
 
