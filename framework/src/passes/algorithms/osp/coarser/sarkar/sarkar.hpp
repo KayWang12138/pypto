@@ -366,12 +366,8 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SingleContraction(
 
     expansionMapOutput.reserve(graph.NumVertices() - counter);
     for (const VertexType &vert : graph.Vertices()) {
-        if (partitionedSourceFlag[vert]) {
-            continue;
-        }
-        if (partitionedTargetFlag[vert]) {
-            continue;
-        }
+        if (partitionedSourceFlag[vert]) continue;
+        if (partitionedTargetFlag[vert]) continue;
 
         expansionMapOutput.emplace_back(std::initializer_list<VertexType>{vert});
     }
@@ -514,9 +510,7 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllChildrenContraction(
     }
 
     for (const VertexType &vert : graph.Vertices()) {
-        if (partitionedFlag[vert]) {
-            continue;
-        }
+        if (partitionedFlag[vert]) continue;
         expansionMapOutput.emplace_back(std::initializer_list<VertexType>{vert});
     }
 
@@ -659,9 +653,7 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::AllParentsContraction(
     }
 
     for (const VertexType &vert : graph.Vertices()) {
-        if (partitionedFlag[vert]) {
-            continue;
-        }
+        if (partitionedFlag[vert]) continue;
         expansionMapOutput.emplace_back(std::initializer_list<VertexType>{vert});
     }
 
@@ -891,9 +883,7 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
     }
 
     for (const VertexType &vert : graph.Vertices()) {
-        if (partitionedFlag[vert]) {
-            continue;
-        }
+        if (partitionedFlag[vert]) continue;
         expansionMapOutput.emplace_back(std::initializer_list<VertexType>{vert});
     }
 
@@ -1061,9 +1051,7 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
     }
 
     for (const VertexType &vert : graph.Vertices()) {
-        if (partitionedFlag[vert]) {
-            continue;
-        }
+        if (partitionedFlag[vert]) continue;
         expansionMapOutput.emplace_back(std::initializer_list<VertexType>{vert});
     }
 
@@ -1228,10 +1216,7 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::LevelContraction(
 
     expansionMapOutput.reserve(graph.NumVertices() - counter);
     for (const VertexType &vert : graph.Vertices()) {
-        if (partitionedFlag[vert]) {
-            continue;
-        }
-
+        if (partitionedFlag[vert]) continue;
         expansionMapOutput.emplace_back(std::initializer_list<VertexType>{vert});
     }
 
@@ -1472,9 +1457,7 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::HomogeneousBufferMerge(
     }
 
     for (const VertexType &vert : graph.Vertices()) {
-        if (partitionedFlag[vert]) {
-            continue;
-        }
+        if (partitionedFlag[vert]) continue;
         expansionMapOutput.emplace_back(std::initializer_list<VertexType>{vert});
     }
 
