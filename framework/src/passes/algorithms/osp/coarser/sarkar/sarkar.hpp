@@ -792,13 +792,11 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
                 contractionChildrenSet.emplace(*it);
                 addedWeight += graph.VertexWorkWeight(*it);
             }
-            if (addedWeight > params_.maxWeight_) {
-                break;
-            }
+            if (addedWeight > params_.maxWeight_) break;
 
             VWorkwT<GraphTIn> maxPath = 0;
             for (const VertexType &vert : contractionEnsemble) {
-                maxPath = std::max(maxPath, topDist[vert] + botDist[vert] - graph.VertexWorkWeight(vert));
+                maxPath = std::max(maxPath, botDist[vert] + topDist[vert] - graph.VertexWorkWeight(vert));
             }
 
             VWorkwT<GraphTIn> maxParentDist = 0;
@@ -974,9 +972,7 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
                 contractionParentsSet.emplace(*it);
                 addedWeight += graph.VertexWorkWeight(*it);
             }
-            if (addedWeight > params_.maxWeight_) {
-                break;
-            }
+            if (addedWeight > params_.maxWeight_) break;
 
             VWorkwT<GraphTIn> maxPath = 0;
             for (const VertexType &vert : contractionEnsemble) {
