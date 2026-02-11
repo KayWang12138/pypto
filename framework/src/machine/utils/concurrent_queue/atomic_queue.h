@@ -166,7 +166,7 @@ protected:
     }
 
     template<class T, T NIL>
-    static T do_pop_atomic(std::atomic<T>& q_element) noexcept {
+    inline static T do_pop_atomic(std::atomic<T>& q_element) noexcept {
         if(Derived::spsc_) {
             for(;;) {
                 T element = q_element.load(X);
@@ -192,7 +192,7 @@ protected:
     }
 
     template<class T, T NIL>
-    static void do_push_atomic(T element, std::atomic<T>& q_element) noexcept {
+    inline static void do_push_atomic(T element, std::atomic<T>& q_element) noexcept {
         assert(element != NIL);
         if(Derived::spsc_) {
             while(ATOMIC_QUEUE_UNLIKELY(q_element.load(X) != NIL))
@@ -212,7 +212,7 @@ protected:
     enum State : unsigned char { EMPTY, STORING, STORED, LOADING };
 
     template<class T>
-    static T do_pop_any(std::atomic<unsigned char>& state, T& q_element) noexcept {
+    inline static T do_pop_any(std::atomic<unsigned char>& state, T& q_element) noexcept {
         if(Derived::spsc_) {
             while(ATOMIC_QUEUE_UNLIKELY(state.load(A) != STORED))
                 if(Derived::maximize_throughput_)
@@ -238,7 +238,7 @@ protected:
     }
 
     template<class U, class T>
-    static void do_push_any(U&& element, std::atomic<unsigned char>& state, T& q_element) noexcept {
+    inline static void do_push_any(U&& element, std::atomic<unsigned char>& state, T& q_element) noexcept {
         if(Derived::spsc_) {
             while(ATOMIC_QUEUE_UNLIKELY(state.load(A) != EMPTY))
                 if(Derived::maximize_throughput_)
@@ -264,7 +264,7 @@ protected:
 
 public:
     template<class T>
-    bool try_push(T&& element) noexcept {
+    inline bool try_push(T&& element) noexcept {
         auto head = head_.load(X);
         if(Derived::spsc_) {
             if(static_cast<int>(head - tail_.load(X)) >= static_cast<int>(static_cast<Derived&>(*this).size_))
@@ -283,7 +283,7 @@ public:
     }
 
     template<class T>
-    bool try_pop(T& element) noexcept {
+    inline bool try_pop(T& element) noexcept {
         auto tail = tail_.load(X);
         if(Derived::spsc_) {
             if(static_cast<int>(head_.load(X) - tail) <= 0)
@@ -302,7 +302,7 @@ public:
     }
 
     template<class T>
-    void push(T&& element) noexcept {
+    inline void push(T&& element) noexcept {
         unsigned head;
         if(Derived::spsc_) {
             head = head_.load(X);
@@ -315,7 +315,7 @@ public:
         static_cast<Derived&>(*this).do_push(std::forward<T>(element), head);
     }
 
-    auto pop() noexcept {
+    inline auto pop() noexcept {
         unsigned tail;
         if(Derived::spsc_) {
             tail = tail_.load(X);
@@ -328,20 +328,20 @@ public:
         return static_cast<Derived&>(*this).do_pop(tail);
     }
 
-    bool was_empty() const noexcept {
+    inline bool was_empty() const noexcept {
         return !was_size();
     }
 
-    bool was_full() const noexcept {
+    inline bool was_full() const noexcept {
         return was_size() >= static_cast<int>(static_cast<Derived const&>(*this).size_);
     }
 
-    unsigned was_size() const noexcept {
+    inline unsigned was_size() const noexcept {
         // tail_ can be greater than head_ because of consumers doing pop, rather that try_pop, when the queue is empty.
         return std::max(static_cast<int>(head_.load(X) - tail_.load(X)), 0);
     }
 
-    unsigned capacity() const noexcept {
+    inline unsigned capacity() const noexcept {
         return static_cast<Derived const&>(*this).size_;
     }
 };
@@ -372,12 +372,12 @@ class AtomicQueueB : public AtomicQueueCommon<AtomicQueueB<T, A, NIL, MAXIMIZE_T
     alignas(CACHE_LINE_SIZE) unsigned size_;
     std::atomic<T>* elements_;
 
-    T do_pop(unsigned tail) noexcept {
+    inline T do_pop(unsigned tail) noexcept {
         std::atomic<T>& q_element = details::map<SHUFFLE_BITS>(elements_, tail & (size_ - 1));
         return Base::template do_pop_atomic<T, NIL>(q_element);
     }
 
-    void do_push(T element, unsigned head) noexcept {
+    inline void do_push(T element, unsigned head) noexcept {
         std::atomic<T>& q_element = details::map<SHUFFLE_BITS>(elements_, head & (size_ - 1));
         Base::template do_push_atomic<T, NIL>(element, q_element);
     }
@@ -394,6 +394,7 @@ public:
         for(auto p = elements_, q = elements_ + size_; p < q; ++p)
             p->store(NIL, X);
     }
+
 
     AtomicQueueB(AtomicQueueB&& b) noexcept
         : Base(static_cast<Base&&>(b))

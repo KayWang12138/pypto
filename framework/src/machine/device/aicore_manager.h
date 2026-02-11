@@ -123,7 +123,13 @@ void SdmaPrefetch(DeviceTask *devTask);
 class AiCoreManager {
 public:
     AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager){};
-    ~AiCoreManager(){};
+    ~AiCoreManager()
+    {
+        if (aicpuIdx_ == 1) {
+            readyAicCoreFunctionQue_->finalizeLockFree();
+            readyAivCoreFunctionQue_->finalizeLockFree();
+        }
+    };
 
     inline void InitTaskData(DeviceTaskCtrl *taskCtrl) {
         curTaskCtrl_ = taskCtrl;
@@ -134,6 +140,11 @@ public:
         });
         readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
+
+        if (aicpuIdx_ == 1) {
+            readyAicCoreFunctionQue_->initializeLockFree();
+            readyAivCoreFunctionQue_->initializeLockFree();
+        }
     }
 
     inline void CountSendTask(uint64_t& sentAic, uint64_t& sentAiv) {

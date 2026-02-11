@@ -36,7 +36,7 @@ class ConcurrentQueue
    * 
    * \param[in] maxEntries Indicates the maximum amount of entries
   */
-  ConcurrentQueue(const size_t maxEntries)
+  ConcurrentQueue(const size_t maxEntries = 0)
     : _queue(new atomic_queue::AtomicQueueB<T, std::allocator<T>, D>(maxEntries))
   {}
 

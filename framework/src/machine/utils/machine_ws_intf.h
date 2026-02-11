@@ -19,6 +19,7 @@
 #include "tilefwk/aicpu_common.h"
 #include "interface/utils/common.h"
 #include "tilefwk/core_func_data.h"
+#include "machine/utils/concurrent_queue/concurrent_queue.h"
 
 namespace npu::tile_fwk {
 enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
@@ -33,6 +34,9 @@ struct ReadyCoreFunctionQueue {
 
   uint64_t Size() { return tail - head;}
 };
+
+typedef uint64_t aicoreFunction_t;
+constexpr aicoreFunction_t aicoreNullFunction = 0xFFFFFFFFFFFFFFFFUL;
 
 class StaticReadyCoreFunctionQueue {
 
@@ -73,10 +77,23 @@ class StaticReadyCoreFunctionQueue {
   inline void setBuffer(uint64_t* const buffer) { elem = buffer; }
   inline void setCapacity(const size_t capacity) { _capacity = capacity; }
   inline void setCount(const size_t count) { tail = count; head = 0; }
-
   inline uint64_t* getBuffer() const { return elem; }
 
+  inline void initializeLockFree()
+  {
+    const size_t count = wasSize();
+   _lockFreeQueue = new pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>(count);
+   for (size_t i = 0; i < count; i++) _lockFreeQueue->push(elem[i]);
+  }
+
+  inline void finalizeLockFree()
+  {
+    delete _lockFreeQueue;
+  }
+
   private: 
+
+  pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>* _lockFreeQueue;
 
   size_t head = 0;
   size_t tail = 0;
