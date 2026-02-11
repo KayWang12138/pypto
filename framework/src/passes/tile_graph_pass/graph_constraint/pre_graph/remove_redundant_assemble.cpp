@@ -147,6 +147,22 @@ void RemoveRedundantAssemble::UpdateReshapeShape(Operation &reshapeOp, const Sha
     reshapeOp.GetOOperands().front()->tensor->UpdateRawShape(newRawShape);
 }
 
+Status RemoveRedundantAssemble::ProcessView(Function &function) const {
+    if (DuplicateReshape(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "DuplicateReshape failed.");
+        return FAILED;
+    }
+    if (RemoveViewMultiReshape(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
+        return FAILED;
+    }
+    if (RemoveViewSingleReshape(function) != SUCCESS) {
+        APASS_LOG_ERROR_F(Elements::Function, "RemoveViewSingleReshape failed.");
+        return FAILED;
+    }
+    return SUCCESS;
+}
+
 /*
 删除冗余的VIEW处理场景:
 Brfore：
@@ -156,7 +172,7 @@ After：
 RESHAPE -> COPYIN
         -> COPYIN
 */
-Status RemoveRedundantAssemble::ProcessView(Function &function) const {
+Status RemoveRedundantAssemble::RemoveViewSingleReshape(Function &function) const {
     for (auto &op : function.Operations()) {
         if (op.GetOpcode() != Opcode::OP_RESHAPE) continue;
         auto &reshapeOp = op;
@@ -245,7 +261,38 @@ RESHAPE -> VIEW -> RESHAPE
 RESHAPE -> COPYIN
         -> COPYIN
 */
-Status ProcessReshape(Function &function, Operation *&operation) {
+Status RemoveRedundantAssemble::DuplicateReshape(Function &function) const {
+    for (auto op : function.Operations().DuplicatedOpList()) {
+        if (op->GetOpcode() != Opcode::OP_RESHAPE) {
+            continue;
+        }
+        auto firstReshape = op;
+        if (!RemoveViewMultiReshapePattern(
+                firstReshape->GetIOperands().front(), firstReshape->GetOOperands().front())) {
+            continue;
+        }
+        auto consumer = firstReshape->GetOOperands().front()->GetConsumers();
+        for (auto consumerOp : consumer) {
+            if (consumerOp->GetOpcode() != Opcode::OP_VIEW) {
+                continue;
+            }
+            auto viewConsumers = consumerOp->GetOOperands().front()->GetConsumers();
+            auto viewConsumerOp = *viewConsumers.begin();
+            if (viewConsumerOp == nullptr || viewConsumers.size() != 1 ||
+                viewConsumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
+                continue;
+            }
+            if (ProcessReshape(function, firstReshape) != SUCCESS) {
+                APASS_LOG_ERROR_F(
+                    Elements::Operation, "ProcessReshape failed. %s", GetFormatBacktrace(firstReshape).c_str());
+                return FAILED;
+            }
+        }
+    }
+    return SUCCESS;
+}
+
+Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&operation) const {
     auto iOperand = operation->iOperand[0];
     auto oOperand = operation->oOperand[0];
     if (oOperand == nullptr) {
@@ -287,16 +334,13 @@ Status ProcessReshape(Function &function, Operation *&operation) {
 /*
 拷贝一个RESHAPE和删除冗余RESHAPE
 Before:
-RESHAPE1 -> VIEW -> RESHAPE2
-         -> COPYIN
-         -> COPYIN
+input --> RESHAPE1 -> VIEW -> RESHAPE2 -> XXX
 
 After:
-RESHAPE2
-RESHAPE -> COPYIN
-        -> COPYIN
+input --> RESHAPE2 -> XXX
+
 */
-Status RemoveViewMultiReshape(Function &function) {
+Status RemoveRedundantAssemble::RemoveViewMultiReshape(Function &function) const {
     for (auto op : function.Operations().DuplicatedOpList()) {
         if (op->GetOpcode() != Opcode::OP_RESHAPE) {
             continue;
@@ -316,11 +360,6 @@ Status RemoveViewMultiReshape(Function &function) {
             if (viewConsumerOp == nullptr || viewConsumers.size() != 1 ||
                 viewConsumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
                 continue;
-            }
-            if (ProcessReshape(function, firstReshape) != SUCCESS) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation, "ProcessReshape failed. %s", GetFormatBacktrace(firstReshape).c_str());
-                return FAILED;
             }
             APASS_LOG_DEBUG_F(Elements::Operation, "Match RemoveViewMultiReshape pattern %d -> %d -> %d",
                 firstReshape->GetOpMagic(), consumerOp->GetOpMagic(), viewConsumerOp->GetOpMagic());
@@ -560,10 +599,6 @@ Status RemoveRedundantAssemble::DeleteRedundantAssemble(Function &function) cons
         } else {
             if (HanldeForSingleAssemble(function, input, output, op) != SUCCESS) return FAILED;
         }
-    }
-    if (RemoveViewMultiReshape(function) != SUCCESS) {
-        APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
-        return FAILED;
     }
     if (ProcessView(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "ProcessView failed.");
