@@ -426,54 +426,29 @@ TEST_F(OspAlgorithmTest, TestLineGraph) {
     EXPECT_EQ(graph.NumVertices(), cntr);
 
     for (const auto &vert : graph.Vertices()) {
-        if (vert != 7) {
-            EXPECT_EQ(graph.OutDegree(vert), 1);
-            for (const auto &chld : graph.Children(vert)) {
-                EXPECT_EQ(chld, vert + 1);
-            }
-            auto chldren = graph.Children(vert);
-            EXPECT_EQ(chldren.crend() - chldren.crbegin(), graph.OutDegree(vert));
-            for (auto it = chldren.crbegin(); it != chldren.crend(); ++it) {
-                EXPECT_EQ(*it, vert + 1);
-            }
+        VertType notLast = static_cast<VertType>((vert != 7));
 
-        } else {
-            EXPECT_EQ(graph.OutDegree(vert), 0);
-            for (const auto &chld : graph.Children(vert)) {
-                EXPECT_TRUE(false);
-                EXPECT_EQ(chld, 100);
-            }
-            auto chldren = graph.Children(vert);
-            EXPECT_EQ(chldren.crend() - chldren.crbegin(), graph.OutDegree(vert));
-            for (auto it = chldren.crbegin(); it != chldren.crend(); ++it) {
-                EXPECT_TRUE(false);
-                EXPECT_EQ(*it, 100);
-            }
+        EXPECT_EQ(graph.OutDegree(vert), notLast);
+        for (const auto &chld : graph.Children(vert)) {
+            EXPECT_EQ(chld, vert + notLast);
+        }
+        auto chldren = graph.Children(vert);
+        EXPECT_EQ(chldren.crend() - chldren.crbegin(), graph.OutDegree(vert));
+        for (auto it = chldren.crbegin(); it != chldren.crend(); ++it) {
+            EXPECT_EQ(*it, vert + notLast);
         }
     }
     for (const auto &vert : graph.Vertices()) {
-        if (vert != 0) {
-            EXPECT_EQ(graph.InDegree(vert), 1);
-            for (const auto &par : graph.Parents(vert)) {
-                EXPECT_EQ(par, vert - 1);
-            }
-            auto prnts = graph.Parents(vert);
-            EXPECT_EQ(prnts.crend() - prnts.crbegin(), graph.InDegree(vert));
-            for (auto it = prnts.crbegin(); it != prnts.crend(); ++it) {
-                EXPECT_EQ(*it, vert - 1);
-            }
-        } else {
-            EXPECT_EQ(graph.InDegree(vert), 0);
-            for (const auto &par : graph.Parents(vert)) {
-                EXPECT_TRUE(false);
-                EXPECT_EQ(par, 100);
-            }
-            auto prnts = graph.Parents(vert);
-            EXPECT_EQ(prnts.crend() - prnts.crbegin(), graph.InDegree(vert));
-            for (auto it = prnts.crbegin(); it != prnts.crend(); ++it) {
-                EXPECT_TRUE(false);
-                EXPECT_EQ(*it, 100);
-            }
+        VertType notFirst = static_cast<VertType>((vert != 0));
+
+        EXPECT_EQ(graph.InDegree(vert), notFirst);
+        for (const auto &par : graph.Parents(vert)) {
+            EXPECT_EQ(par, vert - notFirst);
+        }
+        auto prnts = graph.Parents(vert);
+        EXPECT_EQ(prnts.crend() - prnts.crbegin(), graph.InDegree(vert));
+        for (auto it = prnts.crbegin(); it != prnts.crend(); ++it) {
+            EXPECT_EQ(*it, vert - notFirst);
         }
     }
 
