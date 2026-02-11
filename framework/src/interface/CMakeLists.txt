@@ -32,7 +32,7 @@ file(GLOB _Interface_Srcs
         ir/op/block_ops/transform.cpp
         ir/op/block_ops/unary.cpp
         ir/op/tensor_ops/*.cpp
-        # ir/op/sync_ops/*.cpp  # Depends on codegen/cce (not available)
+        ir/op/sync_ops/*.cpp
         ir/serialization/*.cpp
         ir/transform/*.cpp
 
