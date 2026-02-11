@@ -145,6 +145,17 @@ REGISTER_CALC_OP(OP_CONVERT, Opcode::OP_CONVERT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_FIX_QUANT_PRE, Opcode::OP_L1_TO_FIX_QUANT_PRE, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_BT, Opcode::OP_L1_TO_BT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L0C_TO_L1, Opcode::OP_L0C_TO_L1, ExecuteDuplicate);
-} // namespace npu::tile_fwk
 
-        
+void ExecuteOpGatherInL1(ExecuteOperationContext *ctx) {
+    ASSERT(ctx != nullptr && ctx->op != nullptr);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
+    auto output = ctx->ooperandInplaceDataViewList->at(0);
+    auto params = ctx->ioperandDataViewList->at(0);
+    auto indices = ctx->ioperandDataViewList->at(1);
+    auto pageTable = ctx->ioperandDataViewList->at(2);
+    int blocksize = ctx->op->GetIntAttribute("op_attr_blocksize");
+    calc::GatherInL1(output, params, indices, pageTable, blocksize);
+}
+REGISTER_CALC_OP(OP_GATHER_IN_L1, Opcode::OP_GATHER_IN_L1, ExecuteOpGatherInL1);
+}

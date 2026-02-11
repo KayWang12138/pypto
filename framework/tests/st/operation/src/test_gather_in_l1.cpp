@@ -255,7 +255,11 @@ class GatherInL1Test : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 };
 
 template<typename Config>
-void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
+void BasicGatherTest(Config &cfg, bool isB, bool isTrans, bool verify) {
+    if (verify) {
+        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    }
     auto TotalSize = [](const Shape &shapes) {
         size_t res = 1;
         for (auto v : shapes) {
@@ -291,6 +295,7 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
     Tensor offsets(DT_INT32, offsetsShapes, "offsets");
     Tensor pageTable(DT_INT32, pageTableShapes, "pageTable");
     Tensor dst(DT_FP16, dstShapes, "dst");
+    Tensor golden(DT_FP16, dstShapes, "golden");
 
     std::string err;
     if (!validate_config<Config>(cfg, err)) {
@@ -306,9 +311,24 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
         unitData[i * unit.GetShape()[1] + i] = 1;
     }
     // 4. 用 pageattention 逻辑做 gather，生成 golden 结果
-    std::vector<typename Config::DataType> golden;
-    gather_golden<Config>(offsetsData, pageTableData, srcData, cfg, golden, isTrans);
+    std::vector<typename Config::DataType> goldenData;
+    gather_golden<Config>(offsetsData, pageTableData, srcData, cfg, goldenData, isTrans);
     std::cout << "simu finished" << std::endl;
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<float16>(src, srcData),
+        RawTensorData::CreateTensor<int32_t>(offsets, offsetsData),
+        RawTensorData::CreateTensor<float16>(unit, unitData),
+        RawTensorData::CreateTensor<int32_t>(pageTable, pageTableData)
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float16>(dst, 0),
+    });
+    if (verify) {
+        ProgramData::GetInstance().AppendGoldens({
+            RawTensorData::CreateTensor<float16>(golden, goldenData),
+        });
+    }
 
     FUNCTION("test", {src, offsets, unit, pageTable}, {dst}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1)) {
@@ -345,30 +365,20 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans) {
     }
     std::cout << "compile finished" << std::endl;
 
-    ProgramData::GetInstance().AppendInputs({
-        RawTensorData::CreateTensor<float16>(src, srcData),
-        RawTensorData::CreateTensor<int32_t>(offsets, offsetsData),
-        RawTensorData::CreateTensor<float16>(unit, unitData),
-        RawTensorData::CreateTensor<int32_t>(pageTable, pageTableData)
-    });
-    ProgramData::GetInstance().AppendOutputs({
-        RawTensorData::CreateConstantTensor<float16>(dst, 0),
-    });
-
     DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
     auto out = npu::tile_fwk::ProgramData::GetInstance().GetOutputData(0);
     int maxErrorPrintNum = 50;
     int curErrorPrintNum = 0;
     float eps = 1e-6f;
-    for (size_t i = 0; i < golden.size(); i++) {
+    for (size_t i = 0; i < goldenData.size(); i++) {
         auto actual = ((float16 *)out->data())[i];
-        auto expect = golden[i];
+        auto expect = goldenData[i];
         if (fabs(actual - expect) > eps && curErrorPrintNum < maxErrorPrintNum) {
             std::cout << i << ": output: " << actual << "; expect: " << expect << std::endl;
             curErrorPrintNum++;
         }
     }
-    EXPECT_TRUE(resultCmp(golden, (float16 *)out->data(), eps));
+    EXPECT_TRUE(resultCmp(goldenData, (float16 *)out->data(), eps));
 }
 
 TEST_F(GatherInL1Test, gather_in_a) {
@@ -379,5 +389,16 @@ TEST_F(GatherInL1Test, gather_in_a) {
     cfg.num_buffer_tokens = 32; // buffer token 维度（物理 token 容量）
     cfg.hidden_dim = 4;         // 隐藏维度大小
     cfg.block_size = 4;         // 每个块的 token 数
-    BasicGatherTest(cfg, false, false);
+    BasicGatherTest(cfg, false, false, false);
+}
+
+TEST_F(GatherInL1Test, gather_in_a_verify) {
+    using Config = PageAttentionTestConfig<int32_t, float16>;
+    Config cfg;
+    cfg.topk_count = 8;         //topk结果
+    cfg.num_logical_blocks = 4; // 逻辑块个数
+    cfg.num_buffer_tokens = 64; // buffer token 维度（物理 token 容量）
+    cfg.hidden_dim = 8;         // 隐藏维度大小
+    cfg.block_size = 8;         // 每个块的 token 数
+    BasicGatherTest(cfg, false, false, true);
 }
