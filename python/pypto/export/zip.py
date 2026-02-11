@@ -16,13 +16,13 @@ def _zip_file_to_b64(file_path: str):
     b64 = base64.b64encode(buf.getvalue()).decode("ascii")
     return b64
 
-def zip_source_file_to_b64(fn):
+def _zip_source_file_to_b64(fn):
     src_path = inspect.getsourcefile(fn)
     if not src_path:
         return None, None
     return src_path, _zip_file_to_b64(src_path)
 
-def zip_kernel_dir_to_b64(kernel_dir: str):
+def _zip_kernel_dir_to_b64(kernel_dir: str):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf: # is allowZip64 required ?
         for root, dirs, files in os.walk(kernel_dir):
@@ -38,10 +38,10 @@ def zip_kernel_dir_to_b64(kernel_dir: str):
     b64 = base64.b64encode(buf.getvalue()).decode("ascii")
     return b64
 
-def zip_pto_file_to_b64(pto_path: str):
+def _zip_pto_file_to_b64(pto_path: str):
     return _zip_file_to_b64(pto_path)
 
-def unzip_b64_to_dir(b64: str, out_dir: str):
+def _unzip_b64_to_dir(b64: str, out_dir: str):
     zip_bytes = base64.b64decode(b64.encode("ascii"))
     zbuf = io.BytesIO(zip_bytes)
 

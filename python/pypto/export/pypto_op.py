@@ -1,8 +1,8 @@
 import inspect
 import json
 
-from tools.onnx.kernel_utils import find_kernel_binary_path, find_kernel_pto_path
-from tools.onnx.zip import zip_source_file_to_b64, zip_kernel_dir_to_b64, zip_pto_file_to_b64
+from tools.onnx.kernel_utils import _find_kernel_binary_path, _find_kernel_pto_path
+from tools.onnx.zip import _zip_source_file_to_b64, _zip_kernel_dir_to_b64, _zip_pto_file_to_b64
 
 KERNEL_FORMAT__SOURCE = "source"
 KERNEL_FORMAT__BINARY = "binary"
@@ -55,7 +55,7 @@ def pypto_op_kernel(*, kernel_name, incl_src=False, incl_binary=False, incl_ir=F
         meta_local[_META_KEY__KERNEL_NAME] = kernel_name
         meta_local[_META_KEY__KERNEL_FORMAT] = _derive_kernel_format()
         if incl_src:
-            src_path, b64 = zip_source_file_to_b64(fn)
+            src_path, b64 = _zip_source_file_to_b64(fn)
             if src_path and b64:
                 meta_local[_META_KEY__KERNEL_SOURCE_ZIP] = b64
         fn.__pypto_meta__ = meta_local
@@ -114,14 +114,14 @@ def pypto_op_onnx_symbolic(*, pypto_op_kernel):
             incl_ir = options.get(_OPTIONS_KEY__INCL_IR, False)
 
             if incl_binary:
-                binary_path = find_kernel_binary_path(kernel_name)
+                binary_path = _find_kernel_binary_path(kernel_name)
                 print(f"kernel binary path ::: {binary_path}")
-                meta[_META_KEY__KERNEL_BINARY_ZIP] = zip_kernel_dir_to_b64(binary_path)
+                meta[_META_KEY__KERNEL_BINARY_ZIP] = _zip_kernel_dir_to_b64(binary_path)
 
             if incl_ir:
-                ir_path = find_kernel_pto_path(kernel_name)
+                ir_path = _find_kernel_pto_path(kernel_name)
                 print(f"kernel IR path ::: {ir_path}")
-                meta[_META_KEY__KERNEL_IR_ZIP] = zip_pto_file_to_b64(ir_path)
+                meta[_META_KEY__KERNEL_IR_ZIP] = _zip_pto_file_to_b64(ir_path)
 
             return fn(*args, **kwargs, op_context=_dump_meta(meta))
         return wrapper
