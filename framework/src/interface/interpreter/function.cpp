@@ -22,6 +22,8 @@ namespace npu::tile_fwk {
 constexpr int MAX_IDENT_LEVEL = 20;
 const std::unordered_set<std::string> copyOpCode = {"COPY_IN", "COPY_OUT", "L1_TO_L0A", "L1_TO_L0B", "L1_TO_L0At",
     "L1_TO_L0Bt", "TRANSPOSE_MOVEIN", "TRANSPOSE_MOVEOUT", "INDEX_OUTCAST"};
+const std::unordered_set<std::string> convertOpCode = {
+    "L0C_COPY_UB", "CONVERT", "UB_COPY_ND2NZ", "UB_COPY_L1_ND", "UB_COPY_L1"};
 
 static std::string HtmlEscape(const std::string &src, bool escapeLineBreak = true) {
     std::string ret;
@@ -290,6 +292,9 @@ void FunctionInterpreter::FillOperationBasicInfo(Operation *op, FunctionFrame *f
 void FunctionInterpreter::FillOperationOffsetInfo(Operation *op, FunctionFrame *frame,
                                                   const std::vector<SymbolicScalar> &linearArgList,
                                                   std::vector<std::string> &opInfo) {
+    if (convertOpCode.count(op->GetOpcodeStr())) {
+        return;
+    }
     auto opAttr = std::static_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
     if (opAttr) {
         if (copyOpCode.count(op->GetOpcodeStr())) {
