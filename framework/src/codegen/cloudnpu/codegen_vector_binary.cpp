@@ -215,7 +215,7 @@ std::string CodeGenOpCloudNPU::GenBinaryOpWithTmp() const {
     std::vector<std::string> tileOpCallParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
     std::ostringstream oss;
     oss << tileOpName;
-    oss << WrapParamByParentheses(tileOpCallParamList) << ";\n";
+    oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
     return oss.str();
 }
 
@@ -485,7 +485,7 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam
     oss << tileOpName;
     oss << WrapParamByAngleBrackets(templateParamList);
     oss << WrapParamByParentheses(tileOpParamList);
-    oss << ";\n";
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -557,10 +557,10 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
         return PrintBinaryScalar({s0Var, dVar, dstDtypeStr, dstDtypeStr, rawShape[0].size()});
     }
 
-    if (opAttrs.count(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")) {
+    if (opAttrs.count(OP_EMUOP_PREFIX + "opc")) {
         // Hack: should be optimized to memory copy in pass
-        int emuopc = AnyCast<int64_t>(opAttrs.find(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")->second);
-        if (emuopc == npu::tile_fwk::EMUOP_TENSOR_EXTRACT) {
+        int emuopc = AnyCast<int64_t>(opAttrs.find(OP_EMUOP_PREFIX + "opc")->second);
+        if (emuopc == EMUOP_TENSOR_EXTRACT) {
             int ret = sprintf_s(buffer, sizeof(buffer),
                 "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n", dstDtypeStr.c_str(),
                 dVar.c_str(), s0Var.c_str());

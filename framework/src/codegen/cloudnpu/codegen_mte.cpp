@@ -149,14 +149,16 @@ std::string CodeGenOpCloudNPU::GenL0CToUBTileTensor() const {
     std::string coord = PrintCoord(rawShape[ToUnderlying(MISOIdx::SRC0_IDX)].size(), coordCp);
     int64_t copyInMode = 1;
     if (opAttrs.count(OP_ATTR_PREFIX + "is_nz")) {
-        copyInMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "is_nz"));
+        copyInMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "is_nz"));
     }
     std::string nzVar = copyInMode ? "CopyOutMode::NZ2ND" : "CopyOutMode::NZ2NZ";
     std::ostringstream oss;
     int64_t aivId = 0;
     GetAttr(OpAttributeKey::subBlockIdx, aivId);
-    oss << tileOpName << "<" << nzVar << ">" << "(" << dstTensor << ", " << src0Tensor << ", " << coord << ", " << aivId
-        << ");\n";
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets({nzVar});
+    oss << WrapParamByParentheses({dstTensor, src0Tensor, coord, std::to_string(aivId)});
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -188,7 +190,7 @@ std::string CodeGenOpCloudNPU::PrintMemL1ToL0TileTensor() const {
         oss << WrapParamByAngleBrackets({std::to_string(isTrans)});
     }
     oss << WrapParamByParentheses({dstTensor, src0Tensor, coord});
-    oss << ";\n";
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -247,8 +249,10 @@ std::string CodeGenOpCloudNPU::PrintTmove() const {
     std::string coord = PrintCoord(rawShape[ToUnderlying(MISOIdx::SRC0_IDX)].size(), coordCp);
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string src0Tensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
-
-    oss << tileOpName << "<" << 0 << ">" << "(" << dstTensor << ", " << src0Tensor << ", " << coord << ");\n";
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets({"0"});
+    oss << WrapParamByParentheses({dstTensor, src0Tensor, coord});
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -336,8 +340,8 @@ std::string CodeGenOpCloudNPU::GenReshapeCopyOut() const {
 }
 
 std::string CodeGenOpCloudNPU::PrintIndexOutCastTileTensor() const {
-    auto cacheMode = npu::tile_fwk::AnyCast<std::string>(opAttrs.at(OpAttributeKey::cacheMode));
-    auto blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OpAttributeKey::panzBlockSize));
+    auto cacheMode = AnyCast<std::string>(opAttrs.at(OpAttributeKey::cacheMode));
+    auto blockSize = AnyCast<int64_t>(opAttrs.at(OpAttributeKey::panzBlockSize));
     int cacheModeFlag = GetCacheModeFlag(cacheMode);
     std::string dstTensor = sm->QueryTileTensorByBufVarName(GenGmParamVar(ID0));
     std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
@@ -354,15 +358,15 @@ std::string CodeGenOpCloudNPU::PrintIndexOutCastTileTensor() const {
     oss << tileOpName;
     oss << WrapParamByAngleBrackets({std::to_string(cacheModeFlag), std::to_string(blockSize)});
     oss << WrapParamByParentheses(tileOpParamList);
-    oss << ";\n";
+    oss << STMT_END;
     return oss.str();
 }
 
 std::string CodeGenOpCloudNPU::GenIndexOutCastOp() const {
     ASSERT(opAttrs.count(OpAttributeKey::cacheMode)) << "cannot get cacheMode attr";
     ASSERT(opAttrs.count(OpAttributeKey::panzBlockSize)) << "cannot get panzBlockSize attr";
-    auto cacheMode = npu::tile_fwk::AnyCast<std::string>(opAttrs.at(OpAttributeKey::cacheMode));
-    auto blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OpAttributeKey::panzBlockSize));
+    auto cacheMode = AnyCast<std::string>(opAttrs.at(OpAttributeKey::cacheMode));
+    auto blockSize = AnyCast<int64_t>(opAttrs.at(OpAttributeKey::panzBlockSize));
     unsigned gmIdx = 0;
     unsigned localIdx = 1;
 
@@ -423,7 +427,7 @@ std::string CodeGenOpCloudNPU::PrintL0CToL1TileTensor() const {
     std::string nzVar = "CopyOutMode::NZ2NZ";
     std::vector<std::string> storeConfigList = {nzVar, std::to_string(isAcc), std::to_string(reluMode)};
     std::string storeConfig = WrapParamByAngleBrackets(storeConfigList);
-    npu::tile_fwk::Element scaleValue = npu::tile_fwk::Element(DataType::DT_UINT64, 0);
+    Element scaleValue = Element(DataType::DT_UINT64, 0);
 
     GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
     if ((!scaleValue.GetUnsignedData()) && ((operandDtype[ID1] == DT_INT32) && (operandDtype[ID0] == DT_FP16))) {
@@ -480,7 +484,7 @@ std::string CodeGenOpCloudNPU::GenMemL0CToL1() const {
     for (auto srcOffset : l0COffset) {
         paramList.emplace_back(SymbolicExpressionTable::BuildExpression(srcOffset));
     }
-    npu::tile_fwk::Element scaleValue = npu::tile_fwk::Element(DataType::DT_UINT64, 0);
+    Element scaleValue = Element(DataType::DT_UINT64, 0);
     GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
     paramList.emplace_back(std::to_string(scaleValue.GetUnsignedData()));
     std::string tileOpCallParam = JoinString(paramList, CONN_COMMA);
@@ -741,9 +745,9 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CTileTensor(const PrintMemCopyW
     GetAttr("op_attr_is_nz", nzValue);
     std::string nzVar = nzValue ? "CopyOutMode::NZ2NZ" : "CopyOutMode::NZ2ND";
     std::vector<std::string> storeConfigList = {nzVar, std::to_string(isAcc), std::to_string(reluMode)};
-    std::string storeConfig = PrintParams({"<", ">"}, storeConfigList, ", ");
+    std::string storeConfig = WrapParamByAngleBrackets(storeConfigList);
 
-    npu::tile_fwk::Element scaleValue = npu::tile_fwk::Element(DataType::DT_UINT64, 0);
+    Element scaleValue = Element(DataType::DT_UINT64, 0);
     if (!isAcc) {
         GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
     }
@@ -858,7 +862,7 @@ std::string CodeGenOpCloudNPU::PrintL0CCopyOutDynamicUnalign(const PrintMemCopyW
     std::string outerValueStr = outerValue == 0 ? gmShapeExprByIndex[0] : std::to_string(outerValue);
     std::string innerValueStr = innerValue == 0 ? gmShapeExprByIndex[1] : std::to_string(innerValue);
     paramList.insert(paramList.end(), {outerValueStr, innerValueStr, std::to_string(param.uf)});
-    npu::tile_fwk::Element scaleValue = npu::tile_fwk::Element(DataType::DT_UINT64, 0);
+    Element scaleValue = Element(DataType::DT_UINT64, 0);
     ret = GetAttr(OP_ATTR_PREFIX + "scale_value", scaleValue);
     if (!isAcc) {
         paramList.emplace_back(std::to_string(scaleValue.GetUnsignedData()));
@@ -952,7 +956,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyInWithL1TileTensor(const PrintMemCopy
     int64_t copyInMode = -1;
     std::string cpModeStr = "";
     if (opAttrs.count(OP_ATTR_PREFIX + "copy_in_mode")) {
-        copyInMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "copy_in_mode"));
+        copyInMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "copy_in_mode"));
     }
     CopyInMode copyMode = static_cast<CopyInMode>(copyInMode);
 
@@ -1104,7 +1108,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Dynamic(const PrintMemCopyWithL
             std::string cpModeStr = "";
             const int64_t ND2ND = 0;
             if (opAttrs.count(OP_ATTR_PREFIX + "copy_in_mode")) {
-                copyInMode = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "copy_in_mode"));
+                copyInMode = AnyCast<int64_t>(opAttrs.at(OP_ATTR_PREFIX + "copy_in_mode"));
             }
             if (copyInMode == ND2ND) {
                 cpModeStr = ", CopyInMode::ND2ND";
@@ -1383,12 +1387,12 @@ std::string CodeGenOpCloudNPU::PrintGatherInL1TileTensor() const {
     std::string offsetsVar = sm->QueryTileTensorByBufVarName(GenGmParamVar(ID2));
     std::string blockTableVar = sm->QueryTileTensorByBufVarName(GenGmParamVar(ID3));
     std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
-    int64_t blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("op_attr_blocksize"));
+    int64_t blockSize = AnyCast<int64_t>(opAttrs.at("op_attr_blocksize"));
 
     auto startOffset = opAttrs.at(OpAttributeKey::startOffset);
     ASSERT(startOffset.HasValue() && (startOffset.Type() == typeid(int64_t)))
         << "GenGatherInL1 startOffset must be int64_t!";
-    auto srcColumnStartOffset = npu::tile_fwk::AnyCast<int64_t>(startOffset);
+    auto srcColumnStartOffset = AnyCast<int64_t>(startOffset);
     std::string srcCoordCp = WrapParamByParentheses({std::to_string(srcColumnStartOffset)});
     std::string srcCoord = PrintCoord(SHAPE_DIM1, srcCoordCp);
 
@@ -1404,7 +1408,7 @@ std::string CodeGenOpCloudNPU::PrintGatherInL1TileTensor() const {
     oss << tileOpName;
     oss << WrapParamByAngleBrackets({std::to_string(blockSize)});
     oss << WrapParamByParentheses({dstVar, srcVar, blockTableVar, offsetsVar, srcCoord, offsetCoord, blockTableCoord});
-    oss << ";\n";
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -1442,12 +1446,12 @@ std::string CodeGenOpCloudNPU::GenGatherInL1() const {
     ASSERT(dstDtypeStr == srcDtypeStr);
     ASSERT(offsetsDtypeStr == "int64_t" || offsetsDtypeStr == "int32_t");
     ASSERT(opAttrs.find("op_attr_blocksize") != opAttrs.end()) << "GenGatherOp: There is nop axis attribute here";
-    const int64_t blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("op_attr_blocksize"));
+    const int64_t blockSize = AnyCast<int64_t>(opAttrs.at("op_attr_blocksize"));
 
     auto startOffset = opAttrs.at(OpAttributeKey::startOffset);
     ASSERT(startOffset.HasValue() && (startOffset.Type() == typeid(int64_t)))
         << "GenGatherInL1 startOffset must be int64_t!";
-    auto srcColumnStartOffset = npu::tile_fwk::AnyCast<int64_t>(startOffset);
+    auto srcColumnStartOffset = AnyCast<int64_t>(startOffset);
     auto blockTableGMStride = GenParamIdxExprByIndex(ID3, SHAPE_DIM2, PREFIX_STR_RAW_SHAPE);
     auto blockTableStartOffsets = GenParamIdxExprByIndex(ID3, SHAPE_DIM2, PREFIX_STR_OFFSET);
 
@@ -1530,7 +1534,7 @@ std::string CodeGenOpCloudNPU::PrintGatherDynamicUnaligned() const {
     std::string paramDtypeStr = DataType2CCEStr(operandDtype[ID1]);
     std::string indicesDtypeStr = DataType2CCEStr(operandDtype[ID2]);
     ASSERT(resultDtypeStr == paramDtypeStr);
-    const int64_t axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("op_attr_axis"));
+    const int64_t axis = AnyCast<int64_t>(opAttrs.at("op_attr_axis"));
     auto outputRawShapes = rawShape[ID0];
     auto paramRawShapes = rawShape[ID1];
     auto indicesRawShapes = rawShape[ID2];
@@ -1600,7 +1604,7 @@ std::string CodeGenOpCloudNPU::PrintGatherLayout() const {
     auto indicesValidShapes = dynamicValidShape[ID2];
     size_t paramDim = paramValidShapes.size();
     size_t indicesDim = indicesValidShapes.size();
-    const int64_t axis = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at("op_attr_axis"));
+    const int64_t axis = AnyCast<int64_t>(opAttrs.at("op_attr_axis"));
     std::vector<size_t> helpIndex = {ID0, ID1, ID2, ID3, ID4};
     if (indicesDim == 1 && axis != 0) {
         HelpNormalize(helpIndex, axis, paramDim);
@@ -1662,7 +1666,7 @@ std::string CodeGenOpCloudNPU::PrintGatherInUBLayout() const {
     std::string pageTableTensor = sm->QueryTileTensorByBufVarName(GenGmParamVar(ToUnderlying(MISOIdx::SRC2_IDX)));
     std::vector<std::string> paramList;
     ASSERT(opAttrs.find(OpAttributeKey::blockSize) != opAttrs.end()) << "GenGatherOp: There is nop axis attribute here";
-    const int64_t blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OpAttributeKey::blockSize));
+    const int64_t blockSize = AnyCast<int64_t>(opAttrs.at(OpAttributeKey::blockSize));
     paramList.emplace_back(std::to_string(blockSize));
     std::string templateParam = JoinString(paramList, CONN_COMMA);
 
@@ -1682,7 +1686,7 @@ std::string CodeGenOpCloudNPU::PrintGatherInUBDynamicUnaligned() const {
     std::string blockTableDtypeStr = DataType2CCEStr(operandDtype[ID3]);
     ASSERT(resultDtypeStr == paramDtypeStr);
     ASSERT(opAttrs.find(OpAttributeKey::blockSize) != opAttrs.end()) << "GenGatherOp: There is nop axis attribute here";
-    const int64_t blockSize = npu::tile_fwk::AnyCast<int64_t>(opAttrs.at(OpAttributeKey::blockSize));
+    const int64_t blockSize = AnyCast<int64_t>(opAttrs.at(OpAttributeKey::blockSize));
     auto outputRawShapes = rawShape[ID0];
     auto paramRawShapes = rawShape[ID1];
     auto indicesRawShapes = rawShape[ID2];
@@ -1754,5 +1758,127 @@ std::string CodeGenOpCloudNPU::GenGatherInUB() const {
     }
     ASSERT(false) << "Gather operator does not support static graph";
     return "";
+}
+
+std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+
+    std::vector<std::variant<std::string, uint8_t, uint16_t, int, int64_t>> paramList;
+
+    std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    paramList.emplace_back(dstVar);
+    paramList.emplace_back(srcVar);
+
+    uint16_t mPos, kPos;
+    GetAttr(Conv::Im2ColOpAttributeKey::postM, mPos);
+    GetAttr(Conv::Im2ColOpAttributeKey::postK, kPos);
+    paramList.emplace_back(mPos);
+    paramList.emplace_back(kPos);
+
+    std::vector<int64_t> fmapL1Shape = this->rawShape[ID1];
+    ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL1Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL1Shape).c_str());
+    ASSERT(fmapL1Shape.size() == SHAPE_DIM5) << "GenMemL1ToL0Load3D fmap only support 5-dim!";
+    int64_t n = fmapL1Shape[Conv::NC1HWC0_N_IDX];
+    int64_t c1 = fmapL1Shape[Conv::NC1HWC0_C1_IDX];
+    int64_t h = fmapL1Shape[Conv::NC1HWC0_H_IDX];
+    int64_t w = fmapL1Shape[Conv::NC1HWC0_W_IDX];
+    int64_t c0 = fmapL1Shape[Conv::NC1HWC0_C0_IDX];
+    paramList.emplace_back(n);
+    paramList.emplace_back(c1);  
+    paramList.emplace_back(h);
+    paramList.emplace_back(w);  
+    paramList.emplace_back(c0); 
+
+    uint8_t padLeft, padRight, padTop, padBottom, padValue;
+    GetAttr(Conv::Im2ColOpAttributeKey::paddingLeft, padLeft);
+    GetAttr(Conv::Im2ColOpAttributeKey::paddingRight, padRight);
+    GetAttr(Conv::Im2ColOpAttributeKey::paddingTop, padTop);
+    GetAttr(Conv::Im2ColOpAttributeKey::paddingBottom, padBottom);
+    GetAttr(Conv::Im2ColOpAttributeKey::padValue, padValue);
+    paramList.emplace_back(padLeft);
+    paramList.emplace_back(padRight);  
+    paramList.emplace_back(padTop);
+    paramList.emplace_back(padBottom);  
+    paramList.emplace_back(padValue);
+
+    uint16_t filterH, filterW;
+    GetAttr(Conv::Im2ColOpAttributeKey::filterH, filterH);
+    GetAttr(Conv::Im2ColOpAttributeKey::filterW, filterW);
+    paramList.emplace_back(filterH);
+    paramList.emplace_back(filterW);  
+
+    uint8_t dilationH, dilationW;
+    GetAttr(Conv::Im2ColOpAttributeKey::dilationH, dilationH);
+    GetAttr(Conv::Im2ColOpAttributeKey::dilationW, dilationW);
+    paramList.emplace_back(dilationH);
+    paramList.emplace_back(dilationW);
+
+    uint8_t strideH, strideW;
+    GetAttr(Conv::Im2ColOpAttributeKey::strideH, strideH);
+    GetAttr(Conv::Im2ColOpAttributeKey::strideW, strideW);
+    paramList.emplace_back(strideH);
+    paramList.emplace_back(strideW);
+
+    std::vector<int64_t> fmapL0Shape = this->rawShape[ID0];
+    ALOG_INFO_F("GenMemL1ToL0Load3D %s, fmapL0Shape is %s", tileOpName.c_str(), IntVecToStr(fmapL0Shape).c_str());
+    ASSERT(fmapL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load3D L0 fmap only support 2-dim!";
+    int64_t mL0 = fmapL0Shape[ID0]; // n * h * w
+    int64_t kL0 = fmapL0Shape[ID1]; // c1 * c0
+    paramList.emplace_back(mL0);
+    paramList.emplace_back(kL0);
+
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<" << dstDtypeStr << ", " << srcDtypeStr << ">(" 
+        << tiloOpCallParam << ");\n";
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenMemL1ToL0Load2D() const {
+    std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
+    std::string srcDtypeStr = DataType2CCEStr(operandDtype[ID1]);
+
+    std::vector<std::variant<std::string, uint16_t, int, int64_t>> paramList;
+
+    std::string dstVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
+    std::string srcVar = QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
+    paramList.emplace_back(dstVar);
+    paramList.emplace_back(srcVar);
+
+    uint16_t kPos, nPos;
+    GetAttr(Conv::Im2ColOpAttributeKey::postK, kPos);
+    GetAttr(Conv::Im2ColOpAttributeKey::postN, nPos);
+    paramList.emplace_back(kPos);  
+    paramList.emplace_back(nPos);    
+
+    std::vector<int64_t> weightL1Shape = this->rawShape[ID1];
+    ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL1Shape is %s", tileOpName.c_str(), IntVecToStr(weightL1Shape).c_str());
+    ASSERT(weightL1Shape.size() == SHAPE_DIM4) << "GenMemL1ToL0Load2D weight only support 4-dim!";
+    int64_t c1hw = weightL1Shape[ID0];
+    int64_t n1 = weightL1Shape[ID1];
+    int64_t n0 = weightL1Shape[ID2];
+    int64_t c0 = weightL1Shape[ID3];
+    paramList.emplace_back(c1hw);  
+    paramList.emplace_back(n1); 
+    paramList.emplace_back(n0);  
+    paramList.emplace_back(c0); 
+
+    std::vector<int64_t> weightL0Shape = this->rawShape[ID0];
+    ALOG_INFO_F("GenMemL1ToL0Load2D %s, weightL0Shape is %s", tileOpName.c_str(), IntVecToStr(weightL0Shape).c_str());
+    ASSERT(weightL0Shape.size() == SHAPE_DIM2) << "GenMemL1ToL0Load2D L0 weight only support 2-dim!";
+    int64_t kL0 = weightL0Shape[ID0]; // c1hw*c0
+    int64_t nL0 = weightL0Shape[ID1]; // n1*n0
+    paramList.emplace_back(kL0);  
+    paramList.emplace_back(nL0); 
+
+    std::string tiloOpCallParam = JoinString(paramList, ", ");
+
+    std::ostringstream oss;
+    oss << tileOpName.c_str() << "<" << dstDtypeStr << ", " << srcDtypeStr << ">(" 
+        << tiloOpCallParam << ");\n";
+    return oss.str();
 }
 } // namespace npu::tile_fwk

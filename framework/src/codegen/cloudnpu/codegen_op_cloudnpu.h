@@ -23,6 +23,7 @@
 #include "codegen/codegen_common.h"
 #include "tilefwk/data_type.h"
 #include "interface/operation/operation.h"
+#include "interface/operation/operation_impl.h"
 #include "interface/function/function.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
@@ -64,6 +65,8 @@ public:
     std::string GenMemL1ToFB() const;
     std::string GenMemL0CCopyOut() const;
     std::string GenMemL0CToL1() const;
+    std::string GenMemL1ToL0Load3D() const;
+    std::string GenMemL1ToL0Load2D() const;
 
     std::string GenMemL1ToL0() const;
 
@@ -217,10 +220,10 @@ private:
             return false;
         }
         if (it->second.Type() == typeid(T)) {
-            value = npu::tile_fwk::AnyCast<T>(it->second);
+            value = AnyCast<T>(it->second);
             return true;
         }
-        ALOG_ERROR_F("Type mismatch: %s != %s", it->second.Type().name(), typeid(T).name());
+        ALOG_ERROR_F("Type of attribute %s from PASS is mismatch: %s != %s", key.c_str(), it->second.Type().name(), typeid(T).name());
         return false;
     }
 

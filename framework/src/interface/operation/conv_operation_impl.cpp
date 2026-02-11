@@ -40,6 +40,7 @@ namespace Conv {
 
 const std::string Im2ColOpAttributeKey::postK = "POST_K";
 const std::string Im2ColOpAttributeKey::postM = "POST_M";
+const std::string Im2ColOpAttributeKey::postN = "POST_N";
 const std::string Im2ColOpAttributeKey::filterH = "FILTER_H";
 const std::string Im2ColOpAttributeKey::filterW = "FILTER_W";
 const std::string Im2ColOpAttributeKey::strideH = "STRIDE_H";
@@ -118,7 +119,7 @@ int64_t ConvComputeDo(const Tensor &inputTensor, const Tensor &weightTensor, con
     int64_t padTail = paddings[PAD_TAIL_INDEX];
     int64_t dilationD = dilations[PAD_STRIDE_D];
     int64_t din = inputTensor.GetShape()[NCDHW_D_IDX];
-    int64_t kd = weightTensor.GetShape()[NCDHW_D_IDX];//NCHW或者NCDHW
+    int64_t kd = weightTensor.GetShape()[NCDHW_D_IDX];
     int64_t cmpDo = (din + padHead + padTail - dilationD * (kd - 1) - 1) / strideD + 1;
     return cmpDo;
 }
@@ -1028,6 +1029,10 @@ Tensor Conv(DataType outType, const Tensor &inputTensor, const Tensor &weightTen
     std::vector<int64_t> resTensorShape{batchOut, cOut, hOut, wOut};
     if (convAttrParam.isConv1D) {
         resTensorShape = {batchOut, cOut, wOut};
+    }
+    if (convAttrParam.isConv3D) {
+        int64_t dOut = ConvComputeDo(inputTensor, weightTensor, convAttrParam);
+        resTensorShape = {batchOut, cOut, dOut, hOut, wOut};
     }
     Tensor resTensor(outType, resTensorShape, "TensorC");
     resTensor.GetStorage()->UpdateDynValidShape(SymbolicScalar::FromConcrete(resTensorShape));
