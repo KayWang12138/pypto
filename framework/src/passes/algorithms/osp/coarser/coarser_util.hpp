@@ -21,7 +21,6 @@
 #include <set>
 #include <vector>
 
-
 #include "passes/algorithms/osp/concepts/constructable_computational_dag_concept.hpp"
 #include "passes/algorithms/osp/concepts/graph_traits.hpp"
 #include "passes/algorithms/osp/graph_algorithms/directed_graph_util.hpp"
@@ -267,11 +266,9 @@ void ReorderExpansionMap(const GraphTIn &graph, std::vector<std::vector<VertexId
 
         for (const auto &vert : vertexExpansionMap[nextGroup]) {
             for (const auto &chld : graph.Children(vert)) {
-                if (vertexContractionMap.at(vert) != vertexContractionMap.at(chld)) {
-                    prec[vertexContractionMap.at(chld)] -= 1;
-                    if (prec[vertexContractionMap.at(chld)] == 0) {
-                        ready.emplace(vertexContractionMap.at(chld));
-                    }
+                if ((vertexContractionMap.at(vert) != vertexContractionMap.at(chld)) &&
+                    (--prec[vertexContractionMap.at(chld)] == 0)) {
+                    ready.emplace(vertexContractionMap.at(chld));
                 }
             }
         }
