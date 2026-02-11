@@ -710,10 +710,10 @@ TILEOP void TGatherInL1(DstT dst, SrcT src, BlockT block, OffsetT offset, SrcCoo
     } else {
         using tileData = pto::Tile<pto::TileType::Mat, typename DstT::Type, staticL1W / c0Size, staticL1H * c0Size,
             pto::BLayout::RowMajor, -1, -1>;
-        // 这里需要采用性能更高的ND2ND的搬运方式
-        // 首先对于L1而言，原始为dstShape0 * dstShape1的排布，那么，我们先对dstShape1做32B切分，因此切出来dstShape1 / c0Size列。
-        // 再者，对于每一列展平后，作为一行，总共排布dstShape1 / c0Size行，那么对应的列上数据量就变为staticL1H * c0Size。
-        // 因此，此处采用将GM和L1的数据都排布为dstShape1 / c0Size行，c0Size列来做数据搬运。
+        // 这里需要采用性能更高的ND2ND的搬运方式。
+        // GM上将(1, dstShape1)的数据，转变为(dstShape1 / c0Size, c0Size)。
+        // L1上将(staticL1H, staticL1W, 16, c0Size)的NZ数据，对每c0Size列做展平为一行，得到(staticL1W / c0Size, staticL1H * c0Size)。
+        // 那么L1上有效数据就是(dstShape1 / c0Size, c0Size)。
         GatherExecute<blockSize, globalData, tileData>(dst, src, block, offset, offsetsStartOffset, srcColumnStartOffset, GMBlockTableOffset,
             dstShape1 / c0Size, c0Size, c0Size, 1, dstShape1 / c0Size, c0Size, srcShape1, dstShape0, c0Size);
     }
