@@ -42,6 +42,14 @@ struct IndexAddTileInfoPara {
     TileInfo dstTileInfo;
 };
 
+Shape GetTempShape(Shape shape, size_t axis) {
+    Shape newShape(shape.size(), 1);
+    for (size_t i = axis + 1; i < shape.size(); ++i) {
+        newShape[i] = shape[i];
+    }
+    return newShape;
+}
+
 void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, IndexAddTileInfoPara &indexaddTileInfo) {
     const LogicalTensorPtr &selfInput = indexaddPara.selfInput;
     const LogicalTensorPtr &srcInput = indexaddPara.srcInput;
@@ -59,8 +67,7 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
     indexaddTileInfo.indicesTileInfo.shape = {indexaddTileInfo.srcTileInfo.shape[axis]};
     auto indexTile =
         indicesInput->View(function, indexaddTileInfo.indicesTileInfo.shape, indexaddTileInfo.indicesTileInfo.offset);
-    Shape tmpShape = {1, dstTile->GetShape()[dstTile->GetShape().size() - 1]};
-    auto tmpBuffer = std::make_shared<LogicalTensor>(function, DT_BF16, tmpShape);
+    auto tmpBuffer = std::make_shared<LogicalTensor>(function, DT_BF16, GetTempShape(dstTile->GetShape(), axis));
 
     if (selfTile->Datatype() == DT_INT8) { // vector指令不支持int8的直接计算
         LogicalTensorPtr selfConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, selfTile->GetShape());
