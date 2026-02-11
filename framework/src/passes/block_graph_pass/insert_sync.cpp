@@ -1585,6 +1585,7 @@ Status PipeSync::ProcessViewAssembleOrder(std::vector<Operation *> &opLog, std::
         if (opPtr->GetOpcode() == Opcode::OP_VIEW) {
             if (ProcessViewOrder(*opPtr, opLog, changeMap)) {
                 APASS_LOG_ERROR_F(Elements::Operation, "ProcessViewOrder failed.");
+                
                 return FAILED;
             }
             continue;
