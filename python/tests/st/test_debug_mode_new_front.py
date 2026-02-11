@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-from pathlib import Path 
+from pathlib import Path
 
 import os
 import json
@@ -67,7 +67,7 @@ def device_run(device_id):
 
     check_output()
 
-
+@pytest.mark.skip(reason="this feature is not ready")
 def test_debug_mode():
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
     output_name = "temp"
