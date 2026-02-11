@@ -1639,8 +1639,8 @@ void ExpandOperationInto(Function &function, const TileShape &tileShape, Opcode 
             npu::tile_fwk::Distributed::TiledMoeDistributedCombineReceive(function, tileShape, iOperand, oOperand, op);
             break;
         }
-        case Opcode::OP_MOE_COMBINE_FFN_FUSED: {
-            npu::tile_fwk::Distributed::TiledMoeCombineFfnFused(function, tileShape, iOperand, oOperand, op);
+        case Opcode::OP_MOE_FFN_FUSED: {
+            npu::tile_fwk::Distributed::TiledMoeFfnFused(function, tileShape, iOperand, oOperand, op);
             break;
         }
         case Opcode::OP_VIEW_TYPE: {

@@ -23,11 +23,12 @@
 #include "interface/utils/log.h"
 #include "tilefwk/data_type.h"
 #include "tilefwk/platform.h"
-#include "tilefwk/tilefwk_op.h"
 #include "tilefwk/symbolic_distributed.h"
 #include "tilefwk/tensor.h"
 #include "tilefwk/tilefwk.h"
+#include "tilefwk/tilefwk_op.h"
 
+#include <algorithm>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -40,6 +41,12 @@ void CreateShmemTensor(Tensor& shmemTensor, int32_t rankSize, int32_t hcclGroupI
     const Shape& shape, uint64_t memType);
 Tensor MoeDistributedCombineSend(const Tensor& in, const Tensor& assistInfoForCombine, const Tensor& recvCounts,
     const Tensor& shmemData, const Tensor& shmemSignal, int32_t topK);
+Tensor MoeDistributedCombineReceive(
+    const Tensor& predToken,
+    const Tensor& expertScales,
+    const Tensor& recvCounts,
+    const Tensor& shmemData,
+    const Tensor& shmemSignal);
 
 namespace {
 int32_t GetFfnIntermediateSizeFromShape(const Shape& shape, int32_t hiddenSize)
@@ -63,90 +70,93 @@ int32_t GetFfnIntermediateSize(const Tensor& ffnWeight, int32_t hiddenSize)
 }
 } // namespace
 
-void TiledMoeCombineFfnFused(
+void TiledMoeFfnFused(
     Function& function,
     const TileShape& tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>>& oOperand,
     const Operation& op)
 {
-    ASSERT(iOperand.size() == 6UL) << "TiledMoeCombineFfnFused iOperand size is not equal to 6";
-    ASSERT(oOperand.size() == 2UL) << "TiledMoeCombineFfnFused oOperand size is not equal to 2";
-    auto predToken = iOperand[0];
-    auto expertScales = iOperand[1];
-    auto ffnWeight = iOperand[2];
-    auto recvCounts = iOperand[3];
-    auto shmemDataThisRank = iOperand[4];
-    auto shmemSignalThisRank = iOperand[5];
+    ASSERT(iOperand.size() == 2UL) << "TiledMoeFfnFused iOperand size is not equal to 2";
+    ASSERT(oOperand.size() == 2UL) << "TiledMoeFfnFused oOperand size is not equal to 2";
+    auto combineOut = iOperand[0];
+    auto ffnWeight = iOperand[1];
     auto out = oOperand[0];
     auto workspace = oOperand[1];
 
-    int64_t topK = expertScales->shape[1];
     int64_t hiddenSize = out->shape[1];
     int64_t intermediateSize = 0;
+    int64_t workspaceRowsPerTile = 0;
     if (!op.GetAttr("intermediateSize", intermediateSize)) {
         intermediateSize = GetFfnIntermediateSizeFromShape(ffnWeight->shape, static_cast<int32_t>(hiddenSize));
     }
+
     int64_t workspaceCol = hiddenSize + 3LL * intermediateSize;
+    ASSERT(op.GetAttr("workspaceRowsPerTile", workspaceRowsPerTile))
+        << "workspaceRowsPerTile attr is required for OP_MOE_FFN_FUSED";
     ASSERT(workspace->shape[1] == workspaceCol) << "Workspace shape mismatch, expected "
         << workspaceCol << " but got " << workspace->shape[1];
 
     int64_t dataByteSize = BytesOf(out->Datatype());
     ASSERT(dataByteSize != 0);
     int64_t paddedColShape = AlignUp(dataByteSize * hiddenSize, COPY_BLOCK_BYTE_SIZE) / dataByteSize;
+
     int64_t floatByteSize = BytesOf(DataType::DT_FP32);
     ASSERT(floatByteSize != 0);
     int64_t floatEleNum = AlignUp(floatByteSize * paddedColShape, REPEAT_BYTE) / floatByteSize;
+    // SiLU tiled kernel with tileSize=1024 requires at least 4096 float slots in UB scratch.
+    floatEleNum = std::max<int64_t>(floatEleNum, 4096);
 
     DistOpAttr distOpAttr;
-    distOpAttr.topK = topK;
     distOpAttr.extraTemplateParam = std::to_string(intermediateSize);
 
     CreateTileOp(tileShape,
         [&](int32_t tileIndex, int32_t rowOffset, int32_t colOffset, int32_t rowShape, int32_t colShape) {
             (void)tileIndex;
 
-            auto shmemDataTile = shmemDataThisRank->View(function, {1, 1, topK * rowShape, colShape},
-                {0, 0, topK * rowOffset, colOffset});
+            auto combineTile = combineOut->View(function, {rowShape, colShape}, {rowOffset, colOffset});
             auto outTile = out->View(function, {rowShape, colShape}, {rowOffset, colOffset});
-            auto workspaceTile = workspace->View(function, {rowShape, workspaceCol}, {rowOffset, 0});
-            auto mulFp32Buffer = std::make_shared<LogicalTensor>(function, DT_FP32, Shape{floatEleNum});
-            auto sumFp32Buffer = std::make_shared<LogicalTensor>(function, DT_FP32, Shape{floatEleNum});
-            auto outBuffer = std::make_shared<LogicalTensor>(function, out->Datatype(), Shape{hiddenSize});
+            auto workspaceTile = workspace->View(function, {workspaceRowsPerTile, workspaceCol},
+                {workspaceRowsPerTile * tileIndex, 0});
+            auto ubBuffer = std::make_shared<LogicalTensor>(function, DT_FP32, Shape{floatEleNum});
 
-            auto& tileOp = function.AddOperation(Opcode::OP_MOE_COMBINE_FFN_FUSED,
-                {predToken, expertScales, ffnWeight, recvCounts, shmemDataTile, shmemSignalThisRank},
-                {outTile, workspaceTile, mulFp32Buffer, sumFp32Buffer, outBuffer});
+            auto& tileOp = function.AddOperation(Opcode::OP_MOE_FFN_FUSED,
+                {combineTile, ffnWeight},
+                {outTile, workspaceTile, ubBuffer});
 
             distOpAttr.paddedColShape = paddedColShape;
-            distOpAttr.rowOffset = rowOffset;
             distOpAttr.rowShape = rowShape;
             tileOp.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
+            tileOp.SetAttr(OpAttributeKey::excludeBufferReuse, true);
             tileOp.SetAttribute(OpAttributeKey::isCube, true);
         });
 }
 
-Tensor MoeCombineFfnFusedReceive(
-    const Tensor& predToken,
-    const Tensor& expertScales,
+Tensor MoeFfnFused(
+    const Tensor& combineOut,
     const Tensor& ffnWeight,
-    const Tensor& recvCounts,
-    const Tensor& shmemData,
-    const Tensor& shmemSignal,
-    int32_t intermediateSize)
+    int32_t intermediateSize,
+    int32_t tileNum)
 {
     auto& function = *Program::GetInstance().GetCurrentFunction();
-    int32_t batchSize = expertScales.GetShape(0);
-    int32_t hiddenSize = shmemData.GetShape(3);
-    int64_t workspaceCol = hiddenSize + 3LL * intermediateSize;
-    auto out = std::make_shared<LogicalTensor>(function, shmemData.GetDataType(), Shape{batchSize, hiddenSize});
-    auto workspace = std::make_shared<LogicalTensor>(function, shmemData.GetDataType(), Shape{batchSize, workspaceCol});
+    int32_t batchSize = combineOut.GetShape(0);
+    int32_t hiddenSize = combineOut.GetShape(1);
+
+    constexpr int64_t cubeBlockM = 16;
+    int64_t maxRowsPerTile = std::max<int64_t>(1, (batchSize + tileNum - 1) / tileNum);
+    int64_t workspaceRowsPerTile = AlignUp(maxRowsPerTile, cubeBlockM);
+    int64_t workspaceRows = workspaceRowsPerTile * tileNum;
+
+    auto out = std::make_shared<LogicalTensor>(function, combineOut.GetDataType(), Shape{batchSize, hiddenSize});
+    auto workspace = std::make_shared<LogicalTensor>(
+        function, combineOut.GetDataType(), Shape{workspaceRows, static_cast<int64_t>(hiddenSize) + 3LL * intermediateSize});
+
     auto& op = function.AddOperation(
-        Opcode::OP_MOE_COMBINE_FFN_FUSED,
-        {predToken.GetStorage(), expertScales.GetStorage(), ffnWeight.GetStorage(), recvCounts.GetStorage(),
-            shmemData.GetStorage(), shmemSignal.GetStorage()},
+        Opcode::OP_MOE_FFN_FUSED,
+        {combineOut.GetStorage(), ffnWeight.GetStorage()},
         {out, workspace});
     op.SetAttr("intermediateSize", static_cast<int64_t>(intermediateSize));
+    op.SetAttr("workspaceRowsPerTile", workspaceRowsPerTile);
     return out;
 }
 
@@ -181,8 +191,10 @@ void MoeDistributedCombineFfnFused(const Tensor& expandX, const Tensor& assistIn
         CreateShmemTensor(shmemSignal, epWorldSize, hcclGroupIndex, DT_INT32, shmemSignalShape, 1);
         (void)ShmemDataSet(recvCounts, shmemSignal);
     }
-    LOOP("MoeDistributedCombineFfnFused", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+    Tensor combineOut;
+    LOOP("MoeDistributedCombineOnly", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
         (void)index;
+
         int32_t expandXRow = expandX.GetShape(0);
         int32_t aivNum = AIV_NUM;
         TileShape::Current().SetDistTile({expandXRow / aivNum, aivNum, expandXRow % aivNum}, {hiddenSize, 1, 0},
@@ -200,10 +212,19 @@ void MoeDistributedCombineFfnFused(const Tensor& expandX, const Tensor& assistIn
             std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
         auto shmemSignalThisRank = View(shmemSignal, {1, 1, batchSize, shmemSignalCol},
             std::vector<SymbolicScalar>{thisRank, 0, 0, 0});
+
         TileShape::Current().SetDistTile(
             {batchSize / aivNum, aivNum, batchSize % aivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
-        out = MoeCombineFfnFusedReceive(sendOut, expertScales, ffnWeight, recvCounts, shmemDataThisRank,
-            shmemSignalThisRank, intermediateSize);
+        combineOut = MoeDistributedCombineReceive(sendOut, expertScales, recvCounts, shmemDataThisRank,
+            shmemSignalThisRank);
+    }
+
+    LOOP("MoeFfnOnly", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+        (void)index;
+        int32_t aivNum = AIV_NUM;
+        TileShape::Current().SetDistTile(
+            {batchSize / aivNum, aivNum, batchSize % aivNum}, {hiddenSize, 1, 0}, {0, 0, 0});
+        out = MoeFfnFused(combineOut, ffnWeight, intermediateSize, aivNum);
     }
 }
 } // namespace npu::tile_fwk::Distributed

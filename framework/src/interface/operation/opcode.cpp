@@ -685,12 +685,10 @@ void OpcodeManager::RegisterDistribute() {
             MemoryType::MEM_UB, MemoryType::MEM_UB, MemoryType::MEM_UB},
         {"TileOp::Distributed::MoeDistributedCombineReceive", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
         {OpAttributeKey::requiresBoundaryCopy});
-    RegisterInfo(Opcode::OP_MOE_COMBINE_FFN_FUSED, OpCoreType::ANY, "MOE_COMBINE_FFN_FUSED",
-        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR,
-            MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
-        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB, MemoryType::MEM_UB,
-            MemoryType::MEM_UB},
-        {"TileOp::Distributed::MoeCombineFFNFusedKernel", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
+    RegisterInfo(Opcode::OP_MOE_FFN_FUSED, OpCoreType::ANY, "MOE_FFN_FUSED",
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR},
+        {MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_UB},
+        {"TileOp::Distributed::MoeFfnFusedKernel", PIPE_S, PIPE_S, CoreType::AIV}, OpCalcType::DISTRIBUTED,
         {OpAttributeKey::requiresBoundaryCopy});
 }
 

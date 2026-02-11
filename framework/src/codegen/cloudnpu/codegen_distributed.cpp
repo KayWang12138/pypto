@@ -52,7 +52,7 @@ std::string CodeGenOpCloudNPU::GetTemplateDType() const
         {Opcode::OP_SHMEM_GET, 1},
         {Opcode::OP_SHMEM_GET_GM2UB, 1},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, 1},
-        {Opcode::OP_MOE_COMBINE_FFN_FUSED, 0},
+        {Opcode::OP_MOE_FFN_FUSED, 0},
         {Opcode::OP_FFN_COMBINEINFO, 2},
         {Opcode::OP_SHMEM_SET, 3},
         {Opcode::OP_DISPATCH_SET_FLAG, 4},
@@ -147,7 +147,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForMoeDistributedCombineReceive(
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenTemplateParamsForMoeCombineFfnFused() const
+std::string CodeGenOpCloudNPU::GenTemplateParamsForMoeFfnFused() const
 {
     DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
     int64_t secondToLastIndex = 2;
@@ -158,7 +158,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParamsForMoeCombineFfnFused() const
     int64_t colShape = originShape[0][originShape[0].size() - 1];
     ASSERT(!distOpAttr.extraTemplateParam.empty());
     std::ostringstream oss;
-    oss << "<" << GetTemplateDType() << ", " << distOpAttr.topK << ", " << rowShape << ", " << colShape << ", "
+    oss << "<" << GetTemplateDType() << ", " << rowShape << ", " << colShape << ", "
         << distOpAttr.paddedColShape << ", " << distOpAttr.extraTemplateParam << ">";
     return oss.str();
 }
@@ -211,7 +211,7 @@ std::string CodeGenOpCloudNPU::GenTemplateParams() const
         {Opcode::OP_SHMEM_SIGNAL, [](const CodeGenOpCloudNPU* self) { return self->GenTemplateParamsForSignal(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, [](const CodeGenOpCloudNPU* self) { return self->GenTemplateParamsForMoeDistributedCombineSend(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, [](const CodeGenOpCloudNPU* self) { return self->GenTemplateParamsForMoeDistributedCombineReceive(); }},
-        {Opcode::OP_MOE_COMBINE_FFN_FUSED, [](const CodeGenOpCloudNPU* self) { return self->GenTemplateParamsForMoeCombineFfnFused(); }},
+        {Opcode::OP_MOE_FFN_FUSED, [](const CodeGenOpCloudNPU* self) { return self->GenTemplateParamsForMoeFfnFused(); }},
         {Opcode::OP_SHMEM_SET, [](const CodeGenOpCloudNPU* self) { return self->GenTemplateParamsForSet(); }}
     };
 
@@ -295,14 +295,9 @@ std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForMoeDistributedCombineRec
     return oss.str();
 }
 
-std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForMoeCombineFfnFused() const
+std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForMoeFfnFused() const
 {
-    std::ostringstream oss;
-    int32_t shmemDataIndex = 9;
-    int32_t shmemDataDim = 4;
-    DistOpAttr distOpAttr = npu::tile_fwk::AnyCast<DistOpAttr>(opAttrs.at(OpAttributeKey::distOpAttr));
-    oss << ", " << GenOffsets(shmemDataIndex, shmemDataDim) << ", " << distOpAttr.rowOffset;
-    return oss.str();
+    return "";
 }
 
 std::string CodeGenOpCloudNPU::GenOffsetsAndRawShapesForSendToRoutingExpert() const
@@ -396,7 +391,7 @@ std::string CodeGenOpCloudNPU::GenExtraParamsStr() const
         {Opcode::OP_SHMEM_SIGNAL, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForShmemSignal(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineSend(); }},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForMoeDistributedCombineReceive(); }},
-        {Opcode::OP_MOE_COMBINE_FFN_FUSED, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForMoeCombineFfnFused(); }},
+        {Opcode::OP_MOE_FFN_FUSED, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForMoeFfnFused(); }},
         {Opcode::OP_SEND_TO_ROUTING_EXPERT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForSendToRoutingExpert(); }},
         {Opcode::OP_SEND_TO_SHARED_EXPERT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForSendToSharedExpert(); }},
         {Opcode::OP_COPY_TO_LOCAL_EXPERT, [](const CodeGenOpCloudNPU* self) { return self->GenOffsetsAndRawShapesForCopyToLocalExpert(); }},
@@ -429,7 +424,6 @@ std::string CodeGenOpCloudNPU::GenDistOp() const
         {Opcode::OP_SHMEM_SET, {0, 2}},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND, {0}},
         {Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE, {4}},
-        {Opcode::OP_MOE_COMBINE_FFN_FUSED, {5}},
     };
     auto it = skipIndexMap.find(opCode);
     if (it != skipIndexMap.end()) {

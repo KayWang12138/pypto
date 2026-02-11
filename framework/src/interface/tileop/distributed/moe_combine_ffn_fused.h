@@ -10,37 +10,16 @@
 
 /*!
  * \file moe_combine_ffn_fused.h
- * \brief MOE combine + FFN fused kernel (AIC/AIV split).
+ * \brief MoE FFN kernel for combined-output input (AIC only, no cross-core protocol).
  */
 
 #ifndef __DISTRIBUTED_COMBINE_FFN_FUSED__
 #define __DISTRIBUTED_COMBINE_FFN_FUSED__
 
 #include "common.h"
-#include "hccl_context.h"
-#include "moe_combine.h"
 #include "../tileop_common.h"
 
 #include <type_traits>
-
-#ifndef __TILE_FWK_HOST__
-#if defined(__has_include)
-#if __has_include("basic_api/kernel_operator_block_sync_intf.h")
-#define PYPTO_USE_ASCENDC_BLOCK_SYNC 1
-#include "basic_api/kernel_operator_block_sync_intf.h"
-#endif
-#endif
-#endif
-
-#if defined(PYPTO_USE_ASCENDC_BLOCK_SYNC)
-#define PYPTO_CROSS_CORE_SET(mode, pipe, flag) AscendC::CrossCoreSetFlag<mode, pipe>(flag)
-#define PYPTO_CROSS_CORE_WAIT(mode, flag) AscendC::CrossCoreWaitFlag<mode>(flag)
-#define PYPTO_SYNC_ALL() AscendC::SyncAll<true>()
-#else
-#define PYPTO_CROSS_CORE_SET(mode, pipe, flag) ((void)(flag))
-#define PYPTO_CROSS_CORE_WAIT(mode, flag) ((void)(flag))
-#define PYPTO_SYNC_ALL() do { } while (0)
-#endif
 
 #ifdef SUPPORT_TILE_TENSOR
 using pto::TileLeft;
@@ -52,24 +31,11 @@ using pto::SLayout;
 
 namespace TileOp::Distributed {
 
-constexpr uint32_t FFN_SILU_FLAG_OFFSET = 100;
-
 // L0 buffer constraints (32KB each for L0A, L0B, L0C)
 constexpr uint32_t L0_BUFFER_SIZE = 32 * 1024;
 constexpr uint32_t CUBE_BLOCK_M = 16;
 constexpr uint32_t CUBE_BLOCK_N = 16;
 constexpr uint32_t CUBE_BLOCK_K = 16;
-
-struct MoeCombineFFNFusedParams {
-    uint32_t batchSize;
-    uint32_t hiddenSize;
-    uint32_t intermediateSize;
-    uint32_t topK;
-    uint32_t expertNum;
-    uint32_t expertPerRank;
-    uint32_t rankNum;
-    uint32_t rankId;
-};
 
 #ifndef __TILE_FWK_HOST__
 #if defined(SUPPORT_TILE_TENSOR) && defined(__AIC__)
@@ -91,6 +57,16 @@ TILEOP void FFNTiledMatMul(
     __ca__ T* l0aBuf = reinterpret_cast<__ca__ T*>(get_imm(0x0000));
     __cb__ T* l0bBuf = reinterpret_cast<__cb__ T*>(get_imm(0x0000));
     __cc__ AccT* l0cBuf = reinterpret_cast<__cc__ AccT*>(get_imm(0x0000));
+
+    // Reinitialize local event state to avoid stale PIPE_M/PIPE_MTE1/PIPE_FIX handshakes across invocations.
+    set_flag(PIPE_MTE1, PIPE_M, EVENT_ID1);
+    wait_flag(PIPE_MTE1, PIPE_M, EVENT_ID1);
+    set_flag(PIPE_M, PIPE_MTE1, EVENT_ID1);
+    wait_flag(PIPE_M, PIPE_MTE1, EVENT_ID1);
+    set_flag(PIPE_M, PIPE_FIX, EVENT_ID2);
+    wait_flag(PIPE_M, PIPE_FIX, EVENT_ID2);
+    set_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
+    wait_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
 
     for (uint32_t mTile = 0; mTile < M; mTile += tileM) {
         uint32_t curM = (mTile + tileM <= M) ? tileM : (M - mTile);
@@ -135,309 +111,12 @@ TILEOP void FFNTiledMatMul(
 #endif // SUPPORT_TILE_TENSOR && __AIC__
 #endif // !__TILE_FWK_HOST__
 
-template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape>
-struct MoeCombineFFNFusedContext {
-    __gm__ T* ffnOutput;
-    __gm__ T* workspace;
-    __ubuf__ float* mulFp32Buffer;
-    __ubuf__ float* sumFp32Buffer;
-    __ubuf__ T* outBuffer;
-    __gm__ float* expertScales;
-    __gm__ T* ffnWeight;
-    __gm__ int32_t* recvCounts;
-    __gm__ T* shmemDataBaseAddr;
-    __gm__ int32_t* shmemSignalBaseAddr;
-    __gm__ int64_t* hcclContext;
-    uint64_t thisRankId;
-    int64_t rowOffset;
-    uint16_t rowShape;
-    uint16_t intermediateSize;
-};
-
 #ifndef __TILE_FWK_HOST__
 
-template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape>
-TILEOP void MoeDistributedCombineComputeFromGMScales(
-    __ubuf__ T* out,
-    __ubuf__ float* mulFp32Buffer,
-    __ubuf__ float* sumFp32Buffer,
-    __gm__ float* expertScales,
-    __gm__ T* winDataAddr,
-    const int32_t* maskVals)
-{
-    uint8_t repeat = static_cast<uint8_t>(
-        AlignUp<uint16_t>(sizeof(float) * paddedColShape, VECTOR_INSTRUCTION_BYTE_SIZE) /
-        VECTOR_INSTRUCTION_BYTE_SIZE);
-
-    vector_dup(sumFp32Buffer, 0.0f, repeat, 1, 1, 8, 8);
-
-    for (int kOffset = 0; kOffset < topK; kOffset++) {
-        if (maskVals != nullptr && maskVals[kOffset] == 0) {
-            winDataAddr += colShape;
-            continue;
-        }
-        set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
-        TileOp::UBCopyIn<T, 1, colShape, paddedColShape, colShape>(out, winDataAddr);
-        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-        vconv_bf162f32(mulFp32Buffer, out, repeat, 1, 1, 8, 4);
-        pipe_barrier(PIPE_V);
-        vmuls(mulFp32Buffer, mulFp32Buffer, expertScales[kOffset], repeat, 1, 1, 8, 8);
-        pipe_barrier(PIPE_V);
-        vadd(sumFp32Buffer, mulFp32Buffer, sumFp32Buffer, repeat, 1, 1, 1, 8, 8, 8);
-        winDataAddr += colShape;
-    }
-
-    pipe_barrier(PIPE_V);
-    vconv_f322bf16a(out, sumFp32Buffer, repeat, 1, 1, 4, 8);
-}
-
-template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
-TILEOP void MoeCombineFFNFusedAIV(
-    MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape>& ctx,
-    uint32_t expertIdx)
-{
-    constexpr uint32_t expertScalesColShape = AlignUp<uint32_t>(sizeof(float) * topK, COPY_BLOCK_BYTE_SIZE) /
-        sizeof(float);
-
-    (void)expertIdx;
-    __ubuf__ int32_t* signalBuffer = reinterpret_cast<__ubuf__ int32_t*>(ctx.outBuffer);
-    uint64_t workspaceStride = static_cast<uint64_t>(colShape) + 3ULL * intermediateSize;
-    __gm__ T* workspaceBase = ctx.workspace + static_cast<uint64_t>(ctx.rowOffset) * workspaceStride;
-
-    for (uint64_t tokenId = ctx.rowOffset; tokenId < ctx.rowOffset + ctx.rowShape; tokenId++) {
-        uint64_t localTokenId = tokenId - ctx.rowOffset;
-        __gm__ int32_t* winSignalAddr = MapVirtualAddr<int32_t>(ctx.hcclContext, ctx.shmemSignalBaseAddr, ctx.thisRankId) +
-            MOE_COMBINE_SIGNAL_OFFSET * tokenId;
-        int32_t expectedValue = ctx.recvCounts[tokenId];
-        int32_t maskVals[topK];
-        for (uint32_t idx = 0; idx < topK; ++idx) {
-            maskVals[idx] = 0;
-        }
-
-        if (expectedValue > 0) {
-            MoeDistributedCombineWaitSignal(winSignalAddr, signalBuffer, expectedValue);
-            set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
-            copy_gm_to_ubuf(signalBuffer, winSignalAddr, 0, 1, 2, 0, 0);
-            set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-            wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-            for (uint32_t idx = 0; idx < topK; ++idx) {
-                maskVals[idx] = signalBuffer[1 + idx];
-            }
-        }
-
-        __gm__ T* winDataAddr = MapVirtualAddr<T>(ctx.hcclContext, ctx.shmemDataBaseAddr, ctx.thisRankId) +
-            colShape * topK * tokenId;
-        MoeDistributedCombineComputeFromGMScales<T, topK, colShape, paddedColShape>(ctx.outBuffer,
-            ctx.mulFp32Buffer, ctx.sumFp32Buffer, ctx.expertScales + expertScalesColShape * tokenId,
-            winDataAddr, maskVals);
-
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        TileOp::UBCopyOut<T, 1, colShape, colShape, paddedColShape>(workspaceBase + colShape * localTokenId,
-            ctx.outBuffer);
-    }
-}
-
-// AIC FFN matmul stage for one expert batch.
-template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
-TILEOP void MoeCombineFFNFusedAIC(
-    MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape>& ctx,
-    uint32_t expertIdx,
-    uint32_t tokenStart,
-    uint32_t tokenCount)
-{
-    if (tokenCount == 0) {
-        return;
-    }
-
-    const uint32_t M = tokenCount;
-    const uint32_t K = colShape;
-    const uint32_t N = intermediateSize;
-
-    uint64_t workspaceStride = static_cast<uint64_t>(colShape) + 3ULL * intermediateSize;
-    __gm__ T* workspaceBase = ctx.workspace + static_cast<uint64_t>(ctx.rowOffset) * workspaceStride;
-    uint64_t combineSize = static_cast<uint64_t>(ctx.rowShape) * colShape;
-    uint64_t localTokenStart = static_cast<uint64_t>(tokenStart) - static_cast<uint64_t>(ctx.rowOffset);
-    __gm__ T* inputPtr = workspaceBase + localTokenStart * colShape;
-    uint64_t gateOffset = 0;
-    uint64_t upOffset = static_cast<uint64_t>(colShape) * intermediateSize;
-    uint64_t downOffset = 2ULL * static_cast<uint64_t>(colShape) * intermediateSize;
-    __gm__ T* gateWeightPtr = ctx.ffnWeight + gateOffset;
-    __gm__ T* upWeightPtr = ctx.ffnWeight + upOffset;
-    __gm__ T* downWeightPtr = ctx.ffnWeight + downOffset;
-    __gm__ T* outputPtr = ctx.ffnOutput + static_cast<uint64_t>(tokenStart) * colShape;
-
-    __gm__ T* gateResultPtr = workspaceBase + combineSize;
-    __gm__ T* upResultPtr = gateResultPtr + M * N;
-    __gm__ T* intermediatePtr = upResultPtr + M * N;
-
-    (void)gateResultPtr;
-    (void)upResultPtr;
-    (void)intermediatePtr;
-
-    // Stage 1: gate/up matmul.
-#ifdef SUPPORT_TILE_TENSOR
-#ifdef __DAV_C220_CUBE__
-    // Tile sizes chosen to fit L0 buffers.
-    constexpr uint16_t tileM = 16;
-    constexpr uint16_t tileK = 64;
-    constexpr uint16_t tileN = 64;
-
-    // Determine accumulator type based on input type.
-    using AccType = std::conditional_t<
-        std::is_same_v<T, bfloat16_t> || std::is_same_v<T, half>,
-        float,
-        T>;
-
-    // Gate projection.
-    FFNTiledMatMul<T, AccType, tileM, tileK, tileN>(
-        gateResultPtr,      // output [M, N]
-        inputPtr,           // input  [M, K]
-        gateWeightPtr,      // weight [K, N]
-        M, K, N,
-        K,                  // inputStride = K (row-major input)
-        N,                  // weightStride = N (row-major weight)
-        N);                 // outputStride = N (row-major output)
-
-    // Up projection.
-    FFNTiledMatMul<T, AccType, tileM, tileK, tileN>(
-        upResultPtr,        // output [M, N]
-        inputPtr,           // input  [M, K]
-        upWeightPtr,        // weight [K, N]
-        M, K, N,
-        K,                  // inputStride
-        N,                  // weightStride
-        N);                 // outputStride
-#endif
-#endif
-
-    // Stage 2: signal AIV for SiLU.
-#ifdef __DAV_C220_CUBE__
-    PYPTO_SYNC_ALL();
-    PYPTO_CROSS_CORE_SET(0x2, PIPE_MTE3, FFN_SILU_FLAG_OFFSET + expertIdx);
-#endif
-
-    // Stage 3: wait SiLU, then down projection.
-#ifdef __DAV_C220_CUBE__
-    PYPTO_CROSS_CORE_WAIT(0x2, FFN_SILU_FLAG_OFFSET + expertIdx + 1);
-#endif
-
-#ifdef SUPPORT_TILE_TENSOR
-#ifdef __DAV_C220_CUBE__
-    // Down projection.
-    FFNTiledMatMul<T, AccType, tileM, tileN, tileK>(
-        outputPtr,          // output [M, K]
-        intermediatePtr,    // input  [M, N]
-        downWeightPtr,      // weight [N, K]
-        M, N, K,
-        N,                  // inputStride = N
-        K,                  // weightStride = K
-        K);                 // outputStride = K
-#endif
-#endif
-}
-
-template <typename T>
-TILEOP void MoeCombineFFNSiLUFusionDispatch(
-    __gm__ T* intermediate,
-    __gm__ T* gateResult,
-    __gm__ T* upResult,
-    __ubuf__ float* ubBuffer,
-    uint64_t elementCount);
-
-// Single-core FFN stage: gate/up -> SiLU -> down.
-template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
-TILEOP void MoeCombineFFNFusedAICSingleCore(
-    MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape>& ctx,
-    uint32_t tokenStart,
-    uint32_t tokenCount)
-{
-#ifdef __DAV_C220_CUBE__
-    if (tokenCount == 0) {
-        return;
-    }
-
-    const uint32_t M = tokenCount;
-    const uint32_t K = colShape;
-    const uint32_t N = intermediateSize;
-
-    uint64_t workspaceStride = static_cast<uint64_t>(colShape) + 3ULL * intermediateSize;
-    __gm__ T* workspaceBase = ctx.workspace + static_cast<uint64_t>(ctx.rowOffset) * workspaceStride;
-    uint64_t combineSize = static_cast<uint64_t>(ctx.rowShape) * colShape;
-    uint64_t localTokenStart = static_cast<uint64_t>(tokenStart) - static_cast<uint64_t>(ctx.rowOffset);
-    __gm__ T* inputPtr = workspaceBase + localTokenStart * colShape;
-    uint64_t gateOffset = 0;
-    uint64_t upOffset = static_cast<uint64_t>(colShape) * intermediateSize;
-    uint64_t downOffset = 2ULL * static_cast<uint64_t>(colShape) * intermediateSize;
-    __gm__ T* gateWeightPtr = ctx.ffnWeight + gateOffset;
-    __gm__ T* upWeightPtr = ctx.ffnWeight + upOffset;
-    __gm__ T* downWeightPtr = ctx.ffnWeight + downOffset;
-    __gm__ T* outputPtr = ctx.ffnOutput + static_cast<uint64_t>(tokenStart) * colShape;
-
-    __gm__ T* gateResultPtr = workspaceBase + combineSize;
-    __gm__ T* upResultPtr = gateResultPtr + M * N;
-    __gm__ T* intermediatePtr = upResultPtr + M * N;
-
-    // Stage 1: gate/up matmul.
-#ifdef SUPPORT_TILE_TENSOR
-    // Tile sizes chosen to fit L0 buffers.
-    constexpr uint16_t tileM = 16;
-    constexpr uint16_t tileK = 64;
-    constexpr uint16_t tileN = 64;
-
-    // Determine accumulator type based on input type.
-    using AccType = std::conditional_t<
-        std::is_same_v<T, bfloat16_t> || std::is_same_v<T, half>,
-        float,
-        T>;
-
-    FFNTiledMatMul<T, AccType, tileM, tileK, tileN>(
-        gateResultPtr,      // output [M, N]
-        inputPtr,           // input  [M, K]
-        gateWeightPtr,      // weight [K, N]
-        M, K, N,
-        K,                  // inputStride = K (row-major input)
-        N,                  // weightStride = N (row-major weight)
-        N);                 // outputStride = N (row-major output)
-
-    FFNTiledMatMul<T, AccType, tileM, tileK, tileN>(
-        upResultPtr,        // output [M, N]
-        inputPtr,           // input  [M, K]
-        upWeightPtr,        // weight [K, N]
-        M, K, N,
-        K,                  // inputStride
-        N,                  // weightStride
-        N);                 // outputStride
-#endif
-
-    // Stage 2: SiLU fusion on vector pipeline.
-    MoeCombineFFNSiLUFusionDispatch<T>(
-        intermediatePtr, gateResultPtr, upResultPtr, ctx.mulFp32Buffer, M * N);
-
-    // Stage 3: down projection.
-#ifdef SUPPORT_TILE_TENSOR
-    FFNTiledMatMul<T, AccType, tileM, tileN, tileK>(
-        outputPtr,          // output [M, K]
-        intermediatePtr,    // input  [M, N]
-        downWeightPtr,      // weight [N, K]
-        M, N, K,
-        N,                  // inputStride = N
-        K,                  // weightStride = K
-        K);                 // outputStride = K
-#endif
-#else
-    (void)ctx;
-    (void)tokenStart;
-    (void)tokenCount;
-#endif
-}
-
-// AIV SiLU fusion: intermediate = SiLU(gate) * up.
+// SiLU fusion: intermediate = SiLU(gate) * up.
+#if defined(__DAV_C220_VEC__)
 template <typename T, uint16_t tileSize>
-TILEOP void MoeCombineFFNSiLUFusionTiles(
+TILEOP void MoeFfnSiLUFusionTiles(
     __gm__ T* intermediate,
     __gm__ T* gateResult,
     __gm__ T* upResult,
@@ -493,7 +172,7 @@ TILEOP void MoeCombineFFNSiLUFusionTiles(
 }
 
 template <typename T>
-TILEOP void MoeCombineFFNSiLUFusionDispatch(
+TILEOP void MoeFfnSiLUFusionDispatch(
     __gm__ T* intermediate,
     __gm__ T* gateResult,
     __gm__ T* upResult,
@@ -505,28 +184,28 @@ TILEOP void MoeCombineFFNSiLUFusionDispatch(
 
     if (remaining >= 1024) {
         uint64_t block = (remaining / 1024) * 1024;
-        MoeCombineFFNSiLUFusionTiles<T, 1024>(intermediate + offset, gateResult + offset, upResult + offset,
+        MoeFfnSiLUFusionTiles<T, 1024>(intermediate + offset, gateResult + offset, upResult + offset,
             ubBuffer, block);
         offset += block;
         remaining -= block;
     }
     if (remaining >= 256) {
         uint64_t block = (remaining / 256) * 256;
-        MoeCombineFFNSiLUFusionTiles<T, 256>(intermediate + offset, gateResult + offset, upResult + offset,
+        MoeFfnSiLUFusionTiles<T, 256>(intermediate + offset, gateResult + offset, upResult + offset,
             ubBuffer, block);
         offset += block;
         remaining -= block;
     }
     if (remaining >= 64) {
         uint64_t block = (remaining / 64) * 64;
-        MoeCombineFFNSiLUFusionTiles<T, 64>(intermediate + offset, gateResult + offset, upResult + offset,
+        MoeFfnSiLUFusionTiles<T, 64>(intermediate + offset, gateResult + offset, upResult + offset,
             ubBuffer, block);
         offset += block;
         remaining -= block;
     }
     if (remaining >= 16) {
         uint64_t block = (remaining / 16) * 16;
-        MoeCombineFFNSiLUFusionTiles<T, 16>(intermediate + offset, gateResult + offset, upResult + offset,
+        MoeFfnSiLUFusionTiles<T, 16>(intermediate + offset, gateResult + offset, upResult + offset,
             ubBuffer, block);
         offset += block;
         remaining -= block;
@@ -535,109 +214,173 @@ TILEOP void MoeCombineFFNSiLUFusionDispatch(
         return;
     }
 }
-
-template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
-TILEOP void MoeCombineFFNFusedRunAIV(
-    MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape>& ctx,
-    __gm__ T* workspace,
-    __ubuf__ float* mulFp32Buffer)
+#else
+template <typename T>
+INLINE float MoeFfnToFp32(T val)
 {
-#if defined(__DAV_C220_VEC__)
-    uint32_t expertIdx = 0;
-    const uint64_t M = ctx.rowShape;
-    const uint64_t N = intermediateSize;
+    if constexpr (std::is_same_v<T, bfloat16_t>) {
+        return Bf16ToFp32(val);
+    } else {
+        return static_cast<float>(val);
+    }
+}
 
-    MoeCombineFFNFusedAIV<T, topK, colShape, paddedColShape, intermediateSize>(ctx, expertIdx);
-    PYPTO_SYNC_ALL();
-    PYPTO_CROSS_CORE_SET(0x2, PIPE_MTE3, expertIdx + 1);
+template <typename T>
+INLINE T MoeFfnFromFp32(float val)
+{
+    if constexpr (std::is_same_v<T, bfloat16_t>) {
+        return Fp32ToBf16R(val);
+    } else {
+        return static_cast<T>(val);
+    }
+}
 
-    PYPTO_CROSS_CORE_WAIT(0x2, FFN_SILU_FLAG_OFFSET + expertIdx);
+template <typename T>
+TILEOP void MoeFfnSiLUFusionDispatch(
+    __gm__ T* intermediate,
+    __gm__ T* gateResult,
+    __gm__ T* upResult,
+    __ubuf__ float* ubBuffer,
+    uint64_t elementCount)
+{
+    (void)ubBuffer;
+    for (uint64_t i = 0; i < elementCount; ++i) {
+        float gateVal = MoeFfnToFp32(gateResult[i]);
+        float upVal = MoeFfnToFp32(upResult[i]);
+        float absGate = gateVal >= 0.0f ? gateVal : -gateVal;
+        float sigmoid = 0.5f * (gateVal / (1.0f + absGate) + 1.0f);
+        intermediate[i] = MoeFfnFromFp32<T>(gateVal * sigmoid * upVal);
+    }
+}
+#endif
 
-    uint64_t workspaceStride = static_cast<uint64_t>(colShape) + 3ULL * intermediateSize;
-    __gm__ T* workspaceBase = workspace + static_cast<uint64_t>(ctx.rowOffset) * workspaceStride;
-    uint64_t combineSize = static_cast<uint64_t>(ctx.rowShape) * colShape;
-    __gm__ T* gateResultPtr = workspaceBase + combineSize;
-    __gm__ T* upResultPtr = gateResultPtr + M * N;
-    __gm__ T* intermediatePtr = upResultPtr + M * N;
+template <typename T, uint16_t colShape, uint16_t intermediateSize>
+struct MoeFfnFusedContext {
+    __gm__ T* ffnOutput;
+    __gm__ T* workspace;
+    __ubuf__ float* ubBuffer;
+    __gm__ T* combineInput;
+    __gm__ T* ffnWeight;
+};
 
-    MoeCombineFFNSiLUFusionDispatch<T>(
-        intermediatePtr, gateResultPtr, upResultPtr, mulFp32Buffer, M * N);
+// Single-core FFN stage: gate/up -> SiLU -> down.
+template <typename T, uint16_t colShape, uint16_t intermediateSize>
+TILEOP void MoeFfnFusedAICSingleCore(
+    MoeFfnFusedContext<T, colShape, intermediateSize>& ctx,
+    uint32_t tokenCount)
+{
+#ifdef __DAV_C220_CUBE__
+    if (tokenCount == 0) {
+        return;
+    }
 
-    PYPTO_SYNC_ALL();
-    PYPTO_CROSS_CORE_SET(0x2, PIPE_MTE3, FFN_SILU_FLAG_OFFSET + expertIdx + 1);
+    const uint32_t M = tokenCount;
+    const uint32_t K = colShape;
+    const uint32_t N = intermediateSize;
+    const uint32_t alignedM = AlignUp<uint32_t>(M, CUBE_BLOCK_M);
+
+    __gm__ T* inputPtr = ctx.combineInput;
+    uint64_t gateOffset = 0;
+    uint64_t upOffset = static_cast<uint64_t>(colShape) * intermediateSize;
+    uint64_t downOffset = 2ULL * static_cast<uint64_t>(colShape) * intermediateSize;
+    __gm__ T* gateWeightPtr = ctx.ffnWeight + gateOffset;
+    __gm__ T* upWeightPtr = ctx.ffnWeight + upOffset;
+    __gm__ T* downWeightPtr = ctx.ffnWeight + downOffset;
+    __gm__ T* outputPtr = ctx.ffnOutput;
+
+    __gm__ T* paddedInputPtr = ctx.workspace;
+    __gm__ T* gateResultPtr = paddedInputPtr + static_cast<uint64_t>(alignedM) * K;
+    __gm__ T* upResultPtr = gateResultPtr + static_cast<uint64_t>(alignedM) * N;
+    __gm__ T* intermediatePtr = upResultPtr + static_cast<uint64_t>(alignedM) * N;
+
+#ifdef SUPPORT_TILE_TENSOR
+    constexpr uint16_t tileM = 16;
+    constexpr uint16_t tileK = 64;
+    constexpr uint16_t tileN = 64;
+
+    using AccType = std::conditional_t<
+        std::is_same_v<T, bfloat16_t> || std::is_same_v<T, half>,
+        float,
+        T>;
+
+    for (uint32_t m = 0; m < alignedM; ++m) {
+        uint64_t srcBase = static_cast<uint64_t>(m) * K;
+        for (uint32_t k = 0; k < K; ++k) {
+            paddedInputPtr[srcBase + k] = (m < M) ? inputPtr[srcBase + k] : MoeFfnFromFp32<T>(0.0f);
+        }
+    }
+
+    FFNTiledMatMul<T, AccType, tileM, tileK, tileN>(
+        gateResultPtr,
+        paddedInputPtr,
+        gateWeightPtr,
+        alignedM,
+        K,
+        N,
+        K,
+        N,
+        N);
+
+    FFNTiledMatMul<T, AccType, tileM, tileK, tileN>(
+        upResultPtr,
+        paddedInputPtr,
+        upWeightPtr,
+        alignedM,
+        K,
+        N,
+        K,
+        N,
+        N);
+#endif
+
+    // Ensure gate/up GM writes from MTE3 are visible before scalar SiLU reads.
+    pipe_barrier(PIPE_MTE3);
+    pipe_barrier(PIPE_ALL);
+
+    MoeFfnSiLUFusionDispatch<T>(
+        intermediatePtr, gateResultPtr, upResultPtr, ctx.ubBuffer, static_cast<uint64_t>(M) * N);
+
+    // Ensure scalar GM writes of intermediate are visible before down matmul MTE2 loads.
+    pipe_barrier(PIPE_ALL);
+
+#ifdef SUPPORT_TILE_TENSOR
+    FFNTiledMatMul<T, AccType, tileM, tileN, tileK>(
+        outputPtr,
+        intermediatePtr,
+        downWeightPtr,
+        M,
+        N,
+        K,
+        N,
+        K,
+        K);
+#endif
 #else
     (void)ctx;
-    (void)workspace;
-    (void)mulFp32Buffer;
+    (void)tokenCount;
 #endif
 }
 
-template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
-TILEOP void MoeCombineFFNFusedRunAIC(
-    MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape>& ctx,
-    int64_t rowOffset)
-{
-#if defined(__DAV_C220_CUBE__)
-    uint32_t expertIdx = 0;
-    PYPTO_CROSS_CORE_WAIT(0x2, expertIdx + 1);
-    MoeCombineFFNFusedAIC<T, topK, colShape, paddedColShape, intermediateSize>(
-        ctx, expertIdx, static_cast<uint32_t>(rowOffset), ctx.rowShape);
-#else
-    (void)ctx;
-    (void)rowOffset;
-#endif
-}
-
-template <typename T, uint32_t topK, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
-TILEOP void MoeCombineFFNFusedKernel(
+template <typename T, uint16_t rowShape, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
+TILEOP void MoeFfnFusedKernel(
     __gm__ T* ffnOutput,
     __gm__ T* workspace,
-    __ubuf__ float* mulFp32Buffer,
-    __ubuf__ float* sumFp32Buffer,
-    __ubuf__ T* outBuffer,
-    __gm__ float* expertScales,
+    __ubuf__ float* ubBuffer,
+    __gm__ T* combineInput,
     __gm__ T* ffnWeight,
-    __gm__ int32_t* recvCounts,
-    __gm__ T* shmemDataBaseAddr,
-    __gm__ int32_t* shmemSignalBaseAddr,
-    uint64_t shmemDataOffset0,
-    uint64_t shmemDataOffset1,
-    uint64_t shmemDataOffset2,
-    uint64_t shmemDataOffset3,
-    int64_t rowOffset,
     __gm__ int64_t* hcclContext)
 {
-    (void)shmemDataOffset1;
-    (void)shmemDataOffset2;
-    (void)shmemDataOffset3;
-    MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape> ctx;
+    (void)paddedColShape;
+    (void)hcclContext;
+
+    MoeFfnFusedContext<T, colShape, intermediateSize> ctx;
     ctx.ffnOutput = ffnOutput;
     ctx.workspace = workspace;
-    ctx.mulFp32Buffer = mulFp32Buffer;
-    ctx.sumFp32Buffer = sumFp32Buffer;
-    ctx.outBuffer = outBuffer;
-    ctx.expertScales = expertScales;
+    ctx.ubBuffer = ubBuffer;
+    ctx.combineInput = combineInput;
     ctx.ffnWeight = ffnWeight;
-    ctx.recvCounts = recvCounts;
-    ctx.shmemDataBaseAddr = shmemDataBaseAddr;
-    ctx.shmemSignalBaseAddr = shmemSignalBaseAddr;
-    ctx.hcclContext = hcclContext;
-    ctx.thisRankId = shmemDataOffset0;
-    ctx.rowOffset = rowOffset;
-    ctx.rowShape = rowShape;
-    ctx.intermediateSize = intermediateSize;
 
-#if defined(__DAV_C220_VEC__)
-    MoeCombineFFNFusedRunAIV<T, topK, colShape, paddedColShape, intermediateSize>(
-        ctx, workspace, mulFp32Buffer);
-#elif defined(__DAV_C220_CUBE__)
-    MoeCombineFFNFusedRunAIC<T, topK, colShape, paddedColShape, intermediateSize>(
-        ctx, rowOffset);
-#else
-    (void)workspace;
-    (void)mulFp32Buffer;
-    (void)rowOffset;
-#endif
+    MoeFfnFusedAICSingleCore<T, colShape, intermediateSize>(ctx, rowShape);
 }
 
 #endif // !__TILE_FWK_HOST__

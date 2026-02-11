@@ -250,7 +250,7 @@ enum class Opcode {
     OP_BIND_TENSOR,
     OP_MOE_DISTRIBUTED_COMBINE_SEND,
     OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
-    OP_MOE_COMBINE_FFN_FUSED,
+    OP_MOE_FFN_FUSED,
     // Begin: add for TOPK and ArgSort
     OP_TOPK,
     OP_TILEDMRGSORT,
@@ -438,7 +438,7 @@ public:
                opCode == Opcode::OP_SHMEM_PUT_UB2GM  ||
                opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
                opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE ||
-               opCode == Opcode::OP_MOE_COMBINE_FFN_FUSED;
+               opCode == Opcode::OP_MOE_FFN_FUSED;
     }
 
     inline bool IsCopyInOrOut(Opcode opCode) const { return IsCopyIn(opCode) || IsCopyOut(opCode); }
@@ -452,7 +452,7 @@ public:
             opCode == Opcode::OP_SHMEM_PUT_UB2GM || opCode == Opcode::OP_SHMEM_GET_GM2UB ||
             opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
             opCode == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE ||
-            opCode == Opcode::OP_MOE_COMBINE_FFN_FUSED ||
+            opCode == Opcode::OP_MOE_FFN_FUSED ||
             opCode == Opcode::OP_FFN_BATCHING || opCode == Opcode::OP_SEND_TO_ROUTING_EXPERT ||
             opCode == Opcode::OP_COPY_TO_LOCAL_EXPERT || opCode == Opcode::OP_DISPATCH_SET_FLAG ||
             opCode == Opcode::OP_FFN_SCHED || opCode == Opcode::OP_FFN_COMBINEINFO ||
@@ -629,7 +629,7 @@ const std::unordered_set<Opcode> DISTRIBUTED_OPS{Opcode::OP_SEND_TO_ROUTING_EXPE
     Opcode::OP_BIND_TENSOR, Opcode::OP_SHMEM_PUT_UB2GM, Opcode::OP_SHMEM_GET_GM2UB, Opcode::OP_SHMEM_SET,
     Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND,
     Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE,
-    Opcode::OP_MOE_COMBINE_FFN_FUSED};
+    Opcode::OP_MOE_FFN_FUSED};
 
 const std::unordered_set<Opcode> LASTUSE_OPS{Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL, Opcode::OP_DIV, Opcode::OP_ADDS, Opcode::OP_SUBS, Opcode::OP_MULS,
                                              Opcode::OP_MAXS, Opcode::OP_MINS, Opcode::OP_EXP, Opcode::OP_SORT, Opcode::OP_SQRT, Opcode::OP_RSQRT, Opcode::OP_RECIPROCAL,
@@ -654,7 +654,7 @@ inline bool IsCopyOut(const Opcode &op) {
             op == Opcode::OP_SHMEM_PUT || op == Opcode::OP_SHMEM_SIGNAL || op == Opcode::OP_SHMEM_GET ||
             op == Opcode::OP_SHMEM_REDUCE || op == Opcode::OP_RESHAPE_COPY_OUT || op == Opcode::OP_SHMEM_PUT_UB2GM ||
             op == Opcode::OP_SHMEM_SET || op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_SEND ||
-            op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE || op == Opcode::OP_MOE_COMBINE_FFN_FUSED);
+            op == Opcode::OP_MOE_DISTRIBUTED_COMBINE_RECEIVE || op == Opcode::OP_MOE_FFN_FUSED);
 }
 
 inline bool IsOpCodeSupportMultiProducers(Opcode opCode) {
