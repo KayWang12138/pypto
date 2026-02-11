@@ -111,29 +111,31 @@ std::size_t ComputeWeaklyConnectedComponents(const GraphT &graph, std::vector<Ve
     VertexType componentId = 0;
 
     for (const auto &v : graph.Vertices()) {
-        if (components[v] == std::numeric_limits<VertexType>::max()) {
-            std::vector<VertexType> q;
-            q.push_back(v);
-            components[v] = componentId;
-            size_t head = 0;
+        if (components[v] != std::numeric_limits<VertexType>::max()) {
+            continue;
+        }
 
-            while (head < q.size()) {
-                VertexType u = q[head++];
-                for (const auto &neighbor : graph.Parents(u)) {
-                    if (components[neighbor] == std::numeric_limits<VertexType>::max()) {
-                        components[neighbor] = componentId;
-                        q.push_back(neighbor);
-                    }
-                }
-                for (const auto &neighbor : graph.Children(u)) {
-                    if (components[neighbor] == std::numeric_limits<VertexType>::max()) {
-                        components[neighbor] = componentId;
-                        q.push_back(neighbor);
-                    }
+        std::vector<VertexType> q;
+        q.push_back(v);
+        components[v] = componentId;
+        size_t head = 0;
+
+        while (head < q.size()) {
+            VertexType u = q[head++];
+            for (const auto &neighbor : graph.Parents(u)) {
+                if (components[neighbor] == std::numeric_limits<VertexType>::max()) {
+                    components[neighbor] = componentId;
+                    q.push_back(neighbor);
                 }
             }
-            componentId++;
+            for (const auto &neighbor : graph.Children(u)) {
+                if (components[neighbor] == std::numeric_limits<VertexType>::max()) {
+                    components[neighbor] = componentId;
+                    q.push_back(neighbor);
+                }
+            }
         }
+        componentId++;
     }
     return componentId;
 }
