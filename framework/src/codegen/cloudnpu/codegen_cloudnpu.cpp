@@ -16,6 +16,7 @@
 #include "codegen_op_cloudnpu.h"
 
 #include <cstring>
+#include <error.h>
 
 #include "interface/utils/log.h"
 #include "codegen/utils/parallel_execute.h"
@@ -177,7 +178,7 @@ void CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ost
 
 std::string CodeGenCloudNPU::GenAllocForLocalBuffer(
     const Operation &op, const std::shared_ptr<SymbolManager> &symbolMgr) const {
-    std::string allocSourceCode{};
+    std::string allocSourceCode;
     auto genExtraAllocForTensor = [this, &symbolMgr](const std::shared_ptr<LogicalTensor> &operand) -> std::string {
         if (HasAllocAttr(operand)) {
             CODEGEN_LOGI("operand has an alloc attr, need to gen extra alloc\n%s", operand->Dump().c_str());
@@ -191,12 +192,12 @@ std::string CodeGenCloudNPU::GenAllocForLocalBuffer(
     for (const std::shared_ptr<LogicalTensor> &operand : op.GetIOperands()) {
         symbolMgr->AddToTensorMap(operand->GetMagic(), operand);
         PrintOperand("IOperand", operand);
-        allocSourceCode += genExtraAllocForTensor(operand);
+        allocSourceCode.append(genExtraAllocForTensor(operand));
     }
     for (const std::shared_ptr<LogicalTensor> &operand : op.GetOOperands()) {
         symbolMgr->AddToTensorMap(operand->GetMagic(), operand);
         PrintOperand("OOperand", operand);
-        allocSourceCode += genExtraAllocForTensor(operand);
+        allocSourceCode.append(genExtraAllocForTensor(operand));
     }
 
     return allocSourceCode;
@@ -224,20 +225,20 @@ std::string CodeGenCloudNPU::GenDynParamForExpr(const Function &func) const {
                 dynParamExpr.append(SymbolicExpressionTable::BuildExpression(info.dim)).append("; //");
             }
             if (info.type == DynParamInfoType::VALID_SHAPE) {
-                dynParamExpr += GET_PARAM_VALID_SHAPE_BY_IDX;
+                dynParamExpr.append(GET_PARAM_VALID_SHAPE_BY_IDX);
             } else if (info.type == DynParamInfoType::OFFSET) {
-                dynParamExpr += GET_PARAM_OFFSET_BY_IDX;
+                dynParamExpr.append(GET_PARAM_OFFSET_BY_IDX);
             }
             std::string params = BuildDynParamInfo(info);
             dynParamExpr.append(params).append(STMT_END);
-            dynParamList += dynParamExpr;
+            dynParamList.append(dynParamExpr);
         }
     }
     for (const auto &dynParam : func.GetDynParamTable()) {
         if (!dynParam.second.replacedSymbol.empty()) {
             std::string dynParamExpr = "uint64_t " + dynParam.first + " = ";
             dynParamExpr.append(dynParam.second.replacedSymbol).append(STMT_END);
-            dynParamList += dynParamExpr;
+            dynParamList.append(dynParamExpr);
         }
     }
     return dynParamList;
@@ -268,7 +269,7 @@ void CodeGenCloudNPU::GenCode(
             GenFuncEnd(leafKernelFunc);
 #ifdef BUILD_WITH_CANN
             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
-                DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc.str());
+                DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc);
                 DoCompileCCE(compileInfo, "");
             }
 #endif
@@ -313,16 +314,29 @@ bool CodeGenCloudNPU::IsNeedDumpCCE(const std::string &inputFile) const {
     return true;
 }
 
-void CodeGenCloudNPU::DumpCCE(const std::string &fileName, const std::string &code) const {
+void CodeGenCloudNPU::DumpCCE(const std::string &fileName, std::ostringstream &oss) const {
     if (!IsNeedDumpCCE(fileName)) {
         return;
     }
 
-    std::ofstream file;
-    file.open(fileName);
-    file << code;
-    bool ret = !file.fail();
-    ASSERT(ret) << "Dump cce code failed!!";
+    std::ofstream cceFile;
+    try {
+        // 开启异常：failbit/badbit 触发 std::ofstream::failure 异常
+        cceFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+        cceFile.open(fileName);
+        cceFile << oss.str();
+        cceFile.flush();
+        cceFile.close();
+    } catch (const std::ofstream::failure &e) {
+        // 捕获所有文件操作错误，打印具体原因
+        ALOG_ERROR_F("CCE file operation failed: %s, error: %s, errno: %d", fileName.c_str(), e.what(), errno);
+        // 容错处理：如删除空文件、返回错误码
+        if (cceFile.is_open()) {
+            cceFile.close();
+        }
+        std::remove(fileName.c_str()); // 删除写入失败的残缺文件
+        return;
+    }
 }
 
 std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
