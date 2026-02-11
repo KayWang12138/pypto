@@ -1,6 +1,6 @@
 # Compiler Monitor
 
-编译器监控与超时退出功能，用于监控 PyPTO 编译过程中的各阶段耗时，并在超时时进行告警或中断。
+PyPTO算子编译过程耗时监控与超时检测功能，用于监控 PyPTO 编译过程中的各阶段耗时，并在超时时进行告警或中断。
 
 ---
 
@@ -13,16 +13,14 @@ Compiler Monitor 提供编译过程的实时进度监控和超时检测功能。
 - **自动启用** - 导入 `pypto` 时自动启用，无需额外配置
 - **实时进度监控** - 定期打印当前编译阶段的执行进度
 - **超时检测** - 支持自定义超时阈值，超时后可选择抛出异常或警告
-- **分层实现** - C++ 层提供基础监控，Python 层提供强制超时中断（`signal.alarm`）
 - **线程安全** - 监控在独立线程中运行，不影响主编译流程
 - **资源自动管理** - 通过 RAII 模式自动管理监控资源
-- **多粒度监控** - 支持粗粒度（COARSE）、细粒度（FINE）和自定义（CUSTOM）监控模式
 
 ---
 
 ## 架构设计
 
-编译监控特性采用分层架构：
+编译监控特性采用分层架构。**进度打印与超时检测均由 C++ 层 MonitorImpl 的 MonitorLoop 统一实现**；Python 层仅提供配置接口。
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -31,22 +29,11 @@ Compiler Monitor 提供编译过程的实时进度监控和超时检测功能。
 └─────────────────────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                   Python Timeout Guard                           │
-│                  (signal.alarm 强制中断)                         │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  compiler_monitor.py / TimeoutGuard                     │   │
-│  │  - 使用 signal.alarm() 设置系统定时器                    │   │
-│  │  - 超时时 SIGALRM 信号处理器抛出 TimeoutError             │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                        ↓
-┌─────────────────────────────────────────────────────────────────┐
 │                     Python Compiler Monitor                      │
-│                  (后台进度打印线程)                               │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  compiler_monitor.py / CompilerMonitor                   │   │
-│  │  - 独立的后台监控线程                                    │   │
-│  │  - 定期打印编译进度（不负责超时控制）                    │   │
+│  │  compiler_monitor.py                                     │   │
+│  │  - 配置接口（set_compiler_monitor_options 等）           │   │
+│  │  - 调用 C++ 初始化/关闭监控，不负责进度打印与超时检测    │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
                         ↓ pybind11 绑定
@@ -59,9 +46,9 @@ Compiler Monitor 提供编译过程的实时进度监控和超时检测功能。
 │  └─────────────────────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  MonitorImpl                                            │   │
-│  │  - 后台监控线程 MonitorLoop                              │   │
+│  │  - 后台监控线程 MonitorLoop（进度打印与超时检测的唯一实现）│   │
 │  │  - condition_variable::wait_for 周期性唤醒               │   │
-│  │  - 超时检测与进度打印                                     │   │
+│  │  - 定期打印编译进度、检测超时并执行告警或协作式取消       │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  MonitorStageScope (RAII Helper)                        │   │
@@ -71,17 +58,97 @@ Compiler Monitor 提供编译过程的实时进度监控和超时检测功能。
                         │
 ┌───────────────────────▼─────────────────────────────────────────┐
 │                   编译阶段集成点（触发点）                        │
-│  - recorder.cpp: TensorGraphPass, UpdateCompileTask             │
-│  - pass_manager.cpp: 各个 Pass                                  │
+│  1. Python 阶段：Python 侧代码执行与进入 C++ 编译前的准备工作    │
+│  2. Pass 流程：pass_manager 中每个 Pass 前后                     │
+│  3. CodeGen 阶段：代码生成                                       │
+│  4. 生成可执行程序阶段：二进制/可执行文件生成                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 超时机制对比
 
-| 机制 | 实现层 | 中断方式 | 准确性 | 说明 |
-|------|--------|----------|--------|------|
-| **C++ 超时检测** | C++ 层 | 检测点抛出异常 | 较低 | 需要代码主动检查，被动检测 |
-| **Python signal.alarm** | Python 层 | 内核信号中断 | 高 | 内核管理定时器，主动触发 |
+| 机制 | 实现层 | 超时后行为 | 说明 |
+|------|--------|------------|------|
+| **仅警告** | C++ 层 | 输出告警信息，编译继续 | 不中断编译，需用户手动终止 |
+| **协作式取消** | C++ 层 | 在下一检测点抛出异常退出 | 需在编译流程插入检查点，可终止假卡死 |
+
+---
+
+## 超时检测实现模式
+
+超时检测支持两种实现模式，可通过 `timeout_action` 配置选择：
+
+### 模式一：仅警告（Warn Only）
+
+**行为**：检测到超时后，仅输出告警信息，**不终止** C++ 编译流程。编译将继续执行直至完成或用户手动终止。
+
+- **适用场景**：希望了解编译耗时异常，但不希望自动中断编译
+- **用户操作**：若需停止，需通过 `Ctrl+C` 等方式手动终止进程
+- **配置方式**：`timeout_action="warn"`（也可用 `TimeoutAction.WARN_ONLY` 常量，二者等价）
+
+### 模式二：协作式取消（Cooperative Cancellation）
+
+**行为**：检测到超时后，在 C++ 编译流程的各个阶段之间插入检测点；当超时标志被置位后，**在下一个检测点**抛出异常并终止整个编译过程。
+
+**能解决的问题——“假卡死”**：程序实际仍在正常执行，仅因单阶段耗时过长给人以卡死的错觉。协作式取消可在阶段边界检查超时标志并及时退出。
+
+**无法解决的问题——“真卡死”**：程序真正卡死（如陷入死循环、等待不可达的条件、第三方库阻塞等），检测点永远无法被执行到，编译流程无法被终止。此类情况只能通过用户手动终止（如 `Ctrl+C`）。
+
+| 模式 | 超时后行为 | 能终止假卡死 | 能终止真卡死 |
+|------|------------|--------------|--------------|
+| 仅警告 | 打印告警，编译继续 | 否（靠用户手动终止） | 否 |
+| 协作式取消 | 在下一检测点抛异常退出 | 是 | 否 |
+
+---
+
+## 超时终止实现方案
+
+为防止 C++ 编译流程在某一阶段卡死，需要设计可靠的超时终止机制。Python 与 C++ 在同一进程内执行，超时后的处理采用**告警**或**协作式取消**两种方式，均由 C++ 层实现。
+
+### 协作式取消（Cooperative Cancellation）
+
+#### 核心思路
+
+监控线程**只负责检测超时并设置原子标志**，不抛异常。主编译线程在**检查点**主动检查标志，若发现超时则抛出异常。异常在主编译线程中抛出，可正常通过 pybind11 传播回 Python。
+
+#### 实现要点
+
+围绕核心思路的三个关键步骤分别说明：
+
+---
+
+**步骤一：监控线程——检测超时并设置原子标志（不抛异常）**
+
+- **共享状态**：在 MonitorImpl 中增加原子变量 `cancellation_requested_`，供监控线程写、主编译线程读。
+- **检测逻辑**：监控线程按配置的 `interval_sec` 周期唤醒（如 `condition_variable::wait_for`），计算当前阶段耗时与总耗时；当超过 `timeout_sec` 或 `total_timeout_sec` 时，将 `cancellation_requested_` 置位。
+- **约束**：监控线程仅负责置位标志并输出告警信息，**不得**在监控线程内抛出异常，否则会导致 `std::terminate`。
+
+---
+
+**步骤二：主编译线程——在检查点主动检查标志**
+
+- **检查接口**：MonitorManager 提供 `CheckCancellation()`，内部读取 `cancellation_requested_`；若已置位，则抛出 `CompilationTimeoutException`（异常在主编译线程中抛出）。
+- **检查点位置**：在下列四类集成点调用 `CheckCancellation()`：
+
+| 检查点 | 位置说明 | 调用时机 |
+|--------|----------|----------|
+| Python 阶段 | Python 侧代码执行与进入 C++ 编译前的准备工作 | 进入 C++ 编译前、阶段边界 |
+| Pass 流程 | pass_manager 中每个 Pass | 每个 Pass 执行前、执行后 |
+| CodeGen 阶段 | 代码生成 | 阶段开始、阶段结束 |
+| 生成可执行程序阶段 | 二进制/可执行文件生成 | 阶段开始、阶段结束 |
+
+- **实现方式**：可利用 `MonitorStageScope` 等 RAII 在阶段进入/退出时调用 `CheckCancellation()`；pass_manager 在每个 Pass 的入口和出口处显式调用。
+
+---
+
+**步骤三：异常传播至 Python**
+
+- **异常类型**：`CompilationTimeoutException` 需在 pybind11 中完成类型注册，以便 C++ 异常能转换为 Python 异常。
+- **传播路径**：异常从 C++ 主编译线程抛出，经 pybind11 调用边界传回 Python 解释器，用户可通过 `try/except` 捕获并处理。
+
+#### 局限
+
+协作式取消仅能解决**假卡死**（执行缓慢）。若程序**真卡死**（某段代码完全没有检查点，如第三方库内的死循环或不可达的阻塞），协作式取消无法中断，此时需用户手动终止。
 
 ---
 
@@ -95,17 +162,15 @@ Compiler Monitor 提供编译过程的实时进度监控和超时检测功能。
 | `interval_sec` | int | `30` | 进度打印间隔（秒） |
 | `timeout_sec` | int | `600` | 单阶段超时阈值（秒），默认 10 分钟 |
 | `total_timeout_sec` | int | `0` | 总编译时间超时阈值（秒），默认 0 表示禁用 |
-| `timeout_action` | str | `"throw"` | 超时动作：`"throw"` 或 `"warn"` |
-| `stage_mode` | str | `"coarse"` | 监控粒度：`"coarse"`、`"fine"` 或 `"custom"` |
-| `custom_stages` | List[str] | `None` | 自定义阶段名称列表（`stage_mode="custom"` 时必填） |
+| `timeout_action` | str | `"throw"` | 超时动作：`"throw"`（协作式取消）或 `"warn"`（仅警告），参见[超时检测实现模式](#超时检测实现模式) |
 
 ### TimeoutAction 枚举
 
 ```python
 from pypto.compiler_monitor import TimeoutAction
 
-TimeoutAction.THROW_EXCEPTION    # 抛出异常中断编译
-TimeoutAction.WARN_ONLY          # 输出警告，继续执行
+TimeoutAction.THROW_EXCEPTION    # 协作式取消：超时后在下一检测点抛出异常终止编译
+TimeoutAction.WARN_ONLY          # 仅警告：超时仅输出告警，不终止编译，需用户手动终止
 ```
 
 ### 时钟与时间计算
@@ -134,14 +199,13 @@ pto_result = pypto.matmul(a, b)
 
 **输出示例**：
 ```
-[Compiler Monitor] [Stage Started] #1 FrontendParser
-[Compiler Monitor] Stage: FrontendParser | Stage elapsed: 30s | Total elapsed: 30s
-[Compiler Monitor] FrontendParser completed | Stage elapsed: 45s | Total elapsed: 2min 30s (150s)
-[Compiler Monitor] [Stage Started] #2 TensorGraphPass
-[Compiler Monitor] Stage: TensorGraphPass | Stage elapsed: 30s | Total elapsed: 3min (180s)
+[Compiler Monitor] Stage: Python | Stage elapsed: 30s | Total elapsed: 30s
+[Compiler Monitor] Stage: Pass_OoOSchedule | Stage elapsed: 30s | Total elapsed: 3min (180s)
 ...
 [Compiler Monitor] Monitoring stopped | Total elapsed: 5min 15s (315s)
 ```
+
+仅在校验到达到指定时间间隔时输出进度，以及全部编译完成后输出结束信息；不输出阶段开始、阶段完成的中间提示。
 
 ### 自定义配置
 
@@ -181,72 +245,62 @@ pypto.set_compiler_monitor_options(
     timeout_sec=600,
     total_timeout_sec=1800,   # 总编译时间最多 30 分钟
     timeout_action=TimeoutAction.THROW,
-    stage_mode=StageMode.COARSE,
 )
 
-# 设置自定义阶段
-pypto.SetMonitorStageMode(
-    mode=StageMode.CUSTOM,
-    custom_stages="Parse,Optimize,CodeGen,Load"
+```
+
+### 超时处理方式配置
+
+超时检测支持两种处理方式，通过 `timeout_action` 配置：
+
+**方式 1：仅告警**（`timeout_action="warn"`）
+- 超时后仅输出告警信息，编译继续执行
+- 若需停止，需用户手动终止（如 `Ctrl+C`）
+
+```python
+pypto.set_compiler_monitor_options(
+    timeout_sec=300,
+    timeout_action="warn"
 )
+pto_result = pypto.matmul(a, b)
 ```
 
-### 预设模式
+**方式 2：协作式取消**（`timeout_action="throw"`）
+- 超时后置位取消标志，在 C++ 编译流程的下一个检测点抛出异常并终止编译
+- 可解决假卡死（执行缓慢），无法解决真卡死（死循环等）
 
 ```python
-# 静默模式：5 分钟打印一次进度
-pypto.set_monitor_quiet_mode()
-
-# 激进模式：30 秒打印一次，10 分钟超时
-pypto.set_monitor_aggressive_mode()
-
-# 仅警告模式：超时只警告，不中断
-pypto.set_monitor_warn_only(timeout_sec=1800)
-```
-
-### 使用 TimeoutGuard 强制超时中断
-
-```python
-from pypto.compiler_monitor import TimeoutGuard
-
-# 方式1: 上下文管理器
-with TimeoutGuard(timeout_sec=300):
+pypto.set_compiler_monitor_options(
+    timeout_sec=300,
+    timeout_action="throw"
+)
+try:
     pto_result = pypto.matmul(a, b)
-
-# 方式2: 装饰器
-from pypto.compiler_monitor import timeout_context
-
-@timeout_context(timeout_sec=300)
-def run_compilation():
-    return pypto.matmul(a, b)
+except CompilationTimeoutException as e:
+    print(f"编译超时: {e}")
 ```
 
-**超时输出示例**：
+**超时告警输出示例**：
 ```
-[Timeout Guard] Enabled: 300s timeout
-[TIMEOUT] Compilation timed out after 300s (actual: 301s)
-============================================================
-Stack trace:
-  File "example.py", line 10, in <module>
-    with TimeoutGuard(timeout_sec=300):
-  ...
-============================================================
+[Compiler Timeout] Stage 'TensorGraphPass' exceeded timeout (300s). Elapsed: 5min 30s
 ```
+
+**协作式取消异常**：超时后在下一次到达检测点时抛出 `CompilationTimeoutException`，可被 Python 层捕获。
 
 ---
 
 ## 输出格式
 
-### 进度输出
+### 进度输出（按时间间隔）
 
 ```
 [Compiler Monitor] Stage: <当前阶段> | Stage elapsed: <阶段耗时> | Total elapsed: <总耗时>
 ```
 
-### 粗粒度阶段完成输出
+### 编译完成输出
 
 ```
-[Compiler Monitor] <阶段名> completed | Stage elapsed: <阶段耗时> | Total elapsed: <总耗时> (<秒数>s)
+[Compiler Monitor] Monitoring stopped | Total elapsed: <总耗时> (<秒数>s)
 ```
 
 ### 超时告警输出
@@ -263,9 +317,8 @@ Stack trace:
 
 ```
 python/pypto/
-├── compiler_monitor.py      # Python API（TimeoutGuard、CompilerMonitor）
+├── compiler_monitor.py      # Python API（配置接口、枚举定义）
 ├── __init__.py             # 自动初始化监控
-└── timeout_guard.py        # Python 超时控制（signal.alarm）
 
 python/src/bindings/
 └── monitor.cpp             # Python-C++ 绑定
@@ -277,10 +330,10 @@ framework/src/interface/compiler_monitor/
 └── monitor_exception.h     # 异常定义
 
 framework/src/interface/program/
-└── recorder.cpp            # 编译阶段集成点
+└── recorder.cpp            # 编译阶段集成点之一
 
 framework/src/passes/pass_mgr/
-└── pass_manager.cpp        # Pass 级别集成点
+└── pass_manager.cpp        # Pass 流程集成点（每个 Pass 前后）
 ```
 
 ### 自动初始化流程
@@ -296,156 +349,62 @@ framework/src/passes/pass_mgr/
    └→ 监控开始运行
 ```
 
-### C++ 层核心实现
+### 超时处理流程
 
-#### 1. MonitorManager 单例
-
-**位置**: `framework/src/interface/compiler_monitor/monitor_manager.cpp:24-32`
-
-```cpp
-MonitorManager& MonitorManager::Instance() {
-    static MonitorManager instance;
-    static std::once_flag initFlag;
-    std::call_once(initFlag, []() {
-        instance.Initialize();
-    });
-    return instance;
-}
-```
-
-#### 2. 监控线程循环
-
-**位置**: `framework/src/interface/compiler_monitor/monitor_impl.cpp:178-269`
-
-```cpp
-void MonitorImpl::MonitorLoop() {
-    while (running_.load()) {
-        std::unique_lock<std::mutex> lock(mutex_);
-
-        // 等待指定间隔或停止信号
-        if (cv_.wait_for(lock, interval_, [this]() { return !running_.load(); })) {
-            break;
-        }
-
-        // 获取耗时数据
-        auto now = std::chrono::steady_clock::now();
-        int64_t elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-            now - stage_start_).count();
-
-        // 释放锁后检查超时和打印进度
-        lock.unlock();
-
-        // 检查超时（被动检测）
-        if (!timeoutThrown_.load() && elapsed > timeout_.count()) {
-            timeoutThrown_.store(true);
-            if (timeoutAction_ == TimeoutAction::THROW_EXCEPTION) {
-                throw CompilationTimeoutException(...);
-            }
-        }
-
-        // 打印进度
-        if (time_since_last_print >= interval_) {
-            std::cout << "[Compiler Monitor] Stage: " << stage_name << ...
-        }
-    }
-}
-```
-
-#### 3. RAII 阶段跟踪
-
-**位置**: `framework/src/interface/compiler_monitor/monitor_manager.cpp:182-212`
-
-```cpp
-MonitorStageScope::MonitorStageScope(const std::string& stageName)
-    : stageName_(stageName), active_(false), stageId_(gNextStageId.fetch_add(1)) {
-    active_.store(true);
-    MonitorManager::Instance().StartStage(stageName_);
-}
-
-MonitorStageScope::~MonitorStageScope() {
-    if (active_.exchange(false)) {
-        MonitorManager::Instance().EndStage();
-    }
-}
-```
-
-### Python 层超时控制
-
-#### signal.alarm 工作原理
+#### 仅告警模式（timeout_action="warn"）
 
 ```
-Python 执行流
-    ↓
-进入 TimeoutGuard.__enter__
-    ↓
-signal.signal(SIGALRM, handler)  → 注册自定义信号处理器
-    ↓
-signal.alarm(timeout_sec)         → 内核设置定时器
-    ↓
-继续执行编译代码...
-    ↓
-超时时（timeout_sec 秒后）
-    ↓
-内核发送 SIGALRM 信号
-    ↓
-Python 解释器调用 handler(signum, frame)
-    ↓
-handler 抛出 TimeoutError 异常
-    ↓
-异常向上传播，中断编译
-```
+1. 用户配置
+   └→ pypto.set_compiler_monitor_options(timeout_action="warn")
 
-**关键特性**：
-- 使用 `signal.alarm()` 系统调用，定时器由内核管理
-- 即使 C++ 代码在执行，超时时也能安全中断（在 GIL 释放点）
-- 不支持嵌套超时（通过 `_active` 标志防止）
-- 退出时恢复原始信号处理器
-
-### 超时退出完整流程
-
-```
-1. 用户设置超时保护
-   └→ with TimeoutGuard(timeout_sec=300):
-
-2. 进入上下文
-   ├→ signal.signal(SIGALRM, handler)
-   └→ signal.alarm(300)
-
-3. 开始编译（C++ 执行）
+2. 开始编译（C++ 执行）
    ├→ MonitorManager::Instance().Initialize()
    ├→ 各阶段 StartStage/EndStage
-   └→ 监控线程定期检查
+   └→ 监控线程 MonitorLoop 定期检查
 
-4. 超时发生
-   ├→ 内核发送 SIGALRM 信号
-   ├→ Python 解释器捕获信号
-   └→ 调用 _timeout_handler
+3. 超时发生
+   ├→ 监控线程检测到 elapsed > timeout_sec
+   └→ 输出告警信息到 stderr，编译继续执行
 
-5. 处理器抛出异常
-   ├→ 打印调用栈
-   └→ raise TimeoutError
-
-6. 异常传播
-   ├→ 中断 C++ 执行
-   └→ 传递到 Python 层
-
-7. 退出上下文
-   ├→ signal.alarm(0)
-   └→ 恢复原始信号处理器
+4. 用户操作
+   └→ 若需停止，用户需手动终止（如 Ctrl+C）
 ```
+
+#### 协作式取消模式（timeout_action="throw"）
+
+```
+1. 用户配置
+   └→ pypto.set_compiler_monitor_options(timeout_action="throw")
+
+2. 开始编译（C++ 执行）
+   ├→ MonitorManager::Instance().Initialize()
+   ├→ 各阶段 StartStage/EndStage，每个阶段边界为检测点
+   └→ 监控线程 MonitorLoop 定期检查
+
+3. 超时发生
+   ├→ 监控线程检测到 elapsed > timeout_sec
+   └→ 设置 cancellation_requested_ 标志（不抛异常，避免影响监控线程）
+
+4. 主编译线程到达下一个检测点
+   ├→ MonitorManager::CheckCancellation() 检测到标志已置位
+   └→ 抛出 CompilationTimeoutException
+
+5. 异常传播
+   └→ 通过 pybind11 传递到 Python 层，用户可捕获处理
+```
+
+**说明**：协作式取消依赖检测点，仅能终止「假卡死」（执行缓慢）。若程序「真卡死」（如死循环中无检查点），无法中断，需用户手动终止。
 
 ---
 
-## 粗粒度阶段定义
+## 编译耗时整体情况打印
 
-以下阶段会被视为粗粒度阶段，会在完成时打印总耗时：
+会在完成时打印下述各个阶段的总耗时：
 
 | 阶段名称 | 说明 |
 |----------|------|
-| `Python` | Python 执行阶段（监控启动时默认阶段） |
-| `FrontendParser` | 前端解析 |
+| `Python` | Python 执行阶段（监控启动时默认阶段，从pypto init开始到进入C++编译流程都属于该阶段） |
 | `TensorGraphPass` | Tensor 图变换 |
-| `UpdateCompileTask` | 编译任务更新 |
 | `TileGraphPass` | Tile 图变换 |
 | `BlockGraphPass` | Block 图变换 |
 | `CodeGen` | 代码生成 |
