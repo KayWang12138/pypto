@@ -26,31 +26,31 @@ TILEOP void UnaryComputeImpl(T0 dst, T1 src) {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     if constexpr (op == UnaryOp::EXP) {
-        [[pto::last_use(n1, n2)]]pto::TEXP(dst, src);
+        PTO_WITH_LAST_USE(pto::TEXP(dst, src), n1, n2);
         return;
     }
     if constexpr (op == UnaryOp::RSQRT) {
-        [[pto::last_use(n1, n2)]]pto::TRSQRT(dst, src);
+        PTO_WITH_LAST_USE(pto::TRSQRT(dst, src), n1, n2);
         return;
     }
     if constexpr (op == UnaryOp::SQRT) {
-        [[pto::last_use(n1, n2)]]pto::TSQRT(dst, src);
+        PTO_WITH_LAST_USE(pto::TSQRT(dst, src), n1, n2);
         return;
     }
     if constexpr (op == UnaryOp::BRCB) {
-        [[pto::last_use(n1, n2)]]pto::TROWEXPAND(dst, src);
+        PTO_WITH_LAST_USE(pto::TROWEXPAND(dst, src), n1, n2);
         return;
     }
     if constexpr (op == UnaryOp::ABS) {
-        [[pto::last_use(n1, n2)]]pto::TABS(dst, src);
+        PTO_WITH_LAST_USE(pto::TABS(dst, src), n1, n2);
         return;
     }
     if constexpr (op == UnaryOp::RECIPROCAL) {
-        [[pto::last_use(n1, n2)]]pto::TRECIP(dst, src);
+        PTO_WITH_LAST_USE(pto::TRECIP(dst, src), n1, n2);
         return;
     }
     if constexpr (op == UnaryOp::BITWISENOT) {
-        [[pto::last_use(n1, n2)]]pto::TNOT(dst, src);
+        PTO_WITH_LAST_USE(pto::TNOT(dst, src), n1, n2);
         return;
     }
 }

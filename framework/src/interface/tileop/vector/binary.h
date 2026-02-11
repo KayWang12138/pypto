@@ -26,50 +26,50 @@ TILEOP void BinaryComputeImpl(T0 dst, T1 src0, T2 src1) {
     constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
     if constexpr (op == BinaryOp::ADD) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-            [[pto::last_use(n1, n2, n3)]]pto::TADD(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TADD(dst, src0, src1), n1, n2, n3);
         } else {
-            [[pto::last_use(n1, n2, n3)]]pto::TROWEXPANDADD(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TROWEXPANDADD(dst, src0, src1), n1, n2, n3);
         }
         return;
     }
 
     if constexpr (op == BinaryOp::SUB) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-            [[pto::last_use(n1, n2, n3)]]pto::TSUB(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TSUB(dst, src0, src1), n1, n2, n3);
         } else {
-            [[pto::last_use(n1, n2, n3)]]pto::TROWEXPANDSUB(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TROWEXPANDSUB(dst, src0, src1), n1, n2, n3);
         }
     }
 
     if constexpr (op == BinaryOp::MUL) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-            [[pto::last_use(n1, n2, n3)]]pto::TMUL(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TMUL(dst, src0, src1), n1, n2, n3);
         } else {
-            [[pto::last_use(n1, n2, n3)]]pto::TROWEXPANDMUL(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TROWEXPANDMUL(dst, src0, src1), n1, n2, n3);
         }
     }
 
     if constexpr (op == BinaryOp::DIV) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-            [[pto::last_use(n1, n2, n3)]]pto::TDIV(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TDIV(dst, src0, src1), n1, n2, n3);
         } else {
-            [[pto::last_use(n1, n2, n3)]]pto::TROWEXPANDDIV(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TROWEXPANDDIV(dst, src0, src1), n1, n2, n3);
         }
     }
 
     if constexpr (op == BinaryOp::MAX) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-            [[pto::last_use(n1, n2, n3)]]pto::TMAX(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TMAX(dst, src0, src1), n1, n2, n3);
         } else {
-            [[pto::last_use(n1, n2, n3)]]pto::TROWEXPANDMAX(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TROWEXPANDMAX(dst, src0, src1), n1, n2, n3);
         }
     }
 
     if constexpr (op == BinaryOp::MIN) {
         if constexpr (operand == TileOp::BroadcastOperand::NONE) {
-            [[pto::last_use(n1, n2, n3)]]pto::TMIN(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TMIN(dst, src0, src1), n1, n2, n3);
         } else {
-            [[pto::last_use(n1, n2, n3)]]pto::TROWEXPANDMIN(dst, src0, src1);
+            PTO_WITH_LAST_USE(pto::TROWEXPANDMIN(dst, src0, src1), n1, n2, n3);
         }
     }
         
