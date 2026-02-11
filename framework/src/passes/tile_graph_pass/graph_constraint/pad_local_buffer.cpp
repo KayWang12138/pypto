@@ -38,6 +38,7 @@ constexpr int64_t mxHighAxis = 0;
 constexpr int64_t mxLowAxis = 1;
 const std::vector<bool> AXIS_COMBINED = {true};
 const std::vector<bool> BROADCAST_AXIS_COMBINED = {true, true};
+const std::unordered_set<DataType> inDataSupport = {DataType::DT_INT8, DataType::DT_FP8E5M2, DataType::DT_FP8E4M3, DataType::DT_HF8};
 const int64_t BRCB_SECOND_LAST_BASE = 8;
 const size_t LAST_SECOND_AXIS = 2;
 const std::string REDUCE_AXIS = OP_ATTR_PREFIX + "AXIS";
@@ -58,10 +59,10 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
     bool matmulOp = std::find(cubeOps.begin(), cubeOps.end(), op.GetOpcode()) != cubeOps.end();
     bool opsInputInt8 = false;
     if (op.GetIOperands().size() > 0 && op.GetIOperands()[0] != nullptr && op.GetIOperands()[0]->tensor != nullptr) {
-        opsInputInt8 = op.GetIOperands()[0]->tensor->GetDataType() == DataType::DT_INT8;
+        opsInputInt8 = inDataSupport.find(op.GetIOperands()[0]->tensor->GetDataType()) != inDataSupport.end();
     }
 
-    if (in->tensor->GetDataType() == DataType::DT_INT8 || (matmulOp && opsInputInt8)) {
+    if (inDataSupport.find(in->tensor->GetDataType()) != inDataSupport.end() || (matmulOp && opsInputInt8)) {
         // 检查op的输入数据类型是不是int8类型或者in的数据类型是否为int8
         // 包括matmul系列和GM->L1->L0系列
         return true;
