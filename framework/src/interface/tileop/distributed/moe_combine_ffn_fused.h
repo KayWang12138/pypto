@@ -32,15 +32,15 @@
 #endif
 #endif
 
-#ifndef __TILE_FWK_HOST__
-#if !defined(PYPTO_USE_ASCENDC_BLOCK_SYNC)
-#error "moe_combine_ffn_fused requires AscendC block sync support"
-#endif
-#endif
-
+#if defined(PYPTO_USE_ASCENDC_BLOCK_SYNC)
 #define PYPTO_CROSS_CORE_SET(mode, pipe, flag) AscendC::CrossCoreSetFlag<mode, pipe>(flag)
 #define PYPTO_CROSS_CORE_WAIT(mode, flag) AscendC::CrossCoreWaitFlag<mode>(flag)
 #define PYPTO_SYNC_ALL() AscendC::SyncAll<true>()
+#else
+#define PYPTO_CROSS_CORE_SET(mode, pipe, flag) ((void)(flag))
+#define PYPTO_CROSS_CORE_WAIT(mode, flag) ((void)(flag))
+#define PYPTO_SYNC_ALL() do { } while (0)
+#endif
 
 #ifdef SUPPORT_TILE_TENSOR
 using pto::TileLeft;
@@ -52,8 +52,6 @@ using pto::SLayout;
 
 namespace TileOp::Distributed {
 
-constexpr uint32_t COMBINE_FFN_FLAG_VALUE = 2;
-constexpr uint32_t COMBINE_FFN_EXPERT_BATCH = 4;
 constexpr uint32_t FFN_SILU_FLAG_OFFSET = 100;
 
 // L0 buffer constraints (32KB each for L0A, L0B, L0C)
@@ -73,111 +71,68 @@ struct MoeCombineFFNFusedParams {
     uint32_t rankId;
 };
 
-struct FFNWorkspace {
-    uint64_t gateResultOffset;
-    uint64_t upResultOffset;
-    uint64_t intermediateOffset;
-    uint64_t totalSize;
-};
-
 #ifndef __TILE_FWK_HOST__
-#if defined(SUPPORT_TILE_TENSOR) && defined(__DAV_C220_CUBE__)
-// Tiled matmul C = A @ B using pto-isa.
+#if defined(SUPPORT_TILE_TENSOR) && defined(__AIC__)
+// Tiled matmul C = A @ B using dynamic arch32 cube primitives.
 template <typename T, typename AccT, uint16_t tileM, uint16_t tileK, uint16_t tileN>
 TILEOP void FFNTiledMatMul(
-    __gm__ T* output,           // [M, N]
-    __gm__ T* input,            // [M, K]
-    __gm__ T* weight,           // [K, N]
+    __gm__ T* output,
+    __gm__ T* input,
+    __gm__ T* weight,
     uint32_t M,
     uint32_t K,
     uint32_t N,
-    uint64_t inputStride,       // stride for input rows
-    uint64_t weightStride,      // stride for weight rows
-    uint64_t outputStride)      // stride for output rows
+    uint64_t inputStride,
+    uint64_t weightStride,
+    uint64_t outputStride)
 {
-    // Tile types.
-    using TileL0A = pto::TileLeft<T, tileM, tileK, -1, -1>;
-    using TileL0B = pto::TileRight<T, tileK, tileN, -1, -1>;
-    using TileL0C = pto::TileAcc<AccT, tileM, tileN, -1, -1>;
+    __cbuf__ T* l1InputBuf = reinterpret_cast<__cbuf__ T*>(get_imm(0x0000));
+    __cbuf__ T* l1WeightBuf = reinterpret_cast<__cbuf__ T*>(get_imm(0x1000));
+    __ca__ T* l0aBuf = reinterpret_cast<__ca__ T*>(get_imm(0x0000));
+    __cb__ T* l0bBuf = reinterpret_cast<__cb__ T*>(get_imm(0x0000));
+    __cc__ AccT* l0cBuf = reinterpret_cast<__cc__ AccT*>(get_imm(0x0000));
 
-    // L1 tile types for staging.
-    using TileL1Mat = pto::Tile<pto::TileType::Mat, T, tileM, tileK, BLayout::ColMajor, -1, -1, SLayout::RowMajor>;
-    using TileL1Weight = pto::Tile<pto::TileType::Mat, T, tileK, tileN, BLayout::ColMajor, -1, -1, SLayout::RowMajor>;
-    // Global tensor types.
-    using GlobalShape = pto::Shape<1, 1, 1, -1, -1>;
-    using GlobalStride = pto::Stride<1, 1, 1, -1, -1>;
-    using GlobalInput = pto::GlobalTensor<T, GlobalShape, GlobalStride, pto::Layout::ND>;
-    using GlobalWeight = pto::GlobalTensor<T, GlobalShape, GlobalStride, pto::Layout::ND>;
-    using GlobalOutput = pto::GlobalTensor<T, GlobalShape, GlobalStride, pto::Layout::ND>;
-
-    T l1InputBuf[tileM * tileK];
-    T l1WeightBuf[tileK * tileN];
-    T l0aBuf[tileM * tileK];
-    T l0bBuf[tileK * tileN];
-    AccT l0cBuf[tileM * tileN];
-
-    // Iterate over M dimension in tiles.
     for (uint32_t mTile = 0; mTile < M; mTile += tileM) {
         uint32_t curM = (mTile + tileM <= M) ? tileM : (M - mTile);
-        // Align M to CUBE_BLOCK_M for TMATMUL requirements.
         uint32_t alignedM = AlignUp<uint32_t>(curM, CUBE_BLOCK_M);
 
-        // Iterate over N dimension in tiles.
         for (uint32_t nTile = 0; nTile < N; nTile += tileN) {
             uint32_t curN = (nTile + tileN <= N) ? tileN : (N - nTile);
 
-            // Initialize L0C accumulator.
-            TileL0C l0c(alignedM, curN);
-            pto::TASSIGN(l0c, reinterpret_cast<uint64_t>(l0cBuf));
-
-            // Iterate over K dimension in tiles (accumulate).
             for (uint32_t kTile = 0; kTile < K; kTile += tileK) {
                 uint32_t curK = (kTile + tileK <= K) ? tileK : (K - kTile);
 
-                // Load input tile [curM, curK] from GM to L1.
-                TileL1Mat l1Input(alignedM, curK);
-                pto::TASSIGN(l1Input, reinterpret_cast<uint64_t>(l1InputBuf));
-                GlobalInput globalInput(
-                    input + mTile * inputStride + kTile,
-                    GlobalShape(curM, curK),
-                    GlobalStride(inputStride, 1));
-                pto::TLOAD(l1Input, globalInput);
+                TileOp::DynL1CopyIn<T, T, CopyInMode::ND2NZ>(
+                    l1InputBuf, input, curM, curK, M, inputStride, mTile, kTile, 0);
+                TileOp::DynL1CopyIn<T, T, CopyInMode::ND2NZ>(
+                    l1WeightBuf, weight, curK, curN, K, weightStride, kTile, nTile, 0);
 
-                // Load weight tile [curK, curN] from GM to L1.
-                TileL1Weight l1Weight(curK, curN);
-                pto::TASSIGN(l1Weight, reinterpret_cast<uint64_t>(l1WeightBuf));
-                GlobalWeight globalWeight(
-                    weight + kTile * weightStride + nTile,
-                    GlobalShape(curK, curN),
-                    GlobalStride(weightStride, 1));
-                pto::TLOAD(l1Weight, globalWeight);
+                TileOp::DynL1ToL0A<T, 0, 0>(l0aBuf, l1InputBuf, curM, curK, curM, curK);
+                TileOp::DynL1ToL0B<T, 0, 0>(l0bBuf, l1WeightBuf, curK, curN, curK, curN);
 
-                // Extract from L1 to L0A/L0B.
-                TileL0A l0a(alignedM, curK);
-                TileL0B l0b(curK, curN);
-                pto::TASSIGN(l0a, reinterpret_cast<uint64_t>(l0aBuf));
-                pto::TASSIGN(l0b, reinterpret_cast<uint64_t>(l0bBuf));
-                pto::TEXTRACT(l0a, l1Input, 0, 0);
-                pto::TEXTRACT(l0b, l1Weight, 0, 0);
+                set_flag(PIPE_MTE1, PIPE_M, EVENT_ID1);
+                wait_flag(PIPE_MTE1, PIPE_M, EVENT_ID1);
 
-                // MatMul with accumulation: l0c += l0a @ l0b.
-                if (kTile == 0) {
-                    pto::TMATMUL(l0c, l0a, l0b);
-                } else {
-                    pto::TMATMUL_ACC(l0c, l0c, l0a, l0b);
-                }
+                bool isAcc = (kTile != 0);
+                TileOp::DynTmad<AccT, T, T, 0, 0>(
+                    l0cBuf, l0aBuf, l0bBuf, curM, curK, curN, isAcc, 0, alignedM, curN);
+
+                set_flag(PIPE_M, PIPE_MTE1, EVENT_ID1);
+                wait_flag(PIPE_M, PIPE_MTE1, EVENT_ID1);
             }
 
-            // Store result from L0C to GM (only store valid curM rows).
-            GlobalOutput globalOutput(
-                output + mTile * outputStride + nTile,
-                GlobalShape(curM, curN),
-                GlobalStride(outputStride, 1));
-            pto::TSTORE(globalOutput, l0c);
+            set_flag(PIPE_M, PIPE_FIX, EVENT_ID2);
+            wait_flag(PIPE_M, PIPE_FIX, EVENT_ID2);
+
+            TileOp::DynL0CCopyOut<T, AccT, true, 0>(
+                output, l0cBuf, curM, curN, M, outputStride, mTile, nTile, M, outputStride, 0);
+
+            set_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
+            wait_flag(PIPE_FIX, PIPE_M, EVENT_ID2);
         }
     }
 }
-#endif // SUPPORT_TILE_TENSOR && __DAV_C220_CUBE__
+#endif // SUPPORT_TILE_TENSOR && __AIC__
 #endif // !__TILE_FWK_HOST__
 
 template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape>
@@ -187,7 +142,7 @@ struct MoeCombineFFNFusedContext {
     __ubuf__ float* mulFp32Buffer;
     __ubuf__ float* sumFp32Buffer;
     __ubuf__ T* outBuffer;
-    __ubuf__ float* expertScales;
+    __gm__ float* expertScales;
     __gm__ T* ffnWeight;
     __gm__ int32_t* recvCounts;
     __gm__ T* shmemDataBaseAddr;
@@ -200,6 +155,43 @@ struct MoeCombineFFNFusedContext {
 };
 
 #ifndef __TILE_FWK_HOST__
+
+template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape>
+TILEOP void MoeDistributedCombineComputeFromGMScales(
+    __ubuf__ T* out,
+    __ubuf__ float* mulFp32Buffer,
+    __ubuf__ float* sumFp32Buffer,
+    __gm__ float* expertScales,
+    __gm__ T* winDataAddr,
+    const int32_t* maskVals)
+{
+    uint8_t repeat = static_cast<uint8_t>(
+        AlignUp<uint16_t>(sizeof(float) * paddedColShape, VECTOR_INSTRUCTION_BYTE_SIZE) /
+        VECTOR_INSTRUCTION_BYTE_SIZE);
+
+    vector_dup(sumFp32Buffer, 0.0f, repeat, 1, 1, 8, 8);
+
+    for (int kOffset = 0; kOffset < topK; kOffset++) {
+        if (maskVals != nullptr && maskVals[kOffset] == 0) {
+            winDataAddr += colShape;
+            continue;
+        }
+        set_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+        wait_flag(PIPE_V, PIPE_MTE2, EVENT_ID0);
+        TileOp::UBCopyIn<T, 1, colShape, paddedColShape, colShape>(out, winDataAddr);
+        set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+        vconv_bf162f32(mulFp32Buffer, out, repeat, 1, 1, 8, 4);
+        pipe_barrier(PIPE_V);
+        vmuls(mulFp32Buffer, mulFp32Buffer, expertScales[kOffset], repeat, 1, 1, 8, 8);
+        pipe_barrier(PIPE_V);
+        vadd(sumFp32Buffer, mulFp32Buffer, sumFp32Buffer, repeat, 1, 1, 1, 8, 8, 8);
+        winDataAddr += colShape;
+    }
+
+    pipe_barrier(PIPE_V);
+    vconv_f322bf16a(out, sumFp32Buffer, repeat, 1, 1, 4, 8);
+}
 
 template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
 TILEOP void MoeCombineFFNFusedAIV(
@@ -238,8 +230,9 @@ TILEOP void MoeCombineFFNFusedAIV(
 
         __gm__ T* winDataAddr = MapVirtualAddr<T>(ctx.hcclContext, ctx.shmemDataBaseAddr, ctx.thisRankId) +
             colShape * topK * tokenId;
-        MoeDistributedCombineCompute<T, topK, colShape, paddedColShape>(ctx.outBuffer, ctx.mulFp32Buffer,
-            ctx.sumFp32Buffer, ctx.expertScales + expertScalesColShape * tokenId, winDataAddr, maskVals);
+        MoeDistributedCombineComputeFromGMScales<T, topK, colShape, paddedColShape>(ctx.outBuffer,
+            ctx.mulFp32Buffer, ctx.sumFp32Buffer, ctx.expertScales + expertScalesColShape * tokenId,
+            winDataAddr, maskVals);
 
         set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
         wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
@@ -544,14 +537,13 @@ TILEOP void MoeCombineFFNSiLUFusionDispatch(
 }
 
 template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
-TILEOP void MoeCombineFFNFusedRunCrossCore(
+TILEOP void MoeCombineFFNFusedRunAIV(
     MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape>& ctx,
     __gm__ T* workspace,
-    __ubuf__ float* mulFp32Buffer,
-    int64_t rowOffset)
+    __ubuf__ float* mulFp32Buffer)
 {
-    uint32_t expertIdx = 0;
 #if defined(__DAV_C220_VEC__)
+    uint32_t expertIdx = 0;
     const uint64_t M = ctx.rowShape;
     const uint64_t N = intermediateSize;
 
@@ -561,8 +553,10 @@ TILEOP void MoeCombineFFNFusedRunCrossCore(
 
     PYPTO_CROSS_CORE_WAIT(0x2, FFN_SILU_FLAG_OFFSET + expertIdx);
 
+    uint64_t workspaceStride = static_cast<uint64_t>(colShape) + 3ULL * intermediateSize;
+    __gm__ T* workspaceBase = workspace + static_cast<uint64_t>(ctx.rowOffset) * workspaceStride;
     uint64_t combineSize = static_cast<uint64_t>(ctx.rowShape) * colShape;
-    __gm__ T* gateResultPtr = workspace + combineSize;
+    __gm__ T* gateResultPtr = workspaceBase + combineSize;
     __gm__ T* upResultPtr = gateResultPtr + M * N;
     __gm__ T* intermediatePtr = upResultPtr + M * N;
 
@@ -572,15 +566,24 @@ TILEOP void MoeCombineFFNFusedRunCrossCore(
     PYPTO_SYNC_ALL();
     PYPTO_CROSS_CORE_SET(0x2, PIPE_MTE3, FFN_SILU_FLAG_OFFSET + expertIdx + 1);
 #else
+    (void)ctx;
     (void)workspace;
     (void)mulFp32Buffer;
 #endif
+}
 
+template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape, uint16_t intermediateSize>
+TILEOP void MoeCombineFFNFusedRunAIC(
+    MoeCombineFFNFusedContext<T, topK, colShape, paddedColShape>& ctx,
+    int64_t rowOffset)
+{
 #if defined(__DAV_C220_CUBE__)
+    uint32_t expertIdx = 0;
     PYPTO_CROSS_CORE_WAIT(0x2, expertIdx + 1);
     MoeCombineFFNFusedAIC<T, topK, colShape, paddedColShape, intermediateSize>(
         ctx, expertIdx, static_cast<uint32_t>(rowOffset), ctx.rowShape);
 #else
+    (void)ctx;
     (void)rowOffset;
 #endif
 }
@@ -592,7 +595,7 @@ TILEOP void MoeCombineFFNFusedKernel(
     __ubuf__ float* mulFp32Buffer,
     __ubuf__ float* sumFp32Buffer,
     __ubuf__ T* outBuffer,
-    __ubuf__ float* expertScales,
+    __gm__ float* expertScales,
     __gm__ T* ffnWeight,
     __gm__ int32_t* recvCounts,
     __gm__ T* shmemDataBaseAddr,
@@ -624,8 +627,17 @@ TILEOP void MoeCombineFFNFusedKernel(
     ctx.rowShape = rowShape;
     ctx.intermediateSize = intermediateSize;
 
-    MoeCombineFFNFusedRunCrossCore<T, topK, colShape, paddedColShape, intermediateSize>(
-        ctx, workspace, mulFp32Buffer, rowOffset);
+#if defined(__DAV_C220_VEC__)
+    MoeCombineFFNFusedRunAIV<T, topK, colShape, paddedColShape, intermediateSize>(
+        ctx, workspace, mulFp32Buffer);
+#elif defined(__DAV_C220_CUBE__)
+    MoeCombineFFNFusedRunAIC<T, topK, colShape, paddedColShape, intermediateSize>(
+        ctx, rowOffset);
+#else
+    (void)workspace;
+    (void)mulFp32Buffer;
+    (void)rowOffset;
+#endif
 }
 
 #endif // !__TILE_FWK_HOST__
