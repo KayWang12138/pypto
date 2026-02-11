@@ -823,12 +823,12 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeChildrenContraction(
                 }
             }
 
-            VWorkwT<GraphTIn> newMaxPath = maxParentDist + maxChildDist;
+            VWorkwT<GraphTIn> newMaxPath = maxChildDist + maxParentDist;
             for (const VertexType &vert : contractionEnsemble) {
                 newMaxPath += graph.VertexWorkWeight(vert);
             }
 
-            long savings = static_cast<long>(maxPath) - static_cast<long>(newMaxPath);
+            const long savings = static_cast<long>(maxPath) - static_cast<long>(newMaxPath);
             if (savings + static_cast<long>(params_.leniency_ * static_cast<double>(maxPath)) >= 0) {
                 vertPriority.emplace(savings, contractionEnsemble);
             }
