@@ -316,13 +316,24 @@ bool ConvertInserter::IsNotValidDataType(const std::shared_ptr<LogicalTensor> &f
     return supportedDtypes.find(tensorDtype) == supportedDtypes.end();
 }
 
+// Tensor必须是BF16或FP16，同时矩阵必须是第一轴（外轴）16元素对齐，第二周（内轴）32B对齐
+bool ConvertInserter::FitL0C2L1(const LogicalTensorPtr &tensor){
+    auto shape = tensor->GetShape();
+    if (shape.size() != MATMUL_DIM_NUM) {
+        return false;
+    }
+    auto dim2Size = shape[1] * BytesOf(tensor->Datatype());
+    return (tensor->Datatype() == DT_BF16 || tensor->Datatype() == DT_FP16) &&
+        (shape[0] % L0C2L1_DIM1_SHAPE_RESTICT == 0) && (dim2Size % L0C2L1_DIM2_BYTE_RESTICT ==0);
+}
+
 //构造转换路径
 Status ConvertInserter::ProcessConvertPath(const Operation &op, const std::shared_ptr<LogicalTensor> &oOperand,
     MemoryType requiredMemoryType, std::vector<MemoryType> &paths) {
     auto currTensorMemOri = oOperand->GetMemoryTypeOriginal();
     if(currTensorMemOri == MemoryType::MEM_L0C && requiredMemoryType == MemoryType::MEM_L1) {
         //特殊处理L0C2L1：针对不支持的数据类型场景路径中插入DDR
-        bool needDDRTrans = IsNotValidDataType(oOperand);
+        bool needDDRTrans = IsNotValidDataType(oOperand) || !FitL0C2L1(oOperand);
         if(needDDRTrans) {
             paths = {currTensorMemOri, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1};
         } else {

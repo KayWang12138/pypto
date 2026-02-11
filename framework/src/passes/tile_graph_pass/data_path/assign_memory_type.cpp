@@ -172,17 +172,6 @@ void AssignMemoryType::ProcessAmulBInput(Operation &operation, LogicalTensorPtr 
     }
 }
 
-// 输入必须是BF16或FP16，同时矩阵必须是第一轴（外轴）16元素对齐，第二周（内轴）32B对齐
-bool FitL0C2L1(const LogicalTensorPtr &inputTensor){
-    auto shape = inputTensor->GetShape();
-    if (shape.size() != MATMUL_DIM_NUM) {
-        return false;
-    }
-    auto dim2Size = shape[1] * BytesOf(inputTensor->Datatype());
-    return (inputTensor->Datatype() == DT_BF16 || inputTensor->Datatype() == DT_FP16) &&
-        (shape[0] % L0C2L1_DIM1_SHAPE_RESTICT == 0) && (dim2Size % L0C2L1_DIM2_BYTE_RESTICT ==0);
-}
-
 void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     auto viewOpAttribute = dynamic_cast<ViewOpAttribute *>(operation.GetOpAttribute().get());
     MemoryType attrToType = viewOpAttribute->GetTo();
@@ -190,7 +179,7 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     auto in = operation.iOperand.front();
     //适配L0C2L1通路，当满足条件时view的输入的tobe设为L0C，否则设置为DDR
     if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C && out->GetMemoryTypeOriginal() == MemoryType::MEM_L1) {
-        if (FitL0C2L1(in)){
+        if (inserter.FitL0C2L1(in)){
             inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_L0C);
         } else {
             inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_DEVICE_DDR);
@@ -222,7 +211,7 @@ void AssignMemoryType::ProcessAssemblewithSpecificMem(Operation &operation) {
     if (input->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
         return;
     }
-    if (!FitL0C2L1(input)) {
+    if (!inserter.FitL0C2L1(input)) {
         return;
     }
     for (const auto &consumerOp : output->GetConsumers()) {
@@ -452,7 +441,7 @@ void AssignMemoryType::AssignMoveOpForView(Operation &operation) {
             continue;
         }
         if (tensor->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
-            outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1 && FitL0C2L1(tensor)) {
+            outputTensor->GetMemoryTypeOriginal() == MemoryType::MEM_L1 && inserter.FitL0C2L1(tensor)) {
             inserter.UpdateTensorTobeMap(tensor, operation, MemoryType::MEM_L0C);
             viewOpAttribute->SetToType(outputTensor->GetMemoryTypeOriginal());
             continue;
