@@ -128,7 +128,7 @@ private:
     std::string GenLimitValue(FloatSaturateStatus &fs) const;
 
     bool IsNeedDumpCCE(const std::string &inputFile) const;
-    void DumpCCE(const std::string &name, const std::string &code) const;
+    void DumpCCE(const std::string &name, std::ostringstream &oss) const;
 
     void DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const;
     void BuildArchOptions(std::ostringstream &oss, const CompileInfo &compileInfo) const;
