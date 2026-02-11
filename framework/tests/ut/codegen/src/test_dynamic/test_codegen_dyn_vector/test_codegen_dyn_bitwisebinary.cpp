@@ -116,33 +116,33 @@ void TestBitwiseScalarDynBody(const std::vector<int64_t> &shape,
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseAndLayout) {
-    const std::string expect = R"(TBitwiseAnd(ubTensor_0, ubTensor_0, ubTensor_2);)";
+    const std::string expect = R"(TBitwiseAnd<LastUse3Dim<0, 1, 1>>(ubTensor_0, ubTensor_0, ubTensor_2);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseAnd", expect);
 
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseOrLayout) {
-    const std::string expect = R"(TBitwiseOr(ubTensor_0, ubTensor_0, ubTensor_2);)";
+    const std::string expect = R"(TBitwiseOr<LastUse3Dim<0, 1, 1>>(ubTensor_0, ubTensor_0, ubTensor_2);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseOr", expect);
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseXorLayout) {
-    const std::string expect = R"(TBitwiseXor(ubTensor_0, ubTensor_0, ubTensor_2, ubTensor_5);)";
+    const std::string expect = R"(TBitwiseXor<LastUse3Dim<0, 1, 1>>(ubTensor_0, ubTensor_0, ubTensor_2, ubTensor_5);)";
     TestBitwiseTensorDynBody({32, 32}, {16, 16}, "BitwiseXor", expect);
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseAndsLayout) {
-const std::string expect = R"(TBitwiseAndS<int16_t>(ubTensor_2, ubTensor_0, 2);)";
+const std::string expect = R"(TBitwiseAndS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2);)";
     TestBitwiseScalarDynBody({32, 32}, {16, 16}, "BitwiseAnds", expect);
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseOrsLayout) {
-    const std::string expect = R"(TBitwiseOrS<int16_t>(ubTensor_2, ubTensor_0, 2);)";
+    const std::string expect = R"(TBitwiseOrS<LastUse2Dim<0, 1>, int16_t>(ubTensor_2, ubTensor_0, 2);)";
     TestBitwiseScalarDynBody({32, 32}, {16, 16}, "BitwiseOrs", expect);
 }
 
 TEST_F(TestCodegenDynBitwiseBinary, BitwiseXorsLayout) {
-    const std::string expect = R"(TBitwiseXorS(ubTensor_2, ubTensor_0, 2, ubTensor_3);)";
+    const std::string expect = R"(TBitwiseXorS<LastUse2Dim<0, 1>>(ubTensor_2, ubTensor_0, 2, ubTensor_3);)";
     TestBitwiseScalarDynBody({32, 32}, {16, 16}, "BitwiseXors", expect);
 }
 
