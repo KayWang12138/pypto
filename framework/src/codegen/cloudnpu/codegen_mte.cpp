@@ -12,13 +12,14 @@
  * \file codegen_mte.cpp
  * \brief
  */
+#include <iterator>
+#include <string>
 
 #include "codegen_op_cloudnpu.h"
 #include "codegen/symbol_mgr/codegen_symbol.h"
 #include "codegen/utils/codegen_utils.h"
 #include "securec.h"
-#include <string>
-#include <iterator>
+
 namespace npu::tile_fwk {
 const std::string TSTORE_CONF = "TileOp::TStoreConfig";
 
