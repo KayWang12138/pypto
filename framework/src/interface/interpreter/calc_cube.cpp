@@ -69,11 +69,31 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     auto &oper = ctx->ioperandDataViewList->at(0);
     Opcode opCode = ctx->op->GetOpcode();
     bool trans = opCode == Opcode::OP_L1_TO_L0_BT || opCode == Opcode::OP_L1_TO_L0_AT;
-    calc::Copy(ret, oper, trans);
+    auto copyin = std::static_pointer_cast<CopyOpAttribute>(ctx->op->GetOpAttribute()); // 获取attr
+    if (opCode == Opcode::OP_L1_TO_L0A || opCode == Opcode::OP_L1_TO_L0B || opCode == Opcode::OP_L1_TO_L0_AT ||
+        opCode == Opcode::OP_L1_TO_L0_BT) {
+        if (copyin == nullptr) {
+            calc::Copy(ret, oper, trans);
+            return;
+        }
+        std::vector<int64_t> fromOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetFromOffset());
+        if (trans) {
+            std::vector<int64_t> oop_trans = {ret->GetShape()[1], ret->GetShape()[0]};
+            auto iop = oper->View(oop_trans, fromOffset);
+            calc::Copy(ret, iop, trans);
+        } else {
+            auto iop = oper->View(ret->GetShape(), fromOffset);
+            calc::Copy(ret, iop, trans);
+        }
+    }
 }
 REGISTER_CALC_OP(OP_L1_TO_L0A, Opcode::OP_L1_TO_L0A, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_AT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0_BT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_CONVERT, Opcode::OP_CONVERT, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_L0C_COPY_UB, Opcode::OP_L0C_COPY_UB, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_UB_COPY_ND2NZ, Opcode::OP_UB_COPY_ND2NZ, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_UB_COPY_L1_ND, Opcode::OP_UB_COPY_L1_ND, ExecuteDuplicate);
+REGISTER_CALC_OP(OP_UB_COPY_L1, Opcode::OP_UB_COPY_L1, ExecuteDuplicate);
 }
