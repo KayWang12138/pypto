@@ -302,9 +302,12 @@ inline void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, Lo
     LogicalTensorDataPtr pageTable, int64_t blockSize, int64_t axis) {
     GetCalcOps()->GatherINUB(out, params, indices, pageTable, blockSize, axis);
 }
-inline void GatherINL1(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
+inline void GatherInL1(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
     LogicalTensorDataPtr pageTable, int64_t blockSize) {
-    GetCalcOps()->GatherINL1(out, params, indices, pageTable, blockSize);
+    CalcOps *ops = GetCalcOps();
+    if (ops != nullptr) {
+        GetCalcOps()->GatherInL1(out, params, indices, pageTable, blockSize);
+    }
 }
 
 inline void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod, bool descending) {
