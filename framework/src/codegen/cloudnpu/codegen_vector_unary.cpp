@@ -337,7 +337,7 @@ std::string CodeGenOpCloudNPU::PrintExpandLayout(int expandAxis) const {
 
 std::string CodeGenOpCloudNPU::PrintExpand(const std::string &s0Var, const std::string &dVar,
     const std::string &srcDtypeStr, const std::string &dstDtypeStr) const {
-    char buffer[256] = "CG_ERROR";
+    char buffer[256] = CG_ERROR;
     int ret = 0;
     int expandAxis{-1};
     std::vector<int64_t> dos = NormalizeShape(originShape[0], SHAPE_DIM4);
@@ -570,7 +570,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintBitwiseNot();
     }
     ALOG_INFO_F("unsupported tileop: %s", opCodeStr.c_str());
-    return "CG_ERROR";
+    return CG_ERROR;
 }
 
 } // namespace npu::tile_fwk

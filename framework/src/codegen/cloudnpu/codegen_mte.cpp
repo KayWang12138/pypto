@@ -115,7 +115,7 @@ std::string CodeGenOpCloudNPU::GenMemL1SpillToGM(bool isLocalToGM, unsigned int 
     }
 
     int ret{0};
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_1024] = CG_ERROR;
     if (isDynamicFunction) {
         // The layout of gm stack data is continuous, so just use dynValidShape[ID1] as gm stride to match the
         // implementation of "Copy TileOp" in order to make gm gap value be zero in copy intrinsic.
@@ -805,7 +805,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CStatic(const PrintMemCopyWithL
     int oriTileShape0 = std::min(originShape[localIdx][ID0], localRawShape[ID0]);
     int oriTileShape1 = std::min(originShape[localIdx][ID1], localRawShape[ID1]);
 
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_1024] = CG_ERROR;
     int printRet = sprintf_s(buffer, BUFFER_SIZE_1024,
         "%s<%s, %s, %u, %u, %d, %d, %s, %s, %d, %d>((%s %s*)%s, (%s %s*)%s, %u);\n", tileOpName.c_str(),
         dataTypeExpr[gmIdx].c_str(), dataTypeExpr[localIdx].c_str(), localRawShape[ID0], localRawShape[ID1],
@@ -890,7 +890,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL0CDynamic(const PrintMemCopyWith
     std::vector<std::string> gmOffsetExpr = GenGetParamMacroPacked(param.gmIdx, SHAPE_DIM2, PREFIX_STR_OFFSET);
     ALOG_INFO_F("dynamic gmOffset param: %s", IntVecToStr(gmOffsetExpr).c_str());
 
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_1024] = CG_ERROR;
 
     int printRet{0};
 
@@ -1013,7 +1013,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithL1Static(const PrintMemCopyWithL1
     const std::vector<int64_t> &localRawShape = param.localRawShape;
     const std::vector<std::string> &dataTypeExpr = param.dataTypeExpr;
 
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_1024] = CG_ERROR;
 
     std::string opName = tileOpName;
     char addrBuffer[BUFFER_SIZE_1024] = "";
@@ -1150,7 +1150,7 @@ std::string CodeGenOpCloudNPU::PrintMemCopyWithUB(PrintMemCopyWithUBParam &param
 }
 
 std::string CodeGenOpCloudNPU::PrintMemCopyWithUBStatic(const PrintMemCopyWithUBParam &param) const {
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_1024] = CG_ERROR;
 
     unsigned localIdx = param.localIdx;
     const std::vector<std::string> &addrTypeHead = param.addrTypeHead;
@@ -1284,7 +1284,7 @@ std::string CodeGenOpCloudNPU::GenLoadOp() const {
     ASSERT(dstRawShapes == offsetsRawShapes) << "raw shape must be same!";
     ASSERT(dstOriShapes.size() == offsetsOriShapes.size()) << "ori shape must be same!";
 
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_1024] = CG_ERROR;
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string srcDtypeStr = DataType2CCEStr(srcDtype);
     std::string offsetsDtypeStr = DataType2CCEStr(offsetsDtype);
@@ -1437,7 +1437,7 @@ std::string CodeGenOpCloudNPU::GenGatherInL1() const {
 
     auto offsetsStartOffsets = GenParamIdxExprByIndex(ID2, SHAPE_DIM2, PREFIX_STR_OFFSET);
 
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_1024] = CG_ERROR;
     std::string dstDtypeStr = DataType2CCEStr(dstDtype);
     std::string srcDtypeStr = DataType2CCEStr(srcDtype);
     std::string offsetsDtypeStr = DataType2CCEStr(offsetsDtype);

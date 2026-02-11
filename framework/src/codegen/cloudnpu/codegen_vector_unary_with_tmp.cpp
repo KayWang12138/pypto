@@ -121,7 +121,7 @@ std::string CodeGenOpCloudNPU::PrintReduceLastAxis(const PrintUnaryTmpBuffParam 
     const std::string &tmpDtypeStr = param.tmpDtypeStr;
     const std::string &dstDtypeStr = param.dstDtypeStr;
 
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_1024] = CG_ERROR;
     int ret = 0;
 
     std::vector<int64_t> dstOriginShape = NormalizeShape(originShape[ID0], SHAPE_DIM4);
@@ -444,7 +444,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOpWithTmpBuff() const {
 
     AppendLocalBufVarOffsetInOrder(dVar, tmpVar, s0Var);
 
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_1024] = CG_ERROR;
     if (opCode == Opcode::OP_TRANSPOSE_VNCHWCONV) {
         return PrintVnchwconv({s0Var, tmpVar, dVar, srcDtypeStr, tmpDtypeStr, dstDtypeStr});
     }

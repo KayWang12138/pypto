@@ -43,7 +43,7 @@ std::string CodeGenOpCloudNPU::GenCastOp() const {
     std::vector<int64_t> ss = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
 
-    char buffer[BUFFER_SIZE_1024] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_1024] = CG_ERROR;
     int ret = 0;
     if (isDynamicFunction) {
         return PrintCastDynamicUnaligned({s0Var, dVar, srcDtypeStr, dstDtypeStr});
@@ -763,7 +763,7 @@ std::string CodeGenOpCloudNPU::GenRangeOp() const {
             startVal = std::to_string(AnyCast<Element>(start).Cast<int64_t>());
             stepVal = std::to_string(AnyCast<Element>(step).Cast<int64_t>());
             break;
-        default: ALOG_ERROR_F("RangeOp from PASS occured unsupport DataType: %d", operandDtype[ID0]); return "CG_ERROR";
+        default: ALOG_ERROR_F("RangeOp from PASS occured unsupport DataType: %d", operandDtype[ID0]); return CG_ERROR;
     }
     if (opAttrs.count(OpAttributeKey::dynScalar)) {
         auto scalarAny = opAttrs.at(OpAttributeKey::dynScalar);
