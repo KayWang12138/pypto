@@ -21,21 +21,9 @@
 
 #include <type_traits>
 
-#ifdef SUPPORT_TILE_TENSOR
-using pto::TileLeft;
-using pto::TileRight;
-using pto::TileAcc;
-using pto::BLayout;
-using pto::SLayout;
-#endif
-
 namespace TileOp::Distributed {
 
-// L0 buffer constraints (32KB each for L0A, L0B, L0C)
-constexpr uint32_t L0_BUFFER_SIZE = 32 * 1024;
 constexpr uint32_t CUBE_BLOCK_M = 16;
-constexpr uint32_t CUBE_BLOCK_N = 16;
-constexpr uint32_t CUBE_BLOCK_K = 16;
 
 #ifndef __TILE_FWK_HOST__
 #if defined(SUPPORT_TILE_TENSOR) && defined(__AIC__)
@@ -112,6 +100,26 @@ TILEOP void FFNTiledMatMul(
 #endif // !__TILE_FWK_HOST__
 
 #ifndef __TILE_FWK_HOST__
+
+template <typename T>
+INLINE float MoeFfnToFp32(T val)
+{
+    if constexpr (std::is_same_v<T, bfloat16_t>) {
+        return Bf16ToFp32(val);
+    } else {
+        return static_cast<float>(val);
+    }
+}
+
+template <typename T>
+INLINE T MoeFfnFromFp32(float val)
+{
+    if constexpr (std::is_same_v<T, bfloat16_t>) {
+        return Fp32ToBf16R(val);
+    } else {
+        return static_cast<T>(val);
+    }
+}
 
 // SiLU fusion: intermediate = SiLU(gate) * up.
 #if defined(__DAV_C220_VEC__)
@@ -210,31 +218,16 @@ TILEOP void MoeFfnSiLUFusionDispatch(
         offset += block;
         remaining -= block;
     }
-    if (remaining != 0) {
-        return;
+    // Handle tail elements that cannot be covered by vector tiles.
+    for (uint64_t i = 0; i < remaining; ++i) {
+        float gateVal = MoeFfnToFp32(gateResult[offset + i]);
+        float upVal = MoeFfnToFp32(upResult[offset + i]);
+        float absGate = gateVal >= 0.0f ? gateVal : -gateVal;
+        float sigmoid = 0.5f * (gateVal / (1.0f + absGate) + 1.0f);
+        intermediate[offset + i] = MoeFfnFromFp32<T>(gateVal * sigmoid * upVal);
     }
 }
 #else
-template <typename T>
-INLINE float MoeFfnToFp32(T val)
-{
-    if constexpr (std::is_same_v<T, bfloat16_t>) {
-        return Bf16ToFp32(val);
-    } else {
-        return static_cast<float>(val);
-    }
-}
-
-template <typename T>
-INLINE T MoeFfnFromFp32(float val)
-{
-    if constexpr (std::is_same_v<T, bfloat16_t>) {
-        return Fp32ToBf16R(val);
-    } else {
-        return static_cast<T>(val);
-    }
-}
-
 template <typename T>
 TILEOP void MoeFfnSiLUFusionDispatch(
     __gm__ T* intermediate,
@@ -333,8 +326,7 @@ TILEOP void MoeFfnFusedAICSingleCore(
         N);
 #endif
 
-    // Ensure gate/up GM writes from MTE3 are visible before scalar SiLU reads.
-    pipe_barrier(PIPE_MTE3);
+    // Ensure gate/up GM writes are visible before scalar SiLU reads.
     pipe_barrier(PIPE_ALL);
 
     MoeFfnSiLUFusionDispatch<T>(

@@ -20,6 +20,17 @@ hccl_comm_dict: Dict[str, int] = {}
 distributed_options = {"hccl_handle": [], "hccl_group_name": []}
 
 
+def _pick_percentile(sorted_vals: List[float], ratio: float) -> float:
+    if not sorted_vals:
+        return 0.0
+    idx = int((len(sorted_vals) - 1) * ratio)
+    if idx < 0:
+        idx = 0
+    if idx >= len(sorted_vals):
+        idx = len(sorted_vals) - 1
+    return sorted_vals[idx]
+
+
 def setup_distributed(rank: int, world_size: int) -> Tuple[int, str]:
     global hccl_comm, hccl_comm_name, dispatch_group_name, combine_group_name, distributed_options, hccl_comm_dict
     os.environ["RANK"] = str(rank)
@@ -334,6 +345,8 @@ def run_moe_combine_ffn_multiturn(rank: int, world_size: int) -> None:
 
     pypto_times: List[float] = []
     torch_times: List[float] = []
+    torch_gather_times: List[float] = []
+    torch_compute_times: List[float] = []
     for _ in range(test_rounds):
         dist.barrier()
         reset_buffers()
@@ -370,10 +383,18 @@ def run_moe_combine_ffn_multiturn(rank: int, world_size: int) -> None:
         torch.npu.synchronize()
         start = time.perf_counter()
         expand_all, info_all = gather_inputs()
+        torch.npu.synchronize()
+        gather_ms = (time.perf_counter() - start) * 1000.0
+
+        start = time.perf_counter()
         run_torch_baseline(expand_all, info_all)
         torch.npu.synchronize()
+        compute_ms = (time.perf_counter() - start) * 1000.0
+
         dist.barrier()
-        torch_times.append((time.perf_counter() - start) * 1000.0)
+        torch_gather_times.append(gather_ms)
+        torch_compute_times.append(compute_ms)
+        torch_times.append(gather_ms + compute_ms)
 
     if skip_combine:
         if rank == 0:
@@ -397,8 +418,41 @@ def run_moe_combine_ffn_multiturn(rank: int, world_size: int) -> None:
     if rank == 0:
         pypto_avg = sum(pypto_times) / len(pypto_times)
         torch_avg = sum(torch_times) / len(torch_times)
-        speedup = torch_avg / pypto_avg if pypto_avg > 0 else 0.0
-        print(f"[Rank 0] PyPTO avg: {pypto_avg:.3f} ms, Torch avg: {torch_avg:.3f} ms, Speedup: {speedup:.2f}x")
+        torch_gather_avg = sum(torch_gather_times) / len(torch_gather_times)
+        torch_compute_avg = sum(torch_compute_times) / len(torch_compute_times)
+        speedup_e2e = torch_avg / pypto_avg if pypto_avg > 0 else 0.0
+        speedup_compute = torch_compute_avg / pypto_avg if pypto_avg > 0 else 0.0
+
+        pypto_sorted = sorted(pypto_times)
+        torch_sorted = sorted(torch_times)
+        torch_compute_sorted = sorted(torch_compute_times)
+        pypto_p50 = _pick_percentile(pypto_sorted, 0.50)
+        pypto_p90 = _pick_percentile(pypto_sorted, 0.90)
+        pypto_p99 = _pick_percentile(pypto_sorted, 0.99)
+        torch_p50 = _pick_percentile(torch_sorted, 0.50)
+        torch_p90 = _pick_percentile(torch_sorted, 0.90)
+        torch_p99 = _pick_percentile(torch_sorted, 0.99)
+        torch_compute_p50 = _pick_percentile(torch_compute_sorted, 0.50)
+        torch_compute_p90 = _pick_percentile(torch_compute_sorted, 0.90)
+        torch_compute_p99 = _pick_percentile(torch_compute_sorted, 0.99)
+
+        speedup_p50 = torch_p50 / pypto_p50 if pypto_p50 > 0 else 0.0
+        speedup_p90 = torch_p90 / pypto_p90 if pypto_p90 > 0 else 0.0
+        speedup_p99 = torch_p99 / pypto_p99 if pypto_p99 > 0 else 0.0
+        speedup_compute_p50 = torch_compute_p50 / pypto_p50 if pypto_p50 > 0 else 0.0
+        speedup_compute_p90 = torch_compute_p90 / pypto_p90 if pypto_p90 > 0 else 0.0
+        speedup_compute_p99 = torch_compute_p99 / pypto_p99 if pypto_p99 > 0 else 0.0
+
+        print(
+            f"[Rank 0] PyPTO avg: {pypto_avg:.3f} ms | Torch e2e avg: {torch_avg:.3f} ms "
+            f"(gather {torch_gather_avg:.3f} + compute {torch_compute_avg:.3f}) | "
+            f"Speedup e2e: {speedup_e2e:.2f}x, compute-only: {speedup_compute:.2f}x"
+        )
+        print(
+            "[Rank 0] p50/p90/p99 "
+            f"e2e speedup=({speedup_p50:.2f}x, {speedup_p90:.2f}x, {speedup_p99:.2f}x), "
+            f"compute-only speedup=({speedup_compute_p50:.2f}x, {speedup_compute_p90:.2f}x, {speedup_compute_p99:.2f}x)"
+        )
 
 
 if __name__ == "__main__":
