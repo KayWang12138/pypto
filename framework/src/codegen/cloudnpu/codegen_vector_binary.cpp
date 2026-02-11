@@ -354,7 +354,7 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
     std::vector src1RawShape = this->rawShape[ID3];
     ALOG_INFO_F("GenBinaryWithBrc %s, src0RawShape is %s", tileOpName.c_str(), IntVecToStr(src0RawShape).c_str());
 
-    char buffer[256] = "CG_ERROR";
+    char buffer[256] = CG_ERROR;
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID2]);
     std::string src1DtypeStr = DataType2CCEStr(operandDtype[ID3]);
@@ -506,7 +506,7 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarOpDynamicUnalign(const PrintUnar
     FillIntVecWithDummyInHead<SymbolicScalar>(newDynSrcValidShape, SHAPE_DIM4 - dynamicValidShape[1].size(), 1);
     std::vector<int64_t> s0 = NormalizeShape(rawShape[1], SHAPE_DIM4);
     std::vector<int64_t> ds = NormalizeShape(rawShape[0], SHAPE_DIM4);
-    char scalarTmp[BUFFER_SIZE_256] = "CG_ERROR";
+    char scalarTmp[BUFFER_SIZE_256] = CG_ERROR;
     int ret = sprintf_s(scalarTmp, sizeof(scalarTmp), "%.9g", extOperandVal.Cast<float>());
     ASSERT(ret >= 0) << "GenVectorScalarOpByMode sprintf_s failed ";
 
@@ -541,7 +541,7 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
     std::string s0Var = sm->QueryVarNameByTensorMagic(operandWithMagic[ID1]);
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
-    char buffer[BUFFER_SIZE_512] = "CG_ERROR";
+    char buffer[BUFFER_SIZE_512] = CG_ERROR;
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
 
     AppendLocalBufVarOffsetInOrder(dVar, s0Var);

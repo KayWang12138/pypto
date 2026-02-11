@@ -43,6 +43,8 @@ const std::string SEMICOLON_BLANK = "; ";
 const std::string STMT_END = ";\n";
 const std::string END_LINE = "\n";
 
+const std::string CG_ERROR = "CG_ERROR";
+
 constexpr const int K_BYTES_OF16_BIT = 2;
 constexpr const int K_BYTES_OF32_BIT = 4;
 

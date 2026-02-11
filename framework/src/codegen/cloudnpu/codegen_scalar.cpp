@@ -22,7 +22,7 @@
 
 namespace npu::tile_fwk {
 std::string CodeGenOpCloudNPU::GenBarrier() const {
-    char buffer[256] = "CG_ERROR";
+    char buffer[256] = CG_ERROR;
     auto pipeId1 = GetPipeId(syncQueue.pipeId_);
     int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "pipe_barrier(%s);\n", pipeId1.c_str());
     if (ret < 0) {
@@ -32,7 +32,7 @@ std::string CodeGenOpCloudNPU::GenBarrier() const {
 }
 
 std::string CodeGenOpCloudNPU::GenSyncSetOp() const {
-    char buffer[256] = "CG_ERROR";
+    char buffer[256] = CG_ERROR;
     auto pipeId1 = GetPipeId(syncQueue.pipeId_);
     auto pipeId2 = GetPipeId(syncQueue.trigPipeId_);
     int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "set_flag(%s, %s, EVENT_ID%d);\n", pipeId1.c_str(),
@@ -44,7 +44,7 @@ std::string CodeGenOpCloudNPU::GenSyncSetOp() const {
 }
 
 std::string CodeGenOpCloudNPU::GenSyncWaitOp() const {
-    char buffer[256] = "CG_ERROR";
+    char buffer[256] = CG_ERROR;
     auto pipeId1 = GetPipeId(syncQueue.pipeId_);
     auto pipeId2 = GetPipeId(syncQueue.trigPipeId_);
     int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "wait_flag(%s, %s, EVENT_ID%d);\n",
