@@ -58,7 +58,7 @@ TILEOP void TCast(T0 dst, T1 src) {
                 auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                 pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * dstTypeSize));
                 pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * srcTypeSize));
-                [[pto::last_use(n1, n2)]]pto::TCVT(dstTile, srcTile, static_cast<pto::RoundMode>(Mode));
+                PTO_WITH_LAST_USE(pto::TCVT(dstTile, srcTile, static_cast<pto::RoundMode>(Mode)), n1, n2);
             }
         }
     }

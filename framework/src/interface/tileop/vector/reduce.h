@@ -24,11 +24,11 @@ TILEOP void ReduceComputeImpl(T0 dst, T1 src, T2 tmp) {
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     constexpr auto n3 = Std::tuple_element<DIM_3RD, LastUse>::type::value;
     if constexpr (op == ReduceOp::SUM) {
-        [[pto::last_use(n1, n2, n3)]]pto::TROWSUM(dst, src, tmp);
+        PTO_WITH_LAST_USE(pto::TROWSUM(dst, src, tmp), n1, n2, n3);
     } else if constexpr (op == ReduceOp::MAX) {
-        [[pto::last_use(n1, n2, n3)]]pto::TROWMAX(dst, src, tmp);
+        PTO_WITH_LAST_USE(pto::TROWMAX(dst, src, tmp), n1, n2, n3);
     } else if constexpr (op == ReduceOp::MIN) {
-        [[pto::last_use(n1, n2, n3)]]pto::TROWMIN(dst, src, tmp);
+        PTO_WITH_LAST_USE(pto::TROWMIN(dst, src, tmp), n1, n2, n3);
     }
 }
 

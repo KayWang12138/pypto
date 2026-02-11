@@ -24,32 +24,32 @@ TILEOP void BinaryScalarComputeImpl(T0 dst, T1 src0, Scalar src1) {
     constexpr auto n1 = Std::tuple_element<DIM_1ST, LastUse>::type::value;
     constexpr auto n2 = Std::tuple_element<DIM_2ND, LastUse>::type::value;
     if constexpr (op == BinaryScalarOp::ADD) {
-        [[pto::last_use(n1, n2)]]pto::TADDS(dst, src0, src1);
+        PTO_WITH_LAST_USE(pto::TADDS(dst, src0, src1), n1, n2);
         return;
     }
 
     if constexpr (op == BinaryScalarOp::SUB) {
-        [[pto::last_use(n1, n2)]]pto::TADDS(dst, src0, -src1);
+        PTO_WITH_LAST_USE(pto::TADDS(dst, src0, -src1), n1, n2);
         return;
     }
 
     if constexpr (op == BinaryScalarOp::MUL) {
-        [[pto::last_use(n1, n2)]]pto::TMULS(dst, src0, src1);
+        PTO_WITH_LAST_USE(pto::TMULS(dst, src0, src1), n1, n2);
         return;
     }
 
     if constexpr (op == BinaryScalarOp::DIV) {
-        [[pto::last_use(n1, n2)]]pto::TDIVS(dst, src0, src1);
+        PTO_WITH_LAST_USE(pto::TDIVS(dst, src0, src1), n1, n2);
         return;
     }
 
     if constexpr (op == BinaryScalarOp::MAX) {
-        [[pto::last_use(n1, n2)]]pto::TMAXS(dst, src0, src1);
+        PTO_WITH_LAST_USE(pto::TMAXS(dst, src0, src1), n1, n2);
         return;
     }
 
     if constexpr (op == BinaryScalarOp::MIN) {
-        [[pto::last_use(n1, n2)]]pto::TMINS(dst, src0, src1);
+        PTO_WITH_LAST_USE(pto::TMINS(dst, src0, src1), n1, n2);
         return;
     }
 

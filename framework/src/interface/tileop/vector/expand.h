@@ -74,7 +74,7 @@ TILEOP void TExpand(T0 dst, T1 src) {
                     auto srcOffset = n0Index * srcStride0 + n1Index * srcStride1 + n2Index * srcStride2;
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
-                    [[pto::last_use(n1, n2)]]pto::TROWEXPAND(dstTile, srcTile);
+                    PTO_WITH_LAST_USE(pto::TROWEXPAND(dstTile, srcTile), n1, n2);
                 }
             }
         }
@@ -92,7 +92,7 @@ TILEOP void TExpand(T0 dst, T1 src) {
                     srcTileDefine srcTile(srcShape3, srcShape4);
                     pto::TASSIGN(srcTile, (uint64_t)(src.GetAddr() + srcOffset * typeSize));
                     pto::TASSIGN(dstTile, (uint64_t)(dst.GetAddr() + dstOffset * typeSize));
-                    [[pto::last_use(n1, n2)]]pto::TCOLEXPAND(dstTile, srcTile);
+                    PTO_WITH_LAST_USE(pto::TCOLEXPAND(dstTile, srcTile), n1, n2);
                 }
             }
         }
