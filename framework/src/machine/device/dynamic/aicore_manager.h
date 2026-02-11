@@ -336,11 +336,9 @@ public:
 
     inline int RunManager(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *deviceArgs, int schedIdx) {
         int ret = DEVICE_MACHINE_OK;
-        DEV_DEBUG("schedule run threadIdx:%d", threadIdx);
         Init(threadIdx, devStartArgs, deviceArgs, schedIdx);
         INSTRUMENTATION_MARK_SET(threadIdx, PERF_TRACE_INIT, 0);
         PerfMtTrace(PERF_TRACE_INIT, threadIdx);
-        DEV_DEBUG("Schedule run init succ");
         DeviceTaskCtrl *taskCtrl = nullptr;
         taskQueue_ = &(devStartArgs->deviceRuntimeDataDesc.taskQueueList[schedIdx_]);
         if constexpr (IsDeviceMode()) {
@@ -348,7 +346,6 @@ public:
             INSTRUMENTATION_MARK_SET(threadIdx, PERF_TRACE_CORE_HAND_SHAKE, 0);
             PerfMtTrace(PERF_TRACE_CORE_HAND_SHAKE, threadIdx);
             if (unlikely(ret != DEVICE_MACHINE_OK)) {
-                DEV_ERROR("hand shake timeout.");
                 AbnormalStop();
                 while ((taskCtrl = taskQueue_->Dequeue())) {
                     taskCtrl->PutTask(ret);
@@ -358,12 +355,9 @@ public:
             devStartArgs->syncFlag = 1;
             aicoreProf_.ProfStart();
         }
-        DEV_DEBUG("Schedule run start succ");
         uint64_t lastDevTaskFinCycle = 0;
         while (ret == 0) {
-            DEV_DEBUG("Schedule task wait");
             taskCtrl = preFetchSuccess_ ? preFetchNextDevTaskCtrl_ : taskQueue_->Dequeue();
-            DEV_DEBUG("Schedule task recv");
             if (taskCtrl == nullptr) {
                 INSTRUMENTATION_MARK_SET(aicpuIdx_, PERF_TRACE_DEV_TASK_RCV, (uint32_t)lastDevTaskFinCycle);
                 PerfMtTrace(PERF_TRACE_WAIT_ALL_DEV_TASK_FINISH, aicpuIdx_, lastDevTaskFinCycle);

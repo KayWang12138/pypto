@@ -38,10 +38,11 @@ def parse_int_or_expr(value):
     """
     try:
         return ast.literal_eval(value)
-    except Exception:
+    except Exception as e:
         raise argparse.ArgumentTypeError(
-            f"Invalide expression: {value}"
-        )
+            f"Invalid expression: {value}"
+        ) from e
+
 
 if str(Path(Path(__file__).parent, "tools")) not in sys.path:
     sys.path.append(str(Path(Path(__file__).parent, "tools")))
@@ -216,8 +217,8 @@ class BuildParam(CMakeParam):
         self.gcov_incr = args.gcov_increment
         self.clang_install_path = self._get_clang_install_path(opt=args.clang)
         self.compile_dependency_check = args.compile_dependency_check
-        self.tracr          = args.tracr
-        self.tracr_policy   = args.tracr_policy
+        self.tracr = args.tracr
+        self.tracr_policy = args.tracr_policy
         self.tracr_capacity = args.tracr_capacity
 
     def __str__(self):
@@ -304,10 +305,12 @@ class BuildParam(CMakeParam):
         cmd += self._cfg_require(opt="BUILD_TRACR", ctr=self.tracr)
 
         if self.tracr_policy == "ignore_if_full":
-            assert(self.tracr, "Warning tracr has not been enabled.")
+            if self.tracr:
+                raise RuntimeError("TraCR policy requires tracr to be enabled.")
             cmd += " -DTRACR_POLICY=TRACR_POLICY_STOP_IF_FULL"
         elif self.tracr_policy == "periodic":
-            assert(self.tracr, "Warning tracr has not been enabled.")
+            if self.tracr:
+                raise RuntimeError("TraCR policy requires tracr to be enabled.")
             cmd += " -DTRACR_POLICY=TRACR_POLICY_PERIODIC"
 
         if self.tracr_capacity is not None:

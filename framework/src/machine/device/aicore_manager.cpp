@@ -456,9 +456,7 @@ void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTask
     uint32_t tmpTaskId;
     if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
         DEV_DEBUG("PendingTask Finished.runningid:%lx\n", runningIds_[coreIdx]);
-
         INSTRUMENTATION_MARK_RESET(coreIdx);
-
         tmpTaskId = runningIds_[coreIdx];
         runningIds_[coreIdx] = AICORE_TASK_INIT;
         pendingIds_[coreIdx] = AICORE_TASK_INIT;
@@ -485,9 +483,7 @@ void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTask
     } else if (finTaskId == runningIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
         DEV_DEBUG("core index: %d, RuningTask Finished. pending: %lx, running: %lx\n",
             coreIdx, pendingIds_[coreIdx], runningIds_[coreIdx]);
-
         INSTRUMENTATION_MARK_RESET(coreIdx);
-
         runningIds_[coreIdx] = AICORE_TASK_INIT;
         if (pendingIds_[coreIdx] == AICORE_TASK_INIT) {
             if (!SendTaskDirectlyWhenCoreRunReady(type, coreIdx)) {

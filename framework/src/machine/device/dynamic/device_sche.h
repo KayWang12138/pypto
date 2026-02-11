@@ -238,7 +238,9 @@ struct DynMachineManager {
 
                 INSTRUMENTATION_START("/tmp/");
             } else {
-                while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {}
+                while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {
+                    /* Busy waiting until the main proc initialized tracr */
+                }
 
                 INSTRUMENTATION_THREAD_INIT();
             }
@@ -248,7 +250,9 @@ struct DynMachineManager {
             /* TraCR Instrumentation */
             if (threadIdx == 1) {
 
-                while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {}
+                while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {
+                    /* Busy waiting until all the other threads finalized before finalizing tracr */
+                }
 
                 INSTRUMENTATION_END();
             } else {
