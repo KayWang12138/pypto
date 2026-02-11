@@ -779,7 +779,7 @@ static void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
-static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const torch::Tensor &rhs, int64_t kstep) {
+static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const torch::Tensor &rhs, const torch::Tensor &bias, int64_t kstep) {
     auto shapeL = lhs.sizes().vec();
     auto shapeR = rhs.sizes().vec();
     auto offsetL = std::vector<int64_t>(shapeL.size(), 0);
@@ -787,7 +787,7 @@ static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const tor
     int64_t kdimL = shapeL.size() - 1;
     int64_t kdimR = shapeR.size() - 0x2;
     int64_t k = shapeL[kdimL];
-
+    auto biasShape = bias.sizes().vec();
     for (int64_t offset = 0; offset < k; offset += kstep) {
         shapeL[kdimL] = std::min(kstep, k - offset);
         shapeR[kdimR] = std::min(kstep, k - offset);
@@ -797,10 +797,52 @@ static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const tor
         auto viewR = View(rhs, shapeR, offsetR);
         out.add_(torch::matmul(viewL, viewR));
     }
+    if (biasShape.size() == 2) {
+        out.add_(bias);
+    }
 }
 
-static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr acc,
-            MatMulParam &param) {
+static void FixpipeExecute(torch::Tensor &tout, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
+    if (relu == 1) {
+        tout.relu_();
+    }
+    if (scale != 0) {
+        uint32_t low32 = static_cast<uint32_t>(scale & 0xFFFFE000);
+        float scaleValue = 0.0;
+        memcpy_s(&scaleValue, sizeof(float), &low32, sizeof(float));
+        tout.mul_(scaleValue);
+    } else {
+        auto scaleTensor = From(scalePtr);
+        auto scaleU32 = scaleTensor.second.to(torch::kInt32);
+        auto* u32Data = scaleU32.data_ptr<int32_t>();
+        auto scaleF32 = torch::from_blob(
+            reinterpret_cast<float*>(u32Data),
+            scaleU32.sizes(),
+            torch::TensorOptions().dtype(torch::kFloat32)
+        ).clone();
+        tout.mul_(scaleF32);
+    }
+}
+
+static void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
+    auto tself = From(self);
+    auto tout = From(out);
+    auto dtype = tout.second.scalar_type();
+    auto calcType = dtype;
+    if (dtype == torch::kFloat16 || dtype == torch::kBFloat16) {
+        calcType = torch::kFloat;
+        tout.second = tout.second.to(calcType);
+    }
+    tout.second.copy_(tself.second);
+    FixpipeExecute(tout.second, scalePtr, scale, relu);
+    if (calcType != dtype) {
+        tout.second = tout.second.to(dtype);
+    }
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
+static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr bias, 
+    LogicalTensorDataPtr acc, MatMulParam &param) {
     auto tout = From(out);
     auto dtype = tout.second.scalar_type();
     auto calcType = dtype;
@@ -811,6 +853,10 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
 
     auto tself = From(self);
     auto tother = From(other);
+    std::pair<torch::Tensor, torch::Tensor> bias_tensor;
+    if (bias != nullptr) {
+        bias_tensor = From(bias);
+    }
     if (acc) {
         tout.second.copy_(From(acc).second);
     } else {
@@ -829,9 +875,17 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
         tother.second = tother.second.to(calcType);
     }
     if (!param.kStep || param.kStep == self->GetShape(-1)) {
-        tout.second.add_(torch::matmul(tself.second, tother.second));
+        if (bias != nullptr) {
+            tout.second.add_(torch::matmul(tself.second, tother.second) + bias_tensor.second);
+        } else {
+            tout.second.add_(torch::matmul(tself.second, tother.second));
+        }
     } else {
-        MatmulSplitK(tout.second, tself.second, tother.second, param.kStep);
+        MatmulSplitK(tout.second, tself.second, tother.second, bias_tensor.second, param.kStep);
+    }
+    // fixpipe
+    if (self->GetDataType() == DataType::DT_INT8 && out->GetDataType() == DataType::DT_FP16) {
+        FixpipeExecute(tout.second, param.scalePtr, param.scale, param.relu);
     }
     if (calcType != dtype) {
         tout.second = tout.second.to(dtype);
@@ -967,6 +1021,35 @@ void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTe
     auto tpageTable = From(pageTable);
     GatherINUBGolden(tout.second, tparams, tindices.second, tpageTable.second, blockSize, axis);
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
+void GatherInL1Golden(torch::Tensor &out, const torch::Tensor &params, const torch::Tensor &indices,
+    const torch::Tensor &pageTable, int64_t blockSize) {
+    torch::Tensor logical = indices.reshape({-1}).to(torch::kLong);
+    torch::Tensor pt = pageTable.reshape({-1}).to(torch::kLong);
+    torch::Tensor logical_block = logical.floor_divide(blockSize);
+    torch::Tensor offset = logical.remainder(blockSize);
+    torch::Tensor physical_block = torch::index_select(pt, 0, logical_block);
+    torch::Tensor physical = physical_block.mul(blockSize).add(offset);
+    torch::Tensor selected = torch::index_select(params, 0, physical);
+    out.copy_(selected);
+}
+static torch::Tensor FromGatherInL1(LogicalTensorDataPtr data) {
+    RawTensorDataPtr raw = data->GetData();
+    auto tensor = torch::from_blob(raw->data(), raw->GetShape(), FromDataType(raw->GetDataType()));
+    auto view = tensor.as_strided({raw->GetShape()[0],data->GetShape()[1]}, raw->GetStride(), data->GetStorageOffset());
+    if (data->IsAxisCombine()) {
+        view = view.transpose_(-1, AXIS_TO_LAST);
+    }
+    return view;
+}
+void GatherInL1(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
+    LogicalTensorDataPtr pageTable, int64_t blockSize) {
+    auto tout = From(out);
+    auto tparams = FromGatherInL1(params);
+    auto tindices = From(indices);
+    auto tpageTable = From(pageTable);
+    GatherInL1Golden(tout, tparams, tindices, tpageTable, blockSize);
 }
 
 void GatherElements(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis) {
@@ -1755,6 +1838,7 @@ static struct CalcOps calcOps = {
     .Scatter = Scatter,
     .FormatND2NZ = FormatND2NZ,
     .FormatNZ2ND = FormatNZ2ND,
+    .Fixpipe = Fixpipe,
     .MatMul = MatMul,
     .BitSort = BitSort,
     .TiledMrgSort = TiledMrgSort,
@@ -1768,6 +1852,7 @@ static struct CalcOps calcOps = {
     .Sort = Sort,
     .Gather = Gather,
     .GatherINUB = GatherINUB,
+    .GatherInL1 = GatherInL1,
     .BitwiseRightShift = BitwiseRightShift,
     .BitwiseLeftShift = BitwiseLeftShift,
     .BitwiseRightShiftS = BitwiseRightShiftS,
