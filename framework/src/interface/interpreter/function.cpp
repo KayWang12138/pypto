@@ -21,7 +21,8 @@
 namespace npu::tile_fwk {
 constexpr int MAX_IDENT_LEVEL = 20;
 const std::unordered_set<std::string> copyOpCode = {"COPY_IN", "COPY_OUT", "L1_TO_L0A",
-    "L1_TO_L0B", "L1_TO_L0_AT", "L1_TO_L0_BT", "TRANSPOSE_MOVEIN", "TRANSPOSE_MOVEOUT", "INDEX_OUTCAST"};
+    "L1_TO_L0B", "L1_TO_L0At", "FIX_COPY_IN_QUANT_PRE", "L1_TO_L0Bt", "L0C_COPY_L1", "L1_TO_BT",
+    "UB_COPY_ND2NZ", "UB_COPY_L1", "CONVERT", "TRANSPOSE_MOVEIN", "TRANSPOSE_MOVEOUT", "INDEX_OUTCAST"};
 
 static std::string HtmlEscape(const std::string &src, bool escapeLineBreak = true) {
     std::string ret;
