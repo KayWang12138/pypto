@@ -76,4 +76,17 @@ REGISTER_CALC_OP(OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_AT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0_BT, Opcode::OP_L1_TO_L0_BT, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_CONVERT, Opcode::OP_CONVERT, ExecuteDuplicate);
+
+void ExecuteOpGatherInL1(ExecuteOperationContext *ctx) {
+    ASSERT(ctx != nullptr && ctx->op != nullptr);
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == SIZE_THREE);
+    auto output = ctx->ooperandInplaceDataViewList->at(0);
+    auto params = ctx->ioperandDataViewList->at(0);
+    auto indices = ctx->ioperandDataViewList->at(1);
+    auto pageTable = ctx->ioperandDataViewList->at(2);
+    int blocksize = ctx->op->GetIntAttribute("op_attr_blocksize");
+    calc::GatherInL1(output, params, indices, pageTable, blocksize);
+}
+REGISTER_CALC_OP(OP_GATHER_IN_L1, Opcode::OP_GATHER_IN_L1, ExecuteOpGatherInL1);
 }
