@@ -66,7 +66,8 @@ TEST_F(TestPassDependency, TestStrategySequenceDependency) {
     // GraphPartition后缺少ReduceConpyMerge
     std::vector<PassName> lessSequenceDependency = {PassName::DUPLICATE_OP, PassName::SPLIT_LARGE_FANOUT_TENSOR,
         PassName::SPLIT_RESHAPE, PassName::SPLIT_K, PassName::GRAPH_PARTITION, PassName::N_BUFFER_MERGE,
-        PassName::L1_COPY_IN_REUSE_MERGE, PassName::INTRA_SUBGRAPH_ADAPTER, PassName::GENERATE_MOVE_OP};
+        PassName::L1_COPY_IN_REUSE_MERGE, PassName::INTRA_SUBGRAPH_ADAPTER, PassName::GENERATE_MOVE_OP,
+        PassName::COMMON_OPERATION_ELIMINATE, PassName::AXIS_COMBINE};
 
     EXPECT_EQ(passDependency.CheckStrategyDependency("lessSequenceDependency", lessSequenceDependency), WARNING);
 }
