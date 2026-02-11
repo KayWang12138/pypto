@@ -59,8 +59,7 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
     indexaddTileInfo.indicesTileInfo.shape = {indexaddTileInfo.srcTileInfo.shape[axis]};
     auto indexTile =
         indicesInput->View(function, indexaddTileInfo.indicesTileInfo.shape, indexaddTileInfo.indicesTileInfo.offset);
-    Shape tmpShape = {1, dstTile->GetShape()[dstTile->GetShape().size() - 1]};
-    auto tmpBuffer = std::make_shared<LogicalTensor>(function, DT_BF16, tmpShape);
+    auto tmpBuffer = std::make_shared<LogicalTensor>(function, DT_BF16, dstTile->GetShape());
 
     if (selfTile->Datatype() == DT_INT8) { // vector指令不支持int8的直接计算
         LogicalTensorPtr selfConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, selfTile->GetShape());
