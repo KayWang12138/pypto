@@ -103,7 +103,7 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
     } else if (opCode == Opcode::OP_L0C_TO_L1) {
         // fixpipe
         ASSERT(oper != nullptr && ret != nullptr);
-        ASSERT(oper->GetShape().size() > 1 && ret->GetShape.size() > 1);
+        ASSERT(oper->GetShape().size() > 1 && ret->GetShape().size() > 1);
         bool quant = oper->GetDataType() == DataType::DT_INT32 && ret->GetDataType() == DataType::DT_FP16;
         uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
         int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
