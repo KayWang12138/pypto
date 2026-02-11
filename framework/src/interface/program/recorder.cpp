@@ -32,7 +32,7 @@ void static MergeAllFuncDupIocast(Function* func) {
         return;
     }
 
-    ALOG_INFO("Merge Duplicated Iocast for function :", func->GetMagicName());
+    ALOG_INFO_F("Merge Duplicated Iocast for function: %s", func->GetMagicName().c_str());
     auto calleeLists = func->GetCalleeFunctionList();
     // leaf function has no duplicated tensor
     if (calleeLists.size() == 0) {
@@ -370,7 +370,7 @@ void RecordLoopFunc::IterationNext() {
 
 bool RecordLoopFunc::Condition(const SymbolicScalar &cond, const std::string &file, int line) {
     bool result = GetLoopAttr()->AppendCond(cond, file, line);
-    ALOG_INFO(file, ":", line, "]: ", result);
+    ALOG_INFO_F("[%s:%d]: %s", file.c_str(), line, result ? "true" : "false");
     return result;
 }
 

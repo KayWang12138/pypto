@@ -293,7 +293,7 @@ static std::string Width(const std::string &suffix, int width) {
 
 void TensorSlotManager::LogOperation(const TensorSlot &slot, const std::string &op) {
     std::string ops = Width(op, 10);
-    ALOG_DEBUG("[slotManager] " + std::to_string(slotIndexDict.size()) + " op:" + ops + " " + slot.Dump());
+    ALOG_DEBUG_F("[slotManager] %lu op:%s %s", slotIndexDict.size(), ops.c_str(), slot.Dump().c_str());
 }
 
 void TensorSlotManager::TensorRead(const Tensor &tensor) {
@@ -545,7 +545,7 @@ void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link) {
             for (std::vector<int> &slotsIdxIn : ioslot.incastSlot) {
                 for (auto &slotIdxIn : slotsIdxIn) {
                     if (slotIdxIn == slotIndexDict[slotIn]) {
-                        ALOG_DEBUG_F("replace slot %d to %d \n", slotIdxIn, slotIndexDict[slotOut]);
+                        ALOG_DEBUG_F("replace slot %d to %d.", slotIdxIn, slotIndexDict[slotOut]);
                         slotIdxIn = slotIndexDict[slotOut];
                     }
                 }
@@ -554,7 +554,7 @@ void TensorSlotManager::UpdateReshapeInplaceSlots(IncastOutcastLink& link) {
             for (std::vector<int> &slotsIdxOut : ioslot.outcastSlot) {
                 for (auto &slotIdxOut : slotsIdxOut) {
                     if (slotIdxOut == slotIndexDict[slotIn]){
-                        ALOG_DEBUG_F("replace slot %d to %d \n", slotIdxOut, slotIndexDict[slotOut]);
+                        ALOG_DEBUG_F("replace slot %d to %d.", slotIdxOut, slotIndexDict[slotOut]);
                         slotIdxOut = slotIndexDict[slotOut];
                     }
                 }
@@ -624,7 +624,7 @@ IncastOutcastLink TensorSlotManager::BuildIncastOutcastLink([[maybe_unused]]cons
     for (auto &[func, ioslot] : link.ioslotDict) {
         for (size_t idx = 0; idx < func->GetIncast().size(); idx++) {
             if (ioslot.incastSlot[idx].empty()) {
-                ALOG_WARN("!!! incast[" + std::to_string(idx) + "] slot not found, " + func->GetIncast()[idx]->Dump());
+                ALOG_WARN_F("!!! incast[%lu] slot not found, %s", idx, func->GetIncast()[idx]->Dump().c_str());
             }
         }
     }
