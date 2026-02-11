@@ -318,21 +318,30 @@ def run_moe_combine_ffn_multiturn(rank: int, world_size: int) -> None:
     moe_config.rankNum = world_size
 
     token_scale = float(os.environ.get("TOKEN_SCALE", "0.02"))
-    token_tensor = (torch.randn(batch_size, hidden_size, dtype=torch.bfloat16, device="npu") * token_scale)
+    token_tensor = torch.empty(batch_size, hidden_size, dtype=torch.bfloat16, device="npu")
     token_expert_table = torch.empty(batch_size, top_k, dtype=torch.int32, device="npu")
+    scale = torch.empty(batch_size, top_k, dtype=torch.float32, device="npu")
 
-    def randomize_expert_table() -> None:
-        expert_table_cpu = torch.empty((batch_size, top_k), dtype=torch.int32)
+    def randomize_round_inputs() -> None:
+        # Keep forward inputs dynamic for each round to better match real training traffic.
         if rank == 0:
-            expert_table_cpu.random_(0, routing_expert_num)
-        else:
-            expert_table_cpu.zero_()
-        expert_table_npu = expert_table_cpu.to("npu")
-        dist.broadcast(expert_table_npu, src=0)
-        token_expert_table.copy_(expert_table_npu)
+            token_fp32 = torch.randn(batch_size, hidden_size, dtype=torch.float32, device="npu") * token_scale
+            token_tensor.copy_(token_fp32.to(torch.bfloat16))
 
-    randomize_expert_table()
-    scale = torch.ones(batch_size, top_k, dtype=torch.float32, device="npu")
+            expert_table_cpu = torch.empty((batch_size, top_k), dtype=torch.int32)
+            expert_table_cpu.random_(0, routing_expert_num)
+            token_expert_table.copy_(expert_table_cpu.to("npu"))
+
+            routing_logits = torch.randn(batch_size, top_k, dtype=torch.float32, device="npu")
+            scale.copy_(torch.softmax(routing_logits, dim=-1))
+        else:
+            token_tensor.zero_()
+            token_expert_table.zero_()
+            scale.zero_()
+
+        dist.broadcast(token_tensor, src=0)
+        dist.broadcast(token_expert_table, src=0)
+        dist.broadcast(scale, src=0)
 
     if top_k * world_size < routing_expert_num:
         expand_x_rows = batch_size * top_k * world_size
@@ -429,6 +438,7 @@ def run_moe_combine_ffn_multiturn(rank: int, world_size: int) -> None:
         torch.npu.synchronize()
         dist.barrier()
 
+        randomize_round_inputs()
         token_pto, table_pto, expand_x_pto, valid_cnt_pto, combine_info_pto = wrap_inputs()
         run_dispatch(token_pto, table_pto, expand_x_pto, valid_cnt_pto, combine_info_pto)
         torch.npu.synchronize()
@@ -466,6 +476,7 @@ def run_moe_combine_ffn_multiturn(rank: int, world_size: int) -> None:
         torch.npu.synchronize()
         dist.barrier()
 
+        randomize_round_inputs()
         token_pto, table_pto, expand_x_pto, valid_cnt_pto, combine_info_pto = wrap_inputs()
         run_dispatch(token_pto, table_pto, expand_x_pto, valid_cnt_pto, combine_info_pto)
         torch.npu.synchronize()
