@@ -10,18 +10,13 @@ import os
 import sys
 import argparse
 
-from tools.onnx.export import export_to_onnx
-from tools.onnx.extract import *
-from tools.onnx.infer import *
-from tools.onnx.pypto_op import *
-
 NPU_DEVICE_ID = 1
 DOMAIN = "ai.onnx.contrib"
 OP_TYPE__ADD = "AddPyptoCustomOp"
 SHAPE = (32, 32, 1, 64)
 TILE_SHAPES = (1, 16, 1, 64)
 
-@pypto_op_kernel(kernel_name="add_kernel", tile_shapes=TILE_SHAPES, support_dynamic_aligned=True, version=1,
+@pypto.export.pypto_op_kernel(kernel_name="add_kernel", tile_shapes=TILE_SHAPES, support_dynamic_aligned=True, version=1,
                 incl_src=True, incl_binary=True, incl_ir=True)
 def add_kernel_py(t0, t1, t2):
     print("Goes through add_kernel")
@@ -74,15 +69,15 @@ def add_pypto_fake(x0, x1, run_mode = 0):
     assert x0.shape == x1.shape
     return torch.empty_like(x0)
 
-@pypto_op_infer_shape(pypto_op_kernel=add_kernel_py)
+@pypto.export.pypto_op_infer_shape(pypto_op_kernel=add_kernel_py)
 def add_pypto_infer_shape(x0_shape, x1_shape):
     return x0_shape
 
-@pypto_op_calc_workspace(pypto_op_kernel=add_kernel_py)
+@pypto.export.pypto_op_calc_workspace(pypto_op_kernel=add_kernel_py)
 def add_pypto_calc_workspace(x0_shape, x1_shape):
     return 42
 
-@pypto_op_onnx_symbolic(pypto_op_kernel=add_kernel_py)
+@pypto.export.pypto_op_onnx_symbolic(pypto_op_kernel=add_kernel_py)
 def add_pypto_onnx_symbolic(g, x0, x1, run_mode=0, op_context={}):
     # 这些将是onnx内部的属性
     node = g.op(f"{DOMAIN}::{OP_TYPE__ADD}", x0, x1, run_mode, **op_context)
@@ -137,7 +132,7 @@ def demo_export(models_dir: str, force_cpu: bool = False, force_sim: bool = Fals
     input_data1 = input_data1.cpu()
 
     os.makedirs(models_dir, exist_ok=True)
-    export_to_onnx(
+    pypto.export.export_to_onnx(
         model,
         (input_data0, input_data1),
         f"{models_dir}/pypto_custom_add_zip.onnx",
@@ -147,40 +142,40 @@ def demo_export(models_dir: str, force_cpu: bool = False, force_sim: bool = Fals
 
 def demo_load(models_dir: str):
     m = onnx.load(f"{models_dir}/pypto_custom_add_zip.onnx")
-    node = extract_node_from_onnx(
+    node = pypto.export.extract_node_from_onnx(
         onnx_model=m,
         domain=DOMAIN,
         op_type=OP_TYPE__ADD,
     )
 
-    kernel_format = extract_kernel_format_from_onnx_node(node)
-    pypto_meta = extract_pypto_meta_from_onnx_node(node)
+    kernel_format = pypto.export.extract_kernel_format_from_onnx_node(node)
+    pypto_meta = pypto.export.extract_pypto_meta_from_onnx_node(node)
 
     print(f"kernel_format:\t{kernel_format}")
     print(f"pypto_meta:\t{pypto_meta}")
 
     print("\n----------------\n")
 
-    infer_shape_source = extract_infer_shape_source_from_onnx_node(node)
-    calc_workspace_source = extract_calc_workspace_source_from_onnx_node(node)
+    infer_shape_source = pypto.export.extract_infer_shape_source_from_onnx_node(node)
+    calc_workspace_source = pypto.export.extract_calc_workspace_source_from_onnx_node(node)
     
     namespace = f"{DOMAIN}::{OP_TYPE__ADD}" # optional
     x0_shape = SHAPE
     x1_shape = SHAPE
 
     print(f"infer_shape() source:\n{infer_shape_source}")
-    infer_shape = register_infer_shape_fn(infer_shape_source, namespace=namespace)
+    infer_shape = pypto.export.register_infer_shape_fn(infer_shape_source, namespace=namespace)
     print(f"infer_shape() call:\t{infer_shape(x0_shape, x1_shape)}\n")
 
     print(f"calc_workspace() source:\n{calc_workspace_source}")
-    calc_workspace = register_calc_workspace_fn(calc_workspace_source, namespace=namespace)
+    calc_workspace = pypto.export.register_calc_workspace_fn(calc_workspace_source, namespace=namespace)
     print(f"calc_workspace() call:\t{calc_workspace(x0_shape, x1_shape)}")
 
     print("\n----------------\n")
 
-    if kernel_format == KERNEL_FORMAT__SOURCE or kernel_format == KERNEL_FORMAT__MULTI:
+    if kernel_format == pypto.export.KERNEL_FORMAT__SOURCE or kernel_format == pypto.export.KERNEL_FORMAT__MULTI:
         try:
-            kernel_source_zip_meta = extract_kernel_source_from_onnx_node(
+            kernel_source_zip_meta = pypto.export.extract_kernel_source_from_onnx_node(
                 onnx_node=node,
                 out_dir=f"{models_dir}/extracted_onnx_src",
             )
@@ -189,9 +184,9 @@ def demo_load(models_dir: str):
             print("No kernel source to unpack")
 
 
-    if kernel_format == KERNEL_FORMAT__BINARY or kernel_format == KERNEL_FORMAT__MULTI:
+    if kernel_format == pypto.export.KERNEL_FORMAT__BINARY or kernel_format == pypto.export.KERNEL_FORMAT__MULTI:
         try:
-            kernel_binary_zip_meta = extract_kernel_binary_from_onnx_node(
+            kernel_binary_zip_meta = pypto.export.extract_kernel_binary_from_onnx_node(
                 onnx_node=node,
                 out_dir=f"{models_dir}/extracted_onnx_binary",
             )
@@ -200,9 +195,9 @@ def demo_load(models_dir: str):
             print("No kernel binary to unpack")
 
 
-    if kernel_format == KERNEL_FORMAT__IR or kernel_format == KERNEL_FORMAT__MULTI:
+    if kernel_format == pypto.export.KERNEL_FORMAT__IR or kernel_format == pypto.export.KERNEL_FORMAT__MULTI:
         try:
-            kernel_ir_zip_meta = extract_kernel_ir_from_onnx_node(
+            kernel_ir_zip_meta = pypto.export.extract_kernel_ir_from_onnx_node(
                 onnx_node=node,
                 out_dir=f"{models_dir}/extracted_onnx_ir",
             )
