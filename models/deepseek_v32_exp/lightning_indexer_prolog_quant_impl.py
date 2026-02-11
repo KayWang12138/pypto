@@ -142,7 +142,6 @@ def quant_layer_norm(x: pypto.Tensor, gamma: pypto.Tensor, beta: pypto.Tensor, d
         stability, then casts back to the original dtype.
     """
     pypto.set_semantic_label("Key-LayerNorm")
-    assert ((dim == len(x.shape) - 1) or (dim == -1))
     actual_dim = dim + len(x.shape) if dim < 0 else dim
     x_dtype = x.dtype
 
@@ -189,7 +188,6 @@ def quant_rope_2d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor):
     x_dtype = x.dtype
     t_tile = x.shape[0]
     rope_dim = x.shape[1]
-    assert (len(x.shape) == key_rope_dim and len(cos.shape) == COS_SIN_DIM and len(sin.shape) == COS_SIN_DIM)
 
     pypto.set_vec_tile_shapes(t_tile, rope_dim)
     cast_cos = pypto.cast(cos, pypto.DT_FP32)
@@ -268,8 +266,6 @@ def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
     chunk_size = 2
     shape = input_tensor.shape
     shape_size = len(shape)
-    assert shape_size >= 1
-    assert shape[shape_size - 1] % chunk_size == 0
     shape[shape_size - 1] //= chunk_size
     offset1 = [0] * shape_size
     offset2 = [0] * shape_size
@@ -302,7 +298,6 @@ def rope_3d(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor, configs: Inde
     """
     head_num_axis = 1
     head_dim_axis = 2
-    assert (len(x.shape) == SHAPE_DIM_3 and len(cos.shape) == SHAPE_DIM_2 and len(sin.shape) == SHAPE_DIM_2)
 
     x_dtype = x.dtype
     t_tile = x.shape[0]

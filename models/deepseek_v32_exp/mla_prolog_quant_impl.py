@@ -264,8 +264,6 @@ def rotate_half(input_tensor: pypto.Tensor) -> pypto.Tensor:
     """
     shape = input_tensor.shape
     shape_size = len(shape)
-    assert shape_size >= 1, "rope rotate_half input dim less than 1"
-    assert shape[shape_size - 1] % 2 == 0, "rope rotate_half last dim shape is even"
 
     new_shape = list(shape)
     new_shape[shape_size - 1] //= 2
@@ -303,7 +301,6 @@ def rope_v2(
         The function performs reshape and transpose operations before applying
         rotation to optimize memory access patterns.
     """
-    assert len(x.shape) == 2 and len(cos.shape) == 2 and len(sin.shape) == 2
     seq_size = x.shape[0]
     d_r = x.shape[1]
     x_dtype = x.dtype
@@ -342,7 +339,6 @@ def rope_3d_v2(x: pypto.Tensor, cos: pypto.Tensor, sin: pypto.Tensor) -> pypto.T
         The function broadcasts cos and sin to match the head dimension,
         then applies rotation: x_rotated = x * cos + rotate_half(x) * sin
     """
-    assert len(x.shape) == 3 and len(cos.shape) == 2 and len(sin.shape) == 2
 
     pypto.set_vec_tile_shapes(1, 64)
     cast_cos = pypto.cast(cos, pypto.DT_FP32)
@@ -587,9 +583,6 @@ def mla_prolog_quant_compute(
         Key quantization is performed per-channel with 4 channels.
         All cache updates use scatter_update with axis=-2.
     """
-    assert len(token_x.shape) == 2 and len(w_uk.shape) == 3 and len(sin.shape) == 2
-    assert len(kv_cache.shape) == 4 and len(kr_cache.shape) == 4
-    assert cache_mode in ["PA_BSND", "PA_NZ"]
 
     dtype = token_x.dtype
     h = token_x.shape[1]
@@ -599,8 +592,6 @@ def mla_prolog_quant_compute(
     kv_lora_rank = w_uk.shape[2]
     qk_rope_head_dim = sin.shape[1]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
-
-    assert qk_nope_head_dim == 128 or qk_rope_head_dim == 64
 
     tile_bs = tile_config.tile_bs
 

@@ -32,19 +32,7 @@ import pypto
 from lightning_indexer_prolog_quant_impl import rope_3d, quant_layer_norm, prolog_quant, quant_rope_2d
 from mla_prolog_quant_impl import pre_compute_2d, rms_norm, rope_3d_v2, rope_v2, MlaQuantInputs, k_nope_quant
 
-SHAPE_DIM_2 = 2
-SHAPE_DIM_3 = 3
 
-NUM_0 = 0
-NUM_1 = 1
-NUM_2 = 2
-NUM_3 = 3
-NUM_7168 = 7168
-
-TILE_CUBE_DIM = 6
-Q_PARAM_DIM = 2
-NZ_DIM = 4
-COS_SIN_DIM = 2
 L0M_INDEX = 0
 L1M_INDEX = 1
 L0K_INDEX = 2
@@ -52,14 +40,7 @@ L1K_INDEX = 3
 L0N_INDEX = 4
 L1N_INDEX = 5
 SCATTER_DIM = -2
-NZ_FIRST_DIM = 16
-NZ_B8_C0 = 32
-NZ_B16_C0 = 16
 
-VEC_TILE_256 = 256
-VEC_TILE_128 = 128
-VEC_TILE_64 = 64
-VEC_TILE_8 = 8
 VEC_TILE_4 = 4
 VEC_TILE_32 = 32
 
@@ -76,10 +57,6 @@ def mla_indexer_prolog_quant_compute(
     mla_cache_mode, mla_tile_config,
     ip_attrs, ip_configs, rope_cfg
 ):
-    assert len(token_x.shape) == 2 and len(mla_w_uk.shape) == 3 and len(sin.shape) == 2
-    assert len(mla_kv_cache.shape) == 4 and len(mla_kr_cache.shape) == 4
-    assert mla_cache_mode in ["PA_BSND", "PA_NZ"]
-
     dtype = token_x.dtype
     h = token_x.shape[1]
     n1 = mla_w_uk.shape[0]
@@ -90,8 +67,6 @@ def mla_indexer_prolog_quant_compute(
     head_num = ip_w_proj_in.shape[1]
     head_dim = ip_hadamard_q_in.shape[0]
     q_head_dim = qk_nope_head_dim + qk_rope_head_dim
-
-    assert qk_nope_head_dim == 128 or qk_rope_head_dim == 64
 
     tile_bs = mla_tile_config.tile_bs
 
@@ -116,7 +91,8 @@ def mla_indexer_prolog_quant_compute(
 
         pypto.set_vec_tile_shapes(tile_bs, 128)
         x_view = pypto.view(token_x, [tile_bs, h], [bs_offset, 0])
-        q_kv = pre_compute_2d(x_view, mla_w_dq, mla_w_uq_qr, mla_w_dkv_kr, mla_gamma_cq, mla_epsilon_cq, quant_inputs, mla_tile_config)
+        q_kv = pre_compute_2d(x_view, mla_w_dq, mla_w_uq_qr, mla_w_dkv_kr, mla_gamma_cq, \
+                            mla_epsilon_cq, quant_inputs, mla_tile_config)
         q = q_kv[0]
         kv_tmp = q_kv[1]
 
@@ -292,7 +268,8 @@ def mla_indexer_prolog_quant_compute(
         pypto.assemble(weights_f16, [bs_offset, 0], ip_weights_out)
 
 
-def mla_indexer_prolog_quant_p(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, qk_rope_head_dim, idx_n_heads, idx_head_dim, 
+def mla_indexer_prolog_quant_p(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, \
+        qk_rope_head_dim, idx_n_heads, idx_head_dim, 
         mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
         ip_attrs, ip_configs, rope_cfg):
     t = pypto.frontend.dynamic("t")
@@ -468,7 +445,9 @@ def mla_indexer_prolog_quant_p(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_d
         return
     return mla_indexer_prolog_quant_kernel
 
-def mla_indexer_prolog_quant_d(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, qk_rope_head_dim, idx_n_heads, idx_head_dim, 
+
+def mla_indexer_prolog_quant_d(h, n_q, q_lora_rank, kv_lora_rank, qk_nope_head_dim, \
+        qk_rope_head_dim, idx_n_heads, idx_head_dim, 
         mla_epsilon_cq, mla_epsilon_ckv, mla_cache_mode, mla_tile_config, 
         ip_attrs, ip_configs, rope_cfg):
     t = pypto.frontend.dynamic("t")

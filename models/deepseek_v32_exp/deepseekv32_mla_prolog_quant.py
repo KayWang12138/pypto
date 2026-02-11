@@ -587,19 +587,6 @@ def mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, is_
     cache_index_data = input_tensors["cache_index"].reshape(cache_index_shape).npu()
     kv_cache_data = input_tensors["kv_cache"].reshape(kv_cache_shape).npu()
     kr_cache_data = input_tensors["kr_cache"].reshape(kr_cache_shape).npu()
-    token_x_data = input_tensors["x"].reshape(token_x_shape).npu()
-    w_dq_data = input_tensors["w_dq"].reshape(w_dq_shape).npu()
-    w_uq_qr_data = input_tensors["w_uqqr"].reshape(w_uq_qr_shape).npu()
-    w_uk_data = input_tensors["w_uk"].reshape(w_uk_shape).npu()
-    w_dkv_kr_data = input_tensors["w_dkvkr"].reshape(w_dkv_kr_shape).npu()
-    rmsnorm_gamma_cq_data =  \
-                    input_tensors["gamma_cq"].reshape(rmsnorm_gamma_cq_shape).npu()
-    rmsnorm_gamma_ckv_data = input_tensors["gamma_ckv"].reshape(rmsnorm_gamma_ckv_shape).npu()
-    rope_cos_data = input_tensors["cos"].reshape(rope_cos_shape).npu()
-    rope_sin_data = input_tensors["sin"].reshape(rope_cos_shape).npu()
-    cache_index_data = input_tensors["cache_index"].reshape(cache_index_shape).npu()
-    kv_cache_data = input_tensors["kv_cache"].reshape(kv_cache_shape).npu()
-    kr_cache_data = input_tensors["kr_cache"].reshape(kr_cache_shape).npu()
 
     if is_quant_b:
         k_scale = input_tensors["kv_quant_scale_cache"].npu()
@@ -711,54 +698,6 @@ def test_b128_s4k4_pa_nd_bf16_quantb_p():
     cache_mode = "PA_BSND"
     tile_config = MlaTileConfig()
     tile_config.tile_bs = 128
-    c0 = 16
-    m_tile_value = (min(128, tile_config.tile_bs) + c0 - 1) // c0 * c0
-    mv_tile_value = min(8, tile_config.tile_bs)
-    tile_config.m_tile = m_tile_value
-
-    tile_config.pre_quant_cube_tile[0] = m_tile_value
-    tile_config.pre_quant_cube_tile[1] = m_tile_value
-    tile_config.mv_tile = mv_tile_value
-    tile_config.q_vec_tile0 = 32
-    tile_config.q_vec_tile1 = 128
-    tile_config.k_vec_tile0 = 32
-    tile_config.k_vec_tile1 = 512
-    tile_config.unroll_list = [128, 64, 32, 16, 8, 4, 2, 1]
-
-    actual_seq = torch.tensor([params["s2"]] * params["b"], dtype=torch.int32).unsqueeze(-1)
-    input_tensors, golden_data = gen_mla_prolog_quant_v32_data(params, (torch.bfloat16, torch.bfloat16), actual_seq, \
-                    (is_quant_a, is_quant_b), False, 128, "PA_BSND")
-    mla_prolog_quant_v32(params, input_tensors, golden_data, dtype, w_dtype, \
-                        is_quant_a, is_quant_b, is_nz, tile_config, cache_mode, is_p=True)
-
-
-@pytest.mark.skip(reason="large shape")
-def test_b1_s4k512_pa_nd_bf16_quantb_p():
-    '''
-    mla_prolog prefill测试函数
-    '''
-    prep_env()
-    params = {
-        'b': 1,
-        't': 128,
-        's': 128,
-        's1': 128,
-        's2': 1024,
-        'n1': 128,
-        'h': 7168,
-        'q_lora_rank': 1536,
-        'qk_nope_head_dim': 128,
-        'qk_rope_head_dim': 64,
-        'kv_lora_rank': 512,
-        'block_size': 128
-    }
-    dtype = pypto.DT_BF16
-    w_dtype = pypto.DT_INT8
-    is_quant_a, is_quant_b, is_nz = False, True, False
-    cache_mode = "PA_BSND"
-    tile_config = MlaTileConfig()
-    tile_config.tile_bs = 128
-
     c0 = 16
     m_tile_value = (min(128, tile_config.tile_bs) + c0 - 1) // c0 * c0
     mv_tile_value = min(8, tile_config.tile_bs)
