@@ -105,6 +105,8 @@ struct TypeInfo {
             } else {
                 ALOG_ERROR("invalid type: ", type, " at ", prefix);
             }
+        } else {
+            ALOG_ERROR_F("Label<%s> field['type', 'properties'] not found in tile_fwk_config_schema.json", prefix.c_str());
         }
     }
 
