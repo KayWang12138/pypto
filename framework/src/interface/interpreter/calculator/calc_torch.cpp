@@ -686,16 +686,7 @@ static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const tor
     }
 }
 
-static void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
-    auto tself = From(self);
-    auto tout = From(out);
-    auto dtype = tout.scalar_type();
-    auto calcType = dtype;
-    if (dtype == torch::kFloat16 || dtype == torch::kBFloat16) {
-        calcType = torch::kFloat;
-        tout = tout.to(calcType);
-    }
-    tout.copy_(tself);
+static void FixpipeExecute(torch::Tensor &tout, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
     if (relu == 1) {
         tout.relu_();
     }
@@ -715,6 +706,19 @@ static void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
         ).clone();
         tout.mul_(scaleF32);
     }
+}
+
+static void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
+    auto tself = From(self);
+    auto tout = From(out);
+    auto dtype = tout.scalar_type();
+    auto calcType = dtype;
+    if (dtype == torch::kFloat16 || dtype == torch::kBFloat16) {
+        calcType = torch::kFloat;
+        tout = tout.to(calcType);
+    }
+    tout.copy_(tself);
+    FixpipeExecute(tout, scalePtr, scale, relu);
     if (calcType != dtype) {
         From(out) = tout.to(dtype);
     }
@@ -764,25 +768,7 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
     }
     // fixpipe
     if (self->GetDataType() == DataType::DT_INT8 && out->GetDataType() == DataType::DT_FP16) {
-        if (param.relu == 1) {
-            tout.relu_();
-        }
-        if (param.scale != 0) {
-            uint32_t low32 = static_cast<uint32_t>(param.scale & 0xFFFFE000);
-            float scaleValue = 0.0;
-            memcpy_s(&scaleValue, sizeof(float), &low32, sizeof(float));
-            tout.mul_(scaleValue);
-        } else {
-            auto scaleTensor = From(param.scalePtr);
-            auto scaleU32 = scaleTensor.to(torch::kInt32);
-            auto* u32Data = scaleU32.data_ptr<int32_t>();
-            auto scaleF32 = torch::from_blob(
-                reinterpret_cast<float*>(u32Data),
-                scaleU32.sizes(),
-                torch::TensorOptions().dtype(torch::kFloat32)
-            ).clone();
-            tout.mul_(scaleF32);
-        }
+        FixpipeExecute(tout, param.scalePtr, param.scale, param.relu);
     }
     if (calcType != dtype) {
         From(out) = tout.to(dtype);
@@ -929,8 +915,9 @@ static torch::Tensor FromGatherInL1(LogicalTensorDataPtr data) {
     RawTensorDataPtr raw = data->GetData();
     auto tensor = torch::from_blob(raw->data(), raw->GetShape(), FromDataType(raw->GetDataType()));
     auto view = tensor.as_strided({raw->GetShape()[0],data->GetShape()[1]}, raw->GetStride(), data->GetStorageOffset());
-    if (data->IsAxisCombine())
+    if (data->IsAxisCombine()) {
         view = view.transpose_(-1, AXIS_TO_LAST);
+    }
     return view;
 }
 void GatherInL1(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
