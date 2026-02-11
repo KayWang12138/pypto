@@ -105,8 +105,6 @@ struct TypeInfo {
             } else {
                 ALOG_ERROR("invalid type: ", type, " at ", prefix);
             }
-        } else {
-            ALOG_ERROR("type field missing");
         }
     }
 
@@ -418,7 +416,7 @@ private:
             confPath = GetConfDir() + "tile_fwk_config.json";
         }
         std::ifstream ifs(confPath);
-        ASSERT(ifs.is_open()) << "Open file " << confPath << " failed";
+        CHECK(ifs.is_open()) << "Open file " << confPath << " failed";
         nlohmann::json jdata;
         ifs >> jdata;
         LoadConf(jdata, "");
