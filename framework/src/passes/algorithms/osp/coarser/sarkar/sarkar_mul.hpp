@@ -162,15 +162,10 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLineContractions(bool &change) 
         params_.mode_ = sarkar_params::Mode::LINES;
         params_.useTopPoset_ = thueCoin_.GetFlip();
         UpdateParams();
-
         status = std::max(status, RunSingleContractionMode(diff));
-
-        if (diff > 0) {
-            change = true;
-            innerNoChange = 0;
-        } else {
-            innerNoChange++;
-        }
+        
+        change = (diff > 0);
+        innerNoChange = change ? 0U : innerNoChange + 1U;
     }
     return status;
 }
@@ -183,15 +178,10 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunPartialFanContractions(bool &ch
     while (innerNoChange < mlParams_.maxNumIterationWithoutChanges_) {
         params_.mode_ = thueCoin_.GetFlip() ? sarkar_params::Mode::FAN_IN_PARTIAL : sarkar_params::Mode::FAN_OUT_PARTIAL;
         UpdateParams();
-
         status = std::max(status, RunSingleContractionMode(diff));
-
-        if (diff > 0) {
-            change = true;
-            innerNoChange = 0;
-        } else {
-            innerNoChange++;
-        }
+        
+        change = (diff > 0);
+        innerNoChange = change ? 0U : innerNoChange + 1U;
     }
     return status;
 }
@@ -205,17 +195,11 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunFullFanContractions(bool &chang
     while (innerNoChange < mlParams_.maxNumIterationWithoutChanges_) {
         params_.mode_ = thueCoin_.GetFlip() ? sarkar_params::Mode::FAN_IN_FULL : sarkar_params::Mode::FAN_OUT_FULL;
         UpdateParams();
-
         status = std::max(status, RunSingleContractionMode(diff));
-
-        if (diff > 0) {
-            change = true;
-            innerNoChange = 0;
-        } else {
-            innerNoChange++;
-        }
+        
+        change = (diff > 0);
+        innerNoChange = change ? 0U : innerNoChange + 1U;
     }
-
     return status;
 }
 
@@ -229,17 +213,11 @@ ReturnStatus SarkarMul<GraphT, GraphTCoarse>::RunLevelContractions(bool &change)
         params_.mode_ = thueCoin_.GetFlip() ? sarkar_params::Mode::LEVEL_EVEN : sarkar_params::Mode::LEVEL_ODD;
         params_.useTopPoset_ = balancedRandom_.GetFlip();
         UpdateParams();
-
         status = std::max(status, RunSingleContractionMode(diff));
-
-        if (diff > 0) {
-            change = true;
-            innerNoChange = 0;
-        } else {
-            innerNoChange++;
-        }
+        
+        change = (diff > 0);
+        innerNoChange = change ? 0U : innerNoChange + 1U;
     }
-
     return status;
 }
 
