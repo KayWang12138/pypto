@@ -73,7 +73,6 @@ struct AccMax {
  * @param vertexContractionMap Output mapping from dagIn to coarsenedDag.
  * @return A status code indicating the success or failure of the coarsening operation.
  */
-
 template <typename GraphTIn, class GraphTOut, typename VWorkAccMethod = AccSum<VWorkwT<GraphTIn>>,
     typename VCommAccMethod = AccSum<VCommwT<GraphTIn>>, typename VMemAccMethod = AccSum<VMemwT<GraphTIn>>>
 bool ConstructCoarseDag(
@@ -108,28 +107,7 @@ bool ConstructCoarseDag(
             coarsenedDag.SetVertexCommWeight(vert, 0);
             coarsenedDag.SetVertexMemWeight(vert, 0);
         }
-
-        for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
-            coarsenedDag.SetVertexWorkWeight(
-                vertexContractionMap[vert], VWorkAccMethod()(coarsenedDag.VertexWorkWeight(vertexContractionMap[vert]),
-                                                dagIn.VertexWorkWeight(vert)));
-
-            coarsenedDag.SetVertexCommWeight(
-                vertexContractionMap[vert], VCommAccMethod()(coarsenedDag.VertexCommWeight(vertexContractionMap[vert]),
-                                                dagIn.VertexCommWeight(vert)));
-
-            coarsenedDag.SetVertexMemWeight(vertexContractionMap[vert],
-                VMemAccMethod()(coarsenedDag.VertexMemWeight(vertexContractionMap[vert]), dagIn.VertexMemWeight(vert)));
-        }
-
-        for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
-            coarsenedDag.SetVertexType(vertexContractionMap[vert], dagIn.VertexType(vert));
-        }
-
-        return true;
-    }
-
-    if constexpr (isConstructableCdagV<GraphTOut>) {
+    } else if constexpr (isConstructableCdagV<GraphTOut>) {
         coarsenedDag = GraphTOut();
 
         const VertexIdxT<GraphTOut> numVertQuotient =
@@ -140,37 +118,33 @@ bool ConstructCoarseDag(
         }
 
         for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
-            coarsenedDag.SetVertexWorkWeight(
-                vertexContractionMap[vert], VWorkAccMethod()(coarsenedDag.VertexWorkWeight(vertexContractionMap[vert]),
-                                                dagIn.VertexWorkWeight(vert)));
-
-            coarsenedDag.SetVertexCommWeight(
-                vertexContractionMap[vert], VCommAccMethod()(coarsenedDag.VertexCommWeight(vertexContractionMap[vert]),
-                                                dagIn.VertexCommWeight(vert)));
-
-            coarsenedDag.SetVertexMemWeight(vertexContractionMap[vert],
-                VMemAccMethod()(coarsenedDag.VertexMemWeight(vertexContractionMap[vert]), dagIn.VertexMemWeight(vert)));
-        }
-
-        for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
-            coarsenedDag.SetVertexType(vertexContractionMap[vert], dagIn.VertexType(vert));
-        }
-
-        for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
             for (const VertexIdxT<GraphTIn> &chld : dagIn.Children(vert)) {
                 if (vertexContractionMap[vert] == vertexContractionMap[chld]) {
                     continue;
                 }
-
                 if (not Edge(vertexContractionMap[vert], vertexContractionMap[chld], coarsenedDag)) {
                     coarsenedDag.AddEdge(vertexContractionMap[vert], vertexContractionMap[chld]);
                 }
             }
         }
-        return true;
+    } else {
+        return false;
     }
 
-    return false;
+    for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
+        coarsenedDag.SetVertexWorkWeight(vertexContractionMap[vert],
+            VWorkAccMethod()(coarsenedDag.VertexWorkWeight(vertexContractionMap[vert]), dagIn.VertexWorkWeight(vert)));
+        coarsenedDag.SetVertexCommWeight(vertexContractionMap[vert],
+            VCommAccMethod()(coarsenedDag.VertexCommWeight(vertexContractionMap[vert]), dagIn.VertexCommWeight(vert)));
+        coarsenedDag.SetVertexMemWeight(vertexContractionMap[vert],
+            VMemAccMethod()(coarsenedDag.VertexMemWeight(vertexContractionMap[vert]), dagIn.VertexMemWeight(vert)));
+    }
+
+    for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
+        coarsenedDag.SetVertexType(vertexContractionMap[vert], dagIn.VertexType(vert));
+    }
+
+    return true;
 }
 
 template <typename GraphTIn>
