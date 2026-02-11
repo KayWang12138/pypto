@@ -182,17 +182,29 @@ bool ReduceNeedCombineAxis(const Operation &op) {
     return false;
 }
 
-Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
-    const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
+inline bool SkipInputCombineOps3510(OPeration& op) {
     const std::unordered_set<Opcode> skipInputCombineOps3510 = {Opcode::OP_ADD, Opcode::OP_SUB, Opcode::OP_MUL,
         Opcode::OP_DIV, Opcode::OP_MAXIMUM, Opcode::OP_MINIMUM};
+    if (skipInputCombineOps3510.count(op.GetOpcode()) == 0) {
+ 	         return false;
+ 	     }
+ 	     auto lhs = op.GetIOperands()[0];
+ 	     auto rhs = op.GetIOperands()[1];
+ 	     if (lhs->GetShape() == rhs->GetShape()) {
+ 	         return false;
+ 	     }
+ 	     return true;
+ 	 }
+ 	 
+ 	 Status CodegenPreproc::ForceCombineAxisForAxisCombine(Function &func) const {
+ 	     const std::set<Opcode> skipInputCombineOps = {Opcode::OP_BRCB, Opcode::OP_EXPAND};
     for (auto &subProgram : func.rootFunc_->programs_) {
         for (auto &op : subProgram.second->Operations(false)) {
             if (OpcodeManager::Inst().GetCoreType(op.GetOpcode()) != OpCoreType::AIV && !IsUBCopy(op)) {
                 continue;
             }
-            if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && skipInputCombineOps3510.count(op.GetOpcode())) {
-                continue;
+if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && SkipInputCombineOps3510(op)) {
+                    continue;
             }
             std::vector<bool> inputCombineAxis;
             LogicalTensors inputs = op.GetIOperands();
