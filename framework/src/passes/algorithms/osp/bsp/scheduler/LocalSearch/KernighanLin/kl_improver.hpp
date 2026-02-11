@@ -713,7 +713,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 }
 
                 threadData.affinityTable_.Trim();
-                UpdateAffinities(bestMove, threadData, recomputeMaxGain, newNodes, prevWorkData, prevCommData);
+                UpdateAffinities(bestMove, threadData, recomputeMaxGain, newNodes, prevWorkData);
 
                 for (const auto v : unlockNodes) {
                     threadData.lockManager_.Unlock(v);
@@ -783,8 +783,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                                  ThreadSearchContext &threadData,
                                  std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain,
                                  std::vector<VertexType> &newNodes,
-                                 const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
-                                 const typename CommCostFunctionT::PreMoveCommDataT &prevCommData) {
+                                 const PreMoveWorkData<VertexWorkWeightT> &prevWorkData) {
         UpdateNodeWorkAffinity(threadData.affinityTable_, bestMove, prevWorkData, recomputeMaxGain);
         commCostF_.UpdateNodeCommAffinity(bestMove, threadData, threadData.rewardPenaltyStrat_.penalty_,
                                             threadData.rewardPenaltyStrat_.reward_, recomputeMaxGain, newNodes);
