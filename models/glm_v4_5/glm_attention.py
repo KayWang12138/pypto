@@ -512,15 +512,17 @@ def IFA(atten_cfg):
         out_torch
     ]
     # 5. 执行kernel并获取结果
+    attn_golden.ifa_golden(q, k, v, block_table_torch, act_seq_torch, attention_output, is_high_precision=False)
     attention(*inputs)
 
     # 6. 与PyTorch参考实现对比
     assert_allclose(np.array(attention_output.cpu().flatten().tolist()),
                     np.array(out_torch.cpu().flatten().tolist()),
                     rtol=0.0078125, atol=0.0001)
+    print("conpare success")
 
 
-@pytest.mark.skip(reason="large test case")
+# @pytest.mark.skip(reason="large test case")
 def test_ifa():
     # 1. 设置参数
     device_id = os.environ.get('TILE_FWK_DEVICE_ID', 0)
@@ -588,4 +590,5 @@ def attention(
     ifa_func(*shapes)(*inputs)
 
 if __name__ == "__main__":
+    import utils.golden.attn_golden as attn_golden
     test_ifa()
