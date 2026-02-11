@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <sstream>
 #include <string>
 #include <memory>
 #include <stack>
@@ -458,6 +459,43 @@ struct ParamConfigs {
     int copyOutResolveCoalescing{0};
     bool forceCombineAxis{false};
     bool combineAxis{false};
+
+    std::string ToString() const {
+        std::stringstream ss;
+        ss << "dynamicAlignedOps: " << dynamicAlignedOps << "\n";
+        ss << "sgPgUpperBound: " << sgPgUpperBound << "\n";
+        ss << "sgPgLowerBound: " << sgPgLowerBound << "\n";
+        ss << "sgParallelNum: " << sgParallelNum << "\n";
+        ss << "sgMgCopyInUpperBound: " << sgMgCopyInUpperBound << "\n";
+        ss << "machineConfig_: " << (int)machineConfig_ << "\n";
+        ss << "stitchFunctionNumInitial_: " << stitchFunctionNumInitial_ << "\n";
+        ss << "stitchFunctionNumStep_: " << stitchFunctionNumStep_ << "\n";
+        ss << "cubeL1ReuseSetting: " << "{";
+        for (auto &[key, value] : cubeL1ReuseSetting) {
+            ss << "(" << key << ", " << value << ") ";
+        }
+        ss << "}" << "\n";
+        ss << "cubeNBufferSetting: " << "{";
+        for (auto &[key, value] : cubeNBufferSetting) {
+            ss << "(" << key << ", " << value << ") ";
+        }
+        ss << "}" << "\n";
+        ss << "OoOPreScheduleMethod: " << OoOPreScheduleMethod << "\n";
+        ss << "vecNBuffermode: " << vecNBuffermode << "\n";
+        ss << "L1ReuseMode: " << L1ReuseMode << "\n";
+        ss << "cubeNBufferMode: " << cubeNBufferMode << "\n";
+        ss << "mgVecParallelLb: " << mgVecParallelLb << "\n";
+        ss << "pgSkipPartition: " << pgSkipPartition << "\n";
+        ss << "vecNBufferSetting: " << "{";
+        for (auto &[key, value] : vecNBufferSetting) {
+            ss << "(" << key << ", " << value << ") ";
+        }
+        ss << "}" << "\n";
+        ss << "copyOutResolveCoalescing: " << copyOutResolveCoalescing << "\n";
+        ss << "forceCombineAxis: " << forceCombineAxis << "\n";
+        ss << "combineAxis: " << combineAxis << "\n";
+        return ss.str();
+    }
 };
 
 struct FunctionParamInfo {
