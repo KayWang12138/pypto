@@ -147,11 +147,17 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             function.AddOperation(
                 GetBinaryOpNameCode<T, false, true>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
         } else {
-            if (opName == "BITWISEXOR" || opName == "COPYSIGN") {
+            if (opName == "BITWISEXOR" || opName == "COPYSIGN" || opName == "POW") {
                 std::vector<int64_t> tmpShape(resultTileInfo.shape);
                 auto alignSize = BLOCK_SIZE / BytesOf(result->Datatype());
                 tmpShape[resultTileInfo.shape.size() - 1] = 
                     AlignUp(tmpShape[resultTileInfo.shape.size() - 1], alignSize);
+                if (opName == "POW") {
+                    tmpShape[resultTileInfo.shape.size() - 2] *= 4;
+                    for (size_t i = 0; i + 2 < resultTileInfo.shape.size(); ++i) {
+                        tmpShape[i] = 1;
+                    }
+                }
                 auto tempTensor = std::make_shared<LogicalTensor>(function, result->Datatype(), tmpShape);
                 function.AddOperation(
                     GetBinaryOpNameCode<T, false, false>(), {inputTile1, inputTile2}, {resultTile, tempTensor});
