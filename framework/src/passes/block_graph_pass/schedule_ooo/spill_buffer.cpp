@@ -523,7 +523,7 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr 
         }
         if (actualSpillIssue->tileOp.GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
             actualSpillIssue->tileOp.GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
-            APASS_LOG_ERROR_F(Elements::Operation, "SpillIssue is Reshape, preop: %s, pre tensor of L1: %s", actualSpillIssue->GetOpInfo().c_str(),
+            APASS_LOG_ERROR_F(Elements::Operation, "SpillIssue is Reshape, preop: %s, ioperand of L1: %s", actualSpillIssue->GetOpInfo().c_str(),
                 MemoryTypeToString(actualSpillIssue->tileOp.GetInputOperand(0)->GetMemoryTypeOriginal()).c_str());
             return FAILED;
         }
@@ -532,6 +532,12 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr 
             if (!issueEntryMap[preId]->isAlloc) {
                 actualSpillIssue = issueEntryMap[preId];
             }
+        }
+        if (actualSpillIssue->tileOp.GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
+            actualSpillIssue->tileOp.GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
+            APASS_LOG_ERROR_F(Elements::Operation, "SpillIssue is Reshape, actualSpillIssue: %s, actualSpillTensor MemoryType: %s", actualSpillIssue->GetOpInfo().c_str(),
+                MemoryTypeToString(actualSpillIssue->tileOp.GetInputOperand(0)->GetMemoryTypeOriginal()).c_str());
+            return FAILED;
         }
     }
     if (actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
