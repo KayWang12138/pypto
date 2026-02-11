@@ -114,7 +114,7 @@ void RawTensor::AddRefCount(int value) {
     ASSERT(value == 1 || value == -1);
     refCount_ += value;
     if (refCount_ < 0) {
-        ALOG_INFO("rawmagic = ", rawmagic, " refCount_ is negative: ", refCount_);
+        ALOG_INFO_F("rawmagic = %d, refCount_ is negative: %d", rawmagic, refCount_);
     }
 }
 

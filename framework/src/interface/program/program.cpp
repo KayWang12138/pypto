@@ -246,7 +246,7 @@ bool Program::BeginFunction(const std::string &funcName,
         functionmap_.emplace(funcMagicName, std::move(newFunc));
         currentFunctionMagicName_ = funcMagicName;
     } else {
-        ALOG_DEBUG("funcMagicName[", funcMagicName, "] is already in the function map");
+        ALOG_DEBUG_F("funcMagicName[%s] is already in the function map", funcMagicName.c_str());
         currentFunctionMagicName_ = funcMagicName;
         currentFunctionPtr_ = functionmap_[funcMagicName].get();
     }
@@ -279,12 +279,12 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
     auto funcMagicName = currentFunctionPtr_->GetRawName() + "_" + std::to_string(currentFunctionPtr_->GetFuncMagic());
     ASSERT(currentFunctionPtr_->GetMagicName() == funcMagicName);
 
-    ALOG_DEBUG("func.end.finish: name=", funcMagicName);
+    ALOG_DEBUG_F("func.end.finish: name=%s", funcMagicName.c_str());
 
     auto funcArgs = currentFunctionPtr_->EndFunction(scope);
 
     currentFunctionPtr_->ComputeHash();
-    ALOG_DEBUG("The hash of current func is ", currentFunctionPtr_->ComputeHash());
+    ALOG_DEBUG_F("The hash of current func is %lu", currentFunctionPtr_->ComputeHash());
     if (!generateCall) {
         return nullptr;
     }
@@ -311,7 +311,7 @@ void Program::HandleTaskSubmission(Function *result) {
             if (!result->IsHiddenFunction() || result->Operations().size() > 0) {
                 HostMachine::GetInstance().StashTask(result);
             } else {
-                ALOG_INFO("Empty function: ", result->GetRawName(), ", skip stashing and removed");
+                ALOG_INFO_F("Empty function: %s, skip stashing and removed", result->GetRawName().c_str());
                 auto &scopes = GetTensorSlotManager()->scopeList;
                 scopes.erase(std::remove_if(scopes.begin(), scopes.end(),
                                  [result](const std::shared_ptr<TensorSlotScope> &scope) {
@@ -343,7 +343,8 @@ std::tuple<Function*, Operation *, bool> Program::EndFunction(const std::string 
     }
     currentFunctionPtr_->SetUnderDynamicFunction(Program::GetInstance().GetCurrentDynamicFunction() != nullptr);
     if (currentFunctionPtr_->IsStatic() && funcName != currentFunctionPtr_->GetRawName()) {
-        ALOG_ERROR("Function name not match current: ", currentFunctionPtr_->GetRawName(), " != ", funcName);
+        ALOG_ERROR_F(
+            "Function name not match current: %s != %s", currentFunctionPtr_->GetRawName().c_str(), funcName.c_str());
         return std::make_tuple(nullptr, nullptr, false);
     }
 
@@ -392,7 +393,7 @@ Operation &Program::AddOperation(const Opcode opCode,
     const std::vector<std::shared_ptr<LogicalTensor>> &oOperand) {
     // Add the operation to the current function
     if (currentFunctionMagicName_ == PROGRAM_ENTRY_FUNCTION_NAME) {
-        ALOG_FATAL("Error: No active function to add operation.");
+        ALOG_ERROR_F("Error: No active function to add operation.");
         ASSERT(false);
     }
     return currentFunctionPtr_->AddOperation(opCode, iOperand, oOperand);
@@ -527,7 +528,7 @@ std::shared_ptr<Function> Program::GetFunctionByMagic(int funcMagic)
             return func.second;
         }
     }
-    ALOG_ERROR("Cannot find function iter by magic ", funcMagic);
+    ALOG_ERROR_F("Cannot find function iter by magic %d", funcMagic);
     return nullptr;
 }
 
@@ -651,7 +652,7 @@ void Program::VerifyPass(Function *func, int passIndex, const std::string &passI
     // SubgraphToFunction阶段还未进行validShape推导，会导致非尾块的计算会按照尾块大小进行计算，导致部分数据的拷贝或者计算丢失，
     // 该Pass需要与InferParamIndexPass进行“合并”后才会完成VaildShape推导，才可以完成完整功能；
     if (passIdentifier == "SubgraphToFunction") {
-        ALOG_INFO("Skip verify pass [SubgraphToFunction] for interpreter!");
+        ALOG_INFO_F("Skip verify pass [SubgraphToFunction] for interpreter!");
         return;
     }
     auto &flowVerifier = FlowVerifier::GetInstance();
@@ -665,7 +666,7 @@ std::shared_ptr<Function> Program::GetFunctionSharedPtr(Function* rawPtr) {
             return sharedPtr;
         }
     }
-    ALOG_WARN("not find function ptr in function map");
+    ALOG_WARN_F("not find function ptr in function map");
     return nullptr;
 }
 } // namespace npu::tile_fwk

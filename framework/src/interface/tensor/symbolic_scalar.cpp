@@ -43,20 +43,20 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
         " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
         " -S " + sourceFilePath + " -o " + assembleFilePath;
-    ALOG_INFO("[RunCmd] ", cmdGcc);
+    ALOG_INFO_F("[RunCmd] %s", cmdGcc.c_str());
     ASSERT(system(cmdGcc.c_str()) == 0);
 
     std::string cmdAs = LD_PRELOAD + gcc + " -O2 -c " + assembleFilePath + " -o " + objectFilePath;
-    ALOG_INFO("[RunCmd] ", cmdAs);
+    ALOG_INFO_F("[RunCmd] %s", cmdAs.c_str());
     ASSERT(system(cmdAs.c_str()) == 0);
 
     std::string cmdObjcopy = LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + objectFilePath;
-    ALOG_INFO("[RunCmd] ", cmdObjcopy);
+    ALOG_INFO_F("[RunCmd] %s", cmdObjcopy.c_str());
     ASSERT(system(cmdObjcopy.c_str()) == 0);
 
     FILE *fbin = fopen(binaryFilePath.c_str(), "rb");
     if (fbin == nullptr) {
-        ALOG_FATAL("open binary file name failed");
+        ALOG_ERROR_F("open binary file name failed");
         return {};
     }
 
