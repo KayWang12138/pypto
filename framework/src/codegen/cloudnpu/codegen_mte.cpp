@@ -1793,9 +1793,9 @@ std::string CodeGenOpCloudNPU::GenMemL1ToL0Load3D() const {
 
     uint8_t padLeft, padRight, padTop, padBottom, padValue;
     GetAttr(Conv::Im2ColOpAttributeKey::paddingLeft, padLeft);
-    GetAttr(Conv::Im2ColOpAttributeKey::padRight, padRight);
-    GetAttr(Conv::Im2ColOpAttributeKey::padTop, padTop);
-    GetAttr(Conv::Im2ColOpAttributeKey::padBottom, padBottom);
+    GetAttr(Conv::Im2ColOpAttributeKey::paddingRight, padRight);
+    GetAttr(Conv::Im2ColOpAttributeKey::paddingTop, padTop);
+    GetAttr(Conv::Im2ColOpAttributeKey::paddingBottom, padBottom);
     GetAttr(Conv::Im2ColOpAttributeKey::padValue, padValue);
     paramList.emplace_back(padLeft);
     paramList.emplace_back(padRight);  
