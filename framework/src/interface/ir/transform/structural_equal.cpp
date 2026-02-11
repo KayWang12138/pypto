@@ -554,6 +554,15 @@ bool StructuralEqualImpl<AssertMode>::Equal(const IRNodePtr& lhs, const IRNodePt
     return result;
   }
 
+  // Check MemRef before Var (MemRef inherits from Var)
+  if (auto lhs_memref = As<MemRef>(lhs)) {
+    if constexpr (AssertMode) path_.emplace_back("MemRef");
+    auto rhs_memref = std::static_pointer_cast<const MemRef>(rhs);
+    bool result = rhs_memref && EqualWithFields(lhs_memref, rhs_memref);
+    if constexpr (AssertMode) path_.pop_back();
+    return result;
+  }
+
   if (auto lhs_var = As<Var>(lhs)) {
     if constexpr (AssertMode) path_.emplace_back("Var");
     bool result = EqualVar(lhs_var, std::static_pointer_cast<const Var>(rhs));
@@ -740,6 +749,9 @@ bool StructuralEqualImpl<AssertMode>::EqualType(const TypePtr& lhs, const TypePt
     for (size_t i = 0; i < lhs_tuple->types_.size(); ++i) {
       if (!EqualType(lhs_tuple->types_[i], rhs_tuple->types_[i])) return false;
     }
+    return true;
+  } else if (IsA<MemRefType>(lhs)) {
+    // MemRefType is a singleton type, just need to check both are MemRefType
     return true;
   } else if (IsA<UnknownType>(lhs)) {
     return true;
