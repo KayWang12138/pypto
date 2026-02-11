@@ -388,7 +388,7 @@ def do_test_sfa_entry(case_name: str, is_p: bool):
     return True
 
 
-@pytest.mark.skip(reason="large test case")
+# @pytest.mark.skip(reason="large test case")
 def test_sfa_bf16_b4_s2_seq64k_total_int8_d():
     '''
     sfa decode测试函数
@@ -396,7 +396,7 @@ def test_sfa_bf16_b4_s2_seq64k_total_int8_d():
     do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_total_int8_d", is_p=False)
 
 
-@pytest.mark.skip(reason="perf")
+# @pytest.mark.skip(reason="perf")
 def test_sfa_bf16_b4_s2_seq64k_per_int8_d():
     '''
     sfa decode测试函数
@@ -404,7 +404,7 @@ def test_sfa_bf16_b4_s2_seq64k_per_int8_d():
     do_test_sfa_entry("sfa_bf16_b4_s2_seq64K_per_int8_d", is_p=False)
 
 
-@pytest.mark.skip(reason="large test case")
+# @pytest.mark.skip(reason="large test case")
 def test_sfa_bf16_b1_s256_seq64k_int8_p():
     '''
     sfa prefill测试函数
