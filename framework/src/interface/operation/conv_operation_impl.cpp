@@ -361,7 +361,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
             << (attrParam.isConv1D ? " limit: kw=" : " limits: kh=")
             << (attrParam.isConv1D ? kw : kh)
             << (attrParam.isConv1D ? "" : ", kw=" + std::to_string(kw))
-            << ", which must <= " << MAX_PAD_KERNEL << "." << std::endl;>>
+            << ", which must <= " << MAX_PAD_KERNEL << "." << std::endl;
     });
 
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
