@@ -25,7 +25,6 @@
 #include <malloc.h>
 
 namespace npu::tile_fwk {
-constexpr uint32_t AICPU_QUEUE_SIZE = 1024;
 
 class AicpuTaskManager {
 public:
