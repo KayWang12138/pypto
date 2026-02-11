@@ -123,13 +123,7 @@ void SdmaPrefetch(DeviceTask *devTask);
 class AiCoreManager {
 public:
     AiCoreManager(AicpuTaskManager &aicpuTaskManager) : aicpuTaskManager_(aicpuTaskManager){};
-    ~AiCoreManager()
-    {
-        if (aicpuIdx_ == 1) {
-            readyAicCoreFunctionQue_->finalizeLockFree();
-            readyAivCoreFunctionQue_->finalizeLockFree();
-        }
-    };
+    ~AiCoreManager(){};
 
     inline void InitTaskData(DeviceTaskCtrl *taskCtrl) {
         curTaskCtrl_ = taskCtrl;
@@ -141,9 +135,17 @@ public:
         readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
+        // If I am the lead AICPU scheduler, perform initailization steps
         if (aicpuIdx_ == 1) {
+            // Initialize the lock free queues
             readyAicCoreFunctionQue_->initializeLockFree();
             readyAivCoreFunctionQue_->initializeLockFree();
+            curDevTask_->isTaskInitialized = true;
+        }
+        // If I am not a lead AICPU scheduler, wait until initialization is ready
+        else
+        {
+            while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
         }
     }
 

@@ -126,6 +126,7 @@ struct DeviceTask {
     L2PreInfo l2Info;
     uint64_t costModelData;           // costmodel仿真时长
     uint64_t aicoreModel;             // costmodel aicore功能模型
+    volatile bool isTaskInitialized; // A flag to indicate the kernel has been properly initialized by the lead AICPU scheduler 
 };
 
 // dfx 相关

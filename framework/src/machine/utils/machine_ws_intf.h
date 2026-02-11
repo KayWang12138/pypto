@@ -45,9 +45,9 @@ class StaticReadyCoreFunctionQueue {
   // The use of past tense in these functions obeys to the fact that they are not (and cannot be) concurrency-safe
   // Therefore, the return value could have changed by the time it is returned
   inline bool wasEmpty() const { return head == tail; }
-  inline uint64_t wasSize() const { return tail - head; }
+  inline aicoreFunction_t wasSize() const { return tail - head; }
 
-  inline std::pair<uint64_t*, size_t> pop(const size_t n = 1)
+  inline std::pair<aicoreFunction_t*, size_t> pop(const size_t n = 1)
   {
     const auto curHead = head;
     const size_t count = std::min(n, wasSize());
@@ -55,14 +55,24 @@ class StaticReadyCoreFunctionQueue {
     return { &elem[curHead], count };
   }
 
-  inline void push(uint64_t* const input, const size_t count = 1)
+  inline std::pair<aicoreFunction_t*, size_t> pop_no_lock(const size_t n = 1)
+  {
+    for (size_t i = 0; i < n; i++) _lockFreeQueue->pop();
+    return { nullptr, 0 };
+  }
+
+  inline void push(aicoreFunction_t* const input, const size_t count = 1)
   {
     lock();
-    memcpy_s(&elem[tail], count * sizeof(uint64_t), input, count * sizeof(uint64_t));
+    memcpy_s(&elem[tail], count * sizeof(aicoreFunction_t), input, count * sizeof(aicoreFunction_t));
     tail += count;
     unlock();
   }
 
+  inline void push_no_lock(aicoreFunction_t* const input, const size_t count = 1)
+  {
+    for (size_t i = 0; i < count; i++) _lockFreeQueue->push(input[i]);
+  }
 
   inline void lock() {
      while (!__sync_bool_compare_and_swap(&_lock, 0, 1)) {
@@ -74,10 +84,10 @@ class StaticReadyCoreFunctionQueue {
     }
   }
 
-  inline void setBuffer(uint64_t* const buffer) { elem = buffer; }
+  inline void setBuffer(aicoreFunction_t* const buffer) { elem = buffer; }
   inline void setCapacity(const size_t capacity) { _capacity = capacity; }
   inline void setCount(const size_t count) { tail = count; head = 0; }
-  inline uint64_t* getBuffer() const { return elem; }
+  inline aicoreFunction_t* getBuffer() const { return elem; }
 
   inline void initializeLockFree()
   {

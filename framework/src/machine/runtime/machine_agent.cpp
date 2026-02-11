@@ -424,6 +424,7 @@ void MachineAgent::FillDeviceTask(DeviceAgentTask *task, DeviceTask &devTask, Ma
     devTask.coreFunctionReadyStateAddr = reinterpret_cast<uint64_t>(devInfo.readyStateGmAddr);
     devTask.readyAicCoreFunctionQue = reinterpret_cast<uint64_t>(devInfo.readyAicQueGmAddr);
     devTask.readyAivCoreFunctionQue = reinterpret_cast<uint64_t>(devInfo.readyAivQueGmAddr);
+    devTask.isTaskInitialized = false;
     (void)memcpy_s(&(devTask.readyAicpuFunctionQue), sizeof(uint64_t), &(devInfo.readyAicpuQueGmAddr), sizeof(uint8_t*));
     FillL2PrefetchInfo(task, devTask);
 }
