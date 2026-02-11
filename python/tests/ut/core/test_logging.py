@@ -478,7 +478,7 @@ class TestCheckFunctions:
         try:
             pypto_core.internal_check(False, "test")
         except Exception as e:
-            assert type(e).__name__ == "RuntimeError"
+            assert type(e).__name__ == "InternalError"
 
     def test_check_with_empty_message(self):
         """Test check() with an empty message."""

@@ -189,7 +189,7 @@ class DataType {
       case kFp4Code:
         return "fp4";
       case kFp8e4m3fnCode:
-        return "fp8";
+        return "fp8e4m3fn";
       case kFp8e5m2Code:
         return "fp8e5m2";
       case kFp16Code:

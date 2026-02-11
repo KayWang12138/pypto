@@ -33,40 +33,40 @@ namespace ir {
 TypePtr DeduceTileViewType(const std::vector<ExprPtr>& args,
                            const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
   // tile.view requires exactly 3 arguments: input tile, shape tuple, and offset tuple
-  INTERNAL_CHECK(args.size() == 3) << "tile.view requires exactly 3 arguments (input, shape, offset), but got "
+  CHECK(args.size() == 3) << "tile.view requires exactly 3 arguments (input, shape, offset), but got "
                           << args.size();
 
   // First argument must be TileType
   auto tile_type = As<TileType>(args[0]->GetType());
-  INTERNAL_CHECK(tile_type) << "tile.view requires first argument to be a TileType, but got "
+  CHECK(tile_type) << "tile.view requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Second argument must be TupleType (shape)
   auto shape_tuple_type = As<TupleType>(args[1]->GetType());
-  INTERNAL_CHECK(shape_tuple_type) << "tile.view requires shape to be TupleType, but got "
+  CHECK(shape_tuple_type) << "tile.view requires shape to be TupleType, but got "
                           << args[1]->GetType()->TypeName();
 
   // Validate all shape elements are ScalarType(INT64 or UINT64)
   for (size_t i = 0; i < shape_tuple_type->types_.size(); ++i) {
     auto scalar_type = As<ScalarType>(shape_tuple_type->types_[i]);
-    INTERNAL_CHECK(scalar_type) << "tile.view shape tuple element " << i << " must be ScalarType, but got "
+    CHECK(scalar_type) << "tile.view shape tuple element " << i << " must be ScalarType, but got "
                        << shape_tuple_type->types_[i]->TypeName();
-    INTERNAL_CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
+    CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
         << "tile.view shape tuple element " << i << " must have dtype INT64 or UINT64, but got "
         << scalar_type->dtype_.ToString();
   }
 
   // Third argument must be TupleType (offset)
   auto offset_tuple_type = As<TupleType>(args[2]->GetType());
-  INTERNAL_CHECK(offset_tuple_type) << "tile.view requires offset to be TupleType, but got "
+  CHECK(offset_tuple_type) << "tile.view requires offset to be TupleType, but got "
                            << args[2]->GetType()->TypeName();
 
   // Validate all offset elements are ScalarType(INT64 or UINT64)
   for (size_t i = 0; i < offset_tuple_type->types_.size(); ++i) {
     auto scalar_type = As<ScalarType>(offset_tuple_type->types_[i]);
-    INTERNAL_CHECK(scalar_type) << "tile.view offset tuple element " << i << " must be ScalarType, but got "
+    CHECK(scalar_type) << "tile.view offset tuple element " << i << " must be ScalarType, but got "
                        << offset_tuple_type->types_[i]->TypeName();
-    INTERNAL_CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
+    CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
         << "tile.view offset tuple element " << i << " must have dtype INT64 or UINT64, but got "
         << scalar_type->dtype_.ToString();
   }
@@ -95,25 +95,25 @@ TypePtr DeduceTileViewType(const std::vector<ExprPtr>& args,
 TypePtr DeduceTileReshapeType(const std::vector<ExprPtr>& args,
                               const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
   // tile.reshape requires exactly 2 arguments: input tile and shape tuple
-  INTERNAL_CHECK(args.size() == 2) << "tile.reshape requires exactly 2 arguments (input, shape), but got "
+  CHECK(args.size() == 2) << "tile.reshape requires exactly 2 arguments (input, shape), but got "
                           << args.size();
 
   // First argument must be TileType
   auto tile_type = As<TileType>(args[0]->GetType());
-  INTERNAL_CHECK(tile_type) << "tile.reshape requires first argument to be a TileType, but got "
+  CHECK(tile_type) << "tile.reshape requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Second argument must be TupleType (shape)
   auto shape_tuple_type = As<TupleType>(args[1]->GetType());
-  INTERNAL_CHECK(shape_tuple_type) << "tile.reshape requires shape to be TupleType, but got "
+  CHECK(shape_tuple_type) << "tile.reshape requires shape to be TupleType, but got "
                           << args[1]->GetType()->TypeName();
 
   // Validate all shape elements are ScalarType(INT64 or UINT64)
   for (size_t i = 0; i < shape_tuple_type->types_.size(); ++i) {
     auto scalar_type = As<ScalarType>(shape_tuple_type->types_[i]);
-    INTERNAL_CHECK(scalar_type) << "tile.reshape shape tuple element " << i << " must be ScalarType, but got "
+    CHECK(scalar_type) << "tile.reshape shape tuple element " << i << " must be ScalarType, but got "
                        << shape_tuple_type->types_[i]->TypeName();
-    INTERNAL_CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
+    CHECK(scalar_type->dtype_ == DataType::INT64 || scalar_type->dtype_ == DataType::UINT64)
         << "tile.reshape shape tuple element " << i << " must have dtype INT64 or UINT64, but got "
         << scalar_type->dtype_.ToString();
   }
@@ -140,7 +140,7 @@ TypePtr DeduceTileReshapeType(const std::vector<ExprPtr>& args,
   int64_t new_product = ComputeShapeProduct(new_shape);
 
   if (old_product > 0 && new_product > 0) {
-    INTERNAL_CHECK(old_product == new_product) << "tile.reshape: cannot reshape tile of size " << old_product
+    CHECK(old_product == new_product) << "tile.reshape: cannot reshape tile of size " << old_product
                                       << " into shape with size " << new_product;
   }
 
@@ -151,32 +151,32 @@ TypePtr DeduceTileReshapeType(const std::vector<ExprPtr>& args,
 TypePtr DeduceTileTransposeType(const std::vector<ExprPtr>& args,
                                 const std::vector<std::pair<std::string, std::any>>& /*kwargs*/) {
   // tile.transpose requires exactly 3 arguments: input tile, axis1, axis2
-  INTERNAL_CHECK(args.size() == 3) << "tile.transpose requires exactly 3 arguments (input, axis1, axis2), but got "
+  CHECK(args.size() == 3) << "tile.transpose requires exactly 3 arguments (input, axis1, axis2), but got "
                           << args.size();
 
   // First argument must be TileType
   auto tile_type = As<TileType>(args[0]->GetType());
-  INTERNAL_CHECK(tile_type) << "tile.transpose requires first argument to be a TileType, but got "
+  CHECK(tile_type) << "tile.transpose requires first argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   const auto& input_shape = tile_type->shape_;
   size_t ndim = input_shape.size();
 
-  INTERNAL_CHECK(ndim >= 2) << "tile.transpose requires at least 2 dimensions, but got " << ndim;
+  CHECK(ndim >= 2) << "tile.transpose requires at least 2 dimensions, but got " << ndim;
 
   // Second argument is axis1 (ConstInt)
   auto axis1_const = As<ConstInt>(args[1]);
-  INTERNAL_CHECK(axis1_const) << "tile.transpose requires second argument (axis1) to be a ConstInt";
+  CHECK(axis1_const) << "tile.transpose requires second argument (axis1) to be a ConstInt";
 
   // Third argument is axis2 (ConstInt)
   auto axis2_const = As<ConstInt>(args[2]);
-  INTERNAL_CHECK(axis2_const) << "tile.transpose requires third argument (axis2) to be a ConstInt";
+  CHECK(axis2_const) << "tile.transpose requires third argument (axis2) to be a ConstInt";
 
   // Normalize axes (handle negative indexing)
   int axis1 = NormalizeAxis(static_cast<int>(axis1_const->value_), ndim);
   int axis2 = NormalizeAxis(static_cast<int>(axis2_const->value_), ndim);
 
-  INTERNAL_CHECK(axis1 != axis2) << "tile.transpose: axis1 and axis2 must be different, but got axis1=" << axis1
+  CHECK(axis1 != axis2) << "tile.transpose: axis1 and axis2 must be different, but got axis1=" << axis1
                         << ", axis2=" << axis2;
 
   // Create new shape by swapping the specified dimensions
@@ -194,6 +194,7 @@ TypePtr DeduceTileTransposeType(const std::vector<ExprPtr>& args,
 REGISTER_OP("block.view")
     .set_op_category("BlockOp")
     .set_description("Create a view/slice of a tile with new shape and offset")
+    .set_pipe(PipeType::V)
     .add_argument("input", "Input tile (TileType)")
     .add_argument("shape", "New shape dimensions (TupleType of ScalarType(UINT64))")
     .add_argument("offset", "Offset dimensions (TupleType of ScalarType(UINT64))")
@@ -205,6 +206,7 @@ REGISTER_OP("block.view")
 REGISTER_OP("block.reshape")
     .set_op_category("BlockOp")
     .set_description("Reshape tile to new shape")
+    .set_pipe(PipeType::V)
     .add_argument("input", "Input tile (TileType)")
     .add_argument("shape", "New shape dimensions (TupleType of ScalarType(UINT64))")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
@@ -215,6 +217,7 @@ REGISTER_OP("block.reshape")
 REGISTER_OP("block.transpose")
     .set_op_category("BlockOp")
     .set_description("Transpose tile by swapping two axes")
+    .set_pipe(PipeType::V)
     .add_argument("input", "Input tile (TileType)")
     .add_argument("axis1", "First axis to swap (ConstInt)")
     .add_argument("axis2", "Second axis to swap (ConstInt)")

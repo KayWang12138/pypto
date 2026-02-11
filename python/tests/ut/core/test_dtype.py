@@ -183,7 +183,7 @@ class TestDataTypeString:
     def test_floating_point_strings(self):
         """Test string representation of floating point types."""
         assert DataType.FP4.to_string() == "fp4"
-        assert DataType.FP8E4M3FN.to_string() == "fp8"
+        assert DataType.FP8E4M3FN.to_string() == "fp8e4m3fn"
         assert DataType.FP8E5M2.to_string() == "fp8e5m2"
         assert DataType.FP16.to_string() == "fp16"
         assert DataType.FP32.to_string() == "fp32"

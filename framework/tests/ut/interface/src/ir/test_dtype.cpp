@@ -78,7 +78,7 @@ TEST(CoreDTypeTest, TestToString) {
     ASSERT_EQ(DataType::UINT32.ToString(), "uint32");
     ASSERT_EQ(DataType::UINT64.ToString(), "uint64");
     ASSERT_EQ(DataType::FP4.ToString(), "fp4");
-    ASSERT_EQ(DataType::FP8.ToString(), "fp8");
+    ASSERT_EQ(DataType::FP8.ToString(), "fp8e4m3fn");
     ASSERT_EQ(DataType::FP16.ToString(), "fp16");
     ASSERT_EQ(DataType::FP32.ToString(), "fp32");
     ASSERT_EQ(DataType::BF16.ToString(), "bfloat16");

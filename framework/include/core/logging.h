@@ -259,7 +259,7 @@ class LoggerManager {
    */
   template <typename T>
   void Log(LogLevel l, T&& t, T&& t_rich) {
-    std::lock_guard lock(log_mtx);
+    std::scoped_lock lock(log_mtx);
     if (l >= level) {
       if (std_enabled) {
         std_logger.Log(std::forward<T>(t_rich));
@@ -382,8 +382,7 @@ class Logger {
    * @param func Function name (currently unused but available for future use)
    * @param line Line number (currently unused but available for future use)
    */
-  Logger(LogLevel level_in, [[maybe_unused]] const std::string& func, [[maybe_unused]] int line)
-      : level(level_in) {
+  Logger(LogLevel level_in, [[maybe_unused]] int line)  : level(level_in) {
     enable_log = LoggerManager::GetManager().level <= level;
     if (enable_log) {
       static const char* MSG = "DIWEFVN";
@@ -472,7 +471,7 @@ class Logger {
 };
 
 // Convenience macros for logging at different levels
-#define LOG_LEVEL(lvl) pypto::Logger(lvl, __func__, __LINE__)
+#define LOG_LEVEL(lvl) pypto::Logger(lvl, __LINE__)
 #define LOG_DEBUG LOG_LEVEL(pypto::LogLevel::DEBUG)
 #define LOG_INFO LOG_LEVEL(pypto::LogLevel::INFO)
 #define LOG_WARN LOG_LEVEL(pypto::LogLevel::WARN)
@@ -533,49 +532,13 @@ inline std::string FormatLogMessage(const char* fmt, ...) {
  * an exception on destruction if the check condition failed.
  *
  * @tparam ExceptionType The type of exception to throw (ValueError or InternalError)
- * @tparam AlwaysFail If true, the destructor is [[noreturn]] and always throws (for UNREACHABLE)
  */
-template <typename ExceptionType, bool AlwaysFail = false>
-class CheckLogger;
+template <typename ExceptionType>
+class FatalLogger;
 
 // Specialization for conditional checks (CHECK, INTERNAL_CHECK)
 template <typename ExceptionType>
-class CheckLogger<ExceptionType, false> {
- private:
-  std::stringstream ss;
-  bool failed;
-  const char* file;
-  int line;
-  const char* expr_str;
-
- public:
-  CheckLogger(bool condition, const char* expr_str_, const char* file_, int line_)
-      : failed(!condition), file(file_), line(line_), expr_str(expr_str_) {}
-
-  ~CheckLogger() noexcept(false) {
-    if (failed) {
-      ss << "\n" << "Check failed: " << expr_str << " at " << file << ":" << line;
-      throw ExceptionType(ss.str());
-    }
-  }
-
-  template <typename T>
-  CheckLogger& operator<<(T&& val) {
-    if (failed) {
-      ss << std::forward<T>(val);
-    }
-    return *this;
-  }
-
-  CheckLogger(const CheckLogger&) = delete;
-  CheckLogger& operator=(const CheckLogger&) = delete;
-  CheckLogger(CheckLogger&&) = delete;
-  CheckLogger& operator=(CheckLogger&&) = delete;
-};
-
-// Specialization for unconditional failure (UNREACHABLE, INTERNAL_UNREACHABLE)
-template <typename ExceptionType>
-class CheckLogger<ExceptionType, true> {
+class FatalLogger {
  private:
   std::stringstream ss;
   const char* file;
@@ -583,24 +546,26 @@ class CheckLogger<ExceptionType, true> {
   const char* expr_str;
 
  public:
-  CheckLogger(bool /*condition*/, const char* expr_str_, const char* file_, int line_)
+  FatalLogger(const char* expr_str_, const char* file_, int line_)
       : file(file_), line(line_), expr_str(expr_str_) {}
 
-  [[noreturn]] ~CheckLogger() noexcept(false) {
+  [[noreturn]] ~FatalLogger() noexcept(false) {
     ss << "\n" << "Check failed: " << expr_str << " at " << file << ":" << line;
     throw ExceptionType(ss.str());
   }
 
   template <typename T>
-  CheckLogger& operator<<(T&& val) {
+  FatalLogger& operator<<(T&& val) {
     ss << std::forward<T>(val);
     return *this;
   }
 
-  CheckLogger(const CheckLogger&) = delete;
-  CheckLogger& operator=(const CheckLogger&) = delete;
-  CheckLogger(CheckLogger&&) = delete;
-  CheckLogger& operator=(CheckLogger&&) = delete;
+  std::stringstream& GetStream() { return ss; }
+
+  FatalLogger(const FatalLogger&) = delete;
+  FatalLogger& operator=(const FatalLogger&) = delete;
+  FatalLogger(FatalLogger&&) = delete;
+  FatalLogger& operator=(FatalLogger&&) = delete;
 };
 
 /**
@@ -608,6 +573,8 @@ class CheckLogger<ExceptionType, true> {
  *
  * Usage: CHECK(condition) << "error message";
  */
+#define CHECK(expr) \
+  if (!(expr)) pypto::FatalLogger<pypto::ir::ValueError>(#expr, __FILE__, __LINE__)
 
 /**
  * @brief Check an internal invariant and throw InternalError if it fails
@@ -615,21 +582,21 @@ class CheckLogger<ExceptionType, true> {
  * Usage: INTERNAL_CHECK(condition) << "error message";
  */
 #define INTERNAL_CHECK(expr) \
-  pypto::CheckLogger<std::logic_error>(static_cast<bool>(expr), #expr, __FILE__, __LINE__)
+  if (!(expr)) pypto::FatalLogger<pypto::ir::InternalError>(#expr, __FILE__, __LINE__)
 
 /**
  * @brief Mark a code path as unreachable and throw ValueError if reached
  *
  * Usage: UNREACHABLE << "optional message";
  */
+#define UNREACHABLE pypto::FatalLogger<pypto::ir::ValueError>("unreachable", __FILE__, __LINE__)
 
 /**
  * @brief Mark a code path as internally unreachable and throw InternalError if reached
  *
  * Usage: INTERNAL_UNREACHABLE << "optional message";
  */
-#define INTERNAL_UNREACHABLE \
-  pypto::CheckLogger<std::logic_error, true>(false, "unreachable", __FILE__, __LINE__)
+#define INTERNAL_UNREACHABLE pypto::FatalLogger<pypto::ir::InternalError>("unreachable", __FILE__, __LINE__)
 
 }  // namespace pypto
 

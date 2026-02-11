@@ -9,16 +9,15 @@
  * -----------------------------------------------------------------------------------------------------------
  */
 
+#include <algorithm>
+#include <any>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 
-#include "codegen/cce/cce_codegen.h"
 #include "core/logging.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
-#include "ir/pipe.h"
 #include "ir/type.h"
 #include "ir/type_inference.h"
 
@@ -28,86 +27,130 @@ namespace ir {
 TypePtr DeduceBlockUnaryType(const std::vector<ExprPtr>& args,
                              const std::vector<std::pair<std::string, std::any>>& kwargs,
                              const std::string& op_name) {
-  INTERNAL_CHECK(args.size() == 1) << "The operator " << op_name << " requires exactly 1 argument, but got "
+  (void)kwargs;
+  CHECK(args.size() == 1) << "The operator " << op_name << " requires exactly 1 argument, but got "
                           << args.size();
 
   // Argument must be TileType
   auto tile_type = As<TileType>(args[0]->GetType());
-  INTERNAL_CHECK(tile_type) << "The operator " << op_name << " requires argument to be a TileType, but got "
+  CHECK(tile_type) << "The operator " << op_name << " requires argument to be a TileType, but got "
                    << args[0]->GetType()->TypeName();
 
   // Unary operations preserve shape and data type
   return std::make_shared<TileType>(tile_type->shape_, tile_type->dtype_);
 }
 
-// ============================================================================
-// Registration Function for Block Unary Operations
-// ============================================================================
+TypePtr DeduceBlockCastType(const std::vector<ExprPtr>& args,
+                            const std::vector<std::pair<std::string, std::any>>& kwargs,
+                            const std::string& op_name) {
+  CHECK(args.size() == 1) << "The operator " << op_name << " requires exactly 1 argument, but got "
+                          << args.size();
 
-// Helper lambda factory for unary operations
-auto MakeUnaryCodegenCCE(const std::string& isa_name) {
-  return [isa_name](const CallPtr& op, codegen::CCECodegen& codegen) -> std::string {
-    std::string target_var = codegen.GetCurrentResultTarget();
-    std::string input = codegen.GetExprAsCode(op->args_[0]);
-    codegen.Emit(isa_name + "(" + target_var + ", " + input + ");");
-    return target_var;
-  };
+  // Argument must be TileType
+  auto tile_type = As<TileType>(args[0]->GetType());
+  CHECK(tile_type) << "The operator " << op_name << " requires argument to be a TileType, but got "
+                   << args[0]->GetType()->TypeName();
+
+  // Extract target_dtype from kwargs
+  auto it = std::find_if(kwargs.begin(), kwargs.end(),
+                         [](const auto& pair) { return pair.first == "target_dtype"; });
+  CHECK(it != kwargs.end()) << "The operator " << op_name << " requires 'target_dtype' kwarg";
+
+  DataType target_dtype = static_cast<DataType>(std::any_cast<int>(it->second));
+
+  // Cast operation preserves shape but changes data type
+  return std::make_shared<TileType>(tile_type->shape_, target_dtype);
 }
+
+// ============================================================================
+// Op Registration
+// ============================================================================
 
 REGISTER_OP("block.neg")
     .set_op_category("BlockOp")
     .set_description("Negation of a tile (element-wise)")
-    .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.neg");
-    })
-    .f_codegen_cce(MakeUnaryCodegenCCE("TNEG"));
+    });
 
 REGISTER_OP("block.exp")
     .set_op_category("BlockOp")
     .set_description("Exponential function of a tile (element-wise)")
-    .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.exp");
-    })
-    .f_codegen_cce(MakeUnaryCodegenCCE("TEXP"));
+    });
 
 REGISTER_OP("block.recip")
     .set_op_category("BlockOp")
     .set_description("Reciprocal (1/x) of a tile (element-wise)")
-    .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.recip");
-    })
-    .f_codegen_cce(MakeUnaryCodegenCCE("TRECIP"));
+    });
 
 REGISTER_OP("block.sqrt")
     .set_op_category("BlockOp")
     .set_description("Square root of a tile (element-wise)")
-    .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.sqrt");
-    })
-    .f_codegen_cce(MakeUnaryCodegenCCE("TSQRT"));
+    });
 
 REGISTER_OP("block.rsqrt")
     .set_op_category("BlockOp")
     .set_description("Reciprocal square root (1/sqrt(x)) of a tile (element-wise)")
-    .set_pipe(PipeType::V)
     .add_argument("tile", "Input tile (TileType)")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockUnaryType(args, kwargs, "block.rsqrt");
-    })
-    .f_codegen_cce(MakeUnaryCodegenCCE("TRSQRT"));
+    });
+
+REGISTER_OP("block.cast")
+    .set_op_category("BlockOp")
+    .set_description("Cast tile to target data type (element-wise)")
+    .set_pipe(PipeType::V)
+    .add_argument("tile", "Input tile (TileType)")
+    .set_attr<int>("target_dtype")
+    .f_deduce_type([](const std::vector<ExprPtr>& args,
+                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+      return DeduceBlockCastType(args, kwargs, "block.cast");
+    });
+
+REGISTER_OP("block.log")
+    .set_op_category("BlockOp")
+    .set_description("Natural logarithm of a tile (element-wise)")
+    .set_pipe(PipeType::V)
+    .add_argument("tile", "Input tile (TileType)")
+    .f_deduce_type([](const std::vector<ExprPtr>& args,
+                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+      return DeduceBlockUnaryType(args, kwargs, "block.log");
+    });
+
+REGISTER_OP("block.abs")
+    .set_op_category("BlockOp")
+    .set_description("Absolute value of a tile (element-wise)")
+    .set_pipe(PipeType::V)
+    .add_argument("tile", "Input tile (TileType)")
+    .f_deduce_type([](const std::vector<ExprPtr>& args,
+                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+      return DeduceBlockUnaryType(args, kwargs, "block.abs");
+    });
+
+REGISTER_OP("block.relu")
+    .set_op_category("BlockOp")
+    .set_description("ReLU activation function of a tile (element-wise)")
+    .set_pipe(PipeType::V)
+    .add_argument("tile", "Input tile (TileType)")
+    .f_deduce_type([](const std::vector<ExprPtr>& args,
+                      const std::vector<std::pair<std::string, std::any>>& kwargs) {
+      return DeduceBlockUnaryType(args, kwargs, "block.relu");
+    });
 
 }  // namespace ir
 }  // namespace pypto

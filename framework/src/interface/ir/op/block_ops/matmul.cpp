@@ -14,13 +14,10 @@
 #include <string>
 #include <vector>
 
-#include "codegen/cce/cce_codegen.h"
 #include "core/logging.h"
 #include "ir/expr.h"
 #include "ir/kind_traits.h"
 #include "ir/op_registry.h"
-#include "ir/op_utils.h"
-#include "ir/pipe.h"
 #include "ir/scalar_expr.h"
 #include "ir/type.h"
 #include "ir/type_inference.h"
@@ -28,59 +25,20 @@
 namespace pypto {
 namespace ir {
 
-using CCECodegenFunc = std::function<std::string(const CallPtr&, codegen::CCECodegen&)>;
-
-// ============================================================================
-// CCE Codegen for block.matmul
-// ============================================================================
-CCECodegenFunc MakeBlockMatmulCodegenCCE() {
-  return [](const CallPtr& op, codegen::CCECodegen& codegen) -> std::string {
-    INTERNAL_CHECK(op->args_.size() == 2) << "block.matmul requires 2 arguments: lhs, rhs";
-
-    std::string lhs = codegen.GetExprAsCode(op->args_[0]);
-    std::string rhs = codegen.GetExprAsCode(op->args_[1]);
-    std::string dst = codegen.GetCurrentResultTarget();
-
-    codegen.Emit("TMATMUL(" + dst + ", " + lhs + ", " + rhs + ");");
-
-    return "";  // Statement-emitting mode
-  };
-}
-
-// ============================================================================
-// CCE Codegen for block.matmul_acc
-// ============================================================================
-CCECodegenFunc MakeBlockMatmulAccCodegenCCE() {
-  return [](const CallPtr& op, codegen::CCECodegen& codegen) -> std::string {
-    INTERNAL_CHECK(op->args_.size() == 3) << "block.matmul_acc requires 3 arguments: acc, lhs, rhs";
-
-    std::string acc = codegen.GetExprAsCode(op->args_[0]);
-    std::string lhs = codegen.GetExprAsCode(op->args_[1]);
-    std::string rhs = codegen.GetExprAsCode(op->args_[2]);
-    std::string dst = codegen.GetCurrentResultTarget();
-
-    // TMATMUL_ACC accumulates into dst, which should be initialized from acc
-    // The pattern is: dst = acc + lhs @ rhs
-    // In CCE ISA, this is typically: TMATMUL_ACC(dst, lhs, rhs) where dst is pre-loaded with acc
-    codegen.Emit("TMATMUL_ACC(" + dst + ", " + lhs + ", " + rhs + ");");
-
-    return "";  // Statement-emitting mode
-  };
-}
-
 TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr>& args,
                               const std::vector<std::pair<std::string, std::any>>& kwargs,
                               const std::string& op_name) {
-  INTERNAL_CHECK(args.size() == 2) << "The operator " << op_name << " requires exactly 2 arguments, but got "
+  (void)kwargs;
+  CHECK(args.size() == 2) << "The operator " << op_name << " requires exactly 2 arguments, but got "
                           << args.size();
 
   // Both arguments must be TileType
   auto lhs_type = As<TileType>(args[0]->GetType());
   auto rhs_type = As<TileType>(args[1]->GetType());
 
-  INTERNAL_CHECK(lhs_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
+  CHECK(lhs_type) << "The operator " << op_name << " requires first argument to be a TileType, but got "
                   << args[0]->GetType()->TypeName();
-  INTERNAL_CHECK(rhs_type) << "The operator " << op_name << " requires second argument to be a TileType, but got "
+  CHECK(rhs_type) << "The operator " << op_name << " requires second argument to be a TileType, but got "
                   << args[1]->GetType()->TypeName();
 
   // Extract shapes
@@ -88,9 +46,9 @@ TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr>& args,
   const auto& rhs_shape = rhs_type->shape_;
 
   // For block matmul, we require 2D tiles
-  INTERNAL_CHECK(lhs_shape.size() == 2) << "The operator " << op_name << " requires lhs to be 2D, but got "
+  CHECK(lhs_shape.size() == 2) << "The operator " << op_name << " requires lhs to be 2D, but got "
                                << lhs_shape.size() << " dimensions";
-  INTERNAL_CHECK(rhs_shape.size() == 2) << "The operator " << op_name << " requires rhs to be 2D, but got "
+  CHECK(rhs_shape.size() == 2) << "The operator " << op_name << " requires rhs to be 2D, but got "
                                << rhs_shape.size() << " dimensions";
 
   // Matrix multiplication: [M, K] @ [K, N] -> [M, N]
@@ -103,11 +61,19 @@ TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr>& args,
   ExprPtr n_dim = rhs_shape[1];
 
   // Try to verify K dimensions match if they are constant
-  VerifyKDimensionsMatch(k_dim_lhs, k_dim_rhs, op_name);
+  auto k_lhs_const = As<ConstInt>(k_dim_lhs);
+  auto k_rhs_const = As<ConstInt>(k_dim_rhs);
+
+  if (k_lhs_const && k_rhs_const) {
+    CHECK(k_lhs_const->value_ == k_rhs_const->value_)
+        << "The operator " << op_name
+        << " requires matching inner dimensions, but got lhs K=" << k_lhs_const->value_
+        << " and rhs K=" << k_rhs_const->value_;
+  }
 
   // Promote data types
   auto result_dtype = PromoteDataTypes(lhs_type->dtype_, rhs_type->dtype_);
-  INTERNAL_CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types, but got "
+  CHECK(result_dtype) << "The operator " << op_name << " requires compatible data types, but got "
                       << lhs_type->dtype_.ToString() << " and " << rhs_type->dtype_.ToString();
 
   // Output shape is [M, N]
@@ -119,7 +85,8 @@ TypePtr DeduceBlockMatMulType(const std::vector<ExprPtr>& args,
 TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr>& args,
                                  const std::vector<std::pair<std::string, std::any>>& kwargs,
                                  const std::string& op_name) {
-  INTERNAL_CHECK(args.size() == 3) << "The operator " << op_name << " requires exactly 3 arguments, but got "
+  (void)kwargs;
+  CHECK(args.size() == 3) << "The operator " << op_name << " requires exactly 3 arguments, but got "
                           << args.size();
 
   // All arguments must be TileType
@@ -127,12 +94,12 @@ TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr>& args,
   auto lhs_type = As<TileType>(args[1]->GetType());
   auto rhs_type = As<TileType>(args[2]->GetType());
 
-  INTERNAL_CHECK(acc_type) << "The operator " << op_name << " requires first argument (acc) to be a TileType, but got "
+  CHECK(acc_type) << "The operator " << op_name << " requires first argument (acc) to be a TileType, but got "
                   << args[0]->GetType()->TypeName();
-  INTERNAL_CHECK(lhs_type) << "The operator " << op_name
+  CHECK(lhs_type) << "The operator " << op_name
                   << " requires second argument (lhs) to be a TileType, but got "
                   << args[1]->GetType()->TypeName();
-  INTERNAL_CHECK(rhs_type) << "The operator " << op_name << " requires third argument (rhs) to be a TileType, but got "
+  CHECK(rhs_type) << "The operator " << op_name << " requires third argument (rhs) to be a TileType, but got "
                   << args[2]->GetType()->TypeName();
 
   // Extract shapes
@@ -141,11 +108,11 @@ TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr>& args,
   const auto& rhs_shape = rhs_type->shape_;
 
   // For block matmul_acc, we require 2D tiles
-  INTERNAL_CHECK(acc_shape.size() == 2) << "The operator " << op_name << " requires acc to be 2D, but got "
+  CHECK(acc_shape.size() == 2) << "The operator " << op_name << " requires acc to be 2D, but got "
                                << acc_shape.size() << " dimensions";
-  INTERNAL_CHECK(lhs_shape.size() == 2) << "The operator " << op_name << " requires lhs to be 2D, but got "
+  CHECK(lhs_shape.size() == 2) << "The operator " << op_name << " requires lhs to be 2D, but got "
                                << lhs_shape.size() << " dimensions";
-  INTERNAL_CHECK(rhs_shape.size() == 2) << "The operator " << op_name << " requires rhs to be 2D, but got "
+  CHECK(rhs_shape.size() == 2) << "The operator " << op_name << " requires rhs to be 2D, but got "
                                << rhs_shape.size() << " dimensions";
 
   // Matrix multiplication with accumulation: acc[M, N] += lhs[M, K] @ rhs[K, N]
@@ -157,31 +124,38 @@ TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr>& args,
   auto m_lhs_const = As<ConstInt>(lhs_shape[0]);
   auto n_acc_const = As<ConstInt>(n_dim_acc);
   auto n_rhs_const = As<ConstInt>(rhs_shape[1]);
+  auto k_lhs_const = As<ConstInt>(lhs_shape[1]);
+  auto k_rhs_const = As<ConstInt>(rhs_shape[0]);
 
   if (m_acc_const && m_lhs_const) {
-    INTERNAL_CHECK(m_acc_const->value_ == m_lhs_const->value_)
+    CHECK(m_acc_const->value_ == m_lhs_const->value_)
         << "The operator " << op_name
         << " requires matching M dimensions, but got acc M=" << m_acc_const->value_
         << " and lhs M=" << m_lhs_const->value_;
   }
 
   if (n_acc_const && n_rhs_const) {
-    INTERNAL_CHECK(n_acc_const->value_ == n_rhs_const->value_)
+    CHECK(n_acc_const->value_ == n_rhs_const->value_)
         << "The operator " << op_name
         << " requires matching N dimensions, but got acc N=" << n_acc_const->value_
         << " and rhs N=" << n_rhs_const->value_;
   }
 
-  VerifyKDimensionsMatch(lhs_shape[1], rhs_shape[0], op_name);
+  if (k_lhs_const && k_rhs_const) {
+    CHECK(k_lhs_const->value_ == k_rhs_const->value_)
+        << "The operator " << op_name
+        << " requires matching K dimensions, but got lhs K=" << k_lhs_const->value_
+        << " and rhs K=" << k_rhs_const->value_;
+  }
 
   // Promote data types
   auto lhs_rhs_dtype = PromoteDataTypes(lhs_type->dtype_, rhs_type->dtype_);
-  INTERNAL_CHECK(lhs_rhs_dtype) << "The operator " << op_name
+  CHECK(lhs_rhs_dtype) << "The operator " << op_name
                        << " requires compatible lhs and rhs data types, but got "
                        << lhs_type->dtype_.ToString() << " and " << rhs_type->dtype_.ToString();
 
   auto result_dtype = PromoteDataTypes(acc_type->dtype_, *lhs_rhs_dtype);
-  INTERNAL_CHECK(result_dtype) << "The operator " << op_name << " requires compatible accumulator data type, but got "
+  CHECK(result_dtype) << "The operator " << op_name << " requires compatible accumulator data type, but got "
                       << acc_type->dtype_.ToString() << " and " << lhs_rhs_dtype->ToString();
 
   // Output shape is [M, N] (same as accumulator)
@@ -197,27 +171,23 @@ TypePtr DeduceBlockMatMulAccType(const std::vector<ExprPtr>& args,
 REGISTER_OP("block.matmul")
     .set_op_category("BlockOp")
     .set_description("Matrix multiplication of two tiles")
-    .set_pipe(PipeType::M)
     .add_argument("lhs", "Left-hand side tile (TileType, 2D)")
     .add_argument("rhs", "Right-hand side tile (TileType, 2D)")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockMatMulType(args, kwargs, "block.matmul");
-    })
-    .f_codegen_cce(MakeBlockMatmulCodegenCCE());
+    });
 
 REGISTER_OP("block.matmul_acc")
     .set_op_category("BlockOp")
     .set_description("Matrix multiplication with accumulation: acc = acc + lhs @ rhs")
-    .set_pipe(PipeType::M)
     .add_argument("acc", "Accumulator tile (TileType, 2D)")
     .add_argument("lhs", "Left-hand side tile (TileType, 2D)")
     .add_argument("rhs", "Right-hand side tile (TileType, 2D)")
     .f_deduce_type([](const std::vector<ExprPtr>& args,
                       const std::vector<std::pair<std::string, std::any>>& kwargs) {
       return DeduceBlockMatMulAccType(args, kwargs, "block.matmul_acc");
-    })
-    .f_codegen_cce(MakeBlockMatmulAccCodegenCCE());
+    });
 
 }  // namespace ir
 }  // namespace pypto
