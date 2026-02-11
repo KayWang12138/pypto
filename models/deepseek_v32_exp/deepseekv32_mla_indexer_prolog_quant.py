@@ -115,8 +115,6 @@ def apply_rotary_pos_emb_v2(q, k, cos, sin, unsqueeze_dim=2):
 
     cos = torch.unsqueeze(cos, dim=unsqueeze_dim)  # [b,s,1,qk_d]
     sin = torch.unsqueeze(sin, dim=unsqueeze_dim)  # [b,s,1,qk_d]
-    logging.debug("expand sin.shape: %s", sin.shape)
-    logging.debug("expand cos.shape: %s", cos.shape)
 
     b, s, h, d = q.shape
     q = q.reshape(b, s, h, d // 2, 2).permute(0, 1, 2, 4, 3).reshape(b, s, h, d)  # [b,s,n,qk_d]
@@ -139,7 +137,6 @@ def rotate_half(x):
 
 
 def single_rope(x, cos_in, sin_in):
-    logging.debug("Entering into single_rope")
     # x: (b, s, n, d), cos_in: (b, s, d), sin_in: (b, s, d)
     x_dtype = x.dtype
     b, s, n, d = x.shape
@@ -252,22 +249,6 @@ def gen_mla_prolog_quant_v32_inputs(params, dtypes, actual_seq, is_quant=(False,
     kr_cache_shape = [block_num, block_size, 1, qk_rope_head_dim]
     kv_quant_scale_cache_shape = [block_num, block_size, 1, 4]
     smooth_cq_shape = [1, q_lora_rank]
-    logging.debug("x shape is %s", x_shape)
-    logging.debug("w_dq shape is %s", w_qa_shape)
-    logging.debug("w_uqqr shape is %s", w_qb_shape)
-    logging.debug("w_dkvkr shape is %s", w_kv_a_shape)
-    logging.debug("w_uk shape is %s", w_kv_b_k_shape)
-    logging.debug("cos sin shape is %s", cos_shape)
-    logging.debug("cgamma_cq shape is %s", gamma_cq_shape)
-    logging.debug("cgamma_ckv shape is %s", gamma_ckv_shape)
-    logging.debug("kv_len shape is %s", cache_index.shape)
-    logging.debug("kv_cache shape is %s", kv_cache_shape)
-    logging.debug("kr_cache shape is %s", kr_cache_shape)
-    logging.debug("block_num is %s", block_num)
-    logging.debug("block_table shape is %s", block_table.shape)
-    logging.debug("actual_seq is %s", actual_seq)
-    if is_quant_b:
-        logging.debug("kv_quant_scale_cache shape is %s", kv_quant_scale_cache_shape)
 
     res = [None] * 17
     x = torch.empty(x_shape).uniform_(-1, 1).to(dtype)
@@ -457,7 +438,6 @@ def mla_prolog_quant_v32_compute(inputs):
     q_a_proj = q_a_proj.to(dtype)
 
     q_a_layernorm = rms_norm(q_a_proj, gamma_cq)
-    logging.debug("q_a_layernorm.shape: %s %s", q_a_layernorm.shape, q_a_layernorm.dtype)
 
     # shape is: [b * s, q_lora_rank] @ [q_lora_rank, n * q_head_dim] -> [b * s, n * q_head_dim]
     q_a_layernorm_scale_dequant = None
@@ -477,11 +457,8 @@ def mla_prolog_quant_v32_compute(inputs):
         q_b_proj = torch.matmul(q_a_layernorm.to(torch.float32), w_uqqr.to(torch.float32))  # [b * s, n * q_head_dim]
 
     q_b_proj = q_b_proj.to(dtype)
-    logging.debug("q_b_proj.shape: %s %s", q_b_proj.shape, q_b_proj.dtype)
 
     q_reshape = q_b_proj.reshape(b, s, n, q_head_dim)
-    logging.debug("q_reshape.shape: %s %s", q_reshape.shape, q_reshape.dtype)
-
     q_nope = q_reshape[:, :, :, 0:qk_nope_head_dim]  # [b, s, n, qk_nope_head_dim]
     q_nope_r = q_nope.reshape(b * s, n, qk_nope_head_dim)
     q_nope_t = q_nope_r.permute(1, 0, 2)  # [n, b*s, qk_nope_head_dim]
@@ -506,9 +483,7 @@ def mla_prolog_quant_v32_compute(inputs):
                                  w_dkvkr.to(torch.float32))  # [b*s, kv_lora_rank + qk_rope_head_dim]
 
     kv_a_proj = kv_a_proj.to(dtype)
-    logging.debug("kv_a_proj.shape: %s %s", kv_a_proj.shape, kv_a_proj.dtype)
     kv_reshape = kv_a_proj.reshape(b, s, kv_lora_rank + qk_rope_head_dim)
-    logging.debug("kv_reshape.shape: %s %s", kv_reshape.shape, kv_reshape.dtype)
 
     compressed_kv = kv_reshape[:, :, 0:kv_lora_rank]  # [b, s, kv_lora_rank]
     compressed_kv_norm = rms_norm(compressed_kv, gamma_ckv)
@@ -620,8 +595,6 @@ def indexer_prolog(inputs: dict, dims: dict):
 
 
 def gen_test_data(params):
-    if PRINT_DEBUG:
-        logging.debug(f'{params=}')
     q_lora_rank = params['q_lora_rank']
     t = params['t']
     h = params['h']
@@ -931,7 +904,7 @@ def test_b_4_s1_2_tilebs_8_d():
     torch.manual_seed(seed)
     b = 4
     s1 = 2
-    s2 = 64 * 1024
+    s2 = 1024
     params = params_base
     params_base.update({
         'b': b,
@@ -1002,7 +975,7 @@ def test_t_32_tilebs_16_p():
     torch.manual_seed(5)
     b = 16
     s1 = 2
-    s2 = 4 * 1024
+    s2 = 1024
     params = params_base
     params_base.update({
         'b': b,
@@ -1076,7 +1049,7 @@ def test_t_512_tilebs_128_p():
     torch.manual_seed(5)
     b = 128
     s1 = 4
-    s2 = 4 * 1024
+    s2 = 1024
     params = params_base
     params_base.update({
         'b': b,

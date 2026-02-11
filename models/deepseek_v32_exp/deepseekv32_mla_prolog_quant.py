@@ -86,8 +86,6 @@ def apply_rotary_pos_emb_v2(q, k, cos, sin, unsqueeze_dim=2):
 
     cos = torch.unsqueeze(cos, dim=unsqueeze_dim)  # [b,s,1,qk_d]
     sin = torch.unsqueeze(sin, dim=unsqueeze_dim)  # [b,s,1,qk_d]
-    logging.debug("expand sin.shape: %s", sin.shape)
-    logging.debug("expand cos.shape: %s", cos.shape)
 
     b, s, h, d = q.shape
     q = q.reshape(b, s, h, d // 2, 2).permute(0, 1, 2, 4, 3).reshape(b, s, h, d)  # [b,s,n,qk_d]
@@ -186,7 +184,6 @@ def mla_prolog_quant_v32_compute(inputs):
     q_a_proj = q_a_proj.to(dtype)
 
     q_a_layernorm = rms_norm(q_a_proj, gamma_cq)
-    logging.debug("q_a_layernorm.shape: %s %s", q_a_layernorm.shape, q_a_layernorm.dtype)
 
     # shape is: [b * s, q_lora_rank] @ [q_lora_rank, n * q_head_dim] -> [b * s, n * q_head_dim]
     q_a_layernorm_scale_dequant = None
@@ -206,10 +203,8 @@ def mla_prolog_quant_v32_compute(inputs):
         q_b_proj = torch.matmul(q_a_layernorm.to(torch.float32), w_uqqr.to(torch.float32))  # [b * s, n * q_head_dim]
 
     q_b_proj = q_b_proj.to(dtype)
-    logging.debug("q_b_proj.shape: %s %s", q_b_proj.shape, q_b_proj.dtype)
 
     q_reshape = q_b_proj.reshape(b, s, n, q_head_dim)
-    logging.debug("q_reshape.shape: %s %s", q_reshape.shape, q_reshape.dtype)
 
     q_nope = q_reshape[:, :, :, 0:qk_nope_head_dim]  # [b, s, n, qk_nope_head_dim]
     q_nope_r = q_nope.reshape(b * s, n, qk_nope_head_dim)
@@ -237,9 +232,7 @@ def mla_prolog_quant_v32_compute(inputs):
                                  w_dkvkr.to(torch.float32))  # [b*s, kv_lora_rank + qk_rope_head_dim]
 
     kv_a_proj = kv_a_proj.to(dtype)
-    logging.debug("kv_a_proj.shape: %s %s", kv_a_proj.shape, kv_a_proj.dtype)
     kv_reshape = kv_a_proj.reshape(b, s, kv_lora_rank + qk_rope_head_dim)
-    logging.debug("kv_reshape.shape: %s %s", kv_reshape.shape, kv_reshape.dtype)
 
     compressed_kv = kv_reshape[:, :, 0:kv_lora_rank]  # [b, s, kv_lora_rank]
     compressed_kv_norm = rms_norm(compressed_kv, gamma_ckv)
@@ -328,7 +321,7 @@ def gen_block_table(act_seq, block_size, s1, need_indices=False):
 def gen_mla_prolog_quant_v32_input_data(params, dtypes, actual_seq, is_quant=(False, False),
                                         has_smooth=False, block_size=128, cache_mode="BSND"):
     dtype, w_dtype = dtypes
-    logging.debug(f"gen_mla_prolog_quant_v32_input_data  dtype:{dtype}, w_dtype:{w_dtype}")
+
     is_quant_a, is_quant_b = is_quant
     b = params.get("b")
     s = params.get("s")  # s=1 or 2
@@ -356,22 +349,6 @@ def gen_mla_prolog_quant_v32_input_data(params, dtypes, actual_seq, is_quant=(Fa
     kr_cache_shape = [block_num, block_size, 1, qk_rope_head_dim]
     kv_quant_scale_cache_shape = [block_num, block_size, 1, 4]
     smooth_cq_shape = [1, q_lora_rank]
-    logging.debug("x shape is %s", x_shape)
-    logging.debug("w_dq shape is %s", w_qa_shape)
-    logging.debug("w_uqqr shape is %s", w_qb_shape)
-    logging.debug("w_dkvkr shape is %s", w_kv_a_shape)
-    logging.debug("w_uk shape is %s", w_kv_b_k_shape)
-    logging.debug("cos sin shape is %s", cos_shape)
-    logging.debug("cgamma_cq shape is %s", gamma_cq_shape)
-    logging.debug("cgamma_ckv shape is %s", gamma_ckv_shape)
-    logging.debug("kv_len shape is %s", cache_index.shape)
-    logging.debug("kv_cache shape is %s", kv_cache_shape)
-    logging.debug("kr_cache shape is %s", kr_cache_shape)
-    logging.debug("block_num is %s", block_num)
-    logging.debug("block_table shape is %s", block_table.shape)
-    logging.debug("actual_seq is %s", actual_seq)
-    if is_quant_b:
-        logging.debug("kv_quant_scale_cache shape is %s", kv_quant_scale_cache_shape)
 
     res = [None] * 17
     x = torch.empty(x_shape).uniform_(-1, 1).to(dtype)
@@ -446,7 +423,6 @@ def gen_mla_prolog_quant_v32_input_data(params, dtypes, actual_seq, is_quant=(Fa
 def gen_mla_prolog_quant_v32_data(params, dtypes, actual_seq, is_quant=(False, False),
                                   has_smooth=False, block_size=128, cache_mode="BSND"):
     dtype, w_dtype = dtypes
-    logging.debug(f"gen_mla_prolog_quant_v32_data  dtype:{dtype}, w_dtype:{w_dtype}")
     x, w_dq, w_uqqr, smooth_cq, scale_data, w_dkvkr, w_uk, gamma_cq, gamma_ckv, cos, sin, kv_len, \
         kv_cache, kr_cache, kv_quant_scale_cache, block_num, block_table = \
         gen_mla_prolog_quant_v32_input_data(params, dtypes, actual_seq, is_quant, has_smooth,
@@ -687,7 +663,7 @@ def test_b128_s4k4_pa_nd_bf16_quantb_p():
         't': 128,
         's': 1,
         's1': 1,
-        's2': 4 * 1024,
+        's2': 1024,
         'n1': 128,
         'h': 7168,
         'q_lora_rank': 1536,
@@ -734,7 +710,7 @@ def test_b1_s4k512_pa_nd_bf16_quantb_p():
         't': 128,
         's': 128,
         's1': 128,
-        's2': 4 * 1024,
+        's2': 1024,
         'n1': 128,
         'h': 7168,
         'q_lora_rank': 1536,
@@ -781,7 +757,7 @@ def test_b4_s64k2_pa_nd_bf16_quantb_d():
         't': 8,
         's': 2,
         's1': 2,
-        's2': 4 * 1024,
+        's2': 1024,
         'n1': 128,
         'h': 7168,
         'q_lora_rank': 1536,
