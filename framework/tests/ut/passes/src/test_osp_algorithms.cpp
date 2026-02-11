@@ -185,7 +185,6 @@ TEST_F(OspAlgorithmTest, UnionFind3) {
     EXPECT_EQ(testUniverse.FindOriginByName("b"), testUniverse.FindOriginByName("c"));
     EXPECT_EQ(testUniverse.FindOriginByName("c"), testUniverse.FindOriginByName("d"));
     EXPECT_EQ(testUniverse.FindOriginByName("a"), testUniverse.FindOriginByName("d"));
-    EXPECT_EQ(testUniverse.FindOriginByName("c"), testUniverse.FindOriginByName("b"));
 
     EXPECT_EQ(testUniverse.FindOriginByName("e"), testUniverse.FindOriginByName("f"));
 
