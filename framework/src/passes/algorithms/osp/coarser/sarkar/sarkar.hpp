@@ -1029,21 +1029,13 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
         const std::vector<VertexType> &contractionEnsemble = prioIter->second;
 
         // Iterations halt
-        if (vertSave < minSave) {
-            break;
-        }
+        if (vertSave < minSave) break;
 
         // Check whether we can glue
-        bool shouldSkip = false;
-        for (const VertexType &vert : contractionEnsemble) {
-            if (partitionedFlag[vert]) {
-                shouldSkip = true;
-                break;
-            }
-        }
-        if (shouldSkip) {
-            continue;
-        }
+        bool shouldSkip = std::any_of(contractionEnsemble.cbegin(),
+                                      contractionEnsemble.end(),
+                                      [&partitionedFlag](const auto &v) { return partitionedFlag[v]; });
+        if (shouldSkip) continue;
 
         for (const VertexType &par : graph.Parents(groupFoot)) {
             if ((std::find(contractionEnsemble.cbegin(), contractionEnsemble.cend(), par) == contractionEnsemble.cend())
