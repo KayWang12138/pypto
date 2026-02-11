@@ -1046,9 +1046,7 @@ VertexIdxT<GraphTIn> Sarkar<GraphTIn, GraphTOut>::SomeParentsContraction(
                 }
             }
         }
-        if (shouldSkip) {
-            continue;
-        }
+        if (shouldSkip) continue;
 
         // Adding to partition
         expansionMapOutput.emplace_back(contractionEnsemble);
