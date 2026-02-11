@@ -328,10 +328,14 @@ private:
     Status SpillBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx, 
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status SpillOutBuffer(SpillInfo &spillInfo, IssueEntryPtr issue, size_t &pcIdx, bool isGenSpill);
-    Status CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder);
+    Status CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr &spillCopyout, int &bufLastUseOrder, bool &isFinish);
     Status CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorPtr spillTensor, int spillMemId,
         IssueEntryPtr &spillCopyout);    
     Status SpillInBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, MemoryType bufferType, bool isGenSpill);
+    Status SpillInReshapeBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, bool isGenSpill);
+    Status SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, LogicalTensorPtr reshapeTensor, bool isGenSpill);
+    LogicalTensorPtr CreateReshapeL1Tensor(LogicalTensorPtr iOperand, LogicalTensorPtr reshapeTensor);
+    Status UpdateReshapeDependAndBuf(IssueEntryPtr allocIssue, SpillInfo &spillInfo, LogicalTensorPtr reshapeTensor);
     Status CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor, LogicalTensorPtr spillTensor,
         IssueEntryPtr &spillIssue, std::pair<IssueEntryPtr, IssueEntryPtr> &reloadIssues);
     Status UpdateReloadIssueInfo(IssueEntryPtr reloadAlloc, IssueEntryPtr reloadCopyin, IssueEntryPtr spillIssue,
@@ -354,8 +358,8 @@ private:
     Status SpillAssembleBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, size_t &pcIdx,
         LocalBufferPtr allocBuffer, bool isGenSpill);
     Status SpillParticalBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, IssueEntryPtr assemble, 
-        LogicalTensorPtr assembleTensor, bool &isFirst);
-    void UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder);
+        LogicalTensorPtr assembleTensor, bool &isFirst, bool isGenSpill);
+    IssueEntryPtr UpdateIssueAttr(Operation &newOp, std::vector<int> memIds, IssueEntryPtr allocIssue, int &bufNextUseOrder, bool isGenSpill);
     Status FindAssembleWithSpillTensor(SpillInfo &spillInfo, std::vector<IssueEntryPtr> &assembleList);
     Status UpdateAssembleBuffer(SpillInfo &spillInfo, LocalBufferPtr allocBuffer, LogicalTensorPtr assembleTensor);
     LogicalTensorPtr CreateAssemblePartTensor(LogicalTensorPtr iOperand, LogicalTensorPtr assembleTensor,
