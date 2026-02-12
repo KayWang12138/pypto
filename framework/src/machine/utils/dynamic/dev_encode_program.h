@@ -90,6 +90,7 @@ struct DevAscendProgram {
     uint16_t stitchFunctionNumInitial{0};
     uint16_t stitchFunctionNumStep{0};
     uint32_t stitchFunctionsize{0};
+    uint32_t stitchMaxFunctionNum{0};
     uint32_t ctrlFlowCacheSize{0};
     DevRelocVector<DevAscendProgramSymbol> symbolTable;
     DevRelocVector<char> symbolTableNameList;
