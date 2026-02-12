@@ -431,6 +431,14 @@ void ExecuteOpRange(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_RANGE, Opcode::OP_RANGE, ExecuteOpRange);
 
+void ExecuteOpLog1p(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &ret = ctx->ooperandInplaceDataViewList->at(0);
+    calc::Log1p(ret);
+}
+REGISTER_CALC_OP(OP_LOG1P, Opcode::OP_LOG1P, ExecuteOpLog1p);
+
 void ExecuteOpCompare(ExecuteOperationContext *ctx) {
     auto oop = ctx->ooperandInplaceDataViewList->at(0);
     auto iop_self = ctx->ioperandDataViewList->at(0);

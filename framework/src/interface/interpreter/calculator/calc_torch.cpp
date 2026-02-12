@@ -162,6 +162,13 @@ static void Ceil(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
+static void Log1p(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::log1p(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
 static void Floor(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -1843,6 +1850,7 @@ static struct CalcOps calcOps = {
     .Round = Round,
     .Reciprocal = Reciprocal,
     .Relu = Relu,
+    .Log1p = Log1p,
     .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
