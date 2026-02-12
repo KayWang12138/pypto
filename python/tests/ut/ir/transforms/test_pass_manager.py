@@ -41,12 +41,9 @@ class TestPassManagerBasics:
         pm = ir.PassManager.get_strategy(ir.OptimizationStrategy.PTOAS)
         assert pm is not None
         assert pm.strategy == ir.OptimizationStrategy.PTOAS
-        # PTOAS has 3 passes: InitMemRef, MemoryReuse, AddAlloc
-        assert len(pm.passes) == 3
-        assert len(pm.pass_names) == 3
-        assert pm.pass_names[0] == "InitMemRef"
-        assert pm.pass_names[1] == "MemoryReuse"
-        assert pm.pass_names[2] == "AddAlloc"
+        # PTOAS currently has no registered passes
+        assert len(pm.passes) == 0
+        assert len(pm.pass_names) == 0
 
 
 class TestPassManagerExecution:
@@ -65,9 +62,8 @@ class TestPassManagerExecution:
         program = ir.Program([func], "test_run_with_implicit_default_strategy", ir.Span.unknown())
         result = pm.run_passes(program)
         func = list(result.functions.values())[0]
-        # Default strategy runs InitMemRef, MemoryReuse, InsertSync, AddAlloc; function name unchanged
+        # Default strategy currently has no passes; function name unchanged
         assert pm.strategy == ir.OptimizationStrategy.Default
-        assert result is not program
         assert func.name == "test_func"
 
 

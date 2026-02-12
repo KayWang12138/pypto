@@ -68,19 +68,8 @@ class PassManager:
         To add a new strategy or modify existing ones, edit this method.
         """
         cls._strategy_passes = {
-            OptimizationStrategy.Default: [
-                ("ConvertToSSA", lambda: passes.convert_to_ssa()),
-                ("RunVerifier", lambda: passes.run_verifier()),
-                ("InitMemRef", lambda: passes.init_mem_ref()),
-                ("MemoryReuse", lambda: passes.basic_memory_reuse()),
-                ("InsertSync", lambda: passes.insert_sync()),
-                ("AddAlloc", lambda: passes.add_alloc()),
-            ],
-            OptimizationStrategy.PTOAS: [
-                ("InitMemRef", lambda: passes.init_mem_ref()),
-                ("MemoryReuse", lambda: passes.basic_memory_reuse()),
-                ("AddAlloc", lambda: passes.add_alloc()),
-            ],
+            OptimizationStrategy.Default: [],
+            OptimizationStrategy.PTOAS: [],
         }
 
     @classmethod
