@@ -475,26 +475,11 @@ class KlImprover : public ImprovementScheduler<GraphT> {
         return updateInfo;
     }
 
-    void ProcessWorkUpdateStep(VertexType node,
-                               unsigned nodeStep,
-                               unsigned nodeProc,
-                               VertexWorkWeightT vertexWeight,
-                               unsigned moveStep,
-                               unsigned moveProc,
-                               VertexWorkWeightT moveCorrectionNodeWeight,
-                               const VertexWorkWeightT prevMoveStepMaxWork,
-                               const VertexWorkWeightT prevMoveStepSecondMaxWork,
-                               unsigned prevMoveStepMaxWorkProcessorCount,
-                               bool &updateStep,
-                               bool &updateEntireStep,
-                               bool &fullUpdate,
-                               std::vector<std::vector<CostT>> &affinityTableNode);
-    void UpdateNodeWorkAffinity(NodeSelectionContainerT &nodes,
-                                KlMove move,
-                                const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
-                                std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain);
-    void UpdateBestMove(
-        VertexType node, unsigned step, unsigned proc, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData);
+    void ProcessWorkUpdateStep(VertexType node, unsigned nodeStep, unsigned nodeProc, VertexWorkWeightT vertexWeight, unsigned moveStep, unsigned moveProc, VertexWorkWeightT moveCorrectionNodeWeight,
+                               const VertexWorkWeightT prevMoveStepMaxWork, const VertexWorkWeightT prevMoveStepSecondMaxWork, unsigned prevMoveStepMaxWorkProcessorCount,
+                               bool &updateStep, bool &updateEntireStep, bool &fullUpdate, std::vector<std::vector<CostT>> &affinityTableNode);
+    void UpdateNodeWorkAffinity(NodeSelectionContainerT &nodes, KlMove move, const PreMoveWorkData<VertexWorkWeightT> &prevWorkData, std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain);
+    void UpdateBestMove(VertexType node, unsigned step, unsigned proc, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData);
     void UpdateBestMove(VertexType node, unsigned step, NodeSelectionContainerT &affinityTable, ThreadSearchContext &threadData);
     void UpdateMaxGain(KlMove move, std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain, ThreadSearchContext &threadData);
     void ComputeWorkAffinity(VertexType node, std::vector<std::vector<CostT>> &affinityTableNode, ThreadSearchContext &threadData);
@@ -1165,21 +1150,9 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ComputeWorkAffini
 }
 
 template <typename GraphT, typename CommCostFunctionT, unsigned windowSize, typename CostT>
-void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessWorkUpdateStep(
-    VertexType node,
-    unsigned nodeStep,
-    unsigned nodeProc,
-    VertexWorkWeightT vertexWeight,
-    unsigned moveStep,
-    unsigned moveProc,
-    VertexWorkWeightT moveCorrectionNodeWeight,
-    const VertexWorkWeightT prevMoveStepMaxWork,
-    const VertexWorkWeightT prevMoveStepSecondMaxWork,
-    unsigned prevMoveStepMaxWorkProcessorCount,
-    bool &updateStep,
-    bool &updateEntireStep,
-    bool &fullUpdate,
-    std::vector<std::vector<CostT>> &affinityTableNode) {
+void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::ProcessWorkUpdateStep(VertexType node, unsigned nodeStep, unsigned nodeProc, VertexWorkWeightT vertexWeight, unsigned moveStep, 
+    unsigned moveProc, VertexWorkWeightT moveCorrectionNodeWeight, const VertexWorkWeightT prevMoveStepMaxWork, const VertexWorkWeightT prevMoveStepSecondMaxWork, 
+    unsigned prevMoveStepMaxWorkProcessorCount, bool &updateStep, bool &updateEntireStep, bool &fullUpdate, std::vector<std::vector<CostT>> &affinityTableNode) {
     const unsigned lowerBound = moveStep > windowSize ? moveStep - windowSize : 0;
     if (lowerBound <= nodeStep && nodeStep <= moveStep + windowSize) {
         updateStep = true;

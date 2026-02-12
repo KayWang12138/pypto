@@ -306,6 +306,28 @@ struct KlHyperTotalCommCostFunction {
     }
 
     template <typename ThreadDataT>
+    void AddLambdaToAllProcs(VertexType target, unsigned sourceProc, CostT commGain,
+                             unsigned startStep, unsigned endStep,
+                             std::map<VertexType, KlGainUpdateInfo> &maxGainRecompute,
+                             ThreadDataT &threadData) {
+        const unsigned targetProc = activeSchedule_->AssignedProcessor(target);
+        MarkForFullRecompute(target, maxGainRecompute);
+        const unsigned targetStep = activeSchedule_->AssignedSuperstep(target);
+        const unsigned targetStartIdx = StartIdx(targetStep, startStep);
+        const unsigned targetWindowBound = EndIdx(targetStep, endStep);
+        auto &affinityTableTarget = threadData.affinityTable_.At(target);
+        const CostT commAff = instance_->CommunicationCosts(sourceProc, targetProc) * commGain;
+        for (const unsigned p : procRange_->CompatibleProcessorsVertex(target)) {
+            if (p == targetProc) {
+                continue;
+            }
+            for (unsigned idx = targetStartIdx; idx < targetWindowBound; idx++) {
+                affinityTableTarget[p][idx] += commAff;
+            }
+        }
+    }
+
+    template <typename ThreadDataT>
     void UpdateSourceLambdaToProc(const KlMove &move, VertexType source, unsigned sourceProc,
                                  unsigned startStep, unsigned endStep,
                                  std::map<VertexType, KlGainUpdateInfo> &maxGainRecompute,
@@ -318,37 +340,19 @@ struct KlHyperTotalCommCostFunction {
                 }
                 if (sourceProc != move.toProc_ && IsCompatible(target, move.toProc_)) {
                     MarkForFullRecompute(target, maxGainRecompute);
-                    const unsigned targetStep = activeSchedule_->AssignedSuperstep(target);
-                    const unsigned targetWindowBound = EndIdx(targetStep, endStep);
-                    auto &affinityTableTargetToProc = threadData.affinityTable_.At(target)[move.toProc_];
-                    const CostT commAff = instance_->CommunicationCosts(sourceProc, move.toProc_) * commGain;
-                    for (unsigned idx = StartIdx(targetStep, startStep); idx < targetWindowBound; idx++) {
-                        affinityTableTargetToProc[idx] -= commAff;
-                    }
+                    const CostT commAff = -(instance_->CommunicationCosts(sourceProc, move.toProc_) * commGain);
+                    ApplyAffinityToRange(target, move.toProc_, startStep, endStep, commAff, threadData);
                 }
             }
         } else if (nodeLambdaMap_.GetProcEntry(source, move.toProc_) == 2) {
+            const CostT commGain = graph_->VertexCommWeight(source) * commMultiplier_;
             for (const auto &target : instance_->GetComputationalDag().Children(source)) {
                 if (!IsValidAffinityTarget(target, startStep, endStep, move.node_, threadData)) {
                     continue;
                 }
-                const unsigned targetProc = activeSchedule_->AssignedProcessor(target);
-                if (targetProc == move.toProc_ && sourceProc != targetProc) {
-                    MarkForFullRecompute(target, maxGainRecompute);
-                    const unsigned targetStep = activeSchedule_->AssignedSuperstep(target);
-                    const unsigned targetStartIdx = StartIdx(targetStep, startStep);
-                    const unsigned targetWindowBound = EndIdx(targetStep, endStep);
-                    auto &affinityTableTarget = threadData.affinityTable_.At(target);
-                    const CostT commAff = instance_->CommunicationCosts(sourceProc, targetProc)
-                                          * graph_->VertexCommWeight(source) * commMultiplier_;
-                    for (const unsigned p : procRange_->CompatibleProcessorsVertex(target)) {
-                        if (p == targetProc) {
-                            continue;
-                        }
-                        for (unsigned idx = targetStartIdx; idx < targetWindowBound; idx++) {
-                            affinityTableTarget[p][idx] += commAff;
-                        }
-                    }
+                if (activeSchedule_->AssignedProcessor(target) == move.toProc_ && sourceProc != move.toProc_) {
+                    AddLambdaToAllProcs(target, sourceProc, commGain, startStep, endStep,
+                                       maxGainRecompute, threadData);
                     break;
                 }
             }

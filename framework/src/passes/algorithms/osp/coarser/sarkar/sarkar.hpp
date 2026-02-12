@@ -1246,8 +1246,8 @@ std::vector<std::size_t> Sarkar<GraphTIn, GraphTOut>::HomogeneousMerge(const std
                                                                        const std::size_t minSize,
                                                                        const std::size_t maxSize) const {
     std::size_t bestDiv = 1U;
-    const std::size_t minSizeAtLeastOne = std::max(minSize, static_cast<std::size_t>(1U));
-    const std::size_t maxSizeAtLeastOne = std::max(maxSize, minSizeAtLeastOne);
+    const std::size_t minSizeAtLeastOne = minSize > 1U ? minSize : 1U;
+    const std::size_t maxSizeAtLeastOne = maxSize > 1U ? maxSize : 1U;
     for (const std::size_t div : DivisorsList(number)) {
         if (div > maxSizeAtLeastOne) {
             continue;
@@ -1267,7 +1267,7 @@ std::vector<std::size_t> Sarkar<GraphTIn, GraphTOut>::HomogeneousMerge(const std
 
     std::size_t bestScore = 0U;
     std::size_t bestBins = number / minSizeAtLeastOne;
-    std::size_t bins = std::max(number / maxSizeAtLeastOne, static_cast<std::size_t>(2U));
+    std::size_t bins = (number / maxSizeAtLeastOne) > 2U ? (number / maxSizeAtLeastOne) : 2U;
     for (; bins <= number / minSizeAtLeastOne; ++bins) {
         if (number % bins == 0U && number != bins) {
             return std::vector<std::size_t>(bins, number / bins);
