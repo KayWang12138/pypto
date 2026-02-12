@@ -253,6 +253,21 @@ void ExecuteOpTrunc(ExecuteOperationContext *ctx) {
 }
 REGISTER_CALC_OP(OP_TRUNC, Opcode::OP_TRUNC, ExecuteOpTrunc);
 
+void ExecuteOpPad(ExecuteOperationContext *ctx) {
+    ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
+    ASSERT(ctx->ioperandDataViewList->size() == 1);
+    auto &oop = ctx->ooperandInplaceDataViewList->at(0);
+    auto &iop = ctx->ioperandDataViewList->at(0);
+    int64_t padRight = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "pad_right");
+    int64_t padBottom = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "pad_bottom");
+    auto padValue = Element(DT_FP32, 0.0f);
+    ctx->op->GetAttr(OpAttributeKey::scalar, padValue);
+    int64_t srcValidRow = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "src_valid_row");
+    int64_t srcValidCol = ctx->op->GetIntAttribute(OP_ATTR_PREFIX + "src_valid_col");
+    calc::Pad(oop, iop, padRight, padBottom, padValue, srcValidRow, srcValidCol);
+}
+REGISTER_CALC_OP(OP_PAD, Opcode::OP_PAD, ExecuteOpPad);
+
 void ExecuteOpRound(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= SIZE_TWO);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
