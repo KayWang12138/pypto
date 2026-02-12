@@ -317,6 +317,37 @@ TEST_F(OnBoardTest, test_gather_float_case4) {
     EXPECT_EQ(ret, true);
 }
 
+TEST_F(OnBoardTest, test_log1p_dim4_float16) {
+    aclInit(nullptr);
+    rtSetDevice(GetDeviceIdByEnvVar());
+    std::vector<int64_t> shape = {2, 2, 64, 64};
+    DataType dtype = DataType::DT_FP16;
+    int cap = shape[0] * shape[1] * shape[2] * shape[3];
+    uint64_t outputSize = cap * sizeof(uint16_t);
+    uint8_t* out_ptr = allocDevAddr(outputSize);
+    PROGRAM("Log1p") {
+        void *x_ptr = readToDev(GetGoldenDir() + "/x_dim_4_fp16.bin", cap); // true means no cut
+        TileShape::Current().SetVecTile({1, 1, 32, 64});
+        Tensor input_x(dtype, shape, (uint8_t *)x_ptr, "x");
+        Tensor output(dtype, shape, out_ptr, "log1p");
+
+        config::SetBuildStatic(true);
+        FUNCTION("LOG1P_T", {input_x, output}) {
+            output = Log1p(input_x);
+        }
+    }
+    DevFuncRunner::Run(Program::GetInstance().GetLastFunction());
+
+    std::vector<npu::tile_fwk::float16> x(cap);
+    std::vector<npu::tile_fwk::float16> golden(cap);
+    std::vector<npu::tile_fwk::float16> res(cap);
+    machine::GetRA()->CopyFromTensor((uint8_t *)res.data(), (uint8_t *)out_ptr, outputSize);
+    readInput(GetGoldenDir() + "/cos_golden_fp16.bin", golden);
+    readInput(GetGoldenDir() + "/x_dim_4_fp16.bin", x);
+    int ret = resultCmpUnary<npu::tile_fwk::float16>(x, golden, res, 0.001f);
+    EXPECT_EQ(ret, true);
+}
+
 TEST_F(OnBoardTest, test_concat_all2all) {
     aclInit(nullptr);
     rtSetDevice(GetDeviceIdByEnvVar());
