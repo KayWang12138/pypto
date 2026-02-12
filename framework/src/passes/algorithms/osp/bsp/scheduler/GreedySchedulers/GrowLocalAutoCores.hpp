@@ -72,6 +72,43 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
      * @param instance The BspInstance object representing the instance to compute the schedule for.
      * @return A pair containing the return status and the computed BspSchedule.
      */
+    struct ScheduleState {
+        std::unordered_set<VertexIdx> ready;
+        std::vector<VertexIdx> predec;
+        std::vector<std::vector<VertexIdx>> newAssignments;
+        std::vector<std::vector<VertexIdx>> bestNewAssignments;
+        std::vector<VertexIdx> newReady;
+        std::vector<VertexIdx> bestNewReady;
+        std::vector<VertexIdx> allReady;
+        std::vector<std::vector<VertexIdx>> procReady;
+        VWorkwT<GraphT> minWeightParallelCheck;
+        VWorkwT<GraphT> minSuperstepWeight;
+        double desiredParallelism;
+    };
+
+    void InitializeScheduleDataStructures(BspSchedule<GraphT> &schedule, ScheduleState &state) {
+        const auto &instance = schedule.GetInstance();
+        const auto &g = instance.GetComputationalDag();
+        const auto n = instance.NumberOfVertices();
+        const unsigned p = instance.NumberOfProcessors();
+
+        for (const auto &v : g.Vertices()) {
+            schedule.SetAssignedProcessor(v, std::numeric_limits<unsigned>::max());
+            schedule.SetAssignedSuperstep(v, std::numeric_limits<unsigned>::max());
+        }
+
+        state.predec.resize(n);
+        InitializeReadyQueue(g, state.ready, state.predec);
+
+        state.newAssignments.resize(p);
+        state.bestNewAssignments.resize(p);
+        state.procReady.resize(p);
+
+        state.minWeightParallelCheck = params_.syncCostMultiplierParallelCheck_ * instance.SynchronisationCosts();
+        state.minSuperstepWeight = params_.syncCostMultiplierMinSuperstepWeight_ * instance.SynchronisationCosts();
+        state.desiredParallelism = static_cast<double>(p);
+    }
+
     virtual ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override {
         const auto &instance = schedule.GetInstance();
         const auto &g = instance.GetComputationalDag();
@@ -81,28 +118,9 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
         auto &nodeToProc = schedule.AssignedProcessors();
         auto &nodeToSupstep = schedule.AssignedSupersteps();
 
-        // Initialize schedule
-        for (const auto &v : g.Vertices()) {
-            schedule.SetAssignedProcessor(v, std::numeric_limits<unsigned>::max());
-            schedule.SetAssignedSuperstep(v, std::numeric_limits<unsigned>::max());
-        }
+        ScheduleState state;
+        InitializeScheduleDataStructures(schedule, state);
 
-        // Initialize ready queue and predecessor counts
-        std::unordered_set<VertexIdx> ready;
-        std::vector<VertexIdx> predec(n);
-        InitializeReadyQueue(g, ready, predec);
-
-        // Initialize data structures
-        std::vector<std::vector<VertexIdx>> newAssignments(p);
-        std::vector<std::vector<VertexIdx>> bestNewAssignments(p);
-        std::vector<VertexIdx> newReady, bestNewReady;
-        std::vector<VertexIdx> allReady;
-        std::vector<std::vector<VertexIdx>> procReady(p);
-
-        const VWorkwT<GraphT> minWeightParallelCheck = params_.syncCostMultiplierParallelCheck_ * instance.SynchronisationCosts();
-        const VWorkwT<GraphT> minSuperstepWeight = params_.syncCostMultiplierMinSuperstepWeight_ * instance.SynchronisationCosts();
-
-        double desiredParallelism = static_cast<double>(p);
         VertexIdx totalAssigned = 0;
         unsigned supstep = 0;
 
@@ -112,23 +130,26 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
             bool continueSuperstepAttempts = true;
 
             while (continueSuperstepAttempts) {
-                PrepareSuperstepAttempt(newAssignments, procReady, newReady, allReady, ready, p);
+                PrepareSuperstepAttempt(state.newAssignments, state.procReady, state.newReady, 
+                    state.allReady, state.ready, p);
 
                 VertexIdx newTotalAssigned = 0;
-                VWorkwT<GraphT> weightLimit = ScheduleProcessorZero(g, limit, allReady, procReady[0], 
-                    newAssignments[0], nodeToProc, predec, newReady, newTotalAssigned, p);
+                VWorkwT<GraphT> weightLimit = ScheduleProcessorZero(g, limit, state.allReady, 
+                    state.procReady[0], state.newAssignments[0], nodeToProc, state.predec, 
+                    state.newReady, newTotalAssigned, p);
                 VWorkwT<GraphT> totalWeightAssigned = ScheduleRemainingProcessors(g, p, weightLimit, 
-                    allReady, procReady, newAssignments, nodeToProc, predec, newReady, newTotalAssigned);
+                    state.allReady, state.procReady, state.newAssignments, nodeToProc, state.predec, 
+                    state.newReady, newTotalAssigned);
 
                 auto result = EvaluateSuperstep(totalWeightAssigned, weightLimit, instance, bestScore, 
-                    bestParallelism, minWeightParallelCheck, minSuperstepWeight, desiredParallelism, 
-                    totalAssigned, newTotalAssigned, n);
+                    bestParallelism, state.minWeightParallelCheck, state.minSuperstepWeight, 
+                    state.desiredParallelism, totalAssigned, newTotalAssigned, n);
 
-                RollbackAssignments(newAssignments, g, nodeToProc, predec, p);
+                RollbackAssignments(state.newAssignments, g, nodeToProc, state.predec, p);
 
                 if (result.acceptStep) {
-                    bestNewAssignments.swap(newAssignments);
-                    bestNewReady.swap(newReady);
+                    state.bestNewAssignments.swap(state.newAssignments);
+                    state.bestNewReady.swap(state.newReady);
                     bestScore = result.bestScore;
                     bestParallelism = result.bestParallelism;
                 }
@@ -137,9 +158,10 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
                 limit++; limit += (limit / 2);
             }
 
-            CommitBestAssignments(bestNewReady, bestNewAssignments, ready, nodeToProc, nodeToSupstep, 
-                predec, g, supstep, totalAssigned, p);
-            desiredParallelism = (0.3 * desiredParallelism) + (0.6 * bestParallelism) + (0.1 * static_cast<double>(p));
+            CommitBestAssignments(state.bestNewReady, state.bestNewAssignments, state.ready, 
+                nodeToProc, nodeToSupstep, state.predec, g, supstep, totalAssigned, p);
+            state.desiredParallelism = (0.3 * state.desiredParallelism) + (0.6 * bestParallelism) 
+                + (0.1 * static_cast<double>(p));
             ++supstep;
         }
 
