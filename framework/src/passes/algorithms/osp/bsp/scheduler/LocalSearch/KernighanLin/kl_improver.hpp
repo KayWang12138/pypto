@@ -262,6 +262,36 @@ class KlImprover : public ImprovementScheduler<GraphT> {
         return KlMove(node, maxGain, nodeProc, nodeStep, maxProc, nodeStep + maxStep - windowSize);
     }
 
+    CostT ComputeNodeProcAffinity(VertexWorkWeightT vertexWeight,
+                                   VertexWorkWeightT maxWork,
+                                   VertexWorkWeightT secondMaxWork,
+                                   VertexWorkWeightT stepProcWork,
+                                   unsigned maxWorkProcCount) {
+        const bool isSoleMaxProcessor = (maxWorkProcCount == 1) && (maxWork == stepProcWork);
+        return isSoleMaxProcessor ? std::min(vertexWeight, maxWork - secondMaxWork) : 0.0;
+    }
+
+    void UpdateMoveProcAffinity(VertexType node,
+                                unsigned nodeStep,
+                                unsigned moveProc,
+                                VertexWorkWeightT weightAdjustment,
+                                VertexWorkWeightT prevMaxWork,
+                                VertexWorkWeightT newMaxWeight,
+                                CostT prevNodeProcAffinity,
+                                CostT newNodeProcAffinity,
+                                std::vector<std::vector<CostT>> &affinityTableNode) {
+        if (activeSchedule_.AssignedProcessor(node) == moveProc || !IsCompatible(node, moveProc)) {
+            return;
+        }
+        const VertexWorkWeightT vertexWeight = graph_->VertexWorkWeight(node);
+        const VertexWorkWeightT prevNewWeight
+            = vertexWeight + activeSchedule_.GetStepProcessorWork(nodeStep, moveProc) + weightAdjustment;
+        const CostT prevOtherAffinity = ComputeSameStepAffinity(prevMaxWork, prevNewWeight, prevNodeProcAffinity);
+        const VertexWorkWeightT newWeight = vertexWeight + activeSchedule_.GetStepProcessorWork(nodeStep, moveProc);
+        const CostT otherAffinity = ComputeSameStepAffinity(newMaxWeight, newWeight, newNodeProcAffinity);
+        affinityTableNode[moveProc][windowSize] += (otherAffinity - prevOtherAffinity);
+    }
+
     void HandleSameStepSameNode(VertexType node,
                                 const KlMove &move,
                                 const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
@@ -272,66 +302,43 @@ class KlImprover : public ImprovementScheduler<GraphT> {
         const unsigned nodeProc = activeSchedule_.AssignedProcessor(node);
 
         const VertexWorkWeightT prevMaxWork = prevWorkData.fromStepMaxWork_;
-        const VertexWorkWeightT prevSecondMaxWork = prevWorkData.fromStepSecondMaxWork_;
         const VertexWorkWeightT newMaxWeight = activeSchedule_.GetStepMaxWork(move.fromStep_);
-        const VertexWorkWeightT newSecondMaxWeight = activeSchedule_.GetStepSecondMaxWork(move.fromStep_);
         const VertexWorkWeightT newStepProcWork = activeSchedule_.GetStepProcessorWork(nodeStep, nodeProc);
         const VertexWorkWeightT prevStepProcWork
             = (nodeProc == move.fromProc_) ? newStepProcWork + graph_->VertexWorkWeight(move.node_)
               : (nodeProc == move.toProc_) ? newStepProcWork - graph_->VertexWorkWeight(move.node_)
                                            : newStepProcWork;
-        const bool prevIsSoleMaxProcessor = (prevWorkData.fromStepMaxWorkProcessorCount_ == 1)
-                                            && (prevMaxWork == prevStepProcWork);
-        const CostT prevNodeProcAffinity
-            = prevIsSoleMaxProcessor ? std::min(vertexWeight, prevMaxWork - prevSecondMaxWork) : 0.0;
-        const bool newIsSoleMaxProcessor = (activeSchedule_.GetStepMaxWorkProcessorCount()[nodeStep] == 1)
-                                           && (newMaxWeight == newStepProcWork);
-        const CostT newNodeProcAffinity
-            = newIsSoleMaxProcessor ? std::min(vertexWeight, newMaxWeight - newSecondMaxWeight) : 0.0;
+
+        const CostT prevNodeProcAffinity = ComputeNodeProcAffinity(vertexWeight, prevMaxWork,
+            prevWorkData.fromStepSecondMaxWork_, prevStepProcWork, prevWorkData.fromStepMaxWorkProcessorCount_);
+        const CostT newNodeProcAffinity = ComputeNodeProcAffinity(vertexWeight, newMaxWeight,
+            activeSchedule_.GetStepSecondMaxWork(move.fromStep_), newStepProcWork,
+            activeSchedule_.GetStepMaxWorkProcessorCount()[nodeStep]);
 
         const CostT diff = newNodeProcAffinity - prevNodeProcAffinity;
         if (std::abs(diff) > epsilon_) {
             updateInfo.fullUpdate_ = true;
-            affinityTableNode[nodeProc][windowSize] += diff;    // Use the pre-calculated diff
+            affinityTableNode[nodeProc][windowSize] += diff;
         }
 
         if ((prevMaxWork != newMaxWeight) || updateInfo.fullUpdate_) {
             updateInfo.updateEntireFromStep_ = true;
-
             for (const unsigned proc : procRange_.CompatibleProcessorsVertex(node)) {
                 if ((proc == nodeProc) || (proc == move.fromProc_) || (proc == move.toProc_)) {
                     continue;
                 }
-
                 const VertexWorkWeightT newWeight = vertexWeight + activeSchedule_.GetStepProcessorWork(nodeStep, proc);
                 const CostT prevOtherAffinity = ComputeSameStepAffinity(prevMaxWork, newWeight, prevNodeProcAffinity);
                 const CostT otherAffinity = ComputeSameStepAffinity(newMaxWeight, newWeight, newNodeProcAffinity);
-
                 affinityTableNode[proc][windowSize] += (otherAffinity - prevOtherAffinity);
             }
         }
 
-        if (nodeProc != move.fromProc_ && IsCompatible(node, move.fromProc_)) {
-            const VertexWorkWeightT prevNewWeight = vertexWeight
-                                                    + activeSchedule_.GetStepProcessorWork(nodeStep, move.fromProc_)
-                                                    + graph_->VertexWorkWeight(move.node_);
-            const CostT prevOtherAffinity = ComputeSameStepAffinity(prevMaxWork, prevNewWeight, prevNodeProcAffinity);
-            const VertexWorkWeightT newWeight
-                = vertexWeight + activeSchedule_.GetStepProcessorWork(nodeStep, move.fromProc_);
-            const CostT otherAffinity = ComputeSameStepAffinity(newMaxWeight, newWeight, newNodeProcAffinity);
-            affinityTableNode[move.fromProc_][windowSize] += (otherAffinity - prevOtherAffinity);
-        }
-
-        if (nodeProc != move.toProc_ && IsCompatible(node, move.toProc_)) {
-            const VertexWorkWeightT prevNewWeight = vertexWeight
-                                                    + activeSchedule_.GetStepProcessorWork(nodeStep, move.toProc_)
-                                                    - graph_->VertexWorkWeight(move.node_);
-            const CostT prevOtherAffinity = ComputeSameStepAffinity(prevMaxWork, prevNewWeight, prevNodeProcAffinity);
-            const VertexWorkWeightT newWeight
-                = vertexWeight + activeSchedule_.GetStepProcessorWork(nodeStep, move.toProc_);
-            const CostT otherAffinity = ComputeSameStepAffinity(newMaxWeight, newWeight, newNodeProcAffinity);
-            affinityTableNode[move.toProc_][windowSize] += (otherAffinity - prevOtherAffinity);
-        }
+        const VertexWorkWeightT moveNodeWeight = graph_->VertexWorkWeight(move.node_);
+        UpdateMoveProcAffinity(node, nodeStep, move.fromProc_, moveNodeWeight,
+                               prevMaxWork, newMaxWeight, prevNodeProcAffinity, newNodeProcAffinity, affinityTableNode);
+        UpdateMoveProcAffinity(node, nodeStep, move.toProc_, -moveNodeWeight,
+                               prevMaxWork, newMaxWeight, prevNodeProcAffinity, newNodeProcAffinity, affinityTableNode);
     }
 
     void HandleSameStepDifferentNodeMaxChanged(VertexType node,
@@ -1429,8 +1436,8 @@ void KlImprover<GraphT, CommCostFunctionT, windowSize, CostT>::UpdateBestMove(
         const CostT diff = maxGain - nodeMove.gain_;
         if ((std::abs(diff) > epsilon_) || (maxProc != nodeMove.toProc_) || (maxStep != nodeMove.toStep_)) {
             nodeMove.gain_ = maxGain;
-            nodeMove.toProc_ = maxProc;
             nodeMove.toStep_ = maxStep;
+            nodeMove.toProc_ = maxProc;
             threadData.maxGainHeap_.Update(node, nodeMove);
         }
     }

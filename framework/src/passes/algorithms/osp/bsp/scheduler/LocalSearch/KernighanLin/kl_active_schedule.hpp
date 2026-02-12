@@ -394,8 +394,6 @@ class KlActiveSchedule {
     void WriteSchedule(BspSchedule<GraphT> &schedule);
     inline void Initialize(const BspSchedule<GraphT> &schedule);
     inline void Clear();
-    void RemoveEmptyStep(unsigned step);
-    void InsertEmptyStep(unsigned step);
     void SwapEmptyStepFwd(const unsigned step, const unsigned toStep);
     void SwapEmptyStepBwd(const unsigned toStep, const unsigned emptyStep);
     void SwapSteps(const unsigned step1, const unsigned step2);
@@ -526,20 +524,6 @@ void KlActiveSchedule<GraphT, CostT>::WriteSchedule(BspSchedule<GraphT> &schedul
 }
 
 template <typename GraphT, typename CostT>
-void KlActiveSchedule<GraphT, CostT>::RemoveEmptyStep(unsigned step) {
-    for (unsigned i = step; i < NumSteps() - 1; i++) {
-        for (unsigned proc = 0; proc < instance_->NumberOfProcessors(); proc++) {
-            for (const auto node : setSchedule_.GetProcessorStepVertices()[i + 1][proc]) {
-                vectorSchedule_.SetAssignedSuperstep(node, i);
-            }
-        }
-        std::swap(setSchedule_.GetProcessorStepVertices()[i], setSchedule_.GetProcessorStepVertices()[i + 1]);
-        workDatastructures_.SwapSteps(i, i + 1);
-    }
-    vectorSchedule_.NumberOfSupersteps()--;
-}
-
-template <typename GraphT, typename CostT>
 void KlActiveSchedule<GraphT, CostT>::SwapEmptyStepFwd(const unsigned step, const unsigned toStep) {
     for (unsigned i = step; i < toStep; i++) {
         for (unsigned proc = 0; proc < instance_->NumberOfProcessors(); proc++) {
@@ -549,21 +533,6 @@ void KlActiveSchedule<GraphT, CostT>::SwapEmptyStepFwd(const unsigned step, cons
         }
         std::swap(setSchedule_.GetProcessorStepVertices()[i], setSchedule_.GetProcessorStepVertices()[i + 1]);
         workDatastructures_.SwapSteps(i, i + 1);
-    }
-}
-
-template <typename GraphT, typename CostT>
-void KlActiveSchedule<GraphT, CostT>::InsertEmptyStep(unsigned step) {
-    unsigned i = vectorSchedule_.IncrementNumberOfSupersteps();
-
-    for (; i > step; i--) {
-        for (unsigned proc = 0; proc < instance_->NumberOfProcessors(); proc++) {
-            for (const auto node : setSchedule_.GetProcessorStepVertices()[i - 1][proc]) {
-                vectorSchedule_.SetAssignedSuperstep(node, i);
-            }
-        }
-        std::swap(setSchedule_.GetProcessorStepVertices()[i], setSchedule_.GetProcessorStepVertices()[i - 1]);
-        workDatastructures_.SwapSteps(i - 1, i);
     }
 }
 
