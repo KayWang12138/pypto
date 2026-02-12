@@ -34,7 +34,7 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 
     - cmake >= 3.16.3
     - make
-    - gcc >= 7.3.1
+    - g++ >= 7.3.1
 
     **安装Python依赖包：**
 
@@ -95,7 +95,7 @@ PyPTO支持在具备NPU硬件的**真实环境**和仅有CPU硬件的**仿真环
 
 ### 安装工具包
 
-工具包的安装提供了脚本安装和手动安装两种方式。
+工具包的安装提供了脚本安装和手动安装两种方式, 工具包需安装在同一路径下。
 
 #### 使用安装脚本
 
@@ -119,8 +119,8 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
 1. **安装CANN toolkit包**
 
     根据实际环境下载对应的安装包，下载链接如下:
-    - x86：[Ascend-cann-toolkit_8.5.0_linux-x86_64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-toolkit_8.5.0_linux-x86_64.run)
-    - aarch64：[Ascend-cann-toolkit_8.5.0_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/aarch64/Ascend-cann-toolkit_8.5.0_linux-aarch64.run)
+    - x86：[Ascend-cann-toolkit_8.5.0_linux-x86_64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/x86_64/Ascend-cann-toolkit_8.5.0_linux-x86_64.run)
+    - aarch64：[Ascend-cann-toolkit_8.5.0_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/aarch64/Ascend-cann-toolkit_8.5.0_linux-aarch64.run)
 
     ```bash
     # 确保安装包有可执行权限
@@ -137,10 +137,10 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
 2. **安装CANN ops包**
 
     根据实际环境和硬件类型(支持A2/A3)，下载对应的安装包，下载链接如下：
-    - A2、x86：[CANN_A2-OPS-8.5.0.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run)
-    - A2、aarch64：[CANN_A2-OPS-8.5.0.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/aarch64/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run)
-    - A3、x86：[CANN_A3-OPS-8.5.0.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/x86/Ascend-cann-A3-ops_8.5.0_linux-x86_64.run)
-    - A3、aarch64：[CANN_A3-OPS-8.5.0.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0/aarch64/Ascend-cann-A3-ops_8.5.0_linux-aarch64.run)
+    - A2、x86：[CANN_A2-OPS-8.5.0.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/x86_64/Ascend-cann-910b-ops_8.5.0_linux-x86_64.run)
+    - A2、aarch64：[CANN_A2-OPS-8.5.0.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/aarch64/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run)
+    - A3、x86：[CANN_A3-OPS-8.5.0.x86](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/x86_64/Ascend-cann-A3-ops_8.5.0_linux-x86_64.run)
+    - A3、aarch64：[CANN_A3-OPS-8.5.0.aarch64](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/pypto/cann/8.5.0_release/aarch64/Ascend-cann-A3-ops_8.5.0_linux-aarch64.run)
 
     ```
     # 确保安装包有可执行权限
@@ -188,7 +188,7 @@ bash tools/prepare_env.sh --type=cann --device-type=a2
 
     ```bash
     # 默认路径安装，以root用户为例（非root用户，将/usr/local替换为${HOME}）
-    source /usr/local/Ascend/cann/set_env.sh
+    source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
     # 指定路径安装
     source ${install_path}/cann/set_env.sh

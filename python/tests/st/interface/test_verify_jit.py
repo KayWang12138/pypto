@@ -17,12 +17,10 @@ import torch_npu
 import pypto
 import numpy as np
 
-verify_options = {"enable_pass_verify": True,
-                  "pass_verify_save_tensor": True,
-                 }
 
-
-@pypto.jit(verify_options=verify_options)
+@pypto.jit(verify_options={"enable_pass_verify": True,
+                           "pass_verify_save_tensor": True,
+                    })
 def add(a, b, c):
     for _ in pypto.loop(1):
         pypto.set_vec_tile_shapes(16, 16)

@@ -14,10 +14,10 @@
 定义指定计算的维度（Reduce轴）为R轴，非指定维度（Normal轴）为A轴。如下图所示，对Shape为\(2, 3\)的二维矩阵进行运算，指定在第一维求最小值，输出结果为\[1, 2, 3\]；指定在第二维求最小值，输出结果为\[1, 4\]。
 
 **图 1**  amin按第一个维度计算示例  
-![](../figures/amin按第一个维度计算示例.png "amin按第一个维度计算示例")
+![](../figures/pypto.amin_1.png)
 
 **图 2**  amin按最后一个维度计算示例  
-![](../figures/amin按最后一个维度计算示例.png "amin按最后一个维度计算示例")
+![](../figures/pypto.amin_2.png)
 
 ## 函数原型
 
@@ -30,7 +30,7 @@ amin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 
 | 参数名  | 输入/输出 | 说明                                                                 |
 |---------|-----------|----------------------------------------------------------------------|
-| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
+| input   | 输入      | 源操作数。 <br> 支持的类型为：Tensor。 <br> Tensor支持的数据类型为：DT_FP16，DT_BF16, DT_FP32。 <br> 不支持空Tensor；Shape仅支持2-4维；Shape Size不大于2147483647（即INT32_MAX）。 |
 | dim     | 输入      | 源操作数。 <br> 支持任意单轴。                                       |
 | keepdim | 输入      | 源操作数 <br> 控制在进行归约后，是否保持被压缩的维度。 <br> 默认值为False。 |
 
@@ -49,6 +49,16 @@ amin(input: Tensor, dim: int, keepdim: bool = False) -> Tensor:
 2. 尾轴要 32bytes 对齐;
 
 3. TileShape 次尾轴要小于等于255，即 TileShape\[-2\]<=255.
+
+## tileshape设置示例
+
+tileshape维度应和输入input一致。
+
+如输入intput shape为[m, n]，输出为[m, 1]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+
+```python
+pypto.set_vec_tile_shapes(m1, n1)
+```
 
 ## 调用示例
 

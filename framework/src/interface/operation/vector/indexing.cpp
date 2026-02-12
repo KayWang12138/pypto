@@ -63,29 +63,35 @@ void IndexAddExpandFunc(Function &function, const IndexAddPara indexaddPara, Ind
     if (selfTile->Datatype() == DT_INT8) { // vector指令不支持int8的直接计算
         LogicalTensorPtr selfConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, selfTile->GetShape());
         Operation &castSelfOp = function.AddOperation(Opcode::OP_CAST, {selfTile}, {selfConvertedTile});
+        selfConvertedTile->UpdateDynValidShape(selfTile->GetDynValidShape());
         castSelfOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
         LogicalTensorPtr srcConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, srcTile->GetShape());
         Operation &castSrcOp = function.AddOperation(Opcode::OP_CAST, {srcTile}, {srcConvertedTile});
+        srcConvertedTile->UpdateDynValidShape(srcTile->GetDynValidShape());
         castSrcOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
         LogicalTensorPtr dstConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP16, dstTile->GetShape());
 
         auto &op = function.AddOperation(
             Opcode::OP_INDEX_ADD, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile});
+        dstConvertedTile->UpdateDynValidShape(dstTile->GetDynValidShape());
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, alpha);
         Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConvertedTile}, {dstTile});
-        castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
+        castDstOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_TRUNC);
     } else if (selfTile->Datatype() == DT_BF16) { // vector和scalar均不支持BF16直接计算
         LogicalTensorPtr selfConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, selfTile->GetShape());
         Operation &castSelfOp = function.AddOperation(Opcode::OP_CAST, {selfTile}, {selfConvertedTile});
+        selfConvertedTile->UpdateDynValidShape(selfTile->GetDynValidShape());
         castSelfOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
         LogicalTensorPtr srcConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, srcTile->GetShape());
         Operation &castSrcOp = function.AddOperation(Opcode::OP_CAST, {srcTile}, {srcConvertedTile});
+        srcConvertedTile->UpdateDynValidShape(srcTile->GetDynValidShape());
         castSrcOp.SetAttribute(OP_ATTR_PREFIX + "mode", CastMode::CAST_NONE);
         LogicalTensorPtr dstConvertedTile = std::make_shared<LogicalTensor>(function, DT_FP32, dstTile->GetShape());
 
         auto &op = function.AddOperation(
             Opcode::OP_INDEX_ADD, {selfConvertedTile, srcConvertedTile, indexTile}, {dstConvertedTile});
+        dstConvertedTile->UpdateDynValidShape(dstTile->GetDynValidShape());
         op.SetAttribute(OP_ATTR_PREFIX + "axis", axis);
         op.SetAttribute(OpAttributeKey::scalar, alpha);
         Operation &castDstOp = function.AddOperation(Opcode::OP_CAST, {dstConvertedTile}, {dstTile});
@@ -200,12 +206,6 @@ void CheckIndexAddParamsInvalid(
 
 Tensor IndexAdd(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
     DECLARE_TRACER();
-    Tensor result = self;
-    return IndexAdd_(result, src, indices, axis, alpha);
-}
-
-Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, int axis, const Element &alpha) {
-    DECLARE_TRACER();
     CheckIndexAddParamsInvalid(self, src, indices, axis, alpha);
     axis = axis < 0 ? self.GetShape().size() + axis : axis;
     DataType selfDataType = self.GetDataType();
@@ -213,7 +213,6 @@ Tensor IndexAdd_(const Tensor &self, const Tensor &src, const Tensor &indices, i
     Tensor result(selfDataType, self.GetShape());
     CALL(IndexAdd, *Program::GetInstance().GetCurrentFunction(),
         {self.GetStorage(), src.GetStorage(), indices.GetStorage(), result.GetStorage(), axis, alpha_});
-
     return result;
 }
 
@@ -1213,10 +1212,10 @@ Tensor RealRange(Element &start, Element &end, Element &step) {
 }
 
 bool IsDataTypeUnsupport(DataType dType) {
-    return dType != DT_FP32 && dType != DT_INT64 && dType != DT_INT32 && dType != DT_FP16 && dType != DT_BF16;
+    return dType != DT_FP32 && dType != DT_INT64 && dType != DT_INT32 && dType != DT_FP16 && dType != DT_BF16 && dType != DT_INT16;
 }
 
-DataType GetResultDataType(const Element &start, const Element &end, const Element &step) {
+DataType GetComputeDataType(const Element &start, const Element &end, const Element &step) {
     DataType startType = start.GetDataType();
     DataType endType = end.GetDataType();
     DataType stepType = step.GetDataType();
@@ -1250,17 +1249,23 @@ DataType GetResultDataType(const Element &start, const Element &end, const Eleme
     return DT_INT64;
 }
 
-DataType GetFloatDataType(const Element &start, const Element &end, const Element &step) {
+DataType GetOutputDataType(const Element &start, const Element &end, const Element &step) {
     DataType startType = start.GetDataType();
     DataType endType = end.GetDataType();
     DataType stepType = step.GetDataType();
+    if (startType == DT_INT16 || endType == DT_INT16 || stepType == DT_INT16) {
+        return DT_INT16;
+    }
     if (startType == DT_FP32 || endType == DT_FP32 || stepType == DT_FP32) {
         return DT_FP32;
     }
     if (startType == DT_FP16 || endType == DT_FP16 || stepType == DT_FP16) {
         return DT_FP16;
     }
-    return DT_BF16;
+    if (startType == DT_BF16 || endType == DT_BF16 || stepType == DT_BF16) {
+        return DT_BF16;
+    }
+    return DT_INT32;
 }
 
 Element GetElementWithDataType(const Element &element, DataType dataType) {
@@ -1277,24 +1282,26 @@ Element GetElementWithDataType(const Element &element, DataType dataType) {
 }
 
 Tensor Range(const Element &start, const Element &end, const Element &step) {
-    DataType dataType = GetResultDataType(start, end, step);
+    DataType dataType = GetComputeDataType(start, end, step);
     if (dataType != DT_FP32 && dataType != DT_INT32) {
         std::string errorMessage = "Unsupported Output DataType " + DataType2String(dataType);
         ASSERT(false && errorMessage.c_str());
     }
-    DataType floatDataType = DT_INT32;
-    if (dataType == DT_FP32) {
-        floatDataType = GetFloatDataType(start, end, step);
-    }
+    DataType outputDataType = DT_INT32;
+    outputDataType = GetOutputDataType(start, end, step);
+    
     Element realStart = GetElementWithDataType(start, dataType);
     Element realEnd = GetElementWithDataType(end, dataType);
     Element realStep = GetElementWithDataType(step, dataType);
     auto resTensor = RealRange(realStart, realEnd, realStep);
-    if (floatDataType == DT_BF16) {
+    if (outputDataType == DT_BF16) {
         return Cast(resTensor, DT_BF16);
     }
-    if (floatDataType == DT_FP16) {
+    if (outputDataType == DT_FP16) {
         return Cast(resTensor, DT_FP16);
+    }
+    if (outputDataType == DT_INT16) {
+        return Cast(resTensor, DT_INT16);
     }
     return resTensor;
 }

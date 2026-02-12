@@ -75,7 +75,6 @@ void TestAddBody(std::vector<int64_t> shape, std::vector<int64_t> tile_shape, st
 }
 
 TEST_F(TestCodegenBinary, TestCodegenAddDim2) {
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE,false);
     TestAddBody({64, 64}, {64, 64}, "ADD_DIM2", true);
 }
 
@@ -116,7 +115,7 @@ TEST_F(TestCodegenBinary, TestCodegenAddSDim4) {
 
 TEST_F(TestCodegenBinary, TestCodegenAddMulDim4TileTensor) {
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    
     TileShape::Current().SetVecTile(1, 1, 16, 16);
     std::vector<int64_t> shape = {1, 1, 16, 16};
     Tensor input_a(DT_FP32, shape, "A");
@@ -157,9 +156,9 @@ TLoad(ubTensor_3, gmTensor_4, Coord4Dim(0, 0, 0, 0));
 SUBKERNEL_PHASE2
 set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
 wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
-TAdd(ubTensor_3, ubTensor_1, ubTensor_3);
+TAdd<LastUse3Dim<0, 0, 1>>(ubTensor_3, ubTensor_1, ubTensor_3);
 pipe_barrier(PIPE_V);
-TMul(ubTensor_3, ubTensor_1, ubTensor_3);
+TMul<LastUse3Dim<0, 1, 1>>(ubTensor_3, ubTensor_1, ubTensor_3);
 set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
 TStore(gmTensor_11, ubTensor_3, Coord4Dim(0, 0, 0, 0));

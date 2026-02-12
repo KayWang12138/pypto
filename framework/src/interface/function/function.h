@@ -486,6 +486,11 @@ public:
     pto::ProgramModulePtr programModule_ = nullptr;
     Function *rootFunc_ = nullptr; // TileGraph和RootGraph都需要保留，且需要映射关系
     ParamConfigs paramConfigs_;
+    // vf融合适配需要pass间传递的参数
+    std::unordered_map<PipeType, int> pipeEndTime; // function中每个pipe执行结束的时间
+    std::unordered_map<Operation *, Operation *> setOpMap;
+    std::unordered_map<Operation *, Operation *> waitOpMap;
+    std::vector<Operation *> oriOpList;
 
     Function(const Program &belongTo, const std::string &funcMagicName, const std::string &funcRawName,
         Function *parentFunc);
@@ -598,6 +603,7 @@ public:
     bool IsExplicit() const { return explicitArgSlots_.empty(); }
     const std::string &GetMagicName() const { return funcMagicName_; }
     const std::string &GetRawName() const { return funcRawName_; }
+    std::string GetOriginalRawName() const;
     void AppendCalleeMagicName(const std::string &name) { calleeMagicNameList_.push_back(name); }
     const std::vector<std::string> &GetCalleeMagicNameList() const { return calleeMagicNameList_; }
     int GetFuncMagic() const { return functionMagic_; }

@@ -90,13 +90,6 @@ std::vector<Operation *> OperationsViewer::DuplicatedOpList() const {
     return opList;
 }
 
-struct CompareTensorPtr {
-    bool operator()(const std::shared_ptr<LogicalTensor> &a,
-                    const std::shared_ptr<LogicalTensor> &b) const {
-        return a->offset < b->offset;
-    }
-};
-
 std::string DynloopFunctionPathNode::Dump() const {
     int indent = 2;
     std::ostringstream oss;
@@ -179,7 +172,7 @@ std::vector<DynloopFunctionPathCondition> DynloopFunctionAttribute::GenCondWithB
             std::vector<RawSymbolicScalarPtr> operandList{
                 expr->OperandList()[0],
                 expr->OperandList()[1],
-                RawSymbolicExpression::CreateBopSub(expr->OperandList()[2], loopRange.Step().Raw())
+                RawSymbolicExpression::CreateBopSub(expr->OperandList()[2], originalRange.Step().Raw())
             };
             auto newExpr = std::make_shared<RawSymbolicExpression>(SymbolicOpcode::T_MOP_CALL, operandList);
             cond.cond_ = SymbolicScalar(newExpr);
@@ -304,6 +297,16 @@ bool Function::IsCube() const {
     return false;
 }
 
+std::string Function::GetOriginalRawName() const {
+    const std::string& OriginalRawName = funcRawName_;
+    size_t prefixLen = FUNCTION_PREFIX.length();
+
+    if (OriginalRawName.substr(0, prefixLen) == FUNCTION_PREFIX) {
+        return OriginalRawName.substr(prefixLen);
+    }
+    return OriginalRawName;
+}
+
 OperationsViewer Function::OperationsAfterOOO() {
     return OperationsViewer(operationsAfterOOO_, opPositionAfterOOO_);
 }
@@ -359,6 +362,7 @@ int Function::GetParamIndex(const std::shared_ptr<RawTensor> &rawTensor) {
 }
 
 void *Function::GetParamAddress(int index) {
+    ASSERT(explicitArgAddrs_.size() > static_cast<uint64_t>(index)) << "The param address is not stored.";
     return explicitArgAddrs_[index];
 }
 
@@ -429,13 +433,8 @@ GetTensorDataIODescDict Function::GetTensorDataForTensorGraph() {
             iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST, outcastIndex, 0);
         } else {
             int incastIndex = GetTensorDataLookupIncast(this, import);
-            if (incastIndex != INVALID_IOINDEX) {
-                iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, 0);
-            } else {
-                // Impossible
-                ASSERT(false)
-                    << "Both outcast and incast indices are invalid";
-            }
+            ASSERT(incastIndex != INVALID_IOINDEX) << "Both outcast and incast indices are invalid";
+            iodescDict[getTensorDataIndex] = GetTensorDataIODesc(GET_TENSOR_DATA_OPERAND_IOTYPE_INCAST, incastIndex, 0);
         }
     }
     return iodescDict;
@@ -1833,7 +1832,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
     std::map<std::shared_ptr<RawTensor>, std::shared_ptr<LogicalTensor>> rawToOutcast;
     size_t oOperandIndex = 0;
     for (const auto &originOutcast : originOutCasts_) {
-        ASLOGI("originOut cast name %d %d", originOutcast->magic, originOutcast->GetRawMagic());
+        ALOG_INFO_F("originOut cast name %d %d", originOutcast->magic, originOutcast->GetRawMagic());
         outcastWithSameRaw[originOutcast->tensor->rawmagic].emplace_back(originOutcast);
         if (appearedRawOutcasts.count(originOutcast->tensor->rawmagic) != 0) {
             ++oOperandIndex;
@@ -1849,7 +1848,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         ++oOperandIndex;
     }
 
-    ASLOGI("raw out cast number %zu", rawOutcasts.size());
+    ALOG_INFO_F("raw out cast number %zu", rawOutcasts.size());
     for (const auto &rawOutcast : rawOutcasts) {
         auto &sameRawOutcasts = outcastWithSameRaw[rawOutcast->rawmagic];
         std::vector<int64_t> nonOffsets(rawOutcast->rawshape.size(), 0);
@@ -1882,7 +1881,7 @@ LogicalTensors Function::MakeOutcasts(const std::shared_ptr<TensorSlotScope> &sc
         std::vector<std::vector<int64_t>> newOutcastOffsets;
         std::vector<std::shared_ptr<LogicalTensor>> iOperand;
         std::vector<std::shared_ptr<LogicalTensor>> oOperand = {rawSymbol};
-        ASLOGI("same raw out cast number %zu", sameRawOutcasts.size());
+        ALOG_INFO_F("same raw out cast number %zu", sameRawOutcasts.size());
 
         std::shared_ptr<LogicalTensor> newOutcast = nullptr;
         for (auto &originOutcast : sameRawOutcasts) {
@@ -2038,6 +2037,7 @@ void Function::DumpJsonFile(std::string fileName) {
         filePath = fileName;
     }
     std::ofstream file(filePath);
+    CHECK(file.is_open()) << "Failed to open file: " << filePath;
     Json progDump;
     progDump["version"] = T_VERSION;
     progDump["functions"].push_back(DumpJson());
@@ -3018,6 +3018,7 @@ std::string Function::Dump() const {
 
 void Function::DumpFile(const std::string &filePath) const {
     std::ofstream fout(filePath);
+    CHECK(fout.is_open()) << "Failed to open file: " << filePath;
     fout << Dump();
     fout.close();
 }
@@ -3098,7 +3099,7 @@ bool Function::TensorReuse(const LogicalTensorPtr &dstTensor, const LogicalTenso
     }
     if (dstTensor->Datatype() != srcTensor->Datatype() ||
         dstTensor->tensor->GetRawShapeSize() != srcTensor->tensor->GetRawShapeSize()) {
-        ASLOGI("Data type or raw shape size of src and dst tensor is not same.");
+        ALOG_INFO_F("Data type or raw shape size of src and dst tensor is not same.");
         return false;
     }
 

@@ -517,6 +517,35 @@ def reciprocal(a: Tensor) -> Tensor:
 
 
 @op_wrapper
+def relu(a: Tensor) -> Tensor:
+    """
+    Returns a new tensor with the rectified linear unit function applied element-wise.
+    
+    The function is defined as:
+    y = max(0, x)
+    
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor.
+
+    Returns
+    -------
+    Tensor
+        A new tensor containing the element-wise relu result.
+
+    Examples
+    --------
+    x = pypto.tensor([-1.0, 2.0, 0.0, -0.5], pypto.DT_FP32)
+    y = pypto.relu(x)
+
+    Input x:  [-1.0, 2.0, 0.0, -0.5]
+    Output y: [ 0.0, 2.0, 0.0,  0.0]
+    """
+    return pypto_impl.Relu(a)
+
+
+@op_wrapper
 def logical_not(input: Tensor) -> Tensor:
     """
     Computes the element-wise logical NOT of 'input'
@@ -1053,7 +1082,7 @@ def bitwise_not(self: Tensor) -> Tensor:
 @op_wrapper
 def triu(
     input: Tensor,
-    diagonal: SymInt
+    diagonal: SymInt = 0
 ) -> Tensor:
     """
     Return the upper traingular part of a matrix or a banch of matrices `input`, the other elements of 
@@ -1086,7 +1115,7 @@ def triu(
 @op_wrapper
 def tril(
     input: Tensor,
-    diagonal: SymInt
+    diagonal: SymInt = 0
 ) -> Tensor:
     """
     Return the lower traingular part of a matrix or a banch of matrices `input`, the other elements of
@@ -1114,3 +1143,33 @@ def tril(
     if isinstance(diagonal, int):
         diagonal = SymbolicScalar(diagonal).base()
     return pypto_impl.TriL(input, diagonal)
+
+
+@op_wrapper
+def copysign(input: Tensor, other: Tensor) -> Tensor:
+    """
+    Create a new floating-point tensor with the magnitude of input and the sign of other, elementwise.
+    Parameters
+    ---------
+    input: Tensor
+        The tensor of magnitudes.
+    other : Tensor
+         The tensor that contains value(s) whose signbit(s) are applied to the magnitudes in input.
+    out: Tensor
+        The output tensor.
+    Examples
+    ---------
+    x = pypto.tensor([3, 3], pypto.data_type.DT_FP32)
+    y = pypto.tensor([3, 3], pypto.data_type.DT_FP32)
+    out = pypto.copysign(x, y)
+    Input  x : [[1 -2  3],
+                [4  5 -6],
+                [-7 8  9]]
+    Input  y : [[-1 6 -8],
+                [1 -1  0],
+                [7 -8  9]]
+    Output out:[[-1 2 -3],
+                [4 -5  6],
+                [7 -8  9]]
+    """
+    return pypto_impl.CopySign(input, other)

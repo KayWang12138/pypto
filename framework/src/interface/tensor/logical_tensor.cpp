@@ -25,6 +25,7 @@
 #include "interface/utils/id_gen.h"
 #include "interface/function/function.h"
 #include "interface/utils/serialization.h"
+#include <cstdint>
 
 using namespace npu::tile_fwk;
 
@@ -456,8 +457,11 @@ bool LogicalTensor::Overlap(const std::shared_ptr<LogicalTensor> &other) const {
     return true;
 }
 
-int LogicalTensor::GetDataSize() const {
-    int shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
+int64_t LogicalTensor::GetDataSize() const {
+    if (HasNegativeNum<int64_t>(shape)) {
+        return INT64_MAX;
+    }
+    int64_t shapeSize = std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
     return shapeSize * BytesOf(tensor->GetDataType());
 }
 

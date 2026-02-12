@@ -34,7 +34,7 @@ function(PTO_Fwk_UTest_AddCaseLib)
             ""
             ${ARGN}
     )
-    add_Library(${ARG_TARGET} STATIC)
+    add_library(${ARG_TARGET} STATIC)
     target_sources(${ARG_TARGET} PRIVATE ${ARG_SOURCES})
     target_include_directories(${ARG_TARGET} PRIVATE ${ARG_PRIVATE_INCLUDE_DIRECTORIES})
     target_link_libraries(${ARG_TARGET}
@@ -86,7 +86,7 @@ function(PTO_Fwk_UTest_RunExe)
         if (ARG_GTEST_FILTER_LIST)
             # 使能并行执行
             set(_File $<TARGET_FILE:${ARG_TARGET}>)
-            set(_Args "-t=${_File}" "--gtest_filter=${GtestFilterStr}" "--halt_on_error")
+            set(_Args "-t=${_File}" "--cases=${GtestFilterStr}" "--halt_on_error")
             if (PyEnvLines)
                 list(APPEND _Args "--env" "${PyEnvLines}")
             endif ()
@@ -157,6 +157,7 @@ function(PTO_Fwk_UTest_AddExe_RunExe)
             # 基本依赖
             # Interface 内 HostMachine 存在 dlopen 逻辑, 此处增加对应库连接, 触发相关 so 被添加到可执行程序依赖中
             tile_fwk_simulation_platform
+            tile_fwk_utils
             tile_fwk_interface
             tile_fwk_codegen
             tile_fwk_compiler

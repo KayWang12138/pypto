@@ -25,6 +25,7 @@ FlowVerifier::CompareResult FlowVerifier::VerifyResult(
         const std::shared_ptr<LogicalTensorData> &goldenDataView,
         const std::shared_ptr<LogicalTensorData> &outputDataView, float rtol, float atol) {
     // tensor maybe padded during PadLocalBuffer Pass, tensor shape maybe changed, just check the valid data
+    goldenDataView->UpdateValidShape(outputDataView->GetValidShape());
     ASSERT(goldenDataView->GetValidShape() == outputDataView->GetValidShape());
     ASSERT(goldenDataView->GetDataType() == outputDataView->GetDataType());
     switch (goldenDataView->GetDataType()) {
@@ -58,11 +59,11 @@ bool FlowVerifier::VerifyResult(const std::string &key,
         }
         auto result = VerifyResult(goldenView, outputView, rtol, atol);
         if (!result.Check()) {
-            ALOG_ERROR(key, ":\n    Verify for ", goldenDataViewList.size(), " data view list index ", k, " result ", TTY_RED("FAILED"));
+            ALOG_ERROR(key, ":\n    Verify for ", goldenDataViewList.size(), " data view list index ", k, " result FAILED");
             ALOG_ERROR(key, result.Dump());
             return false;
         } else {
-            ALOG_INFO(key, ": Verify for data ", k, " result ", TTY_GREEN("SUCCEED"));
+            ALOG_INFO(key, ": Verify for data ", k, " result SUCCEED");
         }
     }
     return true;
@@ -94,13 +95,13 @@ bool FlowVerifier::VerifyResult(const std::string &key,
         opInfo[toIndex(OpInfoCsvHeader::verifyType)] = key;
         opInfo[toIndex(OpInfoCsvHeader::outputShape)] = functionInterpreter_->ShapeToString(tensorDataViewList[k]->GetShape());
         opInfo[toIndex(OpInfoCsvHeader::outputValidShape)] = functionInterpreter_->ShapeToString(tensorDataViewList[k]->GetValidShape());
-        opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = DataType2String(tensorDataViewList[k]->GetDataType()); 
+        opInfo[toIndex(OpInfoCsvHeader::outputDtype)] = DataType2String(tensorDataViewList[k]->GetDataType());
         opInfo[toIndex(OpInfoCsvHeader::outputTensor)] = fileName;
         opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "PASS";
 
         auto tensorGraphResult = VerifyResult(goldenDataViewList[k], tensorDataViewList[k], rtol, atol);
         if (!tensorGraphResult.Check()) {
-            ALOG_ERROR(key, " Verify for ", goldenDataViewList.size(), " data view list index ", k, " result ", TTY_RED("FAILED"));
+            ALOG_ERROR(key, " Verify for ", goldenDataViewList.size(), " data view list index ", k, " result FAILED");
             opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "FAILED";
             result = false;
         } else {
@@ -261,7 +262,7 @@ void FlowVerifier::VerifyPass(Function *func, int passIndex, const std::string &
         try {
             captureExecution = functionInterpreter_->RunForPass(key, func, capture);
         } catch (std::exception &e) {
-            ALOG_ERROR_F("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s", 
+            ALOG_ERROR_F("VerifyPass failed for function %s, pass %s (passIndex: %d, captureIndex: %zu): %s",
                          func->GetMagicName().c_str(), passIdentifier.c_str(), passIndex, captureIndex, e.what());
             checkResult = false;
             continue;

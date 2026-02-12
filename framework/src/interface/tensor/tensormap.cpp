@@ -59,7 +59,7 @@ void TensorMap::Insert(std::shared_ptr<LogicalTensor> tobject, bool checkOverlap
     if (checkOverlap) {
         auto match = Find(tobject);
         if (!match.empty()) {
-            ASLOGI("Tensor %d is full coverd in function %s", tobject->magic, belongTo.GetRawName().c_str());
+            ALOG_INFO_F("Tensor %d is full coverd in function %s", tobject->magic, belongTo.GetRawName().c_str());
             return;
         }
     }
@@ -215,10 +215,10 @@ OverlapStatus CalcOverlap(
         // Therefore, they overlap if: !(a + length_a <= b OR b + length_b <= a)
         // Which is equivalent to: a + length_a > b AND b + length_b > a
 
-        size_t pStart = pTensor->offset[dim];
-        size_t pEnd = pStart + pTensor->shape[dim] - 1;
-        size_t qStart = qTensor->offset[dim];
-        size_t qEnd = qStart + qTensor->shape[dim] - 1;
+        int64_t pStart = pTensor->offset[dim];
+        int64_t pEnd = pStart + pTensor->shape[dim] - 1;
+        int64_t qStart = qTensor->offset[dim];
+        int64_t qEnd = qStart + qTensor->shape[dim] - 1;
 
         if (pEnd < qStart || qEnd < pStart) {
             return OverlapStatus::NO_OVER_LAP;
