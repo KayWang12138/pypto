@@ -142,11 +142,7 @@ std::string IRVerifier::GenerateReport(const std::vector<Diagnostic>& diagnostic
 
 IRVerifier IRVerifier::CreateDefault() {
   IRVerifier verifier;
-
-  // Add built-in verification rules
-  verifier.AddRule(CreateSSAVerifyRule());
-  verifier.AddRule(CreateTypeCheckRule());
-
+  // Verification rules can be added via verifier.AddRule()
   return verifier;
 }
 

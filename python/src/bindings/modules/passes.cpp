@@ -17,7 +17,6 @@
 #include "../bindings.h"
 #include "core/error.h"
 #include "ir/transform/passes.h"
-#include "ir/transform/verification_error.h"
 #include "ir/transform/verifier.h"
 
 namespace py = pybind11;
@@ -31,28 +30,6 @@ void BindPass(py::module_ &m) {
 
   py::class_<Pass>(passes, "Pass")
       .def("__call__", &Pass::operator(), py::arg("program"));
-
-  passes.def("init_mem_ref", &pass::InitMemRef);
-  passes.def("basic_memory_reuse", &pass::BasicMemoryReuse);
-  passes.def("insert_sync", &pass::InsertSync);
-  passes.def("add_alloc", &pass::AddAlloc);
-
-  py::enum_<ssa::ErrorType>(passes, "SSAErrorType")
-      .value("MULTIPLE_ASSIGNMENT", ssa::ErrorType::MULTIPLE_ASSIGNMENT)
-      .value("NAME_SHADOWING", ssa::ErrorType::NAME_SHADOWING)
-      .value("MISSING_YIELD", ssa::ErrorType::MISSING_YIELD);
-
-  passes.def("verify_ssa", &pass::VerifySSA);
-
-  py::enum_<typecheck::ErrorType>(passes, "TypeCheckErrorType")
-      .value("TYPE_KIND_MISMATCH", typecheck::ErrorType::TYPE_KIND_MISMATCH)
-      .value("DTYPE_MISMATCH", typecheck::ErrorType::DTYPE_MISMATCH)
-      .value("SHAPE_DIMENSION_MISMATCH", typecheck::ErrorType::SHAPE_DIMENSION_MISMATCH)
-      .value("SHAPE_VALUE_MISMATCH", typecheck::ErrorType::SHAPE_VALUE_MISMATCH)
-      .value("SIZE_MISMATCH", typecheck::ErrorType::SIZE_MISMATCH);
-
-  passes.def("type_check", &pass::TypeCheck);
-  passes.def("convert_to_ssa", &pass::ConvertToSSA);
 
   py::enum_<DiagnosticSeverity>(passes, "DiagnosticSeverity")
       .value("Error", DiagnosticSeverity::Error)
@@ -74,8 +51,6 @@ void BindPass(py::module_ &m) {
       .def("verify", &IRVerifier::Verify, py::arg("program"))
       .def("verify_or_throw", &IRVerifier::VerifyOrThrow, py::arg("program"))
       .def_static("generate_report", &IRVerifier::GenerateReport, py::arg("diagnostics"));
-
-  passes.def("run_verifier", &pass::RunVerifier, py::arg("disabled_rules") = std::vector<std::string>{});
 }
 
 } // namespace pypto

@@ -191,8 +191,8 @@ TypePtr DeduceBlockCmpType(const std::vector<ExprPtr>& args,
 
   // Validate cmp_type attribute exists
   bool has_cmp_type = false;
-  for (const auto& [key, value] : kwargs) {
-    if (key == "cmp_type") {
+  for (const auto& kwarg : kwargs) {
+    if (kwarg.first == "cmp_type") {
       has_cmp_type = true;
       break;
     }
