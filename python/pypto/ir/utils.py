@@ -13,6 +13,8 @@ import inspect
 from typing import Optional, Sequence, Union
 
 from pypto.pypto_impl import ir as _ir
+
+__all__ = ["_get_span_or_capture", "_normalize_expr", "_normalize_shape"]
 from pypto.pypto_impl.ir import DataType
 
 
@@ -95,6 +97,3 @@ def _normalize_shape(
         TypeError: If shape contains non-int, non-Expr values
     """
     return [_normalize_expr(dim, span, int_dtype=DataType.INT64) for dim in shape]
-
-
-__all__ = ["_get_span_or_capture", "_normalize_expr", "_normalize_shape"]

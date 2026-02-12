@@ -17,7 +17,8 @@ from pypto.ir import DataType
 class TestIfStmt:
     """Test IfStmt class."""
 
-    def test_if_stmt_creation(self):
+    @staticmethod
+    def test_if_stmt_creation():
         """Test creating an IfStmt instance."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -33,7 +34,8 @@ class TestIfStmt:
         assert isinstance(if_stmt.then_body, ir.AssignStmt)
         assert if_stmt.else_body is None
 
-    def test_if_stmt_has_attributes(self):
+    @staticmethod
+    def test_if_stmt_has_attributes():
         """Test that IfStmt has condition, then_body, and else_body attributes."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -50,7 +52,8 @@ class TestIfStmt:
         assert isinstance(if_stmt.else_body, ir.AssignStmt)
         assert len(if_stmt.return_vars) == 0
 
-    def test_if_stmt_is_stmt(self):
+    @staticmethod
+    def test_if_stmt_is_stmt():
         """Test that IfStmt is an instance of Stmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -63,7 +66,8 @@ class TestIfStmt:
         assert isinstance(if_stmt, ir.Stmt)
         assert isinstance(if_stmt, ir.IRNode)
 
-    def test_if_stmt_immutability(self):
+    @staticmethod
+    def test_if_stmt_immutability():
         """Test that IfStmt attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -84,7 +88,8 @@ class TestIfStmt:
         with pytest.raises(AttributeError):
             if_stmt.return_vars = []  # type: ignore
 
-    def test_if_stmt_with_different_condition_types(self):
+    @staticmethod
+    def test_if_stmt_with_different_condition_types():
         """Test IfStmt with different condition expression types."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -107,7 +112,8 @@ class TestIfStmt:
         if_stmt3 = ir.IfStmt(condition3, assign, None, [], span)
         assert isinstance(if_stmt3.condition, ir.And)
 
-    def test_if_stmt_with_multiple_statements(self):
+    @staticmethod
+    def test_if_stmt_with_multiple_statements():
         """Test IfStmt with multiple statements in then_body and else_body."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -126,7 +132,8 @@ class TestIfStmt:
         assert if_stmt.else_body is not None
         assert isinstance(if_stmt.else_body, ir.AssignStmt)
 
-    def test_if_stmt_with_return_vars(self):
+    @staticmethod
+    def test_if_stmt_with_return_vars():
         """Test IfStmt with return_vars."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -158,7 +165,8 @@ class TestIfStmt:
 class TestIfStmtHash:
     """Tests for IfStmt hash function."""
 
-    def test_if_stmt_same_structure_hash(self):
+    @staticmethod
+    def test_if_stmt_same_structure_hash():
         """Test IfStmt nodes with same structure hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -179,7 +187,8 @@ class TestIfStmtHash:
         # Different variable pointers result in different hashes without auto_mapping
         assert hash1 != hash2
 
-    def test_if_stmt_different_condition_hash(self):
+    @staticmethod
+    def test_if_stmt_different_condition_hash():
         """Test IfStmt nodes with different condition hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -197,7 +206,8 @@ class TestIfStmtHash:
         hash2 = ir.structural_hash(if_stmt2)
         assert hash1 != hash2
 
-    def test_if_stmt_different_then_body_hash(self):
+    @staticmethod
+    def test_if_stmt_different_then_body_hash():
         """Test IfStmt nodes with different then_body hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -215,7 +225,8 @@ class TestIfStmtHash:
         hash2 = ir.structural_hash(if_stmt2)
         assert hash1 != hash2
 
-    def test_if_stmt_different_else_body_hash(self):
+    @staticmethod
+    def test_if_stmt_different_else_body_hash():
         """Test IfStmt nodes with different else_body hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -233,7 +244,8 @@ class TestIfStmtHash:
         hash2 = ir.structural_hash(if_stmt2)
         assert hash1 != hash2
 
-    def test_if_stmt_different_return_vars_hash(self):
+    @staticmethod
+    def test_if_stmt_different_return_vars_hash():
         """Test IfStmt nodes with different return_vars hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -255,7 +267,8 @@ class TestIfStmtHash:
         assert hash1 != hash3
         assert hash2 != hash3
 
-    def test_if_stmt_with_nullopt_else_body_hash(self):
+    @staticmethod
+    def test_if_stmt_with_nullopt_else_body_hash():
         """Test IfStmt nodes with nullopt else_body hash correctly."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -287,7 +300,8 @@ class TestIfStmtHash:
 class TestIfStmtEquality:
     """Tests for IfStmt structural equality function."""
 
-    def test_if_stmt_structural_equal(self):
+    @staticmethod
+    def test_if_stmt_structural_equal():
         """Test structural equality of IfStmt nodes."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -308,7 +322,8 @@ class TestIfStmtEquality:
         # With auto_mapping, they should be equal
         ir.assert_structural_equal(if_stmt1, if_stmt2, enable_auto_mapping=True)
 
-    def test_if_stmt_different_condition_not_equal(self):
+    @staticmethod
+    def test_if_stmt_different_condition_not_equal():
         """Test IfStmt nodes with different condition are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -324,7 +339,8 @@ class TestIfStmtEquality:
 
         assert not ir.structural_equal(if_stmt1, if_stmt2)
 
-    def test_if_stmt_different_then_body_not_equal(self):
+    @staticmethod
+    def test_if_stmt_different_then_body_not_equal():
         """Test IfStmt nodes with different then_body are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -340,7 +356,8 @@ class TestIfStmtEquality:
 
         assert not ir.structural_equal(if_stmt1, if_stmt2)
 
-    def test_if_stmt_different_else_body_not_equal(self):
+    @staticmethod
+    def test_if_stmt_different_else_body_not_equal():
         """Test IfStmt nodes with different else_body are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -356,7 +373,8 @@ class TestIfStmtEquality:
 
         assert not ir.structural_equal(if_stmt1, if_stmt2)
 
-    def test_if_stmt_different_from_base_stmt_not_equal(self):
+    @staticmethod
+    def test_if_stmt_different_from_base_stmt_not_equal():
         """Test IfStmt and different Stmt type are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -370,7 +388,8 @@ class TestIfStmtEquality:
 
         assert not ir.structural_equal(if_stmt, other_stmt)
 
-    def test_if_stmt_different_return_vars_not_equal(self):
+    @staticmethod
+    def test_if_stmt_different_return_vars_not_equal():
         """Test IfStmt nodes with different return_vars are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -389,7 +408,8 @@ class TestIfStmtEquality:
         assert not ir.structural_equal(if_stmt1, if_stmt3)
         assert not ir.structural_equal(if_stmt2, if_stmt3)
 
-    def test_if_stmt_empty_vs_non_empty_return_vars_not_equal(self):
+    @staticmethod
+    def test_if_stmt_empty_vs_non_empty_return_vars_not_equal():
         """Test IfStmt nodes with empty and non-empty return_vars are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -404,7 +424,8 @@ class TestIfStmtEquality:
 
         assert not ir.structural_equal(if_stmt1, if_stmt2)
 
-    def test_if_stmt_with_nullopt_else_body_equal(self):
+    @staticmethod
+    def test_if_stmt_with_nullopt_else_body_equal():
         """Test IfStmt nodes with nullopt else_body are equal when structurally same."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -430,17 +451,15 @@ class TestIfStmtEquality:
 class TestIfStmtAutoMapping:
     """Tests for auto mapping feature with IfStmt."""
 
-    def test_auto_mapping_with_if_stmt(self):
+    @staticmethod
+    def test_auto_mapping_with_if_stmt():
         """Test auto mapping with IfStmt."""
-        # Build: if x == y then x = y else y = x
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y1 = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         condition1 = ir.Eq(x1, y1, DataType.INT64, ir.Span.unknown())
         assign1_then = ir.AssignStmt(x1, y1, ir.Span.unknown())
         assign1_else = ir.AssignStmt(y1, x1, ir.Span.unknown())
         if_stmt1 = ir.IfStmt(condition1, assign1_then, assign1_else, [], ir.Span.unknown())
-
-        # Build: if a == b then a = b else b = a
         a = ir.Var("a", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         b = ir.Var("b", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         condition2 = ir.Eq(a, b, DataType.INT64, ir.Span.unknown())
@@ -459,29 +478,25 @@ class TestIfStmtAutoMapping:
         hash_without_auto2 = ir.structural_hash(if_stmt2, enable_auto_mapping=False)
         assert hash_without_auto1 != hash_without_auto2
 
-    def test_auto_mapping_if_stmt_different_structure(self):
+    @staticmethod
+    def test_auto_mapping_if_stmt_different_structure():
         """Test auto mapping with IfStmt where structure differs."""
-        # Build: if x == y then x = y
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y1 = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         condition1 = ir.Eq(x1, y1, DataType.INT64, ir.Span.unknown())
         assign1 = ir.AssignStmt(x1, y1, ir.Span.unknown())
         if_stmt1 = ir.IfStmt(condition1, assign1, None, [], ir.Span.unknown())
-
-        # Build: if a == b then a = b else b = a
         a = ir.Var("a", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         b = ir.Var("b", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         condition2 = ir.Eq(a, b, DataType.INT64, ir.Span.unknown())
         assign2_then = ir.AssignStmt(a, b, ir.Span.unknown())
         assign2_else = ir.AssignStmt(b, a, ir.Span.unknown())
         if_stmt2 = ir.IfStmt(condition2, assign2_then, assign2_else, [], ir.Span.unknown())
-
-        # Different structure (one has else, one doesn't)
         assert not ir.structural_equal(if_stmt1, if_stmt2, enable_auto_mapping=True)
 
-    def test_auto_mapping_if_stmt_with_return_vars(self):
+    @staticmethod
+    def test_auto_mapping_if_stmt_with_return_vars():
         """Test auto mapping with IfStmt that has return_vars."""
-        # Build: if x == y then x = y return r1, r2
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y1 = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         r1 = ir.Var("r1", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -489,8 +504,6 @@ class TestIfStmtAutoMapping:
         condition1 = ir.Eq(x1, y1, DataType.INT64, ir.Span.unknown())
         assign1 = ir.AssignStmt(x1, y1, ir.Span.unknown())
         if_stmt1 = ir.IfStmt(condition1, assign1, None, [r1, r2], ir.Span.unknown())
-
-        # Build: if a == b then a = b return s1, s2
         a = ir.Var("a", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         b = ir.Var("b", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         s1 = ir.Var("s1", ir.ScalarType(DataType.INT64), ir.Span.unknown())

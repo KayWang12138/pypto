@@ -19,7 +19,8 @@ from pypto.ir import DataType
 class TestStmt:
     """Test Stmt base class properties through concrete subclass."""
 
-    def test_stmt_creation(self):
+    @staticmethod
+    def test_stmt_creation():
         """Test creating a Stmt instance through concrete subclass."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -29,7 +30,8 @@ class TestStmt:
         assert stmt is not None
         assert stmt.span.filename == "test.py"
 
-    def test_stmt_has_span(self):
+    @staticmethod
+    def test_stmt_has_span():
         """Test that Stmt has span attribute."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -39,7 +41,8 @@ class TestStmt:
         assert stmt.span.begin_line == 10
         assert stmt.span.begin_column == 5
 
-    def test_stmt_is_irnode(self):
+    @staticmethod
+    def test_stmt_is_irnode():
         """Test that Stmt is an instance of IRNode."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -48,7 +51,8 @@ class TestStmt:
         stmt = ir.AssignStmt(x, y, span)
         assert isinstance(stmt, ir.IRNode)
 
-    def test_stmt_immutability(self):
+    @staticmethod
+    def test_stmt_immutability():
         """Test that Stmt attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -60,7 +64,8 @@ class TestStmt:
         with pytest.raises(AttributeError):
             stmt.span = ir.Span("other.py", 2, 2, 2, 5)  # type: ignore
 
-    def test_stmt_with_unknown_span(self):
+    @staticmethod
+    def test_stmt_with_unknown_span():
         """Test creating Stmt with unknown span."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -73,7 +78,8 @@ class TestStmt:
 class TestAssignStmt:
     """Test AssignStmt class."""
 
-    def test_assign_stmt_creation(self):
+    @staticmethod
+    def test_assign_stmt_creation():
         """Test creating an AssignStmt instance."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -86,7 +92,8 @@ class TestAssignStmt:
         assert cast(ir.Var, assign.var).name == "x"
         assert cast(ir.Var, assign.value).name == "y"
 
-    def test_assign_stmt_has_lhs_rhs(self):
+    @staticmethod
+    def test_assign_stmt_has_lhs_rhs():
         """Test that AssignStmt has var and value attributes."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -99,7 +106,8 @@ class TestAssignStmt:
         assert cast(ir.Var, assign.var).name == "a"
         assert cast(ir.Var, assign.value).name == "b"
 
-    def test_assign_stmt_is_stmt(self):
+    @staticmethod
+    def test_assign_stmt_is_stmt():
         """Test that AssignStmt is an instance of Stmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -110,7 +118,8 @@ class TestAssignStmt:
         assert isinstance(assign, ir.Stmt)
         assert isinstance(assign, ir.IRNode)
 
-    def test_assign_stmt_immutability(self):
+    @staticmethod
+    def test_assign_stmt_immutability():
         """Test that AssignStmt attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -124,7 +133,8 @@ class TestAssignStmt:
         with pytest.raises(AttributeError):
             assign.value = ir.Var("w", ir.ScalarType(dtype), span)  # type: ignore
 
-    def test_assign_stmt_with_different_expressions(self):
+    @staticmethod
+    def test_assign_stmt_with_different_expressions():
         """Test AssignStmt with different expression types."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -160,7 +170,8 @@ class TestAssignStmt:
 class TestYieldStmt:
     """Test YieldStmt class."""
 
-    def test_yield_stmt_creation_with_value(self):
+    @staticmethod
+    def test_yield_stmt_creation_with_value():
         """Test creating a YieldStmt instance with a value."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -173,7 +184,8 @@ class TestYieldStmt:
         assert isinstance(yield_stmt.value[0], ir.Var)
         assert yield_stmt.value[0].name == "x"
 
-    def test_yield_stmt_creation_without_value(self):
+    @staticmethod
+    def test_yield_stmt_creation_without_value():
         """Test creating a YieldStmt instance without a value."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         yield_stmt = ir.YieldStmt(span)
@@ -182,7 +194,8 @@ class TestYieldStmt:
         assert yield_stmt.span.filename == "test.py"
         assert len(yield_stmt.value) == 0
 
-    def test_yield_stmt_has_value_attribute(self):
+    @staticmethod
+    def test_yield_stmt_has_value_attribute():
         """Test that YieldStmt has value attribute."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -193,7 +206,8 @@ class TestYieldStmt:
         assert isinstance(yield_stmt.value[0], ir.Var)
         assert yield_stmt.value[0].name == "a"
 
-    def test_yield_stmt_is_stmt(self):
+    @staticmethod
+    def test_yield_stmt_is_stmt():
         """Test that YieldStmt is an instance of Stmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -203,7 +217,8 @@ class TestYieldStmt:
         assert isinstance(yield_stmt, ir.Stmt)
         assert isinstance(yield_stmt, ir.IRNode)
 
-    def test_yield_stmt_immutability(self):
+    @staticmethod
+    def test_yield_stmt_immutability():
         """Test that YieldStmt attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -215,7 +230,8 @@ class TestYieldStmt:
         with pytest.raises(AttributeError):
             yield_stmt.value = [y]  # type: ignore
 
-    def test_yield_stmt_with_multiple_vars(self):
+    @staticmethod
+    def test_yield_stmt_with_multiple_vars():
         """Test YieldStmt with multiple variables."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -251,7 +267,8 @@ class TestYieldStmt:
 class TestReturnStmt:
     """Test ReturnStmt class."""
 
-    def test_return_stmt_creation_with_value(self):
+    @staticmethod
+    def test_return_stmt_creation_with_value():
         """Test creating a ReturnStmt instance with a value."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -264,7 +281,8 @@ class TestReturnStmt:
         assert isinstance(return_stmt.value[0], ir.Var)
         assert cast(ir.Var, return_stmt.value[0]).name == "x"
 
-    def test_return_stmt_creation_without_value(self):
+    @staticmethod
+    def test_return_stmt_creation_without_value():
         """Test creating a ReturnStmt instance without a value."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         return_stmt = ir.ReturnStmt(span)
@@ -273,7 +291,8 @@ class TestReturnStmt:
         assert return_stmt.span.filename == "test.py"
         assert len(return_stmt.value) == 0
 
-    def test_return_stmt_has_value_attribute(self):
+    @staticmethod
+    def test_return_stmt_has_value_attribute():
         """Test that ReturnStmt has value attribute."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -284,7 +303,8 @@ class TestReturnStmt:
         assert isinstance(return_stmt.value[0], ir.Var)
         assert cast(ir.Var, return_stmt.value[0]).name == "a"
 
-    def test_return_stmt_is_stmt(self):
+    @staticmethod
+    def test_return_stmt_is_stmt():
         """Test that ReturnStmt is an instance of Stmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -294,7 +314,8 @@ class TestReturnStmt:
         assert isinstance(return_stmt, ir.Stmt)
         assert isinstance(return_stmt, ir.IRNode)
 
-    def test_return_stmt_immutability(self):
+    @staticmethod
+    def test_return_stmt_immutability():
         """Test that ReturnStmt attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -306,7 +327,8 @@ class TestReturnStmt:
         with pytest.raises(AttributeError):
             return_stmt.value = [y]  # type: ignore
 
-    def test_return_stmt_with_multiple_values(self):
+    @staticmethod
+    def test_return_stmt_with_multiple_values():
         """Test ReturnStmt with multiple values."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -332,7 +354,8 @@ class TestReturnStmt:
         assert cast(ir.Var, return_stmt3.value[1]).name == "y"
         assert cast(ir.Var, return_stmt3.value[2]).name == "z"
 
-    def test_return_stmt_with_expressions(self):
+    @staticmethod
+    def test_return_stmt_with_expressions():
         """Test ReturnStmt with different expression types."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -366,7 +389,8 @@ class TestReturnStmt:
         assert isinstance(return_stmt4.value[1], ir.ConstInt)
         assert isinstance(return_stmt4.value[2], ir.Add)
 
-    def test_return_stmt_empty_value_list(self):
+    @staticmethod
+    def test_return_stmt_empty_value_list():
         """Test ReturnStmt with explicitly empty value list."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         return_stmt = ir.ReturnStmt([], span)

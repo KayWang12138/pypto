@@ -17,7 +17,8 @@ from pypto.ir import DataType
 class TestDataTypeEnum:
     """Test DataType enumeration values and access patterns."""
 
-    def test_enum_values_exist(self):
+    @staticmethod
+    def test_enum_values_exist():
         """Test that all expected enum values are defined."""
         # Signed integers
         assert hasattr(DataType, "INT4")
@@ -47,7 +48,8 @@ class TestDataTypeEnum:
         # Boolean
         assert hasattr(DataType, "BOOL")
 
-    def test_enum_values_are_unique(self):
+    @staticmethod
+    def test_enum_values_are_unique():
         """Test that all enum values have unique integer values."""
         values = [
             DataType.INT4,
@@ -74,7 +76,8 @@ class TestDataTypeEnum:
         int_values = [v.code() for v in values]
         assert len(int_values) == len(set(int_values)), "Enum values must be unique"
 
-    def test_convenience_constants(self):
+    @staticmethod
+    def test_convenience_constants():
         """Test that convenience constants match DataType enum values."""
         assert ir.INT4 == DataType.INT4
         assert ir.INT8 == DataType.INT8
@@ -96,7 +99,8 @@ class TestDataTypeEnum:
         assert ir.HF8 == DataType.HF8
         assert ir.BOOL == DataType.BOOL
 
-    def test_convenience_constants_in_ir_namespace(self):
+    @staticmethod
+    def test_convenience_constants_in_ir_namespace():
         """Test that convenience constants are accessible from pypto.ir module."""
         assert hasattr(ir, "INT4")
         assert hasattr(ir, "INT8")
@@ -123,18 +127,21 @@ class TestDataTypeEnum:
 class TestDataTypeBit:
     """Test GetBit() method."""
 
-    def test_1bit_types(self):
+    @staticmethod
+    def test_1bit_types():
         """Test data types that are 1 bit."""
         assert DataType.BOOL.get_bit() == 1
 
-    def test_4bit_types(self):
+    @staticmethod
+    def test_4bit_types():
         """Test data types that are 4 bits."""
         assert DataType.INT4.get_bit() == 4
         assert DataType.UINT4.get_bit() == 4
         assert DataType.FP4.get_bit() == 4
         assert DataType.HF4.get_bit() == 4
 
-    def test_8bit_types(self):
+    @staticmethod
+    def test_8bit_types():
         """Test data types that are 8 bits."""
         assert DataType.INT8.get_bit() == 8
         assert DataType.UINT8.get_bit() == 8
@@ -142,20 +149,23 @@ class TestDataTypeBit:
         assert DataType.FP8E5M2.get_bit() == 8
         assert DataType.HF8.get_bit() == 8
 
-    def test_16bit_types(self):
+    @staticmethod
+    def test_16bit_types():
         """Test data types that are 16 bits."""
         assert DataType.INT16.get_bit() == 16
         assert DataType.UINT16.get_bit() == 16
         assert DataType.FP16.get_bit() == 16
         assert DataType.BF16.get_bit() == 16
 
-    def test_32bit_types(self):
+    @staticmethod
+    def test_32bit_types():
         """Test data types that are 32 bits."""
         assert DataType.INT32.get_bit() == 32
         assert DataType.UINT32.get_bit() == 32
         assert DataType.FP32.get_bit() == 32
 
-    def test_64bit_types(self):
+    @staticmethod
+    def test_64bit_types():
         """Test data types that are 64 bits."""
         assert DataType.INT64.get_bit() == 64
         assert DataType.UINT64.get_bit() == 64
@@ -164,7 +174,8 @@ class TestDataTypeBit:
 class TestDataTypeString:
     """Test ToString() method."""
 
-    def test_signed_integer_strings(self):
+    @staticmethod
+    def test_signed_integer_strings():
         """Test string representation of signed integer types."""
         assert DataType.INT4.to_string() == "int4"
         assert DataType.INT8.to_string() == "int8"
@@ -172,7 +183,8 @@ class TestDataTypeString:
         assert DataType.INT32.to_string() == "int32"
         assert DataType.INT64.to_string() == "int64"
 
-    def test_unsigned_integer_strings(self):
+    @staticmethod
+    def test_unsigned_integer_strings():
         """Test string representation of unsigned integer types."""
         assert DataType.UINT4.to_string() == "uint4"
         assert DataType.UINT8.to_string() == "uint8"
@@ -180,7 +192,8 @@ class TestDataTypeString:
         assert DataType.UINT32.to_string() == "uint32"
         assert DataType.UINT64.to_string() == "uint64"
 
-    def test_floating_point_strings(self):
+    @staticmethod
+    def test_floating_point_strings():
         """Test string representation of floating point types."""
         assert DataType.FP4.to_string() == "fp4"
         assert DataType.FP8E4M3FN.to_string() == "fp8e4m3fn"
@@ -189,12 +202,14 @@ class TestDataTypeString:
         assert DataType.FP32.to_string() == "fp32"
         assert DataType.BF16.to_string() == "bfloat16"
 
-    def test_hybrid_float_strings(self):
+    @staticmethod
+    def test_hybrid_float_strings():
         """Test string representation of Hisilicon float types."""
         assert DataType.HF4.to_string() == "hf4"
         assert DataType.HF8.to_string() == "hf8"
 
-    def test_bool_string(self):
+    @staticmethod
+    def test_bool_string():
         """Test string representation of boolean type."""
         assert DataType.BOOL.to_string() == "bool"
 
@@ -202,7 +217,8 @@ class TestDataTypeString:
 class TestDataTypePredicates:
     """Test type checking predicate methods."""
 
-    def test_is_float(self):
+    @staticmethod
+    def test_is_float():
         """Test is_float() correctly identifies floating point types."""
         # Floating point types
         assert DataType.FP4.is_float() is True
@@ -220,7 +236,8 @@ class TestDataTypePredicates:
         assert DataType.UINT8.is_float() is False
         assert DataType.BOOL.is_float() is False
 
-    def test_is_signed_int(self):
+    @staticmethod
+    def test_is_signed_int():
         """Test is_signed_int() correctly identifies signed integer types."""
         # Signed integer types
         assert DataType.INT4.is_signed_int() is True
@@ -234,7 +251,8 @@ class TestDataTypePredicates:
         assert DataType.FP32.is_signed_int() is False
         assert DataType.BOOL.is_signed_int() is False
 
-    def test_is_unsigned_int(self):
+    @staticmethod
+    def test_is_unsigned_int():
         """Test is_unsigned_int() correctly identifies unsigned integer types."""
         # Unsigned integer types
         assert DataType.UINT4.is_unsigned_int() is True
@@ -248,7 +266,8 @@ class TestDataTypePredicates:
         assert DataType.FP32.is_unsigned_int() is False
         assert DataType.BOOL.is_unsigned_int() is False
 
-    def test_is_int(self):
+    @staticmethod
+    def test_is_int():
         """Test is_int() correctly identifies any integer types."""
         # Integer types (both signed and unsigned)
         assert DataType.INT4.is_int() is True
@@ -273,7 +292,8 @@ class TestDataTypePredicates:
         assert DataType.HF8.is_int() is False
         assert DataType.BOOL.is_int() is False
 
-    def test_type_predicates_mutual_exclusion(self):
+    @staticmethod
+    def test_type_predicates_mutual_exclusion():
         """Test that signed, unsigned, and floating point are mutually exclusive."""
         all_types = [
             DataType.INT4,
@@ -332,26 +352,29 @@ class TestDataTypeIntegration:
         DataType.BOOL,
     ]
 
-    def test_all_types_have_bit_size(self):
+    @staticmethod
+    def test_all_types_have_bit_size():
         """Test that all data types have a valid bit size."""
 
-        for dtype in self.all_types:
+        for dtype in TestDataTypeIntegration.all_types:
             bit_size = dtype.get_bit()
             assert bit_size > 0, f"Type {dtype.to_string()} should have positive bit size"
             assert bit_size in [1, 4, 8, 16, 32, 64], f"Type {dtype.to_string()} should have valid bit size"
 
-    def test_all_types_have_string_representation(self):
+    @staticmethod
+    def test_all_types_have_string_representation():
         """Test that all data types have a valid string representation."""
 
-        for dtype in self.all_types:
+        for dtype in TestDataTypeIntegration.all_types:
             string_repr = dtype.to_string()
             assert string_repr != "unknown", f"Type {dtype} should have valid string representation"
             assert len(string_repr) > 0, f"Type {dtype} should have non-empty string representation"
 
-    def test_all_types_classified(self):
+    @staticmethod
+    def test_all_types_classified():
         """Test that all data types are classified as either integer, float, or bool."""
 
-        for dtype in self.all_types:
+        for dtype in TestDataTypeIntegration.all_types:
             is_integer = dtype.is_int()
             is_floating = dtype.is_float()
             is_boolean = dtype == DataType.BOOL

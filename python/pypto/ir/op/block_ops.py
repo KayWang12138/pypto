@@ -26,7 +26,7 @@ from ..utils import _get_span_or_capture, _normalize_expr
 # ============================================================================
 
 
-def load(
+def load(  # pylint: disable=too-many-arguments
     tensor: Expr,
     row_offset: Union[int, Expr],
     col_offset: Union[int, Expr],
@@ -36,6 +36,10 @@ def load(
     span: Optional[Span] = None,
 ) -> Call:
     """Copy data from tensor to specified memory level.
+
+    Note: This function requires 7 parameters as they directly map to the
+    underlying IR operation semantics. Each parameter is necessary and cannot
+    be reasonably grouped without reducing API clarity.
 
     Args:
         tensor: Source tensor (TensorType)
@@ -69,7 +73,7 @@ def load(
     return _ir_core.create_op_call("block.load", args, kwargs, actual_span)
 
 
-def store(
+def store(  # pylint: disable=too-many-arguments
     tile: Expr,
     row_offset: Union[int, Expr],
     col_offset: Union[int, Expr],
@@ -79,6 +83,10 @@ def store(
     span: Optional[Span] = None,
 ) -> Call:
     """Copy data from unified buffer (tile) to tensor.
+
+    Note: This function requires 7 parameters as they directly map to the
+    underlying IR operation semantics. Each parameter is necessary and cannot
+    be reasonably grouped without reducing API clarity.
 
     Args:
         tile: Source tile (TileType)
@@ -104,7 +112,7 @@ def store(
     return _ir_core.create_op_call("block.store", args, {}, actual_span)
 
 
-def l0c_store(
+def l0c_store(  # pylint: disable=too-many-arguments
     tile: Expr,
     row_offset: Union[int, Expr],
     col_offset: Union[int, Expr],
@@ -114,6 +122,10 @@ def l0c_store(
     span: Optional[Span] = None,
 ) -> Call:
     """Copy data from unified buffer (tile) to tensor.
+
+    Note: This function requires 7 parameters as they directly map to the
+    underlying IR operation semantics. Each parameter is necessary and cannot
+    be reasonably grouped without reducing API clarity.
 
     Args:
         tile: Source tile (TileType)
@@ -142,7 +154,7 @@ def l0c_store(
 def move(
     tile: Expr,
     target_memory: int,
-    transpose: bool = False,
+    do_transpose: bool = False,
     span: Optional[Span] = None,
 ) -> Call:
     """Move tile between memory levels with optional transpose.
@@ -150,7 +162,7 @@ def move(
     Args:
         tile: Input tile (TileType)
         target_memory: Target memory space (1=UB, 2=L1, 3=L0A, 4=L0B)
-        transpose: Whether to transpose the tile (default: False)
+        do_transpose: Whether to transpose the tile (default: False)
         span: Optional source span for debugging (auto-captured if not provided)
 
     Returns:
@@ -162,7 +174,7 @@ def move(
     # Build kwargs dict for attributes
     kwargs: Dict[str, Any] = {
         "target_memory": target_memory,
-        "transpose": transpose,
+        "transpose": do_transpose,
     }
 
     return _ir_core.create_op_call("block.move", args, kwargs, actual_span)

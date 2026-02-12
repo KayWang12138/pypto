@@ -19,7 +19,8 @@ from pypto.ir import DataType
 class TestFunction:
     """Test Function class."""
 
-    def test_function_creation(self):
+    @staticmethod
+    def test_function_creation():
         """Test creating a Function instance."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -34,7 +35,8 @@ class TestFunction:
         assert len(func.return_types) == 1
         assert func.body is not None
 
-    def test_function_has_attributes(self):
+    @staticmethod
+    def test_function_has_attributes():
         """Test that Function has params, return_types, and body attributes."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -53,7 +55,8 @@ class TestFunction:
         assert isinstance(func.return_types[0], ir.ScalarType)
         assert isinstance(func.body, ir.SeqStmts)
 
-    def test_function_is_irnode(self):
+    @staticmethod
+    def test_function_is_irnode():
         """Test that Function is an instance of IRNode."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -64,7 +67,8 @@ class TestFunction:
 
         assert isinstance(func, ir.IRNode)
 
-    def test_function_immutability(self):
+    @staticmethod
+    def test_function_immutability():
         """Test that Function attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -81,7 +85,8 @@ class TestFunction:
         with pytest.raises(AttributeError):
             func.body = assign  # type: ignore
 
-    def test_function_with_empty_params(self):
+    @staticmethod
+    def test_function_with_empty_params():
         """Test Function with empty parameter list."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -93,7 +98,8 @@ class TestFunction:
         assert len(func.return_types) == 1
         assert func.body is not None
 
-    def test_function_with_empty_return_types(self):
+    @staticmethod
+    def test_function_with_empty_return_types():
         """Test Function with empty return types list."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -105,7 +111,8 @@ class TestFunction:
         assert len(func.return_types) == 0
         assert func.body is not None
 
-    def test_function_with_seqstmts_body(self):
+    @staticmethod
+    def test_function_with_seqstmts_body():
         """Test Function with SeqStmts body containing multiple statements."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -121,7 +128,8 @@ class TestFunction:
         assert isinstance(func.body, ir.SeqStmts)
         assert len(cast(ir.SeqStmts, func.body).stmts) == 2
 
-    def test_function_with_multiple_params(self):
+    @staticmethod
+    def test_function_with_multiple_params():
         """Test Function with multiple parameters."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -136,7 +144,8 @@ class TestFunction:
         assert cast(ir.Var, func.params[0]).name == "a"
         assert cast(ir.Var, func.params[1]).name == "b"
 
-    def test_function_with_multiple_return_types(self):
+    @staticmethod
+    def test_function_with_multiple_return_types():
         """Test Function with multiple return types."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -159,7 +168,8 @@ class TestFunction:
         assert isinstance(func.return_types[0], ir.ScalarType)
         assert isinstance(func.return_types[1], ir.ScalarType)
 
-    def test_function_string_representation(self):
+    @staticmethod
+    def test_function_string_representation():
         """Test Function string representation."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -183,7 +193,8 @@ class TestFunction:
 class TestFunctionHash:
     """Tests for Function hash function."""
 
-    def test_function_same_structure_hash(self):
+    @staticmethod
+    def test_function_same_structure_hash():
         """Test Function nodes with same structure hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -201,7 +212,8 @@ class TestFunctionHash:
         hash2 = ir.structural_hash(func2, enable_auto_mapping=True)
         assert hash1 == hash2
 
-    def test_function_different_name_hash(self):
+    @staticmethod
+    def test_function_different_name_hash():
         """Test Function nodes with different names hash the same (name is IgnoreField)."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -216,7 +228,8 @@ class TestFunctionHash:
         hash2 = ir.structural_hash(func2)
         assert hash1 == hash2  # name is IgnoreField, so should hash the same
 
-    def test_function_different_params_hash(self):
+    @staticmethod
+    def test_function_different_params_hash():
         """Test Function nodes with different parameters hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -232,7 +245,8 @@ class TestFunctionHash:
         hash2 = ir.structural_hash(func2)
         assert hash1 != hash2
 
-    def test_function_different_return_types_hash(self):
+    @staticmethod
+    def test_function_different_return_types_hash():
         """Test Function nodes with different return types hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -247,7 +261,8 @@ class TestFunctionHash:
         hash2 = ir.structural_hash(func2)
         assert hash1 != hash2
 
-    def test_function_different_body_hash(self):
+    @staticmethod
+    def test_function_different_body_hash():
         """Test Function nodes with different body hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -263,7 +278,8 @@ class TestFunctionHash:
         hash2 = ir.structural_hash(func2)
         assert hash1 != hash2
 
-    def test_function_empty_vs_non_empty_params_hash(self):
+    @staticmethod
+    def test_function_empty_vs_non_empty_params_hash():
         """Test Function nodes with empty vs non-empty params hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -277,7 +293,8 @@ class TestFunctionHash:
         hash2 = ir.structural_hash(func2)
         assert hash1 != hash2
 
-    def test_function_empty_vs_non_empty_return_types_hash(self):
+    @staticmethod
+    def test_function_empty_vs_non_empty_return_types_hash():
         """Test Function nodes with empty vs non-empty return_types hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -291,7 +308,8 @@ class TestFunctionHash:
         hash2 = ir.structural_hash(func2)
         assert hash1 != hash2
 
-    def test_function_different_body_types_hash(self):
+    @staticmethod
+    def test_function_different_body_types_hash():
         """Test Function nodes with different body types hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -312,7 +330,8 @@ class TestFunctionHash:
 class TestFunctionStructuralEqual:
     """Tests for Function structural equality function."""
 
-    def test_function_structural_equal(self):
+    @staticmethod
+    def test_function_structural_equal():
         """Test Function nodes with same structure are equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -328,7 +347,8 @@ class TestFunctionStructuralEqual:
 
         ir.assert_structural_equal(func1, func2, enable_auto_mapping=True)
 
-    def test_function_different_name_equal(self):
+    @staticmethod
+    def test_function_different_name_equal():
         """Test Function nodes with different names are equal (name is IgnoreField)."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -341,7 +361,8 @@ class TestFunctionStructuralEqual:
 
         ir.assert_structural_equal(func1, func2)  # name is IgnoreField
 
-    def test_function_different_params_not_equal(self):
+    @staticmethod
+    def test_function_different_params_not_equal():
         """Test Function nodes with different parameters are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -355,7 +376,8 @@ class TestFunctionStructuralEqual:
 
         assert not ir.structural_equal(func1, func2)
 
-    def test_function_different_return_types_not_equal(self):
+    @staticmethod
+    def test_function_different_return_types_not_equal():
         """Test Function nodes with different return types are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -368,7 +390,8 @@ class TestFunctionStructuralEqual:
 
         assert not ir.structural_equal(func1, func2)
 
-    def test_function_different_body_not_equal(self):
+    @staticmethod
+    def test_function_different_body_not_equal():
         """Test Function nodes with different body are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -382,7 +405,8 @@ class TestFunctionStructuralEqual:
 
         assert not ir.structural_equal(func1, func2)
 
-    def test_function_different_from_base_irnode_not_equal(self):
+    @staticmethod
+    def test_function_different_from_base_irnode_not_equal():
         """Test Function is not equal to a different IRNode type."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -394,7 +418,8 @@ class TestFunctionStructuralEqual:
         # Compare with a Var (different IRNode type)
         assert not ir.structural_equal(func, x)
 
-    def test_function_empty_vs_non_empty_params_not_equal(self):
+    @staticmethod
+    def test_function_empty_vs_non_empty_params_not_equal():
         """Test Function nodes with empty vs non-empty params are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -406,7 +431,8 @@ class TestFunctionStructuralEqual:
 
         assert not ir.structural_equal(func1, func2)
 
-    def test_function_empty_vs_non_empty_return_types_not_equal(self):
+    @staticmethod
+    def test_function_empty_vs_non_empty_return_types_not_equal():
         """Test Function nodes with empty vs non-empty return_types are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -418,7 +444,8 @@ class TestFunctionStructuralEqual:
 
         assert not ir.structural_equal(func1, func2)
 
-    def test_function_different_body_types_not_equal(self):
+    @staticmethod
+    def test_function_different_body_types_not_equal():
         """Test Function nodes with different body types are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
