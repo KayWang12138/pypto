@@ -130,11 +130,11 @@ public:
             auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
             AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
             PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
-            PipeSync::DepOp &currOp = ps.depOps_.emplace_back(op);
+            PipeSync::DepOp &currOp = ps.depInfoList_.emplace_back(op);
             auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
             for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
                 size_t k = *it;
-                PipeSync::DepOp &prevOp = ps.depOps_[k];
+                PipeSync::DepOp &prevOp = ps.depInfoList_[k];
                 if (ps.HasDataDependency(*opLogPtr[k], *opLogPtr[i], k, i)) {
                     ps.UpdateDep(currOp, prevOp);
                 }
@@ -252,7 +252,7 @@ void ProcessOpList(PipeSync &ps, DataDependencySearcher &dataDependencySearcher,
         }
         ps.BuildTensorRangeMap(op);
     }
-    dataDependencySearcher.ubTensorRangeMap = ps.ubTensorRangeMap;
+    dataDependencySearcher.ubTensorRangeMap_ = ps.ubTensorRangeMap_;
 }
 
 TEST_F(InsertSyncTest, TestFindDep) {
@@ -271,7 +271,7 @@ TEST_F(InsertSyncTest, TestFindDep) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
         PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
-        ps.depOps_.emplace_back(op);
+        ps.depInfoList_.emplace_back(op);
         auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
         // start tests
         if (i == IS_NUM1 || i == IS_NUM2 || i == IS_NUM3) {
@@ -401,11 +401,11 @@ TEST_F(InsertSyncTest, TestUpdateDep) {
         auto opcfg = OpcodeManager::Inst().GetTileOpCfg(opLogPtr[i]->GetOpcode());
         AdjustCopyOpTileCfg(*opLogPtr[i], opcfg);
         PipeSync::DepOp op(i, {opcfg.pipeIdStart_, opcfg.pipeIdEnd_, opcfg.coreType_});
-        auto &currOp = ps.depOps_.emplace_back(op);
+        auto &currOp = ps.depInfoList_.emplace_back(op);
         auto dataDependencySet = dataDependencySearcher.Find(opLogPtr[i]);
         for (auto it = dataDependencySet.rbegin(); it != dataDependencySet.rend(); it++) {
             size_t k = *it;
-            auto &prevOp = ps.depOps_[k];
+            auto &prevOp = ps.depInfoList_[k];
             if (ps.HasDataDependency(*opLogPtr[k], *opLogPtr[i], k, i)) {
                 // start tests
                 ps.UpdateDep(currOp, prevOp);
@@ -474,24 +474,24 @@ TEST_F(InsertSyncTest, TestHandleEventID) {
     ProcessOpList(ps, dataDependencySearcher, opLogPtr);
     std::vector<IndexOp> synced;
     BuildDeps(ps, dataDependencySearcher, opLogPtr, synced);
-    EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM1);
-    EXPECT_EQ(ps.depOps_[IS_NUM1].waitPipe[0], 0);
+    EXPECT_EQ(ps.depInfoList_[0].setPipe[0], IS_NUM1);
+    EXPECT_EQ(ps.depInfoList_[IS_NUM1].waitPipe[0], 0);
 
     // HandleEventID
     bool eventIdDeadlock = true;
     bool res = false;
     PipeSync::IssueNum issuenum;
     PipeSync::IssueQueue &issueQ = ps.issueState_[IS_NUM4];
-    PipeSync::DepOp &handleOp = ps.depOps_[0];
-    PipeSync::DepOp &eleOp = ps.depOps_[IS_NUM1];
+    PipeSync::DepOp &handleOp = ps.depInfoList_[0];
+    PipeSync::DepOp &eleOp = ps.depInfoList_[IS_NUM1];
     PipeSync::PipeCoreReal currPipeCore(handleOp.selfPipeCore.pipeEnd, handleOp.selfPipeCore.core);
     PipeSync::PipeCoreReal elePipeCore(eleOp.selfPipeCore.pipeStart, eleOp.selfPipeCore.core);
     PipeSync::PipePair pp{currPipeCore, elePipeCore};
     issuenum.maxIssueNum.emplace(pp, IS_NUM8);
     issuenum.currIssueNum.emplace(pp, IS_NUM8);
     ps.HandleEventID(handleOp, issueQ, issuenum, eventIdDeadlock, res);
-    EXPECT_EQ(ps.depOps_[IS_NUM1].waitPipe[0], IS_NUM2);
-    EXPECT_EQ(ps.depOps_[IS_NUM2].setPipe[0], IS_NUM1);
+    EXPECT_EQ(ps.depInfoList_[IS_NUM1].waitPipe[0], IS_NUM2);
+    EXPECT_EQ(ps.depInfoList_[IS_NUM2].setPipe[0], IS_NUM1);
 
     // InitCVEventIdQ
     PipeSync::CoreTypeDetail setCore = {CoreType::AIC, AIVCore::UNSPECIFIED};
@@ -722,10 +722,10 @@ TEST_F(InsertSyncTest, TestRelaxFakeDataDep) {
         totalIssued += issued;
         // eventIdDeadlockEnterTimes eventIdDeadlock syncedOpLog
         if (issuedTest == static_cast<size_t>(0)) {
-            EXPECT_EQ(ps.depOps_[0].setPipe[0], IS_NUM18);
-            EXPECT_EQ(ps.depOps_[IS_NUM1].setPipe[0], IS_NUM19);
+            EXPECT_EQ(ps.depInfoList_[0].setPipe[0], IS_NUM18);
+            EXPECT_EQ(ps.depInfoList_[IS_NUM1].setPipe[0], IS_NUM19);
             ps.ProcessDeadLock(eventIdDeadlockEnterTimes, eventIdDeadlock, synced);
-            EXPECT_EQ(ps.depOps_[IS_NUM1].setPipe[0], IS_NUM18);
+            EXPECT_EQ(ps.depInfoList_[IS_NUM1].setPipe[0], IS_NUM18);
             continue;
         }
         eventIdDeadlock = false;
