@@ -87,18 +87,12 @@ class DagVectorAdapter {
 
     DagVectorAdapter(const DagVectorAdapter &other) = default;
     DagVectorAdapter &operator=(const DagVectorAdapter &other) = default;
-
     DagVectorAdapter(DagVectorAdapter &&other) noexcept = default;
     DagVectorAdapter &operator=(DagVectorAdapter &&other) noexcept = default;
 
     virtual ~DagVectorAdapter() = default;
 
-    /**
-     * @brief Re-initializes the adapter with new adjacency lists.
-     *
-     * @param in_neigbors_ New in-neighbors adjacency list.
-     * @param out_neigbors_ New out-neighbors adjacency list.
-     */
+
     void SetInOutNeighbors(const std::vector<std::vector<IndexT>> &inNeigbors,
                            const std::vector<std::vector<IndexT>> &outNeigbors) {
         outNeigbors_ = &outNeigbors;
@@ -115,65 +109,21 @@ class DagVectorAdapter {
         numVertexTypes_ = 1;
     }
 
-    /**
-     * @brief Returns a range of all vertex indices.
-     */
     [[nodiscard]] auto Vertices() const { return IntegralRange<VertexIdx>(static_cast<VertexIdx>(vertices_.size())); }
-
-    /**
-     * @brief Returns the total number of vertices.
-     */
     [[nodiscard]] VertexIdx NumVertices() const { return static_cast<VertexIdx>(vertices_.size()); }
-
-    /**
-     * @brief Returns the total number of edges.
-     */
     [[nodiscard]] VertexIdx NumEdges() const { return static_cast<VertexIdx>(numEdges_); }
-
-    /**
-     * @brief Returns a view of the parents (in-neighbors) of a vertex. Does not perform bounds checking.
-     * @param v The vertex index.
-     */
     [[nodiscard]] auto Parents(const VertexIdx v) const { return (*inNeigbors_)[v]; }
-
-    /**
-     * @brief Returns a view of the children (out-neighbors) of a vertex. Does not perform bounds checking.
-     * @param v The vertex index.
-     */
     [[nodiscard]] auto Children(const VertexIdx v) const { return (*outNeigbors_)[v]; }
-
-    /**
-     * @brief Returns the in-degree of a vertex. Does not perform bounds checking.
-     * @param v The vertex index.
-     */
     [[nodiscard]] VertexIdx InDegree(const VertexIdx v) const { return static_cast<VertexIdx>((*inNeigbors_)[v].size()); }
-
-    /**
-     * @brief Returns the out-degree of a vertex. Does not perform bounds checking.
-     * @param v The vertex index.
-     */
     [[nodiscard]] VertexIdx OutDegree(const VertexIdx v) const { return static_cast<VertexIdx>((*outNeigbors_)[v].size()); }
-
     [[nodiscard]] VertexWorkWeightType VertexWorkWeight(const VertexIdx v) const { return vertices_[v].workWeight_; }
-
     [[nodiscard]] VertexCommWeightType VertexCommWeight(const VertexIdx v) const { return vertices_[v].commWeight_; }
-
     [[nodiscard]] VertexMemWeightType VertexMemWeight(const VertexIdx v) const { return vertices_[v].memWeight_; }
-
     [[nodiscard]] VertexTypeType VertexType(const VertexIdx v) const { return vertices_[v].vertexType_; }
-
     [[nodiscard]] VertexTypeType NumVertexTypes() const { return numVertexTypes_; }
 
-    [[nodiscard]] const VImpl &GetVertexImpl(const VertexIdx v) const { return vertices_[v]; }
-
-    void SetVertexWorkWeight(const VertexIdx v, const VertexWorkWeightType workWeight) {
-        vertices_.at(v).workWeight_ = workWeight;
-    }
-
-    void SetVertexCommWeight(const VertexIdx v, const VertexCommWeightType commWeight) {
-        vertices_.at(v).commWeight_ = commWeight;
-    }
-
+    void SetVertexWorkWeight(const VertexIdx v, const VertexWorkWeightType workWeight) { vertices_.at(v).workWeight_ = workWeight; }
+    void SetVertexCommWeight(const VertexIdx v, const VertexCommWeightType commWeight) { vertices_.at(v).commWeight_ = commWeight; }
     void SetVertexMemWeight(const VertexIdx v, const VertexMemWeightType memWeight) { vertices_.at(v).memWeight_ = memWeight; }
 
     void SetVertexType(const VertexIdx v, const VertexTypeType vertexType) {

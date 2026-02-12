@@ -125,71 +125,18 @@ class ComputationalDagVectorImpl {
 
     virtual ~ComputationalDagVectorImpl() = default;
 
-    /**
-     * @brief Returns a range of all vertex indices.
-     */
     [[nodiscard]] auto Vertices() const { return IntegralRange<VertexIdx>(static_cast<VertexIdx>(vertices_.size())); }
-
-    /**
-     * @brief Returns the total number of vertices.
-     */
     [[nodiscard]] VertexIdx NumVertices() const { return static_cast<VertexIdx>(vertices_.size()); }
-
-    /**
-     * @brief Checks if the graph is empty (no vertices).
-     */
     [[nodiscard]] bool empty() const { return vertices_.empty(); }
-
-    /**
-     * @brief Returns the total number of edges.
-     */
     [[nodiscard]] VertexIdx NumEdges() const { return numEdges_; }
-
-    /**
-     * @brief Returns the parents (in-neighbors) of a vertex. Does not perform bounds checking.
-     * @param v The vertex index.
-     */
     [[nodiscard]] const std::vector<VertexIdx> &Parents(const VertexIdx v) const { return inNeigbors_[v]; }
-
-    /**
-     * @brief Returns the children (out-neighbors) of a vertex. Does not perform bounds checking.
-     * @param v The vertex index.
-     */
     [[nodiscard]] const std::vector<VertexIdx> &Children(const VertexIdx v) const { return outNeigbors_[v]; }
-
-    /**
-     * @brief Returns the in-degree of a vertex. Does not perform bounds checking.
-     * @param v The vertex index.
-     */
     [[nodiscard]] VertexIdx InDegree(const VertexIdx v) const { return static_cast<VertexIdx>(inNeigbors_[v].size()); }
-
-    /**
-     * @brief Returns the out-degree of a vertex. Does not perform bounds checking.
-     * @param v The vertex index.
-     */
     [[nodiscard]] VertexIdx OutDegree(const VertexIdx v) const { return static_cast<VertexIdx>(outNeigbors_[v].size()); }
-
     [[nodiscard]] VertexWorkWeightType VertexWorkWeight(const VertexIdx v) const { return vertices_[v].workWeight_; }
-
     [[nodiscard]] VertexCommWeightType VertexCommWeight(const VertexIdx v) const { return vertices_[v].commWeight_; }
-
     [[nodiscard]] VertexMemWeightType VertexMemWeight(const VertexIdx v) const { return vertices_[v].memWeight_; }
-
     [[nodiscard]] VertexTypeType VertexType(const VertexIdx v) const { return vertices_[v].vertexType_; }
-
-    [[nodiscard]] VertexTypeType NumVertexTypes() const { return numVertexTypes_; }
-
-    [[nodiscard]] const VImpl &GetVertexImpl(const VertexIdx v) const { return vertices_[v]; }
-
-    /**
-     * @brief Adds a new isolated vertex to the graph.
-     *
-     * @param work_weight Computational work weight.
-     * @param comm_weight Communication weight.
-     * @param mem_weight Memory weight.
-     * @param vertex_type Type of the vertex.
-     * @return The index of the newly added vertex.
-     */
     VertexIdx AddVertex(const VertexWorkWeightType workWeight,
                         const VertexCommWeightType commWeight,
                         const VertexMemWeightType memWeight,
@@ -218,13 +165,6 @@ class ComputationalDagVectorImpl {
         numVertexTypes_ = std::max(numVertexTypes_, vertexType + 1);
     }
 
-    /**
-     * @brief Adds a directed edge between two vertices.
-     *
-     * @param source The source vertex index.
-     * @param target The target vertex index.
-     * @return True if the edge was added, false if it already exists or vertices are invalid.
-     */
     bool AddEdge(const VertexIdx source, const VertexIdx target) {
         if (source >= static_cast<VertexIdx>(vertices_.size()) || target >= static_cast<VertexIdx>(vertices_.size())
             || source == target) {

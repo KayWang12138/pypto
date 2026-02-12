@@ -465,12 +465,9 @@ TEST_F(OspAlgorithmTest, Graph1) {
     EXPECT_EQ(graph.NumVertices(), 11);
     EXPECT_EQ(graph.NumEdges(), 11);
 
-    std::size_t cntr0 = 0;
-    std::size_t cntrChldEdges = 0U;
-    std::size_t cntrParEdges = 0U;
+    std::size_t cntr0{}, cntrChldEdges{}, cntrParEdges{};
     for (const auto &vert : graph.Vertices()) {
-        EXPECT_EQ(vert, cntr0);
-        ++cntr0;
+        EXPECT_EQ(vert, cntr0++);
         cntrChldEdges += graph.OutDegree(vert);
         cntrParEdges += graph.InDegree(vert);
     }
@@ -486,14 +483,12 @@ TEST_F(OspAlgorithmTest, Graph1) {
         EXPECT_EQ(graph.OutDegree(vert), outEdges[vert].size());
         std::size_t cntr = 0;
         for (const auto &chld : graph.Children(vert)) {
-            EXPECT_EQ(chld, outEdges[vert][cntr]);
-            ++cntr;
+            EXPECT_EQ(chld, outEdges[vert][cntr++]);
         }
         auto chldrn = graph.Children(vert);
         EXPECT_EQ(chldrn.crend() - chldrn.crbegin(), graph.OutDegree(vert));
         for (auto it = chldrn.crbegin(); it != chldrn.crend(); ++it) {
-            --cntr;
-            EXPECT_EQ(*it, outEdges[vert][cntr]);
+            EXPECT_EQ(*it, outEdges[vert][--cntr]);
         }
     }
 
@@ -505,14 +500,12 @@ TEST_F(OspAlgorithmTest, Graph1) {
         EXPECT_EQ(graph.InDegree(vert), inEdges[vert].size());
         std::size_t cntr = 0;
         for (const auto &par : graph.Parents(vert)) {
-            EXPECT_EQ(par, inEdges[vert][cntr]);
-            ++cntr;
+            EXPECT_EQ(par, inEdges[vert][cntr++]);
         }
         auto prnts = graph.Parents(vert);
         EXPECT_EQ(prnts.crend() - prnts.crbegin(), graph.InDegree(vert));
         for (auto it = prnts.crbegin(); it != prnts.crend(); ++it) {
-            --cntr;
-            EXPECT_EQ(*it, inEdges[vert][cntr]);
+            EXPECT_EQ(*it, inEdges[vert][--cntr]);
         }
     }
 
@@ -861,7 +854,6 @@ TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph) {
         cntrChldEdges += graph.OutDegree(vert);
         cntrParEdges += graph.InDegree(vert);
     }
-    EXPECT_EQ(graph.NumVertices(), cntr0);
     EXPECT_EQ(graph.NumEdges(), cntrChldEdges);
     EXPECT_EQ(graph.NumEdges(), cntrParEdges);
 

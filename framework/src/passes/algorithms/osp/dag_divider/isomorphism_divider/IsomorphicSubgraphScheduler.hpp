@@ -288,6 +288,26 @@ class IsomorphicSubgraphScheduler {
         }
     }
 
+    void AccumulateGroupProcTypes(const BspInstance<GraphT> &originalInstance,
+                                  const typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group &group,
+                                  unsigned numProcTypes,
+                                  std::vector<VWorkwT<GraphT>> &requiredProcTypes,
+                                  std::vector<VertexIdxT<ConstrGraphT>> &contractionMap,
+                                  size_t coarseNodeIdx) {
+        for (const auto &subgraph : group.subgraphs_) {
+            for (const auto &vertex : subgraph) {
+                contractionMap[vertex] = static_cast<VertexIdxT<ConstrGraphT>>(coarseNodeIdx);
+                const auto vertexWork = originalInstance.GetComputationalDag().VertexWorkWeight(vertex);
+                const auto vertexType = originalInstance.GetComputationalDag().VertexType(vertex);
+                for (unsigned j = 0; j < numProcTypes; ++j) {
+                    if (originalInstance.IsCompatibleType(vertexType, j)) {
+                        requiredProcTypes[j] += vertexWork;
+                    }
+                }
+            }
+        }
+    }
+
     SubgraphSchedulerInput<GraphT, ConstrGraphT> PrepareSubgraphSchedulingInput(
         const BspInstance<GraphT> &originalInstance,
         const std::vector<typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group> &isomorphicGroups,
@@ -308,19 +328,8 @@ class IsomorphicSubgraphScheduler {
                 = (wasTrimmed[coarseNodeIdx] && allowUseTrimmedScheduler_) ? 1 : static_cast<unsigned>(group.subgraphs_.size());
             result.requiredProcTypes_[coarseNodeIdx].assign(numProcTypes, 0);
 
-            for (const auto &subgraph : group.subgraphs_) {
-                for (const auto &vertex : subgraph) {
-                    contractionMap[vertex] = static_cast<VertexIdxT<ConstrGraphT>>(coarseNodeIdx);
-                    const auto vertexWork = originalInstance.GetComputationalDag().VertexWorkWeight(vertex);
-                    const auto vertexType = originalInstance.GetComputationalDag().VertexType(vertex);
-                    for (unsigned j = 0; j < numProcTypes; ++j) {
-                        if (originalInstance.IsCompatibleType(vertexType, j)) {
-                            result.requiredProcTypes_[coarseNodeIdx][j] += vertexWork;
-                        }
-                    }
-                }
-            }
-
+            AccumulateGroupProcTypes(originalInstance, group, numProcTypes,
+                                    result.requiredProcTypes_[coarseNodeIdx], contractionMap, coarseNodeIdx);
             ++coarseNodeIdx;
         }
         coarser_util::ConstructCoarseDag(
