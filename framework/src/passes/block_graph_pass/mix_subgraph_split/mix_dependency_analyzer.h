@@ -106,7 +106,9 @@ private:
     
     void Reset();
     std::vector<std::vector<bool>> Transpose(const std::vector<std::vector<bool>> &matrix);
-
+    bool IsTensorInComponentIncasts(int compId, const LogicalTensorPtr& tensor) const;
+    bool CheckDirectionAndCollectValid(const std::vector<LogicalTensorPtr>& tensors, int src, int dst, bool& hasValid) const;
+    void LogIllegalBidirectionalDependency(int comp1, int comp2, const AnalyzerInput& input) const;
     int maxComponent;
     SubgraphToFunction subgraphToFunction;
     std::vector<InternalDependencyInfo> internalDeps;

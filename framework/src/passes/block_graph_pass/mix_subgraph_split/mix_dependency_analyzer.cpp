@@ -412,30 +412,7 @@ Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
     const std::unordered_map<int, std::set<int>>& directDeps,
     const std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors) {
     ALOG_INFO_F("=== VALIDATING CROSS-COMPONENT DEPENDENCY CYCLES ===");
-    // Lambda 1: 检查单个tensor是否在incasts中
-    auto isTensorInIncasts = [this](int compId, const LogicalTensorPtr& tensor) -> bool {
-        auto incastIt = allIncasts.find(compId);
-        if (incastIt == allIncasts.end()) return false;
-        for (const auto& param : incastIt->second) {
-            if (param.tensor == tensor) return true;
-        }
-        return false;
-    };
-    // Lambda 2: 检查并打印单个方向的tensor
-    auto checkDirection = [&](int src, int dst, const std::vector<LogicalTensorPtr>& tensors) -> bool {
-        if (tensors.empty()) return false;
-        
-        ALOG_INFO_F("  Component %d -> %d tensors (%zu):", src, dst, tensors.size());
-        bool hasValid = false;
-        for (auto& tensor : tensors) {
-            bool isInIncast = isTensorInIncasts(dst, tensor);
-            ALOG_INFO_F("    - tensor magic=%d (raw=%d), in comp%d.incasts=%s",
-                      tensor->magic, tensor->GetRawMagic(), dst,
-                      isInIncast ? "YES" : "NO");
-            if (isInIncast) hasValid = true;
-        }
-        return hasValid;
-    };
+    // 收集双向依赖
     std::vector<std::pair<int, int>> bidirectionalDeps;
     for (const auto& [src, dsts] : directDeps) {
         for (int dst : dsts) {
@@ -455,25 +432,65 @@ Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
         // 获取两个方向的tensor
         auto it1 = crossComponentTensors.find({comp1, comp2});
         auto it2 = crossComponentTensors.find({comp2, comp1});
-        bool hasValid1to2 = it1 != crossComponentTensors.end() ? 
-                           checkDirection(comp1, comp2, it1->second) : false;
-        bool hasValid2to1 = it2 != crossComponentTensors.end() ? 
-                           checkDirection(comp2, comp1, it2->second) : false;
-        // 3. 判断是否是不合理成环
+        bool hasValid1to2 = false;
+        bool hasValid2to1 = false;
+        
+        if (it1 != crossComponentTensors.end()) {
+            CheckDirectionAndCollectValid(it1->second, comp1, comp2, hasValid1to2);
+        }
+        
+        if (it2 != crossComponentTensors.end()) {
+            CheckDirectionAndCollectValid(it2->second, comp2, comp1, hasValid2to1);
+        }
         if (hasValid1to2 && hasValid2to1) {
-            ALOG_ERROR_F("ILLEGAL BIDIRECTIONAL DEPENDENCY DETECTED!");
-            ALOG_ERROR_F("==========================================================");
-            ALOG_ERROR_F("Component %d <-> Component %d", comp1, comp2);
-            ALOG_ERROR_F("Component types: %s <-> %s",
-                       input.components[comp1].componentType == ComponentType::C_SCOPE ? "CUBE" :
-                       input.components[comp1].componentType == ComponentType::V_SCOPE ? "VECTOR" : "UNKNOWN",
-                       input.components[comp2].componentType == ComponentType::C_SCOPE ? "CUBE" :
-                       input.components[comp2].componentType == ComponentType::V_SCOPE ? "VECTOR" : "UNKNOWN");
+            LogIllegalBidirectionalDependency(comp1, comp2, input);
             return FAILED;
         }
     }
     ALOG_INFO_F("=== VALIDATION PASSED ===");   
     return SUCCESS; 
+}
+
+bool MixDependencyAnalyzer::IsTensorInComponentIncasts(int compId, const LogicalTensorPtr& tensor) const {
+    auto incastIt = allIncasts.find(compId);
+    if (incastIt == allIncasts.end()) return false;
+    for (const auto& param : incastIt->second) {
+        if (param.tensor == tensor) return true;
+    }
+    return false;
+}
+
+bool MixDependencyAnalyzer::CheckDirectionAndCollectValid(
+    const std::vector<LogicalTensorPtr>& tensors, int src, int dst, bool& hasValid) const {
+    
+    if (tensors.empty()) return false;
+    
+    ALOG_INFO_F("  Component %d -> %d tensors (%zu):", src, dst, tensors.size());
+    bool directionValid = false;
+    for (auto& tensor : tensors) {
+        bool isInIncast = IsTensorInComponentIncasts(dst, tensor);
+        ALOG_INFO_F("    - tensor magic=%d (raw=%d), in comp%d.incasts=%s",
+                  tensor->magic, tensor->GetRawMagic(), dst,
+                  isInIncast ? "YES" : "NO");
+        if (isInIncast) {
+            directionValid = true;
+            hasValid = true;
+        }
+    }
+    return directionValid;
+}
+
+void MixDependencyAnalyzer::LogIllegalBidirectionalDependency(
+    int comp1, int comp2, const AnalyzerInput& input) const {
+    
+    ALOG_ERROR_F("ILLEGAL BIDIRECTIONAL DEPENDENCY DETECTED!");
+    ALOG_ERROR_F("==========================================================");
+    ALOG_ERROR_F("Component %d <-> Component %d", comp1, comp2);
+    ALOG_ERROR_F("Component types: %s <-> %s",
+               input.components[comp1].componentType == ComponentType::C_SCOPE ? "CUBE" :
+               input.components[comp1].componentType == ComponentType::V_SCOPE ? "VECTOR" : "UNKNOWN",
+               input.components[comp2].componentType == ComponentType::C_SCOPE ? "CUBE" :
+               input.components[comp2].componentType == ComponentType::V_SCOPE ? "VECTOR" : "UNKNOWN");
 }
 }
 }
