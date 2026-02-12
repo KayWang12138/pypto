@@ -825,6 +825,7 @@ static void FixpipeExecute(torch::Tensor &tout, LogicalTensorDataPtr scalePtr, u
 }
 
 static void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
+    ASSERT(out->GetData()->GetDataType() == DataType::DT_FP16 && self->GetData()->GetDataType() == DataType::DT_INT32);
     auto tself = From(self);
     auto tout = From(out);
     auto dtype = tout.second.scalar_type();
@@ -883,7 +884,6 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
     } else {
         MatmulSplitK(tout.second, tself.second, tother.second, bias_tensor.second, param.kStep);
     }
-    // fixpipe
     if (self->GetDataType() == DataType::DT_INT8 && out->GetDataType() == DataType::DT_FP16) {
         FixpipeExecute(tout.second, param.scalePtr, param.scale, param.relu);
     }
@@ -1034,6 +1034,7 @@ void GatherInL1Golden(std::pair<torch::Tensor, torch::Tensor> &out, const torch:
     torch::Tensor selected = torch::index_select(params, 0, physical);
     ToOperand(out.second, out.first, outData->GetData()->GetDataType());
 }
+
 static torch::Tensor FromGatherInL1(LogicalTensorDataPtr data) {
     RawTensorDataPtr raw = data->GetData();
     auto tensor = torch::from_blob(raw->data(), raw->GetShape(), FromDataType(raw->GetDataType()));
@@ -1043,6 +1044,7 @@ static torch::Tensor FromGatherInL1(LogicalTensorDataPtr data) {
     }
     return view;
 }
+
 void GatherInL1(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
     LogicalTensorDataPtr pageTable, int64_t blockSize) {
     auto tout = From(out);

@@ -50,6 +50,7 @@ REGISTER_CALC_OP(OP_CV_SYNC_DST, Opcode::OP_CV_SYNC_DST, ExecuteOpNone);
 void ExecuteOpView(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() == 1);
     ASSERT(ctx->ioperandDataViewList->size() == 1);
+    ASSERT(ctx != nullptr && ctx->op != nullptr);
     auto &oop = ctx->ooperandInplaceDataViewList->at(0);
     auto &iop = ctx->ioperandDataViewList->at(0);
     auto opAttr = std::static_pointer_cast<ViewOpAttribute>(ctx->op->GetOpAttribute());
@@ -93,7 +94,6 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
     auto oopValid = std::make_shared<LogicalTensorData>(oop->GetData(), iopShape, toOffset);
     ASSERT(oopValid != nullptr);
     if (from == MemoryType::MEM_L0C) {
-        // fixpipe
         if (iop->GetDataType() == DataType::DT_INT32 && oop->GetDataType() == DataType::DT_FP16) {
             uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? 
                 ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;

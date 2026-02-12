@@ -51,9 +51,8 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
         } break;
         case Opcode::OP_A_MULACC_B: {
             auto acc = ctx->ioperandDataViewList->at(2);
-            if (lhs->GetDataType() == DataType::DT_INT8 && acc->GetDataType() == DataType::DT_FP32) {
-                throw std::runtime_error("pass customized part, cannot restore the computation logic.");
-            }
+            ASSERT(lhs->GetDataType() != DataType::DT_INT8 || acc->GetDataType() != DataType::DT_FP32)
+                << "pass customized part, cannot restore the computation logic.";
             calc::AccMatMul(ret, lhs, rhs, acc, param);
         } break;
         default: ASSERT(false); break;
@@ -101,7 +100,6 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
             calc::Copy(ret, iop, trans);
         }
     } else if (opCode == Opcode::OP_L0C_TO_L1) {
-        // fixpipe
         ASSERT(oper != nullptr && ret != nullptr);
         ASSERT(oper->GetShape().size() > 1 && ret->GetShape().size() > 1);
         bool quant = oper->GetDataType() == DataType::DT_INT32 && ret->GetDataType() == DataType::DT_FP16;

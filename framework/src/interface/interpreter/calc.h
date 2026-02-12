@@ -42,9 +42,8 @@ inline void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode m
 }
 inline void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
     CalcOps *ops = GetCalcOps();
-    if (ops != nullptr) {
-        ops->Fixpipe(out, self, scalePtr, scale, relu);
-    }
+    ASSERT(ops != nullptr);
+    ops->Fixpipe(out, self, scalePtr, scale, relu);
 }
 inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Exp(out, self);
@@ -311,9 +310,8 @@ inline void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, Lo
 inline void GatherInL1(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices,
     LogicalTensorDataPtr pageTable, int64_t blockSize) {
     CalcOps *ops = GetCalcOps();
-    if (ops != nullptr) {
-        GetCalcOps()->GatherInL1(out, params, indices, pageTable, blockSize);
-    }
+    ASSERT(ops != nullptr);
+    ops->GatherInL1(out, params, indices, pageTable, blockSize);
 }
 
 inline void Extract(LogicalTensorDataPtr out, LogicalTensorDataPtr self, int mod, bool descending) {
@@ -359,11 +357,15 @@ inline void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 
 inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, 
     LogicalTensorDataPtr bias = nullptr, MatMulParam param = {false, false, 0, 0, 0, nullptr}) {
-    GetCalcOps()->MatMul(out, self, other, bias, nullptr, param);
+    CalcOps *ops = GetCalcOps();
+    ASSERT(ops != nullptr);
+    ops->MatMul(out, self, other, bias, nullptr, param);
 }
 
 inline void AccMatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     LogicalTensorDataPtr acc = nullptr, MatMulParam param = {false, false, 0, 0, 0, nullptr}) {
-    GetCalcOps()->MatMul(out, self, other, nullptr, acc, param);
+    CalcOps *ops = GetCalcOps();
+    ASSERT(ops != nullptr);
+    ops->MatMul(out, self, other, nullptr, acc, param);
 }
 } // namespace npu::tile_fwk::calc
