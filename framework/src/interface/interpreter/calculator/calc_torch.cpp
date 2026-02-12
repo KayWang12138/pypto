@@ -825,6 +825,9 @@ static void FixpipeExecute(torch::Tensor &tout, LogicalTensorDataPtr scalePtr, u
 }
 
 static void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
+    ASSERT(out != nullptr && self != nullptr && out->GetData() != nullptr && self->GetData() != nullptr);
+    ALOG_DEBUG_F("input data type: %s, output data type: %s.\n", DataType2CCEStr(self->GetData()->GetDataType()).c_str(),
+        DataType2CCEStr(out->GetData()->GetDataType()).c_str());
     ASSERT(out->GetData()->GetDataType() == DataType::DT_FP16 && self->GetData()->GetDataType() == DataType::DT_INT32);
     auto tself = From(self);
     auto tout = From(out);
@@ -1023,8 +1026,8 @@ void GatherINUB(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTe
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
-void GatherInL1Golden(std::pair<torch::Tensor, torch::Tensor> &out, const torch::Tensor &params, const torch::Tensor &indices,
-    const torch::Tensor &pageTable, LogicalTensorDataPtr outData, int64_t blockSize) {
+void GatherInL1Golden(torch::Tensor &out, const torch::Tensor &params, const torch::Tensor &indices,
+    const torch::Tensor &pageTable, int64_t blockSize) {
     torch::Tensor logical = indices.reshape({-1}).to(torch::kLong);
     torch::Tensor pt = pageTable.reshape({-1}).to(torch::kLong);
     torch::Tensor logical_block = logical.floor_divide(blockSize);
@@ -1032,7 +1035,7 @@ void GatherInL1Golden(std::pair<torch::Tensor, torch::Tensor> &out, const torch:
     torch::Tensor physical_block = torch::index_select(pt, 0, logical_block);
     torch::Tensor physical = physical_block.mul(blockSize).add(offset);
     torch::Tensor selected = torch::index_select(params, 0, physical);
-    ToOperand(out.second, out.first, outData->GetData()->GetDataType());
+    out.copy_(selected);
 }
 
 static torch::Tensor FromGatherInL1(LogicalTensorDataPtr data) {
@@ -1051,7 +1054,8 @@ void GatherInL1(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTe
     auto tparams = FromGatherInL1(params);
     auto tindices = From(indices);
     auto tpageTable = From(pageTable);
-    GatherInL1Golden(tout, tparams, tindices.second, tpageTable.second, out, blockSize);
+    GatherInL1Golden(tout.second, tparams, tindices.second, tpageTable.second, blockSize);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
 void GatherElements(LogicalTensorDataPtr out, LogicalTensorDataPtr params, LogicalTensorDataPtr indices, int axis) {
