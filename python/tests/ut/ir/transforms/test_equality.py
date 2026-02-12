@@ -139,7 +139,6 @@ class TestReferenceEquality:
     @staticmethod
     def test_nested_expressions_structural_equal():
         """Test structural equality of nested expressions."""
-        # Build (x + 5) * 2
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c5_1 = ir.ConstInt(5, DataType.INT64, ir.Span.unknown())
         c2_1 = ir.ConstInt(2, DataType.INT64, ir.Span.unknown())
@@ -447,7 +446,6 @@ class TestHashEqualityConsistency:
     def test_deep_nested_consistency():
         """Test hash/equality consistency for deeply nested expressions."""
 
-        # Build: (((x + 1) - 2) * 3) / 4
         def build_expr(dtype, sp):
             x = ir.Var("x", ir.ScalarType(dtype), sp)
             c1 = ir.ConstInt(1, dtype, sp)
@@ -616,13 +614,11 @@ class TestAutoMapping:
     def test_auto_mapping_multiple_vars():
         """Test auto mapping with multiple different variables."""
 
-        # Build: (x + y) * z
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         z = ir.Var("z", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         expr1 = ir.Mul(ir.Add(x, y, DataType.INT64, ir.Span.unknown()), z, DataType.INT64, ir.Span.unknown())
 
-        # Build: (a + b) * c
         a = ir.Var("a", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         b = ir.Var("b", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c = ir.Var("c", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -697,7 +693,6 @@ class TestAutoMapping:
     def test_auto_mapping_complex_expression():
         """Test auto mapping with complex nested expressions."""
 
-        # Build: ((x + 1) * (y - 2)) / (x + y)
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y1 = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c1_1 = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
@@ -714,7 +709,6 @@ class TestAutoMapping:
             ir.Span.unknown(),
         )
 
-        # Build: ((a + 1) * (b - 2)) / (a + b)
         a = ir.Var("a", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         b = ir.Var("b", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c1_2 = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
@@ -864,14 +858,12 @@ class TestAutoMapping:
     @staticmethod
     def test_auto_mapping_assign_stmt_with_expression():
         """Test auto mapping with AssignStmt containing complex expressions."""
-        # Build: x = y + z
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y1 = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         z1 = ir.Var("z", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         add1 = ir.Add(y1, z1, DataType.INT64, ir.Span.unknown())
         assign1 = ir.AssignStmt(x1, add1, ir.Span.unknown())
 
-        # Build: a = b + c
         a = ir.Var("a", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         b = ir.Var("b", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c = ir.Var("c", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -1068,6 +1060,7 @@ class TestAssertStructuralEqual:
         func2 = ir.Function("test", [x], [ir.ScalarType(dtype)], body2, span)
         with pytest.raises(ValueError, match="Node type mismatch.*AssignStmt != YieldStmt"):
             ir.assert_structural_equal(func1, func2, enable_auto_mapping=True)
+    
     @staticmethod
     def test_assert_type_mismatch_in_var():
         """Test error message for variable type mismatch."""
@@ -1125,11 +1118,9 @@ class TestAssertStructuralEqual:
         c1 = ir.ConstInt(1, dtype, span)
         c2 = ir.ConstInt(2, dtype, span)
 
-        # Build: if x: y = y + 1
         then_body1 = ir.AssignStmt(y, ir.Add(y, c1, dtype, span), span)
         if_stmt1 = ir.IfStmt(x, then_body1, None, [], span)
 
-        # Build: if x: y = y + 2  (different constant)
         then_body2 = ir.AssignStmt(y, ir.Add(y, c2, dtype, span), span)
         if_stmt2 = ir.IfStmt(x, then_body2, None, [], span)
 

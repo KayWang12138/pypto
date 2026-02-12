@@ -80,8 +80,6 @@ from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 from .functions import Function, get_last_function, get_current_function
-
-# Import new IR modules
 from . import pypto_impl
 from . import ir  # noqa: F401 - Python wrapper package (re-exports pypto_impl.ir + IRBuilder etc.)
 from . import frontend

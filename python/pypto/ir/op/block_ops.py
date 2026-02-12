@@ -26,7 +26,7 @@ from ..utils import _get_span_or_capture, _normalize_expr
 # ============================================================================
 
 
-def load(  # pylint: disable=too-many-arguments
+def load(
     tensor: Expr,
     row_offset: Union[int, Expr],
     col_offset: Union[int, Expr],
@@ -73,7 +73,7 @@ def load(  # pylint: disable=too-many-arguments
     return _ir_core.create_op_call("block.load", args, kwargs, actual_span)
 
 
-def store(  # pylint: disable=too-many-arguments
+def store(
     tile: Expr,
     row_offset: Union[int, Expr],
     col_offset: Union[int, Expr],
@@ -112,7 +112,7 @@ def store(  # pylint: disable=too-many-arguments
     return _ir_core.create_op_call("block.store", args, {}, actual_span)
 
 
-def l0c_store(  # pylint: disable=too-many-arguments
+def l0c_store(
     tile: Expr,
     row_offset: Union[int, Expr],
     col_offset: Union[int, Expr],
