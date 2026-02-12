@@ -108,7 +108,9 @@ bool FlowVerifier::VerifyResult(const std::string &key,
             opInfo[toIndex(OpInfoCsvHeader::verifyResult)] = "FAILED";
             result = false;
         } else {
+            std::cout << "in line 111" << std::endl;
             VERIFY_EVENT("%s Verify for %zu data view list index %zu result PASS", key.c_str(), goldenDataViewList.size(), k);
+            std::cout << "in line 113" << std::endl;
         }
         auto res = tensorGraphResult.Dump();
         std::copy(res.begin(), res.end(), opInfo.begin() + toIndex(OpInfoCsvHeader::maxAbsDiff));
