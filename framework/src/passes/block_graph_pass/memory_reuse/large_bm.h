@@ -17,6 +17,7 @@
 
 #include <vector>
 #include <memory>
+#include <cstdint>
 
 namespace npu::tile_fwk {
 class LargeBitmap {
