@@ -121,6 +121,57 @@ INLINE T MoeFfnFromFp32(float val)
     }
 }
 
+template <typename T, uint32_t bufferEleNum>
+TILEOP void MoeFfnFillZeroUb(__ubuf__ T* buffer)
+{
+#if defined(__DAV_C220_VEC__)
+    static_assert((sizeof(T) * bufferEleNum) % VECTOR_INSTRUCTION_BYTE_SIZE == 0);
+    constexpr uint8_t repeat = static_cast<uint8_t>(sizeof(T) * bufferEleNum / VECTOR_INSTRUCTION_BYTE_SIZE);
+    vector_dup(buffer, static_cast<T>(0), repeat, 1, 0, 8, 0);
+    set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+    wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+#else
+    (void)buffer;
+#endif
+}
+
+template <typename T, uint32_t bufferEleNum>
+TILEOP void MoeFfnClearGmWithZeroUb(__gm__ T* gmAddr, uint64_t eleNum, __ubuf__ T* zeroBuffer)
+{
+#if defined(__DAV_C220_VEC__)
+    constexpr uint32_t dmaBlockBytes = 32;
+    static_assert((sizeof(T) * bufferEleNum) % dmaBlockBytes == 0);
+
+    uint64_t fullChunkCount = eleNum / bufferEleNum;
+    for (uint64_t i = 0; i < fullChunkCount; ++i) {
+        TileOp::UBCopyOut<T, 1, bufferEleNum, bufferEleNum, bufferEleNum>(gmAddr + i * bufferEleNum, zeroBuffer);
+    }
+
+    uint64_t tailEleNum = eleNum % bufferEleNum;
+    uint64_t tailBase = fullChunkCount * bufferEleNum;
+    for (uint64_t i = 0; i < tailEleNum; ++i) {
+        gmAddr[tailBase + i] = static_cast<T>(0);
+    }
+#else
+    (void)bufferEleNum;
+    (void)zeroBuffer;
+    uint64_t i = 0;
+    for (; i + 8 <= eleNum; i += 8) {
+        gmAddr[i] = static_cast<T>(0);
+        gmAddr[i + 1] = static_cast<T>(0);
+        gmAddr[i + 2] = static_cast<T>(0);
+        gmAddr[i + 3] = static_cast<T>(0);
+        gmAddr[i + 4] = static_cast<T>(0);
+        gmAddr[i + 5] = static_cast<T>(0);
+        gmAddr[i + 6] = static_cast<T>(0);
+        gmAddr[i + 7] = static_cast<T>(0);
+    }
+    for (; i < eleNum; ++i) {
+        gmAddr[i] = static_cast<T>(0);
+    }
+#endif
+}
+
 // SiLU fusion: intermediate = SiLU(gate) * up.
 #if defined(__DAV_C220_VEC__)
 template <typename T, uint16_t tileSize>
@@ -285,6 +336,15 @@ TILEOP void MoeFfnFusedAICSingleCore(
     __gm__ T* gateResultPtr = paddedInputPtr + static_cast<uint64_t>(alignedM) * K;
     __gm__ T* upResultPtr = gateResultPtr + static_cast<uint64_t>(alignedM) * N;
     __gm__ T* intermediatePtr = upResultPtr + static_cast<uint64_t>(alignedM) * N;
+
+    // Keep fused FFN deterministic across launches when temporary workspace pages are reused.
+    constexpr uint32_t clearBufferEleNum = 2048;
+    __ubuf__ T* clearBuffer = reinterpret_cast<__ubuf__ T*>(ctx.ubBuffer);
+    uint64_t mnElem = static_cast<uint64_t>(alignedM) * N;
+    MoeFfnFillZeroUb<T, clearBufferEleNum>(clearBuffer);
+    MoeFfnClearGmWithZeroUb<T, clearBufferEleNum>(gateResultPtr, mnElem, clearBuffer);
+    MoeFfnClearGmWithZeroUb<T, clearBufferEleNum>(upResultPtr, mnElem, clearBuffer);
+    MoeFfnClearGmWithZeroUb<T, clearBufferEleNum>(intermediatePtr, mnElem, clearBuffer);
 
 #ifdef SUPPORT_TILE_TENSOR
     constexpr uint16_t tileM = 16;
