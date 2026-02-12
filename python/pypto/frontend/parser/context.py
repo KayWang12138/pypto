@@ -21,38 +21,10 @@ The main components are:
 - Context managers for automatic frame cleanup
 """
 
-
+import ast
 from collections import defaultdict
-from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any, Iterator, Optional
-
-from pypto.frontend.parser.doc_core import AST
-from pypto.frontend.parser.error import ParserError
-
-
-def _deferred(cleanup_function: Callable[[], None]) -> Iterator[None]:
-    """Generate a context manager that executes a cleanup function on exit.
-
-    Parameters
-    ----------
-    cleanup_function : Callable[[], None]
-        The cleanup function to invoke when exiting the context manager.
-
-    Returns
-    -------
-    result : Iterator[None]
-        A context manager that yields None and executes the cleanup on exit.
-    """
-
-    @contextmanager
-    def context_manager():
-        try:
-            yield
-        finally:
-            cleanup_function()
-
-    return context_manager()
+from typing import Any, Optional
 
 
 class ContextFrame:
@@ -67,40 +39,23 @@ class ContextFrame:
     def __init__(self):
         self.vars = set()
 
-    def add(self, variable_name: str, node: Optional[AST] = None) -> None:
+    def add(self, var_name: str, node: Optional[ast.AST] = None) -> None:
         """Register a new variable name in this context frame.
 
         Parameters
         ----------
-        variable_name : str
+        var_name : str
             The identifier of the variable to register.
-        node : Optional[AST]
+        node : Optional[ast.AST]
             The AST node associated with this variable, used for error reporting.
         """
-        if variable_name in self.vars:
+        if var_name in self.vars:
             if node is None:
-                error_message = "Variable '{}' already exists in the current scope".format(
-                    variable_name
-                )
-                raise NameError(error_message)
+                raise NameError(f"Variable '{var_name}' already exists in the current scope")
             else:
-                error_message = "Variable '{}' already exists in the current scope".format(
-                    variable_name
-                )
-                raise ParserError(node, NameError(error_message))
-        self.vars.add(variable_name)
+                raise NameError(f"Variable '{var_name}' already exists in the current scope")
+        self.vars.add(var_name)
 
-    def pop_all(self, removal_handler: Callable[[str], None]):
-        """Remove all variables from this frame using the provided handler.
-
-        Parameters
-        ----------
-        removal_handler : Callable[[str], None]
-            The callback function to invoke for each variable being removed.
-        """
-        for identifier in self.vars:
-            removal_handler(identifier)
-        self.vars.clear()
 
 
 class Context:
@@ -124,7 +79,8 @@ class Context:
         self.name2value = defaultdict(list)
         self.marked_for_deletion = set()
 
-    def with_frame(self) -> Iterator[None]:
+    @contextmanager
+    def with_frame(self):
         """Establish a new context frame that can be used with a with statement.
 
         Returns
@@ -133,21 +89,19 @@ class Context:
             A context manager that creates a new frame and automatically
             cleans it up when the context exits.
         """
-
-        def remove_frame() -> None:
-            current_frame = self.frames.pop()
-            current_frame.pop_all(
-                lambda identifier: self.name2value[identifier].pop()
-            )
-
-        self.frames.append(ContextFrame())
-        return _deferred(remove_frame)
+        try:
+            self.frames.append(ContextFrame())
+            yield
+        finally:
+            frame = self.frames.pop()
+            for name in frame.vars:
+                self.name2value[name].pop()
 
     def add(
         self,
         var: str,
         value: Any,
-        node: Optional[AST] = None,
+        node: Optional[ast.AST] = None,
         allow_update: bool = True,
     ) -> None:
         """Register or update a variable in the current context frame.
@@ -164,7 +118,7 @@ class Context:
             The variable identifier.
         value : Any
             The value to associate with the variable.
-        node : Optional[AST]
+        node : Optional[ast.AST]
             The AST node for this variable, used for error reporting.
         allow_update : bool
             Whether updates to existing variables in the current frame are permitted.
@@ -323,7 +277,7 @@ class Context:
                 return i
         return None
 
-    def _create_variable_in_current_frame(self, var: str, value: Any, node: Optional[AST]) -> None:
+    def _create_variable_in_current_frame(self, var: str, value: Any, node: Optional[ast.AST]) -> None:
         """Create a new variable in the current frame.
 
         Parameters
@@ -332,7 +286,7 @@ class Context:
             The variable identifier.
         value : Any
             The value to associate with the variable.
-        node : Optional[AST]
+        node : Optional[ast.AST]
             The AST node for error reporting.
         """
         self.frames[-1].add(var, node)
