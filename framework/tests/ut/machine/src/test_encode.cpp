@@ -117,6 +117,93 @@ TEST_F(TestDevEncode, test_dev_encode_program) {
     devProg->ResetFromLaunch();
 }
 
+TEST_F(TestDevEncode, test_max_stitch_function_num) {
+    auto buildAndGetDevProg = []() -> DevAscendProgram* {
+        constexpr int LOOP_COUNT_INNER = 4;
+        int s = 32;
+        TileShape::Current().SetVecTile(32, 32);
+        TileShape::Current().SetCubeTile({32, 32}, {32, 32}, {32, 32});
+        Tensor t0(DT_FP32, {s, s}, "t0");
+        Tensor t1(DT_FP32, {s, s}, "t1");
+        Tensor t2(DT_FP32, {s, s}, "t2");
+        Tensor out(DT_FP32, {LOOP_COUNT_INNER * s, s}, "out");
+        FUNCTION("stitch_max_cached_num", {t0, t1, t2}, {out}) {
+            LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(LOOP_COUNT_INNER)) {
+                auto temp = Add(t0, t0);
+                SymbolicScalar s_min = std::ternary(i < 2, i, i + 1);
+                IF(s_min == i) {
+                    temp = Add(temp, t1);
+                }
+                ELSE IF(s_min == i + 1) {
+                    temp = Add(temp, t2);
+                }
+                Assemble(temp, {i * s, 0}, out);
+            }
+        }
+        std::shared_ptr<DyndevFunctionAttribute> funcDynDev =
+            Program::GetInstance().GetLastFunction()->GetDyndevAttribute();
+        EXPECT_NE(funcDynDev, nullptr);
+        if (funcDynDev == nullptr) {
+            return nullptr;
+        }
+        DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(funcDynDev->devProgBinary.data());
+        EXPECT_NE(devProg, nullptr);
+        return devProg;
+    };
+
+    // case1:
+    Program::GetInstance().Reset();
+    config::Reset();
+    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_INNER_MEMORY, 1024);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_OUTCAST_MEMORY, 1024);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 256);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
+    config::SetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM, 0);
+    DevAscendProgram *devProg1 = buildAndGetDevProg();
+    ASSERT_NE(devProg1, nullptr);
+    EXPECT_EQ(devProg1->stitchMaxFunctionNum, 256u);
+
+    // case2:
+    Program::GetInstance().Reset();
+    config::Reset();
+    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_INNER_MEMORY, 1024);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_OUTCAST_MEMORY, 1024);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 64);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
+    config::SetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM, 0);
+    DevAscendProgram *devProg2 = buildAndGetDevProg();
+    ASSERT_NE(devProg2, nullptr);
+    EXPECT_EQ(devProg2->stitchMaxFunctionNum, static_cast<uint32_t>(MAX_STITCH_FUNC_NUM_LOWER));
+
+    // case3:
+    Program::GetInstance().Reset();
+    config::Reset();
+    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_INNER_MEMORY, 1024);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_OUTCAST_MEMORY, 1024);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 64);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 20);
+    config::SetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM, 0);
+    DevAscendProgram *devProg3 = buildAndGetDevProg();
+    ASSERT_NE(devProg3, nullptr);
+    EXPECT_EQ(devProg3->stitchMaxFunctionNum, static_cast<uint32_t>(MAX_STITCH_FUNC_NUM));
+
+    // case4:
+    Program::GetInstance().Reset();
+    config::Reset();
+    config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_INNER_MEMORY, 1024);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_OUTCAST_MEMORY, 1024);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_INITIAL, 64);
+    config::SetRuntimeOption<int64_t>(STITCH_FUNCTION_NUM_STEP, 0);
+    config::SetRuntimeOption<uint16_t>(STITCH_FUNCTION_MAX_NUM, 512);
+    DevAscendProgram *devProg4 = buildAndGetDevProg();
+    ASSERT_NE(devProg4, nullptr);
+    EXPECT_EQ(devProg4->stitchMaxFunctionNum, 512u);
+}
+
 TEST_F(TestDevEncode, test_dev_func_dupped) {
     DevAscendRawTensor rawTensor;
     std::vector<std::string> lines;
