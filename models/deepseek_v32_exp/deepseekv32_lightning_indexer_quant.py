@@ -39,7 +39,7 @@ class LightningIndexerConfigs:
     }
     # tile params
     s1_tile = 2
-    topk_tile = 16384
+    topk_tile = 2048
     # set the tileshape size in cube computation
     c1_tile = [64, 64, 128, 128, 128, 128] # (m, M), (k, K), (n, N)
     c2_tile = [128, 128, 64, 64, 128, 128] # (m, M), (k, K), (n, N)
@@ -330,6 +330,8 @@ def lightning_indexer(case_name: str) -> bool:
     if case_name == "LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2":
         b, s1 = 4, 2  # batch size和query序列长度
         act_seq = [64 * 1024] * b  # 每个样本的实际序列长度
+        # act_seq = [3 * 1024] * b  # 每个样本的实际序列长度
+        # act_seq = [100] * b  # 每个样本的实际序列长度
     else:
         logging.error("Fail to gen golden for Case(%s)", case_name)
         return False
@@ -406,12 +408,21 @@ def lightning_indexer(case_name: str) -> bool:
     topk_res_golden = topk_res_golden.reshape(b * s1, 1, selected_count)
 
     # 执行结果比较
+    torch.set_printoptions(threshold=10000, edgeitems=128, linewidth=140)
+    for b_idx in range(b):
+        for s1_idx in range(s1):
+            npu_res = (topk_res_npu.cpu())[b_idx * s1 + s1_idx, :, :128]
+            cpu_res = (topk_res_golden.cpu())[b_idx * s1 + s1_idx, :, :128]
+            print(npu_res)
+            print("----"*20)
+            print(cpu_res)
+            print("===="*20)
     topk_idx_compare(topk_res_npu.cpu(), topk_res_golden.cpu(), "topk_res", 5e-3, selected_count)
 
     return True
 
 
-@pytest.mark.skip(reason="large test case")
+# @pytest.mark.skip(reason="large test case")
 def test_lightning_indexer_topk_quant_4_b_2_s1_64k_s2():
     lightning_indexer("LightningIndexerSTest.lightning_indexer_quant_4_b_2_s1_64k_s2")
 
