@@ -57,3 +57,9 @@ TEST(FileTest, LoadFileTest) {
     data = LoadFile("");
     EXPECT_EQ(data.size(), 0);
 }
+
+TEST(FileTest, CreateDirFailedWhenParentNotExist) {
+    // 父目录不存在 -> mkdir 返回 -1，errno=ENOENT -> CreateDir 返回 false
+    std::string path = "/tmp/no_such_parent_dir" + std::to_string(::getpid()) + "/child";
+    EXPECT_FALSE(CreateDir(path));
+}
