@@ -30,7 +30,7 @@ namespace npu::tile_fwk::dynamic {
 #define INVALID_STITCH_IDX      (static_cast<uint32_t>(-1))
 
 constexpr size_t READY_QUEUE_SIZE = 3UL;
-inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
+inline constexpr size_t MAX_CACHED_FUNC_NUM = 1024;
 
 struct ReadyQueueCache {
     uint32_t coreFunctionCnt;
@@ -186,6 +186,8 @@ struct DevControlFlowCache {
     /* Filled in caching */
     uint64_t contextWorkspaceAddr;
     /* Filled in caching */
+    uint32_t expectedMaxCachedNum_{MAX_CACHED_FUNC_NUM};
+    /* Filled in caching */
     DevRelocVector<DeviceTaskCache> deviceTaskCacheList;
     /* Filled in caching */
     DevRelocVector<uint8_t> cacheData;
@@ -210,7 +212,7 @@ struct DevControlFlowCache {
         isRecordingStopped = true;
     }
 
-    void Init(void *dyndevAttrPtr, uint64_t cacheSize, uint64_t runtimeOutcastPoolSize, uint64_t &initOffset);
+    void Init(void *dyndevAttrPtr, uint64_t cacheSize, uint64_t runtimeOutcastPoolSize, uint64_t &initOffset, uint32_t expectedMaxCachedNum);
     uint64_t GetSize() const { return reinterpret_cast<uintptr_t>(ctrlFlowLastField.End()) - reinterpret_cast<uintptr_t>(this); }
 
 #define CFGCACHE_ALIGN      8
@@ -419,7 +421,6 @@ struct DevControlFlowCache {
             tasklistOffset += tasklistSize;
             memcpy_s(dstWrapInfo->tasklist.elem, tasklistSize, srcWrapInfo->tasklist.elem, tasklistSize);
         }
-
         memcpy_s(mixTaskDataBackup->opWrapList, MAX_CACHED_FUNC_NUM, base->devTask.mixTaskData.opWrapList, MAX_CACHED_FUNC_NUM);
         memcpy_s(mixTaskDataBackup->opWrapTaskNumList, MAX_CACHED_FUNC_NUM, base->devTask.mixTaskData.opWrapTaskNumList, MAX_CACHED_FUNC_NUM);
         base->mixTaskDataBackup = mixTaskDataBackup;

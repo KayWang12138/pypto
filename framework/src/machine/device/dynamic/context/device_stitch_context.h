@@ -78,6 +78,7 @@ private:
     StitchedList stitchedList_;
     Vector<ItemPoolIter, WsMemCategory::VECTOR_TEMPORARY> slotInfosInDecidingSlotMem_;
     DeviceWorkspaceAllocator *workspace_{nullptr};
+    DevAscendProgram *devProg_{nullptr};
 
 public:
     enum class StitchKind {
