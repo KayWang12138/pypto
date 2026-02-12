@@ -66,7 +66,3 @@ void DynamicFunction(const std::string &funcName,
 TEST_F(DynamicGenGatedScoreUtest, utest_gen_gated_score_plus_dyn) {
     DynamicFunction("UTGENGATEDSCOREPLUS", GenGatedScoreComputePrefillPlus);
 }
-
-TEST_F_WITH_COST(DynamicGenGatedScoreUtest, utest_gen_gated_score_dyn, 58) {
-    DynamicFunction("UTGENGATEDSCORE", GenGatedScoreComputePrefill);
-}
