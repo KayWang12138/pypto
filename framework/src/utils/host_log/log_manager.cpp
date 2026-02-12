@@ -143,8 +143,6 @@ void LogManager::SetLogLevel(const LogLevel logLevel) {
 
 bool LogManager::CheckLevel(const LogLevel logLevel) const {
     if (logLevel == LogLevel::EVENT) {
-        std::cout << "a event log" << std::endl;
-        std::cout << enableEvent_ << std::endl;
         return enableEvent_;
     }
     return logLevel >= level_;
