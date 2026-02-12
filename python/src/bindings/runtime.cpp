@@ -562,7 +562,7 @@ public:
     }
 
     void Launch(KernelBinary *kernel, bool isCaptureMode, aclrtStream aicoreStream,
-        std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace) {
+        std::vector<DeviceTensorData> &tensors, uint8_t *ctrlFlowCache, int64_t *workspace, int nrAicpu) {
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
@@ -577,7 +577,7 @@ public:
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
             ctrlFlowCache);
 #endif
-        int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
+        int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction(), nrAicpu);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
@@ -744,6 +744,8 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
         kbinary = kmodule->Compile(module, args);
     }
     kmodule->EmulationLaunch(kbinary, tensors);
+    auto devArgs = DeviceLauncher::GetDevProg(kbinary->GetFunction())->devArgs;
+    int nrAicpu = static_cast<int>(devArgs.nrAicpu);
 
 #if ENABALE_VERBOSE_LOG
     ALOG_ERROR("alloc workspace");
@@ -757,7 +759,7 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
 
     bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors, isCaptureMode);
-    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr, nrAicpu);
 }
 #else
 void LaunchKernel(py::object &, int64_t, py::args &) { }
