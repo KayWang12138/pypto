@@ -341,7 +341,7 @@ inline void DDRTensorAssignUB(Function &function, std::map<LogicalTensorPtr, std
             if (isDynAxis) {
                 continue;;
             }
-            auto viewOpAttribute = dynamic_pointer_cast<ViewOpAttribute>(inOp->GetOpAttribute());
+            auto viewOpAttribute = std::dynamic_pointer_cast<ViewOpAttribute>(inOp->GetOpAttribute());
             viewOpAttribute->SetToType(MemoryType::MEM_UB);
             ioperand->SetMemoryTypeOriginal(MemoryType::MEM_UB, true);
             ioperand->SetMemoryTypeToBe(MemoryType::MEM_UB);
