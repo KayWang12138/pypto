@@ -274,7 +274,7 @@ public:
             uint64_t startCycle = GetCycles();
             while (*finishRegQueues_[GetPhyIdByBlockId(idx)] != val) {
                 if (GetCycles() - startCycle > TIMEOUT_CYCLES) {
-                    DEV_ERROR("CoreId: %d cannot get finish Flag", idx);
+                    DEV_ERROR("[sync_timeout] WaitFinQueue timeout: CoreId %d cannot get finish flag.", idx);
                     return;
                 }
             }
@@ -349,14 +349,14 @@ public:
         volatile Metrics*  metric = reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
         DEV_INFO("aicore %d host alloc metric memory :%p.", coreIdx, metric);
         if (metric == nullptr) {
-            DEV_ERROR("aicore %d Null metric.", coreIdx);
+            DEV_ERROR("[init_resource] GetMetrics failed: aicore %d has null metric.", coreIdx);
            return nullptr;
         }
 
         uint64_t cycles_start = GetCycles();
         while (metric->isMetricStop != 1) {
             if (GetCycles() - cycles_start > PROF_DUMP_TIMEOUT_CYCLES) {
-                DEV_ERROR("wait metrics done timeout !!!.");
+                DEV_ERROR("[sync_timeout] GetMetrics timeout: wait metrics done timeout.");
                 return nullptr;
             }
         }; // wait aicore dcci metric data finish
@@ -467,7 +467,7 @@ public:
         uint64_t cycles_start = GetCycles();
         while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
             if (GetCycles() - cycles_start > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("hand shake %d timeout.\n", coreIdx);
+                DEV_ERROR("[init_handshake] HandShakeByGm timeout: core %d handshake failed.", coreIdx);
                 return -1;
             }
         }
