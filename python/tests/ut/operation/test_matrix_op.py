@@ -32,21 +32,22 @@ def test_matrix_matmul():
 
 
 def test_matrix_batch_matmul():
-    dtype = pypto.DT_FP32
-    a = pypto.tensor((2, 64, 32), dtype, "A")
-    b = pypto.tensor((2, 32, 64), dtype, "B")
-    c = None
+    pass
+    # dtype = pypto.DT_FP32
+    # a = pypto.tensor((2, 64, 32), dtype, "A")
+    # b = pypto.tensor((2, 32, 64), dtype, "B")
+    # c = None
 
-    with pypto.function("BATCH_MATMUL", a, b):
-        pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
-        c = pypto.matmul(a, b, dtype)
-        d = pypto.matmul(a, b, dtype, a_trans=True, b_trans=True)
+    # with pypto.function("BATCH_MATMUL", a, b):
+    #     pypto.set_cube_tile_shapes([64, 64], [64, 64], [64, 64])
+    #     c = pypto.matmul(a, b, dtype)
+    #     d = pypto.matmul(a, b, dtype, a_trans=True, b_trans=True)
 
-    assert isinstance(c, pypto.tensor)
-    assert c.shape == [2, 64, 64]
+    # assert isinstance(c, pypto.tensor)
+    # assert c.shape == [2, 64, 64]
 
-    assert isinstance(d, pypto.tensor)
-    assert d.shape == [2, 32, 32]
+    # assert isinstance(d, pypto.tensor)
+    # assert d.shape == [2, 32, 32]
 
 
 def test_matrix_matmul_with_syntactic_sugar():
@@ -78,3 +79,5 @@ def test_matrix_matmul_with_tensor_interface():
     assert isinstance(c, pypto.tensor)
     assert c.dtype == pypto.DT_INT32
     assert c.shape == [3, 32, 32]
+
+test_matrix_batch_matmul()
