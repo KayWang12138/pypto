@@ -15,6 +15,8 @@ from pypto.pypto_impl.ir import DataType, Expr, MemRef, TensorType, TileType, Ti
 
 from .utils import _normalize_shape
 
+__all__ = ["TensorType", "TileType"]
+
 # Store the original native __init__
 _native_tensor_type_init = TensorType.__init__
 _native_tile_type_init = TileType.__init__
@@ -67,6 +69,3 @@ TensorType.__init__ = _tensor_type_init_wrapper
 
 # Monkey-patch the native TileType.__init__ to support integer shapes
 TileType.__init__ = _tile_type_init_wrapper
-
-
-__all__ = ["TensorType", "TileType"]

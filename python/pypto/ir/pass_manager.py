@@ -45,8 +45,22 @@ class PassManager:
     # Static storage: strategy -> List of (pass_name, pass_factory) tuples
     _strategy_passes: Dict[OptimizationStrategy, List[Tuple[str, Callable[[], passes.Pass]]]] = {}
 
+    def __init__(self, strategy: OptimizationStrategy):
+        """Initialize PassManager with a specific strategy.
+
+        Args:
+            strategy: The optimization strategy to use
+        """
+        self.strategy = strategy
+        self.passes = []
+        self.pass_names = []
+
+        for pass_name, pass_factory in self._strategy_passes[strategy]:
+            self.passes.append(pass_factory())
+            self.pass_names.append(pass_name)
+
     @classmethod
-    def _register_passes(cls):
+    def register_passes(cls):
         """Register all strategy Pass configurations.
 
         This method defines the static Pass pipeline for each optimization strategy.
@@ -83,22 +97,8 @@ class PassManager:
             A PassManager instance configured with the appropriate passes
         """
         if not cls._strategy_passes:
-            cls._register_passes()
+            cls.register_passes()
         return cls(strategy)
-
-    def __init__(self, strategy: OptimizationStrategy):
-        """Initialize PassManager with a specific strategy.
-
-        Args:
-            strategy: The optimization strategy to use
-        """
-        self.strategy = strategy
-        self.passes = []
-        self.pass_names = []
-
-        for pass_name, pass_factory in self._strategy_passes[strategy]:
-            self.passes.append(pass_factory())
-            self.pass_names.append(pass_name)
 
     def run_passes(
         self,
@@ -169,4 +169,4 @@ class PassManager:
 
 
 # Initialize the pass registry when the module is loaded
-PassManager._register_passes()
+PassManager.register_passes()

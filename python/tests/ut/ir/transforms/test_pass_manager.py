@@ -16,12 +16,14 @@ from pypto.ir import DataType
 class TestOptimizationStrategy:
     """Test OptimizationStrategy enum."""
 
-    def test_optimization_strategy_values(self):
+    @staticmethod
+    def test_optimization_strategy_values():
         """Test that all optimization strategies exist."""
         assert ir.OptimizationStrategy.Default is not None
         assert ir.OptimizationStrategy.PTOAS is not None
 
-    def test_optimization_strategy_values_are_different(self):
+    @staticmethod
+    def test_optimization_strategy_values_are_different():
         """Test that optimization strategies have different values."""
         strategies = [
             ir.OptimizationStrategy.Default,
@@ -33,7 +35,8 @@ class TestOptimizationStrategy:
 class TestPassManagerBasics:
     """Test basic PassManager functionality."""
 
-    def test_pass_manager_get_strategy_ptoa(self):
+    @staticmethod
+    def test_pass_manager_get_strategy_ptoa():
         """Test getting PTOAS strategy PassManager."""
         pm = ir.PassManager.get_strategy(ir.OptimizationStrategy.PTOAS)
         assert pm is not None
@@ -49,7 +52,8 @@ class TestPassManagerBasics:
 class TestPassManagerExecution:
     """Test PassManager execution functionality."""
 
-    def test_run_with_implicit_default_strategy(self):
+    @staticmethod
+    def test_run_with_implicit_default_strategy():
         """Test running PassManager with implicit default strategy."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -70,7 +74,8 @@ class TestPassManagerExecution:
 class TestPassManagerMultipleInstances:
     """Test that multiple PassManager instances work independently."""
 
-    def test_multiple_instances_same_strategy(self):
+    @staticmethod
+    def test_multiple_instances_same_strategy():
         """Test creating multiple instances of the same strategy."""
         pm1 = ir.PassManager.get_strategy(ir.OptimizationStrategy.PTOAS)
         pm2 = ir.PassManager.get_strategy(ir.OptimizationStrategy.PTOAS)
@@ -88,7 +93,8 @@ class TestPassManagerMultipleInstances:
 class TestPassManagerWithProgram:
     """Test PassManager execution with Program input."""
 
-    def test_run_passes_on_program_with_ptoa_strategy(self):
+    @staticmethod
+    def test_run_passes_on_program_with_ptoa_strategy():
         """Test running PassManager with PTOAS strategy on a Program."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -120,7 +126,8 @@ class TestPassManagerWithProgram:
         assert "func1" in func_names
         assert "func2" in func_names
 
-    def test_run_passes_on_single_function_program(self):
+    @staticmethod
+    def test_run_passes_on_single_function_program():
         """Test running PassManager on a Program with a single function."""
         span = ir.Span.unknown()
         dtype = DataType.INT64

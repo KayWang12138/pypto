@@ -24,6 +24,8 @@ from pypto.pypto_impl.ir import IRBuilder as CppIRBuilder
 
 from .utils import _normalize_expr
 
+__all__ = ["IRBuilder", "FunctionBuilder", "ForLoopBuilder", "IfStmtBuilder", "ProgramBuilder"]
+
 
 class IRBuilder:
     """IR Builder with context management and automatic span tracking.
@@ -54,14 +56,14 @@ class IRBuilder:
 
     @contextmanager
     def function(
-        self, name: str, span: Optional[ir.Span] = None, type: ir.FunctionType = ir.FunctionType.Opaque
+        self, name: str, span: Optional[ir.Span] = None, func_type: ir.FunctionType = ir.FunctionType.Opaque
     ) -> Iterator["FunctionBuilder"]:
         """Context manager for building functions.
 
         Args:
             name: Function name
             span: Optional explicit span. If None, automatically captured from call site.
-            type: Function type (default: Opaque)
+            func_type: Function type (default: Opaque)
 
         Yields:
             FunctionBuilder: Helper object for building the function
@@ -71,14 +73,14 @@ class IRBuilder:
             ...     x = f.param("x", ir.ScalarType(ir.DataType.INT64))
             ...     f.return_type(ir.ScalarType(ir.DataType.INT64))
             >>> # With function type:
-            >>> with ib.function("orchestrator", type=ir.FunctionType.Orchestration) as f:
+            >>> with ib.function("orchestrator", func_type=ir.FunctionType.Orchestration) as f:
             ...     pass
         """
         begin_span = span if span is not None else self._capture_call_span()
         ctx_id = id(begin_span)
         self._begin_spans[ctx_id] = begin_span
 
-        self._builder.begin_function(name, begin_span, type)
+        self._builder.begin_function(name, begin_span, func_type)
         builder_obj = FunctionBuilder(self)
         try:
             yield builder_obj
@@ -86,7 +88,7 @@ class IRBuilder:
             end_span = self._capture_call_span() if span is None else span
             combined_span = self._combine_spans(self._begin_spans[ctx_id], end_span)
             result = self._builder.end_function(combined_span)
-            builder_obj._result = result
+            builder_obj.set_result(result)
             del self._begin_spans[ctx_id]
 
     @contextmanager
@@ -132,7 +134,7 @@ class IRBuilder:
             end_span = self._capture_call_span() if span is None else span
             combined_span = self._combine_spans(self._begin_spans[ctx_id], end_span)
             result = self._builder.end_for_loop(combined_span)
-            builder_obj._result = result
+            builder_obj.set_result(result)
             del self._begin_spans[ctx_id]
 
     @contextmanager
@@ -169,7 +171,7 @@ class IRBuilder:
             end_span = self._capture_call_span() if span is None else span
             combined_span = self._combine_spans(self._begin_spans[ctx_id], end_span)
             result = self._builder.end_if(combined_span)
-            builder_obj._result = result
+            builder_obj.set_result(result)
             del self._begin_spans[ctx_id]
 
     @contextmanager
@@ -213,7 +215,7 @@ class IRBuilder:
             end_span = self._capture_call_span() if span is None else span
             combined_span = self._combine_spans(self._begin_spans[ctx_id], end_span)
             result = self._builder.end_program(combined_span)
-            builder_obj._result = result
+            builder_obj.set_result(result)
             del self._begin_spans[ctx_id]
 
     # ========== Single-line Methods with Optional Explicit Span ==========
@@ -553,9 +555,6 @@ class IRBuilder:
             Span: Source location of the caller
         """
         # Go back 2 frames:
-        # frame 0 = _capture_call_span
-        # frame 1 = our wrapper method (var, assign, etc.)
-        # frame 2 = user's code (what we want)
         frame = inspect.currentframe()
         if frame is not None and frame.f_back is not None:
             frame = frame.f_back.f_back
@@ -623,8 +622,15 @@ class FunctionBuilder:
         Returns:
             Function: The completed function IR node (or None if not yet finalized)
         """
-        assert self._result is not None
         return self._result
+
+    def set_result(self, result: ir.Function) -> None:
+        """Set the built Function result.
+
+        Args:
+            result: The completed function IR node
+        """
+        self._result = result
 
 
 class ForLoopBuilder:
@@ -763,14 +769,12 @@ class ForLoopBuilder:
         Example:
             >>> with ib.for_loop(i, 0, 10, 1) as loop:
             ...     sum_iter = loop.iter_arg("sum", 0)
-            ...     loop.return_var("sum_final")
             ...     # ... loop body ...
             >>> result = loop.output()  # Get the first return variable
             >>> # Or for multiple return vars:
             >>> result1 = loop.output(0)
             >>> result2 = loop.output(1)
         """
-        assert self._result is not None, "For loop not yet complete"
         if index >= len(self._result.return_vars):
             raise IndexError(
                 f"Return variable index {index} out of range "
@@ -792,14 +796,12 @@ class ForLoopBuilder:
 
         Example:
             >>> with ib.for_loop(i, 0, 10, 1) as loop:
-            ...     sum_iter = loop.iter_arg("sum", 0)
             ...     prod_iter = loop.iter_arg("prod", 1)
             ...     loop.return_var("sum_final")
             ...     loop.return_var("prod_final")
             ...     # ... loop body ...
             >>> sum_result, prod_result = loop.outputs()  # Get all return variables
         """
-        assert self._result is not None, "For loop not yet complete"
         return list(self._result.return_vars)
 
     def get_result(self) -> ir.ForStmt:
@@ -808,8 +810,15 @@ class ForLoopBuilder:
         Returns:
             ForStmt: The completed for loop IR node
         """
-        assert self._result is not None
         return self._result
+
+    def set_result(self, result: ir.ForStmt) -> None:
+        """Set the built ForStmt result.
+
+        Args:
+            result: The completed for statement IR node
+        """
+        self._result = result
 
 
 class IfStmtBuilder:
@@ -863,7 +872,6 @@ class IfStmtBuilder:
             index: Index of the return variable to get (default: 0)
 
         Returns:
-            Var: The return variable at the specified index
 
         Raises:
             AssertionError: If called before if statement is complete
@@ -878,7 +886,6 @@ class IfStmtBuilder:
             >>> result1 = if_builder.output(0)
             >>> result2 = if_builder.output(1)
         """
-        assert self._result is not None, "If statement not yet complete"
         if index >= len(self._result.return_vars):
             raise IndexError(
                 f"Return variable index {index} out of range "
@@ -890,7 +897,6 @@ class IfStmtBuilder:
         """Get all output return variables from the if statement.
 
         This is a convenience method to access all return variables at once after
-        the if statement is built.
 
         Returns:
             List[Var]: List of all return variables
@@ -899,13 +905,11 @@ class IfStmtBuilder:
             AssertionError: If called before if statement is complete
 
         Example:
-            >>> with ib.if_stmt(condition) as if_builder:
             ...     if_builder.return_var("x", ir.ScalarType(DataType.INT64))
             ...     if_builder.return_var("y", ir.ScalarType(DataType.INT64))
             ...     # ... if/else branches ...
             >>> x, y = if_builder.outputs()  # Get all return variables
         """
-        assert self._result is not None, "If statement not yet complete"
         return list(self._result.return_vars)
 
     def get_result(self) -> ir.IfStmt:
@@ -914,8 +918,15 @@ class IfStmtBuilder:
         Returns:
             IfStmt: The completed if statement IR node
         """
-        assert self._result is not None
         return self._result
+
+    def set_result(self, result: ir.IfStmt) -> None:
+        """Set the built IfStmt result.
+
+        Args:
+            result: The completed if statement IR node
+        """
+        self._result = result
 
 
 class ProgramBuilder:
@@ -973,7 +984,6 @@ class ProgramBuilder:
             GlobalVar for the function
 
         Raises:
-            RuntimeError: If function not declared
         """
         return self._builder._builder.get_global_var(name)
 
@@ -996,8 +1006,12 @@ class ProgramBuilder:
         Raises:
             AssertionError: If called before program is complete
         """
-        assert self._result is not None, "Program not yet complete"
         return self._result
 
+    def set_result(self, result: ir.Program) -> None:
+        """Set the built Program result.
 
-__all__ = ["IRBuilder", "FunctionBuilder", "ForLoopBuilder", "IfStmtBuilder", "ProgramBuilder"]
+        Args:
+            result: The completed program IR node
+        """
+        self._result = result
