@@ -103,7 +103,7 @@ public:
                 DEV_DEBUG("[SlabWsAllocator]Slab cache exists : objsize = %u, cacheType = %u.\n", objSize, type);
                 return true;
             }
-            DEV_ERROR("[SlabWsAllocator]Add cache failed type = %u, objsize = %u", type, objSize);
+            DEV_ERROR(ctrl.task.pre.workspace.slab.alloc, "type=%u objSize=%u # Add cache failed", type, objSize);
             return false;
         }
         uint32_t realObjSize = (((objSize) + (sizeof(uint64_t)) - 1) & ~((sizeof(uint64_t)) - 1));
@@ -217,14 +217,14 @@ public:
             } else {
                 void* temp = caches_[i].stageAllocHead;
                 if (temp == nullptr) {
-                    DEV_ERROR("stageAllocHead is null for cache index %u\n", i);
+                    DEV_ERROR(ctrl.task.pre.workspace.alloc.stage, "cacheIndex=%u # StageAllocHead is null for cache index", i);
                 }
                 DEV_ASSERT(temp != nullptr);
                 while (*static_cast<void**>(temp) != caches_[i].stageAllocTail) {
                     temp = *static_cast<void**>(temp);
                 }
                 if (temp == nullptr) {
-                    DEV_ERROR("stageAllocHead is null after loop for cache index %u, stageAllocTail: %p, \n", i, caches_[i].stageAllocTail);
+                    DEV_ERROR(ctrl.task.pre.workspace.alloc.stage, "cacheIndex=%u stageAllocTail=%p # StageAllocHead is null after loop for cache index", i, caches_[i].stageAllocTail);
                 }
                 DEV_ASSERT(temp != nullptr);
                 *static_cast<void**>(temp) = nullptr;
