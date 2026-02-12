@@ -88,7 +88,7 @@ struct DynDeviceTask : DynDeviceTaskBase {
         for (size_t funcIdx = 0; funcIdx < stitchedList.size(); funcIdx++) {
             auto lines = stitchedList[funcIdx].DumpLeafs(GetDynFuncDataList()->seqNo, funcIdx);
             for (auto &&line : lines) {
-                DEV_ERROR("[DumpLeafs] %s", line.c_str());
+                DEV_ERROR("[task.dump.leafs] %s", line.c_str());
             }
         }
     }
@@ -103,12 +103,12 @@ struct DynDeviceTask : DynDeviceTaskBase {
             stitchedList[funcIdx].DumpTensorAddrInfo(infos, GetDynFuncDataList()->seqNo, funcIdx);
         }
         auto str = std::move(oss).str();
-        DEV_ERROR("[DumpTensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
-        DEV_ERROR("[DumpTensor] >>>");
+        DEV_ERROR("[task.dump.tensor] seqNo,taskId,rawMagic,address,dtype,bytesOfDtype,(shapes,)");
+        DEV_ERROR("[task.dump.tensor] >>>");
         for (auto &info : infos) {
-            DEV_ERROR("[DumpTensor] %s", info.c_str());
+            DEV_ERROR("[task.dump.tensor] %s", info.c_str());
         }
-        DEV_ERROR("[DumpTensor] <<<");
+        DEV_ERROR("[task.dump.tensor] <<<");
     }
 #endif
 };
