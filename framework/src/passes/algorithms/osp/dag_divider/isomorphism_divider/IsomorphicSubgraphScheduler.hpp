@@ -209,6 +209,126 @@ class IsomorphicSubgraphScheduler {
     };
 
     /**
+     * @brief Determines if a group consists of a single node type.
+     *
+     * @param group The group to check.
+     * @param instance The BSP instance.
+     * @return Pair of (is single type, common node type).
+     */
+    std::pair<bool, VTypeT<GraphT>> IsSingleTypeGroup(
+        const typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group &group,
+        const BspInstance<GraphT> &instance) const {
+        if (group.subgraphs_.empty() || group.subgraphs_[0].empty()) {
+            return {false, 0};
+        }
+
+        VTypeT<GraphT> commonNodeType = instance.GetComputationalDag().VertexType(group.subgraphs_[0][0]);
+        const auto &repSubgraph = group.subgraphs_[0];
+        
+        for (const auto &vertex : repSubgraph) {
+            if (instance.GetComputationalDag().VertexType(vertex) != commonNodeType) {
+                return {false, 0};
+            }
+        }
+        
+        return {true, commonNodeType};
+    }
+
+    /**
+     * @brief Determines the effective minimum processor count for trimming.
+     *
+     * @param group The group to analyze.
+     * @param instance The BSP instance.
+     * @return The effective minimum processor type count.
+     */
+    unsigned DetermineEffectiveMinProcCount(
+        const typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group &group,
+        const BspInstance<GraphT> &instance) const {
+        unsigned effectiveMinProcTypeCount = 0;
+
+        if (useMaxGroupSize_) {
+            effectiveMinProcTypeCount = maxGroupSize_;
+        } else {
+            auto [isSingleType, commonNodeType] = IsSingleTypeGroup(group, instance);
+            
+            if (isSingleType) {
+                // Dynamically determine min_proc_type_count based on compatible processors for this type
+                unsigned minCompatibleProcessors = std::numeric_limits<unsigned>::max();
+                const auto &procTypeCounts = instance.GetArchitecture().GetProcessorTypeCount();
+
+                bool foundCompatibleProcessor = false;
+                for (unsigned procTypeIdx = 0; procTypeIdx < procTypeCounts.size(); ++procTypeIdx) {
+                    if (instance.IsCompatibleType(commonNodeType, procTypeIdx)) {
+                        minCompatibleProcessors = std::min(minCompatibleProcessors, procTypeCounts[procTypeIdx]);
+                        foundCompatibleProcessor = true;
+                    }
+                }
+                if (foundCompatibleProcessor) {
+                    effectiveMinProcTypeCount = minCompatibleProcessors;
+                } else {
+                    effectiveMinProcTypeCount = 1;
+                }
+            } else {
+                // Fallback to a default min_proc_type_count if not a single-type group or no typed vertices.
+                const auto &typeCount = instance.GetArchitecture().GetProcessorTypeCount();
+                if (typeCount.empty()) {
+                    effectiveMinProcTypeCount = 0;
+                }
+                effectiveMinProcTypeCount = *std::min_element(typeCount.begin(), typeCount.end());
+            }
+        }
+
+        // Ensure effective_min_proc_type_count is at least 1 for valid GCD calculation.
+        if (effectiveMinProcTypeCount == 0) {
+            effectiveMinProcTypeCount = 1;
+        }
+
+        return effectiveMinProcTypeCount;
+    }
+
+    /**
+     * @brief Performs the actual trimming/merging of subgraphs.
+     *
+     * @param group The group to trim.
+     * @param gcd The GCD value determining the number of new subgraphs.
+     * @param groupSize The original group size.
+     * @param groupIdx The index of the group.
+     * @param wasTrimmed Output vector indicating which groups were trimmed.
+     */
+    void PerformGroupTrimming(typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group &group,
+                              unsigned gcd,
+                              unsigned groupSize,
+                              size_t groupIdx,
+                              std::vector<bool> &wasTrimmed) {
+        if (allowUseTrimmedScheduler_) {
+            gcd = 1;
+        }
+
+        wasTrimmed[groupIdx] = true;
+        const unsigned mergeSize = groupSize / gcd;
+        std::vector<std::vector<VertexIdxT<GraphT>>> newSubgraphs;
+        newSubgraphs.reserve(gcd);
+
+        size_t originalSgCursor = 0;
+
+        for (unsigned j = 0; j < gcd; ++j) {
+            std::vector<VertexIdxT<GraphT>> mergedSgVertices;
+            // Estimate capacity for efficiency. Assuming subgraphs have similar sizes.
+            if (!group.subgraphs_.empty()) {
+                mergedSgVertices.reserve(group.subgraphs_[0].size() * mergeSize);
+            }
+
+            for (unsigned k = 0; k < mergeSize; ++k) {
+                const auto &sgToMergeVertices = group.subgraphs_[originalSgCursor];
+                originalSgCursor++;
+                mergedSgVertices.insert(mergedSgVertices.end(), sgToMergeVertices.begin(), sgToMergeVertices.end());
+            }
+            newSubgraphs.push_back(std::move(mergedSgVertices));
+        }
+        group.subgraphs_ = std::move(newSubgraphs);
+    }
+
+    /**
      * @brief Trims isomorphic subgraph groups to better fit processor availability.
      *
      * Splits large groups into smaller chunks if their size shares a common divisor with
@@ -229,59 +349,7 @@ class IsomorphicSubgraphScheduler {
                 continue;
             }
 
-            unsigned effectiveMinProcTypeCount = 0;
-
-            if (useMaxGroupSize_) {
-                effectiveMinProcTypeCount = maxGroupSize_;
-            } else {
-                // Determine if the group consists of a single node type
-                bool isSingleTypeGroup = true;
-                VTypeT<GraphT> commonNodeType = 0;
-                
-                if (!group.subgraphs_.empty() && !group.subgraphs_[0].empty()) {
-                    commonNodeType = instance.GetComputationalDag().VertexType(group.subgraphs_[0][0]);
-                    const auto &repSubgraph = group.subgraphs_[0];
-                    for (const auto &vertex : repSubgraph) {
-                        if (instance.GetComputationalDag().VertexType(vertex) != commonNodeType) {
-                            isSingleTypeGroup = false;
-                            break;
-                        }
-                    }
-                } else {
-                    isSingleTypeGroup = false;
-                }
-                
-                if (isSingleTypeGroup) {
-                    // Dynamically determine min_proc_type_count based on compatible processors for this type
-                    unsigned minCompatibleProcessors = std::numeric_limits<unsigned>::max();
-                    const auto &procTypeCounts = instance.GetArchitecture().GetProcessorTypeCount();
-
-                    bool foundCompatibleProcessor = false;
-                    for (unsigned procTypeIdx = 0; procTypeIdx < procTypeCounts.size(); ++procTypeIdx) {
-                        if (instance.IsCompatibleType(commonNodeType, procTypeIdx)) {
-                            minCompatibleProcessors = std::min(minCompatibleProcessors, procTypeCounts[procTypeIdx]);
-                            foundCompatibleProcessor = true;
-                        }
-                    }
-                    if (foundCompatibleProcessor) {
-                        effectiveMinProcTypeCount = minCompatibleProcessors;
-                    } else {
-                        effectiveMinProcTypeCount = 1;
-                    }
-                } else {
-                    // Fallback to a default min_proc_type_count if not a single-type group or no typed vertices.
-                    const auto &typeCount = instance.GetArchitecture().GetProcessorTypeCount();
-                    if (typeCount.empty()) {
-                        effectiveMinProcTypeCount = 0;
-                    }
-                    effectiveMinProcTypeCount = *std::min_element(typeCount.begin(), typeCount.end());
-                }
-            }
-
-            // Ensure effective_min_proc_type_count is at least 1 for valid GCD calculation.
-            if (effectiveMinProcTypeCount == 0) {
-                effectiveMinProcTypeCount = 1;
-            }
+            unsigned effectiveMinProcTypeCount = DetermineEffectiveMinProcCount(group, instance);
 
             // If effective_min_proc_type_count is 1, no trimming is needed as gcd(X, 1) = 1.
             if (effectiveMinProcTypeCount <= 1) {
@@ -291,38 +359,13 @@ class IsomorphicSubgraphScheduler {
             unsigned gcd = std::gcd(groupSize, effectiveMinProcTypeCount);
 
             if (gcd < groupSize) {
-
-                if (allowUseTrimmedScheduler_) {
-                    gcd = 1;
-                }
-
-                wasTrimmed[groupIdx] = true;
-                const unsigned mergeSize = groupSize / gcd;
-                std::vector<std::vector<VertexIdxT<GraphT>>> newSubgraphs;
-                newSubgraphs.reserve(gcd);
-
-                size_t originalSgCursor = 0;
-
-                for (unsigned j = 0; j < gcd; ++j) {
-                    std::vector<VertexIdxT<GraphT>> mergedSgVertices;
-                    // Estimate capacity for efficiency. Assuming subgraphs have similar sizes.
-                    if (!group.subgraphs_.empty()) {
-                        mergedSgVertices.reserve(group.subgraphs_[0].size() * mergeSize);
-                    }
-
-                    for (unsigned k = 0; k < mergeSize; ++k) {
-                        const auto &sgToMergeVertices = group.subgraphs_[originalSgCursor];
-                        originalSgCursor++;
-                        mergedSgVertices.insert(mergedSgVertices.end(), sgToMergeVertices.begin(), sgToMergeVertices.end());
-                    }
-                    newSubgraphs.push_back(std::move(mergedSgVertices));
-                }
-                group.subgraphs_ = std::move(newSubgraphs);
+                PerformGroupTrimming(group, gcd, groupSize, groupIdx, wasTrimmed);
             } else {
                 wasTrimmed[groupIdx] = false;
             }
         }
     }
+
 
     /**
      * @brief Prepares the input for the coarse-level ETF scheduler.
