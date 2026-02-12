@@ -2005,7 +2005,7 @@ void SetAttributeReshape2(ComputationalGraphBuilder &subGraph, OoOScheduler &ooo
     std::vector<int64_t> offset = {1, 1};
     std::vector<int64_t> shape = {256, 512};
     copyin5->tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
-        MemoryType_MEM_L1, OpImmediate::Specified(shape), OpImmediate::Specified(shape)));
+        MemoryType::MEM_L1, OpImmediate::Specified(shape), OpImmediate::Specified(shape)));
 
     IssueEntryPtr alloc1 = GetIssueEntry("L1_Alloc1", subGraph, oooSchedule);
     IssueEntryPtr alloc2 = GetIssueEntry("L1_Alloc2", subGraph, oooSchedule);
@@ -2089,7 +2089,7 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer2) {
     EXPECT_EQ(oooScheduler.bufRefCount_[0], 0);
     EXPECT_EQ(oooScheduler.issueEntries[11]->tileOp.GetOpcodeStr(), "RESHAPE");
     EXPECT_EQ(oooScheduler.issueEntries.size(), 16);
-    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(oooSchedule.issueEntries[10]->tileOp.GetOpAttribute());
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(oooScheduler.issueEntries[10]->tileOp.GetOpAttribute());
     EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[0].GetSpecifiedValue()), 1);
     EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[1].GetSpecifiedValue()), 1);
 }
