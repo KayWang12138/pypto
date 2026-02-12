@@ -24,6 +24,7 @@ namespace tile_fwk {
 
 const std::unordered_set<DataType> kA2A3SupportedDtypes = {DT_INT4, DT_INT8, DT_UINT8, DT_FP16, DT_BF16, DT_INT16};
 const std::unordered_set<DataType> kA5SupportedDtypes = {DT_INT4, DT_INT8, DT_UINT8, DT_FP16, DT_BF16, DT_HF8, DT_FP8, DT_FP32};
+const std::unordered_set<DataType> l0c2l1SupportedDtypes = {DT_FP16, DT_BF16};
 
 const static std::unordered_map<NPUArch, std::unordered_set<DataType>> kArch2SupportedDtypes = {
     {NPUArch::DAV_1001, kA2A3SupportedDtypes},
@@ -316,14 +317,14 @@ bool ConvertInserter::IsNotValidDataType(const std::shared_ptr<LogicalTensor> &f
     return supportedDtypes.find(tensorDtype) == supportedDtypes.end();
 }
 
-// Tensor必须是BF16或FP16，同时矩阵必须是第一轴（外轴）16元素对齐，第二周（内轴）32B对齐
+// Tensor必须是BF16或FP16，同时矩阵必须是第一轴（外轴）16元素对齐，第二轴（内轴）32B对齐
 bool ConvertInserter::FitL0C2L1(const LogicalTensorPtr &tensor){
     auto shape = tensor->GetShape();
     if (shape.size() != MATMUL_DIM_NUM) {
         return false;
     }
     auto dim2Size = shape[1] * BytesOf(tensor->Datatype());
-    return (tensor->Datatype() == DT_BF16 || tensor->Datatype() == DT_FP16) &&
+    return (l0c2l1SupportedDtypes.find(tensor->Datatype()) != l0c2l1SupportedDtypes.end()) &&
         (shape[0] % L0C2L1_DIM1_SHAPE_RESTICT == 0) && (dim2Size % L0C2L1_DIM2_BYTE_RESTICT ==0);
 }
 

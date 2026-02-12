@@ -180,10 +180,10 @@ void AssignMemoryType::ProcessViewwithSpecificMem(Operation &operation) {
     //适配L0C2L1通路，当满足条件时view的输入的tobe设为L0C，否则设置为DDR
     if (in->GetMemoryTypeOriginal() == MemoryType::MEM_L0C &&
         (out->GetMemoryTypeOriginal() == MemoryType::MEM_L1 || attrToType == MemoryType::MEM_L1)) {
-        if (inserter.FitL0C2L1(in)){
-            inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_L0C);
+        if (inserter.FitL0C2L1(in)) {
+            inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_L0C);
         } else {
-            inserter.UpdateTensorTobeMap(in,operation,MemoryType::MEM_DEVICE_DDR);
+            inserter.UpdateTensorTobeMap(in, operation, MemoryType::MEM_DEVICE_DDR);
         }
     }
     if(attrToType == MemoryType::MEM_UNKNOWN) {
