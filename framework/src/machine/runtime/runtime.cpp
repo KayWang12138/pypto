@@ -161,22 +161,23 @@ void *RuntimeAgentMemory::MapAiCoreReg() {
     std::vector<int64_t> regAddr;
     regAddr.insert(regAddr.end(), aic.begin(), aic.end());
     regAddr.insert(regAddr.end(), aiv.begin(), aiv.end());
-    void *devAddr = nullptr;
+    
+    uint8_t *devAddr = nullptr;
     size_t regAddrSize = sizeof(void *) * regAddr.size();
-    int rc = rtMalloc(&devAddr, regAddrSize, RT_MEMORY_HBM, 0);
-    if (rc != 0) {
+    AllocDevAddr(&devAddr, regAddrSize);
+    if (devAddr == nullptr) {
         ALOG_ERROR_F("rtMalloc failed. size: %zu", regAddrSize);
         return nullptr;
     }
 
-    rc = rtMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE);
+    int rc = rtMemcpy(devAddr, regAddrSize, regAddr.data(), regAddrSize, RT_MEMCPY_HOST_TO_DEVICE);
     if (rc != 0) {
         ALOG_ERROR_F("rtMemcpy failed. size: %zu", regAddrSize);
+        FreeDevAddr((uint8_t*)devAddr);
         return nullptr;
     }
 
     ALOG_INFO_F("All AiCore Reg mapped: %p. size: %zu", devAddr, regAddrSize);
-    allocatedDevAddr.emplace_back((uint8_t *)devAddr);
     return devAddr;
 }
 
