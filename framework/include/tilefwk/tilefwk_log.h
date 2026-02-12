@@ -30,6 +30,9 @@
 #define __FILE_NAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
+#ifndef __FILE_NAME__
+#define __FILE_NAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#endif
 namespace npu::tile_fwk {
 class TilefwkLogFuncInfo {
 public:
@@ -86,7 +89,7 @@ inline TilefwkLogFuncInfo logFuncInfo;
 #define SIMULATION_LOGE(...) INNER_PYPTO_LOG(DLOG_ERROR, "SIMULATION", __VA_ARGS__)
 #define SIMULATION_EVENT(...) INNER_PYPTO_LOG(DLOG_EVENT, "SIMULATION", __VA_ARGS__)
 
-#define VERIFY_LOAD(...) INNER_PYPTO_LOG(DLOG_DEBUG, "VERIFY", __VA_ARGS__)
+#define VERIFY_LOGD(...) INNER_PYPTO_LOG(DLOG_DEBUG, "VERIFY", __VA_ARGS__)
 #define VERIFY_LOGI(...) INNER_PYPTO_LOG(DLOG_INFO, "VERIFY", __VA_ARGS__)
 #define VERIFY_LOGW(...) INNER_PYPTO_LOG(DLOG_WARN, "VERIFY", __VA_ARGS__)
 #define VERIFY_LOGE(...) INNER_PYPTO_LOG(DLOG_ERROR, "VERIFY", __VA_ARGS__)
