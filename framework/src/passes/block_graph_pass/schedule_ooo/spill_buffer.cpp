@@ -326,7 +326,6 @@ LogicalTensorPtr OoOScheduler::CreateReshapeL1Tensor(LogicalTensorPtr iOperand, 
     newTensor->tensor = reshapeTensor->tensor;
     newTensor->memoryrange.memId = reshapeTensor->memoryrange.memId;
     newTensor->UpdateDynValidShape(iOperand->GetDynValidShape());
-    // 设置TODO reshape newTensor offset
     newTensor->offset = iOperand->GetOffset();
     tensorAllocCoreMap[newTensor->memoryrange.memId] = tensorAllocCoreMap[iOperand->memoryrange.memId];
     return newTensor;
@@ -457,7 +456,6 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
         APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR raw tensor failed!");
         return FAILED;
     }
-    // 设置TODO ddrTensor offset
     std::vector<int64_t> offset(spillTensor->GetShape().size(), 0);
     offset.front() = workspaceOffset;
 
@@ -473,7 +471,6 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
 
     // 创建spill搬出所需的DDR OP_COPY_OUT
     Operation &spillOutOp = function_.AddRawOperation(Opcode::OP_COPY_OUT, {spillTensor}, {ddrTensor});
-    // 设置TODO copy_out offset
     UpdateOpAttr(spillOutOp, DEFAULT_LATENCY, spillTensor, offset, spillIssue);
 
     // 创建spill搬出数据OP_COPY_OUT的issueEntry
