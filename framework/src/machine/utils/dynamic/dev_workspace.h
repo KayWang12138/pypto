@@ -575,17 +575,13 @@ public:
         uint64_t slotListCapacity = CalculateVectorCapacity(devProg->slotSize);
         uint64_t slotListMemory = slotListCapacity * sizeof(DeviceExecuteSlot);
         DEV_DEBUG("slotListMemory is %lu,", slotListMemory);
-        // 3. slotInfosInDecidingSlotMem_
-        uint64_t slotInfosCapacity = CalculateVectorCapacity(devProg->slotSize);
-        uint64_t slotInfosMemory = slotInfosCapacity * sizeof(ItemPoolIter);
-        DEV_DEBUG("slotInfosMemory is %lu,", slotInfosMemory);
-        // 4. rtBoundaryOutcastToBeFree_
+        // 3. rtBoundaryOutcastToBeFree_
         uint64_t boundaryOutcastToFreeListSize = CalculateVectorCapacity(devProg->memBudget.tensor.devTaskBoundaryOutcastNum);
         uint64_t boundaryOutcastToFreeMemory = boundaryOutcastToFreeListSize * sizeof(RuntimeOutcastTensor);
         DEV_DEBUG("Memory of list for Boundary outcast to free is %lu,", boundaryOutcastToFreeMemory);
         // total
         uint64_t totalSetupVectorMemory = symbolTableMemory + slotListMemory +
-                                          slotInfosMemory + boundaryOutcastToFreeMemory;
+                                          boundaryOutcastToFreeMemory;
         return totalSetupVectorMemory;
     }
 
@@ -774,12 +770,12 @@ private:
 
     /* 按照devicetask最大支持stitch阈值分配对象 */
     uint32_t DynFuncDataSlabMemObjSize() {
-        return (sizeof(DynFuncHeader) + MAX_CACHED_FUNC_NUM * sizeof(DynFuncData));
+        return (sizeof(DynFuncHeader) + devProg_-> stitchMaxFunctionNum * sizeof(DynFuncData));
     }
 
     /* 按照devicetask最大支持stitch阈值分配对象 */
     uint32_t VecStitchListSLabMemObjSize() {
-        return MAX_CACHED_FUNC_NUM * sizeof(DevAscendFunctionDupped);
+        return devProg_-> stitchMaxFunctionNum * sizeof(DevAscendFunctionDupped);
     }
 
     uint32_t DynDevTaskSlabMemObjSize() {
@@ -817,7 +813,13 @@ private:
             return 1;
         }
     }
-
+    /**wraplist**/
+    uint32_t WrapOpWrapListSlabMemObjSize() {
+        return devProg_-> stitchMaxFunctionNum * sizeof(uint64_t);
+    }
+    uint32_t WrapOpWrapTaskNumListSlabMemObjSize() {
+        return devProg_-> stitchMaxFunctionNum  * sizeof(uint64_t);
+    }
     uint32_t (DeviceWorkspaceAllocator::*slabMemObjSizeFunc[ToUnderlying(WsAicpuSlabMemType::SLAB_MEM_TYPE_BUTT)])() = {
         &DeviceWorkspaceAllocator::DevFunctionDuppedSlabMemObjSize,
         &DeviceWorkspaceAllocator::DynFuncDataSlabMemObjSize,
@@ -827,6 +829,8 @@ private:
         &DeviceWorkspaceAllocator::DieReadyQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapQueSlabMemObjSize,
         &DeviceWorkspaceAllocator::WrapTasklistSlabMemObjSize,
+        &DeviceWorkspaceAllocator::WrapOpWrapListSlabMemObjSize,
+        &DeviceWorkspaceAllocator::WrapOpWrapTaskNumListSlabMemObjSize,
         nullptr, // invalid type
         &DeviceWorkspaceAllocator::DuppedStitchSlabMemObjSize,
     };
