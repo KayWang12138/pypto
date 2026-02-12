@@ -146,12 +146,31 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
     bool isNeedWrap = IsNeedWrapProcess(dyntask, devProg);
     uint32_t *wrapTasklistAddr = isNeedWrap ? AllocWrapTasklist(dyntask) : nullptr;
     WrapInfoQueue *wrapQueue = isNeedWrap ? AllocWrapQueue(dyntask) : nullptr;
-
+    /**wraplist**/
+    if (isNeedWrap && dyntask->devTask.coreFunctionCnt > 0) {
+        uint32_t funcCapacity = devProg->stitchMaxFunctionNum;
+        uint32_t bytes = funcCapacity * sizeof(uint64_t);
+        WsAllocation alloc = ControlFlowAllocateSlab(devProg_, bytes,
+            workspace_->SlabAlloc(bytes, WsAicpuSlabMemType::WRAP_OPWRAPLIST));
+        uint64_t *opWrapArray = alloc.As<uint64_t>();
+        dyntask->devTask.mixTaskData.opWrapListPtr = PtrToValue(opWrapArray);
+    }
+    else {
+        dyntask->devTask.mixTaskData.opWrapListPtr = 0;
+    }
     int wrapTaskNum = 0;
     DynFuncDataCache *dynFuncDataCacheList = dyntask->GetDynFuncDataCacheList();
     size_t funcSize = dyntask->dynFuncDataCacheListSize;
+    uint64_t *opWrapArrayBase = nullptr;
+    /**wraplist**/
+    if (isNeedWrap && dyntask->devTask.mixTaskData.opWrapListPtr != 0) {
+        opWrapArrayBase = reinterpret_cast<uint64_t *>(dyntask->devTask.mixTaskData.opWrapListPtr);
+    }
     for (size_t funcIndex = 0; funcIndex < funcSize; ++funcIndex) {
-        int32_t* opWrapList = reinterpret_cast<int32_t *>(dyntask->devTask.mixTaskData.opWrapList[funcIndex]);
+        int32_t* opWrapList = nullptr;
+        if (isNeedWrap && opWrapArrayBase != nullptr) {
+            opWrapList = reinterpret_cast<int32_t *>(opWrapArrayBase[funcIndex]);
+        }
         DevAscendFunctionDuppedData *duppedData = dynFuncDataCacheList->At(funcIndex).duppedData;
         predcount_t *dupPredCountList = &duppedData->GetOperationCurrPredCount(0);
         auto &predInfo = duppedData->GetSource()->GetPredInfo();
