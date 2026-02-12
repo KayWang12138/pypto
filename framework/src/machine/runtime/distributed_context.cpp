@@ -19,6 +19,7 @@
 #include "interface/tileop/distributed/hccl_context.h"
 #include "interface/utils/common.h"
 #include "runtime.h"
+#include "tilefwk/tilefwk_log.h"
 #ifdef BUILD_WITH_CANN
 #include "hcom.h"
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* mc2Tiling, void** commContext);
@@ -103,7 +104,7 @@ std::vector<uint64_t> DistributedContext::GetHcclContextToHost(const std::vector
 #ifdef BUILD_WITH_CANN
     std::vector<uint64_t> devAddrs = GetHcclContext(groupNames);
     std::vector<uint64_t> host_context;
-    ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
+    CHECK(groupNames.size() <= DIST_COMM_GROUP_NUM) << "Commgroups size must be less than 3";
     for (size_t groupIndex = 0; groupIndex < groupNames.size(); groupIndex++) {
         (void)rtMemcpy(&g_hostAddr[groupIndex], sizeof(g_hostAddr[groupIndex]), (uint8_t *)devAddrs[0], sizeof(g_hostAddr[groupIndex]),
             RT_MEMCPY_DEVICE_TO_HOST);
@@ -120,7 +121,7 @@ std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::
 #ifdef BUILD_WITH_CANN
     std::shared_ptr<TilingStruct> tilingStruct = std::make_shared<TilingStruct>();
     std::vector<uint64_t> hcclContext(groupNames.size(), 0);
-    ASSERT(groupNames.size() <= DIST_COMM_GROUP_NUM);
+    CHECK(groupNames.size() <= DIST_COMM_GROUP_NUM) << "Commgroups size must be less than 3";
     for (size_t groupIndex = 0; groupIndex < groupNames.size(); ++groupIndex) {
         auto groupName = groupNames[groupIndex];
         if (g_context.find(groupName) != g_context.end()) {
@@ -129,13 +130,13 @@ std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::
         }
         HcclComm commHandle = nullptr;
         HcclResult ret = HcomGetCommHandleByGroup(groupName.c_str(), &commHandle);
-        ASSERT(ret == 0);
+        ASSERT(ret == 0) << "Get hcclgroup handle by groupname failed";
         bool makeTilingSuccess = tilingStruct->MakeMc2TilingStruct(groupName);
-        ASSERT(makeTilingSuccess == 0);
+        ASSERT(makeTilingSuccess == 0) << "Construct MC2tiling struct failed";
         ret = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(), &(tilingStruct->Mc2CommConfig_),
             reinterpret_cast<void **>(&hcclContext[groupIndex]));
-        ASSERT((ret == 0) && (hcclContext[groupIndex] != 0UL));
-        ALOG_INFO_F("groupIndex=%u, groupName=%s, hcclContext=%lu", groupIndex, groupName.c_str(),
+        ASSERT((ret == 0) && (hcclContext[groupIndex] != 0UL)) << "Alloc commcontext failed";
+        DISTRIBUTED_LOGI("groupIndex=%u, groupName=%s, hcclContext=%lu", groupIndex, groupName.c_str(),
             hcclContext[groupIndex]);
         g_context[groupName] = hcclContext[groupIndex];
     }

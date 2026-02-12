@@ -500,14 +500,14 @@ void MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tens
     Tensor &validCnt, Tensor &combineInfo, const char *group, const MoeConfig &moeConfig)
 {
     std::string assertResult;
-    ASSERT(checkValidConfig(moeConfig, assertResult)) << assertResult;
-    ASSERT(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
-    ASSERT(group[0] != '\0') << "MoeDispatch constraint violated: group name is not valid.";
-    ASSERT(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128.";
+    CHECK(checkValidConfig(moeConfig, assertResult)) << assertResult;
+    CHECK(group != nullptr) << "MoeDispatch constraint violated: group name can't be nullptr.";
+    CHECK(group[0] != '\0') << "MoeDispatch constraint violated: group name is not valid.";
+    CHECK(strnlen(group, 128) < 128) << "MoeDispatch constraint violated: group name max size must be 128.";
 
-    ASSERT(checkValidInput(tokenTensor, 2, DataType::DT_BF16, 8, 5120, assertResult)) << assertResult; // 当前仅支持shape:8,5120
-    ASSERT(checkValidInput(tokenExpertTable, 2, DataType::DT_INT32, 8, 8, assertResult)) << assertResult; // 当前仅支持shape:8,8
-    ASSERT(checkValidInput(validCnt, 1, DataType::DT_INT32, moeConfig.expertNumPerRank, 1, assertResult)) << assertResult;
+    CHECK(checkValidInput(tokenTensor, 2, DataType::DT_BF16, 8, 5120, assertResult)) << assertResult; // 当前仅支持shape:8,5120
+    CHECK(checkValidInput(tokenExpertTable, 2, DataType::DT_INT32, 8, 8, assertResult)) << assertResult; // 当前仅支持shape:8,8
+    CHECK(checkValidInput(validCnt, 1, DataType::DT_INT32, moeConfig.expertNumPerRank, 1, assertResult)) << assertResult;
 
     int hcclGroupIndex = static_cast<int32_t>(CommGroupRecorder::GetInstance().Input(std::string(group)));
     SymbolicScalar thisRank = GetHcclRankId(group);
@@ -518,8 +518,8 @@ void MoeDispatch(const Tensor &tokenTensor, const Tensor &tokenExpertTable, Tens
     int32_t expandXRow = std::min(static_cast<int32_t>(batchSize) *
         static_cast<int32_t>(topK) * moeConfig.rankNum, static_cast<int32_t>(batchSize) * moeConfig.routedExpertNum);
 
-    ASSERT(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, 5120, assertResult)) << assertResult; // 当前仅支持hiddenSize:5120
-    ASSERT(checkValidInput(combineInfo, 2, DataType::DT_INT32, expandXRow, 3, assertResult)) << assertResult; // comBineInfo固定hiddenSize:3
+    CHECK(checkValidInput(expandX, 2, DataType::DT_BF16, expandXRow, 5120, assertResult)) << assertResult; // 当前仅支持hiddenSize:5120
+    CHECK(checkValidInput(combineInfo, 2, DataType::DT_INT32, expandXRow, 3, assertResult)) << assertResult; // comBineInfo固定hiddenSize:3
 
     int flagRow = 1;
     int flagCol = 128;
