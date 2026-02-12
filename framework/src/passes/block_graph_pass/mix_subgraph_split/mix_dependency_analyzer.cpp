@@ -54,7 +54,8 @@ void MixDependencyAnalyzer::InOutCastRecord(Function* originalMixFunc) {
     }
 }
 
-std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDependencies(Function &mixFunc) {
+std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDependencies(Function &mixFunc,
+    std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors) {
     std::unordered_map<int, std::set<int>> dependencies;
     // 分析子图的所有的op
     for (auto &op : mixFunc.Operations(false)) {
@@ -81,6 +82,11 @@ std::unordered_map<int, std::set<int>> MixDependencyAnalyzer::AnalyzeComponentDe
                 int consumerID = consumer->GetInternalSubgraphID();
                 if (producerInternalID != consumerID) {
                     dependencies[producerInternalID].insert(consumerID);
+                    std::pair<int, int> edge = {producerInternalID, consumerID};
+                    crossComponentTensors[edge].push_back(oOperand);
+                    ALOG_DEBUG_F("Recorded cross-component tensor: raw=%d, magic=%d, %d->%d",
+                            oOperand->GetRawMagic(), oOperand->magic,
+                            producerInternalID, consumerID);
                 }
             }
         }
@@ -353,15 +359,21 @@ void MixDependencyAnalyzer::EliminateRedundantDependencies() {
     EliminateRedundantInnerDeps(innerDeps);
 }
 
-void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input, AnalyzerOutput &output) {
+Status MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input, AnalyzerOutput &output) {
     Reset();
     InitSubgraphToFunction(input.components);
     // 步骤1：记录直接的incast/outcast(Mix子图整体与外部的依赖)
     ALOG_INFO_F("Step 1: Recording direct incast/outcast...");
     InOutCastRecord(input.originalMixFunc);
     // 步骤2：分析组件间直接依赖（scope与scope之间的依赖）
-    ALOG_INFO_F("Step 2: Analyzing inter-component dependencies...");
-    auto directDeps = AnalyzeComponentDependencies(*input.originalMixFunc);
+    ALOG_INFO_F("Step 2: Analyzing inter-component dependencies and recording cross-component tensors...");
+    std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>> crossComponentTensors;
+    auto directDeps = AnalyzeComponentDependencies(*input.originalMixFunc, crossComponentTensors);
+    ALOG_INFO_F("Found %zu cross-component tensor dependencies:", crossComponentTensors.size());
+    for (const auto& [edge, tensors] : crossComponentTensors) {
+        ALOG_INFO_F("  Component %d -> %d: %zu tensor(s)", 
+                   edge.first, edge.second, tensors.size());
+    }   
     // 步骤3：计算依赖传递闭包
     ALOG_INFO_F("Step 3: Computing dependency closure...");
     ComputeDependencyClosure(directDeps);    
@@ -369,6 +381,12 @@ void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input
     ALOG_INFO_F("Step 4: Computing all dependencies...");
     // 4.1：提取外部依赖（从subgraphToFunction）
     ExtractExternalDependencies(subgraphToFunction.subFuncInvokeInfos);
+    // 验证循环依赖是否合法
+    Status validationStatus = ValidateCrossComponentDependencies(input, directDeps, crossComponentTensors);
+    if (validationStatus != SUCCESS) {
+        ALOG_ERROR_F("Cross-component dependency validation failed, aborting ProcessDependencyAnalyzer...");
+        return FAILED;  // 立即返回，不继续执行
+    }
     // 4.2：基于传递闭包传播外部依赖到内部scope
     PropagateExternalDependenciesWithClosure(directDeps);
     // 4.3：添加内部同类型scope之间的依赖（只收集C-C、V-V的依赖）
@@ -380,12 +398,108 @@ void MixDependencyAnalyzer::ProcessDependencyAnalyzer(const AnalyzerInput &input
     output.internalDeps = internalDeps;
     output.allIncasts = allIncasts;
     output.allOutcasts = allOutcasts;
+    return SUCCESS;
 }
 
 void MixDependencyAnalyzer::Reset() {
     internalDeps.clear();
     allIncasts.clear();
     allOutcasts.clear();
+}
+
+Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
+    const AnalyzerInput &input,
+    const std::unordered_map<int, std::set<int>>& directDeps,
+    const std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors) {
+    ALOG_INFO_F("\n=== VALIDATING CROSS-COMPONENT DEPENDENCY CYCLES ===");
+    bool hasBidirectional = false;
+    std::vector<std::pair<int, int>> bidirectionalDeps;
+    for (const auto& [src, dsts] : directDeps) {
+        for (int dst : dsts) {
+            auto it = directDeps.find(dst);      
+            if (it != directDeps.end() && it->second.count(src) > 0) {  
+                bidirectionalDeps.emplace_back(src, dst);
+                hasBidirectional = true;
+            }
+        }
+    }
+    if (!hasBidirectional) {
+        ALOG_INFO_F("No bidirectional dependencies detected - safe");
+        return SUCCESS;
+    }  
+    ALOG_INFO_F("=== CHECKING BIDIRECTIONAL DEPENDENCIES ===");
+    for (const auto& [comp1, comp2] : bidirectionalDeps) {
+        ALOG_INFO_F("\nChecking component %d <-> component %d:", comp1, comp2);
+        // 获取两个方向的tensor
+        auto it1 = crossComponentTensors.find({comp1, comp2});
+        auto it2 = crossComponentTensors.find({comp2, comp1});
+        bool hasValid1to2 = false;
+        bool hasValid2to1 = false;
+        // 检查 comp1 -> comp2 的tensor
+        if (it1 != crossComponentTensors.end()) {
+            ALOG_INFO_F("  Component %d -> %d tensors (%zu):", comp1, comp2, it1->second.size());
+            for (auto& tensor : it1->second) {
+                // 检查这个tensor是否在comp2的allIncasts中
+                bool isInIncast = false;
+                auto incastIt = allIncasts.find(comp2);
+                if (incastIt != allIncasts.end()) {
+                    for (const auto& param : incastIt->second) {
+                        if (param.tensor == tensor) {
+                            isInIncast = true;
+                            break;
+                        }
+                    }
+                }
+                
+                ALOG_INFO_F("    - tensor magic=%d (raw=%d), in comp%d.incasts=%s",
+                          tensor->magic, tensor->GetRawMagic(), comp2,
+                          isInIncast ? "YES" : "NO");
+                
+                if (isInIncast) {
+                    hasValid1to2 = true;
+                }
+            }
+        }
+        // 检查 comp2 -> comp1 的tensor
+        if (it2 != crossComponentTensors.end()) {
+            ALOG_INFO_F("  Component %d -> %d tensors (%zu):", comp2, comp1, it2->second.size());
+            for (auto& tensor : it2->second) {
+                // 检查这个tensor是否在comp1的allIncasts中
+                bool isInIncast = false;
+                auto incastIt = allIncasts.find(comp1);
+                if (incastIt != allIncasts.end()) {
+                    for (const auto& param : incastIt->second) {
+                        if (param.tensor == tensor) {
+                            isInIncast = true;
+                            break;
+                        }
+                    }
+                }
+                
+                ALOG_INFO_F("    - tensor magic=%d (raw=%d), in comp%d.incasts=%s",
+                          tensor->magic, tensor->GetRawMagic(), comp1,
+                          isInIncast ? "YES" : "NO");
+                
+                if (isInIncast) {
+                    hasValid2to1 = true;
+                }
+            }
+        }   
+        // 3. 判断是否是不合理成环
+        if (hasValid1to2 && hasValid2to1) {
+            ALOG_ERROR_F("ILLEGAL BIDIRECTIONAL DEPENDENCY DETECTED!");
+            ALOG_ERROR_F("==========================================================");
+            ALOG_ERROR_F("Component %d <-> Component %d", comp1, comp2);
+            ALOG_ERROR_F("Component types: %s <-> %s",
+                       input.components[comp1].componentType == ComponentType::C_SCOPE ? "CUBE" :
+                       input.components[comp1].componentType == ComponentType::V_SCOPE ? "VECTOR" : "UNKNOWN",
+                       input.components[comp2].componentType == ComponentType::C_SCOPE ? "CUBE" :
+                       input.components[comp2].componentType == ComponentType::V_SCOPE ? "VECTOR" : "UNKNOWN");
+            return FAILED;
+        }
+    }
+    ALOG_INFO_F("\n=== VALIDATION PASSED ===");   
+    return SUCCESS; 
 }
 }
 }

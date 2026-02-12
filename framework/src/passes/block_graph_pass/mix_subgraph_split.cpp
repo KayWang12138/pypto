@@ -387,7 +387,12 @@ Status MixSubgraphSplit::ProcessLeafFunction(Function& rootFunc,
             std::unordered_map<int, std::vector<SimpleTensorParam>>(),
             std::unordered_map<int, std::vector<SimpleTensorParam>>()
         );
-        dependencyAnalyzer_.ProcessDependencyAnalyzer(analyzerInput, *analyzerOutput);
+        Status depStatus = dependencyAnalyzer_.ProcessDependencyAnalyzer(analyzerInput, *analyzerOutput);
+        if (depStatus != SUCCESS) {
+            ALOG_ERROR_F("Dependency analyzer failed for function %s", 
+                        originalMixFunc->GetRawName().c_str());
+            return FAILED;  
+        }
         // 为每个scope创建leaf function
         if (GenNewFunctions(rootFunc, originalMixFunc, components, newProgramIDs, analyzerOutput->subgraphToFunction, newFunctions) != SUCCESS) {
             return FAILED;
