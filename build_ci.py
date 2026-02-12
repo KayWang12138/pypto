@@ -1498,7 +1498,7 @@ class BuildCtrl(CMakeParam):
         filter_str = filter_str.replace(',', ' ')
         # cmd 拼接
         cmd = f"{sys.executable} -m pytest {filter_str} -v --durations=0 -s --capture=no"
-        cmd += f" --rootdir={self.src_root} {ext} --forked"
+        cmd += f" --rootdir={self.src_root}"# {ext} --forked"
         if self.check_pip_dependencies(deps={"pytest-xdist": ">=3.8.0"}, raise_err=False, log_err=False):
             cmd += " --no-loadscope-reorder"
         # cmd 执行
