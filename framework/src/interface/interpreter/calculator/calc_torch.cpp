@@ -779,7 +779,7 @@ static void FormatNZ2ND(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
-static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const torch::Tensor &rhs, const torch::Tensor &bias, int64_t kstep) {
+static void MatmulMultiDataLoad(torch::Tensor &out, const torch::Tensor &lhs, const torch::Tensor &rhs, const torch::Tensor &bias, int64_t kstep) {
     auto shapeL = lhs.sizes().vec();
     auto shapeR = rhs.sizes().vec();
     auto offsetL = std::vector<int64_t>(shapeL.size(), 0);
@@ -802,7 +802,7 @@ static void MatmulSplitK(torch::Tensor &out, const torch::Tensor &lhs, const tor
     }
 }
 
-static void FixpipeExecute(torch::Tensor &tout, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
+static void QuantExecute(torch::Tensor &tout, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
     if (relu == 1) {
         tout.relu_();
     }
@@ -824,10 +824,11 @@ static void FixpipeExecute(torch::Tensor &tout, LogicalTensorDataPtr scalePtr, u
     }
 }
 
-static void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
+static void QuantPreCompute(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
     ASSERT(out != nullptr && self != nullptr && out->GetData() != nullptr && self->GetData() != nullptr);
-    ALOG_DEBUG_F("input data type: %s, output data type: %s.\n", DataType2CCEStr(self->GetData()->GetDataType()).c_str(),
-        DataType2CCEStr(out->GetData()->GetDataType()).c_str());
+    ALOG_DEBUG_F("Quant input data type: %s, output data type: %s, relu: %d, scale: %llu.\n",
+        DataType2CCEStr(self->GetData()->GetDataType()).c_str(), DataType2CCEStr(out->GetData()->GetDataType()).c_str(),
+        relu, scale);
     ASSERT(out->GetData()->GetDataType() == DataType::DT_FP16 && self->GetData()->GetDataType() == DataType::DT_INT32);
     auto tself = From(self);
     auto tout = From(out);
@@ -838,7 +839,7 @@ static void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, Logical
         tout.second = tout.second.to(calcType);
     }
     tout.second.copy_(tself.second);
-    FixpipeExecute(tout.second, scalePtr, scale, relu);
+    QuantExecute(tout.second, scalePtr, scale, relu);
     if (calcType != dtype) {
         tout.second = tout.second.to(dtype);
     }
@@ -885,10 +886,10 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
             tout.second.add_(torch::matmul(tself.second, tother.second));
         }
     } else {
-        MatmulSplitK(tout.second, tself.second, tother.second, bias_tensor.second, param.kStep);
+        MatmulMultiDataLoad(tout.second, tself.second, tother.second, bias_tensor.second, param.kStep);
     }
     if (self->GetDataType() == DataType::DT_INT8 && out->GetDataType() == DataType::DT_FP16) {
-        FixpipeExecute(tout.second, param.scalePtr, param.scale, param.relu);
+        QuantExecute(tout.second, param.scalePtr, param.scale, param.relu);
     }
     if (calcType != dtype) {
         tout.second = tout.second.to(dtype);
@@ -1844,7 +1845,7 @@ static struct CalcOps calcOps = {
     .Scatter = Scatter,
     .FormatND2NZ = FormatND2NZ,
     .FormatNZ2ND = FormatNZ2ND,
-    .Fixpipe = Fixpipe,
+    .QuantPreCompute = QuantPreCompute,
     .MatMul = MatMul,
     .BitSort = BitSort,
     .TiledMrgSort = TiledMrgSort,

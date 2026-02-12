@@ -40,10 +40,10 @@ inline bool AllClose(LogicalTensorDataPtr self, LogicalTensorDataPtr other, doub
 inline void Cast(LogicalTensorDataPtr out, LogicalTensorDataPtr self, CastMode mode = CAST_NONE) {
     GetCalcOps()->Cast(out, self, mode);
 }
-inline void Fixpipe(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
+inline void QuantPreCompute(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr scalePtr, uint64_t scale, int relu) {
     CalcOps *ops = GetCalcOps();
     ASSERT(ops != nullptr);
-    ops->Fixpipe(out, self, scalePtr, scale, relu);
+    ops->QuantPreCompute(out, self, scalePtr, scale, relu);
 }
 inline void Exp(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Exp(out, self);

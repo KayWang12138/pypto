@@ -103,7 +103,7 @@ void ExecuteOpCopyOut(ExecuteOperationContext *ctx) {
             if (ctx->ioperandDataViewList->size() > 1) {
                 scalePtr = ctx->ioperandDataViewList->at(1);
             }
-            calc::Fixpipe(oopValid, iop, scalePtr, scale, relu);
+            calc::QuantPreCompute(oopValid, iop, scalePtr, scale, relu);
             return;
         }
         if (ctx->op->HasAttribute(OP_ATTR_PREFIX + "atomic_add")) {

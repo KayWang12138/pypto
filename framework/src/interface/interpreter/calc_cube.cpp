@@ -58,6 +58,7 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
         default: ASSERT(false); break;
     }
 }
+
 REGISTER_CALC_OP(OP_A_MUL_B, Opcode::OP_A_MUL_B, ExecuteOpAMulB);
 REGISTER_CALC_OP(OP_A_MULACC_B, Opcode::OP_A_MULACC_B, ExecuteOpAMulB);
 REGISTER_CALC_OP(OP_A_MUL_BT, Opcode::OP_A_MUL_BT, ExecuteOpAMulB);
@@ -69,6 +70,7 @@ void ExecuteOpAlloc(ExecuteOperationContext *ctx) {
     ASSERT(ctx->ooperandInplaceDataViewList->size() <= 1);
     ASSERT(ctx->ioperandDataViewList->size() == 0);
 }
+
 REGISTER_CALC_OP(OP_UB_ALLOC, Opcode::OP_UB_ALLOC, ExecuteOpAlloc);
 REGISTER_CALC_OP(OP_L0A_ALLOC, Opcode::OP_L0A_ALLOC, ExecuteOpAlloc);
 REGISTER_CALC_OP(OP_L0B_ALLOC, Opcode::OP_L0B_ALLOC, ExecuteOpAlloc);
@@ -101,8 +103,8 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
         }
     } else if (opCode == Opcode::OP_L0C_TO_L1) {
         ASSERT(oper != nullptr && ret != nullptr);
-        ASSERT(oper->GetShape().size() > 1 && ret->GetShape().size() > 1);
-        bool quant = oper->GetDataType() == DataType::DT_INT32 && ret->GetDataType() == DataType::DT_FP16;
+        ASSERT(oper->GetShape().size() == SHAPE_DIM2 && ret->GetShape().size() == SHAPE_DIM2);
+        bool quantFlag = oper->GetDataType() == DataType::DT_INT32 && ret->GetDataType() == DataType::DT_FP16;
         uint64_t scale = (ctx->op->HasAttr(Matrix::A_MUL_B_SCALE_ATTR)) ? ctx->op->GetElementAttribute(Matrix::A_MUL_B_SCALE_ATTR).GetUnsignedData() : 0;
         int relu = (ctx->op->HasAttr(Matrix::A_MUL_B_RELU_ATTR)) ? ctx->op->GetIntAttribute(Matrix::A_MUL_B_RELU_ATTR) : 0;
         LogicalTensorDataPtr scalePtr = nullptr;
@@ -114,19 +116,19 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
         std::vector<int64_t> toOffset = ctx->opInter->EvaluateOpImmediate(ctx->frame, copyin->GetToOffset());
         if (oper->GetShape()[0] > ret->GetShape()[0] || oper->GetShape()[1] > ret->GetShape()[1]) {
             auto iop = oper->View(ret->GetShape(), fromOffset);
-            if (quant) {
+            if (quantFlag) {
                 LogicalTensorDataPtr scaleOp = nullptr;
                 if (scalePtr != nullptr) {
                     scaleOp = scalePtr->View({1, ret->GetShape()[1]}, {0, fromOffset[1]});
                 }
-                calc::Fixpipe(ret, iop, scaleOp, scale, relu);
+                calc::QuantPreCompute(ret, iop, scaleOp, scale, relu);
             } else {
                 calc::Copy(ret, iop);
             }
         } else {
             auto iop = ret->View(oper->GetShape(), toOffset);
-            if (quant) {
-                calc::Fixpipe(iop, oper, scalePtr, scale, relu);
+            if (quantFlag) {
+                calc::QuantPreCompute(iop, oper, scalePtr, scale, relu);
             } else {
                 calc::Copy(iop, oper);
             }
@@ -135,6 +137,7 @@ void ExecuteDuplicate(ExecuteOperationContext *ctx) {
         calc::Copy(ret, oper, trans);
     }
 }
+
 REGISTER_CALC_OP(OP_L1_TO_L0A, Opcode::OP_L1_TO_L0A, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0B, Opcode::OP_L1_TO_L0B, ExecuteDuplicate);
 REGISTER_CALC_OP(OP_L1_TO_L0_AT, Opcode::OP_L1_TO_L0_AT, ExecuteDuplicate);
@@ -159,5 +162,6 @@ void ExecuteOpGatherInL1(ExecuteOperationContext *ctx) {
     int blocksize = ctx->op->GetIntAttribute("op_attr_blocksize");
     calc::GatherInL1(output, params, indices, pageTable, blocksize);
 }
+
 REGISTER_CALC_OP(OP_GATHER_IN_L1, Opcode::OP_GATHER_IN_L1, ExecuteOpGatherInL1);
 }
