@@ -321,29 +321,45 @@ class OrbitGraphProcessor {
         }
     }
 
+    bool IsEdgeMergeCandidate(VertexType u, VertexType v,
+                              const ConstrGraphT &currentCoarseGraph,
+                              const std::vector<VertexIdxT<ConstrGraphT>> &vertexPoset,
+                              const std::vector<VertexIdxT<ConstrGraphT>> &vertexBotPoset,
+                              const bool mergeDifferentNodeTypes) {
+        if (nonViableEdgesCache_.count({u, v}) || nonViableCritPathEdgesCache_.count({u, v})) {
+            return false;
+        }
+        if (not mergeDifferentNodeTypes && currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
+            return false;
+        }
+        if ((vertexPoset[u] + 1 != vertexPoset[v]) && (vertexBotPoset[u] != 1 + vertexBotPoset[v])) {
+            return false;
+        }
+        return true;
+    }
 
+    bool IsSignificanceMergeBlocked(VertexType u, VertexType v,
+                                    const ConstrGraphT &currentCoarseGraph,
+                                    const std::vector<Group> &currentGroups,
+                                    const std::vector<VWorkwT<GraphT>> &lockThresholdPerType,
+                                    const bool mergeDifferentNodeTypes,
+                                    std::size_t newSize) {
+        VTypeT<GraphT> uType = 0;
+        VTypeT<GraphT> vType = 0;
+        if (not mergeDifferentNodeTypes) {
+            uType = currentCoarseGraph.VertexType(u);
+            vType = currentCoarseGraph.VertexType(v);
+        }
 
+        const std::size_t uSize = currentGroups[u].size();
+        const std::size_t vSize = currentGroups[v].size();
+        const bool uSig = (uSize >= minSymmetry_) && (currentCoarseGraph.VertexWorkWeight(u) > lockThresholdPerType[uType]);
+        const bool vSig = (vSize >= minSymmetry_) && (currentCoarseGraph.VertexWorkWeight(v) > lockThresholdPerType[vType]);
 
-    /**
-     * @brief Core adaptive merging function that attempts to contract edges while preserving symmetry constraints.
-     *
-     * This function iterates over edges in the coarse graph and attempts to merge the connected nodes (groups).
-     * It checks various viability conditions including:
-     * - Node type compatibility
-     * - Poset/Topological ordering constraints
-     * - Structural merge viability (IsMergeViable)
-     * - Symmetry thresholds (preventing too much loss of symmetry)
-     * - Critical path constraints
-     *
-     * @param originalDag The original computational DAG.
-     * @param currentCoarseGraph The current state of the coarse graph to be modified.
-     * @param currentGroups The current state of the vertex groups.
-     * @param currentContractionMap The contraction map (updated at the end of coarsening).
-     * @param mergeDifferentNodeTypes Boolean flag to allow merging different node types.
-     * @param mergeBelowThreshold Boolean flag to allow merging groups smaller than minSymmetry_.
-     * @param lockThresholdPerType Work thresholds per vertex type to prevent merging "significant" nodes.
-     * @param pathThreshold Threshold for allowable increase in critical path weight.
-     */
+        return (uSig && vSig && newSize < std::min(uSize, vSize)) ||
+               ((uSig ^ vSig) && newSize < (uSig ? uSize : vSize));
+    }
+
     void ContractEdgesAdpativeSym(const GraphT &originalDag,
                                   ConstrGraphT &currentCoarseGraph,
                                   std::vector<Group> &currentGroups,
@@ -363,24 +379,11 @@ class OrbitGraphProcessor {
                 VertexType u = Source(edge, currentCoarseGraph);
                 VertexType v = Target(edge, currentCoarseGraph);
 
-                if (nonViableEdgesCache_.count({u, v}) || nonViableCritPathEdgesCache_.count({u, v})) {
-                    continue;
-                }
-
-                if (not mergeDifferentNodeTypes) {
-                    if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
-                        continue;
-                    }
-                }
-                
-                if ((vertexPoset[u] + 1 != vertexPoset[v]) && (vertexBotPoset[u] != 1 + vertexBotPoset[v])) {
+                if (!IsEdgeMergeCandidate(u, v, currentCoarseGraph, vertexPoset, vertexBotPoset, mergeDifferentNodeTypes)) {
                     continue;
                 }
 
                 std::vector<std::vector<VertexType>> newSubgraphs;
-                const std::size_t uSize = currentGroups[u].size();
-                const std::size_t vSize = currentGroups[v].size();
-
                 const bool mergeIsValid = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], newSubgraphs);
                 const std::size_t newSize = newSubgraphs.size();
 
@@ -390,46 +393,30 @@ class OrbitGraphProcessor {
                 }
 
                 const bool mergeViable = (newSize >= currentSymmetry_);
-                const bool bothBelowMinimalThreshold = mergeBelowThreshold && (uSize < minSymmetry_) && (vSize < minSymmetry_);
+                const bool bothBelowMinimalThreshold = mergeBelowThreshold
+                    && (currentGroups[u].size() < minSymmetry_) && (currentGroups[v].size() < minSymmetry_);
 
                 if (!mergeViable && !bothBelowMinimalThreshold) {
                     nonViableEdgesCache_.insert({u, v});
                     continue;
                 }
 
-                VTypeT<GraphT> uType = 0;
-                VTypeT<GraphT> vType = 0;
-                if (not mergeDifferentNodeTypes) {
-                    uType = currentCoarseGraph.VertexType(u);
-                    vType = currentCoarseGraph.VertexType(v);
-                }
-
-                const bool uSig = (uSize >= minSymmetry_) && (currentCoarseGraph.VertexWorkWeight(u) > lockThresholdPerType[uType]);
-                const bool vSig = (vSize >= minSymmetry_) && (currentCoarseGraph.VertexWorkWeight(v) > lockThresholdPerType[vType]);
-
-                if ((uSig && vSig && newSize < std::min(uSize, vSize)) ||
-                    ((uSig ^ vSig) && newSize < (uSig ? uSize : vSize))) {
+                if (IsSignificanceMergeBlocked(u, v, currentCoarseGraph, currentGroups,
+                                               lockThresholdPerType, mergeDifferentNodeTypes, newSize)) {
                     nonViableEdgesCache_.insert({u, v});
                     continue;
                 }
 
-                // Critical Path Check
                 auto [tempCoarseGraph, tempContractionMap] = SimulateMerge(u, v, currentCoarseGraph);
 
                 if (CriticalPathWeight(tempCoarseGraph) > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
                                                            + CriticalPathWeight(currentCoarseGraph))) {
-
                     nonViableCritPathEdgesCache_.insert({u, v});
                     continue;
                 }
 
-                CommitMerge(u,
-                            v,
-                            std::move(tempCoarseGraph),
-                            tempContractionMap,
-                            std::move(newSubgraphs),
-                            currentCoarseGraph,
-                            currentGroups);
+                CommitMerge(u, v, std::move(tempCoarseGraph), tempContractionMap,
+                            std::move(newSubgraphs), currentCoarseGraph, currentGroups);
 
                 changed = true;
                 break;
