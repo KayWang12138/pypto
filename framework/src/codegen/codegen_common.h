@@ -136,6 +136,14 @@ enum class CopyInMode : int {
     COPY_MOD_DN2NZ
 };
 
+enum class CopyOutMode : int {
+    COPY_MOD_INVALID = -1,
+    COPY_MOD_NZ2ND = 0,
+    COPY_MOD_NZ2NZ,
+    COPY_MOD_ND2ND,
+    COPY_MOD_NZ2DN
+};
+
 struct CodeGenCtx {
     std::string includePath;
     std::string cceDir;
