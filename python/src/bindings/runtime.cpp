@@ -757,7 +757,10 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
 
     bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors, isCaptureMode);
-    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    int64_t repeatTime = config::GetRuntimeOption<int64_t>(REPEAT_TIME);
+    for (int64_t i = 0; i < repeatTime; i++) {
+        kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    }
 }
 #else
 void LaunchKernel(py::object &, int64_t, py::args &) { }
