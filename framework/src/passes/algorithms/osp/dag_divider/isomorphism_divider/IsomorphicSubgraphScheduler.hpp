@@ -400,9 +400,7 @@ class IsomorphicSubgraphScheduler {
 
         for (size_t groupIdx = 0; groupIdx < isomorphicGroups.size(); ++groupIdx) {
             const auto &group = isomorphicGroups[groupIdx];
-            if (group.subgraphs_.empty()) {
-                continue;
-            }
+            if (group.subgraphs_.empty()) continue;            
 
             auto repSubgraphVertices = group.subgraphs_[0];
             BspInstance<ConstrGraphT> representativeInstance;
@@ -413,17 +411,14 @@ class IsomorphicSubgraphScheduler {
             const auto &procsForGroup = subSched.nodeAssignedWorkerPerType_[groupIdx];
             std::vector<VMemwT<ConstrGraphT>> memWeights(procsForGroup.size(), 0);
             for (unsigned procType = 0; procType < procsForGroup.size(); ++procType) {
-                memWeights[procType]
-                    = static_cast<VMemwT<ConstrGraphT>>(instance.GetArchitecture().MaxMemoryBoundProcType(procType));
+                memWeights[procType] = static_cast<VMemwT<ConstrGraphT>>(instance.GetArchitecture().MaxMemoryBoundProcType(procType));
             }
             representativeInstance.GetArchitecture().SetProcessorsConsequTypes(procsForGroup, memWeights);
             representativeInstance.SetNodeProcessorCompatibility(instance.GetProcessorCompatibilityMatrix());
 
             unsigned minNonZeroProcs = std::numeric_limits<unsigned>::max();
             for (const auto &procCount : procsForGroup) {
-                if (procCount > 0) {
-                    minNonZeroProcs = std::min(minNonZeroProcs, procCount);
-                }
+                if (procCount > 0) minNonZeroProcs = std::min(minNonZeroProcs, procCount);
             }
 
             Scheduler<ConstrGraphT> *schedulerForGroupPtr = bspScheduler_;
@@ -447,13 +442,11 @@ class IsomorphicSubgraphScheduler {
                 auto currentSubgraphVerticesSorted = group.subgraphs_[i];
                 std::sort(currentSubgraphVerticesSorted.begin(), currentSubgraphVerticesSorted.end());
 
-                auto currentVertexToRepLocalIdx = (i == 0)
-                    ? std::move(repGlobalToLocalMap)
+                auto currentVertexToRepLocalIdx = (i == 0) ? std::move(repGlobalToLocalMap)
                     : BuildIsomorphicVertexMapping(instance, currentSubgraphVerticesSorted, repHasher);
 
                 ApplyPartitionPattern(currentSubgraphVerticesSorted, currentVertexToRepLocalIdx,
-                                      bspSchedule, maxBsp, spProcToRelativePartition,
-                                      currentPartitionIdx, partition);
+                                      bspSchedule, maxBsp, spProcToRelativePartition, currentPartitionIdx, partition);
                 currentPartitionIdx += numPartitionsPerSubgraph;
             }
         }

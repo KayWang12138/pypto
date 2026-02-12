@@ -554,148 +554,36 @@ struct KlHyperTotalCommCostFunction {
     void ComputeChildCommAffinity(VertexType node, AffinityTableT &affinityTableNode,
                                    const CostT &penalty, const CostT &reward,
                                    unsigned nodeStep, unsigned nodeProc,
-                                   unsigned nodeStartIdx, unsigned windowBound) {
-        for (const auto &target : instance_->GetComputationalDag().Children(node)) {
-            const unsigned targetStep = activeSchedule_->AssignedSuperstep(target);
-            const unsigned targetProc = activeSchedule_->AssignedProcessor(target);
-
-            if (targetStep < nodeStep + (targetProc != nodeProc)) {
-                const unsigned diff = nodeStep - targetStep;
-                const unsigned bound = windowSize > diff ? windowSize - diff : 0;
-                unsigned idx = nodeStartIdx;
-                for (; idx < bound; idx++) {
-                    for (const unsigned p : procRange_->CompatibleProcessorsVertex(node)) {
-                        affinityTableNode[p][idx] -= reward;
-                    }
-                }
-                if (windowSize >= diff && IsCompatible(node, targetProc)) {
-                    affinityTableNode[targetProc][idx] -= reward;
-                }
-            } else {
-                const unsigned diff = targetStep - nodeStep;
-                unsigned idx = windowSize + diff;
-                if (idx < windowBound && IsCompatible(node, targetProc)) {
-                    affinityTableNode[targetProc][idx] -= penalty;
-                }
-                for (; idx < windowBound; idx++) {
-                    for (const unsigned p : procRange_->CompatibleProcessorsVertex(node)) {
-                        affinityTableNode[p][idx] += penalty;
-                    }
-                }
-            }
-        }
-    }
-
+                                   unsigned nodeStartIdx, unsigned windowBound);
     template <typename AffinityTableT>
     void ComputeLambdaProcAffinity(VertexType node, AffinityTableT &affinityTableNode,
-                                   unsigned nodeProc, unsigned nodeStartIdx, unsigned windowBound) {
-        const CostT commGain = graph_->VertexCommWeight(node) * commMultiplier_;
-        for (const unsigned p : procRange_->CompatibleProcessorsVertex(node)) {
-            if (p == nodeProc) {
-                continue;
-            }
-            for (const auto lambdaPair : nodeLambdaMap_.IterateProcEntries(node)) {
-                const auto &lambdaProc = lambdaPair.first;
-                const CostT commCost = ChangeCommCost(
-                    instance_->CommunicationCosts(p, lambdaProc), instance_->CommunicationCosts(nodeProc, lambdaProc), commGain);
-                for (unsigned idx = nodeStartIdx; idx < windowBound; idx++) {
-                    affinityTableNode[p][idx] += commCost;
-                }
-            }
-        }
-    }
+                                   unsigned nodeProc, unsigned nodeStartIdx, unsigned windowBound);
 
     template <typename AffinityTableT>
     void ComputeParentStepAffinity(VertexType node, AffinityTableT &affinityTableNode,
                                     const CostT &penalty, const CostT &reward,
                                     unsigned nodeStep, unsigned nodeProc,
                                     unsigned sourceStep, unsigned sourceProc,
-                                    unsigned nodeStartIdx, unsigned windowBound) {
-        if (sourceStep < nodeStep + (sourceProc == nodeProc)) {
-            const unsigned diff = nodeStep - sourceStep;
-            const unsigned bound = windowSize >= diff ? windowSize - diff + 1 : 0;
-            unsigned idx = nodeStartIdx;
-            for (; idx < bound; idx++) {
-                for (const unsigned p : procRange_->CompatibleProcessorsVertex(node)) {
-                    affinityTableNode[p][idx] += penalty;
-                }
-            }
-            if (idx - 1 < bound && IsCompatible(node, sourceProc)) {
-                affinityTableNode[sourceProc][idx - 1] -= penalty;
-            }
-        } else {
-            const unsigned diff = sourceStep - nodeStep;
-            unsigned idx = std::min(windowSize + diff, windowBound);
-            if (idx < windowBound && IsCompatible(node, sourceProc)) {
-                affinityTableNode[sourceProc][idx] -= reward;
-            }
-            idx++;
-            for (; idx < windowBound; idx++) {
-                for (const unsigned p : procRange_->CompatibleProcessorsVertex(node)) {
-                    affinityTableNode[p][idx] -= reward;
-                }
-            }
-        }
-    }
+                                    unsigned nodeStartIdx, unsigned windowBound);
 
     template <typename AffinityTableT>
     void ComputeParentLambdaAffinity(VertexType node, AffinityTableT &affinityTableNode,
                                      VertexType source, unsigned nodeProc, unsigned sourceProc,
-                                     unsigned nodeStartIdx, unsigned windowBound) {
-        const CostT sourceCommGain = graph_->VertexCommWeight(source) * commMultiplier_;
-        for (const unsigned p : procRange_->CompatibleProcessorsVertex(node)) {
-            if (p == nodeProc) {
-                continue;
-            }
-            if (sourceProc != nodeProc && nodeLambdaMap_.GetProcEntry(source, nodeProc) == 1) {
-                for (unsigned idx = nodeStartIdx; idx < windowBound; idx++) {
-                    affinityTableNode[p][idx] -= instance_->CommunicationCosts(sourceProc, nodeProc) * sourceCommGain;
-                }
-            }
-            if (sourceProc != p && nodeLambdaMap_.HasNoProcEntry(source, p)) {
-                for (unsigned idx = nodeStartIdx; idx < windowBound; idx++) {
-                    affinityTableNode[p][idx] += instance_->CommunicationCosts(sourceProc, p) * sourceCommGain;
-                }
-            }
-        }
-    }
+                                     unsigned nodeStartIdx, unsigned windowBound);
 
     template <typename AffinityTableT>
     void ComputeParentCommAffinity(VertexType node, AffinityTableT &affinityTableNode,
                                    const CostT &penalty, const CostT &reward,
                                    unsigned nodeStep, unsigned nodeProc,
-                                   unsigned nodeStartIdx, unsigned windowBound) {
-        for (const auto &source : instance_->GetComputationalDag().Parents(node)) {
-            const unsigned sourceStep = activeSchedule_->AssignedSuperstep(source);
-            const unsigned sourceProc = activeSchedule_->AssignedProcessor(source);
-
-            ComputeParentStepAffinity(node, affinityTableNode, penalty, reward,
-                                      nodeStep, nodeProc, sourceStep, sourceProc, nodeStartIdx, windowBound);
-            ComputeParentLambdaAffinity(node, affinityTableNode, source, nodeProc, sourceProc,
-                                        nodeStartIdx, windowBound);
-        }
-    }
+                                   unsigned nodeStartIdx, unsigned windowBound);
 
     template <typename AffinityTableT>
-    void ComputeCommAffinity(VertexType node,
-                             AffinityTableT &affinityTableNode,
-                             const CostT &penalty,
-                             const CostT &reward,
-                             const unsigned startStep,
-                             const unsigned endStep) {
-        const unsigned nodeStep = activeSchedule_->AssignedSuperstep(node);
-        const unsigned nodeProc = activeSchedule_->AssignedProcessor(node);
-        const unsigned windowBound = EndIdx(nodeStep, endStep);
-        const unsigned nodeStartIdx = StartIdx(nodeStep, startStep);
-
-        ComputeChildCommAffinity(node, affinityTableNode, penalty, reward,
-                                 nodeStep, nodeProc, nodeStartIdx, windowBound);
-        ComputeLambdaProcAffinity(node, affinityTableNode, nodeProc, nodeStartIdx, windowBound);
-        ComputeParentCommAffinity(node, affinityTableNode, penalty, reward,
-                                  nodeStep, nodeProc, nodeStartIdx, windowBound);
-    }
+    void ComputeCommAffinity(VertexType node, AffinityTableT &affinityTableNode,
+                             const CostT &penalty, const CostT &reward,
+                             const unsigned startStep, const unsigned endStep);
 };
 
 }    // namespace osp
 } // namespace npu::tile_fwk
+#include "kl_hyper_total_comm_cost.tpp"
 #endif // OSP_KL_HYPER_TOTAL_COMM_COST_HPP

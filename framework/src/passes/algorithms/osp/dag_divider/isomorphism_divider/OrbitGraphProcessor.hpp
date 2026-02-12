@@ -416,8 +416,8 @@ class OrbitGraphProcessor {
                                                       size_t countThreshold) {
         std::vector<size_t> sortedSizes;
         sortedSizes.reserve(orbitSizeCounts.size());
-        for (const auto &[size, count] : orbitSizeCounts) {
-            sortedSizes.push_back(size);
+        for (const auto &pair: orbitSizeCounts) {
+            sortedSizes.push_back(pair.first);
         }
         std::sort(sortedSizes.rbegin(), sortedSizes.rend());
 
@@ -446,8 +446,8 @@ class OrbitGraphProcessor {
         minSymmetry_ = 2;
 
         size_t totalOrbitGroups = 0;
-        for (const auto &[size, count] : orbitSizeCounts) {
-            totalOrbitGroups += count;
+        for (const auto &pair: orbitSizeCounts) {
+            totalOrbitGroups += pair.second;
         }
         size_t countThreshold = static_cast<size_t>(static_cast<double>(totalOrbitGroups) * naturalBreaksCountPercentage_);
         if (countThreshold == 0 && totalOrbitGroups > 0) {
