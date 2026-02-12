@@ -31,13 +31,13 @@ Environment Variables:
 The exception hook automatically cleans up multiprocessing child processes
 when the parser is interrupted, preventing orphaned processes.
 """
+import ast
 import logging
 import multiprocessing
 import os
 import sys
 from typing import Union
 
-from . import doc
 
 PTO_BACKTRACE_ENV_VAR = "PTO_BACKTRACE"
 
@@ -45,7 +45,7 @@ PTO_BACKTRACE_ENV_VAR = "PTO_BACKTRACE"
 class ParserError(Exception):
     """Error class for diagnostics."""
 
-    def __init__(self, node: doc.AST, msg: Union[str, Exception]):
+    def __init__(self, node: ast.AST, msg: Union[str, Exception]):
         if isinstance(msg, Exception):
             msg = f"{type(msg).__name__}: {msg}"
         super().__init__(msg)

@@ -21,13 +21,12 @@ The main components are:
 - Context managers for automatic frame cleanup
 """
 
-
+import ast
 from collections import defaultdict
 from collections.abc import Callable
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional
 
-from pypto.frontend.parser.doc_core import AST
 from pypto.frontend.parser.error import ParserError
 
 
@@ -67,14 +66,14 @@ class ContextFrame:
     def __init__(self):
         self.vars = set()
 
-    def add(self, variable_name: str, node: Optional[AST] = None) -> None:
+    def add(self, variable_name: str, node: Optional[ast.AST] = None) -> None:
         """Register a new variable name in this context frame.
 
         Parameters
         ----------
         variable_name : str
             The identifier of the variable to register.
-        node : Optional[AST]
+        node : Optional[ast.AST]
             The AST node associated with this variable, used for error reporting.
         """
         if variable_name in self.vars:
@@ -147,7 +146,7 @@ class Context:
         self,
         var: str,
         value: Any,
-        node: Optional[AST] = None,
+        node: Optional[ast.AST] = None,
         allow_update: bool = True,
     ) -> None:
         """Register or update a variable in the current context frame.
@@ -164,7 +163,7 @@ class Context:
             The variable identifier.
         value : Any
             The value to associate with the variable.
-        node : Optional[AST]
+        node : Optional[ast.AST]
             The AST node for this variable, used for error reporting.
         allow_update : bool
             Whether updates to existing variables in the current frame are permitted.
@@ -323,7 +322,7 @@ class Context:
                 return i
         return None
 
-    def _create_variable_in_current_frame(self, var: str, value: Any, node: Optional[AST]) -> None:
+    def _create_variable_in_current_frame(self, var: str, value: Any, node: Optional[ast.AST]) -> None:
         """Create a new variable in the current frame.
 
         Parameters
@@ -332,7 +331,7 @@ class Context:
             The variable identifier.
         value : Any
             The value to associate with the variable.
-        node : Optional[AST]
+        node : Optional[ast.AST]
             The AST node for error reporting.
         """
         self.frames[-1].add(var, node)
