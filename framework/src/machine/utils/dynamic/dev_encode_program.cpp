@@ -100,10 +100,8 @@ void DevAscendProgram::DumpExpressionTable(const int indent, const bool dumpAddr
     }
 }
 
-std::string DevAscendProgram::Dump(const int indent, const bool dumpAddr) const {
+void DevAscendProgram::DumpBasicInfo(const int indent, std::ostringstream& oss) const {
     std::string INDENTINNER(indent + IDENT_SIZE, ' ');
-    std::ostringstream oss;
-    oss << "DevProgram {\n";
     oss << INDENTINNER << "#tensorMemBudget:" << memBudget.tensor.Total() << "\n";
     oss << INDENTINNER << "#metadataMemBudget:" << memBudget.metadata.Total() << "\n";
     oss << INDENTINNER << "#deviceSchMode:" << devArgs.machineConfig << "\n";
@@ -112,11 +110,19 @@ std::string DevAscendProgram::Dump(const int indent, const bool dumpAddr) const 
     oss << INDENTINNER << "#stitchFunctionsize:" << stitchFunctionsize << "\n";
     oss << INDENTINNER << "#slot{" << slotSize << "}\n";
     oss << INDENTINNER << "#assembleSlot{" << assembleSlotSize << "}\n";
+}
+
+void DevAscendProgram::DumpSymbolTable(const int indent, std::ostringstream& oss) const {
+    std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     oss << INDENTINNER << "#symbolCount:" << symbolTable.size() << "\n";
     for (size_t i = 0; i < symbolTable.size(); i++) {
         const DevAscendProgramSymbol &symbol = At(symbolTable, i);
         oss << INDENTINNER << "#symbol:" << symbol.index << " = " << &At(symbol.name, 0) << "\n";
     }
+}
+
+void DevAscendProgram::DumpInputOutputSlots(const int indent, std::ostringstream& oss) const {
+    std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     oss << INDENTINNER << "#inputCount:" << startArgsInputTensorSlotIndexList.size() << "\n";
     for (size_t i = 0; i < startArgsInputTensorSlotIndexList.size(); i++) {
         oss << INDENTINNER << "#input:" << i << " -> #slot:" << At(startArgsInputTensorSlotIndexList, i) << "\n";
@@ -125,6 +131,10 @@ std::string DevAscendProgram::Dump(const int indent, const bool dumpAddr) const 
     for (size_t i = 0; i < startArgsOutputTensorSlotIndexList.size(); i++) {
         oss << INDENTINNER << "#output:" << i << " <- #slot:" << At(startArgsOutputTensorSlotIndexList, i) << "\n";
     }
+}
+
+void DevAscendProgram::DumpAssembleAndInplaceSlots(const int indent, std::ostringstream& oss) const {
+    std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     oss << INDENTINNER << "#assembleSlotCount:" << assembleSlotIndexList.size() << "\n";
     for (size_t i = 0; i < assembleSlotIndexList.size(); i++) {
         oss << INDENTINNER << "#assembleSlot:" << i << " -> #slot:" << At(assembleSlotIndexList, i) << "\n";
@@ -133,6 +143,10 @@ std::string DevAscendProgram::Dump(const int indent, const bool dumpAddr) const 
     for (size_t i = 0; i < outputInplaceSlotList.size(); i++) {
         oss << INDENTINNER << "#outputInplaceSlot:" << i << " -> #slot:" << At(outputInplaceSlotList, i) << "\n";
     }
+}
+
+void DevAscendProgram::DumpPartialUpdate(const int indent, std::ostringstream& oss) const {
+    std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     for (size_t i = 0; i < partialUpdateList.size(); i++) {
         auto &partialUpdate = At(partialUpdateList, i);
         oss << INDENTINNER << "#slot-partial-update-" << i << ":" << !partialUpdate.Empty();
@@ -142,15 +156,30 @@ std::string DevAscendProgram::Dump(const int indent, const bool dumpAddr) const 
         }
         oss << "\n";
     }
+}
+
+void DevAscendProgram::DumpInputSymbols(const int indent, std::ostringstream& oss) const {
+    std::string INDENTINNER(indent + IDENT_SIZE, ' ');
     for (size_t i = 0; i < startArgsInputSymbolIndexList.size(); i++) {
         oss << INDENTINNER << "#symbol:" << i << " -> #symbolTable:" << At(startArgsInputSymbolIndexList, i) << "\n";
     }
+}
+
+std::string DevAscendProgram::Dump(const int indent, const bool dumpAddr) const {
+    std::ostringstream oss;
+    oss << "DevProgram {\n";
+
+    DumpBasicInfo(indent, oss);
+    DumpSymbolTable(indent, oss);
+    DumpInputOutputSlots(indent, oss);
+    DumpAssembleAndInplaceSlots(indent, oss);
+    DumpPartialUpdate(indent, oss);
+    DumpInputSymbols(indent, oss);
 
     DumpExpressionTable(indent, dumpAddr, oss);
-
     DumpControlFlow(indent, dumpAddr, oss);
-
     DumpCce(oss, indent);
+
     oss << "}";
     return oss.str();
 }
