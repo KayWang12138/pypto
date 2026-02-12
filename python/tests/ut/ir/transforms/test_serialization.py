@@ -21,7 +21,8 @@ from pypto.ir import DataType
 class TestBasicSerialization:
     """Tests for basic serialization of simple IR nodes."""
 
-    def test_serialize_var(self):
+    @staticmethod
+    def test_serialize_var():
         """Test serialization of Var node."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
 
@@ -31,7 +32,8 @@ class TestBasicSerialization:
         restored = ir.deserialize(data)
         ir.assert_structural_equal(x, restored, enable_auto_mapping=True)
 
-    def test_serialize_iter_arg(self):
+    @staticmethod
+    def test_serialize_iter_arg():
         """Test serialization of IterArg node."""
         init_value = ir.ConstInt(5, DataType.INT64, ir.Span.unknown())
         iter_arg = ir.IterArg("iter_arg", ir.ScalarType(DataType.INT64), init_value, ir.Span.unknown())
@@ -47,7 +49,8 @@ class TestBasicSerialization:
         assert isinstance(restored_iter_arg.initValue, ir.ConstInt)
         assert cast(ir.ConstInt, restored_iter_arg.initValue).value == 5
 
-    def test_serialize_iter_arg_with_expr_init_value(self):
+    @staticmethod
+    def test_serialize_iter_arg_with_expr_init_value():
         """Test serialization of IterArg with expression as initValue."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -61,7 +64,8 @@ class TestBasicSerialization:
         ir.assert_structural_equal(iter_arg, restored, enable_auto_mapping=True)
         assert isinstance(restored_iter_arg.initValue, ir.Add)
 
-    def test_serialize_const_int(self):
+    @staticmethod
+    def test_serialize_const_int():
         """Test serialization of ConstInt node."""
         c = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
 
@@ -70,7 +74,8 @@ class TestBasicSerialization:
 
         ir.assert_structural_equal(c, restored, enable_auto_mapping=True)
 
-    def test_serialize_const_float(self):
+    @staticmethod
+    def test_serialize_const_float():
         """Test serialization of ConstFloat node."""
         f = ir.ConstFloat(42.0, DataType.FP32, ir.Span.unknown())
 
@@ -79,7 +84,8 @@ class TestBasicSerialization:
 
         ir.assert_structural_equal(f, restored, enable_auto_mapping=True)
 
-    def test_serialize_const_bool(self):
+    @staticmethod
+    def test_serialize_const_bool():
         """Test serialization of ConstBool node."""
         b_true = ir.ConstBool(True, ir.Span.unknown())
         b_false = ir.ConstBool(False, ir.Span.unknown())
@@ -92,7 +98,8 @@ class TestBasicSerialization:
         restored_false = ir.deserialize(data_false)
         ir.assert_structural_equal(b_false, restored_false, enable_auto_mapping=True)
 
-    def test_serialize_binary_expr(self):
+    @staticmethod
+    def test_serialize_binary_expr():
         """Test serialization of binary expressions."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -103,7 +110,8 @@ class TestBasicSerialization:
 
         ir.assert_structural_equal(add, restored, enable_auto_mapping=True)
 
-    def test_serialize_unary_expr(self):
+    @staticmethod
+    def test_serialize_unary_expr():
         """Test serialization of unary expressions."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         neg = ir.Neg(x, DataType.INT64, ir.Span.unknown())
@@ -113,7 +121,8 @@ class TestBasicSerialization:
 
         ir.assert_structural_equal(neg, restored, enable_auto_mapping=True)
 
-    def test_serialize_call(self):
+    @staticmethod
+    def test_serialize_call():
         """Test serialization of Call expression."""
         op = ir.Op("func")
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -129,7 +138,8 @@ class TestBasicSerialization:
 class TestComplexExpressions:
     """Tests for serialization of complex nested expressions."""
 
-    def test_serialize_nested_arithmetic(self):
+    @staticmethod
+    def test_serialize_nested_arithmetic():
         """Test serialization of nested arithmetic expression: (x + 5) * 2."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c5 = ir.ConstInt(5, DataType.INT64, ir.Span.unknown())
@@ -143,7 +153,8 @@ class TestComplexExpressions:
 
         ir.assert_structural_equal(mul, restored, enable_auto_mapping=True)
 
-    def test_serialize_deeply_nested(self):
+    @staticmethod
+    def test_serialize_deeply_nested():
         """Test serialization of deeply nested expression."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c1 = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
@@ -178,7 +189,8 @@ class TestComplexExpressions:
 class TestPointerSharing:
     """Tests for preserving pointer sharing during serialization."""
 
-    def test_shared_var_in_expression(self):
+    @staticmethod
+    def test_shared_var_in_expression():
         """Test that shared variable pointer is preserved: x + x."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         add = ir.Add(x, x, DataType.INT64, ir.Span.unknown())  # Same x used twice
@@ -194,7 +206,8 @@ class TestPointerSharing:
         # In the restored version, they should also be the same object
         assert restored_add.left is restored_add.right
 
-    def test_shared_subexpression(self):
+    @staticmethod
+    def test_shared_subexpression():
         """Test that shared subexpression pointer is preserved."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c1 = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
@@ -215,7 +228,8 @@ class TestPointerSharing:
         # Check that left and right are the same object
         assert restored_mul.left is restored_mul.right
 
-    def test_complex_pointer_sharing(self):
+    @staticmethod
+    def test_complex_pointer_sharing():
         """Test complex pointer sharing with multiple shared nodes."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -247,7 +261,8 @@ class TestPointerSharing:
 class TestStatementSerialization:
     """Tests for statement serialization."""
 
-    def test_serialize_assign_stmt(self):
+    @staticmethod
+    def test_serialize_assign_stmt():
         """Test serialization of AssignStmt."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -258,7 +273,8 @@ class TestStatementSerialization:
 
         ir.assert_structural_equal(assign, restored, enable_auto_mapping=True)
 
-    def test_serialize_if_stmt(self):
+    @staticmethod
+    def test_serialize_if_stmt():
         """Test serialization of IfStmt."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -275,7 +291,8 @@ class TestStatementSerialization:
 
         ir.assert_structural_equal(if_stmt, restored, enable_auto_mapping=True)
 
-    def test_serialize_if_stmt_with_nullopt_else_body(self):
+    @staticmethod
+    def test_serialize_if_stmt_with_nullopt_else_body():
         """Test serialization of IfStmt with nullopt else_body."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -297,7 +314,8 @@ class TestStatementSerialization:
         # Verify that else_body is None in the restored version
         assert restored_if_stmt.else_body is None
 
-    def test_serialize_for_stmt(self):
+    @staticmethod
+    def test_serialize_for_stmt():
         """Test serialization of ForStmt."""
         i = ir.Var("i", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -315,7 +333,8 @@ class TestStatementSerialization:
 
         ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping=True)
 
-    def test_serialize_for_stmt_with_iter_args(self):
+    @staticmethod
+    def test_serialize_for_stmt_with_iter_args():
         """Test serialization of ForStmt with iter_args."""
         i = ir.Var("i", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -346,7 +365,8 @@ class TestStatementSerialization:
         assert isinstance(restored_for_stmt.iter_args[0].initValue, ir.ConstInt)
         assert isinstance(restored_for_stmt.iter_args[1].initValue, ir.Var)
 
-    def test_serialize_for_stmt_with_empty_iter_args(self):
+    @staticmethod
+    def test_serialize_for_stmt_with_empty_iter_args():
         """Test serialization of ForStmt with empty iter_args."""
         i = ir.Var("i", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -366,7 +386,8 @@ class TestStatementSerialization:
         ir.assert_structural_equal(for_stmt, restored, enable_auto_mapping=True)
         assert len(restored_for_stmt.iter_args) == 0
 
-    def test_serialize_yield_stmt(self):
+    @staticmethod
+    def test_serialize_yield_stmt():
         """Test serialization of YieldStmt."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -378,7 +399,8 @@ class TestStatementSerialization:
 
         ir.assert_structural_equal(yield_stmt, restored, enable_auto_mapping=True)
 
-    def test_serialize_return_stmt(self):
+    @staticmethod
+    def test_serialize_return_stmt():
         """Test serialization of ReturnStmt."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -390,7 +412,8 @@ class TestStatementSerialization:
 
         ir.assert_structural_equal(return_stmt, restored, enable_auto_mapping=True)
 
-    def test_serialize_return_stmt_with_single_value(self):
+    @staticmethod
+    def test_serialize_return_stmt_with_single_value():
         """Test serialization of ReturnStmt with single value."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
 
@@ -403,7 +426,8 @@ class TestStatementSerialization:
         ir.assert_structural_equal(return_stmt, restored, enable_auto_mapping=True)
         assert len(restored_return.value) == 1
 
-    def test_serialize_return_stmt_empty(self):
+    @staticmethod
+    def test_serialize_return_stmt_empty():
         """Test serialization of ReturnStmt without values."""
         return_stmt = ir.ReturnStmt([], ir.Span.unknown())
 
@@ -414,7 +438,8 @@ class TestStatementSerialization:
         ir.assert_structural_equal(return_stmt, restored, enable_auto_mapping=True)
         assert len(restored_return.value) == 0
 
-    def test_serialize_return_stmt_with_expressions(self):
+    @staticmethod
+    def test_serialize_return_stmt_with_expressions():
         """Test serialization of ReturnStmt with complex expressions."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -431,7 +456,8 @@ class TestStatementSerialization:
         assert len(restored_return.value) == 1
         assert isinstance(restored_return.value[0], ir.Add)
 
-    def test_serialize_return_stmt_multiple_expressions(self):
+    @staticmethod
+    def test_serialize_return_stmt_multiple_expressions():
         """Test serialization of ReturnStmt with multiple different expressions."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
@@ -449,7 +475,8 @@ class TestStatementSerialization:
         assert isinstance(restored_return.value[1], ir.ConstInt)
         assert isinstance(restored_return.value[2], ir.Add)
 
-    def test_serialize_seq_stmts(self):
+    @staticmethod
+    def test_serialize_seq_stmts():
         """Test serialization of SeqStmts."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -472,7 +499,8 @@ class TestStatementSerialization:
 class TestFunctionSerialization:
     """Tests for Function and Program serialization."""
 
-    def test_serialize_function(self):
+    @staticmethod
+    def test_serialize_function():
         """Test serialization of Function."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -500,7 +528,8 @@ class TestFunctionSerialization:
 
         ir.assert_structural_equal(func, restored, enable_auto_mapping=True)
 
-    def test_serialize_function_with_return_stmt(self):
+    @staticmethod
+    def test_serialize_function_with_return_stmt():
         """Test serialization of Function with ReturnStmt."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -525,7 +554,8 @@ class TestFunctionSerialization:
         assert isinstance(restored_func.body, ir.ReturnStmt)
         assert len(cast(ir.ReturnStmt, restored_func.body).value) == 1
 
-    def test_serialize_program(self):
+    @staticmethod
+    def test_serialize_program():
         """Test serialization of Program."""
         # Create a simple function
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -546,7 +576,8 @@ class TestFunctionSerialization:
 class TestSpanSerialization:
     """Tests for Span serialization."""
 
-    def test_serialize_with_span(self):
+    @staticmethod
+    def test_serialize_with_span():
         """Test that Span information is preserved."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -565,7 +596,8 @@ class TestSpanSerialization:
 class TestFileSerialization:
     """Tests for file I/O serialization."""
 
-    def test_serialize_to_file(self):
+    @staticmethod
+    def test_serialize_to_file():
         """Test serialization to and from file."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
@@ -591,7 +623,8 @@ class TestFileSerialization:
 class TestEdgeCases:
     """Tests for edge cases and special scenarios."""
 
-    def test_serialize_all_binary_ops(self):
+    @staticmethod
+    def test_serialize_all_binary_ops():
         """Test serialization of all binary operation types."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -628,7 +661,8 @@ class TestEdgeCases:
             restored = ir.deserialize(data)
             ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_serialize_all_unary_ops(self):
+    @staticmethod
+    def test_serialize_all_unary_ops():
         """Test serialization of all unary operation types."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
 
@@ -640,7 +674,8 @@ class TestEdgeCases:
             restored = ir.deserialize(data)
             ir.assert_structural_equal(expr, restored, enable_auto_mapping=True)
 
-    def test_serialize_empty_collections(self):
+    @staticmethod
+    def test_serialize_empty_collections():
         """Test serialization with empty collections."""
         # YieldStmt with empty value list
         yield_empty = ir.YieldStmt([], ir.Span.unknown())
@@ -672,7 +707,8 @@ class TestEdgeCases:
         restored = ir.deserialize(data)
         ir.assert_structural_equal(for_stmt_empty, restored, enable_auto_mapping=True)
 
-    def test_serialize_global_var(self):
+    @staticmethod
+    def test_serialize_global_var():
         """Test serialization of GlobalVar in Call."""
         gvar = ir.GlobalVar("my_func")
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -688,7 +724,8 @@ class TestRobustness:
     """Tests for error handling and robustness."""
 
     @pytest.mark.skip(reason="C++ backend triggers fatal error instead of raising Python exception")
-    def test_deserialize_invalid_data(self):
+    @staticmethod
+    def test_deserialize_invalid_data():
         """Test that deserializing invalid data raises an error."""
         invalid_data = b"invalid msgpack data"
 
@@ -696,7 +733,8 @@ class TestRobustness:
             ir.deserialize(invalid_data)
 
     @pytest.mark.skip(reason="C++ backend triggers fatal error instead of raising Python exception")
-    def test_deserialize_nonexistent_file(self):
+    @staticmethod
+    def test_deserialize_nonexistent_file():
         """Test that deserializing from nonexistent file raises an error."""
         with pytest.raises(ValueError):
             ir.deserialize_from_file("/nonexistent/path/file.msgpack")

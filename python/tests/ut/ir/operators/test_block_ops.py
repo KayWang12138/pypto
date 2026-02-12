@@ -18,14 +18,15 @@ from pypto.ir.op import block
 class TestBlockElementwiseOps:
     """Test suite for block-level element-wise operators (tile-tile and tile-scalar)."""
 
-    def test_block_add(self):
+    @staticmethod
+    def test_block_add():
         """Test block.add operator - element-wise addition of two tiles."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_add_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 b = f.param("b", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -41,16 +42,16 @@ class TestBlockElementwiseOps:
 
         ir_str = str(p.get_result())
         assert "block.add" in ir_str
-        print(ir_str)
 
-    def test_block_sub(self):
+    @staticmethod
+    def test_block_sub():
         """Test block.sub operator - element-wise subtraction of two tiles."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_sub_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 b = f.param("b", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -66,16 +67,16 @@ class TestBlockElementwiseOps:
 
         ir_str = str(p.get_result())
         assert "block.sub" in ir_str
-        print(ir_str)
 
-    def test_block_mul(self):
+    @staticmethod
+    def test_block_mul():
         """Test block.mul operator - element-wise multiplication of two tiles."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_mul_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 b = f.param("b", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -91,16 +92,16 @@ class TestBlockElementwiseOps:
 
         ir_str = str(p.get_result())
         assert "block.mul" in ir_str
-        print(ir_str)
 
-    def test_block_div(self):
+    @staticmethod
+    def test_block_div():
         """Test block.div operator - element-wise division of two tiles."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_div_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 b = f.param("b", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -116,16 +117,16 @@ class TestBlockElementwiseOps:
 
         ir_str = str(p.get_result())
         assert "block.div" in ir_str
-        print(ir_str)
 
-    def test_block_muls(self):
+    @staticmethod
+    def test_block_muls():
         """Test block.muls operator - multiply all elements of a tile by scalar."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_muls_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -139,16 +140,16 @@ class TestBlockElementwiseOps:
 
         ir_str = str(p.get_result())
         assert "block.muls" in ir_str
-        print(ir_str)
 
-    def test_block_cmp(self):
+    @staticmethod
+    def test_block_cmp():
         """Test block.cmp operator - element-wise comparison of two tiles."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_cmp_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 b = f.param("b", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -164,16 +165,16 @@ class TestBlockElementwiseOps:
 
         ir_str = str(p.get_result())
         assert "block.cmp" in ir_str
-        print(ir_str)
 
-    def test_block_cmps(self):
+    @staticmethod
+    def test_block_cmps():
         """Test block.cmps operator - compare tile elements with scalar."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_cmps_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -187,20 +188,20 @@ class TestBlockElementwiseOps:
 
         ir_str = str(p.get_result())
         assert "block.cmps" in ir_str
-        print(ir_str)
 
 
 class TestBlockUnaryOps:
     """Test suite for block-level unary operators."""
 
-    def test_block_log(self):
+    @staticmethod
+    def test_block_log():
         """Test block.log operator - natural logarithm of all elements."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_log_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -214,16 +215,16 @@ class TestBlockUnaryOps:
 
         ir_str = str(p.get_result())
         assert "block.log" in ir_str
-        print(ir_str)
 
-    def test_block_abs(self):
+    @staticmethod
+    def test_block_abs():
         """Test block.abs operator - absolute value of all elements."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_abs_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -237,16 +238,16 @@ class TestBlockUnaryOps:
 
         ir_str = str(p.get_result())
         assert "block.abs" in ir_str
-        print(ir_str)
 
-    def test_block_relu(self):
+    @staticmethod
+    def test_block_relu():
         """Test block.relu operator - ReLU activation function."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_relu_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -260,16 +261,16 @@ class TestBlockUnaryOps:
 
         ir_str = str(p.get_result())
         assert "block.relu" in ir_str
-        print(ir_str)
 
-    def test_block_exp(self):
+    @staticmethod
+    def test_block_exp():
         """Test block.exp operator - exponential of all elements."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_exp_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -283,16 +284,16 @@ class TestBlockUnaryOps:
 
         ir_str = str(p.get_result())
         assert "block.exp" in ir_str
-        print(ir_str)
 
-    def test_block_sqrt(self):
+    @staticmethod
+    def test_block_sqrt():
         """Test block.sqrt operator - square root of all elements."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_sqrt_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -306,16 +307,16 @@ class TestBlockUnaryOps:
 
         ir_str = str(p.get_result())
         assert "block.sqrt" in ir_str
-        print(ir_str)
 
-    def test_block_neg(self):
+    @staticmethod
+    def test_block_neg():
         """Test block.neg operator - negate all elements."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_neg_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -329,20 +330,20 @@ class TestBlockUnaryOps:
 
         ir_str = str(p.get_result())
         assert "block.neg" in ir_str
-        print(ir_str)
 
 
 class TestBlockReductionOps:
     """Test suite for block-level reduction operators."""
 
-    def test_block_sum_axis0(self):
+    @staticmethod
+    def test_block_sum_axis0():
         """Test block.sum operator - sum along axis 0 (column-wise)."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_sum_axis0_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -356,16 +357,16 @@ class TestBlockReductionOps:
 
         ir_str = str(p.get_result())
         assert "block.sum" in ir_str
-        print(ir_str)
 
-    def test_block_sum_axis1(self):
+    @staticmethod
+    def test_block_sum_axis1():
         """Test block.sum operator - sum along axis 1 (row-wise)."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_sum_axis1_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -379,16 +380,16 @@ class TestBlockReductionOps:
 
         ir_str = str(p.get_result())
         assert "block.sum" in ir_str
-        print(ir_str)
 
-    def test_block_max_axis0(self):
+    @staticmethod
+    def test_block_max_axis0():
         """Test block.max operator - max along axis 0 (column-wise)."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_max_axis0_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -402,16 +403,16 @@ class TestBlockReductionOps:
 
         ir_str = str(p.get_result())
         assert "block.max" in ir_str
-        print(ir_str)
 
-    def test_block_max_axis1(self):
+    @staticmethod
+    def test_block_max_axis1():
         """Test block.max operator - max along axis 1 (row-wise)."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_max_axis1_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -425,16 +426,16 @@ class TestBlockReductionOps:
 
         ir_str = str(p.get_result())
         assert "block.max" in ir_str
-        print(ir_str)
 
-    def test_block_row_max(self):
+    @staticmethod
+    def test_block_row_max():
         """Test block.row_max operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_row_max_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 input = f.param("input", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 1], DataType.FP32))
                 f.return_type(ir.TensorType([128, 1], DataType.FP32))
@@ -448,16 +449,16 @@ class TestBlockReductionOps:
 
         ir_str = str(p.get_result())
         assert "block.row_max" in ir_str
-        print(ir_str)
 
-    def test_block_row_sum(self):
+    @staticmethod
+    def test_block_row_sum():
         """Test block.row_sum operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_row_sum_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 input = f.param("input", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 1], DataType.FP32))
                 f.return_type(ir.TensorType([128, 1], DataType.FP32))
@@ -471,16 +472,16 @@ class TestBlockReductionOps:
 
         ir_str = str(p.get_result())
         assert "block.row_sum" in ir_str
-        print(ir_str)
 
-    def test_block_row_min(self):
+    @staticmethod
+    def test_block_row_min():
         """Test block.row_min operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_row_min_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 input = f.param("input", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 1], DataType.FP32))
                 f.return_type(ir.TensorType([128, 1], DataType.FP32))
@@ -494,16 +495,16 @@ class TestBlockReductionOps:
 
         ir_str = str(p.get_result())
         assert "block.row_min" in ir_str
-        print(ir_str)
 
-    def test_block_min_axis0(self):
+    @staticmethod
+    def test_block_min_axis0():
         """Test block.min operator - min along axis 0 (column-wise)."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_min_axis0_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -517,16 +518,16 @@ class TestBlockReductionOps:
 
         ir_str = str(p.get_result())
         assert "block.min" in ir_str
-        print(ir_str)
 
-    def test_block_min_axis1(self):
+    @staticmethod
+    def test_block_min_axis1():
         """Test block.min operator - min along axis 1 (row-wise)."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_min_axis1_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -540,20 +541,20 @@ class TestBlockReductionOps:
 
         ir_str = str(p.get_result())
         assert "block.min" in ir_str
-        print(ir_str)
 
 
 class TestBlockBroadcastOps:
     """Test suite for block-level broadcast operators."""
 
-    def test_block_col_expand(self):
+    @staticmethod
+    def test_block_col_expand():
         """Test block.col_expand operator - expand column vector to target shape."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_col_expand_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 target = f.param("target", ir.TensorType([128, 128], DataType.FP32))
                 col = f.param("col", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -569,16 +570,16 @@ class TestBlockBroadcastOps:
 
         ir_str = str(p.get_result())
         assert "block.col_expand" in ir_str
-        print(ir_str)
 
-    def test_block_col_expand_mul(self):
+    @staticmethod
+    def test_block_col_expand_mul():
         """Test block.col_expand_mul operator - expand column and multiply with tile."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_col_expand_mul_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 col = f.param("col", ir.TensorType([128, 128], DataType.FP32))
                 tile = f.param("tile", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -594,16 +595,16 @@ class TestBlockBroadcastOps:
 
         ir_str = str(p.get_result())
         assert "block.col_expand_mul" in ir_str
-        print(ir_str)
 
-    def test_block_col_expand_div(self):
+    @staticmethod
+    def test_block_col_expand_div():
         """Test block.col_expand_div operator - expand column and divide tile."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_col_expand_div_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 col = f.param("col", ir.TensorType([128, 128], DataType.FP32))
                 tile = f.param("tile", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -619,16 +620,16 @@ class TestBlockBroadcastOps:
 
         ir_str = str(p.get_result())
         assert "block.col_expand_div" in ir_str
-        print(ir_str)
 
-    def test_block_col_expand_sub(self):
+    @staticmethod
+    def test_block_col_expand_sub():
         """Test block.col_expand_sub operator - expand column and subtract from tile."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_col_expand_sub_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 col = f.param("col", ir.TensorType([128, 128], DataType.FP32))
                 tile = f.param("tile", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -644,16 +645,16 @@ class TestBlockBroadcastOps:
 
         ir_str = str(p.get_result())
         assert "block.col_expand_sub" in ir_str
-        print(ir_str)
 
-    def test_block_row_expand_add(self):
+    @staticmethod
+    def test_block_row_expand_add():
         """Test block.row_expand_add operator - expand row and add to tile."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_row_expand_add_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 tile = f.param("tile", ir.TensorType([128, 128], DataType.FP32))
                 row = f.param("row", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -669,16 +670,16 @@ class TestBlockBroadcastOps:
 
         ir_str = str(p.get_result())
         assert "block.row_expand_add" in ir_str
-        print(ir_str)
 
-    def test_block_expands(self):
+    @staticmethod
+    def test_block_expands():
         """Test block.expands operator - expand scalar to tile shape."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_expands_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
                 f.return_type(ir.TensorType([128, 128], DataType.FP32))
@@ -692,20 +693,20 @@ class TestBlockBroadcastOps:
 
         ir_str = str(p.get_result())
         assert "block.expands" in ir_str
-        print(ir_str)
 
 
 class TestBlockMatMulOps:
     """Test suite for block-level matrix multiplication operators."""
 
-    def test_block_matmul(self):
+    @staticmethod
+    def test_block_matmul():
         """Test block.matmul operator - matrix multiplication."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_matmul_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 64], DataType.FP32))
                 b = f.param("b", ir.TensorType([64, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 128], DataType.FP32))
@@ -721,20 +722,20 @@ class TestBlockMatMulOps:
 
         ir_str = str(p.get_result())
         assert "block.matmul" in ir_str
-        print(ir_str)
 
 
 class TestBlockTransformOps:
     """Test suite for block-level transform operators."""
 
-    def test_block_transpose(self):
+    @staticmethod
+    def test_block_transpose():
         """Test block.transpose operator - transpose a tile."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_transpose_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 64], DataType.FP32))
                 output = f.param("output", ir.TensorType([64, 128], DataType.FP32))
                 f.return_type(ir.TensorType([64, 128], DataType.FP32))
@@ -748,13 +749,13 @@ class TestBlockTransformOps:
 
         ir_str = str(p.get_result())
         assert "block.transpose" in ir_str
-        print(ir_str)
 
 
 class TestTileTransformOps:
     """Tests for tile transform operations."""
 
-    def test_tile_view(self):
+    @staticmethod
+    def test_tile_view():
         """Test tile.view operation."""
         span = ir.Span.unknown()
 
@@ -774,7 +775,8 @@ class TestTileTransformOps:
         assert result_type.dtype == DataType.FP16
         assert len(result_type.shape) == 2
 
-    def test_tile_reshape(self):
+    @staticmethod
+    def test_tile_reshape():
         """Test tile.reshape operation."""
         span = ir.Span.unknown()
 
@@ -800,7 +802,8 @@ class TestTileTransformOps:
         assert isinstance(result_type2, ir.TileType)
         assert len(result_type2.shape) == 2
 
-    def test_tile_transpose(self):
+    @staticmethod
+    def test_tile_transpose():
         """Test tile.transpose operation."""
         span = ir.Span.unknown()
 
@@ -820,7 +823,8 @@ class TestTileTransformOps:
         assert result_type.dtype == DataType.FP16
         assert len(result_type.shape) == 2
 
-    def test_tile_transpose_negative_axis(self):
+    @staticmethod
+    def test_tile_transpose_negative_axis():
         """Test tile.transpose with negative axis indices."""
         span = ir.Span.unknown()
 
@@ -830,7 +834,6 @@ class TestTileTransformOps:
         tile_type = ir.TileType([dim8, dim16], DataType.FP32)
         tile_var = ir.Var("tile", tile_type, span)
 
-        # Transpose using negative indices: axis1=-2 (0), axis2=-1 (1)
         # [8, 16] -> [16, 8]
         call = block.transpose(tile_var, -2, -1)
 
@@ -839,7 +842,8 @@ class TestTileTransformOps:
         result_type = call.type
         assert isinstance(result_type, ir.TileType)
 
-    def test_transform_operators_registered(self):
+    @staticmethod
+    def test_transform_operators_registered():
         """Test that transform operators are registered."""
         assert ir.is_op_registered("block.view")
         assert ir.is_op_registered("block.reshape")
@@ -849,7 +853,8 @@ class TestTileTransformOps:
 class TestBlockBatchMatMulOps:
     """Tests for block batch matrix multiplication operations."""
 
-    def test_batch_matmul_2d(self):
+    @staticmethod
+    def test_batch_matmul_2d():
         """Test block.batch_matmul with 2D tiles (equivalent to regular matmul)."""
         span = ir.Span.unknown()
 
@@ -874,7 +879,8 @@ class TestBlockBatchMatMulOps:
         assert len(result_type.shape) == 2
         assert result_type.dtype == DataType.FP16
 
-    def test_batch_matmul_3d(self):
+    @staticmethod
+    def test_batch_matmul_3d():
         """Test block.batch_matmul with 3D tiles (batch dimension)."""
         span = ir.Span.unknown()
 
@@ -900,7 +906,8 @@ class TestBlockBatchMatMulOps:
         assert len(result_type.shape) == 3
         assert result_type.dtype == DataType.FP32
 
-    def test_batch_matmul_4d(self):
+    @staticmethod
+    def test_batch_matmul_4d():
         """Test block.batch_matmul with 4D tiles (multiple batch dimensions)."""
         span = ir.Span.unknown()
 
@@ -927,7 +934,8 @@ class TestBlockBatchMatMulOps:
         assert len(result_type.shape) == 4
         assert result_type.dtype == DataType.FP16
 
-    def test_batch_matmul_broadcast(self):
+    @staticmethod
+    def test_batch_matmul_broadcast():
         """Test block.batch_matmul with broadcasting batch dimensions."""
         span = ir.Span.unknown()
 
@@ -956,7 +964,8 @@ class TestBlockBatchMatMulOps:
 class TestMultiDimensionalTileOps:
     """Tests for multi-dimensional TileType operations."""
 
-    def test_transpose_3d(self):
+    @staticmethod
+    def test_transpose_3d():
         """Test transpose on 3D tile."""
         span = ir.Span.unknown()
 
@@ -976,7 +985,8 @@ class TestMultiDimensionalTileOps:
         assert isinstance(result_type, ir.TileType)
         assert len(result_type.shape) == 3
 
-    def test_row_max_3d(self):
+    @staticmethod
+    def test_row_max_3d():
         """Test row_max on 3D tile."""
         span = ir.Span.unknown()
 
@@ -996,7 +1006,8 @@ class TestMultiDimensionalTileOps:
         assert isinstance(result_type, ir.TileType)
         assert len(result_type.shape) == 3
 
-    def test_view_3d(self):
+    @staticmethod
+    def test_view_3d():
         """Test view operation on 3D tile."""
         span = ir.Span.unknown()
 

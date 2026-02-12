@@ -30,17 +30,12 @@ def test_init_memref_simple():
         # Constants for tile
         tile_height = 64
         tile_width = 64
-
         # Load (should infer input_a/b as DDR)
         tile_a = ib.let("tile_a", block.load(input_a, 0, 0, tile_height, tile_width))
         tile_b = ib.let("tile_b", block.load(input_b, 0, 0, tile_height, tile_width))
-
-        # Compute (UB)
         tile_sum = ib.let("tile_sum", block.add(tile_a, tile_b))
-
         # Store (should infer output as DDR)
         result = ib.let("result", block.store(tile_sum, 0, 0, tile_height, tile_width, output))
-
         ib.return_stmt(result)
 
     func = f.get_result()

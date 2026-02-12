@@ -66,7 +66,6 @@ def _build_simple_program():
     tile_d = mul(tile_c, tile_c), tile_e = add(tile_d, tile_d), result = store(tile_e, output)
     """
     ib = builder.IRBuilder()
-
     with ib.function("main") as f:
         input_a = f.param("input_a", ir.TensorType([64, 64], DataType.FP32))
         input_b = f.param("input_b", ir.TensorType([64, 64], DataType.FP32))
@@ -91,7 +90,6 @@ def _build_sequential_program():
     tile_d = add(tile_c, tile_c), tile_e = add(tile_d, tile_d), result = store(tile_e, output)
     """
     ib = builder.IRBuilder()
-
     with ib.function("main") as f:
         input_a = f.param("input_a", ir.TensorType([64, 64], DataType.FP32))
         output = f.param("output", ir.TensorType([64, 64], DataType.FP32))
@@ -151,7 +149,6 @@ def _build_memref_sharing_program():
     tile_d = add(tile_c, tile_c), result = store(tile_d, output)
     """
     ib = builder.IRBuilder()
-
     with ib.function("main") as f:
         input_a = f.param("input_a", ir.TensorType([64, 64], DataType.FP32))
         output = f.param("output", ir.TensorType([64, 64], DataType.FP32))
@@ -174,7 +171,6 @@ def _build_with_dependencies_program():
     tile_d = add(tile_c, tile_c), tile_e = add(tile_d, tile_d), result = store(tile_e, output)
     """
     ib = builder.IRBuilder()
-
     with ib.function("main") as f:
         input_a = f.param("input_a", ir.TensorType([64, 64], DataType.FP32))
         input_b = f.param("input_b", ir.TensorType([64, 64], DataType.FP32))
@@ -199,7 +195,6 @@ def _build_transitive_conflict_program():
     tile_d = add(tile_c, tile_c), tile_e = add(tile_c, tile_d), result = store(tile_e, output)
     """
     ib = builder.IRBuilder()
-
     with ib.function("main") as f:
         input_a = f.param("input_a", ir.TensorType([64, 64], DataType.FP32))
         output = f.param("output", ir.TensorType([64, 64], DataType.FP32))
@@ -223,7 +218,6 @@ def _build_multiple_memory_spaces_program():
     _result_a = store(tile_c, output_a), tile_d = add(tile_c, tile_c), result_b = store(tile_d, output_b)
     """
     ib = builder.IRBuilder()
-
     with ib.function("main") as f:
         input_a = f.param("input_a", ir.TensorType([64, 64], DataType.FP32))
         input_b = f.param("input_b", ir.TensorType([64, 64], DataType.FP32))
@@ -246,7 +240,8 @@ def _build_multiple_memory_spaces_program():
 class TestBasicMemoryReuse:
     """Tests for BasicMemoryReusePass with TileType variables."""
 
-    def test_simple(self):
+    @staticmethod
+    def test_simple():
         """tile_d reuses tile_a, tile_e reuses tile_b (transitive conflict prevents both from tile_a).
 
         Lifetimes: tile_a[0,2], tile_b[1,2], tile_c[2,3], tile_d[3,4], tile_e[4,5]
@@ -258,7 +253,8 @@ class TestBasicMemoryReuse:
         _assert_shares_memref(func, "tile_a", "tile_d")
         _assert_shares_memref(func, "tile_b", "tile_e")
 
-    def test_sequential(self):
+    @staticmethod
+    def test_sequential():
         """Sequential chain: tile_c reuses tile_a, tile_d reuses tile_b, tile_e reuses tile_c.
 
         Lifetimes: tile_a[0,1], tile_b[1,2], tile_c[2,3], tile_d[3,4], tile_e[4,5]
@@ -271,7 +267,8 @@ class TestBasicMemoryReuse:
         _assert_shares_memref(func, "tile_b", "tile_d")
         _assert_shares_memref(func, "tile_c", "tile_e")
 
-    def test_different_sizes(self):
+    @staticmethod
+    def test_different_sizes():
         """Small tile (32x32) can reuse large tile (64x64) buffer, not vice versa.
 
         tile_d (32x32) reuses tile_a (64x64) since 64x64 >= 32x32.
@@ -282,16 +279,18 @@ class TestBasicMemoryReuse:
         _assert_all_have_memrefs(func)
         _assert_shares_memref(func, "tile_a", "tile_d")
 
-    def test_empty_function(self):
+    @staticmethod
+    def test_empty_function():
         """Empty function should not crash."""
         program = _build_empty_program()
-        After = passes.basic_memory_reuse()(program)
-        func = list(After.functions.values())[0]
+        program_after = passes.basic_memory_reuse()(program)
+        func = list(program_after.functions.values())[0]
 
         assert func is not None
         assert func.name == "main"
 
-    def test_memref_sharing(self):
+    @staticmethod
+    def test_memref_sharing():
         """Chain: tile_c reuses tile_a, tile_d reuses tile_b.
 
         Lifetimes: tile_a[0,1], tile_b[1,2], tile_c[2,3], tile_d[3,4]
@@ -303,7 +302,8 @@ class TestBasicMemoryReuse:
         _assert_shares_memref(func, "tile_a", "tile_c")
         _assert_shares_memref(func, "tile_b", "tile_d")
 
-    def test_with_dependencies(self):
+    @staticmethod
+    def test_with_dependencies():
         """tile_d reuses tile_a, tile_e reuses tile_b (transitive conflict).
 
         Lifetimes: tile_a[0,2], tile_b[1,2], tile_c[2,3], tile_d[3,4], tile_e[4,5]
@@ -315,7 +315,8 @@ class TestBasicMemoryReuse:
         _assert_shares_memref(func, "tile_a", "tile_d")
         _assert_shares_memref(func, "tile_b", "tile_e")
 
-    def test_transitive_conflict(self):
+    @staticmethod
+    def test_transitive_conflict():
         """Transitive conflict: tile_c and tile_d must NOT share memory.
 
         Lifetimes: tile_a[0,1], tile_b[1,2], tile_c[2,4], tile_d[3,4], tile_e[4,5]
@@ -329,7 +330,8 @@ class TestBasicMemoryReuse:
         _assert_shares_memref(func, "tile_b", "tile_d")
         _assert_not_shares_memref(func, "tile_c", "tile_d")
 
-    def test_multiple_memory_spaces(self):
+    @staticmethod
+    def test_multiple_memory_spaces():
         """Memory reuse happens within the same memory space (UB tiles).
 
         Verifies that variables in DDR don't reuse UB memory and vice versa.
@@ -345,13 +347,14 @@ class TestBasicMemoryReuse:
         # tile_d should reuse UB memory from tile_a
         _assert_shares_memref(func, "tile_a", "tile_d")
 
-    def test_with_pass_manager(self):
+    @staticmethod
+    def test_with_pass_manager():
         """Test using PassManager PTOAS strategy."""
         program = _build_simple_program()
 
         pm = PassManager.get_strategy(OptimizationStrategy.PTOAS)
-        After = pm.run_passes(program)
-        func = list(After.functions.values())[0]
+        program_after = pm.run_passes(program)
+        func = list(program_after.functions.values())[0]
 
         _assert_all_have_memrefs(func)
         _assert_shares_memref(func, "tile_a", "tile_d")

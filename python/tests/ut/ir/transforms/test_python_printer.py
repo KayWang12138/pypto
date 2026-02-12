@@ -18,7 +18,8 @@ from pypto.ir import DataType
 class TestPythonPrinterProgram:
     """Tests for Python printer with Program nodes."""
 
-    def test_print_empty_program(self):
+    @staticmethod
+    def test_print_empty_program():
         """Test printing an empty program."""
         span = ir.Span.unknown()
         program = ir.Program([], "EmptyProgram", span)
@@ -28,7 +29,8 @@ class TestPythonPrinterProgram:
         assert "@pl.program" in code
         assert "class EmptyProgram:" in code
 
-    def test_print_program_with_single_function(self):
+    @staticmethod
+    def test_print_program_with_single_function():
         """Test printing a program with a single function."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -46,7 +48,8 @@ class TestPythonPrinterProgram:
         assert "def add(self," in code  # Should have self parameter
         assert "x: pl.INT64" in code or "x: pl.INT64" in code
 
-    def test_print_program_with_multiple_functions(self):
+    @staticmethod
+    def test_print_program_with_multiple_functions():
         """Test printing a program with multiple functions."""
         span = ir.Span.unknown()
 
@@ -70,7 +73,8 @@ class TestPythonPrinterProgram:
         assert "def func1(self," in code
         assert "def func2(self," in code
 
-    def test_print_program_methods_have_self(self):
+    @staticmethod
+    def test_print_program_methods_have_self():
         """Test that printed methods include self parameter."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT32), span)
@@ -86,7 +90,8 @@ class TestPythonPrinterProgram:
         # Verify self is the first parameter
         assert "def my_func(self, x:" in code
 
-    def test_print_program_with_cross_function_calls(self):
+    @staticmethod
+    def test_print_program_with_cross_function_calls():
         """Test that cross-function calls print as self.method_name()."""
         span = ir.Span.unknown()
 
@@ -114,7 +119,8 @@ class TestPythonPrinterProgram:
         # Verify cross-function call is printed with self
         assert "self.helper(" in code
 
-    def test_standalone_function_no_self(self):
+    @staticmethod
+    def test_standalone_function_no_self():
         """Test that standalone Function printing doesn't add self."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -127,7 +133,8 @@ class TestPythonPrinterProgram:
         assert "def standalone(x:" in code or "def standalone(x :" in code
         assert "def standalone(self," not in code
 
-    def test_printed_program_is_valid_python(self):
+    @staticmethod
+    def test_printed_program_is_valid_python():
         """Test that printed program code is syntactically valid Python."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)

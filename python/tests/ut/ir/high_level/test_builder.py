@@ -17,7 +17,8 @@ from pypto.ir import DataType, IRBuilder
 class TestIRBuilderFunction:
     """Test IR Builder for function construction."""
 
-    def test_simple_function_with_auto_span(self):
+    @staticmethod
+    def test_simple_function_with_auto_span():
         """Test building a simple function with automatic span capture."""
         ib = IRBuilder()
 
@@ -41,7 +42,8 @@ class TestIRBuilderFunction:
         assert func.params[1].name == "y"
         assert func.body is not None
 
-    def test_function_with_explicit_span(self):
+    @staticmethod
+    def test_function_with_explicit_span():
         """Test building a function with explicit span."""
         ib = IRBuilder()
         my_span = ir.Span("test.py", 10, 1)
@@ -57,7 +59,8 @@ class TestIRBuilderFunction:
         assert func.span.filename == "test.py"
         assert func.span.begin_line == 10
 
-    def test_function_with_multiple_statements(self):
+    @staticmethod
+    def test_function_with_multiple_statements():
         """Test function with multiple statements in body."""
         ib = IRBuilder()
 
@@ -79,7 +82,8 @@ class TestIRBuilderFunction:
         assert isinstance(func.body, ir.SeqStmts)
         assert len(func.body.stmts) == 2
 
-    def test_nested_function_error(self):
+    @staticmethod
+    def test_nested_function_error():
         """Test that nested functions raise an error."""
         ib = IRBuilder()
 
@@ -91,11 +95,12 @@ class TestIRBuilderFunction:
                 with ib.function("inner") as _f2:
                     pass
 
-    def test_function_type_default(self):
+    @staticmethod
+    def test_function_type_default():
         """Test that function_type defaults to ORCHESTRATION."""
         ib = IRBuilder()
 
-        with ib.function("test_func", type=ir.FunctionType.Orchestration) as f:
+        with ib.function("test_func", func_type=ir.FunctionType.Orchestration) as f:
             f.return_type(ir.ScalarType(DataType.INT64))
 
         func = f.get_result()
@@ -103,11 +108,12 @@ class TestIRBuilderFunction:
         assert func is not None
         assert func.func_type == ir.FunctionType.Orchestration
 
-    def test_function_type_explicit_incore(self):
+    @staticmethod
+    def test_function_type_explicit_incore():
         """Test explicit INCORE function_type."""
         ib = IRBuilder()
 
-        with ib.function("test_kernel", type=ir.FunctionType.InCore) as f:
+        with ib.function("test_kernel", func_type=ir.FunctionType.InCore) as f:
             f.return_type(ir.TileType([16, 16], DataType.FP32))
 
         func = f.get_result()
@@ -115,11 +121,12 @@ class TestIRBuilderFunction:
         assert func is not None
         assert func.func_type == ir.FunctionType.InCore
 
-    def test_function_type_explicit_orchestration(self):
+    @staticmethod
+    def test_function_type_explicit_orchestration():
         """Test explicit ORCHESTRATION function_type."""
         ib = IRBuilder()
 
-        with ib.function("test_orch", type=ir.FunctionType.Orchestration) as f:
+        with ib.function("test_orch", func_type=ir.FunctionType.Orchestration) as f:
             f.return_type(ir.TensorType([128, 128], DataType.FP32))
 
         func = f.get_result()
@@ -131,7 +138,8 @@ class TestIRBuilderFunction:
 class TestIRBuilderForLoop:
     """Test IR Builder for loop construction."""
 
-    def test_simple_for_loop(self):
+    @staticmethod
+    def test_simple_for_loop():
         """Test building a simple for loop."""
         ib = IRBuilder()
 
@@ -151,7 +159,8 @@ class TestIRBuilderForLoop:
         assert isinstance(func.body, ir.ForStmt)
         assert func.body.loop_var.name == "i"
 
-    def test_for_loop_with_iter_args(self):
+    @staticmethod
+    def test_for_loop_with_iter_args():
         """Test for loop with iteration arguments."""
         ib = IRBuilder()
 
@@ -164,8 +173,6 @@ class TestIRBuilderForLoop:
             with ib.for_loop(i, 0, n, 1) as loop:
                 sum_iter = loop.iter_arg("sum", 0)
                 sum_final = loop.return_var("sum_final")
-
-                # Body: sum = sum + i
                 add_expr = ir.Add(sum_iter, i, DataType.INT64, ir.Span.unknown())
                 yield_stmt = ir.YieldStmt([add_expr], ir.Span.unknown())  # type: ignore[arg-type]
                 ib.emit(yield_stmt)
@@ -174,7 +181,8 @@ class TestIRBuilderForLoop:
 
         assert func is not None
 
-    def test_for_loop_iter_args_mismatch_error(self):
+    @staticmethod
+    def test_for_loop_iter_args_mismatch_error():
         """Test that mismatched iter_args and return_vars raises error."""
         ib = IRBuilder()
 
@@ -196,7 +204,8 @@ class TestIRBuilderForLoop:
 class TestIRBuilderIfStmt:
     """Test IR Builder for if statement construction."""
 
-    def test_simple_if_stmt(self):
+    @staticmethod
+    def test_simple_if_stmt():
         """Test building a simple if statement."""
         ib = IRBuilder()
 
@@ -204,7 +213,6 @@ class TestIRBuilderIfStmt:
             x = f.param("x", ir.ScalarType(DataType.INT64))
             f.return_type(ir.ScalarType(DataType.INT64))
 
-            # if x > 0: result = x
             zero = ir.ConstInt(0, DataType.INT64, ir.Span.unknown())
             condition = ir.Gt(x, zero, DataType.INT64, ir.Span.unknown())
 
@@ -219,7 +227,8 @@ class TestIRBuilderIfStmt:
         assert func.body.condition is not None
         assert func.body.else_body is None
 
-    def test_if_else_stmt(self):
+    @staticmethod
+    def test_if_else_stmt():
         """Test building an if-else statement."""
         ib = IRBuilder()
 
@@ -262,7 +271,8 @@ class TestIRBuilderIfStmt:
 class TestIRBuilderReturnStmt:
     """Test IR Builder for return statement construction."""
 
-    def test_simple_return_with_value(self):
+    @staticmethod
+    def test_simple_return_with_value():
         """Test building a return statement with a value."""
         ib = IRBuilder()
 
@@ -270,7 +280,6 @@ class TestIRBuilderReturnStmt:
             x = f.param("x", ir.ScalarType(DataType.INT64))
             f.return_type(ir.ScalarType(DataType.INT64))
 
-            # return x
             ib.return_stmt(x)
 
         func = f.get_result()
@@ -279,7 +288,8 @@ class TestIRBuilderReturnStmt:
         assert isinstance(func.body, ir.ReturnStmt)
         assert len(func.body.value) == 1
 
-    def test_return_with_multiple_values(self):
+    @staticmethod
+    def test_return_with_multiple_values():
         """Test return statement with multiple values."""
         ib = IRBuilder()
 
@@ -289,7 +299,6 @@ class TestIRBuilderReturnStmt:
             f.return_type(ir.ScalarType(DataType.INT64))
             f.return_type(ir.ScalarType(DataType.INT64))
 
-            # return x, y
             ib.return_stmt([x, y])
 
         func = f.get_result()
@@ -298,14 +307,14 @@ class TestIRBuilderReturnStmt:
         assert isinstance(func.body, ir.ReturnStmt)
         assert len(func.body.value) == 2
 
-    def test_return_without_value(self):
+    @staticmethod
+    def test_return_without_value():
         """Test return statement without values."""
         ib = IRBuilder()
 
         with ib.function("void_return_func") as f:
             f.return_type(ir.ScalarType(DataType.INT64))
 
-            # return
             ib.return_stmt()
 
         func = f.get_result()
@@ -314,7 +323,8 @@ class TestIRBuilderReturnStmt:
         assert isinstance(func.body, ir.ReturnStmt)
         assert len(func.body.value) == 0
 
-    def test_return_with_expression(self):
+    @staticmethod
+    def test_return_with_expression():
         """Test return statement with expression."""
         ib = IRBuilder()
 
@@ -323,7 +333,6 @@ class TestIRBuilderReturnStmt:
             y = f.param("y", ir.ScalarType(DataType.INT64))
             f.return_type(ir.ScalarType(DataType.INT64))
 
-            # return x + y
             add_expr = ir.Add(x, y, DataType.INT64, ir.Span.unknown())
             ib.return_stmt(add_expr)
 
@@ -334,7 +343,8 @@ class TestIRBuilderReturnStmt:
         assert len(func.body.value) == 1
         assert isinstance(func.body.value[0], ir.Add)
 
-    def test_return_in_if_statement(self):
+    @staticmethod
+    def test_return_in_if_statement():
         """Test return statement inside if statement."""
         ib = IRBuilder()
 
@@ -359,7 +369,8 @@ class TestIRBuilderReturnStmt:
         assert func is not None
         assert isinstance(func.body, ir.IfStmt)
 
-    def test_return_with_explicit_span(self):
+    @staticmethod
+    def test_return_with_explicit_span():
         """Test return statement with explicit span."""
         ib = IRBuilder()
         my_span = ir.Span("test.py", 42, 1)
@@ -381,7 +392,8 @@ class TestIRBuilderReturnStmt:
 class TestIRBuilderContextQueries:
     """Test IR Builder context state queries."""
 
-    def test_in_function_query(self):
+    @staticmethod
+    def test_in_function_query():
         """Test InFunction query."""
         ib = IRBuilder()
 
@@ -393,7 +405,8 @@ class TestIRBuilderContextQueries:
 
         assert not ib.in_function()
 
-    def test_in_loop_query(self):
+    @staticmethod
+    def test_in_loop_query():
         """Test InLoop query."""
         ib = IRBuilder()
 
@@ -409,7 +422,8 @@ class TestIRBuilderContextQueries:
 
             assert not ib.in_loop()
 
-    def test_in_if_query(self):
+    @staticmethod
+    def test_in_if_query():
         """Test InIf query."""
         ib = IRBuilder()
 
@@ -427,7 +441,8 @@ class TestIRBuilderContextQueries:
 class TestIRBuilderLet:
     """Test IR Builder let() method with type inference."""
 
-    def test_let_with_inferred_type(self):
+    @staticmethod
+    def test_let_with_inferred_type():
         """Test basic let() usage with type inference from expression."""
         ib = IRBuilder()
 
@@ -447,7 +462,8 @@ class TestIRBuilderLet:
         func = f.get_result()
         assert func is not None
 
-    def test_let_with_type_validation(self):
+    @staticmethod
+    def test_let_with_type_validation():
         """Test let() with explicit type that matches inferred type."""
         ib = IRBuilder()
 
@@ -468,7 +484,8 @@ class TestIRBuilderLet:
         func = f.get_result()
         assert func is not None
 
-    def test_let_with_type_mismatch(self):
+    @staticmethod
+    def test_let_with_type_mismatch():
         """Test that let() raises error when explicit type doesn't match inferred type."""
         ib = IRBuilder()
 
@@ -483,7 +500,8 @@ class TestIRBuilderLet:
                 # This should raise ValueError
                 ib.let("x", const, type=wrong_type)
 
-    def test_let_with_scalar_value(self):
+    @staticmethod
+    def test_let_with_scalar_value():
         """Test let() with int/float values that get normalized."""
         ib = IRBuilder()
 
@@ -500,7 +518,8 @@ class TestIRBuilderLet:
         func = f.get_result()
         assert func is not None
 
-    def test_let_with_tensor_expr(self):
+    @staticmethod
+    def test_let_with_tensor_expr():
         """Test let() with tensor operation result."""
         ib = IRBuilder()
 
@@ -520,7 +539,8 @@ class TestIRBuilderLet:
         func = f.get_result()
         assert func is not None
 
-    def test_let_with_binary_expr(self):
+    @staticmethod
+    def test_let_with_binary_expr():
         """Test let() with binary expression result."""
         ib = IRBuilder()
 
@@ -542,7 +562,8 @@ class TestIRBuilderLet:
         func = f.get_result()
         assert func is not None
 
-    def test_let_with_explicit_span(self):
+    @staticmethod
+    def test_let_with_explicit_span():
         """Test let() with explicit span parameter."""
         ib = IRBuilder()
         my_span = ir.Span("test.py", 100, 5)
@@ -564,7 +585,8 @@ class TestIRBuilderLet:
 class TestIRBuilderIterArgAndReturnVar:
     """Test iter_arg and return_var with type inference."""
 
-    def test_iter_arg_with_inferred_type(self):
+    @staticmethod
+    def test_iter_arg_with_inferred_type():
         """Test iter_arg with type inference from init_value."""
         ib = IRBuilder()
 
@@ -586,7 +608,8 @@ class TestIRBuilderIterArgAndReturnVar:
         func = f.get_result()
         assert func is not None
 
-    def test_iter_arg_with_type_validation(self):
+    @staticmethod
+    def test_iter_arg_with_type_validation():
         """Test iter_arg with explicit type that matches inferred type."""
         ib = IRBuilder()
 
@@ -609,7 +632,8 @@ class TestIRBuilderIterArgAndReturnVar:
         func = f.get_result()
         assert func is not None
 
-    def test_iter_arg_with_type_mismatch(self):
+    @staticmethod
+    def test_iter_arg_with_type_mismatch():
         """Test that iter_arg raises error when explicit type doesn't match inferred type."""
         ib = IRBuilder()
 
@@ -624,7 +648,8 @@ class TestIRBuilderIterArgAndReturnVar:
                     wrong_type = ir.ScalarType(DataType.FP32)
                     loop.iter_arg("sum", 0, type=wrong_type)
 
-    def test_return_var_with_inferred_type(self):
+    @staticmethod
+    def test_return_var_with_inferred_type():
         """Test return_var with type inference from corresponding iter_arg."""
         ib = IRBuilder()
 
@@ -645,7 +670,8 @@ class TestIRBuilderIterArgAndReturnVar:
         func = f.get_result()
         assert func is not None
 
-    def test_return_var_with_multiple_iter_args(self):
+    @staticmethod
+    def test_return_var_with_multiple_iter_args():
         """Test return_var inference with multiple iter_args."""
         ib = IRBuilder()
 
@@ -671,7 +697,8 @@ class TestIRBuilderIterArgAndReturnVar:
         func = f.get_result()
         assert func is not None
 
-    def test_return_var_explicit_type_validation(self):
+    @staticmethod
+    def test_return_var_explicit_type_validation():
         """Test return_var with explicit type that matches inferred type."""
         ib = IRBuilder()
 
@@ -696,7 +723,8 @@ class TestIRBuilderIterArgAndReturnVar:
 class TestIRBuilderIfReturnVar:
     """Test if statement return_var - type must be provided explicitly."""
 
-    def test_if_return_var_with_explicit_type(self):
+    @staticmethod
+    def test_if_return_var_with_explicit_type():
         """Test if return_var requires explicit type."""
         ib = IRBuilder()
 
@@ -725,7 +753,8 @@ class TestIRBuilderIfReturnVar:
         assert isinstance(func.body, ir.IfStmt)
         assert len(func.body.return_vars) == 1
 
-    def test_if_return_var_with_multiple_returns(self):
+    @staticmethod
+    def test_if_return_var_with_multiple_returns():
         """Test if return_var with multiple return variables."""
         ib = IRBuilder()
 
@@ -761,7 +790,8 @@ class TestIRBuilderIfReturnVar:
 class TestIRBuilderForLoopOutput:
     """Test for loop output() and outputs() methods."""
 
-    def test_loop_output_single_return_var(self):
+    @staticmethod
+    def test_loop_output_single_return_var():
         """Test output() with single return variable."""
         ib = IRBuilder()
 
@@ -791,7 +821,8 @@ class TestIRBuilderForLoopOutput:
         func = f.get_result()
         assert func is not None
 
-    def test_loop_output_multiple_return_vars(self):
+    @staticmethod
+    def test_loop_output_multiple_return_vars():
         """Test output() with multiple return variables."""
         ib = IRBuilder()
 
@@ -830,7 +861,8 @@ class TestIRBuilderForLoopOutput:
         func = f.get_result()
         assert func is not None
 
-    def test_loop_outputs_method(self):
+    @staticmethod
+    def test_loop_outputs_method():
         """Test outputs() method to get all return variables at once."""
         ib = IRBuilder()
 
@@ -870,7 +902,8 @@ class TestIRBuilderForLoopOutput:
         func = f.get_result()
         assert func is not None
 
-    def test_loop_output_default_index(self):
+    @staticmethod
+    def test_loop_output_default_index():
         """Test output() with default index (0)."""
         ib = IRBuilder()
 
@@ -902,7 +935,8 @@ class TestIRBuilderForLoopOutput:
         func = f.get_result()
         assert func is not None
 
-    def test_loop_output_index_out_of_range(self):
+    @staticmethod
+    def test_loop_output_index_out_of_range():
         """Test that output() raises IndexError for out of range index."""
         ib = IRBuilder()
 
@@ -931,7 +965,8 @@ class TestIRBuilderForLoopOutput:
 class TestIRBuilderIfOutput:
     """Test if statement output() and outputs() methods."""
 
-    def test_if_output_single_return_var(self):
+    @staticmethod
+    def test_if_output_single_return_var():
         """Test output() with single return variable."""
         ib = IRBuilder()
 
@@ -960,7 +995,8 @@ class TestIRBuilderIfOutput:
         func = f.get_result()
         assert func is not None
 
-    def test_if_output_multiple_return_vars(self):
+    @staticmethod
+    def test_if_output_multiple_return_vars():
         """Test output() with multiple return variables."""
         ib = IRBuilder()
 
@@ -996,7 +1032,8 @@ class TestIRBuilderIfOutput:
         func = f.get_result()
         assert func is not None
 
-    def test_if_outputs_method(self):
+    @staticmethod
+    def test_if_outputs_method():
         """Test outputs() method to get all return variables at once."""
         ib = IRBuilder()
 
@@ -1032,7 +1069,8 @@ class TestIRBuilderIfOutput:
 class TestIRBuilderSerialization:
     """Test that builder output can be serialized."""
 
-    def test_serialize_builder_output(self):
+    @staticmethod
+    def test_serialize_builder_output():
         """Test serializing and deserializing builder output."""
         ib = IRBuilder()
 
@@ -1065,7 +1103,8 @@ class TestIRBuilderSerialization:
 class TestIRBuilderProgram:
     """Test IR Builder for program construction."""
 
-    def test_empty_program(self):
+    @staticmethod
+    def test_empty_program():
         """Test building an empty program."""
         ib = IRBuilder()
 
@@ -1078,7 +1117,8 @@ class TestIRBuilderProgram:
         assert program.name == "empty_program"
         assert len(program.functions) == 0
 
-    def test_program_with_single_function(self):
+    @staticmethod
+    def test_program_with_single_function():
         """Test building a program with a single function."""
         ib = IRBuilder()
 
@@ -1110,7 +1150,8 @@ class TestIRBuilderProgram:
         assert retrieved_func.name == "add"
         assert len(retrieved_func.params) == 2
 
-    def test_program_with_multiple_functions(self):
+    @staticmethod
+    def test_program_with_multiple_functions():
         """Test building a program with multiple functions."""
         ib = IRBuilder()
 
@@ -1149,7 +1190,8 @@ class TestIRBuilderProgram:
         assert square_func is not None
         assert double_func is not None
 
-    def test_program_with_cross_function_calls(self):
+    @staticmethod
+    def test_program_with_cross_function_calls():
         """Test building a program with cross-function calls using GlobalVar."""
         ib = IRBuilder()
 
@@ -1169,7 +1211,7 @@ class TestIRBuilderProgram:
 
             # Build sum_of_squares function that calls square
             # This is an orchestration function because it calls another function
-            with ib.function("sum_of_squares", type=ir.FunctionType.Orchestration) as f:
+            with ib.function("sum_of_squares", func_type=ir.FunctionType.Orchestration) as f:
                 a = f.param("a", ir.ScalarType(DataType.INT64))
                 b = f.param("b", ir.ScalarType(DataType.INT64))
                 f.return_type(ir.ScalarType(DataType.INT64))
@@ -1191,7 +1233,8 @@ class TestIRBuilderProgram:
         sum_func = program.get_function("sum_of_squares")
         assert sum_func is not None
 
-    def test_get_global_var(self):
+    @staticmethod
+    def test_get_global_var():
         """Test retrieving GlobalVar from ProgramBuilder."""
         ib = IRBuilder()
 
@@ -1206,7 +1249,8 @@ class TestIRBuilderProgram:
             assert retrieved_gvar.name == "helper"
             assert retrieved_gvar == helper_gvar
 
-    def test_add_function_without_declaring(self):
+    @staticmethod
+    def test_add_function_without_declaring():
         """Test that adding a function without declaring it works (with warning)."""
         ib = IRBuilder()
 
@@ -1223,7 +1267,8 @@ class TestIRBuilderProgram:
         program = p.get_result()
         assert program.get_function("undeclared") is not None
 
-    def test_get_undeclared_global_var_error(self):
+    @staticmethod
+    def test_get_undeclared_global_var_error():
         """Test that getting an undeclared GlobalVar raises an error."""
         ib = IRBuilder()
 

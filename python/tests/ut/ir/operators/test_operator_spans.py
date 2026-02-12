@@ -17,14 +17,15 @@ from pypto.ir import DataType
 class TestVarOperatorSpans:
     """Test span capture for Var operators."""
 
-    def test_var_binary_operators_capture_span(self):
+    @staticmethod
+    def test_var_binary_operators_capture_span():
         """Test that binary operators on Var capture span correctly."""
         ib = ir.IRBuilder()
 
         with ib.program("test_var_binary_ops_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 y = f.param("y", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
@@ -60,16 +61,16 @@ class TestVarOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_var_comparison_operators_capture_span(self):
+    @staticmethod
+    def test_var_comparison_operators_capture_span():
         """Test that comparison operators on Var capture span correctly."""
         ib = ir.IRBuilder()
 
         with ib.program("test_var_comparison_ops_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 y = f.param("y", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
@@ -102,16 +103,16 @@ class TestVarOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_var_unary_operators_capture_span(self):
+    @staticmethod
+    def test_var_unary_operators_capture_span():
         """Test that unary operators on Var capture span correctly."""
         ib = ir.IRBuilder()
 
         with ib.program("test_var_unary_ops_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
 
@@ -126,16 +127,16 @@ class TestVarOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_var_reverse_operators_capture_span(self):
+    @staticmethod
+    def test_var_reverse_operators_capture_span():
         """Test that reverse operators (int on left) capture span correctly."""
         ib = ir.IRBuilder()
 
         with ib.program("test_var_reverse_ops_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
 
@@ -166,16 +167,16 @@ class TestVarOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_var_with_tensortype_raises_error(self):
+    @staticmethod
+    def test_var_with_tensortype_raises_error():
         """Test that operators on Var with TensorType raise appropriate error."""
         ib = ir.IRBuilder()
 
         with ib.program("test_var_tensortype_error_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 tensor_var = f.param("t", ir.TensorType([128, 256], DataType.FP32))
                 scalar_var = f.param("x", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
@@ -188,20 +189,20 @@ class TestVarOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
 
 class TestScalarExprOperatorSpans:
     """Test span capture for ScalarExpr operators."""
 
-    def test_constint_binary_operators_capture_span(self):
+    @staticmethod
+    def test_constint_binary_operators_capture_span():
         """Test that binary operators on ConstInt capture span correctly."""
         ib = ir.IRBuilder()
 
         with ib.program("test_constint_binary_ops_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.ScalarType(DataType.INT32))
 
                 x = ir.ConstInt(10, DataType.INT32, ir.Span.unknown())
@@ -222,16 +223,16 @@ class TestScalarExprOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_constfloat_operators_capture_span(self):
+    @staticmethod
+    def test_constfloat_operators_capture_span():
         """Test that operators on ConstFloat capture span correctly."""
         ib = ir.IRBuilder()
 
         with ib.program("test_constfloat_ops_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.ScalarType(DataType.FP32))
 
                 x = ir.ConstFloat(3.14, DataType.FP32, ir.Span.unknown())
@@ -248,16 +249,16 @@ class TestScalarExprOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_scalarexpr_comparison_operators_capture_span(self):
+    @staticmethod
+    def test_scalarexpr_comparison_operators_capture_span():
         """Test that comparison operators on ScalarExpr capture span correctly."""
         ib = ir.IRBuilder()
 
         with ib.program("test_scalarexpr_comparison_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.ScalarType(DataType.INT32))
 
                 x = ir.ConstInt(10, DataType.INT32, ir.Span.unknown())
@@ -277,16 +278,16 @@ class TestScalarExprOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_scalarexpr_unary_operator_captures_span(self):
+    @staticmethod
+    def test_scalarexpr_unary_operator_captures_span():
         """Test that unary operator on ScalarExpr captures span correctly."""
         ib = ir.IRBuilder()
 
         with ib.program("test_scalarexpr_unary_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.ScalarType(DataType.INT32))
 
                 x = ir.ConstInt(42, DataType.INT32, ir.Span.unknown())
@@ -301,20 +302,20 @@ class TestScalarExprOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
 
 class TestMixedOperatorSpans:
     """Test span capture for mixed Var and ScalarExpr operators."""
 
-    def test_var_with_constint_captures_span(self):
+    @staticmethod
+    def test_var_with_constint_captures_span():
         """Test operators between Var and ConstInt."""
         ib = ir.IRBuilder()
 
         with ib.program("test_var_constint_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
 
@@ -330,16 +331,16 @@ class TestMixedOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_var_with_python_int_captures_span(self):
+    @staticmethod
+    def test_var_with_python_int_captures_span():
         """Test operators between Var and Python int (auto-normalized)."""
         ib = ir.IRBuilder()
 
         with ib.program("test_var_python_int_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
 
@@ -354,16 +355,16 @@ class TestMixedOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_constint_with_python_int_captures_span(self):
+    @staticmethod
+    def test_constint_with_python_int_captures_span():
         """Test operators between ConstInt and Python int."""
         ib = ir.IRBuilder()
 
         with ib.program("test_constint_python_int_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.ScalarType(DataType.INT32))
 
                 x = ir.ConstInt(10, DataType.INT32, ir.Span.unknown())
@@ -378,20 +379,20 @@ class TestMixedOperatorSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
 
 class TestComplexExpressionSpans:
     """Test span capture for complex expressions with multiple operations."""
 
-    def test_nested_operations_capture_different_spans(self):
+    @staticmethod
+    def test_nested_operations_capture_different_spans():
         """Test that each operation in a complex expression captures its own span."""
         ib = ir.IRBuilder()
 
         with ib.program("test_nested_ops_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.FP32))
                 y = f.param("y", ir.ScalarType(DataType.FP32))
                 z = f.param("z", ir.ScalarType(DataType.FP32))
@@ -416,16 +417,16 @@ class TestComplexExpressionSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_complex_arithmetic_expression(self):
+    @staticmethod
+    def test_complex_arithmetic_expression():
         """Test complex arithmetic expressions."""
         ib = ir.IRBuilder()
 
         with ib.program("test_complex_arith_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 y = f.param("y", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
@@ -442,16 +443,16 @@ class TestComplexExpressionSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_comparison_in_complex_expression(self):
+    @staticmethod
+    def test_comparison_in_complex_expression():
         """Test comparison operators in complex expressions."""
         ib = ir.IRBuilder()
 
         with ib.program("test_comparison_complex_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 y = f.param("y", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
@@ -468,20 +469,20 @@ class TestComplexExpressionSpans:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
 
 class TestSpanWithDifferentDataTypes:
     """Test span capture works correctly with different data types."""
 
-    def test_int_operators_capture_span(self):
+    @staticmethod
+    def test_int_operators_capture_span():
         """Test operators on INT32 variables."""
         ib = ir.IRBuilder()
 
         with ib.program("test_int_ops_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 y = f.param("y", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
@@ -496,16 +497,16 @@ class TestSpanWithDifferentDataTypes:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_float_operators_capture_span(self):
+    @staticmethod
+    def test_float_operators_capture_span():
         """Test operators on FP32 variables."""
         ib = ir.IRBuilder()
 
         with ib.program("test_float_ops_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.FP32))
                 y = f.param("y", ir.ScalarType(DataType.FP32))
                 f.return_type(ir.ScalarType(DataType.FP32))
@@ -520,16 +521,16 @@ class TestSpanWithDifferentDataTypes:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_bf16_operators_capture_span(self):
+    @staticmethod
+    def test_bf16_operators_capture_span():
         """Test operators on BF16 variables."""
         ib = ir.IRBuilder()
 
         with ib.program("test_bf16_ops_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.BF16))
                 y = f.param("y", ir.ScalarType(DataType.BF16))
                 f.return_type(ir.ScalarType(DataType.BF16))
@@ -544,20 +545,20 @@ class TestSpanWithDifferentDataTypes:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
 
 class TestAllOperators:
     """Comprehensive test covering all operators."""
 
-    def test_all_binary_operators(self):
+    @staticmethod
+    def test_all_binary_operators():
         """Test all binary operators capture spans."""
         ib = ir.IRBuilder()
 
         with ib.program("test_all_binary_ops_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 y = f.param("y", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
@@ -588,16 +589,16 @@ class TestAllOperators:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_all_reverse_operators(self):
+    @staticmethod
+    def test_all_reverse_operators():
         """Test all reverse operators capture spans."""
         ib = ir.IRBuilder()
 
         with ib.program("test_all_reverse_ops_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.ScalarType(DataType.INT32))
                 f.return_type(ir.ScalarType(DataType.INT32))
 
@@ -623,4 +624,3 @@ class TestAllOperators:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
