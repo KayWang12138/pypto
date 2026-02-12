@@ -19,7 +19,7 @@ namespace npu::tile_fwk::dynamic {
 void DeviceStitchContext::Init(DevAscendProgram *devProg, DeviceWorkspaceAllocator &workspace) {
     workspace.SetupVector(stitchedList_);
     workspace_ = &workspace;
-
+    devProg_ = devProg;
     workspace_->SetupVector(slotInfosInDecidingSlotMem_);
     slotInfosInDecidingSlotMem_.resize(devProg->slotSize); // need pre alloc , left memory for slab allocator
 
@@ -79,7 +79,7 @@ uint64_t DeviceStitchContext::Stitch(DeviceSlotContext &slotContext, DevAscendFu
     if (stitchedList_.capacity() == 0) {
         /* This stitchedList_ vector can only allocate sufficient space once,
             during a single device task construction process.*/
-        stitchedList_.reserve(MAX_CACHED_FUNC_NUM);
+        stitchedList_.reserve(devProg_->stitchMaxFunctionNum);
     }
     Append(nextDup);
     stitchedCallOpSize_ += (nextDup.GetSource()->GetOperationSize() - nextDup.GetSource()->hubOpCount_);
