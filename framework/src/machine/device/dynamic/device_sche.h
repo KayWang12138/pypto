@@ -67,8 +67,8 @@ public:
     int RunThread(int threadIdx, DevStartArgs *devStartArgs, DeviceArgs *args, int schedIdx) {
         int ret = 0;
         if (args->nrAic == 0 || args->nrValidAic == 0 || args->nrAicpu < NEED_LAUNCH_AICPU_MINNUM) {
-            DEV_ERROR("Device machinr run invalid args aicnum:%u, blockdim:%u, launchAicpu num:%u",
-                args->nrAic, args->nrValidAic, args->nrAicpu);
+            DEV_ERROR("[init_params] Invalid device args: aicNum=%u, validAicNum=%u, aicpuNum=%u (minimum required: %u).",
+                args->nrAic, args->nrValidAic, args->nrAicpu, NEED_LAUNCH_AICPU_MINNUM);
             return DEVICE_MACHINE_ERROR;
         }
 
@@ -86,13 +86,13 @@ public:
 
     void ResetRegAll() {
       sleep(1);
-      DEV_ERROR("ResetRegAll");
+      DEV_ERROR("[except_reset] ResetRegAll: Starting register reset for all cores.");
       for (uint32_t i = 0; i < schAicpuNum_; ++i) {
         aicoreManager_[i]->ResetRegAll();
       }
       sleep(1);
       aicoreManager_[0]->CheckAndResetReg();
-      DEV_ERROR("Exception reset reg finish.");
+      DEV_ERROR("[except_reset] Register reset completed.");
     }
 
     inline void DumpAicorePerfTrace(std::string file = "") {
@@ -111,7 +111,7 @@ public:
         while (startPos < totalLength) {
             uint32_t endPos = std::min(startPos + batchSize, totalLength);
             std::string batch = str.substr(startPos, endPos - startPos);
-            DEV_ERROR("tile_fwk aicore prof:%s", batch.c_str());
+            DEV_ERROR("[perf_trace] AICore profile data: %s", batch.c_str());
             startPos = endPos;
         }
 
@@ -239,12 +239,12 @@ struct DynMachineManager {
         DeInit();
 #if ENABLE_PERF_TRACE
         PerfMtTrace(PERF_TRACE_EXIT, LastFinishThreadIdx_);
-        DEV_ERROR("Begin dump machine perf trace:");
+        DEV_ERROR("[perf_trace] Beginning machine performance trace dump.");
         PerfEvtMgr::Instance().DumpPerfTrace(devProg->devArgs.scheCpuNum, "/tmp/tile_fwk_aicpu_perftrace.json");
         DEV_IF_DEVICE {
             machine_.DumpAicorePerfTrace("tmp/tile_fwk_aicore_perftrace.json");
         }
-        DEV_ERROR("Finish dump machine perf trace.");
+        DEV_ERROR("[perf_trace] Machine performance trace dump completed.");
 #endif
     }
 
@@ -252,7 +252,7 @@ struct DynMachineManager {
         int ret = npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         DeviceArgs *devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
         if (devArgs->scheCpuNum > devArgs->nrAicpu - 1) {
-            DEV_ERROR("Aicpu num[%u] less than sche num[%u].", devArgs->nrAicpu, devArgs->scheCpuNum);
+            DEV_ERROR("[init_params] Insufficient Aicpu: available=%u, required=%u.", devArgs->nrAicpu - 1, devArgs->scheCpuNum);
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
         int threadIdx = AllocThreadIdx(devArgs->nrAicpu, devArgs->scheCpuNum, threadIdx_);	 
@@ -350,25 +350,25 @@ struct DynMachineManager {
     void SigAct(int signum, siginfo_t* info, void* act) {
         (void)info;
         (void)act;
-        DEV_ERROR("Exception Signum[%d] Act.", signum);
+        DEV_ERROR("[except_signal] Signal %d received, invoking handler.", signum);
         PrintBacktrace("signal " + std::to_string(signum));
         if (reset_.load()) {
-            DEV_ERROR("Exception Already reset.");
+            DEV_ERROR("[except_reset] Already in reset state, skipping duplicate signal handling.");
             sleep(SIGNAL_DELAY_SECONDS);
             return;
         }
         reset_.store(true);
         if (!init_.load()) {
-            DEV_ERROR("Exception call ori sigact.");
+            DEV_ERROR("[except_signal] System not initialized, calling original signal handler.");
             __sighandler_t handle = GetSigHandle(signum);
             if (handle == SIG_DFL) {
-                DEV_ERROR("Ori sigact SIG_DFL.");
+                DEV_ERROR("[except_signal] Original handler is SIG_DFL.");
                 signal(signum, SIG_DFL);
                 raise(signum);
             } else if (handle == SIG_IGN) {
-                DEV_ERROR("Ori sigact SIG_IGN.");
+                DEV_ERROR("[except_signal] Original handler is SIG_IGN.");
             } else if (handle != nullptr) {
-                DEV_ERROR("Call Ori sigact.");
+                DEV_ERROR("[except_signal] Calling original signal handler.");
                 handle(signum);
             }
             return;
@@ -392,7 +392,7 @@ struct DynMachineManager {
     int EntryUnifiedStream(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
         auto ret = RunCtrlInit(kargs, entry);
         if (ret != DEVICE_MACHINE_OK) {
-            DEV_ERROR("Server init failed");
+            DEV_ERROR("[init_server] Control server initialization failed.");
             return ret;
         }
         DevAscendProgram *devProg = PtrToPtr<int64_t, DevAscendProgram>(kargs->cfgdata);
@@ -464,7 +464,7 @@ struct DynMachineManager {
                 return EntrySplittedStreamSche(kargs, entry);
                 break;
             default:
-                DEV_ERROR("Invalid run mode: %d\n", (int)kargs->parameter.runMode);
+                DEV_ERROR("[init_params] Invalid run mode: %d.", (int)kargs->parameter.runMode);
                 break;
         }
         return DEVICE_MACHINE_INVALID_RUN_MODE;
