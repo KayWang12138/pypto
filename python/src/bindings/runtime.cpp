@@ -16,6 +16,7 @@
 #include "pybind_common.h"
 
 #include <climits>
+#include <cstddef>
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -983,6 +984,88 @@ uint64_t AllocHcclContext(uint64_t hcclHandle, const std::string &groupName, voi
     }
     return 0;
 }
+
+struct DistContextBuildResult {
+    std::vector<uint64_t> contexts;
+    std::string error;
+};
+
+DistContextBuildResult BuildDistributedContextsFromGlobalConfig(
+    const std::vector<std::string> &commGroupNames, void *aicoreStream)
+{
+    DistContextBuildResult result;
+    if (commGroupNames.empty()) {
+        return result;
+    }
+
+    std::vector<int64_t> hcclHandles;
+    std::vector<std::string> hcclGroupNames;
+    bool hasHandles = false;
+    bool hasNames = false;
+    bool debugHccl = (std::getenv("PYPTO_HCCL_DEBUG") != nullptr);
+
+    auto globalScope = ConfigManagerNg::GetInstance().GlobalScope();
+    if (globalScope != nullptr) {
+        if (globalScope->HasConfig("global.distributed.hccl_handle")) {
+            try {
+                hcclHandles = globalScope->GetConfigAllType<std::vector<int64_t>>("global.distributed.hccl_handle");
+                hasHandles = true;
+            } catch (const std::exception &e) {
+                if (debugHccl) {
+                    ShmemLog("[pypto] read global.distributed.hccl_handle failed: %s\n", e.what());
+                }
+            }
+        }
+        if (globalScope->HasConfig("global.distributed.hccl_group_name")) {
+            try {
+                hcclGroupNames = globalScope->GetConfigAllType<std::vector<std::string>>(
+                    "global.distributed.hccl_group_name");
+                hasNames = true;
+            } catch (const std::exception &e) {
+                if (debugHccl) {
+                    ShmemLog("[pypto] read global.distributed.hccl_group_name failed: %s\n", e.what());
+                }
+            }
+        }
+    }
+
+    if (hasHandles != hasNames) {
+        result.error = "distributed option mismatch: hccl_handle and hccl_group_name must be set together";
+        return result;
+    }
+    if (!hasHandles || hcclHandles.empty()) {
+        return result;
+    }
+
+    if (hcclHandles.size() != hcclGroupNames.size()) {
+        result.error = "hccl handle and group name size mismatch";
+        return result;
+    }
+
+    std::unordered_map<std::string, uint64_t> nameToHandle;
+    nameToHandle.reserve(hcclHandles.size());
+    for (size_t i = 0; i < hcclHandles.size(); ++i) {
+        nameToHandle[hcclGroupNames[i]] = static_cast<uint64_t>(hcclHandles[i]);
+    }
+
+    result.contexts.reserve(commGroupNames.size());
+    for (const auto &groupName : commGroupNames) {
+        auto it = nameToHandle.find(groupName);
+        if (it == nameToHandle.end()) {
+            result.error = "missing hccl handle for group: " + groupName;
+            result.contexts.clear();
+            return result;
+        }
+        auto context = AllocHcclContext(it->second, groupName, aicoreStream);
+        if (context == 0) {
+            result.error = "hccl context init failed for group: " + groupName;
+            result.contexts.clear();
+            return result;
+        }
+        result.contexts.push_back(context);
+    }
+    return result;
+}
 #endif
 } // namespace
 
@@ -1161,75 +1244,23 @@ std::string OperatorDeviceRunOnceDataFromDevice([[maybe_unused]] py::int_ python
     auto workspaceDataAddr = static_cast<uintptr_t>(workspaceData);
     auto launcherConfig = DeviceLauncherConfig::CreateConfigWithWorkspaceAddr(workspaceDataAddr);
     auto ctrlCache = static_cast<uintptr_t>(devCtrlCache);
-    std::vector<int64_t> hcclHandles;
-    std::vector<std::string> hcclGroupNames;
-    bool hasHandles = false;
-    bool hasNames = false;
-    auto globalScope = ConfigManagerNg::GetInstance().GlobalScope();
-    if (globalScope != nullptr) {
-        if (globalScope->HasConfig("global.distributed.hccl_handle")) {
-            try {
-                hcclHandles = globalScope->GetConfigAllType<std::vector<int64_t>>(
-                    "global.distributed.hccl_handle");
-                hasHandles = true;
-            } catch (const std::exception &e) {
-                if (debugHccl) {
-                    ShmemLog("[pypto] read global.distributed.hccl_handle failed: %s\n", e.what());
-                }
-            }
-        }
-        if (globalScope->HasConfig("global.distributed.hccl_group_name")) {
-            try {
-                hcclGroupNames = globalScope->GetConfigAllType<std::vector<std::string>>(
-                    "global.distributed.hccl_group_name");
-                hasNames = true;
-            } catch (const std::exception &e) {
-                if (debugHccl) {
-                    ShmemLog("[pypto] read global.distributed.hccl_group_name failed: %s\n", e.what());
-                }
-            }
-        }
-    }
+    auto distContextResult = BuildDistributedContextsFromGlobalConfig(
+        attr->commGroupNames, reinterpret_cast<void *>(aicoreStream));
     if (debugHccl) {
         FILE *commLog = fopen("/tmp/pypto_commgroup.log", "a");
         if (commLog != nullptr) {
             fprintf(commLog,
-                "[pypto] device options hasHandles=%d hasNames=%d handles=%zu names=%zu\n",
-                static_cast<int>(hasHandles), static_cast<int>(hasNames),
-                hcclHandles.size(), hcclGroupNames.size());
+                "[pypto] device options ctxCount=%zu err=%s\n",
+                distContextResult.contexts.size(),
+                distContextResult.error.empty() ? "none" : distContextResult.error.c_str());
             fclose(commLog);
         }
     }
-    if (!attr->commGroupNames.empty() && hasHandles && hasNames && !hcclHandles.empty()) {
-        if (hcclHandles.size() != hcclGroupNames.size()) {
-            return "hccl handle and group name size mismatch";
-        }
-        std::unordered_map<std::string, uint64_t> nameToHandle;
-        nameToHandle.reserve(hcclHandles.size());
-        for (size_t i = 0; i < hcclHandles.size(); ++i) {
-            nameToHandle[hcclGroupNames[i]] = static_cast<uint64_t>(hcclHandles[i]);
-        }
-        std::vector<uint64_t> hcclContext;
-        hcclContext.reserve(attr->commGroupNames.size());
-        for (const auto &groupName : attr->commGroupNames) {
-            uint64_t handle = 0;
-            auto it = nameToHandle.find(groupName);
-            if (it != nameToHandle.end()) {
-                handle = it->second;
-            }
-            hcclContext.push_back(AllocHcclContext(handle, groupName, reinterpret_cast<void *>(aicoreStream)));
-        }
-        bool valid = !hcclContext.empty();
-        for (auto ctx : hcclContext) {
-            if (ctx == 0) {
-                valid = false;
-                break;
-            }
-        }
-        if (!valid) {
-            return "hccl context init failed";
-        }
-        launcherConfig.hcclContext = hcclContext;
+    if (!distContextResult.error.empty()) {
+        return distContextResult.error;
+    }
+    if (!distContextResult.contexts.empty()) {
+        launcherConfig.hcclContext = std::move(distContextResult.contexts);
     }
     int rc = ExportedOperatorDeviceLaunchOnceWithDeviceTensorData(op, inputs, outputs,
         aicpuStream, aicoreStream, false, reinterpret_cast<uint8_t *>(ctrlCache), launcherConfig);
@@ -1437,6 +1468,29 @@ public:
         DeviceLauncher::FillDeviceKernelArgs(dynAttr->devProgBinary, aicpuArgs->kArgs);
     }
 
+    void EnsureDistributedContext(void *aicoreStream) {
+        if (dynAttr == nullptr || devProg == nullptr || dynAttr->commGroupNames.empty()) {
+            return;
+        }
+        if (devProg->commGroupNum != 0 && devProg->hcclContext[0] != 0) {
+            return;
+        }
+
+        auto distContextResult = BuildDistributedContextsFromGlobalConfig(dynAttr->commGroupNames, aicoreStream);
+        if (!distContextResult.error.empty()) {
+            throw std::runtime_error(distContextResult.error);
+        }
+        if (!distContextResult.contexts.empty()) {
+            DeviceLauncher::PrepareHcclContext(distContextResult.contexts, devProg);
+        } else {
+            DeviceLauncher::DeviceInitDistributedContext(dynAttr->commGroupNames, devProg);
+        }
+        if (devProg->commGroupNum != 0 && devProg->hcclContext[0] == 0) {
+            throw std::runtime_error("hccl context init failed");
+        }
+        SyncDistributedContextToDevice();
+    }
+
     uint8_t *FindCtrlFlowCache(std::vector<std::vector<int64_t>> &inputs) {
         int64_t inHash = ControlFlowCache::Hash(inputs);
         for (auto &cache : caches) {
@@ -1553,6 +1607,21 @@ public:
     }
 
 private:
+    void SyncDistributedContextToDevice() {
+        auto aicpuArgs = reinterpret_cast<AiCpuArgs *>(aicpuArgBuf.data());
+        auto cfgDataAddr = reinterpret_cast<uint8_t *>(aicpuArgs->kArgs.cfgdata);
+        if (cfgDataAddr == nullptr) {
+            throw std::runtime_error("cfgdata is null while syncing hccl context");
+        }
+        auto *hostHcclContext = reinterpret_cast<uint8_t *>(devProg->hcclContext);
+        auto *devHcclContext = cfgDataAddr + offsetof(DevAscendProgram, hcclContext);
+        auto ret = rtMemcpy(devHcclContext, sizeof(devProg->hcclContext),
+            hostHcclContext, sizeof(devProg->hcclContext), RT_MEMCPY_HOST_TO_DEVICE);
+        if (ret != RT_ERROR_NONE) {
+            throw std::runtime_error("sync hccl context to device failed");
+        }
+    }
+
     void InitCachedArgs() {
         auto argNum =
             dynAttr->startArgsInputLogicalTensorList.size() + dynAttr->startArgsOutputLogicalTensorList.size();
@@ -1670,6 +1739,7 @@ public:
         auto [args, argsSize] = kernel->BuildKernelArgs(tensors);
         rtAicpuArgs.args = args;
         rtAicpuArgs.argsSize = argsSize;
+        kernel->EnsureDistributedContext(reinterpret_cast<void *>(aicoreStream));
 
         args->kArgs.ctrlFlowCache = (int64_t *)ctrlFlowCache;
         args->kArgs.workspace = workspace;
