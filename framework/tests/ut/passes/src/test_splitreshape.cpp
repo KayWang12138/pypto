@@ -141,13 +141,8 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
     EXPECT_EQ(iter3->second.count(input2), kNumOne);
 
     EXPECT_EQ(pass.mapOffset.size(), kSizeTwo);
-    EXPECT_EQ(pass.mapOffset.count(copyTensor->magic), kNumZero);
-    EXPECT_EQ(pass.mapOffset.count(input1->magic), kNumOne);
-    EXPECT_EQ(pass.mapOffset[input1->magic].count(ubTensor->magic), kNumOne);
-    EXPECT_EQ(pass.mapOffset[input1->magic][ubTensor->magic], offset1);
-    EXPECT_EQ(pass.mapOffset.count(input2->magic), kNumOne);
-    EXPECT_EQ(pass.mapOffset[input2->magic].count(ubTensor->magic), kNumOne);
-    EXPECT_EQ(pass.mapOffset[input2->magic][ubTensor->magic], offset2);
+    EXPECT_EQ(pass.mapOffset[std::make_pair(input1->magic, ubTensor->magic)], offset1);
+    EXPECT_EQ(pass.mapOffset[std::make_pair(input2->magic, ubTensor->magic)], offset2);
 }
 
 TEST_F(TestSplitReshapePass, TestCheckSplit) {
@@ -506,7 +501,7 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTileBeCovered) {
     auto &assemble_op2 = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input2}, {ubTensor});
     auto assemble_Attr2 = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset2);
     assemble_op2.SetOpAttribute(assemble_Attr2);
-    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
+    auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
 
     SplitReshape pass;
     LogicalTensors overlaps;
@@ -516,7 +511,7 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTileBeCovered) {
     std::vector<int64_t> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     auto newOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, output->tensor, newOutputTileOffset, newOutputTileShape, validShape);
-    copyOutTilePara copyOutTile = {ubTensor, output, newOutput, alignedShape};
+    copyOutTilePara copyOutTile = {ubTensor, reshapeOp.GetOpMagic(), output, newOutput, alignedShape};
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.ObtainCopyOutTile(*currFunctionPtr, copyOutTile, overlaps, newOverlaps), SUCCESS);
     EXPECT_EQ(overlaps.size(), kSizeTwo);
@@ -548,7 +543,7 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTilePerfectlyMatched) {
     auto &assemble_op = currFunctionPtr->AddOperation(Opcode::OP_ASSEMBLE, {input}, {ubTensor});
     auto assemble_Attr = std::make_shared<AssembleOpAttribute>(MEM_DEVICE_DDR, offset);
     assemble_op.SetOpAttribute(assemble_Attr);
-    currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
+    auto &reshapeOp = currFunctionPtr->AddOperation(Opcode::OP_RESHAPE, {ubTensor}, {output});
 
     SplitReshape pass;
     LogicalTensors overlaps;
@@ -558,7 +553,7 @@ TEST_F(TestSplitReshapePass, TestObtainCopyOutTilePerfectlyMatched) {
     std::vector<int64_t> newOutputTileShape = {kNumTwo, kNumTwo, kNumTwo};
     std::vector<int64_t> alignedShape = {kNumTwo, kNumTwo, kNumTwo};
     auto newOutput = std::make_shared<LogicalTensor>(*currFunctionPtr, output->tensor, newOutputTileOffset, newOutputTileShape, validShape);
-    copyOutTilePara copyOutTile = {ubTensor, output, newOutput, alignedShape};
+    copyOutTilePara copyOutTile = {ubTensor, reshapeOp.GetOpMagic(), output, newOutput, alignedShape};
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.ObtainCopyOutTile(*currFunctionPtr, copyOutTile, overlaps, newOverlaps), SUCCESS);
     EXPECT_EQ(overlaps.size(), kSizeOne);

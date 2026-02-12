@@ -47,13 +47,6 @@ std::string GetStr(const std::vector<SymbolicScalar> &vec) {
     return "{" + ret + "}";
 }
 
-void Clear(size_t shapeSize, std::vector<int64_t> &vec) {
-    vec.clear();
-    for (size_t j = 0UL; j < shapeSize; j++) {
-        vec.emplace_back(0);
-    }
-}
-
 bool CheckProducerCopyOut(const LogicalTensorPtr &input) {
     bool producerCopyOut = false;
     for (const auto &producer : input->GetProducers()) {
@@ -186,17 +179,26 @@ Status SplitReshape::CheckDynStatus(std::vector<int64_t> alignedShape, std::vect
 }
 
 bool SplitReshape::CheckSameRawInput(const LogicalTensorPtr &reshapeSource) {
-    auto copySources = AssembleOutToInput[reshapeSource->GetRawTensor()->GetRawMagic()];
-    if (copySources.empty()) {
-        return true;
+    if (auto it = sameRawInputCache_.find(reshapeSource); it != sameRawInputCache_.end()) {
+        return it->second;
     }
-    auto copyoutSourceFirst = copySources.begin();
-    for (const auto &copyOutSource : copySources) {
-        if (copyOutSource->GetRawTensor()->GetRawMagic() != (*copyoutSourceFirst)->GetRawTensor()->GetRawMagic()) {
-            return false;
+
+    const auto reshapeInputRawMagic = reshapeSource->GetRawTensor()->GetRawMagic();
+    bool result = true;
+    if (auto it = AssembleOutToInput.find(reshapeInputRawMagic); it != AssembleOutToInput.end()) {
+        const auto& copySources = it->second;
+        if (!copySources.empty()) {
+            const auto firstAssInputRawMagic = (*copySources.begin())->GetRawTensor()->GetRawMagic();
+            result = std::all_of(copySources.begin(), copySources.end(),
+                                [&](const auto& src) {
+                                    return src->GetRawTensor()->GetRawMagic() == firstAssInputRawMagic;
+                                });
+
         }
     }
-    return true;
+
+    sameRawInputCache_.emplace(reshapeSource, result);
+    return result;
 }
 
 std::shared_ptr<ReshapeOp> SplitReshape::ReshapeOperationExist(const std::shared_ptr<ReshapeOp> &isAddReshapeop) {
@@ -219,12 +221,10 @@ Status SplitReshape::UpdateDynShape(const std::shared_ptr<ReshapeOp> &reshapeOp,
     if (dynShape.empty()) {
         return SUCCESS;
     }
-    std::vector<int64_t> curOffset;
-    if (offset.empty()) {
-        Clear(dynShape.size(), curOffset);
-    } else {
+    std::vector<int64_t> curOffset(dynShape.size(), 0);
+    if (!offset.empty()) {
         curOffset = offset;
-    }
+    }     
     if (curOffset.size() != dynShape.size()) {
         APASS_LOG_ERROR_F(Elements::Tensor, "The dim of curOffset %s does not equal to dynShape %s.", GetStr(curOffset).c_str(), GetStr(dynShape).c_str());
         return FAILED;
@@ -249,10 +249,8 @@ Status SplitReshape::GroupReshapeOffset(const std::shared_ptr<ReshapeOp> &isAddR
         return SUCCESS;
     }
     auto curStartIdx = iter->second;
-    std::vector<int64_t> upperleftIdx;
-    if (offset.empty()) {
-        Clear(curStartIdx.size(), upperleftIdx);
-    } else {
+    std::vector<int64_t> upperleftIdx(curStartIdx.size(), 0);
+    if (!offset.empty()) {
         upperleftIdx = offset;
     }
     if (curStartIdx.size() != upperleftIdx.size()) {
@@ -305,17 +303,9 @@ unsigned long SplitReshape::ComputeReshapeHashOrderless(
 }
 
 std::vector<int64_t> SplitReshape::ObtainMapOffset(const LogicalTensorPtr &input, const LogicalTensorPtr &output) const {
-    std::vector<int64_t> defaultRet;
-    auto iter1 = mapOffset.find(input->GetMagic());
-    if (iter1 == mapOffset.end()) {
-        return defaultRet;
-    }
-    auto offsetInfo = mapOffset.at(input->GetMagic());
-    auto iter2 = offsetInfo.find(output->GetMagic());
-    if (iter2 == offsetInfo.end()) {
-        return defaultRet;
-    }
-    return offsetInfo.at(output->GetMagic());
+    auto it = mapOffset.find({input->GetMagic(), output->GetMagic()});
+    if (it == mapOffset.end()) return {};
+    return it->second;
 }
 
 Status SplitReshape::CollectCopyOut(Function &function) {
@@ -348,7 +338,8 @@ Status SplitReshape::CollectCopyOut(Function &function) {
             }
             AssembleOutToInput[output->GetRawTensor()->GetRawMagic()].insert(input);
             auto offset = dynamic_cast<AssembleOpAttribute *>(op.GetOpAttribute().get())->GetToOffset();
-            mapOffset[input->GetMagic()][output->GetMagic()] = offset;
+            mapOffset[std::make_pair(input->GetMagic(), output->GetMagic())] = offset;
+            mapAssembleOpMagic[std::make_pair(input->GetMagic(), output->GetMagic())] = op.GetOpMagic();
             for (const auto &reshapeOp : output->GetConsumers()) {
                 if (reshapeOp->GetOpcode() != Opcode::OP_RESHAPE) {
                     continue;
@@ -492,8 +483,8 @@ Status SplitReshape::RawToAlign(
     auto alignedShape = shapePara.newShape;
     auto tileOffset = shapePara.tileOffset;
     auto tileShape = shapePara.tileShape;
-    Clear(alignedShape.size(), newOffset);
-    Clear(alignedShape.size(), newShape);
+    newOffset.assign(alignedShape.size(), 0);
+    newShape.assign(alignedShape.size(), 0);
     size_t i = 0UL;
     for (size_t j = 0UL; j < shape.size(); j++) {
         if (shape[j] == 1) {
@@ -530,8 +521,8 @@ Status SplitReshape::AlignToRaw(
     auto newRawshape = shapePara.newShape;
     auto tileOffset = shapePara.tileOffset;
     auto tileShape = shapePara.tileShape;
-    Clear(newRawshape.size(), newOffset);
-    Clear(newRawshape.size(), newShape);
+    newOffset.assign(newRawshape.size(), 0);
+    newShape.assign(newRawshape.size(), 0);
     size_t i = 0UL;
     for (size_t j = 0UL; j < newRawshape.size(); j++) {
         if (newRawshape[j] == 1) {
@@ -572,34 +563,47 @@ Status SplitReshape::AlignToRaw(
 }
 
 Status SplitReshape::ObtainCopyOutTile(Function &function, const copyOutTilePara &copyOutTile, LogicalTensors &overlaps, LogicalTensors &newOverlaps) {
-    auto reshapeSource = copyOutTile.reshapeSource;
-    auto alignedShape = copyOutTile.alignedShape;
-    auto newInputView = copyOutTile.newInputView;
-    for (const auto &copyOutSource : AssembleOutToInput[reshapeSource->GetRawTensor()->GetRawMagic()]) {
-        // 存在多个tensor assemble成一个tensor再reshape的场景，需要使用assemble op的offset计算
-        std::vector<int64_t> copyOutOffset = ObtainMapOffset(copyOutSource, reshapeSource);
-        std::vector<int64_t> newCopyOutTileShape;
-        std::vector<int64_t> newCopyOutTileOffset;
-        ReshapeTilePara CopyOutInfo = {reshapeSource->GetRawTensor()->GetRawShape(), alignedShape, copyOutOffset, copyOutSource->shape};
-        Status ret = RawToAlign(CopyOutInfo, newCopyOutTileOffset, newCopyOutTileShape);
-        if (ret == WARNING) {
+    ReshapeTilePara CopyOutInfo;
+    CopyOutInfo.shape = copyOutTile.reshapeSource->GetRawTensor()->GetRawShape();
+    CopyOutInfo.newShape = copyOutTile.alignedShape;
+    for (const auto &copyOutSource : AssembleOutToInput[copyOutTile.reshapeSource->GetRawTensor()->GetRawMagic()]) {
+        AlignResult result;
+        int assembleOpMagic = mapAssembleOpMagic[std::make_pair(copyOutSource->GetMagic(), copyOutTile.reshapeSource->GetMagic())];
+        int reshapeOpMagic = copyOutTile.reshapeOpMagic;
+        auto it = rawToAlignCache_.find(std::make_pair(assembleOpMagic, reshapeOpMagic));
+        if (it != rawToAlignCache_.end()) {
+            result = it->second;
+        } else {
+            // 存在多个tensor assemble成一个tensor再reshape的场景，需要使用assemble op的offset计算
+            std::vector<int64_t> copyOutOffset = ObtainMapOffset(copyOutSource, copyOutTile.reshapeSource);
+            CopyOutInfo.tileOffset = std::move(copyOutOffset);
+            CopyOutInfo.tileShape = copyOutSource->shape;
+            std::vector<int64_t> newCopyOutTileShape;
+            std::vector<int64_t> newCopyOutTileOffset;
+            result.st = RawToAlign(CopyOutInfo, newCopyOutTileOffset, newCopyOutTileShape);
+            if (result.st == SUCCESS) {
+                result.newCopyOutSource = std::make_shared<LogicalTensor>(function, copyOutTile.reshapeSource->GetRawTensor(),
+                    std::move(newCopyOutTileOffset), std::move(newCopyOutTileShape));
+            }
+            rawToAlignCache_[std::make_pair(assembleOpMagic, reshapeOpMagic)] = result;
+        }
+        if (result.st == WARNING) {
             APASS_LOG_WARN_F(Elements::Tensor, "Found RawToAlign warning case, copyOutInfo is %s.", GetStr(CopyOutInfo).c_str());
             return WARNING;
         }
-        if (ret == FAILED) {
+        if (result.st == FAILED) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Run RawToAlign failed, copyOutInfo is %s.", GetStr(CopyOutInfo).c_str());
             return FAILED;
         }
-        auto newCopyOutSource = std::make_shared<LogicalTensor>(function, reshapeSource->GetRawTensor(), newCopyOutTileOffset, newCopyOutTileShape);
-        auto status = CalcOverlap(newInputView, newCopyOutSource, true);
+        auto status = CalcOverlap(copyOutTile.newInputView, result.newCopyOutSource, true);
         if (status == OverlapStatus::PERFECTLY_MATCH || status == OverlapStatus::BE_COVERED) {
-            overlaps.push_back(copyOutSource);
-            newOverlaps.push_back(newCopyOutSource);
+            overlaps.emplace_back(copyOutSource);
+            newOverlaps.emplace_back(result.newCopyOutSource);
             break;
         }
         if (status == OverlapStatus::COVERED) {
-            overlaps.push_back(copyOutSource);
-            newOverlaps.push_back(newCopyOutSource);
+            overlaps.emplace_back(copyOutSource);
+            newOverlaps.emplace_back(result.newCopyOutSource);
         }
     }
     return SUCCESS;
@@ -1039,7 +1043,8 @@ Status SplitReshape::CheckOp(Function &function, Operation &op) {
         return FAILED;
     }
     auto newInputView = std::make_shared<LogicalTensor>(function, inputView->GetRawTensor(), checkOutputParam.newInputViewTileOffset, checkOutputParam.newInputViewTileShape);
-    copyOutTilePara copyOutTile = {checkOutputParam.reshapeSource, inputView, newInputView, checkOutputParam.alignedShape};
+    auto reshapeOp = *input->GetProducers().begin();
+    copyOutTilePara copyOutTile = {checkOutputParam.reshapeSource, reshapeOp->GetOpMagic(), inputView, newInputView, checkOutputParam.alignedShape};
     Status ret = ObtainCopyOutTile(function, copyOutTile, overlaps, newOverlaps);
     if (ret == WARNING) {
         APASS_LOG_WARN_F(Elements::Operation, "Obtain CopyOutTile failed, skip splitreshape for [%d].", op.GetOpMagic());
@@ -1131,7 +1136,7 @@ Status SplitReshape::GetReshapeDynShape(const std::shared_ptr<ReshapeOp> &op, st
             }
         }
         if (upperleftIdx.empty()) {
-            Clear(validShape.size(), upperleftIdx);
+            upperleftIdx.assign(validShape.size(), 0);
         }
         if (dynValidShape.size() != validShape.size() || upperleftIdx.size() != validShape.size()) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Incorrect size, dynValidShape is %s, validShape is %s, upperleftIdx is %s.",

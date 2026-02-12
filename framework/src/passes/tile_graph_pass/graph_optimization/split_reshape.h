@@ -29,6 +29,14 @@ using InputMaigc = int;
 using OutputMaigc = int;
 using OverlaprawMagic = int;
 
+struct PairHash {
+    size_t operator()(const std::pair<int, int>& p) const noexcept {
+        // 把两个32-bit打包到64-bit,再进行hash
+        uint64_t key = (uint64_t(uint32_t(p.first)) << 32) | uint64_t(uint32_t(p.second));
+        return std::hash<uint64_t>{}(key);
+    }
+}
+
 struct UpdatePara {
     int64_t ShapeVal;
     int64_t OffsetVal;
@@ -50,6 +58,7 @@ struct CheckParam {
 
 struct copyOutTilePara {
     LogicalTensorPtr reshapeSource;
+    int reshapeOpMagic;
     LogicalTensorPtr inputView;
     LogicalTensorPtr newInputView;
     std::vector<int64_t> alignedShape;
@@ -127,6 +136,11 @@ struct ReshapeSourcePara {
     std::vector<int64_t> newReshapeSourceTileOffset;
 };
 
+struct AlignResult {
+    Status st = SUCCESS;
+    LogicalTensorPtr newCopyOutSource;
+};
+
 class SplitReshape : public Pass, public DeadOperationEliminator {
 public:
     SplitReshape() : Pass("SplitReshape") {}
@@ -181,7 +195,8 @@ private:
     SplitReshapeChecker checker;
     
     std::unordered_map<int, std::set<LogicalTensorPtr, TensorPtrComparator>> AssembleOutToInput;
-    std::unordered_map<InputMaigc, std::unordered_map<OutputMaigc, std::vector<int64_t>>> mapOffset;
+    std::unordered_map<std::pair<int, int>, std::vector<int64_t>, PairHash> mapOffset;
+    std::unordered_map<std::pair<int, int>, int, PairHash> mapAssembleOpMagic;
     std::unordered_map<int, LogicalTensorPtr> reshapeSources;
     std::unordered_map<int, std::vector<SymbolicScalar>> reshapeDynOutput;
     std::vector<AssembleOp> assembles;
@@ -195,6 +210,8 @@ private:
     std::unordered_map<int, const Operation *> reshapeOpPtrs;
     // 记录满足后续op为reshape的op_assemble的指针，第一个map的键值为assemble输入Operand的magic, 第二个map的键值为后续op_reshape的输出Operand的magic。
     std::unordered_map<int, std::unordered_map<int, const Operation *>> assembleOpPtrs;
+    std::unordered_map<std::pair<int, int>, AlignResult, PairHash> rawToAlignCache_;
+    std::unordered_map<LogicalTensorPtr, bool> sameRawInputCache_;
 };
 
 } // namespace npu::tile_fwk
