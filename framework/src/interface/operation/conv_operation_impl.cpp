@@ -729,6 +729,7 @@ LogicalTensorPtr ConstructFmapTile(Function &function, const ConvGraphNodes &ten
         auto &copyInOpAl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.fmapTensorPtr},
                                                   {dstAL1TensorPtr});
         copyInOpAl1.SetAttribute("is_fmap", true);
+        copyInOpAl1.SetAttribute("COPY_IN_MODE", static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
         copyInOpAl1.SetAttribute("src_d_offset", iterInfo.dinL1Offset + (iterInfo.kL0Offset / convTileInfo.kPerGroup) *
                                  convAttrParam.dilations[2]);
         copyInOpAl1.SetAttribute("src_d_stride", convAttrParam.dilations[2]);
@@ -790,6 +791,7 @@ LogicalTensorPtr ConstructWeightTile(Function &function, const ConvGraphNodes &t
         auto &copyInOpBl1 = function.AddOperation(Opcode::OP_L1_COPY_IN_CONV, {tensorGraphNodes.weightTensorPtr},
                                                   {dstBL1TensorPtr});
         copyInOpBl1.SetAttribute("is_fmap", false);
+        copyInOpBl1.SetAttribute("COPY_IN_MODE", static_cast<int64_t>(CopyInMode::COPY_MOD_DN2NZ));
         copyInOpBl1.SetAttribute("src_c_offset", srcCinOffset);
         copyInOpBl1.SetAttribute("src_d_offset", (convTileInfo.orgKd - iterInfo.dkL1Size) +
                                  (iterInfo.kL0Offset / convTileInfo.kPerGroup));
@@ -985,6 +987,12 @@ void IterL0ExpandFunc(Function &function, ConvIterInfo &iterInfo, ConvTileInfo &
                 // set fixpipe copy out validshape
                 fixpipeOpRes.SetAttribute("realM", iterInfo.mL0Size);
                 fixpipeOpRes.SetAttribute("realN", iterInfo.nL0Size);
+                fixpipeOpRes.SetAttribute("COPY_OUT_MODE", static_cast<int64_t>(CopyOutMode::COPY_MOD_NZ2DN));
+                fixpipeOpRes.SetAttribute("dst_d_offset", iterInfo.doL1Offset);
+                fixpipeOpRes.SetAttribute("dst_n_offset", iterInfo.batchOffset);
+                fixpipeOpRes.SetAttribute("dst_h_offset", iterInfo.hL1OutOffset + iterInfo.hL0Offset);
+                fixpipeOpRes.SetAttribute("dst_w_offset", iterInfo.wL1OutOffset + iterInfo.wL0Offset);
+                fixpipeOpRes.SetAttribute("dst_c_offset", iterInfo.nL1Offset + iterInfo.nL0Offset);
                 fixpipeOpRes.SetAttribute("res_tile_shape",
                                           SymbolicScalar::FromConcrete(tensorGraphNodes.resTensorPtr->shape));
             }

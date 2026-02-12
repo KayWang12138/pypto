@@ -223,6 +223,22 @@ public:
     static const std::string padValue;
 };
 
+enum class CopyInMode : int {
+    COPY_MOD_INVALID = -1,
+    COPY_MOD_ND2ND = 0,
+    COPY_MOD_ND2NZ,
+    COPY_MOD_NZ2NZ,
+    COPY_MOD_DN2NZ
+};
+
+enum class CopyOutMode : int {
+    COPY_MOD_INVALID = -1,
+    COPY_MOD_NZ2ND = 0,
+    COPY_MOD_NZ2NZ,
+    COPY_MOD_ND2ND,
+    COPY_MOD_NZ2DN
+};
+
 struct ConvAttrParam {
     std::vector<int64_t> paddings = {0, 0, 0, 0};
     std::vector<int64_t> strides = {0, 0};
