@@ -29,5 +29,9 @@ target_link_libraries(tile_fwk_simulation_ca
             c_sec
             json
 )
+target_compile_definitions(tile_fwk_simulation_ca
+        PRIVATE
+            $<BUILD_INTERFACE:SIMULATION_DEVICE>
+)
 PTO_Fwk_AnalysisTargetHeaderFiles(TARGET tile_fwk_simulation_ca)
 PTO_Fwk_AnalysisTargetSymbols(TARGET tile_fwk_simulation_ca)
