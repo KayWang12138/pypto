@@ -294,6 +294,15 @@
                             }
                         }
                     ]
+                },
+                "repeat_time": {
+                    "type": "integer",
+                    "label": {
+                        "zh": "",
+                        "en": ""
+                    },
+                    "minimum": 5,
+                    "maximum": 100000
                 }
             }
         },
