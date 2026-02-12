@@ -61,7 +61,9 @@ bool FlowVerifier::VerifyResult(const std::string &key,
         auto result = VerifyResult(goldenView, outputView, rtol, atol);
         if (!result.Check()) {
             VERIFY_LOGE("%s:\n    Verify for %zu data view list index %zu result FAILED", key.c_str(), goldenDataViewList.size(), k);
-            VERIFY_LOGE("%s %s", key.c_str(), result.Dump().c_str());
+            auto dumpVec = result.Dump();
+            VERIFY_LOGE("%s maxAbsDiff=%s maxRelDiff=%s errorCount=%s errorRatio=%s", 
+                key.c_str(), dumpVec[0].c_str(), dumpVec[1].c_str(), dumpVec[2].c_str(), dumpVec[3].c_str());
             return false;
         } else {
             VERIFY_LOGI("%s: Verify for data %zu result SUCCEED", key.c_str(), k);
