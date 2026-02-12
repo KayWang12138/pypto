@@ -162,7 +162,6 @@ class TestComplexExpressions:
         c3 = ir.ConstInt(3, DataType.INT64, ir.Span.unknown())
         c4 = ir.ConstInt(4, DataType.INT64, ir.Span.unknown())
 
-        # Build: (((x + 1) - 2) * 3) / 4
         expr = ir.FloatDiv(
             ir.Mul(
                 ir.Sub(
@@ -237,13 +236,10 @@ class TestPointerSharing:
         # Create: (x + y) and reuse it
         add = ir.Add(x, y, DataType.INT64, ir.Span.unknown())
 
-        # Create: (x + y) * x
         mul1 = ir.Mul(add, x, DataType.INT64, ir.Span.unknown())
 
-        # Create: (x + y) + y
         add2 = ir.Add(add, y, DataType.INT64, ir.Span.unknown())
 
-        # Combine: ((x + y) * x) - ((x + y) + y)
         sub = ir.Sub(mul1, add2, DataType.INT64, ir.Span.unknown())
 
         data = ir.serialize(sub)

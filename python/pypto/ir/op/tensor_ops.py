@@ -68,7 +68,7 @@ def view(
     return _ir_core.create_op_call("tensor.view", args, {}, actual_span)
 
 
-def matmul(  # pylint: disable=too-many-arguments
+def matmul(
     lhs: Expr,
     rhs: Expr,
     out_dtype: Optional[Union[int, DataType]] = None,

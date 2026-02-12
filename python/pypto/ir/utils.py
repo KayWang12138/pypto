@@ -9,12 +9,12 @@
 
 """Utility functions for IR construction."""
 
+__all__ = ["_get_span_or_capture", "_normalize_expr", "_normalize_shape"]
+
 import inspect
 from typing import Optional, Sequence, Union
 
 from pypto.pypto_impl import ir as _ir
-
-__all__ = ["_get_span_or_capture", "_normalize_expr", "_normalize_shape"]
 from pypto.pypto_impl.ir import DataType
 
 

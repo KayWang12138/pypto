@@ -14,6 +14,8 @@ Provides a Pythonic API for building IR using context managers with
 automatic span tracking via the inspect module.
 """
 
+__all__ = ["IRBuilder", "FunctionBuilder", "ForLoopBuilder", "IfStmtBuilder", "ProgramBuilder"]
+
 import inspect
 from contextlib import contextmanager
 from typing import Iterator, List, Optional, Sequence, Union
@@ -23,8 +25,6 @@ from pypto.pypto_impl.ir import DataType
 from pypto.pypto_impl.ir import IRBuilder as CppIRBuilder
 
 from .utils import _normalize_expr
-
-__all__ = ["IRBuilder", "FunctionBuilder", "ForLoopBuilder", "IfStmtBuilder", "ProgramBuilder"]
 
 
 class IRBuilder:
@@ -52,6 +52,14 @@ class IRBuilder:
         self._builder = CppIRBuilder()
         self._begin_spans: dict[int, ir.Span] = {}  # Track begin spans for multi-line contexts
 
+    def get_cpp_builder(self) -> CppIRBuilder:
+        """Get the underlying C++ IRBuilder instance.
+
+        Returns:
+            CppIRBuilder: The native C++ IR builder
+        """
+        return self._builder
+
     # ========== Context Managers for Multi-line Constructs ==========
 
     @contextmanager
@@ -76,7 +84,7 @@ class IRBuilder:
             >>> with ib.function("orchestrator", func_type=ir.FunctionType.Orchestration) as f:
             ...     pass
         """
-        begin_span = span if span is not None else self._capture_call_span()
+        begin_span = span if span is not None else self.capture_call_span()
         ctx_id = id(begin_span)
         self._begin_spans[ctx_id] = begin_span
 
@@ -85,8 +93,8 @@ class IRBuilder:
         try:
             yield builder_obj
         finally:
-            end_span = self._capture_call_span() if span is None else span
-            combined_span = self._combine_spans(self._begin_spans[ctx_id], end_span)
+            end_span = self.capture_call_span() if span is None else span
+            combined_span = self.combine_spans(self._begin_spans[ctx_id], end_span)
             result = self._builder.end_function(combined_span)
             builder_obj.set_result(result)
             del self._begin_spans[ctx_id]
@@ -117,7 +125,7 @@ class IRBuilder:
             >>> with ib.for_loop(i, 0, 10, 1) as loop:
             ...     sum_iter = loop.iter_arg("sum", init_val)
         """
-        begin_span = span if span is not None else self._capture_call_span()
+        begin_span = span if span is not None else self.capture_call_span()
         ctx_id = id(begin_span) + 1  # Different id
         self._begin_spans[ctx_id] = begin_span
 
@@ -131,8 +139,8 @@ class IRBuilder:
         try:
             yield builder_obj
         finally:
-            end_span = self._capture_call_span() if span is None else span
-            combined_span = self._combine_spans(self._begin_spans[ctx_id], end_span)
+            end_span = self.capture_call_span() if span is None else span
+            combined_span = self.combine_spans(self._begin_spans[ctx_id], end_span)
             result = self._builder.end_for_loop(combined_span)
             builder_obj.set_result(result)
             del self._begin_spans[ctx_id]
@@ -158,7 +166,7 @@ class IRBuilder:
             ...     # else branch
             ...     ib.assign(x, other_value)
         """
-        begin_span = span if span is not None else self._capture_call_span()
+        begin_span = span if span is not None else self.capture_call_span()
         ctx_id = id(begin_span) + 2
         self._begin_spans[ctx_id] = begin_span
 
@@ -168,8 +176,8 @@ class IRBuilder:
         try:
             yield builder_obj
         finally:
-            end_span = self._capture_call_span() if span is None else span
-            combined_span = self._combine_spans(self._begin_spans[ctx_id], end_span)
+            end_span = self.capture_call_span() if span is None else span
+            combined_span = self.combine_spans(self._begin_spans[ctx_id], end_span)
             result = self._builder.end_if(combined_span)
             builder_obj.set_result(result)
             del self._begin_spans[ctx_id]
@@ -203,7 +211,7 @@ class IRBuilder:
             ...     p.add_function(func2)
             >>> program = p.get_result()
         """
-        begin_span = span if span is not None else self._capture_call_span()
+        begin_span = span if span is not None else self.capture_call_span()
         ctx_id = id(begin_span) + 3  # Different id
         self._begin_spans[ctx_id] = begin_span
 
@@ -212,8 +220,8 @@ class IRBuilder:
         try:
             yield builder_obj
         finally:
-            end_span = self._capture_call_span() if span is None else span
-            combined_span = self._combine_spans(self._begin_spans[ctx_id], end_span)
+            end_span = self.capture_call_span() if span is None else span
+            combined_span = self.combine_spans(self._begin_spans[ctx_id], end_span)
             result = self._builder.end_program(combined_span)
             builder_obj.set_result(result)
             del self._begin_spans[ctx_id]
@@ -231,7 +239,7 @@ class IRBuilder:
         Returns:
             Var: The created variable
         """
-        actual_span = span if span is not None else self._capture_call_span()
+        actual_span = span if span is not None else self.capture_call_span()
         return self._builder.var(name, type, actual_span)
 
     def assign(
@@ -250,7 +258,7 @@ class IRBuilder:
         Returns:
             AssignStmt: The created assignment statement
         """
-        actual_span = span if span is not None else self._capture_call_span()
+        actual_span = span if span is not None else self.capture_call_span()
         value_expr = _normalize_expr(value, actual_span)
         return self._builder.assign(var, value_expr, actual_span)
 
@@ -292,7 +300,7 @@ class IRBuilder:
             >>> # For function calls, type is auto-inferred from function signature:
             >>> result = ib.let("result", ir.Call(func_gvar, [x], span))
         """
-        actual_span = span if span is not None else self._capture_call_span()
+        actual_span = span if span is not None else self.capture_call_span()
         value_expr = _normalize_expr(value, actual_span)
 
         # Auto-infer return type for Call expressions with GlobalVar
@@ -347,7 +355,7 @@ class IRBuilder:
             ...     y = builder.func_arg("y", ir.ScalarType(DataType.FP32))
             ...     tuple_val = builder.make_tuple([x, y])
         """
-        actual_span = span if span is not None else self._capture_call_span()
+        actual_span = span if span is not None else self.capture_call_span()
         return ir.MakeTuple(list(elements), actual_span)
 
     def emit(self, stmt: ir.Stmt) -> None:
@@ -375,7 +383,7 @@ class IRBuilder:
         Returns:
             ReturnStmt: The created return statement
         """
-        actual_span = span if span is not None else self._capture_call_span()
+        actual_span = span if span is not None else self.capture_call_span()
 
         # Normalize values to list and convert each element
         if values is None:
@@ -405,7 +413,7 @@ class IRBuilder:
         Returns:
             EvalStmt: The created evaluation statement
         """
-        actual_span = span if span is not None else self._capture_call_span()
+        actual_span = span if span is not None else self.capture_call_span()
         expr_normalized = _normalize_expr(expr, actual_span)
         stmt = ir.EvalStmt(expr_normalized, actual_span)
         self._builder.emit(stmt)
@@ -451,7 +459,7 @@ class IRBuilder:
             >>> addr = ir.ConstInt(0x1000, DataType.INT64, ir.Span.unknown())
             >>> memref = ib.memref(ir.MemorySpace.DDR, addr, 1024, 0)
         """
-        actual_span = span if span is not None else self._capture_call_span()
+        actual_span = span if span is not None else self.capture_call_span()
         addr_expr = _normalize_expr(addr, actual_span)
         return ir.MemRef(memory_space, addr_expr, size, id, actual_span)
 
@@ -479,7 +487,7 @@ class IRBuilder:
             >>> start_offset = 0
             >>> tv = ib.tile_view(valid_shape, stride, start_offset)
         """
-        actual_span = span if span is not None else self._capture_call_span()
+        actual_span = span if span is not None else self.capture_call_span()
         valid_shape_exprs = [_normalize_expr(dim, actual_span) for dim in valid_shape]
         stride_exprs = [_normalize_expr(s, actual_span) for s in stride]
         start_offset_expr = _normalize_expr(start_offset, actual_span)
@@ -510,7 +518,7 @@ class IRBuilder:
             >>> memref = ib.memref(ir.MemorySpace.DDR, 0x1000, 1024)
             >>> tensor_t = ib.tensor_type([64, 128], DataType.FP32, memref=memref)
         """
-        actual_span = span if span is not None else self._capture_call_span()
+        actual_span = span if span is not None else self.capture_call_span()
         shape_exprs = [_normalize_expr(dim, actual_span) for dim in shape]
         return ir.TensorType(shape_exprs, dtype, memref)
 
@@ -542,13 +550,14 @@ class IRBuilder:
             >>> tv = ib.tile_view([16, 16], [1, 16], 0)
             >>> tile_t = ib.tile_type([16, 16], DataType.FP16, memref=memref, tile_view=tv)
         """
-        actual_span = span if span is not None else self._capture_call_span()
+        actual_span = span if span is not None else self.capture_call_span()
         shape_exprs = [_normalize_expr(dim, actual_span) for dim in shape]
         return ir.TileType(shape_exprs, dtype, memref, tile_view)
 
-    # ========== Private Span Tracking Helpers ==========
+    # ========== Span Tracking Helpers ==========
 
-    def _capture_call_span(self) -> ir.Span:
+    @staticmethod
+    def capture_call_span() -> ir.Span:
         """Capture span from immediate caller using inspect.
 
         Returns:
@@ -563,7 +572,8 @@ class IRBuilder:
             return ir.Span(info.filename, info.lineno, -1)
         return ir.Span.unknown()
 
-    def _combine_spans(self, begin: ir.Span, end: ir.Span) -> ir.Span:
+    @staticmethod
+    def combine_spans(begin: ir.Span, end: ir.Span) -> ir.Span:
         """Combine begin and end spans into a multi-line span.
 
         Args:
@@ -605,8 +615,8 @@ class FunctionBuilder:
         Returns:
             Var: The parameter variable
         """
-        actual_span = span if span is not None else self._builder._capture_call_span()
-        return self._builder._builder.func_arg(name, type, actual_span)
+        actual_span = span if span is not None else self._builder.capture_call_span()
+        return self._builder.get_cpp_builder().func_arg(name, type, actual_span)
 
     def return_type(self, type: ir.Type) -> None:
         """Add return type to the function.
@@ -614,7 +624,7 @@ class FunctionBuilder:
         Args:
             type: Return type
         """
-        self._builder._builder.return_type(type)
+        self._builder.get_cpp_builder().return_type(type)
 
     def get_result(self) -> ir.Function:
         """Get the built Function.
@@ -677,7 +687,7 @@ class ForLoopBuilder:
             >>> # Or with explicit type validation:
             >>> sum_iter = loop.iter_arg("sum", 0, type=ir.ScalarType(ir.DataType.INT64))
         """
-        actual_span = span if span is not None else self._builder._capture_call_span()
+        actual_span = span if span is not None else self._builder.capture_call_span()
         init_expr = _normalize_expr(init_value, actual_span)
 
         # Infer type from the init_value expression
@@ -693,7 +703,7 @@ class ForLoopBuilder:
         final_type = inferred_type
 
         iter_arg = ir.IterArg(name, final_type, init_expr, actual_span)
-        self._builder._builder.add_iter_arg(iter_arg)
+        self._builder.get_cpp_builder().add_iter_arg(iter_arg)
         self._iter_args.append(iter_arg)  # Track for return_var type inference
         return iter_arg
 
@@ -720,7 +730,7 @@ class ForLoopBuilder:
             >>> # Or with explicit type validation:
             >>> sum_final = loop.return_var("sum_final", type=ir.ScalarType(ir.DataType.INT64))
         """
-        actual_span = span if span is not None else self._builder._capture_call_span()
+        actual_span = span if span is not None else self._builder.capture_call_span()
 
         # Try to infer type from corresponding iter_arg by index
         inferred_type = None
@@ -746,7 +756,7 @@ class ForLoopBuilder:
             final_type = type
 
         var = ir.Var(name, final_type, actual_span)
-        self._builder._builder.add_return_var(var)
+        self._builder.get_cpp_builder().add_return_var(var)
         self._return_var_count += 1
         return var
 
@@ -839,8 +849,8 @@ class IfStmtBuilder:
         Args:
             span: Optional explicit span. If None, captured from call site.
         """
-        actual_span = span if span is not None else self._builder._capture_call_span()
-        self._builder._builder.begin_else(actual_span)
+        actual_span = span if span is not None else self._builder.capture_call_span()
+        self._builder.get_cpp_builder().begin_else(actual_span)
 
     def return_var(self, name: str, type: ir.Type, span: Optional[ir.Span] = None) -> None:
         """Add return variable for SSA phi node.
@@ -858,9 +868,9 @@ class IfStmtBuilder:
             >>> # Type must be provided explicitly:
             >>> if_builder.return_var("result", ir.ScalarType(ir.DataType.INT64))
         """
-        actual_span = span if span is not None else self._builder._capture_call_span()
+        actual_span = span if span is not None else self._builder.capture_call_span()
         var = ir.Var(name, type, actual_span)
-        self._builder._builder.add_if_return_var(var)
+        self._builder.get_cpp_builder().add_if_return_var(var)
 
     def output(self, index: int = 0) -> ir.Var:
         """Get a single output return variable from the if statement.
@@ -972,7 +982,7 @@ class ProgramBuilder:
             ...         ib.return_stmt(result)
             ...     p.add_function(f.get_result())
         """
-        return self._builder._builder.declare_function(name)
+        return self._builder.get_cpp_builder().declare_function(name)
 
     def get_global_var(self, name: str) -> ir.GlobalVar:
         """Get GlobalVar for a declared function.
@@ -985,7 +995,7 @@ class ProgramBuilder:
 
         Raises:
         """
-        return self._builder._builder.get_global_var(name)
+        return self._builder.get_cpp_builder().get_global_var(name)
 
     def add_function(self, func: ir.Function) -> None:
         """Add a function to the program.
@@ -995,7 +1005,7 @@ class ProgramBuilder:
         Args:
             func: Function to add
         """
-        self._builder._builder.add_function(func)
+        self._builder.get_cpp_builder().add_function(func)
 
     def get_result(self) -> ir.Program:
         """Get the built Program.
