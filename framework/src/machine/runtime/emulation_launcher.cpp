@@ -96,7 +96,7 @@ DevControlFlowCache* EmulationLauncher::CreateHostCtrlFlowCache(DevAscendProgram
     DevControlFlowCache encodeCtrlCache;
     uintdevptr_t initOffset = reinterpret_cast<uintdevptr_t>(encodeCtrlCache.data);
     encodeCtrlCache.Init(function->GetDyndevAttribute().get(),
-        devProg->ctrlFlowCacheSize, devProg->runtimeOutcastPoolSize, initOffset);
+        devProg->ctrlFlowCacheSize, devProg->runtimeOutcastPoolSize, initOffset, devProg->stitchMaxFunctionNum);
     uint32_t ctrlCacheAllocSize = encodeCtrlCache.GetSize();
     DevControlFlowCache* hostCtrlFlowCache = reinterpret_cast<DevControlFlowCache*>(memUtils.AllocZero(ctrlCacheAllocSize, nullptr));
     if (hostCtrlFlowCache == nullptr) {
@@ -105,7 +105,7 @@ DevControlFlowCache* EmulationLauncher::CreateHostCtrlFlowCache(DevAscendProgram
     hostCtrlFlowCache->allCacheSize = ctrlCacheAllocSize;
     initOffset = reinterpret_cast<uintdevptr_t>(hostCtrlFlowCache->data);
     hostCtrlFlowCache->Init(function->GetDyndevAttribute().get(),
-        devProg->ctrlFlowCacheSize, devProg->runtimeOutcastPoolSize, initOffset);
+        devProg->ctrlFlowCacheSize, devProg->runtimeOutcastPoolSize, initOffset, devProg->stitchMaxFunctionNum);
     return hostCtrlFlowCache;
 }
 
