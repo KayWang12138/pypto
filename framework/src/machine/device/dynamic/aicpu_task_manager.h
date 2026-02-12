@@ -104,7 +104,7 @@ public:
                 return ret;
             }
             if (GetCycles() - start_cycles > TIMEOUT_CYCLES) {
-                DEV_ERROR("SyncAicpuTaskFinish timeout.");
+                DEV_ERROR("[sync_wait] SyncAicpuTaskFinish timeout: Aicpu tasks not completed within threshold.");
                 return DEVICE_MACHINE_TIMEOUT_SYNC_AICPU_FINISH;
             }
         }
