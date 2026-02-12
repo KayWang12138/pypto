@@ -394,15 +394,15 @@ INSTANTIATE_TEST_SUITE_P(TestMatmulVerify, MatmulVerifyOperationTest,
 TEST_P(MatmulVerifyOperationTest, TestMatmulVerify) {
     TestCaseDesc testCase;
     auto test_data = GetParam().test_data_;
-    testCase.inputTensors = GetMatmulTensors(test_data, "input_tensors");
     testCase.outputTensors = GetMatmulTensors(test_data, "output_tensors");
+    testCase.inputTensors = GetMatmulTensors(test_data, "input_tensors");
     auto args = MatmulOpFuncArgs(GetViewShape(test_data), GetMatmulTileShape(test_data), GetMatmulParam(test_data));
     testCase.args = &args;
     testCase.opFunc = GetParam().opFunc_;
     testCase.inputPaths = {GetGoldenDir() + "/" + testCase.inputTensors[0].GetStorage()->Symbol() + ".bin",
         GetGoldenDir() + "/" + testCase.inputTensors[1].GetStorage()->Symbol() + ".bin"};
-    Tensor scaleTensor = GetParamTensor(test_data, "scale_tensors");
     Tensor biasTensor = GetParamTensor(test_data, "bias_tensors");
+    Tensor scaleTensor = GetParamTensor(test_data, "scale_tensors");
     if (scaleTensor.GetStorage() == nullptr) {
         testCase.inputPaths.push_back("");
     } else {
