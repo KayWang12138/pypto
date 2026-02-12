@@ -110,7 +110,7 @@ Status OoOScheduleChecker::DoPreCheck(Function &function) {
         }
         // 检查单ASSEMBLE/RESHAPE/VIEW op在UB上没有alloc
         if ((opList.size() == 1) && (opList.front()->GetOpcode() == Opcode::OP_ASSEMBLE || opList.front()->GetOpcode() == Opcode::OP_RESHAPE ||
-            opList.front()->GetOpcode() == Opcode::OP_VIEW) && opList.front()->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+            opList.front()->GetOpcode() == Opcode::OP_VIEW) && opList.front()->GetOOperands()[0]->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
                 APASS_LOG_ERROR_F(Elements::Operation, "Single Op: localBuffer does not have alloc, OoOSchedule Precheck failed!");
                 return FAILED;
         }
@@ -197,7 +197,7 @@ bool OoOScheduleChecker::PostCheckSpecialOp(const Operation *op) {
     if (op->GetOpcode() == Opcode::OP_ASSEMBLE || op->GetOpcode() == Opcode::OP_RESHAPE ||
         op->GetOpcode() == Opcode::OP_VIEW) {
         // 检查输出不在DDR的op: alloc标签不允许打在ASSEMBLE/RESHAPE/VIEW的输出tensor上
-        if (op->GetOOperands()[0]->GetMemoryTypeOriginal() != MemoryType::MEM_DEVICE_DDR) {
+        if (op->GetOOperands()[0]->GetMemoryTypeOriginal() < MemoryType::MEM_DEVICE_DDR) {
             bool needAlloc = false;
             if (op->GetOOperands()[0]->GetAttr(OpAttributeKey::needAlloc, needAlloc) && needAlloc) {
                 APASS_LOG_ERROR_F(Elements::Operation, "ASSEMBLE/RESHAPE/VIEW op output tensor has alloc attribute, OoOSchedule Postcheck failed!");

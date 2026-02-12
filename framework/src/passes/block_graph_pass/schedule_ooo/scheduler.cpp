@@ -789,7 +789,7 @@ void OoOScheduler::UpdateAllocMap(IssueEntryPtr issue, std::map<int, IssueEntryP
         }
     }
     for (auto inTensor : issue->tileOp.GetIOperands()) {
-        if (inTensor->GetMemoryTypeOriginal() <= MemoryType::MEM_DEVICE_DDR) {
+        if (inTensor->GetMemoryTypeOriginal() >= MemoryType::MEM_DEVICE_DDR) {
             continue;
         }
         int memId = inTensor->memoryrange.memId;
