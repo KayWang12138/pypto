@@ -28,7 +28,7 @@ LogicalTensorPtr View2DTile(const LogicalTensorPtr dummy, int32_t tileIndex, int
     Function& function)
 {
     Shape dummyShape = dummy->shape;
-    ASSERT(tileRowNum > 0 && tileColNum > 0) << "TileRowNum and tileColNum can not be 0";
+    CHECK(tileRowNum > 0 && tileColNum > 0) << "TileRowNum and tileColNum can not be 0";
     int32_t rowIndex = tileIndex / tileColNum;
     int32_t colIndex = tileIndex % tileColNum;
 
@@ -102,9 +102,9 @@ void DfsTiling(const Shape& shmemTensorTileShape, Input& input, size_t curDim, u
     std::vector<int64_t>& tileShape = input.tileInfo.shape;
     std::vector<int64_t>& tileOffset = input.tileInfo.offset;
     if (curDim == tileShape.size()) {
-        ASSERT(tileIndex < MAX_TILE_NUM) << "tileIndex must be < " << MAX_TILE_NUM << ", but got " << tileIndex;
+        CHECK(tileIndex < MAX_TILE_NUM) << "tileIndex must be < " << MAX_TILE_NUM << ", but got " << tileIndex;
         for (int64_t shape : tileShape) {
-            ASSERT(shape != 0) << "view shape should not be 0, but got " << IntVecToStr(tileShape);
+            CHECK(shape != 0) << "view shape should not be 0, but got " << IntVecToStr(tileShape);
         }
         addTileOp(tileIndex, input);
         tileIndex++;
@@ -386,7 +386,7 @@ void TiledShmemSet(Function& function, const TileShape& tileShape,
     auto shmemTensor = iOperand[1];
     auto out = oOperand[0];
 
-    ASSERT(UB_BUFFER_BYTE_SIZE % REPEAT_BYTE == 0) << "UB_BUFFER_BYTE_SIZE must be a multiple of 256, but got "
+    CHECK(UB_BUFFER_BYTE_SIZE % REPEAT_BYTE == 0) << "UB_BUFFER_BYTE_SIZE must be a multiple of 256, but got "
         << UB_BUFFER_BYTE_SIZE;
     Shape bufferShape{static_cast<int64_t>(UB_BUFFER_BYTE_SIZE / BytesOf(shmemTensor->Datatype()))};
     auto buffer = std::make_shared<LogicalTensor>(function, shmemTensor->Datatype(), bufferShape);
@@ -414,8 +414,8 @@ void TiledShmemReduce(Function& function, const TileShape& tileShape,
     const std::vector<std::shared_ptr<LogicalTensor>>& iOperand,
     const std::vector<std::shared_ptr<LogicalTensor>>& oOperand, const Operation& op)
 {
-    ASSERT(iOperand.size() == 3UL) << "TiledShmemReduce iOperand size is not equal to 3";
-    ASSERT(oOperand.size() == 1UL) << "TiledShmemReduce oOperand size is not equal to 1";
+    CHECK(iOperand.size() == 3UL) << "TiledShmemReduce iOperand size is not equal to 3";
+    CHECK(oOperand.size() == 1UL) << "TiledShmemReduce oOperand size is not equal to 1";
     auto in = iOperand[0];
     auto shmemData = iOperand[1];
     auto dummy = iOperand[2];
