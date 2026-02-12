@@ -436,11 +436,11 @@ class TestBlockReductionOps:
             p.declare_function("main")
 
             with ib.function("main", func_type=ir.FunctionType.InCore) as f:
-                input = f.param("input", ir.TensorType([128, 128], DataType.FP32))
+                inp = f.param("input", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 1], DataType.FP32))
                 f.return_type(ir.TensorType([128, 1], DataType.FP32))
 
-                tile_in = ib.let("tile_in", block.load(input, 0, 0, 32, 128))
+                tile_in = ib.let("tile_in", block.load(inp, 0, 0, 32, 128))
                 tile_row_max = ib.let("tile_row_max", block.row_max(tile_in))
                 result = ib.let("result", block.store(tile_row_max, 0, 0, 32, 1, output))
                 ib.return_stmt(result)
@@ -459,11 +459,11 @@ class TestBlockReductionOps:
             p.declare_function("main")
 
             with ib.function("main", func_type=ir.FunctionType.InCore) as f:
-                input = f.param("input", ir.TensorType([128, 128], DataType.FP32))
+                inp = f.param("input", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 1], DataType.FP32))
                 f.return_type(ir.TensorType([128, 1], DataType.FP32))
 
-                tile_in = ib.let("tile_in", block.load(input, 0, 0, 32, 128))
+                tile_in = ib.let("tile_in", block.load(inp, 0, 0, 32, 128))
                 tile_row_sum = ib.let("tile_row_sum", block.row_sum(tile_in))
                 result = ib.let("result", block.store(tile_row_sum, 0, 0, 32, 1, output))
                 ib.return_stmt(result)
@@ -482,11 +482,11 @@ class TestBlockReductionOps:
             p.declare_function("main")
 
             with ib.function("main", func_type=ir.FunctionType.InCore) as f:
-                input = f.param("input", ir.TensorType([128, 128], DataType.FP32))
+                inp = f.param("input", ir.TensorType([128, 128], DataType.FP32))
                 output = f.param("output", ir.TensorType([128, 1], DataType.FP32))
                 f.return_type(ir.TensorType([128, 1], DataType.FP32))
 
-                tile_in = ib.let("tile_in", block.load(input, 0, 0, 32, 128))
+                tile_in = ib.let("tile_in", block.load(inp, 0, 0, 32, 128))
                 tile_row_min = ib.let("tile_row_min", block.row_min(tile_in))
                 result = ib.let("result", block.store(tile_row_min, 0, 0, 32, 1, output))
                 ib.return_stmt(result)
