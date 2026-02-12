@@ -14,7 +14,6 @@
 
 #include "passes/algorithms/osp/bsp/model/BspSchedule.hpp"
 #include "passes/algorithms/osp/bsp/model/util/SetSchedule.hpp"
-#include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/BspLocking.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GrowLocalAutoCores.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GreedyChildren.hpp"
 #include "passes/algorithms/osp/bsp/scheduler/GreedySchedulers/GreedyMetaScheduler.hpp"
@@ -157,7 +156,6 @@ Status OspPartitioner::RunSarkar(const GraphType &graph, CoarseGraphType &coarse
 
 Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<VertType> &vertexContractionMap) {
     osp::GrowLocalAutoCores<ConstrGraphType> growlocal;
-    osp::BspLocking<ConstrGraphType> locking;
     osp::GreedyChildren<ConstrGraphType> children;
         
     osp::KlImprover<ConstrGraphType, osp::KlHyperTotalCommCostFunction<ConstrGraphType, double, 1>, 1, double> kl;
@@ -165,12 +163,10 @@ Status OspPartitioner::RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, 
     kl.SetTimeQualityParameter(1.0);
     
     osp::ComboScheduler<ConstrGraphType> growlocalKl(growlocal, kl);
-    osp::ComboScheduler<ConstrGraphType> lockingKl(locking, kl);
     osp::ComboScheduler<ConstrGraphType> childrenKl(children, kl);
 
     osp::GreedyMetaScheduler<ConstrGraphType> scheduler;
     scheduler.AddScheduler(growlocalKl);
-    scheduler.AddScheduler(lockingKl);
     scheduler.AddScheduler(childrenKl);
     scheduler.AddSerialScheduler();
 
