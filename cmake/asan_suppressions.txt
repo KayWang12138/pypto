@@ -1,0 +1,22 @@
+# ASan Leak Suppressions for Python/pybind11
+# Conservative version - minimal patterns to avoid parse errors
+
+# Python memory allocators
+leak:PyMem_Malloc
+leak:PyMem_Realloc
+leak:PyObject_Malloc
+leak:PyObject_Realloc
+
+# Python interpreter state
+leak:Py_Initialize
+leak:PyEval_InitThreads
+leak:PyGILState_Ensure
+
+# Python type registration (global caches)
+leak:PyType_Ready
+
+# Python module init (leaked until interpreter shutdown)
+leak:PyImport_ImportModule
+
+# pybind11 type objects (allocated once, never freed)
+leak:pybind11::detail::type_caster_base
