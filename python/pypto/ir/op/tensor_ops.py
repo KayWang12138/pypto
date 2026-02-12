@@ -318,11 +318,11 @@ def maximum(lhs: Expr, rhs: Expr, span: Optional[Span] = None) -> Call:
     return _ir_core.create_op_call("tensor.maximum", [lhs, rhs], {}, actual_span)
 
 
-def row_max(input: Expr, axis: int = -1, keep_dim: Union[int, bool] = 1, span: Optional[Span] = None) -> Call:
+def row_max(tensor: Expr, axis: int = -1, keep_dim: Union[int, bool] = 1, span: Optional[Span] = None) -> Call:
     """Row-wise maximum reduction along specified axis.
 
     Args:
-        input: Input tensor
+        tensor: Input tensor
         axis: Reduction axis (default: -1, last axis)
         keep_dim: Keep reduced dimension as 1
         span: Optional source span for debugging (auto-captured if not provided)
@@ -332,7 +332,7 @@ def row_max(input: Expr, axis: int = -1, keep_dim: Union[int, bool] = 1, span: O
     """
     actual_span = _get_span_or_capture(span)
 
-    args = [input]
+    args = [tensor]
     kwargs: Dict[str, Any] = {
         "axis": axis,
         "keep_dim": bool(keep_dim),
@@ -341,11 +341,11 @@ def row_max(input: Expr, axis: int = -1, keep_dim: Union[int, bool] = 1, span: O
     return _ir_core.create_op_call("tensor.row_max", args, kwargs, actual_span)
 
 
-def row_sum(input: Expr, axis: int = -1, keep_dim: Union[int, bool] = 1, span: Optional[Span] = None) -> Call:
+def row_sum(tensor: Expr, axis: int = -1, keep_dim: Union[int, bool] = 1, span: Optional[Span] = None) -> Call:
     """Row-wise sum reduction along specified axis.
 
     Args:
-        input: Input tensor
+        tensor: Input tensor
         axis: Reduction axis (default: -1, last axis)
         keep_dim: Keep reduced dimension as 1
         span: Optional source span for debugging (auto-captured if not provided)
@@ -355,7 +355,7 @@ def row_sum(input: Expr, axis: int = -1, keep_dim: Union[int, bool] = 1, span: O
     """
     actual_span = _get_span_or_capture(span)
 
-    args = [input]
+    args = [tensor]
     kwargs: Dict[str, Any] = {
         "axis": axis,
         "keep_dim": bool(keep_dim),
@@ -364,22 +364,22 @@ def row_sum(input: Expr, axis: int = -1, keep_dim: Union[int, bool] = 1, span: O
     return _ir_core.create_op_call("tensor.row_sum", args, kwargs, actual_span)
 
 
-def exp(input: Expr, span: Optional[Span] = None) -> Call:
+def exp(tensor: Expr, span: Optional[Span] = None) -> Call:
     """Element-wise exponential operation.
 
     Args:
-        input: Input tensor
+        tensor: Input tensor
         span: Optional source span for debugging (auto-captured if not provided)
 
     Returns:
         Call expression for element-wise exponential
     """
     actual_span = _get_span_or_capture(span)
-    return _ir_core.create_op_call("tensor.exp", [input], {}, actual_span)
+    return _ir_core.create_op_call("tensor.exp", [tensor], {}, actual_span)
 
 
 def cast(
-    input: Expr,
+    tensor: Expr,
     target_type: Union[int, DataType],
     mode: Literal["round", "floor", "ceil"] = "round",
     span: Optional[Span] = None,
@@ -387,7 +387,7 @@ def cast(
     """Type casting operation.
 
     Args:
-        input: Input tensor
+        tensor: Input tensor
         target_type: Target data type
         mode: Rounding mode
         span: Optional source span for debugging (auto-captured if not provided)
@@ -406,7 +406,7 @@ def cast(
 
     actual_span = _get_span_or_capture(span)
 
-    args = [input]
+    args = [tensor]
     kwargs: Dict[str, Any] = {
         "target_type": target_type,
         "mode": mode_val,

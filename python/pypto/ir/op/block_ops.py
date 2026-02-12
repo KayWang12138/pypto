@@ -531,7 +531,7 @@ def log(tile: Expr, span: Optional[Span] = None) -> Call:
     return _ir_core.create_op_call("block.log", [tile], {}, actual_span)
 
 
-def abs(tile: Expr, span: Optional[Span] = None) -> Call:
+def abs(tile: Expr, span: Optional[Span] = None) -> Call:  # noqa: A003
     """Element-wise absolute value of a tile.
 
     Args:
@@ -811,7 +811,7 @@ def minimum(lhs: Expr, rhs: Expr, span: Optional[Span] = None) -> Call:
 # ============================================================================
 
 
-def sum(tile: Expr, axis: int, keepdim: bool = False, span: Optional[Span] = None) -> Call:
+def sum(tile: Expr, axis: int, keepdim: bool = False, span: Optional[Span] = None) -> Call:  # noqa: A003
     """Sum reduction of a tile along specified axis.
 
     Args:
@@ -836,7 +836,7 @@ def sum(tile: Expr, axis: int, keepdim: bool = False, span: Optional[Span] = Non
     return _ir_core.create_op_call("block.sum", args, kwargs, actual_span)
 
 
-def max(tile: Expr, axis: int, keepdim: bool = False, span: Optional[Span] = None) -> Call:
+def max(tile: Expr, axis: int, keepdim: bool = False, span: Optional[Span] = None) -> Call:  # noqa: A003
     """Max reduction of a tile along specified axis.
 
     Args:
@@ -860,7 +860,7 @@ def max(tile: Expr, axis: int, keepdim: bool = False, span: Optional[Span] = Non
     return _ir_core.create_op_call("block.max", args, kwargs, actual_span)
 
 
-def min(tile: Expr, axis: int, keepdim: bool = False, span: Optional[Span] = None) -> Call:
+def min(tile: Expr, axis: int, keepdim: bool = False, span: Optional[Span] = None) -> Call:  # noqa: A003
     """Min reduction of a tile along specified axis.
 
     Args:
