@@ -25,14 +25,15 @@ from pypto.ir import DataType
 class TestDynamicDimension:
     """Test suite for dynamic dimension constant."""
 
-    def test_dynamic_dimension_constant(self):
+    @staticmethod
+    def test_dynamic_dimension_constant():
         """Test dynamic dimension constant."""
         ib = ir.IRBuilder()
 
         with ib.program("test_dynamic_dim_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.ScalarType(DataType.INT32))
                 # Check that DYNAMIC_DIM is -1
                 assert ir.DYNAMIC_DIM == -1
@@ -47,20 +48,20 @@ class TestDynamicDimension:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
 
 class TestTensorAddOps:
     """Test suite for tensor add operations with type deduction."""
 
-    def test_tensor_add_same_shape(self):
+    @staticmethod
+    def test_tensor_add_same_shape():
         """Test TensorAdd with identical shapes."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_add_same_shape_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([4, 8], DataType.FP32))
                 b = f.param("b", ir.TensorType([4, 8], DataType.FP32))
                 f.return_type(ir.TensorType([4, 8], DataType.FP32))
@@ -72,16 +73,16 @@ class TestTensorAddOps:
 
         ir_str = str(p.get_result())
         assert "tensor.add" in ir_str
-        print(ir_str)
 
-    def test_tensor_add_broadcasting(self):
+    @staticmethod
+    def test_tensor_add_broadcasting():
         """Test TensorAdd with broadcasting."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_add_broadcast_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([4, 8], DataType.FP32))
                 b = f.param("b", ir.TensorType([8], DataType.FP32))
                 f.return_type(ir.TensorType([4, 8], DataType.FP32))
@@ -94,16 +95,16 @@ class TestTensorAddOps:
 
         ir_str = str(p.get_result())
         assert "tensor.add" in ir_str
-        print(ir_str)
 
-    def test_tensor_add_broadcasting_with_one(self):
+    @staticmethod
+    def test_tensor_add_broadcasting_with_one():
         """Test TensorAdd broadcasting with dimension of size 1."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_add_broadcast_one_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([4, 1], DataType.FP32))
                 b = f.param("b", ir.TensorType([8], DataType.FP32))
                 f.return_type(ir.TensorType([4, 8], DataType.FP32))
@@ -116,16 +117,16 @@ class TestTensorAddOps:
 
         ir_str = str(p.get_result())
         assert "tensor.add" in ir_str
-        print(ir_str)
 
-    def test_tensor_add_type_promotion(self):
+    @staticmethod
+    def test_tensor_add_type_promotion():
         """Test TensorAdd with different data types."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_add_type_promo_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([8], DataType.INT32))
                 b = f.param("b", ir.TensorType([8], DataType.FP32))
                 f.return_type(ir.TensorType([8], DataType.FP32))
@@ -138,16 +139,16 @@ class TestTensorAddOps:
 
         ir_str = str(p.get_result())
         assert "tensor.add" in ir_str
-        print(ir_str)
 
-    def test_tensor_add_wrong_arg_count(self):
+    @staticmethod
+    def test_tensor_add_wrong_arg_count():
         """Test TensorAdd with wrong number of arguments."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_add_wrong_args_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([8], DataType.FP32))
                 b = f.param("b", ir.TensorType([8], DataType.FP32))
                 c = f.param("c", ir.TensorType([8], DataType.FP32))
@@ -169,16 +170,16 @@ class TestTensorAddOps:
 
         ir_str = str(p.get_result())
         assert "tensor.add" in ir_str
-        print(ir_str)
 
-    def test_tensor_add_wrong_type(self):
+    @staticmethod
+    def test_tensor_add_wrong_type():
         """Test TensorAdd with non-tensor arguments."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_add_wrong_type_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 s = f.param("s", ir.ScalarType(DataType.FP32))
                 t = f.param("t", ir.TensorType([8], DataType.FP32))
                 f.return_type(ir.TensorType([8], DataType.FP32))
@@ -192,20 +193,20 @@ class TestTensorAddOps:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
 
 class TestTensorArithOps:
     """Test suite for tensor sub, mul, div operations."""
 
-    def test_tensor_sub_mul_div(self):
+    @staticmethod
+    def test_tensor_sub_mul_div():
         """Test other tensor operations (sub, mul, div)."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_sub_mul_div_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([8], DataType.FP32))
                 b = f.param("b", ir.TensorType([8], DataType.FP32))
                 f.return_type(ir.TensorType([8], DataType.FP32))
@@ -225,16 +226,16 @@ class TestTensorArithOps:
         assert "tensor.sub" in ir_str
         assert "tensor.mul" in ir_str
         assert "tensor.div" in ir_str
-        print(ir_str)
 
-    def test_call_with_explicit_type(self):
+    @staticmethod
+    def test_call_with_explicit_type():
         """Test Call constructor with explicit type parameter."""
         ib = ir.IRBuilder()
 
         with ib.program("test_call_explicit_type_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([8], DataType.FP32))
                 b = f.param("b", ir.TensorType([8], DataType.FP32))
                 f.return_type(ir.TensorType([8], DataType.FP32))
@@ -256,20 +257,20 @@ class TestTensorArithOps:
 
         ir_str = str(p.get_result())
         assert "tensor.add" in ir_str
-        print(ir_str)
 
 
 class TestMatMulKwargs:
     """Test suite for tensor.matmul kwargs."""
 
-    def test_matmul_with_valid_kwargs(self):
+    @staticmethod
+    def test_matmul_with_valid_kwargs():
         """Test tensor.matmul with valid kwargs."""
         ib = ir.IRBuilder()
 
         with ib.program("test_matmul_valid_kwargs_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([64, 128], DataType.FP16))
                 b = f.param("b", ir.TensorType([128, 64], DataType.FP16))
                 f.return_type(ir.TensorType([64, 64], DataType.FP32))
@@ -282,16 +283,16 @@ class TestMatMulKwargs:
 
         ir_str = str(p.get_result())
         assert "tensor.matmul" in ir_str
-        print(ir_str)
 
-    def test_matmul_with_transpose_kwargs(self):
+    @staticmethod
+    def test_matmul_with_transpose_kwargs():
         """Test tensor.matmul with transpose kwargs."""
         ib = ir.IRBuilder()
 
         with ib.program("test_matmul_transpose_kwargs_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([128, 64], DataType.FP16))  # Will be transposed
                 b = f.param("b", ir.TensorType([128, 64], DataType.FP16))
                 f.return_type(ir.TensorType([64, 64], DataType.FP16))
@@ -304,16 +305,16 @@ class TestMatMulKwargs:
 
         ir_str = str(p.get_result())
         assert "tensor.matmul" in ir_str
-        print(ir_str)
 
-    def test_matmul_with_unknown_kwarg(self):
+    @staticmethod
+    def test_matmul_with_unknown_kwarg():
         """Test tensor.matmul with unknown kwarg should raise error."""
         ib = ir.IRBuilder()
 
         with ib.program("test_matmul_unknown_kwarg_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([64, 64], DataType.FP16))
                 b = f.param("b", ir.TensorType([64, 64], DataType.FP16))
                 f.return_type(ir.TensorType([64, 64], DataType.FP16))
@@ -333,16 +334,16 @@ class TestMatMulKwargs:
 
         ir_str = str(p.get_result())
         assert "tensor.matmul" in ir_str
-        print(ir_str)
 
-    def test_matmul_with_wrong_type_kwarg(self):
+    @staticmethod
+    def test_matmul_with_wrong_type_kwarg():
         """Test tensor.matmul with wrong type kwarg should raise error."""
         ib = ir.IRBuilder()
 
         with ib.program("test_matmul_wrong_type_kwarg_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([64, 64], DataType.FP16))
                 b = f.param("b", ir.TensorType([64, 64], DataType.FP16))
                 f.return_type(ir.TensorType([64, 64], DataType.FP16))
@@ -363,20 +364,20 @@ class TestMatMulKwargs:
 
         ir_str = str(p.get_result())
         assert "tensor.matmul" in ir_str
-        print(ir_str)
 
 
 class TestCastAndReductionKwargs:
     """Test suite for tensor.cast and reduction kwargs."""
 
-    def test_cast_with_datatype_kwarg(self):
+    @staticmethod
+    def test_cast_with_datatype_kwarg():
         """Test tensor.cast with DataType kwarg."""
         ib = ir.IRBuilder()
 
         with ib.program("test_cast_datatype_kwarg_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([8], DataType.FP16))
                 f.return_type(ir.TensorType([8], DataType.FP32))
 
@@ -388,16 +389,16 @@ class TestCastAndReductionKwargs:
 
         ir_str = str(p.get_result())
         assert "tensor.cast" in ir_str
-        print(ir_str)
 
-    def test_reduction_with_kwargs(self):
+    @staticmethod
+    def test_reduction_with_kwargs():
         """Test tensor reduction operations with kwargs."""
         ib = ir.IRBuilder()
 
         with ib.program("test_reduction_kwargs_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([4, 8], DataType.FP32))
                 f.return_type(ir.TensorType([4, 1], DataType.FP32))
 
@@ -409,13 +410,13 @@ class TestCastAndReductionKwargs:
 
         ir_str = str(p.get_result())
         assert "tensor.row_max" in ir_str
-        print(ir_str)
 
 
 class TestOperatorRegistration:
     """Test suite for operator registration queries."""
 
-    def test_operator_registration_status(self):
+    @staticmethod
+    def test_operator_registration_status():
         """Test operator registration queries."""
         assert ir.is_op_registered("tensor.add")
         assert ir.is_op_registered("tensor.sub")
@@ -423,7 +424,8 @@ class TestOperatorRegistration:
         assert ir.is_op_registered("tensor.div")
         assert not ir.is_op_registered("nonexistent.op")
 
-    def test_get_op(self):
+    @staticmethod
+    def test_get_op():
         """Test getting operator instances."""
         tensor_add_op = ir.get_op("tensor.add")
         assert tensor_add_op.name == "tensor.add"
@@ -431,14 +433,16 @@ class TestOperatorRegistration:
         with pytest.raises(Exception):
             ir.get_op("nonexistent.op")
 
-    def test_test_op_kwarg_schema(self):
+    @staticmethod
+    def test_test_op_kwarg_schema():
         """Test that test.op has kwarg schema defined."""
         test_op = ir.get_op("test.op")
         assert test_op.has_attr("int_attr")
         assert test_op.has_attr("string_attr")
         assert test_op.has_attr("bool_attr")
 
-    def test_test_op_all_kwarg_keys(self):
+    @staticmethod
+    def test_test_op_all_kwarg_keys():
         """Test all kwarg keys of test.op."""
         test_op = ir.get_op("test.op")
         keys = test_op.get_attr_keys()
@@ -447,14 +451,16 @@ class TestOperatorRegistration:
         assert "bool_attr" in keys
         assert len(keys) == 3
 
-    def test_test_op_nonexistent_kwarg(self):
+    @staticmethod
+    def test_test_op_nonexistent_kwarg():
         """Test checking non-existent kwargs."""
         test_op = ir.get_op("test.op")
         assert not test_op.has_attr("nonexistent")
         assert not test_op.has_attr("device")
         assert not test_op.has_attr("priority")
 
-    def test_test_op_kwarg_isolation(self):
+    @staticmethod
+    def test_test_op_kwarg_isolation():
         """Test that test.op kwarg schema is isolated from other operators."""
         test_op = ir.get_op("test.op")
         tensor_add_op = ir.get_op("tensor.add")
@@ -467,7 +473,8 @@ class TestOperatorRegistration:
         assert not tensor_add_op.has_attr("string_attr")
         assert not tensor_add_op.has_attr("bool_attr")
 
-    def test_matmul_kwarg_schema(self):
+    @staticmethod
+    def test_matmul_kwarg_schema():
         """Test that tensor.matmul has correct kwarg schema."""
         matmul_op = ir.get_op("tensor.matmul")
         assert matmul_op.has_attr("out_dtype")
@@ -480,13 +487,15 @@ class TestOperatorRegistration:
         assert "a_trans" in keys
         assert "b_trans" in keys
 
-    def test_cast_kwarg_schema(self):
+    @staticmethod
+    def test_cast_kwarg_schema():
         """Test that tensor.cast has correct kwarg schema."""
         cast_op = ir.get_op("tensor.cast")
         assert cast_op.has_attr("target_type")
         assert cast_op.has_attr("mode")
 
-    def test_reduction_kwarg_schema(self):
+    @staticmethod
+    def test_reduction_kwarg_schema():
         """Test that tensor reduction ops have correct kwarg schema."""
         row_max_op = ir.get_op("tensor.row_max")
         row_sum_op = ir.get_op("tensor.row_sum")

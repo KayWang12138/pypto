@@ -24,54 +24,62 @@ from pypto import testing
 class TestErrorTypes:
     """Test that different error types are raised correctly."""
 
-    def test_value_error_type(self):
+    @staticmethod
+    def test_value_error_type():
         """Test that ValueError is raised with correct type."""
         with pytest.raises(ValueError) as exc_info:
             testing.raise_value_error("test value error")
 
         assert "test value error" in str(exc_info.value)
 
-    def test_type_error_type(self):
+    @staticmethod
+    def test_type_error_type():
         """Test that TypeError is raised with correct type."""
         with pytest.raises(TypeError) as exc_info:
             testing.raise_type_error("test type error")
 
         assert "test type error" in str(exc_info.value)
 
-    def test_runtime_error_type(self):
+    @staticmethod
+    def test_runtime_error_type():
         """Test that RuntimeError is raised with correct type."""
         with pytest.raises(RuntimeError) as exc_info:
             testing.raise_runtime_error("test runtime error")
 
         assert "test runtime error" in str(exc_info.value)
 
-    def test_not_implemented_error_type(self):
+    @staticmethod
+    def test_not_implemented_error_type():
         """Test that NotImplementedError is raised with correct type."""
         with pytest.raises(NotImplementedError) as exc_info:
             testing.raise_not_implemented_error("test not implemented")
 
         assert "test not implemented" in str(exc_info.value)
 
-    def test_index_error_type(self):
+    @staticmethod
+    def test_index_error_type():
         """Test that IndexError is raised with correct type."""
         with pytest.raises(IndexError) as exc_info:
             testing.raise_index_error("test index error")
 
         assert "test index error" in str(exc_info.value)
 
-    def test_generic_error_type(self):
+    @staticmethod
+    def test_generic_error_type():
         """Test that generic Error is raised with correct type."""
         with pytest.raises(Exception) as exc_info:
             testing.raise_generic_error("test generic error")
 
         assert "test generic error" in str(exc_info.value)
 
-    def test_assertion_error_type(self):
+    @staticmethod
+    def test_assertion_error_type():
         """Test that AssertionError is raised with correct type."""
         with pytest.raises(AssertionError):
             testing.raise_assertion_error("test assertion error")
 
-    def test_internal_error_type(self):
+    @staticmethod
+    def test_internal_error_type():
         """Test that InternalError is raised with correct type."""
         with pytest.raises(RuntimeError) as exc_info:
             testing.raise_internal_error("test internal error")
@@ -82,14 +90,16 @@ class TestErrorTypes:
 class TestErrorMessages:
     """Test that error messages are properly formatted and include necessary information."""
 
-    def test_error_message_content(self):
+    @staticmethod
+    def test_error_message_content():
         """Test that error messages contain the expected text."""
         with pytest.raises(ValueError) as exc_info:
             testing.raise_value_error("Custom error message")
 
         assert "Custom error message" in str(exc_info.value)
 
-    def test_error_message_with_special_characters(self):
+    @staticmethod
+    def test_error_message_with_special_characters():
         """Test that error messages with special characters are handled correctly."""
         special_message = "Error with special chars: !@#$%^&*()"
         with pytest.raises(ValueError) as exc_info:
@@ -97,7 +107,8 @@ class TestErrorMessages:
 
         assert special_message in str(exc_info.value)
 
-    def test_error_message_with_numbers(self):
+    @staticmethod
+    def test_error_message_with_numbers():
         """Test that error messages with numbers are handled correctly."""
         message = "Error code: 12345, value: 67890"
         with pytest.raises(RuntimeError) as exc_info:
@@ -106,7 +117,8 @@ class TestErrorMessages:
         assert "12345" in str(exc_info.value)
         assert "67890" in str(exc_info.value)
 
-    def test_multiline_error_message(self):
+    @staticmethod
+    def test_multiline_error_message():
         """Test that multiline error messages are handled correctly."""
         message = "Line 1\nLine 2\nLine 3"
         with pytest.raises(TypeError) as exc_info:
@@ -118,7 +130,8 @@ class TestErrorMessages:
 class TestStackTraces:
     """Test that stack traces are captured and included in error messages."""
 
-    def test_stack_trace_present(self):
+    @staticmethod
+    def test_stack_trace_present():
         """Test that stack trace is included in error message or tip is shown if not available."""
         with pytest.raises(ValueError) as exc_info:
             testing.raise_value_error("error with trace")
@@ -129,7 +142,8 @@ class TestStackTraces:
         has_tip = "No stack trace available" in error_str or "Tip:" in error_str
         assert has_traceback or has_tip, f"Expected either traceback or tip message, got: {error_str}"
 
-    def test_stack_trace_contains_function_info(self):
+    @staticmethod
+    def test_stack_trace_contains_function_info():
         """Test that stack trace contains function information or tip if not available."""
         with pytest.raises(RuntimeError) as exc_info:
             testing.raise_runtime_error("trace test")
@@ -143,7 +157,8 @@ class TestStackTraces:
         has_tip = "No stack trace available" in error_str or "Tip:" in error_str
         assert has_traceback or has_tip, f"Expected either traceback or tip message, got: {error_str}"
 
-    def test_different_errors_have_different_traces(self):
+    @staticmethod
+    def test_different_errors_have_different_traces():
         """Test that different error locations produce different stack traces or tips."""
         error1_str = ""
         error2_str = ""
@@ -179,32 +194,38 @@ class TestStackTraces:
 class TestErrorInheritance:
     """Test that error inheritance works correctly."""
 
-    def test_value_error_is_exception(self):
+    @staticmethod
+    def test_value_error_is_exception():
         """Test that ValueError can be caught as Exception."""
         with pytest.raises(Exception):
             testing.raise_value_error("test")
 
-    def test_type_error_is_exception(self):
+    @staticmethod
+    def test_type_error_is_exception():
         """Test that TypeError can be caught as Exception."""
         with pytest.raises(Exception):
             testing.raise_type_error("test")
 
-    def test_runtime_error_is_exception(self):
+    @staticmethod
+    def test_runtime_error_is_exception():
         """Test that RuntimeError can be caught as Exception."""
         with pytest.raises(Exception):
             testing.raise_runtime_error("test")
 
-    def test_index_error_is_exception(self):
+    @staticmethod
+    def test_index_error_is_exception():
         """Test that IndexError can be caught as Exception."""
         with pytest.raises(Exception):
             testing.raise_index_error("test")
 
-    def test_assertion_error_is_exception(self):
+    @staticmethod
+    def test_assertion_error_is_exception():
         """Test that AssertionError can be caught as Exception."""
         with pytest.raises(Exception):
             testing.raise_assertion_error("test")
 
-    def test_internal_error_is_exception(self):
+    @staticmethod
+    def test_internal_error_is_exception():
         """Test that InternalError can be caught as Exception."""
         with pytest.raises(Exception):
             testing.raise_internal_error("test")
@@ -213,7 +234,8 @@ class TestErrorInheritance:
 class TestErrorCatching:
     """Test various error catching scenarios."""
 
-    def test_catch_specific_error(self):
+    @staticmethod
+    def test_catch_specific_error():
         """Test that specific error types can be caught."""
         caught = False
         try:
@@ -223,7 +245,8 @@ class TestErrorCatching:
 
         assert caught
 
-    def test_catch_with_wrong_type_fails(self):
+    @staticmethod
+    def test_catch_with_wrong_type_fails():
         """Test that catching with wrong type doesn't work."""
         with pytest.raises(ValueError):
             try:
@@ -231,7 +254,8 @@ class TestErrorCatching:
             except TypeError:
                 pass  # This should not catch the ValueError
 
-    def test_multiple_error_types(self):
+    @staticmethod
+    def test_multiple_error_types():
         """Test handling multiple different error types."""
         error_types = [
             (testing.raise_value_error, ValueError),
@@ -251,7 +275,8 @@ class TestErrorCatching:
 class TestErrorContexts:
     """Test errors in various contexts."""
 
-    def test_error_in_nested_calls(self):
+    @staticmethod
+    def test_error_in_nested_calls():
         """Test that errors can be raised from nested function calls."""
 
         def level_3():
@@ -268,7 +293,8 @@ class TestErrorContexts:
 
         assert "nested error" in str(exc_info.value)
 
-    def test_error_message_formatting(self):
+    @staticmethod
+    def test_error_message_formatting():
         """Test that error messages are properly formatted."""
         test_cases = [
             "Simple message",
@@ -288,12 +314,14 @@ class TestErrorContexts:
 class TestErrorEdgeCases:
     """Test edge cases and boundary conditions for error handling."""
 
-    def test_empty_error_message(self):
+    @staticmethod
+    def test_empty_error_message():
         """Test that empty error messages are handled."""
         with pytest.raises(ValueError):
             testing.raise_value_error("")
 
-    def test_very_long_error_message(self):
+    @staticmethod
+    def test_very_long_error_message():
         """Test that very long error messages are handled."""
         long_message = "X" * 10000
         with pytest.raises(ValueError) as exc_info:
@@ -301,7 +329,8 @@ class TestErrorEdgeCases:
 
         assert "X" in str(exc_info.value)
 
-    def test_error_with_null_characters(self):
+    @staticmethod
+    def test_error_with_null_characters():
         """Test error messages with null characters."""
         # Python strings don't allow null bytes in the middle,
         # but we can test with other control characters

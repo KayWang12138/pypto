@@ -19,7 +19,8 @@ from pypto.ir import DataType
 class TestComparisonOps:
     """Tests for comparison operations."""
 
-    def test_comparison_ops(self):
+    @staticmethod
+    def test_comparison_ops():
         """Test creating comparison expressions."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
