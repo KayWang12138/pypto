@@ -377,6 +377,15 @@ Status NodeGraphInfo::BuildInOutGraph(const std::shared_ptr<OperationGraphInfo> 
                 break;
             }
         }
+        if (!isCube) {
+            for (auto j : node2Op_[i]) {
+                auto *op = operationGraphInfo->opList_[j];
+                if (op->HasAttribute(OpAttributeKey::isCube) && op->GetBoolAttribute(OpAttributeKey::isCube)) {
+                    isCube = true;
+                    break;
+                }
+            }
+        }
         for (auto j : node2Op_[i]) {
             operationGraphInfo->opList_[j]->SetAttribute(OpAttributeKey::isCube, isCube);
         }

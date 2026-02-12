@@ -137,6 +137,15 @@ def shmem_moe_combine(input_tensor: Tensor, combine_info: Tensor, recv_counts: T
 
 
 @experimental
+def shmem_moe_combine_ffn_fused(input_tensor: Tensor, combine_info: Tensor, recv_counts: Tensor, scale: Tensor,
+                                ffn_weight: Tensor, group: str, rank_size: int, total_expert_num: int, out: Tensor):
+    """MoE combine + FFN fused via shared memory."""
+    return pypto_impl.ShmemMoeCombineFfnFused(_get_base(input_tensor), _get_base(combine_info),
+                                              _get_base(recv_counts), _get_base(scale), _get_base(ffn_weight),
+                                              group, rank_size, total_expert_num, _get_base(out))
+
+
+@experimental
 def shmem_put(in_tensor: Tensor, shmem_data_tile: Tensor, barrier_dummy: Tensor,
               tile_count: int, atomic_type: AtomicType = AtomicType.SET) -> Tensor:
     """Write to shared memory."""

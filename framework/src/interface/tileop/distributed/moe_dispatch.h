@@ -207,6 +207,8 @@ TILEOP void MoeRankWaitFlag(__gm__ T *out, __ubuf__ uint32_t *src0, __ubuf__ uin
     }
     ReadFlagV2<T>(src0, offset, cnt, hcclContext, shmemFlagBaseAddr, dispatchInfo);
     ConstructOutRecvTokenCnt<T>(out, src0, src1, dst, cnt, hcclContext, dispatchInfo);
+    // Reset consumed per-rank dispatch flags to avoid stale-flag reuse in next round.
+    ClearFlagV2(reinterpret_cast<__ubuf__ int32_t *>(src0), offset, cnt, hcclContext, dispatchInfo, shmemFlagBaseAddr);
 }
  
 template <typename T>

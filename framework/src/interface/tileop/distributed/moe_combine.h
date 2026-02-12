@@ -92,7 +92,7 @@ TILEOP void MoeDistributedCombineWaitSignal(
         copy_gm_to_ubuf(signalBuffer, winSignalAddr, 0, 1, 1, 0, 0);
         set_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
         wait_flag(PIPE_MTE2, PIPE_S, EVENT_ID0);
-    } while (signalBuffer[0] != expectedValue);
+    } while (signalBuffer[0] < expectedValue);
 }
 
 template <typename T, uint32_t topK, uint16_t colShape, uint16_t paddedColShape>
