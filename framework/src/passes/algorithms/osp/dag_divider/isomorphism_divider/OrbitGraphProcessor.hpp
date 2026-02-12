@@ -87,19 +87,7 @@ class OrbitGraphProcessor {
     std::unordered_set<std::pair<VertexType, VertexType>, PairHasher> nonViableEdgesCache_;
     std::unordered_set<std::pair<VertexType, VertexType>, PairHasher> nonViableCritPathEdgesCache_;
 
-    /**
-     * @brief Simulates the merge of node v into u and returns the resulting temporary graph.
-     *
-     * This function creates a temporary contraction map where node v is mapped to u,
-     * and then constructs the corresponding coarse DAG.
-     *
-     * @param u The target vertex index to merge into.
-     * @param v The source vertex index to be merged.
-     * @param currentCoarseGraph The current state of the coarse graph.
-     * @return A pair containing the new coarse graph and the temporary contraction map.
-     */
-    std::pair<ConstrGraphT, std::vector<VertexType>> SimulateMerge(VertexType u,
-                                                                   VertexType v,
+    std::pair<ConstrGraphT, std::vector<VertexType>> SimulateMerge(VertexType u, VertexType v,
                                                                    const ConstrGraphT &currentCoarseGraph) const {
         std::vector<VertexType> tempContractionMap(currentCoarseGraph.NumVertices());
         VertexType newIdx = 0;
@@ -116,24 +104,7 @@ class OrbitGraphProcessor {
         return {std::move(tempCoarseGraph), std::move(tempContractionMap)};
     }
 
-    /**
-     * @brief Commits a merge operation by updating the graph state.
-     *
-     * This function updates the current coarse graph, manages the group structures,
-     * updates the non-viable edge caches to reflect the new vertex indices,
-     * and performs the actual merge in the data structures.
-     *
-     * @param u The target vertex index.
-     * @param v The source vertex index.
-     * @param nextCoarseGraph The new coarse graph structure after merge.
-     * @param groupRemap Vector mapping old coarse indices to new coarse indices.
-     * @param newSubgraphs The new set of subgraphs for the merged group.
-     * @param currentCoarseGraph Reference to the current coarse graph to be updated.
-     * @param currentGroups Reference to the groups vector to be updated.
-     */
-    void CommitMerge(VertexType u,
-                     VertexType v,
-                     ConstrGraphT &&nextCoarseGraph,
+    void CommitMerge(VertexType u, VertexType v, ConstrGraphT &&nextCoarseGraph,
                      const std::vector<VertexType> &groupRemap,
                      std::vector<std::vector<VertexType>> &&newSubgraphs,
                      ConstrGraphT &currentCoarseGraph,
@@ -166,21 +137,7 @@ class OrbitGraphProcessor {
         currentGroups = std::move(nextGroups);
     }
 
-    /**
-     * @brief Checks if an edge should be skipped during merge attempts.
-     *
-     * @param u Source vertex.
-     * @param v Target vertex.
-     * @param currentCoarseGraph The current coarse graph.
-     * @param currentGroups The current groups.
-     * @param vertexPoset Top node distance for each vertex.
-     * @param vertexBotPoset Bottom node distance for each vertex.
-     * @param workThreshold Work threshold for merging.
-     * @return True if the edge should be skipped, false otherwise.
-     */
-    bool ShouldSkipEdge(VertexType u,
-                       VertexType v,
-                       const ConstrGraphT &currentCoarseGraph,
+    bool ShouldSkipEdge(VertexType u, VertexType v, const ConstrGraphT &currentCoarseGraph,
                        const std::vector<Group> &currentGroups,
                        const std::vector<VertexIdxT<ConstrGraphT>> &vertexPoset,
                        const std::vector<VertexIdxT<ConstrGraphT>> &vertexBotPoset,
@@ -217,28 +174,9 @@ class OrbitGraphProcessor {
         return false;
     }
 
-    /**
-     * @brief Attempts to merge an edge, checking viability and critical path constraints.
-     *
-     * @param u Source vertex.
-     * @param v Target vertex.
-     * @param originalDag The original DAG.
-     * @param currentCoarseGraph The current coarse graph.
-     * @param currentGroups The current groups.
-     * @param pathThreshold Critical path threshold.
-     * @param outNewSubgraphs Output parameter for new subgraphs if merge succeeds.
-     * @param outTempGraph Output parameter for temporary graph if merge succeeds.
-     * @param outTempContractionMap Output parameter for temporary contraction map if merge succeeds.
-     * @return True if merge was successful, false otherwise.
-     */
-    bool TryMergeEdge(VertexType u,
-                     VertexType v,
-                     const GraphT &originalDag,
-                     const ConstrGraphT &currentCoarseGraph,
-                     const std::vector<Group> &currentGroups,
-                     const VWorkwT<ConstrGraphT> pathThreshold,
-                     std::vector<std::vector<VertexType>> &outNewSubgraphs,
-                     ConstrGraphT &outTempGraph,
+    bool TryMergeEdge(VertexType u, VertexType v, const GraphT &originalDag, const ConstrGraphT &currentCoarseGraph,
+                     const std::vector<Group> &currentGroups, const VWorkwT<ConstrGraphT> pathThreshold,
+                     std::vector<std::vector<VertexType>> &outNewSubgraphs, ConstrGraphT &outTempGraph,
                      std::vector<VertexType> &outTempContractionMap) {
         // Check merge structural viability
         const bool mergeIsValid = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], outNewSubgraphs);
@@ -262,19 +200,6 @@ class OrbitGraphProcessor {
         return true;
     }
 
-    /**
-     * @brief Merges small orbits based on work threshold (final cleanup pass).
-     *
-     * Iteratively attempts to merge adjacent nodes in the coarse graph if they
-     * satisfy work weight and critical path constraints. This is typically run
-     * as a final pass to reduce the size of the coarse graph further.
-     *
-     * @param originalDag The original high-resolution DAG.
-     * @param currentCoarseGraph Reference to the current coarse graph.
-     * @param currentGroups Reference to the current groups.
-     * @param workThreshold The work weight threshold for merging.
-     * @param pathThreshold The critical path weight threshold (default 0).
-     */
     void MergeSmallOrbits(const GraphT &originalDag,
                           ConstrGraphT &currentCoarseGraph,
                           std::vector<Group> &currentGroups,
@@ -290,33 +215,22 @@ class OrbitGraphProcessor {
             changed = false;
             for (const auto u : currentCoarseGraph.Vertices()) {
                 for (const auto v : currentCoarseGraph.Children(u)) {
-                    if (ShouldSkipEdge(u, v, currentCoarseGraph, currentGroups, vertexPoset, vertexBotPoset, workThreshold)) {
-                        continue;
-                    }
+                    if (ShouldSkipEdge(u, v, currentCoarseGraph, currentGroups, vertexPoset, vertexBotPoset, workThreshold)) continue;
 
                     std::vector<std::vector<VertexType>> newSubgraphs;
                     ConstrGraphT tempCoarseGraph;
                     std::vector<VertexType> tempContractionMap;
 
                     if (!TryMergeEdge(u, v, originalDag, currentCoarseGraph, currentGroups, pathThreshold,
-                                      newSubgraphs, tempCoarseGraph, tempContractionMap)) {
-                        continue;
-                    }
+                                      newSubgraphs, tempCoarseGraph, tempContractionMap)) continue;
 
-                    CommitMerge(u,
-                                v,
-                                std::move(tempCoarseGraph),
-                                tempContractionMap,
-                                std::move(newSubgraphs),
-                                currentCoarseGraph,
-                                currentGroups);
+                    CommitMerge(u, v, std::move(tempCoarseGraph), tempContractionMap, std::move(newSubgraphs),
+                                currentCoarseGraph, currentGroups);
 
                     changed = true;
                     break;
                 }
-                if (changed) {
-                    break;
-                }
+                if (changed) break;                
             }
         }
     }
@@ -426,17 +340,10 @@ class OrbitGraphProcessor {
 
   public:
     explicit OrbitGraphProcessor() {}
-
     void SetMergeDifferentNodeTypes(bool flag) { mergeDifferentNodeTypes_ = flag; }
-
     void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold) { workThreshold_ = workThreshold; }
-
     void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold) { criticalPathThreshold_ = criticalPathThreshold; }
-
     void SetLockRatio(double lockRatio) { lockOrbitRatio_ = lockRatio; }
-
-
-
     void SetNaturalBreaksCountPercentage(double percentage) { naturalBreaksCountPercentage_ = percentage; }
 
     /**
@@ -457,10 +364,7 @@ class OrbitGraphProcessor {
         nonViableEdgesCache_.clear();
         nonViableCritPathEdgesCache_.clear();
 
-        if (dag.NumVertices() == 0) {
-            return;
-        }
-
+        if (dag.NumVertices() == 0) return;
         const auto &orbits = hasher.GetOrbits();
 
         contractionMap_.assign(dag.NumVertices(), 0);
@@ -481,10 +385,7 @@ class OrbitGraphProcessor {
         for (const auto &orbit : orbits) {
             const auto &vertices = orbit.second;
             const size_t orbitSize = vertices.size();
-
-            if (orbitSize == 1U) {
-                continue;    // exclude single node orbits from total work
-            }
+            if (orbitSize == 1U) continue;
 
             orbitSizeCounts[orbitSize]++;
 
@@ -579,19 +480,6 @@ class OrbitGraphProcessor {
         return symmetryLevelsToTest;
     }
 
-
-
-    /**
-     * @brief Performs adaptive symmetry coarsening.
-     *
-     * Iterates through a series of symmetry levels (thresholds), allowing potentially more aggressive merges
-     * as the threshold decreases.
-     *
-     * @param originalDag The original DAG.
-     * @param initialCoarseGraph The initial coarse graph.
-     * @param lockThresholdPerType Work thresholds to protect significant nodes.
-     * @param symmetryLevelsToTest List of symmetry levels to iterate through.
-     */
     void PerformCoarseningAdaptiveSymmetry(const GraphT &originalDag,
                                            const ConstrGraphT &initialCoarseGraph,
                                            const std::vector<VWorkwT<GraphT>> &lockThresholdPerType,
@@ -599,9 +487,7 @@ class OrbitGraphProcessor {
         finalCoarseGraph_ = ConstrGraphT();
         finalContractionMap_.clear();
 
-        if (initialCoarseGraph.NumVertices() == 0) {
-            return;
-        }
+        if (initialCoarseGraph.NumVertices() == 0) return;
 
         ConstrGraphT currentCoarseGraph = initialCoarseGraph;
         std::vector<Group> currentGroups(initialCoarseGraph.NumVertices());
@@ -645,18 +531,6 @@ class OrbitGraphProcessor {
         finalGroups_ = std::move(currentGroups);
     }
 
-    /**
-     * @brief Checks if merging two groups is structurally valid.
-     *
-     * Verifies that the induced subgraph of the combined vertices consists of
-     * isomorphic connected components.
-     *
-     * @param originalDag The original DAG.
-     * @param groupU The first group.
-     * @param groupV The second group.
-     * @param outNewSubgraphs Output vector to store the new discovered subgraphs if merge is valid.
-     * @return True if the merge is viable, false otherwise.
-     */
     bool IsMergeViable(const GraphT &originalDag,
                        const Group &groupU,
                        const Group &groupV,
@@ -673,17 +547,13 @@ class OrbitGraphProcessor {
         }
 
         std::sort(allNodes.begin(), allNodes.end());
-
         ConstrGraphT inducedSubgraph;
 
         auto map = CreateInducedSubgraphMap(originalDag, inducedSubgraph, allNodes);
         std::vector<VertexType> components;    // local -> component_id
         size_t numComponents = ComputeWeaklyConnectedComponents(inducedSubgraph, components);
         outNewSubgraphs.assign(numComponents, std::vector<VertexType>());
-
-        if (allNodes.empty()) {    // Handle empty graph case
-            return true;
-        }
+        if (allNodes.empty()) return true;
 
         for (const auto &node : allNodes) {
             outNewSubgraphs[components[map[node]]].push_back(node);
@@ -695,15 +565,11 @@ class OrbitGraphProcessor {
             CreateInducedSubgraphMap(originalDag, repSg, outNewSubgraphs[0]);
 
             for (size_t i = 1; i < numComponents; ++i) {
-                if (outNewSubgraphs[i].size() != firstSgSize) {
-                    return false;
-                }
+                if (outNewSubgraphs[i].size() != firstSgSize) return false;
 
                 ConstrGraphT currentSg;
                 CreateInducedSubgraphMap(originalDag, currentSg, outNewSubgraphs[i]);
-                if (!AreIsomorphicByMerkleHash(repSg, currentSg)) {
-                    return false;
-                }
+                if (!AreIsomorphicByMerkleHash(repSg, currentSg)) return false;
             }
         }
         return true;

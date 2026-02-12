@@ -84,75 +84,20 @@ class IsomorphicSubgraphScheduler {
         : hashComputer_(&hashComputer), bspScheduler_(&bspScheduler) {}
 
     virtual ~IsomorphicSubgraphScheduler() {}
-
-    /**
-     * @brief Sets whether to merge nodes of different types during coarsening.
-     * @param flag True to allow merging different types, false otherwise.
-     */
     void SetMergeDifferentTypes(bool flag) { mergeDifferentNodeTypes_ = flag; }
-
-    /**
-     * @brief Sets the work weight threshold for merging orbits.
-     * @param workThreshold The threshold value.
-     */
     void SetWorkThreshold(VWorkwT<ConstrGraphT> workThreshold) { workThreshold_ = workThreshold; }
-
-    /**
-     * @brief Sets the critical path threshold for merging orbits.
-     * @param criticalPathThreshold The threshold value.
-     */
     void SetCriticalPathThreshold(VWorkwT<ConstrGraphT> criticalPathThreshold) { criticalPathThreshold_ = criticalPathThreshold; }
-
-    /**
-     * @brief Sets the ratio of work-weight that locks an orbit from being merged.
-     * @param orbitLockRatio The ratio (0.0 to 1.0).
-     */
     void SetOrbitLockRatio(double orbitLockRatio) { orbitLockRatio_ = orbitLockRatio; }
-
-    /**
-     * @brief Sets the percentage count for the natural breaks heuristic.
-     * @param naturalBreaksCountPercentage The percentage (0.0 to 1.0).
-     */
     void SetNaturalBreaksCountPercentage(double naturalBreaksCountPercentage) {
         naturalBreaksCountPercentage_ = naturalBreaksCountPercentage;
     }
-
-    /**
-     * @brief Sets whether to allow using the specialized trimmed scheduler.
-     * @param flag True to allow, false otherwise.
-     */
     void SetAllowTrimmedScheduler(bool flag) { allowUseTrimmedScheduler_ = flag; }
-
-    /**
-     * @brief Disables the use of a fixed maximum group size for trimming.
-     */
     void DisableUseMaxGroupSize() { useMaxGroupSize_ = false; }
-
-    /**
-     * @brief Sets whether to use the MaxBSP strategy for the representative subgraph.
-     * @param flag True to use MaxBSP.
-     */
     void SetUseMaxBsp(bool flag) { useMaxBsp_ = flag; }
-
-    /**
-     * @brief Enables the use of a fixed maximum group size for trimming.
-     * @param maxGroupSize The maximum group size.
-     */
     void EnableUseMaxGroupSize(const unsigned maxGroupSize) {
         useMaxGroupSize_ = true;
         maxGroupSize_ = maxGroupSize;
-    }
-
-    /**
-     * @brief Enables the adaptive symmetry threshold heuristic.
-     */
-
-
-    /**
-     * @brief Sets a static symmetry level, disabling adaptive threshold logic.
-     * @param staticSymmetryLevel The static symmetry level to use.
-     */
-
+    }  
 
     /**
      * @brief Computes the partition of the graph.
@@ -208,13 +153,6 @@ class IsomorphicSubgraphScheduler {
         std::vector<std::vector<VWorkwT<GT>>> requiredProcTypes_;
     };
 
-    /**
-     * @brief Determines if a group consists of a single node type.
-     *
-     * @param group The group to check.
-     * @param instance The BSP instance.
-     * @return Pair of (is single type, common node type).
-     */
     std::pair<bool, VTypeT<GraphT>> IsSingleTypeGroup(
         const typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group &group,
         const BspInstance<GraphT> &instance) const {
@@ -234,13 +172,6 @@ class IsomorphicSubgraphScheduler {
         return {true, commonNodeType};
     }
 
-    /**
-     * @brief Determines the effective minimum processor count for trimming.
-     *
-     * @param group The group to analyze.
-     * @param instance The BSP instance.
-     * @return The effective minimum processor type count.
-     */
     unsigned DetermineEffectiveMinProcCount(
         const typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group &group,
         const BspInstance<GraphT> &instance) const {
@@ -286,15 +217,6 @@ class IsomorphicSubgraphScheduler {
         return effectiveMinProcTypeCount;
     }
 
-    /**
-     * @brief Performs the actual trimming/merging of subgraphs.
-     *
-     * @param group The group to trim.
-     * @param gcd The GCD value determining the number of new subgraphs.
-     * @param groupSize The original group size.
-     * @param groupIdx The index of the group.
-     * @param wasTrimmed Output vector indicating which groups were trimmed.
-     */
     void PerformGroupTrimming(typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group &group,
                               unsigned gcd,
                               unsigned groupSize,
@@ -366,18 +288,6 @@ class IsomorphicSubgraphScheduler {
         }
     }
 
-
-    /**
-     * @brief Prepares the input for the coarse-level ETF scheduler.
-     *
-     * Constructs a coarse graph where each node represents an isomorphic group (or a trimmed chunk).
-     * Calculates the aggregated work and required processor types for each coarse node.
-     *
-     * @param originalInstance The original BSP instance.
-     * @param isomorphicGroups The groups of isomorphic subgraphs.
-     * @param wasTrimmed Indicator if a group was trimmed.
-     * @return The input structure for the EftSubgraphScheduler.
-     */
     SubgraphSchedulerInput<GraphT, ConstrGraphT> PrepareSubgraphSchedulingInput(
         const BspInstance<GraphT> &originalInstance,
         const std::vector<typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group> &isomorphicGroups,
@@ -418,18 +328,6 @@ class IsomorphicSubgraphScheduler {
         return result;
     }
 
-    /**
-     * @brief Schedules internal nodes of an isomorphic group by replicating the representative's schedule.
-     *
-     * Solves the scheduling problem for one "representative" subgraph using the base scheduler
-     * (e.g., standard BSP). Then, maps this schedule to all other subgraphs in the same group
-     * using isomorphism mapping.
-     *
-     * @param instance The BSP instance.
-     * @param isomorphicGroups The vector of isomorphic groups.
-     * @param subSched The coarse-level schedule.
-     * @param partition Output partition vector to be filled.
-     */
     void ScheduleIsomorphicGroup(const BspInstance<GraphT> &instance,
                                  const std::vector<typename OrbitGraphProcessor<GraphT, ConstrGraphT>::Group> &isomorphicGroups,
                                  const SubgraphSchedule &subSched,

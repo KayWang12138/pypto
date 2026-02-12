@@ -144,13 +144,9 @@ bool ConstructCoarseDag(
         return true;
     }
 
-    if (!InitializeCoarseGraph(dagIn, coarsenedDag, vertexContractionMap)) {
-        return false;
-    }
-
+    if (!InitializeCoarseGraph(dagIn, coarsenedDag, vertexContractionMap)) return false;
     AccumulateVertexWeights<GraphTIn, GraphTOut, VWorkAccMethod, VCommAccMethod, VMemAccMethod>(
         dagIn, coarsenedDag, vertexContractionMap);
-
     return true;
 }
 
@@ -160,23 +156,15 @@ bool CheckValidExpansionMap(const std::vector<std::vector<VertexIdxT<GraphTIn>>>
 
     std::vector<bool> preImage;
     for (const std::vector<VertexIdxT<GraphTIn>> &group : vertexExpansionMap) {
-        if (group.size() == 0) {
-            return false;
-        }
+        if (group.size() == 0) return false;
 
         for (const VertexIdxT<GraphTIn> vert : group) {
-            if (vert < static_cast<VertexIdxT<GraphTIn>>(0)) {
-                return false;
-            }
-
+            if (vert < static_cast<VertexIdxT<GraphTIn>>(0)) return false;
             if (static_cast<std::size_t>(vert) >= preImage.size()) {
                 preImage.resize(vert + 1, false);
             }
 
-            if (preImage[vert]) {
-                return false;
-            }
-
+            if (preImage[vert]) return false;    
             preImage[vert] = true;
             cntr++;
         }
