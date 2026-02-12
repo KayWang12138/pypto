@@ -904,7 +904,7 @@ void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntry
 bool OoOScheduler::CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue) {
     auto spillOp = spillIssue->tileOp;
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
-        spillOp.GetOpcodeStr().find("COPY_IN") == std::string::npos && spillOp.find("RESHAPE") == std::string::npos && spillOp.GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
+        spillOp.GetOpcodeStr().find("COPY_IN") == std::string::npos && spillOp.GetOpcodeStr().find("RESHAPE") == std::string::npos && spillOp.GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
         spillOp.GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
         return false;
     }
