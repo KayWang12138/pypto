@@ -70,6 +70,11 @@ inline void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 inline void Relu(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Relu(out, self);
 }
+inline void Pad(LogicalTensorDataPtr out, LogicalTensorDataPtr self,
+    int64_t padRight, int64_t padBottom, const Element &padValue,
+    int64_t srcValidRow, int64_t srcValidCol) {
+    GetCalcOps()->Pad(out, self, padRight, padBottom, padValue, srcValidRow, srcValidCol);
+}
 inline void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->BitwiseNot(out, self);
 }
