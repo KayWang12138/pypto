@@ -150,7 +150,7 @@ void TiledDispatchFFNBatching(Function& function, const TileShape& tileShape,
     const int32_t tileRankCnt = tileRank[DIST_HEAD_COUNT] + (tileRank[DIST_TAIL_SHAPE] == 0 ? 0 : 1);
     const int32_t tailRankShape = tileRank[DIST_TAIL_SHAPE];
 
-    int32_t tileIndex = 0;
+    int32_t tileIndex1 = 0;
     for (int expertIndex = 0; expertIndex < expertNumPerRank; ++expertIndex) {
         for (int rankIndex = 0; rankIndex < tileRankCnt; ++rankIndex) {
             int32_t rankShape = ((tileRank[2] != 0) && (rankIndex == tileRankCnt - 1) ? tailRankShape :tileRankShape);
@@ -160,14 +160,14 @@ void TiledDispatchFFNBatching(Function& function, const TileShape& tileShape,
                 {0, rankOffset, expertIndex, 0});
             auto &opr = function.AddOperation(Opcode::OP_FFN_BATCHING, {shmemDataTile, shmemFlag, recvTokenCntOut}, 
                 {expandX, validCnt, bufferTensor});
-            std::string extraParam = std::to_string(tileIndex) + ", " + groupIndex + ", " +
+            std::string extraParam = std::to_string(tileIndex1) + ", " + groupIndex + ", " +
                 std::to_string(sharedExpertNum) + ", " + std::to_string(totalTileNum) + ", " +
                 std::to_string(rankShape) + ", " + axisH + ", " + batchSize + ", " +
                 std::to_string(expandX->GetShape()[0]);
             DistOpAttr distOpAttr;
             distOpAttr.extraTemplateParam = extraParam;
             opr.SetAttr(OpAttributeKey::distOpAttr, distOpAttr);
-            tileIndex++;
+            tileIndex1++;
         }
     }
 }
