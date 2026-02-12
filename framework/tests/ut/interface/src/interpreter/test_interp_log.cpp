@@ -73,6 +73,35 @@ TEST_F(InterpreterLogTest, ReshapeMismatchElementCount) {
     }
 }
 
+// 测试精度对比失败场景能否正确输出错误日志
+TEST_F(InterpreterLogTest, PrecisionMismatchErrorLog) {
+    config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+    config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+
+    int s = 16;
+    Tensor input(DT_FP32, {s, s}, "input");
+    Tensor output(DT_FP32, {s, s}, "output");
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateConstantTensor<float>(input, 1.0f),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateConstantTensor<float>(output, 0.0f),
+    });
+    // 故意构造与实际输出不一致的 golden，触发精度错误日志
+    ProgramData::GetInstance().AppendGoldens({
+        RawTensorData::CreateConstantTensor<float>(output, 10.0f),
+    });
+
+    FUNCTION("main", {input}, {output}) {
+        LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
+            (void)i;
+            auto t = View(input, {s, s}, {0, 0});
+            Assemble(t, {0, 0}, output);
+        }
+    }
+}
+
 // 测试空 loop (start=0, end=0) 能否触发 interpreter 的 "skip execute due to idx range = 0" 日志
 TEST_F(InterpreterLogTest, EmptyLoopStartEndZero) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
