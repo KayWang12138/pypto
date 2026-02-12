@@ -411,80 +411,54 @@ Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
     const AnalyzerInput &input,
     const std::unordered_map<int, std::set<int>>& directDeps,
     const std::map<std::pair<int, int>, std::vector<LogicalTensorPtr>>& crossComponentTensors) {
-    ALOG_INFO_F("\n=== VALIDATING CROSS-COMPONENT DEPENDENCY CYCLES ===");
-    bool hasBidirectional = false;
+    ALOG_INFO_F("=== VALIDATING CROSS-COMPONENT DEPENDENCY CYCLES ===");
+    // Lambda 1: 检查单个tensor是否在incasts中
+    auto isTensorInIncasts = [this](int compId, const LogicalTensorPtr& tensor) -> bool {
+        auto incastIt = allIncasts.find(compId);
+        if (incastIt == allIncasts.end()) return false;
+        for (const auto& param : incastIt->second) {
+            if (param.tensor == tensor) return true;
+        }
+        return false;
+    };
+    // Lambda 2: 检查并打印单个方向的tensor
+    auto checkDirection = [&](int src, int dst, const std::vector<LogicalTensorPtr>& tensors) -> bool {
+        if (tensors.empty()) return false;
+        
+        ALOG_INFO_F("  Component %d -> %d tensors (%zu):", src, dst, tensors.size());
+        bool hasValid = false;
+        for (auto& tensor : tensors) {
+            bool isInIncast = isTensorInIncasts(dst, tensor);
+            ALOG_INFO_F("    - tensor magic=%d (raw=%d), in comp%d.incasts=%s",
+                      tensor->magic, tensor->GetRawMagic(), dst,
+                      isInIncast ? "YES" : "NO");
+            if (isInIncast) hasValid = true;
+        }
+        return hasValid;
+    };
     std::vector<std::pair<int, int>> bidirectionalDeps;
     for (const auto& [src, dsts] : directDeps) {
         for (int dst : dsts) {
             auto it = directDeps.find(dst);      
             if (it != directDeps.end() && it->second.count(src) > 0) {  
                 bidirectionalDeps.emplace_back(src, dst);
-                hasBidirectional = true;
             }
         }
     }
-    if (!hasBidirectional) {
+    if (bidirectionalDeps.empty()) {
         ALOG_INFO_F("No bidirectional dependencies detected - safe");
         return SUCCESS;
     }  
     ALOG_INFO_F("=== CHECKING BIDIRECTIONAL DEPENDENCIES ===");
     for (const auto& [comp1, comp2] : bidirectionalDeps) {
-        ALOG_INFO_F("\nChecking component %d <-> component %d:", comp1, comp2);
+        ALOG_INFO_F("Checking component %d <-> component %d:", comp1, comp2);
         // 获取两个方向的tensor
         auto it1 = crossComponentTensors.find({comp1, comp2});
         auto it2 = crossComponentTensors.find({comp2, comp1});
-        bool hasValid1to2 = false;
-        bool hasValid2to1 = false;
-        // 检查 comp1 -> comp2 的tensor
-        if (it1 != crossComponentTensors.end()) {
-            ALOG_INFO_F("  Component %d -> %d tensors (%zu):", comp1, comp2, it1->second.size());
-            for (auto& tensor : it1->second) {
-                // 检查这个tensor是否在comp2的allIncasts中
-                bool isInIncast = false;
-                auto incastIt = allIncasts.find(comp2);
-                if (incastIt != allIncasts.end()) {
-                    for (const auto& param : incastIt->second) {
-                        if (param.tensor == tensor) {
-                            isInIncast = true;
-                            break;
-                        }
-                    }
-                }
-                
-                ALOG_INFO_F("    - tensor magic=%d (raw=%d), in comp%d.incasts=%s",
-                          tensor->magic, tensor->GetRawMagic(), comp2,
-                          isInIncast ? "YES" : "NO");
-                
-                if (isInIncast) {
-                    hasValid1to2 = true;
-                }
-            }
-        }
-        // 检查 comp2 -> comp1 的tensor
-        if (it2 != crossComponentTensors.end()) {
-            ALOG_INFO_F("  Component %d -> %d tensors (%zu):", comp2, comp1, it2->second.size());
-            for (auto& tensor : it2->second) {
-                // 检查这个tensor是否在comp1的allIncasts中
-                bool isInIncast = false;
-                auto incastIt = allIncasts.find(comp1);
-                if (incastIt != allIncasts.end()) {
-                    for (const auto& param : incastIt->second) {
-                        if (param.tensor == tensor) {
-                            isInIncast = true;
-                            break;
-                        }
-                    }
-                }
-                
-                ALOG_INFO_F("    - tensor magic=%d (raw=%d), in comp%d.incasts=%s",
-                          tensor->magic, tensor->GetRawMagic(), comp1,
-                          isInIncast ? "YES" : "NO");
-                
-                if (isInIncast) {
-                    hasValid2to1 = true;
-                }
-            }
-        }   
+        bool hasValid1to2 = it1 != crossComponentTensors.end() ? 
+                           checkDirection(comp1, comp2, it1->second) : false;
+        bool hasValid2to1 = it2 != crossComponentTensors.end() ? 
+                           checkDirection(comp2, comp1, it2->second) : false;
         // 3. 判断是否是不合理成环
         if (hasValid1to2 && hasValid2to1) {
             ALOG_ERROR_F("ILLEGAL BIDIRECTIONAL DEPENDENCY DETECTED!");
@@ -498,7 +472,7 @@ Status MixDependencyAnalyzer::ValidateCrossComponentDependencies(
             return FAILED;
         }
     }
-    ALOG_INFO_F("\n=== VALIDATION PASSED ===");   
+    ALOG_INFO_F("=== VALIDATION PASSED ===");   
     return SUCCESS; 
 }
 }
