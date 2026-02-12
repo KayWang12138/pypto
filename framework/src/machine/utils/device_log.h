@@ -33,6 +33,7 @@
 
 #ifdef __DEVICE__
 #include "dlog_pub.h"
+#include "machine/device/dynamic/aicpu_instrumentation.h"
 #else
 #include "tilefwk/pypto_fwk_log.h"
 #endif
@@ -44,18 +45,9 @@ namespace npu::tile_fwk {
 
 #define DEV_IF_DEBUG         if (IsDebugMode())
 
-#define DEV_IF_VERBOSE_DEBUG if constexpr (IsCompileVerboseLog())
-
-inline constexpr bool IsCompileVerboseLog() {
-#if ENABLE_COMPILE_VERBOSE_LOG
-    return true;
-#else
-    return false;
-#endif
-}
-
 #ifdef __DEVICE__
 #define GET_TID() syscall(__NR_gettid)
+#define DEV_IF_VERBOSE_DEBUG if (unlikely(!HardBranchTrue(verboseDebug)))
 const std::string TILE_FWK_DEVICE_MACHINE = "AI_CPU";
 
 inline bool g_isLogEnableDebug = false;
@@ -63,11 +55,21 @@ inline bool g_isLogEnableInfo = false;
 inline bool g_isLogEnableWarn = false;
 inline bool g_isLogEnableError = false;
 
+HardBranchGroupDefine(verboseInfo);
+HardBranchGroupDefine(verboseDebug);
+
 inline void InitLogSwitch() {
     g_isLogEnableDebug = CheckLogLevel(AICPU, DLOG_DEBUG);
     g_isLogEnableInfo = CheckLogLevel(AICPU, DLOG_INFO);
     g_isLogEnableWarn = CheckLogLevel(AICPU, DLOG_WARN);
     g_isLogEnableError = CheckLogLevel(AICPU, DLOG_ERROR);
+    if (g_isLogEnableDebug) {
+        npu::tile_fwk::dynamic::HardBranchManager::GetInstance().AddGroup(HardBranchGroupCreate(verboseDebug));
+    }
+    if (g_isLogEnableInfo) {
+        npu::tile_fwk::dynamic::HardBranchManager::GetInstance().AddGroup(HardBranchGroupCreate(verboseInfo));
+    }
+    npu::tile_fwk::dynamic::HardBranchManager::GetInstance().SwitchToJump();
 }
 
 inline bool IsLogEnableDebug() { return g_isLogEnableDebug; }
@@ -78,6 +80,26 @@ inline bool IsLogEnableError() { return g_isLogEnableError; }
 inline bool IsDebugMode() {
     return g_isLogEnableDebug;
 }
+
+#define DEV_DLOG_DEBUG(fmt, ...) \
+    do { \
+        dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+    } while(0)
+
+#define DEV_DLOG_INFO(fmt, ...) \
+    do { \
+        dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+    } while(0)
+
+#define DEV_DLOG_WARN(fmt, ...) \
+    do { \
+        dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+    } while(0)
+
+#define DEV_DLOG_ERROR(fmt, ...) \
+    do { \
+        dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+    } while(0)
 
 template<typename... Args>
 inline void DeviceLogSplitDebug([[maybe_unused]] const std::string& mode_name,
@@ -113,33 +135,33 @@ inline void DeviceLogSplitDebug([[maybe_unused]] const std::string& mode_name,
         }
     }
 
-#define D_DEV_LOGD(MODE_NAME, fmt, ...)                                               \
-  do {                                                                                \
-      if (IsLogEnableDebug()) {                                                       \
-        dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
-      }                                                                               \
-  } while (false)
+#define D_DEV_LOGD(MODE_NAME, fmt, ...)                             \
+    do {                                                            \
+        if (IsLogEnableDebug()) {                                   \
+            DEV_DLOG_DEBUG(fmt, ##__VA_ARGS__);                     \
+        }                                                           \
+    } while (false)
 
-#define D_DEV_LOGI(MODE_NAME, fmt, ...)                                               \
-  do {                                                                                \
-      if (IsLogEnableInfo()) {                                                        \
-        dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
-      }                                                                               \
-  } while(false)
+#define D_DEV_LOGI(MODE_NAME, fmt, ...)                             \
+    do {                                                            \
+        if (IsLogEnableInfo()) {                                    \
+            DEV_DLOG_INFO(fmt, ##__VA_ARGS__);                      \
+        }                                                           \
+    } while (false)
 
-#define D_DEV_LOGW(MODE_NAME, fmt, ...)                                               \
-  do {                                                                                \
-      if (IsLogEnableWarn()) {                                                        \
-        dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
-      }                                                                               \
-  } while(false)
+#define D_DEV_LOGW(MODE_NAME, fmt, ...)                             \
+    do {                                                            \
+        if (IsLogEnableWarn()) {                                    \
+            DEV_DLOG_WARN(fmt, ##__VA_ARGS__);                      \
+        }                                                           \
+    } while (false)
 
-#define D_DEV_LOGE(MODE_NAME, fmt, ...)                                               \
-  do {                                                                                \
-    if (IsLogEnableError()) {                                                         \
-        dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
-      }                                                                               \
-  } while(false)
+#define D_DEV_LOGE(MODE_NAME, fmt, ...)                             \
+    do {                                                            \
+        if (IsLogEnableError()) {                                   \
+            DEV_DLOG_ERROR(fmt, ##__VA_ARGS__);                     \
+        }                                                           \
+    } while (false)
 
 #define D_DEV_LOGD_SPLIT(MODE_NAME, fmt, ...)                                         \
     do {                                                                              \
@@ -148,12 +170,19 @@ inline void DeviceLogSplitDebug([[maybe_unused]] const std::string& mode_name,
         }                                                                             \
     } while (false)
 
-#define DEV_VERBOSE_DEBUG(fmt, args...)                                               \
-  do {                                                                                \
-    if constexpr (IsCompileVerboseLog())  {                                           \
-        D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args);                             \
-    }                                                                                 \
-  } while(0)
+#define DEV_VERBOSE_DEBUG(fmt, args...)                             \
+    do {                                                            \
+        if (unlikely(!HardBranchTrue(verboseDebug))) {              \
+            DEV_DLOG_DEBUG(fmt, ##args);                            \
+        }                                                           \
+    } while(0)
+#define DEV_VERBOSE_INFO(fmt, args...)                              \
+    do {                                                            \
+        if (unlikely(!HardBranchTrue(verboseInfo))) {               \
+            DEV_DLOG_INFO(fmt, ##args);                             \
+        }                                                           \
+    } while(0)
+
 #define DEV_DEBUG(fmt, args...) D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
@@ -183,7 +212,10 @@ inline bool IsDebugMode() {
     return true;
 }
 
+#define DEV_IF_VERBOSE_DEBUG if (IsDebugMode())
+
 #define DEV_VERBOSE_DEBUG(fmt, args...) PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
+#define DEV_VERBOSE_INFO(fmt, args...)  PYPTO_SIM_LOG(DLOG_INFO, MACHINE, fmt, ##args)
 #define DEV_DEBUG_SPLIT(fmt, args...)   PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
 #define DEV_DEBUG(fmt, args...)         PYPTO_SIM_LOG(DLOG_DEBUG, MACHINE, fmt, ##args)
 #define DEV_INFO(fmt, args...)          PYPTO_SIM_LOG(DLOG_INFO, MACHINE, fmt, ##args)
