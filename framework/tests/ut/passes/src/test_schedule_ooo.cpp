@@ -2082,12 +2082,12 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer2) {
     spillInfo.ddrTensor_ = nullptr;
     spillInfo.isSpecialL1_ = true;
     size_t pcIdx = 5;
-    res = oooSchedule.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer, true);
+    res = oooScheduler.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer, true);
     EXPECT_EQ(res, SUCCESS);
-    EXPECT_TRUE(CheckOrderExists(GetIssueEntry("COPY_IN1", subGraph, oooSchedule)->predecessors, oooSchedule.issueEntries[11], oooSchedule.issueEntryMap));
-    EXPECT_EQ(oooSchedule.bufRefCount_[0], 0);
-    EXPECT_EQ(oooSchedule.issueEntries[11]->tileOp.GetOpcodeStr(), "RESHAPE");
-    EXPECT_EQ(oooSchedule.issueEntries.size(), 16);
+    EXPECT_TRUE(CheckOrderExists(GetIssueEntry("COPY_IN1", subGraph, oooScheduler)->predecessors, oooScheduler.issueEntries[11], oooSchedule.issueEntryMap));
+    EXPECT_EQ(oooScheduler.bufRefCount_[0], 0);
+    EXPECT_EQ(oooScheduler.issueEntries[11]->tileOp.GetOpcodeStr(), "RESHAPE");
+    EXPECT_EQ(oooScheduler.issueEntries.size(), 16);
 }
 
 TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBufferFailed) {
