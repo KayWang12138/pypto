@@ -191,11 +191,11 @@ class TestTensorVarStructuralHash:
         shape = [ir.ConstInt(2, DataType.INT32, span)]
 
         tensor_type = ir.TensorType(shape, DataType.FP32)
-        A = ir.Var("A", tensor_type, span)
-        B = ir.Var("B", tensor_type, span)
+        var_a = ir.Var("A", tensor_type, span)
+        var_b = ir.Var("B", tensor_type, span)
 
-        hash_a = ir.structural_hash(A, enable_auto_mapping=False)
-        hash_b = ir.structural_hash(B, enable_auto_mapping=False)
+        hash_a = ir.structural_hash(var_a, enable_auto_mapping=False)
+        hash_b = ir.structural_hash(var_b, enable_auto_mapping=False)
 
         # Different names should produce different hashes
         assert hash_a != hash_b
@@ -210,12 +210,12 @@ class TestTensorVarStructuralHash:
 
         tensor_type1 = ir.TensorType(shape1, DataType.FP32)
         tensor_type2 = ir.TensorType(shape2, DataType.FP32)
-        A1 = ir.Var("A", tensor_type1, span)
-        A2 = ir.Var("A", tensor_type2, span)
+        var_a1 = ir.Var("A", tensor_type1, span)
+        var_a2 = ir.Var("A", tensor_type2, span)
 
         # With auto-mapping enabled, same content should have same hash
-        hash_a1 = ir.structural_hash(A1, enable_auto_mapping=True)
-        hash_a2 = ir.structural_hash(A2, enable_auto_mapping=True)
+        hash_a1 = ir.structural_hash(var_a1, enable_auto_mapping=True)
+        hash_a2 = ir.structural_hash(var_a2, enable_auto_mapping=True)
         assert hash_a1 == hash_a2
 
     @staticmethod

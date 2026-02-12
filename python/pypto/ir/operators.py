@@ -9,13 +9,13 @@
 
 """Operator overloading with automatic span capture and expression normalization."""
 
+__all__ = []
+
 import inspect
 
 from pypto.pypto_impl import ir as _ir
 
 from .utils import _normalize_expr
-
-__all__ = []
 
 
 def _capture_call_span() -> _ir.Span:

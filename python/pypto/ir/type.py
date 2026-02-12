@@ -9,13 +9,13 @@
 
 """Type utilities and wrappers for PyPTO IR."""
 
+__all__ = ["TensorType", "TileType"]
+
 from typing import Optional, Sequence, Union
 
 from pypto.pypto_impl.ir import DataType, Expr, MemRef, TensorType, TileType, TileView
 
 from .utils import _normalize_shape
-
-__all__ = ["TensorType", "TileType"]
 
 # Store the original native __init__
 _native_tensor_type_init = TensorType.__init__
