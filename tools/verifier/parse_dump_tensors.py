@@ -190,7 +190,6 @@ class VerifyRes:
 
     def get_verify_tensor_graph_res(self, tensor_info):
         raw_magic = tensor_info.get("rawMagic")
-        ioflag = tensor_info.get("ioflag")
 
         verify_dup_tensor = ""
         valid_shape = []
@@ -384,8 +383,14 @@ class CompactDumpTensorInfoParser:
             merge_tensor_info["rootHash"] = 0
             merge_tensor_info["funcHash"] = 0
 
-            dtype = _get_data_type(merge_tensor_info["dataType"])[1]
+            tensor_infos_sorted = sorted(tensor_infos, key=lambda x: x["offset"])
+            grouped_tensors = {}
+            for key, group in groupby(tensor_infos_sorted, key=lambda x: x["offset"]):
+                grouped_tensors[key] = list(group)
+            if len(grouped_tensors) == 1:
+                continue
 
+            dtype = _get_data_type(merge_tensor_info["dataType"])[1]
             raw_data = np.zeros(merge_tensor_info["rawShape"], dtype)
             for tensor_info in tensor_infos:
                 is_tensor_valid = True
@@ -403,7 +408,6 @@ class CompactDumpTensorInfoParser:
                     raw_data[tuple(raw_slices)] = data[tuple(data_slices)]
             
             verify_tensor_info, verify_tshape = _verify_res.get_verify_tensor_graph_res(merge_tensor_info)
-            tensor_info["cmp_res"] = "NO_CMP"
             dump_tshape = merge_tensor_info.get("rawShape")
             if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape) and \
                     all(vdim == ddim for vdim, ddim in zip(verify_tshape, dump_tshape)):
