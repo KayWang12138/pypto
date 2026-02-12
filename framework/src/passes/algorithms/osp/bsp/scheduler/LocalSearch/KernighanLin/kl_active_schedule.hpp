@@ -421,6 +421,34 @@ class KlActiveSchedule {
         }
     }
 
+    bool IsOutEdgeViolation(unsigned nodeStep, unsigned nodeProc, VertexType neighbor) const {
+        const unsigned neighborStep = vectorSchedule_.AssignedSuperstep(neighbor);
+        const unsigned neighborProc = vectorSchedule_.AssignedProcessor(neighbor);
+        return (nodeStep > neighborStep) || (nodeStep == neighborStep && nodeProc != neighborProc);
+    }
+
+    bool IsInEdgeViolation(unsigned nodeStep, unsigned nodeProc, VertexType neighbor) const {
+        const unsigned neighborStep = vectorSchedule_.AssignedSuperstep(neighbor);
+        const unsigned neighborProc = vectorSchedule_.AssignedProcessor(neighbor);
+        return (nodeStep < neighborStep) || (nodeStep == neighborStep && nodeProc != neighborProc);
+    }
+
+    template <typename IsViolationFn>
+    void ProcessEdgeViolation(const EdgeType &edge, VertexType neighbor, IsViolationFn &&isViolation, ThreadDataT &threadData) {
+        const bool currentlyViolated = threadData.currentViolations_.find(edge) != threadData.currentViolations_.end();
+        if (!currentlyViolated) {
+            if (isViolation()) {
+                threadData.currentViolations_.insert(edge);
+                threadData.newViolations_[neighbor] = edge;
+            }
+        } else {
+            if (!isViolation()) {
+                threadData.currentViolations_.erase(edge);
+                threadData.resolvedViolations_.insert(edge);
+            }
+        }
+    }
+
     void UpdateViolations(VertexType node, ThreadDataT &threadData) {
         threadData.newViolations_.clear();
         threadData.resolvedViolations_.clear();
@@ -430,49 +458,15 @@ class KlActiveSchedule {
 
         for (const auto &edge : OutEdges(node, instance_->GetComputationalDag())) {
             const auto &child = Target(edge, instance_->GetComputationalDag());
-
-            if (threadData.currentViolations_.find(edge) == threadData.currentViolations_.end()) {
-                if ((nodeStep > vectorSchedule_.AssignedSuperstep(child))
-                    || (nodeStep == vectorSchedule_.AssignedSuperstep(child)
-                        && nodeProc != vectorSchedule_.AssignedProcessor(child))) {
-                    threadData.currentViolations_.insert(edge);
-                    threadData.newViolations_[child] = edge;
-                }
-            } else {
-                if ((nodeStep < vectorSchedule_.AssignedSuperstep(child))
-                    || (nodeStep == vectorSchedule_.AssignedSuperstep(child)
-                        && nodeProc == vectorSchedule_.AssignedProcessor(child))) {
-                    threadData.currentViolations_.erase(edge);
-                    threadData.resolvedViolations_.insert(edge);
-                }
-            }
+            ProcessEdgeViolation(edge, child, [&]() { return IsOutEdgeViolation(nodeStep, nodeProc, child); }, threadData);
         }
 
         for (const auto &edge : InEdges(node, instance_->GetComputationalDag())) {
             const auto &parent = Source(edge, instance_->GetComputationalDag());
-
-            if (threadData.currentViolations_.find(edge) == threadData.currentViolations_.end()) {
-                if ((nodeStep < vectorSchedule_.AssignedSuperstep(parent))
-                    || (nodeStep == vectorSchedule_.AssignedSuperstep(parent)
-                        && nodeProc != vectorSchedule_.AssignedProcessor(parent))) {
-                    threadData.currentViolations_.insert(edge);
-                    threadData.newViolations_[parent] = edge;
-                }
-            } else {
-                if ((nodeStep > vectorSchedule_.AssignedSuperstep(parent))
-                    || (nodeStep == vectorSchedule_.AssignedSuperstep(parent)
-                        && nodeProc == vectorSchedule_.AssignedProcessor(parent))) {
-                    threadData.currentViolations_.erase(edge);
-                    threadData.resolvedViolations_.insert(edge);
-                }
-            }
+            ProcessEdgeViolation(edge, parent, [&]() { return IsInEdgeViolation(nodeStep, nodeProc, parent); }, threadData);
         }
 
-        if (threadData.currentViolations_.size() > 0) {
-            threadData.feasible_ = false;
-        } else {
-            threadData.feasible_ = true;
-        }
+        threadData.feasible_ = threadData.currentViolations_.empty();
     }
 };
 
