@@ -587,8 +587,8 @@ void DeviceLauncher::UnregisterKernelBin(void *hdl) {
 #endif
 }
 
-int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream,
-                                      bool debugEnable, [[maybe_unused]]Function *function) {
+int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable,
+                                    [[maybe_unused]]Function *function, [[maybe_unused]]const DeviceLauncherConfig &config) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
@@ -615,7 +615,10 @@ int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream
         devRunner.ReportHostProfInfo(startTime, 3, MSPROF_GE_TASK_TYPE_AI_CPU, false);
         return ret;
     } else {
-        const int nrAicpu = 5; // see also device_runner.cpp
+        uint32_t scheCpuNum = CalcSchAicpuNumByBlockDim(config.blockdim, config.aicpuNum,
+            static_cast<ArchInfo>(Platform::Instance().GetSoc().GetNPUArch()));
+        int nrAicpu = scheCpuNum + dynamic::MAX_OTHER_AICPU_NUM;
+
         args->kArgs.parameter.runMode = RUN_UNIFIED_STREAM;
         auto startTime = MsprofSysCycleTime();
         ret = rtAicpuKernelLaunchExWithArgs(
