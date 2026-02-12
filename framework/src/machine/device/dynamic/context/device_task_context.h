@@ -52,6 +52,7 @@ private:
         ReadyCoreFunctionQueue* queue[READY_QUEUE_SIZE]);
     void UpdateDeviceTaskQueueInfo(DynDeviceTask *dyntask, ReadyCoreFunctionQueue *aicpuQueue, ReadyCoreFunctionQueue *aivQueue,
         ReadyCoreFunctionQueue *aicQueue, WrapInfoQueue *wrapQueue, uint32_t *wrapTasklistAddr);
+    int FillSingleDynFuncData(DynFuncData* dyndata, DevAscendFunctionDupped& dupFunc, DevAscendProgram* devProg);
     int BuildDynFuncData(DynDeviceTask *dyntask, uint32_t taskId, DevAscendProgram *devProg,
         DevAscendFunctionDupped *stitchedList, uint64_t stitchedSize);
 
