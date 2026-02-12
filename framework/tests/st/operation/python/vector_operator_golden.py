@@ -1554,6 +1554,30 @@ def gen_topk_op_golden(case_name: str, output: Path, case_index: int = None) -> 
     return gen_op_golden("TopK", golden_func, output, case_index)
 
 
+@TestCaseLoader.reg_params_handler(ops=["Sort"])
+def sort_params_func(params: dict):
+    params["dims"] = parse_list_str(params.get("dims"))
+    return params
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestSort/SortOperationTest.TestSort",
+    ]
+)
+def gen_sort_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, config: dict):
+        params = config.get("params")
+        x = torch.from_numpy(inputs[0])
+        dims = params["dims"]
+        val, idx = torch.sort(x, dim=dims[0], descending=True, stable=True)
+        return [val.numpy()]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Sort", golden_func, output, case_index)
+
+
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestRange/RangeOperationTest.TestRange",

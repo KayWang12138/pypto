@@ -1,0 +1,2 @@
+case_name,input_shape,input_dtype,input_format,input_datarange,output_shape,output_dtype,output_format,view_shape,tile_shape,dims
+Sort_16_128_tail_10,"[16, 128]",fp32,ND,"[-100, 100]","[16, 128]","[fp32]","[ND]","[8, 128]","[2, 128]",[-1]
