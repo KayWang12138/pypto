@@ -83,9 +83,9 @@ void *DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id) {
             DEV_ERROR("Invalid SymbolHandlerId: %lu", static_cast<uint64_t>(id));
             DEV_ASSERT(0);
             return nullptr;
+        }
+        return nullptr;
     }
-    return nullptr;
-}
 
 int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
     PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
@@ -252,7 +252,7 @@ int DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTask
         uint64_t start = GetCycles();
         while ((startArgs->devProg->devArgs.disableSync == 0) && startArgs->syncFlag != 1) {
             if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("Wait sync flag timeout.");
+                DEV_ERROR("[sync_wait] Wait sync flag timeout in GELaunchPartialCache.");
                 break;
             }
         }
