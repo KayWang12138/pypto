@@ -244,7 +244,9 @@ struct RawTensorData : public std::vector<uint8_t, AlignedAllocator<uint8_t, 64>
     void ToFile(const std::string &path) const {
         std::ofstream ofile(path, std::ios::out | std::ios::binary);
         if (!ofile) {
+            #ifndef __DEVICE__
             VERIFY_LOGE("open file %s failed!!!!", path.c_str());
+            #endif
         }
         ofile.write(reinterpret_cast<const char *>(data()), size());
         ofile.close();
