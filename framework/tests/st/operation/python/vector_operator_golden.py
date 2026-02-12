@@ -12,7 +12,7 @@
 """vector op 相关用例 Golden 生成逻辑.
 
 本脚本有 2 种执行模式:
-1. CI批跑时, 由 tests/cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
+1. CI批跑时, 由 cmake/scripts/golden_ctrl.py 调用, 为避免日志过多, 此时 logging 级别为 logging.INFO;
 """
 import sys
 import logging
@@ -677,7 +677,7 @@ def gen_expand_op_golden(case_name: str, output: Path, case_index: int = None) -
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestMatmul/MatmulOperationTest.TestMatmul",
-    ], 
+    ],
     version=0,
     timeout=0
 )
@@ -1721,7 +1721,7 @@ def cumsum_golden_func(inputs: list, config: dict):
     if inputs[0].dtype == bfloat16:
         res = res.to(torch.float32).numpy().astype(bfloat16)
         return [res]
-    
+
     return [res.numpy()]
 
 @GoldenRegister.reg_golden_func(
@@ -1797,7 +1797,7 @@ def indexadd_golden_func(inputs: list, config: dict):
     except (KeyError, ValueError, TypeError):
         alp = 1
     res = self.index_add(axis, indices, source, alpha=alp)
-    
+
     return [to_numpy(res)]
 
 
