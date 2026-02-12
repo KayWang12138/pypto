@@ -59,7 +59,7 @@ std::string CodeGenOpCloudNPU::PrintCastTileTensor() const {
     auto mode = opAttrs.at(OP_ATTR_PREFIX + "mode");
     int64_t modeEnum{0};
     if (mode.HasValue()) {
-        modeEnum = npu::tile_fwk::AnyCast<int64_t>(mode);
+        modeEnum = AnyCast<int64_t>(mode);
     }
     std::ostringstream oss;
     std::vector<std::string> templateParamList;
@@ -79,7 +79,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineStatic(const PrintUnaryParam &para
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
-        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+        reduceAxis = AnyCast<int64_t>(axis);
     }
     ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1))))
         << "unsupported reduce axis: " << reduceAxis;
@@ -113,7 +113,7 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineDynamicUnaligned(const PrintUnaryP
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
-        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+        reduceAxis = AnyCast<int64_t>(axis);
     }
     ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1))))
         << "unsupported reduce axis" << reduceAxis;
@@ -163,13 +163,15 @@ std::string CodeGenOpCloudNPU::PrintRowMaxlineTileTensor() const {
     int reduceAxis{-1};
     auto axis = opAttrs.at(OP_ATTR_PREFIX + "AXIS");
     if (axis.HasValue()) {
-        reduceAxis = npu::tile_fwk::AnyCast<int64_t>(axis);
+        reduceAxis = AnyCast<int64_t>(axis);
     }
     ASSERT(((reduceAxis >= 0) && (reduceAxis < (int(rawShape[1].size()) - 1)))) << "unsupported reduce axis";
     reduceAxis += SHAPE_DIM5 - rawShape[0].size();
     std::ostringstream oss;
-    oss << tileOpName << "<" << reduceAxis << ">"
-        << "(" << dstTensor << ", " << src0Tensor << ");\n";
+    oss << tileOpName;
+    oss << WrapParamByAngleBrackets({std::to_string(reduceAxis)});
+    oss << WrapParamByParentheses({dstTensor, src0Tensor});
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -372,7 +374,7 @@ std::string CodeGenOpCloudNPU::PrintOneHotLayout() const {
     std::string dstTensor =QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::DST_IDX));
     std::string srcTensor =QueryTileTensorNameByIdx(ToUnderlying(MISOIdx::SRC0_IDX));
     std::ostringstream oss;
-    oss << tileOpName << "(" << dstTensor <<","<< srcTensor << ");\n";
+    oss << tileOpName << WrapParamByParentheses({dstTensor, srcTensor}) << STMT_END;
     return oss.str();
 }
 
@@ -555,7 +557,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
         return PrintReduceEx({s0Var, dVar, srcDtypeStr, dstDtypeStr});
     } else if (opCode == Opcode::OP_ROWMAXLINE || opCode == Opcode::OP_ROWMINLINE) {
         return PrintRowMaxline({s0Var, dVar, srcDtypeStr, dstDtypeStr});
-    } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS ||
+    } else if (opCode == Opcode::OP_EXP || opCode == Opcode::OP_SQRT || opCode == Opcode::OP_ABS || opCode == Opcode::OP_RELU ||
                opCode == Opcode::OP_RECIPROCAL || opCode == Opcode::OP_NEG || opCode == Opcode::OP_RSQRT ||
                opCode == Opcode::OP_LN || opCode == Opcode::OP_LOGICALNOT || opCode == Opcode::OP_BRCB ||
                opCode == Opcode::OP_CEIL|| opCode == Opcode::OP_FLOOR|| opCode == Opcode::OP_TRUNC) {
@@ -567,7 +569,7 @@ std::string CodeGenOpCloudNPU::GenUnaryOp() const {
     } else if (opCode == Opcode::OP_BITWISENOT) {
         return PrintBitwiseNot();
     }
-    ALOG_INFO_F("unsupported tileop: %s", opCodeStr.c_str());
+    CODEGEN_LOGI("unsupported tileop: %s", opCodeStr.c_str());
     return "CG_ERROR";
 }
 

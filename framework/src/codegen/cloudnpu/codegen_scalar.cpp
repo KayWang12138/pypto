@@ -26,7 +26,7 @@ std::string CodeGenOpCloudNPU::GenBarrier() const {
     auto pipeId1 = GetPipeId(syncQueue.pipeId_);
     int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "pipe_barrier(%s);\n", pipeId1.c_str());
     if (ret < 0) {
-        ALOG_INFO_F("genBarrier snprintf_s failed %d", ret);
+        CODEGEN_LOGI("genBarrier snprintf_s failed %d", ret);
     }
     return buffer;
 }
@@ -38,7 +38,7 @@ std::string CodeGenOpCloudNPU::GenSyncSetOp() const {
     int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "set_flag(%s, %s, EVENT_ID%d);\n", pipeId1.c_str(),
         pipeId2.c_str(), syncQueue.eventId_);
     if (ret < 0) {
-        ALOG_INFO_F("genSyncSetOp snprintf_s failed %d", ret);
+        CODEGEN_LOGI("genSyncSetOp snprintf_s failed %d", ret);
     }
     return buffer;
 }
@@ -50,7 +50,7 @@ std::string CodeGenOpCloudNPU::GenSyncWaitOp() const {
     int ret = snprintf_s(buffer, sizeof(buffer), sizeof(buffer) - 1, "wait_flag(%s, %s, EVENT_ID%d);\n",
         pipeId1.c_str(), pipeId2.c_str(), syncQueue.eventId_);
     if (ret < 0) {
-        ALOG_INFO_F("genSyncWaitOp snprintf_s failed %d", ret);
+        CODEGEN_LOGI("genSyncWaitOp snprintf_s failed %d", ret);
     }
     return buffer;
 }
@@ -76,7 +76,7 @@ static const std::unordered_map<int, std::string> aicpuCallNumDict = {
 std::string CodeGenOpCloudNPU::GenAicpuCallOp() const {
     ASSERT(opAttrs.count(OpAttributeKey::aicpuCall)) << "OpAttributeKey::aicpuCall not found";
     uint32_t call =
-        static_cast<uint32_t>(npu::tile_fwk::AnyCast<int64_t>(opAttrs.find(OpAttributeKey::aicpuCall)->second));
+        static_cast<uint32_t>(AnyCast<int64_t>(opAttrs.find(OpAttributeKey::aicpuCall)->second));
     uint16_t callNum = call >> AICPU_CALL_ARG_BIT;
     uint16_t callArg = call & ((1 << AICPU_CALL_ARG_BIT) - 1);
 

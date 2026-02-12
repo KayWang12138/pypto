@@ -521,6 +521,7 @@ Tensor CumSum(const Tensor &input, const int &axis) {
         Tensor tmpInput = Transpose(input, {n_2, n_1});
         const int transposedAxis = n_2;
 
+        VecTile oriVectile = TileShape::Current().GetVecTile();
         VecTile tmpVectile = TileShape::Current().GetVecTile();
         int64_t tmp = tmpVectile.tile[n_2];
         tmpVectile.tile[n_2] = tmpVectile.tile[n_1];
@@ -530,7 +531,7 @@ Tensor CumSum(const Tensor &input, const int &axis) {
         Tensor result(tmpInput.GetDataType(), tmpInput.GetShape());
         CALL(CumSum, *Program::GetInstance().GetCurrentFunction(),
             {tmpInput.GetStorage(), result.GetStorage(), transposedAxis, flag});
-
+        TileShape::Current().SetVecTile(oriVectile);
         Tensor tmpresult = Transpose(result, {n_2, n_1});
         tmpresult.GetStorage()->UpdateDynValidShape(input.GetStorage()->dynValidShape_);
         return tmpresult;
@@ -734,9 +735,13 @@ void TiledRound(Function &function, const TileShape &tileShape, size_t cur, Inpu
         std::vector<int64_t> srcTileShape(input.tileInfo.shape);
         auto tileShapeLen = srcTileShape.size();
         ASSERT(SHAPE_DIM2 <= tileShapeLen && tileShapeLen <= SHAPE_DIM4) << "Length of tile shape only support 2~4";
-        std::vector<int64_t> tmpShape(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
+        std::vector<int64_t> tmpShape;
         if (result->Datatype() == DT_FP32) {
             tmpShape = {BLOCK_SIZE / sizeof(float)};
+        } else {
+            tmpShape.assign(srcTileShape.end() - SHAPE_DIM2, srcTileShape.end());
+            auto alignSize = BLOCK_SIZE / BytesOf(DT_FP32);
+            tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize -1) / alignSize * alignSize;
         }
         auto tmpTensor = std::make_shared<LogicalTensor>(function, DT_FP32, tmpShape);
         auto &newOp = function.AddOperation(Opcode::OP_ROUND, {tile}, {resultTile, tmpTensor});

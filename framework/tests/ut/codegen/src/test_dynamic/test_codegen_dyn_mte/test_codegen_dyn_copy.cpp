@@ -70,14 +70,8 @@ std::string TestL0COutBody(bool isDynamicAligned) {
     if (isDynamicAligned) {
         config::SetCodeGenOption(SUPPORT_DYNAMIC_ALIGNED, true);
     }
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "L0CToOut", dummyRawMagic);
-    const std::vector<int64_t> offset = {0, 0};
 
-    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
-    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
-
+    auto ddrTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "L0CToOut"});
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L0C, shape, dynValidShape});
 
@@ -165,9 +159,8 @@ TEST_F(TestCodegenDynCopy, L1ToFB) {
 std::string TestL1CopyInBody(
     bool isNz = false, int outerValueForNz = 0, int innerValueForNz = 0, bool isTileTensor = false) {
     if (isTileTensor) {
-        InsertTileTensorOp(Opcode::OP_L1_COPY_IN, "TLoad");
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     }
     const std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
@@ -191,14 +184,8 @@ std::string TestL1CopyInBody(
     auto function =
         Program::GetInstance().GetFunctionByRawName(FUNCTION_PREFIX + funcName + SUB_FUNC_SUFFIX + HIDDEN_FUNC_SUFFIX);
     function->SetUnderDynamicFunction(true);
-    std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(DataType::DT_FP32, shape, TileOpFormat::TILEOP_ND, "L1CopyIn", dummyRawMagic);
-    const std::vector<int64_t> offset = {0, 0};
 
-    auto ddrTensor = std::make_shared<LogicalTensor>(*function, ddrRawTensor, offset, shape);
-    ddrTensor->SetMemoryTypeOriginal(MemoryType::MEM_DEVICE_DDR);
-    ddrTensor->SetMemoryTypeToBe(MemoryType::MEM_DEVICE_DDR);
-
+    auto ddrTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_DEVICE_DDR, shape, "L1CopyIn"});
     const std::vector<SymbolicScalar> dynValidShape = {64, 64};
     auto localTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
 
@@ -242,7 +229,7 @@ TEST_F(TestCodegenDynCopy, L1CopyIn) {
 TEST_F(TestCodegenDynCopy, L1CopyInTileTensor) {
     std::string res = TestL1CopyInBody(false, 0, 0, true);
     std::string expect =
-        R"!!!(TLoad<CopyInMode::NZ2NZ>(l1Tensor_1, gmTensor_2, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, 0)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1));
+        R"!!!(TLoad<CopyInMode::NZ2NZ>(l1Tensor_10, gmTensor_11, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, 0)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, 0, 2, 1));
 )!!!";
     EXPECT_EQ(res, expect);
 }
@@ -274,13 +261,14 @@ TEST_F(TestCodegenDynCopy, L1CopyInNZWithValue) {
 }
 
 TEST_F(TestCodegenDynCopy, TestGatherInL1TileTensor) {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
     std::vector<int64_t> gatherShape = {64, 64};
     auto shapeImme = OpImmediate::Specified(gatherShape);
     TileShape::Current().SetVecTile(gatherShape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
-    InsertTileTensorOp(Opcode::OP_GATHER_IN_L1, "TGatherInL1");
+
     Tensor inputA(DT_FP32, gatherShape, "A");
     Tensor inputB(DT_FP32, gatherShape, "B");
     Tensor output(DT_FP32, gatherShape, "C");
@@ -320,7 +308,11 @@ TEST_F(TestCodegenDynCopy, TestGatherInL1TileTensor) {
 
     cop.Init(gatherL1Op);
     cop.UpdateTileTensorInfo();
-    cop.GenOpCode();
+    std::string res = cop.GenOpCode();
+    std::string expect =
+        R"!!!(TGatherInL1<0>(l1Tensor_10, gmTensor_11, gmTensor_11, gmTensor_11, Coord1Dim(0), Coord2Dim(GET_PARAM_OFFSET_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_OFFSET_BY_IDX(param, 0, -1, 2, 1)), Coord2Dim(GET_PARAM_OFFSET_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_OFFSET_BY_IDX(param, 0, -1, 2, 1)));
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 TEST_F(TestCodegenDynCopy, L1ToBt) {
@@ -366,20 +358,17 @@ TEST_F(TestCodegenDynCopy, L1ToBt) {
     EXPECT_EQ(res, expect);
 }
 
-void TestMatmulMteBody(Opcode opcode, MemoryType inType, MemoryType outType, bool isTileTensor = false) {
+std::string TestMatmulMteBody(Opcode opcode, MemoryType inType, MemoryType outType, bool isTileTensor = false) {
     if (isTileTensor) {
-        InsertTileTensorOp(Opcode::OP_L0C_COPY_OUT, "TStore");
-        InsertTileTensorOp(Opcode::OP_L1_TO_BT, "TExtract");
-        InsertTileTensorOp(Opcode::OP_L1_TO_L0A, "TExtract");
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+        config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     }
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
     config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
     Tensor inputA(DT_FP32, shape, "A");
     Tensor inputB(DT_FP32, shape, "B");
     Tensor output(DT_FP32, shape, "C");
@@ -438,38 +427,64 @@ void TestMatmulMteBody(Opcode opcode, MemoryType inType, MemoryType outType, boo
     function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
     function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
 
-    cop.GenOpCode();
+    return cop.GenOpCode();
 }
 
 TEST_F(TestCodegenDynCopy, L1CopyInTensor) {
-    TestMatmulMteBody(Opcode::OP_L1_COPY_IN, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1);
+    std::string res = TestMatmulMteBody(Opcode::OP_L1_COPY_IN, MemoryType::MEM_DEVICE_DDR, MemoryType::MEM_L1);
+    std::string expect =
+        R"!!!(TLoad<CopyInMode::ND2NZ>(l1Tensor_10, gmTensor_11, Coord2Dim(GET_PARAM_OFFSET_2(param, 0, -1)), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1));
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 TEST_F(TestCodegenDynCopy, L1CopyL0Tensor) {
-    TestMatmulMteBody(Opcode::OP_L1_TO_L0A, MemoryType::MEM_L1, MemoryType::MEM_L0A, true);
+    std::string res = TestMatmulMteBody(Opcode::OP_L1_TO_L0A, MemoryType::MEM_L1, MemoryType::MEM_L0A, true);
+    std::string expect = R"!!!(TExtract<0>(l0aTensor_10, l1Tensor_11, Coord2Dim(0, 0));
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 TEST_F(TestCodegenDynCopy, L1CopyFBTensor) {
-    TestMatmulMteBody(Opcode::OP_L1_TO_FIX_QUANT_PRE, MemoryType::MEM_L1, MemoryType::MEM_FIX);
+    std::string res = TestMatmulMteBody(Opcode::OP_L1_TO_FIX_QUANT_PRE, MemoryType::MEM_L1, MemoryType::MEM_FIX);
+    std::string expect = R"!!!(TExtract<0>(fbufTensor_10, l1Tensor_11, Coord2Dim(0, 0));
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 TEST_F(TestCodegenDynCopy, L1CopyBTTensor) {
-    TestMatmulMteBody(Opcode::OP_L1_TO_BT, MemoryType::MEM_L1, MemoryType::MEM_BT, true);
+    std::string res = TestMatmulMteBody(Opcode::OP_L1_TO_BT, MemoryType::MEM_L1, MemoryType::MEM_BT, true);
+    std::string expect = R"!!!(TExtract<0>(btTensor_10, l1Tensor_11, Coord2Dim(0, 0));
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 TEST_F(TestCodegenDynCopy, L0CopyOutTensor) {
-    TestMatmulMteBody(Opcode::OP_COPY_OUT, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR);
+    std::string res = TestMatmulMteBody(Opcode::OP_COPY_OUT, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR);
+    std::string expect =
+        R"!!!(TStore<TileOp::TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_10, l0cTensor_11, l0cTensor_11, Coord2Dim(0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1), 0);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 TEST_F(TestCodegenDynCopy, L0CopyOutTensorTileTensor) {
-    TestMatmulMteBody(Opcode::OP_COPY_OUT, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR, true);
+    std::string res = TestMatmulMteBody(Opcode::OP_COPY_OUT, MemoryType::MEM_L0C, MemoryType::MEM_DEVICE_DDR, true);
+    std::string expect =
+        R"!!!(TStore<TileOp::TStoreConfig<CopyOutMode::NZ2ND, 0, 0>>(gmTensor_10, l0cTensor_11, l0cTensor_11, Coord2Dim(0, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 0), GET_PARAM_RAWSHAPE_BY_IDX(param, 0, -1, 2, 1), 0);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 TEST_F(TestCodegenDynCopy, L0CopyUBTensor) {
-    TestMatmulMteBody(Opcode::OP_L0C_COPY_UB, MemoryType::MEM_L0C, MemoryType::MEM_UB);
+    std::string res = TestMatmulMteBody(Opcode::OP_L0C_COPY_UB, MemoryType::MEM_L0C, MemoryType::MEM_UB);
+    std::string expect = R"!!!(TExtract<CopyOutMode::NZ2ND>(ubTensor_10, l0cTensor_11, Coord2Dim(0, 0), 0);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outputType) {
+    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
+    config::SetHostOption(COMPILE_STAGE, CS_CODEGEN_INSTRUCTION);
+
     std::vector<int64_t> shape = {64, 64};
     auto shapeImme = OpImmediate::Specified(shape);
     TileShape::Current().SetVecTile(shape);
     TileShape::Current().SetCubeTile({32, 32}, {128, 128}, {128, 128});
-    config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-    config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
+
     InsertTileTensorOp(Opcode::OP_UB_COPY_L1, "TExtract");
     InsertTileTensorOp(Opcode::OP_UB_COPY_ND2NZ, "TMoveND2NZ");
     InsertTileTensorOp(Opcode::OP_L0C_TO_L1, "TExtract");
@@ -478,7 +493,7 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
     Tensor output(DT_FP32, shape, "C");
 
     std::string funcName = "ADD";
-    config::SetBuildStatic(true);
+
     FUNCTION(funcName, {inputA, inputB, output}) {
         output = Add(inputA, inputB);
     }
@@ -495,7 +510,8 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
     LogicalTensors inputs = {localTensor};
     LogicalTensors outputs = {localOutTensor};
     if (opcode == Opcode::OP_L0C_TO_L1) {
-        auto localTensor1 = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_FIX, shape, dynValidShape});
+        auto localTensor1 =
+            CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_FIX, shape, dynValidShape});
         localTensor1->UpdateOffset(TensorOffset(offset, dynoffset));
         inputs.emplace_back(localTensor1);
     }
@@ -523,15 +539,25 @@ std::string TestCopyL1Body(Opcode opcode, MemoryType inputType, MemoryType outpu
 }
 
 TEST_F(TestCodegenDynCopy, UB2L1TileTensor) {
-    TestCopyL1Body(Opcode::OP_UB_COPY_L1, MemoryType::MEM_UB, MemoryType::MEM_L1);
+    std::string res = TestCopyL1Body(Opcode::OP_UB_COPY_L1, MemoryType::MEM_UB, MemoryType::MEM_L1);
+    std::string expect = R"!!!(TExtract(l1Tensor_10, ubTensor_11, Coord2Dim(0, 0));
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 TEST_F(TestCodegenDynCopy, UB2UBND2NZTileTensor) {
-    TestCopyL1Body(Opcode::OP_UB_COPY_ND2NZ, MemoryType::MEM_UB, MemoryType::MEM_UB);
+    std::string res = TestCopyL1Body(Opcode::OP_UB_COPY_ND2NZ, MemoryType::MEM_UB, MemoryType::MEM_UB);
+    std::string expect = R"!!!(TMoveND2NZ(ubTensor_10, ubTensor_10);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 TEST_F(TestCodegenDynCopy, L0CToL1TileTensor) {
-    TestCopyL1Body(Opcode::OP_L0C_TO_L1, MemoryType::MEM_L0C, MemoryType::MEM_L1);
+    std::string res = TestCopyL1Body(Opcode::OP_L0C_TO_L1, MemoryType::MEM_L0C, MemoryType::MEM_L1);
+    std::string expect =
+        R"!!!(TExtract<TileOp::TStoreConfig<CopyOutMode::NZ2NZ, 0, 0>>(l1Tensor_10, l0cTensor_11, l0cTensor_11, Coord2Dim(0, 0), Coord2Dim(0, 0), 0);
+)!!!";
+    EXPECT_EQ(res, expect);
 }
 
 void TestUBCopyInBody(const std::string funcName, const std::string &expect) {
@@ -610,7 +636,8 @@ TEST_F(TestCodegenDynCopy, L0CToL1) {
     auto localOutTensor = CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_L1, shape, dynValidShape});
 
     auto &op = function->AddOperation(Opcode::OP_L0C_TO_L1, {localTensor}, {localOutTensor});
-    op.SetOpAttribute(std::make_shared<CopyOpAttribute>(MEM_L0C, OpImmediate::Specified({0, 0}), shapeImmeL0C, shapeImmeL0C));
+    op.SetOpAttribute(
+        std::make_shared<CopyOpAttribute>(MEM_L0C, OpImmediate::Specified({0, 0}), shapeImmeL0C, shapeImmeL0C));
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op.GetOpAttribute());
     copyAttr->SetFromOffset(OpImmediate::Specified({0, 0}));
     copyAttr->SetToDynValidShape(OpImmediate::Specified(shape));

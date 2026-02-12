@@ -21,7 +21,7 @@
 
 namespace npu::tile_fwk {
 std::string GetBrcOprandIdxStr(int64_t brcbOperandIdx) {
-    ALOG_INFO_F("input brcbOperandIdx is %d", brcbOperandIdx);
+    CODEGEN_LOGI("input brcbOperandIdx is %d", brcbOperandIdx);
     std::string ret = "TileOp::";
     switch (brcbOperandIdx) {
         case ToUnderlying(BroadcastOperand::NONE): ret.append("BroadcastOperand::NONE"); break;
@@ -184,7 +184,7 @@ std::string CodeGenOpCloudNPU::GenBinaryOp() const {
     std::string dVar = sm->QueryVarNameByTensorMagic(operandWithMagic[ID0]);
 
     std::vector src0RawShape = this->rawShape[ID1];
-    ALOG_INFO_F("genBinaryOp %s, src0RawShape is %s", tileOpName.c_str(), IntVecToStr(src0RawShape).c_str());
+    CODEGEN_LOGI("genBinaryOp %s, src0RawShape is %s", tileOpName.c_str(), IntVecToStr(src0RawShape).c_str());
 
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
     std::string src0DtypeStr = DataType2CCEStr(operandDtype[ID1]);
@@ -215,7 +215,7 @@ std::string CodeGenOpCloudNPU::GenBinaryOpWithTmp() const {
     std::vector<std::string> tileOpCallParamList = {dstTensor, src0Tensor, src1Tensor, tmpTensor};
     std::ostringstream oss;
     oss << tileOpName;
-    oss << WrapParamByParentheses(tileOpCallParamList) << ";\n";
+    oss << WrapParamByParentheses(tileOpCallParamList) << STMT_END;
     return oss.str();
 }
 
@@ -352,7 +352,7 @@ std::string CodeGenOpCloudNPU::GenBinaryWithBrc() const {
 
     std::vector src0RawShape = this->rawShape[ID2];
     std::vector src1RawShape = this->rawShape[ID3];
-    ALOG_INFO_F("GenBinaryWithBrc %s, src0RawShape is %s", tileOpName.c_str(), IntVecToStr(src0RawShape).c_str());
+    CODEGEN_LOGI("GenBinaryWithBrc %s, src0RawShape is %s", tileOpName.c_str(), IntVecToStr(src0RawShape).c_str());
 
     char buffer[256] = "CG_ERROR";
     std::string dstDtypeStr = DataType2CCEStr(operandDtype[ID0]);
@@ -485,7 +485,7 @@ std::string CodeGenOpCloudNPU::PrintVectorScalarTileTensor(const PrintUnaryParam
     oss << tileOpName;
     oss << WrapParamByAngleBrackets(templateParamList);
     oss << WrapParamByParentheses(tileOpParamList);
-    oss << ";\n";
+    oss << STMT_END;
     return oss.str();
 }
 
@@ -557,10 +557,10 @@ std::string CodeGenOpCloudNPU::GenVectorScalarOpByMode(VecScalMode mode) const {
         return PrintBinaryScalar({s0Var, dVar, dstDtypeStr, dstDtypeStr, rawShape[0].size()});
     }
 
-    if (opAttrs.count(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")) {
+    if (opAttrs.count(OP_EMUOP_PREFIX + "opc")) {
         // Hack: should be optimized to memory copy in pass
-        int emuopc = AnyCast<int64_t>(opAttrs.find(npu::tile_fwk::OP_EMUOP_PREFIX + "opc")->second);
-        if (emuopc == npu::tile_fwk::EMUOP_TENSOR_EXTRACT) {
+        int emuopc = AnyCast<int64_t>(opAttrs.find(OP_EMUOP_PREFIX + "opc")->second);
+        if (emuopc == EMUOP_TENSOR_EXTRACT) {
             int ret = sprintf_s(buffer, sizeof(buffer),
                 "RUNTIME_TensorExtract(/*type=*/%s, /*mem=*/__ubuf__, /*dst*/%s, /*src*/%s);\n", dstDtypeStr.c_str(),
                 dVar.c_str(), s0Var.c_str());

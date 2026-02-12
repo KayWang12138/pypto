@@ -208,17 +208,6 @@ Tensor Expand(const Tensor &self, const std::vector<int64_t> &dstShape, std::vec
     }
 }
 
-void BroadcastOperandTensor(LogicalTensorPtr &operand, LogicalTensorPtr &other, LogicalTensorPtr result,
-                                      Function& function, const TileShape& tileShape) {
-    auto dstShape = result->shape;
-    if (operand->shape == dstShape) {
-        return;
-    }
-    auto expanded = std::make_shared<LogicalTensor>(function, operand->Datatype(), dstShape);
-    Expand(function, tileShape, operand, {other}, expanded);
-    operand = expanded;
-}
-
 enum class TransposeOpType {
     TRANSPOSE_MOVEIN,
     TRANSPOSE_MOVEOUT,
@@ -467,18 +456,7 @@ void TiledFull(Function &function, const TileShape &tileShape, size_t cur, const
     const LogicalTensorPtr &results, TileInfo &resultTileInfo) {
     if (cur == results->shape.size()) {
         auto resultTile = results->View(function, resultTileInfo.shape, resultTileInfo.offset);
-        auto lastIndex = resultTile->shape.size() - 1;
-        auto bytes = BytesOf(resultTile->Datatype());
-        auto paddingIter = BLOCK_PADDING_DIM.find(bytes);
-        int paddingValue = 1;
-        if (paddingIter != BLOCK_PADDING_DIM.end()) {
-            paddingValue = paddingIter->second;
-        }
-        auto tempTileShape = resultTile->shape;
-        tempTileShape[lastIndex] = (tempTileShape[lastIndex] + paddingValue - 1) / paddingValue * paddingValue;
-        TileShape::Current().SetVecTile(tempTileShape);
         auto &op = function.AddOperation("TILE_VEC_DUP", {}, {resultTile});
-
         op.SetAttribute(OpAttributeKey::scalar, value);
         if (dynValue.IsValid()) {
             op.SetAttribute(OpAttributeKey::dynScalar, dynValue);

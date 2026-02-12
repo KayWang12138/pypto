@@ -109,7 +109,7 @@ Status OoOScheduler::UpdateTensorAttr(
         int rawMagic = tensor->GetRawTensor()->GetRawMagic();
         tensor->memoryrange.memId = rawMagic;
         localBufferMap[rawMagic] = std::make_shared<LocalBuffer>(
-            rawMagic, ShapeCeilAlign(tensor->GetShape(), tensor->Datatype()), tensor->GetMemoryTypeOriginal());
+            rawMagic, tensor->tensor->GetRawDataSize(), tensor->GetMemoryTypeOriginal());
         if (localBufferMap[rawMagic] == nullptr) {
             APASS_LOG_ERROR_F(Elements::Tensor, "Init Tensor[%d] localBuffer failed.", rawMagic);
             return FAILED;
@@ -321,7 +321,7 @@ Status OoOScheduler::CreateSpillCopyout(IssueEntryPtr spillIssue, LogicalTensorP
     int spillMemId, IssueEntryPtr &spillCopyout) {
     // 创建spill搬出所需的DDR rawtensor/tensor
     std::shared_ptr<RawTensor> ddrRawTensor =
-        std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->GetShape(),
+        std::make_shared<RawTensor>(spillTensor->Datatype(), spillTensor->tensor->rawshape,
         TileOpFormat::TILEOP_ND, "WorkspaceGm", SYMBOL_STACK_BASE);
     if (ddrRawTensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Tensor, "Create DDR raw tensor failed!");
@@ -865,7 +865,7 @@ Status OoOScheduler::RearrangeBuffer(MemoryType memType, std::pair<OpCoreType, i
             return FAILED;
         }
     }
-    return bufferManagerMap[corePair.first][corePair.second][memType].CompactBufferSlices();
+    return bufferManagerMap[corePair.first][corePair.second][memType].CompactBufferSlices(localBufferMap);
 }
 
 Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
@@ -900,12 +900,6 @@ Status OoOScheduler::GenBufferSpill(IssueEntryPtr allocIssue) {
         // Alloc内存整理
         if (RearrangeBuffer(memType, corePair) != SUCCESS) {
             APASS_LOG_WARN_F(Elements::Operation, "RearrangeBuffer failed at GenBufferSpill. %s", GetFormatBacktrace(allocIssue->tileOp).c_str());
-        }
-        for (const auto& issue : tensorOccupyMap[memType]) {
-            if (issue.second->tileOp.GetOpcodeStr().find("ALLOC") == std::string::npos) {
-                continue;
-            }
-            bufferManagerMap[corePair.first][corePair.second][memType].Allocate(localBufferMap[issue.first]);
         }
         if (!HasEnoughBuffer(allocIssue, memType)) {
             APASS_LOG_ERROR_F(Elements::Operation, "Spill all buffer failed! %s", GetFormatBacktrace(allocIssue->tileOp).c_str());
