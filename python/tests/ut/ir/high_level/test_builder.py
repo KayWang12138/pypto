@@ -475,7 +475,7 @@ class TestIRBuilderLet:
 
             # Provide matching type for validation
             explicit_type = ir.ScalarType(DataType.INT64)
-            x = ib.let("x", const, type=explicit_type)
+            x = ib.let("x", const, var_type=explicit_type)
 
             assert x.name == "x"
             assert isinstance(x.type, ir.ScalarType)
@@ -498,7 +498,7 @@ class TestIRBuilderLet:
                 wrong_type = ir.ScalarType(DataType.FP32)
 
                 # This should raise ValueError
-                ib.let("x", const, type=wrong_type)
+                ib.let("x", const, var_type=wrong_type)
 
     @staticmethod
     def test_let_with_scalar_value():
@@ -621,7 +621,7 @@ class TestIRBuilderIterArgAndReturnVar:
             with ib.for_loop(i, 0, 10, 1) as loop:
                 # Provide matching type for validation
                 explicit_type = ir.ScalarType(DataType.INT64)
-                sum_iter = loop.iter_arg("sum", 0, type=explicit_type)
+                sum_iter = loop.iter_arg("sum", 0, var_type=explicit_type)
                 # Must have matching return_var
                 _ = loop.return_var("sum_final")
 
@@ -646,7 +646,7 @@ class TestIRBuilderIterArgAndReturnVar:
                 with ib.for_loop(i, 0, 10, 1) as loop:
                     # Wrong type - init_value is INT64 but we provide FP32
                     wrong_type = ir.ScalarType(DataType.FP32)
-                    loop.iter_arg("sum", 0, type=wrong_type)
+                    loop.iter_arg("sum", 0, var_type=wrong_type)
 
     @staticmethod
     def test_return_var_with_inferred_type():
@@ -711,7 +711,7 @@ class TestIRBuilderIterArgAndReturnVar:
                 _ = loop.iter_arg("sum", 0)
                 # Provide explicit type that matches iter_arg type
                 explicit_type = ir.ScalarType(DataType.INT64)
-                sum_final = loop.return_var("sum_final", type=explicit_type)
+                sum_final = loop.return_var("sum_final", var_type=explicit_type)
 
                 assert isinstance(sum_final.type, ir.ScalarType)
                 assert sum_final.type.dtype == DataType.INT64
