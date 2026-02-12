@@ -26,6 +26,11 @@
 #define PYPTO 76
 
 #ifndef __DEVICE__
+#ifndef __SIMULATION__
+#define IS_DEVICE_LOG 0
+#else
+#define IS_DEVICE_LOG 1
+#endif
 namespace npu::tile_fwk {
 class TilefwkLogFuncInfo {
 public:
@@ -33,12 +38,18 @@ public:
     ~TilefwkLogFuncInfo();
     int32_t(*checkLevel)(int32_t, int32_t);
     void(*record)(int32_t, int32_t, const char *, ...);
+    void(*setAttr)(bool);
 };
 inline TilefwkLogFuncInfo logFuncInfo;
+inline int gIsDevice = 0;
 }
 
 #define INNER_PYPTO_LOG(level, module, fmt, ...)                                                                                                       \
     do {                                                                                                                                               \
+        if (IS_DEVICE_LOG != gIsDevice && npu::tile_fwk::logFuncInfo.setAttr != nullptr) {                                                             \
+            npu::tile_fwk::logFuncInfo.setAttr(IS_DEVICE_LOG);                                                                                         \
+            gIsDevice = IS_DEVICE_LOG;                                                                                                                 \
+        }                                                                                                                                              \
         if (npu::tile_fwk::logFuncInfo.checkLevel != nullptr && npu::tile_fwk::logFuncInfo.record != nullptr) {                                        \
             if (npu::tile_fwk::logFuncInfo.checkLevel(PYPTO, level)) {                                                                                 \
                 npu::tile_fwk::logFuncInfo.record(PYPTO, level, "[%s][%s:%d][%s]:" fmt, module, __FILE_NAME__, __LINE__, __FUNCTION__, ##__VA_ARGS__); \

@@ -48,15 +48,25 @@ void TilefwkLogRecord(int32_t moduleId, int32_t logLevel, const char *fmt, ...) 
     va_end(list);
 }
 
+void TilefwkSetLogAttr(bool isDevice) {
+    if (isDevice) {
+        LogManager::Instance().EnableDeviceLog();
+    } else {
+        LogManager::Instance().EnableHostLog();
+    }
+}
+
 #ifndef __DEVICE__
 TilefwkLogFuncInfo::TilefwkLogFuncInfo() {
     checkLevel = TilefwkCheckLogLevel;
     record = TilefwkLogRecord;
+    setAttr = TilefwkSetLogAttr;
 }
 
 TilefwkLogFuncInfo::~TilefwkLogFuncInfo() {
     checkLevel = nullptr;
-    record= nullptr;
+    record = nullptr;
+    setAttr = nullptr;
 }
 #endif
 }
