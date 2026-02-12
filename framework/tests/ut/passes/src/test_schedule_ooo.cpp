@@ -1988,7 +1988,7 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer1) {
     EXPECT_EQ(ooOSchedule.bufRefCount_[0], 0);
     EXPECT_EQ(ooOSchedule.issueEntries[15]->tileOp.GetOpcodeStr(), "RESHAPE");
     EXPECT_EQ(ooOSchedule.issueEntries.size(), 20);
-    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(oooSchedule.issueEntries[14]->tileOp.GetOpAttribute());
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(ooOSchedule.issueEntries[14]->tileOp.GetOpAttribute());
     EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[0].GetSpecifiedValue()), 0);
     EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[1].GetSpecifiedValue()), 0);
 }
