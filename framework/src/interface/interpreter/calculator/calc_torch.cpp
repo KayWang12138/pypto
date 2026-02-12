@@ -18,6 +18,7 @@
 #include "tilefwk/error.h"
 #include "../calc_api.h"
 #include "interpreter/calculator/fp8_convert.h"
+#include "interface/utils/log.h"
 
 namespace npu::tile_fwk {
 
