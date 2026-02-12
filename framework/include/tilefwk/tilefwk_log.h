@@ -29,6 +29,9 @@
 #define __FILE_NAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 
+#define IS_HOST_LOG 0
+#define IS_DEVICE_LOG 1
+
 namespace npu::tile_fwk {
 class LogFuncInfo {
 public:
