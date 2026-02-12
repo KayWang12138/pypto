@@ -500,6 +500,7 @@ public:
     }
 
     bool IsTripleStream() { return tripleStream; }
+    int64_t GetRepeatTime() { return repeatTime; }
 
     KernelBinary *GetKernelBinary(std::vector<DeviceTensorData> &tensors) {
         for (auto &k : kernels) {
@@ -620,6 +621,9 @@ private:
         if (!module.attr("infer_controlflow_shape").is_none()) {
             inferCacheShape = true;
         }
+        if (options.contains("repeat_time")) {
+            repeatTime = options["repeat_time"].cast<int64_t>();
+        }
 #if ENABALE_VERBOSE_LOG
         ALOG_ERROR("triple_stream_sched: ", tripleStream, " stitch_cfgcache_size: ", stitchCfgCacheSize,
             " infer_cache_shape: ", inferCacheShape);
@@ -675,6 +679,7 @@ private:
     bool tripleStream{false};
     bool isDebugMode{false};
     int64_t stitchCfgCacheSize{0};
+    int64_t repeatTime{5};
 
     rtHostInputInfo_t hostInfo;
     rtAicpuArgsEx_t rtAicpuArgs;
@@ -744,7 +749,9 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
 
     bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors, isCaptureMode);
-    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    for (int64_t i = 0; i < kmodule->GetRepeatTime(); i++) {
+        kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    }
 }
 #else
 void LaunchKernel(py::object &, int64_t, py::args &) { }
