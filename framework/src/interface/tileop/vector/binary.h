@@ -195,9 +195,9 @@ TILEOP void TBitwiseOr(T0 dst, T1 src0, T2 src1) {
 }
 
 #define OP_TILE_OP_Mod TMod
-template <TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
+template <typename LastUse = LastUse3Dim<0, 0, 0>, TileOp::BroadcastOperand operand = TileOp::BroadcastOperand::NONE, typename T0, typename T1, typename T2>
 TILEOP void TMod(T0 dst, T1 src0, T2 src1) {
-    BinaryCompute<BinaryOp::MOD, operand>(dst, src0, src1);
+    BinaryCompute<BinaryOp::MOD, operand, LastUse>(dst, src0, src1);
 }
 
 template <BinaryOp op, TileOp::BroadcastOperand operand, typename T0, typename T1, typename T2, typename T3>
