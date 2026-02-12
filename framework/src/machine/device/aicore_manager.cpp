@@ -48,13 +48,12 @@ void SdmaPrefetch(DeviceTask *devTask) {
 int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     int ret = 0;
     DEV_INFO("receive new task %lu\n", taskCtrl->taskId);
-    DEV_ERROR("<< Signature Debug >>\n");
     InitTaskData(taskCtrl);
 
     const auto t0 = std::chrono::high_resolution_clock::now();
 
     RunCoreTask(taskCtrl);
-    if (aicpuIdx_ == 1) {
+    if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
         aicpuTaskManager_.Init(curDevTask_);
     }
 
@@ -75,7 +74,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
         DEV_ERROR("wait tail aiv task timeout .\n");
     }
-    if (aicpuIdx_ == 1) {
+    if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
         while (!aicpuTaskManager_.Finished()) {
             (void)aicpuTaskManager_.TaskProcess();
         }
@@ -85,7 +84,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tf - t0).count();
     DEV_ERROR("[AICPU %d] Running Time: %ldns", aicpuIdx_, ns);
 
-    if (aicpuIdx_ == 1) {
+    if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
         readyAicCoreFunctionQue_->finalizeLockFree();
         readyAivCoreFunctionQue_->finalizeLockFree();
     }
@@ -229,6 +228,8 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
     aicoreFunction_t taskList[TASK_LIST_MAX_SIZE];
     // size_t taskCount = 0;
 
+    // DEV_ERROR("AiCpud:%d Popping - coreIdxStart: %d - coreIdxEnd: %d >>\n", aicpuIdx_, coreIdxStart, coreIdxEnd);
+
     const auto taskSet = readyQue->pop(taskList, readyCoreCount);
     uint64_t* taskSetAddress = taskSet.first;
     uint64_t taskSetCount = taskSet.second;
@@ -350,8 +351,8 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         DEV_DEBUG("resolved new task, aic ready count: %lu coretype:%u\n", readyCount[aicIndex], aicIndex);
         if (readyCount[aicIndex] > 0) {
-            // readyAicCoreFunctionQue_->push(readyIds[aicIndex], readyCount[aicIndex]);
-            readyAicCoreFunctionQue_->push_no_lock(readyIds[aicIndex], readyCount[aicIndex]);
+            readyAicCoreFunctionQue_->push(readyIds[aicIndex], readyCount[aicIndex]);
+            // readyAicCoreFunctionQue_->push_no_lock(readyIds[aicIndex], readyCount[aicIndex]);
         }
         readyCount[aicIndex] = 0;
     }
@@ -364,8 +365,8 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         DEV_DEBUG("resolved new task, aiv ready count: %lu coretype:%u\n", readyCount[aivIndex], aivIndex);
         if (readyCount[aivIndex] > 0) {
-            // readyAivCoreFunctionQue_->push(readyIds[aivIndex], readyCount[aivIndex]);
-            readyAivCoreFunctionQue_->push_no_lock(readyIds[aivIndex], readyCount[aivIndex]);
+            readyAivCoreFunctionQue_->push(readyIds[aivIndex], readyCount[aivIndex]);
+            // readyAivCoreFunctionQue_->push_no_lock(readyIds[aivIndex], readyCount[aivIndex]);
         }
         readyCount[aivIndex] = 0;
     }
@@ -373,16 +374,16 @@ void AiCoreManager::BatchPushReadyQueue() {
     if (readyIdsExtend[aicIndex].size() > 0) {
         DEV_DEBUG("resolved new task, extend aic ready count: %lu, coretype:%u\n", readyIdsExtend[aicIndex].size(),
             aicIndex);
-        // readyAicCoreFunctionQue_->push(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
-        readyAicCoreFunctionQue_->push_no_lock(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
+        readyAicCoreFunctionQue_->push(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
+        // readyAicCoreFunctionQue_->push_no_lock(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
         readyIdsExtend[aicIndex].clear();
     }
 
     if (readyIdsExtend[aivIndex].size() > 0) {
         DEV_DEBUG("resolved new task, extend aiv ready count: %lu, coretype:%u\n", readyIdsExtend[aivIndex].size(),
             aivIndex);
-        // readyAivCoreFunctionQue_->push(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
-        readyAivCoreFunctionQue_->push_no_lock(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
+        readyAivCoreFunctionQue_->push(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
+        // readyAivCoreFunctionQue_->push_no_lock(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
         readyIdsExtend[aivIndex].clear();
     }
 }
@@ -618,12 +619,12 @@ void AiCoreManager::ResolveDepWithDfx(CoreType type, int coreIdx, uint64_t finis
 }
 
 bool AiCoreManager::IsExistOtherAicpuIdle(CoreType type) {
-    int idx = (aicpuIdx_ + 1) % npu::tile_fwk::dynamic::START_AICPU_NUM;
+    int idx = (aicpuIdx_ + 1) % START_STATIC_AICPU_NUM;
     while (idx != aicpuIdx_) {
         if (curTaskCtrl_->isAicpuIdle[static_cast<int>(type)][idx].load(std::memory_order_relaxed) == true){
             return true;
         }
-        idx = (idx + 1) % npu::tile_fwk::dynamic::START_AICPU_NUM;
+        idx = (idx + 1) % START_STATIC_AICPU_NUM;
     }
     return false;
 }
@@ -631,7 +632,7 @@ bool AiCoreManager::IsExistOtherAicpuIdle(CoreType type) {
 void AiCoreManager::Init(int threadIdx, DeviceArgs *deviceArgs) {
     aicNum_ = deviceArgs->nrAic;
     aivNum_ = deviceArgs->nrAiv;
-    aicpuNum_ = npu::tile_fwk::dynamic::START_AICPU_NUM;
+    aicpuNum_ = START_STATIC_AICPU_NUM;
     aicpuIdx_ = threadIdx;
     aicValidNum_ = deviceArgs->nrValidAic;
     regAddrs_ = reinterpret_cast<int64_t *>(deviceArgs->coreRegAddr);

@@ -120,7 +120,7 @@ public:
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
         DEV_INFO("thread  %d start .\n", threadIdx);
-        if (threadIdx >= npu::tile_fwk::dynamic::START_AICPU_NUM) {
+        if (threadIdx >= npu::tile_fwk::START_STATIC_AICPU_NUM) {
             DEV_INFO("thread start ignore \n");
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         }

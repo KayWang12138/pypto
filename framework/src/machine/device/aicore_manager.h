@@ -48,6 +48,8 @@ const uint32_t READY_ID_FIX_CACHE_NUM = 800;
 const uint32_t AICORE_TYPE_NUM = 2;
 
 constexpr uint32_t MAX_STATIC_SCHEDULE_AICPU_NUM = 3;   // 真正负责调度aicore的aicpu个数
+constexpr uint32_t LEAD_STATIC_SCHEDULER_AICPU_ID = 0;
+constexpr int32_t START_STATIC_AICPU_NUM = MAX_STATIC_SCHEDULE_AICPU_NUM;
 constexpr uint32_t MAX_AICORE_NUM = 108;
 constexpr uint32_t NAX_AIV_TOTAL_NUM = 72;
 constexpr uint32_t MAX_MANAGER_AIV_NUM = NAX_AIV_TOTAL_NUM;
@@ -136,7 +138,7 @@ public:
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
         // If I am the lead AICPU scheduler, perform initailization steps
-        if (aicpuIdx_ == 1) {
+        if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
             // Initialize the lock free queues
             readyAicCoreFunctionQue_->initializeLockFree();
             readyAivCoreFunctionQue_->initializeLockFree();
@@ -168,7 +170,7 @@ public:
         CountSendTask(sentAic, sentAiv);
         uint64_t sentAicpu = 0UL;
         if constexpr (enableAicpuTask) {
-            if (aicpuIdx_ == 1) {
+            if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
                 sentAicpu = ResolveDepForAicpuTask();
             }
         }
