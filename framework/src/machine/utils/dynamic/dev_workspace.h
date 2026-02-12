@@ -774,12 +774,12 @@ private:
 
     /* 按照devicetask最大支持stitch阈值分配对象 */
     uint32_t DynFuncDataSlabMemObjSize() {
-        return (sizeof(DynFuncHeader) + MAX_CACHED_FUNC_NUM * sizeof(DynFuncData));
+        return (sizeof(DynFuncHeader) + devProg_-> stitchMaxFunctionNum * sizeof(DynFuncData));
     }
 
     /* 按照devicetask最大支持stitch阈值分配对象 */
     uint32_t VecStitchListSLabMemObjSize() {
-        return MAX_CACHED_FUNC_NUM * sizeof(DevAscendFunctionDupped);
+        return devProg_-> stitchMaxFunctionNum * sizeof(DevAscendFunctionDupped);
     }
 
     uint32_t DynDevTaskSlabMemObjSize() {

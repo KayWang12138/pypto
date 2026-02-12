@@ -110,6 +110,7 @@ std::string DevAscendProgram::Dump(const int indent, const bool dumpAddr) const 
     oss << INDENTINNER << "#stitchFunctionNumInitial:" << stitchFunctionNumInitial << "\n";
     oss << INDENTINNER << "#stitchFunctionNumStep:" << stitchFunctionNumStep << "\n";
     oss << INDENTINNER << "#stitchFunctionsize:" << stitchFunctionsize << "\n";
+    oss << INDENTINNER << "#stitchMaxFunctionNum:" << stitchMaxFunctionNum << "\n";
     oss << INDENTINNER << "#slot{" << slotSize << "}\n";
     oss << INDENTINNER << "#assembleSlot{" << assembleSlotSize << "}\n";
     oss << INDENTINNER << "#symbolCount:" << symbolTable.size() << "\n";
