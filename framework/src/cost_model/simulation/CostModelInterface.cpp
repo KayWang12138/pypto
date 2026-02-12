@@ -64,9 +64,9 @@ int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs)
     }
 
     if (!configs.empty()) {
-        MLOG_WARN("Override configurations:");
+        SIMULATION_LOGW("Override configurations:");
         for (auto &cfg : configs) {
-            MLOG_WARN(cfg);
+            SIMULATION_LOGW(cfg);
         }
     }
 
@@ -167,9 +167,9 @@ void CostModelInterface::RunPerformance()
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
     if (sim->IsDeadlock()) {
-        MLOG_ERROR("Simulation is deadlock at cycle ", sim->globalCycles, "!!!!!!!!!");
+        SIMULATION_LOGE("Simulation is deadlock at cycle %llu !!!!!!!!!", sim->globalCycles);
     }
-    MLOG_WARN("CostModel Simulation Runtime: ", duration.count(), "(s)");
+    SIMULATION_LOGW("CostModel Simulation Runtime: %ld(s)", duration.count());
 }
 
 void CostModelInterface::RunFunctional()
@@ -178,7 +178,7 @@ void CostModelInterface::RunFunctional()
 
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
-    MLOG_WARN("CostModel Functional Simulation Runtime: ", duration.count(), "(s)");
+    SIMULATION_LOGW("CostModel Functional Simulation Runtime: %ld(s)", duration.count());
 }
 
 void CostModelInterface::Report()

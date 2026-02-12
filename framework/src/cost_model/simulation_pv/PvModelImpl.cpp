@@ -300,7 +300,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::BinGen(npu::tile_fwk::Function *func
 
             int ret = std::system(cmd);
             if (ret != 0) {
-                MLOG_ERROR("cmd error: ", cmd);
+                SIMULATION_LOGE("cmd error: %s", cmd);
             }
 
             auto size = PvModelBinHelper::GetBinSize(task_.binPath[subFuncPair.first]);
@@ -444,7 +444,7 @@ void PvModelImpl<SystemConfig, CaseConfig>::RunModel(std::string esgDir)
 
     int result = std::system(cmd);
     if (result != 0) {
-        MLOG_ERROR("cmd error: ", cmd);
+        SIMULATION_LOGE("cmd error: %s", cmd);
     }
 }
 

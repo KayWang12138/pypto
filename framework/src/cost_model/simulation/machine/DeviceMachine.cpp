@@ -67,7 +67,7 @@ void DeviceMachine::RunAtBegin()
             if (!core->localReadyQueues.Empty()) {
                 uint64_t taskId = -1;
                 core->localReadyQueues.Dequeue(taskId);
-                MLOG_INFO("Dequeued task ID:", taskId);
+                SIMULATION_LOGI("Dequeued task ID: %llu", taskId);
                 PushReadyQueue(taskMap.at(taskId)->machineType, taskId);
             }
         }
@@ -86,7 +86,7 @@ void DeviceMachine::RunPVModelDeviceTask()
         GetSim()->pv->Run(taskId, function->pSgId);
     }
     taskMap.clear();
-    MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][Device ", machineId, "] run pvmodel execute tasks", taskMap.size());
+    SIMULATION_LOGI("[Cycle: %llu][Device %llu] run pvmodel execute tasks %zu", GetSim()->GetCycles(), machineId, taskMap.size());
 }
 
 void DeviceMachine::SubmitDeviceTask()
@@ -110,14 +110,15 @@ void DeviceMachine::SubmitDeviceTask()
             PushReadyQueue(task->machineType, taskId);
         }
     }
-    MLOG_WARN("[Cycle:", GetSim()->GetCycles(), "][Device ", machineId, "] submit a new device task to AICPUs, size = ",
+    SIMULATION_LOGW("[Cycle: %llu][Device %llu] submit a new device task to AICPUs, size = %zu", GetSim()->GetCycles(), machineId, 
               taskMap.size());
+
 }
 
 // Device Init
 void DeviceMachine::Build()
 {
-    MLOG_INFO("DeviceMachine start Building-----");
+    SIMULATION_LOGI("DeviceMachine start Building-----");
     config.OverrideDefaultConfig(&sim->cfgs);
     std::string queueId = "DeviceReadyQ";
     readyQueuePid = GetSim()->RegisterQueuePid(queueId);
@@ -154,7 +155,7 @@ void DeviceMachine::Xfer()
     lastCycles = GetSim()->GetCycles();
     currentHeartModulo = GetSim()->GetCycles() % (GetSim()->config.heartInterval);
     if (currentHeartModulo < lastHeartModulo) {
-        MLOG_WARN("@CostModel Heart Cycle:", GetSim()->GetCycles(), ", submit tasks: ", stats->totalSubmitNum);
+        SIMULATION_LOGW("@CostModel Heart Cycle: %llu, submit tasks: %llu", GetSim()->GetCycles(), stats->totalSubmitNum);
     }
     lastHeartModulo = currentHeartModulo;
 }
@@ -224,8 +225,9 @@ void DeviceMachine::BuildLeafFunctionTasks() {
     }
     taskMapQueue.push_back(taskM);
     GetSim()->ProcessTaskMap(taskM);
-    MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][DeviceMachine][BuildLeafFunctionTasks] ", "Machine ", machineId,
+    SIMULATION_LOGI("[Cycle:", GetSim()->GetCycles(), "][DeviceMachine][BuildLeafFunctionTasks] ", "Machine ", machineId,
     " build subtasks done");
+    SIMULATION_LOGI("[Cycle: %llu][DeviceMachine][BuildLeafFunctionTasks] Machine %llu  build subtasks done", GetSim()->GetCycles(), machineId);
 }
 
 void DeviceMachine::BuildSubtasksFromRootFuncTopo()
@@ -263,20 +265,19 @@ void DeviceMachine::BuildSubtasksFromRootFuncTopo()
     }
 
     for (const auto &it : taskM) {
-        MLOG_INFO("Task ID: ", it.second->taskId);
-        MLOG_INFO("  Remaing task num: ", it.second->remainingPredecessors);
+        SIMULATION_LOGI("Task ID: %llu", it.second->taskId);
+        SIMULATION_LOGI("  Remaining task num: %d", it.second->remainingPredecessors);
         for (auto &pre : it.second->predecessors) {
-            MLOG_INFO("  Predecessor:", pre);
+            SIMULATION_LOGI("  Predecessor: %llu", pre);
         }
         for (auto &suc : it.second->successors) {
-            MLOG_INFO("  Predecessor:", suc);
+            SIMULATION_LOGI("  Successor: %llu", suc);
         }
     }
     taskMapQueue.push_back(taskM);
     GetSim()->ProcessTaskMap(taskM);
 
-    MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][DeviceMachine][build_subtasks_from_topo] Machine ", machineId,
-              " build subtasks done");
+    SIMULATION_LOGI("[Cycle: %llu][DeviceMachine][build_subtasks_from_topo] Machine %llu  build subtasks done", GetSim()->GetCycles(), machineId);
 }
 
 void DeviceMachine::BuildSubTasksFromTopoJson()
@@ -287,13 +288,13 @@ void DeviceMachine::BuildSubTasksFromTopoJson()
 
     CostModel::ParseInput parser;
     parser.ParseTopoJson(config.submitTopoPath, taskMapQueue);
-    MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][DeviceMachine][BuildSubTasksFromTopoJson] Machine ", machineId,
-              " build subtasks done, taskMapQueue size = ", taskMapQueue.size());
+    SIMULATION_LOGI("[Cycle: %llu][DeviceMachine][BuildSubTasksFromTopoJson] Machine %llu  build subtasks done, taskMapQueue size = %zu", 
+            GetSim()->GetCycles(), machineId, taskMapQueue.size());
     uint64_t cnt = 0;
     for (auto &taskM : taskMapQueue) {
         GetSim()->ProcessTaskMap(taskM, std::to_string(cnt));
         cnt++;
-        MLOG_INFO("[Cycle:", GetSim()->GetCycles(), "][DeviceMachine] taskMap Size:", taskM.size());
+        SIMULATION_LOGI("[Cycle: %llu][DeviceMachine] taskMap Size: %zu", GetSim()->GetCycles(), taskM.size());
     }
     return;
 }

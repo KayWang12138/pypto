@@ -98,7 +98,7 @@ void ModelVisualizer::DrawFunction(FunctionPtr func, const std::string &outdir, 
     }
     os << "}" << std::endl;
     os.close();
-    MLOG_WARN(" Path:", path.c_str());
+    SIMULATION_LOGW("Path: %s", path.c_str());
 }
 
 void ModelVisualizer::DebugFunction(FunctionPtr func, std::unordered_map<int, TilePtr> &tiles,
@@ -125,7 +125,7 @@ void ModelVisualizer::DebugFunction(FunctionPtr func, std::unordered_map<int, Ti
     }
     os << "}" << std::endl;
     os.close();
-    MLOG_WARN(" Path:", path.c_str());
+    SIMULATION_LOGW("Path: %s", path.c_str());
 }
 
 void ModelVisualizer::DrawTasks(const TaskMap &taskMap, bool drawDetail, std::string outPath)

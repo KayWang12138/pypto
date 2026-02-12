@@ -394,20 +394,20 @@ void ParseInput::BuildFunction(std::shared_ptr<CostModel::SimSys> sim, npu::tile
 
 void ParseInput::CheckTileOp(FunctionPtr func)
 {
-    MLOG_WARN("\n[Simulation Check Function]:", func->funcName);
+    SIMULATION_LOGW("\n[Simulation Check Function]: %s", func->funcName);
     for (const auto &op : func->tileOps) {
         if (op->IsCall()) {
             continue;
         }
         if (op->iOperand.size() == 0) {
-            MLOG_WARN("TileOp has no input", func->funcName);
+            SIMULATION_LOGW("TileOp has no input: %s", func->funcName);
             if (op->operation != nullptr) {
-                MLOG_WARN("Frontend Operation:", op->operation->Dump());
+                SIMULATION_LOGW("Frontend Operation: %s", op->operation->Dump());
             }
-            MLOG_WARN("Simulation Op:", op->Dump(true));
+            SIMULATION_LOGW("Simulation Op: %s", op->Dump(true));
         }
         if (op->oOperand.size() == 0) {
-            MLOG_WARN("Function:{} Op:{} has no input", func->funcName, op->Dump(true));
+            SIMULATION_LOGW("Function: %s Op: %s has no input", func->funcName, op->Dump(true));
         }
     }
 }
@@ -418,14 +418,14 @@ void ParseInput::CheckTile(FunctionPtr func)
     for (auto &tile : func->tiles) {
         if (tile->producers.size() == 0) {
             if (std::find(func->incastMagic.begin(), func->incastMagic.end(), tile->magic) == func->incastMagic.end()) {
-                MLOG_WARN("Tile has no producer, but not incast ", tile->Dump());
+                SIMULATION_LOGW("Tile has no producer, but not incast: %s", tile->Dump());
                 func->incastMagic.emplace_back(tile->magic);
             }
         }
         if (tile->consumers.size() == 0) {
             if (std::find(func->outcastMagic.begin(), func->outcastMagic.end(), tile->magic) ==
                 func->outcastMagic.end()) {
-                MLOG_WARN("Tile has no consumer, but not outcast ", tile->Dump());
+                SIMULATION_LOGW("Tile has no consumer, but not outcast: %s", tile->Dump());
                 func->outcastMagic.emplace_back(tile->magic);
             }
         }
@@ -438,34 +438,34 @@ void ParseInput::CheckInOutCast(FunctionPtr func)
     auto inIdx = func->incastMagic.begin();
     while (inIdx != func->incastMagic.end()) {
         if (func->tileMap.find((*inIdx)) == func->tileMap.end()) {
-            MLOG_WARN("Incast not found in tileMap ", (*inIdx));
+            SIMULATION_LOGW("Incast not found in tileMap: %d", (*inIdx));
             inIdx = func->incastMagic.erase(inIdx);
             continue;
         }
         auto &incast = func->tileMap[(*inIdx)];
         incast->nodeType = NodeType::INCAST;
         if (incast->producers.size() != 0) {
-            MLOG_WARN("Incast has producer ", incast->Dump());
+            SIMULATION_LOGW("Incast has producer %s", incast->Dump());
         }
         if (incast->consumers.size() == 0) {
-            MLOG_WARN("Incast has no consumer ", incast->Dump());
+            SIMULATION_LOGW("Incast has no consumer %s", incast->Dump());
         }
         inIdx++;
     }
     auto outIdx = func->outcastMagic.begin();
     while (outIdx != func->outcastMagic.end()) {
         if (func->tileMap.find((*outIdx)) == func->tileMap.end()) {
-            MLOG_WARN("Outcast not found in tileMap ", (*outIdx));
+            SIMULATION_LOGW("Outcast not found in tileMap %s", (*outIdx));
             outIdx = func->outcastMagic.erase(outIdx);
             continue;
         }
         auto &outcast = func->tileMap[(*outIdx)];
         outcast->nodeType = NodeType::OUTCAST;
         if (outcast->producers.size() == 0) {
-            MLOG_WARN("Outcast has no producer ", outcast->Dump());
+            SIMULATION_LOGW("Outcast has no producer %s", outcast->Dump());
         }
         if (outcast->consumers.size() != 0) {
-            MLOG_WARN("Outcast has no consumer ", outcast->Dump());
+            SIMULATION_LOGW("Outcast has no consumer %s", outcast->Dump());
         }
         outIdx++;
     }
