@@ -74,7 +74,7 @@ bool PadLocalBuffer::IsInputInt8(const Operation &op, const LogicalTensorPtr &in
             inProducerPtr->GetIOperands()[0] != nullptr && inProducerPtr->GetIOperands()[0]->tensor != nullptr) {
             // 检查in的前置op节点的输入是否为int8。
             // iOperands (dtype:int8) --> A_MULACC_B --> in (dtype:fp16/int32), iOperands (dtype:fp16/int32) --> COPY_OUT
-            return inProducerPtr->GetIOperands()[0]->tensor->GetDataType() == DataType::DT_INT8;
+            return inDataSupport.find(inProducerPtr->GetIOperands()[0]->tensor->GetDataType()) != inDataSupport.end();
         }
     }
     return false;
