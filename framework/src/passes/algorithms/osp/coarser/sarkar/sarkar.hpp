@@ -1267,7 +1267,8 @@ std::vector<std::size_t> Sarkar<GraphTIn, GraphTOut>::HomogeneousMerge(const std
 
     std::size_t bestScore = 0U;
     std::size_t bestBins = number / minSizeAtLeastOne;
-    for (std::size_t bins = std::max(number / maxSizeAtLeastOne, static_cast<std::size_t>(2U)); bins <= number / minSizeAtLeastOne; ++bins) {
+    std::size_t bins = std::max(number / maxSizeAtLeastOne, static_cast<std::size_t>(2U));
+    for (; bins <= number / minSizeAtLeastOne; ++bins) {
         if (number % bins == 0U && number != bins) {
             return std::vector<std::size_t>(bins, number / bins);
         }

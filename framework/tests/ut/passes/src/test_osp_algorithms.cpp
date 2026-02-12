@@ -852,16 +852,12 @@ TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph) {
     });
 
     GraphAdapterType graph(outEdges, inEdges);
-
     EXPECT_EQ(graph.NumVertices(), 11);
     EXPECT_EQ(graph.NumEdges(), 11);
 
-    std::size_t cntr0 = 0;
-    std::size_t cntrChldEdges = 0U;
-    std::size_t cntrParEdges = 0U;
+    std::size_t cntr0{}, cntrChldEdges{}, cntrParEdges{};
     for (const auto &vert : graph.Vertices()) {
-        EXPECT_EQ(vert, cntr0);
-        ++cntr0;
+        EXPECT_EQ(vert, cntr0++);
         cntrChldEdges += graph.OutDegree(vert);
         cntrParEdges += graph.InDegree(vert);
     }
@@ -870,23 +866,21 @@ TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph) {
     EXPECT_EQ(graph.NumEdges(), cntrParEdges);
 
     for (const auto &vert : graph.Vertices()) {
-        EXPECT_EQ(graph.OutDegree(vert), outEdges[vert].size());
-        std::size_t cntr = 0;
-        for (const auto &chld : graph.Children(vert)) {
-            EXPECT_EQ(chld, outEdges[vert][cntr]);
-            ++cntr;
-        }
-        EXPECT_EQ(cntr, graph.OutDegree(vert));
-    }
-
-    for (const auto &vert : graph.Vertices()) {
         EXPECT_EQ(graph.InDegree(vert), inEdges[vert].size());
         std::size_t cntr = 0;
         for (const auto &par : graph.Parents(vert)) {
-            EXPECT_EQ(par, inEdges[vert][cntr]);
-            ++cntr;
+            EXPECT_EQ(par, inEdges[vert][cntr++]);
         }
         EXPECT_EQ(cntr, graph.InDegree(vert));
+    }
+
+    for (const auto &vert : graph.Vertices()) {
+        EXPECT_EQ(graph.OutDegree(vert), outEdges[vert].size());
+        std::size_t cntr = 0;
+        for (const auto &chld : graph.Children(vert)) {
+            EXPECT_EQ(chld, outEdges[vert][cntr++]);
+        }
+        EXPECT_EQ(cntr, graph.OutDegree(vert));
     }
 
     for (const auto &vert : graph.Vertices()) {

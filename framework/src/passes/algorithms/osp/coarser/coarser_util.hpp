@@ -104,10 +104,10 @@ bool InitializeCoarseGraph(
         }
         for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
             for (const VertexIdxT<GraphTIn> &chld : dagIn.Children(vert)) {
-                if (vertexContractionMap[vert] != vertexContractionMap[chld]) {
-                    if (not Edge(vertexContractionMap[vert], vertexContractionMap[chld], coarsenedDag)) {
-                        coarsenedDag.AddEdge(vertexContractionMap[vert], vertexContractionMap[chld]);
-                    }
+                if (vertexContractionMap[vert] == vertexContractionMap[chld]) continue;
+
+                if (not Edge(vertexContractionMap[vert], vertexContractionMap[chld], coarsenedDag)) {
+                    coarsenedDag.AddEdge(vertexContractionMap[vert], vertexContractionMap[chld]);
                 }
             }
         }

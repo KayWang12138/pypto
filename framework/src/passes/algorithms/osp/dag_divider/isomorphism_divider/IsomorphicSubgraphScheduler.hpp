@@ -305,7 +305,7 @@ class IsomorphicSubgraphScheduler {
         }
 
         wasTrimmed[groupIdx] = true;
-        const unsigned mergeSize = groupSize / gcd;
+        const unsigned mergeSize = gcd == 0 ? 1 : groupSize / gcd;
         std::vector<std::vector<VertexIdxT<GraphT>>> newSubgraphs;
         newSubgraphs.reserve(gcd);
 
