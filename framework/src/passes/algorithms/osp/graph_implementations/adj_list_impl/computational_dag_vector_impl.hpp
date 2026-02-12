@@ -150,6 +150,8 @@ class ComputationalDagVectorImpl {
         return vertices_.back().id_;
     }
 
+    [[nodiscard]] VertexTypeType NumVertexTypes() const { return numVertexTypes_; }
+
     void SetVertexWorkWeight(const VertexIdx v, const VertexWorkWeightType workWeight) {
         vertices_.at(v).workWeight_ = workWeight;
     }

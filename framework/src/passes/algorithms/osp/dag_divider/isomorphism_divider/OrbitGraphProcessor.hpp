@@ -412,67 +412,62 @@ class OrbitGraphProcessor {
     }
 
   private:
+    std::vector<size_t> FindSignificantSymmetryLevels(const std::map<size_t, size_t> &orbitSizeCounts,
+                                                      size_t countThreshold) {
+        std::vector<size_t> sortedSizes;
+        sortedSizes.reserve(orbitSizeCounts.size());
+        for (const auto &[size, count] : orbitSizeCounts) {
+            sortedSizes.push_back(size);
+        }
+        std::sort(sortedSizes.rbegin(), sortedSizes.rend());
+
+        std::vector<size_t> levels;
+        for (const size_t currentSize : sortedSizes) {
+            if (currentSize >= minSymmetry_ && orbitSizeCounts.at(currentSize) >= countThreshold) {
+                levels.push_back(currentSize);
+            }
+        }
+        return levels;
+    }
+
+    size_t FindFallbackSymmetryLevel(const std::map<size_t, size_t> &orbitSizeCounts) {
+        size_t maxCount = 0;
+        size_t sizeWithMaxCount = 0;
+        for (const auto &[size, count] : orbitSizeCounts) {
+            if (count > maxCount) {
+                maxCount = count;
+                sizeWithMaxCount = size;
+            }
+        }
+        return sizeWithMaxCount;
+    }
+
     std::vector<size_t> ComputeSymmetryLevels(const std::map<size_t, size_t> orbitSizeCounts) {
-        std::vector<size_t> symmetryLevelsToTest;
         minSymmetry_ = 2;
 
         size_t totalOrbitGroups = 0;
-        for (const auto &sizeCount : orbitSizeCounts) {
-            const size_t &count = sizeCount.second;
+        for (const auto &[size, count] : orbitSizeCounts) {
             totalOrbitGroups += count;
         }
         size_t countThreshold = static_cast<size_t>(static_cast<double>(totalOrbitGroups) * naturalBreaksCountPercentage_);
         if (countThreshold == 0 && totalOrbitGroups > 0) {
-            countThreshold = 1;    // Ensure threshold is at least 1 if possible
+            countThreshold = 1;
         }
 
-        std::vector<size_t> sortedSizes;
-        sortedSizes.reserve(orbitSizeCounts.size());
-        for (const auto &sizeCont : orbitSizeCounts) {
-            const size_t &size = sizeCont.first;
-            sortedSizes.push_back(size);
-        }
-        std::sort(sortedSizes.rbegin(), sortedSizes.rend());    // Sort descending
-
-        if (!sortedSizes.empty()) {
-            for (size_t i = 0; i < sortedSizes.size(); ++i) {
-                const size_t currentSize = sortedSizes[i];
-                if (currentSize < minSymmetry_) {
-                    continue;
-                }
-
-                // Add if this size's count is significant
-                const size_t currentCount = orbitSizeCounts.at(currentSize);
-                bool countSignificant = (currentCount >= countThreshold);
-
-                if (countSignificant) {
-                    symmetryLevelsToTest.push_back(currentSize);
-                    continue;
-                }
-            }
-        }
+        std::vector<size_t> symmetryLevelsToTest = FindSignificantSymmetryLevels(orbitSizeCounts, countThreshold);
 
         if (symmetryLevelsToTest.empty()) {
-            size_t maxCount = 0;
-            size_t sizeWithMaxCount = 0;
-            for (const auto &[size, count] : orbitSizeCounts) {
-                if (count > maxCount) {
-                    maxCount = count;
-                    sizeWithMaxCount = size;
-                }
-            }
-            if (sizeWithMaxCount > 0) {
-                symmetryLevelsToTest.push_back(sizeWithMaxCount);
+            const size_t fallback = FindFallbackSymmetryLevel(orbitSizeCounts);
+            if (fallback > 0) {
+                symmetryLevelsToTest.push_back(fallback);
             }
         }
-
         if (symmetryLevelsToTest.empty()) {
             symmetryLevelsToTest.push_back(2);
         }
 
         minSymmetry_ = symmetryLevelsToTest.back();
 
-        // De-duplicate and sort descending
         std::sort(symmetryLevelsToTest.rbegin(), symmetryLevelsToTest.rend());
         auto last = std::unique(symmetryLevelsToTest.begin(), symmetryLevelsToTest.end());
         symmetryLevelsToTest.erase(last, symmetryLevelsToTest.end());
