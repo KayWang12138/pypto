@@ -1576,6 +1576,43 @@ std::string CodeGenOpCloudNPU::GenCmpOp() const {
     return oss.str();
 }
 
+std::string CodeGenOpCloudNPU::PrintPadTileTensor() const {
+    enum class TensorIdx : int { dstIdx = 0, srcIdx = 1 };
+
+    std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::dstIdx));
+    std::string srcTensor = QueryTileTensorNameByIdx(ToUnderlying(TensorIdx::srcIdx));
+
+    float padValue = 0.0f;
+    if (opAttrs.count(OpAttributeKey::scalar) > 0) {
+        auto scalarAttr = opAttrs.at(OpAttributeKey::scalar);
+        auto scalarElement = AnyCast<Element>(scalarAttr);
+        padValue = static_cast<float>(scalarElement.GetFloatData());
+    }
+    
+    std::string srcValidRowStr = "16";
+    std::string srcValidColStr = "16";
+
+    std::vector<std::string> tileOpParamList = {
+        dstTensor,
+        srcTensor,
+        std::to_string(padValue),
+        srcValidRowStr,
+        srcValidColStr
+    };
+
+    std::ostringstream oss;
+    oss << tileOpName;
+    
+    oss << WrapParamByParentheses(tileOpParamList); 
+    oss << STMT_END;
+    
+    return oss.str();
+}
+
+std::string CodeGenOpCloudNPU::GenPadOp() const {
+    return PrintPadTileTensor();
+}
+
 std::string CodeGenOpCloudNPU::PrintLogicalAndTileTensor() const {
     std::string dstTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::DST_IDX));
     std::string tmpTensor = QueryTileTensorNameByIdx(ToUnderlying(MIMOIdx::TMP_IDX));

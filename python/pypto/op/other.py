@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 """PyPTO"""
-from typing import Union
+from typing import Union, Sequence, List
 
 from .. import pypto_impl
 from .._op_wrapper import op_wrapper
@@ -138,3 +138,63 @@ def one_hot(input: Tensor, num_classes: int) -> Tensor:
     if num_classes <= 0:
         raise RuntimeError("num_classes must be a positive integer")
     return pypto_impl.OneHot(input, num_classes)
+
+
+@op_wrapper
+def pad(input: Tensor, pad: Sequence[int], mode: str = "constant", value: float = 0.0) -> Tensor:
+    """
+    Pads the input tensor.
+
+    Padding size:
+    The padding size by which to pad some dimensions of :attr:`input` are described starting from
+    the last dimension and moving forward.
+    For $\text{pad}$ has format $(d_{last\_dim}, d_{last\_dim-1}, ..., d_{last\_dim-k})$.
+    Current implementation supports padding the last 2 dimensions (Right and Bottom) with 
+    constant values.
+
+    Parameters
+    ----------
+    input : Tensor
+        The input tensor to be padded.
+    pad : tuple or list of int
+        m-elements tuple, where $\frac{m}{2} \leq$ input dimensions and $m$ is even.
+        Format is (pad_left, pad_right, pad_top, pad_bottom, ...).
+        Note: Currently only supports `pad_left=0` and `pad_top=0` (Right/Bottom padding only).
+    mode : str, optional
+        'constant', 'reflect', 'replicate' or 'circular'. Default: 'constant'
+        Note: Currently only 'constant' is supported.
+    value : float, optional
+        fill value for 'constant' padding. Default: 0.0
+
+    Returns
+    -------
+    Tensor
+        Padded tensor.
+
+    Raises
+    ------
+    TypeError
+        If `input` is not a Tensor.
+        If `pad` is not a sequence of integers.
+    ValueError
+        If `pad` length is not even.
+
+    Examples
+    --------
+    t4d = pypto.tensor([1, 1, 2, 2], pypto.DT_FP32)
+    # Pad last dim by (0, 1) -> Right pad 1
+    # Pad 2nd to last dim by (0, 1) -> Bottom pad 1
+    p1 = (0, 1, 0, 1) 
+    out = pypto.pad(t4d, p1, "constant", 9.0)
+
+    Input t4d: [[[[0.0, 1.0],
+                  [2.0, 3.0]]]]
+    
+    Output out: [[[[0.0, 1.0, 9.0],
+                   [2.0, 3.0, 9.0],
+                   [9.0, 9.0, 9.0]]]]
+
+    """
+
+    pad_list = list(pad)
+    return pypto_impl.Pad(input, pad_list, mode, float(value))
