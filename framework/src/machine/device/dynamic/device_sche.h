@@ -70,7 +70,7 @@ public:
             return DEVICE_MACHINE_ERROR;
         }
 
-        if (static_cast<uint32_t>(threadIdx) >= args->scheCpuNum) {
+        if (static_cast<uint32_t>(schedIdx) >= args->scheCpuNum) {
             DEV_INFO("thread start ignore ");
             return DEVICE_MACHINE_OK;
         }
@@ -192,7 +192,7 @@ struct DynMachineManager {
         devArgs->toSubMachineConfig = kargs->toSubMachineConfig;
         DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(kargs->cfgdata);
         DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
-        int ret = machine_.RunThread(schedIdx, devStartArgs, devArgs, schedIdx);
+        int ret = machine_.RunThread(threadIdx, devStartArgs, devArgs, schedIdx);
 
         DEV_INFO("ThreadScheLeave idx=%d ret=%d", threadIdx, ret);
         if (ret != DEVICE_MACHINE_OK) {
