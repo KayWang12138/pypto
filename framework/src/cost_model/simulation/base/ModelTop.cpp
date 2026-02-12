@@ -23,6 +23,7 @@
 #include "cost_model/simulation/arch/PipeFactory.h"
 #include "cost_model/simulation/pv/PvModelFactory.h"
 #include "interface/utils/file_utils.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 
@@ -177,7 +178,7 @@ void SimSys::CalendarDispatchTasksToCore(int key, std::shared_ptr<CoreMachine> c
         TaskPack packet;
         packet.taskId = task.first;
         packet.task.taskPtr = calendarTaskMap[task.first];
-        ASSERT(packet.task.taskPtr != nullptr) << "[simulation]: " << "task does not exist. taskId=" << packet.taskId;
+        ASSERT(packet.task.taskPtr != nullptr) << "[SIMULATION]: " << "task does not exist. taskId=" << packet.taskId;
         packet.task.functionHash = task.second;
         coreMachine->SubmitTask(packet);
     }
@@ -252,7 +253,7 @@ void SimSys::BuildAICPU(DevicePtr device, uint64_t idInDevice)
     uint64_t aicNum = config.cubeMachineNumberPerAICPU;
     uint64_t aivNum = config.vecMachineNumberPerAICPU;
     uint64_t mixedCoreNum = 0;
-    ASSERT(config.coreMachineNumberPerAICPU == (aicNum + aivNum)) << "[simulation]: " 
+    ASSERT(config.coreMachineNumberPerAICPU == (aicNum + aivNum)) << "[SIMULATION]: " 
         << "The number of cores must be equal to the sum of the aic and aiv. Please reconfigure them.";
     if (config.cubeVecMixMode) {
         mixedCoreNum = config.coreMachineNumberPerAICPU;
@@ -500,7 +501,7 @@ void SimSys::DrawTasks(const TaskMap &taskMap, std::string prefix)
         ModelVisualizer visualizer;
         std::string outPath = GetFileName(graphsOutdir, jsonPath, prefix, startFuncName + ".taskGraph.dot");
         visualizer.DrawTasks(taskMap, true, outPath);
-        SIMULATION_LOGW("Task Graph Path: %s", outPath);
+        SIMULATION_LOGW("Task Graph Path: %s", outPath.c_str());
     }
 }
 
@@ -533,7 +534,7 @@ void SimSys::DumpTasksTopo(const TaskMap &taskMap, std::string prefix)
 
     std::string fileName = GetFileName(outdir, jsonPath, prefix, "topo.json");
     topoOutFile = fileName;
-    SIMULATION_LOGW("Topo File Path: %s", fileName);
+    SIMULATION_LOGW("Topo File Path: %s", fileName.c_str());
     std::ofstream ofs(fileName);
     ofs << totalTopoJson.dump(1) << std::endl;
     ofs.close();
@@ -546,7 +547,7 @@ void SimSys::OutputTrace(std::string prefix)
     totalTraceLogger->ToTrace(os);
     os.close();
     SIMULATION_LOGW("Please Use Smartperf For Visualization:");
-    SIMULATION_LOGW("Trace Path: %s \n", outPath);
+    SIMULATION_LOGW("Trace Path: %s \n", outPath.c_str());
 }
 
 void SimSys::OutputPerfettoTrace(std::string prefix)
@@ -557,7 +558,7 @@ void SimSys::OutputPerfettoTrace(std::string prefix)
     os << trace.dump(1) << std::endl;
     os.close();
     SIMULATION_LOGW("Please Use Perfetto For Visualization:");
-    SIMULATION_LOGW("Perfetto Trace Path: %s \n", outPath);
+    SIMULATION_LOGW("Perfetto Trace Path: %s \n", outPath.c_str());
 }
 
 void SimSys::DumpFunctionExecuteTime(std::string prefix)
@@ -582,7 +583,7 @@ void SimSys::OutputLogForPipeSwimLane(std::string prefix)
     totalTraceLogger->ToPipeTrace(osPipeSwim);
     osPipeSwim.close();
 
-    SIMULATION_LOGW("Pipe SwimLane Graph Generated (PNG & HTML): %s", pipeDetailPath);
+    SIMULATION_LOGW("Pipe SwimLane Graph Generated (PNG & HTML): %s", pipeDetailPath.c_str());
     std::string drawScriptPath =  GetCurrentSharedLibPath() + "/scripts/draw_pipe_swim_lane.py";
     std::string cmd = "python3 " + drawScriptPath + " " + pipeDetailPath;
     int ret = system(cmd.c_str());
@@ -613,7 +614,7 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
     if (globalCycles > config.drawPngThresholdCycle) {
         return;
     }
-    SIMULATION_LOGW("SwimLane Graph Generated (PNG): %s", outSwimPath);
+    SIMULATION_LOGW("SwimLane Graph Generated (PNG): %s", outSwimPath.c_str());
     std::string drawScriptPath =  GetCurrentSharedLibPath() + "/scripts/print_swim_lane.py";
     std::string cmd = "python3 " + drawScriptPath + " " + outSwimPath + " -t";
     int result1 = system(cmd.c_str());
@@ -623,20 +624,20 @@ void SimSys::OutputLogForSwimLane(std::string prefix)
 
     std::string mergeScriptPath =  GetCurrentSharedLibPath() + "/scripts/draw_swim_lane.py";
     auto devicePtr = std::dynamic_pointer_cast<DeviceMachine>(machineGroup[int(MachineType::DEVICE)][0]);
-    SIMULATION_LOGW("devicePtr->config.submitTopo: %s", devicePtr->config.submitTopo);
+    SIMULATION_LOGW("devicePtr->config.submitTopo: %d", devicePtr->config.submitTopo);
     std::string topo_txt_path = outdir + "/../" + "dyn_topo.txt";
-    SIMULATION_LOGI("topo_txt_path: %s", topo_txt_path);
+    SIMULATION_LOGI("topo_txt_path: %s", topo_txt_path.c_str());
     std::string program_json_path = outdir + "/../" + "program.json";
-    SIMULATION_LOGI("program_json_path: %s", program_json_path);
+    SIMULATION_LOGI("program_json_path: %s", program_json_path.c_str());
     std::string label_type = "--label_type=1 --time_convert_denominator=1800"; // default 1.8GHz
-    SIMULATION_LOGI("label_type: %s", label_type);
+    SIMULATION_LOGI("label_type: %s", label_type.c_str());
     if (devicePtr->config.submitTopo) {
         cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topo_txt_path + " " + program_json_path + " " + label_type;
     } else {
-        SIMULATION_LOGW("devicePtr->config.submitTopo: %s", devicePtr->config.submitTopo);
+        SIMULATION_LOGW("devicePtr->config.submitTopo: %d", devicePtr->config.submitTopo);
         cmd = "python3 " + mergeScriptPath + " " + outSwimPath + " " + topoOutFile;
     }
-    SIMULATION_LOGI("cmd: %s", cmd);
+    SIMULATION_LOGI("cmd: %s", cmd.c_str());
     int result2 = system(cmd.c_str());
     if (result2 != 0) {
         SIMULATION_LOGE("cmd error: %s", cmd.c_str());
@@ -650,13 +651,13 @@ void SimSys::OutputCalendarScheduleCpp(std::string prefix)
     }
     std::string outPath = GetFileName(outdir, jsonPath, prefix, ".calendar.cpp");
     calendarGenerator->GenCalendarCpp(outPath);
-    SIMULATION_LOGW("Genearte Calendar File: %s", outPath);
+    SIMULATION_LOGW("Genearte Calendar File: %s", outPath.c_str());
 }
 
 void SimSys::OutputConfig(std::string prefix)
 {
     std::string outPath = GetFileName(outdir, jsonPath, prefix, "config.ini");
-    SIMULATION_LOGW("Config Path: %s", outPath);
+    SIMULATION_LOGW("Config Path: %s", outPath.c_str());
     std::ofstream os(outPath);
     os << config.DumpParameters() << std::endl;
     if (!machineGroup[int(MachineType::DEVICE)].empty()) {
@@ -778,7 +779,7 @@ void SimSys::PrintStat()
     std::streambuf *coutBuf = nullptr;
     if (config.statisticReportToFile) {
         std::string outPath = GetFileName(outdir, jsonPath, "", "stat.report.txt");
-        SIMULATION_LOGW("Statistic Path: %s", outPath);
+        SIMULATION_LOGW("Statistic Path: %s", outPath.c_str());
         coutBuf = reporter.ReportSetOutStreamFile(outPath);
     }
     if (deadlock) {
@@ -810,7 +811,7 @@ uint64_t SimSys::GetCycles() const
 }
 
 void SimSys::UpdateNextCycles(uint64_t nextCycle) {
-    ASSERT(nextCycle > globalCycles) << "[simulation]: " 
+    ASSERT(nextCycle > globalCycles) << "[SIMULATION]: " 
         << "nextCycle is less than or equels to globalCycles. nextCycles=" << nextCycle << ", globalCycles=" << globalCycles;
     nextSimulationCycles = std::min(nextSimulationCycles, nextCycle);
 }

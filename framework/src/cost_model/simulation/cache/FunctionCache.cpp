@@ -17,7 +17,7 @@
 
 #include <utility>
 #include "cost_model/simulation/base/ModelTop.h"
-#include "cost_model/simulation/base/ModelLogger.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 

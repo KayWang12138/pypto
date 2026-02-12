@@ -119,7 +119,7 @@ void TileOp::GetPipeType()
 {
     auto coreTypeQuery = SCHED_CORE_PIPE_TYPE.find(opcode);
     if (coreTypeQuery == SCHED_CORE_PIPE_TYPE.end() && !IsCall() && opcode != "LOOP") {
-        ASSERT(false) << "[simulation]: " << "No pipe type corresponding to opcode is found. opcode=" << opcode;
+        ASSERT(false) << "[SIMULATION]: " << "No pipe type corresponding to opcode is found. opcode=" << opcode;
     }
     if (IsCall()) {
         pipeType = CorePipeType::PIPE_CALL;
@@ -137,7 +137,7 @@ uint64_t TileOp::GetAddress()
     } else if (IsWriteCache(pipeType)) {
         tile = oOperand[0];
     } else {
-        ASSERT(false) << "[simulation]: " << "PipeType Unrecognized." << Dump() << CorePipeName(pipeType);
+        ASSERT(false) << "[SIMULATION]: " << "PipeType Unrecognized." << Dump() << CorePipeName(pipeType);
     }
     addr = tile->rawMagic * RAW_MAGIC_MAX_SIZE;
     // calculate addr based on rawShape and offset
@@ -156,7 +156,7 @@ uint64_t TileOp::GetSize()
     } else if (IsWriteCache(pipeType)) {
         tile = oOperand[0];
     } else {
-        ASSERT(false) << "[simulation]: " << "PipeType Unrecognized." << Dump() << CorePipeName(pipeType);
+        ASSERT(false) << "[SIMULATION]: " << "PipeType Unrecognized." << Dump() << CorePipeName(pipeType);
     }
     uint64_t shapeSize = 1;
     for (auto &s : tile->shape) {

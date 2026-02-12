@@ -18,9 +18,9 @@
 #include <queue>
 #include <mutex>
 
-#include "cost_model/simulation/base/ModelLogger.h"
 #include "cost_model/simulation/base/ModelTop.h"
 #include "cost_model/simulation/statistics/DeviceStats.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 void AICPUMachine::Step()
@@ -276,7 +276,7 @@ void AICPUMachine::ResolveDependence(const std::shared_ptr<CoreMachine> &core, u
     }
     task = taskIt->second;
     successors = task->successors;  // 复制successors以减少持锁时间
-    ASSERT(task->status == true) << "[simulation]: " << "task status is false. taskId=" << task->taskId;
+    ASSERT(task->status == true) << "[SIMULATION]: " << "task status is false. taskId=" << task->taskId;
     RecordDependency(task);
 
     // 如果没有successor，则不需要解依赖耗时

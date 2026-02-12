@@ -20,10 +20,9 @@
 #include "nlohmann/json.hpp"
 #include "cost_model/simulation/tools/visualizer.h"
 #include "cost_model/simulation/base/ModelTop.h"
+#include "tilefwk/tilefwk_log.h"
 
 using namespace std;
-
-#define INVOKE_LOG MLOG_DEBUG
 
 namespace CostModel {
 
@@ -201,8 +200,6 @@ void ParseInput::BuildFunctionInvoke(FunctionPtr root, std::shared_ptr<CostModel
     for (auto &op : root->tileOps) {
         if (op->IsCall()) {
             auto &callee = cache[op->calleeHash];
-            INVOKE_LOG("[INVOKE] Function " + std::to_string(esgId) + " -> "
-            + callee->funcName + "," + std::to_string(callee->functionHash) + " invoke:");
 
             // Incast
             const auto &incast1 = op->iOperand;
@@ -211,7 +208,6 @@ void ParseInput::BuildFunctionInvoke(FunctionPtr root, std::shared_ptr<CostModel
                 auto &t1 = incast1[i];
                 auto &t2 = incast2[i];
                 callee->invoke[esgId].binds[t2] = t1;
-                INVOKE_LOG("[INVOKE] bind incast: " + std::to_string(t2) + "->" + t1->Dump());
             }
 
             // Outcast
@@ -221,7 +217,6 @@ void ParseInput::BuildFunctionInvoke(FunctionPtr root, std::shared_ptr<CostModel
                 auto &t1 = outcast1[i];
                 auto &t2 = outcast2[i];
                 callee->invoke[esgId].binds[t2] = t1;
-                INVOKE_LOG("[INVOKE] bind outcast: " + std::to_string(t2) + "->" + t1->Dump());
             }
             esgId++;
         }
@@ -378,7 +373,7 @@ void ParseInput::BuildFunction(std::shared_ptr<CostModel::SimSys> sim, npu::tile
         func->tileOpMap[tileOp->magic] = tileOp;
     }
     ASSERT(hasCall || func->opSequenceAfterOOO_.size() == 0 || (func->tileOps.size() == func->opSequenceAfterOOO_.size()))
-        << "[simulation]: " << "hasCall=" << hasCall << " func->opSequenceAfterOOO_.size=" << func->opSequenceAfterOOO_.size()
+        << "[SIMULATION]: " << "hasCall=" << hasCall << " func->opSequenceAfterOOO_.size=" << func->opSequenceAfterOOO_.size()
         << " func->tileOps.size=" << func->tileOps.size();
     if (sim->config.useOOOPassSeq) {
         GetTileAllocSeq(parentFunc->Operations().DuplicatedOpList(), func);
@@ -394,20 +389,20 @@ void ParseInput::BuildFunction(std::shared_ptr<CostModel::SimSys> sim, npu::tile
 
 void ParseInput::CheckTileOp(FunctionPtr func)
 {
-    SIMULATION_LOGW("\n[Simulation Check Function]: %s", func->funcName);
+    SIMULATION_LOGW("\n[Simulation Check Function]: %s", func->funcName.c_str());
     for (const auto &op : func->tileOps) {
         if (op->IsCall()) {
             continue;
         }
         if (op->iOperand.size() == 0) {
-            SIMULATION_LOGW("TileOp has no input: %s", func->funcName);
+            SIMULATION_LOGW("TileOp has no input: %s", func->funcName.c_str());
             if (op->operation != nullptr) {
-                SIMULATION_LOGW("Frontend Operation: %s", op->operation->Dump());
+                SIMULATION_LOGW("Frontend Operation: %s", op->operation->Dump().c_str());
             }
-            SIMULATION_LOGW("Simulation Op: %s", op->Dump(true));
+            SIMULATION_LOGW("Simulation Op: %s", op->Dump(true).c_str());
         }
         if (op->oOperand.size() == 0) {
-            SIMULATION_LOGW("Function: %s Op: %s has no input", func->funcName, op->Dump(true));
+            SIMULATION_LOGW("Function: %s Op: %s has no input", func->funcName.c_str(), op->Dump(true).c_str());
         }
     }
 }
@@ -418,14 +413,14 @@ void ParseInput::CheckTile(FunctionPtr func)
     for (auto &tile : func->tiles) {
         if (tile->producers.size() == 0) {
             if (std::find(func->incastMagic.begin(), func->incastMagic.end(), tile->magic) == func->incastMagic.end()) {
-                SIMULATION_LOGW("Tile has no producer, but not incast: %s", tile->Dump());
+                SIMULATION_LOGW("Tile has no producer, but not incast: %s", tile->Dump().c_str());
                 func->incastMagic.emplace_back(tile->magic);
             }
         }
         if (tile->consumers.size() == 0) {
             if (std::find(func->outcastMagic.begin(), func->outcastMagic.end(), tile->magic) ==
                 func->outcastMagic.end()) {
-                SIMULATION_LOGW("Tile has no consumer, but not outcast: %s", tile->Dump());
+                SIMULATION_LOGW("Tile has no consumer, but not outcast: %s", tile->Dump().c_str());
                 func->outcastMagic.emplace_back(tile->magic);
             }
         }
@@ -445,10 +440,10 @@ void ParseInput::CheckInOutCast(FunctionPtr func)
         auto &incast = func->tileMap[(*inIdx)];
         incast->nodeType = NodeType::INCAST;
         if (incast->producers.size() != 0) {
-            SIMULATION_LOGW("Incast has producer %s", incast->Dump());
+            SIMULATION_LOGW("Incast has producer %s", incast->Dump().c_str());
         }
         if (incast->consumers.size() == 0) {
-            SIMULATION_LOGW("Incast has no consumer %s", incast->Dump());
+            SIMULATION_LOGW("Incast has no consumer %s", incast->Dump().c_str());
         }
         inIdx++;
     }
@@ -462,10 +457,10 @@ void ParseInput::CheckInOutCast(FunctionPtr func)
         auto &outcast = func->tileMap[(*outIdx)];
         outcast->nodeType = NodeType::OUTCAST;
         if (outcast->producers.size() == 0) {
-            SIMULATION_LOGW("Outcast has no producer %s", outcast->Dump());
+            SIMULATION_LOGW("Outcast has no producer %s", outcast->Dump().c_str());
         }
         if (outcast->consumers.size() != 0) {
-            SIMULATION_LOGW("Outcast has no consumer %s", outcast->Dump());
+            SIMULATION_LOGW("Outcast has no consumer %s", outcast->Dump().c_str());
         }
         outIdx++;
     }
@@ -484,7 +479,7 @@ void ParseInput::ParseFunction(std::shared_ptr<CostModel::SimSys> sim,
 {
     if (topoFromRootFunc) {
         sim->enableExpectValue = true;
-        ASSERT(inputFuncs.size() == 1) << "[simulation]: inputFuncs.size is not equals to 1."
+        ASSERT(inputFuncs.size() == 1) << "[SIMULATION]: inputFuncs.size is not equals to 1."
             << "inputFuncs.size=" << inputFuncs.size();
         for (const auto &rootFunction : inputFuncs) {
             if (sim->pvLevel != PVModelLevel::PV_NON) {
@@ -637,7 +632,7 @@ void ParseInput::ParseCalendarJson(std::shared_ptr<CostModel::SimSys> sim, const
                     {task["taskId"].get<int>(), std::stoull(task["functionHash"].get<std::string>())});
                 taskId = task["taskId"].get<int>();
                 if (sim->config.calendarMode == static_cast<uint64_t>(CalendarMode::GLOBAL_COUNTER)) {
-                    ASSERT(waitVector.size() == 1) << "[simulation]: task has two wait in calendar global counter."
+                    ASSERT(waitVector.size() == 1) << "[SIMULATION]: task has two wait in calendar global counter."
                         << "waitVector.size=" << waitVector.size();
                     sim->taskFirstSetMap[taskId] = waitVector[0].second + 1;
                 }
@@ -694,7 +689,7 @@ void ParseInput::ParseFixedLatencyTask(std::shared_ptr<CostModel::SimSys> sim, s
         double exeTime = item["execTime"].get<double>();
         entry.fixedLatency = true;
         entry.fixedLatencyVal = static_cast<uint64_t>(std::trunc(exeTime * cycleConvert));
-        ASSERT(entry.fixedLatencyVal > 0) << "[simulation]: " << "entry.fixedLatencyVal=" << entry.fixedLatencyVal;
+        ASSERT(entry.fixedLatencyVal > 0) << "[SIMULATION]: " << "entry.fixedLatencyVal=" << entry.fixedLatencyVal;
         std::string machineType = item["coreType"];
         entry.mType = ToMachineType(machineType);
         leafMachineTypeMap[funcName] = entry.mType;

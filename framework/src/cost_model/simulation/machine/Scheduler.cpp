@@ -18,7 +18,7 @@
 #include <algorithm>
 
 #include "cost_model/simulation/base/ModelTop.h"
-#include "cost_model/simulation/base/ModelLogger.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 
@@ -61,7 +61,7 @@ void Scheduler::TileOpInsertQueue(TileOpPtr tileOp)
     tileOp->exeInfo.sequenceToIssue = issueSequencePtr[queueIndex];
     issueSequencePtr[queueIndex]++;
     SIMULATION_LOGI("[Cycle: %llu][Scheduler][SortTile] pop tileop opmagic: %d to %s , seq: %d", 
-            GetSim()->GetCycles(), tileOp->magic, CorePipeName(tileOp->pipeType), tileOp->exeInfo.sequenceToIssue);
+            GetSim()->GetCycles(), tileOp->magic, CorePipeName(tileOp->pipeType).c_str(), tileOp->exeInfo.sequenceToIssue);
 
 }
 
@@ -97,7 +97,7 @@ void Scheduler::SortTile(std::unordered_map<int, TilePtr> &tiles, std::unordered
     if (queue.empty()) {
         SIMULATION_LOGI("[Cycle: %llu][Scheduler][SortTile] Sort Tile Alloc not find output nodes", GetSim()->GetCycles());
 
-        ASSERT(false) << "[simulation]: Sort Tile Alloc not find output nodes";
+        ASSERT(false) << "[SIMULATION]: Sort Tile Alloc not find output nodes";
     }
 
     // Merge And Sort outcast
@@ -190,7 +190,7 @@ void Scheduler::SortTile(std::unordered_map<int, TilePtr> &tiles, std::unordered
                 for (const auto &producer : tile->producers) {
                     // Push tile's producer_tileop to queue_back
                     SIMULATION_LOGI("[Cycle: %llu][Scheduler][SortTile] push tileop opmagic: %d, domCount: %d", 
-                                GetSim()->GetCycles(), tileOp->magic, producer->exeInfo.domCount);
+                                GetSim()->GetCycles(), producer->magic, producer->exeInfo.domCount);
                     queue.emplace_back(producer->magic, false);
                 }
             }

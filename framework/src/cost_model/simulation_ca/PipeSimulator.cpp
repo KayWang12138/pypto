@@ -21,7 +21,6 @@
 
 #include "cost_model/simulation/config/EnvConfig.h"
 #include "SimulatorAdaptor.h"
-#include "cost_model/simulation/base/ModelLogger.h"
 #include "cost_model/simulation_ca/A2A3/SimulatorA2A3.h"
 #include "interface/function/function.h"
 #include "codegen/codegen.h"
@@ -33,6 +32,7 @@
 #include "cost_model/simulation/arch/PipeSimulatorFast.h"
 #include "cost_model/simulation/arch/A2A3/PostSimulatorA2A3.h"
 #include "interface/utils/file_utils.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel
 {
@@ -70,7 +70,7 @@ namespace CostModel
     {
         std::ofstream os(fileName);
         if (!os.is_open()) {
-            SIMULATION_LOGE("can't open %s", fileName);
+            SIMULATION_LOGE("can't open %s", fileName.c_str());
             return false;
         }
 

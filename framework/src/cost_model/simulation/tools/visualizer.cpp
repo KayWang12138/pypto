@@ -20,7 +20,7 @@
 #include <set>
 
 #include "interface/utils/file_utils.h"
-#include "cost_model/simulation/base/ModelLogger.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 

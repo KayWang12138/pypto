@@ -18,7 +18,7 @@
 #include "cost_model/simulation/cache/CacheMachine.h"
 #include "cost_model/simulation/base/ModelTop.h"
 #include "cost_model/simulation/common/ISA.h"
-#include "cost_model/simulation/base/ModelLogger.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 PipeMachine::PipeMachine()
@@ -219,7 +219,7 @@ void PipeMachine::SendCachePacket(bool read)
     auto l2Cache = std::dynamic_pointer_cast<CacheMachine>(l2cacheMachine);
     l2Cache->RequestData(packet);
     waitL2CacheResponse = true;
-    SIMULATION_LOGI("[Cycle: %llu][PipeMachine: %llu][SendL2Request] %s", GetSim()->GetCycles(), machineId, packet.Dump());
+    SIMULATION_LOGI("[Cycle: %llu][PipeMachine: %llu][SendL2Request] %s", GetSim()->GetCycles(), machineId, packet.Dump().c_str());
 }
 
 void PipeMachine::ProcessTileOp()
@@ -241,7 +241,7 @@ void PipeMachine::ProcessTileOp()
         if (tileOp->specialOp) {
             latency = 1;
         }
-        ASSERT(latency > 0) << "[simulation]: latency must be greater than 0. latency=" 
+        ASSERT(latency > 0) << "[SIMULATION]: latency must be greater than 0. latency=" 
             << latency << " taskId=" << tileOp->taskId;
         if (l2cacheMachine) {
             if (pipeType == CostModel::CorePipeType::PIPE_MTE_IN) {
@@ -269,7 +269,7 @@ void PipeMachine::ProcessTileOp()
 
 void PipeMachine::PushCompletion(int taskId, int curMagic)
 {
-    SIMULATION_LOGI("[Cycle: %llu][PipeMachine: %llu][PushCompletion] push task %llu magic %d  in completion queue.", GetSim()->GetCycles(), machineId, packet.taskId);
+    SIMULATION_LOGI("[Cycle: %llu][PipeMachine: %llu][PushCompletion] push task %llu magic %d  in completion queue.", GetSim()->GetCycles(), taskId, magic);
     CompletedPacket packet;
     packet.taskId = taskId;
     packet.currentType = machineType;

@@ -18,9 +18,9 @@
 #include <iostream>
 
 #include "interface/utils/file_utils.h"
-#include "cost_model/simulation/base/ModelLogger.h"
 #include "cost_model/simulation/tools/ParseArgs.h"
 #include "cost_model/simulation/base/ModelTop.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 using namespace std;
@@ -52,7 +52,6 @@ int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs)
 
     argParser.Parse(inputConfigs);
 
-    CostModel::LoggerManager::ResetLevel(CostModel::LoggerManager::ConvertLevel(logLevel));
     for (auto &path : configFilePath) {
         std::vector<std::string> conf;
         if (path.find(".json") != std::string::npos) {
@@ -66,7 +65,7 @@ int CostModelInterface::BuildCostModel(std::vector<std::string> &inputConfigs)
     if (!configs.empty()) {
         SIMULATION_LOGW("Override configurations:");
         for (auto &cfg : configs) {
-            SIMULATION_LOGW(cfg);
+            SIMULATION_LOGW("%s", cfg.c_str());
         }
     }
 

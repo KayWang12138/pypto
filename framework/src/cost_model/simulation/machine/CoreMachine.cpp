@@ -16,9 +16,9 @@
 #include "cost_model/simulation/machine/CoreMachine.h"
 #include "cost_model/simulation/base/ModelTop.h"
 #include "cost_model/simulation/common/ISA.h"
-#include "cost_model/simulation/base/ModelLogger.h"
 #include "cost_model/simulation/arch/TileAllocPipeImpl.h"
 #include "cost_model/simulation/value/TileCalculator.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 
@@ -292,7 +292,7 @@ void CoreMachine::ProcessDeviceTaskPacket(const TaskPack &packet)
         SIMULATION_LOGI("[Cycle: %llu][CoreMachine][ReceivePacket] Function Cache Miss", GetSim()->GetCycles());
     }
     FunctionPtr function = sim->functionCache.GetFunction(functionHash);
-    SIMULATION_LOGI("[Cycle: %llu][CoreMachine][ReceivePacket] CoreMachine: %llu Receive Function:%s", GetSim()->GetCycles(), machineId, function->funcName);
+    SIMULATION_LOGI("[Cycle: %llu][CoreMachine][ReceivePacket] CoreMachine: %llu Receive Function:%s", GetSim()->GetCycles(), machineId, function->funcName.c_str());
 
 
     std::string logLabel = packet.task.taskPtr->GetTaskName();
@@ -553,7 +553,7 @@ void CoreMachine::IssueTileOp()
             bufferSize[buffer] += tile->SizeinBytes();
             aliveBuffer[buffer].insert(magic);
             if (bufferSize[buffer] > GetSim()->GetBufferThreshold(buffer)) {
-                SIMULATION_LOGI("[Cycle: %llu][CoreMachine][IssueTileOp] MachineId:%llu Buffer %s exceeds limit!!!", GetSim()->GetCycles(), machineId, CorePipeName(buffer));
+                SIMULATION_LOGI("[Cycle: %llu][CoreMachine][IssueTileOp] MachineId:%llu Buffer %s exceeds limit!!!", GetSim()->GetCycles(), machineId, CorePipeName(buffer).c_str());
             }
             logInfo = tile->Dump();
         } else {
@@ -570,7 +570,7 @@ void CoreMachine::IssueTileOp()
         numTileopSentToPipe[qid][pipeIndexSelect]++;
         selectedMachine->SubmitTask(packet);
         noIssue = false;
-        SIMULATION_LOGI("[Cycle: %llu][CoreMachine][IssueTileOp] MachineId:%llu ISSUE %s", GetSim()->GetCycles(), machineId, logInfo);
+        SIMULATION_LOGI("[Cycle: %llu][CoreMachine][IssueTileOp] MachineId:%llu ISSUE %s", GetSim()->GetCycles(), machineId, logInfo.c_str());
 
         if (freePipeNum > 0 && !readyQueues[qid].Empty()) {
             coreNextNeedStep = true;
@@ -611,7 +611,7 @@ void CoreMachine::RetirePipeCompletion(std::shared_ptr<PipeMachine> pipeMachine,
         leafPipeExecuteTime[pipeMachine->pipeType] += tileop->exeInfo.latency;
         logInfo = tileop->Dump();
     }
-    SIMULATION_LOGI("[Cycle: %llu][CoreMachine][RetireTileOp] MachineId:%llu retire: %s", GetSim()->GetCycles(), machineId, logInfo);
+    SIMULATION_LOGI("[Cycle: %llu][CoreMachine][RetireTileOp] MachineId:%llu retire: %s", GetSim()->GetCycles(), machineId, logInfo.c_str());
 
 }
 
@@ -688,7 +688,7 @@ void CoreMachine::AnalysisDeadlock(std::set<int> &unissuedTileMagics)
     std::set<int> deadLockSrcOpMagic;
     for (auto &opmagic : unissuedTileMagics) {
         auto &op = tileOps[opmagic];
-        SIMULATION_LOGW("[AnalysisDeadlock] Uissued Tileop: %s", op->Dump());
+        SIMULATION_LOGW("[AnalysisDeadlock] Uissued Tileop: %s", op->Dump().c_str());
         bool srcReady = true;
         for (auto &src : op->iOperand) {
             for (auto &ptr : src->producers) {
@@ -706,22 +706,22 @@ void CoreMachine::AnalysisDeadlock(std::set<int> &unissuedTileMagics)
     // Tile
     for (const auto &tile : tiles) {
         if (!tile.second->exeInfo.isWritten || !tile.second->exeInfo.isAllocated) {
-            SIMULATION_LOGW("[AnalysisDeadlock] unissued tile: %s", tile.second->Dump());
+            SIMULATION_LOGW("[AnalysisDeadlock] unissued tile: %s", tile.second->Dump().c_str());
         }
     }
     for (auto &alive : aliveBuffer) {
-        SIMULATION_LOGW("[AnalysisDeadlock] Alive Buffer [%s]", CorePipeName(alive.first));
+        SIMULATION_LOGW("[AnalysisDeadlock] Alive Buffer [%s]", CorePipeName(alive.first).c_str());
         for (auto &magic : alive.second) {
-            SIMULATION_LOGW("[AnalysisDeadlock] Alive Tile: %s", tiles[magic]->Dump());
+            SIMULATION_LOGW("[AnalysisDeadlock] Alive Tile: %s", tiles[magic]->Dump().c_str());
         }
     }
     for (auto &magic : deadLockSrcOpMagic) {
-        SIMULATION_LOGW("[AnalysisDeadlock] DeadLock Source Tileop: %s", tileOps[magic]->Dump());
+        SIMULATION_LOGW("[AnalysisDeadlock] DeadLock Source Tileop: %s", tileOps[magic]->Dump().c_str());
     }
     for (auto &readyQ : readyQueues) {
         if (!readyQ.Empty()) {
             int front = readyQ.Front();
-            SIMULATION_LOGW("[AnalysisDeadlock] ReadyQ[%s] size: %zu", CorePipeName(readyQ.iqType), readyQ.readyQueue.size());
+            SIMULATION_LOGW("[AnalysisDeadlock] ReadyQ[%s] size: %zu, front: ", CorePipeName(readyQ.iqType), readyQ.readyQueue.size(), tiles[front]->Dump().c_str());
         }
     }
     SIMULATION_LOGW("[Cycle: %llu][CoreMachine][AnalysisDeadlock] ERROR: DEADLOCK!!! [MachineID: %llu]", GetSim()->GetCycles(), machineId);
@@ -745,11 +745,11 @@ void CoreMachine::CheckDeadlock()
         }
     }
     if (unissuedTileOps > 0) {
-        SIMULATION_LOGW("[Cycle: %llu][CoreMachine][CheckDeadlock] Total Tile Operations %zu", GetSim()->GetCycles(), totalTileOps);
+        SIMULATION_LOGW("[Cycle: %llu][CoreMachine][CheckDeadlock] Total Tile Operations %zu", GetSim()->GetCycles(), tileOps.size());
 
-        SIMULATION_LOGW("[Cycle: %llu][CoreMachine][CheckDeadlock] Retired Tile Operations %zu", GetSim()->GetCycles(), retiredTileOps);
+        SIMULATION_LOGW("[Cycle: %llu][CoreMachine][CheckDeadlock] Retired Tile Operations %llu", GetSim()->GetCycles(), retiredTileOps);
 
-        SIMULATION_LOGW("[Cycle: %llu][CoreMachine][CheckDeadlock] Unissued Tile Operations %zu", GetSim()->GetCycles(), unissuedTileOps);
+        SIMULATION_LOGW("[Cycle: %llu][CoreMachine][CheckDeadlock] Unissued Tile Operations %llu", GetSim()->GetCycles(), unissuedTileOps);
 
         AnalysisDeadlock(unissuedTileMagics);
         GetSim()->ReportDeadlock(machineId);
@@ -947,14 +947,14 @@ bool ReadyQueue::Empty() const
 
 int ReadyQueue::Front()
 {
-    ASSERT(!readyQueue.empty()) << "[simulation]: " << "readyQueue is empty";
+    ASSERT(!readyQueue.empty()) << "[SIMULATION]: " << "readyQueue is empty";
     int idx = readyQueue.front();
     return idx;
 }
 
 int ReadyQueue::Pop()
 {
-    ASSERT(!readyQueue.empty()) << "[simulation]: " << "readyQueue is empty";    
+    ASSERT(!readyQueue.empty()) << "[SIMULATION]: " << "readyQueue is empty";    
     int idx = readyQueue.front();
     readyQueue.pop_front();
     return idx;

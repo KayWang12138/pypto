@@ -16,8 +16,7 @@
 #include "cost_model/simulation/arch/GenCalendar/GenCalendar.h"
 
 #include <fstream>
-
-#include "cost_model/simulation/base/ModelLogger.h"
+#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 void GenCalendar::InitTaskTopoInfo(TaskMap &taskMap)
