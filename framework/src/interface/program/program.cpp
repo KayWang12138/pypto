@@ -180,7 +180,7 @@ void SetParamConfig(Function* currentFunctionPtr_) {
     currentFunctionPtr_->paramConfigs_.sgMgCopyInUpperBound = currentScope->GetPassConfig<int>(MG_COPYIN_UPPER_BOUND);
     currentFunctionPtr_->paramConfigs_.machineConfig_ = currentScope->GetRuntimeConfig<uint8_t>(DEVICE_SCHED_MODE);
     currentFunctionPtr_->paramConfigs_.stitchFunctionNumInitial_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_INITIAL);
-    currentFunctionPtr_->paramConfigs_.stitchFunctionNumStep_ = currentScope->GetRuntimeConfig<uint16_t>(STITCH_FUNCTION_NUM_STEP);
+    currentFunctionPtr_->paramConfigs_.stitchFunctionNumStep_ = 0; //close STITCH_FUNCTION_NUM_STEP
     currentFunctionPtr_->paramConfigs_.cubeL1ReuseSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_L1_REUSE_SETTING);
     currentFunctionPtr_->paramConfigs_.cubeNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(CUBE_NBUFFER_SETTING);
     currentFunctionPtr_->paramConfigs_.vecNBufferSetting = currentScope->GetPassConfig<std::map<int64_t, int64_t>>(VEC_NBUFFER_SETTING);
