@@ -35,6 +35,8 @@ struct ReadyCoreFunctionQueue {
   uint64_t Size() { return tail - head;}
 };
 
+#define TASK_LIST_MAX_SIZE 128
+#define MAX_QUEUED_TASKS 4096
 typedef uint64_t aicoreFunction_t;
 constexpr aicoreFunction_t aicoreNullFunction = 0xFFFFFFFFFFFFFFFFUL;
 
@@ -44,21 +46,24 @@ class StaticReadyCoreFunctionQueue {
   
   // The use of past tense in these functions obeys to the fact that they are not (and cannot be) concurrency-safe
   // Therefore, the return value could have changed by the time it is returned
-  inline bool wasEmpty() const { return head == tail; }
-  inline aicoreFunction_t wasSize() const { return tail - head; }
+  inline bool wasEmpty() const { return head >= tail; }
 
-  inline std::pair<aicoreFunction_t*, size_t> pop(const size_t n = 1)
+  inline std::pair<aicoreFunction_t*, size_t> pop(aicoreFunction_t taskList[TASK_LIST_MAX_SIZE], const size_t n = 1)
   {
     const auto curHead = head;
-    const size_t count = std::min(n, wasSize());
+    size_t count = std::min(n, (size_t)(tail - head));
     head += count;
-    return { &elem[curHead], count };
-  }
+    auto taskListPtr = &elem[curHead];
+    memcpy_s(taskList, TASK_LIST_MAX_SIZE * sizeof(aicoreFunction_t), taskListPtr, count * sizeof(aicoreFunction_t));
 
-  inline std::pair<aicoreFunction_t*, size_t> pop_no_lock(const size_t n = 1)
-  {
-    for (size_t i = 0; i < n; i++) _lockFreeQueue->pop();
-    return { nullptr, 0 };
+    while (count < n)
+    {
+      const auto taskId = _lockFreeQueue->pop();
+      if (taskId == aicoreNullFunction) break;
+      taskList[count++] = taskId;
+    }
+    
+    return { taskList, count };
   }
 
   inline void push(aicoreFunction_t* const input, const size_t count = 1)
@@ -69,10 +74,6 @@ class StaticReadyCoreFunctionQueue {
     unlock();
   }
 
-  inline void push_no_lock(aicoreFunction_t* const input, const size_t count = 1)
-  {
-    for (size_t i = 0; i < count; i++) _lockFreeQueue->push(input[i]);
-  }
 
   inline void lock() {
      while (!__sync_bool_compare_and_swap(&_lock, 0, 1)) {
@@ -91,9 +92,7 @@ class StaticReadyCoreFunctionQueue {
 
   inline void initializeLockFree()
   {
-    const size_t count = wasSize();
-   _lockFreeQueue = new pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>(count);
-   for (size_t i = 0; i < count; i++) _lockFreeQueue->push(elem[i]);
+   _lockFreeQueue = new pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>(MAX_QUEUED_TASKS);
   }
 
   inline void finalizeLockFree()
@@ -103,12 +102,17 @@ class StaticReadyCoreFunctionQueue {
 
   private: 
 
+  inline void push_no_lock(aicoreFunction_t* const input, const size_t count = 1)
+  {
+    for (size_t i = 0; i < count; i++) _lockFreeQueue->push(input[i]);
+  }
+
   pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>* _lockFreeQueue;
 
-  size_t head = 0;
-  size_t tail = 0;
-  uint64_t* elem = nullptr;
-  size_t _capacity = 0;
+  ssize_t head = 0;
+  ssize_t tail = 0;
+  aicoreFunction_t* elem = nullptr;
+  ssize_t _capacity = 0;
   size_t _lock = 0;
 };
 

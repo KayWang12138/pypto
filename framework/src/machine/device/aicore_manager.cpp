@@ -226,9 +226,11 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
         return 0;
     }
 
+    aicoreFunction_t taskList[TASK_LIST_MAX_SIZE];
+    // size_t taskCount = 0;
+
     readyQue->lock();
-    const auto taskSet = readyQue->pop(readyCoreCount);
-    // readyQue->pop_no_lock(readyCoreCount);
+    const auto taskSet = readyQue->pop(taskList, readyCoreCount);
     uint64_t* taskSetAddress = taskSet.first;
     uint64_t taskSetCount = taskSet.second;
     if (taskSetCount == 0) {

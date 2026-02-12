@@ -71,17 +71,17 @@ public:
 
     // 仅AICPU_0会调用
     inline uint64_t  TaskProcess() {
-        readyQueue_->lock();
-        auto taskSet = readyQueue_->pop(readyQueue_->wasSize());
-        readyQueue_->unlock();
+        // readyQueue_->lock();
+        // // auto taskSet = readyQueue_->pop(nullptr, readyQueue_->wasSize());
+        // readyQueue_->unlock();
 
-        const uint64_t* taskSetAddress = taskSet.first;
-        const size_t taskSetCount = taskSet.second;
-        for (uint32_t i = 0; i < taskSetCount; ++i) {
-            TaskDispatch(taskSetAddress[i]);
-        }
+        // const uint64_t* taskSetAddress = taskSet.first;
+        // const size_t taskSetCount = taskSet.second;
+        // for (uint32_t i = 0; i < taskSetCount; ++i) {
+        //     TaskDispatch(taskSetAddress[i]);
+        // }
 
-        return taskSetCount;
+        return 0;
     }
 
     inline std::vector<uint64_t> TaskPoll() {
