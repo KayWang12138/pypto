@@ -206,6 +206,11 @@ class JitCallableWrapper:
         "torch.bool": pypto.DataType.DT_BOOL,
     }
 
+    _format_dict = {
+        "ND": pypto.TileOpFormat.TILEOP_ND,
+        "NZ": pypto.TileOpFormat.TILEOP_NZ,
+    }
+
     def __init__(
         self,
         pto_function: Optional[pypto.Function],
@@ -220,6 +225,7 @@ class JitCallableWrapper:
         captured_locals: Optional[dict[str, Any]] = None,
         infer_controlflow_shape: Optional[type] = None,
         use_cache: bool = True,
+        use_attr_check: bool = False,
     ):
         """Initialize the JIT callable wrapper with compilation and runtime configurations.
 
@@ -262,6 +268,7 @@ class JitCallableWrapper:
             None if captured_locals is None else dict(captured_locals)
         )
         self._use_cache = use_cache
+        self._use_attr_check = use_attr_check
 
         # Handling options
         self._codegen_options = (
@@ -355,18 +362,21 @@ class JitCallableWrapper:
 
         # Resolve symbolic dimensions using current input shapes so outputs
         # allocated below match the runtime dynamic sizes.
-        out_tensors = []
+        
         input_tensor_defs, output_tensor_defs = self.get_signature_high_performance(self._original_func)
-        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
-        self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
-        symbolic_dim_value_map = Parser.match_input_shapes(
-            concrete_input_shapes, input_tensor_defs
-        )
+        if self._use_attr_check:
+            self._check_input_defs_match_tensors(in_tensors, input_tensor_defs)
+        out_has_dyn_dim = False
+        out_tensors = []
         for out_tensor_def in output_tensor_defs:
             shape_list = []
             # Build shape by resolving symbolic dimensions from the output tensor definition
             for dim in out_tensor_def.shape:
                 if isinstance(dim, pypto.SymbolicScalar):
+                    if not out_has_dyn_dim:
+                        out_has_dyn_dim = True
+                        concrete_input_shapes = [list(in_tensor.shape) for in_tensor in in_tensors]
+                        symbolic_dim_value_map = Parser.match_input_shapes(concrete_input_shapes, input_tensor_defs)
                     dim_value = symbolic_dim_value_map.get(str(dim))
                     if dim_value is None:
                         raise ValueError(
@@ -578,6 +588,11 @@ class JitCallableWrapper:
     def _check_input_defs_match_tensors(self, in_tensors: list, input_tensor_defs: list[pypto.Tensor]) -> None:
         """Check if the input tensor definitions match the input tensors.
         """
+        def get_format(tensor):
+            import torch_npu
+            if torch_npu.get_npu_format(tensor) == 29:
+                return "NZ"
+            return "ND"
 
         # Check the number of input tensors and input tensor definitions
         if len(in_tensors) != len(input_tensor_defs):
@@ -605,6 +620,10 @@ class JitCallableWrapper:
             if self._dtype_dict[str(in_tensor.dtype)] != input_tensor_def.dtype:
                 raise ValueError(f"The dtype of {ordinal(idx)} input tensor {in_tensor.dtype} \
                     does not match the dtype of input tensor definition {input_tensor_def.dtype}.")
+
+            if self._format_dict[get_format(in_tensor)] != input_tensor_def.format:
+                raise ValueError(f"The format of {ordinal(idx)} input tensor {get_format(in_tensor)} \
+                    does not match the format of input tensor definition {input_tensor_def.format}.")
 
     def _get_compilation_cache_key(
         self,
@@ -992,6 +1011,7 @@ def jit(
     debug_options: Optional[dict[str, Any]] = None,
     infer_controlflow_shape: Optional[Any] = None,
     use_cache: bool = True,
+    use_attr_check: bool = False,
 ) -> Union[Callable, Callable[[Callable], JitCallableWrapper]]:
     """JIT decorator for compiling Python functions to PTO IR.
 
@@ -1079,6 +1099,7 @@ def jit(
             captured_locals=captured_locals,
             infer_controlflow_shape=infer_controlflow_shape,
             use_cache=use_cache,
+            use_attr_check=use_attr_check,
         )
         return wrapper
 
