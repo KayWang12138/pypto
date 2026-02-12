@@ -703,7 +703,9 @@ def gen_matmulverify_op_golden(
 @GoldenRegister.reg_golden_func(
     case_names=[
         "TestBatchMatmul/BatchMatmulOperationTest.TestBatchMatmul",
-    ]
+    ],
+    version=0,
+    timeout=0
 )
 def gen_batchmatmul_op_golden(
     case_name: str, output: Path, case_index: int = None
@@ -846,6 +848,20 @@ def gen_rsqrt_op_golden(case_name: str, output: Path, case_index: int = None) ->
 
     logging.debug("Case(%s), Golden creating...", case_name)
     return gen_op_golden("Rsqrt", golden_func, output, case_index)
+
+
+@GoldenRegister.reg_golden_func(
+    case_names=[
+        "TestRelu/ReluOperationTest.TestRelu",
+    ]
+)
+def gen_relu_op_golden(case_name: str, output: Path, case_index: int = None) -> bool:
+    # golden开发者需要根据具体golden逻辑修改，不同注册函数内的generate_golden_files可重名
+    def golden_func(inputs: list, _config: dict):
+        return [np.maximum(inputs[0], 0)]
+
+    logging.debug("Case(%s), Golden creating...", case_name)
+    return gen_op_golden("Relu", golden_func, output, case_index)
 
 
 @GoldenRegister.reg_golden_func(

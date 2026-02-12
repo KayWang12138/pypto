@@ -439,6 +439,7 @@ public:
 
     void *GetKernelBin() { return kernelBin; }
     auto &GetArgTypes() { return argTypes; }
+    Function *GetFunction() { return dynFunc.get(); }
 
     ~KernelBinary() {
         DeviceLauncher::UnregisterKernelBin(kernelBin);
@@ -510,16 +511,24 @@ public:
         return nullptr;
     }
 
-    uint8_t *FindCtrlFlowCache(
-        KernelBinary *kernel, py::object &module, py::args &args, std::vector<DeviceTensorData> &tensors) {
-        std::vector<std::vector<int64_t>> shape;
-        auto devCache = kernel->FindCtrlFlowCache(tensors);
-        if (devCache == nullptr && InferCacheShape(module, args, shape)) {
-            devCache = kernel->FindCtrlFlowCache(shape);
+    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module, py::args &args,
+        std::vector<DeviceTensorData> &tensors, bool isCaptureMode) {
+        if (!IsCacheEnabled()) {
+            return nullptr;
         }
-        if (devCache == nullptr && IsCacheEnabled()) {
-            AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
-            devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize);
+
+        auto devCache = kernel->FindCtrlFlowCache(tensors);
+        if (devCache == nullptr) {
+            std::vector<std::vector<int64_t>> shape;
+            if (isCaptureMode) {
+                AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+                devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize);
+            } else if (InferCacheShape(module, args, shape)) {
+                devCache = kernel->FindCtrlFlowCache(shape);
+            } else {
+                AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+                devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize);
+            }
         }
 #if ENABALE_VERBOSE_LOG
         std::stringstream ss;
@@ -568,12 +577,23 @@ public:
         ALOG_ERROR_F("triple stream %d sequence %ld workspace %p cfgcache %p", tripleStream, sequence.load(), workspace,
             ctrlFlowCache);
 #endif
-        int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable);
+        int ret = DeviceLauncher::LaunchAicpuKernel(rtAicpuArgs, tripleStream, debugEnable, kernel->GetFunction());
         ASSERT(ret == RT_ERROR_NONE) << "launch aicpu failed: " << ret;
 
         kernelArgs[5] = args->kArgs.cfgdata; // 5 is cfgdata
         ret = DeviceLauncher::LaunchAicoreKernel(aicoreStream, kernel->GetKernelBin(), rtAicoreArgs, rtTaskCfg, debugEnable);
         ASSERT(ret == RT_ERROR_NONE) << "launch aicore failed: " << ret;
+    }
+
+    void EmulationLaunch(KernelBinary *kernel, std::vector<DeviceTensorData> &tensors) {
+        if (!isDebugMode) {
+            return;
+        }
+
+        DeviceLauncherConfig config;
+        DeviceLauncher::DeviceLauncherConfigFillDeviceInfo(config);
+        int ret = EmulationLauncher::EmulationLaunchDeviceTensorData(kernel->GetFunction(), tensors, {}, config);
+        ASSERT(ret == RT_ERROR_NONE) << "emulation run failed: " << ret;
     }
 
 private:
@@ -596,20 +616,20 @@ private:
     }
 
     void InitConfigOptions(py::object &module) {
-        auto options = module.attr("runtime_options").cast<py::dict>();
+        auto options = module.attr("_runtime_options").cast<py::dict>();
         if (options.contains("triple_stream_sched")) {
             tripleStream = options["triple_stream_sched"].cast<bool>();
         }
         if (options.contains("stitch_cfgcache_size")) {
             stitchCfgCacheSize = options["stitch_cfgcache_size"].cast<int64_t>();
         }
-        if (!module.attr("debug_options").is_none()) {
-            auto debugOptions = module.attr("debug_options").cast<py::dict>();
+        if (!module.attr("_debug_options").is_none()) {
+            auto debugOptions = module.attr("_debug_options").cast<py::dict>();
             if (debugOptions.contains("runtime_debug_mode")) {
                 isDebugMode = debugOptions["runtime_debug_mode"].cast<int64_t>() == CFG_DEBUG_ALL;
             }
         }
-        if (!module.attr("infer_controlflow_shape").is_none()) {
+        if (!module.attr("_infer_controlflow_shape").is_none()) {
             inferCacheShape = true;
         }
 #if ENABALE_VERBOSE_LOG
@@ -619,7 +639,7 @@ private:
     }
 
     void BuildDefaultCache(KernelBinary *kernel, py::object &module) {
-        auto infershape = py::getattr(module, "infer_controlflow_shape");
+        auto infershape = py::getattr(module, "_infer_controlflow_shape");
         auto cfshapes = infershape().cast<py::list>();
         auto tensors = kernel->GetArgTypes();
         for (auto &pyshape : cfshapes) {
@@ -641,7 +661,7 @@ private:
     }
 
     bool InferCacheShape(py::object &module, py::args &args, std::vector<std::vector<int64_t>> &shapes) {
-        auto infershape = py::getattr(module, "infer_controlflow_shape", py::none());
+        auto infershape = py::getattr(module, "_infer_controlflow_shape", py::none());
         if (infershape.is_none()) {
             return false;
         }
@@ -723,6 +743,7 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
 #endif
         kbinary = kmodule->Compile(module, args);
     }
+    kmodule->EmulationLaunch(kbinary, tensors);
 
 #if ENABALE_VERBOSE_LOG
     ALOG_ERROR("alloc workspace");
@@ -735,7 +756,7 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     }
 
     bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors);
+    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors, isCaptureMode);
     kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
 }
 #else

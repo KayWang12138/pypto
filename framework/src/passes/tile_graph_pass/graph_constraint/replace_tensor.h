@@ -122,8 +122,8 @@ private:
     bool CheckAddrConflict(const Operation& op);
     bool CheckIndexProducer(const Operation& op);
     bool CheckAssembleConflict(const Operation& op);
-    bool CheckIndexOutcastConflict(const Operation& op);
-    bool CheckReshapeConflict(const Operation& op);
+    bool CheckIndexOutcastConflict(const Operation& op, Function& function);
+    bool CheckReshapeConflict(const Operation& op, Function& function);
     bool CheckAMulAccBConflict(const Operation& op);
     Status InplaceCheck(Function &function);
     bool CheckInplace(const Operation &op);
@@ -165,12 +165,15 @@ private:
 
     void InsertCopyUBOp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
     void InsertCopyDDROp(Function &function, Operation *needInsertCopyAssOp, LogicalTensorPtr &input);
+    void FindNeedToCopyAssemble(std::unordered_set<Operation*> &needInsertCopyAssOps, std::unordered_set<int> &visitedAssOps, Operation &op);
     void InsertAssembleCopy(Function &function);
 
     std::unordered_map<DataType, int> viewTypeTable = {{DT_INT8, 1}, {DT_BF16, 2}, {DT_FP16, 2}, {DT_FP32, 4}};
     std::queue<LogicalTensorPtr> backRoots;
     std::queue<LogicalTensorPtr> forRoots;
     std::unordered_set<int> processedOp;
+    std::unordered_set<int> backwardOps;
+    std::unordered_set<int> forwardOps;
 };
 } // namespace tile_fwk
 } // namespace npu

@@ -33,11 +33,12 @@
 namespace npu::tile_fwk {
 const std::string ENV_ASCEND_HOME_PATH = "ASCEND_HOME_PATH";
 const std::string ENV_PTO_TILE_LIB_CODE_PATH = "PTO_TILE_LIB_CODE_PATH";
+constexpr const int64_t CODE_RESERVED_SIZE = 1024 * 1024;
 
 void PrintOperand(const std::string &operIO, std::shared_ptr<LogicalTensor> operand) {
-    ALOG_INFO_F("insert %s magic: %d, tensor: %s, memory map is: ", operIO.c_str(), operand->GetMagic(),
+    CODEGEN_LOGI("insert %s magic: %d, tensor: %s, memory map is: ", operIO.c_str(), operand->GetMagic(),
         operand->Dump().c_str());
-    ALOG_INFO_F(
+    CODEGEN_LOGI(
         "range is [%d, %d, %d]\n", operand->memoryrange.start, operand->memoryrange.end, operand->memoryrange.memId);
 }
 
@@ -66,7 +67,7 @@ std::string CodeGenCloudNPU::GenInclude(const Function &topFunc) const {
 std::string CodeGenCloudNPU::GenCommentBeforeFuncHeader(Function &subFunc) {
     std::ostringstream comment;
     comment << "// funcHash: " << subFunc.GetFunctionHash() << "\n\n";
-    ALOG_INFO_F("function hash is: %s", subFunc.GetFunctionHash().c_str());
+    CODEGEN_LOGI("function hash is: %s", subFunc.GetFunctionHash().c_str());
     return comment.str();
 }
 
@@ -95,17 +96,15 @@ std::string CodeGenCloudNPU::GenFuncHeader(uint64_t programId, Function &topFunc
     return funcHeader.str();
 }
 
-std::string CodeGenCloudNPU::GenFuncBodyBefore(
-    const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc, CompileInfo &compileInfo) const {
-    std::ostringstream codeBefore;
-    codeBefore << GenInclude(topFunc);
-    codeBefore << GenCommentBeforeFuncHeader(*subFuncPair.second);
-    codeBefore << GenFuncHeader(subFuncPair.first, topFunc, compileInfo);
-    return codeBefore.str();
+void CodeGenCloudNPU::GenFuncBodyBefore(const std::pair<uint64_t, Function *> &subFuncPair, Function &topFunc,
+    CompileInfo &compileInfo, std::ostringstream &oss) const {
+    oss << GenInclude(topFunc);
+    oss << GenCommentBeforeFuncHeader(*subFuncPair.second);
+    oss << GenFuncHeader(subFuncPair.first, topFunc, compileInfo);
 }
 
-std::string CodeGenCloudNPU::GenFuncEnd() {
-    return "}\n";
+void CodeGenCloudNPU::GenFuncEnd(std::ostringstream &oss) const {
+    oss << "}\n";
 }
 
 std::string CodeGenCloudNPU::GenLimitValue(FloatSaturateStatus &fs) const {
@@ -122,28 +121,30 @@ std::string CodeGenCloudNPU::GenLimitValue(FloatSaturateStatus &fs) const {
     return define.str();
 }
 
-std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) const {
+void CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc, std::ostringstream &oss) const {
     OperationsViewer operationList = subFunc.Operations(false);
     if (operationList.IsEmpty()) {
-        ALOG_ERROR("operationList is empty");
-        return {};
+        ALOG_ERROR("operationList from PASS is empty, func magic name: %s, func hash: %s",
+            subFunc.GetMagicName().c_str(), subFunc.GetFunctionHash().c_str());
     }
 
-    ALOG_INFO_F("TopFunc Type is %s\nFunction to codegen:\n %s\n", topFunc.GetFunctionTypeStr().c_str(),
+    CODEGEN_LOGI("TopFunc Type is %s\nFunction to codegen:\n %s\n", topFunc.GetFunctionTypeStr().c_str(),
         topFunc.Dump().c_str());
 
     std::shared_ptr<SymbolManager> symbolMgr = std::make_shared<SymbolManager>();
     std::shared_ptr<ForBlockManager> forBlkMgr = std::make_shared<ForBlockManager>(symbolMgr);
     std::string allocSourceRegion;
+    allocSourceRegion.reserve(CODE_RESERVED_SIZE);
     std::string tileOpSourceRegion;
+    tileOpSourceRegion.reserve(CODE_RESERVED_SIZE);
     auto locToOffsetMap = GenRealizeIdMap(subFunc.GetParameter());
     FloatSaturateStatus fs;
     for (const auto &op : operationList) {
-        ALOG_INFO_F(
+        CODEGEN_LOGI(
             "======================== Op CodeGenNPU Start ========================\nGen OP IS: %s", op.Dump().c_str());
         Opcode opcode = op.GetOpcode();
         if (SKIP_OPCODE_FOR_CODEGEN.find(opcode) != SKIP_OPCODE_FOR_CODEGEN.end()) {
-            ALOG_INFO_F("ignore this op\n------------------------ Op CodeGenNPU Finish -----------------------");
+            CODEGEN_LOGI("ignore this op\n------------------------ Op CodeGenNPU Finish -----------------------");
             continue;
         }
 
@@ -153,27 +154,25 @@ std::string CodeGenCloudNPU::GenFuncBody(Function &subFunc, Function &topFunc) c
         // update fs
         cop.UpdateSaturateStatus(fs);
         std::string tileOpSourceCode = cop.GenOpCode();
-        ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos) << "gen op invalid" << op.Dump();
+        ASSERT(tileOpSourceCode.find("CG_ERROR") == tileOpSourceCode.npos)
+            << "Generate code of op failed, op is " << op.Dump();
 
-        allocSourceRegion += allocSourceCode;
+        allocSourceRegion.append(allocSourceCode);
 
         for (auto &c : op.GetCommentList()) {
-            tileOpSourceRegion += "/*" + c + "*/\n";
+            tileOpSourceRegion.append("/*").append(c).append("*/\n");
         }
-        tileOpSourceRegion += tileOpSourceCode;
+        tileOpSourceRegion.append(tileOpSourceCode);
 
         if (!allocSourceCode.empty()) {
-            ALOG_INFO_F(": extra alloc generated(moved up to alloc region): %s", allocSourceCode.c_str());
+            CODEGEN_LOGI(": extra alloc generated(moved up to alloc region): %s", allocSourceCode.c_str());
         }
-        ALOG_INFO_F(": op codegen result: \n, %s", tileOpSourceCode.c_str());
-        ALOG_INFO_F("------------------------ Op CodeGenNPU Finish -----------------------");
+        CODEGEN_LOGI(": op codegen result: \n, %s", tileOpSourceCode.c_str());
+        CODEGEN_LOGI("------------------------ Op CodeGenNPU Finish -----------------------");
     }
 
-    std::ostringstream oss;
     oss << GenLimitValue(fs) << allocSourceRegion << GenDynParamForExpr(subFunc) << symbolMgr->GenUsingList()
         << symbolMgr->GenTileTensorDefList() << tileOpSourceRegion;
-    std::string programCode = oss.str();
-    return programCode;
 }
 
 std::string CodeGenCloudNPU::GenAllocForLocalBuffer(
@@ -181,7 +180,7 @@ std::string CodeGenCloudNPU::GenAllocForLocalBuffer(
     std::string allocSourceCode{};
     auto genExtraAllocForTensor = [this, &symbolMgr](const std::shared_ptr<LogicalTensor> &operand) -> std::string {
         if (HasAllocAttr(operand)) {
-            ALOG_INFO_F("operand has an alloc attr, need to gen extra alloc\n%s", operand->Dump().c_str());
+            CODEGEN_LOGI("operand has an alloc attr, need to gen extra alloc\n%s", operand->Dump().c_str());
             std::optional<std::string> allocCodeMaybe = GenExtraAlloc(symbolMgr, operand);
             if (allocCodeMaybe.has_value()) {
                 return allocCodeMaybe.value();
@@ -256,7 +255,7 @@ void CodeGenCloudNPU::GenCode(
     std::deque<std::function<void(void)>> tasks;
     for (auto &subFuncPair : topFunc.rootFunc_->programs_) {
         std::function task = [this, subFuncPair, &topFunc]() {
-            ALOG_INFO_F(" ----- subprogram id [%d] -----", subFuncPair.first);
+            CODEGEN_LOGI(" ----- subprogram id [%d] -----", subFuncPair.first);
             auto subFunc = subFuncPair.second;
             if (HandleForAICpuSubFunc(*subFunc)) {
                 return;
@@ -264,9 +263,9 @@ void CodeGenCloudNPU::GenCode(
             bool isCube = subFunc->IsCube();
             CompileInfo compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
             std::ostringstream leafKernelFunc;
-            leafKernelFunc << GenFuncBodyBefore(subFuncPair, topFunc, compileInfo);
-            leafKernelFunc << GenFuncBody(*subFunc, topFunc);
-            leafKernelFunc << GenFuncEnd();
+            GenFuncBodyBefore(subFuncPair, topFunc, compileInfo, leafKernelFunc);
+            GenFuncBody(*subFunc, topFunc, leafKernelFunc);
+            GenFuncEnd(leafKernelFunc);
 #ifdef BUILD_WITH_CANN
             if (std::getenv(ENV_ASCEND_HOME_PATH.c_str()) != nullptr) {
                 DumpCCE(compileInfo.GetCCEAbsPath(), leafKernelFunc.str());
@@ -330,8 +329,8 @@ std::optional<std::string> CodeGenCloudNPU::GenExtraAlloc(
     const std::shared_ptr<SymbolManager> &symbolMgr, const std::shared_ptr<LogicalTensor> &tensor) const {
     auto memType = tensor->GetMemoryTypeOriginal();
     if (OPERAND_TYPE_TO_MEMORY_TYPE.find(memType) == OPERAND_TYPE_TO_MEMORY_TYPE.end()) {
-        ALOG_ERROR_F("%s: invalid memory type(%d) of tensor tensor: ", __FUNCTION__, static_cast<size_t>(memType));
-        ALOG_ERROR_F("    %s", tensor->Dump().c_str());
+        CODEGEN_LOGE("%s: memory type(%d) of tensor from PASS is invalid, tensor is: %s", __FUNCTION__,
+            static_cast<size_t>(memType), tensor->Dump().c_str());
         return std::nullopt;
     }
 
@@ -372,7 +371,7 @@ std::string CodeGenCloudNPU::GenAlloc(
         return "";
     }
 
-    ALOG_INFO_F("%s: bind key to name: %s->%s", __FUNCTION__, sm->FormatAllocKey(key).c_str(), allocVarName.c_str());
+    CODEGEN_LOGI("%s: bind key to name: %s->%s", __FUNCTION__, sm->FormatAllocKey(key).c_str(), allocVarName.c_str());
 
     std::string dataTypeStr = DataType2CCEStr(dataType);
 
@@ -406,7 +405,7 @@ int CheckInjectStr(const char cmdStr[], size_t strLen) {
 }
 
 void CodeGenCloudNPU::DoCompileCCE(const CompileInfo &compileInfo, const std::string &compileOptions) const {
-    if (!compileInfo.IsNeedCompileCCE() || config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
+    if (config::GetHostOption<int64_t>(COMPILE_STAGE) == CS_CODEGEN_INSTRUCTION) {
         ALOG_INFO("Compile stage terminates after codegen instruction.");
         return;
     }
@@ -423,7 +422,7 @@ std::string GetIncludePathByLib() {
     }
 
     std::string includePath = libPath + "/include";
-    ALOG_INFO_F("includePath by lib is %s", includePath.c_str());
+    CODEGEN_LOGI("includePath by lib is %s", includePath.c_str());
 
     if (IsPathExist(includePath)) {
         return includePath;
@@ -434,12 +433,12 @@ std::string GetIncludePathByLib() {
 
 std::string CodeGenCloudNPU::GetIncludePathForCompileCCE() const {
     if (!ctx.IsIncludePathEmpty()) {
-        ALOG_INFO_F("include path from ctx is %s", ctx.includePath.c_str());
+        CODEGEN_LOGI("include path from ctx is %s", ctx.includePath.c_str());
         return ctx.includePath;
     }
 
     std::string includePathByLib = GetIncludePathByLib();
-    ALOG_INFO_F("includePathByLib is %s", includePathByLib.c_str());
+    CODEGEN_LOGI("includePathByLib is %s", includePathByLib.c_str());
     if (!includePathByLib.empty()) {
         return includePathByLib;
     }
@@ -473,11 +472,10 @@ std::string CodeGenCloudNPU::GetPtoTileLibPathByEnv() const {
     return "";
 }
 
-std::string CodeGenCloudNPU::BuildCompileOptions(
-    const CompileInfo &compileInfo, const std::string &compileOptions) const {
+void CodeGenCloudNPU::BuildArchOptions(std::ostringstream &oss, const CompileInfo &compileInfo) const {
     const std::string corePredefine = compileInfo.IsCube() ? "-D__AIC__" : "-D__AIV__";
 
-    std::vector<std::string> compileOpts{compileOptions, corePredefine};
+    std::vector<std::string> compileOpts{corePredefine};
     if (ConfigManager::Instance().GetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false)) {
         compileOpts.emplace_back("-DSUPPORT_TILE_TENSOR");
     }
@@ -489,8 +487,12 @@ std::string CodeGenCloudNPU::BuildCompileOptions(
         compileOpts.emplace_back("-DREGISTER_BASE");
     }
 
+    compileOpts.emplace_back("--cce-aicore-only");
+    std::string coreArch = GetCoreArch(compileInfo);
+    compileOpts.emplace_back("--cce-aicore-arch=" + coreArch);
+
     std::string allCompileOpts = JoinString(compileOpts, " ");
-    return allCompileOpts;
+    oss << allCompileOpts << " ";
 }
 
 void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
@@ -507,12 +509,25 @@ void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
     }
 }
 
-void CodeGenCloudNPU::BuildLLVMParams(std::ostringstream &oss) const {
+void CodeGenCloudNPU::AppendVFOptions(std::ostringstream &oss) {
+    if (config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
+        oss << "--enable-pto-tile-fusion "
+            << "-mllvm --tile-fusion-skip-shape-inference=true "
+            << "-mllvm --tile-fusion-skip-reduceop-fusion=false "
+            << "-mllvm --tile-fusion-skip-legality-check=false "
+            << "-Rpass=tile-fusion "
+            << "-Rpass-missed=tile-fusion ";
+    }
+}
+
+void CodeGenCloudNPU::BuildExtraOptions(std::ostringstream &oss, const std::string &compileOptions) const {
     oss << "-mllvm -cce-aicore-stack-size=0x8000 "
         << "-mllvm -cce-aicore-function-stack-size=0x8000 "
         << "-mllvm -cce-aicore-record-overflow=false "
         << "-mllvm -cce-aicore-addr-transform "
         << "-mllvm -cce-aicore-dcci-insert-for-scalar=false ";
+    AppendVFOptions(oss);
+    oss << compileOptions << " ";
 }
 
 std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
@@ -526,32 +541,26 @@ std::string CodeGenCloudNPU::GetCoreArch(const CompileInfo &compileInfo) const {
 
 std::pair<int, std::string> CodeGenCloudNPU::CompileCCE(
     const CompileInfo &compileInfo, const std::string &compileOptions) const {
+    std::ostringstream oss;
+    oss << "bisheng -c -O3 -g -x cce -std=c++17 ";
+    BuildArchOptions(oss, compileInfo);
+    BuildIncludes(oss);
+    BuildExtraOptions(oss, compileOptions);
+
     const std::string srcFile = compileInfo.GetCCEAbsPath();
     const std::string objFile = compileInfo.GetBinAbsPath();
-
-    std::string coreArch = GetCoreArch(compileInfo);
-    std::string allCompileOpts = BuildCompileOptions(compileInfo, compileOptions);
-
-    std::ostringstream oss;
-    oss << "bisheng " << allCompileOpts << " -c -O3 -g -x cce -std=c++17 "
-        << "--cce-aicore-only "
-        << "--cce-aicore-arch=" << coreArch << " ";
-
-    BuildIncludes(oss);
-    BuildLLVMParams(oss);
-
     oss << "-o " << objFile << " " << srcFile;
 
     std::string ccecCmd = oss.str();
 
-    ALOG_INFO_F("compile kernel...\n%s", ccecCmd.c_str());
+    CODEGEN_LOGI("compile kernel...\n%s", ccecCmd.c_str());
 
     int ret = CheckInjectStr(ccecCmd.c_str(), ccecCmd.length());
     ASSERT(ret == 0) << "CheckInjectStr failed. errCode = " << ret;
 
     ret = std::system(ccecCmd.c_str());
     if (ret != 0) {
-        ALOG_ERROR_F("CompileCce ccec failed %d: %s", ret, ccecCmd.c_str());
+        CODEGEN_LOGE("Compile cce kernel failed, ret = %d\ncompile cmd is:\n %s", ret, ccecCmd.c_str());
     }
 
     return {ret, ccecCmd};
@@ -581,12 +590,11 @@ void EncodeWaitUntilInfo(const Operation &op, std::vector<int32_t> &code) {
         code.push_back(dimShape);
     }
     // 编码waitUntil的attr属性
-    std::map<std::string, npu::tile_fwk::Any> map = op.GetAllAttribute();
+    std::map<std::string, Any> map = op.GetAllAttribute();
     auto it = map.find(OpAttributeKey::distOpAttr);
     std::vector<int64_t> attrs;
     if (it != map.end()) {
-        npu::tile_fwk::Distributed::DistOpAttr distOpAttr =
-            npu::tile_fwk::AnyCast<npu::tile_fwk::Distributed::DistOpAttr>(it->second);
+        Distributed::DistOpAttr distOpAttr = AnyCast<Distributed::DistOpAttr>(it->second);
         attrs = distOpAttr.aicpuOpParams;
     }
     if (attrs.size() != 0) {

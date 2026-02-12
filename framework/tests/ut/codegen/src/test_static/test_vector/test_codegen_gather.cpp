@@ -51,7 +51,6 @@ constexpr const int GATHER_SHAPE1 = 32;
 Function &testGatherEle(bool isSupportTileTensor, string funcName) {
     if (isSupportTileTensor) {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, true);
-        config::SetCodeGenConfig(KEY_CODEGEN_NEED_COMPILE, false);
     } else {
         config::SetCodeGenConfig(KEY_CODEGEN_SUPPORT_TILE_TENSOR, false);
     }
@@ -90,7 +89,6 @@ TEST_F(TestCodegenGather, TestGatherEleTileTensor) {
     std::string res = GetResultFromCpp(func);
     std::string expect = R"!!!(TgatherElement<4>(ubTensor_11, ubTensor_5, ubTensor_9, ubTensor_12);
 )!!!";
-
     CheckStringExist(expect, res);  
 }
 

@@ -14,7 +14,7 @@
         "sg_set_scope": -1,
         "cube_l1_reuse_setting": [],
         "cube_nbuffer_setting": [],
-        "vec_nbuffer_setting":[]
+        "vec_nbuffer_setting": []
     },
     "runtime": {
         "device_sched_mode": 0,
@@ -90,8 +90,7 @@
             "support_dynamic_aligned": false,
             "fixed_output_path": false,
             "force_overwrite": true,
-            "codegen_support_tile_tensor": true,
-            "codegen_need_compile": true
+            "codegen_support_tile_tensor": true
         },
         "tensor_print": {
             "edgeitems": 3,
@@ -105,6 +104,7 @@
             "enable_cv_fuse": false,
             "pass_thread_num": 1,
             "vf_opt_mark_for": false,
+            "enable_vf": false,
             "default_pass_configs": {
                 "print_graph": false,
                 "print_program": false,
@@ -114,7 +114,8 @@
                 "post_check": false,
                 "expected_value_check": false,
                 "disable_pass": false,
-                "health_check": false
+                "health_check": false,
+                "use_max_freq_label": false
             }
         },
         "pass_strategies": {

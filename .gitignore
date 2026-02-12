@@ -1,5 +1,6 @@
 cmake-build-*
 .idea
+.arts
 .vscode
 .codemate
 build/
@@ -10,6 +11,7 @@ dist/
 *.trace
 .clion.source.upload.marker
 *~
+.arts/
 
 pre-commit
 compile_commands.json

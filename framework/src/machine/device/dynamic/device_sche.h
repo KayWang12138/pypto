@@ -141,6 +141,10 @@ struct DynMachineManager {
     };
 
     void SignalReg(const KernelCtrlEntry &entry) {
+        if (sigReg_) {
+            return;
+        }
+        sigReg_ = true;
         DEV_INFO("Exception SignalReg.");
         struct sigaction myAct;
         (void)memset_s(&myAct, sizeof(myAct), 0, sizeof(myAct));
@@ -185,6 +189,7 @@ struct DynMachineManager {
 
         SchduleContext local_context;
         machine_.SetStachSchduleContext(schedIdx, &local_context);
+        devArgs->toSubMachineConfig = kargs->toSubMachineConfig;
         DevAscendProgram *devProg = reinterpret_cast<DevAscendProgram *>(kargs->cfgdata);
         DevStartArgs *devStartArgs = reinterpret_cast<DevStartArgs *>(devProg->GetRuntimeDataList()->GetRuntimeDataCurrent());
         int ret = machine_.RunThread(schedIdx, devStartArgs, devArgs, schedIdx);
@@ -249,10 +254,12 @@ struct DynMachineManager {
     }
 
     int RunCtrlInitNoLock(DeviceKernelArgs *kargs, const KernelCtrlEntry &entry) {
+#ifdef __DEVICE__
         auto devArgs = PtrToPtr<int64_t, DeviceArgs>(kargs->cfgdata);
         if (devArgs->aicpuPerfAddr != 0) {
             PerfEvtMgr::Instance().SetIsOpenProf(true, devArgs->aicpuPerfAddr);
         }
+#endif
         int ret = entry.kernelCtrlServerInit(kargs);
         return ret;
     }
@@ -431,6 +438,7 @@ struct DynMachineManager {
     std::atomic<uint64_t> cpumask_{0};
     std::atomic<int> ctrlcpuIdx_{0};
     DeviceSchedMachine machine_;
+    bool sigReg_{false};
     struct sigaction oriFPEAct_;
     struct sigaction oriBUSAct_;
     struct sigaction oriSEGVAct_;

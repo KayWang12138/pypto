@@ -587,11 +587,13 @@ void DeviceLauncher::UnregisterKernelBin(void *hdl) {
 #endif
 }
 
-int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream, bool debugEnable) {
+int DeviceLauncher::LaunchAicpuKernel(rtAicpuArgsEx_t &rtArgs, bool tripleStream,
+                                      bool debugEnable, [[maybe_unused]]Function *function) {
 #ifdef BUILD_WITH_CANN
     auto ctrlStream = (aclrtStream)machine::GetRA()->GetCtrlStream();
     auto schedStream = (aclrtStream)machine::GetRA()->GetScheStream();
     auto &devRunner = DeviceRunner::Get();
+    devRunner.GetHostProfInstance().SetProfFunction(function);
     if (debugEnable) {
         devRunner.SetDebugEnable();
     }
@@ -639,6 +641,12 @@ int DeviceLauncher::LaunchAicoreKernel(
     auto ret = rtKernelLaunchWithHandleV2(kernel, tilingKey, blockDim, &rtArgs, nullptr, aicoreStream, &rtTaskCfg);
     devRunner.ReportHostProfInfo(startTime, blockDim, MSPROF_GE_TASK_TYPE_MIX_AIC, true);
     if (debugEnable) {
+        auto scheStream = (aclrtStream)machine::GetRA()->GetScheStream();
+        int rc = DeviceRunner::Get().DynamicLaunchSynchronize(scheStream, nullptr, aicoreStream);
+        if (rc != 0) {
+            ALOG_ERROR("sync failed");
+            return rc;
+        }
         devRunner.SynchronizeDeviceToHostProfData();
     }
     return ret;

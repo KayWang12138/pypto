@@ -82,6 +82,7 @@ const std::string KEY_SET_SCOPE = "SCOPE";
 const std::string KEY_ENABLE_CV_FUSE = "enable_cv_fuse";
 const std::string KEY_PASS_THREAD_NUM = "pass_thread_num";
 const std::string KEY_VF_OPT_MARK_FOR = "vf_opt_mark_for";
+const std::string KEY_ENABLE_VF = "enable_vf";
 
 
 /* CodeGen KEYs */
@@ -89,7 +90,6 @@ const std::string KEY_PARALLEL_COMPILE = "parallel_compile";
 const std::string KEY_FIXED_OUTPUT_PATH = "fixed_output_path"; // if true, dump cce to output directory
 const std::string KEY_FORCE_OVERWRITE = "force_overwrite"; // if true, don't dump cce when file exists
 const std::string KEY_CODEGEN_SUPPORT_TILE_TENSOR = "codegen_support_tile_tensor";       // if true, gen code with layout mode
-const std::string KEY_CODEGEN_NEED_COMPILE = "codegen_need_compile";       // if true, gen code & compile code
 
 
 enum class DPlatform {

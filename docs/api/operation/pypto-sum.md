@@ -40,7 +40,7 @@ sum(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor:
 
 若keepdim参数为 True，则在执行归约操作后保留被归约的维度。输出Tensor在除dim指定的维度外，其他维度的Shape与输入Tensor的Shape一致，而在dim指定的维度上的大小为 1。
 
-若keepdim参数为 False（默认），则被归约的维度会从输出Tensor中移除。
+若keepdim参数为 False（默认），则被归约的维度会从输出Tensor中移除，同时会缩减tileshape中对应的维度。
 
 ## 约束说明
 
@@ -49,6 +49,18 @@ sum(input: Tensor,  dim: int, keepdim: bool = False) -> Tensor:
 2. 尾轴要 32bytes 对齐;
 
 3. TileShape次尾轴要小于等于255，即 TileShape\[-2\]<=255.
+
+## TileShape设置示例
+
+TileShape维度应和输入input一致。
+
+如输入intput shape为[m, n]，输出为[m, 1]，TileShape设置为[m1, n1], 则m1, n1分别用于切分m, n轴。
+
+```python
+pypto.set_vec_tile_shapes(m1, n1)
+```
+
+注意：如果keepdim设置为false，框架会自动删除tileshape中dim对应的维度。
 
 ## 调用示例
 

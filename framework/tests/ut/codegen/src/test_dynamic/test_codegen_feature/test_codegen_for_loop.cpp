@@ -116,28 +116,24 @@ TEST_F(TestCodegenForLoop, TestForLoop) {
     std::string res = GetResultFromCpp(*function);
 
     // 定义第一个待检查的目标代码片段
-    const std::string expect1 = R"(for (uint16_t idx0 = 0; idx0 < 1; ++idx0) {
-  for (uint16_t idx1 = 0; idx1 < sym_82_dim_0; ++idx1) {
-    for (uint16_t idx2 = 0; idx2 < sym_82_dim_1; ++idx2) {
+    const std::string expect1 = R"(
         auto tileOffsets = TileOffset(idx0, idx1, idx2);
         ubTensor_11_low2DimInLoop.SetAddr(ubTensor_11.GetLinearAddr(tileOffsets));
         ubTensor_3_low2DimInLoop.SetAddr(ubTensor_3.GetLinearAddr(tileOffsets));
         ubTensor_1_low2DimInLoop.SetAddr(ubTensor_1.GetLinearAddr(tileOffsets));
         ubTensor_5_low2DimInLoop.SetAddr(ubTensor_5.GetLinearAddr(tileOffsets));
-        TAdd(ubTensor_5_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
-        TSub(ubTensor_11_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
+        TAdd<LastUse3Dim<0, 0, 0>>(ubTensor_5_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
+        TSub<LastUse3Dim<0, 1, 1>>(ubTensor_11_low2DimInLoop, ubTensor_1_low2DimInLoop, ubTensor_3_low2DimInLoop);
     }
   }
 })";
     CheckStringExist(expect1, res);
 
-    const std::string expect2 = R"(for (uint16_t idx0 = 0; idx0 < 1; ++idx0) {
-  for (uint16_t idx1 = 0; idx1 < sym_82_dim_0; ++idx1) {
-    for (uint16_t idx2 = 0; idx2 < sym_82_dim_1; ++idx2) {
+    const std::string expect2 = R"(
         auto tileOffsets = TileOffset(idx0, idx1, idx2);
         ubTensor_11_low2DimInLoop.SetAddr(ubTensor_11.GetLinearAddr(tileOffsets));
         ubTensor_5_low2DimInLoop.SetAddr(ubTensor_5.GetLinearAddr(tileOffsets));
-        TMul(ubTensor_5_low2DimInLoop, ubTensor_5_low2DimInLoop, ubTensor_11_low2DimInLoop);
+        TMul<LastUse3Dim<0, 1, 1>>(ubTensor_5_low2DimInLoop, ubTensor_5_low2DimInLoop, ubTensor_11_low2DimInLoop);
     }
   }
 })";
