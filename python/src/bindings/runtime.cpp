@@ -512,6 +512,7 @@ public:
     }
 
     bool IsTripleStream() { return tripleStream; }
+    bool IsDebugMode() { return isDebugMode; }
 
     KernelBinary *GetKernelBinary(std::vector<DeviceTensorData> &tensors) {
         for (auto &k : kernels) {
@@ -778,10 +779,13 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors, isCaptureMode);
     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
-    
-    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
-    HOST_PERF_TRACE(TracePhase::Launch);
+    int64_t repeatTime = kmodule->IsDebugMode() ? config::GetRuntimeOption<int64_t>(REPEAT_TIME) : 1;
+    for (int64_t i = 0; i < repeatTime; i++) {
+        kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+        HOST_PERF_TRACE(TracePhase::Launch);
+    }
     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+
 }
 #else
 void LaunchKernel(py::object &, int64_t, py::args &) { }
