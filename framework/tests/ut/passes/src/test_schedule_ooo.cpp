@@ -2022,7 +2022,7 @@ void SetAttributeReshape2(ComputationalGraphBuilder &subGraph, OoOScheduler &ooo
     SetInternalSubgraphIDAndAIVCore(copyin3, 1);
     SetInternalSubgraphIDAndAIVCore(copyin4, 1);
 
-    // reshape->tileOp.SetOpAttribute(std::make_shared<OpAttribute>());
+    // 属性 reshape->tileOp.SetOpAttribute(std::make_shared<OpAttribute>());
     oooSchedule.bufRefCount_ = {{0, 1}, {6, 1}, {5, 3}, {3, 3}, {2, 3}};
     alloc1->isRetired = true;
     copyin5->isRetired = true;

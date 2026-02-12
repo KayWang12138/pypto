@@ -516,10 +516,6 @@ Status OoOScheduler::CreateSpecialL1Copyout(SpillInfo &spillInfo, IssueEntryPtr 
             actualSpillIssue = issueEntryMap[preId];
         }
     }
-    if (actualSpillIssue == nullptr) {
-        APASS_LOG_ERROR_F(Elements::Operation, "ActualSpillIssue is nullptr. Please check the preceding dependencies of spillIssue %s ", spillIssue->GetOpInfo().c_str());
-        return FAILED;
-    }
     if (spillIssue->tileOp.GetOpcode() == Opcode::OP_RESHAPE) {
         if (actualSpillIssue->tileOp.GetOpcodeStr().find("COPY_IN") != std::string::npos) {
             spillInfo.ddrTensor_ = actualSpillIssue->tileOp.GetInputOperand(0);
@@ -902,7 +898,7 @@ void OoOScheduler::FindFilterLtags(IssueEntryPtr allocIssue, std::set<IssueEntry
 }
 
 bool OoOScheduler::CheckMachineAndL1(IssueEntryPtr spillIssue, IssueEntryPtr allocIssue) {
-    auto spillOp = spillIssue->tileOp;
+    auto &spillOp = spillIssue->tileOp;
     if (Platform::Instance().GetSoc().GetNPUArch() == NPUArch::DAV_3510 && allocIssue->tileOp.GetOpcodeStr().find("L1_ALLOC") != std::string::npos &&
         spillOp.GetOpcodeStr().find("COPY_IN") == std::string::npos && spillOp.GetOpcodeStr().find("RESHAPE") == std::string::npos && spillOp.GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_UB &&
         spillOp.GetInputOperand(0)->GetMemoryTypeOriginal() != MemoryType::MEM_L0C) {
