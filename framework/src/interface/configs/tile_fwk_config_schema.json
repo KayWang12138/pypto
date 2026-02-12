@@ -494,25 +494,18 @@
                                 "en": "..."
                             }
                         },
-                        "enable_prof_func": {
-                            "type": "boolean",
-                            "label": {
-                                "zh": "...",
-                                "en": "..."
-                            }
-                        },
                         "enable_prof_aicore_time": {
                             "type": "boolean",
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "是否使能采集泳道图性能数据, 可以采集每个leafFuntion的执行耗时",
+                                "en": "Enable PMU data collection, collect each leafFunction's execution latency"
                             }
                         },
                         "enable_prof_aicore_pmu": {
                             "type": "boolean",
                             "label": {
-                                "zh": "...",
-                                "en": "..."
+                                "zh": "是否使能采集pmu数据, 可以采集每个leafFuntion的执行耗时以及对应leafFunction的pmu值",
+                                "en": "Enable PMU data collection, collect each leafFunction's execution latency and PMU values."
                             }
                         }
                     }
@@ -784,13 +777,6 @@
                                 "zh": "生成的设备侧代码是否支持PTO-ISA指令",
                                 "en": "Whether the generated device-side code supports PTO-ISA instruction"
                             }
-                        },
-                        "codegen_need_compile": {
-                            "type": "boolean",
-                            "label": {
-                                "zh": "是否需要将生成的设备侧代码编译为二进制",
-                                "en": "Whether it is necessary to compile the generated device-side code into binaries"
-                            }
                         }
                     }
                 },
@@ -957,12 +943,17 @@
                     }
                 },
                 "pass_strategies": {
-                    "PVC2_OOO":{
-                        "type": "object",
-                        "label": {
-                            "zh": "PVC2_OOO调度策略。",
-                            "en": "PVC2_OOO Pass Scheduling Strategy."
-                        }
+                    "type": "object",
+                    "properties": {
+                        "PVC2_OOO": {
+                            "type": "object",
+                            "label": {
+                                "zh": "PVC2_OOO调度策略。",
+                                "en": "PVC2_OOO Pass Scheduling Strategy."
+                            },
+                            "properties": {     
+                            }
+                        }   
                     }
                 }
             }
