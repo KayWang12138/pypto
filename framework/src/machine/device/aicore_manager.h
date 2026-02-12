@@ -323,14 +323,14 @@ private:
         for (int i = aicStart_; i < aicEnd_; ++i) {
             ret = func(i);
             if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-                DEV_ERROR("proc aicore aic %d failed.\n", i);
+                DEV_ERROR("[aicore.kernel.exec] AIC core %d processing error.", i);
                 return ret;
             }
         }
         for (int i = aivStart_; i < aivEnd_; ++i) {
             ret = func(i);
             if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-                DEV_ERROR("proc aicore aiv %d failed.\n", i);
+                DEV_ERROR("[aicore.kernel.exec] AIV core %d processing error.", i);
                 return ret;
             }
         }

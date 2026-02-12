@@ -176,7 +176,7 @@ struct PerfEvtMgr {
             buf[i] = c;
         }
         buf[count] = '\0';
-        DEV_ERROR("%s.", buf);
+        DEV_ERROR("[perf.trace] %s.", buf);
     }
 
     void Dump() {
@@ -184,7 +184,7 @@ struct PerfEvtMgr {
         static constexpr size_t SHEET_WIDTH = 40 + 3 + 10 + 3 + 10 + 3 + 10;
 
         RepeatPuts('=', SHEET_WIDTH);
-        DEV_ERROR("%40s | %10s | %10s | %10s.", "EventType", "Count", "Total(us)", "Avg(us)");
+        DEV_ERROR("[perf.trace] %40s | %10s | %10s | %10s.", "EventType", "Count", "Total(us)", "Avg(us)");
         RepeatPuts('-', SHEET_WIDTH);
 
         for (int i = 0; i < PERF_EVT_MAX; i++) {
@@ -192,7 +192,7 @@ struct PerfEvtMgr {
             if (evt.count != 0) {
                 uint64_t total = evt.total * NSEC_PER_SEC / freq / NSEC_PER_USEC;
                 float avg = static_cast<float>(total / evt.count);
-                DEV_ERROR("%-40s | %10ld | %10lu | %10.1f.", PerfEventName[i], evt.count, total, avg);
+                DEV_ERROR("[perf.trace] %-40s | %10ld | %10lu | %10.1f.", PerfEventName[i], evt.count, total, avg);
             }
         }
 
@@ -272,7 +272,7 @@ struct PerfEvtMgr {
         while (startPos < totalLength) {
             uint32_t endPos = std::min(startPos + batchSize, totalLength);
             std::string batch = str.substr(startPos, endPos - startPos);
-            DEV_ERROR("tile_fwk aicpu prof:%s", batch.c_str());
+            DEV_ERROR("[perf.trace] Aicpu profile data: %s", batch.c_str());
             startPos = endPos;
         }
 

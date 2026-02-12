@@ -21,7 +21,7 @@ void SdmaPrefetch(DeviceTask *devTask) {
       return;
     }
     if (devTask->l2Info.prefetchNum > MAX_PREFETCH_NUM) {
-      DEV_ERROR("Prefetch invalid num %ld.\n", devTask->l2Info.prefetchNum);
+      DEV_ERROR("[aicore.prefetch.check] Invalid prefetch num %ld.", devTask->l2Info.prefetchNum);
       return;
     }
     int fd = open(SDMA_FILE, O_RDWR);
@@ -64,11 +64,11 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     DEV_DEBUG("Aicpu %d proc finish send all task .\n", aicpuIdx_);
     ret = WaitAllAicoreFinish(aicStart_, aicEnd_);
     if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-        DEV_ERROR("wait tail aic task timeout .\n");
+        DEV_ERROR("[aicore.task.wait_aic] Wait tail AIC task timeout.");
     }
     ret = WaitAllAicoreFinish(aivStart_, aivEnd_);
     if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
-        DEV_ERROR("wait tail aiv task timeout .\n");
+        DEV_ERROR("[aicore.task.wait_aiv] Wait tail AIV task timeout.");
     }
     if (aicpuIdx_ == 1) {
         while (!aicpuTaskManager_.Finished()) {
@@ -185,7 +185,7 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd) {
                 continue;
             }
             if (npu::tile_fwk::dynamic::CheckTimeOut("wait tail task", tm) != 0) {
-                DEV_ERROR("wait tail task finish timeout coreindx=%d.\n", i);
+                DEV_ERROR("[aicore.sync.wait] WaitAllAicoreFinish timeout: coreIdx=%d wait tail task finish timeout.", i);
                 return -1;
             }
         }
@@ -562,7 +562,7 @@ void AiCoreManager::ResolveByCoreType(int coretype, uint64_t depTaskId, CoreFunc
             break;
         }
         case static_cast<int>(MachineType::MIX): {
-            DEV_ERROR("in valid core type mix.");
+            DEV_ERROR("[aicore.kernel.exec] Invalid core type MIX.");
             break;
         }
         case static_cast<int>(MachineType::AICPU): {
@@ -662,7 +662,7 @@ int AiCoreManager::HandkShake() {
         npu::tile_fwk::dynamic::TimeCheck tm;
         while ((*shakeBuffer & 0xFFFFFFFF) != AICORE_SAY_HELLO) {
             if (npu::tile_fwk::dynamic::CheckTimeOut("hand shake", tm) != 0) {
-                DEV_ERROR("hand shake %d timeout.\n", coreIdx);
+                DEV_ERROR("[aicore.init.handshake] HandShake timeout: core %d handshake failed.", coreIdx);
                 return -1;
             }
         }
