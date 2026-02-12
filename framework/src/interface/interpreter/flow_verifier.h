@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "tilefwk/tilefwk_log.h"
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/tensor/tensor_slot.h"
 #include "interface/operation/attribute.h"
@@ -141,7 +142,7 @@ public:
                 oss << space << "maxAbs-> " << maxAbsElement.Dump() << "\n"
                     << space << "maxRel-> " << maxRelElement.Dump() << "\n";
             }
-            if (!Check()) {ALOG_EVENT(oss.str());}
+            if (!Check()) { VERIFY_EVENT("%s", oss.str().c_str()); }
             return {std::to_string(maxAbsDiff), std::to_string(maxRelDiff),std::to_string(errorCount_),
                     std::to_string(errorCount_ * 1.0 / size_)};
         }
