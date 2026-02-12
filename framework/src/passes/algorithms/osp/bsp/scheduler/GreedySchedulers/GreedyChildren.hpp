@@ -79,11 +79,8 @@ class GreedyChildren : public Scheduler<GraphT> {
         
         for (const auto &v : graph.Vertices()) {
             sched.SetAssignedProcessor(v, std::numeric_limits<unsigned>::max());
-        }
-
-        for (const auto &i : graph.Vertices()) {
-            if (graph.InDegree(i) == 0) {
-                next.emplace(graph.OutDegree(i), i);
+            if (graph.InDegree(v) == 0) {
+                next.emplace(graph.OutDegree(v), v);
             }
         }
     }
