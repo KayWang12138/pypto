@@ -16,8 +16,8 @@
 #include "interface/tensor/symbolic_scalar.h"
 #include <sys/mman.h>
 #include <sstream>
-#include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
+#include "tilefwk/tilefwk_log.h"
 
 constexpr uint64_t IMMEDIATE = 0;
 constexpr uint64_t SYMBOL = 1;
@@ -43,20 +43,20 @@ std::vector<uint8_t> CompileAndLoadSection(const std::string &code, const std::s
         " -I" + GetCurrentSharedLibPath() + "/include/" +
         " -I" + includePath + "/tilefwk " +
         " -S " + sourceFilePath + " -o " + assembleFilePath;
-    ALOG_INFO("[RunCmd] ", cmdGcc);
+    FUNCTION_LOGI("[RunCmd] %s", cmdGcc.c_str());
     ASSERT(system(cmdGcc.c_str()) == 0);
 
     std::string cmdAs = LD_PRELOAD + gcc + " -O2 -c " + assembleFilePath + " -o " + objectFilePath;
-    ALOG_INFO("[RunCmd] ", cmdAs);
+    FUNCTION_LOGI("[RunCmd] %s", cmdAs.c_str());
     ASSERT(system(cmdAs.c_str()) == 0);
 
     std::string cmdObjcopy = LD_PRELOAD + objcopy + " --dump-section " + sectionName + "=" + binaryFilePath + " " + objectFilePath;
-    ALOG_INFO("[RunCmd] ", cmdObjcopy);
+    FUNCTION_LOGI("[RunCmd] %s", cmdObjcopy.c_str());
     ASSERT(system(cmdObjcopy.c_str()) == 0);
 
     FILE *fbin = fopen(binaryFilePath.c_str(), "rb");
     if (fbin == nullptr) {
-        ALOG_FATAL("open binary file name failed");
+        FUNCTION_LOGE("open binary file name failed");
         return {};
     }
 
