@@ -153,7 +153,6 @@ void ConstructTileGraph(Function &function, const TileShape &tileShape, const st
 }  // namespace Matrix
 
 namespace Conv {
-
 constexpr const int NCHW_N_IDX = 0;
 constexpr const int NCHW_C_IDX = 1;
 constexpr const int NCHW_H_IDX = 2;

@@ -40,15 +40,15 @@ def create_conv_kernel(fmap_shape, weight_shape, out_shape, run_mode = "npu"):
     else:
         raise ValueError(f"Invalid run_mode: {run_mode}. Must be 'npu' or 'sim'")
 
-    @pypto.frontend.jit(runtime_options={"run_mode": pypto.RunMode.NPU}, debug_options={"compile_debug_mode": 1})
+    @pypto.frontend.jit(runtime_options={"run_mode": mode}, debug_options={"compile_debug_mode": 1})
     def conv_kernel(
         a: pypto.Tensor(fmap_shape, pypto.DT_FP16),
         b: pypto.Tensor(weight_shape, pypto.DT_FP16)
     ) -> pypto.Tensor(out_shape, pypto.DT_FP16):
         pypto.set_conv_tile_shapes(
             pypto_impl.TileL1Info(
-                tileHin=4,
-                tileHout=4,
+                tileHin=3,
+                tileHout=3,
                 tileWin=16,
                 tileWout=16,
                 tileCinFmap=16,
@@ -57,9 +57,9 @@ def create_conv_kernel(fmap_shape, weight_shape, out_shape, run_mode = "npu"):
                 tileN=1
             ),
             pypto_impl.TileL0Info(
-                tileH=4,
+                tileH=3,
                 tileW=16,
-                tileK=16,
+                tileK=48,
                 tileN=16
             )
         )
@@ -72,7 +72,7 @@ def create_conv_kernel(fmap_shape, weight_shape, out_shape, run_mode = "npu"):
         print(f"TileL0Info: H={conv_tile[1].tileH}, W={conv_tile[1].tileW}, K={conv_tile[1].tileK}, N={conv_tile[1].tileN}")
         print(f"SetL0Tile flag: {conv_tile[2]}")
         # d = pypto.conv(a, b, pypto.DT_FP16, [1], [0,0], [1], extend_params = {})
-        d = pypto.conv(a, b, pypto.DT_FP16, [1,1], [0,0,0,0], [1,1], extend_params = {})
+        d = pypto.conv(a, b, pypto.DT_FP16, [1,1], [1,1,1,1], [1,1], extend_params = {})
         # d = pypto.conv(a, b, pypto.DT_FP16, [1,1,1], [0,0,0,0,0,0], [1,1,1], extend_params = {})
         return d
 
@@ -109,9 +109,9 @@ def conv1d_a5_test():
     weight_shape = (32, 32, 1)
     bias_shape = (32)
     out_shape = (1, 32, 16)
-    a = torch.rand(fmap_shape, dtype=torch.float16)
-    b = torch.rand(weight_shape, dtype=torch.float16)
-    c = torch.rand(bias_shape, dtype=torch.float16)
+    a = torch.rand(fmap_shape, dtype=torch.float16, device=run_mode)
+    b = torch.rand(weight_shape, dtype=torch.float16, device=run_mode)
+    c = torch.rand(bias_shape, dtype=torch.float16, device=run_mode)
     create_conv_kernel(fmap_shape, weight_shape, out_shape, run_mode)(a, b)
 
 
@@ -119,7 +119,7 @@ def conv2d_a5_test():
     torch.npu.set_device(0)
     run_mode = "npu"
     fmap_shape = (1, 32, 8, 16)
-    weight_shape = (32, 32, 1, 1)
+    weight_shape = (32, 32, 3, 3)
     bias_shape = (32)
     out_shape = (1, 32, 8, 16)
     a = torch.rand(fmap_shape, dtype=torch.float16, device=run_mode)
@@ -134,9 +134,9 @@ def conv3d_a5_test():
     weight_shape = (32, 96, 1, 1, 1)
     bias_shape = (32)
     out_shape = (1, 32, 2, 16, 16)
-    a = torch.rand(fmap_shape, dtype=torch.float16)
-    b = torch.rand(weight_shape, dtype=torch.float16)
-    c = torch.rand(bias_shape, dtype=torch.float16)
+    a = torch.rand(fmap_shape, dtype=torch.float16, device=run_mode)
+    b = torch.rand(weight_shape, dtype=torch.float16, device=run_mode)
+    c = torch.rand(bias_shape, dtype=torch.float16, device=run_mode)
     create_conv_kernel(fmap_shape, weight_shape, out_shape, run_mode)(a, b)
 
 conv2d_a5_test()
