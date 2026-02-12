@@ -60,7 +60,7 @@ struct DeviceStitchContext {
 
     int DecideIncastOutcast(uint64_t taskId);
 
-    int MoveTo(DynDeviceTask *dynTask);
+    int MoveTo(DynDeviceTask *dynTask, DevAscendProgram *devProg);
 
     void VerifyStitchedListMemory(DevStartArgs &args) const {
         workspace_->VerifyStitchedListMemory(args, stitchedList_.data(), stitchedList_.size());
@@ -76,8 +76,8 @@ struct DeviceStitchContext {
 private:
     uint32_t stitchedCallOpSize_{0};
     StitchedList stitchedList_;
-    Vector<ItemPoolIter, WsMemCategory::VECTOR_TEMPORARY> slotInfosInDecidingSlotMem_;
     DeviceWorkspaceAllocator *workspace_{nullptr};
+    DevAscendProgram *devProg_{nullptr};
 
 public:
     enum class StitchKind {
