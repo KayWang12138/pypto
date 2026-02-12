@@ -636,7 +636,7 @@ public:
                 // should not happen, first task alloc failed
                 metadataAllocators_.generalSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
                 metadataAllocators_.stitchSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
-                DEV_ERROR("Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
+                DEV_ERROR("[resource] Slab alloc failed: type=%u, objSize=%u, no memory available.", ToUnderlying(type), objSize);
                 DEV_ASSERT_MSG(false, "Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
             }
             uint64_t ttlstart = GetCycles();
@@ -882,7 +882,7 @@ private:
                 DEV_ASSERT(registCacheRes);
             }
         } else {
-            DEV_ERROR("Invalid slab memory type: %u", (unsigned int)type);
+            DEV_ERROR("[resource] Invalid slab memory type: %u.", (unsigned int)type);
             DEV_ASSERT(false);
         }
     }
