@@ -527,7 +527,7 @@ struct DevControlFlowCache {
                 resultAddr = devStartArgs->GetOutputTensor(desc.cacheValue).address;
                 break;
             default:
-                DEV_ERROR("[RelocDescFromCache] Invalid kind: %lu\n", (unsigned long)desc.cacheKind);
+                DEV_ERROR(ctrl.task.pre.cache.reloc, "cacheKind=%lu # Invalid cache kind", (unsigned long)desc.cacheKind);
                 break;
         }
         AddressDescriptor resultDesc = AddressDescriptor::MakeFromAddress(resultAddr);

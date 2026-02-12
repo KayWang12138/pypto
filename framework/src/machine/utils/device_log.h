@@ -219,10 +219,10 @@ inline bool IsDebugMode() {
 static inline void PrintBacktrace(const std::string &prefix = "", int count = BACKTRACE_STACK_COUNT) {
     std::vector<void *> backtraceStack(count);
     int backtraceStackCount = backtrace(backtraceStack.data(), static_cast<int>(backtraceStack.size()));
-    DEV_ERROR("backtrace %s count:%d", prefix.c_str(), backtraceStackCount);
+    DEV_ERROR(utils.except.signal, "Backtrace %s: total frames=%d.", prefix.c_str(), backtraceStackCount);
     char **backtraceSymbolList = backtrace_symbols(backtraceStack.data(), backtraceStackCount);
     for (int i = 0; i < backtraceStackCount; i++) {
-        DEV_ERROR("backtrace %s frame[%d]: %s", prefix.c_str(), i, backtraceSymbolList[i]);
+        DEV_ERROR(utils.except.signal, "Backtrace %s frame[%d]: %s.", prefix.c_str(), i, backtraceSymbolList[i]);
     }
     free(backtraceSymbolList);
 }
