@@ -82,11 +82,10 @@ from .functions import Function, get_last_function, get_current_function
 # Import new IR modules
 from . import pypto_impl
 from . import ir  # noqa: F401 - Python wrapper package (re-exports pypto_impl.ir + IRBuilder etc.)
+from . import frontend
+
 passes = pypto_impl.passes
 testing = pypto_impl.testing
-
-# Import frontend after all other imports to avoid circular imports
-from . import frontend
 
 
 tensor = Tensor

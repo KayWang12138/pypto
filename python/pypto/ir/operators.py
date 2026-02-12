@@ -15,6 +15,8 @@ from pypto.pypto_impl import ir as _ir
 
 from .utils import _normalize_expr
 
+__all__ = []
+
 
 def _capture_call_span() -> _ir.Span:
     """Capture span from the caller's location.
@@ -25,9 +27,6 @@ def _capture_call_span() -> _ir.Span:
         Span: Source location of the caller
     """
     # Go back through frames to find user code:
-    # frame 0 = _capture_call_span
-    # frame 1 = our wrapper (e.g., __add__)
-    # frame 2 = user's code (what we want)
     frame = inspect.currentframe()
     if frame is not None and frame.f_back is not None:
         frame = frame.f_back.f_back
@@ -137,9 +136,5 @@ def _patch_operators():
     _ir.Expr.__rlshift__ = _make_reverse_binary_op("bit_shift_left")
     _ir.Expr.__rrshift__ = _make_reverse_binary_op("bit_shift_right")
 
-
 # Automatically patch operators when this module is imported
 _patch_operators()
-
-
-__all__ = []

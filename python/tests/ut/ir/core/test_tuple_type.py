@@ -16,19 +16,22 @@ from pypto.ir import DataType
 class TestTupleType:
     """Tests for TupleType class."""
 
-    def test_tuple_type_creation_empty(self):
+    @staticmethod
+    def test_tuple_type_creation_empty():
         """Test creating an empty tuple type."""
         tuple_type = ir.TupleType([])
         assert len(tuple_type.types) == 0
 
-    def test_tuple_type_creation_single(self):
+    @staticmethod
+    def test_tuple_type_creation_single():
         """Test creating a tuple type with a single element."""
         scalar_type = ir.ScalarType(DataType.INT64)
         tuple_type = ir.TupleType([scalar_type])
         assert len(tuple_type.types) == 1
         assert isinstance(tuple_type.types[0], ir.ScalarType)
 
-    def test_tuple_type_creation_multiple(self):
+    @staticmethod
+    def test_tuple_type_creation_multiple():
         """Test creating a tuple type with multiple elements."""
         scalar_type = ir.ScalarType(DataType.INT64)
         tensor_type = ir.TensorType([], DataType.FP32)
@@ -37,14 +40,16 @@ class TestTupleType:
         assert isinstance(tuple_type.types[0], ir.ScalarType)
         assert isinstance(tuple_type.types[1], ir.TensorType)
 
-    def test_tuple_type_attributes(self):
+    @staticmethod
+    def test_tuple_type_attributes():
         """Test accessing TupleType attributes."""
         scalar_type = ir.ScalarType(DataType.INT64)
         tuple_type = ir.TupleType([scalar_type])
         assert hasattr(tuple_type, "types")
         assert len(tuple_type.types) == 1
 
-    def test_tuple_type_nested(self):
+    @staticmethod
+    def test_tuple_type_nested():
         """Test creating nested tuple types."""
         inner_tuple = ir.TupleType([ir.ScalarType(DataType.INT64)])
         outer_tuple = ir.TupleType([inner_tuple, ir.ScalarType(DataType.FP32)])
@@ -52,7 +57,8 @@ class TestTupleType:
         assert isinstance(outer_tuple.types[0], ir.TupleType)
         assert isinstance(outer_tuple.types[1], ir.ScalarType)
 
-    def test_tuple_with_scalar_types(self):
+    @staticmethod
+    def test_tuple_with_scalar_types():
         """Test tuple containing only scalar types."""
         tuple_type = ir.TupleType(
             [
@@ -65,7 +71,8 @@ class TestTupleType:
         for t in tuple_type.types:
             assert isinstance(t, ir.ScalarType)
 
-    def test_tuple_with_tensor_types(self):
+    @staticmethod
+    def test_tuple_with_tensor_types():
         """Test tuple containing tensor types."""
         span = ir.Span.unknown()
         dim1 = ir.ConstInt(10, DataType.INT64, span)
@@ -80,7 +87,8 @@ class TestTupleType:
         for t in tuple_type.types:
             assert isinstance(t, ir.TensorType)
 
-    def test_tuple_mixed_types(self):
+    @staticmethod
+    def test_tuple_mixed_types():
         """Test tuple containing mixed types."""
         span = ir.Span.unknown()
         dim = ir.ConstInt(10, DataType.INT64, span)
@@ -102,7 +110,8 @@ class TestTupleType:
 class TestTupleGetItemExpr:
     """Tests for TupleGetItemExpr class."""
 
-    def test_tuple_get_item_creation(self):
+    @staticmethod
+    def test_tuple_get_item_creation():
         """Test creating a tuple element access expression."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -113,7 +122,8 @@ class TestTupleGetItemExpr:
         assert get_item.tuple.same_as(tuple_var)
         assert get_item.index == 0
 
-    def test_tuple_get_item_type_inference(self):
+    @staticmethod
+    def test_tuple_get_item_type_inference():
         """Test that TupleGetItemExpr correctly infers result type."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -129,7 +139,8 @@ class TestTupleGetItemExpr:
         assert isinstance(second.type, ir.ScalarType)
         assert second.type.dtype == DataType.FP32
 
-    def test_tuple_get_item_bounds_check(self):
+    @staticmethod
+    def test_tuple_get_item_bounds_check():
         """Test that TupleGetItemExpr checks index bounds."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -143,7 +154,8 @@ class TestTupleGetItemExpr:
         with pytest.raises(Exception):
             ir.TupleGetItemExpr(tuple_var, 2, span)
 
-    def test_tuple_get_item_negative_index(self):
+    @staticmethod
+    def test_tuple_get_item_negative_index():
         """Test that negative indices are rejected."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64)])
@@ -152,7 +164,8 @@ class TestTupleGetItemExpr:
         with pytest.raises(Exception):
             ir.TupleGetItemExpr(tuple_var, -1, span)
 
-    def test_tuple_get_item_wrong_type(self):
+    @staticmethod
+    def test_tuple_get_item_wrong_type():
         """Test that non-tuple types are rejected."""
         span = ir.Span.unknown()
         # Create a non-tuple variable
@@ -162,7 +175,8 @@ class TestTupleGetItemExpr:
         with pytest.raises(Exception):
             ir.TupleGetItemExpr(scalar_var, 0, span)
 
-    def test_nested_tuple_get_item(self):
+    @staticmethod
+    def test_nested_tuple_get_item():
         """Test accessing nested tuples."""
         span = ir.Span.unknown()
         inner_tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -178,7 +192,8 @@ class TestTupleGetItemExpr:
         assert isinstance(nested.type, ir.ScalarType)
         assert nested.type.dtype == DataType.INT64
 
-    def test_tuple_get_item_in_expression(self):
+    @staticmethod
+    def test_tuple_get_item_in_expression():
         """Test using TupleGetItemExpr in arithmetic expressions."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.INT64)])
@@ -192,7 +207,8 @@ class TestTupleGetItemExpr:
         assert result is not None
         assert isinstance(result, ir.Add)
 
-    def test_call_returning_tuple_with_getitem_in_subsequent_call(self):
+    @staticmethod
+    def test_call_returning_tuple_with_getitem_in_subsequent_call():
         """Test Call returns TupleType, extract elements with GetItem for subsequent Call."""
         span = ir.Span.unknown()
 
@@ -263,7 +279,8 @@ class TestTupleGetItemExpr:
 class TestTupleSerialization:
     """Tests for TupleType and TupleGetItemExpr serialization."""
 
-    def test_tuple_type_serialization(self):
+    @staticmethod
+    def test_tuple_type_serialization():
         """Test serializing and deserializing TupleType."""
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
         span = ir.Span.unknown()
@@ -280,7 +297,8 @@ class TestTupleSerialization:
         assert isinstance(restored.type, ir.TupleType)
         assert len(restored.type.types) == 2
 
-    def test_tuple_get_item_serialization(self):
+    @staticmethod
+    def test_tuple_get_item_serialization():
         """Test serializing and deserializing TupleGetItemExpr."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -302,7 +320,8 @@ class TestTupleSerialization:
         assert isinstance(restored.value, ir.TupleGetItemExpr)
         assert restored.value.index == 1
 
-    def test_nested_tuple_serialization(self):
+    @staticmethod
+    def test_nested_tuple_serialization():
         """Test serializing nested tuples."""
         inner_tuple = ir.TupleType([ir.ScalarType(DataType.INT64)])
         outer_tuple = ir.TupleType([inner_tuple, ir.ScalarType(DataType.FP32)])
@@ -325,7 +344,8 @@ class TestTupleSerialization:
 class TestTupleStructuralComparison:
     """Tests for TupleType and TupleGetItemExpr structural comparison."""
 
-    def test_tuple_structural_equal(self):
+    @staticmethod
+    def test_tuple_structural_equal():
         """Test structural equality of TupleType."""
         tuple1 = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
         tuple2 = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -337,7 +357,8 @@ class TestTupleStructuralComparison:
         # Should be structurally equal
         ir.assert_structural_equal(var1, var2, enable_auto_mapping=True)
 
-    def test_tuple_structural_hash(self):
+    @staticmethod
+    def test_tuple_structural_hash():
         """Test structural hash consistency for TupleType."""
         tuple1 = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
         tuple2 = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -351,7 +372,8 @@ class TestTupleStructuralComparison:
         hash2 = ir.structural_hash(var2, enable_auto_mapping=True)
         assert hash1 == hash2
 
-    def test_tuple_different_order(self):
+    @staticmethod
+    def test_tuple_different_order():
         """Test that tuples with different element order are not equal."""
         tuple1 = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
         tuple2 = ir.TupleType([ir.ScalarType(DataType.FP32), ir.ScalarType(DataType.INT64)])
@@ -363,7 +385,8 @@ class TestTupleStructuralComparison:
         # Should NOT be structurally equal (different order)
         assert not ir.structural_equal(var1, var2)
 
-    def test_get_item_structural_equal(self):
+    @staticmethod
+    def test_get_item_structural_equal():
         """Test structural equality of TupleGetItemExpr."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -376,7 +399,8 @@ class TestTupleStructuralComparison:
         # Should be structurally equal
         ir.assert_structural_equal(get_item1, get_item2, enable_auto_mapping=True)
 
-    def test_get_item_structural_hash(self):
+    @staticmethod
+    def test_get_item_structural_hash():
         """Test structural hash consistency for TupleGetItemExpr."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -391,7 +415,8 @@ class TestTupleStructuralComparison:
         hash2 = ir.structural_hash(get_item2, enable_auto_mapping=True)
         assert hash1 == hash2
 
-    def test_get_item_different_indices(self):
+    @staticmethod
+    def test_get_item_different_indices():
         """Test that different indices result in different hashes."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -409,7 +434,8 @@ class TestTupleStructuralComparison:
 class TestTuplePythonPrinter:
     """Tests for Python printing of TupleType and TupleGetItemExpr."""
 
-    def test_python_print_tuple_type(self):
+    @staticmethod
+    def test_python_print_tuple_type():
         """Test Python printing of TupleType."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -421,7 +447,8 @@ class TestTuplePythonPrinter:
         assert "pl.INT64" in result
         assert "pl.FP32" in result
 
-    def test_python_print_tuple_get_item(self):
+    @staticmethod
+    def test_python_print_tuple_get_item():
         """Test Python printing of TupleGetItemExpr."""
         span = ir.Span.unknown()
         tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -433,7 +460,8 @@ class TestTuplePythonPrinter:
         result = ir.python_print(assign)
         assert "my_tuple[0]" in result
 
-    def test_python_print_nested_tuple_access(self):
+    @staticmethod
+    def test_python_print_nested_tuple_access():
         """Test Python printing of nested tuple access."""
         span = ir.Span.unknown()
         inner_tuple_type = ir.TupleType([ir.ScalarType(DataType.INT64), ir.ScalarType(DataType.FP32)])
@@ -452,7 +480,8 @@ class TestTuplePythonPrinter:
 class TestMakeTuple:
     """Tests for MakeTuple expression."""
 
-    def test_make_tuple_creation_empty(self):
+    @staticmethod
+    def test_make_tuple_creation_empty():
         """Test creating empty tuple."""
         span = ir.Span.unknown()
         make_tuple = ir.MakeTuple([], span)
@@ -460,7 +489,8 @@ class TestMakeTuple:
         assert isinstance(make_tuple.type, ir.TupleType)
         assert len(make_tuple.type.types) == 0
 
-    def test_make_tuple_creation_single(self):
+    @staticmethod
+    def test_make_tuple_creation_single():
         """Test creating tuple with single element."""
         span = ir.Span.unknown()
         scalar = ir.ConstInt(42, DataType.INT64, span)
@@ -470,7 +500,8 @@ class TestMakeTuple:
         assert len(make_tuple.type.types) == 1
         assert isinstance(make_tuple.type.types[0], ir.ScalarType)
 
-    def test_make_tuple_creation_multiple(self):
+    @staticmethod
+    def test_make_tuple_creation_multiple():
         """Test creating tuple with multiple elements."""
         span = ir.Span.unknown()
         scalar = ir.ConstInt(42, DataType.INT64, span)
@@ -482,7 +513,8 @@ class TestMakeTuple:
         assert isinstance(make_tuple.type.types[0], ir.ScalarType)
         assert isinstance(make_tuple.type.types[1], ir.TensorType)
 
-    def test_make_tuple_with_tuple_getitem_roundtrip(self):
+    @staticmethod
+    def test_make_tuple_with_tuple_getitem_roundtrip():
         """Test creating tuple and accessing elements."""
         span = ir.Span.unknown()
         val1 = ir.ConstInt(10, DataType.INT64, span)
@@ -498,7 +530,8 @@ class TestMakeTuple:
         assert isinstance(elem0.type, ir.ScalarType)
         assert isinstance(elem1.type, ir.ScalarType)
 
-    def test_make_tuple_serialization(self):
+    @staticmethod
+    def test_make_tuple_serialization():
         """Test MakeTuple serialization and deserialization."""
         span = ir.Span.unknown()
         val1 = ir.ConstInt(10, DataType.INT64, span)
@@ -512,7 +545,8 @@ class TestMakeTuple:
         # Verify structural equality
         ir.assert_structural_equal(make_tuple, deserialized)
 
-    def test_make_tuple_nested(self):
+    @staticmethod
+    def test_make_tuple_nested():
         """Test creating nested tuples."""
         span = ir.Span.unknown()
         val1 = ir.ConstInt(10, DataType.INT64, span)
@@ -530,7 +564,8 @@ class TestMakeTuple:
         assert isinstance(outer.type.types[0], ir.TupleType)
         assert isinstance(outer.type.types[1], ir.ScalarType)
 
-    def test_make_tuple_structural_comparison(self):
+    @staticmethod
+    def test_make_tuple_structural_comparison():
         """Test structural comparison of MakeTuple expressions."""
         span = ir.Span.unknown()
         val1 = ir.ConstInt(10, DataType.INT64, span)
@@ -545,7 +580,8 @@ class TestMakeTuple:
         # Should have same hash
         assert ir.structural_hash(tuple1) == ir.structural_hash(tuple2)
 
-    def test_make_tuple_with_different_types(self):
+    @staticmethod
+    def test_make_tuple_with_different_types():
         """Test creating tuple with different types."""
         span = ir.Span.unknown()
         scalar = ir.ConstInt(42, DataType.INT64, span)

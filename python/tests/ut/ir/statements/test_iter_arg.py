@@ -19,7 +19,8 @@ from pypto.ir import DataType
 class TestIterArg:
     """Test IterArg class."""
 
-    def test_iter_arg_creation(self):
+    @staticmethod
+    def test_iter_arg_creation():
         """Test creating an IterArg instance."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -33,7 +34,8 @@ class TestIterArg:
         assert iter_arg.initValue is not None
         assert isinstance(iter_arg.initValue, ir.ConstInt)
 
-    def test_iter_arg_has_attributes(self):
+    @staticmethod
+    def test_iter_arg_has_attributes():
         """Test that IterArg has name, initValue, and value attributes."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -45,7 +47,8 @@ class TestIterArg:
         assert iter_arg.initValue is not None
         assert cast(ir.ConstInt, iter_arg.initValue).value == 5
 
-    def test_iter_arg_is_var(self):
+    @staticmethod
+    def test_iter_arg_is_var():
         """Test that IterArg is an instance of Var."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -56,7 +59,8 @@ class TestIterArg:
         assert isinstance(iter_arg, ir.Expr)
         assert isinstance(iter_arg, ir.IRNode)
 
-    def test_iter_arg_immutability(self):
+    @staticmethod
+    def test_iter_arg_immutability():
         """Test that IterArg attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -71,7 +75,8 @@ class TestIterArg:
         with pytest.raises(AttributeError):
             iter_arg.value = ir.Var("new_v", ir.ScalarType(dtype), span)  # type: ignore
 
-    def test_iter_arg_with_different_init_value_types(self):
+    @staticmethod
+    def test_iter_arg_with_different_init_value_types():
         """Test IterArg with different expression types for initValue."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -97,7 +102,8 @@ class TestIterArg:
 class TestIterArgHash:
     """Tests for IterArg hash function."""
 
-    def test_iter_arg_same_structure_hash(self):
+    @staticmethod
+    def test_iter_arg_same_structure_hash():
         """Test IterArg nodes with same structure hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -111,7 +117,8 @@ class TestIterArgHash:
         hash2 = ir.structural_hash(iter_arg2, enable_auto_mapping=True)
         assert hash1 == hash2
 
-    def test_iter_arg_different_name_hash(self):
+    @staticmethod
+    def test_iter_arg_different_name_hash():
         """Test IterArg nodes with different names hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -123,7 +130,8 @@ class TestIterArgHash:
         hash2 = ir.structural_hash(iter_arg2)
         assert hash1 != hash2
 
-    def test_iter_arg_different_init_value_hash(self):
+    @staticmethod
+    def test_iter_arg_different_init_value_hash():
         """Test IterArg nodes with different initValue hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -136,7 +144,8 @@ class TestIterArgHash:
         hash2 = ir.structural_hash(iter_arg2)
         assert hash1 != hash2
 
-    def test_iter_arg_different_value_hash(self):
+    @staticmethod
+    def test_iter_arg_different_value_hash():
         """Test IterArg nodes with different value hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -152,7 +161,8 @@ class TestIterArgHash:
 class TestIterArgEquality:
     """Tests for IterArg structural equality function."""
 
-    def test_iter_arg_structural_equal(self):
+    @staticmethod
+    def test_iter_arg_structural_equal():
         """Test structural equality of IterArg nodes."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -164,7 +174,8 @@ class TestIterArgEquality:
 
         ir.assert_structural_equal(iter_arg1, iter_arg2, enable_auto_mapping=True)
 
-    def test_iter_arg_different_name_not_equal(self):
+    @staticmethod
+    def test_iter_arg_different_name_not_equal():
         """Test IterArg nodes with different names are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -174,7 +185,8 @@ class TestIterArgEquality:
 
         assert not ir.structural_equal(iter_arg1, iter_arg2)
 
-    def test_iter_arg_different_init_value_not_equal(self):
+    @staticmethod
+    def test_iter_arg_different_init_value_not_equal():
         """Test IterArg nodes with different initValue are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -187,7 +199,8 @@ class TestIterArgEquality:
 
     # Removed test_iter_arg_different_value_not_equal since value field no longer exists
 
-    def test_iter_arg_different_from_base_var_not_equal(self):
+    @staticmethod
+    def test_iter_arg_different_from_base_var_not_equal():
         """Test IterArg and base Var nodes are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64

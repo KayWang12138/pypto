@@ -19,7 +19,8 @@ from pypto.ir import DataType
 class TestProgram:
     """Test Program class."""
 
-    def test_program_creation(self):
+    @staticmethod
+    def test_program_creation():
         """Test creating a Program instance."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -34,7 +35,8 @@ class TestProgram:
         assert len(program.functions) == 1
         assert program.name == ""
 
-    def test_program_has_attributes(self):
+    @staticmethod
+    def test_program_has_attributes():
         """Test that Program has name and functions attributes."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -53,7 +55,8 @@ class TestProgram:
         assert cast(ir.Function, func_list[0]).name == "func1"
         assert cast(ir.Function, func_list[1]).name == "func2"
 
-    def test_program_is_irnode(self):
+    @staticmethod
+    def test_program_is_irnode():
         """Test that Program is an instance of IRNode."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -65,7 +68,8 @@ class TestProgram:
 
         assert isinstance(program, ir.IRNode)
 
-    def test_program_immutability(self):
+    @staticmethod
+    def test_program_immutability():
         """Test that Program attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -81,7 +85,8 @@ class TestProgram:
         with pytest.raises(AttributeError):
             program.functions = []  # type: ignore
 
-    def test_program_with_empty_functions(self):
+    @staticmethod
+    def test_program_with_empty_functions():
         """Test Program with empty function list."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         program = ir.Program([], "", span)
@@ -89,7 +94,8 @@ class TestProgram:
         assert len(program.functions) == 0
         assert program.name == ""
 
-    def test_program_with_multiple_functions(self):
+    @staticmethod
+    def test_program_with_multiple_functions():
         """Test Program with multiple functions."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -110,7 +116,8 @@ class TestProgram:
         assert cast(ir.Function, func_list[1]).name == "func2"
         assert cast(ir.Function, func_list[2]).name == "func3"
 
-    def test_program_string_representation(self):
+    @staticmethod
+    def test_program_string_representation():
         """Test Program string representation."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -129,7 +136,8 @@ class TestProgram:
         str_repr2 = str(program2)
         assert "my_program" in str_repr2 or isinstance(str_repr2, str)
 
-    def test_program_get_function(self):
+    @staticmethod
+    def test_program_get_function():
         """Test Program.get_function method."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -154,7 +162,8 @@ class TestProgram:
         retrieved_func3 = program.get_function("gamma")
         assert retrieved_func3 is None
 
-    def test_program_get_global_var(self):
+    @staticmethod
+    def test_program_get_global_var():
         """Test Program.get_global_var method."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -174,7 +183,8 @@ class TestProgram:
         gvar2 = program.get_global_var("nonexistent")
         assert gvar2 is None
 
-    def test_program_function_ordering(self):
+    @staticmethod
+    def test_program_function_ordering():
         """Test that functions are ordered by name in the map."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -193,7 +203,8 @@ class TestProgram:
         func_names = [func.name for func in program.functions.values()]
         assert func_names == ["alpha", "bravo", "charlie"]
 
-    def test_program_with_globalvar_in_call(self):
+    @staticmethod
+    def test_program_with_globalvar_in_call():
         """Test using GlobalVar in a Call expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -214,7 +225,8 @@ class TestProgram:
 class TestProgramHash:
     """Tests for Program hash function."""
 
-    def test_program_same_structure_hash(self):
+    @staticmethod
+    def test_program_same_structure_hash():
         """Test Program nodes with same structure hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -234,7 +246,8 @@ class TestProgramHash:
         hash2 = ir.structural_hash(program2, enable_auto_mapping=True)
         assert hash1 == hash2
 
-    def test_program_different_name_hash(self):
+    @staticmethod
+    def test_program_different_name_hash():
         """Test Program nodes with different names hash the same (name is IgnoreField)."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -250,7 +263,8 @@ class TestProgramHash:
         hash2 = ir.structural_hash(program2)
         assert hash1 == hash2  # name is IgnoreField, so should hash the same
 
-    def test_program_different_functions_hash(self):
+    @staticmethod
+    def test_program_different_functions_hash():
         """Test Program nodes with different functions hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -269,7 +283,8 @@ class TestProgramHash:
         hash2 = ir.structural_hash(program2)
         assert hash1 != hash2
 
-    def test_program_empty_vs_non_empty_functions_hash(self):
+    @staticmethod
+    def test_program_empty_vs_non_empty_functions_hash():
         """Test Program nodes with empty vs non-empty functions hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -289,7 +304,8 @@ class TestProgramHash:
 class TestProgramStructuralEqual:
     """Tests for Program structural equality function."""
 
-    def test_program_structural_equal(self):
+    @staticmethod
+    def test_program_structural_equal():
         """Test Program nodes with same structure are equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -307,7 +323,8 @@ class TestProgramStructuralEqual:
 
         ir.assert_structural_equal(program1, program2, enable_auto_mapping=True)
 
-    def test_program_different_name_not_equal(self):
+    @staticmethod
+    def test_program_different_name_not_equal():
         """Test Program nodes with different names are equal (name is IgnoreField)."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -321,7 +338,8 @@ class TestProgramStructuralEqual:
 
         ir.assert_structural_equal(program1, program2)  # name is IgnoreField, so should be equal
 
-    def test_program_different_functions_not_equal(self):
+    @staticmethod
+    def test_program_different_functions_not_equal():
         """Test Program nodes with different functions are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -338,7 +356,8 @@ class TestProgramStructuralEqual:
 
         assert not ir.structural_equal(program1, program2)
 
-    def test_program_different_from_base_irnode_not_equal(self):
+    @staticmethod
+    def test_program_different_from_base_irnode_not_equal():
         """Test Program is not equal to a different IRNode type."""
         span = ir.Span.unknown()
         dtype = DataType.INT64

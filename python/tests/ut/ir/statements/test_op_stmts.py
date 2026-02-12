@@ -17,7 +17,8 @@ from pypto.ir import DataType
 class TestOpStmts:
     """Test OpStmts class."""
 
-    def test_op_stmts_creation(self):
+    @staticmethod
+    def test_op_stmts_creation():
         """Test creating an OpStmts instance."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -31,7 +32,8 @@ class TestOpStmts:
         assert len(op_stmts.stmts) == 1
         assert isinstance(op_stmts.stmts[0], ir.AssignStmt)
 
-    def test_op_stmts_has_attributes(self):
+    @staticmethod
+    def test_op_stmts_has_attributes():
         """Test that OpStmts has stmts attribute."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -46,7 +48,8 @@ class TestOpStmts:
         assert isinstance(op_stmts.stmts[0], ir.AssignStmt)
         assert isinstance(op_stmts.stmts[1], ir.AssignStmt)
 
-    def test_op_stmts_is_stmt(self):
+    @staticmethod
+    def test_op_stmts_is_stmt():
         """Test that OpStmts is an instance of Stmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -58,7 +61,8 @@ class TestOpStmts:
         assert isinstance(op_stmts, ir.Stmt)
         assert isinstance(op_stmts, ir.IRNode)
 
-    def test_op_stmts_immutability(self):
+    @staticmethod
+    def test_op_stmts_immutability():
         """Test that OpStmts attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -71,14 +75,16 @@ class TestOpStmts:
         with pytest.raises(AttributeError):
             op_stmts.stmts = []  # type: ignore
 
-    def test_op_stmts_with_empty_list(self):
+    @staticmethod
+    def test_op_stmts_with_empty_list():
         """Test OpStmts with empty statement list."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         op_stmts = ir.OpStmts([], span)
 
         assert len(op_stmts.stmts) == 0
 
-    def test_op_stmts_with_multiple_statements(self):
+    @staticmethod
+    def test_op_stmts_with_multiple_statements():
         """Test OpStmts with multiple statements."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -95,7 +101,8 @@ class TestOpStmts:
         assert isinstance(op_stmts.stmts[1], ir.AssignStmt)
         assert isinstance(op_stmts.stmts[2], ir.AssignStmt)
 
-    def test_op_stmts_only_accepts_assign_stmts(self):
+    @staticmethod
+    def test_op_stmts_only_accepts_assign_stmts():
         """Test OpStmts only accepts AssignStmt types."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -114,7 +121,8 @@ class TestOpStmts:
         assert isinstance(op_stmts2.stmts[0], ir.AssignStmt)
         assert isinstance(op_stmts2.stmts[1], ir.AssignStmt)
 
-    def test_op_stmts_accepts_eval_stmt(self):
+    @staticmethod
+    def test_op_stmts_accepts_eval_stmt():
         """Test OpStmts accepts EvalStmt types."""
         span = ir.Span("test.py", 1, 1, 1, 10)
 
@@ -126,7 +134,8 @@ class TestOpStmts:
         assert len(op_stmts.stmts) == 1
         assert isinstance(op_stmts.stmts[0], ir.EvalStmt)
 
-    def test_op_stmts_mixed_assign_and_eval(self):
+    @staticmethod
+    def test_op_stmts_mixed_assign_and_eval():
         """Test OpStmts with mixed AssignStmt and EvalStmt."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -151,7 +160,8 @@ class TestOpStmts:
 class TestOpStmtsPrinting:
     """Test printing of OpStmts statements."""
 
-    def test_op_stmts_printing_single(self):
+    @staticmethod
+    def test_op_stmts_printing_single():
         """Test printing of OpStmts with single statement."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -161,7 +171,8 @@ class TestOpStmtsPrinting:
         op_stmts = ir.OpStmts([assign], span)
         assert str(op_stmts) == "x: pl.INT64 = y"
 
-    def test_op_stmts_printing_multiple(self):
+    @staticmethod
+    def test_op_stmts_printing_multiple():
         """Test printing of OpStmts with multiple statements."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -174,13 +185,15 @@ class TestOpStmtsPrinting:
         op_stmts = ir.OpStmts([assign1, assign2, assign3], span)
         assert str(op_stmts) == "x: pl.INT64 = y\ny: pl.INT64 = z\nz: pl.INT64 = x"
 
-    def test_op_stmts_printing_empty(self):
+    @staticmethod
+    def test_op_stmts_printing_empty():
         """Test printing of OpStmts with empty statement list."""
         span = ir.Span.unknown()
         op_stmts = ir.OpStmts([], span)
         assert str(op_stmts) == ""
 
-    def test_op_stmts_printing_multiple_assigns(self):
+    @staticmethod
+    def test_op_stmts_printing_multiple_assigns():
         """Test printing of OpStmts with multiple assignment statements."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -193,7 +206,8 @@ class TestOpStmtsPrinting:
         op_stmts = ir.OpStmts([assign1, assign2, assign3], span)
         assert str(op_stmts) == "x: pl.INT64 = y\ny: pl.INT64 = z\nz: pl.INT64 = 0"
 
-    def test_op_stmts_printing_with_eval_stmt(self):
+    @staticmethod
+    def test_op_stmts_printing_with_eval_stmt():
         """Test printing of OpStmts with EvalStmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -212,7 +226,8 @@ class TestOpStmtsPrinting:
         assert "x: pl.INT64 = y" in result
         assert "system.bar_all()" in result
 
-    def test_op_stmts_printing_only_eval_stmts(self):
+    @staticmethod
+    def test_op_stmts_printing_only_eval_stmts():
         """Test printing of OpStmts with only EvalStmts."""
         span = ir.Span.unknown()
 
@@ -232,7 +247,8 @@ class TestOpStmtsPrinting:
 class TestOpStmtsHash:
     """Tests for OpStmts hash function."""
 
-    def test_op_stmts_same_structure_hash(self):
+    @staticmethod
+    def test_op_stmts_same_structure_hash():
         """Test OpStmts nodes with same structure hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -251,7 +267,8 @@ class TestOpStmtsHash:
         # Different variable pointers result in different hashes without auto_mapping
         assert hash1 != hash2
 
-    def test_op_stmts_different_statements_hash(self):
+    @staticmethod
+    def test_op_stmts_different_statements_hash():
         """Test OpStmts nodes with different statements hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -268,7 +285,8 @@ class TestOpStmtsHash:
         hash2 = ir.structural_hash(op_stmts2)
         assert hash1 != hash2
 
-    def test_op_stmts_different_length_hash(self):
+    @staticmethod
+    def test_op_stmts_different_length_hash():
         """Test OpStmts nodes with different lengths hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -284,7 +302,8 @@ class TestOpStmtsHash:
         hash2 = ir.structural_hash(op_stmts2)
         assert hash1 != hash2
 
-    def test_op_stmts_empty_hash(self):
+    @staticmethod
+    def test_op_stmts_empty_hash():
         """Test OpStmts nodes with empty list hash."""
         span = ir.Span.unknown()
         op_stmts1 = ir.OpStmts([], span)
@@ -294,7 +313,8 @@ class TestOpStmtsHash:
         hash2 = ir.structural_hash(op_stmts2)
         assert hash1 == hash2
 
-    def test_op_stmts_with_eval_stmt_hash(self):
+    @staticmethod
+    def test_op_stmts_with_eval_stmt_hash():
         """Test OpStmts nodes with EvalStmt hash."""
         span = ir.Span.unknown()
 
@@ -312,7 +332,8 @@ class TestOpStmtsHash:
         # Same structure should have same hash
         assert hash1 == hash2
 
-    def test_op_stmts_mixed_statements_hash(self):
+    @staticmethod
+    def test_op_stmts_mixed_statements_hash():
         """Test OpStmts with mixed AssignStmt and EvalStmt hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -337,7 +358,8 @@ class TestOpStmtsHash:
 class TestOpStmtsEquality:
     """Tests for OpStmts structural equality function."""
 
-    def test_op_stmts_structural_equal(self):
+    @staticmethod
+    def test_op_stmts_structural_equal():
         """Test structural equality of OpStmts nodes."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -357,7 +379,8 @@ class TestOpStmtsEquality:
         # With auto_mapping, same structure should be equal
         ir.assert_structural_equal(op_stmts1, op_stmts2, enable_auto_mapping=True)
 
-    def test_op_stmts_structural_equal_different_statements(self):
+    @staticmethod
+    def test_op_stmts_structural_equal_different_statements():
         """Test structural equality of OpStmts with different statements."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -373,7 +396,8 @@ class TestOpStmtsEquality:
         assert not ir.structural_equal(op_stmts1, op_stmts2)
         ir.assert_structural_equal(op_stmts1, op_stmts2, enable_auto_mapping=True)
 
-    def test_op_stmts_structural_equal_different_length(self):
+    @staticmethod
+    def test_op_stmts_structural_equal_different_length():
         """Test structural equality of OpStmts with different lengths."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -388,7 +412,8 @@ class TestOpStmtsEquality:
         assert not ir.structural_equal(op_stmts1, op_stmts2)
         assert not ir.structural_equal(op_stmts1, op_stmts2, enable_auto_mapping=True)
 
-    def test_op_stmts_structural_equal_empty(self):
+    @staticmethod
+    def test_op_stmts_structural_equal_empty():
         """Test structural equality of OpStmts with empty lists."""
         span = ir.Span.unknown()
         op_stmts1 = ir.OpStmts([], span)
@@ -397,7 +422,8 @@ class TestOpStmtsEquality:
         ir.assert_structural_equal(op_stmts1, op_stmts2)
         ir.assert_structural_equal(op_stmts1, op_stmts2, enable_auto_mapping=True)
 
-    def test_op_stmts_structural_equal_multiple_statements(self):
+    @staticmethod
+    def test_op_stmts_structural_equal_multiple_statements():
         """Test structural equality of OpStmts with multiple statements."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -421,7 +447,8 @@ class TestOpStmtsEquality:
         # With auto_mapping, same structure should be equal
         ir.assert_structural_equal(op_stmts1, op_stmts2, enable_auto_mapping=True)
 
-    def test_op_stmts_with_eval_stmt_structural_equal(self):
+    @staticmethod
+    def test_op_stmts_with_eval_stmt_structural_equal():
         """Test structural equality of OpStmts with EvalStmt."""
         span = ir.Span.unknown()
 
@@ -437,7 +464,8 @@ class TestOpStmtsEquality:
         # Should be structurally equal
         ir.assert_structural_equal(op_stmts1, op_stmts2)
 
-    def test_op_stmts_mixed_statements_structural_equal(self):
+    @staticmethod
+    def test_op_stmts_mixed_statements_structural_equal():
         """Test structural equality of OpStmts with mixed AssignStmt and EvalStmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -462,7 +490,8 @@ class TestOpStmtsEquality:
 class TestOpStmtsSerialization:
     """Tests for OpStmts serialization and deserialization."""
 
-    def test_op_stmts_serialization_with_assign_stmts(self):
+    @staticmethod
+    def test_op_stmts_serialization_with_assign_stmts():
         """Test serialization of OpStmts with AssignStmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -478,7 +507,8 @@ class TestOpStmtsSerialization:
         # Should be structurally equal
         ir.assert_structural_equal(op_stmts, deserialized, enable_auto_mapping=True)
 
-    def test_op_stmts_serialization_with_eval_stmt(self):
+    @staticmethod
+    def test_op_stmts_serialization_with_eval_stmt():
         """Test serialization of OpStmts with EvalStmt."""
         span = ir.Span.unknown()
         sync_call = ir.create_op_call("system.bar_all", [], span)
@@ -492,7 +522,8 @@ class TestOpStmtsSerialization:
         # Should be structurally equal
         ir.assert_structural_equal(op_stmts, deserialized, enable_auto_mapping=True)
 
-    def test_op_stmts_serialization_mixed_statements(self):
+    @staticmethod
+    def test_op_stmts_serialization_mixed_statements():
         """Test serialization of OpStmts with mixed AssignStmt and EvalStmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64

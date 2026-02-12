@@ -17,7 +17,8 @@ from pypto.ir import DataType
 class TestReferenceEquality:
     """Tests for reference equality (pointer-based)."""
 
-    def test_different_pointers_not_equal(self):
+    @staticmethod
+    def test_different_pointers_not_equal():
         """Test that different pointers with same structure are not reference-equal."""
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         x2 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -25,14 +26,16 @@ class TestReferenceEquality:
         # Different objects, even with same content
         assert x1 != x2
 
-    def test_different_content_not_equal(self):
+    @staticmethod
+    def test_different_content_not_equal():
         """Test that different variables are not equal."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
 
         assert x != y
 
-    def test_inequality_operator(self):
+    @staticmethod
+    def test_inequality_operator():
         """Test reference inequality (use 'is not' for pointer comparison)."""
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         x2 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -43,7 +46,8 @@ class TestReferenceEquality:
 
     """Tests for structural equality function."""
 
-    def test_same_var_structural_equal(self):
+    @staticmethod
+    def test_same_var_structural_equal():
         """Test that variables with same name are structurally equal with auto mapping."""
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         x2 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -51,28 +55,32 @@ class TestReferenceEquality:
         # Different objects, need auto mapping to be equal
         ir.assert_structural_equal(x1, x2, enable_auto_mapping=True)
 
-    def test_different_var_not_structural_equal(self):
+    @staticmethod
+    def test_different_var_not_structural_equal():
         """Test that variables with different names are not structurally equal."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
 
         assert not ir.structural_equal(x, y)
 
-    def test_same_const_structural_equal(self):
+    @staticmethod
+    def test_same_const_structural_equal():
         """Test that constants with same value are structurally equal."""
         c1 = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
         c2 = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
 
         ir.assert_structural_equal(c1, c2)
 
-    def test_different_const_not_structural_equal(self):
+    @staticmethod
+    def test_different_const_not_structural_equal():
         """Test that constants with different values are not structurally equal."""
         c1 = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
         c2 = ir.ConstInt(2, DataType.INT64, ir.Span.unknown())
 
         assert not ir.structural_equal(c1, c2)
 
-    def test_const_bool_structural_equal(self):
+    @staticmethod
+    def test_const_bool_structural_equal():
         """Test that ConstBool with same value are structurally equal."""
         b_true1 = ir.ConstBool(True, ir.Span.unknown())
         b_true2 = ir.ConstBool(True, ir.Span.unknown())
@@ -83,14 +91,16 @@ class TestReferenceEquality:
         ir.assert_structural_equal(b_false1, b_false2)
         assert not ir.structural_equal(b_true1, b_false1)
 
-    def test_different_types_not_equal(self):
+    @staticmethod
+    def test_different_types_not_equal():
         """Test that different expression types are not structurally equal."""
         var = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         const = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
 
         assert not ir.structural_equal(var, const)
 
-    def test_binary_expr_structural_equal(self):
+    @staticmethod
+    def test_binary_expr_structural_equal():
         """Test structural equality of binary expressions."""
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y1 = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -103,7 +113,8 @@ class TestReferenceEquality:
         # Same structure with auto mapping
         ir.assert_structural_equal(add1, add2, enable_auto_mapping=True)
 
-    def test_different_binary_ops_not_equal(self):
+    @staticmethod
+    def test_different_binary_ops_not_equal():
         """Test that different binary operations are not structurally equal."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -113,7 +124,8 @@ class TestReferenceEquality:
 
         assert not ir.structural_equal(add_expr, sub_expr)
 
-    def test_operand_order_matters_in_equality(self):
+    @staticmethod
+    def test_operand_order_matters_in_equality():
         """Test that operand order matters for structural equality."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -124,7 +136,8 @@ class TestReferenceEquality:
         # Different operand order
         assert not ir.structural_equal(add1, add2)
 
-    def test_nested_expressions_structural_equal(self):
+    @staticmethod
+    def test_nested_expressions_structural_equal():
         """Test structural equality of nested expressions."""
         # Build (x + 5) * 2
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -143,7 +156,8 @@ class TestReferenceEquality:
 
         ir.assert_structural_equal(expr1, expr2, enable_auto_mapping=True)
 
-    def test_different_nested_structure_not_equal(self):
+    @staticmethod
+    def test_different_nested_structure_not_equal():
         """Test that different nested structures are not equal."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         c5 = ir.ConstInt(5, DataType.INT64, ir.Span.unknown())
@@ -158,7 +172,8 @@ class TestReferenceEquality:
 
         assert not ir.structural_equal(expr1, expr2)
 
-    def test_unary_expr_structural_equal(self):
+    @staticmethod
+    def test_unary_expr_structural_equal():
         """Test structural equality of unary expressions."""
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         neg1 = ir.Neg(x1, DataType.INT64, ir.Span.unknown())
@@ -168,7 +183,8 @@ class TestReferenceEquality:
 
         ir.assert_structural_equal(neg1, neg2, enable_auto_mapping=True)
 
-    def test_different_unary_ops_not_equal(self):
+    @staticmethod
+    def test_different_unary_ops_not_equal():
         """Test that different unary operations are not equal."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
 
@@ -177,7 +193,8 @@ class TestReferenceEquality:
 
         assert not ir.structural_equal(neg_expr, abs_expr)
 
-    def test_call_expr_structural_equal(self):
+    @staticmethod
+    def test_call_expr_structural_equal():
         """Test structural equality of call expressions."""
         op1 = ir.Op("func")
         op2 = ir.Op("func")
@@ -191,7 +208,8 @@ class TestReferenceEquality:
         # Same op name and args
         ir.assert_structural_equal(call1, call2)
 
-    def test_different_op_names_not_equal(self):
+    @staticmethod
+    def test_different_op_names_not_equal():
         """Test that calls with different op names are not equal."""
         op1 = ir.Op("func1")
         op2 = ir.Op("func2")
@@ -203,7 +221,8 @@ class TestReferenceEquality:
 
         assert not ir.structural_equal(call1, call2)
 
-    def test_different_arg_count_not_equal(self):
+    @staticmethod
+    def test_different_arg_count_not_equal():
         """Test that calls with different argument counts are not equal."""
         op = ir.Op("func")
 
@@ -215,7 +234,8 @@ class TestReferenceEquality:
 
         assert not ir.structural_equal(call1, call2)
 
-    def test_empty_call_args_equal(self):
+    @staticmethod
+    def test_empty_call_args_equal():
         """Test that calls with empty args lists can be equal."""
         op1 = ir.Op("func")
         op2 = ir.Op("func")
@@ -225,7 +245,8 @@ class TestReferenceEquality:
 
         ir.assert_structural_equal(call1, call2)
 
-    def test_stmt_different_from_expr_not_equal(self):
+    @staticmethod
+    def test_stmt_different_from_expr_not_equal():
         """Test that Stmt and Expr nodes are not structurally equal."""
         span = ir.Span.unknown()
 
@@ -239,7 +260,8 @@ class TestReferenceEquality:
         # Different IR node types should not be equal
         assert not ir.structural_equal(assign, expr)
 
-    def test_assign_stmt_structural_equal(self):
+    @staticmethod
+    def test_assign_stmt_structural_equal():
         """Test structural equality of AssignStmt nodes."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -256,7 +278,8 @@ class TestReferenceEquality:
         # With auto_mapping, they should be equal
         ir.assert_structural_equal(assign1, assign2, enable_auto_mapping=True)
 
-    def test_assign_stmt_different_var_not_equal(self):
+    @staticmethod
+    def test_assign_stmt_different_var_not_equal():
         """Test AssignStmt nodes with different var are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -269,7 +292,8 @@ class TestReferenceEquality:
 
         ir.assert_structural_equal(assign1, assign2, enable_auto_mapping=True)
 
-    def test_assign_stmt_different_value_not_equal(self):
+    @staticmethod
+    def test_assign_stmt_different_value_not_equal():
         """Test AssignStmt nodes with different value are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -285,7 +309,8 @@ class TestReferenceEquality:
         # With auto_mapping, they should be equal (x maps to x, y maps to z)
         ir.assert_structural_equal(assign1, assign2, enable_auto_mapping=True)
 
-    def test_assign_stmt_different_from_base_stmt_not_equal(self):
+    @staticmethod
+    def test_assign_stmt_different_from_base_stmt_not_equal():
         """Test AssignStmt and different Stmt type are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -298,7 +323,8 @@ class TestReferenceEquality:
         # Different types, so not equal
         assert not ir.structural_equal(assign, other_stmt)
 
-    def test_yield_stmt_structural_equal(self):
+    @staticmethod
+    def test_yield_stmt_structural_equal():
         """Test structural equality of YieldStmt nodes."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -315,7 +341,8 @@ class TestReferenceEquality:
         # With auto_mapping, they should be equal
         ir.assert_structural_equal(yield_stmt1, yield_stmt2, enable_auto_mapping=True)
 
-    def test_yield_stmt_different_vars_not_equal(self):
+    @staticmethod
+    def test_yield_stmt_different_vars_not_equal():
         """Test YieldStmt nodes with different vars are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -328,7 +355,8 @@ class TestReferenceEquality:
 
         assert not ir.structural_equal(yield_stmt1, yield_stmt2)
 
-    def test_yield_stmt_empty_vs_non_empty_not_equal(self):
+    @staticmethod
+    def test_yield_stmt_empty_vs_non_empty_not_equal():
         """Test YieldStmt nodes with empty and non-empty value lists are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -339,7 +367,8 @@ class TestReferenceEquality:
 
         assert not ir.structural_equal(yield_stmt1, yield_stmt2)
 
-    def test_yield_stmt_different_from_base_stmt_not_equal(self):
+    @staticmethod
+    def test_yield_stmt_different_from_base_stmt_not_equal():
         """Test YieldStmt and different Stmt type are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -355,7 +384,8 @@ class TestReferenceEquality:
 class TestHashEqualityConsistency:
     """Test that hash and equality are consistent."""
 
-    def test_equal_implies_same_hash(self):
+    @staticmethod
+    def test_equal_implies_same_hash():
         """Test that structurally equal expressions have the same hash."""
         # Create several pairs of structurally equal expressions
         test_cases = [
@@ -413,7 +443,8 @@ class TestHashEqualityConsistency:
                     f"Equal expressions should have same hash: {expr1} vs {expr2}"
                 )
 
-    def test_deep_nested_consistency(self):
+    @staticmethod
+    def test_deep_nested_consistency():
         """Test hash/equality consistency for deeply nested expressions."""
 
         # Build: (((x + 1) - 2) * 3) / 4
@@ -440,7 +471,8 @@ class TestHashEqualityConsistency:
 class TestEdgeCases:
     """Test edge cases and special scenarios."""
 
-    def test_comparison_operations(self):
+    @staticmethod
+    def test_comparison_operations():
         """Test all comparison operation types."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -459,7 +491,8 @@ class TestEdgeCases:
             expr2 = op2(x, y, DataType.INT64, ir.Span.unknown())
             ir.assert_structural_equal(expr1, expr2)
 
-    def test_logical_operations(self):
+    @staticmethod
+    def test_logical_operations():
         """Test all logical operation types."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -471,7 +504,8 @@ class TestEdgeCases:
             expr2 = op2(x, y, DataType.INT64, ir.Span.unknown())
             ir.assert_structural_equal(expr1, expr2)
 
-    def test_bitwise_operations(self):
+    @staticmethod
+    def test_bitwise_operations():
         """Test all bitwise operation types."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -489,7 +523,8 @@ class TestEdgeCases:
             expr2 = op2(x, y, DataType.INT64, ir.Span.unknown())
             ir.assert_structural_equal(expr1, expr2)
 
-    def test_all_unary_operations(self):
+    @staticmethod
+    def test_all_unary_operations():
         """Test all unary operation types."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
 
@@ -500,7 +535,8 @@ class TestEdgeCases:
             expr2 = op2(x, DataType.INT64, ir.Span.unknown())
             ir.assert_structural_equal(expr1, expr2)
 
-    def test_math_operations(self):
+    @staticmethod
+    def test_math_operations():
         """Test mathematical operation types."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -516,7 +552,8 @@ class TestEdgeCases:
 class TestAutoMapping:
     """Tests for auto mapping feature in structural equality and hash."""
 
-    def test_auto_mapping_simple_vars_equal(self):
+    @staticmethod
+    def test_auto_mapping_simple_vars_equal():
         """Test that x+1 equals y+1 with auto mapping enabled."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -532,7 +569,8 @@ class TestAutoMapping:
         # With auto mapping, they SHOULD be equal
         ir.assert_structural_equal(expr1, expr2, enable_auto_mapping=True)
 
-    def test_auto_mapping_simple_vars_not_equal(self):
+    @staticmethod
+    def test_auto_mapping_simple_vars_not_equal():
         """Test that x+1 does not equal y+1 without auto mapping."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -553,7 +591,8 @@ class TestAutoMapping:
         # Without auto mapping (default), they should NOT be equal
         assert not ir.structural_equal(expr1, expr2)
 
-    def test_auto_mapping_hash_consistency(self):
+    @staticmethod
+    def test_auto_mapping_hash_consistency():
         """Test that x+1 and y+1 hash to same value with auto mapping."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -573,7 +612,8 @@ class TestAutoMapping:
         hash2_auto = ir.structural_hash(expr2, enable_auto_mapping=True)
         assert hash1_auto == hash2_auto
 
-    def test_auto_mapping_multiple_vars(self):
+    @staticmethod
+    def test_auto_mapping_multiple_vars():
         """Test auto mapping with multiple different variables."""
 
         # Build: (x + y) * z
@@ -599,7 +639,8 @@ class TestAutoMapping:
             expr2, enable_auto_mapping=True
         )
 
-    def test_auto_mapping_consistent_mapping(self):
+    @staticmethod
+    def test_auto_mapping_consistent_mapping():
         """Test that auto mapping maintains consistent variable mapping."""
         # Build: x + x (same variable used twice)
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -612,7 +653,8 @@ class TestAutoMapping:
         # With auto mapping, x maps to y consistently
         ir.assert_structural_equal(expr1, expr2, enable_auto_mapping=True)
 
-    def test_auto_mapping_inconsistent_mapping_fails(self):
+    @staticmethod
+    def test_auto_mapping_inconsistent_mapping_fails():
         """Test that inconsistent variable mapping is rejected."""
         # Build: x + x (same variable used twice)
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -626,7 +668,8 @@ class TestAutoMapping:
         # With auto mapping, this should fail because x can't map to both y and z
         assert not ir.structural_equal(expr1, expr2, enable_auto_mapping=True)
 
-    def test_auto_mapping_different_vars_vs_same_var(self):
+    @staticmethod
+    def test_auto_mapping_different_vars_vs_same_var():
         """Test that Var(x) + Var(y) is not equal to Var(a) + Var(a)."""
         # Build: x + y (two different variables)
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -650,7 +693,8 @@ class TestAutoMapping:
         hash2 = ir.structural_hash(expr2, enable_auto_mapping=True)
         assert hash1 != hash2
 
-    def test_auto_mapping_complex_expression(self):
+    @staticmethod
+    def test_auto_mapping_complex_expression():
         """Test auto mapping with complex nested expressions."""
 
         # Build: ((x + 1) * (y - 2)) / (x + y)
@@ -693,7 +737,8 @@ class TestAutoMapping:
             expr2, enable_auto_mapping=True
         )
 
-    def test_auto_mapping_same_vars_still_equal(self):
+    @staticmethod
+    def test_auto_mapping_same_vars_still_equal():
         """Test that expressions with same variable names are still equal with auto mapping."""
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         x2 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -707,7 +752,8 @@ class TestAutoMapping:
         assert not ir.structural_equal(expr1, expr2, enable_auto_mapping=False)
         ir.assert_structural_equal(expr1, expr2, enable_auto_mapping=True)
 
-    def test_auto_mapping_default_false(self):
+    @staticmethod
+    def test_auto_mapping_default_false():
         """Test that auto mapping is disabled by default."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -715,21 +761,16 @@ class TestAutoMapping:
 
         expr1 = ir.Add(x, c1, DataType.INT64, ir.Span.unknown())
         expr2 = ir.Add(y, c1, DataType.INT64, ir.Span.unknown())
-
         # Default behavior should require exact variable name match
         assert not ir.structural_equal(expr1, expr2)
-
         # Hash should also include variable names by default
         assert ir.structural_hash(expr1) != ir.structural_hash(expr2)
 
-    def test_auto_mapping_with_unary_ops(self):
+    @staticmethod
+    def test_auto_mapping_with_unary_ops():
         """Test auto mapping with unary operations."""
-
-        # Build: -x
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         expr1 = ir.Neg(x, DataType.INT64, ir.Span.unknown())
-
-        # Build: -y
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         expr2 = ir.Neg(y, DataType.INT64, ir.Span.unknown())
 
@@ -739,16 +780,13 @@ class TestAutoMapping:
             expr2, enable_auto_mapping=True
         )
 
-    def test_auto_mapping_with_call_expr(self):
+    @staticmethod
+    def test_auto_mapping_with_call_expr():
         """Test auto mapping with call expressions."""
         op = ir.Op("func")
-
-        # Build: func(x, y)
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         call1 = ir.Call(op, [x, y], ir.Span.unknown())
-
-        # Build: func(a, b)
         a = ir.Var("a", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         b = ir.Var("b", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         call2 = ir.Call(op, [a, b], ir.Span.unknown())
@@ -759,18 +797,15 @@ class TestAutoMapping:
             call2, enable_auto_mapping=True
         )
 
-    def test_auto_mapping_with_assign_stmt(self):
+    @staticmethod
+    def test_auto_mapping_with_assign_stmt():
         """Test auto mapping with AssignStmt."""
-        # Build: x = y
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y1 = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         assign1 = ir.AssignStmt(x1, y1, ir.Span.unknown())
-
-        # Build: a = b
         a = ir.Var("a", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         b = ir.Var("b", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         assign2 = ir.AssignStmt(a, b, ir.Span.unknown())
-
         ir.assert_structural_equal(assign1, assign2, enable_auto_mapping=True)
         assert not ir.structural_equal(assign1, assign2, enable_auto_mapping=False)
 
@@ -782,20 +817,16 @@ class TestAutoMapping:
         hash_without_auto2 = ir.structural_hash(assign2, enable_auto_mapping=False)
         assert hash_without_auto1 != hash_without_auto2
 
-    def test_auto_mapping_assign_stmt_different_var_same_value(self):
+    @staticmethod
+    def test_auto_mapping_assign_stmt_different_var_same_value():
         """Test auto mapping with AssignStmt where var differs but value is same."""
-        # Build: x = y
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         assign1 = ir.AssignStmt(x, y, ir.Span.unknown())
-
-        # Build: z = y
         z = ir.Var("z", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         assign2 = ir.AssignStmt(z, y, ir.Span.unknown())
-
         equal_with_auto = ir.structural_equal(assign1, assign2, enable_auto_mapping=True)
         assert equal_with_auto
-
         hash_with_auto1 = ir.structural_hash(assign1, enable_auto_mapping=True)
         hash_with_auto2 = ir.structural_hash(assign2, enable_auto_mapping=True)
         assert hash_with_auto1 == hash_with_auto2
@@ -807,14 +838,12 @@ class TestAutoMapping:
         hash_without_auto2 = ir.structural_hash(assign2, enable_auto_mapping=False)
         assert hash_without_auto1 == hash_without_auto2
 
-    def test_auto_mapping_assign_stmt_same_var_different_value(self):
+    @staticmethod
+    def test_auto_mapping_assign_stmt_same_var_different_value():
         """Test auto mapping with AssignStmt where var is same but value differs."""
-        # Build: x = y
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         assign1 = ir.AssignStmt(x, y, ir.Span.unknown())
-
-        # Build: x = z
         z = ir.Var("z", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         assign2 = ir.AssignStmt(x, z, ir.Span.unknown())
 
@@ -832,7 +861,8 @@ class TestAutoMapping:
         hash_without_auto2 = ir.structural_hash(assign2, enable_auto_mapping=False)
         assert hash_without_auto1 != hash_without_auto2
 
-    def test_auto_mapping_assign_stmt_with_expression(self):
+    @staticmethod
+    def test_auto_mapping_assign_stmt_with_expression():
         """Test auto mapping with AssignStmt containing complex expressions."""
         # Build: x = y + z
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -861,7 +891,8 @@ class TestAutoMapping:
         hash_without_auto2 = ir.structural_hash(assign2, enable_auto_mapping=False)
         assert hash_without_auto1 != hash_without_auto2
 
-    def test_auto_mapping_with_yield_stmt(self):
+    @staticmethod
+    def test_auto_mapping_with_yield_stmt():
         """Test auto mapping with YieldStmt."""
         # Build: yield x, y
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -884,7 +915,8 @@ class TestAutoMapping:
         hash_without_auto2 = ir.structural_hash(yield_stmt2, enable_auto_mapping=False)
         assert hash_without_auto1 != hash_without_auto2
 
-    def test_auto_mapping_yield_stmt_different_length(self):
+    @staticmethod
+    def test_auto_mapping_yield_stmt_different_length():
         """Test auto mapping with YieldStmt where list lengths differ."""
         # Build: yield x
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -902,7 +934,8 @@ class TestAutoMapping:
 class TestAssertStructuralEqual:
     """Tests for assert_structural_equal function."""
 
-    def test_assert_equal_nodes_no_error(self):
+    @staticmethod
+    def test_assert_equal_nodes_no_error():
         """Test that equal nodes don't raise an error."""
         c1 = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
         c2 = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
@@ -910,7 +943,8 @@ class TestAssertStructuralEqual:
         # Should not raise
         ir.assert_structural_equal(c1, c2)
 
-    def test_assert_const_value_mismatch(self):
+    @staticmethod
+    def test_assert_const_value_mismatch():
         """Test error message for constant value mismatch."""
         c1 = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
         c2 = ir.ConstInt(2, DataType.INT64, ir.Span.unknown())
@@ -918,7 +952,8 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match=r"value mismatch.*1 != 2"):
             ir.assert_structural_equal(c1, c2)
 
-    def test_assert_type_mismatch(self):
+    @staticmethod
+    def test_assert_type_mismatch():
         """Test error message for node type mismatch."""
         span = ir.Span.unknown()
         c = ir.ConstInt(1, DataType.INT64, span)
@@ -927,7 +962,8 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match="Node type mismatch.*ConstInt != Var"):
             ir.assert_structural_equal(c, v)
 
-    def test_assert_binary_expr_mismatch(self):
+    @staticmethod
+    def test_assert_binary_expr_mismatch():
         """Test error message for binary expression mismatch."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -939,7 +975,8 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match="Node type mismatch.*Add != Sub"):
             ir.assert_structural_equal(add_expr, sub_expr)
 
-    def test_assert_nested_mismatch_with_path(self):
+    @staticmethod
+    def test_assert_nested_mismatch_with_path():
         """Test that error shows path to nested mismatch."""
         span = ir.Span.unknown()
         x = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -957,7 +994,8 @@ class TestAssertStructuralEqual:
         # Check that error message contains path
         assert "BinaryExpr" in str(exc_info.value)
 
-    def test_assert_vector_size_mismatch(self):
+    @staticmethod
+    def test_assert_vector_size_mismatch():
         """Test error message for vector size mismatch."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -974,7 +1012,8 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match="Vector size mismatch.*1 items != 2 items"):
             ir.assert_structural_equal(seq1, seq2, enable_auto_mapping=True)
 
-    def test_assert_variable_mapping_conflict(self):
+    @staticmethod
+    def test_assert_variable_mapping_conflict():
         """Test error message for variable mapping conflict."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -990,7 +1029,8 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match="Variable mapping inconsistent"):
             ir.assert_structural_equal(expr1, expr2, enable_auto_mapping=True)
 
-    def test_assert_dtype_mismatch(self):
+    @staticmethod
+    def test_assert_dtype_mismatch():
         """Test error message for data type mismatch."""
         span = ir.Span.unknown()
         c1 = ir.ConstInt(1, DataType.INT64, span)
@@ -999,7 +1039,8 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match="ScalarType dtype mismatch.*int64 != int32"):
             ir.assert_structural_equal(c1, c2)
 
-    def test_assert_null_vs_nonnull(self):
+    @staticmethod
+    def test_assert_null_vs_nonnull():
         """Test error message for null vs non-null node."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -1014,23 +1055,21 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match="Optional field presence mismatch"):
             ir.assert_structural_equal(if_stmt1, if_stmt2, enable_auto_mapping=True)
 
-    def test_assert_function_mismatch(self):
+    @staticmethod
+    def test_assert_function_mismatch():
         """Test error message for function structure mismatch."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
         x = ir.Var("x", ir.ScalarType(dtype), span)
         y = ir.Var("y", ir.ScalarType(dtype), span)
-
         body1 = ir.AssignStmt(x, y, span)
         body2 = ir.YieldStmt([y], span)
-
         func1 = ir.Function("test", [x], [ir.ScalarType(dtype)], body1, span)
         func2 = ir.Function("test", [x], [ir.ScalarType(dtype)], body2, span)
-
         with pytest.raises(ValueError, match="Node type mismatch.*AssignStmt != YieldStmt"):
             ir.assert_structural_equal(func1, func2, enable_auto_mapping=True)
-
-    def test_assert_type_mismatch_in_var(self):
+    @staticmethod
+    def test_assert_type_mismatch_in_var():
         """Test error message for variable type mismatch."""
         span = ir.Span.unknown()
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -1039,10 +1078,10 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match="ScalarType dtype mismatch.*int64 != int32"):
             ir.assert_structural_equal(x1, x2, enable_auto_mapping=True)
 
-    def test_assert_tensor_shape_mismatch(self):
+    @staticmethod
+    def test_assert_tensor_shape_mismatch():
         """Test error message for tensor shape rank mismatch."""
         span = ir.Span.unknown()
-
         # Create tensor types with different rank
         c4 = ir.ConstInt(4, DataType.INT64, span)
         c8 = ir.ConstInt(8, DataType.INT64, span)
@@ -1053,7 +1092,8 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match="TensorType shape rank mismatch.*2 != 1"):
             ir.assert_structural_equal(type1, type2)
 
-    def test_assert_with_auto_mapping_enabled(self):
+    @staticmethod
+    def test_assert_with_auto_mapping_enabled():
         """Test that auto-mapping works correctly in assert mode."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -1074,7 +1114,8 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match="Variable pointer mismatch"):
             ir.assert_structural_equal(expr1, expr2, enable_auto_mapping=False)
 
-    def test_assert_complex_nested_structure(self):
+    @staticmethod
+    def test_assert_complex_nested_structure():
         """Test error messages with complex nested structures."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -1099,7 +1140,8 @@ class TestAssertStructuralEqual:
         error_msg = str(exc_info.value)
         assert "Structural equality assertion failed" in error_msg
 
-    def test_assert_equal_types(self):
+    @staticmethod
+    def test_assert_equal_types():
         """Test assert_structural_equal with Type objects."""
         dtype1 = ir.ScalarType(DataType.INT64)
         dtype2 = ir.ScalarType(DataType.INT64)
@@ -1107,7 +1149,8 @@ class TestAssertStructuralEqual:
         # Should not raise
         ir.assert_structural_equal(dtype1, dtype2)
 
-    def test_assert_type_dtype_mismatch(self):
+    @staticmethod
+    def test_assert_type_dtype_mismatch():
         """Test error message for ScalarType dtype mismatch."""
         dtype1 = ir.ScalarType(DataType.INT64)
         dtype2 = ir.ScalarType(DataType.FP32)
@@ -1115,7 +1158,8 @@ class TestAssertStructuralEqual:
         with pytest.raises(ValueError, match="ScalarType dtype mismatch.*int64 != fp32"):
             ir.assert_structural_equal(dtype1, dtype2)
 
-    def test_assert_tuple_type_size_mismatch(self):
+    @staticmethod
+    def test_assert_tuple_type_size_mismatch():
         """Test error message for TupleType size mismatch."""
         t1 = ir.ScalarType(DataType.INT64)
         t2 = ir.ScalarType(DataType.FP32)

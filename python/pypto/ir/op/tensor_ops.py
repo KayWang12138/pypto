@@ -68,7 +68,7 @@ def view(
     return _ir_core.create_op_call("tensor.view", args, {}, actual_span)
 
 
-def matmul(
+def matmul(  # pylint: disable=too-many-arguments
     lhs: Expr,
     rhs: Expr,
     out_dtype: Optional[Union[int, DataType]] = None,
@@ -78,6 +78,10 @@ def matmul(
     span: Optional[Span] = None,
 ) -> Call:
     """Matrix multiplication with optional transpose.
+
+    Note: This function requires 7 parameters as they directly map to the
+    underlying IR operation semantics. Each parameter is necessary and cannot
+    be reasonably grouped without reducing API clarity.
 
     Args:
         lhs: Left-hand side tensor
