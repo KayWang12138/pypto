@@ -167,6 +167,102 @@ class OrbitGraphProcessor {
     }
 
     /**
+     * @brief Checks if an edge should be skipped during merge attempts.
+     *
+     * @param u Source vertex.
+     * @param v Target vertex.
+     * @param currentCoarseGraph The current coarse graph.
+     * @param currentGroups The current groups.
+     * @param vertexPoset Top node distance for each vertex.
+     * @param vertexBotPoset Bottom node distance for each vertex.
+     * @param workThreshold Work threshold for merging.
+     * @return True if the edge should be skipped, false otherwise.
+     */
+    bool ShouldSkipEdge(VertexType u,
+                       VertexType v,
+                       const ConstrGraphT &currentCoarseGraph,
+                       const std::vector<Group> &currentGroups,
+                       const std::vector<VertexIdxT<ConstrGraphT>> &vertexPoset,
+                       const std::vector<VertexIdxT<ConstrGraphT>> &vertexBotPoset,
+                       const VWorkwT<ConstrGraphT> workThreshold) const {
+        // Check node type compatibility
+        if (not mergeDifferentNodeTypes_) {
+            if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
+                return true;
+            }
+        }
+
+        // Check if edge is in non-viable cache
+        if (nonViableEdgesCache_.count({u, v}) || nonViableCritPathEdgesCache_.count({u, v})) {
+            return true;
+        }
+
+        // Check work thresholds
+        const VWorkwT<ConstrGraphT> uWorkWeight = currentCoarseGraph.VertexWorkWeight(u);
+        const VWorkwT<ConstrGraphT> vWorkWeight = currentCoarseGraph.VertexWorkWeight(v);
+        const VWorkwT<ConstrGraphT> vThreshold
+            = workThreshold * static_cast<VWorkwT<ConstrGraphT>>(currentGroups[v].size());
+        const VWorkwT<ConstrGraphT> uThreshold
+            = workThreshold * static_cast<VWorkwT<ConstrGraphT>>(currentGroups[u].size());
+
+        if (uWorkWeight > uThreshold && vWorkWeight > vThreshold) {
+            return true;
+        }
+
+        // Check poset constraints
+        if ((vertexPoset[u] + 1 != vertexPoset[v]) && (vertexBotPoset[u] != 1 + vertexBotPoset[v])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @brief Attempts to merge an edge, checking viability and critical path constraints.
+     *
+     * @param u Source vertex.
+     * @param v Target vertex.
+     * @param originalDag The original DAG.
+     * @param currentCoarseGraph The current coarse graph.
+     * @param currentGroups The current groups.
+     * @param pathThreshold Critical path threshold.
+     * @param outNewSubgraphs Output parameter for new subgraphs if merge succeeds.
+     * @param outTempGraph Output parameter for temporary graph if merge succeeds.
+     * @param outTempContractionMap Output parameter for temporary contraction map if merge succeeds.
+     * @return True if merge was successful, false otherwise.
+     */
+    bool TryMergeEdge(VertexType u,
+                     VertexType v,
+                     const GraphT &originalDag,
+                     const ConstrGraphT &currentCoarseGraph,
+                     const std::vector<Group> &currentGroups,
+                     const VWorkwT<ConstrGraphT> pathThreshold,
+                     std::vector<std::vector<VertexType>> &outNewSubgraphs,
+                     ConstrGraphT &outTempGraph,
+                     std::vector<VertexType> &outTempContractionMap) {
+        // Check merge structural viability
+        const bool mergeIsValid = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], outNewSubgraphs);
+        if (!mergeIsValid) {
+            nonViableEdgesCache_.insert({u, v});
+            return false;
+        }
+
+        // Simulate merge and check critical path
+        auto [tempCoarseGraph, tempContractionMap] = SimulateMerge(u, v, currentCoarseGraph);
+
+        if (CriticalPathWeight(tempCoarseGraph)
+            > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(outNewSubgraphs.size())
+               + CriticalPathWeight(currentCoarseGraph))) {
+            nonViableCritPathEdgesCache_.insert({u, v});
+            return false;
+        }
+
+        outTempGraph = std::move(tempCoarseGraph);
+        outTempContractionMap = std::move(tempContractionMap);
+        return true;
+    }
+
+    /**
      * @brief Merges small orbits based on work threshold (final cleanup pass).
      *
      * Iteratively attempts to merge adjacent nodes in the coarse graph if they
@@ -194,45 +290,16 @@ class OrbitGraphProcessor {
             changed = false;
             for (const auto u : currentCoarseGraph.Vertices()) {
                 for (const auto v : currentCoarseGraph.Children(u)) {
-                    if (not mergeDifferentNodeTypes_) {
-                        if (currentCoarseGraph.VertexType(u) != currentCoarseGraph.VertexType(v)) {
-                            continue;
-                        }
-                    }                    
-
-                    if (nonViableEdgesCache_.count({u, v}) || nonViableCritPathEdgesCache_.count({u, v})) {
-                        continue;
-                    }
-
-                    const VWorkwT<ConstrGraphT> uWorkWeight = currentCoarseGraph.VertexWorkWeight(u);
-                    const VWorkwT<ConstrGraphT> vWorkWeight = currentCoarseGraph.VertexWorkWeight(v);
-                    const VWorkwT<ConstrGraphT> vThreshold
-                        = workThreshold * static_cast<VWorkwT<ConstrGraphT>>(currentGroups[v].size());
-                    const VWorkwT<ConstrGraphT> uThreshold
-                        = workThreshold * static_cast<VWorkwT<ConstrGraphT>>(currentGroups[u].size());
-
-                    if (uWorkWeight > uThreshold && vWorkWeight > vThreshold) {
-                        continue;
-                    }
-
-                    if ((vertexPoset[u] + 1 != vertexPoset[v]) && (vertexBotPoset[u] != 1 + vertexBotPoset[v])) {
+                    if (ShouldSkipEdge(u, v, currentCoarseGraph, currentGroups, vertexPoset, vertexBotPoset, workThreshold)) {
                         continue;
                     }
 
                     std::vector<std::vector<VertexType>> newSubgraphs;
-                    const bool mergeIsValid = IsMergeViable(originalDag, currentGroups[u], currentGroups[v], newSubgraphs);
+                    ConstrGraphT tempCoarseGraph;
+                    std::vector<VertexType> tempContractionMap;
 
-                    if (!mergeIsValid) {
-                        nonViableEdgesCache_.insert({u, v});
-                        continue;
-                    }
-
-                    auto [tempCoarseGraph, tempContractionMap] = SimulateMerge(u, v, currentCoarseGraph);
-
-                    if (CriticalPathWeight(tempCoarseGraph)
-                        > (pathThreshold * static_cast<VWorkwT<ConstrGraphT>>(newSubgraphs.size())
-                           + CriticalPathWeight(currentCoarseGraph))) {
-                        nonViableCritPathEdgesCache_.insert({u, v});
+                    if (!TryMergeEdge(u, v, originalDag, currentCoarseGraph, currentGroups, pathThreshold,
+                                      newSubgraphs, tempCoarseGraph, tempContractionMap)) {
                         continue;
                     }
 
@@ -253,6 +320,7 @@ class OrbitGraphProcessor {
             }
         }
     }
+
 
 
 
