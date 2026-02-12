@@ -47,11 +47,6 @@ namespace npu::tile_fwk {
 // If enabled, performance trace statistics are recorded in the log.
 #define ENABLE_PERF_TRACE 0
 
-/* When enabled, verbose log will be compiled.Because verbose logging is so extensive, having it compiled into the code
-   can hurt performance, even when the logging feature is turned off.
-*/
-#define ENABLE_COMPILE_VERBOSE_LOG 0
-
 #define DEBUG_INFINITE_LIFETIME 0
 
 #define ENABLE_AICORE_PRINT 0
