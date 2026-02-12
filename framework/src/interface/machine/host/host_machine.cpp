@@ -28,7 +28,6 @@ extern "C" {
 using RunPassFunc = int (*)(npu::tile_fwk::Program &, npu::tile_fwk::Function &, const std::string &);
 using GetResumePathFunc = std::string (*)(const std::string &);
 using ExecuteFunc = int (*)(npu::tile_fwk::MachineTask *, npu::tile_fwk::FunctionCache &);
-using PlatformFunc = std::string (*)();
 using MatchCacheFunc = bool (*)(const std::string &);
 using InitFunc = int (*)();
 
@@ -37,7 +36,6 @@ struct Backend {
     GetResumePathFunc getResumePath;
     ExecuteFunc execute;
     ExecuteFunc simuExecute;
-    PlatformFunc platform;
     MatchCacheFunc matchCache;
 
     static Backend &GetBackend() {
@@ -63,7 +61,6 @@ private:
         runPass = (RunPassFunc)GetSymbol(progHandle, "RunPass");
         getResumePath = (GetResumePathFunc)GetSymbol(progHandle, "GetResumePath");
         execute = (ExecuteFunc)GetSymbol(compilerHandle, "Execute");
-        platform = (PlatformFunc)GetSymbol(compilerHandle, "GetPlatformInfo");
         matchCache = (MatchCacheFunc)GetSymbol(compilerHandle, "MatchCache");
         simuExecute = (ExecuteFunc)GetSymbol(simuHandle, "ExecuteSimulation");
 
@@ -368,14 +365,5 @@ void HostMachine::AgentThreadFunc() {
         }
         PushFinishQueue(std::move(task));
     }
-}
-
-std::string HostMachine::GetPlatformInfo() const {
-    auto &backend = Backend::GetBackend();
-    if (backend.platform == nullptr) {
-        ALOG_ERROR("Backend platform symbol GetPlatformInfo not found.");
-        return "";
-    }
-    return backend.platform();
 }
 } // namespace npu::tile_fwk

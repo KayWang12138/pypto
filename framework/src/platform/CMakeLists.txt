@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2025-2026 Huawei Technologies Co., Ltd.
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,23 +8,5 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-if (ENABLE_UTEST)
-    add_subdirectory(utils)
-    add_subdirectory(stubs)
-
-    PTO_Fwk_UTest_AddModuleDir(DIR platform)
-    PTO_Fwk_UTest_AddModuleDir(DIR operator)
-    PTO_Fwk_UTest_AddModuleDir(DIR interface)
-    PTO_Fwk_UTest_AddModuleDir(DIR passes)
-    if (NOT ENABLE_ASAN)
-        PTO_Fwk_UTest_AddModuleDir(DIR simulation)
-    endif ()
-
-    if (BUILD_WITH_CANN)
-        PTO_Fwk_UTest_AddModuleDir(DIR machine)
-        PTO_Fwk_UTest_AddModuleDir(DIR codegen)
-    endif ()
-
-    # 可执行程序
-    PTO_Fwk_UTest_AddExe_RunExe(TARGET ${PTO_Fwk_UTestNamePrefix})
-endif ()
+add_subdirectory(platform_utils)
+add_subdirectory(platform_ops)

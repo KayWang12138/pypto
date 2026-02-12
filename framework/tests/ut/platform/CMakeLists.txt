@@ -8,23 +8,16 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-if (ENABLE_UTEST)
-    add_subdirectory(utils)
-    add_subdirectory(stubs)
+set(_Target ${PTO_Fwk_UTestNamePrefix}_platform)
 
-    PTO_Fwk_UTest_AddModuleDir(DIR platform)
-    PTO_Fwk_UTest_AddModuleDir(DIR operator)
-    PTO_Fwk_UTest_AddModuleDir(DIR interface)
-    PTO_Fwk_UTest_AddModuleDir(DIR passes)
-    if (NOT ENABLE_ASAN)
-        PTO_Fwk_UTest_AddModuleDir(DIR simulation)
-    endif ()
+file(GLOB_RECURSE _Sources
+        src/*.cpp
+)
 
-    if (BUILD_WITH_CANN)
-        PTO_Fwk_UTest_AddModuleDir(DIR machine)
-        PTO_Fwk_UTest_AddModuleDir(DIR codegen)
-    endif ()
+set(LinkLibraries)
 
-    # 可执行程序
-    PTO_Fwk_UTest_AddExe_RunExe(TARGET ${PTO_Fwk_UTestNamePrefix})
-endif ()
+PTO_Fwk_UTest_AddCaseLib(
+        TARGET ${_Target}
+        SOURCES ${_Sources}
+        LINK_LIBRARIES ${LinkLibraries}
+)

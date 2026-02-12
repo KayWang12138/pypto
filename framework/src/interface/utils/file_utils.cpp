@@ -18,7 +18,6 @@
 #include <fcntl.h>
 #include <climits>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <dirent.h>
 #include <dlfcn.h>
 #include <ftw.h>
@@ -27,36 +26,6 @@
 namespace npu::tile_fwk {
 namespace {
 const int FILE_AUTHORITY = 0640;
-}
-
-bool FileExist(const std::string &filePath) {
-    return !RealPath(filePath).empty();
-}
-
-std::string RealPath(const std::string &path) {
-    if (path.empty()) {
-        ALOG_INFO("path string is nullptr.");
-        return "";
-    }
-    if (path.size() >= PATH_MAX) {
-        ALOG_INFO("file path ", path.c_str(), " is too long.");
-        return "";
-    }
-
-    // PATH_MAX is the system marco, indicate the maximum length for file path
-    // pclint check one param in stack can not exceed 1K bytes
-    char resovedPath[PATH_MAX] = {0x00};
-
-    std::string res;
-
-    // path not exists or not allowed to read return nullptr
-    // path exists and readable, return the resoved path
-    if (realpath(path.c_str(), resovedPath) != nullptr) {
-        res = resovedPath;
-    } else {
-        ALOG_INFO("path ", path.c_str(), " is not exist.");
-    }
-    return res;
 }
 
 bool GetFileSize(const std::string& filePath, uint32_t &fileSize) {
@@ -215,16 +184,6 @@ bool ReadBytesFromFile(const std::string &filePath, std::vector<char> &buffer)
         return false;
     }
     return true;
-}
-
-bool IsPathExist(const std::string& path)
-{
-    if (path.empty()) {
-        return false;
-    }
-
-    struct stat buffer;
-    return (stat(path.c_str(), &buffer) == 0);
 }
 
 std::vector<std::string> GetFiles(const std::string& path, const std::string& ext) {
@@ -413,23 +372,6 @@ bool CopyFile(const std::string &srcPath, const std::string &dstPath) {
     src.close();
     dst.close();
     return true;
-}
-
-std::string GetCurrentSharedLibPath() {
-    static std::string currentLibPath;
-    if (!currentLibPath.empty()) {
-        return currentLibPath;
-    }
-
-    Dl_info info;
-    if (dladdr(reinterpret_cast<void*>(GetCurrentSharedLibPath), &info)) {
-        currentLibPath = std::string(info.dli_fname);
-        int32_t pos = currentLibPath.rfind('/');
-        if (pos >= 0) {
-            currentLibPath = currentLibPath.substr(0, pos);
-        }
-    }
-    return currentLibPath;
 }
 
 std::string GetCurRunningPath() {
