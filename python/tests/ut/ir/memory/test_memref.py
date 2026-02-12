@@ -153,12 +153,12 @@ class TestTileView:
     def test_tileview_symbolic_dimensions():
         """Test TileView with symbolic dimensions."""
         span = ir.Span.unknown()
-        M = ir.Var("M", ir.ScalarType(DataType.INT64), span)
-        N = ir.Var("N", ir.ScalarType(DataType.INT64), span)
+        var_m = ir.Var("M", ir.ScalarType(DataType.INT64), span)
+        var_n = ir.Var("N", ir.ScalarType(DataType.INT64), span)
 
         tile_view = ir.TileView()
-        tile_view.valid_shape = [M, N]
-        tile_view.stride = [ir.ConstInt(1, DataType.INT64, span), M]
+        tile_view.valid_shape = [var_m, var_n]
+        tile_view.stride = [ir.ConstInt(1, DataType.INT64, span), var_m]
         tile_view.start_offset = ir.ConstInt(0, DataType.INT64, span)
 
         assert isinstance(tile_view.valid_shape[0], ir.Var)
