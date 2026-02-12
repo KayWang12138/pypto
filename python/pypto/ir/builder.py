@@ -52,6 +52,43 @@ class IRBuilder:
         self._builder = CppIRBuilder()
         self._begin_spans: dict[int, ir.Span] = {}  # Track begin spans for multi-line contexts
 
+    # ========== Span Tracking Helpers ==========
+
+    @staticmethod
+    def capture_call_span() -> ir.Span:
+        """Capture span from immediate caller using inspect.
+
+        Returns:
+            Span: Source location of the caller
+        """
+        # Go back 2 frames:
+        frame = inspect.currentframe()
+        if frame is not None and frame.f_back is not None:
+            frame = frame.f_back.f_back
+        if frame is not None:
+            info = inspect.getframeinfo(frame)
+            return ir.Span(info.filename, info.lineno, -1)
+        return ir.Span.unknown()
+
+    @staticmethod
+    def combine_spans(begin: ir.Span, end: ir.Span) -> ir.Span:
+        """Combine begin and end spans into a multi-line span.
+
+        Args:
+            begin: Begin span (from context enter)
+            end: End span (from context exit)
+
+        Returns:
+            Span: Combined span covering the range
+        """
+        return ir.Span(
+            begin.filename,
+            begin.begin_line,
+            begin.begin_column,
+            end.begin_line,
+            end.begin_column,
+        )
+
     def get_cpp_builder(self) -> CppIRBuilder:
         """Get the underlying C++ IRBuilder instance.
 
@@ -228,19 +265,19 @@ class IRBuilder:
 
     # ========== Single-line Methods with Optional Explicit Span ==========
 
-    def var(self, name: str, type: ir.Type, span: Optional[ir.Span] = None) -> ir.Var:
+    def var(self, name: str, var_type: ir.Type, span: Optional[ir.Span] = None) -> ir.Var:
         """Create a variable with span from call site or explicit span.
 
         Args:
             name: Variable name
-            type: Variable type
+            var_type: Variable type
             span: Optional explicit span. If None, captured from call site.
 
         Returns:
             Var: The created variable
         """
         actual_span = span if span is not None else self.capture_call_span()
-        return self._builder.var(name, type, actual_span)
+        return self._builder.var(name, var_type, actual_span)
 
     def assign(
         self,
@@ -266,7 +303,7 @@ class IRBuilder:
         self,
         name: str,
         value: Union[int, float, ir.Expr],
-        type: Optional[ir.Type] = None,
+        var_type: Optional[ir.Type] = None,
         span: Optional[ir.Span] = None,
     ) -> ir.Var:
         """Create a variable and assign a value to it in one statement.
@@ -283,7 +320,7 @@ class IRBuilder:
         Args:
             name: Variable name
             value: Expression value (int, float, or Expr)
-            type: Optional type for validation. If provided, must match the inferred type.
+            var_type: Optional type for validation. If provided, must match the inferred type.
             span: Optional explicit span. If None, captured from call site.
 
         Returns:
@@ -296,7 +333,7 @@ class IRBuilder:
             >>> # Type is inferred from the expression:
             >>> x = ib.let("x", 42)
             >>> # Or with explicit type validation:
-            >>> x = ib.let("x", 42, type=ir.ScalarType(ir.DataType.INT64))
+            >>> x = ib.let("x", 42, var_type=ir.ScalarType(ir.DataType.INT64))
             >>> # For function calls, type is auto-inferred from function signature:
             >>> result = ib.let("result", ir.Call(func_gvar, [x], span))
         """
@@ -323,11 +360,11 @@ class IRBuilder:
         inferred_type = value_expr.type
 
         # If explicit type is provided, validate it matches the inferred type
-        if type is not None and type != inferred_type:
+        if var_type is not None and var_type != inferred_type:
             raise ValueError(
                 f"Type mismatch in let statement for variable '{name}':\n"
                 f"  Inferred type: {inferred_type}\n"
-                f"  Provided type: {type}"
+                f"  Provided type: {var_type}"
             )
         final_type = inferred_type
 
@@ -440,7 +477,7 @@ class IRBuilder:
         memory_space: ir.MemorySpace,
         addr: Union[int, ir.Expr],
         size: int,
-        id: int,
+        memref_id: int,
         span: Optional[ir.Span] = None,
     ) -> ir.MemRef:
         """Create a MemRef with normalized address expression.
@@ -449,7 +486,7 @@ class IRBuilder:
             memory_space: Memory space (DDR, UB, L1, L0A, L0B, L0C)
             addr: Address expression (int or Expr)
             size: Size in bytes
-            id: Unique identifier for this MemRef
+            memref_id: Unique identifier for this MemRef
             span: Optional explicit span. If None, captured from call site.
 
         Returns:
@@ -461,7 +498,7 @@ class IRBuilder:
         """
         actual_span = span if span is not None else self.capture_call_span()
         addr_expr = _normalize_expr(addr, actual_span)
-        return ir.MemRef(memory_space, addr_expr, size, id, actual_span)
+        return ir.MemRef(memory_space, addr_expr, size, memref_id, actual_span)
 
     def tile_view(
         self,
@@ -554,43 +591,6 @@ class IRBuilder:
         shape_exprs = [_normalize_expr(dim, actual_span) for dim in shape]
         return ir.TileType(shape_exprs, dtype, memref, tile_view)
 
-    # ========== Span Tracking Helpers ==========
-
-    @staticmethod
-    def capture_call_span() -> ir.Span:
-        """Capture span from immediate caller using inspect.
-
-        Returns:
-            Span: Source location of the caller
-        """
-        # Go back 2 frames:
-        frame = inspect.currentframe()
-        if frame is not None and frame.f_back is not None:
-            frame = frame.f_back.f_back
-        if frame is not None:
-            info = inspect.getframeinfo(frame)
-            return ir.Span(info.filename, info.lineno, -1)
-        return ir.Span.unknown()
-
-    @staticmethod
-    def combine_spans(begin: ir.Span, end: ir.Span) -> ir.Span:
-        """Combine begin and end spans into a multi-line span.
-
-        Args:
-            begin: Begin span (from context enter)
-            end: End span (from context exit)
-
-        Returns:
-            Span: Combined span covering the range
-        """
-        return ir.Span(
-            begin.filename,
-            begin.begin_line,
-            begin.begin_column,
-            end.begin_line,
-            end.begin_column,
-        )
-
 
 class FunctionBuilder:
     """Helper for building functions within a function context."""
@@ -604,27 +604,27 @@ class FunctionBuilder:
         self._builder = builder
         self._result: Optional[ir.Function] = None
 
-    def param(self, name: str, type: ir.Type, span: Optional[ir.Span] = None) -> ir.Var:
+    def param(self, name: str, var_type: ir.Type, span: Optional[ir.Span] = None) -> ir.Var:
         """Add function parameter.
 
         Args:
             name: Parameter name
-            type: Parameter type
+            var_type: Parameter type
             span: Optional explicit span. If None, captured from call site.
 
         Returns:
             Var: The parameter variable
         """
         actual_span = span if span is not None else self._builder.capture_call_span()
-        return self._builder.get_cpp_builder().func_arg(name, type, actual_span)
+        return self._builder.get_cpp_builder().func_arg(name, var_type, actual_span)
 
-    def return_type(self, type: ir.Type) -> None:
+    def return_type(self, var_type: ir.Type) -> None:
         """Add return type to the function.
 
         Args:
-            type: Return type
+            var_type: Return type
         """
-        self._builder.get_cpp_builder().return_type(type)
+        self._builder.get_cpp_builder().return_type(var_type)
 
     def get_result(self) -> ir.Function:
         """Get the built Function.
@@ -661,7 +661,7 @@ class ForLoopBuilder:
         self,
         name: str,
         init_value: Union[int, float, ir.Expr],
-        type: Optional[ir.Type] = None,
+        var_type: Optional[ir.Type] = None,
         span: Optional[ir.Span] = None,
     ) -> ir.IterArg:
         """Add iteration argument (loop-carried value).
@@ -672,7 +672,7 @@ class ForLoopBuilder:
         Args:
             name: Iteration argument name
             init_value: Initial value (int, float, or Expr)
-            type: Optional type for validation. If provided, must match the inferred type.
+            var_type: Optional type for validation. If provided, must match the inferred type.
             span: Optional explicit span. If None, captured from call site.
 
         Returns:
@@ -685,7 +685,7 @@ class ForLoopBuilder:
             >>> # Type is inferred from the initial value:
             >>> sum_iter = loop.iter_arg("sum", 0)
             >>> # Or with explicit type validation:
-            >>> sum_iter = loop.iter_arg("sum", 0, type=ir.ScalarType(ir.DataType.INT64))
+            >>> sum_iter = loop.iter_arg("sum", 0, var_type=ir.ScalarType(ir.DataType.INT64))
         """
         actual_span = span if span is not None else self._builder.capture_call_span()
         init_expr = _normalize_expr(init_value, actual_span)
@@ -694,11 +694,11 @@ class ForLoopBuilder:
         inferred_type = init_expr.type
 
         # If explicit type is provided, validate it matches the inferred type
-        if type is not None and type != inferred_type:
+        if var_type is not None and var_type != inferred_type:
             raise ValueError(
                 f"Type mismatch in iter_arg for '{name}':\n"
                 f"  Inferred type: {inferred_type}\n"
-                f"  Provided type: {type}"
+                f"  Provided type: {var_type}"
             )
         final_type = inferred_type
 
@@ -707,7 +707,7 @@ class ForLoopBuilder:
         self._iter_args.append(iter_arg)  # Track for return_var type inference
         return iter_arg
 
-    def return_var(self, name: str, type: Optional[ir.Type] = None, span: Optional[ir.Span] = None) -> ir.Var:
+    def return_var(self, name: str, var_type: Optional[ir.Type] = None, span: Optional[ir.Span] = None) -> ir.Var:
         """Add return variable to capture final iteration value.
 
         The type can be automatically inferred from the corresponding iter_arg (by index).
@@ -715,7 +715,7 @@ class ForLoopBuilder:
 
         Args:
             name: Return variable name
-            type: Optional type. If None, inferred from corresponding iter_arg by index.
+            var_type: Optional type. If None, inferred from corresponding iter_arg by index.
             span: Optional explicit span. If None, captured from call site.
 
         Returns:
@@ -728,7 +728,7 @@ class ForLoopBuilder:
             >>> # Type is inferred from corresponding iter_arg:
             >>> sum_final = loop.return_var("sum_final")
             >>> # Or with explicit type validation:
-            >>> sum_final = loop.return_var("sum_final", type=ir.ScalarType(ir.DataType.INT64))
+            >>> sum_final = loop.return_var("sum_final", var_type=ir.ScalarType(ir.DataType.INT64))
         """
         actual_span = span if span is not None else self._builder.capture_call_span()
 
@@ -738,7 +738,7 @@ class ForLoopBuilder:
             inferred_type = self._iter_args[self._return_var_count].type
 
         # Determine final type
-        if type is None:
+        if var_type is None:
             if inferred_type is None:
                 raise ValueError(
                     f"Cannot infer type for return_var '{name}': "
@@ -747,13 +747,13 @@ class ForLoopBuilder:
             final_type = inferred_type
         else:
             # Validate provided type if we have inferred type
-            if inferred_type is not None and type != inferred_type:
+            if inferred_type is not None and var_type != inferred_type:
                 raise ValueError(
                     f"Type mismatch in return_var '{name}':\n"
                     f"  Inferred type (from iter_arg): {inferred_type}\n"
-                    f"  Provided type: {type}"
+                    f"  Provided type: {var_type}"
                 )
-            final_type = type
+            final_type = var_type
 
         var = ir.Var(name, final_type, actual_span)
         self._builder.get_cpp_builder().add_return_var(var)
@@ -852,7 +852,7 @@ class IfStmtBuilder:
         actual_span = span if span is not None else self._builder.capture_call_span()
         self._builder.get_cpp_builder().begin_else(actual_span)
 
-    def return_var(self, name: str, type: ir.Type, span: Optional[ir.Span] = None) -> None:
+    def return_var(self, name: str, var_type: ir.Type, span: Optional[ir.Span] = None) -> None:
         """Add return variable for SSA phi node.
 
         Note: Type must be provided explicitly. Type inference is not supported for
@@ -861,7 +861,7 @@ class IfStmtBuilder:
 
         Args:
             name: Return variable name
-            type: Variable type (required)
+            var_type: Variable type (required)
             span: Optional explicit span. If None, captured from call site.
 
         Example:
@@ -869,7 +869,7 @@ class IfStmtBuilder:
             >>> if_builder.return_var("result", ir.ScalarType(ir.DataType.INT64))
         """
         actual_span = span if span is not None else self._builder.capture_call_span()
-        var = ir.Var(name, type, actual_span)
+        var = ir.Var(name, var_type, actual_span)
         self._builder.get_cpp_builder().add_if_return_var(var)
 
     def output(self, index: int = 0) -> ir.Var:
