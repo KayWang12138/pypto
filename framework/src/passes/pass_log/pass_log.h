@@ -21,6 +21,7 @@
 #include "interface/operation/operation.h"
 #include "interface/function/function.h"
 #include <chrono>
+#include "tilefwk/tilefwk_log.h"
 
 #define APASS_LOG_F(lvl, MODULE_NAME, opName, fmt, args...)                        \
     do {                                                                        \
@@ -107,10 +108,10 @@ private:
     timerVar.End()
 
 
-#define APASS_LOG_DEBUG_F(opEnum, fmt, args...)   APASS_LOG_F(DEBUG, MODULE_NAME, toString(opEnum), fmt, ##args)
-#define APASS_LOG_INFO_F(opEnum, fmt, args...)    APASS_LOG_F(INFO, MODULE_NAME, toString(opEnum), fmt, ##args)
-#define APASS_LOG_WARN_F(opEnum, fmt, args...)    APASS_LOG_F(WARN, MODULE_NAME, toString(opEnum), fmt, ##args)
-#define APASS_LOG_ERROR_F(opEnum, fmt, args...)   APASS_LOG_F(ERROR, MODULE_NAME, toString(opEnum), fmt, ##args)
-#define APASS_LOG_EVENT_F(opEnum, fmt, args...)   APASS_LOG_F(EVENT, MODULE_NAME, toString(opEnum), fmt, ##args)
+#define APASS_LOG_DEBUG_F(opEnum, ...)   INNER_PYPTO_LOG(DLOG_DEBUG, (std::string("PASS.") + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
+#define APASS_LOG_INFO_F(opEnum, ...)    INNER_PYPTO_LOG(DLOG_INFO, (std::string("PASS.") + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
+#define APASS_LOG_WARN_F(opEnum, ...)    INNER_PYPTO_LOG(DLOG_WARN, (std::string("PASS.") + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
+#define APASS_LOG_ERROR_F(opEnum, ...)   INNER_PYPTO_LOG(DLOG_ERROR, (std::string("PASS.") + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
+#define APASS_LOG_EVENT_F(opEnum, ...)   INNER_PYPTO_LOG(DLOG_EVENT, (std::string("PASS.") + MODULE_NAME "." + toString(opEnum)).c_str(), __VA_ARGS__)
 
 #endif // PASSES_LOG_H
