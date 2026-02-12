@@ -30,14 +30,15 @@ def get_current_line():
 class TestTensorOperationSpanCapture:
     """Test span capture for tensor operations."""
 
-    def test_tensor_add_captures_span(self):
+    @staticmethod
+    def test_tensor_add_captures_span():
         """Tensor operations should capture caller span automatically."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_add_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.TensorType([64], DataType.FP32))
                 y = f.param("y", ir.TensorType([64], DataType.FP32))
                 f.return_type(ir.TensorType([64], DataType.FP32))
@@ -56,16 +57,16 @@ class TestTensorOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "tensor.add" in ir_str
-        print(ir_str)
 
-    def test_tensor_mul_captures_span(self):
+    @staticmethod
+    def test_tensor_mul_captures_span():
         """Test mul operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_mul_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.TensorType([64], DataType.FP32))
                 f.return_type(ir.TensorType([64], DataType.FP32))
 
@@ -82,16 +83,16 @@ class TestTensorOperationSpanCapture:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_tensor_create_captures_span(self):
+    @staticmethod
+    def test_tensor_create_captures_span():
         """Test create operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_create_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.TensorType([64, 32], DataType.FP32))
 
                 line_before = get_current_line()
@@ -108,16 +109,16 @@ class TestTensorOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "tensor.create" in ir_str
-        print(ir_str)
 
-    def test_tensor_matmul_captures_span(self):
+    @staticmethod
+    def test_tensor_matmul_captures_span():
         """Test matmul operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_matmul_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 lhs = f.param("lhs", ir.TensorType([64, 32], DataType.FP32))
                 rhs = f.param("rhs", ir.TensorType([32, 16], DataType.FP32))
                 f.return_type(ir.TensorType([64, 16], DataType.FP32))
@@ -134,16 +135,16 @@ class TestTensorOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "tensor.matmul" in ir_str
-        print(ir_str)
 
-    def test_explicit_span_overrides_capture(self):
+    @staticmethod
+    def test_explicit_span_overrides_capture():
         """Explicit span should override automatic capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_explicit_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.TensorType([64], DataType.FP32))
                 y = f.param("y", ir.TensorType([64], DataType.FP32))
                 f.return_type(ir.TensorType([64], DataType.FP32))
@@ -162,16 +163,16 @@ class TestTensorOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "tensor.add" in ir_str
-        print(ir_str)
 
-    def test_nested_operations_each_capture_own_span(self):
+    @staticmethod
+    def test_nested_operations_each_capture_own_span():
         """Each nested operation should capture its own span."""
         ib = ir.IRBuilder()
 
         with ib.program("test_nested_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.TensorType([64], DataType.FP32))
                 y = f.param("y", ir.TensorType([64], DataType.FP32))
                 f.return_type(ir.TensorType([64], DataType.FP32))
@@ -193,16 +194,16 @@ class TestTensorOperationSpanCapture:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_tensor_view_captures_span(self):
+    @staticmethod
+    def test_tensor_view_captures_span():
         """Test view operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_view_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("tensor", ir.TensorType([64, 32], DataType.FP32))
                 f.return_type(ir.TensorType([32, 16], DataType.FP32))
 
@@ -218,16 +219,16 @@ class TestTensorOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "tensor.view" in ir_str
-        print(ir_str)
 
-    def test_tensor_cast_captures_span(self):
+    @staticmethod
+    def test_tensor_cast_captures_span():
         """Test cast operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_cast_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.TensorType([64], DataType.FP32))
                 f.return_type(ir.TensorType([64], DataType.FP16))
 
@@ -243,16 +244,16 @@ class TestTensorOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "tensor.cast" in ir_str
-        print(ir_str)
 
-    def test_tensor_exp_captures_span(self):
+    @staticmethod
+    def test_tensor_exp_captures_span():
         """Test exp operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_exp_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.TensorType([64], DataType.FP32))
                 f.return_type(ir.TensorType([64], DataType.FP32))
 
@@ -268,16 +269,16 @@ class TestTensorOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "tensor.exp" in ir_str
-        print(ir_str)
 
-    def test_tensor_row_max_captures_span(self):
+    @staticmethod
+    def test_tensor_row_max_captures_span():
         """Test row_max operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_row_max_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 x = f.param("x", ir.TensorType([64, 32], DataType.FP32))
                 f.return_type(ir.TensorType([64, 1], DataType.FP32))
 
@@ -293,20 +294,20 @@ class TestTensorOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "tensor.row_max" in ir_str
-        print(ir_str)
 
 
 class TestBlockOperationSpanCapture:
     """Test span capture for block operations."""
 
-    def test_block_matmul_captures_span(self):
+    @staticmethod
+    def test_block_matmul_captures_span():
         """Block operations should also capture span."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_matmul_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t_in = f.param("t_in", ir.TensorType([16, 16], DataType.FP16))
                 f.return_type(ir.TensorType([16, 16], DataType.FP16))
 
@@ -325,16 +326,16 @@ class TestBlockOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "block.matmul" in ir_str
-        print(ir_str)
 
-    def test_block_add_captures_span(self):
+    @staticmethod
+    def test_block_add_captures_span():
         """Test block add operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_add_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t_in = f.param("t_in", ir.TensorType([16, 16], DataType.FP16))
                 f.return_type(ir.TensorType([16, 16], DataType.FP16))
 
@@ -353,16 +354,16 @@ class TestBlockOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "block.add" in ir_str
-        print(ir_str)
 
-    def test_block_load_captures_span(self):
+    @staticmethod
+    def test_block_load_captures_span():
         """Test block load operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_load_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("tensor", ir.TensorType([64, 64], DataType.FP16))
                 f.return_type(ir.TensorType([64, 64], DataType.FP16))
 
@@ -378,16 +379,16 @@ class TestBlockOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "block.load" in ir_str
-        print(ir_str)
 
-    def test_block_exp_captures_span(self):
+    @staticmethod
+    def test_block_exp_captures_span():
         """Test block exp operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_exp_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t_in = f.param("t_in", ir.TensorType([16, 16], DataType.FP16))
                 f.return_type(ir.TensorType([16, 16], DataType.FP16))
 
@@ -404,16 +405,16 @@ class TestBlockOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "block.exp" in ir_str
-        print(ir_str)
 
-    def test_block_row_max_captures_span(self):
+    @staticmethod
+    def test_block_row_max_captures_span():
         """Test block row_max operation span capture."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_row_max_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t_in = f.param("t_in", ir.TensorType([16, 16], DataType.FP16))
                 f.return_type(ir.TensorType([16, 16], DataType.FP16))
 
@@ -430,16 +431,16 @@ class TestBlockOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "block.row_max" in ir_str
-        print(ir_str)
 
-    def test_block_explicit_span_override(self):
+    @staticmethod
+    def test_block_explicit_span_override():
         """Explicit span should override automatic capture for block ops."""
         ib = ir.IRBuilder()
 
         with ib.program("test_block_explicit_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t_in = f.param("t_in", ir.TensorType([16, 16], DataType.FP16))
                 f.return_type(ir.TensorType([16, 16], DataType.FP16))
 
@@ -460,20 +461,20 @@ class TestBlockOperationSpanCapture:
 
         ir_str = str(p.get_result())
         assert "block.add" in ir_str
-        print(ir_str)
 
 
 class TestUtilityFunction:
     """Test the _get_span_or_capture utility function."""
 
-    def test_get_span_or_capture_returns_explicit_span(self):
+    @staticmethod
+    def test_get_span_or_capture_returns_explicit_span():
         """When span provided, should return it unchanged."""
         ib = ir.IRBuilder()
 
         with ib.program("test_utility_explicit_span_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.ScalarType(DataType.INT32))
 
                 explicit = ir.Span("test.py", 42, 10)
@@ -490,16 +491,16 @@ class TestUtilityFunction:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_get_span_or_capture_auto_captures(self):
+    @staticmethod
+    def test_get_span_or_capture_auto_captures():
         """When span not provided, should capture from caller."""
         ib = ir.IRBuilder()
 
         with ib.program("test_utility_auto_capture_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.ScalarType(DataType.INT32))
 
                 line_before = get_current_line()
@@ -516,16 +517,16 @@ class TestUtilityFunction:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_get_span_or_capture_with_frame_offset(self):
+    @staticmethod
+    def test_get_span_or_capture_with_frame_offset():
         """Test frame offset parameter works correctly."""
         ib = ir.IRBuilder()
 
         with ib.program("test_utility_frame_offset_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.ScalarType(DataType.INT32))
 
                 def wrapper():
@@ -545,7 +546,6 @@ class TestUtilityFunction:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
 
 if __name__ == "__main__":

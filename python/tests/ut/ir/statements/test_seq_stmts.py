@@ -17,7 +17,8 @@ from pypto.ir import DataType
 class TestSeqStmts:
     """Test SeqStmts class."""
 
-    def test_seq_stmts_creation(self):
+    @staticmethod
+    def test_seq_stmts_creation():
         """Test creating a SeqStmts instance."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -31,7 +32,8 @@ class TestSeqStmts:
         assert seq_stmts.span.filename == "test.py"
         assert len(seq_stmts.stmts) == 2
 
-    def test_seq_stmts_has_attributes(self):
+    @staticmethod
+    def test_seq_stmts_has_attributes():
         """Test that SeqStmts has stmts attribute."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -46,7 +48,8 @@ class TestSeqStmts:
         assert isinstance(seq_stmts.stmts[0], ir.AssignStmt)
         assert isinstance(seq_stmts.stmts[1], ir.AssignStmt)
 
-    def test_seq_stmts_is_stmt(self):
+    @staticmethod
+    def test_seq_stmts_is_stmt():
         """Test that SeqStmts is an instance of Stmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -58,7 +61,8 @@ class TestSeqStmts:
         assert isinstance(seq_stmts, ir.Stmt)
         assert isinstance(seq_stmts, ir.IRNode)
 
-    def test_seq_stmts_immutability(self):
+    @staticmethod
+    def test_seq_stmts_immutability():
         """Test that SeqStmts attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -71,14 +75,16 @@ class TestSeqStmts:
         with pytest.raises(AttributeError):
             seq_stmts.stmts = []  # type: ignore
 
-    def test_seq_stmts_with_empty_list(self):
+    @staticmethod
+    def test_seq_stmts_with_empty_list():
         """Test SeqStmts with empty statement list."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         seq_stmts = ir.SeqStmts([], span)
 
         assert len(seq_stmts.stmts) == 0
 
-    def test_seq_stmts_with_single_stmt(self):
+    @staticmethod
+    def test_seq_stmts_with_single_stmt():
         """Test SeqStmts with single statement."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -89,7 +95,8 @@ class TestSeqStmts:
         assert len(seq_stmts.stmts) == 1
         assert isinstance(seq_stmts.stmts[0], ir.AssignStmt)
 
-    def test_seq_stmts_with_multiple_stmts(self):
+    @staticmethod
+    def test_seq_stmts_with_multiple_stmts():
         """Test SeqStmts with multiple statements."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -106,7 +113,8 @@ class TestSeqStmts:
         assert isinstance(seq_stmts.stmts[1], ir.AssignStmt)
         assert isinstance(seq_stmts.stmts[2], ir.AssignStmt)
 
-    def test_seq_stmts_string_representation(self):
+    @staticmethod
+    def test_seq_stmts_string_representation():
         """Test SeqStmts string representation."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -129,7 +137,8 @@ class TestSeqStmts:
 class TestSeqStmtsHash:
     """Tests for SeqStmts hash function."""
 
-    def test_seq_stmts_same_structure_hash(self):
+    @staticmethod
+    def test_seq_stmts_same_structure_hash():
         """Test SeqStmts nodes with same structure hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -149,7 +158,8 @@ class TestSeqStmtsHash:
         hash2 = ir.structural_hash(seq_stmts2, enable_auto_mapping=True)
         assert hash1 == hash2
 
-    def test_seq_stmts_different_statements_hash(self):
+    @staticmethod
+    def test_seq_stmts_different_statements_hash():
         """Test SeqStmts nodes with different statements hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -166,7 +176,8 @@ class TestSeqStmtsHash:
         hash2 = ir.structural_hash(seq_stmts2)
         assert hash1 != hash2
 
-    def test_seq_stmts_different_length_hash(self):
+    @staticmethod
+    def test_seq_stmts_different_length_hash():
         """Test SeqStmts nodes with different lengths hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -182,7 +193,8 @@ class TestSeqStmtsHash:
         hash2 = ir.structural_hash(seq_stmts2)
         assert hash1 != hash2
 
-    def test_seq_stmts_empty_hash(self):
+    @staticmethod
+    def test_seq_stmts_empty_hash():
         """Test empty SeqStmts hash."""
         span = ir.Span.unknown()
         seq_stmts1 = ir.SeqStmts([], span)
@@ -196,7 +208,8 @@ class TestSeqStmtsHash:
 class TestSeqStmtsStructuralEqual:
     """Tests for SeqStmts structural equality function."""
 
-    def test_seq_stmts_structural_equal(self):
+    @staticmethod
+    def test_seq_stmts_structural_equal():
         """Test SeqStmts nodes with same structure are equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -214,7 +227,8 @@ class TestSeqStmtsStructuralEqual:
 
         ir.assert_structural_equal(seq_stmts1, seq_stmts2, enable_auto_mapping=True)
 
-    def test_seq_stmts_structural_equal_different_statements(self):
+    @staticmethod
+    def test_seq_stmts_structural_equal_different_statements():
         """Test SeqStmts nodes with different statements are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -229,7 +243,8 @@ class TestSeqStmtsStructuralEqual:
 
         assert not ir.structural_equal(seq_stmts1, seq_stmts2)
 
-    def test_seq_stmts_structural_equal_different_length(self):
+    @staticmethod
+    def test_seq_stmts_structural_equal_different_length():
         """Test SeqStmts nodes with different lengths are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -243,7 +258,8 @@ class TestSeqStmtsStructuralEqual:
 
         assert not ir.structural_equal(seq_stmts1, seq_stmts2)
 
-    def test_seq_stmts_structural_equal_empty(self):
+    @staticmethod
+    def test_seq_stmts_structural_equal_empty():
         """Test empty SeqStmts are equal."""
         span = ir.Span.unknown()
         seq_stmts1 = ir.SeqStmts([], span)
@@ -251,7 +267,8 @@ class TestSeqStmtsStructuralEqual:
 
         ir.assert_structural_equal(seq_stmts1, seq_stmts2)
 
-    def test_seq_stmts_structural_equal_multiple_statements(self):
+    @staticmethod
+    def test_seq_stmts_structural_equal_multiple_statements():
         """Test SeqStmts with multiple statements."""
         span = ir.Span.unknown()
         dtype = DataType.INT64

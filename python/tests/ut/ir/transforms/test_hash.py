@@ -16,7 +16,8 @@ from pypto.ir import DataType
 class TestStructuralHash:
     """Tests for structural hash function."""
 
-    def test_same_structure_same_hash(self):
+    @staticmethod
+    def test_same_structure_same_hash():
         """Test that expressions with same structure hash to same value."""
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         x2 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -26,7 +27,8 @@ class TestStructuralHash:
         hash2 = ir.structural_hash(x2)
         assert hash1 != hash2
 
-    def test_different_var_names_different_hash(self):
+    @staticmethod
+    def test_different_var_names_different_hash():
         """Test that variables with different names hash differently."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -37,7 +39,8 @@ class TestStructuralHash:
         # Different names should (almost certainly) have different hashes
         assert hash_x != hash_y
 
-    def test_different_const_values_different_hash(self):
+    @staticmethod
+    def test_different_const_values_different_hash():
         """Test that constants with different values hash differently."""
         c1 = ir.ConstInt(1, DataType.INT64, ir.Span.unknown())
         c2 = ir.ConstInt(2, DataType.INT64, ir.Span.unknown())
@@ -47,7 +50,8 @@ class TestStructuralHash:
 
         assert hash1 != hash2
 
-    def test_same_const_value_same_hash(self):
+    @staticmethod
+    def test_same_const_value_same_hash():
         """Test that constants with same value hash to same value."""
         c1 = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
         c2 = ir.ConstInt(42, DataType.INT64, ir.Span.unknown())
@@ -57,7 +61,8 @@ class TestStructuralHash:
 
         assert hash1 == hash2
 
-    def test_const_bool_hash(self):
+    @staticmethod
+    def test_const_bool_hash():
         """Test that ConstBool with different values hash differently."""
         b_true1 = ir.ConstBool(True, ir.Span.unknown())
         b_true2 = ir.ConstBool(True, ir.Span.unknown())
@@ -72,7 +77,8 @@ class TestStructuralHash:
         # Different values should have different hash
         assert hash_true1 != hash_false
 
-    def test_different_operation_types_different_hash(self):
+    @staticmethod
+    def test_different_operation_types_different_hash():
         """Test that different operation types hash differently."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -90,7 +96,8 @@ class TestStructuralHash:
         assert hash_add != hash_mul
         assert hash_sub != hash_mul
 
-    def test_nested_expression_hash(self):
+    @staticmethod
+    def test_nested_expression_hash():
         """Test hashing of nested expressions."""
         # Build (x + 5) * 2 with different spans
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -112,7 +119,8 @@ class TestStructuralHash:
         hash2 = ir.structural_hash(expr2)
         assert hash1 != hash2
 
-    def test_operand_order_matters(self):
+    @staticmethod
+    def test_operand_order_matters():
         """Test that operand order affects hash (x + y != y + x in structure)."""
         x = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         y = ir.Var("y", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -126,7 +134,8 @@ class TestStructuralHash:
         # Different operand order should (almost certainly) hash differently
         assert hash1 != hash2
 
-    def test_unary_expression_hash(self):
+    @staticmethod
+    def test_unary_expression_hash():
         """Test hashing of unary expressions."""
         x1 = ir.Var("x", ir.ScalarType(DataType.INT64), ir.Span.unknown())
         neg1 = ir.Neg(x1, DataType.INT64, ir.Span.unknown())
@@ -139,7 +148,8 @@ class TestStructuralHash:
 
         assert hash1 != hash2
 
-    def test_call_expression_hash(self):
+    @staticmethod
+    def test_call_expression_hash():
         """Test hashing of call expressions."""
         op1 = ir.Op("func")
         op2 = ir.Op("func")
@@ -156,7 +166,8 @@ class TestStructuralHash:
         # Same op name and args - should hash to same value
         assert hash1 == hash2
 
-    def test_different_op_names_different_hash(self):
+    @staticmethod
+    def test_different_op_names_different_hash():
         """Test that calls with different op names hash differently."""
         op1 = ir.Op("func1")
         op2 = ir.Op("func2")
@@ -172,7 +183,8 @@ class TestStructuralHash:
         # Different op names should hash differently
         assert hash1 != hash2
 
-    def test_stmt_different_from_expr_hash(self):
+    @staticmethod
+    def test_stmt_different_from_expr_hash():
         """Test that Stmt and Expr nodes hash differently."""
         span = ir.Span.unknown()
 
@@ -186,7 +198,8 @@ class TestStructuralHash:
         # Different IR node types should hash differently
         assert hash_stmt != hash_expr
 
-    def test_assign_stmt_same_structure_hash(self):
+    @staticmethod
+    def test_assign_stmt_same_structure_hash():
         """Test AssignStmt nodes with same structure hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -203,7 +216,8 @@ class TestStructuralHash:
         # Different variable pointers result in different hashes without auto_mapping
         assert hash1 != hash2
 
-    def test_assign_stmt_different_var_hash(self):
+    @staticmethod
+    def test_assign_stmt_different_var_hash():
         """Test AssignStmt nodes with different var hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -218,7 +232,8 @@ class TestStructuralHash:
         hash2 = ir.structural_hash(assign2)
         assert hash1 == hash2
 
-    def test_assign_stmt_different_value_hash(self):
+    @staticmethod
+    def test_assign_stmt_different_value_hash():
         """Test AssignStmt nodes with different value hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -233,7 +248,8 @@ class TestStructuralHash:
         hash2 = ir.structural_hash(assign2)
         assert hash1 != hash2
 
-    def test_assign_stmt_different_from_base_stmt_hash(self):
+    @staticmethod
+    def test_assign_stmt_different_from_base_stmt_hash():
         """Test AssignStmt and base Stmt nodes hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -245,7 +261,8 @@ class TestStructuralHash:
         hash_assign = ir.structural_hash(assign)
         assert hash_assign != 0
 
-    def test_yield_stmt_same_structure_hash(self):
+    @staticmethod
+    def test_yield_stmt_same_structure_hash():
         """Test YieldStmt nodes with same structure hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -262,7 +279,8 @@ class TestStructuralHash:
         # Different variable pointers result in different hashes without auto_mapping
         assert hash1 != hash2
 
-    def test_yield_stmt_different_vars_hash(self):
+    @staticmethod
+    def test_yield_stmt_different_vars_hash():
         """Test YieldStmt nodes with different vars hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -277,7 +295,8 @@ class TestStructuralHash:
         hash2 = ir.structural_hash(yield_stmt2)
         assert hash1 != hash2
 
-    def test_yield_stmt_empty_vs_non_empty_hash(self):
+    @staticmethod
+    def test_yield_stmt_empty_vs_non_empty_hash():
         """Test YieldStmt nodes with empty and non-empty value lists hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64

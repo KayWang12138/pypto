@@ -38,6 +38,17 @@ from .printer import python_print
 # This patches the native TensorType and TileType classes to accept integer shapes
 from .type import TensorType, TileType
 
+__all__ = [
+    "op",
+    "IRBuilder",
+    "TensorType",
+    "TileType",
+    "python_print",
+
+    "PassManager",
+    "OptimizationStrategy",
+]  # fmt: skip
+
 # Export common DataType values for convenience
 FP4 = DataType.FP4
 FP8E4M3FN = DataType.FP8E4M3FN
@@ -59,15 +70,3 @@ UINT16 = DataType.UINT16
 UINT32 = DataType.UINT32
 UINT64 = DataType.UINT64
 BOOL = DataType.BOOL
-
-
-__all__ = [
-    "op",
-    "IRBuilder",
-    "TensorType",
-    "TileType",
-    "python_print",
-
-    "PassManager",
-    "OptimizationStrategy",
-]  # fmt: skip

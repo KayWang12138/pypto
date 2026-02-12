@@ -408,7 +408,7 @@ def test_python_print_complex_nested_function():
     start = ir.ConstInt(0, dtype, span)
     step = ir.ConstInt(1, dtype, span)
 
-    # Loop body: sum = sum + i
+    # Loop body
     sum_copy = ir.Var("sum", ir.ScalarType(dtype), span)
     add_expr = ir.Add(sum_copy, i, dtype, span)
     update_sum = ir.AssignStmt(sum_var, add_expr, span)

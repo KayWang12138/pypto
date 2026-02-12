@@ -19,7 +19,8 @@ from pypto.ir import DataType
 class TestArithmeticOps:
     """Tests for arithmetic binary operations."""
 
-    def test_add_creation(self):
+    @staticmethod
+    def test_add_creation():
         """Test creating an Add expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -30,7 +31,8 @@ class TestArithmeticOps:
         assert cast(ir.Var, add_expr.left).name == "x"
         assert cast(ir.Var, add_expr.right).name == "y"
 
-    def test_add_is_binary_expr(self):
+    @staticmethod
+    def test_add_is_binary_expr():
         """Test that Add is an instance of BinaryExpr."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -42,7 +44,8 @@ class TestArithmeticOps:
         assert isinstance(add_expr, ir.Expr)
         assert isinstance(add_expr, ir.IRNode)
 
-    def test_sub_creation(self):
+    @staticmethod
+    def test_sub_creation():
         """Test creating a Sub expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -53,7 +56,8 @@ class TestArithmeticOps:
         assert cast(ir.Var, sub_expr.left).name == "x"
         assert cast(ir.Var, sub_expr.right).name == "y"
 
-    def test_mul_creation(self):
+    @staticmethod
+    def test_mul_creation():
         """Test creating a Mul expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -64,7 +68,8 @@ class TestArithmeticOps:
         assert cast(ir.Var, mul_expr.left).name == "x"
         assert cast(ir.Var, mul_expr.right).name == "y"
 
-    def test_floatdiv_creation(self):
+    @staticmethod
+    def test_floatdiv_creation():
         """Test creating a FloatDiv expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -75,7 +80,8 @@ class TestArithmeticOps:
         assert cast(ir.Var, div_expr.left).name == "x"
         assert cast(ir.Var, div_expr.right).name == "y"
 
-    def test_floormod_creation(self):
+    @staticmethod
+    def test_floormod_creation():
         """Test creating a FloorMod expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -86,7 +92,8 @@ class TestArithmeticOps:
         assert cast(ir.Var, mod_expr.left).name == "x"
         assert cast(ir.Var, mod_expr.right).name == "y"
 
-    def test_floordiv_creation(self):
+    @staticmethod
+    def test_floordiv_creation():
         """Test creating a FloorDiv expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -97,7 +104,8 @@ class TestArithmeticOps:
         assert cast(ir.Var, floordiv_expr.left).name == "x"
         assert cast(ir.Var, floordiv_expr.right).name == "y"
 
-    def test_pow(self):
+    @staticmethod
+    def test_pow():
         """Test creating Pow expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -108,7 +116,8 @@ class TestArithmeticOps:
         assert cast(ir.Var, pow_expr.left).name == "x"
         assert cast(ir.Var, pow_expr.right).name == "y"
 
-    def test_min_max(self):
+    @staticmethod
+    def test_min_max():
         """Test creating Min and Max expressions."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -125,7 +134,8 @@ class TestArithmeticOps:
 class TestLogicalOps:
     """Tests for logical binary operations."""
 
-    def test_logical_ops(self):
+    @staticmethod
+    def test_logical_ops():
         """Test creating logical expressions."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -145,7 +155,8 @@ class TestLogicalOps:
 class TestBitwiseOps:
     """Tests for bitwise binary operations."""
 
-    def test_bitwise_ops(self):
+    @staticmethod
+    def test_bitwise_ops():
         """Test creating bitwise expressions."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -171,7 +182,8 @@ class TestBitwiseOps:
 class TestUnaryOps:
     """Tests for unary operations."""
 
-    def test_neg_creation(self):
+    @staticmethod
+    def test_neg_creation():
         """Test creating a Neg expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -182,7 +194,8 @@ class TestUnaryOps:
         assert isinstance(neg_expr, ir.UnaryExpr)
         assert isinstance(neg_expr, ir.Expr)
 
-    def test_abs_creation(self):
+    @staticmethod
+    def test_abs_creation():
         """Test creating an Abs expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -191,7 +204,8 @@ class TestUnaryOps:
 
         assert cast(ir.Var, abs_expr.operand).name == "x"
 
-    def test_not_creation(self):
+    @staticmethod
+    def test_not_creation():
         """Test creating a Not expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -200,7 +214,8 @@ class TestUnaryOps:
 
         assert cast(ir.Var, not_expr.operand).name == "x"
 
-    def test_bitnot_creation(self):
+    @staticmethod
+    def test_bitnot_creation():
         """Test creating a BitNot expression."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -213,7 +228,8 @@ class TestUnaryOps:
 class TestNestedExpressions:
     """Tests for nested expression trees."""
 
-    def test_simple_nested_expression(self):
+    @staticmethod
+    def test_simple_nested_expression():
         """Test building a simple nested expression: (x + 5) * 2."""
         span = ir.Span("test.py", 1, 1, 1, 20)
         dtype = DataType.INT64
@@ -230,7 +246,8 @@ class TestNestedExpressions:
         assert cast(ir.ConstInt, mul_expr.left.right).value == 5
         assert cast(ir.ConstInt, mul_expr.right).value == 2
 
-    def test_complex_nested_expression(self):
+    @staticmethod
+    def test_complex_nested_expression():
         """Test building a complex expression: ((a + b) * (c - d))."""
         span = ir.Span("test.py", 1, 1, 1, 30)
         dtype = DataType.INT64
@@ -251,7 +268,8 @@ class TestNestedExpressions:
         assert cast(ir.Var, mul_expr.right.left).name == "c"
         assert cast(ir.Var, mul_expr.right.right).name == "d"
 
-    def test_deeply_nested_expression(self):
+    @staticmethod
+    def test_deeply_nested_expression():
         """Test building a deeply nested expression: (((x + 1) - 2) * 3) / 4."""
         span = ir.Span("test.py", 1, 1, 1, 40)
         dtype = DataType.INT64
@@ -271,7 +289,8 @@ class TestNestedExpressions:
         assert isinstance(div_expr.left.left, ir.Sub)
         assert isinstance(div_expr.left.left.left, ir.Add)
 
-    def test_all_operations(self):
+    @staticmethod
+    def test_all_operations():
         """Test expression using multiple operations."""
         span = ir.Span("test.py", 1, 1, 1, 50)
         dtype = DataType.INT64
@@ -293,7 +312,8 @@ class TestNestedExpressions:
         assert isinstance(final_expr.left, ir.Add)
         assert isinstance(final_expr.right, ir.FloatDiv)
 
-    def test_unary_with_binary(self):
+    @staticmethod
+    def test_unary_with_binary():
         """Test mixing unary and binary expressions: -(x + 5)."""
         span = ir.Span("test.py", 1, 1, 1, 20)
         dtype = DataType.INT64
@@ -312,7 +332,8 @@ class TestNestedExpressions:
 class TestImmutability:
     """Tests for immutability of expression nodes."""
 
-    def test_expr_operands_immutable(self):
+    @staticmethod
+    def test_expr_operands_immutable():
         """Test that binary expression operands cannot be modified."""
         span = ir.Span.unknown()
         dtype = DataType.INT64

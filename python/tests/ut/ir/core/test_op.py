@@ -16,12 +16,14 @@ from pypto import ir
 class TestOp:
     """Tests for Op class."""
 
-    def test_op_creation(self):
+    @staticmethod
+    def test_op_creation():
         """Test creating an Op."""
         op = ir.Op("add")
         assert op.name == "add"
 
-    def test_op_name_immutability(self):
+    @staticmethod
+    def test_op_name_immutability():
         """Test that Op name is immutable."""
         op = ir.Op("multiply")
         with pytest.raises(AttributeError):

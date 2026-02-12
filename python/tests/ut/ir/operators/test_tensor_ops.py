@@ -26,14 +26,15 @@ from pypto.ir.op import tensor
 class TestTensorMemoryOps:
     """Test suite for tensor memory operations."""
 
-    def test_tensor_create(self):
+    @staticmethod
+    def test_tensor_create():
         """Test tensor.create operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_create_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.TensorType([4, 8], DataType.FP32))
                 result = ib.let("result", tensor.create([4, 8], DataType.FP32))
                 ib.return_stmt(result)
@@ -42,16 +43,16 @@ class TestTensorMemoryOps:
 
         ir_str = str(p.get_result())
         assert "tensor.create" in ir_str
-        print(ir_str)
 
-    def test_tensor_view(self):
+    @staticmethod
+    def test_tensor_view():
         """Test tensor.view operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_view_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("t", ir.TensorType([16, 32], DataType.FP16))
                 f.return_type(ir.TensorType([8, 16], DataType.FP16))
                 result = ib.let("result", tensor.view(t, [8, 16], [0, 0]))
@@ -61,16 +62,16 @@ class TestTensorMemoryOps:
 
         ir_str = str(p.get_result())
         assert "tensor.view" in ir_str
-        print(ir_str)
 
-    def test_tensor_assemble(self):
+    @staticmethod
+    def test_tensor_assemble():
         """Test tensor.assemble operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_assemble_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 target = f.param("target", ir.TensorType([64, 128], DataType.FP32))
                 source = f.param("source", ir.TensorType([64, 128], DataType.FP32))
                 f.return_type(ir.TensorType([64, 128], DataType.FP32))
@@ -81,20 +82,20 @@ class TestTensorMemoryOps:
 
         ir_str = str(p.get_result())
         assert "tensor.assemble" in ir_str
-        print(ir_str)
 
 
 class TestTensorMatMulOps:
     """Test suite for tensor matrix multiplication operations."""
 
-    def test_tensor_matmul(self):
+    @staticmethod
+    def test_tensor_matmul():
         """Test tensor.matmul operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_matmul_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 lhs = f.param("lhs", ir.TensorType([4, 8], DataType.FP32))
                 rhs = f.param("rhs", ir.TensorType([8, 16], DataType.FP32))
                 f.return_type(ir.TensorType([4, 16], DataType.FP32))
@@ -105,16 +106,16 @@ class TestTensorMatMulOps:
 
         ir_str = str(p.get_result())
         assert "tensor.matmul" in ir_str
-        print(ir_str)
 
-    def test_tensor_matmul_with_transpose(self):
+    @staticmethod
+    def test_tensor_matmul_with_transpose():
         """Test tensor.matmul with transpose flags."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_matmul_transpose_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 lhs = f.param("lhs", ir.TensorType([8, 4], DataType.FP16))
                 rhs = f.param("rhs", ir.TensorType([8, 4], DataType.FP16))
                 f.return_type(ir.TensorType([4, 4], DataType.FP16))
@@ -126,20 +127,20 @@ class TestTensorMatMulOps:
 
         ir_str = str(p.get_result())
         assert "tensor.matmul" in ir_str
-        print(ir_str)
 
 
 class TestTensorReductionOps:
     """Test suite for tensor reduction operations."""
 
-    def test_tensor_row_max(self):
+    @staticmethod
+    def test_tensor_row_max():
         """Test tensor.row_max reduction."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_row_max_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("t", ir.TensorType([64, 128], DataType.FP16))
                 f.return_type(ir.TensorType([64, 1], DataType.FP16))
                 result = ib.let("result", tensor.row_max(t, axis=-1, keep_dim=1))
@@ -149,16 +150,16 @@ class TestTensorReductionOps:
 
         ir_str = str(p.get_result())
         assert "tensor.row_max" in ir_str
-        print(ir_str)
 
-    def test_tensor_row_sum(self):
+    @staticmethod
+    def test_tensor_row_sum():
         """Test tensor.row_sum reduction."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_row_sum_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("t", ir.TensorType([64, 128], DataType.FP16))
                 f.return_type(ir.TensorType([64, 1], DataType.FP16))
                 result = ib.let("result", tensor.row_sum(t, axis=-1, keep_dim=1))
@@ -168,20 +169,20 @@ class TestTensorReductionOps:
 
         ir_str = str(p.get_result())
         assert "tensor.row_sum" in ir_str
-        print(ir_str)
 
 
 class TestTensorUnaryOps:
     """Test suite for tensor unary operations."""
 
-    def test_tensor_exp(self):
+    @staticmethod
+    def test_tensor_exp():
         """Test tensor.exp operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_exp_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("t", ir.TensorType([64, 128], DataType.FP16))
                 f.return_type(ir.TensorType([64, 128], DataType.FP16))
                 result = ib.let("result", tensor.exp(t))
@@ -191,16 +192,16 @@ class TestTensorUnaryOps:
 
         ir_str = str(p.get_result())
         assert "tensor.exp" in ir_str
-        print(ir_str)
 
-    def test_tensor_cast(self):
+    @staticmethod
+    def test_tensor_cast():
         """Test tensor.cast operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_cast_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("t", ir.TensorType([64, 128], DataType.FP16))
                 f.return_type(ir.TensorType([64, 128], DataType.FP32))
                 result = ib.let("result", tensor.cast(t, DataType.FP32))
@@ -210,20 +211,20 @@ class TestTensorUnaryOps:
 
         ir_str = str(p.get_result())
         assert "tensor.cast" in ir_str
-        print(ir_str)
 
 
 class TestTensorBinaryOps:
     """Test suite for tensor binary operations."""
 
-    def test_tensor_maximum(self):
+    @staticmethod
+    def test_tensor_maximum():
         """Test tensor.maximum operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_maximum_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([64, 1], DataType.FP32))
                 b = f.param("b", ir.TensorType([64, 1], DataType.FP32))
                 f.return_type(ir.TensorType([64, 1], DataType.FP32))
@@ -234,16 +235,16 @@ class TestTensorBinaryOps:
 
         ir_str = str(p.get_result())
         assert "tensor.maximum" in ir_str
-        print(ir_str)
 
-    def test_tensor_mul(self):
+    @staticmethod
+    def test_tensor_mul():
         """Test tensor.mul operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_mul_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("t", ir.TensorType([64, 128], DataType.FP16))
                 s = f.param("s", ir.TensorType([], DataType.FP32))  # 0-D tensor (scalar)
                 f.return_type(ir.TensorType([64, 128], DataType.FP16))
@@ -254,16 +255,16 @@ class TestTensorBinaryOps:
 
         ir_str = str(p.get_result())
         assert "tensor.mul" in ir_str
-        print(ir_str)
 
-    def test_tensor_add(self):
+    @staticmethod
+    def test_tensor_add():
         """Test tensor.add operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_add_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([8], DataType.FP32))
                 b = f.param("b", ir.TensorType([8], DataType.FP32))
                 f.return_type(ir.TensorType([8], DataType.FP32))
@@ -274,16 +275,16 @@ class TestTensorBinaryOps:
 
         ir_str = str(p.get_result())
         assert "tensor.add" in ir_str
-        print(ir_str)
 
-    def test_tensor_sub(self):
+    @staticmethod
+    def test_tensor_sub():
         """Test tensor.sub operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_sub_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([8], DataType.FP32))
                 b = f.param("b", ir.TensorType([8], DataType.FP32))
                 f.return_type(ir.TensorType([8], DataType.FP32))
@@ -294,16 +295,16 @@ class TestTensorBinaryOps:
 
         ir_str = str(p.get_result())
         assert "tensor.sub" in ir_str
-        print(ir_str)
 
-    def test_tensor_div(self):
+    @staticmethod
+    def test_tensor_div():
         """Test tensor.div operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_div_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 a = f.param("a", ir.TensorType([8], DataType.FP32))
                 b = f.param("b", ir.TensorType([8], DataType.FP32))
                 f.return_type(ir.TensorType([8], DataType.FP32))
@@ -314,20 +315,20 @@ class TestTensorBinaryOps:
 
         ir_str = str(p.get_result())
         assert "tensor.div" in ir_str
-        print(ir_str)
 
 
 class TestTensorTransformOps:
     """Test suite for tensor transform operations."""
 
-    def test_tensor_reshape(self):
+    @staticmethod
+    def test_tensor_reshape():
         """Test tensor.reshape operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_reshape_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("t", ir.TensorType([4, 8], DataType.FP32))
                 f.return_type(ir.TensorType([32], DataType.FP32))
                 # Reshape to [32] (flatten)
@@ -338,15 +339,16 @@ class TestTensorTransformOps:
 
         ir_str = str(p.get_result())
         assert "tensor.reshape" in ir_str
-        print(ir_str)
-    def test_tensor_reshape_dynamic(self):
+        
+    @staticmethod
+    def test_tensor_reshape_dynamic():
         """Test tensor.reshape with dynamic shapes."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_reshape_dynamic_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 span = ir.Span.unknown()
                 dim_n = ir.Var("n", ir.ScalarType(DataType.INT64), span)
                 dim_m = ir.Var("m", ir.ScalarType(DataType.INT64), span)
@@ -360,16 +362,16 @@ class TestTensorTransformOps:
 
         ir_str = str(p.get_result())
         assert "tensor.reshape" in ir_str
-        print(ir_str)
 
-    def test_tensor_transpose(self):
+    @staticmethod
+    def test_tensor_transpose():
         """Test tensor.transpose operation."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_transpose_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("t", ir.TensorType([2, 3, 4], DataType.FP32))
                 f.return_type(ir.TensorType([4, 3, 2], DataType.FP32))
                 # Transpose by swapping axis 0 and 2: [2, 3, 4] -> [4, 3, 2]
@@ -380,16 +382,16 @@ class TestTensorTransformOps:
 
         ir_str = str(p.get_result())
         assert "tensor.transpose" in ir_str
-        print(ir_str)
 
-    def test_tensor_transpose_negative_axis(self):
+    @staticmethod
+    def test_tensor_transpose_negative_axis():
         """Test tensor.transpose with negative axis indices."""
         ib = ir.IRBuilder()
 
         with ib.program("test_tensor_transpose_neg_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 t = f.param("t", ir.TensorType([8, 16], DataType.FP16))
                 f.return_type(ir.TensorType([16, 8], DataType.FP16))
                 # Transpose using negative indices: [8, 16] -> [16, 8]
@@ -400,20 +402,20 @@ class TestTensorTransformOps:
 
         ir_str = str(p.get_result())
         assert "tensor.transpose" in ir_str
-        print(ir_str)
 
 
 class TestTensorMisc:
     """Test suite for miscellaneous tensor operations and queries."""
 
-    def test_const_float(self):
+    @staticmethod
+    def test_const_float():
         """Test ConstFloat expression creation and usage."""
         ib = ir.IRBuilder()
 
         with ib.program("test_const_float_program") as p:
             p.declare_function("main")
 
-            with ib.function("main", type=ir.FunctionType.InCore) as f:
+            with ib.function("main", func_type=ir.FunctionType.InCore) as f:
                 f.return_type(ir.ScalarType(DataType.FP32))
                 span = ir.Span.unknown()
 
@@ -443,9 +445,9 @@ class TestTensorMisc:
             p.add_function(f.get_result())
 
         ir_str = str(p.get_result())
-        print(ir_str)
 
-    def test_operator_registration(self):
+    @staticmethod
+    def test_operator_registration():
         """Test that all new operators are registered."""
         assert ir.is_op_registered("tensor.create")
         assert ir.is_op_registered("tensor.view")
@@ -460,7 +462,8 @@ class TestTensorMisc:
         assert ir.is_op_registered("tensor.reshape")
         assert ir.is_op_registered("tensor.transpose")
 
-    def test_get_new_ops(self):
+    @staticmethod
+    def test_get_new_ops():
         """Test getting new operator instances."""
         matmul_op = ir.get_op("tensor.matmul")
         assert matmul_op.name == "tensor.matmul"
