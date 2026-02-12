@@ -112,7 +112,7 @@ INLINE int64_t CalStoreOffsetNCHW(const ShapeInfo &shapeInfo, const OffsetInfo &
  * offset4: input -> src_w_offset, weight -> 0
  * isInput: true -> input, false -> weight
  */
-template <const int bufferSize, typename T, typename U>
+template <typename T, typename U>
 INLINE void TLoadConvDN2NZ(T &dst, U &src, const OffsetInfo &offsetInfo, const bool &isInput) {
     constexpr int64_t c0Size = BLOCK_ALIGN_BYTE / sizeof(typename U::Type);
     int64_t srcN = GetConvShape<CONV_IDX_0>(src);
@@ -127,6 +127,10 @@ INLINE void TLoadConvDN2NZ(T &dst, U &src, const OffsetInfo &offsetInfo, const b
     int64_t srcStrideC = GetConvStride<CONV_IDX_1>(src);
     int64_t srcStrideH = GetConvStride<CONV_IDX_2>(src);
     int64_t srcStrideW = GetConvStride<CONV_IDX_3>(src);
+    constexpr auto stcDstShape0 = Std::tuple_element<CONV_IDX_0, typename U::TileShape>::type::value;
+    constexpr auto stcDstShape1 = Std::tuple_element<CONV_IDX_1, typename U::TileShape>::type::value;
+    constexpr auto stcDstShape2 = Std::tuple_element<CONV_IDX_2, typename U::TileShape>::type::value;
+    constexpr auto stcDstShape3 = Std::tuple_element<CONV_IDX_3, typename U::TileShape>::type::value;
     ShapeInfo shapeInfo;
     if (isInput) {
         shapeInfo = {srcC, srcH, srcW};
@@ -145,12 +149,14 @@ INLINE void TLoadConvDN2NZ(T &dst, U &src, const OffsetInfo &offsetInfo, const b
     int64_t tileShape2 = isInput ? dstShape2 : dstShape1;
     int64_t tileShape3 = isInput ? dstShape3 : dstShape2;
     if (isInput) {
+        constexpr auto bufferSize = stcDstShape0 * stcDstShape1 * stcDstShape2 * stcDstShape3 * BLOCK_ALIGN_BYTE;
         using tileData = pto::ConvTile<pto::TileType::Mat, T, bufferSize, pto::Layout::NC1HWC0,
             pto::ConvTileShape<-1, -1, -1, -1, c0Size>>;
         tileData dstL1(tileShape0, tileShape1, tileShape2, tileShape3);
         pto::TASSIGN(dstL1, (uint64_t)dst.GetAddr());
         pto::TLOAD(dstL1, srcGlobal);
     } else {
+        constexpr auto bufferSize = stcDstShape0 * stcDstShape1 * stcDstShape2 * BLOCK_ALIGN_BYTE;
         using tileData = pto::ConvTile<pto::TileType::Mat, T, bufferSize, pto::Layout::FRACTAL_Z,
             pto::ConvTileShape<-1, -1, -1, -1, c0Size>>;
         tileData dstL1(tileShape0, tileShape1, tileShape2, tileShape3);
@@ -161,7 +167,7 @@ INLINE void TLoadConvDN2NZ(T &dst, U &src, const OffsetInfo &offsetInfo, const b
 }
 
 // Copy data from DDR to L1
-template <CopyInMode mode, const int bufferSize, typename T, typename U>
+template <CopyInMode mode, typename T, typename U>
 TILEOP void TLoadConv(T &dst, U &src, const int64_t &offset0, const int64_t &offset1, const int64_t &offset2,
     const int64_t &offset3, const int64_t &offset4, const bool &isInput) {
     static_assert(T::FORMAT == Hardware::L1 && U::FORMAT == Hardware::GM,
@@ -169,7 +175,7 @@ TILEOP void TLoadConv(T &dst, U &src, const int64_t &offset0, const int64_t &off
     OffsetInfo offsetInfo = {offset0, offset1, offset2, offset3, offset4};
     if constexpr (mode == CopyInMode::ND2NZ) {
     } else if constexpr (mode == CopyInMode::DN2NZ) {
-        TLoadConvDN2NZ<bufferSize>(dst, src, offsetInfo, isInput);
+        TLoadConvDN2NZ(dst, src, offsetInfo, isInput);
     } else if constexpr (mode == CopyInMode::NZ2NZ) {
     }
     return;
@@ -207,7 +213,7 @@ INLINE void TStoreConvNZ2DN(T &dst, U &src, const OffsetInfo &offsetInfo, const 
     globalData dstGlobal((__gm__ typename T::Type *)(dst.GetAddr() + gmOffset),
         shapeDim4(dstN, dstC, dstH, dstW),
         strideDim4(dstStrideN, dstStrideC, dstStrideH, dstStrideW));
-    using tileData = pto::Tile<pto::TileType::Acc, typename U::Type, srcM, srcM, pto::BLayout::ColMajor, -1, -1,
+    using tileData = pto::Tile<pto::TileType::Acc, typename U::Type, srcM, srcN, pto::BLayout::ColMajor, -1, -1,
         pto::SLayout::RowMajor, pto::TileConfig::fractalCSize, pto::PadValue::Null, pto::CompactMode::Normal>;
     tileData srcL0C(realM, realN);
     pto::TASSIGN(srcL0C, (uint64_t)src.GetAddr());

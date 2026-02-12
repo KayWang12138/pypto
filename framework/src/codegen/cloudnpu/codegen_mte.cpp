@@ -1785,12 +1785,10 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
     int64_t offset2 = 0;
     int64_t offset3 = 0;
     int64_t offset4 = 0;
-    int bufferSize = 0;
     GetAttr("is_fmap", isInput);
     GetAttr("src_n_offset", offset0);
     GetAttr("src_c_offset", offset1);
     GetAttr("src_d_offset", offset2);
-    GetAttr("buffer_size", bufferSize);
     if (isInput) {
         GetAttr("src_h_offset", offset3);
         GetAttr("src_w_offset", offset4);
@@ -1801,7 +1799,7 @@ std::string CodeGenOpCloudNPU::GenMemL1CopyInConv() const {
         std::to_string(offset3), std::to_string(offset4), std::to_string(isInput)};
 
     std::ostringstream oss;
-    oss << tileOpName << "<" << copyInModeStr << ", " << std::to_string(bufferSize) << ">";
+    oss << tileOpName << "<" << copyInModeStr << ">";
     oss << PrintParams({"(", ")"}, tileOpParamList, ", ");
     oss << STMT_END;
     return oss.str();
