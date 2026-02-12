@@ -189,7 +189,7 @@
                         "en": "Set the number of rootfunction generated for the first device task in ctrlflow AICPU, thereby controlling the startup overhead of device machine"
                     },
                     "minimum": 1,
-                    "maximum": 128
+                    "maximum": 1024
                 },
                 "stitch_function_max_num": {
                     "type": "integer",
@@ -198,7 +198,7 @@
                         "en": "Set the number of rootfunction generated for device task in ctrlflow AICPU"
                     },
                     "minimum": 1,
-                    "maximum": 128
+                    "maximum": 1024
                 },
                 "stitch_function_num_step": {
                     "type": "integer",
@@ -207,7 +207,7 @@
                         "en": "Set the number of rootfunction generated for subsequent (non-initial) device task in ctrlflow AICPU"
                     },
                     "minimum": 0,
-                    "maximum": 128
+                    "maximum": 1024
                 },
                 "stitch_cfgcache_size": {
                     "type": "integer",
