@@ -69,13 +69,13 @@ TEST_F(TestSplitReshapePass, TestInit) {
     auto status = pass.Init();
     EXPECT_EQ(status, SUCCESS);
 
-    EXPECT_EQ(pass.AssembleOutToInput.size(), kSizeZero);
-    EXPECT_EQ(pass.reshapeSources.size(), kSizeZero);
-    EXPECT_EQ(pass.mapOffset.size(), kSizeZero);
-    EXPECT_EQ(pass.assembles.size(), kSizeZero);
-    EXPECT_EQ(pass.reshapes.size(), kSizeZero);
-    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
-    EXPECT_EQ(pass.reshapeRawOutputs.size(), kSizeZero);
+    EXPECT_EQ(pass.assembleOutToInput_.size(), kSizeZero);
+    EXPECT_EQ(pass.reshapeSources_.size(), kSizeZero);
+    EXPECT_EQ(pass.mapOffset_.size(), kSizeZero);
+    EXPECT_EQ(pass.assembles_.size(), kSizeZero);
+    EXPECT_EQ(pass.reshapes_.size(), kSizeZero);
+    EXPECT_EQ(pass.redundantViewops_.size(), kSizeZero);
+    EXPECT_EQ(pass.reshapeRawOutputs_.size(), kSizeZero);
 }
 
 TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
@@ -121,28 +121,28 @@ TEST_F(TestSplitReshapePass, TestCollectCopyOut) {
     auto status = pass.CollectCopyOut(*currFunctionPtr);
     EXPECT_EQ(status, SUCCESS);
 
-    EXPECT_EQ(pass.reshapeSources.size(), kSizeOne);
-    auto iter1 = pass.reshapeSources.find(output->tensor->rawmagic);
-    EXPECT_NE(iter1, pass.reshapeSources.end());
+    EXPECT_EQ(pass.reshapeSources_.size(), kSizeOne);
+    auto iter1 = pass.reshapeSources_.find(output->tensor->rawmagic);
+    EXPECT_NE(iter1, pass.reshapeSources_.end());
     EXPECT_EQ(iter1->second, ubTensor);
 
-    EXPECT_EQ(pass.reshapeDynOutput.size(), kSizeOne);
-    auto iter2 = pass.reshapeDynOutput.find(output->tensor->rawmagic);
-    EXPECT_NE(iter2, pass.reshapeDynOutput.end());
+    EXPECT_EQ(pass.reshapeDynOutput_.size(), kSizeOne);
+    auto iter2 = pass.reshapeDynOutput_.find(output->tensor->rawmagic);
+    EXPECT_NE(iter2, pass.reshapeDynOutput_.end());
     for (size_t i = 0; i < kSizeTwo; ++i) {
         EXPECT_EQ(iter2->second[i].Dump(), validShape[i].Dump());
     }
 
-    EXPECT_EQ(pass.AssembleOutToInput.size(), kSizeOne);
-    auto iter3 = pass.AssembleOutToInput.find(ubTensor->tensor->rawmagic);
-    EXPECT_NE(iter3, pass.AssembleOutToInput.end());
+    EXPECT_EQ(pass.assembleOutToInput_.size(), kSizeOne);
+    auto iter3 = pass.assembleOutToInput_.find(ubTensor->tensor->rawmagic);
+    EXPECT_NE(iter3, pass.assembleOutToInput_.end());
     EXPECT_EQ(iter3->second.size(), kNumTwo);
     EXPECT_EQ(iter3->second.count(input1), kNumOne);
     EXPECT_EQ(iter3->second.count(input2), kNumOne);
 
-    EXPECT_EQ(pass.mapOffset.size(), kSizeTwo);
-    EXPECT_EQ(pass.mapOffset[std::make_pair(input1->magic, ubTensor->magic)], offset1);
-    EXPECT_EQ(pass.mapOffset[std::make_pair(input2->magic, ubTensor->magic)], offset2);
+    EXPECT_EQ(pass.mapOffset_.size(), kSizeTwo);
+    EXPECT_EQ(pass.mapOffset_[std::make_pair(input1->magic, ubTensor->magic)], offset1);
+    EXPECT_EQ(pass.mapOffset_[std::make_pair(input2->magic, ubTensor->magic)], offset2);
 }
 
 TEST_F(TestSplitReshapePass, TestCheckSplit) {
@@ -616,10 +616,10 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatch) {
     auto newReshapeOutput = view_op.GetInputOperand(kSizeZero);
     EXPECT_NE(newReshapeOutput, ubTensor2);
     EXPECT_EQ(newReshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto reshape = pass.reshapes.begin()->second;
-    EXPECT_EQ(pass.assembles.size(), kSizeOne);
-    auto assemble = pass.assembles.begin();
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto reshape = pass.reshapes_.begin()->second;
+    EXPECT_EQ(pass.assembles_.size(), kSizeOne);
+    auto assemble = pass.assembles_.begin();
     auto newReshapeSource = reshape->input;
     EXPECT_EQ(reshape->output, newReshapeOutput);
     EXPECT_EQ(newReshapeSource->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
@@ -688,10 +688,10 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatch) {
     auto newReshapeOutput = view_op.GetInputOperand(kSizeZero);
     EXPECT_NE(newReshapeOutput, ubTensor2);
     EXPECT_EQ(newReshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto reshape = pass.reshapes.begin()->second;
-    EXPECT_EQ(pass.assembles.size(), kSizeOne);
-    auto assemble = pass.assembles.begin();
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto reshape = pass.reshapes_.begin()->second;
+    EXPECT_EQ(pass.assembles_.size(), kSizeOne);
+    auto assemble = pass.assembles_.begin();
     auto newReshapeSource = reshape->input;
     EXPECT_EQ(reshape->output, newReshapeOutput);
     EXPECT_EQ(reshape->dynValidShapes.size(), kSizeOne);
@@ -779,13 +779,13 @@ TEST_F(TestSplitReshapePass, TestUpdateForBeCovered) {
     para.newInputViewTileOffset = {kNumZero, kNumOne, kNumZero};
     EXPECT_EQ(pass.ProcessOnetoMulti(*currFunctionPtr, view_op2, para), SUCCESS);
 
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto newReshape = pass.reshapes.begin()->second;
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto newReshape = pass.reshapes_.begin()->second;
     auto newReshapeResource = newReshape->input;
     EXPECT_NE(newReshape->output, ubTensor2);
     EXPECT_EQ(newReshape->output->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
-    EXPECT_EQ(pass.assembles.size(), kSizeOne);
-    auto newAssemble = pass.assembles.begin();
+    EXPECT_EQ(pass.assembles_.size(), kSizeOne);
+    auto newAssemble = pass.assembles_.begin();
     EXPECT_EQ(newAssemble->from, MemoryType::MEM_DEVICE_DDR);
     EXPECT_EQ(newAssemble->toOffset, offset1);
     EXPECT_EQ(newAssemble->input, input);
@@ -870,8 +870,8 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCovered) {
     EXPECT_EQ(pass.ProcessOnetoMulti(*currFunctionPtr, view_op2, para), SUCCESS);
 
     std::vector<SymbolicScalar> expectShape = {SymbolicScalar("a") * 1, kNumFour};
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto newReshape = pass.reshapes.begin()->second;
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto newReshape = pass.reshapes_.begin()->second;
     auto newReshapeResource = newReshape->input;
     EXPECT_NE(newReshape->output, ubTensor2);
     auto reshapeOutput = newReshape->output;
@@ -893,8 +893,8 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForBeCovered) {
         EXPECT_EQ(newReshape->dynValidShapes[1][i].Dump(), expectValidShape2[i]);
     }
     EXPECT_EQ(reshapeOutput->GetMemoryTypeOriginal(), MemoryType::MEM_UNKNOWN);
-    EXPECT_EQ(pass.assembles.size(), kSizeOne);
-    auto newAssemble = pass.assembles.begin();
+    EXPECT_EQ(pass.assembles_.size(), kSizeOne);
+    auto newAssemble = pass.assembles_.begin();
     EXPECT_EQ(newAssemble->from, MemoryType::MEM_DEVICE_DDR);
     EXPECT_EQ(newAssemble->toOffset, offset1);
     EXPECT_EQ(newAssemble->input, input);
@@ -969,9 +969,9 @@ TEST_F(TestSplitReshapePass, TestUpdateForPerfectlyMatchWithAll) {
     para.inputView = inputView;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.ProcessMultitoOne(*currFunctionPtr, view_op, para), SUCCESS);
-    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto reshape = pass.reshapes.begin()->second;
+    EXPECT_EQ(pass.redundantViewops_.size(), kSizeZero);
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto reshape = pass.reshapes_.begin()->second;
     auto newReshapeSource = reshape->input;
     auto newReshapeOutput = view_op.GetInputOperand(kSizeZero);
     EXPECT_EQ(reshape->output, newReshapeOutput);
@@ -1049,9 +1049,9 @@ TEST_F(TestSplitReshapePass, TestDynUpdateForPerfectlyMatchWithAll) {
     para.inputView = inputView;
     EXPECT_EQ(pass.CollectCopyOut(*currFunctionPtr), SUCCESS);
     EXPECT_EQ(pass.ProcessMultitoOne(*currFunctionPtr, view_op, para), SUCCESS);
-    EXPECT_EQ(pass.redundantViewops.size(), kSizeZero);
-    EXPECT_EQ(pass.reshapes.size(), kSizeOne);
-    auto reshape = pass.reshapes.begin()->second;
+    EXPECT_EQ(pass.redundantViewops_.size(), kSizeZero);
+    EXPECT_EQ(pass.reshapes_.size(), kSizeOne);
+    auto reshape = pass.reshapes_.begin()->second;
     EXPECT_EQ(reshape->dynValidShapes.size(), kNumOne);
     EXPECT_EQ(reshape->dynValidShapes[0].size(), kNumThree);
     std::vector<std::string> expectValidShape = {
