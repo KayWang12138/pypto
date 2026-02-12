@@ -33,6 +33,7 @@
 namespace npu::tile_fwk {
 constexpr const unsigned OP_MAGIC3 = 3;
 constexpr const unsigned OP_MAGIC4 = 4;
+constexpr const unsigned OP_MAGIC5 = 5;
 constexpr const unsigned TOPK_OP_X_IDX = 0;
 constexpr const unsigned TOPK_OP_Y_IDX = 1;
 constexpr const unsigned TOPK_OP_TMP_IDX = 2;
@@ -60,6 +61,7 @@ struct TestContext {
     Function *function;
     std::shared_ptr<LogicalTensor> localTensor;
     std::shared_ptr<LogicalTensor> localOutTensor;
+    std::shared_ptr<LogicalTensor> localTmpTensor;
     Operation *op;
 };
 
@@ -97,16 +99,25 @@ TestContext prepareSortParamForUT(Opcode opcode) {
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, OP_MAGIC3, dynValidShape});
     auto localOutTensor =
         CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, OP_MAGIC4, dynValidShape});
-
-    auto &op = function->AddOperation(opcode, {localTensor}, {localOutTensor});
-
-    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
-    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
+    auto localTmpTensor =
+        CreateLogicalTensor({*function, DataType::DT_FP32, MemoryType::MEM_UB, shape, OP_MAGIC5, dynValidShape});
 
     TestContext param;
     param.function = function;
     param.localTensor = localTensor;
     param.localOutTensor = localOutTensor;
+    param.localTmpTensor = localTmpTensor;
+    Operation &op;
+    if (opcode == Opcode::OP_BITSORT || opcode == Opcode::OP_MRGSORT) {
+        op = function->AddOperation(opcode, {localTensor}, {localOutTensor, localTmpTensor});
+    } else {
+        op = function->AddOperation(opcode, {localTensor}, {localOutTensor});
+    }
+    // auto &op = function->AddOperation(opcode, {localTensor}, {localOutTensor});
+
+    function->GetTensorMap().inverseMap_[localTensor->GetMagic()] = localTensor;
+    function->GetTensorMap().inverseMap_[localOutTensor->GetMagic()] = localOutTensor;
+    function->GetTensorMap().inverseMap_[localTmpTensor->GetMagic()] = localTmpTensor;
     param.op = &op;
     return param;
 }
