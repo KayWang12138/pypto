@@ -288,7 +288,11 @@ public:
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
-        auto opWrapList = reinterpret_cast<int32_t*>(dyntask->devTask.mixTaskData.opWrapList[funcId]);
+        /**wraplist**/
+        auto opWrapArrayBase =
+             reinterpret_cast<uint64_t *>(dyntask->devTask.mixTaskData.opWrapListPtr);
+        auto opWrapList =
+            reinterpret_cast<int32_t*>(opWrapArrayBase[funcId]);
         if (opWrapList[opIndex] != -1) {
             return MakeMixWrapID(funcId, opWrapList[opIndex]);
         } else {
@@ -300,7 +304,10 @@ public:
         auto dyntask = reinterpret_cast<DynDeviceTask *>(curDevTask_);
         auto funcId = FuncID(taskId);
         auto opIndex = TaskID(taskId);
-        auto opWrapTaskNumList = reinterpret_cast<uint32_t*>(dyntask->devTask.mixTaskData.opWrapTaskNumList[funcId]);
+        auto opWrapArrayNumBase =
+             reinterpret_cast<uint64_t *>(dyntask->devTask.mixTaskData.opWrapTaskNumListPtr);
+        auto opWrapTaskNumList = 
+             reinterpret_cast<uint32_t*>(opWrapArrayNumBase[funcId]);
         return opWrapTaskNumList[opIndex];
     }
 

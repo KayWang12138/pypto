@@ -30,8 +30,9 @@ void DeviceTaskContext::ProcessWrapQueue(DynDeviceTask *dyntask, uint32_t wrapId
             return;
         }
     }
-
-    auto opWrapTaskNumList = reinterpret_cast<int32_t*>(dyntask->devTask.mixTaskData.opWrapTaskNumList[funcIndex]);
+    auto opWrapTaskNumArray =
+         reinterpret_cast<uint64_t *>(dyntask->devTask.mixTaskData.opWrapTaskNumListPtr);
+    auto opWrapTaskNumList = reinterpret_cast<int32_t*>(opWrapTaskNumArray[funcIndex]);
     auto cceBinary = dyntask->cceBinary;
     auto callList = dyntask->dynFuncDataCacheList[funcIndex].calleeList;
 
@@ -86,4 +87,34 @@ bool DeviceTaskContext::IsNeedWrapProcess(DynDeviceTask *dyntask, DevAscendProgr
     return dyntask->devTask.mixTaskData.wrapIdNum > 0;
 }
 
+void AllocOpWrapList (DynDeviceTask *dyntask, DevAscendProgram *devProg) {
+    bool isNeedWrap = IsNeedWrapProcess(dyntask, devProg);
+    /**wraplist**/
+    if (isNeedWrap && dyntask->devTask.coreFunctionCnt > 0) {
+        uint32_t funcCapacity = devProg->stitchMaxFunctionNum;
+        uint32_t bytes = funcCapacity * sizeof(uint64_t);
+        WsAllocation alloc = ControlFlowAllocateSlab(devProg_, bytes,
+            workspace_->SlabAlloc(bytes, WsAicpuSlabMemType::WRAP_OPWRAPLIST));
+        uint64_t *opWrapArray = alloc.As<uint64_t>();
+        dyntask->devTask.mixTaskData.opWrapListPtr = PtrToValue(opWrapArray);
+    }
+    else {
+        dyntask->devTask.mixTaskData.opWrapListPtr = 0;
+    }
+}
+
+void AllocOpWrapTaskNumList (DynDeviceTask *dyntask, DevAscendProgram *devProg) {
+    bool isNeedWrap = IsNeedWrapProcess(dyntask, devProg);
+    if (isNeedWrap && dyntask->devTask.coreFunctionCnt > 0) {
+        uint32_t funcCapacity = devProg->stitchMaxFunctionNum;
+        uint32_t bytes = funcCapacity * sizeof(uint64_t);
+        WsAllocation allocWrapTaskNumList = ControlFlowAllocateSlab(devProg_, bytes,
+        workspace_->SlabAlloc(bytes, WsAicpuSlabMemType::WRAP_OPWRAPTASKNUMLIST));
+        uint64_t *opWrapTaskNumArray = allocWrapTaskNumList.As<uint64_t>();
+        dyntask->devTask.mixTaskData.opWrapTaskNumListPtr = PtrToValue(opWrapTaskNumArray);
+    }
+    else {
+        dyntask->devTask.mixTaskData.opWrapTaskNumListPtr = 0;
+    }
+}
 }
