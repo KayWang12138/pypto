@@ -604,17 +604,169 @@ class KlImprover : public ImprovementScheduler<GraphT> {
         InsertGainHeap(threadData);    // Re-initialize the heap with the current state
     }
 
+    enum class InnerIterResult { kContinue, kBreak, kSkip };
+
+    InnerIterResult HandleViolationEscalation(unsigned &violationRemovedCount,
+                                              unsigned &resetCounter,
+                                              unsigned &innerIter,
+                                              bool iterInitalFeasible,
+                                              ThreadSearchContext &threadData) {
+        violationRemovedCount++;
+        if (violationRemovedCount <= 3) {
+            return InnerIterResult::kContinue;
+        }
+
+        if (resetCounter >= threadData.maxNoVioaltionsRemovedBacktrack_
+            || (iterInitalFeasible && threadData.activeScheduleData_.cost_ >= threadData.activeScheduleData_.bestCost_)) {
+            return InnerIterResult::kBreak;
+        }
+
+        threadData.affinityTable_.ResetNodeSelection();
+        threadData.maxGainHeap_.Clear();
+        threadData.lockManager_.Clear();
+        threadData.selectionStrategy_.SelectNodesViolations(
+            threadData.affinityTable_,
+            threadData.activeScheduleData_.currentViolations_,
+            threadData.startStep_,
+            threadData.endStep_);
+        threadData.rewardPenaltyStrat_.InitRewardPenalty(
+            static_cast<double>(threadData.activeScheduleData_.currentViolations_.size()));
+        InsertGainHeap(threadData);
+        resetCounter++;
+        innerIter++;
+        return InnerIterResult::kSkip;
+    }
+
+    InnerIterResult HandleViolations(unsigned &violationRemovedCount,
+                                     unsigned &resetCounter,
+                                     unsigned &innerIter,
+                                     bool iterInitalFeasible,
+                                     ThreadSearchContext &threadData) {
+        if (threadData.activeScheduleData_.currentViolations_.size() == 0) {
+            return InnerIterResult::kContinue;
+        }
+
+        if (threadData.activeScheduleData_.resolvedViolations_.size() > 0) {
+            violationRemovedCount = 0;
+            return InnerIterResult::kContinue;
+        }
+
+        return HandleViolationEscalation(violationRemovedCount, resetCounter, innerIter, iterInitalFeasible, threadData);
+    }
+
+    bool ProcessInnerIteration(const KlMove &bestMove,
+                               std::vector<VertexType> &newNodes,
+                               std::vector<VertexType> &unlockNodes,
+                               std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain,
+                               const PreMoveWorkData<VertexWorkWeightT> &prevWorkData,
+                               ThreadSearchContext &threadData) {
+        if (IsLocalSearchBlocked(threadData)) {
+            if (not BlockedEdgeStrategy(bestMove.node_, unlockNodes, threadData)) {
+                return false;
+            }
+        }
+
+        threadData.affinityTable_.Trim();
+        UpdateAffinities(bestMove, threadData, recomputeMaxGain, newNodes, prevWorkData);
+
+        for (const auto v : unlockNodes) {
+            threadData.lockManager_.Unlock(v);
+        }
+        newNodes.insert(newNodes.end(), unlockNodes.begin(), unlockNodes.end());
+        unlockNodes.clear();
+
+        UpdateMaxGain(bestMove, recomputeMaxGain, threadData);
+        InsertNewNodesGainHeap(newNodes, threadData.affinityTable_, threadData);
+
+        recomputeMaxGain.clear();
+        newNodes.clear();
+        return true;
+    }
+
+    void RunInnerLoop(ThreadSearchContext &threadData,
+                      std::vector<VertexType> &newNodes,
+                      std::vector<VertexType> &unlockNodes,
+                      std::map<VertexType, KlGainUpdateInfo> &recomputeMaxGain) {
+        unsigned innerIter = 0;
+        unsigned violationRemovedCount = 0;
+        unsigned resetCounter = 0;
+        bool iterInitalFeasible = threadData.activeScheduleData_.feasible_;
+
+        while (innerIter < threadData.maxInnerIterations_ && threadData.maxGainHeap_.size() > 0) {
+            KlMove bestMove = GetBestMove(threadData.affinityTable_, threadData.lockManager_, threadData.maxGainHeap_);
+            if (bestMove.gain_ <= std::numeric_limits<CostT>::lowest()) {
+                break;
+            }
+            UpdateAvgGain(bestMove.gain_, innerIter, threadData.averageGain_);
+
+            if (innerIter > threadData.minInnerIter_ && threadData.averageGain_ < 0.0) {
+                break;
+            }
+
+            const auto prevWorkData = activeSchedule_.GetPreMoveWorkData(bestMove);
+            const typename CommCostFunctionT::PreMoveCommDataT prevCommData = commCostF_.GetPreMoveCommData(bestMove);
+            const CostT changeInCost = ApplyMove(bestMove, threadData);
+
+            if constexpr (enableQuickMoves_) {
+                if (iterInitalFeasible && threadData.activeScheduleData_.newViolations_.size() > 0) {
+                    RunQuickMoves(innerIter, threadData, changeInCost, bestMove.node_);
+                    continue;
+                }
+            }
+
+            InnerIterResult violationResult = HandleViolations(violationRemovedCount, resetCounter, innerIter, iterInitalFeasible, threadData);
+            if (violationResult == InnerIterResult::kBreak) {
+                break;
+            }
+            if (violationResult == InnerIterResult::kSkip) {
+                continue;
+            }
+
+            if (!ProcessInnerIteration(bestMove, newNodes, unlockNodes, recomputeMaxGain, prevWorkData, threadData)) {
+                break;
+            }
+
+            innerIter++;
+        }
+    }
+
+    bool ShouldTerminateOuterLoop(const std::chrono::time_point<std::chrono::high_resolution_clock> &startTime,
+                                  unsigned &noImprovementIterCounter,
+                                  CostT initialInnerIterCost,
+                                  ThreadSearchContext &threadData) {
+        if (computeWithTimeLimit_) {
+            auto finishTime = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::seconds>(finishTime - startTime).count();
+            if (duration > ImprovementScheduler<GraphT>::timeLimitSeconds_) {
+                return true;
+            }
+        }
+
+        if (OtherThreadsFinished(threadData.threadId_)) {
+            return true;
+        }
+
+        if (initialInnerIterCost <= threadData.activeScheduleData_.cost_) {
+            noImprovementIterCounter++;
+            if (noImprovementIterCounter >= parameters_.maxNoImprovementIterations_) {
+                return true;
+            }
+        } else {
+            noImprovementIterCounter = 0;
+        }
+
+        return false;
+    }
+
     void RunLocalSearch(ThreadSearchContext &threadData) {
         std::vector<VertexType> newNodes;
         std::vector<VertexType> unlockNodes;
         std::map<VertexType, KlGainUpdateInfo> recomputeMaxGain;
 
         const auto startTime = std::chrono::high_resolution_clock::now();
-
         unsigned noImprovementIterCounter = 0;
-        unsigned outerIter = 0;
 
-        for (; outerIter < parameters_.maxOuterIterations_; outerIter++) {
+        for (unsigned outerIter = 0; outerIter < parameters_.maxOuterIterations_; outerIter++) {
             CostT initialInnerIterCost = threadData.activeScheduleData_.cost_;
 
             ResetInnerSearchStructures(threadData);
@@ -623,92 +775,7 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 static_cast<double>(threadData.activeScheduleData_.currentViolations_.size()) + 1.0);
             InsertGainHeap(threadData);
 
-            unsigned innerIter = 0;
-            unsigned violationRemovedCount = 0;
-            unsigned resetCounter = 0;
-            bool iterInitalFeasible = threadData.activeScheduleData_.feasible_;
-
-            while (innerIter < threadData.maxInnerIterations_ && threadData.maxGainHeap_.size() > 0) {
-                KlMove bestMove
-                    = GetBestMove(threadData.affinityTable_,
-                                  threadData.lockManager_,
-                                  threadData.maxGainHeap_);    // locks bestMove.node and removes it from node_selection
-                if (bestMove.gain_ <= std::numeric_limits<CostT>::lowest()) {
-                    break;
-                }
-                UpdateAvgGain(bestMove.gain_, innerIter, threadData.averageGain_);
-
-                if (innerIter > threadData.minInnerIter_ && threadData.averageGain_ < 0.0) {
-                    break;
-                }
-
-                const auto prevWorkData = activeSchedule_.GetPreMoveWorkData(bestMove);
-                const typename CommCostFunctionT::PreMoveCommDataT prevCommData = commCostF_.GetPreMoveCommData(bestMove);
-                const CostT changeInCost = ApplyMove(bestMove, threadData);
-
-                if constexpr (enableQuickMoves_) {
-                    if (iterInitalFeasible && threadData.activeScheduleData_.newViolations_.size() > 0) {
-                        RunQuickMoves(innerIter, threadData, changeInCost, bestMove.node_);
-                        continue;
-                    }
-                }
-
-                if (threadData.activeScheduleData_.currentViolations_.size() > 0) {
-                    if (threadData.activeScheduleData_.resolvedViolations_.size() > 0) {
-                        violationRemovedCount = 0;
-                    } else {
-                        violationRemovedCount++;
-
-                        if (violationRemovedCount > 3) {
-                            if (resetCounter < threadData.maxNoVioaltionsRemovedBacktrack_
-                                && ((not iterInitalFeasible)
-                                    || (threadData.activeScheduleData_.cost_ < threadData.activeScheduleData_.bestCost_))) {
-                                threadData.affinityTable_.ResetNodeSelection();
-                                threadData.maxGainHeap_.Clear();
-                                threadData.lockManager_.Clear();
-                                threadData.selectionStrategy_.SelectNodesViolations(
-                                    threadData.affinityTable_,
-                                    threadData.activeScheduleData_.currentViolations_,
-                                    threadData.startStep_,
-                                    threadData.endStep_);
-
-                                threadData.rewardPenaltyStrat_.InitRewardPenalty(
-                                    static_cast<double>(threadData.activeScheduleData_.currentViolations_.size()));
-                                InsertGainHeap(threadData);
-
-                                resetCounter++;
-                                innerIter++;
-                                continue;
-                            } else {
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (IsLocalSearchBlocked(threadData)) {
-                    if (not BlockedEdgeStrategy(bestMove.node_, unlockNodes, threadData)) {
-                        break;
-                    }
-                }
-
-                threadData.affinityTable_.Trim();
-                UpdateAffinities(bestMove, threadData, recomputeMaxGain, newNodes, prevWorkData);
-
-                for (const auto v : unlockNodes) {
-                    threadData.lockManager_.Unlock(v);
-                }
-                newNodes.insert(newNodes.end(), unlockNodes.begin(), unlockNodes.end());
-                unlockNodes.clear();
-
-                UpdateMaxGain(bestMove, recomputeMaxGain, threadData);
-                InsertNewNodesGainHeap(newNodes, threadData.affinityTable_, threadData);
-
-                recomputeMaxGain.clear();
-                newNodes.clear();
-
-                innerIter++;
-            }
+            RunInnerLoop(threadData, newNodes, unlockNodes, recomputeMaxGain);
 
             activeSchedule_.RevertToBestSchedule(threadData.localSearchStartStep_,
                                                  threadData.stepToRemove_,
@@ -717,26 +784,8 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                                                  threadData.startStep_,
                                                  threadData.endStep_);
 
-            if (computeWithTimeLimit_) {
-                auto finishTime = std::chrono::high_resolution_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::seconds>(finishTime - startTime).count();
-                if (duration > ImprovementScheduler<GraphT>::timeLimitSeconds_) {
-                    break;
-                }
-            }
-
-            if (OtherThreadsFinished(threadData.threadId_)) {
+            if (ShouldTerminateOuterLoop(startTime, noImprovementIterCounter, initialInnerIterCost, threadData)) {
                 break;
-            }
-
-            if (initialInnerIterCost <= threadData.activeScheduleData_.cost_) {
-                noImprovementIterCounter++;
-
-                if (noImprovementIterCounter >= parameters_.maxNoImprovementIterations_) {
-                    break;
-                }
-            } else {
-                noImprovementIterCounter = 0;
             }
 
             AdjustLocalSearchParameters(outerIter, noImprovementIterCounter, threadData);
@@ -856,7 +905,6 @@ class KlImprover : public ImprovementScheduler<GraphT> {
                 return;
             }
         }
-        // threadData.stepToRemove_ = threadData.startStep_;
         threadData.localSearchStartStep_ = 0;
         threadData.selectionStrategy_.SelectActiveNodes(threadData.affinityTable_, threadData.startStep_, threadData.endStep_);
     }

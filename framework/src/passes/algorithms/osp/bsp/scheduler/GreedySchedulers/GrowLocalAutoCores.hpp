@@ -53,25 +53,12 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
     GrowLocalAutoCoresParams<VWorkwT<GraphT>> params_;
 
   public:
-    /**
-     * @brief Default constructor for GreedyBspGrowLocalAutoCores.
-     */
+
     GrowLocalAutoCores(GrowLocalAutoCoresParams<VWorkwT<GraphT>> params = GrowLocalAutoCoresParams<VWorkwT<GraphT>>())
         : params_(params) {}
 
-    /**
-     * @brief Default destructor for GreedyBspGrowLocalAutoCores.
-     */
     virtual ~GrowLocalAutoCores() = default;
 
-    /**
-     * @brief Compute a schedule for the given BspInstance.
-     *
-     * This method computes a schedule for the given BspInstance using a greedy algorithm.
-     *
-     * @param instance The BspInstance object representing the instance to compute the schedule for.
-     * @return A pair containing the return status and the computed BspSchedule.
-     */
     struct ScheduleState {
         std::unordered_set<VertexIdx> ready;
         std::vector<VertexIdx> predec;
