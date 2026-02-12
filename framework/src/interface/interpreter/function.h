@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "tilefwk/tilefwk_log.h"
 #include "interface/tensor/tensor_slot.h"
 #include "interface/interpreter/operation.h"
 #include "interface/tensor/symbolic_scalar_evaluate.h"
@@ -698,7 +699,7 @@ struct FunctionInterpreter {
         ScalarImmediateType end = EvaluateSymbolicScalar(loop->End());
         ScalarImmediateType step = EvaluateSymbolicScalar(loop->Step());
         if (begin == end) {
-            ALOG_EVENT("Function ", func->GetMagicName(), " skip execute due to idx range = 0");
+            VERIFY_EVENT("Function %s skip execute due to idx range = 0", func->GetMagicName().c_str());
         }
         for (ScalarImmediateType idx = begin; idx < end; idx += step) {
             UpdateSymbolDict(loop->IterSymbolName(), idx);
