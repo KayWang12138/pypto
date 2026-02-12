@@ -391,24 +391,24 @@ struct DevAscendProgram {
             controlFlowCache.cacheData,
         };
         if ((uintptr_t)data != rangeList[0].begin) {
-            DEV_ERROR("Assertion failed: data (0x%p) != rangeList[0].begin (0x%p)", data, (void*)rangeList[0].begin);
+            DEV_ERROR("[program.encode.data.valid] Data pointer mismatch: data=0x%p, rangeBegin=0x%p.", data, (void*)rangeList[0].begin);
         }
         DEV_ASSERT((uintptr_t)data == rangeList[0].begin);
         if (rangeList[0].begin > rangeList[0].end) {
-            DEV_ERROR("Assertion failed: rangeList[0].begin (0x%p) > rangeList[0].end (0x%p)",
+            DEV_ERROR("[program.encode.data.valid] Invalid range: begin=0x%p > end=0x%p.",
                       (void*)rangeList[0].begin, (void*)rangeList[0].end);
         }
         DEV_ASSERT(rangeList[0].begin <= rangeList[0].end);
         for (size_t k = 1; k < rangeList.size(); k++) {
             if (rangeList[k - 1].end > rangeList[k].begin) {
-                DEV_ERROR("Ranges overlap: range[%d].end (0x%p) > range[%d].begin (0x%p)",
+                DEV_ERROR("[program.encode.data.valid] Ranges overlap: range[%d].end=0x%p > range[%d].begin=0x%p.",
                       (int)(k - 1), (void*)rangeList[k - 1].end,
                       (int)k, (void*)rangeList[k].begin);
             }
             if (rangeList[k].begin > rangeList[k].end) {
-                DEV_ERROR("Invalid range: range[%d].begin (0x%p) > range[%d].end (0x%p)",
+                DEV_ERROR("[program.encode.data.valid] Invalid range: range[%d].begin=0x%p > end=0x%p.",
                       (int)k, (void*)rangeList[k].begin,
-                      (int)k, (void*)rangeList[k].end);
+                      (void*)rangeList[k].end);
             }
             DEV_ASSERT_MSG(rangeList[k - 1].end <= rangeList[k].begin, "range:%d->%d", (int)(k - 1), (int)(k));
             DEV_ASSERT_MSG(rangeList[k].begin <= rangeList[k].end, "range:%d", (int)k);
@@ -416,7 +416,7 @@ struct DevAscendProgram {
         uintptr_t lastEnd = rangeList.back().end;
         uintptr_t dataEnd = (uintptr_t)(&data[dataSize]);
         if (lastEnd != dataEnd) {
-            DEV_ERROR("Last range end does not match data end: rangeList.back().end (0x%p) != dataEnd (0x%p)",
+            DEV_ERROR("[program.encode.data.valid] Data size mismatch: lastRangeEnd=0x%p, dataEnd=0x%p.",
                       (void*)lastEnd, (void*)dataEnd);
         }
         DEV_ASSERT(lastEnd == dataEnd);
