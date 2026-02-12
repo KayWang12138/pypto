@@ -21,6 +21,7 @@
 #include <memory>
 #include <ostream>
 #include <vector>
+#include <cstdint>
 
 namespace pto {
 
