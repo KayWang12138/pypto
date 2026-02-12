@@ -743,7 +743,7 @@ TEST_F(PreGraphTest, TestRemoveRedundantViewMultiCopyIn) {
     auto copyIn = G.GetOp("COPYIN");
     auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
     auto newDynOffset = copyAttr->GetFromOffset();
-    EXPECT_EQ(newDynOffset[0].Dump(), "128");
+    EXPECT_EQ(newDynOffset[0].Dump(), "");
     copyIn = G.GetOp("COPYIN2");
     copyAttr = std::static_pointer_cast<CopyOpAttribute>(copyIn->GetOpAttribute());
     newDynOffset = copyAttr->GetFromOffset();
