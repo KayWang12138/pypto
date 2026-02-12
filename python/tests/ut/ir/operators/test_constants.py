@@ -17,7 +17,8 @@ from pypto.ir import DataType
 class TestConstInt:
     """Tests for ConstInt class."""
 
-    def test_const_creation(self):
+    @staticmethod
+    def test_const_creation():
         """Test creating a ConstInt expression."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         const = ir.ConstInt(42, DataType.INT64, span)
@@ -25,14 +26,16 @@ class TestConstInt:
         assert const.value == 42
         assert const.span.filename == "test.py"
 
-    def test_const_integer(self):
+    @staticmethod
+    def test_const_integer():
         """Test ConstInt with integer values."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         const = ir.ConstInt(5, DataType.INT64, span)
 
         assert const.value == 5
 
-    def test_const_is_expr(self):
+    @staticmethod
+    def test_const_is_expr():
         """Test that ConstInt is an instance of Expr."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         const = ir.ConstInt(10, DataType.INT64, span)
@@ -40,7 +43,8 @@ class TestConstInt:
         assert isinstance(const, ir.Expr)
         assert isinstance(const, ir.IRNode)
 
-    def test_const_immutability(self):
+    @staticmethod
+    def test_const_immutability():
         """Test that ConstInt attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         const = ir.ConstInt(42, DataType.INT64, span)
@@ -49,11 +53,12 @@ class TestConstInt:
         with pytest.raises(AttributeError):
             const.value = 100  # type: ignore
 
-    def test_const_large_int64(self):
+    @staticmethod
+    def test_const_large_int64():
         """Test ConstInt with large 64-bit values."""
         span = ir.Span("test.py", 1, 1, 1, 5)
 
-        # Test value > INT32_MAX (2^31-1 = 2147483647)
+        # Test value bigger than INT32_MAX
         large_val = 3000000000  # > 2^31-1
         const = ir.ConstInt(large_val, DataType.INT64, span)
         assert const.value == large_val
@@ -72,7 +77,8 @@ class TestConstInt:
 class TestConstBool:
     """Tests for ConstBool class."""
 
-    def test_const_bool_creation_true(self):
+    @staticmethod
+    def test_const_bool_creation_true():
         """Test creating a ConstBool expression with True value."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         const = ir.ConstBool(True, span)
@@ -81,7 +87,8 @@ class TestConstBool:
         assert const.span.filename == "test.py"
         assert const.dtype == DataType.BOOL
 
-    def test_const_bool_creation_false(self):
+    @staticmethod
+    def test_const_bool_creation_false():
         """Test creating a ConstBool expression with False value."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         const = ir.ConstBool(False, span)
@@ -89,7 +96,8 @@ class TestConstBool:
         assert const.value is False
         assert const.dtype == DataType.BOOL
 
-    def test_const_bool_is_expr(self):
+    @staticmethod
+    def test_const_bool_is_expr():
         """Test that ConstBool is an instance of Expr."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         const = ir.ConstBool(True, span)
@@ -97,7 +105,8 @@ class TestConstBool:
         assert isinstance(const, ir.Expr)
         assert isinstance(const, ir.IRNode)
 
-    def test_const_bool_immutability(self):
+    @staticmethod
+    def test_const_bool_immutability():
         """Test that ConstBool attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         const = ir.ConstBool(True, span)

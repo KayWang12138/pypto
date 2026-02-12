@@ -33,7 +33,8 @@ from pypto.pypto_impl import LogLevel, set_log_level
 class TestLogLevel:
     """Test LogLevel enum and its values."""
 
-    def test_log_level_values(self):
+    @staticmethod
+    def test_log_level_values():
         """Test that LogLevel enum has all expected values."""
         assert int(LogLevel.DEBUG) == 0
         assert int(LogLevel.INFO) == 1
@@ -47,36 +48,44 @@ class TestLogLevel:
 class TestSetLogLevel:
     """Test setting log levels."""
 
-    def test_set_log_level_debug(self):
+    @staticmethod
+    def test_set_log_level_debug():
         """Test setting log level to DEBUG."""
         # Should not raise any exception
         set_log_level(LogLevel.DEBUG)
 
-    def test_set_log_level_info(self):
+    @staticmethod
+    def test_set_log_level_info():
         """Test setting log level to INFO."""
         set_log_level(LogLevel.INFO)
 
-    def test_set_log_level_warn(self):
+    @staticmethod
+    def test_set_log_level_warn():
         """Test setting log level to WARN."""
         set_log_level(LogLevel.WARN)
 
-    def test_set_log_level_error(self):
+    @staticmethod
+    def test_set_log_level_error():
         """Test setting log level to ERROR."""
         set_log_level(LogLevel.ERROR)
 
-    def test_set_log_level_fatal(self):
+    @staticmethod
+    def test_set_log_level_fatal():
         """Test setting log level to FATAL."""
         set_log_level(LogLevel.FATAL)
 
-    def test_set_log_level_event(self):
+    @staticmethod
+    def test_set_log_level_event():
         """Test setting log level to EVENT."""
         set_log_level(LogLevel.EVENT)
 
-    def test_set_log_level_none(self):
+    @staticmethod
+    def test_set_log_level_none():
         """Test setting log level to NONE (disable all logging)."""
         set_log_level(LogLevel.NONE)
 
-    def test_set_log_level_with_int(self):
+    @staticmethod
+    def test_set_log_level_with_int():
         """Test setting log level using integer values."""
         # LogLevel is an IntEnum, so it should accept integers
         set_log_level(LogLevel(0))  # DEBUG
@@ -87,7 +96,8 @@ class TestSetLogLevel:
 class TestLoggingFunctions:
     """Test that logging functions can be called without errors."""
 
-    def setup_method(self):
+    @staticmethod
+    def setup_method():
         """Set log level to DEBUG before each test to ensure all logs are visible."""
         set_log_level(LogLevel.DEBUG)
 
@@ -276,7 +286,7 @@ class TestLoggingScenarios:
             ("EVENT", pypto_core.log_event, "V |"),
         ]
 
-        for level_name, log_func, marker in levels_and_funcs:
+        for level_name, log_func, _ in levels_and_funcs:
             log_func(f"Testing {level_name} level")
 
         captured = capfd.readouterr()
@@ -412,25 +422,29 @@ class TestTimestampAndFormatting:
 class TestCheckFunctions:
     """Test CHECK and INTERNAL_CHECK functions."""
 
-    def test_check_passes_on_true_condition(self):
+    @staticmethod
+    def test_check_passes_on_true_condition():
         """Test that check() doesn't raise when condition is True."""
         # Should not raise any exception
         pypto_core.check(True, "This should not be raised")
 
-    def test_check_raises_on_false_condition(self):
+    @staticmethod
+    def test_check_raises_on_false_condition():
         """Test that check() raises ValueError when condition is False."""
         with pytest.raises(ValueError) as exc_info:
             pypto_core.check(False, "This is a test error message")
         assert "This is a test error message" in str(exc_info.value)
 
-    def test_check_with_custom_message(self):
+    @staticmethod
+    def test_check_with_custom_message():
         """Test that check() includes the custom message in the exception."""
         error_msg = "Value must be positive, got: -5"
         with pytest.raises(ValueError) as exc_info:
             pypto_core.check(-5 > 0, error_msg)
         assert error_msg in str(exc_info.value)
 
-    def test_check_with_complex_condition(self):
+    @staticmethod
+    def test_check_with_complex_condition():
         """Test check() with more complex conditions."""
         x = 10
         # This should pass
@@ -440,26 +454,30 @@ class TestCheckFunctions:
         with pytest.raises(ValueError):
             pypto_core.check(x > 100, f"x ({x}) should be greater than 100")
 
-    def test_internal_check_passes_on_true_condition(self):
+    @staticmethod
+    def test_internal_check_passes_on_true_condition():
         """Test that internal_check() doesn't raise when condition is True."""
         # Should not raise any exception
         pypto_core.internal_check(True, "This should not be raised")
         pypto_core.internal_check(2 + 2 == 4, "Math works")
 
-    def test_internal_check_raises_on_false_condition(self):
+    @staticmethod
+    def test_internal_check_raises_on_false_condition():
         """Test that internal_check() raises RuntimeError when condition is False."""
         with pytest.raises(RuntimeError) as exc_info:
             pypto_core.internal_check(False, "Internal invariant violated")
         assert "Internal invariant violated" in str(exc_info.value)
 
-    def test_internal_check_with_custom_message(self):
+    @staticmethod
+    def test_internal_check_with_custom_message():
         """Test that internal_check() includes the custom message in the exception."""
         error_msg = "Pointer should never be null at this point"
         with pytest.raises(RuntimeError) as exc_info:
             pypto_core.internal_check(False, error_msg)
         assert error_msg in str(exc_info.value)
 
-    def test_check_vs_internal_check_exception_types(self):
+    @staticmethod
+    def test_check_vs_internal_check_exception_types():
         """Test that check() and internal_check() raise different exception types."""
         # check() should raise ValueError
         with pytest.raises(ValueError):
@@ -480,21 +498,24 @@ class TestCheckFunctions:
         except Exception as e:
             assert type(e).__name__ == "InternalError"
 
-    def test_check_with_empty_message(self):
+    @staticmethod
+    def test_check_with_empty_message():
         """Test check() with an empty message."""
         with pytest.raises(ValueError) as exc_info:
             pypto_core.check(False, "")
         # Should still raise, even with empty message
         assert isinstance(exc_info.value, ValueError)
 
-    def test_check_with_special_characters_in_message(self):
+    @staticmethod
+    def test_check_with_special_characters_in_message():
         """Test check() with special characters in error message."""
         special_msg = "Error: value < 0 && value != -1 (unexpected!)"
         with pytest.raises(ValueError) as exc_info:
             pypto_core.check(False, special_msg)
         assert special_msg in str(exc_info.value)
 
-    def test_multiple_checks_in_sequence(self):
+    @staticmethod
+    def test_multiple_checks_in_sequence():
         """Test multiple checks in sequence."""
         # All should pass
         pypto_core.check(True, "First check")
@@ -507,7 +528,8 @@ class TestCheckFunctions:
         assert "This will fail" in str(exc_info.value)
         assert "This won't be reached" not in str(exc_info.value)
 
-    def test_check_preserves_exception_hierarchy(self):
+    @staticmethod
+    def test_check_preserves_exception_hierarchy():
         """Test that ValueError can be caught as a standard exception."""
         # Should be catchable as a general Exception
         with pytest.raises(Exception):
@@ -517,7 +539,8 @@ class TestCheckFunctions:
         with pytest.raises(ValueError):
             pypto_core.check(False, "test")
 
-    def test_internal_check_preserves_exception_hierarchy(self):
+    @staticmethod
+    def test_internal_check_preserves_exception_hierarchy():
         """Test that RuntimeError from internal_check can be caught as a standard exception."""
         # Should be catchable as a general Exception
         with pytest.raises(Exception):

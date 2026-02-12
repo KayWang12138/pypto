@@ -19,7 +19,8 @@ from pypto.ir import DataType
 class TestForStmt:
     """Test ForStmt class."""
 
-    def test_for_stmt_creation(self):
+    @staticmethod
+    def test_for_stmt_creation():
         """Test creating a ForStmt instance."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -38,7 +39,8 @@ class TestForStmt:
         assert isinstance(for_stmt.step, ir.ConstInt)
         assert isinstance(for_stmt.body, ir.AssignStmt)
 
-    def test_for_stmt_has_attributes(self):
+    @staticmethod
+    def test_for_stmt_has_attributes():
         """Test that ForStmt has loop_var, start, stop, step, and body attributes."""
         span = ir.Span("test.py", 10, 5, 10, 15)
         dtype = DataType.INT64
@@ -63,7 +65,8 @@ class TestForStmt:
         assert cast(ir.ConstInt, for_stmt.step).value == 2
         assert len(for_stmt.return_vars) == 0
 
-    def test_for_stmt_is_stmt(self):
+    @staticmethod
+    def test_for_stmt_is_stmt():
         """Test that ForStmt is an instance of Stmt."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -77,7 +80,8 @@ class TestForStmt:
         assert isinstance(for_stmt, ir.Stmt)
         assert isinstance(for_stmt, ir.IRNode)
 
-    def test_for_stmt_immutability(self):
+    @staticmethod
+    def test_for_stmt_immutability():
         """Test that ForStmt attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         dtype = DataType.INT64
@@ -103,7 +107,8 @@ class TestForStmt:
         with pytest.raises(AttributeError):
             for_stmt.return_vars = []  # type: ignore
 
-    def test_for_stmt_with_empty_body(self):
+    @staticmethod
+    def test_for_stmt_with_empty_body():
         """Test ForStmt with empty body."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -118,7 +123,8 @@ class TestForStmt:
         assert isinstance(for_stmt.body, ir.SeqStmts)
         assert len(for_stmt.body.stmts) == 0
 
-    def test_for_stmt_with_different_expression_types(self):
+    @staticmethod
+    def test_for_stmt_with_different_expression_types():
         """Test ForStmt with different expression types for start, stop, step."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -148,7 +154,8 @@ class TestForStmt:
         for_stmt3 = ir.ForStmt(i, start_const, add_expr, step_const, [], assign, [], span)
         assert isinstance(for_stmt3.stop, ir.Add)
 
-    def test_for_stmt_with_multiple_statements(self):
+    @staticmethod
+    def test_for_stmt_with_multiple_statements():
         """Test ForStmt with multiple statements in body."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -170,7 +177,8 @@ class TestForStmt:
         assert isinstance(for_stmt.body.stmts[1], ir.AssignStmt)
         assert isinstance(for_stmt.body.stmts[2], ir.AssignStmt)
 
-    def test_for_stmt_with_return_vars(self):
+    @staticmethod
+    def test_for_stmt_with_return_vars():
         """Test ForStmt with return_vars."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -199,7 +207,8 @@ class TestForStmt:
         assert for_stmt3.return_vars[1].name == "y"
         assert for_stmt3.return_vars[2].name == "z"
 
-    def test_for_stmt_with_iter_args(self):
+    @staticmethod
+    def test_for_stmt_with_iter_args():
         """Test ForStmt with iter_args."""
         span = ir.Span("test.py", 1, 1, 1, 10)
         dtype = DataType.INT64
@@ -236,7 +245,8 @@ class TestForStmt:
 class TestForStmtHash:
     """Tests for ForStmt hash function."""
 
-    def test_for_stmt_same_structure_hash(self):
+    @staticmethod
+    def test_for_stmt_same_structure_hash():
         """Test ForStmt nodes with same structure hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -258,7 +268,8 @@ class TestForStmtHash:
         hash2 = ir.structural_hash(for_stmt2)
         assert hash1 == hash2
 
-    def test_for_stmt_different_loop_var_hash(self):
+    @staticmethod
+    def test_for_stmt_different_loop_var_hash():
         """Test ForStmt nodes with different loop vars hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -276,7 +287,8 @@ class TestForStmtHash:
         hash2 = ir.structural_hash(for_stmt2)
         assert hash1 != hash2
 
-    def test_for_stmt_different_range_hash(self):
+    @staticmethod
+    def test_for_stmt_different_range_hash():
         """Test ForStmt nodes with different range values hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -296,7 +308,8 @@ class TestForStmtHash:
         hash2 = ir.structural_hash(for_stmt2)
         assert hash1 != hash2
 
-    def test_for_stmt_different_body_hash(self):
+    @staticmethod
+    def test_for_stmt_different_body_hash():
         """Test ForStmt nodes with different body statements hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -315,7 +328,8 @@ class TestForStmtHash:
         hash2 = ir.structural_hash(for_stmt2)
         assert hash1 != hash2
 
-    def test_for_stmt_different_return_vars_hash(self):
+    @staticmethod
+    def test_for_stmt_different_return_vars_hash():
         """Test ForStmt nodes with different return_vars hash."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -338,7 +352,8 @@ class TestForStmtHash:
         assert hash1 != hash3
         assert hash2 != hash3
 
-    def test_for_stmt_empty_vs_non_empty_return_vars_hash(self):
+    @staticmethod
+    def test_for_stmt_empty_vs_non_empty_return_vars_hash():
         """Test ForStmt nodes with empty and non-empty return_vars hash differently."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -360,7 +375,8 @@ class TestForStmtHash:
 class TestForStmtEquality:
     """Tests for ForStmt structural equality function."""
 
-    def test_for_stmt_structural_equal(self):
+    @staticmethod
+    def test_for_stmt_structural_equal():
         """Test structural equality of ForStmt nodes."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -380,7 +396,8 @@ class TestForStmtEquality:
 
         ir.assert_structural_equal(for_stmt1, for_stmt2)
 
-    def test_for_stmt_different_loop_var_equal(self):
+    @staticmethod
+    def test_for_stmt_different_loop_var_equal():
         """Test ForStmt nodes with different loop vars are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -396,7 +413,8 @@ class TestForStmtEquality:
 
         ir.assert_structural_equal(for_stmt1, for_stmt2)
 
-    def test_for_stmt_different_range_not_equal(self):
+    @staticmethod
+    def test_for_stmt_different_range_not_equal():
         """Test ForStmt nodes with different range values are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -414,7 +432,8 @@ class TestForStmtEquality:
 
         assert not ir.structural_equal(for_stmt1, for_stmt2)
 
-    def test_for_stmt_different_body_not_equal(self):
+    @staticmethod
+    def test_for_stmt_different_body_not_equal():
         """Test ForStmt nodes with different body statements are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -431,7 +450,8 @@ class TestForStmtEquality:
 
         assert not ir.structural_equal(for_stmt1, for_stmt2)
 
-    def test_for_stmt_empty_vs_non_empty_body_not_equal(self):
+    @staticmethod
+    def test_for_stmt_empty_vs_non_empty_body_not_equal():
         """Test ForStmt nodes with empty and non-empty body lists are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -447,7 +467,8 @@ class TestForStmtEquality:
 
         assert not ir.structural_equal(for_stmt1, for_stmt2)
 
-    def test_for_stmt_different_from_base_stmt_not_equal(self):
+    @staticmethod
+    def test_for_stmt_different_from_base_stmt_not_equal():
         """Test ForStmt and different Stmt type are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -462,7 +483,8 @@ class TestForStmtEquality:
 
         assert not ir.structural_equal(for_stmt, other_stmt)
 
-    def test_for_stmt_different_return_vars_not_equal(self):
+    @staticmethod
+    def test_for_stmt_different_return_vars_not_equal():
         """Test ForStmt nodes with different return_vars are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -482,7 +504,8 @@ class TestForStmtEquality:
         assert not ir.structural_equal(for_stmt1, for_stmt3)
         assert not ir.structural_equal(for_stmt2, for_stmt3)
 
-    def test_for_stmt_empty_vs_non_empty_return_vars_not_equal(self):
+    @staticmethod
+    def test_for_stmt_empty_vs_non_empty_return_vars_not_equal():
         """Test ForStmt nodes with empty and non-empty return_vars are not equal."""
         span = ir.Span.unknown()
         dtype = DataType.INT64
@@ -502,7 +525,8 @@ class TestForStmtEquality:
 class TestForStmtAutoMapping:
     """Tests for auto mapping feature with ForStmt."""
 
-    def test_auto_mapping_with_for_stmt(self):
+    @staticmethod
+    def test_auto_mapping_with_for_stmt():
         """Test auto mapping with ForStmt."""
         # Build: for i in range(0, 10, 1): i = 0
         i1 = ir.Var("i", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -531,7 +555,8 @@ class TestForStmtAutoMapping:
         hash_without_auto2 = ir.structural_hash(for_stmt2, enable_auto_mapping=False)
         assert hash_without_auto1 == hash_without_auto2
 
-    def test_auto_mapping_for_stmt_different_structure(self):
+    @staticmethod
+    def test_auto_mapping_for_stmt_different_structure():
         """Test auto mapping with ForStmt where structures differ."""
         # Build: for i in range(0, 10, 1): i = 0
         i1 = ir.Var("i", ir.ScalarType(DataType.INT64), ir.Span.unknown())
@@ -552,7 +577,8 @@ class TestForStmtAutoMapping:
         # Different stop values should not be equal
         assert not ir.structural_equal(for_stmt1, for_stmt2, enable_auto_mapping=True)
 
-    def test_auto_mapping_for_stmt_with_return_vars(self):
+    @staticmethod
+    def test_auto_mapping_for_stmt_with_return_vars():
         """Test auto mapping with ForStmt that has return_vars."""
         # Build: for i in range(0, 10, 1): i = 0 return i, x
         i1 = ir.Var("i", ir.ScalarType(DataType.INT64), ir.Span.unknown())

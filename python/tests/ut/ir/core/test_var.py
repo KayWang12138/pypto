@@ -17,7 +17,8 @@ from pypto.ir import DataType
 class TestVar:
     """Tests for Var class."""
 
-    def test_var_creation(self):
+    @staticmethod
+    def test_var_creation():
         """Test creating a Var expression."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         var = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -25,7 +26,8 @@ class TestVar:
         assert var.name == "x"
         assert var.span.filename == "test.py"
 
-    def test_var_is_expr(self):
+    @staticmethod
+    def test_var_is_expr():
         """Test that Var is an instance of Expr."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         var = ir.Var("x", ir.ScalarType(DataType.INT64), span)
@@ -33,7 +35,8 @@ class TestVar:
         assert isinstance(var, ir.Expr)
         assert isinstance(var, ir.IRNode)
 
-    def test_var_immutability(self):
+    @staticmethod
+    def test_var_immutability():
         """Test that Var attributes are immutable."""
         span = ir.Span("test.py", 1, 1, 1, 5)
         var = ir.Var("x", ir.ScalarType(DataType.INT64), span)

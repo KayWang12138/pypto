@@ -28,7 +28,7 @@ def test_eval_stmt_python_print():
     """Test printing an EvalStmt as Python code using system.sync_src."""
     span = ir.Span("test.py", 1, 1)
 
-    # Create system.sync_src(set_pipe=MTE2, wait_pipe=V, event_id=1)
+    # Create system.sync_src
     sync_call = ir.create_op_call(
         "system.sync_src", [], {"set_pipe": ir.PipeType.MTE2, "wait_pipe": ir.PipeType.V, "event_id": 1}, span
     )
