@@ -48,6 +48,8 @@ struct GrowLocalAutoCoresParams {
 template <typename GraphT>
 class GrowLocalAutoCores : public Scheduler<GraphT> {
   private:
+    using VertexIdx = typename GraphT::VertexIdx;
+
     GrowLocalAutoCoresParams<VWorkwT<GraphT>> params_;
 
   public:
@@ -71,7 +73,6 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
      * @return A pair containing the return status and the computed BspSchedule.
      */
     virtual ReturnStatus ComputeSchedule(BspSchedule<GraphT> &schedule) override {
-        using VertexIdx = typename GraphT::VertexIdx;
         const auto &instance = schedule.GetInstance();
         const auto &g = instance.GetComputationalDag();
         const auto n = instance.NumberOfVertices();
@@ -146,8 +147,7 @@ class GrowLocalAutoCores : public Scheduler<GraphT> {
         return ReturnStatus::OSP_SUCCESS;
     }
 
-  private:
-    using VertexIdx = typename GraphT::VertexIdx;
+  private:    
 
     void InitializeReadyQueue(const GraphT &g, std::unordered_set<VertexIdx> &ready, 
                               std::vector<VertexIdx> &predec) {
