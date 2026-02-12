@@ -332,6 +332,24 @@ void bind_operation(py::module &m) {
         },
         py::arg("operand"), py::arg("k"), py::arg("axis"), py::arg("islargest") = true, "Tensor topk.");
     m.def(
+        "Sort32",
+        [](const Tensor &self, int index) {
+            return npu::tile_fwk::Sort32(self, index);
+        },
+        py::arg("operand"), py::arg("index"), "Tensor sort32.");
+    m.def(
+        "MrgSort",
+        [](const Tensor &self, int mergesize) {
+            return npu::tile_fwk::MrgSort(self, mergesize);
+        },
+        py::arg("operand"), py::arg("mergesize"), "Tensor mrgsort.");
+    m.def(
+        "Sort",
+        [](const Tensor &self, int dim) {
+            return npu::tile_fwk::Sort(self, dim);
+        },
+        py::arg("operand"), py::arg("dim"), "Tensor sort.");
+    m.def(
         "ArgSort",
         [](const Tensor &self, int axis, bool descending) {
             return npu::tile_fwk::ArgSort(self, axis, descending);
