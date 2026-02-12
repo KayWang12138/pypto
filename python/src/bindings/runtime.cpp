@@ -778,10 +778,13 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     
     uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors, isCaptureMode);
     HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
-    
-    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
-    HOST_PERF_TRACE(TracePhase::Launch);
+    int64_t repeatTime = config::GetRuntimeOption<int64_t>(REPEAT_TIME);
+    for (int64_t i = 0; i < repeatTime; i++) {
+        kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+        HOST_PERF_TRACE(TracePhase::Launch);
+    }
     HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+
 }
 #else
 void LaunchKernel(py::object &, int64_t, py::args &) { }
