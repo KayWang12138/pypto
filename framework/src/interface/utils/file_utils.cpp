@@ -185,20 +185,20 @@ bool ReadBytesFromFile(const std::string &filePath, std::vector<char> &buffer)
 {
     std::string realPath = RealPath(filePath);
     if (realPath.empty()) {
-        ALOG_WARN_F("Bin file path[%s] is not valid.", filePath.c_str());
+        FUNCTION_LOGW("Bin file path[%s] is not valid.", filePath.c_str());
         return false;
     }
 
     std::ifstream ifStream(realPath.c_str(), std::ios::binary | std::ios::ate);
     if (!ifStream.is_open()) {
-        ALOG_WARN_F("read file %s failed.", filePath.c_str());
+        FUNCTION_LOGW("read file %s failed.", filePath.c_str());
         return false;
     }
     try {
         std::streamsize size = ifStream.tellg();
         if (size <= 0 || size > INT_MAX) {
             ifStream.close();
-            ALOG_WARN_F("File size %ld is not within the range: (0, %d].", size, INT_MAX);
+            FUNCTION_LOGW("File size %ld is not within the range: (0, %d].", size, INT_MAX);
             return false;
         }
 
@@ -206,11 +206,11 @@ bool ReadBytesFromFile(const std::string &filePath, std::vector<char> &buffer)
 
         buffer.resize(size);
         ifStream.read(&buffer[0], size);
-        ALOG_DEBUG_F("Release file(%s) handle.", realPath.c_str());
+        FUNCTION_LOGD("Release file(%s) handle.", realPath.c_str());
         ifStream.close();
-        ALOG_DEBUG_F("Read size: %ld.", size);
+        FUNCTION_LOGD("Read size: %ld.", size);
     } catch (const std::ifstream::failure& e) {
-        ALOG_WARN_F("Fail to read file %s. Exception: %s.", filePath.c_str(), e.what());
+        FUNCTION_LOGW("Fail to read file %s. Exception: %s.", filePath.c_str(), e.what());
         ifStream.close();
         return false;
     }
@@ -269,7 +269,7 @@ std::vector<std::string> GetFiles(const std::string& path, const std::string& ex
 void SaveFile(const std::string &filePath, const std::vector<uint8_t> &data) {
     FILE *file = fopen(filePath.c_str(), "wb");
     if (file == nullptr) {
-        ALOG_WARN_F("Open file [%s] failed.", filePath.c_str());
+        FUNCTION_LOGW("Open file [%s] failed.", filePath.c_str());
         return;
     }
     fwrite(data.data(), 1, data.size(), file);
@@ -279,7 +279,7 @@ void SaveFile(const std::string &filePath, const std::vector<uint8_t> &data) {
 bool SaveFile(const std::string &filePath, const uint8_t *data, size_t size) {
     FILE *file = fopen(filePath.c_str(), "wb");
     if (file == nullptr) {
-        ALOG_WARN_F("Open file [%s] failed.", filePath.c_str());
+        FUNCTION_LOGW("Open file [%s] failed.", filePath.c_str());
         return false;
     }
     fwrite(data, 1, size, file);
@@ -296,7 +296,7 @@ void SaveFileSafe(const std::string &filePath, const uint8_t *data, size_t size)
 
 void Rename(const std::string &oldPath, const std::string &newPath) {
     if (rename(oldPath.c_str(), newPath.c_str()) != 0) {
-        ALOG_WARN_F("Rename file %s to %s failed.", oldPath.c_str(), newPath.c_str());
+        FUNCTION_LOGW("Rename file %s to %s failed.", oldPath.c_str(), newPath.c_str());
     }
 }
 
@@ -309,7 +309,7 @@ bool DumpFile(const char *data, const size_t size, const std::string &filePath) 
     }
     outFile.write(data, size);
     outFile.close();
-    ALOG_INFO_F("Bin file[%s] has been dumped.", filePath.c_str());
+    FUNCTION_LOGI("Bin file[%s] has been dumped.", filePath.c_str());
     return true;
 }
 
@@ -325,7 +325,7 @@ std::vector<uint8_t> LoadFile(const std::string &filePath) {
     std::vector<uint8_t> binary;
     std::string realPath = RealPath(filePath);
     if (realPath.empty()) {
-        ALOG_WARN_F("Bin file path[%s] is not valid.", filePath.c_str());
+        FUNCTION_LOGW("Bin file path[%s] is not valid.", filePath.c_str());
         return binary;
     }
 
@@ -446,7 +446,7 @@ std::string GetCurRunningPath() {
 void RemoveOldestDirs(const std::string &path, const std::string &prefix, int left) {
     DIR *dir = opendir(path.c_str());
     if (dir == nullptr) {
-        ALOG_WARN_F("failed to opendir: %s", path.c_str());
+        FUNCTION_LOGW("failed to opendir: %s", path.c_str());
         return;
     }
 

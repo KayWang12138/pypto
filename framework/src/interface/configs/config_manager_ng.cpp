@@ -27,12 +27,12 @@
 
 #include "interface/inner/any.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 #include "interface/utils/string_utils.h"
 
 #include "config_manager_ng.h"
 #include "tilefwk/tile_shape.h"
+#include "tilefwk/tilefwk_log.h"
 
 
 namespace npu::tile_fwk {
@@ -103,8 +103,10 @@ struct TypeInfo {
                     rangeInfos.insert({prefix + "_val", {minBound, maxBound}});
                 }
             } else {
-                ALOG_ERROR("invalid type: ", type, " at ", prefix);
+                FUNCTION_LOGE("invalid type: %s at %s", type.c_str(), prefix.c_str());
             }
+        } else {
+            FUNCTION_LOGE("Label<%s> field['type', 'properties'] not found in tile_fwk_config_schema.json", prefix.c_str());
         }
     }
 
@@ -253,7 +255,7 @@ void ConfigScope::UpdateValueWithAny(const std::string &key, Any value) {
     }
     std::stringstream oss;
     DumpValue(oss, key, value, "");
-    ALOG_DEBUG_F("Set option successfully: %s ", oss.str().c_str());
+    FUNCTION_LOGD("Set option successfully: %s ", oss.str().c_str());
     std::lock_guard<std::mutex> lock(mtx);
     values_[key] = value;
 }
@@ -335,18 +337,18 @@ struct ConfigManagerImpl {
 
     void SetGlobalConfig(std::map<std::string, Any> &&values, const char *file, int lino) {
         if (values.empty()) {
-            ALOG_WARN_F("No values provided to set in global config. Locations: %s:%d", file, lino);
+            FUNCTION_LOGW("No values provided to set in global config. Locations: %s:%d", file, lino);
             return;
         }
         for (auto &it : values) {
             try {
                 root->AddValue(it.first, it.second);
-                ALOG_DEBUG_F("Set option successfully. Key: %s", it.first.c_str());
+                FUNCTION_LOGD("Set option successfully. Key: %s", it.first.c_str());
             } catch (const std::exception &e) {
-                ALOG_ERROR_F("Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
+                FUNCTION_LOGE("Failed to set option. Key: %s, Error: %s", it.first.c_str(), e.what());
             }
         }
-        ALOG_DEBUG_F("Set locations: %s:%d", file, lino);
+        FUNCTION_LOGD("Set locations: %s:%d", file, lino);
     }
 
     void Dump(std::stringstream &os, ConfigScope *node, const std::string &prefix) {
@@ -469,7 +471,7 @@ bool ConfigManagerNg::IsWithinRange(const std::string &properties, Any &value) c
             return impl_->IsWithinRange(properties, AnyCast<int64_t>(value));
         }
     } catch (const std::out_of_range &e) {
-        ALOG_ERROR_F("key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
+        FUNCTION_LOGE("key[%s] has been not loaded form tile_fwk_config_schema.json.", properties.c_str());
         return false;
     }
     return true;

@@ -21,8 +21,8 @@
 #include <sstream>
 #include <shared_mutex>
 
+#include "tilefwk/tilefwk_log.h"
 #include "interface/utils/common.h"
-#include "interface/utils/log.h"
 #include "interface/utils/file_utils.h"
 #include <unistd.h>
 namespace npu::tile_fwk {
@@ -62,7 +62,7 @@ const nlohmann::json *ConfigManager::GetJsonNode(const nlohmann::json &root, con
 
 Status ConfigManager::Initialize() {
     if (isInit_) {
-        ALOG_INFO_F("ConfigManager has been initialized.");
+        FUNCTION_LOGI("ConfigManager has been initialized.");
         return SUCCESS;
     }
     /* 环境变量优先生效 */
@@ -73,9 +73,9 @@ Status ConfigManager::Initialize() {
 
     config::SetRunDataOption(KEY_PTO_CONFIG_FILE, jsonFilePath);
     config::SetRunDataOption(KEY_RUNTYPE, "npu");
-    ALOG_INFO_F("Start to parse op_json_file %s", jsonFilePath.c_str());
+    FUNCTION_LOGI("Start to parse op_json_file %s", jsonFilePath.c_str());
     if (!ReadJsonFile(jsonFilePath, json_)) {
-        ALOG_ERROR_F("ReadJsonFile failed.");
+        FUNCTION_LOGE("ReadJsonFile failed.");
         return FAILED;
     }
 
@@ -196,8 +196,8 @@ void ConfigManager::PassConfigsDebugInfo(
     const std::string &strategy, const std::vector<std::string> &identifiers) const {
     auto *node = GetJsonNode(json_, {"global", "pass_strategies", strategy});
     if (!node) {
-        ALOG_INFO("[ConfigManager] Missing custom pass strategy <", strategy, "> configs. ",
-                    "You may add your own custom strategy configs in 'tile_fwk_config.json'.");
+        FUNCTION_LOGI("[ConfigManager] Missing custom pass strategy < %s > configs. ",
+                    "You may add your own custom strategy configs in 'tile_fwk_config.json'.", strategy.c_str());
         return;
     }
 
@@ -206,14 +206,15 @@ void ConfigManager::PassConfigsDebugInfo(
         maxLength = std::max(maxLength, identifier.size());
     }
 
-    ALOG_INFO("[ConfigManager] Strategy <", strategy, "> is found. Custom pass strategy will be used.");
+    FUNCTION_LOGI("[ConfigManager] Strategy < %s > is found. Custom pass strategy will be used.", strategy.c_str());
     for (auto &&identifier : identifiers) {
         std::string spaces(maxLength - identifier.size(), ' ');
         if (node->find(identifier) != node->end()) {
-            ALOG_INFO("[ConfigManager] Pass instance ", spaces, "<", identifier, "> configs loaded.");
+            FUNCTION_LOGI("[ConfigManager] Pass instance %s<%s> configs loaded.", spaces.c_str(), identifier.c_str());
         } else {
-            ALOG_INFO("[ConfigManager] Pass instance ", spaces, "<", identifier, "> configs for pass strategy <",
-            strategy, "> is missing. You may add your own custom strategy configs in 'tile_fwk_config.json'.");
+            FUNCTION_LOGI("[ConfigManager] Pass instance %s<%s> configs for pass strategy <%s> is missing. \
+            You may add your own custom strategy configs in 'tile_fwk_config.json'.",
+            spaces.c_str(), identifier.c_str(), strategy.c_str());
         }
     }
 }
