@@ -95,6 +95,9 @@ class OspPartitioner : public SuperNodeGraphBuilder {
     
     // Helpers
     uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const override ;
+    uint64_t CombineNeighborHashes(uint64_t baseHash, const std::vector<int32_t> &neighbors,
+                                   const std::vector<uint64_t> &hashSource);
+    void BuildNodeHashValues(const std::vector<uint64_t> &opHashList);
     Status BuildHashValues() override;
 
 public:    

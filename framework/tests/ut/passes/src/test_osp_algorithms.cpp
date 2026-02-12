@@ -844,31 +844,11 @@ TEST_F(OspAlgorithmTest, CoarsenSarkarML) {
 
 TEST_F(OspAlgorithmTest, DagAdaptorSimpleGraph) {
     const std::vector<std::vector<VertType>> outEdges({
-        {1, 2},
-        {2, 6},
-        {3},
-        {7},
-        {6},
-        {6},
-        {7, 10},
-        {9},
-        {},
-        {},
-        {}
+        {1, 2}, {2, 6}, {3}, {7}, {6}, {6}, {7, 10}, {9}, {}, {}, {}
     });
 
     const std::vector<std::vector<VertType>> inEdges({
-        {},
-        {0},
-        {0, 1},
-        {2},
-        {},
-        {},
-        {1, 4, 5},
-        {3, 6},
-        {},
-        {7},
-        {6}
+        {}, {0}, {0, 1}, {2}, {}, {}, {1, 4, 5}, {3, 6}, {}, {7}, {6}
     });
 
     GraphAdapterType graph(outEdges, inEdges);

@@ -389,64 +389,61 @@ uint64_t OspPartitioner::CombineHash(const uint64_t h1, const uint64_t h2) const
     return seed;
 }
 
-Status OspPartitioner::BuildHashValues()
+uint64_t OspPartitioner::CombineNeighborHashes(uint64_t baseHash, const std::vector<int32_t> &neighbors,
+                                                const std::vector<uint64_t> &hashSource)
 {
-    constexpr uint64_t numThree = 3U;
+    std::vector<uint64_t> hashes;
+    for (int32_t j : neighbors) {
+        hashes.push_back(hashSource[j]);
+    }
+    std::sort(hashes.begin(), hashes.end());
+    for (const auto &h : hashes) {
+        baseHash = CombineHash(baseHash, h);
+    }
+    return baseHash;
+}
+
+void OspPartitioner::BuildNodeHashValues(const std::vector<uint64_t> &opHashList)
+{
     constexpr std::size_t numEleven = 11U;
-
-    std::vector<uint64_t> opHashList;
-    std::vector<uint64_t> opHashListFront(operationInfo_->opList_.size(), 0);
-    std::vector<uint64_t> opHashListBack(operationInfo_->opList_.size(), numThree);
-    std::vector<uint64_t> opHashListFrontBack(operationInfo_->opList_.size(), 0);
-    for (size_t i = 0; i < operationInfo_->opList_.size(); i++) {
-        opHashListFront[i] = operationInfo_->opHashList_[i];
-        
-        std::vector<uint64_t> hashes;
-        for (int32_t j : operationInfo_->inGraph_[i]) {
-            hashes.push_back(opHashListFront[j]);
-        }
-        std::sort(hashes.begin(), hashes.end());
-        for (int32_t j = 0; j < static_cast<int32_t>(hashes.size()); j++) {
-            opHashListFront[i] = CombineHash(opHashListFront[i], hashes[j]);
-        }
-    }
-    for (int32_t i = static_cast<int32_t>(operationInfo_->opList_.size() - 1); i >= 0; i--) {
-        std::vector<uint64_t> hashes;
-        for (int32_t j : operationInfo_->outGraph_[i]) {
-            hashes.push_back(opHashListBack[j]); 
-        }
-
-        std::sort(hashes.begin(), hashes.end());
-        for (int32_t j = 0; j < static_cast<int32_t>(hashes.size()); j++) {
-            opHashListBack[i] = CombineHash(opHashListBack[i], hashes[j]);
-        }
-    }
-    for (size_t i = 0; i < operationInfo_->opList_.size(); i++) {
-        opHashListFrontBack[i] = CombineHash(opHashListFront[i], opHashListBack[i]);
-    }
-    opHashList.swap(opHashListFrontBack);
-    
-    if (superNodeInfo_->op2Node_.size() != operationInfo_->opList_.size()) {
-        APASS_LOG_ERROR_F(Elements::Function, "Operation number mismatch in SuperNodeInfo and OperationInfo.");
-        return FAILED;
-    }
     int32_t numNode = superNodeInfo_->node2Op_.size();
     superNodeInfo_->nodeHashList_.resize(numNode);
     for (int32_t i = 0; i < numNode; i++) {
-        superNodeInfo_->nodeHashList_[i] = numEleven;
-        std::vector<uint64_t> hashes;
-        for (int32_t opIdx : superNodeInfo_->node2Op_[i]) {
-            hashes.push_back(opHashList[opIdx]);
-        }
-        std::sort(hashes.begin(), hashes.end());
-        
-        for (int32_t j = 0; j < static_cast<int32_t>(hashes.size()); j++) {
-            superNodeInfo_->nodeHashList_[i] = CombineHash(superNodeInfo_->nodeHashList_[i], hashes[j]);
-        }
+        superNodeInfo_->nodeHashList_[i] = CombineNeighborHashes(numEleven, superNodeInfo_->node2Op_[i], opHashList);
     }
     for (int32_t i = 0; i < numNode; i++) {
         superNodeInfo_->hash2NodeMap_[superNodeInfo_->nodeHashList_[i]].push_back(i);
     }
+}
+
+Status OspPartitioner::BuildHashValues()
+{
+    constexpr uint64_t numThree = 3U;
+    const size_t numOps = operationInfo_->opList_.size();
+
+    std::vector<uint64_t> opHashListFront(numOps, 0);
+    std::vector<uint64_t> opHashListBack(numOps, numThree);
+
+    for (size_t i = 0; i < numOps; i++) {
+        const std::vector<int32_t> inNeighbors(operationInfo_->inGraph_[i].begin(), operationInfo_->inGraph_[i].end());
+        opHashListFront[i] = CombineNeighborHashes(operationInfo_->opHashList_[i], inNeighbors, opHashListFront);
+    }
+    for (int32_t i = static_cast<int32_t>(numOps - 1); i >= 0; i--) {
+        const std::vector<int32_t> outNeighbors(operationInfo_->outGraph_[i].begin(), operationInfo_->outGraph_[i].end());
+        opHashListBack[i] = CombineNeighborHashes(opHashListBack[i], outNeighbors, opHashListBack);
+    }
+
+    std::vector<uint64_t> opHashList(numOps);
+    for (size_t i = 0; i < numOps; i++) {
+        opHashList[i] = CombineHash(opHashListFront[i], opHashListBack[i]);
+    }
+
+    if (superNodeInfo_->op2Node_.size() != numOps) {
+        APASS_LOG_ERROR_F(Elements::Function, "Operation number mismatch in SuperNodeInfo and OperationInfo.");
+        return FAILED;
+    }
+
+    BuildNodeHashValues(opHashList);
     return SUCCESS;
 }
 
