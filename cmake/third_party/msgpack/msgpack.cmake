@@ -32,13 +32,13 @@ endif ()
 # msgpack-c is a header-only library, look for it in third_party_path
 get_filename_component(_MsgpackSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-c" REALPATH)
 if (NOT EXISTS "${_MsgpackSourceDir}/include/msgpack.hpp")
-    get_filename_component(_MsgpackSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-c-cpp-${_TargetVersion}" REALPATH)
+    get_filename_component(_MsgpackSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}" REALPATH)
 endif ()
 
 if (NOT EXISTS "${_MsgpackSourceDir}/include/msgpack.hpp")
     # 触发下载
-    set(_MsgpackTarGz "${PYPTO_THIRD_PARTY_PATH}/msgpack-c-cpp-${_TargetVersion}.tar.gz")
-    set(_MsgpackUrl "https://github.com/msgpack/msgpack-c/archive/refs/tags/cpp-${_TargetVersion}.tar.gz")
+    set(_MsgpackTarGz "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}.tar.gz")
+    set(_MsgpackUrl "https://gitcode.com/cann-src-third-party/msgpack-c/releases/download/cpp-${_TargetVersion}/msgpack-cxx-${_TargetVersion}.tar.gz")
 
     message(STATUS "Downloading msgpack-c ${_TargetVersion} from ${_MsgpackUrl}")
     file(DOWNLOAD ${_MsgpackUrl} ${_MsgpackTarGz}
@@ -61,7 +61,7 @@ if (NOT EXISTS "${_MsgpackSourceDir}/include/msgpack.hpp")
         message(FATAL_ERROR "Failed to extract msgpack-c")
     endif ()
 
-    get_filename_component(_MsgpackSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-c-cpp-${_TargetVersion}" REALPATH)
+    get_filename_component(_MsgpackSourceDir "${PYPTO_THIRD_PARTY_PATH}/msgpack-cxx-${_TargetVersion}" REALPATH)
     if (NOT EXISTS "${_MsgpackSourceDir}/include/msgpack.hpp")
         message(FATAL_ERROR "msgpack-c not found after download at ${_MsgpackSourceDir}. "
                 "Please place msgpack-c source in ${PYPTO_THIRD_PARTY_PATH}/msgpack-c/")
