@@ -101,49 +101,56 @@ class TestLoggingFunctions:
         """Set log level to DEBUG before each test to ensure all logs are visible."""
         set_log_level(LogLevel.DEBUG)
 
-    def test_log_debug(self, capfd):
+    @staticmethod
+    def test_log_debug(capfd):
         """Test that log_debug can be called and produces output."""
         pypto_core.log_debug("Debug message")
         captured = capfd.readouterr()
         assert "Debug message" in captured.err
         assert "D |" in captured.err  # Check for DEBUG level marker
 
-    def test_log_info(self, capfd):
+    @staticmethod
+    def test_log_info(capfd):
         """Test that log_info can be called and produces output."""
         pypto_core.log_info("Info message")
         captured = capfd.readouterr()
         assert "Info message" in captured.err
         assert "I |" in captured.err  # Check for INFO level marker
 
-    def test_log_warn(self, capfd):
+    @staticmethod
+    def test_log_warn(capfd):
         """Test that log_warn can be called and produces output."""
         pypto_core.log_warn("Warning message")
         captured = capfd.readouterr()
         assert "Warning message" in captured.err
         assert "W |" in captured.err  # Check for WARN level marker
 
-    def test_log_error(self, capfd):
+    @staticmethod
+    def test_log_error(capfd):
         """Test that log_error can be called and produces output."""
         pypto_core.log_error("Error message")
         captured = capfd.readouterr()
         assert "Error message" in captured.err
         assert "E |" in captured.err  # Check for ERROR level marker
 
-    def test_log_fatal(self, capfd):
+    @staticmethod
+    def test_log_fatal(capfd):
         """Test that log_fatal can be called and produces output."""
         pypto_core.log_fatal("Fatal message")
         captured = capfd.readouterr()
         assert "Fatal message" in captured.err
         assert "F |" in captured.err  # Check for FATAL level marker
 
-    def test_log_event(self, capfd):
+    @staticmethod
+    def test_log_event(capfd):
         """Test that log_event can be called and produces output."""
         pypto_core.log_event("Event message")
         captured = capfd.readouterr()
         assert "Event message" in captured.err
         assert "V |" in captured.err  # Check for EVENT level marker
 
-    def test_log_with_special_characters(self, capfd):
+    @staticmethod
+    def test_log_with_special_characters(capfd):
         """Test logging messages with special characters."""
         pypto_core.log_info("Message with special chars: !@#$%^&*()")
         captured = capfd.readouterr()
@@ -153,7 +160,8 @@ class TestLoggingFunctions:
         captured = capfd.readouterr()
         assert "Message with quotes: 'single' and \"double\"" in captured.err
 
-    def test_log_empty_message(self, capfd):
+    @staticmethod
+    def test_log_empty_message(capfd):
         """Test logging empty messages."""
         pypto_core.log_info("")
         captured = capfd.readouterr()
@@ -164,7 +172,8 @@ class TestLoggingFunctions:
 class TestLogLevelFiltering:
     """Test that log level filtering works correctly."""
 
-    def test_debug_level_shows_all(self, capfd):
+    @staticmethod
+    def test_debug_level_shows_all(capfd):
         """Test that DEBUG level shows all log messages."""
         set_log_level(LogLevel.DEBUG)
 
@@ -184,7 +193,8 @@ class TestLogLevelFiltering:
         assert "Fatal" in captured.err
         assert "Event" in captured.err
 
-    def test_info_level_filters_debug(self, capfd):
+    @staticmethod
+    def test_info_level_filters_debug(capfd):
         """Test that INFO level filters out DEBUG messages."""
         set_log_level(LogLevel.INFO)
 
@@ -201,7 +211,8 @@ class TestLogLevelFiltering:
         assert "Warn - should appear" in captured.err
         assert "Error - should appear" in captured.err
 
-    def test_error_level_filters_lower(self, capfd):
+    @staticmethod
+    def test_error_level_filters_lower(capfd):
         """Test that ERROR level filters out lower priority messages."""
         set_log_level(LogLevel.ERROR)
 
@@ -220,7 +231,8 @@ class TestLogLevelFiltering:
         assert "Error - should appear" in captured.err
         assert "Fatal - should appear" in captured.err
 
-    def test_none_level_filters_all(self, capfd):
+    @staticmethod
+    def test_none_level_filters_all(capfd):
         """Test that NONE level filters out all messages."""
         set_log_level(LogLevel.NONE)
 
@@ -244,7 +256,8 @@ class TestLogLevelFiltering:
 class TestLoggingScenarios:
     """Test real-world logging scenarios."""
 
-    def test_change_log_level_during_execution(self, capfd):
+    @staticmethod
+    def test_change_log_level_during_execution(capfd):
         """Test changing log level multiple times during execution."""
         # Start with ERROR level
         set_log_level(LogLevel.ERROR)
@@ -273,7 +286,8 @@ class TestLoggingScenarios:
         assert "Should not appear again" not in captured.err
         assert "Should appear 2" in captured.err
 
-    def test_log_all_levels_in_sequence(self, capfd):
+    @staticmethod
+    def test_log_all_levels_in_sequence(capfd):
         """Test logging at all levels in sequence."""
         set_log_level(LogLevel.DEBUG)
 
@@ -295,7 +309,8 @@ class TestLoggingScenarios:
             assert f"Testing {level_name} level" in captured.err
             assert marker in captured.err
 
-    def test_logging_with_different_data_types(self, capfd):
+    @staticmethod
+    def test_logging_with_different_data_types(capfd):
         """Test logging messages with different data types converted to strings."""
         set_log_level(LogLevel.INFO)
 
@@ -318,7 +333,8 @@ class TestLoggingScenarios:
 class TestLogLevelEdgeCases:
     """Test edge cases and boundary conditions."""
 
-    def test_set_same_level_multiple_times(self, capfd):
+    @staticmethod
+    def test_set_same_level_multiple_times(capfd):
         """Test setting the same log level multiple times."""
         set_log_level(LogLevel.INFO)
         set_log_level(LogLevel.INFO)
@@ -328,7 +344,8 @@ class TestLogLevelEdgeCases:
         captured = capfd.readouterr()
         assert "Should work fine" in captured.err
 
-    def test_rapid_level_changes(self, capfd):
+    @staticmethod
+    def test_rapid_level_changes(capfd):
         """Test rapidly changing log levels."""
         for i in range(10):
             set_log_level(LogLevel.DEBUG)
@@ -348,7 +365,8 @@ class TestLogLevelEdgeCases:
             assert f"Also filtered {i}" not in captured.err
             assert f"Everything filtered {i}" not in captured.err
 
-    def test_logging_at_boundary_levels(self, capfd):
+    @staticmethod
+    def test_logging_at_boundary_levels(capfd):
         """Test logging at boundary conditions."""
         # Test at the lowest level
         set_log_level(LogLevel.DEBUG)
@@ -375,7 +393,8 @@ class TestLogLevelEdgeCases:
 class TestTimestampAndFormatting:
     """Test that log output includes proper formatting."""
 
-    def test_log_contains_timestamp(self, capfd):
+    @staticmethod
+    def test_log_contains_timestamp(capfd):
         """Test that log output includes a timestamp."""
         set_log_level(LogLevel.INFO)
         pypto_core.log_info("Test message")
@@ -385,7 +404,8 @@ class TestTimestampAndFormatting:
         timestamp_pattern = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}"
         assert re.search(timestamp_pattern, captured.err) is not None
 
-    def test_log_contains_level_marker(self, capfd):
+    @staticmethod
+    def test_log_contains_level_marker(capfd):
         """Test that each log level has its correct marker."""
         set_log_level(LogLevel.DEBUG)
 
@@ -403,7 +423,8 @@ class TestTimestampAndFormatting:
             captured = capfd.readouterr()
             assert expected_marker in captured.err
 
-    def test_multiple_logs_have_different_timestamps(self, capfd):
+    @staticmethod
+    def test_multiple_logs_have_different_timestamps(capfd):
         """Test that consecutive logs can have different timestamps."""
         set_log_level(LogLevel.INFO)
 

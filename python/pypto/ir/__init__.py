@@ -18,6 +18,17 @@ This module provides:
 - Enhanced type constructors (e.g., TensorType with integer shape support)
 """
 
+__all__ = [
+    "op",
+    "IRBuilder",
+    "TensorType",
+    "TileType",
+    "python_print",
+
+    "PassManager",
+    "OptimizationStrategy",
+]  # fmt: skip
+
 # Re-export all core IR types and functions from native module
 from pypto.pypto_impl.ir import DataType
 from pypto.pypto_impl.ir import *  # noqa: F403
@@ -37,17 +48,6 @@ from .printer import python_print
 # Import TensorType and TileType with enhanced __init__ that supports integer shapes
 # This patches the native TensorType and TileType classes to accept integer shapes
 from .type import TensorType, TileType
-
-__all__ = [
-    "op",
-    "IRBuilder",
-    "TensorType",
-    "TileType",
-    "python_print",
-
-    "PassManager",
-    "OptimizationStrategy",
-]  # fmt: skip
 
 # Export common DataType values for convenience
 FP4 = DataType.FP4
