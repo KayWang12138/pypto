@@ -14,6 +14,8 @@
  */
 
 #include <gtest/gtest.h>
+#include <dirent.h>
+#include <sys/syscall.h>
 #define private public
 #include "utils/host_log/log_manager.h"
 #undef private
@@ -34,6 +36,33 @@ public:
         unsetenv("ASCEND_MODULE_LOG_LEVEL");
         unsetenv("ASCEND_GLOBAL_EVENT_ENABLE");
         unsetenv("ASCEND_PROCESS_LOG_PATH");
+    }
+    uint64_t GetTestThreadId() {
+        thread_local uint64_t tid = static_cast<uint64_t>(syscall(__NR_gettid));
+        return tid;
+    }
+    size_t GetLogFileSizeOfSpecifiedDir(const std::string &dirPath, const std::string &filePrefix) {
+        DIR *dir = opendir(dirPath.c_str());
+        if (dir == nullptr) {
+            return 0;
+        }
+        size_t fileSize = 0;
+        struct dirent *dirp = nullptr;
+        while ((dirp = readdir(dir)) != nullptr) {
+            if (dirp->d_name[0] == '.') {
+                continue;
+            }
+            std::string fileName = dirp->d_name;
+            if (fileName.find(filePrefix) != 0) {
+                continue;
+            }
+            if (fileName.find(".log") < 0) {
+                continue;
+            }
+            fileSize++;
+        }
+        closedir(dir);
+        return fileSize;
     }
     void RecoreLog(LogManager &log_manager, const LogLevel logLevel, const char *fmt, ...) {
         va_list list;
@@ -106,6 +135,28 @@ TEST_F(TestHostLog, test_log_manager_case4) {
     EXPECT_EQ(log_manager.CheckLevel(LogLevel::INFO), false);
     EXPECT_EQ(log_manager.CheckLevel(LogLevel::DEBUG), false);
     EXPECT_EQ(log_manager.CheckLevel(LogLevel::EVENT), false);
+}
+
+TEST_F(TestHostLog, test_log_manager_case5) {
+    setenv("ASCEND_GLOBAL_LOG_LEVEL", "1", 1);
+    setenv("ASCEND_PROCESS_LOG_PATH", "./temp_pypto_log", 1);
+    LogManager log_manager;
+    EXPECT_EQ(log_manager.enableStdOut_, false);
+    for (size_t i = 0; i < 200000; ++i) {
+        if (i%2 == 0) {
+            log_manager.EnableHostLog();
+        } else {
+            log_manager.EnableDeviceLog();
+        }
+        RecoreLog(log_manager, LogLevel::INFO, "I'm a space-bound %s and your heart's the moon", "rocketship");
+        RecoreLog(log_manager, LogLevel::INFO, "And I aiming it right at you, right at you %f", 3.14f);
+        RecoreLog(log_manager, LogLevel::INFO, "%d miles on a clear night in %s", 250000, "June");
+        RecoreLog(log_manager, LogLevel::INFO, "And I'm so lost without you, without you %x", 626);
+    }
+    std::string hostLogFilePrefix = "pypto-log-" + std::to_string(GetTestThreadId());
+    EXPECT_EQ(GetLogFileSizeOfSpecifiedDir(log_manager.hostLogDir_, hostLogFilePrefix), 2);
+    std::string devLogFilePrefix = "pypto-simulation-" + std::to_string(GetTestThreadId());
+    EXPECT_EQ(GetLogFileSizeOfSpecifiedDir(log_manager.deviceLogDir_, devLogFilePrefix), 2);
 }
 
 TEST_F(TestHostLog, test_log_construct_case0) {
