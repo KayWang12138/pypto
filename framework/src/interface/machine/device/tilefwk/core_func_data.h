@@ -21,7 +21,7 @@
 #include <cstdint>
 #include "tilefwk/aikernel_data.h"
 
-inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
+inline constexpr size_t MAX_CACHED_FUNC_NUM = 1024;
 constexpr int MAX_DIMS = 8;
 constexpr uint32_t AICORE_TYPE_NUM = 2;
 
