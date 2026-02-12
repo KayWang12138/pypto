@@ -64,9 +64,6 @@ def _load_shared_libs():
 _load_shared_libs()
 
 from . import experimental
-from . import pypto_impl
-from . import ir  # noqa: F401 - Python wrapper package (re-exports pypto_impl.ir + IRBuilder etc.)
-from . import frontend
 
 from .config import *  # noqa
 from ._controller import *  # noqa
@@ -82,6 +79,11 @@ from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
 from .tensor import Tensor
 from .functions import Function, get_last_function, get_current_function
+
+from . import pypto_impl  # noqa
+from . import ir  # noqa
+# Import frontend after all other imports to avoid circular imports
+from . import frontend
 
 passes = pypto_impl.passes
 testing = pypto_impl.testing
