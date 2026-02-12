@@ -32,6 +32,7 @@ enum class Opcode {
     OP_NEG,
     OP_RSQRT,
     OP_RELU,
+    OP_LOG1P,
     OP_SQRT,
     OP_CEIL,
     OP_FLOOR,
