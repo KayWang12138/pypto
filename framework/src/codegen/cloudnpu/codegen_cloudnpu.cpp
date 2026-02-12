@@ -510,7 +510,7 @@ void CodeGenCloudNPU::BuildIncludes(std::ostringstream &oss) const {
 }
 
 void CodeGenCloudNPU::AppendVFOptions(std::ostringstream &oss) {
-    if (config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
+    if (platform_ == NPUArch::DAV_3510 && config::GetPassGlobalConfig(KEY_ENABLE_VF, false)) {
         oss << "--enable-pto-tile-fusion "
             << "-mllvm --tile-fusion-skip-shape-inference=true "
             << "-mllvm --tile-fusion-skip-reduceop-fusion=false "
