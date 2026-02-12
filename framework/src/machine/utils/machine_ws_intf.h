@@ -20,6 +20,7 @@
 #include "interface/utils/common.h"
 #include "tilefwk/core_func_data.h"
 #include "machine/utils/concurrent_queue/concurrent_queue.h"
+#include "machine/utils/device_log.h"
 
 namespace npu::tile_fwk {
 enum class MachineStatus { START = 0, FINISH = 1, STOP = 2 };
@@ -50,16 +51,20 @@ class StaticReadyCoreFunctionQueue {
 
   inline std::pair<aicoreFunction_t*, size_t> pop(aicoreFunction_t taskList[TASK_LIST_MAX_SIZE], const size_t n = 1)
   {
-    const auto curHead = head;
-    size_t count = std::min(n, (size_t)(tail - head));
-    head += count;
-    auto taskListPtr = &elem[curHead];
-    memcpy_s(taskList, TASK_LIST_MAX_SIZE * sizeof(aicoreFunction_t), taskListPtr, count * sizeof(aicoreFunction_t));
+    // const auto curHead = head;
+    // size_t count = std::min(n, (size_t)(tail - head));
+    // head += count;
+    // auto taskListPtr = &elem[curHead];
+    // memcpy_s(taskList, TASK_LIST_MAX_SIZE * sizeof(aicoreFunction_t), taskListPtr, count * sizeof(aicoreFunction_t));
 
+    // DEV_ERROR("[AICPU] Popping Tasks: count = %lu, n = %lu", count, n);
+
+    size_t count = 0;
     while (count < n)
     {
       const auto taskId = _lockFreeQueue->pop();
       if (taskId == aicoreNullFunction) break;
+      // DEV_ERROR("[AICPU] Popping Task Idx: %lu", taskId);
       taskList[count++] = taskId;
     }
     
@@ -68,21 +73,8 @@ class StaticReadyCoreFunctionQueue {
 
   inline void push(aicoreFunction_t* const input, const size_t count = 1)
   {
-    lock();
     memcpy_s(&elem[tail], count * sizeof(aicoreFunction_t), input, count * sizeof(aicoreFunction_t));
     tail += count;
-    unlock();
-  }
-
-
-  inline void lock() {
-     while (!__sync_bool_compare_and_swap(&_lock, 0, 1)) {
-    }
-  }
-
-  inline void unlock() {
-      while (!__sync_bool_compare_and_swap(&_lock, 1, 0)) {
-    }
   }
 
   inline void setBuffer(aicoreFunction_t* const buffer) { elem = buffer; }
@@ -93,6 +85,7 @@ class StaticReadyCoreFunctionQueue {
   inline void initializeLockFree()
   {
    _lockFreeQueue = new pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>(MAX_QUEUED_TASKS);
+   for (ssize_t i = head; i < tail; i++) _lockFreeQueue->push(elem[i]);
   }
 
   inline void finalizeLockFree()
@@ -100,12 +93,17 @@ class StaticReadyCoreFunctionQueue {
     delete _lockFreeQueue;
   }
 
-  private: 
-
   inline void push_no_lock(aicoreFunction_t* const input, const size_t count = 1)
   {
-    for (size_t i = 0; i < count; i++) _lockFreeQueue->push(input[i]);
+    for (size_t i = 0; i < count; i++)
+    {
+      const auto taskId = input[i];
+      // DEV_ERROR("[AICPU] Pushing Task Idx: %lu", taskId);
+      _lockFreeQueue->push(taskId);
+    } 
   }
+
+  private: 
 
   pypto::utils::ConcurrentQueue<aicoreFunction_t, aicoreNullFunction>* _lockFreeQueue;
 

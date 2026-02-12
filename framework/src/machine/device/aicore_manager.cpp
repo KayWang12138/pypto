@@ -229,16 +229,13 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
     aicoreFunction_t taskList[TASK_LIST_MAX_SIZE];
     // size_t taskCount = 0;
 
-    readyQue->lock();
     const auto taskSet = readyQue->pop(taskList, readyCoreCount);
     uint64_t* taskSetAddress = taskSet.first;
     uint64_t taskSetCount = taskSet.second;
     if (taskSetCount == 0) {
         DEV_DEBUG("AiCpud:%d, taskCount is zero \n", aicpuIdx_);
-        readyQue->unlock();
         return 0;
     }
-    readyQue->unlock();
 
     DEV_DEBUG("AiCpud:%d, pop all new task count: %lu \n", aicpuIdx_, taskSetCount);
     BatchSendTask(type, taskSetAddress, taskSetCount, coreIdxStart, coreIdxEnd, READY_QUE_LIFO_SWITCH);
@@ -353,8 +350,8 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         DEV_DEBUG("resolved new task, aic ready count: %lu coretype:%u\n", readyCount[aicIndex], aicIndex);
         if (readyCount[aicIndex] > 0) {
-            readyAicCoreFunctionQue_->push(readyIds[aicIndex], readyCount[aicIndex]);
-            // readyAicCoreFunctionQue_->push_no_lock(readyIds[aicIndex], readyCount[aicIndex]);
+            // readyAicCoreFunctionQue_->push(readyIds[aicIndex], readyCount[aicIndex]);
+            readyAicCoreFunctionQue_->push_no_lock(readyIds[aicIndex], readyCount[aicIndex]);
         }
         readyCount[aicIndex] = 0;
     }
@@ -367,8 +364,8 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         DEV_DEBUG("resolved new task, aiv ready count: %lu coretype:%u\n", readyCount[aivIndex], aivIndex);
         if (readyCount[aivIndex] > 0) {
-            readyAivCoreFunctionQue_->push(readyIds[aivIndex], readyCount[aivIndex]);
-            // readyAivCoreFunctionQue_->push_no_lock(readyIds[aivIndex], readyCount[aivIndex]);
+            // readyAivCoreFunctionQue_->push(readyIds[aivIndex], readyCount[aivIndex]);
+            readyAivCoreFunctionQue_->push_no_lock(readyIds[aivIndex], readyCount[aivIndex]);
         }
         readyCount[aivIndex] = 0;
     }
@@ -376,16 +373,16 @@ void AiCoreManager::BatchPushReadyQueue() {
     if (readyIdsExtend[aicIndex].size() > 0) {
         DEV_DEBUG("resolved new task, extend aic ready count: %lu, coretype:%u\n", readyIdsExtend[aicIndex].size(),
             aicIndex);
-        readyAicCoreFunctionQue_->push(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
-        // readyAicCoreFunctionQue_->push_no_lock(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
+        // readyAicCoreFunctionQue_->push(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
+        readyAicCoreFunctionQue_->push_no_lock(readyIdsExtend[aicIndex].data(), readyIdsExtend[aicIndex].size());
         readyIdsExtend[aicIndex].clear();
     }
 
     if (readyIdsExtend[aivIndex].size() > 0) {
         DEV_DEBUG("resolved new task, extend aiv ready count: %lu, coretype:%u\n", readyIdsExtend[aivIndex].size(),
             aivIndex);
-        readyAivCoreFunctionQue_->push(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
-        // readyAivCoreFunctionQue_->push_no_lock(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
+        // readyAivCoreFunctionQue_->push(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
+        readyAivCoreFunctionQue_->push_no_lock(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
         readyIdsExtend[aivIndex].clear();
     }
 }

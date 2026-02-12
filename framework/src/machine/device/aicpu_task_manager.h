@@ -55,9 +55,7 @@ public:
 
     // 每个AICPU都会调用
     inline void TaskEnqueue(uint64_t taskId) {
-        readyQueue_->lock();
         readyQueue_->push(&taskId);
-        readyQueue_->unlock();
     }
 
     // 仅AICPU_0会调用
@@ -93,9 +91,7 @@ public:
     }
 
     inline bool Finished() {
-        readyQueue_->lock();
         auto fin = readyQueue_->wasEmpty();
-        readyQueue_->unlock();
         return fin;
     }
 
