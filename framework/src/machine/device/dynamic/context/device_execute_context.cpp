@@ -80,12 +80,12 @@ void *DeviceExecuteContext::SymbolHandlerIdToHandler(SymbolHandlerId id) {
         case SymbolHandlerId::GetInputDataInt32Dim4:
             return reinterpret_cast<void *>(GetInputDataInt32Dim4);
         default:
-            DEV_ERROR("Invalid SymbolHandlerId: %lu", static_cast<uint64_t>(id));
+            DEV_ERROR("[exec.ctx.handler] Invalid SymbolHandlerId: %lu.", static_cast<uint64_t>(id));
             DEV_ASSERT(0);
             return nullptr;
+        }
+        return nullptr;
     }
-    return nullptr;
-}
 
 int DeviceExecuteContext::RunInit(DevStartArgs *startArgs, PushTaskEntry tPushTask) {
     PerfBegin(PERF_EVT_CONTROL_FLOW_INIT);
@@ -197,7 +197,7 @@ int DeviceExecuteContext::RunControlFlow(DevStartArgs *startArgs) {
     execProg.controlFlowBinary.CallControlFlow(this, symbolTable.data(), runtimeCallList, startArgs);
     int finalErrorState = this->GetErrorState();
     if (finalErrorState != originalErrorState && finalErrorState != DEVICE_MACHINE_OK) {
-        DEV_ERROR("Control flow execution failed with error code: %d", finalErrorState);
+        DEV_ERROR("[ctx.ctrlflow.exec] Control flow execution failed with error code: %d.", finalErrorState);
         return finalErrorState;
     }
     PerfEnd(PERF_EVT_CONTROL_FLOW);
@@ -252,7 +252,7 @@ int DeviceExecuteContext::GELaunchPartialCache(DevStartArgs *startArgs, PushTask
         uint64_t start = GetCycles();
         while ((startArgs->devProg->devArgs.disableSync == 0) && startArgs->syncFlag != 1) {
             if (GetCycles() - start > HAND_SHAKE_TIMEOUT) {
-                DEV_ERROR("Wait sync flag timeout.");
+                DEV_ERROR("[ctx.sync.wait] Wait sync flag timeout.");
                 break;
             }
         }
@@ -344,7 +344,7 @@ int DeviceExecuteContext::SubmitToAicoreAndRecycleMemory(bool withoutTail, bool 
     PROF_STAGE_BEGIN(PERF_EVT_STAGE_BUILD_TASK, "BuildDeviceTaskData.before\n");
     DynDeviceTask *dynTask = taskContext.BuildDeviceTaskData(stitchContext, taskId, devProg, withoutTail);
     if (dynTask == nullptr) {
-        DEV_ERROR("Build device task data failed.");
+        DEV_ERROR("[ctx.task.build] Returned null for taskId=%lu.", taskId);
         return DEVICE_MACHINE_ERROR;
     }
 
@@ -483,7 +483,7 @@ void DeviceExecuteContext::MarkSlotNeedAlloc(int slotIndex) {
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootAlloc(void *ctx_, uint64_t rootKey) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     if (ctx == nullptr) {
-        DEV_ERROR("invalid ctx.");
+        DEV_ERROR("[ctx.runtime.alloc] Context is null.");
         return nullptr;
     }
     PerfBegin(PERF_EVT_ROOT_FUNC);
@@ -514,7 +514,7 @@ bool IsSpecialRootKey(uint64_t rootKey) {
 void *DeviceExecuteContext::DeviceExecuteRuntimeCallRootStitch(void *ctx_, uint64_t rootKey) {
     DeviceExecuteContext *ctx = (DeviceExecuteContext *)ctx_;
     if (ctx == nullptr) {
-        DEV_ERROR("invalid ctx.");
+        DEV_ERROR("[ctx.runtime.stitch] Context is null.");
         return nullptr;
     }
     PerfBegin(PERF_EVT_ROOT_FUNC);
