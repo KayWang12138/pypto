@@ -146,12 +146,19 @@ int DeviceTaskContext::BuildReadyQueue(DynDeviceTask *dyntask, DevAscendProgram 
     bool isNeedWrap = IsNeedWrapProcess(dyntask, devProg);
     uint32_t *wrapTasklistAddr = isNeedWrap ? AllocWrapTasklist(dyntask) : nullptr;
     WrapInfoQueue *wrapQueue = isNeedWrap ? AllocWrapQueue(dyntask) : nullptr;
-
+    AllocOpWrapList (DynDeviceTask *dyntask, DevAscendProgram *devProg);
+    AllocOpWrapTaskNumList (DynDeviceTask *dyntask, DevAscendProgram *devProg);
+    uint64_t *opWrapArrayBase = nullptr;
+    /**wraplist**/
+    if (isNeedWrap && dyntask->devTask.mixTaskData.opWrapListPtr != 0) {
+        opWrapArrayBase = reinterpret_cast<uint64_t *>(dyntask->devTask.mixTaskData.opWrapListPtr);
+    }
     int wrapTaskNum = 0;
     DynFuncDataCache *dynFuncDataCacheList = dyntask->GetDynFuncDataCacheList();
     size_t funcSize = dyntask->dynFuncDataCacheListSize;
     for (size_t funcIndex = 0; funcIndex < funcSize; ++funcIndex) {
-        int32_t* opWrapList = reinterpret_cast<int32_t *>(dyntask->devTask.mixTaskData.opWrapList[funcIndex]);
+        int32_t* opWrapList = nullptr;
+        opWrapList = reinterpret_cast<int32_t *>(opWrapArrayBase[funcIndex]);
         DevAscendFunctionDuppedData *duppedData = dynFuncDataCacheList->At(funcIndex).duppedData;
         predcount_t *dupPredCountList = &duppedData->GetOperationCurrPredCount(0);
         auto &predInfo = duppedData->GetSource()->GetPredInfo();

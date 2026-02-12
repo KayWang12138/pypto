@@ -30,8 +30,8 @@ namespace npu::tile_fwk::dynamic {
 #define INVALID_STITCH_IDX      (static_cast<uint32_t>(-1))
 
 constexpr size_t READY_QUEUE_SIZE = 3UL;
-inline constexpr size_t MAX_CACHED_FUNC_NUM = 128;
-
+inline constexpr size_t MAX_CACHED_FUNC_NUM = 1024;
+inline constexpr size_t MAX_WRAP_FUNC_NUM = 128;
 struct ReadyQueueCache {
     uint32_t coreFunctionCnt;
     struct Queue {
@@ -47,8 +47,8 @@ struct MixTaskDataCache {
     WrapInfoQueue queue;
     uint32_t* wrapTasklist;
     uint64_t wrapIdNum;
-    uint64_t opWrapList[MAX_CACHED_FUNC_NUM];
-    uint64_t opWrapTaskNumList[MAX_CACHED_FUNC_NUM];
+    uint64_t *opWrapList;
+    uint64_t *opWrapTaskNumList;
 };
 
 struct DynFuncDataCache {
@@ -190,6 +190,8 @@ struct DevControlFlowCache {
     /* Filled in caching */
     uint64_t contextWorkspaceAddr;
     /* Filled in caching */
+    uint32_t stitchMaxFunctionNum_{MAX_CACHED_FUNC_NUM};
+    /* Filled in caching */
     DevRelocVector<DeviceTaskCache> deviceTaskCacheList;
     /* Filled in caching */
     DevRelocVector<uint8_t> cacheData;
@@ -222,7 +224,7 @@ struct DevControlFlowCache {
         usedCacheSize = reinterpret_cast<uintptr_t>(&cacheData[cacheDataOffset]) - reinterpret_cast<uintptr_t>(this);
     }
 
-    void Init(void *dyndevAttrPtr, uint64_t cacheSize, uint64_t runtimeOutcastPoolSize, uint64_t &initOffset);
+    void Init(void *dyndevAttrPtr, uint64_t cacheSize, uint64_t runtimeOutcastPoolSize, uint64_t &initOffset, uint32_t stitchMaxFunctionNum);
     uint64_t GetSize() const { return reinterpret_cast<uintptr_t>(ctrlFlowLastField.End()) - reinterpret_cast<uintptr_t>(this); }
 
 #define CFGCACHE_ALIGN      8
@@ -431,9 +433,31 @@ struct DevControlFlowCache {
             tasklistOffset += tasklistSize;
             memcpy_s(dstWrapInfo->tasklist.elem, tasklistSize, srcWrapInfo->tasklist.elem, tasklistSize);
         }
-
-        memcpy_s(mixTaskDataBackup->opWrapList, MAX_CACHED_FUNC_NUM, base->devTask.mixTaskData.opWrapList, MAX_CACHED_FUNC_NUM);
-        memcpy_s(mixTaskDataBackup->opWrapTaskNumList, MAX_CACHED_FUNC_NUM, base->devTask.mixTaskData.opWrapTaskNumList, MAX_CACHED_FUNC_NUM);
+        DynFuncHeader *dynFuncDataList = base->GetDynFuncDataList();
+        uint32_t funcNum = dynFuncDataList->funcNum;
+        size_t opWrapListBackupSize = sizeof(uint64_t) * funcNum;
+        uint64_t *opWrapListBackup = reinterpret_cast<uint64_t *>(AllocateCache(opWrapListBackupSize));
+        if (opWrapListBackup == nullptr) {
+            return;
+        }
+        mixTaskDataBackup->opWrapList = opWrapListBackup;
+        auto opWrapArray =
+        reinterpret_cast<uint64_t *>(base->devTask.mixTaskData.opWrapListPtr);
+        memcpy_s(mixTaskDataBackup->opWrapList,
+                 opWrapListBackupSize,
+                 opWrapArray,
+                 opWrapListBackupSize);
+        uint64_t *opWrapTaskNumListBackup = reinterpret_cast<uint64_t *>(AllocateCache(opWrapListBackupSize));
+        if (opWrapTaskNumListBackup == nullptr) {
+            return;
+        }
+        mixTaskDataBackup->opWrapTaskNumList = opWrapTaskNumListBackup;
+        auto opWrapTaskNumArray =
+        reinterpret_cast<uint64_t *>(base->devTask.mixTaskData.opWrapTaskNumListPtr);
+        memcpy_s(mixTaskDataBackup->opWrapTaskNumList, 
+                 opWrapListBackupSize, 
+                 opWrapTaskNumArray, 
+                 opWrapListBackupSize);
         base->mixTaskDataBackup = mixTaskDataBackup;
     }
 
@@ -463,9 +487,21 @@ struct DevControlFlowCache {
             tasklistOffset += tasklistSize;
             memcpy_s(dstWrapInfo->tasklist.elem, tasklistSize, srcWrapInfo->tasklist.elem, tasklistSize);
         }
-
-        memcpy_s(base->devTask.mixTaskData.opWrapList, MAX_CACHED_FUNC_NUM, mixTaskDataBackup->opWrapList, MAX_CACHED_FUNC_NUM);
-        memcpy_s(base->devTask.mixTaskData.opWrapTaskNumList, MAX_CACHED_FUNC_NUM, mixTaskDataBackup->opWrapTaskNumList, MAX_CACHED_FUNC_NUM);
+        DynFuncHeader *dynFuncDataList = base->GetDynFuncDataList();
+        uint32_t funcNum = dynFuncDataList->funcNum;
+        size_t opWrapListRestoreSize = sizeof(uint64_t) * funcNum;
+        auto opWrapArray =
+             reinterpret_cast<uint64_t *>(base->devTask.mixTaskData.opWrapListPtr);
+        memcpy_s(opWrapArray,
+                 opWrapListRestoreSize,
+                 mixTaskDataBackup->opWrapList,
+                 opWrapListRestoreSize);
+        auto opWrapTaskNumArray =
+             reinterpret_cast<uint64_t *>(base->devTask.mixTaskData.opWrapTaskNumListPtr);
+        memcpy_s(opWrapTaskNumArray,
+                 opWrapListRestoreSize,
+                 mixTaskDataBackup->opWrapTaskNumList,
+                 opWrapListRestoreSize);
     }
 
     static void RelocBuildInputOutputDesc(
@@ -859,12 +895,28 @@ struct DevControlFlowCache {
             WrapInfo *wrapInfo = wrapInfoBackupElem + i;
             relocCtrlCache.Reloc(wrapInfo->tasklist.elem);
         }
+        
+        uint64_t *tmpOpWrapList =  reinterpret_cast<uint64_t *>(dynTaskBase->devTask.mixTaskData.opWrapListPtr);
+        uint64_t *&opWrapListRef = tmpOpWrapList;
+        uint64_t *opWrapArray = RelocControlFlowCachePointer(opWrapListRef, relocCtrlCache);
+        uint64_t *&opWrapListBackupRef = mixTaskDataBackup->opWrapList;
+        uint64_t *opWrapArrayBackup = RelocControlFlowCachePointer(opWrapListBackupRef, relocCtrlCache);
+        relocCtrlCache.Reloc(dynTaskBase->devTask.mixTaskData.opWrapListPtr);
+        relocCtrlCache.Reloc(mixTaskDataBackup->opWrapList);
+        
+        uint64_t *tmpOpWrapTaskNumList =  reinterpret_cast<uint64_t *>(dynTaskBase->devTask.mixTaskData.opWrapTaskNumListPtr);
+        uint64_t *&opWrapTaskNumListRef = tmpOpWrapTaskNumList;
+        uint64_t *opWrapTaskNumArray = RelocControlFlowCachePointer(opWrapTaskNumListRef, relocCtrlCache);
+        uint64_t *&opWrapTaskNumListBackupRef = mixTaskDataBackup->opWrapTaskNumList;
+        uint64_t *opWrapTaskNumArrayBackup = RelocControlFlowCachePointer(opWrapTaskNumListBackupRef, relocCtrlCache);
+        relocCtrlCache.Reloc(dynTaskBase->devTask.mixTaskData.opWrapTaskNumListPtr);
+        relocCtrlCache.Reloc(mixTaskDataBackup->opWrapTaskNumList);
 
         for (uint32_t dupIndex = 0; dupIndex < dynFuncDataList->funcNum; dupIndex++) {
-            relocProgram.Reloc(dynTaskBase->devTask.mixTaskData.opWrapList[dupIndex]);
-            relocProgram.Reloc(dynTaskBase->devTask.mixTaskData.opWrapTaskNumList[dupIndex]);
-            relocProgram.Reloc(mixTaskDataBackup->opWrapList[dupIndex]);
-            relocProgram.Reloc(mixTaskDataBackup->opWrapTaskNumList[dupIndex]);
+            relocCtrlCache.Reloc(opWrapArray[dupIndex]);
+            relocCtrlCache.Reloc(opWrapArrayBackup[dupIndex]);
+            relocCtrlCache.Reloc(opWrapTaskNumArray[dupIndex]);
+            relocCtrlCache.Reloc(opWrapTaskNumArrayBackup[dupIndex]);
         }
     }
 
