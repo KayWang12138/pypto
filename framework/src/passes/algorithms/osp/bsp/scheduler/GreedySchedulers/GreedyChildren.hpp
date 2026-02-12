@@ -91,6 +91,28 @@ class GreedyChildren : public Scheduler<GraphT> {
         unsigned processor;
     };
 
+    bool ProcessSuperstepParent(
+        const BspSchedule<GraphT> &sched,
+        const BspInstance<GraphT> &instance,
+        VertexIdxT<GraphT> node,
+        VertexIdxT<GraphT> parent,
+        bool &processorSet,
+        unsigned &processorToBeAllocated) {
+        
+        const unsigned parProc = sched.AssignedProcessor(parent);
+        
+        if (!processorSet) {
+            if (!instance.IsCompatible(node, parProc)) {
+                return false;
+            }
+            processorSet = true;
+            processorToBeAllocated = parProc;
+            return true;
+        }
+        
+        return parProc == processorToBeAllocated;
+    }
+
     ParentCompatibilityResult CheckParentCompatibility(
         const GraphT &graph, const BspSchedule<GraphT> &sched,
         const BspInstance<GraphT> &instance, VertexIdxT<GraphT> node,
@@ -101,14 +123,7 @@ class GreedyChildren : public Scheduler<GraphT> {
 
         for (const auto &par : graph.Parents(node)) {
             if (nodesAssignedThisSuperstep.count(par)) {
-                if (!processorSet) {
-                    const unsigned parProc = sched.AssignedProcessor(par);
-                    if (!instance.IsCompatible(node, parProc)) {
-                        return {false, false, 0};
-                    }
-                    processorSet = true;
-                    processorToBeAllocated = parProc;
-                } else if (sched.AssignedProcessor(par) != processorToBeAllocated) {
+                if (!ProcessSuperstepParent(sched, instance, node, par, processorSet, processorToBeAllocated)) {
                     return {false, false, 0};
                 }
             }
