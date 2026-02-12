@@ -74,7 +74,7 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
       function_(&function) {
     // Initialize other members if necessary
     isSubGraphBoundary = false;
-    ASSERT(shape.size() == offset.size());
+    ASSERT(shape.size() == offset.size()) << "shape's dims must be equal to offset's dims";
 }
 
 LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawTensor, Offset toffset, Shape tshape,
@@ -92,7 +92,7 @@ LogicalTensor::LogicalTensor(Function &function, std::shared_ptr<RawTensor> rawT
     // Initialize other members if necessary
     isSubGraphBoundary = false;
 
-    ASSERT(shape.size() == offset.size());
+    ASSERT(shape.size() == offset.size()) << "shape's dims must be equal to offset's dims";
 }
 
 std::shared_ptr<LogicalTensor> LogicalTensor::Clone(Function &dstFunc, bool create) const {
@@ -205,7 +205,8 @@ Json LogicalTensor::DumpJson(bool dumpRawTensor) const {
 
 std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
             const std::unordered_map<int, std::shared_ptr<RawTensor>> &rawTensorDict, const Json &tensorDump) {
-    ASSERT(tensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_TENSOR));
+    ASSERT(tensorDump[T_FIELD_KIND].get<int>() == static_cast<int>(Kind::T_KIND_TENSOR))
+        << "[tensorDump]json field<" << T_FIELD_KIND << "> doesn't match T_KIND_TENSOR.";
 
     Offset toffset = tensorDump["offset"].get<std::vector<int64_t>>();
     Shape tshape = tensorDump["shape"].get<std::vector<int64_t>>();
@@ -214,7 +215,7 @@ std::shared_ptr<LogicalTensor> LogicalTensor::LoadJson(Function &function,
     std::shared_ptr<RawTensor> rawTensor;
     if (tensorDump[T_FIELD_RAWTENSOR].is_number()) {
         int rawTensorMagic = tensorDump[T_FIELD_RAWTENSOR].get<int>();
-        ASSERT(rawTensorDict.count(rawTensorMagic));
+        ASSERT(rawTensorDict.count(rawTensorMagic)) << "rawTensorDict doesn't have magic " << rawTensorMagic;
         rawTensor = rawTensorDict.find(rawTensorMagic)->second;
     } else {
         rawTensor = RawTensor::LoadJson(tensorDump[T_FIELD_RAWTENSOR]);
@@ -349,7 +350,8 @@ std::shared_ptr<LogicalTensor> LogicalTensor::View(
     auto view = std::make_shared<LogicalTensor>(
         function, this->tensor, this->offset, this->shape, this->nodetype);
     for (size_t i = 0; i < shape.size(); i++) {
-        ASSERT(shape[i] >= (newShape[i] + newOffset[i]));
+        ASSERT(shape[i] >= (newShape[i] + newOffset[i]))
+            << "Tensor.view, origin shape must be larger than (newShape + newOffset)";
     }
 
     view->shape = newShape;
@@ -519,7 +521,9 @@ std::vector<SymbolicScalar> npu::tile_fwk::GetViewValidShape(const std::vector<S
     if (validShape.size() == 0) {
         return {};
     }
-    ASSERT(validShape.size() == viewShape.size());
+    ASSERT(validShape.size() == viewShape.size())
+        << "validShape and viewShape must be the same dimension. Their size actually are " 
+        << validShape.size() << "and " << viewShape.size();
 
     std::vector<SymbolicScalar> result;
     for (size_t i = 0; i < validShape.size(); i++) {

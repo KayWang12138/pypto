@@ -13,10 +13,11 @@
  * \brief
  */
 #include <climits>
+#include <cstdlib>
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
-#include "interface/configs/config_manager.h"
+#include "interface/configs/config_manager.cpp"
 #include "interface/configs/config_manager_ng.cpp"
 
 using namespace npu::tile_fwk;
@@ -79,6 +80,8 @@ TEST_F(TestConfigManager, PassStrategies3) {
 
 TEST_F(TestConfigManager, Dump) {
     auto &cm = ConfigManagerNg::GetInstance();
+    Any value = 10;
+    EXPECT_EQ(ConfigManagerNg::GetInstance().IsWithinRange("", value), false);
 
     cm.BeginScope("scope1", {{"pass.pg_lower_bound", 10L}});
     auto scope1 = cm.CurrentScope();
@@ -253,6 +256,14 @@ TEST_F(TestConfigManager, GlobalConfig) {
 
     PrintOptions p = config::GetPrintOptions();
 
+}
+
+TEST_F(TestConfigManager, ConfigManagerInstance) {
+    setenv(tilefwkConfigEnvName.c_str(), "", 1);
+    ConfigManager::Instance();
+    unsetenv(tilefwkConfigEnvName.c_str());
+    ConfigManager::Instance();
+    EXPECT_EQ(ConfigManager::Instance().Initialize(), false);
 }
 
 TEST_F(TestConfigManager, LoadJson) {

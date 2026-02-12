@@ -115,7 +115,8 @@ void Program::CreateInitFunction() {
 }
 
 void Program::CreateCallerCalleeLink(Function *caller, Function *callee) {
-    ASSERT(caller->IsGraphType(GraphType::TENSOR_GRAPH) && callee->IsGraphType(GraphType::TENSOR_GRAPH));
+    ASSERT(caller->IsGraphType(GraphType::TENSOR_GRAPH) &&
+        callee->IsGraphType(GraphType::TENSOR_GRAPH)) << "caller/callee type isn't TENSOR_GRAPH.";
     // add callop
     for (auto &outcast : callee->outCasts_) {
         auto newOutcast = outcast->Clone(*caller, true);
@@ -221,7 +222,7 @@ bool Program::BeginFunction(const std::string &funcName,
     bool isHiddenFunction) {
     if (currentFunctionPtr_->IsFlattening() && (funcType == FunctionType::STATIC && (graphType == GraphType::TENSOR_GRAPH || graphType == GraphType::TILE_GRAPH))) {
         // Static function's subfunction should be ignored
-        CHECK(funcName != currentFunctionPtr_->GetRawName());
+        CHECK(funcName != currentFunctionPtr_->GetRawName()) << "Forbid to duplicate static func's name.";
         return false;
     }
 
@@ -242,7 +243,7 @@ bool Program::BeginFunction(const std::string &funcName,
         newFunc->BeginFunction(explicitOpArgs);
 
         currentFunctionPtr_ = newFunc.get();
-        ASSERT(functionmap_.count(funcMagicName) == 0);
+        ASSERT(functionmap_.count(funcMagicName) == 0) << "funcname already exists in funcmap.";
         functionmap_.emplace(funcMagicName, std::move(newFunc));
         currentFunctionMagicName_ = funcMagicName;
     } else {
@@ -275,9 +276,9 @@ Operation &Program::ConnectCallerGusket(Function &caller, FunctionCallArgs &args
 }
 
 Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope> &scope, bool generateCall) {
-    ASSERT(functionMagicNameStack_.size() != 0);
+    ASSERT(functionMagicNameStack_.size() != 0) << "The stack of functionMagicName is null.";
     auto funcMagicName = currentFunctionPtr_->GetRawName() + "_" + std::to_string(currentFunctionPtr_->GetFuncMagic());
-    ASSERT(currentFunctionPtr_->GetMagicName() == funcMagicName);
+    ASSERT(currentFunctionPtr_->GetMagicName() == funcMagicName) << "current func doesn't match funcMagicName.";
 
     FUNCTION_LOGD("func.end.finish: name=%s", funcMagicName.c_str());
 
@@ -288,7 +289,7 @@ Operation *Program::FinishCurrentFunction(const std::shared_ptr<TensorSlotScope>
     if (!generateCall) {
         return nullptr;
     }
-    ASSERT(currentFunctionPtr_->HasParent());
+    ASSERT(currentFunctionPtr_->HasParent()) << "CurrentFunction doesn't have a parent function.";
     if (scope) {
         GetTensorSlotManager()->ConnectSlot(scope);
     }
@@ -394,7 +395,7 @@ Operation &Program::AddOperation(const Opcode opCode,
     // Add the operation to the current function
     if (currentFunctionMagicName_ == PROGRAM_ENTRY_FUNCTION_NAME) {
         FUNCTION_LOGE("Error: No active function to add operation.");
-        ASSERT(false);
+        ASSERT(false) << "No active function to add operation.";
     }
     return currentFunctionPtr_->AddOperation(opCode, iOperand, oOperand);
 }
@@ -586,7 +587,7 @@ void Program::LoadJson(Json &programJson) {
             continue;
         }
     }
-    ASSERT(currentFunctionPtr_ != nullptr);
+    ASSERT(currentFunctionPtr_ != nullptr) << "currentFunction has not been acquired.";
 }
 
 void Program::DumpJsonFile(const std::string &fileName, Function *mainFunc) {
@@ -625,7 +626,8 @@ bool Program::QueryAndUpdateCurrentFunction() {
         }
         return false;
     } else {
-        ASSERT(currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH));
+        ASSERT(currentFunctionPtr_->IsGraphType(GraphType::BLOCK_GRAPH))
+            << "currentFunction type isn't BLOCK_GRAPH.";
         auto cacheFunc = cacheValue->GetFunction();
         functionmap_.erase(currentFunctionPtr_->GetMagicName());
         currentFunctionPtr_ = cacheFunc;

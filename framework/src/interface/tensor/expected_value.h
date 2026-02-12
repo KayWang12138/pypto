@@ -295,7 +295,8 @@ namespace npu::tile_fwk {
 
         void InsertExpectedValueList(const std::vector<std::shared_ptr<LogicalTensor>> &tensorList,
                                      const std::vector<ExpectedValue> &tensorExpectedValueList) {
-            ASSERT(tensorList.size() == tensorExpectedValueList.size());
+            ASSERT(tensorList.size() == tensorExpectedValueList.size())
+                << "tensorList.size() != tensorExpectedValueList.size()";
             for (size_t i = 0; i < tensorList.size(); i++) {
                 expectedTensorDict[tensorList[i]] = tensorExpectedValueList[i];
             }
