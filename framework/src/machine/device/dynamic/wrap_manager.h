@@ -440,7 +440,7 @@ public:
         }
 
         if (wrapInfo == nullptr) {
-            DEV_ERROR("cant find wrapInfo in wrapQueueForThread!");
+            DEV_ERROR("[task_dispatch] Cannot find wrapInfo in wrapQueueForThread: wrapId not found.");
             return;
         }
         wrapInfo->taskCnt--;

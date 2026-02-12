@@ -152,19 +152,19 @@ public:
                 switch (VerifyTensorMemoryState(memInfo.ptr, memInfo.size)) {
                     case WsMemoryState::INSIDE:
                         if (!IsValidWsTensor(memInfo.ptr, memInfo.size)) {
-                            DEV_ERROR("Invalid workspace tensor (not completely inside any workspace segment):");
+                            DEV_ERROR("[workspace.verify.inside] Invalid workspace tensor: not completely inside any workspace segment.");
                             memInfo.DumpError();
                             verificationSuccess = false;
                         }
                         break;
                     case WsMemoryState::CROSS_BOUNDARY:
-                        DEV_ERROR("Memory crossing workspace boundary:");
+                        DEV_ERROR("[workspace.verify.boundary] Memory crossing workspace boundary.");
                         memInfo.DumpError();
                         verificationSuccess = false;
                         break;
                     default:
                         if (!inoutAddr.count(memInfo.ptr)) {
-                            DEV_ERROR("Non input/output tensor outside of workspace:");
+                            DEV_ERROR("[workspace.verify.outside] Non input/output tensor outside of workspace.");
                             memInfo.DumpError();
                             verificationSuccess = false;
                         }
@@ -603,12 +603,12 @@ public:
     }
     void CalculateSlabCapacityPerType (uint32_t slabSize, uint32_t* slabCapacity, uint32_t slabTypeNum) {
         if (slabCapacity == nullptr) {
-            DEV_ERROR("slabCapacity is nullptr");
+            DEV_ERROR("[workspace.init.resource] CalculateSlabCapacityPerType failed: slabCapacity is nullptr.");
             return;
         }
         constexpr uint32_t maxSlabTypes = ToUnderlying(WsAicpuSlabMemType::COHERENT_SLAB_MEM_TYPE_BUTT);
         if (slabTypeNum > maxSlabTypes) {
-            DEV_ERROR("slabTypeNum exceeds the allowed typenum %u ", maxSlabTypes);
+            DEV_ERROR("[workspace.init.check] CalculateSlabCapacityPerType failed: slabTypeNum %u exceeds the allowed typenum %u.", slabTypeNum, maxSlabTypes);
             return;
         }
         for (size_t i = 0; i < slabTypeNum; ++i) {
@@ -636,7 +636,7 @@ public:
                 // should not happen, first task alloc failed
                 metadataAllocators_.generalSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
                 metadataAllocators_.stitchSlab.DumpMemoryStatusWhenAbnormal("SlabAlloc null");
-                DEV_ERROR("Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
+                DEV_ERROR("[workspace.alloc.slab] Slab alloc failed: type=%u, objSize=%u, no memory available.", ToUnderlying(type), objSize);
                 DEV_ASSERT_MSG(false, "Slab alloc null,type=%u,objsize=%u.", ToUnderlying(type), objSize);
             }
             uint64_t ttlstart = GetCycles();
@@ -882,7 +882,7 @@ private:
                 DEV_ASSERT(registCacheRes);
             }
         } else {
-            DEV_ERROR("Invalid slab memory type: %u", (unsigned int)type);
+            DEV_ERROR("[workspace.alloc.type] Invalid slab memory type: %u.", (unsigned int)type);
             DEV_ASSERT(false);
         }
     }

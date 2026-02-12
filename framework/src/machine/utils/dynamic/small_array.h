@@ -40,7 +40,7 @@ public:
 
     inline void resize(size_t size) {
         if (size > N) {
-            DEV_ERROR("resize %zu exceeds maximum allowed value %zu\n", size, N);
+            DEV_ERROR("[array.resize] resize failed: size %zu exceeds maximum allowed value %d.", size, N);
         }
         DEV_ASSERT(size <= N);
         size_ = size;

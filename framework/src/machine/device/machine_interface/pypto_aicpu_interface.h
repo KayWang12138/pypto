@@ -41,7 +41,7 @@ public:
         std::ofstream file(pyptoServerSoName_, std::ios::out | std::ios::binary);
         DEV_DEBUG("Begin to create server.so");
         if (!file) {
-            DEV_ERROR("Coundn't create file [%s]", pyptoServerSoName_.c_str());
+            DEV_ERROR("[init_resource] SaveSoFile failed: cannot create file [%s].", pyptoServerSoName_.c_str());
             return false;
         }
 
@@ -49,7 +49,7 @@ public:
         file.write(data, len);
 
         if (!file) {
-            DEV_ERROR("Write to file [%s] not success", pyptoServerSoName_.c_str());
+            DEV_ERROR("[init_resource] SaveSoFile failed: cannot write to file [%s].", pyptoServerSoName_.c_str());
             return false;
         }
         DEV_DEBUG("Create device[%u] server so [%s] success", deviceId, pyptoServerSoName_.c_str());
@@ -74,7 +74,7 @@ public:
     inline int32_t ExecuteFunc(void *args, const uint64_t funcKey) {
         auto func = GetTileFwkKernelFunc(funcKey);
         if (func == nullptr) {
-            DEV_ERROR("kernel func[%lu] is invalid, cannot get from so %s", funcKey, pyptoServerSoName_.c_str()); 
+            DEV_ERROR("[kernel_exec] ExecuteFunc failed: kernel func[%lu] is invalid, cannot get from so %s.", funcKey, pyptoServerSoName_.c_str()); 
             return -1;
         }
         return func(args);
@@ -92,7 +92,7 @@ private:
             soHandle_ = dlopen(pyptoServerSoName_.c_str(), RTLD_LAZY | RTLD_DEEPBIND);
         }
         if (!soHandle_) {
-            DEV_ERROR("Cannot open so %s", pyptoServerSoName_.c_str());
+            DEV_ERROR("[kernel_load] LoadTileFwkKernelFunc failed: cannot open so %s.", pyptoServerSoName_.c_str());
             return;
         }
         uint64_t funcKey = staticFuncKey;
@@ -110,7 +110,7 @@ private:
         TileFwkKernelServelEnty tileFwkServrFuncEnty = reinterpret_cast<TileFwkKernelServelEnty>(dlsym(soHandle_,
                                                                                                 kernelName.c_str()));
         if (tileFwkServrFuncEnty == nullptr) {
-            DEV_ERROR("Current KernelName [%s] is null", kernelName.c_str());
+            DEV_ERROR("[kernel_exec] LoadTileFwkKernelFunc failed: kernelName [%s] is null in so.", kernelName.c_str());
             (void)dlclose(soHandle_);
             return;
         }
@@ -124,7 +124,7 @@ private:
         if (iter != kernelKey2FuncHandle_.end()) {
             return iter->second;
         }
-        DEV_ERROR("Function[%lu] is null.", funcKey);
+        DEV_ERROR("[kernel_exec] GetTileFwkKernelFunc failed: function[%lu] is null.", funcKey);
         return nullptr;
     }
 
