@@ -10,9 +10,9 @@ from dataclasses import dataclass
 import pypto 
 import torch 
 import torch_npu
-from libs.generate_inputs import generate_inputs
-from libs.tools import convert_torch_to_numpy, get_torch_dtype, get_broadcast_offsets, generate_broadcast_info
-from libs.precision_compare import precision_compare_triple_data
+from generate_inputs import generate_inputs
+from tools import convert_torch_to_numpy, get_torch_dtype, get_broadcast_offsets, generate_broadcast_info
+from precision_compare import precision_compare_triple_data
 
 @dataclass
 class CompositeParams:
@@ -30,6 +30,7 @@ class CompositeParams:
 verify_options = {
     "enable_pass_verify": True,
     # "pass_verify_save_tensor": True,
+    "pass_verify_pass_filter": ["RemoveRedundantReshape"]
 }
 @pypto.jit(verify_options=verify_options)
 def special_view_opcomposite_pto(input_tensor_a, input_tensor_b, input_tensor_c, output_tensor, params: CompositeParams):

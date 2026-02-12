@@ -10,7 +10,7 @@
 import torch
 import numpy as np
 import tensorflow as tf
-from libs.tools import get_np_dtype
+from tools import get_np_dtype
 
 
 def convert_numpy_to_torch(input_data, dtype):

@@ -8,7 +8,7 @@
 
 
 import numpy as np
-from libs.tools import get_np_dtype, get_precision_np_dtype, convert_torch_to_numpy
+from tools import get_np_dtype, get_precision_np_dtype, convert_torch_to_numpy
 
 
 small_value_thres_dict = {
