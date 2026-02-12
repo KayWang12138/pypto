@@ -19,6 +19,7 @@
 #include <mutex>
 #include <queue>
 #include <cstdarg>
+#include <fstream>
 
 namespace npu::tile_fwk {
 enum class LogLevel {
@@ -49,12 +50,17 @@ private:
     static void ConstructMsgTail(LogMsg &logMsg);
     void WriteMessage(const LogMsg &logMsg);
     void WriteToStdOut(const LogMsg &logMsg);
+    void WriteToFile(const LogMsg &logMsg);
+    void CreateAndOpenNewLogFile();
+    void CheckAndCloseLogFile();
 
 private:
     LogLevel level_{LogLevel::ERROR};
     bool enableEvent_{false};
     bool enableStdOut_{true};
-    std::string fileDir_;
+    std::string hostLogDir_;
+    std::string deviceLogDir_;
+    std::ofstream currentFileStream_;
     std::queue<std::string> logFiles_;
     std::mutex writeMutex_;
 };

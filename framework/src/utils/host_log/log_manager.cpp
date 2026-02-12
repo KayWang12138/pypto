@@ -13,7 +13,7 @@
  * \brief
  */
 
-#include "host_log/log_manager.h"
+#include "log_manager.h"
 #include <cstdlib>
 #include <cstdio>
 #include <unistd.h>
@@ -24,6 +24,7 @@
 #include <stdexcept>
 #include <map>
 #include "securec.h"
+#include "log_file_utils.h"
 
 namespace npu::tile_fwk {
 namespace {
@@ -33,6 +34,10 @@ constexpr const char *kEnvGlobalLogEvent = "ASCEND_GLOBAL_EVENT_ENABLE";
 constexpr const char *kEnvProcessLogPath = "ASCEND_PROCESS_LOG_PATH";
 constexpr const char *kModuleName = "PYPTO";
 constexpr const char *kModulePrefix = "PYPTO=";
+constexpr const char *kLogFilePrefix = "pypto-log-";
+constexpr const char *kLogFileSuffix = ".log";
+const size_t MAX_LOG_FILES_NUM = 10;
+const int64_t MAX_LOG_FILES_SIZE = 10 * 1024 * 1024;  // 10MB
 
 const std::string kLogLevelNoneStr = "NONE";
 const std::map<LogLevel, std::string> logLevelStrMap = {
@@ -71,6 +76,17 @@ std::string GetCurrentTime() {
     ss << std::put_time(nowTm, "%Y-%m-%d %H:%M:%S");
     auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
     ss << "." << std::setfill('0') << std::setw(3) << milliseconds.count();
+    return ss.str();
+}
+
+std::string GetCurrentTimeStr() {
+    auto now = std::chrono::system_clock::now();
+    auto nowTime = std::chrono::system_clock::to_time_t(now);
+    std::tm* nowTm = std::localtime(&nowTime);
+    std::stringstream ss;
+    ss << std::put_time(nowTm, "%Y%m%d%H%M%S");
+    auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    ss << std::setfill('0') << std::setw(3) << milliseconds.count();
     return ss.str();
 }
 
@@ -123,14 +139,22 @@ LogManager::LogManager() {
 
     std::string envProcessLogPath;
     if (GetEnvStr(kEnvProcessLogPath, envProcessLogPath)) {
-        fileDir_ = envProcessLogPath;
+        hostLogDir_ = envProcessLogPath + "/plog";
+        deviceLogDir_ = envProcessLogPath + "/simulation";
+        if (CreateMultiLevelDirectory(hostLogDir_) && CreateMultiLevelDirectory(deviceLogDir_)) {
+            hostLogDir_ = GetRealPath(hostLogDir_);
+            deviceLogDir_ = GetRealPath(deviceLogDir_);
+            enableStdOut_ = false;
+        } else {
+            std::cout << "Fail to create directory: " << envProcessLogPath << ", still using stdout." << std::endl;
+        }
     }
 }
 
 LogManager::~LogManager() {
     level_ = LogLevel::ERROR;
     enableStdOut_ = true;
-    fileDir_.clear();
+    hostLogDir_.clear();
     std::queue<std::string> tmp_files;
     logFiles_.swap(tmp_files);
 }
@@ -188,9 +212,11 @@ void LogManager::ConstructMsgTail(LogMsg &logMsg) {
 }
 
 void LogManager::WriteMessage(const LogMsg &logMsg) {
-    const std::lock_guard lockGuard(writeMutex_);
+    const std::lock_guard<std::mutex> lockGuard(writeMutex_);
     if (enableStdOut_) {
         WriteToStdOut(logMsg);
+    } else {
+        WriteToFile(logMsg);
     }
 }
 
@@ -202,6 +228,42 @@ void LogManager::WriteToStdOut(const LogMsg &logMsg) {
     int ret = write(fd, logMsg.msg, logMsg.length);
     if (ret < 0) {
         std::cerr << "Cannot write to stdout: " << ret << std::endl;
+    }
+}
+
+void LogManager::WriteToFile(const LogMsg &logMsg) {
+    if (!currentFileStream_.is_open()) {
+        // init log file stream
+        CreateAndOpenNewLogFile();
+    }
+    // write log into file
+    if (!currentFileStream_.is_open()) {
+        std::cerr << "Failed to open file: " <<  logFiles_.back() << std::endl;
+        return;
+    }
+    currentFileStream_ << logMsg.msg;
+    currentFileStream_.flush();
+    // check log
+    CheckAndCloseLogFile();
+}
+
+void LogManager::CreateAndOpenNewLogFile() {
+    std::ostringstream oss;
+    oss << hostLogDir_ << "/" << kLogFilePrefix << GetTid() << "-" << GetCurrentTimeStr() << kLogFileSuffix;
+    std::string newLogFileName =  oss.str();
+    currentFileStream_.open(newLogFileName);
+    logFiles_.push(newLogFileName);
+}
+
+void LogManager::CheckAndCloseLogFile() {
+    std::streamsize fileSize = currentFileStream_.tellp();
+    if (fileSize < MAX_LOG_FILES_SIZE) {
+        return;
+    }
+    currentFileStream_.close();
+    if (logFiles_.size() >= MAX_LOG_FILES_NUM) {
+        RemoveFile(logFiles_.front()); //remove file
+        logFiles_.pop();
     }
 }
 }
