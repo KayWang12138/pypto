@@ -27,6 +27,14 @@ void InitLogSwitch() {
     g_isLogEnableInfo = CheckLogLevel(AICPU, DLOG_INFO);
     g_isLogEnableWarn = CheckLogLevel(AICPU, DLOG_WARN);
     g_isLogEnableError = CheckLogLevel(AICPU, DLOG_ERROR);
+
+    if (g_isLogEnableDebug) {
+        npu::tile_fwk::dynamic::HardBranchManager::GetInstance().AddGroup(HardBranchGroupCreate(verboseDebug));
+    }
+    if (g_isLogEnableInfo) {
+        npu::tile_fwk::dynamic::HardBranchManager::GetInstance().AddGroup(HardBranchGroupCreate(verboseInfo));
+    }
+    npu::tile_fwk::dynamic::HardBranchManager::GetInstance().SwitchToJump();
 #endif
 }
 

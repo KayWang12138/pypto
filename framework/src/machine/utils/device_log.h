@@ -30,6 +30,8 @@
 #include "securec.h"
 #include "tilefwk/aikernel_define.h"
 #include "machine/utils/device_switch.h"
+#include "machine/utils/dynamic/aicpu_instrumentation.h"
+
 #ifdef __DEVICE__
 #include "dlog_pub.h"
 #endif
@@ -45,21 +47,13 @@ namespace npu::tile_fwk {
     if (IsDebugMode())
 
 #define DEV_IF_VERBOSE_DEBUG                                            \
-    if constexpr (IsCompileVerboseLog())
+    if (HardBranchTrue(verboseDebug))
 
 #if ENABLE_TMP_LOG == 0
 #define DEBUG_PLOG 1
 #else
 #define DEBUG_PLOG 0
 #endif/*DEBUG_PLOG*/
-
-inline constexpr bool IsCompileVerboseLog() {
-#if ENABLE_COMPILE_VERBOSE_LOG
-    return true;
-#else
-    return false;
-#endif
-}
 
 constexpr int LOG_LEVEL_DEBUG = 0;
 constexpr int LOG_LEVEL_INFO = 1;
@@ -187,6 +181,26 @@ inline bool IsDebugMode() {
     return g_isLogEnableDebug;
 }
 
+#define DEV_DLOG_DEBUG(fmt, ...) \
+    do { \
+        dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+    } while(0)
+
+#define DEV_DLOG_INFO(fmt, ...) \
+    do { \
+        dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+    } while(0)
+
+#define DEV_DLOG_WARN(fmt, ...) \
+    do { \
+        dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+    } while(0)
+
+#define DEV_DLOG_ERROR(fmt, ...) \
+    do { \
+        dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
+    } while(0)
+
 template<typename... Args>
 inline void DeviceLogSplitDebug([[maybe_unused]] const std::string& mode_name,
                                 const char* func, const char* format, Args... args)
@@ -221,33 +235,33 @@ inline void DeviceLogSplitDebug([[maybe_unused]] const std::string& mode_name,
         }
     }
 
-#define D_DEV_LOGD(MODE_NAME, fmt, ...)                                               \
-  do {                                                                                \
-      if (IsLogEnableDebug()) {                                                  \
-        dlog_debug(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
-      }                                                                               \
-  } while (false)
+#define D_DEV_LOGD(MODE_NAME, fmt, ...)                             \
+    do {                                                            \
+        if (IsLogEnableDebug()) {                                   \
+            DEV_DLOG_DEBUG(fmt, ##__VA_ARGS__);                     \
+        }                                                           \
+    } while (false)
 
-#define D_DEV_LOGI(MODE_NAME, fmt, ...)                                               \
-  do {                                                                                \
-      if (IsLogEnableInfo()) {                                                   \
-        dlog_info(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
-      }                                                                               \
-  } while(false)
+#define D_DEV_LOGI(MODE_NAME, fmt, ...)                             \
+    do {                                                            \
+        if (IsLogEnableInfo()) {                                    \
+            DEV_DLOG_INFO(fmt, ##__VA_ARGS__);                      \
+        }                                                           \
+    } while (false)
 
-#define D_DEV_LOGW(MODE_NAME, fmt, ...)                                               \
-  do {                                                                                \
-      if (IsLogEnableWarn()) {                                                   \
-        dlog_warn(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);   \
-      }                                                                               \
-  } while(false)
+#define D_DEV_LOGW(MODE_NAME, fmt, ...)                             \
+    do {                                                            \
+        if (IsLogEnableWarn()) {                                    \
+            DEV_DLOG_WARN(fmt, ##__VA_ARGS__);                      \
+        }                                                           \
+    } while (false)
 
-#define D_DEV_LOGE(MODE_NAME, fmt, ...)                                               \
-  do {                                                                                \
-    if (IsLogEnableError()) {                                                  \
-        dlog_error(AICPU, "%lu %s\n" #fmt , GET_TID(), __FUNCTION__, ##__VA_ARGS__);  \
-      }                                                                               \
-  } while(false)
+#define D_DEV_LOGE(MODE_NAME, fmt, ...)                             \
+    do {                                                            \
+        if (IsLogEnableError()) {                                   \
+            DEV_DLOG_ERROR(fmt, ##__VA_ARGS__);                     \
+        }                                                           \
+    } while (false)
 
 #define D_DEV_LOGD_SPLIT(MODE_NAME, fmt, ...)                                         \
     do {                                                                                \
@@ -256,12 +270,22 @@ inline void DeviceLogSplitDebug([[maybe_unused]] const std::string& mode_name,
         }                                                                               \
     } while (false)
 
-#define DEV_VERBOSE_DEBUG(fmt, args...)                                  \
-  do {                                                                  \
-    if constexpr (IsCompileVerboseLog())  {                          \
-        D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args);               \
-    }                                                                   \
-  } while(0)
+#define DEV_VERBOSE_DEBUG(fmt, args...)                             \
+    do {                                                            \
+        if (HardBranchTrue(verboseDebug)) {                         \
+            DEV_DLOG_DEBUG(fmt, ##args);                            \
+        }                                                           \
+    } while(0)
+#define DEV_VERBOSE_INFO(fmt, args...)                              \
+    do {                                                            \
+        if (HardBranchTrue(verboseInfo)) {                          \
+            DEV_DLOG_INFO(fmt, ##args);                             \
+        }                                                           \
+    } while(0)
+
+HardBranchGroupDefine(verboseInfo);
+HardBranchGroupDefine(verboseDebug);
+
 #define DEV_DEBUG(fmt, args...) D_DEV_LOGD(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_INFO(fmt, args...) D_DEV_LOGI(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
 #define DEV_WARN(fmt, args...) D_DEV_LOGW(TILE_FWK_DEVICE_MACHINE, fmt, ##args)
@@ -296,6 +320,12 @@ inline bool IsDebugMode() {
     do { \
         if (IsLogEnableDebug()) { \
             GetLogger().Log(LOG_LEVEL_DEBUG, __FILE__, __LINE__, fmt, ##args); \
+        } \
+    } while (0)
+#define DEV_VERBOSE_INFO(fmt, args...) \
+    do { \
+        if (IsLogEnableInfo()) { \
+            GetLogger().Log(LOG_LEVEL_INFO, __FILE__, __LINE__, fmt, ##args); \
         } \
     } while (0)
 #define DEV_DEBUG(fmt, args...) \
