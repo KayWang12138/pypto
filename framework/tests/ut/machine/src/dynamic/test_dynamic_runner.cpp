@@ -38,6 +38,8 @@ using namespace npu::tile_fwk;
 
 extern "C" uint32_t DynPyptoKernelServerNull(void *targ);
 extern "C" uint32_t DynTileFwkBackendKernelServer(void *targ);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wframe-larger-than="
 class TestDynamicDeviceRunner : public testing::Test {
 public:
     static void SetUpTestCase() {
@@ -205,3 +207,4 @@ TEST_F(TestDynamicDeviceRunner, test_launch_init) {
     auto ret = DynTileFwkBackendKernelServer(&pyptoKernelArgs);
     EXPECT_EQ(ret, -1);
 }
+#pragma GCC diagnostic pop
