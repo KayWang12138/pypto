@@ -103,6 +103,7 @@ public:
     std::string GenTransposeDataMove() const;
 
     std::string GenGatherElementOp() const;
+    std::string GenGatherMaskOp() const;
 
     std::string GenRangeOp() const;
     std::string PrintRangeTileTensor(

@@ -1306,11 +1306,73 @@ Tensor Range(const Element &start, const Element &end, const Element &step) {
     return resTensor;
 }
 
-void IndexAddOperationTileFunc(Function &function, const TileShape &tileShape,
+Tensor GatherMask(const Tensor &self, const uint8_t patternMode) {
+    auto shape = self.GetShape();
+    if (patternMode == 1 || patternMode == 2) {
+        ASSERT(shape[shape.size() - 1] % 2 == 0) << "The last axis should be divisible by 2 when ptternMode is 1 or 2";
+        shape[shape.size() - 1] = shape[shape.size() - 1] / 2;
+    } else if (patternMode == 3 || patternMode == 4 || patternMode == 5 || patternMode == 6) {
+        ASSERT(shape[shape.size() - 1] % 4 == 0) << "The last axis should be divisible by 4 when ptternMode is 3,4,5 or 6";
+        shape[shape.size() - 1] = shape[shape.size() - 1] / 4;
+    } else {
+        ASSERT(patternMode == 7) << "Just support patternMode is 1, 2, 3, 4, 5, 6, 7";
+    }
+    auto result = Tensor(self.GetStorage()->tensor->datatype, shape);
+    CALL(GatherMask, *Program::GetInstance().GetCurrentFunction(), self.GetStorage(), result.GetStorage(), patternMode);
+    return result;
+}
+
+void TensorGatherMask(
+    Function &function, const LogicalTensorPtr &self, const LogicalTensorPtr &result, const uint8_t &patternMode) {
+    if (patternMode != 0) {
+        auto &op = function.AddOperation(Opcode::OP_GATHER_MASK_BUILDIN, {self}, {result});
+        op.SetAttribute(OP_ATTR_PREFIX + "patternMode", patternMode);
+        return;
+    }
+}
+
+void GatherMaskBuildInOperationTileFunc(Function &function, const TileShape &tileShape,
     const std::vector<LogicalTensorPtr> &iOperand, const std::vector<LogicalTensorPtr> &oOperand, const Operation &op) {
-    int axis = op.GetIntAttribute(OP_ATTR_PREFIX + "axis");
-    Element alpha = op.GetElementAttribute(OpAttributeKey::scalar);
-    TiledIndexAdd(function, tileShape, {iOperand[0], iOperand[1], iOperand[2], oOperand[0], axis, alpha});
+    uint8_t patternMode = op.GetIntAttribute(OP_ATTR_PREFIX + "patternMode");
+    TiledGatherMaskBuildIn(function, tileShape, iOperand[0], oOperand[0], patternMode);
+}
+
+void TiledGatherMaskBuildIn(Function &function, const TileShape &tileShape, const LogicalTensorPtr operand,
+    const LogicalTensorPtr resOperand, const uint8_t patternMode) {
+    TileInfo tileInfo(operand->shape.size(), operand->offset.size());
+    TileInfo resultTileInfo(resOperand->shape.size(), resOperand->offset.size());
+    tileInfo.shape = operand->shape;
+    resultTileInfo.shape = resOperand->shape;
+    auto input = Input{operand, tileInfo};
+    TiledGatherMaskBuildIn(function, tileShape, 0, input, resOperand, resultTileInfo, patternMode);
+}
+
+void TiledGatherMaskBuildIn(Function &function, const TileShape &tileShape, size_t cur, Input &input,
+    const LogicalTensorPtr &result, TileInfo &resultTileInfo, const uint8_t patternMode) {
+    if (cur == input.tensor.GetShape().size()) {
+        auto inputTile = input.tensor.GetStorage()->View(function, input.tileInfo.shape, input.tileInfo.offset);
+        auto resultTile = result->View(function, resultTileInfo.shape, resultTileInfo.offset);
+        auto &op = function.AddOperation(Opcode::OP_GATHER_MASK {inputTile}, {resultTile});
+        op.SetAttribute(OP_ATTR_PREFIX + "patternMode", patternMode);
+        return;
+    }
+
+    // Jump last axis
+    if (cur == input.tensor.GetShape().size() - 1) {
+        TiledGatherMaskBuildIn(function, tileShape, cur + 1, input, result, resultTileInfo, patternMode);
+        return;
+    }
+
+    auto &vecTile = tileShape.GetVecTile();
+    for (int i = 0; i < input.tensor.GetShape()[cur]; i += vecTile[cur]) {
+        // update input && result && resultDices shape and offset info
+        input.tileInfo.offset[cur] = i % input.tensor.GetShape()[cur];
+        input.tileInfo.shape[cur] = std::min(input.tensor.GetShape()[cur] - input.tileInfo.offset[cur], vecTile[cur]);
+
+        resultTileInfo.offset[cur] = i;
+        resultTileInfo.shape[cur] = std::min(result->shape[cur] - resultTileInfo.offset[cur], vecTile[cur]);
+        TiledGatherMaskBuildIn(function, tileShape, cur + 1, input, result, resultTileInfo, patternMode);
+    }
 }
 
 void GatherOperationTileFunc(Function &function, const TileShape &tileShape,
@@ -1375,5 +1437,6 @@ REGISTER_OPERATION_TILED_FUNC(OP_SCATTER, Opcode::OP_SCATTER, ScatterOperationTi
 REGISTER_OPERATION_TILED_FUNC(OP_INDEX_PUT, Opcode::OP_INDEX_PUT, IndexPutOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_INDEX_OUTCAST, Opcode::OP_INDEX_OUTCAST, IndexOutcastOperationTileFunc);
 REGISTER_OPERATION_TILED_FUNC(OP_RANGE, Opcode::OP_RANGE, RangeOperationTileFunc);
+REGISTER_OPERATION_TILED_FUNC(OP_GATHER_MASK_BUILDIN, Opcode::OP_GATHER_MASK_BUILDIN, GatherMaskBuildInOperationTileFunc);
 
 } // namespace npu::tile_fwk
