@@ -1724,11 +1724,11 @@ void SetInternalSubgraphIDAndAIVCore(IssueEntryPtr issue, int id) {
     }
 }
 
-void SetAttribute(ComputationalGraphBuilder &subGraph, OoOScheduler &oooSchedule, IssueEntryPtr &ubCopyL1, IssueEntryPtr &alloc3, IssueEntryPtr &copyin2) {
+void SetAttribute(ComputationalGraphBuilder &subGraph, OoOScheduler &oooSchedule, IssueEntryPtr &ubCopyL1, IssueEntryPtr &alloc3) {
     IssueEntryPtr adds = GetIssueEntry("ADDS", subGraph, oooSchedule);
     ubCopyL1 = GetIssueEntry("UB_COPY_L1", subGraph, oooSchedule);
     IssueEntryPtr copyin1 = GetIssueEntry("COPY_IN1", subGraph, oooSchedule);
-    copyin2 = GetIssueEntry("COPY_IN2", subGraph, oooSchedule);
+    IssueEntryPtr copyin2 = GetIssueEntry("COPY_IN2", subGraph, oooSchedule);
     IssueEntryPtr copyin3 = GetIssueEntry("COPY_IN3", subGraph, oooSchedule);
     IssueEntryPtr copyin4 = GetIssueEntry("COPY_IN4", subGraph, oooSchedule);
     IssueEntryPtr copyout1 = GetIssueEntry("COPY_OUT1", subGraph, oooSchedule);
@@ -1774,6 +1774,25 @@ void SetAttribute(ComputationalGraphBuilder &subGraph, OoOScheduler &oooSchedule
     oooSchedule.tensorOccupyMap[MemoryType::MEM_L1].emplace(0, copyin2);
 }
 
+void InitSpillInfo(SpillInfo &spillInfo, int memId, IssueEntryPtr spillIssue) {
+    spillInfo.spillMemId_ = memId;
+    spillInfo.spillIssue_ = spillIssue;
+    spillInfo.spillTensor_ = spillIssue->tileOp.GetOutputOperand(0);
+    spillInfo.ddrTensor_ = nullptr;
+    spillInfo.isSpecialL1_ = true;
+}
+
+static bool CheckOrderExists(std::unordered_set<int> &issueList, IssueEntryPtr targetIssue,
+    std::unordered_map<int, IssueEntryPtr> issueEntryMap) {
+    for (auto &issueId : issueList) {
+        auto issue = issueEntryMap[issueId];
+        if (issue == targetIssue) {
+            return true;
+        }
+    }
+    return false;
+}
+
 TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
     ComputationalGraphBuilder subGraph;
     std::vector<std::string> tensorL1Names{"t1", "t2", "t3"};
@@ -1805,16 +1824,11 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
     EXPECT_EQ(oooSchedule.issueEntries[5]->tileOp.GetOpcodeStr(), "L0A_ALLOC");
     IssueEntryPtr ubCopyL1 = nullptr;
     IssueEntryPtr alloc3 = nullptr;
-    IssueEntryPtr copyin2 = nullptr;
-    SetAttribute(subGraph, oooSchedule, ubCopyL1, alloc3, copyin2);
+    SetAttribute(subGraph, oooSchedule, ubCopyL1, alloc3);
     auto localBuffer2 = oooSchedule.localBufferMap[2];
 
     SpillInfo spillInfo;
-    spillInfo.spillMemId_ = 0;
-    spillInfo.spillIssue_ = ubCopyL1;
-    spillInfo.spillTensor_ = ubCopyL1->tileOp.GetOutputOperand(0);
-    spillInfo.ddrTensor_ = nullptr;
-    spillInfo.isSpecialL1_ = true;
+    InitSpillInfo(spillInfo, 0, ubCopyL1);
     size_t pcIdx = 7;
     res = oooSchedule.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer2, true);
     EXPECT_EQ(res, SUCCESS);
@@ -1826,6 +1840,10 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffer) {
     EXPECT_EQ(oooSchedule.issueEntries[13]->tileOp.GetOpcodeStr(), "COPY_IN");
     EXPECT_EQ(oooSchedule.issueEntries[12]->tileOp.GetInternalSubgraphID(), 1);
     EXPECT_EQ(oooSchedule.issueEntries[13]->tileOp.GetAIVCore(), AIVCore::UNSPECIFIED);
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(oooSchedule.issueEntries[13]->tileOp.GetOpAttribute());
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[0].GetSpecifiedValue()), 0);
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[1].GetSpecifiedValue()), 0);
+    EXPECT_TRUE(CheckOrderExists(GetIssueEntry("COPY_IN1", subGraph, oooSchedule)->predecessors, oooSchedule.issueEntries[13], oooSchedule.issueEntryMap));
 }
 
 TEST_F(ScheduleOoOTest, TestL1SpillBufferFailed) {
@@ -1861,11 +1879,7 @@ TEST_F(ScheduleOoOTest, TestL1SpillBufferFailed) {
     IssueEntryPtr spillCopyout = nullptr;
 
     SpillInfo spillInfo;
-    spillInfo.spillMemId_ = 0;
-    spillInfo.spillIssue_ = ubCopyL1;
-    spillInfo.spillTensor_ = ubCopyL1->tileOp.GetOutputOperand(0);
-    spillInfo.ddrTensor_ = nullptr;
-    spillInfo.isSpecialL1_ = true;
+    InitSpillInfo(spillInfo, 0, ubCopyL1);
     int num = 0;
     bool isFinish = false;
     res = oooSchedule.CreateSpecialL1Copyout(spillInfo, alloc3, spillCopyout, num, isFinish);
@@ -1926,17 +1940,6 @@ void SetAttributeReshape1(ComputationalGraphBuilder &subGraph, OoOScheduler &ooo
     oooSchedule.tensorOccupyMap[MemoryType::MEM_L1].emplace(0, copyin2);
 }
 
-static bool CheckOrderExists(std::unordered_set<int> &issueList, IssueEntryPtr targetIssue,
-    std::unordered_map<int, IssueEntryPtr> issueEntryMap) {
-    for (auto &issueId : issueList) {
-        auto issue = issueEntryMap[issueId];
-        if (issue == targetIssue) {
-            return true;
-        }
-    }
-    return false;
-}
-
 // 场景：UB_COPY_L1-L1-reshape-L1
 TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer1) {
     ComputationalGraphBuilder subGraph;
@@ -1977,11 +1980,7 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer1) {
     auto localBuffer2 = ooOSchedule.localBufferMap[3];
 
     SpillInfo spillInfo;
-    spillInfo.spillMemId_ = 0;
-    spillInfo.spillIssue_ = reshape;
-    spillInfo.spillTensor_ = reshape->tileOp.GetOutputOperand(0);
-    spillInfo.ddrTensor_ = nullptr;
-    spillInfo.isSpecialL1_ = true;
+    InitSpillInfo(spillInfo, 0, reshape);
     size_t pcIdx = 9;
     res = ooOSchedule.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer2, true);
     EXPECT_EQ(res, SUCCESS);
@@ -1989,6 +1988,9 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer1) {
     EXPECT_EQ(ooOSchedule.bufRefCount_[0], 0);
     EXPECT_EQ(ooOSchedule.issueEntries[15]->tileOp.GetOpcodeStr(), "RESHAPE");
     EXPECT_EQ(ooOSchedule.issueEntries.size(), 20);
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(oooSchedule.issueEntries[14]->tileOp.GetOpAttribute());
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[0].GetSpecifiedValue()), 0);
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[1].GetSpecifiedValue()), 0);
 }
 
 void SetAttributeReshape2(ComputationalGraphBuilder &subGraph, OoOScheduler &oooSchedule, IssueEntryPtr &reshape, IssueEntryPtr &alloc3) {
@@ -2000,6 +2002,10 @@ void SetAttributeReshape2(ComputationalGraphBuilder &subGraph, OoOScheduler &ooo
     IssueEntryPtr copyin2 = GetIssueEntry("COPY_IN2", subGraph, oooSchedule);
     IssueEntryPtr copyin3 = GetIssueEntry("COPY_IN3", subGraph, oooSchedule);
     IssueEntryPtr copyin4 = GetIssueEntry("COPY_IN4", subGraph, oooSchedule);
+    std::vector<int64_t> offset = {1, 1};
+    std::vector<int64_t> shape = {256, 512};
+    copyin5->tileOp.SetOpAttribute(std::make_shared<CopyOpAttribute>(OpImmediate::Specified(offset),
+        MemoryType_MEM_L1, OpImmediate::Specified(shape), OpImmediate::Specified(shape)));
 
     IssueEntryPtr alloc1 = GetIssueEntry("L1_Alloc1", subGraph, oooSchedule);
     IssueEntryPtr alloc2 = GetIssueEntry("L1_Alloc2", subGraph, oooSchedule);
@@ -2022,7 +2028,6 @@ void SetAttributeReshape2(ComputationalGraphBuilder &subGraph, OoOScheduler &ooo
     SetInternalSubgraphIDAndAIVCore(copyin3, 1);
     SetInternalSubgraphIDAndAIVCore(copyin4, 1);
 
-    // 属性 reshape->tileOp.SetOpAttribute(std::make_shared<OpAttribute>());
     oooSchedule.bufRefCount_ = {{0, 1}, {6, 1}, {5, 3}, {3, 3}, {2, 3}};
     alloc1->isRetired = true;
     copyin5->isRetired = true;
@@ -2076,11 +2081,7 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer2) {
     auto localBuffer = oooScheduler.localBufferMap[3];
 
     SpillInfo spillInfo;
-    spillInfo.spillIssue_ = reshape;
-    spillInfo.spillMemId_ = 0;
-    spillInfo.spillTensor_ = reshape->tileOp.GetOutputOperand(0);
-    spillInfo.ddrTensor_ = nullptr;
-    spillInfo.isSpecialL1_ = true;
+    InitSpillInfo(spillInfo, 0, reshape);
     size_t pcIdx = 5;
     res = oooScheduler.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer, true);
     EXPECT_EQ(res, SUCCESS);
@@ -2088,6 +2089,9 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBuffer2) {
     EXPECT_EQ(oooScheduler.bufRefCount_[0], 0);
     EXPECT_EQ(oooScheduler.issueEntries[11]->tileOp.GetOpcodeStr(), "RESHAPE");
     EXPECT_EQ(oooScheduler.issueEntries.size(), 16);
+    auto attr = std::dynamic_pointer_cast<CopyOpAttribute>(oooSchedule.issueEntries[10]->tileOp.GetOpAttribute());
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[0].GetSpecifiedValue()), 1);
+    EXPECT_EQ(static_cast<int>(attr->GetFromOffset()[1].GetSpecifiedValue()), 1);
 }
 
 TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBufferFailed) {
@@ -2124,11 +2128,7 @@ TEST_F(ScheduleOoOTest, TestL1ReshapeSpillBufferFailed) {
     auto localBuffer0 = oooSchedule.localBufferMap[3];
 
     SpillInfo spillInfo;
-    spillInfo.spillMemId_ = 0;
-    spillInfo.spillTensor_ = reshape->tileOp.GetOutputOperand(0);
-    spillInfo.spillIssue_ = reshape;
-    spillInfo.ddrTensor_ = nullptr;
-    spillInfo.isSpecialL1_ = true;
+    InitSpillInfo(spillInfo, 0, reshape);
     size_t pcIdx = 7;
     res = oooSchedule.SpillBuffer(spillInfo, alloc3, pcIdx, localBuffer0, true);
     EXPECT_EQ(res, FAILED);
@@ -2160,11 +2160,7 @@ TEST_F(ScheduleOoOTest, TestL1SpillBuffeFailed2) {
     auto localBuffer = oooSchedule.localBufferMap[3];
 
     SpillInfo spillInfo;
-    spillInfo.spillIssue_ = assemble;
-    spillInfo.spillTensor_ = assemble->tileOp.GetOutputOperand(0);
-    spillInfo.ddrTensor_ = nullptr;
-    spillInfo.isSpecialL1_ = true;
-    spillInfo.spillMemId_ = 0;
+    InitSpillInfo(spillInfo, 0, assemble);
     size_t pcIdx = 3;
     res = oooSchedule.SpillBuffer(spillInfo, alloc, pcIdx, localBuffer, true);
     EXPECT_EQ(res, FAILED);

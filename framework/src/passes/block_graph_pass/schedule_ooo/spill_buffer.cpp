@@ -260,7 +260,6 @@ Status OoOScheduler::CreateSpillReloadIssue(LogicalTensorPtr spillOutTensor,
         APASS_LOG_ERROR_F(Elements::Tensor, "UpdateTensorAttr local tensor failed!");
         return FAILED;
     }
-    // 设置TODO copy_in newTensor offset
     localTensor->offset = std::vector<int64_t>(localTensor->GetShape().size(), 0);
     // 创建spill搬出数据搬回OP_COPY_IN/OP_ALLOC
     Opcode allocOp = memType == MemoryType::MEM_UB ? Opcode::OP_UB_ALLOC : Opcode::OP_L1_ALLOC;
@@ -326,7 +325,7 @@ LogicalTensorPtr OoOScheduler::CreateReshapeL1Tensor(LogicalTensorPtr iOperand, 
     newTensor->oriShape = iOperand->shape;
     newTensor->tensor = reshapeTensor->tensor;
     newTensor->memoryrange.memId = reshapeTensor->memoryrange.memId;
-    newTensor->UpdateDynValidShape(reshapeTensor->GetDynValidShape());
+    newTensor->UpdateDynValidShape(iOperand->GetDynValidShape());
     // 设置TODO reshape newTensor offset
     newTensor->offset = iOperand->GetOffset();
     tensorAllocCoreMap[newTensor->memoryrange.memId] = tensorAllocCoreMap[iOperand->memoryrange.memId];
@@ -342,11 +341,11 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntry
         APASS_LOG_ERROR_F(Elements::Operation, "Get Tensor[%d] next use order failed.", spillInfo.spillMemId_);
         return FAILED;
     }
-    // alloc
+    // 创建 alloc
     auto &spillAllocOp = function_.AddRawOperation(Opcode::OP_L1_ALLOC, {}, {newTensor});
     spillAllocOp.UpdateLatency(1);
     auto spillAllocIssue = UpdateIssueAttr(spillAllocOp, {reshapeTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
-    // copyin
+    // 创建 copyin
     IssueEntryPtr preIssue = nullptr;
     for (auto &preId : spillInfo.spillIssue_->predecessors) {
         auto pre = issueEntryMap[preId];
@@ -366,15 +365,13 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntry
     auto &spillCopyInOp = (preIssue->tileOp.GetOpcode() == Opcode::OP_COPY_IN) ?
         preIssue->tileOp.CloneOperation(function_, {spillInfo.ddrTensor_}, {newTensor}) :
         function_.AddRawOperation(Opcode::OP_COPY_IN, {spillInfo.ddrTensor_}, {newTensor});
-    // 设置TODO reshape copy_in offset
     if (preIssue->tileOp.GetOpcode() == Opcode::OP_COPY_IN) {
         spillCopyInOp.SetIOpAttrOffset(0, preIssue->tileOp.GetIOpAttrOffset(0));
     }
     UpdateOpAttr(spillCopyInOp, DEFAULT_LATENCY, newTensor, spillInfo.ddrTensor_->GetOffset(), preIssue);
     auto spillCopyInIssue = UpdateIssueAttr(spillCopyInOp, {reshapeTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
-    // reshape
+    // 创建 reshape
     auto &reshapeOp = function_.AddRawOperation(Opcode::OP_RESHAPE, {newTensor}, {reshapeTensor});
-    // 设置TODO reshape attribute reshapeOp.SetOpAttribute(spillInfo.spillIssue_->tileOp.GetOpAttribute()->Clone());
     reshapeOp.UpdateLatency(1);
     auto spillReshapeIssue = UpdateIssueAttr(reshapeOp, {reshapeTensor->memoryrange.memId, reshapeTensor->memoryrange.memId}, allocIssue, bufNextUseOrder, isGenSpill);
     APASS_LOG_DEBUG_F(Elements::Operation, "Add SPILL_ALLOC: %s.", spillAllocIssue->GetOpInfo().c_str());
@@ -385,7 +382,6 @@ Status OoOScheduler::SpillReshapeParticalBuffer(SpillInfo &spillInfo, IssueEntry
 
 // A5 中 L1->reshape->L1 时第二个 L1 为 spill tensor 的情况
 Status OoOScheduler::SpillInReshapeBuffer(SpillInfo &spillInfo, IssueEntryPtr allocIssue, bool isGenSpill) {
-    // 设置TODO reshapeTensor
     LogicalTensorPtr reshapeTensor = std::make_shared<LogicalTensor>(function_,
         spillInfo.spillTensor_->Datatype(), spillInfo.spillTensor_->shape, spillInfo.spillTensor_->Format());
     if (reshapeTensor == nullptr) {
