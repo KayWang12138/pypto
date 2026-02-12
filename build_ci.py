@@ -1468,13 +1468,7 @@ class BuildCtrl(CMakeParam):
         filter_str = tests.get_filter_str(def_filter=def_filter).replace(',', ' ')
 
         # 根据 backend_type 决定执行模式
-        origin_env = os.environ.copy()
-        update_env = {}
-        if dist:
-            ori_env_python_path = origin_env.get(self._PYTHONPATH, "")
-            act_env_python_path = f"{dist}:{ori_env_python_path}" if ori_env_python_path else f"{dist}"
-            update_env.update({self._PYTHONPATH: act_env_python_path})
-
+        update_env = self._get_py_tests_update_env(dist=dist)
         # 获取 case_timeout 参数
         case_timeout = self.tests.exec.case_execute_timeout
         timeout_arg = f" --timeout {case_timeout}" if case_timeout and case_timeout > 0 else ""
@@ -1508,15 +1502,58 @@ class BuildCtrl(CMakeParam):
             cmd += " --dist=loadscope"
             cmd += " --no-loadscope-reorder"
         # cmd 执行
-        origin_env = os.environ.copy()
-        update_env = {}
-        if dist:
-            ori_env_python_path = origin_env.get(self._PYTHONPATH, "")
-            act_env_python_path = f"{dist}:{ori_env_python_path}" if ori_env_python_path else f"{dist}"
-            update_env.update({self._PYTHONPATH: act_env_python_path})
+        update_env = self._get_py_tests_update_env(dist=dist)
         logging.info("pytest run, Cmd: %s, Timeout: %s", cmd, self.remain_timeout)
         _, duration = self.run_build_cmd(cmd=cmd, update_env=update_env, pg_desc="pytest")
         logging.info("pytest run success, %s", duration)
+
+    def _get_py_tests_update_env(self, dist: Optional[Path]) -> Dict[str, str]:
+        update_env = {}
+
+        if dist:
+            origin_env = os.environ.copy()
+            ori_env_python_path = origin_env.get(self._PYTHONPATH, "")
+            act_env_python_path = f"{dist}:{ori_env_python_path}" if ori_env_python_path else f"{dist}"
+            update_env.update({self._PYTHONPATH: act_env_python_path})
+        update_env.update(self._py_tests_get_xsan_env())
+        return update_env
+
+    def _py_tests_get_xsan_env(self) -> Dict[str, str]:
+        update_env = {}
+        if not (self.build.asan or self.build.ubsan):
+            return update_env
+
+        py3_ver = sys.version_info
+        dir_name = f"temp.linux-{self.build.get_system_processor()}-cpython-{py3_ver.major}{py3_ver.minor}"
+        xsan_config_file = Path(self.build_root, dir_name, "_pypto_xsan_config.txt")
+        if not xsan_config_file.exists():
+            logging.warning("XSAN config file not found: %s", xsan_config_file)
+            return update_env
+
+        try:
+            with open(xsan_config_file) as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    update_env[k] = v
+        except Exception as e:
+            logging.warning("Failed to read XSAN config file: %s", e)
+
+        # 特殊处理
+        import re
+        ld_preload = update_env.get("LD_PRELOAD", None)
+        if not ld_preload:
+            return update_env
+        ld_preload_so_list = ld_preload.split(":")
+        for so_path in ld_preload:
+            so_path_str = str(so_path)
+            if re.search(r'libasan\.so(?:\.\d+)?$', so_path_str):
+                pass
+        return update_env
 
     def _tests_enable(self) -> bool:
         return self.tests.utest.enable or self.tests.stest.enable
