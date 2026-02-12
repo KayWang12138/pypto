@@ -73,35 +73,25 @@ struct AccMax {
  * @param vertexContractionMap Output mapping from dagIn to coarsenedDag.
  * @return A status code indicating the success or failure of the coarsening operation.
  */
-template <typename GraphTIn, class GraphTOut, typename VWorkAccMethod = AccSum<VWorkwT<GraphTIn>>,
-    typename VCommAccMethod = AccSum<VCommwT<GraphTIn>>, typename VMemAccMethod = AccSum<VMemwT<GraphTIn>>>
-bool ConstructCoarseDag(
+template <typename GraphTIn, class GraphTOut>
+bool InitializeCoarseGraph(
     const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) {
     static_assert(isDirectConstructableCdagV<GraphTOut> || isConstructableCdagV<GraphTOut>,
         "Out-Graph must be (directly) constructable.");
 
-    if (vertexContractionMap.size() == 0) {
-        coarsenedDag = GraphTOut();
-        return true;
-    }
+    const VertexIdxT<GraphTOut> numVertQuotient =
+        (*std::max_element(vertexContractionMap.cbegin(), vertexContractionMap.cend())) + 1;
 
     if constexpr (isDirectConstructableCdagV<GraphTOut>) {
-        const VertexIdxT<GraphTOut> numVertQuotient =
-            (*std::max_element(vertexContractionMap.cbegin(), vertexContractionMap.cend())) + 1;
-
         std::set<std::pair<VertexIdxT<GraphTOut>, VertexIdxT<GraphTOut>>> quotientEdges;
-
         for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
             for (const VertexIdxT<GraphTIn> &chld : dagIn.Children(vert)) {
-                if (vertexContractionMap[vert] == vertexContractionMap[chld]) {
-                    continue;
+                if (vertexContractionMap[vert] != vertexContractionMap[chld]) {
+                    quotientEdges.emplace(vertexContractionMap[vert], vertexContractionMap[chld]);
                 }
-                quotientEdges.emplace(vertexContractionMap[vert], vertexContractionMap[chld]);
             }
         }
-
         coarsenedDag = GraphTOut(numVertQuotient, quotientEdges);
-
         for (const VertexIdxT<GraphTIn> &vert : coarsenedDag.Vertices()) {
             coarsenedDag.SetVertexWorkWeight(vert, 0);
             coarsenedDag.SetVertexCommWeight(vert, 0);
@@ -109,28 +99,28 @@ bool ConstructCoarseDag(
         }
     } else if constexpr (isConstructableCdagV<GraphTOut>) {
         coarsenedDag = GraphTOut();
-
-        const VertexIdxT<GraphTOut> numVertQuotient =
-            (*std::max_element(vertexContractionMap.cbegin(), vertexContractionMap.cend())) + 1;
-
         for (VertexIdxT<GraphTOut> vert = 0; vert < numVertQuotient; ++vert) {
             coarsenedDag.AddVertex(0, 0, 0);
         }
-
         for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
             for (const VertexIdxT<GraphTIn> &chld : dagIn.Children(vert)) {
-                if (vertexContractionMap[vert] == vertexContractionMap[chld]) {
-                    continue;
-                }
-                if (not Edge(vertexContractionMap[vert], vertexContractionMap[chld], coarsenedDag)) {
-                    coarsenedDag.AddEdge(vertexContractionMap[vert], vertexContractionMap[chld]);
+                if (vertexContractionMap[vert] != vertexContractionMap[chld]) {
+                    if (not Edge(vertexContractionMap[vert], vertexContractionMap[chld], coarsenedDag)) {
+                        coarsenedDag.AddEdge(vertexContractionMap[vert], vertexContractionMap[chld]);
+                    }
                 }
             }
         }
     } else {
         return false;
     }
+    return true;
+}
 
+template <typename GraphTIn, class GraphTOut, typename VWorkAccMethod = AccSum<VWorkwT<GraphTIn>>,
+    typename VCommAccMethod = AccSum<VCommwT<GraphTIn>>, typename VMemAccMethod = AccSum<VMemwT<GraphTIn>>>
+void AccumulateVertexWeights(
+    const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) {
     for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
         coarsenedDag.SetVertexWorkWeight(vertexContractionMap[vert],
             VWorkAccMethod()(coarsenedDag.VertexWorkWeight(vertexContractionMap[vert]), dagIn.VertexWorkWeight(vert)));
@@ -143,6 +133,23 @@ bool ConstructCoarseDag(
     for (const VertexIdxT<GraphTIn> &vert : dagIn.Vertices()) {
         coarsenedDag.SetVertexType(vertexContractionMap[vert], dagIn.VertexType(vert));
     }
+}
+
+template <typename GraphTIn, class GraphTOut, typename VWorkAccMethod = AccSum<VWorkwT<GraphTIn>>,
+    typename VCommAccMethod = AccSum<VCommwT<GraphTIn>>, typename VMemAccMethod = AccSum<VMemwT<GraphTIn>>>
+bool ConstructCoarseDag(
+    const GraphTIn &dagIn, GraphTOut &coarsenedDag, const std::vector<VertexIdxT<GraphTOut>> &vertexContractionMap) {
+    if (vertexContractionMap.size() == 0) {
+        coarsenedDag = GraphTOut();
+        return true;
+    }
+
+    if (!InitializeCoarseGraph(dagIn, coarsenedDag, vertexContractionMap)) {
+        return false;
+    }
+
+    AccumulateVertexWeights<GraphTIn, GraphTOut, VWorkAccMethod, VCommAccMethod, VMemAccMethod>(
+        dagIn, coarsenedDag, vertexContractionMap);
 
     return true;
 }

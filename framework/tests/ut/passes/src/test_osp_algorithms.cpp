@@ -400,13 +400,7 @@ TEST_F(OspAlgorithmTest, NoEdgesGraph) {
 
 GraphType LineGraph() {
     const std::set<std::pair<VertType, VertType>> edges({
-        {0, 1},
-        {1, 2},
-        {2, 3},
-        {3, 4},
-        {4, 5},
-        {5, 6},
-        {6, 7}
+        {0, 1}, {1, 2}, {2, 3}, {3, 4}, {4, 5}, {5, 6}, {6, 7}
     });
 
     return GraphType(8, edges);
@@ -459,17 +453,7 @@ TEST_F(OspAlgorithmTest, TestLineGraph) {
 
 GraphType SimpleGraph() {
     const std::vector<std::pair<VertType, VertType>> edges({
-        {0,  1},
-        {2,  3},
-        {6, 10},
-        {7,  9},
-        {0,  2},
-        {4,  6},
-        {1,  6},
-        {6,  7},
-        {5,  6},
-        {3,  7},
-        {1,  2}
+        {0,  1}, {2,  3}, {6, 10}, {7,  9}, {0,  2}, {4,  6}, {1,  6}, {6,  7}, {5,  6}, {3,  7}, {1,  2}
     });
 
     return GraphType(11, edges);
@@ -495,17 +479,7 @@ TEST_F(OspAlgorithmTest, Graph1) {
     EXPECT_EQ(graph.NumEdges(), cntrParEdges);
 
     const std::vector<std::vector<std::size_t>> outEdges({
-        {1, 2},
-        {2, 6},
-        {3},
-        {7},
-        {6},
-        {6},
-        {7, 10},
-        {9},
-        {},
-        {},
-        {}
+        {1, 2}, {2, 6}, {3}, {7}, {6}, {6}, {7, 10}, {9}, {}, {}, {}
     });
 
     for (const auto &vert : graph.Vertices()) {
@@ -524,17 +498,7 @@ TEST_F(OspAlgorithmTest, Graph1) {
     }
 
     const std::vector<std::vector<std::size_t>> inEdges({
-        {},
-        {0},
-        {0, 1},
-        {2},
-        {},
-        {},
-        {1, 4, 5},
-        {3, 6},
-        {},
-        {7},
-        {6}
+        {}, {0}, {0, 1}, {2}, {}, {}, {1, 4, 5}, {3, 6}, {}, {7}, {6}
     });
 
     for (const auto &vert : graph.Vertices()) {
