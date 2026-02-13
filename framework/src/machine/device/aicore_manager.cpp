@@ -86,6 +86,9 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     DEV_ERROR("[TraCR] TraCR active[%d,%ld]? %d", threadIdx, syscall(SYS_gettid), INSTRUMENTATION_ACTIVE);
     if (threadIdx == 1) {
         INSTRUMENTATION_START("/tmp/");
+
+        // disable flushing into onto the Ascend device memory directly
+        INSTRUMENTATION_ENABLE_FLUSH(false);
     } else {
         while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {}
 
@@ -340,7 +343,7 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
     pendingIds_[coreIdx] = newTask;
     sendCnt_[static_cast<int>(type)]++;
 
-    INSTRUMENTATION_MARK_SET(coreIdx, 1, (uint32_t)newTask);
+    INSTRUMENTATION_MARK_SET(coreIdx, 0, (uint32_t)newTask); // 0 = "running task"
 
     DEV_DEBUG("Send task %lu, at core %d ,type:%d \n", newTask, coreIdx, static_cast<int>(type));
 }

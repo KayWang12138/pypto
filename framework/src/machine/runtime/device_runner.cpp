@@ -352,13 +352,6 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
         ALOG_INFO_F("rtMemcpy failed");
     }
 
-    // (For debugging) TraCR Payload is of size 16 bytes. This is convenient for debugging printing
-    for(uint32_t i = 0; i < MAX_STATIC_SCHEDULE_AICPU_NUM; ++i) {
-        TraCR::Payload t = tracrData[i*TraCR::CAPACITY];
-
-        printf("[TraCR] %u payload: %lu, %u, %u, %u, %lu\n", i, tracrDataSizes[i], t.channelId, t.eventId, t.extraId, t.timestamp);
-    }
-
     // Now, storing the traces into /~/ascend/tracr/
     static_assert(std::is_trivially_copyable_v<TraCR::Payload>,
               "TraCR::Payload must be trivially copyable for raw binary dump");
@@ -405,7 +398,6 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
         }
     }
 
-
     rc = rtFreeHost(reinterpret_cast<void *>(tracrData));
     if (rc != 0) {
         ALOG_INFO_F("rtFreeHost sync failed");
@@ -414,6 +406,48 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
     if (rc != 0) {
         ALOG_INFO_F("rtFreeHost sync failed");
     }
+
+    // Add the metadata.json
+    nlohmann::json metadata;    
+
+    // channel_names
+    nlohmann::json channel_names = nlohmann::json::array();
+    for(uint32_t i = 0; i < args_.nrAicpu; ++i) {
+        channel_names.push_back("AICPU_" + std::to_string(i));
+    }
+    for(uint32_t i = 0; i < args_.nrAic; ++i) {
+        channel_names.push_back("AICube_" + std::to_string(i));
+    }
+    for(uint32_t i = 0; i < args_.nrAiv; ++i) {
+        channel_names.push_back("AIVector_" + std::to_string(i));
+    }
+    channel_names.push_back("INVALID");
+
+    metadata["channel_names"] = channel_names;
+    metadata["num_channels"] = channel_names.size();
+
+    // markertypes
+    metadata["markerTypes"] = {
+        {"1", "running task"}
+    };
+
+    metadata["pid"] = 1;
+    metadata["start_time"] = 0;
+    metadata["tid"] = 0;
+
+    std::filesystem::path metadata_dir = base_dir / ("metadata.json");
+
+    std::ofstream file(metadata_dir);
+    if (!file.is_open()) {
+        ALOG_INFO_F("Failed to open file for writing.\n");
+        return -1;
+    }
+
+    // Dump JSON into file
+    file << metadata.dump(4);
+
+    // Close the file
+    file.close();
 #endif
 
     uint64_t taskWastTime = GetTasksTime();
