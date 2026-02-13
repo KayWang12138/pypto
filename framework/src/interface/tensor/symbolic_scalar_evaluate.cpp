@@ -23,7 +23,7 @@ namespace {
 ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputShapeDimSize(
         EvaluateSymbol *evaluateSymbol,
         const std::vector<ScalarImmediateType> &dataList) {
-    ASSERT(dataList.size() == 1);
+    ASSERT(dataList.size() == 1) << "dataList.size(): " << dataList.size();
     auto inputIndex = dataList[0];
     auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
 
@@ -34,7 +34,7 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputShapeDimSize(
 ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputShapeDim(
         EvaluateSymbol *evaluateSymbol,
         const std::vector<ScalarImmediateType> &dataList) {
-    ASSERT(dataList.size() == SIZE_TWO);
+    ASSERT(dataList.size() == SIZE_TWO) << "dataList.size(): " << dataList.size();
     auto inputIndex = dataList[0];
     auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
     auto n = dataList[1];
@@ -46,11 +46,11 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputShapeDim(
 ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim1(
         EvaluateSymbol *evaluateSymbol,
         const std::vector<ScalarImmediateType> &dataList) {
-    ASSERT(dataList.size() == SIZE_TWO);
+    ASSERT(dataList.size() == SIZE_TWO) << "dataList.size(): " << dataList.size();
     auto inputIndex = dataList[0];
     auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
     auto off0 = dataList[1];
-    ASSERT(input->GetShape().size() == 1);
+    ASSERT(input->GetShape().size() == 1) << "input->GetShape().size(): " << input->GetShape().size();
 
     int index = off0;
     auto elt = input->GetElement(index);
@@ -61,12 +61,12 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim1(
 ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim2(
         EvaluateSymbol *evaluateSymbol,
         const std::vector<ScalarImmediateType> &dataList) {
-    ASSERT(dataList.size() == SIZE_THREE);
+    ASSERT(dataList.size() == SIZE_THREE) << "dataList.size(): " << dataList.size();
     auto inputIndex = dataList[0];
     auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
     auto off0 = dataList[1];
     auto off1 = dataList[2];
-    ASSERT(input->GetShape().size() == SIZE_TWO);
+    ASSERT(input->GetShape().size() == SIZE_TWO) << "input->GetShape().size(): " << input->GetShape().size();
 
     int index = off0 * input->GetShape()[1] + off1;
     auto elt = input->GetElement(index);
@@ -77,13 +77,13 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim2(
 ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim3(
         EvaluateSymbol *evaluateSymbol,
         const std::vector<ScalarImmediateType> &dataList) {
-    ASSERT(dataList.size() == SIZE_FOUR);
+    ASSERT(dataList.size() == SIZE_FOUR) << "dataList.size(): " << dataList.size();
     auto inputIndex = dataList[0];
     auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
     auto off0 = dataList[1];
     auto off1 = dataList[2];
     auto off2 = dataList[3];
-    ASSERT(input->GetShape().size() == SIZE_THREE);
+    ASSERT(input->GetShape().size() == SIZE_THREE) << "input->GetShape().size(): " << input->GetShape().size();
 
     int index = off0 * input->GetShape()[1] * input->GetShape()[2] + off1 * input->GetShape()[2] + off2;
     auto elt = input->GetElement(index);
@@ -94,14 +94,14 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim3(
 ScalarImmediateType EvaluateSymbolicCallRuntimeGetInputDataInt32Dim4(
         EvaluateSymbol *evaluateSymbol,
         const std::vector<ScalarImmediateType> &dataList) {
-    ASSERT(dataList.size() == SIZE_FOUR);
+    ASSERT(dataList.size() == SIZE_FOUR) << "dataList.size(): " << dataList.size();
     auto inputIndex = dataList[0];
     auto input = evaluateSymbol->GetInputDataViewList()[inputIndex];
     auto off0 = dataList[1];
     auto off1 = dataList[2];
     auto off2 = dataList[3];
     auto off3 = dataList[4];
-    ASSERT(input->GetShape().size() == SIZE_THREE);
+    ASSERT(input->GetShape().size() == SIZE_THREE) << "input->GetShape().size(): " << input->GetShape().size();
 
     int index = ((off0 * input->GetShape()[1] + off1) * input->GetShape()[2] + off2) * input->GetShape()[3] + off3;
     auto elt = input->GetElement(index);
@@ -121,7 +121,7 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetTensorDataInt32(
     } else if (ioType == GET_TENSOR_DATA_OPERAND_IOTYPE_OUTCAST) {
         view = inoutDataPair->GetOutcastDataViewList()[ioTypeIndex];
     } else {
-        ASSERT(false);
+        ASSERT(false) << "unexpected behavior";
     }
     auto elt = view->GetElement(0);
     auto ret = static_cast<ScalarImmediateType>(elt.Cast<int64_t>());
@@ -169,7 +169,7 @@ ScalarImmediateType EvaluateSymbolicCallGetParaAddr(EvaluateSymbol *, const std:
 ScalarImmediateType EvaluateSymbolicCallRuntimeIsLoopBegin(
         EvaluateSymbol *evaluateSymbol,
         const std::vector<ScalarImmediateType> &dataList) {
-    ASSERT(dataList.size() == SIZE_TWO);
+    ASSERT(dataList.size() == SIZE_TWO) << "dataList.size(): " << dataList.size();
     auto ret = evaluateSymbol->RuntimeIsLoopBegin(dataList[0], dataList[1]);
     return ret;
 }
@@ -177,7 +177,7 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeIsLoopBegin(
 ScalarImmediateType EvaluateSymbolicCallRuntimeIsLoopEnd(
         EvaluateSymbol *evaluateSymbol,
         const std::vector<ScalarImmediateType> &dataList) {
-    ASSERT(dataList.size() == SIZE_TWO);
+    ASSERT(dataList.size() == SIZE_TWO) << "dataList.size(): " << dataList.size();
     auto ret = evaluateSymbol->RuntimeIsLoopEnd(dataList[0], dataList[1]);
     return ret;
 }
@@ -186,7 +186,7 @@ ScalarImmediateType EvaluateSymbolicCallRuntimeGetViewValidShapeDim(
         EvaluateSymbol *evaluateSymbol,
         const std::vector<ScalarImmediateType> &dataList) {
     UNUSED(evaluateSymbol);
-    ASSERT(dataList.size() == SIZE_THREE);
+    ASSERT(dataList.size() == SIZE_THREE) << "dataList.size(): " << dataList.size();
     auto validshape = dataList[0];
     auto viewOffset = dataList[1];
     auto viewshape = dataList[2];
@@ -237,7 +237,7 @@ ScalarImmediateType EvaluateSymbol::EvaluateSymbolicCall(
         {"RUNTIME_GetTensorDataInt32Dim3",      EvaluateSymbolicCallRuntimeGetTensorDataInt32Dim3},
         {"RUNTIME_COA_GET_PARAM_ADDR",          EvaluateSymbolicCallGetParaAddr},
     };
-    using CallWithLinerArgsEntry = ScalarImmediateType (*)(EvaluateSymbol *, const std::vector<ScalarImmediateType> &dataList, 
+    using CallWithLinerArgsEntry = ScalarImmediateType (*)(EvaluateSymbol *, const std::vector<ScalarImmediateType> &dataList,
         const std::vector<SymbolicScalar> &linearArgList);
     static std::unordered_map<std::string, CallWithLinerArgsEntry> CallWithLinerArgsEntryDict = {
         {"RUNTIME_COA_GET_PARAM_VALID_SHAPE",   EvaluateSymbolicCallRuntimeCoaGetValidShape},
@@ -265,7 +265,7 @@ ScalarImmediateType EvaluateSymbol::EvaluateSymbolicScalar(const RawSymbolicScal
         } break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_SYMBOL: {
             std::shared_ptr<RawSymbolicSymbol> sym = std::static_pointer_cast<RawSymbolicSymbol>(ss);
-            ASSERT(symbolDict_.count(sym->Name()));
+            ASSERT(symbolDict_.count(sym->Name())) << sym->Name() << " has not been found in symbolDict.";
             result = symbolDict_[sym->Name()];
         } break;
         case SymbolicScalarKind::T_SCALAR_SYMBOLIC_EXPRESSION: {
@@ -293,7 +293,7 @@ ScalarImmediateType EvaluateSymbol::EvaluateSymbolicScalar(const RawSymbolicScal
                 }
             }
         } break;
-        default: ASSERT(false); break;
+        default: ASSERT(false) << SymbolicScalarKind2Name(ss->Kind()) << " undefined behavior"; break;
     }
     return result;
 }
