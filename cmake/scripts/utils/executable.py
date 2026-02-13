@@ -153,7 +153,7 @@ class Exec:
         cwd = str(self.file.parent)
         ts = datetime.now(tz=timezone.utc)
         ret = subprocess.run(shlex.split(cmd), env=act_env, cwd=cwd, timeout=self.timeout,
-                             capture_output=capture_output, check=check, text=True, encoding='utf-8')
+                             capture_output=capture_output, check=check, text=True, encoding='utf-8', errors='replace')
         return ret, cmd, datetime.now(tz=timezone.utc) - ts
 
     def _get_run_cmd(self, params: Optional[List[str]] = None) -> str:
