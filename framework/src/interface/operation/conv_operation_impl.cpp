@@ -59,12 +59,17 @@ std::vector<int64_t> rotateVector(const std::vector<int64_t>& input, size_t shif
     return result;
 }
 
-void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_t max)
+void CheckValueRange(int64_t value, const std::string& name, int64_t min, int64_t max, const std::string& formula = "")
 {
     OP_CHECK(true, {
-            ASSERT(value >= min && value <= max)
-            << "Invalid " << name << ":" << value
-            << ", expected range [" << min << "," << max << "]." << std::endl;
+        std::ostringstream oss;
+        oss << "Invalid " << name << ":" << value
+            << ", expected range [" << min << "," << max << "].";
+        if (!formula.empty()) {
+            oss << "Formula: " << formula;
+        }
+        oss << std::endl;
+        ASSERT(value >= min && value <= max) << oss.str();
     });
 }
 
@@ -132,12 +137,15 @@ int64_t ConvComputeDo(const Tensor &inputTensor, const Tensor &weightTensor, con
 void CheckOutputShape(const Tensor &inputTensor, const Tensor &weightTensor, const ConvAttrParam &attrParam)
 {
     int64_t hOut = ConvComputeHo(inputTensor, weightTensor, attrParam);
-    CheckValueRange(hOut, "hOut" , NUM1, MAX_SIZE);
+    std::string hOutFormula = "hOut = (hin + 2 * pad_h - (kh - 1) * dilation_h - 1) / stride_h + 1";
+    CheckValueRange(hOut, "hOut" , NUM1, MAX_SIZE, hOutFormula);
     int64_t wOut = ConvComputeWo(inputTensor, weightTensor, attrParam);
-    CheckValueRange(wOut, "wOut" , NUM1, MAX_SIZE);
+    std::string wOutFormula = "wOut = (win + 2 * pad_w - (kw - 1) * dilation_w - 1) / stride_w + 1";
+    CheckValueRange(wOut, "wOut" , NUM1, MAX_SIZE, wOutFormula);
     if (attrParam.isConv3D) {
         int64_t dOut = ConvComputeDo(inputTensor, weightTensor, attrParam);
-        CheckValueRange(dOut, "dOut" , NUM1, MAX_SIZE);
+        std::string dOutFormula = "dOut = (din + 2 * pad_d - (kd - 1) * dilation_d - 1) / stride_d + 1";
+        CheckValueRange(dOut, "dOut" , NUM1, MAX_SIZE, dOutFormula);
     }
 }
 
@@ -160,7 +168,7 @@ void CheckHowoTile(const Tensor &inputTensor, const Tensor &weightTensor, const 
     if (wOut % 16 != 0) {
         OP_CHECK(true, {
             ASSERT(tileHout == 1)
-                << "When wout is not a multiple of 16, tileHout should be 1." << std::endl;
+                << "When wOut is not a multiple of 16, tileHout should be 1." << std::endl;
         });
     }
     CheckValueRange(tileHout, "tileHout" , NUM1, hOut);
@@ -312,8 +320,8 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     uint64_t minL1LoadSize = biasL1Size + inputL1Size + weightL1Size;
     OP_CHECK(true, {
         ASSERT(minL1LoadSize <= l1Size)
-            << "MinL1LoadSize > L1size, current MinL1LoadSize: " << MinL1LoadSize
-            << ", L1size: " << L1size
+            << "MinL1LoadSize > L1size, current MinL1LoadSize: " << minL1LoadSize
+            << ", L1size: " << l1Size
             << "." << std::endl;
     });
 }
@@ -388,7 +396,7 @@ void CheckLoad3dShape(DataType outType, const Tensor &weightTensor, const ConvAt
     OP_CHECK(true, {
         ASSERT(kh * kw * k0 <= SHAPE_INNER_AXIS_MAX_SIZE)
         << "Weight shapes do not satisfy Load3D's limits: kh*kw*k0=" << kh * kw * k0
-        << ", which must <=" << SHAPE_INNER_AXIS_MAX_SIZE
+        << "(k0 = 32 bytes / dtypesize), which must <=" << SHAPE_INNER_AXIS_MAX_SIZE
         << "." << std::endl;
     });
 }
