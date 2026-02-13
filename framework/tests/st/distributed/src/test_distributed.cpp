@@ -31,7 +31,10 @@ public:
     void SetUp() override
     {
         Distributed::TestFrameworkInit(testParam, hcomTestParam, physicalDeviceId);
-        std::string folderPath = "output/output_" + getTimeStamp() + "_" + std::to_string(physicalDeviceId);
+        std::string outputDir = "output";
+        bool res = CreateDir(outputDir);
+        CHECK(res) << "Failed to create directory: " << outputDir;
+        std::string folderPath = outputDir + "/output_" + getTimeStamp() + "_" + std::to_string(physicalDeviceId);
         setenv("TILE_FWK_OUTPUT_DIR", folderPath.c_str(), 0);
         config::SetPlatformConfig(KEY_ENABLE_AIHAC_BACKEND, true);
         Program::GetInstance().Reset();
@@ -102,11 +105,9 @@ void GegisterOps()
     reg.RegisterOp("MoeDistributedCombine", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
         Distributed::TestMoeDistributedCombine<T>(testParam, goldenDir);
     });
-
-    // 非模板算子
-    reg.disRegisterMap["MoeDispatch"] = [](OpTestParam& testParam, const std::string&, std::string& goldenDir) {
- 	    Distributed::TestShmemMoeDispatch(testParam, goldenDir);
-    };
+    reg.RegisterOp("MoeDispatch", []<typename T>(OpTestParam& testParam, std::string& goldenDir) {
+        Distributed::TestShmemMoeDispatch<T>(testParam, goldenDir);
+    });
     reg.disRegisterMap["AllGatherAttnPostReduceScatter"] = [](OpTestParam& testParam, const std::string&, std::string& goldenDir) {
         Distributed::TestAllGatherAttentionPostReducescatter(testParam, goldenDir);
     };

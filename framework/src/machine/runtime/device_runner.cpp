@@ -570,7 +570,7 @@ void DeviceRunner::DumpAiCorePmuData() {
 }
 
 void DeviceRunner::SynchronizeDeviceToHostProfData() {
-    if (lastLaunchToSubMachineConfig_.profConfig.Contains(ProfConfig::AICORE_TIME)) {
+    if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
         DumpAiCoreExecutionTimeData();
     }
 }

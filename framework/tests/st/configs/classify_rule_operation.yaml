@@ -161,6 +161,8 @@ stest:
       - TestPows/PowsOperationTest.TestPows/13
       - TestPows/PowsOperationTest.TestPows/14
       - TestPows/PowsOperationTest.TestPows/15
+      - TestPow/PowOperationTest.TestPow/0
+      - TestPow/PowOperationTest.TestPow/1
       - TestOneHot/OneHotOperationTest.TestOneHot/7
       - TestOneHot/OneHotOperationTest.TestOneHot/14
       - TestOneHot/OneHotOperationTest.TestOneHot/16
@@ -224,6 +226,9 @@ stest:
       - TestBitwiseAnds/BitwiseAndsOperationTest.TestBitwiseAnds/2
       - TestBitwiseOrs/BitwiseOrsOperationTest.TestBitwiseOrs/2
       - TestBitwiseXors/BitwiseXorsOperationTest.TestBitwiseXors/2
+      - TestCopySign/CopySignOperationTest.TestCopySign/1
+      - TestCopySign/CopySignOperationTest.TestCopySign/4
+      - TestCopySign/CopySignOperationTest.TestCopySign/5
       # - GatherInL1Test.gather_in_a_unalign
       # - GatherInL1Test.gather_in_bt_with_valid_shape
       - GatherInUBTest.gather_in_a_
@@ -348,7 +353,6 @@ stest:
       # - TopkOnBoardTest.test_operation_tensor_4_32_8_topk
       # - TopkOnBoardTest.test_operation_tensor_2_288_15_topk
       # - TopkOnBoardTest.test_operation_tensor_2_288_15_topk_reverse
-      # - MlpTest.test_256_512_tileop
       # - ArgsortOnBoardTest.test_operation_tensor_128_32_argsort
       # - ArgsortOnBoardTest.test_operation_tensor_4_32_argsort
       # - ArgsortOnBoardTest.test_operation_tensor_2_16_argsort

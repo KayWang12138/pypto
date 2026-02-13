@@ -196,6 +196,13 @@ static void Reciprocal(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
+static void Relu(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
+    auto tout = From(out);
+    auto tself = From(self);
+    torch::relu_out(tout.second, tself.second);
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
 static void BitwiseNot(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     auto tout = From(out);
     auto tself = From(self);
@@ -437,6 +444,14 @@ static void Fmod(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTen
     } else {
         torch::fmod_out(tout.second, tself.second, tother.second);
     }
+    ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
+}
+
+static void Pow(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other) {
+    auto tout = From(out);
+    auto tself = From(self);
+    auto tother = From(other);
+    torch::pow_out(tout.second, tself.second, tother.second);
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
@@ -1691,6 +1706,7 @@ static struct CalcOps calcOps = {
     .Trunc = Trunc,
     .Round = Round,
     .Reciprocal = Reciprocal,
+    .Relu = Relu,
     .BitwiseNot = BitwiseNot,
     .Abs = Abs,
     .Brcb = Brcb,
@@ -1717,6 +1733,7 @@ static struct CalcOps calcOps = {
     .Mul = Mul,
     .Div = Div,
     .Fmod = Fmod,
+    .Pow = Pow,
     .BitwiseAnd = BitwiseAnd,
     .BitwiseOr = BitwiseOr,
     .BitwiseXor = BitwiseXor,
