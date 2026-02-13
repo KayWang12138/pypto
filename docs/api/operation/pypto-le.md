@@ -34,7 +34,11 @@ le(input: Tensor, other: Union[Tensor, float, Element]) -> Tensor
 1.  input 和 other 类型须保持一致。
 2.  支持一维广播。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -46,7 +50,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 a = pypto.tensor([3], pypto.DT_FP32)

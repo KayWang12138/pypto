@@ -51,13 +51,17 @@ index_select(input: Tensor, dim: int, index: Tensor) -> Tensor:
 
 4. TileShape的维度与result相同，用于切分result。TileShape 设置需保证 result 不超过UB大小，具体用法详见 [TileShape设置示例]()
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape 的维度设置须与输出张量保持一致，用于控制输出 Tile 块的大小。
 
-以输入$ input[B,S,D]$ 、索引 $index[T]$ 、轴 $\text{axis}=-2$ 、输出 $output[B,T,D]$  为例：设 TileShape 为$[b_1, t_1, d_1]$，该配置直接作用于输出 output 的各维度，同时映射至输入与索引。其中 $b_1$ 切分 input 的批次维 B ，$d_1$ 切分 input 的特征维 D ，而输入的序列维 S （即轴 −2 ）不参与切分，仅作为索引源； $t_1$ 则作用于索引 index  的长度维 T 。Tile 内存占用须满足约束 $b_1 \cdot t_1 \cdot d_1 \cdot \text{sizeof}(\mathbf{output}) < \text{UB\_Size}$
+以输入$ input[B,S,D]$ 、索引 $index[T]$ 、轴 $	ext{axis}=-2$ 、输出 $output[B,T,D]$  为例：设 TileShape 为$[b_1, t_1, d_1]$，该配置直接作用于输出 output 的各维度，同时映射至输入与索引。其中 $b_1$ 切分 input 的批次维 B ，$d_1$ 切分 input 的特征维 D ，而输入的序列维 S （即轴 −2 ）不参与切分，仅作为索引源； $t_1$ 则作用于索引 index  的长度维 T 。Tile 内存占用须满足约束 $b_1 dot t_1 dot d_1 dot 	ext{sizeof}(athbf{output}) < 	ext{UBSize}$
 
-## 调用示例
+### 接口调用示例
 
 ```python
 x = pypto.tensor([3, 4], pypto.DT_FP32)

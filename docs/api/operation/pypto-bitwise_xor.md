@@ -40,7 +40,11 @@ bitwise_xor(input: Tensor, other: Union[Tensor, int]) -> Tensor
 3.  other 不支持nan、inf等特殊值
 4.  由于存在临时内存使用，TileShape大小有额外约束，假设TileShape为\[a,b,c,d\]，那么a\*b\*c\*d\*sizeof\(self\) + a\*b\*c\*d\*sizeof\(other\) + a\*b\*c\*d\*sizeof\(self\) < UB。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -52,7 +56,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 a = pypto.tensor([2], pypto.DT_INT16)

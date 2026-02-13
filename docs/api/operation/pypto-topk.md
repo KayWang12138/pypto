@@ -41,7 +41,11 @@ topk(input: Tensor, k: int, dim: Optional[int]=None, largest: bool=True) -> Tupl
 2.  TileShape尾轴32bytes对齐\(TileShape\[-1\]\*4 % 32 == 0\)，且TileShape尾轴需要小于22KB\(TileShape\[-1\]\*4 < 22KB\)；
 3.  k <= TileShape\[-1\] && k <= input.shape\[-1\]；
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输入input一致。
 
@@ -51,7 +55,7 @@ TileShape维度应和输入input一致。
 pypto.set_vec_tile_shapes(m1, n1, p1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 x = pypto.tensor([2, 3], pypto.DT_FP32)

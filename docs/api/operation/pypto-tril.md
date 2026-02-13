@@ -32,7 +32,11 @@ tril(input: Tensor, diagonal: SymInt = 0) -> Tensor:
 
 详见参数说明。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -42,7 +46,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 x = pypto.tensor([3, 3], pypto.data_type.DT_INT32)        # shape (3, 3)

@@ -36,7 +36,11 @@ bitwise_left_shift(input: Union[Tensor, int], other: Union[Tensor, int]) -> Tens
 
 1. input 和 other 类型应该相同。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -48,7 +52,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 a = pypto.tensor([1, 3], pypto.DT_INT16)

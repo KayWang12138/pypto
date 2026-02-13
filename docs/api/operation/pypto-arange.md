@@ -38,7 +38,11 @@ arange(start: Union[int, float] = 0, end: Union[int, float], step: Union[int, fl
 
 3. 如果 start, end, step 均为 int 输入，则三者均不能超出 int32 范围
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape和输出output维度一致，均为一维。
 
@@ -48,7 +52,7 @@ TileShape和输出output维度一致，均为一维。
 pypto.set_vec_tile_shapes(q1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 y1 = pypto.arange(1.0, 4.0, 0.5)

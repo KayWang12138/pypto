@@ -39,7 +39,11 @@ concat(tensors: List[Tensor], dim: int = 0) -> Tensor
 
 4.设置viewshape时，dim对应维度不切块（即viewshape对应值\>=tensors 任一tensor的对应值）。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -49,7 +53,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1, p1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 a = pypto.tensor([2, 2], pypto.DT_FP32)  # 2x2 tensor with all 1s

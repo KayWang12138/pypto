@@ -38,7 +38,11 @@ argsort(input: Tensor, dim: Optional[int]=None, descending: bool=True) -> Tensor
 4. 对于四维输入, 暂不支持在第0轴上进行排序。
 5. 排序时遇到相同值时, 采用稳定排序返回对应的索引。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输入input一致。
 
@@ -48,7 +52,7 @@ TileShape维度应和输入input一致。
 pypto.set_vec_tile_shapes(m1, n1, p1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 x = pypto.tensor([2, 3], pypto.DT_FP32)

@@ -62,7 +62,11 @@ result ：Tensor，Shape由输入的广播得到，详细广播场景可看上�
 
 1. 建议优先使用 Element，传入 float 标量对于 fp16 场景，不保证正确性。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -74,7 +78,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 cond1 = pypto.tensor([4], pypto.DT_BOOL)

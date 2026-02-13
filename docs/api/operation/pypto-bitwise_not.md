@@ -32,7 +32,11 @@ bitwise_not(input: Tensor) -> Tensor
 
 返回输出Tensor，Tensor的数据类型和Shape与input相同。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -42,7 +46,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 a = pypto.tensor([2], pypto.DT_INT16)

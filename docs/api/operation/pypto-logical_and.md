@@ -37,7 +37,11 @@ logical_and(input: Tensor, other: Tensor) -> Tensor
 1.  TileShape与input、other维度保持一致；
 2.  由于存在临时内存使用，TileShape大小有额外约束，假设TileShape为\[a,b,c,d\]，那么a\*b\*c\*d\*sizeof\(self\) + a\*b\*c\*d\*sizeof\(other\) + a\*b\*c\*d\*sizeof\(BOOL\) + 1.1875KB<UB。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -49,7 +53,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 x = pypto.tensor([2], pypto.DT_BOOL)

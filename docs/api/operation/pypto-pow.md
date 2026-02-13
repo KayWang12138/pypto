@@ -29,7 +29,11 @@ pow(input: Tensor, other: Union[Tensor, int, float]) -> Tensor
 
 返回一个与输入形状相同、数据类型一致的Tensor，其元素为输入Tensor对应元素的other次幂。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -39,7 +43,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 x = pypto.tensor([2, 2], pypto.DT_FP32)

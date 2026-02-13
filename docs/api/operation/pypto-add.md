@@ -39,7 +39,11 @@ add(input: Tensor, other: Union[Tensor, float]) -> Tensor
 2.  other 为数字的时候，不支持隐式转化。
 3.  other 不支持nan、inf等特殊值
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -51,7 +55,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 a = pypto.tensor([1, 3], pypto.DT_FP32)

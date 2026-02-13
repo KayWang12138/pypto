@@ -55,7 +55,11 @@ dim1: 3
 
 预留的临时空间为：t0 \* t1 \* align\(t2, 16\) \* align\(t3, 32 / sizeof\(DT\_FP32\)\)
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输入input一致。
 
@@ -65,7 +69,7 @@ TileShape维度应和输入input一致。
 pypto.set_vec_tile_shapes(m1, n1, p1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 x = pypto.tensor([2, 3], pypto.DT_FP32)

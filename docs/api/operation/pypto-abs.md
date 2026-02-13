@@ -28,7 +28,11 @@ abs(input: Tensor) -> Tensor
 
 返回Tensor类型。其Shape、数据类型与输入Tensor一致，其元素为输入Tensor对应元素的绝对值。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -38,7 +42,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 x = pypto.tensor([5], pypto.DT_FP32)

@@ -44,7 +44,11 @@ index_add_(input: Tensor, dim: int, index: Tensor, source: Tensor, *, alpha: Uni
 
 5. TileShape的维度与result相同，用于切分input和source，TileShape\[dim\] = viewshape\[dim\]，所有输入和输出的TileShape大小总和不能超过UB内存的大小。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -54,7 +58,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, t1, p1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 x = pypto.tensor([2, 3], pypto.DT_INT32)        # shape (2, 3)

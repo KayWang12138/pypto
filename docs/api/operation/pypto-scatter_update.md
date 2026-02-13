@@ -52,7 +52,11 @@ TileShape 约束：2维场景下TileShape为\[tileS, d\]，4维场景下TileShap
 二维示例：
 input：[15, 8]，index：[5, 2]，src:[10, 8], viewShape: [viewB \* s, 8], viewB需要是整数，即第0维是s的倍数，tileShape:[tileS, 8], tileS需要是s的约数即1或者2。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输入src一致。
 
@@ -64,8 +68,7 @@ TileShape维度应和输入src一致。
 pypto.set_vec_tile_shapes(bs1, d1)
 ```
 
-
-## 调用示例
+### 接口调用示例
 
 -   将2维 src 根据2维index更新到2维input上, 注意原地操作的写法, 即等号左边的输出应和输入input相同: 
 

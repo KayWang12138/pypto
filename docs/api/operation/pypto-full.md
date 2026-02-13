@@ -43,7 +43,11 @@ full(size: List[int], fill_value: Union[int, float, Element], dtype: DataType, *
 
 2.  tileshape的维度与result 维度相同，用于切分 result。
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -53,7 +57,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, n1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 ```python
 # Valid shapes use keyword argument
