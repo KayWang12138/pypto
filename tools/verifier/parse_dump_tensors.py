@@ -73,7 +73,7 @@ def _get_data_type(data_type: int):
 
 class VerifyRes:
     def __init__(self):
-        self.verify_codegen_op_info_list = []
+        self.verify_codegen_op_info_list = None
         self.verify_tensorgraph_op_info_list = None
         self.verify_path = ""
     
@@ -81,6 +81,7 @@ class VerifyRes:
         self.verify_path = verify_path
         verify_res_file = os.path.join(self.verify_path, "verify_result.csv")
         if not os.path.exists(verify_res_file):
+            logging.error(f"verify path {verify_path} not exist.")
             return
         
         df = pd.read_csv(verify_res_file, encoding="utf-8")
@@ -134,6 +135,9 @@ class VerifyRes:
         tensor_info["valid_shape"], tensor_info["loop_info"] = valid_shape, loop_info
 
     def get_verify_codegen_res(self, tensor_infos):
+        if not self.verify_codegen_op_info_list:
+            logging.info("verify codegen op info is None.")
+            return tensor_infos
         callop_magic = tensor_infos[0].get("callopMagic")   # callop
         tensor_infos_new = copy.deepcopy(tensor_infos)
         op_info_list = self.verify_codegen_op_info_list.copy(deep=True)
@@ -353,8 +357,11 @@ class CompactDumpTensorInfoParser:
         return tensor_info
     
     def tensor_compare(self):
+        merged_result = []
         if not self.task_tensor_info:
-            return {}
+            for _, tensor_infos in self.task_tensor_info.items():
+                merged_result.extend(tensor_infos)
+            return merged_result
 
         num_tasks = len(self.task_tensor_info)
         num_cpus = os.cpu_count() or 1
@@ -375,9 +382,10 @@ class CompactDumpTensorInfoParser:
                         "verify_tensor_file": "",
                         "cmp_res": "CMP_ERROR"
                     }]
-                return error_result
+                for tensor_infos in tasks:
+                    merged_result.extend(tensor_infos)
+                return merged_result
 
-        merged_result = []
         for result in results:
             merged_result.extend(result)
         
