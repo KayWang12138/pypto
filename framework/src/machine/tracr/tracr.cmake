@@ -15,6 +15,9 @@ function(tracr_enable target)
         message(FATAL_ERROR "Target '${target}' does not exist.")
     endif()
 
+    # this target needs C++17
+    target_compile_features(${target} PUBLIC cxx_std_17)
+
     # Make sure json is available first
     include(${CMAKE_SOURCE_DIR}/cmake/third_party/nlohmann_json/nlohmann_json.cmake)
 
