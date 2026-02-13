@@ -18,6 +18,7 @@
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"
 #include "passes/tile_graph_pass/graph_constraint/axis_combine_marker.h"
+#include "passes/tile_graph_pass/graph_constraint/axis_combine.h"
 #include "computational_graph_builder.h"
 #include "passes/pass_mgr/pass_manager.h"
 #include "interface/configs/config_manager.h"
@@ -599,4 +600,60 @@ TEST_F(TestAxisCombineMarker, unhandled_op) {
     // Verify the tensor is marked as UNKNOWN
     auto t3 = graph.GetTensor("t3");
     EXPECT_EQ(marker.IsTensorEnableAxisCombine(t3), false);   // Unhandled op should be unknown
+}
+
+// qwen case
+TEST_F(TestAxisCombineMarker, case1) {
+    ComputationalGraphBuilder graph;
+    // part1
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {-1, 2, 128}, MemoryType::MEM_FAR1, "in"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1, 128}, MemoryType::MEM_UB, "t0"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in"}, {"t0"}, "copy_in", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 128}, MemoryType::MEM_UB, "t1"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_RESHAPE, {"t0"}, {"t1"}, "RESHAPE", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 128}, MemoryType::MEM_UB, "t2"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_MUL, {"t1", "t1"}, {"t2"}, "MUL", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1}, MemoryType::MEM_UB, "t3"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ROWSUM_SINGLE, {"t2"}, {"t3"}, "SUM", true), true);
+    graph.GetOp("SUM")->SetAttribute(OP_ATTR_PREFIX + "AXIS", 1);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1}, MemoryType::MEM_UB, "t4"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_ADDS, {"t3"}, {"t4"}, "ADDS", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1}, MemoryType::MEM_UB, "t5"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_SQRT, {"t4"}, {"t5"}, "SQRT", true), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 128}, MemoryType::MEM_UB, "t6"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_DIV, {"t1", "t5"}, {"t6"}, "DIV", true), true);
+
+    // part2
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {-1, 4}, MemoryType::MEM_FAR1, "in2"), true);
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 1}, MemoryType::MEM_UB, "t0p2"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_COPY_IN, {"in2"}, {"t0p2"}, "copy_in2", true), true);
+    // mix
+    EXPECT_EQ(graph.AddTensor(DataType::DT_FP32, {128, 128}, MemoryType::MEM_UB, "out"), true);
+    EXPECT_EQ(graph.AddOp(Opcode::OP_MUL, {"t0p2", "t6"}, {"out"}, "MULP2", true), true);
+
+    auto *rootFuncPtr = graph.GetFunction();
+    AxisCombineMarker marker;
+    marker.Run(*rootFuncPtr);
+
+    // Verify the tensor is marked as UNKNOWN
+    // auto t5 = graph.GetTensor("t5");
+    // EXPECT_EQ(marker.IsTensorEnableAxisCombine(t5), true);
+    // auto t6 = graph.GetTensor("t6");
+    // EXPECT_EQ(marker.IsTensorEnableAxisCombine(t6), false);
+    rootFuncPtr->paramConfigs_.combineAxis = true;
+    AxisCombine axisCombineTest;
+    EXPECT_EQ(axisCombineTest.RunOnFunction(*rootFuncPtr), SUCCESS);
+    int64_t brcbCnt = 0;
+    int64_t expandCnt = 0;
+    auto updatedOperations = rootFuncPtr->Operations();
+    for (const auto &op : updatedOperations) {
+        if (op.GetOpcode() == Opcode::OP_BRCB) {
+            ++brcbCnt;
+        }
+        if (op.GetOpcode() == Opcode::OP_EXPAND) {
+            expandCnt++;
+        }
+    }
+    EXPECT_EQ(expandCnt, 2);
+    EXPECT_EQ(brcbCnt, 0);
 }
