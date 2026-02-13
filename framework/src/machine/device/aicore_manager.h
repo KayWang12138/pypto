@@ -194,6 +194,8 @@ public:
     void PushTask(DeviceTaskCtrl *taskCtrl) { taskQueue_.Enqueue(taskCtrl); }
 
 private:
+    uint16_t coreIdx2tracrIdx(const int &coreIdx, const CoreType &type);
+
     void DumpTaskProf();
 
     void ProfStop();
@@ -202,9 +204,9 @@ private:
 
     void DumpTaskTensor(int &coreIdx, volatile TaskStat *stat);
 
-    bool CheckTaskFinished(int coreIdx);
+    bool CheckTaskFinished(int coreIdx, const CoreType type);
 
-    int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd);
+    int WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd, const CoreType type);
 
     uint64_t TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQueue* readyQue, int coreIdxStart, int coreIdxEnd);
 

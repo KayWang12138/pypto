@@ -18,6 +18,7 @@
 #include "aicore_manager.h"
 
 namespace npu::tile_fwk {
+
 void SdmaPrefetch(DeviceTask *devTask) {
     if (devTask == nullptr || devTask->l2Info.prefetchNum == 0) {
       return;
@@ -45,6 +46,26 @@ void SdmaPrefetch(DeviceTask *devTask) {
     return;
 }
 
+/**
+ * A method for transforming the coreIdx into tracrIdx
+ */
+uint16_t AiCoreManager::coreIdx2tracrIdx(const int &coreIdx, const CoreType &type) {
+    switch(type) {
+        case CoreType::AIV:
+        {
+            return MAX_STATIC_SCHEDULE_AICPU_NUM + coreIdx + (aicNum_ - aicValidNum_);
+        }
+        case CoreType::AIC:
+        {
+            return MAX_STATIC_SCHEDULE_AICPU_NUM + coreIdx;
+        }
+        default:
+        {
+            return MAX_STATIC_SCHEDULE_AICPU_NUM + aivNum_ + aicNum_;
+        }
+    }
+}
+
 int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     int ret = 0;
     DEV_INFO("receive new task %lu\n", taskCtrl->taskId);
@@ -64,11 +85,11 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     }
 
     DEV_DEBUG("Aicpu %d proc finish send all task .\n", aicpuIdx_);
-    ret = WaitAllAicoreFinish(aicStart_, aicEnd_);
+    ret = WaitAllAicoreFinish(aicStart_, aicEnd_, CoreType::AIC);
     if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
         DEV_ERROR("wait tail aic task timeout .\n");
     }
-    ret = WaitAllAicoreFinish(aivStart_, aivEnd_);
+    ret = WaitAllAicoreFinish(aivStart_, aivEnd_, CoreType::AIV);
     if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
         DEV_ERROR("wait tail aiv task timeout .\n");
     }
@@ -87,7 +108,7 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     if (threadIdx == 1) {
         INSTRUMENTATION_START("/tmp/");
 
-        // disable flushing into onto the Ascend device memory directly
+        // disable flushing onto the Ascend device memory directly
         INSTRUMENTATION_ENABLE_FLUSH(false);
     } else {
         while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {}
@@ -199,7 +220,7 @@ void AiCoreManager::DumpTaskTensor(int &coreIdx, volatile TaskStat *stat) {
     aicoreDump_.DoDump(funcInfo->invokeEntryInfo, funcInfo->invokeEntryNum, funcInfo->invokeEntryAddr, "output");
 }
 
-bool AiCoreManager::CheckTaskFinished(int coreIdx) {
+bool AiCoreManager::CheckTaskFinished(int coreIdx, const CoreType type) {
     uint64_t finTaskVal = GetFinishedTask(coreIdx);
     uint32_t regLFinTaskId = REG_LOW_TASK_ID(finTaskVal);
     uint32_t regLFinTaskState = REG_LOW_TASK_STATE(finTaskVal);
@@ -209,13 +230,13 @@ bool AiCoreManager::CheckTaskFinished(int coreIdx) {
         pendingIds_[coreIdx] = AICORE_TASK_INIT;
         runningIds_[coreIdx] = AICORE_TASK_INIT;
 
-        INSTRUMENTATION_MARK_RESET(coreIdx);
+        INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
     }
 
     return pendingIds_[coreIdx] == AICORE_TASK_INIT && runningIds_[coreIdx] == AICORE_TASK_INIT;
 }
 
-int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd) {
+int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd, const CoreType type) {
     int stopSent = 0;
     bool coreStopped[MAX_MANAGER_AIV_NUM] = {false};
     npu::tile_fwk::dynamic::TimeCheck tm;
@@ -224,7 +245,7 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd) {
             if (coreStopped[i - coreIdxStart]) {
                 continue;
             }
-            if (CheckTaskFinished(i)) {
+            if (CheckTaskFinished(i, type)) {
                 stopSent++;
                 coreStopped[i - coreIdxStart] = true;
                 continue;
@@ -343,7 +364,7 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
     pendingIds_[coreIdx] = newTask;
     sendCnt_[static_cast<int>(type)]++;
 
-    INSTRUMENTATION_MARK_SET(coreIdx, 0, (uint32_t)newTask); // 0 = "running task"
+    INSTRUMENTATION_MARK_SET(coreIdx2tracrIdx(coreIdx, type), 0, (uint32_t)newTask); // 0 = "running task"
 
     DEV_DEBUG("Send task %lu, at core %d ,type:%d \n", newTask, coreIdx, static_cast<int>(type));
 }
@@ -458,7 +479,7 @@ void AiCoreManager::ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint3
         corePendReadyCnt_[static_cast<int>(type)]++;
         runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
 
-        INSTRUMENTATION_MARK_RESET(coreIdx);
+        INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
     }
 }
 
@@ -498,7 +519,7 @@ void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTask
     } else if (finTaskId == runningIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
         DEV_DEBUG("core index: %d, RuningTask Finished. pending: %lx, running: %lx\n",
             coreIdx, pendingIds_[coreIdx], runningIds_[coreIdx]);
-        INSTRUMENTATION_MARK_RESET(coreIdx);
+        INSTRUMENTATION_MARK_RESET(coreIdx2tracrIdx(coreIdx, type));
         runningIds_[coreIdx] = AICORE_TASK_INIT;
         if (pendingIds_[coreIdx] == AICORE_TASK_INIT) {
             if (!SendTaskDirectlyWhenCoreRunReady(type, coreIdx)) {
