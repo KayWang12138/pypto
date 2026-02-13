@@ -133,6 +133,9 @@ inline void WhereSS(
     LogicalTensorDataPtr out, LogicalTensorDataPtr condition, const Element &input, const Element &other) {
     GetCalcOps()->WhereSS(Trans(out), Trans(condition), input, other);
 }
+inline void LReLU(LogicalTensorDataPtr out, LogicalTensorDataPtr self, const Element &alpha) {
+    GetCalcOps()->LReLU(out, self, alpha);
+}
 inline void Ln(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
     GetCalcOps()->Ln(Trans(out), Trans(self));
 }
