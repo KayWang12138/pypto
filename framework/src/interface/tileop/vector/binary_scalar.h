@@ -125,6 +125,12 @@ TILEOP void TMinS(T0 dst, T1 src0, Scalar src1) {
     BinaryScalarCompute<BinaryScalarOp::MIN, LastUse>(dst, src0, src1);
 }
 
+#define OP_TILE_OP_LRELU TLReLU
+template <typename Scalar, typename T0, typename T1>
+TILEOP void TLReLU(T0 dst, T1 src0, Scalar src1) {
+    BinaryScalarCompute<BinaryScalarOp::LRELU>(dst, src0, src1);
+}
+
 #define OP_TILE_OP_BITWISEANDS TBitwiseAndS
 template <typename LastUse = LastUse2Dim<0, 0>, typename Scalar, typename T0, typename T1>
 TILEOP void TBitwiseAndS(T0 dst, T1 src0, Scalar src1) {
