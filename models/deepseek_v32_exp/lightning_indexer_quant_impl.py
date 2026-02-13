@@ -58,7 +58,7 @@ def lightning_indexer_decode_compute(
     act_seq_key: pypto.tensor,
     block_table: pypto.tensor,
     topk_res: pypto.tensor,
-    unroll_list: list, 
+    unroll_list: list,
     configs: LightningIndexerConfigs,
     selected_count: int):
 
