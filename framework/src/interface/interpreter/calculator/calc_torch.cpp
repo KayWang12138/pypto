@@ -881,7 +881,7 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
         tother.second = tother.second.to(calcType);
     }
     if (!param.kStep || param.kStep == self->GetShape(-1)) {
-        if (bias != nullptr) {
+        if (param.biasPtr != nullptr) {
             tout.second.add_(torch::matmul(tself.second, tother.second) + bias_tensor.second);
         } else {
             tout.second.add_(torch::matmul(tself.second, tother.second));
