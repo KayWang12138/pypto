@@ -53,11 +53,13 @@ class StaticReadyCoreFunctionQueue {
 
   inline std::pair<aicoreFunction_t*, size_t> pop(aicoreFunction_t taskList[TASK_LIST_MAX_SIZE], const size_t n = 1)
   {
+    lock();
     const auto curHead = head;
     size_t count = std::min(n, (size_t)(tail - head));
     head += count;
     auto taskListPtr = taskList;
     taskListPtr = &elem[curHead];
+    
     // memcpy_s(taskList, TASK_LIST_MAX_SIZE * sizeof(aicoreFunction_t), taskListPtr, count * sizeof(aicoreFunction_t));
 
     // while (count < n)
@@ -67,6 +69,7 @@ class StaticReadyCoreFunctionQueue {
     //   taskList[count++] = taskId;
     // }
     
+    unlock();
     return { taskListPtr, count };
   }
 

@@ -227,26 +227,28 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
     }
 
     uint64_t readyCoreCount = corePendReadyCnt_[static_cast<int>(type)];
-    if (readyCount == 0 ) {
+    if (readyCoreCount == 0 ) {
         DEV_DEBUG("AiCpud:%d, can not send task currently: no cores ready\n", aicpuIdx_);
         return 0;
     }
 
-    aicoreFunction_t taskList[TASK_LIST_MAX_SIZE];
+    aicoreFunction_t taskId = aicoreNullTask;
     // size_t taskCount = 0;
 
     // DEV_ERROR("AiCpud:%d Popping - coreIdxStart: %d - coreIdxEnd: %d >>\n", aicpuIdx_, coreIdxStart, coreIdxEnd);
 
-    const auto taskQueueIdx = availableTaskQueue_->pop();
-    if (taskQueueIdx != aicoreNullTask) DEV_ERROR("AICPU %d - Popping Task: %u", aicpuIdx_, taskQueueIdx);
+    const auto taskQueueIdx = (uint64_t)availableTaskQueue_->pop();
+    if (taskQueueIdx != aicoreNullTask) DEV_ERROR("AICPU %d - Popping Task: %lu", aicpuIdx_, taskQueueIdx);
 
-    const auto taskSet = readyQue->pop(taskList, readyCoreCount);
+    const auto taskSet = readyQue->pop(&taskId, 1);
     uint64_t* taskSetAddress = taskSet.first;
     uint64_t taskSetCount = taskSet.second;
     if (taskSetCount == 0) {
         DEV_DEBUG("AiCpud:%d, taskCount is zero \n", aicpuIdx_);
         return 0;
     }
+
+    DEV_ERROR("AICPU %d - Running Task: %lu", aicpuIdx_, *taskSetAddress);
 
     DEV_DEBUG("AiCpud:%d, pop all new task count: %lu \n", aicpuIdx_, taskSetCount);
     BatchSendTask(type, taskSetAddress, taskSetCount, coreIdxStart, coreIdxEnd, READY_QUE_LIFO_SWITCH);
