@@ -137,20 +137,30 @@ public:
         readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
-        curDevTask_->staticSchedulerData.availableTaskQueue = (uint64_t) new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
-        curDevTask_->staticSchedulerData.availableCoreQueue = (uint64_t) new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
-        curDevTask_->staticSchedulerData.pendingPairQueue   = (uint64_t) new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
-        curDevTask_->staticSchedulerData.runningPairQueue   = (uint64_t) new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
-
         // If I am the lead AICPU scheduler, perform initailization steps
         if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
             // Initialize the lock free queues
             readyAicCoreFunctionQue_->initializeLockFree();
             readyAivCoreFunctionQue_->initializeLockFree();
+
+            // Allocating queues
+            auto availableTaskQueue = new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
+            auto availableCoreQueue = new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
+            auto pendingPairQueue   = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
+            auto runningPairQueue   = new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
+
+            curDevTask_->staticSchedulerData.availableTaskQueue = (uint64_t) availableTaskQueue;
+            curDevTask_->staticSchedulerData.availableCoreQueue = (uint64_t) availableCoreQueue;
+            curDevTask_->staticSchedulerData.pendingPairQueue   = (uint64_t) pendingPairQueue;
+            curDevTask_->staticSchedulerData.runningPairQueue   = (uint64_t) runningPairQueue;
+
+            // Adding initial set of tasks
+            for (size_t i = 0; i < readyAivCoreFunctionQue_->wasSize(); i++) availableTaskQueue->push((uint32_t)readyAivCoreFunctionQue_->getBuffer()[i]);
+            for (size_t i = 0; i < MAX_MANAGER_AIV_NUM; i++) availableCoreQueue->push((uint32_t)i);
+
             curDevTask_->isTaskInitialized = true;
         }
-        // If I am not a lead AICPU scheduler, wait until initialization is ready
-        else
+        else // If I am not a lead AICPU scheduler, wait until initialization is ready
         {
             while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
         }

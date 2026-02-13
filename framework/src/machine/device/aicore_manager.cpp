@@ -57,6 +57,9 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
         aicpuTaskManager_.Init(curDevTask_);
     }
 
+    DEV_ERROR("AICPU %d - Task Queue Size: %lu - Core Queue Size: %lu\n", aicpuIdx_, availableTaskQueue_->wasSize(), availableCoreQueue_->wasSize());
+    // DEV_ERROR("AICPU %d - Task Queue Size: %p - Core Queue Size: %p\n", aicpuIdx_, availableTaskQueue_, availableCoreQueue_);
+
     npu::tile_fwk::dynamic::TimeCheck tm;
     while (taskCtrl->finishedFunctionCnt.load(std::memory_order_relaxed) < curDevTask_->coreFunctionCnt) {
         RunCoreTask<true>(taskCtrl);
