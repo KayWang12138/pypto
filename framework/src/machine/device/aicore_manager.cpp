@@ -35,17 +35,17 @@ void SdmaPrefetch(DeviceTask *devTask) {
       desc.src_addr = devTask->l2Info.prefetchAddrs[i];
       desc.size = devTask->l2Info.prefetchSizes[i];
       ret |= ioctl(fd, IOCTL_SDMA_L2_CMO, &desc);
-      DEV_DEBUG("Prefetch %lx %lu ret:%d\n", devTask->l2Info.prefetchAddrs[i],
+      DEV_DEBUG("Prefetch %lx %lu ret:%d.\n", devTask->l2Info.prefetchAddrs[i],
           devTask->l2Info.prefetchSizes[i], ret);
     }
-    DEV_INFO("Prefetch tensor num %ld ret %d.\n", devTask->l2Info.prefetchNum, ret);
+    DEV_INFO("Prefetch tensor num %ld ret:%d.\n", devTask->l2Info.prefetchNum, ret);
     close(fd);
     return;
 }
 
 int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     int ret = 0;
-    DEV_INFO("receive new task %lu\n", taskCtrl->taskId);
+    DEV_INFO("Receive new task %lu.\n", taskCtrl->taskId);
     InitTaskData(taskCtrl);
 
     RunCoreTask(taskCtrl);
@@ -61,7 +61,7 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
         }
     }
 
-    DEV_DEBUG("Aicpu %d proc finish send all task .\n", aicpuIdx_);
+    DEV_DEBUG("Aicpu %d proc finish send all task.\n", aicpuIdx_);
     ret = WaitAllAicoreFinish(aicStart_, aicEnd_);
     if (ret != npu::tile_fwk::dynamic::DEVICE_MACHINE_OK) {
         DEV_ERROR("wait tail aic task timeout .\n");
@@ -99,7 +99,7 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         }
     }
     NormalStop();
-    DEV_DEBUG("Aicpu %d stop ret = %d, proc aic task cnt: %lu,  aiv task cnt: %lu.\n", aicpuIdx_, ret,
+    DEV_DEBUG("Aicpu %d stop ret = %d, proc aic task cnt: %lu, aiv task cnt: %lu.\n", aicpuIdx_, ret,
         procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
     return ret;
 }
@@ -109,38 +109,38 @@ void AiCoreManager::DumpAiCoreStatus() const {
         ForEachManageAicore([this](int coreIdx) {
             volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
             DEV_INFO("\n!!***********************aicore %d last status **************************!!\n", coreIdx);
-            DEV_INFO("hello status %ld\n", arg->shakeBuffer[0]);
-            DEV_INFO("last_taskId %ld task status %ld\n", arg->shakeBuffer[NUM_ONE], arg->shakeBuffer[NUM_TWO]);
+            DEV_INFO("hello status %ld.\n", arg->shakeBuffer[0]);
+            DEV_INFO("last_taskId %ld task status %ld.\n", arg->shakeBuffer[NUM_ONE], arg->shakeBuffer[NUM_TWO]);
             for (size_t i = 0; i < sizeof(arg->taskEntry) / sizeof(TaskEntry); i++) {
-                DEV_INFO("task req index %lu: taskId %d, subGraphID %d funcAddr %ld\n", i, arg->taskEntry.taskId,
+                DEV_INFO("task req index %lu: taskId %d, subGraphID %d funcAddr %ld.\n", i, arg->taskEntry.taskId,
                     arg->taskEntry.subGraphId, arg->taskEntry.funcAddr);
             }
 
             for (size_t i = 0; i < sizeof(arg->taskStat) / sizeof(TaskStat); i++) {
-                DEV_INFO("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld\n", i,
+                DEV_INFO("task rsp index %lu: taskId %d, subGraphID %d execStart %ld execEnd %ld.\n", i,
                     arg->taskStat[i].taskId, arg->taskStat[i].subGraphId, arg->taskStat[i].execStart,
                     arg->taskStat[i].execEnd);
             }
 
-            DEV_INFO("reg low task: runningid(%lu) pendingid(%lu) dfxpos(%d)\n", runningIds_[coreIdx],
+            DEV_INFO("reg low task: runningid(%lu) pendingid(%lu) dfxpos(%d).\n", runningIds_[coreIdx],
                 pendingIds_[coreIdx], taskDfxStatPos_[coreIdx]);
 
             DEV_INFO("send task info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
                 sendTask_[coreIdx].size());
             for (size_t i = 0; i < sendTask_[coreIdx].size(); i++) {
-                DEV_INFO("send task: seqno %lu, taskId %lx\n", i, sendTask_[coreIdx][i].taskId);
+                DEV_INFO("send task: seqno %lu, taskId %lx.\n", i, sendTask_[coreIdx][i].taskId);
             }
 
             DEV_INFO("recv finish task info ~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
                 recvFinTask_[coreIdx].size());
             for (size_t i = 0; i < recvFinTask_[coreIdx].size(); i++) {
-                DEV_INFO("recv task: seqno %lu, taskId %lx\n", i, recvFinTask_[coreIdx][i].taskId);
+                DEV_INFO("recv task: seqno %lu, taskId %lx.\n", i, recvFinTask_[coreIdx][i].taskId);
             }
 
             DEV_INFO("recv ack task info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~count:%lu~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n",
                 recvAckTask_[coreIdx].size());
             for (size_t i = 0; i < recvAckTask_[coreIdx].size(); i++) {
-                DEV_INFO("recv ack task: seqno %lu, taskId %lx\n", i, recvAckTask_[coreIdx][i].taskId);
+                DEV_INFO("recv ack task: seqno %lu, taskId %lx.\n", i, recvAckTask_[coreIdx][i].taskId);
             }
         });
     }
@@ -148,7 +148,7 @@ void AiCoreManager::DumpAiCoreStatus() const {
 
 void AiCoreManager::DumpTaskTensor(int &coreIdx, volatile TaskStat *stat) {
     auto coreId = GetPhyIdByBlockId(coreIdx);
-    DEV_DEBUG("Output coreId is %d taskid is %d, with execStart: %ld, execend: %ld \n", coreId, stat->taskId,
+    DEV_DEBUG("Output coreId is %d taskid is %d, with execStart: %ld, execend: %ld.\n", coreId, stat->taskId,
         stat->execStart, stat->execEnd);
     aicoreDump_.DumpInit(stat->subGraphId, stat->taskId, coreId, stat->execStart, stat->execEnd);
     auto funcInfo =
@@ -196,7 +196,7 @@ int AiCoreManager::WaitAllAicoreFinish(int coreIdxStart, int coreIdxEnd) {
 uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQueue* readyQue,
             int coreIdxStart, int coreIdxEnd) {
     if (readyQue->tail - readyQue->head == 0) {
-        DEV_DEBUG("AiCpud:%d, can not send task currently. ready Task: %lu \n", aicpuIdx_,
+        DEV_DEBUG("AiCpud:%d, can not send task currently. ready Task: %lu.\n", aicpuIdx_,
             readyQue->tail - readyQue->head);
         return 0;
     }
@@ -216,7 +216,7 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
     uint64_t taskIdx = readyQue->head;
     uint64_t taskCount = std::min(ready, readyQue->tail - readyQue->head);
     if (taskCount == 0) {
-        DEV_DEBUG("AiCpud:%d, taskCount is zero \n", aicpuIdx_);
+        DEV_DEBUG("AiCpud:%d, taskCount is zero.\n", aicpuIdx_);
         ReadyQueueUnLock(readyQue);
         return 0;
     }
@@ -228,10 +228,10 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
         readyQue->head += taskCount;
     }
     ReadyQueueUnLock((readyQue));
-    DEV_DEBUG("AiCpud:%d, pop all new task count: %lu \n", aicpuIdx_, taskCount);
+    DEV_DEBUG("AiCpud:%d, pop all new task count: %lu.\n", aicpuIdx_, taskCount);
     BatchSendTask(type, (READY_QUE_LIFO_SWITCH && !firstLock[static_cast<int>(type)])? readyId : &readyQue->elem[taskIdx],
         taskCount, coreIdxStart, coreIdxEnd, READY_QUE_LIFO_SWITCH);
-    DEV_DEBUG("core ready cnt: %u \n", corePendReadyCnt_[static_cast<int>(type)]);
+    DEV_DEBUG("core ready cnt: %u.\n", corePendReadyCnt_[static_cast<int>(type)]);
     firstLock[static_cast<int>(type)] = false;
     return taskCount;
 }
@@ -241,11 +241,11 @@ uint32_t AiCoreManager::BatchSendTask(CoreType type, uint64_t *newTask, uint32_t
     uint32_t sendCnt = 0;
     uint32_t taskIdx = isLifo ? taskCount : 0;
     uint32_t coreRunReadyCnt = coreRunReadyCnt_[static_cast<int>(type)];
-    DEV_DEBUG("Begin Batch send %s task: corerunreadycnt:%u, pendreadyCnt:%u, taskCount:%u \n",
+    DEV_DEBUG("Begin Batch send %s task: corerunreadycnt:%u, pendreadyCnt:%u, taskCount:%u.\n",
         type == CoreType::AIC ? "AIC": "AIV", coreRunReadyCnt,
         corePendReadyCnt_[static_cast<int>(type)], taskCount);
     while (sendCnt < static_cast<uint64_t>(coreRunReadyCnt) && sendCnt < taskCount) {
-        DEV_DEBUG("  ## send task use runready core %u \n",
+        DEV_DEBUG("  ## send task use runready core %u.\n",
             runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)] - 1]);
         SendTaskToAiCore(type,
             runReadyCoreIdx_[static_cast<int>(type)][--coreRunReadyCnt_[static_cast<int>(type)]],
