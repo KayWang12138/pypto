@@ -134,6 +134,37 @@ class VerifyRes:
         tensor_info["verify_dup_tensor"] = verify_dup_tensor
         tensor_info["valid_shape"], tensor_info["loop_info"] = valid_shape, loop_info
 
+    @staticmethod
+    def _compare_codegen_tensors(tensor_infos, tensor_infos_new):
+
+        for i, tensor_info in enumerate(tensor_infos_new):
+            dump_tshape = tensor_info.get("shape")
+            verify_tensor_info = tensor_info["verify_dup_tensor"]
+            verify_tshape = tensor_info["valid_shape"]
+            tensor_infos[i]["verify_tensor_file"] = tensor_info["verify_dup_tensor"]
+            
+            if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape):
+                dtype = _get_data_type(tensor_info["dataType"])[1]
+                
+                verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
+                verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
+                
+                data = np.fromfile(tensor_info["bin_file"], dtype)
+                data = data.reshape(dump_tshape)
+                
+                slices = []
+                for dim in range(data.ndim):
+                    stop = min(verify_tshape[dim], dump_tshape[dim])
+                    slices.append(slice(0, stop))
+                
+                tensor_infos[i]["cmp_res"] = np.allclose(
+                    data[tuple(slices)], 
+                    verify_tensor_data[tuple(slices)], 
+                    1e-3, 1e-3
+                )
+            else:
+                tensor_infos[i]["cmp_res"] = "NO_CMP"
+
     def get_verify_codegen_res(self, tensor_infos):
         if self.verify_codegen_op_info_list is None:
             logging.info("verify codegen op info is None.")
@@ -166,28 +197,7 @@ class VerifyRes:
                 tensor_info["cmp_res"] = "NO_CMP"
             return tensor_infos
 
-        for i, tensor_info in enumerate(tensor_infos_new):
-            dump_tshape = tensor_info.get("shape")
-            verify_tensor_info = tensor_info["verify_dup_tensor"]
-            verify_tshape = tensor_info["valid_shape"]
-            tensor_infos[i]["verify_tensor_file"] = tensor_info["verify_dup_tensor"]
-            if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape):
-                dtype = _get_data_type(tensor_info["dataType"])[1]
-                verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
-                verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
-                data = np.fromfile(tensor_info["bin_file"], dtype)
-                data = data.reshape(dump_tshape)
-                # dump tensor可能存在无效数据，只对吧有效部分
-                slices = []
-                for dim in range(data.ndim):
-                    stop = min(verify_tshape[dim], dump_tshape[dim])
-                    slices.append(slice(0, stop))
-                tensor_infos[i]["cmp_res"] = np.allclose(
-                    data[tuple(slices)], 
-                    verify_tensor_data[tuple(slices)], 
-                    1e-3, 1e-3)
-            else:
-                tensor_infos[i]["cmp_res"] = "NO_CMP"
+        self._compare_codegen_tensors(tensor_infos, tensor_infos_new)
 
         return tensor_infos
 
@@ -293,8 +303,28 @@ class CompactDumpTensorInfoParser:
             return values[0], total_bytes
         else:
             return values, total_bytes
+    
+    @staticmethod
+    def _verify_merged_tensor(merge_tensor_info, raw_data):
+        # 获取验证张量信息
+        verify_tensor_info, verify_tshape = _verify_res.get_verify_tensor_graph_res(merge_tensor_info)
+        dump_tshape = merge_tensor_info.get("rawShape")
+        
+        # 验证张量存在且形状完全匹配时才进行比较
+        if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape) and \
+                all(vdim == ddim for vdim, ddim in zip(verify_tshape, dump_tshape)):
+            
+            merge_tensor_info["verify_tensor_file"] = verify_tensor_info
+            dtype = _get_data_type(merge_tensor_info["dataType"])[1]
+            
+            # 读取验证张量并进行比较
+            verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
+            verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
+            merge_tensor_info["cmp_res"] = np.allclose(raw_data, verify_tensor_data, 1e-3, 1e-3)
+        
+        return merge_tensor_info
 
-    def _parse_single(self, bin_data: bytes, offset: int = 0) -> dict:
+    def parse_single(self, bin_data: bytes, offset: int = 0) -> dict:
         """解析单个紧凑存储的DumpTensorInfo结构体"""
         result = {}
         current_offset = offset
@@ -334,7 +364,7 @@ class CompactDumpTensorInfoParser:
         with open(file_path, "rb") as f:
             bin_data = f.read()
         
-        tensor_info = self._parse_single(bin_data, 0)
+        tensor_info = self.parse_single(bin_data, 0)
         dtype = _get_data_type(tensor_info["dataType"])[1]
         data = np.frombuffer(bin_data, dtype, offset=tensor_info["headSize"])
         bin_file = f"{file_path[:-6]}.data"
@@ -369,19 +399,13 @@ class CompactDumpTensorInfoParser:
         
         with multiprocessing.Pool(processes=num_processes) as pool:
             tasks = []
-            for task_id, tensor_infos in self.task_tensor_info.items():
+            for _, tensor_infos in self.task_tensor_info.items():
                 tasks.append(tensor_infos)
             
             try:
                 results = pool.map(_verify_res.get_verify_codegen_res, tasks)
             except Exception as e:
-                print(f"Tensor comparison failed with error: {e}")
-                error_result = {}
-                for task_id in self.task_tensor_info.keys():
-                    error_result[task_id] = [{
-                        "verify_tensor_file": "",
-                        "cmp_res": "CMP_ERROR"
-                    }]
+                logging.error(f"Tensor comparison failed with error: {e}")
                 for tensor_infos in tasks:
                     merged_result.extend(tensor_infos)
                 return merged_result
@@ -391,7 +415,6 @@ class CompactDumpTensorInfoParser:
         
         return merged_result
 
-    
     def merge_raw_tensor_data(self, raw_magic, tensor_infos):
         # 创建合并张量的基础信息
         merge_tensor_info = {}
@@ -443,25 +466,6 @@ class CompactDumpTensorInfoParser:
         # 保存合并后的张量
         raw_data.tofile(file_path)
         return merge_tensor_info, raw_data
-    
-    def verify_merged_tensor(self, merge_tensor_info, raw_data):
-        # 获取验证张量信息
-        verify_tensor_info, verify_tshape = _verify_res.get_verify_tensor_graph_res(merge_tensor_info)
-        dump_tshape = merge_tensor_info.get("rawShape")
-        
-        # 验证张量存在且形状完全匹配时才进行比较
-        if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape) and \
-                all(vdim == ddim for vdim, ddim in zip(verify_tshape, dump_tshape)):
-            
-            merge_tensor_info["verify_tensor_file"] = verify_tensor_info
-            dtype = _get_data_type(merge_tensor_info["dataType"])[1]
-            
-            # 读取验证张量并进行比较
-            verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
-            verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
-            merge_tensor_info["cmp_res"] = np.allclose(raw_data, verify_tensor_data, 1e-3, 1e-3)
-        
-        return merge_tensor_info
 
     def merge_raw_tensor(self):
         merge_tensor_infos = []
@@ -471,7 +475,7 @@ class CompactDumpTensorInfoParser:
             
             # 如果有合并后的数据，进行验证
             if raw_data is not None:
-                merge_tensor_info = self.verify_merged_tensor(merge_tensor_info, raw_data)
+                merge_tensor_info = self._verify_merged_tensor(merge_tensor_info, raw_data)
                 merge_tensor_infos.append(merge_tensor_info)
         return merge_tensor_infos
 
