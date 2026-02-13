@@ -38,12 +38,11 @@ TILEOP void TLoad3D(T &dst, U &src, const int64_t &mPos, const int64_t &kPos,
     constexpr auto staticW = Std::tuple_element<CONV_IDX_3, typename U::TileShape>::type::value;
     constexpr auto staticC0 = Std::tuple_element<CONV_IDX_4, typename U::TileShape>::type::value;
     constexpr auto bufferSize = staticN * staticC1 * staticH * staticW * staticC0;
-    // 待pto-isa的ConvTileShape数据类型改为int64之后，需要移除类型转换
-    int n = static_cast<int>(GetConvShape<CONV_IDX_0>(src));
-    int c1 = static_cast<int>(GetConvShape<CONV_IDX_1>(src));
-    int h = static_cast<int>(GetConvShape<CONV_IDX_2>(src));
-    int w = static_cast<int>(GetConvShape<CONV_IDX_3>(src));
-    int c0 = static_cast<int>(GetConvShape<CONV_IDX_4>(src));
+    int n = GetConvShape<CONV_IDX_0>(src);
+    int c1 = GetConvShape<CONV_IDX_1>(src);
+    int h = GetConvShape<CONV_IDX_2>(src);
+    int w = GetConvShape<CONV_IDX_3>(src);
+    int c0 = GetConvShape<CONV_IDX_4>(src);
     using srcTensor = pto::ConvTile<pto::TileType::Mat, typename U::Type, bufferSize, pto::Layout::NC1HWC0, pto::ConvTileShape<-1, -1, -1, -1, -1>>;
     srcTensor l1(n, c1, h, w, c0);
     l1.SetFmapH(static_cast<uint16_t>(h));
@@ -79,11 +78,10 @@ TILEOP void TLoad2D(T &dst, U &src, const int64_t &indexRow, const int64_t &inde
     constexpr auto staticN0 = Std::tuple_element<CONV_IDX_2, typename U::TileShape>::type::value;
     constexpr auto staticC0 = Std::tuple_element<CONV_IDX_3, typename U::TileShape>::type::value;
     constexpr auto bufferSize = staticC1HW * staticN1 * staticN0 * staticC0;
-    // 待pto-isa的ConvTileShape数据类型改为int64之后，需要移除类型转换
-    int c1hw = static_cast<int>(GetConvShape<CONV_IDX_0>(src));
-    int n1 = static_cast<int>(GetConvShape<CONV_IDX_1>(src));
-    int n0 = static_cast<int>(GetConvShape<CONV_IDX_2>(src));
-    int c0 = static_cast<int>(GetConvShape<CONV_IDX_3>(src));
+    int c1hw = GetConvShape<CONV_IDX_0>(src);
+    int n1 = GetConvShape<CONV_IDX_1>(src);
+    int n0 = GetConvShape<CONV_IDX_2>(src);
+    int c0 = GetConvShape<CONV_IDX_3>(src);
     using srcTensor = pto::ConvTile<pto::TileType::Mat, typename U::Type, bufferSize, pto::Layout::FRACTAL_Z, pto::ConvTileShape<-1, -1, -1, -1>>;
     srcTensor l1(c1hw, n1, n0, c0);
 
