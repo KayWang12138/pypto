@@ -43,6 +43,33 @@ def _default_globals() -> dict[str, Any]:
     }
 
 
+def convert_tensors_with_metadata(torch_tensors, tensor_defs):
+    """Convert torch tensors to pypto tensors with name and dynamic_axis metadata."""
+    import torch_npu
+
+    pto_tensors = []
+    for torch_tensor, tensor_def in zip(torch_tensors, tensor_defs):
+        name = tensor_def.name
+        dynamic_axis = [
+            i
+            for i, dim in enumerate(tensor_def.shape)
+            if isinstance(dim, pypto.SymbolicScalar)
+        ]
+        tensor_format = pypto.TileOpFormat.TILEOP_ND
+        if torch_tensor.device.type == "npu" and torch_npu.get_npu_format(torch_tensor) == 29:
+            tensor_format = pypto.TileOpFormat.TILEOP_NZ
+        pto_tensors.append(
+            pypto.from_torch(
+                torch_tensor,
+                name=name,
+                dynamic_axis=dynamic_axis if dynamic_axis else None,
+                tensor_format=tensor_format,
+                dtype=tensor_def.dtype,
+            )
+        )
+    return pto_tensors
+
+
 class RunMode(IntEnum):
     NPU = 0
     SIM = 1
@@ -364,40 +391,25 @@ class JitCallableWrapper:
             out_tensor = torch.empty(shape, dtype=dtype, device=device)
             out_tensors.append(out_tensor)
 
-        def convert_tensors_with_metadata(torch_tensors, tensor_defs):
-            """Convert torch tensors to pypto tensors with name and dynamic_axis metadata."""
-            pto_tensors = []
-            for torch_tensor, tensor_def in zip(torch_tensors, tensor_defs):
-                name = tensor_def.name
-                # Determine which axes are dynamic by checking for SymbolicScalar in shape
-                dynamic_axis = [
-                    i
-                    for i, dim in enumerate(tensor_def.shape)
-                    if isinstance(dim, pypto.SymbolicScalar)
-                ]
-                pto_tensors.append(
-                    pypto.from_torch(
-                        torch_tensor,
-                        name=name,
-                        dynamic_axis=dynamic_axis if dynamic_axis else None,
-                        tensor_format=tensor_def.format,
-                        dtype=tensor_def.dtype,
-                    )
-                )
-            return pto_tensors
-
-        pto_in_tensors = convert_tensors_with_metadata(in_tensors, input_tensor_defs)
-        pto_out_tensors = convert_tensors_with_metadata(out_tensors, output_tensor_defs)
 
         if self._runtime_options.get("run_mode", None) == RunMode.NPU:
-            pypto_impl.LaunchKernel(self, _current_stream(), *pto_in_tensors, *pto_out_tensors)
+            # NPU path: no pto conversion; merge and pass torch tensors + tensor_defs
+            tensors = [*in_tensors, *out_tensors]
+            tensor_defs = [*input_tensor_defs, *output_tensor_defs]
+            pypto_impl.LaunchKernelTorch(
+                self,
+                _current_stream(),
+                tensors,
+                tensor_defs,
+            )
         else:
+            pto_in_tensors = convert_tensors_with_metadata(in_tensors, input_tensor_defs)
+            pto_out_tensors = convert_tensors_with_metadata(out_tensors, output_tensor_defs)
             with pypto.options("jit_scope"):
                 self._set_config_option()
                 pypto_impl.DeviceInit()
                 self.compile([*pto_in_tensors, *pto_out_tensors])
                 self._run_with_cpu([*pto_in_tensors, *pto_out_tensors], [])
-
         if not out_tensors:
             return None
         if len(out_tensors) == 1:
@@ -520,26 +532,31 @@ class JitCallableWrapper:
 
     def compile(
         self,
-        args
+        tensors,
+        tensor_defs=None,
     ) -> None:
         """Lazily compile function using PTO tensors for dynamic shape binding & verification.
 
-        Compiles the wrapped function on first call (lazy mode), using input PTO tensors to:
-        1. Bind dynamic dimensions from concrete shapes (ori_shape)
-        2. Set up verification data
-        3. Generate PTO IR via deferred parsing
+        Compiles the wrapped function on first call (lazy mode).
 
         Parameters
         ----------
-        pto_tensors : list[pypto.Tensor]
-            PTO tensors with concrete shapes for dynamic dim binding & verification setup
+        tensors : list
+            Either list[pypto.Tensor] (PTO tensors) or list[torch.Tensor] (torch tensors).
+        tensor_defs : list[pypto.Tensor], optional
+            When provided, tensors are torch tensors and will be converted to PTO via from_torch
+            using name/dynamic_axis/dtype from each tensor_def. When None, tensors are PTO tensors.
         """
+        if tensor_defs is not None:
+            args = convert_tensors_with_metadata(tensors, tensor_defs)
+        else:
+            args = tensors
+
         # Re-create parser for compilation
         self._parser = self._create_parser()
         self._parser.parse()
 
         # Initialize backend for compilation
-
         self._setup_verify_data(args)
 
         # Set options AFTER OperatorBegin() to match @pypto.jit behavior
