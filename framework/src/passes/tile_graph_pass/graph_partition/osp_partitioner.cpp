@@ -69,10 +69,7 @@ Status OspPartitioner::PartitionGraph(Function &function)
         return FAILED;
     }    
     if (ospMode_ == OspMode::MERKLEBSP) {
-        if (BuildHashValues() != SUCCESS) {
-            APASS_LOG_ERROR_F(Elements::Function, "Partition the computational graph failed in building SuperNode hash values.");
-            return FAILED;
-        }
+        BuildHashValues();
     }
     if (RunOspPartition(function) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "OSP failed to generate a partition.");
@@ -90,6 +87,7 @@ Status OspPartitioner::RunOspPartition(Function &function)
     switch (ospMode_)
     {
         case OspMode::SARKAR:
+        default:
         {
             GraphType graph;
             if (ConstructDag(graph) != SUCCESS) {
@@ -109,13 +107,7 @@ Status OspPartitioner::RunOspPartition(Function &function)
             }
             status = RunMerkleBsp(bspInstance, vertexContractionMap);
         }
-        break;
-
-        default:
-        {
-            APASS_LOG_ERROR_F(Elements::Config, "OSP Coarsen mode not implemented.");
-            status = FAILED;
-        }
+        break;       
     }
 
     if (status == FAILED) {
@@ -436,11 +428,6 @@ Status OspPartitioner::BuildHashValues()
     std::vector<uint64_t> opHashList(numOps);
     for (size_t i = 0; i < numOps; i++) {
         opHashList[i] = CombineHash(opHashListFront[i], opHashListBack[i]);
-    }
-
-    if (superNodeInfo_->op2Node_.size() != numOps) {
-        APASS_LOG_ERROR_F(Elements::Function, "Operation number mismatch in SuperNodeInfo and OperationInfo.");
-        return FAILED;
     }
 
     BuildNodeHashValues(opHashList);
