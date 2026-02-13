@@ -153,69 +153,80 @@ TILEOP void ShmemSet(__ubuf__ T* buffer, __gm__ T* shmemTensorBaseAddr, uint32_t
 // ---------------------------------------------------------------------------
 // Copy: GM↔GM (via UB, with optional type conversion and ping-pong)
 // ---------------------------------------------------------------------------
-// Single block: GM→UB→GM. Type conversion: buffer[0..copyLen-1]=UBType, buffer[copyLen..]=float.
+template<typename TargetType, typename UBType, typename SourceType, uint32_t rowShape, uint32_t colShape,
+    uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
+TILEOP void CopyGmToGmBlockSameType(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm__ SourceType* source,
+    uint32_t eventId) {
+    ShapeDyn shape(1, 1, 1, rowShape, colShape);
+    StrideDyn srcStrideDyn(rowShape, rowShape, rowShape, srcStride, 1);
+    StrideDyn dstStrideDyn(rowShape, rowShape, rowShape, dstStride, 1);
+    ShmemGlobalTensor<SourceType, rowShape, colShape> srcGlobal(source, shape, srcStrideDyn);
+    ShmemGlobalTensor<TargetType, rowShape, colShape> dstGlobal(target, shape, dstStrideDyn);
+    ShmemUbTile<UBType, rowShape, colShape> ubTile(rowShape, colShape);
+    pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
+    pto::TLOAD(ubTile, srcGlobal);
+    set_flag(PIPE_MTE2, PIPE_MTE3, eventId);
+    wait_flag(PIPE_MTE2, PIPE_MTE3, eventId);
+    if constexpr (atomicType == AtomicType::ADD) {
+        pto::TSTORE<decltype(ubTile), decltype(dstGlobal), pto::AtomicType::AtomicAdd>(dstGlobal, ubTile);
+    } else {
+        pto::TSTORE<decltype(ubTile), decltype(dstGlobal), pto::AtomicType::AtomicNone>(dstGlobal, ubTile);
+    }
+}
+
+template<typename TargetType, typename UBType, typename SourceType, uint32_t rowShape, uint32_t colShape,
+    uint32_t srcStride, uint32_t dstStride, AtomicType atomicType>
+TILEOP void CopyGmToGmBlockConvert(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm__ SourceType* source,
+    uint32_t eventId) {
+    constexpr uint64_t copyLen = rowShape * AlignUp<uint64_t>(colShape * sizeof(UBType), 32) / sizeof(UBType);
+    __ubuf__ float* castUb = (__ubuf__ float*)(buffer + copyLen);
+    ShapeDyn shape(1, 1, 1, rowShape, colShape);
+    StrideDyn srcStrideDyn(rowShape, rowShape, rowShape, srcStride, 1);
+    StrideDyn dstStrideDyn(rowShape, rowShape, rowShape, dstStride, 1);
+    ShmemGlobalTensor<SourceType, rowShape, colShape> srcGlobal(source, shape, srcStrideDyn);
+    ShmemGlobalTensor<TargetType, rowShape, colShape> dstGlobal(target, shape, dstStrideDyn);
+    if constexpr (atomicType == AtomicType::ADD) {
+        ShmemUbTile<UBType, rowShape, colShape> srcTile(rowShape, colShape);
+        ShmemUbTile<float, rowShape, colShape> dstTile(rowShape, colShape);
+        pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(buffer));
+        pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(castUb));
+        pto::TLOAD(srcTile, srcGlobal);
+        set_flag(PIPE_MTE2, PIPE_V, eventId);
+        wait_flag(PIPE_MTE2, PIPE_V, eventId);
+        pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
+        set_flag(PIPE_V, PIPE_MTE3, eventId);
+        wait_flag(PIPE_V, PIPE_MTE3, eventId);
+        pto::TSTORE<decltype(dstTile), decltype(dstGlobal), pto::AtomicType::AtomicAdd>(dstGlobal, dstTile);
+    } else {
+        ShmemUbTile<float, rowShape, colShape> srcTile(rowShape, colShape);
+        ShmemUbTile<UBType, rowShape, colShape> dstTile(rowShape, colShape);
+        pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(castUb));
+        pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(buffer));
+        pto::TLOAD(srcTile, srcGlobal);
+        set_flag(PIPE_MTE2, PIPE_V, eventId);
+        wait_flag(PIPE_MTE2, PIPE_V, eventId);
+        pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
+        set_flag(PIPE_V, PIPE_MTE3, eventId);
+        wait_flag(PIPE_V, PIPE_MTE3, eventId);
+        pto::TSTORE<decltype(dstTile), decltype(dstGlobal), pto::AtomicType::AtomicNone>(dstGlobal, dstTile);
+    }
+}
+
+// Single block GM→UB→GM. With conversion: buffer[0..copyLen-1]=UBType, buffer[copyLen..]=float.
 template<typename TargetType, typename UBType, typename SourceType, uint32_t rowShape, uint32_t colShape,
     uint32_t srcStride, uint32_t bufferStride, uint32_t dstStride, AtomicType atomicType>
-TILEOP void CopyGmToGmBlock(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm__ SourceType* source, uint32_t eventId = EVENT_ID0) {
-    // Wait for previous TSTORE using this buffer/event to complete
+TILEOP void CopyGmToGmBlock(__gm__ TargetType* target, __ubuf__ UBType* buffer, __gm__ SourceType* source,
+    uint32_t eventId = EVENT_ID0) {
+    (void)bufferStride;
     wait_flag(PIPE_MTE3, PIPE_S, eventId);
     set_flag(PIPE_S, PIPE_MTE2, eventId);
     wait_flag(PIPE_S, PIPE_MTE2, eventId);
-
     if constexpr (std::is_same_v<TargetType, SourceType>) {
-        ShapeDyn shape(1, 1, 1, rowShape, colShape);
-        StrideDyn srcStrideDyn(rowShape, rowShape, rowShape, srcStride, 1);
-        StrideDyn dstStrideDyn(rowShape, rowShape, rowShape, dstStride, 1);
-        
-        ShmemGlobalTensor<SourceType, rowShape, colShape> srcGlobal(source, shape, srcStrideDyn);
-        ShmemGlobalTensor<TargetType, rowShape, colShape> dstGlobal(target, shape, dstStrideDyn);
-        ShmemUbTile<UBType, rowShape, colShape> ubTile(rowShape, colShape);
-        pto::TASSIGN(ubTile, reinterpret_cast<uintptr_t>(buffer));
-        
-        pto::TLOAD(ubTile, srcGlobal);
-        set_flag(PIPE_MTE2, PIPE_MTE3, eventId);
-        wait_flag(PIPE_MTE2, PIPE_MTE3, eventId);
-        
-        if constexpr (atomicType == AtomicType::ADD) {
-            pto::TSTORE<decltype(ubTile), decltype(dstGlobal), pto::AtomicType::AtomicAdd>(dstGlobal, ubTile);
-        } else {
-            pto::TSTORE<decltype(ubTile), decltype(dstGlobal), pto::AtomicType::AtomicNone>(dstGlobal, ubTile);
-        }
+        CopyGmToGmBlockSameType<TargetType, UBType, SourceType, rowShape, colShape, srcStride, dstStride, atomicType>(
+            target, buffer, source, eventId);
     } else {
-        constexpr uint64_t copyLen = rowShape * AlignUp<uint64_t>(colShape * sizeof(UBType), 32) / sizeof(UBType);
-        __ubuf__ float* castUb = (__ubuf__ float*)(buffer + copyLen);
-        ShapeDyn shape(1, 1, 1, rowShape, colShape);
-        StrideDyn srcStrideDyn(rowShape, rowShape, rowShape, srcStride, 1);
-        StrideDyn dstStrideDyn(rowShape, rowShape, rowShape, dstStride, 1);
-        ShmemGlobalTensor<SourceType, rowShape, colShape> srcGlobal(source, shape, srcStrideDyn);
-        ShmemGlobalTensor<TargetType, rowShape, colShape> dstGlobal(target, shape, dstStrideDyn);
-
-        constexpr bool isAdd = (atomicType == AtomicType::ADD);
-        if constexpr (isAdd) {
-            ShmemUbTile<UBType, rowShape, colShape> srcTile(rowShape, colShape);
-            ShmemUbTile<float, rowShape, colShape> dstTile(rowShape, colShape);
-            pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(buffer));
-            pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(castUb));
-            pto::TLOAD(srcTile, srcGlobal);
-            set_flag(PIPE_MTE2, PIPE_V, eventId);
-            wait_flag(PIPE_MTE2, PIPE_V, eventId);
-            pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
-            set_flag(PIPE_V, PIPE_MTE3, eventId);
-            wait_flag(PIPE_V, PIPE_MTE3, eventId);
-            pto::TSTORE<decltype(dstTile), decltype(dstGlobal), pto::AtomicType::AtomicAdd>(dstGlobal, dstTile);
-        } else {
-            ShmemUbTile<float, rowShape, colShape> srcTile(rowShape, colShape);
-            ShmemUbTile<UBType, rowShape, colShape> dstTile(rowShape, colShape);
-            pto::TASSIGN(srcTile, reinterpret_cast<uintptr_t>(castUb));
-            pto::TASSIGN(dstTile, reinterpret_cast<uintptr_t>(buffer));
-            pto::TLOAD(srcTile, srcGlobal);
-            set_flag(PIPE_MTE2, PIPE_V, eventId);
-            wait_flag(PIPE_MTE2, PIPE_V, eventId);
-            pto::TCVT(dstTile, srcTile, pto::RoundMode::CAST_NONE);
-            set_flag(PIPE_V, PIPE_MTE3, eventId);
-            wait_flag(PIPE_V, PIPE_MTE3, eventId);
-            pto::TSTORE<decltype(dstTile), decltype(dstGlobal), pto::AtomicType::AtomicNone>(dstGlobal, dstTile);
-        }
+        CopyGmToGmBlockConvert<TargetType, UBType, SourceType, rowShape, colShape, srcStride, dstStride, atomicType>(
+            target, buffer, source, eventId);
     }
     set_flag(PIPE_MTE3, PIPE_S, eventId);
 }
