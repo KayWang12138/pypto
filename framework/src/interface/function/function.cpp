@@ -286,7 +286,8 @@ bool Function::IsCube() const {
         return (op.GetOpcode() == Opcode::OP_COPY_IN &&
                 !(op.oOperand.empty()) &&
                 op.oOperand[0]->GetMemoryTypeOriginal() == MemoryType::MEM_L1) ||
-                op.GetOpcode() == Opcode::OP_GATHER_IN_L1;
+                op.GetOpcode() == Opcode::OP_GATHER_IN_L1 ||
+                op.GetOpcode() == Opcode::OP_L1_COPY_IN_CONV;
     };
 
     for (const auto &oper : OperationsViewer(operations_, opPosition_)) {
