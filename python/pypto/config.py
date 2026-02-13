@@ -599,7 +599,7 @@ class ConvTile:
     """ConvTile"""
     def __init__(self, tileL1Info: pypto_impl.TileL1Info, tileL0Info: pypto_impl.TileL0Info, setL0Tile: bool = False):
         """
-        Initialize ConvTile with L1/L0 tile configuration and L0 enable flag.
+        ConvTile tile for convolution operation, tileL1Info for L1 Cache configuration, tileL0Info for L0 Cache configuration
 
         Parameters
         ---------

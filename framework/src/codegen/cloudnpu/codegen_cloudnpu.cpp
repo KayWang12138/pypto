@@ -241,6 +241,7 @@ void CodeGenCloudNPU::GenCode(
                 return;
             }
             bool isCube = subFunc->IsCube();
+            isCube = true;
             CompileInfo compileInfo(topFunc, ctx, subFuncPair, isCube, subFunc->IsUnderDynamicFunction());
             std::ostringstream leafKernelFunc;
             GenFuncBodyBefore(subFuncPair, topFunc, compileInfo, leafKernelFunc);
