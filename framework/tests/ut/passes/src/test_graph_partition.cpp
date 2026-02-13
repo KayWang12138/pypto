@@ -436,6 +436,7 @@ TEST_F(GraphPartitionTest, TestOspCVGraph) {
         function->paramConfigs_.sgPartitionAlgorithm = partitionAlg;
 
         GraphPartition gpp;
+        EXPECT_EQ(gpp.PreCheck(*function), SUCCESS);
         EXPECT_EQ(gpp.RunOnFunction(*function), SUCCESS);
 
         std::unordered_set<std::string> cubeOp{"MUL1", "MC1", "MC2", "MC3", "COPY_OUT_C"};
@@ -466,6 +467,7 @@ TEST_F(GraphPartitionTest, TestOspCVGraph) {
             }
         }
         EXPECT_EQ(subgraphIDs2IsCube.size(), subGraphNum);
+        EXPECT_EQ(gpp.PostCheck(*function), SUCCESS);
     }
 }
 
