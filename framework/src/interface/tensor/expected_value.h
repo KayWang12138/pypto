@@ -79,6 +79,31 @@ protected:
     std::size_t hash_{0};
 };
 
+inline std::string RawExpectedValueKind2Name(RawExpectedValue::ValueKind kind) {
+    std::string name;
+    switch (kind) {
+    case RawExpectedValue::ValueKind::T_EXPECTED_INPUT:
+        name = "t_expected_input";
+        break;
+    case RawExpectedValue::ValueKind::T_EXPECTED_OPERATION:
+        name = "t_expected_operation";
+        break;
+    case RawExpectedValue::ValueKind::T_EXPECTED_INSERT:
+        name = "t_expected_insert";
+        break;
+    case RawExpectedValue::ValueKind::T_EXPECTED_EXTRACT:
+        name = "t_expected_extract";
+        break;
+    case RawExpectedValue::ValueKind::T_EXPECTED_RESULTOF:
+        name = "t_expected_resultof";
+        break;
+    default:
+        ASSERT(false) << " undefined kind.";
+        break;
+    }
+    return name;
+}
+
 struct RawExpectedInsertValueElement;
 class ExpectedValue {
 public:
@@ -295,7 +320,9 @@ namespace npu::tile_fwk {
 
         void InsertExpectedValueList(const std::vector<std::shared_ptr<LogicalTensor>> &tensorList,
                                      const std::vector<ExpectedValue> &tensorExpectedValueList) {
-            ASSERT(tensorList.size() == tensorExpectedValueList.size());
+            ASSERT(tensorList.size() == tensorExpectedValueList.size())
+                << "tensorList.size(): " << tensorList.size()
+                << ", tensorExpectedValueList.size()" << tensorExpectedValueList.size();
             for (size_t i = 0; i < tensorList.size(); i++) {
                 expectedTensorDict[tensorList[i]] = tensorExpectedValueList[i];
             }

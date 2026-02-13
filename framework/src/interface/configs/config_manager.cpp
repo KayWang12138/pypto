@@ -62,10 +62,6 @@ const nlohmann::json *ConfigManager::GetJsonNode(const nlohmann::json &root, con
 }
 
 Status ConfigManager::Initialize() {
-    if (isInit_) {
-        FUNCTION_LOGI("ConfigManager has been initialized.");
-        return SUCCESS;
-    }
     /* 环境变量优先生效 */
     std::string jsonFilePath = GetEnvVar(tilefwkConfigEnvName);
     if (jsonFilePath.empty()) {
@@ -112,7 +108,6 @@ Status ConfigManager::Initialize() {
         globalPassConfigs_ = InternalGetGlobalConfigs(*node);
     }
 
-    isInit_ = true;
     return SUCCESS;
 }
 
@@ -141,11 +136,11 @@ static std::string CreateLogTopFolder() {
         }
     }
     bool res = CreateDir(folderPath);
-    CHECK(res) << "Failed to create directory: " << folderPath;
+    CHECK(res) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";
 
     folderPath = folderPath + "/output_" + timestamp.str() + "_" + std::to_string(getpid());
     res = CreateDir(folderPath);
-    ASSERT(res) << "Failed to create directory: " << folderPath;
+    ASSERT(res) << "Failed to create dir: " << folderPath << ", ensure its parent dir exists.";;
     config::SetRunDataOption(KEY_COMPUTE_GRAPH_PATH, RealPath(folderPath));
 
     return folderPath;
