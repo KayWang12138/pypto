@@ -17,8 +17,10 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
+
 #include "interface/interpreter/raw_tensor_data.h"
 #include "interface/utils/op_info_manager.h"
 #include "machine/runtime/device_launcher_binding.h"
@@ -26,6 +28,7 @@
 #include "machine/runtime/device_launcher.h"
 #include "machine/utils/dynamic/dev_start_args.h"
 #include "machine/host/perf_analysis.h"
+#include "bindings/dlpack_parser.h"
 
 using namespace npu::tile_fwk;
 using namespace npu::tile_fwk::dynamic;
@@ -522,7 +525,7 @@ public:
         return nullptr;
     }
 
-    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module, py::args &args,
+    uint8_t *FindCtrlFlowCache(KernelBinary *kernel, py::object &module,
         std::vector<DeviceTensorData> &tensors, bool isCaptureMode) {
         if (!IsCacheEnabled()) {
             return nullptr;
@@ -534,7 +537,7 @@ public:
             if (isCaptureMode) {
                 AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
                 devCache = kernel->BuildControlFlowCache(tensors, stitchCfgCacheSize, true);
-            } else if (InferCacheShape(module, args, shape)) {
+            } else if (InferCacheShape(module, tensors, shape)) {
                 devCache = kernel->FindCtrlFlowCache(shape, false);
             } else {
                 AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
@@ -556,6 +559,16 @@ public:
     KernelBinary *Compile(py::object &module, py::args &args) {
         auto compile = py::getattr(module, "compile");
         compile(args);
+        return RegisterLastCompiledKernel(module);
+    }
+
+    KernelBinary *CompileFromTorch(py::object &module, py::sequence tensors, py::sequence tensor_defs) {
+        auto compile = py::getattr(module, "compile");
+        compile(tensors, tensor_defs);
+        return RegisterLastCompiledKernel(module);
+    }
+
+    KernelBinary *RegisterLastCompiledKernel(py::object &module) {
         auto func = Program::GetInstance().GetLastFunction();
         auto kernel = new KernelBinary(Program::GetInstance().GetFunctionSharedPtr(func));
         kernels.push_back(kernel);
@@ -671,17 +684,15 @@ private:
         }
     }
 
-    bool InferCacheShape(py::object &module, py::args &args, std::vector<std::vector<int64_t>> &shapes) {
+    bool InferCacheShape(py::object &module, std::vector<DeviceTensorData> &tensors,
+        std::vector<std::vector<int64_t>> &shapes) {
         auto infershape = py::getattr(module, "_infer_controlflow_shape", py::none());
         if (infershape.is_none()) {
             return false;
         }
         py::list oriShapes;
-        for (auto &pt : args) {
-            auto shape = py::getattr(pt, "ori_shape", py::none());
-            if (!shape.is_none()) {
-                oriShapes.append(shape);
-            }
+        for (auto &t : tensors) {
+            oriShapes.append(py::cast(t.GetShape()));
         }
         auto cfshape = infershape(*oriShapes);
         if (cfshape.is_none()) {
@@ -736,6 +747,145 @@ static int GetInputTensors(py::args &args, std::vector<DeviceTensorData> &tensor
     return py::getattr(device, "index").cast<int>();
 }
 
+class TorchTensorConverter {
+public:
+    static DeviceTensorData Convert(py::object torch_tensor, py::object tensor_def,
+        int *device_id_out = nullptr) {
+        std::vector<int64_t> shape;
+        uintptr_t data_ptr = 0;
+
+        if (!TryParseDlpack(torch_tensor, data_ptr, shape, device_id_out)) {
+            ExtractTensorMetadata(torch_tensor, data_ptr, shape);
+        }
+
+        DataType dtype = GetDataType(tensor_def);
+        return DeviceTensorData(dtype, data_ptr, shape);
+    }
+
+private:
+    static void ExtractTensorMetadata(py::object torch_tensor, uintptr_t &data_ptr,
+        std::vector<int64_t> &shape) {
+        try {
+            data_ptr = static_cast<uintptr_t>(py::cast<int64_t>(torch_tensor.attr("data_ptr")()));
+            for (auto dim : torch_tensor.attr("shape")) {
+                shape.push_back(py::cast<int64_t>(dim));
+            }
+        } catch (...) {
+            PyErr_Clear();
+            throw std::runtime_error("Input tensor is not a valid torch tensor type");
+        }
+    }
+
+    static DataType GetDataType(py::object tensor_def) {
+        auto base = py::getattr(tensor_def, "_base", py::none());
+        if (!base.is_none() && py::isinstance<Tensor>(base)) {
+            return base.cast<Tensor &>().GetDataType();
+        }
+        return tensor_def.attr("dtype").cast<DataType>();
+    }
+};
+
+class DeviceValidator {
+public:
+    static int ValidateAndGetDeviceId(const std::vector<int> &device_ids) {
+        int device_id = -1;
+        for (size_t i = 0; i < device_ids.size(); i++) {
+            if (device_ids[i] < 0) continue;
+
+            if (device_id < 0) {
+                device_id = device_ids[i];
+            } else if (device_ids[i] != device_id) {
+                throw std::runtime_error(
+                    "Tensor at index " + std::to_string(i) +
+                    " is on device " + std::to_string(device_ids[i]) +
+                    ", expected device " + std::to_string(device_id));
+            }
+        }
+
+        if (device_id < 0) {
+            throw std::runtime_error(
+                "Unable to determine device ID: ensure all tensors support DLPack");
+        }
+        return device_id;
+    }
+};
+
+static size_t ValidateInputs(py::sequence tensors, py::sequence tensor_defs) {
+    size_t n = static_cast<size_t>(py::len(tensors));
+    if (n != static_cast<size_t>(py::len(tensor_defs))) {
+        throw std::runtime_error(
+            "Input length mismatch: tensors(" + std::to_string(n) +
+            ") vs tensor_defs(" + std::to_string(py::len(tensor_defs)) + ")");
+    }
+    if (n == 0) {
+        throw std::runtime_error("Empty tensor list");
+    }
+    return n;
+}
+
+static void DoLaunch(py::object &module, aclrtStream aicoreStream, KernelModulePtr kmodule,
+    KernelBinary *kbinary, std::vector<DeviceTensorData> &tensors) {
+    kmodule->EmulationLaunch(kbinary, tensors);
+    HOST_PERF_TRACE(TracePhase::LaunchGetKernel);
+
+#if ENABALE_VERBOSE_LOG
+    ALOG_ERROR("alloc workspace");
+#endif
+    int64_t *wsAddr = nullptr;
+    int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
+    if (wsSize) {
+        auto pyalloc = py::getattr(module, "alloc");
+        wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
+    }
+    HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
+
+    bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
+    HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
+    
+    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, tensors, isCaptureMode);
+    HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
+    
+    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
+    HOST_PERF_TRACE(TracePhase::Launch);
+    HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+}
+
+void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &tensors,
+                       py::sequence &tensor_defs) {
+    HOST_PERF_TRACE_START();
+    HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
+    auto aicoreStream = (aclrtStream)stream;
+
+    const size_t n = ValidateInputs(tensors, tensor_defs);
+    std::vector<DeviceTensorData> tensors_data;
+    std::vector<int> device_ids;
+    tensors_data.reserve(n);
+    device_ids.reserve(n);
+    for (size_t i = 0; i < n; i++) {
+        int device_id = -1;
+        tensors_data.push_back(TorchTensorConverter::Convert(
+            tensors[py::int_(i)], tensor_defs[py::int_(i)], &device_id));
+        device_ids.push_back(device_id);
+    }
+    int devId = DeviceValidator::ValidateAndGetDeviceId(device_ids);
+    DeviceGuard devGuard(devId);
+
+    auto kmodule = py::getattr(module, "kmodule").cast<KernelModulePtr>();
+    HOST_PERF_TRACE(TracePhase::LaunchInit);
+
+    auto kbinary = kmodule->GetKernelBinary(tensors_data);
+    if (kbinary == nullptr) {
+        Program::GetInstance().Reset();
+        // Set capture mode to relaxed to support rtmemcpy / rtmemset
+        AclModeGuard guard(ACL_MODEL_RI_CAPTURE_MODE_RELAXED);
+#if ENABALE_VERBOSE_LOG
+        ALOG_ERROR("compile kernel");
+#endif
+        kbinary = kmodule->CompileFromTorch(module, tensors, tensor_defs);
+    }
+    DoLaunch(module, aicoreStream, kmodule, kbinary, tensors_data);
+}
+
 void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
     HOST_PERF_TRACE_START();
     HOST_PERF_EVT_BEGIN(EventPhase::LaunchKernel);
@@ -758,33 +908,14 @@ void LaunchKernel(py::object &module, int64_t stream, py::args &args) {
 #endif
         kbinary = kmodule->Compile(module, args);
     }
-
-    kmodule->EmulationLaunch(kbinary, tensors);
-    HOST_PERF_TRACE(TracePhase::LaunchGetKernel);
-
-#if ENABALE_VERBOSE_LOG
-    ALOG_ERROR("alloc workspace");
-#endif
-    int64_t *wsAddr = nullptr;
-    int64_t wsSize = kmodule->GetWorkspaceSize(kbinary, tensors);
-    if (wsSize) {
-        auto pyalloc = py::getattr(module, "alloc");
-        wsAddr = (int64_t *)pyalloc(wsSize).cast<int64_t>();
-    }
-    HOST_PERF_TRACE(TracePhase::LaunchAllocWorkSpace);
-
-    bool isCaptureMode = DeviceLauncher::AddAicpuStream(aicoreStream, kmodule->IsTripleStream());
-    HOST_PERF_TRACE(TracePhase::LaunchAttachStream);
-    
-    uint8_t *ctrlFlowCache = kmodule->FindCtrlFlowCache(kbinary, module, args, tensors, isCaptureMode);
-    HOST_PERF_TRACE(TracePhase::FindCtrlFlowCache);
-    
-    kmodule->Launch(kbinary, isCaptureMode, aicoreStream, tensors, ctrlFlowCache, wsAddr);
-    HOST_PERF_TRACE(TracePhase::Launch);
-    HOST_PERF_EVT_END(EventPhase::LaunchKernel);
+    DoLaunch(module, aicoreStream, kmodule, kbinary, tensors);
 }
 #else
 void LaunchKernel(py::object &, int64_t, py::args &) { }
+void LaunchKernelTorch(py::object &module, int64_t stream, py::sequence &tensors,
+                       py::sequence &tensor_defs) {
+    throw std::runtime_error("LaunchKernelTorch requires BUILD_WITH_CANN (NPU)");
+}
 class KernelModule {
 public:
     KernelModule(py::object &) { }
@@ -806,6 +937,7 @@ void BindRuntime(py::module &m) {
     m.def("CopyToHost", &CopyToHost);
     m.def("CopyToDev", &CopyToDev);
     m.def("LaunchKernel", &LaunchKernel);
+    m.def("LaunchKernelTorch", &LaunchKernelTorch);
 
     py::class_<DeviceTensorData>(m, "DeviceTensorData")
         .def(py::init<DataType, uintptr_t, const std::vector<int64_t> &>(), py::arg("dtype"), py::arg("addr"),
