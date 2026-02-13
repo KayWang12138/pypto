@@ -3388,7 +3388,8 @@ std::vector<OriArgInfo> Function::GetOpOriginArgsInfo() {
         OriArgInfo info{reinterpret_cast<uint64_t>(GetParamAddress(subscript)), incast->MemorySize(),
             incast->GetCachePolicy(CachePolicy::PREFETCH)};
         if (args.count(subscript) > 0) {
-            ASSERT(args.at(subscript) == info);
+            ASSERT(args.at(subscript) == info)
+                << "args.at(subscript): " << args.at(subscript).Dump() << ", info: " << info.Dump();
         } else {
             args.emplace(subscript, info);
         }
@@ -3402,7 +3403,8 @@ std::vector<OriArgInfo> Function::GetOpOriginArgsInfo() {
         OriArgInfo info{reinterpret_cast<uint64_t>(GetParamAddress(subscript)), outcast->MemorySize(),
             outcast->GetCachePolicy(CachePolicy::PREFETCH)};
         if (args.count(subscript) > 0) {
-            ASSERT(args.at(subscript) == info);
+            ASSERT(args.at(subscript) == info)
+                << "args.at(subscript): " << args.at(subscript).Dump() << ", info: " << info.Dump();;
         } else {
             args.emplace(subscript, info);
         }
@@ -3675,7 +3677,7 @@ std::shared_ptr<LogicalTensor> Function::ConnectWithOverlap(std::shared_ptr<Logi
         default: ASSERT(false) << "unexpected behavior";
     }
 
-    ASSERT(false);
+    ASSERT(false) << "unexpected behavior";
     return nullptr;
 }
 
