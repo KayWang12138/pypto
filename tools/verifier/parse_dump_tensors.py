@@ -76,6 +76,37 @@ class VerifyRes:
         self.verify_codegen_op_info_list = None
         self.verify_tensorgraph_op_info_list = None
         self.verify_path = ""
+
+    @staticmethod
+    def _compare_codegen_tensors(tensor_infos, tensor_infos_new):
+
+        for i, tensor_info in enumerate(tensor_infos_new):
+            dump_tshape = tensor_info.get("shape")
+            verify_tensor_info = tensor_info["verify_dup_tensor"]
+            verify_tshape = tensor_info["valid_shape"]
+            tensor_infos[i]["verify_tensor_file"] = tensor_info["verify_dup_tensor"]
+            
+            if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape):
+                dtype = _get_data_type(tensor_info["dataType"])[1]
+                
+                verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
+                verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
+                
+                data = np.fromfile(tensor_info["bin_file"], dtype)
+                data = data.reshape(dump_tshape)
+                
+                slices = []
+                for dim in range(data.ndim):
+                    stop = min(verify_tshape[dim], dump_tshape[dim])
+                    slices.append(slice(0, stop))
+                
+                tensor_infos[i]["cmp_res"] = np.allclose(
+                    data[tuple(slices)], 
+                    verify_tensor_data[tuple(slices)], 
+                    1e-3, 1e-3
+                )
+            else:
+                tensor_infos[i]["cmp_res"] = "NO_CMP"
     
     def read_verify_result(self, verify_path):
         self.verify_path = verify_path
@@ -134,37 +165,6 @@ class VerifyRes:
         tensor_info["verify_dup_tensor"] = verify_dup_tensor
         tensor_info["valid_shape"], tensor_info["loop_info"] = valid_shape, loop_info
 
-    @staticmethod
-    def _compare_codegen_tensors(tensor_infos, tensor_infos_new):
-
-        for i, tensor_info in enumerate(tensor_infos_new):
-            dump_tshape = tensor_info.get("shape")
-            verify_tensor_info = tensor_info["verify_dup_tensor"]
-            verify_tshape = tensor_info["valid_shape"]
-            tensor_infos[i]["verify_tensor_file"] = tensor_info["verify_dup_tensor"]
-            
-            if os.path.exists(verify_tensor_info) and len(verify_tshape) == len(dump_tshape):
-                dtype = _get_data_type(tensor_info["dataType"])[1]
-                
-                verify_tensor_data = np.fromfile(verify_tensor_info, dtype)
-                verify_tensor_data = verify_tensor_data.reshape(verify_tshape)
-                
-                data = np.fromfile(tensor_info["bin_file"], dtype)
-                data = data.reshape(dump_tshape)
-                
-                slices = []
-                for dim in range(data.ndim):
-                    stop = min(verify_tshape[dim], dump_tshape[dim])
-                    slices.append(slice(0, stop))
-                
-                tensor_infos[i]["cmp_res"] = np.allclose(
-                    data[tuple(slices)], 
-                    verify_tensor_data[tuple(slices)], 
-                    1e-3, 1e-3
-                )
-            else:
-                tensor_infos[i]["cmp_res"] = "NO_CMP"
-
     def get_verify_codegen_res(self, tensor_infos):
         if self.verify_codegen_op_info_list is None:
             logging.info("verify codegen op info is None.")
@@ -198,7 +198,6 @@ class VerifyRes:
             return tensor_infos
 
         self._compare_codegen_tensors(tensor_infos, tensor_infos_new)
-
         return tensor_infos
 
     def get_verify_tensor_graph_res(self, tensor_info):
