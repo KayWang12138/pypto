@@ -110,14 +110,11 @@ void TiledBinaryOperation(Function &function, const TileShape &tileShape, size_t
             std::vector<int64_t> tmpShape;
             auto tileShapeSize = input1.tileInfo.shape.size();
             if (tileShapeSize >= 2) {
-                tmpShape = {
-                    std::max(input1.tileInfo.shape[tileShapeSize - 2], input2.tileInfo.shape[tileShapeSize - 2]),
-                    std::max(input1.tileInfo.shape[tileShapeSize - 1], input2.tileInfo.shape[tileShapeSize - 1])};
+                tmpShape = {resultTileInfo.shape[tileShapeSize - 2], resultTileInfo.shape[tileShapeSize - 1]};
             } else {
-                tmpShape = {
-                    std::max(input1.tileInfo.shape[tileShapeSize - 1], input2.tileInfo.shape[tileShapeSize - 1])};
+                tmpShape = {resultTileInfo.shape[tileShapeSize - 1]};
             }
-            auto alignSize = BLOCK_SIZE / BytesOf(input1.tensor->Datatype());
+            auto alignSize = BLOCK_SIZE / BytesOf(DataType::DT_FP32);
             tmpShape[tmpShape.size() - 1] = (tmpShape[tmpShape.size() - 1] + alignSize - 1) / alignSize * alignSize;
             int64_t tmpSize = 1;
             for (int64_t num : tmpShape) {
