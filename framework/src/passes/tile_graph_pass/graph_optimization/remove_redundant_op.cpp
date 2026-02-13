@@ -368,10 +368,6 @@ void RemoveRedundantOp::GenerateNewView(Function &function, Operation &op, Logic
             assembleConsumer->iOperand = {newViewTensor};
             newViewTensor->AddConsumer(assembleConsumer);
         }
-        for (auto &assembleProducer : endTensor->GetProducers()) {
-            assembleProducer->oOperand = {newViewTensor};
-            newViewTensor->AddProducer(assembleProducer);
-        }
         endTensor->GetConsumers().clear();
         function.GetTensorMap().Erase(endTensor);
     }
