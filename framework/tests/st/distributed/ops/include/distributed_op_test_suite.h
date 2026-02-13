@@ -26,19 +26,23 @@ struct OpTestParam {
     int rankId;
 };
 
-template <typename T>
-void TestMoeDistributedCombine(OpTestParam& testParam, std::string& goldenDir);
-void TestAllGatherAttentionPostReducescatter(OpTestParam& testParam, std::string& goldenDir);
-template <typename T>
-void TestAllGather(OpTestParam& testParam, std::string& goldenDir);
-template <typename T>
-void TestReduceScatter(OpTestParam& testParam, std::string& goldenDir);
-template <typename T>
-void TestAllReduce(OpTestParam& testParam, std::string& goldenDir);
-template <typename T>
-void TestShmemMoeDispatch(OpTestParam& testParam, std::string& goldenDir);
-template <typename T>
-void TestAllReduceAddAllReduce(OpTestParam& testParam, std::string& goldenDir);
+template<typename T>
+void TestMoeDistributedCombine(OpTestParam &testParam, std::string& goldenDir);
+void TestAllGatherAttentionPostReducescatter(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
+void TestAllGather(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
+void TestReduceScatter(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
+void TestAllReduce(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
+void TestAllReduce_v2(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
+void TestAllReduce_v3(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
+void TestShmemMoeDispatch(OpTestParam &testParam, std::string& goldenDir);
+template<typename T>
+void TestAllReduceAddAllReduce(OpTestParam &testParam, std::string& goldenDir);
 } // namespace Distributed
 } // namespace npu::tile_fwk
 
