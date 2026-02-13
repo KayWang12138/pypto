@@ -17,7 +17,6 @@
 
 #include "cost_model/simulation/base/ModelTop.h"
 #include "cost_model/simulation/arch/PipeFactory.h"
-#include "tilefwk/tilefwk_log.h"
 
 namespace CostModel {
 CacheMachine::CacheMachine(CacheType type, std::string aType)
@@ -126,7 +125,6 @@ void CacheMachine::ReceivePacket()
     dataRequestQueue.Dequeue(packet);
     auto addr = packet.addr;
     auto curCycle = GetSim()->GetCycles();
-    SIMULATION_LOGI("[Cycle: %llu][Cache: %llu][RecvReq] Packet %s", curCycle, machineId, packet.Dump().c_str());
     packet.cycleInfo.cacheRecvCycle = curCycle;
     if (packet.requestType == CacheRequestType::DATA_READ_REQ) {
         stats->totalReadNum++;
@@ -155,7 +153,6 @@ void CacheMachine::ProcessMSHR()
             // We are ready.
             for (const auto &req : mshr.inflyMisses) {
                 uint64_t cycle = curCycle + config.l2HitLatency;
-                SIMULATION_LOGI("[Cycle: %llu][Cache][PushRespQ] packet: %s, %llu", curCycle, req.Dump().c_str(), cycle);
                 responseQueue.emplace_back(req, cycle);
             }
             iter = misses.erase(iter);
@@ -172,7 +169,6 @@ void CacheMachine::ProcessResp()
     while (!responseQueue.empty() && responseQueue.front().second <= curCycle) {
         // We have a response to send.
         auto &req = responseQueue.front().first;
-        SIMULATION_LOGI("[Cycle: %llu][Cache][finish] packet: %s", curCycle, req.Dump().c_str());
         auto machine = GetSim()->pidToMachineMp.at(req.pid);
         req.cycleInfo.cacheRespCycle = GetSim()->GetCycles();
         stats->totalResponseLatency += (req.cycleInfo.cacheRespCycle - req.cycleInfo.cacheRecvCycle);

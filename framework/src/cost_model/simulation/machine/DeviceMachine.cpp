@@ -201,7 +201,6 @@ void DeviceMachine::InitFunctions()
         BuildSubtasksFromRootFuncTopo();
         return;
     }
-    ASSERT(false) << "[SIMULATION]: Unexpected init functions mode.";
 }
 
 void DeviceMachine::BuildLeafFunctionTasks() {

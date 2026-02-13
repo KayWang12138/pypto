@@ -721,7 +721,7 @@ void CoreMachine::AnalysisDeadlock(std::set<int> &unissuedTileMagics)
     for (auto &readyQ : readyQueues) {
         if (!readyQ.Empty()) {
             int front = readyQ.Front();
-            SIMULATION_LOGW("[AnalysisDeadlock] ReadyQ[%s] size: %zu, front: ", CorePipeName(readyQ.iqType), readyQ.readyQueue.size(), tiles[front]->Dump().c_str());
+            SIMULATION_LOGW("[AnalysisDeadlock] ReadyQ[%s] size: %zu, front: %s", CorePipeName(readyQ.iqType).c_str(), readyQ.readyQueue.size(), tiles[front]->Dump().c_str());
         }
     }
     SIMULATION_LOGW("[Cycle: %llu][CoreMachine][AnalysisDeadlock] ERROR: DEADLOCK!!! [MachineID: %llu]", GetSim()->GetCycles(), machineId);
