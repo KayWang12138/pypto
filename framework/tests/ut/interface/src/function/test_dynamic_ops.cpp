@@ -683,7 +683,7 @@ TEST_F(DynamicOpsTest, MatmulFP32FP32) {
 TEST_F(DynamicOpsTest, MatMulPertensor) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     Tensor t0(DT_INT8, {128, 256}, "t0");
-    Tensor t1(DT_INT8, {256, 128}, "t1");
+    Tensor t1(DT_INT8, {128, 256}, "t1");
     Tensor out(DT_FP16, {128, 128}, "out");
 
     auto d0 = RawTensorData::CreateConstantTensor<int8_t>(t0, 1);
@@ -696,18 +696,19 @@ TEST_F(DynamicOpsTest, MatMulPertensor) {
     uint32_t scaleValueTmp = 0;
     memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
     calc::MatMul(golden, logicTensor0, logicTensor1,
-        {false, false, 0, scaleValueTmp, 1, nullptr, nullptr});
+        {false, true, 0, scaleValueTmp, 1, nullptr, nullptr});
 
     ProgramData::GetInstance().PrepareData({logicTensor0->GetData(), logicTensor1->GetData()},
         {out0->GetData()}, {golden->GetData()});
 
+    TileShape::Current().SetCubeTile({64, 64}, {64, 64}, {64, 64}, true, false);
     FUNCTION("main", {t0, t1}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
             Matrix::MatmulExtendParam pm;
             pm.scaleValue = scaleValueTmp;
             pm.reluType = Matrix::ReLuType::ReLu;
-            out = Matrix::Matmul(DT_FP16, t0, t1, pm, false, false, false);
+            out = Matrix::Matmul(DT_FP16, t0, t1, pm, false, true, false);
         }
     }
 }
@@ -775,32 +776,45 @@ TEST_F(DynamicOpsTest, MatMulBias) {
     }
 }
 
-TEST_F(DynamicOpsTest, MatMulL0CToL1) {
+TEST_F(DynamicOpsTest, MatMulL0CToL1Fixpipe) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
-    Tensor t0(DT_FP16, {64, 64}, "t0");
-    Tensor t1(DT_FP16, {64, 64}, "t1");
+    Tensor t0(DT_INT8, {64, 64}, "t0");
+    Tensor t1(DT_INT8, {64, 64}, "t1");
     Tensor l0c2L1Tensor(DT_FP16, {64, 64}, "l0c2L1");
+    Tensor scaleTensor(DT_UINT64, {1, 64}, "scale");
     Tensor out(DT_FP16, {64, 64}, "out");
 
-    auto d0 = Random(DT_FP16, t0.GetShape());
-    auto d1 = Random(DT_FP16, t1.GetShape());
+    auto d0 = RawTensorData::CreateConstantTensor<int8_t>(t0, 1);
+    auto logicTensor0 = LogicalTensorData::Create(*d0);
+    auto d1 = RawTensorData::CreateConstantTensor<int8_t>(t1, 1);
+    auto logicTensor1 = LogicalTensorData::Create(*d1);
     auto l0c2L1Data = Random(DT_FP16, l0c2L1Tensor.GetShape());
     auto out0 = Random(DT_FP16, out.GetShape());
     auto golden = Random(DT_FP16, out.GetShape());
-    calc::MatMul(golden, d0, d1);
+    float scaleValue = 2.0;
+    uint32_t scaleValueTmp = 0;
+    memcpy_s(&scaleValueTmp, sizeof(scaleValueTmp), &scaleValue, sizeof(scaleValue));
+    auto scaleTensorRaw =
+        RawTensorData::CreateConstantTensor<uint64_t>(scaleTensor, scaleValueTmp);
+    auto logicScale = LogicalTensorData::Create(*scaleTensorRaw);
+    calc::MatMul(golden, logicTensor0, logicTensor1,
+        {false, false, 0, 0, 0, logicScale, nullptr});
     calc::MatMul(golden, golden, l0c2L1Data);
 
-    ProgramData::GetInstance().PrepareData({d0->GetData(), d1->GetData(),
-        l0c2L1Data->GetData()}, {out0->GetData()}, {golden->GetData()});
+    ProgramData::GetInstance().PrepareData({logicTensor0->GetData(), logicTensor1->GetData(),
+        l0c2L1Data->GetData(), logicScale->GetData()}, {out0->GetData()}, {golden->GetData()});
 
-    FUNCTION("main", {t0, t1, l0c2L1Tensor}, {out}) {
+    FUNCTION("main", {t0, t1, l0c2L1Tensor, scaleTensor}, {out}) {
         LOOP("L0", FunctionType::DYNAMIC_LOOP, i, LoopRange(1)) {
             (void)i;
-            Tensor tensorTmp = Matrix::Matmul(DT_FP16, t0, t1, false, false);
+            Matrix::MatmulExtendParam pm;
+            pm.scaleTensor = scaleTensor;
+            Tensor tensorTmp = Matrix::Matmul(DT_FP16, t0, t1, pm, false, false, false);
             out = Matrix::Matmul(DT_FP16, tensorTmp, l0c2L1Tensor, false, false);
         }
     }
 }
+
 TEST_F(DynamicOpsTest, Round) {
     config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
     config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
