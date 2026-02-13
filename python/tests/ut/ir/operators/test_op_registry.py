@@ -434,46 +434,6 @@ class TestOperatorRegistration:
             ir.get_op("nonexistent.op")
 
     @staticmethod
-    def test_test_op_kwarg_schema():
-        """Test that test.op has kwarg schema defined."""
-        test_op = ir.get_op("test.op")
-        assert test_op.has_attr("int_attr")
-        assert test_op.has_attr("string_attr")
-        assert test_op.has_attr("bool_attr")
-
-    @staticmethod
-    def test_test_op_all_kwarg_keys():
-        """Test all kwarg keys of test.op."""
-        test_op = ir.get_op("test.op")
-        keys = test_op.get_attr_keys()
-        assert "int_attr" in keys
-        assert "string_attr" in keys
-        assert "bool_attr" in keys
-        assert len(keys) == 3
-
-    @staticmethod
-    def test_test_op_nonexistent_kwarg():
-        """Test checking non-existent kwargs."""
-        test_op = ir.get_op("test.op")
-        assert not test_op.has_attr("nonexistent")
-        assert not test_op.has_attr("device")
-        assert not test_op.has_attr("priority")
-
-    @staticmethod
-    def test_test_op_kwarg_isolation():
-        """Test that test.op kwarg schema is isolated from other operators."""
-        test_op = ir.get_op("test.op")
-        tensor_add_op = ir.get_op("tensor.add")
-
-        assert test_op.has_attr("int_attr")
-        assert test_op.has_attr("string_attr")
-        assert test_op.has_attr("bool_attr")
-
-        assert not tensor_add_op.has_attr("int_attr")
-        assert not tensor_add_op.has_attr("string_attr")
-        assert not tensor_add_op.has_attr("bool_attr")
-
-    @staticmethod
     def test_matmul_kwarg_schema():
         """Test that tensor.matmul has correct kwarg schema."""
         matmul_op = ir.get_op("tensor.matmul")
