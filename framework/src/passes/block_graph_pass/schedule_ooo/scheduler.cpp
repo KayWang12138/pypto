@@ -862,7 +862,7 @@ Status OoOScheduler::InitBufRefCount() {
         for (auto &tensor : issue->tileOp.GetIOperands()) {
             UpdateBufRefCount(issue, tensor);
             int memId = tensor->memoryrange.memId;
-            if (InitLocalBuffer(tensor, memId) != SUCCESS) {
+            if (InitLocalBuffer(tensor, memId) == FAILED) {
                 APASS_LOG_ERROR_F(Elements::Operation, "InitLocalBuffer failed at InitBufRefCount!");
  	            return FAILED;
             }
@@ -870,7 +870,7 @@ Status OoOScheduler::InitBufRefCount() {
         for (auto &tensor : issue->tileOp.GetOOperands()) {
             UpdateBufRefCount(issue, tensor);
             int memId = tensor->memoryrange.memId;
-            if (InitLocalBuffer(tensor, memId) != SUCCESS) {
+            if (InitLocalBuffer(tensor, memId) == FAILED) {
                 APASS_LOG_ERROR_F(Elements::Operation, "InitLocalBuffer failed at InitBufRefCount!");
  	            return FAILED;
             }
