@@ -199,6 +199,7 @@ Tensor Maximum(const Tensor &operand1, const Element &operand2);
 Tensor Compare(const Tensor &self, const Tensor &other, OpType op, OutType mode);
 Tensor Compare(const Tensor &self, const Element &other, OpType op, OutType mode);
 Tensor Compare(const Element &self, const Tensor &other, OpType op, OutType mode);
+Tensor Pow(const Tensor &self, const Tensor &other);
 Tensor Pow(const Tensor &self, const Element &other);
 Tensor CopySign(const Tensor &self, const Tensor &other);
 
@@ -416,8 +417,10 @@ struct MoeConfig {
     int32_t expertNumPerRank{0};
     int32_t rankNum{0};
 };
-
-void MoeDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
+void MoeDistributedDispatchV2(const Tensor& x, const Tensor& expertIds, const char* group,
+    uint32_t epWorldSize, uint32_t moeExpertNum, uint32_t sharedExpertNum, uint32_t sharedExpertRankNum, Tensor& expandX,
+    Tensor& assistInfoForCombine, Tensor& expertTokenNums, Tensor& recvCounts);
+void MoeDistributedDispatch(const Tensor& tokenTensor, const Tensor& tokenExpertTable, Tensor& expandX, Tensor& validCnt,
     Tensor& combineInfo, const char *group, const MoeConfig& moeConfig);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, uint32_t worldSize, Tensor& out);
 void AllGather(const Tensor& predToken, const Tensor& in, const char* group, Tensor& shmemData,
