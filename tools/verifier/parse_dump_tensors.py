@@ -135,7 +135,7 @@ class VerifyRes:
         tensor_info["valid_shape"], tensor_info["loop_info"] = valid_shape, loop_info
 
     def get_verify_codegen_res(self, tensor_infos):
-        if not self.verify_codegen_op_info_list:
+        if self.verify_codegen_op_info_list is None:
             logging.info("verify codegen op info is None.")
             return tensor_infos
         callop_magic = tensor_infos[0].get("callopMagic")   # callop
