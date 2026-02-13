@@ -17,8 +17,6 @@
 
 #include "aicore_manager.h"
 
-uint16_t running_task_id;
-
 namespace npu::tile_fwk {
 void SdmaPrefetch(DeviceTask *devTask) {
     if (devTask == nullptr || devTask->l2Info.prefetchNum == 0) {
@@ -88,8 +86,6 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
     DEV_ERROR("[TraCR] TraCR active[%d,%ld]? %d", threadIdx, syscall(SYS_gettid), INSTRUMENTATION_ACTIVE);
     if (threadIdx == 1) {
         INSTRUMENTATION_START("/tmp/");
-
-        running_task_id = INSTRUMENTATION_MARK_ADD(MARK_COLOR_GREEN, "Running a Task");
     } else {
         while ((INSTRUMENTATION_IS_PROC_READY() == false) && (INSTRUMENTATION_ACTIVE)) {}
 
@@ -120,8 +116,24 @@ int AiCoreManager::Run(int threadIdx, DeviceArgs *deviceArgs, DeviceTaskCtrl *ta
         procAicCoreFunctionCnt_, procAivCoreFunctionCnt_);
 
     /* TraCR Instrumentation */
-    if (threadIdx == 1) {
 
+#ifdef ENABLE_TRACR
+    // Copy the tracr payloads on the shared memory space
+    TraCR::Payload* tracrData_ = reinterpret_cast<TraCR::Payload*>(deviceArgs->tracrData);
+    size_t* tracrDataSizes_ = reinterpret_cast<size_t*>(deviceArgs->tracrDataSizes);
+
+    if (tracrThread->_traceIdx > 0) {
+        std::memcpy(
+            &tracrData_[threadIdx * TraCR::CAPACITY],
+            tracrThread->_traces.data(),
+            tracrThread->_traceIdx * sizeof(TraCR::Payload)
+        );
+    }
+        
+    tracrDataSizes_[threadIdx] = tracrThread->_traceIdx;
+#endif
+
+    if (threadIdx == 1) {
         while ((INSTRUMENTATION_NUM_TRACR_THREADS() != 1) && (INSTRUMENTATION_ACTIVE)) {}
 
         INSTRUMENTATION_END();
@@ -328,7 +340,7 @@ void AiCoreManager::SendTaskToAiCore(CoreType type, int coreIdx, uint64_t newTas
     pendingIds_[coreIdx] = newTask;
     sendCnt_[static_cast<int>(type)]++;
 
-    INSTRUMENTATION_MARK_SET(coreIdx, running_task_id, (uint32_t)newTask);
+    INSTRUMENTATION_MARK_SET(coreIdx, 1, (uint32_t)newTask);
 
     DEV_DEBUG("Send task %lu, at core %d ,type:%d \n", newTask, coreIdx, static_cast<int>(type));
 }

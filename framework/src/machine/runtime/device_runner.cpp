@@ -19,7 +19,12 @@
 #include <cstdlib>
 #include <mutex>
 #include <limits.h>
+#include <filesystem>       // For storing the TraCR data
+#include <fstream>          // For storing the TraCR data
+#include <tracr/tracr.hpp>
+
 #include "securec.h"
+#include "machine/device/aicore_manager.h"
 #include "machine/runtime/runtime.h"
 #include "machine/runtime/device_launcher.h"
 #include "machine/runtime/load_aicpu_op.h"
@@ -63,6 +68,25 @@ extern "C"{
     __attribute__((weak)) int dlog_getlevel(int32_t moduled, int32_t *enableEvent);
 }
 namespace npu::tile_fwk {
+
+/**
+ * A function for defining the path of the TraCR traces in home
+ */
+std::filesystem::path expand_user_path(const std::string& path)
+{
+    if (!path.empty() && path[0] == '~') {
+        const char* home = std::getenv("HOME");
+        if (!home)
+            throw std::runtime_error("HOME not set");
+
+        std::string sub = path.substr(1); // remove ~
+        if (!sub.empty() && sub[0] == '/')
+            sub = sub.substr(1); // remove leading slash
+
+        return std::filesystem::path(home) / sub;
+    }
+    return std::filesystem::path(path);
+}
 
 namespace {
 
@@ -147,6 +171,8 @@ void DeviceRunner::InitMetaData(DeviceArgs &devArgs) {
     devArgs.nrAiv = args_.nrAiv;
     devArgs.corePmuRegAddr = args_.corePmuRegAddr;
     devArgs.corePmuAddr = args_.corePmuAddr;
+    devArgs.tracrData = args_.tracrData;
+    devArgs.tracrDataSizes = args_.tracrDataSizes;
     devArgs.taskWastTime = args_.taskWastTime;
     devArgs.pmuEventAddr = args_.pmuEventAddr;
     if (config::GetDebugOption<int64_t>(CFG_RUNTIME_DBEUG_MODE) == CFG_DEBUG_ALL) {
@@ -173,6 +199,24 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     args.coreRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuRegAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * sizeof(uint64_t)));
     args.corePmuAddr = reinterpret_cast<uint64_t>(DevAlloc(nrCore * PMU_BUFFER_SIZE));
+    size_t size;
+#ifdef ENABLE_TRACR
+    size = sizeof(TraCR::Payload) * MAX_STATIC_SCHEDULE_AICPU_NUM * TraCR::CAPACITY;
+    args.tracrData = reinterpret_cast<uint64_t>(DevAlloc(size));
+
+    int rc = rtMemset(reinterpret_cast<void *>(args.tracrData), size, 0, size);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMemset sync failed");
+        return -1;
+    }
+
+    size = MAX_STATIC_SCHEDULE_AICPU_NUM * sizeof(size_t);
+    args.tracrDataSizes = reinterpret_cast<uint64_t>(DevAlloc(size));
+
+    if (args.tracrData == 0 || args.tracrDataSizes == 0) {
+        return -1;
+    }
+#endif
     args.taskWastTime = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(sizeof(uint64_t))));
     size_t shmSize = sizeof(dynamic::RuntimeDataRingBufferHead) + dynamic::DEVICE_SHM_SIZE + dynamic::DEVICE_TASK_QUEUE_SIZE * aicpuNum_;
     uint64_t shmAddr = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(DevAlloc(shmSize)));
@@ -183,7 +227,7 @@ int DeviceRunner::InitDeviceArgsCore(DeviceArgs &args, const std::vector<int64_t
     if (args.sharedBuffer == 0 || args.coreRegAddr == 0 || args.corePmuAddr == 0 || args.corePmuRegAddr == 0) {
         return -1;
     }
-    size_t size = nrCore * sizeof(uint64_t);
+    size = nrCore * sizeof(uint64_t);
     rtMemcpy(reinterpret_cast<void *>(args.coreRegAddr), size, regs.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
     rtMemcpy(reinterpret_cast<void *>(args.corePmuRegAddr), size, regsPmu.data(), size, RT_MEMCPY_HOST_TO_DEVICE);
     size = pmuEvtType_.size() * sizeof(int64_t);
@@ -277,6 +321,101 @@ int DeviceRunner::Run(rtStream_t aicpuStream, rtStream_t aicoreStream, int64_t t
             ALOG_ERROR_F("AdxDataDumpServerUnInit is failed %d \n", rc);
         }
     }
+
+    // load TraCR payloads
+#ifdef ENABLE_TRACR
+    TraCR::Payload* tracrData;
+    size_t size = sizeof(TraCR::Payload) * MAX_STATIC_SCHEDULE_AICPU_NUM * TraCR::CAPACITY;
+    rc = rtMallocHost(reinterpret_cast<void **>(&tracrData), size, 0);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMallocHost failed");
+    }
+
+    rc = rtMemcpy(reinterpret_cast<void *>(tracrData), size,
+                      reinterpret_cast<void *>(args_.tracrData),
+                      size, RT_MEMCPY_DEVICE_TO_HOST);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMemcpy failed");
+    }
+
+    size_t* tracrDataSizes;
+    size = sizeof(size_t) * MAX_STATIC_SCHEDULE_AICPU_NUM;
+    rc = rtMallocHost(reinterpret_cast<void **>(&tracrDataSizes), size, 0);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMallocHost failed");
+    }
+
+    rc = rtMemcpy(reinterpret_cast<void *>(tracrDataSizes), size,
+                      reinterpret_cast<void *>(args_.tracrDataSizes),
+                      size, RT_MEMCPY_DEVICE_TO_HOST);
+    if (rc != 0) {
+        ALOG_INFO_F("rtMemcpy failed");
+    }
+
+    // (For debugging) TraCR Payload is of size 16 bytes. This is convenient for debugging printing
+    for(uint32_t i = 0; i < MAX_STATIC_SCHEDULE_AICPU_NUM; ++i) {
+        TraCR::Payload t = tracrData[i*TraCR::CAPACITY];
+
+        printf("[TraCR] %u payload: %lu, %u, %u, %u, %lu\n", i, tracrDataSizes[i], t.channelId, t.eventId, t.extraId, t.timestamp);
+    }
+
+    // Now, storing the traces into /~/ascend/tracr/
+    static_assert(std::is_trivially_copyable_v<TraCR::Payload>,
+              "TraCR::Payload must be trivially copyable for raw binary dump");
+
+    std::filesystem::path base_dir = expand_user_path("~/ascend/tracr/proc.1");
+
+    std::filesystem::create_directories(base_dir);
+
+    for (uint32_t t = 0; t < MAX_STATIC_SCHEDULE_AICPU_NUM; ++t) {
+
+        size_t num_traces = tracrDataSizes[t];
+        if (num_traces == 0)
+            continue;
+
+        if (num_traces > TraCR::CAPACITY) {
+            ALOG_INFO_F("Thread %u exceeds CAPACITY", t);
+            return -1;
+        }
+
+        std::filesystem::path thread_dir =
+            base_dir / ("thread." + std::to_string(t + 1));
+
+        std::filesystem::create_directories(thread_dir);
+
+        std::filesystem::path file_path = thread_dir / "traces.bts";
+
+        std::ofstream out(file_path, std::ios::binary);
+        if (!out) {
+            ALOG_INFO_F("Cannot open %s", file_path);
+            return -1;
+        }
+
+        const TraCR::Payload* thread_ptr =
+            tracrData + t * TraCR::CAPACITY;
+
+        out.write(
+            reinterpret_cast<const char*>(thread_ptr),
+            num_traces * sizeof(TraCR::Payload)
+        );
+
+        if (!out) {
+            ALOG_INFO_F("Write failed for %s", file_path);
+            return -1;
+        }
+    }
+
+
+    rc = rtFreeHost(reinterpret_cast<void *>(tracrData));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFreeHost sync failed");
+    }
+    rc = rtFreeHost(reinterpret_cast<void *>(tracrDataSizes));
+    if (rc != 0) {
+        ALOG_INFO_F("rtFreeHost sync failed");
+    }
+#endif
+
     uint64_t taskWastTime = GetTasksTime();
     ALOG_INFO_F("task wast time %lu\n", taskWastTime);
     return rc;

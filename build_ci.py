@@ -305,11 +305,11 @@ class BuildParam(CMakeParam):
         cmd += self._cfg_require(opt="BUILD_TRACR", ctr=self.tracr)
 
         if self.tracr_policy == "ignore_if_full":
-            if self.tracr:
+            if not self.tracr:
                 raise RuntimeError("TraCR policy requires tracr to be enabled.")
             cmd += " -DTRACR_POLICY=TRACR_POLICY_STOP_IF_FULL"
         elif self.tracr_policy == "periodic":
-            if self.tracr:
+            if not self.tracr:
                 raise RuntimeError("TraCR policy requires tracr to be enabled.")
             cmd += " -DTRACR_POLICY=TRACR_POLICY_PERIODIC"
 

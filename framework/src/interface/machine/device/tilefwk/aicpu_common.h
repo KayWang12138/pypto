@@ -175,6 +175,8 @@ struct DeviceArgs {
     uint64_t GetBlockNum() { return nrValidAic * (nrAiv / nrAic + 1); }
     ArchInfo archInfo{ArchInfo::DAV_2201};
     ToSubMachineConfig toSubMachineConfig;
+    uint64_t tracrData;              // TraCR Data handler to pass back to the host
+    uint64_t tracrDataSizes;         // A list of all the different sizes of payloads of each TraCR threads
 };
 
 #define TO_ENTRY_IMPL(name, line, key, type) (name##line##key##type)
