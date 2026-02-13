@@ -44,10 +44,10 @@ void ExecuteOpAMulB(ExecuteOperationContext *ctx) {
             }
         }
     }
-    MatMulParam param = {transA, transB, kStep, scale, relu, scalePtr};
+    MatMulParam param = {transA, transB, kStep, scale, relu, scalePtr, bias};
     switch (ctx->op->GetOpcode()) {
         case Opcode::OP_A_MUL_B: {
-            calc::MatMul(ret, lhs, rhs, bias, param);
+            calc::MatMul(ret, lhs, rhs, param);
         } break;
         case Opcode::OP_A_MULACC_B: {
             auto acc = ctx->ioperandDataViewList->at(2);

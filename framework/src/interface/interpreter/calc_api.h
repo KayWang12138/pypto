@@ -28,6 +28,7 @@ struct MatMulParam {
     uint64_t scale = 0;
     int relu = 0;
     LogicalTensorDataPtr scalePtr = nullptr;
+    LogicalTensorDataPtr biasPtr = nullptr;
 };
 
 enum class CmpOperationType {
@@ -133,7 +134,7 @@ struct CalcOps {
     void (*FormatND2NZ)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*FormatNZ2ND)(LogicalTensorDataPtr, LogicalTensorDataPtr);
     void (*QuantPreCompute)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, uint64_t, int);
-    void (*MatMul)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, MatMulParam &);
+    void (*MatMul)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, MatMulParam &);
 
     void (*BitSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, int64_t, bool, int64_t);
     void (*TiledMrgSort)(LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, LogicalTensorDataPtr, int, int);

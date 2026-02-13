@@ -356,16 +356,16 @@ inline void FormatND2NZ(LogicalTensorDataPtr out, LogicalTensorDataPtr self) {
 }
 
 inline void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, 
-    LogicalTensorDataPtr bias = nullptr, MatMulParam param = {false, false, 0, 0, 0, nullptr}) {
+    MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr}) {
     CalcOps *ops = GetCalcOps();
     ASSERT(ops != nullptr);
-    ops->MatMul(out, self, other, bias, nullptr, param);
+    ops->MatMul(out, self, other, nullptr, param);
 }
 
 inline void AccMatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
-    LogicalTensorDataPtr acc = nullptr, MatMulParam param = {false, false, 0, 0, 0, nullptr}) {
+    LogicalTensorDataPtr acc = nullptr, MatMulParam param = {false, false, 0, 0, 0, nullptr, nullptr}) {
     CalcOps *ops = GetCalcOps();
     ASSERT(ops != nullptr);
-    ops->MatMul(out, self, other, nullptr, acc, param);
+    ops->MatMul(out, self, other, acc, param);
 }
 } // namespace npu::tile_fwk::calc

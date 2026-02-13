@@ -847,7 +847,7 @@ static void QuantPreCompute(LogicalTensorDataPtr out, LogicalTensorDataPtr self,
     ToOperand(tout.second, tout.first, out->GetData()->GetDataType());
 }
 
-static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other, LogicalTensorDataPtr bias, 
+static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalTensorDataPtr other,
     LogicalTensorDataPtr acc, MatMulParam &param) {
     auto tout = From(out);
     auto dtype = tout.second.scalar_type();
@@ -860,8 +860,8 @@ static void MatMul(LogicalTensorDataPtr out, LogicalTensorDataPtr self, LogicalT
     auto tself = From(self);
     auto tother = From(other);
     std::pair<torch::Tensor, torch::Tensor> bias_tensor;
-    if (bias != nullptr) {
-        bias_tensor = From(bias);
+    if (param.biasPtr != nullptr) {
+        bias_tensor = From(param.biasPtr);
     }
     if (acc) {
         tout.second.copy_(From(acc).second);
