@@ -237,6 +237,9 @@ uint64_t AiCoreManager::TryBatchSendTask(CoreType type, StaticReadyCoreFunctionQ
 
     // DEV_ERROR("AiCpud:%d Popping - coreIdxStart: %d - coreIdxEnd: %d >>\n", aicpuIdx_, coreIdxStart, coreIdxEnd);
 
+    const auto taskQueueIdx = availableTaskQueue_->pop();
+    if (taskQueueIdx != aicoreNullTask) DEV_ERROR("AICPU %d - Popping Task: %u", aicpuIdx_, taskQueueIdx);
+
     const auto taskSet = readyQue->pop(taskList, readyCoreCount);
     uint64_t* taskSetAddress = taskSet.first;
     uint64_t taskSetCount = taskSet.second;
@@ -372,6 +375,12 @@ void AiCoreManager::BatchPushReadyQueue() {
         }
         DEV_DEBUG("resolved new task, aiv ready count: %lu coretype:%u\n", readyCount[aivIndex], aivIndex);
         if (readyCount[aivIndex] > 0) {
+            for (size_t i = 0; i < readyCount[aivIndex]; i++)
+            {
+              const auto taskId = (uint32_t)(readyIds[aivIndex][i]);
+              DEV_ERROR("AICPU %d - Pushing Task: %u", aicpuIdx_, taskId);  
+              availableTaskQueue_->push(taskId);
+            } 
             readyAivCoreFunctionQue_->push(readyIds[aivIndex], readyCount[aivIndex]);
             // readyAivCoreFunctionQue_->push_no_lock(readyIds[aivIndex], readyCount[aivIndex]);
         }
@@ -389,6 +398,12 @@ void AiCoreManager::BatchPushReadyQueue() {
     if (readyIdsExtend[aivIndex].size() > 0) {
         DEV_DEBUG("resolved new task, extend aiv ready count: %lu, coretype:%u\n", readyIdsExtend[aivIndex].size(),
             aivIndex);
+        for (size_t i = 0; i < readyIdsExtend[aivIndex].size(); i++)
+        {
+            const auto taskId = (uint32_t)(readyIdsExtend[aivIndex].data()[i]);
+            DEV_ERROR("AICPU %d - Pushing Task: %u", aicpuIdx_, taskId);  
+            availableTaskQueue_->push(taskId);
+        } 
         readyAivCoreFunctionQue_->push(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
         // readyAivCoreFunctionQue_->push_no_lock(readyIdsExtend[aivIndex].data(), readyIdsExtend[aivIndex].size());
         readyIdsExtend[aivIndex].clear();
