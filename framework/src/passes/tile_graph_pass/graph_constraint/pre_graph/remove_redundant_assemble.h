@@ -36,9 +36,11 @@ public:
 
 private:
     void UpdateReshapeShape(Operation &reshapeOp, const Shape &newRawShape) const;
-    Status DuplicateReshape(Function &function) const;
-    Status ProcessReshape(Function &function, Operation *&operation) const;
-    Status RemoveViewMultiReshape(Function &function) const;
+    Status DuplicateReshape(
+        Function &function, std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
+    Status ProcessReshape(Function &function, Operation *&operation,
+        std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
+    Status RemoveViewMultiReshape(std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const;
     Status RemoveViewSingleReshape(Function &function) const;
 };
 } // namespace npu::tile_fwk
