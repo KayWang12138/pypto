@@ -21,7 +21,10 @@
 namespace npu::tile_fwk {
 constexpr int MAX_IDENT_LEVEL = 20;
 const std::unordered_set<std::string> copyOpCode = {"COPY_IN", "COPY_OUT", "L1_TO_L0A",
-    "L1_TO_L0B", "L1_TO_L0_AT", "L1_TO_L0_BT", "TRANSPOSE_MOVEIN", "TRANSPOSE_MOVEOUT", "INDEX_OUTCAST"};
+    "L1_TO_L0B", "L1_TO_L0At", "FIX_COPY_IN_QUANT_PRE", "L1_TO_L0Bt", "L0C_COPY_L1", "L1_TO_BT",
+    "TRANSPOSE_MOVEIN", "TRANSPOSE_MOVEOUT", "INDEX_OUTCAST"};
+const std::unordered_set<std::string> convertOpCode = {
+ 	"L0C_COPY_UB", "CONVERT", "UB_COPY_ND2NZ", "UB_COPY_L1_ND", "UB_COPY_L1"};
 
 static std::string HtmlEscape(const std::string &src, bool escapeLineBreak = true) {
     std::string ret;
@@ -290,16 +293,18 @@ void FunctionInterpreter::FillOperationBasicInfo(Operation *op, FunctionFrame *f
 void FunctionInterpreter::FillOperationOffsetInfo(Operation *op, FunctionFrame *frame,
                                                   const std::vector<SymbolicScalar> &linearArgList,
                                                   std::vector<std::string> &opInfo) {
-    auto opAttr = std::static_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
-    if (opAttr) {
-        if (copyOpCode.count(op->GetOpcodeStr())) {
-            auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
-            auto offset = copyAttr->IsCopyOut() ? copyAttr->GetToOffset() : copyAttr->GetFromOffset();
-            auto offsetView = operationInterpreter->EvaluateOpImmediate(frame, offset);
-            opInfo[toIndex(OpInfoCsvHeader::offset)] = ShapeToString(offsetView);
-        } else {
-            Offset offsetView = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset(), linearArgList);
-            opInfo[toIndex(OpInfoCsvHeader::offset)] = ShapeToString(offsetView);
+    if (!convertOpCode.count(op->GetOpcodeStr())) {
+        auto opAttr = std::static_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
+        if (opAttr) {
+            if (copyOpCode.count(op->GetOpcodeStr())) {
+                auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+                auto offset = copyAttr->IsCopyOut() ? copyAttr->GetToOffset() : copyAttr->GetFromOffset();
+                auto offsetView = operationInterpreter->EvaluateOpImmediate(frame, offset);
+                opInfo[toIndex(OpInfoCsvHeader::offset)] = ShapeToString(offsetView);
+            } else {
+                Offset offsetView = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset(), linearArgList);
+                opInfo[toIndex(OpInfoCsvHeader::offset)] = ShapeToString(offsetView);
+            }
         }
     }
 }
