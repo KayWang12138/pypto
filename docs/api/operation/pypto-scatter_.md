@@ -60,7 +60,11 @@ scatter_(input: Tensor, dim: int, index: Tensor, src: Union[float, Element, Tens
 
 5. src为Tensor，dim为尾轴，reduce为None，且当index每行数据内存在不唯一索引时，行为是不确定的，将从src中任意选择一个值
 
-## TileShape设置示例
+## 调用示例
+
+### TileShape设置示例
+
+调用该operation接口前，应通过set_vec_tile_shapes设置TileShape。
 
 TileShape维度应和输出一致。
 
@@ -70,7 +74,7 @@ TileShape维度应和输出一致。
 pypto.set_vec_tile_shapes(m1, t1, p1)
 ```
 
-## 调用示例
+### 接口调用示例
 
 -   将2维 input 根据2维index更新对应索引的值
 
