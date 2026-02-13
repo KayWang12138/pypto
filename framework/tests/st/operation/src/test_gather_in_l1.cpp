@@ -255,66 +255,12 @@ class GatherInL1Test : public npu::tile_fwk::stest::TestSuite_STest_Ops_Aihac {
 };
 
 template<typename Config>
-void BasicGatherTest(Config &cfg, bool isB, bool isTrans, bool verify) {
-    if (verify) {
-        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
-        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
-    }
-    auto TotalSize = [](const Shape &shapes) {
-        size_t res = 1;
-        for (auto v : shapes) {
-            res *= v;
-        }
-        return res;
-    };
-
-    Shape srcShapes{cfg.num_buffer_tokens, cfg.hidden_dim}; // 网络中，kvcache对应的内存
-    Shape offsetsShapes{1, cfg.topk_count};                 // topk的结果
-    Shape pageTableShapes{1, cfg.num_logical_blocks};       // page attention 对应的页表
-    Shape dstShapes{cfg.topk_count, cfg.hidden_dim};        // 结果，将topk个数据拿出来
-    Shape unitShape;
-    if (isTrans) {
-        std::swap(dstShapes[0], dstShapes[1]);
-    }
-    if (!isB) {
-        if (!isTrans) {
-            unitShape = Shape{cfg.hidden_dim, cfg.hidden_dim}; // dst * unit
-        } else {
-            unitShape = Shape{cfg.topk_count, cfg.topk_count}; // dstT * unit
-        }
-    } else {
-        if (!isTrans) {
-            unitShape = Shape{cfg.topk_count, cfg.topk_count}; // unit * dst
-        } else {
-            unitShape = Shape{cfg.hidden_dim, cfg.hidden_dim}; // unit * dstT
-        }
-    }
-
-    Tensor src(DT_FP16, srcShapes, "src");
-    Tensor unit(DT_FP16, unitShape, "unit");
-    Tensor offsets(DT_INT32, offsetsShapes, "offsets");
-    Tensor pageTable(DT_INT32, pageTableShapes, "pageTable");
-    Tensor dst(DT_FP16, dstShapes, "dst");
-    Tensor golden(DT_FP16, dstShapes, "golden");
-
-    std::string err;
-    if (!validate_config<Config>(cfg, err)) {
-        std::cerr << "配置非法: " << err << "\n";
-        return ;
-    }
-    auto srcData = make_buffer<Config>(cfg);
-    auto offsetsData = make_topk_indices<Config>(cfg, /*seed=*/123);
-    auto pageTableData = make_page_table<Config>(cfg, /*seed=*/42);
-    std::vector<float16> unitData(TotalSize(unit.GetShape()));
-    ASSERT(unit.GetShape()[0] == unit.GetShape()[1]);
-    for (int64_t i=0; i < unit.GetShape()[0]; i++) {
-        unitData[i * unit.GetShape()[1] + i] = 1;
-    }
-    // 4. 用 pageattention 逻辑做 gather，生成 golden 结果
-    std::vector<typename Config::DataType> goldenData;
-    gather_golden<Config>(offsetsData, pageTableData, srcData, cfg, goldenData, isTrans);
-    std::cout << "simu finished" << std::endl;
-
+void ProgramSetting(Tensor &src, std::vector<typename Config::DataType> &srcData,
+    Tensor &offsets, std::vector<typename Config::IndexType> &offsetsData,
+    Tensor &unit, std::vector<float16> &unitData,
+    Tensor &pageTable, std::vector<typename Config::IndexType> &pageTableData,
+    Tensor &dst, Tensor golden, std::vector<typename Config::DataType> &goldenData,
+    bool verify) {
     ProgramData::GetInstance().AppendInputs({
         RawTensorData::CreateTensor<float16>(src, srcData),
         RawTensorData::CreateTensor<int32_t>(offsets, offsetsData),
@@ -329,7 +275,12 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans, bool verify) {
             RawTensorData::CreateTensor<float16>(golden, goldenData),
         });
     }
+}
 
+template<typename Config>
+void GatherInL1Function(const Tensor &src, const Tensor &offsets, const Tensor &unit,
+    const Tensor &pageTable, Tensor &dst, std::vector<typename Config::DataType> goldenData,
+    Config &cfg, bool isB, bool isTrans){
     FUNCTION("test", {src, offsets, unit, pageTable}, {dst}) {
         LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1)) {
             (void)sIdx;
@@ -337,10 +288,8 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans, bool verify) {
 
             std::vector<SymbolicScalar> srcValidShape = {src.GetShape()[0], src.GetShape()[1]};
             Tensor dynSrc = View(src, src.GetShape(), srcValidShape, {0, 0});
-
             std::vector<SymbolicScalar> offsetsValidShape = {offsets.GetShape()[0], offsets.GetShape()[1]};
             Tensor dynOffsets = View(offsets, offsets.GetShape(), offsetsValidShape, {0, 0});
-
             std::vector<SymbolicScalar> unitValidShape = {unit.GetShape()[0], unit.GetShape()[1]};
             Tensor dynUnit = View(unit, unit.GetShape(), unitValidShape, {0, 0});
 
@@ -379,6 +328,78 @@ void BasicGatherTest(Config &cfg, bool isB, bool isTrans, bool verify) {
         }
     }
     EXPECT_TRUE(resultCmp(goldenData, (float16 *)out->data(), eps));
+}
+
+template<typename Config>
+void GatherInL1Execute(const Shape &srcShapes, const Shape &offsetsShapes, const Shape &pageTableShapes,
+    const Shape &dstShapes, const Shape &unitShape, bool verify, Config &cfg, bool isB, bool isTrans) {
+    auto TotalSize = [](const Shape &shapes) {
+        size_t res = 1;
+        for (auto v : shapes) {
+            res *= v;
+        }
+        return res;
+    };
+    Tensor src(DT_FP16, srcShapes, "src");
+    Tensor unit(DT_FP16, unitShape, "unit");
+    Tensor offsets(DT_INT32, offsetsShapes, "offsets");
+    Tensor pageTable(DT_INT32, pageTableShapes, "pageTable");
+    Tensor dst(DT_FP16, dstShapes, "dst");
+    Tensor golden(DT_FP16, dstShapes, "golden");
+
+    std::string err;
+    if (!validate_config<Config>(cfg, err)) {
+        std::cerr << "配置非法: " << err << "\n";
+        return ;
+    }
+    auto srcData = make_buffer<Config>(cfg);
+    auto offsetsData = make_topk_indices<Config>(cfg, /*seed=*/123);
+    auto pageTableData = make_page_table<Config>(cfg, /*seed=*/42);
+    std::vector<float16> unitData(TotalSize(unit.GetShape()));
+    ASSERT(unit.GetShape()[0] == unit.GetShape()[1]);
+    for (int64_t i=0; i < unit.GetShape()[0]; i++) {
+        unitData[i * unit.GetShape()[1] + i] = 1;
+    }
+    // 4. 用 pageattention 逻辑做 gather，生成 golden 结果
+    std::vector<typename Config::DataType> goldenData;
+    gather_golden<Config>(offsetsData, pageTableData, srcData, cfg, goldenData, isTrans);
+    std::cout << "simu finished" << std::endl;
+    ProgramSetting<Config>(src, srcData, offsets, offsetsData, unit, unitData,
+        pageTable, pageTableData, dst, golden, goldenData, verify);
+    GatherInL1Function<Config>(src, offsets, unit, pageTable, dst, goldenData, cfg, isB, isTrans);
+}
+
+template<typename Config>
+void BasicGatherTest(Config &cfg, bool isB, bool isTrans, bool verify) {
+    if (verify) {
+        config::SetVerifyOption(KEY_ENABLE_PASS_VERIFY, true);
+        config::SetVerifyOption(KEY_PASS_VERIFY_SAVE_TENSOR, true);
+    }
+
+    Shape srcShapes{cfg.num_buffer_tokens, cfg.hidden_dim}; // 网络中，kvcache对应的内存
+    Shape offsetsShapes{1, cfg.topk_count};                 // topk的结果
+    Shape pageTableShapes{1, cfg.num_logical_blocks};       // page attention 对应的页表
+    Shape dstShapes{cfg.topk_count, cfg.hidden_dim};        // 结果，将topk个数据拿出来
+    Shape unitShape;
+    if (isTrans) {
+        std::swap(dstShapes[0], dstShapes[1]);
+    }
+    if (!isB) {
+        if (!isTrans) {
+            unitShape = Shape{cfg.hidden_dim, cfg.hidden_dim}; // dst * unit
+        } else {
+            unitShape = Shape{cfg.topk_count, cfg.topk_count}; // dstT * unit
+        }
+    } else {
+        if (!isTrans) {
+            unitShape = Shape{cfg.topk_count, cfg.topk_count}; // unit * dst
+        } else {
+            unitShape = Shape{cfg.hidden_dim, cfg.hidden_dim}; // unit * dstT
+        }
+    }
+
+    GatherInL1Execute(srcShapes, offsetsShapes, pageTableShapes, dstShapes, unitShape,
+        verify, cfg, isB, isTrans);
 }
 
 TEST_F(GatherInL1Test, gather_in_a) {
