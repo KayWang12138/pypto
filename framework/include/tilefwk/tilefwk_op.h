@@ -217,6 +217,8 @@ Tensor Where(const Tensor &condition, const Tensor &input, const Element &other)
 Tensor Where(const Tensor &condition, const Element &input, const Tensor &other);
 Tensor Where(const Tensor &condition, const Element &input, const Element &other);
 
+Tensor LReLU(const Tensor &self, const Element &negative_slope);
+
 Tensor Unsqueeze(const Tensor &old, int unsqueezeDimNum);
 
 Tensor TensorIndex(const Tensor &params, const Tensor &indices);
