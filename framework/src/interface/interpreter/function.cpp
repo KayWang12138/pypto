@@ -293,19 +293,18 @@ void FunctionInterpreter::FillOperationBasicInfo(Operation *op, FunctionFrame *f
 void FunctionInterpreter::FillOperationOffsetInfo(Operation *op, FunctionFrame *frame,
                                                   const std::vector<SymbolicScalar> &linearArgList,
                                                   std::vector<std::string> &opInfo) {
-    if (convertOpCode.count(op->GetOpcodeStr())) {
- 	    return;
- 	}
-    auto opAttr = std::static_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
-    if (opAttr) {
-        if (copyOpCode.count(op->GetOpcodeStr())) {
-            auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
-            auto offset = copyAttr->IsCopyOut() ? copyAttr->GetToOffset() : copyAttr->GetFromOffset();
-            auto offsetView = operationInterpreter->EvaluateOpImmediate(frame, offset);
-            opInfo[toIndex(OpInfoCsvHeader::offset)] = ShapeToString(offsetView);
-        } else {
-            Offset offsetView = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset(), linearArgList);
-            opInfo[toIndex(OpInfoCsvHeader::offset)] = ShapeToString(offsetView);
+    if (!convertOpCode.count(op->GetOpcodeStr())) {
+        auto opAttr = std::static_pointer_cast<ViewOpAttribute>(op->GetOpAttribute());
+        if (opAttr) {
+            if (copyOpCode.count(op->GetOpcodeStr())) {
+                auto copyAttr = std::static_pointer_cast<CopyOpAttribute>(op->GetOpAttribute());
+                auto offset = copyAttr->IsCopyOut() ? copyAttr->GetToOffset() : copyAttr->GetFromOffset();
+                auto offsetView = operationInterpreter->EvaluateOpImmediate(frame, offset);
+                opInfo[toIndex(OpInfoCsvHeader::offset)] = ShapeToString(offsetView);
+            } else {
+                Offset offsetView = EvaluateOffset(opAttr->GetFromOffset(), opAttr->GetFromDynOffset(), linearArgList);
+                opInfo[toIndex(OpInfoCsvHeader::offset)] = ShapeToString(offsetView);
+            }
         }
     }
 }
