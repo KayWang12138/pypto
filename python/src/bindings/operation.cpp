@@ -221,6 +221,8 @@ void bind_operation(py::module &m) {
             return npu::tile_fwk::Gather(params, indices, axis);
         },
         "Tensor gather.");
+    m.def("GatherMask", [](const Tensor &self, patternMode axis) { return npu::tile_fwk::GatherMask(self, patternMode); },
+        "Tensor gather Mask.");
     m.def("Duplicate", [](const Tensor &operand) { return npu::tile_fwk::Duplicate(operand); }, "Tensor duplicate.");
     m.def(
         "Full",
