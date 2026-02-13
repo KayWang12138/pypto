@@ -19,6 +19,7 @@
 #include "interface/tileop/distributed/hccl_context.h"
 #include "interface/utils/common.h"
 #include "runtime.h"
+#include "tilefwk/tilefwk_log.h"
 #ifdef BUILD_WITH_CANN
 #include "hcom.h"
 extern "C" HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* mc2Tiling, void** commContext);
@@ -135,7 +136,7 @@ std::vector<uint64_t> DistributedContext::GetHcclContext(const std::vector<std::
         ret = HcclAllocComResourceByTiling(commHandle, machine::GetRA()->GetStream(), &(tilingStruct->Mc2CommConfig_),
             reinterpret_cast<void **>(&hcclContext[groupIndex]));
         ASSERT((ret == 0) && (hcclContext[groupIndex] != 0UL));
-        ALOG_INFO_F("groupIndex=%u, groupName=%s, hcclContext=%lu", groupIndex, groupName.c_str(),
+        MACHINE_LOGI("groupIndex=%u, groupName=%s, hcclContext=%lu", groupIndex, groupName.c_str(),
             hcclContext[groupIndex]);
         g_context[groupName] = hcclContext[groupIndex];
     }
