@@ -733,7 +733,7 @@ TEST_F(DynamicOpsTest, MatMulPerchannel) {
         RawTensorData::CreateConstantTensor<uint64_t>(scaleTensor, scaleValueTmp);
     auto logicScale = LogicalTensorData::Create(*scaleTensorRaw);
     calc::MatMul(golden, logicTensor0, logicTensor1,
-        {false, false, 0, 0, 0, logicScale, nullptr});
+        {false, true, 0, 0, 0, logicScale, nullptr});
 
     ProgramData::GetInstance().PrepareData({logicTensor0->GetData(), logicTensor1->GetData(),
         logicScale->GetData()}, {out0->GetData()}, {golden->GetData()});
@@ -743,7 +743,7 @@ TEST_F(DynamicOpsTest, MatMulPerchannel) {
             (void)i;
             Matrix::MatmulExtendParam pm;
             pm.scaleTensor = scaleTensor;
-            out = Matrix::Matmul(DT_FP16, t0, t1, pm, false, false, false);
+            out = Matrix::Matmul(DT_FP16, t0, t1, pm, false, true, false);
         }
     }
 }
@@ -811,6 +811,39 @@ TEST_F(DynamicOpsTest, MatMulL0CToL1Fixpipe) {
             pm.scaleTensor = scaleTensor;
             Tensor tensorTmp = Matrix::Matmul(DT_FP16, t0, t1, pm, false, false, false);
             out = Matrix::Matmul(DT_FP16, tensorTmp, l0c2L1Tensor, false, false);
+        }
+    }
+}
+
+TEST_F(DynamicOpsTest, GatherInL1) {
+    Tensor param(DT_FP16, {4, 16}, "t0");
+    Tensor indices(DT_INT32, {1, 4}, "t1");
+    Tensor pageTable(DT_INT32, {1, 2}, "t1");
+    Tensor out(DT_FP16, {4, 16}, "t1");
+ 	 
+    auto paramData = Random(DT_FP16, param.GetShape());
+    auto indicesRaw = RawTensorData::CreateTensor<int32_t>(indices, {0, 1, 1, 0});
+    auto indicesData = LogicalTensorData::Create(*indicesRaw);
+    auto pageTableRaw = RawTensorData::CreateTensor<int32_t>(pageTable, {0, 1});
+    auto pageTableData = LogicalTensorData::Create(*pageTableRaw);
+    auto out0 = Random(DT_FP16, out.GetShape());
+    auto golden = Random(DT_FP16, out.GetShape());
+    int64_t blockSize = 2;
+    int hidden_dim = 16;
+ 	calc::GatherInL1(golden, paramData, indicesData, pageTableData, blockSize);
+    ProgramData::GetInstance().PrepareData({paramData->GetData(), indicesData->GetData(),
+        pageTableData->GetData()}, {out0->GetData()}, {golden->GetData()});
+
+    FUNCTION("test", {param, indices, pageTable}, {out}) {
+        LOOP("LOOP", FunctionType::DYNAMIC_LOOP, sIdx, LoopRange(0, 1, 1)) {
+            (void)sIdx;
+            TileShape::Current().SetCubeTile({32, 32}, {64, 64}, {128, 128});
+
+            std::vector<SymbolicScalar> srcValidShape = {param.GetShape()[0], param.GetShape()[1]};
+            Tensor dynSrc = View(param, param.GetShape(), srcValidShape, {0, 0});
+            std::vector<SymbolicScalar> offsetsValidShape = {indices.GetShape()[0], indices.GetShape()[1]};
+            Tensor dynOffsets = View(indices, indices.GetShape(), offsetsValidShape, {0, 0});
+            out = experimental::GatherInL1<false, false>(dynSrc, dynOffsets, pageTable, blockSize, hidden_dim);
         }
     }
 }
