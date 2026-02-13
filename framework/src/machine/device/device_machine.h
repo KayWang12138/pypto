@@ -37,7 +37,7 @@ public:
     }
 
     void init(DeviceArgs *args) {
-        DEV_INFO("device machine init .\n");
+        DEV_INFO("device machine init.\n");
         if (args->devQueueAddr != 0) {
             serverMode_ = true;
         }
@@ -119,14 +119,14 @@ public:
         if (args->nrAic == 0) {
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_ERROR;
         }
-        DEV_INFO("thread  %d start .\n", threadIdx);
+        DEV_INFO("thread %d start.\n", threadIdx);
         if (threadIdx >= npu::tile_fwk::dynamic::START_AICPU_NUM) {
-            DEV_INFO("thread start ignore \n");
+            DEV_INFO("thread start ignore\n");
             return npu::tile_fwk::dynamic::DEVICE_MACHINE_OK;
         }
 
         ret = aicoreManager_[threadIdx]->Run(threadIdx, args, initTaskCtrl);
-        DEV_INFO("thread  %d end , ret = %d \n", threadIdx, ret);
+        DEV_INFO("thread %d end, ret = %d \n", threadIdx, ret);
         return ret;
     }
 

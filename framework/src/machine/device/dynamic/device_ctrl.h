@@ -136,7 +136,7 @@ public:
         DevControlFlowCache* devCtrlFlowCache = nullptr;
         devCtrlFlowCache = &devProg->controlFlowCache;
         if (devProg->controlFlowCache.isRecording) {
-            DEV_INFO("Init dev program cache");
+            DEV_INFO("Init dev program cache.");
             devProg->controlFlowCache.contextWorkspaceAddr = devStartArgs->contextWorkspaceAddr;
         } else if (ctrlFlowCache != nullptr) {
             DEV_INFO("Init independent anchor program cache %p.", ctrlFlowCache);
@@ -149,19 +149,19 @@ public:
             }
             devCtrlFlowCache = ctrlFlowCache;
             if (devCtrlFlowCache->isActivated && !devCtrlFlowCache->isRelocMetaDev) {
-                DEV_INFO("ControlFlowCache: reloc meta cache");
+                DEV_INFO("ControlFlowCache: reloc meta cache.");
                 devCtrlFlowCache->isRelocMetaDev = true;
                 devCtrlFlowCache->RelocMetaCache(0, reinterpret_cast<uint64_t>(devCtrlFlowCache));
             }
         }
 
-        DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d\n", (int)devCtrlFlowCache->deviceTaskCount, (int)firstInit);
+        DEV_INFO("ControlFlowCache: deviceTask:%d firstInit:%d.\n", (int)devCtrlFlowCache->deviceTaskCount, (int)firstInit);
 
         /* Currently, sche does not use ctrlFlowCacheAnchor, so that we could record it in devProgram.
          * However, it should be moved into the execute context. */
         devProg->ctrlFlowCacheAnchor = devCtrlFlowCache;
         if (devCtrlFlowCache->deviceTaskCount == 0) {
-            DEV_INFO("ControlFlowCache: cache have no devtask , ignore it");
+            DEV_INFO("ControlFlowCache: cache have no devtask, ignore it");
             return;
         }
 
@@ -269,7 +269,7 @@ public:
     }
 
     int ExecDyn(npu::tile_fwk::DeviceKernelArgs *args) {
-        DEV_INFO("start control flow.");
+        DEV_INFO("Start control flow.");
         auto devProg = PtrToPtr<int64_t, DevAscendProgram>(args->cfgdata);
         auto devStartArgs = (DevStartArgs *)devProg->GetRuntimeDataList()->GetRuntimeDataPending();
 
@@ -291,11 +291,11 @@ public:
         if (ret != DEVICE_MACHINE_OK) {
             return ret;
         }
-        DEV_INFO("end control flow.");
+        DEV_INFO("End control flow.");
         PerfBegin(PERF_EVT_STAGE_STOP_AICORE);
         StopAicoreManager();
         PerfEnd(PERF_EVT_STAGE_STOP_AICORE);
-        DEV_INFO("aicore manager stopped");
+        DEV_INFO("aicore manager stopped.");
         PerfEnd(PERF_EVT_EXEC_DYN);
 #if ENABLE_PERF_EVT
         ctx.ShowStats();

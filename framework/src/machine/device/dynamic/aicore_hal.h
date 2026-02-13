@@ -347,7 +347,7 @@ public:
     Metrics* GetMetrics(int coreIdx) {
         volatile KernelArgs *arg = reinterpret_cast<KernelArgs *>(sharedBuffer_ + coreIdx * SHARED_BUFFER_SIZE);
         volatile Metrics*  metric = reinterpret_cast<Metrics *>(arg->shakeBuffer[SHAK_BUF_DFX_DATA_INDEX]);
-        DEV_INFO("aicore %d host alloc metric memory :%p.", coreIdx, metric);
+        DEV_INFO("aicore %d host alloc metric memory:%p.", coreIdx, metric);
         if (metric == nullptr) {
             DEV_ERROR("aicore %d Null metric.", coreIdx);
            return nullptr;

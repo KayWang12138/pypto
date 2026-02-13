@@ -170,7 +170,7 @@ struct DumpTensorData {
         datasize = info->dataByte;
         for (uint32_t i = 0; i < info->dims; i++) {
             DEV_INFO(
-                "Tensor infor is not null shape[%u]: %d, stride[%u] : %d.", i, info->shape[i], i, info->stride[i]);
+                "Tensor infor is not null shape[%u]: %d, stride[%u]: %d.", i, info->shape[i], i, info->stride[i]);
             datasize *= info->shape[i];
             dumpTensorInfo.shape[i] = info->shape[i];
             dumpTensorInfo.stride[i] = info->stride[i];
