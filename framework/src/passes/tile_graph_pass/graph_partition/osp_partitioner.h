@@ -15,6 +15,7 @@
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/compact_sparse_graph.hpp"
 #include "passes/algorithms/osp/graph_implementations/adj_list_impl/computational_dag_vector_impl.hpp"
 #include "passes/algorithms/osp/bsp/model/BspInstance.hpp"
+#include "passes/pass_utils/graph_utils.h"
 
 #include "tilefwk/platform.h"
 #include "supernode_graph_builder.h"
@@ -71,7 +72,7 @@ class OspPartitioner : public SuperNodeGraphBuilder {
 
     // Init
     Status BuildSuperNodeGraph() override;
-    
+
     // Construction of OSP instance
     Status ConstructDagCVSplit(GraphType &graph);
     Status ConstructDagCVMix(GraphType &graph);
@@ -82,9 +83,9 @@ class OspPartitioner : public SuperNodeGraphBuilder {
 
     // Construction Helpers
     void SetVertexCommMemWeight(GraphType &graph, int32_t vertex);
-    inline VTypeType GetOspCoreTypeSplit(OpCoreType coreType) { return ospCoreTypeMapSplit.at(coreType);}
-    inline VTypeType GetOspCoreTypeMix(OpCoreType coreType) { return ospCoreTypeMapMix.at(coreType);}
-    
+    inline VTypeType GetOspCoreTypeSplit(OpCoreType coreType) { return ospCoreTypeMapSplit.at(coreType); }
+    inline VTypeType GetOspCoreTypeMix(OpCoreType coreType) { return ospCoreTypeMapMix.at(coreType); }
+
     // Run OSP Partition
     Status RunOspPartition(Function &function);
     Status UpdatePartitionResult(Function &function, std::vector<VertType> &vertexContractionMap);
@@ -92,7 +93,7 @@ class OspPartitioner : public SuperNodeGraphBuilder {
     // Algorithms
     Status RunSarkar(const GraphType &graph, CoarseGraphType &coarseGraph, std::vector<VertType> &vertexContractionMap);
     Status RunMerkleBsp(const osp::BspInstance<GraphType> &bspInst, std::vector<VertType> &vertexContractionMap);
-    
+
     // Helpers
     uint64_t CombineHash(const uint64_t h1, const uint64_t h2) const override ;
     uint64_t CombineNeighborHashes(uint64_t baseHash, const std::vector<int32_t> &neighbors,
@@ -101,7 +102,8 @@ class OspPartitioner : public SuperNodeGraphBuilder {
     Status BuildHashValues() override;
 
 public:    
-    OspPartitioner(OspMode mode) : ospMode_(mode) {};
+    OspPartitioner(OspMode mode) : ospMode_(mode) { useCVMixPartition_ = GraphUtils::IsCVMixPlatform(); };
+    OspPartitioner(OspMode mode, bool useCVMixPartition) : ospMode_(mode) { useCVMixPartition_ =  useCVMixPartition; };
     ~OspPartitioner() = default;
 
     Status SetParameter(const Function &function);

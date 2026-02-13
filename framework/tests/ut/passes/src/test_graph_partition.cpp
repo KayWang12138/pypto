@@ -428,9 +428,7 @@ TEST_F(GraphPartitionTest, TestCVGraph) {
 }
 
 TEST_F(GraphPartitionTest, TestOspCVGraph) {
-    const std::vector<std::string> partitionAlgs = {"Iso", "OspSarkar", "OspBsp"};
-
-    for (const auto &partitionAlg : partitionAlgs) {
+    for (const auto partitionAlg : {"Iso", "OspSarkar", "OspBsp"}) {
         ComputationalGraphBuilder G;
         const int brNum = 4;
         GetCubeVectorGraph(G, brNum);
@@ -468,6 +466,27 @@ TEST_F(GraphPartitionTest, TestOspCVGraph) {
             }
         }
         EXPECT_EQ(subgraphIDs2IsCube.size(), subGraphNum);
+    }
+}
+
+TEST_F(GraphPartitionTest, TestMixCVGraph) {
+    for (const auto mode : {OspMode::SARKAR, OspMode::MERKLEBSP}) {
+        ComputationalGraphBuilder G;
+        const int brNum = 4;
+        GetCubeVectorGraph(G, brNum);
+        Function *function = G.GetFunction();
+
+        for (const bool cvMix : {true, false}) {
+            OspPartitioner partitioner(mode, cvMix);
+            EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+            const int subGraphNum = function->GetTotalSubGraphCount();
+            for (auto &opPair : G.operations_) {
+                Operation *op = opPair.second;
+                EXPECT_NE(op, nullptr);
+                EXPECT_EQ(op->GetSubgraphID() >= 0 && op->GetSubgraphID() < subGraphNum, true);
+            }
+        }
     }
 }
 
