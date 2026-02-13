@@ -66,17 +66,18 @@ _load_shared_libs()
 from . import experimental
 from . import pypto_impl
 from . import ir
+# Import frontend after all other imports to avoid circular imports
 from . import frontend
 
-from .config import *
-from ._controller import *
-from .converter import from_torch
-from .enum import *
-from .op import *
-from .operation import *
-from .operator import *
-from .pass_config import *
-from .cost_model import *
+from .config import *  # noqa
+from ._controller import *  # noqa
+from .converter import from_torch  # noqa
+from .enum import *  # noqa
+from .op import *  # noqa
+from .operation import *  # noqa
+from .operator import *  # noqa
+from .pass_config import *  # noqa
+from .cost_model import *  # noqa
 from ._utils import ceildiv, bytes_of
 from .runtime import jit, verify, set_verify_golden_data, RunMode
 from .symbolic_scalar import SymbolicScalar
