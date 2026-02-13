@@ -81,5 +81,107 @@ template void TestAllReduce<int32_t>(OpTestParam &testParam, std::string &golden
 template void TestAllReduce<float>(OpTestParam &testParam, std::string &goldenDir);
 template void TestAllReduce<float16>(OpTestParam &testParam, std::string& goldenDir);
 template void TestAllReduce<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
+
+// ---------------------------------------------------------------------------
+// v2 / v3 system tests — same golden data as OneShotAllReduce (identical IR)
+// ---------------------------------------------------------------------------
+template<typename T>
+void TestAllReduce_v2(OpTestParam &testParam, std::string &goldenDir)
+{
+    constexpr size_t paramsSize = 6;
+    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
+    (void)useTwoShot; // v2 is always one-shot
+    DataType dType = GetDataTypeNum(typeNum);
+
+    int32_t outSize = row * col;
+
+    Shape shape{row, col};
+    Tensor in(dType, shape, "in");
+    Tensor out(dType, shape, "out");
+
+    std::vector<T> inPtr = ReadToVector<T>(
+        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inPtr),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensorZero(out),
+    });
+    Shape shmemDataShape{1, row, col};
+    FUNCTION("ALLREDUCE_V2", {in}, {out}) {
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        }
+        OneShotAllReduce_v2(in, in, testParam.group, shmemData, shmemSignal, out);
+    }
+    RunTest();
+    auto output = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
+}
+
+template void TestAllReduce_v2<int32_t>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllReduce_v2<float>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllReduce_v2<float16>(OpTestParam &testParam, std::string& goldenDir);
+template void TestAllReduce_v2<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
+
+template<typename T>
+void TestAllReduce_v3(OpTestParam &testParam, std::string &goldenDir)
+{
+    constexpr size_t paramsSize = 6;
+    auto [row, col, typeNum, tileRow, tileCol, useTwoShot] = GetParams<paramsSize>(goldenDir + "/params.bin");
+    (void)useTwoShot; // v3 is always one-shot
+    DataType dType = GetDataTypeNum(typeNum);
+
+    int32_t outSize = row * col;
+
+    Shape shape{row, col};
+    Tensor in(dType, shape, "in");
+    Tensor out(dType, shape, "out");
+
+    std::vector<T> inPtr = ReadToVector<T>(
+        goldenDir + "/input_rank_" + std::to_string(testParam.rankId) + ".bin", {row, col});
+
+    ProgramData::GetInstance().AppendInputs({
+        RawTensorData::CreateTensor<T>(in, inPtr),
+    });
+    ProgramData::GetInstance().AppendOutputs({
+        RawTensorData::CreateTensorZero(out),
+    });
+    Shape shmemDataShape{1, row, col};
+    FUNCTION("ALLREDUCE_V3", {in}, {out}) {
+        TileShape::Current().SetVecTile({tileRow, tileCol});
+        Tensor shmemData;
+        Tensor shmemSignal;
+        DataType shmemDataType = in.GetDataType();
+        if ((shmemDataType == DT_BF16) || (shmemDataType == DT_FP16)) {
+            shmemDataType = DT_FP32;
+        }
+        LOOP("CreateShmemTensor", FunctionType::DYNAMIC_LOOP, index, LoopRange(1)) {
+            (void)index;
+            CreateShmemData(testParam.group, testParam.rankSize, shmemDataType, shmemDataShape, shmemData);
+            CreateShmemSignal(testParam.group, shmemData, shmemSignal);
+        }
+        OneShotAllReduce_v3(in, in, testParam.group, shmemData, shmemSignal, out);
+    }
+    RunTest();
+    auto output = ProgramData::GetInstance().GetOutputData(0);
+    EXPECT_TRUE(CompareWithGolden<uint8_t*>(dType, goldenDir + "/output_rank_", outSize, output->GetDevPtr(), testParam));
+}
+
+template void TestAllReduce_v3<int32_t>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllReduce_v3<float>(OpTestParam &testParam, std::string &goldenDir);
+template void TestAllReduce_v3<float16>(OpTestParam &testParam, std::string& goldenDir);
+template void TestAllReduce_v3<bfloat16>(OpTestParam &testParam, std::string& goldenDir);
+
 } // namespace Distributed 
 } // namespace npu::tile_fwk
