@@ -779,5 +779,44 @@ TEST_F(GraphPartitionTest, TestBoundaryConvert) {
     EXPECT_NE(G.GetOp("L1ToL0A")->GetSubgraphID(), G.GetOp("convert")->GetSubgraphID());
 }
 
+void GetExpandGraph(ComputationalGraphBuilder &G) {
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {128,  1}, "s1"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {128,128}, "t1"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {128,128}, "t2"), true);
+    EXPECT_EQ(G.AddTensor(DataType::DT_FP32, {128,128}, "o1"), true);
+
+    EXPECT_EQ(G.AddOp(Opcode::OP_EXPAND, {"s1"}, {"t1"}, "expand", true), true);
+    EXPECT_EQ(G.AddOp(Opcode::OP_ADD, {"t1", "t2"}, {"o1"}, "add", true), true);
+
+    EXPECT_EQ(G.SetInCast({"s1", "t2"}), true);
+    EXPECT_EQ(G.SetOutCast({"o1"}), true);
+}
+
+TEST_F(GraphPartitionTest, TestExpandCombine) {
+    ComputationalGraphBuilder G;
+    GetExpandGraph(G);
+    Function *function = G.GetFunction();
+    EXPECT_EQ(function->Operations().size(), 2);
+
+    OspPartitioner partitioner(OspMode::SARKAR);
+    EXPECT_EQ(partitioner.PartitionGraph(*function), SUCCESS);
+
+    const int subGraphNum = function->GetTotalSubGraphCount();
+    for (const auto &opPair : G.operations_) {
+        Operation *op = opPair.second;
+        EXPECT_NE(op, nullptr);
+        EXPECT_EQ(op->GetSubgraphID() >= 0 && op->GetSubgraphID() < subGraphNum, true);
+        if (op->GetOpcode() == Opcode::OP_EXPAND) {
+            EXPECT_EQ(op->GetOOperands().size(), 1U);
+            EXPECT_EQ(op->GetOOperands()[0]->GetConsumers().size(), 1U);
+            
+            int32_t inputSubGraphIDs = op->GetSubgraphID();
+            int32_t outputSubGraphIDs = (*(op->GetOOperands()[0]->GetConsumers().begin()))->GetSubgraphID();
+
+            EXPECT_EQ(inputSubGraphIDs, outputSubGraphIDs);
+        }
+    }
+}
+
 } // namespace tile_fwk
 } // namespace npu
