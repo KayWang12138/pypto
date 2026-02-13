@@ -189,8 +189,12 @@ void CheckL0TileTiling(DataType outType)
     int64_t tileW = convTile.tileL0Info.tileW;
     int64_t tileN = convTile.tileL0Info.tileN;
     int64_t tileK = convTile.tileL0Info.tileK;
+    int64_t tileHout = convTile.tileL1Info.tileHout;
+    int64_t tileWout = convTile.tileL1Info.tileWout;
     int64_t k0 = ALIGN_SIZE_32 / BytesOf(outType);
     CheckAlignment(tileK , k0, "tileK", true);
+    CheckValueRange(tileH, "tileH" , NUM1, tileHout);
+    CheckValueRange(tileW, "tileW" , NUM1, tileWout);
     CheckAlignment(tileN, NUM16, "tileN");
     CheckAlignment(tileW, NUM16, "tileW");
 
@@ -308,8 +312,8 @@ void CheckL1SizeTiling(DataType outType, const Tensor &inputTensor, const Tensor
     uint64_t minL1LoadSize = biasL1Size + inputL1Size + weightL1Size;
     OP_CHECK(true, {
         ASSERT(minL1LoadSize <= l1Size)
-            << "MinL1LoadSize > L1size, current L1size: " << l1Size
-            << ", maxL1Size: " << minL1LoadSize
+            << "MinL1LoadSize > L1size, current MinL1LoadSize: " << MinL1LoadSize
+            << ", L1size: " << L1size
             << "." << std::endl;
     });
 }
