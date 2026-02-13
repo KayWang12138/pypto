@@ -1365,7 +1365,7 @@ private:
         firstLock[static_cast<int>(CoreType::AIV)] = true;
         preFetchSuccess_ = false;
         preFetchNextDevTaskCtrl_ = nullptr;
-        DEV_INFO("Init aicore manager aicNum_ %d aivNum_  %d sch_aicpuNum_ %d  aicpuIdx_ %d "
+        DEV_INFO("Init aicore manager aicNum_ %d aivNum_  %d sch_aicpuNum_ %d aicpuIdx_ %d "
                   "aicValidNum_ %d aicoreHal_.regAddrs_ %p sharedBuffer_ %p machineConfig: %u.",
             aicNum_, aivNum_, aicpuNum_, aicpuIdx_, aicValidNum_, aicoreHal_.GetRegAddrs(),
             (void *)aicoreHal_.GetSharedBuffer(), static_cast<uint8_t>(deviceArgs->machineConfig));
@@ -1496,7 +1496,7 @@ private:
     }
 
     inline int HandShake() {
-        DEV_INFO("aicpu %d handshake start.", aicpuIdx_);
+        DEV_INFO("Aicpu %d handshake start.", aicpuIdx_);
         int rc = HandShakeByGmWithPreSendTask();
         if (rc != DEVICE_MACHINE_OK) {
             DEV_ERROR("Aicpu %d handshake failed end.", aicpuIdx_);
@@ -1582,18 +1582,18 @@ private:
     inline void AbnormalStop() {
         ResetRegAll();
         CheckAndResetReg();
-        DEV_INFO("aicore manager %d abnormal stopped.", aicpuIdx_);
+        DEV_INFO("Aicore manager %d abnormal stopped.", aicpuIdx_);
     }
 
     inline void NormalStop() {
-        DEV_INFO("aicore manager %d try normal stop .", aicpuIdx_);
+        DEV_INFO("Aicore manager %d try normal stop .", aicpuIdx_);
         ForEachManageAicore([this](auto coreIdx) { aicoreHal_.SetReadyQueue(coreIdx, AICORE_TASK_STOP + 1) ; });
         /* write to MAINBASE reg must be done before close 0x18 */
         __sync_synchronize();
         ForEachManageAicore([this](auto coreIdx) {
             aicoreHal_.ResetShakeBuf(coreIdx);
         });
-        DEV_INFO("aicore manager %d normal stopped .", aicpuIdx_);
+        DEV_INFO("Aicore manager %d normal stopped .", aicpuIdx_);
     }
 
     inline void NormalStopSingleCore(int coreIdx) {
