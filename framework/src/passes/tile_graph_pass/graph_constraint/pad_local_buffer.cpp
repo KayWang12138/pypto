@@ -134,10 +134,10 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     这种情况是COPY_OUT需要根据in的producer的iOperands来进行判断，所以会需要获取到in的producer的iOperands的数据类型。
     */
     if (op.GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE) {
-        PadForMatMulMX(op, in, mxHighAxis);
+        PadForMatMulMX(in, mxHighAxis);
         return;
     } else if (op.GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
-        PadForMatMulMX(op, in, mxLowAxis);
+        PadForMatMulMX(in, mxLowAxis);
         return;
     }
     if (isL1ConvertScene) {
