@@ -87,6 +87,10 @@ int AiCoreManager::RunTask(DeviceTaskCtrl *taskCtrl) {
     if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
         readyAicCoreFunctionQue_->finalizeLockFree();
         readyAivCoreFunctionQue_->finalizeLockFree();
+        delete availableTaskQueue_;
+        delete availableCoreQueue_;
+        delete pendingPairQueue_ ;
+        delete runningPairQueue_ ;
     }
 
     return ret;
@@ -420,54 +424,7 @@ void AiCoreManager::ResolveWhenSyncMode(CoreType type, uint32_t finTaskId, uint3
 void AiCoreManager::ResolveByRegVal(CoreType type, int coreIdx, uint64_t finTaskRegVal) {
     uint32_t finTaskId = REG_LOW_TASK_ID(finTaskRegVal);
     uint32_t finTaskState = REG_LOW_TASK_STATE(finTaskRegVal);
-
-    DEV_DEBUG("reslove task core index: %d, finishtaskid:%x, finishstate:%u \n", coreIdx, finTaskId, finTaskState);
-#if SCHEDULE_USE_PENDING_AND_RUNING_SWITCH
-    uint32_t tmpTaskId;
-    if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
-        DEV_DEBUG("PendingTask Finished.runningid:%lx\n", runningIds_[coreIdx]);
-        tmpTaskId = runningIds_[coreIdx];
-        runningIds_[coreIdx] = AICORE_TASK_INIT;
-        pendingIds_[coreIdx] = AICORE_TASK_INIT;
-        if (!SendTaskDirectlyWhenCoreRunReady(type, coreIdx)) {
-            runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-            corePendReadyCnt_[static_cast<int>(type)]++;
-        }
-        if (tmpTaskId != AICORE_TASK_INIT) {
-            ResolveDepWithDfx(type, coreIdx, tmpTaskId);
-        }
-        ResolveDepWithDfx(type, coreIdx, finTaskId);
-    } else if (finTaskId == pendingIds_[coreIdx] && finTaskState == TASK_ACK_STATE) {
-        DEV_IF_VERBOSE_DEBUG {
-            recvAckTask_[coreIdx].push_back(TaskInfo(coreIdx, finTaskId));
-        }
-        DEV_DEBUG("PendingTask Acked. Running task finished.runningid: %lx\n", runningIds_[coreIdx]);
-        tmpTaskId = runningIds_[coreIdx];
-        runningIds_[coreIdx] = finTaskId;
-        pendingIds_[coreIdx] = AICORE_TASK_INIT;
-        corePendReadyCnt_[static_cast<int>(type)]++;
-        if (tmpTaskId != AICORE_TASK_INIT) {
-            ResolveDepWithDfx(type, coreIdx, tmpTaskId);
-        }
-    } else if (finTaskId == runningIds_[coreIdx] && finTaskState == TASK_FIN_STATE) {
-        DEV_DEBUG("core index: %d, RuningTask Finished. pending: %lx, running: %lx\n",
-            coreIdx, pendingIds_[coreIdx], runningIds_[coreIdx]);
-        runningIds_[coreIdx] = AICORE_TASK_INIT;
-        if (pendingIds_[coreIdx] == AICORE_TASK_INIT) {
-            if (!SendTaskDirectlyWhenCoreRunReady(type, coreIdx)) {
-                runReadyCoreIdx_[static_cast<int>(type)][coreRunReadyCnt_[static_cast<int>(type)]++] = coreIdx;
-            } else {
-                corePendReadyCnt_[static_cast<int>(type)]--;
-            }
-        }
-        ResolveDepWithDfx(type, coreIdx, finTaskId);
-    } else {
-        DEV_DEBUG("Warning, maybe inconsistent state. coreidx:%d,finTask:%lx,pending:%lx,running:%lx\n",
-            coreIdx, finTaskRegVal, pendingIds_[coreIdx], runningIds_[coreIdx]);
-    }
-#else
     ResolveWhenSyncMode(type, finTaskId, finTaskState, coreIdx);
-#endif
 }
 
 int AiCoreManager::GetNextSendCoreIdx(int coreType) {

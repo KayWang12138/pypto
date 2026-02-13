@@ -137,6 +137,11 @@ public:
         readyAicCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAicCoreFunctionQue);
         readyAivCoreFunctionQue_ = reinterpret_cast<StaticReadyCoreFunctionQueue *>(curDevTask_->readyAivCoreFunctionQue);
 
+        curDevTask_->staticSchedulerData.availableTaskQueue = (uint64_t) new pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>(MAX_QUEUED_TASKS);
+        curDevTask_->staticSchedulerData.availableCoreQueue = (uint64_t) new pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>(MAX_QUEUED_CORES);
+        curDevTask_->staticSchedulerData.pendingPairQueue   = (uint64_t) new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
+        curDevTask_->staticSchedulerData.runningPairQueue   = (uint64_t) new pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>(MAX_QUEUED_PAIRS);
+
         // If I am the lead AICPU scheduler, perform initailization steps
         if (aicpuIdx_ == LEAD_STATIC_SCHEDULER_AICPU_ID) {
             // Initialize the lock free queues
@@ -149,6 +154,12 @@ public:
         {
             while(curDevTask_->isTaskInitialized == false){ /* Busy wait */ };
         }
+
+        availableTaskQueue_ = reinterpret_cast<pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask> *>(curDevTask_->staticSchedulerData.availableTaskQueue);
+        availableCoreQueue_ = reinterpret_cast<pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore> *>(curDevTask_->staticSchedulerData.availableCoreQueue);
+        pendingPairQueue_   = reinterpret_cast<pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair> *>(curDevTask_->staticSchedulerData.pendingPairQueue); 
+        runningPairQueue_   = reinterpret_cast<pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair> *>(curDevTask_->staticSchedulerData.runningPairQueue);  
+
     }
 
     inline void CountSendTask(uint64_t& sentAic, uint64_t& sentAiv) {
@@ -446,6 +457,12 @@ private:
     /* prepare aicore ready task list */
     StaticReadyCoreFunctionQueue *readyAicCoreFunctionQue_{nullptr};
     StaticReadyCoreFunctionQueue *readyAivCoreFunctionQue_{nullptr};
+
+    // Queues for managing tasks, cores and their pairing
+    pypto::utils::ConcurrentQueue<aicoreTask_t, aicoreNullTask>* availableTaskQueue_;
+    pypto::utils::ConcurrentQueue<aicoreCore_t, aicoreNullCore>* availableCoreQueue_; 
+    pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>* pendingPairQueue_; 
+    pypto::utils::ConcurrentQueue<aicorePair_t, aicoreNullPair>* runningPairQueue_; 
 
     AicoreDump aicoreDump_;
     int64_t dotStatus_{0};
