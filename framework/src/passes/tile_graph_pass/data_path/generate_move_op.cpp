@@ -70,12 +70,7 @@ Status GenerateMoveOp::A23CreateMoveOpForView(Function &function, Operation &op)
     bool isGmOutput = op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
     if (isGmInput) {
         //case1: VIEW转copyIn
-        if (isGmOutput && HasSpecificConsumer(op)) {
-            return SUCCESS;
-        }
-        if ((!isGmOutput)) {
-            return ProcessGmInput(op, viewOpAttribute);
-        }
+        return ProcessGmInput(isGmOutput, op, viewOpAttribute);
     } else if (op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_L0A) {
         //case2: VIEW转L0A/L0AT
         return ProcessL0A(op, viewOpAttribute);
@@ -89,9 +84,14 @@ Status GenerateMoveOp::A23CreateMoveOpForView(Function &function, Operation &op)
     return SUCCESS;
 }
 
-Status GenerateMoveOp::ProcessGmInput(Operation &op, ViewOpAttribute *viewOpAttribute) const {
-    op.SetOpCode(Opcode::OP_COPY_IN);
-    SetCopyAttr(op,viewOpAttribute);
+Status GenerateMoveOp::ProcessGmInput(bool &isGmOutput, Operation &op, ViewOpAttribute *viewOpAttribute) const {
+    if (isGmOutput && HasSpecificConsumer(op)) {
+        return SUCCESS;
+    }
+    if ((!isGmOutput)) {
+        op.SetOpCode(Opcode::OP_COPY_IN);
+        SetCopyAttr(op, viewOpAttribute);
+    }
     return SUCCESS;
 }
 
@@ -170,12 +170,7 @@ Status GenerateMoveOp::A5CreateMoveOpForView(Function &function, Operation &op) 
     bool isGmOutput = op.oOperand.front()->GetMemoryTypeOriginal() == MemoryType::MEM_DEVICE_DDR;
     if (isGmInput) {
         //case1: VIEW转copyIn
-        if (isGmOutput && HasSpecificConsumer(op)) {
-            return SUCCESS;
-        }
-        if ((!isGmOutput)) {
-            return ProcessGmInput(op, viewOpAttribute);
-        }
+        return ProcessGmInput(isGmOutput, op, viewOpAttribute);
     } else {
         auto dstMemType = op.oOperand.front()->GetMemoryTypeOriginal();
         switch (dstMemType) {

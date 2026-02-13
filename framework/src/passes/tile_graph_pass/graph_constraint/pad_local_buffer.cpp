@@ -102,6 +102,12 @@ void PadMatmulL1ConvertScene(Operation &op, LogicalTensorPtr &in, size_t lowInde
     }
 }
 
+void PadForMatMulMX(Operation &op, LogicalTensorPtr &in, int64_t &axisNum) {
+    in->shape[axisNum] = Pad(in->shape[axisNum], CUBE_PAD_INT8_VALUE);
+    in->tensor->oriRawshape = in->tensor->rawshape;
+    in->tensor->rawshape[axisNum] = Pad(in->tensor->oriRawshape[axisNum], CUBE_PAD_INT8_VALUE);
+}
+
 void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     if (in == nullptr || in->tensor == nullptr) {
         APASS_LOG_ERROR_F(Elements::Tensor, "logical tensor pointer is null.");
@@ -128,14 +134,10 @@ void PadLocalBuffer::PadMatmul(Operation &op, LogicalTensorPtr &in) {
     这种情况是COPY_OUT需要根据in的producer的iOperands来进行判断，所以会需要获取到in的producer的iOperands的数据类型。
     */
     if (op.GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_L0A_SCALE) {
-        in->shape[mxHighAxis] = Pad(in->shape[mxHighAxis], CUBE_PAD_INT8_VALUE);
-        in->tensor->oriRawshape = in->tensor->rawshape;
-        in->tensor->rawshape[mxHighAxis] = Pad(in->tensor->oriRawshape[mxHighAxis], CUBE_PAD_INT8_VALUE);
+        PadForMatMulMX(op, in, mxHighAxis);
         return;
     } else if (op.GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE || (*producers.begin())->GetOpcode() == Opcode::OP_L1_TO_L0B_SCALE) {
-        in->shape[mxLowAxis] = Pad(in->shape[mxLowAxis], CUBE_PAD_INT8_VALUE);
-        in->tensor->oriRawshape = in->tensor->rawshape;
-        in->tensor->rawshape[mxLowAxis] = Pad(in->tensor->oriRawshape[mxLowAxis], CUBE_PAD_INT8_VALUE);
+        PadForMatMulMX(op, in, mxLowAxis);
         return;
     }
     if (isL1ConvertScene) {
