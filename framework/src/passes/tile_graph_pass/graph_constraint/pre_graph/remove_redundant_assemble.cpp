@@ -142,11 +142,12 @@ void RemoveRedundantAssemble::UpdateReshapeShape(Operation &reshapeOp, const Sha
 }
 
 Status RemoveRedundantAssemble::ProcessView(Function &function) const {
-    if (DuplicateReshape(function) != SUCCESS) {
+    std::vector<std::pair<Operation *, Operation *>> multiReshapeVector;
+    if (DuplicateReshape(function, multiReshapeVector) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "DuplicateReshape failed.");
         return FAILED;
     }
-    if (RemoveViewMultiReshape(function) != SUCCESS) {
+    if (RemoveViewMultiReshape(multiReshapeVector) != SUCCESS) {
         APASS_LOG_ERROR_F(Elements::Function, "RemoveViewMultiReshape failed.");
         return FAILED;
     }
@@ -255,8 +256,10 @@ RESHAPE -> VIEW -> RESHAPE
 RESHAPE -> COPYIN
         -> COPYIN
 */
-Status RemoveRedundantAssemble::DuplicateReshape(Function &function) const {
-    for (auto op : function.Operations().DuplicatedOpList()) {
+Status RemoveRedundantAssemble::DuplicateReshape(
+    Function &function, std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
+    std::vector<Operation *> opList = function.Operations().DuplicatedOpList();
+    for (auto op : opList) {
         if (op->GetOpcode() != Opcode::OP_RESHAPE) {
             continue;
         }
@@ -265,7 +268,7 @@ Status RemoveRedundantAssemble::DuplicateReshape(Function &function) const {
                 firstReshape->GetIOperands().front(), firstReshape->GetOOperands().front())) {
             continue;
         }
-        auto consumer = firstReshape->GetOOperands().front()->GetConsumers();
+        auto consumer = firstReshape->GetOOperands().front()->GetConsumers(); // 可能多个
         for (auto consumerOp : consumer) {
             if (consumerOp->GetOpcode() != Opcode::OP_VIEW) {
                 continue;
@@ -276,18 +279,24 @@ Status RemoveRedundantAssemble::DuplicateReshape(Function &function) const {
                 viewConsumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
                 continue;
             }
-            if (ProcessReshape(function, firstReshape) != SUCCESS) {
-                APASS_LOG_ERROR_F(
-                    Elements::Operation, "ProcessReshape failed. %s", GetFormatBacktrace(firstReshape).c_str());
-                return FAILED;
+            if (consumer.size() != 1) {
+                if (ProcessReshape(function, firstReshape, multiReshapeVector) != SUCCESS) {
+                    APASS_LOG_ERROR_F(
+                        Elements::Operation, "ProcessReshape failed. %s", GetFormatBacktrace(firstReshape).c_str());
+                    return FAILED;
+                }
             }
+            // else {
+            //     multiReshapeVector.emplace_back(std::make_pair(firstReshape, consumerOp));
+            // }
         }
     }
     return SUCCESS;
 }
 
-Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&operation) const {
-    auto iOperand = operation->iOperand[0];
+Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&operation,
+    std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
+    auto iOperand = operation->iOperand[0]; // firstreshape input
     auto oOperand = operation->oOperand[0];
     if (oOperand == nullptr) {
         APASS_LOG_ERROR_F(Elements::Operation,
@@ -304,7 +313,9 @@ Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&o
     auto consumers = oOperand->GetConsumers();
     for (auto &consumer : consumers) {
         if (consumer == nullptr) {
-            APASS_LOG_ERROR_F(Elements::Tensor, "Null consumer detected while iterating over the consumers of the output operand [%d].", oOperand->magic);
+            APASS_LOG_ERROR_F(Elements::Tensor,
+                "Null consumer detected while iterating over the consumers of the output operand [%d].",
+                oOperand->magic);
             return FAILED;
         }
         if (consumer->GetOpcode() == Opcode::OP_COPY_IN) {
@@ -321,6 +332,8 @@ Status RemoveRedundantAssemble::ProcessReshape(Function &function, Operation *&o
         if (oriReshapeAttr != nullptr) {
             newReshapeOp.SetOpAttribute(oriReshapeAttr);
         }
+        // newreshape consumer
+        multiReshapeVector.emplace_back(newReshapeOp, consumer);
     }
     return SUCCESS;
 }
@@ -334,39 +347,21 @@ After:
 input --> RESHAPE2 -> XXX
 
 */
-Status RemoveRedundantAssemble::RemoveViewMultiReshape(Function &function) const {
-    for (auto op : function.Operations().DuplicatedOpList()) {
-        if (op->GetOpcode() != Opcode::OP_RESHAPE) {
-            continue;
-        }
-        auto firstReshape = op;
-        if (!RemoveViewMultiReshapePattern(
-                firstReshape->GetIOperands().front(), firstReshape->GetOOperands().front())) {
-            continue;
-        }
-        auto consumer = firstReshape->GetOOperands().front()->GetConsumers();
-        for (auto consumerOp : consumer) {
-            if (consumerOp->GetOpcode() != Opcode::OP_VIEW) {
-                continue;
-            }
-            auto viewConsumers = consumerOp->GetOOperands().front()->GetConsumers();
-            auto viewConsumerOp = *viewConsumers.begin();
-            if (viewConsumerOp == nullptr || viewConsumers.size() != 1 ||
-                viewConsumerOp->GetOpcode() != Opcode::OP_RESHAPE) {
-                continue;
-            }
-            APASS_LOG_DEBUG_F(Elements::Operation, "Match RemoveViewMultiReshape pattern %d -> %d -> %d",
-                firstReshape->GetOpMagic(), consumerOp->GetOpMagic(), viewConsumerOp->GetOpMagic());
-
-            auto oriRawShape = viewConsumerOp->GetIOperands().front()->GetRawTensor()->GetRawShape();
-            Shape newShape;
-            std::remove_copy_if(oriRawShape.begin(), oriRawShape.end(), std::back_inserter(newShape),
-                [](const auto &e) { return e == 1; });
-            viewConsumerOp->GetOOperands().front()->GetRawTensor()->UpdateRawShape(newShape);
-            viewConsumerOp->ReplaceIOperand(0, firstReshape->GetIOperands().front());
-            firstReshape->SetAsDeleted();
-            consumerOp->SetAsDeleted();
-        }
+Status RemoveRedundantAssemble::RemoveViewMultiReshape(
+    std::vector<std::pair<Operation *, Operation *>> &multiReshapeVector) const {
+    for (auto pair : multiReshapeVector) {
+        // viewConsumerOp = secondReshape;
+        auto firstReshape = pair.first;
+        auto viewOp = pair.second;
+        auto secondReshape = *(viewOp->GetOutputOperand(0)->GetConsumers().begin());
+        auto oriRawShape = secondReshape->GetIOperands().front()->GetRawTensor()->GetRawShape();
+        Shape newShape;
+        std::remove_copy_if(
+            oriRawShape.begin(), oriRawShape.end(), std::back_inserter(newShape), [](const auto &e) { return e == 1; });
+        secondReshape->GetOOperands().front()->GetRawTensor()->UpdateRawShape(newShape);
+        secondReshape->ReplaceIOperand(0, firstReshape->GetIOperands().front());
+        firstReshape->SetAsDeleted();
+        viewOp->SetAsDeleted();
     }
     return SUCCESS;
 }
