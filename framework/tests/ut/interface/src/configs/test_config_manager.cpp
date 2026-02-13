@@ -13,6 +13,7 @@
  * \brief
  */
 #include <climits>
+#include <cstdlib>
 #include "gtest/gtest.h"
 #include "tilefwk/tilefwk.h"
 #include "interface/inner/tilefwk.h"

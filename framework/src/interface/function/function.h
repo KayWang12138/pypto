@@ -112,7 +112,7 @@ public:
         explicit Iterator(const std::vector<std::shared_ptr<Operation>> &operations) : operations_(operations) {}
 
         void operator++() {
-            ASSERT(cur_ <= operations_.size());
+            ASSERT(cur_ <= operations_.size()) << "operator(++) out of its size.";
             cur_++;
         }
 
@@ -145,7 +145,7 @@ public:
     [[nodiscard]]int GetOpPosition(const Operation &op) const {
         auto it = opPosition_.find(&op);
         if (it == opPosition_.end()) {
-            ASSERT(false);
+            ASSERT(false) << "Op has not been found in opPosition.";
             return 0;
         }
         return it->second;
@@ -156,7 +156,7 @@ public:
         if (it == opPosition_.end()) {
             return {0, false};
         }
-        ASSERT(operations_[it->second].get() == &op);
+        ASSERT(operations_[it->second].get() == &op) << "Found op doesn't match.";
         return {it->second, true};
     }
     [[nodiscard]] bool IsEmpty()const{ return operations_.empty(); }
@@ -519,7 +519,8 @@ public:
     void AddGlobalTensor(std::shared_ptr<LogicalTensor> tensor) { globalTensors_.emplace(tensor); };
     void AddOperationGroup(std::vector<Operation *> operationGroup);
     const auto &GetGroupByID(const size_t groupID) const {
-        ASSERT(groupID < operationGroups_.size());
+        ASSERT(groupID < operationGroups_.size())
+            << "groupID: " << groupID << ", operationGroups_.size(): " << operationGroups_.size();
         return operationGroups_[groupID];
     }
     void ClearOperationGroups();
